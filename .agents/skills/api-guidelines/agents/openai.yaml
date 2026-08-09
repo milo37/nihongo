@@ -1,0 +1,4 @@
+interface:
+  display_name: "API Guidelines"
+  short_description: "타입 안전한 API와 서버 상태 관리 규칙 적용"
+  default_prompt: "Use $api-guidelines to implement this API or server-state change according to the project conventions."

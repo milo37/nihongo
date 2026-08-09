@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Formatting"
+  short_description: "프로젝트 ESLint와 Prettier 규칙 적용 및 검증"
+  default_prompt: "Use $code-formatting to format and lint this project change consistently."
