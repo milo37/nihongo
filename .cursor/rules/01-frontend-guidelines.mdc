@@ -1,0 +1,381 @@
+---
+alwaysApply: true
+---
+
+# Frontend Development Rules
+
+## 0️⃣ 프로젝트 초기 세팅
+
+### Vite 프로젝트 생성 후 필수 작업
+
+#### 1. 불필요한 템플릿 파일 삭제
+
+Vite로 프로젝트를 생성하면 샘플 파일들이 포함됩니다. 우리는 라우터 기반 구조를 사용하므로 다음 파일들을 **반드시 삭제**해야 합니다:
+
+- `src/App.tsx` - 삭제
+- `src/App.css` - 삭제
+
+> **이유**: 이 파일들은 Vite 템플릿의 샘플이며, 우리는 `src/router.tsx`와 `src/app/` 폴더 구조를 사용합니다.
+
+#### 2. 필수 폴더 구조 생성
+
+```bash
+mkdir -p src/{api,provider,mocks,libs,store/slices,common/{components,hooks,types},util,app}
+```
+
+#### 3. 기본 파일 생성 우선순위
+
+**필수 파일 (프로젝트 시작 시 즉시 생성)**
+
+- `src/api/config.ts` - API 클라이언트 설정 및 safeFactory
+- `src/api/http.ts` - HTTP 메서드 래퍼 (get, post, put, del)
+- `src/provider/QueryClientProvider.tsx` - TanStack Query Provider 설정
+- `src/libs/queryClient.ts` - Query Client 인스턴스 생성
+- `src/mocks/handlers.ts` - MSW 핸들러 (개발 초기부터)
+- `src/mocks/browser.ts` - MSW worker 설정
+- `src/mocks/service.ts` - enableMocking 함수
+- `src/app/layout.tsx` - 루트 레이아웃
+- `src/router.tsx` - 메인 라우터
+
+**필요시 생성**
+
+- `src/store/` - 전역 상태가 필요할 때
+- `src/app/page.tsx` - 홈페이지가 필요할 때
+- `src/app/router.tsx` - 홈 라우트가 필요할 때
+- 도메인별 `api/{domain}/` - API 엔드포인트 추가 시
+
+## 1️⃣ 프로젝트 구조 및 아키텍처
+
+### 도메인 기반 아키텍처
+
+- 각 기능별로 독립적인 폴더 구성 (`src/app/productA/`, `src/app/productB/`)
+- 도메인별로 `page.tsx`, `router.tsx`, `hooks/` 폴더 구조 유지
+- 애플리케이션 공통 컴포넌트는 `src/common/` 폴더에 배치
+
+### 파일 구조 규칙
+
+```text
+프로젝트 루트/
+├── src/                           # 모든 소스 코드
+│   ├── api/                       # 필수: API 관련 파일
+│   │   ├── config.ts              # 필수: API 클라이언트 설정 및 safeFactory
+│   │   ├── http.ts                # 필수: HTTP 메서드 래퍼 (get, post, put, del)
+│   │   └── {domain}/              # 선택: 도메인별 폴더 (예: post, user, product)
+│   │       └── {endpoint}/        # 선택: 엔드포인트별 폴더 (예: getPost, createUser)
+│   │           ├── index.ts       # API 함수 정의
+│   │           └── schema.ts      # Zod 스키마 정의
+│   ├── app/                       # 필수: 애플리케이션 페이지 및 라우팅
+│   │   ├── productA/              # 선택: 도메인 추가 시 도메인별 폴더
+│   │   │   ├── hooks/             # 도메인별 훅
+│   │   │   ├── queries/           # Query Factory
+│   │   │   ├── page.tsx           # 페이지 컴포넌트
+│   │   │   └── router.tsx         # 도메인별 라우터
+│   │   ├── layout.tsx             # 필수: 루트 레이아웃
+│   │   ├── page.tsx               # 선택: 홈페이지 (필요시)
+│   │   └── router.tsx             # 선택: 홈 라우트 정의 ('/' 경로 라우트 객체)
+│   ├── assets/                    # 선택: 정적 자산 (이미지, 폰트 등)
+│   ├── common/                    # 필수: 공통 컴포넌트 및 유틸리티
+│   │   ├── components/            # 공통 컴포넌트
+│   │   ├── hooks/                 # 공통 훅
+│   │   └── types/                 # 공통 타입 정의
+│   ├── libs/                      # 선택: 라이브러리 설정 관련 로직
+│   │   └── queryClient.ts         # TanStack Query 사용 시
+│   ├── mocks/                     # 필수: Mock 데이터 (개발 초기부터)
+│   │   ├── handlers.ts            # MSW 핸들러 정의
+│   │   ├── browser.ts             # MSW worker 설정
+│   │   └── service.ts             # enableMocking 함수
+│   ├── provider/                  # 필수: 전역 Provider
+│   │   ├── index.tsx               # AppProvider (모든 Provider 통합)
+│   │   ├── ReactQueryProvider.tsx  # TanStack Query Provider
+│   │   ├── ReactRouterProvider.tsx # React Router Provider
+│   │   ├── AuthErrorHandlerProvider.tsx # API 에러 처리 프로바이더
+│   │   └── ProtectedRouteProvider.tsx # 라우터 가드 프로바이더
+│   ├── store/                     # 선택: 상태 관리 스토어 (Zustand, 전역 상태 필요시)
+│   │   ├── slices/                # 도메인별 Zustand 슬라이스
+│   │   │   ├── counterSlice.ts   # 예시: 카운터 슬라이스
+│   │   │   └── productSlice.ts   # 예시: 제품 슬라이스
+│   │   └── index.ts               # 통합 스토어 설정
+│   ├── storybook/                 # 선택: Storybook 설정
+│   ├── test/                      # 선택: 테스트 파일
+│   ├── util/                      # 선택: 유틸리티 함수
+│   ├── main.tsx                   # 필수: 진입점
+│   └── router.tsx                 # 필수: 메인 라우터 (최상위 라우터, createBrowserRouter)
+│
+│   삭제해야 할 Vite 템플릿 파일:
+│   ├── App.tsx                    # 삭제 필수
+│   └── App.css                    # 삭제 필수
+│
+└── public/                        # 선택: 정적 파일
+```
+
+## 2️⃣ 개발 가이드라인
+
+### 새로운 도메인 추가
+
+1. `src/app/` 폴더 하위에 새로운 도메인 폴더 생성
+2. `page.tsx`, `router.tsx` 파일 생성
+3. 필요시 `hooks/`, `components/` 폴더 추가
+4. 메인 라우터에 도메인 라우터 등록
+
+   - `createBrowserRouter`를 사용하여 라우터 구성
+   - `Layout`, `Suspense`, `Outlet`을 활용한 중첩 라우팅 구조
+   - 도메인별 라우터를 메인 라우터의 `children` 배열에 추가
+   - `ProtectedRouteProvider`와 `AuthErrorHandlerProvider`를 최상위 라우트에 추가
+   - 예시:
+
+     ```typescript
+     // src/router.tsx
+     import { ProtectedRouteProvider } from "@/provider/ProtectedRouteProvider";
+     import { AuthErrorHandlerProvider } from "@/provider/AuthErrorHandlerProvider";
+
+     export const createRouter = () => {
+       return createBrowserRouter([
+         {
+           path: "/",
+           element: (
+             <ProtectedRouteProvider>
+               <AuthErrorHandlerProvider />
+               <Layout>
+                 <Outlet />
+               </Layout>
+             </ProtectedRouteProvider>
+           ),
+           children: [root, ...users],
+           errorElement: <NotFound />,
+         },
+         {
+           path: "*",
+           element: <NotFound />,
+         },
+       ]);
+     };
+     ```
+
+### Provider 설정 및 사용
+
+#### Provider 구조
+
+애플리케이션의 전역 Provider들은 `src/provider/` 폴더에서 관리합니다:
+
+- **`index.tsx` (AppProvider)**: 모든 Provider를 통합하여 관리하는 최상위 컴포넌트
+- **`ReactQueryProvider.tsx`**: TanStack Query를 사용하기 위한 Provider
+- **`ReactRouterProvider.tsx`**: React Router를 사용하기 위한 Provider
+- **`AuthErrorHandlerProvider.tsx`**: TanStack Query 전용 API 에러 처리 프로바이더
+- **`ProtectedRouteProvider.tsx`**: 라우터 가드 프로바이더 (인증 환경 제공)
+
+#### Provider 중첩 순서
+
+Provider의 중첩 순서는 중요합니다. `AppProvider`는 다음과 같은 순서로 Provider를 중첩합니다:
+
+```typescript
+// src/provider/index.tsx
+export const AppProvider = () => {
+  return (
+    <ReactQueryProvider>
+      <ReactRouterProvider />
+    </ReactQueryProvider>
+  );
+};
+```
+
+**중첩 순서 이유:**
+
+1. `ReactQueryProvider`가 최상위에 위치하여 모든 하위 컴포넌트에서 TanStack Query 기능 사용 가능
+2. `ReactRouterProvider`가 내부에 위치하여 라우팅 기능 제공
+3. 라우터 내부에서 Query 훅을 사용할 수 있도록 Query Provider가 외부에 위치
+
+#### main.tsx에서 사용
+
+`main.tsx`에서는 `AppProvider`를 사용하여 애플리케이션을 렌더링합니다:
+
+```typescript
+// src/main.tsx
+import { AppProvider } from "@/provider";
+
+enableMocking().then(() => {
+  createRoot(document.getElementById("root")!).render(<AppProvider />);
+});
+```
+
+#### 새로운 Provider 추가 시
+
+새로운 전역 Provider가 필요한 경우:
+
+1. `src/provider/` 폴더에 새로운 Provider 파일 생성 (예: `ThemeProvider.tsx`)
+2. `src/provider/index.tsx`의 `AppProvider`에 추가
+3. 중첩 순서를 고려하여 적절한 위치에 배치
+
+```typescript
+// 예시: ThemeProvider 추가
+export const AppProvider = () => {
+  return (
+    <ReactQueryProvider>
+      <ThemeProvider>
+        <ReactRouterProvider />
+      </ThemeProvider>
+    </ReactQueryProvider>
+  );
+};
+```
+
+### Import 규칙
+
+- 절대경로 사용 필수: `@common/hooks/useLocalStorage`
+- 상대경로 사용 금지
+- 명확한 경로 구조 유지
+- Type/Interface import 시 `type` prefix 필수
+  - ✅ `import type { User, Product } from '@common/types'`
+  - ✅ `import { api, type ApiResponse } from '@common/api'` (값과 타입 함께 import 시)
+  - ❌ `import { User, Product } from '@common/types'`
+
+## 3️⃣ 코드 품질 및 포맷팅
+
+### TypeScript 규칙
+
+- 모든 컴포넌트와 함수에 타입 정의
+- `any` 타입 사용 금지
+- **타입 vs 인터페이스 선택 규칙**:
+  - ✅ **컴포넌트 Props**: `type` 사용
+  - ✅ **일반 객체/데이터 구조**: `interface` 사용
+
+### 컴포넌트 설계
+
+- 단일 책임 원칙 준수
+- 재사용 가능한 컴포넌트 설계
+- Props 타입 명확히 정의
+
+### 훅 사용
+
+- 도메인별 훅은 해당 도메인 폴더에 배치
+- 공통 훅은 `src/common/hooks/` 폴더에 배치
+- 커스텀 훅 네이밍: `use` 접두사 사용
+
+### 상태 관리 (Zustand)
+
+#### Store 구조 규칙
+
+- 도메인별로 slice를 분리하여 관리
+- `src/store/slices/` 폴더에 각 도메인별 slice 파일 생성
+- `src/store/index.ts`에서 모든 slice를 통합하여 단일 store 생성
+
+#### Slice 작성 규칙
+
+각 slice는 다음과 같은 패턴으로 작성
+
+```typescript
+import { StateCreator } from 'zustand'
+
+export interface CounterSlice {
+  count: number
+  inc: () => void
+  dec: () => void
+  reset: () => void
+}
+
+export const createCounterSlice: StateCreator<CounterSlice> = (set) => ({
+  count: 0,
+  inc: () => set((state) => ({ count: state.count + 1 })),
+  dec: () => set((state) => ({ count: state.count - 1 })),
+  reset: () => set({ count: 0 })
+})
+```
+
+#### Store 통합 설정
+
+`src/store/index.ts`에서 모든 slice를 통합
+
+```typescript
+import { create } from 'zustand'
+import {
+  createCounterSlice,
+  type CounterSlice
+} from '@/store/slices/counterSlice'
+
+export type StoreState = CounterSlice & UserSlice & ProductSlice
+
+export const useBoundStore = create<StoreState>()((...args) => ({
+  ...createCounterSlice(...args)
+  // ... 새로운 slice 추가 시 여기에 추가
+}))
+
+export default useBoundStore
+```
+
+### ESLint
+
+- 코드 작성 후 반드시 ESLint 검사 실행
+- 명령어: `pnpm run lint:fix`
+- 모든 린트 에러 해결 후 커밋
+
+### Foramt
+
+- 모든 수정 완료시 Prettier 실행
+- 명령어: `pnpm run format`
+
+## 4️⃣ API 및 데이터 관리
+
+API 관련 상세 규칙은 `03-api-guidelines.mdc`에서 별도로 관리한다.
+
+## 5️⃣ 빌드 및 배포
+
+### 개발 환경
+
+- Node LTS 버전 사용 필수
+- `pnpm` 패키지 매니저 사용
+- 개발 서버: `pnpm dev`
+- 빌드: `pnpm build`
+
+## 6️⃣ 추가 규칙
+
+### 성능 최적화
+
+- React Compiler 사용 중
+- 불필요한 리렌더링 방지
+- 코드 스플리팅 고려
+
+## 7️⃣ 프로젝트 구조 검증 체크리스트
+
+새 프로젝트 시작 또는 코드 리뷰 시 다음을 확인하세요.
+
+### 필수 파일 존재 여부
+
+- [ ] `src/api/config.ts` 존재
+- [ ] `src/api/http.ts` 존재
+- [ ] `src/provider/` 폴더 존재 및 Provider 설정
+- [ ] `src/provider/AuthErrorHandlerProvider.tsx` 존재 (에러 처리 프로바이더)
+- [ ] `src/provider/ProtectedRouteProvider.tsx` 존재 (라우터 가드 프로바이더)
+- [ ] `src/mocks/handlers.ts` 존재
+- [ ] `src/mocks/browser.ts` 존재
+- [ ] `src/mocks/service.ts` 존재
+- [ ] `src/router.tsx` 존재 (메인 라우터)
+- [ ] `src/app/layout.tsx` 존재
+- [ ] `src/libs/queryClient.ts` 존재 (TanStack Query 사용 시)
+
+### 삭제되어야 할 파일
+
+- [ ] `src/App.tsx` 삭제됨
+- [ ] `src/App.css` 삭제됨
+
+### 구조 검증
+
+- [ ] Mock 데이터가 `src/mocks/data/` 또는 `src/mocks/` 안에 있음
+- [ ] `src/util/mockData.ts` 같은 곳에 Mock이 **없음**
+- [ ] 컴포넌트가 Mock 데이터를 직접 import 하지 **않음**
+- [ ] 모든 API 호출이 `src/api/` 레이어를 거침
+- [ ] 절대경로 import가 올바르게 설정됨 (`@api/`, `@common/` 등)
+
+### 의존성 확인
+
+- [ ] TanStack Query 설치됨 (`@tanstack/react-query`)
+- [ ] Zustand 설치됨 (전역 상태 사용 시)
+- [ ] MSW 설치됨 (`msw`)
+- [ ] Zod 설치됨 (`zod`)
+- [ ] Axios 설치됨 (`axios`)
+
+### 코드 품질
+
+- [ ] ESLint 설정 완료 (`eslint.config.js`)
+- [ ] Prettier 설정 완료 (`prettier.config.js`)
+- [ ] TypeScript 설정 완료 (`tsconfig.json`)
+- [ ] 모든 컴포넌트가 Arrow Function으로 작성됨
+- [ ] 타입/인터페이스 import 시 `type` prefix 사용

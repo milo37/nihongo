@@ -2,57 +2,32 @@
 
 ## Product guardrails
 
-- Build a Korean-first JLPT learning service with Japanese question text where
-  appropriate.
-- Do not implement listening exercises in the MVP.
-- Never copy real JLPT exams or commercial textbook questions. Use original
-  dummy questions and explanations only.
-- Keep the MVP focused. Do not add AI question generation, payments, community,
-  or native-app features unless the user explicitly expands the scope.
+- Build JLPT Drill Note, a Korean-first JLPT N5-N1 practice and wrong-note service.
+- The MVP covers vocabulary, grammar, and reading only. Do not add listening.
+- Use only original dummy questions and explanations; never copy real JLPT or commercial materials.
+- Keep the MVP focused: no payments, community, AI generation, OAuth, or real backend.
 
 ## Technical baseline
 
-- Use Next.js App Router, React, and strict TypeScript.
-- Use Tailwind CSS and reusable UI primitives; use shadcn/ui when it fits the
-  existing project.
-- Use Zustand for shared client workflow state and TanStack Query for client
-  server-state caching only when it is actually needed.
-- Use Prisma with SQLite for local development and keep the schema portable to
-  PostgreSQL.
-- Use Zod at untrusted runtime boundaries. Use React Hook Form for non-trivial
-  forms when it reduces duplicated state and validation code.
-- Respect the existing package manager and lockfile. If the project has no
-  package-manager convention yet, prefer pnpm.
-- Preserve installed versions and established structure unless the requested
-  change requires a migration.
+- Use Vite, React, strict TypeScript, React Router, Tailwind CSS, TanStack Query, Zustand, Axios, Zod, MSW, React Hook Form, and Vitest.
+- Do not introduce Next.js, Prisma, SQLite, Server Components, Server Actions, SWR, or real server code.
+- Use pnpm and Node LTS.
+- Server state flows through MSW -> API endpoint -> Query Factory -> domain hook -> component.
+- Zustand is only for client workflow, demo auth, and UI state.
 
-## Required skill routing
+## Required project guidance
 
-- Use `.agents/skills/frontend-guidelines/SKILL.md` for routes, layouts,
-  components, hooks, providers, accessibility, responsive UI, or Zustand state.
-- Use `.agents/skills/api-guidelines/SKILL.md` for route handlers, server
-  actions, API clients, Prisma boundaries, Zod schemas, TanStack Query, errors,
-  or MSW mocks.
-- Use `.agents/skills/code-formatting/SKILL.md` for lint, formatting, config, or
-  final code-quality verification.
-- Read only the references linked by the selected skill and relevant to the
-  current task.
+- Read every .cursor/rules/\*.mdc file before changes.
+- Discover repo-local skills under .cursor/skills/\*/SKILL.md and apply matching skills.
+- Use matching `.agents/skills/*/SKILL.md` guidance for Codex work.
+- Direct system, developer, and user instructions override repository guidance.
 
 ## Always-on code rules
 
-- Inspect the current repository before introducing folders or dependencies.
-- Prefer the configured `@/` alias. Avoid deep relative imports.
-- Use `import type` for type-only imports.
-- Do not introduce `any`; narrow `unknown` or validate input instead.
-- Define component props with `type`. Use `interface` for extensible domain
-  object contracts when that distinction is useful.
-- Keep Server Components as the default and add `"use client"` only at the
-  smallest necessary boundary.
-- Do not introduce Vite entrypoints, React Router, `main.tsx`, or application
-  `router.tsx` files into this Next.js project.
-- Reuse existing components and modules before creating new abstractions.
-- Include loading, error, empty, keyboard, and responsive states in the scope of
-  user-facing work.
-- Run the relevant format, lint, typecheck, test, and production build scripts
-  exposed by `package.json` before handoff.
-
+- Use configured aliases for all src imports; do not use relative imports inside src.
+- Use import type for type-only imports and never introduce explicit any.
+- Define component props with type and domain data contracts with interface where appropriate.
+- Write application components as named arrow functions.
+- Keep route modules lazy, avoid broad barrels, and do not mirror Query data in Zustand.
+- Include loading, error, empty, keyboard, focus, responsive, and non-color status states.
+- Run format, lint:fix, typecheck, test, and build before handoff.

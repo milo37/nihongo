@@ -1,0 +1,156 @@
+---
+alwaysApply: true
+---
+
+# Lint & Formatting Rules
+
+> **주의**
+> 이미 해당 프로젝트에 ESLint 또는 Prettier 설정이 적용되어 있다면,
+> 이 문서의 설정을 **다시 적용할 필요는 없습니다.**
+
+## ESLint 규칙
+
+```js
+import js from "@eslint/js";
+import eslintConfigPrettier from "eslint-config-prettier";
+import tseslint from "typescript-eslint";
+import unusedImports from "eslint-plugin-unused-imports";
+import react from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
+import tanstackQuery from "@tanstack/eslint-plugin-query";
+
+/**
+ * React 프로젝트용 ESLint 통합 설정
+ * Next.js, Vite, CRA 등 모든 React 프로젝트에서 사용 가능
+ */
+
+export default [
+  // 파일 무시 설정 (최상위 레벨에 위치)
+  {
+    ignores: [
+      "dist/**",
+      "build/**",
+      "node_modules/**",
+      "**/*.stories.ts",
+      "**/*.stories.tsx",
+      "storybook/**/*.ts",
+      "storybook/**/*.tsx",
+      "next-env.d.ts",
+      ".next/**",
+      "coverage/**",
+      "*.config.js",
+      "*.config.mjs",
+      "**/*.js",
+      "tailwind.config.ts",
+    ],
+  },
+
+  // 기본 설정들
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  react.configs.flat.recommended, // React 추천 규칙 추가
+  react.configs.flat["jsx-runtime"], // React 17+ JSX Transform 대응
+  eslintConfigPrettier,
+  ...tanstackQuery.configs["flat/recommended"],
+
+  // 메인 설정
+  {
+    files: ["**/*.{ts,tsx,js,jsx}"], // 대상 파일 명시적 지정
+    plugins: {
+      "unused-imports": unusedImports,
+      react,
+      "react-hooks": reactHooks,
+    },
+    settings: {
+      react: {
+        version: "detect",
+      },
+    },
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+        project: true, // 타입 기반 린트 필요시 주석 해제
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // React Hook 규칙들
+      ...reactHooks.configs.recommended.rules,
+
+      // React 17+ JSX Transform 대응 (이미 jsx-runtime 설정에서 처리되지만 명시적으로 유지)
+      "react/react-in-jsx-scope": "off",
+      "react/jsx-uses-react": "off",
+
+      // Arrow function 강제 설정
+      "arrow-body-style": "off",
+      "prefer-arrow-callback": "error",
+      "react/function-component-definition": [
+        "error",
+        {
+          namedComponents: "arrow-function",
+          unnamedComponents: "arrow-function",
+        },
+      ],
+
+      // 미사용 import/변수 처리
+      "unused-imports/no-unused-imports": "error",
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        {
+          vars: "all",
+          varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
+        },
+      ],
+
+      // TypeScript 엄격한 규칙들 완화
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-wrapper-object-types": "off",
+
+      // 환경별 변수 허용
+      "no-undef": "off",
+
+      // React 추가 규칙들
+      "react/prop-types": "off", // TypeScript 사용시 불필요
+      "react/display-name": "off", // arrow function에서는 불필요한 경우가 많음
+    },
+  },
+];
+```
+
+---
+
+## Prettier 규칙
+
+### 설정 파일
+
+```js
+export default {
+  printWidth: 80,
+  tabWidth: 2,
+  useTabs: false,
+  semi: false,
+  singleQuote: true,
+  trailingComma: "none",
+  bracketSpacing: true,
+  jsxSingleQuote: false,
+  arrowParens: "always",
+  endOfLine: "lf",
+  quoteProps: "as-needed",
+  htmlWhitespaceSensitivity: "css",
+  proseWrap: "preserve",
+};
+```
+
+### 실행 규칙
+
+- 모든 코드 수정이 끝난 후 Prettier 실행
+- 명령어: `pnpm run format`

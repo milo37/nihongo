@@ -1,0 +1,586 @@
+---
+alwaysApply: true
+---
+
+# API Guidelines
+
+## 기본 원칙
+
+- 모든 호출은 `safe*` + Zod 스키마로 응답을 검증한다.
+- `apiClient`는 서비스 코드에서 직접 사용하지 않고 반드시 `http.ts` 래퍼를 거친다.
+- 도메인/엔드포인트 폴더를 통해 구조화하고, 네이밍 일관성을 유지한다.
+
+## 폴더 구조
+
+```text
+src/
+├── api/
+│   ├── config.ts         # axios 설정, safeFactory 정의
+│   ├── http.ts           # get/post/put/del + safe* export
+│   └── {domain}/
+│       └── {endpoint}/
+│           ├── index.ts  # safe* + schema 조합
+│           └── schema.ts # Zod 스키마
+└── mocks/
+    ├── handlers.ts       # MSW 핸들러 정의
+    ├── browser.ts        # MSW worker 설정
+    └── service.ts        # enableMocking 함수
+```
+
+## `config.ts` 작성 규칙
+
+> 말로 설명하면 계속 엇갈려서, 여기서는 **복붙용 정답 코드**로 정의한다.
+>
+> - `safeFactory`는 `http.ts`의 메서드(`get`, `post`, `put`, `del`)를 사용한다.
+> - `config.ts`는 `http.ts`를 import하여 `Method` 타입을 정의하고 `safeFactory`에서 사용한다.
+> - 에러 처리는 프로바이더 레벨에서 중앙 관리하므로, 인터셉터에서는 에러 플래그만 설정한다.
+
+```ts
+import axios, { type AxiosResponse, type AxiosError } from "axios";
+import { type ZodType, z } from "zod";
+import { get, post, put, del } from "@api/http";
+
+type Method = typeof get | typeof post | typeof put | typeof del;
+
+export type ApiErrorFlags = {
+  isAuthError?: boolean; // 401: 인증 실패
+  isForbiddenError?: boolean; // 403: 권한 없음
+  isNotFoundError?: boolean; // 404: 리소스 없음
+  isServerError?: boolean; // 500+: 서버 에러
+  isNetworkError?: boolean; // 네트워크 연결 실패
+  isOffline?: boolean; // 오프라인 상태
+  isValidationError?: boolean; // 422: 스키마 검증 실패
+  status?: number; // HTTP 상태 코드
+};
+
+export const apiClient = axios.create({
+  // baseURL: `${import.meta.env.VITE_API_BASE_URL}`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 5000,
+});
+
+const checkOfflineStatus = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return !window.navigator.onLine;
+};
+
+apiClient.interceptors.request.use(
+  (config) => {
+    if (checkOfflineStatus()) {
+      const offlineError = new Error(
+        "오프라인 상태입니다. 네트워크 연결을 확인해주세요."
+      ) as Error & ApiErrorFlags;
+      offlineError.isNetworkError = true;
+      offlineError.isOffline = true;
+
+      return Promise.reject(offlineError);
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // 1. 네트워크 에러 처리
+    if (checkOfflineStatus()) {
+      const offlineError = error as Error & ApiErrorFlags;
+      offlineError.isNetworkError = true;
+      offlineError.isOffline = true;
+      return Promise.reject(offlineError);
+    }
+
+    if (axios.isAxiosError(error)) {
+      if (!error.response) {
+        const networkError = error as AxiosError & {
+          isNetworkError?: boolean;
+          isOffline?: boolean;
+        };
+
+        networkError.isNetworkError = true;
+        networkError.isOffline = checkOfflineStatus();
+
+        return Promise.reject(networkError);
+      }
+
+      // 2. HTTP 에러 처리
+      const status = error.response.status;
+      const apiError = error as AxiosError & ApiErrorFlags;
+
+      apiError.isAuthError = status === 401;
+      apiError.isForbiddenError = status === 403;
+      apiError.isNotFoundError = status === 404;
+      apiError.isServerError = status >= 500;
+      apiError.isNetworkError = false;
+
+      return Promise.reject(apiError);
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export const safeFactory =
+  <A extends Parameters<Method>>(method: (...args: A) => ReturnType<Method>) =>
+  <Z extends ZodType>(zodSchema: Z) =>
+  async (...args: A): Promise<z.infer<Z>> => {
+    try {
+      const response = (await method(...args)) as AxiosResponse<z.infer<Z>>;
+      const parsed = zodSchema.safeParse(response);
+
+      // 3. zod type validation
+      if (!parsed.success) {
+        const error = new Error("Type mismatch") as Error & ApiErrorFlags;
+        error.status = 422;
+        error.isValidationError = true;
+        throw error;
+      }
+
+      return parsed.data;
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+```
+
+## `http.ts` 작성 규칙
+
+```ts
+import { apiClient, safeFactory } from "./config";
+
+export const get = async <T>(url: string, params?: T) => {
+  try {
+    const response = await apiClient.get(url, { params });
+    return response.data;
+  } catch (error) {
+    console.error("GET request failed:", error);
+    throw error;
+  }
+};
+
+export const post = async <T>(url: string, data?: T) => {
+  try {
+    const response = await apiClient.post(url, data);
+    return response.data;
+  } catch (error) {
+    console.error("POST request failed:", error);
+    throw error;
+  }
+};
+
+export const put = async <T>(url: string, data?: T) => {
+  try {
+    const response = await apiClient.put(url, data);
+    return response.data;
+  } catch (error) {
+    console.error("PUT request failed:", error);
+    throw error;
+  }
+};
+
+export const del = async <T>(url: string, params?: T) => {
+  try {
+    const response = await apiClient.delete(url, { params });
+    return response.data;
+  } catch (error) {
+    console.error("DELETE request failed:", error);
+    throw error;
+  }
+};
+
+export const safeGet = safeFactory(get);
+export const safePost = safeFactory(post);
+export const safePut = safeFactory(put);
+export const safeDel = safeFactory(del);
+```
+
+> **주의**: `http.ts`는 `config.ts`를 import하지만, `config.ts`는 `http.ts`를 import하지 않습니다. 이는 순환 의존을 방지하기 위함입니다.
+
+## 도메인 & 엔드포인트 네이밍
+
+- 도메인: 명사, 단수, 소문자 (`user`, `post`, `product`).
+- 엔드포인트: 동사+명사 camelCase (`getPost`, `createUser`, `updateProduct`, `deleteOrder`, `listProduct`).
+- 조회 동사: `get`, `list`, `search`; 생성: `create`; 수정: `update`; 삭제: `delete`.
+
+## 엔드포인트 템플릿
+
+`index.ts`
+
+```typescript
+import { safeGet } from "@api/http";
+import { getPostResponseSchema } from "@api/post/getPost/schema";
+import type { GetPostResponse } from "@api/post/getPost/schema";
+
+export const getPost = (postId: string) =>
+  safeGet(getPostResponseSchema)(`/post/${postId}`);
+```
+
+`schema.ts`
+
+```typescript
+import { z } from "zod";
+
+export const getPostResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  author: z.string(),
+  createdAt: z.string(),
+});
+
+export type GetPostResponse = z.infer<typeof getPostResponseSchema>;
+```
+
+## Tanstack Query 사용 규칙
+
+### 기본 원칙
+
+- **컴포넌트에서 직접 API 호출 금지**: 모든 서버 상태 관리는 반드시 Tanstack Query를 통해 처리
+- **도메인별 커스텀 훅 사용**: 컴포넌트에서 직접 `useQuery`/`useMutation` 호출하지 않고 도메인별 커스텀 훅을 통해 사용
+- **Mutation 후 캐시 무효화**: 모든 mutation 후에는 관련된 쿼리 캐시를 `invalidateQueries`로 무효화
+
+### 폴더 구조
+
+```text
+src/app/{domain}/
+├── queries/
+│   └── postQueries.ts     # Query Factory 정의
+└── hooks/
+    ├── useGetPost.ts      # Query Factory를 사용하는 훅
+    ├── useListPosts.ts    # Query Factory를 사용하는 훅
+    ├── useCreatePost.ts   # 생성 mutation 훅
+    ├── useUpdatePost.ts   # 수정 mutation 훅
+    └── useDeletePost.ts   # 삭제 mutation 훅
+```
+
+### Query Factory 패턴
+
+**Query Factory (postQueries.ts)**
+
+```typescript
+import { queryOptions } from "@tanstack/react-query";
+import { getPost } from "@api/post/getPost";
+import { listPosts } from "@api/post/listPosts";
+import type { ListPostsParams } from "@api/post/listPosts/schema";
+
+export const postQueries = {
+  // 기본 키 정의
+  allKey: () => ["post"],
+
+  // 단일 게시글 조회
+  getPost: (postId: string) =>
+    queryOptions({
+      queryKey: [...postQueries.allKey(), "get-post", postId],
+      queryFn: () => getPost(postId),
+      enabled: !!postId,
+      staleTime: 5 * 60 * 1000,
+    }),
+
+  // 게시글 목록 조회
+  listPosts: (params?: ListPostsParams) =>
+    queryOptions({
+      queryKey: [...postQueries.allKey(), "list-posts", params],
+      queryFn: () => listPosts(params),
+      staleTime: 5 * 60 * 1000,
+    }),
+
+  // 게시글 검색
+  searchPosts: (keyword: string) =>
+    queryOptions({
+      queryKey: [...postQueries.allKey(), "search-posts", keyword],
+      queryFn: () => searchPosts({ keyword }),
+      enabled: !!keyword,
+      staleTime: 2 * 60 * 1000,
+    }),
+} as const;
+```
+
+### Query 훅 템플릿
+
+**조회 훅 (useGetPost.ts)**
+
+```typescript
+import { useQuery } from "@tanstack/react-query";
+import { postQueries } from "@app/post/queries/postQueries";
+
+export const useGetPost = (postId: string) => {
+  return useQuery(postQueries.getPost(postId));
+};
+```
+
+### Mutation 훅 템플릿
+
+**생성 훅 (useCreatePost.ts)**
+
+```typescript
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createPost } from "@api/post/createPost";
+import { postQueries } from "@app/post/queries/postQueries";
+import type { CreatePostRequest } from "@api/post/createPost/schema";
+
+export const useCreatePost = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreatePostRequest) => createPost(data),
+    onSuccess: () => {
+      // Query Factory의 키를 사용하여 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: postQueries.allKey() });
+    },
+    onError: (error) => {
+      console.error("Post 생성 실패:", error);
+      alert("게시글 생성에 실패했습니다.");
+    },
+  });
+};
+```
+
+### 컴포넌트에서 사용 예시
+
+```typescript
+import {
+  useGetPost,
+  useListPosts,
+  useUpdatePost,
+  useDeletePost,
+} from "@app/post/hooks";
+
+const PostDetail = ({ postId }: { postId: string }) => {
+  const { data: post, isLoading, error } = useGetPost(postId);
+  const updatePostMutation = useUpdatePost();
+  const deletePostMutation = useDeletePost();
+
+  const handleUpdate = (data: UpdatePostRequest) => {
+    updatePostMutation.mutate({ postId, data });
+  };
+
+  const handleDelete = () => {
+    deletePostMutation.mutate(postId);
+  };
+
+  if (isLoading) return <div>로딩중...</div>;
+  if (error) return <div>에러 발생</div>;
+  if (!post) return <div>게시글을 찾을 수 없습니다</div>;
+
+  return (
+    <div>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+      <button onClick={() => handleUpdate(newData)}>수정</button>
+      <button onClick={handleDelete}>삭제</button>
+    </div>
+  );
+};
+
+const PostList = () => {
+  const { data: posts, isLoading } = useListPosts({ page: 1, limit: 10 });
+
+  if (isLoading) return <div>로딩중...</div>;
+
+  return (
+    <div>
+      {posts?.map((post) => (
+        <div key={post.id}>
+          <h3>{post.title}</h3>
+          <p>{post.content}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+### Query Factory 네이밍 규칙
+
+- **기본 키**: `allKey: () => ['domain']`
+- **단일 조회**: `[...allKey(), 'get-{entity}', id]`
+- **목록 조회**: `[...allKey(), 'list-{entities}', params]`
+- **검색**: `[...allKey(), 'search-{entities}', searchParams]`
+
+### Query Factory 장점
+
+- **타입 안전성**: `queryOptions`를 통한 완전한 타입 추론
+- **재사용성**: 동일한 쿼리 옵션을 여러 곳에서 재사용 가능
+- **일관성**: 모든 쿼리 키와 옵션이 한 곳에서 관리
+- **캐시 관리**: 키 구조가 명확하여 캐시 무효화가 용이
+
+### 캐시 무효화 규칙
+
+- **생성 후**: `queryClient.invalidateQueries({ queryKey: domainQueries.allKey() })`
+- **수정 후**: 특정 항목과 목록 쿼리 개별 무효화
+- **삭제 후**: `removeQueries`로 특정 항목 제거 + 목록 쿼리 무효화
+
+### 고급 Query Factory 패턴
+
+**복잡한 데이터 변환이 필요한 경우**
+
+```typescript
+export const postQueries = {
+  allKey: () => ["post"],
+
+  getPostList: () =>
+    queryOptions({
+      queryKey: [...postQueries.allKey(), "get-post-list"],
+      queryFn: () => getPostList({ published: true }),
+      select: (data) => {
+        // 데이터 변환 로직
+        const list = data.list.filter((item) => {
+          const publishDate = dayjs(item.publishedAt);
+          return publishDate.isBefore(dayjs());
+        });
+        return list[0];
+      },
+      staleTime: 5 * 60 * 1000,
+    }),
+
+  getPostDetail: (id: string) =>
+    queryOptions({
+      queryKey: [...postQueries.allKey(), "get-post-detail", id],
+      queryFn: () => getPostDetail({ id }),
+      enabled: !!id,
+      select: (data) => ({
+        createdAt: data.createdAt,
+        content: { ...data.content },
+        tags: data.tags.filter((tag) => tag.isActive === true),
+      }),
+    }),
+} as const;
+```
+
+## 에러 핸들링
+
+### 기본 원칙
+
+- **프로바이더 레벨에서 전역 에러 처리**: 모든 API 에러는 `AuthErrorHandlerProvider`에서 중앙 관리
+- **에러 플래그 기반 분류**: `ApiErrorFlags`를 통해 에러 타입을 명확히 구분
+- **인터셉터는 플래그만 설정**: 실제 에러 처리 로직은 프로바이더에서 담당
+
+### 에러 타입 분류
+
+`ApiErrorFlags`를 통해 다음 에러 타입을 구분합니다:
+
+- `isAuthError`: 401 인증 실패
+- `isForbiddenError`: 403 권한 없음
+- `isNotFoundError`: 404 리소스 없음
+- `isServerError`: 500+ 서버 에러
+- `isNetworkError`: 네트워크 연결 실패
+- `isOffline`: 오프라인 상태
+- `isValidationError`: 422 Zod 스키마 검증 실패
+
+### AuthErrorHandlerProvider
+
+TanStack Query 전용 API 에러 처리 프로바이더입니다. Query Cache를 구독하여 전역 에러를 처리합니다.
+
+**위치**: `src/provider/AuthErrorHandlerProvider.tsx`
+
+**기본 구조**:
+
+```typescript
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ApiErrorFlags } from "@api/config";
+
+type ApiError = Error & ApiErrorFlags;
+
+export const AuthErrorHandlerProvider = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handleQueryError = (event: any) => {
+      if (event.type !== "updated") return;
+
+      const error = event.action.error as ApiError;
+
+      // zod validation error
+      if (error?.isValidationError) {
+        handleValidationError(error);
+        return;
+      }
+
+      if (event.action.type !== "error") {
+        return;
+      }
+
+      // http errors
+      if (error?.isAuthError) {
+        handleAuthError();
+      } else if (error?.isForbiddenError) {
+        handleForbiddenError();
+      } else if (error?.isNetworkError) {
+        handleNetworkError();
+      } else {
+        handleServerError();
+      }
+    };
+
+    const handleAuthError = () => {
+      // 401 에러 처리 - 로그인 페이지로 리다이렉트
+    };
+
+    const handleForbiddenError = () => {
+      // 403 에러 처리 - 권한 없음 페이지로 리다이렉트
+    };
+
+    const handleNetworkError = () => {
+      // 네트워크 에러 처리
+    };
+
+    const handleServerError = () => {
+      // 500+ 에러 처리
+    };
+
+    const handleValidationError = (error: ApiError) => {
+      // 422 에러 처리 - 유효성 검사 실패
+      console.error("Zod Validation error:", error);
+    };
+
+    const unsubscribe = queryClient.getQueryCache().subscribe(handleQueryError);
+
+    return unsubscribe;
+  }, [navigate, location, queryClient]);
+
+  return null;
+};
+```
+
+**라우터에 추가**:
+
+`AuthErrorHandlerProvider`는 `router.tsx`의 최상위 라우트에 추가하여 모든 라우트에서 에러 처리가 가능하도록 합니다:
+
+```typescript
+import { ProtectedRouteProvider } from "@/provider/ProtectedRouteProvider";
+import { AuthErrorHandlerProvider } from "@/provider/AuthErrorHandlerProvider";
+
+export const createRouter = () => {
+  return createBrowserRouter([
+    {
+      path: "/",
+      element: (
+        <ProtectedRouteProvider>
+          <AuthErrorHandlerProvider />
+          <Layout>
+            <Outlet />
+          </Layout>
+        </ProtectedRouteProvider>
+      ),
+      children: [root, ...users],
+      errorElement: <NotFound />,
+    },
+  ]);
+};
+```
+
+## MSW 사용
+
+- `src/mocks/` 폴더에서 Mock 데이터 관리
+- 개발 환경에서 실제 API 대신 Mock 사용
+- 프로덕션 배포 전 Mock 제거

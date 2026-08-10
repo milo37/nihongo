@@ -1,0 +1,239 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --color-ink: 15 23 42;
+  --color-muted: 71 85 105;
+  --color-brand: 4 120 87;
+  --color-surface: 255 255 255;
+  --color-line: 226 232 240;
+  --page-background: 248 250 252;
+  --focus-color: 4 120 87;
+  font-family:
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Noto Sans KR',
+    'Noto Sans JP',
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 320px;
+    min-height: 100%;
+    background: rgb(var(--page-background));
+    scroll-behavior: smooth;
+    text-size-adjust: 100%;
+  }
+
+  html.has-modal {
+    overflow: hidden;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100dvh;
+    margin: 0;
+    overflow-x: hidden;
+    background: rgb(var(--page-background));
+    color: rgb(var(--color-ink));
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    scroll-margin-top: 6rem;
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  dd,
+  td,
+  th {
+    overflow-wrap: anywhere;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a,
+  label,
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: rgb(var(--color-brand) / 0.14);
+  }
+
+  button,
+  a,
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'] {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--focus-color));
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: rgb(var(--color-brand) / 0.2);
+    color: rgb(var(--color-ink));
+  }
+
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .ui-dialog {
+    overscroll-behavior: contain;
+  }
+
+  .ui-dialog::backdrop {
+    background: rgb(15 23 42 / 0.58);
+    backdrop-filter: blur(2px);
+    animation: ui-fade-in 150ms ease-out;
+  }
+
+  .ui-dialog[open] {
+    animation: ui-dialog-in 180ms ease-out;
+  }
+
+  .ui-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    transform-origin: center;
+    animation: ui-spin 800ms linear infinite;
+  }
+
+  .ui-spinner > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ui-progress {
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(226 232 240);
+    appearance: none;
+  }
+
+  .ui-progress::-webkit-progress-bar {
+    border-radius: 999px;
+    background: rgb(226 232 240);
+  }
+
+  .ui-progress::-webkit-progress-value {
+    border-radius: 999px;
+    background: rgb(var(--color-brand));
+    transition: width 200ms ease-out;
+  }
+
+  .ui-progress::-moz-progress-bar {
+    border-radius: 999px;
+    background: rgb(var(--color-brand));
+    transition: width 200ms ease-out;
+  }
+
+  .ui-toast {
+    animation: ui-toast-in 180ms ease-out;
+  }
+
+  .ui-skeleton {
+    animation: ui-skeleton-pulse 1.5s ease-in-out infinite;
+  }
+
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 6rem;
+  }
+
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+}
+
+@keyframes ui-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+
+@keyframes ui-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
