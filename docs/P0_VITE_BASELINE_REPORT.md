@@ -31,6 +31,8 @@ next_stage: Phase 1A 모노레포 전환
 
 ## 규칙과 스킬 정리 결과
 
+상세 원인과 제거·교체 내역은 `docs/rule-skill-alignment-report.md`에 기록한다.
+
 - `.cursor/rules/01-frontend-guidelines.mdc`의 Provider 파일명, 오류 처리 범위, type import, 설정 파일명을 실제 프로젝트와 맞췄다.
 - `.cursor/rules/02-formatting.mdc`에서 명시적 `any` 허용과 Next 전용 ignore를 제거했다.
 - `.cursor/rules/03-api-guidelines.mdc`에서 `config.ts`와 `http.ts` 순환 의존 예제, AxiosResponse 자체 검증, 직접 `alert`, broad hook barrel 예제를 제거했다.
