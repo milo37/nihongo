@@ -5,7 +5,8 @@
 - Build JLPT Drill Note, a Korean-first JLPT N5-N1 practice and wrong-note service.
 - The MVP covers vocabulary, grammar, and reading only. Do not add listening.
 - Use only original dummy questions and explanations; never copy real JLPT or commercial materials.
-- Keep the MVP focused: no payments, community, AI generation, OAuth, or real backend.
+- Keep the current MVP/P0 baseline focused: no payments, community, AI generation, OAuth, or real backend.
+- The long-term roadmap may describe a future API and database. It does not authorize implementation until the user explicitly starts that roadmap phase; the web app remains Vite.
 
 ## Technical baseline
 
@@ -20,6 +21,12 @@
 - Read every .cursor/rules/\*.mdc file before changes.
 - Discover repo-local skills under .cursor/skills/\*/SKILL.md and apply matching skills.
 - Use matching `.agents/skills/*/SKILL.md` guidance for Codex work.
+- Use `.agents/skills/graph/SKILL.md` only when the user explicitly invokes
+  `$graph` or explicitly requests a multi-agent graph workflow.
+- The Graph workflow must preserve the Vite, React Router, MSW, TanStack Query,
+  Zustand, accessibility, and formatting rules in this repository.
+- At most one agent may modify application source at a time. Explorer,
+  reviewer, and tester agents must remain read-only for application source.
 - Direct system, developer, and user instructions override repository guidance.
 
 ## Always-on code rules

@@ -29,7 +29,7 @@ mkdir -p src/{api,provider,mocks,libs,store/slices,common/{components,hooks,type
 
 - `src/api/config.ts` - API 클라이언트 설정 및 safeFactory
 - `src/api/http.ts` - HTTP 메서드 래퍼 (get, post, put, del)
-- `src/provider/QueryClientProvider.tsx` - TanStack Query Provider 설정
+- `src/provider/ReactQueryProvider.tsx` - TanStack Query Provider 설정
 - `src/libs/queryClient.ts` - Query Client 인스턴스 생성
 - `src/mocks/handlers.ts` - MSW 핸들러 (개발 초기부터)
 - `src/mocks/browser.ts` - MSW worker 설정
@@ -159,8 +159,9 @@ mkdir -p src/{api,provider,mocks,libs,store/slices,common/{components,hooks,type
 
 - **`index.tsx` (AppProvider)**: 모든 Provider를 통합하여 관리하는 최상위 컴포넌트
 - **`ReactQueryProvider.tsx`**: TanStack Query를 사용하기 위한 Provider
+- **`Toast.tsx` (`ToastProvider`)**: Query와 Mutation 오류 및 작업 결과를 접근 가능하게 알리는 Provider
 - **`ReactRouterProvider.tsx`**: React Router를 사용하기 위한 Provider
-- **`AuthErrorHandlerProvider.tsx`**: TanStack Query 전용 API 에러 처리 프로바이더
+- **`AuthErrorHandlerProvider.tsx`**: Query와 Mutation의 API 오류를 중앙 처리하는 프로바이더
 - **`ProtectedRouteProvider.tsx`**: 라우터 가드 프로바이더 (인증 환경 제공)
 
 #### Provider 중첩 순서
@@ -172,7 +173,9 @@ Provider의 중첩 순서는 중요합니다. `AppProvider`는 다음과 같은 
 export const AppProvider = () => {
   return (
     <ReactQueryProvider>
-      <ReactRouterProvider />
+      <ToastProvider>
+        <ReactRouterProvider />
+      </ToastProvider>
     </ReactQueryProvider>
   );
 };
@@ -181,8 +184,9 @@ export const AppProvider = () => {
 **중첩 순서 이유:**
 
 1. `ReactQueryProvider`가 최상위에 위치하여 모든 하위 컴포넌트에서 TanStack Query 기능 사용 가능
-2. `ReactRouterProvider`가 내부에 위치하여 라우팅 기능 제공
-3. 라우터 내부에서 Query 훅을 사용할 수 있도록 Query Provider가 외부에 위치
+2. `ToastProvider`가 Query와 Mutation 결과를 모든 라우트에서 접근 가능하게 알림
+3. `ReactRouterProvider`가 내부에 위치하여 라우팅 기능 제공
+4. 라우터 내부에서 Query와 Toast를 모두 사용할 수 있도록 두 Provider가 외부에 위치
 
 #### main.tsx에서 사용
 
@@ -211,7 +215,9 @@ export const AppProvider = () => {
   return (
     <ReactQueryProvider>
       <ThemeProvider>
-        <ReactRouterProvider />
+        <ToastProvider>
+          <ReactRouterProvider />
+        </ToastProvider>
       </ThemeProvider>
     </ReactQueryProvider>
   );
@@ -263,7 +269,7 @@ export const AppProvider = () => {
 각 slice는 다음과 같은 패턴으로 작성
 
 ```typescript
-import { StateCreator } from 'zustand'
+import type { StateCreator } from 'zustand'
 
 export interface CounterSlice {
   count: number
@@ -374,8 +380,8 @@ API 관련 상세 규칙은 `03-api-guidelines.mdc`에서 별도로 관리한다
 
 ### 코드 품질
 
-- [ ] ESLint 설정 완료 (`eslint.config.js`)
-- [ ] Prettier 설정 완료 (`prettier.config.js`)
+- [ ] ESLint 설정 완료 (`eslint.config.mjs`)
+- [ ] Prettier 설정 완료 (`prettier.config.mjs`)
 - [ ] TypeScript 설정 완료 (`tsconfig.json`)
 - [ ] 모든 컴포넌트가 Arrow Function으로 작성됨
 - [ ] 타입/인터페이스 import 시 `type` prefix 사용

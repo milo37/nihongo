@@ -13,10 +13,9 @@ configuration is explicitly in scope.
 - Ignore intentionally unused variables or parameters only when prefixed `_`.
 - Disable React prop-types when TypeScript owns prop validation.
 - Disable legacy React-in-JSX-scope rules for the modern JSX transform.
-- Keep `no-explicit-any` enabled. This resolves the source rules' conflict in
-  favor of the stricter project-wide type-safety requirement.
-- Ignore generated output such as `dist`, `.next`, `build`, `coverage`, and
-  generated declaration files.
+- Keep `no-explicit-any` enabled for project-wide type safety.
+- Ignore Vite-generated output such as `dist`, `coverage`, and generated
+  declaration files.
 
 Do not copy a generic plugin matrix blindly. Install only plugins used by the
 final configuration and keep versions compatible with the installed ESLint and

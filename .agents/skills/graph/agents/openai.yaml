@@ -1,0 +1,4 @@
+interface:
+  display_name: "Graph Engineering"
+  short_description: "복잡한 작업을 탐색·구현·검토·테스트 Agent로 분할"
+  default_prompt: "Use $graph to run this complex task with a bounded multi-agent graph workflow."

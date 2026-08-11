@@ -1,584 +1,94 @@
 ---
 name: react-render-optimization
-description: React 리렌더링 및 렌더링 성능 최적화. useState, useCallback, useMemo, memo, useTransition, content-visibility, hydration mismatch 방지 등을 다룹니다. 불필요한 리렌더링 방지, UI 반응성 개선이 필요할 때 사용합니다.
+description: Vite React 애플리케이션에서 상태 구독, effect, 목록, storage, 전역 이벤트의 렌더 비용을 안전하게 줄입니다. React Compiler를 존중하며 실제 렌더 병목을 검토할 때 사용합니다.
 ---
 
-# React Render Optimization - Full Reference
+# React Render Optimization for Vite
 
-> Original content from Vercel Engineering React Best Practices
+## React Compiler 우선
 
----
+이 프로젝트는 React Compiler를 사용합니다. 단순 props 전달이나 JSX 계산을 이유로 `memo`, `useMemo`, `useCallback`을 무조건 추가하지 않습니다. 다음 경우에만 수동 최적화를 고려합니다.
 
-## 5. Re-render Optimization
+- profiler로 확인된 비싼 계산
+- 외부 라이브러리가 안정적인 참조를 요구하는 경우
+- effect 또는 subscription 계약상 참조 안정성이 필요한 경우
 
-**Impact: MEDIUM**
+## 상태 구독 범위
 
-Reducing unnecessary re-renders minimizes wasted computation and improves UI responsiveness.
-
-### 5.1 Defer State Reads to Usage Point
-
-**Impact: MEDIUM (avoids unnecessary subscriptions)**
-
-Don't subscribe to dynamic state (searchParams, localStorage) if you only read it inside callbacks.
-
-**Incorrect: subscribes to all searchParams changes**
+렌더에 필요한 최소 상태만 구독합니다.
 
 ```tsx
-function ShareButton({ chatId }: { chatId: string }) {
-  const searchParams = useSearchParams()
-
-  const handleShare = () => {
-    const ref = searchParams.get('ref')
-    shareChat(chatId, { ref })
-  }
-
-  return <button onClick={handleShare}>Share</button>
-}
+const isMenuOpen = useAppStore((state) => state.isMenuOpen)
 ```
 
-**Correct: reads on demand, no subscription**
+- 연속 숫자 전체가 아니라 필요한 derived boolean을 구독합니다.
+- 렌더에 쓰지 않는 최신 값은 이벤트 callback 시점에 읽습니다.
+- TanStack Query 데이터를 Zustand에 복제하지 않습니다.
+- 비싼 초기값은 lazy `useState` initializer를 사용합니다.
+
+## 이전 상태 기반 업데이트
+
+현재 상태를 기반으로 변경할 때는 functional update를 사용합니다.
 
 ```tsx
-function ShareButton({ chatId }: { chatId: string }) {
-  const handleShare = () => {
-    const params = new URLSearchParams(window.location.search)
-    const ref = params.get('ref')
-    shareChat(chatId, { ref })
-  }
-
-  return <button onClick={handleShare}>Share</button>
-}
+setItems((current) => [...current, newItem])
 ```
 
-### 5.2 Extract to Memoized Components
+이는 stale closure를 방지하기 위한 정확성 규칙입니다. 안정적인 callback을 만들기 위한 수동 memoization은 별도로 필요성을 판단합니다.
 
-**Impact: MEDIUM (enables early returns)**
+## Effect 설계
 
-Extract expensive work into memoized components to enable early returns before computation.
+- effect dependency는 실제로 사용하는 primitive로 좁힙니다.
+- 렌더 중 계산 가능한 derived state를 effect와 state로 복제하지 않습니다.
+- 구독과 event listener는 cleanup을 반환합니다.
+- 개발 환경 Strict Mode의 재실행에도 안전하도록 작성합니다.
+- 입력과 textarea에 focus된 동안 문제풀이 단축키를 비활성화합니다.
 
-**Incorrect: computes avatar even when loading**
+## 전역 이벤트
 
-```tsx
-function Profile({ user, loading }: Props) {
-  const avatar = useMemo(() => {
-    const id = computeAvatarId(user)
-    return <Avatar id={id} />
-  }, [user])
+문제풀이 키보드 처리는 세션 화면에서 하나의 keydown listener만 등록합니다. 동일 목적 listener를 보기 컴포넌트마다 만들지 않습니다. callback 최신성이 필요하면 latest-ref 패턴을 사용하되 listener 자체는 불필요하게 재등록하지 않습니다.
 
-  if (loading) return <Skeleton />
-  return <div>{avatar}</div>
-}
-```
+## Storage 복구
 
-**Correct: skips computation when loading**
+Vite CSR 앱에서는 SSR hydration script를 사용하지 않습니다.
 
-```tsx
-const UserAvatar = memo(function UserAvatar({ user }: { user: User }) {
-  const id = useMemo(() => computeAvatarId(user), [user])
-  return <Avatar id={id} />
-})
+- localStorage 접근은 `@libs/storage` adapter 또는 Zustand persist에 둡니다.
+- 초기화 시 한 번 읽고 메모리 상태를 사용합니다.
+- 렌더 중 `localStorage.getItem`을 반복하지 않습니다.
+- 저장 실패와 손상된 JSON은 안전한 기본값으로 복구합니다.
+- 직렬화 가능한 Record와 배열만 저장합니다.
 
-function Profile({ user, loading }: Props) {
-  if (loading) return <Skeleton />
-  return (
-    <div>
-      <UserAvatar user={user} />
-    </div>
-  )
-}
-```
+## 목록과 조건부 렌더링
 
-**Note:** If your project has [React Compiler](https://react.dev/learn/react-compiler) enabled, manual memoization with `memo()` and `useMemo()` is not necessary. The compiler automatically optimizes re-renders.
+- 수십 건 이상의 목록은 pagination을 우선합니다.
+- 긴 카드 목록에는 `content-visibility: auto`를 고려합니다.
+- 숫자 조건은 `count > 0 ? ... : null`처럼 명시합니다.
+- props 또는 state 배열에 mutating `sort`를 사용하지 않습니다.
+- Map과 Set은 반복 검색 비용이 실제로 있는 곳에만 사용합니다.
 
-### 5.3 Narrow Effect Dependencies
+## CSS와 애니메이션
 
-**Impact: LOW (minimizes effect re-runs)**
+- DOM style 속성을 반복 변경하지 않고 className 또는 data attribute를 사용합니다.
+- SVG animation은 wrapper element에 적용합니다.
+- `prefers-reduced-motion` 사용자의 동작을 존중합니다.
+- loading Skeleton은 실제 콘텐츠 크기와 비슷하게 유지합니다.
 
-Specify primitive dependencies instead of objects to minimize effect re-runs.
+## 접근성 보존
 
-**Incorrect: re-runs on any user field change**
+성능 최적화가 접근성을 훼손하면 적용하지 않습니다.
 
-```tsx
-useEffect(() => {
-  console.log(user.id)
-}, [user])
-```
+- 숨겨진 콘텐츠의 focus 가능 요소를 방치하지 않습니다.
+- 가상화 또는 pagination 후에도 heading과 table 의미를 보존합니다.
+- 비동기 상태는 스크린리더 텍스트와 `aria-live`로 전달합니다.
+- focus-visible을 제거하지 않습니다.
 
-**Correct: re-runs only when id changes**
+## 완료 체크리스트
 
-```tsx
-useEffect(() => {
-  console.log(user.id)
-}, [user.id])
-```
-
-**For derived state, compute outside effect:**
-
-```tsx
-// Incorrect: runs on width=767, 766, 765...
-useEffect(() => {
-  if (width < 768) {
-    enableMobileMode()
-  }
-}, [width])
-
-// Correct: runs only on boolean transition
-const isMobile = width < 768
-useEffect(() => {
-  if (isMobile) {
-    enableMobileMode()
-  }
-}, [isMobile])
-```
-
-### 5.4 Subscribe to Derived State
-
-**Impact: MEDIUM (reduces re-render frequency)**
-
-Subscribe to derived boolean state instead of continuous values to reduce re-render frequency.
-
-**Incorrect: re-renders on every pixel change**
-
-```tsx
-function Sidebar() {
-  const width = useWindowWidth()  // updates continuously
-  const isMobile = width < 768
-  return <nav className={isMobile ? 'mobile' : 'desktop'}>
-}
-```
-
-**Correct: re-renders only when boolean changes**
-
-```tsx
-function Sidebar() {
-  const isMobile = useMediaQuery('(max-width: 767px)')
-  return <nav className={isMobile ? 'mobile' : 'desktop'}>
-}
-```
-
-### 5.5 Use Functional setState Updates
-
-**Impact: MEDIUM (prevents stale closures and unnecessary callback recreations)**
-
-When updating state based on the current state value, use the functional update form of setState instead of directly referencing the state variable. This prevents stale closures, eliminates unnecessary dependencies, and creates stable callback references.
-
-**Incorrect: requires state as dependency**
-
-```tsx
-function TodoList() {
-  const [items, setItems] = useState(initialItems)
-
-  // Callback must depend on items, recreated on every items change
-  const addItems = useCallback(
-    (newItems: Item[]) => {
-      setItems([...items, ...newItems])
-    },
-    [items]
-  ) // ❌ items dependency causes recreations
-
-  // Risk of stale closure if dependency is forgotten
-  const removeItem = useCallback((id: string) => {
-    setItems(items.filter((item) => item.id !== id))
-  }, []) // ❌ Missing items dependency - will use stale items!
-
-  return <ItemsEditor items={items} onAdd={addItems} onRemove={removeItem} />
-}
-```
-
-The first callback is recreated every time `items` changes, which can cause child components to re-render unnecessarily. The second callback has a stale closure bug—it will always reference the initial `items` value.
-
-**Correct: stable callbacks, no stale closures**
-
-```tsx
-function TodoList() {
-  const [items, setItems] = useState(initialItems)
-
-  // Stable callback, never recreated
-  const addItems = useCallback((newItems: Item[]) => {
-    setItems((curr) => [...curr, ...newItems])
-  }, []) // ✅ No dependencies needed
-
-  // Always uses latest state, no stale closure risk
-  const removeItem = useCallback((id: string) => {
-    setItems((curr) => curr.filter((item) => item.id !== id))
-  }, []) // ✅ Safe and stable
-
-  return <ItemsEditor items={items} onAdd={addItems} onRemove={removeItem} />
-}
-```
-
-**Benefits:**
-
-1. **Stable callback references** - Callbacks don't need to be recreated when state changes
-
-2. **No stale closures** - Always operates on the latest state value
-
-3. **Fewer dependencies** - Simplifies dependency arrays and reduces memory leaks
-
-4. **Prevents bugs** - Eliminates the most common source of React closure bugs
-
-**When to use functional updates:**
-
-- Any setState that depends on the current state value
-
-- Inside useCallback/useMemo when state is needed
-
-- Event handlers that reference state
-
-- Async operations that update state
-
-**When direct updates are fine:**
-
-- Setting state to a static value: `setCount(0)`
-
-- Setting state from props/arguments only: `setName(newName)`
-
-- State doesn't depend on previous value
-
-**Note:** If your project has [React Compiler](https://react.dev/learn/react-compiler) enabled, the compiler can automatically optimize some cases, but functional updates are still recommended for correctness and to prevent stale closure bugs.
-
-### 5.6 Use Lazy State Initialization
-
-**Impact: MEDIUM (wasted computation on every render)**
-
-Pass a function to `useState` for expensive initial values. Without the function form, the initializer runs on every render even though the value is only used once.
-
-**Incorrect: runs on every render**
-
-```tsx
-function FilteredList({ items }: { items: Item[] }) {
-  // buildSearchIndex() runs on EVERY render, even after initialization
-  const [searchIndex, setSearchIndex] = useState(buildSearchIndex(items))
-  const [query, setQuery] = useState('')
-
-  // When query changes, buildSearchIndex runs again unnecessarily
-  return <SearchResults index={searchIndex} query={query} />
-}
-
-function UserProfile() {
-  // JSON.parse runs on every render
-  const [settings, setSettings] = useState(
-    JSON.parse(localStorage.getItem('settings') || '{}')
-  )
-
-  return <SettingsForm settings={settings} onChange={setSettings} />
-}
-```
-
-**Correct: runs only once**
-
-```tsx
-function FilteredList({ items }: { items: Item[] }) {
-  // buildSearchIndex() runs ONLY on initial render
-  const [searchIndex, setSearchIndex] = useState(() => buildSearchIndex(items))
-  const [query, setQuery] = useState('')
-
-  return <SearchResults index={searchIndex} query={query} />
-}
-
-function UserProfile() {
-  // JSON.parse runs only on initial render
-  const [settings, setSettings] = useState(() => {
-    const stored = localStorage.getItem('settings')
-    return stored ? JSON.parse(stored) : {}
-  })
-
-  return <SettingsForm settings={settings} onChange={setSettings} />
-}
-```
-
-Use lazy initialization when computing initial values from localStorage/sessionStorage, building data structures (indexes, maps), reading from the DOM, or performing heavy transformations.
-
-For simple primitives (`useState(0)`), direct references (`useState(props.value)`), or cheap literals (`useState({})`), the function form is unnecessary.
-
-### 5.7 Use Transitions for Non-Urgent Updates
-
-**Impact: MEDIUM (maintains UI responsiveness)**
-
-Mark frequent, non-urgent state updates as transitions to maintain UI responsiveness.
-
-**Incorrect: blocks UI on every scroll**
-
-```tsx
-function ScrollTracker() {
-  const [scrollY, setScrollY] = useState(0)
-  useEffect(() => {
-    const handler = () => setScrollY(window.scrollY)
-    window.addEventListener('scroll', handler, { passive: true })
-    return () => window.removeEventListener('scroll', handler)
-  }, [])
-}
-```
-
-**Correct: non-blocking updates**
-
-```tsx
-import { startTransition } from 'react'
-
-function ScrollTracker() {
-  const [scrollY, setScrollY] = useState(0)
-  useEffect(() => {
-    const handler = () => {
-      startTransition(() => setScrollY(window.scrollY))
-    }
-    window.addEventListener('scroll', handler, { passive: true })
-    return () => window.removeEventListener('scroll', handler)
-  }, [])
-}
-```
-
----
-
-## 6. Rendering Performance
-
-**Impact: MEDIUM**
-
-Optimizing the rendering process reduces the work the browser needs to do.
-
-### 6.1 Animate SVG Wrapper Instead of SVG Element
-
-**Impact: LOW (enables hardware acceleration)**
-
-Many browsers don't have hardware acceleration for CSS3 animations on SVG elements. Wrap SVG in a `<div>` and animate the wrapper instead.
-
-**Incorrect: animating SVG directly - no hardware acceleration**
-
-```tsx
-function LoadingSpinner() {
-  return (
-    <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" />
-    </svg>
-  )
-}
-```
-
-**Correct: animating wrapper div - hardware accelerated**
-
-```tsx
-function LoadingSpinner() {
-  return (
-    <div className="animate-spin">
-      <svg width="24" height="24" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" />
-      </svg>
-    </div>
-  )
-}
-```
-
-This applies to all CSS transforms and transitions (`transform`, `opacity`, `translate`, `scale`, `rotate`). The wrapper div allows browsers to use GPU acceleration for smoother animations.
-
-### 6.2 CSS content-visibility for Long Lists
-
-**Impact: HIGH (faster initial render)**
-
-Apply `content-visibility: auto` to defer off-screen rendering.
-
-**CSS:**
-
-```css
-.message-item {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 80px;
-}
-```
-
-**Example:**
-
-```tsx
-function MessageList({ messages }: { messages: Message[] }) {
-  return (
-    <div className="overflow-y-auto h-screen">
-      {messages.map((msg) => (
-        <div key={msg.id} className="message-item">
-          <Avatar user={msg.author} />
-          <div>{msg.content}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
-```
-
-For 1000 messages, browser skips layout/paint for ~990 off-screen items (10× faster initial render).
-
-### 6.3 Hoist Static JSX Elements
-
-**Impact: LOW (avoids re-creation)**
-
-Extract static JSX outside components to avoid re-creation.
-
-**Incorrect: recreates element every render**
-
-```tsx
-function LoadingSkeleton() {
-  return <div className="animate-pulse h-20 bg-gray-200" />
-}
-
-function Container() {
-  return <div>{loading && <LoadingSkeleton />}</div>
-}
-```
-
-**Correct: reuses same element**
-
-```tsx
-const loadingSkeleton = <div className="animate-pulse h-20 bg-gray-200" />
-
-function Container() {
-  return <div>{loading && loadingSkeleton}</div>
-}
-```
-
-This is especially helpful for large and static SVG nodes, which can be expensive to recreate on every render.
-
-**Note:** If your project has [React Compiler](https://react.dev/learn/react-compiler) enabled, the compiler automatically hoists static JSX elements and optimizes component re-renders, making manual hoisting unnecessary.
-
-### 6.4 Optimize SVG Precision
-
-**Impact: LOW (reduces file size)**
-
-Reduce SVG coordinate precision to decrease file size. The optimal precision depends on the viewBox size, but in general reducing precision should be considered.
-
-**Incorrect: excessive precision**
-
-```svg
-<path d="M 10.293847 20.847362 L 30.938472 40.192837" />
-```
-
-**Correct: 1 decimal place**
-
-```svg
-<path d="M 10.3 20.8 L 30.9 40.2" />
-```
-
-**Automate with SVGO:**
-
-```bash
-npx svgo --precision=1 --multipass icon.svg
-```
-
-### 6.5 Prevent Hydration Mismatch Without Flickering
-
-**Impact: MEDIUM (avoids visual flicker and hydration errors)**
-
-When rendering content that depends on client-side storage (localStorage, cookies), avoid both SSR breakage and post-hydration flickering by injecting a synchronous script that updates the DOM before React hydrates.
-
-**Incorrect: breaks SSR**
-
-```tsx
-function ThemeWrapper({ children }: { children: ReactNode }) {
-  // localStorage is not available on server - throws error
-  const theme = localStorage.getItem('theme') || 'light'
-
-  return <div className={theme}>{children}</div>
-}
-```
-
-Server-side rendering will fail because `localStorage` is undefined.
-
-**Incorrect: visual flickering**
-
-```tsx
-function ThemeWrapper({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState('light')
-
-  useEffect(() => {
-    // Runs after hydration - causes visible flash
-    const stored = localStorage.getItem('theme')
-    if (stored) {
-      setTheme(stored)
-    }
-  }, [])
-
-  return <div className={theme}>{children}</div>
-}
-```
-
-Component first renders with default value (`light`), then updates after hydration, causing a visible flash of incorrect content.
-
-**Correct: no flicker, no hydration mismatch**
-
-```tsx
-function ThemeWrapper({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <div id="theme-wrapper">{children}</div>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            (function() {
-              try {
-                var theme = localStorage.getItem('theme') || 'light';
-                var el = document.getElementById('theme-wrapper');
-                if (el) el.className = theme;
-              } catch (e) {}
-            })();
-          `
-        }}
-      />
-    </>
-  )
-}
-```
-
-The inline script executes synchronously before showing the element, ensuring the DOM already has the correct value. No flickering, no hydration mismatch.
-
-This pattern is especially useful for theme toggles, user preferences, authentication states, and any client-only data that should render immediately without flashing default values.
-
-### 6.6 Use Activity Component for Show/Hide
-
-**Impact: MEDIUM (preserves state/DOM)**
-
-Use React's `<Activity>` to preserve state/DOM for expensive components that frequently toggle visibility.
-
-**Usage:**
-
-```tsx
-import { Activity } from 'react'
-
-function Dropdown({ isOpen }: Props) {
-  return (
-    <Activity mode={isOpen ? 'visible' : 'hidden'}>
-      <ExpensiveMenu />
-    </Activity>
-  )
-}
-```
-
-Avoids expensive re-renders and state loss.
-
-### 6.7 Use Explicit Conditional Rendering
-
-**Impact: LOW (prevents rendering 0 or NaN)**
-
-Use explicit ternary operators (`? :`) instead of `&&` for conditional rendering when the condition can be `0`, `NaN`, or other falsy values that render.
-
-**Incorrect: renders "0" when count is 0**
-
-```tsx
-function Badge({ count }: { count: number }) {
-  return <div>{count && <span className="badge">{count}</span>}</div>
-}
-
-// When count = 0, renders: <div>0</div>
-// When count = 5, renders: <div><span class="badge">5</span></div>
-```
-
-**Correct: renders nothing when count is 0**
-
-```tsx
-function Badge({ count }: { count: number }) {
-  return <div>{count > 0 ? <span className="badge">{count}</span> : null}</div>
-}
-
-// When count = 0, renders: <div></div>
-// When count = 5, renders: <div><span class="badge">5</span></div>
-```
-
----
-
-## References
-
-- [React Compiler](https://react.dev/learn/react-compiler)
+- [ ] React Compiler와 수동 memoization이 중복되지 않음
+- [ ] Zustand selector가 필요한 상태만 구독함
+- [ ] 이전 상태 변경에 functional update를 사용함
+- [ ] effect와 listener가 cleanup되고 중복 등록되지 않음
+- [ ] localStorage를 렌더마다 읽지 않음
+- [ ] 긴 목록 렌더 비용을 제어함
+- [ ] 조건부 숫자 렌더와 mutating sort가 없음
+- [ ] 최적화 후 키보드와 스크린리더 동작이 유지됨

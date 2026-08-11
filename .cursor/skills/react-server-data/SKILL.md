@@ -1,401 +1,99 @@
 ---
 name: react-server-data
-description: React Server Components와 클라이언트 데이터 페칭 최적화. LRU 캐싱, RSC 직렬화 최소화, React.cache(), after(), SWR 중복 제거 등을 다룹니다. 서버사이드 성능, 데이터 페칭, 캐싱 전략이 필요할 때 사용합니다.
+description: Vite React 애플리케이션에서 TanStack Query, Axios, Zod, MSW를 사용해 서버 상태 경계와 데이터 흐름을 설계하고 검토합니다. Query Factory, 도메인 훅, 캐시 무효화, Mock API, payload 최소화가 필요한 작업에 사용합니다.
 ---
 
-# React Server & Data Fetching - Full Reference
+# React Server State for Vite
 
-> Original content from Vercel Engineering React Best Practices
+## 적용 범위
 
----
+이 저장소는 클라이언트 Vite 애플리케이션입니다. 서버 상태는 다음 경계를 지킵니다.
 
-## 3. Server-Side Performance
-
-**Impact: HIGH**
-
-Optimizing server-side rendering and data fetching eliminates server-side waterfalls and reduces response times.
-
-### 3.1 Cross-Request LRU Caching
-
-**Impact: HIGH (caches across requests)**
-
-`React.cache()` only works within one request. For data shared across sequential requests (user clicks button A then button B), use an LRU cache.
-
-**Implementation:**
-
-```typescript
-import { LRUCache } from 'lru-cache'
-
-const cache = new LRUCache<string, any>({
-  max: 1000,
-  ttl: 5 * 60 * 1000 // 5 minutes
-})
-
-export async function getUser(id: string) {
-  const cached = cache.get(id)
-  if (cached) return cached
-
-  const user = await db.user.findUnique({ where: { id } })
-  cache.set(id, user)
-  return user
-}
-
-// Request 1: DB query, result cached
-// Request 2: cache hit, no DB query
+```text
+MSW handler
+→ src/api endpoint
+→ Query Factory
+→ domain hook
+→ component
 ```
 
-Use when sequential user actions hit multiple endpoints needing the same data within seconds.
+다음 패턴은 사용하지 않습니다.
 
-**With Vercel's [Fluid Compute](https://vercel.com/docs/fluid-compute):** LRU caching is especially effective because multiple concurrent requests can share the same function instance and cache. This means the cache persists across requests without needing external storage like Redis.
+- Next.js, React Server Components, Server Actions, Route Handlers
+- React.cache, next/dynamic, next/server의 after
+- Prisma, SQLite, 실제 백엔드 코드
+- SWR 또는 컴포넌트의 직접 fetch/Axios 호출
+- API 응답을 Zustand에 복제하는 구조
 
-**In traditional serverless:** Each invocation runs in isolation, so consider Redis for cross-process caching.
+## API 경계
 
-Reference: [https://github.com/isaacs/node-lru-cache](https://github.com/isaacs/node-lru-cache)
+- `src/api/config.ts`는 Axios client, interceptor, error flags, generic `safeFactory`만 소유합니다.
+- `config.ts`는 `http.ts`를 import하지 않습니다.
+- `src/api/http.ts`는 `config.ts`를 import하고 `response.data`를 반환합니다.
+- 모든 endpoint는 request와 response Zod schema를 가집니다.
+- `safeGet`, `safePost`, `safePut`, `safeDel`은 raw response data를 검증합니다.
+- 검증 실패는 status 422와 `isValidationError`를 가진 오류로 전달합니다.
+- 날짜는 ISO 8601 문자열로 전송합니다.
 
-### 3.2 Minimize Serialization at RSC Boundaries
+## Query Factory와 도메인 훅
 
-**Impact: HIGH (reduces data transfer size)**
+Query key는 도메인별 factory에서 생성합니다.
 
-The React Server/Client boundary serializes all object properties into strings and embeds them in the HTML response and subsequent RSC requests. This serialized data directly impacts page weight and load time, so **size matters a lot**. Only pass fields that the client actually uses.
-
-**Incorrect: serializes all 50 fields**
-
-```tsx
-async function Page() {
-  const user = await fetchUser() // 50 fields
-  return <Profile user={user} />
-}
-
-;('use client')
-function Profile({ user }: { user: User }) {
-  return <div>{user.name}</div> // uses 1 field
-}
+```ts
+export const questionQueries = {
+  allKey: () => ['question'],
+  detail: (id: string) => [...questionQueries.allKey(), 'get-question', id],
+  list: (params: QuestionListParams) => [
+    ...questionQueries.allKey(),
+    'list-questions',
+    params
+  ]
+} as const
 ```
 
-**Correct: serializes only 1 field**
+컴포넌트는 Query Factory나 Query primitive를 직접 사용하지 않습니다. 도메인 훅만 `useQuery`, `useMutation`, `useQueries`, `useQueryClient`를 사용할 수 있습니다.
 
-```tsx
-async function Page() {
-  const user = await fetchUser()
-  return <Profile name={user.name} />
-}
+Mutation 후에는 의미에 맞게 캐시를 갱신합니다.
 
-;('use client')
-function Profile({ name }: { name: string }) {
-  return <div>{name}</div>
-}
-```
+- 생성: 관련 목록 invalidate
+- 수정: detail과 list invalidate
+- 삭제: detail remove, list invalidate
+- 학습 제출: result, session, wrong-note, dashboard invalidate
+- 독립적인 invalidate 또는 요청은 `Promise.all`로 병렬 처리
 
-### 3.3 Parallel Data Fetching with Component Composition
+## Waterfall 방지
 
-**Impact: CRITICAL (eliminates server-side waterfalls)**
+독립 데이터는 동시에 요청합니다. 의존 관계가 있는 Query만 `enabled`로 연결합니다. 조건에 따라 필요하지 않은 요청은 만들지 않고 early return 또는 `enabled: false`를 사용합니다.
 
-React Server Components execute sequentially within a tree. Restructure with composition to parallelize data fetching.
+## Payload 안전성
 
-**Incorrect: Sidebar waits for Page's fetch to complete**
+- 문제풀이 시작 응답에는 정답 ID, `isCorrect`, 해설, 관리자 상태를 포함하지 않습니다.
+- 정답과 해설은 제출 결과에서만 제공합니다.
+- 관리자 목록은 목록에 필요한 요약 필드만 반환합니다.
+- 대시보드는 화면에 필요한 집계만 반환합니다.
+- 반복 ID 조회가 필요한 Mock repository는 Map 또는 Set index를 사용합니다.
 
-```tsx
-export default async function Page() {
-  const header = await fetchHeader()
-  return (
-    <div>
-      <div>{header}</div>
-      <Sidebar />
-    </div>
-  )
-}
+## MSW와 저장소
 
-async function Sidebar() {
-  const items = await fetchSidebarItems()
-  return <nav>{items.map(renderItem)}</nav>
-}
-```
+- Mock 데이터는 `src/mocks` 안에서만 관리합니다.
+- MSW handler만 Mock repository에 접근합니다.
+- 개발 환경은 Mock을 기본 활성화합니다.
+- 일반 production은 Mock을 비활성화하고, 데모 빌드만 `VITE_ENABLE_MOCKS=true`로 활성화합니다.
+- localStorage는 공통 adapter 또는 Zustand persist 초기화 시 한 번 읽고 메모리 상태를 사용합니다.
+- mutation은 메모리와 저장소를 함께 갱신합니다.
 
-**Correct: both fetch simultaneously**
+## 오류 처리
 
-```tsx
-async function Header() {
-  const data = await fetchHeader()
-  return <div>{data}</div>
-}
+Axios interceptor는 오류 플래그만 설정합니다. QueryCache와 MutationCache는 공통 error bus로 오류를 전달하고, `AuthErrorHandlerProvider`가 `unknown` 오류를 타입 가드로 좁혀 UI와 이동을 처리합니다. 컴포넌트별 `alert` 또는 중복 오류 처리는 금지합니다.
 
-async function Sidebar() {
-  const items = await fetchSidebarItems()
-  return <nav>{items.map(renderItem)}</nav>
-}
+## 완료 체크리스트
 
-export default function Page() {
-  return (
-    <div>
-      <Header />
-      <Sidebar />
-    </div>
-  )
-}
-```
-
-**Alternative with children prop:**
-
-```tsx
-async function Layout({ children }: { children: ReactNode }) {
-  const header = await fetchHeader()
-  return (
-    <div>
-      <div>{header}</div>
-      {children}
-    </div>
-  )
-}
-
-async function Sidebar() {
-  const items = await fetchSidebarItems()
-  return <nav>{items.map(renderItem)}</nav>
-}
-
-export default function Page() {
-  return (
-    <Layout>
-      <Sidebar />
-    </Layout>
-  )
-}
-```
-
-### 3.4 Per-Request Deduplication with React.cache()
-
-**Impact: MEDIUM (deduplicates within request)**
-
-Use `React.cache()` for server-side request deduplication. Authentication and database queries benefit most.
-
-**Usage:**
-
-```typescript
-import { cache } from 'react'
-
-export const getCurrentUser = cache(async () => {
-  const session = await auth()
-  if (!session?.user?.id) return null
-  return await db.user.findUnique({
-    where: { id: session.user.id }
-  })
-})
-```
-
-Within a single request, multiple calls to `getCurrentUser()` execute the query only once.
-
-### 3.5 Use after() for Non-Blocking Operations
-
-**Impact: MEDIUM (faster response times)**
-
-Use Next.js's `after()` to schedule work that should execute after a response is sent. This prevents logging, analytics, and other side effects from blocking the response.
-
-**Incorrect: blocks response**
-
-```tsx
-import { logUserAction } from '@/app/utils'
-
-export async function POST(request: Request) {
-  // Perform mutation
-  await updateDatabase(request)
-
-  // Logging blocks the response
-  const userAgent = request.headers.get('user-agent') || 'unknown'
-  await logUserAction({ userAgent })
-
-  return new Response(JSON.stringify({ status: 'success' }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  })
-}
-```
-
-**Correct: non-blocking**
-
-```tsx
-import { after } from 'next/server'
-import { headers, cookies } from 'next/headers'
-import { logUserAction } from '@/app/utils'
-
-export async function POST(request: Request) {
-  // Perform mutation
-  await updateDatabase(request)
-
-  // Log after response is sent
-  after(async () => {
-    const userAgent = (await headers()).get('user-agent') || 'unknown'
-    const sessionCookie =
-      (await cookies()).get('session-id')?.value || 'anonymous'
-
-    logUserAction({ sessionCookie, userAgent })
-  })
-
-  return new Response(JSON.stringify({ status: 'success' }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  })
-}
-```
-
-The response is sent immediately while logging happens in the background.
-
-**Common use cases:**
-
-- Analytics tracking
-
-- Audit logging
-
-- Sending notifications
-
-- Cache invalidation
-
-- Cleanup tasks
-
-**Important notes:**
-
-- `after()` runs even if the response fails or redirects
-
-- Works in Server Actions, Route Handlers, and Server Components
-
-Reference: [https://nextjs.org/docs/app/api-reference/functions/after](https://nextjs.org/docs/app/api-reference/functions/after)
-
----
-
-## 4. Client-Side Data Fetching
-
-**Impact: MEDIUM-HIGH**
-
-Automatic deduplication and efficient data fetching patterns reduce redundant network requests.
-
-### 4.1 Deduplicate Global Event Listeners
-
-**Impact: LOW (single listener for N components)**
-
-Use `useSWRSubscription()` to share global event listeners across component instances.
-
-**Incorrect: N instances = N listeners**
-
-```tsx
-function useKeyboardShortcut(key: string, callback: () => void) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === key) {
-        callback()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [key, callback])
-}
-```
-
-When using the `useKeyboardShortcut` hook multiple times, each instance will register a new listener.
-
-**Correct: N instances = 1 listener**
-
-```tsx
-import useSWRSubscription from 'swr/subscription'
-
-// Module-level Map to track callbacks per key
-const keyCallbacks = new Map<string, Set<() => void>>()
-
-function useKeyboardShortcut(key: string, callback: () => void) {
-  // Register this callback in the Map
-  useEffect(() => {
-    if (!keyCallbacks.has(key)) {
-      keyCallbacks.set(key, new Set())
-    }
-    keyCallbacks.get(key)!.add(callback)
-
-    return () => {
-      const set = keyCallbacks.get(key)
-      if (set) {
-        set.delete(callback)
-        if (set.size === 0) {
-          keyCallbacks.delete(key)
-        }
-      }
-    }
-  }, [key, callback])
-
-  useSWRSubscription('global-keydown', () => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.metaKey && keyCallbacks.has(e.key)) {
-        keyCallbacks.get(e.key)!.forEach((cb) => cb())
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  })
-}
-
-function Profile() {
-  // Multiple shortcuts will share the same listener
-  useKeyboardShortcut('p', () => {
-    /* ... */
-  })
-  useKeyboardShortcut('k', () => {
-    /* ... */
-  })
-  // ...
-}
-```
-
-### 4.2 Use SWR for Automatic Deduplication
-
-**Impact: MEDIUM-HIGH (automatic deduplication)**
-
-SWR enables request deduplication, caching, and revalidation across component instances.
-
-**Incorrect: no deduplication, each instance fetches**
-
-```tsx
-function UserList() {
-  const [users, setUsers] = useState([])
-  useEffect(() => {
-    fetch('/api/users')
-      .then((r) => r.json())
-      .then(setUsers)
-  }, [])
-}
-```
-
-**Correct: multiple instances share one request**
-
-```tsx
-import useSWR from 'swr'
-
-function UserList() {
-  const { data: users } = useSWR('/api/users', fetcher)
-}
-```
-
-**For immutable data:**
-
-```tsx
-import { useImmutableSWR } from '@/lib/swr'
-
-function StaticContent() {
-  const { data } = useImmutableSWR('/api/config', fetcher)
-}
-```
-
-**For mutations:**
-
-```tsx
-import { useSWRMutation } from 'swr/mutation'
-
-function UpdateButton() {
-  const { trigger } = useSWRMutation('/api/user', updateUser)
-  return <button onClick={() => trigger()}>Update</button>
-}
-```
-
-Reference: [https://swr.vercel.app](https://swr.vercel.app)
-
----
-
-## References
-
-1. [https://github.com/isaacs/node-lru-cache](https://github.com/isaacs/node-lru-cache)
-2. [https://nextjs.org/docs/app/api-reference/functions/after](https://nextjs.org/docs/app/api-reference/functions/after)
-3. [https://swr.vercel.app](https://swr.vercel.app)
+- [ ] config와 http 사이에 순환 import가 없음
+- [ ] 모든 endpoint 응답이 Zod 검증됨
+- [ ] 컴포넌트가 API와 Query primitive를 직접 사용하지 않음
+- [ ] Query 데이터를 Zustand에 복제하지 않음
+- [ ] mutation 후 관련 캐시가 갱신됨
+- [ ] 독립 요청이 불필요하게 직렬 실행되지 않음
+- [ ] 제출 전 정답과 해설이 노출되지 않음
+- [ ] Query와 Mutation 오류가 모두 중앙 처리됨
+- [ ] Mock 데이터가 `src/mocks` 밖으로 누출되지 않음

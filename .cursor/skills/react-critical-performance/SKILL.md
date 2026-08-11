@@ -1,494 +1,98 @@
 ---
 name: react-critical-performance
-description: React/Next.js 성능 최적화의 가장 중요한 규칙들. Waterfall 제거와 번들 크기 최적화를 다룹니다. 데이터 페칭, Promise.all, Suspense, dynamic import, barrel file 최적화 등 CRITICAL 수준의 성능 개선이 필요할 때 사용합니다.
+description: Vite와 React Router 기반 React 애플리케이션의 핵심 성능을 검토하고 개선합니다. 비동기 waterfall, route code splitting, bundle 크기, payload, 검색 자료구조, 저장소 접근을 최적화할 때 사용합니다.
 ---
 
-# React Critical Performance - Full Reference
+# React Critical Performance for Vite
 
-> Original content from Vercel Engineering React Best Practices
+## 기본 원칙
 
----
+측정 가능한 병목과 구조적 비용을 먼저 해결합니다. React Compiler가 활성화되어 있으므로 단순한 렌더 최적화를 위해 `memo`, `useMemo`, `useCallback`을 습관적으로 추가하지 않습니다.
 
-## 1. Eliminating Waterfalls
+이 프로젝트에서는 Next.js 전용 API를 사용하지 않습니다.
 
-**Impact: CRITICAL**
+- `next/dynamic`, Server Components, Server Actions
+- Next API Route, Route Handler, `React.cache`
+- `next/server`의 `after`, Next 설정 기반 import 최적화
 
-Waterfalls are the #1 performance killer. Each sequential await adds full network latency. Eliminating them yields the largest gains.
+## 비동기 waterfall 제거
 
-### 1.1 Defer Await Until Needed
+필요하지 않은 작업은 조건 분기 뒤로 미루고, 서로 독립적인 작업은 동시에 시작합니다.
 
-**Impact: HIGH (avoids blocking unused code paths)**
-
-Move `await` operations into the branches where they're actually used to avoid blocking code paths that don't need them.
-
-**Incorrect: blocks both branches**
-
-```typescript
-async function handleRequest(userId: string, skipProcessing: boolean) {
-  const userData = await fetchUserData(userId)
-
-  if (skipProcessing) {
-    // Returns immediately but still waited for userData
-    return { skipped: true }
-  }
-
-  // Only this branch uses userData
-  return processUserData(userData)
-}
+```ts
+const [profile, statistics] = await Promise.all([getProfile(), getStatistics()])
 ```
 
-**Correct: only blocks when needed**
+다음 기준을 적용합니다.
 
-```typescript
-async function handleRequest(userId: string, skipProcessing: boolean) {
-  if (skipProcessing) {
-    // Returns immediately without waiting
-    return { skipped: true }
-  }
+- 결과가 이미 결정된 분기는 early return
+- 독립 요청은 `Promise.all` 또는 병렬 Query
+- 실제 의존 Query만 `enabled`로 순차 실행
+- 하나의 값을 찾기 위해 전체 배열을 정렬하지 않음
 
-  // Fetch only when needed
-  const userData = await fetchUserData(userId)
-  return processUserData(userData)
-}
-```
+## Route와 모듈 code splitting
 
-**Another example: early return optimization**
-
-```typescript
-// Incorrect: always fetches permissions
-async function updateResource(resourceId: string, userId: string) {
-  const permissions = await fetchPermissions(userId)
-  const resource = await getResource(resourceId)
-
-  if (!resource) {
-    return { error: 'Not found' }
-  }
-
-  if (!permissions.canEdit) {
-    return { error: 'Forbidden' }
-  }
-
-  return await updateResourceData(resource, permissions)
-}
-
-// Correct: fetches only when needed
-async function updateResource(resourceId: string, userId: string) {
-  const resource = await getResource(resourceId)
-
-  if (!resource) {
-    return { error: 'Not found' }
-  }
-
-  const permissions = await fetchPermissions(userId)
-
-  if (!permissions.canEdit) {
-    return { error: 'Forbidden' }
-  }
-
-  return await updateResourceData(resource, permissions)
-}
-```
-
-This optimization is especially valuable when the skipped branch is frequently taken, or when the deferred operation is expensive.
-
-### 1.2 Dependency-Based Parallelization
-
-**Impact: CRITICAL (2-10× improvement)**
-
-For operations with partial dependencies, use `better-all` to maximize parallelism. It automatically starts each task at the earliest possible moment.
-
-**Incorrect: profile waits for config unnecessarily**
-
-```typescript
-const [user, config] = await Promise.all([fetchUser(), fetchConfig()])
-const profile = await fetchProfile(user.id)
-```
-
-**Correct: config and profile run in parallel**
-
-```typescript
-import { all } from 'better-all'
-
-const { user, config, profile } = await all({
-  async user() {
-    return fetchUser()
-  },
-  async config() {
-    return fetchConfig()
-  },
-  async profile() {
-    return fetchProfile((await this.$.user).id)
-  }
-})
-```
-
-Reference: [https://github.com/shuding/better-all](https://github.com/shuding/better-all)
-
-### 1.3 Prevent Waterfall Chains in API Routes
-
-**Impact: CRITICAL (2-10× improvement)**
-
-In API routes and Server Actions, start independent operations immediately, even if you don't await them yet.
-
-**Incorrect: config waits for auth, data waits for both**
-
-```typescript
-export async function GET(request: Request) {
-  const session = await auth()
-  const config = await fetchConfig()
-  const data = await fetchData(session.user.id)
-  return Response.json({ data, config })
-}
-```
-
-**Correct: auth and config start immediately**
-
-```typescript
-export async function GET(request: Request) {
-  const sessionPromise = auth()
-  const configPromise = fetchConfig()
-  const session = await sessionPromise
-  const [config, data] = await Promise.all([
-    configPromise,
-    fetchData(session.user.id)
-  ])
-  return Response.json({ data, config })
-}
-```
-
-For operations with more complex dependency chains, use `better-all` to automatically maximize parallelism (see Dependency-Based Parallelization).
-
-### 1.4 Promise.all() for Independent Operations
-
-**Impact: CRITICAL (2-10× improvement)**
-
-When async operations have no interdependencies, execute them concurrently using `Promise.all()`.
-
-**Incorrect: sequential execution, 3 round trips**
-
-```typescript
-const user = await fetchUser()
-const posts = await fetchPosts()
-const comments = await fetchComments()
-```
-
-**Correct: parallel execution, 1 round trip**
-
-```typescript
-const [user, posts, comments] = await Promise.all([
-  fetchUser(),
-  fetchPosts(),
-  fetchComments()
-])
-```
-
-### 1.5 Strategic Suspense Boundaries
-
-**Impact: HIGH (faster initial paint)**
-
-Instead of awaiting data in async components before returning JSX, use Suspense boundaries to show the wrapper UI faster while data loads.
-
-**Incorrect: wrapper blocked by data fetching**
+도메인 route와 초기 화면에 필요하지 않은 큰 모듈은 `React.lazy` 또는 동적 `import()`로 분리합니다.
 
 ```tsx
-async function Page() {
-  const data = await fetchData() // Blocks entire page
+import { lazy } from 'react'
 
-  return (
-    <div>
-      <div>Sidebar</div>
-      <div>Header</div>
-      <div>
-        <DataDisplay data={data} />
-      </div>
-      <div>Footer</div>
-    </div>
-  )
-}
+const AdminQuestionPage = lazy(() => import('@app/admin-question/page'))
 ```
 
-The entire layout waits for data even though only the middle section needs it.
-
-**Correct: wrapper shows immediately, data streams in**
-
-```tsx
-function Page() {
-  return (
-    <div>
-      <div>Sidebar</div>
-      <div>Header</div>
-      <div>
-        <Suspense fallback={<Skeleton />}>
-          <DataDisplay />
-        </Suspense>
-      </div>
-      <div>Footer</div>
-    </div>
-  )
-}
-
-async function DataDisplay() {
-  const data = await fetchData() // Only blocks this component
-  return <div>{data.content}</div>
-}
-```
-
-Sidebar, Header, and Footer render immediately. Only DataDisplay waits for data.
-
-**Alternative: share promise across components**
-
-```tsx
-function Page() {
-  // Start fetch immediately, but don't await
-  const dataPromise = fetchData()
-
-  return (
-    <div>
-      <div>Sidebar</div>
-      <div>Header</div>
-      <Suspense fallback={<Skeleton />}>
-        <DataDisplay dataPromise={dataPromise} />
-        <DataSummary dataPromise={dataPromise} />
-      </Suspense>
-      <div>Footer</div>
-    </div>
-  )
-}
-
-function DataDisplay({ dataPromise }: { dataPromise: Promise<Data> }) {
-  const data = use(dataPromise) // Unwraps the promise
-  return <div>{data.content}</div>
-}
-
-function DataSummary({ dataPromise }: { dataPromise: Promise<Data> }) {
-  const data = use(dataPromise) // Reuses the same promise
-  return <div>{data.summary}</div>
-}
-```
-
-Both components share the same promise, so only one fetch occurs. Layout renders immediately while both components wait together.
-
-**When NOT to use this pattern:**
-
-- Critical data needed for layout decisions (affects positioning)
-
-- SEO-critical content above the fold
-
-- Small, fast queries where suspense overhead isn't worth it
-
-- When you want to avoid layout shift (loading → content jump)
-
-**Trade-off:** Faster initial paint vs potential layout shift. Choose based on your UX priorities.
-
----
-
-## 2. Bundle Size Optimization
-
-**Impact: CRITICAL**
-
-Reducing initial bundle size improves Time to Interactive and Largest Contentful Paint.
-
-### 2.1 Avoid Barrel File Imports
-
-**Impact: CRITICAL (200-800ms import cost, slow builds)**
-
-Import directly from source files instead of barrel files to avoid loading thousands of unused modules. **Barrel files** are entry points that re-export multiple modules (e.g., `index.js` that does `export * from './module'`).
-
-Popular icon and component libraries can have **up to 10,000 re-exports** in their entry file. For many React packages, **it takes 200-800ms just to import them**, affecting both development speed and production cold starts.
-
-**Why tree-shaking doesn't help:** When a library is marked as external (not bundled), the bundler can't optimize it. If you bundle it to enable tree-shaking, builds become substantially slower analyzing the entire module graph.
-
-**Incorrect: imports entire library**
-
-```tsx
-import { Check, X, Menu } from 'lucide-react'
-// Loads 1,583 modules, takes ~2.8s extra in dev
-// Runtime cost: 200-800ms on every cold start
-
-import { Button, TextField } from '@mui/material'
-// Loads 2,225 modules, takes ~4.2s extra in dev
-```
-
-**Correct: imports only what you need**
-
-```tsx
-import Check from 'lucide-react/dist/esm/icons/check'
-import X from 'lucide-react/dist/esm/icons/x'
-import Menu from 'lucide-react/dist/esm/icons/menu'
-// Loads only 3 modules (~2KB vs ~1MB)
-
-import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
-// Loads only what you use
-```
-
-**Alternative: Next.js 13.5+**
-
-```js
-// next.config.js - use optimizePackageImports
-module.exports = {
-  experimental: {
-    optimizePackageImports: ['lucide-react', '@mui/material']
-  }
-}
-
-// Then you can keep the ergonomic barrel imports:
-import { Check, X, Menu } from 'lucide-react'
-// Automatically transformed to direct imports at build time
-```
-
-Direct imports provide 15-70% faster dev boot, 28% faster builds, 40% faster cold starts, and significantly faster HMR.
-
-Libraries commonly affected: `lucide-react`, `@mui/material`, `@mui/icons-material`, `@tabler/icons-react`, `react-icons`, `@headlessui/react`, `@radix-ui/react-*`, `lodash`, `ramda`, `date-fns`, `rxjs`, `react-use`.
-
-Reference: [https://vercel.com/blog/how-we-optimized-package-imports-in-next-js](https://vercel.com/blog/how-we-optimized-package-imports-in-next-js)
-
-### 2.2 Conditional Module Loading
-
-**Impact: HIGH (loads large data only when needed)**
-
-Load large data or modules only when a feature is activated.
-
-**Example: lazy-load animation frames**
-
-```tsx
-function AnimationPlayer({ enabled }: { enabled: boolean }) {
-  const [frames, setFrames] = useState<Frame[] | null>(null)
-
-  useEffect(() => {
-    if (enabled && !frames && typeof window !== 'undefined') {
-      import('./animation-frames.js')
-        .then((mod) => setFrames(mod.frames))
-        .catch(() => setEnabled(false))
-    }
-  }, [enabled, frames])
-
-  if (!frames) return <Skeleton />
-  return <Canvas frames={frames} />
-}
-```
-
-The `typeof window !== 'undefined'` check prevents bundling this module for SSR, optimizing server bundle size and build speed.
-
-### 2.3 Defer Non-Critical Third-Party Libraries
-
-**Impact: MEDIUM (loads after hydration)**
-
-Analytics, logging, and error tracking don't block user interaction. Load them after hydration.
-
-**Incorrect: blocks initial bundle**
-
-```tsx
-import { Analytics } from '@vercel/analytics/react'
-
-export default function RootLayout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        <Analytics />
-      </body>
-    </html>
-  )
-}
-```
-
-**Correct: loads after hydration**
-
-```tsx
-import dynamic from 'next/dynamic'
-
-const Analytics = dynamic(
-  () => import('@vercel/analytics/react').then((m) => m.Analytics),
-  { ssr: false }
-)
-
-export default function RootLayout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        <Analytics />
-      </body>
-    </html>
-  )
-}
-```
-
-### 2.4 Dynamic Imports for Heavy Components
-
-**Impact: CRITICAL (directly affects TTI and LCP)**
-
-Use `next/dynamic` to lazy-load large components not needed on initial render.
-
-**Incorrect: Monaco bundles with main chunk ~300KB**
-
-```tsx
-import { MonacoEditor } from './monaco-editor'
-
-function CodePanel({ code }: { code: string }) {
-  return <MonacoEditor value={code} />
-}
-```
-
-**Correct: Monaco loads on demand**
-
-```tsx
-import dynamic from 'next/dynamic'
-
-const MonacoEditor = dynamic(
-  () => import('./monaco-editor').then((m) => m.MonacoEditor),
-  { ssr: false }
-)
-
-function CodePanel({ code }: { code: string }) {
-  return <MonacoEditor value={code} />
-}
-```
-
-### 2.5 Preload Based on User Intent
-
-**Impact: MEDIUM (reduces perceived latency)**
-
-Preload heavy bundles before they're needed to reduce perceived latency.
-
-**Example: preload on hover/focus**
-
-```tsx
-function EditorButton({ onClick }: { onClick: () => void }) {
-  const preload = () => {
-    if (typeof window !== 'undefined') {
-      void import('./monaco-editor')
-    }
-  }
-
-  return (
-    <button onMouseEnter={preload} onFocus={preload} onClick={onClick}>
-      Open Editor
-    </button>
-  )
-}
-```
-
-**Example: preload when feature flag is enabled**
-
-```tsx
-function FlagsProvider({ children, flags }: Props) {
-  useEffect(() => {
-    if (flags.editorEnabled && typeof window !== 'undefined') {
-      void import('./monaco-editor').then((mod) => mod.init())
-    }
-  }, [flags.editorEnabled])
-
-  return <FlagsContext.Provider value={flags}>{children}</FlagsContext.Provider>
-}
-```
-
-The `typeof window !== 'undefined'` check prevents bundling preloaded modules for SSR, optimizing server bundle size and build speed.
-
----
-
-## References
-
-1. [https://github.com/shuding/better-all](https://github.com/shuding/better-all)
-2. [https://vercel.com/blog/how-we-optimized-package-imports-in-next-js](https://vercel.com/blog/how-we-optimized-package-imports-in-next-js)
+- 각 도메인 route module은 lazy loading
+- 관리자 화면과 차트는 초기 bundle에서 분리
+- lazy fallback은 실제 콘텐츠와 유사한 크기의 Skeleton 제공
+- hover 또는 focus preload는 체감 지연이 큰 기능에만 적용
+- 작은 모듈을 과도하게 나누지 않음
+
+## Import와 번들
+
+- broad barrel file을 만들지 않습니다.
+- 도메인 훅과 컴포넌트는 실제 파일 경로에서 직접 import합니다.
+- 아이콘 라이브러리는 공식 세부 경로가 안정적으로 지원될 때 필요한 아이콘만 import합니다.
+- 비공개 package 내부 경로는 사용하지 않습니다.
+- bundle 분석 없이 의존성을 무작정 교체하지 않습니다.
+
+## 배열과 검색
+
+- 반복 `find`는 Map index를 고려합니다.
+- 반복 `includes`는 Set을 고려합니다.
+- props와 state 배열에 mutating `sort`를 사용하지 않습니다.
+- 최소값이나 최대값 하나는 단일 순회로 찾습니다.
+- Fisher-Yates 또는 seed shuffle을 사용하고 원본 배열을 변경하지 않습니다.
+- hot path 최적화가 가독성을 크게 해치면 측정 근거를 먼저 확보합니다.
+
+## 네트워크 payload
+
+- 문제풀이 시작 전 정답, 해설, 관리자 필드를 전달하지 않습니다.
+- 관리자 목록과 상세 응답을 분리합니다.
+- 대시보드는 집계 결과만 반환합니다.
+- 불필요한 직렬화와 중복 요청은 Query cache로 제거합니다.
+
+## 저장소와 이벤트
+
+- localStorage를 렌더마다 직접 읽지 않습니다.
+- 공통 storage adapter 또는 Zustand persist로 초기 한 번 복구합니다.
+- 동일한 전역 keydown listener를 여러 컴포넌트에 중복 등록하지 않습니다.
+- 최신 callback이 필요하면 안전한 latest-ref 패턴을 사용합니다.
+- 외부 탭 storage 변경은 필요한 데이터만 동기화합니다.
+
+## 렌더링 비용
+
+- 긴 목록은 pagination 또는 `content-visibility: auto`를 고려합니다.
+- 큰 차트는 lazy loading하고 텍스트 대체 정보를 제공합니다.
+- `0 && element`처럼 숫자가 노출될 수 있는 조건식을 피합니다.
+- 정적 SVG 정밀도를 합리적으로 줄이고 애니메이션은 wrapper에 적용합니다.
+- `prefers-reduced-motion`을 존중합니다.
+
+## 완료 체크리스트
+
+- [ ] 독립 요청이 병렬 실행됨
+- [ ] route와 관리자·차트가 필요에 맞게 분할됨
+- [ ] broad barrel과 불안정한 내부 import가 없음
+- [ ] payload에 화면에서 쓰지 않는 데이터가 없음
+- [ ] 배열 검색과 정렬이 원본 변경 없이 수행됨
+- [ ] storage와 전역 listener를 반복 등록하지 않음
+- [ ] React Compiler와 중복되는 수동 memoization이 없음
+- [ ] 로딩 UI가 layout shift를 과도하게 만들지 않음
