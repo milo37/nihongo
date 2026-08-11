@@ -4,6 +4,12 @@ alwaysApply: true
 
 # API Guidelines
 
+## Workspace scope
+
+현재 웹 애플리케이션은 `apps/web`에 있습니다. 이 문서의 모든 `src/`
+경로는 `apps/web/src/`를 뜻합니다. Phase 1A에서는 실제 backend, database,
+ORM 또는 `apps/api`를 추가하지 않습니다.
+
 ## 적용 범위
 
 이 문서는 Vite 프런트엔드의 API client와 Mock API 경계를 정의한다. 실제 서버, 데이터베이스, ORM 규칙이 아니다.

@@ -5,6 +5,12 @@ description: Apply the Nihongo Axios, Zod, MSW, TanStack Query, error handling, 
 
 # API guidelines
 
+## Workspace scope
+
+The replaceable client API boundary lives under `apps/web/src`. Paths written
+as `src/` below are relative to `apps/web`; this skill does not authorize an
+`apps/api` backend.
+
 ## Prepare
 
 1. Inspect `src/api/config.ts`, `src/api/http.ts`, the relevant endpoint folder,

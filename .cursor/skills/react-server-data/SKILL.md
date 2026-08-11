@@ -5,6 +5,8 @@ description: Vite React 애플리케이션에서 TanStack Query, Axios, Zod, MSW
 
 # React Server State for Vite
 
+이 문서의 `src/` 경로는 workspace의 `apps/web/src/`를 뜻합니다.
+
 ## 적용 범위
 
 이 저장소는 클라이언트 Vite 애플리케이션입니다. 서버 상태는 다음 경계를 지킵니다.

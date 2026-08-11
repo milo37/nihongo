@@ -4,6 +4,14 @@ alwaysApply: true
 
 # Frontend Development Rules
 
+## Workspace scope
+
+현재 Vite 애플리케이션 루트는 `apps/web`입니다. 이 문서의 `src/`,
+`public/`, `vite.config.ts`, `vitest.config.ts`, `tsconfig.json`,
+`tailwind.config.ts`, `postcss.config.mjs` 경로는 별도 설명이 없으면 모두
+`apps/web` 기준입니다. 저장소 root에는 workspace orchestration과 공통 품질
+설정만 두며 root `src/`를 새로 만들지 않습니다.
+
 ## 0️⃣ 프로젝트 초기 세팅
 
 ### Vite 프로젝트 생성 후 필수 작업

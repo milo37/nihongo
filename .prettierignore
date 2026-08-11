@@ -2,5 +2,5 @@ node_modules
 dist
 coverage
 .agents
-public/mockServiceWorker.js
+apps/web/public/mockServiceWorker.js
 pnpm-lock.yaml

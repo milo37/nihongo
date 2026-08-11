@@ -1,5 +1,8 @@
 # Vite frontend architecture
 
+The tree below is rooted at `apps/web`. Repository-level workspace, CI,
+lint, and format configuration remains at the repository root.
+
 ## Ownership
 
 ```text

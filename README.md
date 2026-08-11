@@ -4,6 +4,10 @@ JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 �
 자동으로 오답노트에 저장해 반복 학습하는 프런트엔드 포트폴리오
 프로젝트입니다.
 
+저장소는 pnpm workspace이며, 현재 실행 가능한 Vite 애플리케이션은
+`apps/web`에 있습니다. workspace root의 명령으로 개발·검증 작업을
+일관되게 실행합니다.
+
 이번 MVP는 정적인 화면 목업이 아닙니다. 문제 세션 생성, 답안 제출과 채점,
 오답 상태 변경, 즐겨찾기, 학습 통계, 관리자 문제 CRUD가 실제 사용자 흐름으로
 연결됩니다. 실제 백엔드 대신 MSW 기반 Mock API를 사용하며, UI와 TanStack Query
@@ -53,7 +57,7 @@ JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 �
 - Tailwind CSS
 - React Compiler
 - Vitest, React Testing Library, user-event, jsdom
-- ESLint, Prettier, pnpm
+- ESLint, Prettier, pnpm workspace
 
 ## 실행 방법
 
@@ -61,13 +65,14 @@ Node.js LTS 22 이상과 pnpm이 필요합니다.
 
 ```bash
 pnpm install
-cp .env.example .env
+cp apps/web/.env.example apps/web/.env
 pnpm dev
 ```
 
 기본 개발 주소는 `http://localhost:5173`입니다.
 
 프로덕션 번들을 로컬에서 확인하려면 다음 명령을 실행합니다.
+빌드 결과는 `apps/web/dist`에 생성됩니다.
 
 ```bash
 pnpm build
@@ -104,29 +109,37 @@ VITE_ENABLE_MOCKS=true
 ## 폴더 구조
 
 ```text
-src/
-├── api/                 # Axios, safe HTTP 함수, 도메인 endpoint와 Zod schema
-├── app/                 # 라우트 도메인, Query Factory, 커스텀 훅, 페이지
-│   ├── admin-question/
-│   ├── bookmark/
-│   ├── dashboard/
-│   ├── home/
-│   ├── login/
-│   ├── practice/
-│   └── wrong-note/
-├── common/              # 재사용 UI, 키보드 훅, 도메인 타입
-├── libs/                # QueryClient, 오류 이벤트, storage adapter
-├── mocks/               # 자체 제작 seed, MSW handlers, Mock Repository
-├── provider/            # Query, Router, 인증, 전역 API 오류 처리
-├── store/               # auth/practice/ui Zustand slice
-├── test/                # Vitest setup과 MSW test server
-├── util/                # shuffle, 채점, 공개 변환, 오답 상태 머신
-├── main.tsx
-└── router.tsx
+.
+├── apps/
+│   └── web/
+│       ├── src/
+│       │   ├── api/        # Axios, safe HTTP 함수, endpoint와 Zod schema
+│       │   ├── app/        # 라우트 도메인, Query Factory, 훅, 페이지
+│       │   ├── common/     # 재사용 UI, 키보드 훅, 도메인 타입
+│       │   ├── libs/       # QueryClient, 오류 이벤트, storage adapter
+│       │   ├── mocks/      # 자체 제작 seed, MSW, Mock Repository
+│       │   ├── provider/   # Query, Router, 인증, 전역 오류 처리
+│       │   ├── store/      # auth/practice/ui Zustand slice
+│       │   ├── test/       # Vitest setup과 MSW test server
+│       │   ├── util/       # shuffle, 채점, 공개 변환, 상태 머신
+│       │   ├── main.tsx
+│       │   └── router.tsx
+│       ├── public/         # MSW worker와 정적 파일
+│       ├── package.json
+│       ├── vite.config.ts
+│       ├── vitest.config.ts
+│       └── tsconfig.json
+├── package.json            # workspace 명령과 공통 품질 도구
+├── pnpm-workspace.yaml
+├── eslint.config.mjs
+└── prettier.config.mjs
 ```
 
+Phase 1A에서는 실제 소유 코드가 없는 `apps/api`나 `packages/*`
+placeholder를 만들지 않습니다.
+
 Vite 기본 `App.tsx`와 `App.css`는 사용하지 않습니다. 각 도메인의 페이지는
-React lazy loading으로 분리되고, `src/router.tsx`에서 통합됩니다.
+React lazy loading으로 분리되고, `apps/web/src/router.tsx`에서 통합됩니다.
 
 ## 데이터 흐름
 
@@ -136,7 +149,7 @@ React lazy loading으로 분리되고, `src/router.tsx`에서 통합됩니다.
 컴포넌트
   → 도메인 커스텀 훅
   → TanStack Query Factory
-  → src/api/{domain}/{endpoint}
+  → apps/web/src/api/{domain}/{endpoint}
   → safeGet / safePost / safePut / safeDel
   → Axios
   → MSW handler
@@ -149,12 +162,12 @@ React lazy loading으로 분리되고, `src/router.tsx`에서 통합됩니다.
 
 ## API 계층
 
-- `src/api/config.ts`: Axios client, timeout, interceptor, 오류 플래그,
+- `apps/web/src/api/config.ts`: Axios client, timeout, interceptor, 오류 플래그,
   generic `safeFactory`
-- `src/api/http.ts`: raw `get/post/put/del`과 검증된
+- `apps/web/src/api/http.ts`: raw `get/post/put/del`과 검증된
   `safeGet/safePost/safePut/safeDel`
-- `src/api/{domain}/{verbNoun}/schema.ts`: 요청·응답 Zod schema와 추론 타입
-- `src/api/{domain}/{verbNoun}/index.ts`: 요청 검증과 안전 HTTP 함수 조합
+- `apps/web/src/api/{domain}/{verbNoun}/schema.ts`: 요청·응답 Zod schema와 추론 타입
+- `apps/web/src/api/{domain}/{verbNoun}/index.ts`: 요청 검증과 안전 HTTP 함수 조합
 
 `config.ts`는 `http.ts`를 import하지 않아 순환 의존이 없습니다. 401, 403, 404,
 서버, 네트워크, 오프라인, 응답 검증 오류는 플래그로 정규화하고 Query와 Mutation
@@ -202,7 +215,7 @@ persist middleware와 캐시된 storage adapter를 사용하므로 렌더링마�
 | AGAIN에서 두 번째 연속 정답 |       유지 |             2 | SOLVED    |
 | SOLVED에서 다시 오답        |         +1 |             0 | AGAIN     |
 
-상태 전이는 `src/util/wrongNote.ts`의 순수 함수로 구현하고 단위 테스트합니다.
+상태 전이는 `apps/web/src/util/wrongNote.ts`의 순수 함수로 구현하고 단위 테스트합니다.
 오답 시 `lastWrongAt`, 복습 시 `lastReviewedAt`을 갱신합니다.
 
 ## Mock API와 데이터
@@ -278,7 +291,7 @@ pnpm run build
 ## 실제 백엔드로 교체하는 방법
 
 1. MSW 비활성화 후 `VITE_API_BASE_URL`을 실제 서버 주소로 변경합니다.
-2. 현재 `src/api/*/*/schema.ts` 계약과 동일한 JSON 응답을 서버에서 제공합니다.
+2. 현재 `apps/web/src/api/*/*/schema.ts` 계약과 동일한 JSON 응답을 서버에서 제공합니다.
 3. 인증 interceptor에 실제 access token 또는 cookie 정책을 연결합니다.
 4. Mock Repository의 세션·오답 상태 로직을 서버 application service와 DB로
    이전합니다.

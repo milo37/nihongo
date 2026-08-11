@@ -8,6 +8,16 @@
 - Keep the current MVP/P0 baseline focused: no payments, community, AI generation, OAuth, or real backend.
 - The long-term roadmap may describe a future API and database. It does not authorize implementation until the user explicitly starts that roadmap phase; the web app remains Vite.
 
+## Workspace layout
+
+- The repository root owns pnpm workspace orchestration, shared lint/format
+  configuration, CI, and repository guidance.
+- The active Vite application lives in `apps/web`. Paths written as `src/`,
+  `public/`, or Vite config files in project guidance are relative to
+  `apps/web` unless they are explicitly described as repository-root files.
+- Do not create placeholder `apps/api` or `packages/*` projects. Add them
+  only in the roadmap phase that gives them real ownership.
+
 ## Technical baseline
 
 - Use Vite, React, strict TypeScript, React Router, Tailwind CSS, TanStack Query, Zustand, Axios, Zod, MSW, React Hook Form, and Vitest.
@@ -31,7 +41,7 @@
 
 ## Always-on code rules
 
-- Use configured aliases for all src imports; do not use relative imports inside src.
+- Use configured aliases for all `apps/web/src` imports; do not use relative imports inside the application source.
 - Use import type for type-only imports and never introduce explicit any.
 - Define component props with type and domain data contracts with interface where appropriate.
 - Write application components as named arrow functions.

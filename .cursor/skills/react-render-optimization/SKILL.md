@@ -5,6 +5,8 @@ description: Vite React 애플리케이션에서 상태 구독, effect, 목록, 
 
 # React Render Optimization for Vite
 
+이 스킬의 애플리케이션 범위는 workspace의 `apps/web`입니다.
+
 ## React Compiler 우선
 
 이 프로젝트는 React Compiler를 사용합니다. 단순 props 전달이나 JSX 계산을 이유로 `memo`, `useMemo`, `useCallback`을 무조건 추가하지 않습니다. 다음 경우에만 수동 최적화를 고려합니다.

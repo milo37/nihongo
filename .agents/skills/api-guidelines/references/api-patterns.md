@@ -1,5 +1,7 @@
 # API and server-state patterns
 
+All `src/` paths below are relative to the `apps/web` package.
+
 ## Required flow
 
 ```text

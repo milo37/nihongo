@@ -5,6 +5,12 @@ description: Apply the Nihongo Vite, React Router, TanStack Query, Zustand, acce
 
 # Frontend guidelines
 
+## Workspace scope
+
+The active Vite application root is `apps/web`. Treat every `src/`,
+`public/`, and Vite configuration path below as relative to `apps/web`;
+repository-wide commands still run from the workspace root.
+
 ## Prepare
 
 1. Read the closest `AGENTS.md`, every `.cursor/rules/*.mdc` file, and inspect

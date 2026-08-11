@@ -5,6 +5,9 @@ description: Apply and verify the Nihongo project's ESLint, Prettier, TypeScript
 
 # Code formatting
 
+The repository root owns ESLint and Prettier configuration. Application source
+is under `apps/web`, while quality commands run from the workspace root.
+
 ## Apply existing configuration first
 
 1. Inspect `package.json`, the lockfile, ESLint configuration, Prettier

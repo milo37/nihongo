@@ -5,6 +5,8 @@ description: Vite와 React Router 기반 React 애플리케이션의 핵심 성�
 
 # React Critical Performance for Vite
 
+이 스킬의 애플리케이션 범위는 workspace의 `apps/web`입니다.
+
 ## 기본 원칙
 
 측정 가능한 병목과 구조적 비용을 먼저 해결합니다. React Compiler가 활성화되어 있으므로 단순한 렌더 최적화를 위해 `memo`, `useMemo`, `useCallback`을 습관적으로 추가하지 않습니다.
