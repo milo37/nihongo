@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@api/*": ["src/api/*"],
+      "@app/*": ["src/app/*"],
+      "@mocks/*": ["src/mocks/*"],
+      "@provider/*": ["src/provider/*"],
+      "@types/*": ["src/types/*"],
+      "@tanstack/react-query": [
+        "../../../../../../apps/web/node_modules/@tanstack/react-query"
+      ],
+      "axios": ["../../../../../../apps/web/node_modules/axios"],
+      "zod": ["../../../../../../apps/web/node_modules/zod"]
+    },
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

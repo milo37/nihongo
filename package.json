@@ -10,12 +10,15 @@
     "dev": "pnpm --filter @nihongo/web run dev",
     "build": "pnpm --filter @nihongo/web run build",
     "preview": "pnpm --filter @nihongo/web run preview",
+    "check:architecture": "node scripts/architecture/cli.mjs",
     "typecheck": "pnpm --filter @nihongo/web run typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm --filter @nihongo/web run test",
+    "test:architecture": "node --test scripts/architecture/checker.test.mjs",
+    "test:web": "pnpm --filter @nihongo/web run test",
+    "test": "pnpm run test:architecture && pnpm run test:web",
     "test:watch": "pnpm --filter @nihongo/web run test:watch"
   },
   "devDependencies": {

@@ -40,6 +40,9 @@ jobs:
       - name: ESLint
         run: pnpm run lint
 
+      - name: Architecture check
+        run: pnpm run check:architecture
+
       - name: TypeScript check
         run: pnpm run typecheck
 
