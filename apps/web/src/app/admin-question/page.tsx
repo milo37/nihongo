@@ -418,8 +418,20 @@ export const AdminQuestionPage = (): ReactElement => {
 
       {questionList.data && questionList.data.items.length > 0 ? (
         <>
-          <div className="mt-8 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm">
-            <table className="min-w-[76rem] w-full border-collapse text-left text-sm">
+          <p
+            className="mt-8 text-sm text-muted lg:sr-only"
+            id="admin-question-table-help"
+          >
+            표를 좌우로 스크롤하면 모든 열과 관리 버튼을 확인할 수 있습니다.
+          </p>
+          <div
+            className="mt-2 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            role="region"
+            aria-label="관리자 문제 목록"
+            aria-describedby="admin-question-table-help"
+            tabIndex={0}
+          >
+            <table className="w-full min-w-[76rem] border-collapse text-left text-sm">
               <caption className="sr-only">
                 JLPT 관리자 문제 목록. 수정 및 삭제 작업을 포함합니다.
               </caption>

@@ -13,15 +13,18 @@ export const useSubmitStudySession = (sessionId: string) => {
     ...studyMutations.submitSession(sessionId),
     onSuccess: (result) => {
       queryClient.setQueryData(studyQueries.result(sessionId).queryKey, result)
-      void queryClient.invalidateQueries({
-        queryKey: studyQueries.session(sessionId).queryKey
-      })
-      void queryClient.invalidateQueries({
-        queryKey: wrongNoteQueries.allKey()
-      })
-      void queryClient.invalidateQueries({
-        queryKey: dashboardQueries.allKey()
-      })
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: studyQueries.session(sessionId).queryKey,
+          refetchType: 'none'
+        }),
+        queryClient.invalidateQueries({
+          queryKey: wrongNoteQueries.allKey()
+        }),
+        queryClient.invalidateQueries({
+          queryKey: dashboardQueries.allKey()
+        })
+      ])
     }
   })
 }

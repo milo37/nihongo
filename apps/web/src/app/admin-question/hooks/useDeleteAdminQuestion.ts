@@ -16,7 +16,7 @@ export const useDeleteAdminQuestion = () => {
       queryClient.removeQueries({
         queryKey: adminQuestionQueries.detail(questionId).queryKey
       })
-      void Promise.all([
+      return Promise.all([
         queryClient.invalidateQueries({
           queryKey: adminQuestionQueries.allKey()
         }),

@@ -10,7 +10,7 @@ export const useDeleteBookmark = () => {
   return useMutation({
     ...bookmarkMutations.delete(),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
+      return queryClient.invalidateQueries({
         queryKey: bookmarkQueries.allKey()
       })
     }

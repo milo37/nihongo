@@ -14,7 +14,7 @@ export const useUpdateWrongNoteMemo = (questionId: string) => {
         wrongNoteQueries.detail(questionId).queryKey,
         data
       )
-      void queryClient.invalidateQueries({
+      return queryClient.invalidateQueries({
         queryKey: wrongNoteQueries.allKey()
       })
     }

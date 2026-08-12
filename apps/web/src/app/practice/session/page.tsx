@@ -87,7 +87,7 @@ export const PracticeSessionPage = (): ReactElement => {
 
   useEffect(() => {
     headingRef.current?.focus()
-  }, [safeQuestionIndex])
+  }, [currentQuestion?.id])
 
   const movePrevious = (): void => {
     setCurrentQuestionIndex(Math.max(0, safeQuestionIndex - 1))
@@ -121,6 +121,7 @@ export const PracticeSessionPage = (): ReactElement => {
   if (sessionQuery.isError || !sessionQuery.data) {
     return (
       <ErrorState
+        autoFocus
         headingLevel={1}
         title="학습 세션을 불러오지 못했습니다"
         description="세션 주소를 확인하거나 새 학습을 시작해 주세요."
@@ -138,6 +139,7 @@ export const PracticeSessionPage = (): ReactElement => {
   if (!currentQuestion) {
     return (
       <ErrorState
+        autoFocus
         headingLevel={1}
         title="출제할 문제가 없습니다"
         description="다른 급수, 과목 또는 출제 모드를 선택해 주세요."

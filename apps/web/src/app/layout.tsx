@@ -1,6 +1,7 @@
-import { Suspense } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router'
 import type { ReactElement } from 'react'
+import { LoadingState } from '@common/components/LoadingState'
 import { useDemoAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
@@ -12,11 +13,133 @@ const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   ].join(' ')
 }
 
+const getRouteLabel = (pathname: string): string => {
+  if (pathname === '/') return '홈'
+  if (pathname === '/login') return '데모 로그인'
+  if (pathname === '/dashboard') return '학습 대시보드'
+  if (pathname === '/practice') return '문제풀이 설정'
+  if (pathname.startsWith('/practice/session/')) return '문제풀이'
+  if (pathname.startsWith('/practice/result/')) return '학습 결과'
+  if (pathname === '/wrong-notes') return '오답노트'
+  if (pathname.startsWith('/wrong-notes/')) return '오답 상세'
+  if (pathname === '/bookmarks') return '즐겨찾기'
+  if (pathname === '/admin/questions/new') return '문제 등록'
+  if (pathname.startsWith('/admin/questions/')) return '문제 수정'
+  if (pathname === '/admin/questions') return '문제 관리'
+  if (pathname === '/forbidden') return '접근 권한 없음'
+  return '페이지'
+}
+
+const hasPageOwnedFocus = (pathname: string): boolean => {
+  return (
+    pathname.startsWith('/practice/session/') ||
+    pathname.startsWith('/practice/result/')
+  )
+}
+
+const focusHashTarget = (hash: string): boolean => {
+  if (!hash) {
+    return false
+  }
+
+  let targetId = hash.slice(1)
+  try {
+    targetId = decodeURIComponent(targetId)
+  } catch {
+    // 잘못 인코딩된 hash는 원문으로 탐색합니다.
+  }
+
+  const target = document.getElementById(targetId)
+  if (!target) {
+    return false
+  }
+
+  if (!target.hasAttribute('tabindex')) {
+    target.tabIndex = -1
+  }
+  target.focus({ preventScroll: true })
+  target.scrollIntoView({ block: 'start' })
+  return true
+}
+
 export const Layout = (): ReactElement => {
-  const { role, user } = useDemoAuth()
+  const { isReady, role, user } = useDemoAuth()
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const mainRef = useRef<HTMLElement>(null)
+  const previousPathnameRef = useRef(location.pathname)
+  const previousHashRef = useRef('')
+  const [routeAnnouncement, setRouteAnnouncement] = useState('')
   const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen)
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
+
+  useEffect(() => {
+    const pathnameChanged = previousPathnameRef.current !== location.pathname
+    const hashChanged = previousHashRef.current !== location.hash
+
+    previousPathnameRef.current = location.pathname
+    previousHashRef.current = location.hash
+
+    if (!pathnameChanged && !hashChanged) {
+      return
+    }
+
+    if (pathnameChanged) {
+      setRouteAnnouncement('')
+    }
+
+    let hashObserver: MutationObserver | undefined
+
+    const focusMainForPushNavigation = (shouldScroll = true): void => {
+      if (
+        pathnameChanged &&
+        navigationType === 'PUSH' &&
+        !hasPageOwnedFocus(location.pathname)
+      ) {
+        mainRef.current?.focus({ preventScroll: true })
+        if (shouldScroll) {
+          window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+        }
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      if (pathnameChanged) {
+        setRouteAnnouncement(
+          `${getRouteLabel(location.pathname)} 화면으로 이동했습니다.`
+        )
+      }
+
+      if (!location.hash) {
+        focusMainForPushNavigation()
+        return
+      }
+
+      if (focusHashTarget(location.hash)) {
+        return
+      }
+
+      const observerRoot = mainRef.current
+      if (!observerRoot) {
+        focusMainForPushNavigation()
+        return
+      }
+
+      hashObserver = new MutationObserver(() => {
+        if (focusHashTarget(location.hash)) {
+          hashObserver?.disconnect()
+        }
+      })
+      hashObserver.observe(observerRoot, { childList: true, subtree: true })
+      focusMainForPushNavigation(false)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timer)
+      hashObserver?.disconnect()
+    }
+  }, [location.hash, location.pathname, navigationType])
 
   const closeMenu = (): void => {
     setMobileMenuOpen(false)
@@ -124,18 +247,31 @@ export const Layout = (): ReactElement => {
         </div>
       </header>
 
-      <main id="main-content">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {routeAnnouncement}
+      </p>
+
+      <main
+        ref={mainRef}
+        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand"
+        id="main-content"
+        tabIndex={-1}
+      >
         <Suspense
           fallback={
             <div
               className="mx-auto max-w-7xl px-4 py-16 text-center text-muted"
               role="status"
             >
-              페이지를 불러오는 중입니다.
+              페이지를 불러오는 중입니다…
             </div>
           }
         >
-          <Outlet />
+          {isReady ? (
+            <Outlet />
+          ) : (
+            <LoadingState message="로그인 상태를 확인하고 있습니다…" />
+          )}
         </Suspense>
       </main>
 

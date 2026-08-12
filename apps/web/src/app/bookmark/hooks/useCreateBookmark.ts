@@ -10,7 +10,7 @@ export const useCreateBookmark = () => {
   return useMutation({
     ...bookmarkMutations.create(),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
+      return queryClient.invalidateQueries({
         queryKey: bookmarkQueries.allKey()
       })
     }

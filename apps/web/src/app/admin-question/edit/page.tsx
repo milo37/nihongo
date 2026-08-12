@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import type { ReactElement } from 'react'
+import { isNotFoundApiError } from '@util/apiError'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
 import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import { useGetAdminQuestion } from '@app/admin-question/hooks/useGetAdminQuestion'
@@ -14,6 +16,19 @@ export const EditAdminQuestionPage = (): ReactElement => {
   const question = useGetAdminQuestion(questionId)
   const updateQuestion = useUpdateAdminQuestion()
   const { addToast } = useToast()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const shouldRestoreRetryFocusRef = useRef(false)
+
+  useEffect(() => {
+    if (
+      question.isSuccess &&
+      question.data &&
+      shouldRestoreRetryFocusRef.current
+    ) {
+      shouldRestoreRetryFocusRef.current = false
+      headingRef.current?.focus()
+    }
+  }, [question.data, question.isSuccess])
 
   const handleUpdateQuestion = async (
     input: UpdateAdminQuestionRequest
@@ -38,7 +53,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
     return <LoadingState message="문제 정보를 불러오고 있습니다…" />
   }
 
-  if (question.isError || !question.data) {
+  if (question.isError && isNotFoundApiError(question.error)) {
     return (
       <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
         <ErrorState
@@ -53,6 +68,22 @@ export const EditAdminQuestionPage = (): ReactElement => {
               문제 목록으로 이동
             </Link>
           }
+        />
+      </section>
+    )
+  }
+
+  if (question.isError || !question.data) {
+    return (
+      <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+        <ErrorState
+          headingLevel={1}
+          title="문제 정보를 불러오지 못했습니다"
+          description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+          onRetry={() => {
+            shouldRestoreRetryFocusRef.current = true
+            void question.refetch()
+          }}
         />
       </section>
     )
@@ -81,7 +112,11 @@ export const EditAdminQuestionPage = (): ReactElement => {
         <p className="text-sm font-bold tracking-[0.14em] text-brand">
           EDIT QUESTION
         </p>
-        <h1 className="mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl">
+        <h1
+          ref={headingRef}
+          className="mt-2 rounded-sm text-balance text-3xl font-black tracking-tight sm:text-4xl"
+          tabIndex={-1}
+        >
           문제 수정
         </h1>
         <p className="mt-4 max-w-3xl text-pretty leading-7 text-muted">

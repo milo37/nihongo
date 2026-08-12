@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router'
+import type { RouteObject } from 'react-router'
 import { adminQuestionRoutes } from '@app/admin-question/router'
 import { bookmarkRoutes } from '@app/bookmark/router'
 import { dashboardRoutes } from '@app/dashboard/router'
@@ -16,7 +17,7 @@ import {
   RequireRole
 } from '@provider/ProtectedRouteProvider'
 
-export const router = createBrowserRouter([
+export const appRoutes: RouteObject[] = [
   {
     path: '/',
     element: (
@@ -48,4 +49,6 @@ export const router = createBrowserRouter([
       }
     ]
   }
-])
+]
+
+export const router = createBrowserRouter(appRoutes)

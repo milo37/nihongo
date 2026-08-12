@@ -17,7 +17,7 @@ export const useUpdateAdminQuestion = () => {
         adminQuestionQueries.detail(data.id).queryKey,
         data
       )
-      void Promise.all([
+      return Promise.all([
         queryClient.invalidateQueries({
           queryKey: adminQuestionQueries.allKey()
         }),

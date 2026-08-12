@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useNavigationType, useParams } from 'react-router'
 import type { ReactElement } from 'react'
+import { isNotFoundApiError } from '@util/apiError'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { ErrorState } from '@common/components/ErrorState'
@@ -26,31 +27,66 @@ const formatDuration = (seconds: number): string => {
 export const PracticeResultPage = (): ReactElement => {
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
+  const navigationType = useNavigationType()
   const summaryHeadingRef = useRef<HTMLHeadingElement>(null)
+  const shouldRestoreRetryFocusRef = useRef(false)
   const { role } = useDemoAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const resultQuery = useGetStudyResult(sessionId)
   const sessionQuery = useGetStudySession(sessionId)
   const createSession = useCreateStudySession()
 
+  const isResultReady = Boolean(resultQuery.data && sessionQuery.data)
+
   useEffect(() => {
-    if (resultQuery.data) {
+    if (
+      isResultReady &&
+      resultQuery.isSuccess &&
+      sessionQuery.isSuccess &&
+      (navigationType !== 'POP' || shouldRestoreRetryFocusRef.current)
+    ) {
+      shouldRestoreRetryFocusRef.current = false
       summaryHeadingRef.current?.focus()
     }
-  }, [resultQuery.data])
+  }, [
+    isResultReady,
+    navigationType,
+    resultQuery.isSuccess,
+    sessionQuery.isSuccess
+  ])
 
   if (resultQuery.isPending || sessionQuery.isPending) {
     return <LoadingState message="채점 결과를 불러오고 있습니다." />
   }
 
-  if (
-    resultQuery.isError ||
-    sessionQuery.isError ||
-    !resultQuery.data ||
-    !sessionQuery.data
-  ) {
+  const hasRetryableError =
+    (resultQuery.isError && !isNotFoundApiError(resultQuery.error)) ||
+    (sessionQuery.isError && !isNotFoundApiError(sessionQuery.error)) ||
+    (!resultQuery.isError && !resultQuery.data) ||
+    (!sessionQuery.isError && !sessionQuery.data)
+  const hasNotFoundError =
+    (resultQuery.isError && isNotFoundApiError(resultQuery.error)) ||
+    (sessionQuery.isError && isNotFoundApiError(sessionQuery.error))
+
+  if (hasRetryableError) {
     return (
       <ErrorState
+        autoFocus={navigationType !== 'POP'}
+        headingLevel={1}
+        title="학습 결과를 불러오지 못했습니다"
+        description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+        onRetry={() => {
+          shouldRestoreRetryFocusRef.current = true
+          void Promise.all([resultQuery.refetch(), sessionQuery.refetch()])
+        }}
+      />
+    )
+  }
+
+  if (hasNotFoundError || !resultQuery.data || !sessionQuery.data) {
+    return (
+      <ErrorState
+        autoFocus={navigationType !== 'POP'}
         headingLevel={1}
         title="학습 결과를 찾을 수 없습니다"
         description="아직 제출하지 않은 세션이거나 만료된 학습 기록입니다."

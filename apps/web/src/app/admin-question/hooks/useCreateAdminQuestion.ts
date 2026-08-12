@@ -10,7 +10,7 @@ export const useCreateAdminQuestion = () => {
   return useMutation({
     ...adminQuestionMutations.create(),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
+      return queryClient.invalidateQueries({
         queryKey: adminQuestionQueries.allKey()
       })
     }

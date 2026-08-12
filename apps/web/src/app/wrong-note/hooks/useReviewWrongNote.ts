@@ -11,12 +11,14 @@ export const useReviewWrongNote = (questionId: string) => {
   return useMutation({
     ...wrongNoteMutations.review(questionId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: wrongNoteQueries.allKey()
-      })
-      void queryClient.invalidateQueries({
-        queryKey: dashboardQueries.allKey()
-      })
+      return Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: wrongNoteQueries.allKey()
+        }),
+        queryClient.invalidateQueries({
+          queryKey: dashboardQueries.allKey()
+        })
+      ])
     }
   })
 }
