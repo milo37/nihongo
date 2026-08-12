@@ -2,11 +2,14 @@ import { createContext, useContext } from 'react'
 import { Navigate, Outlet, useLocation, type Location } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import type { User, UserRole } from '@common/types/domain'
+import { LoadingState } from '@common/components/LoadingState'
+import { useAuthSynchronization } from '@app/login/hooks/useAuthSynchronization'
 import { useAppStore } from '@store/index'
 
 interface AuthContextValue {
   user: User | null
   role: UserRole
+  isReady: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -26,11 +29,17 @@ const getRedirectPath = (location: Location): string => {
 export const ProtectedRouteProvider = ({
   children
 }: ProtectedRouteProviderProps): ReactElement => {
-  const user = useAppStore((state) => state.currentUser)
+  const projectedUser = useAppStore((state) => state.currentUser)
+  const { canonicalUser, isReady } = useAuthSynchronization()
+  const user = isReady
+    ? canonicalUser !== undefined
+      ? canonicalUser
+      : projectedUser
+    : null
   const role: UserRole = user?.role ?? 'GUEST'
 
   return (
-    <AuthContext.Provider value={{ user, role }}>
+    <AuthContext.Provider value={{ user, role, isReady }}>
       {children}
     </AuthContext.Provider>
   )
@@ -49,8 +58,12 @@ export const useDemoAuth = (): AuthContextValue => {
 export const RequireRole = ({
   allowedRoles
 }: RequireRoleProps): ReactElement => {
-  const { role } = useDemoAuth()
+  const { isReady, role } = useDemoAuth()
   const location = useLocation()
+
+  if (!isReady) {
+    return <LoadingState message="로그인 상태를 확인하고 있습니다…" />
+  }
 
   if (allowedRoles.includes(role)) {
     return <Outlet />

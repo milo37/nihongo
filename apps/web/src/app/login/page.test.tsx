@@ -85,7 +85,12 @@ describe('LoginPage role transition', () => {
     )
 
     expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
+    expect(
+      queryClient.getQueryData(['wrong-note', 'list-wrong-notes'])
+    ).toBeUndefined()
+    expect(
+      queryClient.getQueryData(['auth', 'get-current-user'])
+    ).toMatchObject({ role: 'ADMIN' })
     expect(useAppStore.getState().currentUser?.role).toBe('ADMIN')
     expect(mockDatabase.getCurrentUser()?.role).toBe('ADMIN')
   })

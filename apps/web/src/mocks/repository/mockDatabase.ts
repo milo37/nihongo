@@ -20,7 +20,11 @@ import {
   type WrongNote,
   type WrongNoteStatus
 } from '@common/types/domain'
-import { cachedStorage } from '@libs/storage'
+import {
+  cachedStorage,
+  MOCK_DATABASE_STORAGE_KEY,
+  subscribeStorageChanges
+} from '@libs/storage'
 import { mockSeedData } from '@mocks/data'
 import { toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@util/question'
@@ -32,7 +36,6 @@ import {
   updateWrongNoteAfterIncorrectAnswer
 } from '@util/wrongNote'
 
-const STORAGE_KEY = 'jlpt-drill-note:mock-database:v2'
 const RECENT_SESSION_LIMIT = 5
 const REPEATED_WRONG_LIMIT = 5
 const MIN_WEAKNESS_ATTEMPTS = 3
@@ -44,6 +47,7 @@ export type MockDatabaseErrorCode =
   | 'FORBIDDEN'
   | 'INVALID_INPUT'
   | 'NOT_FOUND'
+  | 'PERSISTENCE_FAILED'
   | 'SESSION_SUBMITTED'
 
 export class MockDatabaseError extends Error {
@@ -226,7 +230,7 @@ interface PersistedMockState {
 
 export interface MockStorage {
   getItem: (key: string) => string | null
-  setItem: (key: string, value: string) => void
+  setItem: (key: string, value: string) => boolean | void
   removeItem: (key: string) => void
 }
 
@@ -242,8 +246,8 @@ const defaultStorage: MockStorage = {
     const value = cachedStorage.getItem(key)
     return typeof value === 'string' ? value : null
   },
-  setItem: (key, value): void => {
-    void cachedStorage.setItem(key, value)
+  setItem: (key, value): boolean => {
+    return cachedStorage.setItem(key, value)
   },
   removeItem: (key): void => {
     void cachedStorage.removeItem(key)
@@ -322,6 +326,7 @@ export class MockDatabase {
   private readonly now: () => string
   private readonly randomSeed: ShuffleSeed
   private readonly storage: MockStorage
+  private unsubscribeStorage: (() => void) | undefined
   private readonly userById = new Map<string, User>()
   private questionById = new Map<string, QuestionRecord>()
   private sessionById = new Map<string, StudySession>()
@@ -343,7 +348,7 @@ export class MockDatabase {
     }
 
     this.resetMemoryToSeed()
-    this.hydrateFromStorage(this.storage.getItem(STORAGE_KEY))
+    this.hydrateFromStorage(this.storage.getItem(MOCK_DATABASE_STORAGE_KEY))
 
     if (options.listenToStorage !== false) {
       this.listenForExternalStorageChanges()
@@ -989,7 +994,7 @@ export class MockDatabase {
   }
 
   reset(): void {
-    this.storage.removeItem(STORAGE_KEY)
+    this.storage.removeItem(MOCK_DATABASE_STORAGE_KEY)
     this.currentUserId = null
     this.resetMemoryToSeed()
   }
@@ -1453,7 +1458,26 @@ export class MockDatabase {
       wrongNotes: [...this.wrongNoteByQuestionId.values()],
       bookmarks: [...this.bookmarkByQuestionId.values()]
     }
-    this.storage.setItem(STORAGE_KEY, JSON.stringify(state))
+    const previousState = this.storage.getItem(MOCK_DATABASE_STORAGE_KEY)
+
+    try {
+      const didPersist = this.storage.setItem(
+        MOCK_DATABASE_STORAGE_KEY,
+        JSON.stringify(state)
+      )
+      if (didPersist === false) {
+        throw new Error('Mock storage rejected the write.')
+      }
+    } catch {
+      this.resetMemoryToSeed()
+      this.currentUserId = null
+      this.hydrateFromStorage(previousState)
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '데모 데이터를 브라우저 저장소에 저장하지 못했습니다.'
+      )
+    }
   }
 
   private hydrateFromStorage(serialized: string | null): void {
@@ -1499,19 +1523,32 @@ export class MockDatabase {
     }
   }
 
-  private listenForExternalStorageChanges(): void {
-    if (typeof window === 'undefined') {
-      return
-    }
+  dispose(): void {
+    this.unsubscribeStorage?.()
+    this.unsubscribeStorage = undefined
+  }
 
-    window.addEventListener('storage', (event) => {
-      if (event.key === STORAGE_KEY) {
-        this.resetMemoryToSeed()
-        this.currentUserId = null
-        this.hydrateFromStorage(event.newValue)
+  private listenForExternalStorageChanges(): void {
+    this.unsubscribeStorage = subscribeStorageChanges((event) => {
+      if (event.key !== MOCK_DATABASE_STORAGE_KEY && event.key !== null) {
+        return
       }
+
+      this.resetMemoryToSeed()
+      this.currentUserId = null
+      const serialized =
+        event.key === MOCK_DATABASE_STORAGE_KEY
+          ? event.newValue
+          : this.storage.getItem(MOCK_DATABASE_STORAGE_KEY)
+      this.hydrateFromStorage(serialized)
     })
   }
 }
 
 export const mockDatabase = new MockDatabase()
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    mockDatabase.dispose()
+  })
+}

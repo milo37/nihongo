@@ -104,11 +104,13 @@ describe('MockDatabase', () => {
       listenToStorage: false
     })
 
+    expect(readCount).toBe(1)
     database.loginAs('ADMIN')
+    expect(readCount).toBe(2)
     database.listQuestions({ level: 'N3', subject: 'GRAMMAR' })
     database.listQuestions({ level: 'N2', subject: 'READING' })
 
-    expect(readCount).toBe(1)
+    expect(readCount).toBe(2)
     expect(values.size).toBe(1)
 
     const restored = new MockDatabase({
@@ -117,6 +119,49 @@ describe('MockDatabase', () => {
       listenToStorage: false
     })
     expect(restored.getCurrentUser()?.role).toBe('ADMIN')
+  })
+
+  it('저장 실패 시 login/logout을 성공 처리하지 않고 이전 identity로 롤백한다', () => {
+    const values = new Map<string, string>()
+    let shouldFail = true
+    const storage: MockStorage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        if (shouldFail) {
+          return false
+        }
+        values.set(key, value)
+        return true
+      },
+      removeItem: (key) => {
+        values.delete(key)
+      }
+    }
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+
+    expect(() => database.loginAs('USER')).toThrowError(
+      expect.objectContaining({
+        code: 'PERSISTENCE_FAILED',
+        status: 500
+      })
+    )
+    expect(database.getCurrentUser()).toBeNull()
+
+    shouldFail = false
+    expect(database.loginAs('USER').role).toBe('USER')
+    shouldFail = true
+
+    expect(() => database.logout()).toThrowError(
+      expect.objectContaining({
+        code: 'PERSISTENCE_FAILED',
+        status: 500
+      })
+    )
+    expect(database.getCurrentUser()?.role).toBe('USER')
   })
 
   it('현재 사용자와 소유자가 다른 학습 세션 접근을 차단한다', () => {

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { commitCanonicalAuth } from '@app/login/authSession'
 import { authMutations } from '@app/login/queries/authMutations'
 
 export const useLoginDemoUser = () => {
@@ -6,8 +7,11 @@ export const useLoginDemoUser = () => {
 
   return useMutation({
     ...authMutations.loginDemoUser(),
-    onSuccess: () => {
-      queryClient.removeQueries()
+    onSuccess: (user) => {
+      return commitCanonicalAuth(queryClient, user, {
+        forceClear: true,
+        forcePracticeReset: true
+      })
     }
   })
 }

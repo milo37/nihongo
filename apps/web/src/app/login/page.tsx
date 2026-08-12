@@ -5,7 +5,6 @@ import { useLoginDemoAdmin } from '@app/login/hooks/useLoginDemoAdmin'
 import { useLoginDemoUser } from '@app/login/hooks/useLoginDemoUser'
 import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
 import { useDemoAuth } from '@provider/ProtectedRouteProvider'
-import { useAppStore } from '@store/index'
 
 const getSafeRedirect = (redirect: string | null): string => {
   if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
@@ -30,39 +29,25 @@ export const LoginPage = (): ReactElement => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, role } = useDemoAuth()
-  const setCurrentUser = useAppStore((state) => state.setCurrentUser)
-  const continueAsGuest = useAppStore((state) => state.continueAsGuest)
-  const resetPractice = useAppStore((state) => state.resetPractice)
   const loginUser = useLoginDemoUser()
   const loginAdmin = useLoginDemoAdmin()
   const logout = useLogoutUser()
   const redirect = getSafeRedirect(searchParams.get('redirect'))
 
-  const completeLogin = (
-    nextUser: Parameters<typeof setCurrentUser>[0]
-  ): void => {
-    resetPractice()
-    setCurrentUser(nextUser)
+  const completeLogin = (): void => {
     void navigate(redirect, { replace: true })
   }
 
   const handleGuest = (): void => {
     logout.mutate(undefined, {
       onSuccess: () => {
-        resetPractice()
-        continueAsGuest()
         void navigate(getGuestRedirect(redirect), { replace: true })
       }
     })
   }
 
   const handleLogout = (): void => {
-    logout.mutate(undefined, {
-      onSuccess: () => {
-        resetPractice()
-        setCurrentUser(null)
-      }
-    })
+    logout.mutate()
   }
 
   return (
