@@ -9,7 +9,7 @@ import { LoadingState } from '@common/components/LoadingState'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
 const subjectLabels = {
@@ -30,7 +30,7 @@ export const PracticeResultPage = (): ReactElement => {
   const navigationType = useNavigationType()
   const summaryHeadingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
-  const { role } = useDemoAuth()
+  const { role } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const resultQuery = useGetStudyResult(sessionId)
   const sessionQuery = useGetStudySession(sessionId)

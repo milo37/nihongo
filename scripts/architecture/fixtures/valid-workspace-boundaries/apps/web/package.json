@@ -1,0 +1,6 @@
+{
+  "name": "@nihongo/web",
+  "dependencies": {
+    "@nihongo/contracts": "workspace:*"
+  }
+}

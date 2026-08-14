@@ -45,7 +45,7 @@ export const del = async <Response = unknown>(
     params
   })
 
-  return response.data
+  return response.status === 204 ? (undefined as Response) : response.data
 }
 
 const safeGetFactory = safeFactory(

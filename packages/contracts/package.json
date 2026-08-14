@@ -1,0 +1,73 @@
+{
+  "name": "@nihongo/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./auth/delete-guest-principal": {
+      "types": "./dist/auth/delete-guest-principal.d.ts",
+      "import": "./dist/auth/delete-guest-principal.js"
+    },
+    "./auth/get-current-principal": {
+      "types": "./dist/auth/get-current-principal.d.ts",
+      "import": "./dist/auth/get-current-principal.js"
+    },
+    "./common/date": {
+      "types": "./dist/common/date.d.ts",
+      "import": "./dist/common/date.js"
+    },
+    "./common/enum": {
+      "types": "./dist/common/enum.d.ts",
+      "import": "./dist/common/enum.js"
+    },
+    "./common/error": {
+      "types": "./dist/common/error.d.ts",
+      "import": "./dist/common/error.js"
+    },
+    "./common/id": {
+      "types": "./dist/common/id.d.ts",
+      "import": "./dist/common/id.js"
+    },
+    "./common/pagination": {
+      "types": "./dist/common/pagination.d.ts",
+      "import": "./dist/common/pagination.js"
+    },
+    "./question/get-question": {
+      "types": "./dist/question/get-question.d.ts",
+      "import": "./dist/question/get-question.js"
+    },
+    "./question/list-questions": {
+      "types": "./dist/question/list-questions.d.ts",
+      "import": "./dist/question/list-questions.js"
+    },
+    "./study/create-study-session": {
+      "types": "./dist/study/create-study-session.d.ts",
+      "import": "./dist/study/create-study-session.js"
+    },
+    "./study/get-study-session": {
+      "types": "./dist/study/get-study-session.d.ts",
+      "import": "./dist/study/get-study-session.js"
+    },
+    "./study/study-session": {
+      "types": "./dist/study/study-session.d.ts",
+      "import": "./dist/study/study-session.js"
+    },
+    "./testing/question-read-conformance": {
+      "types": "./dist/testing/question-read-conformance.d.ts",
+      "import": "./dist/testing/question-read-conformance.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vitest": "4.1.10"
+  }
+}

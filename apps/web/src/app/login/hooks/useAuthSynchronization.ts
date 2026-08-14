@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { User } from '@common/types/domain'
+import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 import {
   commitCanonicalAuth,
   hasSameAuthIdentity,
@@ -16,8 +16,10 @@ import {
 } from '@libs/storage'
 
 interface AuthSynchronizationResult {
-  canonicalUser: User | null | undefined
+  canonicalUser: AuthenticatedUser | null | undefined
+  hasError: boolean
   isReady: boolean
+  retry: () => void
 }
 
 export const useAuthSynchronization = (): AuthSynchronizationResult => {
@@ -155,8 +157,13 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
     canonicalUser: currentUserQuery.isSuccess
       ? currentUserQuery.data
       : undefined,
+    hasError: !isExternalSynchronizing && currentUserQuery.isError,
     isReady:
       !isExternalSynchronizing &&
-      (hasReconciledIdentity || currentUserQuery.isError)
+      currentUserQuery.isSuccess &&
+      hasReconciledIdentity,
+    retry: () => {
+      void currentUserQuery.refetch()
+    }
   }
 }

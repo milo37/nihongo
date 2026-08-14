@@ -118,8 +118,12 @@ describe('storage adapters', () => {
 
     expect(tabAState.state?.sessionId).toBe('session-a')
     expect(tabBState.state?.sessionId).toBe('session-b')
-    expect(tabAState.state?.currentUser?.id).toBe('demo-user')
-    expect(tabBState.state?.currentUser?.id).toBe('demo-user')
+    expect(tabAState.state?.currentUser?.id).toBe(
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'
+    )
+    expect(tabBState.state?.currentUser?.id).toBe(
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'
+    )
   })
 
   it('v1 persist에서는 auth만 이전하고 tab 귀속이 없는 practice를 폐기한다', async () => {
@@ -144,7 +148,9 @@ describe('storage adapters', () => {
 
     await useAppStore.persist.rehydrate()
 
-    expect(useAppStore.getState().currentUser?.id).toBe('demo-user')
+    expect(useAppStore.getState().currentUser?.id).toBe(
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'
+    )
     expect(useAppStore.getState().sessionId).toBeNull()
     expect(useAppStore.getState().selectedAnswers).toEqual({})
   })

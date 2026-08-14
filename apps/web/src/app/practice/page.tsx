@@ -8,7 +8,7 @@ import type {
 } from '@common/types/domain'
 import { Button } from '@common/components/Button'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
 const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
@@ -90,7 +90,7 @@ const getInitialMode = (
 export const PracticePage = (): ReactElement => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { role } = useDemoAuth()
+  const { role } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const [level, setLevel] = useState<JlptLevel>(() =>
     getInitialLevel(searchParams.get('level'))

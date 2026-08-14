@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useBlocker } from 'react-router'
 import { z } from 'zod'
+import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
 import type { FieldErrors } from 'react-hook-form'
 import type { ReactElement } from 'react'
 import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
@@ -118,6 +119,19 @@ export const questionFormSchema = z
         message: '동일한 보기를 중복해서 입력할 수 없습니다.'
       })
     }
+
+    const normalizedTags = value.tagsText
+      .split(TAG_SEPARATOR_REGEX)
+      .map(normalizeQuestionTagText)
+      .filter((tag) => tag.length > 0)
+
+    if (new Set(normalizedTags).size !== normalizedTags.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['tagsText'],
+        message: '정규화했을 때 같은 태그를 중복해서 입력할 수 없습니다.'
+      })
+    }
   })
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>
@@ -138,12 +152,13 @@ const parseTags = (value: string): string[] => {
 
   for (const rawTag of value.split(TAG_SEPARATOR_REGEX)) {
     const tag = rawTag.trim()
+    const normalizedTag = normalizeQuestionTagText(tag)
 
-    if (tag.length === 0 || seenTags.has(tag)) {
+    if (tag.length === 0 || seenTags.has(normalizedTag)) {
       continue
     }
 
-    seenTags.add(tag)
+    seenTags.add(normalizedTag)
     tags.push(tag)
   }
 

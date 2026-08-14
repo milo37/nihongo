@@ -2,6 +2,7 @@ import axios from 'axios'
 import { z, type ZodType } from 'zod'
 
 export interface ApiErrorFlags {
+  code?: string
   isAuthError?: boolean
   isForbiddenError?: boolean
   isNotFoundError?: boolean
@@ -9,13 +10,16 @@ export interface ApiErrorFlags {
   isNetworkError?: boolean
   isOffline?: boolean
   isValidationError?: boolean
+  retryAfterMs?: number
   status?: number
 }
 
 export type AppApiError = Error & ApiErrorFlags
 
 const API_TIMEOUT_MS = 10_000
+const MAX_RETRY_AFTER_MS = 5 * 60_000
 const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
+  'code',
   'isAuthError',
   'isForbiddenError',
   'isNotFoundError',
@@ -23,6 +27,7 @@ const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
   'isNetworkError',
   'isOffline',
   'isValidationError',
+  'retryAfterMs',
   'status'
 ])
 
@@ -31,8 +36,55 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: API_TIMEOUT_MS
+  timeout: API_TIMEOUT_MS,
+  withCredentials: true
 })
+
+export const parseRetryAfterMs = (
+  value: unknown,
+  now = Date.now()
+): number | undefined => {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (typeof candidate !== 'string' && typeof candidate !== 'number') {
+    return undefined
+  }
+
+  const normalized = String(candidate).trim()
+  if (/^\d+$/u.test(normalized)) {
+    return Math.min(Number(normalized) * 1_000, MAX_RETRY_AFTER_MS)
+  }
+
+  const retryAt = Date.parse(normalized)
+  if (Number.isNaN(retryAt)) {
+    return undefined
+  }
+
+  return Math.min(Math.max(0, retryAt - now), MAX_RETRY_AFTER_MS)
+}
+
+const getRetryAfterHeader = (headers: unknown): unknown => {
+  if (!headers || typeof headers !== 'object') {
+    return undefined
+  }
+
+  if ('get' in headers && typeof headers.get === 'function') {
+    return headers.get('retry-after')
+  }
+
+  if ('retry-after' in headers) {
+    return headers['retry-after']
+  }
+
+  return undefined
+}
+
+const getApiErrorCode = (data: unknown): string | undefined => {
+  if (!data || typeof data !== 'object' || !('code' in data)) {
+    return undefined
+  }
+
+  return typeof data.code === 'string' ? data.code : undefined
+}
 
 export const isApiError = (error: unknown): error is AppApiError => {
   if (!(error instanceof Error)) {
@@ -90,9 +142,14 @@ apiClient.interceptors.response.use(
 
     if (axios.isAxiosError(error)) {
       const status = error.response?.status
+      const retryAfterMs = parseRetryAfterMs(
+        getRetryAfterHeader(error.response?.headers)
+      )
+      const code = getApiErrorCode(error.response?.data)
 
       return Promise.reject(
         withErrorFlags(error, {
+          ...(code === undefined ? {} : { code }),
           isAuthError: status === 401,
           isForbiddenError: status === 403,
           isNotFoundError: status === 404,
@@ -100,6 +157,7 @@ apiClient.interceptors.response.use(
           isNetworkError: error.response === undefined,
           isOffline: false,
           isValidationError: status === 422,
+          ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
           status
         })
       )

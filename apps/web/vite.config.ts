@@ -19,6 +19,14 @@ const aliases = {
 export default defineConfig({
   plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
   resolve: { alias: aliases },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: false
+      }
+    }
+  },
   preview: { port: 4173 }
 })

@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router'
 import type { ReactElement } from 'react'
 import { LoadingState } from '@common/components/LoadingState'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
@@ -15,7 +15,9 @@ const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
 
 const getRouteLabel = (pathname: string): string => {
   if (pathname === '/') return '홈'
-  if (pathname === '/login') return '데모 로그인'
+  if (pathname === '/login') return '로그인'
+  if (pathname === '/reset-password') return '비밀번호 재설정'
+  if (pathname === '/verify-email') return '이메일 인증'
   if (pathname === '/dashboard') return '학습 대시보드'
   if (pathname === '/practice') return '문제풀이 설정'
   if (pathname.startsWith('/practice/session/')) return '문제풀이'
@@ -63,7 +65,7 @@ const focusHashTarget = (hash: string): boolean => {
 }
 
 export const Layout = (): ReactElement => {
-  const { isReady, role, user } = useDemoAuth()
+  const { isReady, role, user } = useAuth()
   const location = useLocation()
   const navigationType = useNavigationType()
   const mainRef = useRef<HTMLElement>(null)
@@ -240,7 +242,7 @@ export const Layout = (): ReactElement => {
                 to="/login"
                 onClick={closeMenu}
               >
-                {user ? user.name : '데모 로그인'}
+                {user ? user.name : '로그인'}
               </NavLink>
             </div>
           </nav>

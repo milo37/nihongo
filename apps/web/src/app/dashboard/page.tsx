@@ -6,7 +6,7 @@ import { EmptyState } from '@common/components/EmptyState'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -35,7 +35,7 @@ const formatDailyDate = (value: string): string => {
 }
 
 export const DashboardPage = (): ReactElement => {
-  const { user } = useDemoAuth()
+  const { user } = useAuth()
   const dashboardQuery = useGetDashboardStats()
 
   if (dashboardQuery.isPending) {

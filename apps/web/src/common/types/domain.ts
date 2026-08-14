@@ -49,7 +49,7 @@ export type QuestionOptionLabel = (typeof OPTION_LABELS)[number]
 export interface User {
   id: string
   name: string
-  role: UserRole
+  role: Exclude<UserRole, 'GUEST'>
   targetLevel: JlptLevel
   createdAt: string
   updatedAt: string

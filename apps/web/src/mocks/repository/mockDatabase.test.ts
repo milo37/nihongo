@@ -34,6 +34,42 @@ const getCorrectOptionId = (questionId: string): string => {
 }
 
 describe('MockDatabase', () => {
+  it('관리자 문제의 정규화된 중복 태그를 거부한다', () => {
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    database.loginAs('ADMIN')
+
+    expect(() =>
+      database.createQuestion({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        questionType: 'KANJI_READING',
+        passage: null,
+        questionText: '「山」の 読み方を 選んでください。',
+        options: [
+          { label: '1', text: 'やま' },
+          { label: '2', text: 'かわ' },
+          { label: '3', text: 'うみ' },
+          { label: '4', text: 'そら' }
+        ],
+        correctOptionId: '1',
+        explanationKo: '「山」은 「やま」라고 읽습니다.',
+        explanationJa: null,
+        difficulty: 'EASY',
+        tags: ['INFO', 'info'],
+        status: 'PUBLISHED'
+      })
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'INVALID_INPUT',
+        status: 422
+      })
+    )
+  })
+
   it('제출 결과로 오답 상태를 누적하고 두 번 연속 정답이면 해결한다', () => {
     const database = new MockDatabase({
       now: () => FIXED_NOW,

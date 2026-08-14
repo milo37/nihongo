@@ -51,7 +51,7 @@ describe('application router boundaries', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '학습 역할을 선택하세요'
+        name: '학습 계정으로 시작하세요'
       })
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')

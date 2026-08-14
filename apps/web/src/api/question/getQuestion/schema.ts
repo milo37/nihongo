@@ -1,13 +1,15 @@
-import { practiceQuestionSchema } from '@api/schema'
-import { z } from 'zod'
+import {
+  getQuestionParamsSchema,
+  getQuestionResponseSchema as canonicalGetQuestionResponseSchema
+} from '@nihongo/contracts/question/get-question'
+import type {
+  GetQuestionParams,
+  GetQuestionResponse as CanonicalGetQuestionResponse
+} from '@nihongo/contracts/question/get-question'
 
-export const getQuestionRequestSchema = z
-  .object({
-    questionId: z.string().min(1)
-  })
-  .strict()
+export const getQuestionRequestSchema = getQuestionParamsSchema
 
-export const getQuestionResponseSchema = practiceQuestionSchema
+export const getQuestionResponseSchema = canonicalGetQuestionResponseSchema
 
-export type GetQuestionRequest = z.infer<typeof getQuestionRequestSchema>
-export type GetQuestionResponse = z.infer<typeof getQuestionResponseSchema>
+export type GetQuestionRequest = GetQuestionParams
+export type GetQuestionResponse = CanonicalGetQuestionResponse

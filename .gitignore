@@ -3,8 +3,15 @@ dist
 coverage
 .env
 .env.local
+.env.*
+!.env.example
+!.env.test.example
 .DS_Store
 *.tsbuildinfo
+**/src/generated/
 playwright-report
 test-results
+apps/api/.migration-ledger-*
+*.backup
+*.dump
 docs/

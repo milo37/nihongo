@@ -4,22 +4,40 @@
   "private": true,
   "packageManager": "pnpm@10.2.1",
   "engines": {
-    "node": ">=22.12.0"
+    "node": "22.23.0"
+  },
+  "volta": {
+    "node": "22.23.0",
+    "pnpm": "10.2.1"
   },
   "scripts": {
-    "dev": "pnpm --filter @nihongo/web run dev",
-    "build": "pnpm --filter @nihongo/web run build",
+    "dev": "pnpm run build:contracts && pnpm --parallel --filter @nihongo/web --filter @nihongo/api run dev",
+    "dev:web": "pnpm run build:contracts && pnpm --filter @nihongo/web run dev",
+    "dev:api": "pnpm run build:contracts && pnpm --filter @nihongo/api run dev",
+    "build:contracts": "pnpm --filter @nihongo/contracts run build",
+    "build": "pnpm -r --if-present run build",
     "preview": "pnpm --filter @nihongo/web run preview",
     "check:architecture": "node scripts/architecture/cli.mjs",
-    "typecheck": "pnpm --filter @nihongo/web run typecheck",
+    "typecheck": "pnpm run build:contracts && pnpm -r --if-present run typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:architecture": "node --test scripts/architecture/checker.test.mjs",
+    "test:architecture": "node --test scripts/architecture/*.test.mjs",
+    "test:contracts": "pnpm --filter @nihongo/contracts run test",
+    "test:api": "pnpm --filter @nihongo/api run test",
+    "test:integration": "pnpm run build:contracts && pnpm run db:seed:test && pnpm --filter @nihongo/api run test:integration",
+    "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
+    "study:cleanup-expired-guests": "pnpm --filter @nihongo/api run study:cleanup-expired-guests",
     "test:web": "pnpm --filter @nihongo/web run test",
-    "test": "pnpm run test:architecture && pnpm run test:web",
-    "test:watch": "pnpm --filter @nihongo/web run test:watch"
+    "test": "pnpm run build:contracts && pnpm run test:architecture && pnpm run test:contracts && pnpm run test:api && pnpm run test:web",
+    "test:watch": "pnpm -r --parallel --if-present run test:watch",
+    "db:generate": "pnpm --filter @nihongo/api run db:generate",
+    "db:migrate:dev": "pnpm --filter @nihongo/api run db:migrate:dev",
+    "db:migrate:dev:deploy": "pnpm --filter @nihongo/api run db:migrate:dev:deploy",
+    "db:migrate:test": "pnpm --filter @nihongo/api run db:migrate:test",
+    "db:seed:dev": "pnpm --filter @nihongo/api run db:seed:dev",
+    "db:seed:test": "pnpm --filter @nihongo/api run db:seed:test"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -37,7 +55,10 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "msw"
+      "msw",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
     ]
   },
   "msw": {

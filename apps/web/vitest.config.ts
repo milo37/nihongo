@@ -8,6 +8,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       globals: true,
+      maxWorkers: 4,
       setupFiles: ['./src/test/setup.ts'],
       css: true,
       restoreMocks: true

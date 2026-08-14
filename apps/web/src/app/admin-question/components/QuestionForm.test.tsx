@@ -138,6 +138,17 @@ describe('questionFormSchema', () => {
 
     expect(messages).toContain('독해 문제는 지문을 입력해 주세요.')
   })
+
+  it('정규화했을 때 같은 태그를 거부한다', () => {
+    const messages = getIssueMessages({
+      ...validFormValues,
+      tagsText: 'INFO, info'
+    })
+
+    expect(messages).toContain(
+      '정규화했을 때 같은 태그를 중복해서 입력할 수 없습니다.'
+    )
+  })
 })
 
 describe('QuestionForm', () => {

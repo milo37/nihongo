@@ -1,6 +1,6 @@
 import type { StateStorage } from 'zustand/middleware'
-import type { User } from '@common/types/domain'
-import { LEVELS, USER_ROLES } from '@common/types/domain'
+import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
+import { LEVELS } from '@common/types/domain'
 
 export const APP_STORE_KEY = 'jlpt-drill-note-store'
 export const PRACTICE_STORE_KEY = 'jlpt-drill-note-practice:v2'
@@ -23,7 +23,7 @@ const localStorageCache = new Map<string, string | null>()
 const sessionStorageCache = new Map<string, string | null>()
 const storageChangeListeners = new Set<StorageChangeListener>()
 const levelSet: ReadonlySet<string> = new Set(LEVELS)
-const roleSet: ReadonlySet<string> = new Set(USER_ROLES)
+const roleSet: ReadonlySet<string> = new Set(['USER', 'ADMIN'])
 let isListening = false
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -50,7 +50,7 @@ const parseEnvelope = (serialized: string | null): PersistedEnvelope | null => {
   }
 }
 
-const isPersistedUser = (value: unknown): value is User => {
+const isPersistedUser = (value: unknown): value is AuthenticatedUser => {
   if (!isRecord(value)) {
     return false
   }
@@ -60,14 +60,15 @@ const isPersistedUser = (value: unknown): value is User => {
     typeof value.name === 'string' &&
     typeof value.role === 'string' &&
     roleSet.has(value.role) &&
-    typeof value.targetLevel === 'string' &&
-    levelSet.has(value.targetLevel) &&
-    typeof value.createdAt === 'string' &&
-    typeof value.updatedAt === 'string'
+    (value.targetLevel === null ||
+      (typeof value.targetLevel === 'string' &&
+        levelSet.has(value.targetLevel)))
   )
 }
 
-const isValidPersistedAuth = (value: unknown): value is User | null => {
+const isValidPersistedAuth = (
+  value: unknown
+): value is AuthenticatedUser | null => {
   return value === null || isPersistedUser(value)
 }
 

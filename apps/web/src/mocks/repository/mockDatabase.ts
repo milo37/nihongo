@@ -20,12 +20,14 @@ import {
   type WrongNote,
   type WrongNoteStatus
 } from '@common/types/domain'
+import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
 import {
   cachedStorage,
   MOCK_DATABASE_STORAGE_KEY,
   subscribeStorageChanges
 } from '@libs/storage'
 import { mockSeedData } from '@mocks/data'
+import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import { toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@util/question'
 import { seededShuffle, type ShuffleSeed } from '@util/shuffle'
@@ -67,6 +69,7 @@ export interface QuestionListFilters {
   subject?: QuestionSubject
   questionType?: QuestionType
   difficulty?: QuestionDifficulty
+  tag?: string
   search?: string
   page?: number
   pageSize?: number
@@ -80,6 +83,7 @@ export interface QuestionListResult {
 }
 
 export interface CreateStudySessionInput {
+  canonicalGuestPrincipalId?: string
   userId?: string | null
   level: JlptLevel
   subject: QuestionSubject
@@ -95,6 +99,12 @@ export interface StudySessionPayload {
   requestedCount: number
   actualCount: number
   usedFallback: boolean
+}
+
+export interface MockStudySessionSnapshotRecord {
+  session: StudySession
+  requestedCount: number
+  questions: QuestionRecord[]
 }
 
 export interface SubmitStudySessionInput {
@@ -212,12 +222,14 @@ export interface AdminQuestionListResult {
 }
 
 interface SessionMetadata {
+  canonicalGuestPrincipalId?: string
   requestedCount: number
   usedFallback: boolean
 }
 
 interface PersistedMockState {
   version: 2
+  activeCanonicalGuestPrincipalIds?: string[]
   currentUserId: string | null
   questions: QuestionRecord[]
   sessions: StudySession[]
@@ -270,6 +282,11 @@ const isPersistedMockState = (value: unknown): value is PersistedMockState => {
     Array.isArray(value.questions) &&
     Array.isArray(value.sessions) &&
     Array.isArray(value.sessionMetadata) &&
+    (value.activeCanonicalGuestPrincipalIds === undefined ||
+      (Array.isArray(value.activeCanonicalGuestPrincipalIds) &&
+        value.activeCanonicalGuestPrincipalIds.every(
+          (guestPrincipalId) => typeof guestPrincipalId === 'string'
+        ))) &&
     Array.isArray(value.sessionQuestionSnapshots) &&
     Array.isArray(value.results) &&
     Array.isArray(value.wrongNotes) &&
@@ -332,6 +349,7 @@ export class MockDatabase {
   private sessionById = new Map<string, StudySession>()
   private sessionMetadataById = new Map<string, SessionMetadata>()
   private sessionQuestionSnapshotsById = new Map<string, QuestionRecord[]>()
+  private activeCanonicalGuestPrincipalIds = new Set<string>()
   private resultBySessionId = new Map<string, StudyResult>()
   private wrongNoteByQuestionId = new Map<string, WrongNote>()
   private bookmarkByQuestionId = new Map<string, Bookmark>()
@@ -365,7 +383,7 @@ export class MockDatabase {
   }
 
   loginAs(role: Extract<UserRole, 'USER' | 'ADMIN'>): User {
-    const userId = role === 'ADMIN' ? 'demo-admin' : 'demo-user'
+    const userId = role === 'ADMIN' ? DEMO_ADMIN_ID : DEMO_USER_ID
     const user = this.userById.get(userId)
 
     if (!user) {
@@ -382,12 +400,40 @@ export class MockDatabase {
     this.persist()
   }
 
+  isCanonicalGuestPrincipalActive(guestPrincipalId: string): boolean {
+    return this.activeCanonicalGuestPrincipalIds.has(guestPrincipalId)
+  }
+
+  deleteCanonicalGuestPrincipal(guestPrincipalId: string): number {
+    this.activeCanonicalGuestPrincipalIds.delete(guestPrincipalId)
+    let deletedSessionCount = 0
+
+    for (const [sessionId, metadata] of this.sessionMetadataById) {
+      if (metadata.canonicalGuestPrincipalId !== guestPrincipalId) {
+        continue
+      }
+
+      const session = this.sessionById.get(sessionId)
+      if (session?.userId === null && this.sessionById.delete(sessionId)) {
+        deletedSessionCount += 1
+      }
+      this.sessionMetadataById.delete(sessionId)
+      this.sessionQuestionSnapshotsById.delete(sessionId)
+    }
+
+    this.persist()
+    return deletedSessionCount
+  }
+
   listQuestions(filters: QuestionListFilters = {}): QuestionListResult {
     const { page, pageSize } = normalizePagination(
       filters.page,
       filters.pageSize
     )
     const normalizedSearch = filters.search?.trim().toLocaleLowerCase()
+    const normalizedTag = filters.tag
+      ? normalizeQuestionTagText(filters.tag)
+      : undefined
     const matches: QuestionRecord[] = []
 
     for (const question of this.questionById.values()) {
@@ -410,6 +456,14 @@ export class MockDatabase {
         continue
       }
       if (
+        normalizedTag &&
+        !question.tags.some(
+          (tag) => normalizeQuestionTagText(tag) === normalizedTag
+        )
+      ) {
+        continue
+      }
+      if (
         normalizedSearch &&
         !`${question.questionText} ${question.tags.join(' ')}`
           .toLocaleLowerCase()
@@ -421,8 +475,11 @@ export class MockDatabase {
       matches.push(question)
     }
 
+    const sortedMatches = matches.toSorted((left, right) =>
+      left.id.localeCompare(right.id)
+    )
     return {
-      items: paginate(matches, page, pageSize).map(toPracticeQuestion),
+      items: paginate(sortedMatches, page, pageSize).map(toPracticeQuestion),
       total: matches.length,
       page,
       pageSize
@@ -471,7 +528,7 @@ export class MockDatabase {
     }
 
     const selection = this.selectQuestions(input, eligible, userId)
-    const sessionId = this.createId('session')
+    const sessionId = this.createStudySessionId()
     const startedAt = this.now()
     const session: StudySession = {
       id: sessionId,
@@ -488,9 +545,15 @@ export class MockDatabase {
 
     this.sessionById.set(sessionId, session)
     this.sessionMetadataById.set(sessionId, {
+      ...(!userId && input.canonicalGuestPrincipalId
+        ? { canonicalGuestPrincipalId: input.canonicalGuestPrincipalId }
+        : {}),
       requestedCount,
       usedFallback: selection.usedFallback
     })
+    if (!userId && input.canonicalGuestPrincipalId) {
+      this.activeCanonicalGuestPrincipalIds.add(input.canonicalGuestPrincipalId)
+    }
     this.sessionQuestionSnapshotsById.set(sessionId, clone(selection.questions))
     this.persist()
 
@@ -511,6 +574,68 @@ export class MockDatabase {
 
   getStudySessionPayload(sessionId: string): StudySessionPayload {
     return this.buildStudySessionPayload(this.getStudySession(sessionId))
+  }
+
+  getStudySessionSnapshotRecord(
+    sessionId: string
+  ): MockStudySessionSnapshotRecord {
+    const session = this.getStudySession(sessionId)
+    const metadata = this.sessionMetadataById.get(session.id) ?? {
+      requestedCount: session.questionIds.length,
+      usedFallback: false
+    }
+
+    return {
+      session,
+      requestedCount: metadata.requestedCount,
+      questions: this.getSessionQuestionSnapshot(session)
+    }
+  }
+
+  getCanonicalStudySessionSnapshotRecord(
+    sessionId: string,
+    guestPrincipalId: string | null
+  ): MockStudySessionSnapshotRecord {
+    const session = this.sessionById.get(sessionId)
+
+    if (!session) {
+      throw new MockDatabaseError('NOT_FOUND', 404, '학습 세션이 없습니다.')
+    }
+
+    const metadata = this.sessionMetadataById.get(session.id)
+    if (this.currentUserId !== null) {
+      this.assertCurrentSessionOwner(session)
+    } else if (!guestPrincipalId) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '학습 세션을 조회하려면 guest proof가 필요합니다.'
+      )
+    } else if (session.userId !== null) {
+      throw new MockDatabaseError(
+        'FORBIDDEN',
+        403,
+        'guest는 사용자 소유 학습 세션에 접근할 수 없습니다.'
+      )
+    } else if (!metadata?.canonicalGuestPrincipalId) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        'canonical guest owner가 없는 학습 세션입니다.'
+      )
+    } else if (metadata.canonicalGuestPrincipalId !== guestPrincipalId) {
+      throw new MockDatabaseError(
+        'FORBIDDEN',
+        403,
+        '다른 guest의 학습 세션에는 접근할 수 없습니다.'
+      )
+    }
+
+    return {
+      session: clone(session),
+      requestedCount: metadata?.requestedCount ?? session.questionIds.length,
+      questions: this.getSessionQuestionSnapshot(session)
+    }
   }
 
   getPracticeQuestionsForSession(sessionId: string): PracticeQuestion[] {
@@ -1006,6 +1131,7 @@ export class MockDatabase {
     this.sessionById.clear()
     this.sessionMetadataById.clear()
     this.sessionQuestionSnapshotsById.clear()
+    this.activeCanonicalGuestPrincipalIds.clear()
     this.resultBySessionId.clear()
     this.wrongNoteByQuestionId.clear()
     this.bookmarkByQuestionId.clear()
@@ -1361,6 +1487,15 @@ export class MockDatabase {
       )
     }
 
+    const normalizedTags = input.tags.map(normalizeQuestionTagText)
+    if (new Set(normalizedTags).size !== normalizedTags.length) {
+      throw new MockDatabaseError(
+        'INVALID_INPUT',
+        422,
+        '정규화했을 때 같은 태그를 중복할 수 없습니다.'
+      )
+    }
+
     const options = input.options.map((option) => {
       const id = option.id ?? `${questionId}-option-${option.label}`
       return {
@@ -1441,6 +1576,11 @@ export class MockDatabase {
     )
   }
 
+  private createStudySessionId(): string {
+    this.sequence += 1
+    return crypto.randomUUID()
+  }
+
   private createId(prefix: string): string {
     this.sequence += 1
     return `${prefix}-${Date.parse(this.now())}-${this.sequence}`
@@ -1449,6 +1589,9 @@ export class MockDatabase {
   private persist(): void {
     const state: PersistedMockState = {
       version: 2,
+      activeCanonicalGuestPrincipalIds: [
+        ...this.activeCanonicalGuestPrincipalIds
+      ].toSorted(),
       currentUserId: this.currentUserId,
       questions: [...this.questionById.values()],
       sessions: [...this.sessionById.values()],
@@ -1499,6 +1642,14 @@ export class MockDatabase {
         parsed.sessions.map((session) => [session.id, session])
       )
       this.sessionMetadataById = new Map(parsed.sessionMetadata)
+      this.activeCanonicalGuestPrincipalIds = new Set(
+        parsed.activeCanonicalGuestPrincipalIds ??
+          parsed.sessionMetadata.flatMap(([, metadata]) =>
+            metadata.canonicalGuestPrincipalId
+              ? [metadata.canonicalGuestPrincipalId]
+              : []
+          )
+      )
       this.sessionQuestionSnapshotsById = new Map(
         parsed.sessionQuestionSnapshots
       )

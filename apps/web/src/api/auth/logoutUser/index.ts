@@ -5,4 +5,4 @@ import { safePost } from '@api/http'
 const requestLogout = safePost(logoutUserResponseSchema)
 
 export const logoutUser = (): Promise<LogoutUserResponse> =>
-  requestLogout('/auth/logout', {})
+  requestLogout('/auth/sign-out', {})

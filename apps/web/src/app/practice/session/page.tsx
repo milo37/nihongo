@@ -15,7 +15,7 @@ import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
 const subjectLabels = {
@@ -40,7 +40,7 @@ const formatDuration = (seconds: number): string => {
 export const PracticeSessionPage = (): ReactElement => {
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
-  const { role } = useDemoAuth()
+  const { role } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [isSubmitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)

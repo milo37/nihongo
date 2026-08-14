@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { loginDemoUser } from '@api/auth/loginDemoUser'
+import { signInUser } from '@api/auth/signInUser'
 import { listWrongNote } from '@api/wrong-note/listWrongNote'
 import { createStudySession } from '@api/study/createStudySession'
 import { submitStudySession } from '@api/study/submitStudySession'
@@ -66,7 +66,10 @@ describe('LoginPage role transition', () => {
       durationSec: 10
     })
 
-    await loginDemoUser()
+    await signInUser({
+      email: 'user@example.com',
+      password: 'Demo-user-2026!'
+    })
     const wrongNotes = await listWrongNote()
     expect(wrongNotes.total).toBe(0)
   })
@@ -76,13 +79,13 @@ describe('LoginPage role transition', () => {
     const demoUser = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(demoUser)
     queryClient.setQueryData(['wrong-note', 'list-wrong-notes'], {
-      owner: 'demo-user'
+      owner: demoUser.id
     })
     renderLoginPage()
 
-    await user.click(
-      screen.getByRole('button', { name: '데모 관리자로 로그인' })
-    )
+    await user.type(screen.getByLabelText('이메일'), 'admin@example.com')
+    await user.type(screen.getByLabelText('비밀번호'), 'Demo-admin-2026!')
+    await user.keyboard('{Enter}')
 
     expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
     expect(
@@ -102,6 +105,18 @@ describe('LoginPage role transition', () => {
     await user.click(screen.getByRole('button', { name: '게스트로 계속' }))
 
     expect(await screen.findByText('홈 도착')).toBeInTheDocument()
+  })
+
+  it('Mock mode에서는 미구현 auth 기능을 성공처럼 노출하지 않는다', () => {
+    renderLoginPage()
+
+    expect(
+      screen.getByText(/회원가입·이메일 인증·비밀번호 재설정은/u)
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '회원가입' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
+    ).toBeDisabled()
   })
 
   it('게스트가 다른 사용자의 세션 URL 대신 학습 설정으로 이동한다', async () => {

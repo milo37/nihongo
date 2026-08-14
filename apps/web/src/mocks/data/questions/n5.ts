@@ -127,8 +127,9 @@ export const n5Questions = [
     id: 'n5-grammar-05',
     level: 'N5',
     subject: 'GRAMMAR',
-    questionType: 'SENTENCE_ORDER',
-    questionText: '「저는 일본어를 조금 할 수 있습니다」와 같은 뜻인 문장은?',
+    questionType: 'GRAMMAR_SELECT',
+    questionText:
+      '「日本語を 少し 話すことが できます。」と 同じ 意味の 文は どれですか。',
     options: [
       '日本語は わたしを 少し します。',
       'わたしは 日本語が 少し できます。',

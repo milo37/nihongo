@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { delay, http, HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { WrongNoteDetailContent } from '@app/wrong-note/detail/page'
 import { originalQuestions } from '@mocks/data/questions'
@@ -168,10 +168,14 @@ describe('wrong-note memo workflow', () => {
       { initialEntries: ['/wrong-notes/' + question.id] }
     )
     let requestCount = 0
+    let releaseRequest = (): void => undefined
+    const requestPending = new Promise<void>((resolve) => {
+      releaseRequest = resolve
+    })
     mockServer.use(
       http.put(`*/api/wrong-note/${question.id}/memo`, async () => {
         requestCount += 1
-        await delay(50)
+        await requestPending
         return HttpResponse.json(
           { message: 'temporary memo error' },
           { status: 500 }
@@ -195,9 +199,10 @@ describe('wrong-note memo workflow', () => {
     expect(screen.getByText('메모를 저장하고 있습니다…')).toBeInTheDocument()
     expect(textarea).toBeDisabled()
     expect(saveButton).toBeDisabled()
-    await user.click(saveButton)
-
     await waitFor(() => expect(requestCount).toBe(1))
+    await user.click(saveButton)
+    expect(requestCount).toBe(1)
+    releaseRequest()
     await waitFor(() => expect(saveButton).toBeEnabled())
     expect(textarea).toHaveValue('실패해도 남아야 하는 메모')
     expect(

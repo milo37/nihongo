@@ -12,9 +12,10 @@ import {
 } from '@libs/storage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@store/index'
-import { mockServer } from '@/test/server'
+import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 
-const resetTestState = (): void => {
+const resetTestState = async (): Promise<void> => {
+  await clearMockGuestPrincipalCookie()
   queryClient.clear()
   mockDatabase.reset()
   useAppStore.setState({
@@ -36,14 +37,14 @@ beforeAll(() => {
   mockServer.listen({ onUnhandledRequest: 'error' })
 })
 
-beforeEach(() => {
-  resetTestState()
+beforeEach(async () => {
+  await resetTestState()
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
   mockServer.resetHandlers()
-  resetTestState()
+  await resetTestState()
 })
 
 afterAll(() => {

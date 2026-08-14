@@ -1,0 +1,320 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum QuestionLifecycleStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum QuestionVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+enum JlptLevel {
+  N5
+  N4
+  N3
+  N2
+  N1
+}
+
+enum QuestionSubject {
+  VOCABULARY
+  GRAMMAR
+  READING
+}
+
+enum QuestionType {
+  KANJI_READING
+  ORTHOGRAPHY
+  CONTEXT_VOCABULARY
+  PARAPHRASE
+  WORD_USAGE
+  GRAMMAR_SELECT
+  SENTENCE_ORDER
+  TEXT_GRAMMAR
+  SHORT_READING
+  MEDIUM_READING
+  LONG_READING
+  INFO_RETRIEVAL
+}
+
+enum QuestionDifficulty {
+  EASY
+  NORMAL
+  HARD
+}
+
+enum QuestionSourceType {
+  ORIGINAL
+}
+
+enum CreatorLabelSnapshot {
+  ACTIVE_ADMIN
+  DELETED_ADMIN
+  SYSTEM_SEED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserAccountStatus {
+  ACTIVE
+  DELETION_PENDING
+  DELETED
+}
+
+enum StudyMode {
+  RANDOM
+  WRONG_NOTE
+  WEAKNESS
+  BOOKMARK
+  DAILY_REVIEW
+}
+
+enum StudySessionStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+  CANCELLED
+}
+
+enum StudySessionFallbackReason {
+  INSUFFICIENT_ELIGIBLE_QUESTIONS
+  INSUFFICIENT_MODE_CANDIDATES
+}
+
+model User {
+  id                      String            @id @default(uuid()) @db.Uuid
+  name                    String            @db.VarChar(80)
+  email                   String            @unique
+  emailVerified           Boolean           @default(false)
+  image                   String?
+  role                    UserRole          @default(USER)
+  targetLevel             JlptLevel?
+  accountStatus           UserAccountStatus @default(ACTIVE)
+  deletedAt               DateTime?         @db.Timestamptz(3)
+  createdAt               DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime          @updatedAt @db.Timestamptz(3)
+  sessions                Session[]
+  accounts                Account[]
+  createdQuestions        Question[]        @relation("QuestionCreator")
+  createdQuestionVersions QuestionVersion[] @relation("QuestionVersionCreator")
+  studySessions           StudySession[]
+
+  @@index([role, accountStatus])
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  expiresAt DateTime @db.Timestamptz(3)
+  token     String   @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                    String    @id @default(uuid()) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier, expiresAt])
+  @@index([expiresAt])
+}
+
+model RateLimit {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
+model GuestPrincipal {
+  id          String   @id @default(uuid()) @db.Uuid
+  tokenDigest String   @unique @db.VarChar(64)
+  expiresAt   DateTime @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  lastSeenAt  DateTime @default(now()) @db.Timestamptz(3)
+  studySessions StudySession[]
+
+  @@index([expiresAt])
+}
+
+model StudySession {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  userId             String?                     @db.Uuid
+  guestPrincipalId   String?                     @db.Uuid
+  level              JlptLevel
+  subject            QuestionSubject
+  mode               StudyMode
+  status             StudySessionStatus          @default(IN_PROGRESS)
+  requestedCount     Int
+  actualCount        Int
+  usedFallback       Boolean                     @default(false)
+  fallbackReason     StudySessionFallbackReason?
+  startedAt          DateTime                    @default(now()) @db.Timestamptz(3)
+  expiresAt          DateTime                    @db.Timestamptz(3)
+  submittedAt        DateTime?                   @db.Timestamptz(3)
+  cancelledAt        DateTime?                   @db.Timestamptz(3)
+  durationSec        Int?
+  submissionHash     String?                     @db.VarChar(64)
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                    @updatedAt @db.Timestamptz(3)
+  user               User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestPrincipal     GuestPrincipal?             @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade)
+  questions          StudySessionQuestion[]
+
+  @@index([userId, status, startedAt(sort: Desc)])
+  @@index([guestPrincipalId, status, expiresAt])
+  @@index([status, expiresAt])
+}
+
+model StudySessionQuestion {
+  id                String          @id @default(uuid()) @db.Uuid
+  studySessionId    String          @db.Uuid
+  questionId        String          @db.Uuid
+  questionVersionId String          @db.Uuid
+  ordinal           Int
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  studySession      StudySession    @relation(fields: [studySessionId], references: [id], onDelete: Cascade)
+  question          Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  questionVersion   QuestionVersion @relation(fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict)
+
+  @@unique([studySessionId, ordinal])
+  @@unique([studySessionId, questionId])
+  @@unique([studySessionId, questionVersionId])
+  @@unique([id, questionVersionId])
+  @@index([questionId, questionVersionId])
+}
+
+model Question {
+  id                          String                  @id @default(uuid()) @db.Uuid
+  lifecycleStatus             QuestionLifecycleStatus @default(ACTIVE)
+  currentPublishedVersionId   String?                 @unique @db.Uuid
+  createdByUserId             String?                 @db.Uuid
+  createdByLabelSnapshot      CreatorLabelSnapshot
+  createdAt                   DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime                @updatedAt @db.Timestamptz(3)
+  archivedAt                  DateTime?               @db.Timestamptz(3)
+  versions                    QuestionVersion[]       @relation("QuestionVersions")
+  createdBy                   User?                   @relation("QuestionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  currentPublishedVersion     QuestionVersion?        @relation("CurrentPublishedVersion", fields: [id, currentPublishedVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
+  studySessionQuestions       StudySessionQuestion[]
+
+  @@unique([id, currentPublishedVersionId])
+  @@index([lifecycleStatus, currentPublishedVersionId])
+  @@index([createdByUserId])
+}
+
+model QuestionVersion {
+  id                          String                 @id @default(uuid()) @db.Uuid
+  questionId                  String                 @db.Uuid
+  versionNumber               Int
+  status                      QuestionVersionStatus @default(DRAFT)
+  level                       JlptLevel
+  subject                     QuestionSubject
+  questionType                QuestionType
+  passage                     String?
+  questionText                String
+  correctOptionId             String?                @db.Uuid
+  explanationKo               String
+  explanationJa               String?
+  difficulty                  QuestionDifficulty
+  sourceType                  QuestionSourceType     @default(ORIGINAL)
+  rowVersion                  Int                    @default(1)
+  createdByUserId             String?                @db.Uuid
+  createdByLabelSnapshot      CreatorLabelSnapshot
+  createdAt                   DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime               @updatedAt @db.Timestamptz(3)
+  publishedAt                 DateTime?              @db.Timestamptz(3)
+  retiredAt                   DateTime?              @db.Timestamptz(3)
+  question                    Question               @relation("QuestionVersions", fields: [questionId], references: [id], onDelete: Cascade)
+  createdBy                   User?                  @relation("QuestionVersionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  currentForQuestion          Question?              @relation("CurrentPublishedVersion")
+  correctOption               QuestionOption?        @relation("CorrectQuestionOption", fields: [id, correctOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: Cascade)
+  options                     QuestionOption[]       @relation("VersionOptions")
+  tags                        QuestionVersionTag[]
+  studySessionQuestions       StudySessionQuestion[]
+
+  @@unique([questionId, versionNumber])
+  @@unique([questionId, id])
+  @@unique([id, correctOptionId])
+  @@index([status, level, subject, questionType, difficulty])
+  @@index([questionId, status, versionNumber(sort: Desc)])
+  @@index([createdByUserId])
+}
+
+model QuestionOption {
+  id                 String           @id @default(uuid()) @db.Uuid
+  questionVersionId  String           @db.Uuid
+  label              String
+  text               String
+  ordinal            Int
+  questionVersion    QuestionVersion  @relation("VersionOptions", fields: [questionVersionId], references: [id], onDelete: Cascade)
+  correctForVersion  QuestionVersion? @relation("CorrectQuestionOption")
+
+  @@unique([questionVersionId, id])
+  @@unique([questionVersionId, label])
+  @@unique([questionVersionId, ordinal])
+}
+
+model Tag {
+  id             String               @id @default(uuid()) @db.Uuid
+  label          String
+  normalizedName String               @unique
+  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
+  versions       QuestionVersionTag[]
+}
+
+model QuestionVersionTag {
+  id                String          @id @default(uuid()) @db.Uuid
+  questionVersionId String          @db.Uuid
+  tagId             String          @db.Uuid
+  labelSnapshot     String
+  questionVersion   QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Cascade)
+  tag               Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@unique([questionVersionId, tagId])
+  @@index([tagId])
+}

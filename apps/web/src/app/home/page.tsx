@@ -4,7 +4,7 @@ import type { ReactElement } from 'react'
 import type { JlptLevel, QuestionSubject } from '@common/types/domain'
 import { Button } from '@common/components/Button'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
 const levelOptions: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
@@ -53,7 +53,7 @@ const featureItems = [
 
 export const HomePage = (): ReactElement => {
   const navigate = useNavigate()
-  const { role } = useDemoAuth()
+  const { role } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const [level, setLevel] = useState<JlptLevel>('N3')
   const [subject, setSubject] = useState<QuestionSubject>('GRAMMAR')
@@ -104,7 +104,7 @@ export const HomePage = (): ReactElement => {
                 className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-white px-6 font-bold text-slate-800 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 to={role === 'GUEST' ? '/login' : '/dashboard'}
               >
-                {role === 'GUEST' ? '데모 계정 선택' : '내 학습 대시보드'}
+                {role === 'GUEST' ? '계정 로그인' : '내 학습 대시보드'}
               </Link>
             </div>
           </div>

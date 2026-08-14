@@ -1,19 +1,37 @@
 import { mutationOptions } from '@tanstack/react-query'
-import { loginDemoAdmin } from '@api/auth/loginDemoAdmin'
-import { loginDemoUser } from '@api/auth/loginDemoUser'
 import { logoutUser } from '@api/auth/logoutUser'
+import { requestPasswordReset } from '@api/auth/requestPasswordReset'
+import { resetPassword } from '@api/auth/resetPassword'
+import { signInUser } from '@api/auth/signInUser'
+import { signUpUser } from '@api/auth/signUpUser'
+import { verifyEmail } from '@api/auth/verifyEmail'
 import { authQueries } from '@app/login/queries/authQueries'
 
 export const authMutations = {
-  loginDemoUser: () =>
+  signIn: () =>
     mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'login-demo-user'] as const,
-      mutationFn: loginDemoUser
+      mutationKey: [...authQueries.allKey(), 'sign-in-user'] as const,
+      mutationFn: signInUser
     }),
-  loginDemoAdmin: () =>
+  signUp: () =>
     mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'login-demo-admin'] as const,
-      mutationFn: loginDemoAdmin
+      mutationKey: [...authQueries.allKey(), 'sign-up-user'] as const,
+      mutationFn: signUpUser
+    }),
+  requestPasswordReset: () =>
+    mutationOptions({
+      mutationKey: [...authQueries.allKey(), 'request-password-reset'] as const,
+      mutationFn: requestPasswordReset
+    }),
+  resetPassword: () =>
+    mutationOptions({
+      mutationKey: [...authQueries.allKey(), 'reset-password'] as const,
+      mutationFn: resetPassword
+    }),
+  verifyEmail: () =>
+    mutationOptions({
+      mutationKey: [...authQueries.allKey(), 'verify-email'] as const,
+      mutationFn: verifyEmail
     }),
   logout: () =>
     mutationOptions({
