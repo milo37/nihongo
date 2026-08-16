@@ -315,6 +315,7 @@ describe('StudySession migration invariants', () => {
           new Date('2026-08-15T00:00:00.000Z')
         ]
       )
+      await client.query('SET CONSTRAINTS ALL IMMEDIATE')
       await client.query(
         'ALTER TABLE "StudySession" ENABLE TRIGGER "StudySession_validate_selection_complete"'
       )

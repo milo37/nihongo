@@ -26,6 +26,8 @@ import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
+import type { StudySubmissionService } from '../study/studySubmissionService.js'
+import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 
 interface CreateApiAppDependencies {
   checkReadiness: () => Promise<void>
@@ -40,6 +42,7 @@ interface CreateApiAppDependencies {
   study?: {
     rateLimiter: ApplicationRateLimiter
     service: StudySessionService
+    submissionService?: StudySubmissionService
   }
   enableTestRoutes?: boolean
 }
@@ -48,6 +51,9 @@ const retryAfterSecondsByCode = {
   RATE_LIMITED: 30,
   SERVICE_UNAVAILABLE: 5
 } as const
+
+const studyResultLocationPattern =
+  /^\/api\/v1\/study-sessions\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/result$/u
 
 const toFailure = (error: unknown, requestId: string): ApiFailure => {
   if (error instanceof ApplicationError) {
@@ -136,7 +142,12 @@ export const createApiApp = ({
           allowHeaders: ['Content-Type', 'Idempotency-Key'],
           allowMethods: ['DELETE', 'GET', 'OPTIONS', 'POST'],
           credentials: true,
-          exposeHeaders: ['Retry-After', 'X-Request-Id'],
+          exposeHeaders: [
+            'Idempotency-Replayed',
+            'Location',
+            'Retry-After',
+            'X-Request-Id'
+          ],
           maxAge: 600
         })
       )
@@ -161,6 +172,18 @@ export const createApiApp = ({
           studySessionService: study.service
         })
       )
+      if (study.submissionService) {
+        app.route(
+          '/api/v1/study-sessions',
+          createStudySubmissionRoutes({
+            environment: auth.environment,
+            guestPrincipalService: auth.guestPrincipalService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter,
+            studySubmissionService: study.submissionService
+          })
+        )
+      }
     }
   }
 
@@ -230,6 +253,15 @@ export const createApiApp = ({
             : retryAfterSecondsByCode[failure.code]
         )
       )
+    }
+
+    if (
+      failure.code === 'SESSION_ALREADY_SUBMITTED' &&
+      error instanceof ApplicationError &&
+      error.location &&
+      studyResultLocationPattern.test(error.location)
+    ) {
+      context.header('Location', error.location)
     }
 
     return context.json(failure, status)

@@ -33,6 +33,7 @@ const createdUserIds = new Set<string>()
 
 interface PinnedQuestion {
   id: string
+  correctOptionId: string
   questionVersionId: string
 }
 
@@ -124,13 +125,66 @@ const createSession = async ({
 
     const terminalAt = new Date(startedAt.getTime() + HOUR_MS)
     if (status === 'SUBMITTED') {
+      const idempotencyRecordId = randomUUID()
+      const submissionHash = 'a'.repeat(64)
+      await transaction.studyAnswer.create({
+        data: {
+          id: randomUUID(),
+          studySessionQuestionId: childId,
+          questionVersionId: question.questionVersionId,
+          selectedOptionId: question.correctOptionId,
+          isCorrect: true,
+          elapsedSec: 60,
+          gradingVersion: 'server-grading-v1',
+          answeredAt: terminalAt,
+          gradedAt: terminalAt
+        }
+      })
+      await transaction.studyResult.create({
+        data: {
+          id: randomUUID(),
+          studySessionId: session.id,
+          totalCount: 1,
+          correctCount: 1,
+          incorrectCount: 0,
+          correctRateBasisPoints: 10_000,
+          durationSec: 60,
+          gradingVersion: 'server-grading-v1',
+          createdAt: terminalAt
+        }
+      })
+      await transaction.idempotencyRecord.create({
+        data: {
+          id: idempotencyRecordId,
+          principalType: owner.kind,
+          ...(owner.kind === 'USER'
+            ? { userId: owner.id }
+            : { guestPrincipalId: owner.id }),
+          operation: 'STUDY_SUBMIT',
+          idempotencyKey: randomUUID(),
+          studySessionId: session.id,
+          requestHash: submissionHash,
+          state: 'PROCESSING',
+          createdAt: terminalAt
+        }
+      })
       await transaction.studySession.update({
         where: { id: session.id },
         data: {
           status,
           submittedAt: terminalAt,
           durationSec: 60,
-          submissionHash: 'a'.repeat(64)
+          submissionHash
+        }
+      })
+      await transaction.idempotencyRecord.update({
+        where: { id: idempotencyRecordId },
+        data: {
+          state: 'SUCCEEDED',
+          responseStatus: 201,
+          responseBody: { sessionId: session.id },
+          completedAt: terminalAt,
+          expiresAt: new Date(terminalAt.getTime() + DAY_MS)
         }
       })
     } else if (status === 'CANCELLED') {
@@ -162,26 +216,32 @@ beforeAll(async () => {
       }
     },
     orderBy: { id: 'asc' },
-    select: { id: true, currentPublishedVersionId: true }
+    select: {
+      id: true,
+      currentPublishedVersion: {
+        select: { id: true, correctOptionId: true }
+      }
+    }
   })
-  if (!question?.currentPublishedVersionId) {
+  if (!question?.currentPublishedVersion?.correctOptionId) {
     throw new Error('StudySession cleanup question fixture가 부족합니다.')
   }
   pinnedQuestion = {
     id: question.id,
-    questionVersionId: question.currentPublishedVersionId
+    correctOptionId: question.currentPublishedVersion.correctOptionId,
+    questionVersionId: question.currentPublishedVersion.id
   }
 })
 
 afterAll(async () => {
-  if (createdSessionIds.size > 0) {
-    await database.client.studySession.deleteMany({
-      where: { id: { in: [...createdSessionIds] } }
-    })
-  }
   if (createdUserIds.size > 0) {
     await database.client.user.deleteMany({
       where: { id: { in: [...createdUserIds] } }
+    })
+  }
+  if (createdSessionIds.size > 0) {
+    await database.client.studySession.deleteMany({
+      where: { id: { in: [...createdSessionIds] } }
     })
   }
   if (createdGuestPrincipalIds.size > 0) {
@@ -197,22 +257,24 @@ describe('StudySession bounded retention cleanup', () => {
     const orphanGuestId = await createGuestPrincipal(
       new Date('1980-01-08T00:00:00.000Z')
     )
-    const referencedGuest = await guestPrincipalService.create()
-    createdGuestPrincipalIds.add(referencedGuest.id)
-    if (!referencedGuest.cookieValue) {
-      throw new Error('Guest credential fixture가 필요합니다.')
-    }
-
     const guestExpiresAt = new Date(Date.now() - HOUR_MS)
     const guestCreatedAt = new Date(guestExpiresAt.getTime() - 7 * DAY_MS)
-    await database.client.guestPrincipal.update({
-      where: { id: referencedGuest.id },
+    const preparedGuest = guestPrincipalService.prepareCredential()
+    const referencedGuest = {
+      id: preparedGuest.id,
+      cookieValue: preparedGuest.cookieValue
+    }
+    await database.client.guestPrincipal.create({
       data: {
+        id: preparedGuest.id,
+        tokenDigest: preparedGuest.tokenDigest,
         createdAt: guestCreatedAt,
         lastSeenAt: guestCreatedAt,
         expiresAt: guestExpiresAt
       }
     })
+    createdGuestPrincipalIds.add(referencedGuest.id)
+
     const referenced = await createSession({
       owner: { kind: 'GUEST', id: referencedGuest.id },
       expiresAt: new Date(NOW.getTime() - HOUR_MS),
@@ -246,7 +308,7 @@ describe('StudySession bounded retention cleanup', () => {
     ).not.toBeNull()
   })
 
-  it('만료된 guest IN_PROGRESS만 batch 단위로 삭제하고 SQ를 cascade한다', async () => {
+  it('guest session을 상태별 retention으로 삭제하고 USER·최근 결과는 보존한다', async () => {
     const [oldestGuestId, newerGuestId, futureGuestId, submittedGuestId] =
       await Promise.all([
         createGuestPrincipal(new Date(NOW.getTime() + DAY_MS)),
@@ -259,6 +321,21 @@ describe('StudySession bounded retention cleanup', () => {
       createGuestPrincipal(new Date(NOW.getTime() + DAY_MS)),
       createUser()
     ])
+    const oldSubmittedGuestId = randomUUID()
+    const oldGuestCreatedAt = new Date(NOW.getTime() - 10 * DAY_MS)
+    const oldGuestLastSeenAt = new Date(NOW.getTime() - 6 * DAY_MS)
+    await database.client.guestPrincipal.create({
+      data: {
+        id: oldSubmittedGuestId,
+        tokenDigest: createHash('sha256')
+          .update(oldSubmittedGuestId)
+          .digest('hex'),
+        createdAt: oldGuestCreatedAt,
+        lastSeenAt: oldGuestLastSeenAt,
+        expiresAt: new Date(oldGuestLastSeenAt.getTime() + 7 * DAY_MS)
+      }
+    })
+    createdGuestPrincipalIds.add(oldSubmittedGuestId)
 
     const oldest = await createSession({
       owner: { kind: 'GUEST', id: oldestGuestId },
@@ -277,61 +354,93 @@ describe('StudySession bounded retention cleanup', () => {
       expiresAt: new Date(NOW.getTime() - 3 * HOUR_MS),
       status: 'SUBMITTED'
     })
-    const cancelled = await createSession({
+    await createSession({
       owner: { kind: 'GUEST', id: cancelledGuestId },
       expiresAt: new Date(NOW.getTime() - 3 * HOUR_MS),
       status: 'CANCELLED'
     })
-    const expiredStatus = await createSession({
+    await createSession({
       owner: { kind: 'GUEST', id: expiredStatusGuestId },
       expiresAt: new Date(NOW.getTime() - 3 * HOUR_MS),
       status: 'EXPIRED'
     })
+    const oldSubmitted = await createSession({
+      owner: { kind: 'GUEST', id: oldSubmittedGuestId },
+      expiresAt: new Date(NOW.getTime() - 8 * DAY_MS),
+      status: 'SUBMITTED'
+    })
     const userSession = await createSession({
       owner: { kind: 'USER', id: userId },
-      expiresAt: new Date(NOW.getTime() - 3 * HOUR_MS)
+      expiresAt: new Date(NOW.getTime() - 8 * DAY_MS),
+      status: 'SUBMITTED'
     })
 
-    await expect(service.cleanup({ batchSize: 1 })).resolves.toMatchObject({
+    await expect(service.cleanup({ batchSize: 10 })).resolves.toMatchObject({
       deletedGuestPrincipalCount: 0,
-      deletedStudySessionCount: 1,
-      studySessionBatchLimitReached: true
-    })
-    expect(
-      await database.client.studySession.findUnique({
-        where: { id: oldest.sessionId }
-      })
-    ).toBeNull()
-    expect(
-      await database.client.studySessionQuestion.findUnique({
-        where: { id: oldest.childId }
-      })
-    ).toBeNull()
-
-    await expect(service.cleanup({ batchSize: 1 })).resolves.toMatchObject({
-      deletedGuestPrincipalCount: 0,
-      deletedStudySessionCount: 1,
-      studySessionBatchLimitReached: true
-    })
-    expect(
-      await database.client.studySession.findUnique({
-        where: { id: newer.sessionId }
-      })
-    ).toBeNull()
-    await expect(service.cleanup({ batchSize: 1 })).resolves.toEqual({
-      deletedGuestPrincipalCount: 0,
-      deletedStudySessionCount: 0,
+      deletedStudySessionCount: 5,
       guestPrincipalBatchLimitReached: false,
       studySessionBatchLimitReached: false
     })
+    expect(
+      await database.client.studySession.count({
+        where: {
+          id: {
+            in: [oldest.sessionId, newer.sessionId, oldSubmitted.sessionId]
+          }
+        }
+      })
+    ).toBe(0)
+    for (const childId of [
+      oldest.childId,
+      newer.childId,
+      oldSubmitted.childId
+    ]) {
+      expect(
+        await database.client.studySessionQuestion.findUnique({
+          where: { id: childId }
+        })
+      ).toBeNull()
+    }
 
     const preservedIds = [
       future.sessionId,
       submitted.sessionId,
-      cancelled.sessionId,
-      expiredStatus.sessionId,
       userSession.sessionId
     ]
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: { studySessionId: submitted.sessionId }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.studyAnswer.count({
+        where: {
+          studySessionQuestion: { studySessionId: submitted.sessionId }
+        }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.studyResult.count({
+        where: { studySessionId: submitted.sessionId }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: { studySessionId: userSession.sessionId }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.studyAnswer.count({
+        where: {
+          studySessionQuestion: { studySessionId: userSession.sessionId }
+        }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.studyResult.count({
+        where: { studySessionId: userSession.sessionId }
+      })
+    ).toBe(1)
     expect(
       await database.client.studySession.count({
         where: { id: { in: preservedIds } }
@@ -347,12 +456,13 @@ describe('StudySession bounded retention cleanup', () => {
               futureGuestId,
               submittedGuestId,
               cancelledGuestId,
-              expiredStatusGuestId
+              expiredStatusGuestId,
+              oldSubmittedGuestId
             ]
           }
         }
       })
-    ).toBe(6)
+    ).toBe(7)
   })
 
   it('참조 없는 만료 GuestPrincipal만 bounded·idempotent하게 삭제한다', async () => {
@@ -397,8 +507,10 @@ describe('StudySession bounded retention cleanup', () => {
     ).toBeNull()
     await expect(service.cleanup({ batchSize: 1 })).resolves.toEqual({
       deletedGuestPrincipalCount: 0,
+      deletedIdempotencyRecordCount: 0,
       deletedStudySessionCount: 0,
       guestPrincipalBatchLimitReached: false,
+      idempotencyRecordBatchLimitReached: false,
       studySessionBatchLimitReached: false
     })
 

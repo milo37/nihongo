@@ -14,6 +14,7 @@ describe('공통 계약', () => {
   it('opaque ID와 달력 날짜를 엄격하게 검증한다', () => {
     expect(opaqueIdSchema.safeParse(UUID).success).toBe(true)
     expect(opaqueIdSchema.safeParse('question-1').success).toBe(false)
+    expect(opaqueIdSchema.parse(UUID.toUpperCase())).toBe(UUID)
     expect(calendarDateSchema.safeParse('2024-02-29').success).toBe(true)
     expect(calendarDateSchema.safeParse('2025-02-29').success).toBe(false)
   })

@@ -94,23 +94,52 @@ enum StudySessionFallbackReason {
   INSUFFICIENT_MODE_CANDIDATES
 }
 
+enum WrongNoteStatus {
+  NEW
+  REVIEWING
+  AGAIN
+  SOLVED
+}
+
+enum ReviewEventSource {
+  STUDY_SUBMIT
+  WRONG_NOTE_REVIEW
+  VERSION_REBASE
+}
+
+enum IdempotencyPrincipalType {
+  USER
+  GUEST
+}
+
+enum IdempotencyOperation {
+  STUDY_SUBMIT
+}
+
+enum IdempotencyState {
+  PROCESSING
+  SUCCEEDED
+}
+
 model User {
-  id                      String            @id @default(uuid()) @db.Uuid
-  name                    String            @db.VarChar(80)
-  email                   String            @unique
-  emailVerified           Boolean           @default(false)
+  id                      String              @id @default(uuid()) @db.Uuid
+  name                    String              @db.VarChar(80)
+  email                   String              @unique
+  emailVerified           Boolean             @default(false)
   image                   String?
-  role                    UserRole          @default(USER)
+  role                    UserRole            @default(USER)
   targetLevel             JlptLevel?
-  accountStatus           UserAccountStatus @default(ACTIVE)
-  deletedAt               DateTime?         @db.Timestamptz(3)
-  createdAt               DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime          @updatedAt @db.Timestamptz(3)
+  accountStatus           UserAccountStatus   @default(ACTIVE)
+  deletedAt               DateTime?           @db.Timestamptz(3)
+  createdAt               DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime            @updatedAt @db.Timestamptz(3)
   sessions                Session[]
   accounts                Account[]
-  createdQuestions        Question[]        @relation("QuestionCreator")
-  createdQuestionVersions QuestionVersion[] @relation("QuestionVersionCreator")
+  createdQuestions        Question[]          @relation("QuestionCreator")
+  createdQuestionVersions QuestionVersion[]   @relation("QuestionVersionCreator")
   studySessions           StudySession[]
+  wrongNotes              WrongNote[]
+  idempotencyRecords      IdempotencyRecord[]
 
   @@index([role, accountStatus])
 }
@@ -170,12 +199,13 @@ model RateLimit {
 }
 
 model GuestPrincipal {
-  id          String   @id @default(uuid()) @db.Uuid
-  tokenDigest String   @unique @db.VarChar(64)
-  expiresAt   DateTime @db.Timestamptz(3)
-  createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  lastSeenAt  DateTime @default(now()) @db.Timestamptz(3)
-  studySessions StudySession[]
+  id                 String              @id @default(uuid()) @db.Uuid
+  tokenDigest        String              @unique @db.VarChar(64)
+  expiresAt          DateTime            @db.Timestamptz(3)
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  lastSeenAt         DateTime            @default(now()) @db.Timestamptz(3)
+  studySessions      StudySession[]
+  idempotencyRecords IdempotencyRecord[]
 
   @@index([expiresAt])
 }
@@ -203,9 +233,15 @@ model StudySession {
   user               User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   guestPrincipal     GuestPrincipal?             @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade)
   questions          StudySessionQuestion[]
+  result             StudyResult?
+  reviewEvents       ReviewEvent[]
+  idempotencyRecords IdempotencyRecord[]
 
+  @@unique([id, userId])
+  @@unique([id, guestPrincipalId])
   @@index([userId, status, startedAt(sort: Desc)])
   @@index([guestPrincipalId, status, expiresAt])
+  @@index([guestPrincipalId, status, submittedAt])
   @@index([status, expiresAt])
 }
 
@@ -219,6 +255,7 @@ model StudySessionQuestion {
   studySession      StudySession    @relation(fields: [studySessionId], references: [id], onDelete: Cascade)
   question          Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
   questionVersion   QuestionVersion @relation(fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict)
+  answer            StudyAnswer?
 
   @@unique([studySessionId, ordinal])
   @@unique([studySessionId, questionId])
@@ -228,18 +265,19 @@ model StudySessionQuestion {
 }
 
 model Question {
-  id                          String                  @id @default(uuid()) @db.Uuid
-  lifecycleStatus             QuestionLifecycleStatus @default(ACTIVE)
-  currentPublishedVersionId   String?                 @unique @db.Uuid
-  createdByUserId             String?                 @db.Uuid
-  createdByLabelSnapshot      CreatorLabelSnapshot
-  createdAt                   DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt                   DateTime                @updatedAt @db.Timestamptz(3)
-  archivedAt                  DateTime?               @db.Timestamptz(3)
-  versions                    QuestionVersion[]       @relation("QuestionVersions")
-  createdBy                   User?                   @relation("QuestionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  currentPublishedVersion     QuestionVersion?        @relation("CurrentPublishedVersion", fields: [id, currentPublishedVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
-  studySessionQuestions       StudySessionQuestion[]
+  id                        String                  @id @default(uuid()) @db.Uuid
+  lifecycleStatus           QuestionLifecycleStatus @default(ACTIVE)
+  currentPublishedVersionId String?                 @unique @db.Uuid
+  createdByUserId           String?                 @db.Uuid
+  createdByLabelSnapshot    CreatorLabelSnapshot
+  createdAt                 DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                @updatedAt @db.Timestamptz(3)
+  archivedAt                DateTime?               @db.Timestamptz(3)
+  versions                  QuestionVersion[]       @relation("QuestionVersions")
+  createdBy                 User?                   @relation("QuestionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  currentPublishedVersion   QuestionVersion?        @relation("CurrentPublishedVersion", fields: [id, currentPublishedVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
+  studySessionQuestions     StudySessionQuestion[]
+  wrongNotes                WrongNote[]
 
   @@unique([id, currentPublishedVersionId])
   @@index([lifecycleStatus, currentPublishedVersionId])
@@ -247,34 +285,37 @@ model Question {
 }
 
 model QuestionVersion {
-  id                          String                 @id @default(uuid()) @db.Uuid
-  questionId                  String                 @db.Uuid
-  versionNumber               Int
-  status                      QuestionVersionStatus @default(DRAFT)
-  level                       JlptLevel
-  subject                     QuestionSubject
-  questionType                QuestionType
-  passage                     String?
-  questionText                String
-  correctOptionId             String?                @db.Uuid
-  explanationKo               String
-  explanationJa               String?
-  difficulty                  QuestionDifficulty
-  sourceType                  QuestionSourceType     @default(ORIGINAL)
-  rowVersion                  Int                    @default(1)
-  createdByUserId             String?                @db.Uuid
-  createdByLabelSnapshot      CreatorLabelSnapshot
-  createdAt                   DateTime               @default(now()) @db.Timestamptz(3)
-  updatedAt                   DateTime               @updatedAt @db.Timestamptz(3)
-  publishedAt                 DateTime?              @db.Timestamptz(3)
-  retiredAt                   DateTime?              @db.Timestamptz(3)
-  question                    Question               @relation("QuestionVersions", fields: [questionId], references: [id], onDelete: Cascade)
-  createdBy                   User?                  @relation("QuestionVersionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  currentForQuestion          Question?              @relation("CurrentPublishedVersion")
-  correctOption               QuestionOption?        @relation("CorrectQuestionOption", fields: [id, correctOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: Cascade)
-  options                     QuestionOption[]       @relation("VersionOptions")
-  tags                        QuestionVersionTag[]
-  studySessionQuestions       StudySessionQuestion[]
+  id                      String                 @id @default(uuid()) @db.Uuid
+  questionId              String                 @db.Uuid
+  versionNumber           Int
+  status                  QuestionVersionStatus  @default(DRAFT)
+  level                   JlptLevel
+  subject                 QuestionSubject
+  questionType            QuestionType
+  passage                 String?
+  questionText            String
+  correctOptionId         String?                @db.Uuid
+  explanationKo           String
+  explanationJa           String?
+  difficulty              QuestionDifficulty
+  sourceType              QuestionSourceType     @default(ORIGINAL)
+  rowVersion              Int                    @default(1)
+  createdByUserId         String?                @db.Uuid
+  createdByLabelSnapshot  CreatorLabelSnapshot
+  createdAt               DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime               @updatedAt @db.Timestamptz(3)
+  publishedAt             DateTime?              @db.Timestamptz(3)
+  retiredAt               DateTime?              @db.Timestamptz(3)
+  question                Question               @relation("QuestionVersions", fields: [questionId], references: [id], onDelete: Cascade)
+  createdBy               User?                  @relation("QuestionVersionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  currentForQuestion      Question?              @relation("CurrentPublishedVersion")
+  correctOption           QuestionOption?        @relation("CorrectQuestionOption", fields: [id, correctOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: Cascade)
+  options                 QuestionOption[]       @relation("VersionOptions")
+  tags                    QuestionVersionTag[]
+  studySessionQuestions   StudySessionQuestion[]
+  lastWrongNotes          WrongNote[]            @relation("WrongNoteLastWrongVersion")
+  currentReviewWrongNotes WrongNote[]            @relation("WrongNoteCurrentReviewVersion")
+  reviewEvents            ReviewEvent[]
 
   @@unique([questionId, versionNumber])
   @@unique([questionId, id])
@@ -285,13 +326,15 @@ model QuestionVersion {
 }
 
 model QuestionOption {
-  id                 String           @id @default(uuid()) @db.Uuid
-  questionVersionId  String           @db.Uuid
-  label              String
-  text               String
-  ordinal            Int
-  questionVersion    QuestionVersion  @relation("VersionOptions", fields: [questionVersionId], references: [id], onDelete: Cascade)
-  correctForVersion  QuestionVersion? @relation("CorrectQuestionOption")
+  id                String           @id @default(uuid()) @db.Uuid
+  questionVersionId String           @db.Uuid
+  label             String
+  text              String
+  ordinal           Int
+  questionVersion   QuestionVersion  @relation("VersionOptions", fields: [questionVersionId], references: [id], onDelete: Cascade)
+  correctForVersion QuestionVersion? @relation("CorrectQuestionOption")
+  selectedByAnswers StudyAnswer[]    @relation("StudyAnswerSelectedOption")
+  selectedByEvents  ReviewEvent[]    @relation("ReviewEventSelectedOption")
 
   @@unique([questionVersionId, id])
   @@unique([questionVersionId, label])
@@ -317,4 +360,131 @@ model QuestionVersionTag {
 
   @@unique([questionVersionId, tagId])
   @@index([tagId])
+}
+
+model StudyAnswer {
+  id                     String               @id @default(uuid()) @db.Uuid
+  studySessionQuestionId String               @unique @db.Uuid
+  questionVersionId      String               @db.Uuid
+  selectedOptionId       String?              @db.Uuid
+  isCorrect              Boolean
+  elapsedSec             Int
+  gradingVersion         String               @db.VarChar(64)
+  answeredAt             DateTime             @db.Timestamptz(3)
+  gradedAt               DateTime             @db.Timestamptz(3)
+  studySessionQuestion   StudySessionQuestion @relation(fields: [studySessionQuestionId, questionVersionId], references: [id, questionVersionId], onDelete: Cascade, onUpdate: Cascade)
+  selectedOption         QuestionOption?      @relation("StudyAnswerSelectedOption", fields: [questionVersionId, selectedOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: Cascade)
+  reviewEvent            ReviewEvent?
+
+  @@unique([studySessionQuestionId, questionVersionId])
+  @@unique([id, questionVersionId])
+  @@index([questionVersionId, selectedOptionId])
+}
+
+model StudyResult {
+  id                     String       @id @default(uuid()) @db.Uuid
+  studySessionId         String       @unique @db.Uuid
+  totalCount             Int
+  correctCount           Int
+  incorrectCount         Int
+  correctRateBasisPoints Int
+  durationSec            Int
+  gradingVersion         String       @db.VarChar(64)
+  createdAt              DateTime     @db.Timestamptz(3)
+  studySession           StudySession @relation(fields: [studySessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model WrongNote {
+  id                             String           @id @default(uuid()) @db.Uuid
+  userId                         String           @db.Uuid
+  questionId                     String           @db.Uuid
+  lastWrongQuestionVersionId     String           @db.Uuid
+  currentReviewQuestionVersionId String?          @db.Uuid
+  wrongCount                     Int
+  correctStreak                  Int
+  status                         WrongNoteStatus
+  lastWrongAt                    DateTime         @db.Timestamptz(3)
+  lastReviewedAt                 DateTime?        @db.Timestamptz(3)
+  createdAt                      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime         @updatedAt @db.Timestamptz(3)
+  user                           User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  question                       Question         @relation(fields: [questionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lastWrongQuestionVersion       QuestionVersion  @relation("WrongNoteLastWrongVersion", fields: [questionId, lastWrongQuestionVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
+  currentReviewQuestionVersion   QuestionVersion? @relation("WrongNoteCurrentReviewVersion", fields: [questionId, currentReviewQuestionVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
+  schedule                       ReviewSchedule?
+  events                         ReviewEvent[]
+
+  @@unique([userId, questionId])
+  @@unique([id, userId, questionId])
+  @@index([userId, status, lastWrongAt(sort: Desc)])
+  @@index([userId, lastWrongAt(sort: Desc)])
+  @@index([questionId, lastWrongQuestionVersionId])
+  @@index([questionId, currentReviewQuestionVersionId])
+}
+
+model ReviewSchedule {
+  id               String    @id @default(uuid()) @db.Uuid
+  wrongNoteId      String    @unique @db.Uuid
+  nextReviewAt     DateTime  @db.Timestamptz(3)
+  intervalDays     Int
+  algorithmVersion Int
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  wrongNote        WrongNote @relation(fields: [wrongNoteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([nextReviewAt, wrongNoteId])
+}
+
+model ReviewEvent {
+  id                    String            @id @default(uuid()) @db.Uuid
+  wrongNoteId           String            @db.Uuid
+  userId                String            @db.Uuid
+  questionId            String            @db.Uuid
+  questionVersionId     String            @db.Uuid
+  source                ReviewEventSource
+  studySessionId        String?           @db.Uuid
+  studyAnswerId         String?           @unique @db.Uuid
+  selectedOptionId      String?           @db.Uuid
+  isCorrect             Boolean?
+  previousStatus        WrongNoteStatus?
+  nextStatus            WrongNoteStatus
+  previousCorrectStreak Int?
+  nextCorrectStreak     Int
+  previousWrongCount    Int?
+  wrongCountAfter       Int
+  algorithmVersion      Int
+  occurredAt            DateTime          @db.Timestamptz(3)
+  wrongNote             WrongNote         @relation(fields: [wrongNoteId, userId, questionId], references: [id, userId, questionId], onDelete: Cascade, onUpdate: Cascade)
+  questionVersion       QuestionVersion   @relation(fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
+  studySession          StudySession?     @relation(fields: [studySessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studyAnswer           StudyAnswer?      @relation(fields: [studyAnswerId, questionVersionId], references: [id, questionVersionId], onDelete: Cascade, onUpdate: Cascade)
+  selectedOption        QuestionOption?   @relation("ReviewEventSelectedOption", fields: [questionVersionId, selectedOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([studyAnswerId, questionVersionId])
+  @@index([wrongNoteId, occurredAt(sort: Desc)])
+  @@index([questionId, questionVersionId])
+  @@index([studySessionId])
+  @@index([questionVersionId, selectedOptionId])
+}
+
+model IdempotencyRecord {
+  id               String                   @id @default(uuid()) @db.Uuid
+  principalType    IdempotencyPrincipalType
+  userId           String?                  @db.Uuid
+  guestPrincipalId String?                  @db.Uuid
+  operation        IdempotencyOperation
+  idempotencyKey   String                   @db.Uuid
+  studySessionId   String                   @db.Uuid
+  requestHash      String                   @db.VarChar(64)
+  state            IdempotencyState         @default(PROCESSING)
+  responseStatus   Int?
+  responseBody     Json?                    @db.JsonB
+  createdAt        DateTime                 @default(now()) @db.Timestamptz(3)
+  completedAt      DateTime?                @db.Timestamptz(3)
+  expiresAt        DateTime?                @db.Timestamptz(3)
+  user             User?                    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  guestPrincipal   GuestPrincipal?          @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studySession     StudySession             @relation(fields: [studySessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([expiresAt])
+  @@index([studySessionId, requestHash])
 }

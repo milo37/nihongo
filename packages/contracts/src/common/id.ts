@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const opaqueIdSchema = z.uuid()
+export const opaqueIdSchema = z.uuid().transform((value) => value.toLowerCase())
 export const requestIdSchema = z.uuid()
 
 export type OpaqueId = z.output<typeof opaqueIdSchema>

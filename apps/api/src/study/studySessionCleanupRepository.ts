@@ -7,8 +7,10 @@ export interface StudySessionCleanupBatchInput {
 
 export interface StudySessionCleanupBatchResult {
   deletedGuestPrincipalCount: number
+  deletedIdempotencyRecordCount: number
   deletedStudySessionCount: number
   guestPrincipalBatchLimitReached: boolean
+  idempotencyRecordBatchLimitReached: boolean
   studySessionBatchLimitReached: boolean
 }
 
@@ -25,35 +27,97 @@ interface DeletedRow {
 export const createPrismaStudySessionCleanupRepository = (
   client: PrismaClient
 ): StudySessionCleanupRepository => ({
-  cleanupExpiredGuestStudyData: async ({ batchSize, now }) =>
-    await client.$transaction(async (transaction) => {
+  cleanupExpiredGuestStudyData: async ({ batchSize, now }) => {
+    const guestCleanup = await client.$transaction(async (transaction) => {
       const deletedStudySessions = await transaction.$queryRaw<DeletedRow[]>(
         Prisma.sql`
-          WITH candidates AS (
+          WITH guest_candidates AS MATERIALIZED (
+            SELECT guest."id"
+            FROM "GuestPrincipal" AS guest
+            WHERE EXISTS (
+              SELECT 1
+              FROM "StudySession" AS session
+              WHERE session."guestPrincipalId" = guest."id"
+                AND session."userId" IS NULL
+                AND (
+                  (
+                    session."status" = 'SUBMITTED'
+                    AND session."submittedAt" IS NOT NULL
+                    AND session."submittedAt" <=
+                      ${now}::timestamptz - INTERVAL '7 days'
+                  )
+                  OR (
+                    session."status" IN (
+                      'IN_PROGRESS',
+                      'CANCELLED',
+                      'EXPIRED'
+                    )
+                    AND session."expiresAt" <= ${now}
+                  )
+                )
+            )
+            ORDER BY guest."id" ASC
+            LIMIT ${batchSize}
+            FOR NO KEY UPDATE OF guest SKIP LOCKED
+          ),
+          session_candidates AS MATERIALIZED (
             SELECT session."id"
             FROM "StudySession" AS session
+            JOIN guest_candidates AS guest
+              ON guest."id" = session."guestPrincipalId"
             WHERE session."userId" IS NULL
               AND session."guestPrincipalId" IS NOT NULL
-              AND session."status" = 'IN_PROGRESS'
-              AND session."expiresAt" <= ${now}
-            ORDER BY session."expiresAt" ASC, session."id" ASC
+              AND (
+                (
+                  session."status" = 'SUBMITTED'
+                  AND session."submittedAt" IS NOT NULL
+                  AND session."submittedAt" <=
+                    ${now}::timestamptz - INTERVAL '7 days'
+                )
+                OR (
+                  session."status" IN (
+                    'IN_PROGRESS',
+                    'CANCELLED',
+                    'EXPIRED'
+                  )
+                  AND session."expiresAt" <= ${now}
+                )
+              )
+            ORDER BY
+              session."guestPrincipalId" ASC,
+              COALESCE(session."submittedAt", session."expiresAt") ASC,
+              session."id" ASC
             LIMIT ${batchSize}
-            FOR UPDATE OF session SKIP LOCKED
+            FOR UPDATE OF session
           )
           DELETE FROM "StudySession" AS session
-          USING candidates
+          USING session_candidates AS candidates
           WHERE session."id" = candidates."id"
             AND session."userId" IS NULL
             AND session."guestPrincipalId" IS NOT NULL
-            AND session."status" = 'IN_PROGRESS'
-            AND session."expiresAt" <= ${now}
+            AND (
+              (
+                session."status" = 'SUBMITTED'
+                AND session."submittedAt" IS NOT NULL
+                AND session."submittedAt" <=
+                  ${now}::timestamptz - INTERVAL '7 days'
+              )
+              OR (
+                session."status" IN (
+                  'IN_PROGRESS',
+                  'CANCELLED',
+                  'EXPIRED'
+                )
+                AND session."expiresAt" <= ${now}
+              )
+            )
           RETURNING session."id"
         `
       )
 
       const deletedGuestPrincipals = await transaction.$queryRaw<DeletedRow[]>(
         Prisma.sql`
-          WITH candidates AS (
+          WITH candidates AS MATERIALIZED (
             SELECT guest."id"
             FROM "GuestPrincipal" AS guest
             WHERE guest."expiresAt" <= ${now}
@@ -87,4 +151,35 @@ export const createPrismaStudySessionCleanupRepository = (
         studySessionBatchLimitReached: deletedStudySessions.length === batchSize
       }
     })
+
+    const deletedIdempotencyRecords = await client.$transaction(
+      async (transaction) =>
+        await transaction.$queryRaw<DeletedRow[]>(Prisma.sql`
+          WITH candidates AS MATERIALIZED (
+            SELECT record."id"
+            FROM "IdempotencyRecord" AS record
+            WHERE record."state" = 'SUCCEEDED'
+              AND record."expiresAt" IS NOT NULL
+              AND record."expiresAt" <= ${now}
+            ORDER BY record."expiresAt" ASC, record."id" ASC
+            LIMIT ${batchSize}
+            FOR UPDATE OF record SKIP LOCKED
+          )
+          DELETE FROM "IdempotencyRecord" AS record
+          USING candidates
+          WHERE record."id" = candidates."id"
+            AND record."state" = 'SUCCEEDED'
+            AND record."expiresAt" IS NOT NULL
+            AND record."expiresAt" <= ${now}
+          RETURNING record."id"
+        `)
+    )
+
+    return {
+      ...guestCleanup,
+      deletedIdempotencyRecordCount: deletedIdempotencyRecords.length,
+      idempotencyRecordBatchLimitReached:
+        deletedIdempotencyRecords.length === batchSize
+    }
+  }
 })

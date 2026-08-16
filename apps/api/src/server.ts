@@ -18,6 +18,8 @@ import { createQuestionService } from './question/questionService.js'
 import { createApplicationRateLimiter } from './middleware/applicationRateLimiter.js'
 import { createPrismaStudySessionRepository } from './study/studySessionRepository.js'
 import { createStudySessionService } from './study/studySessionService.js'
+import { createPrismaStudySubmissionRepository } from './study/studySubmissionRepository.js'
+import { createStudySubmissionService } from './study/studySubmissionService.js'
 
 const environment = parseApiEnvironment(process.env)
 const logger = createJsonLogger(environment.LOG_LEVEL)
@@ -46,6 +48,9 @@ const questionReader = createQuestionService(
 const studySessionService = createStudySessionService(
   createPrismaStudySessionRepository(database.client)
 )
+const studySubmissionService = createStudySubmissionService(
+  createPrismaStudySubmissionRepository(database.client)
+)
 const app = createApiApp({
   auth: {
     environment,
@@ -61,7 +66,8 @@ const app = createApiApp({
       client: database.client,
       keySecret: environment.GUEST_COOKIE_SECRET
     }),
-    service: studySessionService
+    service: studySessionService,
+    submissionService: studySubmissionService
   }
 })
 

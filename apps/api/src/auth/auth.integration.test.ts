@@ -101,6 +101,7 @@ const createdQuestionIds: string[] = []
 
 beforeAll(async () => {
   await database.checkReadiness()
+  await database.client.rateLimit.deleteMany()
 })
 
 afterAll(async () => {
@@ -117,6 +118,7 @@ afterAll(async () => {
   await database.client.guestPrincipal.deleteMany({
     where: { createdAt: { gte: new Date(Date.now() - 60 * 60 * 1_000) } }
   })
+  await database.client.rateLimit.deleteMany()
   await emailDispatcher.drain()
   await database.disconnect()
 })
@@ -335,21 +337,25 @@ describe('Better Auth PostgreSQL vertical slice', () => {
       })
     ).toBeNull()
 
-    const expiredGuest = await guestPrincipalService.create()
-    const futureGuest = await guestPrincipalService.create()
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1_000)
-    await database.client.guestPrincipal.update({
-      where: { id: expiredGuest.id },
+    const expiredCredential = guestPrincipalService.prepareCredential()
+    const expiredAt = new Date(Date.now() - 60 * 60 * 1_000)
+    const expiredCreatedAt = new Date(
+      expiredAt.getTime() - 7 * 24 * 60 * 60 * 1_000
+    )
+    await database.client.guestPrincipal.create({
       data: {
-        createdAt: twoHoursAgo,
-        lastSeenAt: twoHoursAgo,
-        expiresAt: new Date(Date.now() - 60 * 60 * 1_000)
+        id: expiredCredential.id,
+        tokenDigest: expiredCredential.tokenDigest,
+        createdAt: expiredCreatedAt,
+        lastSeenAt: expiredCreatedAt,
+        expiresAt: expiredAt
       }
     })
+    const futureGuest = await guestPrincipalService.create()
     expect(await guestPrincipalService.deleteExpired(1)).toBe(1)
     expect(
       await database.client.guestPrincipal.findUnique({
-        where: { id: expiredGuest.id }
+        where: { id: expiredCredential.id }
       })
     ).toBeNull()
     expect(

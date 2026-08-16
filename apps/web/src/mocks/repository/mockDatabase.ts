@@ -26,9 +26,16 @@ import {
   MOCK_DATABASE_STORAGE_KEY,
   subscribeStorageChanges
 } from '@libs/storage'
+import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
+import type { StudyResult as CanonicalStudyResult } from '@nihongo/contracts/study/study-result'
+import { toStableMockUuid } from '@mocks/adapters/questionContractAdapter'
+import type {
+  MockCanonicalGradedItem,
+  MockCanonicalGrading
+} from '@mocks/adapters/studySubmissionContractAdapter'
 import { mockSeedData } from '@mocks/data'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
-import { toDateKey } from '@util/date'
+import { addDaysToIso, toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@util/question'
 import { seededShuffle, type ShuffleSeed } from '@util/shuffle'
 import { calculateStudyResult } from '@util/study'
@@ -47,10 +54,13 @@ export type MockDatabaseErrorCode =
   | 'AUTH_REQUIRED'
   | 'DUPLICATE_RESOURCE'
   | 'FORBIDDEN'
+  | 'IDEMPOTENCY_KEY_REUSED'
   | 'INVALID_INPUT'
   | 'NOT_FOUND'
   | 'PERSISTENCE_FAILED'
   | 'SESSION_SUBMITTED'
+  | 'STUDY_RESULT_NOT_READY'
+  | 'STUDY_SESSION_NOT_EDITABLE'
 
 export class MockDatabaseError extends Error {
   readonly code: MockDatabaseErrorCode
@@ -84,6 +94,7 @@ export interface QuestionListResult {
 
 export interface CreateStudySessionInput {
   canonicalGuestPrincipalId?: string
+  canonicalContractVersion?: 1
   userId?: string | null
   level: JlptLevel
   subject: QuestionSubject
@@ -201,6 +212,88 @@ export interface AdminQuestionSummary {
   updatedAt: string
 }
 
+export interface MockCanonicalStudyAnswerRecord {
+  readonly id: string
+  readonly answeredAt: string
+  readonly elapsedSec: number
+  readonly isCorrect: boolean
+  readonly questionVersionId: string
+  readonly selectedOptionId: string | null
+  readonly sessionId: string
+  readonly sourceQuestionId: string
+  readonly studySessionQuestionId: string
+}
+
+export interface MockCanonicalReviewEventRecord {
+  readonly algorithmVersion: 1
+  readonly id: string
+  readonly isCorrect: boolean
+  readonly nextCorrectStreak: number
+  readonly nextStatus: WrongNoteStatus
+  readonly occurredAt: string
+  readonly previousCorrectStreak: number | null
+  readonly previousStatus: WrongNoteStatus | null
+  readonly previousWrongCount: number | null
+  readonly questionId: string
+  readonly questionVersionId: string
+  readonly selectedOptionId: string | null
+  readonly source: 'STUDY_SUBMIT'
+  readonly studyAnswerId: string
+  readonly studySessionId: string
+  readonly userId: string
+  readonly wrongCountAfter: number
+  readonly wrongNoteId: string
+}
+
+export interface MockCanonicalIdempotencyRecord {
+  readonly completedAt: string
+  readonly idempotencyKey: string
+  readonly operation: 'study.submitStudySession'
+  readonly principalId: string
+  readonly principalKind: 'GUEST' | 'USER'
+  readonly requestMaterial: string
+  readonly response: CanonicalStudyResult
+  readonly responseStatus: 201
+  readonly sessionId: string
+}
+
+export interface SubmitCanonicalStudySessionInput {
+  readonly body: ParsedSubmitStudySessionBody
+  readonly guestPrincipalId: string | null
+  readonly idempotencyKey: string
+  readonly sessionId: string
+}
+
+export interface MockCanonicalSubmissionOperations {
+  readonly canonicalize: (
+    record: MockStudySessionSnapshotRecord,
+    body: ParsedSubmitStudySessionBody
+  ) => string
+  readonly grade: (
+    record: MockStudySessionSnapshotRecord,
+    body: ParsedSubmitStudySessionBody,
+    submittedAt: string
+  ) => MockCanonicalGrading
+  readonly toResult: (
+    grading: MockCanonicalGrading,
+    wrongNoteStatusBySessionQuestionId: ReadonlyMap<
+      string,
+      CanonicalStudyResult['items'][number]['wrongNoteStatus']
+    >
+  ) => CanonicalStudyResult
+}
+
+export interface SubmitCanonicalStudySessionResult {
+  readonly replayed: boolean
+  readonly response: CanonicalStudyResult
+}
+
+interface MockCanonicalOwner {
+  readonly principalId: string
+  readonly principalKind: 'GUEST' | 'USER'
+  readonly userId: string | null
+}
+
 export type AdminQuestionSort = 'RECENT' | 'LEVEL' | 'STATUS'
 
 export interface AdminQuestionListFilters {
@@ -223,12 +316,12 @@ export interface AdminQuestionListResult {
 
 interface SessionMetadata {
   canonicalGuestPrincipalId?: string
+  canonicalContractVersion?: 1
   requestedCount: number
   usedFallback: boolean
 }
 
-interface PersistedMockState {
-  version: 2
+interface PersistedMockStateBase {
   activeCanonicalGuestPrincipalIds?: string[]
   currentUserId: string | null
   questions: QuestionRecord[]
@@ -239,6 +332,20 @@ interface PersistedMockState {
   wrongNotes: WrongNote[]
   bookmarks: Bookmark[]
 }
+
+interface PersistedMockStateV2 extends PersistedMockStateBase {
+  version: 2
+}
+
+interface PersistedMockState extends PersistedMockStateBase {
+  version: 3
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+}
+
+type HydratablePersistedMockState = PersistedMockState | PersistedMockStateV2
 
 export interface MockStorage {
   getItem: (key: string) => string | null
@@ -272,8 +379,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-const isPersistedMockState = (value: unknown): value is PersistedMockState => {
-  if (!isRecord(value) || value.version !== 2) {
+const isPersistedMockState = (
+  value: unknown
+): value is HydratablePersistedMockState => {
+  if (!isRecord(value) || (value.version !== 2 && value.version !== 3)) {
     return false
   }
 
@@ -290,13 +399,31 @@ const isPersistedMockState = (value: unknown): value is PersistedMockState => {
     Array.isArray(value.sessionQuestionSnapshots) &&
     Array.isArray(value.results) &&
     Array.isArray(value.wrongNotes) &&
-    Array.isArray(value.bookmarks)
+    Array.isArray(value.bookmarks) &&
+    (value.version === 2 ||
+      (Array.isArray(value.canonicalIdempotencyRecords) &&
+        Array.isArray(value.canonicalReviewEvents) &&
+        Array.isArray(value.canonicalStudyAnswers) &&
+        Array.isArray(value.canonicalStudyResults)))
   )
 }
 
 const makeUserQuestionKey = (userId: string, questionId: string): string => {
   return `${userId}:${questionId}`
 }
+
+const makeCanonicalIdempotencyKey = (
+  principalKind: MockCanonicalIdempotencyRecord['principalKind'],
+  principalId: string,
+  idempotencyKey: string
+): string =>
+  `${principalKind}:${principalId}:study.submitStudySession:${idempotencyKey}`
+
+const isCanonicalSessionMetadata = (
+  metadata: SessionMetadata | undefined
+): boolean =>
+  metadata?.canonicalContractVersion === 1 ||
+  metadata?.canonicalGuestPrincipalId !== undefined
 
 const normalizePagination = (
   page = 1,
@@ -349,6 +476,19 @@ export class MockDatabase {
   private sessionById = new Map<string, StudySession>()
   private sessionMetadataById = new Map<string, SessionMetadata>()
   private sessionQuestionSnapshotsById = new Map<string, QuestionRecord[]>()
+  private canonicalAnswerBySessionId = new Map<
+    string,
+    MockCanonicalStudyAnswerRecord[]
+  >()
+  private canonicalResultBySessionId = new Map<string, CanonicalStudyResult>()
+  private canonicalReviewEventByStudyAnswerId = new Map<
+    string,
+    MockCanonicalReviewEventRecord
+  >()
+  private canonicalIdempotencyRecordByKey = new Map<
+    string,
+    MockCanonicalIdempotencyRecord
+  >()
   private activeCanonicalGuestPrincipalIds = new Set<string>()
   private resultBySessionId = new Map<string, StudyResult>()
   private wrongNoteByQuestionId = new Map<string, WrongNote>()
@@ -419,6 +559,24 @@ export class MockDatabase {
       }
       this.sessionMetadataById.delete(sessionId)
       this.sessionQuestionSnapshotsById.delete(sessionId)
+      this.canonicalAnswerBySessionId.delete(sessionId)
+      this.canonicalResultBySessionId.delete(sessionId)
+      for (const [studyAnswerId, event] of this
+        .canonicalReviewEventByStudyAnswerId) {
+        if (event.studySessionId === sessionId) {
+          this.canonicalReviewEventByStudyAnswerId.delete(studyAnswerId)
+        }
+      }
+      this.resultBySessionId.delete(sessionId)
+    }
+
+    for (const [key, record] of this.canonicalIdempotencyRecordByKey) {
+      if (
+        record.principalKind === 'GUEST' &&
+        record.principalId === guestPrincipalId
+      ) {
+        this.canonicalIdempotencyRecordByKey.delete(key)
+      }
     }
 
     this.persist()
@@ -545,6 +703,9 @@ export class MockDatabase {
 
     this.sessionById.set(sessionId, session)
     this.sessionMetadataById.set(sessionId, {
+      ...(input.canonicalContractVersion
+        ? { canonicalContractVersion: input.canonicalContractVersion }
+        : {}),
       ...(!userId && input.canonicalGuestPrincipalId
         ? { canonicalGuestPrincipalId: input.canonicalGuestPrincipalId }
         : {}),
@@ -557,7 +718,10 @@ export class MockDatabase {
     this.sessionQuestionSnapshotsById.set(sessionId, clone(selection.questions))
     this.persist()
 
-    return this.buildStudySessionPayload(session)
+    return this.buildStudySessionPayload(
+      session,
+      input.canonicalContractVersion === 1
+    )
   }
 
   getStudySession(sessionId: string): StudySession {
@@ -573,12 +737,14 @@ export class MockDatabase {
   }
 
   getStudySessionPayload(sessionId: string): StudySessionPayload {
+    this.assertLegacyStudySession(sessionId)
     return this.buildStudySessionPayload(this.getStudySession(sessionId))
   }
 
   getStudySessionSnapshotRecord(
     sessionId: string
   ): MockStudySessionSnapshotRecord {
+    this.assertLegacyStudySession(sessionId)
     const session = this.getStudySession(sessionId)
     const metadata = this.sessionMetadataById.get(session.id) ?? {
       requestedCount: session.questionIds.length,
@@ -603,39 +769,236 @@ export class MockDatabase {
     }
 
     const metadata = this.sessionMetadataById.get(session.id)
-    if (this.currentUserId !== null) {
-      this.assertCurrentSessionOwner(session)
-    } else if (!guestPrincipalId) {
-      throw new MockDatabaseError(
-        'AUTH_REQUIRED',
-        401,
-        '학습 세션을 조회하려면 guest proof가 필요합니다.'
-      )
-    } else if (session.userId !== null) {
-      throw new MockDatabaseError(
-        'FORBIDDEN',
-        403,
-        'guest는 사용자 소유 학습 세션에 접근할 수 없습니다.'
-      )
-    } else if (!metadata?.canonicalGuestPrincipalId) {
+    if (!isCanonicalSessionMetadata(metadata)) {
       throw new MockDatabaseError(
         'NOT_FOUND',
         404,
-        'canonical guest owner가 없는 학습 세션입니다.'
-      )
-    } else if (metadata.canonicalGuestPrincipalId !== guestPrincipalId) {
-      throw new MockDatabaseError(
-        'FORBIDDEN',
-        403,
-        '다른 guest의 학습 세션에는 접근할 수 없습니다.'
+        'canonical 학습 세션이 아닙니다.'
       )
     }
+    this.resolveCanonicalOwner(session, metadata, guestPrincipalId)
 
     return {
       session: clone(session),
       requestedCount: metadata?.requestedCount ?? session.questionIds.length,
       questions: this.getSessionQuestionSnapshot(session)
     }
+  }
+
+  submitCanonicalStudySession(
+    input: SubmitCanonicalStudySessionInput,
+    operations: MockCanonicalSubmissionOperations
+  ): SubmitCanonicalStudySessionResult {
+    const snapshot = this.getCanonicalStudySessionSnapshotRecord(
+      input.sessionId,
+      input.guestPrincipalId
+    )
+    const session = this.sessionById.get(input.sessionId)
+    const metadata = this.sessionMetadataById.get(input.sessionId)
+    if (!session || !metadata) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'canonical 학습 세션 상태가 완전하지 않습니다.'
+      )
+    }
+    const owner = this.resolveCanonicalOwner(
+      session,
+      metadata,
+      input.guestPrincipalId
+    )
+    const requestMaterial = operations.canonicalize(snapshot, input.body)
+    const recordKey = makeCanonicalIdempotencyKey(
+      owner.principalKind,
+      owner.principalId,
+      input.idempotencyKey
+    )
+    const existingRecord = this.canonicalIdempotencyRecordByKey.get(recordKey)
+
+    if (existingRecord) {
+      if (existingRecord.requestMaterial !== requestMaterial) {
+        throw new MockDatabaseError(
+          'IDEMPOTENCY_KEY_REUSED',
+          409,
+          '같은 멱등 키를 다른 제출 요청에 사용할 수 없습니다.'
+        )
+      }
+      return { replayed: true, response: clone(existingRecord.response) }
+    }
+
+    const observedAtMs = Date.parse(this.now())
+    const startedAtMs = Date.parse(session.startedAt)
+    if (!Number.isFinite(observedAtMs) || !Number.isFinite(startedAtMs)) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '학습 세션 시간이 올바르지 않습니다.'
+      )
+    }
+    if (session.status === 'SUBMITTED') {
+      throw new MockDatabaseError(
+        'SESSION_SUBMITTED',
+        409,
+        '이미 제출한 학습 세션입니다.'
+      )
+    }
+    if (
+      session.status !== 'IN_PROGRESS' ||
+      session.mode !== 'RANDOM' ||
+      observedAtMs >= startedAtMs + 24 * 60 * 60 * 1_000
+    ) {
+      throw new MockDatabaseError(
+        'STUDY_SESSION_NOT_EDITABLE',
+        409,
+        '현재 상태에서는 학습 세션을 제출할 수 없습니다.'
+      )
+    }
+
+    let submittedAtMs = Math.max(observedAtMs, startedAtMs)
+    if (owner.userId) {
+      for (const question of snapshot.questions) {
+        const previous = this.wrongNoteByQuestionId.get(
+          makeUserQuestionKey(owner.userId, question.id)
+        )
+        if (previous) {
+          const previousUpdatedAtMs = Date.parse(previous.updatedAt)
+          if (!Number.isFinite(previousUpdatedAtMs)) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              '오답 상태 시간이 올바르지 않습니다.'
+            )
+          }
+          submittedAtMs = Math.max(submittedAtMs, previousUpdatedAtMs + 1)
+        }
+      }
+    }
+    const submittedAt = new Date(submittedAtMs).toISOString()
+    const grading = operations.grade(snapshot, input.body, submittedAt)
+    const answerBySessionQuestionId = new Map(
+      input.body.answers.map((answer) => [
+        answer.studySessionQuestionId,
+        answer
+      ])
+    )
+    const answers = grading.items.map((item) => {
+      const answer = answerBySessionQuestionId.get(item.studySessionQuestionId)
+      if (!answer) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          '채점된 답안 projection이 완전하지 않습니다.'
+        )
+      }
+      return {
+        id: toStableMockUuid('study-answer', item.studySessionQuestionId),
+        answeredAt: submittedAt,
+        elapsedSec: item.elapsedSec,
+        isCorrect: item.isCorrect,
+        questionVersionId: item.questionVersionId,
+        selectedOptionId: answer.selectedOptionId,
+        sessionId: session.id,
+        sourceQuestionId: item.sourceQuestionId,
+        studySessionQuestionId: item.studySessionQuestionId
+      } satisfies MockCanonicalStudyAnswerRecord
+    })
+    const answerRecordBySessionQuestionId = new Map(
+      answers.map((answer) => [answer.studySessionQuestionId, answer])
+    )
+    const wrongNotePlan = this.planCanonicalWrongNoteUpdates(
+      owner.userId,
+      grading.items,
+      answerRecordBySessionQuestionId,
+      submittedAt
+    )
+    const response = operations.toResult(
+      grading,
+      wrongNotePlan.statusBySessionQuestionId
+    )
+    const idempotencyRecord: MockCanonicalIdempotencyRecord = {
+      completedAt: submittedAt,
+      idempotencyKey: input.idempotencyKey,
+      operation: 'study.submitStudySession',
+      principalId: owner.principalId,
+      principalKind: owner.principalKind,
+      requestMaterial,
+      response,
+      responseStatus: 201,
+      sessionId: session.id
+    }
+
+    for (const [key, wrongNote] of wrongNotePlan.updates) {
+      this.wrongNoteByQuestionId.set(key, wrongNote)
+    }
+    for (const event of wrongNotePlan.events) {
+      this.canonicalReviewEventByStudyAnswerId.set(event.studyAnswerId, event)
+    }
+    session.status = 'SUBMITTED'
+    session.submittedAt = submittedAt
+    session.durationSec = response.durationSec
+    this.canonicalAnswerBySessionId.set(session.id, answers)
+    this.canonicalResultBySessionId.set(session.id, response)
+    this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
+    this.persist()
+
+    return { replayed: false, response: clone(response) }
+  }
+
+  getCanonicalStudyResult(
+    sessionId: string,
+    guestPrincipalId: string | null
+  ): CanonicalStudyResult {
+    const { session } = this.getCanonicalStudySessionSnapshotRecord(
+      sessionId,
+      guestPrincipalId
+    )
+    const result = this.canonicalResultBySessionId.get(sessionId)
+    if (!result && session.status !== 'SUBMITTED') {
+      throw new MockDatabaseError(
+        'STUDY_RESULT_NOT_READY',
+        409,
+        '아직 제출 결과가 준비되지 않았습니다.'
+      )
+    }
+    if (!result) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '제출된 학습 세션의 결과가 완전하지 않습니다.'
+      )
+    }
+    return clone(result)
+  }
+
+  getCanonicalStudyAnswerRecords(
+    sessionId: string
+  ): MockCanonicalStudyAnswerRecord[] {
+    return clone(this.canonicalAnswerBySessionId.get(sessionId) ?? [])
+  }
+
+  getCanonicalReviewEventRecords(
+    sessionId?: string
+  ): MockCanonicalReviewEventRecord[] {
+    return clone(
+      [...this.canonicalReviewEventByStudyAnswerId.values()]
+        .filter(
+          (event) =>
+            sessionId === undefined || event.studySessionId === sessionId
+        )
+        .toSorted(
+          (left, right) =>
+            left.occurredAt.localeCompare(right.occurredAt) ||
+            left.id.localeCompare(right.id)
+        )
+    )
+  }
+
+  getCanonicalIdempotencyRecords(): MockCanonicalIdempotencyRecord[] {
+    return clone([...this.canonicalIdempotencyRecordByKey.values()])
+  }
+
+  hasCanonicalStudyResultRecord(sessionId: string): boolean {
+    return this.canonicalResultBySessionId.has(sessionId)
   }
 
   getPracticeQuestionsForSession(sessionId: string): PracticeQuestion[] {
@@ -648,6 +1011,7 @@ export class MockDatabase {
     if (!session) {
       throw new MockDatabaseError('NOT_FOUND', 404, '학습 세션이 없습니다.')
     }
+    this.assertLegacyStudySession(session.id)
     this.assertCurrentSessionOwner(session)
     if (session.status === 'SUBMITTED') {
       throw new MockDatabaseError(
@@ -684,6 +1048,7 @@ export class MockDatabase {
     if (!session) {
       throw new MockDatabaseError('NOT_FOUND', 404, '학습 세션이 없습니다.')
     }
+    this.assertLegacyStudySession(session.id)
     this.assertCurrentSessionOwner(session)
 
     const result = this.resultBySessionId.get(sessionId)
@@ -1131,6 +1496,10 @@ export class MockDatabase {
     this.sessionById.clear()
     this.sessionMetadataById.clear()
     this.sessionQuestionSnapshotsById.clear()
+    this.canonicalAnswerBySessionId.clear()
+    this.canonicalResultBySessionId.clear()
+    this.canonicalReviewEventByStudyAnswerId.clear()
+    this.canonicalIdempotencyRecordByKey.clear()
     this.activeCanonicalGuestPrincipalIds.clear()
     this.resultBySessionId.clear()
     this.wrongNoteByQuestionId.clear()
@@ -1316,7 +1685,13 @@ export class MockDatabase {
     return eligible
   }
 
-  private buildStudySessionPayload(session: StudySession): StudySessionPayload {
+  private buildStudySessionPayload(
+    session: StudySession,
+    allowCanonical = false
+  ): StudySessionPayload {
+    if (!allowCanonical) {
+      this.assertLegacyStudySession(session.id)
+    }
     const metadata = this.sessionMetadataById.get(session.id) ?? {
       requestedCount: session.questionIds.length,
       usedFallback: false
@@ -1331,6 +1706,106 @@ export class MockDatabase {
       actualCount: questions.length,
       usedFallback: metadata.usedFallback
     }
+  }
+
+  private planCanonicalWrongNoteUpdates(
+    userId: string | null,
+    items: readonly MockCanonicalGradedItem[],
+    answerBySessionQuestionId: ReadonlyMap<
+      string,
+      MockCanonicalStudyAnswerRecord
+    >,
+    reviewedAt: string
+  ): {
+    statusBySessionQuestionId: Map<
+      string,
+      CanonicalStudyResult['items'][number]['wrongNoteStatus']
+    >
+    updates: Map<string, WrongNote>
+    events: MockCanonicalReviewEventRecord[]
+  } {
+    const statusBySessionQuestionId = new Map<
+      string,
+      CanonicalStudyResult['items'][number]['wrongNoteStatus']
+    >()
+    const updates = new Map<string, WrongNote>()
+    const events: MockCanonicalReviewEventRecord[] = []
+
+    if (!userId) {
+      return { statusBySessionQuestionId, updates, events }
+    }
+
+    for (const item of items) {
+      const key = makeUserQuestionKey(userId, item.sourceQuestionId)
+      const existing =
+        updates.get(key) ?? this.wrongNoteByQuestionId.get(key) ?? null
+      let next: WrongNote | null = null
+
+      if (!item.isCorrect) {
+        next = existing
+          ? updateWrongNoteAfterIncorrectAnswer(existing, reviewedAt)
+          : createWrongNoteFromIncorrectAnswer(
+              userId,
+              item.sourceQuestionId,
+              reviewedAt
+            )
+      } else if (existing) {
+        const correctStreak = existing.correctStreak + 1
+        const status = correctStreak >= 2 ? 'SOLVED' : 'REVIEWING'
+        const reviewIntervalDays =
+          correctStreak === 1
+            ? 3
+            : correctStreak === 2
+              ? 7
+              : correctStreak === 3
+                ? 14
+                : 30
+        next = {
+          ...existing,
+          correctStreak,
+          status,
+          lastReviewedAt: reviewedAt,
+          nextReviewAt: addDaysToIso(reviewedAt, reviewIntervalDays),
+          updatedAt: reviewedAt
+        }
+      }
+
+      if (!next) {
+        continue
+      }
+      const answer = answerBySessionQuestionId.get(item.studySessionQuestionId)
+      if (!answer) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          'ReviewEvent evidence 답안이 없습니다.'
+        )
+      }
+      updates.set(key, next)
+      statusBySessionQuestionId.set(item.studySessionQuestionId, next.status)
+      events.push({
+        algorithmVersion: 1,
+        id: toStableMockUuid('review-event', answer.id),
+        isCorrect: item.isCorrect,
+        nextCorrectStreak: next.correctStreak,
+        nextStatus: next.status,
+        occurredAt: reviewedAt,
+        previousCorrectStreak: existing?.correctStreak ?? null,
+        previousStatus: existing?.status ?? null,
+        previousWrongCount: existing?.wrongCount ?? null,
+        questionId: item.sourceQuestionId,
+        questionVersionId: item.questionVersionId,
+        selectedOptionId: answer.selectedOptionId,
+        source: 'STUDY_SUBMIT',
+        studyAnswerId: answer.id,
+        studySessionId: answer.sessionId,
+        userId,
+        wrongCountAfter: next.wrongCount,
+        wrongNoteId: next.id
+      })
+    }
+
+    return { statusBySessionQuestionId, updates, events }
   }
 
   private applyResultToWrongNotes(
@@ -1556,6 +2031,68 @@ export class MockDatabase {
     return clone(snapshot)
   }
 
+  private resolveCanonicalOwner(
+    session: StudySession,
+    metadata: SessionMetadata | undefined,
+    guestPrincipalId: string | null
+  ): MockCanonicalOwner {
+    if (this.currentUserId !== null) {
+      if (session.userId !== this.currentUserId) {
+        throw new MockDatabaseError(
+          'NOT_FOUND',
+          404,
+          '학습 세션을 찾을 수 없습니다.'
+        )
+      }
+      return {
+        principalId: this.currentUserId,
+        principalKind: 'USER',
+        userId: this.currentUserId
+      }
+    }
+
+    if (!guestPrincipalId) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '학습 세션을 조회하려면 guest proof가 필요합니다.'
+      )
+    }
+    if (!this.activeCanonicalGuestPrincipalIds.has(guestPrincipalId)) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '게스트 세션이 만료됐습니다.'
+      )
+    }
+    if (
+      session.userId !== null ||
+      metadata?.canonicalGuestPrincipalId !== guestPrincipalId
+    ) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        '학습 세션을 찾을 수 없습니다.'
+      )
+    }
+
+    return {
+      principalId: guestPrincipalId,
+      principalKind: 'GUEST',
+      userId: null
+    }
+  }
+
+  private assertLegacyStudySession(sessionId: string): void {
+    if (isCanonicalSessionMetadata(this.sessionMetadataById.get(sessionId))) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        'legacy 학습 경로에서는 canonical 세션을 찾을 수 없습니다.'
+      )
+    }
+  }
+
   private assertCurrentSessionOwner(session: StudySession): void {
     if (session.userId === this.currentUserId) {
       return
@@ -1588,7 +2125,15 @@ export class MockDatabase {
 
   private persist(): void {
     const state: PersistedMockState = {
-      version: 2,
+      version: 3,
+      canonicalIdempotencyRecords: [
+        ...this.canonicalIdempotencyRecordByKey.values()
+      ],
+      canonicalReviewEvents: [
+        ...this.canonicalReviewEventByStudyAnswerId.values()
+      ],
+      canonicalStudyAnswers: [...this.canonicalAnswerBySessionId],
+      canonicalStudyResults: [...this.canonicalResultBySessionId.values()],
       activeCanonicalGuestPrincipalIds: [
         ...this.activeCanonicalGuestPrincipalIds
       ].toSorted(),
@@ -1641,7 +2186,20 @@ export class MockDatabase {
       this.sessionById = new Map(
         parsed.sessions.map((session) => [session.id, session])
       )
-      this.sessionMetadataById = new Map(parsed.sessionMetadata)
+      this.sessionMetadataById = new Map(
+        parsed.sessionMetadata.map(([sessionId, metadata]) => [
+          sessionId,
+          // v2 guest metadata is the only unambiguous canonical marker. An
+          // unmarked v2 USER/ADMIN session remains legacy and canonical paths
+          // fail closed; those old mock sessions must be recreated.
+          parsed.version === 2 && metadata.canonicalGuestPrincipalId
+            ? {
+                ...metadata,
+                canonicalContractVersion: 1 as const
+              }
+            : metadata
+        ])
+      )
       this.activeCanonicalGuestPrincipalIds = new Set(
         parsed.activeCanonicalGuestPrincipalIds ??
           parsed.sessionMetadata.flatMap(([, metadata]) =>
@@ -1653,6 +2211,38 @@ export class MockDatabase {
       this.sessionQuestionSnapshotsById = new Map(
         parsed.sessionQuestionSnapshots
       )
+      if (parsed.version === 3) {
+        this.canonicalReviewEventByStudyAnswerId = new Map(
+          parsed.canonicalReviewEvents.map((event) => [
+            event.studyAnswerId,
+            clone(event)
+          ])
+        )
+        this.canonicalAnswerBySessionId = new Map(
+          parsed.canonicalStudyAnswers.map(([sessionId, answers]) => [
+            sessionId,
+            clone(answers)
+          ])
+        )
+        this.canonicalResultBySessionId = new Map(
+          parsed.canonicalStudyResults.map((result) => [
+            result.sessionId,
+            clone(result)
+          ])
+        )
+        this.canonicalIdempotencyRecordByKey = new Map(
+          parsed.canonicalIdempotencyRecords.map((record) => {
+            return [
+              makeCanonicalIdempotencyKey(
+                record.principalKind,
+                record.principalId,
+                record.idempotencyKey
+              ),
+              clone(record)
+            ]
+          })
+        )
+      }
       this.resultBySessionId = new Map(
         parsed.results.map((result) => [result.sessionId, result])
       )

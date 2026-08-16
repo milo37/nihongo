@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
+import { mockCanonicalSubmissionOperations } from '@mocks/adapters/studySubmissionContractAdapter'
+import { toContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
 import { originalQuestions } from '@mocks/data/questions'
 import {
   MockDatabase,
   MockDatabaseError,
-  type MockStorage
+  type MockStorage,
+  type SubmitCanonicalStudySessionInput
 } from '@mocks/repository/mockDatabase'
 
 const FIXED_NOW = '2026-08-09T12:00:00.000Z'
@@ -339,5 +343,235 @@ describe('MockDatabase', () => {
 
     expect(result.correctCount).toBe(1)
     expect(database.getStudyResult(session.id).correctCount).toBe(1)
+  })
+
+  it('canonical 제출 저장 실패를 answer/result/idempotency/review event와 WrongNote까지 원자 롤백한다', () => {
+    const values = new Map<string, string>()
+    let shouldFail = false
+    const storage: MockStorage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        if (shouldFail) {
+          return false
+        }
+        values.set(key, value)
+        return true
+      },
+      removeItem: (key) => {
+        values.delete(key)
+      }
+    }
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+    const sourceQuestion = originalQuestions.find(({ id }) => id === questionId)
+    if (!sourceQuestion) {
+      throw new Error('canonical rollback용 source 문제가 필요합니다.')
+    }
+    const { session } = database.createStudySession({
+      canonicalContractVersion: 1,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1,
+      questionIds: [questionId]
+    })
+    const payload = toContractStudySessionPayload(
+      database.getCanonicalStudySessionSnapshotRecord(session.id, null),
+      new Date(FIXED_NOW)
+    )
+    const question = payload.questions[0]
+    const wrongOptionIndex = sourceQuestion.options.findIndex(
+      ({ isCorrect }) => !isCorrect
+    )
+    const selectedOptionId = question?.question.options[wrongOptionIndex]?.id
+    if (!question || !selectedOptionId) {
+      throw new Error('canonical rollback용 오답 보기가 필요합니다.')
+    }
+    const submission = {
+      body: {
+        answers: [
+          {
+            studySessionQuestionId: question.sessionQuestionId,
+            selectedOptionId,
+            elapsedSec: 5
+          }
+        ],
+        durationSec: 5
+      },
+      guestPrincipalId: null,
+      idempotencyKey: crypto.randomUUID(),
+      sessionId: session.id
+    } satisfies SubmitCanonicalStudySessionInput
+
+    shouldFail = true
+    expect(() =>
+      database.submitCanonicalStudySession(
+        submission,
+        mockCanonicalSubmissionOperations
+      )
+    ).toThrowError(
+      expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+    )
+    expect(
+      database.getCanonicalStudySessionSnapshotRecord(session.id, null).session
+        .status
+    ).toBe('IN_PROGRESS')
+    expect(database.getCanonicalStudyAnswerRecords(session.id)).toHaveLength(0)
+    expect(database.hasCanonicalStudyResultRecord(session.id)).toBe(false)
+    expect(database.getCanonicalIdempotencyRecords()).toHaveLength(0)
+    expect(database.getCanonicalReviewEventRecords()).toHaveLength(0)
+    expect(() => database.getWrongNote(user.id, questionId)).toThrowError(
+      expect.objectContaining({ code: 'NOT_FOUND' })
+    )
+
+    shouldFail = false
+    const completed = database.submitCanonicalStudySession(
+      submission,
+      mockCanonicalSubmissionOperations
+    )
+    expect(completed.replayed).toBe(false)
+    expect(completed.response.items[0]?.wrongNoteStatus).toBe('NEW')
+    const answers = database.getCanonicalStudyAnswerRecords(session.id)
+    const events = database.getCanonicalReviewEventRecords(session.id)
+    expect(answers).toHaveLength(1)
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      studyAnswerId: answers[0]?.id,
+      previousStatus: null,
+      nextStatus: 'NEW',
+      previousWrongCount: null,
+      wrongCountAfter: 1,
+      source: 'STUDY_SUBMIT'
+    })
+    expect(database.getCanonicalIdempotencyRecords()).toHaveLength(1)
+  })
+
+  it('v2 guest marker만 canonical로 복구하고 모호한 USER session과 legacy session은 legacy로 보존한다', () => {
+    const values = new Map<string, string>()
+    const storage: MockStorage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value)
+      },
+      removeItem: (key) => {
+        values.delete(key)
+      }
+    }
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    const guestPrincipalId = crypto.randomUUID()
+    const guestCanonical = database.createStudySession({
+      canonicalContractVersion: 1,
+      canonicalGuestPrincipalId: guestPrincipalId,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    database.loginAs('USER')
+    const userCanonical = database.createStudySession({
+      canonicalContractVersion: 1,
+      level: 'N5',
+      subject: 'GRAMMAR',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const legacy = database.createStudySession({
+      level: 'N5',
+      subject: 'READING',
+      mode: 'RANDOM',
+      count: 1
+    })
+    database.dispose()
+
+    interface MutablePersistedFixture {
+      version: number
+      currentUserId: string | null
+      sessionMetadata: Array<[string, Record<string, unknown>]>
+      canonicalIdempotencyRecords?: unknown
+      canonicalReviewEvents?: unknown
+      canonicalStudyAnswers?: unknown
+      canonicalStudyResults?: unknown
+    }
+    const serialized = values.get(MOCK_DATABASE_STORAGE_KEY)
+    if (!serialized) {
+      throw new Error(
+        'v2 migration fixture를 만들 persisted state가 필요합니다.'
+      )
+    }
+    const v2Fixture = JSON.parse(serialized) as MutablePersistedFixture
+    v2Fixture.version = 2
+    v2Fixture.sessionMetadata = v2Fixture.sessionMetadata.map(
+      ([sessionId, metadata]) => {
+        const v2Metadata = { ...metadata }
+        delete v2Metadata.canonicalContractVersion
+        return [sessionId, v2Metadata]
+      }
+    )
+    delete v2Fixture.canonicalIdempotencyRecords
+    delete v2Fixture.canonicalReviewEvents
+    delete v2Fixture.canonicalStudyAnswers
+    delete v2Fixture.canonicalStudyResults
+    values.set(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(v2Fixture))
+
+    const userRestored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    try {
+      expect(userRestored.getCurrentUser()?.role).toBe('USER')
+      expect(() =>
+        userRestored.getCanonicalStudySessionSnapshotRecord(
+          userCanonical.session.id,
+          null
+        )
+      ).toThrowError(expect.objectContaining({ code: 'NOT_FOUND' }))
+      expect(
+        userRestored.getStudySessionPayload(userCanonical.session.id).session.id
+      ).toBe(userCanonical.session.id)
+      expect(
+        userRestored.getStudySessionPayload(legacy.session.id).session.id
+      ).toBe(legacy.session.id)
+    } finally {
+      userRestored.dispose()
+    }
+
+    v2Fixture.currentUserId = null
+    values.set(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(v2Fixture))
+    const guestRestored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    try {
+      expect(
+        guestRestored.isCanonicalGuestPrincipalActive(guestPrincipalId)
+      ).toBe(true)
+      expect(
+        guestRestored.getCanonicalStudySessionSnapshotRecord(
+          guestCanonical.session.id,
+          guestPrincipalId
+        ).session.id
+      ).toBe(guestCanonical.session.id)
+      expect(() =>
+        guestRestored.getStudySessionPayload(guestCanonical.session.id)
+      ).toThrowError(expect.objectContaining({ code: 'NOT_FOUND' }))
+      expect(
+        guestRestored.getCanonicalStudyAnswerRecords(guestCanonical.session.id)
+      ).toHaveLength(0)
+      expect(guestRestored.getCanonicalReviewEventRecords()).toHaveLength(0)
+      expect(guestRestored.getCanonicalIdempotencyRecords()).toHaveLength(0)
+    } finally {
+      guestRestored.dispose()
+    }
   })
 })

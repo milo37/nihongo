@@ -44,7 +44,11 @@ const FORWARD_MIGRATIONS = [
   '20260814141000_phase3_study_session_fallback_semantics',
   '20260814142000_phase3_study_session_integrity',
   '20260814143000_phase3_study_session_identity_integrity',
-  '20260814144000_phase3_study_session_existing_selection_guard'
+  '20260814144000_phase3_study_session_existing_selection_guard',
+  '20260815100000_phase3_study_submission_facts',
+  '20260815101000_phase3_study_submission_integrity',
+  '20260815102000_phase3_wrong_note_latest_wrong_integrity',
+  '20260815103000_phase3_submission_retention_history_integrity'
 ] as const
 
 const environment = parseApiEnvironment(process.env)

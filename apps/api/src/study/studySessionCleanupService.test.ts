@@ -13,8 +13,10 @@ import { assertSafeStudySessionCleanupTarget } from './studySessionCleanupTarget
 const NOW = new Date('2000-01-01T12:00:00.000Z')
 const result = {
   deletedGuestPrincipalCount: 1,
+  deletedIdempotencyRecordCount: 3,
   deletedStudySessionCount: 2,
   guestPrincipalBatchLimitReached: false,
+  idempotencyRecordBatchLimitReached: false,
   studySessionBatchLimitReached: false
 }
 

@@ -212,7 +212,12 @@ describe('study session route composition', () => {
         .get('Access-Control-Expose-Headers')
         ?.split(',')
         .map((header) => header.trim())
-    ).toEqual(['Retry-After', 'X-Request-Id'])
+    ).toEqual([
+      'Idempotency-Replayed',
+      'Location',
+      'Retry-After',
+      'X-Request-Id'
+    ])
     expect(
       dependencies.principalService.resolveAuthenticatedUser
     ).not.toHaveBeenCalled()

@@ -5,6 +5,7 @@ interface ApplicationErrorOptions {
   message: string
   retryable: boolean
   fieldErrors?: Record<string, string[]>
+  location?: `/api/v1/study-sessions/${string}/result`
   retryAfterSeconds?: number
   cause?: unknown
 }
@@ -13,6 +14,7 @@ export class ApplicationError extends Error {
   readonly code: StableErrorCode
   readonly retryable: boolean
   readonly fieldErrors?: Record<string, string[]>
+  readonly location?: `/api/v1/study-sessions/${string}/result`
   readonly retryAfterSeconds?: number
 
   constructor(options: ApplicationErrorOptions) {
@@ -23,6 +25,9 @@ export class ApplicationError extends Error {
 
     if (options.fieldErrors) {
       this.fieldErrors = options.fieldErrors
+    }
+    if (options.location) {
+      this.location = options.location
     }
     if (options.retryAfterSeconds !== undefined) {
       this.retryAfterSeconds = options.retryAfterSeconds

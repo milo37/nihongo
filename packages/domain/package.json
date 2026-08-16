@@ -1,0 +1,30 @@
+{
+  "name": "@nihongo/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./grading/grade-study-submission": {
+      "types": "./dist/grading/grade-study-submission.d.ts",
+      "import": "./dist/grading/grade-study-submission.js"
+    },
+    "./review/apply-wrong-note-review": {
+      "types": "./dist/review/apply-wrong-note-review.d.ts",
+      "import": "./dist/review/apply-wrong-note-review.js"
+    },
+    "./submission/canonicalize-study-submission": {
+      "types": "./dist/submission/canonicalize-study-submission.d.ts",
+      "import": "./dist/submission/canonicalize-study-submission.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vitest": "4.1.10"
+  }
+}

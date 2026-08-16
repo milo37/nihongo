@@ -48,9 +48,21 @@
       "types": "./dist/study/get-study-session.d.ts",
       "import": "./dist/study/get-study-session.js"
     },
+    "./study/get-study-result": {
+      "types": "./dist/study/get-study-result.d.ts",
+      "import": "./dist/study/get-study-result.js"
+    },
     "./study/study-session": {
       "types": "./dist/study/study-session.d.ts",
       "import": "./dist/study/study-session.js"
+    },
+    "./study/study-result": {
+      "types": "./dist/study/study-result.d.ts",
+      "import": "./dist/study/study-result.js"
+    },
+    "./study/submit-study-session": {
+      "types": "./dist/study/submit-study-session.d.ts",
+      "import": "./dist/study/submit-study-session.js"
     },
     "./testing/question-read-conformance": {
       "types": "./dist/testing/question-read-conformance.d.ts",

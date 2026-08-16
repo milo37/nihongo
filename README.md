@@ -4,16 +4,18 @@ JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 �
 자동으로 오답노트에 저장해 반복 학습하는 풀스택 포트폴리오 프로젝트입니다.
 
 저장소는 pnpm workspace입니다. `apps/web`의 Vite 애플리케이션과
-`apps/api`의 Hono API 운영 기반, `packages/contracts`의 공유 Zod 계약을
-workspace root 명령으로 함께 개발·검증합니다.
+`apps/api`의 Hono API, `packages/contracts`의 공유 Zod 계약,
+`packages/domain`의 순수 grading·review 규칙을 workspace root 명령으로 함께
+개발·검증합니다.
 
 이번 MVP는 정적인 화면 목업이 아닙니다. 문제 세션 생성, 답안 제출과 채점,
 오답 상태 변경, 즐겨찾기, 학습 통계, 관리자 문제 CRUD가 실제 사용자 흐름으로
-연결됩니다. 인증, 공개 문제 read, RANDOM StudySession create/read는 PostgreSQL 기반
-실제 API로 구현됐습니다. 제출·결과·오답·즐겨찾기·통계·관리자 학습 흐름과 현재 기본
-학습 UI transport는 아직 MSW 기반 Mock API가 담당하며 operation 단위로 이관
-중입니다. UI와 TanStack Query 계층을 유지한 채 전환할 수 있도록 공유 계약과
-transport 경계를 분리했습니다.
+연결됩니다. 인증, 공개 문제 read와 RANDOM StudySession create/read/submit/result는
+PostgreSQL 기반 실제 API로 구현됐습니다. USER submit은 오답·복습 이벤트를 원자
+저장하며 guest submit은 이 영구 side effect를 만들지 않습니다. 오답 조회,
+즐겨찾기·통계·관리자 흐름과 현재 기본 학습 UI transport는 아직 MSW 기반 Mock API가
+담당하며 operation 단위로 이관 중입니다. UI와 TanStack Query 계층을 유지한 채
+전환할 수 있도록 공유 계약과 transport 경계를 분리했습니다.
 
 ## 서비스 목적
 
@@ -64,6 +66,7 @@ transport 경계를 분리했습니다.
 - PostgreSQL 18, Prisma ORM 7과 `@prisma/adapter-pg`
 - Better Auth 1.6.28과 official Prisma adapter
 - `packages/contracts` 기반 strict Zod API 계약
+- `packages/domain` 기반 framework-free grading·review 규칙
 
 ## 실행 방법
 
@@ -94,8 +97,10 @@ pnpm dev
 적용합니다. 새 migration을 작성할 때만 별도의 shadow DB 권한이 필요한
 `pnpm run db:migrate:dev`를 사용합니다.
 
-로컬 dev/test에서 만료된 guest-owned IN_PROGRESS session과 참조 없는 만료 guest를
-한 batch 정리하려면 exact target guard와 확인 문자열을 함께 사용합니다.
+로컬 dev/test에서 만료된 guest-owned IN_PROGRESS/CANCELLED/EXPIRED session, 제출 후
+7일 지난 guest SUBMITTED aggregate, 참조 없는 만료 guest와 만료 SUCCEEDED
+idempotency record를 한 bounded batch 정리하려면 exact target guard와 확인 문자열을
+함께 사용합니다. USER submitted aggregate와 retention 안의 guest 결과는 보존합니다.
 
 ```bash
 STUDY_CLEANUP_CONFIRM=DELETE_EXPIRED_GUEST_STUDY_DATA \
@@ -229,8 +234,8 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 ```text
 .
 ├── apps/
-│   ├── api/                # Hono app, Prisma, auth/guest/public question API
-│   │   ├── prisma/         # schema, reviewed migration, 65문제 seed
+│   ├── api/                # Hono app, Prisma, auth/question/study API
+│   │   ├── prisma/         # schema, 19 migrations, 65문제 seed
 │   │   └── src/            # app, middleware, DB, service/repository
 │   └── web/
 │       ├── src/
@@ -251,7 +256,8 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 │       ├── vitest.config.ts
 │       └── tsconfig.json
 ├── packages/
-│   └── contracts/          # canonical request/response/error Zod 계약
+│   ├── contracts/          # canonical request/response/error Zod 계약
+│   └── domain/             # framework-free grading·review·submit canonicalization
 ├── infra/postgres/         # 로컬 test DB 초기화
 ├── compose.yaml            # PostgreSQL 18.4 개발·테스트 환경
 ├── package.json            # workspace 명령과 공통 품질 도구
@@ -260,9 +266,10 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 └── prettier.config.mjs
 ```
 
-`apps/api`와 `packages/contracts`는 Phase 3 Slice 0의 실제 운영 코드와 계약
-테스트를 소유합니다. 순수 채점·복습 로직을 소유할 `packages/domain`은 해당 로직을
-서버 제출 경로로 옮기는 Slice 4 전에는 만들지 않습니다.
+`apps/api`와 `packages/contracts`는 Phase 3 Slice 0부터 실제 운영 코드와 계약
+테스트를 소유합니다. Slice 4에서 생성한 `packages/domain`은 server grading,
+submit canonicalization과 wrong-note transition을 framework·transport·ORM 없이
+소유하며 `apps/api`만 이를 소비합니다.
 
 Vite 기본 `App.tsx`와 `App.css`는 사용하지 않습니다. 각 도메인의 페이지는
 React lazy loading으로 분리되고, `apps/web/src/router.tsx`에서 통합됩니다.
@@ -356,8 +363,10 @@ persist middleware와 캐시된 storage adapter를 사용하므로 렌더링마�
 | AGAIN에서 두 번째 연속 정답 |       유지 |             2 | SOLVED    |
 | SOLVED에서 다시 오답        |         +1 |             0 | AGAIN     |
 
-상태 전이는 `apps/web/src/util/wrongNote.ts`의 순수 함수로 구현하고 단위 테스트합니다.
-오답 시 `lastWrongAt`, 복습 시 `lastReviewedAt`을 갱신합니다.
+legacy Alpha UI의 상태 전이는 `apps/web/src/util/wrongNote.ts`가 유지합니다. canonical
+Slice 4 submit은 `packages/domain`의 순수 algorithm v1을 사용하고 server-graded
+StudyAnswer에서만 USER WrongNote·ReviewSchedule·ReviewEvent를 원자 갱신합니다. 오답 시
+`lastWrongAt`, 후속 복습 시 `lastReviewedAt`을 갱신합니다.
 
 ## Mock API와 데이터
 
@@ -374,6 +383,11 @@ persist middleware와 캐시된 storage adapter를 사용하므로 렌더링마�
   MSW 응답이 `document.cookie`로 전달하는 local correlation marker라 의도적으로
   non-HttpOnly입니다. mock 안에서는 ownership proof로 작동하지만 실제 API의 signed
   guest credential이나 production 인증 수단은 아닙니다.
+- mock persistence v3부터 canonical session은 `canonicalContractVersion: 1`을
+  정확히 저장합니다. v2 guest session은 `canonicalGuestPrincipalId`로 안전하게
+  복구하지만 marker 없는 v2 USER/ADMIN canonical session은 legacy와 구분할 수 없어
+  legacy로 보존됩니다. 해당 session은 canonical GET/submit/result에서 404이므로 새
+  canonical session을 생성해야 하며 legacy route의 기존 session은 삭제하지 않습니다.
 - canonical v1 MSW의 session expiry는 일반적인 신규 guest를 `startedAt + 24시간`으로
   근사하며 GuestPrincipal 만료 cap 자체는 모사하지 않습니다. 실제 expiry와 retention의
   권위는 Hono/PostgreSQL 구현입니다.
@@ -403,6 +417,11 @@ pnpm run test:integration
 pnpm run build
 ```
 
+Slice 4 최종 gate는 architecture 5, contracts 34, domain 21, API unit 155, web
+28 files/138 tests, PostgreSQL integration 12 files/71 tests와 19 migration,
+lint/typecheck/build를 통과했습니다. PostgreSQL integration에는 pg 8
+concurrent-query deprecation warning만 남고 실패는 없습니다.
+
 주요 테스트 범위는 다음과 같습니다.
 
 - 채점 결과, 미응답, 잘못된 문제·보기 ID
@@ -428,6 +447,15 @@ pnpm run build
   Origin/content-type/body-size/trusted-client-IP/rate boundary
 - `/me` anonymous no-write, scanner-safe email verification, auth transition race와
   `Retry-After` client backoff
+- canonical submit/result strict contract, server grading과 historical
+  `wrongNoteStatus`
+- same-key replay, key reuse/different-key conflict, concurrent exactly-once와 forced
+  transaction rollback
+- guest submit의 WrongNote/ReviewEvent 0건, guest retention cascade와 USER submitted
+  aggregate 보존
+- 15→19 forward migration, submission integrity·latest-wrong·retention/history
+  constraint
+- canonical MSW submit/result parity와 persisted state v2→v3 fail-closed migration
 
 ## 접근성
 
@@ -474,8 +502,12 @@ USER/ADMIN authorization과 `/api/v1/me`를 구현했습니다. 공개 auth surf
 POST facade로 제한하고, browser session projection은 `/api/v1/me`만 사용합니다.
 Slice 3은 RANDOM StudySession create/read, ordered QuestionVersion pinning과
 guest/user ownership을 실제 Hono/PostgreSQL에 구현했습니다. canonical v1 MSW 병행
-경로는 같은 contract를 소비하지만 기존 Alpha 학습 Query/UI는 Slice 6 cutover까지
-legacy MSW transport를 유지합니다. submit/result는 Slice 4 범위입니다.
+경로는 같은 contract를 소비합니다. Slice 4는 `packages/domain` server grading,
+StudyAnswer/Result/IdempotencyRecord, atomic submit/result와 USER
+WrongNote/ReviewSchedule/ReviewEvent side effect를 Hono/PostgreSQL과 canonical MSW에
+구현했습니다. 기존 Alpha 학습 Query/UI는 Slice 6 cutover까지 legacy MSW transport를
+유지합니다. 다음 backend 실행 단위는 별도 사용자 지시가 필요한 Slice 5 owner-scoped
+WrongNote read·historical entitlement·dashboard입니다.
 
 ## 향후 개선
 
