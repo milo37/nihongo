@@ -1,6 +1,7 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
 import { isApiError } from '@api/config'
 import { emitApiError } from '@libs/errorBus'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 
 const getQueryRetryDelay = (attempt: number, error: Error): number => {
   if (
@@ -25,13 +26,11 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: (failureCount, error) => {
-        const status =
-          typeof error === 'object' &&
-          error !== null &&
-          'status' in error &&
-          typeof error.status === 'number'
-            ? error.status
-            : undefined
+        if (isAuthTransitionSupersededError(error)) {
+          return false
+        }
+
+        const status = isApiError(error) ? error.status : undefined
 
         if (status === 429) {
           return failureCount < 2

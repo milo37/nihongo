@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { Badge } from '@common/components/Badge'
@@ -7,6 +8,7 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import { useAuth } from '@provider/ProtectedRouteProvider'
+import { isRealApiMode } from '@libs/apiMode'
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -37,6 +39,19 @@ const formatDailyDate = (value: string): string => {
 export const DashboardPage = (): ReactElement => {
   const { user } = useAuth()
   const dashboardQuery = useGetDashboardStats()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const shouldRestoreRetryFocusRef = useRef(false)
+
+  useEffect(() => {
+    if (
+      dashboardQuery.isSuccess &&
+      dashboardQuery.data &&
+      shouldRestoreRetryFocusRef.current
+    ) {
+      shouldRestoreRetryFocusRef.current = false
+      headingRef.current?.focus()
+    }
+  }, [dashboardQuery.data, dashboardQuery.isSuccess])
 
   if (dashboardQuery.isPending) {
     return <LoadingState message="학습 대시보드를 불러오고 있습니다." />
@@ -49,7 +64,12 @@ export const DashboardPage = (): ReactElement => {
         title="대시보드를 불러오지 못했습니다"
         description="학습 통계를 다시 요청해 주세요."
         action={
-          <Button onClick={() => void dashboardQuery.refetch()}>
+          <Button
+            onClick={() => {
+              shouldRestoreRetryFocusRef.current = true
+              void dashboardQuery.refetch()
+            }}
+          >
             다시 시도
           </Button>
         }
@@ -70,12 +90,23 @@ export const DashboardPage = (): ReactElement => {
           <p className="text-sm font-black tracking-[0.16em] text-brand">
             DASHBOARD
           </p>
-          <h1 className="mt-2 text-4xl font-black">학습 흐름을 확인하세요</h1>
+          <h1
+            ref={headingRef}
+            className="mt-2 rounded-sm text-4xl font-black"
+            tabIndex={-1}
+          >
+            학습 흐름을 확인하세요
+          </h1>
           <p className="mt-3 text-muted">
             {user?.name ?? '학습자'}님의 목표 급수는{' '}
             <strong className="text-ink">{user?.targetLevel ?? 'N3'}</strong>
             입니다.
           </p>
+          {isRealApiMode ? (
+            <p className="mt-2 text-sm font-semibold text-slate-600">
+              누적 수치는 전체 기간 기준이며, 최근 7일 날짜는 UTC 기준입니다.
+            </p>
+          ) : null}
         </div>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 font-bold text-white"

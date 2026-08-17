@@ -28,6 +28,10 @@ import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
+import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
+import type { DashboardService } from '../dashboard/dashboardService.js'
+import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
+import { createDashboardRoutes } from '../routes/dashboard.js'
 
 interface CreateApiAppDependencies {
   checkReadiness: () => Promise<void>
@@ -43,6 +47,11 @@ interface CreateApiAppDependencies {
     rateLimiter: ApplicationRateLimiter
     service: StudySessionService
     submissionService?: StudySubmissionService
+  }
+  learning?: {
+    dashboardService: DashboardService
+    rateLimiter: ApplicationRateLimiter
+    wrongNoteService: WrongNoteService
   }
   enableTestRoutes?: boolean
 }
@@ -78,6 +87,7 @@ export const createApiApp = ({
   auth,
   checkReadiness,
   logger,
+  learning,
   questionReader,
   study,
   enableTestRoutes = false
@@ -184,6 +194,26 @@ export const createApiApp = ({
           })
         )
       }
+    }
+    if (learning) {
+      app.route(
+        '/api/v1/wrong-notes',
+        createWrongNoteRoutes({
+          environment: auth.environment,
+          principalService: auth.principalService,
+          rateLimiter: learning.rateLimiter,
+          wrongNoteService: learning.wrongNoteService
+        })
+      )
+      app.route(
+        '/api/v1/dashboard',
+        createDashboardRoutes({
+          dashboardService: learning.dashboardService,
+          environment: auth.environment,
+          principalService: auth.principalService,
+          rateLimiter: learning.rateLimiter
+        })
+      )
     }
   }
 

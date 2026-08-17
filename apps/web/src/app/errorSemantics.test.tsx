@@ -6,8 +6,11 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { EditAdminQuestionPage } from '@app/admin-question/edit/page'
 import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
 import { PracticeResultPage } from '@app/practice/result/page'
+import { toLegacyStudyResultView } from '@app/practice/adapters/studyResultView'
+import { toLegacyStudySessionView } from '@app/practice/adapters/studySessionView'
 import { studyQueries } from '@app/practice/queries/studyQueries'
 import { WrongNoteDetailPage } from '@app/wrong-note/detail/page'
+import { toLegacyWrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { authQueries } from '@app/login/queries/authQueries'
 import { Layout } from '@app/layout'
@@ -187,7 +190,7 @@ describe('detail page error semantics', () => {
       <WrongNoteDetailPage />,
       (client) => {
         const queryKey = wrongNoteQueries.detail(question.id).queryKey
-        client.setQueryData(queryKey, detail)
+        client.setQueryData(queryKey, toLegacyWrongNoteDetailView(detail))
         void client.invalidateQueries({ queryKey, exact: true })
       }
     )
@@ -315,8 +318,11 @@ describe('detail page error semantics', () => {
         const sessionKey = studyQueries.session(
           sessionPayload.session.id
         ).queryKey
-        client.setQueryData(resultKey, result)
-        client.setQueryData(sessionKey, sessionPayload)
+        client.setQueryData(resultKey, toLegacyStudyResultView(result))
+        client.setQueryData(
+          sessionKey,
+          toLegacyStudySessionView(sessionPayload)
+        )
         void client.invalidateQueries({ queryKey: resultKey, exact: true })
         void client.invalidateQueries({ queryKey: sessionKey, exact: true })
       }

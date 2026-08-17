@@ -42,9 +42,12 @@ const HTTP_ROUTE_METHODS = new Set([
   'put'
 ])
 const SENSITIVE_CONTRACT_PATTERN =
-  /^@nihongo\/contracts\/(?:admin(?:-|\/)|.*(?:result|reviewed|submit|wrong-note))/
+  /^@nihongo\/contracts\/(?:admin(?:-|\/)|dashboard(?:-|\/)|.*(?:result|reviewed|submit|wrong-note))/
 const PUBLIC_WEB_PATH_PATTERN =
   /^apps\/web\/src\/(?:api\/question\/|app\/(?:home|practice\/session)\/)/
+const OWNER_PRACTICE_SESSION_PATH_PATTERN =
+  /^apps\/web\/src\/app\/practice\/session\//
+const TEST_SOURCE_PATH_PATTERN = /\.(?:test|spec)\.[cm]?[jt]sx?$/
 const WEB_ALIAS_ROOTS = new Map([
   ['@/', ''],
   ['@api/', 'api/'],
@@ -114,8 +117,43 @@ const hasRuntimeBindings = (node) => {
 const collectModuleReferences = (sourceFile) => {
   const references = []
 
-  const addReference = (node, specifier, runtime) => {
-    references.push({ node, specifier, runtime })
+  const addReference = (
+    node,
+    specifier,
+    runtime,
+    dynamic = false,
+    deferred = false
+  ) => {
+    references.push({ deferred, dynamic, node, specifier, runtime })
+  }
+
+  const isExactDeferredStudySubmitImport = (node, specifier) => {
+    if (
+      specifier !== '@app/practice/commands/submitStudySessionCommand' ||
+      !normalizePath(sourceFile.fileName).endsWith(
+        '/apps/web/src/app/practice/hooks/useSubmitStudySession.ts'
+      )
+    ) {
+      return false
+    }
+
+    let current = node.parent
+    while (current) {
+      if (ts.isFunctionLike(current)) {
+        const parent = current.parent
+        return Boolean(
+          parent &&
+            ts.isPropertyAssignment(parent) &&
+            parent.initializer === current &&
+            ((ts.isIdentifier(parent.name) &&
+              parent.name.text === 'mutationFn') ||
+              (ts.isStringLiteralLike(parent.name) &&
+                parent.name.text === 'mutationFn'))
+        )
+      }
+      current = current.parent
+    }
+    return false
   }
 
   const visit = (node) => {
@@ -149,7 +187,13 @@ const collectModuleReferences = (sourceFile) => {
       node.arguments.length === 1 &&
       ts.isStringLiteralLike(node.arguments[0])
     ) {
-      addReference(node.arguments[0], node.arguments[0].text, true)
+      addReference(
+        node.arguments[0],
+        node.arguments[0].text,
+        true,
+        true,
+        isExactDeferredStudySubmitImport(node, node.arguments[0].text)
+      )
     }
 
     ts.forEachChild(node, visit)
@@ -774,7 +818,21 @@ const collectPublicWebContractDiagnostics = (rootDir, sourceFiles) => {
     (fileName) => classifyWorkspace(rootDir, fileName)?.id === 'apps/web'
   )
   const edges = new Map()
-  const sensitiveFiles = new Set()
+  const sensitiveCategories = new Map()
+
+  const getSensitiveCategory = (specifier) => {
+    if (!SENSITIVE_CONTRACT_PATTERN.test(specifier)) return null
+    if (/^@nihongo\/contracts\/admin(?:-|\/)/.test(specifier)) {
+      return 'admin'
+    }
+    if (/^@nihongo\/contracts\/dashboard(?:-|\/)/.test(specifier)) {
+      return 'dashboard'
+    }
+    if (/wrong-note/.test(specifier)) return 'wrong-note'
+    if (/reviewed/.test(specifier)) return 'reviewed'
+    if (/submit/.test(specifier)) return 'study-submit'
+    return 'study-result'
+  }
 
   for (const fileName of webFiles) {
     const sourceText = fs.readFileSync(fileName, 'utf8')
@@ -785,35 +843,85 @@ const collectPublicWebContractDiagnostics = (rootDir, sourceFiles) => {
       true,
       fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
     )
-    const dependencies = new Set()
+    const dependencies = []
+    const categories = []
 
     for (const reference of collectModuleReferences(sourceFile)) {
       if (!reference.runtime) continue
-      if (SENSITIVE_CONTRACT_PATTERN.test(reference.specifier)) {
-        sensitiveFiles.add(fileName)
+      const category = getSensitiveCategory(reference.specifier)
+      if (category) {
+        categories.push({
+          category,
+          deferred: reference.dynamic && reference.deferred
+        })
       }
       const resolved = resolveWebModule(rootDir, fileName, reference.specifier)
-      if (resolved) dependencies.add(resolved)
+      if (resolved) {
+        dependencies.push({
+          deferred: reference.dynamic && reference.deferred,
+          fileName: resolved
+        })
+      }
     }
     edges.set(fileName, dependencies)
+    sensitiveCategories.set(fileName, categories)
   }
 
-  const reachesSensitiveContract = (fileName, visiting = new Set()) => {
-    if (sensitiveFiles.has(fileName)) return true
+  const collectReachableSensitiveCategories = (
+    fileName,
+    includeDynamic,
+    visiting = new Set()
+  ) => {
+    const categories = new Set(
+      (sensitiveCategories.get(fileName) ?? [])
+        .filter((entry) => includeDynamic || !entry.deferred)
+        .map((entry) => entry.category)
+    )
     if (visiting.has(fileName)) return false
     visiting.add(fileName)
-    return [...(edges.get(fileName) ?? [])].some((dependency) =>
-      reachesSensitiveContract(dependency, visiting)
-    )
+
+    for (const dependency of edges.get(fileName) ?? []) {
+      if (!includeDynamic && dependency.deferred) continue
+      const dependencyCategories = collectReachableSensitiveCategories(
+        dependency.fileName,
+        includeDynamic,
+        new Set(visiting)
+      )
+      if (dependencyCategories === false) continue
+      dependencyCategories.forEach((category) => categories.add(category))
+    }
+
+    return categories
   }
 
   return webFiles.flatMap((fileName) => {
     const relative = normalizePath(path.relative(rootDir, fileName))
     if (
       !PUBLIC_WEB_PATH_PATTERN.test(relative) ||
-      !reachesSensitiveContract(fileName)
+      TEST_SOURCE_PATH_PATTERN.test(relative)
     ) {
       return []
+    }
+
+    const allCategories = collectReachableSensitiveCategories(fileName, true)
+    if (allCategories === false || allCategories.size === 0) return []
+
+    if (OWNER_PRACTICE_SESSION_PATH_PATTERN.test(relative)) {
+      const eagerCategories = collectReachableSensitiveCategories(
+        fileName,
+        false
+      )
+      const forbiddenLazyCategories = [...allCategories].filter(
+        (category) => category !== 'study-submit' && category !== 'study-result'
+      )
+
+      if (
+        eagerCategories !== false &&
+        eagerCategories.size === 0 &&
+        forbiddenLazyCategories.length === 0
+      ) {
+        return []
+      }
     }
 
     return [
@@ -821,7 +929,7 @@ const collectPublicWebContractDiagnostics = (rootDir, sourceFiles) => {
         rootDir,
         fileName,
         'ARCH114',
-        'public practice code must not reach admin, result, reviewed, submit, or wrong-note contract values'
+        'public question/home cannot reach sensitive contracts; owner practice/session may reach only lazy study submit/result contracts'
       )
     ]
   })

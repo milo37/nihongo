@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { toLegacyWrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { WrongNoteDetailContent } from '@app/wrong-note/detail/page'
 import { originalQuestions } from '@mocks/data/questions'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -43,7 +44,9 @@ describe('wrong-note memo workflow', () => {
       ],
       durationSec: 4
     })
-    const data = mockDatabase.getWrongNote(currentUser.id, question.id)
+    const data = toLegacyWrongNoteDetailView(
+      mockDatabase.getWrongNote(currentUser.id, question.id)
+    )
     const client = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -151,7 +154,9 @@ describe('wrong-note memo workflow', () => {
       ],
       durationSec: 4
     })
-    const data = mockDatabase.getWrongNote(currentUser.id, question.id)
+    const data = toLegacyWrongNoteDetailView(
+      mockDatabase.getWrongNote(currentUser.id, question.id)
+    )
     const client = new QueryClient({
       defaultOptions: {
         queries: { retry: false },

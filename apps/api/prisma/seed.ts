@@ -5,7 +5,10 @@ import {
   assertSafeTestDatabase
 } from '../src/db/databaseTargetGuard.js'
 import { PrismaClient } from '../src/generated/prisma/client.js'
-import { getPostgresSchema } from '../src/db/databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../src/db/databaseOptions.js'
 import { seedQuestionCatalog } from './seedQuestionCatalog.js'
 
 const target = process.env.SEED_TARGET
@@ -47,7 +50,7 @@ const schema = getPostgresSchema(databaseUrl)
 const adapter = new PrismaPg(
   {
     connectionString: databaseUrl,
-    ...(schema ? { options: `-c search_path=${schema}` } : {})
+    options: createPostgresStartupOptions(schema)
   },
   schema ? { schema } : {}
 )

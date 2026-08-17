@@ -6,9 +6,12 @@ import type {
   QuestionSubject,
   StudyMode
 } from '@common/types/domain'
+import { isRealApiMode } from '@libs/apiMode'
 import { Button } from '@common/components/Button'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
 const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
@@ -77,6 +80,10 @@ const getInitialMode = (
     ? (value as StudyMode)
     : 'RANDOM'
 
+  if (isRealApiMode) {
+    return 'RANDOM'
+  }
+
   if (
     role === 'GUEST' &&
     (requestedMode === 'WRONG_NOTE' || requestedMode === 'BOOKMARK')
@@ -105,17 +112,24 @@ export const PracticePage = (): ReactElement => {
     getInitialMode(searchParams.get('mode'), role)
   )
   const createSession = useCreateStudySession()
+  const isCreatingSession = createSession.isPending || createSession.isPaused
 
   const handleStart = (): void => {
+    if (isCreatingSession) {
+      return
+    }
+
     const safeMode =
-      role === 'GUEST' && (mode === 'WRONG_NOTE' || mode === 'BOOKMARK')
+      isRealApiMode ||
+      (role === 'GUEST' && (mode === 'WRONG_NOTE' || mode === 'BOOKMARK'))
         ? 'RANDOM'
         : mode
 
     createSession.mutate(
       { level, subject, count, mode: safeMode },
       {
-        onSuccess: ({ session }) => {
+        onSuccess: ({ session }, input) => {
+          assertCurrentCreateStudySessionAction(input)
           beginPractice(session.id, session.startedAt)
           void navigate(`/practice/session/${session.id}`)
         }
@@ -144,7 +158,7 @@ export const PracticePage = (): ReactElement => {
       </div>
 
       <div className="mt-8 space-y-9 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-8">
-        <fieldset>
+        <fieldset disabled={isCreatingSession}>
           <legend className="text-lg font-black">1. 급수</legend>
           <div className="mt-4 grid grid-cols-5 gap-2">
             {levels.map((option) => (
@@ -162,7 +176,7 @@ export const PracticePage = (): ReactElement => {
           </div>
         </fieldset>
 
-        <fieldset>
+        <fieldset disabled={isCreatingSession}>
           <legend className="text-lg font-black">2. 과목</legend>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {subjects.map((option) => (
@@ -180,7 +194,7 @@ export const PracticePage = (): ReactElement => {
           </div>
         </fieldset>
 
-        <fieldset>
+        <fieldset disabled={isCreatingSession}>
           <legend className="text-lg font-black">3. 문제 수</legend>
           <div className="mt-4 grid grid-cols-3 gap-2">
             {counts.map((option) => (
@@ -198,11 +212,15 @@ export const PracticePage = (): ReactElement => {
           </div>
         </fieldset>
 
-        <fieldset>
+        <fieldset disabled={isCreatingSession}>
           <legend className="text-lg font-black">4. 출제 모드</legend>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {modes.map((option) => {
-              const disabled = option.requiresLogin && role === 'GUEST'
+              const isUnavailableInRealMode =
+                isRealApiMode && option.value !== 'RANDOM'
+              const disabled =
+                isUnavailableInRealMode ||
+                (option.requiresLogin && role === 'GUEST')
               return (
                 <button
                   key={option.value}
@@ -217,7 +235,11 @@ export const PracticePage = (): ReactElement => {
                   <span className="mt-1 block text-sm leading-6 text-muted">
                     {option.description}
                   </span>
-                  {disabled ? (
+                  {isUnavailableInRealMode ? (
+                    <span className="mt-1 block text-xs font-bold text-amber-700">
+                      실제 API에서는 아직 지원하지 않습니다
+                    </span>
+                  ) : disabled ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
                       로그인 후 이용 가능
                     </span>
@@ -228,18 +250,22 @@ export const PracticePage = (): ReactElement => {
           </div>
         </fieldset>
 
-        {createSession.isError ? (
+        {createSession.isError &&
+        !isAuthTransitionSupersededError(createSession.error) ? (
           <div
             className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
             role="alert"
           >
-            세션을 만들지 못했습니다. 선택 조건을 확인하고 다시 시도해 주세요.
+            세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤 다시
+            시도해 주세요.
           </div>
         ) : null}
 
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
-            오답·즐겨찾기 모드는 저장된 문제가 없으면 랜덤 문제로 대체됩니다.
+            {isRealApiMode
+              ? '실제 API 모드에서는 RANDOM 출제만 사용할 수 있습니다.'
+              : '오답·즐겨찾기 모드는 저장된 문제가 없으면 랜덤 문제로 대체됩니다.'}
             {role === 'GUEST' ? (
               <>
                 {' '}
@@ -254,7 +280,7 @@ export const PracticePage = (): ReactElement => {
           </p>
           <Button
             className="shrink-0"
-            isLoading={createSession.isPending}
+            isLoading={isCreatingSession}
             size="lg"
             onClick={handleStart}
           >

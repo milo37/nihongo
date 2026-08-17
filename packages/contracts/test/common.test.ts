@@ -6,7 +6,11 @@ import {
   stableErrorCodeSchema
 } from '../src/common/error.js'
 import { opaqueIdSchema } from '../src/common/id.js'
-import { pageRequestSchema } from '../src/common/pagination.js'
+import {
+  createPageResponseSchema,
+  pageRequestSchema
+} from '../src/common/pagination.js'
+import { z } from 'zod'
 
 const UUID = '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a1'
 
@@ -31,6 +35,14 @@ describe('공통 계약', () => {
       pageSize: 10
     })
     expect(pageRequestSchema.safeParse({ page: 0 }).success).toBe(false)
+    expect(
+      createPageResponseSchema(z.string()).safeParse({
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: Number.MAX_SAFE_INTEGER + 1
+      }).success
+    ).toBe(false)
   })
 
   it('stable error code와 status mapping을 닫힌 집합으로 유지한다', () => {

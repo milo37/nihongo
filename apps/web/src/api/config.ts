@@ -1,5 +1,9 @@
 import axios from 'axios'
 import { z, type ZodType } from 'zod'
+import {
+  assertCurrentAuthTransitionEpoch,
+  captureAuthTransitionEpoch
+} from '@libs/authTransitionFence'
 
 export interface ApiErrorFlags {
   code?: string
@@ -9,6 +13,7 @@ export interface ApiErrorFlags {
   isServerError?: boolean
   isNetworkError?: boolean
   isOffline?: boolean
+  isResponseValidationError?: boolean
   isValidationError?: boolean
   retryAfterMs?: number
   status?: number
@@ -26,6 +31,7 @@ const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
   'isServerError',
   'isNetworkError',
   'isOffline',
+  'isResponseValidationError',
   'isValidationError',
   'retryAfterMs',
   'status'
@@ -180,11 +186,21 @@ export const safeFactory =
   <Arguments extends unknown[]>(method: AsyncMethod<Arguments>) =>
   <Schema extends ZodType>(schema: Schema) =>
   async (...args: Arguments): Promise<z.output<Schema>> => {
-    const rawData = await method(...args)
+    const requestEpoch = captureAuthTransitionEpoch()
+    let rawData: unknown
+
+    try {
+      rawData = await method(...args)
+    } catch (error: unknown) {
+      assertCurrentAuthTransitionEpoch(requestEpoch)
+      throw error
+    }
+
+    assertCurrentAuthTransitionEpoch(requestEpoch)
     const parsedData = schema.safeParse(rawData)
 
     if (!parsedData.success) {
-      if (import.meta.env.DEV) {
+      if (!__NIHONGO_PRODUCTION_BUILD__) {
         console.error('API response validation failed', parsedData.error)
       }
 
@@ -193,6 +209,7 @@ export const safeFactory =
           cause: parsedData.error
         }),
         {
+          isResponseValidationError: true,
           isValidationError: true,
           status: 422
         }

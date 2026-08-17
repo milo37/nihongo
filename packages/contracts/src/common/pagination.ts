@@ -15,7 +15,7 @@ export const createPageResponseSchema = <ItemSchema extends ZodType>(
       items: z.array(itemSchema),
       page: z.number().int().min(1),
       pageSize: z.number().int().min(1).max(100),
-      total: z.number().int().nonnegative()
+      total: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
     })
     .strict()
 

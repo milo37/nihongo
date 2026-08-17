@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
+import { isRealApiMode } from '@libs/apiMode'
 import type {
   JlptLevel,
   QuestionSubject,
@@ -14,6 +15,7 @@ import { LoadingState } from '@common/components/LoadingState'
 import { Pagination } from '@common/components/Pagination'
 import { Select } from '@common/components/Select'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useListWrongNotes } from '@app/wrong-note/hooks/useListWrongNotes'
 import { useAppStore } from '@store/index'
 
@@ -39,6 +41,24 @@ const statusVariants = {
   AGAIN: 'danger',
   SOLVED: 'success'
 } as const
+const questionTypeLabels = {
+  KANJI_READING: '한자 읽기',
+  ORTHOGRAPHY: '표기',
+  CONTEXT_VOCABULARY: '문맥 어휘',
+  PARAPHRASE: '유의 표현',
+  WORD_USAGE: '용법',
+  GRAMMAR_SELECT: '문법 선택',
+  SENTENCE_ORDER: '문장 배열',
+  TEXT_GRAMMAR: '글의 문법',
+  SHORT_READING: '단문 독해',
+  MEDIUM_READING: '중문 독해',
+  LONG_READING: '장문 독해',
+  INFO_RETRIEVAL: '정보 검색'
+} as const
+const reviewAvailabilityLabels = {
+  AVAILABLE: '현재 출제 가능',
+  ARCHIVED: '보관된 문제'
+} as const
 const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   year: 'numeric',
   month: 'short',
@@ -58,6 +78,8 @@ const formatDate = (isoDate: string): string => {
 
 export const WrongNotePage = (): ReactElement => {
   const navigate = useNavigate()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const shouldRestoreRetryFocusRef = useRef(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const levelParam = searchParams.get('level')
@@ -109,6 +131,17 @@ export const WrongNotePage = (): ReactElement => {
     setSearchParams(nextParams, { replace: true })
   }, [isOutOfRangePage, page, searchParams, setSearchParams, totalPages])
 
+  useEffect(() => {
+    if (
+      wrongNotesQuery.isSuccess &&
+      wrongNotesQuery.data &&
+      shouldRestoreRetryFocusRef.current
+    ) {
+      shouldRestoreRetryFocusRef.current = false
+      headingRef.current?.focus()
+    }
+  }, [wrongNotesQuery.data, wrongNotesQuery.isSuccess])
+
   const setFilter = (key: string, value: string): void => {
     const nextParams = new URLSearchParams(searchParams)
     if (value) {
@@ -136,7 +169,8 @@ export const WrongNotePage = (): ReactElement => {
         questionIds: [questionId]
       },
       {
-        onSuccess: ({ session }) => {
+        onSuccess: ({ session }, input) => {
+          assertCurrentCreateStudySessionAction(input)
           beginPractice(session.id, session.startedAt)
           void navigate(`/practice/session/${session.id}`)
         }
@@ -150,7 +184,11 @@ export const WrongNotePage = (): ReactElement => {
         <p className="text-sm font-black tracking-[0.16em] text-brand">
           WRONG NOTE
         </p>
-        <h1 className="mt-2 text-4xl font-black">
+        <h1
+          ref={headingRef}
+          className="mt-2 rounded-sm text-4xl font-black"
+          tabIndex={-1}
+        >
           오답을 해결 상태까지 관리하세요
         </h1>
         <p className="mt-4 leading-7 text-muted">
@@ -233,7 +271,12 @@ export const WrongNotePage = (): ReactElement => {
           title="오답노트를 불러오지 못했습니다"
           description="잠시 후 다시 시도해 주세요."
           action={
-            <Button onClick={() => void wrongNotesQuery.refetch()}>
+            <Button
+              onClick={() => {
+                shouldRestoreRetryFocusRef.current = true
+                void wrongNotesQuery.refetch()
+              }}
+            >
               다시 시도
             </Button>
           }
@@ -275,62 +318,75 @@ export const WrongNotePage = (): ReactElement => {
             </Button>
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {wrongNotesQuery.data.items.map(({ wrongNote, question }) => (
+            {wrongNotesQuery.data.items.map((item) => (
               <article
-                key={wrongNote.id}
+                key={item.questionId}
                 className="content-auto flex flex-col rounded-xl border border-line bg-white p-5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="brand">{question.level}</Badge>
-                    <Badge>{subjectLabels[question.subject]}</Badge>
-                    <Badge variant={statusVariants[wrongNote.status]}>
-                      {statusLabels[wrongNote.status]}
+                    <Badge variant="brand">{item.level}</Badge>
+                    <Badge>{subjectLabels[item.subject]}</Badge>
+                    <Badge variant={statusVariants[item.status]}>
+                      {statusLabels[item.status]}
+                    </Badge>
+                    <Badge
+                      variant={
+                        item.reviewAvailability === 'ARCHIVED'
+                          ? 'neutral'
+                          : 'info'
+                      }
+                    >
+                      {reviewAvailabilityLabels[item.reviewAvailability]}
                     </Badge>
                   </div>
                   <span className="text-sm font-bold text-red-700">
-                    {wrongNote.wrongCount}회 오답
+                    {item.wrongCount}회 오답
                   </span>
                 </div>
                 <h3 className="mt-5 line-clamp-2 text-lg font-black leading-7">
-                  {question.questionText}
+                  {item.questionPreview}
                 </h3>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <dt className="text-muted">문제 유형</dt>
                     <dd className="mt-1 font-semibold">
-                      {question.questionType}
+                      {questionTypeLabels[item.questionType]}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-muted">마지막 오답</dt>
                     <dd className="mt-1 font-semibold">
-                      {formatDate(wrongNote.lastWrongAt)}
+                      {formatDate(item.lastWrongAt)}
                     </dd>
                   </div>
                 </dl>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {question.tags.map((item) => (
-                    <Badge key={item}>{item}</Badge>
+                  {item.tags.map((tagLabel) => (
+                    <Badge key={tagLabel}>{tagLabel}</Badge>
                   ))}
                 </div>
                 <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
-                  <Button
-                    variant="outline"
-                    isLoading={createSession.isPending}
-                    onClick={() =>
-                      retryQuestion(
-                        question.id,
-                        question.level,
-                        question.subject
-                      )
-                    }
-                  >
-                    재풀이
-                  </Button>
+                  {!isRealApiMode && item.reviewAvailability === 'AVAILABLE' ? (
+                    <Button
+                      variant="outline"
+                      isLoading={createSession.isPending}
+                      onClick={() =>
+                        retryQuestion(item.questionId, item.level, item.subject)
+                      }
+                    >
+                      재풀이
+                    </Button>
+                  ) : (
+                    <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
+                      {item.reviewAvailability === 'ARCHIVED'
+                        ? '보관된 문제 · 재풀이 불가'
+                        : '현재 출제 가능 · 실제 API 재풀이 미지원'}
+                    </span>
+                  )}
                   <Link
                     className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
-                    to={`/wrong-notes/${question.id}`}
+                    to={`/wrong-notes/${item.questionId}`}
                   >
                     상세 보기
                   </Link>

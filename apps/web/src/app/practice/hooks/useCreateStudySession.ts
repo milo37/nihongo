@@ -1,6 +1,14 @@
 import { useMutation } from '@tanstack/react-query'
-import { studyMutations } from '@app/practice/queries/studyQueries'
+import {
+  assertCurrentCreateStudySessionAction,
+  studySessionMutations
+} from '@app/practice/queries/studySessionQueries'
 
 export const useCreateStudySession = () => {
-  return useMutation(studyMutations.createSession())
+  return useMutation({
+    ...studySessionMutations.createSession(),
+    onSuccess: (_data, input) => {
+      assertCurrentCreateStudySessionAction(input)
+    }
+  })
 }

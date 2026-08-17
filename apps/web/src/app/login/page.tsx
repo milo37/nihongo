@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router'
@@ -17,6 +17,7 @@ import {
   passwordResetRequestSchema
 } from '@common/schemas/auth'
 import { LEVELS } from '@common/types/domain'
+import { isMockApiMode } from '@libs/apiMode'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 
 type AuthMode = 'RESET_REQUEST' | 'SIGN_IN' | 'SIGN_UP'
@@ -24,9 +25,13 @@ type SignInForm = z.input<typeof emailSignInSchema>
 type SignUpForm = z.input<typeof emailSignUpSchema>
 type ResetRequestForm = z.input<typeof passwordResetRequestSchema>
 
-const isMockAuthenticationMode =
-  import.meta.env.VITE_ENABLE_MOCKS !== 'false' &&
-  (import.meta.env.DEV || import.meta.env.VITE_ENABLE_MOCKS === 'true')
+const MockAuthenticationNotice = __NIHONGO_PRODUCTION_BUILD__
+  ? null
+  : lazy(() =>
+      import('@mocks/components/MockAuthenticationNotice').then((module) => ({
+        default: module.MockAuthenticationNotice
+      }))
+    )
 
 const levelOptions = LEVELS.map((level) => ({
   value: level,
@@ -138,24 +143,20 @@ export const LoginPage = (): ReactElement => {
           학습 계정으로 시작하세요
         </h1>
         <p className="mt-4 leading-7 text-muted">
-          {isMockAuthenticationMode
+          {isMockApiMode
             ? '현재 로컬 Mock 인증 모드입니다. 아래 데모 계정 로그인만 제공하며 인증 상태는 로컬 데모 저장소에만 보관됩니다.'
             : '이메일 인증을 마친 계정으로 로그인하면 오답노트와 학습 기록을 안전하게 이어갈 수 있습니다. 인증 정보는 브라우저 저장소가 아닌 보안 쿠키로 관리됩니다.'}
         </p>
-        {isMockAuthenticationMode ? (
-          <div
-            id="mock-auth-notice"
-            className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
-            role="status"
+        {isMockApiMode && MockAuthenticationNotice ? (
+          <Suspense
+            fallback={
+              <p className="mt-4 text-sm text-muted" role="status">
+                Mock 계정 안내를 불러오고 있습니다…
+              </p>
+            }
           >
-            <p className="font-black">Mock 데모 계정</p>
-            <p>USER: user@example.com / Demo-user-2026!</p>
-            <p>ADMIN: admin@example.com / Demo-admin-2026!</p>
-            <p className="mt-1">
-              회원가입·이메일 인증·비밀번호 재설정은 VITE_ENABLE_MOCKS=false인
-              real API 모드에서 확인해 주세요.
-            </p>
-          </div>
+            <MockAuthenticationNotice />
+          </Suspense>
         ) : null}
       </div>
 
@@ -192,11 +193,9 @@ export const LoginPage = (): ReactElement => {
               로그인
             </Button>
             <Button
-              aria-describedby={
-                isMockAuthenticationMode ? 'mock-auth-notice' : undefined
-              }
+              aria-describedby={isMockApiMode ? 'mock-auth-notice' : undefined}
               aria-pressed={mode === 'SIGN_UP'}
-              disabled={isMockAuthenticationMode}
+              disabled={isMockApiMode}
               variant={mode === 'SIGN_UP' ? 'primary' : 'ghost'}
               onClick={() => handleModeChange('SIGN_UP')}
             >
@@ -241,9 +240,9 @@ export const LoginPage = (): ReactElement => {
               </Button>
               <Button
                 aria-describedby={
-                  isMockAuthenticationMode ? 'mock-auth-notice' : undefined
+                  isMockApiMode ? 'mock-auth-notice' : undefined
                 }
-                disabled={isMockAuthenticationMode}
+                disabled={isMockApiMode}
                 type="button"
                 variant="ghost"
                 onClick={() => handleModeChange('RESET_REQUEST')}
@@ -368,9 +367,9 @@ export const LoginPage = (): ReactElement => {
           </p>
           <h2 className="mt-3 text-2xl font-black">가입 없이 먼저 체험</h2>
           <p className="mt-3 flex-1 leading-7 text-slate-300">
-            랜덤 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 게스트 기록은
-            계정에 자동 합쳐지지 않으며 오답노트와 즐겨찾기는 로그인 후 사용할
-            수 있습니다.
+            {isMockApiMode
+              ? '랜덤 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 게스트 기록은 계정에 자동 합쳐지지 않으며 오답노트와 즐겨찾기는 로그인 후 사용할 수 있습니다.'
+              : 'RANDOM 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 로그인하면 이후 학습의 오답노트와 전체 학습 기록을 이어서 확인할 수 있습니다.'}
           </p>
           <Button
             className="mt-7 w-full"

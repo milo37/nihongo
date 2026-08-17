@@ -9,6 +9,7 @@ import { LoadingState } from '@common/components/LoadingState'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAppStore } from '@store/index'
 
 const subjectLabels = {
@@ -88,7 +89,8 @@ export const BookmarkPage = (): ReactElement => {
         questionIds: targets
       },
       {
-        onSuccess: ({ session }) => {
+        onSuccess: ({ session }, input) => {
+          assertCurrentCreateStudySessionAction(input)
           beginPractice(session.id, session.startedAt)
           void navigate(`/practice/session/${session.id}`)
         }
@@ -98,7 +100,9 @@ export const BookmarkPage = (): ReactElement => {
 
   const removeBookmark = (questionId: string): void => {
     deleteBookmark.mutate(questionId, {
-      onSuccess: () => setPendingBookmark(questionId, false)
+      onSuccess: () => {
+        setPendingBookmark(questionId, false)
+      }
     })
   }
 

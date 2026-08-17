@@ -16,7 +16,7 @@ export const normalizeQuestionTagText = (value: string): string =>
     .normalize('NFKC')
     .trim()
     .replace(INTERNAL_WHITESPACE_PATTERN, ' ')
-    .toLocaleLowerCase()
+    .toLowerCase()
 
 export const comparePublicQuestionTags = (
   left: { readonly id: string; readonly label: string },

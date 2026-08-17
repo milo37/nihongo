@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { getPostgresSchema } from './databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from './databaseOptions.js'
 
 describe('getPostgresSchema', () => {
   it('schema query를 Prisma adapter option으로 추출한다', () => {
@@ -27,5 +30,14 @@ describe('getPostgresSchema', () => {
         `postgresql://user:password@127.0.0.1:5432/database?${query}`
       )
     ).toThrow('PostgreSQL schema must be one safe identifier.')
+  })
+})
+
+describe('createPostgresStartupOptions', () => {
+  it('schema 유무와 무관하게 UTC를 강제하고 safe search_path를 보존한다', () => {
+    expect(createPostgresStartupOptions('test_schema')).toBe(
+      '-c search_path=test_schema -c TimeZone=UTC'
+    )
+    expect(createPostgresStartupOptions(undefined)).toBe('-c TimeZone=UTC')
   })
 })

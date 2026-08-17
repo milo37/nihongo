@@ -46,6 +46,13 @@ export const createAdminProvisioner = ({
       where: { email },
       select: {
         accountStatus: true,
+        accounts: {
+          where: {
+            password: { not: null },
+            providerId: 'credential'
+          },
+          select: { accountId: true }
+        },
         emailVerified: true,
         id: true,
         role: true
@@ -63,7 +70,8 @@ export const createAdminProvisioner = ({
     if (
       existing.role === 'ADMIN' &&
       existing.accountStatus === 'ACTIVE' &&
-      existing.emailVerified
+      existing.emailVerified &&
+      existing.accounts.some(({ accountId }) => accountId === existing.id)
     ) {
       return {
         outcome: 'ALREADY_PROVISIONED',

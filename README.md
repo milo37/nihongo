@@ -10,12 +10,15 @@ JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 �
 
 이번 MVP는 정적인 화면 목업이 아닙니다. 문제 세션 생성, 답안 제출과 채점,
 오답 상태 변경, 즐겨찾기, 학습 통계, 관리자 문제 CRUD가 실제 사용자 흐름으로
-연결됩니다. 인증, 공개 문제 read와 RANDOM StudySession create/read/submit/result는
-PostgreSQL 기반 실제 API로 구현됐습니다. USER submit은 오답·복습 이벤트를 원자
-저장하며 guest submit은 이 영구 side effect를 만들지 않습니다. 오답 조회,
-즐겨찾기·통계·관리자 흐름과 현재 기본 학습 UI transport는 아직 MSW 기반 Mock API가
-담당하며 operation 단위로 이관 중입니다. UI와 TanStack Query 계층을 유지한 채
-전환할 수 있도록 공유 계약과 transport 경계를 분리했습니다.
+연결됩니다. 인증, 공개 문제 read, RANDOM StudySession create/read/submit/result와
+owner-scoped WrongNote list/detail·최소 dashboard read는 PostgreSQL 기반 실제 API로
+구현됐습니다. USER submit은 오답·복습 이벤트를 원자 저장하며 guest submit은 이 영구
+side effect를 만들지 않습니다. Phase 3 Slice 6에서 canonical endpoint adapter를
+Query Factory·domain hook·기존 UI에 연결했습니다. `VITE_API_MODE=real`은
+auth/question과 RANDOM create/read/submit/result, WrongNote list/detail, dashboard를
+실제 Hono/PostgreSQL로 사용하고, `mock`은 전체 Alpha legacy 흐름을 유지합니다.
+즐겨찾기·관리자·memo/review·non-RANDOM은 real mode에서 요청 전에 명시적으로
+비활성화되며 silent Mock fallback하지 않습니다.
 
 ## 서비스 목적
 
@@ -80,22 +83,42 @@ pnpm runtime pin은 모두 같은 버전을 가리킵니다.
 
 ```bash
 volta install node@22.23.0 pnpm@10.2.1
-pnpm install
+pnpm install --frozen-lockfile
+```
+
+Mock UI만 빠르게 실행할 때는 PostgreSQL과 API가 필요 없습니다. `VITE_API_MODE`를
+비워 두면 dev/test는 `mock`을 선택합니다.
+
+```bash
+cp apps/web/.env.example apps/web/.env
+pnpm dev:web
+```
+
+실제 Hono API와 PostgreSQL을 함께 실행할 때는 루트 `.env`의
+`POSTGRES_*`와 `apps/api/.env`의 `DATABASE_URL` 계정정보를 같게 맞춰야
+합니다. 루트 `.env`는 Docker Compose가, `apps/api/.env`는 API process가
+읽습니다.
+
+```bash
 cp .env.example .env
 cp apps/web/.env.example apps/web/.env
 cp apps/api/.env.example apps/api/.env
 cp apps/api/.env.test.example apps/api/.env.test
-docker compose up -d postgres
+docker compose up -d --wait postgres
+pnpm run db:generate
 pnpm run db:migrate:dev:deploy
 pnpm run db:seed:dev
 pnpm run db:migrate:test
 pnpm run db:seed:test
-pnpm dev
+VITE_API_MODE=real pnpm dev
 ```
 
 `db:migrate:dev:deploy`는 저장소에 커밋된 migration을 로컬 개발 DB에
 적용합니다. 새 migration을 작성할 때만 별도의 shadow DB 권한이 필요한
 `pnpm run db:migrate:dev`를 사용합니다.
+
+상기 API script는 실행 전 custom Prisma client를 스스로 생성합니다. 명시적으로
+생성만 확인하려면 `pnpm run db:generate`를 사용합니다.
 
 로컬 dev/test에서 만료된 guest-owned IN_PROGRESS/CANCELLED/EXPIRED session, 제출 후
 7일 지난 guest SUBMITTED aggregate, 참조 없는 만료 guest와 만료 SUCCEEDED
@@ -112,8 +135,9 @@ STUDY_CLEANUP_CONFIRM=DELETE_EXPIRED_GUEST_STUDY_DATA \
 
 기본 웹 주소는 `http://localhost:5173`, API 주소는
 `http://127.0.0.1:3001`입니다. API 상태는 `/health/live`와
-`/health/ready`에서 확인합니다. 현재 웹은 기본적으로 MSW를 사용하므로 실제 API
-이관이 완료되지 않은 학습 기능도 계속 실행됩니다.
+`/health/ready`에서 확인합니다. 개발 서버는 `VITE_API_MODE`가 없으면 `mock`,
+`real`로 지정하면 실제 API를 사용합니다. production build는 항상 `real`이고 Mock
+설정을 거부합니다.
 
 웹 또는 API만 실행하려면 다음 명령을 사용합니다.
 
@@ -122,11 +146,21 @@ pnpm dev:web
 pnpm dev:api
 ```
 
-프로덕션 번들을 로컬에서 확인하려면 다음 명령을 실행합니다.
-빌드 결과는 `apps/web/dist`에 생성됩니다.
+프로덕션 번들을 로컬에서 확인하려면 다음과 같이 real artifact를
+빌드한 뒤 API와 preview server를 별도 터미널에서 실행합니다. API는
+preview origin `http://localhost:4173`을 정확히 허용해야 하며, DB migration과
+seed는 미리 적용되어 있어야 합니다. 빌드 결과는 `apps/web/dist`에
+생성됩니다.
 
 ```bash
-pnpm build
+# 한 번만
+VITE_API_MODE=real pnpm build
+
+# 터미널 A
+TRUSTED_ORIGINS=http://localhost:4173 \
+  pnpm --filter @nihongo/api run start
+
+# 터미널 B
 pnpm preview
 ```
 
@@ -134,7 +168,7 @@ pnpm preview
 
 ```dotenv
 VITE_API_BASE_URL=/api
-VITE_ENABLE_MOCKS=true
+VITE_API_MODE=mock
 
 DATABASE_URL=postgresql://USER:PASSWORD@127.0.0.1:55432/nihongo_dev?schema=public
 TRUSTED_ORIGINS=http://localhost:5173
@@ -147,13 +181,20 @@ AUTH_EMAIL_DELIVERY_MODE=test-sink
 AUTH_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
 ```
 
-- 개발 환경에서는 Mock API가 기본 활성화됩니다.
-- 로컬 Hono API를 사용하려면 `apps/web/.env`에서
-  `VITE_ENABLE_MOCKS=false`로 바꿉니다. Vite가 같은 origin의 `/api` 요청을
-  `http://127.0.0.1:3001`로 전달하므로 별도 wildcard CORS를 열지 않습니다.
-- 프로덕션 빌드는 기본적으로 Mock API를 사용하지 않습니다.
-- 포트폴리오 데모 빌드에서 MSW를 사용하려면 빌드 시
-  `VITE_ENABLE_MOCKS=true`를 지정합니다.
+- `VITE_API_MODE`는 exact lower-case `mock | real`만 허용합니다. 비어 있으면
+  dev/test는 `mock`, build는 `real`입니다.
+- 로컬 Hono API를 사용하려면 `apps/web/.env`에서 `VITE_API_MODE=real`로 바꾸고
+  dev server를 다시 시작합니다. Vite가 same-origin `/api` 요청을
+  `http://127.0.0.1:3001`로 전달하므로 wildcard CORS를 열지 않습니다.
+- local dev/test rollback은 `VITE_API_MODE=mock`으로 되돌리고 dev server를 다시
+  시작합니다. operation별 real/Mock 혼합 fallback은 없습니다.
+- 모든 production build는 `VITE_API_MODE=mock`을
+  `VITE_API_MODE=mock is forbidden in production.` 오류로 거부하고
+  `mockServiceWorker.js`도 bundle에 포함하지 않습니다. production rollback은 Mock
+  활성화가 아니라 contract-compatible 이전 real artifact 재배포 또는 forward-fix입니다.
+- real mode와 production startup은 same-origin의 exact
+  `/mockServiceWorker.js` registration만 해제하고 다른 service worker는 건드리지
+  않습니다.
 - 실제 API mode에서도 기본 `VITE_API_BASE_URL=/api`를 유지해 SPA와 API를 같은
   origin으로 제공합니다. 개발 중 absolute API 주소를 사용할 때만 정확한
   `TRUSTED_ORIGINS`와 credentialed CORS를 사용하며 wildcard는 허용하지 않습니다.
@@ -162,6 +203,16 @@ AUTH_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
 - 격리된 임시 test DB를 검증할 때만 `PRISMA_TEST_DATABASE_URL`로 test
   migration과 seed target을 명시적으로 덮어쓸 수 있으며 동일한 `_test`·loopback
   안전장치를 적용합니다.
+- application pool과 seed Prisma adapter는 안전한 `search_path`와 함께 PostgreSQL
+  session startup option `TimeZone=UTC`를 강제합니다. dashboard의 날짜 bucket은
+  machine locale이나 기존 connection timezone에 의존하지 않습니다.
+- 이 작업 머신에 기존부터 있던
+  `nihongo_test?schema=slice3_validation`에는 UTC 강제 전 seed된 65개
+  catalog timestamp가 canonical seed instant보다 물리적으로 9시간 빠른 상태로 남아
+  provenance 통합 테스트 2건이 실패합니다. 이 schema는 최종 검증에서 격리했고
+  destructive reset은 실행하지 않았으며 명시적 사용자 승인을 기다립니다. 승인
+  전에는 fresh unique UTC schema를 `PRISMA_TEST_DATABASE_URL`로 지정합니다.
+  clean clone의 `.env.test.example` `public` schema에 일반화할 상태는 아닙니다.
 - 운영 secret과 실제 비밀번호는 `.env.example`에 커밋하지 않습니다.
 - 운영 email은 `AUTH_EMAIL_DELIVERY_MODE=webhook`과 HTTPS webhook
   URL/secret을 사용합니다. `test-sink`는 자동 테스트·로컬 구조 검증용이며 실제
@@ -169,6 +220,10 @@ AUTH_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
   in-process queue로 request path와 분리되고 정상 종료 시 drain됩니다. 이 queue는
   durable outbox가 아니므로 비정상 process 종료 시 queued email은 유실될 수
   있습니다.
+- 로컬 `test-sink`는 메일 구조 검증용이며 회원가입 인증 URL을 외부에
+  노출하지 않습니다. real USER 가입부터 로그인까지 실제로 확인하려면
+  검증한 webhook receiver를 사용하거나 일회성 격리 `_test` DB 하네스를
+  사용합니다. 공유 dev/test DB의 `emailVerified`를 수동으로 바꾸지 않습니다.
 
 ### DB 백업·복원 확인
 
@@ -194,7 +249,7 @@ dropdb --host=127.0.0.1 --port=55432 --username=nihongo nihongo_restore_test
 HttpOnly cookie에만 저장됩니다. `/api/v1/me`의 최소 사용자 projection만 UI
 권한 판단에 사용하며 localStorage의 projection은 권위가 아닙니다.
 
-Mock 모드(`VITE_ENABLE_MOCKS=true`)의 로컬 자격 증명은 다음과 같습니다.
+Mock 모드(`VITE_API_MODE=mock`)의 로컬 자격 증명은 다음과 같습니다.
 
 | 역할  | 이메일            | 비밀번호         | 사용 범위                            |
 | ----- | ----------------- | ---------------- | ------------------------------------ |
@@ -204,12 +259,17 @@ Mock 모드(`VITE_ENABLE_MOCKS=true`)의 로컬 자격 증명은 다음과 같�
 
 Mock mode는 위 두 고정 계정의 sign-in/sign-out과 guest projection만 지원합니다.
 회원가입, 이메일 인증, 비밀번호 재설정은 성공을 가장하지 않고 UI에서 비활성화하며,
-실제 흐름은 `VITE_ENABLE_MOCKS=false`에서 검증합니다. Mock 인증 projection은 로컬
+실제 흐름은 `VITE_API_MODE=real`에서 검증합니다. Mock 인증 projection은 로컬
 demo state일 뿐 session credential이 아닙니다.
 
 실제 API의 초기 ADMIN은 공개 role-switch route가 아니라 operator command로만
 생성합니다. 기존 USER를 승격하거나 기존 ADMIN password를 덮어쓰지 않으며, 실행
 결과에는 email/password 대신 user ID와 provisioning reference의 SHA-256만 남깁니다.
+`ADMIN_PASSWORD`는 12–128자, `ADMIN_NAME`은 1–80자,
+`ADMIN_PROVISIONING_REFERENCE`는 3–128자여야 하며 실행 전
+`apps/api/.env`의 `DATABASE_URL`이 의도한 대상인지 확인합니다. 이 command는
+ACTIVE·verified ADMIN이라도 유효한 credential account가 없으면 완료 상태로
+간주하지 않고 실패합니다.
 
 ```bash
 export ADMIN_EMAIL=admin@example.com
@@ -234,8 +294,8 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 ```text
 .
 ├── apps/
-│   ├── api/                # Hono app, Prisma, auth/question/study API
-│   │   ├── prisma/         # schema, 19 migrations, 65문제 seed
+│   ├── api/                # Hono app, Prisma, auth/question/study/WrongNote/dashboard API
+│   │   ├── prisma/         # schema, 20 migrations, 65문제 seed
 │   │   └── src/            # app, middleware, DB, service/repository
 │   └── web/
 │       ├── src/
@@ -285,9 +345,13 @@ React lazy loading으로 분리되고, `apps/web/src/router.tsx`에서 통합됩
   → apps/web/src/api/{domain}/{endpoint}
   → safeGet / safePost / safePut / safeDel
   → Axios
-  → MSW handler
-  → MockDatabase
+  → VITE_API_MODE 전체 transport 선택
+      real → same-origin Hono → PostgreSQL
+      mock → MSW handler → MockDatabase/localStorage
 ```
+
+operation별 real/mock 혼합 fallback은 없고 real mode의 범위 밖 기능은 network 전에
+숨기거나 비활성화합니다.
 
 실제 API로 이관한 operation은 다음 경계를 추가로 지킵니다.
 
@@ -324,6 +388,32 @@ request/response/error schema를 사용하며 목록은 summary만, 상세는 �
 반환합니다. 정답·해설·관리자 필드가 섞이면 strict 계약과 재귀 누출 테스트가
 실패합니다. 실제 Hono 경계는 route → service → Prisma repository로 분리되고
 ACTIVE Question의 current PUBLISHED version만 조회합니다.
+
+`GET /api/v1/wrong-notes`, `GET /api/v1/wrong-notes/:questionId`와
+`GET /api/v1/dashboard`는 로그인한 USER/ADMIN의 현재 actor ID에 속한 데이터만
+읽습니다. guest·anonymous는 `401 AUTHENTICATION_REQUIRED`, 만료된 auth session은
+`401 AUTH_SESSION_EXPIRED`, 타인 또는 없는 WrongNote detail은 같은
+`404 RESOURCE_NOT_FOUND`입니다. ADMIN도 일반 학습 API에서 다른 사용자의 기록을
+읽는 universal reader가 아닙니다.
+
+WrongNote 목록·상세의 급수·과목·유형·미리보기·문제·tag는
+`lastWrongQuestionVersionId`가 가리키는 historical snapshot입니다. tag는 mutable
+current Tag label이 아닙니다. migration 20 preflight/CHECK는
+`QuestionVersionTag.labelSnapshot` 저장값에 ASCII U+0020 선후행 공백이 없도록
+보장하고, read/filter는 그 저장값을 어떤 trim/정규화도 없이 exact 사용하므로 이후
+rename이 과거 표시·필터를 바꾸지 않습니다.
+반면 `reviewAvailability`만 현재 logical Question이 ACTIVE이고 current version이
+PUBLISHED인지에 따라 `AVAILABLE | ARCHIVED`로 파생합니다. UserMemo와 전용 review
+session은 아직 이관하지 않아 목록은 `hasMemo: false`, 상세는 `memo: null`과
+`currentReviewQuestionVersionId: null`을 반환합니다.
+
+dashboard의 `from`과 `to`는 함께 생략하거나 함께 전달하는 최대 366일의 UTC
+calendar date이며 양 끝을 포함합니다. 서버는 이를
+`[from 00:00:00Z, to + 1일 00:00:00Z)`로 정규화합니다. 범위는 SUBMITTED RANDOM
+activity의 문항 수·정답률·과목·취약 과목·최근 세션·일별 7일 series에만 적용하고,
+WrongNote 전체·SOLVED 수·반복 오답 상위 항목은 range와 무관한 all-time own
+snapshot입니다. 7일 series는 `to` 또는 관측한 현재 UTC 날짜를 끝으로 항상 연속된
+7개 날짜를 반환하며 활동이 없는 날은 0으로 채웁니다.
 
 ## TanStack Query 구조
 
@@ -370,7 +460,9 @@ StudyAnswer에서만 USER WrongNote·ReviewSchedule·ReviewEvent를 원자 갱�
 
 ## Mock API와 데이터
 
-- MSW browser worker는 개발 환경 또는 `VITE_ENABLE_MOCKS=true`에서 시작합니다.
+- MSW browser worker는 dev/test `VITE_API_MODE=mock`에서만 시작합니다.
+- real mode와 production은 이전에 등록된 exact same-origin MSW worker를 해제한 뒤
+  앱을 렌더링합니다.
 - 테스트는 `setupServer`를 사용하며 처리되지 않은 실제 네트워크 요청을
   오류로 간주합니다.
 - Mock Repository는 seed를 메모리에 한 번 적재하고 `Map` 색인으로 반복 ID
@@ -406,21 +498,53 @@ QuestionOption/Tag/QuestionVersionTag로 적재합니다. deterministic UUID와 
 ## 테스트와 코드 검증
 
 ```bash
+# 의도한 포맷·린트 자동 정리(작업 파일이 바뀐)
 pnpm run format
 pnpm run lint:fix
+
+# 소스를 바꾸지 않는 최종 게이트
+pnpm run format:check
+pnpm run lint
 pnpm run check:architecture
 pnpm run typecheck
 pnpm run test
 pnpm run db:migrate:test
 pnpm run db:seed:test
 pnpm run test:integration
-pnpm run build
+VITE_API_MODE=real pnpm run build
+git diff --check
 ```
 
-Slice 4 최종 gate는 architecture 5, contracts 34, domain 21, API unit 155, web
-28 files/138 tests, PostgreSQL integration 12 files/71 tests와 19 migration,
-lint/typecheck/build를 통과했습니다. PostgreSQL integration에는 pg 8
-concurrent-query deprecation warning만 남고 실패는 없습니다.
+Phase 3 최종 gate는 architecture fixture 5/5와 live checker, contracts 8 files/45
+tests, domain 3 files/21 tests, API unit 34 files/188 tests, web 44 files/222 tests,
+fresh unique UTC schema의 PostgreSQL integration 13 files/78 tests와 20 migrations를
+통과했습니다. Slice 6 independent UI·transport·auth targeted regression도
+통과했습니다. frozen install, format:check, lint, 4-project
+typecheck, root build(web production 398 modules), `git diff --check`도 통과했습니다.
+
+production real preview에서 guest RANDOM keyboard·미응답 제출/result와 USER
+login→RANDOM 5문제 all-null 제출→result 0/5→WrongNote list/detail→dashboard를 실제
+브라우저로 확인했습니다. USER logout 후 ADMIN login에서는 자기 목록이 비고 USER detail
+URL은 같은 Not Found였으며 console warning/error는 0건입니다. mock dev browser에서는
+legacy RANDOM, bookmark 노출, keyboard·미응답 submit/result 회귀를 확인했습니다.
+320/768/1280px에서 horizontal overflow가 없고 dialog focus·result heading 이동을
+확인했습니다.
+
+별도 두 번째 cookie jar는 같은 USER로 독립 로그인해 첫 client의
+result/list/detail/dashboard를 다시 읽었습니다. 이는 DB 기반 cross-client persistence를
+증명하지만 두 번째 GUI browser smoke는 아닙니다. 설치된 Chrome에 ChatGPT extension이
+없어 literal second-browser 자동화는 실행하지 못했으며 LOW 환경 follow-up으로 남깁니다.
+
+fresh DB gate는 migration 20/20, seed first 65/0와 root integration reseed 0/65,
+Question/Version/Option/QuestionVersionTag/Tag 65/65/260/130/108 및 전 QuestionVersion
+`SYSTEM_SEED`를 확인한 뒤 임시 schema를 삭제했습니다. cleanup 전후 기본
+`slice3_validation` 20-table과 dev 12-table의 full row-content digest가 같아
+ledger·seed도 변경되지 않았습니다. integration 중 Prisma 7.9.1 +
+`@prisma/adapter-pg` 7.9.1 + pg 8.23 transaction relation projection의
+`Client.query already executing` deprecation warning이 정확히 2회 있었고 실패는
+0건입니다. `--trace-deprecation`으로 query-interpreter `Array.map` 경로를 확인했으며
+pg 8.23을 고정합니다. pg 9와 `--throw-deprecation`은 현재 지원되지 않아 reviewed
+sequential scalar query refactor 전 warning stack이나 동작 변화는 blocker입니다.
 
 주요 테스트 범위는 다음과 같습니다.
 
@@ -453,9 +577,15 @@ concurrent-query deprecation warning만 남고 실패는 없습니다.
   transaction rollback
 - guest submit의 WrongNote/ReviewEvent 0건, guest retention cascade와 USER submitted
   aggregate 보존
-- 15→19 forward migration, submission integrity·latest-wrong·retention/history
-  constraint
+- owner-scoped WrongNote list/detail, guest 401, foreign/missing detail 404
+- last-wrong historical snapshot·exact tag label과 current availability 분리,
+  `hasMemo: false`·`memo: null`
+- dashboard UTC inclusive activity range·7일 zero-fill과 all-time WrongNote aggregate
+- 15→20 forward migration, submission integrity·latest-wrong·retention/history와
+  Slice 5 read index·historical label constraint
+- application pool·seed `TimeZone=UTC`와 UTC 자정 경계
 - canonical MSW submit/result parity와 persisted state v2→v3 fail-closed migration
+- canonical WrongNote/dashboard MSW handler와 direct-fetch shared-contract parity
 
 ## 접근성
 
@@ -505,9 +635,12 @@ guest/user ownership을 실제 Hono/PostgreSQL에 구현했습니다. canonical 
 경로는 같은 contract를 소비합니다. Slice 4는 `packages/domain` server grading,
 StudyAnswer/Result/IdempotencyRecord, atomic submit/result와 USER
 WrongNote/ReviewSchedule/ReviewEvent side effect를 Hono/PostgreSQL과 canonical MSW에
-구현했습니다. 기존 Alpha 학습 Query/UI는 Slice 6 cutover까지 legacy MSW transport를
-유지합니다. 다음 backend 실행 단위는 별도 사용자 지시가 필요한 Slice 5 owner-scoped
-WrongNote read·historical entitlement·dashboard입니다.
+구현했습니다. Slice 5는 owner-scoped WrongNote list/detail의 last-wrong historical
+entitlement, current availability와 UTC-bounded dashboard를 Hono/PostgreSQL 및
+canonical MSW/direct-fetch 경로에 구현했습니다. Slice 6은 이 canonical core를
+Query Factory·domain hook·기존 UI consumer에 연결하고 real/mock 회귀, production Mock
+fail-closed와 staged rollback 경계를 검증해 Phase 3를 완료했습니다. 다음 실행 단위는
+별도 사용자 지시가 필요한 Phase 4 문제풀이 핵심 흐름 실서비스화입니다.
 
 ## 향후 개선
 

@@ -6,7 +6,10 @@ import {
   loadExpectedMigrationManifest,
   type AppliedMigration
 } from './readiness.js'
-import { getPostgresSchema } from './databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from './databaseOptions.js'
 
 export interface DatabaseRuntime {
   client: PrismaClient
@@ -25,7 +28,7 @@ export const createDatabaseRuntime = (
       connectionTimeoutMillis: 3_000,
       idleTimeoutMillis: 30_000,
       max: 10,
-      ...(schema ? { options: `-c search_path=${schema}` } : {}),
+      options: createPostgresStartupOptions(schema),
       query_timeout: 2_500,
       statement_timeout: 2_500
     },

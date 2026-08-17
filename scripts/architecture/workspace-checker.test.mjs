@@ -69,4 +69,30 @@ test('reverse dependencies, framework leaks, broad imports and cycles fail', () 
     ),
     false
   )
+
+  const dashboardLeakDiagnostics = diagnostics.filter(({ file }) =>
+    file.endsWith('/api/question/dashboardLeak.ts')
+  )
+  assert.equal(
+    dashboardLeakDiagnostics.some(({ code }) => code === 'ARCH114'),
+    true
+  )
+
+  for (const fileName of [
+    'eagerSubmit.ts',
+    'calledHelperDynamicSubmit.ts',
+    'iifeDynamicSubmit.ts',
+    'lazyDashboard.ts',
+    'lazyReviewed.ts',
+    'topLevelDynamicSubmit.ts'
+  ]) {
+    const sessionDiagnostics = diagnostics.filter(({ file }) =>
+      file.endsWith(`/app/practice/session/${fileName}`)
+    )
+    assert.equal(
+      sessionDiagnostics.some(({ code }) => code === 'ARCH114'),
+      true,
+      fileName
+    )
+  }
 })

@@ -21,3 +21,8 @@ export const getPostgresSchema = (
 
   return schema
 }
+
+export const createPostgresStartupOptions = (
+  schema: string | undefined
+): string =>
+  schema ? `-c search_path=${schema} -c TimeZone=UTC` : '-c TimeZone=UTC'

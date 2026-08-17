@@ -418,6 +418,7 @@ model WrongNote {
   @@unique([id, userId, questionId])
   @@index([userId, status, lastWrongAt(sort: Desc)])
   @@index([userId, lastWrongAt(sort: Desc)])
+  @@index([userId, wrongCount(sort: Desc), lastWrongAt(sort: Desc), id])
   @@index([questionId, lastWrongQuestionVersionId])
   @@index([questionId, currentReviewQuestionVersionId])
 }

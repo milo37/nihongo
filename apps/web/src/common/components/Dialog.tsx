@@ -16,6 +16,7 @@ type DialogProps = {
   size?: DialogSize
   initialFocusRef?: RefObject<HTMLElement | null>
   className?: string
+  preventClose?: boolean
 }
 
 const openDialogs = new Set<HTMLDialogElement>()
@@ -50,6 +51,7 @@ export const Dialog = ({
   initialFocusRef,
   onOpenChange,
   open,
+  preventClose = false,
   size = 'md',
   title
 }: DialogProps): ReactElement => {
@@ -113,6 +115,10 @@ export const Dialog = ({
   }, [])
 
   const requestClose = (): void => {
+    if (preventClose) {
+      return
+    }
+
     onOpenChange(false)
   }
 
@@ -172,6 +178,7 @@ export const Dialog = ({
           </div>
           <IconButton
             className="-mr-2 -mt-1"
+            disabled={preventClose}
             label={closeLabel}
             icon={closeIcon}
             variant="ghost"

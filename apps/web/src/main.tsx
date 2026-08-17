@@ -1,7 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { unregisterMockServiceWorker } from '@api/mockServiceWorker'
+import { isMockApiMode } from '@libs/apiMode'
 import { AppProvider } from '@provider/index'
-import { enableMocking } from '@mocks/service'
 import '@/styles.css'
 
 const rootElement = document.getElementById('root')
@@ -11,7 +12,13 @@ if (!rootElement) {
 }
 
 const startApplication = async (): Promise<void> => {
-  await enableMocking()
+  if (__NIHONGO_PRODUCTION_BUILD__ || !isMockApiMode) {
+    await unregisterMockServiceWorker()
+  } else {
+    const { enableMocking } = await import('@mocks/service')
+    await enableMocking()
+  }
+
   createRoot(rootElement).render(
     <StrictMode>
       <AppProvider />

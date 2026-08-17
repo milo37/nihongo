@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   getQuestionErrorSchema,
   getQuestionParamsSchema,
-  getQuestionResponseSchema
+  getQuestionResponseSchema,
+  normalizeQuestionTagText
 } from '../src/question/get-question.js'
 
 const QUESTION_ID = '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a1'
@@ -31,6 +32,10 @@ const response = {
 }
 
 describe('getQuestion contract', () => {
+  it('태그를 locale 비의존 NFKC·whitespace·소문자로 정규화한다', () => {
+    expect(normalizeQuestionTagText(' Ｉ  İ ')).toBe('i i̇')
+  })
+
   it('UUID path parameter와 public response를 검증한다', () => {
     expect(getQuestionParamsSchema.parse({ questionId: QUESTION_ID })).toEqual({
       questionId: QUESTION_ID

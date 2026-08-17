@@ -7,10 +7,12 @@ import { Button } from '@common/components/Button'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
+import { isRealApiMode } from '@libs/apiMode'
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -107,7 +109,7 @@ export const PracticeResultPage = (): ReactElement => {
   const incorrectItems = result.items.filter((item) => !item.isCorrect)
 
   const handleRetryIncorrect = (): void => {
-    if (incorrectItems.length === 0) {
+    if (incorrectItems.length === 0 || isRealApiMode) {
       return
     }
 
@@ -120,7 +122,8 @@ export const PracticeResultPage = (): ReactElement => {
         questionIds: incorrectItems.map((item) => item.question.id)
       },
       {
-        onSuccess: ({ session: nextSession }) => {
+        onSuccess: ({ session: nextSession }, input) => {
+          assertCurrentCreateStudySessionAction(input)
           beginPractice(nextSession.id, nextSession.startedAt)
           void navigate(`/practice/session/${nextSession.id}`)
         }
@@ -183,7 +186,7 @@ export const PracticeResultPage = (): ReactElement => {
             : `틀린 ${incorrectItems.length}문제가 오답노트에 반영되었습니다.`}
         </p>
         <div className="flex flex-wrap gap-2">
-          {incorrectItems.length > 0 ? (
+          {incorrectItems.length > 0 && !isRealApiMode ? (
             <Button
               variant="outline"
               isLoading={createSession.isPending}
@@ -191,6 +194,10 @@ export const PracticeResultPage = (): ReactElement => {
             >
               오답만 다시 풀기
             </Button>
+          ) : incorrectItems.length > 0 ? (
+            <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
+              오답 재출제는 실제 API에서 아직 지원되지 않습니다
+            </span>
           ) : null}
           <Button
             variant="secondary"

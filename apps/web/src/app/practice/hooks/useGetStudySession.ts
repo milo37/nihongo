@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { studyQueries } from '@app/practice/queries/studyQueries'
+import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 
 export const useGetStudySession = (sessionId: string) => {
-  return useQuery(studyQueries.session(sessionId))
+  return useQuery(studySessionQueries.session(sessionId))
 }

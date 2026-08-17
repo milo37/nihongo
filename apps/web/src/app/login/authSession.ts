@@ -1,6 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 import { authQueries } from '@app/login/queries/authQueries'
+import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStorage'
+import {
+  advanceAuthTransitionEpoch,
+  isCurrentAuthTransitionEpoch
+} from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
 interface AuthTransitionOptions {
@@ -17,13 +22,6 @@ export interface CanonicalAuthCommitResult {
   identityChanged: boolean
 }
 
-let authTransitionEpoch = 0
-
-const nextAuthTransitionEpoch = (): number => {
-  authTransitionEpoch += 1
-  return authTransitionEpoch
-}
-
 export const hasSameAuthIdentity = (
   left: AuthenticatedUser | null,
   right: AuthenticatedUser | null
@@ -32,7 +30,7 @@ export const hasSameAuthIdentity = (
 }
 
 export const invalidateCanonicalAuthTransitions = (): void => {
-  nextAuthTransitionEpoch()
+  advanceAuthTransitionEpoch()
 }
 
 const applyCanonicalAuth = (
@@ -43,7 +41,7 @@ const applyCanonicalAuth = (
 ): Promise<CanonicalAuthCommitResult> => {
   const authQueryKey = authQueries.currentUser().queryKey
 
-  if (transitionEpoch !== authTransitionEpoch) {
+  if (!isCurrentAuthTransitionEpoch(transitionEpoch)) {
     return Promise.resolve({ applied: false, identityChanged: false })
   }
 
@@ -57,6 +55,7 @@ const applyCanonicalAuth = (
   }
 
   if (identityChanged || options.forcePracticeReset) {
+    clearAllSubmissionAttempts()
     state.resetPractice()
   }
 
@@ -70,7 +69,7 @@ export const commitCanonicalAuth = async (
   user: AuthenticatedUser | null,
   options: AuthTransitionOptions = {}
 ): Promise<CanonicalAuthCommitResult> => {
-  const transitionEpoch = nextAuthTransitionEpoch()
+  const transitionEpoch = advanceAuthTransitionEpoch()
   const authQueryKey = authQueries.currentUser().queryKey
   await queryClient.cancelQueries({ queryKey: authQueryKey, exact: true })
 
@@ -81,12 +80,12 @@ export const refreshCanonicalAuthAfterMutation = async (
   queryClient: QueryClient,
   options: RefreshCanonicalAuthOptions
 ): Promise<CanonicalAuthCommitResult> => {
-  const transitionEpoch = nextAuthTransitionEpoch()
+  const transitionEpoch = advanceAuthTransitionEpoch()
   const authQuery = authQueries.currentUser()
   const authQueryKey = authQuery.queryKey
 
   await queryClient.cancelQueries({ queryKey: authQueryKey, exact: true })
-  if (transitionEpoch !== authTransitionEpoch) {
+  if (!isCurrentAuthTransitionEpoch(transitionEpoch)) {
     return { applied: false, identityChanged: false }
   }
 
@@ -97,6 +96,7 @@ export const refreshCanonicalAuthAfterMutation = async (
     })
   }
   if (options.forcePracticeReset) {
+    clearAllSubmissionAttempts()
     state.resetPractice()
   }
   if (options.expectedIdentity === 'GUEST') {
@@ -107,7 +107,7 @@ export const refreshCanonicalAuthAfterMutation = async (
   queryClient.removeQueries({ queryKey: authQueryKey, exact: true })
   const user = await queryClient.fetchQuery({ ...authQuery, staleTime: 0 })
 
-  if (transitionEpoch !== authTransitionEpoch) {
+  if (!isCurrentAuthTransitionEpoch(transitionEpoch)) {
     return { applied: false, identityChanged: false }
   }
   if (options.expectedIdentity === 'AUTHENTICATED' && !user) {

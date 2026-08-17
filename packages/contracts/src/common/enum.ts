@@ -51,6 +51,10 @@ export const wrongNoteStatusSchema = z.enum([
   'SOLVED'
 ])
 
+export const wrongNoteSortSchema = z.enum(['RECENT', 'MOST_WRONG', 'OLDEST'])
+
+export const reviewAvailabilitySchema = z.enum(['AVAILABLE', 'ARCHIVED'])
+
 export const persistedUserRoleSchema = z.enum(['USER', 'ADMIN'])
 
 export type JlptLevel = z.output<typeof jlptLevelSchema>
@@ -63,4 +67,6 @@ export type StudySessionFallbackReason = z.output<
   typeof studySessionFallbackReasonSchema
 >
 export type WrongNoteStatus = z.output<typeof wrongNoteStatusSchema>
+export type WrongNoteSort = z.output<typeof wrongNoteSortSchema>
+export type ReviewAvailability = z.output<typeof reviewAvailabilitySchema>
 export type PersistedUserRole = z.output<typeof persistedUserRoleSchema>

@@ -6,6 +6,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ReactElement } from 'react'
 import type { RouteObject } from 'react-router'
 import { appRoutes } from '@/router'
+import { toLegacyStudyResultView } from '@app/practice/adapters/studyResultView'
+import { toLegacyStudySessionView } from '@app/practice/adapters/studySessionView'
 import { studyQueries } from '@app/practice/queries/studyQueries'
 import { ToastProvider } from '@common/components/Toast'
 import { queryClient } from '@libs/queryClient'
@@ -282,7 +284,7 @@ describe('application router boundaries', () => {
     })
     queryClient.setQueryData(
       studyQueries.session(sessionPayload.session.id).queryKey,
-      sessionPayload
+      toLegacyStudySessionView(sessionPayload)
     )
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
@@ -337,11 +339,11 @@ describe('application router boundaries', () => {
     })
     queryClient.setQueryData(
       studyQueries.session(sessionPayload.session.id).queryKey,
-      sessionPayload
+      toLegacyStudySessionView(sessionPayload)
     )
     queryClient.setQueryData(
       studyQueries.result(sessionPayload.session.id).queryKey,
-      result
+      toLegacyStudyResultView(result)
     )
     const scrollTo = vi
       .spyOn(window, 'scrollTo')

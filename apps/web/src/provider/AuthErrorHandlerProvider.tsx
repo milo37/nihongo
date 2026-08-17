@@ -122,7 +122,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       }
 
       if (error.isValidationError) {
-        if (import.meta.env.DEV) {
+        if (!__NIHONGO_PRODUCTION_BUILD__) {
           console.error('API response validation failed', error)
         }
         setBanner({

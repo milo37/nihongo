@@ -48,7 +48,9 @@ const renderProbe = (
   render(
     <QueryClientProvider client={client}>
       <ProtectedRouteProvider>
-        <AuthProbe observedRoles={observedRoles} />
+        <main id="main-content" tabIndex={-1}>
+          <AuthProbe observedRoles={observedRoles} />
+        </main>
       </ProtectedRouteProvider>
     </QueryClientProvider>
   )
@@ -249,5 +251,8 @@ describe('canonical auth synchronization', () => {
 
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
     expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(document.querySelector('#main-content')).toHaveFocus()
+    )
   })
 })

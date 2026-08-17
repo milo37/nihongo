@@ -5,7 +5,6 @@ import { Link, useBlocker, useNavigate, useParams } from 'react-router'
 import { z } from 'zod'
 import type { ReactElement, RefObject } from 'react'
 import { isNotFoundApiError } from '@util/apiError'
-import type { GetWrongNoteResponse } from '@api/wrong-note/getWrongNote/schema'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'
@@ -13,8 +12,11 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Textarea } from '@common/components/Textarea'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
+import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { useGetWrongNote } from '@app/wrong-note/hooks/useGetWrongNote'
 import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
+import { assertCurrentUpdateWrongNoteMemoAction } from '@app/wrong-note/queries/wrongNoteQueries'
 import { useAppStore } from '@store/index'
 
 const memoSchema = z.object({
@@ -24,7 +26,7 @@ const memoSchema = z.object({
 type MemoFormValues = z.infer<typeof memoSchema>
 
 type WrongNoteDetailContentProps = {
-  data: GetWrongNoteResponse
+  data: WrongNoteDetailView
   headingRef?: RefObject<HTMLHeadingElement | null>
 }
 
@@ -33,6 +35,15 @@ const statusLabels = {
   REVIEWING: '복습 중',
   AGAIN: '다시 학습',
   SOLVED: '해결'
+} as const
+const subjectLabels = {
+  VOCABULARY: '문자·어휘',
+  GRAMMAR: '문법',
+  READING: '독해'
+} as const
+const reviewAvailabilityLabels = {
+  AVAILABLE: '현재 출제 가능',
+  ARCHIVED: '보관된 문제'
 } as const
 const dateTimeFormatter = new Intl.DateTimeFormat('ko-KR', {
   dateStyle: 'medium',
@@ -62,7 +73,7 @@ export const WrongNoteDetailContent = ({
     formState: { errors, isDirty }
   } = useForm<MemoFormValues>({
     resolver: zodResolver(memoSchema),
-    defaultValues: { memo: data.wrongNote.memo ?? '' }
+    defaultValues: { memo: data.memo ?? '' }
   })
   const shouldBlockNavigation = isDirty && !updateMemo.isPending
   const blocker = useBlocker(shouldBlockNavigation)
@@ -82,10 +93,15 @@ export const WrongNoteDetailContent = ({
   }, [shouldBlockNavigation])
 
   const saveMemo = (values: MemoFormValues): void => {
+    if (!data.canUpdateMemo) {
+      return
+    }
+
     updateMemo.mutate(
       { memo: values.memo.trim() || null },
       {
-        onSuccess: (response) => {
+        onSuccess: (response, input) => {
+          assertCurrentUpdateWrongNoteMemoAction(input)
           reset({ memo: response.wrongNote.memo ?? '' })
         }
       }
@@ -93,6 +109,10 @@ export const WrongNoteDetailContent = ({
   }
 
   const retryQuestion = (): void => {
+    if (!data.canRetry) {
+      return
+    }
+
     createSession.mutate(
       {
         level: data.question.level,
@@ -102,7 +122,8 @@ export const WrongNoteDetailContent = ({
         questionIds: [data.question.id]
       },
       {
-        onSuccess: ({ session }) => {
+        onSuccess: ({ session }, input) => {
+          assertCurrentCreateStudySessionAction(input)
           beginPractice(session.id, session.startedAt)
           void navigate(`/practice/session/${session.id}`)
         }
@@ -122,11 +143,20 @@ export const WrongNoteDetailContent = ({
     <>
       <div className="flex flex-wrap gap-2">
         <Badge variant="brand">{data.question.level}</Badge>
-        <Badge>{data.question.subject}</Badge>
+        <Badge>{subjectLabels[data.question.subject]}</Badge>
         <Badge
           variant={data.wrongNote.status === 'SOLVED' ? 'success' : 'warning'}
         >
           {statusLabels[data.wrongNote.status]}
+        </Badge>
+        <Badge
+          variant={
+            data.wrongNote.reviewAvailability === 'ARCHIVED'
+              ? 'neutral'
+              : 'info'
+          }
+        >
+          {reviewAvailabilityLabels[data.wrongNote.reviewAvailability]}
         </Badge>
       </div>
       <h1
@@ -215,15 +245,26 @@ export const WrongNoteDetailContent = ({
                 </dd>
               </div>
             </dl>
-            <Button
-              className="mt-6 w-full"
-              disabled={isDirty || createSession.isPending}
-              isLoading={createSession.isPending}
-              onClick={retryQuestion}
-            >
-              이 문제 다시 풀기
-            </Button>
-            {isDirty ? (
+            {data.canRetry ? (
+              <Button
+                className="mt-6 w-full"
+                disabled={isDirty || createSession.isPending}
+                isLoading={createSession.isPending}
+                onClick={retryQuestion}
+              >
+                이 문제 다시 풀기
+              </Button>
+            ) : (
+              <p
+                className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+                role="status"
+              >
+                {data.wrongNote.reviewAvailability === 'ARCHIVED'
+                  ? '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
+                  : '복습 출제는 실제 API에서 아직 지원되지 않습니다.'}
+              </p>
+            )}
+            {data.canRetry && isDirty ? (
               <p
                 className="mt-3 text-sm leading-6 text-amber-800"
                 role="status"
@@ -233,33 +274,48 @@ export const WrongNoteDetailContent = ({
             ) : null}
           </div>
 
-          <form
-            className="rounded-xl border border-line bg-white p-5"
-            aria-busy={updateMemo.isPending}
-            onSubmit={(event) => void handleSubmit(saveMemo)(event)}
-          >
-            <Textarea
-              label="나의 메모"
-              hint="헷갈린 이유나 다음에 확인할 포인트를 기록하세요."
-              error={errors.memo?.message}
-              rows={7}
-              disabled={updateMemo.isPending}
-              {...register('memo')}
-            />
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <span className="text-sm text-muted" aria-live="polite">
-                {memoStatus}
-              </span>
-              <Button
-                type="submit"
-                disabled={!isDirty || updateMemo.isPending}
-                isLoading={updateMemo.isPending}
-                loadingLabel="메모 저장 중…"
-              >
-                메모 저장
-              </Button>
+          {data.canUpdateMemo ? (
+            <form
+              className="rounded-xl border border-line bg-white p-5"
+              aria-busy={updateMemo.isPending}
+              onSubmit={(event) => void handleSubmit(saveMemo)(event)}
+            >
+              <Textarea
+                label="나의 메모"
+                hint="헷갈린 이유나 다음에 확인할 포인트를 기록하세요."
+                error={errors.memo?.message}
+                rows={7}
+                disabled={updateMemo.isPending}
+                {...register('memo')}
+              />
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <span className="text-sm text-muted" aria-live="polite">
+                  {memoStatus}
+                </span>
+                <Button
+                  type="submit"
+                  disabled={!isDirty || updateMemo.isPending}
+                  isLoading={updateMemo.isPending}
+                  loadingLabel="메모 저장 중…"
+                >
+                  메모 저장
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="rounded-xl border border-line bg-white p-5">
+              <h2 className="text-lg font-black">나의 메모</h2>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                마지막 오답 당시 문제와 해설을 표시하고 있습니다. 이번 단계의
+                실제 API에서는 메모 작성과 수정을 지원하지 않습니다.
+              </p>
+              {data.currentReviewQuestionVersionId === null ? (
+                <p className="mt-2 text-xs text-muted">
+                  현재 복습용 문제 연결은 다음 단계에서 제공됩니다.
+                </p>
+              ) : null}
             </div>
-          </form>
+          )}
         </aside>
       </div>
 

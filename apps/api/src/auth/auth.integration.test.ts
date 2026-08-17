@@ -446,6 +446,26 @@ describe('Better Auth PostgreSQL vertical slice', () => {
       })
     ).rejects.toMatchObject({ code: 'EXISTING_NON_ADMIN_ACCOUNT' })
 
+    const incompleteAdmin = await database.client.user.create({
+      data: {
+        accountStatus: 'ACTIVE',
+        email: `slice2-incomplete-admin-${randomUUID()}@example.test`,
+        emailVerified: true,
+        name: '미완료 관리자',
+        role: 'ADMIN'
+      },
+      select: { email: true, id: true }
+    })
+    createdUserIds.push(incompleteAdmin.id)
+    await expect(
+      provisioner.provision({
+        email: incompleteAdmin.email,
+        name: '재시도 관리자',
+        password,
+        reference: 'SLICE2-INCOMPLETE-ADMIN'
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_EXISTING_ADMIN' })
+
     const collidingUserId = randomUUID()
     await database.client.account.create({
       data: {

@@ -1,0 +1,3 @@
+import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
+
+export const dashboardTestFixture = getDashboardStatsResponseSchema

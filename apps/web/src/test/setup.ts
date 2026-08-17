@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { queryClient } from '@libs/queryClient'
+import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStorage'
 import {
   APP_STORE_KEY,
   cachedSessionStorage,
@@ -16,6 +17,7 @@ import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 
 const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
+  clearAllSubmissionAttempts()
   queryClient.clear()
   mockDatabase.reset()
   useAppStore.setState({

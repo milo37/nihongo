@@ -20,6 +20,10 @@ import { createPrismaStudySessionRepository } from './study/studySessionReposito
 import { createStudySessionService } from './study/studySessionService.js'
 import { createPrismaStudySubmissionRepository } from './study/studySubmissionRepository.js'
 import { createStudySubmissionService } from './study/studySubmissionService.js'
+import { createPrismaWrongNoteRepository } from './wrong-note/wrongNoteRepository.js'
+import { createWrongNoteService } from './wrong-note/wrongNoteService.js'
+import { createPrismaDashboardRepository } from './dashboard/dashboardRepository.js'
+import { createDashboardService } from './dashboard/dashboardService.js'
 
 const environment = parseApiEnvironment(process.env)
 const logger = createJsonLogger(environment.LOG_LEVEL)
@@ -51,6 +55,16 @@ const studySessionService = createStudySessionService(
 const studySubmissionService = createStudySubmissionService(
   createPrismaStudySubmissionRepository(database.client)
 )
+const wrongNoteService = createWrongNoteService(
+  createPrismaWrongNoteRepository(database.client)
+)
+const dashboardService = createDashboardService(
+  createPrismaDashboardRepository(database.client)
+)
+const applicationRateLimiter = createApplicationRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
 const app = createApiApp({
   auth: {
     environment,
@@ -60,12 +74,14 @@ const app = createApiApp({
   },
   checkReadiness: database.checkReadiness,
   logger,
+  learning: {
+    dashboardService,
+    rateLimiter: applicationRateLimiter,
+    wrongNoteService
+  },
   questionReader,
   study: {
-    rateLimiter: createApplicationRateLimiter({
-      client: database.client,
-      keySecret: environment.GUEST_COOKIE_SECRET
-    }),
+    rateLimiter: applicationRateLimiter,
     service: studySessionService,
     submissionService: studySubmissionService
   }

@@ -1,30 +1,95 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
+import type { SubmitStudySessionRequest } from '@api/study/submitStudySession/schema'
+import type { StudyResultView } from '@app/practice/adapters/studyResultView'
+import type { StudySessionView } from '@app/practice/adapters/studySessionView'
+import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
 import {
-  studyMutations,
-  studyQueries
-} from '@app/practice/queries/studyQueries'
-import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
+  getStudySubmissionRetryDelay,
+  isDefinitiveStudySubmissionError,
+  isRetryableStudySubmissionError
+} from '@app/practice/studySubmissionRetry'
+import { isMockApiMode } from '@libs/apiMode'
+import {
+  assertCurrentAuthTransitionEpoch,
+  captureAuthTransitionEpoch
+} from '@libs/authTransitionFence'
+
+const submissionActionEpochs = new WeakMap<SubmitStudySessionRequest, number>()
+
+export const assertCurrentStudySubmissionAction = (
+  input: SubmitStudySessionRequest
+): void => {
+  const actionEpoch = submissionActionEpochs.get(input)
+  if (actionEpoch === undefined) {
+    throw new Error('제출 action의 인증 경계를 확인하지 못했습니다.')
+  }
+
+  assertCurrentAuthTransitionEpoch(actionEpoch)
+}
 
 export const useSubmitStudySession = (sessionId: string) => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    ...studyMutations.submitSession(sessionId),
-    onSuccess: (result) => {
-      queryClient.setQueryData(studyQueries.result(sessionId).queryKey, result)
-      return Promise.all([
+    mutationKey: [
+      ...serverStateQueryKeys.study.all(),
+      'submit-session',
+      sessionId
+    ] as const,
+    networkMode: 'always',
+    onMutate: (input) => {
+      submissionActionEpochs.set(input, captureAuthTransitionEpoch())
+    },
+    mutationFn: async (input: SubmitStudySessionRequest) => {
+      assertCurrentStudySubmissionAction(input)
+
+      const { submitStudySessionCommand } = await import(
+        '@app/practice/commands/submitStudySessionCommand'
+      )
+
+      assertCurrentStudySubmissionAction(input)
+      const result = await submitStudySessionCommand({
+        sessionId,
+        input,
+        getCachedSession: () =>
+          queryClient.getQueryData<StudySessionView>(
+            serverStateQueryKeys.study.session(sessionId)
+          )
+      })
+      assertCurrentStudySubmissionAction(input)
+      return result
+    },
+    retry: (failureCount, error) =>
+      !isMockApiMode &&
+      failureCount < 1 &&
+      isRetryableStudySubmissionError(error),
+    retryDelay: getStudySubmissionRetryDelay,
+    onSuccess: async (result, input) => {
+      assertCurrentStudySubmissionAction(input)
+      await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: studyQueries.session(sessionId).queryKey,
+          queryKey: serverStateQueryKeys.study.session(sessionId),
           refetchType: 'none'
         }),
         queryClient.invalidateQueries({
-          queryKey: wrongNoteQueries.allKey()
+          queryKey: serverStateQueryKeys.wrongNote.all()
         }),
         queryClient.invalidateQueries({
-          queryKey: dashboardQueries.allKey()
+          queryKey: serverStateQueryKeys.dashboard.all()
         })
       ])
+      assertCurrentStudySubmissionAction(input)
+      queryClient.setQueryData<StudyResultView>(
+        serverStateQueryKeys.study.result(sessionId),
+        result
+      )
+      clearSubmissionAttempt(sessionId)
+    },
+    onError: (error) => {
+      if (isDefinitiveStudySubmissionError(error)) {
+        clearSubmissionAttempt(sessionId)
+      }
     }
   })
 }

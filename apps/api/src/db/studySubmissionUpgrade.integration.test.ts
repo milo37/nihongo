@@ -33,6 +33,9 @@ const slice4Migrations = [
   '20260815102000_phase3_wrong_note_latest_wrong_integrity',
   '20260815103000_phase3_submission_retention_history_integrity'
 ] as const
+const slice5Migrations = [
+  '20260816130000_phase3_wrong_note_dashboard_read_indexes'
+] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
@@ -73,7 +76,8 @@ const migrationNames = readdirSync(sourceMigrationsDirectory, {
   .toSorted()
 const priorMigrationNames = migrationNames.filter(
   (name) =>
-    !slice4Migrations.includes(name as (typeof slice4Migrations)[number])
+    !slice4Migrations.includes(name as (typeof slice4Migrations)[number]) &&
+    !slice5Migrations.includes(name as (typeof slice5Migrations)[number])
 )
 
 const environment = parseApiEnvironment(process.env)
@@ -193,12 +197,12 @@ const readLedger = async (
 }
 
 describe('Slice 4 migration upgrade', () => {
-  it('깨끗한 15 migration schema를 16~19번째 submission schema로 forward deploy한다', async () => {
+  it('깨끗한 15 migration schema를 16~20번째 schema로 forward deploy한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
       expect(priorMigrationNames).toHaveLength(15)
-      expect(migrationNames).toHaveLength(19)
+      expect(migrationNames).toHaveLength(20)
       expect(priorMigrationNames).toEqual(
         Object.keys(approvedPriorMigrationSha256).toSorted()
       )
@@ -220,6 +224,12 @@ describe('Slice 4 migration upgrade', () => {
       expect(await readLedger(context)).toHaveLength(15)
 
       for (const migrationName of slice4Migrations) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(19)
+
+      for (const migrationName of slice5Migrations) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
@@ -377,7 +387,9 @@ describe('Slice 4 migration upgrade', () => {
 
     try {
       for (const migrationName of migrationNames.filter(
-        (name) => name !== retentionMigration
+        (name) =>
+          name !== retentionMigration &&
+          !slice5Migrations.includes(name as (typeof slice5Migrations)[number])
       )) {
         copyMigration(migrationName, context.migrationsPath)
       }
@@ -483,6 +495,147 @@ describe('Slice 4 migration upgrade', () => {
       ])
       expect(absent.rows[0]?.tableName).toBeNull()
       expect(await readLedger(context)).toHaveLength(15)
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+})
+
+describe('Slice 5 migration upgrade', () => {
+  it('dirty historical tag preflight는 migration 전체를 rollback하고 clean deploy 뒤 CHECK를 강제한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const questionId = randomUUID()
+    const versionId = randomUUID()
+    const dirtyVersionTagId = randomUUID()
+    const tagId = randomUUID()
+
+    try {
+      for (const migrationName of migrationNames.filter(
+        (name) =>
+          !slice5Migrations.includes(name as (typeof slice5Migrations)[number])
+      )) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(19)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "Question" (
+          "id", "createdByLabelSnapshot", "createdAt", "updatedAt"
+        ) VALUES ($1, 'SYSTEM_SEED', now(), now())`,
+        [questionId]
+      )
+      await context.adminClient.query(
+        `INSERT INTO "QuestionVersion" (
+          "id", "questionId", "versionNumber", "level", "subject",
+          "questionType", "questionText", "explanationKo", "difficulty",
+          "createdByLabelSnapshot", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, 1, 'N5', 'VOCABULARY', 'KANJI_READING',
+          'Slice 5 dirty migration fixture', 'migration fixture', 'EASY',
+          'SYSTEM_SEED', now(), now()
+        )`,
+        [versionId, questionId]
+      )
+      await context.adminClient.query(
+        `INSERT INTO "Tag" (
+          "id", "label", "normalizedName", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Tag', $2, now(), now())`,
+        [tagId, `slice5-migration-${randomUUID()}`]
+      )
+      await context.adminClient.query(
+        `INSERT INTO "QuestionVersionTag" (
+          "id", "questionVersionId", "tagId", "labelSnapshot"
+        ) VALUES ($1, $2, $3, ' Tag ')`,
+        [dirtyVersionTagId, versionId, tagId]
+      )
+
+      const migrationSql = readFileSync(
+        join(sourceMigrationsDirectory, slice5Migrations[0], 'migration.sql'),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(migrationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'QuestionVersionTag labelSnapshot must use canonical ASCII-space edges.'
+      })
+      await context.adminClient.query('ROLLBACK')
+
+      expect(await readLedger(context)).toHaveLength(19)
+      const dirtyRow = await context.adminClient.query<{
+        labelSnapshot: string
+      }>(
+        `SELECT "labelSnapshot"
+         FROM "QuestionVersionTag"
+         WHERE "id" = $1`,
+        [dirtyVersionTagId]
+      )
+      expect(dirtyRow.rows).toEqual([{ labelSnapshot: ' Tag ' }])
+
+      const rolledBackObjects = await context.adminClient.query<{
+        constraintCount: number
+        indexCount: number
+      }>(
+        `SELECT
+          (
+            SELECT COUNT(*)::int
+            FROM pg_constraint AS constraint_record
+            JOIN pg_class AS relation
+              ON relation.oid = constraint_record.conrelid
+            JOIN pg_namespace AS namespace
+              ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = $1
+              AND constraint_record.conname =
+                'QuestionVersionTag_label_snapshot_trimmed_check'
+          ) AS "constraintCount",
+          (
+            SELECT COUNT(*)::int
+            FROM pg_indexes
+            WHERE schemaname = $1
+              AND indexname IN (
+                'StudySession_userId_submittedAt_id_dashboard_idx',
+                'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
+              )
+          ) AS "indexCount"`,
+        [context.schemaName]
+      )
+      expect(rolledBackObjects.rows).toEqual([
+        { constraintCount: 0, indexCount: 0 }
+      ])
+
+      await context.adminClient.query(
+        `UPDATE "QuestionVersionTag"
+         SET "labelSnapshot" = 'Tag'
+         WHERE "id" = $1`,
+        [dirtyVersionTagId]
+      )
+      copyMigration(slice5Migrations[0], context.migrationsPath)
+      await deploy(context)
+
+      expect(await readLedger(context)).toHaveLength(20)
+      const futureTagId = randomUUID()
+      await context.adminClient.query(
+        `INSERT INTO "Tag" (
+          "id", "label", "normalizedName", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Future tag', $2, now(), now())`,
+        [futureTagId, `slice5-migration-${randomUUID()}`]
+      )
+      await expect(
+        context.adminClient.query(
+          `INSERT INTO "QuestionVersionTag" (
+            "id", "questionVersionId", "tagId", "labelSnapshot"
+          ) VALUES ($1, $2, $3, ' Future tag ')`,
+          [randomUUID(), versionId, futureTagId]
+        )
+      ).rejects.toMatchObject({
+        code: '23514',
+        constraint: 'QuestionVersionTag_label_snapshot_trimmed_check'
+      })
     } finally {
       await context.adminClient.query('ROLLBACK').catch(() => undefined)
       await dispose(context)

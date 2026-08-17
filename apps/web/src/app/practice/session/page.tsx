@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import {
+  Link,
+  Navigate,
+  useBlocker,
+  useNavigate,
+  useParams
+} from 'react-router'
 import type { ReactElement } from 'react'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
@@ -14,8 +20,18 @@ import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
-import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
+import {
+  assertCurrentStudySubmissionAction,
+  useSubmitStudySession
+} from '@app/practice/hooks/useSubmitStudySession'
+import {
+  hasStoredSubmissionAttempt,
+  readStoredSubmissionLogicalRequest
+} from '@app/practice/submissionAttemptStorage'
+import { isDefinitiveStudySubmissionError } from '@app/practice/studySubmissionRetry'
 import { useAuth } from '@provider/ProtectedRouteProvider'
+import { isMockApiMode } from '@libs/apiMode'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
 const subjectLabels = {
@@ -28,7 +44,8 @@ const modeLabels = {
   RANDOM: '랜덤',
   WRONG_NOTE: '오답',
   WEAKNESS: '약점 추천',
-  BOOKMARK: '즐겨찾기'
+  BOOKMARK: '즐겨찾기',
+  DAILY_REVIEW: '일일 복습'
 } as const
 
 const formatDuration = (seconds: number): string => {
@@ -42,13 +59,36 @@ export const PracticeSessionPage = (): ReactElement => {
   const navigate = useNavigate()
   const { role } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const [isSubmitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
+    useState(false)
   const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
+  const [submissionConnectivityMessage, setSubmissionConnectivityMessage] =
+    useState<string | null>(() =>
+      typeof navigator !== 'undefined' && navigator.onLine === false
+        ? '오프라인 상태입니다. 연결이 복구되면 동일 답안으로 다시 시도해 주세요.'
+        : null
+    )
   const sessionQuery = useGetStudySession(sessionId)
   const submitSession = useSubmitStudySession(sessionId)
+  const allowSubmissionNavigationRef = useRef(false)
+  const isSubmissionActive = submitSession.isPending || submitSession.isPaused
+  const frozenLogicalRequest = readStoredSubmissionLogicalRequest(sessionId)
+  const hasFrozenSubmissionAttempt =
+    hasStoredSubmissionAttempt(sessionId) ||
+    (!isMockApiMode &&
+      submitSession.isError &&
+      !isAuthTransitionSupersededError(submitSession.error) &&
+      !isDefinitiveStudySubmissionError(submitSession.error))
+  const isSubmitDialogOpen =
+    isSubmitDialogRequestedOpen || hasFrozenSubmissionAttempt
+  const mustReplayFrozenSubmission =
+    isSubmissionActive || hasFrozenSubmissionAttempt
+  const submissionNavigationBlocker = useBlocker(
+    () => mustReplayFrozenSubmission && !allowSubmissionNavigationRef.current
+  )
   const createBookmark = useCreateBookmark()
   const deleteBookmark = useDeleteBookmark()
-  const bookmarksQuery = useListBookmarks(role !== 'GUEST')
+  const bookmarksQuery = useListBookmarks(isMockApiMode && role !== 'GUEST')
   const storedSessionId = useAppStore((state) => state.sessionId)
   const currentQuestionIndex = useAppStore(
     (state) => state.currentQuestionIndex
@@ -64,6 +104,43 @@ export const PracticeSessionPage = (): ReactElement => {
   const setPendingBookmark = useAppStore((state) => state.setPendingBookmark)
   const resetPractice = useAppStore((state) => state.resetPractice)
   const elapsedSeconds = useElapsedSeconds(startedAt)
+  const displayedSelectedAnswers = frozenLogicalRequest
+    ? Object.fromEntries(
+        frozenLogicalRequest.answers.map((answer) => [
+          answer.questionId,
+          answer.selectedOptionId
+        ])
+      )
+    : selectedAnswers
+
+  useEffect(() => {
+    if (!mustReplayFrozenSubmission) {
+      allowSubmissionNavigationRef.current = false
+      if (submissionNavigationBlocker.state === 'blocked') {
+        submissionNavigationBlocker.reset()
+      }
+    }
+  }, [mustReplayFrozenSubmission, submissionNavigationBlocker])
+
+  useEffect(() => {
+    const handleOffline = (): void => {
+      setSubmissionConnectivityMessage(
+        '오프라인 상태입니다. 연결이 복구되면 동일 답안으로 다시 시도해 주세요.'
+      )
+    }
+    const handleOnline = (): void => {
+      setSubmissionConnectivityMessage(
+        '네트워크 연결이 복구되었습니다. 동일 답안으로 다시 시도할 수 있습니다.'
+      )
+    }
+
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [])
 
   const questions = sessionQuery.data?.questions ?? []
   const safeQuestionIndex =
@@ -72,7 +149,8 @@ export const PracticeSessionPage = (): ReactElement => {
       : 0
   const currentQuestion = questions[safeQuestionIndex]
   const answeredCount = questions.reduce(
-    (count, question) => (selectedAnswers[question.id] ? count + 1 : count),
+    (count, question) =>
+      displayedSelectedAnswers[question.id] ? count + 1 : count,
     0
   )
   const unansweredCount = Math.max(0, questions.length - answeredCount)
@@ -100,14 +178,21 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   const handleSelectOption = (optionId: string): void => {
-    if (currentQuestion) {
+    if (
+      currentQuestion &&
+      !isSubmitDialogOpen &&
+      !mustReplayFrozenSubmission &&
+      sessionQuery.data?.session.status === 'IN_PROGRESS'
+    ) {
       selectAnswer(currentQuestion.id, optionId)
     }
   }
 
   usePracticeKeyboard({
     enabled:
-      !isSubmitDialogOpen && sessionQuery.data?.session.status !== 'SUBMITTED',
+      !isSubmitDialogOpen &&
+      !mustReplayFrozenSubmission &&
+      sessionQuery.data?.session.status === 'IN_PROGRESS',
     optionIds: currentQuestion?.options.map((option) => option.id) ?? [],
     onSelectOption: handleSelectOption,
     onPrevious: movePrevious,
@@ -115,10 +200,66 @@ export const PracticeSessionPage = (): ReactElement => {
   })
 
   if (sessionQuery.isPending) {
+    if (hasFrozenSubmissionAttempt) {
+      return (
+        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+          <ErrorState
+            autoFocus
+            headingLevel={1}
+            title="이전 제출 결과 확인이 필요합니다"
+            description="응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없습니다. 연결이 복구되면 세션 상태를 자동으로 다시 확인합니다."
+            action={
+              <div className="space-y-3">
+                <Button onClick={() => void sessionQuery.refetch()}>
+                  세션 상태 다시 확인
+                </Button>
+                <p
+                  className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {submissionConnectivityMessage ??
+                    '세션 상태를 불러오는 중입니다. 결과를 확인할 때까지 이 화면에 머물러 주세요.'}
+                </p>
+              </div>
+            }
+          />
+        </section>
+      )
+    }
+
     return <LoadingState message="문제를 준비하고 있습니다." />
   }
 
   if (sessionQuery.isError || !sessionQuery.data) {
+    if (hasFrozenSubmissionAttempt) {
+      return (
+        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+          <ErrorState
+            autoFocus
+            headingLevel={1}
+            title="이전 제출 결과 확인이 필요합니다"
+            description="응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없습니다. 네트워크 상태를 확인한 뒤 세션을 다시 불러와 동일 답안으로 계속해 주세요."
+            action={
+              <div className="space-y-3">
+                <Button onClick={() => void sessionQuery.refetch()}>
+                  세션 상태 다시 확인
+                </Button>
+                <p
+                  className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {submissionConnectivityMessage ??
+                    '네트워크가 연결되어 있습니다. 세션 상태를 다시 확인해 주세요.'}
+                </p>
+              </div>
+            }
+          />
+        </section>
+      )
+    }
+
     return (
       <ErrorState
         autoFocus
@@ -134,6 +275,29 @@ export const PracticeSessionPage = (): ReactElement => {
 
   if (sessionQuery.data.session.status === 'SUBMITTED') {
     return <Navigate replace to={`/practice/result/${sessionId}`} />
+  }
+
+  if (sessionQuery.data.session.status !== 'IN_PROGRESS') {
+    return (
+      <ErrorState
+        autoFocus
+        headingLevel={1}
+        title={
+          sessionQuery.data.session.status === 'EXPIRED'
+            ? '만료된 학습 세션입니다'
+            : '취소된 학습 세션입니다'
+        }
+        description="새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없습니다."
+        action={
+          <Link
+            className="font-bold text-brand underline hover:no-underline"
+            to="/practice"
+          >
+            학습 설정으로 이동
+          </Link>
+        }
+      />
+    )
   }
 
   if (!currentQuestion) {
@@ -170,6 +334,11 @@ export const PracticeSessionPage = (): ReactElement => {
     )
 
   const handleBookmark = (): void => {
+    if (!isMockApiMode) {
+      setBookmarkMessage('즐겨찾기는 실제 API에서 아직 지원되지 않습니다.')
+      return
+    }
+
     if (role === 'GUEST') {
       setBookmarkMessage('즐겨찾기를 저장하려면 데모 학습자로 로그인해 주세요.')
       return
@@ -179,7 +348,11 @@ export const PracticeSessionPage = (): ReactElement => {
     if (isBookmarked) {
       setPendingBookmark(currentQuestion.id, false)
       deleteBookmark.mutate(currentQuestion.id, {
-        onError: () => setPendingBookmark(currentQuestion.id, true)
+        onError: (error) => {
+          if (!isAuthTransitionSupersededError(error)) {
+            setPendingBookmark(currentQuestion.id, true)
+          }
+        }
       })
       return
     }
@@ -188,20 +361,28 @@ export const PracticeSessionPage = (): ReactElement => {
     createBookmark.mutate(
       { questionId: currentQuestion.id },
       {
-        onError: () => setPendingBookmark(currentQuestion.id, false)
+        onError: (error) => {
+          if (!isAuthTransitionSupersededError(error)) {
+            setPendingBookmark(currentQuestion.id, false)
+          }
+        }
       }
     )
   }
 
   const handleSubmit = (): void => {
+    if (isSubmissionActive) {
+      return
+    }
+
     const elapsedPerQuestion = Math.floor(
       elapsedSeconds / Math.max(questions.length, 1)
     )
     submitSession.mutate(
-      {
+      frozenLogicalRequest ?? {
         durationSec: elapsedSeconds,
         answers: questions.flatMap((question) => {
-          const selectedOptionId = selectedAnswers[question.id]
+          const selectedOptionId = displayedSelectedAnswers[question.id]
 
           return selectedOptionId
             ? [
@@ -215,13 +396,26 @@ export const PracticeSessionPage = (): ReactElement => {
         })
       },
       {
-        onSuccess: () => {
-          setSubmitDialogOpen(false)
+        onSuccess: (_result, input) => {
+          assertCurrentStudySubmissionAction(input)
+          allowSubmissionNavigationRef.current = true
+          if (submissionNavigationBlocker.state === 'blocked') {
+            submissionNavigationBlocker.reset()
+          }
+          setSubmitDialogRequestedOpen(false)
           resetPractice()
           void navigate(`/practice/result/${sessionId}`)
         }
       }
     )
+  }
+
+  const handleSubmitDialogOpenChange = (open: boolean): void => {
+    if (!open && mustReplayFrozenSubmission) {
+      return
+    }
+
+    setSubmitDialogRequestedOpen(open)
   }
 
   return (
@@ -293,15 +487,22 @@ export const PracticeSessionPage = (): ReactElement => {
                 </Badge>
               ))}
             </div>
-            <button
-              className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              type="button"
-              aria-pressed={isBookmarked}
-              data-selected={isBookmarked}
-              onClick={handleBookmark}
-            >
-              {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
-            </button>
+            {isMockApiMode ? (
+              <button
+                className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                type="button"
+                disabled={mustReplayFrozenSubmission}
+                aria-pressed={isBookmarked}
+                data-selected={isBookmarked}
+                onClick={handleBookmark}
+              >
+                {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
+              </button>
+            ) : (
+              <span className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-950">
+                즐겨찾기 미지원
+              </span>
+            )}
           </div>
           {bookmarkMessage ? (
             <p
@@ -329,9 +530,10 @@ export const PracticeSessionPage = (): ReactElement => {
 
           <div className="mt-7">
             <RadioGroup
+              disabled={isSubmitDialogOpen || mustReplayFrozenSubmission}
               name={`question-${currentQuestion.id}`}
               legend="정답 보기"
-              value={selectedAnswers[currentQuestion.id] ?? ''}
+              value={displayedSelectedAnswers[currentQuestion.id] ?? ''}
               options={currentQuestion.options.map((option) => ({
                 value: option.id,
                 label: `${option.label}. ${option.text}`
@@ -348,15 +550,22 @@ export const PracticeSessionPage = (): ReactElement => {
       <div className="mt-6 flex items-center justify-between gap-3">
         <Button
           variant="secondary"
-          disabled={safeQuestionIndex === 0}
+          disabled={safeQuestionIndex === 0 || mustReplayFrozenSubmission}
           onClick={movePrevious}
         >
           이전
         </Button>
         {isLastQuestion ? (
-          <Button onClick={() => setSubmitDialogOpen(true)}>답안 제출</Button>
+          <Button
+            disabled={mustReplayFrozenSubmission}
+            onClick={() => setSubmitDialogRequestedOpen(true)}
+          >
+            답안 제출
+          </Button>
         ) : (
-          <Button onClick={moveNext}>다음</Button>
+          <Button disabled={mustReplayFrozenSubmission} onClick={moveNext}>
+            다음
+          </Button>
         )}
       </div>
 
@@ -367,10 +576,11 @@ export const PracticeSessionPage = (): ReactElement => {
               <button
                 className="min-h-11 min-w-11 rounded-lg border border-line bg-white text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[current=true]:border-brand data-[current=true]:bg-brand data-[current=true]:text-white data-[answered=true]:ring-2 data-[answered=true]:ring-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 type="button"
-                aria-label={`${index + 1}번 문제${selectedAnswers[question.id] ? ', 답변함' : ', 미응답'}`}
+                disabled={mustReplayFrozenSubmission}
+                aria-label={`${index + 1}번 문제${displayedSelectedAnswers[question.id] ? ', 답변함' : ', 미응답'}`}
                 aria-current={index === safeQuestionIndex ? 'step' : undefined}
                 data-current={index === safeQuestionIndex}
-                data-answered={Boolean(selectedAnswers[question.id])}
+                data-answered={Boolean(displayedSelectedAnswers[question.id])}
                 onClick={() => setCurrentQuestionIndex(index)}
               >
                 {index + 1}
@@ -384,25 +594,54 @@ export const PracticeSessionPage = (): ReactElement => {
         open={isSubmitDialogOpen}
         title="답안을 제출하시겠습니까?"
         description={
-          unansweredCount > 0
-            ? `아직 답하지 않은 문제가 ${unansweredCount}개 있습니다. 미응답은 오답으로 처리됩니다.`
-            : '모든 문제에 답했습니다. 제출 후에는 답을 수정할 수 없습니다.'
+          hasFrozenSubmissionAttempt
+            ? '이전에 전송한 답안을 그대로 다시 제출합니다. 결과를 확인할 때까지 답안은 변경할 수 없습니다.'
+            : unansweredCount > 0
+              ? `아직 답하지 않은 문제가 ${unansweredCount}개 있습니다. 미응답은 오답으로 처리됩니다.`
+              : '모든 문제에 답했습니다. 제출 후에는 답을 수정할 수 없습니다.'
         }
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => setSubmitDialogOpen(false)}
+              disabled={mustReplayFrozenSubmission}
+              onClick={() => handleSubmitDialogOpenChange(false)}
             >
               계속 풀기
             </Button>
-            <Button isLoading={submitSession.isPending} onClick={handleSubmit}>
+            <Button isLoading={isSubmissionActive} onClick={handleSubmit}>
               제출하고 결과 보기
             </Button>
           </>
         }
-        onOpenChange={setSubmitDialogOpen}
-      />
+        preventClose={mustReplayFrozenSubmission}
+        onOpenChange={handleSubmitDialogOpenChange}
+      >
+        {submitSession.isError ||
+        (hasFrozenSubmissionAttempt && submissionConnectivityMessage) ? (
+          <div className="space-y-3">
+            {submitSession.isError ? (
+              <div
+                className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900"
+                role="alert"
+              >
+                {hasFrozenSubmissionAttempt
+                  ? '결과를 확인하지 못했습니다. 네트워크 상태를 확인한 뒤 동일 답안으로 다시 시도해 주세요.'
+                  : '제출 요청이 처리되지 않았습니다. 입력과 세션 상태를 확인한 뒤 다시 시도해 주세요.'}
+              </div>
+            ) : null}
+            {hasFrozenSubmissionAttempt && submissionConnectivityMessage ? (
+              <p
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+                role="status"
+                aria-live="polite"
+              >
+                {submissionConnectivityMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </Dialog>
     </section>
   )
 }

@@ -48,7 +48,8 @@ const FORWARD_MIGRATIONS = [
   '20260815100000_phase3_study_submission_facts',
   '20260815101000_phase3_study_submission_integrity',
   '20260815102000_phase3_wrong_note_latest_wrong_integrity',
-  '20260815103000_phase3_submission_retention_history_integrity'
+  '20260815103000_phase3_submission_retention_history_integrity',
+  '20260816130000_phase3_wrong_note_dashboard_read_indexes'
 ] as const
 
 const environment = parseApiEnvironment(process.env)
@@ -196,20 +197,71 @@ describe('Prisma migration ledger upgrade', () => {
         { enabled: 'O', name: 'QuestionVersion_validate_change' }
       ])
 
-      const indexes = await adminClient.query<{ name: string }>(
-        `SELECT indexname AS name
+      const indexes = await adminClient.query<{
+        definition: string
+        name: string
+      }>(
+        `SELECT indexname AS name, indexdef AS definition
          FROM pg_indexes
          WHERE schemaname = $1
            AND indexname IN (
              'Session_userId_expiresAt_idx',
-             'Verification_identifier_expiresAt_idx'
+             'StudySession_userId_submittedAt_id_dashboard_idx',
+             'Verification_identifier_expiresAt_idx',
+             'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
            )
          ORDER BY indexname`,
         [schemaName]
       )
-      expect(indexes.rows).toEqual([
-        { name: 'Session_userId_expiresAt_idx' },
-        { name: 'Verification_identifier_expiresAt_idx' }
+      expect(indexes.rows.map(({ name }) => name)).toEqual([
+        'Session_userId_expiresAt_idx',
+        'StudySession_userId_submittedAt_id_dashboard_idx',
+        'Verification_identifier_expiresAt_idx',
+        'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
+      ])
+      const dashboardIndex = indexes.rows.find(
+        ({ name }) =>
+          name === 'StudySession_userId_submittedAt_id_dashboard_idx'
+      )
+      expect(dashboardIndex?.definition).toContain(
+        '("userId", "submittedAt" DESC, id)'
+      )
+      expect(dashboardIndex?.definition).toContain(
+        'WHERE (("userId" IS NOT NULL)'
+      )
+      expect(dashboardIndex?.definition).toMatch(
+        /\(status = 'SUBMITTED'::(?:[a-z0-9_]+\.)?"StudySessionStatus"\)/u
+      )
+      expect(dashboardIndex?.definition).toContain(
+        '("submittedAt" IS NOT NULL)'
+      )
+      expect(dashboardIndex?.definition).toMatch(
+        /\(mode = 'RANDOM'::(?:[a-z0-9_]+\.)?"StudyMode"\)/u
+      )
+      const mostWrongIndex = indexes.rows.find(
+        ({ name }) => name === 'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
+      )
+      expect(mostWrongIndex?.definition).toContain(
+        '("userId", "wrongCount" DESC, "lastWrongAt" DESC, id)'
+      )
+
+      const labelSnapshotConstraint = await adminClient.query<{
+        definition: string
+      }>(
+        `SELECT pg_get_constraintdef(constraint_record.oid) AS definition
+         FROM pg_constraint AS constraint_record
+         JOIN pg_class AS relation
+           ON relation.oid = constraint_record.conrelid
+         JOIN pg_namespace AS namespace
+           ON namespace.oid = relation.relnamespace
+         WHERE namespace.nspname = $1
+           AND relation.relname = 'QuestionVersionTag'
+           AND constraint_record.conname =
+             'QuestionVersionTag_label_snapshot_trimmed_check'`,
+        [schemaName]
+      )
+      expect(labelSnapshotConstraint.rows).toEqual([
+        { definition: 'CHECK (("labelSnapshot" = btrim("labelSnapshot")))' }
       ])
 
       await adminClient.query(`SET search_path TO ${quotedSchemaName}`)

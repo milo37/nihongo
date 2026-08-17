@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation, type Location } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
@@ -31,8 +31,21 @@ export const ProtectedRouteProvider = ({
   children
 }: ProtectedRouteProviderProps): ReactElement => {
   const { canonicalUser, hasError, isReady, retry } = useAuthSynchronization()
+  const shouldRestoreRetryFocusRef = useRef(false)
   const user = isReady ? (canonicalUser ?? null) : null
   const role: UserRole = user?.role ?? 'GUEST'
+
+  useEffect(() => {
+    if (!hasError && isReady && shouldRestoreRetryFocusRef.current) {
+      shouldRestoreRetryFocusRef.current = false
+      document.querySelector<HTMLElement>('#main-content')?.focus()
+    }
+  }, [hasError, isReady])
+
+  const handleRetry = (): void => {
+    shouldRestoreRetryFocusRef.current = true
+    retry()
+  }
 
   if (hasError) {
     return (
@@ -41,7 +54,7 @@ export const ProtectedRouteProvider = ({
           autoFocus
           description="서버에서 로그인 상태를 확인하지 못했습니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다."
           headingLevel={1}
-          onRetry={retry}
+          onRetry={handleRetry}
           title="로그인 상태를 확인할 수 없습니다"
         />
       </main>

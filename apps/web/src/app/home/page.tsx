@@ -4,7 +4,9 @@ import type { ReactElement } from 'react'
 import type { JlptLevel, QuestionSubject } from '@common/types/domain'
 import { Button } from '@common/components/Button'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
 const levelOptions: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
@@ -58,8 +60,13 @@ export const HomePage = (): ReactElement => {
   const [level, setLevel] = useState<JlptLevel>('N3')
   const [subject, setSubject] = useState<QuestionSubject>('GRAMMAR')
   const createSession = useCreateStudySession()
+  const isCreatingSession = createSession.isPending || createSession.isPaused
 
   const handleQuickStart = (): void => {
+    if (isCreatingSession) {
+      return
+    }
+
     createSession.mutate(
       {
         level,
@@ -68,7 +75,8 @@ export const HomePage = (): ReactElement => {
         mode: 'RANDOM'
       },
       {
-        onSuccess: ({ session }) => {
+        onSuccess: ({ session }, input) => {
+          assertCurrentCreateStudySessionAction(input)
           beginPractice(session.id, session.startedAt)
           void navigate(`/practice/session/${session.id}`)
         }
@@ -120,7 +128,7 @@ export const HomePage = (): ReactElement => {
               </span>
             </div>
 
-            <fieldset>
+            <fieldset disabled={isCreatingSession}>
               <legend className="mb-3 text-sm font-bold">JLPT 급수</legend>
               <div className="grid grid-cols-5 gap-2">
                 {levelOptions.map((option) => (
@@ -138,7 +146,7 @@ export const HomePage = (): ReactElement => {
               </div>
             </fieldset>
 
-            <fieldset className="mt-6">
+            <fieldset className="mt-6" disabled={isCreatingSession}>
               <legend className="mb-3 text-sm font-bold">학습 과목</legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 {subjectOptions.map((option) => (
@@ -161,19 +169,20 @@ export const HomePage = (): ReactElement => {
 
             <Button
               className="mt-6 w-full"
-              isLoading={createSession.isPending}
+              isLoading={isCreatingSession}
               size="lg"
               onClick={handleQuickStart}
             >
               선택한 범위로 시작
             </Button>
-            {createSession.isError ? (
+            {createSession.isError &&
+            !isAuthTransitionSupersededError(createSession.error) ? (
               <p
                 className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900"
                 role="alert"
               >
-                선택한 범위에 출제 가능한 문제가 없습니다. 다른 급수나 과목을
-                선택해 주세요.
+                세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤
+                다시 시도해 주세요.
               </p>
             ) : null}
             <p className="mt-3 text-center text-xs leading-5 text-muted">

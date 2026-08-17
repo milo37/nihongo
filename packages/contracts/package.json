@@ -32,6 +32,10 @@
       "types": "./dist/common/pagination.d.ts",
       "import": "./dist/common/pagination.js"
     },
+    "./dashboard/get-dashboard-stats": {
+      "types": "./dist/dashboard/get-dashboard-stats.d.ts",
+      "import": "./dist/dashboard/get-dashboard-stats.js"
+    },
     "./question/get-question": {
       "types": "./dist/question/get-question.d.ts",
       "import": "./dist/question/get-question.js"
@@ -63,6 +67,14 @@
     "./study/submit-study-session": {
       "types": "./dist/study/submit-study-session.d.ts",
       "import": "./dist/study/submit-study-session.js"
+    },
+    "./wrong-note/get-wrong-note": {
+      "types": "./dist/wrong-note/get-wrong-note.d.ts",
+      "import": "./dist/wrong-note/get-wrong-note.js"
+    },
+    "./wrong-note/list-wrong-notes": {
+      "types": "./dist/wrong-note/list-wrong-notes.d.ts",
+      "import": "./dist/wrong-note/list-wrong-notes.js"
     },
     "./testing/question-read-conformance": {
       "types": "./dist/testing/question-read-conformance.d.ts",

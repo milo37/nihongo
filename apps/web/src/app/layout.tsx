@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { LoadingState } from '@common/components/LoadingState'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
+import { isMockApiMode } from '@libs/apiMode'
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
@@ -212,13 +213,15 @@ export const Layout = (): ReactElement => {
                   >
                     오답노트
                   </NavLink>
-                  <NavLink
-                    className={getNavClassName}
-                    to="/bookmarks"
-                    onClick={closeMenu}
-                  >
-                    즐겨찾기
-                  </NavLink>
+                  {isMockApiMode ? (
+                    <NavLink
+                      className={getNavClassName}
+                      to="/bookmarks"
+                      onClick={closeMenu}
+                    >
+                      즐겨찾기
+                    </NavLink>
+                  ) : null}
                   <NavLink
                     className={getNavClassName}
                     to="/dashboard"
@@ -228,7 +231,7 @@ export const Layout = (): ReactElement => {
                   </NavLink>
                 </>
               ) : null}
-              {role === 'ADMIN' ? (
+              {role === 'ADMIN' && isMockApiMode ? (
                 <NavLink
                   className={getNavClassName}
                   to="/admin/questions"
