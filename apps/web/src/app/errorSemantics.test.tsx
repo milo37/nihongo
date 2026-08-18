@@ -231,17 +231,18 @@ describe('detail page error semantics', () => {
   })
 
   it('결과는 실제 404만 Not Found로 표시한다', async () => {
+    const missingSessionId = crypto.randomUUID()
     mockServer.use(
-      http.get('*/api/study/session/missing/result', () =>
+      http.get(`*/api/study/session/${missingSessionId}/result`, () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 })
       ),
-      http.get('*/api/study/session/missing', () =>
+      http.get(`*/api/study/session/${missingSessionId}`, () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 })
       )
     )
 
     renderPage(
-      '/practice/result/missing',
+      `/practice/result/${missingSessionId}`,
       '/practice/result/:sessionId',
       <PracticeResultPage />
     )

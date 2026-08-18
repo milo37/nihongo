@@ -1,6 +1,7 @@
 import type { SubmittedStudyAnswer } from '../grading/grade-study-submission.js'
 
 export const STUDY_SUBMISSION_CANONICAL_PREFIX = 'submit-v1:' as const
+export const STUDY_SUBMISSION_V2_CANONICAL_PREFIX = 'submit-v2:' as const
 
 const MAX_ELAPSED_SEC = 86_400
 const MAX_DURATION_SEC = 604_800
@@ -33,6 +34,11 @@ export interface CanonicalizeStudySubmissionInput {
   readonly orderedSessionQuestions: readonly OrderedSessionQuestionForSubmission[]
   readonly answers: readonly SubmittedStudyAnswer[]
   readonly durationSec: number
+}
+
+export interface CanonicalizeStudySubmissionV2Input
+  extends CanonicalizeStudySubmissionInput {
+  readonly expectedDraftRevision: number
 }
 
 const isValidDuration = (value: number, maximum: number): boolean =>
@@ -179,5 +185,44 @@ export const canonicalizeStudySubmission = ({
     sessionId,
     answers: normalizedAnswers,
     durationSec
+  })}`
+}
+
+export const canonicalizeStudySubmissionV2 = ({
+  sessionId,
+  orderedSessionQuestions,
+  answers,
+  durationSec,
+  expectedDraftRevision
+}: CanonicalizeStudySubmissionV2Input): string => {
+  if (
+    !Number.isSafeInteger(expectedDraftRevision) ||
+    expectedDraftRevision < 0
+  ) {
+    throw new StudySubmissionCanonicalizationError(
+      'INVALID_DURATION',
+      'expectedDraftRevision 범위를 벗어났습니다.'
+    )
+  }
+
+  const v1Canonical = canonicalizeStudySubmission({
+    sessionId,
+    orderedSessionQuestions,
+    answers,
+    durationSec
+  })
+  const material = JSON.parse(
+    v1Canonical.slice(STUDY_SUBMISSION_CANONICAL_PREFIX.length)
+  ) as {
+    answers: readonly SubmittedStudyAnswer[]
+    durationSec: number
+    sessionId: string
+  }
+
+  return `${STUDY_SUBMISSION_V2_CANONICAL_PREFIX}${JSON.stringify({
+    sessionId: material.sessionId,
+    answers: material.answers,
+    durationSec: material.durationSec,
+    expectedDraftRevision
   })}`
 }

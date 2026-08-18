@@ -20,3 +20,10 @@ export const createPageResponseSchema = <ItemSchema extends ZodType>(
     .strict()
 
 export type PageRequest = z.output<typeof pageRequestSchema>
+
+export interface PageResponse<Item> {
+  readonly items: Item[]
+  readonly page: number
+  readonly pageSize: number
+  readonly total: number
+}

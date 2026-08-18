@@ -119,16 +119,6 @@ describe('studySessionService', () => {
     }
   )
 
-  it('명시 문제 ID를 Slice 3에서 fail closed한다', async () => {
-    const repository = createRepository()
-    const service = createStudySessionService(repository)
-
-    await expect(
-      service.create({ ...request, explicitQuestionIds: [QUESTION_ID] }, owner)
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-    expect(repository.createRandom).not.toHaveBeenCalled()
-  })
-
   it.each([
     [new NoEligibleQuestionsError(), 'NO_ELIGIBLE_QUESTIONS', false],
     [new GuestCredentialExpiredError(), 'GUEST_SESSION_EXPIRED', false],

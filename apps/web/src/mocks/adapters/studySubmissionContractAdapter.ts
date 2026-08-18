@@ -1,4 +1,7 @@
-import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
+import type {
+  ParsedSubmitStudySessionBody,
+  ParsedSubmitStudySessionV2Body
+} from '@nihongo/contracts/study/submit-study-session'
 import {
   studyResultSchema,
   type StudyResult,
@@ -16,6 +19,7 @@ import type {
 import { toPracticeQuestion } from '@util/question'
 
 const STUDY_SUBMISSION_CANONICAL_PREFIX = 'submit-v1:'
+const STUDY_SUBMISSION_V2_CANONICAL_PREFIX = 'submit-v2:'
 
 export type MockCanonicalSubmissionValidationCode =
   | 'ANSWER_NOT_IN_SESSION'
@@ -114,6 +118,28 @@ export const canonicalizeMockStudySubmission = (
     sessionId: record.session.id,
     answers,
     durationSec: input.durationSec
+  })}`
+}
+
+export const canonicalizeMockStudySubmissionV2 = (
+  record: MockStudySessionSnapshotRecord,
+  input: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
+): string => {
+  if (!('expectedDraftRevision' in input)) {
+    throw new MockCanonicalSubmissionIntegrityError(
+      'v2 제출에는 expectedDraftRevision이 필요합니다.'
+    )
+  }
+  const v1Material = canonicalizeMockStudySubmission(record, input)
+  const parsedMaterial: unknown = JSON.parse(
+    v1Material.slice(STUDY_SUBMISSION_CANONICAL_PREFIX.length)
+  )
+
+  return `${STUDY_SUBMISSION_V2_CANONICAL_PREFIX}${JSON.stringify({
+    ...(typeof parsedMaterial === 'object' && parsedMaterial !== null
+      ? parsedMaterial
+      : {}),
+    expectedDraftRevision: input.expectedDraftRevision
   })}`
 }
 
@@ -283,6 +309,12 @@ export const toMockCanonicalStudyResult = (
 
 export const mockCanonicalSubmissionOperations = {
   canonicalize: canonicalizeMockStudySubmission,
+  grade: gradeMockCanonicalStudySubmission,
+  toResult: toMockCanonicalStudyResult
+} satisfies MockCanonicalSubmissionOperations
+
+export const mockCanonicalSubmissionV2Operations = {
+  canonicalize: canonicalizeMockStudySubmissionV2,
   grade: gradeMockCanonicalStudySubmission,
   toResult: toMockCanonicalStudyResult
 } satisfies MockCanonicalSubmissionOperations

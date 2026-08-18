@@ -18,6 +18,7 @@ import {
 } from '@mocks/adapters/questionContractAdapter'
 import { toContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
 import { MOCK_GUEST_PRINCIPAL_COOKIE_NAME } from '@mocks/guestPrincipal'
+import { hasTrustedMockWriteOrigin } from '@mocks/handlers/shared'
 import {
   MockDatabase,
   mockDatabase,
@@ -27,6 +28,7 @@ import { clearMockGuestPrincipalCookie } from '@/test/server'
 
 const CREATE_URL = 'http://localhost/api/v1/study-sessions'
 const DELETE_GUEST_URL = 'http://localhost/api/v1/guest-principal'
+const TRUSTED_WRITE_HEADERS = { Origin: 'http://localhost' }
 const FORBIDDEN_KEYS = new Set([
   'userId',
   'guestPrincipalId',
@@ -68,6 +70,7 @@ const postCanonicalSession = async (
   const response = await fetch(CREATE_URL, {
     method: 'POST',
     headers: {
+      ...TRUSTED_WRITE_HEADERS,
       'Content-Type': 'application/json',
       ...(cookie ? { Cookie: cookie } : {})
     },
@@ -390,12 +393,78 @@ describe('canonical study session v1 MSW integration', () => {
     expect(userAsGuestError.code).toBe('AUTHENTICATION_REQUIRED')
   })
 
+  it('create JSON object·16KiB·same-origin 경계를 real API와 맞춘다', async () => {
+    expect(
+      hasTrustedMockWriteOrigin(
+        new Request(CREATE_URL, {
+          method: 'POST',
+          referrer: 'http://localhost/practice'
+        })
+      )
+    ).toBe(true)
+    expect(
+      hasTrustedMockWriteOrigin(
+        new Request(CREATE_URL, {
+          method: 'POST',
+          referrer: 'https://attacker.example/practice'
+        })
+      )
+    ).toBe(false)
+
+    const rawCases = [
+      { body: '[]', expectedCode: 'INVALID_JSON', expectedStatus: 400 },
+      { body: 'null', expectedCode: 'INVALID_JSON', expectedStatus: 400 },
+      {
+        body: `${' '.repeat(16 * 1_024)}${JSON.stringify({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'RANDOM',
+          count: 1
+        })}`,
+        expectedCode: 'INVALID_REQUEST',
+        expectedStatus: 400
+      }
+    ] as const
+
+    for (const testCase of rawCases) {
+      const response = await fetch(CREATE_URL, {
+        method: 'POST',
+        headers: {
+          ...TRUSTED_WRITE_HEADERS,
+          'Content-Type': 'application/json'
+        },
+        body: testCase.body
+      })
+      const error = createStudySessionErrorSchema.parse(await response.json())
+      expect(response.status).toBe(testCase.expectedStatus)
+      expect(error.code).toBe(testCase.expectedCode)
+    }
+
+    const missingOrigin = await fetch(CREATE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1
+      })
+    })
+    expect(missingOrigin.status).toBe(403)
+    expect(
+      createStudySessionErrorSchema.parse(await missingOrigin.json()).code
+    ).toBe('UNTRUSTED_ORIGIN')
+  })
+
   it.each(['WRONG_NOTE', 'WEAKNESS', 'BOOKMARK'] as const)(
     '%s 모드를 canonical 422로 거부한다',
     async (mode) => {
       const response = await fetch(CREATE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...TRUSTED_WRITE_HEADERS,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           level: 'N5',
           subject: 'VOCABULARY',
@@ -415,7 +484,10 @@ describe('canonical study session v1 MSW integration', () => {
   it('explicitQuestionIds를 canonical 422로 거부한다', async () => {
     const response = await fetch(CREATE_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        ...TRUSTED_WRITE_HEADERS,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         level: 'N5',
         subject: 'VOCABULARY',
@@ -429,7 +501,7 @@ describe('canonical study session v1 MSW integration', () => {
     expect(response.status).toBe(422)
     expectCanonicalHeaders(response)
     expect(error.code).toBe('VALIDATION_ERROR')
-    expect(error.fieldErrors).toHaveProperty('explicitQuestionIds')
+    expect(error.fieldErrors).toBeUndefined()
   })
 
   it('출제 가능한 문제가 없으면 canonical NO_ELIGIBLE_QUESTIONS로 정규화한다', async () => {
@@ -449,7 +521,10 @@ describe('canonical study session v1 MSW integration', () => {
 
     const response = await fetch(CREATE_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        ...TRUSTED_WRITE_HEADERS,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         level: 'N5',
         subject: 'READING',

@@ -304,7 +304,21 @@ describe('real canonical submission recovery UI', () => {
     mockServer.use(
       http.get('*/api/v1/study-sessions/:sessionId', () => {
         sessionRequestCount += 1
-        return HttpResponse.json(rawSession)
+        return HttpResponse.json(
+          {
+            ...rawSession,
+            session: {
+              ...rawSession.session,
+              practiceContractVersion: 1
+            }
+          },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '1'
+            }
+          }
+        )
       }),
       http.post(
         '*/api/v1/study-sessions/:sessionId/submission',

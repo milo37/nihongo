@@ -8,7 +8,11 @@ const routes = {
 interface Context {
   body: (value: null, status: number) => unknown
   json: (value: unknown) => unknown
-  req: { raw: { headers: Headers } }
+  req: {
+    json: () => Promise<unknown>
+    param: (name: string) => unknown
+    raw: { headers: Headers }
+  }
 }
 
 routes.get('/me', (context) => {

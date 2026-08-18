@@ -4,6 +4,22 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./bookmark/bookmark": {
+      "types": "./dist/bookmark/bookmark.d.ts",
+      "import": "./dist/bookmark/bookmark.js"
+    },
+    "./bookmark/create-bookmark": {
+      "types": "./dist/bookmark/create-bookmark.d.ts",
+      "import": "./dist/bookmark/create-bookmark.js"
+    },
+    "./bookmark/delete-bookmark": {
+      "types": "./dist/bookmark/delete-bookmark.d.ts",
+      "import": "./dist/bookmark/delete-bookmark.js"
+    },
+    "./bookmark/list-bookmarks": {
+      "types": "./dist/bookmark/list-bookmarks.d.ts",
+      "import": "./dist/bookmark/list-bookmarks.js"
+    },
     "./auth/delete-guest-principal": {
       "types": "./dist/auth/delete-guest-principal.d.ts",
       "import": "./dist/auth/delete-guest-principal.js"
@@ -48,9 +64,37 @@
       "types": "./dist/study/create-study-session.d.ts",
       "import": "./dist/study/create-study-session.js"
     },
+    "./study/cancel-study-session": {
+      "types": "./dist/study/cancel-study-session.d.ts",
+      "import": "./dist/study/cancel-study-session.js"
+    },
+    "./study/create-result-retry-session": {
+      "types": "./dist/study/create-result-retry-session.d.ts",
+      "import": "./dist/study/create-result-retry-session.js"
+    },
+    "./study/get-study-draft-answers": {
+      "types": "./dist/study/get-study-draft-answers.d.ts",
+      "import": "./dist/study/get-study-draft-answers.js"
+    },
     "./study/get-study-session": {
       "types": "./dist/study/get-study-session.d.ts",
       "import": "./dist/study/get-study-session.js"
+    },
+    "./study/list-resumable-study-sessions": {
+      "types": "./dist/study/list-resumable-study-sessions.d.ts",
+      "import": "./dist/study/list-resumable-study-sessions.js"
+    },
+    "./study/practice-contract": {
+      "types": "./dist/study/practice-contract.d.ts",
+      "import": "./dist/study/practice-contract.js"
+    },
+    "./study/save-study-draft-answers": {
+      "types": "./dist/study/save-study-draft-answers.d.ts",
+      "import": "./dist/study/save-study-draft-answers.js"
+    },
+    "./study/study-draft": {
+      "types": "./dist/study/study-draft.d.ts",
+      "import": "./dist/study/study-draft.js"
     },
     "./study/get-study-result": {
       "types": "./dist/study/get-study-result.d.ts",
@@ -79,6 +123,14 @@
     "./testing/question-read-conformance": {
       "types": "./dist/testing/question-read-conformance.d.ts",
       "import": "./dist/testing/question-read-conformance.js"
+    },
+    "./testing/practice-flow-conformance": {
+      "types": "./dist/testing/practice-flow-conformance.d.ts",
+      "import": "./dist/testing/practice-flow-conformance.js"
+    },
+    "./testing/study-submit-version-conformance": {
+      "types": "./dist/testing/study-submit-version-conformance.d.ts",
+      "import": "./dist/testing/study-submit-version-conformance.js"
     }
   },
   "scripts": {

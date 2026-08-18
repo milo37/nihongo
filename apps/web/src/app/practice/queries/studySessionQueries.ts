@@ -1,17 +1,17 @@
 import { mutationOptions, queryOptions } from '@tanstack/react-query'
-import { createStudySession } from '@api/study/createStudySession'
+import { isApiError } from '@api/config'
 import type { CreateStudySessionRequest } from '@api/study/createStudySession/schema'
-import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySession } from '@api/study/getStudySession'
-import { getStudySessionV1 } from '@api/study/getStudySessionV1'
+import { getStudySessionV2 } from '@api/study/getStudySessionV2'
 import {
-  toCanonicalStudySessionView,
-  toLegacyStudySessionView
+  toLegacyStudySessionView,
+  toCanonicalStudySessionView
 } from '@app/practice/adapters/studySessionView'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
-import { isMockApiMode } from '@libs/apiMode'
 import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+import { isMockApiMode } from '@libs/apiMode'
 import { isNotFoundApiError } from '@util/apiError'
 
 const createSessionActionFence =
@@ -22,36 +22,48 @@ export const assertCurrentCreateStudySessionAction = (
 ): void => createSessionActionFence.assertCurrent(input)
 
 const createSession = async (input: CreateStudySessionRequest) => {
-  if (isMockApiMode) {
-    return toLegacyStudySessionView(await createStudySession(input))
-  }
-
   if (input.mode !== 'RANDOM' || input.questionIds !== undefined) {
-    throw new Error('실제 API 모드에서는 RANDOM 신규 학습만 지원합니다.')
+    throw new Error('Slice 2에서는 RANDOM 신규 학습만 지원합니다.')
   }
 
   return toCanonicalStudySessionView(
-    await createStudySessionV1({
-      level: input.level,
-      subject: input.subject,
-      mode: input.mode,
-      count: input.count,
-      ...(input.questionIds ? { explicitQuestionIds: input.questionIds } : {})
-    })
+    (
+      await createStudySessionV2({
+        level: input.level,
+        subject: input.subject,
+        mode: input.mode,
+        count: input.count
+      })
+    ).data
   )
 }
 
 const getSession = async (sessionId: string) => {
   let session
   try {
-    session = isMockApiMode
-      ? toLegacyStudySessionView(await getStudySession(sessionId))
-      : toCanonicalStudySessionView(await getStudySessionV1(sessionId))
+    session = toCanonicalStudySessionView(
+      (await getStudySessionV2(sessionId)).data
+    )
   } catch (error: unknown) {
-    if (isNotFoundApiError(error)) {
-      clearSubmissionAttempt(sessionId)
+    if (
+      isMockApiMode &&
+      (isNotFoundApiError(error) ||
+        (isApiError(error) && error.code === 'AUTHENTICATION_REQUIRED'))
+    ) {
+      try {
+        session = toLegacyStudySessionView(await getStudySession(sessionId))
+      } catch (legacyError: unknown) {
+        if (isNotFoundApiError(legacyError)) {
+          clearSubmissionAttempt(sessionId)
+        }
+        throw legacyError
+      }
+    } else {
+      if (isNotFoundApiError(error)) {
+        clearSubmissionAttempt(sessionId)
+      }
+      throw error
     }
-    throw error
   }
 
   if (session.session.status !== 'IN_PROGRESS') {

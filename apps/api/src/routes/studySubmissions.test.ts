@@ -138,7 +138,8 @@ const createDependencies = () => {
 
 const createTestApp = (
   dependencies: ReturnType<typeof createDependencies>,
-  appEnvironment: ApiEnvironment = environment
+  appEnvironment: ApiEnvironment = environment,
+  practiceContractV2Enabled = true
 ) =>
   createApiApp({
     auth: {
@@ -151,6 +152,7 @@ const createTestApp = (
     logger: createJsonLogger('silent'),
     questionReader,
     study: {
+      practiceContractV2Enabled,
       rateLimiter: dependencies.rateLimiter,
       service: sessionService,
       submissionService: dependencies.studySubmissionService
@@ -193,6 +195,33 @@ const postSubmission = (
   })
 
 describe('study submission routes', () => {
+  it('v1-compatible runtime은 v2 submit을 service 호출 전에 닫는다', async () => {
+    const dependencies = createDependencies()
+    const response = await postSubmission(
+      createTestApp(dependencies, environment, false),
+      {
+        headers: { 'X-Nihongo-Practice-Contract': '2' },
+        body: {
+          answers: [
+            {
+              studySessionQuestionId: id(4),
+              selectedOptionId: id(10),
+              elapsedSec: 8
+            }
+          ],
+          durationSec: 8,
+          expectedDraftRevision: 0
+        }
+      }
+    )
+
+    expect(response.status).toBe(400)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'INVALID_REQUEST'
+    )
+    expect(dependencies.studySubmissionService.submit).not.toHaveBeenCalled()
+  })
+
   it('429를 params/header/body/principal/service보다 먼저 반환한다', async () => {
     const dependencies = createDependencies()
     dependencies.rateLimiter.consume.mockRejectedValue(
@@ -231,7 +260,8 @@ describe('study submission routes', () => {
       'Idempotency-Replayed',
       'Location',
       'Retry-After',
-      'X-Request-Id'
+      'X-Request-Id',
+      'X-Nihongo-Practice-Contract'
     ])
     expect(
       dependencies.principalService.resolveAuthenticatedUser
@@ -391,7 +421,8 @@ describe('study submission routes', () => {
       'Idempotency-Replayed',
       'Location',
       'Retry-After',
-      'X-Request-Id'
+      'X-Request-Id',
+      'X-Nihongo-Practice-Contract'
     ])
   })
 

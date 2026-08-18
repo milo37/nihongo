@@ -63,7 +63,7 @@ auth/question과 RANDOM create/read/submit/result, WrongNote list/detail, dashbo
 - React Hook Form
 - Tailwind CSS
 - React Compiler
-- Vitest, React Testing Library, user-event, jsdom
+- Vitest, React Testing Library, user-event, jsdom, Playwright Chromium
 - ESLint, Prettier, pnpm workspace
 - Hono, `@hono/node-server`
 - PostgreSQL 18, Prisma ORM 7과 `@prisma/adapter-pg`
@@ -133,6 +133,21 @@ STUDY_CLEANUP_CONFIRM=DELETE_EXPIRED_GUEST_STUDY_DATA \
 이 명령은 loopback의 `_dev`/`_test` DB만 허용하며 production에서는 hard-block됩니다.
 운영 cleanup은 별도 exact-target 승인, runbook과 scheduler가 준비된 뒤 활성화합니다.
 
+Phase 4 v2 session의 `expiresAt + 24시간`을 지난 cold draft와 만료된
+`STUDY_DRAFT_SAVE` idempotency record를 로컬 dev/test에서 정리할 때는 별도
+operation-aware command를 사용합니다. 한 번에 최대 500건을 `FOR UPDATE SKIP LOCKED`로
+처리하며 USER/ADMIN session history는 EXPIRED 상태로 보존하고 guest aggregate 삭제는
+기존 guest cleanup에 넘깁니다.
+
+```bash
+STUDY_DRAFT_CLEANUP_CONFIRM=DELETE_EXPIRED_STUDY_DRAFTS \
+  pnpm run study:cleanup-expired-drafts
+```
+
+이 command도 production에서는 hard-block됩니다. production v2 write 노출 전에는
+exact-target 외부 scheduler, 승인된 runbook과 `expiresAt + 24시간` cleanup SLO 증거가
+별도로 준비돼야 합니다.
+
 기본 웹 주소는 `http://localhost:5173`, API 주소는
 `http://127.0.0.1:3001`입니다. API 상태는 `/health/live`와
 `/health/ready`에서 확인합니다. 개발 서버는 `VITE_API_MODE`가 없으면 `mock`,
@@ -179,6 +194,7 @@ GUEST_COOKIE_SECRET=replace_with_a_different_32_char_secret
 AUTH_EMAIL_FROM=auth@example.test
 AUTH_EMAIL_DELIVERY_MODE=test-sink
 AUTH_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
+PRACTICE_CONTRACT_RUNTIME=v1-v2
 ```
 
 - `VITE_API_MODE`는 exact lower-case `mock | real`만 허용합니다. 비어 있으면
@@ -199,6 +215,16 @@ AUTH_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
   origin으로 제공합니다. 개발 중 absolute API 주소를 사용할 때만 정확한
   `TRUSTED_ORIGINS`와 credentialed CORS를 사용하며 wildcard는 허용하지 않습니다.
 - `DATABASE_URL`은 `apps/api`에서만 읽으며 web bundle에 포함하지 않습니다.
+- `PRACTICE_CONTRACT_RUNTIME=v1-v2`는 현재 v1/v2 호환 API를 실행합니다. production은
+  이 값을 명시해야 하며 누락하면 fail closed합니다.
+- 제한적 `v1-compatible` runtime은 절대경로
+  `PRACTICE_COMPATIBILITY_AUTHORITY_FILE`이 필요합니다. 이 파일은 외부 배포
+  controller가 exclusive generation lease, v2-capable writer drain, 그리고 한 번
+  활성화되면 되돌릴 수 없는 v2 write exposure 이력을 검증한 뒤 read-only immutable
+  attestation으로 발급해야 합니다. 애플리케이션은 동일 파일 descriptor에서 안전하게
+  읽어 attestation과 DB zero-fact를 검증할 뿐 lease 획득·drain·monotonic record 생성을
+  대신하지 않습니다. 이 외부 authority와 운영 runbook이 없으면 compatibility 배포는
+  금지됩니다.
 - 통합 테스트 DB 이름은 안전장치상 반드시 `_test`로 끝나야 합니다.
 - 격리된 임시 test DB를 검증할 때만 `PRISMA_TEST_DATABASE_URL`로 test
   migration과 seed target을 명시적으로 덮어쓸 수 있으며 동일한 `_test`·loopback
@@ -295,9 +321,10 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 .
 ├── apps/
 │   ├── api/                # Hono app, Prisma, auth/question/study/WrongNote/dashboard API
-│   │   ├── prisma/         # schema, 20 migrations, 65문제 seed
-│   │   └── src/            # app, middleware, DB, service/repository
+│   │   ├── prisma/         # schema, 22 migrations, 65문제 seed
+│   │   └── src/            # app, middleware, DB, service/repository, E2E harness
 │   └── web/
+│       ├── e2e/            # Playwright real-browser practice-flow specs
 │       ├── src/
 │       │   ├── api/        # Axios, safe HTTP 함수, endpoint와 Zod schema
 │       │   ├── app/        # 라우트 도메인, Query Factory, 훅, 페이지
@@ -321,6 +348,7 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 ├── infra/postgres/         # 로컬 test DB 초기화
 ├── compose.yaml            # PostgreSQL 18.4 개발·테스트 환경
 ├── package.json            # workspace 명령과 공통 품질 도구
+├── playwright.config.ts     # isolated real/mock Chromium projects
 ├── pnpm-workspace.yaml
 ├── eslint.config.mjs
 └── prettier.config.mjs
@@ -506,11 +534,13 @@ pnpm run lint:fix
 pnpm run format:check
 pnpm run lint
 pnpm run check:architecture
+pnpm run test:architecture
 pnpm run typecheck
 pnpm run test
 pnpm run db:migrate:test
 pnpm run db:seed:test
 pnpm run test:integration
+pnpm run test:e2e
 VITE_API_MODE=real pnpm run build
 git diff --check
 ```
@@ -522,6 +552,57 @@ fresh unique UTC schema의 PostgreSQL integration 13 files/78 tests와 20 migrat
 통과했습니다. frozen install, format:check, lint, 4-project
 typecheck, root build(web production 398 modules), `git diff --check`도 통과했습니다.
 
+Phase 4 Slice 0은 v1 wire와 `submit-v1` hash를 보존하면서 practice contract v2,
+server draft·resumable·cancel·result retry, Bookmark와 answer/owner leakage conformance
+계약을 분리해 동결했습니다. contracts 11 files/61 tests와 architecture 포함 전체 497
+tests, format, lint, typecheck, build, 독립 read-only HIGH/MEDIUM 0 판정을 통과했습니다.
+이 Slice에서는 Prisma schema·migration·API route·web 기능과 DB를 변경하지 않았습니다.
+
+Phase 4 Slice 1은 enum-only와 dependent draft/core migration을 분리해 migration 22개로
+확장하고, contract version 2의 RANDOM create/get/submit, server draft revision·resumable
+list·cancel, historical idempotency replay, effective-expiry 전이와 bounded cleanup을
+Hono/PostgreSQL 및 canonical MSW에 구현했습니다. 독립 API client의 revision 1 response
+loss → revision 2 save → historical replay → canonical refetch, save/submit/cancel row-lock
+경합, foreign/missing 동일 404, old v1 default/replay를 검증했습니다. 최종 unit gate는
+architecture 5, contracts 11 files/61, domain 3/21, API 44/237, web 45/233으로 총 557
+tests를 통과했고, fresh UTC schema에서 migration 22/22, seed 65/0 후 0/65, PostgreSQL
+integration 17 files/99 tests를 통과했습니다. default planner의 640-session populated
+fixture로 resumable·cold cleanup·idempotency·child-FK `EXPLAIN (ANALYZE, BUFFERS)`도
+검증했으며 production build는 399 modules였습니다.
+
+Slice 1 integration에서 기존 Prisma/adapter-pg relation projection 경로의 pg 8.23
+deprecation warning은 5회였고 모두 같은 `PgTransaction` → query-interpreter
+`Array.map` stack이었습니다. 실패는 0건이지만 pg 9와 `--throw-deprecation`은 계속
+지원하지 않습니다. production v2 노출은 외부 generation lease·monotonic authority,
+populated index maintenance 또는 reviewed concurrent-index rollout, exact-target cleanup
+scheduler·24시간 SLO가 준비되기 전까지 금지합니다. 실제 browser working-copy·autosave와
+hard-reload conflict 복구는 Slice 1 종료 시점에는 Slice 2 소유라 통과했다고
+기록하지 않았습니다.
+
+Phase 4 Slice 2는 v2 endpoint·Query Factory·domain hook을 실제 practice UI에 연결하고,
+principal·session scoped `sessionStorage` working copy와 750ms debounce, session당 1개
+in-flight autosave를 구현했습니다. 응답 유실 시 frozen key/body를 정확히 replay하고,
+전송 중 추가 편집은 post-flight diff로 분리해 canonical GET·3-way merge 후에만
+다음 revision을 저장합니다. offline 중 network PUT은 열지 않되 visible foreground clock은
+계속 누적하고, reconnect canonical GET→PUT, BroadcastChannel/focus fallback, 명시적
+conflict 선택, auth epoch·guest owner 격리, 문항별 monotonic elapsed time, submit의
+`expectedDraftRevision`, `Control/Meta+Enter` 제출·focus·aria-live·responsive 경계도
+닫았습니다.
+
+최종 non-DB gate는 architecture 5, contracts 11 files/61, domain 3/21, API 44/237,
+web 52/267을 통과했습니다. non-DB Vitest는 110 files/586 tests, architecture 포함
+총 591 tests였고 web production build는 430 modules였습니다. fresh schema
+`phase4_slice2_validation_1787043200000_a1b2c3d4_test`에서 migration 22/22,
+seed 65/0 후 0/65, PostgreSQL integration 17 files/99 tests를 통과한 뒤 schema
+부재를 확인했습니다. Playwright는 별도 fresh schema
+`phase4_slice2_e2e_1787047352100_e6a3e15c_test`에서 독립 BrowserContext 충돌,
+동일 BrowserContext account switch 중 delayed response 격리, PUT response loss→hard
+reload exact replay, offline GET→PUT 복구, 320·375·768·1280px keyboard·focus·submit의
+real Chromium 5/5와 mock demo create→autosave→reload 1/1, 총 6/6을 통과했고 schema를
+삭제했습니다. immutable Slice 0–2
+checkpoint는
+`/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-2-final-20260818-69ee3d8`입니다.
+
 production real preview에서 guest RANDOM keyboard·미응답 제출/result와 USER
 login→RANDOM 5문제 all-null 제출→result 0/5→WrongNote list/detail→dashboard를 실제
 브라우저로 확인했습니다. USER logout 후 ADMIN login에서는 자기 목록이 비고 USER detail
@@ -530,7 +611,7 @@ legacy RANDOM, bookmark 노출, keyboard·미응답 submit/result 회귀를 확�
 320/768/1280px에서 horizontal overflow가 없고 dialog focus·result heading 이동을
 확인했습니다.
 
-별도 두 번째 cookie jar는 같은 USER로 독립 로그인해 첫 client의
+다음 Phase 3 완료 기록은 당시 browser 검증 범위를 보존한다. 별도 두 번째 cookie jar는 같은 USER로 독립 로그인해 첫 client의
 result/list/detail/dashboard를 다시 읽었습니다. 이는 DB 기반 cross-client persistence를
 증명하지만 두 번째 GUI browser smoke는 아닙니다. 설치된 Chrome에 ChatGPT extension이
 없어 literal second-browser 자동화는 실행하지 못했으며 LOW 환경 follow-up으로 남깁니다.
@@ -639,8 +720,11 @@ WrongNote/ReviewSchedule/ReviewEvent side effect를 Hono/PostgreSQL과 canonical
 entitlement, current availability와 UTC-bounded dashboard를 Hono/PostgreSQL 및
 canonical MSW/direct-fetch 경로에 구현했습니다. Slice 6은 이 canonical core를
 Query Factory·domain hook·기존 UI consumer에 연결하고 real/mock 회귀, production Mock
-fail-closed와 staged rollback 경계를 검증해 Phase 3를 완료했습니다. 다음 실행 단위는
-별도 사용자 지시가 필요한 Phase 4 문제풀이 핵심 흐름 실서비스화입니다.
+fail-closed와 staged rollback 경계를 검증해 Phase 3를 완료했습니다. Phase 4는
+Slice 0의 계약 정규화, Slice 1의 additive DB·API·canonical MSW, Slice 2의 Web
+autosave·working-copy·복구·conflict UX와 실제 Chromium gate까지
+`codex/phase-4-practice-flow`에서 완료했습니다. Phase 4 전체는 아직 In Progress이며,
+다음 실행 단위는 별도 지시가 필요한 Slice 3 selection engine·non-RANDOM mode입니다.
 
 ## 향후 개선
 

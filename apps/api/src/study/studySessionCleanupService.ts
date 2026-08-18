@@ -5,7 +5,7 @@ import type {
 } from './studySessionCleanupRepository.js'
 
 export const DEFAULT_STUDY_SESSION_CLEANUP_BATCH_SIZE = 100
-export const MAX_STUDY_SESSION_CLEANUP_BATCH_SIZE = 1_000
+export const MAX_STUDY_SESSION_CLEANUP_BATCH_SIZE = 500
 
 const studySessionCleanupInputSchema = z
   .object({

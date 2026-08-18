@@ -54,7 +54,7 @@ describe('Slice 5 read indexes migration', () => {
   it('기존 migration 1~19 byte와 append-only migration 20 순서를 고정한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest.map(({ name }) => name)).toEqual([
+    expect(manifest.slice(0, 20).map(({ name }) => name)).toEqual([
       ...Object.keys(approvedPriorChecksums).toSorted(),
       migrationName
     ])

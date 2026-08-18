@@ -9,6 +9,8 @@ import { createAuthEmailPort } from './auth/emailPort.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
 import { createPrincipalService } from './auth/principalService.js'
 import { parseApiEnvironment } from './config/env.js'
+import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
+import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
 import { createDatabaseRuntime } from './db/database.js'
 import { stopServerGracefully } from './lifecycle/gracefulShutdown.js'
 import { createShutdownCoordinator } from './lifecycle/shutdownCoordinator.js'
@@ -24,10 +26,30 @@ import { createPrismaWrongNoteRepository } from './wrong-note/wrongNoteRepositor
 import { createWrongNoteService } from './wrong-note/wrongNoteService.js'
 import { createPrismaDashboardRepository } from './dashboard/dashboardRepository.js'
 import { createDashboardService } from './dashboard/dashboardService.js'
+import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.js'
+import { createStudyDraftService } from './study/studyDraftService.js'
+import { startApiListener } from './lifecycle/startApiListener.js'
+import { createPracticeRuntimeGate } from './lifecycle/practiceRuntimeGate.js'
 
 const environment = parseApiEnvironment(process.env)
+const practiceEnvironment = parsePracticeRuntimeEnvironment(
+  process.env,
+  environment.NODE_ENV
+)
 const logger = createJsonLogger(environment.LOG_LEVEL)
+const compatibilityAuthority =
+  practiceEnvironment.runtime === 'v1-compatible'
+    ? createFilePracticeCompatibilityAuthority(
+        practiceEnvironment.authorityFile ?? ''
+      )
+    : undefined
 const database = createDatabaseRuntime(environment.DATABASE_URL)
+const practiceRuntimeGate = createPracticeRuntimeGate({
+  runtime: practiceEnvironment.runtime,
+  ...(compatibilityAuthority ? { authority: compatibilityAuthority } : {}),
+  checkDatabaseReadiness: database.checkReadiness,
+  checkV1Compatibility: database.checkV1Compatibility
+})
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort: createAuthEmailPort(environment),
   onDeliveryFailure: (purpose, reason) =>
@@ -55,6 +77,9 @@ const studySessionService = createStudySessionService(
 const studySubmissionService = createStudySubmissionService(
   createPrismaStudySubmissionRepository(database.client)
 )
+const studyDraftService = createStudyDraftService(
+  createPrismaStudyDraftRepository(database.client)
+)
 const wrongNoteService = createWrongNoteService(
   createPrismaWrongNoteRepository(database.client)
 )
@@ -66,13 +91,14 @@ const applicationRateLimiter = createApplicationRateLimiter({
   keySecret: environment.GUEST_COOKIE_SECRET
 })
 const app = createApiApp({
+  assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
   auth: {
     environment,
     gateway: createAuthGateway({ auth, client: database.client, environment }),
     guestPrincipalService,
     principalService
   },
-  checkReadiness: database.checkReadiness,
+  checkReadiness: practiceRuntimeGate.checkReadiness,
   logger,
   learning: {
     dashboardService,
@@ -81,17 +107,24 @@ const app = createApiApp({
   },
   questionReader,
   study: {
+    draftService: studyDraftService,
+    practiceContractV2Enabled: practiceRuntimeGate.practiceContractV2Enabled,
     rateLimiter: applicationRateLimiter,
     service: studySessionService,
     submissionService: studySubmissionService
   }
 })
 
-const server = serve({
-  fetch: app.fetch,
-  hostname: environment.HOST,
-  port: environment.PORT
-}) as Server
+const server = await startApiListener({
+  checkReadiness: practiceRuntimeGate.checkReadiness,
+  disconnectDatabase: database.disconnect,
+  createListener: () =>
+    serve({
+      fetch: app.fetch,
+      hostname: environment.HOST,
+      port: environment.PORT
+    }) as Server
+})
 server.headersTimeout = 10_000
 server.requestTimeout = 15_000
 

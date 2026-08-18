@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { canonicalizeStudySubmission } from '@nihongo/domain/submission/canonicalize-study-submission'
+import { studySubmitVersionConformanceFixture } from '@nihongo/contracts/testing/study-submit-version-conformance'
 import {
   canonicalizeTolerantStudySubmission,
+  canonicalizeTolerantStudySubmissionV2,
   hashStudySubmission
 } from './studySubmissionCanonicalizer.js'
 
@@ -28,6 +30,43 @@ const answers = [
 ]
 
 describe('tolerant study submission canonicalizer', () => {
+  it('Phase 4 shared fixture로 기존 submit-v1 material과 hash를 byte 고정한다', () => {
+    const fixture = studySubmitVersionConformanceFixture
+    const canonical = canonicalizeTolerantStudySubmission({
+      sessionId: fixture.sessionId,
+      orderedSessionQuestions: fixture.orderedSessionQuestionIds.map(
+        (studySessionQuestionId, index) => ({
+          studySessionQuestionId,
+          ordinal: index + 1
+        })
+      ),
+      answers: fixture.answers,
+      durationSec: fixture.durationSec
+    })
+
+    expect(canonical).toBe(fixture.v1CanonicalMaterial)
+    expect(hashStudySubmission(canonical)).toBe(fixture.v1Sha256)
+  })
+
+  it('Phase 4 shared fixture로 submit-v2 material과 hash를 byte 고정한다', () => {
+    const fixture = studySubmitVersionConformanceFixture
+    const canonical = canonicalizeTolerantStudySubmissionV2({
+      sessionId: fixture.sessionId,
+      orderedSessionQuestions: fixture.orderedSessionQuestionIds.map(
+        (studySessionQuestionId, index) => ({
+          studySessionQuestionId,
+          ordinal: index + 1
+        })
+      ),
+      answers: fixture.answers,
+      durationSec: fixture.durationSec,
+      expectedDraftRevision: fixture.expectedDraftRevision
+    })
+
+    expect(canonical).toBe(fixture.v2CanonicalMaterial)
+    expect(hashStudySubmission(canonical)).toBe(fixture.v2Sha256)
+  })
+
   it('valid exact answer set은 domain canonicalizer와 byte-for-byte 동일하다', () => {
     const tolerant = canonicalizeTolerantStudySubmission({
       sessionId,

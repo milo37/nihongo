@@ -1,14 +1,11 @@
-import { MutationObserver, QueryClient } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { submitStudySessionCommand } from '@app/practice/commands/submitStudySessionCommand'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { studyResultQueries } from '@app/practice/queries/studyResultQueries'
-import {
-  studySessionMutations,
-  studySessionQueries
-} from '@app/practice/queries/studySessionQueries'
+import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import {
   getOrCreateCanonicalSubmissionAttempt,
   getSubmissionAttemptStorageKey
@@ -46,11 +43,7 @@ describe('canonical submission attempt observation lifecycle', () => {
   it('clears a response-loss attempt after observing SUBMITTED or a ready result', async () => {
     mockDatabase.loginAs('USER')
     const client = createClient()
-    const createObserver = new MutationObserver(
-      client,
-      studySessionMutations.createSession()
-    )
-    const created = await createObserver.mutate({
+    const created = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -102,6 +95,7 @@ describe('canonical submission attempt observation lifecycle', () => {
         session: {
           ...rawSession.session,
           id: sessionId,
+          practiceContractVersion: 1 as const,
           status
         }
       }
@@ -115,7 +109,12 @@ describe('canonical submission attempt observation lifecycle', () => {
       mockServer.use(
         http.get('*/api/v1/study-sessions/:sessionId', ({ params }) =>
           params.sessionId === sessionId
-            ? HttpResponse.json(terminalSession)
+            ? HttpResponse.json(terminalSession, {
+                headers: {
+                  'Cache-Control': 'private, no-store',
+                  'X-Nihongo-Practice-Contract': '1'
+                }
+              })
             : undefined
         )
       )

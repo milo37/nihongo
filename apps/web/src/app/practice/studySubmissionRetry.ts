@@ -87,3 +87,6 @@ export const isDefinitiveStudySubmissionError = (error: unknown): boolean => {
       error.status !== 429
   )
 }
+
+export const getStudySubmissionErrorCode = (error: unknown): string | null =>
+  isApiError(error) ? (error.code ?? null) : null

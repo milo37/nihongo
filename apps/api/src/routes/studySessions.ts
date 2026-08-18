@@ -1,10 +1,12 @@
 import {
   createStudySessionBodySchema,
-  createStudySessionResponseSchema
+  createStudySessionResponseSchema,
+  createStudySessionV2ResponseSchema
 } from '@nihongo/contracts/study/create-study-session'
 import {
   getStudySessionParamsSchema,
-  getStudySessionResponseSchema
+  getStudySessionResponseSchema,
+  getStudySessionV2ResponseSchema
 } from '@nihongo/contracts/study/get-study-session'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { getCookie, setCookie } from 'hono/cookie'
@@ -29,11 +31,39 @@ interface StudySessionRouteDependencies {
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
+  practiceContractV2Enabled: boolean
   rateLimiter: ApplicationRateLimiter
   studySessionService: StudySessionService
 }
 
 type StudySessionRouteEnvironment = { Variables: ApiVariables }
+
+const resolvePracticeContractVersion = (
+  value: string | undefined,
+  practiceContractV2Enabled: boolean
+): 1 | 2 => {
+  if (value === undefined) {
+    return 1
+  }
+  if (value === '2') {
+    if (!practiceContractV2Enabled) {
+      throw new ApplicationError({
+        code: 'INVALID_REQUEST',
+        message: '이 배포 세대에서는 practice contract 2를 사용할 수 없습니다.',
+        retryable: false
+      })
+    }
+    return 2
+  }
+  throw new ApplicationError({
+    code: 'INVALID_REQUEST',
+    message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+    fieldErrors: {
+      'x-nihongo-practice-contract': ['header 값은 2만 허용합니다.']
+    },
+    retryable: false
+  })
+}
 
 const toFieldErrors = (error: ZodError): Record<string, string[]> => {
   const errors: Record<string, string[]> = {}
@@ -69,6 +99,7 @@ export const createStudySessionRoutes = ({
   environment,
   guestPrincipalService,
   principalService,
+  practiceContractV2Enabled,
   rateLimiter,
   studySessionService
 }: StudySessionRouteDependencies): Hono<StudySessionRouteEnvironment> => {
@@ -98,6 +129,11 @@ export const createStudySessionRoutes = ({
       windowMs: 60_000,
       max: 20
     })
+
+    const requestedContractVersion = resolvePracticeContractVersion(
+      context.req.header('X-Nihongo-Practice-Contract'),
+      practiceContractV2Enabled
+    )
 
     let input
     try {
@@ -141,8 +177,10 @@ export const createStudySessionRoutes = ({
       }
     }
 
-    const created = await studySessionService.create(input, owner)
-    const response = createStudySessionResponseSchema.parse(created.payload)
+    const created =
+      requestedContractVersion === 2
+        ? await studySessionService.create(input, owner, 2)
+        : await studySessionService.create(input, owner)
     if (created.issuedGuestCredential) {
       setCookie(
         context,
@@ -164,6 +202,15 @@ export const createStudySessionRoutes = ({
       )
     }
     context.header('Cache-Control', 'private, no-store')
+    context.header(
+      'X-Nihongo-Practice-Contract',
+      String(created.practiceContractVersion ?? requestedContractVersion)
+    )
+    if (requestedContractVersion === 2) {
+      const response = createStudySessionV2ResponseSchema.parse(created.payload)
+      return context.json(response, 201)
+    }
+    const response = createStudySessionResponseSchema.parse(created.payload)
     return context.json(response, 201)
   })
 
@@ -174,6 +221,11 @@ export const createStudySessionRoutes = ({
       windowMs: 60_000,
       max: 120
     })
+
+    const requestedContractVersion = resolvePracticeContractVersion(
+      context.req.header('X-Nihongo-Practice-Contract'),
+      practiceContractV2Enabled
+    )
 
     let params
     try {
@@ -225,10 +277,24 @@ export const createStudySessionRoutes = ({
       }
     }
 
-    const response = getStudySessionResponseSchema.parse(
-      await studySessionService.get(params.sessionId, owner)
-    )
+    const found =
+      requestedContractVersion === 2
+        ? await studySessionService.get(params.sessionId, owner, 2)
+        : await studySessionService.get(params.sessionId, owner)
     context.header('Cache-Control', 'private, no-store')
+    context.header(
+      'X-Nihongo-Practice-Contract',
+      String(
+        'practiceContractVersion' in found.session
+          ? found.session.practiceContractVersion
+          : 1
+      )
+    )
+    if (requestedContractVersion === 2) {
+      const response = getStudySessionV2ResponseSchema.parse(found)
+      return context.json(response)
+    }
+    const response = getStudySessionResponseSchema.parse(found)
     return context.json(response)
   })
 

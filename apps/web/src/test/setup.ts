@@ -1,8 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
+import { apiClient } from '@api/config'
 import { queryClient } from '@libs/queryClient'
 import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStorage'
+import { clearAllStudyDraftWorkingCopies } from '@app/practice/draft/studyDraftWorkingCopyStorage'
+import { closeAllStudyDraftRevisionChannels } from '@app/practice/draft/useStudyDraftRevisionSync'
 import {
   APP_STORE_KEY,
   cachedSessionStorage,
@@ -18,6 +21,8 @@ import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
   clearAllSubmissionAttempts()
+  clearAllStudyDraftWorkingCopies()
+  closeAllStudyDraftRevisionChannels()
   queryClient.clear()
   mockDatabase.reset()
   useAppStore.setState({
@@ -27,6 +32,10 @@ const resetTestState = async (): Promise<void> => {
     selectedAnswers: {},
     startedAt: null,
     pendingBookmarkIds: {},
+    draftWorkingCopy: null,
+    draftSaveState: 'idle',
+    draftConflict: null,
+    isDraftConflictPending: false,
     isMobileMenuOpen: false
   })
   cachedStorage.removeItem(APP_STORE_KEY)
@@ -35,7 +44,15 @@ const resetTestState = async (): Promise<void> => {
   clearStorageCache()
 }
 
+let browserOriginInterceptorId: number | undefined
+
 beforeAll(() => {
+  browserOriginInterceptorId = apiClient.interceptors.request.use((config) => {
+    if (['delete', 'patch', 'post', 'put'].includes(config.method ?? '')) {
+      config.headers.set('Origin', window.location.origin)
+    }
+    return config
+  })
   mockServer.listen({ onUnhandledRequest: 'error' })
 })
 
@@ -50,5 +67,8 @@ afterEach(async () => {
 })
 
 afterAll(() => {
+  if (browserOriginInterceptorId !== undefined) {
+    apiClient.interceptors.request.eject(browserOriginInterceptorId)
+  }
   mockServer.close()
 })

@@ -55,6 +55,14 @@ export const createPrismaStudySessionCleanupRepository = (
                     AND session."expiresAt" <= ${now}
                   )
                 )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM "IdempotencyRecord" AS record
+                  WHERE record."studySessionId" = session."id"
+                    AND record."state" = 'SUCCEEDED'
+                    AND record."expiresAt" IS NOT NULL
+                    AND record."expiresAt" > ${now}
+                )
             )
             ORDER BY guest."id" ASC
             LIMIT ${batchSize}
@@ -83,6 +91,14 @@ export const createPrismaStudySessionCleanupRepository = (
                   AND session."expiresAt" <= ${now}
                 )
               )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM "IdempotencyRecord" AS record
+                WHERE record."studySessionId" = session."id"
+                  AND record."state" = 'SUCCEEDED'
+                  AND record."expiresAt" IS NOT NULL
+                  AND record."expiresAt" > ${now}
+              )
             ORDER BY
               session."guestPrincipalId" ASC,
               COALESCE(session."submittedAt", session."expiresAt") ASC,
@@ -110,6 +126,14 @@ export const createPrismaStudySessionCleanupRepository = (
                 )
                 AND session."expiresAt" <= ${now}
               )
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM "IdempotencyRecord" AS record
+              WHERE record."studySessionId" = session."id"
+                AND record."state" = 'SUCCEEDED'
+                AND record."expiresAt" IS NOT NULL
+                AND record."expiresAt" > ${now}
             )
           RETURNING session."id"
         `
@@ -159,6 +183,7 @@ export const createPrismaStudySessionCleanupRepository = (
             SELECT record."id"
             FROM "IdempotencyRecord" AS record
             WHERE record."state" = 'SUCCEEDED'
+              AND record."operation" = 'STUDY_SUBMIT'
               AND record."expiresAt" IS NOT NULL
               AND record."expiresAt" <= ${now}
             ORDER BY record."expiresAt" ASC, record."id" ASC
@@ -169,6 +194,7 @@ export const createPrismaStudySessionCleanupRepository = (
           USING candidates
           WHERE record."id" = candidates."id"
             AND record."state" = 'SUCCEEDED'
+            AND record."operation" = 'STUDY_SUBMIT'
             AND record."expiresAt" IS NOT NULL
             AND record."expiresAt" <= ${now}
           RETURNING record."id"

@@ -40,6 +40,16 @@ export const studySessionStatusSchema = z.enum([
   'CANCELLED'
 ])
 
+export const practiceContractVersionSchema = z.union([
+  z.literal(1),
+  z.literal(2)
+])
+
+export const studyResumeAvailabilitySchema = z.enum([
+  'SERVER',
+  'LEGACY_LOCAL_ONLY'
+])
+
 export const studySessionFallbackReasonSchema = z.enum([
   'INSUFFICIENT_MODE_CANDIDATES'
 ])
@@ -55,6 +65,8 @@ export const wrongNoteSortSchema = z.enum(['RECENT', 'MOST_WRONG', 'OLDEST'])
 
 export const reviewAvailabilitySchema = z.enum(['AVAILABLE', 'ARCHIVED'])
 
+export const bookmarkAvailabilitySchema = z.enum(['AVAILABLE', 'ARCHIVED'])
+
 export const persistedUserRoleSchema = z.enum(['USER', 'ADMIN'])
 
 export type JlptLevel = z.output<typeof jlptLevelSchema>
@@ -63,10 +75,17 @@ export type QuestionType = z.output<typeof questionTypeSchema>
 export type QuestionDifficulty = z.output<typeof questionDifficultySchema>
 export type StudyMode = z.output<typeof studyModeSchema>
 export type StudySessionStatus = z.output<typeof studySessionStatusSchema>
+export type PracticeContractVersion = z.output<
+  typeof practiceContractVersionSchema
+>
+export type StudyResumeAvailability = z.output<
+  typeof studyResumeAvailabilitySchema
+>
 export type StudySessionFallbackReason = z.output<
   typeof studySessionFallbackReasonSchema
 >
 export type WrongNoteStatus = z.output<typeof wrongNoteStatusSchema>
 export type WrongNoteSort = z.output<typeof wrongNoteSortSchema>
 export type ReviewAvailability = z.output<typeof reviewAvailabilitySchema>
+export type BookmarkAvailability = z.output<typeof bookmarkAvailabilitySchema>
 export type PersistedUserRole = z.output<typeof persistedUserRoleSchema>

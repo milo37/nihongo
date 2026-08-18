@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type {
@@ -6,9 +6,12 @@ import type {
   QuestionSubject,
   StudyMode
 } from '@common/types/domain'
-import { isRealApiMode } from '@libs/apiMode'
 import { Button } from '@common/components/Button'
+import { Dialog } from '@common/components/Dialog'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession'
+import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
+import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
@@ -72,33 +75,20 @@ const getInitialCount = (value: string | null): 5 | 10 | 20 => {
 }
 
 const getInitialMode = (
-  value: string | null,
-  role: 'GUEST' | 'USER' | 'ADMIN'
+  _value: string | null,
+  _role: 'GUEST' | 'USER' | 'ADMIN'
 ): StudyMode => {
-  const values = modes.map((item) => item.value)
-  const requestedMode = values.includes(value as StudyMode)
-    ? (value as StudyMode)
-    : 'RANDOM'
-
-  if (isRealApiMode) {
-    return 'RANDOM'
-  }
-
-  if (
-    role === 'GUEST' &&
-    (requestedMode === 'WRONG_NOTE' || requestedMode === 'BOOKMARK')
-  ) {
-    return 'RANDOM'
-  }
-
-  return requestedMode
+  return 'RANDOM'
 }
 
 export const PracticePage = (): ReactElement => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { role } = useAuth()
+  const { isReady, role, user } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
+  const storedSessionId = useAppStore((state) => state.sessionId)
+  const [resumablePage, setResumablePage] = useState(1)
+  const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   const [level, setLevel] = useState<JlptLevel>(() =>
     getInitialLevel(searchParams.get('level'))
   )
@@ -112,21 +102,51 @@ export const PracticePage = (): ReactElement => {
     getInitialMode(searchParams.get('mode'), role)
   )
   const createSession = useCreateStudySession()
+  const principalScope = getStudyDraftPrincipalScope(user)
+  const canLoadResumableSessions =
+    isReady && (user !== null || storedSessionId !== null)
+  const resumableSessions = useListResumableStudySessions(
+    resumablePage,
+    5,
+    canLoadResumableSessions
+  )
+  const resumablePageCount = resumableSessions.data
+    ? Math.max(
+        1,
+        Math.ceil(
+          resumableSessions.data.total / resumableSessions.data.pageSize
+        )
+      )
+    : resumablePage
+  const cancelSession = useCancelStudySession(principalScope)
   const isCreatingSession = createSession.isPending || createSession.isPaused
+
+  useEffect(() => {
+    if (
+      !resumableSessions.data ||
+      resumableSessions.data.page !== resumablePage
+    ) {
+      return
+    }
+    if (resumablePage > resumablePageCount) {
+      const timerId = window.setTimeout(() => {
+        setResumablePage(resumablePageCount)
+      }, 0)
+      return () => window.clearTimeout(timerId)
+    }
+  }, [resumablePage, resumablePageCount, resumableSessions.data])
 
   const handleStart = (): void => {
     if (isCreatingSession) {
       return
     }
 
-    const safeMode =
-      isRealApiMode ||
-      (role === 'GUEST' && (mode === 'WRONG_NOTE' || mode === 'BOOKMARK'))
-        ? 'RANDOM'
-        : mode
+    if (mode !== 'RANDOM') {
+      return
+    }
 
     createSession.mutate(
-      { level, subject, count, mode: safeMode },
+      { level, subject, count, mode },
       {
         onSuccess: ({ session }, input) => {
           assertCurrentCreateStudySessionAction(input)
@@ -156,6 +176,140 @@ export const PracticePage = (): ReactElement => {
           현재 역할: <span className="text-ink">{role}</span>
         </p>
       </div>
+
+      <section
+        className="mt-8 rounded-2xl border border-line bg-slate-50 p-5 sm:p-6"
+        aria-labelledby="resumable-practice-title"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 id="resumable-practice-title" className="text-xl font-black">
+              이어서 풀기
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              서버에 저장된 진행 중 세션을 최신 작업본부터 보여드립니다.
+            </p>
+          </div>
+          {resumableSessions.isFetching && !resumableSessions.isPending ? (
+            <span className="text-sm font-semibold text-muted" role="status">
+              목록 갱신 중…
+            </span>
+          ) : null}
+        </div>
+
+        {!canLoadResumableSessions ? (
+          <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
+            새 게스트 세션을 시작하면 이 탭에서 서버 작업본을 이어서 풀 수
+            있습니다. 로그인하면 다른 기기에서도 같은 계정의 작업본을 확인할 수
+            있습니다.
+          </p>
+        ) : resumableSessions.isPending ? (
+          <p className="mt-4 text-sm font-semibold text-muted" role="status">
+            저장된 작업본을 확인하고 있습니다…
+          </p>
+        ) : resumableSessions.isError ? (
+          <div
+            className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+            role="alert"
+          >
+            <p>이어풀기 목록을 불러오지 못했습니다.</p>
+            <Button
+              className="mt-3"
+              size="sm"
+              variant="secondary"
+              onClick={() => void resumableSessions.refetch()}
+            >
+              다시 시도
+            </Button>
+          </div>
+        ) : resumableSessions.data.items.length === 0 ? (
+          <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
+            저장된 진행 중 작업본이 없습니다. 아래에서 새 RANDOM 학습을 시작해
+            주세요.
+          </p>
+        ) : (
+          <>
+            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              {resumableSessions.data.items.map((item) => {
+                const canResume =
+                  item.resumeAvailability === 'SERVER' ||
+                  storedSessionId === item.id
+                return (
+                  <li
+                    key={item.id}
+                    className="rounded-xl border border-line bg-white p-4"
+                  >
+                    <p className="font-black">
+                      {item.level} ·{' '}
+                      {subjects.find(({ value }) => value === item.subject)
+                        ?.label ?? item.subject}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted">
+                      {item.actualCount}문제 · 현재 {item.currentOrdinal ?? 1}번
+                      · revision {item.draftRevision ?? 0}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-muted">
+                      {item.draftSavedAt
+                        ? `마지막 저장 ${new Date(item.draftSavedAt).toLocaleString('ko-KR')}`
+                        : '아직 서버 저장 전'}
+                    </p>
+                    {item.resumeAvailability === 'LEGACY_LOCAL_ONLY' &&
+                    !canResume ? (
+                      <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-semibold leading-6 text-amber-900">
+                        이 세션은 다른 기기의 로컬 답안을 복원할 수 없습니다. 새
+                        학습을 시작하거나 세션을 취소해 주세요.
+                      </p>
+                    ) : null}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {canResume ? (
+                        <Link
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                          to={`/practice/session/${item.id}`}
+                        >
+                          이어서 풀기
+                        </Link>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setCancelSessionId(item.id)}
+                      >
+                        세션 취소
+                      </Button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            {resumableSessions.data.total > resumableSessions.data.pageSize ? (
+              <nav
+                className="mt-4 flex items-center justify-center gap-3"
+                aria-label="이어풀기 페이지"
+              >
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={resumablePage === 1}
+                  onClick={() => setResumablePage((page) => page - 1)}
+                >
+                  이전
+                </Button>
+                <span className="text-sm font-bold">
+                  {resumablePage} / {resumablePageCount}
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={resumablePage >= resumablePageCount}
+                  onClick={() => setResumablePage((page) => page + 1)}
+                >
+                  다음
+                </Button>
+              </nav>
+            ) : null}
+          </>
+        )}
+      </section>
 
       <div className="mt-8 space-y-9 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-8">
         <fieldset disabled={isCreatingSession}>
@@ -216,10 +370,9 @@ export const PracticePage = (): ReactElement => {
           <legend className="text-lg font-black">4. 출제 모드</legend>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {modes.map((option) => {
-              const isUnavailableInRealMode =
-                isRealApiMode && option.value !== 'RANDOM'
+              const isUnavailableInCurrentSlice = option.value !== 'RANDOM'
               const disabled =
-                isUnavailableInRealMode ||
+                isUnavailableInCurrentSlice ||
                 (option.requiresLogin && role === 'GUEST')
               return (
                 <button
@@ -235,9 +388,9 @@ export const PracticePage = (): ReactElement => {
                   <span className="mt-1 block text-sm leading-6 text-muted">
                     {option.description}
                   </span>
-                  {isUnavailableInRealMode ? (
+                  {isUnavailableInCurrentSlice ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
-                      실제 API에서는 아직 지원하지 않습니다
+                      Slice 3에서 서버 권위 모드로 제공됩니다
                     </span>
                   ) : disabled ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
@@ -263,9 +416,8 @@ export const PracticePage = (): ReactElement => {
 
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
-            {isRealApiMode
-              ? '실제 API 모드에서는 RANDOM 출제만 사용할 수 있습니다.'
-              : '오답·즐겨찾기 모드는 저장된 문제가 없으면 랜덤 문제로 대체됩니다.'}
+            현재 Slice 2에서는 mock/real 모두 RANDOM만 제공하며, 다른 모드로
+            자동 대체하지 않습니다.
             {role === 'GUEST' ? (
               <>
                 {' '}
@@ -288,6 +440,54 @@ export const PracticePage = (): ReactElement => {
           </Button>
         </div>
       </div>
+
+      <Dialog
+        open={cancelSessionId !== null}
+        title="진행 중 세션을 취소할까요?"
+        description="취소하면 서버 작업본은 삭제되며 이 세션에는 더 이상 답안을 저장하거나 제출할 수 없습니다."
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={cancelSession.isPending}
+              onClick={() => setCancelSessionId(null)}
+            >
+              계속 보관
+            </Button>
+            <Button
+              isLoading={cancelSession.isPending}
+              onClick={() => {
+                if (!cancelSessionId) {
+                  return
+                }
+                cancelSession.mutate(
+                  { sessionId: cancelSessionId },
+                  { onSuccess: () => setCancelSessionId(null) }
+                )
+              }}
+            >
+              세션 취소
+            </Button>
+          </>
+        }
+        preventClose={cancelSession.isPending}
+        onOpenChange={(open) => {
+          if (!open && !cancelSession.isPending) {
+            setCancelSessionId(null)
+          }
+        }}
+      >
+        {cancelSession.isError &&
+        !isAuthTransitionSupersededError(cancelSession.error) ? (
+          <p
+            className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900"
+            role="alert"
+          >
+            세션을 취소하지 못했습니다. 상태를 새로 확인한 뒤 다시 시도해
+            주세요.
+          </p>
+        ) : null}
+      </Dialog>
     </section>
   )
 }

@@ -59,5 +59,9 @@ describe('공통 계약', () => {
         stack: 'secret'
       }).success
     ).toBe(false)
+
+    expect(errorStatusByCode.DRAFT_VERSION_CONFLICT).toBe(409)
+    expect(errorStatusByCode.DRAFT_SUBMIT_MISMATCH).toBe(422)
+    expect(errorStatusByCode.PRACTICE_CONTRACT_VERSION_MISMATCH).toBe(409)
   })
 })

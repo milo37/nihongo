@@ -65,6 +65,7 @@ const app = createApiApp({
     createPrismaQuestionRepository(database.client)
   ),
   study: {
+    practiceContractV2Enabled: true,
     rateLimiter: noOpRateLimiter,
     service: createStudySessionService(repository)
   }
@@ -951,7 +952,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
     }
   }, 15_000)
 
-  it('owner scoped GET에서 만료 상태를 투영하고 foreign user는 404다', async () => {
+  it('owner scoped GET에서 만료 상태를 영속하고 foreign user는 404다', async () => {
     const [ownerUser, foreignUser] = await Promise.all([
       database.client.user.create({
         data: {
@@ -1002,7 +1003,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         where: { id: expired.id },
         select: { status: true }
       })
-    ).toEqual({ status: 'IN_PROGRESS' })
+    ).toEqual({ status: 'EXPIRED' })
   })
 
   it('shared PostgreSQL rate limiter가 초과 요청을 429로 닫는다', async () => {

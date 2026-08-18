@@ -16,6 +16,25 @@ const normalizePath = (value) => value.split(path.sep).join('/')
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const defaultRootDir = path.resolve(scriptDirectory, '../..')
+const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
+  ['api/study/cancelStudySession/index.ts', 'safePostWithMetadata'],
+  ['api/study/createStudySessionV2/index.ts', 'safePostWithMetadata'],
+  ['api/study/getStudyDraftAnswers/index.ts', 'safeGetWithMetadata'],
+  ['api/study/getStudySessionV2/index.ts', 'safeGetWithMetadata'],
+  ['api/study/listResumableStudySessions/index.ts', 'safeGetWithMetadata'],
+  ['api/study/saveStudyDraftAnswers/index.ts', 'safePutWithMetadata'],
+  ['api/study/submitStudySessionV2/index.ts', 'safePostWithMetadata']
+])
+const METADATA_SAFE_WRAPPER_NAMES = new Set([
+  'safeGetWithMetadata',
+  'safePostWithMetadata',
+  'safePutWithMetadata'
+])
+const METADATA_RAW_WRAPPER_NAMES = new Set([
+  'getWithMetadata',
+  'postWithMetadata',
+  'putWithMetadata'
+])
 
 const isPathInside = (parent, candidate) => {
   const relative = path.relative(parent, candidate)
@@ -278,6 +297,46 @@ const isDeclaredInFile = (symbol, fileName) => {
   )
 }
 
+const symbolResolvesToDeclaration = (
+  checker,
+  symbol,
+  predicate,
+  seen = new Set()
+) => {
+  if (!symbol || seen.has(symbol)) return null
+  seen.add(symbol)
+  if (predicate(symbol)) return symbol
+
+  for (const declaration of symbol.declarations ?? []) {
+    if (
+      ts.isVariableDeclaration(declaration) &&
+      declaration.initializer &&
+      (ts.isIdentifier(declaration.initializer) ||
+        ts.isPropertyAccessExpression(declaration.initializer))
+    ) {
+      const resolved = symbolResolvesToDeclaration(
+        checker,
+        getResolvedSymbol(checker, declaration.initializer),
+        predicate,
+        seen
+      )
+      if (resolved) return resolved
+    }
+
+    if (ts.isExportSpecifier(declaration)) {
+      const resolved = symbolResolvesToDeclaration(
+        checker,
+        checker.getExportSpecifierLocalTargetSymbol(declaration),
+        predicate,
+        seen
+      )
+      if (resolved) return resolved
+    }
+  }
+
+  return null
+}
+
 const getSymbolDeclarationFiles = (symbol) => {
   return (
     symbol?.declarations?.map((declaration) =>
@@ -479,6 +538,66 @@ const hasGlobalFetchCall = (sourceFile, checker) => {
   return fetchNode
 }
 
+const checkMetadataTransportBoundary = (
+  sourceFile,
+  sourceRoot,
+  rootDir,
+  checker
+) => {
+  const relative = normalizePath(path.relative(sourceRoot, sourceFile.fileName))
+  if (relative === 'api/http.ts') return []
+
+  const httpPath = path.resolve(sourceRoot, 'api/http.ts')
+  const diagnostics = []
+  const getCallReference = (expression) => {
+    if (ts.isIdentifier(expression)) return expression
+    if (ts.isPropertyAccessExpression(expression)) return expression.name
+    return null
+  }
+
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callReference = getCallReference(node.expression)
+      const callSymbol = callReference
+        ? getResolvedSymbol(checker, callReference)
+        : null
+      const httpWrapper = symbolResolvesToDeclaration(
+        checker,
+        callSymbol,
+        (candidate) =>
+          isDeclaredInFile(candidate, httpPath) &&
+          (METADATA_SAFE_WRAPPER_NAMES.has(candidate.getName()) ||
+            METADATA_RAW_WRAPPER_NAMES.has(candidate.getName()))
+      )
+
+      if (httpWrapper) {
+        const wrapperName = httpWrapper.getName()
+        const expectedWrapper = METADATA_SAFE_WRAPPER_BY_ENDPOINT.get(relative)
+        const isAllowedSafeWrapper =
+          METADATA_SAFE_WRAPPER_NAMES.has(wrapperName) &&
+          expectedWrapper === wrapperName
+
+        if (!isAllowedSafeWrapper) {
+          diagnostics.push(
+            createDiagnostic(
+              sourceFile,
+              callReference ?? node.expression,
+              RULES.endpointValidation,
+              'metadata HTTP wrappers are restricted to the exact sanctioned endpoint and verb',
+              rootDir
+            )
+          )
+        }
+      }
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+  return diagnostics
+}
+
 const checkEndpoint = (
   sourceFile,
   references,
@@ -529,7 +648,7 @@ const checkEndpoint = (
 
     return Boolean(
       symbol &&
-        /^safe(Get|Post|Put|Del)$/.test(symbol.getName()) &&
+        /^safe(Get|Post|Put|Del)(WithMetadata)?$/.test(symbol.getName()) &&
         isDeclaredInFile(symbol, httpPath) &&
         isDeclaredInFile(schemaSymbol, schemaResolvedPath) &&
         isZodSchemaExpression(checker, schemaArgument)
@@ -645,8 +764,15 @@ const checkEndpoint = (
       symbolResolvesTo(
         callSymbol,
         (symbol) =>
-          ['get', 'post', 'put', 'del'].includes(symbol.getName()) &&
-          isDeclaredInFile(symbol, httpPath)
+          [
+            'get',
+            'post',
+            'put',
+            'del',
+            'getWithMetadata',
+            'postWithMetadata',
+            'putWithMetadata'
+          ].includes(symbol.getName()) && isDeclaredInFile(symbol, httpPath)
       )
     ) {
       return true
@@ -821,7 +947,7 @@ const checkEndpoint = (
       sourceFile,
       rawTransportNode ?? sourceFile,
       RULES.endpointValidation,
-      'endpoint must use safeGet/safePost/safePut/safeDel with a sibling Zod schema and no raw transport',
+      'endpoint must use a sanctioned safe HTTP wrapper with a sibling Zod schema and no raw transport',
       rootDir
     )
   ]
@@ -1008,6 +1134,14 @@ export const checkArchitecture = ({
 
     if (!isTestFile(absoluteFile)) {
       if (!graph.has(absoluteFile)) graph.set(absoluteFile, new Set())
+      diagnostics.push(
+        ...checkMetadataTransportBoundary(
+          sourceFile,
+          absoluteSourceRoot,
+          absoluteRoot,
+          checker
+        )
+      )
       diagnostics.push(
         ...checkEndpoint(
           sourceFile,

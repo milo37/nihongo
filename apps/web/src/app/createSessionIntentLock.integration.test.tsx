@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { createStudySession } from '@api/study/createStudySession'
-import type { CreateStudySessionResponse } from '@api/study/createStudySession/schema'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
+import type { CreateStudySessionV2TransportResponse } from '@api/study/createStudySessionV2/schema'
 import { HomePage } from '@app/home/page'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { PracticePage } from '@app/practice/page'
@@ -24,16 +24,31 @@ const createClient = (): QueryClient =>
     }
   })
 
-const createFixture = async (): Promise<CreateStudySessionResponse> => {
+const createFixture = async (): Promise<
+  CreateStudySessionV2TransportResponse['data']
+> => {
   const user = mockDatabase.loginAs('USER')
   useAppStore.getState().setCurrentUser(user)
-  return createStudySession({
-    level: 'N3',
-    subject: 'GRAMMAR',
-    mode: 'RANDOM',
-    count: 10
-  })
+  return (
+    await createStudySessionV2({
+      level: 'N3',
+      subject: 'GRAMMAR',
+      mode: 'RANDOM',
+      count: 10
+    })
+  ).data
 }
+
+const createV2Response = (
+  fixture: CreateStudySessionV2TransportResponse['data']
+) =>
+  HttpResponse.json(fixture, {
+    status: 201,
+    headers: {
+      'Cache-Control': 'private, no-store',
+      'X-Nihongo-Practice-Contract': '2'
+    }
+  })
 
 const renderPage = (
   page: ReactElement,
@@ -73,7 +88,7 @@ describe('study session create intent lock', () => {
       releaseFirst = resolve
     })
     mockServer.use(
-      http.post('*/api/study/session', async () => {
+      http.post('*/api/v1/study-sessions', async () => {
         requestCount += 1
         if (requestCount === 1) {
           await firstRequestGate
@@ -82,7 +97,7 @@ describe('study session create intent lock', () => {
             { status: 503 }
           )
         }
-        return HttpResponse.json(fixture)
+        return createV2Response(fixture)
       })
     )
     renderPage(<HomePage />, '/', '홈 세션 도착')
@@ -128,10 +143,10 @@ describe('study session create intent lock', () => {
       releaseResponse = resolve
     })
     mockServer.use(
-      http.post('*/api/study/session', async () => {
+      http.post('*/api/v1/study-sessions', async () => {
         requestCount += 1
         await responseGate
-        return HttpResponse.json(fixture)
+        return createV2Response(fixture)
       })
     )
     renderPage(<PracticePage />, '/practice', '설정 세션 도착')
@@ -169,9 +184,9 @@ describe('study session create intent lock', () => {
       releaseResponse = resolve
     })
     mockServer.use(
-      http.post('*/api/study/session', async () => {
+      http.post('*/api/v1/study-sessions', async () => {
         await responseGate
-        return HttpResponse.json(fixture)
+        return createV2Response(fixture)
       })
     )
     const { client } = renderPage(<HomePage />, '/', '이전 사용자 세션')
@@ -206,5 +221,88 @@ describe('study session create intent lock', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByText('이전 사용자 세션')).not.toBeInTheDocument()
     expect(useAppStore.getState().sessionId).toBeNull()
+  })
+
+  it('returns to the preceding resumable page when cancellation removes the last item', async () => {
+    const user = userEvent.setup()
+    await createFixture()
+    const sessionIds = Array.from(
+      { length: 6 },
+      (_, index) =>
+        `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
+    )
+    const summaries = sessionIds.map((id, index) => ({
+      actualCount: 5,
+      currentOrdinal: 1,
+      draftRevision: 1,
+      draftSavedAt: `2026-08-18T00:0${index}:00.000Z`,
+      expiresAt: '2026-08-19T00:00:00.000Z',
+      id,
+      level: 'N5' as const,
+      mode: 'RANDOM' as const,
+      practiceContractVersion: 2 as const,
+      resumeAvailability: 'SERVER' as const,
+      startedAt: `2026-08-17T00:0${index}:00.000Z`,
+      status: 'IN_PROGRESS' as const,
+      subject: 'VOCABULARY' as const
+    }))
+    let cancelled = false
+    const requestedPages: number[] = []
+
+    mockServer.use(
+      http.get('*/api/v1/study-sessions', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'))
+        requestedPages.push(page)
+        const active = cancelled ? summaries.slice(0, 5) : summaries
+        const offset = (page - 1) * 5
+        return HttpResponse.json(
+          {
+            items: active.slice(offset, offset + 5),
+            page,
+            pageSize: 5,
+            total: active.length
+          },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          }
+        )
+      }),
+      http.post(`*/api/v1/study-sessions/${sessionIds[5]}/cancellation`, () => {
+        cancelled = true
+        return new HttpResponse(null, {
+          status: 204,
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'X-Nihongo-Practice-Contract': '2'
+          }
+        })
+      })
+    )
+    const { client } = renderPage(
+      <PracticePage />,
+      '/practice',
+      'pagination session'
+    )
+
+    await screen.findByText('1 / 2')
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await screen.findByText('2 / 2')
+    await user.click(screen.getByRole('button', { name: '세션 취소' }))
+    const dialog = screen.getByRole('dialog', {
+      name: '진행 중 세션을 취소할까요?'
+    })
+    await user.click(within(dialog).getByRole('button', { name: '세션 취소' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: '세션 취소' })).toHaveLength(
+        5
+      )
+      expect(requestedPages.at(-1)).toBe(1)
+    })
+    expect(requestedPages).toContain(2)
+    client.clear()
   })
 })

@@ -7,6 +7,7 @@ import {
 } from '@nihongo/domain/review/apply-wrong-note-review'
 import {
   canonicalizeStudySubmission,
+  canonicalizeStudySubmissionV2,
   type OrderedSessionQuestionForSubmission
 } from '@nihongo/domain/submission/canonicalize-study-submission'
 import {
@@ -25,6 +26,7 @@ import {
 } from './studySessionRepository.js'
 import {
   canonicalizeTolerantStudySubmission,
+  canonicalizeTolerantStudySubmissionV2,
   hashStudySubmission
 } from './studySubmissionCanonicalizer.js'
 import {
@@ -56,15 +58,18 @@ export interface OwnedStudySubmissionPreload {
     readonly studySessionQuestionId: string
   }[]
   readonly sessionId: string
+  readonly practiceContractVersion?: 1 | 2
   readonly status: StudySessionStatus
 }
 
 export interface SubmitStudySessionAtomicInput {
   readonly answers: readonly SubmittedStudyAnswer[]
   readonly durationSec: number
+  readonly expectedDraftRevision?: number | null
   readonly idempotencyKey: string
   readonly observedAt: Date
   readonly owner: ExistingStudyOwner
+  readonly practiceContractVersion?: 1 | 2
   readonly requestHash: string
   readonly sessionId: string
 }
@@ -117,6 +122,27 @@ export class StudySessionNotEditableError extends Error {
   }
 }
 
+export class StudySubmissionContractVersionMismatchError extends Error {
+  constructor() {
+    super('Submission contract version does not match the StudySession.')
+    this.name = 'StudySubmissionContractVersionMismatchError'
+  }
+}
+
+export class DraftSubmissionVersionConflictError extends Error {
+  constructor() {
+    super('Submission expectedDraftRevision is stale.')
+    this.name = 'DraftSubmissionVersionConflictError'
+  }
+}
+
+export class DraftSubmitMismatchError extends Error {
+  constructor() {
+    super('Submission answers do not match the authoritative draft.')
+    this.name = 'DraftSubmitMismatchError'
+  }
+}
+
 export class OwnedStudySessionNotFoundError extends Error {
   constructor() {
     super('Owned StudySession no longer exists.')
@@ -155,6 +181,7 @@ interface LockedSessionRow {
   expiresAt: Date
   guestPrincipalId: string | null
   id: string
+  practiceContractVersion: number
   status: StudySessionStatus
   userId: string | null
 }
@@ -185,6 +212,14 @@ interface AtomicQuestion {
 }
 
 interface AtomicSession {
+  readonly draft: {
+    readonly answers: readonly {
+      readonly elapsedSec: number
+      readonly selectedOptionId: string | null
+      readonly studySessionQuestionId: string
+    }[]
+    readonly revision: number
+  } | null
   readonly expiresAt: Date
   readonly mode:
     | 'RANDOM'
@@ -193,6 +228,7 @@ interface AtomicSession {
     | 'BOOKMARK'
     | 'DAILY_REVIEW'
   readonly questions: readonly AtomicQuestion[]
+  readonly practiceContractVersion: number
   readonly startedAt: Date
   readonly status: StudySessionStatus
 }
@@ -329,6 +365,19 @@ const loadAtomicSession = async (
       expiresAt: true,
       startedAt: true,
       mode: true,
+      practiceContractVersion: true,
+      draft: {
+        select: {
+          revision: true,
+          answers: {
+            select: {
+              studySessionQuestionId: true,
+              selectedOptionId: true,
+              elapsedSec: true
+            }
+          }
+        }
+      },
       questions: {
         orderBy: { ordinal: 'asc' },
         select: {
@@ -358,6 +407,8 @@ const loadAtomicSession = async (
     expiresAt: session.expiresAt,
     startedAt: session.startedAt,
     mode: session.mode,
+    practiceContractVersion: session.practiceContractVersion,
+    draft: session.draft,
     questions: session.questions.map((question) => {
       if (!question.questionVersion.correctOptionId) {
         throw new StudySubmissionRepositoryIntegrityError(
@@ -386,7 +437,8 @@ const lockSession = async (
       session."userId",
       session."guestPrincipalId",
       session."status",
-      session."expiresAt"
+      session."expiresAt",
+      session."practiceContractVersion"
     FROM "StudySession" AS session
     WHERE session."id" = ${sessionId}::uuid
     FOR UPDATE OF session
@@ -405,14 +457,15 @@ const reserveIdempotency = async (
           INSERT INTO "IdempotencyRecord" (
             "id", "principalType", "userId", "guestPrincipalId",
             "operation", "idempotencyKey", "studySessionId", "requestHash",
-            "state", "createdAt"
+            "contractVersion", "state", "createdAt"
           )
           VALUES (
             ${id}::uuid, 'USER'::"IdempotencyPrincipalType",
             ${input.owner.userId}::uuid, NULL,
             'STUDY_SUBMIT'::"IdempotencyOperation",
             ${input.idempotencyKey}::uuid, ${input.sessionId}::uuid,
-            ${input.requestHash}, 'PROCESSING'::"IdempotencyState",
+            ${input.requestHash}, ${input.practiceContractVersion ?? 1},
+            'PROCESSING'::"IdempotencyState",
             ${input.observedAt}
           )
           ON CONFLICT DO NOTHING
@@ -422,14 +475,15 @@ const reserveIdempotency = async (
           INSERT INTO "IdempotencyRecord" (
             "id", "principalType", "userId", "guestPrincipalId",
             "operation", "idempotencyKey", "studySessionId", "requestHash",
-            "state", "createdAt"
+            "contractVersion", "state", "createdAt"
           )
           VALUES (
             ${id}::uuid, 'GUEST'::"IdempotencyPrincipalType", NULL,
             ${input.owner.guestPrincipalId}::uuid,
             'STUDY_SUBMIT'::"IdempotencyOperation",
             ${input.idempotencyKey}::uuid, ${input.sessionId}::uuid,
-            ${input.requestHash}, 'PROCESSING'::"IdempotencyState",
+            ${input.requestHash}, ${input.practiceContractVersion ?? 1},
+            'PROCESSING'::"IdempotencyState",
             ${input.observedAt}
           )
           ON CONFLICT DO NOTHING
@@ -754,11 +808,34 @@ const assertEditable = (
   }
 }
 
+const expireLockedSubmissionSession = async (
+  transaction: Prisma.TransactionClient,
+  sessionId: string,
+  observedAt: Date
+): Promise<void> => {
+  await transaction.studySession.update({
+    where: { id: sessionId },
+    data: { status: 'EXPIRED', updatedAt: observedAt }
+  })
+  await transaction.studyDraft.deleteMany({
+    where: { studySessionId: sessionId }
+  })
+}
+
+type RunAtomicSubmissionOutcome =
+  | { readonly kind: 'NOT_EDITABLE' }
+  | {
+      readonly kind: 'SUBMITTED'
+      readonly value: SubmitStudySessionAtomicResult
+    }
+
 const runAtomicSubmission = async (
   transaction: Prisma.TransactionClient,
   input: SubmitStudySessionAtomicInput,
   options: StudySubmissionRepositoryOptions
-): Promise<SubmitStudySessionAtomicResult> => {
+): Promise<RunAtomicSubmissionOutcome> => {
+  const practiceContractVersion = input.practiceContractVersion ?? 1
+  const expectedDraftRevision = input.expectedDraftRevision ?? null
   const guestProof =
     input.owner.kind === 'GUEST'
       ? await lockGuestProof(transaction, input.owner, input.observedAt)
@@ -773,24 +850,36 @@ const runAtomicSubmission = async (
     throw new OwnedStudySessionNotFoundError()
   }
 
-  const existing = await transaction.idempotencyRecord.findFirst({
+  let existing = await transaction.idempotencyRecord.findFirst({
     where: {
       ...idempotencyOwnerWhere(input.owner),
       operation: 'STUDY_SUBMIT',
       idempotencyKey: input.idempotencyKey
     },
     select: {
+      id: true,
       studySessionId: true,
       requestHash: true,
+      contractVersion: true,
       state: true,
       responseStatus: true,
-      responseBody: true
+      responseBody: true,
+      expiresAt: true
     }
   })
+  if (
+    existing?.state === 'SUCCEEDED' &&
+    existing.expiresAt !== null &&
+    existing.expiresAt <= input.observedAt
+  ) {
+    await transaction.idempotencyRecord.delete({ where: { id: existing.id } })
+    existing = null
+  }
   if (existing) {
     if (
       existing.studySessionId !== input.sessionId ||
-      existing.requestHash !== input.requestHash
+      existing.requestHash !== input.requestHash ||
+      existing.contractVersion !== practiceContractVersion
     ) {
       throw new IdempotencyKeyReusedError()
     }
@@ -804,24 +893,57 @@ const runAtomicSubmission = async (
       )
     }
     return {
-      response: parseStoredStudyResult(
-        existing.responseBody,
-        'Stored idempotency response does not satisfy the submit contract.'
-      ),
-      replayed: true,
-      guestProofExpiresAt: guestProof?.expiresAt ?? null
+      kind: 'SUBMITTED',
+      value: {
+        response: parseStoredStudyResult(
+          existing.responseBody,
+          'Stored idempotency response does not satisfy the submit contract.'
+        ),
+        replayed: true,
+        guestProofExpiresAt: guestProof?.expiresAt ?? null
+      }
     }
   }
   await options.afterExistingMiss?.()
+  if (
+    prelockedSession.practiceContractVersion !== practiceContractVersion ||
+    (practiceContractVersion === 1 && expectedDraftRevision !== null) ||
+    (practiceContractVersion === 2 && expectedDraftRevision === null)
+  ) {
+    throw new StudySubmissionContractVersionMismatchError()
+  }
   if (prelockedSession.mode !== 'RANDOM') {
     throw new StudySessionNotEditableError()
   }
 
-  assertEditable(
-    prelockedSession.status,
-    prelockedSession.expiresAt,
-    input.observedAt
-  )
+  if (prelockedSession.status === 'SUBMITTED') {
+    throw new StudySessionAlreadySubmittedError()
+  }
+  if (prelockedSession.status !== 'IN_PROGRESS') {
+    throw new StudySessionNotEditableError()
+  }
+  if (prelockedSession.expiresAt <= input.observedAt) {
+    const expiredSession = await lockSession(transaction, input.sessionId)
+    if (!expiredSession || !isOwner(expiredSession, input.owner)) {
+      throw new OwnedStudySessionNotFoundError()
+    }
+    if (
+      expiredSession.status === 'IN_PROGRESS' &&
+      expiredSession.expiresAt <= input.observedAt
+    ) {
+      await expireLockedSubmissionSession(
+        transaction,
+        input.sessionId,
+        input.observedAt
+      )
+      return { kind: 'NOT_EDITABLE' }
+    }
+    assertEditable(
+      expiredSession.status,
+      expiredSession.expiresAt,
+      input.observedAt
+    )
+  }
   if (!(await reserveIdempotency(transaction, input))) {
     throw new FreshTransactionRetry()
   }
@@ -848,18 +970,62 @@ const runAtomicSubmission = async (
   if (session.mode !== 'RANDOM') {
     throw new StudySessionNotEditableError()
   }
+  if (session.practiceContractVersion !== practiceContractVersion) {
+    throw new StudySubmissionContractVersionMismatchError()
+  }
+
+  if (practiceContractVersion === 2) {
+    if (!session.draft || expectedDraftRevision === null) {
+      throw new StudySubmissionContractVersionMismatchError()
+    }
+    if (session.draft.revision !== expectedDraftRevision) {
+      throw new DraftSubmissionVersionConflictError()
+    }
+    const submittedByQuestionId = new Map(
+      input.answers.map((answer) => [answer.studySessionQuestionId, answer])
+    )
+    const draftMatches =
+      session.draft.answers.length === session.questions.length &&
+      session.questions.every((question) => {
+        const submitted = submittedByQuestionId.get(
+          question.studySessionQuestionId
+        )
+        const draftAnswer = session.draft?.answers.find(
+          (answer) =>
+            answer.studySessionQuestionId === question.studySessionQuestionId
+        )
+        return (
+          submitted !== undefined &&
+          draftAnswer !== undefined &&
+          submitted.selectedOptionId === draftAnswer.selectedOptionId &&
+          submitted.elapsedSec === draftAnswer.elapsedSec
+        )
+      })
+    if (!draftMatches) {
+      throw new DraftSubmitMismatchError()
+    }
+  }
 
   const orderedSessionQuestions: OrderedSessionQuestionForSubmission[] =
     session.questions.map(({ ordinal, studySessionQuestionId }) => ({
       ordinal,
       studySessionQuestionId
     }))
-  const exactCanonical = canonicalizeStudySubmission({
-    sessionId: input.sessionId,
-    orderedSessionQuestions,
-    answers: input.answers,
-    durationSec: input.durationSec
-  })
+  const exactCanonical =
+    practiceContractVersion === 2 && expectedDraftRevision !== null
+      ? canonicalizeStudySubmissionV2({
+          sessionId: input.sessionId,
+          orderedSessionQuestions,
+          answers: input.answers,
+          durationSec: input.durationSec,
+          expectedDraftRevision
+        })
+      : canonicalizeStudySubmission({
+          sessionId: input.sessionId,
+          orderedSessionQuestions,
+          answers: input.answers,
+          durationSec: input.durationSec
+        })
   if (hashStudySubmission(exactCanonical) !== input.requestHash) {
     throw new StudySubmissionRepositoryIntegrityError(
       'Submission canonical hash changed after the idempotency reservation.'
@@ -956,6 +1122,11 @@ const runAtomicSubmission = async (
       submissionHash: input.requestHash
     }
   })
+  if (practiceContractVersion === 2) {
+    await transaction.studyDraft.delete({
+      where: { studySessionId: input.sessionId }
+    })
+  }
 
   const resultRecord = await loadStudyResultRecord(
     transaction,
@@ -996,12 +1167,15 @@ const runAtomicSubmission = async (
   }
 
   return {
-    response,
-    replayed: false,
-    guestProofExpiresAt:
-      input.owner.kind === 'GUEST'
-        ? new Date(effectiveSubmittedAt.getTime() + GUEST_RENEWAL_MS)
-        : null
+    kind: 'SUBMITTED',
+    value: {
+      response,
+      replayed: false,
+      guestProofExpiresAt:
+        input.owner.kind === 'GUEST'
+          ? new Date(effectiveSubmittedAt.getTime() + GUEST_RENEWAL_MS)
+          : null
+    }
   }
 }
 
@@ -1038,24 +1212,35 @@ export const createPrismaStudySubmissionRepository = (
             id: true,
             status: true,
             expiresAt: true,
+            practiceContractVersion: true,
             questions: {
               orderBy: { ordinal: 'asc' },
               select: { id: true, questionId: true, ordinal: true }
             }
           }
         })
-        return session
-          ? {
-              sessionId: session.id,
-              status: session.status,
-              expiresAt: session.expiresAt,
-              orderedSessionQuestions: session.questions.map((question) => ({
-                studySessionQuestionId: question.id,
-                questionId: question.questionId,
-                ordinal: question.ordinal
-              }))
-            }
-          : null
+        if (!session) {
+          return null
+        }
+        if (
+          session.practiceContractVersion !== 1 &&
+          session.practiceContractVersion !== 2
+        ) {
+          throw new StudySubmissionRepositoryIntegrityError(
+            'StudySession has an unsupported practice contract version.'
+          )
+        }
+        return {
+          sessionId: session.id,
+          status: session.status,
+          expiresAt: session.expiresAt,
+          practiceContractVersion: session.practiceContractVersion,
+          orderedSessionQuestions: session.questions.map((question) => ({
+            studySessionQuestionId: question.id,
+            questionId: question.questionId,
+            ordinal: question.ordinal
+          }))
+        }
       }),
     submitAtomic: (input) =>
       withRepositoryErrors(async () => {
@@ -1065,12 +1250,16 @@ export const createPrismaStudySubmissionRepository = (
           attempt += 1
         ) {
           try {
-            return await client.$transaction(
+            const outcome = await client.$transaction(
               (transaction) => runAtomicSubmission(transaction, input, options),
               {
                 isolationLevel: Prisma.TransactionIsolationLevel.Serializable
               }
             )
+            if (outcome.kind === 'NOT_EDITABLE') {
+              throw new StudySessionNotEditableError()
+            }
+            return outcome.value
           } catch (error: unknown) {
             if (
               (error instanceof FreshTransactionRetry ||
@@ -1151,5 +1340,23 @@ export const createTolerantSubmissionHash = (
       orderedSessionQuestions: preload.orderedSessionQuestions,
       answers: input.answers,
       durationSec: input.durationSec
+    })
+  )
+
+export const createTolerantSubmissionV2Hash = (
+  preload: OwnedStudySubmissionPreload,
+  input: {
+    readonly answers: readonly SubmittedStudyAnswer[]
+    readonly durationSec: number
+    readonly expectedDraftRevision: number
+  }
+): string =>
+  hashStudySubmission(
+    canonicalizeTolerantStudySubmissionV2({
+      sessionId: preload.sessionId,
+      orderedSessionQuestions: preload.orderedSessionQuestions,
+      answers: input.answers,
+      durationSec: input.durationSec,
+      expectedDraftRevision: input.expectedDraftRevision
     })
   )

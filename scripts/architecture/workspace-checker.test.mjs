@@ -78,6 +78,20 @@ test('reverse dependencies, framework leaks, broad imports and cycles fail', () 
     true
   )
 
+  const misplacedCancellationDiagnostics = diagnostics.filter(({ file }) =>
+    file.endsWith('/routes/misplaced-cancellation.ts')
+  )
+  assert.equal(
+    misplacedCancellationDiagnostics.some(({ code }) => code === 'ARCH112'),
+    true
+  )
+  assert.equal(
+    misplacedCancellationDiagnostics.some(
+      ({ code }) => code === 'ARCH113' || code === 'ARCH115'
+    ),
+    false
+  )
+
   for (const fileName of [
     'eagerSubmit.ts',
     'calledHelperDynamicSubmit.ts',

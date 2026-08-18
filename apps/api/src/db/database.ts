@@ -10,10 +10,12 @@ import {
   createPostgresStartupOptions,
   getPostgresSchema
 } from './databaseOptions.js'
+import { checkPracticeCompatibilityFence } from './practiceCompatibilityFence.js'
 
 export interface DatabaseRuntime {
   client: PrismaClient
   checkReadiness: () => Promise<void>
+  checkV1Compatibility: () => Promise<void>
   disconnect: () => Promise<void>
 }
 
@@ -54,6 +56,7 @@ export const createDatabaseRuntime = (
   return {
     client: prisma,
     checkReadiness,
+    checkV1Compatibility: () => checkPracticeCompatibilityFence(prisma),
     disconnect: () => prisma.$disconnect()
   }
 }

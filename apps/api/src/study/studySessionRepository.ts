@@ -17,6 +17,7 @@ const RETRY_BASE_DELAY_MS = 5
 const RETRY_JITTER_MAX_MS = 5
 
 interface StudySessionRepositoryOptions {
+  afterOwnedSessionLocked?: () => Promise<void>
   afterSelectionLocked?: (
     selected: readonly {
       questionId: string
@@ -48,6 +49,7 @@ export interface CreateRandomStudySessionInput {
   expiresAt: Date
   level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
   owner: CreateStudyOwner
+  practiceContractVersion?: 1 | 2
   requestedCount: number
   startedAt: Date
   subject: 'VOCABULARY' | 'GRAMMAR' | 'READING'
@@ -68,6 +70,7 @@ export interface StudySessionRecord {
   id: string
   level: CreateRandomStudySessionInput['level']
   mode: 'RANDOM' | 'WRONG_NOTE' | 'WEAKNESS' | 'BOOKMARK' | 'DAILY_REVIEW'
+  practiceContractVersion?: 1 | 2
   questions: readonly StudySessionQuestionRecord[]
   requestedCount: number
   startedAt: Date
@@ -180,6 +183,7 @@ const loadStudySession = async (
       expiresAt: true,
       submittedAt: true,
       durationSec: true,
+      practiceContractVersion: true,
       questions: {
         orderBy: { ordinal: 'asc' },
         select: {
@@ -215,6 +219,15 @@ const loadStudySession = async (
   }
   const fallbackReason = session.fallbackReason
   if (
+    session.practiceContractVersion !== 1 &&
+    session.practiceContractVersion !== 2
+  ) {
+    throw new StudySessionRepositoryIntegrityError(
+      'StudySession contains an unsupported practice contract version.'
+    )
+  }
+  const practiceContractVersion = session.practiceContractVersion as 1 | 2
+  if (
     fallbackReason !== null &&
     fallbackReason !== 'INSUFFICIENT_MODE_CANDIDATES'
   ) {
@@ -225,6 +238,7 @@ const loadStudySession = async (
 
   return {
     ...session,
+    practiceContractVersion,
     fallbackReason,
     questions: session.questions.map((item) => ({
       sessionQuestionId: item.id,
@@ -253,6 +267,7 @@ type SelectedQuestion = {
 export const createPrismaStudySessionRepository = (
   client: PrismaClient,
   {
+    afterOwnedSessionLocked,
     afterSelectionLocked,
     delay: retryDelay = delay,
     jitterMilliseconds = () => randomInt(0, RETRY_JITTER_MAX_MS + 1)
@@ -373,21 +388,53 @@ export const createPrismaStudySessionRepository = (
                   actualCount: selected.length,
                   usedFallback: false,
                   fallbackReason: null,
+                  practiceContractVersion: input.practiceContractVersion ?? 1,
                   startedAt: input.startedAt,
                   expiresAt
                 },
                 select: { id: true }
               })
+              const sessionQuestions = selected.map((question, index) => ({
+                id: randomUUID(),
+                studySessionId: session.id,
+                questionId: question.questionId,
+                questionVersionId: question.questionVersionId,
+                ordinal: index + 1,
+                createdAt: input.startedAt
+              }))
               await transaction.studySessionQuestion.createMany({
-                data: selected.map((question, index) => ({
-                  id: randomUUID(),
+                data: sessionQuestions.map((question) => ({
+                  id: question.id,
                   studySessionId: session.id,
                   questionId: question.questionId,
                   questionVersionId: question.questionVersionId,
-                  ordinal: index + 1,
+                  ordinal: question.ordinal,
                   createdAt: input.startedAt
                 }))
               })
+              if ((input.practiceContractVersion ?? 1) === 2) {
+                await transaction.studyDraft.create({
+                  data: {
+                    studySessionId: session.id,
+                    revision: 0,
+                    currentOrdinal: 1,
+                    savedAt: null,
+                    createdAt: input.startedAt,
+                    updatedAt: input.startedAt,
+                    answers: {
+                      createMany: {
+                        data: sessionQuestions.map((question) => ({
+                          studySessionQuestionId: question.id,
+                          questionVersionId: question.questionVersionId,
+                          selectedOptionId: null,
+                          elapsedSec: 0,
+                          updatedAt: input.startedAt
+                        }))
+                      }
+                    }
+                  }
+                })
+              }
               const created = await loadStudySession(transaction, session.id)
               if (!created) {
                 throw new StudySessionRepositoryIntegrityError(
@@ -417,23 +464,54 @@ export const createPrismaStudySessionRepository = (
     }),
   findOwnedById: (sessionId, owner, now) =>
     executeRepositoryOperation(async () => {
-      if (owner.kind === 'GUEST') {
-        const credential = await client.guestPrincipal.findFirst({
-          where: {
-            id: owner.guestPrincipalId,
-            tokenDigest: owner.tokenDigest,
-            expiresAt: { gt: now }
-          },
-          select: { id: true }
-        })
-        if (!credential) {
-          throw new GuestCredentialExpiredError()
-        }
-      }
+      return await client.$transaction(
+        async (transaction) => {
+          if (owner.kind === 'GUEST') {
+            const credential = await transaction.guestPrincipal.findFirst({
+              where: {
+                id: owner.guestPrincipalId,
+                tokenDigest: owner.tokenDigest,
+                expiresAt: { gt: now }
+              },
+              select: { id: true }
+            })
+            if (!credential) {
+              throw new GuestCredentialExpiredError()
+            }
+          }
 
-      const session = await loadStudySession(client, sessionId, owner)
-      return session?.status === 'IN_PROGRESS' && session.expiresAt <= now
-        ? { ...session, status: 'EXPIRED' }
-        : session
+          const ownerPredicate =
+            owner.kind === 'USER'
+              ? Prisma.sql`AND "userId" = ${owner.userId}::uuid`
+              : Prisma.sql`AND "guestPrincipalId" = ${owner.guestPrincipalId}::uuid`
+          const locked = await transaction.$queryRaw<
+            { expiresAt: Date; status: StudySessionStatus }[]
+          >(Prisma.sql`
+            SELECT "status", "expiresAt"
+            FROM "StudySession"
+            WHERE "id" = ${sessionId}::uuid
+              ${ownerPredicate}
+            FOR UPDATE`)
+          const lifecycle = locked[0]
+          if (!lifecycle) {
+            return null
+          }
+          await afterOwnedSessionLocked?.()
+          if (
+            lifecycle.status === 'IN_PROGRESS' &&
+            lifecycle.expiresAt <= now
+          ) {
+            await transaction.studySession.update({
+              where: { id: sessionId },
+              data: { status: 'EXPIRED', updatedAt: now }
+            })
+            await transaction.studyDraft.deleteMany({
+              where: { studySessionId: sessionId }
+            })
+          }
+          return await loadStudySession(transaction, sessionId, owner)
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
+      )
     })
 })

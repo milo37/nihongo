@@ -13,6 +13,7 @@
     "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
+    "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev --config prisma.dev.config.ts",

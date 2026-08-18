@@ -80,7 +80,7 @@ describe('study session contracts', () => {
     ).toBe(false)
   })
 
-  it('explicit question ID 중복과 count 경계를 거부한다', () => {
+  it('public explicit question ID와 count 경계를 거부한다', () => {
     expect(
       createStudySessionBodySchema.safeParse({
         level: 'N5',
@@ -94,8 +94,8 @@ describe('study session contracts', () => {
         level: 'N5',
         subject: 'VOCABULARY',
         mode: 'RANDOM',
-        count: 2,
-        explicitQuestionIds: [ids[2], ids[2]]
+        count: 1,
+        explicitQuestionIds: [ids[2]]
       }).success
     ).toBe(false)
   })

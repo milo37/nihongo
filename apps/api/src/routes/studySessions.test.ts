@@ -145,7 +145,10 @@ const createDependencies = () => {
   }
 }
 
-const createTestApp = (dependencies: ReturnType<typeof createDependencies>) =>
+const createTestApp = (
+  dependencies: ReturnType<typeof createDependencies>,
+  practiceContractV2Enabled = true
+) =>
   createApiApp({
     auth: {
       environment,
@@ -157,6 +160,7 @@ const createTestApp = (dependencies: ReturnType<typeof createDependencies>) =>
     logger: createJsonLogger('silent'),
     questionReader,
     study: {
+      practiceContractV2Enabled,
       rateLimiter: dependencies.rateLimiter,
       service: dependencies.studySessionService
     }
@@ -184,6 +188,19 @@ const postSession = (
   })
 
 describe('study session route composition', () => {
+  it('v1-compatible runtime은 header 2를 service 호출 전에 닫는다', async () => {
+    const dependencies = createDependencies()
+    const response = await postSession(createTestApp(dependencies, false), {
+      headers: { 'X-Nihongo-Practice-Contract': '2' }
+    })
+
+    expect(response.status).toBe(400)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'INVALID_REQUEST'
+    )
+    expect(dependencies.studySessionService.create).not.toHaveBeenCalled()
+  })
+
   it('429를 principal·guest·service 작업보다 먼저 fail closed한다', async () => {
     const dependencies = createDependencies()
     dependencies.rateLimiter.consume.mockRejectedValue(
@@ -216,7 +233,8 @@ describe('study session route composition', () => {
       'Idempotency-Replayed',
       'Location',
       'Retry-After',
-      'X-Request-Id'
+      'X-Request-Id',
+      'X-Nihongo-Practice-Contract'
     ])
     expect(
       dependencies.principalService.resolveAuthenticatedUser

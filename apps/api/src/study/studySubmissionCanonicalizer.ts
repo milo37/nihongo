@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto'
-import { STUDY_SUBMISSION_CANONICAL_PREFIX } from '@nihongo/domain/submission/canonicalize-study-submission'
+import {
+  STUDY_SUBMISSION_CANONICAL_PREFIX,
+  STUDY_SUBMISSION_V2_CANONICAL_PREFIX
+} from '@nihongo/domain/submission/canonicalize-study-submission'
 import type { SubmittedStudyAnswer } from '@nihongo/domain/grading/grade-study-submission'
 
 export interface SubmissionQuestionOrder {
@@ -12,6 +15,11 @@ export interface TolerantStudySubmissionInput {
   readonly durationSec: number
   readonly orderedSessionQuestions: readonly SubmissionQuestionOrder[]
   readonly sessionId: string
+}
+
+export interface TolerantStudySubmissionV2Input
+  extends TolerantStudySubmissionInput {
+  readonly expectedDraftRevision: number
 }
 
 const compareText = (left: string, right: string): number =>
@@ -67,3 +75,24 @@ export const canonicalizeTolerantStudySubmission = ({
 
 export const hashStudySubmission = (canonical: string): string =>
   createHash('sha256').update(canonical).digest('hex')
+
+export const canonicalizeTolerantStudySubmissionV2 = ({
+  expectedDraftRevision,
+  ...input
+}: TolerantStudySubmissionV2Input): string => {
+  const v1Canonical = canonicalizeTolerantStudySubmission(input)
+  const material = JSON.parse(
+    v1Canonical.slice(STUDY_SUBMISSION_CANONICAL_PREFIX.length)
+  ) as {
+    answers: readonly SubmittedStudyAnswer[]
+    durationSec: number
+    sessionId: string
+  }
+
+  return `${STUDY_SUBMISSION_V2_CANONICAL_PREFIX}${JSON.stringify({
+    sessionId: material.sessionId,
+    answers: material.answers,
+    durationSec: material.durationSec,
+    expectedDraftRevision
+  })}`
+}

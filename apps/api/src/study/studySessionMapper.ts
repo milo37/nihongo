@@ -1,4 +1,7 @@
-import type { StudySessionPayload } from '@nihongo/contracts/study/study-session'
+import type {
+  StudySessionPayload,
+  VersionedStudySessionPayload
+} from '@nihongo/contracts/study/study-session'
 import { toPublicPracticeQuestion } from '../question/questionMapper.js'
 import type { StudySessionRecord } from './studySessionRepository.js'
 
@@ -26,3 +29,17 @@ export const toStudySessionPayload = (
     question: toPublicPracticeQuestion(item.question)
   }))
 })
+
+export const toVersionedStudySessionPayload = (
+  record: StudySessionRecord
+): VersionedStudySessionPayload => {
+  const payload = toStudySessionPayload(record)
+
+  return {
+    ...payload,
+    session: {
+      ...payload.session,
+      practiceContractVersion: record.practiceContractVersion ?? 1
+    }
+  }
+}

@@ -3,12 +3,14 @@ import {
   createStudySessionBodySchema,
   createStudySessionErrorSchema,
   createStudySessionResponseSchema,
+  createStudySessionV2ResponseSchema,
   type CreateStudySessionError
 } from '@nihongo/contracts/study/create-study-session'
 import {
   getStudySessionErrorSchema,
   getStudySessionParamsSchema,
   getStudySessionResponseSchema,
+  getStudySessionV2ResponseSchema,
   type GetStudySessionError
 } from '@nihongo/contracts/study/get-study-session'
 import {
@@ -24,25 +26,52 @@ import {
   submitStudySessionHeadersSchema,
   submitStudySessionParamsSchema,
   submitStudySessionResponseSchema,
+  submitStudySessionV2BodySchema,
+  submitStudySessionV2ErrorSchema,
+  submitStudySessionV2HeadersSchema,
+  submitStudySessionV2ResponseSchema,
   type ParsedSubmitStudySessionBody,
-  type SubmitStudySessionError
+  type ParsedSubmitStudySessionV2Body,
+  type SubmitStudySessionError,
+  type SubmitStudySessionV2Error
 } from '@nihongo/contracts/study/submit-study-session'
 import { http, HttpResponse } from 'msw'
 import {
   MockCanonicalSubmissionIntegrityError,
   MockCanonicalSubmissionValidationError,
-  mockCanonicalSubmissionOperations
+  mockCanonicalSubmissionOperations,
+  mockCanonicalSubmissionV2Operations
 } from '@mocks/adapters/studySubmissionContractAdapter'
-import { toContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
+import {
+  toContractStudySessionPayload,
+  toVersionedContractStudySessionPayload
+} from '@mocks/adapters/studySessionContractAdapter'
 import {
   createMockGuestPrincipalCookie,
   inspectMockGuestProof
 } from '@mocks/guestPrincipal'
-import { MockHttpError, parseJsonBody } from '@mocks/handlers/shared'
+import {
+  hasTrustedMockWriteOrigin,
+  MockHttpError,
+  parseBoundedJsonBody,
+  readBoundedMockJsonObject
+} from '@mocks/handlers/shared'
 import { MockDatabaseError, mockDatabase } from '@mocks/repository/mockDatabase'
 
 const JSON_CONTENT_TYPE_PATTERN = /^application\/json(?:\s*;|$)/iu
-const MAX_JSON_BODY_BYTES = 16 * 1_024
+
+const getRequestedPracticeContractVersion = (
+  request: Request
+): 1 | 2 | null => {
+  const header = request.headers.get('X-Nihongo-Practice-Contract')
+  if (header === null) {
+    return 1
+  }
+  if (header === '2') {
+    return 2
+  }
+  return null
+}
 
 const getHeaders = (
   requestId: string,
@@ -80,10 +109,14 @@ const createGetErrorResponse = (
 }
 
 const createSubmitErrorResponse = (
-  error: SubmitStudySessionError,
+  error: SubmitStudySessionError | SubmitStudySessionV2Error,
+  contractVersion: 1 | 2,
   location?: string
-): HttpResponse<SubmitStudySessionError> => {
-  const payload = submitStudySessionErrorSchema.parse(error)
+): HttpResponse<SubmitStudySessionError | SubmitStudySessionV2Error> => {
+  const payload =
+    contractVersion === 2
+      ? submitStudySessionV2ErrorSchema.parse(error)
+      : submitStudySessionErrorSchema.parse(error)
 
   return HttpResponse.json(payload, {
     status: errorStatusByCode[payload.code],
@@ -115,6 +148,14 @@ const normalizeCreateError = (
     if (error.code === 'INVALID_JSON') {
       return {
         code: 'INVALID_JSON',
+        message: error.message,
+        requestId,
+        retryable: false
+      }
+    }
+    if (error.code === 'INVALID_REQUEST') {
+      return {
+        code: 'INVALID_REQUEST',
         message: error.message,
         requestId,
         retryable: false
@@ -191,43 +232,15 @@ const normalizeGetError = (
 }
 
 const parseCanonicalSubmitBody = async (
-  request: Request
-): Promise<ParsedSubmitStudySessionBody> => {
-  let body: unknown
-  try {
-    const text = await request.text()
-    if (new TextEncoder().encode(text).byteLength > MAX_JSON_BODY_BYTES) {
-      throw new MockHttpError(
-        400,
-        'INVALID_REQUEST',
-        '요청 본문이 너무 큽니다.'
-      )
-    }
-    const parsedJson: unknown = JSON.parse(text)
-    if (
-      typeof parsedJson !== 'object' ||
-      parsedJson === null ||
-      Array.isArray(parsedJson)
-    ) {
-      throw new MockHttpError(
-        400,
-        'INVALID_JSON',
-        '요청 본문이 올바르지 않습니다.'
-      )
-    }
-    body = parsedJson
-  } catch (error: unknown) {
-    if (error instanceof MockHttpError) {
-      throw error
-    }
-    throw new MockHttpError(
-      400,
-      'INVALID_JSON',
-      '요청 본문이 올바르지 않습니다.'
-    )
-  }
+  request: Request,
+  contractVersion: 1 | 2
+): Promise<ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body> => {
+  const body = await readBoundedMockJsonObject(request)
 
-  const parsed = submitStudySessionBodySchema.safeParse(body)
+  const parsed =
+    contractVersion === 2
+      ? submitStudySessionV2BodySchema.safeParse(body)
+      : submitStudySessionBodySchema.safeParse(body)
   if (parsed.success) {
     return parsed.data
   }
@@ -260,7 +273,7 @@ const parseCanonicalSubmitBody = async (
 const normalizeSubmitError = (
   error: unknown,
   requestId: string
-): SubmitStudySessionError => {
+): SubmitStudySessionError | SubmitStudySessionV2Error => {
   if (error instanceof MockHttpError) {
     if (error.code === 'INVALID_REQUEST') {
       return {
@@ -317,6 +330,9 @@ const normalizeSubmitError = (
       FORBIDDEN: 'RESOURCE_NOT_FOUND',
       IDEMPOTENCY_KEY_REUSED: 'IDEMPOTENCY_KEY_REUSED',
       NOT_FOUND: 'RESOURCE_NOT_FOUND',
+      DRAFT_SUBMIT_MISMATCH: 'DRAFT_SUBMIT_MISMATCH',
+      DRAFT_VERSION_CONFLICT: 'DRAFT_VERSION_CONFLICT',
+      PRACTICE_CONTRACT_VERSION_MISMATCH: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
       SESSION_SUBMITTED: 'SESSION_ALREADY_SUBMITTED',
       STUDY_SESSION_NOT_EDITABLE: 'STUDY_SESSION_NOT_EDITABLE'
     } as const
@@ -389,6 +405,16 @@ const normalizeResultError = (
 export const studySessionV1Handlers = [
   http.post('*/api/v1/study-sessions', async ({ request }) => {
     const requestId = crypto.randomUUID()
+    const practiceContractVersion = getRequestedPracticeContractVersion(request)
+
+    if (practiceContractVersion === null) {
+      return createCreateErrorResponse({
+        code: 'INVALID_REQUEST',
+        message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+        requestId,
+        retryable: false
+      })
+    }
 
     if (
       !JSON_CONTENT_TYPE_PATTERN.test(request.headers.get('Content-Type') ?? '')
@@ -401,8 +427,20 @@ export const studySessionV1Handlers = [
       })
     }
 
+    if (!hasTrustedMockWriteOrigin(request)) {
+      return createCreateErrorResponse({
+        code: 'UNTRUSTED_ORIGIN',
+        message: '허용되지 않은 요청 출처입니다.',
+        requestId,
+        retryable: false
+      })
+    }
+
     try {
-      const input = await parseJsonBody(request, createStudySessionBodySchema)
+      const input = await parseBoundedJsonBody(
+        request,
+        createStudySessionBodySchema
+      )
 
       if (input.mode !== 'RANDOM') {
         return createCreateErrorResponse({
@@ -413,18 +451,6 @@ export const studySessionV1Handlers = [
           retryable: false
         })
       }
-      if (input.explicitQuestionIds) {
-        return createCreateErrorResponse({
-          code: 'VALIDATION_ERROR',
-          message: '명시 문제 출제는 아직 사용할 수 없습니다.',
-          fieldErrors: {
-            explicitQuestionIds: ['명시 문제 출제는 아직 지원하지 않습니다.']
-          },
-          requestId,
-          retryable: false
-        })
-      }
-
       const isGuest = mockDatabase.getCurrentUser() === null
       const inspectedGuestProof = inspectMockGuestProof(request)
       const canReuseGuestProof =
@@ -438,26 +464,31 @@ export const studySessionV1Handlers = [
         : undefined
       const shouldIssueGuestCookie = isGuest && !canReuseGuestProof
       const created = mockDatabase.createStudySession({
-        canonicalContractVersion: 1,
+        canonicalContractVersion: practiceContractVersion,
         ...(canonicalGuestPrincipalId ? { canonicalGuestPrincipalId } : {}),
         level: input.level,
         subject: input.subject,
         mode: 'RANDOM',
         count: input.count
       })
-      const response = createStudySessionResponseSchema.parse(
-        toContractStudySessionPayload(
-          mockDatabase.getCanonicalStudySessionSnapshotRecord(
-            created.session.id,
-            canonicalGuestPrincipalId ?? null
-          )
-        )
+      const source = mockDatabase.getCanonicalStudySessionSnapshotRecord(
+        created.session.id,
+        canonicalGuestPrincipalId ?? null
       )
+      const response =
+        practiceContractVersion === 2
+          ? createStudySessionV2ResponseSchema.parse(
+              toVersionedContractStudySessionPayload(source)
+            )
+          : createStudySessionResponseSchema.parse(
+              toContractStudySessionPayload(source)
+            )
 
       return HttpResponse.json(response, {
         status: 201,
         headers: {
           ...getHeaders(requestId),
+          'X-Nihongo-Practice-Contract': String(practiceContractVersion),
           ...(canonicalGuestPrincipalId && shouldIssueGuestCookie
             ? {
                 'Set-Cookie': createMockGuestPrincipalCookie(
@@ -473,6 +504,16 @@ export const studySessionV1Handlers = [
   }),
   http.get('*/api/v1/study-sessions/:sessionId', ({ params, request }) => {
     const requestId = crypto.randomUUID()
+    const requestedPracticeContractVersion =
+      getRequestedPracticeContractVersion(request)
+    if (requestedPracticeContractVersion === null) {
+      return createGetErrorResponse({
+        code: 'INVALID_REQUEST',
+        message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+        requestId,
+        retryable: false
+      })
+    }
     const parsedParams = getStudySessionParamsSchema.safeParse({
       sessionId: String(params.sessionId ?? '')
     })
@@ -526,12 +567,33 @@ export const studySessionV1Handlers = [
           retryable: false
         })
       }
-      const response = getStudySessionResponseSchema.parse(
-        toContractStudySessionPayload(source)
-      )
+      if (
+        requestedPracticeContractVersion === 1 &&
+        source.practiceContractVersion === 2
+      ) {
+        return createGetErrorResponse({
+          code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+          message: 'v2 학습 세션은 practice contract header 2가 필요합니다.',
+          requestId,
+          retryable: false
+        })
+      }
+      const response =
+        requestedPracticeContractVersion === 2
+          ? getStudySessionV2ResponseSchema.parse(
+              toVersionedContractStudySessionPayload(source)
+            )
+          : getStudySessionResponseSchema.parse(
+              toContractStudySessionPayload(source)
+            )
 
       return HttpResponse.json(response, {
-        headers: getHeaders(requestId)
+        headers: {
+          ...getHeaders(requestId),
+          'X-Nihongo-Practice-Contract': String(
+            source.practiceContractVersion ?? 1
+          )
+        }
       })
     } catch (error: unknown) {
       return createGetErrorResponse(normalizeGetError(error, requestId))
@@ -541,75 +603,105 @@ export const studySessionV1Handlers = [
     '*/api/v1/study-sessions/:sessionId/submission',
     async ({ params, request }) => {
       const requestId = crypto.randomUUID()
+      const practiceContractVersion =
+        getRequestedPracticeContractVersion(request)
+      if (practiceContractVersion === null) {
+        return createSubmitErrorResponse(
+          {
+            code: 'INVALID_REQUEST',
+            message:
+              'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+            requestId,
+            retryable: false
+          },
+          1
+        )
+      }
 
       if (
         !JSON_CONTENT_TYPE_PATTERN.test(
           request.headers.get('Content-Type') ?? ''
         )
       ) {
-        return createSubmitErrorResponse({
-          code: 'INVALID_REQUEST',
-          message: 'JSON 요청만 허용됩니다.',
-          requestId,
-          retryable: false
-        })
+        return createSubmitErrorResponse(
+          {
+            code: 'INVALID_REQUEST',
+            message: 'JSON 요청만 허용됩니다.',
+            requestId,
+            retryable: false
+          },
+          practiceContractVersion
+        )
       }
 
-      const origin = request.headers.get('Origin')
-      const fetchSite = request.headers.get('Sec-Fetch-Site')
-      const allowedOrigins = new Set([
-        new URL(request.url).origin,
-        ...(typeof globalThis.location?.origin === 'string'
-          ? [globalThis.location.origin]
-          : [])
-      ])
-      const hasTrustedOrigin = origin !== null && allowedOrigins.has(origin)
-      const isSyntheticSameOrigin =
-        origin === null && (fetchSite === null || fetchSite === 'same-origin')
-      if (!hasTrustedOrigin && !isSyntheticSameOrigin) {
-        return createSubmitErrorResponse({
-          code: 'UNTRUSTED_ORIGIN',
-          message: '허용되지 않은 요청 출처입니다.',
-          requestId,
-          retryable: false
-        })
+      if (!hasTrustedMockWriteOrigin(request)) {
+        return createSubmitErrorResponse(
+          {
+            code: 'UNTRUSTED_ORIGIN',
+            message: '허용되지 않은 요청 출처입니다.',
+            requestId,
+            retryable: false
+          },
+          practiceContractVersion
+        )
       }
 
       const parsedParams = submitStudySessionParamsSchema.safeParse({
         sessionId: String(params.sessionId ?? '')
       })
       if (!parsedParams.success) {
-        return createSubmitErrorResponse({
-          code: 'VALIDATION_ERROR',
-          message: '학습 세션 ID 형식이 올바르지 않습니다.',
-          requestId,
-          retryable: false
-        })
+        return createSubmitErrorResponse(
+          {
+            code: 'VALIDATION_ERROR',
+            message: '학습 세션 ID 형식이 올바르지 않습니다.',
+            requestId,
+            retryable: false
+          },
+          practiceContractVersion
+        )
       }
 
-      const parsedHeaders = submitStudySessionHeadersSchema.safeParse({
-        'idempotency-key': request.headers.get('Idempotency-Key') ?? undefined
-      })
+      const parsedHeaders =
+        practiceContractVersion === 2
+          ? submitStudySessionV2HeadersSchema.safeParse({
+              'idempotency-key':
+                request.headers.get('Idempotency-Key') ?? undefined,
+              'x-nihongo-practice-contract':
+                request.headers.get('X-Nihongo-Practice-Contract') ?? undefined
+            })
+          : submitStudySessionHeadersSchema.safeParse({
+              'idempotency-key':
+                request.headers.get('Idempotency-Key') ?? undefined
+            })
       if (!parsedHeaders.success) {
-        return createSubmitErrorResponse({
-          code: 'IDEMPOTENCY_KEY_REQUIRED',
-          message: '유효한 Idempotency-Key UUID header가 필요합니다.',
-          requestId,
-          retryable: false
-        })
+        return createSubmitErrorResponse(
+          {
+            code: 'IDEMPOTENCY_KEY_REQUIRED',
+            message: '유효한 Idempotency-Key UUID header가 필요합니다.',
+            requestId,
+            retryable: false
+          },
+          practiceContractVersion
+        )
       }
 
       try {
-        const body = await parseCanonicalSubmitBody(request)
+        const body = await parseCanonicalSubmitBody(
+          request,
+          practiceContractVersion
+        )
         const currentUser = mockDatabase.getCurrentUser()
         const inspectedGuestProof = inspectMockGuestProof(request)
         if (!currentUser && inspectedGuestProof.kind === 'ABSENT') {
-          return createSubmitErrorResponse({
-            code: 'AUTHENTICATION_REQUIRED',
-            message: '학습 세션을 제출하려면 인증 정보가 필요합니다.',
-            requestId,
-            retryable: false
-          })
+          return createSubmitErrorResponse(
+            {
+              code: 'AUTHENTICATION_REQUIRED',
+              message: '학습 세션을 제출하려면 인증 정보가 필요합니다.',
+              requestId,
+              retryable: false
+            },
+            practiceContractVersion
+          )
         }
         if (
           !currentUser &&
@@ -619,12 +711,15 @@ export const studySessionV1Handlers = [
                 inspectedGuestProof.id
               )))
         ) {
-          return createSubmitErrorResponse({
-            code: 'GUEST_SESSION_EXPIRED',
-            message: '게스트 세션이 만료됐습니다.',
-            requestId,
-            retryable: false
-          })
+          return createSubmitErrorResponse(
+            {
+              code: 'GUEST_SESSION_EXPIRED',
+              message: '게스트 세션이 만료됐습니다.',
+              requestId,
+              retryable: false
+            },
+            practiceContractVersion
+          )
         }
 
         const guestPrincipalId =
@@ -634,20 +729,25 @@ export const studySessionV1Handlers = [
         const submitted = mockDatabase.submitCanonicalStudySession(
           {
             body,
+            contractVersion: practiceContractVersion,
             guestPrincipalId,
             idempotencyKey: parsedHeaders.data['idempotency-key'],
             sessionId: parsedParams.data.sessionId
           },
-          mockCanonicalSubmissionOperations
+          practiceContractVersion === 2
+            ? mockCanonicalSubmissionV2Operations
+            : mockCanonicalSubmissionOperations
         )
-        const response = submitStudySessionResponseSchema.parse(
-          submitted.response
-        )
+        const response =
+          practiceContractVersion === 2
+            ? submitStudySessionV2ResponseSchema.parse(submitted.response)
+            : submitStudySessionResponseSchema.parse(submitted.response)
 
         return HttpResponse.json(response, {
           status: 201,
           headers: {
             ...getHeaders(requestId),
+            'X-Nihongo-Practice-Contract': String(practiceContractVersion),
             ...(submitted.replayed ? { 'Idempotency-Replayed': 'true' } : {}),
             ...(guestPrincipalId
               ? {
@@ -662,7 +762,11 @@ export const studySessionV1Handlers = [
           normalized.code === 'SESSION_ALREADY_SUBMITTED'
             ? `/api/v1/study-sessions/${parsedParams.data.sessionId}/result`
             : undefined
-        return createSubmitErrorResponse(normalized, location)
+        return createSubmitErrorResponse(
+          normalized,
+          practiceContractVersion,
+          location
+        )
       }
     }
   ),

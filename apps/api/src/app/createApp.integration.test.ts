@@ -120,6 +120,40 @@ describe('Hono operational boundary', () => {
     expect(lines.some((line) => line.includes(payload.requestId))).toBe(true)
   })
 
+  it('compatibility authority가 유효하지 않으면 API 요청을 503으로 닫는다', async () => {
+    const { logger } = createTestLogger()
+    const gatedQuestionReader: QuestionReader = {
+      ...questionReader,
+      listQuestions: vi.fn().mockResolvedValue({
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: 0
+      })
+    }
+    const app = createApiApp({
+      auth: {
+        environment: authEnvironment,
+        gateway: { handle: vi.fn() },
+        guestPrincipalService,
+        principalService
+      },
+      assertPracticeRuntimeAuthority: vi.fn(() => {
+        throw new Error('revoked generation')
+      }),
+      checkReadiness: vi.fn().mockResolvedValue(undefined),
+      logger,
+      questionReader: gatedQuestionReader
+    })
+    const response = await app.request('/api/v1/questions')
+    const failure = apiFailureSchema.parse(await response.json())
+
+    expect(response.status).toBe(503)
+    expect(failure.code).toBe('SERVICE_UNAVAILABLE')
+    expect(failure.message).not.toContain('revoked')
+    expect(gatedQuestionReader.listQuestions).not.toHaveBeenCalled()
+  })
+
   it('인증 게이트웨이의 예상 밖 오류에도 trusted-origin CORS를 보존한다', async () => {
     const { logger } = createTestLogger()
     const gateway: AuthGateway = {

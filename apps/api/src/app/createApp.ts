@@ -32,8 +32,11 @@ import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
 import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
 import { createDashboardRoutes } from '../routes/dashboard.js'
+import type { StudyDraftService } from '../study/studyDraftService.js'
+import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 
 interface CreateApiAppDependencies {
+  assertPracticeRuntimeAuthority?: () => void | Promise<void>
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
   questionReader: QuestionReader
@@ -44,6 +47,8 @@ interface CreateApiAppDependencies {
     principalService: PrincipalService
   }
   study?: {
+    draftService?: StudyDraftService
+    practiceContractV2Enabled: boolean
     rateLimiter: ApplicationRateLimiter
     service: StudySessionService
     submissionService?: StudySubmissionService
@@ -85,6 +90,7 @@ const toFailure = (error: unknown, requestId: string): ApiFailure => {
 
 export const createApiApp = ({
   auth,
+  assertPracticeRuntimeAuthority,
   checkReadiness,
   logger,
   learning,
@@ -149,18 +155,37 @@ export const createApiApp = ({
             auth.environment.TRUSTED_ORIGINS.includes(origin)
               ? origin
               : undefined,
-          allowHeaders: ['Content-Type', 'Idempotency-Key'],
-          allowMethods: ['DELETE', 'GET', 'OPTIONS', 'POST'],
+          allowHeaders: [
+            'Content-Type',
+            'Idempotency-Key',
+            'X-Nihongo-Practice-Contract'
+          ],
+          allowMethods: ['DELETE', 'GET', 'OPTIONS', 'POST', 'PUT'],
           credentials: true,
           exposeHeaders: [
             'Idempotency-Replayed',
             'Location',
             'Retry-After',
-            'X-Request-Id'
+            'X-Request-Id',
+            'X-Nihongo-Practice-Contract'
           ],
           maxAge: 600
         })
       )
+    }
+    if (assertPracticeRuntimeAuthority) {
+      app.use('/api/v1/*', async (_context, next) => {
+        try {
+          await assertPracticeRuntimeAuthority()
+        } catch {
+          throw new ApplicationError({
+            code: 'SERVICE_UNAVAILABLE',
+            message: '학습 API 배포 세대 권한을 확인할 수 없습니다.',
+            retryable: true
+          })
+        }
+        await next()
+      })
     }
     app.use('/api/v1/*', createWriteSecurity(auth.environment))
     app.route(
@@ -178,6 +203,7 @@ export const createApiApp = ({
           environment: auth.environment,
           guestPrincipalService: auth.guestPrincipalService,
           principalService: auth.principalService,
+          practiceContractV2Enabled: study.practiceContractV2Enabled,
           rateLimiter: study.rateLimiter,
           studySessionService: study.service
         })
@@ -189,8 +215,21 @@ export const createApiApp = ({
             environment: auth.environment,
             guestPrincipalService: auth.guestPrincipalService,
             principalService: auth.principalService,
+            practiceContractV2Enabled: study.practiceContractV2Enabled,
             rateLimiter: study.rateLimiter,
             studySubmissionService: study.submissionService
+          })
+        )
+      }
+      if (study.practiceContractV2Enabled && study.draftService) {
+        app.route(
+          '/api/v1/study-sessions',
+          createStudyDraftRoutes({
+            environment: auth.environment,
+            guestPrincipalService: auth.guestPrincipalService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter,
+            studyDraftService: study.draftService
           })
         )
       }

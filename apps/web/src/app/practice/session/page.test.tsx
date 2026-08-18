@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -11,6 +11,7 @@ import { toLegacyStudySessionView } from '@app/practice/adapters/studySessionVie
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { queryClient } from '@libs/queryClient'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'
 
@@ -86,7 +87,7 @@ describe('PracticeSessionPage', () => {
     )
   })
 
-  it('제출 Dialog가 열리면 배경 문제의 숫자 단축키를 비활성화한다', async () => {
+  it('제출 단축키로 Dialog를 열고 열린 동안 배경 단축키를 비활성화한다', async () => {
     const user = userEvent.setup()
     const sessionPayload = await createStudySession({
       level: 'N5',
@@ -134,7 +135,11 @@ describe('PracticeSessionPage', () => {
       name: `2. ${question.options[1]?.text}`
     })
     await user.click(firstOption)
-    await user.click(screen.getByRole('button', { name: '답안 제출' }))
+    expect(screen.getByRole('button', { name: '답안 제출' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Control+Enter Meta+Enter'
+    )
+    fireEvent.keyDown(window, { ctrlKey: true, key: 'Enter' })
     expect(
       screen.getByRole('heading', { name: '답안을 제출하시겠습니까?' })
     ).toBeInTheDocument()
@@ -165,6 +170,7 @@ describe('PracticeSessionPage', () => {
       serverStateQueryKeys.study.session(sessionPayload.session.id),
       toLegacyStudySessionView(sessionPayload)
     )
+    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
     useAppStore
       .getState()
       .beginPractice(
@@ -240,7 +246,9 @@ describe('PracticeSessionPage', () => {
     fireEvent.click(continueButton)
     fireEvent.click(secondOption)
     fireEvent.keyDown(window, { key: '2' })
-    await router.navigate(-1)
+    await act(async () => {
+      await router.navigate(-1)
+    })
 
     expect(
       screen.getByRole('heading', { name: '답안을 제출하시겠습니까?' })
@@ -250,7 +258,9 @@ describe('PracticeSessionPage', () => {
     )
     expect(screen.queryByText('학습 설정 화면')).not.toBeInTheDocument()
 
-    releaseResponse?.()
+    await act(async () => {
+      releaseResponse?.()
+    })
 
     expect(await screen.findByText('단일 결과 화면')).toBeInTheDocument()
     expect(requestCount).toBe(1)
@@ -313,7 +323,8 @@ describe('PracticeSessionPage', () => {
         startedAt: '2026-08-15T00:00:00.000Z',
         expiresAt: '2026-08-16T00:00:00.000Z',
         submittedAt: null,
-        durationSec: null
+        durationSec: null,
+        practiceContractVersion: 1
       },
       questions: [
         {
@@ -344,6 +355,7 @@ describe('PracticeSessionPage', () => {
       serverStateQueryKeys.study.session(sessionId),
       session
     )
+    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
     const router = createMemoryRouter(
       [
         {

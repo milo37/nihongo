@@ -17,7 +17,9 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { apiClient, isApiError } from '@api/config'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
+import { saveStudyDraftAnswers } from '@api/study/saveStudyDraftAnswers'
 import { bookmarkRoutes } from '@app/bookmark/router'
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { adminQuestionRoutes } from '@app/admin-question/router'
@@ -28,6 +30,7 @@ import {
   studySessionQueries
 } from '@app/practice/queries/studySessionQueries'
 import { submitStudySessionCommand } from '@app/practice/commands/submitStudySessionCommand'
+import { submitStudySessionV2Command } from '@app/practice/commands/submitStudySessionV2Command'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
@@ -71,7 +74,8 @@ const createCanonicalSessionView = (): StudySessionView => {
       startedAt: '2026-08-16T00:00:00.000Z',
       expiresAt: '2026-08-17T00:00:00.000Z',
       submittedAt: null,
-      durationSec: null
+      durationSec: null,
+      practiceContractVersion: 1
     },
     questions: [
       {
@@ -112,10 +116,7 @@ const createSubmittedCanonicalFixture = async (): Promise<{
       mutations: { retry: false }
     }
   })
-  const created = await new MutationObserver(
-    client,
-    studySessionMutations.createSession()
-  ).mutate({
+  const created = await createStudySessionV1({
     level: 'N5',
     subject: 'VOCABULARY',
     mode: 'RANDOM',
@@ -165,10 +166,33 @@ describe('real API Query and feature cutover', () => {
       serverStateQueryKeys.study.session(session.session.id),
       session
     )
-    const result = await submitStudySessionCommand({
+    const answers = session.questions.map((question, index) => {
+      if (!question.sessionQuestionId) {
+        throw new Error('v2 세션 문제 ID가 없습니다.')
+      }
+
+      return {
+        studySessionQuestionId: question.sessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: index === 0 ? 11 : 0
+      }
+    })
+    const savedDraft = await saveStudyDraftAnswers(
+      session.session.id,
+      {
+        expectedRevision: 0,
+        currentOrdinal: 1,
+        answers
+      },
+      crypto.randomUUID()
+    )
+    const result = await submitStudySessionV2Command({
       sessionId: session.session.id,
-      input: { answers: [], durationSec: 11 },
-      getCachedSession: () => session
+      input: {
+        answers: savedDraft.data.answers,
+        durationSec: 11,
+        expectedDraftRevision: savedDraft.data.revision
+      }
     })
     const wrongNotes = await client.fetchQuery(
       wrongNoteQueries.list({ page: 1, pageSize: 20, sort: 'RECENT' })
@@ -697,7 +721,7 @@ describe('real API Query and feature cutover', () => {
 
   it('blocks create success callbacks in the HTTP-to-callback auth transition gap', async () => {
     mockDatabase.loginAs('USER')
-    const rawCreated = await createStudySessionV1({
+    const rawCreated = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -722,7 +746,13 @@ describe('real API Query and feature cutover', () => {
     })
     mockServer.use(
       http.post('*/api/v1/study-sessions', () =>
-        HttpResponse.json(rawCreated, { status: 201 })
+        HttpResponse.json(rawCreated.data, {
+          status: 201,
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'X-Nihongo-Practice-Contract': '2'
+          }
+        })
       )
     )
     const currentUser = mockDatabase.getCurrentUser()

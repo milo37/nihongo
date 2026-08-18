@@ -114,6 +114,8 @@ enum IdempotencyPrincipalType {
 
 enum IdempotencyOperation {
   STUDY_SUBMIT
+  STUDY_DRAFT_SAVE
+  STUDY_RETRY_CREATE
 }
 
 enum IdempotencyState {
@@ -228,6 +230,7 @@ model StudySession {
   cancelledAt        DateTime?                   @db.Timestamptz(3)
   durationSec        Int?
   submissionHash     String?                     @db.VarChar(64)
+  practiceContractVersion Int                    @default(1)
   createdAt          DateTime                    @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime                    @updatedAt @db.Timestamptz(3)
   user               User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -236,6 +239,7 @@ model StudySession {
   result             StudyResult?
   reviewEvents       ReviewEvent[]
   idempotencyRecords IdempotencyRecord[]
+  draft              StudyDraft?
 
   @@unique([id, userId])
   @@unique([id, guestPrincipalId])
@@ -256,12 +260,42 @@ model StudySessionQuestion {
   question          Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
   questionVersion   QuestionVersion @relation(fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict)
   answer            StudyAnswer?
+  draftAnswer       StudyDraftAnswer? @relation("StudyDraftAnswerSessionQuestion")
+  pinnedDraftAnswers StudyDraftAnswer[] @relation("StudyDraftAnswerPinnedQuestion")
 
   @@unique([studySessionId, ordinal])
   @@unique([studySessionId, questionId])
   @@unique([studySessionId, questionVersionId])
   @@unique([id, questionVersionId])
+  @@unique([studySessionId, id])
   @@index([questionId, questionVersionId])
+}
+
+model StudyDraft {
+  studySessionId String             @id @db.Uuid
+  revision       Int                @default(0)
+  currentOrdinal Int                @default(1)
+  savedAt        DateTime?          @db.Timestamptz(3)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @db.Timestamptz(3)
+  studySession   StudySession       @relation(fields: [studySessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  answers        StudyDraftAnswer[]
+}
+
+model StudyDraftAnswer {
+  studySessionId         String               @db.Uuid
+  studySessionQuestionId String               @db.Uuid
+  questionVersionId      String               @db.Uuid
+  selectedOptionId       String?              @db.Uuid
+  elapsedSec             Int                  @default(0)
+  updatedAt              DateTime             @db.Timestamptz(3)
+  draft                  StudyDraft           @relation(fields: [studySessionId], references: [studySessionId], onDelete: Cascade, onUpdate: Cascade)
+  studySessionQuestion   StudySessionQuestion @relation("StudyDraftAnswerSessionQuestion", fields: [studySessionId, studySessionQuestionId], references: [studySessionId, id], onDelete: Cascade, onUpdate: Cascade)
+  pinnedSessionQuestion  StudySessionQuestion @relation("StudyDraftAnswerPinnedQuestion", fields: [studySessionQuestionId, questionVersionId], references: [id, questionVersionId], onDelete: Cascade, onUpdate: Cascade)
+  selectedOption         QuestionOption?      @relation("StudyDraftAnswerSelectedOption", fields: [questionVersionId, selectedOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([studySessionId, studySessionQuestionId])
+  @@index([studySessionQuestionId, questionVersionId])
 }
 
 model Question {
@@ -335,6 +369,7 @@ model QuestionOption {
   correctForVersion QuestionVersion? @relation("CorrectQuestionOption")
   selectedByAnswers StudyAnswer[]    @relation("StudyAnswerSelectedOption")
   selectedByEvents  ReviewEvent[]    @relation("ReviewEventSelectedOption")
+  selectedByDrafts  StudyDraftAnswer[] @relation("StudyDraftAnswerSelectedOption")
 
   @@unique([questionVersionId, id])
   @@unique([questionVersionId, label])
@@ -476,6 +511,7 @@ model IdempotencyRecord {
   idempotencyKey   String                   @db.Uuid
   studySessionId   String                   @db.Uuid
   requestHash      String                   @db.VarChar(64)
+  contractVersion  Int                      @default(1)
   state            IdempotencyState         @default(PROCESSING)
   responseStatus   Int?
   responseBody     Json?                    @db.JsonB
@@ -486,6 +522,5 @@ model IdempotencyRecord {
   guestPrincipal   GuestPrincipal?          @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   studySession     StudySession             @relation(fields: [studySessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@index([expiresAt])
   @@index([studySessionId, requestHash])
 }

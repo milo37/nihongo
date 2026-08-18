@@ -5,8 +5,11 @@ import {
   studyModeSchema
 } from '../common/enum.js'
 import { createApiFailureSchema } from '../common/error.js'
-import { opaqueIdSchema } from '../common/id.js'
-import { studySessionPayloadSchema } from './study-session.js'
+import {
+  studySessionPayloadSchema,
+  versionedStudySessionPayloadSchema
+} from './study-session.js'
+import { practiceContractV2HeadersSchema } from './practice-contract.js'
 
 export const createStudySessionOperationId = 'study.createStudySession' as const
 
@@ -15,18 +18,13 @@ export const createStudySessionBodySchema = z
     level: jlptLevelSchema,
     subject: questionSubjectSchema,
     mode: studyModeSchema,
-    count: z.number().int().min(1).max(20),
-    explicitQuestionIds: z
-      .array(opaqueIdSchema)
-      .min(1)
-      .max(20)
-      .refine(
-        (ids) => new Set(ids).size === ids.length,
-        '문제 ID는 중복될 수 없습니다.'
-      )
-      .optional()
+    count: z.number().int().min(1).max(20)
   })
   .strict()
+
+export const createStudySessionHeadersSchema = z.object({}).strict()
+
+export const createStudySessionV2HeadersSchema = practiceContractV2HeadersSchema
 
 export const createStudySessionResponseSchema =
   studySessionPayloadSchema.refine(
@@ -34,6 +32,16 @@ export const createStudySessionResponseSchema =
     {
       path: ['session', 'status'],
       message: '새 학습 세션은 IN_PROGRESS 상태여야 합니다.'
+    }
+  )
+
+export const createStudySessionV2ResponseSchema =
+  versionedStudySessionPayloadSchema.refine(
+    ({ session }) =>
+      session.status === 'IN_PROGRESS' && session.practiceContractVersion === 2,
+    {
+      path: ['session'],
+      message: '새 v2 학습 세션은 version 2 IN_PROGRESS 상태여야 합니다.'
     }
   )
 
@@ -58,11 +66,20 @@ export const createStudySessionErrorSchema = createApiFailureSchema(
 export type CreateStudySessionBody = z.input<
   typeof createStudySessionBodySchema
 >
+export type CreateStudySessionHeaders = z.input<
+  typeof createStudySessionHeadersSchema
+>
+export type CreateStudySessionV2Headers = z.input<
+  typeof createStudySessionV2HeadersSchema
+>
 export type ParsedCreateStudySessionBody = z.output<
   typeof createStudySessionBodySchema
 >
 export type CreateStudySessionResponse = z.output<
   typeof createStudySessionResponseSchema
+>
+export type CreateStudySessionV2Response = z.output<
+  typeof createStudySessionV2ResponseSchema
 >
 export type CreateStudySessionError = z.output<
   typeof createStudySessionErrorSchema

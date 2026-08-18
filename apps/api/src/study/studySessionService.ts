@@ -1,5 +1,8 @@
 import type { ParsedCreateStudySessionBody } from '@nihongo/contracts/study/create-study-session'
-import type { StudySessionPayload } from '@nihongo/contracts/study/study-session'
+import type {
+  StudySessionPayload,
+  VersionedStudySessionPayload
+} from '@nihongo/contracts/study/study-session'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
   GuestCredentialExpiredError,
@@ -9,24 +12,30 @@ import {
   type ExistingStudyOwner,
   type StudySessionRepository
 } from './studySessionRepository.js'
-import { toStudySessionPayload } from './studySessionMapper.js'
+import {
+  toStudySessionPayload,
+  toVersionedStudySessionPayload
+} from './studySessionMapper.js'
 
 const STUDY_SESSION_TTL_MS = 24 * 60 * 60 * 1_000
 
 export interface StudySessionService {
   create: (
     input: ParsedCreateStudySessionBody,
-    owner: CreateStudyOwner
+    owner: CreateStudyOwner,
+    practiceContractVersion?: 1 | 2
   ) => Promise<{
-    payload: StudySessionPayload
+    payload: StudySessionPayload | VersionedStudySessionPayload
+    practiceContractVersion?: 1 | 2
     issuedGuestCredential:
       | import('../auth/guestPrincipalService.js').PreparedGuestCredential
       | null
   }>
   get: (
     sessionId: string,
-    owner: ExistingStudyOwner
-  ) => Promise<StudySessionPayload>
+    owner: ExistingStudyOwner,
+    requestedContractVersion?: 1 | 2
+  ) => Promise<StudySessionPayload | VersionedStudySessionPayload>
 }
 
 const withRepositoryErrors = async <Result>(
@@ -65,7 +74,7 @@ export const createStudySessionService = (
   repository: StudySessionRepository,
   now: () => Date = () => new Date()
 ): StudySessionService => ({
-  create: async (input, owner) => {
+  create: async (input, owner, requestedContractVersion = 1) => {
     if (input.mode !== 'RANDOM') {
       throw new ApplicationError({
         code: 'VALIDATION_ERROR',
@@ -74,17 +83,6 @@ export const createStudySessionService = (
         retryable: false
       })
     }
-    if (input.explicitQuestionIds) {
-      throw new ApplicationError({
-        code: 'VALIDATION_ERROR',
-        message: '명시 문제 출제는 아직 사용할 수 없습니다.',
-        fieldErrors: {
-          explicitQuestionIds: ['명시 문제 출제는 아직 지원하지 않습니다.']
-        },
-        retryable: false
-      })
-    }
-
     return await withRepositoryErrors(async () => {
       const startedAt = now()
       const created = await repository.createRandom({
@@ -93,15 +91,22 @@ export const createStudySessionService = (
         requestedCount: input.count,
         startedAt,
         expiresAt: new Date(startedAt.getTime() + STUDY_SESSION_TTL_MS),
-        owner
+        owner,
+        ...(requestedContractVersion === 2
+          ? { practiceContractVersion: 2 as const }
+          : {})
       })
       return {
-        payload: toStudySessionPayload(created.session),
+        payload:
+          requestedContractVersion === 2
+            ? toVersionedStudySessionPayload(created.session)
+            : toStudySessionPayload(created.session),
+        practiceContractVersion: requestedContractVersion,
         issuedGuestCredential: created.issuedGuestCredential
       }
     })
   },
-  get: (sessionId, owner) =>
+  get: (sessionId, owner, requestedContractVersion = 1) =>
     withRepositoryErrors(async () => {
       const record = await repository.findOwnedById(sessionId, owner, now())
       if (!record) {
@@ -111,6 +116,19 @@ export const createStudySessionService = (
           retryable: false
         })
       }
-      return toStudySessionPayload(record)
+      if (
+        requestedContractVersion === 1 &&
+        (record.practiceContractVersion ?? 1) !== 1
+      ) {
+        throw new ApplicationError({
+          code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+          message:
+            '요청한 practice contract version과 세션이 일치하지 않습니다.',
+          retryable: false
+        })
+      }
+      return requestedContractVersion === 2
+        ? toVersionedStudySessionPayload(record)
+        : toStudySessionPayload(record)
     })
 })

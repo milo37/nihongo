@@ -7,10 +7,14 @@ import {
 import {
   duplicateAnswerValidationMarker,
   submitStudySessionBodySchema,
+  submitStudySessionErrorCodeSchema,
   submitStudySessionErrorSchema,
   submitStudySessionHeadersSchema,
   submitStudySessionParamsSchema,
-  submitStudySessionResponseSchema
+  submitStudySessionResponseSchema,
+  submitStudySessionV2BodySchema,
+  submitStudySessionV2ErrorCodeSchema,
+  submitStudySessionV2HeadersSchema
 } from '../src/study/submit-study-session.js'
 
 const id = (index: number): string =>
@@ -125,6 +129,60 @@ describe('study submit/result contracts', () => {
         answers: [{ ...body.answers[0], questionId: id(10) }]
       }).success
     ).toBe(false)
+
+    expect(
+      submitStudySessionBodySchema.safeParse({
+        ...body,
+        expectedDraftRevision: 0
+      }).success
+    ).toBe(false)
+  })
+
+  it('v2 header와 draft revision을 v1과 분리한다', () => {
+    expect(
+      submitStudySessionV2HeadersSchema.parse({
+        'idempotency-key': id(99),
+        'x-nihongo-practice-contract': '2'
+      })
+    ).toEqual({
+      'idempotency-key': id(99),
+      'x-nihongo-practice-contract': '2'
+    })
+    expect(
+      submitStudySessionV2HeadersSchema.safeParse({
+        'idempotency-key': id(99)
+      }).success
+    ).toBe(false)
+    expect(
+      submitStudySessionHeadersSchema.safeParse({
+        'idempotency-key': id(99),
+        'x-nihongo-practice-contract': '2'
+      }).success
+    ).toBe(false)
+    expect(
+      submitStudySessionV2BodySchema.parse({
+        ...body,
+        expectedDraftRevision: 0
+      }).expectedDraftRevision
+    ).toBe(0)
+    expect(
+      submitStudySessionV2BodySchema.safeParse({
+        ...body,
+        expectedDraftRevision: -1
+      }).success
+    ).toBe(false)
+    expect(
+      submitStudySessionV2BodySchema.safeParse({
+        ...body,
+        expectedDraftRevision: Number.MAX_SAFE_INTEGER + 1
+      }).success
+    ).toBe(false)
+
+    expect(submitStudySessionV2ErrorCodeSchema.options).toEqual([
+      ...submitStudySessionErrorCodeSchema.options,
+      'DRAFT_VERSION_CONFLICT',
+      'DRAFT_SUBMIT_MISMATCH'
+    ])
   })
 
   it('답안 중복을 식별 가능한 marker로 거부한다', () => {

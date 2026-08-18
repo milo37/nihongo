@@ -16,6 +16,9 @@ import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
+import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
+import { createStudySubmissionService } from '../study/studySubmissionService.js'
+import { createDatabaseRuntime } from './database.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
 import {
   assertMigrationCompatibility,
@@ -35,6 +38,10 @@ const slice4Migrations = [
 ] as const
 const slice5Migrations = [
   '20260816130000_phase3_wrong_note_dashboard_read_indexes'
+] as const
+const phase4Slice1Migrations = [
+  '20260817130000_phase4_practice_idempotency_operations',
+  '20260817131000_phase4_study_draft_core'
 ] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
@@ -77,7 +84,10 @@ const migrationNames = readdirSync(sourceMigrationsDirectory, {
 const priorMigrationNames = migrationNames.filter(
   (name) =>
     !slice4Migrations.includes(name as (typeof slice4Migrations)[number]) &&
-    !slice5Migrations.includes(name as (typeof slice5Migrations)[number])
+    !slice5Migrations.includes(name as (typeof slice5Migrations)[number]) &&
+    !phase4Slice1Migrations.includes(
+      name as (typeof phase4Slice1Migrations)[number]
+    )
 )
 
 const environment = parseApiEnvironment(process.env)
@@ -202,7 +212,7 @@ describe('Slice 4 migration upgrade', () => {
 
     try {
       expect(priorMigrationNames).toHaveLength(15)
-      expect(migrationNames).toHaveLength(20)
+      expect(migrationNames).toHaveLength(22)
       expect(priorMigrationNames).toEqual(
         Object.keys(approvedPriorMigrationSha256).toSorted()
       )
@@ -233,6 +243,15 @@ describe('Slice 4 migration upgrade', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
+      expect(await readLedger(context)).toHaveLength(20)
+
+      copyMigration(phase4Slice1Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(21)
+
+      copyMigration(phase4Slice1Migrations[1], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(22)
 
       const ledger = await readLedger(context)
       const expected = loadExpectedMigrationManifest(sourceMigrationsDirectory)
@@ -389,7 +408,12 @@ describe('Slice 4 migration upgrade', () => {
       for (const migrationName of migrationNames.filter(
         (name) =>
           name !== retentionMigration &&
-          !slice5Migrations.includes(name as (typeof slice5Migrations)[number])
+          !slice5Migrations.includes(
+            name as (typeof slice5Migrations)[number]
+          ) &&
+          !phase4Slice1Migrations.includes(
+            name as (typeof phase4Slice1Migrations)[number]
+          )
       )) {
         copyMigration(migrationName, context.migrationsPath)
       }
@@ -502,6 +526,572 @@ describe('Slice 4 migration upgrade', () => {
   }, 40_000)
 })
 
+describe('Phase 4 Slice 1 migration upgrade', () => {
+  it('populated v1 rows를 version 1/no-draft로 보존하고 omitted-column default를 고정한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const userId = randomUUID()
+    const sessionId = randomUUID()
+    const idempotencyId = randomUUID()
+    const startedAt = new Date('2026-08-17T00:00:00.000Z')
+
+    try {
+      for (const migrationName of [
+        ...priorMigrationNames,
+        ...slice4Migrations,
+        ...slice5Migrations
+      ]) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(20)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+          "id", "name", "email", "emailVerified", "role",
+          "accountStatus", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Phase 4 legacy user', $2, true, 'USER',
+          'ACTIVE', $3, $3)`,
+        [userId, `phase4-legacy-${randomUUID()}@example.test`, startedAt]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         DISABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "level", "subject", "mode", "status",
+          "requestedCount", "actualCount", "usedFallback", "startedAt",
+          "expiresAt", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+          1, 1, false, $3, $3::timestamptz + INTERVAL '1 day', $3, $3
+        )`,
+        [sessionId, userId, startedAt]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         ENABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "IdempotencyRecord" (
+          "id", "principalType", "userId", "operation", "idempotencyKey",
+          "studySessionId", "requestHash", "state", "createdAt"
+        ) VALUES (
+          $1, 'USER', $2, 'STUDY_SUBMIT', $3, $4, repeat('a', 64),
+          'PROCESSING', $5
+        )`,
+        [idempotencyId, userId, randomUUID(), sessionId, startedAt]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+
+      copyMigration(phase4Slice1Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(21)
+      copyMigration(phase4Slice1Migrations[1], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(22)
+
+      const preserved = await context.adminClient.query<{
+        contractVersion: number
+        draftCount: number
+        practiceContractVersion: number
+      }>(
+        `SELECT
+          session."practiceContractVersion" AS "practiceContractVersion",
+          record."contractVersion" AS "contractVersion",
+          (SELECT COUNT(*)::int FROM "StudyDraft") AS "draftCount"
+         FROM "StudySession" AS session
+         JOIN "IdempotencyRecord" AS record
+           ON record."studySessionId" = session."id"
+         WHERE session."id" = $1 AND record."id" = $2`,
+        [sessionId, idempotencyId]
+      )
+      expect(preserved.rows).toEqual([
+        { practiceContractVersion: 1, contractVersion: 1, draftCount: 0 }
+      ])
+
+      const defaults = await context.adminClient.query<{
+        columnDefault: string
+        columnName: string
+      }>(
+        `SELECT
+          column_name AS "columnName",
+          column_default AS "columnDefault"
+         FROM information_schema.columns
+         WHERE table_schema = $1
+           AND (
+             (table_name = 'StudySession' AND column_name = 'practiceContractVersion')
+             OR (table_name = 'IdempotencyRecord' AND column_name = 'contractVersion')
+           )
+         ORDER BY table_name`,
+        [context.schemaName]
+      )
+      expect(defaults.rows).toEqual([
+        { columnName: 'contractVersion', columnDefault: '1' },
+        { columnName: 'practiceContractVersion', columnDefault: '1' }
+      ])
+
+      const oldBinarySessionId = randomUUID()
+      const oldBinarySessionQuestionId = randomUUID()
+      const oldBinaryQuestionId = randomUUID()
+      const oldBinaryQuestionVersionId = randomUUID()
+      const oldBinaryOptionIds = Array.from({ length: 4 }, () => randomUUID())
+      const oldBinaryTagId = randomUUID()
+      const oldBinaryStartedAt = new Date()
+      const oldBinaryIdempotencyKey = randomUUID()
+
+      await context.adminClient.query('BEGIN')
+      try {
+        await context.adminClient.query(
+          `INSERT INTO "Question" (
+            "id", "createdByLabelSnapshot", "createdAt", "updatedAt"
+          ) VALUES ($1, 'SYSTEM_SEED', $2, $2)`,
+          [oldBinaryQuestionId, oldBinaryStartedAt]
+        )
+        await context.adminClient.query(
+          `INSERT INTO "QuestionVersion" (
+            "id", "questionId", "versionNumber", "level", "subject",
+            "questionType", "questionText", "explanationKo", "difficulty",
+            "createdByLabelSnapshot", "createdAt", "updatedAt"
+          ) VALUES (
+            $1, $2, 1, 'N5', 'VOCABULARY', 'KANJI_READING',
+            'Phase 4 old binary compatibility question',
+            '구 binary v1 제출 호환성 검증', 'EASY', 'SYSTEM_SEED', $3, $3
+          )`,
+          [oldBinaryQuestionVersionId, oldBinaryQuestionId, oldBinaryStartedAt]
+        )
+        for (const [index, optionId] of oldBinaryOptionIds.entries()) {
+          await context.adminClient.query(
+            `INSERT INTO "QuestionOption" (
+              "id", "questionVersionId", "label", "text", "ordinal"
+            ) VALUES ($1, $2, $3, $4, $5)`,
+            [
+              optionId,
+              oldBinaryQuestionVersionId,
+              String(index + 1),
+              `보기 ${index + 1}`,
+              index + 1
+            ]
+          )
+        }
+        await context.adminClient.query(
+          `INSERT INTO "Tag" (
+            "id", "label", "normalizedName", "createdAt", "updatedAt"
+          ) VALUES ($1, '호환성', $2, $3, $3)`,
+          [
+            oldBinaryTagId,
+            `phase4-old-binary-${randomUUID()}`,
+            oldBinaryStartedAt
+          ]
+        )
+        await context.adminClient.query(
+          `INSERT INTO "QuestionVersionTag" (
+            "id", "questionVersionId", "tagId", "labelSnapshot"
+          ) VALUES ($1, $2, $3, '호환성')`,
+          [randomUUID(), oldBinaryQuestionVersionId, oldBinaryTagId]
+        )
+        await context.adminClient.query(
+          `UPDATE "QuestionVersion"
+           SET "correctOptionId" = $1, "status" = 'PUBLISHED',
+               "publishedAt" = $2, "updatedAt" = $2
+           WHERE "id" = $3`,
+          [
+            oldBinaryOptionIds[0],
+            oldBinaryStartedAt,
+            oldBinaryQuestionVersionId
+          ]
+        )
+        await context.adminClient.query(
+          `UPDATE "Question"
+           SET "currentPublishedVersionId" = $1, "updatedAt" = $2
+           WHERE "id" = $3`,
+          [oldBinaryQuestionVersionId, oldBinaryStartedAt, oldBinaryQuestionId]
+        )
+        await context.adminClient.query(
+          `INSERT INTO "StudySession" (
+            "id", "userId", "level", "subject", "mode", "status",
+            "requestedCount", "actualCount", "usedFallback", "startedAt",
+            "expiresAt", "createdAt", "updatedAt"
+          ) VALUES (
+            $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+            1, 1, false, $3, $3::timestamptz + INTERVAL '1 day', $3, $3
+          )`,
+          [oldBinarySessionId, userId, oldBinaryStartedAt]
+        )
+        await context.adminClient.query(
+          `INSERT INTO "StudySessionQuestion" (
+            "id", "studySessionId", "questionId", "questionVersionId",
+            "ordinal", "createdAt"
+          ) VALUES ($1, $2, $3, $4, 1, $5)`,
+          [
+            oldBinarySessionQuestionId,
+            oldBinarySessionId,
+            oldBinaryQuestionId,
+            oldBinaryQuestionVersionId,
+            oldBinaryStartedAt
+          ]
+        )
+        await context.adminClient.query('COMMIT')
+      } catch (error: unknown) {
+        await context.adminClient.query('ROLLBACK')
+        throw error
+      }
+
+      const oldBinaryRuntime = createDatabaseRuntime(context.databaseUrl)
+      try {
+        await oldBinaryRuntime.checkReadiness()
+        const oldBinarySubmissionService = createStudySubmissionService(
+          createPrismaStudySubmissionRepository(oldBinaryRuntime.client),
+          () => new Date(oldBinaryStartedAt.getTime() + 1_000)
+        )
+        const oldBinaryBody = {
+          answers: [
+            {
+              studySessionQuestionId: oldBinarySessionQuestionId,
+              selectedOptionId: oldBinaryOptionIds[0] ?? null,
+              elapsedSec: 2
+            }
+          ],
+          durationSec: 2
+        }
+        const first = await oldBinarySubmissionService.submit(
+          oldBinarySessionId,
+          oldBinaryIdempotencyKey,
+          oldBinaryBody,
+          { kind: 'USER', userId }
+        )
+        expect(first).toMatchObject({ replayed: false })
+        const replay = await oldBinarySubmissionService.submit(
+          oldBinarySessionId,
+          oldBinaryIdempotencyKey,
+          oldBinaryBody,
+          { kind: 'USER', userId }
+        )
+        expect(replay).toMatchObject({
+          replayed: true,
+          response: first.response
+        })
+      } finally {
+        await oldBinaryRuntime.disconnect()
+      }
+      expect(
+        (
+          await context.adminClient.query<{
+            contractVersion: number
+            practiceContractVersion: number
+          }>(
+            `SELECT
+              session."practiceContractVersion" AS "practiceContractVersion",
+              record."contractVersion" AS "contractVersion"
+             FROM "StudySession" AS session
+             JOIN "IdempotencyRecord" AS record
+               ON record."studySessionId" = session."id"
+             WHERE session."id" = $1
+               AND record."operation" = 'STUDY_SUBMIT'`,
+            [oldBinarySessionId]
+          )
+        ).rows
+      ).toEqual([{ practiceContractVersion: 1, contractVersion: 1 }])
+
+      const indexes = await context.adminClient.query<{
+        indexDefinition: string
+        indexName: string
+      }>(
+        `SELECT
+          indexname AS "indexName",
+          regexp_replace(indexdef, '\\s+', ' ', 'g') AS "indexDefinition"
+         FROM pg_indexes
+         WHERE schemaname = $1
+           AND indexname = ANY($2::text[])
+         ORDER BY indexname`,
+        [
+          context.schemaName,
+          [
+            'StudySessionQuestion_studySessionId_id_key',
+            'StudySession_userId_startedAt_id_resumable_idx',
+            'StudySession_guestPrincipalId_startedAt_id_resumable_idx',
+            'StudyDraft_savedAt_studySessionId_idx',
+            'StudyDraftAnswer_studySessionQuestionId_questionVersionId_idx',
+            'StudyDraftAnswer_questionVersionId_selectedOptionId_idx',
+            'IdempotencyRecord_operation_expiresAt_id_idx',
+            'IdempotencyRecord_studySessionId_submit_succeeded_key'
+          ]
+        ]
+      )
+      expect(indexes.rows.map(({ indexName }) => indexName)).toEqual([
+        'IdempotencyRecord_operation_expiresAt_id_idx',
+        'IdempotencyRecord_studySessionId_submit_succeeded_key',
+        'StudyDraftAnswer_questionVersionId_selectedOptionId_idx',
+        'StudyDraftAnswer_studySessionQuestionId_questionVersionId_idx',
+        'StudyDraft_savedAt_studySessionId_idx',
+        'StudySessionQuestion_studySessionId_id_key',
+        'StudySession_guestPrincipalId_startedAt_id_resumable_idx',
+        'StudySession_userId_startedAt_id_resumable_idx'
+      ])
+      const indexDefinitions = new Map(
+        indexes.rows.map(({ indexName, indexDefinition }) => [
+          indexName,
+          indexDefinition
+        ])
+      )
+      expect(
+        indexDefinitions.get('StudySession_userId_startedAt_id_resumable_idx')
+      ).toMatch(
+        /\("userId", "startedAt" DESC, id\) INCLUDE \("expiresAt"\).*"userId" IS NOT NULL.*status.*IN_PROGRESS/u
+      )
+      expect(
+        indexDefinitions.get('StudyDraft_savedAt_studySessionId_idx')
+      ).toMatch(/\("savedAt" DESC NULLS LAST, "studySessionId"\)/u)
+      expect(
+        indexDefinitions.get(
+          'StudyDraftAnswer_questionVersionId_selectedOptionId_idx'
+        )
+      ).toMatch(
+        /\("questionVersionId", "selectedOptionId"\).*"selectedOptionId" IS NOT NULL/u
+      )
+      expect(
+        indexDefinitions.get('IdempotencyRecord_operation_expiresAt_id_idx')
+      ).toMatch(
+        /\(operation, "expiresAt", id\).*state.*SUCCEEDED.*"expiresAt" IS NOT NULL/u
+      )
+      expect(
+        indexDefinitions.get(
+          'IdempotencyRecord_studySessionId_submit_succeeded_key'
+        )
+      ).toMatch(/UNIQUE INDEX.*\("studySessionId"\).*operation.*STUDY_SUBMIT/u)
+
+      const aggregateTriggers = await context.adminClient.query<{
+        initiallyDeferred: boolean
+        isDeferrable: boolean
+        triggerName: string
+      }>(
+        `SELECT
+          trigger.tgname AS "triggerName",
+          trigger.tgdeferrable AS "isDeferrable",
+          trigger.tginitdeferred AS "initiallyDeferred"
+         FROM pg_trigger AS trigger
+         JOIN pg_class AS relation ON relation.oid = trigger.tgrelid
+         JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+         WHERE namespace.nspname = $1
+           AND trigger.tgname = ANY($2::text[])
+         ORDER BY trigger.tgname`,
+        [
+          context.schemaName,
+          [
+            'StudySession_validate_draft_aggregate',
+            'StudySessionQuestion_validate_draft_aggregate',
+            'StudyDraft_validate_aggregate',
+            'StudyDraftAnswer_validate_aggregate'
+          ]
+        ]
+      )
+      expect(aggregateTriggers.rows).toHaveLength(4)
+      expect(aggregateTriggers.rows).toEqual(
+        aggregateTriggers.rows.map((row) => ({
+          ...row,
+          isDeferrable: true,
+          initiallyDeferred: true
+        }))
+      )
+
+      const foreignKeys = await context.adminClient.query<{
+        constraintName: string
+        deleteAction: string
+        isDeferrable: boolean
+        updateAction: string
+      }>(
+        `SELECT
+          constraint_entry.conname AS "constraintName",
+          constraint_entry.condeferrable AS "isDeferrable",
+          constraint_entry.confdeltype::text AS "deleteAction",
+          constraint_entry.confupdtype::text AS "updateAction"
+         FROM pg_constraint AS constraint_entry
+         JOIN pg_class AS relation ON relation.oid = constraint_entry.conrelid
+         JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+         WHERE namespace.nspname = $1
+           AND constraint_entry.conname = ANY($2::text[])
+         ORDER BY constraint_entry.conname`,
+        [
+          context.schemaName,
+          [
+            'StudyDraft_studySessionId_fkey',
+            'StudyDraftAnswer_studySessionId_fkey',
+            'StudyDraftAnswer_studySessionId_studySessionQuestionId_fkey',
+            'StudyDraftAnswer_studySessionQuestionId_questionVersionId_fkey',
+            'StudyDraftAnswer_questionVersionId_selectedOptionId_fkey'
+          ]
+        ]
+      )
+      expect(foreignKeys.rows).toEqual([
+        {
+          constraintName:
+            'StudyDraftAnswer_questionVersionId_selectedOptionId_fkey',
+          isDeferrable: false,
+          deleteAction: 'r',
+          updateAction: 'c'
+        },
+        {
+          constraintName: 'StudyDraftAnswer_studySessionId_fkey',
+          isDeferrable: false,
+          deleteAction: 'c',
+          updateAction: 'c'
+        },
+        {
+          constraintName:
+            'StudyDraftAnswer_studySessionId_studySessionQuestionId_fkey',
+          isDeferrable: false,
+          deleteAction: 'c',
+          updateAction: 'c'
+        },
+        {
+          constraintName:
+            'StudyDraftAnswer_studySessionQuestionId_questionVersionId_fkey',
+          isDeferrable: false,
+          deleteAction: 'c',
+          updateAction: 'c'
+        },
+        {
+          constraintName: 'StudyDraft_studySessionId_fkey',
+          isDeferrable: false,
+          deleteAction: 'c',
+          updateAction: 'c'
+        }
+      ])
+    } finally {
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('enum-only 뒤 reserved retry row가 있으면 dependent migration 전체를 rollback한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+
+    try {
+      for (const migrationName of [
+        ...priorMigrationNames,
+        ...slice4Migrations,
+        ...slice5Migrations,
+        phase4Slice1Migrations[0]
+      ]) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(21)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+      const now = new Date()
+      const userId = randomUUID()
+      const sessionId = randomUUID()
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+          "id", "name", "email", "emailVerified", "role",
+          "accountStatus", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Reserved op user', $2, true, 'USER', 'ACTIVE', $3, $3)`,
+        [userId, `phase4-reserved-${randomUUID()}@example.test`, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         DISABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "level", "subject", "mode", "status",
+          "requestedCount", "actualCount", "usedFallback", "startedAt",
+          "expiresAt", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+          1, 1, false, $3, $3::timestamptz + INTERVAL '1 day', $3, $3
+        )`,
+        [sessionId, userId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         ENABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "IdempotencyRecord" (
+          "id", "principalType", "userId", "operation", "idempotencyKey",
+          "studySessionId", "requestHash", "state", "createdAt"
+        ) VALUES (
+          $1, 'USER', $2, 'STUDY_RETRY_CREATE', $3, $4,
+          repeat('b', 64), 'PROCESSING', $5
+        )`,
+        [randomUUID(), userId, randomUUID(), sessionId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+
+      const migrationSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase4Slice1Migrations[1],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(migrationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Reserved Phase 4 idempotency operations must have zero rows before Slice 1.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      const absent = await context.adminClient.query<{
+        draftTable: string | null
+        versionColumnCount: number
+      }>(
+        `SELECT
+          to_regclass($1)::text AS "draftTable",
+          (
+            SELECT COUNT(*)::int
+            FROM information_schema.columns
+            WHERE table_schema = $2
+              AND table_name = 'StudySession'
+              AND column_name = 'practiceContractVersion'
+          ) AS "versionColumnCount"`,
+        [`${context.schemaName}."StudyDraft"`, context.schemaName]
+      )
+      expect(absent.rows).toEqual([{ draftTable: null, versionColumnCount: 0 }])
+      expect(await readLedger(context)).toHaveLength(21)
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+})
+
 describe('Slice 5 migration upgrade', () => {
   it('dirty historical tag preflight는 migration 전체를 rollback하고 clean deploy 뒤 CHECK를 강제한다', async () => {
     const context = await createIsolatedMigrationSchema()
@@ -513,7 +1103,12 @@ describe('Slice 5 migration upgrade', () => {
     try {
       for (const migrationName of migrationNames.filter(
         (name) =>
-          !slice5Migrations.includes(name as (typeof slice5Migrations)[number])
+          !slice5Migrations.includes(
+            name as (typeof slice5Migrations)[number]
+          ) &&
+          !phase4Slice1Migrations.includes(
+            name as (typeof phase4Slice1Migrations)[number]
+          )
       )) {
         copyMigration(migrationName, context.migrationsPath)
       }

@@ -12,6 +12,7 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       globals: true,
+      include: ['src/**/*.test.{ts,tsx}'],
       maxWorkers: 4,
       setupFiles: ['./src/test/setup.ts'],
       css: true,

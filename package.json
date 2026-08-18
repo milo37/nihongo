@@ -31,7 +31,9 @@
     "test:integration": "pnpm run build:contracts && pnpm run build:domain && pnpm run db:seed:test && pnpm --filter @nihongo/api run test:integration",
     "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
     "study:cleanup-expired-guests": "pnpm --filter @nihongo/api run study:cleanup-expired-guests",
+    "study:cleanup-expired-drafts": "pnpm --filter @nihongo/api run study:cleanup-expired-drafts",
     "test:web": "pnpm --filter @nihongo/web run test",
+    "test:e2e": "pnpm --filter @nihongo/api exec tsx src/e2e/runSlice2E2e.ts",
     "test": "pnpm run build:contracts && pnpm run build:domain && pnpm run test:architecture && pnpm run test:contracts && pnpm run test:domain && pnpm run test:api && pnpm run test:web",
     "test:watch": "pnpm -r --parallel --if-present run test:watch",
     "db:generate": "pnpm --filter @nihongo/api run db:generate",
@@ -43,6 +45,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.62.1",
     "@tanstack/eslint-plugin-query": "^5.0.0",
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.0.0",

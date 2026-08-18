@@ -1,4 +1,7 @@
-import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
+import type {
+  ParsedSubmitStudySessionBody,
+  ParsedSubmitStudySessionV2Body
+} from '@nihongo/contracts/study/submit-study-session'
 import type { StudyResult } from '@nihongo/contracts/study/study-result'
 import {
   StudyGradingError,
@@ -16,10 +19,14 @@ import {
 } from './studySessionRepository.js'
 import {
   createTolerantSubmissionHash,
+  createTolerantSubmissionV2Hash,
+  DraftSubmissionVersionConflictError,
+  DraftSubmitMismatchError,
   IdempotencyKeyReusedError,
   OwnedStudySessionNotFoundError,
   StudySessionAlreadySubmittedError,
   StudySessionNotEditableError,
+  StudySubmissionContractVersionMismatchError,
   StudySubmissionRepositoryIntegrityError,
   StudySubmissionRepositoryUnavailableError,
   type StudySubmissionRepository
@@ -39,8 +46,9 @@ export interface StudySubmissionService {
   submit: (
     sessionId: string,
     idempotencyKey: string,
-    input: ParsedSubmitStudySessionBody,
-    owner: ExistingStudyOwner
+    input: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body,
+    owner: ExistingStudyOwner,
+    practiceContractVersion?: 1 | 2
   ) => Promise<SubmitStudySessionServiceResult>
 }
 
@@ -103,6 +111,27 @@ const throwMappedRepositoryError = (
       retryable: false
     })
   }
+  if (error instanceof StudySubmissionContractVersionMismatchError) {
+    throw new ApplicationError({
+      code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+      message: '요청한 practice contract version과 세션이 일치하지 않습니다.',
+      retryable: false
+    })
+  }
+  if (error instanceof DraftSubmissionVersionConflictError) {
+    throw new ApplicationError({
+      code: 'DRAFT_VERSION_CONFLICT',
+      message: '제출 전 초안 revision이 변경됐습니다.',
+      retryable: false
+    })
+  }
+  if (error instanceof DraftSubmitMismatchError) {
+    throw new ApplicationError({
+      code: 'DRAFT_SUBMIT_MISMATCH',
+      message: '제출 답안이 저장된 초안과 일치하지 않습니다.',
+      retryable: false
+    })
+  }
   if (
     error instanceof StudyGradingError ||
     error instanceof StudySubmissionCanonicalizationError
@@ -155,7 +184,13 @@ export const createStudySubmissionService = (
   repository: StudySubmissionRepository,
   now: () => Date = () => new Date()
 ): StudySubmissionService => ({
-  submit: (sessionId, idempotencyKey, input, owner) =>
+  submit: (
+    sessionId,
+    idempotencyKey,
+    input,
+    owner,
+    requestedContractVersion = 1
+  ) =>
     withRepositoryErrors(sessionId, async () => {
       const observedAt = now()
       const preload = await repository.preloadOwned(
@@ -170,7 +205,16 @@ export const createStudySubmissionService = (
           retryable: false
         })
       }
-      const requestHash = createTolerantSubmissionHash(preload, input)
+      const expectedDraftRevision =
+        'expectedDraftRevision' in input ? input.expectedDraftRevision : null
+      const requestHash =
+        requestedContractVersion === 2 && expectedDraftRevision !== null
+          ? createTolerantSubmissionV2Hash(preload, {
+              answers: input.answers,
+              durationSec: input.durationSec,
+              expectedDraftRevision
+            })
+          : createTolerantSubmissionHash(preload, input)
       return await repository.submitAtomic({
         sessionId,
         owner,
@@ -178,6 +222,8 @@ export const createStudySubmissionService = (
         requestHash,
         answers: input.answers,
         durationSec: input.durationSec,
+        expectedDraftRevision,
+        practiceContractVersion: requestedContractVersion,
         observedAt
       })
     }),

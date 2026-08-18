@@ -29,7 +29,8 @@ const createSessionView = (): StudySessionView => {
       startedAt: '2026-08-16T00:00:00.000Z',
       expiresAt: '2026-08-17T00:00:00.000Z',
       submittedAt: null,
-      durationSec: null
+      durationSec: null,
+      practiceContractVersion: 1
     },
     questions: [
       {

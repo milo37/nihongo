@@ -62,7 +62,8 @@ const writeFixture = (
 }
 
 const createPinnedSession = (
-  database: MockDatabase
+  database: MockDatabase,
+  observedAt = FIXED_NOW
 ): CreateStudySessionResponse => {
   const { session } = database.createStudySession({
     canonicalContractVersion: 1,
@@ -74,14 +75,15 @@ const createPinnedSession = (
   })
   return toContractStudySessionPayload(
     database.getCanonicalStudySessionSnapshotRecord(session.id, null),
-    new Date(FIXED_NOW)
+    new Date(observedAt)
   )
 }
 
 const submitPinnedSession = (
   database: MockDatabase,
   payload: CreateStudySessionResponse,
-  isCorrect: boolean
+  isCorrect: boolean,
+  idempotencyKey = crypto.randomUUID()
 ) => {
   const source = originalQuestions.find(({ id }) => id === QUESTION_ID)
   const question = payload.questions[0]
@@ -109,7 +111,7 @@ const submitPinnedSession = (
         durationSec: 2
       },
       guestPrincipalId: null,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey,
       sessionId: payload.session.id
     },
     mockCanonicalSubmissionOperations
@@ -203,6 +205,37 @@ describe('MockDatabase canonical learning-read provenance', () => {
     }
   })
 
+  it('24시간이 지난 submit key를 새 session에 재사용해도 historical read를 보존한다', () => {
+    let observedAt = FIXED_NOW
+    const database = new MockDatabase({
+      now: () => observedAt,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const sharedKey = crypto.randomUUID()
+    const first = createPinnedSession(database, observedAt)
+    submitPinnedSession(database, first, false, sharedKey)
+
+    observedAt = '2026-08-17T13:00:00.000Z'
+    const second = createPinnedSession(database, observedAt)
+    submitPinnedSession(database, second, false, sharedKey)
+
+    expect(database.getCanonicalDashboardRecord(user.id).sessions).toHaveLength(
+      2
+    )
+    expect(database.listCanonicalWrongNoteRecords(user.id)).toEqual([
+      expect.objectContaining({ wrongCount: 2 })
+    ])
+    expect(
+      database.getCanonicalWrongNoteRecord(
+        user.id,
+        getContractQuestionId(QUESTION_ID)
+      )
+    ).toMatchObject({ wrongCount: 2 })
+    database.dispose()
+  })
+
   it('canonical 첫 전이는 legacy note가 있어도 previous null이며 legacy map을 갱신하지 않는다', () => {
     const database = new MockDatabase({
       now: () => FIXED_NOW,
@@ -262,7 +295,6 @@ describe('MockDatabase canonical learning-read provenance', () => {
     'duplicate-result',
     'duplicate-review-event',
     'duplicate-idempotency',
-    'missing-idempotency',
     'idempotency-owner-mismatch',
     'idempotency-owner-orphan',
     'idempotency-response-mismatch',
@@ -293,8 +325,6 @@ describe('MockDatabase canonical learning-read provenance', () => {
         events.push(structuredClone(events[0]))
       } else if (kind === 'duplicate-idempotency') {
         idempotency.push(structuredClone(idempotency[0]))
-      } else if (kind === 'missing-idempotency') {
-        idempotency.splice(0)
       } else if (kind === 'idempotency-owner-mismatch') {
         idempotency[0].principalId = crypto.randomUUID()
       } else if (kind === 'idempotency-owner-orphan') {

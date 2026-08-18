@@ -1,4 +1,7 @@
-import type { StudySessionPayload } from '@nihongo/contracts/study/study-session'
+import type {
+  StudySessionPayload,
+  VersionedStudySessionPayload
+} from '@nihongo/contracts/study/study-session'
 import {
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
@@ -16,10 +19,11 @@ export const toContractStudySessionPayload = (
   const startedAtMs = Date.parse(record.session.startedAt)
   const expiresAt = new Date(startedAtMs + STUDY_SESSION_TTL_MS)
   const status =
-    record.session.status === 'IN_PROGRESS' &&
+    record.canonicalStatus ??
+    (record.session.status === 'IN_PROGRESS' &&
     now.getTime() >= expiresAt.getTime()
       ? 'EXPIRED'
-      : record.session.status
+      : record.session.status)
 
   return {
     session: {
@@ -53,5 +57,24 @@ export const toContractStudySessionPayload = (
         )
       }
     })
+  }
+}
+
+export const toVersionedContractStudySessionPayload = (
+  record: MockStudySessionSnapshotRecord,
+  now = new Date()
+): VersionedStudySessionPayload => {
+  const payload = toContractStudySessionPayload(record, now)
+  const practiceContractVersion = record.practiceContractVersion
+  if (!practiceContractVersion) {
+    throw new Error('canonical session contract version이 없습니다.')
+  }
+
+  return {
+    ...payload,
+    session: {
+      ...payload.session,
+      practiceContractVersion
+    }
   }
 }

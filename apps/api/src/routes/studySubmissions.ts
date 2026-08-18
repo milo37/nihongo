@@ -3,7 +3,10 @@ import {
   submitStudySessionBodySchema,
   submitStudySessionHeadersSchema,
   submitStudySessionParamsSchema,
-  submitStudySessionResponseSchema
+  submitStudySessionResponseSchema,
+  submitStudySessionV2BodySchema,
+  submitStudySessionV2HeadersSchema,
+  submitStudySessionV2ResponseSchema
 } from '@nihongo/contracts/study/submit-study-session'
 import {
   getStudyResultParamsSchema,
@@ -29,11 +32,39 @@ interface StudySubmissionRouteDependencies {
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
+  practiceContractV2Enabled: boolean
   rateLimiter: ApplicationRateLimiter
   studySubmissionService: StudySubmissionService
 }
 
 type StudySubmissionRouteEnvironment = { Variables: ApiVariables }
+
+const resolvePracticeContractVersion = (
+  value: string | undefined,
+  practiceContractV2Enabled: boolean
+): 1 | 2 => {
+  if (value === undefined) {
+    return 1
+  }
+  if (value === '2') {
+    if (!practiceContractV2Enabled) {
+      throw new ApplicationError({
+        code: 'INVALID_REQUEST',
+        message: '이 배포 세대에서는 practice contract 2를 사용할 수 없습니다.',
+        retryable: false
+      })
+    }
+    return 2
+  }
+  throw new ApplicationError({
+    code: 'INVALID_REQUEST',
+    message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+    fieldErrors: {
+      'x-nihongo-practice-contract': ['header 값은 2만 허용합니다.']
+    },
+    retryable: false
+  })
+}
 
 const toFieldErrors = (error: ZodError): Record<string, string[]> => {
   const errors: Record<string, string[]> = {}
@@ -97,6 +128,7 @@ export const createStudySubmissionRoutes = ({
   environment,
   guestPrincipalService,
   principalService,
+  practiceContractV2Enabled,
   rateLimiter,
   studySubmissionService
 }: StudySubmissionRouteDependencies): Hono<StudySubmissionRouteEnvironment> => {
@@ -127,6 +159,11 @@ export const createStudySubmissionRoutes = ({
       max: 20
     })
 
+    const practiceContractVersion = resolvePracticeContractVersion(
+      context.req.header('X-Nihongo-Practice-Contract'),
+      practiceContractV2Enabled
+    )
+
     let params
     try {
       params = submitStudySessionParamsSchema.parse({
@@ -146,9 +183,17 @@ export const createStudySubmissionRoutes = ({
 
     let headers
     try {
-      headers = submitStudySessionHeadersSchema.parse({
-        'idempotency-key': context.req.header('Idempotency-Key')
-      })
+      headers =
+        practiceContractVersion === 2
+          ? submitStudySessionV2HeadersSchema.parse({
+              'idempotency-key': context.req.header('Idempotency-Key'),
+              'x-nihongo-practice-contract': context.req.header(
+                'X-Nihongo-Practice-Contract'
+              )
+            })
+          : submitStudySessionHeadersSchema.parse({
+              'idempotency-key': context.req.header('Idempotency-Key')
+            })
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         throw new ApplicationError({
@@ -162,9 +207,11 @@ export const createStudySubmissionRoutes = ({
 
     let input
     try {
-      input = submitStudySessionBodySchema.parse(
-        await readBoundedJsonObject(context.req.raw)
-      )
+      const rawBody = await readBoundedJsonObject(context.req.raw)
+      input =
+        practiceContractVersion === 2
+          ? submitStudySessionV2BodySchema.parse(rawBody)
+          : submitStudySessionBodySchema.parse(rawBody)
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         throw bodyValidationError(error)
@@ -205,13 +252,21 @@ export const createStudySubmissionRoutes = ({
       }
     }
 
-    const submitted = await studySubmissionService.submit(
-      params.sessionId,
-      headers['idempotency-key'],
-      input,
-      owner
-    )
-    const response = submitStudySessionResponseSchema.parse(submitted.response)
+    const submitted =
+      practiceContractVersion === 2
+        ? await studySubmissionService.submit(
+            params.sessionId,
+            headers['idempotency-key'],
+            input,
+            owner,
+            2
+          )
+        : await studySubmissionService.submit(
+            params.sessionId,
+            headers['idempotency-key'],
+            input,
+            owner
+          )
     if (submitted.replayed) {
       context.header('Idempotency-Replayed', 'true')
     }
@@ -234,6 +289,17 @@ export const createStudySubmissionRoutes = ({
       })
     }
     context.header('Cache-Control', 'private, no-store')
+    context.header(
+      'X-Nihongo-Practice-Contract',
+      String(practiceContractVersion)
+    )
+    if (practiceContractVersion === 2) {
+      const response = submitStudySessionV2ResponseSchema.parse(
+        submitted.response
+      )
+      return context.json(response, 201)
+    }
+    const response = submitStudySessionResponseSchema.parse(submitted.response)
     return context.json(response, 201)
   })
 

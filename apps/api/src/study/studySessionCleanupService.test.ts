@@ -35,7 +35,7 @@ describe('StudySession cleanup service', () => {
     })
   })
 
-  it.each([0, -1, 1.5, 1_001])(
+  it.each([0, -1, 1.5, 501])(
     'batchSize %s를 repository 호출 전에 거부한다',
     async (batchSize) => {
       const cleanupExpiredGuestStudyData = vi.fn().mockResolvedValue(result)
@@ -74,7 +74,7 @@ describe('StudySession cleanup command config', () => {
     },
     {
       STUDY_CLEANUP_CONFIRM: STUDY_SESSION_CLEANUP_CONFIRMATION,
-      STUDY_CLEANUP_BATCH_SIZE: '1001'
+      STUDY_CLEANUP_BATCH_SIZE: '501'
     }
   ])('unsafe command input을 fail closed한다', (source) => {
     expect(() => parseStudySessionCleanupCommandInput(source)).toThrow()

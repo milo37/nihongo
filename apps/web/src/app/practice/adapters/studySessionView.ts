@@ -1,4 +1,7 @@
-import type { StudySessionPayload } from '@nihongo/contracts/study/study-session'
+import type {
+  StudySessionPayload,
+  VersionedStudySessionPayload
+} from '@nihongo/contracts/study/study-session'
 import type { GetStudySessionResponse } from '@api/study/getStudySession/schema'
 import type {
   JlptLevel,
@@ -34,6 +37,7 @@ export interface StudySessionView {
     expiresAt: string | null
     submittedAt: string | null
     durationSec: number | null
+    practiceContractVersion: 1 | 2
   }
   questions: StudyQuestionView[]
   requestedCount: number
@@ -54,7 +58,8 @@ export const toLegacyStudySessionView = (
     startedAt: response.session.startedAt,
     expiresAt: null,
     submittedAt: response.session.submittedAt,
-    durationSec: response.session.durationSec
+    durationSec: response.session.durationSec,
+    practiceContractVersion: 1
   },
   questions: response.questions.map((question, index) => ({
     ...question,
@@ -69,7 +74,7 @@ export const toLegacyStudySessionView = (
 })
 
 export const toCanonicalStudySessionView = (
-  response: StudySessionPayload
+  response: StudySessionPayload | VersionedStudySessionPayload
 ): StudySessionView => ({
   session: {
     id: response.session.id,
@@ -80,7 +85,11 @@ export const toCanonicalStudySessionView = (
     startedAt: response.session.startedAt,
     expiresAt: response.session.expiresAt,
     submittedAt: response.session.submittedAt,
-    durationSec: response.session.durationSec
+    durationSec: response.session.durationSec,
+    practiceContractVersion:
+      'practiceContractVersion' in response.session
+        ? response.session.practiceContractVersion
+        : 1
   },
   questions: response.questions.map(
     ({ ordinal, question, sessionQuestionId }) => ({

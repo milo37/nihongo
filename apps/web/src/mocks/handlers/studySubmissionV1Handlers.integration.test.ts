@@ -30,6 +30,7 @@ import { clearMockGuestPrincipalCookie } from '@/test/server'
 const CREATE_URL = 'http://localhost/api/v1/study-sessions'
 const DELETE_GUEST_URL = 'http://localhost/api/v1/guest-principal'
 const LEGACY_URL = 'http://localhost/api/study/session'
+const TRUSTED_WRITE_HEADERS = { Origin: 'http://localhost' }
 
 type CanonicalQuestion = CreateStudySessionResponse['questions'][number]
 
@@ -54,6 +55,7 @@ const createCanonicalSession = async (
   const response = await fetch(CREATE_URL, {
     method: 'POST',
     headers: {
+      ...TRUSTED_WRITE_HEADERS,
       'Content-Type': 'application/json',
       ...(cookie ? { Cookie: cookie } : {})
     },
@@ -78,6 +80,7 @@ const submitCanonicalSession = async (
     method: 'POST',
     credentials: 'omit',
     headers: {
+      ...TRUSTED_WRITE_HEADERS,
       'Content-Type': 'application/json',
       'Idempotency-Key': idempotencyKey,
       ...(cookie ? { Cookie: cookie } : {})
@@ -423,7 +426,11 @@ describe('canonical study submission/result v1 MSW integration', () => {
     const missingKeyResponse = await fetch(baseUrl, {
       method: 'POST',
       credentials: 'omit',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      headers: {
+        ...TRUSTED_WRITE_HEADERS,
+        'Content-Type': 'application/json',
+        Cookie: cookie
+      },
       body: JSON.stringify(validBody)
     })
     const missingKey = submitStudySessionErrorSchema.parse(
@@ -523,6 +530,7 @@ describe('canonical study submission/result v1 MSW integration', () => {
         method: 'POST',
         credentials: 'omit',
         headers: {
+          ...TRUSTED_WRITE_HEADERS,
           'Content-Type': 'application/json',
           Cookie: cookie,
           'Idempotency-Key': crypto.randomUUID()
@@ -540,6 +548,7 @@ describe('canonical study submission/result v1 MSW integration', () => {
       method: 'POST',
       credentials: 'omit',
       headers: {
+        ...TRUSTED_WRITE_HEADERS,
         'Content-Type': 'text/plain',
         Cookie: cookie,
         'Idempotency-Key': crypto.randomUUID()
@@ -558,7 +567,8 @@ describe('canonical study submission/result v1 MSW integration', () => {
 
     const securityHeaderCases: Array<Record<string, string>> = [
       { Origin: 'https://evil.example' },
-      { 'Sec-Fetch-Site': 'cross-site' }
+      { 'Sec-Fetch-Site': 'cross-site' },
+      {}
     ]
     for (const securityHeaders of securityHeaderCases) {
       const response = await fetch(baseUrl, {
@@ -707,6 +717,7 @@ describe('canonical study submission/result v1 MSW integration', () => {
       {
         method: 'POST',
         headers: {
+          ...TRUSTED_WRITE_HEADERS,
           'Content-Type': 'application/json',
           Cookie: guestACookie,
           'Idempotency-Key': crypto.randomUUID()

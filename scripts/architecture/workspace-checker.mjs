@@ -128,11 +128,21 @@ const collectModuleReferences = (sourceFile) => {
   }
 
   const isExactDeferredStudySubmitImport = (node, specifier) => {
-    if (
-      specifier !== '@app/practice/commands/submitStudySessionCommand' ||
-      !normalizePath(sourceFile.fileName).endsWith(
+    const deferredSubmitOwners = new Map([
+      [
+        '@app/practice/commands/submitStudySessionCommand',
         '/apps/web/src/app/practice/hooks/useSubmitStudySession.ts'
-      )
+      ],
+      [
+        '@app/practice/commands/submitStudySessionV2Command',
+        '/apps/web/src/app/practice/hooks/useSubmitStudySessionV2.ts'
+      ]
+    ])
+    const expectedOwner = deferredSubmitOwners.get(specifier)
+
+    if (
+      expectedOwner === undefined ||
+      !normalizePath(sourceFile.fileName).endsWith(expectedOwner)
     ) {
       return false
     }
@@ -396,7 +406,10 @@ const RESPONSE_SCHEMA_NAME_PATTERN = /responseSchema$/i
 const REQUEST_SCHEMA_NAME_PATTERN =
   /(?:params?|query|body|headers?|request)Schema$/i
 const REQUESTLESS_API_ROUTES = new Set(['delete:/guest-principal', 'get:/me'])
-const NO_CONTENT_API_ROUTES = new Set(['delete:/guest-principal'])
+const NO_CONTENT_API_ROUTE_SOURCES = new Set([
+  'apps/api/src/routes/principal.ts#delete:/guest-principal',
+  'apps/api/src/routes/studyDrafts.ts#post:/:sessionId/cancellation'
+])
 
 const unwrapExpression = (node) => {
   let current = node
@@ -711,10 +724,11 @@ const collectApiRouteDiagnostics = (rootDir, sourceFile) => {
     if (isHttpRouteRegistration(node)) {
       const handler = node.arguments.at(-1)
       const routeKey = `${node.expression.name.text}:${node.arguments[0].text}`
+      const sourceRouteKey = `${relative}#${routeKey}`
       const contextNames = getHandlerContextNames(handler)
       const jsonCalls = collectContextJsonCalls(handler, contextNames)
       const hasValidatedNoContentResponse =
-        NO_CONTENT_API_ROUTES.has(routeKey) &&
+        NO_CONTENT_API_ROUTE_SOURCES.has(sourceRouteKey) &&
         containsNoContentResponse(handler, contextNames)
       const validatedResponseBindings = collectValidatedResponseBindings(
         handler,
