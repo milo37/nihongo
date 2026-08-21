@@ -18,7 +18,7 @@
     "build:domain": "pnpm --filter @nihongo/domain run build",
     "build": "pnpm -r --if-present run build",
     "preview": "pnpm --filter @nihongo/web run preview",
-    "check:architecture": "node scripts/architecture/cli.mjs",
+    "check:architecture": "pnpm run build:contracts && node scripts/architecture/cli.mjs",
     "typecheck": "pnpm run build:contracts && pnpm run build:domain && pnpm -r --if-present run typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
