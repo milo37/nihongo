@@ -11,6 +11,8 @@ import { studyQueries } from '@app/practice/queries/studyQueries'
 import { useReviewWrongNote } from '@app/wrong-note/hooks/useReviewWrongNote'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
+import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 
 const createTestClient = (): QueryClient =>
@@ -73,20 +75,25 @@ const toUpdateInput = (
 
 describe('mutation cache contracts', () => {
   it('학습 제출 성공 후 결과를 저장하고 관련 캐시 무효화를 기다린다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    mockDatabase.loginAs('USER')
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
     const sessionId = sessionPayload.session.id
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
-    )
-    const selectedOptionId = question.options[0].id
+    const question = sessionView.questions[0]
+
+    if (!question) {
+      throw new Error('테스트 세션에 문제가 없습니다.')
+    }
+
+    const selectedOptionId = question.options[0]?.id ?? null
     const client = createTestClient()
 
-    seedCache(client, studyQueries.session(sessionId).queryKey)
+    client.setQueryData(studyQueries.session(sessionId).queryKey, sessionView)
     seedCache(client, [...wrongNoteQueries.allKey(), 'seed'])
     seedCache(client, [...dashboardQueries.allKey(), 'seed'])
 
@@ -116,17 +123,23 @@ describe('mutation cache contracts', () => {
   })
 
   it('mutateAsync는 병렬 cache invalidation이 모두 끝날 때까지 pending을 유지한다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    mockDatabase.loginAs('USER')
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
     const sessionId = sessionPayload.session.id
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
-    )
+    const question = sessionView.questions[0]
+
+    if (!question) {
+      throw new Error('테스트 세션에 문제가 없습니다.')
+    }
+
     const client = createTestClient()
+    client.setQueryData(studyQueries.session(sessionId).queryKey, sessionView)
     const originalInvalidateQueries = client.invalidateQueries.bind(client)
     let releaseInvalidations: (() => void) | undefined
     const invalidationGate = new Promise<void>((resolve) => {
@@ -148,7 +161,7 @@ describe('mutation cache contracts', () => {
         answers: [
           {
             questionId: question.id,
-            selectedOptionId: question.options[0].id,
+            selectedOptionId: question.options[0]?.id ?? null,
             elapsedSec: 3
           }
         ],

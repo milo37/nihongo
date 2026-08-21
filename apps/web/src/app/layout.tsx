@@ -8,7 +8,7 @@ import { isMockApiMode } from '@libs/apiMode'
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
-    'rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+    'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
     isActive ? 'bg-emerald-50 text-brand' : 'text-slate-600 hover:text-ink'
   ].join(' ')
@@ -151,7 +151,7 @@ export const Layout = (): ReactElement => {
   return (
     <div className="min-h-screen bg-slate-50 text-ink">
       <a
-        className="sr-only z-[100] rounded-lg bg-white px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        className="sr-only z-[100] rounded-lg bg-white px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
         href="#main-content"
       >
         본문으로 바로가기
@@ -159,7 +159,7 @@ export const Layout = (): ReactElement => {
       <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <NavLink
-            className="flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+            className="flex min-h-11 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             to="/"
             onClick={closeMenu}
           >

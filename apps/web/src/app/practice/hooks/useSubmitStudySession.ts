@@ -9,7 +9,6 @@ import {
   isDefinitiveStudySubmissionError,
   isRetryableStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
-import { isMockApiMode } from '@libs/apiMode'
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch
@@ -61,9 +60,7 @@ export const useSubmitStudySession = (sessionId: string) => {
       return result
     },
     retry: (failureCount, error) =>
-      !isMockApiMode &&
-      failureCount < 1 &&
-      isRetryableStudySubmissionError(error),
+      failureCount < 1 && isRetryableStudySubmissionError(error),
     retryDelay: getStudySubmissionRetryDelay,
     onSuccess: async (result, input) => {
       assertCurrentStudySubmissionAction(input)

@@ -3,8 +3,10 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
+import { listWrongNotesQuerySchema } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { WrongNotePage } from '@app/wrong-note/page'
 import { queryClient } from '@libs/queryClient'
+import { toContractWrongNoteList } from '@mocks/adapters/wrongNoteReadContractAdapter'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
 
@@ -46,17 +48,24 @@ describe('WrongNotePage', () => {
     mockDatabase.loginAs('USER')
     let requestCount = 0
     mockServer.use(
-      http.get('*/api/wrong-note', () => {
+      http.get('*/api/v1/wrong-notes', () => {
         requestCount += 1
         return requestCount <= 2
-          ? HttpResponse.json({ message: 'temporary error' }, { status: 500 })
-          : HttpResponse.json({
-              items: [],
-              total: 0,
-              page: 1,
-              pageSize: 12,
-              availableTags: []
-            })
+          ? HttpResponse.json(
+              {
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'temporary error',
+                requestId: crypto.randomUUID(),
+                retryable: true
+              },
+              { status: 500 }
+            )
+          : HttpResponse.json(
+              toContractWrongNoteList(
+                [],
+                listWrongNotesQuerySchema.parse({ page: 1, pageSize: 12 })
+              )
+            )
       })
     )
     const router = createMemoryRouter(

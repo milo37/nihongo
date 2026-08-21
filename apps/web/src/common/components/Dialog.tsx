@@ -1,5 +1,10 @@
 import { useEffect, useId, useRef } from 'react'
-import type { ReactElement, ReactNode, RefObject } from 'react'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactElement,
+  ReactNode,
+  RefObject
+} from 'react'
 import { IconButton } from '@common/components/IconButton'
 import { classNames } from '@common/components/classNames'
 
@@ -15,6 +20,8 @@ type DialogProps = {
   closeLabel?: string
   size?: DialogSize
   initialFocusRef?: RefObject<HTMLElement | null>
+  returnFocusRef?: RefObject<HTMLElement | null>
+  fallbackFocusRef?: RefObject<HTMLElement | null>
   className?: string
   preventClose?: boolean
 }
@@ -25,11 +32,46 @@ const syncPageScrollLock = (): void => {
   document.documentElement.classList.toggle('has-modal', openDialogs.size > 0)
 }
 
+const restoreFocus = (
+  previousFocus: HTMLElement | null,
+  fallbackFocus: HTMLElement | null
+): void => {
+  if (!previousFocus) {
+    fallbackFocus?.focus()
+    return
+  }
+  if (previousFocus.isConnected) {
+    previousFocus.focus()
+    if (document.activeElement === previousFocus) {
+      return
+    }
+  }
+  const replacement = previousFocus.id
+    ? document.getElementById(previousFocus.id)
+    : null
+  if (replacement instanceof HTMLElement) {
+    replacement.focus()
+    if (document.activeElement === replacement) {
+      return
+    }
+  }
+  fallbackFocus?.focus()
+}
+
 const sizeClassNames: Record<DialogSize, string> = {
   sm: 'max-w-md',
   md: 'max-w-xl',
   lg: 'max-w-3xl'
 }
+
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(',')
 
 const closeIcon = (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -47,11 +89,13 @@ export const Dialog = ({
   className,
   closeLabel = '대화상자 닫기',
   description,
+  fallbackFocusRef,
   footer,
   initialFocusRef,
   onOpenChange,
   open,
   preventClose = false,
+  returnFocusRef,
   size = 'md',
   title
 }: DialogProps): ReactElement => {
@@ -69,10 +113,12 @@ export const Dialog = ({
     }
 
     if (open && !dialog.open) {
+      const explicitReturnFocus = returnFocusRef?.current
       previousFocusRef.current =
-        document.activeElement instanceof HTMLElement
+        (explicitReturnFocus?.isConnected ? explicitReturnFocus : null) ??
+        (document.activeElement instanceof HTMLElement
           ? document.activeElement
-          : null
+          : null)
 
       if (typeof dialog.showModal === 'function') {
         dialog.showModal()
@@ -99,9 +145,9 @@ export const Dialog = ({
       }
       openDialogs.delete(dialog)
       syncPageScrollLock()
-      previousFocusRef.current?.focus()
+      restoreFocus(previousFocusRef.current, fallbackFocusRef?.current ?? null)
     }
-  }, [initialFocusRef, open])
+  }, [fallbackFocusRef, initialFocusRef, open, returnFocusRef])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -122,6 +168,50 @@ export const Dialog = ({
     onOpenChange(false)
   }
 
+  const handleKeyDown = (
+    event: ReactKeyboardEvent<HTMLDialogElement>
+  ): void => {
+    if (event.key !== 'Tab') {
+      return
+    }
+    const dialog = dialogRef.current
+    if (!dialog) {
+      return
+    }
+    const focusableElements = Array.from(
+      dialog.querySelectorAll<HTMLElement>(focusableSelector)
+    ).filter(
+      (element) =>
+        element.getAttribute('aria-hidden') !== 'true' &&
+        !element.hasAttribute('hidden')
+    )
+    const firstElement = focusableElements[0]
+    const lastElement = focusableElements.at(-1)
+
+    if (!firstElement || !lastElement) {
+      event.preventDefault()
+      titleRef.current?.focus()
+      return
+    }
+
+    const activeElement = document.activeElement
+    if (!focusableElements.includes(activeElement as HTMLElement)) {
+      event.preventDefault()
+      const focusTarget = event.shiftKey ? lastElement : firstElement
+      focusTarget.focus()
+      return
+    }
+    if (event.shiftKey && activeElement === firstElement) {
+      event.preventDefault()
+      lastElement.focus()
+      return
+    }
+    if (!event.shiftKey && activeElement === lastElement) {
+      event.preventDefault()
+      firstElement.focus()
+    }
+  }
+
   return (
     <dialog
       ref={dialogRef}
@@ -140,21 +230,17 @@ export const Dialog = ({
       onClose={() => {
         const dialog = dialogRef.current
 
-        if (dialog) {
+        if (dialog && !dialog.open) {
           openDialogs.delete(dialog)
         }
         syncPageScrollLock()
-        previousFocusRef.current?.focus()
-
-        if (open) {
-          onOpenChange(false)
-        }
       }}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           requestClose()
         }
       }}
+      onKeyDown={handleKeyDown}
     >
       <div className="flex max-h-[min(90dvh,56rem)] flex-col overscroll-contain">
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">

@@ -8,7 +8,6 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isRealApiMode } from '@libs/apiMode'
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -102,11 +101,9 @@ export const DashboardPage = (): ReactElement => {
             <strong className="text-ink">{user?.targetLevel ?? 'N3'}</strong>
             입니다.
           </p>
-          {isRealApiMode ? (
-            <p className="mt-2 text-sm font-semibold text-slate-600">
-              누적 수치는 전체 기간 기준이며, 최근 7일 날짜는 UTC 기준입니다.
-            </p>
-          ) : null}
+          <p className="mt-2 text-sm font-semibold text-slate-600">
+            누적 수치는 전체 기간 기준이며, 최근 7일 날짜는 UTC 기준입니다.
+          </p>
         </div>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 font-bold text-white"
@@ -122,7 +119,7 @@ export const DashboardPage = (): ReactElement => {
           description="첫 문제를 풀면 정답률, 약한 과목, 최근 7일 학습량이 이곳에 표시됩니다."
           action={
             <Link
-              className="font-bold text-brand underline hover:no-underline"
+              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
               to="/practice"
             >
               첫 학습 시작하기

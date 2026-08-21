@@ -138,7 +138,7 @@ export const Toast = ({
         ) : null}
         {action ? (
           <button
-            className="mt-3 min-h-10 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            className="mt-3 min-h-11 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
             type="button"
             onClick={action.onClick}
           >

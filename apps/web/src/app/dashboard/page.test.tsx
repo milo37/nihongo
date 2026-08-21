@@ -3,8 +3,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { getDashboardStatsQuerySchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
 import { DashboardPage } from '@app/dashboard/page'
 import { queryClient } from '@libs/queryClient'
+import { toContractDashboardStats } from '@mocks/adapters/dashboardContractAdapter'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
@@ -15,13 +17,24 @@ describe('DashboardPage', () => {
     const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(currentUser)
-    const stats = mockDatabase.getDashboardStats(currentUser.id)
+    const stats = toContractDashboardStats(
+      mockDatabase.getCanonicalDashboardRecord(currentUser.id),
+      getDashboardStatsQuerySchema.parse({})
+    )
     let requestCount = 0
     mockServer.use(
-      http.get('*/api/dashboard/stats', () => {
+      http.get('*/api/v1/dashboard', () => {
         requestCount += 1
         return requestCount <= 2
-          ? HttpResponse.json({ message: 'temporary error' }, { status: 500 })
+          ? HttpResponse.json(
+              {
+                code: 'INTERNAL_SERVER_ERROR',
+                message: 'temporary error',
+                requestId: crypto.randomUUID(),
+                retryable: true
+              },
+              { status: 500 }
+            )
           : HttpResponse.json(stats)
       })
     )

@@ -3,11 +3,11 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { createStudySession } from '@api/study/createStudySession'
-import { submitStudySession } from '@api/study/submitStudySession'
+import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
 import { PracticeSessionPage } from '@app/practice/session/page'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
-import { toLegacyStudySessionView } from '@app/practice/adapters/studySessionView'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { queryClient } from '@libs/queryClient'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
@@ -18,13 +18,15 @@ import { mockServer } from '@/test/server'
 describe('PracticeSessionPage', () => {
   it('숫자 키와 클릭 선택이 같은 답안 상태와 radio 상태를 갱신한다', async () => {
     const user = userEvent.setup()
-    const sessionPayload = await createStudySession({
+    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 5
     })
-    const firstQuestion = sessionPayload.questions[0]
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
+    const firstQuestion = sessionView.questions[0]
 
     expect(firstQuestion).toBeDefined()
     if (!firstQuestion) {
@@ -89,13 +91,14 @@ describe('PracticeSessionPage', () => {
 
   it('제출 단축키로 Dialog를 열고 열린 동안 배경 단축키를 비활성화한다', async () => {
     const user = userEvent.setup()
-    const sessionPayload = await createStudySession({
+    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
-    const question = sessionPayload.questions[0]
+    const question = toCanonicalStudySessionView(sessionPayload).questions[0]
 
     expect(question).toBeDefined()
     if (!question) {
@@ -135,7 +138,8 @@ describe('PracticeSessionPage', () => {
       name: `2. ${question.options[1]?.text}`
     })
     await user.click(firstOption)
-    expect(screen.getByRole('button', { name: '답안 제출' })).toHaveAttribute(
+    const submitButton = screen.getByRole('button', { name: '답안 제출' })
+    expect(submitButton).toHaveAttribute(
       'aria-keyshortcuts',
       'Control+Enter Meta+Enter'
     )
@@ -147,30 +151,44 @@ describe('PracticeSessionPage', () => {
     fireEvent.keyDown(window, { key: '2' })
     expect(firstOption).toBeChecked()
     expect(secondOption).not.toBeChecked()
+    await user.click(screen.getByRole('button', { name: '대화상자 닫기' }))
+    await waitFor(() => expect(submitButton).toHaveFocus())
   })
 
   it('제출 전송 중에는 네 가지 닫기 경로와 답 변경·뒤로가기를 막고 한 결과로 수렴한다', async () => {
     const user = userEvent.setup()
-    const sessionPayload = await createStudySession({
+    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
-    const question = sessionPayload.questions[0]
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
+    const question = sessionView.questions[0]
     expect(question).toBeDefined()
     if (!question) {
       return
     }
-    const successfulResult = await submitStudySession(
+    const successfulResult = await submitStudySessionV1(
       sessionPayload.session.id,
-      { answers: [], durationSec: 5 }
+      {
+        answers: [
+          {
+            studySessionQuestionId:
+              sessionPayload.questions[0]?.sessionQuestionId ?? '',
+            selectedOptionId: null,
+            elapsedSec: 5
+          }
+        ],
+        durationSec: 5
+      },
+      crypto.randomUUID()
     )
     queryClient.setQueryData(
       serverStateQueryKeys.study.session(sessionPayload.session.id),
-      toLegacyStudySessionView(sessionPayload)
+      sessionView
     )
-    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
     useAppStore
       .getState()
       .beginPractice(
@@ -183,7 +201,7 @@ describe('PracticeSessionPage', () => {
       releaseResponse = resolve
     })
     mockServer.use(
-      http.post('*/api/study/session/:sessionId/submit', async () => {
+      http.post('*/api/v1/study-sessions/:sessionId/submission', async () => {
         requestCount += 1
         await responseGate
         return HttpResponse.json(successfulResult)
@@ -273,16 +291,28 @@ describe('PracticeSessionPage', () => {
   })
 
   it('이미 제출한 세션으로 돌아오면 결과 경로로 이동한다', async () => {
-    const sessionPayload = await createStudySession({
+    useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
-    await submitStudySession(sessionPayload.session.id, {
-      answers: [],
-      durationSec: 5
-    })
+    await submitStudySessionV1(
+      sessionPayload.session.id,
+      {
+        answers: [
+          {
+            studySessionQuestionId:
+              sessionPayload.questions[0]?.sessionQuestionId ?? '',
+            selectedOptionId: null,
+            elapsedSec: 5
+          }
+        ],
+        durationSec: 5
+      },
+      crypto.randomUUID()
+    )
     const router = createMemoryRouter(
       [
         {

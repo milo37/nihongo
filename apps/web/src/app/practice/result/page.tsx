@@ -266,7 +266,7 @@ const PracticeResultPageContent = (): ReactElement => {
         description="아직 제출하지 않은 세션이거나 만료된 학습 기록입니다."
         action={
           <Link
-            className="font-bold text-brand underline hover:no-underline"
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
             새 문제 풀기
@@ -285,7 +285,7 @@ const PracticeResultPageContent = (): ReactElement => {
         description="재출제할 원본 결과가 없거나 현재 계정에서 접근할 수 없습니다."
         action={
           <Link
-            className="font-bold text-brand underline hover:no-underline"
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
             새 문제 풀기

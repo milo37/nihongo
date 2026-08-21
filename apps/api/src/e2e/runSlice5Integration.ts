@@ -1,11 +1,15 @@
 import { randomBytes } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
-import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { Client } from 'pg'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { assertSlice5IntegrationWarningBudget } from './integrationWarningBudget.js'
+import {
+  shouldDetachOwnedProcess,
+  stopOwnedProcesses
+} from './ownedProcessGroup.js'
 
 const SCHEMA_PATTERN = /^phase4_slice5_integration_[0-9]+_[a-f0-9]{8}_test$/
 const repositoryRoot = path.resolve(
@@ -57,32 +61,46 @@ const quoteIdentifier = (value: string): string => {
 const formatCommand = (command: string, args: readonly string[]): string =>
   [command, ...args].join(' ')
 
-let activeChild: ChildProcess | undefined
+const commandProcesses: Array<{ child: ChildProcess; label: string }> = []
 
 const runCommand = async (
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv = process.env
-): Promise<void> =>
-  await new Promise<void>((resolve, reject) => {
+  environment: NodeJS.ProcessEnv = process.env,
+  captureIntegrationOutput = false
+): Promise<string> =>
+  await new Promise<string>((resolve, reject) => {
+    let capturedOutput = ''
+    let spawnError: Error | undefined
     const child = spawn(command, args, {
       cwd: repositoryRoot,
+      detached: shouldDetachOwnedProcess,
       env: environment,
-      stdio: 'inherit'
+      stdio: captureIntegrationOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit'
     })
-    activeChild = child
+    commandProcesses.push({ child, label: formatCommand(command, args) })
+    if (captureIntegrationOutput) {
+      child.stdout?.on('data', (chunk: Buffer) => {
+        const value = chunk.toString()
+        capturedOutput += value
+        process.stdout.write(value)
+      })
+      child.stderr?.on('data', (chunk: Buffer) => {
+        const value = chunk.toString()
+        capturedOutput += value
+        process.stderr.write(value)
+      })
+    }
     child.once('error', (error) => {
-      if (activeChild === child) {
-        activeChild = undefined
-      }
-      reject(error)
+      spawnError = error
     })
-    child.once('exit', (code, signal) => {
-      if (activeChild === child) {
-        activeChild = undefined
+    child.once('close', (code, signal) => {
+      if (spawnError) {
+        reject(spawnError)
+        return
       }
       if (code === 0) {
-        resolve()
+        resolve(capturedOutput)
         return
       }
       reject(
@@ -93,23 +111,6 @@ const runCommand = async (
       )
     })
   })
-
-const stopActiveChild = async (): Promise<void> => {
-  const child = activeChild
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    return
-  }
-  child.kill('SIGTERM')
-  const exited = await Promise.race([
-    new Promise<boolean>((resolve) => {
-      child.once('exit', () => resolve(true))
-    }),
-    delay(8_000).then(() => false)
-  ])
-  if (!exited && child.exitCode === null && child.signalCode === null) {
-    child.kill('SIGKILL')
-  }
-}
 
 const createSchema = async (client: Client): Promise<void> => {
   const existing = await client.query<{ count: string }>(
@@ -144,7 +145,14 @@ let schemaCreated = false
 
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= (async () => {
-    await stopActiveChild()
+    await stopOwnedProcesses(commandProcesses, {
+      onForceKill: ({ label }) => {
+        process.stderr.write(
+          `[${label}] graceful stop timed out; sending SIGKILL.\n`
+        )
+      }
+    })
+    commandProcesses.length = 0
     try {
       if (schemaCreated && adminConnected) {
         await dropSchema(adminClient)
@@ -191,8 +199,14 @@ const run = async (): Promise<void> => {
     NODE_ENV: 'test',
     PRISMA_TEST_DATABASE_URL: targetDatabaseUrl.toString()
   }
-  const historicalPinEnvironment: NodeJS.ProcessEnv = {
+  const tracedIntegrationEnvironment: NodeJS.ProcessEnv = {
     ...integrationEnvironment,
+    NODE_OPTIONS: [integrationEnvironment.NODE_OPTIONS, '--trace-deprecation']
+      .filter(Boolean)
+      .join(' ')
+  }
+  const historicalPinEnvironment: NodeJS.ProcessEnv = {
+    ...tracedIntegrationEnvironment,
     RUN_SLICE5_HISTORICAL_PIN_TEST: '1'
   }
   const seedEnvironment: NodeJS.ProcessEnv = {
@@ -218,7 +232,7 @@ const run = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
     seedEnvironment
   )
-  await runCommand(
+  const fullSuiteOutput = await runCommand(
     'pnpm',
     integrationTestArguments.length > 0
       ? [
@@ -234,10 +248,11 @@ const run = async (): Promise<void> => {
       : ['--filter', '@nihongo/api', 'run', 'test:integration'],
     integrationTestArguments.length > 0
       ? historicalPinEnvironment
-      : integrationEnvironment
+      : tracedIntegrationEnvironment,
+    integrationTestArguments.length === 0
   )
   if (integrationTestArguments.length === 0) {
-    await runCommand(
+    const historicalPinOutput = await runCommand(
       'pnpm',
       [
         '--filter',
@@ -251,7 +266,15 @@ const run = async (): Promise<void> => {
         '-t',
         'source v1을 retire하고 v2를 publish해도 retry와 ReviewEvent는 v1 pin을 보존한다'
       ],
-      historicalPinEnvironment
+      historicalPinEnvironment,
+      true
+    )
+    assertSlice5IntegrationWarningBudget(fullSuiteOutput, historicalPinOutput)
+    process.stdout.write(
+      `${JSON.stringify({
+        event: 'slice5.integration.pg_warning_budget_verified',
+        warningCount: 8
+      })}\n`
     )
   }
 }

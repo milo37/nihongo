@@ -23,6 +23,10 @@ SUBMITTED result의 incorrect historical pin retry도 실제 API와 canonical mo
 지원합니다. USER/ADMIN target은 `WRONG_NOTE`, guest target은 `RANDOM`이며 응답 유실과
 hard reload 뒤에도 같은 key·target으로 수렴합니다. UserMemo·review history와 real admin
 API는 요청 전에 명시적으로 비활성화되며 silent Mock fallback하지 않습니다.
+Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
+UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
+RANDOM fallback을 제거했습니다. CI는 fresh-schema integration과 real/mock Chromium,
+production mock negative build와 real artifact 검증을 실행하도록 연결됐습니다.
 
 ## 서비스 목적
 
@@ -675,6 +679,35 @@ historical-pin 1 pass, unique pass 125를 확인했습니다. pg warning은 full
 확인했습니다. immutable Slice 0–5 checkpoint는
 `/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-5-final-20260821-265d732`입니다.
 
+Phase 4 Slice 6은 active UI의 canonical-only cutover, production mock fail-closed,
+fresh-schema runner의 warning/process-tree stop-gate와 responsive·keyboard·focus·network-loss
+browser matrix를 닫았습니다. non-DB gate는 contracts 11 files/62, domain 5/30,
+API 54/293, web 65/333으로 Vitest 135 files/718 tests, architecture 포함 총 723 tests를
+통과했고 production build는 4/5 workspace projects·web 428 modules였습니다.
+`VITE_API_MODE=mock` production build는 명시 오류로 거부됐고 정상 artifact에는
+`mockServiceWorker.js`가 없습니다.
+
+Node 22.23.0에서 packageManager·Volta·`.npmrc`로 strict pin한 pnpm 10.2.1 direct
+`pnpm install --frozen-lockfile`은 exit 0이었습니다. local Corepack bootstrap은 host keyring
+signature mismatch로 pnpm 시작 전에 exit 1이었고 integrity 검증 비활성화 우회는 사용하지
+않았습니다. CI는 pnpm/action-setup 뒤 같은 direct frozen gate를 실행합니다.
+
+fresh `phase4_slice5_integration_1787309969208_b39eb895_test`에서 migration 25/25,
+seed 65/0→0/65, full 20 files/124 pass+1 deliberate skip와 isolated historical-pin
+1 pass+4 deliberate skip, unique pass 125를 확인했습니다. pg warning은 full 7회+
+isolated 1회이며 모든 8개 block이 승인된 `PgTransaction.performIO` → `interpretNode` →
+`Array.map` stack과 일치했습니다. fresh
+`phase4_slice2_e2e_1787310025833_673c9c90_test`에서는 real Chromium 10/10+mock 1/1,
+총 11/11을 통과했습니다. submit/draft/retry response-loss, guest mode matrix, two-context
+conflict/account switch와 네 viewport keyboard/focus/reduced-motion/44px를 포함하며 두
+schema는 종료 뒤 삭제·absent였습니다. immutable Slice 0–6 checkpoint는
+`/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-6-final-20260821-b0b6713`입니다.
+
+CI source 연결은 완료했습니다. remote CI 결과는 branch push 이후 GitHub에서 별도로
+확인하며 이 local acceptance evidence에는 포함하지 않습니다. production deploy·v2
+exposure도 외부 generation lease/writer drain,
+cleanup scheduler/runbook과 SLO evidence가 없어 계속 금지합니다.
+
 production real preview에서 guest RANDOM keyboard·미응답 제출/result와 USER
 login→RANDOM 5문제 all-null 제출→result 0/5→WrongNote list/detail→dashboard를 실제
 브라우저로 확인했습니다. USER logout 후 ADMIN login에서는 자기 목록이 비고 USER detail
@@ -797,9 +830,9 @@ Slice 0의 계약 정규화, Slice 1의 additive DB·API·canonical MSW, Slice 2
 autosave·working-copy·복구·conflict UX, Slice 3의 selection engine·non-RANDOM mode와
 all-mode dashboard, Slice 4의 Bookmark PostgreSQL/API/UI·BOOKMARK mode와 실제 Chromium
 gate, Slice 5의 historical-pin result retry·response-loss exact replay와 retry-aware
-lifecycle까지 `codex/phase-4-practice-flow`에서 완료했습니다. Phase 4 전체는 아직 In
-Progress이며, 다음 실행 단위는 별도 지시가 필요한 Slice 6 cutover·E2E·보고
-closeout입니다.
+lifecycle, Slice 6의 canonical UI cutover·CI·browser close까지
+`codex/phase-4-practice-flow`에서 완료했습니다. Phase 4는 완료됐고 다음 실행 단위는 별도
+지시가 필요한 Phase 5입니다.
 
 ## 향후 개선
 

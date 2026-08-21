@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import type {
   Browser,
   BrowserContext,
+  Locator,
   Page,
   Request,
   Route
@@ -79,6 +80,24 @@ const clientIpByEmail = new Map([
 ])
 const schemaName = process.env.SLICE2_E2E_SCHEMA
 const authenticatedStorage = new Map<string, BrowserStorageState>()
+
+const moveFocusWithKeyboard = async (
+  page: Page,
+  target: Locator,
+  maximumTabs = 40
+): Promise<void> => {
+  for (let index = 0; index <= maximumTabs; index += 1) {
+    if (
+      await target.evaluate(
+        (element) => element === element.ownerDocument.activeElement
+      )
+    ) {
+      return
+    }
+    await page.keyboard.press('Tab')
+  }
+  throw new Error('Keyboard focus did not reach the expected target.')
+}
 
 const readSlice3SelectionFixture = (): Slice3SelectionFixture => {
   const serialized = process.env.SLICE3_E2E_SELECTION
@@ -387,16 +406,33 @@ test.describe.serial('Slice 2 real practice flow', () => {
       await first.page.getByRole('radio').nth(0).click()
       await waitForSaved(first.page)
 
-      await second.page.getByRole('radio').nth(1).click()
+      const conflictingChoice = second.page.getByRole('radio').nth(1)
+      await conflictingChoice.click()
       const conflictDialog = second.page.getByRole('dialog', {
         name: '다른 기기의 작업과 충돌했습니다'
       })
       await expect(conflictDialog).toBeVisible({ timeout: 15_000 })
+      await expect(
+        conflictDialog.getByRole('heading', {
+          name: '다른 기기의 작업과 충돌했습니다'
+        })
+      ).toBeFocused()
       await expect(second.page.getByRole('radio').nth(1)).toBeChecked()
-      await conflictDialog
-        .getByRole('button', { name: '서버 기록 사용' })
-        .click()
+      await second.page.keyboard.press('Tab')
+      await expect(
+        conflictDialog.getByRole('button', { name: '서버 기록 사용' })
+      ).toBeFocused()
+      await second.page.keyboard.press('Tab')
+      await expect(
+        conflictDialog.getByRole('button', { name: '내 변경 유지' })
+      ).toBeFocused()
+      await second.page.keyboard.press('Tab')
+      await expect(
+        conflictDialog.getByRole('button', { name: '서버 기록 사용' })
+      ).toBeFocused()
+      await second.page.keyboard.press('Enter')
       await expect(conflictDialog).toBeHidden()
+      await expect(conflictingChoice).toBeFocused()
       await expect(second.page.getByRole('radio').nth(0)).toBeChecked()
 
       await second.page.getByRole('radio').nth(2).click()
@@ -1028,6 +1064,18 @@ test.describe.serial('Slice 2 real practice flow', () => {
     const page = await context.newPage()
 
     try {
+      await page.goto('/practice?mode=BOOKMARK')
+      const loginLink = page
+        .getByRole('alert')
+        .getByRole('link', { name: '로그인하기' })
+      await expect(loginLink).toHaveAttribute(
+        'href',
+        '/login?redirect=%2Fpractice%3Fmode%3DBOOKMARK'
+      )
+      const loginLinkBox = await loginLink.boundingBox()
+      expect(loginLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(loginLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+
       await page.goto('/practice')
       await expect(
         page.getByRole('button', { name: /^약점 추천/u })
@@ -1069,29 +1117,64 @@ test.describe.serial('Slice 2 real practice flow', () => {
         page.getByRole('button', { name: /^랜덤 문제/u })
       ).toHaveAttribute('aria-pressed', 'true')
 
-      const bookmarkResult = await page.evaluate(async () => {
-        const response = await fetch('/api/v1/study-sessions', {
-          body: JSON.stringify({
-            count: 5,
-            level: 'N5',
-            mode: 'BOOKMARK',
-            subject: 'VOCABULARY'
-          }),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Nihongo-Practice-Contract': '2'
-          },
-          method: 'POST'
+      let randomQuestionIds: Set<string> | undefined
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const random = await createSession(page)
+        expect(random.session.mode).toBe('RANDOM')
+        expect(
+          new Set(random.questions.map(({ question }) => question.id)).size
+        ).toBe(random.questions.length)
+        randomQuestionIds ??= new Set(
+          random.questions.map(({ question }) => question.id)
+        )
+        await submitAllWrong(page, random)
+      }
+
+      const weakness = await startSessionFromSetup(page, '약점 추천')
+      expect(weakness.session).toMatchObject({
+        actualCount: 5,
+        fallbackReason: null,
+        mode: 'WEAKNESS',
+        usedFallback: false
+      })
+      expect(
+        new Set(weakness.questions.map(({ question }) => question.id))
+      ).toEqual(randomQuestionIds)
+      await page.getByRole('button', { name: '1번 문제 즐겨찾기 추가' }).click()
+      const guestBookmarkLoginLink = page.getByRole('link', {
+        name: '로그인 선택'
+      })
+      await expect(guestBookmarkLoginLink).toBeVisible()
+      const guestBookmarkLoginBox = await guestBookmarkLoginLink.boundingBox()
+      expect(guestBookmarkLoginBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(guestBookmarkLoginBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+      await cancelCreatedSession(page, weakness.session.id)
+
+      for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW', 'BOOKMARK'] as const) {
+        const protectedModeResult = await page.evaluate(async (inputMode) => {
+          const response = await fetch('/api/v1/study-sessions', {
+            body: JSON.stringify({
+              count: 5,
+              level: 'N5',
+              mode: inputMode,
+              subject: 'VOCABULARY'
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Nihongo-Practice-Contract': '2'
+            },
+            method: 'POST'
+          })
+          return {
+            body: (await response.json()) as { code?: string },
+            status: response.status
+          }
+        }, mode)
+        expect(protectedModeResult).toEqual({
+          body: expect.objectContaining({ code: 'AUTHENTICATION_REQUIRED' }),
+          status: 401
         })
-        return {
-          body: (await response.json()) as { code?: string },
-          status: response.status
-        }
-      })
-      expect(bookmarkResult).toEqual({
-        body: expect.objectContaining({ code: 'AUTHENTICATION_REQUIRED' }),
-        status: 401
-      })
+      }
     } finally {
       await context.close()
     }
@@ -1300,6 +1383,74 @@ test.describe.serial('Slice 2 real practice flow', () => {
     }
   })
 
+  test('submit response loss replays the exact key, body, and committed result', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userC)
+    const { context, page } = authenticated
+
+    try {
+      const created = await createSession(page)
+      await openSession(page, created.session.id)
+      await goToQuestion(page, 5)
+      await page.getByRole('radio').nth(0).click()
+      await waitForSaved(page)
+
+      const submissionPattern = new RegExp(
+        `/api/v1/study-sessions/${created.session.id}/submission$`
+      )
+      const observedBodies: string[] = []
+      const observedKeys: string[] = []
+      let committedResult: unknown
+      let requestCount = 0
+      const loseFirstSubmissionResponse = async (
+        route: Route
+      ): Promise<void> => {
+        const request = route.request()
+        if (request.method() !== 'POST') {
+          await route.continue()
+          return
+        }
+
+        requestCount += 1
+        observedBodies.push(request.postData() ?? '')
+        observedKeys.push(request.headers()['idempotency-key'] ?? '')
+        const response = await route.fetch()
+        expect(response.status()).toBe(201)
+        const result = await response.json()
+        if (requestCount === 1) {
+          expect(response.headers()['idempotency-replayed']).toBeUndefined()
+          committedResult = result
+          await route.abort('failed')
+          return
+        }
+
+        expect(response.headers()['idempotency-replayed']).toBe('true')
+        expect(result).toEqual(committedResult)
+        await route.fulfill({ response })
+      }
+      await page.route(submissionPattern, loseFirstSubmissionResponse)
+
+      await page.getByRole('button', { name: '답안 제출' }).click()
+      const dialog = page.getByRole('dialog', {
+        name: '답안을 제출하시겠습니까?'
+      })
+      await dialog.getByRole('button', { name: '제출하고 결과 보기' }).click()
+
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/result/${created.session.id}$`),
+        { timeout: 20_000 }
+      )
+      expect(requestCount).toBe(2)
+      expect(observedKeys[0]).toMatch(/^[0-9a-f-]{36}$/u)
+      expect(observedKeys[1]).toBe(observedKeys[0])
+      expect(observedBodies[1]).toBe(observedBodies[0])
+      await page.unroute(submissionPattern, loseFirstSubmissionResponse)
+    } finally {
+      await context.close()
+    }
+  })
+
   test('keyboard, responsive, reduced-motion, live status, and v2 submission use the saved revision', async ({
     browser
   }) => {
@@ -1308,11 +1459,49 @@ test.describe.serial('Slice 2 real practice flow', () => {
 
     try {
       await page.emulateMedia({ reducedMotion: 'reduce' })
-      const created = await createSession(page)
-      await openSession(page, created.session.id)
+      await page.goto('/practice')
+      await page.keyboard.press('Tab')
+      const skipLink = page.getByRole('link', {
+        name: '본문으로 바로가기'
+      })
+      await expect(skipLink).toBeFocused()
+      const skipLinkBox = await skipLink.boundingBox()
+      expect(skipLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(skipLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+      for (const buttonName of ['N5', '문자·어휘', '5문제'] as const) {
+        const button = page.getByRole('button', {
+          exact: true,
+          name: buttonName
+        })
+        await moveFocusWithKeyboard(page, button)
+        await page.keyboard.press('Enter')
+      }
+      const createResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'POST' &&
+          url.pathname === '/api/v1/study-sessions'
+        )
+      })
+      const startButton = page.getByRole('button', {
+        name: '학습 시작하기'
+      })
+      await moveFocusWithKeyboard(page, startButton)
+      await page.keyboard.press('Enter')
+      const createResponse = await createResponsePromise
+      expect(createResponse.status()).toBe(201)
+      const created = (await createResponse.json()) as CreatedSession
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${created.session.id}$`)
+      )
+      await expect(page.locator('[data-save-state]')).toBeVisible()
+      await expect(page.locator('h1')).toBeFocused()
 
-      for (const width of [320, 375, 768, 1280]) {
+      for (const [index, width] of [320, 375, 768, 1280].entries()) {
         await page.setViewportSize({ height: 800, width })
+        await page.keyboard.press('1')
+        await expect(page.getByRole('radio').nth(0)).toBeChecked()
+        await waitForSaved(page)
         expect(
           await page.evaluate(
             () =>
@@ -1320,10 +1509,25 @@ test.describe.serial('Slice 2 real practice flow', () => {
               document.documentElement.clientWidth
           )
         ).toBe(true)
-        const optionTarget = page.locator('label').first()
-        const box = await optionTarget.boundingBox()
-        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
-        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
+        const touchTargets = page.locator(
+          'button:visible, a[href]:visible:not(.sr-only), label:has(input[type="radio"]):visible'
+        )
+        for (
+          let targetIndex = 0;
+          targetIndex < (await touchTargets.count());
+          targetIndex += 1
+        ) {
+          const box = await touchTargets.nth(targetIndex).boundingBox()
+          expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+          expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
+        }
+        await page.keyboard.press('ArrowRight')
+        await expect(
+          page.getByRole('button', {
+            name: new RegExp(`^${index + 2}번 문제,`)
+          })
+        ).toHaveAttribute('aria-current', 'step')
+        await expect(page.locator('h1')).toBeFocused()
       }
 
       const transitionDuration = await page
@@ -1335,20 +1539,11 @@ test.describe.serial('Slice 2 real practice flow', () => {
         : Number.parseFloat(transitionDuration)
       expect(transitionDurationSeconds).toBeLessThanOrEqual(0.001)
 
-      await page.keyboard.press('1')
-      await expect(page.getByRole('radio').nth(0)).toBeChecked()
-      await waitForSaved(page)
-      await page.keyboard.press('ArrowRight')
-      await expect(
-        page.getByRole('button', { name: /^2번 문제,/ })
-      ).toHaveAttribute('aria-current', 'step')
-      await expect(page.locator('h1')).toBeFocused()
       await expect(page.locator('[data-save-state]')).toHaveAttribute(
         'aria-live',
         'polite'
       )
 
-      await goToQuestion(page, 5)
       let releaseSaveResponse = (): void => undefined
       const saveResponseGate = new Promise<void>((resolve) => {
         releaseSaveResponse = resolve
@@ -1390,20 +1585,96 @@ test.describe.serial('Slice 2 real practice flow', () => {
       await expect(
         page.getByRole('button', { name: '답안 제출' })
       ).toHaveAttribute('aria-keyshortcuts', 'Control+Enter Meta+Enter')
-      await page.keyboard.press('Control+Enter')
+      const submitButton = page.getByRole('button', { name: '답안 제출' })
+      await moveFocusWithKeyboard(page, submitButton)
+      await page.keyboard.press('Enter')
       const submitDialog = page.getByRole('dialog', {
         name: '답안을 제출하시겠습니까?'
       })
       await expect(submitDialog).toBeVisible()
-      await submitDialog
-        .getByRole('button', { name: '제출하고 결과 보기' })
-        .click()
+      await expect(
+        submitDialog.getByRole('heading', {
+          name: '답안을 제출하시겠습니까?'
+        })
+      ).toBeFocused()
+      const dialogTargets = submitDialog.getByRole('button')
+      for (
+        let targetIndex = 0;
+        targetIndex < (await dialogTargets.count());
+        targetIndex += 1
+      ) {
+        const box = await dialogTargets.nth(targetIndex).boundingBox()
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
+      }
+      await page.keyboard.press('Escape')
+      await expect(submitDialog).toBeHidden()
+      await expect(submitButton).toBeFocused()
+
+      await page.keyboard.press('Control+Enter')
+      await expect(submitDialog).toBeVisible()
+      await expect(page.locator('html')).toHaveClass(/has-modal/)
+      await expect(
+        submitDialog.getByRole('heading', {
+          name: '답안을 제출하시겠습니까?'
+        })
+      ).toBeFocused()
+      await page.keyboard.press('Shift+Tab')
+      await expect(page.locator('html')).toHaveClass(/has-modal/)
+      await expect(
+        submitDialog.getByRole('button', { name: '제출하고 결과 보기' })
+      ).toBeFocused()
+      await page.keyboard.press('Tab')
+      await expect(
+        submitDialog.getByRole('button', { name: '대화상자 닫기' })
+      ).toBeFocused()
+      await page.keyboard.press('Tab')
+      await expect(
+        submitDialog.getByRole('button', { name: '계속 풀기' })
+      ).toBeFocused()
+      await page.keyboard.press('Tab')
+      await page.keyboard.press('Enter')
       await expect(page).toHaveURL(
         new RegExp(`/practice/result/${created.session.id}$`),
         { timeout: 20_000 }
       )
       expect(submissionBody?.expectedDraftRevision).toEqual(expect.any(Number))
       expect(submissionBody?.expectedDraftRevision).toBeGreaterThan(0)
+
+      const cancelled = await createSession(page)
+      await cancelCreatedSession(page, cancelled.session.id)
+      await page.goto(`/practice/session/${cancelled.session.id}`)
+      await expect(
+        page.getByRole('heading', { name: '취소된 학습 세션입니다' })
+      ).toBeVisible()
+      const cancelledSessionLink = page.getByRole('link', {
+        name: '학습 설정으로 이동'
+      })
+      const cancelledSessionLinkBox = await cancelledSessionLink.boundingBox()
+      expect(cancelledSessionLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(cancelledSessionLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+
+      await page.goto('/practice/result/ffffffff-ffff-4fff-8fff-ffffffffffff')
+      await expect(
+        page.getByRole('heading', { name: '학습 결과를 찾을 수 없습니다' })
+      ).toBeVisible()
+      const missingResultLink = page.getByRole('link', {
+        name: '새 문제 풀기'
+      })
+      const missingResultLinkBox = await missingResultLink.boundingBox()
+      expect(missingResultLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(missingResultLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+
+      await page.goto('/bookmarks')
+      await expect(
+        page.getByRole('heading', { name: '저장한 문제가 없습니다' })
+      ).toBeVisible()
+      const emptyBookmarkLink = page.getByRole('link', {
+        name: '문제 풀러 가기'
+      })
+      const emptyBookmarkLinkBox = await emptyBookmarkLink.boundingBox()
+      expect(emptyBookmarkLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(emptyBookmarkLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
     } finally {
       await context.close()
     }

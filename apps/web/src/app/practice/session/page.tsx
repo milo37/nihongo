@@ -81,6 +81,8 @@ export const PracticeSessionPage = (): ReactElement => {
   const clearGuestPracticeQueryCache = useClearGuestPracticeQueryCache()
   const { isReady: isAuthReady, role, user } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const draftConflictReturnFocusRef = useRef<HTMLElement | null>(null)
+  const submitButtonRef = useRef<HTMLButtonElement>(null)
   const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
     useState(false)
   const [bookmarkMessage, setBookmarkMessage] = useState<{
@@ -425,6 +427,10 @@ export const PracticeSessionPage = (): ReactElement => {
     }
   }, [canFocusCurrentQuestion, currentQuestion?.id, isNavigationPromptBlocked])
 
+  useEffect(() => {
+    draftConflictReturnFocusRef.current = null
+  }, [currentQuestion?.id])
+
   const movePrevious = (): void => {
     if (isV2Session) {
       draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
@@ -454,6 +460,9 @@ export const PracticeSessionPage = (): ReactElement => {
       !isPreparingSubmission &&
       sessionQuery.data?.session.status === 'IN_PROGRESS'
     ) {
+      if (document.activeElement instanceof HTMLElement) {
+        draftConflictReturnFocusRef.current = document.activeElement
+      }
       if (isV2Session && currentQuestion.sessionQuestionId) {
         draftController.selectOption(
           currentQuestion.sessionQuestionId,
@@ -656,7 +665,7 @@ export const PracticeSessionPage = (): ReactElement => {
         description="새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없습니다."
         action={
           <Link
-            className="font-bold text-brand underline hover:no-underline"
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
             학습 설정으로 이동
@@ -701,7 +710,7 @@ export const PracticeSessionPage = (): ReactElement => {
         description="다른 급수, 과목 또는 출제 모드를 선택해 주세요."
         action={
           <Link
-            className="font-bold text-brand underline hover:no-underline"
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
             학습 설정으로 이동
@@ -1081,7 +1090,7 @@ export const PracticeSessionPage = (): ReactElement => {
                 : bookmarkMessage?.text}{' '}
               {role === 'GUEST' ? (
                 <Link
-                  className="underline hover:no-underline"
+                  className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
                   to="/login?redirect=%2Fpractice"
                 >
                   로그인 선택
@@ -1155,6 +1164,7 @@ export const PracticeSessionPage = (): ReactElement => {
         </Button>
         {isLastQuestion ? (
           <Button
+            ref={submitButtonRef}
             aria-keyshortcuts="Control+Enter Meta+Enter"
             disabled={!canRequestSubmission}
             onClick={() => setSubmitDialogRequestedOpen(true)}
@@ -1211,6 +1221,7 @@ export const PracticeSessionPage = (): ReactElement => {
       <Dialog
         open={isSubmitDialogOpen && !hasDraftConflict}
         title="답안을 제출하시겠습니까?"
+        returnFocusRef={submitButtonRef}
         description={
           hasFrozenSubmissionAttempt
             ? '이전에 전송한 답안을 그대로 다시 제출합니다. 결과를 확인할 때까지 답안은 변경할 수 없습니다.'
@@ -1269,6 +1280,7 @@ export const PracticeSessionPage = (): ReactElement => {
         open={hasResolvedDraftConflict}
         title="다른 기기의 작업과 충돌했습니다"
         description={`${draftController.conflictCount}개 항목의 변경이 서로 다릅니다. 자동으로 덮어쓰지 않고 선택한 기록을 기준으로 이어갑니다.`}
+        returnFocusRef={draftConflictReturnFocusRef}
         footer={
           <>
             <Button

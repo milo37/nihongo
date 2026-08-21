@@ -1,12 +1,8 @@
 import { isApiError } from '@api/config'
-import { submitStudySession } from '@api/study/submitStudySession'
 import type { SubmitStudySessionRequest } from '@api/study/submitStudySession/schema'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
-import {
-  toCanonicalStudyResultView,
-  toLegacyStudyResultView
-} from '@app/practice/adapters/studyResultView'
+import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import {
@@ -14,7 +10,6 @@ import {
   SubmissionOutcomeAmbiguousError
 } from '@app/practice/studySubmissionRetry'
 import { getOrCreateCanonicalSubmissionAttempt } from '@app/practice/submissionAttempt'
-import { isMockApiMode } from '@libs/apiMode'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 
 interface SubmitStudySessionCommandOptions {
@@ -28,10 +23,6 @@ export const submitStudySessionCommand = async ({
   input,
   sessionId
 }: SubmitStudySessionCommandOptions): Promise<StudyResultView> => {
-  if (isMockApiMode) {
-    return toLegacyStudyResultView(await submitStudySession(sessionId, input))
-  }
-
   const session = getCachedSession()
   if (!session) {
     throw new StudySubmissionPreTransportError(

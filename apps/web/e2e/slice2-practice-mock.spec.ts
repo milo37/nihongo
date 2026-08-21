@@ -8,6 +8,43 @@ interface MockCreatedSession {
 test('mock mode keeps the Slice 2 autosave and reload flow available', async ({
   page
 }) => {
+  await page.addInitScript(() => {
+    const storageKey = 'slice6-mock-request-paths'
+    const recordPath = (value: string | URL): void => {
+      const pathname = new URL(String(value), window.location.href).pathname
+      const existing = sessionStorage.getItem(storageKey)
+      const paths = existing ? (JSON.parse(existing) as string[]) : []
+      paths.push(pathname)
+      sessionStorage.setItem(storageKey, JSON.stringify(paths))
+    }
+    const originalFetch = window.fetch
+    window.fetch = async (...args): Promise<Response> => {
+      const input = args[0]
+      recordPath(input instanceof Request ? input.url : input)
+      return await Reflect.apply(originalFetch, window, args)
+    }
+    const originalOpen = XMLHttpRequest.prototype.open
+    XMLHttpRequest.prototype.open = function (
+      method: string,
+      url: string | URL,
+      async = true,
+      username?: string | null,
+      password?: string | null
+    ): void {
+      recordPath(url)
+      if (username === undefined) {
+        Reflect.apply(originalOpen, this, [method, url, async])
+        return
+      }
+      Reflect.apply(originalOpen, this, [
+        method,
+        url,
+        async,
+        username,
+        password ?? null
+      ])
+    }
+  })
   await page.goto('/login')
   const form = page.locator('form').filter({ has: page.getByLabel('이메일') })
   await form.getByLabel('이메일').fill('user@example.com')
@@ -304,4 +341,44 @@ test('mock mode keeps the Slice 2 autosave and reload flow available', async ({
     new RegExp(`/practice/session/${retryTarget.session.id}$`)
   )
   await expect(page.locator('[data-save-state]')).toBeVisible()
+
+  await page.goto('/wrong-notes')
+  await expect(
+    page.getByRole('heading', { name: '오답을 해결 상태까지 관리하세요' })
+  ).toBeVisible()
+  await page.goto('/dashboard')
+  await expect(
+    page.getByRole('heading', { name: '학습 흐름을 확인하세요' })
+  ).toBeVisible()
+
+  const requestPaths = await page.evaluate(() => {
+    const serialized = sessionStorage.getItem('slice6-mock-request-paths')
+    return serialized ? (JSON.parse(serialized) as string[]) : []
+  })
+  expect(requestPaths).toContain('/api/v1/study-sessions')
+  expect(
+    requestPaths.some((path) =>
+      /\/api\/v1\/study-sessions\/[0-9a-f-]+\/submission$/u.test(path)
+    )
+  ).toBe(true)
+  expect(
+    requestPaths.some((path) =>
+      /\/api\/v1\/study-sessions\/[0-9a-f-]+\/result$/u.test(path)
+    )
+  ).toBe(true)
+  expect(
+    requestPaths.some((path) =>
+      /\/api\/v1\/study-sessions\/[0-9a-f-]+\/retry$/u.test(path)
+    )
+  ).toBe(true)
+  expect(requestPaths).toContain('/api/v1/wrong-notes')
+  expect(requestPaths).toContain('/api/v1/dashboard')
+  expect(
+    requestPaths.filter(
+      (path) =>
+        path.startsWith('/api/study/session') ||
+        path === '/api/dashboard/stats' ||
+        path.startsWith('/api/wrong-note')
+    )
+  ).toEqual([])
 })

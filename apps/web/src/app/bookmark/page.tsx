@@ -201,7 +201,7 @@ export const BookmarkPage = (): ReactElement => {
           action={
             page === 1 ? (
               <Link
-                className="font-bold text-brand underline hover:no-underline"
+                className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
                 to="/practice"
               >
                 문제 풀러 가기

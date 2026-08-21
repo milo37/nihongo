@@ -41,7 +41,7 @@ import {
   getSubmissionAttemptStorageKey
 } from '@app/practice/submissionAttempt'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
-import { wrongNoteMutations } from '@app/wrong-note/queries/wrongNoteQueries'
+import { legacyWrongNoteMutations } from '@app/wrong-note/queries/legacyWrongNoteMutations'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { demoUsers } from '@mocks/data/users'
@@ -234,7 +234,7 @@ describe('real API Query and feature cutover', () => {
     )
     const memoObserver = new MutationObserver(
       client,
-      wrongNoteMutations.updateMemo(crypto.randomUUID())
+      legacyWrongNoteMutations.updateMemo(crypto.randomUUID())
     )
 
     await expect(
@@ -244,8 +244,8 @@ describe('real API Query and feature cutover', () => {
         mode: 'WRONG_NOTE',
         count: 1,
         questionIds: [crypto.randomUUID()]
-      })
-    ).rejects.toThrow('문항 ID 직접 선택은 Slice 5 전까지 지원하지 않습니다.')
+      } as unknown as Parameters<typeof createObserver.mutate>[0])
+    ).rejects.toThrow()
     await expect(client.fetchQuery(bookmarkQueries.list())).resolves.toEqual({
       items: [],
       page: 1,

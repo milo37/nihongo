@@ -5,9 +5,11 @@ import {
   getOrCreateCanonicalSubmissionAttempt,
   getSubmissionAttemptStorageKey
 } from '@app/practice/submissionAttempt'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
 
 describe('submission attempt rollback compatibility', () => {
-  it('clears a stored real attempt when a mock-mode session lookup returns 404', async () => {
+  it('clears a stored attempt when the canonical session lookup returns 404', async () => {
+    mockDatabase.loginAs('USER')
     const sessionId = crypto.randomUUID()
     const questionId = crypto.randomUUID()
     const session: StudySessionView = {

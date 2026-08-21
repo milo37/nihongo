@@ -6,8 +6,10 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ReactElement } from 'react'
 import type { RouteObject } from 'react-router'
 import { appRoutes } from '@/router'
-import { toLegacyStudyResultView } from '@app/practice/adapters/studyResultView'
-import { toLegacyStudySessionView } from '@app/practice/adapters/studySessionView'
+import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { studyQueries } from '@app/practice/queries/studyQueries'
 import { ToastProvider } from '@common/components/Toast'
 import { queryClient } from '@libs/queryClient'
@@ -276,7 +278,8 @@ describe('application router boundaries', () => {
   })
 
   it('문제풀이 화면은 Layout main 대신 현재 문제 제목을 포커스한다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    mockDatabase.loginAs('USER')
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -284,7 +287,7 @@ describe('application router boundaries', () => {
     })
     queryClient.setQueryData(
       studyQueries.session(sessionPayload.session.id).queryKey,
-      toLegacyStudySessionView(sessionPayload)
+      toCanonicalStudySessionView(sessionPayload)
     )
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
@@ -317,33 +320,41 @@ describe('application router boundaries', () => {
   })
 
   it('POP으로 결과 화면에 복귀할 때 결과 포커스가 native scroll 복원을 덮지 않는다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    mockDatabase.loginAs('USER')
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
+    const sessionQuestion = sessionPayload.questions[0]
+
+    if (!sessionQuestion) {
+      throw new Error('테스트 세션에 문제가 없습니다.')
+    }
+
+    const result = await submitStudySessionV1(
+      sessionPayload.session.id,
+      {
+        answers: [
+          {
+            studySessionQuestionId: sessionQuestion.sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 2
+          }
+        ],
+        durationSec: 2
+      },
+      crypto.randomUUID()
     )
-    const result = mockDatabase.submitStudySession({
-      sessionId: sessionPayload.session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: question.options[0].id,
-          elapsedSec: 2
-        }
-      ],
-      durationSec: 2
-    })
     queryClient.setQueryData(
       studyQueries.session(sessionPayload.session.id).queryKey,
-      toLegacyStudySessionView(sessionPayload)
+      sessionView
     )
     queryClient.setQueryData(
       studyQueries.result(sessionPayload.session.id).queryKey,
-      toLegacyStudyResultView(result)
+      toCanonicalStudyResultView(result)
     )
     const scrollTo = vi
       .spyOn(window, 'scrollTo')

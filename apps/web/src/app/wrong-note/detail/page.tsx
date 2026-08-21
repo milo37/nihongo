@@ -1,29 +1,12 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef } from 'react'
-import { useForm } from 'react-hook-form'
-import { Link, useBlocker, useNavigate, useParams } from 'react-router'
-import { z } from 'zod'
+import { Link, useParams } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
 import { isNotFoundApiError } from '@util/apiError'
 import { Badge } from '@common/components/Badge'
-import { Button } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
-import { Textarea } from '@common/components/Textarea'
-import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
-import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { useGetWrongNote } from '@app/wrong-note/hooks/useGetWrongNote'
-import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
-import { assertCurrentUpdateWrongNoteMemoAction } from '@app/wrong-note/queries/wrongNoteQueries'
-import { useAppStore } from '@store/index'
-
-const memoSchema = z.object({
-  memo: z.string().max(2000, '메모는 2,000자 이하로 입력해 주세요.')
-})
-
-type MemoFormValues = z.infer<typeof memoSchema>
 
 type WrongNoteDetailContentProps = {
   data: WrongNoteDetailView
@@ -62,83 +45,6 @@ export const WrongNoteDetailContent = ({
   data,
   headingRef
 }: WrongNoteDetailContentProps): ReactElement => {
-  const navigate = useNavigate()
-  const beginPractice = useAppStore((state) => state.beginPractice)
-  const updateMemo = useUpdateWrongNoteMemo(data.question.id)
-  const createSession = useCreateStudySession()
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isDirty }
-  } = useForm<MemoFormValues>({
-    resolver: zodResolver(memoSchema),
-    defaultValues: { memo: data.memo ?? '' }
-  })
-  const shouldBlockNavigation = isDirty && !updateMemo.isPending
-  const blocker = useBlocker(shouldBlockNavigation)
-
-  useEffect(() => {
-    if (!shouldBlockNavigation) {
-      return
-    }
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
-      event.preventDefault()
-      event.returnValue = ''
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [shouldBlockNavigation])
-
-  const saveMemo = (values: MemoFormValues): void => {
-    if (!data.canUpdateMemo) {
-      return
-    }
-
-    updateMemo.mutate(
-      { memo: values.memo.trim() || null },
-      {
-        onSuccess: (response, input) => {
-          assertCurrentUpdateWrongNoteMemoAction(input)
-          reset({ memo: response.wrongNote.memo ?? '' })
-        }
-      }
-    )
-  }
-
-  const retryQuestion = (): void => {
-    if (!data.canRetry) {
-      return
-    }
-
-    createSession.mutate(
-      {
-        level: data.question.level,
-        subject: data.question.subject,
-        mode: 'WRONG_NOTE',
-        count: 1,
-        questionIds: [data.question.id]
-      },
-      {
-        onSuccess: ({ session }, input) => {
-          assertCurrentCreateStudySessionAction(input)
-          beginPractice(session.id, session.startedAt)
-          void navigate(`/practice/session/${session.id}`)
-        }
-      }
-    )
-  }
-
-  const memoStatus = updateMemo.isPending
-    ? '메모를 저장하고 있습니다…'
-    : isDirty
-      ? '저장하지 않은 변경사항이 있습니다.'
-      : updateMemo.isSuccess
-        ? '메모를 저장했습니다.'
-        : ''
-
   return (
     <>
       <div className="flex flex-wrap gap-2">
@@ -245,114 +151,42 @@ export const WrongNoteDetailContent = ({
                 </dd>
               </div>
             </dl>
-            {data.canRetry ? (
-              <Button
-                className="mt-6 w-full"
-                disabled={isDirty || createSession.isPending}
-                isLoading={createSession.isPending}
-                onClick={retryQuestion}
-              >
-                이 문제 다시 풀기
-              </Button>
-            ) : (
-              <p
-                className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
-                role="status"
-              >
-                {data.wrongNote.reviewAvailability === 'ARCHIVED'
-                  ? '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
-                  : '복습 출제는 실제 API에서 아직 지원되지 않습니다.'}
-              </p>
-            )}
-            {data.canRetry && isDirty ? (
-              <p
-                className="mt-3 text-sm leading-6 text-amber-800"
-                role="status"
-              >
-                재풀이 전에 메모를 저장하거나 변경사항을 되돌려 주세요.
-              </p>
-            ) : null}
+            <div
+              className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+              role="status"
+            >
+              {data.wrongNote.reviewAvailability === 'ARCHIVED' ? (
+                '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
+              ) : (
+                <>
+                  이 문제를 포함한 복습은 학습 설정의 오답 문제 모드에서 시작할
+                  수 있습니다.{' '}
+                  <Link
+                    className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
+                    to="/practice"
+                  >
+                    학습 설정으로 이동
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
 
-          {data.canUpdateMemo ? (
-            <form
-              className="rounded-xl border border-line bg-white p-5"
-              aria-busy={updateMemo.isPending}
-              onSubmit={(event) => void handleSubmit(saveMemo)(event)}
-            >
-              <Textarea
-                label="나의 메모"
-                hint="헷갈린 이유나 다음에 확인할 포인트를 기록하세요."
-                error={errors.memo?.message}
-                rows={7}
-                disabled={updateMemo.isPending}
-                {...register('memo')}
-              />
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <span className="text-sm text-muted" aria-live="polite">
-                  {memoStatus}
-                </span>
-                <Button
-                  type="submit"
-                  disabled={!isDirty || updateMemo.isPending}
-                  isLoading={updateMemo.isPending}
-                  loadingLabel="메모 저장 중…"
-                >
-                  메모 저장
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <div className="rounded-xl border border-line bg-white p-5">
-              <h2 className="text-lg font-black">나의 메모</h2>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                마지막 오답 당시 문제와 해설을 표시하고 있습니다. 이번 단계의
-                실제 API에서는 메모 작성과 수정을 지원하지 않습니다.
+          <div className="rounded-xl border border-line bg-white p-5">
+            <h2 className="text-lg font-black">나의 메모</h2>
+            {data.memo ? (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                {data.memo}
               </p>
-              {data.currentReviewQuestionVersionId === null ? (
-                <p className="mt-2 text-xs text-muted">
-                  현재 복습용 문제 연결은 다음 단계에서 제공됩니다.
-                </p>
-              ) : null}
-            </div>
-          )}
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-muted">
+                마지막 오답 당시 문제와 해설을 표시하고 있습니다. 현재 canonical
+                API에서는 메모 작성과 수정을 지원하지 않습니다.
+              </p>
+            )}
+          </div>
         </aside>
       </div>
-
-      <Dialog
-        open={blocker.state === 'blocked'}
-        title="저장하지 않은 메모를 버리시겠습니까?"
-        description="이 페이지를 나가면 작성 중인 메모를 복구할 수 없습니다."
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (blocker.state === 'blocked') {
-                  blocker.reset()
-                }
-              }}
-            >
-              계속 작성
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (blocker.state === 'blocked') {
-                  blocker.proceed()
-                }
-              }}
-            >
-              변경사항 버리기
-            </Button>
-          </>
-        }
-        onOpenChange={(open) => {
-          if (!open && blocker.state === 'blocked') {
-            blocker.reset()
-          }
-        }}
-      />
     </>
   )
 }
@@ -387,7 +221,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
           description="삭제되었거나 현재 계정에 저장되지 않은 문제입니다."
           action={
             <Link
-              className="font-bold text-brand underline hover:no-underline"
+              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
               to="/wrong-notes"
             >
               오답노트로 돌아가기

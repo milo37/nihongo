@@ -301,6 +301,7 @@ describe('study session create intent lock', () => {
         5
       )
       expect(requestedPages.at(-1)).toBe(1)
+      expect(screen.getByRole('heading', { name: '이어서 풀기' })).toHaveFocus()
     })
     expect(requestedPages).toContain(2)
     client.clear()

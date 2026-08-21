@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type {
   JlptLevel,
@@ -86,16 +86,14 @@ const getRequestedMode = (value: string | null): StudyMode => {
   return requested?.value ?? 'RANDOM'
 }
 
-const getAllowedMode = (
-  requested: StudyMode,
-  role: 'GUEST' | 'USER' | 'ADMIN'
-): StudyMode =>
-  ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE'].includes(requested) &&
-  role === 'GUEST'
-    ? 'RANDOM'
-    : requested
+const loginRequiredModes: readonly StudyMode[] = [
+  'BOOKMARK',
+  'DAILY_REVIEW',
+  'WRONG_NOTE'
+]
 
 export const PracticePage = (): ReactElement => {
+  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { isReady, role, user } = useAuth()
@@ -103,6 +101,7 @@ export const PracticePage = (): ReactElement => {
   const storedSessionId = useAppStore((state) => state.sessionId)
   const [resumablePage, setResumablePage] = useState(1)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
+  const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const [level, setLevel] = useState<JlptLevel>(() =>
     getInitialLevel(searchParams.get('level'))
   )
@@ -115,7 +114,9 @@ export const PracticePage = (): ReactElement => {
   const [requestedMode, setRequestedMode] = useState<StudyMode>(() =>
     getRequestedMode(searchParams.get('mode'))
   )
-  const mode = getAllowedMode(requestedMode, role)
+  const mode = requestedMode
+  const isProtectedGuestMode =
+    role === 'GUEST' && loginRequiredModes.includes(mode)
   const createSession = useCreateStudySession()
   const principalScope = getStudyDraftPrincipalScope(user)
   const canLoadResumableSessions =
@@ -154,12 +155,7 @@ export const PracticePage = (): ReactElement => {
   }, [resumablePage, resumablePageCount, resumableSessions.data])
 
   const handleStart = (): void => {
-    if (
-      !isReady ||
-      isCreatingSession ||
-      (['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE'].includes(mode) &&
-        role === 'GUEST')
-    ) {
+    if (!isReady || isCreatingSession || isProtectedGuestMode) {
       return
     }
 
@@ -201,7 +197,12 @@ export const PracticePage = (): ReactElement => {
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="resumable-practice-title" className="text-xl font-black">
+            <h2
+              ref={resumableHeadingRef}
+              id="resumable-practice-title"
+              className="text-xl font-black focus:outline-none"
+              tabIndex={-1}
+            >
               이어서 풀기
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted">
@@ -430,6 +431,22 @@ export const PracticePage = (): ReactElement => {
           </div>
         </fieldset>
 
+        {isProtectedGuestMode ? (
+          <div
+            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+            role="alert"
+          >
+            선택한 모드는 로그인 후 이용할 수 있습니다. 랜덤 문제로 바꾸지
+            않았습니다.{' '}
+            <Link
+              className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
+              to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+            >
+              로그인하기
+            </Link>
+          </div>
+        ) : null}
+
         {noEligibleQuestions ? (
           <div
             className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
@@ -477,8 +494,8 @@ export const PracticePage = (): ReactElement => {
               <>
                 {' '}
                 <Link
-                  className="font-bold text-brand underline hover:no-underline"
-                  to="/login"
+                  className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+                  to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
                 >
                   로그인하기
                 </Link>
@@ -487,7 +504,7 @@ export const PracticePage = (): ReactElement => {
           </p>
           <Button
             className="shrink-0"
-            disabled={!isReady}
+            disabled={!isReady || isProtectedGuestMode}
             isLoading={isCreatingSession}
             size="lg"
             onClick={handleStart}
@@ -499,6 +516,7 @@ export const PracticePage = (): ReactElement => {
 
       <Dialog
         open={cancelSessionId !== null}
+        fallbackFocusRef={resumableHeadingRef}
         title="진행 중 세션을 취소할까요?"
         description="취소하면 서버 작업본은 삭제되며 이 세션에는 더 이상 답안을 저장하거나 제출할 수 없습니다."
         footer={

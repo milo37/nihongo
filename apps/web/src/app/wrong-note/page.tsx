@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import { isRealApiMode } from '@libs/apiMode'
 import type {
   JlptLevel,
   QuestionSubject,
@@ -14,10 +13,7 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Pagination } from '@common/components/Pagination'
 import { Select } from '@common/components/Select'
-import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
-import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useListWrongNotes } from '@app/wrong-note/hooks/useListWrongNotes'
-import { useAppStore } from '@store/index'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
@@ -77,11 +73,9 @@ const formatDate = (isoDate: string): string => {
 }
 
 export const WrongNotePage = (): ReactElement => {
-  const navigate = useNavigate()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
   const [searchParams, setSearchParams] = useSearchParams()
-  const beginPractice = useAppStore((state) => state.beginPractice)
   const levelParam = searchParams.get('level')
   const subjectParam = searchParams.get('subject')
   const statusParam = searchParams.get('status')
@@ -104,7 +98,6 @@ export const WrongNotePage = (): ReactElement => {
     page,
     pageSize
   })
-  const createSession = useCreateStudySession()
   const totalPages = wrongNotesQuery.data
     ? Math.max(
         1,
@@ -153,29 +146,6 @@ export const WrongNotePage = (): ReactElement => {
       nextParams.delete('page')
     }
     setSearchParams(nextParams)
-  }
-
-  const retryQuestion = (
-    questionId: string,
-    levelValue: JlptLevel,
-    subjectValue: QuestionSubject
-  ): void => {
-    createSession.mutate(
-      {
-        level: levelValue,
-        subject: subjectValue,
-        mode: 'WRONG_NOTE',
-        count: 1,
-        questionIds: [questionId]
-      },
-      {
-        onSuccess: ({ session }, input) => {
-          assertCurrentCreateStudySessionAction(input)
-          beginPractice(session.id, session.startedAt)
-          void navigate(`/practice/session/${session.id}`)
-        }
-      }
-    )
   }
 
   return (
@@ -367,23 +337,11 @@ export const WrongNotePage = (): ReactElement => {
                   ))}
                 </div>
                 <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
-                  {!isRealApiMode && item.reviewAvailability === 'AVAILABLE' ? (
-                    <Button
-                      variant="outline"
-                      isLoading={createSession.isPending}
-                      onClick={() =>
-                        retryQuestion(item.questionId, item.level, item.subject)
-                      }
-                    >
-                      재풀이
-                    </Button>
-                  ) : (
-                    <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
-                      {item.reviewAvailability === 'ARCHIVED'
-                        ? '보관된 문제 · 재풀이 불가'
-                        : '현재 출제 가능 · 실제 API 재풀이 미지원'}
-                    </span>
-                  )}
+                  <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
+                    {item.reviewAvailability === 'ARCHIVED'
+                      ? '보관된 문제 · 재풀이 불가'
+                      : '현재 출제 가능 · 개별 재풀이는 다음 단계에서 제공'}
+                  </span>
                   <Link
                     className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
                     to={`/wrong-notes/${item.questionId}`}

@@ -10,6 +10,10 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
+import {
+  shouldDetachOwnedProcess,
+  stopOwnedProcesses
+} from './ownedProcessGroup.js'
 
 const API_PORT = 3001
 const WEB_PORT = 5173
@@ -84,6 +88,8 @@ const quoteIdentifier = (value: string): string => {
 const formatCommand = (command: string, args: readonly string[]): string =>
   [command, ...args].join(' ')
 
+const commandProcesses: RunningCommand[] = []
+
 const runCommand = async (
   command: string,
   args: readonly string[],
@@ -92,11 +98,15 @@ const runCommand = async (
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: repositoryRoot,
+      detached: shouldDetachOwnedProcess,
       env: environment,
       stdio: 'inherit'
     })
-    child.once('error', reject)
-    child.once('exit', (code, signal) => {
+    commandProcesses.push({ child, label: formatCommand(command, args) })
+    child.once('error', (error) => {
+      reject(error)
+    })
+    child.once('close', (code, signal) => {
       if (code === 0) {
         resolve()
         return
@@ -117,6 +127,7 @@ const startCommand = (
 ): RunningCommand => {
   const child = spawn(command, args, {
     cwd: repositoryRoot,
+    detached: shouldDetachOwnedProcess,
     env: environment,
     stdio: ['ignore', 'pipe', 'pipe']
   })
@@ -129,26 +140,6 @@ const startCommand = (
   })
 
   return { child, label }
-}
-
-const stopCommand = async ({ child, label }: RunningCommand): Promise<void> => {
-  if (child.exitCode !== null || child.signalCode !== null) {
-    return
-  }
-
-  child.kill('SIGTERM')
-  const exited = await Promise.race([
-    new Promise<boolean>((resolve) => {
-      child.once('exit', () => resolve(true))
-    }),
-    delay(8_000).then(() => false)
-  ])
-  if (!exited && child.exitCode === null && child.signalCode === null) {
-    process.stderr.write(
-      `[${label}] graceful stop timed out; sending SIGKILL.\n`
-    )
-    child.kill('SIGKILL')
-  }
 }
 
 const waitForHttp = async (url: string, label: string): Promise<void> => {
@@ -420,9 +411,18 @@ let schemaCreated = false
 
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= (async () => {
-    for (const command of [...runningCommands].reverse()) {
-      await stopCommand(command)
-    }
+    const ownedProcesses: RunningCommand[] = [
+      ...commandProcesses,
+      ...runningCommands
+    ]
+    await stopOwnedProcesses(ownedProcesses, {
+      onForceKill: ({ label }) => {
+        process.stderr.write(
+          `[${label}] graceful stop timed out; sending SIGKILL.\n`
+        )
+      }
+    })
+    commandProcesses.length = 0
     runningCommands.length = 0
 
     if (schemaCreated) {
