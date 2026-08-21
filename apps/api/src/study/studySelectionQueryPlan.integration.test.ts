@@ -14,6 +14,10 @@ interface PlanNode extends Record<string, unknown> {
 }
 
 interface QueryPlans {
+  readonly bookmarkList: ExplainRow[]
+  readonly bookmarkMode: ExplainRow[]
+  readonly bookmarkModeOwnerScan: ExplainRow[]
+  readonly bookmarkQuestionCleanup: ExplainRow[]
   readonly dailyReview: ExplainRow[]
   readonly dailyReviewOwnerScan: ExplainRow[]
   readonly dashboard: ExplainRow[]
@@ -26,6 +30,7 @@ interface QueryPlans {
 const HISTORY_OWNER_CARDINALITY = 10
 const DECOY_HISTORY_CARDINALITY = 512
 const DECOY_NOTE_CARDINALITY = 512
+const BOOKMARK_DECOY_OWNER_CARDINALITY = 16
 const FILTER_DECOY_CARDINALITY = 256
 const RANKING_TARGET_CARDINALITY = 512
 const PAGE_SIZE = 5
@@ -146,6 +151,7 @@ const analyzeSelectionTables = async (): Promise<void> => {
   await database.client.$executeRaw`ANALYZE "StudyResult"`
   await database.client.$executeRaw`ANALYZE "WrongNote"`
   await database.client.$executeRaw`ANALYZE "ReviewSchedule"`
+  await database.client.$executeRaw`ANALYZE "Bookmark"`
 }
 
 beforeAll(async () => {
@@ -626,6 +632,23 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
             ${now}::timestamptz - INTERVAL '3 hours'
               - owner."sequence" * INTERVAL '1 millisecond'
           FROM "slice3_plan_note_owner" AS owner`
+        await transaction.$executeRaw`
+          INSERT INTO "Bookmark" (
+            "id", "userId", "questionId", "createdAt"
+          )
+          SELECT
+            gen_random_uuid(),
+            owner."userId",
+            target."questionId",
+            ${now}::timestamptz
+          FROM "slice3_plan_target_note" AS target
+          CROSS JOIN (
+            SELECT ${targetUserId}::uuid AS "userId"
+            UNION ALL
+            SELECT note_owner."userId"
+            FROM "slice3_plan_note_owner" AS note_owner
+            WHERE note_owner."sequence" <= ${BOOKMARK_DECOY_OWNER_CARDINALITY}
+          ) AS owner`
 
         await transaction.$executeRaw`ANALYZE "StudySession"`
         await transaction.$executeRaw`ANALYZE "StudySessionQuestion"`
@@ -633,6 +656,7 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
         await transaction.$executeRaw`ANALYZE "StudyResult"`
         await transaction.$executeRaw`ANALYZE "WrongNote"`
         await transaction.$executeRaw`ANALYZE "ReviewSchedule"`
+        await transaction.$executeRaw`ANALYZE "Bookmark"`
 
         const plannerSettings = await transaction.$queryRaw<
           { enableSeqscan: string; enableSort: string }[]
@@ -643,6 +667,57 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
         expect(plannerSettings).toEqual([
           { enableSeqscan: 'on', enableSort: 'on' }
         ])
+
+        const bookmarkList = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            SELECT
+              bookmark."id",
+              bookmark."questionId",
+              bookmark."createdAt"
+            FROM "Bookmark" AS bookmark
+            WHERE bookmark."userId" = ${targetUserId}::uuid
+            ORDER BY bookmark."createdAt" DESC, bookmark."id" ASC
+            LIMIT 20`
+        )
+        const bookmarkMode = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            SELECT
+              bookmark."questionId",
+              version."id" AS "questionVersionId",
+              bookmark."createdAt"
+            FROM "Bookmark" AS bookmark
+            JOIN "Question" AS question
+              ON question."id" = bookmark."questionId"
+            JOIN "QuestionVersion" AS version
+              ON version."questionId" = question."id"
+              AND version."id" = question."currentPublishedVersionId"
+            WHERE bookmark."userId" = ${targetUserId}::uuid
+              AND question."lifecycleStatus" = 'ACTIVE'
+              AND version."status" = 'PUBLISHED'
+              AND version."level" = 'N5'::"JlptLevel"
+              AND version."subject" = 'VOCABULARY'::"QuestionSubject"
+            ORDER BY bookmark."createdAt" DESC, bookmark."questionId" ASC
+            LIMIT 20`
+        )
+        const bookmarkModeOwnerScan = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            SELECT bookmark."questionId", bookmark."createdAt"
+            FROM "Bookmark" AS bookmark
+            WHERE bookmark."userId" = ${targetUserId}::uuid
+            ORDER BY bookmark."createdAt" DESC, bookmark."questionId" ASC
+            LIMIT 20`
+        )
+        const bookmarkQuestionCleanup = await transaction.$queryRaw<
+          ExplainRow[]
+        >(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            DELETE FROM "Bookmark" AS bookmark
+            WHERE bookmark."questionId" = ${question.id}::uuid`
+        )
 
         const userWeakness = await transaction.$queryRaw<ExplainRow[]>(
           Prisma.sql`
@@ -835,6 +910,10 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
           LIMIT ${PAGE_SIZE}`)
 
         plans = {
+          bookmarkList,
+          bookmarkMode,
+          bookmarkModeOwnerScan,
+          bookmarkQuestionCleanup,
           dailyReview,
           dailyReviewOwnerScan,
           dashboard,
@@ -856,6 +935,9 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
     }
 
     Object.values(plans).forEach(assertCommonPlanEvidence)
+    expect(readRootPlan(plans.bookmarkList)['Actual Rows']).toBe(20)
+    expect(readRootPlan(plans.bookmarkMode)['Actual Rows']).toBe(20)
+    expect(readRootPlan(plans.bookmarkModeOwnerScan)['Actual Rows']).toBe(20)
     expect(readRootPlan(plans.userWeakness)['Actual Rows']).toBe(1)
     expect(readRootPlan(plans.guestWeakness)['Actual Rows']).toBe(1)
     expect(readRootPlan(plans.wrongNote)['Actual Rows']).toBe(
@@ -887,12 +969,27 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
     expect(readIndexNames(plans.dashboard)).toContain(
       'StudySession_userId_submittedAt_id_dashboard_idx'
     )
+    expect(readIndexNames(plans.bookmarkList)).toContain(
+      'Bookmark_userId_createdAt_id_idx'
+    )
+    const bookmarkModeIndexes = readIndexNames(plans.bookmarkModeOwnerScan)
+    expect(
+      bookmarkModeIndexes,
+      `bookmark mode indexes: ${[...bookmarkModeIndexes].join(', ')}`
+    ).toContain('Bookmark_userId_createdAt_questionId_idx')
+    expect(readIndexNames(plans.bookmarkQuestionCleanup)).toContain(
+      'Bookmark_questionId_id_idx'
+    )
     ;[plans.userWeakness, plans.guestWeakness, plans.dashboard].forEach(
       (plan) => expectNoSequentialScan(plan, 'StudySession')
     )
     ;[plans.wrongNote, plans.dailyReview].forEach((plan) =>
       expectNoSequentialScan(plan, 'WrongNote')
     )
+    expectNoSequentialScan(plans.bookmarkList, 'Bookmark')
+    expectNoSequentialScan(plans.bookmarkMode, 'Bookmark')
+    expectNoSequentialScan(plans.bookmarkModeOwnerScan, 'Bookmark')
+    expectNoSequentialScan(plans.bookmarkQuestionCleanup, 'Bookmark')
     expectBoundedRelationRows(
       plans.userWeakness,
       'StudySession',
@@ -917,6 +1014,26 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
       plans.dailyReview,
       'WrongNote',
       RANKING_TARGET_CARDINALITY + 65
+    )
+    expectBoundedRelationRows(
+      plans.bookmarkList,
+      'Bookmark',
+      RANKING_TARGET_CARDINALITY + 65
+    )
+    expectBoundedRelationRows(
+      plans.bookmarkMode,
+      'Bookmark',
+      RANKING_TARGET_CARDINALITY + 65
+    )
+    expectBoundedRelationRows(
+      plans.bookmarkModeOwnerScan,
+      'Bookmark',
+      RANKING_TARGET_CARDINALITY + 65
+    )
+    expectBoundedRelationRows(
+      plans.bookmarkQuestionCleanup,
+      'Bookmark',
+      BOOKMARK_DECOY_OWNER_CARDINALITY + 1
     )
   }, 60_000)
 })

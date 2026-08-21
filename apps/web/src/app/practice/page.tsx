@@ -83,17 +83,14 @@ const getInitialCount = (value: string | null): 5 | 10 | 20 => {
 
 const getRequestedMode = (value: string | null): StudyMode => {
   const requested = modes.find((item) => item.value === value)
-  if (!requested || requested.value === 'BOOKMARK') {
-    return 'RANDOM'
-  }
-  return requested.value
+  return requested?.value ?? 'RANDOM'
 }
 
 const getAllowedMode = (
   requested: StudyMode,
   role: 'GUEST' | 'USER' | 'ADMIN'
 ): StudyMode =>
-  (requested === 'WRONG_NOTE' || requested === 'DAILY_REVIEW') &&
+  ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE'].includes(requested) &&
   role === 'GUEST'
     ? 'RANDOM'
     : requested
@@ -160,8 +157,8 @@ export const PracticePage = (): ReactElement => {
     if (
       !isReady ||
       isCreatingSession ||
-      mode === 'BOOKMARK' ||
-      ((mode === 'WRONG_NOTE' || mode === 'DAILY_REVIEW') && role === 'GUEST')
+      (['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE'].includes(mode) &&
+        role === 'GUEST')
     ) {
       return
     }
@@ -403,11 +400,8 @@ export const PracticePage = (): ReactElement => {
           <legend className="text-lg font-black">4. 출제 모드</legend>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {modes.map((option) => {
-              const isUnavailableInCurrentSlice = option.value === 'BOOKMARK'
               const disabled =
-                !isReady ||
-                isUnavailableInCurrentSlice ||
-                (option.requiresLogin && role === 'GUEST')
+                !isReady || (option.requiresLogin && role === 'GUEST')
               return (
                 <button
                   key={option.value}
@@ -425,11 +419,7 @@ export const PracticePage = (): ReactElement => {
                   <span className="mt-1 block text-sm leading-6 text-muted">
                     {option.description}
                   </span>
-                  {isUnavailableInCurrentSlice ? (
-                    <span className="mt-1 block text-xs font-bold text-amber-700">
-                      Slice 4에서 서버 권위 모드로 제공됩니다
-                    </span>
-                  ) : disabled ? (
+                  {disabled ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
                       로그인 후 이용 가능
                     </span>
@@ -481,7 +471,8 @@ export const PracticePage = (): ReactElement => {
 
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
-            Slice 3 모드는 후보가 부족해도 다른 모드로 자동 대체하지 않습니다.
+            서버 권위 출제 모드는 후보가 부족해도 다른 모드로 자동 대체하지
+            않습니다.
             {role === 'GUEST' ? (
               <>
                 {' '}
@@ -496,7 +487,7 @@ export const PracticePage = (): ReactElement => {
           </p>
           <Button
             className="shrink-0"
-            disabled={!isReady || mode === 'BOOKMARK'}
+            disabled={!isReady}
             isLoading={isCreatingSession}
             size="lg"
             onClick={handleStart}

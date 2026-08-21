@@ -7,6 +7,10 @@ interface RandomStudyCandidate extends StudyCandidatePin {
   readonly isRecent: boolean
 }
 
+interface BookmarkStudyCandidate extends StudyCandidatePin {
+  readonly createdAt: Date
+}
+
 type DailyReviewCandidateStatus = 'NEW' | 'REVIEWING' | 'AGAIN' | 'SOLVED'
 
 interface DailyReviewStudyCandidate extends StudyCandidatePin {
@@ -108,6 +112,17 @@ export const selectRandomStudyCandidates = (
 
   return [...nonRecent, ...recent].slice(0, requestedCount)
 }
+
+export const selectBookmarkStudyCandidates = (
+  candidates: readonly BookmarkStudyCandidate[],
+  requestedCount: number
+): BookmarkStudyCandidate[] =>
+  selectRankedCandidates(candidates, requestedCount, (left, right) => {
+    const createdOrder = right.createdAt.getTime() - left.createdAt.getTime()
+    return createdOrder !== 0
+      ? createdOrder
+      : left.questionId.localeCompare(right.questionId)
+  })
 
 export const selectWrongNoteStudyCandidates = (
   candidates: readonly WrongNoteStudyCandidate[],

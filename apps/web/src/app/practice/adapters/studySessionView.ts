@@ -24,6 +24,7 @@ export interface StudyQuestionView {
   options: PracticeQuestionOption[]
   difficulty: QuestionDifficulty
   tags: string[]
+  tagSummaries?: Array<{ id: string; label: string }> | null
 }
 
 export interface StudySessionView {
@@ -65,6 +66,7 @@ export const toLegacyStudySessionView = (
     ...question,
     sessionQuestionId: null,
     questionVersionId: null,
+    tagSummaries: null,
     ordinal: index + 1
   })),
   requestedCount: response.requestedCount,
@@ -104,7 +106,8 @@ export const toCanonicalStudySessionView = (
       questionText: question.questionText,
       options: question.options,
       difficulty: question.difficulty,
-      tags: question.tags.map(({ label }) => label)
+      tags: question.tags.map(({ label }) => label),
+      tagSummaries: question.tags
     })
   ),
   requestedCount: response.session.requestedCount,

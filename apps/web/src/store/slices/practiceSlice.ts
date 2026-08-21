@@ -23,7 +23,6 @@ export interface PracticeSlice {
   currentQuestionIndex: number
   selectedAnswers: Record<string, string>
   startedAt: string | null
-  pendingBookmarkIds: Record<string, boolean>
   draftWorkingCopy: StudyDraftWorkingCopy | null
   draftSaveState: StudyDraftSaveState
   draftConflict: PracticeDraftConflictState | null
@@ -31,7 +30,6 @@ export interface PracticeSlice {
   beginPractice: (sessionId: string, startedAt: string) => void
   selectAnswer: (questionId: string, optionId: string) => void
   setCurrentQuestionIndex: (index: number) => void
-  setPendingBookmark: (questionId: string, isBookmarked: boolean) => void
   setDraftWorkingCopy: (workingCopy: StudyDraftWorkingCopy | null) => void
   setDraftSaveState: (state: StudyDraftSaveState) => void
   setDraftConflict: (conflict: PracticeDraftConflictState | null) => void
@@ -44,7 +42,6 @@ const initialPracticeState = {
   currentQuestionIndex: 0,
   selectedAnswers: {},
   startedAt: null,
-  pendingBookmarkIds: {},
   draftWorkingCopy: null,
   draftSaveState: 'idle',
   draftConflict: null,
@@ -55,7 +52,6 @@ const initialPracticeState = {
   | 'currentQuestionIndex'
   | 'selectedAnswers'
   | 'startedAt'
-  | 'pendingBookmarkIds'
   | 'draftWorkingCopy'
   | 'draftSaveState'
   | 'draftConflict'
@@ -75,7 +71,6 @@ export const createPracticeSlice: StateCreator<
       startedAt,
       currentQuestionIndex: 0,
       selectedAnswers: {},
-      pendingBookmarkIds: {},
       draftWorkingCopy: null,
       draftSaveState: 'idle',
       draftConflict: null,
@@ -92,14 +87,6 @@ export const createPracticeSlice: StateCreator<
   },
   setCurrentQuestionIndex: (index) => {
     set({ currentQuestionIndex: Math.max(0, index) })
-  },
-  setPendingBookmark: (questionId, isBookmarked) => {
-    set((state) => ({
-      pendingBookmarkIds: {
-        ...state.pendingBookmarkIds,
-        [questionId]: isBookmarked
-      }
-    }))
   },
   setDraftWorkingCopy: (draftWorkingCopy) => {
     set({ draftWorkingCopy })

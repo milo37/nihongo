@@ -540,11 +540,11 @@ describe('StudySession PostgreSQL vertical slice', () => {
     expect(await database.client.studySession.count()).toBe(beforeSessions)
   })
 
-  it('v2 guest mode 정책을 401/404/422로 분리하고 빈 WEAKNESS owner를 만들지 않는다', async () => {
+  it('v2 guest mode 정책을 401/404로 분리하고 빈 WEAKNESS owner를 만들지 않는다', async () => {
     const beforeGuests = await database.client.guestPrincipal.count()
     const beforeSessions = await database.client.studySession.count()
 
-    for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW'] as const) {
+    for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW', 'BOOKMARK'] as const) {
       const response = await postStudySession(
         { level: 'N5', subject: 'VOCABULARY', mode, count: 1 },
         undefined,
@@ -573,19 +573,6 @@ describe('StudySession PostgreSQL vertical slice', () => {
       code: 'NO_ELIGIBLE_QUESTIONS',
       retryable: false
     })
-
-    const bookmark = await postStudySession(
-      {
-        level: 'N5',
-        subject: 'VOCABULARY',
-        mode: 'BOOKMARK',
-        count: 1
-      },
-      undefined,
-      2
-    )
-    expect(bookmark.status).toBe(422)
-    expect(await bookmark.json()).toMatchObject({ code: 'VALIDATION_ERROR' })
 
     expect(await database.client.guestPrincipal.count()).toBe(beforeGuests)
     expect(await database.client.studySession.count()).toBe(beforeSessions)

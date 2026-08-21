@@ -274,8 +274,7 @@ export const createSplitAppStateStorage = (
       sessionId,
       currentQuestionIndex,
       selectedAnswers,
-      startedAt,
-      pendingBookmarkIds
+      startedAt
     } = envelope.state
 
     const authWritten = authStorage.setItem(
@@ -289,8 +288,7 @@ export const createSplitAppStateStorage = (
           sessionId,
           currentQuestionIndex,
           selectedAnswers,
-          startedAt,
-          pendingBookmarkIds
+          startedAt
         },
         envelope.version
       )

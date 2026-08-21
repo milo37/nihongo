@@ -141,7 +141,17 @@ export const parseSearchParams = <Schema extends ZodType>(
   request: Request,
   schema: Schema
 ): z.output<Schema> => {
-  const params = Object.fromEntries(new URL(request.url).searchParams.entries())
+  const searchParams = new URL(request.url).searchParams
+  const params: Record<string, string | string[]> = {}
+  for (const key of new Set(searchParams.keys())) {
+    const values = searchParams.getAll(key)
+    params[key] =
+      key === 'questionIds'
+        ? values
+        : values.length === 1
+          ? (values[0] ?? '')
+          : values
+  }
   const parsed = schema.safeParse(params)
 
   if (!parsed.success) {

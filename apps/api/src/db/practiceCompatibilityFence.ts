@@ -1,6 +1,7 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 
 export interface PracticeCompatibilityFacts {
+  bookmarkCount: number
   v2StudySessionCount: number
   studyDraftCount: number
   studyDraftAnswerCount: number
@@ -19,6 +20,7 @@ export const assertPracticeCompatibilityFacts = (
   facts: PracticeCompatibilityFacts
 ): void => {
   if (
+    facts.bookmarkCount !== 0 ||
     facts.v2StudySessionCount !== 0 ||
     facts.studyDraftCount !== 0 ||
     facts.studyDraftAnswerCount !== 0 ||
@@ -34,6 +36,10 @@ export const checkPracticeCompatibilityFence = async (
 ): Promise<void> => {
   const [facts] = await client.$queryRaw<PracticeCompatibilityFacts[]>`
     SELECT
+      (
+        SELECT COUNT(*)::integer
+        FROM "Bookmark"
+      ) AS "bookmarkCount",
       (
         SELECT COUNT(*)::integer
         FROM "StudySession"

@@ -31,7 +31,6 @@ const resetTestState = async (): Promise<void> => {
     currentQuestionIndex: 0,
     selectedAnswers: {},
     startedAt: null,
-    pendingBookmarkIds: {},
     draftWorkingCopy: null,
     draftSaveState: 'idle',
     draftConflict: null,

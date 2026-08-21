@@ -217,7 +217,7 @@ describe('real API Query and feature cutover', () => {
     expect(dashboard.totalAnsweredCount).toBe(2)
   })
 
-  it('fails closed before legacy network calls for out-of-scope features', async () => {
+  it('keeps out-of-scope writes closed while canonical Bookmark reads use v1', async () => {
     mockDatabase.loginAs('USER')
     const client = new QueryClient({
       defaultOptions: {
@@ -246,19 +246,25 @@ describe('real API Query and feature cutover', () => {
         questionIds: [crypto.randomUUID()]
       })
     ).rejects.toThrow('문항 ID 직접 선택은 Slice 5 전까지 지원하지 않습니다.')
-    await expect(client.fetchQuery(bookmarkQueries.list())).rejects.toThrow(
-      '즐겨찾기'
-    )
+    await expect(client.fetchQuery(bookmarkQueries.list())).resolves.toEqual({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    })
     await expect(memoObserver.mutate({ memo: '메모' })).rejects.toThrow(
       '메모 수정'
     )
 
     expect(postSpy).not.toHaveBeenCalled()
-    expect(getSpy).not.toHaveBeenCalled()
+    expect(getSpy).toHaveBeenCalledWith('/v1/bookmarks?page=1&pageSize=20', {
+      params: undefined
+    })
     expect(putSpy).not.toHaveBeenCalled()
   })
 
-  it('renders explicit unavailable routes instead of mounting legacy pages', async () => {
+  it('mounts canonical Bookmark while keeping admin management unavailable', async () => {
+    mockDatabase.loginAs('USER')
     const get = vi.spyOn(apiClient, 'get')
     const post = vi.spyOn(apiClient, 'post')
     const put = vi.spyOn(apiClient, 'put')
@@ -266,12 +272,22 @@ describe('real API Query and feature cutover', () => {
     const bookmarkRouter = createMemoryRouter(bookmarkRoutes, {
       initialEntries: ['/bookmarks']
     })
-    const { unmount } = render(<RouterProvider router={bookmarkRouter} />)
+    const bookmarkClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    })
+    const { unmount } = render(
+      <QueryClientProvider client={bookmarkClient}>
+        <RouterProvider router={bookmarkRouter} />
+      </QueryClientProvider>
+    )
 
     expect(
       await screen.findByRole('heading', {
-        name: '즐겨찾기는 아직 사용할 수 없습니다'
+        name: '즐겨찾기 문제'
       })
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByText('저장한 문제가 없습니다')
     ).toBeInTheDocument()
     unmount()
 
@@ -285,7 +301,9 @@ describe('real API Query and feature cutover', () => {
         name: '문제 관리는 아직 사용할 수 없습니다'
       })
     ).toBeInTheDocument()
-    expect(get).not.toHaveBeenCalled()
+    expect(get).toHaveBeenCalledWith('/v1/bookmarks?page=1&pageSize=20', {
+      params: undefined
+    })
     expect(post).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
     expect(del).not.toHaveBeenCalled()

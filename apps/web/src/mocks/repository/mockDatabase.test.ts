@@ -8,6 +8,7 @@ import {
   toContractStudySessionPayload,
   toVersionedContractStudySessionPayload
 } from '@mocks/adapters/studySessionContractAdapter'
+import { getContractQuestionId } from '@mocks/adapters/questionContractAdapter'
 import { originalQuestions } from '@mocks/data/questions'
 import {
   MockDatabase,
@@ -745,6 +746,76 @@ describe('MockDatabase', () => {
         }
       }
     }
+  })
+
+  it('BOOKMARK 동일 시각 tie는 canonical stable Question UUID 순서로 고정한다', () => {
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const sourceQuestionIds = ['n5-vocabulary-01', 'n5-vocabulary-02']
+    for (const sourceQuestionId of sourceQuestionIds) {
+      database.createCanonicalBookmark(user.id, sourceQuestionId)
+    }
+
+    const session = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'BOOKMARK',
+      count: 2
+    })
+    const expected = sourceQuestionIds.toSorted((left, right) =>
+      getContractQuestionId(left).localeCompare(getContractQuestionId(right))
+    )
+
+    expect(session.questions.map(({ id }) => id)).toEqual(expected)
+  })
+
+  it('v4의 안전한 공개 snapshot 없는 Bookmark는 v5 hydration에서 폐기한다', () => {
+    const storage = createMemoryStorage()
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+    database.createCanonicalBookmark(user.id, questionId)
+    database.updateQuestion(questionId, {
+      ...toAdminInput(database.getAdminQuestion(questionId)),
+      questionText: 'v4 비공개 draft',
+      status: 'DRAFT'
+    })
+    database.dispose()
+
+    const serialized = storage.getItem(MOCK_DATABASE_STORAGE_KEY)
+    if (!serialized) {
+      throw new Error('v4 hydration fixture가 필요합니다.')
+    }
+    const legacyState = JSON.parse(serialized) as Record<string, unknown>
+    legacyState.version = 4
+    delete legacyState.archivedQuestions
+    storage.setItem(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(legacyState))
+
+    const hydrated = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    expect(hydrated.listCanonicalBookmarkSources(user.id)).toEqual([])
+    hydrated.loginAs('USER')
+    hydrated.dispose()
+
+    const reloaded = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    expect(reloaded.listCanonicalBookmarkSources(user.id)).toEqual([])
+    reloaded.dispose()
   })
 
   it('문제 은행에서 삭제되어도 기존 세션은 생성 당시 문제로 채점한다', () => {

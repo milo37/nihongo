@@ -633,7 +633,7 @@ describe('canonical study session v1 MSW integration', () => {
   })
 
   it('v2 guest 정책과 retained WEAKNESS owner를 transport 경계에서 보존한다', async () => {
-    for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW'] as const) {
+    for (const mode of ['WRONG_NOTE', 'BOOKMARK', 'DAILY_REVIEW'] as const) {
       const response = await requestCanonicalSessionV2({
         level: 'N5',
         subject: 'VOCABULARY',
@@ -646,31 +646,10 @@ describe('canonical study session v1 MSW integration', () => {
       expect(response.headers.get('Set-Cookie')).toBeNull()
       expect(error).toMatchObject({
         code: 'AUTHENTICATION_REQUIRED',
-        message: '로그인이 필요합니다.',
+        message: '이 출제 모드는 로그인이 필요합니다.',
         retryable: false
       })
     }
-
-    const bookmarkResponse = await requestCanonicalSessionV2({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'BOOKMARK',
-      count: 1
-    })
-    const bookmarkError = createStudySessionErrorSchema.parse(
-      await bookmarkResponse.json()
-    )
-
-    expect(bookmarkResponse.status).toBe(422)
-    expect(bookmarkResponse.headers.get('Set-Cookie')).toBeNull()
-    expect(bookmarkError).toMatchObject({
-      code: 'VALIDATION_ERROR',
-      message: 'BOOKMARK 모드는 Slice 4에서 활성화됩니다.',
-      fieldErrors: {
-        mode: ['BOOKMARK 모드는 아직 사용할 수 없습니다.']
-      },
-      retryable: false
-    })
 
     const emptyResponse = await requestCanonicalSessionV2({
       level: 'N5',

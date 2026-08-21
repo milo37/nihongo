@@ -34,6 +34,8 @@ import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
 import { createDashboardRoutes } from '../routes/dashboard.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
+import type { BookmarkService } from '../bookmark/bookmarkService.js'
+import { createBookmarkRoutes } from '../routes/bookmarks.js'
 
 interface CreateApiAppDependencies {
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
@@ -54,6 +56,7 @@ interface CreateApiAppDependencies {
     submissionService?: StudySubmissionService
   }
   learning?: {
+    bookmarkService?: BookmarkService
     dashboardService: DashboardService
     rateLimiter: ApplicationRateLimiter
     wrongNoteService: WrongNoteService
@@ -235,6 +238,17 @@ export const createApiApp = ({
       }
     }
     if (learning) {
+      if (study?.practiceContractV2Enabled && learning.bookmarkService) {
+        app.route(
+          '/api/v1/bookmarks',
+          createBookmarkRoutes({
+            bookmarkService: learning.bookmarkService,
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter
+          })
+        )
+      }
       app.route(
         '/api/v1/wrong-notes',
         createWrongNoteRoutes({

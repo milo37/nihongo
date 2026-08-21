@@ -25,10 +25,6 @@ const createSession = async (input: CreateStudySessionRequest) => {
   if (input.questionIds !== undefined) {
     throw new Error('문항 ID 직접 선택은 Slice 5 전까지 지원하지 않습니다.')
   }
-  if (input.mode === 'BOOKMARK') {
-    throw new Error('BOOKMARK 모드는 Slice 4에서 활성화됩니다.')
-  }
-
   return toCanonicalStudySessionView(
     (
       await createStudySessionV2({

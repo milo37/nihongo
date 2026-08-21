@@ -12,15 +12,15 @@ JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 �
 오답 상태 변경, 즐겨찾기, 학습 통계, 관리자 문제 CRUD가 실제 사용자 흐름으로
 연결됩니다. 인증, 공개 문제 read, RANDOM·WRONG_NOTE·WEAKNESS·DAILY_REVIEW
 StudySession create/read/submit/result와 owner-scoped WrongNote list/detail·all-mode
-dashboard read는 PostgreSQL 기반 실제 API로
+dashboard read와 Bookmark CRUD·BOOKMARK mode는 PostgreSQL 기반 실제 API로
 구현됐습니다. USER submit은 오답·복습 이벤트를 원자 저장하며 guest submit은 이 영구
 side effect를 만들지 않습니다. Phase 3 Slice 6에서 canonical endpoint adapter를
 Query Factory·domain hook·기존 UI에 연결했습니다. `VITE_API_MODE=real`은 auth/question과
-네 활성 mode의 create/read/submit/result, WrongNote list/detail, dashboard를 실제
+다섯 mode의 create/read/submit/result, WrongNote list/detail, dashboard, Bookmark를 실제
 Hono/PostgreSQL로 사용하고, `mock`은 Alpha legacy와 같은 canonical mode 동작을 함께
-유지합니다. guest는 RANDOM·WEAKNESS, USER/ADMIN은 네 활성 mode를 사용합니다.
-BOOKMARK persistence/mode, result retry, UserMemo·review history와 real admin API는 요청
-전에 명시적으로 비활성화되며 silent Mock fallback하지 않습니다.
+유지합니다. guest는 RANDOM·WEAKNESS, USER/ADMIN은 다섯 mode를 사용합니다. result retry,
+UserMemo·review history와 real admin API는 요청 전에 명시적으로 비활성화되며 silent Mock
+fallback하지 않습니다.
 
 ## 서비스 목적
 
@@ -35,7 +35,7 @@ BOOKMARK persistence/mode, result retry, UserMemo·review history와 real admin 
 ## 주요 기능
 
 - N5~N1, 문자·어휘·문법·독해 학습 설정과 5·10·20문제 출제
-- RANDOM, WRONG_NOTE, WEAKNESS, DAILY_REVIEW 출제 모드와 mock-only BOOKMARK
+- RANDOM, WRONG_NOTE, WEAKNESS, BOOKMARK, DAILY_REVIEW 출제 모드
 - 새로고침 후 현재 문제, 선택 답안, 시작 시각 복구
 - 숫자 1~4 답안 선택, 좌우 화살표 문제 이동, 접근 가능한 제출 Dialog
 - 제출 전에는 정답과 해설을 숨기고 제출 후 문제별 결과·해설 제공
@@ -48,13 +48,13 @@ BOOKMARK persistence/mode, result retry, UserMemo·review history와 real admin 
 
 ## 지원 범위
 
-| 구분      | 지원 항목                                                        |
-| --------- | ---------------------------------------------------------------- |
-| 급수      | N5, N4, N3, N2, N1                                               |
-| 과목      | 문자·어휘, 문법, 독해                                            |
-| 문제 수   | 5, 10, 20                                                        |
-| 출제 모드 | 랜덤, 오답, 약점 추천, 오늘의 복습; real 즐겨찾기는 Slice 4 예정 |
-| 제외      | 청해와 음원 재생                                                 |
+| 구분      | 지원 항목                                    |
+| --------- | -------------------------------------------- |
+| 급수      | N5, N4, N3, N2, N1                           |
+| 과목      | 문자·어휘, 문법, 독해                        |
+| 문제 수   | 5, 10, 20                                    |
+| 출제 모드 | 랜덤, 오답, 약점 추천, 즐겨찾기, 오늘의 복습 |
+| 제외      | 청해와 음원 재생                             |
 
 ## 기술 스택
 
@@ -627,6 +627,28 @@ migration 23/23, seed 65/0→0/65, integration 18 files/109 tests와 known pg wa
 확인했습니다. immutable Slice 0–3 checkpoint는
 `/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-3-final-20260818-912cf38`입니다.
 
+Phase 4 Slice 4는 migration 24
+`20260821130000_phase4_bookmarks`
+(`8ee6b5dde0e73e7c499e24f0fedd0b31ef6ff569f1422c7189cd8eb2499b746f`)로
+USER와 stable Question 사이의 Bookmark를 실제 PostgreSQL에 추가했습니다. USER/ADMIN
+owner만 canonical GET·PUT·DELETE를 사용할 수 있고 concurrent PUT은 row 하나로 수렴하며,
+반복 DELETE는 204입니다. 공개 이력을 가진 archived Question의 Bookmark는 안전한 published
+summary로 목록에 보존하지만 새 archived Bookmark와 BOOKMARK 출제 후보에서는 제외합니다.
+BOOKMARK 세션은 `createdAt DESC → questionId ASC` 순서, fallback 0, 실제 `actualCount`를
+사용하고 standard v2 submit은 `STUDY_SUBMIT` evidence를 남깁니다.
+
+Web과 canonical MSW는 목록·session·result toggle, optimistic inverse rollback, offline
+pause→reconnect, account switch/401 mutation cleanup, owner-scoped cache와 pagination clamp를
+같은 계약으로 구현했습니다. 최종 non-DB gate는 contracts 11 files/61, domain 4/27,
+API 48/268, web 57/301로 Vitest 120 files/657 tests, architecture 포함 662 tests를
+통과했고 production build는 4/5 workspace projects·web 438 modules였습니다. fresh
+`phase4_slice3_integration_1787286977507_53d6079d_test`에서 migration 24/24,
+seed 65/0→0/65, integration 19 files/115 tests와 known pg warning 5회를 확인했습니다.
+fresh `phase4_slice2_e2e_1787286296610_f6e52f37_test`에서는 real Chromium 8/8+mock
+1/1, 총 9/9을 통과했습니다. 두 schema는 runner 종료 뒤 삭제하고 absent를 확인했습니다.
+immutable Slice 0–4 checkpoint는
+`/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-4-final-20260821-b0c26d4`입니다.
+
 production real preview에서 guest RANDOM keyboard·미응답 제출/result와 USER
 login→RANDOM 5문제 all-null 제출→result 0/5→WrongNote list/detail→dashboard를 실제
 브라우저로 확인했습니다. USER logout 후 ADMIN login에서는 자기 목록이 비고 USER detail
@@ -746,10 +768,11 @@ canonical MSW/direct-fetch 경로에 구현했습니다. Slice 6은 이 canonica
 Query Factory·domain hook·기존 UI consumer에 연결하고 real/mock 회귀, production Mock
 fail-closed와 staged rollback 경계를 검증해 Phase 3를 완료했습니다. Phase 4는
 Slice 0의 계약 정규화, Slice 1의 additive DB·API·canonical MSW, Slice 2의 Web
-autosave·working-copy·복구·conflict UX와 Slice 3의 selection engine·non-RANDOM mode,
-all-mode dashboard·실제 Chromium gate까지 `codex/phase-4-practice-flow`에서
-완료했습니다. Phase 4 전체는 아직 In Progress이며, 다음 실행 단위는 별도 지시가
-필요한 Slice 4 Bookmark persistence·API·UI입니다.
+autosave·working-copy·복구·conflict UX, Slice 3의 selection engine·non-RANDOM mode와
+all-mode dashboard, Slice 4의 Bookmark PostgreSQL/API/UI·BOOKMARK mode와 실제 Chromium
+gate까지 `codex/phase-4-practice-flow`에서 완료했습니다. Phase 4 전체는 아직 In
+Progress이며, 다음 실행 단위는 별도 지시가 필요한 Slice 5 result retry와 lifecycle
+통합입니다.
 
 ## 향후 개선
 

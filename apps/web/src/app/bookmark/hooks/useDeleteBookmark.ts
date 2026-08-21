@@ -1,30 +1,70 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { DeleteBookmarkTransportResponse } from '@api/bookmark/deleteBookmark/schema'
 import type { MutateOptions } from '@tanstack/react-query'
-import type { DeleteBookmarkResponse } from '@api/bookmark/deleteBookmark/schema'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   assertCurrentDeleteBookmarkAction,
   bookmarkMutations,
-  bookmarkQueries
+  bookmarkQueries,
+  captureDeleteBookmarkAction,
+  type DeleteBookmarkActionInput
 } from '@app/bookmark/queries/bookmarkQueries'
-import type { DeleteBookmarkActionInput } from '@app/bookmark/queries/bookmarkQueries'
+import {
+  optimisticallyDeleteBookmark,
+  rollbackOptimisticDeleteBookmark,
+  snapshotBookmarkCache,
+  type BookmarkCacheSnapshot
+} from '@app/bookmark/hooks/bookmarkOptimisticCache'
+import { settleBookmarkMutation } from '@app/bookmark/hooks/bookmarkMutationSettlement'
 
 type DeleteBookmarkMutateOptions = MutateOptions<
-  DeleteBookmarkResponse,
+  DeleteBookmarkTransportResponse,
   Error,
   string,
   void
 >
 
+const isCurrentAction = (input: DeleteBookmarkActionInput): boolean => {
+  try {
+    assertCurrentDeleteBookmarkAction(input)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient()
-
   const mutation = useMutation({
     ...bookmarkMutations.delete(),
-    onSuccess: async (_data, input) => {
+    onMutate: async (input): Promise<BookmarkCacheSnapshot> => {
+      captureDeleteBookmarkAction(input)
+      await queryClient.cancelQueries({ queryKey: bookmarkQueries.allKey() })
       assertCurrentDeleteBookmarkAction(input)
-      await queryClient.invalidateQueries({
-        queryKey: bookmarkQueries.allKey()
-      })
+      const snapshot = snapshotBookmarkCache(queryClient)
+      optimisticallyDeleteBookmark(queryClient, input.questionId)
+      return snapshot
+    },
+    onError: (_error, input, snapshot) => {
+      try {
+        assertCurrentDeleteBookmarkAction(input)
+      } catch {
+        return
+      }
+      if (snapshot) {
+        rollbackOptimisticDeleteBookmark(
+          queryClient,
+          snapshot,
+          input.questionId
+        )
+      }
+    },
+    onSettled: async (_data, _error, input) => {
+      try {
+        assertCurrentDeleteBookmarkAction(input)
+      } catch {
+        return
+      }
+      await settleBookmarkMutation(queryClient, () => isCurrentAction(input))
       assertCurrentDeleteBookmarkAction(input)
     }
   })
@@ -32,18 +72,32 @@ export const useDeleteBookmark = () => {
   const toInternalOptions = (
     options: DeleteBookmarkMutateOptions | undefined
   ): MutateOptions<
-    DeleteBookmarkResponse,
+    DeleteBookmarkTransportResponse,
     Error,
     DeleteBookmarkActionInput
   > => ({
     onSuccess: (data, input, _onMutateResult, context) => {
-      assertCurrentDeleteBookmarkAction(input)
+      try {
+        assertCurrentDeleteBookmarkAction(input)
+      } catch {
+        return
+      }
       options?.onSuccess?.(data, input.questionId, undefined, context)
     },
     onError: (error, input, _onMutateResult, context) => {
+      try {
+        assertCurrentDeleteBookmarkAction(input)
+      } catch {
+        return
+      }
       options?.onError?.(error, input.questionId, undefined, context)
     },
     onSettled: (data, error, input, _onMutateResult, context) => {
+      try {
+        assertCurrentDeleteBookmarkAction(input)
+      } catch {
+        return
+      }
       options?.onSettled?.(data, error, input.questionId, undefined, context)
     }
   })

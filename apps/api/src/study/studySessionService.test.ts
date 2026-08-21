@@ -124,7 +124,7 @@ describe('studySessionService', () => {
     }
   )
 
-  it.each(['WRONG_NOTE', 'WEAKNESS', 'DAILY_REVIEW'] as const)(
+  it.each(['WRONG_NOTE', 'WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW'] as const)(
     'v2 USER에게 %s 모드를 전달한다',
     async (mode) => {
       const repository = createRepository()
@@ -158,7 +158,7 @@ describe('studySessionService', () => {
     )
   })
 
-  it.each(['WRONG_NOTE', 'DAILY_REVIEW'] as const)(
+  it.each(['WRONG_NOTE', 'BOOKMARK', 'DAILY_REVIEW'] as const)(
     'guest의 %s 요청은 인증 오류로 닫는다',
     async (mode) => {
       const repository = createRepository()
@@ -178,16 +178,6 @@ describe('studySessionService', () => {
       expect(repository.create).not.toHaveBeenCalled()
     }
   )
-
-  it('v2 BOOKMARK는 Slice 4 전까지 fail closed한다', async () => {
-    const repository = createRepository()
-    const service = createStudySessionService(repository)
-
-    await expect(
-      service.create({ ...request, mode: 'BOOKMARK' }, owner, 2)
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-    expect(repository.create).not.toHaveBeenCalled()
-  })
 
   it.each([
     [new NoEligibleQuestionsError(), 'NO_ELIGIBLE_QUESTIONS', false],

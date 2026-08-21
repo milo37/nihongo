@@ -17,6 +17,7 @@ import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNote
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { getContractQuestionId } from '@mocks/adapters/questionContractAdapter'
 import { AuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'
@@ -108,13 +109,18 @@ const createWrongNoteQuestionId = (): string => {
 describe('auth-bound mutation callback isolation', () => {
   it('does not let an overlapping same-key delete overwrite the older action fence', async () => {
     mockDatabase.loginAs('USER')
-    const questionId = 'n5-vocabulary-01'
+    const questionId = getContractQuestionId('n5-vocabulary-01')
     mockServer.use(
-      http.delete('*/api/bookmark/:questionId', ({ params }) =>
-        HttpResponse.json({
-          success: true,
-          questionId: String(params.questionId)
-        })
+      http.delete(
+        '*/api/v1/bookmarks/:questionId',
+        () =>
+          new HttpResponse(null, {
+            status: 204,
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Request-Id': crypto.randomUUID()
+            }
+          })
       )
     )
     const gate = createSuccessCallbackGate()
@@ -141,9 +147,7 @@ describe('auth-bound mutation callback isolation', () => {
     expect(newerSuccess).toHaveBeenCalledTimes(1)
 
     gate.release()
-    await expect(olderPromise).rejects.toBeInstanceOf(
-      AuthTransitionSupersededError
-    )
+    await expect(olderPromise).resolves.toMatchObject({ status: 204 })
     expect(olderSuccess).not.toHaveBeenCalled()
   })
 
@@ -161,7 +165,7 @@ describe('auth-bound mutation callback isolation', () => {
 
     act(() => {
       mutationPromise = hook.result.current.mutateAsync(
-        { questionId: 'n5-vocabulary-01' },
+        { questionId: getContractQuestionId('n5-vocabulary-01') },
         { onSuccess: success }
       )
     })

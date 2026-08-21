@@ -17,6 +17,8 @@ const normalizePath = (value) => value.split(path.sep).join('/')
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const defaultRootDir = path.resolve(scriptDirectory, '../..')
 const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
+  ['api/bookmark/createBookmark/index.ts', 'safePutWithMetadata'],
+  ['api/bookmark/deleteBookmark/index.ts', 'safeDelWithMetadata'],
   ['api/study/cancelStudySession/index.ts', 'safePostWithMetadata'],
   ['api/study/createStudySessionV2/index.ts', 'safePostWithMetadata'],
   ['api/study/getStudyDraftAnswers/index.ts', 'safeGetWithMetadata'],
@@ -28,12 +30,14 @@ const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
 const METADATA_SAFE_WRAPPER_NAMES = new Set([
   'safeGetWithMetadata',
   'safePostWithMetadata',
-  'safePutWithMetadata'
+  'safePutWithMetadata',
+  'safeDelWithMetadata'
 ])
 const METADATA_RAW_WRAPPER_NAMES = new Set([
   'getWithMetadata',
   'postWithMetadata',
-  'putWithMetadata'
+  'putWithMetadata',
+  'delWithMetadata'
 ])
 
 const isPathInside = (parent, candidate) => {
@@ -771,7 +775,8 @@ const checkEndpoint = (
             'del',
             'getWithMetadata',
             'postWithMetadata',
-            'putWithMetadata'
+            'putWithMetadata',
+            'delWithMetadata'
           ].includes(symbol.getName()) && isDeclaredInFile(symbol, httpPath)
       )
     ) {

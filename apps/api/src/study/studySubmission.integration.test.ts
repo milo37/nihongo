@@ -337,7 +337,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
   })
 
-  it('WEAKNESS·WRONG_NOTE·DAILY_REVIEW를 owner facts로 선택하고 mode별 event source를 보존한다', async () => {
+  it('WEAKNESS·BOOKMARK·WRONG_NOTE·DAILY_REVIEW를 owner facts로 선택하고 mode별 event source를 보존한다', async () => {
     const userId = await createUser()
     const owner = { kind: 'USER' as const, userId }
     const pinned = await loadPinnedQuestion()
@@ -374,7 +374,7 @@ describe('Study submission PostgreSQL transaction', () => {
     })
 
     const createModeSession = async (
-      mode: 'WEAKNESS' | 'WRONG_NOTE' | 'DAILY_REVIEW',
+      mode: 'WEAKNESS' | 'BOOKMARK' | 'WRONG_NOTE' | 'DAILY_REVIEW',
       offsetMilliseconds: number
     ): Promise<StudySessionRecord> => {
       const startedAt = new Date(baseTime + offsetMilliseconds)
@@ -403,6 +403,34 @@ describe('Study submission PostgreSQL transaction', () => {
       randomUUID(),
       {
         answers: weaknessAnswer.map(({ studySessionQuestionId }) => ({
+          studySessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0,
+        expectedDraftRevision: 0
+      },
+      owner,
+      2
+    )
+
+    await database.client.bookmark.create({
+      data: {
+        userId,
+        questionId: pinned.questionId,
+        createdAt: new Date(baseTime + 15_000)
+      }
+    })
+    const bookmark = await createModeSession('BOOKMARK', 15_000)
+    const bookmarkAnswer = await loadAnswerMaterial(bookmark.id)
+    await createStudySubmissionService(
+      submissionRepository,
+      () => new Date(baseTime + 15_100)
+    ).submit(
+      bookmark.id,
+      randomUUID(),
+      {
+        answers: bookmarkAnswer.map(({ studySessionQuestionId }) => ({
           studySessionQuestionId,
           selectedOptionId: null,
           elapsedSec: 0
@@ -477,7 +505,9 @@ describe('Study submission PostgreSQL transaction', () => {
 
     const events = await database.client.reviewEvent.findMany({
       where: {
-        studySessionId: { in: [weakness.id, wrongNote.id, daily.id] }
+        studySessionId: {
+          in: [weakness.id, bookmark.id, wrongNote.id, daily.id]
+        }
       },
       orderBy: { occurredAt: 'asc' },
       select: { source: true, studySessionId: true, questionVersionId: true }
@@ -486,6 +516,11 @@ describe('Study submission PostgreSQL transaction', () => {
       {
         source: 'STUDY_SUBMIT',
         studySessionId: weakness.id,
+        questionVersionId: pinned.questionVersionId
+      },
+      {
+        source: 'STUDY_SUBMIT',
+        studySessionId: bookmark.id,
         questionVersionId: pinned.questionVersionId
       },
       {

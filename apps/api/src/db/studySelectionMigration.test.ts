@@ -16,8 +16,10 @@ describe('Phase 4 Slice 3 selection migration', () => {
   it('23번째 append-only migration으로만 추가한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(23)
-    expect(manifest.at(-1)?.name).toBe(migrationName)
+    expect(manifest.findIndex(({ name }) => name === migrationName) + 1).toBe(
+      23
+    )
+    expect(manifest.at(22)?.name).toBe(migrationName)
   })
 
   it('review pointer와 evidence source를 fail-closed mode matrix로 고정한다', () => {
@@ -74,7 +76,7 @@ describe('Phase 4 Slice 3 selection migration', () => {
     expect(recreatedDashboardIndex).not.toContain('"mode"')
   })
 
-  it('Slice 4 Bookmark schema와 Slice 5 retry relation은 만들지 않는다', () => {
+  it('Slice 3 migration 자체는 Bookmark schema와 Slice 5 retry relation을 만들지 않는다', () => {
     expect(migrationSql).not.toMatch(/CREATE TABLE\s+"Bookmark"/u)
     expect(migrationSql).not.toMatch(/ADD COLUMN\s+"retryOf"/u)
     expect(migrationSql).not.toContain('STUDY_RETRY_CREATE')

@@ -213,15 +213,13 @@ export const Layout = (): ReactElement => {
                   >
                     오답노트
                   </NavLink>
-                  {isMockApiMode ? (
-                    <NavLink
-                      className={getNavClassName}
-                      to="/bookmarks"
-                      onClick={closeMenu}
-                    >
-                      즐겨찾기
-                    </NavLink>
-                  ) : null}
+                  <NavLink
+                    className={getNavClassName}
+                    to="/bookmarks"
+                    onClick={closeMenu}
+                  >
+                    즐겨찾기
+                  </NavLink>
                   <NavLink
                     className={getNavClassName}
                     to="/dashboard"

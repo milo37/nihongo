@@ -48,6 +48,7 @@ const phase4Slice1Migrations = [
 const phase4Slice3Migrations = [
   '20260818130000_phase4_study_selection_modes'
 ] as const
+const phase4Slice4Migrations = ['20260821130000_phase4_bookmarks'] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
@@ -95,6 +96,9 @@ const priorMigrationNames = migrationNames.filter(
     ) &&
     !phase4Slice3Migrations.includes(
       name as (typeof phase4Slice3Migrations)[number]
+    ) &&
+    !phase4Slice4Migrations.includes(
+      name as (typeof phase4Slice4Migrations)[number]
     )
 )
 
@@ -221,6 +225,9 @@ const deployThroughPhase4Slice1 = async (
     (name) =>
       !phase4Slice3Migrations.includes(
         name as (typeof phase4Slice3Migrations)[number]
+      ) &&
+      !phase4Slice4Migrations.includes(
+        name as (typeof phase4Slice4Migrations)[number]
       )
   )) {
     copyMigration(migrationName, context.migrationsPath)
@@ -426,13 +433,13 @@ const createLegacySubmissionFixture = async (
   return { noteId, questionId, sessionId, versionId }
 }
 
-describe('Phase 3 submission through Phase 4 Slice 3 migration upgrade', () => {
-  it('깨끗한 15 migration schema를 16~23번째 schema로 forward deploy한다', async () => {
+describe('Phase 3 submission through Phase 4 Slice 4 migration upgrade', () => {
+  it('깨끗한 15 migration schema를 16~24번째 schema로 forward deploy한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
       expect(priorMigrationNames).toHaveLength(15)
-      expect(migrationNames).toHaveLength(23)
+      expect(migrationNames).toHaveLength(24)
       expect(priorMigrationNames).toEqual(
         Object.keys(approvedPriorMigrationSha256).toSorted()
       )
@@ -476,6 +483,10 @@ describe('Phase 3 submission through Phase 4 Slice 3 migration upgrade', () => {
       copyMigration(phase4Slice3Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(23)
+
+      copyMigration(phase4Slice4Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(24)
 
       const ledger = await readLedger(context)
       const expected = loadExpectedMigrationManifest(sourceMigrationsDirectory)
@@ -640,6 +651,9 @@ describe('Phase 3 submission through Phase 4 Slice 3 migration upgrade', () => {
           ) &&
           !phase4Slice3Migrations.includes(
             name as (typeof phase4Slice3Migrations)[number]
+          ) &&
+          !phase4Slice4Migrations.includes(
+            name as (typeof phase4Slice4Migrations)[number]
           )
       )) {
         copyMigration(migrationName, context.migrationsPath)
@@ -878,6 +892,10 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       copyMigration(phase4Slice3Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(23)
+
+      copyMigration(phase4Slice4Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(24)
 
       const oldBinarySessionId = randomUUID()
       const oldBinarySessionQuestionId = randomUUID()
@@ -1491,7 +1509,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(23)
+      expect(await readLedger(context)).toHaveLength(24)
 
       const runtime = createDatabaseRuntime(context.databaseUrl)
       try {
@@ -1843,6 +1861,9 @@ describe('Slice 5 migration upgrade', () => {
           ) &&
           !phase4Slice3Migrations.includes(
             name as (typeof phase4Slice3Migrations)[number]
+          ) &&
+          !phase4Slice4Migrations.includes(
+            name as (typeof phase4Slice4Migrations)[number]
           )
       )) {
         copyMigration(migrationName, context.migrationsPath)

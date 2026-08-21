@@ -451,16 +451,19 @@ export const studySessionV1Handlers = [
           retryable: false
         })
       }
-      if (practiceContractVersion === 2 && input.mode === 'BOOKMARK') {
+      const isGuest = mockDatabase.getCurrentUser() === null
+      if (
+        practiceContractVersion === 2 &&
+        isGuest &&
+        ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE'].includes(input.mode)
+      ) {
         return createCreateErrorResponse({
-          code: 'VALIDATION_ERROR',
-          message: 'BOOKMARK 모드는 Slice 4에서 활성화됩니다.',
-          fieldErrors: { mode: ['BOOKMARK 모드는 아직 사용할 수 없습니다.'] },
+          code: 'AUTHENTICATION_REQUIRED',
+          message: '이 출제 모드는 로그인이 필요합니다.',
           requestId,
           retryable: false
         })
       }
-      const isGuest = mockDatabase.getCurrentUser() === null
       const inspectedGuestProof = inspectMockGuestProof(request)
       const canReuseGuestProof =
         isGuest &&

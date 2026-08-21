@@ -6,6 +6,7 @@ import {
 } from './practiceCompatibilityFence.js'
 
 const emptyFacts: PracticeCompatibilityFacts = {
+  bookmarkCount: 0,
   v2StudySessionCount: 0,
   studyDraftCount: 0,
   studyDraftAnswerCount: 0,

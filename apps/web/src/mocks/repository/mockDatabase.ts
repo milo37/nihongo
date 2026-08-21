@@ -60,6 +60,7 @@ import {
   type ShuffleSeed
 } from '@util/shuffle'
 import {
+  selectBookmarkStudyCandidates,
   selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
   selectWeaknessStudyCandidates,
@@ -211,6 +212,12 @@ export interface BookmarkListItem {
 export interface BookmarkListResult {
   items: BookmarkListItem[]
   total: number
+}
+
+export interface CanonicalBookmarkSourceRecord {
+  availability: 'AVAILABLE' | 'ARCHIVED'
+  bookmark: Bookmark
+  question: QuestionRecord
 }
 
 export interface AdminQuestionOptionInput {
@@ -457,8 +464,18 @@ interface PersistedMockStateV3 extends PersistedMockStateBase {
   canonicalStudyResults: CanonicalStudyResult[]
 }
 
-interface PersistedMockState extends PersistedMockStateBase {
+interface PersistedMockStateV4 extends PersistedMockStateBase {
   version: 4
+  canonicalDrafts: StudyDraftSnapshot[]
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+}
+
+interface PersistedMockState extends PersistedMockStateBase {
+  version: 5
+  archivedQuestions: QuestionRecord[]
   canonicalDrafts: StudyDraftSnapshot[]
   canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
   canonicalReviewEvents: MockCanonicalReviewEventRecord[]
@@ -470,6 +487,7 @@ type HydratablePersistedMockState =
   | PersistedMockState
   | PersistedMockStateV2
   | PersistedMockStateV3
+  | PersistedMockStateV4
 
 export interface MockStorage {
   getItem: (key: string) => string | null
@@ -584,7 +602,10 @@ const isPersistedMockState = (
 ): value is HydratablePersistedMockState => {
   if (
     !isRecord(value) ||
-    (value.version !== 2 && value.version !== 3 && value.version !== 4)
+    (value.version !== 2 &&
+      value.version !== 3 &&
+      value.version !== 4 &&
+      value.version !== 5)
   ) {
     return false
   }
@@ -608,7 +629,8 @@ const isPersistedMockState = (
         Array.isArray(value.canonicalReviewEvents) &&
         Array.isArray(value.canonicalStudyAnswers) &&
         Array.isArray(value.canonicalStudyResults) &&
-        (value.version === 3 || Array.isArray(value.canonicalDrafts))))
+        (value.version === 3 || Array.isArray(value.canonicalDrafts)) &&
+        (value.version !== 5 || Array.isArray(value.archivedQuestions))))
   )
 }
 
@@ -754,6 +776,7 @@ export class MockDatabase {
   private unsubscribeStorage: (() => void) | undefined
   private readonly userById = new Map<string, User>()
   private questionById = new Map<string, QuestionRecord>()
+  private archivedQuestionById = new Map<string, QuestionRecord>()
   private sessionById = new Map<string, StudySession>()
   private sessionMetadataById = new Map<string, SessionMetadata>()
   private sessionQuestionSnapshotsById = new Map<string, QuestionRecord[]>()
@@ -1958,6 +1981,104 @@ export class MockDatabase {
     return { items: sortedItems, total: sortedItems.length }
   }
 
+  resolveCanonicalQuestionId(contractQuestionId: string): string | null {
+    for (const question of [
+      ...this.questionById.values(),
+      ...this.archivedQuestionById.values()
+    ]) {
+      if (getContractQuestionId(question.id) === contractQuestionId) {
+        return question.id
+      }
+    }
+    return null
+  }
+
+  listCanonicalBookmarkSources(
+    userId: string
+  ): CanonicalBookmarkSourceRecord[] {
+    this.assertUser(userId)
+    const sources: CanonicalBookmarkSourceRecord[] = []
+    for (const bookmark of this.bookmarkByQuestionId.values()) {
+      if (bookmark.userId !== userId) continue
+      const active = this.questionById.get(bookmark.questionId)
+      const archived = this.archivedQuestionById.get(bookmark.questionId)
+      const question = active?.status === 'PUBLISHED' ? active : archived
+      if (!question) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          '즐겨찾기 문제 snapshot을 찾을 수 없습니다.'
+        )
+      }
+      sources.push({
+        bookmark: clone(bookmark),
+        question: clone(question),
+        availability: active?.status === 'PUBLISHED' ? 'AVAILABLE' : 'ARCHIVED'
+      })
+    }
+    return sources.toSorted(
+      (left, right) =>
+        right.bookmark.createdAt.localeCompare(left.bookmark.createdAt) ||
+        left.bookmark.id.localeCompare(right.bookmark.id)
+    )
+  }
+
+  createCanonicalBookmark(
+    userId: string,
+    questionId: string
+  ): { created: boolean; source: CanonicalBookmarkSourceRecord } {
+    this.assertUser(userId)
+    const key = makeUserQuestionKey(userId, questionId)
+    const existing = this.bookmarkByQuestionId.get(key)
+    const active = this.questionById.get(questionId)
+    const archived = this.archivedQuestionById.get(questionId)
+    if (existing) {
+      const question = active?.status === 'PUBLISHED' ? active : archived
+      if (!question) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          '즐겨찾기 문제 snapshot을 찾을 수 없습니다.'
+        )
+      }
+      return {
+        created: false,
+        source: {
+          bookmark: clone(existing),
+          question: clone(question),
+          availability:
+            active?.status === 'PUBLISHED' ? 'AVAILABLE' : 'ARCHIVED'
+        }
+      }
+    }
+    if (!active && !archived) {
+      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
+    }
+    if (!active || active.status !== 'PUBLISHED') {
+      throw new MockDatabaseError(
+        'INVALID_INPUT',
+        422,
+        '현재 공개 중인 문제만 즐겨찾기에 추가할 수 있습니다.'
+      )
+    }
+    const bookmark: Bookmark = {
+      id: this.createId('bookmark'),
+      userId,
+      questionId,
+      createdAt: this.now()
+    }
+    this.bookmarkByQuestionId.set(key, bookmark)
+    this.persist()
+    return {
+      created: true,
+      source: {
+        bookmark: clone(bookmark),
+        question: clone(active),
+        availability: 'AVAILABLE'
+      }
+    }
+  }
+
   createBookmark(userId: string, questionId: string): BookmarkListItem {
     this.assertUser(userId)
     const question = this.questionById.get(questionId)
@@ -2199,6 +2320,10 @@ export class MockDatabase {
       throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
     }
 
+    if (existing.status === 'PUBLISHED' && input.status !== 'PUBLISHED') {
+      this.archivedQuestionById.set(questionId, clone(existing))
+    }
+
     const question = this.buildQuestionRecord(
       questionId,
       input,
@@ -2211,19 +2336,15 @@ export class MockDatabase {
   }
 
   deleteQuestion(questionId: string): boolean {
-    if (!this.questionById.delete(questionId)) {
+    const existing = this.questionById.get(questionId)
+    if (!existing || !this.questionById.delete(questionId)) {
       throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
     }
-
-    for (const [key, bookmark] of this.bookmarkByQuestionId) {
-      if (bookmark.questionId === questionId) {
-        this.bookmarkByQuestionId.delete(key)
-      }
-    }
-    for (const [key, wrongNote] of this.wrongNoteByQuestionId) {
-      if (wrongNote.questionId === questionId) {
-        this.wrongNoteByQuestionId.delete(key)
-      }
+    if (
+      existing.status === 'PUBLISHED' ||
+      !this.archivedQuestionById.has(questionId)
+    ) {
+      this.archivedQuestionById.set(questionId, clone(existing))
     }
 
     this.persist()
@@ -2240,6 +2361,7 @@ export class MockDatabase {
     this.questionById = new Map(
       mockSeedData.questions.map((question) => [question.id, clone(question)])
     )
+    this.archivedQuestionById.clear()
     this.sessionById.clear()
     this.sessionMetadataById.clear()
     this.sessionQuestionSnapshotsById.clear()
@@ -2330,14 +2452,6 @@ export class MockDatabase {
       })
       return { questions: questions.slice(0, count), usedFallback: false }
     }
-    if (input.mode === 'BOOKMARK') {
-      throw new MockDatabaseError(
-        'INVALID_INPUT',
-        422,
-        'BOOKMARK 모드는 Slice 4에서 활성화됩니다.'
-      )
-    }
-
     const eligibleById = new Map(
       eligible.map((question) => [question.id, question])
     )
@@ -2493,6 +2607,37 @@ export class MockDatabase {
           [...candidates.values()],
           count
         ).map(({ questionId }) => questionId)
+      }
+
+      if (input.mode === 'BOOKMARK') {
+        const sourceByContractQuestionId = new Map<string, string>()
+        const selected = selectBookmarkStudyCandidates(
+          [...this.bookmarkByQuestionId.values()].flatMap((bookmark) => {
+            const question = eligibleById.get(bookmark.questionId)
+            if (bookmark.userId !== userId || !question) return []
+            const contractQuestionId = getContractQuestionId(question.id)
+            sourceByContractQuestionId.set(contractQuestionId, question.id)
+            return [
+              {
+                ...toPin(question),
+                questionId: contractQuestionId,
+                createdAt: new Date(bookmark.createdAt)
+              }
+            ]
+          }),
+          count
+        )
+        return selected.map(({ questionId }) => {
+          const sourceQuestionId = sourceByContractQuestionId.get(questionId)
+          if (!sourceQuestionId) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              '즐겨찾기 후보의 stable Question ID를 복원할 수 없습니다.'
+            )
+          }
+          return sourceQuestionId
+        })
       }
 
       const observedAtMs = Date.parse(observedAt)
@@ -3734,7 +3879,8 @@ export class MockDatabase {
 
   private persist(): void {
     const state: PersistedMockState = {
-      version: 4,
+      version: 5,
+      archivedQuestions: [...this.archivedQuestionById.values()],
       canonicalDrafts: [...this.canonicalDraftBySessionId.values()],
       canonicalIdempotencyRecords: [
         ...this.canonicalIdempotencyRecordByKey.values()
@@ -3798,6 +3944,11 @@ export class MockDatabase {
       this.questionById = new Map(
         parsed.questions.map((question) => [question.id, question])
       )
+      this.archivedQuestionById = new Map(
+        parsed.version === 5
+          ? parsed.archivedQuestions.map((question) => [question.id, question])
+          : []
+      )
       this.sessionById = new Map(
         parsed.sessions.map((session) => [session.id, session])
       )
@@ -3833,7 +3984,11 @@ export class MockDatabase {
       this.sessionQuestionSnapshotsById = new Map(
         parsed.sessionQuestionSnapshots
       )
-      if (parsed.version === 3 || parsed.version === 4) {
+      if (
+        parsed.version === 3 ||
+        parsed.version === 4 ||
+        parsed.version === 5
+      ) {
         this.canonicalReviewEventByStudyAnswerId = new Map()
         parsed.canonicalReviewEvents.forEach((event, index) => {
           const storageKey = toDuplicatePreservingKey(
@@ -3862,7 +4017,7 @@ export class MockDatabase {
           this.canonicalResultBySessionId.set(storageKey, clone(result))
         })
         this.canonicalDraftBySessionId = new Map()
-        if (parsed.version === 4) {
+        if (parsed.version === 4 || parsed.version === 5) {
           parsed.canonicalDrafts.forEach((draft) => {
             this.canonicalDraftBySessionId.set(
               draft.studySessionId,
@@ -3910,8 +4065,16 @@ export class MockDatabase {
           wrongNote
         ])
       )
+      const hydratedBookmarks =
+        parsed.version === 5
+          ? parsed.bookmarks
+          : parsed.bookmarks.filter(
+              (bookmark) =>
+                this.questionById.get(bookmark.questionId)?.status ===
+                'PUBLISHED'
+            )
       this.bookmarkByQuestionId = new Map(
-        parsed.bookmarks.map((bookmark) => [
+        hydratedBookmarks.map((bookmark) => [
           makeUserQuestionKey(bookmark.userId, bookmark.questionId),
           bookmark
         ])

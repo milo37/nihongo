@@ -35,6 +35,11 @@ export const invalidateCanonicalAuthTransitions = (): void => {
   advanceAuthTransitionEpoch()
 }
 
+const removeAllMutations = (queryClient: QueryClient): void => {
+  const mutationCache = queryClient.getMutationCache()
+  mutationCache.getAll().forEach((mutation) => mutationCache.remove(mutation))
+}
+
 const applyCanonicalAuth = (
   queryClient: QueryClient,
   user: AuthenticatedUser | null,
@@ -51,6 +56,7 @@ const applyCanonicalAuth = (
   const identityChanged = !hasSameAuthIdentity(state.currentUser, user)
 
   if (identityChanged || options.forceClear) {
+    removeAllMutations(queryClient)
     queryClient.removeQueries({
       predicate: (query) => query.queryKey[0] !== authQueries.allKey()[0]
     })
@@ -95,6 +101,7 @@ export const refreshCanonicalAuthAfterMutation = async (
 
   const state = useAppStore.getState()
   if (options.forceClear) {
+    removeAllMutations(queryClient)
     queryClient.removeQueries({
       predicate: (query) => query.queryKey[0] !== authQueries.allKey()[0]
     })

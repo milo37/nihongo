@@ -1,21 +1,11 @@
-import { bookmarkSchema, practiceQuestionSchema } from '@api/schema'
-import { z } from 'zod'
+import {
+  listBookmarksQuerySchema,
+  listBookmarksResponseSchema
+} from '@nihongo/contracts/bookmark/list-bookmarks'
 
-export const listBookmarkRequestSchema = z.object({}).strict()
-
-export const listBookmarkResponseSchema = z
-  .object({
-    items: z.array(
-      z
-        .object({
-          bookmark: bookmarkSchema,
-          question: practiceQuestionSchema
-        })
-        .strict()
-    ),
-    total: z.number().int().nonnegative()
-  })
-  .strict()
-
-export type ListBookmarkRequest = z.infer<typeof listBookmarkRequestSchema>
-export type ListBookmarkResponse = z.infer<typeof listBookmarkResponseSchema>
+export const listBookmarkRequestSchema = listBookmarksQuerySchema
+export const listBookmarkResponseSchema = listBookmarksResponseSchema
+export type {
+  ListBookmarksQuery as ListBookmarkRequest,
+  ListBookmarksResponse as ListBookmarkResponse
+} from '@nihongo/contracts/bookmark/list-bookmarks'

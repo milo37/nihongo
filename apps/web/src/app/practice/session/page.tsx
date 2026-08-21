@@ -14,9 +14,11 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Progress } from '@common/components/Progress'
 import { RadioGroup } from '@common/components/RadioGroup'
+import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
+import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
 import { useClearGuestPracticeQueryCache } from '@app/practice/hooks/useClearGuestPracticeQueryCache'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
@@ -46,7 +48,6 @@ import {
   isDefinitiveStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
 import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isMockApiMode } from '@libs/apiMode'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 import {
@@ -82,7 +83,10 @@ export const PracticeSessionPage = (): ReactElement => {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
     useState(false)
-  const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
+  const [bookmarkMessage, setBookmarkMessage] = useState<{
+    questionId: string
+    text: string
+  } | null>(null)
   const [draftActionMessage, setDraftActionMessage] = useState<string | null>(
     null
   )
@@ -186,20 +190,32 @@ export const PracticeSessionPage = (): ReactElement => {
   })
   const createBookmark = useCreateBookmark()
   const deleteBookmark = useDeleteBookmark()
-  const bookmarksQuery = useListBookmarks(isMockApiMode && role !== 'GUEST')
+  const bookmarkMutationActivity = useBookmarkMutationActivity()
+  const bookmarkQuestionIds =
+    sessionQuery.data?.session.practiceContractVersion === 2
+      ? sessionQuery.data.questions.map((question) => question.id).toSorted()
+      : []
+  const bookmarksQuery = useListBookmarks(
+    {
+      page: 1,
+      pageSize: 20,
+      ...(bookmarkQuestionIds.length > 0
+        ? { questionIds: bookmarkQuestionIds }
+        : {})
+    },
+    role !== 'GUEST' && bookmarkQuestionIds.length > 0
+  )
   const storedSessionId = useAppStore((state) => state.sessionId)
   const storedCurrentQuestionIndex = useAppStore(
     (state) => state.currentQuestionIndex
   )
   const selectedAnswers = useAppStore((state) => state.selectedAnswers)
   const startedAt = useAppStore((state) => state.startedAt)
-  const pendingBookmarkIds = useAppStore((state) => state.pendingBookmarkIds)
   const beginPractice = useAppStore((state) => state.beginPractice)
   const setCurrentQuestionIndex = useAppStore(
     (state) => state.setCurrentQuestionIndex
   )
   const selectAnswer = useAppStore((state) => state.selectAnswer)
-  const setPendingBookmark = useAppStore((state) => state.setPendingBookmark)
   const resetPractice = useAppStore((state) => state.resetPractice)
   const legacyElapsedSeconds = useElapsedSeconds(startedAt)
 
@@ -700,45 +716,94 @@ export const PracticeSessionPage = (): ReactElement => {
   const progressValue = Math.round(
     ((safeQuestionIndex + 1) / questions.length) * 100
   )
-  const isBookmarked =
-    pendingBookmarkIds[currentQuestion.id] ??
-    Boolean(
-      bookmarksQuery.data?.items.some(
-        ({ question }) => question.id === currentQuestion.id
-      )
+  const isBookmarked = Boolean(
+    bookmarksQuery.data?.items.some(
+      (bookmark) => bookmark.questionId === currentQuestion.id
     )
+  )
+  const hasPendingBookmarkMutation =
+    bookmarkMutationActivity.pendingQuestionIds.size > 0
+  const isBookmarkQueryUnavailable =
+    role !== 'GUEST' && (bookmarksQuery.isPending || bookmarksQuery.isError)
+
+  const toOptimisticBookmark = (): BookmarkSummary | undefined => {
+    if (!currentQuestion.questionVersionId || !currentQuestion.tagSummaries) {
+      return undefined
+    }
+    const characters = [...currentQuestion.questionText]
+    return {
+      questionId: currentQuestion.id,
+      question: {
+        id: currentQuestion.id,
+        questionVersionId: currentQuestion.questionVersionId,
+        level: currentQuestion.level,
+        subject: currentQuestion.subject,
+        questionType: currentQuestion.questionType,
+        difficulty: currentQuestion.difficulty,
+        questionTextPreview:
+          characters.length <= 160
+            ? currentQuestion.questionText
+            : `${characters.slice(0, 157).join('')}...`,
+        tags: currentQuestion.tagSummaries
+      },
+      availability: 'AVAILABLE',
+      createdAt: new Date().toISOString()
+    }
+  }
 
   const handleBookmark = (): void => {
-    if (!isMockApiMode) {
-      setBookmarkMessage('즐겨찾기는 실제 API에서 아직 지원되지 않습니다.')
+    if (role === 'GUEST') {
+      setBookmarkMessage({
+        questionId: currentQuestion.id,
+        text: '즐겨찾기를 저장하려면 로그인해 주세요.'
+      })
       return
     }
-
-    if (role === 'GUEST') {
-      setBookmarkMessage('즐겨찾기를 저장하려면 데모 학습자로 로그인해 주세요.')
+    if (session.practiceContractVersion !== 2) {
+      setBookmarkMessage({
+        questionId: currentQuestion.id,
+        text: '이전 계약 세션에서는 즐겨찾기를 변경할 수 없습니다.'
+      })
       return
     }
 
     setBookmarkMessage(null)
     if (isBookmarked) {
-      setPendingBookmark(currentQuestion.id, false)
       deleteBookmark.mutate(currentQuestion.id, {
+        onSuccess: () =>
+          setBookmarkMessage({
+            questionId: currentQuestion.id,
+            text: '즐겨찾기에서 해제했습니다.'
+          }),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
-            setPendingBookmark(currentQuestion.id, true)
+            setBookmarkMessage({
+              questionId: currentQuestion.id,
+              text: '즐겨찾기 해제를 완료하지 못해 복원했습니다.'
+            })
           }
         }
       })
       return
     }
 
-    setPendingBookmark(currentQuestion.id, true)
     createBookmark.mutate(
-      { questionId: currentQuestion.id },
       {
+        questionId: currentQuestion.id,
+        optimisticBookmark: toOptimisticBookmark()
+      },
+      {
+        onSuccess: () =>
+          setBookmarkMessage({
+            questionId: currentQuestion.id,
+            text: '즐겨찾기에 저장했습니다.'
+          }),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
-            setPendingBookmark(currentQuestion.id, false)
+            setBookmarkMessage({
+              questionId: currentQuestion.id,
+              text: '즐겨찾기를 저장하지 못해 이전 상태로 복원했습니다.'
+            })
           }
         }
       }
@@ -983,40 +1048,60 @@ export const PracticeSessionPage = (): ReactElement => {
                 </Badge>
               ))}
             </div>
-            {isMockApiMode ? (
-              <button
-                className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                type="button"
-                disabled={
-                  mustReplayFrozenSubmission ||
-                  isNavigationPromptBlocked ||
-                  isPreparingSubmission
-                }
-                aria-pressed={isBookmarked}
-                data-selected={isBookmarked}
-                onClick={handleBookmark}
-              >
-                {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
-              </button>
-            ) : (
-              <span className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-950">
-                즐겨찾기 미지원
-              </span>
-            )}
+            <button
+              className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              type="button"
+              disabled={
+                mustReplayFrozenSubmission ||
+                isNavigationPromptBlocked ||
+                isPreparingSubmission ||
+                hasPendingBookmarkMutation ||
+                isBookmarkQueryUnavailable ||
+                session.practiceContractVersion !== 2
+              }
+              aria-label={`${safeQuestionIndex + 1}번 문제 ${
+                isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'
+              }`}
+              aria-pressed={isBookmarked}
+              data-selected={isBookmarked}
+              onClick={handleBookmark}
+            >
+              {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
+            </button>
           </div>
-          {bookmarkMessage ? (
+          {(bookmarkMessage?.questionId === currentQuestion.id &&
+            bookmarkMessage.text) ||
+          bookmarkMutationActivity.isPaused ? (
             <p
               className="mt-3 text-sm font-semibold text-amber-800"
               role="status"
             >
-              {bookmarkMessage}{' '}
-              <Link
-                className="underline hover:no-underline"
-                to="/login?redirect=%2Fpractice"
-              >
-                로그인 선택
-              </Link>
+              {bookmarkMutationActivity.isPaused
+                ? '오프라인입니다. 연결되면 즐겨찾기 변경을 다시 시도합니다.'
+                : bookmarkMessage?.text}{' '}
+              {role === 'GUEST' ? (
+                <Link
+                  className="underline hover:no-underline"
+                  to="/login?redirect=%2Fpractice"
+                >
+                  로그인 선택
+                </Link>
+              ) : null}
             </p>
+          ) : null}
+          {role !== 'GUEST' && bookmarksQuery.isError ? (
+            <div
+              className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-red-700"
+              role="alert"
+            >
+              <span>즐겨찾기 상태를 확인하지 못했습니다.</span>
+              <Button
+                variant="outline"
+                onClick={() => void bookmarksQuery.refetch()}
+              >
+                다시 확인
+              </Button>
+            </div>
           ) : null}
 
           <h1

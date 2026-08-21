@@ -26,13 +26,6 @@ const isStringRecord = (value: unknown): value is Record<string, string> => {
   )
 }
 
-const isBooleanRecord = (value: unknown): value is Record<string, boolean> => {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((entry) => typeof entry === 'boolean')
-  )
-}
-
 const isPersistedUser = (value: unknown): value is AuthenticatedUser => {
   if (!isRecord(value)) {
     return false
@@ -81,10 +74,6 @@ const sanitizePersistedState = (
   if (typeof value.startedAt === 'string' || value.startedAt === null) {
     sanitized.startedAt = value.startedAt
   }
-  if (isBooleanRecord(value.pendingBookmarkIds)) {
-    sanitized.pendingBookmarkIds = value.pendingBookmarkIds
-  }
-
   return sanitized
 }
 
@@ -110,8 +99,7 @@ export const useAppStore = create<AppStore>()(
         sessionId: state.sessionId,
         currentQuestionIndex: state.currentQuestionIndex,
         selectedAnswers: state.selectedAnswers,
-        startedAt: state.startedAt,
-        pendingBookmarkIds: state.pendingBookmarkIds
+        startedAt: state.startedAt
       })
     }
   )

@@ -407,6 +407,7 @@ const REQUEST_SCHEMA_NAME_PATTERN =
   /(?:params?|query|body|headers?|request)Schema$/i
 const REQUESTLESS_API_ROUTES = new Set(['delete:/guest-principal', 'get:/me'])
 const NO_CONTENT_API_ROUTE_SOURCES = new Set([
+  'apps/api/src/routes/bookmarks.ts#delete:/:questionId',
   'apps/api/src/routes/principal.ts#delete:/guest-principal',
   'apps/api/src/routes/studyDrafts.ts#post:/:sessionId/cancellation'
 ])

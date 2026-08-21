@@ -20,6 +20,7 @@ interface StudyResultQuestionView {
   options: PracticeQuestionOption[]
   difficulty: QuestionDifficulty
   tags: string[]
+  tagSummaries?: Array<{ id: string; label: string }> | null
 }
 
 export interface StudyResultItemView {
@@ -56,7 +57,8 @@ export const toLegacyStudyResultView = (
     wrongNoteStatus: null,
     question: {
       ...item.question,
-      questionVersionId: null
+      questionVersionId: null,
+      tagSummaries: null
     }
   }))
 })
@@ -86,7 +88,8 @@ export const toCanonicalStudyResultView = (
         questionText: item.question.questionText,
         options: item.question.options,
         difficulty: item.question.difficulty,
-        tags
+        tags,
+        tagSummaries: item.question.tags
       },
       selectedOptionId: item.selectedOptionId,
       correctOptionId: item.question.correctOptionId,

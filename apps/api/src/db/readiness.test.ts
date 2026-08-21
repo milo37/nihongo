@@ -28,10 +28,8 @@ describe('database readiness', () => {
   it('repository migration SQL에서 Prisma checksum manifest를 만든다', () => {
     const manifest = loadExpectedMigrationManifest(migrationDirectory)
 
-    expect(manifest).toHaveLength(23)
-    expect(manifest.at(-1)?.name).toBe(
-      '20260818130000_phase4_study_selection_modes'
-    )
+    expect(manifest).toHaveLength(24)
+    expect(manifest.at(-1)?.name).toBe('20260821130000_phase4_bookmarks')
     expect(manifest).toContainEqual({
       name: completeMigration.migrationName,
       checksum

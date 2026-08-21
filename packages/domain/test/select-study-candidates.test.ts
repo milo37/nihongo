@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  selectBookmarkStudyCandidates,
   selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
   selectWeaknessStudyCandidates,
@@ -10,6 +11,31 @@ import {
 const at = (value: string): Date => new Date(value)
 
 describe('select study candidates', () => {
+  it('ranks BOOKMARK candidates by creation instant and stable ID', () => {
+    const selected = selectBookmarkStudyCandidates(
+      [
+        {
+          questionId: 'q3',
+          questionVersionId: 'v3',
+          createdAt: at('2026-08-20T00:00:00.000Z')
+        },
+        {
+          questionId: 'q2',
+          questionVersionId: 'v2',
+          createdAt: at('2026-08-21T00:00:00.000Z')
+        },
+        {
+          questionId: 'q1',
+          questionVersionId: 'v1',
+          createdAt: at('2026-08-21T00:00:00.000Z')
+        }
+      ],
+      2
+    )
+
+    expect(selected.map(({ questionId }) => questionId)).toEqual(['q1', 'q2'])
+  })
+
   it('shuffles non-recent RANDOM candidates before recent candidates', () => {
     const values = [0, 0]
     let index = 0

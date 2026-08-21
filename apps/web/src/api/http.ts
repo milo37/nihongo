@@ -136,6 +136,19 @@ export const putWithMetadata = async <Response = unknown>(
   return toResponseWithMetadata(response)
 }
 
+export const delWithMetadata = async <Response = unknown>(
+  url: string,
+  params?: unknown,
+  config?: AxiosRequestConfig
+): Promise<HttpResponseWithMetadata<Response>> => {
+  const response = await apiClient.delete<Response>(url, {
+    ...config,
+    params
+  })
+
+  return toResponseWithMetadata(response)
+}
+
 const safeGetFactory = safeFactory(
   (url: string, params?: unknown, config?: AxiosRequestConfig) =>
     get(url, params, config)
@@ -163,6 +176,10 @@ const safePostWithMetadataFactory = safeFactory(
 const safePutWithMetadataFactory = safeFactory(
   (url: string, data?: unknown, config?: AxiosRequestConfig) =>
     putWithMetadata(url, data, config)
+)
+const safeDelWithMetadataFactory = safeFactory(
+  (url: string, params?: unknown, config?: AxiosRequestConfig) =>
+    delWithMetadata(url, params, config)
 )
 
 export const safeGet = <Schema extends ZodType>(
@@ -220,5 +237,13 @@ export const safePutWithMetadata = <Schema extends ZodType>(
   data?: unknown,
   config?: AxiosRequestConfig
 ) => Promise<z.output<Schema>>) => safePutWithMetadataFactory(schema)
+
+export const safeDelWithMetadata = <Schema extends ZodType>(
+  schema: Schema
+): ((
+  url: string,
+  params?: unknown,
+  config?: AxiosRequestConfig
+) => Promise<z.output<Schema>>) => safeDelWithMetadataFactory(schema)
 
 export type SafeResponse<Schema extends ZodType> = z.output<Schema>

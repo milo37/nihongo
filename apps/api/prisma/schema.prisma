@@ -141,6 +141,7 @@ model User {
   createdQuestionVersions QuestionVersion[]   @relation("QuestionVersionCreator")
   studySessions           StudySession[]
   wrongNotes              WrongNote[]
+  bookmarks               Bookmark[]
   idempotencyRecords      IdempotencyRecord[]
 
   @@index([role, accountStatus])
@@ -312,10 +313,25 @@ model Question {
   currentPublishedVersion   QuestionVersion?        @relation("CurrentPublishedVersion", fields: [id, currentPublishedVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
   studySessionQuestions     StudySessionQuestion[]
   wrongNotes                WrongNote[]
+  bookmarks                 Bookmark[]
 
   @@unique([id, currentPublishedVersionId])
   @@index([lifecycleStatus, currentPublishedVersionId])
   @@index([createdByUserId])
+}
+
+model Bookmark {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  questionId String   @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, createdAt(sort: Desc), id])
+  @@index([userId, createdAt(sort: Desc), questionId])
+  @@index([questionId, id])
 }
 
 model QuestionVersion {

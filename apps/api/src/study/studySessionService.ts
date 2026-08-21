@@ -83,16 +83,10 @@ export const createStudySessionService = (
         retryable: false
       })
     }
-    if (input.mode === 'BOOKMARK') {
-      throw new ApplicationError({
-        code: 'VALIDATION_ERROR',
-        message: 'BOOKMARK 모드는 Slice 4에서 활성화됩니다.',
-        fieldErrors: { mode: ['BOOKMARK 모드는 아직 사용할 수 없습니다.'] },
-        retryable: false
-      })
-    }
     if (
-      (input.mode === 'WRONG_NOTE' || input.mode === 'DAILY_REVIEW') &&
+      (input.mode === 'WRONG_NOTE' ||
+        input.mode === 'DAILY_REVIEW' ||
+        input.mode === 'BOOKMARK') &&
       owner.kind !== 'USER'
     ) {
       throw new ApplicationError({

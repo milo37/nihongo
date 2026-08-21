@@ -30,6 +30,8 @@ import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.j
 import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
 import { createPracticeRuntimeGate } from './lifecycle/practiceRuntimeGate.js'
+import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
+import { createBookmarkService } from './bookmark/bookmarkService.js'
 
 const environment = parseApiEnvironment(process.env)
 const practiceEnvironment = parsePracticeRuntimeEnvironment(
@@ -86,6 +88,9 @@ const wrongNoteService = createWrongNoteService(
 const dashboardService = createDashboardService(
   createPrismaDashboardRepository(database.client)
 )
+const bookmarkService = createBookmarkService(
+  createPrismaBookmarkRepository(database.client)
+)
 const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
@@ -101,6 +106,7 @@ const app = createApiApp({
   checkReadiness: practiceRuntimeGate.checkReadiness,
   logger,
   learning: {
+    bookmarkService,
     dashboardService,
     rateLimiter: applicationRateLimiter,
     wrongNoteService

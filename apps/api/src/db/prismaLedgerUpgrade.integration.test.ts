@@ -52,7 +52,8 @@ const FORWARD_MIGRATIONS = [
   '20260816130000_phase3_wrong_note_dashboard_read_indexes',
   '20260817130000_phase4_practice_idempotency_operations',
   '20260817131000_phase4_study_draft_core',
-  '20260818130000_phase4_study_selection_modes'
+  '20260818130000_phase4_study_selection_modes',
+  '20260821130000_phase4_bookmarks'
 ] as const
 
 const environment = parseApiEnvironment(process.env)
@@ -208,6 +209,10 @@ describe('Prisma migration ledger upgrade', () => {
          FROM pg_indexes
          WHERE schemaname = $1
            AND indexname IN (
+             'Bookmark_questionId_id_idx',
+             'Bookmark_userId_createdAt_id_idx',
+             'Bookmark_userId_createdAt_questionId_idx',
+             'Bookmark_userId_questionId_key',
              'Session_userId_expiresAt_idx',
              'StudySession_guest_level_subject_submittedAt_id_weakness_idx',
              'StudySession_userId_submittedAt_id_dashboard_idx',
@@ -221,6 +226,10 @@ describe('Prisma migration ledger upgrade', () => {
         [schemaName]
       )
       expect(indexes.rows.map(({ name }) => name)).toEqual([
+        'Bookmark_questionId_id_idx',
+        'Bookmark_userId_createdAt_id_idx',
+        'Bookmark_userId_createdAt_questionId_idx',
+        'Bookmark_userId_questionId_key',
         'Session_userId_expiresAt_idx',
         'StudySession_guest_level_subject_submittedAt_id_weakness_idx',
         'StudySession_userId_level_subject_submittedAt_id_weakness_idx',
@@ -294,6 +303,18 @@ describe('Prisma migration ledger upgrade', () => {
           'WrongNote_userId_status_id_questionId_daily_idx'
         )
       ).toContain('("userId", status, id, "questionId")')
+      expect(
+        indexDefinitionByName.get('Bookmark_userId_questionId_key')
+      ).toContain('("userId", "questionId")')
+      expect(
+        indexDefinitionByName.get('Bookmark_userId_createdAt_id_idx')
+      ).toContain('("userId", "createdAt" DESC, id)')
+      expect(
+        indexDefinitionByName.get('Bookmark_userId_createdAt_questionId_idx')
+      ).toContain('("userId", "createdAt" DESC, "questionId")')
+      expect(indexDefinitionByName.get('Bookmark_questionId_id_idx')).toContain(
+        '("questionId", id)'
+      )
 
       const labelSnapshotConstraint = await adminClient.query<{
         definition: string

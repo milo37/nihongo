@@ -38,6 +38,11 @@ interface Slice3SelectionFixture {
   weaknessQuestionId: string
 }
 
+interface BookmarkList {
+  items: Array<{ questionId: string }>
+  total: number
+}
+
 interface DraftSnapshot {
   answers: Array<{
     elapsedSec: number
@@ -603,7 +608,7 @@ test.describe.serial('Slice 2 real practice flow', () => {
       }, created.session.id)
       expect(afterSwitch.currentUserId).toEqual(expect.any(String))
       expect(afterSwitch.ownerSentinel).toBeNull()
-      expect(afterSwitch.pendingDraftSaveMutations).toBe(1)
+      expect(afterSwitch.pendingDraftSaveMutations).toBe(0)
       expect(afterSwitch.sessionId).toBeNull()
       expect(afterSwitch.selectedAnswers).toEqual({})
       expect(afterSwitch.draftWorkingCopy).toBeNull()
@@ -1043,9 +1048,126 @@ test.describe.serial('Slice 2 real practice flow', () => {
         }
       })
       expect(bookmarkResult).toEqual({
-        body: expect.objectContaining({ code: 'VALIDATION_ERROR' }),
-        status: 422
+        body: expect.objectContaining({ code: 'AUTHENTICATION_REQUIRED' }),
+        status: 401
       })
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Slice 4 USER can add, list, practice, and remove canonical Bookmarks', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userD)
+    const { context, page } = authenticated
+
+    try {
+      const random = await createSession(page)
+      await openSession(page, random.session.id)
+      const bookmarkedQuestionIds: string[] = []
+
+      for (const ordinal of [1, 2]) {
+        if (ordinal > 1) await goToQuestion(page, ordinal)
+        const button = page.getByRole('button', {
+          name: `${ordinal}번 문제 즐겨찾기 추가`
+        })
+        await expect(button).toBeEnabled()
+        const responsePromise = page.waitForResponse((response) => {
+          const url = new URL(response.url())
+          return (
+            response.request().method() === 'PUT' &&
+            url.pathname.startsWith('/api/v1/bookmarks/')
+          )
+        })
+        await button.click()
+        const response = await responsePromise
+        expect(response.status()).toBe(201)
+        await expect(
+          page.getByRole('button', {
+            name: `${ordinal}번 문제 즐겨찾기 해제`
+          })
+        ).toHaveAttribute('aria-pressed', 'true')
+        const questionId = random.questions[ordinal - 1]?.question.id
+        if (!questionId) throw new Error('Bookmark E2E question이 필요합니다.')
+        bookmarkedQuestionIds.push(questionId)
+      }
+
+      await cancelCreatedSession(page, random.session.id)
+      await page.goto('/bookmarks')
+      await expect(
+        page.getByRole('heading', { name: '즐겨찾기 문제' })
+      ).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: '즐겨찾기 해제' })
+      ).toHaveCount(2)
+
+      const canonicalBookmarks = await page.evaluate(async () => {
+        const response = await fetch('/api/v1/bookmarks?page=1&pageSize=20')
+        if (!response.ok) {
+          throw new Error(`Bookmark list failed with ${response.status}.`)
+        }
+        return (await response.json()) as BookmarkList
+      })
+      expect(canonicalBookmarks.total).toBe(2)
+      expect(
+        new Set(canonicalBookmarks.items.map(({ questionId }) => questionId))
+      ).toEqual(new Set(bookmarkedQuestionIds))
+
+      const createResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'POST' &&
+          url.pathname === '/api/v1/study-sessions'
+        )
+      })
+      await page
+        .getByRole('button', {
+          name: /N5 · 문자·어휘 · 최대 20문제 풀기/u
+        })
+        .click()
+      const createResponse = await createResponsePromise
+      expect(createResponse.status()).toBe(201)
+      const bookmarkSession = (await createResponse.json()) as CreatedSession
+      expect(bookmarkSession.session).toMatchObject({
+        actualCount: 2,
+        fallbackReason: null,
+        mode: 'BOOKMARK',
+        requestedCount: 20,
+        usedFallback: false
+      })
+      expect(
+        bookmarkSession.questions.map(({ question }) => question.id)
+      ).toEqual(canonicalBookmarks.items.map(({ questionId }) => questionId))
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${bookmarkSession.session.id}$`)
+      )
+      await expect(
+        page.getByText(/다른 모드로 대체하지 않았습니다/u)
+      ).toBeVisible()
+
+      const removeButton = page.getByRole('button', {
+        name: '1번 문제 즐겨찾기 해제'
+      })
+      await expect(removeButton).toBeEnabled()
+      const deleteResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'DELETE' &&
+          url.pathname.startsWith('/api/v1/bookmarks/')
+        )
+      })
+      await removeButton.click()
+      const deleteResponse = await deleteResponsePromise
+      expect(deleteResponse.status()).toBe(204)
+      await expect(
+        page.getByRole('button', { name: '1번 문제 즐겨찾기 추가' })
+      ).toHaveAttribute('aria-pressed', 'false')
+      await cancelCreatedSession(page, bookmarkSession.session.id)
+      await page.goto('/bookmarks')
+      await expect(
+        page.getByRole('button', { name: '즐겨찾기 해제' })
+      ).toHaveCount(1)
     } finally {
       await context.close()
     }
@@ -1091,7 +1213,7 @@ test.describe.serial('Slice 2 real practice flow', () => {
       await waitForSaved(page)
       await page.keyboard.press('ArrowRight')
       await expect(
-        page.getByRole('button', { name: /^2번 문제/ })
+        page.getByRole('button', { name: /^2번 문제,/ })
       ).toHaveAttribute('aria-current', 'step')
       await expect(page.locator('h1')).toBeFocused()
       await expect(page.locator('[data-save-state]')).toHaveAttribute(

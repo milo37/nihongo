@@ -1,11 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useNavigationType, useParams } from 'react-router'
 import type { ReactElement } from 'react'
+import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { isNotFoundApiError } from '@util/apiError'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
+import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
+import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
+import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
+import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
@@ -13,6 +18,7 @@ import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 import { isRealApiMode } from '@libs/apiMode'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -32,11 +38,33 @@ export const PracticeResultPage = (): ReactElement => {
   const navigationType = useNavigationType()
   const summaryHeadingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
+  const [bookmarkMessage, setBookmarkMessage] = useState<{
+    questionId: string
+    text: string
+  } | null>(null)
   const { role } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const resultQuery = useGetStudyResult(sessionId)
   const sessionQuery = useGetStudySession(sessionId)
   const createSession = useCreateStudySession()
+  const createBookmark = useCreateBookmark()
+  const deleteBookmark = useDeleteBookmark()
+  const bookmarkMutationActivity = useBookmarkMutationActivity()
+  const resultQuestionIds =
+    sessionQuery.data?.session.practiceContractVersion === 2
+      ? (resultQuery.data?.items.map((item) => item.question.id).toSorted() ??
+        [])
+      : []
+  const bookmarksQuery = useListBookmarks(
+    {
+      page: 1,
+      pageSize: 20,
+      ...(resultQuestionIds.length > 0
+        ? { questionIds: resultQuestionIds }
+        : {})
+    },
+    role !== 'GUEST' && resultQuestionIds.length > 0
+  )
 
   const isResultReady = Boolean(resultQuery.data && sessionQuery.data)
 
@@ -107,6 +135,8 @@ export const PracticeResultPage = (): ReactElement => {
   const result = resultQuery.data
   const session = sessionQuery.data.session
   const incorrectItems = result.items.filter((item) => !item.isCorrect)
+  const hasPendingBookmarkMutation =
+    bookmarkMutationActivity.pendingQuestionIds.size > 0
 
   const handleRetryIncorrect = (): void => {
     if (incorrectItems.length === 0 || isRealApiMode) {
@@ -126,6 +156,80 @@ export const PracticeResultPage = (): ReactElement => {
           assertCurrentCreateStudySessionAction(input)
           beginPractice(nextSession.id, nextSession.startedAt)
           void navigate(`/practice/session/${nextSession.id}`)
+        }
+      }
+    )
+  }
+
+  const toggleBookmark = (
+    item: (typeof result.items)[number],
+    isBookmarked: boolean
+  ): void => {
+    const { question } = item
+    if (
+      role === 'GUEST' ||
+      !question.questionVersionId ||
+      !question.tagSummaries
+    ) {
+      setBookmarkMessage({
+        questionId: question.id,
+        text: '이 결과에서는 즐겨찾기를 변경할 수 없습니다.'
+      })
+      return
+    }
+    setBookmarkMessage(null)
+    if (isBookmarked) {
+      deleteBookmark.mutate(question.id, {
+        onSuccess: () =>
+          setBookmarkMessage({
+            questionId: question.id,
+            text: '즐겨찾기에서 해제했습니다.'
+          }),
+        onError: (error) => {
+          if (!isAuthTransitionSupersededError(error)) {
+            setBookmarkMessage({
+              questionId: question.id,
+              text: '즐겨찾기 해제를 완료하지 못해 복원했습니다.'
+            })
+          }
+        }
+      })
+      return
+    }
+    const characters = [...question.questionText]
+    const optimisticBookmark: BookmarkSummary = {
+      questionId: question.id,
+      question: {
+        id: question.id,
+        questionVersionId: question.questionVersionId,
+        level: question.level,
+        subject: question.subject,
+        questionType: question.questionType,
+        difficulty: question.difficulty,
+        questionTextPreview:
+          characters.length <= 160
+            ? question.questionText
+            : `${characters.slice(0, 157).join('')}...`,
+        tags: question.tagSummaries
+      },
+      availability: 'AVAILABLE',
+      createdAt: new Date().toISOString()
+    }
+    createBookmark.mutate(
+      { questionId: question.id, optimisticBookmark },
+      {
+        onSuccess: () =>
+          setBookmarkMessage({
+            questionId: question.id,
+            text: '즐겨찾기에 저장했습니다.'
+          }),
+        onError: (error) => {
+          if (!isAuthTransitionSupersededError(error)) {
+            setBookmarkMessage({
+              questionId: question.id,
+              text: '즐겨찾기를 저장하지 못해 이전 상태로 복원했습니다.'
+            })
+          }
         }
       }
     )
@@ -219,6 +323,29 @@ export const PracticeResultPage = (): ReactElement => {
 
       <div className="mt-10 space-y-5">
         <h2 className="text-2xl font-black">문제별 결과</h2>
+        {bookmarkMutationActivity.isPaused ? (
+          <p
+            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+            role="status"
+            aria-live="polite"
+          >
+            오프라인입니다. 연결되면 즐겨찾기 변경을 다시 시도합니다.
+          </p>
+        ) : null}
+        {role !== 'GUEST' && bookmarksQuery.isError ? (
+          <div
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"
+            role="alert"
+          >
+            <span>즐겨찾기 상태를 확인하지 못했습니다.</span>
+            <Button
+              variant="outline"
+              onClick={() => void bookmarksQuery.refetch()}
+            >
+              다시 확인
+            </Button>
+          </div>
+        ) : null}
         {result.items.map((item, index) => {
           const optionById = new Map(
             item.question.options.map((option) => [option.id, option])
@@ -227,7 +354,11 @@ export const PracticeResultPage = (): ReactElement => {
             ? optionById.get(item.selectedOptionId)
             : undefined
           const correctOption = optionById.get(item.correctOptionId)
-
+          const isBookmarked = Boolean(
+            bookmarksQuery.data?.items.some(
+              (bookmark) => bookmark.questionId === item.question.id
+            )
+          )
           return (
             <article
               key={item.question.id}
@@ -243,7 +374,36 @@ export const PracticeResultPage = (): ReactElement => {
                     <Badge key={tag}>{tag}</Badge>
                   ))}
                 </div>
+                {role !== 'GUEST' ? (
+                  <button
+                    className="min-h-11 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    type="button"
+                    disabled={
+                      hasPendingBookmarkMutation ||
+                      bookmarksQuery.isPending ||
+                      bookmarksQuery.isError ||
+                      item.question.questionVersionId === null
+                    }
+                    aria-label={`${index + 1}번 문제 ${
+                      isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'
+                    }`}
+                    aria-pressed={isBookmarked}
+                    data-selected={isBookmarked}
+                    onClick={() => toggleBookmark(item, isBookmarked)}
+                  >
+                    {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
+                  </button>
+                ) : null}
               </div>
+
+              {bookmarkMessage?.questionId === item.question.id ? (
+                <p
+                  className="mt-3 text-sm font-semibold text-amber-800"
+                  role="status"
+                >
+                  {bookmarkMessage.text}
+                </p>
+              ) : null}
 
               {item.question.passage ? (
                 <div className="mt-5 border-l-4 border-slate-200 bg-slate-50 p-4 leading-7 text-slate-700">

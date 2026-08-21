@@ -1,5 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import {
+  selectBookmarkStudyCandidates,
   selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
   selectWeaknessStudyCandidates,
@@ -314,6 +315,10 @@ type ExistingGuestRecord = {
 
 type RandomCandidateRow = SelectedQuestion
 
+type BookmarkCandidateRow = SelectedQuestion & {
+  createdAt: Date
+}
+
 type WrongNoteCandidateRow = SelectedQuestion & {
   lastWrongAt: Date
   wrongCount: number
@@ -416,6 +421,32 @@ const loadRecentQuestionIds = async (
   )
   return new Set(rows.map(({ questionId }) => questionId))
 }
+
+const loadBookmarkCandidates = async (
+  transaction: Prisma.TransactionClient,
+  input: CreateStudySessionInput,
+  userId: string
+): Promise<BookmarkCandidateRow[]> =>
+  await transaction.$queryRaw<BookmarkCandidateRow[]>(Prisma.sql`
+    SELECT
+      bookmark."questionId",
+      version."id" AS "questionVersionId",
+      bookmark."createdAt"
+    FROM "Bookmark" AS bookmark
+    JOIN "Question" AS question
+      ON question."id" = bookmark."questionId"
+    JOIN "QuestionVersion" AS version
+      ON version."questionId" = question."id"
+      AND version."id" = question."currentPublishedVersionId"
+    WHERE bookmark."userId" = ${userId}::uuid
+      AND question."lifecycleStatus" = 'ACTIVE'
+      AND version."status" = 'PUBLISHED'
+      AND version."level" = ${input.level}::"JlptLevel"
+      AND version."subject" = ${input.subject}::"QuestionSubject"
+    ORDER BY bookmark."createdAt" DESC, bookmark."questionId" ASC
+    LIMIT ${input.requestedCount}
+    FOR SHARE OF bookmark, question, version
+  `)
 
 const loadWrongNoteCandidates = async (
   transaction: Prisma.TransactionClient,
@@ -601,8 +632,21 @@ const selectStudyQuestions = async (
     }))
   }
 
+  if (input.mode === 'BOOKMARK') {
+    if (owner?.kind !== 'USER') {
+      return []
+    }
+    return selectBookmarkStudyCandidates(
+      await loadBookmarkCandidates(transaction, input, owner.id),
+      input.requestedCount
+    ).map(({ questionId, questionVersionId }) => ({
+      questionId,
+      questionVersionId
+    }))
+  }
+
   throw new StudySessionRepositoryIntegrityError(
-    'BOOKMARK selection belongs to Slice 4 and is not available.'
+    'Study selection mode is not supported.'
   )
 }
 
