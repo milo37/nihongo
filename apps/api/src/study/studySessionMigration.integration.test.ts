@@ -185,10 +185,22 @@ describe('StudySession migration invariants', () => {
         {
           name: 'StudySessionQuestion_questionId_questionVersionId_fkey',
           deleteAction: 'r'
+        },
+        {
+          name: 'StudySession_retryOfStudySessionId_fkey',
+          deleteAction: 'a'
+        },
+        {
+          name: 'StudySession_retryOfStudySessionId_userId_fkey',
+          deleteAction: 'a'
+        },
+        {
+          name: 'StudySession_retryOfStudySessionId_guestPrincipalId_fkey',
+          deleteAction: 'a'
         }
       ])
     )
-    expect(foreignKeys).toHaveLength(5)
+    expect(foreignKeys).toHaveLength(8)
   })
 
   it('parent-only와 부족한 selection은 commit 시점에 거부한다', async () => {

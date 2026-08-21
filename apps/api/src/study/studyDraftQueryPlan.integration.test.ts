@@ -4,6 +4,11 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
+import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
+import { createStudyResultRetryService } from './studyResultRetryService.js'
+import { createPrismaStudySessionRepository } from './studySessionRepository.js'
+import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
+import { createStudySubmissionService } from './studySubmissionService.js'
 
 interface ExplainRow {
   'QUERY PLAN': unknown
@@ -13,6 +18,11 @@ interface FixtureReference {
   readonly questionVersionId: string
   readonly sessionId: string
   readonly sessionQuestionId: string
+}
+
+interface RetryFixtureReference {
+  readonly sourceSessionId: string
+  readonly targetSessionId: string
 }
 
 interface PlanNode extends Record<string, unknown> {
@@ -26,6 +36,9 @@ interface QueryPlans {
   readonly guestResumable: ExplainRow[]
   readonly guestResumableOwnerScan: ExplainRow[]
   readonly idempotencyCleanup: ExplainRow[]
+  readonly retryIdempotencyCleanup: ExplainRow[]
+  readonly retryLeafCleanup: ExplainRow[]
+  readonly retryLeafLookup: ExplainRow[]
   readonly userResumable: ExplainRow[]
   readonly userResumableOwnerScan: ExplainRow[]
 }
@@ -384,6 +397,94 @@ const createRepresentativeFixture = async ({
   })
 }
 
+const createExpiredRetryFixture = async (
+  userId: string,
+  now: Date
+): Promise<RetryFixtureReference> => {
+  const source = (
+    await createPrismaStudySessionRepository(database.client).createRandom({
+      owner: { kind: 'USER', userId },
+      level: 'N5',
+      subject: 'VOCABULARY',
+      requestedCount: 1,
+      startedAt: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1_000),
+      expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1_000),
+      practiceContractVersion: 1
+    })
+  ).session
+  await createStudySubmissionService(
+    createPrismaStudySubmissionRepository(database.client),
+    () => new Date(now.getTime() - 8 * 24 * 60 * 60 * 1_000)
+  ).submit(
+    source.id,
+    randomUUID(),
+    {
+      answers: source.questions.map(({ sessionQuestionId }) => ({
+        studySessionQuestionId: sessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: 0
+      })),
+      durationSec: 0
+    },
+    { kind: 'USER', userId }
+  )
+  const retry = await createStudyResultRetryService(
+    createPrismaStudyResultRetryRepository(database.client),
+    () => new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000)
+  ).create(source.id, randomUUID(), { kind: 'USER', userId })
+  return {
+    sourceSessionId: source.id,
+    targetSessionId: retry.response.session.id
+  }
+}
+
+const createExpiredGuestRetryFixture = async (
+  guestPrincipalId: string,
+  now: Date
+): Promise<RetryFixtureReference> => {
+  const owner = {
+    kind: 'GUEST' as const,
+    guestPrincipalId,
+    tokenDigest: digestGuestToken(guestPrincipalId)
+  }
+  const startedAt = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1_000)
+  const source = (
+    await createPrismaStudySessionRepository(database.client).createRandom({
+      owner,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      requestedCount: 1,
+      startedAt,
+      expiresAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1_000),
+      practiceContractVersion: 1
+    })
+  ).session
+  await createStudySubmissionService(
+    createPrismaStudySubmissionRepository(database.client),
+    () => new Date(now.getTime() - 9 * 24 * 60 * 60 * 1_000)
+  ).submit(
+    source.id,
+    randomUUID(),
+    {
+      answers: source.questions.map(({ sessionQuestionId }) => ({
+        studySessionQuestionId: sessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: 0
+      })),
+      durationSec: 0
+    },
+    owner
+  )
+  const retry = await createStudyResultRetryService(
+    createPrismaStudyResultRetryRepository(database.client),
+    () => new Date(now.getTime() - 8 * 24 * 60 * 60 * 1_000)
+  ).create(source.id, randomUUID(), owner)
+  return {
+    sourceSessionId: source.id,
+    targetSessionId: retry.response.session.id
+  }
+}
+
 beforeAll(async () => {
   await database.checkReadiness()
 })
@@ -428,14 +529,28 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
 
     const targetGuestId = randomUUID()
     const ownerScanGuestId = randomUUID()
+    const oldGuestTimestamp = new Date(
+      now.getTime() - 11 * 24 * 60 * 60 * 1_000
+    )
     await database.client.guestPrincipal.createMany({
-      data: [targetGuestId, ownerScanGuestId].map((id) => ({
-        id,
-        tokenDigest: digestGuestToken(id),
-        expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1_000),
-        createdAt: now,
-        lastSeenAt: now
-      }))
+      data: [
+        {
+          id: targetGuestId,
+          tokenDigest: digestGuestToken(targetGuestId),
+          expiresAt: new Date(
+            oldGuestTimestamp.getTime() + 7 * 24 * 60 * 60 * 1_000
+          ),
+          createdAt: oldGuestTimestamp,
+          lastSeenAt: oldGuestTimestamp
+        },
+        {
+          id: ownerScanGuestId,
+          tokenDigest: digestGuestToken(ownerScanGuestId),
+          expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1_000),
+          createdAt: now,
+          lastSeenAt: now
+        }
+      ]
     })
     createdGuestIds.add(targetGuestId)
     createdGuestIds.add(ownerScanGuestId)
@@ -448,6 +563,11 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
       decoyUserId: decoyUser.id,
       now
     })
+    const retryReference = await createExpiredRetryFixture(decoyUser.id, now)
+    const guestRetryReference = await createExpiredGuestRetryFixture(
+      targetGuestId,
+      now
+    )
     await analyzeFixtureTables()
 
     const plannerSettings = await database.client.$queryRaw<
@@ -586,6 +706,166 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
               RETURNING record."id"
             `
         )
+        const retryIdempotencyCleanup = await transaction.$queryRaw<
+          ExplainRow[]
+        >(Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            WITH candidates AS MATERIALIZED (
+              SELECT record."id"
+              FROM "IdempotencyRecord" AS record
+              WHERE record."operation" = 'STUDY_RETRY_CREATE'
+                AND record."state" = 'SUCCEEDED'
+                AND record."expiresAt" IS NOT NULL
+                AND record."expiresAt" <= ${now}
+              ORDER BY record."expiresAt" ASC, record."id" ASC
+              LIMIT ${CLEANUP_LIMIT}
+              FOR UPDATE OF record SKIP LOCKED
+            )
+            DELETE FROM "IdempotencyRecord" AS record
+            USING candidates
+            WHERE record."id" = candidates."id"
+              AND record."operation" = 'STUDY_RETRY_CREATE'
+              AND record."state" = 'SUCCEEDED'
+              AND record."expiresAt" IS NOT NULL
+              AND record."expiresAt" <= ${now}
+            RETURNING record."id"
+          `)
+        const retryLeafLookup = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            SELECT retry."id"
+            FROM "StudySession" AS retry
+            WHERE retry."retryOfStudySessionId" =
+              ${retryReference.sourceSessionId}::uuid
+            ORDER BY retry."id" ASC
+            LIMIT ${CLEANUP_LIMIT}
+          `
+        )
+        const retryLeafCleanup = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            WITH guest_candidates AS MATERIALIZED (
+              SELECT guest."id"
+              FROM "GuestPrincipal" AS guest
+              WHERE EXISTS (
+                SELECT 1
+                FROM "StudySession" AS session
+                WHERE session."guestPrincipalId" = guest."id"
+                  AND session."userId" IS NULL
+                  AND (
+                    (
+                      session."status" = 'SUBMITTED'
+                      AND session."submittedAt" IS NOT NULL
+                      AND session."submittedAt" <=
+                        ${now}::timestamptz - INTERVAL '7 days'
+                    )
+                    OR (
+                      session."status" IN (
+                        'IN_PROGRESS',
+                        'CANCELLED',
+                        'EXPIRED'
+                      )
+                      AND session."expiresAt" <= ${now}
+                    )
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM "IdempotencyRecord" AS record
+                    WHERE record."studySessionId" = session."id"
+                      AND record."state" = 'SUCCEEDED'
+                      AND record."expiresAt" IS NOT NULL
+                      AND record."expiresAt" > ${now}
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM "StudySession" AS retry
+                    WHERE retry."retryOfStudySessionId" = session."id"
+                  )
+              )
+              ORDER BY guest."id" ASC
+              LIMIT ${CLEANUP_LIMIT}
+              FOR NO KEY UPDATE OF guest SKIP LOCKED
+            ),
+            session_candidates AS MATERIALIZED (
+              SELECT session."id"
+              FROM "StudySession" AS session
+              JOIN guest_candidates AS guest
+                ON guest."id" = session."guestPrincipalId"
+              WHERE session."userId" IS NULL
+                AND session."guestPrincipalId" IS NOT NULL
+                AND (
+                  (
+                    session."status" = 'SUBMITTED'
+                    AND session."submittedAt" IS NOT NULL
+                    AND session."submittedAt" <=
+                      ${now}::timestamptz - INTERVAL '7 days'
+                  )
+                  OR (
+                    session."status" IN (
+                      'IN_PROGRESS',
+                      'CANCELLED',
+                      'EXPIRED'
+                    )
+                    AND session."expiresAt" <= ${now}
+                  )
+                )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM "IdempotencyRecord" AS record
+                  WHERE record."studySessionId" = session."id"
+                    AND record."state" = 'SUCCEEDED'
+                    AND record."expiresAt" IS NOT NULL
+                    AND record."expiresAt" > ${now}
+                )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM "StudySession" AS retry
+                  WHERE retry."retryOfStudySessionId" = session."id"
+                )
+              ORDER BY
+                session."guestPrincipalId" ASC,
+                COALESCE(session."submittedAt", session."expiresAt") ASC,
+                session."id" ASC
+              LIMIT ${CLEANUP_LIMIT}
+              FOR UPDATE OF session
+            )
+            DELETE FROM "StudySession" AS session
+            USING session_candidates AS candidates
+            WHERE session."id" = candidates."id"
+              AND session."userId" IS NULL
+              AND session."guestPrincipalId" IS NOT NULL
+              AND (
+                (
+                  session."status" = 'SUBMITTED'
+                  AND session."submittedAt" IS NOT NULL
+                  AND session."submittedAt" <=
+                    ${now}::timestamptz - INTERVAL '7 days'
+                )
+                OR (
+                  session."status" IN (
+                    'IN_PROGRESS',
+                    'CANCELLED',
+                    'EXPIRED'
+                  )
+                  AND session."expiresAt" <= ${now}
+                )
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM "IdempotencyRecord" AS record
+                WHERE record."studySessionId" = session."id"
+                  AND record."state" = 'SUCCEEDED'
+                  AND record."expiresAt" IS NOT NULL
+                  AND record."expiresAt" > ${now}
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM "StudySession" AS retry
+                WHERE retry."retryOfStudySessionId" = session."id"
+              )
+            RETURNING session."id"
+          `
+        )
 
         plans = {
           userResumableOwnerScan,
@@ -594,6 +874,9 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
           guestResumable,
           coldCleanup,
           idempotencyCleanup,
+          retryIdempotencyCleanup,
+          retryLeafCleanup,
+          retryLeafLookup,
           childLookup,
           childDelete
         }
@@ -644,12 +927,12 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
     expectBoundedRelationRows(
       plans.userResumable,
       'StudyDraft',
-      FIXTURE_CARDINALITY
+      FIXTURE_CARDINALITY + 2
     )
     expectBoundedRelationRows(
       plans.guestResumable,
       'StudyDraft',
-      FIXTURE_CARDINALITY
+      FIXTURE_CARDINALITY + 2
     )
     expect(readIndexNames(plans.coldCleanup)).toContain(
       'StudySession_status_expiresAt_idx'
@@ -668,6 +951,36 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
       'IdempotencyRecord',
       EXPIRED_IDEMPOTENCY_CARDINALITY
     )
+    expect(readIndexNames(plans.retryIdempotencyCleanup)).toContain(
+      'IdempotencyRecord_operation_expiresAt_id_idx'
+    )
+    expectNoSequentialScan(plans.retryIdempotencyCleanup, 'IdempotencyRecord')
+    expectBoundedRelationRows(
+      plans.retryIdempotencyCleanup,
+      'IdempotencyRecord',
+      2
+    )
+    expect(readIndexNames(plans.retryLeafLookup)).toContain(
+      'StudySession_retryOfStudySessionId_id_idx'
+    )
+    expectNoSequentialScan(plans.retryLeafLookup, 'StudySession')
+    expectBoundedRelationRows(plans.retryLeafLookup, 'StudySession', 1)
+    expect(readRootPlan(plans.retryLeafLookup)['Actual Rows']).toBe(1)
+    expect(readIndexNames(plans.retryLeafCleanup)).toContain(
+      'StudySession_retryOfStudySessionId_id_idx'
+    )
+    expectNoSequentialScan(plans.retryLeafCleanup, 'StudySession')
+    expectBoundedRelationRows(
+      plans.retryLeafCleanup,
+      'StudySession',
+      FIXTURE_CARDINALITY
+    )
+    expect(readRootPlan(plans.retryLeafCleanup)['Actual Rows']).toBe(1)
+    expect(guestRetryReference.targetSessionId).toMatch(/^[0-9a-f-]{36}$/u)
+    expect(
+      retryReference.targetSessionId,
+      'retry target fixture가 필요합니다.'
+    ).toMatch(/^[0-9a-f-]{36}$/u)
     ;[plans.childLookup, plans.childDelete].forEach((plan) => {
       expect(readIndexNames(plan)).toContain(
         'StudyDraftAnswer_studySessionQuestionId_questionVersionId_idx'

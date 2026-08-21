@@ -5,6 +5,7 @@ import {
 } from '@app/practice/queries/studySessionQueries'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { studyDraftQueries } from '@app/practice/queries/studyDraftQueries'
+import { studyResultRetryMutations } from '@app/practice/queries/studyResultRetryQueries'
 
 export const studyQueries = {
   allKey: serverStateQueryKeys.study.all,
@@ -15,5 +16,6 @@ export const studyQueries = {
 } as const
 
 export const studyMutations = {
-  createSession: studySessionMutations.createSession
+  createSession: studySessionMutations.createSession,
+  createResultRetrySession: studyResultRetryMutations.create
 } as const

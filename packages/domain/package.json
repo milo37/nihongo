@@ -16,6 +16,10 @@
       "types": "./dist/selection/select-study-candidates.d.ts",
       "import": "./dist/selection/select-study-candidates.js"
     },
+    "./selection/select-result-retry-candidates": {
+      "types": "./dist/selection/select-result-retry-candidates.d.ts",
+      "import": "./dist/selection/select-result-retry-candidates.js"
+    },
     "./submission/canonicalize-study-submission": {
       "types": "./dist/submission/canonicalize-study-submission.d.ts",
       "import": "./dist/submission/canonicalize-study-submission.js"

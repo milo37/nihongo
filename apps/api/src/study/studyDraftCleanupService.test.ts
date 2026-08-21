@@ -12,9 +12,12 @@ import {
 const NOW = new Date('2000-01-01T12:00:00.000Z')
 const result = {
   expiredDraftBatchLimitReached: false,
+  expiredDraftIdempotencyBatchLimitReached: false,
   expiredIdempotencyBatchLimitReached: false,
+  expiredRetryIdempotencyBatchLimitReached: false,
   expiredStudyDraftCount: 2,
   deletedDraftIdempotencyRecordCount: 3,
+  deletedRetryIdempotencyRecordCount: 2,
   oldestOverdueExpiresAt: '1999-12-30T12:00:00.000Z',
   overdueStudyDraftCount: 2,
   idempotencyOperationMetrics: [

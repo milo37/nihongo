@@ -63,6 +63,11 @@ export const createPrismaStudySessionCleanupRepository = (
                     AND record."expiresAt" IS NOT NULL
                     AND record."expiresAt" > ${now}
                 )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM "StudySession" AS retry
+                  WHERE retry."retryOfStudySessionId" = session."id"
+                )
             )
             ORDER BY guest."id" ASC
             LIMIT ${batchSize}
@@ -99,6 +104,11 @@ export const createPrismaStudySessionCleanupRepository = (
                   AND record."expiresAt" IS NOT NULL
                   AND record."expiresAt" > ${now}
               )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM "StudySession" AS retry
+                WHERE retry."retryOfStudySessionId" = session."id"
+              )
             ORDER BY
               session."guestPrincipalId" ASC,
               COALESCE(session."submittedAt", session."expiresAt") ASC,
@@ -134,6 +144,11 @@ export const createPrismaStudySessionCleanupRepository = (
                 AND record."state" = 'SUCCEEDED'
                 AND record."expiresAt" IS NOT NULL
                 AND record."expiresAt" > ${now}
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM "StudySession" AS retry
+              WHERE retry."retryOfStudySessionId" = session."id"
             )
           RETURNING session."id"
         `

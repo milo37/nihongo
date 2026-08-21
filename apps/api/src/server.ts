@@ -32,6 +32,8 @@ import { startApiListener } from './lifecycle/startApiListener.js'
 import { createPracticeRuntimeGate } from './lifecycle/practiceRuntimeGate.js'
 import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
 import { createBookmarkService } from './bookmark/bookmarkService.js'
+import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
+import { createStudyResultRetryService } from './study/studyResultRetryService.js'
 
 const environment = parseApiEnvironment(process.env)
 const practiceEnvironment = parsePracticeRuntimeEnvironment(
@@ -82,6 +84,9 @@ const studySubmissionService = createStudySubmissionService(
 const studyDraftService = createStudyDraftService(
   createPrismaStudyDraftRepository(database.client)
 )
+const studyResultRetryService = createStudyResultRetryService(
+  createPrismaStudyResultRetryRepository(database.client)
+)
 const wrongNoteService = createWrongNoteService(
   createPrismaWrongNoteRepository(database.client)
 )
@@ -116,6 +121,7 @@ const app = createApiApp({
     draftService: studyDraftService,
     practiceContractV2Enabled: practiceRuntimeGate.practiceContractV2Enabled,
     rateLimiter: applicationRateLimiter,
+    retryService: studyResultRetryService,
     service: studySessionService,
     submissionService: studySubmissionService
   }

@@ -49,6 +49,7 @@ const phase4Slice3Migrations = [
   '20260818130000_phase4_study_selection_modes'
 ] as const
 const phase4Slice4Migrations = ['20260821130000_phase4_bookmarks'] as const
+const phase4Slice5Migrations = ['20260821150000_phase4_result_retry'] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
@@ -99,6 +100,9 @@ const priorMigrationNames = migrationNames.filter(
     ) &&
     !phase4Slice4Migrations.includes(
       name as (typeof phase4Slice4Migrations)[number]
+    ) &&
+    !phase4Slice5Migrations.includes(
+      name as (typeof phase4Slice5Migrations)[number]
     )
 )
 
@@ -228,12 +232,33 @@ const deployThroughPhase4Slice1 = async (
       ) &&
       !phase4Slice4Migrations.includes(
         name as (typeof phase4Slice4Migrations)[number]
+      ) &&
+      !phase4Slice5Migrations.includes(
+        name as (typeof phase4Slice5Migrations)[number]
       )
   )) {
     copyMigration(migrationName, context.migrationsPath)
   }
   await deploy(context)
   expect(await readLedger(context)).toHaveLength(22)
+  await context.adminClient.query(
+    `SET search_path TO ${context.quotedSchemaName}`
+  )
+}
+
+const deployThroughPhase4Slice4 = async (
+  context: IsolatedMigrationSchema
+): Promise<void> => {
+  for (const migrationName of migrationNames.filter(
+    (name) =>
+      !phase4Slice5Migrations.includes(
+        name as (typeof phase4Slice5Migrations)[number]
+      )
+  )) {
+    copyMigration(migrationName, context.migrationsPath)
+  }
+  await deploy(context)
+  expect(await readLedger(context)).toHaveLength(24)
   await context.adminClient.query(
     `SET search_path TO ${context.quotedSchemaName}`
   )
@@ -433,13 +458,13 @@ const createLegacySubmissionFixture = async (
   return { noteId, questionId, sessionId, versionId }
 }
 
-describe('Phase 3 submission through Phase 4 Slice 4 migration upgrade', () => {
-  it('깨끗한 15 migration schema를 16~24번째 schema로 forward deploy한다', async () => {
+describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
+  it('깨끗한 15 migration schema를 16~25번째 schema로 forward deploy한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
       expect(priorMigrationNames).toHaveLength(15)
-      expect(migrationNames).toHaveLength(24)
+      expect(migrationNames).toHaveLength(25)
       expect(priorMigrationNames).toEqual(
         Object.keys(approvedPriorMigrationSha256).toSorted()
       )
@@ -487,6 +512,10 @@ describe('Phase 3 submission through Phase 4 Slice 4 migration upgrade', () => {
       copyMigration(phase4Slice4Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(24)
+
+      copyMigration(phase4Slice5Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
 
       const ledger = await readLedger(context)
       const expected = loadExpectedMigrationManifest(sourceMigrationsDirectory)
@@ -654,6 +683,9 @@ describe('Phase 3 submission through Phase 4 Slice 4 migration upgrade', () => {
           ) &&
           !phase4Slice4Migrations.includes(
             name as (typeof phase4Slice4Migrations)[number]
+          ) &&
+          !phase4Slice5Migrations.includes(
+            name as (typeof phase4Slice5Migrations)[number]
           )
       )) {
         copyMigration(migrationName, context.migrationsPath)
@@ -896,6 +928,10 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       copyMigration(phase4Slice4Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(24)
+
+      copyMigration(phase4Slice5Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
 
       const oldBinarySessionId = randomUUID()
       const oldBinarySessionQuestionId = randomUUID()
@@ -1500,6 +1536,524 @@ describe('Phase 4 Slice 3 migration preflight', () => {
   }, 40_000)
 })
 
+describe('Phase 4 Slice 5 result retry migration', () => {
+  it('reserved row preflight를 원자 rollback하고 clean deploy catalog를 고정한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const now = new Date('2026-08-21T08:00:00.000Z')
+    const userId = randomUUID()
+    const legacySessionId = randomUUID()
+    const retryRecordId = randomUUID()
+
+    try {
+      await deployThroughPhase4Slice4(context)
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+          "id", "name", "email", "emailVerified", "role",
+          "accountStatus", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Slice 5 migration user', $2, true, 'USER',
+          'ACTIVE', $3, $3)`,
+        [userId, `slice5-migration-${randomUUID()}@example.test`, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         DISABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "level", "subject", "mode", "status",
+          "requestedCount", "actualCount", "usedFallback", "startedAt",
+          "expiresAt", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+          1, 1, false, $3, $3::timestamptz + INTERVAL '1 day', $3, $3
+        )`,
+        [legacySessionId, userId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         ENABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "IdempotencyRecord" (
+          "id", "principalType", "userId", "operation", "idempotencyKey",
+          "studySessionId", "requestHash", "contractVersion", "state",
+          "createdAt"
+        ) VALUES (
+          $1, 'USER', $2, 'STUDY_RETRY_CREATE', $3, $4,
+          repeat('c', 64), 2, 'PROCESSING', $5
+        )`,
+        [retryRecordId, userId, randomUUID(), legacySessionId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+
+      const migrationSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase4Slice5Migrations[0],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(migrationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Slice 5 requires every reserved retry idempotency operation to have zero rows.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      expect(await readLedger(context)).toHaveLength(24)
+      expect(
+        (
+          await context.adminClient.query<{ count: number }>(
+            `SELECT COUNT(*)::int AS count
+             FROM information_schema.columns
+             WHERE table_schema = $1
+               AND table_name = 'StudySession'
+               AND column_name = 'retryOfStudySessionId'`,
+            [context.schemaName]
+          )
+        ).rows
+      ).toEqual([{ count: 0 }])
+
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      await context.adminClient.query(
+        `DELETE FROM "IdempotencyRecord" WHERE "id" = $1`,
+        [retryRecordId]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_change"`
+      )
+      copyMigration(phase4Slice5Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
+
+      const foreignKeys = await context.adminClient.query<{
+        constraintName: string
+        deleteAction: string
+        initiallyDeferred: boolean
+        isDeferrable: boolean
+        updateAction: string
+      }>(
+        `SELECT
+          constraint_entry.conname AS "constraintName",
+          constraint_entry.condeferrable AS "isDeferrable",
+          constraint_entry.condeferred AS "initiallyDeferred",
+          constraint_entry.confdeltype::text AS "deleteAction",
+          constraint_entry.confupdtype::text AS "updateAction"
+         FROM pg_constraint AS constraint_entry
+         JOIN pg_class AS relation ON relation.oid = constraint_entry.conrelid
+         JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+         WHERE namespace.nspname = $1
+           AND constraint_entry.conname = ANY($2::text[])
+         ORDER BY constraint_entry.conname`,
+        [
+          context.schemaName,
+          [
+            'StudySession_retryOfStudySessionId_fkey',
+            'StudySession_retryOfStudySessionId_guestPrincipalId_fkey',
+            'StudySession_retryOfStudySessionId_userId_fkey'
+          ]
+        ]
+      )
+      expect(foreignKeys.rows).toEqual(
+        foreignKeys.rows.map((row) => ({
+          ...row,
+          deleteAction: 'a',
+          initiallyDeferred: true,
+          isDeferrable: true,
+          updateAction: 'c'
+        }))
+      )
+      expect(foreignKeys.rows).toHaveLength(3)
+
+      const trigger = await context.adminClient.query<{
+        initiallyDeferred: boolean
+        isDeferrable: boolean
+      }>(
+        `SELECT
+          trigger.tgdeferrable AS "isDeferrable",
+          trigger.tginitdeferred AS "initiallyDeferred"
+         FROM pg_trigger AS trigger
+         JOIN pg_class AS relation ON relation.oid = trigger.tgrelid
+         JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+         WHERE namespace.nspname = $1
+           AND trigger.tgname = 'StudySession_validate_retry_relation'`,
+        [context.schemaName]
+      )
+      expect(trigger.rows).toEqual([
+        { initiallyDeferred: true, isDeferrable: true }
+      ])
+
+      const indexes = await context.adminClient.query<{
+        indexDefinition: string
+        indexName: string
+      }>(
+        `SELECT
+          indexname AS "indexName",
+          regexp_replace(indexdef, '\\s+', ' ', 'g') AS "indexDefinition"
+         FROM pg_indexes
+         WHERE schemaname = $1
+           AND indexname = ANY($2::text[])
+         ORDER BY indexname`,
+        [
+          context.schemaName,
+          [
+            'StudySession_retryOfStudySessionId_id_idx',
+            'StudySession_retry_guest_source_idx',
+            'StudySession_retry_user_source_idx'
+          ]
+        ]
+      )
+      expect(indexes.rows.map(({ indexName }) => indexName)).toEqual([
+        'StudySession_retryOfStudySessionId_id_idx',
+        'StudySession_retry_guest_source_idx',
+        'StudySession_retry_user_source_idx'
+      ])
+      const indexDefinitions = new Map(
+        indexes.rows.map(({ indexDefinition, indexName }) => [
+          indexName,
+          indexDefinition
+        ])
+      )
+      expect(
+        indexDefinitions.get('StudySession_retryOfStudySessionId_id_idx')
+      ).toMatch(/\("retryOfStudySessionId", id\)/u)
+      expect(
+        indexDefinitions.get('StudySession_retry_user_source_idx')
+      ).toMatch(
+        /\("retryOfStudySessionId", "userId"\).*"retryOfStudySessionId" IS NOT NULL.*"userId" IS NOT NULL/u
+      )
+      expect(
+        indexDefinitions.get('StudySession_retry_guest_source_idx')
+      ).toMatch(
+        /\("retryOfStudySessionId", "guestPrincipalId"\).*"retryOfStudySessionId" IS NOT NULL.*"guestPrincipalId" IS NOT NULL/u
+      )
+
+      const definitions = await context.adminClient.query<{
+        idempotencyFunction: string
+        reviewEventFunction: string
+        retryFunction: string
+      }>(
+        `SELECT
+          pg_get_functiondef(
+            'validate_idempotency_record_committed_state()'::regprocedure
+          ) AS "idempotencyFunction",
+          pg_get_functiondef(
+            'validate_review_event_change()'::regprocedure
+          ) AS "reviewEventFunction",
+          pg_get_functiondef(
+            'validate_study_retry_relation()'::regprocedure
+          ) AS "retryFunction"`
+      )
+      expect(definitions.rows[0]?.idempotencyFunction).toContain(
+        "'STUDY_RETRY_CREATE'"
+      )
+      expect(definitions.rows[0]?.idempotencyFunction).toContain(
+        'expected_retry_session'
+      )
+      expect(definitions.rows[0]?.reviewEventFunction).toContain(
+        'evidence_retry_source_id'
+      )
+      expect(definitions.rows[0]?.retryFunction).toContain(
+        'WITH RECURSIVE retry_ancestry AS'
+      )
+
+      const postMigrationLegacySessionId = randomUUID()
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         DISABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "level", "subject", "mode", "status",
+          "requestedCount", "actualCount", "usedFallback", "startedAt",
+          "expiresAt", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+          1, 1, false, $3, $3::timestamptz + INTERVAL '1 day', $3, $3
+        )`,
+        [postMigrationLegacySessionId, userId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         ENABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      expect(
+        (
+          await context.adminClient.query<{
+            retryOfStudySessionId: string | null
+          }>(
+            `SELECT "retryOfStudySessionId"
+             FROM "StudySession"
+             WHERE "id" = $1`,
+            [postMigrationLegacySessionId]
+          )
+        ).rows
+      ).toEqual([{ retryOfStudySessionId: null }])
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('deferred retry relation은 multi-row cycle을 거부한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const now = new Date('2026-08-21T09:00:00.000Z')
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      const userId = randomUUID()
+      const sessionA = randomUUID()
+      const sessionB = randomUUID()
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+          "id", "name", "email", "emailVerified", "role",
+          "accountStatus", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Slice 5 cycle user', $2, true, 'USER',
+          'ACTIVE', $3, $3)`,
+        [userId, `slice5-cycle-${randomUUID()}@example.test`, now]
+      )
+      for (const triggerName of [
+        'StudySession_validate_selection_complete',
+        'StudySession_validate_submission_snapshot',
+        'StudySession_validate_draft_aggregate'
+      ]) {
+        await context.adminClient.query(
+          `ALTER TABLE "StudySession" DISABLE TRIGGER "${triggerName}"`
+        )
+      }
+      await context.adminClient.query(
+        `ALTER TABLE "StudyResult"
+         DISABLE TRIGGER "StudyResult_validate_submission_snapshot"`
+      )
+      await context.adminClient.query('BEGIN')
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "retryOfStudySessionId", "level", "subject",
+          "mode", "status", "requestedCount", "actualCount", "usedFallback",
+          "practiceContractVersion", "startedAt", "expiresAt", "createdAt",
+          "updatedAt"
+        ) VALUES
+          ($1, $3, $2, 'N5', 'VOCABULARY', 'WRONG_NOTE', 'IN_PROGRESS',
+            1, 1, false, 2, $4, $4::timestamptz + INTERVAL '1 day', $4, $4),
+          ($2, $3, $1, 'N5', 'VOCABULARY', 'WRONG_NOTE', 'IN_PROGRESS',
+            1, 1, false, 2, $4, $4::timestamptz + INTERVAL '1 day', $4, $4)`,
+        [sessionA, sessionB, userId, now]
+      )
+      for (const sessionId of [sessionA, sessionB]) {
+        await context.adminClient.query(
+          `INSERT INTO "StudyResult" (
+            "id", "studySessionId", "totalCount", "correctCount",
+            "incorrectCount", "correctRateBasisPoints", "durationSec",
+            "gradingVersion", "createdAt"
+          ) VALUES ($1, $2, 1, 0, 1, 0, 0, 'server-grading-v1', $3)`,
+          [randomUUID(), sessionId, now]
+        )
+      }
+      await context.adminClient.query(
+        `UPDATE "StudySession"
+         SET "status" = 'SUBMITTED', "submittedAt" = $2,
+             "durationSec" = 0, "submissionHash" = repeat('d', 64),
+             "updatedAt" = $2
+         WHERE "id" = ANY($1::uuid[])`,
+        [[sessionA, sessionB], now]
+      )
+      await expect(context.adminClient.query('COMMIT')).rejects.toMatchObject({
+        code: '23514',
+        message: 'Retry StudySession relation cannot contain a cycle.'
+      })
+      await context.adminClient.query('ROLLBACK')
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('deferred retry relation은 다른 owner와 준비되지 않은 source를 거부한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const now = new Date('2026-08-21T10:00:00.000Z')
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      const ownerUserId = randomUUID()
+      const foreignUserId = randomUUID()
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+          "id", "name", "email", "emailVerified", "role",
+          "accountStatus", "createdAt", "updatedAt"
+        ) VALUES
+          ($1, 'Slice 5 relation owner', $3, true, 'USER',
+            'ACTIVE', $5, $5),
+          ($2, 'Slice 5 relation foreign', $4, true, 'USER',
+            'ACTIVE', $5, $5)`,
+        [
+          ownerUserId,
+          foreignUserId,
+          `slice5-relation-owner-${randomUUID()}@example.test`,
+          `slice5-relation-foreign-${randomUUID()}@example.test`,
+          now
+        ]
+      )
+      for (const triggerName of [
+        'StudySession_validate_selection_complete',
+        'StudySession_validate_submission_snapshot',
+        'StudySession_validate_draft_aggregate'
+      ]) {
+        await context.adminClient.query(
+          `ALTER TABLE "StudySession" DISABLE TRIGGER "${triggerName}"`
+        )
+      }
+      await context.adminClient.query(
+        `ALTER TABLE "StudyResult"
+         DISABLE TRIGGER "StudyResult_validate_submission_snapshot"`
+      )
+
+      const submittedWithResultId = randomUUID()
+      const inProgressSourceId = randomUUID()
+      const submittedWithoutResultId = randomUUID()
+      await context.adminClient.query('BEGIN')
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "level", "subject", "mode", "status",
+          "requestedCount", "actualCount", "usedFallback",
+          "practiceContractVersion", "startedAt", "expiresAt",
+          "createdAt", "updatedAt"
+        ) VALUES
+          ($1, $4, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+            1, 1, false, 2, $5, $5::timestamptz + INTERVAL '1 day',
+            $5, $5),
+          ($2, $4, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+            1, 1, false, 2, $5, $5::timestamptz + INTERVAL '1 day',
+            $5, $5),
+          ($3, $4, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+            1, 1, false, 2, $5, $5::timestamptz + INTERVAL '1 day',
+            $5, $5)`,
+        [
+          submittedWithResultId,
+          inProgressSourceId,
+          submittedWithoutResultId,
+          ownerUserId,
+          now
+        ]
+      )
+      await context.adminClient.query(
+        `INSERT INTO "StudyResult" (
+          "id", "studySessionId", "totalCount", "correctCount",
+          "incorrectCount", "correctRateBasisPoints", "durationSec",
+          "gradingVersion", "createdAt"
+        ) VALUES ($1, $2, 1, 0, 1, 0, 0, 'server-grading-v1', $3)`,
+        [randomUUID(), submittedWithResultId, now]
+      )
+      await context.adminClient.query(
+        `UPDATE "StudySession"
+         SET "status" = 'SUBMITTED',
+             "submittedAt" = $2::timestamptz + INTERVAL '1 hour',
+             "durationSec" = 0,
+             "submissionHash" = CASE
+               WHEN "id" = $3 THEN repeat('a', 64)
+               ELSE repeat('b', 64)
+             END,
+             "updatedAt" = $2::timestamptz + INTERVAL '1 hour'
+         WHERE "id" = ANY($1::uuid[])`,
+        [
+          [submittedWithResultId, submittedWithoutResultId],
+          now,
+          submittedWithResultId
+        ]
+      )
+      await context.adminClient.query('COMMIT')
+
+      const insertRetryTarget = async (
+        targetId: string,
+        sourceId: string,
+        userId: string
+      ): Promise<void> => {
+        await context.adminClient.query(
+          `INSERT INTO "StudySession" (
+            "id", "userId", "retryOfStudySessionId", "level", "subject",
+            "mode", "status", "requestedCount", "actualCount",
+            "usedFallback", "practiceContractVersion", "startedAt",
+            "expiresAt", "createdAt", "updatedAt"
+          ) VALUES (
+            $1, $2, $3, 'N5', 'VOCABULARY', 'WRONG_NOTE', 'IN_PROGRESS',
+            1, 1, false, 2, $4, $4::timestamptz + INTERVAL '1 day', $4, $4
+          )`,
+          [targetId, userId, sourceId, now]
+        )
+      }
+
+      const foreignTargetId = randomUUID()
+      await context.adminClient.query('BEGIN')
+      await insertRetryTarget(
+        foreignTargetId,
+        submittedWithResultId,
+        foreignUserId
+      )
+      await expect(
+        context.adminClient.query(
+          'SET CONSTRAINTS "StudySession_retryOfStudySessionId_userId_fkey" IMMEDIATE'
+        )
+      ).rejects.toMatchObject({ code: '23503' })
+      await context.adminClient.query('ROLLBACK')
+
+      for (const sourceId of [inProgressSourceId, submittedWithoutResultId]) {
+        const targetId = randomUUID()
+        await context.adminClient.query('BEGIN')
+        await insertRetryTarget(targetId, sourceId, ownerUserId)
+        await expect(context.adminClient.query('COMMIT')).rejects.toMatchObject(
+          {
+            code: '23514',
+            message:
+              'Retry StudySession must reference one submitted result owned by the same actor.'
+          }
+        )
+        await context.adminClient.query('ROLLBACK')
+      }
+
+      expect(
+        await context.adminClient.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count
+           FROM "StudySession"
+           WHERE "retryOfStudySessionId" IS NOT NULL`
+        )
+      ).toMatchObject({ rows: [{ count: 0 }] })
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+})
+
 describe('Phase 4 Slice 3 historical review pins', () => {
   it('v1 session A와 v2 session B를 역순 제출해도 event pin과 v2 pointer를 보존한다', async () => {
     const context = await createIsolatedMigrationSchema()
@@ -1509,7 +2063,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(24)
+      expect(await readLedger(context)).toHaveLength(25)
 
       const runtime = createDatabaseRuntime(context.databaseUrl)
       try {
@@ -1864,6 +2418,9 @@ describe('Slice 5 migration upgrade', () => {
           ) &&
           !phase4Slice4Migrations.includes(
             name as (typeof phase4Slice4Migrations)[number]
+          ) &&
+          !phase4Slice5Migrations.includes(
+            name as (typeof phase4Slice5Migrations)[number]
           )
       )) {
         copyMigration(migrationName, context.migrationsPath)

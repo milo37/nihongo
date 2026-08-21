@@ -1,23 +1,35 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useNavigationType, useParams } from 'react-router'
+import {
+  Link,
+  useBlocker,
+  useNavigate,
+  useNavigationType,
+  useParams
+} from 'react-router'
 import type { ReactElement } from 'react'
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
-import { isNotFoundApiError } from '@util/apiError'
+import {
+  isAuthenticationBoundaryApiError,
+  isNoEligibleQuestionsApiError,
+  isNotFoundApiError,
+  isStudyResultNotReadyApiError
+} from '@util/apiError'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
+import { Dialog } from '@common/components/Dialog'
+import { EmptyState } from '@common/components/EmptyState'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
-import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
-import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
+import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { useCreateResultRetrySession } from '@app/practice/hooks/useCreateResultRetrySession'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
+import { readResultRetryAttempt } from '@app/practice/resultRetryAttemptStorage'
 import { useAuth } from '@provider/ProtectedRouteProvider'
-import { useAppStore } from '@store/index'
-import { isRealApiMode } from '@libs/apiMode'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 
 const subjectLabels = {
@@ -32,21 +44,44 @@ const formatDuration = (seconds: number): string => {
   return `${minutes}분 ${remainder}초`
 }
 
-export const PracticeResultPage = (): ReactElement => {
+const PracticeResultPageContent = (): ReactElement => {
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
   const navigationType = useNavigationType()
   const summaryHeadingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
+  const allowRetryNavigationRef = useRef(false)
+  const navigatedRetryDestinationRef = useRef<string | null>(null)
   const [bookmarkMessage, setBookmarkMessage] = useState<{
     questionId: string
     text: string
   } | null>(null)
-  const { role } = useAuth()
-  const beginPractice = useAppStore((state) => state.beginPractice)
-  const resultQuery = useGetStudyResult(sessionId)
-  const sessionQuery = useGetStudySession(sessionId)
-  const createSession = useCreateStudySession()
+  const [retryMessage, setRetryMessage] = useState<string | null>(null)
+  const [isRetrySourceRefreshing, setRetrySourceRefreshing] = useState(false)
+  const [retryDestination, setRetryDestination] = useState<string | null>(null)
+  const [isRetrySourceMissing, setRetrySourceMissing] = useState(false)
+  const [verifiedGuestResultSessionId, setVerifiedGuestResultSessionId] =
+    useState<string | null>(null)
+  const { isReady: isAuthReady, role, user } = useAuth()
+  const principalScope = getStudyDraftPrincipalScope(user)
+  const requireFreshGuestOwnerProbe = isAuthReady && role === 'GUEST'
+  const resultQuery = useGetStudyResult(
+    sessionId,
+    requireFreshGuestOwnerProbe,
+    isAuthReady
+  )
+  const sessionQuery = useGetStudySession(
+    sessionId,
+    requireFreshGuestOwnerProbe,
+    isAuthReady
+  )
+  const createRetrySession = useCreateResultRetrySession()
+  const retryNavigationBlocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      createRetrySession.isPending &&
+      !allowRetryNavigationRef.current &&
+      currentLocation.pathname !== nextLocation.pathname
+  )
   const createBookmark = useCreateBookmark()
   const deleteBookmark = useDeleteBookmark()
   const bookmarkMutationActivity = useBookmarkMutationActivity()
@@ -67,9 +102,108 @@ export const PracticeResultPage = (): ReactElement => {
   )
 
   const isResultReady = Boolean(resultQuery.data && sessionQuery.data)
+  const hasCurrentGuestOwnerProof =
+    isAuthReady &&
+    (role !== 'GUEST' || verifiedGuestResultSessionId === sessionId)
+  const hasFrozenRetryAttempt =
+    sessionId.length > 0 &&
+    readResultRetryAttempt(principalScope, sessionId) !== null
+
+  useEffect(() => {
+    if (retryNavigationBlocker.state !== 'blocked') {
+      return
+    }
+    if (retryDestination || !createRetrySession.isPending) {
+      retryNavigationBlocker.reset()
+    }
+  }, [createRetrySession.isPending, retryDestination, retryNavigationBlocker])
 
   useEffect(() => {
     if (
+      !retryDestination ||
+      retryNavigationBlocker.state === 'blocked' ||
+      navigatedRetryDestinationRef.current === retryDestination
+    ) {
+      return
+    }
+    navigatedRetryDestinationRef.current = retryDestination
+    allowRetryNavigationRef.current = true
+    void navigate(retryDestination)
+  }, [navigate, retryDestination, retryNavigationBlocker.state])
+
+  useEffect(() => {
+    let nextVerifiedSessionId: string | null | undefined
+    if (!isAuthReady || role !== 'GUEST') {
+      nextVerifiedSessionId = null
+    }
+    if (
+      nextVerifiedSessionId === undefined &&
+      resultQuery.isSuccess &&
+      resultQuery.isFetchedAfterMount &&
+      resultQuery.data.sessionId === sessionId &&
+      sessionQuery.isSuccess &&
+      sessionQuery.isFetchedAfterMount &&
+      sessionQuery.data.session.id === sessionId
+    ) {
+      nextVerifiedSessionId = sessionId
+    }
+    if (
+      nextVerifiedSessionId === undefined &&
+      ((resultQuery.isError &&
+        isAuthenticationBoundaryApiError(resultQuery.error)) ||
+        (sessionQuery.isError &&
+          isAuthenticationBoundaryApiError(sessionQuery.error)))
+    ) {
+      nextVerifiedSessionId = null
+    }
+    if (nextVerifiedSessionId === undefined) {
+      return
+    }
+
+    let active = true
+    queueMicrotask(() => {
+      if (active) {
+        setVerifiedGuestResultSessionId((current) =>
+          current === nextVerifiedSessionId ? current : nextVerifiedSessionId
+        )
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [
+    isAuthReady,
+    resultQuery.data,
+    resultQuery.error,
+    resultQuery.isError,
+    resultQuery.isFetchedAfterMount,
+    resultQuery.isSuccess,
+    role,
+    sessionId,
+    sessionQuery.data,
+    sessionQuery.error,
+    sessionQuery.isError,
+    sessionQuery.isFetchedAfterMount,
+    sessionQuery.isSuccess
+  ])
+
+  useEffect(() => {
+    if (!hasFrozenRetryAttempt) {
+      return
+    }
+    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasFrozenRetryAttempt])
+
+  useEffect(() => {
+    if (
+      isAuthReady &&
+      hasCurrentGuestOwnerProof &&
+      !isRetrySourceRefreshing &&
       isResultReady &&
       resultQuery.isSuccess &&
       sessionQuery.isSuccess &&
@@ -79,13 +213,23 @@ export const PracticeResultPage = (): ReactElement => {
       summaryHeadingRef.current?.focus()
     }
   }, [
+    hasCurrentGuestOwnerProof,
+    isAuthReady,
+    isRetrySourceRefreshing,
     isResultReady,
     navigationType,
     resultQuery.isSuccess,
     sessionQuery.isSuccess
   ])
 
-  if (resultQuery.isPending || sessionQuery.isPending) {
+  if (
+    !isAuthReady ||
+    resultQuery.isPending ||
+    sessionQuery.isPending ||
+    (!hasCurrentGuestOwnerProof &&
+      !resultQuery.isError &&
+      !sessionQuery.isError)
+  ) {
     return <LoadingState message="채점 결과를 불러오고 있습니다." />
   }
 
@@ -132,30 +276,87 @@ export const PracticeResultPage = (): ReactElement => {
     )
   }
 
+  if (isRetrySourceMissing) {
+    return (
+      <ErrorState
+        autoFocus
+        headingLevel={1}
+        title="학습 결과를 찾을 수 없습니다"
+        description="재출제할 원본 결과가 없거나 현재 계정에서 접근할 수 없습니다."
+        action={
+          <Link
+            className="font-bold text-brand underline hover:no-underline"
+            to="/practice"
+          >
+            새 문제 풀기
+          </Link>
+        }
+      />
+    )
+  }
+
   const result = resultQuery.data
   const session = sessionQuery.data.session
   const incorrectItems = result.items.filter((item) => !item.isCorrect)
+  const canRequestCanonicalRetry = incorrectItems.every(
+    (item) =>
+      item.sessionQuestionId !== null &&
+      item.question.questionVersionId !== null
+  )
   const hasPendingBookmarkMutation =
     bookmarkMutationActivity.pendingQuestionIds.size > 0
 
   const handleRetryIncorrect = (): void => {
-    if (incorrectItems.length === 0 || isRealApiMode) {
+    if (
+      incorrectItems.length === 0 ||
+      !canRequestCanonicalRetry ||
+      isNoEligibleQuestionsApiError(createRetrySession.error) ||
+      isRetrySourceRefreshing ||
+      createRetrySession.isPending
+    ) {
       return
     }
-
-    createSession.mutate(
+    setRetryMessage(null)
+    setRetrySourceMissing(false)
+    createRetrySession.reset()
+    createRetrySession.mutate(
+      { principalScope, sourceSessionId: sessionId },
       {
-        level: session.level,
-        subject: session.subject,
-        mode: role === 'GUEST' ? 'RANDOM' : 'WRONG_NOTE',
-        count: Math.min(20, incorrectItems.length),
-        questionIds: incorrectItems.map((item) => item.question.id)
-      },
-      {
-        onSuccess: ({ session: nextSession }, input) => {
-          assertCurrentCreateStudySessionAction(input)
-          beginPractice(nextSession.id, nextSession.startedAt)
-          void navigate(`/practice/session/${nextSession.id}`)
+        onSuccess: ({ session: nextSession }) => {
+          if (nextSession.session.status === 'SUBMITTED') {
+            setRetryDestination(`/practice/result/${nextSession.session.id}`)
+            return
+          }
+          if (nextSession.session.status === 'IN_PROGRESS') {
+            setRetryDestination(`/practice/session/${nextSession.session.id}`)
+            return
+          }
+          setRetryMessage(
+            '이전에 만든 오답 재출제 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.'
+          )
+        },
+        onError: (error) => {
+          if (
+            isNotFoundApiError(error) &&
+            !isNoEligibleQuestionsApiError(error)
+          ) {
+            setRetrySourceMissing(true)
+            return
+          }
+          if (isStudyResultNotReadyApiError(error)) {
+            setRetryMessage(
+              '원본 학습 결과의 현재 상태를 다시 확인하고 있습니다.'
+            )
+            setRetrySourceRefreshing(true)
+            void Promise.all([
+              resultQuery.refetch(),
+              sessionQuery.refetch()
+            ]).then(() => {
+              setRetryMessage(null)
+              shouldRestoreRetryFocusRef.current = true
+              setRetrySourceRefreshing(false)
+            })
+          }
         }
       }
     )
@@ -286,22 +487,29 @@ export const PracticeResultPage = (): ReactElement => {
       <div className="mt-6 flex flex-col gap-3 rounded-xl border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-muted">
           {role === 'GUEST'
-            ? '게스트 결과는 저장되지 않습니다. 로그인하면 다음 학습부터 오답노트를 사용할 수 있습니다.'
+            ? '현재 게스트 세션에서는 오답을 다시 풀 수 있지만 계정 오답노트에는 저장되지 않습니다.'
             : `틀린 ${incorrectItems.length}문제가 오답노트에 반영되었습니다.`}
         </p>
         <div className="flex flex-wrap gap-2">
-          {incorrectItems.length > 0 && !isRealApiMode ? (
+          {incorrectItems.length > 0 &&
+          canRequestCanonicalRetry &&
+          !isNoEligibleQuestionsApiError(createRetrySession.error) ? (
             <Button
               variant="outline"
-              isLoading={createSession.isPending}
+              isLoading={
+                createRetrySession.isPending || isRetrySourceRefreshing
+              }
+              loadingLabel={
+                isRetrySourceRefreshing
+                  ? '결과 확인 중…'
+                  : createRetrySession.isPaused
+                    ? '연결 대기 중…'
+                    : '재출제 중…'
+              }
               onClick={handleRetryIncorrect}
             >
               오답만 다시 풀기
             </Button>
-          ) : incorrectItems.length > 0 ? (
-            <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
-              오답 재출제는 실제 API에서 아직 지원되지 않습니다
-            </span>
           ) : null}
           <Button
             variant="secondary"
@@ -320,6 +528,67 @@ export const PracticeResultPage = (): ReactElement => {
           </Button>
         </div>
       </div>
+
+      {isNoEligibleQuestionsApiError(createRetrySession.error) ? (
+        <EmptyState
+          autoFocus
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50"
+          title="현재 다시 풀 수 있는 오답이 없습니다"
+          description="문제가 보관 처리됐거나 재출제 가능한 고정 버전이 남아 있지 않습니다."
+          action={
+            <Button onClick={() => void navigate('/practice')}>
+              새 문제 풀기
+            </Button>
+          }
+        />
+      ) : incorrectItems.length > 0 && !canRequestCanonicalRetry ? (
+        <p
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+          role="status"
+        >
+          이 결과 형식에서는 오답 재출제를 지원하지 않습니다. 새 문제 풀기로
+          학습을 이어가 주세요.
+        </p>
+      ) : incorrectItems.length === 0 ? (
+        <EmptyState
+          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50"
+          title="다시 풀 오답이 없습니다"
+          description="모든 문제를 맞혔습니다. 새 문제로 학습을 이어가세요."
+          action={
+            <Button onClick={() => void navigate('/practice')}>
+              새 문제 풀기
+            </Button>
+          }
+        />
+      ) : createRetrySession.isPaused ? (
+        <p
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+          role="status"
+          aria-live="polite"
+        >
+          오프라인입니다. 연결되면 같은 재출제 키로 요청을 이어갑니다.
+        </p>
+      ) : createRetrySession.isError &&
+        !isStudyResultNotReadyApiError(createRetrySession.error) &&
+        !isAuthTransitionSupersededError(createRetrySession.error) ? (
+        <div
+          className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+          role="alert"
+        >
+          <p className="font-bold">오답 재출제 세션을 만들지 못했습니다.</p>
+          <p className="mt-1 leading-6">
+            네트워크 상태를 확인한 뒤 같은 버튼으로 다시 시도해 주세요.
+          </p>
+        </div>
+      ) : retryMessage ? (
+        <p
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+          role="status"
+          aria-live="polite"
+        >
+          {retryMessage}
+        </p>
+      ) : null}
 
       <div className="mt-10 space-y-5">
         <h2 className="text-2xl font-black">문제별 결과</h2>
@@ -450,6 +719,38 @@ export const PracticeResultPage = (): ReactElement => {
           )
         })}
       </div>
+
+      <Dialog
+        open={retryNavigationBlocker.state === 'blocked'}
+        onOpenChange={(open) => {
+          if (!open && retryNavigationBlocker.state === 'blocked') {
+            retryNavigationBlocker.reset()
+          }
+        }}
+        title="오답 재출제 요청을 처리하고 있습니다"
+        description="요청 결과를 확인한 뒤 새 학습 세션으로 자동 이동합니다. 잠시 현재 화면에 머물러 주세요."
+        preventClose
+        footer={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (retryNavigationBlocker.state === 'blocked') {
+                retryNavigationBlocker.reset()
+              }
+            }}
+          >
+            현재 화면에 머물기
+          </Button>
+        }
+      />
     </section>
   )
+}
+
+export const PracticeResultPage = (): ReactElement => {
+  const { sessionId = '' } = useParams()
+  const { role, user } = useAuth()
+  const principalKey = `${role}:${user?.id ?? 'guest'}`
+
+  return <PracticeResultPageContent key={`${principalKey}:${sessionId}`} />
 }

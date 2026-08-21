@@ -192,7 +192,7 @@ const toOptions = (
 ): readonly QuestionOptionRecord[] =>
   options.map(({ id, label, text }) => ({ id, label, text }))
 
-const loadStudySession = async (
+export const loadStudySessionRecord = async (
   client: Prisma.TransactionClient | PrismaClient,
   sessionId: string,
   owner?: ExistingStudyOwner
@@ -948,7 +948,10 @@ export const createPrismaStudySessionRepository = (
                   }
                 })
               }
-              const created = await loadStudySession(transaction, session.id)
+              const created = await loadStudySessionRecord(
+                transaction,
+                session.id
+              )
               if (!created) {
                 throw new StudySessionRepositoryIntegrityError(
                   'Created StudySession could not be projected.'
@@ -1026,7 +1029,7 @@ export const createPrismaStudySessionRepository = (
                 where: { studySessionId: sessionId }
               })
             }
-            return await loadStudySession(transaction, sessionId, owner)
+            return await loadStudySessionRecord(transaction, sessionId, owner)
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
         )

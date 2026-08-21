@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { apiClient } from '@api/config'
 import { queryClient } from '@libs/queryClient'
 import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStorage'
+import { clearAllResultRetryAttempts } from '@app/practice/resultRetryAttemptStorage'
 import { clearAllStudyDraftWorkingCopies } from '@app/practice/draft/studyDraftWorkingCopyStorage'
 import { closeAllStudyDraftRevisionChannels } from '@app/practice/draft/useStudyDraftRevisionSync'
 import {
@@ -21,6 +22,7 @@ import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
   clearAllSubmissionAttempts()
+  clearAllResultRetryAttempts()
   clearAllStudyDraftWorkingCopies()
   closeAllStudyDraftRevisionChannels()
   queryClient.clear()

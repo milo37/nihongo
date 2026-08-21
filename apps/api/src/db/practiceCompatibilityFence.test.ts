@@ -11,6 +11,7 @@ const emptyFacts: PracticeCompatibilityFacts = {
   studyDraftCount: 0,
   studyDraftAnswerCount: 0,
   currentReviewWrongNoteCount: 0,
+  retryRelationCount: 0,
   v2IdempotencyRecordCount: 0
 }
 

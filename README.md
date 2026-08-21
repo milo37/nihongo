@@ -18,9 +18,11 @@ side effect를 만들지 않습니다. Phase 3 Slice 6에서 canonical endpoint 
 Query Factory·domain hook·기존 UI에 연결했습니다. `VITE_API_MODE=real`은 auth/question과
 다섯 mode의 create/read/submit/result, WrongNote list/detail, dashboard, Bookmark를 실제
 Hono/PostgreSQL로 사용하고, `mock`은 Alpha legacy와 같은 canonical mode 동작을 함께
-유지합니다. guest는 RANDOM·WEAKNESS, USER/ADMIN은 다섯 mode를 사용합니다. result retry,
-UserMemo·review history와 real admin API는 요청 전에 명시적으로 비활성화되며 silent Mock
-fallback하지 않습니다.
+유지합니다. guest는 RANDOM·WEAKNESS, USER/ADMIN은 다섯 mode를 사용합니다. own
+SUBMITTED result의 incorrect historical pin retry도 실제 API와 canonical mock에서
+지원합니다. USER/ADMIN target은 `WRONG_NOTE`, guest target은 `RANDOM`이며 응답 유실과
+hard reload 뒤에도 같은 key·target으로 수렴합니다. UserMemo·review history와 real admin
+API는 요청 전에 명시적으로 비활성화되며 silent Mock fallback하지 않습니다.
 
 ## 서비스 목적
 
@@ -649,6 +651,30 @@ fresh `phase4_slice2_e2e_1787286296610_f6e52f37_test`에서는 real Chromium 8/8
 immutable Slice 0–4 checkpoint는
 `/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-4-final-20260821-b0c26d4`입니다.
 
+Phase 4 Slice 5는 migration 25
+`20260821150000_phase4_result_retry`
+(`3db1e757030803b9b8078673e4dcdc1743a929a98856a7529d6e5cbcd6c8c5da`)로
+StudySession retry relation과 USER/guest owner composite FK, non-self·SUBMITTED/result
+source invariant, retry idempotency committed-state exactness를 PostgreSQL에 추가했습니다.
+source ordinal의 incorrect item 중 logical ACTIVE Question과 PUBLISHED/RETIRED source pin만
+target revision 0 draft로 복사하며 fallback은 없습니다. retry submit은 historical pin을
+유지하고 USER/ADMIN은 `WRONG_NOTE_REVIEW`, guest는 영구 review fact 없이 처리됩니다.
+
+Web과 canonical MSW는 response-loss 뒤 sessionStorage의 같은 key를 hard reload에서
+복구하고 canonical target GET 뒤 이동합니다. 48시간 draft와 7일 retry record cleanup은
+operation별로 격리되고 active replay record를 보존하며 retry chain은 leaf-first로
+삭제됩니다. 최종 non-DB gate는 contracts 11 files/62, domain 5/30, API 52/288, web
+62/325로 Vitest 130 files/705 tests, architecture 포함 710 tests를 통과했고 production
+build는 4/5 workspace projects·web 444 modules였습니다. fresh
+`phase4_slice5_integration_1787296415144_95cf5842_test`에서 migration 25/25,
+seed 65/0→0/65, full 20 files/124 pass + historical-pin 1 deliberate skip와 isolated
+historical-pin 1 pass, unique pass 125를 확인했습니다. pg warning은 full 7회 + isolated
+1회 = 8회이고 별도 trace-deprecation retry 5/5에서 기존 stack과 동작 실패 0을
+확인했습니다. fresh `phase4_slice2_e2e_1787297986886_cb5cfd2c_test`에서는 real Chromium
+9/9+mock 1/1, 총 10/10을 통과했습니다. 두 schema는 종료 뒤 삭제하고 absent를
+확인했습니다. immutable Slice 0–5 checkpoint는
+`/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-5-final-20260821-265d732`입니다.
+
 production real preview에서 guest RANDOM keyboard·미응답 제출/result와 USER
 login→RANDOM 5문제 all-null 제출→result 0/5→WrongNote list/detail→dashboard를 실제
 브라우저로 확인했습니다. USER logout 후 ADMIN login에서는 자기 목록이 비고 USER detail
@@ -770,9 +796,10 @@ fail-closed와 staged rollback 경계를 검증해 Phase 3를 완료했습니다
 Slice 0의 계약 정규화, Slice 1의 additive DB·API·canonical MSW, Slice 2의 Web
 autosave·working-copy·복구·conflict UX, Slice 3의 selection engine·non-RANDOM mode와
 all-mode dashboard, Slice 4의 Bookmark PostgreSQL/API/UI·BOOKMARK mode와 실제 Chromium
-gate까지 `codex/phase-4-practice-flow`에서 완료했습니다. Phase 4 전체는 아직 In
-Progress이며, 다음 실행 단위는 별도 지시가 필요한 Slice 5 result retry와 lifecycle
-통합입니다.
+gate, Slice 5의 historical-pin result retry·response-loss exact replay와 retry-aware
+lifecycle까지 `codex/phase-4-practice-flow`에서 완료했습니다. Phase 4 전체는 아직 In
+Progress이며, 다음 실행 단위는 별도 지시가 필요한 Slice 6 cutover·E2E·보고
+closeout입니다.
 
 ## 향후 개선
 

@@ -8,6 +8,8 @@ import { Prisma } from '../generated/prisma/client.js'
 import { createPrismaStudyDraftCleanupRepository } from './studyDraftCleanupRepository.js'
 import { createStudyDraftCleanupService } from './studyDraftCleanupService.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
+import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
+import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySessionCleanupRepository } from './studySessionCleanupRepository.js'
 import { createStudySessionCleanupService } from './studySessionCleanupService.js'
@@ -91,6 +93,35 @@ const saveEmptyDraft = async (
       }))
     }
   })
+
+const createSubmittedIncorrectSession = async (
+  userId: string,
+  submittedAt: Date
+) => {
+  const session = await createSession({
+    userId,
+    practiceContractVersion: 1,
+    startedAt: new Date(submittedAt.getTime() - HOUR_MS),
+    expiresAt: new Date(submittedAt.getTime() + DAY_MS)
+  })
+  await createStudySubmissionService(
+    createPrismaStudySubmissionRepository(database.client),
+    () => submittedAt
+  ).submit(
+    session.id,
+    randomUUID(),
+    {
+      answers: session.questions.map(({ sessionQuestionId }) => ({
+        studySessionQuestionId: sessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: 0
+      })),
+      durationSec: 0
+    },
+    { kind: 'USER', userId }
+  )
+  return session
+}
 
 const createBulkOverdueSessions = async (
   userId: string,
@@ -370,6 +401,109 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
         }
       })
     ).toBe(1)
+  })
+
+  it('draft 48시간과 retry 7일 경계를 operation별 독립 batch로 정리한다', async () => {
+    const userId = await createUser()
+    const owner = { kind: 'USER' as const, userId }
+    const cleanupAt = NOW
+    const retryCreatedAt = new Date(cleanupAt.getTime() - 7 * DAY_MS)
+    const source = await createSubmittedIncorrectSession(
+      userId,
+      new Date(retryCreatedAt.getTime() - HOUR_MS)
+    )
+    const retryRepository = createPrismaStudyResultRetryRepository(
+      database.client
+    )
+    const expiredRetry = await createStudyResultRetryService(
+      retryRepository,
+      () => retryCreatedAt
+    ).create(source.id, randomUUID(), owner)
+    const activeRetry = await createStudyResultRetryService(
+      retryRepository,
+      () => new Date(retryCreatedAt.getTime() + 1)
+    ).create(source.id, randomUUID(), owner)
+
+    const expiredDraftSession = await createSession({
+      userId,
+      practiceContractVersion: 2,
+      startedAt: new Date(cleanupAt.getTime() - 49 * HOUR_MS),
+      expiresAt: new Date(cleanupAt.getTime() + DAY_MS)
+    })
+    const activeDraftSession = await createSession({
+      userId,
+      practiceContractVersion: 2,
+      startedAt: new Date(cleanupAt.getTime() - 49 * HOUR_MS),
+      expiresAt: new Date(cleanupAt.getTime() + DAY_MS)
+    })
+    await saveEmptyDraft(
+      expiredDraftSession,
+      userId,
+      new Date(cleanupAt.getTime() - 48 * HOUR_MS)
+    )
+    await saveEmptyDraft(
+      activeDraftSession,
+      userId,
+      new Date(cleanupAt.getTime() - 48 * HOUR_MS + 1)
+    )
+
+    const cleanup = createStudyDraftCleanupService(
+      createPrismaStudyDraftCleanupRepository(database.client),
+      () => cleanupAt
+    )
+    const first = await cleanup.cleanup({ batchSize: 1 })
+    expect(first).toMatchObject({
+      deletedDraftIdempotencyRecordCount: 1,
+      deletedRetryIdempotencyRecordCount: 1,
+      expiredDraftIdempotencyBatchLimitReached: true,
+      expiredRetryIdempotencyBatchLimitReached: true,
+      expiredIdempotencyBatchLimitReached: true
+    })
+    expect(first.idempotencyOperationMetrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operation: 'STUDY_DRAFT_SAVE',
+          expiredRecordCount: 1
+        }),
+        expect.objectContaining({
+          operation: 'STUDY_RETRY_CREATE',
+          activeRecordCount: 1,
+          expiredRecordCount: 1
+        })
+      ])
+    )
+
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: {
+          operation: 'STUDY_RETRY_CREATE',
+          studySessionId: expiredRetry.response.session.id
+        }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: {
+          operation: 'STUDY_RETRY_CREATE',
+          studySessionId: activeRetry.response.session.id
+        }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: {
+          operation: 'STUDY_SUBMIT',
+          studySessionId: source.id
+        }
+      })
+    ).toBe(1)
+
+    await expect(cleanup.cleanup({ batchSize: 1 })).resolves.toMatchObject({
+      deletedDraftIdempotencyRecordCount: 0,
+      deletedRetryIdempotencyRecordCount: 0,
+      expiredDraftIdempotencyBatchLimitReached: false,
+      expiredRetryIdempotencyBatchLimitReached: false
+    })
   })
 
   it('실제 501개 후보를 500+1 batch로 제한한다', async () => {

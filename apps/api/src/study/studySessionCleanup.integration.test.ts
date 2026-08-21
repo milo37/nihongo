@@ -6,6 +6,8 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createPrismaStudySessionCleanupRepository } from './studySessionCleanupRepository.js'
 import { createStudySessionCleanupService } from './studySessionCleanupService.js'
+import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
+import { createStudyResultRetryService } from './studyResultRetryService.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS
@@ -86,11 +88,15 @@ const createUser = async (): Promise<string> => {
 const createSession = async ({
   expiresAt,
   owner,
-  status = 'IN_PROGRESS'
+  retryOfStudySessionId,
+  status = 'IN_PROGRESS',
+  submittedIsCorrect = true
 }: {
   expiresAt: Date
   owner: SessionOwner
+  retryOfStudySessionId?: string
   status?: FixtureSessionStatus
+  submittedIsCorrect?: boolean
 }): Promise<{ childId: string; sessionId: string }> => {
   const question = getPinnedQuestion()
   const startedAt = new Date(expiresAt.getTime() - DAY_MS)
@@ -101,12 +107,17 @@ const createSession = async ({
         ...(owner.kind === 'USER'
           ? { userId: owner.id }
           : { guestPrincipalId: owner.id }),
+        ...(retryOfStudySessionId ? { retryOfStudySessionId } : {}),
         level: 'N5',
         subject: 'VOCABULARY',
-        mode: 'RANDOM',
+        mode:
+          retryOfStudySessionId && owner.kind === 'USER'
+            ? 'WRONG_NOTE'
+            : 'RANDOM',
         requestedCount: 1,
         actualCount: 1,
         usedFallback: false,
+        practiceContractVersion: retryOfStudySessionId ? 2 : 1,
         startedAt,
         expiresAt
       },
@@ -122,8 +133,34 @@ const createSession = async ({
         createdAt: startedAt
       }
     })
+    if (retryOfStudySessionId) {
+      await transaction.studyDraft.create({
+        data: {
+          studySessionId: session.id,
+          revision: 0,
+          currentOrdinal: 1,
+          savedAt: null,
+          createdAt: startedAt,
+          updatedAt: startedAt,
+          answers: {
+            create: {
+              studySessionQuestionId: childId,
+              questionVersionId: question.questionVersionId,
+              selectedOptionId: null,
+              elapsedSec: 0,
+              updatedAt: startedAt
+            }
+          }
+        }
+      })
+    }
 
     const terminalAt = new Date(startedAt.getTime() + HOUR_MS)
+    if (retryOfStudySessionId && status !== 'IN_PROGRESS') {
+      await transaction.studyDraft.delete({
+        where: { studySessionId: session.id }
+      })
+    }
     if (status === 'SUBMITTED') {
       const idempotencyRecordId = randomUUID()
       const submissionHash = 'a'.repeat(64)
@@ -132,8 +169,10 @@ const createSession = async ({
           id: randomUUID(),
           studySessionQuestionId: childId,
           questionVersionId: question.questionVersionId,
-          selectedOptionId: question.correctOptionId,
-          isCorrect: true,
+          selectedOptionId: submittedIsCorrect
+            ? question.correctOptionId
+            : null,
+          isCorrect: submittedIsCorrect,
           elapsedSec: 60,
           gradingVersion: 'server-grading-v1',
           answeredAt: terminalAt,
@@ -145,9 +184,9 @@ const createSession = async ({
           id: randomUUID(),
           studySessionId: session.id,
           totalCount: 1,
-          correctCount: 1,
-          incorrectCount: 0,
-          correctRateBasisPoints: 10_000,
+          correctCount: submittedIsCorrect ? 1 : 0,
+          incorrectCount: submittedIsCorrect ? 0 : 1,
+          correctRateBasisPoints: submittedIsCorrect ? 10_000 : 0,
           durationSec: 60,
           gradingVersion: 'server-grading-v1',
           createdAt: terminalAt
@@ -463,6 +502,82 @@ describe('StudySession bounded retention cleanup', () => {
         }
       })
     ).toBe(7)
+  })
+
+  it('guest retry replay 보존 뒤 target leaf부터 source와 owner를 순서대로 정리한다', async () => {
+    const retryCreatedAt = new Date(NOW.getTime() - 7 * DAY_MS)
+    const guestId = await createGuestPrincipal(
+      new Date(NOW.getTime() - HOUR_MS)
+    )
+    const owner = {
+      kind: 'GUEST' as const,
+      guestPrincipalId: guestId,
+      tokenDigest: createHash('sha256').update(guestId).digest('hex')
+    }
+    const source = await createSession({
+      owner: { kind: 'GUEST', id: guestId },
+      expiresAt: new Date(NOW.getTime() - 8 * DAY_MS),
+      status: 'SUBMITTED',
+      submittedIsCorrect: false
+    })
+    const retry = await createStudyResultRetryService(
+      createPrismaStudyResultRetryRepository(database.client),
+      () => retryCreatedAt
+    ).create(source.sessionId, randomUUID(), owner)
+    const targetId = retry.response.session.id
+    createdSessionIds.add(targetId)
+
+    const beforeReplayExpiryCleanup = createStudySessionCleanupService(
+      createPrismaStudySessionCleanupRepository(database.client),
+      () => new Date(NOW.getTime() - 1)
+    )
+    await expect(
+      beforeReplayExpiryCleanup.cleanup({ batchSize: 1 })
+    ).resolves.toMatchObject({
+      deletedStudySessionCount: 0,
+      deletedGuestPrincipalCount: 0
+    })
+    expect(
+      await database.client.studySession.count({
+        where: { id: { in: [source.sessionId, targetId] } }
+      })
+    ).toBe(2)
+
+    const expiredReplayCleanup = service
+    await expect(
+      expiredReplayCleanup.cleanup({ batchSize: 1 })
+    ).resolves.toMatchObject({
+      deletedStudySessionCount: 1,
+      deletedGuestPrincipalCount: 0,
+      studySessionBatchLimitReached: true
+    })
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: targetId }
+      })
+    ).toBeNull()
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: source.sessionId }
+      })
+    ).not.toBeNull()
+
+    await expect(
+      expiredReplayCleanup.cleanup({ batchSize: 1 })
+    ).resolves.toMatchObject({
+      deletedStudySessionCount: 1,
+      deletedGuestPrincipalCount: 1
+    })
+    expect(
+      await database.client.studySession.count({
+        where: { id: { in: [source.sessionId, targetId] } }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.guestPrincipal.findUnique({
+        where: { id: guestId }
+      })
+    ).toBeNull()
   })
 
   it('참조 없는 만료 GuestPrincipal만 bounded·idempotent하게 삭제한다', async () => {

@@ -217,6 +217,7 @@ model StudySession {
   id                 String                      @id @default(uuid()) @db.Uuid
   userId             String?                     @db.Uuid
   guestPrincipalId   String?                     @db.Uuid
+  retryOfStudySessionId String?                   @db.Uuid
   level              JlptLevel
   subject            QuestionSubject
   mode               StudyMode
@@ -236,6 +237,8 @@ model StudySession {
   updatedAt          DateTime                    @updatedAt @db.Timestamptz(3)
   user               User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   guestPrincipal     GuestPrincipal?             @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade)
+  retryOfStudySession StudySession?               @relation("StudySessionRetry", fields: [retryOfStudySessionId], references: [id], onDelete: NoAction, onUpdate: Cascade)
+  retrySessions      StudySession[]               @relation("StudySessionRetry")
   questions          StudySessionQuestion[]
   result             StudyResult?
   reviewEvents       ReviewEvent[]
@@ -247,6 +250,7 @@ model StudySession {
   @@index([userId, status, startedAt(sort: Desc)])
   @@index([guestPrincipalId, status, expiresAt])
   @@index([guestPrincipalId, status, submittedAt])
+  @@index([retryOfStudySessionId, id])
   @@index([status, expiresAt])
 }
 

@@ -36,6 +36,8 @@ import type { StudyDraftService } from '../study/studyDraftService.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
+import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
+import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
 
 interface CreateApiAppDependencies {
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
@@ -52,6 +54,7 @@ interface CreateApiAppDependencies {
     draftService?: StudyDraftService
     practiceContractV2Enabled: boolean
     rateLimiter: ApplicationRateLimiter
+    retryService?: StudyResultRetryService
     service: StudySessionService
     submissionService?: StudySubmissionService
   }
@@ -221,6 +224,18 @@ export const createApiApp = ({
             practiceContractV2Enabled: study.practiceContractV2Enabled,
             rateLimiter: study.rateLimiter,
             studySubmissionService: study.submissionService
+          })
+        )
+      }
+      if (study.practiceContractV2Enabled && study.retryService) {
+        app.route(
+          '/api/v1/study-sessions',
+          createStudyResultRetryRoutes({
+            environment: auth.environment,
+            guestPrincipalService: auth.guestPrincipalService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter,
+            studyResultRetryService: study.retryService
           })
         )
       }

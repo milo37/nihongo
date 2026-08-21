@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 import { authQueries } from '@app/login/queries/authQueries'
 import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStorage'
+import { clearAllResultRetryAttempts } from '@app/practice/resultRetryAttemptStorage'
 import { clearAllStudyDraftWorkingCopies } from '@app/practice/draft/studyDraftWorkingCopyStorage'
 import { closeAllStudyDraftRevisionChannels } from '@app/practice/draft/useStudyDraftRevisionSync'
 import {
@@ -64,6 +65,7 @@ const applyCanonicalAuth = (
 
   if (identityChanged || options.forcePracticeReset) {
     clearAllSubmissionAttempts()
+    clearAllResultRetryAttempts()
     clearAllStudyDraftWorkingCopies()
     closeAllStudyDraftRevisionChannels()
     state.resetPractice()
@@ -108,6 +110,7 @@ export const refreshCanonicalAuthAfterMutation = async (
   }
   if (options.forcePracticeReset) {
     clearAllSubmissionAttempts()
+    clearAllResultRetryAttempts()
     clearAllStudyDraftWorkingCopies()
     closeAllStudyDraftRevisionChannels()
     state.resetPractice()

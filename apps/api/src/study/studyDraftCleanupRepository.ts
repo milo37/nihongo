@@ -9,9 +9,12 @@ export interface StudyDraftCleanupInput {
 
 export interface StudyDraftCleanupResult {
   readonly expiredDraftBatchLimitReached: boolean
+  readonly expiredDraftIdempotencyBatchLimitReached: boolean
   readonly expiredIdempotencyBatchLimitReached: boolean
+  readonly expiredRetryIdempotencyBatchLimitReached: boolean
   readonly expiredStudyDraftCount: number
   readonly deletedDraftIdempotencyRecordCount: number
+  readonly deletedRetryIdempotencyRecordCount: number
   readonly oldestOverdueExpiresAt: string | null
   readonly overdueStudyDraftCount: number
   readonly idempotencyOperationMetrics: readonly IdempotencyOperationMetric[]
@@ -38,6 +41,7 @@ interface CleanupMetricRow {
 
 interface DeletedRow {
   id: string
+  operation?: IdempotencyOperationMetric['operation']
 }
 
 interface IdempotencyMetricRow {
@@ -151,13 +155,17 @@ export const createPrismaStudyDraftCleanupRepository = (
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
     )
 
-    const deletedIdempotencyRecords = await client.$transaction(
-      async (transaction) =>
-        await transaction.$queryRaw<DeletedRow[]>(Prisma.sql`
+    const deleteExpiredIdempotencyRecords = async (
+      operation: 'STUDY_DRAFT_SAVE' | 'STUDY_RETRY_CREATE'
+    ): Promise<DeletedRow[]> =>
+      await client.$transaction(
+        async (transaction) =>
+          await transaction.$queryRaw<DeletedRow[]>(Prisma.sql`
           WITH candidates AS MATERIALIZED (
             SELECT record."id"
             FROM "IdempotencyRecord" AS record
-            WHERE record."operation" = 'STUDY_DRAFT_SAVE'
+            WHERE record."operation" =
+                ${operation}::"IdempotencyOperation"
               AND record."state" = 'SUCCEEDED'
               AND record."expiresAt" IS NOT NULL
               AND record."expiresAt" <= ${now}
@@ -168,21 +176,33 @@ export const createPrismaStudyDraftCleanupRepository = (
           DELETE FROM "IdempotencyRecord" AS record
           USING candidates
           WHERE record."id" = candidates."id"
-            AND record."operation" = 'STUDY_DRAFT_SAVE'
+            AND record."operation" =
+              ${operation}::"IdempotencyOperation"
             AND record."state" = 'SUCCEEDED'
             AND record."expiresAt" IS NOT NULL
             AND record."expiresAt" <= ${now}
-          RETURNING record."id"
+          RETURNING record."id", record."operation"::text AS "operation"
         `)
-    )
+      )
+
+    const deletedDraftIdempotencyRecords =
+      await deleteExpiredIdempotencyRecords('STUDY_DRAFT_SAVE')
+    const deletedRetryIdempotencyRecords =
+      await deleteExpiredIdempotencyRecords('STUDY_RETRY_CREATE')
 
     const metricRow = metric[0]
     return {
       expiredDraftBatchLimitReached: expiredDrafts.length === batchSize,
+      expiredDraftIdempotencyBatchLimitReached:
+        deletedDraftIdempotencyRecords.length === batchSize,
       expiredIdempotencyBatchLimitReached:
-        deletedIdempotencyRecords.length === batchSize,
+        deletedDraftIdempotencyRecords.length === batchSize ||
+        deletedRetryIdempotencyRecords.length === batchSize,
+      expiredRetryIdempotencyBatchLimitReached:
+        deletedRetryIdempotencyRecords.length === batchSize,
       expiredStudyDraftCount: expiredDrafts.length,
-      deletedDraftIdempotencyRecordCount: deletedIdempotencyRecords.length,
+      deletedDraftIdempotencyRecordCount: deletedDraftIdempotencyRecords.length,
+      deletedRetryIdempotencyRecordCount: deletedRetryIdempotencyRecords.length,
       oldestOverdueExpiresAt:
         metricRow?.oldestOverdueExpiresAt?.toISOString() ?? null,
       overdueStudyDraftCount: Number(metricRow?.overdueStudyDraftCount ?? 0n),

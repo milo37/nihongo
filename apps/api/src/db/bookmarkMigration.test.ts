@@ -15,8 +15,10 @@ const migrationSql = readFileSync(
 describe('Phase 4 Slice 4 Bookmark migration', () => {
   it('24번째 append-only migration으로 추가한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
-    expect(manifest).toHaveLength(24)
-    expect(manifest.at(-1)?.name).toBe(migrationName)
+    expect(manifest.findIndex(({ name }) => name === migrationName) + 1).toBe(
+      24
+    )
+    expect(manifest.at(23)?.name).toBe(migrationName)
   })
 
   it('owner identity, retention FK와 exact index manifest를 선언한다', () => {

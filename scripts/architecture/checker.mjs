@@ -20,6 +20,7 @@ const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
   ['api/bookmark/createBookmark/index.ts', 'safePutWithMetadata'],
   ['api/bookmark/deleteBookmark/index.ts', 'safeDelWithMetadata'],
   ['api/study/cancelStudySession/index.ts', 'safePostWithMetadata'],
+  ['api/study/createResultRetrySession/index.ts', 'safePostWithMetadata'],
   ['api/study/createStudySessionV2/index.ts', 'safePostWithMetadata'],
   ['api/study/getStudyDraftAnswers/index.ts', 'safeGetWithMetadata'],
   ['api/study/getStudySessionV2/index.ts', 'safeGetWithMetadata'],

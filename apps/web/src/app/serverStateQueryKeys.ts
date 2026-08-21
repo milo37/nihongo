@@ -6,6 +6,7 @@ export const serverStateQueryKeys = {
       ['study', 'sessions', 'get-session', sessionId] as const,
     draft: (sessionId: string) =>
       ['study', 'sessions', sessionId, 'draft'] as const,
+    resumableSessions: () => ['study', 'sessions', 'resumable'] as const,
     resumable: (params: { page: number; pageSize: number }) =>
       [
         'study',

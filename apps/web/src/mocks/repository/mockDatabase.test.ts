@@ -961,6 +961,520 @@ describe('MockDatabase', () => {
     expect(database.getCanonicalIdempotencyRecords()).toHaveLength(1)
   })
 
+  it('결과 재시도를 historical pin과 revision 0 draft로 저장하고 terminal target도 exact replay한다', () => {
+    const storage = createMemoryStorage()
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const source = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 2,
+      questionIds: ['n5-vocabulary-01', 'n5-vocabulary-02']
+    })
+    submitEmptyCanonicalV2Session(database, source.session.id)
+    expect(
+      database
+        .listCanonicalWrongNoteRecords(user.id)
+        .every(
+          ({ currentReviewQuestionVersionId }) =>
+            currentReviewQuestionVersionId === null
+        )
+    ).toBe(true)
+
+    const idempotencyKey = crypto.randomUUID()
+    const created = database.createCanonicalResultRetry({
+      guestPrincipalId: null,
+      idempotencyKey,
+      sourceSessionId: source.session.id
+    })
+    expect(created.replayed).toBe(false)
+    expect(created.response).toMatchObject({
+      session: {
+        mode: 'WRONG_NOTE',
+        practiceContractVersion: 2,
+        requestedCount: 2,
+        actualCount: 2,
+        usedFallback: false
+      }
+    })
+    const sourcePayload = toVersionedContractStudySessionPayload(
+      database.getCanonicalStudySessionSnapshotRecord(source.session.id, null)
+    )
+    expect(
+      created.response.questions.map(
+        ({ question }) => question.questionVersionId
+      )
+    ).toEqual(
+      sourcePayload.questions.map(({ question }) => question.questionVersionId)
+    )
+    expect(
+      database.getCanonicalStudyDraft(created.response.session.id, null)
+    ).toMatchObject({ revision: 0, savedAt: null })
+    expect(
+      database
+        .listCanonicalWrongNoteRecords(user.id)
+        .every(
+          ({ currentReviewQuestionVersionId }) =>
+            currentReviewQuestionVersionId === null
+        )
+    ).toBe(true)
+    const record = database
+      .getCanonicalIdempotencyRecords()
+      .find(({ operation }) => operation === 'study.createResultRetrySession')
+    expect(record).toMatchObject({
+      operation: 'study.createResultRetrySession',
+      responseStatus: 201,
+      sourceSessionId: source.session.id,
+      sessionId: created.response.session.id
+    })
+    expect(Date.parse(record?.expiresAt ?? '') - Date.parse(FIXED_NOW)).toBe(
+      7 * 24 * 60 * 60 * 1_000
+    )
+    database.dispose()
+
+    const restored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    try {
+      expect(
+        restored.createCanonicalResultRetry({
+          guestPrincipalId: null,
+          idempotencyKey,
+          sourceSessionId: source.session.id
+        })
+      ).toEqual({ replayed: true, response: created.response })
+      restored.cancelCanonicalStudySession(created.response.session.id, null)
+      expect(
+        restored.createCanonicalResultRetry({
+          guestPrincipalId: null,
+          idempotencyKey,
+          sourceSessionId: source.session.id
+        })
+      ).toEqual({ replayed: true, response: created.response })
+    } finally {
+      restored.dispose()
+    }
+  })
+
+  it('v6 retry response와 Answer/Result evidence 변조를 fail closed 처리한다', () => {
+    const createSubmittedWrongSource = (database: MockDatabase): string => {
+      database.loginAs('USER')
+      const source = database.createStudySession({
+        canonicalContractVersion: 2,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1,
+        questionIds: ['n5-vocabulary-01']
+      })
+      submitEmptyCanonicalV2Session(database, source.session.id)
+      return source.session.id
+    }
+
+    const responseStorage = createMemoryStorage()
+    const responseDatabase = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: responseStorage,
+      listenToStorage: false
+    })
+    const responseSourceId = createSubmittedWrongSource(responseDatabase)
+    const responseKey = crypto.randomUUID()
+    responseDatabase.createCanonicalResultRetry({
+      guestPrincipalId: null,
+      idempotencyKey: responseKey,
+      sourceSessionId: responseSourceId
+    })
+    responseDatabase.dispose()
+    const serializedResponse = responseStorage.getItem(
+      MOCK_DATABASE_STORAGE_KEY
+    )
+    if (!serializedResponse) {
+      throw new Error('retry response tamper fixture가 필요합니다.')
+    }
+    const responseState = JSON.parse(serializedResponse) as Record<
+      string,
+      unknown
+    >
+    const idempotencyRecords = responseState.canonicalIdempotencyRecords
+    if (!Array.isArray(idempotencyRecords)) {
+      throw new Error('retry idempotency fixture가 필요합니다.')
+    }
+    const retryRecord = idempotencyRecords.find(
+      (record) =>
+        typeof record === 'object' &&
+        record !== null &&
+        'operation' in record &&
+        record.operation === 'study.createResultRetrySession'
+    )
+    if (
+      typeof retryRecord !== 'object' ||
+      retryRecord === null ||
+      !('response' in retryRecord) ||
+      typeof retryRecord.response !== 'object' ||
+      retryRecord.response === null ||
+      !('session' in retryRecord.response) ||
+      typeof retryRecord.response.session !== 'object' ||
+      retryRecord.response.session === null
+    ) {
+      throw new Error('retry stored response fixture가 필요합니다.')
+    }
+    ;(retryRecord.response.session as Record<string, unknown>).id =
+      crypto.randomUUID()
+    responseStorage.setItem(
+      MOCK_DATABASE_STORAGE_KEY,
+      JSON.stringify(responseState)
+    )
+    const responseRestored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: responseStorage,
+      listenToStorage: false
+    })
+    expect(() =>
+      responseRestored.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey: responseKey,
+        sourceSessionId: responseSourceId
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+    )
+    responseRestored.dispose()
+
+    const evidenceStorage = createMemoryStorage()
+    const evidenceDatabase = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: evidenceStorage,
+      listenToStorage: false
+    })
+    const evidenceSourceId = createSubmittedWrongSource(evidenceDatabase)
+    evidenceDatabase.dispose()
+    const serializedEvidence = evidenceStorage.getItem(
+      MOCK_DATABASE_STORAGE_KEY
+    )
+    if (!serializedEvidence) {
+      throw new Error('retry evidence tamper fixture가 필요합니다.')
+    }
+    const evidenceState = JSON.parse(serializedEvidence) as Record<
+      string,
+      unknown
+    >
+    const results = evidenceState.canonicalStudyResults
+    const result = Array.isArray(results) ? results[0] : undefined
+    if (
+      typeof result !== 'object' ||
+      result === null ||
+      !('items' in result) ||
+      !Array.isArray(result.items) ||
+      typeof result.items[0] !== 'object' ||
+      result.items[0] === null ||
+      !('question' in result.items[0]) ||
+      typeof result.items[0].question !== 'object' ||
+      result.items[0].question === null ||
+      !('correctOptionId' in result.items[0].question) ||
+      typeof result.items[0].question.correctOptionId !== 'string'
+    ) {
+      throw new Error('retry result evidence fixture가 필요합니다.')
+    }
+    result.correctCount = 1
+    result.incorrectCount = 0
+    result.items[0].isCorrect = true
+    result.items[0].selectedOptionId = result.items[0].question.correctOptionId
+    evidenceStorage.setItem(
+      MOCK_DATABASE_STORAGE_KEY,
+      JSON.stringify(evidenceState)
+    )
+    const evidenceRestored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: evidenceStorage,
+      listenToStorage: false
+    })
+    expect(() =>
+      evidenceRestored.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey: crypto.randomUUID(),
+        sourceSessionId: evidenceSourceId
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+    )
+    evidenceRestored.dispose()
+  })
+
+  it('retry target draft와 source historical pin 변조를 fail closed 처리한다', () => {
+    const createRetryFixture = (
+      storage: ReturnType<typeof createMemoryStorage>
+    ): {
+      idempotencyKey: string
+      sourceSessionId: string
+      targetSessionId: string
+    } => {
+      const database = new MockDatabase({
+        now: () => FIXED_NOW,
+        storage,
+        listenToStorage: false
+      })
+      database.loginAs('USER')
+      const source = database.createStudySession({
+        canonicalContractVersion: 2,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 2,
+        questionIds: ['n5-vocabulary-01', 'n5-vocabulary-02']
+      })
+      submitEmptyCanonicalV2Session(database, source.session.id)
+      const idempotencyKey = crypto.randomUUID()
+      const retry = database.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey,
+        sourceSessionId: source.session.id
+      })
+      database.dispose()
+      return {
+        idempotencyKey,
+        sourceSessionId: source.session.id,
+        targetSessionId: retry.response.session.id
+      }
+    }
+
+    const draftStorage = createMemoryStorage()
+    const draftFixture = createRetryFixture(draftStorage)
+    const serializedDraft = draftStorage.getItem(MOCK_DATABASE_STORAGE_KEY)
+    if (!serializedDraft) {
+      throw new Error('retry draft tamper fixture가 필요합니다.')
+    }
+    const draftState = JSON.parse(serializedDraft) as Record<string, unknown>
+    if (!Array.isArray(draftState.canonicalDrafts)) {
+      throw new Error('canonical draft fixture가 필요합니다.')
+    }
+    draftState.canonicalDrafts = draftState.canonicalDrafts.filter(
+      (draft) =>
+        !(
+          typeof draft === 'object' &&
+          draft !== null &&
+          'studySessionId' in draft &&
+          draft.studySessionId === draftFixture.targetSessionId
+        )
+    )
+    draftStorage.setItem(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(draftState))
+    const draftRestored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: draftStorage,
+      listenToStorage: false
+    })
+    expect(() =>
+      draftRestored.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey: draftFixture.idempotencyKey,
+        sourceSessionId: draftFixture.sourceSessionId
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+    )
+    draftRestored.dispose()
+
+    const pinStorage = createMemoryStorage()
+    const pinFixture = createRetryFixture(pinStorage)
+    const serializedPin = pinStorage.getItem(MOCK_DATABASE_STORAGE_KEY)
+    if (!serializedPin) {
+      throw new Error('retry pin tamper fixture가 필요합니다.')
+    }
+    const pinState = JSON.parse(serializedPin) as Record<string, unknown>
+    if (
+      !Array.isArray(pinState.sessionQuestionSnapshots) ||
+      !Array.isArray(pinState.sessions) ||
+      !Array.isArray(pinState.canonicalIdempotencyRecords)
+    ) {
+      throw new Error('retry target snapshot fixture가 필요합니다.')
+    }
+    const targetSnapshot = pinState.sessionQuestionSnapshots.find(
+      (entry) => Array.isArray(entry) && entry[0] === pinFixture.targetSessionId
+    )
+    const targetSession = pinState.sessions.find(
+      (session) =>
+        typeof session === 'object' &&
+        session !== null &&
+        'id' in session &&
+        session.id === pinFixture.targetSessionId
+    )
+    const retryRecord = pinState.canonicalIdempotencyRecords.find(
+      (record) =>
+        typeof record === 'object' &&
+        record !== null &&
+        'sessionId' in record &&
+        record.sessionId === pinFixture.targetSessionId
+    )
+    if (
+      !Array.isArray(targetSnapshot) ||
+      !Array.isArray(targetSnapshot[1]) ||
+      targetSnapshot[1].length !== 2 ||
+      typeof targetSession !== 'object' ||
+      targetSession === null ||
+      !('questionIds' in targetSession) ||
+      !Array.isArray(targetSession.questionIds) ||
+      typeof retryRecord !== 'object' ||
+      retryRecord === null ||
+      !('response' in retryRecord) ||
+      typeof retryRecord.response !== 'object' ||
+      retryRecord.response === null ||
+      !('questions' in retryRecord.response) ||
+      !Array.isArray(retryRecord.response.questions) ||
+      retryRecord.response.questions.length !== 2
+    ) {
+      throw new Error('retry source-pin relation fixture가 필요합니다.')
+    }
+    targetSnapshot[1].reverse()
+    targetSession.questionIds.reverse()
+    const firstResponseQuestion = retryRecord.response.questions[0]
+    const secondResponseQuestion = retryRecord.response.questions[1]
+    if (
+      typeof firstResponseQuestion !== 'object' ||
+      firstResponseQuestion === null ||
+      !('question' in firstResponseQuestion) ||
+      typeof secondResponseQuestion !== 'object' ||
+      secondResponseQuestion === null ||
+      !('question' in secondResponseQuestion)
+    ) {
+      throw new Error('retry response question fixture가 필요합니다.')
+    }
+    const firstQuestion = firstResponseQuestion.question
+    firstResponseQuestion.question = secondResponseQuestion.question
+    secondResponseQuestion.question = firstQuestion
+    pinStorage.setItem(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(pinState))
+    const pinRestored = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: pinStorage,
+      listenToStorage: false
+    })
+    expect(() =>
+      pinRestored.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey: pinFixture.idempotencyKey,
+        sourceSessionId: pinFixture.sourceSessionId
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+    )
+    pinRestored.dispose()
+  })
+
+  it('정답과 archived logical question은 제외하고 active historical pin은 유지한다', () => {
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    database.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+    const sourceQuestion = originalQuestions.find(({ id }) => id === questionId)
+    const correctSourceIndex = sourceQuestion?.options.findIndex(
+      ({ isCorrect }) => isCorrect
+    )
+    const correctSource = database.createStudySession({
+      canonicalContractVersion: 1,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1,
+      questionIds: [questionId]
+    })
+    const correctPayload = toContractStudySessionPayload(
+      database.getCanonicalStudySessionSnapshotRecord(
+        correctSource.session.id,
+        null
+      )
+    )
+    const correctQuestion = correctPayload.questions[0]
+    const correctOptionId =
+      correctSourceIndex === undefined || correctSourceIndex < 0
+        ? undefined
+        : correctQuestion?.question.options[correctSourceIndex]?.id
+    if (!correctQuestion || !correctOptionId) {
+      throw new Error('결과 재시도 정답 fixture가 필요합니다.')
+    }
+    database.submitCanonicalStudySession(
+      {
+        body: {
+          answers: [
+            {
+              studySessionQuestionId: correctQuestion.sessionQuestionId,
+              selectedOptionId: correctOptionId,
+              elapsedSec: 1
+            }
+          ],
+          durationSec: 1
+        },
+        contractVersion: 1,
+        guestPrincipalId: null,
+        idempotencyKey: crypto.randomUUID(),
+        sessionId: correctSource.session.id
+      },
+      mockCanonicalSubmissionOperations
+    )
+    expect(() =>
+      database.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey: crypto.randomUUID(),
+        sourceSessionId: correctSource.session.id
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'NO_ELIGIBLE_QUESTIONS', status: 404 })
+    )
+
+    const wrongSource = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1,
+      questionIds: [questionId]
+    })
+    submitEmptyCanonicalV2Session(database, wrongSource.session.id)
+    database.loginAs('ADMIN')
+    database.updateQuestion(questionId, {
+      ...toAdminInput(database.getAdminQuestion(questionId)),
+      status: 'DRAFT'
+    })
+    database.loginAs('USER')
+    const historicalRetry = database.createCanonicalResultRetry({
+      guestPrincipalId: null,
+      idempotencyKey: crypto.randomUUID(),
+      sourceSessionId: wrongSource.session.id
+    })
+    expect(historicalRetry.response.questions).toHaveLength(1)
+    expect(
+      historicalRetry.response.questions[0]?.question.questionVersionId
+    ).toBe(
+      toContractStudySessionPayload(
+        database.getCanonicalStudySessionSnapshotRecord(
+          wrongSource.session.id,
+          null
+        )
+      ).questions[0]?.question.questionVersionId
+    )
+
+    database.loginAs('ADMIN')
+    database.deleteQuestion(questionId)
+    database.loginAs('USER')
+    expect(() =>
+      database.createCanonicalResultRetry({
+        guestPrincipalId: null,
+        idempotencyKey: crypto.randomUUID(),
+        sourceSessionId: wrongSource.session.id
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'NO_ELIGIBLE_QUESTIONS', status: 404 })
+    )
+  })
+
   it('v2 guest marker만 canonical로 복구하고 모호한 USER session과 legacy session은 legacy로 보존한다', () => {
     const values = new Map<string, string>()
     const storage: MockStorage = {

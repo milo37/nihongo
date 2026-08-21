@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  comparePublicQuestionTags,
   getQuestionErrorSchema,
   getQuestionParamsSchema,
   getQuestionResponseSchema,
@@ -34,6 +35,15 @@ const response = {
 describe('getQuestion contract', () => {
   it('태그를 locale 비의존 NFKC·whitespace·소문자로 정규화한다', () => {
     expect(normalizeQuestionTagText(' Ｉ  İ ')).toBe('i i̇')
+  })
+
+  it('태그를 PostgreSQL C와 같은 Unicode scalar 순서로 비교한다', () => {
+    const privateUse = { id: QUESTION_ID, label: '\uE000' }
+    const supplementary = { id: VERSION_ID, label: '\u{10000}' }
+    expect(comparePublicQuestionTags(privateUse, supplementary)).toBeLessThan(0)
+    expect(
+      comparePublicQuestionTags(supplementary, privateUse)
+    ).toBeGreaterThan(0)
   })
 
   it('UUID path parameter와 public response를 검증한다', () => {

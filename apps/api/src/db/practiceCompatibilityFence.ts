@@ -6,6 +6,7 @@ export interface PracticeCompatibilityFacts {
   studyDraftCount: number
   studyDraftAnswerCount: number
   currentReviewWrongNoteCount: number
+  retryRelationCount: number
   v2IdempotencyRecordCount: number
 }
 
@@ -25,6 +26,7 @@ export const assertPracticeCompatibilityFacts = (
     facts.studyDraftCount !== 0 ||
     facts.studyDraftAnswerCount !== 0 ||
     facts.currentReviewWrongNoteCount !== 0 ||
+    facts.retryRelationCount !== 0 ||
     facts.v2IdempotencyRecordCount !== 0
   ) {
     throw new PracticeCompatibilityFenceError()
@@ -58,6 +60,11 @@ export const checkPracticeCompatibilityFence = async (
         FROM "WrongNote"
         WHERE "currentReviewQuestionVersionId" IS NOT NULL
       ) AS "currentReviewWrongNoteCount",
+      (
+        SELECT COUNT(*)::integer
+        FROM "StudySession"
+        WHERE "retryOfStudySessionId" IS NOT NULL
+      ) AS "retryRelationCount",
       (
         SELECT COUNT(*)::integer
         FROM "IdempotencyRecord"

@@ -69,7 +69,14 @@ const readCredentials = (prefix: 'A' | 'B' | 'C' | 'D'): Credentials => {
 
 const userA = readCredentials('A')
 const userB = readCredentials('B')
+const userC = readCredentials('C')
 const userD = readCredentials('D')
+const clientIpByEmail = new Map([
+  [userA.email, '198.51.100.10'],
+  [userB.email, '198.51.100.11'],
+  [userC.email, '198.51.100.12'],
+  [userD.email, '198.51.100.13']
+])
 const schemaName = process.env.SLICE2_E2E_SCHEMA
 const authenticatedStorage = new Map<string, BrowserStorageState>()
 
@@ -133,6 +140,36 @@ const createSession = async (page: Page): Promise<CreatedSession> => {
   expect(result.status).toBe(201)
   expect(result.body.questions).toHaveLength(5)
   return result.body
+}
+
+const submitAllWrong = async (
+  page: Page,
+  created: CreatedSession
+): Promise<void> => {
+  const status = await page.evaluate(async (session) => {
+    const response = await fetch(
+      `/api/v1/study-sessions/${session.session.id}/submission`,
+      {
+        body: JSON.stringify({
+          answers: session.questions.map(({ sessionQuestionId }) => ({
+            studySessionQuestionId: sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 0
+          })),
+          durationSec: 0,
+          expectedDraftRevision: 0
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+          'X-Nihongo-Practice-Contract': '2'
+        },
+        method: 'POST'
+      }
+    )
+    return response.status
+  }, created)
+  expect(status).toBe(201)
 }
 
 const startSessionFromSetup = async (
@@ -282,9 +319,13 @@ const createLoggedInContext = async (
   const storageState = options.forceFreshLogin
     ? undefined
     : authenticatedStorage.get(credentials.email)
-  const context = await browser.newContext(
-    storageState ? { storageState } : undefined
-  )
+  const context = await browser.newContext({
+    extraHTTPHeaders: {
+      'X-Forwarded-For':
+        clientIpByEmail.get(credentials.email) ?? '198.51.100.254'
+    },
+    ...(storageState ? { storageState } : {})
+  })
   const page = await context.newPage()
   if (storageState) {
     await page.goto('/')
@@ -1168,6 +1209,92 @@ test.describe.serial('Slice 2 real practice flow', () => {
       await expect(
         page.getByRole('button', { name: '즐겨찾기 해제' })
       ).toHaveCount(1)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Slice 5 retry response loss reuses the exact key and converges on one target', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userC)
+    const { context, page } = authenticated
+
+    try {
+      const source = await createSession(page)
+      await submitAllWrong(page, source)
+      await page.goto(`/practice/result/${source.session.id}`)
+      await expect(
+        page.getByRole('heading', { name: '학습 결과' })
+      ).toBeVisible()
+
+      const retryPattern = new RegExp(
+        `/api/v1/study-sessions/${source.session.id}/retry$`
+      )
+      const observedKeys: string[] = []
+      let committedResponse: CreatedSession | undefined
+      let committedTargetId = ''
+      let retryRequestCount = 0
+      const loseFirstCommittedResponse = async (
+        route: Route
+      ): Promise<void> => {
+        const request = route.request()
+        if (request.method() !== 'POST') {
+          await route.continue()
+          return
+        }
+        retryRequestCount += 1
+        observedKeys.push(request.headers()['idempotency-key'] ?? '')
+        expect(request.headers()['x-nihongo-practice-contract']).toBe('2')
+        expect(request.postDataJSON()).toEqual({})
+        const response = await route.fetch()
+        expect(response.status()).toBe(201)
+        const body = (await response.json()) as CreatedSession
+        expect(body.session.mode).toBe('WRONG_NOTE')
+        expect(body.questions).toHaveLength(5)
+        if (retryRequestCount === 1) {
+          expect(response.headers()['idempotency-replayed']).toBeUndefined()
+          committedResponse = body
+          committedTargetId = body.session.id
+          await route.abort('failed')
+          return
+        }
+        expect(response.headers()['idempotency-replayed']).toBe('true')
+        expect(body).toEqual(committedResponse)
+        await route.fulfill({ response })
+      }
+      await page.route(retryPattern, loseFirstCommittedResponse)
+
+      const retryButton = page.getByRole('button', {
+        name: '오답만 다시 풀기'
+      })
+      await retryButton.click()
+      await expect(
+        page.getByRole('alert').filter({ hasText: '오답 재출제 세션' })
+      ).toBeVisible()
+      let sawBeforeUnload = false
+      page.once('dialog', (dialog) => {
+        expect(dialog.type()).toBe('beforeunload')
+        sawBeforeUnload = true
+        void dialog.accept()
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      expect(sawBeforeUnload).toBe(true)
+      await expect(
+        page.getByRole('heading', { name: '학습 결과' })
+      ).toBeVisible()
+      await page.getByRole('button', { name: '오답만 다시 풀기' }).click()
+
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${committedTargetId}$`),
+        { timeout: 20_000 }
+      )
+      expect(retryRequestCount).toBe(2)
+      expect(observedKeys[0]).toMatch(/^[0-9a-f-]{36}$/u)
+      expect(observedKeys[1]).toBe(observedKeys[0])
+      await expect(page.locator('[data-save-state]')).toBeVisible()
+      await page.unroute(retryPattern, loseFirstCommittedResponse)
+      await cancelCreatedSession(page, committedTargetId)
     } finally {
       await context.close()
     }

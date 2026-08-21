@@ -30,6 +30,7 @@
     "test:api": "pnpm --filter @nihongo/api run test",
     "test:integration": "pnpm run build:contracts && pnpm run build:domain && pnpm run db:seed:test && pnpm --filter @nihongo/api run test:integration",
     "test:integration:slice3": "pnpm --filter @nihongo/api exec tsx src/e2e/runSlice3Integration.ts",
+    "test:integration:slice5": "pnpm --filter @nihongo/api exec tsx src/e2e/runSlice5Integration.ts",
     "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
     "study:cleanup-expired-guests": "pnpm --filter @nihongo/api run study:cleanup-expired-guests",
     "study:cleanup-expired-drafts": "pnpm --filter @nihongo/api run study:cleanup-expired-drafts",

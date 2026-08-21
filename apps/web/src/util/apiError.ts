@@ -13,3 +13,6 @@ export const isAuthenticationBoundaryApiError = (error: unknown): boolean =>
 
 export const isNoEligibleQuestionsApiError = (error: unknown): boolean =>
   isApiError(error) && error.code === 'NO_ELIGIBLE_QUESTIONS'
+
+export const isStudyResultNotReadyApiError = (error: unknown): boolean =>
+  isApiError(error) && error.code === 'STUDY_RESULT_NOT_READY'

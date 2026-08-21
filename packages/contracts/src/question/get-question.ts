@@ -18,19 +18,33 @@ export const normalizeQuestionTagText = (value: string): string =>
     .replace(INTERNAL_WHITESPACE_PATTERN, ' ')
     .toLowerCase()
 
+const compareUnicodeScalarValues = (left: string, right: string): number => {
+  const leftCharacters = [...left]
+  const rightCharacters = [...right]
+  const sharedLength = Math.min(leftCharacters.length, rightCharacters.length)
+  for (let index = 0; index < sharedLength; index += 1) {
+    const leftCodePoint = leftCharacters[index]?.codePointAt(0) ?? 0
+    const rightCodePoint = rightCharacters[index]?.codePointAt(0) ?? 0
+    if (leftCodePoint !== rightCodePoint) {
+      return leftCodePoint < rightCodePoint ? -1 : 1
+    }
+  }
+  return leftCharacters.length - rightCharacters.length
+}
+
 export const comparePublicQuestionTags = (
   left: { readonly id: string; readonly label: string },
   right: { readonly id: string; readonly label: string }
 ): number => {
   if (left.label !== right.label) {
-    return left.label < right.label ? -1 : 1
+    return compareUnicodeScalarValues(left.label, right.label)
   }
 
   if (left.id === right.id) {
     return 0
   }
 
-  return left.id < right.id ? -1 : 1
+  return compareUnicodeScalarValues(left.id, right.id)
 }
 
 export const getQuestionOperationId = 'question.getQuestion' as const
