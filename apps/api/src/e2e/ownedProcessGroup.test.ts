@@ -28,9 +28,9 @@ describe('owned process groups', () => {
           '-e',
           [
             "const { spawn } = require('node:child_process')",
-            `const nested = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], { stdio: 'ignore' })`,
-            `process.stdout.write(String(nested.pid) + '\\n')`,
             "process.on('SIGTERM', () => {})",
+            `const nested = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); process.stdout.write('ready\\\\n'); setInterval(() => {}, 1000)"], { stdio: ['ignore', 'pipe', 'ignore'] })`,
+            `nested.stdout.once('data', () => process.stdout.write(String(nested.pid) + '\\n'))`,
             'setInterval(() => {}, 1000)'
           ].join(';')
         ],
@@ -86,10 +86,9 @@ describe('owned process groups', () => {
           '-e',
           [
             "const { spawn } = require('node:child_process')",
-            `const nested = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], { stdio: 'ignore' })`,
+            `const nested = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); process.stdout.write('ready\\\\n'); setInterval(() => {}, 1000)"], { stdio: ['ignore', 'pipe', 'ignore'] })`,
             'nested.unref()',
-            `process.stdout.write(String(nested.pid) + '\\n')`,
-            'setTimeout(() => process.exit(0), 50)'
+            `nested.stdout.once('data', () => { process.stdout.write(String(nested.pid) + '\\n'); setTimeout(() => process.exit(0), 50) })`
           ].join(';')
         ],
         {
