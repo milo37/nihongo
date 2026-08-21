@@ -63,6 +63,25 @@ export const wrongNoteStatusSchema = z.enum([
 
 export const wrongNoteSortSchema = z.enum(['RECENT', 'MOST_WRONG', 'OLDEST'])
 
+export const reviewQueueViewSchema = z.enum([
+  'DUE',
+  'UNREVIEWED',
+  'REPEATED',
+  'SOLVED'
+])
+
+export const reviewQueueSortSchema = z.enum([
+  'NEXT_REVIEW',
+  'MOST_WRONG',
+  'RECENT'
+])
+
+export const reviewEventSourceSchema = z.enum([
+  'STUDY_SUBMIT',
+  'WRONG_NOTE_REVIEW',
+  'VERSION_REBASE'
+])
+
 export const reviewAvailabilitySchema = z.enum(['AVAILABLE', 'ARCHIVED'])
 
 export const bookmarkAvailabilitySchema = z.enum(['AVAILABLE', 'ARCHIVED'])
@@ -86,6 +105,9 @@ export type StudySessionFallbackReason = z.output<
 >
 export type WrongNoteStatus = z.output<typeof wrongNoteStatusSchema>
 export type WrongNoteSort = z.output<typeof wrongNoteSortSchema>
+export type ReviewQueueView = z.output<typeof reviewQueueViewSchema>
+export type ReviewQueueSort = z.output<typeof reviewQueueSortSchema>
+export type ReviewEventSource = z.output<typeof reviewEventSourceSchema>
 export type ReviewAvailability = z.output<typeof reviewAvailabilitySchema>
 export type BookmarkAvailability = z.output<typeof bookmarkAvailabilitySchema>
 export type PersistedUserRole = z.output<typeof persistedUserRoleSchema>

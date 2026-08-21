@@ -116,9 +116,33 @@
       "types": "./dist/wrong-note/get-wrong-note.d.ts",
       "import": "./dist/wrong-note/get-wrong-note.js"
     },
+    "./wrong-note/get-wrong-note-memo": {
+      "types": "./dist/wrong-note/get-wrong-note-memo.d.ts",
+      "import": "./dist/wrong-note/get-wrong-note-memo.js"
+    },
+    "./wrong-note/create-targeted-review-session": {
+      "types": "./dist/wrong-note/create-targeted-review-session.d.ts",
+      "import": "./dist/wrong-note/create-targeted-review-session.js"
+    },
+    "./wrong-note/list-review-events": {
+      "types": "./dist/wrong-note/list-review-events.d.ts",
+      "import": "./dist/wrong-note/list-review-events.js"
+    },
+    "./wrong-note/list-review-queue": {
+      "types": "./dist/wrong-note/list-review-queue.d.ts",
+      "import": "./dist/wrong-note/list-review-queue.js"
+    },
     "./wrong-note/list-wrong-notes": {
       "types": "./dist/wrong-note/list-wrong-notes.d.ts",
       "import": "./dist/wrong-note/list-wrong-notes.js"
+    },
+    "./wrong-note/update-wrong-note-memo": {
+      "types": "./dist/wrong-note/update-wrong-note-memo.d.ts",
+      "import": "./dist/wrong-note/update-wrong-note-memo.js"
+    },
+    "./wrong-note/user-memo": {
+      "types": "./dist/wrong-note/user-memo.d.ts",
+      "import": "./dist/wrong-note/user-memo.js"
     },
     "./testing/question-read-conformance": {
       "types": "./dist/testing/question-read-conformance.d.ts",
@@ -127,6 +151,10 @@
     "./testing/practice-flow-conformance": {
       "types": "./dist/testing/practice-flow-conformance.d.ts",
       "import": "./dist/testing/practice-flow-conformance.js"
+    },
+    "./testing/review-center-conformance": {
+      "types": "./dist/testing/review-center-conformance.d.ts",
+      "import": "./dist/testing/review-center-conformance.js"
     },
     "./testing/study-submit-version-conformance": {
       "types": "./dist/testing/study-submit-version-conformance.d.ts",

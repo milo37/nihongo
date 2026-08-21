@@ -2,8 +2,10 @@ import { z } from 'zod'
 import {
   jlptLevelSchema,
   questionSubjectSchema,
+  questionTypeSchema,
   studyModeSchema
 } from '../common/enum.js'
+import { wrongNoteTagLabelSchema } from '../wrong-note/list-wrong-notes.js'
 import { createApiFailureSchema } from '../common/error.js'
 import {
   studySessionPayloadSchema,
@@ -21,6 +23,30 @@ export const createStudySessionBodySchema = z
     count: z.number().int().min(1).max(20)
   })
   .strict()
+
+export const reviewSelectionFilterSchema = z
+  .object({
+    questionType: questionTypeSchema.optional(),
+    tag: wrongNoteTagLabelSchema.optional()
+  })
+  .strict()
+
+export const createStudySessionV2BodySchema = createStudySessionBodySchema
+  .extend({ reviewFilter: reviewSelectionFilterSchema.optional() })
+  .superRefine((body, context) => {
+    if (
+      body.reviewFilter !== undefined &&
+      body.mode !== 'DAILY_REVIEW' &&
+      body.mode !== 'WRONG_NOTE'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['reviewFilter'],
+        message:
+          'reviewFilter는 DAILY_REVIEW 또는 WRONG_NOTE mode에서만 사용할 수 있습니다.'
+      })
+    }
+  })
 
 export const createStudySessionHeadersSchema = z.object({}).strict()
 
@@ -66,6 +92,13 @@ export const createStudySessionErrorSchema = createApiFailureSchema(
 export type CreateStudySessionBody = z.input<
   typeof createStudySessionBodySchema
 >
+export type CreateStudySessionV2Body = z.input<
+  typeof createStudySessionV2BodySchema
+>
+export type ParsedCreateStudySessionV2Body = z.output<
+  typeof createStudySessionV2BodySchema
+>
+export type ReviewSelectionFilter = z.output<typeof reviewSelectionFilterSchema>
 export type CreateStudySessionHeaders = z.input<
   typeof createStudySessionHeadersSchema
 >

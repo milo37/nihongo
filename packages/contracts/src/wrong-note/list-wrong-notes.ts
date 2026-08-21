@@ -44,7 +44,7 @@ export const compareWrongNoteTagLabels = (
   return trimmedLeft < trimmedRight ? -1 : 1
 }
 
-const createSortedUniqueTagLabelsSchema = (minimum: number) =>
+export const createSortedUniqueWrongNoteTagLabelsSchema = (minimum: number) =>
   z
     .array(wrongNoteTagLabelSchema)
     .min(minimum)
@@ -92,7 +92,7 @@ export const wrongNoteSummarySchema = z
     lastWrongAt: isoDateTimeSchema,
     lastReviewedAt: isoDateTimeSchema.nullable(),
     nextReviewAt: isoDateTimeSchema,
-    tags: createSortedUniqueTagLabelsSchema(1),
+    tags: createSortedUniqueWrongNoteTagLabelsSchema(1),
     hasMemo: z.literal(false),
     reviewAvailability: reviewAvailabilitySchema
   })
@@ -149,7 +149,9 @@ export const listWrongNotesQuerySchema = pageRequestSchema
 export const listWrongNotesResponseSchema = createPageResponseSchema(
   wrongNoteSummarySchema
 )
-  .extend({ availableTags: createSortedUniqueTagLabelsSchema(0) })
+  .extend({
+    availableTags: createSortedUniqueWrongNoteTagLabelsSchema(0)
+  })
   .strict()
   .superRefine((page, context) => {
     if (page.items.length > page.pageSize || page.items.length > page.total) {

@@ -831,8 +831,12 @@ autosave·working-copy·복구·conflict UX, Slice 3의 selection engine·non-RA
 all-mode dashboard, Slice 4의 Bookmark PostgreSQL/API/UI·BOOKMARK mode와 실제 Chromium
 gate, Slice 5의 historical-pin result retry·response-loss exact replay와 retry-aware
 lifecycle, Slice 6의 canonical UI cutover·CI·browser close까지
-`codex/phase-4-practice-flow`에서 완료했습니다. Phase 4는 완료됐고 다음 실행 단위는 별도
-지시가 필요한 Phase 5입니다.
+`codex/phase-4-practice-flow`에서 완료했습니다. 프로젝트 소유자의 명시적 지시로
+`6116b9d`에서 `codex/phase-5-review-center`를 만들고 Phase 5 Slice 0을 완료했습니다.
+review queue·memo·history·targeted review와 v2 filter의 strict shared contract/conformance,
+두 forward migration의 DDL·rollback·query-plan 사전 검토만 반영했으며 Prisma,
+migration, API, MSW와 Web application은 Slice 0 종료 시점까지 변경하지 않았고
+Slice 1도 시작하지 않았습니다.
 
 ## 향후 개선
 
