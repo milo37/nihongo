@@ -280,6 +280,9 @@ describe('real API Query and feature cutover', () => {
         <RouterProvider router={bookmarkRouter} />
       </QueryClientProvider>
     )
+    await act(async () => {
+      await vi.dynamicImportSettled()
+    })
 
     expect(
       await screen.findByRole('heading', {
