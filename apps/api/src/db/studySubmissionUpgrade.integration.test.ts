@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
+import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
 import { createDatabaseRuntime } from './database.js'
@@ -27,6 +28,7 @@ import {
 } from './readiness.js'
 
 const execFileAsync = promisify(execFile)
+const DAY_MS = 24 * 60 * 60 * 1_000
 const apiRoot = fileURLToPath(new URL('../../', import.meta.url))
 const sourceMigrationsDirectory = join(apiRoot, 'prisma', 'migrations')
 const prismaBinary = join(apiRoot, 'node_modules', '.bin', 'prisma')
@@ -42,6 +44,9 @@ const slice5Migrations = [
 const phase4Slice1Migrations = [
   '20260817130000_phase4_practice_idempotency_operations',
   '20260817131000_phase4_study_draft_core'
+] as const
+const phase4Slice3Migrations = [
+  '20260818130000_phase4_study_selection_modes'
 ] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
@@ -87,6 +92,9 @@ const priorMigrationNames = migrationNames.filter(
     !slice5Migrations.includes(name as (typeof slice5Migrations)[number]) &&
     !phase4Slice1Migrations.includes(
       name as (typeof phase4Slice1Migrations)[number]
+    ) &&
+    !phase4Slice3Migrations.includes(
+      name as (typeof phase4Slice3Migrations)[number]
     )
 )
 
@@ -206,13 +214,225 @@ const readLedger = async (
   return result.rows
 }
 
-describe('Slice 4 migration upgrade', () => {
-  it('깨끗한 15 migration schema를 16~20번째 schema로 forward deploy한다', async () => {
+const deployThroughPhase4Slice1 = async (
+  context: IsolatedMigrationSchema
+): Promise<void> => {
+  for (const migrationName of migrationNames.filter(
+    (name) =>
+      !phase4Slice3Migrations.includes(
+        name as (typeof phase4Slice3Migrations)[number]
+      )
+  )) {
+    copyMigration(migrationName, context.migrationsPath)
+  }
+  await deploy(context)
+  expect(await readLedger(context)).toHaveLength(22)
+  await context.adminClient.query(
+    `SET search_path TO ${context.quotedSchemaName}`
+  )
+}
+
+interface LegacySubmissionFixture {
+  readonly noteId: string
+  readonly questionId: string
+  readonly sessionId: string
+  readonly versionId: string
+}
+
+const createLegacySubmissionFixture = async (
+  context: IsolatedMigrationSchema,
+  input: {
+    readonly mode: 'DAILY_REVIEW' | 'RANDOM'
+    readonly occurredAt: Date
+    readonly source: 'STUDY_SUBMIT'
+    readonly startedAt: Date
+  }
+): Promise<LegacySubmissionFixture> => {
+  const ids = Array.from({ length: 12 }, () => randomUUID())
+  const [
+    userId,
+    questionId,
+    versionId,
+    sessionId,
+    itemId,
+    recordId,
+    answerId,
+    noteId,
+    scheduleId,
+    eventId,
+    resultId,
+    idempotencyKey
+  ] = ids
+
+  if (
+    !userId ||
+    !questionId ||
+    !versionId ||
+    !sessionId ||
+    !itemId ||
+    !recordId ||
+    !answerId ||
+    !noteId ||
+    !scheduleId ||
+    !eventId ||
+    !resultId ||
+    !idempotencyKey
+  ) {
+    throw new Error('Slice 3 legacy submission UUID fixture가 필요합니다.')
+  }
+
+  await context.adminClient.query('BEGIN')
+  try {
+    await context.adminClient.query(
+      `INSERT INTO "User" (
+        "id", "name", "email", "emailVerified", "role",
+        "accountStatus", "createdAt", "updatedAt"
+      ) VALUES ($1, 'Slice 3 migration preflight', $2, true, 'USER',
+        'ACTIVE', $3, $3)`,
+      [userId, `slice3-migration-${randomUUID()}@example.test`, input.startedAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "Question" (
+        "id", "createdByLabelSnapshot", "createdAt", "updatedAt"
+      ) VALUES ($1, 'SYSTEM_SEED', $2, $2)`,
+      [questionId, input.startedAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "QuestionVersion" (
+        "id", "questionId", "versionNumber", "level", "subject",
+        "questionType", "questionText", "explanationKo", "difficulty",
+        "createdByLabelSnapshot", "createdAt", "updatedAt"
+      ) VALUES (
+        $1, $2, 1, 'N5', 'VOCABULARY', 'KANJI_READING',
+        'Slice 3 migration preflight question', 'migration preflight', 'EASY',
+        'SYSTEM_SEED', $3, $3
+      )`,
+      [versionId, questionId, input.startedAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "StudySession" (
+        "id", "userId", "level", "subject", "mode", "status",
+        "requestedCount", "actualCount", "usedFallback", "startedAt",
+        "expiresAt", "createdAt", "updatedAt"
+      ) VALUES (
+        $1, $2, 'N5', 'VOCABULARY', $3, 'IN_PROGRESS',
+        1, 1, false, $4, $4::timestamptz + INTERVAL '1 day', $4, $4
+      )`,
+      [sessionId, userId, input.mode, input.startedAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "StudySessionQuestion" (
+        "id", "studySessionId", "questionId", "questionVersionId",
+        "ordinal", "createdAt"
+      ) VALUES ($1, $2, $3, $4, 1, $5)`,
+      [itemId, sessionId, questionId, versionId, input.startedAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "IdempotencyRecord" (
+        "id", "principalType", "userId", "operation", "idempotencyKey",
+        "studySessionId", "requestHash", "state", "createdAt"
+      ) VALUES (
+        $1, 'USER', $2, 'STUDY_SUBMIT', $3, $4, repeat('a', 64),
+        'PROCESSING', $5
+      )`,
+      [recordId, userId, idempotencyKey, sessionId, input.startedAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "StudyAnswer" (
+        "id", "studySessionQuestionId", "questionVersionId",
+        "selectedOptionId", "isCorrect", "elapsedSec", "gradingVersion",
+        "answeredAt", "gradedAt"
+      ) VALUES (
+        $1, $2, $3, NULL, false, 10, 'server-grading-v1', $4, $4
+      )`,
+      [answerId, itemId, versionId, input.occurredAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "WrongNote" (
+        "id", "userId", "questionId", "lastWrongQuestionVersionId",
+        "currentReviewQuestionVersionId", "wrongCount", "correctStreak",
+        "status", "lastWrongAt", "lastReviewedAt", "createdAt",
+        "updatedAt"
+      ) VALUES (
+        $1, $2, $3, $4, NULL, 1, 0, 'NEW', $5, NULL, $5, $5
+      )`,
+      [noteId, userId, questionId, versionId, input.occurredAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "ReviewSchedule" (
+        "id", "wrongNoteId", "nextReviewAt", "intervalDays",
+        "algorithmVersion", "updatedAt"
+      ) VALUES ($1, $2, $3::timestamptz + INTERVAL '1 day', 1, 1, $3)`,
+      [scheduleId, noteId, input.occurredAt]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "ReviewEvent" (
+        "id", "wrongNoteId", "userId", "questionId", "questionVersionId",
+        "source", "studySessionId", "studyAnswerId", "selectedOptionId",
+        "isCorrect", "previousStatus", "nextStatus",
+        "previousCorrectStreak", "nextCorrectStreak",
+        "previousWrongCount", "wrongCountAfter", "algorithmVersion",
+        "occurredAt"
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, NULL, false,
+        NULL, 'NEW', NULL, 0, NULL, 1, 1, $9
+      )`,
+      [
+        eventId,
+        noteId,
+        userId,
+        questionId,
+        versionId,
+        input.source,
+        sessionId,
+        answerId,
+        input.occurredAt
+      ]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "StudyResult" (
+        "id", "studySessionId", "totalCount", "correctCount",
+        "incorrectCount", "correctRateBasisPoints", "durationSec",
+        "gradingVersion", "createdAt"
+      ) VALUES (
+        $1, $2, 1, 0, 1, 0, 10, 'server-grading-v1', $3
+      )`,
+      [resultId, sessionId, input.occurredAt]
+    )
+    await context.adminClient.query(
+      `UPDATE "StudySession"
+       SET "status" = 'SUBMITTED', "submittedAt" = $2,
+           "durationSec" = 10, "submissionHash" = repeat('a', 64),
+           "updatedAt" = $2
+       WHERE "id" = $1`,
+      [sessionId, input.occurredAt]
+    )
+    await context.adminClient.query(
+      `UPDATE "IdempotencyRecord"
+       SET "state" = 'SUCCEEDED', "responseStatus" = 201,
+           "responseBody" = jsonb_build_object('sessionId', $2::text),
+           "completedAt" = $3,
+           "expiresAt" = $3::timestamptz + INTERVAL '24 hours'
+       WHERE "id" = $1`,
+      [recordId, sessionId, input.occurredAt]
+    )
+    await context.adminClient.query('SET CONSTRAINTS ALL IMMEDIATE')
+    await context.adminClient.query('COMMIT')
+  } catch (error: unknown) {
+    await context.adminClient.query('ROLLBACK')
+    throw error
+  }
+
+  return { noteId, questionId, sessionId, versionId }
+}
+
+describe('Phase 3 submission through Phase 4 Slice 3 migration upgrade', () => {
+  it('깨끗한 15 migration schema를 16~23번째 schema로 forward deploy한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
       expect(priorMigrationNames).toHaveLength(15)
-      expect(migrationNames).toHaveLength(22)
+      expect(migrationNames).toHaveLength(23)
       expect(priorMigrationNames).toEqual(
         Object.keys(approvedPriorMigrationSha256).toSorted()
       )
@@ -252,6 +472,10 @@ describe('Slice 4 migration upgrade', () => {
       copyMigration(phase4Slice1Migrations[1], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(22)
+
+      copyMigration(phase4Slice3Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(23)
 
       const ledger = await readLedger(context)
       const expected = loadExpectedMigrationManifest(sourceMigrationsDirectory)
@@ -327,7 +551,7 @@ describe('Slice 4 migration upgrade', () => {
         )
       ).rejects.toMatchObject({
         code: '23514',
-        constraint: 'WrongNote_slice4_current_review_check'
+        message: 'WrongNote current review pointer must start null.'
       })
       await expect(
         context.adminClient.query(
@@ -413,6 +637,9 @@ describe('Slice 4 migration upgrade', () => {
           ) &&
           !phase4Slice1Migrations.includes(
             name as (typeof phase4Slice1Migrations)[number]
+          ) &&
+          !phase4Slice3Migrations.includes(
+            name as (typeof phase4Slice3Migrations)[number]
           )
       )) {
         copyMigration(migrationName, context.migrationsPath)
@@ -647,6 +874,10 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         { columnName: 'contractVersion', columnDefault: '1' },
         { columnName: 'practiceContractVersion', columnDefault: '1' }
       ])
+
+      copyMigration(phase4Slice3Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(23)
 
       const oldBinarySessionId = randomUUID()
       const oldBinarySessionQuestionId = randomUUID()
@@ -1092,6 +1323,507 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
   }, 40_000)
 })
 
+describe('Phase 4 Slice 3 migration preflight', () => {
+  it('dirty current review pointer를 발견하면 migration 전체를 rollback한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const startedAt = new Date('2026-08-18T00:59:50.000Z')
+    const occurredAt = new Date('2026-08-18T01:00:00.000Z')
+
+    try {
+      await deployThroughPhase4Slice1(context)
+      const fixture = await createLegacySubmissionFixture(context, {
+        mode: 'RANDOM',
+        occurredAt,
+        source: 'STUDY_SUBMIT',
+        startedAt
+      })
+      await context.adminClient.query(
+        `ALTER TABLE "WrongNote"
+         DROP CONSTRAINT "WrongNote_slice4_current_review_check"`
+      )
+      await context.adminClient.query(
+        `UPDATE "WrongNote"
+         SET "currentReviewQuestionVersionId" = $2
+         WHERE "id" = $1`,
+        [fixture.noteId, fixture.versionId]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "WrongNote"
+         ADD CONSTRAINT "WrongNote_slice4_current_review_check"
+         CHECK ("currentReviewQuestionVersionId" IS NULL) NOT VALID`
+      )
+
+      const migrationSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase4Slice3Migrations[0],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(migrationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Slice 3 requires every existing current review pointer to be null.'
+      })
+      await context.adminClient.query('ROLLBACK')
+
+      expect(await readLedger(context)).toHaveLength(22)
+      const rolledBack = await context.adminClient.query<{
+        constraintCount: number
+        pointerCount: number
+        selectionIndexCount: number
+        wrongNoteFunction: string
+      }>(
+        `SELECT
+          (
+            SELECT COUNT(*)::int
+            FROM "WrongNote"
+            WHERE "id" = $1
+              AND "currentReviewQuestionVersionId" = $2
+          ) AS "pointerCount",
+          (
+            SELECT COUNT(*)::int
+            FROM pg_constraint
+            WHERE conrelid = '"WrongNote"'::regclass
+              AND conname = 'WrongNote_slice4_current_review_check'
+          ) AS "constraintCount",
+          (
+            SELECT COUNT(*)::int
+            FROM pg_indexes
+            WHERE schemaname = $3
+              AND indexname =
+                'StudySession_userId_level_subject_submittedAt_id_weakness_idx'
+          ) AS "selectionIndexCount",
+          pg_get_functiondef(
+            'validate_wrong_note_change()'::regprocedure
+          ) AS "wrongNoteFunction"`,
+        [fixture.noteId, fixture.versionId, context.schemaName]
+      )
+      expect(rolledBack.rows[0]).toMatchObject({
+        pointerCount: 1,
+        constraintCount: 1,
+        selectionIndexCount: 0
+      })
+      expect(rolledBack.rows[0]?.wrongNoteFunction).not.toContain(
+        'WrongNote current review pointer cannot return to null.'
+      )
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('legacy DAILY_REVIEW + STUDY_SUBMIT evidence를 발견하면 원자 rollback한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const startedAt = new Date('2026-08-18T02:00:00.000Z')
+    const occurredAt = new Date('2026-08-18T02:00:10.000Z')
+
+    try {
+      await deployThroughPhase4Slice1(context)
+      const fixture = await createLegacySubmissionFixture(context, {
+        mode: 'DAILY_REVIEW',
+        occurredAt,
+        source: 'STUDY_SUBMIT',
+        startedAt
+      })
+
+      const migrationSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase4Slice3Migrations[0],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(migrationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Slice 3 requires every existing ReviewEvent source to match its mode.'
+      })
+      await context.adminClient.query('ROLLBACK')
+
+      expect(await readLedger(context)).toHaveLength(22)
+      const rolledBack = await context.adminClient.query<{
+        selectionIndexCount: number
+        sessionCount: number
+        eventFunction: string
+      }>(
+        `SELECT
+          (SELECT COUNT(*)::int FROM "StudySession" WHERE "id" = $1)
+            AS "sessionCount",
+          (
+            SELECT COUNT(*)::int
+            FROM pg_indexes
+            WHERE schemaname = $2
+              AND indexname =
+                'StudySession_userId_level_subject_submittedAt_id_weakness_idx'
+          ) AS "selectionIndexCount",
+          pg_get_functiondef(
+            'validate_review_event_change()'::regprocedure
+          ) AS "eventFunction"`,
+        [fixture.sessionId, context.schemaName]
+      )
+      expect(rolledBack.rows[0]).toMatchObject({
+        sessionCount: 1,
+        selectionIndexCount: 0
+      })
+      expect(rolledBack.rows[0]?.eventFunction).not.toContain(
+        "evidence_mode NOT IN ('RANDOM', 'WEAKNESS', 'BOOKMARK')"
+      )
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+})
+
+describe('Phase 4 Slice 3 historical review pins', () => {
+  it('v1 session A와 v2 session B를 역순 제출해도 event pin과 v2 pointer를 보존한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(23)
+
+      const runtime = createDatabaseRuntime(context.databaseUrl)
+      try {
+        await runtime.checkReadiness()
+        const client = runtime.client
+        const sessionRepository = createPrismaStudySessionRepository(client)
+        const submissionRepository =
+          createPrismaStudySubmissionRepository(client)
+        const userId = randomUUID()
+        const questionId = randomUUID()
+        const versionOneId = randomUUID()
+        const versionTwoId = randomUUID()
+        const tagId = randomUUID()
+        const versionOneOptionIds = Array.from({ length: 4 }, () =>
+          randomUUID()
+        )
+        const versionTwoOptionIds = Array.from({ length: 4 }, () =>
+          randomUUID()
+        )
+        const versionOneCorrectOptionId = versionOneOptionIds[0]
+        const versionTwoCorrectOptionId = versionTwoOptionIds[0]
+        const baseTime = new Date('2026-08-18T03:00:00.000Z').getTime()
+
+        if (!versionOneCorrectOptionId || !versionTwoCorrectOptionId) {
+          throw new Error('Slice 3 historical pin options are required.')
+        }
+
+        await client.$transaction(async (transaction) => {
+          await transaction.user.create({
+            data: {
+              id: userId,
+              name: 'Slice 3 historical pin user',
+              email: `slice3-history-${randomUUID()}@example.test`,
+              emailVerified: true,
+              createdAt: new Date(baseTime),
+              updatedAt: new Date(baseTime)
+            }
+          })
+          await transaction.question.create({
+            data: {
+              id: questionId,
+              createdByLabelSnapshot: 'SYSTEM_SEED',
+              createdAt: new Date(baseTime),
+              updatedAt: new Date(baseTime)
+            }
+          })
+          await transaction.questionVersion.create({
+            data: {
+              id: versionOneId,
+              questionId,
+              versionNumber: 1,
+              level: 'N5',
+              subject: 'VOCABULARY',
+              questionType: 'KANJI_READING',
+              questionText: 'Slice 3 historical pin fixture v1',
+              explanationKo: '버전별 핀을 검증하는 원본 더미 설명입니다.',
+              difficulty: 'EASY',
+              createdByLabelSnapshot: 'SYSTEM_SEED',
+              createdAt: new Date(baseTime),
+              updatedAt: new Date(baseTime)
+            }
+          })
+          await transaction.questionOption.createMany({
+            data: versionOneOptionIds.map((id, index) => ({
+              id,
+              questionVersionId: versionOneId,
+              label: String(index + 1),
+              text: `Slice 3 v1 option ${index + 1}`,
+              ordinal: index + 1
+            }))
+          })
+          await transaction.tag.create({
+            data: {
+              id: tagId,
+              label: 'Slice 3 historical pin',
+              normalizedName: `slice3-historical-pin-${randomUUID()}`,
+              createdAt: new Date(baseTime),
+              updatedAt: new Date(baseTime)
+            }
+          })
+          await transaction.questionVersionTag.create({
+            data: {
+              questionVersionId: versionOneId,
+              tagId,
+              labelSnapshot: 'Slice 3 historical pin'
+            }
+          })
+          await transaction.questionVersion.update({
+            where: { id: versionOneId },
+            data: {
+              correctOptionId: versionOneCorrectOptionId,
+              status: 'PUBLISHED',
+              publishedAt: new Date(baseTime)
+            }
+          })
+          await transaction.question.update({
+            where: { id: questionId },
+            data: { currentPublishedVersionId: versionOneId }
+          })
+        })
+
+        const owner = { kind: 'USER' as const, userId }
+        const createPinnedHistory = async (startedAt: Date): Promise<void> => {
+          const studySessionQuestionId = randomUUID()
+          const session = await client.$transaction(async (transaction) => {
+            const created = await transaction.studySession.create({
+              data: {
+                userId,
+                level: 'N5',
+                subject: 'VOCABULARY',
+                mode: 'RANDOM',
+                requestedCount: 1,
+                actualCount: 1,
+                usedFallback: false,
+                startedAt,
+                expiresAt: new Date(startedAt.getTime() + DAY_MS)
+              },
+              select: { id: true }
+            })
+            await transaction.studySessionQuestion.create({
+              data: {
+                id: studySessionQuestionId,
+                studySessionId: created.id,
+                questionId,
+                questionVersionId: versionOneId,
+                ordinal: 1,
+                createdAt: startedAt
+              }
+            })
+            return created
+          })
+          await createStudySubmissionService(
+            submissionRepository,
+            () => new Date(startedAt.getTime() + 100)
+          ).submit(
+            session.id,
+            randomUUID(),
+            {
+              answers: [
+                {
+                  studySessionQuestionId,
+                  selectedOptionId: null,
+                  elapsedSec: 1
+                }
+              ],
+              durationSec: 1
+            },
+            owner
+          )
+        }
+
+        for (let index = 0; index < 3; index += 1) {
+          await createPinnedHistory(new Date(baseTime + index * 1_000))
+        }
+
+        const sessionAStartedAt = new Date(baseTime + 10_000)
+        const sessionA = (
+          await sessionRepository.create({
+            level: 'N5',
+            subject: 'VOCABULARY',
+            mode: 'WRONG_NOTE',
+            owner,
+            requestedCount: 1,
+            practiceContractVersion: 2,
+            startedAt: sessionAStartedAt,
+            expiresAt: new Date(sessionAStartedAt.getTime() + DAY_MS)
+          })
+        ).session
+        expect(sessionA.questions[0]?.question.questionVersionId).toBe(
+          versionOneId
+        )
+        await expect(
+          client.wrongNote.findUniqueOrThrow({
+            where: { userId_questionId: { userId, questionId } },
+            select: { currentReviewQuestionVersionId: true }
+          })
+        ).resolves.toEqual({ currentReviewQuestionVersionId: versionOneId })
+
+        const versionTwoPublishedAt = new Date(baseTime + 20_000)
+        await client.$transaction(async (transaction) => {
+          await transaction.questionVersion.create({
+            data: {
+              id: versionTwoId,
+              questionId,
+              versionNumber: 2,
+              level: 'N5',
+              subject: 'VOCABULARY',
+              questionType: 'KANJI_READING',
+              questionText: 'Slice 3 historical pin fixture v2',
+              explanationKo: '새 버전 포인터를 검증하는 원본 더미 설명입니다.',
+              difficulty: 'EASY',
+              createdByLabelSnapshot: 'SYSTEM_SEED',
+              createdAt: versionTwoPublishedAt,
+              updatedAt: versionTwoPublishedAt
+            }
+          })
+          await transaction.questionOption.createMany({
+            data: versionTwoOptionIds.map((id, index) => ({
+              id,
+              questionVersionId: versionTwoId,
+              label: String(index + 1),
+              text: `Slice 3 v2 option ${index + 1}`,
+              ordinal: index + 1
+            }))
+          })
+          await transaction.questionVersionTag.create({
+            data: {
+              questionVersionId: versionTwoId,
+              tagId,
+              labelSnapshot: 'Slice 3 historical pin'
+            }
+          })
+          await transaction.questionVersion.update({
+            where: { id: versionTwoId },
+            data: {
+              correctOptionId: versionTwoCorrectOptionId,
+              status: 'PUBLISHED',
+              publishedAt: versionTwoPublishedAt
+            }
+          })
+          await transaction.question.update({
+            where: { id: questionId },
+            data: { currentPublishedVersionId: versionTwoId }
+          })
+          await transaction.questionVersion.update({
+            where: { id: versionOneId },
+            data: {
+              status: 'RETIRED',
+              retiredAt: versionTwoPublishedAt
+            }
+          })
+        })
+
+        const sessionBStartedAt = new Date(baseTime + 30_000)
+        const sessionB = (
+          await sessionRepository.create({
+            level: 'N5',
+            subject: 'VOCABULARY',
+            mode: 'WRONG_NOTE',
+            owner,
+            requestedCount: 1,
+            practiceContractVersion: 2,
+            startedAt: sessionBStartedAt,
+            expiresAt: new Date(sessionBStartedAt.getTime() + DAY_MS)
+          })
+        ).session
+        expect(sessionB.questions[0]?.question.questionVersionId).toBe(
+          versionTwoId
+        )
+        await expect(
+          client.wrongNote.findUniqueOrThrow({
+            where: { userId_questionId: { userId, questionId } },
+            select: { currentReviewQuestionVersionId: true }
+          })
+        ).resolves.toEqual({ currentReviewQuestionVersionId: versionTwoId })
+
+        const submitReviewSession = async (
+          sessionId: string,
+          submittedAt: Date
+        ): Promise<void> => {
+          const question = await client.studySessionQuestion.findFirstOrThrow({
+            where: { studySessionId: sessionId },
+            select: { id: true }
+          })
+          await createStudySubmissionService(
+            submissionRepository,
+            () => new Date(submittedAt)
+          ).submit(
+            sessionId,
+            randomUUID(),
+            {
+              answers: [
+                {
+                  studySessionQuestionId: question.id,
+                  selectedOptionId: null,
+                  elapsedSec: 0
+                }
+              ],
+              durationSec: 0,
+              expectedDraftRevision: 0
+            },
+            owner,
+            2
+          )
+        }
+
+        await submitReviewSession(sessionB.id, new Date(baseTime + 30_100))
+        await submitReviewSession(sessionA.id, new Date(baseTime + 30_200))
+
+        await expect(
+          client.reviewEvent.findMany({
+            where: { studySessionId: { in: [sessionA.id, sessionB.id] } },
+            orderBy: { occurredAt: 'asc' },
+            select: {
+              source: true,
+              studySessionId: true,
+              questionVersionId: true
+            }
+          })
+        ).resolves.toEqual([
+          {
+            source: 'WRONG_NOTE_REVIEW',
+            studySessionId: sessionB.id,
+            questionVersionId: versionTwoId
+          },
+          {
+            source: 'WRONG_NOTE_REVIEW',
+            studySessionId: sessionA.id,
+            questionVersionId: versionOneId
+          }
+        ])
+        await expect(
+          client.wrongNote.findUniqueOrThrow({
+            where: { userId_questionId: { userId, questionId } },
+            select: {
+              currentReviewQuestionVersionId: true,
+              lastWrongQuestionVersionId: true
+            }
+          })
+        ).resolves.toEqual({
+          currentReviewQuestionVersionId: versionTwoId,
+          lastWrongQuestionVersionId: versionOneId
+        })
+      } finally {
+        await runtime.disconnect()
+      }
+    } finally {
+      await dispose(context)
+    }
+  }, 40_000)
+})
+
 describe('Slice 5 migration upgrade', () => {
   it('dirty historical tag preflight는 migration 전체를 rollback하고 clean deploy 뒤 CHECK를 강제한다', async () => {
     const context = await createIsolatedMigrationSchema()
@@ -1108,6 +1840,9 @@ describe('Slice 5 migration upgrade', () => {
           ) &&
           !phase4Slice1Migrations.includes(
             name as (typeof phase4Slice1Migrations)[number]
+          ) &&
+          !phase4Slice3Migrations.includes(
+            name as (typeof phase4Slice3Migrations)[number]
           )
       )) {
         copyMigration(migrationName, context.migrationsPath)

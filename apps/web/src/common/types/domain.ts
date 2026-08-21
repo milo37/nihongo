@@ -26,7 +26,13 @@ export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number]
 export const QUESTION_STATUSES = ['DRAFT', 'PUBLISHED'] as const
 export type QuestionStatus = (typeof QUESTION_STATUSES)[number]
 
-export const MODES = ['RANDOM', 'WRONG_NOTE', 'WEAKNESS', 'BOOKMARK'] as const
+export const MODES = [
+  'RANDOM',
+  'WRONG_NOTE',
+  'WEAKNESS',
+  'BOOKMARK',
+  'DAILY_REVIEW'
+] as const
 export type StudyMode = (typeof MODES)[number]
 
 export const STUDY_SESSION_STATUSES = ['IN_PROGRESS', 'SUBMITTED'] as const

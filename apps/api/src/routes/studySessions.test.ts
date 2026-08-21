@@ -201,6 +201,52 @@ describe('study session route composition', () => {
     expect(dependencies.studySessionService.create).not.toHaveBeenCalled()
   })
 
+  it('v2 non-RANDOM 요청을 contract 2로 전달하고 응답 version을 고정한다', async () => {
+    const dependencies = createDependencies()
+    const v2Payload = {
+      ...payload,
+      session: {
+        ...payload.session,
+        mode: 'WRONG_NOTE' as const,
+        practiceContractVersion: 2 as const
+      }
+    }
+    dependencies.principalService.resolveAuthenticatedUser.mockResolvedValue({
+      clearSessionCookie: false,
+      headers: new Headers(),
+      user: {
+        id: USER_ID,
+        name: 'Study User',
+        role: 'USER',
+        targetLevel: 'N5'
+      }
+    })
+    dependencies.studySessionService.create.mockResolvedValue({
+      payload: v2Payload,
+      practiceContractVersion: 2,
+      issuedGuestCredential: null
+    })
+
+    const response = await postSession(createTestApp(dependencies), {
+      headers: { 'X-Nihongo-Practice-Contract': '2' },
+      body: JSON.stringify({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WRONG_NOTE',
+        count: 1
+      })
+    })
+
+    expect(response.status).toBe(201)
+    expect(response.headers.get('X-Nihongo-Practice-Contract')).toBe('2')
+    expect(await response.json()).toEqual(v2Payload)
+    expect(dependencies.studySessionService.create).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'WRONG_NOTE' }),
+      { kind: 'USER', userId: USER_ID },
+      2
+    )
+  })
+
   it('429를 principal·guest·service 작업보다 먼저 fail closed한다', async () => {
     const dependencies = createDependencies()
     dependencies.rateLimiter.consume.mockRejectedValue(

@@ -81,6 +81,33 @@ describe('createPrismaStudySessionRepository', () => {
     )
   })
 
+  it.each(['40001', '40P01'] as const)(
+    'raw SQL %s conflict도 bounded retry한다',
+    async (sqlState) => {
+      const rawConflict = new Prisma.PrismaClientKnownRequestError(
+        `Raw query failed. Code: \`${sqlState}\``,
+        {
+          code: 'P2010',
+          clientVersion: '7.9.1',
+          meta: { code: sqlState }
+        }
+      )
+      const transaction = vi
+        .fn()
+        .mockRejectedValueOnce(rawConflict)
+        .mockResolvedValueOnce(created)
+      const retryDelay = vi.fn().mockResolvedValue(undefined)
+      const repository = createPrismaStudySessionRepository(
+        { $transaction: transaction } as unknown as PrismaClient,
+        { delay: retryDelay, jitterMilliseconds: () => 0 }
+      )
+
+      await expect(repository.createRandom(input)).resolves.toBe(created)
+      expect(transaction).toHaveBeenCalledTimes(2)
+      expect(retryDelay).toHaveBeenCalledWith(5)
+    }
+  )
+
   it('P2034 serialization conflict를 총 세 번 시도한 뒤 unavailable로 닫는다', async () => {
     const transaction = vi.fn().mockRejectedValue(conflict)
     const retryDelay = vi.fn().mockResolvedValue(undefined)

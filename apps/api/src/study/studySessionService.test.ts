@@ -64,6 +64,10 @@ const record: StudySessionRecord = {
 const createRepository = (
   overrides: Partial<StudySessionRepository> = {}
 ): StudySessionRepository => ({
+  create: vi.fn().mockResolvedValue({
+    session: record,
+    issuedGuestCredential: null
+  }),
   createRandom: vi.fn().mockResolvedValue({
     session: record,
     issuedGuestCredential: null
@@ -88,9 +92,10 @@ describe('studySessionService', () => {
 
     const result = await service.create(request, owner)
 
-    expect(repository.createRandom).toHaveBeenCalledWith({
+    expect(repository.create).toHaveBeenCalledWith({
       level: 'N5',
       subject: 'VOCABULARY',
+      mode: 'RANDOM',
       requestedCount: 1,
       startedAt: STARTED_AT,
       expiresAt: new Date('2026-08-15T12:00:00.000Z'),
@@ -104,7 +109,7 @@ describe('studySessionService', () => {
   })
 
   it.each(['WRONG_NOTE', 'WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW'] as const)(
-    'Slice 3에서 %s 모드를 fail closed한다',
+    'v1 contract에서 %s 모드를 fail closed한다',
     async (mode) => {
       const repository = createRepository()
       const service = createStudySessionService(repository)
@@ -115,9 +120,74 @@ describe('studySessionService', () => {
         code: 'VALIDATION_ERROR',
         retryable: false
       } satisfies Partial<ApplicationError>)
-      expect(repository.createRandom).not.toHaveBeenCalled()
+      expect(repository.create).not.toHaveBeenCalled()
     }
   )
+
+  it.each(['WRONG_NOTE', 'WEAKNESS', 'DAILY_REVIEW'] as const)(
+    'v2 USER에게 %s 모드를 전달한다',
+    async (mode) => {
+      const repository = createRepository()
+      const service = createStudySessionService(repository, () => STARTED_AT)
+
+      await service.create({ ...request, mode }, owner, 2)
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ mode, practiceContractVersion: 2 })
+      )
+    }
+  )
+
+  it('v2 existing guest WEAKNESS owner를 repository에 그대로 전달한다', async () => {
+    const repository = createRepository()
+    const service = createStudySessionService(repository, () => STARTED_AT)
+    const guestOwner = {
+      kind: 'GUEST' as const,
+      guestPrincipalId: crypto.randomUUID(),
+      tokenDigest: 'a'.repeat(64)
+    }
+
+    await service.create({ ...request, mode: 'WEAKNESS' }, guestOwner, 2)
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'WEAKNESS',
+        owner: guestOwner,
+        practiceContractVersion: 2
+      })
+    )
+  })
+
+  it.each(['WRONG_NOTE', 'DAILY_REVIEW'] as const)(
+    'guest의 %s 요청은 인증 오류로 닫는다',
+    async (mode) => {
+      const repository = createRepository()
+      const service = createStudySessionService(repository)
+
+      await expect(
+        service.create(
+          { ...request, mode },
+          {
+            kind: 'GUEST',
+            guestPrincipalId: crypto.randomUUID(),
+            tokenDigest: 'a'.repeat(64)
+          },
+          2
+        )
+      ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
+      expect(repository.create).not.toHaveBeenCalled()
+    }
+  )
+
+  it('v2 BOOKMARK는 Slice 4 전까지 fail closed한다', async () => {
+    const repository = createRepository()
+    const service = createStudySessionService(repository)
+
+    await expect(
+      service.create({ ...request, mode: 'BOOKMARK' }, owner, 2)
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+    expect(repository.create).not.toHaveBeenCalled()
+  })
 
   it.each([
     [new NoEligibleQuestionsError(), 'NO_ELIGIBLE_QUESTIONS', false],
@@ -133,7 +203,7 @@ describe('studySessionService', () => {
     'repository 오류를 %s 계약으로 변환한다',
     async (error, code, retryable) => {
       const service = createStudySessionService(
-        createRepository({ createRandom: async () => Promise.reject(error) })
+        createRepository({ create: async () => Promise.reject(error) })
       )
 
       await expect(service.create(request, owner)).rejects.toMatchObject({

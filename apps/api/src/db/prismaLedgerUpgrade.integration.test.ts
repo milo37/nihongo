@@ -51,7 +51,8 @@ const FORWARD_MIGRATIONS = [
   '20260815103000_phase3_submission_retention_history_integrity',
   '20260816130000_phase3_wrong_note_dashboard_read_indexes',
   '20260817130000_phase4_practice_idempotency_operations',
-  '20260817131000_phase4_study_draft_core'
+  '20260817131000_phase4_study_draft_core',
+  '20260818130000_phase4_study_selection_modes'
 ] as const
 
 const environment = parseApiEnvironment(process.env)
@@ -208,8 +209,12 @@ describe('Prisma migration ledger upgrade', () => {
          WHERE schemaname = $1
            AND indexname IN (
              'Session_userId_expiresAt_idx',
+             'StudySession_guest_level_subject_submittedAt_id_weakness_idx',
              'StudySession_userId_submittedAt_id_dashboard_idx',
+             'StudySession_userId_level_subject_submittedAt_id_weakness_idx',
              'Verification_identifier_expiresAt_idx',
+             'WrongNote_userId_status_id_questionId_daily_idx',
+             'WrongNote_user_status_lastWrongAt_wrongCount_questionId_idx',
              'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
            )
          ORDER BY indexname`,
@@ -217,9 +222,13 @@ describe('Prisma migration ledger upgrade', () => {
       )
       expect(indexes.rows.map(({ name }) => name)).toEqual([
         'Session_userId_expiresAt_idx',
+        'StudySession_guest_level_subject_submittedAt_id_weakness_idx',
+        'StudySession_userId_level_subject_submittedAt_id_weakness_idx',
         'StudySession_userId_submittedAt_id_dashboard_idx',
         'Verification_identifier_expiresAt_idx',
-        'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
+        'WrongNote_userId_status_id_questionId_daily_idx',
+        'WrongNote_userId_wrongCount_lastWrongAt_id_idx',
+        'WrongNote_user_status_lastWrongAt_wrongCount_questionId_idx'
       ])
       const dashboardIndex = indexes.rows.find(
         ({ name }) =>
@@ -237,15 +246,54 @@ describe('Prisma migration ledger upgrade', () => {
       expect(dashboardIndex?.definition).toContain(
         '("submittedAt" IS NOT NULL)'
       )
-      expect(dashboardIndex?.definition).toMatch(
-        /\(mode = 'RANDOM'::(?:[a-z0-9_]+\.)?"StudyMode"\)/u
-      )
+      expect(dashboardIndex?.definition).not.toMatch(/\bmode\b/u)
       const mostWrongIndex = indexes.rows.find(
         ({ name }) => name === 'WrongNote_userId_wrongCount_lastWrongAt_id_idx'
       )
       expect(mostWrongIndex?.definition).toContain(
         '("userId", "wrongCount" DESC, "lastWrongAt" DESC, id)'
       )
+      const indexDefinitionByName = new Map(
+        indexes.rows.map(({ definition, name }) => [name, definition])
+      )
+      expect(
+        indexDefinitionByName.get(
+          'StudySession_userId_level_subject_submittedAt_id_weakness_idx'
+        )
+      ).toContain('("userId", level, subject, "submittedAt" DESC, id)')
+      expect(
+        indexDefinitionByName.get(
+          'StudySession_userId_level_subject_submittedAt_id_weakness_idx'
+        )
+      ).toMatch(
+        /WHERE \(\("userId" IS NOT NULL\).*\(status = 'SUBMITTED'::(?:[a-z0-9_]+\.)?"StudySessionStatus"\).*\("submittedAt" IS NOT NULL\)/u
+      )
+      expect(
+        indexDefinitionByName.get(
+          'StudySession_guest_level_subject_submittedAt_id_weakness_idx'
+        )
+      ).toContain(
+        '("guestPrincipalId", level, subject, "submittedAt" DESC, id)'
+      )
+      expect(
+        indexDefinitionByName.get(
+          'StudySession_guest_level_subject_submittedAt_id_weakness_idx'
+        )
+      ).toMatch(
+        /WHERE \(\("guestPrincipalId" IS NOT NULL\).*\(status = 'SUBMITTED'::(?:[a-z0-9_]+\.)?"StudySessionStatus"\).*\("submittedAt" IS NOT NULL\)/u
+      )
+      expect(
+        indexDefinitionByName.get(
+          'WrongNote_user_status_lastWrongAt_wrongCount_questionId_idx'
+        )
+      ).toContain(
+        '("userId", status, "lastWrongAt" DESC, "wrongCount" DESC, "questionId")'
+      )
+      expect(
+        indexDefinitionByName.get(
+          'WrongNote_userId_status_id_questionId_daily_idx'
+        )
+      ).toContain('("userId", status, id, "questionId")')
 
       const labelSnapshotConstraint = await adminClient.query<{
         definition: string

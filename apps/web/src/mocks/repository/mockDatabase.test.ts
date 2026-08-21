@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
-import { mockCanonicalSubmissionOperations } from '@mocks/adapters/studySubmissionContractAdapter'
-import { toContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
+import {
+  mockCanonicalSubmissionOperations,
+  mockCanonicalSubmissionV2Operations
+} from '@mocks/adapters/studySubmissionContractAdapter'
+import {
+  toContractStudySessionPayload,
+  toVersionedContractStudySessionPayload
+} from '@mocks/adapters/studySessionContractAdapter'
 import { originalQuestions } from '@mocks/data/questions'
 import {
   MockDatabase,
   MockDatabaseError,
+  type AdminQuestionInput,
   type MockStorage,
   type SubmitCanonicalStudySessionInput
 } from '@mocks/repository/mockDatabase'
@@ -37,7 +44,439 @@ const getCorrectOptionId = (questionId: string): string => {
   return option.id
 }
 
+const getIncorrectOptionId = (questionId: string): string => {
+  const question = originalQuestions.find(({ id }) => id === questionId)
+  const option = question?.options.find(({ isCorrect }) => !isCorrect)
+
+  if (!option) {
+    throw new Error('테스트 문제의 오답을 찾을 수 없습니다.')
+  }
+
+  return option.id
+}
+
+const toAdminInput = (
+  question: ReturnType<MockDatabase['getAdminQuestion']>
+): AdminQuestionInput => {
+  const correctOption = question.options.find(({ isCorrect }) => isCorrect)
+  if (!correctOption) {
+    throw new Error('관리자 문제 fixture의 정답이 필요합니다.')
+  }
+  return {
+    level: question.level,
+    subject: question.subject,
+    questionType: question.questionType,
+    passage: question.passage,
+    questionText: question.questionText,
+    options: question.options.map(({ id, label, text }) => ({
+      id,
+      label,
+      text
+    })),
+    correctOptionId: correctOption.id,
+    explanationKo: question.explanationKo,
+    explanationJa: question.explanationJa,
+    difficulty: question.difficulty,
+    tags: question.tags,
+    status: question.status
+  }
+}
+
+const submitEmptyCanonicalV2Session = (
+  database: MockDatabase,
+  sessionId: string,
+  guestPrincipalId: string | null = null
+): void => {
+  const payload = toVersionedContractStudySessionPayload(
+    database.getCanonicalStudySessionSnapshotRecord(sessionId, guestPrincipalId)
+  )
+  database.submitCanonicalStudySession(
+    {
+      body: {
+        answers: payload.questions.map(({ sessionQuestionId }) => ({
+          studySessionQuestionId: sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0,
+        expectedDraftRevision: 0
+      },
+      contractVersion: 2,
+      guestPrincipalId,
+      idempotencyKey: crypto.randomUUID(),
+      sessionId
+    },
+    mockCanonicalSubmissionV2Operations
+  )
+}
+
+const submitEmptyCanonicalV1Session = (
+  database: MockDatabase,
+  sessionId: string
+): void => {
+  const payload = toContractStudySessionPayload(
+    database.getCanonicalStudySessionSnapshotRecord(sessionId, null)
+  )
+  database.submitCanonicalStudySession(
+    {
+      body: {
+        answers: payload.questions.map(({ sessionQuestionId }) => ({
+          studySessionQuestionId: sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0
+      },
+      contractVersion: 1,
+      guestPrincipalId: null,
+      idempotencyKey: crypto.randomUUID(),
+      sessionId
+    },
+    mockCanonicalSubmissionOperations
+  )
+}
+
 describe('MockDatabase', () => {
+  it('canonical Slice 3 모드를 stable question 기준으로 선택하고 source·pointer를 보존한다', () => {
+    let now = new Date(FIXED_NOW)
+    const database = new MockDatabase({
+      now: () => now.toISOString(),
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+
+    for (let index = 0; index < 3; index += 1) {
+      now = new Date(new Date(FIXED_NOW).getTime() + index * 60_000)
+      const history = database.createStudySession({
+        canonicalContractVersion: 2,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1,
+        questionIds: [questionId]
+      })
+      submitEmptyCanonicalV2Session(database, history.session.id)
+    }
+
+    now = new Date(new Date(FIXED_NOW).getTime() + 5 * 60_000)
+    const repeatAvoided = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 5,
+      seed: 'slice3-repeat-avoidance'
+    })
+    expect(repeatAvoided.questions).toHaveLength(5)
+    expect(new Set(repeatAvoided.questions.map(({ id }) => id)).size).toBe(5)
+    expect(repeatAvoided.questions.at(-1)?.id).toBe(questionId)
+
+    const weakness = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WEAKNESS',
+      count: 5
+    })
+    expect(weakness).toMatchObject({
+      requestedCount: 5,
+      actualCount: 1,
+      usedFallback: false
+    })
+    expect(weakness.questions.map(({ id }) => id)).toEqual([questionId])
+
+    const wrongNote = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WRONG_NOTE',
+      count: 5
+    })
+    const reviewPayload = toVersionedContractStudySessionPayload(
+      database.getCanonicalStudySessionSnapshotRecord(
+        wrongNote.session.id,
+        null
+      )
+    )
+    const reviewQuestion = reviewPayload.questions[0]?.question
+    if (!reviewQuestion) {
+      throw new Error('Slice 3 review question fixture가 필요합니다.')
+    }
+    expect(wrongNote.questions.map(({ id }) => id)).toEqual([questionId])
+    submitEmptyCanonicalV2Session(database, wrongNote.session.id)
+
+    now = new Date(now.getTime() + 24 * 60 * 60 * 1_000 + 1)
+    const daily = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'DAILY_REVIEW',
+      count: 5
+    })
+    expect(daily.questions.map(({ id }) => id)).toEqual([questionId])
+    submitEmptyCanonicalV2Session(database, daily.session.id)
+
+    expect(
+      database
+        .getCanonicalReviewEventRecords()
+        .filter(({ studySessionId }) =>
+          [wrongNote.session.id, daily.session.id].includes(studySessionId)
+        )
+        .map(({ source }) => source)
+    ).toEqual(['WRONG_NOTE_REVIEW', 'WRONG_NOTE_REVIEW'])
+    expect(
+      database.getCanonicalWrongNoteRecord(user.id, reviewQuestion.id)
+        .currentReviewQuestionVersionId
+    ).toBe(reviewQuestion.questionVersionId)
+  })
+
+  it('canonical guest WEAKNESS는 같은 guest history만 사용한다', () => {
+    let now = new Date(FIXED_NOW)
+    const database = new MockDatabase({
+      now: () => now.toISOString(),
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    const guestPrincipalId = crypto.randomUUID()
+    const questionId = 'n5-vocabulary-01'
+
+    for (let index = 0; index < 3; index += 1) {
+      now = new Date(new Date(FIXED_NOW).getTime() + index * 60_000)
+      const history = database.createStudySession({
+        canonicalContractVersion: 2,
+        canonicalGuestPrincipalId: guestPrincipalId,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1,
+        questionIds: [questionId]
+      })
+      submitEmptyCanonicalV2Session(
+        database,
+        history.session.id,
+        guestPrincipalId
+      )
+    }
+
+    const weakness = database.createStudySession({
+      canonicalContractVersion: 2,
+      canonicalGuestPrincipalId: guestPrincipalId,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WEAKNESS',
+      count: 5
+    })
+    expect(weakness.questions.map(({ id }) => id)).toEqual([questionId])
+
+    expect(() =>
+      database.createStudySession({
+        canonicalContractVersion: 2,
+        canonicalGuestPrincipalId: crypto.randomUUID(),
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WEAKNESS',
+        count: 5
+      })
+    ).toThrowError(expect.objectContaining({ code: 'NOT_FOUND', status: 404 }))
+  })
+
+  it('fixed clock에서도 review pointer는 생성 순서대로 전진하고 reverse submit에 rewind하지 않는다', () => {
+    const storage = createMemoryStorage()
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage,
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+    const history = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1,
+      questionIds: [questionId]
+    })
+    submitEmptyCanonicalV2Session(database, history.session.id)
+
+    const reviewA = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WRONG_NOTE',
+      count: 1
+    })
+    const payloadA = toVersionedContractStudySessionPayload(
+      database.getCanonicalStudySessionSnapshotRecord(reviewA.session.id, null)
+    )
+    const source = database.getAdminQuestion(questionId)
+    database.updateQuestion(questionId, {
+      ...toAdminInput(source),
+      questionText: `${source.questionText} fixed-clock v2`
+    })
+    const reviewB = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WRONG_NOTE',
+      count: 1
+    })
+    const payloadB = toVersionedContractStudySessionPayload(
+      database.getCanonicalStudySessionSnapshotRecord(reviewB.session.id, null)
+    )
+    const questionA = payloadA.questions[0]?.question
+    const questionB = payloadB.questions[0]?.question
+    if (!questionA || !questionB) {
+      throw new Error('review pointer fixture가 필요합니다.')
+    }
+    expect(questionB.questionVersionId).not.toBe(questionA.questionVersionId)
+
+    submitEmptyCanonicalV2Session(database, reviewA.session.id)
+    expect(
+      database.getCanonicalWrongNoteRecord(user.id, questionB.id)
+        .currentReviewQuestionVersionId
+    ).toBe(questionB.questionVersionId)
+
+    const restored = new MockDatabase({ storage, listenToStorage: false })
+    try {
+      expect(
+        restored.getCanonicalWrongNoteRecord(user.id, questionB.id)
+          .currentReviewQuestionVersionId
+      ).toBe(questionB.questionVersionId)
+    } finally {
+      restored.dispose()
+    }
+  })
+
+  it('legacy-only WrongNote를 canonical review 후보나 이전 snapshot으로 섞지 않는다', () => {
+    const database = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    database.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+    const legacy = database.createStudySession({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WRONG_NOTE',
+      count: 1,
+      questionIds: [questionId]
+    })
+    database.submitStudySession({
+      sessionId: legacy.session.id,
+      answers: [
+        {
+          questionId,
+          selectedOptionId: getIncorrectOptionId(questionId),
+          elapsedSec: 0
+        }
+      ],
+      durationSec: 0
+    })
+
+    expect(() =>
+      database.createStudySession({
+        canonicalContractVersion: 2,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WRONG_NOTE',
+        count: 1
+      })
+    ).toThrowError(expect.objectContaining({ code: 'NOT_FOUND', status: 404 }))
+  })
+
+  it('legacy RANDOM history는 canonical repeat·WEAKNESS에서 격리하고 canonical v1 history는 사용한다', () => {
+    const legacyDatabase = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    const cleanDatabase = new MockDatabase({
+      now: () => FIXED_NOW,
+      storage: createMemoryStorage(),
+      listenToStorage: false
+    })
+    legacyDatabase.loginAs('USER')
+    cleanDatabase.loginAs('USER')
+    const questionId = 'n5-vocabulary-01'
+
+    for (let index = 0; index < 3; index += 1) {
+      const legacy = legacyDatabase.createStudySession({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1,
+        questionIds: [questionId]
+      })
+      legacyDatabase.submitStudySession({
+        sessionId: legacy.session.id,
+        answers: [
+          {
+            questionId,
+            selectedOptionId: getIncorrectOptionId(questionId),
+            elapsedSec: index
+          }
+        ],
+        durationSec: index
+      })
+    }
+
+    const legacyRandom = legacyDatabase.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 5,
+      seed: 'canonical-isolation'
+    })
+    const cleanRandom = cleanDatabase.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 5,
+      seed: 'canonical-isolation'
+    })
+    expect(legacyRandom.questions.map(({ id }) => id)).toEqual(
+      cleanRandom.questions.map(({ id }) => id)
+    )
+    expect(() =>
+      legacyDatabase.createStudySession({
+        canonicalContractVersion: 2,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WEAKNESS',
+        count: 1
+      })
+    ).toThrowError(expect.objectContaining({ code: 'NOT_FOUND', status: 404 }))
+
+    for (let index = 0; index < 3; index += 1) {
+      const canonicalV1 = legacyDatabase.createStudySession({
+        canonicalContractVersion: 1,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1,
+        questionIds: [questionId]
+      })
+      submitEmptyCanonicalV1Session(legacyDatabase, canonicalV1.session.id)
+    }
+    expect(
+      legacyDatabase
+        .createStudySession({
+          canonicalContractVersion: 2,
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'WEAKNESS',
+          count: 1
+        })
+        .questions.map(({ id }) => id)
+    ).toEqual([questionId])
+  })
+
   it('관리자 문제의 정규화된 중복 태그를 거부한다', () => {
     const database = new MockDatabase({
       now: () => FIXED_NOW,

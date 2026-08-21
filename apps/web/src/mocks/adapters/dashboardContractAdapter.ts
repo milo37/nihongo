@@ -82,7 +82,7 @@ const toRecentSession = (record: MockCanonicalDashboardSessionRecord) => ({
   id: record.id,
   level: record.level,
   subject: record.subject,
-  mode: 'RANDOM' as const,
+  mode: record.mode,
   totalCount: record.totalCount,
   correctCount: record.correctCount,
   correctRate: calculateRate(

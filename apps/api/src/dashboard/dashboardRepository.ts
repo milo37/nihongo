@@ -2,7 +2,11 @@ import type {
   DashboardRepeatedWrongQuestion,
   DashboardSubjectStat
 } from '@nihongo/contracts/dashboard/get-dashboard-stats'
-import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
+import {
+  Prisma,
+  type PrismaClient,
+  type StudyMode
+} from '../generated/prisma/client.js'
 
 export interface DashboardReadWindow {
   readonly activityFromInclusive: Date | null
@@ -24,7 +28,7 @@ export interface DashboardRecentSessionRecord {
   readonly durationSec: number
   readonly id: string
   readonly level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
-  readonly mode: 'RANDOM'
+  readonly mode: StudyMode
   readonly subject: DashboardSubjectStat['subject']
   readonly submittedAt: Date
   readonly totalCount: number
@@ -126,7 +130,6 @@ export const createPrismaDashboardRepository = (
               ON result."studySessionId" = session."id"
             WHERE session."userId" = ${input.userId}::uuid
               AND session."status" = 'SUBMITTED'::"StudySessionStatus"
-              AND session."mode" = 'RANDOM'::"StudyMode"
               AND session."submittedAt" IS NOT NULL
               ${activityRange}
             GROUP BY session."subject"
@@ -154,7 +157,6 @@ export const createPrismaDashboardRepository = (
               ON result."studySessionId" = session."id"
             WHERE session."userId" = ${input.userId}::uuid
               AND session."status" = 'SUBMITTED'::"StudySessionStatus"
-              AND session."mode" = 'RANDOM'::"StudyMode"
               AND session."submittedAt" IS NOT NULL
               ${activityRange}
             ORDER BY session."submittedAt" DESC, session."id" ASC
@@ -174,7 +176,6 @@ export const createPrismaDashboardRepository = (
               ON result."studySessionId" = session."id"
             WHERE session."userId" = ${input.userId}::uuid
               AND session."status" = 'SUBMITTED'::"StudySessionStatus"
-              AND session."mode" = 'RANDOM'::"StudyMode"
               AND session."submittedAt" IS NOT NULL
               ${activityRange}
               AND session."submittedAt" >= ${input.dailyFromInclusive}

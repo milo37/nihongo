@@ -22,8 +22,11 @@ export const assertCurrentCreateStudySessionAction = (
 ): void => createSessionActionFence.assertCurrent(input)
 
 const createSession = async (input: CreateStudySessionRequest) => {
-  if (input.mode !== 'RANDOM' || input.questionIds !== undefined) {
-    throw new Error('Slice 2에서는 RANDOM 신규 학습만 지원합니다.')
+  if (input.questionIds !== undefined) {
+    throw new Error('문항 ID 직접 선택은 Slice 5 전까지 지원하지 않습니다.')
+  }
+  if (input.mode === 'BOOKMARK') {
+    throw new Error('BOOKMARK 모드는 Slice 4에서 활성화됩니다.')
   }
 
   return toCanonicalStudySessionView(

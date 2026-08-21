@@ -717,7 +717,6 @@ const createReviewFacts = async (
           lastWrongQuestionVersionId: answer.isCorrect
             ? previousRow.lastWrongQuestionVersionId
             : answer.questionVersionId,
-          currentReviewQuestionVersionId: null,
           wrongCount: decision.wrongNote.wrongCount,
           correctStreak: decision.wrongNote.correctStreak,
           status: decision.wrongNote.status,
@@ -777,7 +776,10 @@ const createReviewFacts = async (
         userId: input.userId,
         questionId: question.questionId,
         questionVersionId: answer.questionVersionId,
-        source: 'STUDY_SUBMIT',
+        source:
+          input.mode === 'WRONG_NOTE' || input.mode === 'DAILY_REVIEW'
+            ? 'WRONG_NOTE_REVIEW'
+            : 'STUDY_SUBMIT',
         studySessionId: input.sessionId,
         studyAnswerId,
         selectedOptionId: answer.selectedOptionId,
@@ -912,10 +914,6 @@ const runAtomicSubmission = async (
   ) {
     throw new StudySubmissionContractVersionMismatchError()
   }
-  if (prelockedSession.mode !== 'RANDOM') {
-    throw new StudySessionNotEditableError()
-  }
-
   if (prelockedSession.status === 'SUBMITTED') {
     throw new StudySessionAlreadySubmittedError()
   }
@@ -966,9 +964,6 @@ const runAtomicSubmission = async (
   )
   if (!session) {
     throw new OwnedStudySessionNotFoundError()
-  }
-  if (session.mode !== 'RANDOM') {
-    throw new StudySessionNotEditableError()
   }
   if (session.practiceContractVersion !== practiceContractVersion) {
     throw new StudySubmissionContractVersionMismatchError()

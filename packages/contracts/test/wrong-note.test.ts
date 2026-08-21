@@ -187,6 +187,12 @@ describe('wrong-note contracts', () => {
       getWrongNoteParamsSchema.parse({ questionId: id(1).toUpperCase() })
     ).toEqual({ questionId: id(1) })
     expect(getWrongNoteResponseSchema.parse(detail)).toEqual(detail)
+    expect(
+      getWrongNoteResponseSchema.parse({
+        ...detail,
+        currentReviewQuestionVersionId: id(3)
+      }).currentReviewQuestionVersionId
+    ).toBe(id(3))
     const exactWhitespaceLabel = '\tI\u00a0'
     expect(
       getWrongNoteResponseSchema.parse({
@@ -212,7 +218,6 @@ describe('wrong-note contracts', () => {
       { ...detail, lastWrongQuestionVersionId: id(3) },
       { ...detail, question: { ...reviewedQuestion, id: id(4) } },
       { ...detail, memo: { text: 'future memo' } },
-      { ...detail, currentReviewQuestionVersionId: id(3) },
       {
         ...detail,
         wrongNote: { ...detail.wrongNote, tags: ['다른 태그'] }

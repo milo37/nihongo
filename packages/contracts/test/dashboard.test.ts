@@ -153,7 +153,7 @@ describe('dashboard contracts', () => {
     ).toBe(false)
   })
 
-  it('recent RANDOM·repeat count·strict private projection을 고정한다', () => {
+  it('recent all-mode·repeat count·strict private projection을 고정한다', () => {
     const dashboard = {
       ...emptyDashboard,
       wrongNoteCount: 1,
@@ -185,15 +185,23 @@ describe('dashboard contracts', () => {
     expect(getDashboardStatsResponseSchema.safeParse(dashboard).success).toBe(
       true
     )
+    for (const mode of [
+      'RANDOM',
+      'WRONG_NOTE',
+      'WEAKNESS',
+      'BOOKMARK',
+      'DAILY_REVIEW'
+    ] as const) {
+      expect(
+        getDashboardStatsResponseSchema.safeParse({
+          ...dashboard,
+          recentStudySessions: [{ ...dashboard.recentStudySessions[0], mode }]
+        }).success
+      ).toBe(true)
+    }
 
     for (const invalid of [
       { ...dashboard, userId: id(90) },
-      {
-        ...dashboard,
-        recentStudySessions: [
-          { ...dashboard.recentStudySessions[0], mode: 'WRONG_NOTE' }
-        ]
-      },
       {
         ...dashboard,
         repeatedWrongQuestions: [

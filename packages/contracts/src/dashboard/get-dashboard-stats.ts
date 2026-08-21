@@ -3,6 +3,7 @@ import { calendarDateSchema, isoDateTimeSchema } from '../common/date.js'
 import {
   jlptLevelSchema,
   questionSubjectSchema,
+  studyModeSchema,
   wrongNoteStatusSchema
 } from '../common/enum.js'
 import { createApiFailureSchema } from '../common/error.js'
@@ -119,7 +120,7 @@ export const dashboardRecentStudySessionSchema = z
     id: opaqueIdSchema,
     level: jlptLevelSchema,
     subject: questionSubjectSchema,
-    mode: z.literal('RANDOM'),
+    mode: studyModeSchema,
     totalCount: safeCountSchema.min(1).max(20),
     correctCount: safeCountSchema.max(20),
     correctRate: correctRateSchema,

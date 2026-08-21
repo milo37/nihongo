@@ -12,6 +12,10 @@
       "types": "./dist/review/apply-wrong-note-review.d.ts",
       "import": "./dist/review/apply-wrong-note-review.js"
     },
+    "./selection/select-study-candidates": {
+      "types": "./dist/selection/select-study-candidates.d.ts",
+      "import": "./dist/selection/select-study-candidates.js"
+    },
     "./submission/canonicalize-study-submission": {
       "types": "./dist/submission/canonicalize-study-submission.d.ts",
       "import": "./dist/submission/canonicalize-study-submission.js"

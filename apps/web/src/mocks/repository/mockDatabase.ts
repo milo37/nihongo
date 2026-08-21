@@ -54,7 +54,17 @@ import { mockSeedData } from '@mocks/data'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import { addDaysToIso, toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@util/question'
-import { seededShuffle, type ShuffleSeed } from '@util/shuffle'
+import {
+  createSeededRandom,
+  seededShuffle,
+  type ShuffleSeed
+} from '@util/shuffle'
+import {
+  selectDailyReviewStudyCandidates,
+  selectRandomStudyCandidates,
+  selectWeaknessStudyCandidates,
+  selectWrongNoteStudyCandidates
+} from '@mocks/adapters/studyCandidateSelection'
 import { calculateStudyResult } from '@util/study'
 import {
   createWrongNoteFromIncorrectAnswer,
@@ -261,7 +271,7 @@ export interface MockCanonicalReviewEventRecord {
   readonly questionId: string
   readonly questionVersionId: string
   readonly selectedOptionId: string | null
-  readonly source: 'STUDY_SUBMIT'
+  readonly source: 'STUDY_SUBMIT' | 'WRONG_NOTE_REVIEW'
   readonly studyAnswerId: string
   readonly studySessionId: string
   readonly userId: string
@@ -271,6 +281,7 @@ export interface MockCanonicalReviewEventRecord {
 
 export interface MockCanonicalWrongNoteRecord {
   readonly correctStreak: number
+  readonly currentReviewQuestionVersionId: string | null
   readonly isCurrentPublished: boolean
   readonly lastReviewedAt: string | null
   readonly lastWrongAt: string
@@ -290,6 +301,7 @@ export interface MockCanonicalDashboardSessionRecord {
   readonly durationSec: number
   readonly id: string
   readonly level: JlptLevel
+  readonly mode: StudyMode
   readonly subject: QuestionSubject
   readonly submittedAt: string
   readonly totalCount: number
@@ -416,6 +428,7 @@ interface SessionMetadata {
   canonicalGuestPrincipalId?: string
   canonicalContractVersion?: 1 | 2
   canonicalTerminalStatus?: 'CANCELLED' | 'EXPIRED'
+  creationOrder?: number
   requestedCount: number
   usedFallback: boolean
 }
@@ -938,12 +951,18 @@ export class MockDatabase {
     const requestedCount = Math.min(20, Math.max(1, Math.trunc(input.count)))
     const userId = input.userId ?? this.currentUserId
     const eligible = this.getEligibleQuestions(input.level, input.subject)
+    const startedAt = this.now()
 
-    if (!userId && (input.mode === 'WRONG_NOTE' || input.mode === 'BOOKMARK')) {
+    if (
+      !userId &&
+      (input.mode === 'WRONG_NOTE' ||
+        input.mode === 'BOOKMARK' ||
+        input.mode === 'DAILY_REVIEW')
+    ) {
       throw new MockDatabaseError(
         'AUTH_REQUIRED',
         401,
-        '오답 및 즐겨찾기 모드는 로그인이 필요합니다.'
+        '이 출제 모드는 로그인이 필요합니다.'
       )
     }
 
@@ -955,9 +974,10 @@ export class MockDatabase {
       )
     }
 
-    const selection = this.selectQuestions(input, eligible, userId)
+    const selection = input.canonicalContractVersion
+      ? this.selectCanonicalQuestions(input, eligible, userId, startedAt)
+      : this.selectQuestions(input, eligible, userId)
     const sessionId = this.createStudySessionId()
-    const startedAt = this.now()
     const session: StudySession = {
       id: sessionId,
       userId,
@@ -979,6 +999,7 @@ export class MockDatabase {
       ...(!userId && input.canonicalGuestPrincipalId
         ? { canonicalGuestPrincipalId: input.canonicalGuestPrincipalId }
         : {}),
+      creationOrder: this.sequence,
       requestedCount,
       usedFallback: selection.usedFallback
     })
@@ -1487,7 +1508,6 @@ export class MockDatabase {
     }
     if (
       session.status !== 'IN_PROGRESS' ||
-      session.mode !== 'RANDOM' ||
       observedAtMs >= startedAtMs + 24 * 60 * 60 * 1_000
     ) {
       throw new MockDatabaseError(
@@ -1579,6 +1599,7 @@ export class MockDatabase {
     )
     const wrongNotePlan = this.planCanonicalWrongNoteUpdates(
       owner.userId,
+      session.mode,
       grading.items,
       answerRecordBySessionQuestionId,
       canonicalWrongNoteByQuestionId,
@@ -1686,6 +1707,7 @@ export class MockDatabase {
         id: session.id,
         level: result.level,
         subject: result.subject,
+        mode: result.mode,
         totalCount: result.totalCount,
         correctCount: result.correctCount,
         durationSec: result.durationSec,
@@ -2277,6 +2299,243 @@ export class MockDatabase {
     }
   }
 
+  private selectCanonicalQuestions(
+    input: CreateStudySessionInput,
+    eligible: QuestionRecord[],
+    userId: string | null,
+    observedAt: string
+  ): { questions: QuestionRecord[]; usedFallback: false } {
+    const count = Math.min(20, Math.max(1, Math.trunc(input.count)))
+    if (input.questionIds && input.questionIds.length > 0) {
+      if (new Set(input.questionIds).size !== input.questionIds.length) {
+        throw new MockDatabaseError(
+          'INVALID_INPUT',
+          422,
+          '같은 문제를 한 세션에 중복 출제할 수 없습니다.'
+        )
+      }
+      const eligibleById = new Map(
+        eligible.map((question) => [question.id, question])
+      )
+      const questions = input.questionIds.map((questionId) => {
+        const question = eligibleById.get(questionId)
+        if (!question) {
+          throw new MockDatabaseError(
+            'INVALID_INPUT',
+            422,
+            `출제 조건에 맞지 않는 문제입니다: ${questionId}`
+          )
+        }
+        return question
+      })
+      return { questions: questions.slice(0, count), usedFallback: false }
+    }
+    if (input.mode === 'BOOKMARK') {
+      throw new MockDatabaseError(
+        'INVALID_INPUT',
+        422,
+        'BOOKMARK 모드는 Slice 4에서 활성화됩니다.'
+      )
+    }
+
+    const eligibleById = new Map(
+      eligible.map((question) => [question.id, question])
+    )
+    const toPin = (question: QuestionRecord) => ({
+      questionId: question.id,
+      questionVersionId: getCanonicalQuestionVersionId(question)
+    })
+    const belongsToActor = (session: StudySession): boolean => {
+      const metadata = this.sessionMetadataById.get(session.id)
+      if (metadata?.canonicalContractVersion === undefined) {
+        return false
+      }
+      if (userId) {
+        return session.userId === userId
+      }
+      const guestPrincipalId = input.canonicalGuestPrincipalId
+      return (
+        guestPrincipalId !== undefined &&
+        session.userId === null &&
+        metadata.canonicalGuestPrincipalId === guestPrincipalId
+      )
+    }
+    const selectedQuestionIds = (() => {
+      if (input.mode === 'RANDOM') {
+        const observedAtMs = Date.parse(observedAt)
+        const recentSinceMs = observedAtMs - 7 * 24 * 60 * 60 * 1_000
+        const recentQuestionIds = new Set(
+          [...this.sessionById.values()]
+            .filter((session) => {
+              const submittedAtMs = Date.parse(session.submittedAt ?? '')
+              return (
+                belongsToActor(session) &&
+                session.status === 'SUBMITTED' &&
+                Number.isFinite(submittedAtMs) &&
+                submittedAtMs >= recentSinceMs &&
+                submittedAtMs <= observedAtMs
+              )
+            })
+            .toSorted(
+              (left, right) =>
+                (right.submittedAt ?? '').localeCompare(
+                  left.submittedAt ?? ''
+                ) || left.id.localeCompare(right.id)
+            )
+            .slice(0, 3)
+            .flatMap((session) => session.questionIds)
+        )
+        const seed =
+          input.seed ?? `${this.randomSeed}:${observedAt}:${this.sequence}`
+        return selectRandomStudyCandidates(
+          eligible.map((question) => ({
+            ...toPin(question),
+            isRecent: recentQuestionIds.has(question.id)
+          })),
+          count,
+          createSeededRandom(seed)
+        ).map(({ questionId }) => questionId)
+      }
+
+      if (input.mode === 'WEAKNESS') {
+        const recentSessions = [...this.sessionById.values()]
+          .filter(
+            (session) =>
+              belongsToActor(session) &&
+              session.level === input.level &&
+              session.subject === input.subject &&
+              session.status === 'SUBMITTED' &&
+              session.submittedAt !== null
+          )
+          .toSorted(
+            (left, right) =>
+              (right.submittedAt ?? '').localeCompare(left.submittedAt ?? '') ||
+              left.id.localeCompare(right.id)
+          )
+          .slice(0, WEAKNESS_SESSION_LIMIT)
+        const aggregates = new Map<
+          string,
+          {
+            answeredCount: number
+            incorrectCount: number
+            lastAnsweredAt: Date
+          }
+        >()
+        for (const session of recentSessions) {
+          const canonicalAnswers = this.canonicalAnswerBySessionId.get(
+            session.id
+          )
+          if (canonicalAnswers) {
+            for (const answer of canonicalAnswers) {
+              const question = eligibleById.get(answer.sourceQuestionId)
+              if (!question) continue
+              const previous = aggregates.get(question.id) ?? {
+                answeredCount: 0,
+                incorrectCount: 0,
+                lastAnsweredAt: new Date(0)
+              }
+              previous.answeredCount += 1
+              previous.incorrectCount += answer.isCorrect ? 0 : 1
+              previous.lastAnsweredAt = new Date(
+                Math.max(
+                  previous.lastAnsweredAt.getTime(),
+                  Date.parse(answer.answeredAt)
+                )
+              )
+              aggregates.set(question.id, previous)
+            }
+            continue
+          }
+        }
+        return selectWeaknessStudyCandidates(
+          [...aggregates].flatMap(([questionId, aggregate]) => {
+            const question = eligibleById.get(questionId)
+            return question &&
+              aggregate.answeredCount >= MIN_WEAKNESS_ATTEMPTS &&
+              aggregate.incorrectCount >= 1
+              ? [{ ...toPin(question), ...aggregate }]
+              : []
+          }),
+          count
+        ).map(({ questionId }) => questionId)
+      }
+
+      if (!userId) {
+        return []
+      }
+      const canonicalNotes = new Map(
+        this.reconstructCanonicalWrongNotes(userId).map((note) => [
+          note.sourceQuestionId,
+          note
+        ])
+      )
+      if (input.mode === 'WRONG_NOTE') {
+        const candidates = new Map<
+          string,
+          {
+            questionId: string
+            questionVersionId: string
+            lastWrongAt: Date
+            wrongCount: number
+          }
+        >()
+        for (const note of canonicalNotes.values()) {
+          const question = eligibleById.get(note.sourceQuestionId)
+          if (note.status !== 'SOLVED' && question) {
+            candidates.set(question.id, {
+              ...toPin(question),
+              lastWrongAt: new Date(note.lastWrongAt),
+              wrongCount: note.wrongCount
+            })
+          }
+        }
+        return selectWrongNoteStudyCandidates(
+          [...candidates.values()],
+          count
+        ).map(({ questionId }) => questionId)
+      }
+
+      const observedAtMs = Date.parse(observedAt)
+      const candidates = new Map<
+        string,
+        {
+          questionId: string
+          questionVersionId: string
+          nextReviewAt: Date
+          status: WrongNoteStatus
+        }
+      >()
+      for (const note of canonicalNotes.values()) {
+        const question = eligibleById.get(note.sourceQuestionId)
+        const nextReviewAtMs = Date.parse(note.nextReviewAt)
+        if (question && nextReviewAtMs <= observedAtMs) {
+          candidates.set(question.id, {
+            ...toPin(question),
+            nextReviewAt: new Date(nextReviewAtMs),
+            status: note.status
+          })
+        }
+      }
+      return selectDailyReviewStudyCandidates(
+        [...candidates.values()],
+        count
+      ).map(({ questionId }) => questionId)
+    })()
+
+    const questions = selectedQuestionIds.flatMap((questionId) => {
+      const question = eligibleById.get(questionId)
+      return question ? [question] : []
+    })
+    if (questions.length === 0) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        '선택한 조건에 출제 가능한 문제가 없습니다.'
+      )
+    }
+    return { questions, usedFallback: false }
+  }
+
   private getModeCandidates(
     input: CreateStudySessionInput,
     eligible: QuestionRecord[],
@@ -2454,11 +2713,6 @@ export class MockDatabase {
           'USER canonical 세션에 guest principal provenance가 섞여 있습니다.'
         )
       }
-      if (session.mode !== 'RANDOM') {
-        throwCanonicalIntegrityError(
-          'canonical dashboard 세션은 RANDOM mode여야 합니다.'
-        )
-      }
       const startedAt = toCanonicalIsoInstant(
         session.startedAt,
         'StudySession.startedAt'
@@ -2530,7 +2784,7 @@ export class MockDatabase {
         result.sessionId !== session.id ||
         result.level !== session.level ||
         result.subject !== session.subject ||
-        result.mode !== 'RANDOM' ||
+        result.mode !== session.mode ||
         toCanonicalIsoInstant(result.submittedAt, 'StudyResult.submittedAt') !==
           submittedAt ||
         result.durationSec !== session.durationSec
@@ -2806,6 +3060,41 @@ export class MockDatabase {
     }
   }
 
+  private getCanonicalReviewPointer(
+    userId: string,
+    sourceQuestionId: string
+  ): string | null {
+    const reviewSessions = [...this.sessionById.values()]
+      .filter((session) => {
+        const metadata = this.sessionMetadataById.get(session.id)
+        return (
+          session.userId === userId &&
+          metadata?.canonicalContractVersion === 2 &&
+          (session.mode === 'WRONG_NOTE' || session.mode === 'DAILY_REVIEW') &&
+          this.sessionQuestionSnapshotsById
+            .get(session.id)
+            ?.some((question) => question.id === sourceQuestionId) === true
+        )
+      })
+      .toSorted((left, right) => {
+        const leftOrder =
+          this.sessionMetadataById.get(left.id)?.creationOrder ?? 0
+        const rightOrder =
+          this.sessionMetadataById.get(right.id)?.creationOrder ?? 0
+        return (
+          rightOrder - leftOrder ||
+          right.startedAt.localeCompare(left.startedAt)
+        )
+      })
+    const latest = reviewSessions[0]
+    const question = latest
+      ? this.sessionQuestionSnapshotsById
+          .get(latest.id)
+          ?.find((candidate) => candidate.id === sourceQuestionId)
+      : undefined
+    return question ? getCanonicalQuestionVersionId(question) : null
+  }
+
   private reconstructCanonicalWrongNotes(
     userId: string,
     submissions = this.getCanonicalUserSubmissionEvidence(userId)
@@ -2877,7 +3166,11 @@ export class MockDatabase {
       if (
         event.algorithmVersion !== 1 ||
         event.id !== toStableMockUuid('review-event', answer.id) ||
-        event.source !== 'STUDY_SUBMIT' ||
+        event.source !==
+          (this.sessionById.get(answer.sessionId)?.mode === 'WRONG_NOTE' ||
+          this.sessionById.get(answer.sessionId)?.mode === 'DAILY_REVIEW'
+            ? 'WRONG_NOTE_REVIEW'
+            : 'STUDY_SUBMIT') ||
         event.studyAnswerId !== answer.id ||
         event.studySessionId !== answer.sessionId ||
         event.userId !== userId ||
@@ -2909,6 +3202,10 @@ export class MockDatabase {
         wrongNoteId,
         userId,
         sourceQuestionId: answer.sourceQuestionId,
+        currentReviewQuestionVersionId: this.getCanonicalReviewPointer(
+          userId,
+          answer.sourceQuestionId
+        ),
         wrongCount: wrongCountAfter,
         correctStreak: nextCorrectStreak,
         status: nextStatus,
@@ -2945,6 +3242,7 @@ export class MockDatabase {
 
   private planCanonicalWrongNoteUpdates(
     userId: string | null,
+    sessionMode: StudyMode,
     items: readonly MockCanonicalGradedItem[],
     answerBySessionQuestionId: ReadonlyMap<
       string,
@@ -3023,7 +3321,10 @@ export class MockDatabase {
         questionId: item.sourceQuestionId,
         questionVersionId: item.questionVersionId,
         selectedOptionId: answer.selectedOptionId,
-        source: 'STUDY_SUBMIT',
+        source:
+          sessionMode === 'WRONG_NOTE' || sessionMode === 'DAILY_REVIEW'
+            ? 'WRONG_NOTE_REVIEW'
+            : 'STUDY_SUBMIT',
         studyAnswerId: answer.id,
         studySessionId: answer.sessionId,
         userId,
@@ -3501,18 +3802,25 @@ export class MockDatabase {
         parsed.sessions.map((session) => [session.id, session])
       )
       this.sessionMetadataById = new Map(
-        parsed.sessionMetadata.map(([sessionId, metadata]) => [
+        parsed.sessionMetadata.map(([sessionId, metadata], index) => [
           sessionId,
-          // v2 guest metadata is the only unambiguous canonical marker. An
-          // unmarked v2 USER/ADMIN session remains legacy and canonical paths
-          // fail closed; those old mock sessions must be recreated.
-          parsed.version === 2 && metadata.canonicalGuestPrincipalId
-            ? {
-                ...metadata,
-                canonicalContractVersion: 1 as const
-              }
-            : metadata
+          {
+            ...metadata,
+            // v2 guest metadata is the only unambiguous canonical marker. An
+            // unmarked v2 USER/ADMIN session remains legacy and canonical
+            // paths fail closed; those old mock sessions must be recreated.
+            ...(parsed.version === 2 && metadata.canonicalGuestPrincipalId
+              ? { canonicalContractVersion: 1 as const }
+              : {}),
+            creationOrder: metadata.creationOrder ?? index + 1
+          }
         ])
+      )
+      this.sequence = Math.max(
+        this.sequence,
+        ...[...this.sessionMetadataById.values()].map(
+          ({ creationOrder }) => creationOrder ?? 0
+        )
       )
       this.activeCanonicalGuestPrincipalIds = new Set(
         parsed.activeCanonicalGuestPrincipalIds ??

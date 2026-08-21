@@ -8,6 +8,8 @@ import dotenv from 'dotenv'
 import { Client } from 'pg'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
+import { createStudySubmissionService } from '../study/studySubmissionService.js'
 
 const API_PORT = 3001
 const WEB_PORT = 5173
@@ -28,6 +30,16 @@ interface UserFixture {
   name: string
   password: string
   userId: string
+}
+
+interface Slice3SelectionFixture {
+  readonly recentQuestionIds: readonly [string, string, string]
+  readonly weaknessQuestionId: string
+}
+
+interface UserFixtureResult {
+  readonly selection: Slice3SelectionFixture
+  readonly users: readonly [UserFixture, UserFixture, UserFixture, UserFixture]
 }
 
 dotenv.config({
@@ -159,9 +171,7 @@ const waitForHttp = async (url: string, label: string): Promise<void> => {
   )
 }
 
-const createUserFixtures = async (): Promise<
-  readonly [UserFixture, UserFixture, UserFixture, UserFixture]
-> => {
+const createUserFixtures = async (): Promise<UserFixtureResult> => {
   const suffix = schemaName.slice(-21, -5)
   const fixtures: readonly [
     UserFixture,
@@ -222,11 +232,142 @@ const createUserFixtures = async (): Promise<
         })
       })
     }
+
+    const selectionQuestions = await database.client.question.findMany({
+      where: {
+        lifecycleStatus: 'ACTIVE',
+        currentPublishedVersion: {
+          is: { level: 'N5', subject: 'VOCABULARY', status: 'PUBLISHED' }
+        }
+      },
+      orderBy: { id: 'asc' },
+      take: 3,
+      select: {
+        id: true,
+        currentPublishedVersion: { select: { id: true } }
+      }
+    })
+    const [questionOne, questionTwo, questionThree] = selectionQuestions
+    if (
+      !questionOne?.currentPublishedVersion ||
+      !questionTwo?.currentPublishedVersion ||
+      !questionThree?.currentPublishedVersion
+    ) {
+      throw new Error('Slice 3 E2E selection questions are missing.')
+    }
+
+    const submissionRepository = createPrismaStudySubmissionRepository(
+      database.client
+    )
+    const selectionOwner = {
+      kind: 'USER' as const,
+      userId: fixtures[1].userId
+    }
+    const baseTime = Date.now()
+    const history = [
+      {
+        daysAgo: 6,
+        questionId: questionOne.id,
+        questionVersionId: questionOne.currentPublishedVersion.id
+      },
+      {
+        daysAgo: 5.5,
+        questionId: questionOne.id,
+        questionVersionId: questionOne.currentPublishedVersion.id
+      },
+      {
+        daysAgo: 5,
+        questionId: questionOne.id,
+        questionVersionId: questionOne.currentPublishedVersion.id
+      },
+      {
+        daysAgo: 4,
+        questionId: questionOne.id,
+        questionVersionId: questionOne.currentPublishedVersion.id
+      },
+      {
+        daysAgo: 3,
+        questionId: questionTwo.id,
+        questionVersionId: questionTwo.currentPublishedVersion.id
+      },
+      {
+        daysAgo: 2,
+        questionId: questionThree.id,
+        questionVersionId: questionThree.currentPublishedVersion.id
+      }
+    ] as const
+
+    for (const [index, item] of history.entries()) {
+      const startedAt = new Date(
+        baseTime - item.daysAgo * 24 * 60 * 60 * 1_000 + index
+      )
+      const studySessionQuestionId = randomUUID()
+      const session = await database.client.$transaction(
+        async (transaction) => {
+          const created = await transaction.studySession.create({
+            data: {
+              userId: selectionOwner.userId,
+              level: 'N5',
+              subject: 'VOCABULARY',
+              mode: 'RANDOM',
+              requestedCount: 1,
+              actualCount: 1,
+              usedFallback: false,
+              startedAt,
+              expiresAt: new Date(startedAt.getTime() + 24 * 60 * 60 * 1_000)
+            },
+            select: { id: true }
+          })
+          await transaction.studySessionQuestion.create({
+            data: {
+              id: studySessionQuestionId,
+              studySessionId: created.id,
+              questionId: item.questionId,
+              questionVersionId: item.questionVersionId,
+              ordinal: 1,
+              createdAt: startedAt
+            }
+          })
+          return created
+        }
+      )
+      await createStudySubmissionService(
+        submissionRepository,
+        () => new Date(startedAt.getTime() + 100)
+      ).submit(
+        session.id,
+        randomUUID(),
+        {
+          answers: [
+            {
+              studySessionQuestionId,
+              selectedOptionId: null,
+              elapsedSec: 1
+            }
+          ],
+          durationSec: 1
+        },
+        selectionOwner
+      )
+    }
+
+    const wrongNoteCount = await database.client.wrongNote.count({
+      where: { userId: selectionOwner.userId }
+    })
+    if (wrongNoteCount !== 3) {
+      throw new Error('Slice 3 E2E wrong-note history is incomplete.')
+    }
+
+    return {
+      selection: {
+        recentQuestionIds: [questionOne.id, questionTwo.id, questionThree.id],
+        weaknessQuestionId: questionOne.id
+      },
+      users: fixtures
+    }
   } finally {
     await database.disconnect()
   }
-
-  return fixtures
 }
 
 const createSchema = async (client: Client): Promise<void> => {
@@ -335,7 +476,10 @@ const run = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
     migrationEnvironment
   )
-  const [userA, userB, userC, userD] = await createUserFixtures()
+  const {
+    selection: slice3Selection,
+    users: [userA, userB, userC, userD]
+  } = await createUserFixtures()
 
   const api = startCommand(
     'api',
@@ -409,6 +553,7 @@ const run = async (): Promise<void> => {
       E2E_USER_D_EMAIL: userD.email,
       E2E_USER_D_NAME: userD.name,
       E2E_USER_D_PASSWORD: userD.password,
+      SLICE3_E2E_SELECTION: JSON.stringify(slice3Selection),
       PLAYWRIGHT_BASE_URL: `http://127.0.0.1:${WEB_PORT}`,
       PLAYWRIGHT_OUTPUT_LABEL: 'real',
       SLICE2_E2E_SCHEMA: schemaName

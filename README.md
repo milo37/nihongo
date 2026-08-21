@@ -10,15 +10,17 @@ JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 �
 
 이번 MVP는 정적인 화면 목업이 아닙니다. 문제 세션 생성, 답안 제출과 채점,
 오답 상태 변경, 즐겨찾기, 학습 통계, 관리자 문제 CRUD가 실제 사용자 흐름으로
-연결됩니다. 인증, 공개 문제 read, RANDOM StudySession create/read/submit/result와
-owner-scoped WrongNote list/detail·최소 dashboard read는 PostgreSQL 기반 실제 API로
+연결됩니다. 인증, 공개 문제 read, RANDOM·WRONG_NOTE·WEAKNESS·DAILY_REVIEW
+StudySession create/read/submit/result와 owner-scoped WrongNote list/detail·all-mode
+dashboard read는 PostgreSQL 기반 실제 API로
 구현됐습니다. USER submit은 오답·복습 이벤트를 원자 저장하며 guest submit은 이 영구
 side effect를 만들지 않습니다. Phase 3 Slice 6에서 canonical endpoint adapter를
-Query Factory·domain hook·기존 UI에 연결했습니다. `VITE_API_MODE=real`은
-auth/question과 RANDOM create/read/submit/result, WrongNote list/detail, dashboard를
-실제 Hono/PostgreSQL로 사용하고, `mock`은 전체 Alpha legacy 흐름을 유지합니다.
-즐겨찾기·관리자·memo/review·non-RANDOM은 real mode에서 요청 전에 명시적으로
-비활성화되며 silent Mock fallback하지 않습니다.
+Query Factory·domain hook·기존 UI에 연결했습니다. `VITE_API_MODE=real`은 auth/question과
+네 활성 mode의 create/read/submit/result, WrongNote list/detail, dashboard를 실제
+Hono/PostgreSQL로 사용하고, `mock`은 Alpha legacy와 같은 canonical mode 동작을 함께
+유지합니다. guest는 RANDOM·WEAKNESS, USER/ADMIN은 네 활성 mode를 사용합니다.
+BOOKMARK persistence/mode, result retry, UserMemo·review history와 real admin API는 요청
+전에 명시적으로 비활성화되며 silent Mock fallback하지 않습니다.
 
 ## 서비스 목적
 
@@ -33,7 +35,7 @@ auth/question과 RANDOM create/read/submit/result, WrongNote list/detail, dashbo
 ## 주요 기능
 
 - N5~N1, 문자·어휘·문법·독해 학습 설정과 5·10·20문제 출제
-- RANDOM, WRONG_NOTE, WEAKNESS, BOOKMARK 출제 모드
+- RANDOM, WRONG_NOTE, WEAKNESS, DAILY_REVIEW 출제 모드와 mock-only BOOKMARK
 - 새로고침 후 현재 문제, 선택 답안, 시작 시각 복구
 - 숫자 1~4 답안 선택, 좌우 화살표 문제 이동, 접근 가능한 제출 Dialog
 - 제출 전에는 정답과 해설을 숨기고 제출 후 문제별 결과·해설 제공
@@ -46,13 +48,13 @@ auth/question과 RANDOM create/read/submit/result, WrongNote list/detail, dashbo
 
 ## 지원 범위
 
-| 구분      | 지원 항목                       |
-| --------- | ------------------------------- |
-| 급수      | N5, N4, N3, N2, N1              |
-| 과목      | 문자·어휘, 문법, 독해           |
-| 문제 수   | 5, 10, 20                       |
-| 출제 모드 | 랜덤, 오답, 약점 추천, 즐겨찾기 |
-| 제외      | 청해와 음원 재생                |
+| 구분      | 지원 항목                                                        |
+| --------- | ---------------------------------------------------------------- |
+| 급수      | N5, N4, N3, N2, N1                                               |
+| 과목      | 문자·어휘, 문법, 독해                                            |
+| 문제 수   | 5, 10, 20                                                        |
+| 출제 모드 | 랜덤, 오답, 약점 추천, 오늘의 복습; real 즐겨찾기는 Slice 4 예정 |
+| 제외      | 청해와 음원 재생                                                 |
 
 ## 기술 스택
 
@@ -321,7 +323,7 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 .
 ├── apps/
 │   ├── api/                # Hono app, Prisma, auth/question/study/WrongNote/dashboard API
-│   │   ├── prisma/         # schema, 22 migrations, 65문제 seed
+│   │   ├── prisma/         # schema, 23 migrations, 65문제 seed
 │   │   └── src/            # app, middleware, DB, service/repository, E2E harness
 │   └── web/
 │       ├── e2e/            # Playwright real-browser practice-flow specs
@@ -431,14 +433,18 @@ current Tag label이 아닙니다. migration 20 preflight/CHECK는
 보장하고, read/filter는 그 저장값을 어떤 trim/정규화도 없이 exact 사용하므로 이후
 rename이 과거 표시·필터를 바꾸지 않습니다.
 반면 `reviewAvailability`만 현재 logical Question이 ACTIVE이고 current version이
-PUBLISHED인지에 따라 `AVAILABLE | ARCHIVED`로 파생합니다. UserMemo와 전용 review
-session은 아직 이관하지 않아 목록은 `hasMemo: false`, 상세는 `memo: null`과
-`currentReviewQuestionVersionId: null`을 반환합니다.
+PUBLISHED인지에 따라 `AVAILABLE | ARCHIVED`로 파생합니다. UserMemo는 아직 이관하지
+않아 목록은 `hasMemo: false`, 상세는 `memo: null`을 반환합니다.
+`currentReviewQuestionVersionId`는 nullable이며 아직 review session이 없는 note는
+`null`을 유지합니다. Phase 4 Slice 3의 WRONG_NOTE·DAILY_REVIEW session 생성은 선택한
+Question의 current PUBLISHED version을 이 pointer에 설정하거나 전진시키며, null 복귀와
+version rewind는 DB invariant로 거부합니다.
 
 dashboard의 `from`과 `to`는 함께 생략하거나 함께 전달하는 최대 366일의 UTC
 calendar date이며 양 끝을 포함합니다. 서버는 이를
 `[from 00:00:00Z, to + 1일 00:00:00Z)`로 정규화합니다. 범위는 SUBMITTED RANDOM
-activity의 문항 수·정답률·과목·취약 과목·최근 세션·일별 7일 series에만 적용하고,
+activity에 한정하지 않고 모든 SUBMITTED mode의 문항 수·정답률·과목·취약 과목·최근
+세션·일별 7일 series에 적용하고,
 WrongNote 전체·SOLVED 수·반복 오답 상위 항목은 range와 무관한 all-time own
 snapshot입니다. 7일 series는 `to` 또는 관측한 현재 UTC 날짜를 끝으로 항상 연속된
 7개 날짜를 반환하며 활동이 없는 날은 0으로 채웁니다.
@@ -603,6 +609,24 @@ real Chromium 5/5와 mock demo create→autosave→reload 1/1, 총 6/6을 통과
 checkpoint는
 `/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-2-final-20260818-69ee3d8`입니다.
 
+Phase 4 Slice 3은 `packages/domain`의 deterministic candidate selector와 owner-scoped
+PostgreSQL query를 연결해 RANDOM 최근 반복 후순위화, WEAKNESS, WRONG_NOTE,
+DAILY_REVIEW를 활성화했습니다. migration 23
+`20260818130000_phase4_study_selection_modes`
+(`dca1afbcab1cc2fa83c2e16ab3d8f74f76ceb3a42e34c436150dc0b93c9ff852`)는
+current review pointer와 ReviewEvent source/mode invariant, selection/dashboard index를
+추가했습니다. A의 v1 pin 뒤 v2 publish와 B의 v2 pin, B/A 역순 submit에서도 event pin과
+pointer non-rewind를 실제 PostgreSQL에서 확인했습니다.
+
+최종 non-DB gate는 contracts 61, domain 26, API 251, web 275로 112 files/613 tests,
+architecture 포함 618 tests를 통과했고 production build는 4/5 workspace projects·web
+430 modules였습니다. fresh `phase4_slice3_integration_1787061891771_6c2a4b97_test`에서
+migration 23/23, seed 65/0→0/65, integration 18 files/109 tests와 known pg warning 5회를
+확인했습니다. fresh `phase4_slice2_e2e_1787062755627_a752c085_test`에서는 real Chromium
+7/7+mock 1/1, 총 8/8을 통과했습니다. 두 schema는 runner 종료 뒤 삭제하고 absent를
+확인했습니다. immutable Slice 0–3 checkpoint는
+`/Users/doji/Desktop/dev/.nihongo-checkpoints/phase4-slice0-3-final-20260818-912cf38`입니다.
+
 production real preview에서 guest RANDOM keyboard·미응답 제출/result와 USER
 login→RANDOM 5문제 all-null 제출→result 0/5→WrongNote list/detail→dashboard를 실제
 브라우저로 확인했습니다. USER logout 후 ADMIN login에서는 자기 목록이 비고 USER detail
@@ -722,9 +746,10 @@ canonical MSW/direct-fetch 경로에 구현했습니다. Slice 6은 이 canonica
 Query Factory·domain hook·기존 UI consumer에 연결하고 real/mock 회귀, production Mock
 fail-closed와 staged rollback 경계를 검증해 Phase 3를 완료했습니다. Phase 4는
 Slice 0의 계약 정규화, Slice 1의 additive DB·API·canonical MSW, Slice 2의 Web
-autosave·working-copy·복구·conflict UX와 실제 Chromium gate까지
-`codex/phase-4-practice-flow`에서 완료했습니다. Phase 4 전체는 아직 In Progress이며,
-다음 실행 단위는 별도 지시가 필요한 Slice 3 selection engine·non-RANDOM mode입니다.
+autosave·working-copy·복구·conflict UX와 Slice 3의 selection engine·non-RANDOM mode,
+all-mode dashboard·실제 Chromium gate까지 `codex/phase-4-practice-flow`에서
+완료했습니다. Phase 4 전체는 아직 In Progress이며, 다음 실행 단위는 별도 지시가
+필요한 Slice 4 Bookmark persistence·API·UI입니다.
 
 ## 향후 개선
 

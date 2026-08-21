@@ -59,7 +59,9 @@ const summaryRecord = (
   ...overrides
 })
 
-const detailRecord = (): WrongNoteDetailRecord => {
+const detailRecord = (
+  overrides: Partial<WrongNoteDetailRecord> = {}
+): WrongNoteDetailRecord => {
   const summary = summaryRecord()
   return {
     ...summary,
@@ -75,7 +77,8 @@ const detailRecord = (): WrongNoteDetailRecord => {
         label: String(index + 1),
         text: `historical option ${index + 1}`
       }))
-    }
+    },
+    ...overrides
   }
 }
 
@@ -117,12 +120,16 @@ describe('WrongNote mapper', () => {
   })
 
   it('detail summary와 ReviewedQuestion 전체 metadata를 같은 lastWrong version에서 만든다', () => {
+    const currentReviewQuestionVersionId =
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c10ff'
     const detail = getWrongNoteResponseSchema.parse(
-      toWrongNoteDetail(detailRecord())
+      toWrongNoteDetail(detailRecord({ currentReviewQuestionVersionId }))
     )
 
     expect(detail.lastWrongQuestionVersionId).toBe(VERSION_ID)
-    expect(detail.currentReviewQuestionVersionId).toBeNull()
+    expect(detail.currentReviewQuestionVersionId).toBe(
+      currentReviewQuestionVersionId
+    )
     expect(detail.memo).toBeNull()
     expect(detail.question).toMatchObject({
       id: QUESTION_ID,
@@ -181,7 +188,7 @@ describe('WrongNote mapper', () => {
     expect(preview).toBe(`${'😀'.repeat(157)}...`)
   })
 
-  it('schedule 누락과 future review version을 fail closed한다', () => {
+  it('schedule 누락을 fail closed하고 review pointer는 summary에서 숨긴다', () => {
     expect(() =>
       toListWrongNotesResponse(
         [summaryRecord({ nextReviewAt: null })],
@@ -191,7 +198,7 @@ describe('WrongNote mapper', () => {
         1
       )
     ).toThrow(WrongNoteMapperIntegrityError)
-    expect(() =>
+    expect(
       toListWrongNotesResponse(
         [
           summaryRecord({
@@ -203,7 +210,7 @@ describe('WrongNote mapper', () => {
         1,
         20,
         1
-      )
-    ).toThrow(WrongNoteMapperIntegrityError)
+      ).items[0]
+    ).not.toHaveProperty('currentReviewQuestionVersionId')
   })
 })

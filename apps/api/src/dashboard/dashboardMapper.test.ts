@@ -97,7 +97,7 @@ describe('Dashboard mapper', () => {
             id: SESSION_ID,
             level: 'N5',
             subject: 'VOCABULARY',
-            mode: 'RANDOM',
+            mode: 'WEAKNESS',
             totalCount: 6,
             correctCount: 1,
             correctRateBasisPoints: 1667,
@@ -122,6 +122,7 @@ describe('Dashboard mapper', () => {
     )
 
     expect(response.recentStudySessions[0]?.correctRate).toBe(16.67)
+    expect(response.recentStudySessions[0]?.mode).toBe('WEAKNESS')
     expect([
       ...(response.repeatedWrongQuestions[0]?.questionPreview ?? '')
     ]).toHaveLength(160)

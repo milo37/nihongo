@@ -442,11 +442,20 @@ export const studySessionV1Handlers = [
         createStudySessionBodySchema
       )
 
-      if (input.mode !== 'RANDOM') {
+      if (practiceContractVersion === 1 && input.mode !== 'RANDOM') {
         return createCreateErrorResponse({
           code: 'VALIDATION_ERROR',
-          message: '현재 RANDOM 출제 모드만 사용할 수 있습니다.',
-          fieldErrors: { mode: ['현재 RANDOM 모드만 지원합니다.'] },
+          message: 'v1 practice contract는 RANDOM 모드만 지원합니다.',
+          fieldErrors: { mode: ['v1에서는 RANDOM 모드만 지원합니다.'] },
+          requestId,
+          retryable: false
+        })
+      }
+      if (practiceContractVersion === 2 && input.mode === 'BOOKMARK') {
+        return createCreateErrorResponse({
+          code: 'VALIDATION_ERROR',
+          message: 'BOOKMARK 모드는 Slice 4에서 활성화됩니다.',
+          fieldErrors: { mode: ['BOOKMARK 모드는 아직 사용할 수 없습니다.'] },
           requestId,
           retryable: false
         })
@@ -468,7 +477,7 @@ export const studySessionV1Handlers = [
         ...(canonicalGuestPrincipalId ? { canonicalGuestPrincipalId } : {}),
         level: input.level,
         subject: input.subject,
-        mode: 'RANDOM',
+        mode: input.mode,
         count: input.count
       })
       const source = mockDatabase.getCanonicalStudySessionSnapshotRecord(
@@ -559,14 +568,6 @@ export const studySessionV1Handlers = [
         parsedParams.data.sessionId,
         inspectedGuestProof.kind === 'VERIFIED' ? inspectedGuestProof.id : null
       )
-      if (source.session.mode !== 'RANDOM') {
-        return createGetErrorResponse({
-          code: 'RESOURCE_NOT_FOUND',
-          message: '학습 세션을 찾을 수 없습니다.',
-          requestId,
-          retryable: false
-        })
-      }
       if (
         requestedPracticeContractVersion === 1 &&
         source.practiceContractVersion === 2

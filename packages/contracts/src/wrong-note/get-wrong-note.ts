@@ -112,7 +112,7 @@ export const getWrongNoteResponseSchema = z
     question: historicalReviewedQuestionSchema,
     memo: z.null(),
     lastWrongQuestionVersionId: opaqueIdSchema,
-    currentReviewQuestionVersionId: z.null()
+    currentReviewQuestionVersionId: opaqueIdSchema.nullable()
   })
   .strict()
   .superRefine((detail, context) => {

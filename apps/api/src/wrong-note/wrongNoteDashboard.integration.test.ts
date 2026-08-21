@@ -42,6 +42,7 @@ const dashboardService = createDashboardService(
 
 interface SubmittedFixture {
   readonly correct: boolean
+  readonly mode: 'RANDOM' | 'WRONG_NOTE'
   readonly questionId: string
   readonly sessionId: string
   readonly subject: 'VOCABULARY' | 'GRAMMAR' | 'READING'
@@ -133,9 +134,62 @@ const submitRandomSession = async (
 
   const fixture = {
     correct,
+    mode: 'RANDOM',
     questionId: material.questionId,
     sessionId: created.session.id,
     subject,
+    submittedAt,
+    userId: owner.userId
+  } satisfies SubmittedFixture
+  submittedFixtures.push(fixture)
+  return fixture
+}
+
+const submitWrongNoteSession = async (
+  owner: Extract<ExistingStudyOwner, { kind: 'USER' }>,
+  submittedAt: Date
+): Promise<SubmittedFixture> => {
+  const startedAt = new Date(submittedAt.getTime() - 1_000)
+  const created = await sessionRepository.create({
+    level: 'N5',
+    subject: 'VOCABULARY',
+    mode: 'WRONG_NOTE',
+    owner,
+    requestedCount: 1,
+    practiceContractVersion: 2,
+    startedAt,
+    expiresAt: new Date(startedAt.getTime() + DAY_MILLISECONDS)
+  })
+  const material = await database.client.studySessionQuestion.findFirstOrThrow({
+    where: { studySessionId: created.session.id },
+    select: { id: true, questionId: true }
+  })
+  await createStudySubmissionService(
+    submissionRepository,
+    () => submittedAt
+  ).submit(
+    created.session.id,
+    randomUUID(),
+    {
+      answers: [
+        {
+          studySessionQuestionId: material.id,
+          selectedOptionId: null,
+          elapsedSec: 0
+        }
+      ],
+      durationSec: 0,
+      expectedDraftRevision: 0
+    },
+    owner,
+    2
+  )
+  const fixture = {
+    correct: false,
+    mode: 'WRONG_NOTE',
+    questionId: material.questionId,
+    sessionId: created.session.id,
+    subject: 'VOCABULARY',
     submittedAt,
     userId: owner.userId
   } satisfies SubmittedFixture
@@ -204,6 +258,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     for (const [subject, submittedAt, correct] of plan) {
       await submitRandomSession(owner, subject, new Date(submittedAt), correct)
     }
+    await submitWrongNoteSession(owner, new Date('2026-08-16T03:00:00.000Z'))
     await submitRandomSession(
       { kind: 'USER', userId: foreignUserId },
       'VOCABULARY',
@@ -353,7 +408,9 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     const detail = toWrongNoteDetail(rawDetail)
     expect(detail.wrongNote.reviewAvailability).toBe('ARCHIVED')
     expect(detail.memo).toBeNull()
-    expect(detail.currentReviewQuestionVersionId).toBeNull()
+    expect(detail.currentReviewQuestionVersionId).toBe(
+      detail.lastWrongQuestionVersionId
+    )
     expect(detail.lastWrongQuestionVersionId).toBe(
       detail.question.questionVersionId
     )
@@ -375,7 +432,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
   })
 
-  it('dashboard는 RANDOM activity range와 all-time WrongNote snapshot을 분리한다', async () => {
+  it('dashboard는 all-mode activity range와 all-time WrongNote snapshot을 분리한다', async () => {
     const storedUtcSessions = await database.client.$queryRaw<
       { id: string; submittedAtUtc: string }[]
     >`
@@ -388,7 +445,6 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       FROM "StudySession" AS session
       WHERE session."userId" = ${ownerUserId}::uuid
         AND session."status" = 'SUBMITTED'::"StudySessionStatus"
-        AND session."mode" = 'RANDOM'::"StudyMode"
         AND session."submittedAt" IS NOT NULL
       ORDER BY session."id"`
     expect(storedUtcSessions).toEqual(
@@ -427,9 +483,9 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       .reduce((total, row) => total + row._count._all, 0)
 
     expect(full).toMatchObject({
-      totalAnsweredCount: 9,
+      totalAnsweredCount: 10,
       correctCount: 3,
-      correctRate: 33.33,
+      correctRate: 30,
       weakestSubject: 'READING',
       wrongNoteCount: totalNotes,
       solvedWrongNoteCount: solvedNotes
@@ -437,9 +493,9 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     expect(full.subjectStats).toEqual([
       {
         subject: 'VOCABULARY',
-        answeredCount: 3,
+        answeredCount: 4,
         correctCount: 1,
-        correctRate: 33.33
+        correctRate: 25
       },
       {
         subject: 'GRAMMAR',
@@ -455,7 +511,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       }
     ])
     expect(full.dailyStudyCountLast7Days.map(({ count }) => count)).toEqual([
-      1, 1, 1, 1, 2, 2, 1
+      1, 1, 1, 1, 2, 2, 2
     ])
     const expectedRecent = submittedFixtures
       .filter(({ userId }) => userId === ownerUserId)
@@ -467,16 +523,23 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       .slice(0, 5)
       .map(({ sessionId }) => sessionId)
     expect(full.recentStudySessions.map(({ id }) => id)).toEqual(expectedRecent)
+    expect(
+      full.recentStudySessions.find(
+        ({ id }) =>
+          id ===
+          submittedFixtures.find(({ mode }) => mode === 'WRONG_NOTE')?.sessionId
+      )?.mode
+    ).toBe('WRONG_NOTE')
     expect(full.repeatedWrongQuestions).toHaveLength(Math.min(5, totalNotes))
     expect(ranged).toMatchObject({
-      totalAnsweredCount: 5,
+      totalAnsweredCount: 6,
       correctCount: 2,
-      correctRate: 40,
+      correctRate: 33.33,
       wrongNoteCount: full.wrongNoteCount,
       solvedWrongNoteCount: full.solvedWrongNoteCount
     })
     expect(ranged.dailyStudyCountLast7Days.map(({ count }) => count)).toEqual([
-      0, 0, 0, 0, 2, 2, 1
+      0, 0, 0, 0, 2, 2, 2
     ])
     expect(foreign).toMatchObject({
       totalAnsweredCount: 1,

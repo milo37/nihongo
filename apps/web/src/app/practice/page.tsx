@@ -16,6 +16,7 @@ import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/stu
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
+import { isNoEligibleQuestionsApiError } from '@util/apiError'
 
 const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjects: Array<{ value: QuestionSubject; label: string }> = [
@@ -45,13 +46,19 @@ const modes: Array<{
   {
     value: 'WEAKNESS',
     label: '약점 추천',
-    description: '최근 정답률이 낮은 문제 유형을 우선합니다.',
+    description: '최근 제출에서 안정적으로 자주 틀린 문제를 우선합니다.',
     requiresLogin: false
   },
   {
     value: 'BOOKMARK',
     label: '즐겨찾기',
     description: '저장한 문제만 모아 다시 풉니다.',
+    requiresLogin: true
+  },
+  {
+    value: 'DAILY_REVIEW',
+    label: '오늘의 복습',
+    description: '서버 일정상 오늘 복습할 오답을 순서대로 풉니다.',
     requiresLogin: true
   }
 ]
@@ -74,12 +81,22 @@ const getInitialCount = (value: string | null): 5 | 10 | 20 => {
     : 10
 }
 
-const getInitialMode = (
-  _value: string | null,
-  _role: 'GUEST' | 'USER' | 'ADMIN'
-): StudyMode => {
-  return 'RANDOM'
+const getRequestedMode = (value: string | null): StudyMode => {
+  const requested = modes.find((item) => item.value === value)
+  if (!requested || requested.value === 'BOOKMARK') {
+    return 'RANDOM'
+  }
+  return requested.value
 }
+
+const getAllowedMode = (
+  requested: StudyMode,
+  role: 'GUEST' | 'USER' | 'ADMIN'
+): StudyMode =>
+  (requested === 'WRONG_NOTE' || requested === 'DAILY_REVIEW') &&
+  role === 'GUEST'
+    ? 'RANDOM'
+    : requested
 
 export const PracticePage = (): ReactElement => {
   const navigate = useNavigate()
@@ -98,9 +115,10 @@ export const PracticePage = (): ReactElement => {
   const [count, setCount] = useState<5 | 10 | 20>(() =>
     getInitialCount(searchParams.get('count'))
   )
-  const [mode, setMode] = useState<StudyMode>(() =>
-    getInitialMode(searchParams.get('mode'), role)
+  const [requestedMode, setRequestedMode] = useState<StudyMode>(() =>
+    getRequestedMode(searchParams.get('mode'))
   )
+  const mode = getAllowedMode(requestedMode, role)
   const createSession = useCreateStudySession()
   const principalScope = getStudyDraftPrincipalScope(user)
   const canLoadResumableSessions =
@@ -120,6 +138,8 @@ export const PracticePage = (): ReactElement => {
     : resumablePage
   const cancelSession = useCancelStudySession(principalScope)
   const isCreatingSession = createSession.isPending || createSession.isPaused
+  const noEligibleQuestions =
+    createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
 
   useEffect(() => {
     if (
@@ -137,11 +157,12 @@ export const PracticePage = (): ReactElement => {
   }, [resumablePage, resumablePageCount, resumableSessions.data])
 
   const handleStart = (): void => {
-    if (isCreatingSession) {
-      return
-    }
-
-    if (mode !== 'RANDOM') {
+    if (
+      !isReady ||
+      isCreatingSession ||
+      mode === 'BOOKMARK' ||
+      ((mode === 'WRONG_NOTE' || mode === 'DAILY_REVIEW') && role === 'GUEST')
+    ) {
       return
     }
 
@@ -224,8 +245,7 @@ export const PracticePage = (): ReactElement => {
           </div>
         ) : resumableSessions.data.items.length === 0 ? (
           <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
-            저장된 진행 중 작업본이 없습니다. 아래에서 새 RANDOM 학습을 시작해
-            주세요.
+            저장된 진행 중 작업본이 없습니다. 아래에서 새 학습을 시작해 주세요.
           </p>
         ) : (
           <>
@@ -243,6 +263,10 @@ export const PracticePage = (): ReactElement => {
                       {item.level} ·{' '}
                       {subjects.find(({ value }) => value === item.subject)
                         ?.label ?? item.subject}
+                    </p>
+                    <p className="mt-1 text-xs font-black tracking-wide text-brand">
+                      {modes.find(({ value }) => value === item.mode)?.label ??
+                        item.mode}
                     </p>
                     <p className="mt-1 text-sm leading-6 text-muted">
                       {item.actualCount}문제 · 현재 {item.currentOrdinal ?? 1}번
@@ -322,7 +346,10 @@ export const PracticePage = (): ReactElement => {
                 type="button"
                 aria-pressed={level === option}
                 data-selected={level === option}
-                onClick={() => setLevel(option)}
+                onClick={() => {
+                  createSession.reset()
+                  setLevel(option)
+                }}
               >
                 {option}
               </button>
@@ -340,7 +367,10 @@ export const PracticePage = (): ReactElement => {
                 type="button"
                 aria-pressed={subject === option.value}
                 data-selected={subject === option.value}
-                onClick={() => setSubject(option.value)}
+                onClick={() => {
+                  createSession.reset()
+                  setSubject(option.value)
+                }}
               >
                 {option.label}
               </button>
@@ -358,7 +388,10 @@ export const PracticePage = (): ReactElement => {
                 type="button"
                 aria-pressed={count === option}
                 data-selected={count === option}
-                onClick={() => setCount(option)}
+                onClick={() => {
+                  createSession.reset()
+                  setCount(option)
+                }}
               >
                 {option}문제
               </button>
@@ -370,8 +403,9 @@ export const PracticePage = (): ReactElement => {
           <legend className="text-lg font-black">4. 출제 모드</legend>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {modes.map((option) => {
-              const isUnavailableInCurrentSlice = option.value !== 'RANDOM'
+              const isUnavailableInCurrentSlice = option.value === 'BOOKMARK'
               const disabled =
+                !isReady ||
                 isUnavailableInCurrentSlice ||
                 (option.requiresLogin && role === 'GUEST')
               return (
@@ -382,7 +416,10 @@ export const PracticePage = (): ReactElement => {
                   disabled={disabled}
                   aria-pressed={mode === option.value}
                   data-selected={mode === option.value}
-                  onClick={() => setMode(option.value)}
+                  onClick={() => {
+                    createSession.reset()
+                    setRequestedMode(option.value)
+                  }}
                 >
                   <strong className="block">{option.label}</strong>
                   <span className="mt-1 block text-sm leading-6 text-muted">
@@ -390,7 +427,7 @@ export const PracticePage = (): ReactElement => {
                   </span>
                   {isUnavailableInCurrentSlice ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
-                      Slice 3에서 서버 권위 모드로 제공됩니다
+                      Slice 4에서 서버 권위 모드로 제공됩니다
                     </span>
                   ) : disabled ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
@@ -403,8 +440,36 @@ export const PracticePage = (): ReactElement => {
           </div>
         </fieldset>
 
-        {createSession.isError &&
-        !isAuthTransitionSupersededError(createSession.error) ? (
+        {noEligibleQuestions ? (
+          <div
+            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+            role="alert"
+          >
+            <p className="font-bold">
+              현재 조건에는 출제 가능한{' '}
+              {modes.find((item) => item.value === mode)?.label} 문제가
+              없습니다.
+            </p>
+            <p className="mt-1 leading-6">
+              급수·과목·모드를 바꾸거나 랜덤 문제를 선택해 주세요. 서버가 다른
+              모드로 자동 대체하지는 않습니다.
+            </p>
+            {mode !== 'RANDOM' ? (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  createSession.reset()
+                  setRequestedMode('RANDOM')
+                }}
+              >
+                랜덤 문제 선택
+              </Button>
+            ) : null}
+          </div>
+        ) : createSession.isError &&
+          !isAuthTransitionSupersededError(createSession.error) ? (
           <div
             className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
             role="alert"
@@ -416,8 +481,7 @@ export const PracticePage = (): ReactElement => {
 
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
-            현재 Slice 2에서는 mock/real 모두 RANDOM만 제공하며, 다른 모드로
-            자동 대체하지 않습니다.
+            Slice 3 모드는 후보가 부족해도 다른 모드로 자동 대체하지 않습니다.
             {role === 'GUEST' ? (
               <>
                 {' '}
@@ -432,6 +496,7 @@ export const PracticePage = (): ReactElement => {
           </p>
           <Button
             className="shrink-0"
+            disabled={!isReady || mode === 'BOOKMARK'}
             isLoading={isCreatingSession}
             size="lg"
             onClick={handleStart}

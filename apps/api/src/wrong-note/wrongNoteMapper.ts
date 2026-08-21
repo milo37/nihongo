@@ -59,11 +59,6 @@ const assertReadableRecord = (record: WrongNoteReadRecord): void => {
       'WrongNote is missing its required ReviewSchedule.'
     )
   }
-  if (record.currentReviewQuestionVersionId !== null) {
-    throw new WrongNoteMapperIntegrityError(
-      'Slice 5 cannot expose a future current review version.'
-    )
-  }
   if (
     record.question.id !== record.questionId ||
     record.question.questionVersionId.length === 0
@@ -152,7 +147,7 @@ export const toWrongNoteDetail = (
     question,
     memo: null,
     lastWrongQuestionVersionId: record.question.questionVersionId,
-    currentReviewQuestionVersionId: null
+    currentReviewQuestionVersionId: record.currentReviewQuestionVersionId
   }
 }
 

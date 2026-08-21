@@ -16,13 +16,26 @@ interface Credentials {
 interface CreatedQuestion {
   sessionQuestionId: string
   question: {
+    id: string
     options: Array<{ id: string }>
   }
 }
 
 interface CreatedSession {
   questions: CreatedQuestion[]
-  session: { id: string }
+  session: {
+    actualCount: number
+    fallbackReason: string | null
+    id: string
+    mode: string
+    requestedCount: number
+    usedFallback: boolean
+  }
+}
+
+interface Slice3SelectionFixture {
+  recentQuestionIds: [string, string, string]
+  weaknessQuestionId: string
 }
 
 interface DraftSnapshot {
@@ -54,6 +67,25 @@ const userB = readCredentials('B')
 const userD = readCredentials('D')
 const schemaName = process.env.SLICE2_E2E_SCHEMA
 const authenticatedStorage = new Map<string, BrowserStorageState>()
+
+const readSlice3SelectionFixture = (): Slice3SelectionFixture => {
+  const serialized = process.env.SLICE3_E2E_SELECTION
+  if (!serialized) {
+    throw new Error('Slice 3 E2E selection fixture is missing.')
+  }
+  const candidate = JSON.parse(serialized) as Partial<Slice3SelectionFixture>
+  if (
+    !Array.isArray(candidate.recentQuestionIds) ||
+    candidate.recentQuestionIds.length !== 3 ||
+    candidate.recentQuestionIds.some((id) => typeof id !== 'string') ||
+    typeof candidate.weaknessQuestionId !== 'string'
+  ) {
+    throw new Error('Slice 3 E2E selection fixture is invalid.')
+  }
+  return candidate as Slice3SelectionFixture
+}
+
+const slice3Selection = readSlice3SelectionFixture()
 
 if (!/^phase4_slice2_e2e_[0-9]+_[a-f0-9]{8}_test$/.test(schemaName ?? '')) {
   throw new Error('The isolated Slice 2 E2E schema marker is missing.')
@@ -96,6 +128,50 @@ const createSession = async (page: Page): Promise<CreatedSession> => {
   expect(result.status).toBe(201)
   expect(result.body.questions).toHaveLength(5)
   return result.body
+}
+
+const startSessionFromSetup = async (
+  page: Page,
+  modeName: '랜덤 문제' | '약점 추천' | '오답 문제' | '오늘의 복습'
+): Promise<CreatedSession> => {
+  await page.goto('/practice')
+  await page.getByRole('button', { exact: true, name: 'N5' }).click()
+  await page.getByRole('button', { exact: true, name: '문자·어휘' }).click()
+  await page.getByRole('button', { exact: true, name: '20문제' }).click()
+  await page.getByRole('button', { name: new RegExp(`^${modeName}`) }).click()
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return (
+      response.request().method() === 'POST' &&
+      url.pathname === '/api/v1/study-sessions'
+    )
+  })
+  await page.getByRole('button', { name: '학습 시작하기' }).click()
+  const response = await responsePromise
+  expect(response.status()).toBe(201)
+  const created = (await response.json()) as CreatedSession
+  await expect(page).toHaveURL(
+    new RegExp(`/practice/session/${created.session.id}$`)
+  )
+  return created
+}
+
+const cancelCreatedSession = async (
+  page: Page,
+  sessionId: string
+): Promise<void> => {
+  const status = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/v1/study-sessions/${id}/cancellation`, {
+      body: '{}',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nihongo-Practice-Contract': '2'
+      },
+      method: 'POST'
+    })
+    return response.status
+  }, sessionId)
+  expect(status).toBe(204)
 }
 
 const getDraft = async (
@@ -817,6 +893,161 @@ test.describe.serial('Slice 2 real practice flow', () => {
     } finally {
       await first.context.close()
       await second.context.close()
+    }
+  })
+
+  test('Slice 3 USER modes preserve recent ordering and exact mode-owned candidates', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userB)
+    const { context, page } = authenticated
+
+    try {
+      const random = await startSessionFromSetup(page, '랜덤 문제')
+      const randomQuestionIds = random.questions.map(
+        ({ question }) => question.id
+      )
+      const recentIds = new Set(slice3Selection.recentQuestionIds)
+      const firstRecentIndex = randomQuestionIds.findIndex((id) =>
+        recentIds.has(id)
+      )
+
+      expect(random.session).toMatchObject({
+        actualCount: 5,
+        fallbackReason: null,
+        mode: 'RANDOM',
+        requestedCount: 20,
+        usedFallback: false
+      })
+      expect(new Set(randomQuestionIds).size).toBe(randomQuestionIds.length)
+      expect(firstRecentIndex).toBe(2)
+      expect(
+        randomQuestionIds
+          .slice(0, firstRecentIndex)
+          .every((id) => !recentIds.has(id))
+      ).toBe(true)
+      expect(new Set(randomQuestionIds.slice(firstRecentIndex))).toEqual(
+        recentIds
+      )
+      await expect(
+        page.getByText(/다른 모드로 대체하지 않았습니다/u)
+      ).toBeVisible()
+      await cancelCreatedSession(page, random.session.id)
+
+      const weakness = await startSessionFromSetup(page, '약점 추천')
+      expect(weakness.session).toMatchObject({
+        actualCount: 1,
+        fallbackReason: null,
+        mode: 'WEAKNESS',
+        requestedCount: 20,
+        usedFallback: false
+      })
+      expect(weakness.questions.map(({ question }) => question.id)).toEqual([
+        slice3Selection.weaknessQuestionId
+      ])
+      await expect(
+        page.getByText(/다른 모드로 대체하지 않았습니다/u)
+      ).toBeVisible()
+      await cancelCreatedSession(page, weakness.session.id)
+
+      for (const mode of [
+        { apiMode: 'WRONG_NOTE', label: '오답 문제' },
+        { apiMode: 'DAILY_REVIEW', label: '오늘의 복습' }
+      ] as const) {
+        const created = await startSessionFromSetup(page, mode.label)
+        expect(created.session).toMatchObject({
+          actualCount: 3,
+          fallbackReason: null,
+          mode: mode.apiMode,
+          requestedCount: 20,
+          usedFallback: false
+        })
+        expect(
+          new Set(created.questions.map(({ question }) => question.id))
+        ).toEqual(recentIds)
+        await expect(
+          page.getByText(/다른 모드로 대체하지 않았습니다/u)
+        ).toBeVisible()
+        await cancelCreatedSession(page, created.session.id)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Slice 3 guest policy keeps protected modes closed and clears a stale empty-state error', async ({
+    browser
+  }) => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+
+    try {
+      await page.goto('/practice')
+      await expect(
+        page.getByRole('button', { name: /^약점 추천/u })
+      ).toBeEnabled()
+      await expect(
+        page.getByRole('button', { name: /^오답 문제/u })
+      ).toBeDisabled()
+      await expect(
+        page.getByRole('button', { name: /^오늘의 복습/u })
+      ).toBeDisabled()
+      await expect(
+        page.getByRole('button', { name: /^즐겨찾기/u })
+      ).toBeDisabled()
+
+      await page.getByRole('button', { exact: true, name: 'N5' }).click()
+      await page.getByRole('button', { exact: true, name: '문자·어휘' }).click()
+      await page.getByRole('button', { name: /^약점 추천/u }).click()
+      const emptyResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'POST' &&
+          url.pathname === '/api/v1/study-sessions'
+        )
+      })
+      await page.getByRole('button', { name: '학습 시작하기' }).click()
+      const emptyResponse = await emptyResponsePromise
+      expect(emptyResponse.status()).toBe(404)
+      await expect(emptyResponse.json()).resolves.toMatchObject({
+        code: 'NO_ELIGIBLE_QUESTIONS'
+      })
+
+      const emptyAlert = page.getByRole('alert').filter({
+        hasText: '현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.'
+      })
+      await expect(emptyAlert).toBeVisible()
+      await emptyAlert.getByRole('button', { name: '랜덤 문제 선택' }).click()
+      await expect(emptyAlert).toBeHidden()
+      await expect(
+        page.getByRole('button', { name: /^랜덤 문제/u })
+      ).toHaveAttribute('aria-pressed', 'true')
+
+      const bookmarkResult = await page.evaluate(async () => {
+        const response = await fetch('/api/v1/study-sessions', {
+          body: JSON.stringify({
+            count: 5,
+            level: 'N5',
+            mode: 'BOOKMARK',
+            subject: 'VOCABULARY'
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Nihongo-Practice-Contract': '2'
+          },
+          method: 'POST'
+        })
+        return {
+          body: (await response.json()) as { code?: string },
+          status: response.status
+        }
+      })
+      expect(bookmarkResult).toEqual({
+        body: expect.objectContaining({ code: 'VALIDATION_ERROR' }),
+        status: 422
+      })
+    } finally {
+      await context.close()
     }
   })
 

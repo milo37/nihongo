@@ -245,7 +245,7 @@ describe('real API Query and feature cutover', () => {
         count: 1,
         questionIds: [crypto.randomUUID()]
       })
-    ).rejects.toThrow('RANDOM')
+    ).rejects.toThrow('문항 ID 직접 선택은 Slice 5 전까지 지원하지 않습니다.')
     await expect(client.fetchQuery(bookmarkQueries.list())).rejects.toThrow(
       '즐겨찾기'
     )

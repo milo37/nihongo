@@ -1,14 +1,17 @@
 import {
   createStudySessionErrorSchema,
   createStudySessionResponseSchema,
+  createStudySessionV2ResponseSchema,
   type CreateStudySessionBody,
-  type CreateStudySessionResponse
+  type CreateStudySessionResponse,
+  type CreateStudySessionV2Response
 } from '@nihongo/contracts/study/create-study-session'
 import {
   getStudySessionErrorSchema,
   getStudySessionResponseSchema
 } from '@nihongo/contracts/study/get-study-session'
-import { describe, expect, it } from 'vitest'
+import { submitStudySessionV2ResponseSchema } from '@nihongo/contracts/study/submit-study-session'
+import { describe, expect, it, vi } from 'vitest'
 import { logoutUser } from '@api/auth/logoutUser'
 import { signInUser } from '@api/auth/signInUser'
 import { createStudySession } from '@api/study/createStudySession'
@@ -29,6 +32,10 @@ import { clearMockGuestPrincipalCookie } from '@/test/server'
 const CREATE_URL = 'http://localhost/api/v1/study-sessions'
 const DELETE_GUEST_URL = 'http://localhost/api/v1/guest-principal'
 const TRUSTED_WRITE_HEADERS = { Origin: 'http://localhost' }
+const PRACTICE_V2_HEADERS = {
+  ...TRUSTED_WRITE_HEADERS,
+  'X-Nihongo-Practice-Contract': '2'
+}
 const FORBIDDEN_KEYS = new Set([
   'userId',
   'guestPrincipalId',
@@ -81,6 +88,79 @@ const postCanonicalSession = async (
     response.headers.get('Set-Cookie')?.split(';', 1)[0] ?? null
 
   return { guestCookie, response, payload }
+}
+
+const requestCanonicalSessionV2 = (
+  body: CreateStudySessionBody,
+  cookie?: string
+): Promise<Response> =>
+  fetch(CREATE_URL, {
+    method: 'POST',
+    credentials: 'omit',
+    headers: {
+      ...PRACTICE_V2_HEADERS,
+      'Content-Type': 'application/json',
+      ...(cookie ? { Cookie: cookie } : {})
+    },
+    body: JSON.stringify(body)
+  })
+
+const postCanonicalSessionV2 = async (
+  body: CreateStudySessionBody,
+  cookie?: string
+): Promise<{
+  guestCookie: string | null
+  response: Response
+  payload: CreateStudySessionV2Response
+}> => {
+  const response = await requestCanonicalSessionV2(body, cookie)
+  const payload = createStudySessionV2ResponseSchema.parse(
+    await response.json()
+  )
+  const guestCookie =
+    response.headers.get('Set-Cookie')?.split(';', 1)[0] ?? null
+
+  return { guestCookie, response, payload }
+}
+
+const submitCanonicalSessionV2Incorrect = async (
+  created: CreateStudySessionV2Response,
+  cookie?: string
+): Promise<void> => {
+  const response = await fetch(
+    `${CREATE_URL}/${created.session.id}/submission`,
+    {
+      method: 'POST',
+      credentials: 'omit',
+      headers: {
+        ...PRACTICE_V2_HEADERS,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': crypto.randomUUID(),
+        ...(cookie ? { Cookie: cookie } : {})
+      },
+      body: JSON.stringify({
+        answers: created.questions.map(({ sessionQuestionId }) => ({
+          studySessionQuestionId: sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0,
+        expectedDraftRevision: 0
+      })
+    }
+  )
+  const result = submitStudySessionV2ResponseSchema.parse(await response.json())
+
+  expect(response.status).toBe(201)
+  expect(result).toMatchObject({
+    sessionId: created.session.id,
+    mode: 'RANDOM',
+    totalCount: created.questions.length,
+    correctCount: 0,
+    incorrectCount: created.questions.length,
+    correctRate: 0,
+    durationSec: 0
+  })
 }
 
 const getCanonicalSession = async (
@@ -456,7 +536,7 @@ describe('canonical study session v1 MSW integration', () => {
     ).toBe('UNTRUSTED_ORIGIN')
   })
 
-  it.each(['WRONG_NOTE', 'WEAKNESS', 'BOOKMARK'] as const)(
+  it.each(['WRONG_NOTE', 'WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW'] as const)(
     '%s 모드를 canonical 422로 거부한다',
     async (mode) => {
       const response = await fetch(CREATE_URL, {
@@ -480,6 +560,192 @@ describe('canonical study session v1 MSW integration', () => {
       expect(error.fieldErrors).toHaveProperty('mode')
     }
   )
+
+  it('v2 USER가 자기 오답에서 WRONG_NOTE와 due DAILY_REVIEW를 생성한다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-18T00:00:00.000Z'))
+
+    try {
+      await signInUser({
+        email: 'user@example.com',
+        password: 'Demo-user-2026!'
+      })
+
+      const history = await postCanonicalSessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 20
+      })
+      await submitCanonicalSessionV2Incorrect(history.payload)
+      const expectedQuestionIds = new Set(
+        history.payload.questions.map(({ question }) => question.id)
+      )
+
+      const wrongNote = await postCanonicalSessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WRONG_NOTE',
+        count: 20
+      })
+      expect(wrongNote.response.status).toBe(201)
+      expectCanonicalHeaders(wrongNote.response)
+      expect(
+        wrongNote.response.headers.get('X-Nihongo-Practice-Contract')
+      ).toBe('2')
+      expect(wrongNote.payload.session).toMatchObject({
+        mode: 'WRONG_NOTE',
+        requestedCount: 20,
+        actualCount: 5,
+        usedFallback: false,
+        fallbackReason: null,
+        practiceContractVersion: 2
+      })
+      expect(
+        new Set(wrongNote.payload.questions.map(({ question }) => question.id))
+      ).toEqual(expectedQuestionIds)
+
+      vi.setSystemTime(new Date('2026-08-19T00:00:00.001Z'))
+      const dailyReview = await postCanonicalSessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'DAILY_REVIEW',
+        count: 20
+      })
+      expect(dailyReview.response.status).toBe(201)
+      expectCanonicalHeaders(dailyReview.response)
+      expect(dailyReview.payload.session).toMatchObject({
+        mode: 'DAILY_REVIEW',
+        requestedCount: 20,
+        actualCount: 5,
+        usedFallback: false,
+        fallbackReason: null,
+        practiceContractVersion: 2
+      })
+      expect(
+        new Set(
+          dailyReview.payload.questions.map(({ question }) => question.id)
+        )
+      ).toEqual(expectedQuestionIds)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('v2 guest 정책과 retained WEAKNESS owner를 transport 경계에서 보존한다', async () => {
+    for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW'] as const) {
+      const response = await requestCanonicalSessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode,
+        count: 1
+      })
+      const error = createStudySessionErrorSchema.parse(await response.json())
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('Set-Cookie')).toBeNull()
+      expect(error).toMatchObject({
+        code: 'AUTHENTICATION_REQUIRED',
+        message: '로그인이 필요합니다.',
+        retryable: false
+      })
+    }
+
+    const bookmarkResponse = await requestCanonicalSessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'BOOKMARK',
+      count: 1
+    })
+    const bookmarkError = createStudySessionErrorSchema.parse(
+      await bookmarkResponse.json()
+    )
+
+    expect(bookmarkResponse.status).toBe(422)
+    expect(bookmarkResponse.headers.get('Set-Cookie')).toBeNull()
+    expect(bookmarkError).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'BOOKMARK 모드는 Slice 4에서 활성화됩니다.',
+      fieldErrors: {
+        mode: ['BOOKMARK 모드는 아직 사용할 수 없습니다.']
+      },
+      retryable: false
+    })
+
+    const emptyResponse = await requestCanonicalSessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WEAKNESS',
+      count: 20
+    })
+    const emptyError = createStudySessionErrorSchema.parse(
+      await emptyResponse.json()
+    )
+
+    expect(emptyResponse.status).toBe(404)
+    expect(emptyResponse.headers.get('Set-Cookie')).toBeNull()
+    expect(emptyError).toMatchObject({
+      code: 'NO_ELIGIBLE_QUESTIONS',
+      message: '선택한 조건에 출제 가능한 문제가 없습니다.',
+      retryable: false
+    })
+
+    let retainedCookie: string | null = null
+    let expectedQuestionIds = new Set<string>()
+
+    for (let index = 0; index < 3; index += 1) {
+      const history = await postCanonicalSessionV2(
+        {
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'RANDOM',
+          count: 20
+        },
+        retainedCookie ?? undefined
+      )
+
+      if (index === 0) {
+        retainedCookie = requireGuestCookie(history.guestCookie)
+        expectedQuestionIds = new Set(
+          history.payload.questions.map(({ question }) => question.id)
+        )
+      } else {
+        expect(history.guestCookie).toBeNull()
+      }
+
+      await submitCanonicalSessionV2Incorrect(
+        history.payload,
+        requireGuestCookie(retainedCookie)
+      )
+    }
+
+    const weakness = await postCanonicalSessionV2(
+      {
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WEAKNESS',
+        count: 20
+      },
+      requireGuestCookie(retainedCookie)
+    )
+
+    expect(weakness.response.status).toBe(201)
+    expect(weakness.response.headers.get('X-Nihongo-Practice-Contract')).toBe(
+      '2'
+    )
+    expect(weakness.guestCookie).toBeNull()
+    expect(weakness.payload.session).toMatchObject({
+      mode: 'WEAKNESS',
+      requestedCount: 20,
+      actualCount: 5,
+      usedFallback: false,
+      fallbackReason: null,
+      practiceContractVersion: 2
+    })
+    expect(
+      new Set(weakness.payload.questions.map(({ question }) => question.id))
+    ).toEqual(expectedQuestionIds)
+  })
 
   it('explicitQuestionIds를 canonical 422로 거부한다', async () => {
     const response = await fetch(CREATE_URL, {

@@ -940,8 +940,10 @@ export const PracticeSessionPage = (): ReactElement => {
           role="status"
         >
           {actualCount < requestedCount
-            ? `요청한 ${requestedCount}문제 중 출제 가능한 ${actualCount}문제를 제공합니다.`
-            : '선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공합니다.'}
+            ? `요청한 ${requestedCount}문제 중 ${modeLabels[session.mode]} 모드로 출제 가능한 ${actualCount}문제만 제공합니다. 다른 모드로 대체하지 않았습니다.`
+            : session.practiceContractVersion === 1
+              ? '레거시 세션에서 선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공합니다.'
+              : '서버 권위 세션은 다른 모드로 대체하지 않습니다.'}
         </div>
       ) : null}
 

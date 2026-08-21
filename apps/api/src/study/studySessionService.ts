@@ -75,19 +75,38 @@ export const createStudySessionService = (
   now: () => Date = () => new Date()
 ): StudySessionService => ({
   create: async (input, owner, requestedContractVersion = 1) => {
-    if (input.mode !== 'RANDOM') {
+    if (requestedContractVersion === 1 && input.mode !== 'RANDOM') {
       throw new ApplicationError({
         code: 'VALIDATION_ERROR',
-        message: '현재 RANDOM 출제 모드만 사용할 수 있습니다.',
-        fieldErrors: { mode: ['현재 RANDOM 모드만 지원합니다.'] },
+        message: 'v1 practice contract는 RANDOM 모드만 지원합니다.',
+        fieldErrors: { mode: ['v1에서는 RANDOM 모드만 지원합니다.'] },
+        retryable: false
+      })
+    }
+    if (input.mode === 'BOOKMARK') {
+      throw new ApplicationError({
+        code: 'VALIDATION_ERROR',
+        message: 'BOOKMARK 모드는 Slice 4에서 활성화됩니다.',
+        fieldErrors: { mode: ['BOOKMARK 모드는 아직 사용할 수 없습니다.'] },
+        retryable: false
+      })
+    }
+    if (
+      (input.mode === 'WRONG_NOTE' || input.mode === 'DAILY_REVIEW') &&
+      owner.kind !== 'USER'
+    ) {
+      throw new ApplicationError({
+        code: 'AUTHENTICATION_REQUIRED',
+        message: '이 출제 모드는 로그인이 필요합니다.',
         retryable: false
       })
     }
     return await withRepositoryErrors(async () => {
       const startedAt = now()
-      const created = await repository.createRandom({
+      const created = await repository.create({
         level: input.level,
         subject: input.subject,
+        mode: input.mode,
         requestedCount: input.count,
         startedAt,
         expiresAt: new Date(startedAt.getTime() + STUDY_SESSION_TTL_MS),

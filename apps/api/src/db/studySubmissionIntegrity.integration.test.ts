@@ -103,7 +103,8 @@ const loadQuestion = async (): Promise<QuestionFixture> => {
 const createSession = async (
   userId: string,
   question: QuestionFixture,
-  startedAt: Date
+  startedAt: Date,
+  mode: 'RANDOM' | 'WEAKNESS' | 'WRONG_NOTE' | 'DAILY_REVIEW' = 'RANDOM'
 ): Promise<SessionFixture> => {
   const id = randomUUID()
   const itemId = randomUUID()
@@ -114,10 +115,10 @@ const createSession = async (
         "requestedCount", "actualCount", "usedFallback", "startedAt",
         "expiresAt", "createdAt", "updatedAt"
       ) VALUES (
-        $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
+        $1, $2, 'N5', 'VOCABULARY', $5, 'IN_PROGRESS',
         1, 1, false, $3, $4, $3, $3
       )`,
-      [id, userId, startedAt, addMilliseconds(startedAt, 7 * DAY_MS)]
+      [id, userId, startedAt, addMilliseconds(startedAt, 7 * DAY_MS), mode]
     )
     await client.query(
       `INSERT INTO "StudySessionQuestion" (
@@ -393,7 +394,10 @@ describe('Slice 4 submission integrity follow-up', () => {
     const result = await client.query<{
       checkDefinition: string
       eventFunction: string
+      nullConstraintCount: number
       snapshotFunction: string
+      wrongNoteFunction: string
+      wrongNoteTrigger: string
     }>(
       `SELECT
         pg_get_constraintdef(constraint_row.oid) AS "checkDefinition",
@@ -402,7 +406,24 @@ describe('Slice 4 submission integrity follow-up', () => {
         ) AS "eventFunction",
         pg_get_functiondef(
           'validate_wrong_note_snapshot()'::regprocedure
-        ) AS "snapshotFunction"
+        ) AS "snapshotFunction",
+        pg_get_functiondef(
+          'validate_wrong_note_change()'::regprocedure
+        ) AS "wrongNoteFunction",
+        (
+          SELECT pg_get_triggerdef(trigger.oid)
+          FROM pg_trigger AS trigger
+          WHERE trigger.tgrelid = '"WrongNote"'::regclass
+            AND trigger.tgname = 'WrongNote_validate_change'
+            AND NOT trigger.tgisinternal
+        ) AS "wrongNoteTrigger",
+        (
+          SELECT COUNT(*)::int
+          FROM pg_constraint AS current_pointer_constraint
+          WHERE current_pointer_constraint.conrelid = '"WrongNote"'::regclass
+            AND current_pointer_constraint.conname =
+              'WrongNote_slice4_current_review_check'
+        ) AS "nullConstraintCount"
        FROM pg_constraint AS constraint_row
        WHERE constraint_row.conrelid = '"IdempotencyRecord"'::regclass
          AND constraint_row.conname = 'IdempotencyRecord_state_check'`
@@ -420,6 +441,191 @@ describe('Slice 4 submission integrity follow-up', () => {
     expect(result.rows[0]?.snapshotFunction).toContain(
       'ORDER BY event."occurredAt" DESC, event."id" DESC'
     )
+    expect(result.rows[0]?.nullConstraintCount).toBe(0)
+    expect(result.rows[0]?.wrongNoteFunction).toContain(
+      'WrongNote current review pointer cannot return to null.'
+    )
+    expect(result.rows[0]?.wrongNoteFunction).toContain(
+      'FOR SHARE OF question, version'
+    )
+    expect(result.rows[0]?.wrongNoteTrigger).toContain(
+      'BEFORE INSERT OR DELETE OR UPDATE'
+    )
+    expect(result.rows[0]?.eventFunction).toContain(
+      "evidence_mode NOT IN ('WRONG_NOTE', 'DAILY_REVIEW')"
+    )
+    expect(result.rows[0]?.eventFunction).toContain(
+      "evidence_mode NOT IN ('RANDOM', 'WEAKNESS', 'BOOKMARK')"
+    )
+  })
+
+  it('current review pointer의 최초 설정·null 복귀·non-current 대상을 DB에서 강제한다', async () => {
+    const userId = await createUser('slice3-pointer')
+    const question = await loadQuestion()
+    const occurredAt = new Date()
+    const first = await createInitialWrongNote(userId, question, occurredAt)
+    const before = await client.query<{ updatedAt: Date }>(
+      `SELECT "updatedAt" FROM "WrongNote" WHERE "id" = $1`,
+      [first.noteId]
+    )
+
+    await client.query(
+      `UPDATE "WrongNote"
+       SET "currentReviewQuestionVersionId" = $2
+       WHERE "id" = $1`,
+      [first.noteId, question.questionVersionId]
+    )
+    expect(
+      (
+        await client.query<{
+          currentReviewQuestionVersionId: string
+          updatedAt: Date
+        }>(
+          `SELECT
+            "currentReviewQuestionVersionId",
+            "updatedAt"
+           FROM "WrongNote"
+           WHERE "id" = $1`,
+          [first.noteId]
+        )
+      ).rows[0]
+    ).toEqual({
+      currentReviewQuestionVersionId: question.questionVersionId,
+      updatedAt: before.rows[0]?.updatedAt
+    })
+
+    await expect(
+      client.query(
+        `UPDATE "WrongNote"
+         SET "currentReviewQuestionVersionId" = NULL
+         WHERE "id" = $1`,
+        [first.noteId]
+      )
+    ).rejects.toMatchObject({
+      code: '23514',
+      message: 'WrongNote current review pointer cannot return to null.'
+    })
+
+    const draftVersionId = randomUUID()
+    await client.query(
+      `INSERT INTO "QuestionVersion" (
+        "id", "questionId", "versionNumber", "status", "level",
+        "subject", "questionType", "passage", "questionText",
+        "explanationKo", "explanationJa", "difficulty", "sourceType",
+        "rowVersion", "createdByUserId", "createdByLabelSnapshot",
+        "createdAt", "updatedAt"
+      )
+      SELECT
+        $1,
+        current."questionId",
+        (
+          SELECT MAX(version."versionNumber") + 1
+          FROM "QuestionVersion" AS version
+          WHERE version."questionId" = current."questionId"
+        ),
+        'DRAFT',
+        current."level",
+        current."subject",
+        current."questionType",
+        current."passage",
+        current."questionText" || ' draft',
+        current."explanationKo",
+        current."explanationJa",
+        current."difficulty",
+        current."sourceType",
+        1,
+        current."createdByUserId",
+        current."createdByLabelSnapshot",
+        now(),
+        now()
+      FROM "QuestionVersion" AS current
+      WHERE current."id" = $2`,
+      [draftVersionId, question.questionVersionId]
+    )
+    try {
+      await expect(
+        client.query(
+          `UPDATE "WrongNote"
+           SET "currentReviewQuestionVersionId" = $2
+           WHERE "id" = $1`,
+          [first.noteId, draftVersionId]
+        )
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'WrongNote current review pointer must target the current published version.'
+      })
+    } finally {
+      await client.query('DELETE FROM "QuestionVersion" WHERE "id" = $1', [
+        draftVersionId
+      ])
+    }
+  })
+
+  it('ReviewEvent source가 DAILY_REVIEW·RANDOM evidence mode와 어긋나면 거부한다', async () => {
+    const userId = await createUser('slice3-event-source')
+    const question = await loadQuestion()
+    const firstAt = addMilliseconds(new Date(), -2 * HOUR_MS)
+    const first = await createInitialWrongNote(userId, question, firstAt)
+
+    for (const [mode, source] of [
+      ['DAILY_REVIEW', 'STUDY_SUBMIT'],
+      ['RANDOM', 'WRONG_NOTE_REVIEW']
+    ] as const) {
+      const occurredAt = addMilliseconds(firstAt, HOUR_MS)
+      const session = await createSession(
+        userId,
+        question,
+        addMilliseconds(occurredAt, -30 * 60 * 1_000),
+        mode
+      )
+      await expect(
+        transaction(async () => {
+          const answerId = randomUUID()
+          await client.query(
+            `INSERT INTO "StudyAnswer" (
+              "id", "studySessionQuestionId", "questionVersionId",
+              "selectedOptionId", "isCorrect", "elapsedSec",
+              "gradingVersion", "answeredAt", "gradedAt"
+            ) VALUES ($1, $2, $3, NULL, false, 1, $4, $5, $5)`,
+            [
+              answerId,
+              session.itemId,
+              question.questionVersionId,
+              GRADING_VERSION,
+              occurredAt
+            ]
+          )
+          await client.query(
+            `INSERT INTO "ReviewEvent" (
+              "id", "wrongNoteId", "userId", "questionId",
+              "questionVersionId", "source", "studySessionId",
+              "studyAnswerId", "selectedOptionId", "isCorrect",
+              "previousStatus", "nextStatus", "previousCorrectStreak",
+              "nextCorrectStreak", "previousWrongCount", "wrongCountAfter",
+              "algorithmVersion", "occurredAt"
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, NULL, false,
+              'NEW', 'AGAIN', 0, 0, 1, 2, 1, $9
+            )`,
+            [
+              randomUUID(),
+              first.noteId,
+              userId,
+              question.questionId,
+              question.questionVersionId,
+              source,
+              session.id,
+              answerId,
+              occurredAt
+            ]
+          )
+        })
+      ).rejects.toMatchObject({
+        code: '23514',
+        message: 'ReviewEvent evidence does not match its StudyAnswer owner.'
+      })
+    }
   })
 
   it('SUCCEEDED null status/body를 PostgreSQL CHECK에서 즉시 거부한다', async () => {

@@ -96,13 +96,19 @@ const getCookieHeader = (response: Response): string => {
 
 const postStudySession = async (
   body: Record<string, unknown>,
-  cookie?: string
+  cookie?: string,
+  practiceContractVersion?: 1 | 2
 ): Promise<Response> =>
   await app.request('/api/v1/study-sessions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Origin: origin,
+      ...(practiceContractVersion
+        ? {
+            'X-Nihongo-Practice-Contract': String(practiceContractVersion)
+          }
+        : {}),
       ...(cookie ? { Cookie: cookie } : {})
     },
     body: JSON.stringify(body)
@@ -530,6 +536,57 @@ describe('StudySession PostgreSQL vertical slice', () => {
       })
       expect(response.headers.get('Set-Cookie')).toBeNull()
     }
+    expect(await database.client.guestPrincipal.count()).toBe(beforeGuests)
+    expect(await database.client.studySession.count()).toBe(beforeSessions)
+  })
+
+  it('v2 guest mode 정책을 401/404/422로 분리하고 빈 WEAKNESS owner를 만들지 않는다', async () => {
+    const beforeGuests = await database.client.guestPrincipal.count()
+    const beforeSessions = await database.client.studySession.count()
+
+    for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW'] as const) {
+      const response = await postStudySession(
+        { level: 'N5', subject: 'VOCABULARY', mode, count: 1 },
+        undefined,
+        2
+      )
+      expect(response.status).toBe(401)
+      expect(await response.json()).toMatchObject({
+        code: 'AUTHENTICATION_REQUIRED',
+        retryable: false
+      })
+      expect(response.headers.get('Set-Cookie')).toBeNull()
+    }
+
+    const weakness = await postStudySession(
+      {
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'WEAKNESS',
+        count: 1
+      },
+      undefined,
+      2
+    )
+    expect(weakness.status).toBe(404)
+    expect(await weakness.json()).toMatchObject({
+      code: 'NO_ELIGIBLE_QUESTIONS',
+      retryable: false
+    })
+
+    const bookmark = await postStudySession(
+      {
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'BOOKMARK',
+        count: 1
+      },
+      undefined,
+      2
+    )
+    expect(bookmark.status).toBe(422)
+    expect(await bookmark.json()).toMatchObject({ code: 'VALIDATION_ERROR' })
+
     expect(await database.client.guestPrincipal.count()).toBe(beforeGuests)
     expect(await database.client.studySession.count()).toBe(beforeSessions)
   })

@@ -140,7 +140,7 @@ export const toContractWrongNoteDetail = (
   question: toContractReviewedQuestion(record),
   memo: null,
   lastWrongQuestionVersionId: record.lastWrongQuestionVersionId,
-  currentReviewQuestionVersionId: null
+  currentReviewQuestionVersionId: record.currentReviewQuestionVersionId
 })
 
 const compareRecords = (

@@ -100,6 +100,37 @@ const loadPinnedQuestion = async (): Promise<PinnedQuestionMaterial> => {
   }
 }
 
+const loadPinnedQuestions = async (
+  maximum: number
+): Promise<PinnedQuestionMaterial[]> => {
+  const questions = await database.client.question.findMany({
+    where: {
+      lifecycleStatus: 'ACTIVE',
+      currentPublishedVersion: {
+        is: { level: 'N5', subject: 'VOCABULARY', status: 'PUBLISHED' }
+      }
+    },
+    orderBy: { id: 'asc' },
+    take: maximum,
+    select: {
+      id: true,
+      currentPublishedVersion: {
+        select: { id: true, correctOptionId: true }
+      }
+    }
+  })
+  return questions.map((question) => {
+    if (!question.currentPublishedVersion?.correctOptionId) {
+      throw new Error('Pinned submission question fixture is required.')
+    }
+    return {
+      questionId: question.id,
+      questionVersionId: question.currentPublishedVersion.id,
+      correctOptionId: question.currentPublishedVersion.correctOptionId
+    }
+  })
+}
+
 const createPinnedSession = async (
   owner: ExistingStudyOwner,
   pinned: PinnedQuestionMaterial,
@@ -304,6 +335,301 @@ describe('Study submission PostgreSQL transaction', () => {
     await expect(service.getResult(session.id, owner)).resolves.toEqual(
       first.response
     )
+  })
+
+  it('WEAKNESS·WRONG_NOTE·DAILY_REVIEW를 owner facts로 선택하고 mode별 event source를 보존한다', async () => {
+    const userId = await createUser()
+    const owner = { kind: 'USER' as const, userId }
+    const pinned = await loadPinnedQuestion()
+    const baseTime = Date.now()
+
+    for (let index = 0; index < 3; index += 1) {
+      const startedAt = new Date(baseTime + index * 1_000)
+      const historical = await createPinnedSession(owner, pinned, startedAt)
+      await createStudySubmissionService(
+        submissionRepository,
+        () => new Date(startedAt.getTime() + 100)
+      ).submit(
+        historical.id,
+        randomUUID(),
+        createBody([historical.material], () => null),
+        owner
+      )
+    }
+
+    const noteBeforeSelection =
+      await database.client.wrongNote.findUniqueOrThrow({
+        where: {
+          userId_questionId: { userId, questionId: pinned.questionId }
+        },
+        select: {
+          currentReviewQuestionVersionId: true,
+          updatedAt: true,
+          wrongCount: true
+        }
+      })
+    expect(noteBeforeSelection).toMatchObject({
+      currentReviewQuestionVersionId: null,
+      wrongCount: 3
+    })
+
+    const createModeSession = async (
+      mode: 'WEAKNESS' | 'WRONG_NOTE' | 'DAILY_REVIEW',
+      offsetMilliseconds: number
+    ): Promise<StudySessionRecord> => {
+      const startedAt = new Date(baseTime + offsetMilliseconds)
+      const created = await sessionRepository.create({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode,
+        owner,
+        requestedCount: 1,
+        practiceContractVersion: 2,
+        startedAt,
+        expiresAt: new Date(startedAt.getTime() + DAY_MS)
+      })
+      expect(created.session.questions).toHaveLength(1)
+      expect(created.session.questions[0]?.question.id).toBe(pinned.questionId)
+      return created.session
+    }
+
+    const weakness = await createModeSession('WEAKNESS', 10_000)
+    const weaknessAnswer = await loadAnswerMaterial(weakness.id)
+    await createStudySubmissionService(
+      submissionRepository,
+      () => new Date(baseTime + 10_100)
+    ).submit(
+      weakness.id,
+      randomUUID(),
+      {
+        answers: weaknessAnswer.map(({ studySessionQuestionId }) => ({
+          studySessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0,
+        expectedDraftRevision: 0
+      },
+      owner,
+      2
+    )
+
+    const beforePointerUpdate =
+      await database.client.wrongNote.findUniqueOrThrow({
+        where: {
+          userId_questionId: { userId, questionId: pinned.questionId }
+        },
+        select: { updatedAt: true }
+      })
+
+    const wrongNote = await createModeSession('WRONG_NOTE', 20_000)
+    const pointerAfterWrongNote =
+      await database.client.wrongNote.findUniqueOrThrow({
+        where: {
+          userId_questionId: { userId, questionId: pinned.questionId }
+        },
+        select: { currentReviewQuestionVersionId: true, updatedAt: true }
+      })
+    expect(pointerAfterWrongNote).toEqual({
+      currentReviewQuestionVersionId: pinned.questionVersionId,
+      updatedAt: beforePointerUpdate.updatedAt
+    })
+    const wrongNoteAnswer = await loadAnswerMaterial(wrongNote.id)
+    await createStudySubmissionService(
+      submissionRepository,
+      () => new Date(baseTime + 20_100)
+    ).submit(
+      wrongNote.id,
+      randomUUID(),
+      {
+        answers: wrongNoteAnswer.map(({ studySessionQuestionId }) => ({
+          studySessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0,
+        expectedDraftRevision: 0
+      },
+      owner,
+      2
+    )
+
+    const daily = await createModeSession('DAILY_REVIEW', DAY_MS + 30_000)
+    const dailyAnswer = await loadAnswerMaterial(daily.id)
+    await createStudySubmissionService(
+      submissionRepository,
+      () => new Date(baseTime + DAY_MS + 30_100)
+    ).submit(
+      daily.id,
+      randomUUID(),
+      {
+        answers: dailyAnswer.map(({ studySessionQuestionId }) => ({
+          studySessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        })),
+        durationSec: 0,
+        expectedDraftRevision: 0
+      },
+      owner,
+      2
+    )
+
+    const events = await database.client.reviewEvent.findMany({
+      where: {
+        studySessionId: { in: [weakness.id, wrongNote.id, daily.id] }
+      },
+      orderBy: { occurredAt: 'asc' },
+      select: { source: true, studySessionId: true, questionVersionId: true }
+    })
+    expect(events).toEqual([
+      {
+        source: 'STUDY_SUBMIT',
+        studySessionId: weakness.id,
+        questionVersionId: pinned.questionVersionId
+      },
+      {
+        source: 'WRONG_NOTE_REVIEW',
+        studySessionId: wrongNote.id,
+        questionVersionId: pinned.questionVersionId
+      },
+      {
+        source: 'WRONG_NOTE_REVIEW',
+        studySessionId: daily.id,
+        questionVersionId: pinned.questionVersionId
+      }
+    ])
+    expect(
+      await database.client.wrongNote.findUniqueOrThrow({
+        where: {
+          userId_questionId: { userId, questionId: pinned.questionId }
+        },
+        select: { currentReviewQuestionVersionId: true }
+      })
+    ).toEqual({ currentReviewQuestionVersionId: pinned.questionVersionId })
+  })
+
+  it('RANDOM은 같은 owner의 최근 3개 제출 문항을 7일 경계 안에서 뒤로 보낸다', async () => {
+    const userId = await createUser()
+    const owner = { kind: 'USER' as const, userId }
+    const pinnedQuestions = await loadPinnedQuestions(20)
+    if (pinnedQuestions.length < 4) {
+      throw new Error(
+        'RANDOM repeat-avoidance에는 published 문제 4개가 필요합니다.'
+      )
+    }
+    const recentPins = pinnedQuestions.slice(0, 3)
+    const baseTime = Date.now()
+
+    for (const [index, pinned] of recentPins.entries()) {
+      const startedAt = new Date(baseTime + index * 1_000)
+      const history = await createPinnedSession(owner, pinned, startedAt)
+      await createStudySubmissionService(
+        submissionRepository,
+        () => new Date(startedAt.getTime() + 100)
+      ).submit(
+        history.id,
+        randomUUID(),
+        createBody([history.material], () => null),
+        owner
+      )
+    }
+
+    const startedAt = new Date(baseTime + 10_000)
+    const deterministicRepository = createPrismaStudySessionRepository(
+      database.client,
+      { random: () => 0 }
+    )
+    const created = await deterministicRepository.create({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      owner,
+      requestedCount: pinnedQuestions.length,
+      practiceContractVersion: 2,
+      startedAt,
+      expiresAt: new Date(startedAt.getTime() + DAY_MS)
+    })
+    const recentIds = new Set(recentPins.map(({ questionId }) => questionId))
+    const selectedIds = created.session.questions.map(
+      ({ question }) => question.id
+    )
+    const firstRecentIndex = selectedIds.findIndex((id) => recentIds.has(id))
+    const lastNonRecentIndex = selectedIds.findLastIndex(
+      (id) => !recentIds.has(id)
+    )
+
+    expect(new Set(selectedIds).size).toBe(selectedIds.length)
+    expect(firstRecentIndex).toBeGreaterThan(0)
+    expect(lastNonRecentIndex).toBeLessThan(firstRecentIndex)
+    expect(new Set(selectedIds.slice(firstRecentIndex))).toEqual(recentIds)
+    expect(created.session).toMatchObject({
+      actualCount: pinnedQuestions.length,
+      requestedCount: pinnedQuestions.length,
+      usedFallback: false
+    })
+  })
+
+  it('existing guest WEAKNESS는 같은 guest의 stable-question history만 사용한다', async () => {
+    const resolved = await guestPrincipalService.create()
+    const rawCookie = resolved.cookieValue
+    if (!rawCookie) {
+      throw new Error('Guest cookie fixture is required.')
+    }
+    createdGuestIds.add(resolved.id)
+    const inspected = guestPrincipalService.inspectCookie(rawCookie)
+    if (inspected.kind !== 'VERIFIED') {
+      throw new Error('Verified guest credential is required.')
+    }
+    const owner = {
+      kind: 'GUEST' as const,
+      guestPrincipalId: inspected.id,
+      tokenDigest: inspected.tokenDigest
+    }
+    const pinned = await loadPinnedQuestion()
+    const baseTime = Date.now()
+
+    for (let index = 0; index < 3; index += 1) {
+      const startedAt = new Date(baseTime + index * 1_000)
+      const history = await createPinnedSession(owner, pinned, startedAt)
+      await createStudySubmissionService(
+        submissionRepository,
+        () => new Date(startedAt.getTime() + 100)
+      ).submit(
+        history.id,
+        randomUUID(),
+        createBody([history.material], () => null),
+        owner
+      )
+    }
+
+    const startedAt = new Date(baseTime + 10_000)
+    const created = await sessionRepository.create({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'WEAKNESS',
+      owner,
+      requestedCount: 5,
+      practiceContractVersion: 2,
+      startedAt,
+      expiresAt: new Date(startedAt.getTime() + DAY_MS)
+    })
+
+    expect(created.issuedGuestCredential).toBeNull()
+    expect(created.session).toMatchObject({
+      mode: 'WEAKNESS',
+      requestedCount: 5,
+      actualCount: 1,
+      usedFallback: false
+    })
+    expect(created.session.questions[0]?.question.id).toBe(pinned.questionId)
+    expect(
+      await database.client.reviewEvent.count({
+        where: {
+          studySession: { guestPrincipalId: owner.guestPrincipalId }
+        }
+      })
+    ).toBe(0)
   })
 
   it('foreign USER submit/result는 존재를 숨기고 submission write를 만들지 않는다', async () => {

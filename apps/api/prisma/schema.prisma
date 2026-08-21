@@ -452,6 +452,8 @@ model WrongNote {
   @@unique([userId, questionId])
   @@unique([id, userId, questionId])
   @@index([userId, status, lastWrongAt(sort: Desc)])
+  @@index([userId, status, lastWrongAt(sort: Desc), wrongCount(sort: Desc), questionId], map: "WrongNote_user_status_lastWrongAt_wrongCount_questionId_idx")
+  @@index([userId, status, id, questionId], map: "WrongNote_userId_status_id_questionId_daily_idx")
   @@index([userId, lastWrongAt(sort: Desc)])
   @@index([userId, wrongCount(sort: Desc), lastWrongAt(sort: Desc), id])
   @@index([questionId, lastWrongQuestionVersionId])
