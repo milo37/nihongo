@@ -225,12 +225,14 @@ describe('detail page error semantics', () => {
       }
     )
 
-    await screen.findByRole('heading', {
-      name: '오답 상세를 불러오지 못했습니다'
-    })
+    expect(
+      await screen.findByRole('heading', {
+        name: '오답 상세를 불러오지 못했습니다'
+      })
+    ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
     const detailHeading = await screen.findByRole('heading', {
-      name: '오답 상세'
+      name: '마지막 오답 문제 상세'
     })
     await vi.waitFor(() => expect(detailHeading).toHaveFocus())
     expect(requestCount).toBe(2)

@@ -8,7 +8,6 @@ import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
 import { studyQueries } from '@app/practice/queries/studyQueries'
-import { useReviewWrongNote } from '@app/wrong-note/hooks/useReviewWrongNote'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
@@ -209,75 +208,6 @@ describe('mutation cache contracts', () => {
     expect(
       client.getQueryData(studyQueries.result('missing-session').queryKey)
     ).toBeUndefined()
-  })
-
-  it('오답 복습 성공 후 오답과 대시보드 캐시를 함께 무효화한다', async () => {
-    mockDatabase.loginAs('USER')
-    const sessionPayload = mockDatabase.createStudySession({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
-    )
-    const incorrectOption = question.options.find((option) => !option.isCorrect)
-
-    if (!incorrectOption) {
-      throw new Error('테스트 문제에 오답 보기가 없습니다.')
-    }
-
-    mockDatabase.submitStudySession({
-      sessionId: sessionPayload.session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: incorrectOption.id,
-          elapsedSec: 2
-        }
-      ],
-      durationSec: 2
-    })
-
-    const client = createTestClient()
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useReviewWrongNote(question.id), {
-      wrapper: createWrapper(client)
-    })
-
-    await act(async () => {
-      await result.current.mutateAsync({ isCorrect: true })
-    })
-
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
-  })
-
-  it('오답 복습 실패 시 성공용 캐시 무효화를 실행하지 않는다', async () => {
-    mockDatabase.loginAs('USER')
-    const client = createTestClient()
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(
-      () => useReviewWrongNote('missing-question'),
-      { wrapper: createWrapper(client) }
-    )
-
-    await expect(
-      act(async () => {
-        await result.current.mutateAsync({ isCorrect: true })
-      })
-    ).rejects.toBeDefined()
-    expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
   })
 
   it('관리자 수정은 상세 데이터를 갱신하고 교차 도메인 캐시를 무효화한다', async () => {

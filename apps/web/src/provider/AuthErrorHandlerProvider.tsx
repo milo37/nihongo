@@ -122,8 +122,8 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       }
 
       if (error.isValidationError) {
-        if (!__NIHONGO_PRODUCTION_BUILD__) {
-          console.error('API response validation failed', error)
+        if (!__NIHONGO_PRODUCTION_BUILD__ && error.isResponseValidationError) {
+          console.error('API response validation failed')
         }
         setBanner({
           kind: 'error',

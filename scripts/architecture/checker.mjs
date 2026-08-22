@@ -22,6 +22,10 @@ const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
   ['api/study/cancelStudySession/index.ts', 'safePostWithMetadata'],
   ['api/study/createResultRetrySession/index.ts', 'safePostWithMetadata'],
   ['api/study/createStudySessionV2/index.ts', 'safePostWithMetadata'],
+  [
+    'api/wrong-note/createTargetedReviewSession/index.ts',
+    'safePostWithMetadata'
+  ],
   ['api/study/getStudyDraftAnswers/index.ts', 'safeGetWithMetadata'],
   ['api/study/getStudySessionV2/index.ts', 'safeGetWithMetadata'],
   ['api/study/listResumableStudySessions/index.ts', 'safeGetWithMetadata'],
@@ -39,6 +43,10 @@ const METADATA_RAW_WRAPPER_NAMES = new Set([
   'postWithMetadata',
   'putWithMetadata',
   'delWithMetadata'
+])
+const LEGACY_WRONG_NOTE_MUTATION_PATHS = new Set([
+  'api/wrong-note/reviewWrongNote/index.ts',
+  'api/wrong-note/updateWrongNoteMemo/index.ts'
 ])
 
 const isPathInside = (parent, candidate) => {
@@ -1032,6 +1040,12 @@ export const checkArchitecture = ({
           normalizePath(fileName)
         )
       )
+      const hasLegacyWrongNoteMutationProvenance = hasReferenceProvenance(
+        (fileName) =>
+          LEGACY_WRONG_NOTE_MUTATION_PATHS.has(
+            normalizePath(path.relative(absoluteSourceRoot, fileName))
+          )
+      )
 
       if (
         (reference.specifier === '@tanstack/react-query' ||
@@ -1069,6 +1083,27 @@ export const checkArchitecture = ({
 
       if (!resolved) continue
       const normalizedResolved = normalizePath(resolved)
+      const relativeImporter = normalizePath(
+        path.relative(absoluteSourceRoot, absoluteFile)
+      )
+      const relativeResolved = normalizePath(
+        path.relative(absoluteSourceRoot, resolved)
+      )
+      if (
+        relativeImporter.startsWith('app/') &&
+        (LEGACY_WRONG_NOTE_MUTATION_PATHS.has(relativeResolved) ||
+          hasLegacyWrongNoteMutationProvenance)
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            sourceFile,
+            reference.node,
+            RULES.queryBoundary,
+            'legacy wrong-note memo/isCorrect mutations are mock regression only',
+            absoluteRoot
+          )
+        )
+      }
       const hasApiProvenance = hasReferenceProvenance((fileName) =>
         isPathInside(
           path.resolve(absoluteSourceRoot, 'api'),

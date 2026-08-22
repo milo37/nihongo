@@ -7,6 +7,7 @@ import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStora
 import { clearAllResultRetryAttempts } from '@app/practice/resultRetryAttemptStorage'
 import { clearAllStudyDraftWorkingCopies } from '@app/practice/draft/studyDraftWorkingCopyStorage'
 import { closeAllStudyDraftRevisionChannels } from '@app/practice/draft/useStudyDraftRevisionSync'
+import { clearAllTargetedReviewAttempts } from '@app/wrong-note/targetedReviewAttemptStorage'
 import {
   APP_STORE_KEY,
   cachedSessionStorage,
@@ -23,6 +24,7 @@ const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
   clearAllSubmissionAttempts()
   clearAllResultRetryAttempts()
+  clearAllTargetedReviewAttempts()
   clearAllStudyDraftWorkingCopies()
   closeAllStudyDraftRevisionChannels()
   queryClient.clear()

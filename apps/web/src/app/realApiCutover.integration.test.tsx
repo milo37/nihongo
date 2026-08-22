@@ -41,7 +41,6 @@ import {
   getSubmissionAttemptStorageKey
 } from '@app/practice/submissionAttempt'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
-import { legacyWrongNoteMutations } from '@app/wrong-note/queries/legacyWrongNoteMutations'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { demoUsers } from '@mocks/data/users'
@@ -232,10 +231,6 @@ describe('real API Query and feature cutover', () => {
       client,
       studySessionMutations.createSession()
     )
-    const memoObserver = new MutationObserver(
-      client,
-      legacyWrongNoteMutations.updateMemo(crypto.randomUUID())
-    )
 
     await expect(
       createObserver.mutate({
@@ -252,10 +247,6 @@ describe('real API Query and feature cutover', () => {
       pageSize: 20,
       total: 0
     })
-    await expect(memoObserver.mutate({ memo: '메모' })).rejects.toThrow(
-      '메모 수정'
-    )
-
     expect(postSpy).not.toHaveBeenCalled()
     expect(getSpy).toHaveBeenCalledWith('/v1/bookmarks?page=1&pageSize=20', {
       params: undefined

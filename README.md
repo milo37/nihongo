@@ -23,10 +23,12 @@ SUBMITTED result의 incorrect historical pin retry도 실제 API와 canonical mo
 지원합니다. USER/ADMIN target은 `WRONG_NOTE`, guest target은 `RANDOM`이며 응답 유실과
 hard reload 뒤에도 같은 key·target으로 수렴합니다. UserMemo·review history와 review
 queue는 reviewed runtime gate 아래 실제 Hono API와 canonical MSW까지 구현됐고 Web
-Query/hook/UI는 Slice 5를 기다립니다. USER/ADMIN self-only targeted one-question command도
-practice-v2/review-center gate 아래 실제 Hono/PostgreSQL과 canonical MSW에 구현됐습니다.
-Web adapter/hook/CTA는 Slice 5, real admin API는 Phase 7 전까지 노출하지 않으며 silent Mock
-fallback하지 않습니다.
+adapter→Query Factory→hook/UI도 Slice 5에서 연결했습니다. `/wrong-notes`는 current review
+center, `/wrong-notes/history`는 historical archive이고 detail은 별도 memo editor와 infinite
+ReviewEvent timeline을 병렬로 제공합니다. USER/ADMIN self-only targeted one-question command와
+server-authoritative DUE batch CTA도 practice-v2/review-center gate 아래 real/canonical mock에
+연결했습니다. real admin API는 Phase 7 전까지 노출하지 않으며 silent Mock fallback하지
+않습니다.
 Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
 RANDOM fallback을 제거했습니다. CI는 fresh-schema integration과 real/mock Chromium,
@@ -880,8 +882,15 @@ parity를 제공합니다. fresh integration은 migration 27/27, seed 65/0→0/6
 pass + deliberate skip 1, isolated 1 pass + 4 skip, reviewed warning 7+1과 schema cleanup을
 통과했습니다. non-DB는 contracts 75, domain 35, API 372, web 340으로 822 tests이며
 architecture 5를 포함하면 827입니다. pre-commit checkpoint 시점에 Slice 4 source 검증과
-freeze를 완료했으며,
-Web Query Factory·hook·review center UI인 Slice 5는 별도 명시적 승인 범위입니다.
+freeze를 완료한 뒤 source를 `4894e918832991a7ef394ef81137c42d4af5ae8f`에 commit·push했습니다.
+이어 승인된 Slice 5는 canonical review queue·memo·history·targeted adapter와 Query/hook,
+current center와 historical route, memo dirty/save/clear UX, cursor timeline, durable single target,
+server-authoritative DUE batch와 dashboard links를 구현했습니다. non-DB는 contracts 75,
+domain 35, API 372, Web 382로 864 tests이며 architecture 5를 포함하면 869입니다. fresh
+integration은 migration 27/27, seed 65/0→0/65, full 141 pass + skip 1, isolated 1 pass + 4 skip,
+reviewed warning 7+1과 schema cleanup을 통과했습니다. final checkpoint는
+`phase5-slice0-5-final-20260822-4894e91`이며 Slice 5 source는 checkpoint 시점 미commit·미push,
+Slice 6 browser E2E·final report는 별도 명시적 승인 대기입니다.
 
 ## 향후 개선
 

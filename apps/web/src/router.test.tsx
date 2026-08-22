@@ -94,6 +94,19 @@ describe('application router boundaries', () => {
     ).toBeInTheDocument()
   })
 
+  it('정적 history 경로를 동적 question detail보다 먼저 해석한다', async () => {
+    mockDatabase.loginAs('USER')
+    const router = renderRoutes('/wrong-notes/history')
+
+    expect(
+      await screen.findByRole('heading', { name: '전체 오답 기록' })
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/wrong-notes/history')
+    expect(
+      screen.queryByRole('heading', { name: '오답을 찾을 수 없습니다' })
+    ).not.toBeInTheDocument()
+  })
+
   it('등록되지 않은 경로는 Not Found를 표시한다', async () => {
     renderRoutes('/not-registered')
 

@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { WrongNoteDetailContent } from '@app/wrong-note/detail/page'
@@ -55,21 +54,15 @@ const renderDetail = (data: WrongNoteDetailView): void => {
 }
 
 describe('canonical wrong-note detail', () => {
-  it('현재 문제는 직접 ID 재출제 대신 canonical 모드 설정으로 안내한다', async () => {
-    const user = userEvent.setup()
+  it('마지막 오답 snapshot과 현재 복습 가능 상태를 분리해 알린다', () => {
     renderDetail(createDetail('AVAILABLE'))
 
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(
-      screen.getByText(/현재 canonical API에서는 메모 작성과 수정을 지원하지/u)
+      screen.getByText(/마지막으로 틀렸을 때 고정된 문제 버전/u)
     ).toBeInTheDocument()
-    const practiceLink = screen.getByRole('link', {
-      name: '학습 설정으로 이동'
-    })
-    expect(practiceLink).toHaveAttribute('href', '/practice')
-    await user.click(practiceLink)
     expect(
-      await screen.findByRole('heading', { name: '학습 설정' })
+      screen.getByText(/현재 출제 가능한 문제 버전으로 단일 복습/u)
     ).toBeInTheDocument()
   })
 
@@ -79,8 +72,6 @@ describe('canonical wrong-note detail', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
     )
-    expect(
-      screen.queryByRole('link', { name: '학습 설정으로 이동' })
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/단일 복습을 시작/u)).not.toBeInTheDocument()
   })
 })

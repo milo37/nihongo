@@ -1,26 +1,23 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  assertCurrentUpdateWrongNoteMemoAction,
-  legacyWrongNoteMutations
-} from '@app/wrong-note/queries/legacyWrongNoteMutations'
+  assertCurrentMemoAction,
+  wrongNoteMutations
+} from '@app/wrong-note/queries/wrongNoteMutations'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
-import { toLegacyWrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
+import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 
 export const useUpdateWrongNoteMemo = (questionId: string) => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    ...legacyWrongNoteMutations.updateMemo(questionId),
+    ...wrongNoteMutations.updateMemo(questionId),
     onSuccess: async (data, input) => {
-      assertCurrentUpdateWrongNoteMemoAction(input)
+      assertCurrentMemoAction(input)
+      queryClient.setQueryData(wrongNoteQueries.memo(questionId).queryKey, data)
       await queryClient.invalidateQueries({
-        queryKey: wrongNoteQueries.allKey()
+        queryKey: serverStateQueryKeys.wrongNote.reviewQueues()
       })
-      assertCurrentUpdateWrongNoteMemoAction(input)
-      queryClient.setQueryData(
-        wrongNoteQueries.detail(questionId).queryKey,
-        toLegacyWrongNoteDetailView(data)
-      )
+      assertCurrentMemoAction(input)
     }
   })
 }

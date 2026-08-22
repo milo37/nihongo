@@ -113,6 +113,32 @@ const checkOfflineStatus = (): boolean => {
 const withErrorFlags = (error: Error, flags: ApiErrorFlags): AppApiError =>
   Object.assign(error, flags)
 
+export const parseApiResponse = <Schema extends ZodType>(
+  schema: Schema,
+  rawData: unknown
+): z.output<Schema> => {
+  const parsedData = schema.safeParse(rawData)
+
+  if (!parsedData.success) {
+    if (!__NIHONGO_PRODUCTION_BUILD__) {
+      console.error('API response validation failed')
+    }
+
+    throw withErrorFlags(
+      new Error('응답 형식이 올바르지 않습니다.', {
+        cause: parsedData.error
+      }),
+      {
+        isResponseValidationError: true,
+        isValidationError: true,
+        status: 422
+      }
+    )
+  }
+
+  return parsedData.data
+}
+
 apiClient.interceptors.request.use((config) => {
   if (!checkOfflineStatus()) {
     return config
@@ -197,24 +223,5 @@ export const safeFactory =
     }
 
     assertCurrentAuthTransitionEpoch(requestEpoch)
-    const parsedData = schema.safeParse(rawData)
-
-    if (!parsedData.success) {
-      if (!__NIHONGO_PRODUCTION_BUILD__) {
-        console.error('API response validation failed', parsedData.error)
-      }
-
-      throw withErrorFlags(
-        new Error('응답 형식이 올바르지 않습니다.', {
-          cause: parsedData.error
-        }),
-        {
-          isResponseValidationError: true,
-          isValidationError: true,
-          status: 422
-        }
-      )
-    }
-
-    return parsedData.data
+    return parseApiResponse(schema, rawData)
   }

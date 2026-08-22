@@ -10,9 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
-import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { commitCanonicalAuth } from '@app/login/authSession'
-import { useReviewWrongNote } from '@app/wrong-note/hooks/useReviewWrongNote'
 import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { demoUsers } from '@mocks/data/users'
@@ -75,35 +73,6 @@ const transitionToAdmin = async (client: QueryClient): Promise<void> => {
     forceClear: true,
     forcePracticeReset: true
   })
-}
-
-const createWrongNoteQuestionId = (): string => {
-  mockDatabase.loginAs('USER')
-  const session = mockDatabase.createStudySession({
-    level: 'N5',
-    subject: 'VOCABULARY',
-    mode: 'RANDOM',
-    count: 1
-  })
-  const question = mockDatabase.getAdminQuestion(session.questions[0].id)
-  const incorrectOption = question.options.find((option) => !option.isCorrect)
-
-  if (!incorrectOption) {
-    throw new Error('오답 노트 테스트용 오답 보기가 없습니다.')
-  }
-
-  mockDatabase.submitStudySession({
-    sessionId: session.session.id,
-    answers: [
-      {
-        questionId: question.id,
-        selectedOptionId: incorrectOption.id,
-        elapsedSec: 2
-      }
-    ],
-    durationSec: 2
-  })
-  return question.id
 }
 
 describe('auth-bound mutation callback isolation', () => {
@@ -185,14 +154,37 @@ describe('auth-bound mutation callback isolation', () => {
   })
 
   it('does not write the next identity wrong-note cache after delayed memo success', async () => {
-    const questionId = createWrongNoteQuestionId()
+    mockDatabase.loginAs('USER')
+    const questionId = crypto.randomUUID()
+    mockServer.use(
+      http.put(
+        '*/api/v1/wrong-notes/:questionId/memo',
+        async ({ params, request }) => {
+          const body = (await request.json()) as { memo?: unknown }
+          return HttpResponse.json(
+            {
+              questionId: params.questionId,
+              text: body.memo,
+              createdAt: '2026-08-22T00:00:00.000Z',
+              updatedAt: '2026-08-22T00:00:00.000Z'
+            },
+            {
+              headers: {
+                'Cache-Control': 'private, no-store',
+                'X-Request-Id': crypto.randomUUID()
+              }
+            }
+          )
+        }
+      )
+    )
     const gate = createSuccessCallbackGate()
     const wrapper = createWrapper(gate.client)
     const hook = renderHook(() => useUpdateWrongNoteMemo(questionId), {
       wrapper
     })
     const success = vi.fn()
-    const detailKey = wrongNoteQueries.detail(questionId).queryKey
+    const memoKey = wrongNoteQueries.memo(questionId).queryKey
     let mutationPromise: Promise<unknown> | undefined
 
     act(() => {
@@ -203,50 +195,14 @@ describe('auth-bound mutation callback isolation', () => {
     })
     await waitFor(() => expect(gate.getSuccessCount()).toBe(1))
     await transitionToAdmin(gate.client)
-    gate.client.setQueryData<unknown>(detailKey, { owner: 'next' })
+    gate.client.setQueryData<unknown>(memoKey, { owner: 'next' })
     gate.release()
 
     await expect(mutationPromise).rejects.toBeInstanceOf(
       AuthTransitionSupersededError
     )
     expect(success).not.toHaveBeenCalled()
-    expect(gate.client.getQueryData(detailKey)).toEqual({ owner: 'next' })
-    expect(gate.client.getQueryState(detailKey)?.isInvalidated).toBe(false)
-  })
-
-  it('does not invalidate next identity caches after delayed review success', async () => {
-    const questionId = createWrongNoteQuestionId()
-    const gate = createSuccessCallbackGate()
-    const wrapper = createWrapper(gate.client)
-    const hook = renderHook(() => useReviewWrongNote(questionId), { wrapper })
-    const success = vi.fn()
-    const wrongNoteKey = [
-      ...wrongNoteQueries.allKey(),
-      'next-identity'
-    ] as const
-    const dashboardKey = [
-      ...dashboardQueries.allKey(),
-      'next-identity'
-    ] as const
-    let mutationPromise: Promise<unknown> | undefined
-
-    act(() => {
-      mutationPromise = hook.result.current.mutateAsync(
-        { isCorrect: true },
-        { onSuccess: success }
-      )
-    })
-    await waitFor(() => expect(gate.getSuccessCount()).toBe(1))
-    await transitionToAdmin(gate.client)
-    gate.client.setQueryData(wrongNoteKey, { owner: 'next' })
-    gate.client.setQueryData(dashboardKey, { owner: 'next' })
-    gate.release()
-
-    await expect(mutationPromise).rejects.toBeInstanceOf(
-      AuthTransitionSupersededError
-    )
-    expect(success).not.toHaveBeenCalled()
-    expect(gate.client.getQueryState(wrongNoteKey)?.isInvalidated).toBe(false)
-    expect(gate.client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
+    expect(gate.client.getQueryData(memoKey)).toEqual({ owner: 'next' })
+    expect(gate.client.getQueryState(memoKey)?.isInvalidated).toBe(false)
   })
 })

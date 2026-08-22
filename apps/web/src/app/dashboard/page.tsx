@@ -278,16 +278,27 @@ export const DashboardPage = (): ReactElement => {
             </article>
 
             <article className="rounded-xl border border-line bg-white p-5 sm:p-7">
-              <h2 className="text-xl font-black">반복 오답 상위 문제</h2>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-black">반복 오답 상위 문제</h2>
+                <Link
+                  className="inline-flex min-h-11 items-center px-1 text-sm font-bold text-brand underline underline-offset-2 hover:no-underline"
+                  to="/wrong-notes?view=REPEATED&sort=MOST_WRONG"
+                >
+                  복습 센터에서 보기
+                </Link>
+              </div>
               {stats.repeatedWrongQuestions.length > 0 ? (
                 <ol className="mt-5 divide-y divide-line">
                   {stats.repeatedWrongQuestions.map((question, index) => (
                     <li key={question.questionId} className="flex gap-4 py-4">
                       <span className="font-black text-brand">{index + 1}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 font-semibold">
+                        <Link
+                          className="inline-flex min-h-11 items-center font-semibold hover:text-brand hover:underline"
+                          to={`/wrong-notes/${question.questionId}?returnTo=${encodeURIComponent('/dashboard')}`}
+                        >
                           {question.questionText}
-                        </p>
+                        </Link>
                         <p className="mt-1 text-sm text-muted">
                           {question.level} · {subjectLabels[question.subject]} ·{' '}
                           {question.wrongCount}회 오답

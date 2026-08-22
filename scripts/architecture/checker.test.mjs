@@ -65,6 +65,12 @@ describe('architecture checker', () => {
       'ARCH005',
       'ARCH005'
     ])
+    assert.deepEqual(codesFor('/queries/legacyWrongNoteMutation.ts'), [
+      'ARCH003',
+      'ARCH003',
+      'ARCH003',
+      'ARCH003'
+    ])
     assert.deepEqual(codesFor('/WindowFetchPage.tsx'), ['ARCH002'])
     assert.deepEqual(codesFor('/GlobalFetchPage.tsx'), ['ARCH002'])
     assert.deepEqual(codesFor('/IndirectPage.tsx'), ['ARCH002', 'ARCH003'])

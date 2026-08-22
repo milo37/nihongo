@@ -17,7 +17,17 @@ export const serverStateQueryKeys = {
     result: (sessionId: string) => ['study', 'get-result', sessionId] as const
   },
   wrongNote: {
-    all: () => ['wrong-note'] as const
+    all: () => ['wrong-note'] as const,
+    historicalLists: () => ['wrong-note', 'historical-list'] as const,
+    details: () => ['wrong-note', 'detail'] as const,
+    detail: (questionId: string) =>
+      ['wrong-note', 'detail', questionId] as const,
+    reviewQueues: () => ['wrong-note', 'review-queue'] as const,
+    memos: () => ['wrong-note', 'memo'] as const,
+    memo: (questionId: string) => ['wrong-note', 'memo', questionId] as const,
+    reviewEvents: () => ['wrong-note', 'review-events'] as const,
+    reviewEventConnection: (questionId: string, pageSize: number) =>
+      ['wrong-note', 'review-events', questionId, { pageSize }] as const
   },
   dashboard: {
     all: () => ['dashboard'] as const

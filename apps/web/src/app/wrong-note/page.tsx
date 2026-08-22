@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type {
@@ -14,12 +14,15 @@ import { LoadingState } from '@common/components/LoadingState'
 import { Pagination } from '@common/components/Pagination'
 import { Select } from '@common/components/Select'
 import { useListWrongNotes } from '@app/wrong-note/hooks/useListWrongNotes'
+import {
+  createWrongNoteHistorySearch,
+  parseWrongNoteHistorySearch,
+  type WrongNoteHistorySearchKey
+} from '@app/wrong-note/wrongNoteHistorySearch'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
 const statusValues: WrongNoteStatus[] = ['NEW', 'REVIEWING', 'AGAIN', 'SOLVED']
-const sortValues = ['RECENT', 'MOST_WRONG', 'OLDEST'] as const
-
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
   GRAMMAR: '문법',
@@ -61,68 +64,57 @@ const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
   day: 'numeric'
 })
 
-const isValue = <T extends string>(
-  value: string | null,
-  values: readonly T[]
-): value is T => {
-  return value !== null && values.includes(value as T)
-}
-
 const formatDate = (isoDate: string): string => {
   return dateFormatter.format(new Date(isoDate))
 }
 
 export const WrongNotePage = (): ReactElement => {
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
+  const shouldFocusResultsRef = useRef(false)
   const [searchParams, setSearchParams] = useSearchParams()
-  const levelParam = searchParams.get('level')
-  const subjectParam = searchParams.get('subject')
-  const statusParam = searchParams.get('status')
-  const sortParam = searchParams.get('sort')
-  const level = isValue(levelParam, levelValues) ? levelParam : undefined
-  const subject = isValue(subjectParam, subjectValues)
-    ? subjectParam
-    : undefined
-  const status = isValue(statusParam, statusValues) ? statusParam : undefined
-  const sort = isValue(sortParam, sortValues) ? sortParam : 'RECENT'
-  const tag = searchParams.get('tag') || undefined
-  const page = Math.max(1, Number(searchParams.get('page')) || 1)
-  const pageSize = 12
-  const wrongNotesQuery = useListWrongNotes({
-    level,
-    subject,
-    status,
-    tag,
-    sort,
-    page,
-    pageSize
-  })
+  const parsedSearch = useMemo(
+    () => parseWrongNoteHistorySearch(searchParams),
+    [searchParams]
+  )
+  const { level, page, sort, status, subject, tag } = parsedSearch.query
+  const returnTo = `/wrong-notes/history${parsedSearch.canonicalSearch ? `?${parsedSearch.canonicalSearch}` : ''}`
+  const wrongNotesQuery = useListWrongNotes(parsedSearch.query)
   const totalPages = wrongNotesQuery.data
     ? Math.max(
         1,
         Math.ceil(wrongNotesQuery.data.total / wrongNotesQuery.data.pageSize)
       )
     : 1
-  const isOutOfRangePage = Boolean(
-    wrongNotesQuery.data &&
-      wrongNotesQuery.data.total > 0 &&
-      wrongNotesQuery.data.items.length === 0
-  )
+  const isOutOfRangePage = Boolean(wrongNotesQuery.data && page > totalPages)
+  const availableTags = wrongNotesQuery.data?.availableTags ?? []
+  const visibleTags =
+    tag && !availableTags.includes(tag)
+      ? [tag, ...availableTags]
+      : availableTags
+  const isWrongNotesPaused = wrongNotesQuery.fetchStatus === 'paused'
+
+  useEffect(() => {
+    if (!parsedSearch.needsReplace) return
+    shouldFocusResultsRef.current = true
+    setSearchParams(parsedSearch.canonicalSearch, { replace: true })
+  }, [parsedSearch, setSearchParams])
 
   useEffect(() => {
     if (!isOutOfRangePage || page <= totalPages) {
       return
     }
 
-    const nextParams = new URLSearchParams(searchParams)
-    if (totalPages === 1) {
-      nextParams.delete('page')
-    } else {
-      nextParams.set('page', String(totalPages))
-    }
-    setSearchParams(nextParams, { replace: true })
-  }, [isOutOfRangePage, page, searchParams, setSearchParams, totalPages])
+    shouldFocusResultsRef.current = true
+    setSearchParams(
+      createWrongNoteHistorySearch({
+        ...parsedSearch.query,
+        page: totalPages
+      }),
+      { replace: true }
+    )
+  }, [isOutOfRangePage, page, parsedSearch.query, setSearchParams, totalPages])
 
   useEffect(() => {
     if (
@@ -135,36 +127,47 @@ export const WrongNotePage = (): ReactElement => {
     }
   }, [wrongNotesQuery.data, wrongNotesQuery.isSuccess])
 
-  const setFilter = (key: string, value: string): void => {
-    const nextParams = new URLSearchParams(searchParams)
-    if (value) {
-      nextParams.set(key, value)
-    } else {
-      nextParams.delete(key)
-    }
-    if (key !== 'page') {
-      nextParams.delete('page')
-    }
-    setSearchParams(nextParams)
+  useEffect(() => {
+    if (!wrongNotesQuery.isSuccess || !shouldFocusResultsRef.current) return
+    shouldFocusResultsRef.current = false
+    const focusTarget = resultHeadingRef.current ?? headingRef.current
+    focusTarget?.focus()
+  }, [wrongNotesQuery.isSuccess, wrongNotesQuery.data])
+
+  const setFilter = (key: WrongNoteHistorySearchKey, value: string): void => {
+    const nextParams = createWrongNoteHistorySearch(parsedSearch.query)
+    if (value) nextParams.set(key, value)
+    else nextParams.delete(key)
+    if (key !== 'page') nextParams.delete('page')
+    shouldFocusResultsRef.current = true
+    setSearchParams(parseWrongNoteHistorySearch(nextParams).canonicalSearch)
   }
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="max-w-3xl">
-        <p className="text-sm font-black tracking-[0.16em] text-brand">
-          WRONG NOTE
-        </p>
-        <h1
-          ref={headingRef}
-          className="mt-2 rounded-sm text-4xl font-black"
-          tabIndex={-1}
+      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <p className="text-sm font-black tracking-[0.16em] text-brand">
+            WRONG NOTE
+          </p>
+          <h1
+            ref={headingRef}
+            className="mt-2 rounded-sm text-4xl font-black"
+            tabIndex={-1}
+          >
+            전체 오답 기록
+          </h1>
+          <p className="mt-4 leading-7 text-muted">
+            마지막으로 틀린 문제 버전과 당시 상태를 보존한 historical
+            archive입니다.
+          </p>
+        </div>
+        <Link
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 font-bold text-ink hover:border-slate-400"
+          to="/wrong-notes"
         >
-          오답을 해결 상태까지 관리하세요
-        </h1>
-        <p className="mt-4 leading-7 text-muted">
-          처음 틀린 문제부터 두 번 연속 맞힌 문제까지 복습 상태와 횟수를
-          한곳에서 확인합니다.
-        </p>
+          복습 센터로 돌아가기
+        </Link>
       </div>
 
       <div className="mt-8 grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -214,7 +217,7 @@ export const WrongNotePage = (): ReactElement => {
           onChange={(event) => setFilter('tag', event.currentTarget.value)}
         >
           <option value="">전체 태그</option>
-          {(wrongNotesQuery.data?.availableTags ?? []).map((value) => (
+          {visibleTags.map((value) => (
             <option key={value} value={value}>
               {value}
             </option>
@@ -232,11 +235,21 @@ export const WrongNotePage = (): ReactElement => {
         </Select>
       </div>
 
-      {wrongNotesQuery.isPending ? (
+      {isWrongNotesPaused ? (
+        <p
+          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
+          role="status"
+        >
+          오프라인입니다. 연결이 복구되면 현재 URL 조건으로 전체 오답 기록을
+          자동으로 다시 불러옵니다.
+        </p>
+      ) : null}
+
+      {wrongNotesQuery.isPending && !isWrongNotesPaused ? (
         <LoadingState message="오답노트를 불러오고 있습니다." />
       ) : null}
 
-      {wrongNotesQuery.isError ? (
+      {wrongNotesQuery.isError && !wrongNotesQuery.data ? (
         <ErrorState
           title="오답노트를 불러오지 못했습니다"
           description="잠시 후 다시 시도해 주세요."
@@ -251,6 +264,28 @@ export const WrongNotePage = (): ReactElement => {
             </Button>
           }
         />
+      ) : null}
+
+      {wrongNotesQuery.isError && wrongNotesQuery.data ? (
+        <div
+          className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+          role="alert"
+        >
+          <p className="font-semibold">
+            전체 오답 기록의 최신 상태를 확인하지 못했습니다. 현재까지 불러온
+            기록은 유지됩니다.
+          </p>
+          <Button
+            className="mt-3"
+            size="sm"
+            onClick={() => {
+              shouldRestoreRetryFocusRef.current = true
+              void wrongNotesQuery.refetch()
+            }}
+          >
+            전체 오답 기록 다시 확인
+          </Button>
+        </div>
       ) : null}
 
       {isOutOfRangePage ? (
@@ -277,85 +312,92 @@ export const WrongNotePage = (): ReactElement => {
       {wrongNotesQuery.data && wrongNotesQuery.data.items.length > 0 ? (
         <>
           <div className="mt-7 flex items-center justify-between gap-4">
-            <h2 className="text-xl font-black">
+            <h2
+              ref={resultHeadingRef}
+              className="rounded-sm text-xl font-black"
+              tabIndex={-1}
+            >
               오답 {wrongNotesQuery.data.total}개
             </h2>
             <Button
               variant="ghost"
-              onClick={() => setSearchParams(new URLSearchParams())}
+              onClick={() => {
+                shouldFocusResultsRef.current = true
+                setSearchParams(new URLSearchParams())
+              }}
             >
               필터 초기화
             </Button>
           </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <ul className="mt-4 grid gap-4 lg:grid-cols-2">
             {wrongNotesQuery.data.items.map((item) => (
-              <article
-                key={item.questionId}
-                className="content-auto flex flex-col rounded-xl border border-line bg-white p-5"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="brand">{item.level}</Badge>
-                    <Badge>{subjectLabels[item.subject]}</Badge>
-                    <Badge variant={statusVariants[item.status]}>
-                      {statusLabels[item.status]}
-                    </Badge>
-                    <Badge
-                      variant={
-                        item.reviewAvailability === 'ARCHIVED'
-                          ? 'neutral'
-                          : 'info'
-                      }
+              <li key={item.questionId}>
+                <article className="content-auto flex h-full flex-col rounded-xl border border-line bg-white p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="brand">{item.level}</Badge>
+                      <Badge>{subjectLabels[item.subject]}</Badge>
+                      <Badge variant={statusVariants[item.status]}>
+                        {statusLabels[item.status]}
+                      </Badge>
+                      <Badge
+                        variant={
+                          item.reviewAvailability === 'ARCHIVED'
+                            ? 'neutral'
+                            : 'info'
+                        }
+                      >
+                        {reviewAvailabilityLabels[item.reviewAvailability]}
+                      </Badge>
+                    </div>
+                    <span className="text-sm font-bold text-red-700">
+                      {item.wrongCount}회 오답
+                    </span>
+                  </div>
+                  <h3 className="mt-5 line-clamp-2 text-lg font-black leading-7">
+                    {item.questionPreview}
+                  </h3>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-muted">문제 유형</dt>
+                      <dd className="mt-1 font-semibold">
+                        {questionTypeLabels[item.questionType]}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted">마지막 오답</dt>
+                      <dd className="mt-1 font-semibold">
+                        {formatDate(item.lastWrongAt)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.tags.map((tagLabel) => (
+                      <Badge key={tagLabel}>{tagLabel}</Badge>
+                    ))}
+                  </div>
+                  <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
+                    <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
+                      {item.reviewAvailability === 'ARCHIVED'
+                        ? '보관된 문제 · 재풀이 불가'
+                        : '현재 출제 가능 · 상세에서 단일 복습 가능'}
+                    </span>
+                    <Link
+                      className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
+                      to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
                     >
-                      {reviewAvailabilityLabels[item.reviewAvailability]}
-                    </Badge>
+                      상세 보기
+                    </Link>
                   </div>
-                  <span className="text-sm font-bold text-red-700">
-                    {item.wrongCount}회 오답
-                  </span>
-                </div>
-                <h3 className="mt-5 line-clamp-2 text-lg font-black leading-7">
-                  {item.questionPreview}
-                </h3>
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted">문제 유형</dt>
-                    <dd className="mt-1 font-semibold">
-                      {questionTypeLabels[item.questionType]}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">마지막 오답</dt>
-                    <dd className="mt-1 font-semibold">
-                      {formatDate(item.lastWrongAt)}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {item.tags.map((tagLabel) => (
-                    <Badge key={tagLabel}>{tagLabel}</Badge>
-                  ))}
-                </div>
-                <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
-                  <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
-                    {item.reviewAvailability === 'ARCHIVED'
-                      ? '보관된 문제 · 재풀이 불가'
-                      : '현재 출제 가능 · 개별 재풀이는 다음 단계에서 제공'}
-                  </span>
-                  <Link
-                    className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
-                    to={`/wrong-notes/${item.questionId}`}
-                  >
-                    상세 보기
-                  </Link>
-                </div>
-              </article>
+                </article>
+              </li>
             ))}
-          </div>
+          </ul>
           <Pagination
             className="mt-8"
             currentPage={wrongNotesQuery.data.page}
             totalPages={totalPages}
+            disabled={wrongNotesQuery.isFetching}
             onPageChange={(nextPage) => setFilter('page', String(nextPage))}
           />
         </>
