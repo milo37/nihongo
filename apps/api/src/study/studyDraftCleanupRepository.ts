@@ -12,9 +12,11 @@ export interface StudyDraftCleanupResult {
   readonly expiredDraftIdempotencyBatchLimitReached: boolean
   readonly expiredIdempotencyBatchLimitReached: boolean
   readonly expiredRetryIdempotencyBatchLimitReached: boolean
+  readonly expiredTargetedReviewIdempotencyBatchLimitReached: boolean
   readonly expiredStudyDraftCount: number
   readonly deletedDraftIdempotencyRecordCount: number
   readonly deletedRetryIdempotencyRecordCount: number
+  readonly deletedTargetedReviewIdempotencyRecordCount: number
   readonly oldestOverdueExpiresAt: string | null
   readonly overdueStudyDraftCount: number
   readonly idempotencyOperationMetrics: readonly IdempotencyOperationMetric[]
@@ -25,7 +27,11 @@ export interface IdempotencyOperationMetric {
   readonly expiredRecordCount: number
   readonly oldestActiveAgeSeconds: number | null
   readonly oldestExpiredAgeSeconds: number | null
-  readonly operation: 'STUDY_DRAFT_SAVE' | 'STUDY_RETRY_CREATE' | 'STUDY_SUBMIT'
+  readonly operation:
+    | 'STUDY_DRAFT_SAVE'
+    | 'STUDY_RETRY_CREATE'
+    | 'STUDY_SUBMIT'
+    | 'STUDY_TARGETED_REVIEW_CREATE'
 }
 
 export interface StudyDraftCleanupRepository {
@@ -156,7 +162,10 @@ export const createPrismaStudyDraftCleanupRepository = (
     )
 
     const deleteExpiredIdempotencyRecords = async (
-      operation: 'STUDY_DRAFT_SAVE' | 'STUDY_RETRY_CREATE'
+      operation:
+        | 'STUDY_DRAFT_SAVE'
+        | 'STUDY_RETRY_CREATE'
+        | 'STUDY_TARGETED_REVIEW_CREATE'
     ): Promise<DeletedRow[]> =>
       await client.$transaction(
         async (transaction) =>
@@ -189,6 +198,8 @@ export const createPrismaStudyDraftCleanupRepository = (
       await deleteExpiredIdempotencyRecords('STUDY_DRAFT_SAVE')
     const deletedRetryIdempotencyRecords =
       await deleteExpiredIdempotencyRecords('STUDY_RETRY_CREATE')
+    const deletedTargetedReviewIdempotencyRecords =
+      await deleteExpiredIdempotencyRecords('STUDY_TARGETED_REVIEW_CREATE')
 
     const metricRow = metric[0]
     return {
@@ -197,12 +208,17 @@ export const createPrismaStudyDraftCleanupRepository = (
         deletedDraftIdempotencyRecords.length === batchSize,
       expiredIdempotencyBatchLimitReached:
         deletedDraftIdempotencyRecords.length === batchSize ||
-        deletedRetryIdempotencyRecords.length === batchSize,
+        deletedRetryIdempotencyRecords.length === batchSize ||
+        deletedTargetedReviewIdempotencyRecords.length === batchSize,
       expiredRetryIdempotencyBatchLimitReached:
         deletedRetryIdempotencyRecords.length === batchSize,
+      expiredTargetedReviewIdempotencyBatchLimitReached:
+        deletedTargetedReviewIdempotencyRecords.length === batchSize,
       expiredStudyDraftCount: expiredDrafts.length,
       deletedDraftIdempotencyRecordCount: deletedDraftIdempotencyRecords.length,
       deletedRetryIdempotencyRecordCount: deletedRetryIdempotencyRecords.length,
+      deletedTargetedReviewIdempotencyRecordCount:
+        deletedTargetedReviewIdempotencyRecords.length,
       oldestOverdueExpiresAt:
         metricRow?.oldestOverdueExpiresAt?.toISOString() ?? null,
       overdueStudyDraftCount: Number(metricRow?.overdueStudyDraftCount ?? 0n),

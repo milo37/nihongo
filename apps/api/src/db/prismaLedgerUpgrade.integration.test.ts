@@ -54,7 +54,9 @@ const FORWARD_MIGRATIONS = [
   '20260817131000_phase4_study_draft_core',
   '20260818130000_phase4_study_selection_modes',
   '20260821130000_phase4_bookmarks',
-  '20260821150000_phase4_result_retry'
+  '20260821150000_phase4_result_retry',
+  '20260821151000_phase5_targeted_review_operation',
+  '20260821152000_phase5_review_center_foundation'
 ] as const
 
 const environment = parseApiEnvironment(process.env)

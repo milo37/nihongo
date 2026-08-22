@@ -6,6 +6,7 @@ import {
 import { Hono } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { cors } from 'hono/cors'
+import { routePath } from 'hono/route'
 import { secureHeaders } from 'hono/secure-headers'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
@@ -29,6 +30,7 @@ import { createStudySessionRoutes } from '../routes/studySessions.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
+import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
 import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
 import { createDashboardRoutes } from '../routes/dashboard.js'
@@ -62,6 +64,8 @@ interface CreateApiAppDependencies {
     bookmarkService?: BookmarkService
     dashboardService: DashboardService
     rateLimiter: ApplicationRateLimiter
+    reviewCenterEnabled: boolean
+    reviewCenterService: WrongNoteReviewCenterService
     wrongNoteService: WrongNoteService
   }
   enableTestRoutes?: boolean
@@ -270,6 +274,10 @@ export const createApiApp = ({
           environment: auth.environment,
           principalService: auth.principalService,
           rateLimiter: learning.rateLimiter,
+          reviewCenterEnabled:
+            learning.reviewCenterEnabled &&
+            study?.practiceContractV2Enabled === true,
+          reviewCenterService: learning.reviewCenterService,
           wrongNoteService: learning.wrongNoteService
         })
       )
@@ -314,7 +322,7 @@ export const createApiApp = ({
     logger.error('http.request.failed', {
       requestId,
       method: context.req.method,
-      path: pathname,
+      path: routePath(context, -1),
       status,
       code: failure.code,
       errorName: error.name

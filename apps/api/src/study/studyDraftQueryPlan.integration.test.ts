@@ -89,6 +89,21 @@ const readIndexNames = (rows: ExplainRow[]): Set<string> =>
     )
   )
 
+const readIndexNamesForAlias = (
+  rows: ExplainRow[],
+  relationName: string,
+  alias: string
+): Set<string> =>
+  new Set(
+    readPlanNodes(rows).flatMap((node) =>
+      node['Relation Name'] === relationName &&
+      node.Alias === alias &&
+      typeof node['Index Name'] === 'string'
+        ? [node['Index Name']]
+        : []
+    )
+  )
+
 const readRootPlan = (rows: ExplainRow[]): PlanNode => {
   const document = rows[0]?.['QUERY PLAN']
   if (!Array.isArray(document)) {
@@ -142,7 +157,27 @@ const expectNoSequentialScan = (
     (node) =>
       node['Node Type'] === 'Seq Scan' && node['Relation Name'] === relationName
   )
-  expect(sequentialScans).toHaveLength(0)
+  expect(
+    sequentialScans,
+    `${relationName} sequential scans: ${JSON.stringify(sequentialScans)}`
+  ).toHaveLength(0)
+}
+
+const expectNoSequentialScanForAlias = (
+  rows: ExplainRow[],
+  relationName: string,
+  alias: string
+): void => {
+  const sequentialScans = readPlanNodes(rows).filter(
+    (node) =>
+      node['Node Type'] === 'Seq Scan' &&
+      node['Relation Name'] === relationName &&
+      node.Alias === alias
+  )
+  expect(
+    sequentialScans,
+    `${relationName} ${alias} sequential scans: ${JSON.stringify(sequentialScans)}`
+  ).toHaveLength(0)
 }
 
 const expectBoundedRelationRows = (
@@ -966,10 +1001,14 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
     expectNoSequentialScan(plans.retryLeafLookup, 'StudySession')
     expectBoundedRelationRows(plans.retryLeafLookup, 'StudySession', 1)
     expect(readRootPlan(plans.retryLeafLookup)['Actual Rows']).toBe(1)
-    expect(readIndexNames(plans.retryLeafCleanup)).toContain(
-      'StudySession_retryOfStudySessionId_id_idx'
+    expect(
+      readIndexNamesForAlias(plans.retryLeafCleanup, 'StudySession', 'retry')
+    ).toContain('StudySession_retryOfStudySessionId_id_idx')
+    expectNoSequentialScanForAlias(
+      plans.retryLeafCleanup,
+      'StudySession',
+      'retry'
     )
-    expectNoSequentialScan(plans.retryLeafCleanup, 'StudySession')
     expectBoundedRelationRows(
       plans.retryLeafCleanup,
       'StudySession',

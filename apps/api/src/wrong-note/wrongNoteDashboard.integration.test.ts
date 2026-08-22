@@ -357,6 +357,32 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     if (!target) {
       throw new Error('WrongNote fixture is required.')
     }
+    const targetWrongNote = await database.client.wrongNote.findUniqueOrThrow({
+      where: {
+        userId_questionId: {
+          userId: ownerUserId,
+          questionId: target.questionId
+        }
+      },
+      select: { id: true }
+    })
+    const memoObservedAt = new Date('2026-08-16T02:30:00.000Z')
+    await database.client.userMemo.create({
+      data: {
+        wrongNoteId: targetWrongNote.id,
+        text: 'Phase 5 retained memo',
+        createdAt: memoObservedAt,
+        updatedAt: memoObservedAt
+      }
+    })
+    const listWithMemoFact = await wrongNoteService.listWrongNotes(
+      ownerUserId,
+      {
+        page: 1,
+        pageSize: 100,
+        sort: 'RECENT'
+      }
+    )
     expect(mostWrong.items).toHaveLength(1)
     expect(mostWrong.total).toBeGreaterThan(1)
     expect(recent.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
@@ -365,6 +391,12 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
         .toSorted()
         .toReversed()
     )
+    expect(recent.items.every(({ hasMemo }) => hasMemo === false)).toBe(true)
+    expect(
+      listWithMemoFact.items.find(
+        ({ questionId }) => questionId === target.questionId
+      )?.hasMemo
+    ).toBe(false)
     expect(oldest.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
       oldest.items.map(({ lastWrongAt }) => lastWrongAt).toSorted()
     )
@@ -408,6 +440,12 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     const detail = toWrongNoteDetail(rawDetail)
     expect(detail.wrongNote.reviewAvailability).toBe('ARCHIVED')
     expect(detail.memo).toBeNull()
+    expect(
+      await database.client.userMemo.findUnique({
+        where: { wrongNoteId: targetWrongNote.id },
+        select: { text: true }
+      })
+    ).toEqual({ text: 'Phase 5 retained memo' })
     expect(detail.currentReviewQuestionVersionId).toBe(
       detail.lastWrongQuestionVersionId
     )

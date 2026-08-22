@@ -13,10 +13,9 @@ const migrationSql = readFileSync(
 )
 
 describe('Phase 4 Slice 5 result retry migration', () => {
-  it('25번째 append-only migration으로 추가한다', () => {
+  it('25번째 append-only migration 위치를 이후 migration과 무관하게 보존한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
-    expect(manifest).toHaveLength(25)
-    expect(manifest.at(-1)?.name).toBe(migrationName)
+    expect(manifest[24]?.name).toBe(migrationName)
   })
 
   it('owner-preserving deferred relation과 leaf-first index를 선언한다', () => {

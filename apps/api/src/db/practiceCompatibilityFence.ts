@@ -7,6 +7,8 @@ export interface PracticeCompatibilityFacts {
   studyDraftAnswerCount: number
   currentReviewWrongNoteCount: number
   retryRelationCount: number
+  targetedReviewIdempotencyRecordCount: number
+  userMemoCount: number
   v2IdempotencyRecordCount: number
 }
 
@@ -27,6 +29,8 @@ export const assertPracticeCompatibilityFacts = (
     facts.studyDraftAnswerCount !== 0 ||
     facts.currentReviewWrongNoteCount !== 0 ||
     facts.retryRelationCount !== 0 ||
+    facts.targetedReviewIdempotencyRecordCount !== 0 ||
+    facts.userMemoCount !== 0 ||
     facts.v2IdempotencyRecordCount !== 0
   ) {
     throw new PracticeCompatibilityFenceError()
@@ -65,6 +69,16 @@ export const checkPracticeCompatibilityFence = async (
         FROM "StudySession"
         WHERE "retryOfStudySessionId" IS NOT NULL
       ) AS "retryRelationCount",
+      (
+        SELECT COUNT(*)::integer
+        FROM "IdempotencyRecord"
+        WHERE "operation" =
+          'STUDY_TARGETED_REVIEW_CREATE'::"IdempotencyOperation"
+      ) AS "targetedReviewIdempotencyRecordCount",
+      (
+        SELECT COUNT(*)::integer
+        FROM "UserMemo"
+      ) AS "userMemoCount",
       (
         SELECT COUNT(*)::integer
         FROM "IdempotencyRecord"

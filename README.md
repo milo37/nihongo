@@ -329,7 +329,7 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 .
 ├── apps/
 │   ├── api/                # Hono app, Prisma, auth/question/study/WrongNote/dashboard API
-│   │   ├── prisma/         # schema, 23 migrations, 65문제 seed
+│   │   ├── prisma/         # schema, 27 migrations, 65문제 seed
 │   │   └── src/            # app, middleware, DB, service/repository, E2E harness
 │   └── web/
 │       ├── e2e/            # Playwright real-browser practice-flow specs
@@ -439,8 +439,12 @@ current Tag label이 아닙니다. migration 20 preflight/CHECK는
 보장하고, read/filter는 그 저장값을 어떤 trim/정규화도 없이 exact 사용하므로 이후
 rename이 과거 표시·필터를 바꾸지 않습니다.
 반면 `reviewAvailability`만 현재 logical Question이 ACTIVE이고 current version이
-PUBLISHED인지에 따라 `AVAILABLE | ARCHIVED`로 파생합니다. UserMemo는 아직 이관하지
-않아 목록은 `hasMemo: false`, 상세는 `memo: null`을 반환합니다.
+PUBLISHED인지에 따라 `AVAILABLE | ARCHIVED`로 파생합니다. Phase 5 Slice 1은 UserMemo
+persistence foundation을 추가했고 Slice 2는 owner-scoped memo GET/PUT과 ReviewEvent cursor
+history GET을 Hono/PostgreSQL에 구현했습니다. 기존 historical list/detail projection은
+의도적으로 목록 `hasMemo: false`, 상세 `memo: null`을 계속 반환하며 새 memo/history
+endpoint만 현재 값을 소유합니다. 새 route는 reviewed review-center gate와 practice v2
+runtime gate가 모두 열린 경우에만 mount되고 v1-compatible runtime에서는 404입니다.
 `currentReviewQuestionVersionId`는 nullable이며 아직 review session이 없는 note는
 `null`을 유지합니다. Phase 4 Slice 3의 WRONG_NOTE·DAILY_REVIEW session 생성은 선택한
 Question의 current PUBLISHED version을 이 pointer에 설정하거나 전진시키며, null 복귀와
@@ -836,7 +840,26 @@ lifecycle, Slice 6의 canonical UI cutover·CI·browser close까지
 review queue·memo·history·targeted review와 v2 filter의 strict shared contract/conformance,
 두 forward migration의 DDL·rollback·query-plan 사전 검토만 반영했으며 Prisma,
 migration, API, MSW와 Web application은 Slice 0 종료 시점까지 변경하지 않았고
-Slice 1도 시작하지 않았습니다.
+Slice 1도 시작하지 않았습니다. 이후 프로젝트 소유자의 별도 승인으로 Slice 0 source를
+`e5351fa`에 commit·push하고 Phase 5 Slice 1을 실행했습니다. Slice 1은 enum-only
+`20260821151000_phase5_targeted_review_operation`과 dependent
+`20260821152000_phase5_review_center_foundation`을 추가해 migration 27개, UserMemo
+persistence foundation, ReviewEvent cursor index, targeted idempotency validation·cleanup,
+read-only reconciliation을 구현했습니다. fresh schema에서 migration 27/27, seed
+65/0→0/65, integration unique 136 scenarios와 reviewed pg warning budget 7+1을 통과했고,
+non-DB Vitest 140 files/744 tests와 architecture 5 tests도 통과했습니다. raw Phase 4의
+25-manifest runtime은 ledger 27을 의도적으로 거부하며, 변경되지 않은 Phase 4
+business read/write 경로는 reviewed 27-manifest readiness 아래에서 호환성을 검증했습니다.
+Slice 1 종료 시점에 memo/history route, review queue, targeted create route, canonical MSW와
+Web은 시작하지 않았고 Slice 2와 commit/push/PR/merge는 별도 승인 대상이었습니다.
+2026-08-22 프로젝트 소유자가 Slice 2 실행을 별도로 승인해 memo GET/PUT과 cursor history
+GET, strict auth/error/redaction/no-store, actual PostgreSQL row-lock last-commit-wins,
+205-event 동일시각 keyset·concurrent append·archive retention과 production builder query-plan을
+완료했습니다. fresh integration은 full 23 files/137 pass + deliberate skip 1과 isolated
+historical pin 1 pass, 기존 pg warning 7+1, schema cleanup을 통과했습니다. non-DB는 contracts
+75, domain 35, API 329, web 333으로 772 tests이며 architecture 5를 포함하면 777입니다.
+Slice 1·2 source는 아직 commit/push/PR/merge하지 않았고 review queue·targeted route,
+canonical MSW/Web과 Slice 3 이후는 별도 승인 범위입니다.
 
 ## 향후 개선
 

@@ -50,6 +50,10 @@ const phase4Slice3Migrations = [
 ] as const
 const phase4Slice4Migrations = ['20260821130000_phase4_bookmarks'] as const
 const phase4Slice5Migrations = ['20260821150000_phase4_result_retry'] as const
+const phase5Slice1Migrations = [
+  '20260821151000_phase5_targeted_review_operation',
+  '20260821152000_phase5_review_center_foundation'
+] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
@@ -82,12 +86,21 @@ const approvedPriorMigrationSha256 = {
   '20260814144000_phase3_study_session_existing_selection_guard':
     '07662a88c6f31893c25a288c16d172f8cee635e8acc186b4c6a1c5d7088fc336'
 } as const
-const migrationNames = readdirSync(sourceMigrationsDirectory, {
+const repositoryMigrationNames = readdirSync(sourceMigrationsDirectory, {
   withFileTypes: true
 })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .toSorted()
+const migrationNames = repositoryMigrationNames.filter(
+  (name) =>
+    !phase5Slice1Migrations.includes(
+      name as (typeof phase5Slice1Migrations)[number]
+    )
+)
+const phase4ExpectedMigrationManifest = loadExpectedMigrationManifest(
+  sourceMigrationsDirectory
+).filter(({ name }) => migrationNames.includes(name))
 const priorMigrationNames = migrationNames.filter(
   (name) =>
     !slice4Migrations.includes(name as (typeof slice4Migrations)[number]) &&
@@ -518,8 +531,9 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
       expect(await readLedger(context)).toHaveLength(25)
 
       const ledger = await readLedger(context)
-      const expected = loadExpectedMigrationManifest(sourceMigrationsDirectory)
-      expect(() => assertMigrationCompatibility(expected, ledger)).not.toThrow()
+      expect(() =>
+        assertMigrationCompatibility(phase4ExpectedMigrationManifest, ledger)
+      ).not.toThrow()
 
       const catalog = await context.adminClient.query<{
         idempotencyTable: string | null
@@ -799,6 +813,538 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
   }, 40_000)
 })
 
+describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
+  it('비활성 committed-state trigger를 enum migration 전에 fail-closed한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+      const enumSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase5Slice1Migrations[0],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(context.adminClient.query(enumSql)).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Phase 5 targeted-review enum migration requires zero partial objects.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      expect(await readLedger(context)).toHaveLength(25)
+      expect(
+        await context.adminClient.query<{ enumValue: string | null }>(
+          `SELECT (
+            SELECT enum_value.enumlabel
+            FROM pg_enum AS enum_value
+            JOIN pg_type AS enum_type
+              ON enum_type.oid = enum_value.enumtypid
+            JOIN pg_namespace AS enum_namespace
+              ON enum_namespace.oid = enum_type.typnamespace
+            WHERE enum_namespace.nspname = current_schema()
+              AND enum_type.typname = 'IdempotencyOperation'
+              AND enum_value.enumlabel = 'STUDY_TARGETED_REVIEW_CREATE'
+          ) AS "enumValue"`
+        )
+      ).toMatchObject({ rows: [{ enumValue: null }] })
+
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+      copyMigration(phase5Slice1Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(26)
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('조건부 committed-state trigger를 enum migration 전에 fail-closed한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      await context.adminClient.query(
+        `DROP TRIGGER "IdempotencyRecord_validate_committed_state"
+           ON "IdempotencyRecord";
+         CREATE CONSTRAINT TRIGGER "IdempotencyRecord_validate_committed_state"
+         AFTER INSERT OR UPDATE ON "IdempotencyRecord"
+         DEFERRABLE INITIALLY DEFERRED
+         FOR EACH ROW
+         WHEN (NEW."state" = 'SUCCEEDED')
+         EXECUTE FUNCTION "validate_idempotency_record_committed_state"()`
+      )
+
+      const enumSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase5Slice1Migrations[0],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(context.adminClient.query(enumSql)).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Phase 5 targeted-review enum migration requires zero partial objects.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      expect(await readLedger(context)).toHaveLength(25)
+      expect(
+        await context.adminClient.query<{ enumValue: string | null }>(
+          `SELECT (
+            SELECT enum_value.enumlabel
+            FROM pg_enum AS enum_value
+            JOIN pg_type AS enum_type
+              ON enum_type.oid = enum_value.enumtypid
+            JOIN pg_namespace AS enum_namespace
+              ON enum_namespace.oid = enum_type.typnamespace
+            WHERE enum_namespace.nspname = current_schema()
+              AND enum_type.typname = 'IdempotencyOperation'
+              AND enum_value.enumlabel = 'STUDY_TARGETED_REVIEW_CREATE'
+          ) AS "enumValue"`
+        )
+      ).toMatchObject({ rows: [{ enumValue: null }] })
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('UPDATE OF committed-state trigger를 enum migration 전에 fail-closed한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      await context.adminClient.query(
+        `DROP TRIGGER "IdempotencyRecord_validate_committed_state"
+           ON "IdempotencyRecord";
+         CREATE CONSTRAINT TRIGGER "IdempotencyRecord_validate_committed_state"
+         AFTER INSERT OR UPDATE OF "state" ON "IdempotencyRecord"
+         DEFERRABLE INITIALLY DEFERRED
+         FOR EACH ROW
+         EXECUTE FUNCTION "validate_idempotency_record_committed_state"()`
+      )
+
+      const enumSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase5Slice1Migrations[0],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(context.adminClient.query(enumSql)).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Phase 5 targeted-review enum migration requires zero partial objects.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      expect(await readLedger(context)).toHaveLength(25)
+      expect(
+        await context.adminClient.query<{ enumValue: string | null }>(
+          `SELECT (
+            SELECT enum_value.enumlabel
+            FROM pg_enum AS enum_value
+            JOIN pg_type AS enum_type
+              ON enum_type.oid = enum_value.enumtypid
+            JOIN pg_namespace AS enum_namespace
+              ON enum_namespace.oid = enum_type.typnamespace
+            WHERE enum_namespace.nspname = current_schema()
+              AND enum_type.typname = 'IdempotencyOperation'
+              AND enum_value.enumlabel = 'STUDY_TARGETED_REVIEW_CREATE'
+          ) AS "enumValue"`
+        )
+      ).toMatchObject({ rows: [{ enumValue: null }] })
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 40_000)
+
+  it('populated Phase 4 review drift를 dependent SQL preflight에서 rollback하고 복원 뒤 forward 배포한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const startedAt = new Date('2026-08-21T10:59:00.000Z')
+    const occurredAt = new Date('2026-08-21T11:00:00.000Z')
+
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      const fixture = await createLegacySubmissionFixture(context, {
+        mode: 'RANDOM',
+        occurredAt,
+        source: 'STUDY_SUBMIT',
+        startedAt
+      })
+
+      copyMigration(phase5Slice1Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(26)
+      await context.adminClient.query(
+        `ALTER TABLE "ReviewSchedule" DISABLE TRIGGER USER`
+      )
+      await context.adminClient.query(
+        `UPDATE "ReviewSchedule"
+         SET "intervalDays" = 7
+         WHERE "wrongNoteId" = $1`,
+        [fixture.noteId]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "ReviewSchedule" ENABLE TRIGGER USER`
+      )
+
+      const foundationSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase5Slice1Migrations[1],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(foundationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'ReviewSchedule does not match the latest substantive ReviewEvent.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      expect(await readLedger(context)).toHaveLength(26)
+      expect(
+        await context.adminClient.query<{
+          memoTable: string | null
+          normalizer: string | null
+          reviewEventIndex: string | null
+        }>(
+          `SELECT
+            to_regclass('"UserMemo"')::text AS "memoTable",
+            to_regprocedure('normalize_user_memo_text(text)')::text
+              AS "normalizer",
+            to_regclass('"ReviewEvent_wrongNoteId_occurredAt_id_idx"')::text
+              AS "reviewEventIndex"`
+        )
+      ).toMatchObject({
+        rows: [{ memoTable: null, normalizer: null, reviewEventIndex: null }]
+      })
+
+      await context.adminClient.query(
+        `ALTER TABLE "ReviewSchedule" DISABLE TRIGGER USER`
+      )
+      await context.adminClient.query(
+        `UPDATE "ReviewSchedule"
+         SET "intervalDays" = 1
+         WHERE "wrongNoteId" = $1`,
+        [fixture.noteId]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "ReviewSchedule" ENABLE TRIGGER USER`
+      )
+      copyMigration(phase5Slice1Migrations[1], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(27)
+      expect(
+        await context.adminClient.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count
+           FROM "ReviewEvent"
+           WHERE "wrongNoteId" = $1`,
+          [fixture.noteId]
+        )
+      ).toMatchObject({ rows: [{ count: 1 }] })
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 50_000)
+
+  it('ledger 25→26에서 dirty reserved row를 fail-closed하고 정리 뒤 27 catalog를 배포한다', async () => {
+    const context = await createIsolatedMigrationSchema()
+    const userId = randomUUID()
+    const sessionId = randomUUID()
+    const now = new Date('2026-08-21T12:00:00.000Z')
+
+    try {
+      for (const migrationName of migrationNames) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(25)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+
+      copyMigration(phase5Slice1Migrations[0], context.migrationsPath)
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(26)
+
+      const readIdempotencyDefinitions = async () =>
+        await context.adminClient.query<{
+          changeFunction: string
+          committedFunction: string
+          stateConstraint: string
+        }>(
+          `SELECT
+            pg_get_constraintdef(constraint_record.oid) AS "stateConstraint",
+            pg_get_functiondef(
+              to_regprocedure('validate_idempotency_record_change()')
+            ) AS "changeFunction",
+            pg_get_functiondef(
+              to_regprocedure('validate_idempotency_record_committed_state()')
+            ) AS "committedFunction"
+           FROM pg_constraint AS constraint_record
+           WHERE constraint_record.conrelid = '"IdempotencyRecord"'::regclass
+             AND constraint_record.conname = 'IdempotencyRecord_state_check'`
+        )
+      const before = await readIdempotencyDefinitions()
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+          "id", "name", "email", "emailVerified", "role",
+          "accountStatus", "createdAt", "updatedAt"
+        ) VALUES ($1, 'Phase 5 reserved row user', $2, true, 'USER',
+          'ACTIVE', $3, $3)`,
+        [userId, `phase5-reserved-${randomUUID()}@example.test`, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         DISABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "StudySession" (
+          "id", "userId", "level", "subject", "mode", "status",
+          "requestedCount", "actualCount", "usedFallback", "startedAt",
+          "expiresAt", "practiceContractVersion", "createdAt", "updatedAt"
+        ) VALUES (
+          $1, $2, 'N5', 'VOCABULARY', 'WRONG_NOTE', 'IN_PROGRESS',
+          1, 1, false, $3, $3::timestamptz + INTERVAL '1 day', 1, $3, $3
+        )`,
+        [sessionId, userId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "StudySession"
+         ENABLE TRIGGER "StudySession_validate_selection_complete"`
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         DISABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "IdempotencyRecord" (
+          "id", "principalType", "userId", "operation", "idempotencyKey",
+          "studySessionId", "requestHash", "contractVersion", "state",
+          "createdAt"
+        ) VALUES (
+          $1, 'USER', $2, 'STUDY_TARGETED_REVIEW_CREATE', $3, $4,
+          repeat('c', 64), 2, 'PROCESSING', $5
+        )`,
+        [randomUUID(), userId, randomUUID(), sessionId, now]
+      )
+      await context.adminClient.query(
+        `ALTER TABLE "IdempotencyRecord"
+         ENABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
+      )
+
+      const foundationSql = readFileSync(
+        join(
+          sourceMigrationsDirectory,
+          phase5Slice1Migrations[1],
+          'migration.sql'
+        ),
+        'utf8'
+      )
+      await expect(
+        context.adminClient.query(foundationSql)
+      ).rejects.toMatchObject({
+        code: '23514',
+        message:
+          'Reserved targeted-review idempotency rows must be empty before migration.'
+      })
+      await context.adminClient.query('ROLLBACK')
+      expect(await readLedger(context)).toHaveLength(26)
+
+      const rolledBack = await context.adminClient.query<{
+        memoTable: string | null
+        normalizer: string | null
+        reviewEventIndex: string | null
+      }>(
+        `SELECT
+          to_regclass('"UserMemo"')::text AS "memoTable",
+          to_regprocedure('normalize_user_memo_text(text)')::text AS "normalizer",
+          to_regclass('"ReviewEvent_wrongNoteId_occurredAt_id_idx"')::text
+            AS "reviewEventIndex"`
+      )
+      expect(rolledBack.rows).toEqual([
+        { memoTable: null, normalizer: null, reviewEventIndex: null }
+      ])
+      expect((await readIdempotencyDefinitions()).rows).toEqual(before.rows)
+
+      await context.adminClient.query('DELETE FROM "User" WHERE "id" = $1', [
+        userId
+      ])
+      copyMigration(phase5Slice1Migrations[1], context.migrationsPath)
+      await deploy(context)
+
+      const ledger = await readLedger(context)
+      expect(ledger).toHaveLength(27)
+      expect(() =>
+        assertMigrationCompatibility(
+          loadExpectedMigrationManifest(sourceMigrationsDirectory),
+          ledger
+        )
+      ).not.toThrow()
+      const catalog = await context.adminClient.query<{
+        cascadeDelete: string
+        cascadeUpdate: string
+        indexDefinition: string
+        memoCount: number
+        memoTable: string
+        normalizerImmutable: boolean
+        normalizerParallelSafe: boolean
+        normalizerStrict: boolean
+      }>(
+        `SELECT
+          to_regclass('"UserMemo"')::text AS "memoTable",
+          (SELECT COUNT(*)::int FROM "UserMemo") AS "memoCount",
+          procedure_record.provolatile = 'i' AS "normalizerImmutable",
+          procedure_record.proisstrict AS "normalizerStrict",
+          procedure_record.proparallel = 's' AS "normalizerParallelSafe",
+          foreign_key.confdeltype::text AS "cascadeDelete",
+          foreign_key.confupdtype::text AS "cascadeUpdate",
+          index_record.indexdef AS "indexDefinition"
+         FROM pg_proc AS procedure_record
+         JOIN pg_namespace AS procedure_namespace
+           ON procedure_namespace.oid = procedure_record.pronamespace
+         JOIN pg_constraint AS foreign_key
+           ON foreign_key.conrelid = '"UserMemo"'::regclass
+           AND foreign_key.conname = 'UserMemo_wrongNoteId_fkey'
+         JOIN pg_indexes AS index_record
+           ON index_record.schemaname = current_schema()
+           AND index_record.indexname =
+             'ReviewEvent_wrongNoteId_occurredAt_id_idx'
+         WHERE procedure_namespace.nspname = current_schema()
+           AND procedure_record.proname = 'normalize_user_memo_text'`
+      )
+      expect(catalog.rows).toEqual([
+        expect.objectContaining({
+          cascadeDelete: 'c',
+          cascadeUpdate: 'c',
+          memoCount: 0,
+          memoTable: '"UserMemo"',
+          normalizerImmutable: true,
+          normalizerParallelSafe: true,
+          normalizerStrict: true
+        })
+      ])
+      expect(catalog.rows[0]?.indexDefinition).toContain(
+        '"wrongNoteId", "occurredAt" DESC, id DESC'
+      )
+      const triggerCatalog = await context.adminClient.query<{
+        deferrable: boolean
+        enabled: string
+        functionName: string
+        hasArguments: boolean
+        hasWhenClause: boolean
+        hasUpdateColumns: boolean
+        initiallyDeferred: boolean
+        isConstraint: boolean
+        namespace: string
+        triggerName: string
+        triggerType: number
+      }>(
+        `SELECT
+          trigger_record.tgname AS "triggerName",
+          trigger_record.tgenabled::text AS "enabled",
+          trigger_record.tgtype::int AS "triggerType",
+          trigger_record.tgconstraint <> 0 AS "isConstraint",
+          trigger_record.tgdeferrable AS "deferrable",
+          trigger_record.tginitdeferred AS "initiallyDeferred",
+          trigger_record.tgqual IS NOT NULL AS "hasWhenClause",
+          trigger_record.tgattr <> ''::int2vector AS "hasUpdateColumns",
+          trigger_record.tgnargs <> 0 AS "hasArguments",
+          procedure_namespace.nspname AS "namespace",
+          procedure_record.proname AS "functionName"
+         FROM pg_trigger AS trigger_record
+         JOIN pg_proc AS procedure_record
+           ON procedure_record.oid = trigger_record.tgfoid
+         JOIN pg_namespace AS procedure_namespace
+           ON procedure_namespace.oid = procedure_record.pronamespace
+         WHERE trigger_record.tgrelid = '"IdempotencyRecord"'::regclass
+           AND NOT trigger_record.tgisinternal
+           AND trigger_record.tgname IN (
+             'IdempotencyRecord_validate_change',
+             'IdempotencyRecord_validate_committed_state'
+           )
+         ORDER BY trigger_record.tgname ASC`
+      )
+      expect(triggerCatalog.rows).toEqual([
+        {
+          triggerName: 'IdempotencyRecord_validate_change',
+          enabled: 'O',
+          triggerType: 31,
+          isConstraint: false,
+          deferrable: false,
+          hasArguments: false,
+          hasWhenClause: false,
+          hasUpdateColumns: false,
+          initiallyDeferred: false,
+          namespace: context.schemaName,
+          functionName: 'validate_idempotency_record_change'
+        },
+        {
+          triggerName: 'IdempotencyRecord_validate_committed_state',
+          enabled: 'O',
+          triggerType: 21,
+          isConstraint: true,
+          deferrable: true,
+          hasArguments: false,
+          hasWhenClause: false,
+          hasUpdateColumns: false,
+          initiallyDeferred: true,
+          namespace: context.schemaName,
+          functionName: 'validate_idempotency_record_committed_state'
+        }
+      ])
+    } finally {
+      await context.adminClient.query('ROLLBACK').catch(() => undefined)
+      await dispose(context)
+    }
+  }, 50_000)
+})
+
 describe('Phase 4 Slice 1 migration upgrade', () => {
   it('populated v1 rows를 version 1/no-draft로 보존하고 omitted-column default를 고정한다', async () => {
     const context = await createIsolatedMigrationSchema()
@@ -1039,11 +1585,31 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         throw error
       }
 
-      const oldBinaryRuntime = createDatabaseRuntime(context.databaseUrl)
+      for (const migrationName of phase5Slice1Migrations) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      const phase5Ledger = await readLedger(context)
+      expect(phase5Ledger).toHaveLength(27)
+      expect(() =>
+        assertMigrationCompatibility(
+          phase4ExpectedMigrationManifest,
+          phase5Ledger
+        )
+      ).toThrow('Database migration count does not match the repository.')
+
+      const currentRuntimeWithPhase4Path = createDatabaseRuntime(
+        context.databaseUrl
+      )
       try {
-        await oldBinaryRuntime.checkReadiness()
-        const oldBinarySubmissionService = createStudySubmissionService(
-          createPrismaStudySubmissionRepository(oldBinaryRuntime.client),
+        await currentRuntimeWithPhase4Path.checkReadiness()
+        // The repository and service are unchanged from 6116b9d. The raw
+        // 25-manifest binary is intentionally fenced above; this probes the
+        // reviewed Phase 4 business path under the 27-manifest readiness.
+        const phase4SubmissionService = createStudySubmissionService(
+          createPrismaStudySubmissionRepository(
+            currentRuntimeWithPhase4Path.client
+          ),
           () => new Date(oldBinaryStartedAt.getTime() + 1_000)
         )
         const oldBinaryBody = {
@@ -1056,14 +1622,14 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
           ],
           durationSec: 2
         }
-        const first = await oldBinarySubmissionService.submit(
+        const first = await phase4SubmissionService.submit(
           oldBinarySessionId,
           oldBinaryIdempotencyKey,
           oldBinaryBody,
           { kind: 'USER', userId }
         )
         expect(first).toMatchObject({ replayed: false })
-        const replay = await oldBinarySubmissionService.submit(
+        const replay = await phase4SubmissionService.submit(
           oldBinarySessionId,
           oldBinaryIdempotencyKey,
           oldBinaryBody,
@@ -1074,7 +1640,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
           response: first.response
         })
       } finally {
-        await oldBinaryRuntime.disconnect()
+        await currentRuntimeWithPhase4Path.disconnect()
       }
       expect(
         (
@@ -2059,11 +2625,11 @@ describe('Phase 4 Slice 3 historical review pins', () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
-      for (const migrationName of migrationNames) {
+      for (const migrationName of repositoryMigrationNames) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(25)
+      expect(await readLedger(context)).toHaveLength(27)
 
       const runtime = createDatabaseRuntime(context.databaseUrl)
       try {

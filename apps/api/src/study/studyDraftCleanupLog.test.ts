@@ -9,9 +9,11 @@ const result = {
   expiredDraftIdempotencyBatchLimitReached: true,
   expiredIdempotencyBatchLimitReached: true,
   expiredRetryIdempotencyBatchLimitReached: false,
+  expiredTargetedReviewIdempotencyBatchLimitReached: false,
   expiredStudyDraftCount: 2,
   deletedDraftIdempotencyRecordCount: 500,
   deletedRetryIdempotencyRecordCount: 0,
+  deletedTargetedReviewIdempotencyRecordCount: 0,
   oldestOverdueExpiresAt: '2000-01-01T00:00:00.000Z',
   overdueStudyDraftCount: 3,
   idempotencyOperationMetrics: [

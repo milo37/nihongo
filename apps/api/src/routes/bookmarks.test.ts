@@ -12,6 +12,7 @@ import type { ApplicationRateLimiter } from '../middleware/applicationRateLimite
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
 import type { StudySessionService } from '../study/studySessionService.js'
+import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 
 const ORIGIN = 'http://localhost:5173'
@@ -113,6 +114,11 @@ const createDependencies = () => {
     getWrongNote: vi.fn<WrongNoteService['getWrongNote']>(),
     listWrongNotes: vi.fn<WrongNoteService['listWrongNotes']>()
   } satisfies WrongNoteService
+  const reviewCenterService = {
+    getMemo: vi.fn<WrongNoteReviewCenterService['getMemo']>(),
+    listReviewEvents: vi.fn<WrongNoteReviewCenterService['listReviewEvents']>(),
+    updateMemo: vi.fn<WrongNoteReviewCenterService['updateMemo']>()
+  } satisfies WrongNoteReviewCenterService
   const dashboardService = {
     getDashboardStats: vi.fn<DashboardService['getDashboardStats']>()
   } satisfies DashboardService
@@ -122,6 +128,7 @@ const createDependencies = () => {
     guestPrincipalService,
     principalService,
     rateLimiter,
+    reviewCenterService,
     studyService,
     wrongNoteService
   }
@@ -143,6 +150,8 @@ const createTestApp = (
       bookmarkService: dependencies.bookmarkService,
       dashboardService: dependencies.dashboardService,
       rateLimiter: dependencies.rateLimiter,
+      reviewCenterEnabled: practiceContractV2Enabled,
+      reviewCenterService: dependencies.reviewCenterService,
       wrongNoteService: dependencies.wrongNoteService
     },
     logger: createJsonLogger('silent'),

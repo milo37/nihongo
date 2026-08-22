@@ -506,6 +506,125 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
     })
   })
 
+  it('targeted review 7일 TTL을 별도 batch·metric으로 정리하고 target session은 보존한다', async () => {
+    const userId = await createUser()
+    const expiredSession = await createSession({
+      userId,
+      practiceContractVersion: 1,
+      startedAt: new Date(NOW.getTime() - 8 * DAY_MS),
+      expiresAt: new Date(NOW.getTime() + DAY_MS)
+    })
+    const activeSession = await createSession({
+      userId,
+      practiceContractVersion: 1,
+      startedAt: new Date(NOW.getTime() - 8 * DAY_MS),
+      expiresAt: new Date(NOW.getTime() + DAY_MS)
+    })
+    const expiredCompletedAt = new Date(NOW.getTime() - 7 * DAY_MS)
+    const activeCompletedAt = new Date(expiredCompletedAt.getTime() + 1)
+
+    await database.client.$executeRawUnsafe(
+      'ALTER TABLE "IdempotencyRecord" DISABLE TRIGGER ' +
+        '"IdempotencyRecord_validate_change"'
+    )
+    await database.client.$executeRawUnsafe(
+      'ALTER TABLE "IdempotencyRecord" DISABLE TRIGGER ' +
+        '"IdempotencyRecord_validate_committed_state"'
+    )
+    try {
+      await database.client.idempotencyRecord.createMany({
+        data: [
+          {
+            id: randomUUID(),
+            principalType: 'USER',
+            userId,
+            operation: 'STUDY_TARGETED_REVIEW_CREATE',
+            idempotencyKey: randomUUID(),
+            studySessionId: expiredSession.id,
+            requestHash: 'a'.repeat(64),
+            contractVersion: 2,
+            state: 'SUCCEEDED',
+            responseStatus: 201,
+            responseBody: {},
+            createdAt: expiredCompletedAt,
+            completedAt: expiredCompletedAt,
+            expiresAt: NOW
+          },
+          {
+            id: randomUUID(),
+            principalType: 'USER',
+            userId,
+            operation: 'STUDY_TARGETED_REVIEW_CREATE',
+            idempotencyKey: randomUUID(),
+            studySessionId: activeSession.id,
+            requestHash: 'b'.repeat(64),
+            contractVersion: 2,
+            state: 'SUCCEEDED',
+            responseStatus: 201,
+            responseBody: {},
+            createdAt: activeCompletedAt,
+            completedAt: activeCompletedAt,
+            expiresAt: new Date(NOW.getTime() + 1)
+          }
+        ]
+      })
+    } finally {
+      await database.client.$executeRawUnsafe(
+        'ALTER TABLE "IdempotencyRecord" ENABLE TRIGGER ' +
+          '"IdempotencyRecord_validate_change"'
+      )
+      await database.client.$executeRawUnsafe(
+        'ALTER TABLE "IdempotencyRecord" ENABLE TRIGGER ' +
+          '"IdempotencyRecord_validate_committed_state"'
+      )
+    }
+
+    const cleanup = createStudyDraftCleanupService(
+      createPrismaStudyDraftCleanupRepository(database.client),
+      () => NOW
+    )
+    const first = await cleanup.cleanup({ batchSize: 1 })
+    expect(first).toMatchObject({
+      deletedTargetedReviewIdempotencyRecordCount: 1,
+      expiredTargetedReviewIdempotencyBatchLimitReached: true,
+      expiredIdempotencyBatchLimitReached: true
+    })
+    expect(first.idempotencyOperationMetrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operation: 'STUDY_TARGETED_REVIEW_CREATE',
+          activeRecordCount: 1,
+          expiredRecordCount: 1
+        })
+      ])
+    )
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: {
+          operation: 'STUDY_TARGETED_REVIEW_CREATE',
+          studySessionId: expiredSession.id
+        }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: {
+          operation: 'STUDY_TARGETED_REVIEW_CREATE',
+          studySessionId: activeSession.id
+        }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.studySession.count({
+        where: { id: { in: [expiredSession.id, activeSession.id] } }
+      })
+    ).toBe(2)
+    await expect(cleanup.cleanup({ batchSize: 1 })).resolves.toMatchObject({
+      deletedTargetedReviewIdempotencyRecordCount: 0,
+      expiredTargetedReviewIdempotencyBatchLimitReached: false
+    })
+  })
+
   it('실제 501개 후보를 500+1 batch로 제한한다', async () => {
     const userId = await createUser()
     const sessionIds = await createBulkOverdueSessions(userId, 501)

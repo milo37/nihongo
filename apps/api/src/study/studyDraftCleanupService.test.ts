@@ -15,9 +15,11 @@ const result = {
   expiredDraftIdempotencyBatchLimitReached: false,
   expiredIdempotencyBatchLimitReached: false,
   expiredRetryIdempotencyBatchLimitReached: false,
+  expiredTargetedReviewIdempotencyBatchLimitReached: false,
   expiredStudyDraftCount: 2,
   deletedDraftIdempotencyRecordCount: 3,
   deletedRetryIdempotencyRecordCount: 2,
+  deletedTargetedReviewIdempotencyRecordCount: 0,
   oldestOverdueExpiresAt: '1999-12-30T12:00:00.000Z',
   overdueStudyDraftCount: 2,
   idempotencyOperationMetrics: [

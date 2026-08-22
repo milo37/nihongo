@@ -24,6 +24,8 @@ import { createPrismaStudySubmissionRepository } from './study/studySubmissionRe
 import { createStudySubmissionService } from './study/studySubmissionService.js'
 import { createPrismaWrongNoteRepository } from './wrong-note/wrongNoteRepository.js'
 import { createWrongNoteService } from './wrong-note/wrongNoteService.js'
+import { createPrismaWrongNoteReviewCenterRepository } from './wrong-note/wrongNoteReviewCenterRepository.js'
+import { createWrongNoteReviewCenterService } from './wrong-note/wrongNoteReviewCenterService.js'
 import { createPrismaDashboardRepository } from './dashboard/dashboardRepository.js'
 import { createDashboardService } from './dashboard/dashboardService.js'
 import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.js'
@@ -90,6 +92,9 @@ const studyResultRetryService = createStudyResultRetryService(
 const wrongNoteService = createWrongNoteService(
   createPrismaWrongNoteRepository(database.client)
 )
+const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
+  createPrismaWrongNoteReviewCenterRepository(database.client)
+)
 const dashboardService = createDashboardService(
   createPrismaDashboardRepository(database.client)
 )
@@ -114,6 +119,8 @@ const app = createApiApp({
     bookmarkService,
     dashboardService,
     rateLimiter: applicationRateLimiter,
+    reviewCenterEnabled: practiceRuntimeGate.practiceContractV2Enabled,
+    reviewCenterService: wrongNoteReviewCenterService,
     wrongNoteService
   },
   questionReader,

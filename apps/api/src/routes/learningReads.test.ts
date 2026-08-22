@@ -16,6 +16,7 @@ import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
+import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 
 const ORIGIN = 'http://localhost:5173'
@@ -182,6 +183,11 @@ const createDependencies = () => {
     getWrongNote: vi.fn().mockResolvedValue(detailResponse),
     listWrongNotes: vi.fn().mockResolvedValue(listResponse)
   } satisfies WrongNoteService
+  const reviewCenterService = {
+    getMemo: vi.fn<WrongNoteReviewCenterService['getMemo']>(),
+    listReviewEvents: vi.fn<WrongNoteReviewCenterService['listReviewEvents']>(),
+    updateMemo: vi.fn<WrongNoteReviewCenterService['updateMemo']>()
+  } satisfies WrongNoteReviewCenterService
   const dashboardService = {
     getDashboardStats: vi.fn().mockResolvedValue(dashboardResponse)
   } satisfies DashboardService
@@ -191,6 +197,7 @@ const createDependencies = () => {
     guestPrincipalService,
     principalService,
     rateLimiter,
+    reviewCenterService,
     wrongNoteService
   }
 }
@@ -207,6 +214,8 @@ const createTestApp = (dependencies: ReturnType<typeof createDependencies>) =>
     learning: {
       dashboardService: dependencies.dashboardService,
       rateLimiter: dependencies.rateLimiter,
+      reviewCenterEnabled: false,
+      reviewCenterService: dependencies.reviewCenterService,
       wrongNoteService: dependencies.wrongNoteService
     },
     logger: createJsonLogger('silent'),
@@ -412,10 +421,17 @@ describe('Slice 5 authenticated read routes', () => {
       '/api/v1/wrong-notes',
       { headers: { Cookie: 'nihongo.guest_principal=signed-guest' } }
     )
-    const failure = apiFailureSchema.parse(await response.json())
+    const responseBody: unknown = await response.json()
+    const failure = apiFailureSchema.parse(responseBody)
 
     expect(response.status).toBe(401)
     expect(failure.code).toBe('AUTHENTICATION_REQUIRED')
+    expect(responseBody).toEqual({
+      code: 'AUTHENTICATION_REQUIRED',
+      message: '오답 노트를 조회하려면 로그인이 필요합니다.',
+      requestId: expect.any(String),
+      retryable: false
+    })
     expect(
       dependencies.guestPrincipalService.inspectCookie
     ).not.toHaveBeenCalled()
@@ -519,11 +535,12 @@ describe('Slice 5 authenticated read routes', () => {
     expect(body).not.toContain('do-not-leak')
   })
 
-  it('memo/review/bookmark/non-RANDOM Slice 5 경로를 등록하지 않는다', async () => {
+  it('v1-compatible runtime에는 review-center/Bookmark 경로를 등록하지 않는다', async () => {
     const dependencies = createDependencies()
     const app = createTestApp(dependencies)
     const responses = await Promise.all([
       app.request(`/api/v1/wrong-notes/${QUESTION_ID}/memo`),
+      app.request(`/api/v1/wrong-notes/${QUESTION_ID}/review-events`),
       app.request(`/api/v1/wrong-notes/${QUESTION_ID}/review`, {
         method: 'POST',
         headers: {
@@ -541,11 +558,17 @@ describe('Slice 5 authenticated read routes', () => {
       )
     )
 
-    expect(responses.map(({ status }) => status)).toEqual([404, 404, 404, 404])
+    expect(responses.map(({ status }) => status)).toEqual([
+      404, 404, 404, 404, 404
+    ])
     expect(failures.every(({ code }) => code === 'RESOURCE_NOT_FOUND')).toBe(
       true
     )
     expect(dependencies.wrongNoteService.getWrongNote).not.toHaveBeenCalled()
+    expect(dependencies.reviewCenterService.getMemo).not.toHaveBeenCalled()
+    expect(
+      dependencies.reviewCenterService.listReviewEvents
+    ).not.toHaveBeenCalled()
     expect(
       dependencies.dashboardService.getDashboardStats
     ).not.toHaveBeenCalled()

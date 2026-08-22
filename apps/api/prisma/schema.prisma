@@ -116,6 +116,7 @@ enum IdempotencyOperation {
   STUDY_SUBMIT
   STUDY_DRAFT_SAVE
   STUDY_RETRY_CREATE
+  STUDY_TARGETED_REVIEW_CREATE
 }
 
 enum IdempotencyState {
@@ -214,36 +215,36 @@ model GuestPrincipal {
 }
 
 model StudySession {
-  id                 String                      @id @default(uuid()) @db.Uuid
-  userId             String?                     @db.Uuid
-  guestPrincipalId   String?                     @db.Uuid
-  retryOfStudySessionId String?                   @db.Uuid
-  level              JlptLevel
-  subject            QuestionSubject
-  mode               StudyMode
-  status             StudySessionStatus          @default(IN_PROGRESS)
-  requestedCount     Int
-  actualCount        Int
-  usedFallback       Boolean                     @default(false)
-  fallbackReason     StudySessionFallbackReason?
-  startedAt          DateTime                    @default(now()) @db.Timestamptz(3)
-  expiresAt          DateTime                    @db.Timestamptz(3)
-  submittedAt        DateTime?                   @db.Timestamptz(3)
-  cancelledAt        DateTime?                   @db.Timestamptz(3)
-  durationSec        Int?
-  submissionHash     String?                     @db.VarChar(64)
-  practiceContractVersion Int                    @default(1)
-  createdAt          DateTime                    @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime                    @updatedAt @db.Timestamptz(3)
-  user               User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  guestPrincipal     GuestPrincipal?             @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade)
-  retryOfStudySession StudySession?               @relation("StudySessionRetry", fields: [retryOfStudySessionId], references: [id], onDelete: NoAction, onUpdate: Cascade)
-  retrySessions      StudySession[]               @relation("StudySessionRetry")
-  questions          StudySessionQuestion[]
-  result             StudyResult?
-  reviewEvents       ReviewEvent[]
-  idempotencyRecords IdempotencyRecord[]
-  draft              StudyDraft?
+  id                      String                      @id @default(uuid()) @db.Uuid
+  userId                  String?                     @db.Uuid
+  guestPrincipalId        String?                     @db.Uuid
+  retryOfStudySessionId   String?                     @db.Uuid
+  level                   JlptLevel
+  subject                 QuestionSubject
+  mode                    StudyMode
+  status                  StudySessionStatus          @default(IN_PROGRESS)
+  requestedCount          Int
+  actualCount             Int
+  usedFallback            Boolean                     @default(false)
+  fallbackReason          StudySessionFallbackReason?
+  startedAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  expiresAt               DateTime                    @db.Timestamptz(3)
+  submittedAt             DateTime?                   @db.Timestamptz(3)
+  cancelledAt             DateTime?                   @db.Timestamptz(3)
+  durationSec             Int?
+  submissionHash          String?                     @db.VarChar(64)
+  practiceContractVersion Int                         @default(1)
+  createdAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                    @updatedAt @db.Timestamptz(3)
+  user                    User?                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestPrincipal          GuestPrincipal?             @relation(fields: [guestPrincipalId], references: [id], onDelete: Cascade)
+  retryOfStudySession     StudySession?               @relation("StudySessionRetry", fields: [retryOfStudySessionId], references: [id], onDelete: NoAction, onUpdate: Cascade)
+  retrySessions           StudySession[]              @relation("StudySessionRetry")
+  questions               StudySessionQuestion[]
+  result                  StudyResult?
+  reviewEvents            ReviewEvent[]
+  idempotencyRecords      IdempotencyRecord[]
+  draft                   StudyDraft?
 
   @@unique([id, userId])
   @@unique([id, guestPrincipalId])
@@ -255,17 +256,17 @@ model StudySession {
 }
 
 model StudySessionQuestion {
-  id                String          @id @default(uuid()) @db.Uuid
-  studySessionId    String          @db.Uuid
-  questionId        String          @db.Uuid
-  questionVersionId String          @db.Uuid
-  ordinal           Int
-  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
-  studySession      StudySession    @relation(fields: [studySessionId], references: [id], onDelete: Cascade)
-  question          Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  questionVersion   QuestionVersion @relation(fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict)
-  answer            StudyAnswer?
-  draftAnswer       StudyDraftAnswer? @relation("StudyDraftAnswerSessionQuestion")
+  id                 String             @id @default(uuid()) @db.Uuid
+  studySessionId     String             @db.Uuid
+  questionId         String             @db.Uuid
+  questionVersionId  String             @db.Uuid
+  ordinal            Int
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  studySession       StudySession       @relation(fields: [studySessionId], references: [id], onDelete: Cascade)
+  question           Question           @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  questionVersion    QuestionVersion    @relation(fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict)
+  answer             StudyAnswer?
+  draftAnswer        StudyDraftAnswer?  @relation("StudyDraftAnswerSessionQuestion")
   pinnedDraftAnswers StudyDraftAnswer[] @relation("StudyDraftAnswerPinnedQuestion")
 
   @@unique([studySessionId, ordinal])
@@ -380,15 +381,15 @@ model QuestionVersion {
 }
 
 model QuestionOption {
-  id                String           @id @default(uuid()) @db.Uuid
-  questionVersionId String           @db.Uuid
+  id                String             @id @default(uuid()) @db.Uuid
+  questionVersionId String             @db.Uuid
   label             String
   text              String
   ordinal           Int
-  questionVersion   QuestionVersion  @relation("VersionOptions", fields: [questionVersionId], references: [id], onDelete: Cascade)
-  correctForVersion QuestionVersion? @relation("CorrectQuestionOption")
-  selectedByAnswers StudyAnswer[]    @relation("StudyAnswerSelectedOption")
-  selectedByEvents  ReviewEvent[]    @relation("ReviewEventSelectedOption")
+  questionVersion   QuestionVersion    @relation("VersionOptions", fields: [questionVersionId], references: [id], onDelete: Cascade)
+  correctForVersion QuestionVersion?   @relation("CorrectQuestionOption")
+  selectedByAnswers StudyAnswer[]      @relation("StudyAnswerSelectedOption")
+  selectedByEvents  ReviewEvent[]      @relation("ReviewEventSelectedOption")
   selectedByDrafts  StudyDraftAnswer[] @relation("StudyDraftAnswerSelectedOption")
 
   @@unique([questionVersionId, id])
@@ -468,6 +469,7 @@ model WrongNote {
   currentReviewQuestionVersion   QuestionVersion? @relation("WrongNoteCurrentReviewVersion", fields: [questionId, currentReviewQuestionVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: Cascade)
   schedule                       ReviewSchedule?
   events                         ReviewEvent[]
+  memo                           UserMemo?
 
   @@unique([userId, questionId])
   @@unique([id, userId, questionId])
@@ -478,6 +480,15 @@ model WrongNote {
   @@index([userId, wrongCount(sort: Desc), lastWrongAt(sort: Desc), id])
   @@index([questionId, lastWrongQuestionVersionId])
   @@index([questionId, currentReviewQuestionVersionId])
+}
+
+model UserMemo {
+  id          String    @id @default(uuid()) @db.Uuid
+  wrongNoteId String    @unique @db.Uuid
+  text        String    @db.Text
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @db.Timestamptz(3)
+  wrongNote   WrongNote @relation(fields: [wrongNoteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
 
 model ReviewSchedule {
@@ -519,6 +530,7 @@ model ReviewEvent {
 
   @@unique([studyAnswerId, questionVersionId])
   @@index([wrongNoteId, occurredAt(sort: Desc)])
+  @@index([wrongNoteId, occurredAt(sort: Desc), id(sort: Desc)])
   @@index([questionId, questionVersionId])
   @@index([studySessionId])
   @@index([questionVersionId, selectedOptionId])

@@ -1,4 +1,5 @@
 import { createMiddleware } from 'hono/factory'
+import { routePath } from 'hono/route'
 import type { ApiVariables } from './requestContext.js'
 import type { StructuredLogger } from '../observability/logger.js'
 
@@ -15,7 +16,7 @@ export const createRequestLogger = (logger: StructuredLogger) =>
         logger.info('http.request.completed', {
           requestId: context.get('requestId'),
           method: context.req.method,
-          path: new URL(context.req.url).pathname,
+          path: routePath(context, -1),
           status: context.res.status,
           durationMs: Math.round((performance.now() - startedAt) * 100) / 100
         })

@@ -12,6 +12,7 @@
     "test:watch": "pnpm run db:generate && vitest",
     "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
+    "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
     "db:generate": "prisma generate",
