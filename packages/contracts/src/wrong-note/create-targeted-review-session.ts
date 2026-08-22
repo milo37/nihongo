@@ -14,6 +14,8 @@ export const createTargetedReviewSessionParamsSchema = z
 export const createTargetedReviewSessionHeadersSchema =
   idempotentPracticeContractV2HeadersSchema
 
+export const createTargetedReviewSessionQuerySchema = z.object({}).strict()
+
 export const createTargetedReviewSessionBodySchema = z.object({}).strict()
 
 export const createTargetedReviewSessionResponseSchema =
@@ -90,6 +92,9 @@ export type CreateTargetedReviewSessionParams = z.input<
 >
 export type CreateTargetedReviewSessionHeaders = z.input<
   typeof createTargetedReviewSessionHeadersSchema
+>
+export type CreateTargetedReviewSessionQuery = z.input<
+  typeof createTargetedReviewSessionQuerySchema
 >
 export type CreateTargetedReviewSessionBody = z.input<
   typeof createTargetedReviewSessionBodySchema

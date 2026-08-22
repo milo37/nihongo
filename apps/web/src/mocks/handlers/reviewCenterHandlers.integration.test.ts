@@ -21,6 +21,11 @@ import {
   updateWrongNoteMemoErrorSchema,
   updateWrongNoteMemoResponseSchema
 } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
+import {
+  createTargetedReviewSessionErrorSchema,
+  createTargetedReviewSessionResponseSchema,
+  type CreateTargetedReviewSessionResponse
+} from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { assertNoReviewCenterForbiddenKeys } from '@nihongo/contracts/testing/review-center-conformance'
 import { describe, expect, it, vi } from 'vitest'
 import { cachedStorage, MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
@@ -185,6 +190,32 @@ const readQueue = async (suffix = ''): Promise<ListReviewQueueResponse> => {
   const body = listReviewQueueResponseSchema.parse(await response.json())
   assertNoReviewCenterForbiddenKeys('QUEUE', body)
   return body
+}
+
+const createTargetedReview = async (
+  questionId: string,
+  idempotencyKey: string,
+  init: RequestInit = {}
+): Promise<{ response: Response; body: unknown }> => {
+  const { body = '{}', headers, ...rest } = init
+  const queryIndex = questionId.indexOf('?')
+  const pathQuestionId =
+    queryIndex === -1 ? questionId : questionId.slice(0, queryIndex)
+  const query = queryIndex === -1 ? '' : questionId.slice(queryIndex)
+  const response = await fetch(
+    `http://localhost/api/v1/wrong-notes/${pathQuestionId}/review-session${query}`,
+    {
+      ...rest,
+      method: 'POST',
+      headers: {
+        ...TRUSTED_HEADERS,
+        'Idempotency-Key': idempotencyKey,
+        ...headers
+      },
+      body
+    }
+  )
+  return { response, body: await response.json() }
 }
 
 describe('canonical review-center MSW integration', () => {
@@ -588,6 +619,229 @@ describe('canonical review-center MSW integration', () => {
         upgraded.getCanonicalUserMemo(currentUser.id, questionId)
       ).toBeNull()
       upgraded.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('targeted command를 atomic 생성하고 replay·hash conflict·archive·submit history를 보존한다', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-08-18T00:00:00.000Z'))
+
+    try {
+      await prepareWrongNotes()
+      vi.setSystemTime(new Date('2026-08-19T00:00:00.000Z'))
+      const queue = await readQueue('?pageSize=100')
+      const first = queue.items[0]
+      const second = queue.items[1]
+      if (!first || !second) {
+        throw new Error('targeted fixture에 두 WrongNote가 필요합니다.')
+      }
+      const key = crypto.randomUUID()
+      const pair = await Promise.all([
+        createTargetedReview(first.questionId, key),
+        createTargetedReview(first.questionId, key)
+      ])
+      expect(pair.map(({ response }) => response.status)).toEqual([201, 201])
+      expect(
+        pair.map(({ response }) => response.headers.get('Idempotency-Replayed'))
+      ).toEqual(expect.arrayContaining([null, 'true']))
+      const created = pair[0]!
+      expect(created.response.headers.get('Cache-Control')).toBe(
+        'private, no-store'
+      )
+      expect(created.response.headers.get('X-Nihongo-Practice-Contract')).toBe(
+        '2'
+      )
+      expect(created.response.headers.get('Idempotency-Replayed')).toBeNull()
+      const target: CreateTargetedReviewSessionResponse =
+        createTargetedReviewSessionResponseSchema.parse(created.body)
+      expect(
+        createTargetedReviewSessionResponseSchema.parse(pair[1]?.body)
+      ).toEqual(target)
+      expect(target).toMatchObject({
+        session: {
+          mode: 'WRONG_NOTE',
+          requestedCount: 1,
+          actualCount: 1,
+          usedFallback: false,
+          practiceContractVersion: 2
+        }
+      })
+      expect(target.questions[0]?.question.id).toBe(first.questionId)
+      expect(target.questions[0]?.question.questionVersionId).toBe(
+        first.currentQuestionVersionId
+      )
+      expect(created.response.headers.get('Location')).toBe(
+        `/api/v1/study-sessions/${target.session.id}`
+      )
+      assertNoReviewCenterForbiddenKeys('TARGETED_SESSION', target)
+
+      const conflict = await createTargetedReview(second.questionId, key)
+      expect(conflict.response.status).toBe(409)
+      expect(
+        createTargetedReviewSessionErrorSchema.parse(conflict.body).code
+      ).toBe('IDEMPOTENCY_KEY_REUSED')
+
+      await submitAllIncorrect(target)
+      const currentUser = mockDatabase.getCurrentUser()
+      if (!currentUser) {
+        throw new Error('targeted history fixture의 user가 필요합니다.')
+      }
+      const targetEvents = mockDatabase.getCanonicalReviewEventRecords(
+        target.session.id
+      )
+      expect(targetEvents).toEqual([
+        expect.objectContaining({
+          source: 'WRONG_NOTE_REVIEW',
+          studySessionId: target.session.id,
+          userId: currentUser.id
+        })
+      ])
+
+      const sourceId = getSourceQuestionId(first.questionId, originalQuestions)
+      if (!sourceId) {
+        throw new Error('targeted archive fixture의 source ID가 필요합니다.')
+      }
+      archiveQuestion(sourceId)
+      const replay = await createTargetedReview(first.questionId, key)
+      expect(replay.response.status).toBe(201)
+      expect(replay.response.headers.get('Idempotency-Replayed')).toBe('true')
+      expect(
+        createTargetedReviewSessionResponseSchema.parse(replay.body)
+      ).toEqual(target)
+
+      const unavailable = await createTargetedReview(
+        first.questionId,
+        crypto.randomUUID()
+      )
+      expect(unavailable.response.status).toBe(422)
+      expect(
+        createTargetedReviewSessionErrorSchema.parse(unavailable.body).code
+      ).toBe('QUESTION_NOT_AVAILABLE')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('targeted write의 security·strict input·owner 404·20/min rate를 real API 순서로 닫는다', async () => {
+    mockDatabase.logout()
+    const anonymous = await createTargetedReview(
+      getContractQuestionId(originalQuestions[0]!.id),
+      crypto.randomUUID()
+    )
+    expect(anonymous.response.status).toBe(401)
+    expect(
+      createTargetedReviewSessionErrorSchema.parse(anonymous.body).code
+    ).toBe('AUTHENTICATION_REQUIRED')
+
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-01T00:00:00.000Z'))
+    try {
+      await prepareWrongNotes()
+      const queue = await readQueue('?view=UNREVIEWED&pageSize=100')
+      const questionId = queue.items[0]?.questionId
+      if (!questionId) {
+        throw new Error('targeted transport fixture의 WrongNote가 필요합니다.')
+      }
+
+      const badMedia = await createTargetedReview(
+        'not-a-uuid',
+        crypto.randomUUID(),
+        { headers: { 'Content-Type': 'text/plain' } }
+      )
+      expect(badMedia.response.status).toBe(400)
+      expect(
+        createTargetedReviewSessionErrorSchema.parse(badMedia.body).code
+      ).toBe('INVALID_REQUEST')
+
+      const badOrigin = await createTargetedReview(
+        'not-a-uuid',
+        crypto.randomUUID(),
+        { headers: { Origin: 'https://attacker.example' } }
+      )
+      expect(badOrigin.response.status).toBe(403)
+      expect(
+        createTargetedReviewSessionErrorSchema.parse(badOrigin.body).code
+      ).toBe('UNTRUSTED_ORIGIN')
+
+      const strictCases = [
+        await createTargetedReview(
+          `${questionId}?userId=x`,
+          crypto.randomUUID()
+        ),
+        await createTargetedReview(questionId, crypto.randomUUID(), {
+          headers: { 'X-Nihongo-Practice-Contract': '1' }
+        }),
+        await createTargetedReview(questionId, 'bad-key'),
+        await createTargetedReview(questionId, crypto.randomUUID(), {
+          body: JSON.stringify({ questionId })
+        })
+      ]
+      expect(
+        strictCases.map(
+          ({ body }) => createTargetedReviewSessionErrorSchema.parse(body).code
+        )
+      ).toEqual([
+        'INVALID_REQUEST',
+        'INVALID_REQUEST',
+        'IDEMPOTENCY_KEY_REQUIRED',
+        'INVALID_REQUEST'
+      ])
+      expect(strictCases.every(({ response }) => response.status === 400)).toBe(
+        true
+      )
+
+      mockDatabase.loginAs('ADMIN')
+      const foreign = await createTargetedReview(
+        questionId,
+        crypto.randomUUID()
+      )
+      const missing = await createTargetedReview(
+        crypto.randomUUID(),
+        crypto.randomUUID()
+      )
+      const foreignFailure = createTargetedReviewSessionErrorSchema.parse(
+        foreign.body
+      )
+      const missingFailure = createTargetedReviewSessionErrorSchema.parse(
+        missing.body
+      )
+      expect(foreign.response.status).toBe(404)
+      expect(missing.response.status).toBe(404)
+      expect({
+        code: foreignFailure.code,
+        message: foreignFailure.message,
+        retryable: foreignFailure.retryable
+      }).toEqual({
+        code: missingFailure.code,
+        message: missingFailure.message,
+        retryable: missingFailure.retryable
+      })
+
+      vi.setSystemTime(new Date('2027-01-01T00:00:00.000Z'))
+      const invalidPath = 'not-a-uuid'
+      const allowed = await Promise.all(
+        Array.from({ length: 20 }, () =>
+          createTargetedReview(invalidPath, crypto.randomUUID())
+        )
+      )
+      expect(
+        allowed.every(
+          ({ body }) =>
+            createTargetedReviewSessionErrorSchema.parse(body).code ===
+            'INVALID_ID'
+        )
+      ).toBe(true)
+      const limited = await createTargetedReview(
+        invalidPath,
+        crypto.randomUUID()
+      )
+      expect(limited.response.status).toBe(429)
+      expect(limited.response.headers.get('Retry-After')).toBe('60')
+      expect(
+        createTargetedReviewSessionErrorSchema.parse(limited.body).code
+      ).toBe('RATE_LIMITED')
     } finally {
       vi.useRealTimers()
     }

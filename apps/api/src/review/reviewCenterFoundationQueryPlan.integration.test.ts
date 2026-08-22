@@ -18,6 +18,11 @@ import {
   createReviewQueueItemsQuery
 } from '../wrong-note/wrongNoteReviewQueueRepository.js'
 import {
+  createTargetedReviewExistingRecordQuery,
+  createTargetedReviewQuestionLockQuery,
+  createTargetedReviewWrongNoteLockQuery
+} from '../wrong-note/wrongNoteTargetedReviewRepository.js'
+import {
   createReviewReconciliationEventBatchQuery,
   createReviewReconciliationNoteBatchQuery,
   createPrismaReviewReconciliationRepository
@@ -38,6 +43,7 @@ interface ReviewCenterPlanFixture {
   readonly questionType: QuestionType
   readonly sessionId: string
   readonly tag: string
+  readonly targetedIdempotencyKey: string
   readonly targetUserId: string
   readonly wrongNoteId: string
 }
@@ -55,6 +61,9 @@ interface ReviewCenterPlans {
   readonly reviewQueueCounts: ExplainRow[]
   readonly reviewQueueItems: ExplainRow[]
   readonly targetedCleanup: ExplainRow[]
+  readonly targetedExistingRecord: ExplainRow[]
+  readonly targetedQuestionLock: ExplainRow[]
+  readonly targetedWrongNoteLock: ExplainRow[]
 }
 
 const PLAN_NOW = new Date('2026-08-21T12:00:00.000Z')
@@ -64,6 +73,7 @@ const DECOY_QUESTION_COUNT = 64
 const HISTORY_CARDINALITY = 205
 const HISTORY_LIMIT = 101
 const TARGETED_CARDINALITY = 512
+const TARGETED_CATALOG_DECOY_CARDINALITY = 512
 const IDEMPOTENCY_DECOY_CARDINALITY = 4_096
 const CLEANUP_LIMIT = 500
 const RECONCILIATION_LIMIT = 500
@@ -358,6 +368,7 @@ const createTargetWrongNote = async (userId: string) => {
 
 const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
   const targetUserId = randomUUID()
+  const targetedIdempotencyKey = randomUUID()
   const decoyUserIds = Array.from(
     { length: RECONCILIATION_DECOY_USER_COUNT },
     () => randomUUID()
@@ -586,7 +597,11 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
           THEN 'STUDY_TARGETED_REVIEW_CREATE'::"IdempotencyOperation"
           ELSE 'STUDY_DRAFT_SAVE'::"IdempotencyOperation"
         END,
-        gen_random_uuid(), ${sessionId}::uuid, repeat('f', 64), 2,
+        CASE WHEN fixture.sequence = 1
+          THEN ${targetedIdempotencyKey}::uuid
+          ELSE gen_random_uuid()
+        END,
+        ${sessionId}::uuid, repeat('f', 64), 2,
         'SUCCEEDED',
         CASE WHEN fixture.sequence <= ${TARGETED_CARDINALITY} THEN 201 ELSE 200 END,
         '{}'::jsonb,
@@ -651,6 +666,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     questionType: currentVersion.questionType,
     sessionId,
     tag,
+    targetedIdempotencyKey,
     targetUserId,
     wrongNoteId: wrongNote.id
   }
@@ -704,7 +720,9 @@ afterAll(async () => {
       'ReviewEvent',
       'ReviewSchedule',
       'UserMemo',
-      'IdempotencyRecord'
+      'IdempotencyRecord',
+      'Question',
+      'QuestionVersion'
     ]) {
       await database.client.$executeRawUnsafe(
         `VACUUM (FULL, ANALYZE) "${tableName}"`
@@ -826,6 +844,67 @@ describe('Phase 5 review-center populated query plans', () => {
               reconciliationNoteRows.map(({ id }) => id)
             )}
           `)
+        await transaction.$executeRaw`
+          CREATE TEMP TABLE "phase5_targeted_plan_catalog" (
+            "questionId" UUID PRIMARY KEY,
+            "questionVersionId" UUID UNIQUE NOT NULL
+          ) ON COMMIT DROP
+        `
+        await transaction.$executeRaw`
+          INSERT INTO "phase5_targeted_plan_catalog" (
+            "questionId", "questionVersionId"
+          )
+          SELECT gen_random_uuid(), gen_random_uuid()
+          FROM generate_series(1, ${TARGETED_CATALOG_DECOY_CARDINALITY})
+        `
+        await transaction.$executeRaw`
+          INSERT INTO "Question" (
+            "id", "lifecycleStatus", "createdByLabelSnapshot",
+            "createdAt", "updatedAt"
+          )
+          SELECT
+            "questionId", 'ACTIVE', 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
+          FROM "phase5_targeted_plan_catalog"
+        `
+        await transaction.$executeRaw`
+          INSERT INTO "QuestionVersion" (
+            "id", "questionId", "versionNumber", "status", "level",
+            "subject", "questionType", "questionText", "explanationKo",
+            "difficulty", "createdByLabelSnapshot", "createdAt", "updatedAt"
+          )
+          SELECT
+            "questionVersionId", "questionId", 1, 'DRAFT', 'N5',
+            'VOCABULARY', 'KANJI_READING', 'targeted plan decoy',
+            '실행 계획 전용 설명입니다.', 'EASY', 'SYSTEM_SEED',
+            ${PLAN_NOW}, ${PLAN_NOW}
+          FROM "phase5_targeted_plan_catalog"
+        `
+        await transaction.$executeRaw`ANALYZE "Question"`
+        await transaction.$executeRaw`ANALYZE "QuestionVersion"`
+        const targetedExistingRecord = await transaction.$queryRaw<
+          ExplainRow[]
+        >(Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            ${createTargetedReviewExistingRecordQuery(
+              fixture.targetUserId,
+              fixture.targetedIdempotencyKey
+            )}
+          `)
+        const targetedQuestionLock = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            ${createTargetedReviewQuestionLockQuery(fixture.questionId)}
+          `
+        )
+        const targetedWrongNoteLock = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            ${createTargetedReviewWrongNoteLockQuery(
+              fixture.targetUserId,
+              fixture.questionId
+            )}
+          `
+        )
         const targetedCleanup = await transaction.$queryRaw<ExplainRow[]>(
           Prisma.sql`
             EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
@@ -862,7 +941,10 @@ describe('Phase 5 review-center populated query plans', () => {
           reviewQueueCounts,
           reviewQueueAvailableTags,
           reviewQueueItems,
-          targetedCleanup
+          targetedCleanup,
+          targetedExistingRecord,
+          targetedQuestionLock,
+          targetedWrongNoteLock
         }
         throw rollbackSentinel
       })
@@ -983,6 +1065,65 @@ describe('Phase 5 review-center populated query plans', () => {
     expect(readRootPlan(plans.targetedCleanup)['Actual Rows']).toBe(
       CLEANUP_LIMIT
     )
+
+    for (const plan of [
+      plans.targetedExistingRecord,
+      plans.targetedQuestionLock,
+      plans.targetedWrongNoteLock
+    ]) {
+      expect(readRootPlan(plan)['Actual Rows']).toBe(1)
+      expectPlanBuffersAtMost(plan, 64)
+    }
+    expect(readIndexNames(plans.targetedExistingRecord)).toContain(
+      'IdempotencyRecord_user_scope_key'
+    )
+    expectNoSequentialScan(plans.targetedExistingRecord, 'IdempotencyRecord')
+    expectBoundedRelationRows(
+      plans.targetedExistingRecord,
+      'IdempotencyRecord',
+      1
+    )
+
+    expect(
+      [...readIndexNames(plans.targetedQuestionLock)].some((indexName) =>
+        [
+          'Question_pkey',
+          'Question_currentPublishedVersionId_key',
+          'Question_id_currentPublishedVersionId_key'
+        ].includes(indexName)
+      )
+    ).toBe(true)
+    expect(
+      [...readIndexNames(plans.targetedQuestionLock)].some((indexName) =>
+        [
+          'QuestionVersion_pkey',
+          'QuestionVersion_questionId_id_key',
+          'QuestionVersion_questionId_status_versionNumber_idx'
+        ].includes(indexName)
+      )
+    ).toBe(true)
+    for (const relationName of ['Question', 'QuestionVersion']) {
+      expectNoSequentialScan(plans.targetedQuestionLock, relationName)
+      expectBoundedRelationRows(plans.targetedQuestionLock, relationName, 1)
+    }
+
+    expect(readIndexNames(plans.targetedWrongNoteLock)).toContain(
+      'WrongNote_userId_questionId_key'
+    )
+    for (const relationName of ['WrongNote', 'QuestionVersion']) {
+      expectNoSequentialScan(plans.targetedWrongNoteLock, relationName)
+      expectBoundedRelationRows(plans.targetedWrongNoteLock, relationName, 1)
+    }
+    for (const plan of [
+      plans.targetedQuestionLock,
+      plans.targetedWrongNoteLock
+    ]) {
+      expect(
+        readPlanNodes(plan).some(({ 'Node Type': nodeType }) =>
+          ['LockRows', 'Lock'].includes(nodeType)
+        )
+      ).toBe(true)
+    }
 
     const expectedReconciliationCount = await database.client.wrongNote.count()
     const reconciliationResult =

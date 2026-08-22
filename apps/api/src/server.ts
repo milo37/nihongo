@@ -38,6 +38,8 @@ import { createPrismaStudyResultRetryRepository } from './study/studyResultRetry
 import { createStudyResultRetryService } from './study/studyResultRetryService.js'
 import { createPrismaWrongNoteReviewQueueRepository } from './wrong-note/wrongNoteReviewQueueRepository.js'
 import { createWrongNoteReviewQueueService } from './wrong-note/wrongNoteReviewQueueService.js'
+import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wrongNoteTargetedReviewRepository.js'
+import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTargetedReviewService.js'
 
 const environment = parseApiEnvironment(process.env)
 const practiceEnvironment = parsePracticeRuntimeEnvironment(
@@ -100,6 +102,9 @@ const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
 const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
   createPrismaWrongNoteReviewQueueRepository(database.client)
 )
+const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
+  createPrismaWrongNoteTargetedReviewRepository(database.client)
+)
 const dashboardService = createDashboardService(
   createPrismaDashboardRepository(database.client)
 )
@@ -127,6 +132,7 @@ const app = createApiApp({
     reviewCenterEnabled: practiceRuntimeGate.practiceContractV2Enabled,
     reviewCenterService: wrongNoteReviewCenterService,
     reviewQueueService: wrongNoteReviewQueueService,
+    targetedReviewService: wrongNoteTargetedReviewService,
     wrongNoteService
   },
   questionReader,

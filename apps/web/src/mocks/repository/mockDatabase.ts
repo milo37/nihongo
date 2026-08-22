@@ -39,6 +39,11 @@ import {
 } from '@nihongo/contracts/wrong-note/list-review-queue'
 import type { ReviewEventHistoryItem } from '@nihongo/contracts/wrong-note/list-review-events'
 import type { UserMemo } from '@nihongo/contracts/wrong-note/user-memo'
+import {
+  createTargetedReviewSessionCanonicalMaterial,
+  createTargetedReviewSessionResponseForQuestionSchema,
+  type CreateTargetedReviewSessionResponse
+} from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { compareWrongNoteTagLabels } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import type {
   ListResumableStudySessionsResponse,
@@ -104,6 +109,7 @@ export type MockDatabaseErrorCode =
   | 'OPTION_NOT_IN_VERSION'
   | 'PERSISTENCE_FAILED'
   | 'PRACTICE_CONTRACT_VERSION_MISMATCH'
+  | 'QUESTION_NOT_AVAILABLE'
   | 'SESSION_SUBMITTED'
   | 'STUDY_RESULT_NOT_READY'
   | 'STUDY_SESSION_NOT_EDITABLE'
@@ -374,10 +380,19 @@ export interface MockCanonicalRetryIdempotencyRecord
   readonly sourceSessionId: string
 }
 
+export interface MockCanonicalTargetedReviewIdempotencyRecord
+  extends MockCanonicalIdempotencyRecordBase {
+  readonly operation: 'wrongNote.createTargetedReviewSession'
+  readonly questionId: string
+  readonly response: CreateTargetedReviewSessionResponse
+  readonly responseStatus: 201
+}
+
 export type MockCanonicalIdempotencyRecord =
   | MockCanonicalSubmissionIdempotencyRecord
   | MockCanonicalDraftIdempotencyRecord
   | MockCanonicalRetryIdempotencyRecord
+  | MockCanonicalTargetedReviewIdempotencyRecord
 
 export interface SubmitCanonicalStudySessionInput {
   readonly body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
@@ -432,6 +447,17 @@ export interface CreateCanonicalResultRetryInput {
 export interface CreateCanonicalResultRetryResult {
   readonly replayed: boolean
   readonly response: VersionedStudySessionPayload
+}
+
+export interface CreateCanonicalTargetedReviewInput {
+  readonly idempotencyKey: string
+  readonly questionId: string
+  readonly userId: string
+}
+
+export interface CreateCanonicalTargetedReviewResult {
+  readonly replayed: boolean
+  readonly response: CreateTargetedReviewSessionResponse
 }
 
 interface MockCanonicalOwner {
@@ -726,7 +752,8 @@ const getCanonicalIdempotencyExpiresAt = (
     )
   }
   const ttlMs =
-    operation === 'study.createResultRetrySession'
+    operation === 'study.createResultRetrySession' ||
+    operation === 'wrongNote.createTargetedReviewSession'
       ? 7 * 24 * 60 * 60 * 1_000
       : operation === 'study.saveStudyDraftAnswers'
         ? 48 * 60 * 60 * 1_000
@@ -2094,6 +2121,233 @@ export class MockDatabase {
     this.sessionById.set(session.id, session)
     this.sessionMetadataById.set(session.id, metadata)
     this.sessionQuestionSnapshotsById.set(session.id, clone(selectedQuestions))
+    this.canonicalDraftBySessionId.set(session.id, draft)
+    this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
+    this.persist()
+
+    return { replayed: false, response: clone(response) }
+  }
+
+  createCanonicalTargetedReview(
+    input: CreateCanonicalTargetedReviewInput
+  ): CreateCanonicalTargetedReviewResult {
+    this.assertCanonicalReadOwner(input.userId)
+    const observedAt = this.now()
+    const requestMaterial = createTargetedReviewSessionCanonicalMaterial(
+      input.questionId
+    )
+    const recordKey = makeCanonicalIdempotencyKey(
+      'USER',
+      input.userId,
+      'wrongNote.createTargetedReviewSession',
+      input.idempotencyKey
+    )
+    const storedRecord = this.canonicalIdempotencyRecordByKey.get(recordKey)
+    let existingRecord: MockCanonicalTargetedReviewIdempotencyRecord | undefined
+    if (storedRecord) {
+      if (
+        storedRecord.operation !== 'wrongNote.createTargetedReviewSession' ||
+        storedRecord.principalKind !== 'USER' ||
+        storedRecord.principalId !== input.userId ||
+        storedRecord.idempotencyKey !== input.idempotencyKey ||
+        storedRecord.responseStatus !== 201 ||
+        storedRecord.expiresAt !==
+          getCanonicalIdempotencyExpiresAt(
+            storedRecord.completedAt,
+            storedRecord.operation
+          )
+      ) {
+        return throwCanonicalIntegrityError(
+          'targeted 복습 IdempotencyRecord envelope가 손상되었습니다.'
+        )
+      }
+      if (isCanonicalIdempotencyRecordActive(storedRecord, observedAt)) {
+        existingRecord = storedRecord
+      } else {
+        this.canonicalIdempotencyRecordByKey.delete(recordKey)
+      }
+    }
+    if (existingRecord) {
+      if (
+        existingRecord.contractVersion !== 2 ||
+        existingRecord.requestMaterial !== requestMaterial
+      ) {
+        throw new MockDatabaseError(
+          'IDEMPOTENCY_KEY_REUSED',
+          409,
+          '같은 멱등 키를 다른 targeted 복습 요청에 사용할 수 없습니다.'
+        )
+      }
+      if (existingRecord.questionId !== input.questionId) {
+        return throwCanonicalIntegrityError(
+          'targeted 복습 IdempotencyRecord question provenance가 손상되었습니다.'
+        )
+      }
+      const targetSession = this.sessionById.get(existingRecord.sessionId)
+      const targetMetadata = this.sessionMetadataById.get(
+        existingRecord.sessionId
+      )
+      const targetQuestions = this.sessionQuestionSnapshotsById.get(
+        existingRecord.sessionId
+      )
+      const targetDraft = this.canonicalDraftBySessionId.get(
+        existingRecord.sessionId
+      )
+      const targetQuestion = targetQuestions?.[0]
+      if (
+        !targetSession ||
+        !targetMetadata ||
+        !isCanonicalSessionMetadata(targetMetadata) ||
+        !targetQuestions ||
+        !targetQuestion ||
+        targetMetadata.canonicalContractVersion !== 2 ||
+        targetMetadata.canonicalGuestPrincipalId !== undefined ||
+        targetMetadata.retryOfStudySessionId !== undefined ||
+        targetMetadata.requestedCount !== 1 ||
+        targetMetadata.usedFallback ||
+        targetSession.userId !== input.userId ||
+        targetSession.mode !== 'WRONG_NOTE' ||
+        targetSession.questionIds.length !== 1 ||
+        targetQuestions.length !== 1 ||
+        targetSession.questionIds[0] !== targetQuestion.id ||
+        getContractQuestionId(targetQuestion.id) !== input.questionId
+      ) {
+        return throwCanonicalIntegrityError(
+          'targeted 복습 IdempotencyRecord의 target provenance가 손상되었습니다.'
+        )
+      }
+      if (
+        this.getEffectiveCanonicalStatus(targetSession, targetMetadata) ===
+          'IN_PROGRESS' &&
+        (!targetDraft ||
+          this.canonicalAnswerBySessionId.has(existingRecord.sessionId) ||
+          this.canonicalResultBySessionId.has(existingRecord.sessionId) ||
+          [...this.canonicalReviewEventByStudyAnswerId.values()].some(
+            (event) => event.studySessionId === existingRecord.sessionId
+          ) ||
+          targetDraft.revision !== 0 ||
+          targetDraft.currentOrdinal !== 1 ||
+          targetDraft.savedAt !== null ||
+          targetDraft.answers.length !== 1 ||
+          targetDraft.answers[0]?.studySessionQuestionId !==
+            getCanonicalSessionQuestionId(targetSession.id, 1) ||
+          targetDraft.answers[0]?.selectedOptionId !== null ||
+          targetDraft.answers[0]?.elapsedSec !== 0)
+      ) {
+        return throwCanonicalIntegrityError(
+          '진행 중인 targeted 복습 target의 revision draft가 손상되었습니다.'
+        )
+      }
+      const expectedResponse =
+        createTargetedReviewSessionResponseForQuestionSchema(
+          input.questionId
+        ).parse(
+          toVersionedContractStudySessionPayload(
+            {
+              practiceContractVersion: 2,
+              session: {
+                ...targetSession,
+                status: 'IN_PROGRESS',
+                submittedAt: null,
+                durationSec: null
+              },
+              requestedCount: 1,
+              questions: targetQuestions
+            },
+            new Date(existingRecord.completedAt)
+          )
+        )
+      assertCanonicalProjectionEqual(
+        existingRecord.response,
+        expectedResponse,
+        'targeted 복습 IdempotencyRecord response가 target snapshot과 다릅니다.'
+      )
+      return { replayed: true, response: clone(existingRecord.response) }
+    }
+    const wrongNote = this.getCanonicalWrongNoteRecord(
+      input.userId,
+      input.questionId
+    )
+    const currentQuestion = this.questionById.get(wrongNote.sourceQuestionId)
+    if (
+      !currentQuestion ||
+      currentQuestion.status !== 'PUBLISHED' ||
+      getContractQuestionId(currentQuestion.id) !== input.questionId
+    ) {
+      throw new MockDatabaseError(
+        'QUESTION_NOT_AVAILABLE',
+        422,
+        '현재 복습할 수 없는 문제입니다.'
+      )
+    }
+
+    const sessionId = this.createStudySessionId()
+    const session: StudySession = {
+      id: sessionId,
+      userId: input.userId,
+      level: currentQuestion.level,
+      subject: currentQuestion.subject,
+      mode: 'WRONG_NOTE',
+      questionIds: [currentQuestion.id],
+      status: 'IN_PROGRESS',
+      startedAt: observedAt,
+      submittedAt: null,
+      durationSec: null
+    }
+    const metadata: SessionMetadata = {
+      canonicalContractVersion: 2,
+      creationOrder: this.sequence,
+      requestedCount: 1,
+      usedFallback: false
+    }
+    const questions = [clone(currentQuestion)]
+    const draft: StudyDraftSnapshot = {
+      studySessionId: session.id,
+      revision: 0,
+      currentOrdinal: 1,
+      savedAt: null,
+      answers: [
+        {
+          studySessionQuestionId: getCanonicalSessionQuestionId(session.id, 1),
+          selectedOptionId: null,
+          elapsedSec: 0
+        }
+      ]
+    }
+    const response = createTargetedReviewSessionResponseForQuestionSchema(
+      input.questionId
+    ).parse(
+      toVersionedContractStudySessionPayload(
+        {
+          practiceContractVersion: 2,
+          session,
+          requestedCount: 1,
+          questions
+        },
+        new Date(observedAt)
+      )
+    )
+    const idempotencyRecord: MockCanonicalTargetedReviewIdempotencyRecord = {
+      completedAt: observedAt,
+      contractVersion: 2,
+      expiresAt: getCanonicalIdempotencyExpiresAt(
+        observedAt,
+        'wrongNote.createTargetedReviewSession'
+      ),
+      idempotencyKey: input.idempotencyKey,
+      operation: 'wrongNote.createTargetedReviewSession',
+      principalId: input.userId,
+      principalKind: 'USER',
+      questionId: input.questionId,
+      requestMaterial,
+      response: clone(response),
+      responseStatus: 201,
+      sessionId
+    }
+
+    this.sessionById.set(session.id, session)
+    this.sessionMetadataById.set(session.id, metadata)
+    this.sessionQuestionSnapshotsById.set(session.id, questions)
     this.canonicalDraftBySessionId.set(session.id, draft)
     this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
     this.persist()
@@ -3811,6 +4065,93 @@ export class MockDatabase {
     const consumedSessionIds = new Set<string>()
     const canonicalUuidPattern =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+    const targetedSessionIds = new Set<string>()
+
+    for (const record of records) {
+      if (
+        record.operation !== 'wrongNote.createTargetedReviewSession' ||
+        record.principalId !== userId
+      ) {
+        continue
+      }
+      const session = this.sessionById.get(record.sessionId)
+      const metadata = this.sessionMetadataById.get(record.sessionId)
+      const questions = this.sessionQuestionSnapshotsById.get(record.sessionId)
+      const question = questions?.[0]
+      const effectiveStatus =
+        session && metadata
+          ? this.getEffectiveCanonicalStatus(session, metadata)
+          : null
+      const draft = this.canonicalDraftBySessionId.get(record.sessionId)
+      if (
+        !session ||
+        !metadata ||
+        !isCanonicalSessionMetadata(metadata) ||
+        !questions ||
+        !question ||
+        targetedSessionIds.has(record.sessionId) ||
+        !canonicalUuidPattern.test(record.idempotencyKey) ||
+        record.principalKind !== 'USER' ||
+        record.contractVersion !== 2 ||
+        record.responseStatus !== 201 ||
+        record.requestMaterial !==
+          createTargetedReviewSessionCanonicalMaterial(record.questionId) ||
+        session.userId !== userId ||
+        session.mode !== 'WRONG_NOTE' ||
+        session.questionIds.length !== 1 ||
+        questions.length !== 1 ||
+        session.questionIds[0] !== question.id ||
+        getContractQuestionId(question.id) !== record.questionId ||
+        metadata.canonicalContractVersion !== 2 ||
+        metadata.canonicalGuestPrincipalId !== undefined ||
+        metadata.retryOfStudySessionId !== undefined ||
+        metadata.requestedCount !== 1 ||
+        metadata.usedFallback
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical targeted IdempotencyRecord aggregate가 target evidence와 다릅니다.'
+        )
+      }
+      if (
+        effectiveStatus === 'IN_PROGRESS' &&
+        (!draft ||
+          draft.revision !== 0 ||
+          draft.currentOrdinal !== 1 ||
+          draft.savedAt !== null ||
+          draft.answers.length !== 1 ||
+          this.canonicalAnswerBySessionId.has(record.sessionId) ||
+          this.canonicalResultBySessionId.has(record.sessionId))
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical targeted target의 initial draft/fact shape가 손상되었습니다.'
+        )
+      }
+      const expectedResponse =
+        createTargetedReviewSessionResponseForQuestionSchema(
+          record.questionId
+        ).parse(
+          toVersionedContractStudySessionPayload(
+            {
+              practiceContractVersion: 2,
+              session: {
+                ...session,
+                status: 'IN_PROGRESS',
+                submittedAt: null,
+                durationSec: null
+              },
+              requestedCount: 1,
+              questions
+            },
+            new Date(record.completedAt)
+          )
+        )
+      assertCanonicalProjectionEqual(
+        record.response,
+        expectedResponse,
+        'canonical targeted IdempotencyRecord response가 target과 다릅니다.'
+      )
+      targetedSessionIds.add(record.sessionId)
+    }
 
     for (const record of records) {
       if (record.operation !== 'study.submitStudySession') {

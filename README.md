@@ -23,8 +23,10 @@ SUBMITTED result의 incorrect historical pin retry도 실제 API와 canonical mo
 지원합니다. USER/ADMIN target은 `WRONG_NOTE`, guest target은 `RANDOM`이며 응답 유실과
 hard reload 뒤에도 같은 key·target으로 수렴합니다. UserMemo·review history와 review
 queue는 reviewed runtime gate 아래 실제 Hono API와 canonical MSW까지 구현됐고 Web
-Query/hook/UI는 Slice 5를 기다립니다. targeted one-question command는 Slice 4, real admin
-API는 Phase 7 전까지 노출하지 않으며 silent Mock fallback하지 않습니다.
+Query/hook/UI는 Slice 5를 기다립니다. USER/ADMIN self-only targeted one-question command도
+practice-v2/review-center gate 아래 실제 Hono/PostgreSQL과 canonical MSW에 구현됐습니다.
+Web adapter/hook/CTA는 Slice 5, real admin API는 Phase 7 전까지 노출하지 않으며 silent Mock
+fallback하지 않습니다.
 Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
 RANDOM fallback을 제거했습니다. CI는 fresh-schema integration과 real/mock Chromium,
@@ -869,8 +871,17 @@ mode의 selection/order/error/rate parity를 구현했습니다. fresh integrati
 27/27, seed 65/0→0/65, full 23 files/138 pass + deliberate skip 1, isolated 1 pass + 4 skip,
 reviewed warning 7+1과 schema cleanup을 통과했습니다. non-DB는 contracts 75, domain 35,
 API 348, web 337로 795 tests이며 architecture 5를 포함하면 800입니다. Slice 3 source는
-검증·checkpoint까지만 완료한 미커밋 상태이고, targeted create인 Slice 4와 Web UI인
-Slice 5는 별도 명시적 승인 범위입니다.
+검증 뒤 `04e8fe46babd031c4dd1cdadd11c05d3741b94ba`에 commit·push했습니다. 이어 승인된
+Slice 4는 strict targeted POST, USER operation/key scoped 7-day exact replay, current
+published one-question v2 WRONG_NOTE pin, revision-0 draft, monotonic pointer와 full rollback을
+실제 Hono/PostgreSQL에 구현했습니다. canonical MSW v7도 response-loss/reload,
+expiry/account isolation, terminal/archive historical replay와 storage/integrity fail-closed
+parity를 제공합니다. fresh integration은 migration 27/27, seed 65/0→0/65, full 23 files/141
+pass + deliberate skip 1, isolated 1 pass + 4 skip, reviewed warning 7+1과 schema cleanup을
+통과했습니다. non-DB는 contracts 75, domain 35, API 372, web 340으로 822 tests이며
+architecture 5를 포함하면 827입니다. pre-commit checkpoint 시점에 Slice 4 source 검증과
+freeze를 완료했으며,
+Web Query Factory·hook·review center UI인 Slice 5는 별도 명시적 승인 범위입니다.
 
 ## 향후 개선
 

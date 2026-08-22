@@ -5,6 +5,8 @@ import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
+import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import {
   createPrismaStudySessionRepository,
   type ExistingStudyOwner,
@@ -503,10 +505,83 @@ describe('Study submission PostgreSQL transaction', () => {
       2
     )
 
+    const targetedAt = new Date(baseTime + DAY_MS + 40_000)
+    const targetedCreateKey = randomUUID()
+    const targeted = await createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client, {
+        delay: async () => undefined,
+        jitterMilliseconds: () => 0
+      }),
+      () => targetedAt
+    ).createTargetedReviewSession(userId, pinned.questionId, targetedCreateKey)
+    expect(targeted.replayed).toBe(false)
+    expect(targeted.response.questions[0]?.question).toMatchObject({
+      id: pinned.questionId,
+      questionVersionId: pinned.questionVersionId
+    })
+    expect(
+      await database.client.reviewEvent.count({
+        where: { studySessionId: targeted.response.session.id }
+      })
+    ).toBe(0)
+    const targetedAnswer = await loadAnswerMaterial(
+      targeted.response.session.id
+    )
+    const targetedSubmitKey = randomUUID()
+    const targetedSubmitBody = {
+      answers: targetedAnswer.map(({ studySessionQuestionId }) => ({
+        studySessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: 0
+      })),
+      durationSec: 0,
+      expectedDraftRevision: 0
+    }
+    const targetedSubmitService = createStudySubmissionService(
+      submissionRepository,
+      () => new Date(targetedAt.getTime() + 100)
+    )
+    const targetedSubmission = await targetedSubmitService.submit(
+      targeted.response.session.id,
+      targetedSubmitKey,
+      targetedSubmitBody,
+      owner,
+      2
+    )
+    expect(targetedSubmission.replayed).toBe(false)
+    await expect(
+      targetedSubmitService.submit(
+        targeted.response.session.id,
+        targetedSubmitKey,
+        targetedSubmitBody,
+        owner,
+        2
+      )
+    ).resolves.toMatchObject({
+      replayed: true,
+      response: targetedSubmission.response
+    })
+    await expect(
+      createWrongNoteTargetedReviewService(
+        createPrismaWrongNoteTargetedReviewRepository(database.client),
+        () => new Date(targetedAt.getTime() + 200)
+      ).createTargetedReviewSession(
+        userId,
+        pinned.questionId,
+        targetedCreateKey
+      )
+    ).resolves.toEqual({ replayed: true, response: targeted.response })
+
     const events = await database.client.reviewEvent.findMany({
       where: {
         studySessionId: {
-          in: [weakness.id, bookmark.id, wrongNote.id, daily.id]
+          in: [
+            weakness.id,
+            bookmark.id,
+            wrongNote.id,
+            daily.id,
+            targeted.response.session.id
+          ]
         }
       },
       orderBy: { occurredAt: 'asc' },
@@ -531,6 +606,11 @@ describe('Study submission PostgreSQL transaction', () => {
       {
         source: 'WRONG_NOTE_REVIEW',
         studySessionId: daily.id,
+        questionVersionId: pinned.questionVersionId
+      },
+      {
+        source: 'WRONG_NOTE_REVIEW',
+        studySessionId: targeted.response.session.id,
         questionVersionId: pinned.questionVersionId
       }
     ])

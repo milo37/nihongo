@@ -10,6 +10,7 @@ import {
   createTargetedReviewSessionHeadersSchema,
   createTargetedReviewSessionLocationSchema,
   createTargetedReviewSessionParamsSchema,
+  createTargetedReviewSessionQuerySchema,
   createTargetedReviewSessionResponseForQuestionSchema,
   createTargetedReviewSessionResponseSchema
 } from '../src/wrong-note/create-targeted-review-session.js'
@@ -430,6 +431,11 @@ describe('Phase 5 review center contracts', () => {
     }
 
     expect(createTargetedReviewSessionBodySchema.parse({})).toEqual({})
+    expect(createTargetedReviewSessionQuerySchema.parse({})).toEqual({})
+    expect(
+      createTargetedReviewSessionQuerySchema.safeParse({ userId: id(1) })
+        .success
+    ).toBe(false)
     expect(
       createTargetedReviewSessionBodySchema.safeParse({ questionId: id(1) })
         .success

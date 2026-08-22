@@ -42,6 +42,8 @@ import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
 import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
+import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
+import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
 
 interface CreateApiAppDependencies {
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
@@ -69,6 +71,7 @@ interface CreateApiAppDependencies {
     reviewCenterEnabled: boolean
     reviewCenterService: WrongNoteReviewCenterService
     reviewQueueService?: WrongNoteReviewQueueService
+    targetedReviewService?: WrongNoteTargetedReviewService
     wrongNoteService: WrongNoteService
   }
   enableTestRoutes?: boolean
@@ -296,6 +299,21 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,
             reviewQueueService: learning.reviewQueueService
+          })
+        )
+      }
+      if (
+        learning.reviewCenterEnabled &&
+        study?.practiceContractV2Enabled === true &&
+        learning.targetedReviewService
+      ) {
+        app.route(
+          '/api/v1/wrong-notes',
+          createTargetedReviewSessionRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            targetedReviewService: learning.targetedReviewService
           })
         )
       }

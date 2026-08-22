@@ -13,9 +13,11 @@ import {
 } from '@nihongo/contracts/wrong-note/list-review-queue'
 import { updateWrongNoteMemoBodySchema } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
 import { assertNoReviewCenterForbiddenKeys } from '@nihongo/contracts/testing/review-center-conformance'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import { getPostgresSchema } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -27,9 +29,12 @@ import {
 } from './wrongNoteReviewCenterService.js'
 import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQueueRepository.js'
 import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
+import { createPrismaWrongNoteTargetedReviewRepository } from './wrongNoteTargetedReviewRepository.js'
+import { createWrongNoteTargetedReviewService } from './wrongNoteTargetedReviewService.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 const SUBMITTED_AT = new Date('2026-08-22T00:00:00.000Z')
+const TARGETED_AT = new Date('2026-08-22T12:00:00.000Z')
 const HISTORY_CARDINALITY = 205
 
 const environment = parseApiEnvironment(process.env)
@@ -405,6 +410,28 @@ const captureNotFound = async (
     throw error
   }
   throw new Error('owner-safe RESOURCE_NOT_FOUND가 필요합니다.')
+}
+
+const captureApplicationFailure = async (
+  operation: () => Promise<unknown>
+): Promise<{
+  readonly code: string
+  readonly message: string
+  readonly retryable: boolean
+}> => {
+  try {
+    await operation()
+  } catch (error: unknown) {
+    if (error instanceof ApplicationError) {
+      return {
+        code: error.code,
+        message: error.message,
+        retryable: error.retryable
+      }
+    }
+    throw error
+  }
+  throw new Error('closed ApplicationError가 필요합니다.')
 }
 
 beforeAll(async () => {
@@ -1151,5 +1178,437 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
     expect(archivedItems).toHaveLength(HISTORY_CARDINALITY + 1)
     expect(archivedFirstPage.items).toHaveLength(100)
     expect(archivedFirstPage.nextCursor).not.toBeNull()
+  })
+})
+
+describe.sequential('Slice 4 targeted review PostgreSQL', () => {
+  it('same-key winner/replay를 단일 targeted aggregate로 만든다', async () => {
+    const userId = await createUser('targeted-owner')
+    const targetFixture = await createInitialWrongNote(userId)
+    let announceReservation: (() => void) | undefined
+    let announceContenderQuestionLock: (() => void) | undefined
+    let releaseWinner: (() => void) | undefined
+    const reservationCreated = new Promise<void>((resolve) => {
+      announceReservation = resolve
+    })
+    const contenderQuestionLocked = new Promise<void>((resolve) => {
+      announceContenderQuestionLock = resolve
+    })
+    const winnerReleased = new Promise<void>((resolve) => {
+      releaseWinner = resolve
+    })
+    const targetService = createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client, {
+        afterReservation: async () => {
+          announceReservation?.()
+          await winnerReleased
+        },
+        delay: async () => undefined,
+        jitterMilliseconds: () => 0
+      }),
+      () => new Date(TARGETED_AT)
+    )
+    const pointerBefore = await database.client.wrongNote.findUniqueOrThrow({
+      where: { id: targetFixture.wrongNoteId },
+      select: { currentReviewQuestionVersionId: true, updatedAt: true }
+    })
+    const idempotencyKey = randomUUID()
+
+    const outcomes = await (async () => {
+      const contenderDatabase = createDatabaseRuntime(environment.DATABASE_URL)
+      const contenderService = createWrongNoteTargetedReviewService(
+        createPrismaWrongNoteTargetedReviewRepository(
+          contenderDatabase.client,
+          {
+            afterQuestionLocked: async () => {
+              announceContenderQuestionLock?.()
+            },
+            delay: async () => undefined,
+            jitterMilliseconds: () => 0
+          }
+        ),
+        () => new Date(TARGETED_AT)
+      )
+      try {
+        const winner = targetService.createTargetedReviewSession(
+          userId,
+          targetFixture.questionId,
+          idempotencyKey
+        )
+        await reservationCreated
+        const contender = contenderService.createTargetedReviewSession(
+          userId,
+          targetFixture.questionId,
+          idempotencyKey
+        )
+        await contenderQuestionLocked
+        releaseWinner?.()
+        return await Promise.all([winner, contender])
+      } finally {
+        releaseWinner?.()
+        await contenderDatabase.disconnect()
+      }
+    })()
+    expect(outcomes.map(({ replayed }) => replayed).toSorted()).toEqual([
+      false,
+      true
+    ])
+    expect(outcomes[0]?.response).toEqual(outcomes[1]?.response)
+    const created = outcomes[0]?.response
+    if (!created) {
+      throw new Error('targeted review response가 필요합니다.')
+    }
+    assertNoReviewCenterForbiddenKeys('TARGETED_SESSION', created)
+    expect(created.session).toMatchObject({
+      mode: 'WRONG_NOTE',
+      status: 'IN_PROGRESS',
+      requestedCount: 1,
+      actualCount: 1,
+      usedFallback: false,
+      fallbackReason: null,
+      practiceContractVersion: 2
+    })
+    expect(created.questions).toHaveLength(1)
+    expect(created.questions[0]?.question).toMatchObject({
+      id: targetFixture.questionId,
+      questionVersionId: targetFixture.questionVersionId
+    })
+
+    const aggregate = await database.client.studySession.findUniqueOrThrow({
+      where: { id: created.session.id },
+      include: { questions: true, draft: { include: { answers: true } } }
+    })
+    expect(aggregate.questions).toHaveLength(1)
+    expect(aggregate.draft).toMatchObject({
+      revision: 0,
+      currentOrdinal: 1,
+      savedAt: null
+    })
+    expect(aggregate.draft?.answers).toHaveLength(1)
+    expect(
+      await database.client.studySession.count({
+        where: {
+          userId,
+          mode: 'WRONG_NOTE',
+          practiceContractVersion: 2
+        }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.idempotencyRecord.count({
+        where: {
+          userId,
+          operation: 'STUDY_TARGETED_REVIEW_CREATE',
+          idempotencyKey
+        }
+      })
+    ).toBe(1)
+    expect(
+      await database.client.reviewEvent.count({
+        where: { studySessionId: created.session.id }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.studyAnswer.count({
+        where: { studySessionQuestion: { studySessionId: created.session.id } }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.studyResult.count({
+        where: { studySessionId: created.session.id }
+      })
+    ).toBe(0)
+    expect(
+      await database.client.wrongNote.findUniqueOrThrow({
+        where: { id: targetFixture.wrongNoteId },
+        select: { currentReviewQuestionVersionId: true, updatedAt: true }
+      })
+    ).toEqual({
+      currentReviewQuestionVersionId: targetFixture.questionVersionId,
+      updatedAt: pointerBefore.updatedAt
+    })
+
+    await expect(
+      targetService.createTargetedReviewSession(
+        userId,
+        randomUUID(),
+        idempotencyKey
+      )
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' })
+
+    const questionBeforeArchive =
+      await database.client.question.findUniqueOrThrow({
+        where: { id: targetFixture.questionId },
+        select: {
+          archivedAt: true,
+          currentPublishedVersionId: true,
+          lifecycleStatus: true,
+          updatedAt: true
+        }
+      })
+    try {
+      await database.client.question.update({
+        where: { id: targetFixture.questionId },
+        data: {
+          lifecycleStatus: 'ARCHIVED',
+          archivedAt: new Date(TARGETED_AT.getTime() + 2_000),
+          currentPublishedVersionId: null
+        }
+      })
+      await expect(
+        targetService.createTargetedReviewSession(
+          userId,
+          targetFixture.questionId,
+          idempotencyKey
+        )
+      ).resolves.toEqual({ replayed: true, response: created })
+      await expect(
+        targetService.createTargetedReviewSession(
+          userId,
+          targetFixture.questionId,
+          randomUUID()
+        )
+      ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
+    } finally {
+      await database.client.question.update({
+        where: { id: targetFixture.questionId },
+        data: questionBeforeArchive
+      })
+    }
+  })
+
+  it('current-version share lock 뒤 archive를 직렬화하고 pinned historical replay를 보존한다', async () => {
+    const userId = await createUser('targeted-lock')
+    const targetFixture = await createInitialWrongNote(userId)
+    const schema = getPostgresSchema(environment.DATABASE_URL)
+    const archiveClient = new Client({
+      connectionString: environment.DATABASE_URL,
+      ...(schema ? { options: `-c search_path=${schema}` } : {})
+    })
+    let announceQuestionLock: (() => void) | undefined
+    let releaseQuestionLock: (() => void) | undefined
+    const questionLocked = new Promise<void>((resolve) => {
+      announceQuestionLock = resolve
+    })
+    const questionReleased = new Promise<void>((resolve) => {
+      releaseQuestionLock = resolve
+    })
+    const targetService = createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client, {
+        afterQuestionLocked: async () => {
+          announceQuestionLock?.()
+          await questionReleased
+        },
+        delay: async () => undefined,
+        jitterMilliseconds: () => 0
+      }),
+      () => new Date(TARGETED_AT)
+    )
+    const originalQuestion = await database.client.question.findUniqueOrThrow({
+      where: { id: targetFixture.questionId },
+      select: {
+        archivedAt: true,
+        currentPublishedVersionId: true,
+        lifecycleStatus: true,
+        updatedAt: true
+      }
+    })
+    const idempotencyKey = randomUUID()
+    let createPromise:
+      | ReturnType<typeof targetService.createTargetedReviewSession>
+      | undefined
+    let archiveUpdate: Promise<unknown> | undefined
+    let archiveTransactionOpen = false
+    let archiveCommitted = false
+
+    try {
+      await archiveClient.connect()
+      createPromise = targetService.createTargetedReviewSession(
+        userId,
+        targetFixture.questionId,
+        idempotencyKey
+      )
+      await Promise.race([
+        questionLocked,
+        createPromise.then(() => {
+          throw new Error(
+            'targeted create가 current-version lock hook을 건너뛰었습니다.'
+          )
+        })
+      ])
+      const backend = await archiveClient.query<{ processId: number }>(
+        'SELECT pg_backend_pid() AS "processId"'
+      )
+      const processId = backend.rows[0]?.processId
+      if (processId === undefined) {
+        throw new Error('targeted archive backend PID가 필요합니다.')
+      }
+      await archiveClient.query('BEGIN')
+      archiveTransactionOpen = true
+      let archiveSettled = false
+      archiveUpdate = archiveClient
+        .query(
+          `UPDATE "Question"
+           SET "lifecycleStatus" = 'ARCHIVED',
+               "archivedAt" = $2,
+               "currentPublishedVersionId" = NULL,
+               "updatedAt" = $2
+           WHERE "id" = $1`,
+          [targetFixture.questionId, new Date(TARGETED_AT.getTime() + 1_000)]
+        )
+        .finally(() => {
+          archiveSettled = true
+        })
+      await waitForBackendLock(processId)
+      expect(archiveSettled).toBe(false)
+      releaseQuestionLock?.()
+
+      const created = await createPromise
+      await archiveUpdate
+      await archiveClient.query('COMMIT')
+      archiveTransactionOpen = false
+      archiveCommitted = true
+      expect(created.response.questions[0]?.question).toMatchObject({
+        id: targetFixture.questionId,
+        questionVersionId: targetFixture.questionVersionId
+      })
+      expect(
+        await database.client.question.findUniqueOrThrow({
+          where: { id: targetFixture.questionId },
+          select: { lifecycleStatus: true, currentPublishedVersionId: true }
+        })
+      ).toEqual({
+        lifecycleStatus: 'ARCHIVED',
+        currentPublishedVersionId: null
+      })
+      await expect(
+        targetService.createTargetedReviewSession(
+          userId,
+          targetFixture.questionId,
+          idempotencyKey
+        )
+      ).resolves.toEqual({ replayed: true, response: created.response })
+      await expect(
+        targetService.createTargetedReviewSession(
+          userId,
+          targetFixture.questionId,
+          randomUUID()
+        )
+      ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
+    } finally {
+      releaseQuestionLock?.()
+      await createPromise?.catch(() => undefined)
+      await archiveUpdate?.catch(() => undefined)
+      if (archiveTransactionOpen) {
+        await archiveClient.query('ROLLBACK').catch(() => undefined)
+      }
+      if (archiveCommitted) {
+        await database.client.question.update({
+          where: { id: targetFixture.questionId },
+          data: originalQuestion
+        })
+      }
+      await archiveClient.end().catch(() => undefined)
+    }
+  }, 15_000)
+
+  it('foreign/missing 404를 구분하지 않고 pointer 이후 실패를 전부 rollback한다', async () => {
+    const userId = await createUser('targeted-rollback')
+    const foreignId = await createUser('targeted-foreign')
+    const targetFixture = await createInitialWrongNote(userId)
+    const normalService = createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client),
+      () => new Date(TARGETED_AT)
+    )
+    const failures = [
+      await captureApplicationFailure(() =>
+        normalService.createTargetedReviewSession(
+          foreignId,
+          targetFixture.questionId,
+          randomUUID()
+        )
+      ),
+      await captureApplicationFailure(() =>
+        normalService.createTargetedReviewSession(
+          userId,
+          randomUUID(),
+          randomUUID()
+        )
+      )
+    ]
+    expect(
+      new Set(failures.map((failure) => JSON.stringify(failure))).size
+    ).toBe(1)
+    expect(failures[0]).toEqual({
+      code: 'RESOURCE_NOT_FOUND',
+      message: '복습할 오답 노트를 찾을 수 없습니다.',
+      retryable: false
+    })
+
+    const pointerBefore = await database.client.wrongNote.findUniqueOrThrow({
+      where: { id: targetFixture.wrongNoteId },
+      select: { currentReviewQuestionVersionId: true, updatedAt: true }
+    })
+    const countsBefore = {
+      drafts: await database.client.studyDraft.count({
+        where: { studySession: { userId } }
+      }),
+      idempotency: await database.client.idempotencyRecord.count({
+        where: { userId, operation: 'STUDY_TARGETED_REVIEW_CREATE' }
+      }),
+      questions: await database.client.studySessionQuestion.count({
+        where: { studySession: { userId, practiceContractVersion: 2 } }
+      }),
+      sessions: await database.client.studySession.count({
+        where: { userId, practiceContractVersion: 2 }
+      })
+    }
+    const rollbackMarker = new Error('slice4-after-pointer-rollback')
+    const rollbackKey = randomUUID()
+    const failingRepository = createPrismaWrongNoteTargetedReviewRepository(
+      database.client,
+      {
+        afterPointerUpdated: async () => {
+          throw rollbackMarker
+        }
+      }
+    )
+    await expect(
+      failingRepository.createAtomic({
+        userId,
+        questionId: targetFixture.questionId,
+        idempotencyKey: rollbackKey,
+        observedAt: new Date(TARGETED_AT)
+      })
+    ).rejects.toBe(rollbackMarker)
+    expect(
+      await database.client.wrongNote.findUniqueOrThrow({
+        where: { id: targetFixture.wrongNoteId },
+        select: { currentReviewQuestionVersionId: true, updatedAt: true }
+      })
+    ).toEqual(pointerBefore)
+    await expect(
+      Promise.resolve({
+        drafts: await database.client.studyDraft.count({
+          where: { studySession: { userId } }
+        }),
+        idempotency: await database.client.idempotencyRecord.count({
+          where: { userId, operation: 'STUDY_TARGETED_REVIEW_CREATE' }
+        }),
+        questions: await database.client.studySessionQuestion.count({
+          where: { studySession: { userId, practiceContractVersion: 2 } }
+        }),
+        sessions: await database.client.studySession.count({
+          where: { userId, practiceContractVersion: 2 }
+        })
+      })
+    ).resolves.toEqual(countsBefore)
+    await expect(
+      normalService.createTargetedReviewSession(
+        userId,
+        targetFixture.questionId,
+        rollbackKey
+      )
+    ).resolves.toMatchObject({ replayed: false })
   })
 })

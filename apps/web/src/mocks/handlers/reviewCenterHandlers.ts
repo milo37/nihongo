@@ -24,6 +24,15 @@ import {
   updateWrongNoteMemoErrorSchema,
   updateWrongNoteMemoParamsSchema
 } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
+import {
+  createTargetedReviewSessionBodySchema,
+  createTargetedReviewSessionErrorSchema,
+  createTargetedReviewSessionHeadersSchema,
+  createTargetedReviewSessionLocationSchema,
+  createTargetedReviewSessionParamsSchema,
+  createTargetedReviewSessionQuerySchema,
+  createTargetedReviewSessionResponseForQuestionSchema
+} from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { http, HttpResponse } from 'msw'
 import type { ZodError, ZodIssue } from 'zod'
 import {
@@ -181,6 +190,22 @@ const normalizeError = (
         retryable: false
       }
     }
+    if (error.code === 'IDEMPOTENCY_KEY_REUSED') {
+      return {
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        message: error.message,
+        requestId,
+        retryable: false
+      }
+    }
+    if (error.code === 'QUESTION_NOT_AVAILABLE') {
+      return {
+        code: 'QUESTION_NOT_AVAILABLE',
+        message: error.message,
+        requestId,
+        retryable: false
+      }
+    }
   }
 
   console.error('Mock review center request failed')
@@ -242,6 +267,127 @@ const memoBodyError = (error: ZodError): MockHttpError => {
 }
 
 export const reviewCenterHandlers = [
+  http.post(
+    '*/api/v1/wrong-notes/:questionId/review-session',
+    async ({ params, request }) => {
+      const requestId = crypto.randomUUID()
+      try {
+        if (
+          !JSON_CONTENT_TYPE_PATTERN.test(
+            request.headers.get('Content-Type') ?? ''
+          )
+        ) {
+          throw new MockHttpError(
+            400,
+            'INVALID_REQUEST',
+            'JSON 요청만 허용됩니다.'
+          )
+        }
+        if (!hasTrustedReviewCenterWriteOrigin(request)) {
+          throw new MockHttpError(
+            403,
+            'UNTRUSTED_ORIGIN',
+            '허용되지 않은 요청 출처입니다.'
+          )
+        }
+        consumeReviewCenterRateLimit('wrong-note-targeted-review', 20)
+
+        const parsedParams = createTargetedReviewSessionParamsSchema.safeParse({
+          questionId: String(params.questionId ?? '')
+        })
+        if (!parsedParams.success) {
+          return invalidQuestionId(
+            createTargetedReviewSessionErrorSchema,
+            requestId,
+            parsedParams.error
+          )
+        }
+        try {
+          parseSearchParams(
+            request,
+            createTargetedReviewSessionQuerySchema,
+            'targeted 복습 생성 조건이 올바르지 않습니다.'
+          )
+        } catch (error: unknown) {
+          if (error instanceof MockHttpError) {
+            throw new MockHttpError(
+              400,
+              'INVALID_REQUEST',
+              error.message,
+              error.fieldErrors
+            )
+          }
+          throw error
+        }
+        if (request.headers.get('X-Nihongo-Practice-Contract') !== '2') {
+          throw new MockHttpError(
+            400,
+            'INVALID_REQUEST',
+            'targeted 복습에는 practice contract 2가 필요합니다.'
+          )
+        }
+        const parsedHeaders =
+          createTargetedReviewSessionHeadersSchema.safeParse({
+            'idempotency-key': request.headers.get('Idempotency-Key'),
+            'x-nihongo-practice-contract': request.headers.get(
+              'X-Nihongo-Practice-Contract'
+            )
+          })
+        if (!parsedHeaders.success) {
+          throw new MockHttpError(
+            400,
+            'IDEMPOTENCY_KEY_REQUIRED',
+            '유효한 Idempotency-Key UUID header가 필요합니다.',
+            toFieldErrors(parsedHeaders.error)
+          )
+        }
+        const rawBody = await readBoundedMockJsonObject(request)
+        const parsedBody =
+          createTargetedReviewSessionBodySchema.safeParse(rawBody)
+        if (!parsedBody.success) {
+          throw new MockHttpError(
+            400,
+            'INVALID_REQUEST',
+            'targeted 복습 요청 본문은 빈 JSON object여야 합니다.',
+            toFieldErrors(parsedBody.error)
+          )
+        }
+        const userId = requireUserId(
+          'targeted 복습을 시작하려면 로그인이 필요합니다.'
+        )
+        const created = mockDatabase.createCanonicalTargetedReview({
+          userId,
+          questionId: parsedParams.data.questionId,
+          idempotencyKey: parsedHeaders.data['idempotency-key']
+        })
+        const response = createTargetedReviewSessionResponseForQuestionSchema(
+          parsedParams.data.questionId
+        ).parse(created.response)
+        const location = createTargetedReviewSessionLocationSchema(
+          response.session.id
+        ).parse(`/api/v1/study-sessions/${response.session.id}`)
+        return HttpResponse.json(response, {
+          status: 201,
+          headers: {
+            ...responseHeaders(requestId),
+            'X-Nihongo-Practice-Contract': '2',
+            Location: location,
+            ...(created.replayed ? { 'Idempotency-Replayed': 'true' } : {})
+          }
+        })
+      } catch (error: unknown) {
+        return errorResponse(
+          createTargetedReviewSessionErrorSchema,
+          normalizeError(
+            error,
+            requestId,
+            'targeted 복습 세션을 만들지 못했습니다.',
+            '복습할 오답 노트를 찾을 수 없습니다.'
+          )
+        )
+      }
+    }
+  ),
   http.get('*/api/v1/review-queue', ({ request }) => {
     const requestId = crypto.randomUUID()
     try {

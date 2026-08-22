@@ -1600,4 +1600,179 @@ describe('MockDatabase', () => {
       guestRestored.dispose()
     }
   })
+
+  it('targeted review를 response-loss/reload/7일 경계에서 replay하고 저장 실패를 원자 롤백한다', () => {
+    const values = new Map<string, string>()
+    let observedAt = FIXED_NOW
+    let shouldFail = false
+    const storage: MockStorage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        if (shouldFail) {
+          return false
+        }
+        values.set(key, value)
+        return true
+      },
+      removeItem: (key) => {
+        values.delete(key)
+      }
+    }
+    const database = new MockDatabase({
+      now: () => observedAt,
+      storage,
+      listenToStorage: false
+    })
+    const user = database.loginAs('USER')
+    const sourceQuestionId = 'n5-vocabulary-01'
+    const source = database.createStudySession({
+      canonicalContractVersion: 2,
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1,
+      questionIds: [sourceQuestionId]
+    })
+    submitEmptyCanonicalV2Session(database, source.session.id)
+    const questionId = getContractQuestionId(sourceQuestionId)
+    const key = crypto.randomUUID()
+    const persistedBeforeFailure = values.get(MOCK_DATABASE_STORAGE_KEY)
+    const recordCountBefore = database.getCanonicalIdempotencyRecords().length
+    expect(
+      database.getCanonicalWrongNoteRecord(user.id, questionId)
+        .currentReviewQuestionVersionId
+    ).toBeNull()
+
+    shouldFail = true
+    expect(() =>
+      database.createCanonicalTargetedReview({
+        userId: user.id,
+        questionId,
+        idempotencyKey: key
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+    )
+    expect(values.get(MOCK_DATABASE_STORAGE_KEY)).toBe(persistedBeforeFailure)
+    expect(database.getCanonicalIdempotencyRecords()).toHaveLength(
+      recordCountBefore
+    )
+    expect(
+      database.getCanonicalWrongNoteRecord(user.id, questionId)
+        .currentReviewQuestionVersionId
+    ).toBeNull()
+
+    shouldFail = false
+    const created = database.createCanonicalTargetedReview({
+      userId: user.id,
+      questionId,
+      idempotencyKey: key
+    })
+    expect(created.replayed).toBe(false)
+    expect(created.response.questions[0]?.question.id).toBe(questionId)
+    expect(
+      database.getCanonicalReviewEventRecords(created.response.session.id)
+    ).toHaveLength(0)
+    expect(
+      database.getCanonicalWrongNoteRecord(user.id, questionId)
+        .currentReviewQuestionVersionId
+    ).toBe(created.response.questions[0]?.question.questionVersionId)
+
+    const canonicalSerialized = values.get(MOCK_DATABASE_STORAGE_KEY)
+    if (!canonicalSerialized) {
+      throw new Error('targeted persistence fixture가 필요합니다.')
+    }
+    interface MutableTargetedPersistedState {
+      canonicalIdempotencyRecords: Array<Record<string, unknown>>
+      canonicalStudyAnswers: Array<[string, Array<Record<string, unknown>>]>
+    }
+    const expectTamperedRecordRejected = (
+      mutate: (
+        record: Record<string, unknown>,
+        state: MutableTargetedPersistedState
+      ) => void
+    ): void => {
+      const state = JSON.parse(
+        canonicalSerialized
+      ) as MutableTargetedPersistedState
+      const record = state.canonicalIdempotencyRecords.find(
+        ({ operation, idempotencyKey }) =>
+          operation === 'wrongNote.createTargetedReviewSession' &&
+          idempotencyKey === key
+      )
+      if (!record) {
+        throw new Error('targeted idempotency tamper record가 필요합니다.')
+      }
+      mutate(record, state)
+      values.set(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(state))
+      const tampered = new MockDatabase({
+        now: () => observedAt,
+        storage,
+        listenToStorage: false
+      })
+      expect(() =>
+        tampered.createCanonicalTargetedReview({
+          userId: user.id,
+          questionId,
+          idempotencyKey: key
+        })
+      ).toThrowError(
+        expect.objectContaining({ code: 'PERSISTENCE_FAILED', status: 500 })
+      )
+      tampered.dispose()
+    }
+    expectTamperedRecordRejected((record) => {
+      record.responseStatus = 200
+    })
+    expectTamperedRecordRejected((record) => {
+      record.expiresAt = new Date(
+        Date.parse(FIXED_NOW) + 8 * 24 * 60 * 60 * 1_000
+      ).toISOString()
+    })
+    expectTamperedRecordRejected((_record, state) => {
+      const sourceAnswers = state.canonicalStudyAnswers[0]?.[1]
+      if (!sourceAnswers) {
+        throw new Error('canonical answer tamper fixture가 필요합니다.')
+      }
+      state.canonicalStudyAnswers.push([
+        created.response.session.id,
+        sourceAnswers
+      ])
+    })
+    values.set(MOCK_DATABASE_STORAGE_KEY, canonicalSerialized)
+
+    const reloaded = new MockDatabase({
+      now: () => observedAt,
+      storage,
+      listenToStorage: false
+    })
+    const replay = reloaded.createCanonicalTargetedReview({
+      userId: user.id,
+      questionId,
+      idempotencyKey: key
+    })
+    expect(replay).toEqual({ replayed: true, response: created.response })
+
+    observedAt = new Date(
+      Date.parse(FIXED_NOW) + 7 * 24 * 60 * 60 * 1_000
+    ).toISOString()
+    const replaced = reloaded.createCanonicalTargetedReview({
+      userId: user.id,
+      questionId,
+      idempotencyKey: key
+    })
+    expect(replaced.replayed).toBe(false)
+    expect(replaced.response.session.id).not.toBe(created.response.session.id)
+    expect(
+      reloaded
+        .getCanonicalIdempotencyRecords()
+        .filter(
+          ({ idempotencyKey, operation }) =>
+            idempotencyKey === key &&
+            operation === 'wrongNote.createTargetedReviewSession'
+        )
+    ).toHaveLength(1)
+    reloaded.dispose()
+    database.dispose()
+  })
 })
