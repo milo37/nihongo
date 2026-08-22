@@ -16,12 +16,19 @@ interface MockErrorLike {
 
 export class MockHttpError extends Error {
   readonly code: string
+  readonly fieldErrors?: Record<string, string[]>
   readonly status: number
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    fieldErrors?: Record<string, string[]>
+  ) {
     super(message)
     this.name = 'MockHttpError'
     this.code = code
+    this.fieldErrors = fieldErrors
     this.status = status
   }
 }
@@ -139,13 +146,17 @@ export const parseJsonBody = async <Schema extends ZodType>(
 
 export const parseSearchParams = <Schema extends ZodType>(
   request: Request,
-  schema: Schema
+  schema: Schema,
+  message = '검색 조건이 올바르지 않습니다.'
 ): z.output<Schema> => {
   const searchParams = new URL(request.url).searchParams
-  const params: Record<string, string | string[]> = {}
+  const params: Record<string, string | string[]> = Object.create(
+    null
+  ) as Record<string, string | string[]>
   for (const key of new Set(searchParams.keys())) {
     const values = searchParams.getAll(key)
-    params[key] =
+    const parsedKey = key === '__proto__' ? '__forbidden_proto__' : key
+    params[parsedKey] =
       key === 'questionIds'
         ? values
         : values.length === 1
@@ -155,11 +166,12 @@ export const parseSearchParams = <Schema extends ZodType>(
   const parsed = schema.safeParse(params)
 
   if (!parsed.success) {
-    throw new MockHttpError(
-      422,
-      'VALIDATION_ERROR',
-      parsed.error.issues[0]?.message ?? '검색 조건이 올바르지 않습니다.'
-    )
+    const fieldErrors: Record<string, string[]> = {}
+    parsed.error.issues.forEach((issue) => {
+      const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
+      fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
+    })
+    throw new MockHttpError(422, 'VALIDATION_ERROR', message, fieldErrors)
   }
 
   return parsed.data

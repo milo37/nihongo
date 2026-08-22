@@ -223,7 +223,9 @@ describe('MockDatabase', () => {
       database
         .getCanonicalReviewEventRecords()
         .filter(({ studySessionId }) =>
-          [wrongNote.session.id, daily.session.id].includes(studySessionId)
+          studySessionId === null
+            ? false
+            : [wrongNote.session.id, daily.session.id].includes(studySessionId)
         )
         .map(({ source }) => source)
     ).toEqual(['WRONG_NOTE_REVIEW', 'WRONG_NOTE_REVIEW'])

@@ -247,6 +247,64 @@ describe('study session route composition', () => {
     )
   })
 
+  it('reviewFilter는 v2 review mode만 accept하고 v1은 unknown key로 닫는다', async () => {
+    const dependencies = createDependencies()
+    const v2Payload = {
+      ...payload,
+      session: {
+        ...payload.session,
+        mode: 'DAILY_REVIEW' as const,
+        practiceContractVersion: 2 as const
+      }
+    }
+    dependencies.principalService.resolveAuthenticatedUser.mockResolvedValue({
+      clearSessionCookie: false,
+      headers: new Headers(),
+      user: {
+        id: USER_ID,
+        name: 'Study User',
+        role: 'USER',
+        targetLevel: 'N5'
+      }
+    })
+    dependencies.studySessionService.create.mockResolvedValue({
+      payload: v2Payload,
+      practiceContractVersion: 2,
+      issuedGuestCredential: null
+    })
+    const body = JSON.stringify({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'DAILY_REVIEW',
+      count: 1,
+      reviewFilter: { questionType: 'KANJI_READING', tag: '한자 읽기' }
+    })
+
+    const v1 = await postSession(createTestApp(dependencies), { body })
+    expect(v1.status).toBe(422)
+    expect(apiFailureSchema.parse(await v1.json()).code).toBe(
+      'VALIDATION_ERROR'
+    )
+    expect(dependencies.studySessionService.create).not.toHaveBeenCalled()
+
+    const v2 = await postSession(createTestApp(dependencies), {
+      headers: { 'X-Nihongo-Practice-Contract': '2' },
+      body
+    })
+    expect(v2.status).toBe(201)
+    expect(dependencies.studySessionService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'DAILY_REVIEW',
+        reviewFilter: {
+          questionType: 'KANJI_READING',
+          tag: '한자 읽기'
+        }
+      }),
+      { kind: 'USER', userId: USER_ID },
+      2
+    )
+  })
+
   it('429를 principal·guest·service 작업보다 먼저 fail closed한다', async () => {
     const dependencies = createDependencies()
     dependencies.rateLimiter.consume.mockRejectedValue(

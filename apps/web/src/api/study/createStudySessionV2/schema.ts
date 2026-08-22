@@ -1,5 +1,5 @@
 import {
-  createStudySessionBodySchema,
+  createStudySessionV2BodySchema,
   createStudySessionV2ResponseSchema
 } from '@nihongo/contracts/study/create-study-session'
 import { z } from 'zod'
@@ -8,7 +8,7 @@ import {
   refinePracticeJsonTransportHeaders
 } from '@api/study/practiceTransportSchema'
 
-export const createStudySessionV2RequestSchema = createStudySessionBodySchema
+export const createStudySessionV2RequestSchema = createStudySessionV2BodySchema
 export const createStudySessionV2TransportResponseSchema =
   createPracticeTransportResponseSchema(
     createStudySessionV2ResponseSchema,

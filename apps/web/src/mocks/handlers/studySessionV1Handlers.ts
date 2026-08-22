@@ -3,6 +3,7 @@ import {
   createStudySessionBodySchema,
   createStudySessionErrorSchema,
   createStudySessionResponseSchema,
+  createStudySessionV2BodySchema,
   createStudySessionV2ResponseSchema,
   type CreateStudySessionError
 } from '@nihongo/contracts/study/create-study-session'
@@ -439,7 +440,9 @@ export const studySessionV1Handlers = [
     try {
       const input = await parseBoundedJsonBody(
         request,
-        createStudySessionBodySchema
+        practiceContractVersion === 2
+          ? createStudySessionV2BodySchema
+          : createStudySessionBodySchema
       )
 
       if (practiceContractVersion === 1 && input.mode !== 'RANDOM') {
@@ -481,7 +484,10 @@ export const studySessionV1Handlers = [
         level: input.level,
         subject: input.subject,
         mode: input.mode,
-        count: input.count
+        count: input.count,
+        ...('reviewFilter' in input && input.reviewFilter
+          ? { reviewFilter: input.reviewFilter }
+          : {})
       })
       const source = mockDatabase.getCanonicalStudySessionSnapshotRecord(
         created.session.id,

@@ -124,6 +124,32 @@ describe('studySessionService', () => {
     }
   )
 
+  it('v2 review filter를 DAILY_REVIEW repository input에 그대로 전달한다', async () => {
+    const repository = createRepository()
+    const service = createStudySessionService(repository, () => STARTED_AT)
+
+    await service.create(
+      {
+        ...request,
+        mode: 'DAILY_REVIEW',
+        reviewFilter: { questionType: 'KANJI_READING', tag: '한자 읽기' }
+      },
+      owner,
+      2
+    )
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'DAILY_REVIEW',
+        practiceContractVersion: 2,
+        reviewFilter: {
+          questionType: 'KANJI_READING',
+          tag: '한자 읽기'
+        }
+      })
+    )
+  })
+
   it.each(['WRONG_NOTE', 'WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW'] as const)(
     'v2 USER에게 %s 모드를 전달한다',
     async (mode) => {

@@ -31,6 +31,7 @@ import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
+import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
 import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
 import { createDashboardRoutes } from '../routes/dashboard.js'
@@ -40,6 +41,7 @@ import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
+import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
 
 interface CreateApiAppDependencies {
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
@@ -66,6 +68,7 @@ interface CreateApiAppDependencies {
     rateLimiter: ApplicationRateLimiter
     reviewCenterEnabled: boolean
     reviewCenterService: WrongNoteReviewCenterService
+    reviewQueueService?: WrongNoteReviewQueueService
     wrongNoteService: WrongNoteService
   }
   enableTestRoutes?: boolean
@@ -281,6 +284,21 @@ export const createApiApp = ({
           wrongNoteService: learning.wrongNoteService
         })
       )
+      if (
+        learning.reviewCenterEnabled &&
+        study?.practiceContractV2Enabled === true &&
+        learning.reviewQueueService
+      ) {
+        app.route(
+          '/api/v1/review-queue',
+          createReviewQueueRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            reviewQueueService: learning.reviewQueueService
+          })
+        )
+      }
       app.route(
         '/api/v1/dashboard',
         createDashboardRoutes({

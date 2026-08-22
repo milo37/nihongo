@@ -1,8 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import {
+  createStudySessionV2BodySchema,
+  createStudySessionV2ResponseSchema
+} from '@nihongo/contracts/study/create-study-session'
+import {
   listReviewEventsResponseSchema,
   type ReviewEventHistoryItem
 } from '@nihongo/contracts/wrong-note/list-review-events'
+import {
+  listReviewQueueQuerySchema,
+  listReviewQueueResponseSchema
+} from '@nihongo/contracts/wrong-note/list-review-queue'
 import { updateWrongNoteMemoBodySchema } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
 import { assertNoReviewCenterForbiddenKeys } from '@nihongo/contracts/testing/review-center-conformance'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -10,11 +18,15 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
+import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
+import { createStudySessionService } from '../study/studySessionService.js'
 import { createPrismaWrongNoteReviewCenterRepository } from './wrongNoteReviewCenterRepository.js'
 import {
   createWrongNoteReviewCenterService,
   type WrongNoteReviewCenterService
 } from './wrongNoteReviewCenterService.js'
+import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQueueRepository.js'
+import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 const SUBMITTED_AT = new Date('2026-08-22T00:00:00.000Z')
@@ -292,6 +304,75 @@ const waitForBackendLock = async (backendPid: number): Promise<void> => {
   throw new Error('두 번째 memo writer의 row-lock 대기를 확인하지 못했습니다.')
 }
 
+const setQueueFixtureState = async (
+  target: ReviewCenterFixture,
+  state:
+    | { readonly kind: 'NEW' }
+    | { readonly kind: 'AGAIN'; readonly occurredAt: Date }
+    | { readonly kind: 'SOLVED'; readonly occurredAt: Date }
+): Promise<void> => {
+  for (const tableName of ['WrongNote', 'ReviewSchedule']) {
+    await database.client.$executeRawUnsafe(
+      `ALTER TABLE "${tableName}" DISABLE TRIGGER USER`
+    )
+  }
+  try {
+    if (state.kind === 'NEW') {
+      await database.client.wrongNote.update({
+        where: { id: target.wrongNoteId },
+        data: {
+          status: 'NEW',
+          wrongCount: 1,
+          correctStreak: 0,
+          lastWrongAt: SUBMITTED_AT,
+          lastReviewedAt: null,
+          updatedAt: SUBMITTED_AT
+        }
+      })
+      await database.client.reviewSchedule.update({
+        where: { wrongNoteId: target.wrongNoteId },
+        data: {
+          nextReviewAt: new Date(SUBMITTED_AT.getTime() + DAY_MILLISECONDS),
+          intervalDays: 1,
+          algorithmVersion: 1,
+          updatedAt: SUBMITTED_AT
+        }
+      })
+      return
+    }
+
+    await database.client.wrongNote.update({
+      where: { id: target.wrongNoteId },
+      data: {
+        status: state.kind,
+        wrongCount: 2,
+        correctStreak: state.kind === 'SOLVED' ? 2 : 0,
+        lastWrongAt: state.kind === 'SOLVED' ? SUBMITTED_AT : state.occurredAt,
+        lastReviewedAt: state.occurredAt,
+        updatedAt: state.occurredAt
+      }
+    })
+    await database.client.reviewSchedule.update({
+      where: { wrongNoteId: target.wrongNoteId },
+      data: {
+        nextReviewAt: new Date(
+          state.occurredAt.getTime() +
+            (state.kind === 'SOLVED' ? 7 : 1) * DAY_MILLISECONDS
+        ),
+        intervalDays: state.kind === 'SOLVED' ? 7 : 1,
+        algorithmVersion: 1,
+        updatedAt: state.occurredAt
+      }
+    })
+  } finally {
+    for (const tableName of ['ReviewSchedule', 'WrongNote']) {
+      await database.client.$executeRawUnsafe(
+        `ALTER TABLE "${tableName}" ENABLE TRIGGER USER`
+      )
+    }
+  }
+}
+
 const expectHistoryChain = (items: readonly ReviewEventHistoryItem[]): void => {
   items.forEach((event, index) => {
     const newer = items[index - 1]
@@ -355,6 +436,404 @@ afterAll(async () => {
 })
 
 describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
+  it('fixed snapshot queue와 filtered DAILY가 due 경계에서 같은 current question 순서를 고정한다', async () => {
+    const dueAt = new Date(SUBMITTED_AT.getTime() + DAY_MILLISECONDS)
+    const queueQuery = listReviewQueueQuerySchema.parse({
+      view: 'DUE',
+      level: 'N5',
+      subject: 'VOCABULARY',
+      sort: 'NEXT_REVIEW',
+      page: 1,
+      pageSize: 100
+    })
+    const futureQueueService = createWrongNoteReviewQueueService(
+      createPrismaWrongNoteReviewQueueRepository(database.client),
+      () => SUBMITTED_AT
+    )
+    const beforeDue = listReviewQueueResponseSchema.parse(
+      await futureQueueService.listReviewQueue(fixture.userId, queueQuery)
+    )
+    expect(beforeDue).toMatchObject({
+      items: [],
+      total: 0,
+      counts: { due: 0, unreviewed: 1, repeated: 0, solved: 0 },
+      observedAt: SUBMITTED_AT.toISOString()
+    })
+
+    const queueService = createWrongNoteReviewQueueService(
+      createPrismaWrongNoteReviewQueueRepository(database.client),
+      () => dueAt
+    )
+    const due = listReviewQueueResponseSchema.parse(
+      await queueService.listReviewQueue(fixture.userId, queueQuery)
+    )
+    assertNoReviewCenterForbiddenKeys('QUEUE', due)
+    expect(due).toMatchObject({
+      total: 1,
+      counts: { due: 1, unreviewed: 1, repeated: 0, solved: 0 },
+      observedAt: dueAt.toISOString()
+    })
+    expect(due.items).toHaveLength(1)
+    const queueItem = due.items[0]
+    if (!queueItem) {
+      throw new Error('due review queue item이 필요합니다.')
+    }
+    expect(queueItem).toMatchObject({
+      questionId: fixture.questionId,
+      currentQuestionVersionId: fixture.questionVersionId,
+      status: 'NEW',
+      nextReviewAt: dueAt.toISOString(),
+      hasMemo: false
+    })
+
+    const beyondLast = listReviewQueueResponseSchema.parse(
+      await queueService.listReviewQueue(
+        fixture.userId,
+        listReviewQueueQuerySchema.parse({
+          ...queueQuery,
+          page: Number.MAX_SAFE_INTEGER
+        })
+      )
+    )
+    expect(beyondLast).toMatchObject({ items: [], total: 1 })
+
+    let mutationCount = 0
+    const snapshotRepository = createPrismaWrongNoteReviewQueueRepository(
+      database.client,
+      {
+        afterCountsLoaded: async () => {
+          mutationCount += 1
+          await database.client.userMemo.create({
+            data: {
+              id: randomUUID(),
+              wrongNoteId: fixture.wrongNoteId,
+              text: 'snapshot writer',
+              createdAt: dueAt,
+              updatedAt: dueAt
+            }
+          })
+        }
+      }
+    )
+    const snapshotQueueService = createWrongNoteReviewQueueService(
+      snapshotRepository,
+      () => dueAt
+    )
+    const sameSnapshot = listReviewQueueResponseSchema.parse(
+      await snapshotQueueService.listReviewQueue(fixture.userId, queueQuery)
+    )
+    expect(mutationCount).toBe(1)
+    expect(sameSnapshot.items[0]?.hasMemo).toBe(false)
+    const refreshed = listReviewQueueResponseSchema.parse(
+      await queueService.listReviewQueue(fixture.userId, queueQuery)
+    )
+    expect(refreshed.items[0]?.hasMemo).toBe(true)
+    await database.client.userMemo.delete({
+      where: { wrongNoteId: fixture.wrongNoteId }
+    })
+
+    const originalQuestion = await database.client.question.findUniqueOrThrow({
+      where: { id: fixture.questionId },
+      select: {
+        lifecycleStatus: true,
+        archivedAt: true,
+        currentPublishedVersionId: true
+      }
+    })
+    try {
+      const unreviewed = listReviewQueueResponseSchema.parse(
+        await queueService.listReviewQueue(
+          fixture.userId,
+          listReviewQueueQuerySchema.parse({
+            ...queueQuery,
+            view: 'UNREVIEWED'
+          })
+        )
+      )
+      expect(unreviewed).toMatchObject({ total: 1 })
+
+      await setQueueFixtureState(fixture, {
+        kind: 'AGAIN',
+        occurredAt: dueAt
+      })
+      const repeatedQueueService = createWrongNoteReviewQueueService(
+        createPrismaWrongNoteReviewQueueRepository(database.client),
+        () => new Date(dueAt.getTime() + DAY_MILLISECONDS)
+      )
+      const repeated = listReviewQueueResponseSchema.parse(
+        await repeatedQueueService.listReviewQueue(
+          fixture.userId,
+          listReviewQueueQuerySchema.parse({
+            ...queueQuery,
+            view: 'REPEATED'
+          })
+        )
+      )
+      expect(repeated).toMatchObject({
+        total: 1,
+        counts: { due: 1, unreviewed: 0, repeated: 1, solved: 0 },
+        items: [{ status: 'AGAIN' }]
+      })
+
+      await setQueueFixtureState(fixture, {
+        kind: 'SOLVED',
+        occurredAt: dueAt
+      })
+      const solvedQueueService = createWrongNoteReviewQueueService(
+        createPrismaWrongNoteReviewQueueRepository(database.client),
+        () => new Date(dueAt.getTime() + 7 * DAY_MILLISECONDS)
+      )
+      const dueSolved = listReviewQueueResponseSchema.parse(
+        await solvedQueueService.listReviewQueue(fixture.userId, queueQuery)
+      )
+      const solved = listReviewQueueResponseSchema.parse(
+        await solvedQueueService.listReviewQueue(
+          fixture.userId,
+          listReviewQueueQuerySchema.parse({
+            ...queueQuery,
+            view: 'SOLVED'
+          })
+        )
+      )
+      expect(dueSolved).toMatchObject({
+        total: 1,
+        counts: { due: 1, unreviewed: 0, repeated: 1, solved: 1 },
+        items: [{ status: 'SOLVED' }]
+      })
+      expect(solved).toMatchObject({ total: 1, items: [{ status: 'SOLVED' }] })
+
+      await database.client.question.update({
+        where: { id: fixture.questionId },
+        data: {
+          lifecycleStatus: 'ARCHIVED',
+          archivedAt: new Date(dueAt.getTime() + 1_000),
+          currentPublishedVersionId: null
+        }
+      })
+      const archived = listReviewQueueResponseSchema.parse(
+        await solvedQueueService.listReviewQueue(fixture.userId, queueQuery)
+      )
+      expect(archived).toMatchObject({
+        items: [],
+        total: 0,
+        counts: { due: 0, unreviewed: 0, repeated: 0, solved: 0 }
+      })
+    } finally {
+      await database.client.question.update({
+        where: { id: fixture.questionId },
+        data: originalQuestion
+      })
+      await setQueueFixtureState(fixture, { kind: 'NEW' })
+    }
+
+    const rollbackMarker = new Error('ROLLBACK_CURRENT_VERSION_PARITY')
+    await expect(
+      database.client.$transaction(
+        async (transaction) => {
+          const historicalVersion =
+            await transaction.questionVersion.findUniqueOrThrow({
+              where: { id: fixture.questionVersionId },
+              include: {
+                options: { orderBy: { ordinal: 'asc' } },
+                tags: true
+              }
+            })
+          const historicalTag = historicalVersion.tags[0]?.labelSnapshot
+          const correctOrdinal = historicalVersion.options.find(
+            ({ id }) => id === historicalVersion.correctOptionId
+          )?.ordinal
+          if (!historicalTag || correctOrdinal === undefined) {
+            throw new Error(
+              'current-version parity fixture의 historical pin이 필요합니다.'
+            )
+          }
+          const currentVersionId = randomUUID()
+          const currentTagId = randomUUID()
+          const currentTag = `현재판-${randomUUID().slice(0, 8)}`
+          const currentPreview = `현재 공개 버전 ${randomUUID().slice(0, 8)}`
+          const nextVersionNumber =
+            (
+              await transaction.questionVersion.aggregate({
+                where: { questionId: fixture.questionId },
+                _max: { versionNumber: true }
+              })
+            )._max.versionNumber ?? 0
+          const currentOptions = historicalVersion.options.map((option) => ({
+            id: randomUUID(),
+            questionVersionId: currentVersionId,
+            label: option.label,
+            ordinal: option.ordinal,
+            text: option.text
+          }))
+          const currentCorrectOptionId = currentOptions.find(
+            ({ ordinal }) => ordinal === correctOrdinal
+          )?.id
+          if (!currentCorrectOptionId) {
+            throw new Error(
+              'current-version parity fixture의 정답 pin이 필요합니다.'
+            )
+          }
+
+          await transaction.questionVersion.create({
+            data: {
+              id: currentVersionId,
+              questionId: fixture.questionId,
+              versionNumber: nextVersionNumber + 1,
+              level: historicalVersion.level,
+              subject: historicalVersion.subject,
+              questionType: historicalVersion.questionType,
+              passage: historicalVersion.passage,
+              questionText: currentPreview,
+              explanationKo: historicalVersion.explanationKo,
+              explanationJa: historicalVersion.explanationJa,
+              difficulty: historicalVersion.difficulty,
+              sourceType: historicalVersion.sourceType,
+              createdByLabelSnapshot: historicalVersion.createdByLabelSnapshot
+            }
+          })
+          await transaction.questionOption.createMany({ data: currentOptions })
+          await transaction.tag.create({
+            data: {
+              id: currentTagId,
+              label: currentTag,
+              normalizedName: `phase5-current-${randomUUID()}`
+            }
+          })
+          await transaction.questionVersionTag.create({
+            data: {
+              id: randomUUID(),
+              questionVersionId: currentVersionId,
+              tagId: currentTagId,
+              labelSnapshot: currentTag
+            }
+          })
+          await transaction.questionVersion.update({
+            where: { id: currentVersionId },
+            data: {
+              correctOptionId: currentCorrectOptionId,
+              status: 'PUBLISHED',
+              publishedAt: dueAt
+            }
+          })
+          await transaction.question.update({
+            where: { id: fixture.questionId },
+            data: { currentPublishedVersionId: currentVersionId }
+          })
+
+          const queueTransaction = {
+            $executeRaw: async () => 0,
+            $queryRaw: transaction.$queryRaw.bind(transaction)
+          } as unknown as typeof transaction
+          const queueClient = {
+            $transaction: async <Result>(
+              operation: (client: typeof transaction) => Promise<Result>
+            ): Promise<Result> => await operation(queueTransaction)
+          } as unknown as typeof database.client
+          const studyClient = {
+            $transaction: async <Result>(
+              operation: (client: typeof transaction) => Promise<Result>
+            ): Promise<Result> => await operation(transaction)
+          } as unknown as typeof database.client
+          const currentQueueService = createWrongNoteReviewQueueService(
+            createPrismaWrongNoteReviewQueueRepository(queueClient),
+            () => dueAt
+          )
+          const currentQueue = listReviewQueueResponseSchema.parse(
+            await currentQueueService.listReviewQueue(
+              fixture.userId,
+              queueQuery
+            )
+          )
+          expect(currentQueue.items).toEqual([
+            expect.objectContaining({
+              questionId: fixture.questionId,
+              currentQuestionVersionId: currentVersionId,
+              questionPreview: currentPreview,
+              tags: [currentTag]
+            })
+          ])
+          expect(
+            await transaction.wrongNote.findUniqueOrThrow({
+              where: { id: fixture.wrongNoteId },
+              select: { lastWrongQuestionVersionId: true }
+            })
+          ).toEqual({ lastWrongQuestionVersionId: fixture.questionVersionId })
+
+          const oldTagQueue = listReviewQueueResponseSchema.parse(
+            await currentQueueService.listReviewQueue(
+              fixture.userId,
+              listReviewQueueQuerySchema.parse({
+                ...queueQuery,
+                questionType: historicalVersion.questionType,
+                tag: historicalTag
+              })
+            )
+          )
+          expect(oldTagQueue).toMatchObject({ total: 0, items: [] })
+
+          const filteredQuery = listReviewQueueQuerySchema.parse({
+            ...queueQuery,
+            questionType: historicalVersion.questionType,
+            tag: currentTag
+          })
+          const filteredQueue = listReviewQueueResponseSchema.parse(
+            await currentQueueService.listReviewQueue(
+              fixture.userId,
+              filteredQuery
+            )
+          )
+          const studyService = createStudySessionService(
+            createPrismaStudySessionRepository(studyClient, {
+              delay: async () => undefined,
+              jitterMilliseconds: () => 0,
+              random: () => 0
+            }),
+            () => dueAt
+          )
+
+          for (const mode of ['DAILY_REVIEW', 'WRONG_NOTE'] as const) {
+            const created = await studyService.create(
+              createStudySessionV2BodySchema.parse({
+                level: 'N5',
+                subject: 'VOCABULARY',
+                mode,
+                count: 20,
+                reviewFilter: {
+                  questionType: historicalVersion.questionType,
+                  tag: currentTag
+                }
+              }),
+              { kind: 'USER', userId: fixture.userId },
+              2
+            )
+            const session = createStudySessionV2ResponseSchema.parse(
+              created.payload
+            )
+            expect(session.session).toMatchObject({
+              mode,
+              actualCount: filteredQueue.total,
+              usedFallback: false,
+              fallbackReason: null
+            })
+            expect(
+              session.questions.map(({ question }) => ({
+                questionId: question.id,
+                questionVersionId: question.questionVersionId
+              }))
+            ).toEqual([
+              {
+                questionId: fixture.questionId,
+                questionVersionId: currentVersionId
+              }
+            ])
+          }
+          throw rollbackMarker
+        },
+        { timeout: 20_000 }
+      )
+    ).rejects.toBe(rollbackMarker)
+  })
+
   it('memo normalize/no-op/update/delete와 concurrent last-commit을 review state 변경 없이 보존한다', async () => {
     const stateBefore = await readReviewStateDigest(fixture)
     const oneCodePoint = updateWrongNoteMemoBodySchema.parse({

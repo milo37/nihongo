@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto'
+import type { ReviewSelectionFilter } from '@nihongo/contracts/study/create-study-session'
 import {
   selectBookmarkStudyCandidates,
   selectDailyReviewStudyCandidates,
@@ -18,6 +19,10 @@ import type {
   QuestionOptionRecord,
   QuestionTagRecord
 } from '../question/questionRepository.js'
+import {
+  createCurrentReviewCandidatePredicate,
+  reviewQueueStatusOrder
+} from '../review/currentReviewCandidateQuery.js'
 
 const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
 const MAX_TRANSACTION_ATTEMPTS = 3
@@ -61,6 +66,7 @@ export interface CreateStudySessionInput {
   owner: CreateStudyOwner
   practiceContractVersion?: 1 | 2
   requestedCount: number
+  reviewFilter?: ReviewSelectionFilter
   startedAt: Date
   subject: 'VOCABULARY' | 'GRAMMAR' | 'READING'
 }
@@ -468,10 +474,15 @@ const loadWrongNoteCandidates = async (
       AND version."id" = question."currentPublishedVersionId"
     WHERE note."userId" = ${userId}::uuid
       AND note."status" IN ('NEW', 'REVIEWING', 'AGAIN')
-      AND question."lifecycleStatus" = 'ACTIVE'
-      AND version."status" = 'PUBLISHED'
-      AND version."level" = ${input.level}::"JlptLevel"
-      AND version."subject" = ${input.subject}::"QuestionSubject"
+      AND ${createCurrentReviewCandidatePredicate({
+        userId,
+        level: input.level,
+        subject: input.subject,
+        ...(input.reviewFilter?.questionType
+          ? { questionType: input.reviewFilter.questionType }
+          : {}),
+        ...(input.reviewFilter?.tag ? { tag: input.reviewFilter.tag } : {})
+      })}
     ORDER BY
       note."lastWrongAt" DESC,
       note."wrongCount" DESC,
@@ -500,20 +511,19 @@ const loadDailyReviewCandidates = async (
       ON version."questionId" = question."id"
       AND version."id" = question."currentPublishedVersionId"
     WHERE note."userId" = ${userId}::uuid
-      AND note."status" IN ('NEW', 'REVIEWING', 'AGAIN', 'SOLVED')
+      AND ${createCurrentReviewCandidatePredicate({
+        userId,
+        level: input.level,
+        subject: input.subject,
+        ...(input.reviewFilter?.questionType
+          ? { questionType: input.reviewFilter.questionType }
+          : {}),
+        ...(input.reviewFilter?.tag ? { tag: input.reviewFilter.tag } : {})
+      })}
       AND schedule."nextReviewAt" <= ${input.startedAt}
-      AND question."lifecycleStatus" = 'ACTIVE'
-      AND version."status" = 'PUBLISHED'
-      AND version."level" = ${input.level}::"JlptLevel"
-      AND version."subject" = ${input.subject}::"QuestionSubject"
     ORDER BY
       schedule."nextReviewAt" ASC,
-      CASE note."status"
-        WHEN 'AGAIN'::"WrongNoteStatus" THEN 1
-        WHEN 'NEW'::"WrongNoteStatus" THEN 2
-        WHEN 'REVIEWING'::"WrongNoteStatus" THEN 3
-        WHEN 'SOLVED'::"WrongNoteStatus" THEN 4
-      END,
+      ${reviewQueueStatusOrder} ASC,
       note."questionId" ASC
     LIMIT ${input.requestedCount}
   `)
@@ -656,6 +666,26 @@ const lockAndValidateSelectedQuestions = async (
   selected: readonly SelectedQuestion[]
 ): Promise<void> => {
   const questionIds = selected.map(({ questionId }) => questionId).toSorted()
+  const filterPredicate = Prisma.sql`
+    ${
+      input.reviewFilter?.questionType
+        ? Prisma.sql`AND version."questionType" = ${input.reviewFilter.questionType}::"QuestionType"`
+        : Prisma.empty
+    }
+    ${
+      input.reviewFilter?.tag
+        ? Prisma.sql`
+          AND EXISTS (
+            SELECT 1
+            FROM "QuestionVersionTag" AS filter_tag
+            WHERE filter_tag."questionVersionId" = version."id"
+              AND (filter_tag."labelSnapshot" COLLATE "C") =
+                (${input.reviewFilter.tag} COLLATE "C")
+          )
+        `
+        : Prisma.empty
+    }
+  `
   const locked = await transaction.$queryRaw<SelectedQuestion[]>(Prisma.sql`
     SELECT
       question."id" AS "questionId",
@@ -669,6 +699,7 @@ const lockAndValidateSelectedQuestions = async (
       AND version."status" = 'PUBLISHED'
       AND version."level" = ${input.level}::"JlptLevel"
       AND version."subject" = ${input.subject}::"QuestionSubject"
+      ${filterPredicate}
     ORDER BY question."id" ASC
     FOR SHARE OF question, version
   `)

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import type { QuestionType } from '@nihongo/contracts/common/enum'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
@@ -11,6 +12,11 @@ import {
   createOwnedWrongNoteReadQuery,
   createReviewEventHistoryBatchQuery
 } from '../wrong-note/wrongNoteReviewCenterRepository.js'
+import {
+  createReviewQueueAvailableTagsQuery,
+  createReviewQueueCountsQuery,
+  createReviewQueueItemsQuery
+} from '../wrong-note/wrongNoteReviewQueueRepository.js'
 import {
   createReviewReconciliationEventBatchQuery,
   createReviewReconciliationNoteBatchQuery,
@@ -29,7 +35,9 @@ interface ReviewCenterPlanFixture {
   readonly historyCursorId: string
   readonly historyCursorOccurredAt: Date
   readonly questionId: string
+  readonly questionType: QuestionType
   readonly sessionId: string
+  readonly tag: string
   readonly targetUserId: string
   readonly wrongNoteId: string
 }
@@ -43,6 +51,9 @@ interface ReviewCenterPlans {
   readonly memoRead: ExplainRow[]
   readonly reconciliationEvents: ExplainRow[]
   readonly reconciliationNotes: ExplainRow[]
+  readonly reviewQueueAvailableTags: ExplainRow[]
+  readonly reviewQueueCounts: ExplainRow[]
+  readonly reviewQueueItems: ExplainRow[]
   readonly targetedCleanup: ExplainRow[]
 }
 
@@ -65,6 +76,8 @@ assertSafeTestDatabase({
 })
 
 const database = createDatabaseRuntime(environment.DATABASE_URL)
+const createdDraftVersionIds = new Set<string>()
+const createdTagPrefixes = new Set<string>()
 const createdUserIds = new Set<string>()
 
 const collectPlanNodes = (value: unknown, nodes: PlanNode[]): void => {
@@ -367,6 +380,68 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
   })
 
   const { sessionId, wrongNote } = await createTargetWrongNote(targetUserId)
+  const currentVersion =
+    await database.client.questionVersion.findUniqueOrThrow({
+      where: { id: wrongNote.lastWrongQuestionVersionId },
+      select: {
+        questionType: true,
+        tags: {
+          orderBy: { labelSnapshot: 'asc' },
+          take: 1,
+          select: { labelSnapshot: true }
+        }
+      }
+    })
+  const tag = currentVersion.tags[0]?.labelSnapshot
+  if (!tag) {
+    throw new Error('Review queue query-plan fixture tag가 필요합니다.')
+  }
+  const tagPrefix = `phase5-plan-${randomUUID()}`
+  const draftVersionId = randomUUID()
+  createdDraftVersionIds.add(draftVersionId)
+  createdTagPrefixes.add(tagPrefix)
+  await database.client.$executeRaw(Prisma.sql`
+    INSERT INTO "QuestionVersion" (
+      "id", "questionId", "versionNumber", "status", "level",
+      "subject", "questionType", "passage", "questionText",
+      "correctOptionId", "explanationKo", "explanationJa",
+      "difficulty", "sourceType", "rowVersion", "createdByUserId",
+      "createdByLabelSnapshot", "createdAt", "updatedAt"
+    )
+    SELECT
+      ${draftVersionId}::uuid,
+      ${wrongNote.questionId}::uuid,
+      COALESCE(MAX(version."versionNumber"), 0) + 1,
+      'DRAFT', 'N5', 'VOCABULARY', ${currentVersion.questionType}::"QuestionType",
+      NULL, 'query-plan tag decoy', NULL, 'query-plan tag decoy', NULL,
+      'NORMAL', 'ORIGINAL', 1, NULL, 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
+    FROM "QuestionVersion" AS version
+    WHERE version."questionId" = ${wrongNote.questionId}::uuid
+  `)
+  await database.client.$executeRaw(Prisma.sql`
+    WITH inserted_tag AS (
+      INSERT INTO "Tag" (
+        "id", "label", "normalizedName", "createdAt", "updatedAt"
+      )
+      SELECT
+        gen_random_uuid(),
+        ${tagPrefix} || '-label-' || fixture.position::text,
+        ${tagPrefix} || '-normalized-' || fixture.position::text,
+        ${PLAN_NOW},
+        ${PLAN_NOW}
+      FROM generate_series(1, 512) AS fixture(position)
+      RETURNING "id", "label"
+    )
+    INSERT INTO "QuestionVersionTag" (
+      "id", "questionVersionId", "tagId", "labelSnapshot"
+    )
+    SELECT
+      gen_random_uuid(),
+      ${draftVersionId}::uuid,
+      tag."id",
+      tag."label"
+    FROM inserted_tag AS tag
+  `)
   await database.client.$executeRawUnsafe(
     'ALTER TABLE "WrongNote" DISABLE TRIGGER USER'
   )
@@ -556,6 +631,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     'WrongNote',
     'UserMemo',
     'ReviewSchedule',
+    'QuestionVersionTag',
     'IdempotencyRecord'
   ]) {
     await database.client.$executeRawUnsafe(`ANALYZE "${tableName}"`)
@@ -572,7 +648,9 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     historyCursorId: historyCursor.id,
     historyCursorOccurredAt: historyCursor.occurredAt,
     questionId: wrongNote.questionId,
+    questionType: currentVersion.questionType,
     sessionId,
+    tag,
     targetUserId,
     wrongNoteId: wrongNote.id
   }
@@ -583,6 +661,16 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  if (createdDraftVersionIds.size > 0) {
+    await database.client.questionVersion.deleteMany({
+      where: { id: { in: [...createdDraftVersionIds] } }
+    })
+  }
+  for (const prefix of createdTagPrefixes) {
+    await database.client.tag.deleteMany({
+      where: { normalizedName: { startsWith: prefix } }
+    })
+  }
   if (createdUserIds.size > 0) {
     for (const tableName of [
       'IdempotencyRecord',
@@ -635,6 +723,36 @@ describe('Phase 5 review-center populated query plans', () => {
 
     try {
       await database.client.$transaction(async (transaction) => {
+        const reviewQueueInput = {
+          userId: fixture.targetUserId,
+          view: 'DUE' as const,
+          level: 'N5' as const,
+          subject: 'VOCABULARY' as const,
+          questionType: fixture.questionType,
+          tag: fixture.tag,
+          sort: 'NEXT_REVIEW' as const,
+          page: 1,
+          pageSize: 100,
+          observedAt: new Date(PLAN_NOW.getTime() + 24 * 60 * 60 * 1_000)
+        }
+        const reviewQueueCounts = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            ${createReviewQueueCountsQuery(reviewQueueInput)}
+          `
+        )
+        const reviewQueueAvailableTags = await transaction.$queryRaw<
+          ExplainRow[]
+        >(Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            ${createReviewQueueAvailableTagsQuery(reviewQueueInput)}
+          `)
+        const reviewQueueItems = await transaction.$queryRaw<ExplainRow[]>(
+          Prisma.sql`
+            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+            ${createReviewQueueItemsQuery(reviewQueueInput, 0)}
+          `
+        )
         const memoRead = await transaction.$queryRaw<ExplainRow[]>(Prisma.sql`
           EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
           ${createOwnedMemoReadQuery(fixture.targetUserId, fixture.questionId)}
@@ -741,6 +859,9 @@ describe('Phase 5 review-center populated query plans', () => {
           historyCursor,
           reconciliationNotes,
           reconciliationEvents,
+          reviewQueueCounts,
+          reviewQueueAvailableTags,
+          reviewQueueItems,
           targetedCleanup
         }
         throw rollbackSentinel
@@ -803,6 +924,27 @@ describe('Phase 5 review-center populated query plans', () => {
     }
     expectRelationExecuted(plans.historyInitial, 'StudyAnswer')
 
+    for (const plan of [
+      plans.reviewQueueCounts,
+      plans.reviewQueueAvailableTags,
+      plans.reviewQueueItems
+    ]) {
+      expectNoSequentialScan(plan, 'WrongNote')
+      expectBoundedRelationRows(plan, 'WrongNote', 128)
+      expectBoundedRelationRows(plan, 'ReviewSchedule', 128)
+      expectPlanBuffersAtMost(plan, 4_096)
+    }
+    expect(readRootPlan(plans.reviewQueueCounts)['Actual Rows']).toBe(1)
+    expect(
+      readRootPlan(plans.reviewQueueItems)['Actual Rows']
+    ).toBeLessThanOrEqual(100)
+    expect(readIndexNames(plans.reviewQueueItems)).toContain(
+      'WrongNote_userId_questionId_key'
+    )
+    expect(readIndexNames(plans.reviewQueueItems)).toContain(
+      'QuestionVersionTag_questionVersionId_tagId_key'
+    )
+
     expect(readIndexNames(plans.reconciliationNotes)).toContain(
       'WrongNote_pkey'
     )
@@ -854,5 +996,5 @@ describe('Phase 5 review-center populated query plans', () => {
       RECONCILIATION_LIMIT
     )
     expect(fixture.sessionId).toMatch(/^[0-9a-f-]{36}$/u)
-  })
+  }, 15_000)
 })

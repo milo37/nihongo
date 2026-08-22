@@ -1,6 +1,7 @@
 import {
   createStudySessionBodySchema,
   createStudySessionResponseSchema,
+  createStudySessionV2BodySchema,
   createStudySessionV2ResponseSchema
 } from '@nihongo/contracts/study/create-study-session'
 import {
@@ -137,9 +138,11 @@ export const createStudySessionRoutes = ({
 
     let input
     try {
-      input = createStudySessionBodySchema.parse(
-        await readBoundedJsonObject(context.req.raw)
-      )
+      const body = await readBoundedJsonObject(context.req.raw)
+      input =
+        requestedContractVersion === 2
+          ? createStudySessionV2BodySchema.parse(body)
+          : createStudySessionBodySchema.parse(body)
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         throw new ApplicationError({

@@ -1,4 +1,4 @@
-import type { ParsedCreateStudySessionBody } from '@nihongo/contracts/study/create-study-session'
+import type { ParsedCreateStudySessionV2Body } from '@nihongo/contracts/study/create-study-session'
 import type {
   StudySessionPayload,
   VersionedStudySessionPayload
@@ -21,7 +21,7 @@ const STUDY_SESSION_TTL_MS = 24 * 60 * 60 * 1_000
 
 export interface StudySessionService {
   create: (
-    input: ParsedCreateStudySessionBody,
+    input: ParsedCreateStudySessionV2Body,
     owner: CreateStudyOwner,
     practiceContractVersion?: 1 | 2
   ) => Promise<{
@@ -102,6 +102,7 @@ export const createStudySessionService = (
         subject: input.subject,
         mode: input.mode,
         requestedCount: input.count,
+        ...(input.reviewFilter ? { reviewFilter: input.reviewFilter } : {}),
         startedAt,
         expiresAt: new Date(startedAt.getTime() + STUDY_SESSION_TTL_MS),
         owner,

@@ -21,8 +21,10 @@ Hono/PostgreSQL로 사용하고, `mock`은 Alpha legacy와 같은 canonical mode
 유지합니다. guest는 RANDOM·WEAKNESS, USER/ADMIN은 다섯 mode를 사용합니다. own
 SUBMITTED result의 incorrect historical pin retry도 실제 API와 canonical mock에서
 지원합니다. USER/ADMIN target은 `WRONG_NOTE`, guest target은 `RANDOM`이며 응답 유실과
-hard reload 뒤에도 같은 key·target으로 수렴합니다. UserMemo·review history와 real admin
-API는 요청 전에 명시적으로 비활성화되며 silent Mock fallback하지 않습니다.
+hard reload 뒤에도 같은 key·target으로 수렴합니다. UserMemo·review history와 review
+queue는 reviewed runtime gate 아래 실제 Hono API와 canonical MSW까지 구현됐고 Web
+Query/hook/UI는 Slice 5를 기다립니다. targeted one-question command는 Slice 4, real admin
+API는 Phase 7 전까지 노출하지 않으며 silent Mock fallback하지 않습니다.
 Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
 RANDOM fallback을 제거했습니다. CI는 fresh-schema integration과 real/mock Chromium,
@@ -850,16 +852,25 @@ read-only reconciliation을 구현했습니다. fresh schema에서 migration 27/
 non-DB Vitest 140 files/744 tests와 architecture 5 tests도 통과했습니다. raw Phase 4의
 25-manifest runtime은 ledger 27을 의도적으로 거부하며, 변경되지 않은 Phase 4
 business read/write 경로는 reviewed 27-manifest readiness 아래에서 호환성을 검증했습니다.
-Slice 1 종료 시점에 memo/history route, review queue, targeted create route, canonical MSW와
-Web은 시작하지 않았고 Slice 2와 commit/push/PR/merge는 별도 승인 대상이었습니다.
-2026-08-22 프로젝트 소유자가 Slice 2 실행을 별도로 승인해 memo GET/PUT과 cursor history
+Slice 1 종료 뒤 프로젝트 소유자가 Slice 2를 별도로 승인해 memo GET/PUT과 cursor history
 GET, strict auth/error/redaction/no-store, actual PostgreSQL row-lock last-commit-wins,
 205-event 동일시각 keyset·concurrent append·archive retention과 production builder query-plan을
-완료했습니다. fresh integration은 full 23 files/137 pass + deliberate skip 1과 isolated
-historical pin 1 pass, 기존 pg warning 7+1, schema cleanup을 통과했습니다. non-DB는 contracts
-75, domain 35, API 329, web 333으로 772 tests이며 architecture 5를 포함하면 777입니다.
-Slice 1·2 source는 아직 commit/push/PR/merge하지 않았고 review queue·targeted route,
-canonical MSW/Web과 Slice 3 이후는 별도 승인 범위입니다.
+완료했습니다. Slice 1·2 누적 source는 검증 후
+`8bd20db48d5b0ed248b05217e48ac18930f784c0`에 commit·push했고 local, upstream과 live remote가
+일치합니다.
+
+이어 2026-08-22 프로젝트 소유자가 Slice 3 실행을 명시적으로 승인했습니다. Slice 3은
+owner-scoped current-version review queue, 겹칠 수 있는 due/unreviewed/repeated/solved facet,
+three-sort pagination과 availableTags를 같은 RepeatableRead snapshot에서 계산합니다. v2
+DAILY_REVIEW·WRONG_NOTE의 optional questionType/tag filter는 queue와 같은 current published
+candidate predicate를 사용하고 selection lock에서 다시 검증하며 fallback이나 client ID
+vector를 만들지 않습니다. canonical MSW persistence v7도 queue·memo·history와 두 review
+mode의 selection/order/error/rate parity를 구현했습니다. fresh integration은 migration
+27/27, seed 65/0→0/65, full 23 files/138 pass + deliberate skip 1, isolated 1 pass + 4 skip,
+reviewed warning 7+1과 schema cleanup을 통과했습니다. non-DB는 contracts 75, domain 35,
+API 348, web 337로 795 tests이며 architecture 5를 포함하면 800입니다. Slice 3 source는
+검증·checkpoint까지만 완료한 미커밋 상태이고, targeted create인 Slice 4와 Web UI인
+Slice 5는 별도 명시적 승인 범위입니다.
 
 ## 향후 개선
 
