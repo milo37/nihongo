@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
-import { describe, expect, it } from 'vitest'
+import type { ChildProcess } from 'node:child_process'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  retireOwnedProcess,
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
@@ -19,6 +21,52 @@ const isProcessAlive = (pid: number): boolean => {
 }
 
 describe('owned process groups', () => {
+  it('retains a command for final cleanup when its first retirement fails', async () => {
+    const ownedProcess = {
+      child: { pid: 424_242 } as ChildProcess,
+      label: 'retryable-retirement-test'
+    }
+    const ownedProcesses = [ownedProcess]
+    const stopProcesses = vi
+      .fn<(processes: readonly (typeof ownedProcess)[]) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('first cleanup failed'))
+      .mockResolvedValueOnce()
+
+    await expect(
+      retireOwnedProcess(ownedProcesses, ownedProcess, stopProcesses)
+    ).rejects.toThrow('first cleanup failed')
+    expect(ownedProcesses).toEqual([ownedProcess])
+
+    await expect(
+      retireOwnedProcess(ownedProcesses, ownedProcess, stopProcesses)
+    ).resolves.toBeUndefined()
+    expect(ownedProcesses).toEqual([])
+  })
+
+  it.runIf(shouldDetachOwnedProcess)(
+    'accepts EPERM only after the process table proves no owned member remains',
+    async () => {
+      const child = { pid: 424_242 } as ChildProcess
+      const permissionError = Object.assign(new Error('kill EPERM'), {
+        code: 'EPERM'
+      })
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => {
+        throw permissionError
+      })
+
+      try {
+        await expect(
+          stopOwnedProcesses([{ child, label: 'inaccessible-group-test' }], {
+            readProcessGroupMemberPids: () => []
+          })
+        ).resolves.toBeUndefined()
+        expect(killSpy).toHaveBeenCalledWith(-424_242, 0)
+      } finally {
+        killSpy.mockRestore()
+      }
+    }
+  )
+
   it.runIf(shouldDetachOwnedProcess)(
     'stops a command and its descendant before resolving',
     async () => {

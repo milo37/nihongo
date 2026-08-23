@@ -2219,20 +2219,16 @@ export class MockDatabase {
       if (
         this.getEffectiveCanonicalStatus(targetSession, targetMetadata) ===
           'IN_PROGRESS' &&
-        (!targetDraft ||
+        (!this.hasValidCanonicalInProgressDraft(
+          targetSession.id,
+          targetQuestions,
+          targetDraft
+        ) ||
           this.canonicalAnswerBySessionId.has(existingRecord.sessionId) ||
           this.canonicalResultBySessionId.has(existingRecord.sessionId) ||
           [...this.canonicalReviewEventByStudyAnswerId.values()].some(
             (event) => event.studySessionId === existingRecord.sessionId
-          ) ||
-          targetDraft.revision !== 0 ||
-          targetDraft.currentOrdinal !== 1 ||
-          targetDraft.savedAt !== null ||
-          targetDraft.answers.length !== 1 ||
-          targetDraft.answers[0]?.studySessionQuestionId !==
-            getCanonicalSessionQuestionId(targetSession.id, 1) ||
-          targetDraft.answers[0]?.selectedOptionId !== null ||
-          targetDraft.answers[0]?.elapsedSec !== 0)
+          ))
       ) {
         return throwCanonicalIntegrityError(
           '진행 중인 targeted 복습 target의 revision draft가 손상되었습니다.'
@@ -4114,13 +4110,12 @@ export class MockDatabase {
       }
       if (
         effectiveStatus === 'IN_PROGRESS' &&
-        (!draft ||
-          draft.revision !== 0 ||
-          draft.currentOrdinal !== 1 ||
-          draft.savedAt !== null ||
-          draft.answers.length !== 1 ||
+        (!this.hasValidCanonicalInProgressDraft(session.id, questions, draft) ||
           this.canonicalAnswerBySessionId.has(record.sessionId) ||
-          this.canonicalResultBySessionId.has(record.sessionId))
+          this.canonicalResultBySessionId.has(record.sessionId) ||
+          [...this.canonicalReviewEventByStudyAnswerId.values()].some(
+            (event) => event.studySessionId === record.sessionId
+          ))
       ) {
         throwCanonicalIntegrityError(
           'canonical targeted target의 initial draft/fact shape가 손상되었습니다.'
@@ -4819,6 +4814,70 @@ export class MockDatabase {
           answer.elapsedSec === draftAnswer.elapsedSec
         )
       })
+    )
+  }
+
+  private hasValidCanonicalInProgressDraft(
+    sessionId: string,
+    questions: readonly QuestionRecord[],
+    draft: StudyDraftSnapshot | undefined
+  ): boolean {
+    if (
+      !draft ||
+      draft.studySessionId !== sessionId ||
+      !Number.isSafeInteger(draft.revision) ||
+      draft.revision < 0 ||
+      !Number.isSafeInteger(draft.currentOrdinal) ||
+      draft.currentOrdinal < 1 ||
+      draft.currentOrdinal > questions.length ||
+      draft.answers.length !== questions.length
+    ) {
+      return false
+    }
+
+    const answerById = new Map(
+      draft.answers.map((answer) => [answer.studySessionQuestionId, answer])
+    )
+    if (answerById.size !== questions.length) {
+      return false
+    }
+    const answersAreValid = questions.every((question, index) => {
+      const answer = answerById.get(
+        getCanonicalSessionQuestionId(sessionId, index + 1)
+      )
+      const optionIds = new Set(
+        toContractPracticeQuestion(
+          toPracticeQuestion(question),
+          getQuestionVersionFingerprint(question)
+        ).options.map(({ id }) => id)
+      )
+      return (
+        answer !== undefined &&
+        Number.isSafeInteger(answer.elapsedSec) &&
+        answer.elapsedSec >= 0 &&
+        answer.elapsedSec <= 86_400 &&
+        (answer.selectedOptionId === null ||
+          optionIds.has(answer.selectedOptionId))
+      )
+    })
+    if (!answersAreValid) {
+      return false
+    }
+
+    if (draft.revision === 0) {
+      return (
+        draft.savedAt === null &&
+        draft.currentOrdinal === 1 &&
+        draft.answers.every(
+          ({ elapsedSec, selectedOptionId }) =>
+            elapsedSec === 0 && selectedOptionId === null
+        )
+      )
+    }
+
+    return (
+      draft.savedAt !== null &&
+      isoDateTimeSchema.safeParse(draft.savedAt).success
     )
   }
 

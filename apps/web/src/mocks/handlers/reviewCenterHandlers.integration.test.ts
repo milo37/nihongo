@@ -38,8 +38,11 @@ import {
 import { originalQuestions } from '@mocks/data/questions'
 import { MockDatabase, mockDatabase } from '@mocks/repository/mockDatabase'
 
-const STUDY_URL = 'http://localhost/api/v1/study-sessions'
-const QUEUE_URL = 'http://localhost/api/v1/review-queue'
+const APPLICATION_ORIGIN = globalThis.location.origin
+const toApplicationUrl = (pathname: string): string =>
+  new URL(pathname, APPLICATION_ORIGIN).toString()
+const STUDY_URL = toApplicationUrl('/api/v1/study-sessions')
+const QUEUE_URL = toApplicationUrl('/api/v1/review-queue')
 const TRUSTED_HEADERS = {
   Origin: globalThis.location.origin,
   'Content-Type': 'application/json',
@@ -59,7 +62,8 @@ const createSession = async (
 }
 
 const submitAllIncorrect = async (
-  created: CreateStudySessionV2Response
+  created: CreateStudySessionV2Response,
+  expectedDraftRevision = 0
 ): Promise<void> => {
   const response = await fetch(
     `${STUDY_URL}/${created.session.id}/submission`,
@@ -76,7 +80,7 @@ const submitAllIncorrect = async (
           elapsedSec: 0
         })),
         durationSec: 0,
-        expectedDraftRevision: 0
+        expectedDraftRevision
       })
     }
   )
@@ -203,7 +207,9 @@ const createTargetedReview = async (
     queryIndex === -1 ? questionId : questionId.slice(0, queryIndex)
   const query = queryIndex === -1 ? '' : questionId.slice(queryIndex)
   const response = await fetch(
-    `http://localhost/api/v1/wrong-notes/${pathQuestionId}/review-session${query}`,
+    toApplicationUrl(
+      `/api/v1/wrong-notes/${pathQuestionId}/review-session${query}`
+    ),
     {
       ...rest,
       method: 'POST',
@@ -424,8 +430,10 @@ describe('canonical review-center MSW integration', () => {
       if (!questionId) {
         throw new Error('memo/history fixture의 question ID가 필요합니다.')
       }
-      const memoUrl = `http://localhost/api/v1/wrong-notes/${questionId}/memo`
-      const historyUrl = `http://localhost/api/v1/wrong-notes/${questionId}/review-events`
+      const memoUrl = toApplicationUrl(`/api/v1/wrong-notes/${questionId}/memo`)
+      const historyUrl = toApplicationUrl(
+        `/api/v1/wrong-notes/${questionId}/review-events`
+      )
 
       const emptyMemo = await fetch(memoUrl)
       expect(emptyMemo.status).toBe(200)
@@ -683,7 +691,33 @@ describe('canonical review-center MSW integration', () => {
         createTargetedReviewSessionErrorSchema.parse(conflict.body).code
       ).toBe('IDEMPOTENCY_KEY_REUSED')
 
-      await submitAllIncorrect(target)
+      const savedDraft = mockDatabase.saveCanonicalStudyDraft({
+        body: {
+          answers: target.questions.map(({ sessionQuestionId }) => ({
+            elapsedSec: 0,
+            selectedOptionId: null,
+            studySessionQuestionId: sessionQuestionId
+          })),
+          currentOrdinal: 1,
+          expectedRevision: 0
+        },
+        guestPrincipalId: null,
+        idempotencyKey: crypto.randomUUID(),
+        sessionId: target.session.id
+      })
+      expect(savedDraft.response.revision).toBe(1)
+      const savedDraftReplay = await createTargetedReview(first.questionId, key)
+      expect(savedDraftReplay.response.status).toBe(201)
+      expect(
+        savedDraftReplay.response.headers.get('Idempotency-Replayed')
+      ).toBe('true')
+      expect(
+        createTargetedReviewSessionResponseSchema.parse(savedDraftReplay.body)
+      ).toEqual(target)
+      expect(
+        mockDatabase.getCanonicalStudyDraft(target.session.id, null)
+      ).toEqual(savedDraft.response)
+      await submitAllIncorrect(target, 1)
       const currentUser = mockDatabase.getCurrentUser()
       if (!currentUser) {
         throw new Error('targeted history fixture의 user가 필요합니다.')
@@ -871,7 +905,12 @@ describe('canonical review-center MSW integration', () => {
       if (!questionId) {
         throw new Error('memo validation fixture가 필요합니다.')
       }
-      const memoUrl = `http://localhost/api/v1/wrong-notes/${getContractQuestionId(questionId.sourceQuestionId)}/memo`
+      const contractQuestionId = getContractQuestionId(
+        questionId.sourceQuestionId
+      )
+      const memoUrl = toApplicationUrl(
+        `/api/v1/wrong-notes/${contractQuestionId}/memo`
+      )
 
       const structural = await fetch(memoUrl, {
         method: 'PUT',
@@ -907,7 +946,7 @@ describe('canonical review-center MSW integration', () => {
       ).toBe('UNTRUSTED_ORIGIN')
 
       const matchingArbitraryOrigin = await fetch(
-        memoUrl.replace('http://localhost', 'https://attacker.example'),
+        memoUrl.replace(APPLICATION_ORIGIN, 'https://attacker.example'),
         {
           method: 'PUT',
           headers: {
@@ -924,8 +963,44 @@ describe('canonical review-center MSW integration', () => {
         ).code
       ).toBe('UNTRUSTED_ORIGIN')
 
+      const trustedOriginForArbitraryTarget = await fetch(
+        memoUrl.replace(APPLICATION_ORIGIN, 'https://attacker.example'),
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: globalThis.location.origin
+          },
+          body: JSON.stringify({ memo: 'private sentinel' })
+        }
+      )
+      expect(trustedOriginForArbitraryTarget.status).toBe(403)
+      expect(
+        updateWrongNoteMemoErrorSchema.parse(
+          await trustedOriginForArbitraryTarget.json()
+        ).code
+      ).toBe('UNTRUSTED_ORIGIN')
+
+      const sameSiteMetadataForArbitraryTarget = await fetch(
+        memoUrl.replace(APPLICATION_ORIGIN, 'https://attacker.example'),
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Sec-Fetch-Site': 'same-origin'
+          },
+          body: JSON.stringify({ memo: 'private sentinel' })
+        }
+      )
+      expect(sameSiteMetadataForArbitraryTarget.status).toBe(403)
+      expect(
+        updateWrongNoteMemoErrorSchema.parse(
+          await sameSiteMetadataForArbitraryTarget.json()
+        ).code
+      ).toBe('UNTRUSTED_ORIGIN')
+
       const invalidIdMissingJson = await fetch(
-        'http://localhost/api/v1/wrong-notes/not-a-uuid/memo',
+        toApplicationUrl('/api/v1/wrong-notes/not-a-uuid/memo'),
         {
           method: 'PUT',
           headers: { Origin: 'https://evil.example' }
@@ -938,7 +1013,7 @@ describe('canonical review-center MSW integration', () => {
       ).toBe('INVALID_REQUEST')
 
       const invalidIdUntrusted = await fetch(
-        'http://localhost/api/v1/wrong-notes/not-a-uuid/memo',
+        toApplicationUrl('/api/v1/wrong-notes/not-a-uuid/memo'),
         {
           method: 'PUT',
           headers: {
@@ -966,6 +1041,27 @@ describe('canonical review-center MSW integration', () => {
       expect(
         updateWrongNoteMemoResponseSchema.parse(await sameOriginMetadata.json())
       ).toBeNull()
+
+      const sameOriginMemoUrl = new URL(
+        `/api/v1/wrong-notes/${contractQuestionId}/memo`,
+        globalThis.location.origin
+      )
+      const sameOriginMockTransport = await fetch(
+        new Request(sameOriginMemoUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Referer: `${globalThis.location.origin}/wrong-notes/${contractQuestionId}`
+          },
+          body: JSON.stringify({ memo: 'same-origin mock transport' })
+        })
+      )
+      expect(sameOriginMockTransport.status).toBe(200)
+      expect(
+        updateWrongNoteMemoResponseSchema.parse(
+          await sameOriginMockTransport.json()
+        )?.text
+      ).toBe('same-origin mock transport')
 
       vi.setSystemTime(new Date('2026-08-25T00:00:00.000Z'))
       const allowedWrites = await Promise.all(
@@ -999,5 +1095,5 @@ describe('canonical review-center MSW integration', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
+  }, 10_000)
 })

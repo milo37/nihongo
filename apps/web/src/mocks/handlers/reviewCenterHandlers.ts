@@ -65,6 +65,11 @@ class ReviewCenterRateLimitError extends MockHttpError {
 }
 
 const reviewCenterRateBuckets = new Map<string, ReviewCenterRateBucket>()
+let shouldDropNextTargetedReviewResponse = false
+
+export const armNextTargetedReviewResponseLossForTesting = (): void => {
+  shouldDropNextTargetedReviewResponse = true
+}
 
 const consumeReviewCenterRateLimit = (
   operation: string,
@@ -101,11 +106,32 @@ const hasTrustedReviewCenterWriteOrigin = (request: Request): boolean => {
   const origin = request.headers.get('Origin')
   const fetchSite = request.headers.get('Sec-Fetch-Site')
   const applicationOrigin = globalThis.location?.origin
+  const referrerHeader = request.headers.get('Referer')
+  const referrer =
+    referrerHeader ??
+    (request.referrer === 'about:client' ? null : request.referrer)
+  if (applicationOrigin === undefined) {
+    return false
+  }
+  try {
+    if (new URL(request.url).origin !== applicationOrigin) {
+      return false
+    }
+  } catch {
+    return false
+  }
+  let isSameOriginMockRequest = false
+  if (origin === null && fetchSite === null && referrer) {
+    try {
+      isSameOriginMockRequest = new URL(referrer).origin === applicationOrigin
+    } catch {
+      isSameOriginMockRequest = false
+    }
+  }
   return (
-    (origin !== null &&
-      applicationOrigin !== undefined &&
-      origin === applicationOrigin) ||
-    (origin === null && fetchSite === 'same-origin')
+    (origin !== null && origin === applicationOrigin) ||
+    (origin === null && fetchSite === 'same-origin') ||
+    isSameOriginMockRequest
   )
 }
 
@@ -366,6 +392,10 @@ export const reviewCenterHandlers = [
         const location = createTargetedReviewSessionLocationSchema(
           response.session.id
         ).parse(`/api/v1/study-sessions/${response.session.id}`)
+        if (shouldDropNextTargetedReviewResponse) {
+          shouldDropNextTargetedReviewResponse = false
+          return HttpResponse.error()
+        }
         return HttpResponse.json(response, {
           status: 201,
           headers: {

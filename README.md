@@ -31,7 +31,9 @@ server-authoritative DUE batch CTA도 practice-v2/review-center gate 아래 real
 않습니다.
 Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
-RANDOM fallback을 제거했습니다. CI는 fresh-schema integration과 real/mock Chromium,
+RANDOM fallback을 제거했습니다. Phase 5 Slice 6은 current review center의 실제·canonical
+mock Chromium 흐름, fresh-schema integration/E2E runner, process-tree cleanup과 최종 보고를
+완료했습니다. CI는 Phase 5 branch에서 fresh-schema integration과 real/mock Chromium,
 production mock negative build와 real artifact 검증을 실행하도록 연결됐습니다.
 
 ## 서비스 목적
@@ -890,7 +892,19 @@ domain 35, API 372, Web 382로 864 tests이며 architecture 5를 포함하면 86
 integration은 migration 27/27, seed 65/0→0/65, full 141 pass + skip 1, isolated 1 pass + 4 skip,
 reviewed warning 7+1과 schema cleanup을 통과했습니다. final checkpoint는
 `phase5-slice0-5-final-20260822-4894e91`이며 Slice 5 source는 checkpoint 시점 미commit·미push,
-Slice 6 browser E2E·final report는 별도 명시적 승인 대기입니다.
+Slice 6 browser E2E·final report는 별도 명시적 승인 대기였습니다. 이후 Slice 5 source를
+`ee1fb6501c399ea96af322845862087014d89787`에 commit·push하고 승인된 Slice 6을 실행했습니다.
+fixed Phase 5 fixture와 process-safe runner에서 real Chromium 14/14, canonical mock 3/3,
+fresh PostgreSQL full 141 pass + skip 1와 isolated 1 pass + 4 skip을 통과했습니다. non-DB는
+contracts 75, domain 35, API 374, Web 385로 Vitest 869 tests이며 architecture 5를 포함하면
+874입니다. 연속 keyboard filter는 controlled URL 갱신 중에도 native select focus를 유지하고,
+공용 dialog는 첫 Tab을 지연 focus가 되감지 않도록 initial focus를 동기 확정합니다. production
+build는 Web 456 modules를 만들고 mock worker를 포함하지 않으며,
+production `VITE_API_MODE=mock`은 의도대로 실패합니다. 최종 보고서는
+`docs/PHASE_5_WRONG_NOTE_REVIEW_CENTER_REPORT.md`, immutable rollback point는
+`phase5-slice0-6-final-20260823-ee1fb65-focus-stabilized`입니다. Phase 5는 Complete이며 Slice 6 source는
+checkpoint 시점 미commit·미push입니다. remote CI, PR/merge, deploy/exposure와 Phase 6
+source는 실행하지 않았습니다.
 
 ## 향후 개선
 

@@ -75,7 +75,7 @@ test('mock mode keeps the Slice 2 autosave and reload flow available', async ({
   await page.reload()
   await expect(page.getByRole('radio').nth(0)).toBeChecked()
   await expect(page.locator('[data-save-state]')).toContainText(
-    /서버 작업본과 동기화|서버에 저장됨/
+    /서버 작업본과 동기화|서버에 저장(?:됨|했습니다)/
   )
 
   const bookmarkButton = page.getByRole('button', {
@@ -344,7 +344,7 @@ test('mock mode keeps the Slice 2 autosave and reload flow available', async ({
 
   await page.goto('/wrong-notes')
   await expect(
-    page.getByRole('heading', { name: '오답을 해결 상태까지 관리하세요' })
+    page.getByRole('heading', { name: '지금 복습할 오답을 확인하세요' })
   ).toBeVisible()
   await page.goto('/dashboard')
   await expect(
@@ -371,7 +371,7 @@ test('mock mode keeps the Slice 2 autosave and reload flow available', async ({
       /\/api\/v1\/study-sessions\/[0-9a-f-]+\/retry$/u.test(path)
     )
   ).toBe(true)
-  expect(requestPaths).toContain('/api/v1/wrong-notes')
+  expect(requestPaths).toContain('/api/v1/review-queue')
   expect(requestPaths).toContain('/api/v1/dashboard')
   expect(
     requestPaths.filter(

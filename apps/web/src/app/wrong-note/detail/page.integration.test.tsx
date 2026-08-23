@@ -276,6 +276,51 @@ describe('WrongNoteDetailPage integration', () => {
     client.clear()
   })
 
+  it('announces an archived cancelled target after durable recovery clears its attempt', async () => {
+    const user = userEvent.setup()
+    const prepared = prepareWrongNote()
+    const principalScope = getStudyDraftPrincipalScope(
+      mockDatabase.getCurrentUser()
+    )
+    const attempt = getOrCreateTargetedReviewAttempt(
+      principalScope,
+      prepared.questionId
+    )
+    const targeted = mockDatabase.createCanonicalTargetedReview({
+      userId: prepared.userId,
+      questionId: prepared.questionId,
+      idempotencyKey: attempt.idempotencyKey
+    })
+    mockDatabase.cancelCanonicalStudySession(targeted.response.session.id, null)
+    archiveQuestion(prepared.sourceQuestionId)
+    const { client } = renderDetailPage(prepared.questionId)
+
+    await user.click(
+      await screen.findByRole('button', { name: '기존 단일 복습 복구' })
+    )
+
+    expect(
+      await screen.findByText(
+        '이전에 만든 단일 복습 세션이 종료됐습니다. 보관된 문제에서는 새 단일 복습을 시작할 수 없습니다.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '이전에 만든 단일 복습 세션이 종료됐습니다. 보관된 문제에서는 새 단일 복습을 시작할 수 없습니다.'
+      )
+    ).toHaveAttribute('aria-live', 'polite')
+    expect(
+      screen.queryByRole('button', { name: '기존 단일 복습 복구' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '이 문제만 다시 풀기' })
+    ).not.toBeInTheDocument()
+    expect(
+      readTargetedReviewAttempt(principalScope, prepared.questionId)
+    ).toBeNull()
+    client.clear()
+  })
+
   it('retains dirty memo input when a cached detail background refresh fails', async () => {
     const user = userEvent.setup()
     const prepared = prepareWrongNote()

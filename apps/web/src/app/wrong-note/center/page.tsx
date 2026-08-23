@@ -80,28 +80,41 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
   const [batchCount, setBatchCount] = useState<(typeof batchCounts)[number]>(10)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const resultHeadingRef = useRef<HTMLHeadingElement>(null)
-  const shouldFocusResultsRef = useRef(false)
+  const pendingResultsFocusSearchRef = useRef<string | null>(null)
   const shouldFocusRetryRef = useRef(false)
   const batchRequestContext = `${parsedSearch.canonicalSearch}|${batchCount}`
   const previousBatchRequestContextRef = useRef(batchRequestContext)
 
   useEffect(() => {
     if (!parsedSearch.needsReplace) return
-    shouldFocusResultsRef.current = true
+    pendingResultsFocusSearchRef.current = parsedSearch.canonicalSearch
     setSearchParams(parsedSearch.canonicalSearch, { replace: true })
   }, [parsedSearch.canonicalSearch, parsedSearch.needsReplace, setSearchParams])
 
   useEffect(() => {
-    if (!queueQuery.isSuccess || !queueQuery.data) return
+    if (
+      !queueQuery.isSuccess ||
+      !queueQuery.data ||
+      queueQuery.fetchStatus !== 'idle'
+    ) {
+      return
+    }
     if (shouldFocusRetryRef.current) {
       shouldFocusRetryRef.current = false
-      shouldFocusResultsRef.current = false
+      pendingResultsFocusSearchRef.current = null
       headingRef.current?.focus()
-    } else if (shouldFocusResultsRef.current) {
-      shouldFocusResultsRef.current = false
+    } else if (
+      pendingResultsFocusSearchRef.current === parsedSearch.canonicalSearch
+    ) {
+      pendingResultsFocusSearchRef.current = null
       resultHeadingRef.current?.focus()
     }
-  }, [queueQuery.data, queueQuery.isSuccess])
+  }, [
+    parsedSearch.canonicalSearch,
+    queueQuery.data,
+    queueQuery.fetchStatus,
+    queueQuery.isSuccess
+  ])
 
   useEffect(() => {
     if (!queueQuery.data) return
@@ -110,11 +123,11 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
       Math.ceil(queueQuery.data.total / queueQuery.data.pageSize)
     )
     if (parsedSearch.query.page <= totalPages) return
-    shouldFocusResultsRef.current = true
     const next = createReviewQueueSearch({
       ...parsedSearch.query,
       page: totalPages
     })
+    pendingResultsFocusSearchRef.current = next.toString()
     setSearchParams(next, { replace: true })
   }, [parsedSearch.query, queueQuery.data, setSearchParams])
 
@@ -127,15 +140,19 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
 
   const setQueryValue = (
     key: keyof ParsedListReviewQueueQuery,
-    value: string | number | undefined
+    value: string | number | undefined,
+    focusResults = true
   ): void => {
     const next = {
       ...parsedSearch.query,
       [key]: value,
       ...(key === 'page' ? {} : { page: 1 })
     }
-    shouldFocusResultsRef.current = true
-    setSearchParams(createReviewQueueSearch(next))
+    const nextSearch = createReviewQueueSearch(next)
+    pendingResultsFocusSearchRef.current = focusResults
+      ? nextSearch.toString()
+      : null
+    setSearchParams(nextSearch)
   }
 
   const totalPages = queueQuery.data
@@ -247,7 +264,11 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           label="급수"
           value={parsedSearch.query.level ?? ''}
           onChange={(event) =>
-            setQueryValue('level', event.currentTarget.value || undefined)
+            setQueryValue(
+              'level',
+              event.currentTarget.value || undefined,
+              false
+            )
           }
         >
           <option value="">전체 급수</option>
@@ -262,7 +283,11 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           label="과목"
           value={parsedSearch.query.subject ?? ''}
           onChange={(event) =>
-            setQueryValue('subject', event.currentTarget.value || undefined)
+            setQueryValue(
+              'subject',
+              event.currentTarget.value || undefined,
+              false
+            )
           }
         >
           <option value="">전체 과목</option>
@@ -279,7 +304,8 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           onChange={(event) =>
             setQueryValue(
               'questionType',
-              event.currentTarget.value || undefined
+              event.currentTarget.value || undefined,
+              false
             )
           }
         >
@@ -295,7 +321,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           label="태그"
           value={parsedSearch.query.tag ?? ''}
           onChange={(event) =>
-            setQueryValue('tag', event.currentTarget.value || undefined)
+            setQueryValue('tag', event.currentTarget.value || undefined, false)
           }
         >
           <option value="">전체 태그</option>
@@ -309,7 +335,9 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           name="review-sort"
           label="정렬"
           value={parsedSearch.query.sort}
-          onChange={(event) => setQueryValue('sort', event.currentTarget.value)}
+          onChange={(event) =>
+            setQueryValue('sort', event.currentTarget.value, false)
+          }
         >
           <option value="NEXT_REVIEW">다음 복습순</option>
           <option value="MOST_WRONG">많이 틀린 순</option>
@@ -432,8 +460,9 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             <Button
               variant="ghost"
               onClick={() => {
-                shouldFocusResultsRef.current = true
-                setSearchParams(new URLSearchParams())
+                const nextSearch = new URLSearchParams()
+                pendingResultsFocusSearchRef.current = nextSearch.toString()
+                setSearchParams(nextSearch)
               }}
             >
               필터 초기화

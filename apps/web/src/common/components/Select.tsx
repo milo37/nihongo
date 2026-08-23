@@ -1,5 +1,10 @@
 import { useId } from 'react'
-import type { ComponentPropsWithRef, ReactElement, ReactNode } from 'react'
+import type {
+  ComponentPropsWithRef,
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactElement,
+  ReactNode
+} from 'react'
 import { classNames } from '@common/components/classNames'
 
 export interface SelectOption {
@@ -30,6 +35,7 @@ export const Select = ({
   id,
   label,
   name,
+  onKeyDown,
   options,
   placeholder,
   ...props
@@ -41,6 +47,43 @@ export const Select = ({
   const describedBy = [ariaDescribedBy, hintId, errorId]
     .filter(Boolean)
     .join(' ')
+  const handleKeyboardNavigation = (
+    event: ReactKeyboardEvent<HTMLSelectElement>
+  ): void => {
+    onKeyDown?.(event)
+    if (
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      !['ArrowDown', 'ArrowUp', 'End', 'Home'].includes(event.key)
+    ) {
+      return
+    }
+
+    const select = event.currentTarget
+    const enabledIndices = Array.from(select.options).flatMap(
+      (option, index) => (option.disabled ? [] : [index])
+    )
+    const currentPosition = enabledIndices.indexOf(select.selectedIndex)
+    const nextPosition =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? enabledIndices.length - 1
+          : event.key === 'ArrowDown'
+            ? Math.min(enabledIndices.length - 1, currentPosition + 1)
+            : Math.max(0, currentPosition - 1)
+    const nextIndex = enabledIndices[nextPosition]
+    if (nextIndex === undefined || nextIndex === select.selectedIndex) {
+      return
+    }
+
+    event.preventDefault()
+    select.selectedIndex = nextIndex
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  }
 
   return (
     <div className="grid gap-2">
@@ -68,6 +111,7 @@ export const Select = ({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
         {...props}
+        onKeyDown={handleKeyboardNavigation}
       >
         {placeholder ? (
           <option value="" disabled>

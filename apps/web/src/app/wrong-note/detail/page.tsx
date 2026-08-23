@@ -211,6 +211,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const identityKey = getStudyDraftPrincipalScope(user)
   const wrongNoteQuery = useGetWrongNote(questionId)
   const memoQuery = useGetWrongNoteMemo(questionId)
   const historyQuery = useListReviewEvents(questionId)
@@ -224,13 +225,20 @@ export const WrongNoteDetailPage = (): ReactElement => {
     message: '',
     questionId
   })
+  const [targetedAttemptState, setTargetedAttemptState] = useState(() => ({
+    identityKey,
+    isPresent: readTargetedReviewAttempt(identityKey, questionId) !== null,
+    questionId
+  }))
   const headingRef = useRef<HTMLHeadingElement>(null)
   const currentQuestionIdRef = useRef(questionId)
   const shouldRestoreRetryFocusRef = useRef(false)
   const returnTo = getSafeWrongNoteReturnTo(searchParams.get('returnTo'))
-  const identityKey = getStudyDraftPrincipalScope(user)
   const hasTargetedRecoveryAttempt =
-    readTargetedReviewAttempt(identityKey, questionId) !== null
+    targetedAttemptState.identityKey === identityKey &&
+    targetedAttemptState.questionId === questionId
+      ? targetedAttemptState.isPresent
+      : readTargetedReviewAttempt(identityKey, questionId) !== null
   const isMemoDirty =
     memoDirtyState.questionId === questionId && memoDirtyState.isDirty
   const targetedMessage =
@@ -245,6 +253,15 @@ export const WrongNoteDetailPage = (): ReactElement => {
   const handleMemoDirtyChange = useCallback(
     (isDirty: boolean) => setMemoDirtyState({ isDirty, questionId }),
     [questionId]
+  )
+  const syncTargetedAttemptState = useCallback(
+    () =>
+      setTargetedAttemptState({
+        identityKey,
+        isPresent: readTargetedReviewAttempt(identityKey, questionId) !== null,
+        questionId
+      }),
+    [identityKey, questionId]
   )
 
   useLayoutEffect(() => {
@@ -334,101 +351,133 @@ export const WrongNoteDetailPage = (): ReactElement => {
         data={wrongNoteQuery.data}
         headingRef={headingRef}
         action={
-          wrongNoteQuery.data.wrongNote.reviewAvailability === 'AVAILABLE' ||
-          hasTargetedRecoveryAttempt ? (
-            <>
-              <Button
-                fullWidth
-                isLoading={isTargetedPending}
-                loadingLabel={
-                  isTargetedPaused ? '연결 대기 중…' : '단일 복습 준비 중…'
-                }
-                disabled={isMemoDirty}
-                onClick={() => {
-                  setTargetedNotice({ message: '', questionId })
-                  createTargeted.reset()
-                  createTargeted.mutate(
-                    { principalScope: identityKey, questionId },
-                    {
-                      onSuccess: ({ session }, input) => {
-                        assertCurrentTargetedReviewAction(input)
-                        if (input.questionId !== currentQuestionIdRef.current) {
-                          return
-                        }
-                        if (session.session.status === 'IN_PROGRESS') {
-                          beginPractice(
-                            session.session.id,
-                            session.session.startedAt
-                          )
-                          void navigate(
-                            `/practice/session/${session.session.id}`
-                          )
-                          completeTargetedReviewAction(input)
-                        } else if (session.session.status === 'SUBMITTED') {
-                          void navigate(
-                            `/practice/result/${session.session.id}`
-                          )
-                          completeTargetedReviewAction(input)
-                        } else {
-                          setTargetedNotice({
-                            message:
-                              '이전에 만든 단일 복습 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.',
-                            questionId
-                          })
-                          completeTargetedReviewAction(input)
+          <>
+            {wrongNoteQuery.data.wrongNote.reviewAvailability === 'AVAILABLE' ||
+            hasTargetedRecoveryAttempt ? (
+              <>
+                <Button
+                  fullWidth
+                  isLoading={isTargetedPending}
+                  loadingLabel={
+                    isTargetedPaused ? '연결 대기 중…' : '단일 복습 준비 중…'
+                  }
+                  disabled={isMemoDirty}
+                  onClick={() => {
+                    setTargetedNotice({ message: '', questionId })
+                    setTargetedAttemptState({
+                      identityKey,
+                      isPresent: true,
+                      questionId
+                    })
+                    createTargeted.reset()
+                    createTargeted.mutate(
+                      { principalScope: identityKey, questionId },
+                      {
+                        onSuccess: ({ session }, input) => {
+                          assertCurrentTargetedReviewAction(input)
+                          if (
+                            input.questionId !== currentQuestionIdRef.current
+                          ) {
+                            return
+                          }
+                          if (session.session.status === 'IN_PROGRESS') {
+                            beginPractice(
+                              session.session.id,
+                              session.session.startedAt
+                            )
+                            void navigate(
+                              `/practice/session/${session.session.id}`
+                            )
+                            completeTargetedReviewAction(input)
+                            setTargetedAttemptState({
+                              identityKey,
+                              isPresent: false,
+                              questionId
+                            })
+                          } else if (session.session.status === 'SUBMITTED') {
+                            void navigate(
+                              `/practice/result/${session.session.id}`
+                            )
+                            completeTargetedReviewAction(input)
+                            setTargetedAttemptState({
+                              identityKey,
+                              isPresent: false,
+                              questionId
+                            })
+                          } else {
+                            setTargetedNotice({
+                              message:
+                                wrongNoteQuery.data.wrongNote
+                                  .reviewAvailability === 'ARCHIVED'
+                                  ? '이전에 만든 단일 복습 세션이 종료됐습니다. 보관된 문제에서는 새 단일 복습을 시작할 수 없습니다.'
+                                  : '이전에 만든 단일 복습 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.',
+                              questionId
+                            })
+                            completeTargetedReviewAction(input)
+                            setTargetedAttemptState({
+                              identityKey,
+                              isPresent: false,
+                              questionId
+                            })
+                          }
+                        },
+                        onError: () => {
+                          syncTargetedAttemptState()
                         }
                       }
-                    }
-                  )
-                }}
-              >
-                {wrongNoteQuery.data.wrongNote.reviewAvailability === 'ARCHIVED'
-                  ? '기존 단일 복습 복구'
-                  : '이 문제만 다시 풀기'}
-              </Button>
-              {wrongNoteQuery.data.wrongNote.reviewAvailability ===
-              'ARCHIVED' ? (
-                <p className="mt-3 text-sm font-semibold text-muted">
-                  문제는 보관됐지만 이전에 생성된 단일 복습 세션은 같은 요청
-                  키로 복구할 수 있습니다.
-                </p>
-              ) : null}
-              {isMemoDirty ? (
-                <p className="mt-3 text-sm font-semibold text-amber-900">
-                  메모를 저장하거나 변경을 취소한 뒤 단일 복습을 시작해 주세요.
-                </p>
-              ) : null}
-              {isTargetedPaused ? (
-                <p
-                  className="mt-3 text-sm font-semibold text-amber-900"
-                  role="status"
+                    )
+                  }}
                 >
-                  오프라인입니다. 연결되면 같은 요청 키로 단일 복습 생성을
-                  이어갑니다.
-                </p>
-              ) : null}
-              {isTargetedError ? (
-                <p
-                  className="mt-3 text-sm font-semibold text-red-800"
-                  role="alert"
-                >
-                  {isQuestionNotAvailableApiError(createTargeted.error)
-                    ? '현재 출제 가능한 문제 버전이 없습니다.'
-                    : '단일 복습 세션을 만들지 못했습니다. 다시 시도해 주세요.'}
-                </p>
-              ) : null}
-              <p
-                className="mt-3 min-h-6 text-sm font-semibold text-muted"
-                aria-live="polite"
-              >
-                {targetedMessage}
+                  {wrongNoteQuery.data.wrongNote.reviewAvailability ===
+                  'ARCHIVED'
+                    ? '기존 단일 복습 복구'
+                    : '이 문제만 다시 풀기'}
+                </Button>
+                {wrongNoteQuery.data.wrongNote.reviewAvailability ===
+                'ARCHIVED' ? (
+                  <p className="mt-3 text-sm font-semibold text-muted">
+                    문제는 보관됐지만 이전에 생성된 단일 복습 세션은 같은 요청
+                    키로 복구할 수 있습니다.
+                  </p>
+                ) : null}
+                {isMemoDirty ? (
+                  <p className="mt-3 text-sm font-semibold text-amber-900">
+                    메모를 저장하거나 변경을 취소한 뒤 단일 복습을 시작해
+                    주세요.
+                  </p>
+                ) : null}
+                {isTargetedPaused ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-amber-900"
+                    role="status"
+                  >
+                    오프라인입니다. 연결되면 같은 요청 키로 단일 복습 생성을
+                    이어갑니다.
+                  </p>
+                ) : null}
+                {isTargetedError ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-red-800"
+                    role="alert"
+                  >
+                    {isQuestionNotAvailableApiError(createTargeted.error)
+                      ? '현재 출제 가능한 문제 버전이 없습니다.'
+                      : '단일 복습 세션을 만들지 못했습니다. 다시 시도해 주세요.'}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-muted">
+                보관된 문제는 기록과 메모만 확인할 수 있습니다.
               </p>
-            </>
-          ) : (
-            <p className="text-sm font-semibold text-muted">
-              보관된 문제는 기록과 메모만 확인할 수 있습니다.
+            )}
+            <p
+              className="mt-3 min-h-6 text-sm font-semibold text-muted"
+              aria-live="polite"
+            >
+              {targetedMessage}
             </p>
-          )
+          </>
         }
       />
 

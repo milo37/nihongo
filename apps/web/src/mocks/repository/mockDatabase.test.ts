@@ -1683,6 +1683,7 @@ describe('MockDatabase', () => {
       throw new Error('targeted persistence fixture가 필요합니다.')
     }
     interface MutableTargetedPersistedState {
+      canonicalDrafts: Array<Record<string, unknown>>
       canonicalIdempotencyRecords: Array<Record<string, unknown>>
       canonicalStudyAnswers: Array<[string, Array<Record<string, unknown>>]>
     }
@@ -1738,6 +1739,18 @@ describe('MockDatabase', () => {
         created.response.session.id,
         sourceAnswers
       ])
+    })
+    expectTamperedRecordRejected((_record, state) => {
+      const draft = state.canonicalDrafts.find(
+        ({ studySessionId }) => studySessionId === created.response.session.id
+      )
+      const answers = draft?.answers
+      if (!draft || !Array.isArray(answers) || !answers[0]) {
+        throw new Error('targeted draft tamper fixture가 필요합니다.')
+      }
+      draft.revision = 1
+      draft.savedAt = observedAt
+      ;(answers[0] as Record<string, unknown>).elapsedSec = 86_401
     })
     values.set(MOCK_DATABASE_STORAGE_KEY, canonicalSerialized)
 

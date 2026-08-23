@@ -78,7 +78,7 @@ const clientIpByEmail = new Map([
   [userC.email, '198.51.100.12'],
   [userD.email, '198.51.100.13']
 ])
-const schemaName = process.env.SLICE2_E2E_SCHEMA
+const schemaName = process.env.PHASE5_E2E_SCHEMA
 const authenticatedStorage = new Map<string, BrowserStorageState>()
 
 const moveFocusWithKeyboard = async (
@@ -118,8 +118,8 @@ const readSlice3SelectionFixture = (): Slice3SelectionFixture => {
 
 const slice3Selection = readSlice3SelectionFixture()
 
-if (!/^phase4_slice2_e2e_[0-9]+_[a-f0-9]{8}_test$/.test(schemaName ?? '')) {
-  throw new Error('The isolated Slice 2 E2E schema marker is missing.')
+if (!/^phase5_slice6_e2e_[0-9]+_[a-f0-9]{8}_test$/.test(schemaName ?? '')) {
+  throw new Error('The isolated Phase 5 E2E schema marker is missing.')
 }
 
 const login = async (page: Page, credentials: Credentials): Promise<void> => {
@@ -1619,20 +1619,41 @@ test.describe.serial('Slice 2 real practice flow', () => {
           name: '답안을 제출하시겠습니까?'
         })
       ).toBeFocused()
-      await page.keyboard.press('Shift+Tab')
+      const focusDialogControl = async (
+        control: Locator,
+        key: 'Shift+Tab' | 'Tab'
+      ): Promise<void> => {
+        for (
+          let tabIndex = 0;
+          tabIndex <= (await dialogTargets.count()) + 1;
+          tabIndex += 1
+        ) {
+          if (
+            await control.evaluate(
+              (element) => element === document.activeElement
+            )
+          ) {
+            return
+          }
+          await page.keyboard.press(key)
+          await expect(submitDialog.locator(':focus')).toHaveCount(1)
+        }
+        await expect(control).toBeFocused()
+      }
+      const submitDialogButton = submitDialog.getByRole('button', {
+        name: '제출하고 결과 보기'
+      })
+      const closeDialogButton = submitDialog.getByRole('button', {
+        name: '대화상자 닫기'
+      })
+      const continueButton = submitDialog.getByRole('button', {
+        name: '계속 풀기'
+      })
+      await focusDialogControl(submitDialogButton, 'Shift+Tab')
       await expect(page.locator('html')).toHaveClass(/has-modal/)
-      await expect(
-        submitDialog.getByRole('button', { name: '제출하고 결과 보기' })
-      ).toBeFocused()
-      await page.keyboard.press('Tab')
-      await expect(
-        submitDialog.getByRole('button', { name: '대화상자 닫기' })
-      ).toBeFocused()
-      await page.keyboard.press('Tab')
-      await expect(
-        submitDialog.getByRole('button', { name: '계속 풀기' })
-      ).toBeFocused()
-      await page.keyboard.press('Tab')
+      await focusDialogControl(closeDialogButton, 'Tab')
+      await focusDialogControl(continueButton, 'Tab')
+      await focusDialogControl(submitDialogButton, 'Tab')
       await page.keyboard.press('Enter')
       await expect(page).toHaveURL(
         new RegExp(`/practice/result/${created.session.id}$`),

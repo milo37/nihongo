@@ -7,11 +7,12 @@ import { Client } from 'pg'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { assertSlice5IntegrationWarningBudget } from './integrationWarningBudget.js'
 import {
+  retireOwnedProcess,
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
 
-const SCHEMA_PATTERN = /^phase4_slice5_integration_[0-9]+_[a-f0-9]{8}_test$/
+const SCHEMA_PATTERN = /^phase5_slice6_integration_[0-9]+_[a-f0-9]{8}_test$/
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../..'
@@ -24,7 +25,9 @@ dotenv.config({
 })
 
 const baseDatabaseUrl =
-  process.env.SLICE5_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
+  process.env.PHASE5_INTEGRATION_DATABASE_URL ??
+  process.env.SLICE5_INTEGRATION_DATABASE_URL ??
+  process.env.DATABASE_URL
 
 assertSafeTestDatabase({
   nodeEnvironment: 'test',
@@ -33,17 +36,17 @@ assertSafeTestDatabase({
 })
 
 if (!baseDatabaseUrl) {
-  throw new Error('Slice 5 integration requires a test PostgreSQL URL.')
+  throw new Error('Phase 5 integration requires a test PostgreSQL URL.')
 }
 
 const schemaName =
-  `phase4_slice5_integration_${Date.now()}_` +
+  `phase5_slice6_integration_${Date.now()}_` +
   `${randomBytes(4).toString('hex')}_test`
 const integrationTestArguments = process.argv
   .slice(2)
   .filter((argument, index) => !(index === 0 && argument === '--'))
 if (!SCHEMA_PATTERN.test(schemaName)) {
-  throw new Error('Generated Slice 5 integration schema is unsafe.')
+  throw new Error('Generated Phase 5 integration schema is unsafe.')
 }
 
 const adminDatabaseUrl = new URL(baseDatabaseUrl)
@@ -78,7 +81,8 @@ const runCommand = async (
       env: environment,
       stdio: captureIntegrationOutput ? ['inherit', 'pipe', 'pipe'] : 'inherit'
     })
-    commandProcesses.push({ child, label: formatCommand(command, args) })
+    const ownedCommand = { child, label: formatCommand(command, args) }
+    commandProcesses.push(ownedCommand)
     if (captureIntegrationOutput) {
       child.stdout?.on('data', (chunk: Buffer) => {
         const value = chunk.toString()
@@ -95,19 +99,26 @@ const runCommand = async (
       spawnError = error
     })
     child.once('close', (code, signal) => {
-      if (spawnError) {
-        reject(spawnError)
-        return
-      }
-      if (code === 0) {
-        resolve(capturedOutput)
-        return
-      }
-      reject(
-        new Error(
-          `${formatCommand(command, args)} failed (` +
-            `${signal ?? `exit ${code ?? 'unknown'}`}).`
-        )
+      void retireOwnedProcess(commandProcesses, ownedCommand).then(
+        () => {
+          if (spawnError) {
+            reject(spawnError)
+            return
+          }
+          if (code === 0) {
+            resolve(capturedOutput)
+            return
+          }
+          reject(
+            new Error(
+              `${formatCommand(command, args)} failed (` +
+                `${signal ?? `exit ${code ?? 'unknown'}`}).`
+            )
+          )
+        },
+        (error: unknown) => {
+          reject(error)
+        }
       )
     })
   })
@@ -118,7 +129,7 @@ const createSchema = async (client: Client): Promise<void> => {
     [schemaName]
   )
   if (existing.rows[0]?.count !== '0') {
-    throw new Error('Generated Slice 5 integration schema already exists.')
+    throw new Error('Generated Phase 5 integration schema already exists.')
   }
   await client.query(`CREATE SCHEMA ${quoteIdentifier(schemaName)}`)
 }
@@ -132,7 +143,7 @@ const dropSchema = async (client: Client): Promise<void> => {
     [schemaName]
   )
   if (remaining.rows[0]?.count !== '0') {
-    throw new Error('Slice 5 integration schema cleanup verification failed.')
+    throw new Error('Phase 5 integration schema cleanup verification failed.')
   }
 }
 
@@ -145,31 +156,46 @@ let schemaCreated = false
 
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= (async () => {
-    await stopOwnedProcesses(commandProcesses, {
-      onForceKill: ({ label }) => {
-        process.stderr.write(
-          `[${label}] graceful stop timed out; sending SIGKILL.\n`
-        )
-      }
-    })
-    commandProcesses.length = 0
+    let processCleanupError: unknown
     try {
-      if (schemaCreated && adminConnected) {
-        await dropSchema(adminClient)
-        schemaCreated = false
-        process.stdout.write(
-          `${JSON.stringify({
-            event: 'slice5.integration.schema_removed',
-            schemaName
-          })}\n`
-        )
-      }
+      await stopOwnedProcesses(commandProcesses, {
+        onForceKill: ({ label }) => {
+          process.stderr.write(
+            `[${label}] graceful stop timed out; sending SIGKILL.\n`
+          )
+        }
+      })
+    } catch (error: unknown) {
+      processCleanupError = error
     } finally {
-      if (adminConnected) {
-        await adminClient.end()
-        adminConnected = false
-      }
+      commandProcesses.length = 0
     }
+
+    let schemaCleanupError: unknown
+    try {
+      try {
+        if (schemaCreated && adminConnected) {
+          await dropSchema(adminClient)
+          schemaCreated = false
+          process.stdout.write(
+            `${JSON.stringify({
+              event: 'phase5.slice6.integration.schema_removed',
+              schemaName
+            })}\n`
+          )
+        }
+      } finally {
+        if (adminConnected) {
+          await adminClient.end()
+          adminConnected = false
+        }
+      }
+    } catch (error: unknown) {
+      schemaCleanupError = error
+    }
+
+    if (processCleanupError) throw processCleanupError
+    if (schemaCleanupError) throw schemaCleanupError
   })()
   return cleanupPromise
 }
@@ -189,7 +215,7 @@ const run = async (): Promise<void> => {
   schemaCreated = true
   process.stdout.write(
     `${JSON.stringify({
-      event: 'slice5.integration.schema_created',
+      event: 'phase5.slice6.integration.schema_created',
       schemaName
     })}\n`
   )
@@ -272,7 +298,7 @@ const run = async (): Promise<void> => {
     assertSlice5IntegrationWarningBudget(fullSuiteOutput, historicalPinOutput)
     process.stdout.write(
       `${JSON.stringify({
-        event: 'slice5.integration.pg_warning_budget_verified',
+        event: 'phase5.slice6.integration.pg_warning_budget_verified',
         warningCount: 8
       })}\n`
     )
@@ -289,7 +315,7 @@ void run()
     } catch (cleanupError: unknown) {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'slice5.integration.cleanup_failed',
+          event: 'phase5.slice6.integration.cleanup_failed',
           errorName:
             cleanupError instanceof Error ? cleanupError.name : 'UnknownError',
           schemaName
@@ -298,7 +324,7 @@ void run()
     }
     process.stderr.write(
       `${JSON.stringify({
-        event: 'slice5.integration.failed',
+        event: 'phase5.slice6.integration.failed',
         errorName: error instanceof Error ? error.name : 'UnknownError',
         message: error instanceof Error ? error.message : 'Unknown failure',
         schemaName

@@ -26,7 +26,7 @@ describe('Dialog', () => {
     const firstAction = screen.getByRole('button', { name: '첫 작업' })
     const lastAction = screen.getByRole('button', { name: '마지막 작업' })
 
-    await waitFor(() => expect(heading).toHaveFocus())
+    expect(heading).toHaveFocus()
     await user.tab()
     expect(firstAction).toHaveFocus()
     await user.tab()

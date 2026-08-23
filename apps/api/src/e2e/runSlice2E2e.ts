@@ -11,6 +11,11 @@ import { createDatabaseRuntime } from '../db/database.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
 import {
+  createPhase5BrowserFixture,
+  createPhase5BrowserFixtureDatabase
+} from './phase5BrowserFixture.js'
+import {
+  retireOwnedProcess,
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
@@ -18,7 +23,7 @@ import {
 const API_PORT = 3001
 const WEB_PORT = 5173
 const MOCK_WEB_PORT = 5174
-const SCHEMA_PATTERN = /^phase4_slice2_e2e_[0-9]+_[a-f0-9]{8}_test$/
+const SCHEMA_PATTERN = /^phase5_slice6_e2e_[0-9]+_[a-f0-9]{8}_test$/
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../..'
@@ -53,7 +58,7 @@ dotenv.config({
 })
 
 const baseDatabaseUrl =
-  process.env.SLICE2_E2E_DATABASE_URL ?? process.env.DATABASE_URL
+  process.env.PHASE5_E2E_DATABASE_URL ?? process.env.DATABASE_URL
 
 assertSafeTestDatabase({
   nodeEnvironment: 'test',
@@ -62,15 +67,15 @@ assertSafeTestDatabase({
 })
 
 if (!baseDatabaseUrl) {
-  throw new Error('Slice 2 E2E requires a test PostgreSQL URL.')
+  throw new Error('Phase 5 E2E requires a test PostgreSQL URL.')
 }
 
-const schemaName = `phase4_slice2_e2e_${Date.now()}_${randomBytes(4).toString('hex')}_test`
+const schemaName = `phase5_slice6_e2e_${Date.now()}_${randomBytes(4).toString('hex')}_test`
 const playwrightArguments = process.argv
   .slice(2)
   .filter((argument, index) => !(index === 0 && argument === '--'))
 if (!SCHEMA_PATTERN.test(schemaName)) {
-  throw new Error('Generated Slice 2 E2E schema is unsafe.')
+  throw new Error('Generated Phase 5 E2E schema is unsafe.')
 }
 
 const adminDatabaseUrl = new URL(baseDatabaseUrl)
@@ -96,25 +101,38 @@ const runCommand = async (
   environment: NodeJS.ProcessEnv = process.env
 ): Promise<void> =>
   await new Promise<void>((resolve, reject) => {
+    let spawnError: Error | undefined
     const child = spawn(command, args, {
       cwd: repositoryRoot,
       detached: shouldDetachOwnedProcess,
       env: environment,
       stdio: 'inherit'
     })
-    commandProcesses.push({ child, label: formatCommand(command, args) })
+    const ownedCommand = { child, label: formatCommand(command, args) }
+    commandProcesses.push(ownedCommand)
     child.once('error', (error) => {
-      reject(error)
+      spawnError = error
     })
     child.once('close', (code, signal) => {
-      if (code === 0) {
-        resolve()
-        return
-      }
-      reject(
-        new Error(
-          `${formatCommand(command, args)} failed (${signal ?? `exit ${code ?? 'unknown'}`}).`
-        )
+      void retireOwnedProcess(commandProcesses, ownedCommand).then(
+        () => {
+          if (spawnError) {
+            reject(spawnError)
+            return
+          }
+          if (code === 0) {
+            resolve()
+            return
+          }
+          reject(
+            new Error(
+              `${formatCommand(command, args)} failed (${signal ?? `exit ${code ?? 'unknown'}`}).`
+            )
+          )
+        },
+        (error: unknown) => {
+          reject(error)
+        }
       )
     })
   })
@@ -367,7 +385,7 @@ const createSchema = async (client: Client): Promise<void> => {
     [schemaName]
   )
   if (existing.rows[0]?.count !== '0') {
-    throw new Error('Generated Slice 2 E2E schema already exists.')
+    throw new Error('Generated Phase 5 E2E schema already exists.')
   }
   await client.query(`CREATE SCHEMA ${quoteIdentifier(schemaName)}`)
 }
@@ -381,7 +399,7 @@ const dropSchema = async (client: Client): Promise<void> => {
     [schemaName]
   )
   if (remaining.rows[0]?.count !== '0') {
-    throw new Error('Slice 2 E2E schema cleanup verification failed.')
+    throw new Error('Phase 5 E2E schema cleanup verification failed.')
   }
 }
 
@@ -390,10 +408,10 @@ const apiEnvironment = (databaseUrl: string): NodeJS.ProcessEnv => ({
   AUTH_EMAIL_DELIVERY_MODE: 'test-sink',
   AUTH_EMAIL_FROM: 'auth@example.test',
   AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
-  BETTER_AUTH_SECRET: 'slice2-e2e-auth-secret-not-for-production-2026',
+  BETTER_AUTH_SECRET: 'phase5-e2e-auth-secret-not-for-production-2026',
   BETTER_AUTH_URL: `http://127.0.0.1:${API_PORT}`,
   DATABASE_URL: databaseUrl,
-  GUEST_COOKIE_SECRET: 'slice2-e2e-guest-secret-distinct-2026-value',
+  GUEST_COOKIE_SECRET: 'phase5-e2e-guest-secret-distinct-2026-value',
   HOST: '127.0.0.1',
   LOG_LEVEL: 'silent',
   NODE_ENV: 'test',
@@ -407,6 +425,7 @@ const adminClient = new Client({
 })
 const runningCommands: RunningCommand[] = []
 let cleanupPromise: Promise<void> | undefined
+let adminConnected = false
 let schemaCreated = false
 
 const cleanup = (): Promise<void> => {
@@ -415,24 +434,39 @@ const cleanup = (): Promise<void> => {
       ...commandProcesses,
       ...runningCommands
     ]
-    await stopOwnedProcesses(ownedProcesses, {
-      onForceKill: ({ label }) => {
-        process.stderr.write(
-          `[${label}] graceful stop timed out; sending SIGKILL.\n`
+    let processCleanupError: unknown
+    try {
+      await stopOwnedProcesses(ownedProcesses, {
+        onForceKill: ({ label }) => {
+          process.stderr.write(
+            `[${label}] graceful stop timed out; sending SIGKILL.\n`
+          )
+        }
+      })
+    } catch (error: unknown) {
+      processCleanupError = error
+    } finally {
+      commandProcesses.length = 0
+      runningCommands.length = 0
+    }
+
+    try {
+      if (schemaCreated && adminConnected) {
+        await dropSchema(adminClient)
+        schemaCreated = false
+        process.stdout.write(
+          `${JSON.stringify({ event: 'phase5.slice6.e2e.schema_removed', schemaName })}\n`
         )
       }
-    })
-    commandProcesses.length = 0
-    runningCommands.length = 0
-
-    if (schemaCreated) {
-      await dropSchema(adminClient)
-      schemaCreated = false
-      process.stdout.write(
-        `${JSON.stringify({ event: 'slice2.e2e.schema_removed', schemaName })}\n`
-      )
+    } finally {
+      if (adminConnected) {
+        await adminClient.end()
+        adminConnected = false
+      }
     }
-    await adminClient.end()
+    if (processCleanupError) {
+      throw processCleanupError
+    }
   })()
   return cleanupPromise
 }
@@ -447,10 +481,11 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 const run = async (): Promise<void> => {
   await adminClient.connect()
+  adminConnected = true
   await createSchema(adminClient)
   schemaCreated = true
   process.stdout.write(
-    `${JSON.stringify({ event: 'slice2.e2e.schema_created', schemaName })}\n`
+    `${JSON.stringify({ event: 'phase5.slice6.e2e.schema_created', schemaName })}\n`
   )
 
   const migrationEnvironment: NodeJS.ProcessEnv = {
@@ -480,6 +515,13 @@ const run = async (): Promise<void> => {
     selection: slice3Selection,
     users: [userA, userB, userC, userD]
   } = await createUserFixtures()
+  const fixtureDatabase = createPhase5BrowserFixtureDatabase(
+    targetDatabaseUrl.toString()
+  )
+  const phase5Fixture = await createPhase5BrowserFixture(
+    fixtureDatabase,
+    schemaName
+  ).finally(() => fixtureDatabase.disconnect())
 
   const api = startCommand(
     'api',
@@ -488,7 +530,7 @@ const run = async (): Promise<void> => {
     apiEnvironment(targetDatabaseUrl.toString())
   )
   runningCommands.push(api)
-  await waitForHttp(`http://127.0.0.1:${API_PORT}/health/ready`, 'Slice 2 API')
+  await waitForHttp(`http://127.0.0.1:${API_PORT}/health/ready`, 'Phase 5 API')
 
   const web = startCommand(
     'web',
@@ -507,7 +549,7 @@ const run = async (): Promise<void> => {
     { ...process.env, VITE_API_MODE: 'real' }
   )
   runningCommands.push(web)
-  await waitForHttp(`http://127.0.0.1:${WEB_PORT}`, 'Slice 2 web')
+  await waitForHttp(`http://127.0.0.1:${WEB_PORT}`, 'Phase 5 web')
 
   const mockWeb = startCommand(
     'mock-web',
@@ -526,7 +568,7 @@ const run = async (): Promise<void> => {
     { ...process.env, VITE_API_MODE: 'mock' }
   )
   runningCommands.push(mockWeb)
-  await waitForHttp(`http://127.0.0.1:${MOCK_WEB_PORT}`, 'Slice 2 mock web')
+  await waitForHttp(`http://127.0.0.1:${MOCK_WEB_PORT}`, 'Phase 5 mock web')
 
   await runCommand(
     'pnpm',
@@ -537,6 +579,7 @@ const run = async (): Promise<void> => {
       '--config',
       'playwright.config.ts',
       'apps/web/e2e/slice2-practice-flow.spec.ts',
+      'apps/web/e2e/phase5-review-center-real.spec.ts',
       ...playwrightArguments
     ],
     {
@@ -555,7 +598,9 @@ const run = async (): Promise<void> => {
       E2E_USER_D_PASSWORD: userD.password,
       SLICE3_E2E_SELECTION: JSON.stringify(slice3Selection),
       PLAYWRIGHT_BASE_URL: `http://127.0.0.1:${WEB_PORT}`,
-      PLAYWRIGHT_OUTPUT_LABEL: 'real',
+      PLAYWRIGHT_OUTPUT_LABEL: 'phase5-real',
+      PHASE5_E2E_FIXTURE: JSON.stringify(phase5Fixture),
+      PHASE5_E2E_SCHEMA: schemaName,
       SLICE2_E2E_SCHEMA: schemaName
     }
   )
@@ -569,12 +614,13 @@ const run = async (): Promise<void> => {
       '--config',
       'playwright.config.ts',
       'apps/web/e2e/slice2-practice-mock.spec.ts',
+      'apps/web/e2e/phase5-review-center-mock.spec.ts',
       ...playwrightArguments
     ],
     {
       ...process.env,
       PLAYWRIGHT_BASE_URL: `http://127.0.0.1:${MOCK_WEB_PORT}`,
-      PLAYWRIGHT_OUTPUT_LABEL: 'mock'
+      PLAYWRIGHT_OUTPUT_LABEL: 'phase5-mock'
     }
   )
 }
@@ -589,16 +635,20 @@ void run()
     } catch (cleanupError: unknown) {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'slice2.e2e.cleanup_failed',
+          event: 'phase5.slice6.e2e.cleanup_failed',
           errorName:
             cleanupError instanceof Error ? cleanupError.name : 'UnknownError',
+          message:
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : 'Unknown cleanup failure',
           schemaName
         })}\n`
       )
     }
     process.stderr.write(
       `${JSON.stringify({
-        event: 'slice2.e2e.failed',
+        event: 'phase5.slice6.e2e.failed',
         errorName: error instanceof Error ? error.name : 'UnknownError',
         message: error instanceof Error ? error.message : 'Unknown failure',
         schemaName

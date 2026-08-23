@@ -13,7 +13,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   forbidOnly: true,
   fullyParallel: false,
-  outputDir: `test-results/playwright-slice2-${outputLabel}`,
+  outputDir: `test-results/playwright-${outputLabel}`,
   reporter: [
     ['list'],
     [

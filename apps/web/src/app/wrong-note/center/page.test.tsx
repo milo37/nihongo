@@ -129,6 +129,33 @@ describe('WrongNoteReviewCenterPage', () => {
     client.clear()
   })
 
+  it('keeps a controlled filter focused across consecutive keyboard selections', async () => {
+    const user = userEvent.setup()
+    mockServer.use(
+      http.get('*/api/v1/review-queue', () =>
+        HttpResponse.json(reviewCenterConformanceFixture.queue)
+      )
+    )
+    const { client, router } = renderCenter('/wrong-notes')
+
+    await screen.findByRole('heading', { name: '조건에 맞는 오답 1개' })
+    const questionType = screen.getByRole('combobox', { name: '문제 유형' })
+    questionType.focus()
+
+    await user.keyboard('{ArrowDown}')
+    await waitFor(() =>
+      expect(router.state.location.search).toBe('?questionType=KANJI_READING')
+    )
+    expect(questionType).toHaveFocus()
+
+    await user.keyboard('{ArrowDown}')
+    await waitFor(() =>
+      expect(router.state.location.search).toBe('?questionType=ORTHOGRAPHY')
+    )
+    expect(questionType).toHaveFocus()
+    client.clear()
+  })
+
   it('suppresses stale empty and batch UI while correcting a nonzero out-of-range page', async () => {
     const pageOneGate = createDeferred()
     let pageOneStarted = false

@@ -129,12 +129,8 @@ export const Dialog = ({
       openDialogs.add(dialog)
       syncPageScrollLock()
 
-      const frameId = window.requestAnimationFrame(() => {
-        const focusTarget = initialFocusRef?.current ?? titleRef.current
-        focusTarget?.focus()
-      })
-
-      return () => window.cancelAnimationFrame(frameId)
+      const focusTarget = initialFocusRef?.current ?? titleRef.current
+      focusTarget?.focus()
     }
 
     if (!open && dialog.open) {
