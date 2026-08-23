@@ -208,7 +208,10 @@ describe('WrongNotePage', () => {
       )
     ).toBeInTheDocument()
     expect(
-      await screen.findByText(responseItem.questionPreview)
+      await screen.findByRole('heading', {
+        level: 3,
+        name: responseItem.questionPreview
+      })
     ).toBeInTheDocument()
 
     await user.click(
