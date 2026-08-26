@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
+import { describe, expect, it, vi } from 'vitest'
 import { buildQuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { toStableSeedUuid } from '../../prisma/seed-data/id.js'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
-import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
+import {
+  buildAllQuestionSeeds,
+  seedQuestionCatalog
+} from '../../prisma/seedQuestionCatalog.js'
 
 const EXPECTED_SUBJECT_COUNTS = {
   VOCABULARY: 5,
@@ -78,5 +82,99 @@ describe('question seed catalog', () => {
     expect(second.options.map(({ id }) => id)).not.toEqual(
       first.options.map(({ id }) => id)
     )
+  })
+
+  it('뒤쪽 canonical drift를 모든 insert보다 먼저 거부한다', async () => {
+    const seeds = buildAllQuestionSeeds()
+    const lateSeed = seeds.at(-1)
+
+    if (!lateSeed) {
+      throw new Error('Question seed fixture가 필요합니다.')
+    }
+
+    const findUnique = vi.fn(
+      async ({
+        where,
+        include
+      }: {
+        readonly where: { readonly id: string }
+        readonly include?: unknown
+      }) => {
+        if (where.id !== lateSeed.questionId) {
+          return null
+        }
+
+        return include === undefined
+          ? { id: lateSeed.questionId }
+          : { id: lateSeed.questionId, versions: [] }
+      }
+    )
+    const writeTransaction = vi.fn()
+    const client = {
+      question: { findUnique },
+      $transaction: writeTransaction
+    } as unknown as PrismaClient
+
+    await expect(seedQuestionCatalog(client)).rejects.toThrow(
+      `Question seed is partially present: ${lateSeed.legacyId}`
+    )
+    expect(writeTransaction).not.toHaveBeenCalled()
+  })
+
+  it('insert 실패 시 missing catalog 전체를 rollback한다', async () => {
+    const committedQuestionIds: string[] = []
+    const writeTransaction = vi.fn(
+      async (
+        operation: (transaction: Prisma.TransactionClient) => Promise<unknown>
+      ) => {
+        const stagedQuestionIds: string[] = []
+        let questionCreateCount = 0
+        const transaction = {
+          question: {
+            create: vi.fn(async (input: unknown) => {
+              questionCreateCount += 1
+
+              if (questionCreateCount === 2) {
+                throw new Error('simulated catalog insert failure')
+              }
+
+              const { data } = input as {
+                readonly data: { readonly id: string }
+              }
+              stagedQuestionIds.push(data.id)
+              return data
+            }),
+            update: vi.fn().mockResolvedValue({})
+          },
+          questionVersion: {
+            create: vi.fn().mockResolvedValue({}),
+            update: vi.fn().mockResolvedValue({})
+          },
+          questionOption: {
+            createMany: vi.fn().mockResolvedValue({ count: 4 })
+          },
+          tag: {
+            findUnique: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({})
+          },
+          questionVersionTag: {
+            createMany: vi.fn().mockResolvedValue({ count: 0 })
+          }
+        } as unknown as Prisma.TransactionClient
+
+        await operation(transaction)
+        committedQuestionIds.push(...stagedQuestionIds)
+      }
+    )
+    const client = {
+      question: { findUnique: vi.fn().mockResolvedValue(null) },
+      $transaction: writeTransaction
+    } as unknown as PrismaClient
+
+    await expect(seedQuestionCatalog(client)).rejects.toThrow(
+      'simulated catalog insert failure'
+    )
+    expect(writeTransaction).toHaveBeenCalledOnce()
+    expect(committedQuestionIds).toEqual([])
   })
 })

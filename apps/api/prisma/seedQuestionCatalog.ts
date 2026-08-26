@@ -272,7 +272,7 @@ export interface SeedQuestionCatalogResult {
 export const seedQuestionCatalog = async (
   client: PrismaClient
 ): Promise<SeedQuestionCatalogResult> => {
-  let insertedCount = 0
+  const seedsToInsert: QuestionAggregateSeed[] = []
   let verifiedCount = 0
 
   for (const seed of buildAllQuestionSeeds()) {
@@ -287,12 +287,19 @@ export const seedQuestionCatalog = async (
       continue
     }
 
-    await client.$transaction(
-      async (transaction) => insertQuestionSeed(transaction, seed),
-      { isolationLevel: 'Serializable' }
-    )
-    insertedCount += 1
+    seedsToInsert.push(seed)
   }
 
-  return { insertedCount, verifiedCount }
+  if (seedsToInsert.length > 0) {
+    await client.$transaction(
+      async (transaction) => {
+        for (const seed of seedsToInsert) {
+          await insertQuestionSeed(transaction, seed)
+        }
+      },
+      { isolationLevel: 'Serializable' }
+    )
+  }
+
+  return { insertedCount: seedsToInsert.length, verifiedCount }
 }

@@ -909,15 +909,21 @@ production `VITE_API_MODE=mock`은 의도대로 실패합니다. 최종 보고�
 `docs/PHASE_5_WRONG_NOTE_REVIEW_CENTER_REPORT.md`, immutable rollback point는
 `phase5-slice0-6-final-20260823-ee1fb65-focus-stabilized`입니다. Phase 5는 Complete이며 Slice 6 source는
 checkpoint 시점 미commit·미push였습니다. 이후 Phase 5 final `f32e2e0`에서 Phase 6 전용 branch를 만들고,
-프로젝트 소유자의 2026-08-25 `슬라이스 1 실행` 지시에 따라 original-content artifact·policy·retained
-validator source를 구현 중입니다. MVP 차단 문제를 재검토한 뒤 ADR 009에서 Phase 6 v1.0을 current 65
-static dummy catalog의 deterministic validation·quality diagnostic·answer leakage 방지 기술 기반으로
-재정의했습니다. 실제 AUTHOR/REVIEWER enrollment, owner signing/activation, 기존 65의 소급 provenance,
-신규 335/400문항, trusted DB apply와 production publication은 v1.1로 이관했습니다. contributor registry는
-비어 있으며 actual contributor enrollment·review·activation·apply command는 Slice 1 Exit에서 write 0
-fail-closed로 정합화할 대상입니다. legacy policy prepare/finalize와 schema materializer는 fixture·artifact
-기술 경로이며 운영 활성화가 아닙니다. commit/push, PR/merge, deploy/exposure, Prisma migration·DB write와
-Slice 2는 실행하지 않았습니다.
+ADR 009에 따라 Phase 6 v1.0을 current 65 static dummy catalog의 deterministic validation·quality
+diagnostic·answer leakage 방지 기술 기반으로 재정의했습니다. Slice 1 foundation은 `dafc71d`에
+commit·push했고, 승인된 Slice 2에서 `pnpm content:foundation-check`와 전체 품질 gate를 통과해
+`Phase 6 v1.0 Complete — Static Content Quality Foundation`으로 닫았습니다. canonical 결과는 문항 65,
+보기 260, passage 15, taxonomy tag 108, exact duplicate 0, near duplicate 1쌍이며 API/Web public projection
+SHA-256은 `b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c`입니다. fresh 격리 TEST
+schema에서 seed 0→65, rerun 65→65, late-drift preflight write 0과 cleanup을 검증했고 non-DB test는 총
+953개, production Web build는 456 modules와 post-build architecture scan을 통과했습니다.
+
+알려진 gap은 모든 급수의 `GRAMMAR/SENTENCE_ORDER`, N2 `READING/LONG_READING`, N1
+`READING/MEDIUM_READING`까지 7개 applicable cell입니다. contributor registry는 의도적으로 비어 있고
+operational check는 expected nonzero/write 0으로 fail closed합니다. 실제 AUTHOR/REVIEWER enrollment,
+owner signing/activation, 기존 65의 소급 provenance, 신규 335/400문항, trusted DB apply와 production
+publication은 v1.1로 이관했습니다. 새 Prisma release migration, persistent target DB write, PR/merge와
+deploy/exposure는 실행하지 않았으며 Slice 2 source rollback point는 `dafc71d`입니다.
 
 ## 향후 개선
 
