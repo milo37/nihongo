@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import {
   LEVELS,
@@ -12,6 +13,9 @@ const expectedCountBySubject: Record<QuestionSubject, number> = {
   GRAMMAR: 5,
   READING: 3
 }
+
+const FOUNDATION_PUBLIC_PROJECTION_SHA256 =
+  'b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c'
 
 describe('originalQuestions', () => {
   it('급수별 어휘 5, 문법 5, 독해 3으로 총 65문제를 제공한다', () => {
@@ -94,5 +98,25 @@ describe('originalQuestions', () => {
         Math.max(...positions) - Math.min(...positions)
       ).toBeLessThanOrEqual(1)
     }
+  })
+
+  it('API authority와 독립적으로 고정한 public projection hash를 유지한다', () => {
+    const projection = originalQuestions.map((question) => ({
+      id: question.id,
+      level: question.level,
+      subject: question.subject,
+      questionType: question.questionType,
+      passage: question.passage,
+      questionText: question.questionText,
+      options: question.options.map(({ text }) => text),
+      correctIndex: question.options.findIndex(({ isCorrect }) => isCorrect),
+      explanationKo: question.explanationKo,
+      explanationJa: question.explanationJa,
+      difficulty: question.difficulty,
+      tags: question.tags
+    }))
+    expect(
+      createHash('sha256').update(JSON.stringify(projection)).digest('hex')
+    ).toBe(FOUNDATION_PUBLIC_PROJECTION_SHA256)
   })
 })

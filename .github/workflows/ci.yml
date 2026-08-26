@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches:
+      - codex/phase-6-original-content-release
       - codex/phase-5-review-center
       - codex/phase-4-practice-flow
       - main
@@ -21,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18.4-alpine
+        image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
         env:
           POSTGRES_DB: nihongo_test
           POSTGRES_USER: nihongo
@@ -108,6 +109,9 @@ jobs:
           NODE_ENV: production
         run: pnpm run build
 
+      - name: Contributor-free content foundation
+        run: pnpm run content:foundation-check:static
+
       - name: Production artifact excludes the mock worker
         run: test ! -e apps/web/dist/mockServiceWorker.js
 
@@ -128,7 +132,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:18.4-alpine
+        image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
         env:
           POSTGRES_DB: nihongo_test
           POSTGRES_USER: nihongo

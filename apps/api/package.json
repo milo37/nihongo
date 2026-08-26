@@ -12,6 +12,8 @@
     "test:watch": "pnpm run db:generate && vitest",
     "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
+    "content:materialize-slice1": "tsx prisma/phase6Slice1ArtifactMaterializer.ts",
+    "content:foundation-check": "tsx prisma/phase6Slice1FoundationCheck.ts",
     "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",

@@ -1,6 +1,8 @@
 node_modules
 dist
 coverage
+!content/coverage/
+!content/coverage/**
 .env
 .env.local
 .env.*
@@ -15,3 +17,5 @@ apps/api/.migration-ledger-*
 *.backup
 *.dump
 docs/
+content/policies/.activation-finalize-claims/
+content/.tracked-artifact-staging/

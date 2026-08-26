@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "LEGACY_SEED_MANIFEST_V1",
+  "releaseKey": "legacy-system-seed-v1",
+  "releaseRevision": 1,
+  "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb",
+  "seedSourceManifestSha256": "ac8a4a9e2f49662cf2baa9eebd734444a1db98ce5788a30da54f6dd2376cc7f6",
+  "legacySeedMappingSha256": "af3f5659c6f89f191690f1bbcc6b5f2b3d0a87931a6bd4d939e904daefe90664",
+  "items": [
+    {
+      "contentKey": "n1-grammar-01",
+      "semanticContentSha256": "530606f8d2ea232e94587760a4dfb126a95f9388cf09efb0eb5cf4df1321910f",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-grammar-02",
+      "semanticContentSha256": "9fc3c25676d51131e52c3a3f086abd14c2bf0fb11d788249a888e3a9894b598b",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-grammar-03",
+      "semanticContentSha256": "9caa5c78e05046cfad300bf0af26021764e027b34fa86b606e7c2c66bfe5316e",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-grammar-04",
+      "semanticContentSha256": "19c18bd145e82da3589258feb8306242bdcf69361691540f0df33f946a9091d6",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-grammar-05",
+      "semanticContentSha256": "91e1e7e6a41e0a6422764854ef71392bee4f36c5b5dac0ddbc9106dcdfc2cd70",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-reading-01",
+      "semanticContentSha256": "e182c6b745e56d905f7a643982f3d708ba7cf57685b389fd1c3cad431245d54d",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-reading-02",
+      "semanticContentSha256": "95ab5e190c750a0a815ce8dedca14109d7e656e1c300b2119ac62cfebd9542b6",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-reading-03",
+      "semanticContentSha256": "205bbbf0a4c20271c9113a0346de986ce6ca9c36409b88020dcc56e0c4f34639",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-vocabulary-01",
+      "semanticContentSha256": "65f3501479b8acb1dcd359de46818290a299feedc36f7c815ff499b6d3fbce49",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-vocabulary-02",
+      "semanticContentSha256": "04c7f05ab73514521b6dad85fff161c9554f568b2d9db24a8ae474f47f82b027",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-vocabulary-03",
+      "semanticContentSha256": "04d89d6314db0907dd180372f4ac620e08c7a7507a1a9ec709c6c73c94c68497",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-vocabulary-04",
+      "semanticContentSha256": "e66bfa0a81703187c984431785c5dff7fc7cba11861cc2e663c3cd150739813c",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n1-vocabulary-05",
+      "semanticContentSha256": "2e0b91921550fd350d06347fbf54c17f9a6747c320e3b3befa11fc0424cce160",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-grammar-01",
+      "semanticContentSha256": "3fe80ee1d58d0206ccda2eea1a95a227a953eb411f81bf3c84d79187034700dc",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-grammar-02",
+      "semanticContentSha256": "e8032464007aca1137387acbb2906b9de1093a30de777f1553c984d9a3774597",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-grammar-03",
+      "semanticContentSha256": "d1db9d47f197934a0b9fc5f87aa179e9e4d33fe3a535fb982dd68a1af34e90e1",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-grammar-04",
+      "semanticContentSha256": "4cf07750eb50409a6584ce2479d0c667cf8461b3f96385e46602573970f67b96",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-grammar-05",
+      "semanticContentSha256": "29f2d76614eb918a0948563b8ac7635d264ee7717c237246c27171a114d62ccf",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-reading-01",
+      "semanticContentSha256": "76142a059973762ee20630be0dabe99602c089c3389407ed318a843389d274fe",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-reading-02",
+      "semanticContentSha256": "0366fbff697b547ede73c49d2f756bb50a48725f732b716baa7a4e3470745006",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-reading-03",
+      "semanticContentSha256": "4920ec086d1af8b9c5e3914b8b87f18c6cf394264ba80277f91036d953c47dfb",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-vocabulary-01",
+      "semanticContentSha256": "e443a51746c77270b0fd9e49b28d95086df6c01b17c2c5202909aab601916bf2",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-vocabulary-02",
+      "semanticContentSha256": "4c297971e0ffa3d6ee4ab1336df38ea161932bbc19226324c10c790e7a92d9f5",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-vocabulary-03",
+      "semanticContentSha256": "9698b5f093161ebc5c86829cdff89a6408fb57940eb9659ac0420b421c0c49b6",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-vocabulary-04",
+      "semanticContentSha256": "7875026eecdceef82fdb563c660d020ad62c4328a2e9017aa73ce5bfea3e0831",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n2-vocabulary-05",
+      "semanticContentSha256": "3167c8071d0e20e5e5e46966e9b91eabf0269383c98867a2a60f4dd8b62f9295",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-grammar-01",
+      "semanticContentSha256": "248f0c432644a5b34415e5d05a09a2b53e62372a54c7addb4fd1b46f43ac7922",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-grammar-02",
+      "semanticContentSha256": "25af6fd4651b4973b6621052f7a97e2fa9111aa82e125ab831b2b11d95a1b519",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-grammar-03",
+      "semanticContentSha256": "b99648ae3c5f116561e71c03d80ce34f13b2d8f5535a2f421e42e1259aa08621",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-grammar-04",
+      "semanticContentSha256": "242361b76e6f73d9c8273c1f74139bfbd6357c2ac82c3b5f506941401b05f427",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-grammar-05",
+      "semanticContentSha256": "88d1d28bff1a0b938123d99e39e9b4e9886b4b91b85ca2e416ccc15494219fb2",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-reading-01",
+      "semanticContentSha256": "02fcfa251253a7567983d7315c1ec6ece363037bd244f00db9eb634a988be2ba",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-reading-02",
+      "semanticContentSha256": "04481c370a9a143b25ba141a94792a52692cb0671916bff6d6e5f4e037a301f5",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-reading-03",
+      "semanticContentSha256": "db307ea1a5f2a069fe11e8ff043c0215f6a52e8cf6afacebdf5f929e82f146d3",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-vocabulary-01",
+      "semanticContentSha256": "5c2f87726a68538e2892599058fd6469e6224b78016d12fc40e551353cdb3a0e",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-vocabulary-02",
+      "semanticContentSha256": "5e2300212f867f75aa6fe71685b9d4cd4e2f4cf330338e77188c8fba5ccca183",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-vocabulary-03",
+      "semanticContentSha256": "a4d40c2ce1c6f392da94d2ef0ca2c686a359339ec8478e3c1befd7a7ea2f9593",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-vocabulary-04",
+      "semanticContentSha256": "4d632a7e8116b42f2f38cbb0d00e166f9aee0ebf3386c3e6c17b3c06f9b77d0f",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n3-vocabulary-05",
+      "semanticContentSha256": "9e97c6b562449f6e2f3727cd565bc5e2fb7d9d0a98369d2cac9e4f908909bc8d",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-grammar-01",
+      "semanticContentSha256": "fc20a70e1fc143cb23d7fa8615b99e40afdaafc5665c0dfaf967478ed2574b8f",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-grammar-02",
+      "semanticContentSha256": "635b9018f1731c52101e6b56fe5b020d13004d3a1b3f0ed14d19d33a9fe27446",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-grammar-03",
+      "semanticContentSha256": "9d2ca22953d3a5499aec9d2ba1a9d8786f33c4a96a7c73186d82ca43b235695d",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-grammar-04",
+      "semanticContentSha256": "25aba4dc30733d012951e9f9d6204c53e2d4c675c32578fd7654e2fff5b3726f",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-grammar-05",
+      "semanticContentSha256": "26f83ce42c55cdb5d08e0df7b0fa8f8baaad4eada0b27a4abb01c5b9b33b9a99",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-reading-01",
+      "semanticContentSha256": "84044e17d3bd0b0d7f395bf357aaa67e6310795af9f9352706817fb359ace745",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-reading-02",
+      "semanticContentSha256": "c44816e139cb58a9cd186c3cc1acff359f38122fbc82ddb6018d8c4386c2f1c0",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-reading-03",
+      "semanticContentSha256": "e1f5d3cc290add9c924e658f3d38e1617f8857b23ffebaf41d6e1f5f6250eb54",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-vocabulary-01",
+      "semanticContentSha256": "7deaeb58d942db34fddd41205041d4323e70d09a8175b21257d96e6aa201bb72",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-vocabulary-02",
+      "semanticContentSha256": "5d17cc4394bebaf7a4ab6a64991a324215e04a39e84a0a9dd55d210da0d4eaf7",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-vocabulary-03",
+      "semanticContentSha256": "0599ec7ec7f10bbd4c26ff98fbd832a2bed22c7aedff24d4fdb9865469434173",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-vocabulary-04",
+      "semanticContentSha256": "94fb851a675b4e45daa4fd0e53b000829074b0cb9c0c507122b8a54405290313",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n4-vocabulary-05",
+      "semanticContentSha256": "f1fcdb8962208e990f867ed70a2aa0d1cf704cd21b2cce9bc812977b2a220ef0",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-grammar-01",
+      "semanticContentSha256": "791d6ac4eab8f0f093ced3613e29d00796f71689dc67914829ddcf03b021a64a",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-grammar-02",
+      "semanticContentSha256": "7b60fdeb1b525c831c7c2987bd0cf0e044e434756f5dbeda6374cb2a8af5486a",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-grammar-03",
+      "semanticContentSha256": "49fcf292b94ea1439cef127c55d587f7460a35e4c2a8b0f80915330200af2350",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-grammar-04",
+      "semanticContentSha256": "86ec78a0d5c91e2be7ad14d74247a6dbebc339733aead142fdfc4da0866863c3",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-grammar-05",
+      "semanticContentSha256": "82db9930a052da640dc509c2c5f6220f544c9294f891e3407e8ed6440da171e0",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-reading-01",
+      "semanticContentSha256": "c2e276006f67115b4bbe057a549aee7196be716ce710e1c195f644a0cc01910e",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-reading-02",
+      "semanticContentSha256": "48632a45630ffd99ce7c33d99e2b60c8aa2772ec7eb531c4fe885c3ebe72d8a2",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-reading-03",
+      "semanticContentSha256": "9528bb7bc40731ff28ef624c583ef52124e45dce6c17588c1072363d1623be8c",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-vocabulary-01",
+      "semanticContentSha256": "6f79f9302583058090809efd9c92968d4cf3e2ba47c01613227687b551413786",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-vocabulary-02",
+      "semanticContentSha256": "88834b818b0be60d4d261ceef5f6976ff39f960a6a3ba8e17d146117a2a57cdb",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-vocabulary-03",
+      "semanticContentSha256": "e31871b1c1d79dda85e31e1bef1219948652273816801db1196ee4c9e7819105",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-vocabulary-04",
+      "semanticContentSha256": "29f047bce3decc67bfc224247d90b8db288a193db7e0175aabc3eb4c4ceea2da",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    },
+    {
+      "contentKey": "n5-vocabulary-05",
+      "semanticContentSha256": "514a29cf4486d1519d1cc1271f619627da4fc55be1d6cb4ec86c1d21d133f0b6",
+      "globalReviewSha256": "640a0c732395e764d1b0c12cb0b13134b1e42a3074fb7e4216874e3c0abaefeb"
+    }
+  ]
+}

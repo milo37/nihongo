@@ -815,6 +815,11 @@ sequential scalar query refactor 전 warning stack이나 동작 변화는 blocke
 복제하지 않습니다. 모든 샘플 문제와 해설은 서비스 구조 검증을 위해 자체
 제작한 더미 데이터이며, 공식 시험과 동일한 문항이라고 주장하지 않습니다.
 
+현재 65문항은 MVP 검증용 static legacy sample입니다. global source review hash는 drift
+검출 근거이며 문항별 실제 사람 작성자·별도 검수자 또는 production editorial approval을
+증명하지 않습니다. Phase 6 v1.0은 이 제한을 숨기지 않고 schema·semantic·duplicate·coverage와
+answer leakage를 결정적으로 검증합니다.
+
 ## 실제 백엔드 이관 상태
 
 1. `packages/contracts`에서 operation 계약을 먼저 확정합니다.
@@ -903,14 +908,23 @@ build는 Web 456 modules를 만들고 mock worker를 포함하지 않으며,
 production `VITE_API_MODE=mock`은 의도대로 실패합니다. 최종 보고서는
 `docs/PHASE_5_WRONG_NOTE_REVIEW_CENTER_REPORT.md`, immutable rollback point는
 `phase5-slice0-6-final-20260823-ee1fb65-focus-stabilized`입니다. Phase 5는 Complete이며 Slice 6 source는
-checkpoint 시점 미commit·미push입니다. remote CI, PR/merge, deploy/exposure와 Phase 6
-source는 실행하지 않았습니다.
+checkpoint 시점 미commit·미push였습니다. 이후 Phase 5 final `f32e2e0`에서 Phase 6 전용 branch를 만들고,
+프로젝트 소유자의 2026-08-25 `슬라이스 1 실행` 지시에 따라 original-content artifact·policy·retained
+validator source를 구현 중입니다. MVP 차단 문제를 재검토한 뒤 ADR 009에서 Phase 6 v1.0을 current 65
+static dummy catalog의 deterministic validation·quality diagnostic·answer leakage 방지 기술 기반으로
+재정의했습니다. 실제 AUTHOR/REVIEWER enrollment, owner signing/activation, 기존 65의 소급 provenance,
+신규 335/400문항, trusted DB apply와 production publication은 v1.1로 이관했습니다. contributor registry는
+비어 있으며 actual contributor enrollment·review·activation·apply command는 Slice 1 Exit에서 write 0
+fail-closed로 정합화할 대상입니다. legacy policy prepare/finalize와 schema materializer는 fixture·artifact
+기술 경로이며 운영 활성화가 아닙니다. commit/push, PR/merge, deploy/exposure, Prisma migration·DB write와
+Slice 2는 실행하지 않았습니다.
 
 ## 향후 개선
 
 - 전체 학습 operation의 PostgreSQL 이관과 운영 배포
 - 청해와 음원 학습
 - 시간 제한 시험 모드
-- 검수된 AI 보조 해설
+- v1.1 AI background candidate → 자동 품질 검사 → 사람 최종 승인 → 문제은행 재사용
+- 미검수 AI 결과 자동 공개 금지
 - 한국어·일본어 UI 전환
 - 학습 목표와 유료 플랜

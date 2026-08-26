@@ -4,6 +4,34 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./content/validators/v1/canonical-json": {
+      "types": "./dist/content/validators/v1/canonical-json.d.ts",
+      "import": "./dist/content/validators/v1/canonical-json.js"
+    },
+    "./content/validators/v1/coverage": {
+      "types": "./dist/content/validators/v1/coverage.d.ts",
+      "import": "./dist/content/validators/v1/coverage.js"
+    },
+    "./content/validators/v1/duplicates": {
+      "types": "./dist/content/validators/v1/duplicates.d.ts",
+      "import": "./dist/content/validators/v1/duplicates.js"
+    },
+    "./content/validators/v1/question-content": {
+      "types": "./dist/content/validators/v1/question-content.d.ts",
+      "import": "./dist/content/validators/v1/question-content.js"
+    },
+    "./content/validators/v1/release-hash": {
+      "types": "./dist/content/validators/v1/release-hash.d.ts",
+      "import": "./dist/content/validators/v1/release-hash.js"
+    },
+    "./content/validators/v1/types": {
+      "types": "./dist/content/validators/v1/types.d.ts",
+      "import": "./dist/content/validators/v1/types.js"
+    },
+    "./content/validators/v1/unicode": {
+      "types": "./dist/content/validators/v1/unicode.d.ts",
+      "import": "./dist/content/validators/v1/unicode.js"
+    },
     "./grading/grade-study-submission": {
       "types": "./dist/grading/grade-study-submission.d.ts",
       "import": "./dist/grading/grade-study-submission.js"

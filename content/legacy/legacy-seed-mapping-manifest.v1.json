@@ -1,0 +1,332 @@
+{
+  "schemaVersion": 1,
+  "kind": "LEGACY_SEED_MAPPING_MANIFEST_V1",
+  "items": [
+    {
+      "legacySeedId": "n1-grammar-01",
+      "contentKey": "n1-grammar-01",
+      "questionId": "2d8d5162-b6f4-4d4c-8797-223ba6ed9402"
+    },
+    {
+      "legacySeedId": "n1-grammar-02",
+      "contentKey": "n1-grammar-02",
+      "questionId": "2d8d5462-b6f5-4265-89ed-c68d83820225"
+    },
+    {
+      "legacySeedId": "n1-grammar-03",
+      "contentKey": "n1-grammar-03",
+      "questionId": "2d8d5362-b6f5-40b2-89bd-799d3b88ba8c"
+    },
+    {
+      "legacySeedId": "n1-grammar-04",
+      "contentKey": "n1-grammar-04",
+      "questionId": "2d8d4e62-b6f4-4833-8120-fe20fe102df7"
+    },
+    {
+      "legacySeedId": "n1-grammar-05",
+      "contentKey": "n1-grammar-05",
+      "questionId": "2d8d4d62-b6f4-4680-846e-32779033f7d6"
+    },
+    {
+      "legacySeedId": "n1-reading-01",
+      "contentKey": "n1-reading-01",
+      "questionId": "57057a28-cfef-43ab-8fe2-7abf51553cdf"
+    },
+    {
+      "legacySeedId": "n1-reading-02",
+      "contentKey": "n1-reading-02",
+      "questionId": "57057b28-cfef-455e-8b76-eb045467f138"
+    },
+    {
+      "legacySeedId": "n1-reading-03",
+      "contentKey": "n1-reading-03",
+      "questionId": "57057c28-cfef-4711-8115-2314ccccc041"
+    },
+    {
+      "legacySeedId": "n1-vocabulary-01",
+      "contentKey": "n1-vocabulary-01",
+      "questionId": "bcbd22b5-8248-40a1-8ca1-b81d752b3f11"
+    },
+    {
+      "legacySeedId": "n1-vocabulary-02",
+      "contentKey": "n1-vocabulary-02",
+      "questionId": "bcbd1fb5-8248-4b88-8dcc-cf63d37b348e"
+    },
+    {
+      "legacySeedId": "n1-vocabulary-03",
+      "contentKey": "n1-vocabulary-03",
+      "questionId": "bcbd20b5-8248-4d3b-80e2-881d4c17f86f"
+    },
+    {
+      "legacySeedId": "n1-vocabulary-04",
+      "contentKey": "n1-vocabulary-04",
+      "questionId": "bcbd25b5-8248-45ba-8238-c2abc9bf5184"
+    },
+    {
+      "legacySeedId": "n1-vocabulary-05",
+      "contentKey": "n1-vocabulary-05",
+      "questionId": "bcbd26b5-8248-476d-8042-2d65a44f1efd"
+    },
+    {
+      "legacySeedId": "n2-grammar-01",
+      "contentKey": "n2-grammar-01",
+      "questionId": "7d6bb666-84f8-46c3-8455-e4ca592a8c87"
+    },
+    {
+      "legacySeedId": "n2-grammar-02",
+      "contentKey": "n2-grammar-02",
+      "questionId": "7d6bb766-84f8-4876-8275-fc5bf21679a0"
+    },
+    {
+      "legacySeedId": "n2-grammar-03",
+      "contentKey": "n2-grammar-03",
+      "questionId": "7d6bb866-84f8-4a29-81d8-896dda95cce9"
+    },
+    {
+      "legacySeedId": "n2-grammar-04",
+      "contentKey": "n2-grammar-04",
+      "questionId": "7d6bb966-84f8-4bdc-8a81-8edb182df692"
+    },
+    {
+      "legacySeedId": "n2-grammar-05",
+      "contentKey": "n2-grammar-05",
+      "questionId": "7d6bba66-84f8-4d8f-8cda-8a112414a913"
+    },
+    {
+      "legacySeedId": "n2-reading-01",
+      "contentKey": "n2-reading-01",
+      "questionId": "5a24d792-cd83-463c-896b-525b8bd91892"
+    },
+    {
+      "legacySeedId": "n2-reading-02",
+      "contentKey": "n2-reading-02",
+      "questionId": "5a24da92-cd83-4b55-81e8-ac607be1d2b5"
+    },
+    {
+      "legacySeedId": "n2-reading-03",
+      "contentKey": "n2-reading-03",
+      "questionId": "5a24d992-cd83-49a2-8685-6e17a64bca1c"
+    },
+    {
+      "legacySeedId": "n2-vocabulary-01",
+      "contentKey": "n2-vocabulary-01",
+      "questionId": "ef828615-9edb-40e4-8a9d-7f10e6189f6a"
+    },
+    {
+      "legacySeedId": "n2-vocabulary-02",
+      "contentKey": "n2-vocabulary-02",
+      "questionId": "ef828915-9edb-45fd-8896-778ae71e520d"
+    },
+    {
+      "legacySeedId": "n2-vocabulary-03",
+      "contentKey": "n2-vocabulary-03",
+      "questionId": "ef828815-9edb-444a-8d56-c2806e65bd54"
+    },
+    {
+      "legacySeedId": "n2-vocabulary-04",
+      "contentKey": "n2-vocabulary-04",
+      "questionId": "ef828315-9edb-4bcb-8537-9cb25fa0767f"
+    },
+    {
+      "legacySeedId": "n2-vocabulary-05",
+      "contentKey": "n2-vocabulary-05",
+      "questionId": "ef828215-9edb-4a18-8f30-fa171d168a5e"
+    },
+    {
+      "legacySeedId": "n3-grammar-01",
+      "contentKey": "n3-grammar-01",
+      "questionId": "c22376d9-7b3e-4a92-845f-f64487f2b3cc"
+    },
+    {
+      "legacySeedId": "n3-grammar-02",
+      "contentKey": "n3-grammar-02",
+      "questionId": "c22375d9-7b3e-48df-806b-922c63f07483"
+    },
+    {
+      "legacySeedId": "n3-grammar-03",
+      "contentKey": "n3-grammar-03",
+      "questionId": "c22374d9-7b3e-472c-8487-7cb6f1ab1042"
+    },
+    {
+      "legacySeedId": "n3-grammar-04",
+      "contentKey": "n3-grammar-04",
+      "questionId": "c22373d9-7b3e-4579-8509-61e16df0e999"
+    },
+    {
+      "legacySeedId": "n3-grammar-05",
+      "contentKey": "n3-grammar-05",
+      "questionId": "c22372d9-7b3e-43c6-8156-5112fe25d650"
+    },
+    {
+      "legacySeedId": "n3-reading-01",
+      "contentKey": "n3-reading-01",
+      "questionId": "95565ee3-f858-4491-8bd0-c56c4209f7c1"
+    },
+    {
+      "legacySeedId": "n3-reading-02",
+      "contentKey": "n3-reading-02",
+      "questionId": "95565be3-f858-4f78-8178-7a806eea5c3e"
+    },
+    {
+      "legacySeedId": "n3-reading-03",
+      "contentKey": "n3-reading-03",
+      "questionId": "95565ce3-f858-412b-8a9e-1d16c692745f"
+    },
+    {
+      "legacySeedId": "n3-vocabulary-01",
+      "contentKey": "n3-vocabulary-01",
+      "questionId": "3454d64b-234e-4c73-87d0-1e7829c890b7"
+    },
+    {
+      "legacySeedId": "n3-vocabulary-02",
+      "contentKey": "n3-vocabulary-02",
+      "questionId": "3454d74b-234e-4e26-8a6a-6db38c3eb5d0"
+    },
+    {
+      "legacySeedId": "n3-vocabulary-03",
+      "contentKey": "n3-vocabulary-03",
+      "questionId": "3454d84b-234e-4fd9-8e1d-7e81fc09c919"
+    },
+    {
+      "legacySeedId": "n3-vocabulary-04",
+      "contentKey": "n3-vocabulary-04",
+      "questionId": "3454d94b-234e-418c-8d9b-99577fc3efc2"
+    },
+    {
+      "legacySeedId": "n3-vocabulary-05",
+      "contentKey": "n3-vocabulary-05",
+      "questionId": "3454da4b-234e-433f-897f-aeccf2095403"
+    },
+    {
+      "legacySeedId": "n4-grammar-01",
+      "contentKey": "n4-grammar-01",
+      "questionId": "c639f6d6-a855-4f49-821f-f72e2ed15fa9"
+    },
+    {
+      "legacySeedId": "n4-grammar-02",
+      "contentKey": "n4-grammar-02",
+      "questionId": "c639f3d6-a855-4a30-866b-642356aa47e6"
+    },
+    {
+      "legacySeedId": "n4-grammar-03",
+      "contentKey": "n4-grammar-03",
+      "questionId": "c639f4d6-a855-4be3-82de-8e643cbbb247"
+    },
+    {
+      "legacySeedId": "n4-grammar-04",
+      "contentKey": "n4-grammar-04",
+      "questionId": "c639f9d6-a855-4462-8c39-5435fb4d4fdc"
+    },
+    {
+      "legacySeedId": "n4-grammar-05",
+      "contentKey": "n4-grammar-05",
+      "questionId": "c639fad6-a855-4615-86c0-896efc7db575"
+    },
+    {
+      "legacySeedId": "n4-reading-01",
+      "contentKey": "n4-reading-01",
+      "questionId": "4958e00a-e72f-4fba-8e91-a31a7c93bde4"
+    },
+    {
+      "legacySeedId": "n4-reading-02",
+      "contentKey": "n4-reading-02",
+      "questionId": "4958df0a-e72f-4e07-8fd0-9f69f256939b"
+    },
+    {
+      "legacySeedId": "n4-reading-03",
+      "contentKey": "n4-reading-03",
+      "questionId": "4958de0a-e72f-4c54-8baf-56cb777ea73a"
+    },
+    {
+      "legacySeedId": "n4-vocabulary-01",
+      "contentKey": "n4-vocabulary-01",
+      "questionId": "dae5c5b7-47e6-43be-82f2-7de9745c3b58"
+    },
+    {
+      "legacySeedId": "n4-vocabulary-02",
+      "contentKey": "n4-vocabulary-02",
+      "questionId": "dae5c4b7-47e6-420b-8de9-22e62d9ff77f"
+    },
+    {
+      "legacySeedId": "n4-vocabulary-03",
+      "contentKey": "n4-vocabulary-03",
+      "questionId": "dae5c3b7-47e6-4058-87e2-804aeb160b5e"
+    },
+    {
+      "legacySeedId": "n4-vocabulary-04",
+      "contentKey": "n4-vocabulary-04",
+      "questionId": "dae5cab7-47e6-4c3d-8147-fdbeb51dd30d"
+    },
+    {
+      "legacySeedId": "n4-vocabulary-05",
+      "contentKey": "n4-vocabulary-05",
+      "questionId": "dae5c9b7-47e6-4a8a-8608-48b43c653e54"
+    },
+    {
+      "legacySeedId": "n5-grammar-01",
+      "contentKey": "n5-grammar-01",
+      "questionId": "02afbcba-d480-4de8-80a1-813313aee06e"
+    },
+    {
+      "legacySeedId": "n5-grammar-02",
+      "contentKey": "n5-grammar-02",
+      "questionId": "02afbfba-d480-4301-8a22-7242eb1b7bf1"
+    },
+    {
+      "legacySeedId": "n5-grammar-03",
+      "contentKey": "n5-grammar-03",
+      "questionId": "02afbeba-d480-414e-83f1-762f010bf6a8"
+    },
+    {
+      "legacySeedId": "n5-grammar-04",
+      "contentKey": "n5-grammar-04",
+      "questionId": "02afc1ba-d480-4667-853b-ca70d1b1c39b"
+    },
+    {
+      "legacySeedId": "n5-grammar-05",
+      "contentKey": "n5-grammar-05",
+      "questionId": "02afc0ba-d480-44b4-811a-81d256d9d73a"
+    },
+    {
+      "legacySeedId": "n5-reading-01",
+      "contentKey": "n5-reading-01",
+      "questionId": "4ce5d80a-cbda-47ef-864b-810c74c095b3"
+    },
+    {
+      "legacySeedId": "n5-reading-02",
+      "contentKey": "n5-reading-02",
+      "questionId": "4ce5d90a-cbda-49a2-8e48-b4a9d7ee113c"
+    },
+    {
+      "legacySeedId": "n5-reading-03",
+      "contentKey": "n5-reading-03",
+      "questionId": "4ce5da0a-cbda-4b55-84d4-daafc56ab9d5"
+    },
+    {
+      "legacySeedId": "n5-vocabulary-01",
+      "contentKey": "n5-vocabulary-01",
+      "questionId": "565d941a-3f60-4e7d-8d87-01a467eacfad"
+    },
+    {
+      "legacySeedId": "n5-vocabulary-02",
+      "contentKey": "n5-vocabulary-02",
+      "questionId": "565d911a-3f60-4964-881e-b7f4b7434f8a"
+    },
+    {
+      "legacySeedId": "n5-vocabulary-03",
+      "contentKey": "n5-vocabulary-03",
+      "questionId": "565d921a-3f60-4b17-81fc-7e636a22592b"
+    },
+    {
+      "legacySeedId": "n5-vocabulary-04",
+      "contentKey": "n5-vocabulary-04",
+      "questionId": "565d8f1a-3f60-45fe-88ac-81d40f27e2f8"
+    },
+    {
+      "legacySeedId": "n5-vocabulary-05",
+      "contentKey": "n5-vocabulary-05",
+      "questionId": "565d901a-3f60-47b1-8b68-65a3d382d701"
+    }
+  ],
+  "legacySeedMappingSha256": "af3f5659c6f89f191690f1bbcc6b5f2b3d0a87931a6bd4d939e904daefe90664"
+}

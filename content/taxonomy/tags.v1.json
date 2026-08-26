@@ -1,0 +1,1095 @@
+{
+  "schemaVersion": 1,
+  "taxonomyVersion": "tags-v1",
+  "normalizationVersion": "tag-normalization-v1",
+  "families": [
+    "FORM",
+    "GRAMMAR",
+    "VOCABULARY",
+    "READING_SKILL",
+    "TOPIC",
+    "PEDAGOGY"
+  ],
+  "tags": [
+    {
+      "key": "い형용사",
+      "labelKo": "い형용사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ことから",
+      "labelKo": "ことから",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ことになる",
+      "labelKo": "ことになる",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ざるを得ない",
+      "labelKo": "ざるを得ない",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ために",
+      "labelKo": "ために",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ないことには",
+      "labelKo": "ないことには",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ながら",
+      "labelKo": "ながら",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ならでは",
+      "labelKo": "ならでは",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "にもかかわらず",
+      "labelKo": "にもかかわらず",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "によって",
+      "labelKo": "によって",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "ばかり",
+      "labelKo": "ばかり",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "までもなく",
+      "labelKo": "までもなく",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "わけではない",
+      "labelKo": "わけではない",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "を皮切りに",
+      "labelKo": "を皮切りに",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "予定",
+      "labelKo": "予定",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "相まって",
+      "labelKo": "相まって",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "가능 표현",
+      "labelKo": "가능 표현",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "가능성",
+      "labelKo": "가능성",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "가능형",
+      "labelKo": "가능형",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "강좌 안내",
+      "labelKo": "강좌 안내",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "격식 표현",
+      "labelKo": "격식 표현",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "계획",
+      "labelKo": "계획",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "고급 어휘",
+      "labelKo": "고급 어휘",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "고유함",
+      "labelKo": "고유함",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "교통",
+      "labelKo": "교통",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "권유",
+      "labelKo": "권유",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "규칙",
+      "labelKo": "규칙",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "근거",
+      "labelKo": "근거",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "기준",
+      "labelKo": "기준",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "논리 독해",
+      "labelKo": "논리 독해",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["LONG_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "논문 표현",
+      "labelKo": "논문 표현",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["KANJI_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "논지 파악",
+      "labelKo": "논지 파악",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["MEDIUM_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "단어 용법",
+      "labelKo": "단어 용법",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5", "N4", "N2", "N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "동사",
+      "labelKo": "동사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5", "N4"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "동사 활용",
+      "labelKo": "동사 활용",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "동시 동작",
+      "labelKo": "동시 동작",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "동작성 명사",
+      "labelKo": "동작성 명사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "목적",
+      "labelKo": "목적",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3", "N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "목적 파악",
+      "labelKo": "목적 파악",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "문어체",
+      "labelKo": "문어체",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "변화",
+      "labelKo": "변화",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["ORTHOGRAPHY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "변화 파악",
+      "labelKo": "변화 파악",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["MEDIUM_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "부분 부정",
+      "labelKo": "부분 부정",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "부사",
+      "labelKo": "부사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "불가피",
+      "labelKo": "불가피",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "불필요",
+      "labelKo": "불필요",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "상태 변화",
+      "labelKo": "상태 변화",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "상호 작용",
+      "labelKo": "상호 작용",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "생활문",
+      "labelKo": "생활문",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "설명문",
+      "labelKo": "설명문",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "소비 행동",
+      "labelKo": "소비 행동",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["MEDIUM_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "수급",
+      "labelKo": "수급",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["ORTHOGRAPHY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "시간",
+      "labelKo": "시간",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "시간표",
+      "labelKo": "시간표",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "시작점",
+      "labelKo": "시작점",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "시점",
+      "labelKo": "시점",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "시제",
+      "labelKo": "시제",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "안내문",
+      "labelKo": "안내문",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "약속",
+      "labelKo": "약속",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "어순",
+      "labelKo": "어순",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "업무",
+      "labelKo": "업무",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "업무 메모",
+      "labelKo": "업무 메모",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "업무 표현",
+      "labelKo": "업무 표현",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "업무 효율",
+      "labelKo": "업무 효율",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["MEDIUM_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "여행",
+      "labelKo": "여행",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["ORTHOGRAPHY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "역접",
+      "labelKo": "역접",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "연락",
+      "labelKo": "연락",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "예측",
+      "labelKo": "예측",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "완료",
+      "labelKo": "완료",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "우려",
+      "labelKo": "우려",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["ORTHOGRAPHY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "우연",
+      "labelKo": "우연",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "운영시간",
+      "labelKo": "운영시간",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "유감",
+      "labelKo": "유감",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "유의 표현",
+      "labelKo": "유의 표현",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N4", "N3", "N2", "N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "유의어",
+      "labelKo": "유의어",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "의사 전달",
+      "labelKo": "의사 전달",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "이유",
+      "labelKo": "이유",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "이유 파악",
+      "labelKo": "이유 파악",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "일상",
+      "labelKo": "일상",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "일정",
+      "labelKo": "일정",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["KANJI_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "자연",
+      "labelKo": "자연",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["KANJI_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "장소",
+      "labelKo": "장소",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "접속",
+      "labelKo": "접속",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "정보 검색",
+      "labelKo": "정보 검색",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N3", "N2", "N1"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "정보 찾기",
+      "labelKo": "정보 찾기",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "정보 확인",
+      "labelKo": "정보 확인",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "정책",
+      "labelKo": "정책",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N2", "N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "조건 비교",
+      "labelKo": "조건 비교",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "조사",
+      "labelKo": "조사",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "조직 문화",
+      "labelKo": "조직 문화",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["LONG_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "존재문",
+      "labelKo": "존재문",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "주장 파악",
+      "labelKo": "주장 파악",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["MEDIUM_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "중문 독해",
+      "labelKo": "중문 독해",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["MEDIUM_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "지표",
+      "labelKo": "지표",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["LONG_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "직후",
+      "labelKo": "직후",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "짧은 글",
+      "labelKo": "짧은 글",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["SHORT_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "차이",
+      "labelKo": "차이",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["WORD_USAGE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "추상 동사",
+      "labelKo": "추상 동사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["CONTEXT_VOCABULARY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "추상 명사",
+      "labelKo": "추상 명사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N3"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["KANJI_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "추측",
+      "labelKo": "추측",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N4"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["GRAMMAR_SELECT"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "판단",
+      "labelKo": "판단",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "평가",
+      "labelKo": "평가",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["KANJI_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "필수 조건",
+      "labelKo": "필수 조건",
+      "family": "GRAMMAR",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["GRAMMAR"],
+      "applicableQuestionTypes": ["TEXT_GRAMMAR"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "학교",
+      "labelKo": "학교",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["ORTHOGRAPHY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "한자 읽기",
+      "labelKo": "한자 읽기",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5", "N4", "N3", "N2", "N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["KANJI_READING"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "한자 표기",
+      "labelKo": "한자 표기",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5", "N4", "N3", "N2", "N1"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["ORTHOGRAPHY"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "행사 안내",
+      "labelKo": "행사 안내",
+      "family": "READING_SKILL",
+      "aliases": [],
+      "applicableLevels": ["N2"],
+      "applicableSubjects": ["READING"],
+      "applicableQuestionTypes": ["INFO_RETRIEVAL"],
+      "status": "ACTIVE"
+    },
+    {
+      "key": "형용동사",
+      "labelKo": "형용동사",
+      "family": "VOCABULARY",
+      "aliases": [],
+      "applicableLevels": ["N5"],
+      "applicableSubjects": ["VOCABULARY"],
+      "applicableQuestionTypes": ["PARAPHRASE"],
+      "status": "ACTIVE"
+    }
+  ]
+}

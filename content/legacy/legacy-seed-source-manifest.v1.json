@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "kind": "LEGACY_SEED_SOURCE_MANIFEST_V1",
+  "files": [
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/buildQuestionSeed.ts",
+      "byteLength": 3017,
+      "sha256": "48b23b01bace54c2821ef1c3512fb99be0bc81ea8b82875a02bdd6022a455833"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/contentReview.ts",
+      "byteLength": 463,
+      "sha256": "89efff980b5d2baeb2311756b6fc2ae454288a8eb0c04bdede5a7261fdfe5c04"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/id.ts",
+      "byteLength": 748,
+      "sha256": "461fde482dc1d2f5a9de94a31c44190eb25a0cdbbb5a7087a99c849ba4855653"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/createQuestion.ts",
+      "byteLength": 602,
+      "sha256": "00a0ad6fce9fb34673fdd2f50dc6ed81dc81d6ac05f13b5c31b5cbc428c362ac"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/index.ts",
+      "byteLength": 418,
+      "sha256": "44f4d4f4d99f9a3d24f4d84188a6831e8b0e51b60f1c395902f624fed2c071aa"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/n1.ts",
+      "byteLength": 9677,
+      "sha256": "794c5fed63842ef3375095f397579a5ad043a1126d213b2cc867ea726ffb71c0"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/n2.ts",
+      "byteLength": 9022,
+      "sha256": "61f27b3167c4e064c74a4b0c6f6d7ecb7da627017238c6ee70bec0b3a246258d"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/n3.ts",
+      "byteLength": 8967,
+      "sha256": "d9527d2a159ca8ffc0c9bbd6a75ce028079a94f3defdf47cf9690f64954edefd"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/n4.ts",
+      "byteLength": 8202,
+      "sha256": "219e94c4e05db94e3461105edf1b062b64210fd523dc196c8a74cdc893299c6b"
+    },
+    {
+      "repositoryPath": "apps/api/prisma/seed-data/questions/n5.ts",
+      "byteLength": 7887,
+      "sha256": "bf2003b93b431d84087641fd84bdb9d1a20e22e3aa186c320357bea8bb773a86"
+    }
+  ],
+  "seedSourceManifestSha256": "ac8a4a9e2f49662cf2baa9eebd734444a1db98ce5788a30da54f6dd2376cc7f6"
+}

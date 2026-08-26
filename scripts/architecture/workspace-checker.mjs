@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { createHash } from 'node:crypto'
 import { builtinModules } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -64,8 +65,47 @@ const NODE_BUILTIN_IMPORTS = new Set([
   ...builtinModules,
   ...builtinModules.map((moduleName) => `node:${moduleName}`)
 ])
+const PHASE6_SERVER_RELATIVE_ROOTS = [
+  'content',
+  'apps/api/prisma/seed-data',
+  'apps/api/prisma/seedQuestionCatalog.ts',
+  'apps/api/src/content',
+  'packages/domain/src/content'
+]
+const PHASE6_SENSITIVE_SEED_RELATIVE_ROOT =
+  'apps/api/prisma/seed-data/questions'
+const OPERATIONAL_CONTENT_COMMANDS_RELATIVE_ROOT =
+  'apps/api/src/content/commands'
+const OPERATIONAL_CONTENT_CLI_RELATIVE_PATH = 'apps/api/src/content/cli.ts'
 
 const normalizePath = (value) => value.split(path.sep).join('/')
+const stripModuleExtension = (value) => value.replace(/\.[cm]?[jt]s$/, '')
+
+const walkWebAssetEntries = (directory) => {
+  if (!fs.existsSync(directory)) return { files: [], symlinks: [] }
+  const rootStat = fs.lstatSync(directory)
+  if (rootStat.isSymbolicLink()) return { files: [], symlinks: [directory] }
+  if (rootStat.isFile()) return { files: [directory], symlinks: [] }
+  if (!rootStat.isDirectory()) return { files: [], symlinks: [] }
+  const files = []
+  const symlinks = []
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (entry.name === 'node_modules') continue
+    const entryPath = path.join(directory, entry.name)
+    if (entry.isSymbolicLink()) {
+      symlinks.push(entryPath)
+      continue
+    }
+    if (entry.isDirectory()) {
+      const nested = walkWebAssetEntries(entryPath)
+      files.push(...nested.files)
+      symlinks.push(...nested.symlinks)
+      continue
+    }
+    if (entry.isFile()) files.push(entryPath)
+  }
+  return { files, symlinks }
+}
 
 const walkFiles = (directory) => {
   if (!fs.existsSync(directory)) return []
@@ -213,6 +253,21 @@ const collectModuleReferences = (sourceFile) => {
   return references
 }
 
+const collectStringLiteralNodes = (sourceFile) => {
+  const literals = []
+  const visit = (node) => {
+    if (
+      ts.isStringLiteralLike(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node)
+    ) {
+      literals.push(node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return literals
+}
+
 const workspaceFromSpecifier = (rootDir, importerFile, specifier) => {
   const packageMatch = /^@nihongo\/(web|api|contracts|domain)(?:\/|$)/.exec(
     specifier
@@ -233,6 +288,159 @@ const workspaceFromSpecifier = (rootDir, importerFile, specifier) => {
     rootDir,
     path.resolve(path.dirname(importerFile), specifier)
   )
+}
+
+const resolvesToPhase6Content = (rootDir, importerFile, specifier) => {
+  if (/^@nihongo\/(?:api|domain)(?:\/src)?\/content(?:\/|$)/.test(specifier)) {
+    return true
+  }
+  if (!specifier.startsWith('.')) return false
+  const resolved = normalizePath(
+    path.resolve(path.dirname(importerFile), specifier)
+  )
+  return PHASE6_SERVER_RELATIVE_ROOTS.map((relativeRoot) =>
+    normalizePath(path.join(rootDir, relativeRoot))
+  ).some(
+    (forbiddenRoot) =>
+      resolved === forbiddenRoot ||
+      resolved.startsWith(`${forbiddenRoot}/`) ||
+      stripModuleExtension(resolved) === stripModuleExtension(forbiddenRoot)
+  )
+}
+
+const resolvesToOperationalContentCommands = (
+  rootDir,
+  importerFile,
+  specifier
+) => {
+  if (/^@nihongo\/api\/(?:src\/)?content\/commands(?:\/|$)/.test(specifier)) {
+    return true
+  }
+  if (!specifier.startsWith('.')) return false
+  const commandRoot = normalizePath(
+    path.join(rootDir, OPERATIONAL_CONTENT_COMMANDS_RELATIVE_ROOT)
+  )
+  const resolved = normalizePath(
+    path.resolve(path.dirname(importerFile), specifier)
+  )
+  return resolved === commandRoot || resolved.startsWith(`${commandRoot}/`)
+}
+
+const resolvesToOperationalContentCli = (rootDir, importerFile, specifier) => {
+  if (
+    /^@nihongo\/api\/(?:src\/)?content\/cli(?:\.[cm]?[jt]s)?$/.test(specifier)
+  ) {
+    return true
+  }
+  if (!specifier.startsWith('.')) return false
+  const resolved = normalizePath(
+    path.resolve(path.dirname(importerFile), specifier)
+  ).replace(/\.[cm]?[jt]s$/, '')
+  const cliPath = normalizePath(
+    path.join(rootDir, OPERATIONAL_CONTENT_CLI_RELATIVE_PATH)
+  ).replace(/\.[cm]?[jt]s$/, '')
+  return resolved === cliPath
+}
+
+const canImportOperationalContentCommands = (rootDir, importerFile) => {
+  const relative = normalizePath(path.relative(rootDir, importerFile))
+  return (
+    relative === OPERATIONAL_CONTENT_CLI_RELATIVE_PATH ||
+    relative.startsWith(`${OPERATIONAL_CONTENT_COMMANDS_RELATIVE_ROOT}/`) ||
+    TEST_SOURCE_PATH_PATTERN.test(relative)
+  )
+}
+
+const sha256File = (fileName) =>
+  createHash('sha256').update(fs.readFileSync(fileName)).digest('hex')
+
+const collectPhase6SensitiveContentCanaries = (rootDir) => {
+  const canaries = new Set()
+  for (const fileName of walkFiles(
+    path.join(rootDir, PHASE6_SENSITIVE_SEED_RELATIVE_ROOT)
+  )) {
+    const sourceText = fs.readFileSync(fileName, 'utf8')
+    const sourceFile = ts.createSourceFile(
+      fileName,
+      sourceText,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    )
+    for (const literal of collectStringLiteralNodes(sourceFile)) {
+      if (
+        [...literal.text].length >= 12 &&
+        [...literal.text].some(
+          (character) => (character.codePointAt(0) ?? 0) > 0x7f
+        )
+      ) {
+        canaries.add(literal.text)
+      }
+    }
+  }
+  return [...canaries]
+}
+
+const collectPhase6WebLeakDiagnostics = (rootDir) => {
+  const diagnostics = []
+  const contentFiles = PHASE6_SERVER_RELATIVE_ROOTS.flatMap(
+    (relativeRoot) =>
+      walkWebAssetEntries(path.join(rootDir, relativeRoot)).files
+  )
+  const contentDigests = new Set(contentFiles.map(sha256File))
+  const sensitiveCanaries = collectPhase6SensitiveContentCanaries(rootDir)
+  const webAssetRoots = [path.join(rootDir, 'apps/web')]
+
+  for (const assetRoot of webAssetRoots) {
+    const assetEntries = walkWebAssetEntries(assetRoot)
+    for (const linkName of assetEntries.symlinks) {
+      diagnostics.push(
+        createFileDiagnostic(
+          rootDir,
+          linkName,
+          'ARCH116',
+          'Web source, configuration, public, test, and build trees cannot contain symlinks'
+        )
+      )
+    }
+    for (const fileName of assetEntries.files) {
+      const bytes = fs.readFileSync(fileName)
+      const text = bytes.toString('utf8')
+      const copiedContent = contentDigests.has(
+        createHash('sha256').update(bytes).digest('hex')
+      )
+      const answerBearingPhase6Artifact =
+        text.includes('ORIGINAL_NO_COPY') &&
+        text.includes('policySnapshotSha256') &&
+        (text.includes('correctOptionKey') || text.includes('explanationKo'))
+      const relativeFileName = normalizePath(path.relative(rootDir, fileName))
+      const isPublishedWebAsset =
+        relativeFileName.startsWith('apps/web/public/') ||
+        relativeFileName.startsWith('apps/web/dist/')
+      const containsSensitiveSeedContent =
+        isPublishedWebAsset &&
+        sensitiveCanaries.some((canary) => {
+          const jsonEncoded = JSON.stringify(canary).slice(1, -1)
+          return text.includes(canary) || text.includes(jsonEncoded)
+        })
+      if (
+        !copiedContent &&
+        !answerBearingPhase6Artifact &&
+        !containsSensitiveSeedContent
+      ) {
+        continue
+      }
+      diagnostics.push(
+        createFileDiagnostic(
+          rootDir,
+          fileName,
+          'ARCH116',
+          'Phase 6 server-side content cannot be copied into Web public/build artifacts'
+        )
+      )
+    }
+  }
+  return diagnostics
 }
 
 const isForbiddenPurePackageImport = (specifier) => {
@@ -1011,6 +1219,23 @@ export const checkWorkspaceArchitecture = ({
 
     diagnostics.push(...collectApiRouteDiagnostics(absoluteRoot, sourceFile))
 
+    if (importer.id === 'apps/web') {
+      for (const literal of collectStringLiteralNodes(sourceFile)) {
+        if (!resolvesToPhase6Content(absoluteRoot, fileName, literal.text)) {
+          continue
+        }
+        diagnostics.push(
+          createDiagnostic(
+            absoluteRoot,
+            sourceFile,
+            literal,
+            'ARCH116',
+            'apps/web cannot reference Phase 6 server-side content as a static asset'
+          )
+        )
+      }
+    }
+
     if (!runtimeGraph.has(importer.id)) {
       runtimeGraph.set(importer.id, new Set())
     }
@@ -1021,6 +1246,65 @@ export const checkWorkspaceArchitecture = ({
         fileName,
         reference.specifier
       )
+
+      if (
+        importer.id === 'apps/api' &&
+        reference.runtime &&
+        !TEST_SOURCE_PATH_PATTERN.test(
+          normalizePath(path.relative(absoluteRoot, fileName))
+        ) &&
+        resolvesToOperationalContentCli(
+          absoluteRoot,
+          fileName,
+          reference.specifier
+        )
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            absoluteRoot,
+            sourceFile,
+            reference.node,
+            'ARCH117',
+            'API runtime cannot import the operational content CLI as a module'
+          )
+        )
+      }
+
+      if (
+        importer.id === 'apps/api' &&
+        reference.runtime &&
+        !canImportOperationalContentCommands(absoluteRoot, fileName) &&
+        resolvesToOperationalContentCommands(
+          absoluteRoot,
+          fileName,
+          reference.specifier
+        )
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            absoluteRoot,
+            sourceFile,
+            reference.node,
+            'ARCH117',
+            'API runtime cannot import operational content commands outside the retained CLI entrypoint'
+          )
+        )
+      }
+
+      if (
+        importer.id === 'apps/web' &&
+        resolvesToPhase6Content(absoluteRoot, fileName, reference.specifier)
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            absoluteRoot,
+            sourceFile,
+            reference.node,
+            'ARCH116',
+            'apps/web cannot import Phase 6 server-side content or validator source'
+          )
+        )
+      }
 
       if (importer.kind === 'package' && target?.kind === 'app') {
         diagnostics.push(
@@ -1124,6 +1408,7 @@ export const checkWorkspaceArchitecture = ({
   diagnostics.push(
     ...collectPublicWebContractDiagnostics(absoluteRoot, sourceFiles)
   )
+  diagnostics.push(...collectPhase6WebLeakDiagnostics(absoluteRoot))
 
   for (const cycle of collectPackageCycles(runtimeGraph)) {
     const [from, to] = cycle
