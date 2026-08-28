@@ -44,6 +44,40 @@ import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
 import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
+import { isPhase7ExcludedRequest } from './phase7PrefixExclusion.js'
+
+const TECHNICAL_CORS_METHODS = [
+  'DELETE',
+  'GET',
+  'OPTIONS',
+  'PATCH',
+  'POST',
+  'PUT'
+]
+const TECHNICAL_CORS_BASE_HEADERS = ['Content-Type']
+const TECHNICAL_CORS_PRACTICE_HEADERS = [
+  ...TECHNICAL_CORS_BASE_HEADERS,
+  'Idempotency-Key',
+  'X-Nihongo-Practice-Contract'
+]
+const LEGACY_CORS_EXPOSE_HEADERS = [
+  'Idempotency-Replayed',
+  'Location',
+  'Retry-After',
+  'X-Request-Id',
+  'X-Nihongo-Practice-Contract'
+]
+const TECHNICAL_CORS_EXPOSE_HEADERS = [
+  'Content-Disposition',
+  ...LEGACY_CORS_EXPOSE_HEADERS
+]
+const TARGETED_REVIEW_PATH_PATTERN =
+  /^\/api\/v1\/wrong-notes\/[^/]+\/review-session\/?$/u
+
+const isPracticeCorsPath = (pathname: string): boolean =>
+  pathname === '/api/v1/study-sessions' ||
+  pathname.startsWith('/api/v1/study-sessions/') ||
+  TARGETED_REVIEW_PATH_PATTERN.test(pathname)
 
 interface CreateApiAppDependencies {
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
@@ -85,6 +119,23 @@ const retryAfterSecondsByCode = {
 const studyResultLocationPattern =
   /^\/api\/v1\/study-sessions\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/result$/u
 
+const getAdapterRequestTarget = (
+  bindings: unknown,
+  fallbackUrl: string
+): string => {
+  if (!bindings || typeof bindings !== 'object') {
+    return fallbackUrl
+  }
+
+  const incoming = (bindings as { incoming?: unknown }).incoming
+  if (!incoming || typeof incoming !== 'object') {
+    return fallbackUrl
+  }
+
+  const rawUrl = (incoming as { url?: unknown }).url
+  return typeof rawUrl === 'string' && rawUrl.length > 0 ? rawUrl : fallbackUrl
+}
+
 const toFailure = (error: unknown, requestId: string): ApiFailure => {
   if (error instanceof ApplicationError) {
     return apiFailureSchema.parse({
@@ -119,6 +170,28 @@ export const createApiApp = ({
   app.use('*', requestContext)
   app.use('*', secureHeaders())
   app.use('*', createRequestLogger(logger))
+
+  app.use('*', async (context, next) => {
+    const requestTarget = getAdapterRequestTarget(
+      context.env,
+      context.req.raw.url
+    )
+    if (!isPhase7ExcludedRequest(requestTarget)) {
+      await next()
+      return
+    }
+
+    context.header('Cache-Control', 'private, no-store')
+    const failure = apiFailureSchema.parse({
+      code: 'RESOURCE_NOT_FOUND',
+      message: '요청한 경로를 찾을 수 없습니다.',
+      requestId: context.get('requestId'),
+      retryable: false
+    })
+
+    return context.json(failure, 404)
+  })
+
   app.route('/health', createHealthRoutes({ checkReadiness }))
 
   if (auth) {
@@ -130,7 +203,11 @@ export const createApiApp = ({
         } catch {
           peerAddress = undefined
         }
-        return await auth.gateway.handle(context.req.raw, peerAddress)
+        return await auth.gateway.handle(
+          context.req.raw,
+          peerAddress,
+          getAdapterRequestTarget(context.env, context.req.raw.url)
+        )
       } catch (error: unknown) {
         if (error instanceof AuthGatewayError) {
           context.header('Cache-Control', 'private, no-store')
@@ -164,30 +241,41 @@ export const createApiApp = ({
       }
     })
     if (auth.environment.NODE_ENV !== 'production') {
-      app.use(
-        '/api/v1/*',
-        cors({
-          origin: (origin) =>
-            auth.environment.TRUSTED_ORIGINS.includes(origin)
-              ? origin
-              : undefined,
-          allowHeaders: [
-            'Content-Type',
-            'Idempotency-Key',
-            'X-Nihongo-Practice-Contract'
-          ],
-          allowMethods: ['DELETE', 'GET', 'OPTIONS', 'POST', 'PUT'],
-          credentials: true,
-          exposeHeaders: [
-            'Idempotency-Replayed',
-            'Location',
-            'Retry-After',
-            'X-Request-Id',
-            'X-Nihongo-Practice-Contract'
-          ],
-          maxAge: 600
-        })
-      )
+      const corsOptions = {
+        origin: (origin: string) =>
+          auth.environment.TRUSTED_ORIGINS.includes(origin)
+            ? origin
+            : undefined,
+        credentials: true,
+        maxAge: 600
+      }
+      const legacyCors = cors({
+        ...corsOptions,
+        allowHeaders: TECHNICAL_CORS_PRACTICE_HEADERS,
+        allowMethods: ['DELETE', 'GET', 'OPTIONS', 'POST', 'PUT'],
+        exposeHeaders: LEGACY_CORS_EXPOSE_HEADERS
+      })
+      const technicalBaseCors = cors({
+        ...corsOptions,
+        allowHeaders: TECHNICAL_CORS_BASE_HEADERS,
+        allowMethods: TECHNICAL_CORS_METHODS,
+        exposeHeaders: TECHNICAL_CORS_EXPOSE_HEADERS
+      })
+      const technicalPracticeCors = cors({
+        ...corsOptions,
+        allowHeaders: TECHNICAL_CORS_PRACTICE_HEADERS,
+        allowMethods: TECHNICAL_CORS_METHODS,
+        exposeHeaders: TECHNICAL_CORS_EXPOSE_HEADERS
+      })
+
+      app.use('/api/v1/*', (context, next) => {
+        if (auth.environment.ADMIN_CMS_MODE !== 'technical') {
+          return legacyCors(context, next)
+        }
+        return isPracticeCorsPath(context.req.path)
+          ? technicalPracticeCors(context, next)
+          : technicalBaseCors(context, next)
+      })
     }
     if (assertPracticeRuntimeAuthority) {
       app.use('/api/v1/*', async (_context, next) => {

@@ -2,9 +2,13 @@ import { z } from 'zod'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createClientIpAuthority } from './clientIp.js'
+import type { Phase7AuthFacade } from './phase7AuthFacade.js'
+import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import { getRawRequestPathname } from '../app/phase7PrefixExclusion.js'
 
 const AUTH_BODY_TIMEOUT_MS = 5_000
-const MAX_AUTH_BODY_BYTES = 32 * 1_024
+const MAX_LEGACY_AUTH_BODY_BYTES = 32 * 1_024
+const MAX_TECHNICAL_AUTH_BODY_BYTES = 4 * 1_024
 const PASSWORD_RESET_RESPONSE_FLOOR_MS = 5_250
 const ENUMERATION_PROTECTED_PATHS = new Set([
   '/api/auth/request-password-reset',
@@ -40,7 +44,9 @@ const COOKIE_ONLY_SUCCESS_PATHS = new Set([
   '/api/auth/sign-up/email',
   '/api/auth/verify-email'
 ])
-const JSON_CONTENT_TYPE_PATTERN = /^application\/json(?:\s*;|$)/iu
+const JSON_CONTENT_TYPE_PATTERN =
+  /^application\/json(?:[\t ]*;[\t ]*charset[\t ]*=[\t ]*(?:utf-8|"utf-8"))?[\t ]*$/iu
+const CONTENT_LENGTH_PATTERN = /^(?:0|[1-9][0-9]*)$/u
 const internalSessionSchema = z
   .object({
     session: z.object({ id: z.uuid() }).passthrough(),
@@ -56,9 +62,11 @@ interface AuthGatewayRuntime {
 }
 
 interface CreateAuthGatewayDependencies {
-  auth: AuthGatewayRuntime
-  client: PrismaClient
+  auth?: AuthGatewayRuntime
+  client?: PrismaClient
   environment: ApiEnvironment
+  phase7Facade?: Phase7AuthFacade
+  technicalRateLimiter?: ApplicationRateLimiter
   delay?: (milliseconds: number) => Promise<void>
   now?: () => number
 }
@@ -131,21 +139,232 @@ const assertTrustedWriteRequest = (
     throw new AuthGatewayError(415, 'INVALID_CONTENT_TYPE')
   }
 
+  const contentEncoding = request.headers.get('Content-Encoding')
+  if (
+    contentEncoding !== null &&
+    contentEncoding.toLowerCase() !== 'identity'
+  ) {
+    throw new AuthGatewayError(400, 'INVALID_REQUEST')
+  }
+
   const origin = request.headers.get('Origin')
   const fetchSite = request.headers.get('Sec-Fetch-Site')
   const hasTrustedOrigin = origin !== null && trustedOrigins.includes(origin)
+  const hasTrustedOriginMetadata =
+    fetchSite === null ||
+    fetchSite === 'same-origin' ||
+    fetchSite === 'same-site'
   const hasSameOriginMetadata = origin === null && fetchSite === 'same-origin'
 
-  if (!hasTrustedOrigin && !hasSameOriginMetadata) {
+  if (
+    !(hasTrustedOrigin && hasTrustedOriginMetadata) &&
+    !hasSameOriginMetadata
+  ) {
     throw new AuthGatewayError(403, 'UNTRUSTED_ORIGIN')
   }
 }
 
+class JsonMemberScanner {
+  readonly #source: string
+  #index = 0
+
+  constructor(source: string) {
+    this.#source = source
+  }
+
+  scan(): void {
+    this.#skipWhitespace()
+    this.#scanValue(0)
+    this.#skipWhitespace()
+    if (this.#index !== this.#source.length) {
+      throw new SyntaxError('Invalid JSON.')
+    }
+  }
+
+  #skipWhitespace(): void {
+    while (/^[\t\n\r ]$/u.test(this.#source[this.#index] ?? '')) {
+      this.#index += 1
+    }
+  }
+
+  #scanValue(depth: number): void {
+    if (depth > 100) {
+      throw new SyntaxError('JSON nesting is too deep.')
+    }
+
+    const character = this.#source[this.#index]
+    if (character === '{') {
+      this.#scanObject(depth + 1)
+      return
+    }
+    if (character === '[') {
+      this.#scanArray(depth + 1)
+      return
+    }
+    if (character === '"') {
+      this.#scanString()
+      return
+    }
+    if (character === 't' || character === 'f' || character === 'n') {
+      this.#scanKeyword(
+        character === 't' ? 'true' : character === 'f' ? 'false' : 'null'
+      )
+      return
+    }
+    if (character === '-' || /^[0-9]$/u.test(character ?? '')) {
+      this.#scanNumber()
+      return
+    }
+
+    throw new SyntaxError('Invalid JSON value.')
+  }
+
+  #scanKeyword(keyword: string): void {
+    if (
+      this.#source.slice(this.#index, this.#index + keyword.length) !== keyword
+    ) {
+      throw new SyntaxError('Invalid JSON keyword.')
+    }
+    this.#index += keyword.length
+  }
+
+  #scanNumber(): void {
+    const token = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/u.exec(
+      this.#source.slice(this.#index)
+    )?.[0]
+    if (!token) {
+      throw new SyntaxError('Invalid JSON number.')
+    }
+    this.#index += token.length
+  }
+
+  #scanString(): string {
+    const start = this.#index
+    this.#index += 1
+
+    while (this.#index < this.#source.length) {
+      const character = this.#source[this.#index]
+      if (character === '"') {
+        this.#index += 1
+        return JSON.parse(this.#source.slice(start, this.#index)) as string
+      }
+      if (character === '\\') {
+        const escape = this.#source[this.#index + 1]
+        if (escape === 'u') {
+          if (
+            !/^[0-9a-f]{4}$/iu.test(
+              this.#source.slice(this.#index + 2, this.#index + 6)
+            )
+          ) {
+            throw new SyntaxError('Invalid JSON Unicode escape.')
+          }
+          this.#index += 6
+          continue
+        }
+        if (!'"\\/bfnrt'.includes(escape ?? '')) {
+          throw new SyntaxError('Invalid JSON escape.')
+        }
+        this.#index += 2
+        continue
+      }
+      if (character === undefined || character.charCodeAt(0) < 0x20) {
+        throw new SyntaxError('Invalid JSON string.')
+      }
+      this.#index += 1
+    }
+
+    throw new SyntaxError('Unterminated JSON string.')
+  }
+
+  #scanArray(depth: number): void {
+    this.#index += 1
+    this.#skipWhitespace()
+    if (this.#source[this.#index] === ']') {
+      this.#index += 1
+      return
+    }
+
+    while (true) {
+      this.#scanValue(depth)
+      this.#skipWhitespace()
+      const character = this.#source[this.#index]
+      this.#index += 1
+      if (character === ']') {
+        return
+      }
+      if (character !== ',') {
+        throw new SyntaxError('Invalid JSON array.')
+      }
+      this.#skipWhitespace()
+    }
+  }
+
+  #scanObject(depth: number): void {
+    this.#index += 1
+    this.#skipWhitespace()
+    const keys = new Set<string>()
+    if (this.#source[this.#index] === '}') {
+      this.#index += 1
+      return
+    }
+
+    while (true) {
+      if (this.#source[this.#index] !== '"') {
+        throw new SyntaxError('Invalid JSON object key.')
+      }
+      const key = this.#scanString()
+      if (keys.has(key)) {
+        throw new SyntaxError('Duplicate JSON object member.')
+      }
+      keys.add(key)
+      this.#skipWhitespace()
+      if (this.#source[this.#index] !== ':') {
+        throw new SyntaxError('Invalid JSON object.')
+      }
+      this.#index += 1
+      this.#skipWhitespace()
+      this.#scanValue(depth)
+      this.#skipWhitespace()
+      const character = this.#source[this.#index]
+      this.#index += 1
+      if (character === '}') {
+        return
+      }
+      if (character !== ',') {
+        throw new SyntaxError('Invalid JSON object.')
+      }
+      this.#skipWhitespace()
+    }
+  }
+}
+
+const parseDeclaredContentLength = (request: Request): number | null => {
+  const header = request.headers.get('Content-Length')
+  if (header === null) {
+    return null
+  }
+  if (!CONTENT_LENGTH_PATTERN.test(header)) {
+    throw new AuthGatewayError(400, 'INVALID_REQUEST')
+  }
+  const value = Number(header)
+  if (!Number.isSafeInteger(value)) {
+    throw new AuthGatewayError(400, 'INVALID_REQUEST')
+  }
+  return value
+}
+
 const readLimitedJsonBody = async (
-  request: Request
+  request: Request,
+  maximumBytes: number
 ): Promise<Record<string, unknown>> => {
-  const declaredLength = Number(request.headers.get('Content-Length'))
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_AUTH_BODY_BYTES) {
+  let declaredLength: number | null
+  try {
+    declaredLength = parseDeclaredContentLength(request)
+  } catch (error: unknown) {
+    await request.body?.cancel().catch(() => undefined)
+    throw error
+  }
+  if (declaredLength !== null && declaredLength > maximumBytes) {
     await request.body?.cancel().catch(() => undefined)
     throw new AuthGatewayError(413, 'REQUEST_TOO_LARGE')
   }
@@ -167,7 +386,7 @@ const readLimitedJsonBody = async (
       }
 
       totalBytes += chunk.value.byteLength
-      if (totalBytes > MAX_AUTH_BODY_BYTES) {
+      if (totalBytes > maximumBytes) {
         await reader.cancel().catch(() => undefined)
         throw new AuthGatewayError(413, 'REQUEST_TOO_LARGE')
       }
@@ -193,9 +412,12 @@ const readLimitedJsonBody = async (
         }, AUTH_BODY_TIMEOUT_MS)
       })
     ])
-    const payload: unknown = JSON.parse(
-      new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-    )
+    if (declaredLength !== null && bytes.byteLength !== declaredLength) {
+      throw new AuthGatewayError(400, 'INVALID_REQUEST')
+    }
+    const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    new JsonMemberScanner(source).scan()
+    const payload: unknown = JSON.parse(source)
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new AuthGatewayError(400, 'INVALID_JSON')
     }
@@ -218,7 +440,7 @@ const withGatewayRequestPolicy = async (
   pathname: string,
   environment: ApiEnvironment
 ): Promise<Request> => {
-  const payload = await readLimitedJsonBody(request)
+  const payload = await readLimitedJsonBody(request, MAX_LEGACY_AUTH_BODY_BYTES)
   const nextPayload: Record<string, unknown> = { ...payload }
   const spaOrigin =
     environment.TRUSTED_ORIGINS[0] ?? environment.BETTER_AUTH_URL
@@ -248,8 +470,11 @@ const withGatewayRequestPolicy = async (
       environment.BETTER_AUTH_URL
     )
     verificationUrl.searchParams.set('token', token.data)
+    const headers = new Headers(request.headers)
+    headers.delete('Content-Encoding')
+    headers.delete('Content-Length')
     return new Request(verificationUrl, {
-      headers: request.headers,
+      headers,
       method: 'GET'
     })
   }
@@ -262,8 +487,11 @@ const withGatewayRequestPolicy = async (
     nextPayload.revokeOtherSessions = true
   }
 
+  const headers = new Headers(request.headers)
+  headers.delete('Content-Encoding')
+  headers.delete('Content-Length')
   return new Request(request.url, {
-    headers: request.headers,
+    headers,
     method: request.method,
     body: JSON.stringify(nextPayload)
   })
@@ -328,6 +556,17 @@ const appendRateLimitRetryAfter = (response: Response): Response => {
   })
 }
 
+const appendPrivateNoStore = (response: Response): Response => {
+  const headers = new Headers(response.headers)
+  headers.set('Cache-Control', 'private, no-store')
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  })
+}
+
 export class AuthGatewayError extends Error {
   constructor(
     readonly status: 400 | 403 | 404 | 408 | 413 | 415,
@@ -335,6 +574,7 @@ export class AuthGatewayError extends Error {
       | 'INVALID_AUTH_PAYLOAD'
       | 'INVALID_CONTENT_TYPE'
       | 'INVALID_JSON'
+      | 'INVALID_REQUEST'
       | 'REQUEST_TIMEOUT'
       | 'REQUEST_TOO_LARGE'
       | 'UNTRUSTED_ORIGIN'
@@ -346,25 +586,45 @@ export class AuthGatewayError extends Error {
 }
 
 export interface AuthGateway {
-  handle: (request: Request, peerAddress?: string) => Promise<Response>
+  handle: (
+    request: Request,
+    peerAddress?: string,
+    rawRequestTarget?: string
+  ) => Promise<Response>
 }
 
 export const createAuthGateway = ({
   auth,
   client,
   environment,
+  phase7Facade,
+  technicalRateLimiter,
   delay = sleep,
   now = Date.now
 }: CreateAuthGatewayDependencies): AuthGateway => {
+  const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
+  if (
+    technicalMode ? !phase7Facade || !technicalRateLimiter : !auth || !client
+  ) {
+    throw new Error('Auth gateway runtime dependencies do not match its mode.')
+  }
   const clientIpAuthority = createClientIpAuthority(
     environment.AUTH_TRUSTED_PROXY_CIDRS
   )
 
   return {
-    handle: async (incomingRequest, peerAddress) => {
+    handle: async (incomingRequest, peerAddress, rawRequestTarget) => {
       const request = clientIpAuthority.apply(incomingRequest, peerAddress)
-      const pathname = new URL(request.url).pathname
+      const requestUrl = new URL(request.url)
+      const pathname = requestUrl.pathname
       const startedAt = now()
+
+      const rawPathname = getRawRequestPathname(
+        rawRequestTarget ?? incomingRequest.url
+      )
+      if (rawPathname === null || rawPathname !== pathname) {
+        throw new AuthGatewayError(404, 'AUTH_ROUTE_NOT_FOUND')
+      }
 
       if (request.method === 'OPTIONS') {
         const origin = request.headers.get('Origin')
@@ -382,48 +642,82 @@ export const createAuthGateway = ({
           throw new AuthGatewayError(404, 'AUTH_ROUTE_NOT_FOUND')
         }
 
-        return new Response(null, {
-          status: 204,
-          headers: {
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Headers': 'Content-Type, Idempotency-Key',
-            'Access-Control-Allow-Methods': requestedMethod,
-            'Access-Control-Allow-Origin': origin,
-            Vary: 'Origin'
-          }
-        })
+        return appendPrivateNoStore(
+          new Response(null, {
+            status: 204,
+            headers: {
+              'Access-Control-Allow-Credentials': 'true',
+              'Access-Control-Allow-Headers': 'Content-Type',
+              'Access-Control-Allow-Methods': requestedMethod,
+              'Access-Control-Allow-Origin': origin,
+              Vary: 'Origin'
+            }
+          })
+        )
       }
 
       if (!isAllowedOperation(request.method, pathname)) {
         throw new AuthGatewayError(404, 'AUTH_ROUTE_NOT_FOUND')
       }
+      if (technicalMode && request.url.includes('?')) {
+        throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')
+      }
 
       let forwardedRequest = request
+      let technicalPayload: Record<string, unknown> | undefined
       let sessionBeforePasswordChange: unknown
 
       if (request.method === 'POST') {
         assertTrustedWriteRequest(request, environment.TRUSTED_ORIGINS)
-        forwardedRequest = await withGatewayRequestPolicy(
-          request,
-          pathname,
-          environment
-        )
+        if (technicalMode) {
+          technicalPayload = await readLimitedJsonBody(
+            request,
+            MAX_TECHNICAL_AUTH_BODY_BYTES
+          )
+          const strictLimit = new Set([
+            '/api/auth/request-password-reset',
+            '/api/auth/send-verification-email'
+          ]).has(pathname)
+          const credentialLimit = new Set([
+            '/api/auth/sign-in/email',
+            '/api/auth/sign-up/email'
+          ]).has(pathname)
+          await technicalRateLimiter!.consume({
+            clientIp:
+              request.headers.get('x-nihongo-client-ip') ?? 'unresolved',
+            max: strictLimit ? 3 : credentialLimit ? 5 : 100,
+            operation: `auth:${pathname}`,
+            windowMs: 60_000
+          })
+        } else {
+          forwardedRequest = await withGatewayRequestPolicy(
+            request,
+            pathname,
+            environment
+          )
+        }
       }
 
-      if (pathname === '/api/auth/change-password') {
-        sessionBeforePasswordChange = await auth.api.getSession({
+      if (!technicalMode && pathname === '/api/auth/change-password') {
+        sessionBeforePasswordChange = await auth!.api.getSession({
           headers: request.headers
         })
       }
 
-      let response = await auth.handler(forwardedRequest)
+      let response = technicalMode
+        ? await phase7Facade!.handle(request, pathname, technicalPayload ?? {})
+        : await auth!.handler(forwardedRequest)
 
-      if (pathname === '/api/auth/change-password' && response.ok) {
+      if (
+        !technicalMode &&
+        pathname === '/api/auth/change-password' &&
+        response.ok
+      ) {
         const session = internalSessionSchema.safeParse(
           sessionBeforePasswordChange
         )
         if (session.success) {
-          await client.session.deleteMany({
+          await client!.session.deleteMany({
             where: { userId: session.data.user.id }
           })
         }
@@ -440,14 +734,17 @@ export const createAuthGateway = ({
       response = appendRateLimitRetryAfter(response)
       if (
         ENUMERATION_PROTECTED_PATHS.has(pathname) &&
-        environment.NODE_ENV === 'production'
+        (environment.NODE_ENV === 'production' ||
+          (technicalMode && pathname === '/api/auth/request-password-reset'))
       ) {
         const remaining = PASSWORD_RESET_RESPONSE_FLOOR_MS - (now() - startedAt)
         if (remaining > 0) {
           await delay(remaining)
         }
       }
-      return appendDevelopmentCors(response, request, environment)
+      return appendPrivateNoStore(
+        appendDevelopmentCors(response, request, environment)
+      )
     }
   }
 }

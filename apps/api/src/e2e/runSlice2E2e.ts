@@ -19,6 +19,11 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
+import { assertHistoricalPrePhase7Runner } from '../../../../scripts/assert-historical-pre-phase7-runner.mjs'
+
+assertHistoricalPrePhase7Runner(
+  fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
+)
 
 const API_PORT = 3001
 const WEB_PORT = 5173

@@ -4,14 +4,23 @@ import { serve } from '@hono/node-server'
 import { createApiApp } from './app/createApp.js'
 import { createAuthGateway } from './auth/authGateway.js'
 import { createAuthRuntime } from './auth/createAuth.js'
+import { createPhase7AuthFacade } from './auth/phase7AuthFacade.js'
 import { createAuthEmailDispatcher } from './auth/emailDispatcher.js'
 import { createAuthEmailPort } from './auth/emailPort.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
-import { createPrincipalService } from './auth/principalService.js'
+import {
+  createPhase7PrincipalService,
+  createPrincipalService
+} from './auth/principalService.js'
 import { parseApiEnvironment } from './config/env.js'
 import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
 import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
-import { createDatabaseRuntime } from './db/database.js'
+import {
+  createDatabaseRuntime,
+  createRoleDatabaseRuntime
+} from './db/database.js'
+import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
+import { attestPhase7RuntimeRoles } from './db/phase7RuntimeRoleAttestation.js'
 import { stopServerGracefully } from './lifecycle/gracefulShutdown.js'
 import { createShutdownCoordinator } from './lifecycle/shutdownCoordinator.js'
 import { createJsonLogger } from './observability/logger.js'
@@ -42,6 +51,12 @@ import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wron
 import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTargetedReviewService.js'
 
 const environment = parseApiEnvironment(process.env)
+assertSafeAdminCmsDatabase({
+  adminCmsMode: environment.ADMIN_CMS_MODE,
+  nodeEnvironment: environment.NODE_ENV,
+  databaseUrl: environment.DATABASE_URL,
+  productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+})
 const practiceEnvironment = parsePracticeRuntimeEnvironment(
   process.env,
   environment.NODE_ENV
@@ -53,11 +68,70 @@ const compatibilityAuthority =
         practiceEnvironment.authorityFile ?? ''
       )
     : undefined
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
+const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+if (technicalMode && !authGatewayDatabaseUrl) {
+  throw new Error('Technical auth gateway DB URL is unavailable.')
+}
+if (technicalMode) {
+  assertSafeAdminCmsDatabase({
+    adminCmsMode: environment.ADMIN_CMS_MODE,
+    nodeEnvironment: environment.NODE_ENV,
+    databaseUrl: authGatewayDatabaseUrl,
+    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+  })
+}
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  technicalMode
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : { migrationProfile: 'pre-phase7' }
+)
+const authGatewayDatabase = technicalMode
+  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  : undefined
+const checkDatabaseReadiness = async (): Promise<void> => {
+  await database.checkReadiness()
+  if (!technicalMode) {
+    // The activation transaction revokes this legacy table surface. A new
+    // disabled-mode process must therefore fail before opening its listener
+    // instead of starting with a drained old-binary credential.
+    await database.client.$queryRawUnsafe('SELECT 1 FROM "User" LIMIT 0')
+    return
+  }
+  if (authGatewayDatabase && authGatewayDatabaseUrl) {
+    await attestPhase7RuntimeRoles({
+      application: {
+        client: database.client,
+        connectionString: environment.DATABASE_URL,
+        expectedRole: 'nihongo_app'
+      },
+      authGateway: {
+        client: authGatewayDatabase.client,
+        connectionString: authGatewayDatabaseUrl,
+        expectedRole: 'nihongo_auth_gateway'
+      }
+    })
+    await Promise.all([
+      database.client.$queryRawUnsafe(
+        'SELECT "phase7_require_runtime_ready"()'
+      ),
+      authGatewayDatabase.client.$queryRawUnsafe(
+        'SELECT "phase7_require_runtime_ready"()'
+      )
+    ])
+  }
+}
+const disconnectDatabases = async (): Promise<void> => {
+  await Promise.all([
+    database.disconnect(),
+    authGatewayDatabase?.disconnect() ?? Promise.resolve()
+  ])
+}
 const practiceRuntimeGate = createPracticeRuntimeGate({
   runtime: practiceEnvironment.runtime,
   ...(compatibilityAuthority ? { authority: compatibilityAuthority } : {}),
-  checkDatabaseReadiness: database.checkReadiness,
+  checkDatabaseReadiness,
   checkV1Compatibility: database.checkV1Compatibility
 })
 const emailDispatcher = createAuthEmailDispatcher({
@@ -65,19 +139,36 @@ const emailDispatcher = createAuthEmailDispatcher({
   onDeliveryFailure: (purpose, reason) =>
     logger.warn('auth.email.delivery_failed', { purpose, reason })
 })
-const auth = createAuthRuntime({
-  client: database.client,
-  emailDispatcher,
-  environment
-})
+const auth = technicalMode
+  ? undefined
+  : createAuthRuntime({
+      client: database.client,
+      emailDispatcher,
+      environment
+    })
+const phase7AuthFacade =
+  technicalMode && authGatewayDatabase
+    ? createPhase7AuthFacade({
+        client: authGatewayDatabase.client,
+        emailDispatcher,
+        environment
+      })
+    : undefined
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = createPrincipalService({
-  authApi: auth.api,
-  client: database.client
-})
+const principalService = technicalMode
+  ? createPhase7PrincipalService({
+      client: database.client,
+      isProduction: environment.NODE_ENV === 'production',
+      refreshClient: authGatewayDatabase!.client,
+      secret: environment.BETTER_AUTH_SECRET
+    })
+  : createPrincipalService({
+      authApi: auth!.api,
+      client: database.client
+    })
 const questionReader = createQuestionService(
   createPrismaQuestionRepository(database.client)
 )
@@ -119,7 +210,16 @@ const app = createApiApp({
   assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
   auth: {
     environment,
-    gateway: createAuthGateway({ auth, client: database.client, environment }),
+    gateway: createAuthGateway({
+      ...(auth ? { auth, client: database.client } : {}),
+      environment,
+      ...(phase7AuthFacade
+        ? {
+            phase7Facade: phase7AuthFacade,
+            technicalRateLimiter: applicationRateLimiter
+          }
+        : {})
+    }),
     guestPrincipalService,
     principalService
   },
@@ -148,7 +248,7 @@ const app = createApiApp({
 
 const server = await startApiListener({
   checkReadiness: practiceRuntimeGate.checkReadiness,
-  disconnectDatabase: database.disconnect,
+  disconnectDatabase: disconnectDatabases,
   createListener: () =>
     serve({
       fetch: app.fetch,
@@ -172,7 +272,7 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     server,
     abortBackgroundTasks: emailDispatcher.abort,
     drainBackgroundTasks: emailDispatcher.drain,
-    disconnectDatabase: database.disconnect
+    disconnectDatabase: disconnectDatabases
   })
   logger.info('api.shutdown.completed', { signal })
 }

@@ -6,6 +6,7 @@ import {
   assertMigrationCompatibility,
   createSingleFlightReadiness,
   loadExpectedMigrationManifest,
+  selectExpectedMigrationManifest,
   type AppliedMigration
 } from './readiness.js'
 
@@ -28,9 +29,9 @@ describe('database readiness', () => {
   it('repository migration SQL에서 Prisma checksum manifest를 만든다', () => {
     const manifest = loadExpectedMigrationManifest(migrationDirectory)
 
-    expect(manifest).toHaveLength(27)
+    expect(manifest).toHaveLength(29)
     expect(manifest.at(-1)?.name).toBe(
-      '20260821152000_phase5_review_center_foundation'
+      '20260827101000_phase7_admin_cms_foundation'
     )
     expect(manifest).toContainEqual({
       name: completeMigration.migrationName,
@@ -39,6 +40,27 @@ describe('database readiness', () => {
     expect(manifest.map(({ name }) => name)).toEqual(
       manifest.map(({ name }) => name).toSorted()
     )
+  })
+
+  it('disabled old-binary view는 immutable 첫 27개만, technical은 전체를 요구한다', () => {
+    const manifest = loadExpectedMigrationManifest(migrationDirectory)
+    const legacy = selectExpectedMigrationManifest(manifest, 'pre-phase7')
+
+    expect(legacy).toHaveLength(27)
+    expect(legacy.at(-1)?.name).toBe(
+      '20260821152000_phase5_review_center_foundation'
+    )
+    expect(selectExpectedMigrationManifest(manifest, 'current')).toStrictEqual(
+      manifest
+    )
+  })
+
+  it('pre-Phase 7 boundary가 27번째가 아니면 fail closed한다', () => {
+    const manifest = loadExpectedMigrationManifest(migrationDirectory)
+
+    expect(() =>
+      selectExpectedMigrationManifest(manifest.slice(1), 'pre-phase7')
+    ).toThrow('Repository pre-Phase 7 migration boundary is invalid.')
   })
 
   it('완료된 migration과 repository manifest가 정확히 일치해야 한다', () => {

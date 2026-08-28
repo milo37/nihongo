@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { Client } from 'pg'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { assertHistoricalPrePhase7Runner } from '../../../../scripts/assert-historical-pre-phase7-runner.mjs'
+
+assertHistoricalPrePhase7Runner(
+  fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
+)
 
 const SCHEMA_PATTERN = /^phase4_slice3_integration_[0-9]+_[a-f0-9]{8}_test$/
 const repositoryRoot = path.resolve(

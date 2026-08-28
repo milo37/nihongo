@@ -1,4 +1,9 @@
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
+const PHASE7_STARTUP_ROLES = new Set([
+  'nihongo_app',
+  'nihongo_auth_gateway',
+  'nihongo_phase7_migration'
+])
 
 export const getPostgresSchema = (
   connectionString: string
@@ -23,6 +28,18 @@ export const getPostgresSchema = (
 }
 
 export const createPostgresStartupOptions = (
-  schema: string | undefined
-): string =>
-  schema ? `-c search_path=${schema} -c TimeZone=UTC` : '-c TimeZone=UTC'
+  schema: string | undefined,
+  startupRole?: string
+): string => {
+  if (startupRole && !PHASE7_STARTUP_ROLES.has(startupRole)) {
+    throw new Error('PostgreSQL startup role is not an approved Phase 7 role.')
+  }
+
+  return [
+    schema ? `-c search_path=${schema}` : undefined,
+    '-c TimeZone=UTC',
+    startupRole ? `-c role=${startupRole}` : undefined
+  ]
+    .filter((option): option is string => option !== undefined)
+    .join(' ')
+}

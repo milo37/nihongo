@@ -39,6 +39,9 @@ export interface WrongNoteReadRecord {
   readonly correctStreak: number
   readonly currentPublishedVersionStatus:
     | 'DRAFT'
+    | 'IN_REVIEW'
+    | 'CHANGES_REQUESTED'
+    | 'APPROVED'
     | 'PUBLISHED'
     | 'RETIRED'
     | null

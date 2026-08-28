@@ -22,6 +22,24 @@ const environment = {
   AUTH_TRUSTED_PROXY_CIDRS: ['127.0.0.1/32', '::1/128']
 } satisfies ApiEnvironment
 
+const technicalAuthPaths = [
+  '/api/auth/change-password',
+  '/api/auth/request-password-reset',
+  '/api/auth/reset-password',
+  '/api/auth/send-verification-email',
+  '/api/auth/sign-in/email',
+  '/api/auth/sign-out',
+  '/api/auth/sign-up/email',
+  '/api/auth/verify-email'
+] as const
+
+const createSizedJsonBody = (byteLength: number): string => {
+  const prefix = '{"padding":"'
+  const suffix = '"}'
+  const framingBytes = new TextEncoder().encode(prefix + suffix).byteLength
+  return `${prefix}${'a'.repeat(byteLength - framingBytes)}${suffix}`
+}
+
 const createClient = () => {
   const deleteMany = vi.fn().mockResolvedValue({ count: 1 })
   return {
@@ -31,6 +49,233 @@ const createClient = () => {
 }
 
 describe('auth gateway', () => {
+  it('technical mode는 Better Auth handler 대신 owned facade에 원본 strict payload를 전달한다', async () => {
+    const handle = vi.fn().mockResolvedValue(Response.json({ success: true }))
+    const gateway = createAuthGateway({
+      delay: vi.fn().mockResolvedValue(undefined),
+      environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+      phase7Facade: { handle },
+      technicalRateLimiter: { consume: vi.fn().mockResolvedValue(undefined) }
+    })
+    const payload = {
+      email: 'user@example.com',
+      redirectTo: 'https://attacker.example'
+    }
+    const response = await gateway.handle(
+      new Request('http://localhost:3001/api/auth/request-password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'http://localhost:5173'
+        },
+        body: JSON.stringify(payload)
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(handle).toHaveBeenCalledOnce()
+    expect(handle.mock.calls[0]?.[2]).toEqual(payload)
+  })
+
+  it.each(technicalAuthPaths)(
+    'technical %s body는 exact 4096 bytes까지 facade에 전달한다',
+    async (pathname) => {
+      const handle = vi.fn().mockResolvedValue(Response.json({ success: true }))
+      const consume = vi.fn().mockResolvedValue(undefined)
+      const gateway = createAuthGateway({
+        delay: vi.fn().mockResolvedValue(undefined),
+        environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+        phase7Facade: { handle },
+        technicalRateLimiter: { consume }
+      })
+      const body = createSizedJsonBody(4_096)
+      expect(new TextEncoder().encode(body)).toHaveLength(4_096)
+
+      const response = await gateway.handle(
+        new Request(`http://localhost:3001${pathname}`, {
+          method: 'POST',
+          headers: {
+            'Content-Length': '4096',
+            'Content-Type': 'application/json',
+            Origin: 'http://localhost:5173'
+          },
+          body
+        })
+      )
+
+      expect(response.status).toBe(200)
+      expect(consume).toHaveBeenCalledOnce()
+      expect(handle).toHaveBeenCalledOnce()
+      expect(handle.mock.calls[0]?.[1]).toBe(pathname)
+      expect(handle.mock.calls[0]?.[2]).toEqual({
+        padding: 'a'.repeat(4_082)
+      })
+    }
+  )
+
+  it.each(technicalAuthPaths)(
+    'technical %s declared 4097 bytes는 facade·rate write 전에 거부한다',
+    async (pathname) => {
+      const handle = vi.fn()
+      const consume = vi.fn()
+      const cancel = vi.fn()
+      const body = new ReadableStream<Uint8Array>({ cancel })
+      const gateway = createAuthGateway({
+        environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+        phase7Facade: { handle },
+        technicalRateLimiter: { consume }
+      })
+
+      await expect(
+        gateway.handle(
+          new Request(`http://localhost:3001${pathname}`, {
+            method: 'POST',
+            headers: {
+              'Content-Length': '4097',
+              'Content-Type': 'application/json',
+              Origin: 'http://localhost:5173'
+            },
+            body,
+            duplex: 'half'
+          } as RequestInit & { duplex: 'half' })
+        )
+      ).rejects.toMatchObject({ code: 'REQUEST_TOO_LARGE', status: 413 })
+      expect(cancel).toHaveBeenCalledOnce()
+      expect(consume).not.toHaveBeenCalled()
+      expect(handle).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(technicalAuthPaths)(
+    'technical %s chunked 4097 bytes는 facade·rate write 전에 거부한다',
+    async (pathname) => {
+      const handle = vi.fn()
+      const consume = vi.fn()
+      const cancel = vi.fn()
+      const body = new ReadableStream<Uint8Array>({
+        start: (controller) => {
+          controller.enqueue(new Uint8Array(4_097))
+        },
+        cancel
+      })
+      const gateway = createAuthGateway({
+        environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+        phase7Facade: { handle },
+        technicalRateLimiter: { consume }
+      })
+
+      await expect(
+        gateway.handle(
+          new Request(`http://localhost:3001${pathname}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Origin: 'http://localhost:5173'
+            },
+            body,
+            duplex: 'half'
+          } as RequestInit & { duplex: 'half' })
+        )
+      ).rejects.toMatchObject({ code: 'REQUEST_TOO_LARGE', status: 413 })
+      expect(cancel).toHaveBeenCalledOnce()
+      expect(consume).not.toHaveBeenCalled()
+      expect(handle).not.toHaveBeenCalled()
+    }
+  )
+
+  it('legacy mode는 기존 32 KiB cap을 유지한다', async () => {
+    const handler = vi.fn().mockResolvedValue(Response.json({ success: true }))
+    const { client } = createClient()
+    const gateway = createAuthGateway({
+      auth: {
+        handler,
+        api: { getSession: vi.fn().mockResolvedValue(null) }
+      },
+      client,
+      environment
+    })
+    const body = createSizedJsonBody(4_097)
+
+    const response = await gateway.handle(
+      new Request('http://localhost:3001/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: {
+          'Content-Length': '4097',
+          'Content-Type': 'application/json',
+          Origin: 'http://localhost:5173'
+        },
+        body
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('technical mode의 모든 auth POST query alias를 body·rate·facade 전에 거부한다', async () => {
+    const handle = vi.fn()
+    const consume = vi.fn()
+    const gateway = createAuthGateway({
+      environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+      phase7Facade: { handle },
+      technicalRateLimiter: { consume }
+    })
+
+    await expect(
+      gateway.handle(
+        new Request(
+          'http://localhost:3001/api/auth/reset-password?token=alias',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Origin: 'http://localhost:5173'
+            },
+            body: JSON.stringify({
+              token: 'body-token',
+              newPassword: 'password-password'
+            })
+          }
+        )
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_AUTH_PAYLOAD', status: 400 })
+    expect(consume).not.toHaveBeenCalled()
+    expect(handle).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    '/api/auth/foo/../reset-password',
+    '/api/auth/foo/%2e%2e/reset-password'
+  ])(
+    'adapter raw pathname alias %s를 body·facade 전에 거부한다',
+    async (rawPath) => {
+      const handle = vi.fn()
+      const consume = vi.fn()
+      const gateway = createAuthGateway({
+        environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+        phase7Facade: { handle },
+        technicalRateLimiter: { consume }
+      })
+
+      await expect(
+        gateway.handle(
+          new Request('http://localhost:3001/api/auth/reset-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Origin: 'http://localhost:5173'
+            },
+            body: '{}'
+          }),
+          undefined,
+          rawPath
+        )
+      ).rejects.toMatchObject({ code: 'AUTH_ROUTE_NOT_FOUND', status: 404 })
+      expect(consume).not.toHaveBeenCalled()
+      expect(handle).not.toHaveBeenCalled()
+    }
+  )
+
   it('성공 JSON에서 재귀적으로 credential을 제거한다', async () => {
     const response = await sanitizeAuthResponse(
       Response.json({
@@ -86,7 +331,82 @@ describe('auth gateway', () => {
     expect(response.headers.get('Access-Control-Expose-Headers')).toBe(
       'Retry-After, X-Request-Id'
     )
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
   })
+
+  it('technical auth preflight는 Content-Type만 exact하게 허용한다', async () => {
+    const handle = vi.fn()
+    const consume = vi.fn()
+    const gateway = createAuthGateway({
+      environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+      phase7Facade: { handle },
+      technicalRateLimiter: { consume }
+    })
+
+    const response = await gateway.handle(
+      new Request('http://localhost:3001/api/auth/sign-in/email', {
+        method: 'OPTIONS',
+        headers: {
+          'Access-Control-Request-Headers': 'Content-Type, Idempotency-Key',
+          'Access-Control-Request-Method': 'POST',
+          Origin: 'http://localhost:5173'
+        }
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(response.headers.get('Access-Control-Allow-Credentials')).toBe(
+      'true'
+    )
+    expect(response.headers.get('Access-Control-Allow-Headers')).toBe(
+      'Content-Type'
+    )
+    expect(response.headers.get('Access-Control-Allow-Methods')).toBe('POST')
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+      'http://localhost:5173'
+    )
+    expect(response.headers.get('Vary')).toBe('Origin')
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(response.headers.get('Access-Control-Allow-Headers')).not.toContain(
+      'Idempotency-Key'
+    )
+    expect(consume).not.toHaveBeenCalled()
+    expect(handle).not.toHaveBeenCalled()
+  })
+
+  it.each([200, 400, 503])(
+    'technical auth %i 응답을 private no-store로 고정한다',
+    async (status) => {
+      const gateway = createAuthGateway({
+        environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+        phase7Facade: {
+          handle: vi
+            .fn()
+            .mockResolvedValue(Response.json({ code: 'fixture' }, { status }))
+        },
+        technicalRateLimiter: {
+          consume: vi.fn().mockResolvedValue(undefined)
+        }
+      })
+
+      const response = await gateway.handle(
+        new Request('http://localhost:3001/api/auth/sign-in/email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Origin: 'http://localhost:5173'
+          },
+          body: JSON.stringify({
+            email: 'user@example.com',
+            password: 'password-password'
+          })
+        })
+      )
+
+      expect(response.status).toBe(status)
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+    }
+  )
 
   it('미승인 경로·origin·content type을 handler 전에 거부한다', async () => {
     const handler = vi.fn()
@@ -134,6 +454,71 @@ describe('auth gateway', () => {
       )
     ).rejects.toMatchObject({ status: 415 })
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('Origin과 Sec-Fetch-Site의 exact positive 4-case만 허용한다', async () => {
+    const handler = vi.fn().mockResolvedValue(Response.json({ success: true }))
+    const { client } = createClient()
+    const gateway = createAuthGateway({
+      auth: {
+        handler,
+        api: { getSession: vi.fn().mockResolvedValue(null) }
+      },
+      client,
+      environment
+    })
+
+    const positiveHeaders = [
+      { Origin: 'http://localhost:5173' },
+      {
+        Origin: 'http://localhost:5173',
+        'Sec-Fetch-Site': 'same-origin'
+      },
+      {
+        Origin: 'http://localhost:5173',
+        'Sec-Fetch-Site': 'same-site'
+      },
+      { 'Sec-Fetch-Site': 'same-origin' }
+    ]
+    for (const headers of positiveHeaders) {
+      const response = await gateway.handle(
+        new Request('http://localhost:3001/api/auth/sign-out', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: '{}'
+        })
+      )
+      expect(response.status).toBe(200)
+    }
+
+    const negativeHeaders = [
+      { Origin: 'http://localhost:5173', 'Sec-Fetch-Site': 'cross-site' },
+      { Origin: 'http://localhost:5173', 'Sec-Fetch-Site': 'none' },
+      { Origin: 'http://localhost:5173', 'Sec-Fetch-Site': 'unknown' },
+      { Origin: 'http://localhost:5173', 'Sec-Fetch-Site': 'Same-Origin' },
+      {
+        Origin: 'http://localhost:5173',
+        'Sec-Fetch-Site': 'same-origin, same-origin'
+      },
+      {},
+      { 'Sec-Fetch-Site': 'same-site' },
+      { 'Sec-Fetch-Site': 'cross-site' },
+      { 'Sec-Fetch-Site': 'none' },
+      { 'Sec-Fetch-Site': 'unknown' },
+      { Origin: 'https://attacker.example', 'Sec-Fetch-Site': 'same-origin' }
+    ]
+    for (const headers of negativeHeaders) {
+      await expect(
+        gateway.handle(
+          new Request('http://localhost:3001/api/auth/sign-out', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: '{}'
+          })
+        )
+      ).rejects.toMatchObject({ code: 'UNTRUSTED_ORIGIN', status: 403 })
+    }
+    expect(handler).toHaveBeenCalledTimes(positiveHeaders.length)
   })
 
   it('native 429 응답에 Retry-After가 없으면 gateway 기본값을 제공한다', async () => {
@@ -291,6 +676,117 @@ describe('auth gateway', () => {
       ).rejects.toMatchObject({ code: 'INVALID_JSON', status: 400 })
     }
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    '{"outer":{"key":1,"key":2}}',
+    '{"outer":[{"key":1,"\\u006bey":2}]}',
+    '{"key":1,"\\u006bey":2}'
+  ])(
+    '모든 nesting의 decoded duplicate member를 400으로 거부한다',
+    async (body) => {
+      const handler = vi.fn()
+      const { client } = createClient()
+      const gateway = createAuthGateway({
+        auth: {
+          handler,
+          api: { getSession: vi.fn().mockResolvedValue(null) }
+        },
+        client,
+        environment
+      })
+
+      await expect(
+        gateway.handle(
+          new Request('http://localhost:3001/api/auth/sign-in/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Origin: 'http://localhost:5173'
+            },
+            body
+          })
+        )
+      ).rejects.toMatchObject({ code: 'INVALID_JSON', status: 400 })
+      expect(handler).not.toHaveBeenCalled()
+    }
+  )
+
+  it('JSON media charset과 raw framing을 exact하게 검증한다', async () => {
+    const handler = vi.fn().mockResolvedValue(Response.json({ success: true }))
+    const { client } = createClient()
+    const gateway = createAuthGateway({
+      auth: {
+        handler,
+        api: { getSession: vi.fn().mockResolvedValue(null) }
+      },
+      client,
+      environment
+    })
+    const url = 'http://localhost:3001/api/auth/sign-out'
+    const baseHeaders = { Origin: 'http://localhost:5173' }
+
+    for (const contentType of [
+      'application/json; charset=iso-8859-1',
+      'application/json; profile=auth',
+      'application/json; charset=utf-8; charset=utf-8'
+    ]) {
+      await expect(
+        gateway.handle(
+          new Request(url, {
+            method: 'POST',
+            headers: { ...baseHeaders, 'Content-Type': contentType },
+            body: '{}'
+          })
+        )
+      ).rejects.toMatchObject({ code: 'INVALID_CONTENT_TYPE', status: 415 })
+    }
+
+    for (const contentEncoding of ['gzip', 'identity, gzip']) {
+      await expect(
+        gateway.handle(
+          new Request(url, {
+            method: 'POST',
+            headers: {
+              ...baseHeaders,
+              'Content-Encoding': contentEncoding,
+              'Content-Type': 'application/json'
+            },
+            body: '{}'
+          })
+        )
+      ).rejects.toMatchObject({ code: 'INVALID_REQUEST', status: 400 })
+    }
+
+    for (const contentLength of ['-1', '1.5', '2, 2', '3']) {
+      await expect(
+        gateway.handle(
+          new Request(url, {
+            method: 'POST',
+            headers: {
+              ...baseHeaders,
+              'Content-Length': contentLength,
+              'Content-Type': 'application/json'
+            },
+            body: '{}'
+          })
+        )
+      ).rejects.toMatchObject({ code: 'INVALID_REQUEST', status: 400 })
+    }
+
+    const accepted = await gateway.handle(
+      new Request(url, {
+        method: 'POST',
+        headers: {
+          ...baseHeaders,
+          'Content-Encoding': 'identity',
+          'Content-Length': '2',
+          'Content-Type': 'application/json; charset=UTF-8'
+        },
+        body: '{}'
+      })
+    )
+    expect(accepted.status).toBe(200)
   })
 
   it('chunked body가 제한을 넘으면 stream을 취소하고 413으로 거부한다', async () => {
@@ -506,6 +1002,86 @@ describe('auth gateway', () => {
       })
     )
     expect(delay).toHaveBeenCalledWith(5_250)
+  })
+
+  it.each([
+    { arm: 'known', internalElapsed: 1_250 },
+    { arm: 'missing/noneligible', internalElapsed: 375 }
+  ])(
+    'production password-reset $arm 내부 비용을 동일 floor로 맞춘다',
+    async ({ internalElapsed }) => {
+      const delay = vi.fn().mockResolvedValue(undefined)
+      const { client } = createClient()
+      const now = vi
+        .fn()
+        .mockReturnValueOnce(0)
+        .mockReturnValueOnce(internalElapsed)
+      const gateway = createAuthGateway({
+        auth: {
+          handler: vi.fn().mockResolvedValue(Response.json({ success: true })),
+          api: { getSession: vi.fn().mockResolvedValue(null) }
+        },
+        client,
+        delay,
+        environment: {
+          ...environment,
+          NODE_ENV: 'production',
+          BETTER_AUTH_URL: 'https://nihongo.example.com',
+          TRUSTED_ORIGINS: ['https://nihongo.example.com']
+        },
+        now
+      })
+
+      const response = await gateway.handle(
+        new Request(
+          'https://nihongo.example.com/api/auth/request-password-reset',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Origin: 'https://nihongo.example.com'
+            },
+            body: JSON.stringify({ email: 'user@example.com' })
+          }
+        )
+      )
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+      expect(delay).toHaveBeenCalledExactlyOnceWith(5_250 - internalElapsed)
+    }
+  )
+
+  it('technical password-reset도 내부 비용과 delay 합을 5250ms로 고정한다', async () => {
+    const internalElapsed = 700
+    const delay = vi.fn().mockResolvedValue(undefined)
+    const now = vi
+      .fn()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(internalElapsed)
+    const gateway = createAuthGateway({
+      delay,
+      environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
+      now,
+      phase7Facade: {
+        handle: vi.fn().mockResolvedValue(Response.json({ success: true }))
+      },
+      technicalRateLimiter: { consume: vi.fn().mockResolvedValue(undefined) }
+    })
+
+    const response = await gateway.handle(
+      new Request('http://localhost:3001/api/auth/request-password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'http://localhost:5173'
+        },
+        body: JSON.stringify({ email: 'user@example.com' })
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(delay).toHaveBeenCalledExactlyOnceWith(5_250 - internalElapsed)
   })
 
   it('error type에 민감한 입력을 포함하지 않는다', () => {

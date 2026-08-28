@@ -5,6 +5,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-nihongo_dev}
       POSTGRES_USER: ${POSTGRES_USER:-nihongo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PHASE7_LOCAL_PROVISIONING: '0'
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
     healthcheck:
@@ -16,5 +17,41 @@ services:
       - nihongo-postgres-data:/var/lib/postgresql
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
 
+  # Persistent local Phase 7 roles intentionally live outside the disposable
+  # integration-runner cluster. The runner rejects pre-existing wrapper logins.
+  postgres-phase7:
+    profiles: ['phase7-local']
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: nihongo_dev
+      POSTGRES_USER: ${POSTGRES_USER:-nihongo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PHASE7_LOCAL_PROVISIONING: '1'
+      PHASE7_TEST_MIGRATION_PASSWORD: ${PHASE7_TEST_MIGRATION_PASSWORD:-}
+      PHASE7_TEST_APP_PASSWORD: ${PHASE7_TEST_APP_PASSWORD:-}
+      PHASE7_TEST_AUTH_GATEWAY_PASSWORD: ${PHASE7_TEST_AUTH_GATEWAY_PASSWORD:-}
+      PHASE7_TEST_ERASURE_WORKER_PASSWORD: ${PHASE7_TEST_ERASURE_WORKER_PASSWORD:-}
+      PHASE7_TEST_LEGACY_APP_PASSWORD: ${PHASE7_TEST_LEGACY_APP_PASSWORD:-}
+      PHASE7_DEVELOPMENT_MIGRATION_PASSWORD: ${PHASE7_DEVELOPMENT_MIGRATION_PASSWORD:-}
+      PHASE7_DEVELOPMENT_APP_PASSWORD: ${PHASE7_DEVELOPMENT_APP_PASSWORD:-}
+      PHASE7_DEVELOPMENT_AUTH_GATEWAY_PASSWORD: ${PHASE7_DEVELOPMENT_AUTH_GATEWAY_PASSWORD:-}
+      PHASE7_DEVELOPMENT_ERASURE_WORKER_PASSWORD: ${PHASE7_DEVELOPMENT_ERASURE_WORKER_PASSWORD:-}
+      PHASE7_DEVELOPMENT_LEGACY_APP_PASSWORD: ${PHASE7_DEVELOPMENT_LEGACY_APP_PASSWORD:-}
+    ports:
+      - '127.0.0.1:${PHASE7_POSTGRES_PORT:-55433}:5432'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'test -f "$${PGDATA}/.phase7-local-provisioned" && pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}'
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - nihongo-phase7-postgres-data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+
 volumes:
   nihongo-postgres-data:
+  nihongo-phase7-postgres-data:

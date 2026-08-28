@@ -19,6 +19,10 @@ export interface AppliedMigration {
 const DEFAULT_MIGRATIONS_DIRECTORY = fileURLToPath(
   new URL('../../prisma/migrations/', import.meta.url)
 )
+const FIRST_PHASE7_MIGRATION = '20260827100000_phase7_admin_cms_enums'
+const PRE_PHASE7_MIGRATION_COUNT = 27
+
+export type MigrationCompatibilityProfile = 'pre-phase7' | 'current'
 
 const calculateChecksum = (sql: Buffer): string =>
   createHash('sha256').update(sql).digest('hex')
@@ -41,6 +45,21 @@ export const loadExpectedMigrationManifest = (
   }
 
   return migrations
+}
+
+export const selectExpectedMigrationManifest = (
+  manifest: readonly ExpectedMigration[],
+  profile: MigrationCompatibilityProfile
+): readonly ExpectedMigration[] => {
+  if (profile === 'current') return manifest
+
+  const firstPhase7Index = manifest.findIndex(
+    ({ name }) => name === FIRST_PHASE7_MIGRATION
+  )
+  if (firstPhase7Index !== PRE_PHASE7_MIGRATION_COUNT) {
+    throw new Error('Repository pre-Phase 7 migration boundary is invalid.')
+  }
+  return manifest.slice(0, firstPhase7Index)
 }
 
 export const assertMigrationCompatibility = (

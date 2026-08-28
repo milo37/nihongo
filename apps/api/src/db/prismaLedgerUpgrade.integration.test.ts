@@ -56,7 +56,9 @@ const FORWARD_MIGRATIONS = [
   '20260821130000_phase4_bookmarks',
   '20260821150000_phase4_result_retry',
   '20260821151000_phase5_targeted_review_operation',
-  '20260821152000_phase5_review_center_foundation'
+  '20260821152000_phase5_review_center_foundation',
+  '20260827100000_phase7_admin_cms_enums',
+  '20260827101000_phase7_admin_cms_foundation'
 ] as const
 
 const environment = parseApiEnvironment(process.env)
@@ -191,7 +193,10 @@ describe('Prisma migration ledger upgrade', () => {
          JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
          WHERE namespace.nspname = $1
            AND relation.relname = 'QuestionVersion'
-           AND trigger.tgname LIKE 'QuestionVersion_validate%'
+           AND trigger.tgname IN (
+             'QuestionVersion_validate_active_admin_creator',
+             'QuestionVersion_validate_change'
+           )
            AND NOT trigger.tgisinternal
          ORDER BY trigger.tgname`,
         [schemaName]

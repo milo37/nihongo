@@ -179,7 +179,7 @@ export const createPrismaQuestionRepository = (
           ? {
               tags: {
                 some: {
-                  tag: { normalizedName: input.normalizedTag }
+                  normalizedNameSnapshot: input.normalizedTag
                 }
               }
             }

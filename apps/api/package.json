@@ -11,6 +11,7 @@
     "test": "pnpm run db:generate && vitest run --exclude '**/*.integration.test.ts'",
     "test:watch": "pnpm run db:generate && vitest",
     "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
+    "test:phase7:api": "tsx src/e2e/runPhase7ApiIntegration.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
     "content:materialize-slice1": "tsx prisma/phase6Slice1ArtifactMaterializer.ts",
     "content:foundation-check": "tsx prisma/phase6Slice1FoundationCheck.ts",
@@ -21,7 +22,8 @@
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev --config prisma.dev.config.ts",
     "db:migrate:dev:deploy": "prisma migrate deploy --config prisma.dev.config.ts",
-    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy": "prisma migrate deploy --config prisma.migrate.config.ts",
+    "db:migrate:phase7": "prisma migrate deploy --config prisma.migrate.config.ts",
     "db:migrate:test": "prisma migrate deploy --config prisma.test.config.ts",
     "db:seed:dev": "pnpm run db:generate && SEED_TARGET=development tsx prisma/seed.ts",
     "db:seed:test": "pnpm run db:generate && SEED_TARGET=test tsx prisma/seed.ts"

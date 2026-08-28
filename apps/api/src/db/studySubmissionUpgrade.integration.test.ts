@@ -54,6 +54,10 @@ const phase5Slice1Migrations = [
   '20260821151000_phase5_targeted_review_operation',
   '20260821152000_phase5_review_center_foundation'
 ] as const
+const phase7Slice1Migrations = [
+  '20260827100000_phase7_admin_cms_enums',
+  '20260827101000_phase7_admin_cms_foundation'
+] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
@@ -96,11 +100,22 @@ const migrationNames = repositoryMigrationNames.filter(
   (name) =>
     !phase5Slice1Migrations.includes(
       name as (typeof phase5Slice1Migrations)[number]
+    ) &&
+    !phase7Slice1Migrations.includes(
+      name as (typeof phase7Slice1Migrations)[number]
     )
 )
 const phase4ExpectedMigrationManifest = loadExpectedMigrationManifest(
   sourceMigrationsDirectory
 ).filter(({ name }) => migrationNames.includes(name))
+const phase5ExpectedMigrationManifest = loadExpectedMigrationManifest(
+  sourceMigrationsDirectory
+).filter(
+  ({ name }) =>
+    !phase7Slice1Migrations.includes(
+      name as (typeof phase7Slice1Migrations)[number]
+    )
+)
 const priorMigrationNames = migrationNames.filter(
   (name) =>
     !slice4Migrations.includes(name as (typeof slice4Migrations)[number]) &&
@@ -1221,10 +1236,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       const ledger = await readLedger(context)
       expect(ledger).toHaveLength(27)
       expect(() =>
-        assertMigrationCompatibility(
-          loadExpectedMigrationManifest(sourceMigrationsDirectory),
-          ledger
-        )
+        assertMigrationCompatibility(phase5ExpectedMigrationManifest, ledger)
       ).not.toThrow()
       const catalog = await context.adminClient.query<{
         cascadeDelete: string
@@ -1598,6 +1610,12 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         )
       ).toThrow('Database migration count does not match the repository.')
 
+      for (const migrationName of phase7Slice1Migrations) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(29)
+
       const currentRuntimeWithPhase4Path = createDatabaseRuntime(
         context.databaseUrl
       )
@@ -1605,7 +1623,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         await currentRuntimeWithPhase4Path.checkReadiness()
         // The repository and service are unchanged from 6116b9d. The raw
         // 25-manifest binary is intentionally fenced above; this probes the
-        // reviewed Phase 4 business path under the 27-manifest readiness.
+        // reviewed Phase 4 business path under the 29-manifest readiness.
         const phase4SubmissionService = createStudySubmissionService(
           createPrismaStudySubmissionRepository(
             currentRuntimeWithPhase4Path.client
@@ -2629,7 +2647,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(27)
+      expect(await readLedger(context)).toHaveLength(29)
 
       const runtime = createDatabaseRuntime(context.databaseUrl)
       try {

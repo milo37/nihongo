@@ -40,4 +40,18 @@ describe('createPostgresStartupOptions', () => {
     )
     expect(createPostgresStartupOptions(undefined)).toBe('-c TimeZone=UTC')
   })
+
+  it('승인된 Phase 7 role만 startup SET ROLE로 고정한다', () => {
+    expect(createPostgresStartupOptions('public', 'nihongo_app')).toBe(
+      '-c search_path=public -c TimeZone=UTC -c role=nihongo_app'
+    )
+    expect(
+      createPostgresStartupOptions('public', 'nihongo_phase7_migration')
+    ).toBe(
+      '-c search_path=public -c TimeZone=UTC -c role=nihongo_phase7_migration'
+    )
+    expect(() => createPostgresStartupOptions('public', 'postgres')).toThrow(
+      'PostgreSQL startup role is not an approved Phase 7 role.'
+    )
+  })
 })
