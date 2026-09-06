@@ -49,6 +49,9 @@ import { createPrismaWrongNoteReviewQueueRepository } from './wrong-note/wrongNo
 import { createWrongNoteReviewQueueService } from './wrong-note/wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTargetedReviewService.js'
+import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
+import { createPrismaAdminQuestionRepository } from './admin/adminQuestionRepository.js'
+import { createAdminQuestionService } from './admin/adminQuestionService.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -206,7 +209,31 @@ const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
 })
+const adminQuestionReader = technicalMode
+  ? createAdminQuestionService(
+      createPrismaAdminQuestionRepository(database.client)
+    )
+  : undefined
+const adminReadRateLimiter = technicalMode
+  ? createAdminReadRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET
+    })
+  : undefined
 const app = createApiApp({
+  ...(adminQuestionReader && adminReadRateLimiter
+    ? {
+        admin: {
+          assertCapability: async () => {
+            await database.client.$queryRawUnsafe(
+              'SELECT "phase7_require_runtime_ready"()'
+            )
+          },
+          rateLimiter: adminReadRateLimiter,
+          reader: adminQuestionReader
+        }
+      }
+    : {}),
   assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
   auth: {
     environment,

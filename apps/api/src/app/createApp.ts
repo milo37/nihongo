@@ -3,6 +3,11 @@ import {
   errorStatusByCode,
   type ApiFailure
 } from '@nihongo/contracts/common/error'
+import {
+  buildPhase7OperationFailureResponse,
+  type Phase7Operation,
+  type Phase7OperationFailureResponse
+} from '@nihongo/contracts/admin/phase7'
 import { Hono } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { cors } from 'hono/cors'
@@ -44,7 +49,15 @@ import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
 import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
-import { isPhase7ExcludedRequest } from './phase7PrefixExclusion.js'
+import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
+import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
+import { createAdminReadGuard } from '../admin/adminReadGuard.js'
+import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
+import {
+  getCanonicalPhase7Slice2ReadOperation,
+  isCanonicalPhase7Slice2ReadRequest,
+  isPhase7ExcludedRequest
+} from './phase7PrefixExclusion.js'
 
 const TECHNICAL_CORS_METHODS = [
   'DELETE',
@@ -89,6 +102,11 @@ interface CreateApiAppDependencies {
     gateway: AuthGateway
     guestPrincipalService: GuestPrincipalService
     principalService: PrincipalService
+  }
+  admin?: {
+    assertCapability: () => void | Promise<void>
+    rateLimiter: AdminReadRateLimiter
+    reader: AdminQuestionReader
   }
   study?: {
     draftService?: StudyDraftService
@@ -155,7 +173,59 @@ const toFailure = (error: unknown, requestId: string): ApiFailure => {
   })
 }
 
+const buildCanonicalPhase7ReadFailure = ({
+  error,
+  failure,
+  operation
+}: {
+  error: unknown
+  failure: ApiFailure
+  operation: Phase7Operation
+}): {
+  response: Phase7OperationFailureResponse
+  contractViolation: boolean
+} => {
+  const retryAfterSeconds =
+    failure.code === 'RATE_LIMITED' || failure.code === 'SERVICE_UNAVAILABLE'
+      ? error instanceof ApplicationError && error.retryAfterSeconds
+        ? error.retryAfterSeconds
+        : retryAfterSecondsByCode[failure.code]
+      : undefined
+  try {
+    return {
+      response: buildPhase7OperationFailureResponse({
+        operation,
+        failure: {
+          code: failure.code,
+          message: failure.message,
+          ...(failure.fieldErrors === undefined
+            ? {}
+            : { fieldErrors: failure.fieldErrors }),
+          requestId: failure.requestId
+        },
+        disposition: 'NO_TX',
+        ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds })
+      }),
+      contractViolation: false
+    }
+  } catch {
+    return {
+      response: buildPhase7OperationFailureResponse({
+        operation,
+        failure: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: '요청을 처리하지 못했습니다.',
+          requestId: failure.requestId
+        },
+        disposition: 'NO_TX'
+      }),
+      contractViolation: true
+    }
+  }
+}
+
 export const createApiApp = ({
+  admin,
   auth,
   assertPracticeRuntimeAuthority,
   checkReadiness,
@@ -176,7 +246,23 @@ export const createApiApp = ({
       context.env,
       context.req.raw.url
     )
-    if (!isPhase7ExcludedRequest(requestTarget)) {
+    context.set('rawRequestTarget', requestTarget)
+    const isPhase7Request =
+      isPhase7ExcludedRequest(requestTarget) ||
+      isPhase7ExcludedRequest(context.req.path)
+    if (!isPhase7Request) {
+      await next()
+      return
+    }
+
+    if (
+      admin &&
+      auth?.environment.ADMIN_CMS_MODE === 'technical' &&
+      isCanonicalPhase7Slice2ReadRequest({
+        method: context.req.method,
+        requestTarget
+      })
+    ) {
       await next()
       return
     }
@@ -277,8 +363,26 @@ export const createApiApp = ({
           : technicalBaseCors(context, next)
       })
     }
+    if (admin && auth.environment.ADMIN_CMS_MODE === 'technical') {
+      app.route(
+        '/api/v1/admin',
+        createAdminQuestionRoutes({
+          guard: createAdminReadGuard({
+            assertCapability: admin.assertCapability,
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: admin.rateLimiter
+          }),
+          reader: admin.reader
+        })
+      )
+    }
     if (assertPracticeRuntimeAuthority) {
-      app.use('/api/v1/*', async (_context, next) => {
+      app.use('/api/v1/*', async (context, next) => {
+        if (isPhase7ExcludedRequest(context.get('rawRequestTarget'))) {
+          await next()
+          return
+        }
         try {
           await assertPracticeRuntimeAuthority()
         } catch {
@@ -439,8 +543,20 @@ export const createApiApp = ({
 
   app.onError((error, context) => {
     const requestId = context.get('requestId')
-    const failure = toFailure(error, requestId)
-    const status = errorStatusByCode[failure.code]
+    let failure = toFailure(error, requestId)
+    let status = errorStatusByCode[failure.code]
+    const operation = getCanonicalPhase7Slice2ReadOperation({
+      method: context.req.method,
+      requestTarget: context.get('rawRequestTarget')
+    })
+    const phase7Failure =
+      operation === null
+        ? null
+        : buildCanonicalPhase7ReadFailure({ error, failure, operation })
+    if (phase7Failure !== null) {
+      failure = phase7Failure.response.body
+      status = phase7Failure.response.status
+    }
     const pathname = new URL(context.req.url).pathname
 
     logger.error('http.request.failed', {
@@ -449,10 +565,19 @@ export const createApiApp = ({
       path: routePath(context, -1),
       status,
       code: failure.code,
-      errorName: error.name
+      errorName: error.name,
+      ...(phase7Failure?.contractViolation === true
+        ? { phase7ContractViolation: true }
+        : {})
     })
-    context.header('Cache-Control', 'private, no-store')
-    context.header('X-Request-Id', requestId)
+    if (phase7Failure === null) {
+      context.header('Cache-Control', 'private, no-store')
+      context.header('X-Request-Id', requestId)
+    } else {
+      Object.entries(phase7Failure.response.headers).forEach(([name, value]) =>
+        context.header(name, value)
+      )
+    }
 
     const origin = context.req.header('Origin')
     if (
@@ -472,8 +597,9 @@ export const createApiApp = ({
     }
 
     if (
-      failure.code === 'RATE_LIMITED' ||
-      failure.code === 'SERVICE_UNAVAILABLE'
+      phase7Failure === null &&
+      (failure.code === 'RATE_LIMITED' ||
+        failure.code === 'SERVICE_UNAVAILABLE')
     ) {
       context.header(
         'Retry-After',

@@ -4,6 +4,8 @@ import { createMiddleware } from 'hono/factory'
 
 export interface ApiVariables {
   requestId: string
+  adminActorId: string
+  rawRequestTarget: string
 }
 
 export const requestContext = createMiddleware<{

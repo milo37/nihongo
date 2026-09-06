@@ -498,6 +498,12 @@ export interface AdminQuestionListResult {
   pageSize: number
 }
 
+export interface MockCanonicalAdminQuestionSource {
+  readonly answerCount: number
+  readonly correctCount: number
+  readonly question: QuestionRecord
+}
+
 interface SessionMetadata {
   canonicalGuestPrincipalId?: string
   canonicalContractVersion?: 1 | 2
@@ -3199,6 +3205,45 @@ export class MockDatabase {
 
   getAdminQuestion(questionId: string): QuestionRecord {
     return this.getQuestion(questionId)
+  }
+
+  listCanonicalAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
+    const answerStatsByVersionId = new Map<
+      string,
+      { answerCount: number; correctCount: number }
+    >()
+
+    for (const answers of this.canonicalAnswerBySessionId.values()) {
+      for (const answer of answers) {
+        const current = answerStatsByVersionId.get(
+          answer.questionVersionId
+        ) ?? {
+          answerCount: 0,
+          correctCount: 0
+        }
+        current.answerCount += 1
+        if (answer.isCorrect) {
+          current.correctCount += 1
+        }
+        answerStatsByVersionId.set(answer.questionVersionId, current)
+      }
+    }
+
+    return clone(
+      [...this.questionById.values()]
+        .filter((question) => question.status === 'PUBLISHED')
+        .map((question) => {
+          const stats = answerStatsByVersionId.get(
+            getCanonicalQuestionVersionId(question)
+          ) ?? { answerCount: 0, correctCount: 0 }
+
+          return {
+            answerCount: stats.answerCount,
+            correctCount: stats.correctCount,
+            question
+          }
+        })
+    )
   }
 
   createQuestion(input: AdminQuestionInput): QuestionRecord {

@@ -1,5 +1,58 @@
+import type { Phase7Operation } from '@nihongo/contracts/admin/phase7'
+
 const PHASE_7_PREFIXES = ['/api/v1/admin', '/api/v1/question-reports'] as const
 const HTTP_SCHEME_PATTERN = /^https?:/iu
+const CANONICAL_UUID_PATTERN =
+  '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+const SLICE_2_ADMIN_READ_PATHS = [
+  {
+    operation: 'listAdminQuestions',
+    pattern: /^\/api\/v1\/admin\/questions$/u
+  },
+  {
+    operation: 'getAdminQuestion',
+    pattern: new RegExp(
+      `^/api/v1/admin/questions/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  },
+  {
+    operation: 'listAdminQuestionVersions',
+    pattern: new RegExp(
+      `^/api/v1/admin/questions/${CANONICAL_UUID_PATTERN}/versions$`,
+      'u'
+    )
+  },
+  {
+    operation: 'listAdminTags',
+    pattern: /^\/api\/v1\/admin\/tags$/u
+  },
+  {
+    operation: 'previewQuestionVersion',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/preview$`,
+      'u'
+    )
+  },
+  {
+    operation: 'diffQuestionVersion',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/diff$`,
+      'u'
+    )
+  },
+  {
+    operation: 'listQuestionVersionReviews',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/reviews$`,
+      'u'
+    )
+  },
+  {
+    operation: 'listAdminAuditLog',
+    pattern: /^\/api\/v1\/admin\/audit-log$/u
+  }
+] as const
 
 const getPathnameFromRequestTarget = (requestTarget: string): string | null => {
   let pathAndQuery = requestTarget
@@ -99,4 +152,42 @@ export const getRawRequestPathname = (requestTarget: string): string | null =>
 export const isPhase7ExcludedRequest = (requestTarget: string): boolean => {
   const pathname = getPathnameFromRequestTarget(requestTarget)
   return pathname !== null && hasPhase7Alias(pathname)
+}
+
+export const isCanonicalPhase7Slice2ReadRequest = ({
+  method,
+  requestTarget
+}: {
+  method: string
+  requestTarget: string
+}): boolean => {
+  if (method !== 'GET' && method !== 'OPTIONS') {
+    return false
+  }
+
+  const pathname = getPathnameFromRequestTarget(requestTarget)
+  return (
+    pathname !== null &&
+    SLICE_2_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname))
+  )
+}
+
+export const getCanonicalPhase7Slice2ReadOperation = ({
+  method,
+  requestTarget
+}: {
+  method: string
+  requestTarget: string
+}): Phase7Operation | null => {
+  if (method !== 'GET') {
+    return null
+  }
+  const pathname = getPathnameFromRequestTarget(requestTarget)
+  if (pathname === null) {
+    return null
+  }
+  return (
+    SLICE_2_ADMIN_READ_PATHS.find(({ pattern }) => pattern.test(pathname))
+      ?.operation ?? null
+  )
 }

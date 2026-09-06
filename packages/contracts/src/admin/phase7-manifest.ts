@@ -1,0 +1,328 @@
+export type Phase7HttpMethod = 'GET' | 'PATCH' | 'POST'
+export type Phase7ResponseBodyKind = 'JSON' | 'ATTACHMENT'
+
+export interface Phase7OperationManifestEntry {
+  readonly operation: string
+  readonly operationId: string
+  readonly method: Phase7HttpMethod
+  readonly path: string
+  readonly successStatus: 200 | 201
+  readonly responseBodyKind: Phase7ResponseBodyKind
+  readonly requiresFreshAssurance: boolean
+  readonly slice2Route: boolean
+}
+
+export const phase7OperationManifest = [
+  {
+    operation: 'listAdminQuestions',
+    operationId: 'admin.listAdminQuestions',
+    method: 'GET',
+    path: '/api/v1/admin/questions',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'createAdminQuestion',
+    operationId: 'admin.createAdminQuestion',
+    method: 'POST',
+    path: '/api/v1/admin/questions',
+    successStatus: 201,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'getAdminQuestion',
+    operationId: 'admin.getAdminQuestion',
+    method: 'GET',
+    path: '/api/v1/admin/questions/:questionId',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'listAdminTags',
+    operationId: 'admin.listAdminTags',
+    method: 'GET',
+    path: '/api/v1/admin/tags',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'createAdminQuestionVersion',
+    operationId: 'admin.createAdminQuestionVersion',
+    method: 'POST',
+    path: '/api/v1/admin/questions/:questionId/versions',
+    successStatus: 201,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'archiveAdminQuestion',
+    operationId: 'admin.archiveAdminQuestion',
+    method: 'POST',
+    path: '/api/v1/admin/questions/:questionId/archive',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'previewQuestionVersion',
+    operationId: 'admin.previewQuestionVersion',
+    method: 'GET',
+    path: '/api/v1/admin/question-versions/:versionId/preview',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'diffQuestionVersion',
+    operationId: 'admin.diffQuestionVersion',
+    method: 'GET',
+    path: '/api/v1/admin/question-versions/:versionId/diff',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'listAdminQuestionVersions',
+    operationId: 'admin.listAdminQuestionVersions',
+    method: 'GET',
+    path: '/api/v1/admin/questions/:questionId/versions',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'listQuestionVersionReviews',
+    operationId: 'admin.listQuestionVersionReviews',
+    method: 'GET',
+    path: '/api/v1/admin/question-versions/:versionId/reviews',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'updateQuestionVersion',
+    operationId: 'admin.updateQuestionVersion',
+    method: 'PATCH',
+    path: '/api/v1/admin/question-versions/:versionId',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'requestContentReview',
+    operationId: 'admin.requestContentReview',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/:versionId/review-request',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'requestQuestionChanges',
+    operationId: 'admin.requestQuestionChanges',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/:versionId/change-request',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'approveQuestionVersion',
+    operationId: 'admin.approveQuestionVersion',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/:versionId/approval',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'withdrawQuestionApproval',
+    operationId: 'admin.withdrawQuestionApproval',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/:versionId/approval-withdrawal',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'publishQuestionVersion',
+    operationId: 'admin.publishQuestionVersion',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/:versionId/publication',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'retireQuestionVersion',
+    operationId: 'admin.retireQuestionVersion',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/:versionId/retirement',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'requestContentReviewBatch',
+    operationId: 'admin.requestContentReviewBatch',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/review-request-batch',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'validateQuestionImport',
+    operationId: 'admin.validateQuestionImport',
+    method: 'POST',
+    path: '/api/v1/admin/questions/import-validation',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'applyQuestionImport',
+    operationId: 'admin.applyQuestionImport',
+    method: 'POST',
+    path: '/api/v1/admin/questions/import-application',
+    successStatus: 201,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'exportAdminQuestions',
+    operationId: 'admin.exportAdminQuestions',
+    method: 'POST',
+    path: '/api/v1/admin/questions/export',
+    successStatus: 200,
+    responseBodyKind: 'ATTACHMENT',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
+    operation: 'listAdminAuditLog',
+    operationId: 'admin.listAdminAuditLog',
+    method: 'GET',
+    path: '/api/v1/admin/audit-log',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: true
+  },
+  {
+    operation: 'reauthenticateAdmin',
+    operationId: 'admin.reauthenticateAdmin',
+    method: 'POST',
+    path: '/api/v1/admin/reauthentication',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'createQuestionReport',
+    operationId: 'report.createQuestionReport',
+    method: 'POST',
+    path: '/api/v1/question-reports',
+    successStatus: 201,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'listAdminQuestionReports',
+    operationId: 'admin.listAdminQuestionReports',
+    method: 'GET',
+    path: '/api/v1/admin/question-reports',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'getAdminQuestionReport',
+    operationId: 'admin.getAdminQuestionReport',
+    method: 'GET',
+    path: '/api/v1/admin/question-reports/:reportId',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'triageAdminQuestionReport',
+    operationId: 'admin.triageAdminQuestionReport',
+    method: 'POST',
+    path: '/api/v1/admin/question-reports/:reportId/triage',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
+  },
+  {
+    operation: 'resolveAdminQuestionReport',
+    operationId: 'admin.resolveAdminQuestionReport',
+    method: 'POST',
+    path: '/api/v1/admin/question-reports/:reportId/resolution',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  }
+] as const satisfies readonly Phase7OperationManifestEntry[]
+
+export const phase7Slice2ReadOperationManifest = phase7OperationManifest.filter(
+  (entry) => entry.slice2Route
+)
+
+export const assertPhase7OperationManifest = (): void => {
+  if (phase7OperationManifest.length !== 28) {
+    throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
+  }
+  if (phase7Slice2ReadOperationManifest.length !== 8) {
+    throw new Error('Phase 7 Slice 2 route manifest는 정확히 8개여야 합니다.')
+  }
+  const operations = new Set(
+    phase7OperationManifest.map((entry) => entry.operation)
+  )
+  const operationIds = new Set(
+    phase7OperationManifest.map((entry) => entry.operationId)
+  )
+  if (operations.size !== 28 || operationIds.size !== 28) {
+    throw new Error('Phase 7 operation/operationId는 각각 고유해야 합니다.')
+  }
+  if (
+    phase7Slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')
+  ) {
+    throw new Error('Slice 2 manifest에는 GET read만 등록할 수 있습니다.')
+  }
+}
+
+export type Phase7Operation =
+  (typeof phase7OperationManifest)[number]['operation']
+export type Phase7OperationId =
+  (typeof phase7OperationManifest)[number]['operationId']

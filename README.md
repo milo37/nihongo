@@ -27,8 +27,9 @@ adapter→Query Factory→hook/UI도 Slice 5에서 연결했습니다. `/wrong-n
 center, `/wrong-notes/history`는 historical archive이고 detail은 별도 memo editor와 infinite
 ReviewEvent timeline을 병렬로 제공합니다. USER/ADMIN self-only targeted one-question command와
 server-authoritative DUE batch CTA도 practice-v2/review-center gate 아래 real/canonical mock에
-연결했습니다. real admin API는 Phase 7 전까지 노출하지 않으며 silent Mock fallback하지
-않습니다.
+연결했습니다. Phase 7 Slice 2에서는 `ADMIN_CMS_MODE=technical`인 TEST/DEVELOPMENT에 한해
+canonical ADMIN read API 8개를 열었습니다. mutation/report/import/export와 Web CMS
+adapter·query hook·UI는 아직 dormant이며 silent Mock fallback하지 않습니다.
 Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
 RANDOM fallback을 제거했습니다. Phase 5 Slice 6은 current review center의 실제·canonical
@@ -1005,6 +1006,18 @@ deploy/exposure는 실행하지 않았으며 Slice 2 source rollback point는 `d
 `pnpm content:foundation-check:seed`도 이 경로를 사용합니다. Slice 2/3/5 integration·E2E runner는
 Phase 7 이전 source ref에서만 유효합니다. 현재 source에서 해당 historical command를 실행하면 DB에
 부분 migration을 적용하기 전에 중단되고 Phase 7 gate 사용을 안내합니다.
+
+Phase 7 Slice 1 persistence/auth/security foundation은
+`5d85985ee6ecc50ab23f1f9bbcc8a1211b2dedfe`에 commit·push했습니다. 승인된 Slice 2는 shared
+operation contract 28개를 active ADMIN GET 8개와 dormant command/report/import/export 20개로
+분리하고, all-28 retry/disposition policy와 canonical Hono/MSW read parity를 구현했습니다. 실제
+PostgreSQL API gate는 2 files/24 tests, 전체 non-DB gate는 1,232 tests, production Web build는
+456 modules를 통과했습니다. 65문항 foundation은 contributor 0, exact duplicate 0, near duplicate
+1쌍과 API/Web projection digest
+`b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c`를 유지합니다. Slice 2
+source는 `5d85985` 위 dirty worktree에 uncommitted/unpushed로 보존했고, Slice 3 mutation,
+추가 migration/DB write, contributor 등록, signing/activation과 Web CMS UI는 별도 지시 전
+시작하지 않습니다.
 
 ## 향후 개선
 

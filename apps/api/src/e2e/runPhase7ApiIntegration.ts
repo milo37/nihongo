@@ -709,7 +709,8 @@ const run = async (): Promise<void> => {
       'run',
       '--config',
       'vitest.integration.config.ts',
-      'src/app/phase7ApiGate.integration.test.ts'
+      'src/app/phase7ApiGate.integration.test.ts',
+      'src/admin/adminQuestionRepository.integration.test.ts'
     ],
     sharedEnvironment
   )
