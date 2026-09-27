@@ -795,16 +795,15 @@ const toArchiveResult = (input: {
   occurredAt: toIso(input.occurredAt)
 })
 
-const beginAndArm = async (
+const beginOperation = async (
   transaction: Prisma.TransactionClient,
   input: {
     auditEnvironment: AuditEnvironment
     authority: AdminCommandAuthority
     command: string
     referencedUserIds: string[]
-    targetManifest: TargetManifest
   }
-): Promise<OperationContext> => {
+): Promise<BegunOperationRow> => {
   const begun = await transaction.$queryRawUnsafe<BegunOperationRow[]>(
     `SELECT * FROM "phase7_begin_admin_operation"(
        $1::"AdminAuditCommand", $2, $3, $4::"AdminAuditEnvironment", $5::uuid[]
@@ -819,16 +818,38 @@ const beginAndArm = async (
   if (!operation || operation.actorUserId !== input.authority.actorId) {
     throw new Error('Phase 7 operation actor did not match the request actor.')
   }
+  return operation
+}
+
+const armOperation = async (
+  transaction: Prisma.TransactionClient,
+  operation: BegunOperationRow,
+  targetManifest: TargetManifest
+): Promise<OperationContext> => {
   const armed = await transaction.$queryRawUnsafe<OccurredAtRow[]>(
     `SELECT "phase7_arm_admin_operation"($1, $2::jsonb) AS "occurredAt"`,
     operation.operationId,
-    JSON.stringify(input.targetManifest)
+    JSON.stringify(targetManifest)
   )
   const occurredAt = armed[0]?.occurredAt
   if (!(occurredAt instanceof Date) || !Number.isFinite(occurredAt.getTime())) {
     throw new Error('Phase 7 operation timestamp is unavailable.')
   }
   return { ...operation, occurredAt }
+}
+
+const beginAndArm = async (
+  transaction: Prisma.TransactionClient,
+  input: {
+    auditEnvironment: AuditEnvironment
+    authority: AdminCommandAuthority
+    command: string
+    referencedUserIds: string[]
+    targetManifest: TargetManifest
+  }
+): Promise<OperationContext> => {
+  const operation = await beginOperation(transaction, input)
+  return armOperation(transaction, operation, input.targetManifest)
 }
 
 const finishOperation = async (
@@ -1836,10 +1857,10 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
   const transitionVersion: AdminQuestionCommandRepository['transitionVersion'] =
     async (operationName, authority, versionId, request) => {
       const config = transitionConfigByOperation[operationName]
-      let target: VersionTargetRow | null
-      try {
-        target = await loadVersionTarget(client, versionId)
-        if (!target) {
+      const assertTargetAndVersion = (
+        candidate: VersionTargetRow | null
+      ): VersionTargetRow => {
+        if (!candidate) {
           throw repositoryFailure(
             'RESOURCE_NOT_FOUND',
             '문제 버전을 찾을 수 없습니다.'
@@ -1847,26 +1868,29 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
         if (
           config.authorOnly &&
-          target.versionCreatedByUserId !== authority.actorId
+          candidate.versionCreatedByUserId !== authority.actorId
         ) {
           throw repositoryFailure(
             'FORBIDDEN',
             '작성자만 검수를 요청할 수 있습니다.'
           )
         }
-        if (target.versionRowVersion !== request.expectedRowVersion) {
+        if (candidate.versionRowVersion !== request.expectedRowVersion) {
           throw repositoryFailure(
             'VERSION_CONFLICT',
             '다른 요청이 먼저 변경했습니다. 최신 상태를 다시 불러와 주세요.'
           )
         }
-        if (target.questionLifecycleStatus !== 'ACTIVE') {
+        return candidate
+      }
+      const assertStateAndDuties = (candidate: VersionTargetRow): void => {
+        if (candidate.questionLifecycleStatus !== 'ACTIVE') {
           throw repositoryFailure(
             'INVALID_STATE_TRANSITION',
             '보관된 문제에서는 검수 상태를 변경할 수 없습니다.'
           )
         }
-        if (!config.fromStates.includes(target.versionStatus)) {
+        if (!config.fromStates.includes(candidate.versionStatus)) {
           throw repositoryFailure(
             'INVALID_STATE_TRANSITION',
             '현재 버전 상태에서는 요청한 검수 전이를 수행할 수 없습니다.'
@@ -1874,7 +1898,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
         if (
           !config.authorOnly &&
-          target.versionCreatedByUserId === authority.actorId
+          candidate.versionCreatedByUserId === authority.actorId
         ) {
           throw repositoryFailure(
             'SEPARATION_OF_DUTIES_VIOLATION',
@@ -1883,10 +1907,10 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
         if (
           toAuthorSnapshot({
-            createdByUserId: target.versionCreatedByUserId,
-            createdByActorId: target.versionCreatedByActorId,
-            createdByRoleSnapshot: target.versionCreatedByRoleSnapshot,
-            createdByLabelSnapshot: target.versionCreatedByLabelSnapshot
+            createdByUserId: candidate.versionCreatedByUserId,
+            createdByActorId: candidate.versionCreatedByActorId,
+            createdByRoleSnapshot: candidate.versionCreatedByRoleSnapshot,
+            createdByLabelSnapshot: candidate.versionCreatedByLabelSnapshot
           }) === null
         ) {
           throw repositoryFailure(
@@ -1894,55 +1918,72 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
             '시스템 seed 또는 작성자 없는 버전은 검수 전이 대상이 아닙니다.'
           )
         }
+      }
+      const toTargetManifest = (
+        candidate: VersionTargetRow
+      ): TargetManifest => ({
+        questions: [
+          {
+            id: candidate.questionId,
+            rowVersion: candidate.questionRowVersion,
+            state: candidate.questionLifecycleStatus
+          }
+        ],
+        versions: [
+          {
+            id: versionId,
+            rowVersion: candidate.versionRowVersion,
+            state: candidate.versionStatus
+          }
+        ],
+        reports: [],
+        tags: []
+      })
+      let target: VersionTargetRow | null
+      try {
+        target = await loadVersionTarget(client, versionId)
       } catch (error: unknown) {
         throw mapPreflightError(error)
       }
-      const counterpart = config.authorOnly
-        ? null
-        : toAuthorSnapshot({
-            createdByUserId: target.versionCreatedByUserId,
-            createdByActorId: target.versionCreatedByActorId,
-            createdByRoleSnapshot: target.versionCreatedByRoleSnapshot,
-            createdByLabelSnapshot: target.versionCreatedByLabelSnapshot
-          })
       const reason = 'reason' in request ? request.reason : null
       const comment = request.comment ?? null
       try {
         return await client.$transaction(
           async (transaction) => {
             const command = config.command
-            const operation = await beginAndArm(transaction, {
+            const referencedUserIds = uniqueSorted([
+              authority.actorId,
+              target?.questionCreatedByUserId ?? null,
+              target?.versionCreatedByUserId ?? null,
+              operationName === 'withdrawQuestionApproval'
+                ? (target?.latestApproverUserId ?? null)
+                : null
+            ])
+            const begun = await beginOperation(transaction, {
               auditEnvironment,
               authority,
               command,
-              referencedUserIds: uniqueSorted([
-                authority.actorId,
-                target.questionCreatedByUserId,
-                target.versionCreatedByUserId,
-                operationName === 'withdrawQuestionApproval'
-                  ? target.latestApproverUserId
-                  : null
-              ]),
-              targetManifest: {
-                questions: [
-                  {
-                    id: target.questionId,
-                    rowVersion: target.questionRowVersion,
-                    state: target.questionLifecycleStatus
-                  }
-                ],
-                versions: [
-                  {
-                    id: versionId,
-                    rowVersion: target.versionRowVersion,
-                    state: target.versionStatus
-                  }
-                ],
-                reports: [],
-                tags: []
-              }
+              referencedUserIds
             })
-            const nextRowVersion = target.versionRowVersion + 1
+            const commandTarget = assertTargetAndVersion(target)
+            const targetManifest = toTargetManifest(commandTarget)
+            const operation = await armOperation(
+              transaction,
+              begun,
+              targetManifest
+            )
+            assertStateAndDuties(commandTarget)
+            const counterpart = config.authorOnly
+              ? null
+              : toAuthorSnapshot({
+                  createdByUserId: commandTarget.versionCreatedByUserId,
+                  createdByActorId: commandTarget.versionCreatedByActorId,
+                  createdByRoleSnapshot:
+                    commandTarget.versionCreatedByRoleSnapshot,
+                  createdByLabelSnapshot:
+                    commandTarget.versionCreatedByLabelSnapshot
+                })
+            const nextRowVersion = commandTarget.versionRowVersion + 1
             await transaction.$executeRawUnsafe(
               `UPDATE "QuestionVersion"
                SET "status" = $2::"QuestionVersionStatus",
@@ -1958,10 +1999,10 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               actorId: authority.actorId,
               comment,
               counterpart,
-              fromState: target.versionStatus,
+              fromState: commandTarget.versionStatus,
               occurredAt: operation.occurredAt,
               operationId: operation.operationId,
-              questionId: target.questionId,
+              questionId: commandTarget.questionId,
               reason,
               requestId: authority.requestId,
               toState: config.toState,
@@ -1971,8 +2012,8 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               actorId: authority.actorId,
               afterRowVersion: nextRowVersion,
               afterState: config.toState,
-              beforeRowVersion: target.versionRowVersion,
-              beforeState: target.versionStatus,
+              beforeRowVersion: commandTarget.versionRowVersion,
+              beforeState: commandTarget.versionStatus,
               changedFields: ['VERSION_STATUS'],
               command,
               environment: auditEnvironment,
@@ -1984,9 +2025,9 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
             })
             await finishOperation(transaction, operation.operationId)
             return toResult({
-              questionId: target.questionId,
+              questionId: commandTarget.questionId,
               versionId,
-              questionRowVersion: target.questionRowVersion,
+              questionRowVersion: commandTarget.questionRowVersion,
               versionRowVersion: nextRowVersion,
               versionStatus: config.toState,
               occurredAt: operation.occurredAt

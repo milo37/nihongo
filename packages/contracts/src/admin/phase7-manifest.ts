@@ -317,6 +317,11 @@ const PHASE_7_SLICE_3R_A1_OPERATIONS = new Set<Phase7Operation>([
   'reauthenticateAdmin'
 ])
 
+const PHASE_7_SLICE_3R_A2_OPERATIONS = new Set<Phase7Operation>([
+  'approveQuestionVersion',
+  'withdrawQuestionApproval'
+])
+
 export const phase7Slice3ACommandOperationManifest =
   phase7OperationManifest.filter((entry) =>
     PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
@@ -357,6 +362,24 @@ export const phase7DormantAfterSlice3RA1OperationManifest =
       !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
   )
 
+export const phase7ActiveThroughSlice3RA2OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      entry.slice2Route ||
+      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7DormantAfterSlice3RA2OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      !entry.slice2Route &&
+      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
+  )
+
 export const assertPhase7OperationManifest = (): void => {
   if (phase7OperationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
@@ -370,10 +393,12 @@ export const assertPhase7OperationManifest = (): void => {
     phase7ActiveThroughSlice3AOperationManifest.length !== 13 ||
     phase7DormantAfterSlice3AOperationManifest.length !== 15 ||
     phase7ActiveThroughSlice3RA1OperationManifest.length !== 14 ||
-    phase7DormantAfterSlice3RA1OperationManifest.length !== 14
+    phase7DormantAfterSlice3RA1OperationManifest.length !== 14 ||
+    phase7ActiveThroughSlice3RA2OperationManifest.length !== 16 ||
+    phase7DormantAfterSlice3RA2OperationManifest.length !== 12
   ) {
     throw new Error(
-      'Phase 7 manifest는 Slice 3A historical 13/15와 Slice 3R-A1 active 14/dormant 14 경계를 유지해야 합니다.'
+      'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(

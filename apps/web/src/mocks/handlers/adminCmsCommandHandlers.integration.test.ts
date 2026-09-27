@@ -6,7 +6,7 @@ import {
   listAdminAuditLogResponseSchema,
   listAdminQuestionsResponseSchema,
   listQuestionVersionReviewsResponseSchema,
-  phase7DormantAfterSlice3RA1OperationManifest,
+  phase7DormantAfterSlice3RA2OperationManifest,
   previewQuestionVersionResponseSchema,
   reauthenticateAdminErrorSchema,
   reauthenticateAdminResponseSchema,
@@ -18,7 +18,10 @@ import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { describe, expect, it, vi } from 'vitest'
 import { DEMO_ADMIN_ID, DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
 import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
-import { readPhase7MockJsonBody } from '@mocks/handlers/adminCmsCommandHandlers'
+import {
+  readPhase7MockJsonBody,
+  resetAdminCmsCommandRateLimitForTesting
+} from '@mocks/handlers/adminCmsCommandHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import type { MockPhase7AdminCmsState } from '@mocks/repository/phase7AdminCmsState'
 
@@ -292,7 +295,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     ])
   })
 
-  it('enforces author/reviewer separation across the Slice 3A review lifecycle', async () => {
+  it('enforces fresh reauthentication, SoD, evidence and concurrency across the A2 review lifecycle', async () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
     const seed = await loadSeedFixture('MSW 전체 검수 흐름')
     const created = adminQuestionMutationResultSchema.parse(
@@ -383,23 +386,148 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     )
     expect(rerequested.versionRowVersion).toBe(6)
 
-    const beforeDormantRequests = mockDatabase.getCanonicalAdminCmsSnapshot()
+    const beforeSelfApproval = mockDatabase.getCanonicalAdminCmsSnapshot()
+    const selfApproval = await jsonCommand(
+      'POST',
+      `/question-versions/${versionId}/approval`,
+      { expectedRowVersion: 6, comment: '작성자 본인 승인' }
+    )
+    expect(selfApproval.status).toBe(409)
+    expect(apiFailureSchema.parse(await selfApproval.json()).code).toBe(
+      'SEPARATION_OF_DUTIES_VIOLATION'
+    )
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(
+      beforeSelfApproval
+    )
+
     mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
-    const approval = await jsonCommand(
+    const internalState = Reflect.get(
+      mockDatabase,
+      'phase7AdminCmsState'
+    ) as Pick<MockPhase7AdminCmsState, 'startSession'>
+    internalState.startSession(
+      DEMO_REVIEWER_ADMIN_ID,
+      '2020-01-01T00:00:00.000Z'
+    )
+    const beforeStaleApproval = mockDatabase.getCanonicalAdminCmsSnapshot()
+    const staleApproval = await jsonCommand(
       'POST',
       `/question-versions/${versionId}/approval`,
       { expectedRowVersion: 6, comment: '승인합니다.' }
     )
-    const withdrawal = await jsonCommand(
+    expect(staleApproval.status).toBe(401)
+    expect(apiFailureSchema.parse(await staleApproval.json()).code).toBe(
+      'FRESH_ASSURANCE_REQUIRED'
+    )
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(
+      beforeStaleApproval
+    )
+
+    const reauthenticated = await jsonCommand('POST', '/reauthentication', {
+      password: MOCK_ADMIN_PASSWORD
+    })
+    expect(reauthenticated.status).toBe(200)
+    expect(reauthenticated.headers.getSetCookie()).toHaveLength(2)
+    const afterReauthentication = mockDatabase.getCanonicalAdminCmsSnapshot()
+    expect(afterReauthentication.questions).toEqual(
+      beforeStaleApproval.questions
+    )
+    expect(afterReauthentication.versions).toEqual(beforeStaleApproval.versions)
+    expect(afterReauthentication.reviews).toEqual(beforeStaleApproval.reviews)
+    expect(afterReauthentication.auditLogs).toHaveLength(
+      beforeStaleApproval.auditLogs.length + 1
+    )
+    expect(
+      afterReauthentication.auditLogs
+        .slice(beforeStaleApproval.auditLogs.length)
+        .map(({ command }) => command)
+    ).toEqual(['REAUTHENTICATION'])
+
+    const approvalRequestId = crypto.randomUUID()
+    const approval = await jsonCommand(
+      'POST',
+      `/question-versions/${versionId}/approval`,
+      { expectedRowVersion: 6, comment: '승인합니다.' },
+      { 'X-Request-Id': approvalRequestId }
+    )
+    expect(approval.status).toBe(200)
+    expect(approval.headers.get('Set-Cookie')).toBeNull()
+    expect(
+      adminQuestionMutationResultSchema.parse(await approval.json())
+    ).toMatchObject({
+      questionRowVersion: 1,
+      versionStatus: 'APPROVED',
+      versionRowVersion: 7
+    })
+
+    mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
+    const beforeSelfWithdrawal = mockDatabase.getCanonicalAdminCmsSnapshot()
+    const selfWithdrawal = await jsonCommand(
       'POST',
       `/question-versions/${versionId}/approval-withdrawal`,
-      { expectedRowVersion: 6, reason: 'FINAL_RECHECK' }
+      { expectedRowVersion: 7, reason: 'SELF_WITHDRAWAL' }
     )
-    expect([approval.status, withdrawal.status]).toEqual([404, 404])
-    expect(approval.headers.get('Set-Cookie')).toBeNull()
-    expect(withdrawal.headers.get('Set-Cookie')).toBeNull()
+    expect(selfWithdrawal.status).toBe(409)
+    expect(apiFailureSchema.parse(await selfWithdrawal.json()).code).toBe(
+      'SEPARATION_OF_DUTIES_VIOLATION'
+    )
     expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(
-      beforeDormantRequests
+      beforeSelfWithdrawal
+    )
+
+    mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    const beforeConcurrentWithdrawal =
+      mockDatabase.getCanonicalAdminCmsSnapshot()
+    const withdrawalRequestIds = [crypto.randomUUID(), crypto.randomUUID()]
+    const withdrawals = await Promise.all(
+      withdrawalRequestIds.map((withdrawalRequestId) =>
+        jsonCommand(
+          'POST',
+          `/question-versions/${versionId}/approval-withdrawal`,
+          {
+            expectedRowVersion: 7,
+            reason: 'FINAL_RECHECK',
+            comment: '최종 근거를 다시 확인합니다.'
+          },
+          { 'X-Request-Id': withdrawalRequestId }
+        )
+      )
+    )
+    expect(withdrawals.map((response) => response.status).toSorted()).toEqual([
+      200, 409
+    ])
+    const withdrawalWinner = withdrawals.find(
+      (response) => response.status === 200
+    )
+    const withdrawalLoser = withdrawals.find(
+      (response) => response.status === 409
+    )
+    if (!withdrawalWinner || !withdrawalLoser) {
+      throw new Error('Concurrent withdrawal winner/loser is unavailable.')
+    }
+    const withdrawalWinnerIndex = withdrawals.indexOf(withdrawalWinner)
+    const withdrawalLoserIndex = withdrawals.indexOf(withdrawalLoser)
+    const withdrawalWinnerRequestId =
+      withdrawalRequestIds[withdrawalWinnerIndex]
+    const withdrawalLoserRequestId = withdrawalRequestIds[withdrawalLoserIndex]
+    if (!withdrawalWinnerRequestId || !withdrawalLoserRequestId) {
+      throw new Error('Concurrent withdrawal request IDs are unavailable.')
+    }
+    expect(
+      adminQuestionMutationResultSchema.parse(await withdrawalWinner.json())
+    ).toMatchObject({
+      questionRowVersion: 1,
+      versionStatus: 'CHANGES_REQUESTED',
+      versionRowVersion: 8
+    })
+    expect(apiFailureSchema.parse(await withdrawalLoser.json()).code).toBe(
+      'VERSION_CONFLICT'
+    )
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot().reviews).toHaveLength(
+      beforeConcurrentWithdrawal.reviews.length + 1
+    )
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot().auditLogs).toHaveLength(
+      beforeConcurrentWithdrawal.auditLogs.length + 1
     )
 
     const reviews = listQuestionVersionReviewsResponseSchema.parse(
@@ -407,8 +535,10 @@ describe('Phase 7 canonical admin command MSW parity', () => {
         await fetch(`${BASE}/question-versions/${versionId}/reviews?limit=100`)
       ).json()
     )
-    expect(reviews.items).toHaveLength(3)
+    expect(reviews.items).toHaveLength(5)
     expect(reviews.items.map((item) => item.action).toSorted()).toEqual([
+      'APPROVAL_WITHDRAWN',
+      'APPROVED',
       'CHANGES_REQUESTED',
       'REQUESTED',
       'REQUESTED'
@@ -424,6 +554,46 @@ describe('Phase 7 canonical admin command MSW parity', () => {
             item.counterpart.actorId === DEMO_ADMIN_ID
         )
     ).toBe(true)
+    expect(reviews.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'APPROVED',
+          actor: expect.objectContaining({
+            actorId: DEMO_REVIEWER_ADMIN_ID
+          }),
+          counterpart: expect.objectContaining({ actorId: DEMO_ADMIN_ID }),
+          fromState: 'IN_REVIEW',
+          toState: 'APPROVED',
+          reason: null,
+          comment: '승인합니다.'
+        }),
+        expect.objectContaining({
+          action: 'APPROVAL_WITHDRAWN',
+          actor: expect.objectContaining({
+            actorId: DEMO_REVIEWER_ADMIN_ID
+          }),
+          counterpart: expect.objectContaining({ actorId: DEMO_ADMIN_ID }),
+          fromState: 'APPROVED',
+          toState: 'CHANGES_REQUESTED',
+          reason: 'FINAL_RECHECK',
+          comment: '최종 근거를 다시 확인합니다.'
+        })
+      ])
+    )
+    const approvalReview = reviews.items.find(
+      ({ action }) => action === 'APPROVED'
+    )
+    const withdrawalReview = reviews.items.find(
+      ({ action }) => action === 'APPROVAL_WITHDRAWN'
+    )
+    expect(approvalReview?.requestId).toBe(approvalRequestId)
+    expect(withdrawalReview?.requestId).toBe(withdrawalWinnerRequestId)
+    expect(
+      reviews.items.some(
+        ({ requestId: reviewRequestId }) =>
+          reviewRequestId === withdrawalLoserRequestId
+      )
+    ).toBe(false)
 
     const detail = getAdminQuestionResponseSchema.parse(
       await readSuccessfulJson(
@@ -432,8 +602,8 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     )
     expect(detail.question.openCandidateVersionId).toBe(versionId)
     expect(detail.versions.items[0]).toMatchObject({
-      versionStatus: 'IN_REVIEW',
-      rowVersion: 6,
+      versionStatus: 'CHANGES_REQUESTED',
+      rowVersion: 8,
       latestReviewer: {
         kind: 'ACCOUNT',
         actorId: DEMO_REVIEWER_ADMIN_ID
@@ -442,7 +612,51 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     const audit = listAdminAuditLogResponseSchema.parse(
       await (await fetch(`${BASE}/audit-log?limit=100`)).json()
     )
-    expect(audit.items).toHaveLength(6)
+    expect(audit.items).toHaveLength(9)
+    expect(audit.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          command: 'APPROVAL',
+          beforeState: 'IN_REVIEW',
+          afterState: 'APPROVED',
+          beforeRowVersion: 6,
+          afterRowVersion: 7,
+          changedFields: ['VERSION_STATUS'],
+          contentDigest: expect.stringMatching(/^[0-9a-f]{64}$/u)
+        }),
+        expect.objectContaining({
+          command: 'APPROVAL_WITHDRAWAL',
+          beforeState: 'APPROVED',
+          afterState: 'CHANGES_REQUESTED',
+          beforeRowVersion: 7,
+          afterRowVersion: 8,
+          changedFields: ['VERSION_STATUS'],
+          contentDigest: expect.stringMatching(/^[0-9a-f]{64}$/u)
+        })
+      ])
+    )
+    const approvalAudit = audit.items.find(
+      ({ command }) => command === 'APPROVAL'
+    )
+    const withdrawalAudit = audit.items.find(
+      ({ command }) => command === 'APPROVAL_WITHDRAWAL'
+    )
+    expect(approvalAudit).toMatchObject({
+      requestId: approvalRequestId,
+      metadata: { kind: 'NONE_V1' }
+    })
+    expect(withdrawalAudit).toMatchObject({
+      requestId: withdrawalWinnerRequestId,
+      metadata: { kind: 'NONE_V1' }
+    })
+    expect(approvalReview?.operationId).toBe(approvalAudit?.operationId)
+    expect(withdrawalReview?.operationId).toBe(withdrawalAudit?.operationId)
+    expect(
+      audit.items.some(
+        ({ requestId: auditRequestId }) =>
+          auditRequestId === withdrawalLoserRequestId
+      )
+    ).toBe(false)
   })
 
   it('returns one winner for concurrent duplicate and rowVersion races', async () => {
@@ -513,7 +727,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(snapshot.reviews).toHaveLength(0)
   })
 
-  it('applies cap/auth/origin/JSON ordering and keeps Slice 3R routes dormant', async () => {
+  it('applies cap/auth/origin/JSON ordering and fresh precedence to A2 routes', async () => {
     const oversized = await fetch(`${BASE}/questions`, {
       method: 'POST',
       headers: {
@@ -544,12 +758,22 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       '2020-01-01T00:00:00.000Z'
     )
     const beforeReauthentication = mockDatabase.getCanonicalAdminCmsSnapshot()
-    const stale = await jsonCommand(
-      'POST',
-      `/question-versions/${canonicalMissingId}/approval`,
-      { expectedRowVersion: 1 }
-    )
-    expect(stale.status).toBe(404)
+    for (const [pathname, body] of [
+      [
+        `/question-versions/${canonicalMissingId}/approval`,
+        { expectedRowVersion: 1 }
+      ],
+      [
+        `/question-versions/${canonicalMissingId}/approval-withdrawal`,
+        { expectedRowVersion: 1, reason: 'FINAL_RECHECK' }
+      ]
+    ] as const) {
+      const stale = await jsonCommand('POST', pathname, body)
+      expect(stale.status).toBe(401)
+      expect(apiFailureSchema.parse(await stale.json()).code).toBe(
+        'FRESH_ASSURANCE_REQUIRED'
+      )
+    }
 
     const wrongPassword = await jsonCommand('POST', '/reauthentication', {
       password: 'wrong-password-value'
@@ -666,7 +890,85 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(Number(limited.headers.get('Retry-After'))).toBeLessThanOrEqual(900)
   })
 
-  it('manifest의 dormant 14개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
+  it('A2 commands는 16KiB와 shared actor/IP 10회/15분 rate parity를 유지한다', async () => {
+    mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
+    const beforeOptions = mockDatabase.getCanonicalAdminCmsSnapshot()
+    for (const pathname of [
+      `/question-versions/${canonicalMissingId}/approval`,
+      `/question-versions/${canonicalMissingId}/approval-withdrawal`
+    ]) {
+      const options = await fetch(`${BASE}${pathname}`, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'http://localhost',
+          'Access-Control-Request-Method': 'POST'
+        }
+      })
+      expect(options.status).toBe(204)
+      expect(options.headers.get('Access-Control-Allow-Origin')).toBe(
+        'http://localhost'
+      )
+    }
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(beforeOptions)
+
+    const declaredOversized = await fetch(
+      `${BASE}/question-versions/${canonicalMissingId}/approval`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': String(16 * 1024 + 1),
+          Origin: 'http://localhost'
+        },
+        body: 'x'.repeat(16 * 1024 + 1)
+      }
+    )
+    expect(declaredOversized.status).toBe(413)
+
+    const actualOversized = await fetch(
+      `${BASE}/question-versions/${canonicalMissingId}/approval`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'http://localhost'
+        },
+        body: JSON.stringify({
+          expectedRowVersion: 1,
+          comment: 'x'.repeat(16 * 1024)
+        })
+      }
+    )
+    expect(actualOversized.status).toBe(413)
+
+    resetAdminCmsCommandRateLimitForTesting()
+    mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    const before = mockDatabase.getCanonicalAdminCmsSnapshot()
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const accepted = await jsonCommand(
+        'POST',
+        `/question-versions/${canonicalMissingId}/approval`,
+        { expectedRowVersion: 1 }
+      )
+      expect(accepted.status, `attempt ${attempt + 1}`).toBe(404)
+      expect(accepted.headers.get('Set-Cookie')).toBeNull()
+    }
+    const limited = await jsonCommand(
+      'POST',
+      `/question-versions/${canonicalMissingId}/approval-withdrawal`,
+      { expectedRowVersion: 1, reason: 'FINAL_RECHECK' }
+    )
+    expect(limited.status).toBe(429)
+    expect(apiFailureSchema.parse(await limited.json()).code).toBe(
+      'RATE_LIMITED'
+    )
+    expect(Number(limited.headers.get('Retry-After'))).toBeGreaterThan(0)
+    expect(Number(limited.headers.get('Retry-After'))).toBeLessThanOrEqual(900)
+    expect(limited.headers.get('Set-Cookie')).toBeNull()
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(before)
+  })
+
+  it('manifest의 dormant 12개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
     const before = mockDatabase.getCanonicalAdminCmsSnapshot()
     const activeState = mockDatabase.getPhase7AdminCmsStateForHandlers()
@@ -692,8 +994,8 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       'listCanonicalAdminQuestionSources'
     )
 
-    expect(phase7DormantAfterSlice3RA1OperationManifest).toHaveLength(14)
-    for (const entry of phase7DormantAfterSlice3RA1OperationManifest) {
+    expect(phase7DormantAfterSlice3RA2OperationManifest).toHaveLength(12)
+    for (const entry of phase7DormantAfterSlice3RA2OperationManifest) {
       const response = await fetch(
         `http://localhost${materializeManifestPath(entry.path)}`,
         {

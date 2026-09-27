@@ -103,8 +103,28 @@ const SLICE_3R_A1_REAUTHENTICATION_PATHS = [
   }
 ] as const
 
+const SLICE_3R_A2_APPROVAL_COMMAND_PATHS = [
+  {
+    method: 'POST',
+    operation: 'approveQuestionVersion',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/approval$`,
+      'u'
+    )
+  },
+  {
+    method: 'POST',
+    operation: 'withdrawQuestionApproval',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/approval-withdrawal$`,
+      'u'
+    )
+  }
+] as const
+
 const ACTIVE_ADMIN_COMMAND_PATHS = [
   ...SLICE_3A_ADMIN_COMMAND_PATHS,
+  ...SLICE_3R_A2_APPROVAL_COMMAND_PATHS,
   ...SLICE_3R_A1_REAUTHENTICATION_PATHS
 ] as const
 
@@ -297,6 +317,12 @@ export const isCanonicalPhase7ReauthenticationRequest = (input: {
   requestTarget: string
 }): boolean =>
   isCanonicalRequestForPaths(input, SLICE_3R_A1_REAUTHENTICATION_PATHS)
+
+export const isCanonicalPhase7ApprovalCommandRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean =>
+  isCanonicalRequestForPaths(input, SLICE_3R_A2_APPROVAL_COMMAND_PATHS)
 
 export const getCanonicalPhase7ActiveOperation = (input: {
   method: string

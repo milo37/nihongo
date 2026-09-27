@@ -233,6 +233,124 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
     ])
   })
 
+  it('locks fresh authority before returning a missing approval target', async () => {
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes('latest_approval')) return []
+      if (statement.includes('phase7_resolve_v1_principal')) {
+        return [
+          {
+            principalUserId: actorId,
+            principalRole: 'ADMIN',
+            isFresh: false
+          }
+        ]
+      }
+      throw new Error(`Unexpected approval authority query: ${statement}`)
+    })
+    const transactionQuery = vi.fn(async (statement: string) => {
+      if (statement.includes('phase7_begin_admin_operation')) {
+        throw rawError(
+          '42501',
+          'Phase 7 operation authority is stale or insufficient.'
+        )
+      }
+      throw new Error(`Unexpected approval transaction query: ${statement}`)
+    })
+    const execute = vi.fn()
+    const transaction = vi.fn(
+      async (
+        callback: (client: Prisma.TransactionClient) => Promise<unknown>
+      ) =>
+        callback({
+          $queryRawUnsafe: transactionQuery,
+          $executeRawUnsafe: execute
+        } as unknown as Prisma.TransactionClient)
+    )
+    const repository = createPrismaAdminQuestionCommandRepository({
+      auditEnvironment: 'TEST',
+      client: {
+        $queryRawUnsafe: query,
+        $transaction: transaction
+      } as unknown as PrismaClient
+    })
+
+    await expect(
+      repository.transitionVersion(
+        'approveQuestionVersion',
+        authority,
+        versionId,
+        { expectedRowVersion: 1 }
+      )
+    ).rejects.toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      disposition: 'DEFINITE_ROLLBACK'
+    })
+    expect(transactionQuery).toHaveBeenCalledTimes(1)
+    expect(transactionQuery.mock.calls[0]?.[0]).toContain(
+      'phase7_begin_admin_operation'
+    )
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('checks approval rowVersion after begin and before arm or writes', async () => {
+    const query = vi.fn(async (statement: string) => {
+      if (statement.includes('latest_approval')) {
+        return [
+          publicationTarget({
+            versionStatus: 'IN_REVIEW',
+            versionCreatedByUserId: reviewerId
+          })
+        ]
+      }
+      throw new Error(`Unexpected approval preflight query: ${statement}`)
+    })
+    const transactionQuery = vi.fn(async (statement: string) => {
+      if (statement.includes('phase7_begin_admin_operation')) {
+        return [{ actorUserId: actorId, operationId: crypto.randomUUID() }]
+      }
+      throw new Error(`Unexpected approval transaction query: ${statement}`)
+    })
+    const execute = vi.fn()
+    const transaction = vi.fn(
+      async (
+        callback: (client: Prisma.TransactionClient) => Promise<unknown>
+      ) =>
+        callback({
+          $queryRawUnsafe: transactionQuery,
+          $executeRawUnsafe: execute
+        } as unknown as Prisma.TransactionClient)
+    )
+    const repository = createPrismaAdminQuestionCommandRepository({
+      auditEnvironment: 'TEST',
+      client: {
+        $queryRawUnsafe: query,
+        $transaction: transaction
+      } as unknown as PrismaClient
+    })
+
+    await expect(
+      repository.transitionVersion(
+        'approveQuestionVersion',
+        authority,
+        versionId,
+        { expectedRowVersion: 4 }
+      )
+    ).rejects.toMatchObject({
+      code: 'VERSION_CONFLICT',
+      disposition: 'DEFINITE_ROLLBACK'
+    })
+    expect(transactionQuery).toHaveBeenCalledTimes(1)
+    expect(transactionQuery.mock.calls[0]?.[0]).toContain(
+      'phase7_begin_admin_operation'
+    )
+    expect(
+      transactionQuery.mock.calls.some(([statement]) =>
+        statement.includes('phase7_arm_admin_operation')
+      )
+    ).toBe(false)
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it.each(['publish', 'retire', 'archive'] as const)(
     'classifies stale commit authority for prepared %s as fresh-assurance rollback',
     async (operation) => {

@@ -201,6 +201,37 @@ const createCandidateOnly = async (
   }
 }
 
+describe('Phase 7 transition MSW authority ordering', () => {
+  it('checks current authority before returning a missing transition target', async () => {
+    const state = createState()
+    const before = state.snapshot(sources)
+    const authority = vi.fn(() => {
+      throw new MockPhase7AdminCommandError({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        message: 'fresh assurance expired',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    })
+
+    await expect(
+      state.transitionVersion({
+        actorId: DEMO_REVIEWER_ADMIN_ID,
+        assertAuthority: authority,
+        operation: 'approveQuestionVersion',
+        request: { expectedRowVersion: 1 },
+        requestId: crypto.randomUUID(),
+        sources,
+        versionId: crypto.randomUUID()
+      })
+    ).rejects.toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      disposition: 'DEFINITE_ROLLBACK'
+    })
+    expect(authority).toHaveBeenCalledTimes(1)
+    expect(state.snapshot(sources)).toEqual(before)
+  })
+})
+
 describe('Phase 7 dormant publication MSW state', () => {
   it('publishes, retires and archives with exact learner pins and one concurrent winner', async () => {
     const state = createState()

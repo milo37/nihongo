@@ -4,7 +4,7 @@ import type {
   UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
 import {
-  phase7DormantAfterSlice3RA1OperationManifest,
+  phase7DormantAfterSlice3RA2OperationManifest,
   reauthenticateAdminErrorSchema,
   reauthenticateAdminResponseSchema
 } from '@nihongo/contracts/admin/phase7'
@@ -148,6 +148,7 @@ const createFixture = ({
   capabilityError,
   clearSessionCookie = false,
   includeReauthentication = true,
+  includeCommands = true,
   isFresh = true,
   principalError,
   rateError,
@@ -159,6 +160,7 @@ const createFixture = ({
   capabilityError?: unknown
   clearSessionCookie?: boolean
   includeReauthentication?: boolean
+  includeCommands?: boolean
   isFresh?: boolean
   principalError?: unknown
   rateError?: unknown
@@ -251,10 +253,14 @@ const createFixture = ({
   const app = createApiApp({
     admin: {
       assertCapability,
-      commands: {
-        rateLimiter: commandRateLimiter,
-        service: commandService
-      },
+      ...(includeCommands
+        ? {
+            commands: {
+              rateLimiter: commandRateLimiter,
+              service: commandService
+            }
+          }
+        : {}),
       ...(includeReauthentication
         ? {
             reauthentication: {
@@ -346,6 +352,22 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       'requestChanges',
       200,
       'ADMIN_EDIT'
+    ],
+    [
+      'POST',
+      `/api/v1/admin/question-versions/${versionId}/approval`,
+      { expectedRowVersion: 1, comment: '승인합니다.' },
+      'approveVersion',
+      200,
+      'ADMIN_SENSITIVE'
+    ],
+    [
+      'POST',
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+      { expectedRowVersion: 1, reason: '최종 재검수' },
+      'withdrawApproval',
+      200,
+      'ADMIN_SENSITIVE'
     ]
   ] as const)(
     '%s %s dispatches %s with the canonical rate group',
@@ -388,6 +410,11 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     [
       `/api/v1/admin/question-versions/${versionId}/review-request`,
       16 * 1024 + 1
+    ],
+    [`/api/v1/admin/question-versions/${versionId}/approval`, 16 * 1024 + 1],
+    [
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+      16 * 1024 + 1
     ]
   ] as const)(
     'declared oversize %s stops before session resolution',
@@ -406,6 +433,82 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       expect(fixture.resolveAuthenticatedUser).not.toHaveBeenCalled()
     }
   )
+
+  it.each([
+    [
+      `/api/v1/admin/question-versions/${versionId}/approval`,
+      { expectedRowVersion: 1 },
+      'approveVersion'
+    ],
+    [
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+      { expectedRowVersion: 1, reason: '재검수' },
+      'withdrawApproval'
+    ]
+  ] as const)(
+    'stale A2 command %s fails fresh assurance before rate and service',
+    async (pathname, body, serviceMethod) => {
+      const fixture = createFixture({ isFresh: false })
+      const response = await fixture.app.request(pathname, {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify(body)
+      })
+
+      expect(response.status).toBe(401)
+      expect(apiFailureSchema.parse(await response.json()).code).toBe(
+        'FRESH_ASSURANCE_REQUIRED'
+      )
+      expect(fixture.consume).not.toHaveBeenCalled()
+      expect(fixture.commandService[serviceMethod]).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each([
+    `/api/v1/admin/question-versions/${versionId}/approval`,
+    `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`
+  ])(
+    'canonical A2 OPTIONS %s is answered by CORS before auth and command service',
+    async (pathname) => {
+      const fixture = createFixture()
+      const response = await fixture.app.request(pathname, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: environment.TRUSTED_ORIGINS[0]!,
+          'Access-Control-Request-Method': 'POST'
+        }
+      })
+
+      expect(response.status).toBe(204)
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(
+        environment.TRUSTED_ORIGINS[0]
+      )
+      expect(fixture.resolveAuthenticatedUser).not.toHaveBeenCalled()
+      expect(fixture.assertCapability).not.toHaveBeenCalled()
+      expect(fixture.consume).not.toHaveBeenCalled()
+      expect(fixture.commandService.approveVersion).not.toHaveBeenCalled()
+      expect(fixture.commandService.withdrawApproval).not.toHaveBeenCalled()
+    }
+  )
+
+  it('approval paths require the commands dependency before entering the guard', async () => {
+    const fixture = createFixture({ includeCommands: false })
+    for (const pathname of [
+      `/api/v1/admin/question-versions/${versionId}/approval`,
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`
+    ]) {
+      const response = await fixture.app.request(pathname, {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ expectedRowVersion: 1, reason: '재검수' })
+      })
+      expect(response.status).toBe(404)
+    }
+    expect(fixture.resolveAuthenticatedUser).not.toHaveBeenCalled()
+    expect(fixture.consume).not.toHaveBeenCalled()
+    expect(fixture.commandService.approveVersion).not.toHaveBeenCalled()
+    expect(fixture.commandService.withdrawApproval).not.toHaveBeenCalled()
+  })
 
   it('role/account-loss evidence는 initial command guard에서 exact 403으로 닫는다', async () => {
     const fixture = createFixture({
@@ -427,6 +530,41 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     expect(fixture.assertCapability).not.toHaveBeenCalled()
     expect(fixture.consume).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [
+      `/api/v1/admin/question-versions/${versionId}/approval`,
+      { expectedRowVersion: 1 },
+      'approveVersion'
+    ],
+    [
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+      { expectedRowVersion: 1, reason: '재검수' },
+      'withdrawApproval'
+    ]
+  ] as const)(
+    'A2 role/account loss %s is exact 403 before capability/rate/service',
+    async (pathname, body, serviceMethod) => {
+      const fixture = createFixture({
+        adminAuthorityFailure: 'ADMIN_REQUIRED',
+        clearSessionCookie: true,
+        user: null
+      })
+      const response = await fixture.app.request(pathname, {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify(body)
+      })
+
+      expect(response.status).toBe(403)
+      expect(apiFailureSchema.parse(await response.json()).code).toBe(
+        'ADMIN_REQUIRED'
+      )
+      expect(fixture.assertCapability).not.toHaveBeenCalled()
+      expect(fixture.consume).not.toHaveBeenCalled()
+      expect(fixture.commandService[serviceMethod]).not.toHaveBeenCalled()
+    }
+  )
 
   it.each([
     [null, false, 'AUTHENTICATION_REQUIRED', 401],
@@ -565,6 +703,48 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     )
     expect(jsonFixture.consume).toHaveBeenCalledTimes(1)
     expect(jsonFixture.commandService.createQuestion).not.toHaveBeenCalled()
+  })
+
+  it('A2 strict query/body validation runs after the shared sensitive rate gate', async () => {
+    const queryFixture = createFixture()
+    const queryResponse = await queryFixture.app.request(
+      `/api/v1/admin/question-versions/${versionId}/approval?unknown=1`,
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ expectedRowVersion: 1 })
+      }
+    )
+    expect(queryResponse.status).toBe(422)
+    expect(apiFailureSchema.parse(await queryResponse.json()).code).toBe(
+      'VALIDATION_ERROR'
+    )
+    expect(queryFixture.consume).toHaveBeenCalledWith({
+      actorId: adminUser.id,
+      clientIp: 'unresolved',
+      group: 'ADMIN_SENSITIVE'
+    })
+    expect(queryFixture.commandService.approveVersion).not.toHaveBeenCalled()
+
+    const bodyFixture = createFixture()
+    const bodyResponse = await bodyFixture.app.request(
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ expectedRowVersion: 1, unknown: true })
+      }
+    )
+    expect(bodyResponse.status).toBe(422)
+    expect(apiFailureSchema.parse(await bodyResponse.json()).code).toBe(
+      'VALIDATION_ERROR'
+    )
+    expect(bodyFixture.consume).toHaveBeenCalledWith({
+      actorId: adminUser.id,
+      clientIp: 'unresolved',
+      group: 'ADMIN_SENSITIVE'
+    })
+    expect(bodyFixture.commandService.withdrawApproval).not.toHaveBeenCalled()
   })
 
   it('default createApiApp composition rotates a stale ADMIN session and preserves ordered cookies', async () => {
@@ -767,23 +947,36 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     ['disabled', { ...environment, ADMIN_CMS_MODE: 'disabled' }],
     ['production', { ...environment, NODE_ENV: 'production' }]
   ] as const)(
-    '%s mode keeps reauthentication generic 404 before guard and service',
+    '%s mode keeps A1/A2 remediation generic 404 before guard and service',
     async (_label, appEnvironment) => {
       const fixture = createFixture({ appEnvironment })
-      const response = await fixture.app.request(
-        '/api/v1/admin/reauthentication',
-        {
+      for (const [pathname, body] of [
+        [
+          '/api/v1/admin/reauthentication',
+          { password: 'valid-password-value' }
+        ],
+        [
+          `/api/v1/admin/question-versions/${versionId}/approval`,
+          { expectedRowVersion: 1 }
+        ],
+        [
+          `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+          { expectedRowVersion: 1, reason: '재검수' }
+        ]
+      ] as const) {
+        const response = await fixture.app.request(pathname, {
           method: 'POST',
           headers: commandHeaders(),
-          body: JSON.stringify({ password: 'valid-password-value' })
-        }
-      )
-
-      expect(response.status).toBe(404)
+          body: JSON.stringify(body)
+        })
+        expect(response.status).toBe(404)
+        expect(response.headers.getSetCookie()).toHaveLength(0)
+      }
       expect(fixture.resolveAuthenticatedUser).not.toHaveBeenCalled()
       expect(fixture.consume).not.toHaveBeenCalled()
       expect(fixture.reauthenticate).not.toHaveBeenCalled()
-      expect(response.headers.getSetCookie()).toHaveLength(0)
+      expect(fixture.commandService.approveVersion).not.toHaveBeenCalled()
+      expect(fixture.commandService.withdrawApproval).not.toHaveBeenCalled()
     }
   )
 
@@ -792,10 +985,10 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     ['POST', '/api/v1/admin/questions#alias'],
     ['POST', `/api/v1/%${'25'.repeat(32)}61dmin/questions`],
     ['POST', '/api/v1/admin/questions/short/versions'],
-    ['POST', `/api/v1/admin/question-versions/${versionId}/approval`],
+    ['GET', `/api/v1/admin/question-versions/${versionId}/approval`],
     [
       'POST',
-      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal/`
     ],
     [
       'POST',
@@ -819,14 +1012,14 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     }
   )
 
-  it('manifest의 dormant 14개 전부를 auth/service/DB/cookie 전에 generic 404로 닫는다', async () => {
+  it('manifest의 dormant 12개 전부를 auth/service/DB/cookie 전에 generic 404로 닫는다', async () => {
     const fixture = createFixture()
     const readerCallsBefore = Object.values(reader).map(
       (read) => vi.mocked(read).mock.calls.length
     )
 
-    expect(phase7DormantAfterSlice3RA1OperationManifest).toHaveLength(14)
-    for (const entry of phase7DormantAfterSlice3RA1OperationManifest) {
+    expect(phase7DormantAfterSlice3RA2OperationManifest).toHaveLength(12)
+    for (const entry of phase7DormantAfterSlice3RA2OperationManifest) {
       const response = await fixture.app.request(
         materializeManifestPath(entry.path),
         {

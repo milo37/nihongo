@@ -936,7 +936,7 @@ describe('Phase 7 ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'SEPARATION_OF_DUTIES_VIOLATION',
-      phase7Disposition: 'NO_TX'
+      phase7Disposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readVersionWriteCounts(createdVersionId)).toEqual(
       beforeSelfDecision

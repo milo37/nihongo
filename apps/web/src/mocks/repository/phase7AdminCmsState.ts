@@ -803,6 +803,7 @@ export class MockPhase7AdminCmsState {
     versionId: string
   }): Promise<AdminQuestionMutationResult> {
     return this.runExclusive(async () => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const current = this.versionById.get(input.versionId)
       if (!current) {

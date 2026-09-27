@@ -10,11 +10,13 @@ import {
   phase7ErrorSurfaceByOperation,
   phase7DormantAfterSlice3AOperationManifest,
   phase7DormantAfterSlice3RA1OperationManifest,
+  phase7DormantAfterSlice3RA2OperationManifest,
   phase7OperationManifest,
   phase7OperationSchemaManifest,
   phase7OperationSchemas,
   phase7ActiveThroughSlice3AOperationManifest,
   phase7ActiveThroughSlice3RA1OperationManifest,
+  phase7ActiveThroughSlice3RA2OperationManifest,
   phase7Slice3ACommandOperationManifest,
   phase7Slice3RRemediationOperationManifest,
   phase7Slice2ReadOperationManifest
@@ -176,6 +178,39 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         .filter(
           (entry) =>
             !phase7ActiveThroughSlice3RA1OperationManifest.includes(
+              entry as never
+            )
+        )
+        .map((entry) => entry.operation)
+    )
+
+    expect(phase7ActiveThroughSlice3RA2OperationManifest).toHaveLength(16)
+    expect(phase7DormantAfterSlice3RA2OperationManifest).toHaveLength(12)
+    expect(
+      phase7ActiveThroughSlice3RA2OperationManifest.map(
+        (entry) => entry.operation
+      )
+    ).toEqual(
+      phase7OperationManifest
+        .filter(
+          (entry) =>
+            phase7ActiveThroughSlice3RA1OperationManifest.includes(
+              entry as never
+            ) ||
+            entry.operation === 'approveQuestionVersion' ||
+            entry.operation === 'withdrawQuestionApproval'
+        )
+        .map((entry) => entry.operation)
+    )
+    expect(
+      phase7DormantAfterSlice3RA2OperationManifest.map(
+        (entry) => entry.operation
+      )
+    ).toEqual(
+      phase7OperationManifest
+        .filter(
+          (entry) =>
+            !phase7ActiveThroughSlice3RA2OperationManifest.includes(
               entry as never
             )
         )

@@ -1,10 +1,14 @@
 import {
+  assertApproveQuestionVersionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
   assertReauthenticateAdminResponse,
   assertUpdateQuestionVersionResponse,
+  assertWithdrawQuestionApprovalResponse,
+  approveQuestionVersionParamsSchema,
+  approveQuestionVersionRequestSchema,
   buildPhase7OperationFailureResponse,
   createAdminQuestionRequestSchema,
   createAdminQuestionVersionParamsSchema,
@@ -18,6 +22,8 @@ import {
   reauthenticateAdminRequestSchema,
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
+  withdrawQuestionApprovalParamsSchema,
+  withdrawQuestionApprovalRequestSchema,
   type Phase7Operation
 } from '@nihongo/contracts/admin/phase7'
 import {
@@ -49,6 +55,10 @@ const canonicalCommandPaths = [
   new RegExp(
     `^/api/v1/admin/question-versions/${LOWERCASE_UUID}/change-request$`
   ),
+  new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/approval$`),
+  new RegExp(
+    `^/api/v1/admin/question-versions/${LOWERCASE_UUID}/approval-withdrawal$`
+  ),
   /^\/api\/v1\/admin\/reauthentication$/
 ] as const
 
@@ -58,10 +68,12 @@ const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
   updateQuestionVersion: LARGE_BODY_CAP,
   requestContentReview: SMALL_BODY_CAP,
   requestQuestionChanges: SMALL_BODY_CAP,
+  approveQuestionVersion: SMALL_BODY_CAP,
+  withdrawQuestionApproval: SMALL_BODY_CAP,
   reauthenticateAdmin: 4 * 1024
 }
 
-type RateGroup = 'ADMIN_EDIT' | 'REAUTHENTICATION'
+type RateGroup = 'ADMIN_EDIT' | 'ADMIN_SENSITIVE' | 'REAUTHENTICATION'
 
 const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
   {
@@ -70,6 +82,8 @@ const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
     updateQuestionVersion: 'ADMIN_EDIT',
     requestContentReview: 'ADMIN_EDIT',
     requestQuestionChanges: 'ADMIN_EDIT',
+    approveQuestionVersion: 'ADMIN_SENSITIVE',
+    withdrawQuestionApproval: 'ADMIN_SENSITIVE',
     reauthenticateAdmin: 'REAUTHENTICATION'
   }
 
@@ -77,10 +91,14 @@ const ratePolicyByGroup: Readonly<
   Record<RateGroup, { limit: number; windowMs: number }>
 > = {
   ADMIN_EDIT: { limit: 30, windowMs: 10 * 60 * 1000 },
+  ADMIN_SENSITIVE: { limit: 10, windowMs: 15 * 60 * 1000 },
   REAUTHENTICATION: { limit: 5, windowMs: 15 * 60 * 1000 }
 }
 
-const freshOperations = new Set<Phase7Operation>()
+const freshOperations = new Set<Phase7Operation>([
+  'approveQuestionVersion',
+  'withdrawQuestionApproval'
+])
 
 interface RateWindow {
   count: number
@@ -654,6 +672,63 @@ export const adminCmsCommandHandlers = [
           }),
         assertResult: (body, raw) =>
           assertRequestQuestionChangesResponse(parsedParams, body, raw)
+      })
+    }
+  ),
+  http.post(
+    '*/api/v1/admin/question-versions/:versionId/approval',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(approveQuestionVersionParamsSchema, {
+        versionId: String(params.versionId ?? '')
+      })
+      return handleCommand({
+        operation: 'approveQuestionVersion',
+        request,
+        schema: approveQuestionVersionRequestSchema,
+        message: '문제 버전 승인 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().transitionVersion({
+            actorId,
+            assertAuthority: commitAuthority(actorId, 'approveQuestionVersion'),
+            operation: 'approveQuestionVersion',
+            versionId: parsedParams.versionId,
+            request: body,
+            requestId,
+            sources: sources()
+          }),
+        assertResult: (body, raw) =>
+          assertApproveQuestionVersionResponse(parsedParams, body, raw)
+      })
+    }
+  ),
+  http.post(
+    '*/api/v1/admin/question-versions/:versionId/approval-withdrawal',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(withdrawQuestionApprovalParamsSchema, {
+        versionId: String(params.versionId ?? '')
+      })
+      return handleCommand({
+        operation: 'withdrawQuestionApproval',
+        request,
+        schema: withdrawQuestionApprovalRequestSchema,
+        message: '문제 버전 승인 철회 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().transitionVersion({
+            actorId,
+            assertAuthority: commitAuthority(
+              actorId,
+              'withdrawQuestionApproval'
+            ),
+            operation: 'withdrawQuestionApproval',
+            versionId: parsedParams.versionId,
+            request: body,
+            requestId,
+            sources: sources()
+          }),
+        assertResult: (body, raw) =>
+          assertWithdrawQuestionApprovalResponse(parsedParams, body, raw)
       })
     }
   ),

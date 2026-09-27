@@ -5,6 +5,7 @@ import {
 import { describe, expect, it } from 'vitest'
 import {
   getCanonicalPhase7Slice3Operation,
+  isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7ReauthenticationRequest,
   isCanonicalPhase7ActiveRequest,
   isPhase7ExcludedRequest
@@ -29,7 +30,7 @@ describe('Phase 7 prefix exclusion classifier', () => {
     expect(manifest).toHaveLength(5)
   })
 
-  it('activates only reauthentication from the three Slice 3R remediation operations', () => {
+  it('activates all three Slice 3R remediation operations at the A2 boundary', () => {
     expect(
       phase7Slice3RRemediationOperationManifest.map((entry) =>
         getCanonicalPhase7Slice3Operation({
@@ -37,11 +38,27 @@ describe('Phase 7 prefix exclusion classifier', () => {
           requestTarget: materializePath(entry.path)
         })
       )
-    ).toEqual([null, null, 'reauthenticateAdmin'])
+    ).toEqual([
+      'approveQuestionVersion',
+      'withdrawQuestionApproval',
+      'reauthenticateAdmin'
+    ])
     expect(
       isCanonicalPhase7ReauthenticationRequest({
         method: 'POST',
         requestTarget: '/api/v1/admin/reauthentication'
+      })
+    ).toBe(true)
+    expect(
+      isCanonicalPhase7ApprovalCommandRequest({
+        method: 'POST',
+        requestTarget: `/api/v1/admin/question-versions/${canonicalId}/approval`
+      })
+    ).toBe(true)
+    expect(
+      isCanonicalPhase7ApprovalCommandRequest({
+        method: 'OPTIONS',
+        requestTarget: `/api/v1/admin/question-versions/${canonicalId}/approval-withdrawal`
       })
     ).toBe(true)
   })
@@ -60,10 +77,10 @@ describe('Phase 7 prefix exclusion classifier', () => {
     ['POST', `/api/v1/admin/question-versions/${canonicalId}/retirement`],
     ['POST', '/api/v1/admin/questions/import-validation'],
     ['POST', '/api/v1/admin/questions/export'],
-    ['POST', `/api/v1/admin/question-versions/${canonicalId}/approval`],
+    ['GET', `/api/v1/admin/question-versions/${canonicalId}/approval`],
     [
       'POST',
-      `/api/v1/admin/question-versions/${canonicalId}/approval-withdrawal`
+      `/api/v1/admin/question-versions/${canonicalId}/approval-withdrawal/`
     ],
     ['POST', `/API/v1/admin/question-versions/${canonicalId}/approval`]
   ])(

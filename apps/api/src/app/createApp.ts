@@ -62,6 +62,7 @@ import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommand
 import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
 import {
   getCanonicalPhase7ActiveOperation,
+  isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7ReauthenticationRequest,
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
@@ -388,10 +389,14 @@ export const createApiApp = ({
         requestTarget
       }) ||
         (admin?.commands !== undefined &&
-          isCanonicalPhase7Slice3ACommandRequest({
+          (isCanonicalPhase7Slice3ACommandRequest({
             method: context.req.method,
             requestTarget
-          })) ||
+          }) ||
+            isCanonicalPhase7ApprovalCommandRequest({
+              method: context.req.method,
+              requestTarget
+            }))) ||
         (admin?.reauthentication !== undefined &&
           isCanonicalPhase7ReauthenticationRequest({
             method: context.req.method,

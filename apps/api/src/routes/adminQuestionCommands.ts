@@ -1,9 +1,14 @@
 import {
+  assertApproveQuestionVersionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
   assertUpdateQuestionVersionResponse,
+  assertWithdrawQuestionApprovalResponse,
+  approveQuestionVersionParamsSchema,
+  approveQuestionVersionRequestSchema,
+  approveQuestionVersionResponseSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionResponseSchema,
   createAdminQuestionVersionParamsSchema,
@@ -19,6 +24,9 @@ import {
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
   updateQuestionVersionResponseSchema,
+  withdrawQuestionApprovalParamsSchema,
+  withdrawQuestionApprovalRequestSchema,
+  withdrawQuestionApprovalResponseSchema,
   type Phase7Operation
 } from '@nihongo/contracts/admin/phase7'
 import { Hono, type MiddlewareHandler } from 'hono'
@@ -275,6 +283,72 @@ export const createAdminQuestionCommandRoutes = ({
       const response = requestQuestionChangesResponseSchema.parse(
         assertCommittedResponse(() =>
           assertRequestQuestionChangesResponse(params, request, raw)
+        )
+      )
+      noStore(context)
+      return context.json(response)
+    }
+  )
+
+  routes.post(
+    '/question-versions/:versionId/approval',
+    guard,
+    async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const params = parsePath(
+        () =>
+          approveQuestionVersionParamsSchema.parse({
+            versionId: context.req.param('versionId')
+          }),
+        '문제 버전 ID 형식이 올바르지 않습니다.'
+      )
+      const request = await parseBody(
+        context.req.raw,
+        'approveQuestionVersion',
+        approveQuestionVersionRequestSchema,
+        '문제 버전 승인 요청이 올바르지 않습니다.'
+      )
+      const raw = await commandService.approveVersion(
+        authority(context),
+        params.versionId,
+        request
+      )
+      const response = approveQuestionVersionResponseSchema.parse(
+        assertCommittedResponse(() =>
+          assertApproveQuestionVersionResponse(params, request, raw)
+        )
+      )
+      noStore(context)
+      return context.json(response)
+    }
+  )
+
+  routes.post(
+    '/question-versions/:versionId/approval-withdrawal',
+    guard,
+    async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const params = parsePath(
+        () =>
+          withdrawQuestionApprovalParamsSchema.parse({
+            versionId: context.req.param('versionId')
+          }),
+        '문제 버전 ID 형식이 올바르지 않습니다.'
+      )
+      const request = await parseBody(
+        context.req.raw,
+        'withdrawQuestionApproval',
+        withdrawQuestionApprovalRequestSchema,
+        '문제 버전 승인 철회 요청이 올바르지 않습니다.'
+      )
+      const raw = await commandService.withdrawApproval(
+        authority(context),
+        params.versionId,
+        request
+      )
+      const response = withdrawQuestionApprovalResponseSchema.parse(
+        assertCommittedResponse(() =>
+          assertWithdrawQuestionApprovalResponse(params, request, raw)
         )
       )
       noStore(context)

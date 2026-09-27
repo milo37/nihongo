@@ -1,13 +1,25 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import {
+  adminQuestionMutationResultSchema,
+  approveQuestionVersionRequestSchema,
+  createAdminQuestionRequestSchema,
   reauthenticateAdminErrorSchema,
-  reauthenticateAdminResponseSchema
+  reauthenticateAdminResponseSchema,
+  requestContentReviewRequestSchema,
+  withdrawQuestionApprovalRequestSchema,
+  type CreateAdminQuestionRequest
 } from '@nihongo/contracts/admin/phase7'
+import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Client } from 'pg'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
+import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
+import {
+  createAdminQuestionCommandService,
+  type AdminQuestionCommandService
+} from '../admin/adminQuestionCommandService.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createApiApp } from '../app/createApp.js'
@@ -42,10 +54,13 @@ if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
 const adminUrl = new URL(adminDatabaseUrl)
 adminUrl.searchParams.delete('schema')
 adminUrl.searchParams.delete('options')
-const adminClient = new Client({
-  connectionString: adminUrl.toString(),
-  options: createPostgresStartupOptions(schema)
-})
+const createAdminClient = (): Client =>
+  new Client({
+    connectionString: adminUrl.toString(),
+    options: createPostgresStartupOptions(schema)
+  })
+const adminClient = createAdminClient()
+const adminControlClient = createAdminClient()
 const gatewayRuntime = createRoleDatabaseRuntime(
   authGatewayDatabaseUrl,
   'nihongo_auth_gateway'
@@ -185,6 +200,306 @@ const makeSessionStaleForTesting = async (sessionId: string) => {
     throw error
   }
 }
+
+const moveSessionNearFreshCutoffForTesting = async (
+  rawSessionToken: string,
+  millisecondsUntilCutoff: number
+): Promise<number | null> => {
+  await adminControlClient.query('BEGIN')
+  try {
+    await adminControlClient.query(
+      'SET LOCAL session_replication_role = replica'
+    )
+    const result = await adminControlClient.query<{
+      preservesLifetime: boolean
+    }>(
+      `WITH target AS (
+         SELECT clock_timestamp() - INTERVAL '5 minutes'
+           + $2::int * INTERVAL '1 millisecond' AS created_at
+       )
+       UPDATE "Session" AS session
+       SET "updatedAt" = session."updatedAt"
+             - (session."createdAt" - target.created_at),
+           "expiresAt" = session."expiresAt"
+             - (session."createdAt" - target.created_at),
+           "createdAt" = target.created_at
+       FROM target
+       WHERE session."token" = $1
+       RETURNING session."expiresAt" - session."createdAt" =
+         INTERVAL '1 day' AS "preservesLifetime"`,
+      [rawSessionToken, millisecondsUntilCutoff]
+    )
+    if (result.rows[0]?.preservesLifetime !== true) {
+      throw new Error('Phase 7 A2 Session lifetime was not preserved.')
+    }
+    await adminControlClient.query('COMMIT')
+    return result.rowCount
+  } catch (error: unknown) {
+    await adminControlClient.query('ROLLBACK')
+    throw error
+  }
+}
+
+const loadActiveSessionToken = async (userId: string): Promise<string> => {
+  const result = await adminControlClient.query<{ token: string }>(
+    `SELECT "token" FROM "Session"
+     WHERE "userId" = $1 AND "authorizationState" = 'ACTIVE'
+     ORDER BY "createdAt" DESC, "id" DESC`,
+    [userId]
+  )
+  const row = result.rows[0]
+  if (!row || result.rows.length !== 1) {
+    throw new Error('Phase 7 active replacement Session is unavailable.')
+  }
+  return row.token
+}
+
+const waitForBlockedContentReviewInsert = async (
+  blockingBackendPid: number
+): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const result = await adminControlClient.query<{ pid: number }>(
+      `SELECT activity.pid
+       FROM pg_stat_activity AS activity
+       WHERE $1 = ANY(pg_blocking_pids(activity.pid))
+         AND activity.wait_event_type = 'Lock'
+         AND activity.query LIKE '%INSERT INTO "ContentReview"%'`,
+      [blockingBackendPid]
+    )
+    if (result.rows.length === 1) return
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error('Phase 7 A2 command did not reach its post-write block.')
+}
+
+const waitForSessionFreshCutoff = async (
+  rawSessionToken: string
+): Promise<void> => {
+  for (let attempt = 0; attempt < 160; attempt += 1) {
+    const result = await adminControlClient.query<{ reached: boolean }>(
+      `SELECT "createdAt" + INTERVAL '5 minutes' <= clock_timestamp()
+         AS reached
+       FROM "Session" WHERE "token" = $1`,
+      [rawSessionToken]
+    )
+    if (result.rows[0]?.reached === true) return
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error('Phase 7 A2 Session did not reach the fresh cutoff.')
+}
+
+const createCommandService = (): AdminQuestionCommandService =>
+  createAdminQuestionCommandService(
+    createPrismaAdminQuestionCommandRepository({
+      auditEnvironment: 'TEST',
+      client: applicationRuntime.client
+    })
+  )
+
+const createVersionPreflightBarrierCommandService = () => {
+  let releasePreflight!: () => void
+  let signalPreflightLoaded!: () => void
+  let shouldBlock = true
+  const preflightLoaded = new Promise<void>((resolve) => {
+    signalPreflightLoaded = resolve
+  })
+  const preflightReleased = new Promise<void>((resolve) => {
+    releasePreflight = resolve
+  })
+  const query = async <QueryResult>(
+    statement: string,
+    ...values: unknown[]
+  ): Promise<QueryResult> => {
+    const result = await applicationRuntime.client.$queryRawUnsafe<QueryResult>(
+      statement,
+      ...values
+    )
+    if (shouldBlock && statement.includes('latest_approval')) {
+      shouldBlock = false
+      signalPreflightLoaded()
+      await preflightReleased
+    }
+    return result
+  }
+  const client = {
+    $queryRawUnsafe: query,
+    $transaction: applicationRuntime.client.$transaction.bind(
+      applicationRuntime.client
+    )
+  } as unknown as PrismaClient
+  return {
+    commandService: createAdminQuestionCommandService(
+      createPrismaAdminQuestionCommandRepository({
+        auditEnvironment: 'TEST',
+        client
+      })
+    ),
+    releasePreflight,
+    waitForPreflight: async () => await preflightLoaded
+  }
+}
+
+const loadA2Content = async (
+  suffix: string
+): Promise<CreateAdminQuestionRequest> => {
+  const result = await adminClient.query<{
+    label: string
+    level: string
+    questionType: string
+    subject: string
+  }>(
+    `SELECT tag."label", applicability."level"::text AS level,
+       applicability."subject"::text AS subject,
+       applicability."questionType"::text AS "questionType"
+     FROM "Tag" AS tag
+     JOIN "TagApplicability" AS applicability
+       ON applicability."tagId" = tag."id"
+      AND applicability."level" = 'N5'
+      AND applicability."subject" = 'VOCABULARY'
+      AND applicability."questionType" = 'KANJI_READING'
+     ORDER BY tag."normalizedName", applicability."level",
+       applicability."subject", applicability."questionType"
+     LIMIT 1`
+  )
+  const tag = result.rows[0]
+  if (!tag) throw new Error('Phase 7 A2 tag fixture is unavailable.')
+  return createAdminQuestionRequestSchema.parse({
+    level: tag.level,
+    subject: tag.subject,
+    questionType: tag.questionType,
+    difficulty: 'NORMAL',
+    questionText: `Phase 7 A2 실제 승인 문제 ${suffix}`,
+    passage: null,
+    explanationKo: `Phase 7 A2 실제 승인 해설 ${suffix}`,
+    explanationJa: null,
+    tagNames: [tag.label],
+    options: [
+      { clientOptionKey: 'a', text: `보기-a-${suffix}` },
+      { clientOptionKey: 'b', text: `보기-b-${suffix}` },
+      { clientOptionKey: 'c', text: `보기-c-${suffix}` },
+      { clientOptionKey: 'd', text: `보기-d-${suffix}` }
+    ],
+    correctOptionKey: 'a'
+  })
+}
+
+const prepareA2InReviewVersion = async (input: {
+  author: Awaited<ReturnType<typeof createFixture>>
+  commandService: AdminQuestionCommandService
+}) => {
+  const content = await loadA2Content(randomUUID())
+  const created = await input.commandService.createQuestion(
+    {
+      actorId: input.author.userId,
+      rawSessionToken: input.author.token,
+      requestId: randomUUID()
+    },
+    content
+  )
+  const versionId = created.questionVersionId
+  if (!versionId || created.versionRowVersion === null) {
+    throw new Error('Phase 7 A2 created version is unavailable.')
+  }
+  const reviewRequest = requestContentReviewRequestSchema.parse({
+    expectedRowVersion: created.versionRowVersion,
+    comment: 'A2 실제 DB 검수를 요청합니다.'
+  })
+  const inReview = await input.commandService.requestReview(
+    {
+      actorId: input.author.userId,
+      rawSessionToken: input.author.token,
+      requestId: randomUUID()
+    },
+    versionId,
+    reviewRequest
+  )
+  if (inReview.versionRowVersion === null) {
+    throw new Error('Phase 7 A2 in-review rowVersion is unavailable.')
+  }
+  return {
+    questionId: created.questionId,
+    questionRowVersion: inReview.questionRowVersion,
+    versionId,
+    versionRowVersion: inReview.versionRowVersion
+  }
+}
+
+const readA2Evidence = async (versionId: string) => {
+  const version = await adminClient.query<{
+    questionRowVersion: number
+    rowVersion: number
+    status: string
+  }>(
+    `SELECT version."status"::text AS status, version."rowVersion",
+       question."rowVersion" AS "questionRowVersion"
+     FROM "QuestionVersion" AS version
+     JOIN "Question" AS question ON question."id" = version."questionId"
+     WHERE version."id" = $1`,
+    [versionId]
+  )
+  const reviews = await adminClient.query<{
+    action: string
+    actorUserId: string
+    comment: string | null
+    counterpartActorId: string | null
+    fromState: string
+    operationId: string
+    reason: string | null
+    requestId: string
+    toState: string
+  }>(
+    `SELECT "action"::text AS action, "actorUserId", "counterpartActorId",
+       "fromState"::text AS "fromState", "toState"::text AS "toState",
+       "reason", "comment", "operationId", "requestId"
+     FROM "ContentReview"
+     WHERE "questionVersionId" = $1
+       AND "action" IN ('APPROVED', 'APPROVAL_WITHDRAWN')
+     ORDER BY "occurredAt", "id"`,
+    [versionId]
+  )
+  const audits = await adminClient.query<{
+    afterRowVersion: number
+    afterState: string
+    beforeRowVersion: number
+    beforeState: string
+    changedFields: string[]
+    command: string
+    contentDigestValid: boolean
+    metadata: Record<string, unknown>
+    operationId: string
+    requestId: string
+  }>(
+    `SELECT "command"::text AS command, "beforeState", "afterState",
+       "beforeRowVersion", "afterRowVersion", "changedFields",
+       "metadata", "operationId", "requestId",
+       "contentDigest" = "phase7_admin_audit_content_digest"(
+         "operationId", "command", "targetType", "targetId",
+         "beforeState", "afterState", "beforeRowVersion",
+         "afterRowVersion", "changedFields", "metadata"
+       ) AS "contentDigestValid"
+     FROM "AdminAuditLog"
+     WHERE "targetId" = $1
+       AND "command" IN ('APPROVAL', 'APPROVAL_WITHDRAWAL')
+     ORDER BY "occurredAt", "id"`,
+    [versionId]
+  )
+  return {
+    audits: audits.rows,
+    reviews: reviews.rows,
+    version: version.rows[0]
+  }
+}
+
+const readA2IntentCount = async (
+  requestIds: readonly string[]
+): Promise<number> =>
+  (
+    await adminClient.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"
+       WHERE "requestId" = ANY($1::uuid[])`,
+      [requestIds]
+    )
+  ).rows[0]?.count ?? -1
 
 const prepareAndStage = async (
   fixture: Awaited<ReturnType<typeof createFixture>>
@@ -416,6 +731,7 @@ const createService = (
 }
 
 const createTestHonoApp = ({
+  commandService,
   principalService = createPhase7PrincipalService({
     client: applicationRuntime.client,
     isProduction: environment.NODE_ENV === 'production',
@@ -424,6 +740,7 @@ const createTestHonoApp = ({
   }),
   service
 }: {
+  commandService?: AdminQuestionCommandService
   principalService?: PrincipalService
   service: ReturnType<typeof createService>
 }) => {
@@ -448,6 +765,14 @@ const createTestHonoApp = ({
   return createApiApp({
     admin: {
       assertCapability: () => undefined,
+      ...(commandService
+        ? {
+            commands: {
+              rateLimiter: { consume: async () => undefined },
+              service: commandService
+            }
+          }
+        : {}),
       rateLimiter: readRateLimiter,
       reader,
       reauthentication: {
@@ -470,6 +795,43 @@ const createTestHonoApp = ({
     logger: createJsonLogger('silent'),
     questionReader
   })
+}
+
+const toRequestCookieHeader = (setCookies: readonly string[]): string =>
+  setCookies
+    .map((cookie) => {
+      const attributeIndex = cookie.indexOf(';')
+      return attributeIndex === -1 ? cookie : cookie.slice(0, attributeIndex)
+    })
+    .join('; ')
+
+const requestA2Command = async ({
+  app,
+  body,
+  cookie,
+  fixture,
+  pathname,
+  requestId = randomUUID()
+}: {
+  app: ReturnType<typeof createTestHonoApp>
+  body: unknown
+  cookie?: string
+  fixture: Awaited<ReturnType<typeof createFixture>>
+  pathname: string
+  requestId?: string
+}) => {
+  const headers = new Headers(fixture.headers)
+  headers.set('Content-Type', 'application/json')
+  headers.set('X-Request-Id', requestId)
+  if (cookie !== undefined) headers.set('Cookie', cookie)
+  return {
+    requestId,
+    response: await app.request(`http://localhost:3001${pathname}`, {
+      body: JSON.stringify(body),
+      headers,
+      method: 'POST'
+    })
+  }
 }
 
 const readWriteSnapshot = async () =>
@@ -496,7 +858,7 @@ const readWriteSnapshot = async () =>
   ).rows[0]
 
 beforeAll(async () => {
-  await adminClient.connect()
+  await Promise.all([adminClient.connect(), adminControlClient.connect()])
   await Promise.all([gatewayClientA.connect(), gatewayClientB.connect()])
   const endpoint = await adminClient.query<{
     databaseName: string
@@ -525,7 +887,7 @@ afterAll(async () => {
     applicationRuntime.disconnect(),
     gatewayRuntime.disconnect()
   ])
-  await adminClient.end()
+  await Promise.all([adminClient.end(), adminControlClient.end()])
 })
 
 describe('Phase 7 real Better Auth reauthentication service', () => {
@@ -606,6 +968,455 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
       }
     ])
   })
+
+  it('real createApiApp·production repository가 A2 재인증 명시 재시도, SoD, 동시성, 최종 fresh fence를 원자적으로 보장한다', async () => {
+    const author = await createFixture()
+    const reviewer = await createFixture()
+    const commandService = createCommandService()
+    const target = await prepareA2InReviewVersion({
+      author,
+      commandService
+    })
+    expect(target).toMatchObject({
+      questionRowVersion: 1,
+      versionRowVersion: 2
+    })
+    const approvalPath = `/api/v1/admin/question-versions/${target.versionId}/approval`
+    const withdrawalPath = `/api/v1/admin/question-versions/${target.versionId}/approval-withdrawal`
+    const app = createTestHonoApp({ commandService, service: createService() })
+
+    const beforeSelfApproval = await readA2Evidence(target.versionId)
+    const selfApproval = await requestA2Command({
+      app,
+      body: { expectedRowVersion: 2, comment: '작성자 자체 승인 거부' },
+      fixture: author,
+      pathname: approvalPath
+    })
+    expect(selfApproval.response.status).toBe(409)
+    expect(
+      apiFailureSchema.parse(await selfApproval.response.json())
+    ).toMatchObject({
+      code: 'SEPARATION_OF_DUTIES_VIOLATION',
+      requestId: selfApproval.requestId,
+      retryable: false
+    })
+    expect(selfApproval.response.headers.getSetCookie()).toHaveLength(0)
+    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+    expect(await readA2IntentCount([selfApproval.requestId])).toBe(0)
+
+    expect(await makeSessionStaleForTesting(reviewer.sessionId)).toBe(1)
+    const staleApproval = await requestA2Command({
+      app,
+      body: { expectedRowVersion: 2, comment: 'stale 요청은 기록 금지' },
+      fixture: reviewer,
+      pathname: approvalPath
+    })
+    expect(staleApproval.response.status).toBe(401)
+    expect(
+      apiFailureSchema.parse(await staleApproval.response.json())
+    ).toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      requestId: staleApproval.requestId,
+      retryable: false
+    })
+    expect(staleApproval.response.headers.getSetCookie()).toHaveLength(0)
+    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+    expect(await readA2IntentCount([staleApproval.requestId])).toBe(0)
+
+    const reauthenticationHeaders = new Headers(reviewer.headers)
+    reauthenticationHeaders.set('Content-Type', 'application/json')
+    const reauthenticationResponse = await app.request(
+      'http://localhost:3001/api/v1/admin/reauthentication',
+      {
+        body: JSON.stringify({ password }),
+        headers: reauthenticationHeaders,
+        method: 'POST'
+      }
+    )
+    expect(reauthenticationResponse.status).toBe(200)
+    reauthenticateAdminResponseSchema.parse(
+      await reauthenticationResponse.json()
+    )
+    const replacementCookies = reauthenticationResponse.headers.getSetCookie()
+    expect(replacementCookies).toHaveLength(2)
+    const replacementCookie = toRequestCookieHeader(replacementCookies)
+
+    // Reauthentication rotates authority only. It must never replay the failed command.
+    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+
+    const revokedOldCookieApproval = await requestA2Command({
+      app,
+      body: { expectedRowVersion: 2, comment: '폐기된 cookie 요청' },
+      fixture: reviewer,
+      pathname: approvalPath
+    })
+    expect(revokedOldCookieApproval.response.status).toBe(401)
+    expect(
+      apiFailureSchema.parse(await revokedOldCookieApproval.response.json())
+    ).toMatchObject({
+      code: 'AUTH_SESSION_EXPIRED',
+      requestId: revokedOldCookieApproval.requestId,
+      retryable: false
+    })
+    const revokedOldCookieClears =
+      revokedOldCookieApproval.response.headers.getSetCookie()
+    expect(revokedOldCookieClears).toHaveLength(2)
+    expect(
+      revokedOldCookieClears.every((cookie) => cookie.includes('Max-Age=0'))
+    ).toBe(true)
+    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+    expect(await readA2IntentCount([revokedOldCookieApproval.requestId])).toBe(
+      0
+    )
+
+    const approvalRequestId = randomUUID()
+    const approval = await requestA2Command({
+      app,
+      body: approveQuestionVersionRequestSchema.parse({
+        expectedRowVersion: 2,
+        comment: 'A2 승인 근거'
+      }),
+      cookie: replacementCookie,
+      fixture: reviewer,
+      pathname: approvalPath,
+      requestId: approvalRequestId
+    })
+    expect(approval.response.status).toBe(200)
+    expect(
+      adminQuestionMutationResultSchema.parse(await approval.response.json())
+    ).toMatchObject({
+      questionId: target.questionId,
+      questionRowVersion: 1,
+      questionVersionId: target.versionId,
+      versionRowVersion: 3,
+      versionStatus: 'APPROVED'
+    })
+    expect(approval.response.headers.getSetCookie()).toHaveLength(0)
+
+    const approvedEvidence = await readA2Evidence(target.versionId)
+    expect(approvedEvidence.version).toEqual({
+      questionRowVersion: 1,
+      rowVersion: 3,
+      status: 'APPROVED'
+    })
+    expect(approvedEvidence.reviews).toHaveLength(1)
+    expect(approvedEvidence.audits).toHaveLength(1)
+    const approvalReview = approvedEvidence.reviews[0]
+    const approvalAudit = approvedEvidence.audits[0]
+    expect(approvalReview).toMatchObject({
+      action: 'APPROVED',
+      actorUserId: reviewer.userId,
+      comment: 'A2 승인 근거',
+      counterpartActorId: author.userId,
+      fromState: 'IN_REVIEW',
+      reason: null,
+      requestId: approvalRequestId,
+      toState: 'APPROVED'
+    })
+    expect(approvalAudit).toMatchObject({
+      afterRowVersion: 3,
+      afterState: 'APPROVED',
+      beforeRowVersion: 2,
+      beforeState: 'IN_REVIEW',
+      changedFields: ['VERSION_STATUS'],
+      command: 'APPROVAL',
+      contentDigestValid: true,
+      metadata: { kind: 'NONE_V1' },
+      requestId: approvalRequestId
+    })
+    expect(approvalReview?.operationId).toBe(approvalAudit?.operationId)
+    expect(await readA2IntentCount([approvalRequestId])).toBe(0)
+
+    const beforeSelfWithdrawal = await readA2Evidence(target.versionId)
+    const selfWithdrawal = await requestA2Command({
+      app,
+      body: {
+        expectedRowVersion: 3,
+        reason: '작성자 자체 승인 철회 거부'
+      },
+      fixture: author,
+      pathname: withdrawalPath
+    })
+    expect(selfWithdrawal.response.status).toBe(409)
+    expect(
+      apiFailureSchema.parse(await selfWithdrawal.response.json())
+    ).toMatchObject({
+      code: 'SEPARATION_OF_DUTIES_VIOLATION',
+      requestId: selfWithdrawal.requestId,
+      retryable: false
+    })
+    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfWithdrawal)
+    expect(await readA2IntentCount([selfWithdrawal.requestId])).toBe(0)
+
+    const withdrawalRequestIds = [randomUUID(), randomUUID()] as const
+    const withdrawalResponses = await Promise.all(
+      withdrawalRequestIds.map((requestId, index) =>
+        requestA2Command({
+          app,
+          body: withdrawQuestionApprovalRequestSchema.parse({
+            expectedRowVersion: 3,
+            reason: '승인 근거 재검토',
+            comment: `A2 동시 철회 ${index + 1}`
+          }),
+          cookie: replacementCookie,
+          fixture: reviewer,
+          pathname: withdrawalPath,
+          requestId
+        })
+      )
+    )
+    expect(
+      withdrawalResponses.map(({ response }) => response.status).sort()
+    ).toEqual([200, 409])
+    expect(
+      withdrawalResponses.every(
+        ({ response }) => response.headers.getSetCookie().length === 0
+      )
+    ).toBe(true)
+    const withdrawalWinnerIndex = withdrawalResponses.findIndex(
+      ({ response }) => response.status === 200
+    )
+    const withdrawalLoserIndex = withdrawalResponses.findIndex(
+      ({ response }) => response.status === 409
+    )
+    if (withdrawalWinnerIndex < 0 || withdrawalLoserIndex < 0) {
+      throw new Error('A2 withdrawal winner/loser is unavailable.')
+    }
+    const withdrawalWinner = withdrawalResponses[withdrawalWinnerIndex]!
+    const withdrawalLoser = withdrawalResponses[withdrawalLoserIndex]!
+    expect(
+      adminQuestionMutationResultSchema.parse(
+        await withdrawalWinner.response.json()
+      )
+    ).toMatchObject({
+      questionId: target.questionId,
+      questionRowVersion: 1,
+      questionVersionId: target.versionId,
+      versionRowVersion: 4,
+      versionStatus: 'CHANGES_REQUESTED'
+    })
+    expect(
+      apiFailureSchema.parse(await withdrawalLoser.response.json())
+    ).toMatchObject({
+      code: 'VERSION_CONFLICT',
+      requestId: withdrawalLoser.requestId,
+      retryable: false
+    })
+
+    const withdrawnEvidence = await readA2Evidence(target.versionId)
+    expect(withdrawnEvidence.version).toEqual({
+      questionRowVersion: 1,
+      rowVersion: 4,
+      status: 'CHANGES_REQUESTED'
+    })
+    expect(withdrawnEvidence.reviews).toHaveLength(2)
+    expect(withdrawnEvidence.audits).toHaveLength(2)
+    const withdrawalReview = withdrawnEvidence.reviews[1]
+    const withdrawalAudit = withdrawnEvidence.audits[1]
+    expect(withdrawalReview).toMatchObject({
+      action: 'APPROVAL_WITHDRAWN',
+      actorUserId: reviewer.userId,
+      counterpartActorId: author.userId,
+      fromState: 'APPROVED',
+      reason: '승인 근거 재검토',
+      requestId: withdrawalWinner.requestId,
+      toState: 'CHANGES_REQUESTED'
+    })
+    expect(withdrawalReview?.comment).toBe(
+      `A2 동시 철회 ${withdrawalWinnerIndex + 1}`
+    )
+    expect(withdrawalAudit).toMatchObject({
+      afterRowVersion: 4,
+      afterState: 'CHANGES_REQUESTED',
+      beforeRowVersion: 3,
+      beforeState: 'APPROVED',
+      changedFields: ['VERSION_STATUS'],
+      command: 'APPROVAL_WITHDRAWAL',
+      contentDigestValid: true,
+      metadata: { kind: 'NONE_V1' },
+      requestId: withdrawalWinner.requestId
+    })
+    expect(withdrawalReview?.operationId).toBe(withdrawalAudit?.operationId)
+    expect(
+      withdrawnEvidence.reviews.some(
+        ({ requestId }) => requestId === withdrawalLoser.requestId
+      )
+    ).toBe(false)
+    expect(
+      withdrawnEvidence.audits.some(
+        ({ requestId }) => requestId === withdrawalLoser.requestId
+      )
+    ).toBe(false)
+    expect(
+      await readA2IntentCount([
+        withdrawalWinner.requestId,
+        withdrawalLoser.requestId
+      ])
+    ).toBe(0)
+
+    const rereview = await commandService.requestReview(
+      {
+        actorId: author.userId,
+        rawSessionToken: author.token,
+        requestId: randomUUID()
+      },
+      target.versionId,
+      requestContentReviewRequestSchema.parse({
+        expectedRowVersion: 4,
+        comment: '최종 fresh fence 검증용 재검수'
+      })
+    )
+    expect(rereview).toMatchObject({
+      questionRowVersion: 1,
+      versionRowVersion: 5,
+      versionStatus: 'IN_REVIEW'
+    })
+    const beforeLateFreshFailure = await readA2Evidence(target.versionId)
+    const replacementRawToken = await loadActiveSessionToken(reviewer.userId)
+    let lateFreshApprovalPromise:
+      | ReturnType<typeof requestA2Command>
+      | undefined
+    await adminClient.query('BEGIN')
+    try {
+      // SHARE permits the repository preflight but blocks its ContentReview
+      // INSERT. The version UPDATE has already run when this wait is observed.
+      await adminClient.query('LOCK TABLE "ContentReview" IN SHARE MODE')
+      const blockingBackend = await adminClient.query<{ pid: number }>(
+        'SELECT pg_backend_pid() AS pid'
+      )
+      const blockingBackendPid = blockingBackend.rows[0]?.pid
+      if (blockingBackendPid === undefined) {
+        throw new Error('Phase 7 A2 blocker backend pid is unavailable.')
+      }
+      expect(
+        await moveSessionNearFreshCutoffForTesting(replacementRawToken, 1_000)
+      ).toBe(1)
+      lateFreshApprovalPromise = requestA2Command({
+        app,
+        body: { expectedRowVersion: 5, comment: 'DB fresh fence에서 거부' },
+        cookie: replacementCookie,
+        fixture: reviewer,
+        pathname: approvalPath
+      })
+      await waitForBlockedContentReviewInsert(blockingBackendPid)
+      await waitForSessionFreshCutoff(replacementRawToken)
+      await adminClient.query('COMMIT')
+    } catch (error: unknown) {
+      await adminClient.query('ROLLBACK').catch(() => undefined)
+      await lateFreshApprovalPromise?.catch(() => undefined)
+      throw error
+    }
+    if (!lateFreshApprovalPromise) {
+      throw new Error('Phase 7 A2 late-fresh request was not started.')
+    }
+    const lateFreshApproval = await lateFreshApprovalPromise
+    expect(lateFreshApproval.response.status).toBe(401)
+    expect(
+      apiFailureSchema.parse(await lateFreshApproval.response.json())
+    ).toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      requestId: lateFreshApproval.requestId,
+      retryable: false
+    })
+    expect(lateFreshApproval.response.headers.getSetCookie()).toHaveLength(0)
+    expect(await readA2Evidence(target.versionId)).toEqual(
+      beforeLateFreshFailure
+    )
+    expect(await readA2IntentCount([lateFreshApproval.requestId])).toBe(0)
+  }, 60_000)
+
+  it('guard 통과 후 authority/fresh 상실은 A2 target 오류보다 먼저 선형화된다', async () => {
+    const missingAuthor = await createFixture()
+    const roleLossReviewer = await createFixture()
+    const authorityOperator = await createFixture()
+    const setupService = createCommandService()
+    const missingEvidenceTarget = await prepareA2InReviewVersion({
+      author: missingAuthor,
+      commandService: setupService
+    })
+    const beforeMissingFailure = await readA2Evidence(
+      missingEvidenceTarget.versionId
+    )
+    const missingBarrier = createVersionPreflightBarrierCommandService()
+    const missingApp = createTestHonoApp({
+      commandService: missingBarrier.commandService,
+      service: createService()
+    })
+    const missingRequest = requestA2Command({
+      app: missingApp,
+      body: { expectedRowVersion: 1, comment: '권한 상실 우선순위' },
+      fixture: roleLossReviewer,
+      pathname: `/api/v1/admin/question-versions/${randomUUID()}/approval`
+    })
+    await missingBarrier.waitForPreflight()
+    try {
+      await gatewayClientA.query(
+        `SELECT "phase7_change_user_authority"(
+          $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
+        )`,
+        [authorityOperator.token, roleLossReviewer.userId]
+      )
+    } finally {
+      missingBarrier.releasePreflight()
+    }
+    const missingResult = await missingRequest
+    expect(missingResult.response.status).toBe(403)
+    expect(
+      apiFailureSchema.parse(await missingResult.response.json())
+    ).toMatchObject({
+      code: 'ADMIN_REQUIRED',
+      requestId: missingResult.requestId,
+      retryable: false
+    })
+    expect(await readA2Evidence(missingEvidenceTarget.versionId)).toEqual(
+      beforeMissingFailure
+    )
+    expect(await readA2IntentCount([missingResult.requestId])).toBe(0)
+
+    const invalidStateAuthor = await createFixture()
+    const staleReviewer = await createFixture()
+    const invalidStateTarget = await prepareA2InReviewVersion({
+      author: invalidStateAuthor,
+      commandService: setupService
+    })
+    const beforeInvalidStateFailure = await readA2Evidence(
+      invalidStateTarget.versionId
+    )
+    const invalidStateBarrier = createVersionPreflightBarrierCommandService()
+    const invalidStateApp = createTestHonoApp({
+      commandService: invalidStateBarrier.commandService,
+      service: createService()
+    })
+    const invalidStateRequest = requestA2Command({
+      app: invalidStateApp,
+      body: {
+        expectedRowVersion: invalidStateTarget.versionRowVersion,
+        reason: 'fresh 상실 우선순위'
+      },
+      fixture: staleReviewer,
+      pathname: `/api/v1/admin/question-versions/${invalidStateTarget.versionId}/approval-withdrawal`
+    })
+    await invalidStateBarrier.waitForPreflight()
+    try {
+      expect(await makeSessionStaleForTesting(staleReviewer.sessionId)).toBe(1)
+    } finally {
+      invalidStateBarrier.releasePreflight()
+    }
+    const invalidStateResult = await invalidStateRequest
+    expect(invalidStateResult.response.status).toBe(401)
+    expect(
+      apiFailureSchema.parse(await invalidStateResult.response.json())
+    ).toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      requestId: invalidStateResult.requestId,
+      retryable: false
+    })
+    expect(invalidStateResult.response.headers.getSetCookie()).toHaveLength(0)
+    expect(await readA2Evidence(invalidStateTarget.versionId)).toEqual(
+      beforeInvalidStateFailure
+    )
+    expect(await readA2IntentCount([invalidStateResult.requestId])).toBe(0)
+  }, 60_000)
 
   it('real invalid password는 pending·audit·fence·cookie 없이 old ACTIVE만 보존한다', async () => {
     const fixture = await createFixture()
