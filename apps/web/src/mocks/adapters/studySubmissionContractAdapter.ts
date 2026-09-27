@@ -8,6 +8,7 @@ import {
   type StudyResultItem
 } from '@nihongo/contracts/study/study-result'
 import {
+  getPhase7QuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
   toStableMockUuid
@@ -224,9 +225,11 @@ export const gradeMockCanonicalStudySubmission = (
     }
 
     const versionFingerprint = getQuestionVersionFingerprint(question)
+    const phase7Identity = getPhase7QuestionContractIdentity(question)
     const publicQuestion = toContractPracticeQuestion(
       toPracticeQuestion(question),
-      versionFingerprint
+      versionFingerprint,
+      phase7Identity
     )
     const optionIds = new Set(publicQuestion.options.map(({ id }) => id))
     if (
@@ -240,10 +243,12 @@ export const gradeMockCanonicalStudySubmission = (
     }
 
     const correctOption = getCorrectOption(question)
-    const correctOptionId = toStableMockUuid(
-      'question-option',
-      `${correctOption.id}:${versionFingerprint}`
-    )
+    const correctOptionId =
+      phase7Identity?.optionIdBySourceId[correctOption.id] ??
+      toStableMockUuid(
+        'question-option',
+        `${correctOption.id}:${versionFingerprint}`
+      )
     const isCorrect = answer.selectedOptionId === correctOptionId
 
     return {

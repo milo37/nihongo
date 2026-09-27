@@ -159,6 +159,28 @@ const createPublicationQuery = (input: {
     throw new Error(`Unexpected prepared repository query: ${statement}`)
   })
 
+const createPublicationTransaction = (duplicate = false) => {
+  const query = vi.fn(async (statement: string) => {
+    if (statement.includes('phase7_begin_admin_operation')) {
+      return [{ actorUserId: actorId, operationId: crypto.randomUUID() }]
+    }
+    if (statement.includes('phase7_arm_admin_operation')) {
+      return [{ occurredAt: new Date('2026-09-15T00:00:00.000Z') }]
+    }
+    if (statement.includes('SELECT EXISTS')) return [{ exists: duplicate }]
+    throw new Error(`Unexpected publication transaction query: ${statement}`)
+  })
+  const execute = vi.fn()
+  const transaction = vi.fn(
+    async (callback: (client: Prisma.TransactionClient) => Promise<unknown>) =>
+      callback({
+        $queryRawUnsafe: query,
+        $executeRawUnsafe: execute
+      } as unknown as Prisma.TransactionClient)
+  )
+  return { execute, query, transaction }
+}
+
 const rawError = (sqlState: string, message = 'database error') =>
   new Prisma.PrismaClientKnownRequestError(message, {
     clientVersion: '7.9.1',
@@ -202,7 +224,7 @@ const createUpdateClient = ({
 }
 
 describe('Phase 7 ADMIN question command repository error boundaries', () => {
-  it('keeps publication closures out of the active runtime repository', () => {
+  it('activates publication closures in the runtime repository', () => {
     const client = {} as PrismaClient
     const active = createPrismaAdminQuestionCommandRepository({
       auditEnvironment: 'TEST',
@@ -213,16 +235,7 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
       client
     })
 
-    expect(Object.keys(active).toSorted()).toEqual([
-      'createQuestion',
-      'createVersion',
-      'transitionVersion',
-      'updateVersion'
-    ])
-    expect('publishVersion' in active).toBe(false)
-    expect('retireVersion' in active).toBe(false)
-    expect('archiveQuestion' in active).toBe(false)
-    expect(Object.keys(prepared).toSorted()).toEqual([
+    const expectedOperations = [
       'archiveQuestion',
       'createQuestion',
       'createVersion',
@@ -230,7 +243,9 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
       'retireVersion',
       'transitionVersion',
       'updateVersion'
-    ])
+    ]
+    expect(Object.keys(active).toSorted()).toEqual(expectedOperations)
+    expect(Object.keys(prepared).toSorted()).toEqual(expectedOperations)
   })
 
   it('locks fresh authority before returning a missing approval target', async () => {
@@ -408,7 +423,74 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
   )
 
   it.each(['publish', 'retire', 'archive'] as const)(
-    'rejects prepared %s invalid state before transaction entry',
+    'checks prepared %s rowVersion after authority begin and before arm or writes',
+    async (operation) => {
+      const target =
+        operation === 'retire'
+          ? publicationTarget({
+              questionCurrentPublishedVersionId: versionId,
+              versionStatus: 'PUBLISHED'
+            })
+          : publicationTarget()
+      const query = createPublicationQuery({
+        target,
+        versions: operation === 'archive' ? [] : [lifecycleVersion()]
+      })
+      const transactionQuery = vi.fn(async (statement: string) => {
+        if (statement.includes('phase7_begin_admin_operation')) {
+          return [{ actorUserId: actorId, operationId: crypto.randomUUID() }]
+        }
+        throw new Error(`Unexpected rowVersion query: ${statement}`)
+      })
+      const execute = vi.fn()
+      const transaction = vi.fn(
+        async (
+          callback: (client: Prisma.TransactionClient) => Promise<unknown>
+        ) =>
+          callback({
+            $queryRawUnsafe: transactionQuery,
+            $executeRawUnsafe: execute
+          } as unknown as Prisma.TransactionClient)
+      )
+      const repository = createPreparedAdminQuestionCommandRepository({
+        auditEnvironment: 'TEST',
+        client: {
+          $queryRawUnsafe: query,
+          $transaction: transaction
+        } as unknown as PrismaClient
+      })
+
+      const outcome =
+        operation === 'publish'
+          ? repository.publishVersion(authority, versionId, {
+              expectedQuestionRowVersion: 99,
+              expectedRowVersion: 5
+            })
+          : operation === 'retire'
+            ? repository.retireVersion(authority, versionId, {
+                expectedQuestionRowVersion: 99,
+                expectedRowVersion: 5
+              })
+            : repository.archiveQuestion(authority, questionId, {
+                expectedQuestionRowVersion: 99,
+                expectedOpenCandidateVersionId: null,
+                expectedOpenCandidateRowVersion: null
+              })
+
+      await expect(outcome).rejects.toMatchObject({
+        code: 'VERSION_CONFLICT',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+      expect(transactionQuery).toHaveBeenCalledTimes(1)
+      expect(transactionQuery.mock.calls[0]?.[0]).toContain(
+        'phase7_begin_admin_operation'
+      )
+      expect(execute).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['publish', 'retire', 'archive'] as const)(
+    'rejects prepared %s invalid state after authority begin and arm',
     async (operation) => {
       const query =
         operation === 'archive'
@@ -430,12 +512,12 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
                       versionStatus: 'PUBLISHED'
                     })
             })
-      const transaction = vi.fn()
+      const transactionFixture = createPublicationTransaction()
       const repository = createPreparedAdminQuestionCommandRepository({
         auditEnvironment: 'TEST',
         client: {
           $queryRawUnsafe: query,
-          $transaction: transaction
+          $transaction: transactionFixture.transaction
         } as unknown as PrismaClient
       })
 
@@ -458,25 +540,32 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
 
       await expect(outcome).rejects.toMatchObject({
         code: 'INVALID_STATE_TRANSITION',
-        disposition: 'NO_TX'
+        disposition: 'DEFINITE_ROLLBACK'
       })
-      expect(transaction).not.toHaveBeenCalled()
+      expect(transactionFixture.transaction).toHaveBeenCalledTimes(1)
+      expect(transactionFixture.query.mock.calls[0]?.[0]).toContain(
+        'phase7_begin_admin_operation'
+      )
+      expect(transactionFixture.query.mock.calls[1]?.[0]).toContain(
+        'phase7_arm_admin_operation'
+      )
+      expect(transactionFixture.execute).not.toHaveBeenCalled()
     }
   )
 
-  it('rejects publication SoD before duplicate probing or transaction entry', async () => {
+  it('rejects publication SoD after authority arm and before duplicate probing', async () => {
     const query = createPublicationQuery({
       target: publicationTarget({
         latestApproverUserId: actorId,
         latestApproverActorId: actorId
       })
     })
-    const transaction = vi.fn()
+    const transactionFixture = createPublicationTransaction()
     const repository = createPreparedAdminQuestionCommandRepository({
       auditEnvironment: 'TEST',
       client: {
         $queryRawUnsafe: query,
-        $transaction: transaction
+        $transaction: transactionFixture.transaction
       } as unknown as PrismaClient
     })
 
@@ -487,24 +576,25 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
       })
     ).rejects.toMatchObject({
       code: 'SEPARATION_OF_DUTIES_VIOLATION',
-      disposition: 'NO_TX'
+      disposition: 'DEFINITE_ROLLBACK'
     })
     expect(
-      query.mock.calls.some(([statement]) =>
+      transactionFixture.query.mock.calls.some(([statement]) =>
         statement.includes('SELECT EXISTS')
       )
     ).toBe(false)
-    expect(transaction).not.toHaveBeenCalled()
+    expect(transactionFixture.transaction).toHaveBeenCalledTimes(1)
+    expect(transactionFixture.execute).not.toHaveBeenCalled()
   })
 
-  it('keeps a visible publication duplicate at 409/NO_TX', async () => {
-    const query = createPublicationQuery({ duplicate: true })
-    const transaction = vi.fn()
+  it('rejects a publication duplicate inside the authoritative transaction', async () => {
+    const query = createPublicationQuery({ duplicate: false })
+    const transactionFixture = createPublicationTransaction(true)
     const repository = createPreparedAdminQuestionCommandRepository({
       auditEnvironment: 'TEST',
       client: {
         $queryRawUnsafe: query,
-        $transaction: transaction
+        $transaction: transactionFixture.transaction
       } as unknown as PrismaClient
     })
 
@@ -515,12 +605,13 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
       })
     ).rejects.toMatchObject({
       code: 'DUPLICATE_QUESTION_CONTENT',
-      disposition: 'NO_TX'
+      disposition: 'DEFINITE_ROLLBACK'
     })
-    expect(transaction).not.toHaveBeenCalled()
+    expect(transactionFixture.transaction).toHaveBeenCalledTimes(1)
+    expect(transactionFixture.execute).not.toHaveBeenCalled()
   })
 
-  it('maps a publication duplicate appearing after arm to a definite 503 race', async () => {
+  it('returns a deterministic duplicate detected after arm', async () => {
     const query = createPublicationQuery({ duplicate: false })
     const transactionQuery = vi.fn(async (statement: string) => {
       if (statement.includes('phase7_begin_admin_operation')) {
@@ -556,9 +647,8 @@ describe('Phase 7 ADMIN question command repository error boundaries', () => {
         expectedRowVersion: 5
       })
     ).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      disposition: 'DEFINITE_ROLLBACK',
-      internalReason: 'CONTENT_DUPLICATE_CONCURRENT_RACE'
+      code: 'DUPLICATE_QUESTION_CONTENT',
+      disposition: 'DEFINITE_ROLLBACK'
     })
     expect(execute).not.toHaveBeenCalled()
   })

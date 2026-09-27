@@ -19,7 +19,6 @@ import {
 import { errorStatusByCode } from '@nihongo/contracts/common/error'
 import { http, HttpResponse } from 'msw'
 import { toContractBookmarkSummary } from '@mocks/adapters/bookmarkContractAdapter'
-import { getContractQuestionId } from '@mocks/adapters/questionContractAdapter'
 import {
   hasTrustedMockWriteOrigin,
   MockHttpError,
@@ -271,7 +270,7 @@ export const bookmarkHandlers = [
         status: result.created ? 201 : 200,
         headers: {
           ...responseHeaders(requestId),
-          Location: `/api/v1/bookmarks/${getContractQuestionId(sourceQuestionId)}`
+          Location: `/api/v1/bookmarks/${parsedParams.data.questionId}`
         }
       })
     } catch (error: unknown) {

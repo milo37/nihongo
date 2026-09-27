@@ -55,7 +55,10 @@ import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
 import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
-import type { AdminQuestionCommandService } from '../admin/adminQuestionCommandService.js'
+import type {
+  AdminQuestionCommandService,
+  AdminQuestionPublicationCommandService
+} from '../admin/adminQuestionCommandService.js'
 import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
 import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommands.js'
@@ -63,6 +66,7 @@ import { createAdminReauthenticationRoutes } from '../routes/adminReauthenticati
 import {
   getCanonicalPhase7ActiveOperation,
   isCanonicalPhase7ApprovalCommandRequest,
+  isCanonicalPhase7PublicationCommandRequest,
   isCanonicalPhase7ReauthenticationRequest,
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
@@ -117,7 +121,8 @@ interface CreateApiAppDependencies {
     assertCapability: () => void | Promise<void>
     commands?: {
       rateLimiter: AdminCommandRateLimiter
-      service: AdminQuestionCommandService
+      service: AdminQuestionCommandService &
+        AdminQuestionPublicationCommandService
     }
     reauthentication?: {
       rateLimiter: AdminCommandRateLimiter
@@ -394,6 +399,10 @@ export const createApiApp = ({
             requestTarget
           }) ||
             isCanonicalPhase7ApprovalCommandRequest({
+              method: context.req.method,
+              requestTarget
+            }) ||
+            isCanonicalPhase7PublicationCommandRequest({
               method: context.req.method,
               requestTarget
             }))) ||

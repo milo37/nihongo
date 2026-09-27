@@ -3,7 +3,7 @@ import type {
   ParsedGetDashboardStatsQuery
 } from '@nihongo/contracts/dashboard/get-dashboard-stats'
 import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
-import { getContractQuestionId } from '@mocks/adapters/questionContractAdapter'
+import { getCanonicalQuestionId } from '@mocks/adapters/questionContractAdapter'
 import { createMockWrongNoteQuestionPreview } from '@mocks/adapters/wrongNoteReadContractAdapter'
 import type {
   MockCanonicalDashboardRecord,
@@ -96,7 +96,7 @@ const toRecentSession = (record: MockCanonicalDashboardSessionRecord) => ({
 })
 
 const toRepeatedWrongQuestion = (record: MockCanonicalWrongNoteRecord) => ({
-  questionId: getContractQuestionId(record.sourceQuestionId),
+  questionId: getCanonicalQuestionId(record.lastWrongQuestion),
   questionPreview: createMockWrongNoteQuestionPreview(
     record.lastWrongQuestion.questionText
   ),

@@ -85,7 +85,7 @@ const createRepository = (): AdminQuestionPreparedCommandRepository => ({
 })
 
 describe('Phase 7 ADMIN question command service', () => {
-  it('keeps prepared publication factories and paths out of production composition', () => {
+  it('wires Slice 4 publication service and canonical paths into production composition', () => {
     const productionSources = [
       readFileSync(new URL('../server.ts', import.meta.url), 'utf8'),
       readFileSync(
@@ -95,7 +95,13 @@ describe('Phase 7 ADMIN question command service', () => {
     ].join('\n')
 
     expect(productionSources).not.toMatch(
-      /createPreparedAdminQuestionCommandRepository|createAdminQuestionPublicationCommandService|publishVersion|retireVersion|archiveQuestion|\/publication|\/retirement|\/archive/u
+      /createPreparedAdminQuestionCommandRepository/u
+    )
+    expect(productionSources).toMatch(
+      /createAdminQuestionPublicationCommandService/u
+    )
+    expect(productionSources).toMatch(
+      /publishVersion|retireVersion|archiveQuestion|\/publication|\/retirement|\/archive/u
     )
   })
 

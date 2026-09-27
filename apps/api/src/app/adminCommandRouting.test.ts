@@ -4,14 +4,17 @@ import type {
   UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
 import {
-  phase7DormantAfterSlice3RA2OperationManifest,
+  phase7DormantAfterSlice4OperationManifest,
   reauthenticateAdminErrorSchema,
   reauthenticateAdminResponseSchema
 } from '@nihongo/contracts/admin/phase7'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { describe, expect, it, vi } from 'vitest'
 import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
-import type { AdminQuestionCommandService } from '../admin/adminQuestionCommandService.js'
+import type {
+  AdminQuestionCommandService,
+  AdminQuestionPublicationCommandService
+} from '../admin/adminQuestionCommandService.js'
 import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
@@ -167,7 +170,8 @@ const createFixture = ({
   reauthenticationError?: unknown
   user?: ResolvedUser
 } = {}) => {
-  const commandService: AdminQuestionCommandService = {
+  const commandService: AdminQuestionCommandService &
+    AdminQuestionPublicationCommandService = {
     createQuestion: vi.fn(async () => mutationResult('DRAFT', 1)),
     createVersion: vi.fn(async (_authority, targetQuestionId) =>
       mutationResult('DRAFT', 1, {
@@ -198,6 +202,27 @@ const createFixture = ({
     withdrawApproval: vi.fn(async (_authority, targetVersionId, request) =>
       mutationResult('CHANGES_REQUESTED', request.expectedRowVersion + 1, {
         questionVersionId: targetVersionId
+      })
+    ),
+    publishVersion: vi.fn(async (_authority, targetVersionId, request) =>
+      mutationResult('PUBLISHED', request.expectedRowVersion + 1, {
+        questionVersionId: targetVersionId,
+        questionRowVersion: request.expectedQuestionRowVersion + 1
+      })
+    ),
+    retireVersion: vi.fn(async (_authority, targetVersionId, request) =>
+      mutationResult('RETIRED', request.expectedRowVersion + 1, {
+        questionVersionId: targetVersionId,
+        questionRowVersion: request.expectedQuestionRowVersion + 1
+      })
+    ),
+    archiveQuestion: vi.fn(async (_authority, targetQuestionId, request) =>
+      mutationResult(null, 0, {
+        lifecycleStatus: 'ARCHIVED',
+        questionId: targetQuestionId,
+        questionRowVersion: request.expectedQuestionRowVersion + 1,
+        questionVersionId: null,
+        versionRowVersion: null
       })
     )
   }
@@ -368,6 +393,34 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       'withdrawApproval',
       200,
       'ADMIN_SENSITIVE'
+    ],
+    [
+      'POST',
+      `/api/v1/admin/question-versions/${versionId}/publication`,
+      { expectedRowVersion: 1, expectedQuestionRowVersion: 1 },
+      'publishVersion',
+      200,
+      'ADMIN_SENSITIVE'
+    ],
+    [
+      'POST',
+      `/api/v1/admin/question-versions/${versionId}/retirement`,
+      { expectedRowVersion: 1, expectedQuestionRowVersion: 1 },
+      'retireVersion',
+      200,
+      'ADMIN_SENSITIVE'
+    ],
+    [
+      'POST',
+      `/api/v1/admin/questions/${questionId}/archive`,
+      {
+        expectedQuestionRowVersion: 1,
+        expectedOpenCandidateVersionId: null,
+        expectedOpenCandidateRowVersion: null
+      },
+      'archiveQuestion',
+      200,
+      'ADMIN_SENSITIVE'
     ]
   ] as const)(
     '%s %s dispatches %s with the canonical rate group',
@@ -415,7 +468,10 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     [
       `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
       16 * 1024 + 1
-    ]
+    ],
+    [`/api/v1/admin/question-versions/${versionId}/publication`, 16 * 1024 + 1],
+    [`/api/v1/admin/question-versions/${versionId}/retirement`, 16 * 1024 + 1],
+    [`/api/v1/admin/questions/${questionId}/archive`, 16 * 1024 + 1]
   ] as const)(
     'declared oversize %s stops before session resolution',
     async (pathname, size) => {
@@ -444,9 +500,28 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
       { expectedRowVersion: 1, reason: '재검수' },
       'withdrawApproval'
+    ],
+    [
+      `/api/v1/admin/question-versions/${versionId}/publication`,
+      { expectedRowVersion: 1, expectedQuestionRowVersion: 1 },
+      'publishVersion'
+    ],
+    [
+      `/api/v1/admin/question-versions/${versionId}/retirement`,
+      { expectedRowVersion: 1, expectedQuestionRowVersion: 1 },
+      'retireVersion'
+    ],
+    [
+      `/api/v1/admin/questions/${questionId}/archive`,
+      {
+        expectedQuestionRowVersion: 1,
+        expectedOpenCandidateVersionId: null,
+        expectedOpenCandidateRowVersion: null
+      },
+      'archiveQuestion'
     ]
   ] as const)(
-    'stale A2 command %s fails fresh assurance before rate and service',
+    'stale sensitive command %s fails fresh assurance before rate and service',
     async (pathname, body, serviceMethod) => {
       const fixture = createFixture({ isFresh: false })
       const response = await fixture.app.request(pathname, {
@@ -466,9 +541,12 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
 
   it.each([
     `/api/v1/admin/question-versions/${versionId}/approval`,
-    `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`
+    `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+    `/api/v1/admin/question-versions/${versionId}/publication`,
+    `/api/v1/admin/question-versions/${versionId}/retirement`,
+    `/api/v1/admin/questions/${questionId}/archive`
   ])(
-    'canonical A2 OPTIONS %s is answered by CORS before auth and command service',
+    'canonical sensitive OPTIONS %s is answered by CORS before auth and command service',
     async (pathname) => {
       const fixture = createFixture()
       const response = await fixture.app.request(pathname, {
@@ -488,14 +566,20 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       expect(fixture.consume).not.toHaveBeenCalled()
       expect(fixture.commandService.approveVersion).not.toHaveBeenCalled()
       expect(fixture.commandService.withdrawApproval).not.toHaveBeenCalled()
+      expect(fixture.commandService.publishVersion).not.toHaveBeenCalled()
+      expect(fixture.commandService.retireVersion).not.toHaveBeenCalled()
+      expect(fixture.commandService.archiveQuestion).not.toHaveBeenCalled()
     }
   )
 
-  it('approval paths require the commands dependency before entering the guard', async () => {
+  it('sensitive command paths require the commands dependency before entering the guard', async () => {
     const fixture = createFixture({ includeCommands: false })
     for (const pathname of [
       `/api/v1/admin/question-versions/${versionId}/approval`,
-      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`
+      `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
+      `/api/v1/admin/question-versions/${versionId}/publication`,
+      `/api/v1/admin/question-versions/${versionId}/retirement`,
+      `/api/v1/admin/questions/${questionId}/archive`
     ]) {
       const response = await fixture.app.request(pathname, {
         method: 'POST',
@@ -508,6 +592,9 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     expect(fixture.consume).not.toHaveBeenCalled()
     expect(fixture.commandService.approveVersion).not.toHaveBeenCalled()
     expect(fixture.commandService.withdrawApproval).not.toHaveBeenCalled()
+    expect(fixture.commandService.publishVersion).not.toHaveBeenCalled()
+    expect(fixture.commandService.retireVersion).not.toHaveBeenCalled()
+    expect(fixture.commandService.archiveQuestion).not.toHaveBeenCalled()
   })
 
   it('role/account-loss evidence는 initial command guard에서 exact 403으로 닫는다', async () => {
@@ -947,7 +1034,7 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     ['disabled', { ...environment, ADMIN_CMS_MODE: 'disabled' }],
     ['production', { ...environment, NODE_ENV: 'production' }]
   ] as const)(
-    '%s mode keeps A1/A2 remediation generic 404 before guard and service',
+    '%s mode keeps Phase 7 admin commands generic 404 before guard and service',
     async (_label, appEnvironment) => {
       const fixture = createFixture({ appEnvironment })
       for (const [pathname, body] of [
@@ -962,6 +1049,22 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
         [
           `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`,
           { expectedRowVersion: 1, reason: '재검수' }
+        ],
+        [
+          `/api/v1/admin/question-versions/${versionId}/publication`,
+          { expectedRowVersion: 1, expectedQuestionRowVersion: 1 }
+        ],
+        [
+          `/api/v1/admin/question-versions/${versionId}/retirement`,
+          { expectedRowVersion: 1, expectedQuestionRowVersion: 1 }
+        ],
+        [
+          `/api/v1/admin/questions/${questionId}/archive`,
+          {
+            expectedQuestionRowVersion: 1,
+            expectedOpenCandidateVersionId: null,
+            expectedOpenCandidateRowVersion: null
+          }
         ]
       ] as const) {
         const response = await fixture.app.request(pathname, {
@@ -977,6 +1080,9 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       expect(fixture.reauthenticate).not.toHaveBeenCalled()
       expect(fixture.commandService.approveVersion).not.toHaveBeenCalled()
       expect(fixture.commandService.withdrawApproval).not.toHaveBeenCalled()
+      expect(fixture.commandService.publishVersion).not.toHaveBeenCalled()
+      expect(fixture.commandService.retireVersion).not.toHaveBeenCalled()
+      expect(fixture.commandService.archiveQuestion).not.toHaveBeenCalled()
     }
   )
 
@@ -994,7 +1100,8 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       'POST',
       '/api/v1/admin/question-versions/019D0000-0000-7000-8000-000000000004/approval'
     ],
-    ['POST', `/api/v1/admin/question-versions/${versionId}/publication`],
+    ['GET', `/api/v1/admin/question-versions/${versionId}/publication`],
+    ['POST', `/api/v1/admin/question-versions/${versionId}/publication/`],
     ['POST', '/api/v1/admin/question']
   ] as const)(
     '%s noncanonical or dormant %s is generic 404 before auth',
@@ -1012,14 +1119,14 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     }
   )
 
-  it('manifest의 dormant 12개 전부를 auth/service/DB/cookie 전에 generic 404로 닫는다', async () => {
+  it('manifest의 dormant 9개 전부를 auth/service/DB/cookie 전에 generic 404로 닫는다', async () => {
     const fixture = createFixture()
     const readerCallsBefore = Object.values(reader).map(
       (read) => vi.mocked(read).mock.calls.length
     )
 
-    expect(phase7DormantAfterSlice3RA2OperationManifest).toHaveLength(12)
-    for (const entry of phase7DormantAfterSlice3RA2OperationManifest) {
+    expect(phase7DormantAfterSlice4OperationManifest).toHaveLength(9)
+    for (const entry of phase7DormantAfterSlice4OperationManifest) {
       const response = await fixture.app.request(
         materializeManifestPath(entry.path),
         {
@@ -1056,14 +1163,13 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       `/api/v1/admin/question-versions/${versionId}/retirement`,
       `/api/v1/admin/questions/${questionId}/archive`
     ].flatMap((canonicalPath) => [
-      ['POST', canonicalPath],
       ['GET', canonicalPath],
       ['POST', `${canonicalPath}/`],
       ['POST', canonicalPath.replace('019d', '019D')],
       ['POST', `${canonicalPath}#alias`]
     ]) as readonly (readonly [string, string])[]
   )(
-    '%s Slice 4P dormant alias %s is exact generic 404 with every caller at zero',
+    '%s Slice 4 noncanonical alias %s is exact generic 404 with every caller at zero',
     async (method, pathname) => {
       const fixture = createFixture()
       const readerCallsBefore = Object.values(reader).map(

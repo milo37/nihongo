@@ -192,10 +192,13 @@ export interface MockPhase7LearnerProjection {
 
 export type MockPhase7ActiveAdminCmsState = Pick<
   MockPhase7AdminCmsState,
+  | 'archiveAdminQuestion'
   | 'createQuestion'
   | 'createVersion'
   | 'hasFreshAssurance'
+  | 'publishQuestionVersion'
   | 'reauthenticate'
+  | 'retireQuestionVersion'
   | 'transitionVersion'
   | 'updateVersion'
 >
@@ -203,10 +206,13 @@ export type MockPhase7ActiveAdminCmsState = Pick<
 export const createMockPhase7ActiveAdminCmsState = (
   state: MockPhase7AdminCmsState
 ): MockPhase7ActiveAdminCmsState => ({
+  archiveAdminQuestion: state.archiveAdminQuestion.bind(state),
   createQuestion: state.createQuestion.bind(state),
   createVersion: state.createVersion.bind(state),
   hasFreshAssurance: state.hasFreshAssurance.bind(state),
+  publishQuestionVersion: state.publishQuestionVersion.bind(state),
   reauthenticate: state.reauthenticate.bind(state),
+  retireQuestionVersion: state.retireQuestionVersion.bind(state),
   transitionVersion: state.transitionVersion.bind(state),
   updateVersion: state.updateVersion.bind(state)
 })
@@ -685,6 +691,7 @@ export class MockPhase7AdminCmsState {
       submissionVersion?.questionId
     )
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const current = this.versionById.get(input.versionId)
       if (!current) {
@@ -935,6 +942,7 @@ export class MockPhase7AdminCmsState {
       : false
 
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const current = this.versionById.get(input.versionId)
       if (!current) {
@@ -1129,6 +1137,7 @@ export class MockPhase7AdminCmsState {
     versionId: string
   }): Promise<AdminQuestionMutationResult> {
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const current = this.versionById.get(input.versionId)
       if (!current) {
@@ -1242,6 +1251,7 @@ export class MockPhase7AdminCmsState {
     sources: readonly MockCanonicalAdminQuestionSource[]
   }): Promise<AdminQuestionMutationResult> {
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const questionCurrent = this.questionById.get(input.questionId)
       if (!questionCurrent) {

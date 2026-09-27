@@ -8,7 +8,8 @@ import {
   type WrongNoteSummary
 } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import {
-  getContractQuestionId,
+  getCanonicalQuestionId,
+  getPhase7QuestionContractIdentity,
   getQuestionVersionFingerprint,
   toStableMockUuid
 } from '@mocks/adapters/questionContractAdapter'
@@ -50,9 +51,12 @@ const toValidatedSortedTagLabels = (tags: readonly string[]): string[] => {
 }
 
 const toHistoricalTags = (record: MockCanonicalWrongNoteRecord) => {
+  const identity = getPhase7QuestionContractIdentity(record.lastWrongQuestion)
   const tags = toValidatedSortedTagLabels(record.lastWrongQuestion.tags).map(
     (label) => ({
-      id: toStableMockUuid('question-tag', normalizeQuestionTagText(label)),
+      id:
+        identity?.tagIdByNormalizedLabel[normalizeQuestionTagText(label)] ??
+        toStableMockUuid('question-tag', normalizeQuestionTagText(label)),
       label
     })
   )
@@ -68,7 +72,7 @@ const toHistoricalTags = (record: MockCanonicalWrongNoteRecord) => {
 export const toContractWrongNoteSummary = (
   record: MockCanonicalWrongNoteRecord
 ): WrongNoteSummary => ({
-  questionId: getContractQuestionId(record.sourceQuestionId),
+  questionId: getCanonicalQuestionId(record.lastWrongQuestion),
   level: record.lastWrongQuestion.level,
   subject: record.lastWrongQuestion.subject,
   questionType: record.lastWrongQuestion.questionType,
@@ -87,6 +91,7 @@ export const toContractWrongNoteSummary = (
 })
 
 const toContractReviewedQuestion = (record: MockCanonicalWrongNoteRecord) => {
+  const identity = getPhase7QuestionContractIdentity(record.lastWrongQuestion)
   const correctOptions = record.lastWrongQuestion.options.filter(
     ({ isCorrect }) => isCorrect
   )
@@ -100,20 +105,23 @@ const toContractReviewedQuestion = (record: MockCanonicalWrongNoteRecord) => {
   const versionFingerprint = getQuestionVersionFingerprint(
     record.lastWrongQuestion
   )
-  const derivedVersionId = toStableMockUuid(
-    'question-version',
-    `${record.sourceQuestionId}:${versionFingerprint}`
-  )
+  const derivedVersionId =
+    identity?.questionVersionId ??
+    toStableMockUuid(
+      'question-version',
+      `${record.sourceQuestionId}:${versionFingerprint}`
+    )
   if (derivedVersionId !== record.lastWrongQuestionVersionId) {
     throw new MockWrongNoteReadIntegrityError(
       'Historical snapshot fingerprint does not match its pinned version ID.'
     )
   }
   const toContractOptionId = (optionId: string): string =>
+    identity?.optionIdBySourceId[optionId] ??
     toStableMockUuid('question-option', `${optionId}:${versionFingerprint}`)
 
   return {
-    id: getContractQuestionId(record.sourceQuestionId),
+    id: getCanonicalQuestionId(record.lastWrongQuestion),
     questionVersionId: record.lastWrongQuestionVersionId,
     level: record.lastWrongQuestion.level,
     subject: record.lastWrongQuestion.subject,

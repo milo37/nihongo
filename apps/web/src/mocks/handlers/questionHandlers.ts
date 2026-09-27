@@ -13,8 +13,8 @@ import {
   type ParsedListQuestionsQuery
 } from '@nihongo/contracts/question/list-questions'
 import {
+  getPhase7QuestionContractIdentity,
   getQuestionVersionFingerprint,
-  getSourceQuestionId,
   toContractPracticeQuestion,
   toContractQuestionSummary
 } from '@mocks/adapters/questionContractAdapter'
@@ -67,28 +67,7 @@ const createListQuestionsErrorResponse = (
   })
 }
 
-const listRuntimeQuestionIdentities = (): Array<{ id: string }> => {
-  const pageSize = 100
-  const firstPage = mockDatabase.listAdminQuestions({ page: 1, pageSize })
-  const identities = firstPage.items.map(({ id }) => ({ id }))
-  let page = 2
-
-  while (identities.length < firstPage.total) {
-    const result = mockDatabase.listAdminQuestions({ page, pageSize })
-
-    if (result.items.length === 0) {
-      break
-    }
-
-    identities.push(...result.items.map(({ id }) => ({ id })))
-    page += 1
-  }
-
-  return identities
-}
-
 const listAllPublishedQuestions = (query: ParsedListQuestionsQuery) => {
-  const pageSize = 100
   const filters = {
     ...(query.level ? { level: query.level } : {}),
     ...(query.subject ? { subject: query.subject } : {}),
@@ -96,34 +75,7 @@ const listAllPublishedQuestions = (query: ParsedListQuestionsQuery) => {
     ...(query.difficulty ? { difficulty: query.difficulty } : {}),
     ...(query.tag ? { tag: query.tag } : {})
   }
-  const firstPage = mockDatabase.listQuestions({
-    ...filters,
-    page: 1,
-    pageSize
-  })
-  const questions = firstPage.items.map(({ id }) =>
-    mockDatabase.getQuestion(id)
-  )
-  let page = 2
-
-  while (questions.length < firstPage.total) {
-    const result = mockDatabase.listQuestions({
-      ...filters,
-      page,
-      pageSize
-    })
-
-    if (result.items.length === 0) {
-      break
-    }
-
-    questions.push(
-      ...result.items.map(({ id }) => mockDatabase.getQuestion(id))
-    )
-    page += 1
-  }
-
-  return questions
+  return mockDatabase.listCanonicalPublicQuestionRecords(filters)
 }
 
 export const questionHandlers = [
@@ -185,25 +137,14 @@ export const questionHandlers = [
     }
 
     try {
-      const sourceQuestionId = getSourceQuestionId(
-        parsedParams.data.questionId,
-        listRuntimeQuestionIdentities()
+      const sourceQuestion = mockDatabase.getCanonicalPublicQuestionRecord(
+        parsedParams.data.questionId
       )
-
-      if (!sourceQuestionId) {
-        return createQuestionErrorResponse({
-          code: 'RESOURCE_NOT_FOUND',
-          message: '문제를 찾을 수 없습니다.',
-          requestId,
-          retryable: false
-        })
-      }
-
-      const sourceQuestion = mockDatabase.getQuestion(sourceQuestionId)
       const response = getQuestionResponseSchema.parse(
         toContractPracticeQuestion(
-          mockDatabase.getPracticeQuestion(sourceQuestionId),
-          getQuestionVersionFingerprint(sourceQuestion)
+          sourceQuestion,
+          getQuestionVersionFingerprint(sourceQuestion),
+          getPhase7QuestionContractIdentity(sourceQuestion)
         )
       )
 

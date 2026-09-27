@@ -322,6 +322,49 @@ const PHASE_7_SLICE_3R_A2_OPERATIONS = new Set<Phase7Operation>([
   'withdrawQuestionApproval'
 ])
 
+const PHASE_7_SLICE_4_OPERATIONS = new Set<Phase7Operation>([
+  'archiveAdminQuestion',
+  'publishQuestionVersion',
+  'retireQuestionVersion'
+])
+
+export const phase7Slice4CacheInvalidationTargets = [
+  'adminQuestions.allLists',
+  'adminQuestions.detail',
+  'adminQuestionVersions.history',
+  'adminQuestionVersions.reviews',
+  'adminAuditLog.allLists',
+  'publicQuestions.allLists',
+  'publicQuestions.detail',
+  'practiceCandidates',
+  'bookmarks.allLists',
+  'bookmarks.detailAvailability',
+  'wrongNotes.allLists',
+  'wrongNotes.detail',
+  'wrongNotes.reviewQueue',
+  'dashboard'
+] as const
+
+const slice4CacheInvalidationContract = {
+  timing: 'POST_COMMIT',
+  dispatch: 'PARALLEL',
+  settlement: 'AWAIT_ALL',
+  failureAction: 'NONE',
+  staleActorAction: 'NONE',
+  targets: phase7Slice4CacheInvalidationTargets
+} as const
+
+export const phase7Slice4CacheInvalidationContractByOperation = {
+  publishQuestionVersion: slice4CacheInvalidationContract,
+  retireQuestionVersion: slice4CacheInvalidationContract,
+  archiveAdminQuestion: slice4CacheInvalidationContract
+} as const satisfies Readonly<
+  Record<
+    'publishQuestionVersion' | 'retireQuestionVersion' | 'archiveAdminQuestion',
+    typeof slice4CacheInvalidationContract
+  >
+>
+
 export const phase7Slice3ACommandOperationManifest =
   phase7OperationManifest.filter((entry) =>
     PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
@@ -380,6 +423,30 @@ export const phase7DormantAfterSlice3RA2OperationManifest =
       !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
   )
 
+export const phase7Slice4OperationManifest = phase7OperationManifest.filter(
+  (entry) => PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+)
+
+export const phase7ActiveThroughSlice4OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      entry.slice2Route ||
+      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7DormantAfterSlice4OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      !entry.slice2Route &&
+      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+  )
+
 export const assertPhase7OperationManifest = (): void => {
   if (phase7OperationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
@@ -395,10 +462,13 @@ export const assertPhase7OperationManifest = (): void => {
     phase7ActiveThroughSlice3RA1OperationManifest.length !== 14 ||
     phase7DormantAfterSlice3RA1OperationManifest.length !== 14 ||
     phase7ActiveThroughSlice3RA2OperationManifest.length !== 16 ||
-    phase7DormantAfterSlice3RA2OperationManifest.length !== 12
+    phase7DormantAfterSlice3RA2OperationManifest.length !== 12 ||
+    phase7Slice4OperationManifest.length !== 3 ||
+    phase7ActiveThroughSlice4OperationManifest.length !== 19 ||
+    phase7DormantAfterSlice4OperationManifest.length !== 9
   ) {
     throw new Error(
-      'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12 경계를 유지해야 합니다.'
+      'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(
@@ -414,6 +484,14 @@ export const assertPhase7OperationManifest = (): void => {
     phase7Slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')
   ) {
     throw new Error('Slice 2 manifest에는 GET read만 등록할 수 있습니다.')
+  }
+  if (
+    new Set(phase7Slice4CacheInvalidationTargets).size !== 14 ||
+    Object.keys(phase7Slice4CacheInvalidationContractByOperation).length !== 3
+  ) {
+    throw new Error(
+      'Slice 4 cache invalidation 계약은 세 operation과 중복 없는 14개 target이어야 합니다.'
+    )
   }
 }
 

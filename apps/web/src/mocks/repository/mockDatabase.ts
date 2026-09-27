@@ -58,10 +58,14 @@ import {
   type StudyResult as CanonicalStudyResult
 } from '@nihongo/contracts/study/study-result'
 import {
+  getCanonicalQuestionId,
   getContractQuestionId,
+  getPhase7QuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
-  toStableMockUuid
+  toStableMockUuid,
+  withPhase7QuestionContractIdentity,
+  type Phase7ProjectedQuestionRecord
 } from '@mocks/adapters/questionContractAdapter'
 import type {
   MockCanonicalGradedItem,
@@ -512,6 +516,15 @@ export interface MockCanonicalAdminQuestionSource {
   readonly question: QuestionRecord
 }
 
+interface Phase7LearnerQuestionReadModel {
+  readonly currentBySourceId: ReadonlyMap<string, Phase7ProjectedQuestionRecord>
+  readonly lifecycleBySourceId: ReadonlyMap<string, 'ACTIVE' | 'ARCHIVED'>
+  readonly retainedPublishedBySourceId: ReadonlyMap<
+    string,
+    Phase7ProjectedQuestionRecord
+  >
+}
+
 interface SessionMetadata {
   canonicalGuestPrincipalId?: string
   canonicalContractVersion?: 1 | 2
@@ -646,6 +659,7 @@ const getCanonicalSessionQuestionId = (
   toStableMockUuid('study-session-question', `${sessionId}:${ordinal}`)
 
 const getCanonicalQuestionVersionId = (question: QuestionRecord): string =>
+  getPhase7QuestionContractIdentity(question)?.questionVersionId ??
   toStableMockUuid(
     'question-version',
     `${question.id}:${getQuestionVersionFingerprint(question)}`
@@ -655,6 +669,7 @@ const getCanonicalOptionId = (
   question: QuestionRecord,
   optionId: string
 ): string =>
+  getPhase7QuestionContractIdentity(question)?.optionIdBySourceId[optionId] ??
   toStableMockUuid(
     'question-option',
     `${optionId}:${getQuestionVersionFingerprint(question)}`
@@ -673,7 +688,11 @@ const toCanonicalReviewedQuestion = (
   const fingerprint = getQuestionVersionFingerprint(question)
 
   return {
-    ...toContractPracticeQuestion(toPracticeQuestion(question), fingerprint),
+    ...toContractPracticeQuestion(
+      toPracticeQuestion(question),
+      fingerprint,
+      getPhase7QuestionContractIdentity(question)
+    ),
     correctOptionId: getCanonicalOptionId(question, correctOption.id),
     explanationKo: question.explanationKo,
     explanationJa: question.explanationJa
@@ -1109,7 +1128,8 @@ export class MockDatabase {
     const userId = input.userId ?? this.currentUserId
     const eligible = this.getEligibleQuestions(
       input.level,
-      input.subject
+      input.subject,
+      input.canonicalContractVersion !== undefined
     ).filter(
       (question) =>
         input.reviewFilter === undefined ||
@@ -1512,7 +1532,8 @@ export class MockDatabase {
       const optionIds = new Set(
         toContractPracticeQuestion(
           toPracticeQuestion(question),
-          getQuestionVersionFingerprint(question)
+          getQuestionVersionFingerprint(question),
+          getPhase7QuestionContractIdentity(question)
         ).options.map(({ id }) => id)
       )
       if (
@@ -1933,7 +1954,7 @@ export class MockDatabase {
           !sourceResultItem ||
           sourceResultItem.isCorrect ||
           sourceResultItem.question.id !==
-            getContractQuestionId(targetQuestion.id) ||
+            getCanonicalQuestionId(targetQuestion) ||
           sourceResultItem.question.questionVersionId !==
             getCanonicalQuestionVersionId(targetQuestion) ||
           targetSession.questionIds[index] !== targetQuestion.id
@@ -2024,6 +2045,7 @@ export class MockDatabase {
       )
     }
 
+    const learnerQuestionReadModel = this.buildPhase7LearnerQuestionReadModel()
     const selectedQuestions = source.questions.flatMap((question, index) => {
       const resultItem = result.items[index]
       const expectedSessionQuestionId = getCanonicalSessionQuestionId(
@@ -2039,7 +2061,7 @@ export class MockDatabase {
         !resultItem ||
         !answer ||
         resultItem.sessionQuestionId !== expectedSessionQuestionId ||
-        resultItem.question.id !== getContractQuestionId(question.id) ||
+        resultItem.question.id !== getCanonicalQuestionId(question) ||
         resultItem.question.questionVersionId !==
           getCanonicalQuestionVersionId(question) ||
         answer.sessionId !== source.session.id ||
@@ -2066,8 +2088,13 @@ export class MockDatabase {
       if (resultItem.isCorrect) {
         return []
       }
-      const currentQuestion = this.questionById.get(question.id)
-      return currentQuestion ? [clone(question)] : []
+      const phase7Lifecycle = learnerQuestionReadModel.lifecycleBySourceId.get(
+        question.id
+      )
+      const isLogicalQuestionActive =
+        phase7Lifecycle === 'ACTIVE' ||
+        (phase7Lifecycle === undefined && this.questionById.has(question.id))
+      return isLogicalQuestionActive ? [clone(question)] : []
     })
     if (selectedQuestions.length === 0) {
       throw new MockDatabaseError(
@@ -2243,7 +2270,7 @@ export class MockDatabase {
         targetSession.questionIds.length !== 1 ||
         targetQuestions.length !== 1 ||
         targetSession.questionIds[0] !== targetQuestion.id ||
-        getContractQuestionId(targetQuestion.id) !== input.questionId
+        getCanonicalQuestionId(targetQuestion) !== input.questionId
       ) {
         return throwCanonicalIntegrityError(
           'targeted 복습 IdempotencyRecord의 target provenance가 손상되었습니다.'
@@ -2297,11 +2324,14 @@ export class MockDatabase {
       input.userId,
       input.questionId
     )
-    const currentQuestion = this.questionById.get(wrongNote.sourceQuestionId)
+    const currentQuestion =
+      this.buildPhase7LearnerQuestionReadModel().currentBySourceId.get(
+        wrongNote.sourceQuestionId
+      )
     if (
       !currentQuestion ||
       currentQuestion.status !== 'PUBLISHED' ||
-      getContractQuestionId(currentQuestion.id) !== input.questionId
+      getCanonicalQuestionId(currentQuestion) !== input.questionId
     ) {
       throw new MockDatabaseError(
         'QUESTION_NOT_AVAILABLE',
@@ -2397,8 +2427,8 @@ export class MockDatabase {
   ): MockCanonicalWrongNoteRecord {
     this.assertCanonicalReadOwner(userId)
     const matches = this.reconstructCanonicalWrongNotes(userId).filter(
-      ({ sourceQuestionId }) =>
-        getContractQuestionId(sourceQuestionId) === contractQuestionId
+      ({ lastWrongQuestion }) =>
+        getCanonicalQuestionId(lastWrongQuestion) === contractQuestionId
     )
     if (matches.length !== 1) {
       throw new MockDatabaseError(
@@ -2418,9 +2448,11 @@ export class MockDatabase {
     this.assertCanonicalReadOwner(userId)
     const observedAt = this.now()
     const observedAtMs = Date.parse(observedAt)
+    const currentQuestions =
+      this.buildPhase7LearnerQuestionReadModel().currentBySourceId
     const allCandidates = this.reconstructCanonicalWrongNotes(userId).flatMap(
       (note): ReviewQueueItem[] => {
-        const question = this.questionById.get(note.sourceQuestionId)
+        const question = currentQuestions.get(note.sourceQuestionId)
         if (!question || question.status !== 'PUBLISHED') {
           return []
         }
@@ -2434,7 +2466,7 @@ export class MockDatabase {
             : `${characters.slice(0, 157).join('')}...`
         return [
           {
-            questionId: getContractQuestionId(question.id),
+            questionId: getCanonicalQuestionId(question),
             currentQuestionVersionId: getCanonicalQuestionVersionId(question),
             level: question.level,
             subject: question.subject,
@@ -2920,13 +2952,25 @@ export class MockDatabase {
   }
 
   resolveCanonicalQuestionId(contractQuestionId: string): string | null {
-    for (const question of [
-      ...this.questionById.values(),
-      ...this.archivedQuestionById.values()
-    ]) {
-      if (getContractQuestionId(question.id) === contractQuestionId) {
+    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    for (const question of readModel.retainedPublishedBySourceId.values()) {
+      if (
+        getPhase7QuestionContractIdentity(question)?.questionId ===
+        contractQuestionId
+      ) {
         return question.id
       }
+    }
+    const legacy = [
+      ...this.questionById.values(),
+      ...this.archivedQuestionById.values()
+    ].find(
+      (question) =>
+        question.status === 'PUBLISHED' &&
+        getContractQuestionId(question.id) === contractQuestionId
+    )
+    if (legacy) {
+      return legacy.id
     }
     return null
   }
@@ -2936,12 +2980,14 @@ export class MockDatabase {
   ): CanonicalBookmarkSourceRecord[] {
     this.assertUser(userId)
     const sources: CanonicalBookmarkSourceRecord[] = []
+    const readModel = this.buildPhase7LearnerQuestionReadModel()
     for (const bookmark of this.bookmarkByQuestionId.values()) {
       if (bookmark.userId !== userId) continue
-      const active = this.questionById.get(bookmark.questionId)
-      const archived = this.archivedQuestionById.get(bookmark.questionId)
-      const question = active?.status === 'PUBLISHED' ? active : archived
-      if (!question) {
+      const source = this.resolveCanonicalBookmarkSource(
+        bookmark.questionId,
+        readModel
+      )
+      if (!source) {
         throw new MockDatabaseError(
           'PERSISTENCE_FAILED',
           500,
@@ -2950,8 +2996,8 @@ export class MockDatabase {
       }
       sources.push({
         bookmark: clone(bookmark),
-        question: clone(question),
-        availability: active?.status === 'PUBLISHED' ? 'AVAILABLE' : 'ARCHIVED'
+        question: clone(source.question),
+        availability: source.availability
       })
     }
     return sources.toSorted(
@@ -2968,11 +3014,10 @@ export class MockDatabase {
     this.assertUser(userId)
     const key = makeUserQuestionKey(userId, questionId)
     const existing = this.bookmarkByQuestionId.get(key)
-    const active = this.questionById.get(questionId)
-    const archived = this.archivedQuestionById.get(questionId)
+    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    const source = this.resolveCanonicalBookmarkSource(questionId, readModel)
     if (existing) {
-      const question = active?.status === 'PUBLISHED' ? active : archived
-      if (!question) {
+      if (!source) {
         throw new MockDatabaseError(
           'PERSISTENCE_FAILED',
           500,
@@ -2983,16 +3028,15 @@ export class MockDatabase {
         created: false,
         source: {
           bookmark: clone(existing),
-          question: clone(question),
-          availability:
-            active?.status === 'PUBLISHED' ? 'AVAILABLE' : 'ARCHIVED'
+          question: clone(source.question),
+          availability: source.availability
         }
       }
     }
-    if (!active && !archived) {
+    if (!source) {
       throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
     }
-    if (!active || active.status !== 'PUBLISHED') {
+    if (source.availability !== 'AVAILABLE') {
       throw new MockDatabaseError(
         'INVALID_INPUT',
         422,
@@ -3002,7 +3046,7 @@ export class MockDatabase {
     const bookmark: Bookmark = {
       id: this.createId('bookmark'),
       userId,
-      questionId,
+      questionId: source.question.id,
       createdAt: this.now()
     }
     this.bookmarkByQuestionId.set(key, bookmark)
@@ -3011,7 +3055,7 @@ export class MockDatabase {
       created: true,
       source: {
         bookmark: clone(bookmark),
-        question: clone(active),
+        question: clone(source.question),
         availability: 'AVAILABLE'
       }
     }
@@ -3271,6 +3315,55 @@ export class MockDatabase {
           }
         })
     )
+  }
+
+  listCanonicalPublicQuestionRecords(
+    filters: QuestionListFilters = {}
+  ): QuestionRecord[] {
+    const normalizedSearch = filters.search?.trim().toLocaleLowerCase()
+    const normalizedTag = filters.tag
+      ? normalizeQuestionTagText(filters.tag)
+      : undefined
+    return clone(
+      [...this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()]
+        .filter(
+          (question) =>
+            (filters.level === undefined || question.level === filters.level) &&
+            (filters.subject === undefined ||
+              question.subject === filters.subject) &&
+            (filters.questionType === undefined ||
+              question.questionType === filters.questionType) &&
+            (filters.difficulty === undefined ||
+              question.difficulty === filters.difficulty) &&
+            (normalizedTag === undefined ||
+              question.tags.some(
+                (tag) => normalizeQuestionTagText(tag) === normalizedTag
+              )) &&
+            (normalizedSearch === undefined ||
+              `${question.questionText} ${question.tags.join(' ')}`
+                .toLocaleLowerCase()
+                .includes(normalizedSearch))
+        )
+        .toSorted((left, right) => {
+          const leftId = getPhase7QuestionContractIdentity(left)?.questionId
+          const rightId = getPhase7QuestionContractIdentity(right)?.questionId
+          return (leftId ?? left.id).localeCompare(rightId ?? right.id)
+        })
+    )
+  }
+
+  getCanonicalPublicQuestionRecord(contractQuestionId: string): QuestionRecord {
+    const question = [
+      ...this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()
+    ].find(
+      (candidate) =>
+        getPhase7QuestionContractIdentity(candidate)?.questionId ===
+        contractQuestionId
+    )
+    if (!question) {
+      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
+    }
+    return clone(question)
   }
 
   getCanonicalAdminCmsSnapshot(
@@ -3619,7 +3712,7 @@ export class MockDatabase {
         for (const note of canonicalNotes.values()) {
           const question = eligibleById.get(note.sourceQuestionId)
           if (note.status !== 'SOLVED' && question) {
-            const contractQuestionId = getContractQuestionId(question.id)
+            const contractQuestionId = getCanonicalQuestionId(question)
             sourceByContractQuestionId.set(contractQuestionId, question.id)
             candidates.set(contractQuestionId, {
               questionId: contractQuestionId,
@@ -3651,7 +3744,7 @@ export class MockDatabase {
           [...this.bookmarkByQuestionId.values()].flatMap((bookmark) => {
             const question = eligibleById.get(bookmark.questionId)
             if (bookmark.userId !== userId || !question) return []
-            const contractQuestionId = getContractQuestionId(question.id)
+            const contractQuestionId = getCanonicalQuestionId(question)
             sourceByContractQuestionId.set(contractQuestionId, question.id)
             return [
               {
@@ -3691,7 +3784,7 @@ export class MockDatabase {
         const question = eligibleById.get(note.sourceQuestionId)
         const nextReviewAtMs = Date.parse(note.nextReviewAt)
         if (question && nextReviewAtMs <= observedAtMs) {
-          const contractQuestionId = getContractQuestionId(question.id)
+          const contractQuestionId = getCanonicalQuestionId(question)
           sourceByContractQuestionId.set(contractQuestionId, question.id)
           candidates.set(contractQuestionId, {
             ...toPin(question),
@@ -3848,12 +3941,156 @@ export class MockDatabase {
     return weakestType
   }
 
+  private buildPhase7LearnerQuestionReadModel(): Phase7LearnerQuestionReadModel {
+    const sources = this.listCanonicalAdminQuestionSources()
+    const snapshot = this.phase7AdminCmsState.snapshot(sources)
+    const sourceIdByQuestionId = new Map(
+      sources.map(({ question }) => [
+        getContractQuestionId(question.id),
+        question.id
+      ])
+    )
+    const versionsByQuestionId = new Map<string, typeof snapshot.versions>()
+    for (const question of snapshot.questions) {
+      versionsByQuestionId.set(
+        question.questionId,
+        snapshot.versions.filter(
+          (version) => version.questionId === question.questionId
+        )
+      )
+    }
+    const toProjectedRecord = (
+      question: (typeof snapshot.questions)[number],
+      version: (typeof snapshot.versions)[number]
+    ): Phase7ProjectedQuestionRecord => {
+      const sourceQuestionId =
+        sourceIdByQuestionId.get(question.questionId) ??
+        `phase7-question:${question.questionId}`
+      const options = version.options
+        .toSorted((left, right) => left.ordinal - right.ordinal)
+        .map((option) => ({
+          id: option.id,
+          label: String(option.ordinal) as QuestionOptionLabel,
+          text: option.text,
+          isCorrect: option.id === version.correctOptionId
+        }))
+      return withPhase7QuestionContractIdentity(
+        {
+          id: sourceQuestionId,
+          level: version.level,
+          subject: version.subject,
+          questionType: version.questionType,
+          passage: version.passage,
+          questionText: version.questionText,
+          options,
+          explanationKo: version.explanationKo,
+          explanationJa: version.explanationJa,
+          difficulty: version.difficulty,
+          tags: version.tags.map(({ label }) => label),
+          status: 'PUBLISHED',
+          sourceType: 'ORIGINAL',
+          createdAt: question.createdAt,
+          updatedAt: version.updatedAt
+        },
+        {
+          questionId: question.questionId,
+          questionVersionId: version.questionVersionId,
+          optionIdBySourceId: Object.fromEntries(
+            version.options.map(({ id }) => [id, id])
+          ),
+          tagIdByNormalizedLabel: Object.fromEntries(
+            version.tags.map(({ id, normalizedName }) => [normalizedName, id])
+          )
+        }
+      )
+    }
+    const currentBySourceId = new Map<string, Phase7ProjectedQuestionRecord>()
+    const lifecycleBySourceId = new Map<string, 'ACTIVE' | 'ARCHIVED'>()
+    const retainedPublishedBySourceId = new Map<
+      string,
+      Phase7ProjectedQuestionRecord
+    >()
+    for (const question of snapshot.questions) {
+      const sourceQuestionId =
+        sourceIdByQuestionId.get(question.questionId) ??
+        `phase7-question:${question.questionId}`
+      lifecycleBySourceId.set(sourceQuestionId, question.lifecycleStatus)
+      const versions = versionsByQuestionId.get(question.questionId) ?? []
+      const retained = versions
+        .filter(
+          (version) =>
+            version.publishedAt !== null &&
+            (version.versionStatus === 'PUBLISHED' ||
+              (version.versionStatus === 'RETIRED' &&
+                version.retirementKind === 'PUBLISHED_RETIREMENT'))
+        )
+        .toSorted(
+          (left, right) =>
+            right.versionNumber - left.versionNumber ||
+            right.questionVersionId.localeCompare(left.questionVersionId)
+        )[0]
+      if (retained) {
+        const record = toProjectedRecord(question, retained)
+        retainedPublishedBySourceId.set(record.id, record)
+      }
+      if (
+        question.lifecycleStatus !== 'ACTIVE' ||
+        question.currentPublishedVersionId === null
+      ) {
+        continue
+      }
+      const current = versions.find(
+        (version) =>
+          version.questionVersionId === question.currentPublishedVersionId &&
+          version.versionStatus === 'PUBLISHED'
+      )
+      if (!current) {
+        throwCanonicalIntegrityError(
+          'Phase 7 공개 문제 포인터가 learner read model과 일치하지 않습니다.'
+        )
+      }
+      const record = toProjectedRecord(question, current)
+      currentBySourceId.set(record.id, record)
+    }
+    return {
+      currentBySourceId,
+      lifecycleBySourceId,
+      retainedPublishedBySourceId
+    }
+  }
+
+  private resolveCanonicalBookmarkSource(
+    sourceQuestionId: string,
+    readModel: Phase7LearnerQuestionReadModel
+  ): Pick<CanonicalBookmarkSourceRecord, 'availability' | 'question'> | null {
+    const current = readModel.currentBySourceId.get(sourceQuestionId)
+    if (current) {
+      return { availability: 'AVAILABLE', question: current }
+    }
+    const retained = readModel.retainedPublishedBySourceId.get(sourceQuestionId)
+    if (retained) {
+      return { availability: 'ARCHIVED', question: retained }
+    }
+    const legacyCurrent = this.questionById.get(sourceQuestionId)
+    if (legacyCurrent?.status === 'PUBLISHED') {
+      return { availability: 'AVAILABLE', question: legacyCurrent }
+    }
+    const legacyArchived = this.archivedQuestionById.get(sourceQuestionId)
+    return legacyArchived?.status === 'PUBLISHED'
+      ? { availability: 'ARCHIVED', question: legacyArchived }
+      : null
+  }
+
   private getEligibleQuestions(
     level: JlptLevel,
-    subject: QuestionSubject
+    subject: QuestionSubject,
+    canonical = false
   ): QuestionRecord[] {
     const eligible: QuestionRecord[] = []
-    for (const question of this.questionById.values()) {
+    const questions = canonical
+      ? this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()
+      : this.questionById.values()
+    for (const question of questions) {
       if (
         question.status === 'PUBLISHED' &&
         question.level === level &&
@@ -4213,7 +4450,7 @@ export class MockDatabase {
         session.questionIds.length !== 1 ||
         questions.length !== 1 ||
         session.questionIds[0] !== question.id ||
-        getContractQuestionId(question.id) !== record.questionId ||
+        getCanonicalQuestionId(question) !== record.questionId ||
         metadata.canonicalContractVersion !== 2 ||
         metadata.canonicalGuestPrincipalId !== undefined ||
         metadata.retryOfStudySessionId !== undefined ||
@@ -4391,6 +4628,8 @@ export class MockDatabase {
   ): MockCanonicalWrongNoteRecord[] {
     const recordsByQuestionId = new Map<string, MockCanonicalWrongNoteRecord>()
     const consumedEventAnswerIds = new Set<string>()
+    const currentQuestions =
+      this.buildPhase7LearnerQuestionReadModel().currentBySourceId
     const evidence = submissions
       .flatMap(({ answers }) => answers)
       .toSorted(
@@ -4487,7 +4726,6 @@ export class MockDatabase {
         ? getCanonicalReviewIntervalDays(nextCorrectStreak)
         : 1
       const nextReviewAt = addDaysToIso(occurredAt, intervalDays)
-      const currentQuestion = this.questionById.get(answer.sourceQuestionId)
       recordsByQuestionId.set(answer.sourceQuestionId, {
         wrongNoteId,
         userId,
@@ -4512,7 +4750,7 @@ export class MockDatabase {
         lastWrongQuestionVersionId: answer.isCorrect
           ? (previous?.lastWrongQuestionVersionId ?? answer.questionVersionId)
           : answer.questionVersionId,
-        isCurrentPublished: currentQuestion?.status === 'PUBLISHED'
+        isCurrentPublished: currentQuestions.has(answer.sourceQuestionId)
       })
     }
 
@@ -4964,7 +5202,8 @@ export class MockDatabase {
       const optionIds = new Set(
         toContractPracticeQuestion(
           toPracticeQuestion(question),
-          getQuestionVersionFingerprint(question)
+          getQuestionVersionFingerprint(question),
+          getPhase7QuestionContractIdentity(question)
         ).options.map(({ id }) => id)
       )
       return (

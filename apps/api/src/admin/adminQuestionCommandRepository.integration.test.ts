@@ -1128,7 +1128,7 @@ describe('Phase 7 ADMIN command TEST database integration', () => {
     ).toMatchObject({ rows: beforeDuplicate.rows })
   }, 60_000)
 
-  it('prepares dormant publication, retirement and all archive shapes atomically', async () => {
+  it('executes publication, retirement and all archive shapes atomically', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
 
     const initial = await prepareApprovedQuestion(`publish-${randomUUID()}`)

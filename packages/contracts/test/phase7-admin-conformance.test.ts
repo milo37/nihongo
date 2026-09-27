@@ -11,14 +11,19 @@ import {
   phase7DormantAfterSlice3AOperationManifest,
   phase7DormantAfterSlice3RA1OperationManifest,
   phase7DormantAfterSlice3RA2OperationManifest,
+  phase7DormantAfterSlice4OperationManifest,
   phase7OperationManifest,
   phase7OperationSchemaManifest,
   phase7OperationSchemas,
   phase7ActiveThroughSlice3AOperationManifest,
   phase7ActiveThroughSlice3RA1OperationManifest,
   phase7ActiveThroughSlice3RA2OperationManifest,
+  phase7ActiveThroughSlice4OperationManifest,
   phase7Slice3ACommandOperationManifest,
   phase7Slice3RRemediationOperationManifest,
+  phase7Slice4CacheInvalidationContractByOperation,
+  phase7Slice4CacheInvalidationTargets,
+  phase7Slice4OperationManifest,
   phase7Slice2ReadOperationManifest
 } from '../src/admin/phase7.js'
 import {
@@ -48,7 +53,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     ).toBe(true)
   })
 
-  it('fixes the exact ordered Slice 3A active and Slice 3R dormant tuples', () => {
+  it('fixes the exact ordered Slice 3A, Slice 3R, and Slice 4 activation tuples', () => {
     const tuple = (entry: (typeof phase7OperationManifest)[number]) => [
       entry.operation,
       entry.operationId,
@@ -215,6 +220,96 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
             )
         )
         .map((entry) => entry.operation)
+    )
+
+    expect(phase7Slice4OperationManifest.map(tuple)).toEqual([
+      [
+        'archiveAdminQuestion',
+        'admin.archiveAdminQuestion',
+        'POST',
+        '/api/v1/admin/questions/:questionId/archive',
+        200,
+        true
+      ],
+      [
+        'publishQuestionVersion',
+        'admin.publishQuestionVersion',
+        'POST',
+        '/api/v1/admin/question-versions/:versionId/publication',
+        200,
+        true
+      ],
+      [
+        'retireQuestionVersion',
+        'admin.retireQuestionVersion',
+        'POST',
+        '/api/v1/admin/question-versions/:versionId/retirement',
+        200,
+        true
+      ]
+    ])
+    expect(phase7ActiveThroughSlice4OperationManifest).toHaveLength(19)
+    expect(phase7DormantAfterSlice4OperationManifest).toHaveLength(9)
+    expect(
+      phase7ActiveThroughSlice4OperationManifest.map((entry) => entry.operation)
+    ).toEqual(
+      phase7OperationManifest
+        .filter(
+          (entry) =>
+            phase7ActiveThroughSlice3RA2OperationManifest.includes(
+              entry as never
+            ) || phase7Slice4OperationManifest.includes(entry as never)
+        )
+        .map((entry) => entry.operation)
+    )
+    expect(
+      phase7DormantAfterSlice4OperationManifest.map((entry) => entry.operation)
+    ).toEqual(
+      phase7OperationManifest
+        .filter(
+          (entry) =>
+            !phase7ActiveThroughSlice4OperationManifest.includes(entry as never)
+        )
+        .map((entry) => entry.operation)
+    )
+  })
+
+  it('closes the exact post-commit Slice 4 cache invalidation contract', () => {
+    expect(phase7Slice4CacheInvalidationTargets).toEqual([
+      'adminQuestions.allLists',
+      'adminQuestions.detail',
+      'adminQuestionVersions.history',
+      'adminQuestionVersions.reviews',
+      'adminAuditLog.allLists',
+      'publicQuestions.allLists',
+      'publicQuestions.detail',
+      'practiceCandidates',
+      'bookmarks.allLists',
+      'bookmarks.detailAvailability',
+      'wrongNotes.allLists',
+      'wrongNotes.detail',
+      'wrongNotes.reviewQueue',
+      'dashboard'
+    ])
+    expect(phase7Slice4CacheInvalidationTargets).toHaveLength(14)
+    expect(
+      Object.keys(phase7Slice4CacheInvalidationContractByOperation)
+    ).toEqual([
+      'publishQuestionVersion',
+      'retireQuestionVersion',
+      'archiveAdminQuestion'
+    ])
+    Object.values(phase7Slice4CacheInvalidationContractByOperation).forEach(
+      (contract) => {
+        expect(contract).toEqual({
+          timing: 'POST_COMMIT',
+          dispatch: 'PARALLEL',
+          settlement: 'AWAIT_ALL',
+          failureAction: 'NONE',
+          staleActorAction: 'NONE',
+          targets: phase7Slice4CacheInvalidationTargets
+        })
+      }
     )
   })
 

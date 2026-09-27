@@ -176,7 +176,7 @@ const expectExactCodes = (
   expect(new Set(actual)).toEqual(expected)
 }
 
-describe('Phase 7 dormant admin command contracts', () => {
+describe('Phase 7 admin command contracts', () => {
   it('create/version/PATCH full content를 strict semantic input으로 닫는다', () => {
     expect(createAdminQuestionRequestSchema.parse(createContent)).toEqual(
       createContent

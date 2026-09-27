@@ -232,7 +232,7 @@ describe('Phase 7 transition MSW authority ordering', () => {
   })
 })
 
-describe('Phase 7 dormant publication MSW state', () => {
+describe('Phase 7 Slice 4 publication MSW state', () => {
   it('publishes, retires and archives with exact learner pins and one concurrent winner', async () => {
     const state = createState()
     const initial = state.snapshot(sources)

@@ -1,25 +1,34 @@
 import {
   assertApproveQuestionVersionResponse,
+  assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
+  assertPublishQuestionVersionResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
   assertReauthenticateAdminResponse,
+  assertRetireQuestionVersionResponse,
   assertUpdateQuestionVersionResponse,
   assertWithdrawQuestionApprovalResponse,
   approveQuestionVersionParamsSchema,
   approveQuestionVersionRequestSchema,
+  archiveAdminQuestionParamsSchema,
+  archiveAdminQuestionRequestSchema,
   buildPhase7OperationFailureResponse,
   createAdminQuestionRequestSchema,
   createAdminQuestionVersionParamsSchema,
   createAdminQuestionVersionRequestSchema,
   parsePhase7JsonBytes,
   Phase7JsonParseError,
+  publishQuestionVersionParamsSchema,
+  publishQuestionVersionRequestSchema,
   requestContentReviewParamsSchema,
   requestContentReviewRequestSchema,
   requestQuestionChangesParamsSchema,
   requestQuestionChangesRequestSchema,
   reauthenticateAdminRequestSchema,
+  retireQuestionVersionParamsSchema,
+  retireQuestionVersionRequestSchema,
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
   withdrawQuestionApprovalParamsSchema,
@@ -59,6 +68,9 @@ const canonicalCommandPaths = [
   new RegExp(
     `^/api/v1/admin/question-versions/${LOWERCASE_UUID}/approval-withdrawal$`
   ),
+  new RegExp(`^/api/v1/admin/questions/${LOWERCASE_UUID}/archive$`),
+  new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/publication$`),
+  new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/retirement$`),
   /^\/api\/v1\/admin\/reauthentication$/
 ] as const
 
@@ -70,6 +82,9 @@ const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
   requestQuestionChanges: SMALL_BODY_CAP,
   approveQuestionVersion: SMALL_BODY_CAP,
   withdrawQuestionApproval: SMALL_BODY_CAP,
+  publishQuestionVersion: SMALL_BODY_CAP,
+  retireQuestionVersion: SMALL_BODY_CAP,
+  archiveAdminQuestion: SMALL_BODY_CAP,
   reauthenticateAdmin: 4 * 1024
 }
 
@@ -84,6 +99,9 @@ const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
     requestQuestionChanges: 'ADMIN_EDIT',
     approveQuestionVersion: 'ADMIN_SENSITIVE',
     withdrawQuestionApproval: 'ADMIN_SENSITIVE',
+    publishQuestionVersion: 'ADMIN_SENSITIVE',
+    retireQuestionVersion: 'ADMIN_SENSITIVE',
+    archiveAdminQuestion: 'ADMIN_SENSITIVE',
     reauthenticateAdmin: 'REAUTHENTICATION'
   }
 
@@ -97,7 +115,10 @@ const ratePolicyByGroup: Readonly<
 
 const freshOperations = new Set<Phase7Operation>([
   'approveQuestionVersion',
-  'withdrawQuestionApproval'
+  'withdrawQuestionApproval',
+  'publishQuestionVersion',
+  'retireQuestionVersion',
+  'archiveAdminQuestion'
 ])
 
 interface RateWindow {
@@ -729,6 +750,84 @@ export const adminCmsCommandHandlers = [
           }),
         assertResult: (body, raw) =>
           assertWithdrawQuestionApprovalResponse(parsedParams, body, raw)
+      })
+    }
+  ),
+  http.post(
+    '*/api/v1/admin/question-versions/:versionId/publication',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(publishQuestionVersionParamsSchema, {
+        versionId: String(params.versionId ?? '')
+      })
+      return handleCommand({
+        operation: 'publishQuestionVersion',
+        request,
+        schema: publishQuestionVersionRequestSchema,
+        message: '문제 버전 게시 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().publishQuestionVersion({
+            actorId,
+            assertAuthority: commitAuthority(actorId, 'publishQuestionVersion'),
+            request: body,
+            requestId,
+            sources: sources(),
+            versionId: parsedParams.versionId
+          }),
+        assertResult: (body, raw) =>
+          assertPublishQuestionVersionResponse(parsedParams, body, raw)
+      })
+    }
+  ),
+  http.post(
+    '*/api/v1/admin/question-versions/:versionId/retirement',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(retireQuestionVersionParamsSchema, {
+        versionId: String(params.versionId ?? '')
+      })
+      return handleCommand({
+        operation: 'retireQuestionVersion',
+        request,
+        schema: retireQuestionVersionRequestSchema,
+        message: '문제 버전 퇴역 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().retireQuestionVersion({
+            actorId,
+            assertAuthority: commitAuthority(actorId, 'retireQuestionVersion'),
+            request: body,
+            requestId,
+            sources: sources(),
+            versionId: parsedParams.versionId
+          }),
+        assertResult: (body, raw) =>
+          assertRetireQuestionVersionResponse(parsedParams, body, raw)
+      })
+    }
+  ),
+  http.post(
+    '*/api/v1/admin/questions/:questionId/archive',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(archiveAdminQuestionParamsSchema, {
+        questionId: String(params.questionId ?? '')
+      })
+      return handleCommand({
+        operation: 'archiveAdminQuestion',
+        request,
+        schema: archiveAdminQuestionRequestSchema,
+        message: '관리자 문제 보관 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().archiveAdminQuestion({
+            actorId,
+            assertAuthority: commitAuthority(actorId, 'archiveAdminQuestion'),
+            questionId: parsedParams.questionId,
+            request: body,
+            requestId,
+            sources: sources()
+          }),
+        assertResult: (body, raw) =>
+          assertArchiveAdminQuestionResponse(parsedParams, body, raw)
       })
     }
   ),

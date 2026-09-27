@@ -2058,142 +2058,132 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
   const publishVersion: AdminQuestionPublicationCommandRepository['publishVersion'] =
     async (authority, versionId, request) => {
       let target: VersionTargetRow | null
-      let aggregateVersions: LifecycleVersionTargetRow[]
-      let previousCurrent: LifecycleVersionTargetRow | null
-      let latestApprover: EvidenceAccountSnapshot | null
+      let aggregateVersions: LifecycleVersionTargetRow[] = []
       try {
         target = await loadVersionTarget(client, versionId)
-        if (!target) {
-          throw repositoryFailure(
-            'RESOURCE_NOT_FOUND',
-            '문제 버전을 찾을 수 없습니다.'
-          )
-        }
-        if (target.questionRowVersion !== request.expectedQuestionRowVersion) {
-          throw repositoryFailure(
-            'VERSION_CONFLICT',
-            '다른 요청이 먼저 문제를 변경했습니다.'
-          )
-        }
-        if (target.versionRowVersion !== request.expectedRowVersion) {
-          throw repositoryFailure(
-            'VERSION_CONFLICT',
-            '다른 요청이 먼저 버전을 변경했습니다.'
-          )
-        }
-        if (
-          target.questionLifecycleStatus !== 'ACTIVE' ||
-          target.versionStatus !== 'APPROVED'
-        ) {
-          throw repositoryFailure(
-            'INVALID_STATE_TRANSITION',
-            '승인된 활성 문제 버전만 게시할 수 있습니다.'
-          )
-        }
-        const author = toAuthorSnapshot({
-          createdByUserId: target.versionCreatedByUserId,
-          createdByActorId: target.versionCreatedByActorId,
-          createdByRoleSnapshot: target.versionCreatedByRoleSnapshot,
-          createdByLabelSnapshot: target.versionCreatedByLabelSnapshot
-        })
-        latestApprover = toLatestApproverSnapshot(target)
-        if (!author || !latestApprover) {
-          throw repositoryFailure(
-            'INVALID_STATE_TRANSITION',
-            '게시 대상에는 작성자와 최신 승인 증거가 필요합니다.'
-          )
-        }
-        if (author.actorId === latestApprover.actorId) {
-          throw repositoryFailure(
-            'SEPARATION_OF_DUTIES_VIOLATION',
-            '작성자와 최신 승인자는 서로 달라야 합니다.'
-          )
-        }
-        aggregateVersions = await loadLifecycleVersions(
-          client,
-          target.questionId
-        )
-        const targetManifestVersion = aggregateVersions.find(
-          (version) => version.id === versionId
-        )
-        const currentPublishedVersionId =
-          target.questionCurrentPublishedVersionId
-        previousCurrent = currentPublishedVersionId
-          ? (aggregateVersions.find(
-              (version) => version.id === currentPublishedVersionId
-            ) ?? null)
-          : null
-        if (
-          !targetManifestVersion ||
-          targetManifestVersion.status !== 'APPROVED' ||
-          (currentPublishedVersionId !== null &&
-            (!previousCurrent || previousCurrent.status !== 'PUBLISHED')) ||
-          aggregateVersions.some(
-            (version) =>
-              version.id !== versionId &&
-              version.id !== currentPublishedVersionId
-          )
-        ) {
-          throw repositoryFailure(
-            'INVALID_STATE_TRANSITION',
-            '게시 대상과 현재 공개 버전 구성이 유효하지 않습니다.'
-          )
-        }
-        if (
-          await hasCrossQuestionFingerprintDuplicate(
+        if (target) {
+          aggregateVersions = await loadLifecycleVersions(
             client,
-            target.questionId,
-            target.contentFingerprint
-          )
-        ) {
-          throw repositoryFailure(
-            'DUPLICATE_QUESTION_CONTENT',
-            '동일한 내용의 문제가 이미 존재합니다.'
+            target.questionId
           )
         }
       } catch (error: unknown) {
         throw mapPreflightError(error)
       }
+      const previousCurrent = target?.questionCurrentPublishedVersionId
+        ? (aggregateVersions.find(
+            (version) =>
+              version.id === target?.questionCurrentPublishedVersionId
+          ) ?? null)
+        : null
 
       try {
-        const occurredAt = await client.$transaction(
+        return await client.$transaction(
           async (transaction) => {
-            const operation = await beginAndArm(transaction, {
+            const begun = await beginOperation(transaction, {
               auditEnvironment,
               authority,
               command: 'PUBLICATION',
               referencedUserIds: uniqueSorted([
                 authority.actorId,
-                target.questionCreatedByUserId,
+                target?.questionCreatedByUserId ?? null,
                 ...aggregateVersions.map((version) => version.createdByUserId),
-                latestApprover.userId
-              ]),
-              targetManifest: {
-                questions: [
-                  {
-                    id: target.questionId,
-                    rowVersion: target.questionRowVersion,
-                    state: target.questionLifecycleStatus
-                  }
-                ],
-                versions: aggregateVersions.map((version) => ({
-                  id: version.id,
-                  rowVersion: version.rowVersion,
-                  state: version.status
-                })),
-                reports: [],
-                tags: []
-              }
+                target?.latestApproverUserId ?? null
+              ])
             })
+            if (!target) {
+              throw repositoryFailure(
+                'RESOURCE_NOT_FOUND',
+                '문제 버전을 찾을 수 없습니다.'
+              )
+            }
+            const commandTarget = target
+            if (
+              commandTarget.questionRowVersion !==
+              request.expectedQuestionRowVersion
+            ) {
+              throw repositoryFailure(
+                'VERSION_CONFLICT',
+                '다른 요청이 먼저 문제를 변경했습니다.'
+              )
+            }
+            if (
+              commandTarget.versionRowVersion !== request.expectedRowVersion
+            ) {
+              throw repositoryFailure(
+                'VERSION_CONFLICT',
+                '다른 요청이 먼저 버전을 변경했습니다.'
+              )
+            }
+            const currentPublishedVersionId =
+              commandTarget.questionCurrentPublishedVersionId
+            const operation = await armOperation(transaction, begun, {
+              questions: [
+                {
+                  id: commandTarget.questionId,
+                  rowVersion: commandTarget.questionRowVersion,
+                  state: commandTarget.questionLifecycleStatus
+                }
+              ],
+              versions: aggregateVersions.map((version) => ({
+                id: version.id,
+                rowVersion: version.rowVersion,
+                state: version.status
+              })),
+              reports: [],
+              tags: []
+            })
+            const targetManifestVersion = aggregateVersions.find(
+              (version) => version.id === versionId
+            )
+            if (
+              commandTarget.questionLifecycleStatus !== 'ACTIVE' ||
+              commandTarget.versionStatus !== 'APPROVED' ||
+              !targetManifestVersion ||
+              targetManifestVersion.status !== 'APPROVED' ||
+              (currentPublishedVersionId !== null &&
+                (!previousCurrent || previousCurrent.status !== 'PUBLISHED')) ||
+              aggregateVersions.some(
+                (version) =>
+                  version.id !== versionId &&
+                  version.id !== currentPublishedVersionId
+              )
+            ) {
+              throw repositoryFailure(
+                'INVALID_STATE_TRANSITION',
+                '게시 대상과 현재 공개 버전 구성이 유효하지 않습니다.'
+              )
+            }
+            const author = toAuthorSnapshot({
+              createdByUserId: commandTarget.versionCreatedByUserId,
+              createdByActorId: commandTarget.versionCreatedByActorId,
+              createdByRoleSnapshot: commandTarget.versionCreatedByRoleSnapshot,
+              createdByLabelSnapshot:
+                commandTarget.versionCreatedByLabelSnapshot
+            })
+            const latestApprover = toLatestApproverSnapshot(commandTarget)
+            if (!author || !latestApprover) {
+              throw repositoryFailure(
+                'INVALID_STATE_TRANSITION',
+                '게시 대상에는 작성자와 최신 승인 증거가 필요합니다.'
+              )
+            }
+            if (author.actorId === latestApprover.actorId) {
+              throw repositoryFailure(
+                'SEPARATION_OF_DUTIES_VIOLATION',
+                '작성자와 최신 승인자는 서로 달라야 합니다.'
+              )
+            }
             if (
               await hasCrossQuestionFingerprintDuplicate(
                 transaction,
-                target.questionId,
-                target.contentFingerprint
+                commandTarget.questionId,
+                commandTarget.contentFingerprint
               )
             ) {
-              throw duplicateRaceFailure(
-                new Error('Publication duplicate appeared after preflight.')
+              throw repositoryFailure(
+                'DUPLICATE_QUESTION_CONTENT',
+                '동일한 내용의 문제가 이미 존재합니다.'
               )
             }
             if (previousCurrent) {
@@ -2201,7 +2191,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                 `UPDATE "Question"
                  SET "currentPublishedVersionId" = NULL, "updatedAt" = $2
                  WHERE "id" = $1`,
-                target.questionId,
+                commandTarget.questionId,
                 operation.occurredAt
               )
               await transaction.$executeRawUnsafe(
@@ -2223,16 +2213,16 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                WHERE "id" = $1`,
               versionId,
               operation.occurredAt,
-              target.versionRowVersion + 1
+              commandTarget.versionRowVersion + 1
             )
             await transaction.$executeRawUnsafe(
               `UPDATE "Question"
                SET "currentPublishedVersionId" = $2,
                    "rowVersion" = $3, "updatedAt" = $4
                WHERE "id" = $1`,
-              target.questionId,
+              commandTarget.questionId,
               versionId,
-              target.questionRowVersion + 1,
+              commandTarget.questionRowVersion + 1,
               operation.occurredAt
             )
             if (previousCurrent) {
@@ -2244,7 +2234,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                 fromState: 'PUBLISHED',
                 occurredAt: operation.occurredAt,
                 operationId: operation.operationId,
-                questionId: target.questionId,
+                questionId: commandTarget.questionId,
                 reason: 'PUBLISHED_REPLACEMENT',
                 requestId: authority.requestId,
                 toState: 'RETIRED',
@@ -2259,7 +2249,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               fromState: 'APPROVED',
               occurredAt: operation.occurredAt,
               operationId: operation.operationId,
-              questionId: target.questionId,
+              questionId: commandTarget.questionId,
               reason: null,
               requestId: authority.requestId,
               toState: 'PUBLISHED',
@@ -2267,9 +2257,9 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
             })
             await insertAudit(transaction, {
               actorId: authority.actorId,
-              afterRowVersion: target.versionRowVersion + 1,
+              afterRowVersion: commandTarget.versionRowVersion + 1,
               afterState: 'PUBLISHED',
-              beforeRowVersion: target.versionRowVersion,
+              beforeRowVersion: commandTarget.versionRowVersion,
               beforeState: 'APPROVED',
               changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
               command: 'PUBLICATION',
@@ -2281,18 +2271,17 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               targetType: 'QUESTION_VERSION'
             })
             await finishOperation(transaction, operation.operationId)
-            return operation.occurredAt
+            return toResult({
+              questionId: commandTarget.questionId,
+              versionId,
+              questionRowVersion: commandTarget.questionRowVersion + 1,
+              versionRowVersion: commandTarget.versionRowVersion + 1,
+              versionStatus: 'PUBLISHED',
+              occurredAt: operation.occurredAt
+            })
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
         )
-        return toResult({
-          questionId: target.questionId,
-          versionId,
-          questionRowVersion: target.questionRowVersion + 1,
-          versionRowVersion: target.versionRowVersion + 1,
-          versionStatus: 'PUBLISHED',
-          occurredAt
-        })
       } catch (error: unknown) {
         const authorityFailure = await classifyAuthorityFailure(
           client,
@@ -2302,7 +2291,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         )
         if (authorityFailure) throw authorityFailure
         const mapped = mapTransactionError('publishQuestionVersion', error)
-        if (isSerializationFailure(error)) {
+        if (isSerializationFailure(error) && target) {
           try {
             const current = await loadVersionTarget(client, versionId)
             const currentAggregate = current
@@ -2310,7 +2299,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               : []
             const oldCurrent = previousCurrent
               ? currentAggregate.find(
-                  (version) => version.id === previousCurrent.id
+                  (version) => version.id === previousCurrent?.id
                 )
               : undefined
             if (
@@ -2351,76 +2340,82 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       let target: VersionTargetRow | null
       try {
         target = await loadVersionTarget(client, versionId)
-        if (!target) {
-          throw repositoryFailure(
-            'RESOURCE_NOT_FOUND',
-            '문제 버전을 찾을 수 없습니다.'
-          )
-        }
-        if (target.questionRowVersion !== request.expectedQuestionRowVersion) {
-          throw repositoryFailure(
-            'VERSION_CONFLICT',
-            '다른 요청이 먼저 문제를 변경했습니다.'
-          )
-        }
-        if (target.versionRowVersion !== request.expectedRowVersion) {
-          throw repositoryFailure(
-            'VERSION_CONFLICT',
-            '다른 요청이 먼저 버전을 변경했습니다.'
-          )
-        }
-        if (
-          target.questionLifecycleStatus !== 'ACTIVE' ||
-          target.versionStatus !== 'PUBLISHED' ||
-          target.questionCurrentPublishedVersionId !== versionId
-        ) {
-          throw repositoryFailure(
-            'INVALID_STATE_TRANSITION',
-            '현재 공개 중인 활성 문제 버전만 단독 폐기할 수 있습니다.'
-          )
-        }
       } catch (error: unknown) {
         throw mapPreflightError(error)
       }
 
       try {
-        const occurredAt = await client.$transaction(
+        return await client.$transaction(
           async (transaction) => {
-            const operation = await beginAndArm(transaction, {
+            const begun = await beginOperation(transaction, {
               auditEnvironment,
               authority,
               command: 'RETIREMENT',
               referencedUserIds: uniqueSorted([
                 authority.actorId,
-                target.questionCreatedByUserId,
-                target.versionCreatedByUserId
-              ]),
-              targetManifest: {
-                questions: [
-                  {
-                    id: target.questionId,
-                    rowVersion: target.questionRowVersion,
-                    state: target.questionLifecycleStatus
-                  }
-                ],
-                versions: [
-                  {
-                    id: versionId,
-                    rowVersion: target.versionRowVersion,
-                    state: target.versionStatus
-                  }
-                ],
-                reports: [],
-                tags: []
-              }
+                target?.questionCreatedByUserId ?? null,
+                target?.versionCreatedByUserId ?? null
+              ])
             })
+            if (!target) {
+              throw repositoryFailure(
+                'RESOURCE_NOT_FOUND',
+                '문제 버전을 찾을 수 없습니다.'
+              )
+            }
+            const commandTarget = target
+            if (
+              commandTarget.questionRowVersion !==
+              request.expectedQuestionRowVersion
+            ) {
+              throw repositoryFailure(
+                'VERSION_CONFLICT',
+                '다른 요청이 먼저 문제를 변경했습니다.'
+              )
+            }
+            if (
+              commandTarget.versionRowVersion !== request.expectedRowVersion
+            ) {
+              throw repositoryFailure(
+                'VERSION_CONFLICT',
+                '다른 요청이 먼저 버전을 변경했습니다.'
+              )
+            }
+            const operation = await armOperation(transaction, begun, {
+              questions: [
+                {
+                  id: commandTarget.questionId,
+                  rowVersion: commandTarget.questionRowVersion,
+                  state: commandTarget.questionLifecycleStatus
+                }
+              ],
+              versions: [
+                {
+                  id: versionId,
+                  rowVersion: commandTarget.versionRowVersion,
+                  state: commandTarget.versionStatus
+                }
+              ],
+              reports: [],
+              tags: []
+            })
+            if (
+              commandTarget.questionLifecycleStatus !== 'ACTIVE' ||
+              commandTarget.versionStatus !== 'PUBLISHED' ||
+              commandTarget.questionCurrentPublishedVersionId !== versionId
+            ) {
+              throw repositoryFailure(
+                'INVALID_STATE_TRANSITION',
+                '현재 공개 중인 활성 문제 버전만 단독 폐기할 수 있습니다.'
+              )
+            }
             await transaction.$executeRawUnsafe(
               `UPDATE "Question"
                SET "currentPublishedVersionId" = NULL,
                    "rowVersion" = $2, "updatedAt" = $3
                WHERE "id" = $1`,
-              target.questionId,
-              target.questionRowVersion + 1,
+              commandTarget.questionId,
+              commandTarget.questionRowVersion + 1,
               operation.occurredAt
             )
             await transaction.$executeRawUnsafe(
@@ -2431,7 +2426,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                WHERE "id" = $1`,
               versionId,
               operation.occurredAt,
-              target.versionRowVersion + 1
+              commandTarget.versionRowVersion + 1
             )
             await insertReview(transaction, {
               action: 'RETIRED',
@@ -2441,7 +2436,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               fromState: 'PUBLISHED',
               occurredAt: operation.occurredAt,
               operationId: operation.operationId,
-              questionId: target.questionId,
+              questionId: commandTarget.questionId,
               reason: 'PUBLISHED_RETIREMENT',
               requestId: authority.requestId,
               toState: 'RETIRED',
@@ -2449,9 +2444,9 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
             })
             await insertAudit(transaction, {
               actorId: authority.actorId,
-              afterRowVersion: target.versionRowVersion + 1,
+              afterRowVersion: commandTarget.versionRowVersion + 1,
               afterState: 'RETIRED',
-              beforeRowVersion: target.versionRowVersion,
+              beforeRowVersion: commandTarget.versionRowVersion,
               beforeState: 'PUBLISHED',
               changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
               command: 'RETIREMENT',
@@ -2463,18 +2458,17 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               targetType: 'QUESTION_VERSION'
             })
             await finishOperation(transaction, operation.operationId)
-            return operation.occurredAt
+            return toResult({
+              questionId: commandTarget.questionId,
+              versionId,
+              questionRowVersion: commandTarget.questionRowVersion + 1,
+              versionRowVersion: commandTarget.versionRowVersion + 1,
+              versionStatus: 'RETIRED',
+              occurredAt: operation.occurredAt
+            })
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
         )
-        return toResult({
-          questionId: target.questionId,
-          versionId,
-          questionRowVersion: target.questionRowVersion + 1,
-          versionRowVersion: target.versionRowVersion + 1,
-          versionStatus: 'RETIRED',
-          occurredAt
-        })
       } catch (error: unknown) {
         const authorityFailure = await classifyAuthorityFailure(
           client,
@@ -2490,99 +2484,104 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
   const archiveQuestion: AdminQuestionPublicationCommandRepository['archiveQuestion'] =
     async (authority, questionId, request) => {
       let target: QuestionTargetRow | null
-      let aggregateVersions: LifecycleVersionTargetRow[]
-      let current: LifecycleVersionTargetRow | null
-      let candidate: LifecycleVersionTargetRow | null
-      let candidateAuthor: EvidenceAccountSnapshot | null
+      let aggregateVersions: LifecycleVersionTargetRow[] = []
       try {
         target = await loadQuestionTarget(client, questionId)
-        if (!target) {
-          throw repositoryFailure(
-            'RESOURCE_NOT_FOUND',
-            '관리자 문제를 찾을 수 없습니다.'
-          )
-        }
-        if (target.rowVersion !== request.expectedQuestionRowVersion) {
-          throw repositoryFailure(
-            'VERSION_CONFLICT',
-            '다른 요청이 먼저 문제를 변경했습니다.'
-          )
-        }
-        aggregateVersions = await loadLifecycleVersions(client, questionId)
-        const currentPublishedVersionId = target.currentPublishedVersionId
-        current = currentPublishedVersionId
-          ? (aggregateVersions.find(
-              (version) => version.id === currentPublishedVersionId
-            ) ?? null)
-          : null
-        const candidates = aggregateVersions.filter((version) =>
-          ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'].includes(
-            version.status
-          )
-        )
-        candidate = candidates.length === 1 ? candidates[0]! : null
-        if (
-          candidates.length > 1 ||
-          candidate?.id !==
-            (request.expectedOpenCandidateVersionId ?? undefined) ||
-          candidate?.rowVersion !==
-            (request.expectedOpenCandidateRowVersion ?? undefined)
-        ) {
-          throw repositoryFailure(
-            'VERSION_CONFLICT',
-            '열린 후보 버전 구성이 변경되었습니다.'
-          )
-        }
-        if (
-          target.lifecycleStatus !== 'ACTIVE' ||
-          (target.currentPublishedVersionId !== null &&
-            (!current || current.status !== 'PUBLISHED'))
-        ) {
-          throw repositoryFailure(
-            'INVALID_STATE_TRANSITION',
-            '활성 문제만 현재 공개·후보 버전과 함께 보관할 수 있습니다.'
-          )
-        }
-        candidateAuthor = candidate ? toAuthorSnapshot(candidate) : null
-        if (candidate && !candidateAuthor) {
-          throw repositoryFailure(
-            'INVALID_STATE_TRANSITION',
-            '열린 후보 버전에는 작성자 증거가 필요합니다.'
-          )
+        if (target) {
+          aggregateVersions = await loadLifecycleVersions(client, questionId)
         }
       } catch (error: unknown) {
         throw mapPreflightError(error)
       }
 
       try {
-        const occurredAt = await client.$transaction(
+        return await client.$transaction(
           async (transaction) => {
-            const operation = await beginAndArm(transaction, {
+            const begun = await beginOperation(transaction, {
               auditEnvironment,
               authority,
               command: 'QUESTION_ARCHIVE',
               referencedUserIds: uniqueSorted([
                 authority.actorId,
-                target.createdByUserId,
+                target?.createdByUserId ?? null,
                 ...aggregateVersions.map((version) => version.createdByUserId)
-              ]),
-              targetManifest: {
-                questions: [
-                  {
-                    id: questionId,
-                    rowVersion: target.rowVersion,
-                    state: target.lifecycleStatus
-                  }
-                ],
-                versions: aggregateVersions.map((version) => ({
-                  id: version.id,
-                  rowVersion: version.rowVersion,
-                  state: version.status
-                })),
-                reports: [],
-                tags: []
-              }
+              ])
             })
+            if (!target) {
+              throw repositoryFailure(
+                'RESOURCE_NOT_FOUND',
+                '관리자 문제를 찾을 수 없습니다.'
+              )
+            }
+            const commandTarget = target
+            if (
+              commandTarget.rowVersion !== request.expectedQuestionRowVersion
+            ) {
+              throw repositoryFailure(
+                'VERSION_CONFLICT',
+                '다른 요청이 먼저 문제를 변경했습니다.'
+              )
+            }
+            const currentPublishedVersionId =
+              commandTarget.currentPublishedVersionId
+            const current = currentPublishedVersionId
+              ? (aggregateVersions.find(
+                  (version) => version.id === currentPublishedVersionId
+                ) ?? null)
+              : null
+            const candidates = aggregateVersions.filter((version) =>
+              ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'].includes(
+                version.status
+              )
+            )
+            const candidate = candidates.length === 1 ? candidates[0]! : null
+            if (
+              candidates.length > 1 ||
+              candidate?.id !==
+                (request.expectedOpenCandidateVersionId ?? undefined) ||
+              candidate?.rowVersion !==
+                (request.expectedOpenCandidateRowVersion ?? undefined)
+            ) {
+              throw repositoryFailure(
+                'VERSION_CONFLICT',
+                '열린 후보 버전 구성이 변경되었습니다.'
+              )
+            }
+            const operation = await armOperation(transaction, begun, {
+              questions: [
+                {
+                  id: questionId,
+                  rowVersion: commandTarget.rowVersion,
+                  state: commandTarget.lifecycleStatus
+                }
+              ],
+              versions: aggregateVersions.map((version) => ({
+                id: version.id,
+                rowVersion: version.rowVersion,
+                state: version.status
+              })),
+              reports: [],
+              tags: []
+            })
+            if (
+              commandTarget.lifecycleStatus !== 'ACTIVE' ||
+              (currentPublishedVersionId !== null &&
+                (!current || current.status !== 'PUBLISHED'))
+            ) {
+              throw repositoryFailure(
+                'INVALID_STATE_TRANSITION',
+                '활성 문제만 현재 공개·후보 버전과 함께 보관할 수 있습니다.'
+              )
+            }
+            const candidateAuthor = candidate
+              ? toAuthorSnapshot(candidate)
+              : null
+            if (candidate && !candidateAuthor) {
+              throw repositoryFailure(
+                'INVALID_STATE_TRANSITION',
+                '열린 후보 버전에는 작성자 증거가 필요합니다.'
+              )
+            }
             if (current) {
               await transaction.$executeRawUnsafe(
                 `UPDATE "QuestionVersion"
@@ -2615,7 +2614,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                WHERE "id" = $1`,
               questionId,
               operation.occurredAt,
-              target.rowVersion + 1
+              commandTarget.rowVersion + 1
             )
             if (current) {
               await insertReview(transaction, {
@@ -2654,9 +2653,9 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
             if (current) changedFields.push('CURRENT_PUBLISHED_VERSION_ID')
             await insertAudit(transaction, {
               actorId: authority.actorId,
-              afterRowVersion: target.rowVersion + 1,
+              afterRowVersion: commandTarget.rowVersion + 1,
               afterState: 'ARCHIVED',
-              beforeRowVersion: target.rowVersion,
+              beforeRowVersion: commandTarget.rowVersion,
               beforeState: 'ACTIVE',
               changedFields,
               command: 'QUESTION_ARCHIVE',
@@ -2673,15 +2672,14 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               }
             })
             await finishOperation(transaction, operation.operationId)
-            return operation.occurredAt
+            return toArchiveResult({
+              occurredAt: operation.occurredAt,
+              questionId,
+              questionRowVersion: commandTarget.rowVersion + 1
+            })
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
         )
-        return toArchiveResult({
-          occurredAt,
-          questionId,
-          questionRowVersion: target.rowVersion + 1
-        })
       } catch (error: unknown) {
         const authorityFailure = await classifyAuthorityFailure(
           client,
@@ -2704,11 +2702,11 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
 
 export const createPrismaAdminQuestionCommandRepository = (
   options: AdminQuestionCommandRepositoryOptions
-): AdminQuestionCommandRepository =>
+): AdminQuestionPreparedCommandRepository =>
   createPrismaAdminQuestionCommandRepositoryInternal(
     options,
-    false
-  ) as AdminQuestionCommandRepository
+    true
+  ) as AdminQuestionPreparedCommandRepository
 
 export const createPreparedAdminQuestionCommandRepository = (
   options: AdminQuestionCommandRepositoryOptions

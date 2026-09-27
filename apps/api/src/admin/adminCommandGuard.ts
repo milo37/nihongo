@@ -31,6 +31,9 @@ const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
   requestQuestionChanges: SMALL_BODY_CAP,
   approveQuestionVersion: SMALL_BODY_CAP,
   withdrawQuestionApproval: SMALL_BODY_CAP,
+  publishQuestionVersion: SMALL_BODY_CAP,
+  retireQuestionVersion: SMALL_BODY_CAP,
+  archiveAdminQuestion: SMALL_BODY_CAP,
   reauthenticateAdmin: REAUTHENTICATION_BODY_CAP
 }
 
@@ -44,12 +47,18 @@ const groupByOperation: Readonly<
   requestQuestionChanges: 'ADMIN_EDIT',
   approveQuestionVersion: 'ADMIN_SENSITIVE',
   withdrawQuestionApproval: 'ADMIN_SENSITIVE',
+  publishQuestionVersion: 'ADMIN_SENSITIVE',
+  retireQuestionVersion: 'ADMIN_SENSITIVE',
+  archiveAdminQuestion: 'ADMIN_SENSITIVE',
   reauthenticateAdmin: 'REAUTHENTICATION'
 }
 
 const freshOperations = new Set<Phase7Operation>([
   'approveQuestionVersion',
-  'withdrawQuestionApproval'
+  'withdrawQuestionApproval',
+  'publishQuestionVersion',
+  'retireQuestionVersion',
+  'archiveAdminQuestion'
 ])
 
 const invalidRequest = (message: string): ApplicationError =>

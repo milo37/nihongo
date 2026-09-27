@@ -6,7 +6,7 @@ import {
   listAdminAuditLogResponseSchema,
   listAdminQuestionsResponseSchema,
   listQuestionVersionReviewsResponseSchema,
-  phase7DormantAfterSlice3RA2OperationManifest,
+  phase7DormantAfterSlice4OperationManifest,
   previewQuestionVersionResponseSchema,
   reauthenticateAdminErrorSchema,
   reauthenticateAdminResponseSchema,
@@ -15,6 +15,19 @@ import {
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
+import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
+import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
+import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
+import { getQuestionResponseSchema } from '@nihongo/contracts/question/get-question'
+import { listQuestionsResponseSchema } from '@nihongo/contracts/question/list-questions'
+import { createResultRetrySessionResponseSchema } from '@nihongo/contracts/study/create-result-retry-session'
+import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/create-study-session'
+import { getStudyResultResponseSchema } from '@nihongo/contracts/study/get-study-result'
+import { submitStudySessionV2ResponseSchema } from '@nihongo/contracts/study/submit-study-session'
+import { createTargetedReviewSessionResponseSchema } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
+import { getWrongNoteResponseSchema } from '@nihongo/contracts/wrong-note/get-wrong-note'
+import { listReviewQueueResponseSchema } from '@nihongo/contracts/wrong-note/list-review-queue'
+import { listWrongNotesResponseSchema } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { describe, expect, it, vi } from 'vitest'
 import { DEMO_ADMIN_ID, DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
 import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
@@ -26,8 +39,14 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import type { MockPhase7AdminCmsState } from '@mocks/repository/phase7AdminCmsState'
 
 const BASE = 'http://localhost/api/v1/admin'
+const API_BASE = `${globalThis.location.origin}/api/v1`
 const canonicalMissingId = '019d0000-0000-7000-8000-000000000099'
 const encoder = new TextEncoder()
+const PRACTICE_V2_HEADERS = {
+  'Content-Type': 'application/json',
+  Origin: globalThis.location.origin,
+  'X-Nihongo-Practice-Contract': '2'
+} as const
 
 const materializeManifestPath = (path: string): string =>
   path
@@ -151,7 +170,7 @@ const readSuccessfulJson = async (response: Response): Promise<unknown> => {
 }
 
 describe('Phase 7 canonical admin command MSW parity', () => {
-  it('keeps prepared lifecycle symbols and paths out of the active MSW registry', () => {
+  it('wires Slice 4 lifecycle symbols and paths into the active MSW registry', () => {
     const activeSources = [
       readFileSync(
         resolve(process.cwd(), 'src/mocks/handlers/adminCmsCommandHandlers.ts'),
@@ -160,7 +179,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       readFileSync(resolve(process.cwd(), 'src/mocks/handlers.ts'), 'utf8')
     ].join('\n')
 
-    expect(activeSources).not.toMatch(
+    expect(activeSources).toMatch(
       /publishQuestionVersion|retireQuestionVersion|archiveAdminQuestion|\/publication|\/retirement|\/archive/u
     )
   })
@@ -659,6 +678,400 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     ).toBe(false)
   })
 
+  it('projects publish, retire, and archive through the real learner HTTP surface with native pins', async () => {
+    resetAdminCmsCommandRateLimitForTesting()
+    mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
+    const seed = await loadSeedFixture('Slice 4 learner read-through')
+    const created = adminQuestionMutationResultSchema.parse(
+      await readSuccessfulJson(
+        await jsonCommand('POST', '/questions', seed.content)
+      )
+    )
+    const questionId = created.questionId
+    const versionId = requireVersionId(created.questionVersionId)
+    const reviewRequested = adminQuestionMutationResultSchema.parse(
+      await readSuccessfulJson(
+        await jsonCommand(
+          'POST',
+          `/question-versions/${versionId}/review-request`,
+          { expectedRowVersion: 1 }
+        )
+      )
+    )
+
+    mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    expect(
+      (
+        await jsonCommand('POST', '/reauthentication', {
+          password: MOCK_ADMIN_PASSWORD
+        })
+      ).status
+    ).toBe(200)
+    const approved = adminQuestionMutationResultSchema.parse(
+      await readSuccessfulJson(
+        await jsonCommand('POST', `/question-versions/${versionId}/approval`, {
+          expectedRowVersion: reviewRequested.versionRowVersion
+        })
+      )
+    )
+    const publishedResponse = await jsonCommand(
+      'POST',
+      `/question-versions/${versionId}/publication`,
+      {
+        expectedQuestionRowVersion: approved.questionRowVersion,
+        expectedRowVersion: approved.versionRowVersion
+      }
+    )
+    const published = adminQuestionMutationResultSchema.parse(
+      await readSuccessfulJson(publishedResponse)
+    )
+    expect(publishedResponse.headers.get('Cache-Control')).toBe(
+      'private, no-store'
+    )
+    expect(published).toMatchObject({
+      questionId,
+      questionVersionId: versionId,
+      questionRowVersion: 2,
+      versionRowVersion: 4,
+      versionStatus: 'PUBLISHED'
+    })
+
+    const publicList = listQuestionsResponseSchema.parse(
+      await (
+        await fetch(
+          `${API_BASE}/questions?level=${seed.content.level}&subject=${seed.content.subject}&pageSize=100`
+        )
+      ).json()
+    )
+    expect(publicList.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: questionId,
+          questionVersionId: versionId
+        })
+      ])
+    )
+    const publicDetailResponse = await fetch(
+      `${API_BASE}/questions/${questionId}`
+    )
+    const publicDetail = getQuestionResponseSchema.parse(
+      await publicDetailResponse.json()
+    )
+    expect(publicDetailResponse.status).toBe(200)
+    expect(publicDetail).toMatchObject({
+      id: questionId,
+      questionVersionId: versionId,
+      questionText: seed.content.questionText
+    })
+    const publishedSnapshot = mockDatabase
+      .getCanonicalAdminCmsSnapshot()
+      .versions.find((version) => version.questionVersionId === versionId)
+    if (!publishedSnapshot) {
+      throw new Error('Published Slice 4 version snapshot is unavailable.')
+    }
+    expect(publicDetail.options.map(({ id }) => id)).toEqual(
+      publishedSnapshot.options
+        .toSorted((left, right) => left.ordinal - right.ordinal)
+        .map(({ id }) => id)
+    )
+    expect(publicDetail.tags.map(({ id }) => id).toSorted()).toEqual(
+      publishedSnapshot.tags.map(({ id }) => id).toSorted()
+    )
+
+    mockDatabase.loginAs('USER')
+    const bookmarkResponse = await fetch(
+      `${API_BASE}/bookmarks/${questionId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: globalThis.location.origin
+        },
+        body: '{}'
+      }
+    )
+    expect(bookmarkResponse.status).toBe(201)
+    expect(
+      createBookmarkResponseSchema.parse(await bookmarkResponse.json())
+    ).toMatchObject({
+      questionId,
+      availability: 'AVAILABLE'
+    })
+
+    const sessionResponse = await fetch(`${API_BASE}/study-sessions`, {
+      method: 'POST',
+      headers: PRACTICE_V2_HEADERS,
+      body: JSON.stringify({
+        level: seed.content.level,
+        subject: seed.content.subject,
+        mode: 'RANDOM',
+        count: 20
+      })
+    })
+    expect(sessionResponse.status).toBe(201)
+    const session = createStudySessionV2ResponseSchema.parse(
+      await sessionResponse.json()
+    )
+    const sessionQuestion = session.questions.find(
+      (question) => question.question.id === questionId
+    )
+    expect(sessionQuestion?.question).toMatchObject({
+      id: questionId,
+      questionVersionId: versionId
+    })
+    if (!sessionQuestion) {
+      throw new Error('Published Slice 4 question is missing from practice.')
+    }
+    const submissionResponse = await fetch(
+      `${API_BASE}/study-sessions/${session.session.id}/submission`,
+      {
+        method: 'POST',
+        headers: {
+          ...PRACTICE_V2_HEADERS,
+          'Idempotency-Key': crypto.randomUUID()
+        },
+        body: JSON.stringify({
+          answers: session.questions.map(({ sessionQuestionId }) => ({
+            studySessionQuestionId: sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 0
+          })),
+          durationSec: 0,
+          expectedDraftRevision: 0
+        })
+      }
+    )
+    expect(submissionResponse.status).toBe(201)
+    const submission = submitStudySessionV2ResponseSchema.parse(
+      await submissionResponse.json()
+    )
+    expect(
+      submission.items.find((item) => item.question.id === questionId)?.question
+    ).toMatchObject({ id: questionId, questionVersionId: versionId })
+
+    const targetedResponse = await fetch(
+      `${API_BASE}/wrong-notes/${questionId}/review-session`,
+      {
+        method: 'POST',
+        headers: {
+          ...PRACTICE_V2_HEADERS,
+          'Idempotency-Key': crypto.randomUUID()
+        },
+        body: '{}'
+      }
+    )
+    expect(targetedResponse.status).toBe(201)
+    const targeted = createTargetedReviewSessionResponseSchema.parse(
+      await targetedResponse.json()
+    )
+    expect(targeted.questions[0]?.question).toMatchObject({
+      id: questionId,
+      questionVersionId: versionId
+    })
+    const targetedSubmission = await fetch(
+      `${API_BASE}/study-sessions/${targeted.session.id}/submission`,
+      {
+        method: 'POST',
+        headers: {
+          ...PRACTICE_V2_HEADERS,
+          'Idempotency-Key': crypto.randomUUID()
+        },
+        body: JSON.stringify({
+          answers: targeted.questions.map(({ sessionQuestionId }) => ({
+            studySessionQuestionId: sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 0
+          })),
+          durationSec: 0,
+          expectedDraftRevision: 0
+        })
+      }
+    )
+    expect(targetedSubmission.status).toBe(201)
+
+    const availableWrongNotes = listWrongNotesResponseSchema.parse(
+      await (await fetch(`${API_BASE}/wrong-notes?pageSize=100`)).json()
+    )
+    expect(availableWrongNotes.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          questionId,
+          reviewAvailability: 'AVAILABLE',
+          wrongCount: 2
+        })
+      ])
+    )
+    const availableQueue = listReviewQueueResponseSchema.parse(
+      await (
+        await fetch(`${API_BASE}/review-queue?view=REPEATED&pageSize=100`)
+      ).json()
+    )
+    expect(availableQueue.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          questionId,
+          currentQuestionVersionId: versionId,
+          wrongCount: 2
+        })
+      ])
+    )
+
+    mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    const retiredResponse = await jsonCommand(
+      'POST',
+      `/question-versions/${versionId}/retirement`,
+      {
+        expectedQuestionRowVersion: published.questionRowVersion,
+        expectedRowVersion: published.versionRowVersion
+      }
+    )
+    const retired = adminQuestionMutationResultSchema.parse(
+      await readSuccessfulJson(retiredResponse)
+    )
+    expect(retired).toMatchObject({
+      questionRowVersion: 3,
+      versionRowVersion: 5,
+      versionStatus: 'RETIRED'
+    })
+    expect((await fetch(`${API_BASE}/questions/${questionId}`)).status).toBe(
+      404
+    )
+
+    mockDatabase.loginAs('USER')
+    const bookmarks = listBookmarksResponseSchema.parse(
+      await (await fetch(`${API_BASE}/bookmarks?pageSize=100`)).json()
+    )
+    expect(bookmarks.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          questionId,
+          availability: 'ARCHIVED'
+        })
+      ])
+    )
+    const wrongNotes = listWrongNotesResponseSchema.parse(
+      await (await fetch(`${API_BASE}/wrong-notes?pageSize=100`)).json()
+    )
+    expect(wrongNotes.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          questionId,
+          reviewAvailability: 'ARCHIVED',
+          wrongCount: 2
+        })
+      ])
+    )
+    const wrongNote = getWrongNoteResponseSchema.parse(
+      await (await fetch(`${API_BASE}/wrong-notes/${questionId}`)).json()
+    )
+    expect(wrongNote.question).toMatchObject({
+      id: questionId,
+      questionVersionId: versionId
+    })
+    const retiredQueue = listReviewQueueResponseSchema.parse(
+      await (
+        await fetch(`${API_BASE}/review-queue?view=REPEATED&pageSize=100`)
+      ).json()
+    )
+    expect(
+      retiredQueue.items.some((item) => item.questionId === questionId)
+    ).toBe(false)
+    const dashboard = getDashboardStatsResponseSchema.parse(
+      await (await fetch(`${API_BASE}/dashboard`)).json()
+    )
+    expect(dashboard.repeatedWrongQuestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ questionId, wrongCount: 2 })
+      ])
+    )
+    const historicalResult = getStudyResultResponseSchema.parse(
+      await (
+        await fetch(`${API_BASE}/study-sessions/${session.session.id}/result`)
+      ).json()
+    )
+    expect(
+      historicalResult.items.find((item) => item.question.id === questionId)
+        ?.question
+    ).toMatchObject({ id: questionId, questionVersionId: versionId })
+    const retiredRetryResponse = await fetch(
+      `${API_BASE}/study-sessions/${session.session.id}/retry`,
+      {
+        method: 'POST',
+        headers: {
+          ...PRACTICE_V2_HEADERS,
+          'Idempotency-Key': crypto.randomUUID()
+        },
+        body: '{}'
+      }
+    )
+    expect(retiredRetryResponse.status).toBe(201)
+    const retiredRetry = createResultRetrySessionResponseSchema.parse(
+      await retiredRetryResponse.json()
+    )
+    expect(retiredRetry.questions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          question: expect.objectContaining({
+            id: questionId,
+            questionVersionId: versionId
+          })
+        })
+      ])
+    )
+
+    mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    const archivedResponse = await jsonCommand(
+      'POST',
+      `/questions/${questionId}/archive`,
+      {
+        expectedQuestionRowVersion: retired.questionRowVersion,
+        expectedOpenCandidateVersionId: null,
+        expectedOpenCandidateRowVersion: null
+      }
+    )
+    expect(
+      adminQuestionMutationResultSchema.parse(
+        await readSuccessfulJson(archivedResponse)
+      )
+    ).toMatchObject({
+      lifecycleStatus: 'ARCHIVED',
+      questionId,
+      questionRowVersion: 4,
+      questionVersionId: null,
+      versionStatus: null,
+      versionRowVersion: null
+    })
+    mockDatabase.loginAs('USER')
+    const archivedRetryResponse = await fetch(
+      `${API_BASE}/study-sessions/${session.session.id}/retry`,
+      {
+        method: 'POST',
+        headers: {
+          ...PRACTICE_V2_HEADERS,
+          'Idempotency-Key': crypto.randomUUID()
+        },
+        body: '{}'
+      }
+    )
+    expect(archivedRetryResponse.status).toBe(201)
+    const archivedRetry = createResultRetrySessionResponseSchema.parse(
+      await archivedRetryResponse.json()
+    )
+    expect(
+      archivedRetry.questions.some(
+        (question) => question.question.id === questionId
+      )
+    ).toBe(false)
+
+    mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    const audit = listAdminAuditLogResponseSchema.parse(
+      await (await fetch(`${BASE}/audit-log?limit=100`)).json()
+    )
+    expect(audit.items.map(({ command }) => command)).toEqual(
+      expect.arrayContaining(['PUBLICATION', 'RETIREMENT', 'QUESTION_ARCHIVE'])
+    )
+  })
+
   it('returns one winner for concurrent duplicate and rowVersion races', async () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
     const seed = await loadSeedFixture('MSW 동시 중복')
@@ -968,21 +1381,21 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(before)
   })
 
-  it('manifest의 dormant 12개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
+  it('manifest의 dormant 9개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
     const before = mockDatabase.getCanonicalAdminCmsSnapshot()
     const activeState = mockDatabase.getPhase7AdminCmsStateForHandlers()
     expect(Object.keys(activeState).toSorted()).toEqual([
+      'archiveAdminQuestion',
       'createQuestion',
       'createVersion',
       'hasFreshAssurance',
+      'publishQuestionVersion',
       'reauthenticate',
+      'retireQuestionVersion',
       'transitionVersion',
       'updateVersion'
     ])
-    expect('publishQuestionVersion' in activeState).toBe(false)
-    expect('retireQuestionVersion' in activeState).toBe(false)
-    expect('archiveAdminQuestion' in activeState).toBe(false)
     expect('getLearnerProjection' in activeState).toBe(false)
     const authRead = vi.spyOn(mockDatabase, 'getCurrentUser')
     const stateRead = vi.spyOn(
@@ -994,8 +1407,8 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       'listCanonicalAdminQuestionSources'
     )
 
-    expect(phase7DormantAfterSlice3RA2OperationManifest).toHaveLength(12)
-    for (const entry of phase7DormantAfterSlice3RA2OperationManifest) {
+    expect(phase7DormantAfterSlice4OperationManifest).toHaveLength(9)
+    for (const entry of phase7DormantAfterSlice4OperationManifest) {
       const response = await fetch(
         `http://localhost${materializeManifestPath(entry.path)}`,
         {
@@ -1033,14 +1446,13 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       `/question-versions/${canonicalMissingId}/retirement`,
       `/questions/${canonicalMissingId}/archive`
     ].flatMap((canonicalPath) => [
-      ['POST', canonicalPath],
       ['GET', canonicalPath],
       ['POST', `${canonicalPath}/`],
       ['POST', canonicalPath.replace('019d', '019D')],
       ['POST', `${canonicalPath}#alias`]
     ]) as readonly (readonly [string, string])[]
   )(
-    '%s Slice 4P dormant alias %s is exact generic 404 with every caller/write at zero',
+    '%s Slice 4 noncanonical alias %s is exact generic 404 with every caller/write at zero',
     async (method, pathname) => {
       mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
       const before = mockDatabase.getCanonicalAdminCmsSnapshot()

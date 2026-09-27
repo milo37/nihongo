@@ -1,11 +1,13 @@
 import {
   phase7Slice3ACommandOperationManifest,
-  phase7Slice3RRemediationOperationManifest
+  phase7Slice3RRemediationOperationManifest,
+  phase7Slice4OperationManifest
 } from '@nihongo/contracts/admin/phase7'
 import { describe, expect, it } from 'vitest'
 import {
   getCanonicalPhase7Slice3Operation,
   isCanonicalPhase7ApprovalCommandRequest,
+  isCanonicalPhase7PublicationCommandRequest,
   isCanonicalPhase7ReauthenticationRequest,
   isCanonicalPhase7ActiveRequest,
   isPhase7ExcludedRequest
@@ -28,6 +30,37 @@ describe('Phase 7 prefix exclusion classifier', () => {
       )
     ).toEqual(manifest.map((entry) => entry.operation))
     expect(manifest).toHaveLength(5)
+  })
+
+  it('activates exactly the three Slice 4 publication commands', () => {
+    expect(
+      phase7Slice4OperationManifest.map((entry) =>
+        getCanonicalPhase7Slice3Operation({
+          method: entry.method,
+          requestTarget: materializePath(entry.path)
+        })
+      )
+    ).toEqual([
+      'archiveAdminQuestion',
+      'publishQuestionVersion',
+      'retireQuestionVersion'
+    ])
+    expect(phase7Slice4OperationManifest).toHaveLength(3)
+    phase7Slice4OperationManifest.forEach((entry) => {
+      const requestTarget = materializePath(entry.path)
+      expect(
+        isCanonicalPhase7PublicationCommandRequest({
+          method: entry.method,
+          requestTarget
+        })
+      ).toBe(true)
+      expect(
+        isCanonicalPhase7PublicationCommandRequest({
+          method: 'OPTIONS',
+          requestTarget
+        })
+      ).toBe(true)
+    })
   })
 
   it('activates all three Slice 3R remediation operations at the A2 boundary', () => {
@@ -72,9 +105,10 @@ describe('Phase 7 prefix exclusion classifier', () => {
       'POST',
       '/api/v1/admin/questions/00000000-0000-0000-0000-000000000000/versions'
     ],
-    ['POST', `/api/v1/admin/questions/${canonicalId}/archive`],
-    ['POST', `/api/v1/admin/question-versions/${canonicalId}/publication`],
-    ['POST', `/api/v1/admin/question-versions/${canonicalId}/retirement`],
+    ['GET', `/api/v1/admin/questions/${canonicalId}/archive`],
+    ['GET', `/api/v1/admin/question-versions/${canonicalId}/publication`],
+    ['PATCH', `/api/v1/admin/question-versions/${canonicalId}/retirement`],
+    ['POST', `/api/v1/admin/questions/${canonicalId}/archive/`],
     ['POST', '/api/v1/admin/questions/import-validation'],
     ['POST', '/api/v1/admin/questions/export'],
     ['GET', `/api/v1/admin/question-versions/${canonicalId}/approval`],

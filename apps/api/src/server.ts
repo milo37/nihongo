@@ -60,7 +60,10 @@ import { createPrismaAdminQuestionRepository } from './admin/adminQuestionReposi
 import { createAdminQuestionService } from './admin/adminQuestionService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
-import { createAdminQuestionCommandService } from './admin/adminQuestionCommandService.js'
+import {
+  createAdminQuestionCommandService,
+  createAdminQuestionPublicationCommandService
+} from './admin/adminQuestionCommandService.js'
 import { createAdminReauthenticationService } from './admin/adminReauthenticationService.js'
 
 const environment = parseApiEnvironment(process.env)
@@ -247,14 +250,20 @@ const adminReadRateLimiter = technicalMode
       keySecret: environment.GUEST_COOKIE_SECRET
     })
   : undefined
-const adminQuestionCommandService = technicalMode
-  ? createAdminQuestionCommandService(
-      createPrismaAdminQuestionCommandRepository({
-        auditEnvironment:
-          environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
-        client: database.client
-      })
-    )
+const adminQuestionCommandRepository = technicalMode
+  ? createPrismaAdminQuestionCommandRepository({
+      auditEnvironment:
+        environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
+      client: database.client
+    })
+  : undefined
+const adminQuestionCommandService = adminQuestionCommandRepository
+  ? {
+      ...createAdminQuestionCommandService(adminQuestionCommandRepository),
+      ...createAdminQuestionPublicationCommandService(
+        adminQuestionCommandRepository
+      )
+    }
   : undefined
 const adminCommandRateLimiter = technicalMode
   ? createAdminCommandRateLimiter({

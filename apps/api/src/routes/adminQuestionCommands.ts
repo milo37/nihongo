@@ -1,26 +1,38 @@
 import {
   assertApproveQuestionVersionResponse,
+  assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
+  assertPublishQuestionVersionResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
+  assertRetireQuestionVersionResponse,
   assertUpdateQuestionVersionResponse,
   assertWithdrawQuestionApprovalResponse,
   approveQuestionVersionParamsSchema,
   approveQuestionVersionRequestSchema,
   approveQuestionVersionResponseSchema,
+  archiveAdminQuestionParamsSchema,
+  archiveAdminQuestionRequestSchema,
+  archiveAdminQuestionResponseSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionResponseSchema,
   createAdminQuestionVersionParamsSchema,
   createAdminQuestionVersionRequestSchema,
   createAdminQuestionVersionResponseSchema,
   phase7EmptyQuerySchema,
+  publishQuestionVersionParamsSchema,
+  publishQuestionVersionRequestSchema,
+  publishQuestionVersionResponseSchema,
   requestContentReviewParamsSchema,
   requestContentReviewRequestSchema,
   requestContentReviewResponseSchema,
   requestQuestionChangesParamsSchema,
   requestQuestionChangesRequestSchema,
   requestQuestionChangesResponseSchema,
+  retireQuestionVersionParamsSchema,
+  retireQuestionVersionRequestSchema,
+  retireQuestionVersionResponseSchema,
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
   updateQuestionVersionResponseSchema,
@@ -31,7 +43,10 @@ import {
 } from '@nihongo/contracts/admin/phase7'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError, type ZodType } from 'zod'
-import type { AdminQuestionCommandService } from '../admin/adminQuestionCommandService.js'
+import type {
+  AdminQuestionCommandService,
+  AdminQuestionPublicationCommandService
+} from '../admin/adminQuestionCommandService.js'
 import { getPhase7OperationBodyCap } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { readPhase7JsonBody } from '../http/phase7JsonBody.js'
@@ -141,7 +156,8 @@ export const createAdminQuestionCommandRoutes = ({
   commandService,
   guard
 }: {
-  commandService: AdminQuestionCommandService
+  commandService: AdminQuestionCommandService &
+    AdminQuestionPublicationCommandService
   guard: MiddlewareHandler<AdminRouteEnvironment>
 }): Hono<AdminRouteEnvironment> => {
   const routes = new Hono<AdminRouteEnvironment>()
@@ -355,6 +371,101 @@ export const createAdminQuestionCommandRoutes = ({
       return context.json(response)
     }
   )
+
+  routes.post(
+    '/question-versions/:versionId/publication',
+    guard,
+    async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const params = parsePath(
+        () =>
+          publishQuestionVersionParamsSchema.parse({
+            versionId: context.req.param('versionId')
+          }),
+        '문제 버전 ID 형식이 올바르지 않습니다.'
+      )
+      const request = await parseBody(
+        context.req.raw,
+        'publishQuestionVersion',
+        publishQuestionVersionRequestSchema,
+        '문제 버전 게시 요청이 올바르지 않습니다.'
+      )
+      const raw = await commandService.publishVersion(
+        authority(context),
+        params.versionId,
+        request
+      )
+      const response = publishQuestionVersionResponseSchema.parse(
+        assertCommittedResponse(() =>
+          assertPublishQuestionVersionResponse(params, request, raw)
+        )
+      )
+      noStore(context)
+      return context.json(response)
+    }
+  )
+
+  routes.post(
+    '/question-versions/:versionId/retirement',
+    guard,
+    async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const params = parsePath(
+        () =>
+          retireQuestionVersionParamsSchema.parse({
+            versionId: context.req.param('versionId')
+          }),
+        '문제 버전 ID 형식이 올바르지 않습니다.'
+      )
+      const request = await parseBody(
+        context.req.raw,
+        'retireQuestionVersion',
+        retireQuestionVersionRequestSchema,
+        '문제 버전 퇴역 요청이 올바르지 않습니다.'
+      )
+      const raw = await commandService.retireVersion(
+        authority(context),
+        params.versionId,
+        request
+      )
+      const response = retireQuestionVersionResponseSchema.parse(
+        assertCommittedResponse(() =>
+          assertRetireQuestionVersionResponse(params, request, raw)
+        )
+      )
+      noStore(context)
+      return context.json(response)
+    }
+  )
+
+  routes.post('/questions/:questionId/archive', guard, async (context) => {
+    assertEmptyQuery(context.get('rawRequestTarget'))
+    const params = parsePath(
+      () =>
+        archiveAdminQuestionParamsSchema.parse({
+          questionId: context.req.param('questionId')
+        }),
+      '문제 ID 형식이 올바르지 않습니다.'
+    )
+    const request = await parseBody(
+      context.req.raw,
+      'archiveAdminQuestion',
+      archiveAdminQuestionRequestSchema,
+      '관리자 문제 보관 요청이 올바르지 않습니다.'
+    )
+    const raw = await commandService.archiveQuestion(
+      authority(context),
+      params.questionId,
+      request
+    )
+    const response = archiveAdminQuestionResponseSchema.parse(
+      assertCommittedResponse(() =>
+        assertArchiveAdminQuestionResponse(params, request, raw)
+      )
+    )
+    noStore(context)
+    return context.json(response)
+  })
 
   return routes
 }

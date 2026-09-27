@@ -3,10 +3,13 @@ import { randomUUID } from 'node:crypto'
 import {
   adminQuestionMutationResultSchema,
   approveQuestionVersionRequestSchema,
+  archiveAdminQuestionRequestSchema,
   createAdminQuestionRequestSchema,
+  publishQuestionVersionRequestSchema,
   reauthenticateAdminErrorSchema,
   reauthenticateAdminResponseSchema,
   requestContentReviewRequestSchema,
+  retireQuestionVersionRequestSchema,
   withdrawQuestionApprovalRequestSchema,
   type CreateAdminQuestionRequest
 } from '@nihongo/contracts/admin/phase7'
@@ -18,7 +21,9 @@ import { createAdminReauthenticationService } from '../admin/adminReauthenticati
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
 import {
   createAdminQuestionCommandService,
-  type AdminQuestionCommandService
+  createAdminQuestionPublicationCommandService,
+  type AdminQuestionCommandService,
+  type AdminQuestionPublicationCommandService
 } from '../admin/adminQuestionCommandService.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
@@ -288,8 +293,18 @@ const waitForSessionFreshCutoff = async (
   throw new Error('Phase 7 A2 Session did not reach the fresh cutoff.')
 }
 
-const createCommandService = (): AdminQuestionCommandService =>
-  createAdminQuestionCommandService(
+type TestAdminQuestionCommandService = AdminQuestionCommandService &
+  AdminQuestionPublicationCommandService
+
+const createCombinedCommandService = (
+  repository: ReturnType<typeof createPrismaAdminQuestionCommandRepository>
+): TestAdminQuestionCommandService => ({
+  ...createAdminQuestionCommandService(repository),
+  ...createAdminQuestionPublicationCommandService(repository)
+})
+
+const createCommandService = (): TestAdminQuestionCommandService =>
+  createCombinedCommandService(
     createPrismaAdminQuestionCommandRepository({
       auditEnvironment: 'TEST',
       client: applicationRuntime.client
@@ -328,7 +343,7 @@ const createVersionPreflightBarrierCommandService = () => {
     )
   } as unknown as PrismaClient
   return {
-    commandService: createAdminQuestionCommandService(
+    commandService: createCombinedCommandService(
       createPrismaAdminQuestionCommandRepository({
         auditEnvironment: 'TEST',
         client
@@ -500,6 +515,77 @@ const readA2IntentCount = async (
       [requestIds]
     )
   ).rows[0]?.count ?? -1
+
+const readSlice4State = async (questionId: string, versionId: string) => {
+  const question = await adminClient.query<{
+    currentPublishedVersionId: string | null
+    lifecycleStatus: string
+    rowVersion: number
+  }>(
+    `SELECT "currentPublishedVersionId", "lifecycleStatus"::text AS "lifecycleStatus",
+       "rowVersion"
+     FROM "Question" WHERE "id" = $1`,
+    [questionId]
+  )
+  const version = await adminClient.query<{
+    retirementKind: string | null
+    rowVersion: number
+    status: string
+  }>(
+    `SELECT "retirementKind"::text AS "retirementKind", "rowVersion",
+       "status"::text AS status
+     FROM "QuestionVersion" WHERE "id" = $1`,
+    [versionId]
+  )
+  const reviews = await adminClient.query<{
+    action: string
+    actorUserId: string
+    counterpartActorId: string | null
+    fromState: string
+    reason: string | null
+    requestId: string
+    toState: string
+  }>(
+    `SELECT "action"::text AS action, "actorUserId", "counterpartActorId",
+       "fromState"::text AS "fromState", "toState"::text AS "toState",
+       "reason", "requestId"
+     FROM "ContentReview"
+     WHERE "questionId" = $1
+     ORDER BY "occurredAt", "id"`,
+    [questionId]
+  )
+  const audits = await adminClient.query<{
+    afterRowVersion: number
+    afterState: string
+    beforeRowVersion: number
+    beforeState: string
+    changedFields: string[]
+    command: string
+    contentDigestValid: boolean
+    metadata: Record<string, unknown>
+    requestId: string
+    targetId: string
+  }>(
+    `SELECT "command"::text AS command, "targetId", "beforeState",
+       "afterState", "beforeRowVersion", "afterRowVersion", "changedFields",
+       "metadata", "requestId",
+       "contentDigest" = "phase7_admin_audit_content_digest"(
+         "operationId", "command", "targetType", "targetId",
+         "beforeState", "afterState", "beforeRowVersion",
+         "afterRowVersion", "changedFields", "metadata"
+       ) AS "contentDigestValid"
+     FROM "AdminAuditLog"
+     WHERE "targetId" = ANY($1::uuid[])
+     ORDER BY "occurredAt", "id"`,
+    [[questionId, versionId]]
+  )
+  return {
+    audits: audits.rows,
+    question: question.rows[0],
+    reviews: reviews.rows,
+    version: version.rows[0]
+  }
+}
 
 const prepareAndStage = async (
   fixture: Awaited<ReturnType<typeof createFixture>>
@@ -740,7 +826,7 @@ const createTestHonoApp = ({
   }),
   service
 }: {
-  commandService?: AdminQuestionCommandService
+  commandService?: TestAdminQuestionCommandService
   principalService?: PrincipalService
   service: ReturnType<typeof createService>
 }) => {
@@ -1323,6 +1409,310 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
       beforeLateFreshFailure
     )
     expect(await readA2IntentCount([lateFreshApproval.requestId])).toBe(0)
+  }, 60_000)
+
+  it('real createApiApp가 Slice 4 게시·퇴역·보관과 DB 증거를 하나의 canonical 경로로 commit한다', async () => {
+    const author = await createFixture()
+    const reviewer = await createFixture()
+    const commandService = createCommandService()
+    const target = await prepareA2InReviewVersion({ author, commandService })
+    const approved = await commandService.approveVersion(
+      {
+        actorId: reviewer.userId,
+        rawSessionToken: reviewer.token,
+        requestId: randomUUID()
+      },
+      target.versionId,
+      approveQuestionVersionRequestSchema.parse({
+        expectedRowVersion: target.versionRowVersion,
+        comment: 'Slice 4 실제 DB 게시 승인'
+      })
+    )
+    if (approved.versionRowVersion === null) {
+      throw new Error('Slice 4 approved version rowVersion is unavailable.')
+    }
+    expect(approved).toMatchObject({
+      questionRowVersion: 1,
+      versionRowVersion: 3,
+      versionStatus: 'APPROVED'
+    })
+
+    const app = createTestHonoApp({ commandService, service: createService() })
+    const publicationRequest = publishQuestionVersionRequestSchema.parse({
+      expectedQuestionRowVersion: approved.questionRowVersion,
+      expectedRowVersion: approved.versionRowVersion
+    })
+    const publication = await requestA2Command({
+      app,
+      body: publicationRequest,
+      fixture: reviewer,
+      pathname: `/api/v1/admin/question-versions/${target.versionId}/publication`
+    })
+    expect(publication.response.status).toBe(200)
+    const published = adminQuestionMutationResultSchema.parse(
+      await publication.response.json()
+    )
+    expect(published).toMatchObject({
+      lifecycleStatus: 'ACTIVE',
+      questionId: target.questionId,
+      questionRowVersion: 2,
+      questionVersionId: target.versionId,
+      versionRowVersion: 4,
+      versionStatus: 'PUBLISHED'
+    })
+    expect(publication.response.headers.get('Cache-Control')).toBe(
+      'private, no-store'
+    )
+    expect(publication.response.headers.get('X-Request-Id')).toBe(
+      publication.requestId
+    )
+    expect(publication.response.headers.getSetCookie()).toHaveLength(0)
+    if (published.versionRowVersion === null) {
+      throw new Error('Slice 4 published version rowVersion is unavailable.')
+    }
+
+    const retirementRequest = retireQuestionVersionRequestSchema.parse({
+      expectedQuestionRowVersion: published.questionRowVersion,
+      expectedRowVersion: published.versionRowVersion
+    })
+    const retirement = await requestA2Command({
+      app,
+      body: retirementRequest,
+      fixture: reviewer,
+      pathname: `/api/v1/admin/question-versions/${target.versionId}/retirement`
+    })
+    expect(retirement.response.status).toBe(200)
+    const retired = adminQuestionMutationResultSchema.parse(
+      await retirement.response.json()
+    )
+    expect(retired).toMatchObject({
+      lifecycleStatus: 'ACTIVE',
+      questionId: target.questionId,
+      questionRowVersion: 3,
+      questionVersionId: target.versionId,
+      versionRowVersion: 5,
+      versionStatus: 'RETIRED'
+    })
+    expect(retirement.response.headers.get('Cache-Control')).toBe(
+      'private, no-store'
+    )
+    expect(retirement.response.headers.get('X-Request-Id')).toBe(
+      retirement.requestId
+    )
+    expect(retirement.response.headers.getSetCookie()).toHaveLength(0)
+
+    const archiveRequest = archiveAdminQuestionRequestSchema.parse({
+      expectedOpenCandidateRowVersion: null,
+      expectedOpenCandidateVersionId: null,
+      expectedQuestionRowVersion: retired.questionRowVersion
+    })
+    const archive = await requestA2Command({
+      app,
+      body: archiveRequest,
+      fixture: reviewer,
+      pathname: `/api/v1/admin/questions/${target.questionId}/archive`
+    })
+    expect(archive.response.status).toBe(200)
+    expect(
+      adminQuestionMutationResultSchema.parse(await archive.response.json())
+    ).toMatchObject({
+      lifecycleStatus: 'ARCHIVED',
+      questionId: target.questionId,
+      questionRowVersion: 4,
+      questionVersionId: null,
+      versionRowVersion: null,
+      versionStatus: null
+    })
+    expect(archive.response.headers.get('Cache-Control')).toBe(
+      'private, no-store'
+    )
+    expect(archive.response.headers.get('X-Request-Id')).toBe(archive.requestId)
+    expect(archive.response.headers.getSetCookie()).toHaveLength(0)
+
+    const mutationRequestIds = [
+      publication.requestId,
+      retirement.requestId,
+      archive.requestId
+    ]
+    const evidence = await readSlice4State(target.questionId, target.versionId)
+    expect(evidence.question).toEqual({
+      currentPublishedVersionId: null,
+      lifecycleStatus: 'ARCHIVED',
+      rowVersion: 4
+    })
+    expect(evidence.version).toEqual({
+      retirementKind: 'PUBLISHED_RETIREMENT',
+      rowVersion: 5,
+      status: 'RETIRED'
+    })
+    expect(
+      evidence.audits
+        .filter(({ requestId }) => mutationRequestIds.includes(requestId))
+        .map((audit) => ({
+          afterRowVersion: audit.afterRowVersion,
+          afterState: audit.afterState,
+          beforeRowVersion: audit.beforeRowVersion,
+          beforeState: audit.beforeState,
+          changedFields: audit.changedFields,
+          command: audit.command,
+          contentDigestValid: audit.contentDigestValid,
+          metadata: audit.metadata,
+          requestId: audit.requestId,
+          targetId: audit.targetId
+        }))
+    ).toEqual([
+      {
+        afterRowVersion: 4,
+        afterState: 'PUBLISHED',
+        beforeRowVersion: 3,
+        beforeState: 'APPROVED',
+        changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
+        command: 'PUBLICATION',
+        contentDigestValid: true,
+        metadata: { kind: 'NONE_V1' },
+        requestId: publication.requestId,
+        targetId: target.versionId
+      },
+      {
+        afterRowVersion: 5,
+        afterState: 'RETIRED',
+        beforeRowVersion: 4,
+        beforeState: 'PUBLISHED',
+        changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
+        command: 'RETIREMENT',
+        contentDigestValid: true,
+        metadata: { kind: 'NONE_V1' },
+        requestId: retirement.requestId,
+        targetId: target.versionId
+      },
+      {
+        afterRowVersion: 4,
+        afterState: 'ARCHIVED',
+        beforeRowVersion: 3,
+        beforeState: 'ACTIVE',
+        changedFields: ['LIFECYCLE_STATUS'],
+        command: 'QUESTION_ARCHIVE',
+        contentDigestValid: true,
+        metadata: {
+          abandonedCandidateCount: 0,
+          kind: 'QUESTION_ARCHIVE_V1',
+          retiredPublishedCount: 0
+        },
+        requestId: archive.requestId,
+        targetId: target.questionId
+      }
+    ])
+    expect(
+      evidence.reviews
+        .filter(({ requestId }) => mutationRequestIds.includes(requestId))
+        .map((review) => ({
+          action: review.action,
+          actorUserId: review.actorUserId,
+          counterpartActorId: review.counterpartActorId,
+          fromState: review.fromState,
+          reason: review.reason,
+          requestId: review.requestId,
+          toState: review.toState
+        }))
+    ).toEqual([
+      {
+        action: 'PUBLISHED',
+        actorUserId: reviewer.userId,
+        counterpartActorId: reviewer.userId,
+        fromState: 'APPROVED',
+        reason: null,
+        requestId: publication.requestId,
+        toState: 'PUBLISHED'
+      },
+      {
+        action: 'RETIRED',
+        actorUserId: reviewer.userId,
+        counterpartActorId: null,
+        fromState: 'PUBLISHED',
+        reason: 'PUBLISHED_RETIREMENT',
+        requestId: retirement.requestId,
+        toState: 'RETIRED'
+      }
+    ])
+    expect(await readA2IntentCount(mutationRequestIds)).toBe(0)
+  }, 60_000)
+
+  it('Slice 4 게시는 쓰기 후 fresh fence 만료 시 전체를 rollback한다', async () => {
+    const author = await createFixture()
+    const reviewer = await createFixture()
+    const commandService = createCommandService()
+    const target = await prepareA2InReviewVersion({ author, commandService })
+    const approved = await commandService.approveVersion(
+      {
+        actorId: reviewer.userId,
+        rawSessionToken: reviewer.token,
+        requestId: randomUUID()
+      },
+      target.versionId,
+      approveQuestionVersionRequestSchema.parse({
+        expectedRowVersion: target.versionRowVersion,
+        comment: 'Slice 4 final fresh fence 준비'
+      })
+    )
+    if (approved.versionRowVersion === null) {
+      throw new Error('Slice 4 approved version rowVersion is unavailable.')
+    }
+    const app = createTestHonoApp({ commandService, service: createService() })
+    const beforeLateFreshFailure = await readSlice4State(
+      target.questionId,
+      target.versionId
+    )
+    let lateFreshPublicationPromise:
+      | ReturnType<typeof requestA2Command>
+      | undefined
+
+    await adminClient.query('BEGIN')
+    try {
+      await adminClient.query('LOCK TABLE "ContentReview" IN SHARE MODE')
+      const blockingBackend = await adminClient.query<{ pid: number }>(
+        'SELECT pg_backend_pid() AS pid'
+      )
+      const blockingBackendPid = blockingBackend.rows[0]?.pid
+      if (blockingBackendPid === undefined) {
+        throw new Error('Slice 4 blocker backend pid is unavailable.')
+      }
+      expect(
+        await moveSessionNearFreshCutoffForTesting(reviewer.token, 1_000)
+      ).toBe(1)
+      lateFreshPublicationPromise = requestA2Command({
+        app,
+        body: publishQuestionVersionRequestSchema.parse({
+          expectedQuestionRowVersion: approved.questionRowVersion,
+          expectedRowVersion: approved.versionRowVersion
+        }),
+        fixture: reviewer,
+        pathname: `/api/v1/admin/question-versions/${target.versionId}/publication`
+      })
+      await waitForBlockedContentReviewInsert(blockingBackendPid)
+      await waitForSessionFreshCutoff(reviewer.token)
+      await adminClient.query('COMMIT')
+    } catch (error: unknown) {
+      await adminClient.query('ROLLBACK').catch(() => undefined)
+      await lateFreshPublicationPromise?.catch(() => undefined)
+      throw error
+    }
+    if (!lateFreshPublicationPromise) {
+      throw new Error('Slice 4 late-fresh publication was not started.')
+    }
+    const lateFreshPublication = await lateFreshPublicationPromise
+    expect(lateFreshPublication.response.status).toBe(401)
+    expect(
+      apiFailureSchema.parse(await lateFreshPublication.response.json())
+    ).toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      requestId: lateFreshPublication.requestId,
+      retryable: false
+    })
+    expect(lateFreshPublication.response.headers.getSetCookie()).toHaveLength(0)
+    expect(await readSlice4State(target.questionId, target.versionId)).toEqual(
+      beforeLateFreshFailure
+    )
+    expect(await readA2IntentCount([lateFreshPublication.requestId])).toBe(0)
   }, 60_000)
 
   it('guard 통과 후 authority/fresh 상실은 A2 target 오류보다 먼저 선형화된다', async () => {
