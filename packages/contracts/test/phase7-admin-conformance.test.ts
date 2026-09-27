@@ -8,9 +8,13 @@ import {
   buildPhase7OperationFailureResponse,
   computePhase7Retryability,
   phase7ErrorSurfaceByOperation,
+  phase7DormantAfterSlice3AOperationManifest,
   phase7OperationManifest,
   phase7OperationSchemaManifest,
   phase7OperationSchemas,
+  phase7ActiveThroughSlice3AOperationManifest,
+  phase7Slice3ACommandOperationManifest,
+  phase7Slice3RRemediationOperationManifest,
   phase7Slice2ReadOperationManifest
 } from '../src/admin/phase7.js'
 import {
@@ -38,6 +42,112 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       phase7Slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
     ).toBe(true)
+  })
+
+  it('fixes the exact ordered Slice 3A active and Slice 3R dormant tuples', () => {
+    const tuple = (entry: (typeof phase7OperationManifest)[number]) => [
+      entry.operation,
+      entry.operationId,
+      entry.method,
+      entry.path,
+      entry.successStatus,
+      entry.requiresFreshAssurance
+    ]
+    expect(phase7Slice3ACommandOperationManifest.map(tuple)).toEqual([
+      [
+        'createAdminQuestion',
+        'admin.createAdminQuestion',
+        'POST',
+        '/api/v1/admin/questions',
+        201,
+        false
+      ],
+      [
+        'createAdminQuestionVersion',
+        'admin.createAdminQuestionVersion',
+        'POST',
+        '/api/v1/admin/questions/:questionId/versions',
+        201,
+        false
+      ],
+      [
+        'updateQuestionVersion',
+        'admin.updateQuestionVersion',
+        'PATCH',
+        '/api/v1/admin/question-versions/:versionId',
+        200,
+        false
+      ],
+      [
+        'requestContentReview',
+        'admin.requestContentReview',
+        'POST',
+        '/api/v1/admin/question-versions/:versionId/review-request',
+        200,
+        false
+      ],
+      [
+        'requestQuestionChanges',
+        'admin.requestQuestionChanges',
+        'POST',
+        '/api/v1/admin/question-versions/:versionId/change-request',
+        200,
+        false
+      ]
+    ])
+    expect(phase7Slice3RRemediationOperationManifest.map(tuple)).toEqual([
+      [
+        'approveQuestionVersion',
+        'admin.approveQuestionVersion',
+        'POST',
+        '/api/v1/admin/question-versions/:versionId/approval',
+        200,
+        true
+      ],
+      [
+        'withdrawQuestionApproval',
+        'admin.withdrawQuestionApproval',
+        'POST',
+        '/api/v1/admin/question-versions/:versionId/approval-withdrawal',
+        200,
+        true
+      ],
+      [
+        'reauthenticateAdmin',
+        'admin.reauthenticateAdmin',
+        'POST',
+        '/api/v1/admin/reauthentication',
+        200,
+        false
+      ]
+    ])
+    expect(
+      phase7ActiveThroughSlice3AOperationManifest.map(
+        (entry) => entry.operation
+      )
+    ).toEqual(
+      phase7OperationManifest
+        .filter(
+          (entry) =>
+            entry.slice2Route ||
+            phase7Slice3ACommandOperationManifest.includes(entry as never)
+        )
+        .map((entry) => entry.operation)
+    )
+    expect(phase7ActiveThroughSlice3AOperationManifest).toHaveLength(13)
+    expect(phase7DormantAfterSlice3AOperationManifest).toHaveLength(15)
+    expect(
+      phase7DormantAfterSlice3AOperationManifest.map((entry) => entry.operation)
+    ).toEqual(
+      phase7OperationManifest
+        .filter(
+          (entry) =>
+            !phase7ActiveThroughSlice3AOperationManifest.includes(
+              entry as never
+            )
+        )
+        .map((entry) => entry.operation)
+    )
   })
 
   it('exports one named ErrorCodeSchema for every manifest operation', async () => {

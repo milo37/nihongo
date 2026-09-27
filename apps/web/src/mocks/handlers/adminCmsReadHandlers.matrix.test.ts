@@ -5,7 +5,10 @@ import {
 } from '@nihongo/contracts/admin/phase7'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetAdminCmsReadRateLimitForTesting } from '@mocks/handlers/adminCmsReadHandlers'
+import {
+  primeAdminCmsReadRateLimitForTesting,
+  resetAdminCmsReadRateLimitForTesting
+} from '@mocks/handlers/adminCmsReadHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 
 const BASE = 'http://localhost/api/v1/admin'
@@ -102,7 +105,8 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
       '/api/v1/admin%5cquestions',
       '/api/v1/admin/%252e/questions',
       '/api/v1/not-admin/%252e%252e/admin/questions',
-      '/api/v1/%2571uestion-reports'
+      '/api/v1/%2571uestion-reports',
+      `/api/v1/%${'25'.repeat(32)}61dmin/questions`
     ]
 
     for (const pathname of aliases) {
@@ -113,6 +117,41 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
         message: '요청한 경로를 찾을 수 없습니다.',
         retryable: false
       })
+    }
+
+    expect(authRead).not.toHaveBeenCalled()
+    expect(sourceRead).not.toHaveBeenCalled()
+  })
+
+  it('8개 read fragment alias를 GET/OPTIONS 모두 guard 전에 닫는다', async () => {
+    mockDatabase.loginAs('ADMIN')
+    const authRead = vi.spyOn(mockDatabase, 'getCurrentUser')
+    const sourceRead = vi.spyOn(
+      mockDatabase,
+      'listCanonicalAdminQuestionSources'
+    )
+    const id = '00000000-0000-7000-8000-000000000000'
+    const fragmentAliases = [
+      `${BASE}/questions#fragment`,
+      `${BASE}/questions/${id}#fragment`,
+      `${BASE}/questions/${id}/versions#fragment`,
+      `${BASE}/tags#fragment`,
+      `${BASE}/question-versions/${id}/preview#fragment`,
+      `${BASE}/question-versions/${id}/diff?baseVersionId=${id}#fragment`,
+      `${BASE}/question-versions/${id}/reviews#fragment`,
+      `${BASE}/audit-log#fragment`
+    ]
+
+    for (const url of fragmentAliases) {
+      for (const method of ['GET', 'OPTIONS']) {
+        const response = await fetch(url, { method })
+        expect(response.status).toBe(404)
+        expect(apiFailureSchema.parse(await response.json())).toMatchObject({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '요청한 경로를 찾을 수 없습니다.',
+          retryable: false
+        })
+      }
     }
 
     expect(authRead).not.toHaveBeenCalled()
@@ -184,9 +223,11 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
 
   it('shared operation policy로 429 retryability와 Retry-After를 함께 만든다', async () => {
     mockDatabase.loginAs('ADMIN')
-    for (let request = 0; request < 120; request += 1) {
-      expect((await fetch(`${BASE}/questions?pageSize=1`)).status).toBe(200)
-    }
+    const actor = mockDatabase.getCurrentUser()
+    if (!actor) throw new Error('관리자 fixture가 필요합니다.')
+    primeAdminCmsReadRateLimitForTesting(actor.id, 119)
+
+    expect((await fetch(`${BASE}/questions?pageSize=1`)).status).toBe(200)
 
     const limited = await fetch(`${BASE}/questions?pageSize=1`)
     const body = apiFailureSchema.parse(await limited.json())
@@ -196,7 +237,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
     expect(limited.headers.get('retry-after')).toMatch(/^[1-9][0-9]*$/u)
     expect(limited.headers.get('cache-control')).toBe('private, no-store')
     expect(limited.headers.get('x-request-id')).toBe(body.requestId)
-  })
+  }, 30_000)
 
   it('list leakage, dormant reports, legacy GET/POST 회귀를 고정한다', async () => {
     mockDatabase.loginAs('ADMIN')

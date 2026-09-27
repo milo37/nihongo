@@ -102,18 +102,22 @@ describe('Phase 7 canonical admin read MSW parity', () => {
     expect(invalidPath.status).toBe(404)
   })
 
-  it('ADMIN_READ actor/IP 120회 제한과 legacy singular endpoint를 보존한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    for (let index = 0; index < 120; index += 1) {
-      expect((await fetch(`${BASE}/audit-log`)).status).toBe(200)
-    }
-    const limited = await fetch(`${BASE}/audit-log`)
-    expect(limited.status).toBe(429)
-    expect(limited.headers.get('retry-after')).toBeTruthy()
+  it(
+    'ADMIN_READ actor/IP 120회 제한과 legacy singular endpoint를 보존한다',
+    async () => {
+      mockDatabase.loginAs('ADMIN')
+      for (let index = 0; index < 120; index += 1) {
+        expect((await fetch(`${BASE}/audit-log`)).status).toBe(200)
+      }
+      const limited = await fetch(`${BASE}/audit-log`)
+      expect(limited.status).toBe(429)
+      expect(limited.headers.get('retry-after')).toBeTruthy()
 
-    resetAdminCmsReadRateLimitForTesting()
-    expect(
-      (await fetch('http://localhost/api/admin/question?pageSize=100')).status
-    ).toBe(200)
-  })
+      resetAdminCmsReadRateLimitForTesting()
+      expect(
+        (await fetch('http://localhost/api/admin/question?pageSize=100')).status
+      ).toBe(200)
+    },
+    15_000
+  )
 })

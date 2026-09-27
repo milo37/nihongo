@@ -299,12 +299,60 @@ export const phase7Slice2ReadOperationManifest = phase7OperationManifest.filter(
   (entry) => entry.slice2Route
 )
 
+const PHASE_7_SLICE_3A_COMMAND_OPERATIONS = new Set<Phase7Operation>([
+  'createAdminQuestion',
+  'createAdminQuestionVersion',
+  'updateQuestionVersion',
+  'requestContentReview',
+  'requestQuestionChanges'
+])
+
+const PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS = new Set<Phase7Operation>([
+  'reauthenticateAdmin',
+  'approveQuestionVersion',
+  'withdrawQuestionApproval'
+])
+
+export const phase7Slice3ACommandOperationManifest =
+  phase7OperationManifest.filter((entry) =>
+    PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7Slice3RRemediationOperationManifest =
+  phase7OperationManifest.filter((entry) =>
+    PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7ActiveThroughSlice3AOperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      entry.slice2Route ||
+      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7DormantAfterSlice3AOperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      !entry.slice2Route &&
+      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+  )
+
 export const assertPhase7OperationManifest = (): void => {
   if (phase7OperationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
   }
   if (phase7Slice2ReadOperationManifest.length !== 8) {
     throw new Error('Phase 7 Slice 2 route manifest는 정확히 8개여야 합니다.')
+  }
+  if (
+    phase7Slice3ACommandOperationManifest.length !== 5 ||
+    phase7Slice3RRemediationOperationManifest.length !== 3 ||
+    phase7ActiveThroughSlice3AOperationManifest.length !== 13 ||
+    phase7DormantAfterSlice3AOperationManifest.length !== 15
+  ) {
+    throw new Error(
+      'Phase 7 Slice 3A manifest는 active read 8 + command 5이고 나머지 15개는 dormant여야 합니다.'
+    )
   }
   const operations = new Set(
     phase7OperationManifest.map((entry) => entry.operation)

@@ -10,7 +10,7 @@ import type { AdminReadRateLimiter } from './adminReadRateLimiter.js'
 
 type AdminRouteEnvironment = { Variables: ApiVariables }
 
-const appendAuthHeaders = (
+export const appendAdminAuthHeaders = (
   context: Context<AdminRouteEnvironment>,
   resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
   environment: ApiEnvironment
@@ -51,19 +51,39 @@ export const createAdminReadGuard = ({
   )
 
   return createMiddleware<AdminRouteEnvironment>(async (context, next) => {
-    const resolution = await principalService.resolveAuthenticatedUser(
-      context.req.raw.headers
-    )
-    appendAuthHeaders(context, resolution, environment)
+    let resolution: Awaited<
+      ReturnType<PrincipalService['resolveAuthenticatedUser']>
+    >
+    try {
+      resolution = await principalService.resolveAuthenticatedUser(
+        context.req.raw.headers,
+        { classifyAdminAuthorityLoss: true }
+      )
+    } catch (error: unknown) {
+      throw new ApplicationError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '관리자 세션을 확인할 수 없습니다.',
+        retryable: true,
+        retryAfterSeconds: 5,
+        cause: error
+      })
+    }
+    appendAdminAuthHeaders(context, resolution, environment)
 
     if (!resolution.user) {
-      throw new ApplicationError({
-        code: resolution.clearSessionCookie
+      const code =
+        resolution.adminAuthorityFailure ??
+        (resolution.clearSessionCookie
           ? 'AUTH_SESSION_EXPIRED'
-          : 'AUTHENTICATION_REQUIRED',
-        message: resolution.clearSessionCookie
-          ? '로그인 세션이 만료됐습니다.'
-          : '관리자 기능을 사용하려면 로그인이 필요합니다.',
+          : 'AUTHENTICATION_REQUIRED')
+      throw new ApplicationError({
+        code,
+        message:
+          code === 'ADMIN_REQUIRED'
+            ? '관리자 권한이 필요합니다.'
+            : code === 'AUTH_SESSION_EXPIRED'
+              ? '로그인 세션이 만료됐습니다.'
+              : '관리자 기능을 사용하려면 로그인이 필요합니다.',
         retryable: false
       })
     }

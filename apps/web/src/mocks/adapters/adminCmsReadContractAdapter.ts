@@ -1,3 +1,4 @@
+import { comparePublicQuestionTags } from '@nihongo/contracts/question/get-question'
 import {
   assertDiffQuestionVersionForRequest,
   assertGetAdminQuestionForRequest,
@@ -10,9 +11,15 @@ import {
   compareAdminTags,
   compareUnicodeScalars,
   decodeAdminQuestionVersionCursor,
+  decodePhase7OccurredAtCursor,
+  encodeAdminQuestionVersionCursor,
+  encodePhase7OccurredAtCursor,
   normalizePhase7TagKey,
+  phase7DiffFieldOrder,
+  type AdminAuditLogItem,
   type AdminQuestionSummary,
   type AdminQuestionVersionSummary,
+  type AdminTagSummary,
   type DiffQuestionVersionQuery,
   type DiffQuestionVersionResponse,
   type GetAdminQuestionResponse,
@@ -31,13 +38,21 @@ import {
 import {
   getContractQuestionId,
   getQuestionVersionFingerprint,
-  toContractPracticeQuestion,
   toStableMockUuid
 } from '@mocks/adapters/questionContractAdapter'
 import type { MockCanonicalAdminQuestionSource } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@util/question'
+import type {
+  MockPhase7AdminCmsSnapshot,
+  MockPhase7AdminQuestion,
+  MockPhase7AdminVersion
+} from '@mocks/repository/phase7AdminCmsState'
 
 const QUESTION_PREVIEW_MAX_LENGTH = 160
+
+export interface MockAdminCmsReadModel {
+  readonly snapshot: MockPhase7AdminCmsSnapshot
+  readonly sources: readonly MockCanonicalAdminQuestionSource[]
+}
 
 export class MockAdminCmsReadNotFoundError extends Error {
   constructor(message: string) {
@@ -54,101 +69,153 @@ export class MockAdminCmsReadIntegrityError extends Error {
 }
 
 const createQuestionTextPreview = (value: string): string => {
-  const scalars = [...value]
-
+  const scalars = [...value.replaceAll('\n', ' ')]
   return scalars.length <= QUESTION_PREVIEW_MAX_LENGTH
-    ? value
+    ? scalars.join('')
     : `${scalars.slice(0, QUESTION_PREVIEW_MAX_LENGTH - 3).join('')}...`
 }
-
-const getVersionId = (source: MockCanonicalAdminQuestionSource): string =>
-  toStableMockUuid(
-    'question-version',
-    `${source.question.id}:${getQuestionVersionFingerprint(source.question)}`
-  )
-
-const toAdminTags = (source: MockCanonicalAdminQuestionSource) =>
-  source.question.tags
-    .map((label) => {
-      const normalizedName = normalizePhase7TagKey(label)
-
-      return {
-        id: toStableMockUuid('question-tag', normalizedName),
-        label,
-        normalizedName
-      }
-    })
-    .toSorted(compareAdminTags)
 
 const calculateCorrectRateBasisPoints = (
   answerCount: number,
   correctCount: number
 ): number | null => {
-  if (answerCount === 0) {
-    return null
-  }
-
+  if (answerCount === 0) return null
   const answer = BigInt(answerCount)
   const numerator = BigInt(correctCount) * 10_000n
-
   return Number((numerator * 2n + answer) / (answer * 2n))
 }
 
+const findQuestion = (
+  snapshot: MockPhase7AdminCmsSnapshot,
+  questionId: string
+): MockPhase7AdminQuestion => {
+  const question = snapshot.questions.find(
+    (candidate) => candidate.questionId === questionId
+  )
+  if (!question) {
+    throw new MockAdminCmsReadNotFoundError('관리자 문제를 찾을 수 없습니다.')
+  }
+  return question
+}
+
+const findVersion = (
+  snapshot: MockPhase7AdminCmsSnapshot,
+  versionId: string
+): MockPhase7AdminVersion => {
+  const version = snapshot.versions.find(
+    (candidate) => candidate.questionVersionId === versionId
+  )
+  if (!version) {
+    throw new MockAdminCmsReadNotFoundError('문제 버전을 찾을 수 없습니다.')
+  }
+  return version
+}
+
+const listQuestionVersions = (
+  snapshot: MockPhase7AdminCmsSnapshot,
+  questionId: string
+): MockPhase7AdminVersion[] =>
+  snapshot.versions
+    .filter((version) => version.questionId === questionId)
+    .toSorted(
+      (left, right) =>
+        right.versionNumber - left.versionNumber ||
+        compareUnicodeScalars(right.questionVersionId, left.questionVersionId)
+    )
+
+const selectQuestionVersion = (
+  snapshot: MockPhase7AdminCmsSnapshot,
+  question: MockPhase7AdminQuestion
+): MockPhase7AdminVersion => {
+  const selectedId =
+    question.openCandidateVersionId ?? question.currentPublishedVersionId
+  const selected = selectedId ? findVersion(snapshot, selectedId) : undefined
+  const fallback = listQuestionVersions(snapshot, question.questionId)[0]
+  if (!selected && !fallback) {
+    throw new MockAdminCmsReadIntegrityError(
+      '관리자 문제에는 최소 한 개의 버전이 필요합니다.'
+    )
+  }
+  return selected ?? fallback!
+}
+
 const toVersionSummary = (
-  source: MockCanonicalAdminQuestionSource
+  version: MockPhase7AdminVersion
 ): AdminQuestionVersionSummary => ({
-  questionVersionId: getVersionId(source),
-  versionNumber: 1,
-  versionStatus: 'PUBLISHED',
-  retirementKind: null,
-  rowVersion: 1,
-  provenance: 'SYSTEM_SEED',
-  level: source.question.level,
-  subject: source.question.subject,
-  questionType: source.question.questionType,
-  difficulty: source.question.difficulty,
-  questionTextPreview: createQuestionTextPreview(source.question.questionText),
-  tags: toAdminTags(source),
-  author: null,
-  latestReviewer: null,
-  publishedAt: source.question.createdAt,
-  retiredAt: null,
-  createdAt: source.question.createdAt,
-  updatedAt: source.question.updatedAt
+  questionVersionId: version.questionVersionId,
+  versionNumber: version.versionNumber,
+  versionStatus: version.versionStatus,
+  retirementKind: version.retirementKind,
+  rowVersion: version.rowVersion,
+  provenance: version.provenance,
+  level: version.level,
+  subject: version.subject,
+  questionType: version.questionType,
+  difficulty: version.difficulty,
+  questionTextPreview: createQuestionTextPreview(version.questionText),
+  tags: [...version.tags],
+  author: version.author,
+  latestReviewer: version.latestReviewer,
+  publishedAt: version.publishedAt,
+  retiredAt: version.retiredAt,
+  createdAt: version.createdAt,
+  updatedAt: version.updatedAt
 })
 
-const toQuestionSummary = (
-  source: MockCanonicalAdminQuestionSource
-): AdminQuestionSummary => {
-  const versionId = getVersionId(source)
+const answerStats = (
+  model: MockAdminCmsReadModel,
+  questionId: string,
+  selectedVersionId: string
+): { answerCount: number; correctCount: number } => {
+  const source = model.sources.find(
+    (candidate) => getContractQuestionId(candidate.question.id) === questionId
+  )
+  const publishedVersionId = source
+    ? toStableMockUuid(
+        'question-version',
+        `${source.question.id}:${getQuestionVersionFingerprint(source.question)}`
+      )
+    : undefined
+  return source && publishedVersionId === selectedVersionId
+    ? { answerCount: source.answerCount, correctCount: source.correctCount }
+    : { answerCount: 0, correctCount: 0 }
+}
 
+const toQuestionSummary = (
+  model: MockAdminCmsReadModel,
+  question: MockPhase7AdminQuestion
+): AdminQuestionSummary => {
+  const version = selectQuestionVersion(model.snapshot, question)
+  const stats = answerStats(
+    model,
+    question.questionId,
+    version.questionVersionId
+  )
   return {
-    questionId: getContractQuestionId(source.question.id),
-    selectedVersionId: versionId,
-    currentPublishedVersionId: versionId,
-    openCandidateVersionId: null,
-    versionNumber: 1,
-    lifecycleStatus: 'ACTIVE',
-    versionStatus: 'PUBLISHED',
-    retirementKind: null,
-    questionRowVersion: 1,
-    versionRowVersion: 1,
-    level: source.question.level,
-    subject: source.question.subject,
-    questionType: source.question.questionType,
-    difficulty: source.question.difficulty,
-    questionTextPreview: createQuestionTextPreview(
-      source.question.questionText
-    ),
-    tags: toAdminTags(source),
-    author: null,
-    latestReviewer: null,
-    createdAt: source.question.createdAt,
-    updatedAt: source.question.updatedAt,
-    answerCount: source.answerCount,
+    questionId: question.questionId,
+    selectedVersionId: version.questionVersionId,
+    currentPublishedVersionId: question.currentPublishedVersionId,
+    openCandidateVersionId: question.openCandidateVersionId,
+    versionNumber: version.versionNumber,
+    lifecycleStatus: question.lifecycleStatus,
+    versionStatus: version.versionStatus,
+    retirementKind: version.retirementKind,
+    questionRowVersion: question.rowVersion,
+    versionRowVersion: version.rowVersion,
+    level: version.level,
+    subject: version.subject,
+    questionType: version.questionType,
+    difficulty: version.difficulty,
+    questionTextPreview: createQuestionTextPreview(version.questionText),
+    tags: [...version.tags],
+    author: version.author,
+    latestReviewer: version.latestReviewer,
+    createdAt: question.createdAt,
+    updatedAt: version.updatedAt,
+    answerCount: stats.answerCount,
     correctRateBasisPoints: calculateCorrectRateBasisPoints(
-      source.answerCount,
-      source.correctCount
+      stats.answerCount,
+      stats.correctCount
     ),
     openReportCount: 0
   }
@@ -172,7 +239,6 @@ const compareQuestionSummaries = (
       )
     case 'LEVEL_ASC': {
       const levels = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
-
       return (
         levels.indexOf(left.level) - levels.indexOf(right.level) ||
         compareUnicodeScalars(left.questionId, right.questionId)
@@ -194,42 +260,12 @@ const isInHalfOpenRange = (
 ): boolean =>
   (from === undefined || value >= from) && (to === undefined || value < to)
 
-const findSourceByQuestionId = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
-  questionId: string
-): MockCanonicalAdminQuestionSource => {
-  const source = sources.find(
-    (candidate) => getContractQuestionId(candidate.question.id) === questionId
-  )
-
-  if (!source) {
-    throw new MockAdminCmsReadNotFoundError('관리자 문제를 찾을 수 없습니다.')
-  }
-
-  return source
-}
-
-const findSourceByVersionId = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
-  versionId: string
-): MockCanonicalAdminQuestionSource => {
-  const source = sources.find(
-    (candidate) => getVersionId(candidate) === versionId
-  )
-
-  if (!source) {
-    throw new MockAdminCmsReadNotFoundError('문제 버전을 찾을 수 없습니다.')
-  }
-
-  return source
-}
-
 export const toCanonicalAdminQuestionList = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
+  model: MockAdminCmsReadModel,
   query: ListAdminQuestionsQuery
 ): ListAdminQuestionsResponse => {
-  const matches = sources
-    .map(toQuestionSummary)
+  const matches = model.snapshot.questions
+    .map((question) => toQuestionSummary(model, question))
     .filter(
       (item) =>
         (query.q === undefined ||
@@ -261,68 +297,94 @@ export const toCanonicalAdminQuestionList = (
     offset >= BigInt(matches.length)
       ? []
       : matches.slice(Number(offset), Number(offset) + query.pageSize)
-  const response = {
+  return assertListAdminQuestionsForRequest(query, {
     items,
     page: query.page,
     pageSize: query.pageSize,
     total: matches.length
-  }
-
-  return assertListAdminQuestionsForRequest(query, response)
+  })
 }
 
 export const toCanonicalAdminQuestionDetail = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
+  model: MockAdminCmsReadModel,
   questionId: string
 ): GetAdminQuestionResponse => {
-  const source = findSourceByQuestionId(sources, questionId)
+  const question = findQuestion(model.snapshot, questionId)
+  const versions = listQuestionVersions(model.snapshot, questionId)
+  const versionIds = new Set(
+    versions.map((version) => version.questionVersionId)
+  )
+  const audits = model.snapshot.auditLogs
+    .filter(
+      (audit) =>
+        (audit.targetType === 'QUESTION' && audit.targetId === questionId) ||
+        (audit.targetType === 'QUESTION_VERSION' &&
+          versionIds.has(audit.targetId))
+    )
+    .toSorted(compareOccurredDescending)
+  const lastAudit = audits[0]
+  const versionItems = versions.slice(0, 20).map(toVersionSummary)
+  const contractQuestion = {
+    questionId: question.questionId,
+    lifecycleStatus: question.lifecycleStatus,
+    rowVersion: question.rowVersion,
+    currentPublishedVersionId: question.currentPublishedVersionId,
+    openCandidateVersionId: question.openCandidateVersionId,
+    createdAt: question.createdAt,
+    updatedAt: question.updatedAt
+  }
   const response = {
-    question: {
-      questionId,
-      lifecycleStatus: 'ACTIVE' as const,
-      rowVersion: 1,
-      currentPublishedVersionId: getVersionId(source),
-      openCandidateVersionId: null,
-      createdAt: source.question.createdAt,
-      updatedAt: source.question.updatedAt
-    },
+    question: contractQuestion,
     versions: {
       questionId,
-      items: [toVersionSummary(source)],
-      nextCursor: null
+      items: versionItems,
+      nextCursor:
+        versions.length > 20 && versionItems.length > 0
+          ? encodeAdminQuestionVersionCursor({
+              versionNumber: versionItems.at(-1)!.versionNumber,
+              id: versionItems.at(-1)!.questionVersionId
+            })
+          : null
     },
     auditSummary: {
-      lastCommand: null,
-      lastActor: null,
-      lastOccurredAt: null,
-      totalCount: 0
+      lastCommand: lastAudit?.command ?? null,
+      lastActor: lastAudit?.actor ?? null,
+      lastOccurredAt: lastAudit?.occurredAt ?? null,
+      totalCount: audits.length
     }
   }
-
   return assertGetAdminQuestionForRequest({ questionId }, {}, response)
 }
 
 export const toCanonicalAdminQuestionVersions = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
+  model: MockAdminCmsReadModel,
   questionId: string,
   query: ListAdminQuestionVersionsQuery
 ): ListAdminQuestionVersionsResponse => {
-  const source = findSourceByQuestionId(sources, questionId)
-  const version = toVersionSummary(source)
+  findQuestion(model.snapshot, questionId)
   const cursor = query.cursor
     ? decodeAdminQuestionVersionCursor(query.cursor)
     : undefined
-  const isAfterCursor =
-    cursor === undefined ||
-    version.versionNumber < cursor.versionNumber ||
-    (version.versionNumber === cursor.versionNumber &&
-      compareUnicodeScalars(version.questionVersionId, cursor.id) < 0)
+  const matches = listQuestionVersions(model.snapshot, questionId).filter(
+    (version) =>
+      cursor === undefined ||
+      version.versionNumber < cursor.versionNumber ||
+      (version.versionNumber === cursor.versionNumber &&
+        compareUnicodeScalars(version.questionVersionId, cursor.id) < 0)
+  )
+  const items = matches.slice(0, query.limit).map(toVersionSummary)
+  const last = items.at(-1)
   const response = {
     questionId,
-    items: isAfterCursor ? [version] : [],
-    nextCursor: null
+    items,
+    nextCursor:
+      matches.length > query.limit && last
+        ? encodeAdminQuestionVersionCursor({
+            versionNumber: last.versionNumber,
+            id: last.questionVersionId
+          })
+        : null
   }
-
   return assertListAdminQuestionVersionsForRequest(
     { questionId },
     query,
@@ -331,16 +393,12 @@ export const toCanonicalAdminQuestionVersions = (
 }
 
 export const toCanonicalAdminTagList = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
+  model: MockAdminCmsReadModel,
   query: ListAdminTagsQuery
 ): ListAdminTagsResponse => {
-  const byNormalizedName = new Map<
-    string,
-    ReturnType<typeof toAdminTags>[number]
-  >()
-
-  for (const source of sources) {
-    for (const tag of toAdminTags(source)) {
+  const byNormalizedName = new Map<string, AdminTagSummary>()
+  for (const version of model.snapshot.versions) {
+    for (const tag of version.tags) {
       const existing = byNormalizedName.get(tag.normalizedName)
       if (
         existing &&
@@ -353,104 +411,200 @@ export const toCanonicalAdminTagList = (
       byNormalizedName.set(tag.normalizedName, tag)
     }
   }
-
-  const response = {
+  return assertListAdminTagsForRequest(query, {
     items: [...byNormalizedName.values()]
-      .filter((tag) => tag.normalizedName.startsWith(query.q))
+      .filter((tag) =>
+        tag.normalizedName.startsWith(normalizePhase7TagKey(query.q))
+      )
       .toSorted(compareAdminTags)
       .slice(0, query.limit)
-  }
-
-  return assertListAdminTagsForRequest(query, response)
+  })
 }
 
 export const toCanonicalAdminQuestionPreview = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
+  model: MockAdminCmsReadModel,
   versionId: string
 ): PreviewQuestionVersionResponse => {
-  const source = findSourceByVersionId(sources, versionId)
-  const correctOptionIndex = source.question.options.findIndex(
-    (option) => option.isCorrect
-  )
-  if (
-    correctOptionIndex < 0 ||
-    source.question.options.filter((option) => option.isCorrect).length !== 1
-  ) {
-    throw new MockAdminCmsReadIntegrityError(
-      'preview source에는 정답 option이 정확히 하나여야 합니다.'
-    )
-  }
-  const question = toContractPracticeQuestion(
-    toPracticeQuestion(source.question),
-    getQuestionVersionFingerprint(source.question)
-  )
-  const correctOption = question.options[correctOptionIndex]
-  if (!correctOption) {
-    throw new MockAdminCmsReadIntegrityError(
-      'preview 정답 option projection을 찾을 수 없습니다.'
-    )
-  }
-  const response = {
-    question,
-    adminAnswer: {
-      correctOptionId: correctOption.id,
-      explanationKo: source.question.explanationKo,
-      explanationJa: source.question.explanationJa
+  const version = findVersion(model.snapshot, versionId)
+  return assertPreviewQuestionVersionForRequest(
+    { versionId },
+    {},
+    {
+      question: {
+        id: version.questionId,
+        questionVersionId: version.questionVersionId,
+        level: version.level,
+        subject: version.subject,
+        questionType: version.questionType,
+        passage: version.passage,
+        questionText: version.questionText,
+        options: version.options
+          .toSorted((left, right) => left.ordinal - right.ordinal)
+          .map((option) => ({
+            id: option.id,
+            label: String(option.ordinal),
+            text: option.text
+          })),
+        difficulty: version.difficulty,
+        tags: version.tags
+          .map(({ id, label }) => ({ id, label }))
+          .toSorted(comparePublicQuestionTags)
+      },
+      adminAnswer: {
+        correctOptionId: version.correctOptionId,
+        explanationKo: version.explanationKo,
+        explanationJa: version.explanationJa
+      }
     }
-  }
-
-  return assertPreviewQuestionVersionForRequest({ versionId }, {}, response)
+  )
 }
 
+const toDiffOptions = (version: MockPhase7AdminVersion) =>
+  version.options
+    .toSorted((left, right) => left.ordinal - right.ordinal)
+    .map((option) => ({
+      ordinal: option.ordinal,
+      text: option.text,
+      isCorrect: option.id === version.correctOptionId
+    }))
+
 export const toCanonicalAdminQuestionDiff = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
+  model: MockAdminCmsReadModel,
   versionId: string,
   query: DiffQuestionVersionQuery
 ): DiffQuestionVersionResponse => {
-  const target = findSourceByVersionId(sources, versionId)
-  const base = sources.find(
+  const target = findVersion(model.snapshot, versionId)
+  const base = model.snapshot.versions.find(
     (candidate) =>
-      candidate.question.id === target.question.id &&
-      getVersionId(candidate) === query.baseVersionId
+      candidate.questionId === target.questionId &&
+      candidate.questionVersionId === query.baseVersionId
   )
   if (!base) {
     throw new MockAdminCmsReadNotFoundError(
       '비교할 문제 버전을 찾을 수 없습니다.'
     )
   }
-  const response = {
-    baseVersionId: query.baseVersionId,
-    targetVersionId: versionId,
-    changedFields: [],
-    changes: []
+  const changes: Array<Record<string, unknown>> = []
+  const addScalar = (
+    field: (typeof phase7DiffFieldOrder)[number],
+    before: string | null,
+    after: string | null
+  ): void => {
+    if (before !== after) changes.push({ field, kind: 'SCALAR', before, after })
   }
-
-  return assertDiffQuestionVersionForRequest({ versionId }, query, response)
+  addScalar('LEVEL', base.level, target.level)
+  addScalar('SUBJECT', base.subject, target.subject)
+  addScalar('QUESTION_TYPE', base.questionType, target.questionType)
+  addScalar('DIFFICULTY', base.difficulty, target.difficulty)
+  addScalar('PASSAGE', base.passage, target.passage)
+  addScalar('QUESTION_TEXT', base.questionText, target.questionText)
+  addScalar('EXPLANATION_KO', base.explanationKo, target.explanationKo)
+  addScalar('EXPLANATION_JA', base.explanationJa, target.explanationJa)
+  const beforeOptions = toDiffOptions(base)
+  const afterOptions = toDiffOptions(target)
+  if (JSON.stringify(beforeOptions) !== JSON.stringify(afterOptions)) {
+    changes.push({
+      field: 'OPTIONS',
+      kind: 'OPTIONS',
+      before: beforeOptions,
+      after: afterOptions
+    })
+  }
+  if (JSON.stringify(base.tags) !== JSON.stringify(target.tags)) {
+    changes.push({
+      field: 'TAGS',
+      kind: 'TAGS',
+      before: base.tags,
+      after: target.tags
+    })
+  }
+  return assertDiffQuestionVersionForRequest({ versionId }, query, {
+    baseVersionId: base.questionVersionId,
+    targetVersionId: target.questionVersionId,
+    changedFields: changes.map((change) => change.field),
+    changes
+  })
 }
 
-export const toCanonicalAdminQuestionReviews = (
-  sources: readonly MockCanonicalAdminQuestionSource[],
-  versionId: string,
-  query: ListQuestionVersionReviewsQuery
-): ListQuestionVersionReviewsResponse => {
-  findSourceByVersionId(sources, versionId)
-  const response = {
-    questionVersionId: versionId,
-    items: [],
-    nextCursor: null
-  }
+const compareOccurredDescending = (
+  left: { readonly id: string; readonly occurredAt: string },
+  right: { readonly id: string; readonly occurredAt: string }
+): number =>
+  compareUnicodeScalars(right.occurredAt, left.occurredAt) ||
+  compareUnicodeScalars(right.id, left.id)
 
-  return assertListQuestionVersionReviewsForRequest(
-    { versionId },
-    query,
-    response
+const isAfterOccurredCursor = (
+  item: { readonly id: string; readonly occurredAt: string },
+  cursor: string | undefined
+): boolean => {
+  if (!cursor) return true
+  const decoded = decodePhase7OccurredAtCursor(cursor)
+  return (
+    item.occurredAt < decoded.occurredAt ||
+    (item.occurredAt === decoded.occurredAt &&
+      compareUnicodeScalars(item.id, decoded.id) < 0)
   )
 }
 
-export const toCanonicalAdminAuditLog = (
-  query: ListAdminAuditLogQuery
-): ListAdminAuditLogResponse =>
-  assertListAdminAuditLogForRequest(query, {
-    items: [],
-    nextCursor: null
+const occurredNextCursor = (
+  total: number,
+  limit: number,
+  items: readonly { readonly id: string; readonly occurredAt: string }[]
+): string | null => {
+  const last = items.at(-1)
+  return total > limit && last
+    ? encodePhase7OccurredAtCursor({ id: last.id, occurredAt: last.occurredAt })
+    : null
+}
+
+export const toCanonicalAdminQuestionReviews = (
+  model: MockAdminCmsReadModel,
+  versionId: string,
+  query: ListQuestionVersionReviewsQuery
+): ListQuestionVersionReviewsResponse => {
+  findVersion(model.snapshot, versionId)
+  const matches = model.snapshot.reviews
+    .filter(
+      (review) =>
+        review.questionVersionId === versionId &&
+        isAfterOccurredCursor(review, query.cursor)
+    )
+    .toSorted(compareOccurredDescending)
+  const items = matches.slice(0, query.limit)
+  return assertListQuestionVersionReviewsForRequest({ versionId }, query, {
+    questionVersionId: versionId,
+    items,
+    nextCursor: occurredNextCursor(matches.length, query.limit, items)
   })
+}
+
+export const toCanonicalAdminAuditLog = (
+  model: MockAdminCmsReadModel,
+  query: ListAdminAuditLogQuery
+): ListAdminAuditLogResponse => {
+  const matches = model.snapshot.auditLogs
+    .filter(
+      (item) =>
+        (query.command === undefined || item.command === query.command) &&
+        (query.targetType === undefined ||
+          item.targetType === query.targetType) &&
+        (query.targetId === undefined || item.targetId === query.targetId) &&
+        (query.actorId === undefined ||
+          (item.actor.kind === 'ACCOUNT' &&
+            item.actor.actorId === query.actorId)) &&
+        (query.environment === undefined ||
+          item.environment === query.environment) &&
+        isInHalfOpenRange(
+          item.occurredAt,
+          query.occurredFrom,
+          query.occurredTo
+        ) &&
+        isAfterOccurredCursor(item, query.cursor)
+    )
+    .toSorted(compareOccurredDescending)
+  const items: AdminAuditLogItem[] = matches.slice(0, query.limit)
+  return assertListAdminAuditLogForRequest(query, {
+    items,
+    nextCursor: occurredNextCursor(matches.length, query.limit, items)
+  })
+}

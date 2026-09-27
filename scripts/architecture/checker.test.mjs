@@ -72,6 +72,7 @@ describe('architecture checker', () => {
       'ARCH003'
     ])
     assert.deepEqual(codesFor('/WindowFetchPage.tsx'), ['ARCH002'])
+    assert.equal(codesFor('/BrokenPage.tsx').includes('ARCH004'), true)
     assert.deepEqual(codesFor('/GlobalFetchPage.tsx'), ['ARCH002'])
     assert.deepEqual(codesFor('/IndirectPage.tsx'), ['ARCH002', 'ARCH003'])
     assert.deepEqual(codesFor('/DynamicImportPage.tsx'), ['ARCH002'])

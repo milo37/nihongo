@@ -1,6 +1,7 @@
 import type { Phase7Operation } from '@nihongo/contracts/admin/phase7'
 
 const PHASE_7_PREFIXES = ['/api/v1/admin', '/api/v1/question-reports'] as const
+const MAX_PERCENT_DECODING_PASSES = 16
 const HTTP_SCHEME_PATTERN = /^https?:/iu
 const CANONICAL_UUID_PATTERN =
   '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
@@ -51,6 +52,46 @@ const SLICE_2_ADMIN_READ_PATHS = [
   {
     operation: 'listAdminAuditLog',
     pattern: /^\/api\/v1\/admin\/audit-log$/u
+  }
+] as const
+
+const SLICE_3_ADMIN_COMMAND_PATHS = [
+  {
+    method: 'POST',
+    operation: 'createAdminQuestion',
+    pattern: /^\/api\/v1\/admin\/questions$/u
+  },
+  {
+    method: 'POST',
+    operation: 'createAdminQuestionVersion',
+    pattern: new RegExp(
+      `^/api/v1/admin/questions/${CANONICAL_UUID_PATTERN}/versions$`,
+      'u'
+    )
+  },
+  {
+    method: 'PATCH',
+    operation: 'updateQuestionVersion',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  },
+  {
+    method: 'POST',
+    operation: 'requestContentReview',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/review-request$`,
+      'u'
+    )
+  },
+  {
+    method: 'POST',
+    operation: 'requestQuestionChanges',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-versions/${CANONICAL_UUID_PATTERN}/change-request$`,
+      'u'
+    )
   }
 ] as const
 
@@ -123,9 +164,7 @@ const getSlashNormalizedPathnames = (pathname: string): readonly string[] => {
 const hasPhase7Alias = (rawPathname: string): boolean => {
   let candidate = rawPathname
 
-  // Every successful percent-decoding pass shortens the string. The original
-  // character count therefore bounds every possible nested encoding.
-  for (let pass = 0; pass <= rawPathname.length; pass += 1) {
+  for (let pass = 0; pass < MAX_PERCENT_DECODING_PASSES; pass += 1) {
     if (getSlashNormalizedPathnames(candidate).some(hasPrefix)) {
       return true
     }
@@ -143,8 +182,14 @@ const hasPhase7Alias = (rawPathname: string): boolean => {
     candidate = decoded
   }
 
-  return false
+  // Deeply nested encodings are not valid canonical routes. Fail closed after
+  // a fixed amount of linear work so they cannot turn prefix classification
+  // into an attacker-controlled quadratic scan.
+  return true
 }
+
+const hasRequestTargetFragment = (requestTarget: string): boolean =>
+  requestTarget.includes('#')
 
 export const getRawRequestPathname = (requestTarget: string): string | null =>
   getPathnameFromRequestTarget(requestTarget)
@@ -161,6 +206,7 @@ export const isCanonicalPhase7Slice2ReadRequest = ({
   method: string
   requestTarget: string
 }): boolean => {
+  if (hasRequestTargetFragment(requestTarget)) return false
   if (method !== 'GET' && method !== 'OPTIONS') {
     return false
   }
@@ -179,7 +225,7 @@ export const getCanonicalPhase7Slice2ReadOperation = ({
   method: string
   requestTarget: string
 }): Phase7Operation | null => {
-  if (method !== 'GET') {
+  if (hasRequestTargetFragment(requestTarget) || method !== 'GET') {
     return null
   }
   const pathname = getPathnameFromRequestTarget(requestTarget)
@@ -190,4 +236,48 @@ export const getCanonicalPhase7Slice2ReadOperation = ({
     SLICE_2_ADMIN_READ_PATHS.find(({ pattern }) => pattern.test(pathname))
       ?.operation ?? null
   )
+}
+
+export const getCanonicalPhase7Slice3Operation = ({
+  method,
+  requestTarget
+}: {
+  method: string
+  requestTarget: string
+}): Phase7Operation | null => {
+  if (hasRequestTargetFragment(requestTarget)) return null
+  const pathname = getPathnameFromRequestTarget(requestTarget)
+  if (pathname === null) return null
+
+  return (
+    SLICE_3_ADMIN_COMMAND_PATHS.find(
+      (entry) => entry.method === method && entry.pattern.test(pathname)
+    )?.operation ?? null
+  )
+}
+
+export const getCanonicalPhase7ActiveOperation = (input: {
+  method: string
+  requestTarget: string
+}): Phase7Operation | null =>
+  getCanonicalPhase7Slice2ReadOperation(input) ??
+  getCanonicalPhase7Slice3Operation(input)
+
+export const isCanonicalPhase7ActiveRequest = ({
+  method,
+  requestTarget
+}: {
+  method: string
+  requestTarget: string
+}): boolean => {
+  if (hasRequestTargetFragment(requestTarget)) return false
+  const pathname = getPathnameFromRequestTarget(requestTarget)
+  if (pathname === null) return false
+  if (method === 'OPTIONS') {
+    return (
+      SLICE_2_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname)) ||
+      SLICE_3_ADMIN_COMMAND_PATHS.some(({ pattern }) => pattern.test(pathname))
+    )
+  }
+  return getCanonicalPhase7ActiveOperation({ method, requestTarget }) !== null
 }

@@ -20,7 +20,7 @@ import {
 const MOCK_USER_EMAIL = 'user@example.com'
 const MOCK_USER_PASSWORD = 'Demo-user-2026!'
 const MOCK_ADMIN_EMAIL = 'admin@example.com'
-const MOCK_ADMIN_PASSWORD = 'Demo-admin-2026!'
+export const MOCK_ADMIN_PASSWORD = 'Demo-admin-2026!'
 
 const rejectUnsupportedMockAuth = (): never => {
   throw new MockHttpError(

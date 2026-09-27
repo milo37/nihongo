@@ -113,7 +113,16 @@ const bookmarkReadSelect = {
       lifecycleStatus: true,
       currentPublishedVersion: { select: versionSummarySelect },
       versions: {
-        where: { status: { in: ['PUBLISHED', 'RETIRED'] } },
+        where: {
+          publishedAt: { not: null },
+          OR: [
+            { status: 'PUBLISHED' },
+            {
+              status: 'RETIRED',
+              retirementKind: 'PUBLISHED_RETIREMENT'
+            }
+          ]
+        },
         orderBy: [{ versionNumber: 'desc' }, { id: 'asc' }],
         take: 1,
         select: versionSummarySelect

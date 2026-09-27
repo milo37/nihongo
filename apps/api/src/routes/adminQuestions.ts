@@ -78,9 +78,8 @@ export const createAdminQuestionRoutes = ({
   reader: AdminQuestionReader
 }): Hono<AdminRouteEnvironment> => {
   const routes = new Hono<AdminRouteEnvironment>()
-  routes.use('*', guard)
 
-  routes.get('/questions', async (context) => {
+  routes.get('/questions', guard, async (context) => {
     const query = parseStrictRawQuery(
       context.get('rawRequestTarget'),
       listAdminQuestionsQuerySchema,
@@ -93,7 +92,7 @@ export const createAdminQuestionRoutes = ({
     return context.json(response)
   })
 
-  routes.get('/questions/:questionId/versions', async (context) => {
+  routes.get('/questions/:questionId/versions', guard, async (context) => {
     const params = parsePath(
       () =>
         listAdminQuestionVersionsParamsSchema.parse({
@@ -113,7 +112,7 @@ export const createAdminQuestionRoutes = ({
     return context.json(response)
   })
 
-  routes.get('/questions/:questionId', async (context) => {
+  routes.get('/questions/:questionId', guard, async (context) => {
     const params = parsePath(
       () =>
         getAdminQuestionParamsSchema.parse({
@@ -133,7 +132,7 @@ export const createAdminQuestionRoutes = ({
     return context.json(response)
   })
 
-  routes.get('/tags', async (context) => {
+  routes.get('/tags', guard, async (context) => {
     const query = parseStrictRawQuery(
       context.get('rawRequestTarget'),
       listAdminTagsQuerySchema,
@@ -146,27 +145,31 @@ export const createAdminQuestionRoutes = ({
     return context.json(response)
   })
 
-  routes.get('/question-versions/:versionId/preview', async (context) => {
-    const params = parsePath(
-      () =>
-        previewQuestionVersionParamsSchema.parse({
-          versionId: context.req.param('versionId')
-        }),
-      '문제 버전 ID 형식이 올바르지 않습니다.'
-    )
-    const query = parseStrictRawQuery(
-      context.get('rawRequestTarget'),
-      previewQuestionVersionQuerySchema,
-      '문제 버전 preview 조회 조건이 올바르지 않습니다.'
-    )
-    const raw = await reader.previewVersion(params.versionId)
-    const response = previewQuestionVersionResponseSchema.parse(raw)
-    assertPreviewQuestionVersionForRequest(params, query, response)
-    noStore(context)
-    return context.json(response)
-  })
+  routes.get(
+    '/question-versions/:versionId/preview',
+    guard,
+    async (context) => {
+      const params = parsePath(
+        () =>
+          previewQuestionVersionParamsSchema.parse({
+            versionId: context.req.param('versionId')
+          }),
+        '문제 버전 ID 형식이 올바르지 않습니다.'
+      )
+      const query = parseStrictRawQuery(
+        context.get('rawRequestTarget'),
+        previewQuestionVersionQuerySchema,
+        '문제 버전 preview 조회 조건이 올바르지 않습니다.'
+      )
+      const raw = await reader.previewVersion(params.versionId)
+      const response = previewQuestionVersionResponseSchema.parse(raw)
+      assertPreviewQuestionVersionForRequest(params, query, response)
+      noStore(context)
+      return context.json(response)
+    }
+  )
 
-  routes.get('/question-versions/:versionId/diff', async (context) => {
+  routes.get('/question-versions/:versionId/diff', guard, async (context) => {
     const params = parsePath(
       () =>
         diffQuestionVersionParamsSchema.parse({
@@ -190,27 +193,31 @@ export const createAdminQuestionRoutes = ({
     return context.json(response)
   })
 
-  routes.get('/question-versions/:versionId/reviews', async (context) => {
-    const params = parsePath(
-      () =>
-        listQuestionVersionReviewsParamsSchema.parse({
-          versionId: context.req.param('versionId')
-        }),
-      '문제 버전 ID 형식이 올바르지 않습니다.'
-    )
-    const query = parseStrictRawQuery(
-      context.get('rawRequestTarget'),
-      listQuestionVersionReviewsQuerySchema,
-      '문제 버전 검수 이력 조회 조건이 올바르지 않습니다.'
-    )
-    const raw = await reader.listReviews(params.versionId, query)
-    const response = listQuestionVersionReviewsResponseSchema.parse(raw)
-    assertListQuestionVersionReviewsForRequest(params, query, response)
-    noStore(context)
-    return context.json(response)
-  })
+  routes.get(
+    '/question-versions/:versionId/reviews',
+    guard,
+    async (context) => {
+      const params = parsePath(
+        () =>
+          listQuestionVersionReviewsParamsSchema.parse({
+            versionId: context.req.param('versionId')
+          }),
+        '문제 버전 ID 형식이 올바르지 않습니다.'
+      )
+      const query = parseStrictRawQuery(
+        context.get('rawRequestTarget'),
+        listQuestionVersionReviewsQuerySchema,
+        '문제 버전 검수 이력 조회 조건이 올바르지 않습니다.'
+      )
+      const raw = await reader.listReviews(params.versionId, query)
+      const response = listQuestionVersionReviewsResponseSchema.parse(raw)
+      assertListQuestionVersionReviewsForRequest(params, query, response)
+      noStore(context)
+      return context.json(response)
+    }
+  )
 
-  routes.get('/audit-log', async (context) => {
+  routes.get('/audit-log', guard, async (context) => {
     const query = parseStrictRawQuery(
       context.get('rawRequestTarget'),
       listAdminAuditLogQuerySchema,

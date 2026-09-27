@@ -138,7 +138,11 @@ try {
 
           return await seedQuestionCatalog(scopedSeedClient)
         },
-        { isolationLevel: 'Serializable' }
+        {
+          isolationLevel: 'Serializable',
+          maxWait: 10_000,
+          timeout: 60_000
+        }
       )
     : await seedQuestionCatalog(client)
 

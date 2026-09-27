@@ -4,7 +4,13 @@ import { serve } from '@hono/node-server'
 import { createApiApp } from './app/createApp.js'
 import { createAuthGateway } from './auth/authGateway.js'
 import { createAuthRuntime } from './auth/createAuth.js'
+import { createPhase7ReauthenticationAuthApi } from './auth/createPhase7ReauthenticationAuth.js'
 import { createPhase7AuthFacade } from './auth/phase7AuthFacade.js'
+import { createPhase7ReauthenticationContext } from './auth/phase7ReauthenticationContext.js'
+import {
+  runPhase7ReauthenticationStartupMaintenance,
+  startPhase7ReauthenticationMaintenance
+} from './auth/phase7ReauthenticationStartupMaintenance.js'
 import { createAuthEmailDispatcher } from './auth/emailDispatcher.js'
 import { createAuthEmailPort } from './auth/emailPort.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
@@ -52,6 +58,10 @@ import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTarg
 import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
 import { createPrismaAdminQuestionRepository } from './admin/adminQuestionRepository.js'
 import { createAdminQuestionService } from './admin/adminQuestionService.js'
+import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
+import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
+import { createAdminQuestionCommandService } from './admin/adminQuestionCommandService.js'
+import { createAdminReauthenticationService } from './admin/adminReauthenticationService.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -157,6 +167,24 @@ const phase7AuthFacade =
         environment
       })
     : undefined
+const dormantAdminReauthenticationService =
+  technicalMode && authGatewayDatabase
+    ? (() => {
+        const context = createPhase7ReauthenticationContext()
+        return createAdminReauthenticationService({
+          auditEnvironment:
+            environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
+          authApi: createPhase7ReauthenticationAuthApi({
+            client: authGatewayDatabase.client,
+            context,
+            environment
+          }),
+          client: authGatewayDatabase.client,
+          context
+        })
+      })()
+    : undefined
+void dormantAdminReauthenticationService
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
@@ -220,14 +248,36 @@ const adminReadRateLimiter = technicalMode
       keySecret: environment.GUEST_COOKIE_SECRET
     })
   : undefined
+const adminQuestionCommandService = technicalMode
+  ? createAdminQuestionCommandService(
+      createPrismaAdminQuestionCommandRepository({
+        auditEnvironment:
+          environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
+        client: database.client
+      })
+    )
+  : undefined
+const adminCommandRateLimiter = technicalMode
+  ? createAdminCommandRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET
+    })
+  : undefined
 const app = createApiApp({
-  ...(adminQuestionReader && adminReadRateLimiter
+  ...(adminQuestionReader &&
+  adminReadRateLimiter &&
+  adminQuestionCommandService &&
+  adminCommandRateLimiter
     ? {
         admin: {
           assertCapability: async () => {
             await database.client.$queryRawUnsafe(
               'SELECT "phase7_require_runtime_ready"()'
             )
+          },
+          commands: {
+            rateLimiter: adminCommandRateLimiter,
+            service: adminQuestionCommandService
           },
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader
@@ -273,8 +323,17 @@ const app = createApiApp({
   }
 })
 
+const checkStartupReadiness = async (): Promise<void> => {
+  await practiceRuntimeGate.checkReadiness()
+  if (technicalMode && authGatewayDatabase) {
+    await runPhase7ReauthenticationStartupMaintenance(
+      authGatewayDatabase.client
+    )
+  }
+}
+
 const server = await startApiListener({
-  checkReadiness: practiceRuntimeGate.checkReadiness,
+  checkReadiness: checkStartupReadiness,
   disconnectDatabase: disconnectDatabases,
   createListener: () =>
     serve({
@@ -285,6 +344,17 @@ const server = await startApiListener({
 })
 server.headersTimeout = 10_000
 server.requestTimeout = 15_000
+const reauthenticationMaintenance =
+  technicalMode && authGatewayDatabase
+    ? startPhase7ReauthenticationMaintenance({
+        client: authGatewayDatabase.client,
+        onFailure: (error) => {
+          logger.error('auth.reauthentication.maintenance_failed', {
+            errorName: error instanceof Error ? error.name : 'UnknownError'
+          })
+        }
+      })
+    : undefined
 
 logger.info('api.started', {
   host: environment.HOST,
@@ -294,11 +364,23 @@ logger.info('api.started', {
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   logger.info('api.shutdown.started', { signal })
+  const reauthenticationMaintenanceDrain =
+    reauthenticationMaintenance?.stop() ?? Promise.resolve()
 
   await stopServerGracefully({
     server,
     abortBackgroundTasks: emailDispatcher.abort,
-    drainBackgroundTasks: emailDispatcher.drain,
+    drainBackgroundTasks: async () => {
+      const results = await Promise.allSettled([
+        reauthenticationMaintenanceDrain,
+        emailDispatcher.drain()
+      ])
+      const failure = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === 'rejected'
+      )
+      if (failure) throw failure.reason
+    },
     disconnectDatabase: disconnectDatabases
   })
   logger.info('api.shutdown.completed', { signal })

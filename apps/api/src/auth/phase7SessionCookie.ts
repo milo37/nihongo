@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const DEVELOPMENT_COOKIE_NAME = 'nihongo.session_token'
 const PRODUCTION_COOKIE_NAME = '__Secure-nihongo.session_token'
+const DEVELOPMENT_DONT_REMEMBER_COOKIE_NAME = 'nihongo.dont_remember'
+const PRODUCTION_DONT_REMEMBER_COOKIE_NAME = '__Secure-nihongo.dont_remember'
 const MAX_COOKIE_VALUE_LENGTH = 4_096
 const BETTER_CALL_SIGNATURE_PATTERN = /^[A-Za-z0-9+/]{43}=$/
 
@@ -11,27 +13,47 @@ const cookieName = (isProduction: boolean): string =>
 const sign = (token: string, secret: string): string =>
   createHmac('sha256', secret).update(token, 'utf8').digest('base64')
 
+const signedValue = (value: string, secret: string): string =>
+  encodeURIComponent(`${value}.${sign(value, secret)}`)
+
 export const createPhase7SessionCookie = ({
   expiresAt,
   isProduction,
+  rememberMe,
   now = new Date(),
   secret,
   token
 }: {
   expiresAt: Date
   isProduction: boolean
+  rememberMe: boolean
   now?: Date
   secret: string
   token: string
 }): string => {
-  const signedValue = encodeURIComponent(`${token}.${sign(token, secret)}`)
+  const encodedValue = signedValue(token, secret)
   const maxAge = Math.max(
     0,
     Math.floor((expiresAt.getTime() - now.getTime()) / 1_000)
   )
   const secure = isProduction ? '; Secure' : ''
+  const persistence = rememberMe ? `; Max-Age=${maxAge}` : ''
 
-  return `${cookieName(isProduction)}=${signedValue}; Max-Age=${maxAge}; Path=/; HttpOnly; SameSite=Lax${secure}`
+  return `${cookieName(isProduction)}=${encodedValue}${persistence}; Path=/; HttpOnly; SameSite=Lax${secure}`
+}
+
+export const createPhase7DontRememberCookie = ({
+  isProduction,
+  secret
+}: {
+  isProduction: boolean
+  secret: string
+}): string => {
+  const name = isProduction
+    ? PRODUCTION_DONT_REMEMBER_COOKIE_NAME
+    : DEVELOPMENT_DONT_REMEMBER_COOKIE_NAME
+  const secure = isProduction ? '; Secure' : ''
+  return `${name}=${signedValue('true', secret)}; Path=/; HttpOnly; SameSite=Lax${secure}`
 }
 
 export const createExpiredPhase7SessionCookies = (

@@ -17,6 +17,8 @@ import {
   PRACTICE_STORE_KEY
 } from '@libs/storage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { resetAdminCmsCommandRateLimitForTesting } from '@mocks/handlers/adminCmsCommandHandlers'
+import { resetAdminCmsReadRateLimitForTesting } from '@mocks/handlers/adminCmsReadHandlers'
 import { useAppStore } from '@store/index'
 import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 
@@ -28,6 +30,8 @@ const resetTestState = async (): Promise<void> => {
   clearAllStudyDraftWorkingCopies()
   closeAllStudyDraftRevisionChannels()
   queryClient.clear()
+  resetAdminCmsCommandRateLimitForTesting()
+  resetAdminCmsReadRateLimitForTesting()
   mockDatabase.reset()
   useAppStore.setState({
     currentUser: null,

@@ -55,7 +55,7 @@ describe('Phase 5 Slice 1 review-center migrations', () => {
   it('기존 25개 checksum을 보존하고 enum-only/dependent 순서로 append한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(29)
+    expect(manifest).toHaveLength(31)
     expect(manifest.slice(0, 25).map(({ checksum }) => checksum)).toEqual(
       phase4Checksums
     )

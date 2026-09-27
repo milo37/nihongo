@@ -1194,7 +1194,8 @@ const run = async (): Promise<void> => {
       'exec',
       'vitest',
       'run',
-      'src/db/phase7AdminCmsMigration.test.ts'
+      'src/db/phase7AdminCmsMigration.test.ts',
+      'src/db/phase7ReauthenticationMigration.test.ts'
     ],
     migrationEnvironment
   )
@@ -1219,7 +1220,11 @@ const run = async (): Promise<void> => {
       let replayDetail = ''
       if (
         row.migrationName === '20260827100000_phase7_admin_cms_enums' ||
-        row.migrationName === '20260827101000_phase7_admin_cms_foundation'
+        row.migrationName === '20260827101000_phase7_admin_cms_foundation' ||
+        row.migrationName ===
+          '20260909120000_phase7_archive_empty_manifest_verifier' ||
+        row.migrationName ===
+          '20260916120000_phase7_reauthentication_foundation'
       ) {
         const diagnosticClient = new Client({
           connectionString: migrationDatabaseUrl.toString()
@@ -1403,6 +1408,8 @@ const run = async (): Promise<void> => {
 
   for (const testFile of [
     'src/db/phase7AdminCmsFoundation.integration.test.ts',
+    'src/db/phase7ReauthenticationFoundation.integration.test.ts',
+    'src/db/phase7ReauthenticationService.integration.test.ts',
     'src/db/phase7AdminCmsUpgrade.integration.test.ts'
   ]) {
     await runCommand(

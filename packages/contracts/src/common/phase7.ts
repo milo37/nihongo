@@ -16,6 +16,9 @@ const hasForbiddenPhase7Control = (value: string): boolean =>
   })
 const UNPAIRED_SURROGATE_PATTERN = /[\ud800-\udfff]/u
 const INTERNAL_WHITESPACE_PATTERN = /\s+/gu
+const DUPLICATE_WHITESPACE_RUN_PATTERN = /\p{White_Space}+/gu
+const DUPLICATE_LEADING_WHITESPACE_PATTERN = /^\p{White_Space}+/u
+const DUPLICATE_TRAILING_WHITESPACE_PATTERN = /\p{White_Space}+$/u
 
 export const positiveSafeIntegerSchema = z
   .number()
@@ -160,6 +163,40 @@ export const normalizePhase7TagKey = (value: string): string =>
     .trim()
     .replace(INTERNAL_WHITESPACE_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
+
+export const normalizePhase7DuplicateText = (value: string): string =>
+  value
+    .normalize('NFKC')
+    .replace(DUPLICATE_LEADING_WHITESPACE_PATTERN, '')
+    .replace(DUPLICATE_TRAILING_WHITESPACE_PATTERN, '')
+    .replace(DUPLICATE_WHITESPACE_RUN_PATTERN, ' ')
+    .replace(/[A-Z]/gu, (character) => character.toLowerCase())
+
+export interface Phase7QuestionDuplicateIdentityMaterial {
+  readonly correctOptionText: string
+  readonly optionTexts: readonly string[]
+  readonly passage: string | null
+  readonly questionText: string
+  readonly questionType: string
+  readonly subject: string
+}
+
+export const createPhase7QuestionDuplicateIdentity = (
+  material: Phase7QuestionDuplicateIdentityMaterial
+): string =>
+  canonicalizeJson({
+    correctOptionText: normalizePhase7DuplicateText(material.correctOptionText),
+    optionTexts: material.optionTexts
+      .map(normalizePhase7DuplicateText)
+      .toSorted(compareUnicodeScalars),
+    passage:
+      material.passage === null
+        ? null
+        : normalizePhase7DuplicateText(material.passage),
+    questionText: normalizePhase7DuplicateText(material.questionText),
+    questionType: material.questionType,
+    subject: material.subject
+  })
 
 export const phase7TagKeySchema = createPhase7TextSchema({ maxScalars: 500 })
   .transform(normalizePhase7TagKey)

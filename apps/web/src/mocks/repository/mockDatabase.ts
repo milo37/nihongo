@@ -21,6 +21,7 @@ import {
   type WrongNoteStatus
 } from '@common/types/domain'
 import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
+import type { AdminAuditLogItem } from '@nihongo/contracts/admin/phase7'
 import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
 import {
   cachedStorage,
@@ -68,6 +69,13 @@ import type {
 } from '@mocks/adapters/studySubmissionContractAdapter'
 import { mockSeedData } from '@mocks/data'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
+import {
+  createMockPhase7ActiveAdminCmsState,
+  MockPhase7AdminCommandError,
+  MockPhase7AdminCmsState,
+  type MockPhase7ActiveAdminCmsState,
+  type MockPhase7AdminCmsSnapshot
+} from '@mocks/repository/phase7AdminCmsState'
 import { addDaysToIso, toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@util/question'
 import {
@@ -593,6 +601,7 @@ export interface MockStorage {
 }
 
 export interface MockDatabaseOptions {
+  auditEnvironment?: AdminAuditLogItem['environment']
   now?: () => string
   seed?: ShuffleSeed
   storage?: MockStorage
@@ -874,6 +883,8 @@ const toAdminSummary = (question: QuestionRecord): AdminQuestionSummary => ({
 
 export class MockDatabase {
   private readonly now: () => string
+  private readonly phase7AdminCmsState: MockPhase7AdminCmsState
+  private readonly phase7ActiveAdminCmsState: MockPhase7ActiveAdminCmsState
   private readonly randomSeed: ShuffleSeed
   private readonly storage: MockStorage
   private unsubscribeStorage: (() => void) | undefined
@@ -910,6 +921,14 @@ export class MockDatabase {
 
   constructor(options: MockDatabaseOptions = {}) {
     this.now = options.now ?? (() => new Date().toISOString())
+    this.phase7AdminCmsState = new MockPhase7AdminCmsState(
+      this.now,
+      options.auditEnvironment ??
+        (import.meta.env.MODE === 'test' ? 'TEST' : 'DEVELOPMENT')
+    )
+    this.phase7ActiveAdminCmsState = createMockPhase7ActiveAdminCmsState(
+      this.phase7AdminCmsState
+    )
     this.randomSeed = options.seed ?? 'jlpt-drill-note'
     this.storage = options.storage ?? defaultStorage
 
@@ -934,20 +953,28 @@ export class MockDatabase {
     return user ? clone(user) : null
   }
 
-  loginAs(role: Extract<UserRole, 'USER' | 'ADMIN'>): User {
-    const userId = role === 'ADMIN' ? DEMO_ADMIN_ID : DEMO_USER_ID
+  loginAs(
+    role: Extract<UserRole, 'USER' | 'ADMIN'>,
+    fixtureUserId?: string
+  ): User {
+    const userId =
+      fixtureUserId ?? (role === 'ADMIN' ? DEMO_ADMIN_ID : DEMO_USER_ID)
     const user = this.userById.get(userId)
 
-    if (!user) {
+    if (!user || user.role !== role) {
       throw new MockDatabaseError('NOT_FOUND', 404, '데모 사용자가 없습니다.')
     }
 
     this.currentUserId = user.id
+    this.phase7AdminCmsState.startSession(user.id)
     this.persist()
     return clone(user)
   }
 
   logout(): void {
+    if (this.currentUserId) {
+      this.phase7AdminCmsState.endSession(this.currentUserId)
+    }
     this.currentUserId = null
     this.persist()
   }
@@ -3246,6 +3273,49 @@ export class MockDatabase {
     )
   }
 
+  getCanonicalAdminCmsSnapshot(
+    sources = this.listCanonicalAdminQuestionSources()
+  ): MockPhase7AdminCmsSnapshot {
+    return this.phase7AdminCmsState.snapshot(sources)
+  }
+
+  getPhase7AdminCmsStateForHandlers(): MockPhase7ActiveAdminCmsState {
+    return this.phase7ActiveAdminCmsState
+  }
+
+  assertPhase7AdminCommandAuthority(input: {
+    actorId: string
+    requiresFresh: boolean
+  }): void {
+    const user = this.currentUserId
+      ? this.userById.get(this.currentUserId)
+      : undefined
+    if (!user || user.id !== input.actorId) {
+      throw new MockPhase7AdminCommandError({
+        code: 'AUTH_SESSION_EXPIRED',
+        message: '로그인 세션이 만료됐습니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    if (user.role !== 'ADMIN') {
+      throw new MockPhase7AdminCommandError({
+        code: 'ADMIN_REQUIRED',
+        message: '관리자 권한이 필요합니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    if (
+      input.requiresFresh &&
+      !this.phase7AdminCmsState.hasFreshAssurance(input.actorId)
+    ) {
+      throw new MockPhase7AdminCommandError({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+  }
+
   createQuestion(input: AdminQuestionInput): QuestionRecord {
     const questionId = this.createId('question')
     const timestamp = this.now()
@@ -3308,6 +3378,7 @@ export class MockDatabase {
   }
 
   private resetMemoryToSeed(): void {
+    this.phase7AdminCmsState.reset()
     this.questionById = new Map(
       mockSeedData.questions.map((question) => [question.id, clone(question)])
     )

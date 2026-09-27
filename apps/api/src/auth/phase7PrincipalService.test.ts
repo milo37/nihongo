@@ -8,6 +8,7 @@ const signedHeaders = (): Headers => {
   const cookie = createPhase7SessionCookie({
     expiresAt: new Date(Date.now() + 60_000),
     isProduction: false,
+    rememberMe: true,
     secret,
     token: 'raw-token'
   })
@@ -58,9 +59,13 @@ describe('Phase 7 principal service', () => {
       'raw-token'
     )
     expect(principalQuery).toHaveBeenCalledWith(
-      'SELECT * FROM "phase7_resolve_v1_principal"($1)',
+      expect.stringContaining(
+        'FROM "phase7_resolve_v1_principal"($1) AS principal'
+      ),
       'raw-token'
     )
+    expect(principalQuery.mock.calls[0]?.[0]).toContain('AS "isFresh"')
+    expect(principalQuery.mock.calls[0]?.[0]).not.toContain('FROM "User"')
   })
 
   it('DB가 24시간 rolling refresh를 수행한 경우에만 새 서명 cookie를 반환한다', async () => {
@@ -124,6 +129,76 @@ describe('Phase 7 principal service', () => {
     ).resolves.toMatchObject({ clearSessionCookie: true, user: null })
     expect(principalQuery).toHaveBeenCalledOnce()
     expect(refreshQuery).toHaveBeenCalledOnce()
+  })
+
+  it.each(['ADMIN_REQUIRED', 'AUTH_SESSION_EXPIRED'] as const)(
+    '관리자 command 요청에서만 principal zero-row를 %s로 분류한다',
+    async (outcome) => {
+      const principalQuery = vi.fn(
+        async (statement: string, ..._parameters: unknown[]) =>
+          statement.includes('phase7_classify_admin_authority')
+            ? [{ outcome }]
+            : []
+      )
+      const service = createPhase7PrincipalService({
+        client: { $queryRawUnsafe: principalQuery } as never,
+        isProduction: false,
+        refreshClient: {
+          $queryRawUnsafe: vi.fn().mockResolvedValue([])
+        } as never,
+        secret
+      })
+
+      await expect(
+        service.resolveAuthenticatedUser(signedHeaders(), {
+          classifyAdminAuthorityLoss: true,
+          refreshRememberedSession: false
+        })
+      ).resolves.toMatchObject({
+        adminAuthorityFailure: outcome,
+        clearSessionCookie: true,
+        user: null
+      })
+      expect(principalQuery.mock.calls.map(([statement]) => statement)).toEqual(
+        [
+          expect.stringContaining('phase7_resolve_v1_principal'),
+          'SELECT * FROM "phase7_classify_admin_authority"($1)'
+        ]
+      )
+      expect(principalQuery.mock.calls[1]?.[1]).toBe('raw-token')
+    }
+  )
+
+  it('관리자 classifier가 malformed이면 fail closed하고 public 기본 호출에는 classifier를 쓰지 않는다', async () => {
+    const principalQuery = vi.fn(async (statement: string) =>
+      statement.includes('phase7_classify_admin_authority') ? [] : []
+    )
+    const service = createPhase7PrincipalService({
+      client: { $queryRawUnsafe: principalQuery } as never,
+      isProduction: false,
+      refreshClient: {
+        $queryRawUnsafe: vi.fn().mockResolvedValue([])
+      } as never,
+      secret
+    })
+
+    await expect(
+      service.resolveAuthenticatedUser(signedHeaders(), {
+        classifyAdminAuthorityLoss: true,
+        refreshRememberedSession: false
+      })
+    ).rejects.toThrow('Phase 7 ADMIN authority classification failed.')
+
+    principalQuery.mockClear()
+    await expect(
+      service.resolveAuthenticatedUser(signedHeaders(), {
+        refreshRememberedSession: false
+      })
+    ).resolves.toMatchObject({ clearSessionCookie: true, user: null })
+    expect(principalQuery).toHaveBeenCalledOnce()
+    expect(principalQuery.mock.calls[0]?.[0]).not.toContain(
+      'phase7_classify_admin_authority'
+    )
   })
 
   it('refresh와 principal의 session proof가 다르면 fail closed한다', async () => {

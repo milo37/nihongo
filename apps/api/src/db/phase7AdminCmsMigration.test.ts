@@ -9,6 +9,10 @@ const migrationsDirectory = fileURLToPath(
 const enumMigrationName = '20260827100000_phase7_admin_cms_enums' as const
 const foundationMigrationName =
   '20260827101000_phase7_admin_cms_foundation' as const
+const archiveVerifierMigrationName =
+  '20260909120000_phase7_archive_empty_manifest_verifier' as const
+const reauthenticationMigrationName =
+  '20260916120000_phase7_reauthentication_foundation' as const
 const enumMigrationSql = readFileSync(
   `${migrationsDirectory}/${enumMigrationName}/migration.sql`,
   'utf8'
@@ -17,10 +21,46 @@ const foundationMigrationSql = readFileSync(
   `${migrationsDirectory}/${foundationMigrationName}/migration.sql`,
   'utf8'
 )
+const archiveVerifierMigrationSql = readFileSync(
+  `${migrationsDirectory}/${archiveVerifierMigrationName}/migration.sql`,
+  'utf8'
+)
+const reauthenticationMigrationSql = readFileSync(
+  `${migrationsDirectory}/${reauthenticationMigrationName}/migration.sql`,
+  'utf8'
+)
+const removeDollarQuotedBodies = (sql: string) =>
+  sql
+    .replace(/^\s*--.*$/gmu, '')
+    .replace(/\$([a-z_][a-z0-9_]*)\$[\s\S]*?\$\1\$/giu, '')
+    .replace(/\$\$[\s\S]*?\$\$/gu, '')
+const extractOperationManifestVerifier = (
+  sql: string,
+  createPrefix: 'CREATE FUNCTION' | 'CREATE OR REPLACE FUNCTION'
+) => {
+  const startMarker = `${createPrefix} "phase7_verify_operation_manifest"(operation_id UUID)`
+  const endMarker = '\n$function$;'
+  const start = sql.indexOf(startMarker)
+  const end = sql.indexOf(endMarker, start)
+
+  if (start < 0 || end < 0) {
+    throw new Error(
+      'Phase 7 operation manifest verifier definition is missing.'
+    )
+  }
+
+  return sql.slice(start, end + endMarker.length)
+}
 const foundationTopLevelSql = foundationMigrationSql
   .replace(/^--.*$/gmu, '')
   .replace(/\$([a-z_][a-z0-9_]*)\$[\s\S]*?\$\1\$/giu, '')
   .replace(/\$\$[\s\S]*?\$\$/gu, '')
+const archiveVerifierTopLevelSql = removeDollarQuotedBodies(
+  archiveVerifierMigrationSql
+)
+const reauthenticationTopLevelSql = removeDollarQuotedBodies(
+  reauthenticationMigrationSql
+)
 
 const approvedPrePhase7MigrationNames = [
   '20260812130000_phase3_operational_baseline',
@@ -83,14 +123,16 @@ const approvedPrePhase7Checksums = [
 ] as const
 const approvedPhase7Checksums = [
   'ceca4c83981de1e21c528952157fb8c0452583889c4374cba70e3875acbd2298',
-  '6e34969b93b6b07c7be9e5fb13a1d2a4612a2825fe6e08871e8d1ea15e9355d7'
+  '6e34969b93b6b07c7be9e5fb13a1d2a4612a2825fe6e08871e8d1ea15e9355d7',
+  'afa59638fa9ff3662fb00abe28fe8fb3a14777b98ecf3b2b8e8226493794adfe',
+  'ae57562faf7342e2ae2ce1a83d35bf9cec00f1ecbe64c21f7d947a7bd3009e08'
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('승인된 27개 history를 그대로 보존하고 정확히 두 migration만 append한다', () => {
+  it('승인된 기존 30개 checksum을 보존하고 Slice 3R만 append한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(29)
+    expect(manifest).toHaveLength(31)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedPrePhase7MigrationNames
     )
@@ -99,11 +141,135 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
     )
     expect(manifest.slice(27).map(({ name }) => name)).toEqual([
       enumMigrationName,
-      foundationMigrationName
+      foundationMigrationName,
+      archiveVerifierMigrationName,
+      reauthenticationMigrationName
     ])
     expect(manifest.slice(27).map(({ checksum }) => checksum)).toEqual(
       approvedPhase7Checksums
     )
+  })
+
+  it('Slice 3R은 append-only auth foundation과 partial live-intent fence를 선언한다', () => {
+    expect(reauthenticationMigrationSql).toContain(
+      'ADD COLUMN "authorizationState" "AuthSessionAuthorizationState"'
+    )
+    expect(reauthenticationMigrationSql).toContain(
+      'CREATE TABLE "Phase7ReauthenticationIntent"'
+    )
+    expect(reauthenticationMigrationSql).toContain(
+      'CREATE TABLE "Phase7AuthorityRevocationEvidence"'
+    )
+    expect(reauthenticationMigrationSql).toContain(
+      'CREATE UNIQUE INDEX "Phase7ReauthenticationIntent_live_old_session_key"'
+    )
+    expect(reauthenticationMigrationSql).toContain(
+      `WHERE "state" IN ('PREPARED', 'STAGED')`
+    )
+    expect(reauthenticationMigrationSql).not.toContain(
+      'CREATE INDEX "Phase7ReauthenticationIntent_oldSessionId_state_idx"'
+    )
+    expect(reauthenticationTopLevelSql).not.toMatch(
+      /\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE)\s+"(?:User|Account|Session)"/iu
+    )
+  })
+
+  it('Slice 4F는 verifier 한 개만 owner role에서 교체하고 hardened path를 복구한다', () => {
+    const executableSql = archiveVerifierMigrationSql.replace(
+      /^\s*--.*$/gmu,
+      ''
+    )
+    const ownerRoleIndex = executableSql.indexOf(
+      'SET LOCAL ROLE "nihongo_phase7_owner";'
+    )
+    const replaceIndex = executableSql.indexOf(
+      'CREATE OR REPLACE FUNCTION "phase7_verify_operation_manifest"(operation_id UUID)'
+    )
+    const hardenedPathIndex = executableSql.indexOf(
+      'ALTER FUNCTION %I.phase7_verify_operation_manifest(UUID) SET search_path TO pg_catalog, %I, pg_temp'
+    )
+    const migrationRoleIndex = executableSql.indexOf(
+      'SET LOCAL ROLE "nihongo_phase7_migration";'
+    )
+
+    expect(
+      executableSql.match(/\bCREATE\s+OR\s+REPLACE\s+FUNCTION\b/giu)
+    ).toHaveLength(1)
+    expect(executableSql).toContain('SECURITY DEFINER')
+    expect(executableSql).toContain('SET search_path FROM CURRENT')
+    expect(executableSql).toContain(
+      'Phase 7 operation manifest verifier catalog is not exact.'
+    )
+    expect(executableSql).toContain(
+      `procedure_record.proargtypes = '2950'::pg_catalog.oidvector`
+    )
+    expect(executableSql).toContain(
+      `'search_path=pg_catalog, ' || target_schema || ', pg_temp'`
+    )
+    expect(ownerRoleIndex).toBeGreaterThan(-1)
+    expect(replaceIndex).toBeGreaterThan(ownerRoleIndex)
+    expect(hardenedPathIndex).toBeGreaterThan(replaceIndex)
+    expect(migrationRoleIndex).toBeGreaterThan(hardenedPathIndex)
+    expect(executableSql).not.toMatch(/\bRESET\s+ROLE\b/iu)
+    expect(archiveVerifierTopLevelSql).not.toMatch(
+      /\b(?:CREATE|ALTER|DROP)\s+(?:TABLE|TYPE|INDEX|SCHEMA)\b/iu
+    )
+    expect(archiveVerifierTopLevelSql).not.toMatch(
+      /\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE)\b/iu
+    )
+    expect(archiveVerifierTopLevelSql).not.toMatch(
+      /\b(?:GRANT|REVOKE|ALTER\s+FUNCTION[^;]+OWNER)\b/iu
+    )
+    expect(executableSql).toContain(`WHEN 'PUBLICATION', 'RETIREMENT' THEN`)
+    expect(executableSql).toContain(`WHEN 'QUESTION_ARCHIVE' THEN`)
+    expect(executableSql).toContain(
+      'WHEN cardinality(manifest_version_ids) = 0 THEN empty_ids'
+    )
+    expect(executableSql).not.toContain(
+      `WHEN 'PUBLICATION', 'RETIREMENT', 'QUESTION_ARCHIVE' THEN`
+    )
+  })
+
+  it('Slice 4F는 QUESTION_ARCHIVE predicate 외 기존 verifier 본문을 byte-equivalent하게 보존한다', () => {
+    const foundationVerifier = extractOperationManifestVerifier(
+      foundationMigrationSql,
+      'CREATE FUNCTION'
+    )
+    const archiveVerifier = extractOperationManifestVerifier(
+      archiveVerifierMigrationSql,
+      'CREATE OR REPLACE FUNCTION'
+    )
+    const oldAggregateBranch = `    WHEN 'PUBLICATION', 'RETIREMENT', 'QUESTION_ARCHIVE' THEN
+      IF question_delta_ids <> manifest_question_ids
+        OR version_delta_ids <> manifest_version_ids
+        OR version_delta_question_ids <> manifest_question_ids THEN
+        RAISE EXCEPTION 'Aggregate lifecycle target set is not exact.'
+          USING ERRCODE = '23514';
+      END IF;`
+    const splitArchiveBranch = `    WHEN 'PUBLICATION', 'RETIREMENT' THEN
+      IF question_delta_ids <> manifest_question_ids
+        OR version_delta_ids <> manifest_version_ids
+        OR version_delta_question_ids <> manifest_question_ids THEN
+        RAISE EXCEPTION 'Aggregate lifecycle target set is not exact.'
+          USING ERRCODE = '23514';
+      END IF;
+    WHEN 'QUESTION_ARCHIVE' THEN
+      IF question_delta_ids <> manifest_question_ids
+        OR version_delta_ids <> manifest_version_ids
+        OR version_delta_question_ids <> (CASE
+          WHEN cardinality(manifest_version_ids) = 0 THEN empty_ids
+          ELSE manifest_question_ids
+        END) THEN
+        RAISE EXCEPTION 'Aggregate lifecycle target set is not exact.'
+          USING ERRCODE = '23514';
+      END IF;`
+
+    expect(archiveVerifier).toContain(splitArchiveBranch)
+    expect(
+      archiveVerifier
+        .replace('CREATE OR REPLACE FUNCTION', 'CREATE FUNCTION')
+        .replace(splitArchiveBranch, oldAggregateBranch)
+    ).toBe(foundationVerifier)
   })
 
   it('두 schema-shape identity를 normalizer 전에 TEXT로 고정한다', () => {

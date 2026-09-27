@@ -228,7 +228,10 @@ const isAllowedQueryFile = (fileName, sourceRoot) => {
 
 const isAllowedMockRepositoryFile = (fileName, sourceRoot) => {
   const relative = normalizePath(path.relative(sourceRoot, fileName))
-  return relative.startsWith('mocks/handlers/')
+  return (
+    relative.startsWith('mocks/handlers/') ||
+    relative.startsWith('mocks/repository/')
+  )
 }
 
 const canonicalCycleKey = (cycle, sourceRoot) => {

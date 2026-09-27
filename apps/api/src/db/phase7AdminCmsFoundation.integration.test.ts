@@ -16,7 +16,9 @@ import { attestPhase7RuntimeRoles } from './phase7RuntimeRoleAttestation.js'
 
 const PHASE7_MIGRATIONS = [
   '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation'
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -353,17 +355,98 @@ afterAll(async () => {
 })
 
 describe('Phase 7 Slice 1 persistence foundation', () => {
-  it('29 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('31 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(29)
+    expect(ledger.rows).toHaveLength(31)
     expect(
-      ledger.rows.slice(-2).map(({ migrationName }) => migrationName)
+      ledger.rows.slice(-4).map(({ migrationName }) => migrationName)
     ).toEqual(PHASE7_MIGRATIONS)
+    expect(
+      (
+        await client.query<{
+          aclEntryCount: number
+          appCanExecute: boolean
+          argumentCount: number
+          argumentTypes: string
+          config: string[] | null
+          identityArguments: string
+          isSecurityDefiner: boolean
+          nonOwnerAclCount: number
+          objectId: string
+          ownerCanExecute: boolean
+          ownerName: string
+          publicCanExecute: boolean
+          resultType: string
+        }>(
+          `SELECT procedure_record.oid::text AS "objectId",
+             owner_role.rolname AS "ownerName",
+             procedure_record.pronargs::int AS "argumentCount",
+             procedure_record.proargtypes::text AS "argumentTypes",
+             pg_get_function_identity_arguments(procedure_record.oid)
+               AS "identityArguments",
+             pg_get_function_result(procedure_record.oid) AS "resultType",
+             procedure_record.prosecdef AS "isSecurityDefiner",
+             procedure_record.proconfig::text[] AS config,
+             has_function_privilege(
+               'nihongo_phase7_owner', procedure_record.oid, 'EXECUTE'
+             ) AS "ownerCanExecute",
+             has_function_privilege(
+               'nihongo_app', procedure_record.oid, 'EXECUTE'
+             ) AS "appCanExecute",
+             (SELECT COUNT(*)::int
+              FROM aclexplode(COALESCE(
+                procedure_record.proacl,
+                acldefault('f', procedure_record.proowner)
+              ))) AS "aclEntryCount",
+             (SELECT COUNT(*)::int
+              FROM aclexplode(COALESCE(
+                procedure_record.proacl,
+                acldefault('f', procedure_record.proowner)
+              )) AS permission
+              WHERE permission.grantee <> procedure_record.proowner)
+               AS "nonOwnerAclCount",
+             EXISTS (
+               SELECT 1
+               FROM aclexplode(COALESCE(
+                 procedure_record.proacl,
+                 acldefault('f', procedure_record.proowner)
+               )) AS permission
+               WHERE permission.grantee = 0
+                 AND permission.privilege_type = 'EXECUTE'
+             ) AS "publicCanExecute"
+           FROM pg_proc AS procedure_record
+           JOIN pg_namespace AS namespace_record
+             ON namespace_record.oid = procedure_record.pronamespace
+           JOIN pg_roles AS owner_role
+             ON owner_role.oid = procedure_record.proowner
+           WHERE namespace_record.nspname = current_schema()
+             AND procedure_record.proname =
+               'phase7_verify_operation_manifest'
+             AND procedure_record.proargtypes = '2950'::oidvector`
+        )
+      ).rows
+    ).toEqual([
+      {
+        aclEntryCount: 1,
+        appCanExecute: false,
+        argumentCount: 1,
+        argumentTypes: '2950',
+        config: [`search_path=pg_catalog, ${schema}, pg_temp`],
+        identityArguments: 'operation_id uuid',
+        isSecurityDefiner: true,
+        nonOwnerAclCount: 0,
+        objectId: expect.stringMatching(/^[1-9][0-9]*$/u),
+        ownerCanExecute: true,
+        ownerName: 'nihongo_phase7_owner',
+        publicCanExecute: false,
+        resultType: 'void'
+      }
+    ])
     await client.query('BEGIN')
     try {
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
@@ -375,7 +458,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 29 }])
+      ).toEqual([{ migrationCount: 31 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -5182,18 +5265,28 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
     )
 
+    type OpenArchiveCandidateState =
+      | 'APPROVED'
+      | 'CHANGES_REQUESTED'
+      | 'DRAFT'
+      | 'IN_REVIEW'
     type ArchiveCandidate = {
       questionId: string
-      state: 'APPROVED' | 'CHANGES_REQUESTED' | 'DRAFT' | 'IN_REVIEW'
+      state: OpenArchiveCandidateState
       versionId: string
     }
-    const states: ArchiveCandidate['state'][] = [
+    const states: Array<OpenArchiveCandidateState | 'RETIRED'> = [
       'DRAFT',
       'IN_REVIEW',
       'CHANGES_REQUESTED',
-      'APPROVED'
+      'APPROVED',
+      'RETIRED',
+      'DRAFT'
     ]
     const candidates: ArchiveCandidate[] = []
+    let emptyManifestTarget:
+      | { questionId: string; versionId: string }
+      | undefined
     for (const state of states) {
       const questionId = randomUUID()
       const versionId = randomUUID()
@@ -5303,7 +5396,15 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         await client.query('ROLLBACK')
         throw error
       }
-      candidates.push({ questionId, state, versionId })
+      if (state === 'RETIRED') {
+        emptyManifestTarget = { questionId, versionId }
+      } else {
+        candidates.push({ questionId, state, versionId })
+      }
+    }
+
+    if (!emptyManifestTarget) {
+      throw new Error('Phase 7 archive 0/0 fixture is missing.')
     }
 
     await client.query(`SET session_replication_role = replica`)
@@ -5315,12 +5416,643 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           [candidate.versionId, candidate.state]
         )
       }
+      await client.query(
+        `UPDATE "QuestionVersion"
+         SET "status" = 'RETIRED',
+             "retirementKind" = 'PUBLISHED_RETIREMENT',
+             "publishedAt" = clock_timestamp() - INTERVAL '1 second',
+             "retiredAt" = clock_timestamp(), "rowVersion" = 2,
+             "updatedAt" = clock_timestamp()
+         WHERE "id" = $1`,
+        [emptyManifestTarget.versionId]
+      )
     } finally {
       await client.query(`SET session_replication_role = origin`)
     }
 
-    const firstCandidate = candidates[0]
-    if (!firstCandidate) throw new Error('Phase 7 archive fixture is missing.')
+    const archiveCandidates = candidates.slice(0, -1)
+    const concurrentCandidate = candidates.at(-1)
+    const firstCandidate = archiveCandidates[0]
+    const secondCandidate = archiveCandidates[1]
+    if (!firstCandidate || !secondCandidate || !concurrentCandidate) {
+      throw new Error('Phase 7 archive guard fixtures are missing.')
+    }
+
+    const readArchiveGuardState = async () =>
+      (
+        await client.query<{
+          currentPublishedVersionId: string | null
+          lifecycleStatus: string
+          questionId: string
+          questionRowVersion: number
+          versionId: string
+          versionRowVersion: number
+          versionStatus: string
+        }>(
+          `SELECT question."id"::text AS "questionId",
+             question."lifecycleStatus"::text AS "lifecycleStatus",
+             question."rowVersion" AS "questionRowVersion",
+             question."currentPublishedVersionId"::text
+               AS "currentPublishedVersionId",
+             version."id"::text AS "versionId",
+             version."status"::text AS "versionStatus",
+             version."rowVersion" AS "versionRowVersion"
+           FROM "Question" AS question
+           JOIN "QuestionVersion" AS version
+             ON version."questionId" = question."id"
+           WHERE question."id" = ANY($1::uuid[])
+           ORDER BY question."id", version."id"`,
+          [
+            [
+              emptyManifestTarget.questionId,
+              firstCandidate.questionId,
+              secondCandidate.questionId
+            ]
+          ]
+        )
+      ).rows
+    const archiveGuardStateBefore = await readArchiveGuardState()
+    const rejectedArmRequestIds: string[] = []
+    const expectArchiveArmRejected = async (
+      targetManifest: Phase7AdminTargetManifest,
+      code: '23514' | '40001'
+    ): Promise<void> => {
+      const requestId = randomUUID()
+      rejectedArmRequestIds.push(requestId)
+      await expectFailedTransaction(async () => {
+        await client.query(`SET LOCAL ROLE "nihongo_app"`)
+        await beginAdminOperation(client, {
+          command: 'QUESTION_ARCHIVE',
+          referencedUserIds: [actorId],
+          requestId,
+          sessionToken,
+          targetManifest
+        })
+      }, code)
+    }
+    const questionManifest = (
+      questionId: string,
+      rowVersion = 1
+    ): Phase7AdminTargetManifestItem => ({
+      id: questionId,
+      rowVersion,
+      state: 'ACTIVE'
+    })
+    const versionManifest = (
+      candidate: ArchiveCandidate
+    ): Phase7AdminTargetManifestItem => ({
+      id: candidate.versionId,
+      rowVersion: 1,
+      state: candidate.state
+    })
+
+    await expectArchiveArmRejected(
+      {
+        questions: [questionManifest(firstCandidate.questionId)],
+        reports: [],
+        tags: [],
+        versions: []
+      },
+      '23514'
+    )
+    await expectArchiveArmRejected(
+      {
+        questions: [questionManifest(emptyManifestTarget.questionId)],
+        reports: [],
+        tags: [],
+        versions: [
+          {
+            id: emptyManifestTarget.versionId,
+            rowVersion: 2,
+            state: 'RETIRED'
+          }
+        ]
+      },
+      '23514'
+    )
+    await expectArchiveArmRejected(
+      {
+        questions: [questionManifest(firstCandidate.questionId)],
+        reports: [],
+        tags: [],
+        versions: [
+          versionManifest(firstCandidate),
+          versionManifest(secondCandidate)
+        ]
+      },
+      '40001'
+    )
+    await expectArchiveArmRejected(
+      {
+        questions: [questionManifest(firstCandidate.questionId, 2)],
+        reports: [],
+        tags: [],
+        versions: [versionManifest(firstCandidate)]
+      },
+      '40001'
+    )
+    expect(await readArchiveGuardState()).toEqual(archiveGuardStateBefore)
+    expect(
+      (
+        await client.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count
+           FROM (
+             SELECT intent."requestId" FROM "Phase7OperationIntent" AS intent
+             UNION ALL
+             SELECT review."requestId" FROM "ContentReview" AS review
+             UNION ALL
+             SELECT audit."requestId" FROM "AdminAuditLog" AS audit
+           ) AS evidence
+           WHERE evidence."requestId" = ANY($1::uuid[])`,
+          [rejectedArmRequestIds]
+        )
+      ).rows[0]?.count
+    ).toBe(0)
+
+    interface ArchiveVerifierDelta {
+      readonly afterRowVersion: number
+      readonly beforeRowVersion: number
+      readonly entityType: 'QUESTION' | 'QUESTION_VERSION'
+      readonly fromState: string
+      readonly questionId: string
+      readonly targetId: string
+      readonly toState: string
+    }
+    const archiveQuestionDelta = (
+      questionId: string
+    ): ArchiveVerifierDelta => ({
+      afterRowVersion: 2,
+      beforeRowVersion: 1,
+      entityType: 'QUESTION',
+      fromState: 'ACTIVE',
+      questionId,
+      targetId: questionId,
+      toState: 'ARCHIVED'
+    })
+    const archiveVersionDelta = (
+      candidate: ArchiveCandidate,
+      questionId = candidate.questionId
+    ): ArchiveVerifierDelta => ({
+      afterRowVersion: 2,
+      beforeRowVersion: 1,
+      entityType: 'QUESTION_VERSION',
+      fromState: candidate.state,
+      questionId,
+      targetId: candidate.versionId,
+      toState: 'RETIRED'
+    })
+    const expectArchiveVerifier = async (input: {
+      accepted: boolean
+      deltas: readonly ArchiveVerifierDelta[]
+      targetManifest: Phase7AdminTargetManifest
+    }): Promise<void> => {
+      const operationId = randomUUID()
+      await client.query('BEGIN')
+      try {
+        await client.query(`SET LOCAL session_replication_role = replica`)
+        await client.query(
+          `INSERT INTO "Phase7OperationIntent" (
+             "operationId", "requestId", "command", "referencedUserIds",
+             "targetManifest", "requiresFresh", "environment", "occurredAt",
+             "backendPid", "transactionId"
+           ) VALUES (
+             $1, $2, 'QUESTION_ARCHIVE', ARRAY[]::uuid[], $3::jsonb,
+             false, 'TEST', clock_timestamp(), pg_backend_pid(), txid_current()
+           )`,
+          [operationId, randomUUID(), JSON.stringify(input.targetManifest)]
+        )
+        for (const delta of input.deltas) {
+          await client.query(
+            `INSERT INTO "Phase7OperationDelta" (
+               "operationId", "entityType", "targetId", "questionId",
+               "mutation", "fromState", "toState", "beforeRowVersion",
+               "afterRowVersion"
+             ) VALUES ($1, $2, $3, $4, 'UPDATE', $5, $6, $7, $8)`,
+            [
+              operationId,
+              delta.entityType,
+              delta.targetId,
+              delta.questionId,
+              delta.fromState,
+              delta.toState,
+              delta.beforeRowVersion,
+              delta.afterRowVersion
+            ]
+          )
+        }
+        await client.query(`SET LOCAL session_replication_role = origin`)
+        const verification = client.query(
+          `SELECT "phase7_verify_operation_manifest"($1)`,
+          [operationId]
+        )
+        if (input.accepted) {
+          await expect(verification).resolves.toMatchObject({ rowCount: 1 })
+        } else {
+          await expect(verification).rejects.toMatchObject({ code: '23514' })
+        }
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined)
+      }
+      expect(
+        (
+          await client.query<{ count: number }>(
+            `SELECT (
+               (SELECT COUNT(*) FROM "Phase7OperationIntent"
+                WHERE "operationId" = $1) +
+               (SELECT COUNT(*) FROM "Phase7OperationDelta"
+                WHERE "operationId" = $1) +
+               (SELECT COUNT(*) FROM "ContentReview"
+                WHERE "operationId" = $1) +
+               (SELECT COUNT(*) FROM "AdminAuditLog"
+                WHERE "operationId" = $1)
+             )::int AS count`,
+            [operationId]
+          )
+        ).rows[0]?.count
+      ).toBe(0)
+    }
+
+    const emptyManifest: Phase7AdminTargetManifest = {
+      questions: [questionManifest(emptyManifestTarget.questionId)],
+      reports: [],
+      tags: [],
+      versions: []
+    }
+    const candidateManifest: Phase7AdminTargetManifest = {
+      questions: [questionManifest(firstCandidate.questionId)],
+      reports: [],
+      tags: [],
+      versions: [versionManifest(firstCandidate)]
+    }
+    const emptyQuestionDelta = archiveQuestionDelta(
+      emptyManifestTarget.questionId
+    )
+    const candidateQuestionDelta = archiveQuestionDelta(
+      firstCandidate.questionId
+    )
+    const candidateVersionDelta = archiveVersionDelta(firstCandidate)
+    await expectArchiveVerifier({
+      accepted: true,
+      deltas: [emptyQuestionDelta],
+      targetManifest: emptyManifest
+    })
+    await expectArchiveVerifier({
+      accepted: false,
+      deltas: [
+        emptyQuestionDelta,
+        {
+          afterRowVersion: 3,
+          beforeRowVersion: 2,
+          entityType: 'QUESTION_VERSION',
+          fromState: 'RETIRED',
+          questionId: emptyManifestTarget.questionId,
+          targetId: emptyManifestTarget.versionId,
+          toState: 'RETIRED'
+        }
+      ],
+      targetManifest: emptyManifest
+    })
+    await expectArchiveVerifier({
+      accepted: true,
+      deltas: [candidateQuestionDelta, candidateVersionDelta],
+      targetManifest: candidateManifest
+    })
+    await expectArchiveVerifier({
+      accepted: false,
+      deltas: [candidateVersionDelta],
+      targetManifest: candidateManifest
+    })
+    await expectArchiveVerifier({
+      accepted: false,
+      deltas: [candidateQuestionDelta],
+      targetManifest: candidateManifest
+    })
+    await expectArchiveVerifier({
+      accepted: false,
+      deltas: [
+        candidateQuestionDelta,
+        candidateVersionDelta,
+        {
+          ...archiveVersionDelta(secondCandidate, firstCandidate.questionId),
+          targetId: randomUUID()
+        }
+      ],
+      targetManifest: candidateManifest
+    })
+    await expectArchiveVerifier({
+      accepted: false,
+      deltas: [
+        candidateQuestionDelta,
+        archiveVersionDelta(firstCandidate, secondCandidate.questionId)
+      ],
+      targetManifest: candidateManifest
+    })
+
+    const expectArchiveEvidenceCardinalityRejected = async (input: {
+      auditCount: 0 | 1 | 2
+      deltas: readonly ArchiveVerifierDelta[]
+      review: ArchiveCandidate | null
+      targetManifest: Phase7AdminTargetManifest
+    }): Promise<void> => {
+      const operationId = randomUUID()
+      const requestId = randomUUID()
+      await client.query('BEGIN')
+      try {
+        await client.query(`SET LOCAL session_replication_role = replica`)
+        await client.query(
+          `INSERT INTO "Phase7OperationIntent" (
+             "operationId", "requestId", "command", "referencedUserIds",
+             "targetManifest", "requiresFresh", "environment", "occurredAt",
+             "backendPid", "transactionId"
+           ) VALUES (
+             $1, $2, 'QUESTION_ARCHIVE', ARRAY[]::uuid[], $3::jsonb,
+             false, 'TEST', clock_timestamp(), pg_backend_pid(), txid_current()
+           )`,
+          [operationId, requestId, JSON.stringify(input.targetManifest)]
+        )
+        for (const delta of input.deltas) {
+          await client.query(
+            `INSERT INTO "Phase7OperationDelta" (
+               "operationId", "entityType", "targetId", "questionId",
+               "mutation", "fromState", "toState", "beforeRowVersion",
+               "afterRowVersion"
+             ) VALUES ($1, $2, $3, $4, 'UPDATE', $5, $6, $7, $8)`,
+            [
+              operationId,
+              delta.entityType,
+              delta.targetId,
+              delta.questionId,
+              delta.fromState,
+              delta.toState,
+              delta.beforeRowVersion,
+              delta.afterRowVersion
+            ]
+          )
+        }
+        const hasVersion = input.targetManifest.versions.length > 0
+        const metadata = {
+          abandonedCandidateCount: hasVersion ? 1 : 0,
+          kind: 'QUESTION_ARCHIVE_V1',
+          retiredPublishedCount: 0
+        }
+        for (let index = 0; index < input.auditCount; index += 1) {
+          const targetId =
+            index === 0 ? input.targetManifest.questions[0]?.id : randomUUID()
+          if (!targetId) throw new Error('Archive audit target is missing.')
+          const changedFields = hasVersion
+            ? ['LIFECYCLE_STATUS', 'VERSION_STATUS']
+            : ['LIFECYCLE_STATUS']
+          await client.query(
+            `INSERT INTO "AdminAuditLog" (
+               "command", "targetType", "targetId", "actorKind",
+               "actorUserId", "actorId", "actorRole", "actorLabel",
+               "beforeState", "afterState", "beforeRowVersion",
+               "afterRowVersion", "changedFields", "metadata",
+               "contentDigest", "operationId", "requestId", "environment",
+               "occurredAt"
+             ) VALUES (
+               'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
+               'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
+               $3::jsonb, $4::jsonb,
+               "phase7_admin_audit_content_digest"(
+                 $5, 'QUESTION_ARCHIVE', 'QUESTION', $1,
+                 'ACTIVE', 'ARCHIVED', 1, 2, $3::jsonb, $4::jsonb
+               ), $5, $6, 'TEST', clock_timestamp()
+             )`,
+            [
+              targetId,
+              actorId,
+              JSON.stringify(changedFields),
+              JSON.stringify(metadata),
+              operationId,
+              requestId
+            ]
+          )
+        }
+        if (input.review) {
+          await client.query(
+            `INSERT INTO "ContentReview" (
+               "questionId", "questionVersionId", "action", "fromState",
+               "toState", "actorKind", "actorUserId", "actorId",
+               "actorRole", "actorLabel", "reason", "operationId",
+               "requestId", "occurredAt"
+             ) VALUES (
+               $1, $2, 'RETIRED', 'PUBLISHED', 'RETIRED', 'ACCOUNT',
+               $3, $3, 'ADMIN', 'ACTIVE_ADMIN', 'QUESTION_ARCHIVE',
+               $4, $5, clock_timestamp()
+             )`,
+            [
+              input.review.questionId,
+              input.review.versionId,
+              actorId,
+              operationId,
+              requestId
+            ]
+          )
+        }
+        await client.query(`SET LOCAL session_replication_role = origin`)
+        await client.query(`SET LOCAL ROLE "nihongo_app"`)
+        await expect(
+          client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
+            operationId
+          ])
+        ).rejects.toMatchObject({ code: '23514' })
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined)
+      }
+      expect(
+        (
+          await client.query<{ count: number }>(
+            `SELECT (
+               (SELECT COUNT(*) FROM "Phase7OperationIntent"
+                WHERE "operationId" = $1) +
+               (SELECT COUNT(*) FROM "Phase7OperationDelta"
+                WHERE "operationId" = $1) +
+               (SELECT COUNT(*) FROM "ContentReview"
+                WHERE "operationId" = $1) +
+               (SELECT COUNT(*) FROM "AdminAuditLog"
+                WHERE "operationId" = $1)
+             )::int AS count`,
+            [operationId]
+          )
+        ).rows[0]?.count
+      ).toBe(0)
+    }
+    await expectArchiveEvidenceCardinalityRejected({
+      auditCount: 0,
+      deltas: [emptyQuestionDelta],
+      review: null,
+      targetManifest: emptyManifest
+    })
+    await expectArchiveEvidenceCardinalityRejected({
+      auditCount: 2,
+      deltas: [emptyQuestionDelta],
+      review: null,
+      targetManifest: emptyManifest
+    })
+    await expectArchiveEvidenceCardinalityRejected({
+      auditCount: 1,
+      deltas: [emptyQuestionDelta],
+      review: {
+        questionId: emptyManifestTarget.questionId,
+        state: 'DRAFT',
+        versionId: emptyManifestTarget.versionId
+      },
+      targetManifest: emptyManifest
+    })
+    await expectArchiveEvidenceCardinalityRejected({
+      auditCount: 1,
+      deltas: [candidateQuestionDelta, candidateVersionDelta],
+      review: null,
+      targetManifest: candidateManifest
+    })
+    expect(await readArchiveGuardState()).toEqual(archiveGuardStateBefore)
+
+    const emptyArchiveRequestId = randomUUID()
+    let emptyArchiveOperationId: string | undefined
+    await client.query('BEGIN')
+    try {
+      await client.query(`SET LOCAL ROLE "nihongo_app"`)
+      const operation = await beginAdminOperation(client, {
+        command: 'QUESTION_ARCHIVE',
+        referencedUserIds: [actorId],
+        requestId: emptyArchiveRequestId,
+        sessionToken,
+        targetManifest: {
+          questions: [
+            {
+              id: emptyManifestTarget.questionId,
+              rowVersion: 1,
+              state: 'ACTIVE'
+            }
+          ],
+          reports: [],
+          tags: [],
+          versions: []
+        }
+      })
+      emptyArchiveOperationId = operation.operationId
+      await client.query(
+        `UPDATE "Question"
+         SET "lifecycleStatus" = 'ARCHIVED', "archivedAt" = $2,
+             "rowVersion" = 2, "updatedAt" = $2
+         WHERE "id" = $1`,
+        [emptyManifestTarget.questionId, operation.occurredAt]
+      )
+      const metadata = {
+        abandonedCandidateCount: 0,
+        kind: 'QUESTION_ARCHIVE_V1',
+        retiredPublishedCount: 0
+      }
+      await client.query(
+        `INSERT INTO "AdminAuditLog" (
+          "command", "targetType", "targetId", "actorKind",
+          "actorUserId", "actorId", "actorRole", "actorLabel",
+          "beforeState", "afterState", "beforeRowVersion",
+          "afterRowVersion", "changedFields", "metadata", "contentDigest",
+          "operationId", "requestId", "environment", "occurredAt"
+        ) VALUES (
+          'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
+          'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
+          '["LIFECYCLE_STATUS"]'::jsonb, $3::jsonb,
+          "phase7_admin_audit_content_digest"(
+            $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
+            'ACTIVE', 'ARCHIVED', 1, 2,
+            '["LIFECYCLE_STATUS"]'::jsonb, $3::jsonb
+          ), $4, $5, 'TEST', $6
+        )`,
+        [
+          emptyManifestTarget.questionId,
+          actorId,
+          JSON.stringify(metadata),
+          operation.operationId,
+          emptyArchiveRequestId,
+          operation.occurredAt
+        ]
+      )
+      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
+        operation.operationId
+      ])
+      await client.query('COMMIT')
+    } catch (error: unknown) {
+      await client.query('ROLLBACK')
+      throw error
+    }
+    if (!emptyArchiveOperationId) {
+      throw new Error('Phase 7 archive 0/0 operation is missing.')
+    }
+    expect(
+      (
+        await client.query<{
+          auditCount: number
+          changedFields: string[]
+          contentDigestValid: boolean
+          currentPublishedVersionId: string | null
+          deltaCount: number
+          intentCount: number
+          lifecycleStatus: string
+          metadata: {
+            abandonedCandidateCount: number
+            kind: string
+            retiredPublishedCount: number
+          }
+          reviewCount: number
+          rowVersion: number
+          versionRowVersion: number
+          versionStatus: string
+        }>(
+          `SELECT question."lifecycleStatus"::text AS "lifecycleStatus",
+             question."rowVersion", question."currentPublishedVersionId"::text
+               AS "currentPublishedVersionId",
+             version."status"::text AS "versionStatus",
+             version."rowVersion" AS "versionRowVersion",
+             audit."changedFields", audit."metadata",
+             audit."contentDigest" = "phase7_admin_audit_content_digest"(
+               audit."operationId", audit."command", audit."targetType",
+               audit."targetId", audit."beforeState", audit."afterState",
+               audit."beforeRowVersion", audit."afterRowVersion",
+               audit."changedFields", audit."metadata"
+             ) AS "contentDigestValid",
+             (SELECT COUNT(*)::int FROM "AdminAuditLog"
+              WHERE "operationId" = $3) AS "auditCount",
+             (SELECT COUNT(*)::int FROM "ContentReview"
+              WHERE "operationId" = $3) AS "reviewCount",
+             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+              WHERE "operationId" = $3) AS "intentCount",
+             (SELECT COUNT(*)::int FROM "Phase7OperationDelta"
+              WHERE "operationId" = $3) AS "deltaCount"
+           FROM "Question" AS question
+           JOIN "QuestionVersion" AS version ON version."id" = $2
+           JOIN "AdminAuditLog" AS audit ON audit."operationId" = $3
+           WHERE question."id" = $1`,
+          [
+            emptyManifestTarget.questionId,
+            emptyManifestTarget.versionId,
+            emptyArchiveOperationId
+          ]
+        )
+      ).rows
+    ).toEqual([
+      {
+        auditCount: 1,
+        changedFields: ['LIFECYCLE_STATUS'],
+        contentDigestValid: true,
+        currentPublishedVersionId: null,
+        deltaCount: 0,
+        intentCount: 0,
+        lifecycleStatus: 'ARCHIVED',
+        metadata: {
+          abandonedCandidateCount: 0,
+          kind: 'QUESTION_ARCHIVE_V1',
+          retiredPublishedCount: 0
+        },
+        reviewCount: 0,
+        rowVersion: 2,
+        versionRowVersion: 2,
+        versionStatus: 'RETIRED'
+      }
+    ])
+
     await expectFailedTransaction(async () => {
       await client.query(
         `UPDATE "QuestionVersion"
@@ -5363,7 +6095,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
     }, '23514')
 
-    for (const candidate of candidates) {
+    for (const candidate of archiveCandidates) {
       const requestId = randomUUID()
       await client.query('BEGIN')
       try {
@@ -5481,10 +6213,262 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             AND review."action" = 'ARCHIVE_ABANDONED'
            WHERE question."id" = ANY($1::uuid[])
            ORDER BY review."fromState"::text`,
-          [candidates.map(({ questionId }) => questionId)]
+          [archiveCandidates.map(({ questionId }) => questionId)]
         )
       ).rows
     ).toHaveLength(4)
+
+    const concurrentRequestIds = [randomUUID(), randomUUID()] as const
+    const concurrentClients = [
+      new Client({
+        connectionString: connectionUrl.toString(),
+        options: createPostgresStartupOptions(schema)
+      }),
+      new Client({
+        connectionString: connectionUrl.toString(),
+        options: createPostgresStartupOptions(schema)
+      })
+    ] as const
+    const archiveConcurrentCandidate = async (
+      databaseClient: Client,
+      requestId: string
+    ): Promise<string> => {
+      await databaseClient.query('BEGIN')
+      try {
+        await databaseClient.query(`SET LOCAL ROLE "nihongo_app"`)
+        const operation = await beginAdminOperation(databaseClient, {
+          command: 'QUESTION_ARCHIVE',
+          referencedUserIds: [actorId],
+          requestId,
+          sessionToken,
+          targetManifest: {
+            questions: [
+              {
+                id: concurrentCandidate.questionId,
+                rowVersion: 1,
+                state: 'ACTIVE'
+              }
+            ],
+            reports: [],
+            tags: [],
+            versions: [versionManifest(concurrentCandidate)]
+          }
+        })
+        await databaseClient.query(
+          `UPDATE "Question"
+           SET "lifecycleStatus" = 'ARCHIVED', "archivedAt" = $2,
+               "rowVersion" = 2, "updatedAt" = $2
+           WHERE "id" = $1`,
+          [concurrentCandidate.questionId, operation.occurredAt]
+        )
+        await databaseClient.query(
+          `UPDATE "QuestionVersion"
+           SET "status" = 'RETIRED',
+               "retirementKind" = 'QUESTION_ARCHIVE_ABANDONED',
+               "retiredAt" = $2, "rowVersion" = 2, "updatedAt" = $2
+           WHERE "id" = $1`,
+          [concurrentCandidate.versionId, operation.occurredAt]
+        )
+        await databaseClient.query(
+          `INSERT INTO "ContentReview" (
+             "questionId", "questionVersionId", "action", "fromState",
+             "toState", "actorKind", "actorUserId", "actorId", "actorRole",
+             "actorLabel", "counterpartUserId", "counterpartActorId",
+             "counterpartRole", "counterpartLabel", "reason", "operationId",
+             "requestId", "occurredAt"
+           ) VALUES (
+             $1, $2, 'ARCHIVE_ABANDONED', 'DRAFT', 'RETIRED', 'ACCOUNT',
+             $3, $3, 'ADMIN', 'ACTIVE_ADMIN', $3, $3, 'ADMIN',
+             'ACTIVE_ADMIN', 'QUESTION_ARCHIVE', $4, $5, $6
+           )`,
+          [
+            concurrentCandidate.questionId,
+            concurrentCandidate.versionId,
+            actorId,
+            operation.operationId,
+            requestId,
+            operation.occurredAt
+          ]
+        )
+        const metadata = {
+          abandonedCandidateCount: 1,
+          kind: 'QUESTION_ARCHIVE_V1',
+          retiredPublishedCount: 0
+        }
+        await databaseClient.query(
+          `INSERT INTO "AdminAuditLog" (
+             "command", "targetType", "targetId", "actorKind",
+             "actorUserId", "actorId", "actorRole", "actorLabel",
+             "beforeState", "afterState", "beforeRowVersion",
+             "afterRowVersion", "changedFields", "metadata", "contentDigest",
+             "operationId", "requestId", "environment", "occurredAt"
+           ) VALUES (
+             'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
+             'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
+             '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
+             "phase7_admin_audit_content_digest"(
+               $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
+               'ACTIVE', 'ARCHIVED', 1, 2,
+               '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
+             ), $4, $5, 'TEST', $6
+           )`,
+          [
+            concurrentCandidate.questionId,
+            actorId,
+            JSON.stringify(metadata),
+            operation.operationId,
+            requestId,
+            operation.occurredAt
+          ]
+        )
+        await databaseClient.query(
+          `SELECT "phase7_finish_admin_operation"($1)`,
+          [operation.operationId]
+        )
+        await databaseClient.query('COMMIT')
+        return operation.operationId
+      } catch (error: unknown) {
+        await databaseClient.query('ROLLBACK').catch(() => undefined)
+        throw error
+      }
+    }
+
+    let concurrentOutcomes: PromiseSettledResult<string>[]
+    try {
+      await Promise.all(
+        concurrentClients.map((databaseClient) => databaseClient.connect())
+      )
+      concurrentOutcomes = await Promise.allSettled(
+        concurrentClients.map((databaseClient, index) =>
+          archiveConcurrentCandidate(
+            databaseClient,
+            concurrentRequestIds[index] ?? ''
+          )
+        )
+      )
+    } finally {
+      await Promise.all(
+        concurrentClients.map((databaseClient) =>
+          databaseClient.end().catch(() => undefined)
+        )
+      )
+    }
+    const concurrentWinnerIndex = concurrentOutcomes.findIndex(
+      ({ status }) => status === 'fulfilled'
+    )
+    const concurrentLoserIndex = concurrentOutcomes.findIndex(
+      ({ status }) => status === 'rejected'
+    )
+    expect(
+      concurrentOutcomes.filter(({ status }) => status === 'fulfilled')
+    ).toHaveLength(1)
+    expect(
+      concurrentOutcomes.filter(({ status }) => status === 'rejected')
+    ).toHaveLength(1)
+    if (concurrentWinnerIndex < 0 || concurrentLoserIndex < 0) {
+      throw new Error('Phase 7 archive concurrency outcome is unavailable.')
+    }
+    const concurrentLoser = concurrentOutcomes[concurrentLoserIndex]
+    if (concurrentLoser?.status !== 'rejected') {
+      throw new Error('Phase 7 archive concurrency loser is malformed.')
+    }
+    expect(concurrentLoser.reason).toMatchObject({ code: '40001' })
+    expect(
+      (
+        await client.query<{
+          auditChangedFields: string[]
+          auditCount: number
+          auditDigestValid: boolean
+          auditMetadata: {
+            abandonedCandidateCount: number
+            kind: string
+            retiredPublishedCount: number
+          }
+          currentPublishedVersionId: string | null
+          lifecycleStatus: string
+          loserAuditCount: number
+          loserIntentCount: number
+          loserReviewCount: number
+          questionRowVersion: number
+          retirementKind: string | null
+          reviewAction: string
+          reviewCount: number
+          reviewReason: string | null
+          versionRowVersion: number
+          versionStatus: string
+          winnerIntentCount: number
+        }>(
+          `SELECT question."lifecycleStatus"::text AS "lifecycleStatus",
+             question."currentPublishedVersionId"::text
+               AS "currentPublishedVersionId",
+             question."rowVersion" AS "questionRowVersion",
+             version."status"::text AS "versionStatus",
+             version."retirementKind"::text AS "retirementKind",
+             version."rowVersion" AS "versionRowVersion",
+             review."action"::text AS "reviewAction",
+             review."reason" AS "reviewReason",
+             audit."changedFields" AS "auditChangedFields",
+             audit."metadata" AS "auditMetadata",
+             audit."contentDigest" = "phase7_admin_audit_content_digest"(
+               audit."operationId", audit."command", audit."targetType",
+               audit."targetId", audit."beforeState", audit."afterState",
+               audit."beforeRowVersion", audit."afterRowVersion",
+               audit."changedFields", audit."metadata"
+             ) AS "auditDigestValid",
+             (SELECT COUNT(*)::int FROM "AdminAuditLog"
+              WHERE "requestId" = $3) AS "auditCount",
+             (SELECT COUNT(*)::int FROM "ContentReview"
+              WHERE "requestId" = $3) AS "reviewCount",
+             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+              WHERE "requestId" = $3) AS "winnerIntentCount",
+             (SELECT COUNT(*)::int FROM "AdminAuditLog"
+              WHERE "requestId" = $4) AS "loserAuditCount",
+             (SELECT COUNT(*)::int FROM "ContentReview"
+              WHERE "requestId" = $4) AS "loserReviewCount",
+             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+              WHERE "requestId" = $4) AS "loserIntentCount"
+           FROM "Question" AS question
+           JOIN "QuestionVersion" AS version
+             ON version."questionId" = question."id"
+            AND version."id" = $2
+           JOIN "ContentReview" AS review
+             ON review."questionVersionId" = version."id"
+            AND review."requestId" = $3
+           JOIN "AdminAuditLog" AS audit ON audit."requestId" = $3
+           WHERE question."id" = $1`,
+          [
+            concurrentCandidate.questionId,
+            concurrentCandidate.versionId,
+            concurrentRequestIds[concurrentWinnerIndex],
+            concurrentRequestIds[concurrentLoserIndex]
+          ]
+        )
+      ).rows
+    ).toEqual([
+      {
+        auditChangedFields: ['LIFECYCLE_STATUS', 'VERSION_STATUS'],
+        auditCount: 1,
+        auditDigestValid: true,
+        auditMetadata: {
+          abandonedCandidateCount: 1,
+          kind: 'QUESTION_ARCHIVE_V1',
+          retiredPublishedCount: 0
+        },
+        currentPublishedVersionId: null,
+        lifecycleStatus: 'ARCHIVED',
+        loserAuditCount: 0,
+        loserIntentCount: 0,
+        loserReviewCount: 0,
+        questionRowVersion: 2,
+        retirementKind: 'QUESTION_ARCHIVE_ABANDONED',
+        reviewAction: 'ARCHIVE_ABANDONED',
+        reviewCount: 1,
+        reviewReason: 'QUESTION_ARCHIVE',
+        versionRowVersion: 2,
+        versionStatus: 'RETIRED',
+        winnerIntentCount: 0
+      }
+    ])
     await withExecutionRole('nihongo_erasure_worker', () =>
       client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
     )
@@ -6702,10 +7686,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const reauthUserId = randomUUID()
     const oldSessionId = randomUUID()
     const oldSessionToken = `phase7-reauth-old-${randomUUID()}`
-    const replacementSessionId = randomUUID()
-    const replacementSessionToken = `phase7-reauth-new-${randomUUID()}`
-    const reauthOperationId = randomUUID()
-    const reauthRequestId = randomUUID()
+    const replacementSessionId = oldSessionId
     await insertCredentialUser({ id: reauthUserId, role: 'ADMIN' })
     const oldSession = await withExecutionRole('nihongo_auth_gateway', () =>
       client.query<{ familyId: string }>(
@@ -6720,157 +7701,40 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     if (!reauthFamilyId) {
       throw new Error('Reauthentication family fixture is unavailable.')
     }
-    const reauthenticate = (targetClient: Client): Promise<unknown> =>
-      targetClient.query(
+    await expectFailedTransaction(async () => {
+      await client.query(`SET LOCAL ROLE "nihongo_auth_gateway"`)
+      await client.query(
         `SELECT * FROM "phase7_reauthenticate_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-reauth-new', $4, $5, 'TEST'
+          '127.0.0.1', 'phase7-retired-prototype', $4, $5, 'TEST'
         )`,
         [
           oldSessionToken,
-          replacementSessionId,
-          replacementSessionToken,
-          reauthOperationId,
-          reauthRequestId
+          randomUUID(),
+          `phase7-retired-prototype-${randomUUID()}`,
+          randomUUID(),
+          randomUUID()
         ]
       )
-
-    const reauthClient = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    let reauthTransactionOpen = false
-    let overlappingReauthPromise: Promise<unknown> | undefined
-    await reauthClient.connect()
-    try {
-      const reauthBackend = await reauthClient.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const reauthBackendPid = reauthBackend.rows[0]?.pid
-      if (!reauthBackendPid) {
-        throw new Error('Reauthentication backend PID is unavailable.')
-      }
-      await client.query('BEGIN')
-      reauthTransactionOpen = true
-      await client.query(`SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`, [
-        reauthUserId
-      ])
-      await reauthClient.query(`SET ROLE "nihongo_auth_gateway"`)
-      overlappingReauthPromise = reauthenticate(reauthClient)
-      let lockObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [reauthBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          lockObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(lockObserved).toBe(true)
-      const firstReauthentication = await withExecutionRole(
-        'nihongo_auth_gateway',
-        () => reauthenticate(client)
-      )
-      expect(firstReauthentication).toMatchObject({
-        rows: [
-          {
-            authorityGeneration: 1,
-            familyId: reauthFamilyId,
-            id: replacementSessionId
-          }
-        ]
-      })
-      await client.query('COMMIT')
-      reauthTransactionOpen = false
-      await expect(overlappingReauthPromise).resolves.toMatchObject({
-        rows: [
-          {
-            authorityGeneration: 1,
-            familyId: reauthFamilyId,
-            id: replacementSessionId
-          }
-        ]
-      })
-    } finally {
-      if (reauthTransactionOpen) await client.query('ROLLBACK')
-      await overlappingReauthPromise?.catch(() => undefined)
-      await reauthClient.query('RESET ROLE').catch(() => undefined)
-      await reauthClient.end()
-    }
-
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () => reauthenticate(client))
-    ).resolves.toMatchObject({
-      rows: [
-        {
-          authorityGeneration: 1,
-          familyId: reauthFamilyId,
-          id: replacementSessionId
-        }
-      ]
-    })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_reauthenticate_v1_session"(
-            $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-stale-replacement', $4, $5, 'TEST'
-          )`,
-          [
-            oldSessionToken,
-            randomUUID(),
-            `phase7-stale-replacement-${randomUUID()}`,
-            randomUUID(),
-            randomUUID()
-          ]
-        )
-      )
-    ).rejects.toMatchObject({ code: '42501' })
+    }, '42501')
     expect(
       (
         await client.query<{
-          auditCount: number
-          fenceCount: number
-          operationIntentCount: number
-          oldSessionCount: number
-          replacementSessionCount: number
-          trustedExecutionCount: number
+          activeSessionCount: number
+          familyStatus: string
         }>(
-          `SELECT
-            (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
-              AS "oldSessionCount",
-            (SELECT COUNT(*)::int FROM "Session"
-             WHERE "id" = $2 AND "token" = $3)
-              AS "replacementSessionCount",
-            (SELECT COUNT(*)::int FROM "AuthSessionRotationFence"
-             WHERE "operationId" = $4) AS "fenceCount",
-            (SELECT COUNT(*)::int FROM "AdminAuditLog"
-             WHERE "operationId" = $4 AND "command" = 'REAUTHENTICATION')
-              AS "auditCount",
-            (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
-              AS "operationIntentCount",
-            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-              AS "trustedExecutionCount"`,
-          [
-            oldSessionId,
-            replacementSessionId,
-            replacementSessionToken,
-            reauthOperationId
-          ]
+          `SELECT family."status"::text AS "familyStatus",
+             (SELECT COUNT(*)::int FROM "Session"
+              WHERE "id" = $2 AND "authorizationState" = 'ACTIVE')
+                AS "activeSessionCount"
+           FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
+          [reauthFamilyId, oldSessionId]
         )
       ).rows
     ).toEqual([
       {
-        auditCount: 1,
-        fenceCount: 1,
-        oldSessionCount: 0,
-        operationIntentCount: 0,
-        replacementSessionCount: 1,
-        trustedExecutionCount: 0
+        activeSessionCount: 1,
+        familyStatus: 'ACTIVE'
       }
     ])
 

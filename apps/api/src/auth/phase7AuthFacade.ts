@@ -359,6 +359,7 @@ export const createPhase7AuthFacade = ({
         createPhase7SessionCookie({
           expiresAt: issued[0]!.expiresAt,
           isProduction,
+          rememberMe: true,
           now: issued[0]!.createdAt,
           secret: environment.BETTER_AUTH_SECRET,
           token: rawToken

@@ -58,12 +58,16 @@ type ResolvedUser = Awaited<
 >['user']
 
 const createFixture = ({
+  adminAuthorityFailure,
   clearSessionCookie = false,
   rateError,
+  resolutionError,
   user
 }: {
+  adminAuthorityFailure?: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
   clearSessionCookie?: boolean
   rateError?: ApplicationError
+  resolutionError?: Error
   user: ResolvedUser
 }) => {
   const assertCapability = vi.fn().mockResolvedValue(undefined)
@@ -73,11 +77,15 @@ const createFixture = ({
     if (rateError) throw rateError
   })
   const rateLimiter: AdminReadRateLimiter = { consume }
-  const resolveAuthenticatedUser = vi.fn(async () => ({
-    clearSessionCookie,
-    headers: new Headers(),
-    user
-  }))
+  const resolveAuthenticatedUser = vi.fn(async () => {
+    if (resolutionError) throw resolutionError
+    return {
+      ...(adminAuthorityFailure === undefined ? {} : { adminAuthorityFailure }),
+      clearSessionCookie,
+      headers: new Headers(),
+      user
+    }
+  })
   const principalService: PrincipalService = {
     resolveAuthenticatedUser,
     getAuthenticatedUser: vi.fn(async () => user)
@@ -134,6 +142,10 @@ describe('Phase 7 Slice 2 ADMIN read routing', () => {
       total: 0
     })
     expect(fixture.resolveAuthenticatedUser).toHaveBeenCalledTimes(1)
+    expect(fixture.resolveAuthenticatedUser).toHaveBeenCalledWith(
+      expect.any(Headers),
+      { classifyAdminAuthorityLoss: true }
+    )
     expect(fixture.assertCapability).toHaveBeenCalledTimes(1)
     expect(fixture.consume).toHaveBeenCalledWith({
       actorId: adminUser.id,
@@ -182,6 +194,42 @@ describe('Phase 7 Slice 2 ADMIN read routing', () => {
     expect(apiFailureSchema.parse(await response.json()).code).toBe(
       'ADMIN_REQUIRED'
     )
+    expect(fixture.assertCapability).not.toHaveBeenCalled()
+    expect(fixture.consume).not.toHaveBeenCalled()
+    expect(fixture.reader.listQuestions).not.toHaveBeenCalled()
+  })
+
+  it('권한 상실 evidence는 ADMIN_REQUIRED 403으로 분류한다', async () => {
+    const fixture = createFixture({
+      adminAuthorityFailure: 'ADMIN_REQUIRED',
+      clearSessionCookie: true,
+      user: null
+    })
+    const response = await fixture.app.request('/api/v1/admin/questions')
+
+    expect(response.status).toBe(403)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'ADMIN_REQUIRED'
+    )
+    expect(fixture.assertCapability).not.toHaveBeenCalled()
+    expect(fixture.consume).not.toHaveBeenCalled()
+    expect(fixture.reader.listQuestions).not.toHaveBeenCalled()
+  })
+
+  it('권한 분류 조회 실패는 capability/rate/reader 전 503으로 닫는다', async () => {
+    const fixture = createFixture({
+      resolutionError: new Error('classifier unavailable'),
+      user: null
+    })
+    const response = await fixture.app.request('/api/v1/admin/questions')
+    const body = apiFailureSchema.parse(await response.json())
+
+    expect(response.status).toBe(503)
+    expect(body).toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      retryable: true
+    })
+    expect(response.headers.get('Retry-After')).toBe('5')
     expect(fixture.assertCapability).not.toHaveBeenCalled()
     expect(fixture.consume).not.toHaveBeenCalled()
     expect(fixture.reader.listQuestions).not.toHaveBeenCalled()

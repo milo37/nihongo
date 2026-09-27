@@ -56,7 +56,9 @@ const phase5Slice1Migrations = [
 ] as const
 const phase7Slice1Migrations = [
   '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation'
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation'
 ] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
@@ -1614,7 +1616,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(29)
+      expect(await readLedger(context)).toHaveLength(31)
 
       const currentRuntimeWithPhase4Path = createDatabaseRuntime(
         context.databaseUrl
@@ -1623,7 +1625,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         await currentRuntimeWithPhase4Path.checkReadiness()
         // The repository and service are unchanged from 6116b9d. The raw
         // 25-manifest binary is intentionally fenced above; this probes the
-        // reviewed Phase 4 business path under the 29-manifest readiness.
+        // reviewed Phase 4 business path under the 31-manifest readiness.
         const phase4SubmissionService = createStudySubmissionService(
           createPrismaStudySubmissionRepository(
             currentRuntimeWithPhase4Path.client
@@ -2647,7 +2649,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(29)
+      expect(await readLedger(context)).toHaveLength(31)
 
       const runtime = createDatabaseRuntime(context.databaseUrl)
       try {

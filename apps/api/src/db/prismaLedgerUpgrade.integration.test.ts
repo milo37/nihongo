@@ -58,7 +58,9 @@ const FORWARD_MIGRATIONS = [
   '20260821151000_phase5_targeted_review_operation',
   '20260821152000_phase5_review_center_foundation',
   '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation'
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation'
 ] as const
 
 const environment = parseApiEnvironment(process.env)

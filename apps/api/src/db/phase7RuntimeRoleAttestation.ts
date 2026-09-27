@@ -17,6 +17,8 @@ interface RuntimeRoleEvidence {
   groupCreateRole: boolean
   groupDirectGrants: string[]
   groupInherit: boolean
+  groupSensitiveColumnAclCount: number
+  groupSensitiveTableAclCount: number
   groupReplication: boolean
   groupSuperuser: boolean
   databaseOwner: string
@@ -91,6 +93,8 @@ const ATTESTATION_QUERY = `
     group_role.rolreplication AS "groupReplication",
     group_role.rolbypassrls AS "groupBypassRls",
     group_role.rolinherit AS "groupInherit",
+    group_acl."groupSensitiveColumnAclCount" AS "groupSensitiveColumnAclCount",
+    group_acl."groupSensitiveTableAclCount" AS "groupSensitiveTableAclCount",
     wrapper_acl."sessionUserCurrentDatabaseConnectAclCount" AS "sessionUserCurrentDatabaseConnectAclCount",
     wrapper_acl."sessionUserOtherDirectAclCount" AS "sessionUserOtherDirectAclCount",
     pg_has_role(session_user, current_user, 'SET') AS "sessionUserCanSetRole",
@@ -158,6 +162,46 @@ const ATTESTATION_QUERY = `
          WHERE entry.grantee = session_role.oid)
     )::int AS "sessionUserOtherDirectAclCount"
   ) AS wrapper_acl
+  CROSS JOIN LATERAL (
+    SELECT
+      (SELECT count(*)::int
+       FROM pg_class AS sensitive_relation
+       JOIN pg_namespace AS sensitive_namespace
+         ON sensitive_namespace.oid = sensitive_relation.relnamespace
+       JOIN pg_attribute AS sensitive_column
+         ON sensitive_column.attrelid = sensitive_relation.oid
+       WHERE sensitive_namespace.nspname = current_schema()
+         AND sensitive_relation.relname = ANY(ARRAY[
+           'User', 'Account', 'Session', 'AuthSessionFamily',
+           'AuthSessionRotationFence',
+           'Phase7ReauthenticationIntent',
+           'Phase7AuthorityRevocationEvidence'
+         ]::name[])
+         AND sensitive_column.attnum > 0
+         AND NOT sensitive_column.attisdropped
+         AND has_column_privilege(
+           current_user,
+           sensitive_relation.oid,
+           sensitive_column.attnum,
+           'SELECT,INSERT,UPDATE,REFERENCES'
+         )) AS "groupSensitiveColumnAclCount",
+      (SELECT count(*)::int
+       FROM pg_class AS sensitive_relation
+       JOIN pg_namespace AS sensitive_namespace
+         ON sensitive_namespace.oid = sensitive_relation.relnamespace
+       WHERE sensitive_namespace.nspname = current_schema()
+         AND sensitive_relation.relname = ANY(ARRAY[
+           'User', 'Account', 'Session', 'AuthSessionFamily',
+           'AuthSessionRotationFence',
+           'Phase7ReauthenticationIntent',
+           'Phase7AuthorityRevocationEvidence'
+         ]::name[])
+         AND has_table_privilege(
+           current_user,
+           sensitive_relation.oid,
+           'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+         )) AS "groupSensitiveTableAclCount"
+  ) AS group_acl
   CROSS JOIN LATERAL (
     SELECT
       count(*) FILTER (
@@ -311,6 +355,8 @@ const assertEndpoint = (
     !evidence.groupReplication &&
     !evidence.groupBypassRls &&
     !evidence.groupInherit &&
+    evidence.groupSensitiveColumnAclCount === 0 &&
+    evidence.groupSensitiveTableAclCount === 0 &&
     evidence.databaseOwner === 'nihongo_phase7_migration' &&
     evidence.schemaOwner === 'nihongo_phase7_owner' &&
     evidence.sessionReplicationRole === 'origin' &&

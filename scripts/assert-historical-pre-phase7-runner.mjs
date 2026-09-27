@@ -4,7 +4,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const PHASE7_MIGRATION_DIRECTORIES = Object.freeze([
   '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation'
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation'
 ])
 
 export const HISTORICAL_RUNNER_ERROR =

@@ -5,10 +5,11 @@ import {
 } from '@nihongo/contracts/common/error'
 import {
   buildPhase7OperationFailureResponse,
+  phase7ErrorSurfaceByOperation,
   type Phase7Operation,
   type Phase7OperationFailureResponse
 } from '@nihongo/contracts/admin/phase7'
-import { Hono } from 'hono'
+import { Hono, type ErrorHandler } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { cors } from 'hono/cors'
 import { routePath } from 'hono/route'
@@ -52,9 +53,14 @@ import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessi
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
+import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
+import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
+import type { AdminQuestionCommandService } from '../admin/adminQuestionCommandService.js'
 import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
+import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommands.js'
 import {
-  getCanonicalPhase7Slice2ReadOperation,
+  getCanonicalPhase7ActiveOperation,
+  isCanonicalPhase7ActiveRequest,
   isCanonicalPhase7Slice2ReadRequest,
   isPhase7ExcludedRequest
 } from './phase7PrefixExclusion.js'
@@ -105,6 +111,10 @@ interface CreateApiAppDependencies {
   }
   admin?: {
     assertCapability: () => void | Promise<void>
+    commands?: {
+      rateLimiter: AdminCommandRateLimiter
+      service: AdminQuestionCommandService
+    }
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
   }
@@ -173,7 +183,7 @@ const toFailure = (error: unknown, requestId: string): ApiFailure => {
   })
 }
 
-const buildCanonicalPhase7ReadFailure = ({
+const buildCanonicalPhase7Failure = ({
   error,
   failure,
   operation
@@ -191,6 +201,12 @@ const buildCanonicalPhase7ReadFailure = ({
         ? error.retryAfterSeconds
         : retryAfterSecondsByCode[failure.code]
       : undefined
+  const disposition =
+    error instanceof ApplicationError && error.phase7Disposition
+      ? error.phase7Disposition
+      : phase7ErrorSurfaceByOperation[operation] === 'GET_READ'
+        ? 'NO_TX'
+        : 'COMMIT_UNKNOWN'
   try {
     return {
       response: buildPhase7OperationFailureResponse({
@@ -203,7 +219,10 @@ const buildCanonicalPhase7ReadFailure = ({
             : { fieldErrors: failure.fieldErrors }),
           requestId: failure.requestId
         },
-        disposition: 'NO_TX',
+        disposition,
+        ...(error instanceof ApplicationError && error.phase7InternalReason
+          ? { internalReason: error.phase7InternalReason }
+          : {}),
         ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds })
       }),
       contractViolation: false
@@ -217,12 +236,107 @@ const buildCanonicalPhase7ReadFailure = ({
           message: '요청을 처리하지 못했습니다.',
           requestId: failure.requestId
         },
-        disposition: 'NO_TX'
+        disposition:
+          phase7ErrorSurfaceByOperation[operation] === 'GET_READ'
+            ? 'NO_TX'
+            : disposition
       }),
       contractViolation: true
     }
   }
 }
+
+export const createApiErrorHandler =
+  ({
+    authEnvironment,
+    logger,
+    phase7OperationResolver = getCanonicalPhase7ActiveOperation
+  }: {
+    authEnvironment?: ApiEnvironment
+    logger: StructuredLogger
+    phase7OperationResolver?: typeof getCanonicalPhase7ActiveOperation
+  }): ErrorHandler<{ Variables: ApiVariables }> =>
+  (error, context) => {
+    const requestId = context.get('requestId')
+    let failure = toFailure(error, requestId)
+    let status = errorStatusByCode[failure.code]
+    const operation = phase7OperationResolver({
+      method: context.req.method,
+      requestTarget: context.get('rawRequestTarget')
+    })
+    const phase7Failure =
+      operation === null
+        ? null
+        : buildCanonicalPhase7Failure({ error, failure, operation })
+    if (phase7Failure !== null) {
+      failure = phase7Failure.response.body
+      status = phase7Failure.response.status
+    }
+    const pathname = new URL(context.req.url).pathname
+
+    logger.error('http.request.failed', {
+      requestId,
+      method: context.req.method,
+      path: routePath(context, -1),
+      status,
+      code: failure.code,
+      errorName: error.name,
+      ...(phase7Failure?.contractViolation === true
+        ? { phase7ContractViolation: true }
+        : {})
+    })
+    if (phase7Failure === null) {
+      context.header('Cache-Control', 'private, no-store')
+      context.header('X-Request-Id', requestId)
+    } else {
+      Object.entries(phase7Failure.response.headers).forEach(([name, value]) =>
+        context.header(name, value)
+      )
+    }
+
+    const origin = context.req.header('Origin')
+    if (
+      authEnvironment &&
+      pathname.startsWith('/api/auth/') &&
+      authEnvironment.NODE_ENV !== 'production' &&
+      origin &&
+      authEnvironment.TRUSTED_ORIGINS.includes(origin)
+    ) {
+      context.header('Access-Control-Allow-Credentials', 'true')
+      context.header('Access-Control-Allow-Origin', origin)
+      context.header(
+        'Access-Control-Expose-Headers',
+        'Retry-After, X-Request-Id'
+      )
+      context.header('Vary', 'Origin')
+    }
+
+    if (
+      phase7Failure === null &&
+      (failure.code === 'RATE_LIMITED' ||
+        failure.code === 'SERVICE_UNAVAILABLE')
+    ) {
+      context.header(
+        'Retry-After',
+        String(
+          error instanceof ApplicationError && error.retryAfterSeconds
+            ? error.retryAfterSeconds
+            : retryAfterSecondsByCode[failure.code]
+        )
+      )
+    }
+
+    if (
+      failure.code === 'SESSION_ALREADY_SUBMITTED' &&
+      error instanceof ApplicationError &&
+      error.location &&
+      studyResultLocationPattern.test(error.location)
+    ) {
+      context.header('Location', error.location)
+    }
+
+    return context.json(failure, status)
+  }
 
 export const createApiApp = ({
   admin,
@@ -258,10 +372,15 @@ export const createApiApp = ({
     if (
       admin &&
       auth?.environment.ADMIN_CMS_MODE === 'technical' &&
-      isCanonicalPhase7Slice2ReadRequest({
+      (isCanonicalPhase7Slice2ReadRequest({
         method: context.req.method,
         requestTarget
-      })
+      }) ||
+        (admin.commands !== undefined &&
+          isCanonicalPhase7ActiveRequest({
+            method: context.req.method,
+            requestTarget
+          })))
     ) {
       await next()
       return
@@ -376,6 +495,20 @@ export const createApiApp = ({
           reader: admin.reader
         })
       )
+      if (admin.commands) {
+        app.route(
+          '/api/v1/admin',
+          createAdminQuestionCommandRoutes({
+            commandService: admin.commands.service,
+            guard: createAdminCommandGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.commands.rateLimiter
+            })
+          })
+        )
+      }
     }
     if (assertPracticeRuntimeAuthority) {
       app.use('/api/v1/*', async (context, next) => {
@@ -541,87 +674,12 @@ export const createApiApp = ({
     return context.json(failure, 404)
   })
 
-  app.onError((error, context) => {
-    const requestId = context.get('requestId')
-    let failure = toFailure(error, requestId)
-    let status = errorStatusByCode[failure.code]
-    const operation = getCanonicalPhase7Slice2ReadOperation({
-      method: context.req.method,
-      requestTarget: context.get('rawRequestTarget')
+  app.onError(
+    createApiErrorHandler({
+      ...(auth ? { authEnvironment: auth.environment } : {}),
+      logger
     })
-    const phase7Failure =
-      operation === null
-        ? null
-        : buildCanonicalPhase7ReadFailure({ error, failure, operation })
-    if (phase7Failure !== null) {
-      failure = phase7Failure.response.body
-      status = phase7Failure.response.status
-    }
-    const pathname = new URL(context.req.url).pathname
-
-    logger.error('http.request.failed', {
-      requestId,
-      method: context.req.method,
-      path: routePath(context, -1),
-      status,
-      code: failure.code,
-      errorName: error.name,
-      ...(phase7Failure?.contractViolation === true
-        ? { phase7ContractViolation: true }
-        : {})
-    })
-    if (phase7Failure === null) {
-      context.header('Cache-Control', 'private, no-store')
-      context.header('X-Request-Id', requestId)
-    } else {
-      Object.entries(phase7Failure.response.headers).forEach(([name, value]) =>
-        context.header(name, value)
-      )
-    }
-
-    const origin = context.req.header('Origin')
-    if (
-      auth &&
-      pathname.startsWith('/api/auth/') &&
-      auth.environment.NODE_ENV !== 'production' &&
-      origin &&
-      auth.environment.TRUSTED_ORIGINS.includes(origin)
-    ) {
-      context.header('Access-Control-Allow-Credentials', 'true')
-      context.header('Access-Control-Allow-Origin', origin)
-      context.header(
-        'Access-Control-Expose-Headers',
-        'Retry-After, X-Request-Id'
-      )
-      context.header('Vary', 'Origin')
-    }
-
-    if (
-      phase7Failure === null &&
-      (failure.code === 'RATE_LIMITED' ||
-        failure.code === 'SERVICE_UNAVAILABLE')
-    ) {
-      context.header(
-        'Retry-After',
-        String(
-          error instanceof ApplicationError && error.retryAfterSeconds
-            ? error.retryAfterSeconds
-            : retryAfterSecondsByCode[failure.code]
-        )
-      )
-    }
-
-    if (
-      failure.code === 'SESSION_ALREADY_SUBMITTED' &&
-      error instanceof ApplicationError &&
-      error.location &&
-      studyResultLocationPattern.test(error.location)
-    ) {
-      context.header('Location', error.location)
-    }
-
-    return context.json(failure, status)
-  })
+  )
 
   return app
 }

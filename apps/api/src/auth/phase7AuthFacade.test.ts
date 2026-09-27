@@ -1100,6 +1100,7 @@ describe('Phase 7 owned auth facade', () => {
     const signInCookie = createPhase7SessionCookie({
       expiresAt: new Date(Date.now() + 60_000),
       isProduction: false,
+      rememberMe: true,
       secret: environment.BETTER_AUTH_SECRET,
       token: 'owned-token'
     }).split(';')[0]!
@@ -1132,6 +1133,7 @@ describe('Phase 7 owned auth facade', () => {
     const cookie = createPhase7SessionCookie({
       expiresAt: new Date(Date.now() + 60_000),
       isProduction: false,
+      rememberMe: true,
       secret: environment.BETTER_AUTH_SECRET,
       token: 'change-token'
     }).split(';')[0]!

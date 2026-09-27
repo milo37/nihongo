@@ -47,9 +47,9 @@ const QUESTION_PREVIEW_MAX_LENGTH = 160
 const toIso = (value: Date): string => value.toISOString()
 
 const createQuestionTextPreview = (value: string): string => {
-  const scalars = [...value]
+  const scalars = [...value.replaceAll('\n', ' ')]
   return scalars.length <= QUESTION_PREVIEW_MAX_LENGTH
-    ? value
+    ? scalars.join('')
     : `${scalars.slice(0, QUESTION_PREVIEW_MAX_LENGTH - 3).join('')}...`
 }
 

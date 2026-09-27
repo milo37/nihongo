@@ -34,12 +34,28 @@ interface CreatePrincipalServiceDependencies {
 }
 
 export interface PrincipalService {
-  resolveAuthenticatedUser: (headers: Headers) => Promise<{
+  resolveAuthenticatedUser: (
+    headers: Headers,
+    options?: {
+      classifyAdminAuthorityLoss?: boolean
+      refreshRememberedSession?: boolean
+    }
+  ) => Promise<{
+    adminAuthorityFailure?: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
     clearSessionCookie: boolean
     headers: Headers
+    phase7Session?: Phase7AdminSessionProof
     user: AuthenticatedUser | null
   }>
   getAuthenticatedUser: (headers: Headers) => Promise<AuthenticatedUser | null>
+}
+
+export interface Phase7AdminSessionProof {
+  readonly id: string
+  readonly token: string
+  readonly createdAt: Date
+  readonly expiresAt: Date
+  readonly isFresh: boolean
 }
 
 export const createPrincipalService = ({
@@ -128,6 +144,7 @@ interface Phase7PrincipalRow {
   sessionId: string
   createdAt: Date
   expiresAt: Date
+  isFresh: boolean
 }
 
 interface Phase7RememberedSessionRefreshRow {
@@ -135,6 +152,10 @@ interface Phase7RememberedSessionRefreshRow {
   updatedAt: Date
   expiresAt: Date
   refreshed: boolean
+}
+
+interface Phase7AdminAuthorityFailureRow {
+  outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
 }
 
 export const createPhase7PrincipalService = ({
@@ -149,7 +170,7 @@ export const createPhase7PrincipalService = ({
   secret: string
 }): PrincipalService => {
   const resolveAuthenticatedUser: PrincipalService['resolveAuthenticatedUser'] =
-    async (headers) => {
+    async (headers, options = {}) => {
       const credential = readPhase7SessionToken({
         cookieHeader: headers.get('Cookie'),
         isProduction,
@@ -163,12 +184,15 @@ export const createPhase7PrincipalService = ({
         }
       }
 
-      const refreshRows = await refreshClient.$queryRawUnsafe<
-        Phase7RememberedSessionRefreshRow[]
-      >(
-        'SELECT * FROM "phase7_refresh_current_remembered_session"($1)',
-        credential.token
-      )
+      const refreshRows =
+        options.refreshRememberedSession === false
+          ? []
+          : await refreshClient.$queryRawUnsafe<
+              Phase7RememberedSessionRefreshRow[]
+            >(
+              'SELECT * FROM "phase7_refresh_current_remembered_session"($1)',
+              credential.token
+            )
       if (refreshRows.length > 1) {
         return {
           clearSessionCookie: true,
@@ -178,11 +202,36 @@ export const createPhase7PrincipalService = ({
       }
 
       const rows = await client.$queryRawUnsafe<Phase7PrincipalRow[]>(
-        'SELECT * FROM "phase7_resolve_v1_principal"($1)',
+        `SELECT principal.*,
+           principal."createdAt" + INTERVAL '5 minutes' > clock_timestamp()
+             AS "isFresh"
+         FROM "phase7_resolve_v1_principal"($1) AS principal`,
         credential.token
       )
       if (rows.length !== 1) {
+        let adminAuthorityFailure:
+          | Phase7AdminAuthorityFailureRow['outcome']
+          | undefined
+        if (options.classifyAdminAuthorityLoss) {
+          const authorityRows = await client.$queryRawUnsafe<
+            Phase7AdminAuthorityFailureRow[]
+          >(
+            'SELECT * FROM "phase7_classify_admin_authority"($1)',
+            credential.token
+          )
+          const outcome = authorityRows[0]?.outcome
+          if (
+            authorityRows.length !== 1 ||
+            (outcome !== 'ADMIN_REQUIRED' && outcome !== 'AUTH_SESSION_EXPIRED')
+          ) {
+            throw new Error('Phase 7 ADMIN authority classification failed.')
+          }
+          adminAuthorityFailure = outcome
+        }
         return {
+          ...(adminAuthorityFailure === undefined
+            ? {}
+            : { adminAuthorityFailure }),
           clearSessionCookie: true,
           headers: new Headers(),
           user: null
@@ -205,6 +254,7 @@ export const createPhase7PrincipalService = ({
           createPhase7SessionCookie({
             expiresAt: refresh.expiresAt,
             isProduction,
+            rememberMe: true,
             now: refresh.updatedAt,
             secret,
             token: credential.token
@@ -214,6 +264,13 @@ export const createPhase7PrincipalService = ({
       return {
         clearSessionCookie: false,
         headers: responseHeaders,
+        phase7Session: {
+          id: row.sessionId,
+          token: credential.token,
+          createdAt: row.createdAt,
+          expiresAt: row.expiresAt,
+          isFresh: row.isFresh
+        },
         user: authenticatedUserSchema.parse({
           id: row.userId,
           name: row.name,

@@ -1,7 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
+import { reauthenticateAdminResponseSchema } from '@nihongo/contracts/admin/phase7'
+import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
+import { hashPassword } from 'better-auth/crypto'
+import { Hono } from 'hono'
 import {
   copyFileSync,
   cpSync,
@@ -22,8 +26,25 @@ import {
   type SeedQuestionCatalogResult
 } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
+import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
+import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
+import { createApiErrorHandler } from '../app/createApp.js'
+import { createPhase7ReauthenticationAuthApi } from '../auth/createPhase7ReauthenticationAuth.js'
+import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
+import { createPhase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
+import { createPhase7SessionCookie } from '../auth/phase7SessionCookie.js'
+import { createPhase7PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
+import { createRoleDatabaseRuntime } from './database.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
+import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  requestContext,
+  type ApiVariables
+} from '../middleware/requestContext.js'
+import { createJsonLogger } from '../observability/logger.js'
+import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
+import { createPrincipalRoutes } from '../routes/principal.js'
 import {
   assertMigrationCompatibility,
   loadExpectedMigrationManifest,
@@ -37,7 +58,9 @@ const sourceMigrationsDirectory = join(apiRoot, 'prisma', 'migrations')
 const prismaBinary = join(apiRoot, 'node_modules', '.bin', 'prisma')
 const PHASE7_MIGRATIONS = [
   '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation'
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation'
 ] as const
 const PHASE6_SEMANTIC_DIGEST =
   'a180a0ea8dac51200b533fbe99624036fc19984be9cfbdd0c972c624e764444c'
@@ -59,6 +82,10 @@ assertSafeAdminCmsDatabase({
   databaseUrl: environment.DATABASE_URL,
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
+const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+if (!authGatewayDatabaseUrl) {
+  throw new Error('Phase 7 upgrade auth-gateway database URL is required.')
+}
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
   throw new Error('Phase 7 upgrade admin database URL is required.')
@@ -127,6 +154,293 @@ const quoteIdentifier = (value: string): string => {
     throw new Error('Unsafe Phase 7 canonical migration identifier.')
   }
   return `"${value}"`
+}
+
+const withUpgradeSchema = (rawUrl: string, schemaName: string): string => {
+  const url = new URL(rawUrl)
+  url.searchParams.set('schema', schemaName)
+  url.searchParams.delete('options')
+  return url.toString()
+}
+
+const exerciseUpgradedRealReauthentication = async (
+  context: IsolatedUpgradeSchema,
+  migrationClient: Client
+): Promise<void> => {
+  const endpoint = await context.adminClient.query<{
+    databaseName: string
+    serverAddress: string
+    serverPort: number
+  }>(
+    `SELECT current_database() AS "databaseName",
+       inet_server_addr()::text AS "serverAddress",
+       inet_server_port() AS "serverPort"`
+  )
+  const target = endpoint.rows[0]
+  if (!target) throw new Error('Upgrade DB endpoint is unavailable.')
+  await migrationClient.query(
+    `SELECT "phase7_register_database_capability"(
+      $1, $2::inet, $3, 'TEST'
+    )`,
+    [target.databaseName, target.serverAddress, target.serverPort]
+  )
+
+  const userId = randomUUID()
+  const accountId = randomUUID()
+  const sessionId = randomUUID()
+  const requestId = randomUUID()
+  const rawOldToken = `phase7-upgrade-old-${randomUUID()}`
+  const email = `phase7-upgrade-reauth-${randomUUID()}@example.test`
+  const password = 'Phase7-upgrade-real-reauthentication-2026!'
+  const passwordHash = await hashPassword(password)
+  await context.adminClient.query(
+    `INSERT INTO "User" (
+       "id", "name", "email", "emailVerified", "role",
+       "accountStatus", "createdAt", "updatedAt"
+     ) VALUES (
+       $1, 'Phase 7 upgrade reauthentication', $2, true, 'ADMIN',
+       'ACTIVE', clock_timestamp(), clock_timestamp()
+     )`,
+    [userId, email]
+  )
+  await context.adminClient.query(
+    `INSERT INTO "Account" (
+       "id", "accountId", "providerId", "userId", "password",
+       "createdAt", "updatedAt"
+     ) VALUES (
+       $1, $2::uuid::text, 'credential', $2, $3,
+       clock_timestamp(), clock_timestamp()
+     )`,
+    [accountId, userId, passwordHash]
+  )
+  await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+
+  const applicationRuntime = createRoleDatabaseRuntime(
+    withUpgradeSchema(environment.DATABASE_URL, context.schemaName),
+    'nihongo_app'
+  )
+  const authGatewayRuntime = createRoleDatabaseRuntime(
+    withUpgradeSchema(authGatewayDatabaseUrl, context.schemaName),
+    'nihongo_auth_gateway'
+  )
+  try {
+    const issued = await authGatewayRuntime.client.$queryRawUnsafe<
+      Array<{ expiresAt: Date; familyId: string }>
+    >(
+      `SELECT * FROM "phase7_issue_v1_session"(
+        $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
+        '127.0.0.1', 'phase7-upgrade-reauthentication', false
+      )`,
+      userId,
+      sessionId,
+      rawOldToken
+    )
+    const issuedSession = issued[0]
+    if (!issuedSession || issued.length !== 1) {
+      throw new Error('Upgrade DB V1 Session was not issued.')
+    }
+    const oldSessionCookie = createPhase7SessionCookie({
+      expiresAt: issuedSession.expiresAt,
+      isProduction: false,
+      rememberMe: false,
+      secret: environment.BETTER_AUTH_SECRET,
+      token: rawOldToken
+    })
+    const oldCookieHeader = oldSessionCookie.split(';')[0]
+    if (!oldCookieHeader) {
+      throw new Error('Upgrade DB old Session cookie is unavailable.')
+    }
+
+    let finalizeResponseLost = false
+    const recoveryQuery = async <QueryResult>(
+      query: string,
+      ...values: unknown[]
+    ): Promise<QueryResult> => {
+      const result =
+        await authGatewayRuntime.client.$queryRawUnsafe<QueryResult>(
+          query,
+          ...values
+        )
+      if (
+        !finalizeResponseLost &&
+        query.includes('phase7_finalize_reauthentication')
+      ) {
+        finalizeResponseLost = true
+        throw new Error('injected committed finalizer response loss')
+      }
+      return result
+    }
+    const recoveryClient = {
+      $queryRawUnsafe: recoveryQuery
+    } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>
+    const reauthenticationContext = createPhase7ReauthenticationContext()
+    const realAuthApi = createPhase7ReauthenticationAuthApi({
+      client: authGatewayRuntime.client,
+      context: reauthenticationContext,
+      environment
+    })
+    let betterAuthCookies: readonly string[] = []
+    const service = createAdminReauthenticationService({
+      auditEnvironment: 'TEST',
+      authApi: {
+        verifyPassword: async (input) =>
+          await realAuthApi.verifyPassword(input),
+        signInEmail: async (input) => {
+          const result = await realAuthApi.signInEmail(input)
+          betterAuthCookies = result.headers.getSetCookie()
+          return result
+        }
+      },
+      client: recoveryClient,
+      context: reauthenticationContext
+    })
+    const principalService = createPhase7PrincipalService({
+      client: applicationRuntime.client,
+      isProduction: false,
+      refreshClient: authGatewayRuntime.client,
+      secret: environment.BETTER_AUTH_SECRET
+    })
+    const resolveDormantReauthentication = ({
+      method,
+      requestTarget
+    }: {
+      method: string
+      requestTarget: string
+    }) =>
+      method === 'POST' &&
+      requestTarget.split('?', 1)[0] === '/api/v1/admin/reauthentication'
+        ? ('reauthenticateAdmin' as const)
+        : null
+    type UpgradeTestEnvironment = { Variables: ApiVariables }
+    const app = new Hono<UpgradeTestEnvironment>()
+    app.use('*', requestContext)
+    app.use('*', async (honoContext, next) => {
+      const url = new URL(honoContext.req.url)
+      honoContext.set('rawRequestTarget', `${url.pathname}${url.search}`)
+      await next()
+    })
+    app.route(
+      '/api/v1/admin',
+      createAdminReauthenticationRoutes({
+        guard: createAdminCommandGuard({
+          assertCapability: () => undefined,
+          environment,
+          operationResolver: resolveDormantReauthentication,
+          principalService,
+          rateLimiter: { consume: async () => undefined }
+        }),
+        service
+      })
+    )
+    app.route(
+      '/api/v1',
+      createPrincipalRoutes({
+        environment,
+        guestPrincipalService: createGuestPrincipalService({
+          client: applicationRuntime.client,
+          secret: environment.GUEST_COOKIE_SECRET
+        }),
+        principalService
+      })
+    )
+    app.onError(
+      createApiErrorHandler({
+        authEnvironment: environment,
+        logger: createJsonLogger('silent'),
+        phase7OperationResolver: resolveDormantReauthentication
+      })
+    )
+
+    const response = await app.request(
+      'http://localhost:3001/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: oldCookieHeader,
+          Origin: environment.TRUSTED_ORIGINS[0]!,
+          'Sec-Fetch-Site': 'same-origin',
+          'User-Agent': 'phase7-upgrade-reauthentication',
+          'X-Request-Id': requestId
+        },
+        body: JSON.stringify({ password })
+      }
+    )
+    expect(response.status).toBe(200)
+    expect(finalizeResponseLost).toBe(true)
+    const output = reauthenticateAdminResponseSchema.parse(
+      await response.json()
+    )
+    expect(new Date(output.assuranceExpiresAt).getTime()).toBe(
+      new Date(output.reauthenticatedAt).getTime() + 5 * 60_000
+    )
+    const responseCookies = response.headers.getSetCookie()
+    expect(responseCookies).toEqual(betterAuthCookies)
+    expect(responseCookies).toHaveLength(2)
+
+    const newCookieHeader = responseCookies
+      .map((cookie) => cookie.split(';')[0])
+      .filter((cookie): cookie is string => cookie !== undefined)
+      .join('; ')
+    const oldPrincipal = await app.request('http://localhost:3001/api/v1/me', {
+      headers: { Cookie: oldCookieHeader }
+    })
+    const newPrincipal = await app.request('http://localhost:3001/api/v1/me', {
+      headers: { Cookie: newCookieHeader }
+    })
+    expect(
+      getCurrentPrincipalResponseSchema.parse(await oldPrincipal.json())
+    ).toEqual({ kind: 'GUEST' })
+    expect(
+      getCurrentPrincipalResponseSchema.parse(await newPrincipal.json())
+    ).toMatchObject({ kind: 'USER', user: { id: userId, role: 'ADMIN' } })
+
+    const proof = await context.adminClient.query<{
+      auditCount: number
+      fenceCount: number
+      intentState: string
+      oldSessionCount: number
+      replacementCount: number
+      trustedExecutionCount: number
+    }>(
+      `SELECT
+         (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
+           AS "oldSessionCount",
+         (SELECT COUNT(*)::int
+          FROM "Phase7ReauthenticationIntent" AS intent
+          JOIN "Session" AS session ON session."id" = intent."stagedSessionId"
+          WHERE intent."requestId" = $2
+            AND session."authorizationState" = 'ACTIVE')
+           AS "replacementCount",
+         (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
+          WHERE "requestId" = $2) AS "intentState",
+         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
+          JOIN "Phase7ReauthenticationIntent" AS intent
+            ON intent."operationId" = fence."operationId"
+          WHERE intent."requestId" = $2) AS "fenceCount",
+         (SELECT COUNT(*)::int FROM "AdminAuditLog"
+          WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
+           AS "auditCount",
+         (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+           AS "trustedExecutionCount"`,
+      [sessionId, requestId]
+    )
+    expect(proof.rows).toEqual([
+      {
+        auditCount: 1,
+        fenceCount: 1,
+        intentState: 'FINALIZED',
+        oldSessionCount: 0,
+        replacementCount: 1,
+        trustedExecutionCount: 0
+      }
+    ])
+  } finally {
+    await Promise.all([
+      applicationRuntime.disconnect(),
+      authGatewayRuntime.disconnect()
+    ])
+  }
 }
 
 const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
@@ -913,6 +1227,139 @@ const readLedger = async (
   return result.rows
 }
 
+interface OperationManifestVerifierCatalog {
+  readonly acl: string | null
+  readonly appCanExecute: boolean
+  readonly argumentCount: number
+  readonly argumentTypes: string
+  readonly authCanExecute: boolean
+  readonly config: string[] | null
+  readonly erasureCanExecute: boolean
+  readonly identityArguments: string
+  readonly isSecurityDefiner: boolean
+  readonly languageName: string
+  readonly migrationCanExecute: boolean
+  readonly objectId: string
+  readonly ownerCanExecute: boolean
+  readonly ownerName: string
+  readonly publicCanExecute: boolean
+  readonly resultType: string
+}
+
+const readOperationManifestVerifierCatalog = async (
+  context: IsolatedUpgradeSchema
+): Promise<OperationManifestVerifierCatalog> => {
+  const result =
+    await context.adminClient.query<OperationManifestVerifierCatalog>(
+      `SELECT procedure_record.oid::text AS "objectId",
+         owner_role.rolname AS "ownerName",
+         language_record.lanname AS "languageName",
+         procedure_record.pronargs::int AS "argumentCount",
+         procedure_record.proargtypes::text AS "argumentTypes",
+         pg_catalog.pg_get_function_identity_arguments(procedure_record.oid)
+           AS "identityArguments",
+         pg_catalog.pg_get_function_result(procedure_record.oid) AS "resultType",
+         procedure_record.prosecdef AS "isSecurityDefiner",
+         procedure_record.proconfig::text[] AS config,
+         procedure_record.proacl::text AS acl,
+         pg_catalog.has_function_privilege(
+           'nihongo_phase7_owner', procedure_record.oid, 'EXECUTE'
+         ) AS "ownerCanExecute",
+         pg_catalog.has_function_privilege(
+           'nihongo_phase7_migration', procedure_record.oid, 'EXECUTE'
+         ) AS "migrationCanExecute",
+         pg_catalog.has_function_privilege(
+           'nihongo_app', procedure_record.oid, 'EXECUTE'
+         ) AS "appCanExecute",
+         pg_catalog.has_function_privilege(
+           'nihongo_auth_gateway', procedure_record.oid, 'EXECUTE'
+         ) AS "authCanExecute",
+         pg_catalog.has_function_privilege(
+           'nihongo_erasure_worker', procedure_record.oid, 'EXECUTE'
+         ) AS "erasureCanExecute",
+         EXISTS (
+           SELECT 1
+           FROM pg_catalog.aclexplode(COALESCE(
+             procedure_record.proacl,
+             pg_catalog.acldefault('f', procedure_record.proowner)
+           )) AS permission
+           WHERE permission.grantee = 0
+             AND permission.privilege_type = 'EXECUTE'
+         ) AS "publicCanExecute"
+       FROM pg_catalog.pg_proc AS procedure_record
+       JOIN pg_catalog.pg_namespace AS namespace_record
+         ON namespace_record.oid = procedure_record.pronamespace
+       JOIN pg_catalog.pg_roles AS owner_role
+         ON owner_role.oid = procedure_record.proowner
+       JOIN pg_catalog.pg_language AS language_record
+         ON language_record.oid = procedure_record.prolang
+       WHERE namespace_record.nspname = $1
+         AND procedure_record.proname = 'phase7_verify_operation_manifest'
+         AND procedure_record.proargtypes = '2950'::pg_catalog.oidvector`,
+      [context.schemaName]
+    )
+  const catalog = result.rows[0]
+  if (!catalog || result.rows.length !== 1) {
+    throw new Error('Phase 7 operation manifest verifier catalog is not exact.')
+  }
+  return catalog
+}
+
+const expectArchiveEmptyManifestVerifier = async (
+  context: IsolatedUpgradeSchema,
+  expectation: 'accept' | 'reject'
+): Promise<void> => {
+  const operationId = randomUUID()
+  const questionId = randomUUID()
+  await context.adminClient.query('BEGIN')
+  try {
+    await context.adminClient.query(
+      `SET LOCAL session_replication_role = replica`
+    )
+    await context.adminClient.query(
+      `INSERT INTO ${context.quotedSchemaName}."Phase7OperationIntent" (
+         "operationId", "requestId", "command", "referencedUserIds",
+         "targetManifest", "requiresFresh", "environment", "occurredAt",
+         "backendPid", "transactionId"
+       ) VALUES (
+         $1, $2, 'QUESTION_ARCHIVE', ARRAY[]::uuid[], $3::jsonb,
+         false, 'TEST', clock_timestamp(), pg_backend_pid(), txid_current()
+       )`,
+      [
+        operationId,
+        randomUUID(),
+        JSON.stringify({
+          questions: [{ id: questionId, rowVersion: 1, state: 'ACTIVE' }],
+          reports: [],
+          tags: [],
+          versions: []
+        })
+      ]
+    )
+    await context.adminClient.query(
+      `INSERT INTO ${context.quotedSchemaName}."Phase7OperationDelta" (
+         "operationId", "entityType", "targetId", "questionId", "mutation",
+         "fromState", "toState", "beforeRowVersion", "afterRowVersion"
+       ) VALUES ($1, 'QUESTION', $2, $2, 'UPDATE', 'ACTIVE', 'ARCHIVED', 1, 2)`,
+      [operationId, questionId]
+    )
+    await context.adminClient.query(
+      `SET LOCAL session_replication_role = origin`
+    )
+    const verification = context.adminClient.query(
+      `SELECT ${context.quotedSchemaName}."phase7_verify_operation_manifest"($1)`,
+      [operationId]
+    )
+    if (expectation === 'accept') {
+      await expect(verification).resolves.toMatchObject({ rowCount: 1 })
+    } else {
+      await expect(verification).rejects.toMatchObject({ code: '23514' })
+    }
+  } finally {
+    await context.adminClient.query('ROLLBACK').catch(() => undefined)
+  }
+}
+
 const applyMigrationOnCurrentBackend = async ({
   client,
   migrationName,
@@ -1604,7 +2051,7 @@ const readPhase6SemanticDigest = async (client: Client): Promise<string> => {
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 fresh 29개를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 fresh 31개를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     try {
       // The preceding activation coverage intentionally removes the legacy
@@ -1620,7 +2067,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       }
       await deploy(context)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(29)
+      expect(ledger).toHaveLength(31)
       expect(
         ledger.every(
           ({ finishedAt, logs, rolledBackAt }) =>
@@ -1629,7 +2076,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toBe(true)
       expect(
         ledger
-          .slice(-2)
+          .slice(-4)
           .every(
             ({ finishedAt, rolledBackAt }) =>
               finishedAt !== null && rolledBackAt === null
@@ -1641,7 +2088,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 29)
+      await verifyCanonicalMigrationLedgerAccess(context, 31)
       expect(
         (
           await context.adminClient.query<{
@@ -1685,7 +2132,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
     }
   }, 180_000)
 
-  it('canonical non-super wrapper로 65문항 upgrade를 27→29 byte/row parity로 배포한다', async () => {
+  it('canonical non-super wrapper로 65문항 upgrade를 27→31 byte/row parity로 배포한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     const columnAclRogueRole = `phase7_column_acl_${randomUUID().replaceAll('-', '')}`
     let columnAclRogueCreated = false
@@ -1697,9 +2144,9 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       | Array<{ currentRole: string; pid: number; sessionUser: string }>
       | undefined
     try {
-      expect(repositoryMigrationNames).toHaveLength(29)
+      expect(repositoryMigrationNames).toHaveLength(31)
       expect(phase6MigrationNames).toHaveLength(27)
-      expect(repositoryMigrationNames.slice(-2)).toEqual(PHASE7_MIGRATIONS)
+      expect(repositoryMigrationNames.slice(-4)).toEqual(PHASE7_MIGRATIONS)
 
       for (const migrationName of phase6MigrationNames) {
         copyMigration(migrationName, context.migrationsPath)
@@ -2585,11 +3032,161 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           )
         ).rows
       ).toEqual(sequentialMigrationBackend)
+      const phase7FoundationLedger = await readLedger(context)
+      expect(phase7FoundationLedger).toHaveLength(29)
+      expect(
+        phase7FoundationLedger
+          .slice(-2)
+          .every(
+            ({ finishedAt, rolledBackAt }) =>
+              finishedAt !== null && rolledBackAt === null
+          )
+      ).toBe(true)
+      const verifierCatalogBefore =
+        await readOperationManifestVerifierCatalog(context)
+      expect(verifierCatalogBefore).toMatchObject({
+        acl: expect.any(String),
+        appCanExecute: false,
+        argumentCount: 1,
+        argumentTypes: '2950',
+        authCanExecute: false,
+        config: [`search_path=pg_catalog, ${context.schemaName}, pg_temp`],
+        erasureCanExecute: false,
+        identityArguments: 'operation_id uuid',
+        isSecurityDefiner: true,
+        languageName: 'plpgsql',
+        migrationCanExecute: false,
+        objectId: expect.stringMatching(/^[1-9][0-9]*$/u),
+        ownerCanExecute: true,
+        ownerName: 'nihongo_phase7_owner',
+        publicCanExecute: false,
+        resultType: 'void'
+      })
+      await expectArchiveEmptyManifestVerifier(context, 'reject')
+      const beforeSlice4fDigest = await readPhase6ProjectionDigest(
+        context.adminClient
+      )
+      const archiveVerifierSql = readFileSync(
+        join(sourceMigrationsDirectory, PHASE7_MIGRATIONS[2], 'migration.sql'),
+        'utf8'
+      )
+      await expectTempSearchPathMigrationRejected({
+        context,
+        expectedLedgerCount: 29,
+        migrationSql: archiveVerifierSql
+      })
+      expect(await readLedger(context)).toEqual(phase7FoundationLedger)
+
+      copyMigration(PHASE7_MIGRATIONS[2], context.migrationsPath)
+      await applyMigrationOnCurrentBackend({
+        client: connectedSequentialMigrationClient,
+        migrationName: PHASE7_MIGRATIONS[2],
+        migrationSql: archiveVerifierSql
+      })
+      expect(
+        (
+          await connectedSequentialMigrationClient.query<{
+            currentRole: string
+            pid: number
+            sessionUser: string
+          }>(
+            `SELECT pg_backend_pid() AS pid, current_user AS "currentRole",
+               session_user AS "sessionUser"`
+          )
+        ).rows
+      ).toEqual(sequentialMigrationBackend)
+      const archiveVerifierLedger = await readLedger(context)
+      expect(archiveVerifierLedger).toHaveLength(30)
+      expect(archiveVerifierLedger.slice(0, 29)).toEqual(phase7FoundationLedger)
+      expect(archiveVerifierLedger.at(-1)).toMatchObject({
+        finishedAt: expect.any(Date),
+        migrationName: PHASE7_MIGRATIONS[2],
+        rolledBackAt: null
+      })
+      expect(
+        archiveVerifierLedger
+          .slice(-3)
+          .every(
+            ({ finishedAt, rolledBackAt }) =>
+              finishedAt !== null && rolledBackAt === null
+          )
+      ).toBe(true)
+
+      const reauthenticationSql = readFileSync(
+        join(sourceMigrationsDirectory, PHASE7_MIGRATIONS[3], 'migration.sql'),
+        'utf8'
+      )
+      await expectTempSearchPathMigrationRejected({
+        context,
+        expectedLedgerCount: 30,
+        migrationSql: reauthenticationSql
+      })
+      expect(await readLedger(context)).toEqual(archiveVerifierLedger)
+
+      await context.adminClient.query(
+        `GRANT SELECT ("token") ON TABLE "Session"
+         TO "nihongo_auth_gateway"`
+      )
+      try {
+        await expect(
+          connectedSequentialMigrationClient.query(reauthenticationSql)
+        ).rejects.toMatchObject({ code: '42501' })
+        await connectedSequentialMigrationClient.query('ROLLBACK')
+        expect(await readLedger(context)).toEqual(archiveVerifierLedger)
+        expect(
+          (
+            await context.adminClient.query<{
+              authorizationState: string | null
+              intentTable: string | null
+            }>(
+              `SELECT
+                 (SELECT column_name
+                  FROM information_schema.columns
+                  WHERE table_schema = current_schema()
+                    AND table_name = 'Session'
+                    AND column_name = 'authorizationState')
+                   AS "authorizationState",
+                 to_regclass('"Phase7ReauthenticationIntent"')::text
+                   AS "intentTable"`
+            )
+          ).rows
+        ).toEqual([{ authorizationState: null, intentTable: null }])
+      } finally {
+        await context.adminClient.query(
+          `REVOKE SELECT ("token") ON TABLE "Session"
+           FROM "nihongo_auth_gateway"`
+        )
+      }
+
+      copyMigration(PHASE7_MIGRATIONS[3], context.migrationsPath)
+      await applyMigrationOnCurrentBackend({
+        client: connectedSequentialMigrationClient,
+        migrationName: PHASE7_MIGRATIONS[3],
+        migrationSql: reauthenticationSql
+      })
+      expect(
+        (
+          await connectedSequentialMigrationClient.query<{
+            currentRole: string
+            pid: number
+            sessionUser: string
+          }>(
+            `SELECT pg_backend_pid() AS pid, current_user AS "currentRole",
+               session_user AS "sessionUser"`
+          )
+        ).rows
+      ).toEqual(sequentialMigrationBackend)
       const finalLedger = await readLedger(context)
-      expect(finalLedger).toHaveLength(29)
+      expect(finalLedger).toHaveLength(31)
+      expect(finalLedger.slice(0, 30)).toEqual(archiveVerifierLedger)
+      expect(finalLedger.at(-1)).toMatchObject({
+        finishedAt: expect.any(Date),
+        migrationName: PHASE7_MIGRATIONS[3],
+        rolledBackAt: null
+      })
       expect(
         finalLedger
-          .slice(-2)
+          .slice(-4)
           .every(
             ({ finishedAt, rolledBackAt }) =>
               finishedAt !== null && rolledBackAt === null
@@ -2601,7 +3198,14 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           finalLedger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 29)
+      expect(await readOperationManifestVerifierCatalog(context)).toEqual(
+        verifierCatalogBefore
+      )
+      await expectArchiveEmptyManifestVerifier(context, 'accept')
+      expect(await readPhase6ProjectionDigest(context.adminClient)).toBe(
+        beforeSlice4fDigest
+      )
+      await verifyCanonicalMigrationLedgerAccess(context, 31)
       expect(
         await readDirectUserForeignKeyActions(context.adminClient)
       ).toEqual([
@@ -2949,6 +3553,12 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
             .digest('hex')
         }
       ])
+      await phase6Legacy.client.end()
+      phase6Legacy = undefined
+      await exerciseUpgradedRealReauthentication(
+        context,
+        connectedSequentialMigrationClient
+      )
     } finally {
       await sequentialMigrationClient?.end().catch(() => undefined)
       await phase6Legacy?.client.end().catch(() => undefined)

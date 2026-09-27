@@ -88,6 +88,15 @@ export const resetAdminCmsReadRateLimitForTesting = (): void => {
   rateLimitByKey.clear()
 }
 
+export const primeAdminCmsReadRateLimitForTesting = (
+  actorId: string,
+  count: number
+): void => {
+  const windowStartedAt = Date.now()
+  rateLimitByKey.set(`actor:${actorId}`, { count, windowStartedAt })
+  rateLimitByKey.set('ip:mock-client', { count, windowStartedAt })
+}
+
 const toFieldErrors = (
   error: ZodError,
   fallbackPath = 'request'
@@ -417,11 +426,15 @@ const genericNotFound = (request: Request): HttpResponse<ApiFailure> => {
 }
 
 const hasCanonicalPath = (request: Request): boolean => {
-  const pathname = new URL(request.url).pathname
-  return canonicalPaths.some((pattern) => pattern.test(pathname))
+  const url = new URL(request.url)
+  return (
+    url.hash === '' &&
+    canonicalPaths.some((pattern) => pattern.test(url.pathname))
+  )
 }
 
 const PHASE_7_PREFIXES = ['/api/v1/admin', '/api/v1/question-reports'] as const
+const MAX_PERCENT_DECODING_PASSES = 16
 
 const hasPhase7Prefix = (pathname: string): boolean =>
   PHASE_7_PREFIXES.some(
@@ -454,7 +467,7 @@ const getSlashNormalizedPathnames = (pathname: string): readonly string[] => {
 const hasPhase7Alias = (rawPathname: string): boolean => {
   let candidate = rawPathname
 
-  for (let pass = 0; pass <= rawPathname.length; pass += 1) {
+  for (let pass = 0; pass < MAX_PERCENT_DECODING_PASSES; pass += 1) {
     if (getSlashNormalizedPathnames(candidate).some(hasPhase7Prefix)) {
       return true
     }
@@ -470,18 +483,26 @@ const hasPhase7Alias = (rawPathname: string): boolean => {
     candidate = decoded
   }
 
-  return false
+  return true
 }
 
 const isNonCanonicalPhase7Alias = (request: Request): boolean => {
-  const pathname = new URL(request.url).pathname
+  const url = new URL(request.url)
+  const pathname = url.pathname
   return (
     hasPhase7Alias(pathname) &&
-    !canonicalPaths.some((pattern) => pattern.test(pathname))
+    (url.hash !== '' ||
+      !canonicalPaths.some((pattern) => pattern.test(pathname)))
   )
 }
 
-const sources = () => mockDatabase.listCanonicalAdminQuestionSources()
+const readModel = () => {
+  const sources = mockDatabase.listCanonicalAdminQuestionSources()
+  return {
+    sources,
+    snapshot: mockDatabase.getCanonicalAdminCmsSnapshot(sources)
+  }
+}
 
 export const adminCmsReadHandlers = [
   http.all(
@@ -518,7 +539,7 @@ export const adminCmsReadHandlers = [
             listAdminQuestionsQuerySchema,
             '관리자 문제 목록 조회 조건이 올바르지 않습니다.'
           )
-          return toCanonicalAdminQuestionList(sources(), query)
+          return toCanonicalAdminQuestionList(readModel(), query)
         })
       : genericNotFound(request)
   ),
@@ -538,7 +559,7 @@ export const adminCmsReadHandlers = [
               '문제 버전 이력 조회 조건이 올바르지 않습니다.'
             )
             return toCanonicalAdminQuestionVersions(
-              sources(),
+              readModel(),
               parsed.questionId,
               query
             )
@@ -558,7 +579,7 @@ export const adminCmsReadHandlers = [
             getAdminQuestionQuerySchema,
             '관리자 문제 상세 조회 조건이 올바르지 않습니다.'
           )
-          return toCanonicalAdminQuestionDetail(sources(), parsed.questionId)
+          return toCanonicalAdminQuestionDetail(readModel(), parsed.questionId)
         })
       : genericNotFound(request)
   ),
@@ -570,7 +591,7 @@ export const adminCmsReadHandlers = [
             listAdminTagsQuerySchema,
             '관리자 태그 조회 조건이 올바르지 않습니다.'
           )
-          return toCanonicalAdminTagList(sources(), query)
+          return toCanonicalAdminTagList(readModel(), query)
         })
       : genericNotFound(request)
   ),
@@ -589,7 +610,10 @@ export const adminCmsReadHandlers = [
               previewQuestionVersionQuerySchema,
               '문제 버전 preview 조회 조건이 올바르지 않습니다.'
             )
-            return toCanonicalAdminQuestionPreview(sources(), parsed.versionId)
+            return toCanonicalAdminQuestionPreview(
+              readModel(),
+              parsed.versionId
+            )
           })
         : genericNotFound(request)
   ),
@@ -614,7 +638,7 @@ export const adminCmsReadHandlers = [
               '기준 문제 버전 ID 형식이 올바르지 않습니다.'
             )
             return toCanonicalAdminQuestionDiff(
-              sources(),
+              readModel(),
               parsed.versionId,
               query
             )
@@ -637,7 +661,7 @@ export const adminCmsReadHandlers = [
               '문제 버전 검수 이력 조회 조건이 올바르지 않습니다.'
             )
             return toCanonicalAdminQuestionReviews(
-              sources(),
+              readModel(),
               parsed.versionId,
               query
             )
@@ -648,6 +672,7 @@ export const adminCmsReadHandlers = [
     hasCanonicalPath(request)
       ? withCanonicalRead('listAdminAuditLog', request, () =>
           toCanonicalAdminAuditLog(
+            readModel(),
             parseRawQuery(
               request,
               listAdminAuditLogQuerySchema,

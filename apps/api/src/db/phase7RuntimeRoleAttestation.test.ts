@@ -22,6 +22,8 @@ const evidence = (
   groupCreateRole: false,
   groupDirectGrants: [],
   groupInherit: false,
+  groupSensitiveColumnAclCount: 0,
+  groupSensitiveTableAclCount: 0,
   groupReplication: false,
   groupSuperuser: false,
   serverAddress: '127.0.0.1',
@@ -131,6 +133,8 @@ describe('Phase 7 runtime role attestation', () => {
       { groupCanControlReplicationRole: true }
     ],
     ['group superuser', { groupSuperuser: true }],
+    ['group raw auth column ACL', { groupSensitiveColumnAclCount: 1 }],
+    ['group raw auth table ACL', { groupSensitiveTableAclCount: 1 }],
     ['SET ROLE unavailable', { sessionUserCanSetRole: false }],
     ['non-UTC session', { timeZone: 'Asia/Tokyo' }],
     ['replica session', { sessionReplicationRole: 'replica' }],

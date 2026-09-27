@@ -709,8 +709,40 @@ const run = async (): Promise<void> => {
       'run',
       '--config',
       'vitest.integration.config.ts',
-      'src/app/phase7ApiGate.integration.test.ts',
+      'src/app/phase7ApiGate.integration.test.ts'
+    ],
+    sharedEnvironment
+  )
+  await runCommand(
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'vitest',
+      'run',
+      '--config',
+      'vitest.integration.config.ts',
       'src/admin/adminQuestionRepository.integration.test.ts'
+    ],
+    sharedEnvironment
+  )
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+    sharedEnvironment
+  )
+  await runCommand(
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'vitest',
+      'run',
+      '--config',
+      'vitest.integration.config.ts',
+      'src/admin/adminQuestionCommandRepository.integration.test.ts'
     ],
     sharedEnvironment
   )

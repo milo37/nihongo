@@ -5,6 +5,8 @@ import { createMiddleware } from 'hono/factory'
 export interface ApiVariables {
   requestId: string
   adminActorId: string
+  adminClientIp: string
+  adminSessionToken: string
   rawRequestTarget: string
 }
 
