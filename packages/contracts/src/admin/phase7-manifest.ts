@@ -313,6 +313,10 @@ const PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS = new Set<Phase7Operation>([
   'withdrawQuestionApproval'
 ])
 
+const PHASE_7_SLICE_3R_A1_OPERATIONS = new Set<Phase7Operation>([
+  'reauthenticateAdmin'
+])
+
 export const phase7Slice3ACommandOperationManifest =
   phase7OperationManifest.filter((entry) =>
     PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
@@ -337,6 +341,22 @@ export const phase7DormantAfterSlice3AOperationManifest =
       !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
   )
 
+export const phase7ActiveThroughSlice3RA1OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      entry.slice2Route ||
+      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7DormantAfterSlice3RA1OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      !entry.slice2Route &&
+      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
+  )
+
 export const assertPhase7OperationManifest = (): void => {
   if (phase7OperationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
@@ -348,10 +368,12 @@ export const assertPhase7OperationManifest = (): void => {
     phase7Slice3ACommandOperationManifest.length !== 5 ||
     phase7Slice3RRemediationOperationManifest.length !== 3 ||
     phase7ActiveThroughSlice3AOperationManifest.length !== 13 ||
-    phase7DormantAfterSlice3AOperationManifest.length !== 15
+    phase7DormantAfterSlice3AOperationManifest.length !== 15 ||
+    phase7ActiveThroughSlice3RA1OperationManifest.length !== 14 ||
+    phase7DormantAfterSlice3RA1OperationManifest.length !== 14
   ) {
     throw new Error(
-      'Phase 7 Slice 3A manifest는 active read 8 + command 5이고 나머지 15개는 dormant여야 합니다.'
+      'Phase 7 manifest는 Slice 3A historical 13/15와 Slice 3R-A1 active 14/dormant 14 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(

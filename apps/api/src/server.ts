@@ -167,7 +167,7 @@ const phase7AuthFacade =
         environment
       })
     : undefined
-const dormantAdminReauthenticationService =
+const adminReauthenticationService =
   technicalMode && authGatewayDatabase
     ? (() => {
         const context = createPhase7ReauthenticationContext()
@@ -184,7 +184,6 @@ const dormantAdminReauthenticationService =
         })
       })()
     : undefined
-void dormantAdminReauthenticationService
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
@@ -267,7 +266,8 @@ const app = createApiApp({
   ...(adminQuestionReader &&
   adminReadRateLimiter &&
   adminQuestionCommandService &&
-  adminCommandRateLimiter
+  adminCommandRateLimiter &&
+  adminReauthenticationService
     ? {
         admin: {
           assertCapability: async () => {
@@ -278,6 +278,10 @@ const app = createApiApp({
           commands: {
             rateLimiter: adminCommandRateLimiter,
             service: adminQuestionCommandService
+          },
+          reauthentication: {
+            rateLimiter: adminCommandRateLimiter,
+            service: adminReauthenticationService
           },
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader

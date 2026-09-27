@@ -195,6 +195,7 @@ export type MockPhase7ActiveAdminCmsState = Pick<
   | 'createQuestion'
   | 'createVersion'
   | 'hasFreshAssurance'
+  | 'reauthenticate'
   | 'transitionVersion'
   | 'updateVersion'
 >
@@ -205,6 +206,7 @@ export const createMockPhase7ActiveAdminCmsState = (
   createQuestion: state.createQuestion.bind(state),
   createVersion: state.createVersion.bind(state),
   hasFreshAssurance: state.hasFreshAssurance.bind(state),
+  reauthenticate: state.reauthenticate.bind(state),
   transitionVersion: state.transitionVersion.bind(state),
   updateVersion: state.updateVersion.bind(state)
 })

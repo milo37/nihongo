@@ -55,7 +55,7 @@ const SLICE_2_ADMIN_READ_PATHS = [
   }
 ] as const
 
-const SLICE_3_ADMIN_COMMAND_PATHS = [
+const SLICE_3A_ADMIN_COMMAND_PATHS = [
   {
     method: 'POST',
     operation: 'createAdminQuestion',
@@ -93,6 +93,19 @@ const SLICE_3_ADMIN_COMMAND_PATHS = [
       'u'
     )
   }
+] as const
+
+const SLICE_3R_A1_REAUTHENTICATION_PATHS = [
+  {
+    method: 'POST',
+    operation: 'reauthenticateAdmin',
+    pattern: /^\/api\/v1\/admin\/reauthentication$/u
+  }
+] as const
+
+const ACTIVE_ADMIN_COMMAND_PATHS = [
+  ...SLICE_3A_ADMIN_COMMAND_PATHS,
+  ...SLICE_3R_A1_REAUTHENTICATION_PATHS
 ] as const
 
 const getPathnameFromRequestTarget = (requestTarget: string): string | null => {
@@ -250,11 +263,40 @@ export const getCanonicalPhase7Slice3Operation = ({
   if (pathname === null) return null
 
   return (
-    SLICE_3_ADMIN_COMMAND_PATHS.find(
+    ACTIVE_ADMIN_COMMAND_PATHS.find(
       (entry) => entry.method === method && entry.pattern.test(pathname)
     )?.operation ?? null
   )
 }
+
+const isCanonicalRequestForPaths = (
+  input: { method: string; requestTarget: string },
+  paths: readonly {
+    readonly method: string
+    readonly pattern: RegExp
+  }[]
+): boolean => {
+  if (hasRequestTargetFragment(input.requestTarget)) return false
+  const pathname = getPathnameFromRequestTarget(input.requestTarget)
+  if (pathname === null) return false
+  if (input.method === 'OPTIONS') {
+    return paths.some(({ pattern }) => pattern.test(pathname))
+  }
+  return paths.some(
+    ({ method, pattern }) => method === input.method && pattern.test(pathname)
+  )
+}
+
+export const isCanonicalPhase7Slice3ACommandRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, SLICE_3A_ADMIN_COMMAND_PATHS)
+
+export const isCanonicalPhase7ReauthenticationRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean =>
+  isCanonicalRequestForPaths(input, SLICE_3R_A1_REAUTHENTICATION_PATHS)
 
 export const getCanonicalPhase7ActiveOperation = (input: {
   method: string
@@ -276,7 +318,7 @@ export const isCanonicalPhase7ActiveRequest = ({
   if (method === 'OPTIONS') {
     return (
       SLICE_2_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname)) ||
-      SLICE_3_ADMIN_COMMAND_PATHS.some(({ pattern }) => pattern.test(pathname))
+      ACTIVE_ADMIN_COMMAND_PATHS.some(({ pattern }) => pattern.test(pathname))
     )
   }
   return getCanonicalPhase7ActiveOperation({ method, requestTarget }) !== null

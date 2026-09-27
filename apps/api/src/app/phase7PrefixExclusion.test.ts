@@ -5,6 +5,7 @@ import {
 import { describe, expect, it } from 'vitest'
 import {
   getCanonicalPhase7Slice3Operation,
+  isCanonicalPhase7ReauthenticationRequest,
   isCanonicalPhase7ActiveRequest,
   isPhase7ExcludedRequest
 } from './phase7PrefixExclusion.js'
@@ -28,7 +29,7 @@ describe('Phase 7 prefix exclusion classifier', () => {
     expect(manifest).toHaveLength(5)
   })
 
-  it('keeps all three Slice 3R remediation operations dormant', () => {
+  it('activates only reauthentication from the three Slice 3R remediation operations', () => {
     expect(
       phase7Slice3RRemediationOperationManifest.map((entry) =>
         getCanonicalPhase7Slice3Operation({
@@ -36,7 +37,13 @@ describe('Phase 7 prefix exclusion classifier', () => {
           requestTarget: materializePath(entry.path)
         })
       )
-    ).toEqual([null, null, null])
+    ).toEqual([null, null, 'reauthenticateAdmin'])
+    expect(
+      isCanonicalPhase7ReauthenticationRequest({
+        method: 'POST',
+        requestTarget: '/api/v1/admin/reauthentication'
+      })
+    ).toBe(true)
   })
 
   it.each([
@@ -58,7 +65,6 @@ describe('Phase 7 prefix exclusion classifier', () => {
       'POST',
       `/api/v1/admin/question-versions/${canonicalId}/approval-withdrawal`
     ],
-    ['POST', '/api/v1/admin/reauthentication'],
     ['POST', `/API/v1/admin/question-versions/${canonicalId}/approval`]
   ])(
     'keeps wrong-method, alias, malformed and dormant %s %s inactive',

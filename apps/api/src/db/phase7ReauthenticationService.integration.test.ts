@@ -5,13 +5,14 @@ import {
   reauthenticateAdminResponseSchema
 } from '@nihongo/contracts/admin/phase7'
 import { hashPassword } from 'better-auth/crypto'
-import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Client } from 'pg'
-import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
-import { createApiErrorHandler } from '../app/createApp.js'
+import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
+import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
+import { createApiApp } from '../app/createApp.js'
 import { createPhase7ReauthenticationAuthApi } from '../auth/createPhase7ReauthenticationAuth.js'
+import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import {
   createPhase7PrincipalService,
   type PrincipalService
@@ -19,13 +20,9 @@ import {
 import { createPhase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
 import { createPhase7SessionCookie } from '../auth/phase7SessionCookie.js'
 import { parseApiEnvironment } from '../config/env.js'
-import {
-  requestContext,
-  type ApiVariables
-} from '../middleware/requestContext.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
+import type { QuestionReader } from '../question/questionService.js'
 import { createRoleDatabaseRuntime } from './database.js'
 import {
   createPostgresStartupOptions,
@@ -166,6 +163,26 @@ const createFixture = async () => {
     sessionId,
     token,
     userId
+  }
+}
+
+const makeSessionStaleForTesting = async (sessionId: string) => {
+  await adminClient.query('BEGIN')
+  try {
+    await adminClient.query('SET LOCAL session_replication_role = replica')
+    const result = await adminClient.query(
+      `UPDATE "Session"
+       SET "createdAt" = "createdAt" - INTERVAL '10 minutes',
+           "updatedAt" = "updatedAt" - INTERVAL '10 minutes',
+           "expiresAt" = "expiresAt" - INTERVAL '10 minutes'
+       WHERE "id" = $1`,
+      [sessionId]
+    )
+    await adminClient.query('COMMIT')
+    return result.rowCount
+  } catch (error: unknown) {
+    await adminClient.query('ROLLBACK')
+    throw error
   }
 }
 
@@ -410,44 +427,49 @@ const createTestHonoApp = ({
   principalService?: PrincipalService
   service: ReturnType<typeof createService>
 }) => {
-  type TestEnvironment = { Variables: ApiVariables }
-  const app = new Hono<TestEnvironment>()
-  const resolveDormantReauthentication = ({
-    method,
-    requestTarget
-  }: {
-    method: string
-    requestTarget: string
-  }) =>
-    method === 'POST' &&
-    requestTarget.split('?', 1)[0] === '/api/v1/admin/reauthentication'
-      ? ('reauthenticateAdmin' as const)
-      : null
-  app.use('*', requestContext)
-  app.use('*', async (context, next) => {
-    const url = new URL(context.req.url)
-    context.set('rawRequestTarget', `${url.pathname}${url.search}`)
-    await next()
+  const reader: AdminQuestionReader = {
+    diffVersion: async () => Promise.reject(new Error('not used')),
+    getQuestion: async () => Promise.reject(new Error('not used')),
+    listAuditLog: async () => Promise.reject(new Error('not used')),
+    listQuestions: async () => Promise.reject(new Error('not used')),
+    listReviews: async () => Promise.reject(new Error('not used')),
+    listTags: async () => Promise.reject(new Error('not used')),
+    listVersions: async () => Promise.reject(new Error('not used')),
+    previewVersion: async () => Promise.reject(new Error('not used'))
+  }
+  const readRateLimiter: AdminReadRateLimiter = {
+    consume: async () => undefined
+  }
+  const questionReader: QuestionReader = {
+    getQuestion: async () => Promise.reject(new Error('not used')),
+    listQuestions: async () => ({ items: [], page: 1, pageSize: 20, total: 0 })
+  }
+
+  return createApiApp({
+    admin: {
+      assertCapability: () => undefined,
+      rateLimiter: readRateLimiter,
+      reader,
+      reauthentication: {
+        rateLimiter: { consume: async () => undefined },
+        service
+      }
+    },
+    auth: {
+      environment,
+      gateway: {
+        handle: async () => new Response(null, { status: 404 })
+      },
+      guestPrincipalService: createGuestPrincipalService({
+        client: applicationRuntime.client,
+        secret: environment.GUEST_COOKIE_SECRET
+      }),
+      principalService
+    },
+    checkReadiness: async () => undefined,
+    logger: createJsonLogger('silent'),
+    questionReader
   })
-  const guard = createAdminCommandGuard({
-    assertCapability: () => undefined,
-    environment,
-    operationResolver: resolveDormantReauthentication,
-    principalService,
-    rateLimiter: { consume: async () => undefined }
-  })
-  app.route(
-    '/api/v1/admin',
-    createAdminReauthenticationRoutes({ guard, service })
-  )
-  app.onError(
-    createApiErrorHandler({
-      authEnvironment: environment,
-      logger: createJsonLogger('silent'),
-      phase7OperationResolver: resolveDormantReauthentication
-    })
-  )
-  return app
 }
 
 const readWriteSnapshot = async () =>
@@ -509,6 +531,7 @@ afterAll(async () => {
 describe('Phase 7 real Better Auth reauthentication service', () => {
   it('real Hono가 Better Auth cookie bytes/order를 보존해 exact active replacement만 공개한다', async () => {
     const fixture = await createFixture()
+    expect(await makeSessionStaleForTesting(fixture.sessionId)).toBe(1)
     let betterAuthCookies: readonly string[] = []
     const app = createTestHonoApp({
       service: createService((cookies) => {
@@ -541,6 +564,7 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     )
 
     const proof = await adminClient.query<{
+      auditBeforeState: string
       auditCount: number
       fenceCount: number
       intentState: string
@@ -565,11 +589,15 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
           WHERE intent."requestId" = $2) AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
           WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
-           AS "auditCount"`,
+           AS "auditCount",
+         (SELECT "beforeState" FROM "AdminAuditLog"
+          WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
+           AS "auditBeforeState"`,
       [fixture.sessionId, fixture.requestId]
     )
     expect(proof.rows).toEqual([
       {
+        auditBeforeState: 'SESSION_STALE',
         auditCount: 1,
         fenceCount: 1,
         intentState: 'FINALIZED',
@@ -581,18 +609,25 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
 
   it('real invalid password는 pending·audit·fence·cookie 없이 old ACTIVE만 보존한다', async () => {
     const fixture = await createFixture()
-    await expect(
-      createService().reauthenticate({
-        actorId: fixture.userId,
-        headers: fixture.headers,
-        password: `${password}-wrong`,
-        rawSessionToken: fixture.token,
-        requestId: fixture.requestId
-      })
-    ).rejects.toMatchObject({
+    const app = createTestHonoApp({ service: createService() })
+    const headers = new Headers(fixture.headers)
+    headers.set('Content-Type', 'application/json')
+    const response = await app.request(
+      'http://localhost:3001/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ password: `${password}-wrong` })
+      }
+    )
+    expect(response.status).toBe(401)
+    expect(
+      reauthenticateAdminErrorSchema.parse(await response.json())
+    ).toMatchObject({
       code: 'REAUTHENTICATION_FAILED',
-      phase7Disposition: 'NO_TX'
+      retryable: false
     })
+    expect(response.headers.getSetCookie()).toHaveLength(0)
 
     const proof = await adminClient.query<{
       auditCount: number

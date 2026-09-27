@@ -5,7 +5,6 @@ import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-c
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
 import { hashPassword } from 'better-auth/crypto'
-import { Hono } from 'hono'
 import {
   copyFileSync,
   cpSync,
@@ -26,9 +25,10 @@ import {
   type SeedQuestionCatalogResult
 } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
-import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
-import { createApiErrorHandler } from '../app/createApp.js'
+import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
+import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
+import { createApiApp } from '../app/createApp.js'
 import { createPhase7ReauthenticationAuthApi } from '../auth/createPhase7ReauthenticationAuth.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
@@ -38,13 +38,8 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createRoleDatabaseRuntime } from './database.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
-import {
-  requestContext,
-  type ApiVariables
-} from '../middleware/requestContext.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
-import { createPrincipalRoutes } from '../routes/principal.js'
+import type { QuestionReader } from '../question/questionService.js'
 import {
   assertMigrationCompatibility,
   loadExpectedMigrationManifest,
@@ -300,56 +295,53 @@ const exerciseUpgradedRealReauthentication = async (
       refreshClient: authGatewayRuntime.client,
       secret: environment.BETTER_AUTH_SECRET
     })
-    const resolveDormantReauthentication = ({
-      method,
-      requestTarget
-    }: {
-      method: string
-      requestTarget: string
-    }) =>
-      method === 'POST' &&
-      requestTarget.split('?', 1)[0] === '/api/v1/admin/reauthentication'
-        ? ('reauthenticateAdmin' as const)
-        : null
-    type UpgradeTestEnvironment = { Variables: ApiVariables }
-    const app = new Hono<UpgradeTestEnvironment>()
-    app.use('*', requestContext)
-    app.use('*', async (honoContext, next) => {
-      const url = new URL(honoContext.req.url)
-      honoContext.set('rawRequestTarget', `${url.pathname}${url.search}`)
-      await next()
-    })
-    app.route(
-      '/api/v1/admin',
-      createAdminReauthenticationRoutes({
-        guard: createAdminCommandGuard({
-          assertCapability: () => undefined,
-          environment,
-          operationResolver: resolveDormantReauthentication,
-          principalService,
-          rateLimiter: { consume: async () => undefined }
-        }),
-        service
+    const reader: AdminQuestionReader = {
+      diffVersion: async () => Promise.reject(new Error('not used')),
+      getQuestion: async () => Promise.reject(new Error('not used')),
+      listAuditLog: async () => Promise.reject(new Error('not used')),
+      listQuestions: async () => Promise.reject(new Error('not used')),
+      listReviews: async () => Promise.reject(new Error('not used')),
+      listTags: async () => Promise.reject(new Error('not used')),
+      listVersions: async () => Promise.reject(new Error('not used')),
+      previewVersion: async () => Promise.reject(new Error('not used'))
+    }
+    const readRateLimiter: AdminReadRateLimiter = {
+      consume: async () => undefined
+    }
+    const questionReader: QuestionReader = {
+      getQuestion: async () => Promise.reject(new Error('not used')),
+      listQuestions: async () => ({
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: 0
       })
-    )
-    app.route(
-      '/api/v1',
-      createPrincipalRoutes({
+    }
+    const app = createApiApp({
+      admin: {
+        assertCapability: () => undefined,
+        rateLimiter: readRateLimiter,
+        reader,
+        reauthentication: {
+          rateLimiter: { consume: async () => undefined },
+          service
+        }
+      },
+      auth: {
         environment,
+        gateway: {
+          handle: async () => new Response(null, { status: 404 })
+        },
         guestPrincipalService: createGuestPrincipalService({
           client: applicationRuntime.client,
           secret: environment.GUEST_COOKIE_SECRET
         }),
         principalService
-      })
-    )
-    app.onError(
-      createApiErrorHandler({
-        authEnvironment: environment,
-        logger: createJsonLogger('silent'),
-        phase7OperationResolver: resolveDormantReauthentication
-      })
-    )
+      },
+      checkReadiness: async () => undefined,
+      logger: createJsonLogger('silent'),
+      questionReader
+    })
 
     const response = await app.request(
       'http://localhost:3001/api/v1/admin/reauthentication',

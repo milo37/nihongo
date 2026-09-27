@@ -56,11 +56,14 @@ import { createAdminReadGuard } from '../admin/adminReadGuard.js'
 import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import type { AdminQuestionCommandService } from '../admin/adminQuestionCommandService.js'
+import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
 import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommands.js'
+import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
 import {
   getCanonicalPhase7ActiveOperation,
-  isCanonicalPhase7ActiveRequest,
+  isCanonicalPhase7ReauthenticationRequest,
+  isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
   isPhase7ExcludedRequest
 } from './phase7PrefixExclusion.js'
@@ -114,6 +117,10 @@ interface CreateApiAppDependencies {
     commands?: {
       rateLimiter: AdminCommandRateLimiter
       service: AdminQuestionCommandService
+    }
+    reauthentication?: {
+      rateLimiter: AdminCommandRateLimiter
+      service: AdminReauthenticationService
     }
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
@@ -351,6 +358,11 @@ export const createApiApp = ({
 }: CreateApiAppDependencies): Hono<{ Variables: ApiVariables }> => {
   const app = new Hono<{ Variables: ApiVariables }>()
 
+  const technicalAdminEnabled =
+    admin !== undefined &&
+    auth?.environment.ADMIN_CMS_MODE === 'technical' &&
+    auth.environment.NODE_ENV !== 'production'
+
   app.use('*', requestContext)
   app.use('*', secureHeaders())
   app.use('*', createRequestLogger(logger))
@@ -370,14 +382,18 @@ export const createApiApp = ({
     }
 
     if (
-      admin &&
-      auth?.environment.ADMIN_CMS_MODE === 'technical' &&
+      technicalAdminEnabled &&
       (isCanonicalPhase7Slice2ReadRequest({
         method: context.req.method,
         requestTarget
       }) ||
-        (admin.commands !== undefined &&
-          isCanonicalPhase7ActiveRequest({
+        (admin?.commands !== undefined &&
+          isCanonicalPhase7Slice3ACommandRequest({
+            method: context.req.method,
+            requestTarget
+          })) ||
+        (admin?.reauthentication !== undefined &&
+          isCanonicalPhase7ReauthenticationRequest({
             method: context.req.method,
             requestTarget
           })))
@@ -482,7 +498,11 @@ export const createApiApp = ({
           : technicalBaseCors(context, next)
       })
     }
-    if (admin && auth.environment.ADMIN_CMS_MODE === 'technical') {
+    if (
+      admin &&
+      auth.environment.ADMIN_CMS_MODE === 'technical' &&
+      auth.environment.NODE_ENV !== 'production'
+    ) {
       app.route(
         '/api/v1/admin',
         createAdminQuestionRoutes({
@@ -506,6 +526,20 @@ export const createApiApp = ({
               principalService: auth.principalService,
               rateLimiter: admin.commands.rateLimiter
             })
+          })
+        )
+      }
+      if (admin.reauthentication) {
+        app.route(
+          '/api/v1/admin',
+          createAdminReauthenticationRoutes({
+            guard: createAdminCommandGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.reauthentication.rateLimiter
+            }),
+            service: admin.reauthentication.service
           })
         )
       }

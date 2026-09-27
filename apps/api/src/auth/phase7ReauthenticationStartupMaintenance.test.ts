@@ -170,7 +170,7 @@ describe('Phase 7 reauthentication startup maintenance', () => {
     }
   })
 
-  it('server는 foundation을 조립하지만 HTTP app에는 주입하지 않는다', () => {
+  it('server는 foundation과 HTTP app을 같은 service instance로 조립한다', () => {
     const serverSource = readFileSync(
       new URL('../server.ts', import.meta.url),
       'utf8'
@@ -194,8 +194,9 @@ describe('Phase 7 reauthentication startup maintenance', () => {
     expect(serverSource).toContain('createPhase7ReauthenticationContext()')
     expect(serverSource).toContain('createPhase7ReauthenticationAuthApi({')
     expect(serverSource).toContain('createAdminReauthenticationService({')
-    expect(appComposition).not.toContain('dormantAdminReauthenticationService')
-    expect(appComposition).not.toContain('reauthentication')
+    expect(serverSource).not.toContain('dormantAdminReauthenticationService')
+    expect(appComposition).toContain('reauthentication: {')
+    expect(appComposition).toContain('service: adminReauthenticationService')
     expect(appComposition).toContain(
       'checkReadiness: practiceRuntimeGate.checkReadiness'
     )

@@ -3,6 +3,7 @@ import {
   assertCreateAdminQuestionVersionResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
+  assertReauthenticateAdminResponse,
   assertUpdateQuestionVersionResponse,
   buildPhase7OperationFailureResponse,
   createAdminQuestionRequestSchema,
@@ -14,6 +15,7 @@ import {
   requestContentReviewRequestSchema,
   requestQuestionChangesParamsSchema,
   requestQuestionChangesRequestSchema,
+  reauthenticateAdminRequestSchema,
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
   type Phase7Operation
@@ -27,6 +29,7 @@ import { http, HttpResponse, type JsonBodyType } from 'msw'
 import { z, type ZodError, type ZodType } from 'zod'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { MockPhase7AdminCommandError } from '@mocks/repository/phase7AdminCmsState'
+import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
 
 const LARGE_BODY_CAP = 256 * 1024
 const SMALL_BODY_CAP = 16 * 1024
@@ -45,7 +48,8 @@ const canonicalCommandPaths = [
   ),
   new RegExp(
     `^/api/v1/admin/question-versions/${LOWERCASE_UUID}/change-request$`
-  )
+  ),
+  /^\/api\/v1\/admin\/reauthentication$/
 ] as const
 
 const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
@@ -53,10 +57,11 @@ const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
   createAdminQuestionVersion: LARGE_BODY_CAP,
   updateQuestionVersion: LARGE_BODY_CAP,
   requestContentReview: SMALL_BODY_CAP,
-  requestQuestionChanges: SMALL_BODY_CAP
+  requestQuestionChanges: SMALL_BODY_CAP,
+  reauthenticateAdmin: 4 * 1024
 }
 
-type RateGroup = 'ADMIN_EDIT'
+type RateGroup = 'ADMIN_EDIT' | 'REAUTHENTICATION'
 
 const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
   {
@@ -64,13 +69,15 @@ const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
     createAdminQuestionVersion: 'ADMIN_EDIT',
     updateQuestionVersion: 'ADMIN_EDIT',
     requestContentReview: 'ADMIN_EDIT',
-    requestQuestionChanges: 'ADMIN_EDIT'
+    requestQuestionChanges: 'ADMIN_EDIT',
+    reauthenticateAdmin: 'REAUTHENTICATION'
   }
 
 const ratePolicyByGroup: Readonly<
   Record<RateGroup, { limit: number; windowMs: number }>
 > = {
-  ADMIN_EDIT: { limit: 30, windowMs: 10 * 60 * 1000 }
+  ADMIN_EDIT: { limit: 30, windowMs: 10 * 60 * 1000 },
+  REAUTHENTICATION: { limit: 5, windowMs: 15 * 60 * 1000 }
 }
 
 const freshOperations = new Set<Phase7Operation>()
@@ -438,6 +445,12 @@ const handleCommand = async <
   operation: Phase7Operation
   request: Request
   schema: Schema
+  setCookies?: (context: {
+    actorId: string
+    body: z.output<Schema>
+    raw: Result
+    requestId: string
+  }) => readonly string[]
   status?: number
 }): Promise<HttpResponse<JsonBodyType>> => {
   const requestId = getRequestId(input.request)
@@ -457,9 +470,18 @@ const handleCommand = async <
     )
     const raw = await input.execute({ actorId, body, requestId })
     const response = assertCommitted(() => input.assertResult(body, raw))
+    const headers = responseHeaders(requestId, input.request)
+    for (const cookie of input.setCookies?.({
+      actorId,
+      body,
+      raw,
+      requestId
+    }) ?? []) {
+      headers.append('Set-Cookie', cookie)
+    }
     return HttpResponse.json(response, {
       status: input.status ?? 200,
-      headers: responseHeaders(requestId, input.request)
+      headers
     })
   } catch (error: unknown) {
     return toFailureResponse(input.operation, input.request, requestId, error)
@@ -634,5 +656,34 @@ export const adminCmsCommandHandlers = [
           assertRequestQuestionChangesResponse(parsedParams, body, raw)
       })
     }
+  ),
+  http.post('*/api/v1/admin/reauthentication', ({ request }) =>
+    hasCanonicalCommandPath(request)
+      ? handleCommand({
+          operation: 'reauthenticateAdmin',
+          request,
+          schema: reauthenticateAdminRequestSchema,
+          message: '관리자 재인증 요청이 올바르지 않습니다.',
+          execute: ({ actorId, body, requestId }) => {
+            if (body.password !== MOCK_ADMIN_PASSWORD) {
+              throw new MockPhase7AdminCommandError({
+                code: 'REAUTHENTICATION_FAILED',
+                message: '비밀번호를 확인할 수 없습니다.'
+              })
+            }
+            return state().reauthenticate({
+              actorId,
+              assertAuthority: commitAuthority(actorId, 'reauthenticateAdmin'),
+              requestId
+            })
+          },
+          assertResult: (body, raw) =>
+            assertReauthenticateAdminResponse(body, raw),
+          setCookies: () => [
+            `nihongo.session_token=mock-${crypto.randomUUID()}; Path=/; HttpOnly; SameSite=Lax`,
+            'nihongo.dont_remember=1; Path=/; HttpOnly; SameSite=Lax'
+          ]
+        })
+      : genericNotFound(request)
   )
 ]

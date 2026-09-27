@@ -6,8 +6,10 @@ import {
   listAdminAuditLogResponseSchema,
   listAdminQuestionsResponseSchema,
   listQuestionVersionReviewsResponseSchema,
-  phase7DormantAfterSlice3AOperationManifest,
+  phase7DormantAfterSlice3RA1OperationManifest,
   previewQuestionVersionResponseSchema,
+  reauthenticateAdminErrorSchema,
+  reauthenticateAdminResponseSchema,
   type CreateAdminQuestionRequest,
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
@@ -15,6 +17,7 @@ import {
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { describe, expect, it, vi } from 'vitest'
 import { DEMO_ADMIN_ID, DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
+import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
 import { readPhase7MockJsonBody } from '@mocks/handlers/adminCmsCommandHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import type { MockPhase7AdminCmsState } from '@mocks/repository/phase7AdminCmsState'
@@ -540,7 +543,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       DEMO_REVIEWER_ADMIN_ID,
       '2020-01-01T00:00:00.000Z'
     )
-    const beforeDormantRequests = mockDatabase.getCanonicalAdminCmsSnapshot()
+    const beforeReauthentication = mockDatabase.getCanonicalAdminCmsSnapshot()
     const stale = await jsonCommand(
       'POST',
       `/question-versions/${canonicalMissingId}/approval`,
@@ -551,12 +554,49 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     const wrongPassword = await jsonCommand('POST', '/reauthentication', {
       password: 'wrong-password-value'
     })
-    expect(wrongPassword.status).toBe(404)
+    expect(wrongPassword.status).toBe(401)
+    expect(
+      reauthenticateAdminErrorSchema.parse(await wrongPassword.json()).code
+    ).toBe('REAUTHENTICATION_FAILED')
+    expect(wrongPassword.headers.getSetCookie()).toHaveLength(0)
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(
+      beforeReauthentication
+    )
     const reauthenticated = await jsonCommand('POST', '/reauthentication', {
-      password: 'phase7-password'
+      password: MOCK_ADMIN_PASSWORD
     })
-    expect(reauthenticated.status).toBe(404)
-    expect(reauthenticated.headers.get('Set-Cookie')).toBeNull()
+    expect(reauthenticated.status).toBe(200)
+    const reauthentication = reauthenticateAdminResponseSchema.parse(
+      await reauthenticated.json()
+    )
+    expect(Date.parse(reauthentication.assuranceExpiresAt)).toBe(
+      Date.parse(reauthentication.reauthenticatedAt) + 5 * 60_000
+    )
+    expect(reauthenticated.headers.getSetCookie()).toHaveLength(2)
+    expect(reauthenticated.headers.getSetCookie()[0]).toContain(
+      'nihongo.session_token='
+    )
+    expect(reauthenticated.headers.getSetCookie()[1]).toContain(
+      'nihongo.dont_remember='
+    )
+    const afterReauthentication = mockDatabase.getCanonicalAdminCmsSnapshot()
+    expect(afterReauthentication.auditLogs).toHaveLength(
+      beforeReauthentication.auditLogs.length + 1
+    )
+    expect(afterReauthentication.auditLogs.at(-1)).toMatchObject({
+      command: 'REAUTHENTICATION',
+      beforeState: 'SESSION_STALE',
+      afterState: 'SESSION_FRESH',
+      metadata: {
+        kind: 'REAUTHENTICATION_V1',
+        rotation: 'OLD_REVOKED_NEW_ISSUED'
+      }
+    })
+    expect(
+      mockDatabase
+        .getPhase7AdminCmsStateForHandlers()
+        .hasFreshAssurance(DEMO_REVIEWER_ADMIN_ID)
+    ).toBe(true)
 
     const afterFresh = await jsonCommand(
       'POST',
@@ -588,7 +628,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       'INVALID_JSON'
     )
     expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(
-      beforeDormantRequests
+      afterReauthentication
     )
 
     expect(mockDatabase.getCanonicalAdminCmsSnapshot().questions).toHaveLength(
@@ -596,7 +636,37 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     )
   })
 
-  it('manifest의 dormant 15개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
+  it('reauthentication은 4KiB와 actor/IP 5회/15분 rate parity를 유지한다', async () => {
+    mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
+    const oversized = await fetch(`${BASE}/reauthentication`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(4 * 1024 + 1),
+        Origin: 'http://localhost'
+      },
+      body: '{}'
+    })
+    expect(oversized.status).toBe(413)
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const accepted = await jsonCommand('POST', '/reauthentication', {
+        password: MOCK_ADMIN_PASSWORD
+      })
+      expect(accepted.status, `attempt ${attempt + 1}`).toBe(200)
+    }
+    const limited = await jsonCommand('POST', '/reauthentication', {
+      password: MOCK_ADMIN_PASSWORD
+    })
+    expect(limited.status).toBe(429)
+    expect(
+      reauthenticateAdminErrorSchema.parse(await limited.json()).code
+    ).toBe('RATE_LIMITED')
+    expect(Number(limited.headers.get('Retry-After'))).toBeGreaterThan(0)
+    expect(Number(limited.headers.get('Retry-After'))).toBeLessThanOrEqual(900)
+  })
+
+  it('manifest의 dormant 14개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
     const before = mockDatabase.getCanonicalAdminCmsSnapshot()
     const activeState = mockDatabase.getPhase7AdminCmsStateForHandlers()
@@ -604,6 +674,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       'createQuestion',
       'createVersion',
       'hasFreshAssurance',
+      'reauthenticate',
       'transitionVersion',
       'updateVersion'
     ])
@@ -621,8 +692,8 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       'listCanonicalAdminQuestionSources'
     )
 
-    expect(phase7DormantAfterSlice3AOperationManifest).toHaveLength(15)
-    for (const entry of phase7DormantAfterSlice3AOperationManifest) {
+    expect(phase7DormantAfterSlice3RA1OperationManifest).toHaveLength(14)
+    for (const entry of phase7DormantAfterSlice3RA1OperationManifest) {
       const response = await fetch(
         `http://localhost${materializeManifestPath(entry.path)}`,
         {

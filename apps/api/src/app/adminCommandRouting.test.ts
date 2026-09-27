@@ -3,16 +3,21 @@ import type {
   CreateAdminQuestionRequest,
   UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
-import { phase7DormantAfterSlice3AOperationManifest } from '@nihongo/contracts/admin/phase7'
+import {
+  phase7DormantAfterSlice3RA1OperationManifest,
+  reauthenticateAdminErrorSchema,
+  reauthenticateAdminResponseSchema
+} from '@nihongo/contracts/admin/phase7'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { describe, expect, it, vi } from 'vitest'
 import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import type { AdminQuestionCommandService } from '../admin/adminQuestionCommandService.js'
+import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
-import { parseApiEnvironment } from '../config/env.js'
+import { parseApiEnvironment, type ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
@@ -139,15 +144,25 @@ const reader: AdminQuestionReader = {
 
 const createFixture = ({
   adminAuthorityFailure,
+  appEnvironment = environment,
   capabilityError,
   clearSessionCookie = false,
+  includeReauthentication = true,
+  isFresh = true,
+  principalError,
   rateError,
+  reauthenticationError,
   user = adminUser
 }: {
   adminAuthorityFailure?: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
+  appEnvironment?: ApiEnvironment
   capabilityError?: unknown
   clearSessionCookie?: boolean
+  includeReauthentication?: boolean
+  isFresh?: boolean
+  principalError?: unknown
   rateError?: unknown
+  reauthenticationError?: unknown
   user?: ResolvedUser
 } = {}) => {
   const commandService: AdminQuestionCommandService = {
@@ -190,24 +205,43 @@ const createFixture = ({
   const assertCapability = vi.fn(async () => {
     if (capabilityError !== undefined) throw capabilityError
   })
+  const reauthenticate = vi.fn(async () => {
+    if (reauthenticationError !== undefined) throw reauthenticationError
+    return {
+      response: {
+        reauthenticatedAt: '2026-09-06T00:00:00.000Z',
+        assuranceExpiresAt: '2026-09-06T00:05:00.000Z'
+      },
+      setCookies: [
+        'nihongo.session_token=replacement; Path=/; HttpOnly; SameSite=Lax',
+        'nihongo.dont_remember=1; Path=/; HttpOnly; SameSite=Lax'
+      ]
+    }
+  })
+  const reauthenticationService: AdminReauthenticationService = {
+    reauthenticate
+  }
   const resolutionHeaders = new Headers()
-  const resolveAuthenticatedUser = vi.fn(async () => ({
-    ...(adminAuthorityFailure === undefined ? {} : { adminAuthorityFailure }),
-    clearSessionCookie,
-    headers: resolutionHeaders,
-    ...(user === null
-      ? {}
-      : {
-          phase7Session: {
-            id: sessionId,
-            token: 'phase7-session-token',
-            createdAt: new Date('2026-09-06T00:00:00.000Z'),
-            expiresAt: new Date('2026-09-07T00:00:00.000Z'),
-            isFresh: true
-          }
-        }),
-    user
-  }))
+  const resolveAuthenticatedUser = vi.fn(async () => {
+    if (principalError !== undefined) throw principalError
+    return {
+      ...(adminAuthorityFailure === undefined ? {} : { adminAuthorityFailure }),
+      clearSessionCookie,
+      headers: resolutionHeaders,
+      ...(user === null
+        ? {}
+        : {
+            phase7Session: {
+              id: sessionId,
+              token: 'phase7-session-token',
+              createdAt: new Date('2026-09-06T00:00:00.000Z'),
+              expiresAt: new Date('2026-09-07T00:00:00.000Z'),
+              isFresh
+            }
+          }),
+      user
+    }
+  })
   const principalService: PrincipalService = {
     resolveAuthenticatedUser,
     getAuthenticatedUser: vi.fn(async () => user)
@@ -221,11 +255,19 @@ const createFixture = ({
         rateLimiter: commandRateLimiter,
         service: commandService
       },
+      ...(includeReauthentication
+        ? {
+            reauthentication: {
+              rateLimiter: commandRateLimiter,
+              service: reauthenticationService
+            }
+          }
+        : {}),
       rateLimiter: readRateLimiter,
       reader
     },
     auth: {
-      environment,
+      environment: appEnvironment,
       gateway: { handle: vi.fn() },
       guestPrincipalService,
       principalService
@@ -240,6 +282,7 @@ const createFixture = ({
     assertCapability,
     commandService,
     consume,
+    reauthenticate,
     resolveAuthenticatedUser
   }
 }
@@ -524,6 +567,226 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     expect(jsonFixture.commandService.createQuestion).not.toHaveBeenCalled()
   })
 
+  it('default createApiApp composition rotates a stale ADMIN session and preserves ordered cookies', async () => {
+    const fixture = createFixture({ isFresh: false })
+    const response = await fixture.app.request(
+      '/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ password: 'valid-password-value' })
+      }
+    )
+
+    expect(response.status).toBe(200)
+    expect(
+      reauthenticateAdminResponseSchema.parse(await response.json())
+    ).toEqual({
+      reauthenticatedAt: '2026-09-06T00:00:00.000Z',
+      assuranceExpiresAt: '2026-09-06T00:05:00.000Z'
+    })
+    expect(response.headers.getSetCookie()).toEqual([
+      'nihongo.session_token=replacement; Path=/; HttpOnly; SameSite=Lax',
+      'nihongo.dont_remember=1; Path=/; HttpOnly; SameSite=Lax'
+    ])
+    expect(fixture.resolveAuthenticatedUser).toHaveBeenCalledWith(
+      expect.any(Headers),
+      {
+        classifyAdminAuthorityLoss: true,
+        refreshRememberedSession: false
+      }
+    )
+    expect(fixture.consume).toHaveBeenCalledWith({
+      actorId: adminUser.id,
+      clientIp: 'unresolved',
+      group: 'REAUTHENTICATION'
+    })
+    expect(fixture.reauthenticate).toHaveBeenCalledWith({
+      actorId: adminUser.id,
+      headers: expect.any(Headers),
+      password: 'valid-password-value',
+      rawSessionToken: 'phase7-session-token',
+      requestId
+    })
+  })
+
+  it('reauthentication keeps 4KiB, origin, rate, query, and body checks in guard order', async () => {
+    const oversized = createFixture({ user: null })
+    const oversizedResponse = await oversized.app.request(
+      '/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: commandHeaders({ 'Content-Length': String(4 * 1024 + 1) }),
+        body: '{}'
+      }
+    )
+    expect(oversizedResponse.status).toBe(413)
+    expect(oversized.resolveAuthenticatedUser).not.toHaveBeenCalled()
+
+    const untrusted = createFixture()
+    const untrustedResponse = await untrusted.app.request(
+      '/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      }
+    )
+    expect(
+      reauthenticateAdminErrorSchema.parse(await untrustedResponse.json()).code
+    ).toBe('UNTRUSTED_ORIGIN')
+    expect(untrusted.consume).not.toHaveBeenCalled()
+
+    const limited = createFixture({
+      rateError: new ApplicationError({
+        code: 'RATE_LIMITED',
+        message: 'too many',
+        retryable: true,
+        retryAfterSeconds: 29,
+        phase7Disposition: 'NO_TX'
+      })
+    })
+    const limitedResponse = await limited.app.request(
+      '/api/v1/admin/reauthentication?unexpected=1',
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: '{"password":"first","password":"second"}'
+      }
+    )
+    expect(limitedResponse.status).toBe(429)
+    expect(limitedResponse.headers.get('Retry-After')).toBe('29')
+    expect(limited.reauthenticate).not.toHaveBeenCalled()
+
+    const query = createFixture()
+    const queryResponse = await query.app.request(
+      '/api/v1/admin/reauthentication?unexpected=1',
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ password: 'valid-password-value' })
+      }
+    )
+    expect(queryResponse.status).toBe(422)
+    expect(query.consume).toHaveBeenCalledTimes(1)
+    expect(query.reauthenticate).not.toHaveBeenCalled()
+
+    const body = createFixture()
+    const bodyResponse = await body.app.request(
+      '/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: '{"password":"first","password":"second"}'
+      }
+    )
+    expect(bodyResponse.status).toBe(400)
+    expect(body.consume).toHaveBeenCalledTimes(1)
+    expect(body.reauthenticate).not.toHaveBeenCalled()
+  })
+
+  it('wrong password and authority failures emit no replacement cookie or service-side success', async () => {
+    const wrongPassword = createFixture({
+      reauthenticationError: new ApplicationError({
+        code: 'REAUTHENTICATION_FAILED',
+        message: '비밀번호를 확인할 수 없습니다.',
+        retryable: false,
+        phase7Disposition: 'NO_TX'
+      })
+    })
+    const wrongPasswordResponse = await wrongPassword.app.request(
+      '/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ password: 'wrong-password-value' })
+      }
+    )
+    expect(wrongPasswordResponse.status).toBe(401)
+    expect(
+      reauthenticateAdminErrorSchema.parse(await wrongPasswordResponse.json())
+        .code
+    ).toBe('REAUTHENTICATION_FAILED')
+    expect(wrongPasswordResponse.headers.getSetCookie()).toHaveLength(0)
+
+    for (const input of [
+      {
+        fixture: createFixture({
+          adminAuthorityFailure: 'AUTH_SESSION_EXPIRED',
+          clearSessionCookie: true,
+          user: null
+        }),
+        code: 'AUTH_SESSION_EXPIRED',
+        status: 401
+      },
+      {
+        fixture: createFixture({
+          adminAuthorityFailure: 'ADMIN_REQUIRED',
+          clearSessionCookie: true,
+          user: null
+        }),
+        code: 'ADMIN_REQUIRED',
+        status: 403
+      }
+    ] as const) {
+      const response = await input.fixture.app.request(
+        '/api/v1/admin/reauthentication',
+        {
+          method: 'POST',
+          headers: commandHeaders(),
+          body: JSON.stringify({ password: 'valid-password-value' })
+        }
+      )
+      expect(response.status).toBe(input.status)
+      expect(
+        reauthenticateAdminErrorSchema.parse(await response.json()).code
+      ).toBe(input.code)
+      expect(input.fixture.reauthenticate).not.toHaveBeenCalled()
+    }
+
+    const classifier = createFixture({
+      principalError: new Error('classifier unavailable')
+    })
+    const classifierResponse = await classifier.app.request(
+      '/api/v1/admin/reauthentication',
+      {
+        method: 'POST',
+        headers: commandHeaders(),
+        body: JSON.stringify({ password: 'valid-password-value' })
+      }
+    )
+    expect(classifierResponse.status).toBe(503)
+    expect(classifierResponse.headers.get('Retry-After')).toBe('5')
+    expect(
+      reauthenticateAdminErrorSchema.parse(await classifierResponse.json())
+    ).toMatchObject({ code: 'SERVICE_UNAVAILABLE', retryable: false })
+    expect(classifier.reauthenticate).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['disabled', { ...environment, ADMIN_CMS_MODE: 'disabled' }],
+    ['production', { ...environment, NODE_ENV: 'production' }]
+  ] as const)(
+    '%s mode keeps reauthentication generic 404 before guard and service',
+    async (_label, appEnvironment) => {
+      const fixture = createFixture({ appEnvironment })
+      const response = await fixture.app.request(
+        '/api/v1/admin/reauthentication',
+        {
+          method: 'POST',
+          headers: commandHeaders(),
+          body: JSON.stringify({ password: 'valid-password-value' })
+        }
+      )
+
+      expect(response.status).toBe(404)
+      expect(fixture.resolveAuthenticatedUser).not.toHaveBeenCalled()
+      expect(fixture.consume).not.toHaveBeenCalled()
+      expect(fixture.reauthenticate).not.toHaveBeenCalled()
+      expect(response.headers.getSetCookie()).toHaveLength(0)
+    }
+  )
+
   it.each([
     ['HEAD', '/api/v1/admin/questions'],
     ['POST', '/api/v1/admin/questions#alias'],
@@ -534,7 +797,6 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
       'POST',
       `/api/v1/admin/question-versions/${versionId}/approval-withdrawal`
     ],
-    ['POST', '/api/v1/admin/reauthentication'],
     [
       'POST',
       '/api/v1/admin/question-versions/019D0000-0000-7000-8000-000000000004/approval'
@@ -557,14 +819,14 @@ describe('Phase 7 Slice 3 ADMIN command routing', () => {
     }
   )
 
-  it('manifest의 dormant 15개 전부를 auth/service/DB/cookie 전에 generic 404로 닫는다', async () => {
+  it('manifest의 dormant 14개 전부를 auth/service/DB/cookie 전에 generic 404로 닫는다', async () => {
     const fixture = createFixture()
     const readerCallsBefore = Object.values(reader).map(
       (read) => vi.mocked(read).mock.calls.length
     )
 
-    expect(phase7DormantAfterSlice3AOperationManifest).toHaveLength(15)
-    for (const entry of phase7DormantAfterSlice3AOperationManifest) {
+    expect(phase7DormantAfterSlice3RA1OperationManifest).toHaveLength(14)
+    for (const entry of phase7DormantAfterSlice3RA1OperationManifest) {
       const response = await fixture.app.request(
         materializeManifestPath(entry.path),
         {
