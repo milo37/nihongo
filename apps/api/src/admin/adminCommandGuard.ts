@@ -17,6 +17,8 @@ import { appendAdminAuthHeaders } from './adminReadGuard.js'
 type AdminRouteEnvironment = { Variables: ApiVariables }
 
 const LARGE_BODY_CAP = 256 * 1024
+const IMPORT_BODY_CAP = 2 * 1024 * 1024
+const REPORT_BODY_CAP = 32 * 1024
 const SMALL_BODY_CAP = 16 * 1024
 const REAUTHENTICATION_BODY_CAP = 4 * 1024
 const CANONICAL_CONTENT_LENGTH = /^(?:0|[1-9][0-9]*)$/u
@@ -34,6 +36,13 @@ const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
   publishQuestionVersion: SMALL_BODY_CAP,
   retireQuestionVersion: SMALL_BODY_CAP,
   archiveAdminQuestion: SMALL_BODY_CAP,
+  requestContentReviewBatch: LARGE_BODY_CAP,
+  validateQuestionImport: IMPORT_BODY_CAP,
+  applyQuestionImport: IMPORT_BODY_CAP,
+  exportAdminQuestions: SMALL_BODY_CAP,
+  createQuestionReport: REPORT_BODY_CAP,
+  triageAdminQuestionReport: SMALL_BODY_CAP,
+  resolveAdminQuestionReport: SMALL_BODY_CAP,
   reauthenticateAdmin: REAUTHENTICATION_BODY_CAP
 }
 
@@ -50,6 +59,12 @@ const groupByOperation: Readonly<
   publishQuestionVersion: 'ADMIN_SENSITIVE',
   retireQuestionVersion: 'ADMIN_SENSITIVE',
   archiveAdminQuestion: 'ADMIN_SENSITIVE',
+  requestContentReviewBatch: 'ADMIN_SENSITIVE',
+  validateQuestionImport: 'IMPORT_VALIDATION',
+  applyQuestionImport: 'ADMIN_SENSITIVE',
+  exportAdminQuestions: 'ADMIN_SENSITIVE',
+  triageAdminQuestionReport: 'ADMIN_EDIT',
+  resolveAdminQuestionReport: 'ADMIN_SENSITIVE',
   reauthenticateAdmin: 'REAUTHENTICATION'
 }
 
@@ -58,7 +73,11 @@ const freshOperations = new Set<Phase7Operation>([
   'withdrawQuestionApproval',
   'publishQuestionVersion',
   'retireQuestionVersion',
-  'archiveAdminQuestion'
+  'archiveAdminQuestion',
+  'requestContentReviewBatch',
+  'applyQuestionImport',
+  'exportAdminQuestions',
+  'resolveAdminQuestionReport'
 ])
 
 const invalidRequest = (message: string): ApplicationError =>
@@ -96,7 +115,7 @@ const getOperation = (
   return operation
 }
 
-const assertDeclaredBodyBound = (
+export const assertPhase7DeclaredBodyBound = (
   context: Context<AdminRouteEnvironment>,
   bodyCap: number
 ): void => {
@@ -108,7 +127,9 @@ const assertDeclaredBodyBound = (
   if (BigInt(declared) > BigInt(bodyCap)) throw requestTooLarge()
 }
 
-const assertJsonTransport = (context: Context<AdminRouteEnvironment>): void => {
+export const assertPhase7JsonTransport = (
+  context: Context<AdminRouteEnvironment>
+): void => {
   const contentEncoding = context.req.header('Content-Encoding')
   if (
     contentEncoding !== undefined &&
@@ -122,7 +143,7 @@ const assertJsonTransport = (context: Context<AdminRouteEnvironment>): void => {
   }
 }
 
-const assertTrustedOrigin = (
+export const assertPhase7TrustedOrigin = (
   context: Context<AdminRouteEnvironment>,
   environment: ApiEnvironment
 ): void => {
@@ -171,7 +192,7 @@ export const createAdminCommandGuard = ({
 
   return createMiddleware<AdminRouteEnvironment>(async (context, next) => {
     const operation = getOperation(context, operationResolver)
-    assertDeclaredBodyBound(context, getPhase7OperationBodyCap(operation))
+    assertPhase7DeclaredBodyBound(context, getPhase7OperationBodyCap(operation))
 
     let resolution: Awaited<
       ReturnType<PrincipalService['resolveAuthenticatedUser']>
@@ -197,7 +218,7 @@ export const createAdminCommandGuard = ({
     if (!resolution.user || !resolution.phase7Session) {
       if (resolution.clearSessionCookie) {
         try {
-          assertTrustedOrigin(context, environment)
+          assertPhase7TrustedOrigin(context, environment)
           appendAdminAuthHeaders(context, resolution, environment)
         } catch {
           // Never attach credential-changing headers to an untrusted origin.
@@ -259,8 +280,8 @@ export const createAdminCommandGuard = ({
       })
     }
 
-    assertJsonTransport(context)
-    assertTrustedOrigin(context, environment)
+    assertPhase7JsonTransport(context)
+    assertPhase7TrustedOrigin(context, environment)
     appendAdminAuthHeaders(context, resolution, environment)
 
     let peerAddress: string | undefined

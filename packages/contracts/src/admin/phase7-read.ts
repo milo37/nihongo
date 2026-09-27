@@ -22,6 +22,7 @@ import {
   canonicalizeJson,
   compareUnicodeScalars,
   createPhase7TextSchema,
+  normalizePhase7OptionComparison,
   nonNegativeSafeIntegerSchema,
   isWellFormedPhase7Text,
   normalizePhase7Text,
@@ -194,9 +195,6 @@ export const previewQuestionVersionParamsSchema = z
   .strict()
 export const previewQuestionVersionQuerySchema = z.object({}).strict()
 
-const normalizeOptionComparison = (value: string): string =>
-  value.normalize('NFKC').trim().replace(/\s+/gu, ' ')
-
 export const isApplicablePhase7ContentType = (
   level: z.output<typeof jlptLevelSchema>,
   subject: z.output<typeof questionSubjectSchema>,
@@ -282,7 +280,7 @@ export const previewQuestionVersionResponseSchema = z
     }
     const optionTexts = new Set<string>()
     question.options.forEach((option, index) => {
-      const normalized = normalizeOptionComparison(option.text)
+      const normalized = normalizePhase7OptionComparison(option.text)
       if (optionTexts.has(normalized)) {
         addIssue(
           context,
@@ -422,7 +420,7 @@ const optionDiffArraySchema = z
       if (option.ordinal !== index + 1) {
         addIssue(context, [index, 'ordinal'], 'ordinal은 1..4 순서여야 합니다.')
       }
-      const text = normalizeOptionComparison(option.text)
+      const text = normalizePhase7OptionComparison(option.text)
       if (texts.has(text)) {
         addIssue(context, [index, 'text'], 'option text는 고유해야 합니다.')
       }

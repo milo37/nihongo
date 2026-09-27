@@ -149,11 +149,78 @@ const SLICE_4_PUBLICATION_COMMAND_PATHS = [
   }
 ] as const
 
+const SLICE_5_ADMIN_READ_PATHS = [
+  {
+    operation: 'listAdminQuestionReports',
+    pattern: /^\/api\/v1\/admin\/question-reports$/u
+  },
+  {
+    operation: 'getAdminQuestionReport',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-reports/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  }
+] as const
+
+const SLICE_5_ADMIN_COMMAND_PATHS = [
+  {
+    method: 'POST',
+    operation: 'requestContentReviewBatch',
+    pattern: /^\/api\/v1\/admin\/question-versions\/review-request-batch$/u
+  },
+  {
+    method: 'POST',
+    operation: 'validateQuestionImport',
+    pattern: /^\/api\/v1\/admin\/questions\/import-validation$/u
+  },
+  {
+    method: 'POST',
+    operation: 'applyQuestionImport',
+    pattern: /^\/api\/v1\/admin\/questions\/import-application$/u
+  },
+  {
+    method: 'POST',
+    operation: 'exportAdminQuestions',
+    pattern: /^\/api\/v1\/admin\/questions\/export$/u
+  },
+  {
+    method: 'POST',
+    operation: 'triageAdminQuestionReport',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-reports/${CANONICAL_UUID_PATTERN}/triage$`,
+      'u'
+    )
+  },
+  {
+    method: 'POST',
+    operation: 'resolveAdminQuestionReport',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-reports/${CANONICAL_UUID_PATTERN}/resolution$`,
+      'u'
+    )
+  }
+] as const
+
+const SLICE_5_LEARNER_REPORT_PATHS = [
+  {
+    method: 'POST',
+    operation: 'createQuestionReport',
+    pattern: /^\/api\/v1\/question-reports$/u
+  }
+] as const
+
 const ACTIVE_ADMIN_COMMAND_PATHS = [
   ...SLICE_3A_ADMIN_COMMAND_PATHS,
   ...SLICE_3R_A2_APPROVAL_COMMAND_PATHS,
   ...SLICE_4_PUBLICATION_COMMAND_PATHS,
-  ...SLICE_3R_A1_REAUTHENTICATION_PATHS
+  ...SLICE_3R_A1_REAUTHENTICATION_PATHS,
+  ...SLICE_5_ADMIN_COMMAND_PATHS
+] as const
+
+const ACTIVE_ADMIN_READ_PATHS = [
+  ...SLICE_2_ADMIN_READ_PATHS,
+  ...SLICE_5_ADMIN_READ_PATHS
 ] as const
 
 const getPathnameFromRequestTarget = (requestTarget: string): string | null => {
@@ -317,6 +384,39 @@ export const getCanonicalPhase7Slice3Operation = ({
   )
 }
 
+export const getCanonicalPhase7AdminReadOperation = ({
+  method,
+  requestTarget
+}: {
+  method: string
+  requestTarget: string
+}): Phase7Operation | null => {
+  if (hasRequestTargetFragment(requestTarget) || method !== 'GET') return null
+  const pathname = getPathnameFromRequestTarget(requestTarget)
+  if (pathname === null) return null
+  return (
+    ACTIVE_ADMIN_READ_PATHS.find(({ pattern }) => pattern.test(pathname))
+      ?.operation ?? null
+  )
+}
+
+export const getCanonicalPhase7LearnerReportOperation = ({
+  method,
+  requestTarget
+}: {
+  method: string
+  requestTarget: string
+}): Phase7Operation | null => {
+  if (hasRequestTargetFragment(requestTarget)) return null
+  const pathname = getPathnameFromRequestTarget(requestTarget)
+  if (pathname === null) return null
+  return (
+    SLICE_5_LEARNER_REPORT_PATHS.find(
+      (entry) => entry.method === method && entry.pattern.test(pathname)
+    )?.operation ?? null
+  )
+}
+
 const isCanonicalRequestForPaths = (
   input: { method: string; requestTarget: string },
   paths: readonly {
@@ -358,12 +458,36 @@ export const isCanonicalPhase7PublicationCommandRequest = (input: {
 }): boolean =>
   isCanonicalRequestForPaths(input, SLICE_4_PUBLICATION_COMMAND_PATHS)
 
+export const isCanonicalPhase7Slice5AdminReadRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => {
+  if (hasRequestTargetFragment(input.requestTarget)) return false
+  if (input.method !== 'GET' && input.method !== 'OPTIONS') return false
+  const pathname = getPathnameFromRequestTarget(input.requestTarget)
+  return (
+    pathname !== null &&
+    SLICE_5_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname))
+  )
+}
+
+export const isCanonicalPhase7Slice5AdminCommandRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, SLICE_5_ADMIN_COMMAND_PATHS)
+
+export const isCanonicalPhase7LearnerReportRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, SLICE_5_LEARNER_REPORT_PATHS)
+
 export const getCanonicalPhase7ActiveOperation = (input: {
   method: string
   requestTarget: string
 }): Phase7Operation | null =>
-  getCanonicalPhase7Slice2ReadOperation(input) ??
-  getCanonicalPhase7Slice3Operation(input)
+  getCanonicalPhase7AdminReadOperation(input) ??
+  getCanonicalPhase7Slice3Operation(input) ??
+  getCanonicalPhase7LearnerReportOperation(input)
 
 export const isCanonicalPhase7ActiveRequest = ({
   method,
@@ -377,8 +501,11 @@ export const isCanonicalPhase7ActiveRequest = ({
   if (pathname === null) return false
   if (method === 'OPTIONS') {
     return (
-      SLICE_2_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname)) ||
-      ACTIVE_ADMIN_COMMAND_PATHS.some(({ pattern }) => pattern.test(pathname))
+      ACTIVE_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname)) ||
+      ACTIVE_ADMIN_COMMAND_PATHS.some(({ pattern }) =>
+        pattern.test(pathname)
+      ) ||
+      SLICE_5_LEARNER_REPORT_PATHS.some(({ pattern }) => pattern.test(pathname))
     )
   }
   return getCanonicalPhase7ActiveOperation({ method, requestTarget }) !== null

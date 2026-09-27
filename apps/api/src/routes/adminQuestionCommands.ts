@@ -1,12 +1,23 @@
+import { createHash } from 'node:crypto'
 import {
+  adminImportApplyResponseSchema,
+  adminImportValidationResponseSchema,
+  adminQuestionExportContentDisposition,
+  adminQuestionExportContentType,
+  assertAdminImportApplyForRequest,
+  assertAdminImportValidationForRequest,
+  assertAdminQuestionExportDocumentForRequest,
   assertApproveQuestionVersionResponse,
   assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
   assertPublishQuestionVersionResponse,
+  assertRequestContentReviewBatchResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
   assertRetireQuestionVersionResponse,
+  assertResolveAdminQuestionReportResponse,
+  assertTriageAdminQuestionReportResponse,
   assertUpdateQuestionVersionResponse,
   assertWithdrawQuestionApprovalResponse,
   approveQuestionVersionParamsSchema,
@@ -15,15 +26,21 @@ import {
   archiveAdminQuestionParamsSchema,
   archiveAdminQuestionRequestSchema,
   archiveAdminQuestionResponseSchema,
+  applyQuestionImportRequestSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionResponseSchema,
   createAdminQuestionVersionParamsSchema,
   createAdminQuestionVersionRequestSchema,
   createAdminQuestionVersionResponseSchema,
+  exportAdminQuestionsRequestSchema,
+  exportAdminQuestionsAttachmentBodyResponseSchema,
+  exportAdminQuestionsResponseSchema,
   phase7EmptyQuerySchema,
   publishQuestionVersionParamsSchema,
   publishQuestionVersionRequestSchema,
   publishQuestionVersionResponseSchema,
+  requestContentReviewBatchRequestSchema,
+  requestContentReviewBatchResponseSchema,
   requestContentReviewParamsSchema,
   requestContentReviewRequestSchema,
   requestContentReviewResponseSchema,
@@ -33,9 +50,16 @@ import {
   retireQuestionVersionParamsSchema,
   retireQuestionVersionRequestSchema,
   retireQuestionVersionResponseSchema,
+  resolveAdminQuestionReportParamsSchema,
+  resolveAdminQuestionReportRequestSchema,
+  resolveAdminQuestionReportResponseSchema,
+  triageAdminQuestionReportParamsSchema,
+  triageAdminQuestionReportRequestSchema,
+  triageAdminQuestionReportResponseSchema,
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
   updateQuestionVersionResponseSchema,
+  validateQuestionImportRequestSchema,
   withdrawQuestionApprovalParamsSchema,
   withdrawQuestionApprovalRequestSchema,
   withdrawQuestionApprovalResponseSchema,
@@ -45,7 +69,8 @@ import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError, type ZodType } from 'zod'
 import type {
   AdminQuestionCommandService,
-  AdminQuestionPublicationCommandService
+  AdminQuestionPublicationCommandService,
+  AdminQuestionSlice5CommandService
 } from '../admin/adminQuestionCommandService.js'
 import { getPhase7OperationBodyCap } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -140,6 +165,43 @@ const noStore = (context: {
   header: (name: string, value: string) => void
 }): void => context.header('Cache-Control', 'private, no-store')
 
+const sha256Port = {
+  digestUtf8: async (value: string): Promise<string> =>
+    createHash('sha256').update(value, 'utf8').digest('hex')
+}
+
+const assertCommittedAsync = async <Response>(
+  assertion: () => Promise<Response>
+): Promise<Response> => {
+  try {
+    return await assertion()
+  } catch (error: unknown) {
+    throw new ApplicationError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
+      retryable: false,
+      phase7Disposition: 'COMMIT_CONFIRMED',
+      cause: error
+    })
+  }
+}
+
+const assertNoTransactionAsync = async <Response>(
+  assertion: () => Promise<Response>
+): Promise<Response> => {
+  try {
+    return await assertion()
+  } catch (error: unknown) {
+    throw new ApplicationError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
+      retryable: false,
+      phase7Disposition: 'NO_TX',
+      cause: error
+    })
+  }
+}
+
 const authority = (context: {
   get: {
     (key: 'adminActorId'): string
@@ -154,11 +216,13 @@ const authority = (context: {
 
 export const createAdminQuestionCommandRoutes = ({
   commandService,
-  guard
+  guard,
+  slice5CommandService
 }: {
   commandService: AdminQuestionCommandService &
     AdminQuestionPublicationCommandService
   guard: MiddlewareHandler<AdminRouteEnvironment>
+  slice5CommandService?: AdminQuestionSlice5CommandService
 }): Hono<AdminRouteEnvironment> => {
   const routes = new Hono<AdminRouteEnvironment>()
 
@@ -466,6 +530,197 @@ export const createAdminQuestionCommandRoutes = ({
     noStore(context)
     return context.json(response)
   })
+
+  if (slice5CommandService) {
+    routes.post(
+      '/question-versions/review-request-batch',
+      guard,
+      async (context) => {
+        assertEmptyQuery(context.get('rawRequestTarget'))
+        const request = requestContentReviewBatchRequestSchema.parse(
+          await parseBody(
+            context.req.raw,
+            'requestContentReviewBatch',
+            requestContentReviewBatchRequestSchema,
+            '일괄 콘텐츠 검수 요청이 올바르지 않습니다.'
+          )
+        )
+        const raw = await slice5CommandService.requestReviewBatch(
+          authority(context),
+          request
+        )
+        const response = requestContentReviewBatchResponseSchema.parse(
+          assertCommittedResponse(() =>
+            assertRequestContentReviewBatchResponse(request, raw)
+          )
+        )
+        noStore(context)
+        return context.json(response)
+      }
+    )
+
+    routes.post('/questions/import-validation', guard, async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const request = validateQuestionImportRequestSchema.parse(
+        await parseBody(
+          context.req.raw,
+          'validateQuestionImport',
+          validateQuestionImportRequestSchema,
+          '문제 import 검증 요청이 올바르지 않습니다.'
+        )
+      )
+      const raw = await slice5CommandService.validateImport(request)
+      const response = adminImportValidationResponseSchema.parse(
+        await assertNoTransactionAsync(() =>
+          assertAdminImportValidationForRequest(sha256Port, request, raw)
+        )
+      )
+      noStore(context)
+      return context.json(response)
+    })
+
+    routes.post('/questions/import-application', guard, async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const request = applyQuestionImportRequestSchema.parse(
+        await parseBody(
+          context.req.raw,
+          'applyQuestionImport',
+          applyQuestionImportRequestSchema,
+          '문제 import 적용 요청이 올바르지 않습니다.'
+        )
+      )
+      const raw = await slice5CommandService.applyImport(
+        authority(context),
+        request
+      )
+      const asserted = await assertCommittedAsync(() =>
+        assertAdminImportApplyForRequest(
+          sha256Port,
+          request,
+          raw.response,
+          raw.mappingDigest
+        )
+      )
+      const response = adminImportApplyResponseSchema.parse(asserted.response)
+      noStore(context)
+      return context.json(response, 201)
+    })
+
+    routes.post('/questions/export', guard, async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const request = exportAdminQuestionsRequestSchema.parse(
+        await parseBody(
+          context.req.raw,
+          'exportAdminQuestions',
+          exportAdminQuestionsRequestSchema,
+          '관리자 문제 내보내기 요청이 올바르지 않습니다.'
+        )
+      )
+      const raw = await slice5CommandService.exportQuestions(
+        authority(context),
+        request
+      )
+      const response = exportAdminQuestionsResponseSchema.parse(raw.document)
+      await assertCommittedAsync(() =>
+        assertAdminQuestionExportDocumentForRequest(
+          sha256Port,
+          request,
+          response,
+          {
+            canonicalResponseBody: raw.canonicalBody,
+            auditEvidence: raw.auditEvidence
+          }
+        )
+      )
+      noStore(context)
+      context.header('Content-Type', adminQuestionExportContentType)
+      context.header(
+        'Content-Disposition',
+        adminQuestionExportContentDisposition
+      )
+      const responseBody =
+        exportAdminQuestionsAttachmentBodyResponseSchema.parse(
+          raw.canonicalBody
+        )
+      return context.body(responseBody)
+    })
+
+    routes.post(
+      '/question-reports/:reportId/triage',
+      guard,
+      async (context) => {
+        assertEmptyQuery(context.get('rawRequestTarget'))
+        const params = parsePath(
+          () =>
+            triageAdminQuestionReportParamsSchema.parse({
+              reportId: context.req.param('reportId')
+            }),
+          '문제 신고 ID 형식이 올바르지 않습니다.'
+        )
+        const request = await parseBody(
+          context.req.raw,
+          'triageAdminQuestionReport',
+          triageAdminQuestionReportRequestSchema,
+          '문제 신고 triage 요청이 올바르지 않습니다.'
+        )
+        const raw = await slice5CommandService.triageReport(
+          authority(context),
+          params.reportId,
+          request
+        )
+        const response = triageAdminQuestionReportResponseSchema.parse(
+          assertCommittedResponse(() =>
+            assertTriageAdminQuestionReportResponse(params, request, raw)
+          )
+        )
+        noStore(context)
+        return context.json(response)
+      }
+    )
+
+    routes.post(
+      '/question-reports/:reportId/resolution',
+      guard,
+      async (context) => {
+        assertEmptyQuery(context.get('rawRequestTarget'))
+        const params = parsePath(
+          () =>
+            resolveAdminQuestionReportParamsSchema.parse({
+              reportId: context.req.param('reportId')
+            }),
+          '문제 신고 ID 형식이 올바르지 않습니다.'
+        )
+        const request = await parseBody(
+          context.req.raw,
+          'resolveAdminQuestionReport',
+          resolveAdminQuestionReportRequestSchema,
+          '문제 신고 종결 요청이 올바르지 않습니다.'
+        )
+        const raw = await slice5CommandService.resolveReport(
+          authority(context),
+          params.reportId,
+          request
+        )
+        const response = resolveAdminQuestionReportResponseSchema.parse(
+          assertCommittedResponse(() => {
+            const asserted = assertResolveAdminQuestionReportResponse(
+              params,
+              request,
+              raw
+            )
+            if (asserted.rowVersion !== request.expectedRowVersion + 1) {
+              throw new Error(
+                'report resolution rowVersion이 request와 다릅니다.'
+              )
+            }
+            return asserted
+          })
+        )
+        noStore(context)
+        return context.json(response)
+      }
+    )
+  }
 
   return routes
 }

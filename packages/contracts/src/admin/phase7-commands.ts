@@ -5,6 +5,7 @@ import { opaqueIdSchema } from '../common/id.js'
 import {
   canonicalizeJson,
   createPhase7TextSchema,
+  normalizePhase7OptionComparison,
   positiveSafeIntegerSchema,
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,
@@ -726,8 +727,24 @@ export const adminQuestionExportDocumentV1Schema = z
 export const exportAdminQuestionsResponseSchema =
   adminQuestionExportDocumentV1Schema
 
-const normalizeOptionComparison = (value: string): string =>
-  value.normalize('NFKC').trim().replace(/\s+/gu, ' ')
+export const exportAdminQuestionsAttachmentBodyResponseSchema = z
+  .string()
+  .superRefine((body, context) => {
+    let document: unknown
+    try {
+      document = JSON.parse(body) as unknown
+    } catch {
+      addIssue(context, [], 'export attachment는 올바른 JSON이어야 합니다.')
+      return
+    }
+    if (!adminQuestionExportDocumentV1Schema.safeParse(document).success) {
+      addIssue(
+        context,
+        [],
+        'export attachment는 admin-question-export-v1 문서여야 합니다.'
+      )
+    }
+  })
 
 const openQuestionVersionStatuses = new Set([
   'DRAFT',
@@ -821,7 +838,7 @@ export const assertAdminQuestionExportDocumentSemantics = (
             'export QuestionOption ID는 document-global unique여야 합니다.'
           )
         }
-        const normalizedText = normalizeOptionComparison(option.text)
+        const normalizedText = normalizePhase7OptionComparison(option.text)
         if (normalizedOptionTexts.has(normalizedText)) {
           throw new Error('export option text는 normalized unique여야 합니다.')
         }

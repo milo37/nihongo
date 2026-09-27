@@ -134,6 +134,7 @@ migrationDatabaseUrl.searchParams.set(
 )
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
 const authGatewayDatabaseUrl = buildWrapperDatabaseUrl(TEST_AUTH_GATEWAY_LOGIN)
+const erasureWorkerDatabaseUrl = buildWrapperDatabaseUrl(TEST_ERASURE_LOGIN)
 
 const quoteIdentifier = (value: string): string => {
   if (!IDENTIFIER_PATTERN.test(value)) {
@@ -678,6 +679,7 @@ const run = async (): Promise<void> => {
     ADMIN_CMS_MODE: 'technical',
     AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
+    PHASE7_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
     NODE_ENV: 'test',
     PHASE7_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     PHASE7_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),

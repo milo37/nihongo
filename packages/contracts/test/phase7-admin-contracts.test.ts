@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   adminAuditLogItemSchema,
+  adminImportItemSchema,
   adminImportValidationResponseSchema,
   adminQuestionVersionSummarySchema,
   applyQuestionImportErrorSchema,
@@ -24,6 +25,7 @@ import {
   getAdminQuestionReportErrorCodeSchema,
   listAdminQuestionReportsErrorCodeSchema,
   listAdminQuestionsQuerySchema,
+  normalizePhase7OptionComparison,
   normalizePhase7TagKey,
   phase7QuestionSearchSchema,
   previewQuestionVersionResponseSchema,
@@ -120,6 +122,29 @@ describe('Phase 7 common and read contracts', () => {
   it('normalizes only tag ASCII case while question q remains NFC case-sensitive', () => {
     expect(normalizePhase7TagKey('  Ä  A  ')).toBe('Ä a')
     expect(phase7QuestionSearchSchema.parse('  Ａbc  ')).toBe('Ａbc')
+  })
+
+  it('matches Phase 6 Unicode White_Space option comparison without treating FEFF as whitespace', () => {
+    expect(normalizePhase7OptionComparison('\u3000です\u00a0')).toBe('です')
+    expect(normalizePhase7OptionComparison('で\t\nす')).toBe('で す')
+    expect(normalizePhase7OptionComparison('\ufeffです\ufeff')).toBe(
+      '\ufeffです\ufeff'
+    )
+    const parsed = adminImportItemSchema.parse({
+      ...importItem,
+      content: {
+        ...importItem.content,
+        options: importItem.content.options.map((option, index) =>
+          index === 1 ? { ...option, text: '\ufeffです\ufeff' } : option
+        )
+      }
+    })
+    expect(parsed.content.options[1]?.text).toBe('\ufeffです\ufeff')
+    expect(
+      parsed.content.options.map(({ text }) =>
+        normalizePhase7OptionComparison(text)
+      )
+    ).toEqual(['です', '\ufeffです\ufeff', 'でした', 'ません'])
   })
 
   it('requires a safe page and rejects unknown query keys', () => {
@@ -374,6 +399,42 @@ describe('Phase 7 common and read contracts', () => {
 })
 
 describe('Phase 7 future import and report contracts', () => {
+  it.each(['clientItemId', 'clientOptionKey', 'correctOptionKey'] as const)(
+    'rejects an unpaired surrogate in import %s before digest generation',
+    async (field) => {
+      const candidate: AdminImportItem = {
+        ...importItem,
+        content: {
+          ...importItem.content,
+          options: importItem.content.options.map((option) => ({ ...option }))
+        }
+      }
+      if (field === 'clientItemId') candidate.clientItemId = '\ud800'
+      if (field === 'clientOptionKey') {
+        candidate.content.options[0]!.clientOptionKey = '\ud800'
+      }
+      if (field === 'correctOptionKey') {
+        candidate.content.correctOptionKey = '\ud800'
+      }
+      const { port, inputs } = createDigestPort()
+
+      expect(adminImportItemSchema.safeParse(candidate).success).toBe(false)
+      await expect(
+        assertAdminImportValidationForRequest(
+          port,
+          { items: [candidate] },
+          {
+            valid: true,
+            validationDigest: 'a'.repeat(64),
+            itemCount: 1,
+            errors: []
+          }
+        )
+      ).rejects.toThrow()
+      expect(inputs).toEqual([])
+    }
+  )
+
   it('binds import validation digest, item count, pointer, and issue order', async () => {
     const { port, inputs } = createDigestPort()
     const response = await assertAdminImportValidationForRequest(

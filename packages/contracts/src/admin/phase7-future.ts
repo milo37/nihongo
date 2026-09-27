@@ -14,6 +14,7 @@ import {
   canonicalizeJson,
   compareUnicodeScalars,
   createPhase7TextSchema,
+  normalizePhase7OptionComparison,
   isWellFormedPhase7Text,
   normalizePhase7Text,
   normalizePhase7TagKey,
@@ -97,9 +98,6 @@ export const adminQuestionContentStructureInputSchema = z
   })
   .strict()
 
-const normalizeOptionComparison = (value: string): string =>
-  value.normalize('NFKC').trim().replace(/\s+/gu, ' ')
-
 export const adminQuestionContentInputSchema =
   adminQuestionContentStructureInputSchema.superRefine((content, context) => {
     const keys = new Set<string>()
@@ -112,7 +110,7 @@ export const adminQuestionContentInputSchema =
           'option key는 고유해야 합니다.'
         )
       }
-      const normalizedText = normalizeOptionComparison(option.text)
+      const normalizedText = normalizePhase7OptionComparison(option.text)
       if (texts.has(normalizedText)) {
         addIssue(
           context,

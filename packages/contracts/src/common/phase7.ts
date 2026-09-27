@@ -15,10 +15,9 @@ const hasForbiddenPhase7Control = (value: string): boolean =>
     )
   })
 const UNPAIRED_SURROGATE_PATTERN = /[\ud800-\udfff]/u
-const INTERNAL_WHITESPACE_PATTERN = /\s+/gu
-const DUPLICATE_WHITESPACE_RUN_PATTERN = /\p{White_Space}+/gu
-const DUPLICATE_LEADING_WHITESPACE_PATTERN = /^\p{White_Space}+/u
-const DUPLICATE_TRAILING_WHITESPACE_PATTERN = /\p{White_Space}+$/u
+const UNICODE_WHITESPACE_RUN_PATTERN = /\p{White_Space}+/gu
+const LEADING_UNICODE_WHITESPACE_PATTERN = /^\p{White_Space}+/u
+const TRAILING_UNICODE_WHITESPACE_PATTERN = /\p{White_Space}+$/u
 
 export const positiveSafeIntegerSchema = z
   .number()
@@ -126,7 +125,10 @@ const normalizeLineEndings = (value: string): string =>
   value.replace(/\r\n?/gu, '\n')
 
 export const normalizePhase7Text = (value: string): string =>
-  normalizeLineEndings(value).normalize('NFC').trim()
+  normalizeLineEndings(value)
+    .normalize('NFC')
+    .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(TRAILING_UNICODE_WHITESPACE_PATTERN, '')
 
 export const createPhase7TextSchema = ({
   minScalars = 1,
@@ -160,16 +162,17 @@ export const isWellFormedPhase7Text = (value: string): boolean =>
 export const normalizePhase7TagKey = (value: string): string =>
   value
     .normalize('NFKC')
-    .trim()
-    .replace(INTERNAL_WHITESPACE_PATTERN, ' ')
+    .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(TRAILING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
 
 export const normalizePhase7DuplicateText = (value: string): string =>
   value
     .normalize('NFKC')
-    .replace(DUPLICATE_LEADING_WHITESPACE_PATTERN, '')
-    .replace(DUPLICATE_TRAILING_WHITESPACE_PATTERN, '')
-    .replace(DUPLICATE_WHITESPACE_RUN_PATTERN, ' ')
+    .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(TRAILING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
 
 export interface Phase7QuestionDuplicateIdentityMaterial {
@@ -232,6 +235,13 @@ export type CanonicalJsonValue =
   | string
   | readonly CanonicalJsonValue[]
   | { readonly [key: string]: CanonicalJsonValue }
+
+export const normalizePhase7OptionComparison = (value: string): string =>
+  value
+    .normalize('NFKC')
+    .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(TRAILING_UNICODE_WHITESPACE_PATTERN, '')
+    .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
 
 export const canonicalizeJson = (value: CanonicalJsonValue): string => {
   if (

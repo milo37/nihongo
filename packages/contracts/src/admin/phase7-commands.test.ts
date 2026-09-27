@@ -5,6 +5,7 @@ import {
   adminQuestionExportContentDisposition,
   adminQuestionExportContentType,
   adminQuestionExportDocumentV1Schema,
+  exportAdminQuestionsAttachmentBodyResponseSchema,
   approveQuestionVersionErrorCodeSchema,
   archiveAdminQuestionErrorCodeSchema,
   archiveAdminQuestionRequestSchema,
@@ -596,6 +597,68 @@ describe('Phase 7 admin command contracts', () => {
         ]
       })
     ).toThrow()
+
+    const duplicateVersionId = structuredClone(exportDocument)
+    duplicateVersionId.questions.push({
+      ...structuredClone(exportDocument.questions[0]!),
+      questionId: id(40)
+    })
+    expect(() =>
+      assertAdminQuestionExportDocumentSemantics(duplicateVersionId)
+    ).toThrow()
+
+    const duplicateOptionId = structuredClone(exportDocument)
+    const duplicateOptionQuestion = structuredClone(
+      exportDocument.questions[0]!
+    )
+    duplicateOptionQuestion.questionId = id(41)
+    duplicateOptionQuestion.currentPublishedVersionId = id(42)
+    duplicateOptionQuestion.versions[0]!.questionVersionId = id(42)
+    duplicateOptionQuestion.versions[0]!.content.options =
+      duplicateOptionQuestion.versions[0]!.content.options.map(
+        (option, index) => ({
+          ...option,
+          id:
+            index === 0
+              ? exportDocument.questions[0]!.versions[0]!.content.options[0]!.id
+              : id(50 + index)
+        })
+      )
+    duplicateOptionQuestion.versions[0]!.content.correctOptionId =
+      duplicateOptionQuestion.versions[0]!.content.options[0]!.id
+    duplicateOptionId.questions.push(duplicateOptionQuestion)
+    expect(() =>
+      assertAdminQuestionExportDocumentSemantics(duplicateOptionId)
+    ).toThrow()
+
+    const duplicateTagId = structuredClone(exportDocument)
+    duplicateTagId.questions[0]!.versions[0]!.content.tags.push({
+      id: id(30),
+      label: '문법',
+      normalizedName: '문법'
+    })
+    expect(() =>
+      assertAdminQuestionExportDocumentSemantics(duplicateTagId)
+    ).toThrow()
+
+    const duplicateTagName = structuredClone(exportDocument)
+    duplicateTagName.questions[0]!.versions[0]!.content.tags.push({
+      id: id(31),
+      label: 'kana',
+      normalizedName: 'kana'
+    })
+    expect(() =>
+      assertAdminQuestionExportDocumentSemantics(duplicateTagName)
+    ).toThrow()
+
+    const nonCanonicalTagOrder = structuredClone(exportDocument)
+    nonCanonicalTagOrder.questions[0]!.versions[0]!.content.tags = [
+      { id: id(32), label: 'Zulu', normalizedName: 'zulu' },
+      { id: id(33), label: 'Alpha', normalizedName: 'alpha' }
+    ]
+    expect(() =>
+      assertAdminQuestionExportDocumentSemantics(nonCanonicalTagOrder)
+    ).toThrow()
     expect(
       adminQuestionExportDocumentV1Schema.safeParse({
         ...exportDocument,
@@ -616,6 +679,17 @@ describe('Phase 7 admin command contracts', () => {
       'content-type': adminQuestionExportContentType,
       'content-disposition': adminQuestionExportContentDisposition
     })
+    expect(
+      exportAdminQuestionsAttachmentBodyResponseSchema.parse(
+        JSON.stringify(exportDocument)
+      )
+    ).toBe(JSON.stringify(exportDocument))
+    expect(() =>
+      exportAdminQuestionsAttachmentBodyResponseSchema.parse('{')
+    ).toThrow()
+    expect(() =>
+      exportAdminQuestionsAttachmentBodyResponseSchema.parse('{}')
+    ).toThrow()
   })
 
   it('reauth success window를 정확히 5분으로 닫는다', () => {

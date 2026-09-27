@@ -12,6 +12,7 @@ import {
   phase7DormantAfterSlice3RA1OperationManifest,
   phase7DormantAfterSlice3RA2OperationManifest,
   phase7DormantAfterSlice4OperationManifest,
+  phase7DormantAfterSlice5OperationManifest,
   phase7OperationManifest,
   phase7OperationSchemaManifest,
   phase7OperationSchemas,
@@ -19,11 +20,13 @@ import {
   phase7ActiveThroughSlice3RA1OperationManifest,
   phase7ActiveThroughSlice3RA2OperationManifest,
   phase7ActiveThroughSlice4OperationManifest,
+  phase7ActiveThroughSlice5OperationManifest,
   phase7Slice3ACommandOperationManifest,
   phase7Slice3RRemediationOperationManifest,
   phase7Slice4CacheInvalidationContractByOperation,
   phase7Slice4CacheInvalidationTargets,
   phase7Slice4OperationManifest,
+  phase7Slice5OperationManifest,
   phase7Slice2ReadOperationManifest
 } from '../src/admin/phase7.js'
 import {
@@ -272,6 +275,86 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         )
         .map((entry) => entry.operation)
     )
+
+    expect(phase7Slice5OperationManifest.map(tuple)).toEqual([
+      [
+        'requestContentReviewBatch',
+        'admin.requestContentReviewBatch',
+        'POST',
+        '/api/v1/admin/question-versions/review-request-batch',
+        200,
+        true
+      ],
+      [
+        'validateQuestionImport',
+        'admin.validateQuestionImport',
+        'POST',
+        '/api/v1/admin/questions/import-validation',
+        200,
+        false
+      ],
+      [
+        'applyQuestionImport',
+        'admin.applyQuestionImport',
+        'POST',
+        '/api/v1/admin/questions/import-application',
+        201,
+        true
+      ],
+      [
+        'exportAdminQuestions',
+        'admin.exportAdminQuestions',
+        'POST',
+        '/api/v1/admin/questions/export',
+        200,
+        true
+      ],
+      [
+        'createQuestionReport',
+        'report.createQuestionReport',
+        'POST',
+        '/api/v1/question-reports',
+        201,
+        false
+      ],
+      [
+        'listAdminQuestionReports',
+        'admin.listAdminQuestionReports',
+        'GET',
+        '/api/v1/admin/question-reports',
+        200,
+        false
+      ],
+      [
+        'getAdminQuestionReport',
+        'admin.getAdminQuestionReport',
+        'GET',
+        '/api/v1/admin/question-reports/:reportId',
+        200,
+        false
+      ],
+      [
+        'triageAdminQuestionReport',
+        'admin.triageAdminQuestionReport',
+        'POST',
+        '/api/v1/admin/question-reports/:reportId/triage',
+        200,
+        false
+      ],
+      [
+        'resolveAdminQuestionReport',
+        'admin.resolveAdminQuestionReport',
+        'POST',
+        '/api/v1/admin/question-reports/:reportId/resolution',
+        200,
+        true
+      ]
+    ])
+    expect(phase7ActiveThroughSlice5OperationManifest).toHaveLength(28)
+    expect(phase7DormantAfterSlice5OperationManifest).toHaveLength(0)
+    expect(
+      phase7ActiveThroughSlice5OperationManifest.map((entry) => entry.operation)
+    ).toEqual(phase7OperationManifest.map((entry) => entry.operation))
   })
 
   it('closes the exact post-commit Slice 4 cache invalidation contract', () => {

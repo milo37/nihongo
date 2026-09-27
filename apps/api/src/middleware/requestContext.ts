@@ -7,6 +7,8 @@ export interface ApiVariables {
   adminActorId: string
   adminClientIp: string
   adminSessionToken: string
+  reporterActorId: string
+  reporterSessionToken: string
   rawRequestTarget: string
 }
 

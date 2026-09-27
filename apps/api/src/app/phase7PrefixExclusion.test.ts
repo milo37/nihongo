@@ -1,14 +1,19 @@
 import {
   phase7Slice3ACommandOperationManifest,
   phase7Slice3RRemediationOperationManifest,
-  phase7Slice4OperationManifest
+  phase7Slice4OperationManifest,
+  phase7Slice5OperationManifest
 } from '@nihongo/contracts/admin/phase7'
 import { describe, expect, it } from 'vitest'
 import {
   getCanonicalPhase7Slice3Operation,
+  getCanonicalPhase7ActiveOperation,
+  isCanonicalPhase7LearnerReportRequest,
   isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7PublicationCommandRequest,
   isCanonicalPhase7ReauthenticationRequest,
+  isCanonicalPhase7Slice5AdminCommandRequest,
+  isCanonicalPhase7Slice5AdminReadRequest,
   isCanonicalPhase7ActiveRequest,
   isPhase7ExcludedRequest
 } from './phase7PrefixExclusion.js'
@@ -16,7 +21,10 @@ import {
 const canonicalId = '019d0000-0000-7000-8000-000000000001'
 const deeplyNestedAdminAlias = `/api/v1/%${'25'.repeat(32)}61dmin/questions`
 const materializePath = (path: string): string =>
-  path.replace(':questionId', canonicalId).replace(':versionId', canonicalId)
+  path
+    .replace(':questionId', canonicalId)
+    .replace(':versionId', canonicalId)
+    .replace(':reportId', canonicalId)
 
 describe('Phase 7 prefix exclusion classifier', () => {
   it('maps exactly the five active Slice 3A command operations', () => {
@@ -96,6 +104,36 @@ describe('Phase 7 prefix exclusion classifier', () => {
     ).toBe(true)
   })
 
+  it('activates exactly the nine Slice 5 operations and OPTIONS boundaries', () => {
+    expect(
+      phase7Slice5OperationManifest.map((entry) =>
+        getCanonicalPhase7ActiveOperation({
+          method: entry.method,
+          requestTarget: materializePath(entry.path)
+        })
+      )
+    ).toEqual(phase7Slice5OperationManifest.map((entry) => entry.operation))
+    expect(phase7Slice5OperationManifest).toHaveLength(9)
+
+    for (const entry of phase7Slice5OperationManifest) {
+      const input = {
+        method: entry.method,
+        requestTarget: materializePath(entry.path)
+      }
+      const classifier =
+        entry.operation === 'createQuestionReport'
+          ? isCanonicalPhase7LearnerReportRequest
+          : entry.method === 'GET'
+            ? isCanonicalPhase7Slice5AdminReadRequest
+            : isCanonicalPhase7Slice5AdminCommandRequest
+      expect(classifier(input), entry.operation).toBe(true)
+      expect(
+        classifier({ ...input, method: 'OPTIONS' }),
+        `${entry.operation} OPTIONS`
+      ).toBe(true)
+    }
+  })
+
   it.each([
     ['GET', '/api/v1/admin/questions'],
     ['POST', '/api/v1/admin/questions#alias'],
@@ -109,8 +147,12 @@ describe('Phase 7 prefix exclusion classifier', () => {
     ['GET', `/api/v1/admin/question-versions/${canonicalId}/publication`],
     ['PATCH', `/api/v1/admin/question-versions/${canonicalId}/retirement`],
     ['POST', `/api/v1/admin/questions/${canonicalId}/archive/`],
-    ['POST', '/api/v1/admin/questions/import-validation'],
-    ['POST', '/api/v1/admin/questions/export'],
+    ['GET', '/api/v1/admin/questions/import-validation'],
+    ['POST', '/api/v1/admin/questions/import-validation/'],
+    ['GET', '/api/v1/admin/questions/export'],
+    ['POST', '/api/v1/admin/questions/export/'],
+    ['GET', '/api/v1/question-reports'],
+    ['POST', '/api/v1/question-reports/'],
     ['GET', `/api/v1/admin/question-versions/${canonicalId}/approval`],
     [
       'POST',

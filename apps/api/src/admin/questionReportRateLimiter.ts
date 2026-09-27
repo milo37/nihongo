@@ -2,37 +2,36 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { ApplicationError } from '../errors/applicationError.js'
 
-export type AdminCommandRateLimitGroup =
-  | 'ADMIN_EDIT'
-  | 'ADMIN_SENSITIVE'
-  | 'IMPORT_VALIDATION'
-  | 'REAUTHENTICATION'
+export type QuestionReportRateLimitGroup = 'REPORT_ACTOR' | 'REPORT_VERSION'
 
-interface AdminCommandRateLimitInput {
-  actorId: string
-  clientIp: string
-  group: AdminCommandRateLimitGroup
-}
+type QuestionReportRateLimitInput =
+  | {
+      readonly actorId: string
+      readonly clientIp: string
+      readonly group: 'REPORT_ACTOR'
+    }
+  | {
+      readonly group: 'REPORT_VERSION'
+      readonly value: string
+    }
 
-export interface AdminCommandRateLimiter {
-  consume: (input: AdminCommandRateLimitInput) => Promise<void>
+export interface QuestionReportRateLimiter {
+  readonly consume: (input: QuestionReportRateLimitInput) => Promise<void>
 }
 
 interface RateLimitRow {
-  count: number
-  key: string
-  nowMilliseconds: bigint
-  windowStartedAt: bigint
+  readonly count: number
+  readonly key: string
+  readonly nowMilliseconds: bigint
+  readonly windowStartedAt: bigint
 }
 
 const policyByGroup = {
-  ADMIN_EDIT: { limit: 30, windowMilliseconds: 10 * 60_000 },
-  ADMIN_SENSITIVE: { limit: 10, windowMilliseconds: 15 * 60_000 },
-  IMPORT_VALIDATION: { limit: 20, windowMilliseconds: 15 * 60_000 },
-  REAUTHENTICATION: { limit: 5, windowMilliseconds: 15 * 60_000 }
+  REPORT_ACTOR: { limit: 5, windowMilliseconds: 10 * 60_000 },
+  REPORT_VERSION: { limit: 20, windowMilliseconds: 60 * 60_000 }
 } as const satisfies Readonly<
   Record<
-    AdminCommandRateLimitGroup,
+    QuestionReportRateLimitGroup,
     { readonly limit: number; readonly windowMilliseconds: number }
   >
 >
@@ -43,41 +42,54 @@ const toKey = ({
   keySecret,
   value
 }: {
-  dimension: 'ACTOR' | 'IP'
-  group: AdminCommandRateLimitGroup
-  keySecret: string
-  value: string
+  readonly dimension: 'ACTOR' | 'IP' | 'VERSION'
+  readonly group: QuestionReportRateLimitGroup
+  readonly keySecret: string
+  readonly value: string
 }): string => {
   const digest = createHmac('sha256', keySecret)
     .update(`phase7:${group}:${dimension}:${value}`, 'utf8')
     .digest('hex')
-
   return `application:phase7:${group}:${dimension}:${digest}`
 }
 
-export const createAdminCommandRateLimiter = ({
+export const createQuestionReportRateLimiter = ({
   client,
   keySecret
 }: {
-  client: Pick<PrismaClient, '$queryRaw'>
-  keySecret: string
-}): AdminCommandRateLimiter => ({
-  consume: async ({ actorId, clientIp, group }) => {
+  readonly client: Pick<PrismaClient, '$queryRaw'>
+  readonly keySecret: string
+}): QuestionReportRateLimiter => ({
+  consume: async (input) => {
+    const { group } = input
     const policy = policyByGroup[group]
-    const actorKey = toKey({
-      dimension: 'ACTOR',
-      group,
-      keySecret,
-      value: actorId
-    })
-    const clientIpKey = toKey({
-      dimension: 'IP',
-      group,
-      keySecret,
-      value: clientIp
-    })
-
+    const keys =
+      input.group === 'REPORT_ACTOR'
+        ? [
+            toKey({
+              dimension: 'ACTOR',
+              group,
+              keySecret,
+              value: input.actorId
+            }),
+            toKey({
+              dimension: 'IP',
+              group,
+              keySecret,
+              value: input.clientIp
+            })
+          ]
+        : [
+            toKey({
+              dimension: 'VERSION',
+              group,
+              keySecret,
+              value: input.value
+            })
+          ]
+    const rateKeys = keys.map((key) => ({ id: randomUUID(), key }))
     let rows: RateLimitRow[]
+
     try {
       rows = await client.$queryRaw<RateLimitRow[]>(Prisma.sql`
         WITH now_value AS MATERIALIZED (
@@ -86,9 +98,9 @@ export const createAdminCommandRateLimiter = ({
           )::bigint AS now_ms
         ),
         rate_keys(id, key) AS (
-          VALUES
-            (${randomUUID()}::uuid, ${actorKey}),
-            (${randomUUID()}::uuid, ${clientIpKey})
+          VALUES ${Prisma.join(
+            rateKeys.map(({ id, key }) => Prisma.sql`(${id}::uuid, ${key})`)
+          )}
         ),
         consumed AS (
           INSERT INTO "RateLimit" ("id", "key", "count", "lastRequest")
@@ -98,23 +110,20 @@ export const createAdminCommandRateLimiter = ({
           ORDER BY rate_keys.key
           ON CONFLICT ("key") DO UPDATE SET
             "count" = CASE
-              WHEN (
-                SELECT now_ms FROM now_value
-              ) >= "RateLimit"."lastRequest" + ${BigInt(policy.windowMilliseconds)}
+              WHEN (SELECT now_ms FROM now_value) >=
+                "RateLimit"."lastRequest" + ${BigInt(policy.windowMilliseconds)}
                 THEN 1
               ELSE "RateLimit"."count" + 1
             END,
             "lastRequest" = CASE
-              WHEN (
-                SELECT now_ms FROM now_value
-              ) >= "RateLimit"."lastRequest" + ${BigInt(policy.windowMilliseconds)}
+              WHEN (SELECT now_ms FROM now_value) >=
+                "RateLimit"."lastRequest" + ${BigInt(policy.windowMilliseconds)}
                 THEN (SELECT now_ms FROM now_value)
               ELSE "RateLimit"."lastRequest"
             END
           RETURNING "key", "count", "lastRequest"
         )
-        SELECT
-          consumed."key" AS "key",
+        SELECT consumed."key" AS "key",
           consumed."count" AS "count",
           consumed."lastRequest" AS "windowStartedAt",
           now_value.now_ms AS "nowMilliseconds"
@@ -124,7 +133,7 @@ export const createAdminCommandRateLimiter = ({
     } catch (error: unknown) {
       throw new ApplicationError({
         code: 'SERVICE_UNAVAILABLE',
-        message: '관리자 명령 제한 저장소에 연결할 수 없습니다.',
+        message: '문제 신고 제한 저장소에 연결할 수 없습니다.',
         retryable: true,
         retryAfterSeconds: 5,
         phase7Disposition: 'NO_TX',
@@ -134,10 +143,9 @@ export const createAdminCommandRateLimiter = ({
 
     const returnedKeys = new Set(rows.map((row) => row.key))
     if (
-      rows.length !== 2 ||
-      returnedKeys.size !== 2 ||
-      !returnedKeys.has(actorKey) ||
-      !returnedKeys.has(clientIpKey) ||
+      rows.length !== keys.length ||
+      returnedKeys.size !== keys.length ||
+      keys.some((key) => !returnedKeys.has(key)) ||
       rows.some(
         (row) =>
           !Number.isSafeInteger(row.count) ||
@@ -150,13 +158,12 @@ export const createAdminCommandRateLimiter = ({
     ) {
       throw new ApplicationError({
         code: 'SERVICE_UNAVAILABLE',
-        message: '관리자 명령 제한 상태를 확인할 수 없습니다.',
+        message: '문제 신고 제한 상태를 확인할 수 없습니다.',
         retryable: true,
         retryAfterSeconds: 5,
         phase7Disposition: 'NO_TX'
       })
     }
-
     const exceeded = rows.filter((row) => row.count > policy.limit)
     if (exceeded.length === 0) return
 
@@ -176,7 +183,7 @@ export const createAdminCommandRateLimiter = ({
     )
     throw new ApplicationError({
       code: 'RATE_LIMITED',
-      message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+      message: '문제 신고 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
       retryable: true,
       retryAfterSeconds,
       phase7Disposition: 'NO_TX'

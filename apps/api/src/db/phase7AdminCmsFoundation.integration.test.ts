@@ -6660,9 +6660,9 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       | undefined
     let loserCompletionPromise: Promise<unknown> | undefined
     let firstQuestionId = ''
-    let secondQuestionId = ''
+    let secondQuestionId: string | null = null
     let firstOperationId = ''
-    let secondOperationId = ''
+    let secondOperationId: string | null = null
     await duplicateClient.connect()
     try {
       const duplicateBackend = await duplicateClient.query<{ pid: number }>(
@@ -6760,6 +6760,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     }, '23514')
     expect(visibleDuplicateOperationId).not.toBe('')
     expect(visibleDuplicateQuestionId).not.toBe('')
+    expect(secondQuestionId === null).toBe(secondOperationId === null)
     expect(
       (
         await client.query<{ auditCount: number; questionCount: number }>(

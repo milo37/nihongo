@@ -328,6 +328,18 @@ const PHASE_7_SLICE_4_OPERATIONS = new Set<Phase7Operation>([
   'retireQuestionVersion'
 ])
 
+const PHASE_7_SLICE_5_OPERATIONS = new Set<Phase7Operation>([
+  'requestContentReviewBatch',
+  'validateQuestionImport',
+  'applyQuestionImport',
+  'exportAdminQuestions',
+  'createQuestionReport',
+  'listAdminQuestionReports',
+  'getAdminQuestionReport',
+  'triageAdminQuestionReport',
+  'resolveAdminQuestionReport'
+])
+
 export const phase7Slice4CacheInvalidationTargets = [
   'adminQuestions.allLists',
   'adminQuestions.detail',
@@ -447,6 +459,32 @@ export const phase7DormantAfterSlice4OperationManifest =
       !PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
   )
 
+export const phase7Slice5OperationManifest = phase7OperationManifest.filter(
+  (entry) => PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+)
+
+export const phase7ActiveThroughSlice5OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      entry.slice2Route ||
+      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_4_OPERATIONS.has(entry.operation) ||
+      PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+  )
+
+export const phase7DormantAfterSlice5OperationManifest =
+  phase7OperationManifest.filter(
+    (entry) =>
+      !entry.slice2Route &&
+      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_4_OPERATIONS.has(entry.operation) &&
+      !PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+  )
+
 export const assertPhase7OperationManifest = (): void => {
   if (phase7OperationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
@@ -465,10 +503,13 @@ export const assertPhase7OperationManifest = (): void => {
     phase7DormantAfterSlice3RA2OperationManifest.length !== 12 ||
     phase7Slice4OperationManifest.length !== 3 ||
     phase7ActiveThroughSlice4OperationManifest.length !== 19 ||
-    phase7DormantAfterSlice4OperationManifest.length !== 9
+    phase7DormantAfterSlice4OperationManifest.length !== 9 ||
+    phase7Slice5OperationManifest.length !== 9 ||
+    phase7ActiveThroughSlice5OperationManifest.length !== 28 ||
+    phase7DormantAfterSlice5OperationManifest.length !== 0
   ) {
     throw new Error(
-      'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9 경계를 유지해야 합니다.'
+      'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9, Slice 5 28/0 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(

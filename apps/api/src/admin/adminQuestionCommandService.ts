@@ -1,14 +1,23 @@
 import type {
   AdminQuestionMutationResult,
+  AdminImportValidationResponse,
+  AdminReviewRequestBatchResult,
+  ApplyQuestionImportRequest,
   ApproveQuestionVersionRequest,
   ArchiveAdminQuestionRequest,
   CreateAdminQuestionRequest,
   CreateAdminQuestionVersionRequest,
+  ExportAdminQuestionsRequest,
   PublishQuestionVersionRequest,
   RequestContentReviewRequest,
   RequestQuestionChangesRequest,
+  RequestContentReviewBatchRequest,
+  ResolveAdminQuestionReportRequest,
   RetireQuestionVersionRequest,
   UpdateQuestionVersionRequest,
+  TriageAdminQuestionReportRequest,
+  ValidateQuestionImportRequest,
+  QuestionReportMutationResult,
   WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/phase7'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -18,6 +27,11 @@ import {
   type AdminQuestionCommandRepository,
   type AdminQuestionPublicationCommandRepository
 } from './adminQuestionCommandRepository.js'
+import type { AdminQuestionSlice5Repository } from './adminQuestionSlice5Repository.js'
+import type {
+  AdminImportApplyRepositoryResult,
+  AdminQuestionExportRepositoryResult
+} from './adminQuestionSlice5Repository.js'
 
 export interface AdminQuestionCommandService {
   createQuestion: (
@@ -72,6 +86,34 @@ export interface AdminQuestionPublicationCommandService {
     questionId: string,
     request: ArchiveAdminQuestionRequest
   ) => Promise<AdminQuestionMutationResult>
+}
+
+export interface AdminQuestionSlice5CommandService {
+  requestReviewBatch: (
+    authority: AdminCommandAuthority,
+    request: RequestContentReviewBatchRequest
+  ) => Promise<AdminReviewRequestBatchResult>
+  validateImport: (
+    request: ValidateQuestionImportRequest
+  ) => Promise<AdminImportValidationResponse>
+  applyImport: (
+    authority: AdminCommandAuthority,
+    request: ApplyQuestionImportRequest
+  ) => Promise<AdminImportApplyRepositoryResult>
+  exportQuestions: (
+    authority: AdminCommandAuthority,
+    request: ExportAdminQuestionsRequest
+  ) => Promise<AdminQuestionExportRepositoryResult>
+  triageReport: (
+    authority: AdminCommandAuthority,
+    reportId: string,
+    request: TriageAdminQuestionReportRequest
+  ) => Promise<QuestionReportMutationResult>
+  resolveReport: (
+    authority: AdminCommandAuthority,
+    reportId: string,
+    request: ResolveAdminQuestionReportRequest
+  ) => Promise<QuestionReportMutationResult>
 }
 
 const execute = async <Result>(
@@ -156,4 +198,21 @@ export const createAdminQuestionPublicationCommandService = (
     execute(() => repository.retireVersion(authority, versionId, request)),
   archiveQuestion: (authority, questionId, request) =>
     execute(() => repository.archiveQuestion(authority, questionId, request))
+})
+
+export const createAdminQuestionSlice5CommandService = (
+  repository: AdminQuestionSlice5Repository
+): AdminQuestionSlice5CommandService => ({
+  requestReviewBatch: (authority, request) =>
+    execute(() => repository.requestReviewBatch(authority, request)),
+  validateImport: (request) =>
+    execute(() => repository.validateImport(request)),
+  applyImport: (authority, request) =>
+    execute(() => repository.applyImport(authority, request)),
+  exportQuestions: (authority, request) =>
+    execute(() => repository.exportQuestions(authority, request)),
+  triageReport: (authority, reportId, request) =>
+    execute(() => repository.triageReport(authority, reportId, request)),
+  resolveReport: (authority, reportId, request) =>
+    execute(() => repository.resolveReport(authority, reportId, request))
 })

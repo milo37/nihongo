@@ -840,12 +840,13 @@ const collectValidatedResponseBindings = (handler, responseSchemaBindings) => {
   return bindings
 }
 
-const collectContextJsonCalls = (handler, contextNames) => {
+const collectContextResponseCalls = (handler, contextNames) => {
   const calls = []
   const visit = (node) => {
     if (
       ts.isCallExpression(node) &&
-      isContextPropertyAccess(node.expression, contextNames, 'json')
+      (isContextPropertyAccess(node.expression, contextNames, 'json') ||
+        isContextPropertyAccess(node.expression, contextNames, 'body'))
     ) {
       calls.push(node)
     }
@@ -935,7 +936,7 @@ const collectApiRouteDiagnostics = (rootDir, sourceFile) => {
       const routeKey = `${node.expression.name.text}:${node.arguments[0].text}`
       const sourceRouteKey = `${relative}#${routeKey}`
       const contextNames = getHandlerContextNames(handler)
-      const jsonCalls = collectContextJsonCalls(handler, contextNames)
+      const responseCalls = collectContextResponseCalls(handler, contextNames)
       const hasValidatedNoContentResponse =
         NO_CONTENT_API_ROUTE_SOURCES.has(sourceRouteKey) &&
         containsNoContentResponse(handler, contextNames)
@@ -944,9 +945,15 @@ const collectApiRouteDiagnostics = (rootDir, sourceFile) => {
         responseSchemaBindings
       )
       const hasUnvalidatedResponse =
-        (jsonCalls.length === 0 && !hasValidatedNoContentResponse) ||
-        jsonCalls.some((call) => {
+        (responseCalls.length === 0 && !hasValidatedNoContentResponse) ||
+        responseCalls.some((call) => {
           const [response] = call.arguments
+          if (
+            hasValidatedNoContentResponse &&
+            response?.kind === ts.SyntaxKind.NullKeyword
+          ) {
+            return false
+          }
           return (
             !response ||
             !isValidatedResponseExpression(

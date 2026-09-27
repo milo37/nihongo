@@ -92,6 +92,20 @@ test('reverse dependencies, framework leaks, broad imports and cycles fail', () 
     false
   )
 
+  const responseBodyBypassDiagnostics = diagnostics.filter(({ file }) =>
+    file.endsWith('/routes/response-body-bypass.ts')
+  )
+  assert.equal(
+    responseBodyBypassDiagnostics.some(({ code }) => code === 'ARCH112'),
+    true
+  )
+  assert.equal(
+    responseBodyBypassDiagnostics.some(
+      ({ code }) => code === 'ARCH113' || code === 'ARCH115'
+    ),
+    false
+  )
+
   const fakeSchemaDiagnostics = diagnostics.filter(({ file }) =>
     file.endsWith('/routes/fake-response-schema.ts')
   )

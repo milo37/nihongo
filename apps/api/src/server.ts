@@ -60,11 +60,16 @@ import { createPrismaAdminQuestionRepository } from './admin/adminQuestionReposi
 import { createAdminQuestionService } from './admin/adminQuestionService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
+import { createPrismaAdminQuestionSlice5Repository } from './admin/adminQuestionSlice5Repository.js'
 import {
   createAdminQuestionCommandService,
-  createAdminQuestionPublicationCommandService
+  createAdminQuestionPublicationCommandService,
+  createAdminQuestionSlice5CommandService
 } from './admin/adminQuestionCommandService.js'
 import { createAdminReauthenticationService } from './admin/adminReauthenticationService.js'
+import { createQuestionReportRateLimiter } from './admin/questionReportRateLimiter.js'
+import { createPrismaQuestionReportRepository } from './admin/questionReportRepository.js'
+import { createQuestionReportService } from './admin/questionReportService.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -257,26 +262,53 @@ const adminQuestionCommandRepository = technicalMode
       client: database.client
     })
   : undefined
-const adminQuestionCommandService = adminQuestionCommandRepository
-  ? {
-      ...createAdminQuestionCommandService(adminQuestionCommandRepository),
-      ...createAdminQuestionPublicationCommandService(
-        adminQuestionCommandRepository
-      )
-    }
+const adminQuestionSlice5Repository = technicalMode
+  ? createPrismaAdminQuestionSlice5Repository({
+      auditEnvironment:
+        environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
+      client: database.client
+    })
   : undefined
+const adminQuestionCommandService =
+  adminQuestionCommandRepository && adminQuestionSlice5Repository
+    ? {
+        ...createAdminQuestionCommandService(adminQuestionCommandRepository),
+        ...createAdminQuestionPublicationCommandService(
+          adminQuestionCommandRepository
+        ),
+        ...createAdminQuestionSlice5CommandService(
+          adminQuestionSlice5Repository
+        )
+      }
+    : undefined
 const adminCommandRateLimiter = technicalMode
   ? createAdminCommandRateLimiter({
       client: database.client,
       keySecret: environment.GUEST_COOKIE_SECRET
     })
   : undefined
+const questionReportRateLimiter = technicalMode
+  ? createQuestionReportRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET
+    })
+  : undefined
+const questionReportService =
+  technicalMode && questionReportRateLimiter
+    ? createQuestionReportService({
+        rateLimiter: questionReportRateLimiter,
+        repository: createPrismaQuestionReportRepository(database.client)
+      })
+    : undefined
 const app = createApiApp({
   ...(adminQuestionReader &&
   adminReadRateLimiter &&
   adminQuestionCommandService &&
   adminCommandRateLimiter &&
-  adminReauthenticationService
+  adminReauthenticationService &&
+  questionReportRateLimiter &&
+  questionReportService &&
+  adminQuestionSlice5Repository
     ? {
         admin: {
           assertCapability: async () => {
@@ -286,11 +318,16 @@ const app = createApiApp({
           },
           commands: {
             rateLimiter: adminCommandRateLimiter,
-            service: adminQuestionCommandService
+            service: adminQuestionCommandService,
+            slice5Service: adminQuestionCommandService
           },
           reauthentication: {
             rateLimiter: adminCommandRateLimiter,
             service: adminReauthenticationService
+          },
+          reports: {
+            rateLimiter: questionReportRateLimiter,
+            service: questionReportService
           },
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader

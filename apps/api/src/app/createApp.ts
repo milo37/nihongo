@@ -57,17 +57,26 @@ import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import type {
   AdminQuestionCommandService,
-  AdminQuestionPublicationCommandService
+  AdminQuestionPublicationCommandService,
+  AdminQuestionSlice5CommandService
 } from '../admin/adminQuestionCommandService.js'
+import { createQuestionReportGuard } from '../admin/questionReportGuard.js'
+import type { QuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
+import type { QuestionReportService } from '../admin/questionReportService.js'
 import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
 import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommands.js'
 import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
+import { createAdminQuestionReportRoutes } from '../routes/adminQuestionReports.js'
+import { createQuestionReportRoutes } from '../routes/questionReports.js'
 import {
   getCanonicalPhase7ActiveOperation,
   isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7PublicationCommandRequest,
   isCanonicalPhase7ReauthenticationRequest,
+  isCanonicalPhase7LearnerReportRequest,
+  isCanonicalPhase7Slice5AdminCommandRequest,
+  isCanonicalPhase7Slice5AdminReadRequest,
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
   isPhase7ExcludedRequest
@@ -123,6 +132,11 @@ interface CreateApiAppDependencies {
       rateLimiter: AdminCommandRateLimiter
       service: AdminQuestionCommandService &
         AdminQuestionPublicationCommandService
+      slice5Service?: AdminQuestionSlice5CommandService
+    }
+    reports?: {
+      rateLimiter: QuestionReportRateLimiter
+      service: QuestionReportService
     }
     reauthentication?: {
       rateLimiter: AdminCommandRateLimiter
@@ -406,6 +420,20 @@ export const createApiApp = ({
               method: context.req.method,
               requestTarget
             }))) ||
+        (admin?.commands?.slice5Service !== undefined &&
+          isCanonicalPhase7Slice5AdminCommandRequest({
+            method: context.req.method,
+            requestTarget
+          })) ||
+        (admin?.reports !== undefined &&
+          (isCanonicalPhase7Slice5AdminReadRequest({
+            method: context.req.method,
+            requestTarget
+          }) ||
+            isCanonicalPhase7LearnerReportRequest({
+              method: context.req.method,
+              requestTarget
+            }))) ||
         (admin?.reauthentication !== undefined &&
           isCanonicalPhase7ReauthenticationRequest({
             method: context.req.method,
@@ -529,6 +557,31 @@ export const createApiApp = ({
           reader: admin.reader
         })
       )
+      if (admin.reports) {
+        app.route(
+          '/api/v1/admin',
+          createAdminQuestionReportRoutes({
+            guard: createAdminReadGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.rateLimiter
+            }),
+            service: admin.reports.service
+          })
+        )
+        app.route(
+          '/api/v1/question-reports',
+          createQuestionReportRoutes({
+            guard: createQuestionReportGuard({
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.reports.rateLimiter
+            }),
+            service: admin.reports.service
+          })
+        )
+      }
       if (admin.commands) {
         app.route(
           '/api/v1/admin',
@@ -539,7 +592,10 @@ export const createApiApp = ({
               environment: auth.environment,
               principalService: auth.principalService,
               rateLimiter: admin.commands.rateLimiter
-            })
+            }),
+            ...(admin.commands.slice5Service
+              ? { slice5CommandService: admin.commands.slice5Service }
+              : {})
           })
         )
       }
