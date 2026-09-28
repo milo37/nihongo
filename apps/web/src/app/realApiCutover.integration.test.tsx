@@ -298,6 +298,9 @@ describe('real API Query and feature cutover', () => {
         <RouterProvider router={adminRouter} />
       </QueryClientProvider>
     )
+    await act(async () => {
+      await vi.dynamicImportSettled()
+    })
 
     expect(
       await screen.findByRole('heading', {

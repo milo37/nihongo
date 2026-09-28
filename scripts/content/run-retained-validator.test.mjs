@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { afterEach, test } from 'node:test'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
   canonicalJsonText,
@@ -14,7 +15,9 @@ import {
 const temporaryRoots = []
 
 const createPrivateRoot = async () => {
-  const root = await mkdtemp('/private/tmp/nihongo-retained-wrapper-')
+  const root = await mkdtemp(
+    path.join(await realpath(tmpdir()), 'nihongo-retained-wrapper-')
+  )
   temporaryRoots.push(root)
   await chmod(root, 0o700)
   return root
