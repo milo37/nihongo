@@ -32,7 +32,8 @@ export const ProtectedRouteProvider = ({
   children
 }: ProtectedRouteProviderProps): ReactElement => {
   const { t } = useTranslation('errors')
-  const { canonicalUser, hasError, isReady, retry } = useAuthSynchronization()
+  const { canonicalUser, hasError, isOffline, isReady, retry } =
+    useAuthSynchronization()
   const shouldRestoreRetryFocusRef = useRef(false)
   const user = isReady ? (canonicalUser ?? null) : null
   const role: UserRole = user?.role ?? 'GUEST'
@@ -49,15 +50,19 @@ export const ProtectedRouteProvider = ({
     retry()
   }
 
-  if (hasError) {
+  if (hasError || isOffline) {
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
         <ErrorState
           autoFocus
-          description={t('authStatus.description')}
+          description={t(
+            isOffline
+              ? 'authStatus.offlineDescription'
+              : 'authStatus.description'
+          )}
           headingLevel={1}
           onRetry={handleRetry}
-          title={t('authStatus.title')}
+          title={t(isOffline ? 'authStatus.offlineTitle' : 'authStatus.title')}
         />
       </main>
     )

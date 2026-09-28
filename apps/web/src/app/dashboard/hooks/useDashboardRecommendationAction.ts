@@ -19,9 +19,22 @@ import {
 } from '@util/apiError'
 
 export interface DashboardActionNotice {
+  readonly code: DashboardActionNoticeCode
   readonly id: number
-  readonly message: string
 }
+
+export type DashboardActionNoticeCode =
+  | 'sessionExhausted'
+  | 'sessionRefreshed'
+  | 'sessionRefreshFailed'
+  | 'sessionFailed'
+  | 'targetedEnded'
+  | 'targetedEndedRefreshed'
+  | 'targetedEndedRefreshFailed'
+  | 'targetedUnavailable'
+  | 'targetedRefreshed'
+  | 'targetedRefreshFailed'
+  | 'targetedFailed'
 
 interface UseDashboardRecommendationActionOptions {
   readonly refetchInsights: () => Promise<boolean>
@@ -57,10 +70,10 @@ export const useDashboardRecommendationAction = ({
     createTargetedReview.isPending ||
     createTargetedReview.isPaused
 
-  const announce = (message: string): void => {
+  const announce = (code: DashboardActionNoticeCode): void => {
     setActionNotice((current) => ({
-      id: (current?.id ?? 0) + 1,
-      message
+      code,
+      id: (current?.id ?? 0) + 1
     }))
   }
 
@@ -87,15 +100,15 @@ export const useDashboardRecommendationAction = ({
 
   const refreshAfterCandidateExhaustion = async (
     kind: DashboardRecommendationView['kind'],
-    successMessage: string,
-    failureMessage: string
+    successCode: DashboardActionNoticeCode,
+    failureCode: DashboardActionNoticeCode
   ): Promise<void> => {
     const refreshed = await refetchInsights().catch(() => false)
     if (refreshed) {
       clearBlockedRecommendation()
-      announce(successMessage)
+      announce(successCode)
     } else {
-      announce(failureMessage)
+      announce(failureCode)
     }
     completePendingAction(kind)
   }
@@ -157,19 +170,15 @@ export const useDashboardRecommendationAction = ({
             if (isNoEligibleQuestionsApiError(error)) {
               isRefreshingExhaustedRecommendation = true
               blockRecommendation(recommendation.kind)
-              announce(
-                '추천 시점 이후 출제 가능한 문제가 없어 이 학습을 시작하지 못했습니다. 요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 확인하는 중입니다.'
-              )
+              announce('sessionExhausted')
               void refreshAfterCandidateExhaustion(
                 recommendation.kind,
-                '요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 새로 확인했습니다.',
-                '요청한 모드는 다른 모드로 바꾸지 않았습니다. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했습니다. 최근 인사이트를 다시 시도해 주세요.'
+                'sessionRefreshed',
+                'sessionRefreshFailed'
               )
               return
             }
-            announce(
-              '추천 학습을 시작하지 못했습니다. 다른 모드로 자동 변경하지 않았습니다. 같은 추천을 다시 시도해 주세요.'
-            )
+            announce('sessionFailed')
           },
           onSettled: () => {
             if (!isRefreshingExhaustedRecommendation) {
@@ -198,14 +207,12 @@ export const useDashboardRecommendationAction = ({
               void navigate(`/practice/result/${session.session.id}`)
             } else {
               isRefreshingExhaustedRecommendation = true
-              announce(
-                '이전에 만든 단일 복습 세션이 이미 종료됐습니다. 다른 학습으로 바꾸지 않고 최신 추천을 확인하는 중입니다.'
-              )
+              announce('targetedEnded')
               blockRecommendation(recommendation.kind)
               void refreshAfterCandidateExhaustion(
                 recommendation.kind,
-                '종료된 단일 복습을 다른 학습으로 바꾸지 않고 최신 추천을 새로 확인했습니다.',
-                '종료된 단일 복습을 다른 학습으로 바꾸지 않았습니다. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했습니다. 최근 인사이트를 다시 시도해 주세요.'
+                'targetedEndedRefreshed',
+                'targetedEndedRefreshFailed'
               )
             }
             completeTargetedReviewAction(submittedInput)
@@ -218,19 +225,15 @@ export const useDashboardRecommendationAction = ({
             ) {
               isRefreshingExhaustedRecommendation = true
               blockRecommendation(recommendation.kind)
-              announce(
-                '추천한 문제가 더 이상 복습 가능하지 않습니다. 다른 학습으로 자동 변경하지 않았으며 최신 추천을 확인하는 중입니다.'
-              )
+              announce('targetedUnavailable')
               void refreshAfterCandidateExhaustion(
                 recommendation.kind,
-                '다른 학습으로 자동 변경하지 않았으며 최신 추천을 새로 확인했습니다.',
-                '다른 학습으로 자동 변경하지 않았습니다. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했습니다. 최근 인사이트를 다시 시도해 주세요.'
+                'targetedRefreshed',
+                'targetedRefreshFailed'
               )
               return
             }
-            announce(
-              '단일 복습을 시작하지 못했습니다. 다른 학습으로 자동 변경하지 않았습니다. 같은 추천을 다시 시도해 주세요.'
-            )
+            announce('targetedFailed')
           },
           onSettled: () => {
             if (!isRefreshingExhaustedRecommendation) {

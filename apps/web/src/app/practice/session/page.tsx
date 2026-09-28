@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Link,
   Navigate,
@@ -49,33 +50,48 @@ import {
 } from '@app/practice/studySubmissionRetry'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 import { useAppStore } from '@store/index'
+import { resolveUiLocale } from '@/i18n/types'
 import {
   isAuthenticationBoundaryApiError,
+  isOfflineApiError,
   isNotFoundApiError
 } from '@util/apiError'
 
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
+type BookmarkNoticeCode =
+  | 'loginRequired'
+  | 'legacyReadOnly'
+  | 'removed'
+  | 'removeRollback'
+  | 'saved'
+  | 'saveRollback'
 
-const modeLabels = {
-  RANDOM: '랜덤',
-  WRONG_NOTE: '오답',
-  WEAKNESS: '약점 추천',
-  BOOKMARK: '즐겨찾기',
-  DAILY_REVIEW: '일일 복습'
-} as const
+type DraftActionNoticeCode =
+  | 'saveBeforeLeaveFailed'
+  | 'conflictRefreshComplete'
+  | 'sessionRefreshFailed'
+  | 'submissionPreparationFailed'
+  | 'retrySaveFailed'
 
-const formatDuration = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60)
-  const remainder = seconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
-}
+type SubmissionConnectivityCode = 'offline' | 'restored'
 
 export const PracticeSessionPage = (): ReactElement => {
+  const { i18n, t } = useTranslation('practice')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const formatDuration = (seconds: number): string => {
+    const options: Intl.NumberFormatOptions = {
+      minimumIntegerDigits: 2,
+      useGrouping: false
+    }
+    return `${formatNumber(Math.floor(seconds / 60), locale, options)}:${formatNumber(
+      seconds % 60,
+      locale,
+      options
+    )}`
+  }
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
   const clearGuestPracticeQueryCache = useClearGuestPracticeQueryCache()
@@ -86,21 +102,20 @@ export const PracticeSessionPage = (): ReactElement => {
   const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
     useState(false)
   const [bookmarkMessage, setBookmarkMessage] = useState<{
+    code: BookmarkNoticeCode
     questionId: string
-    text: string
   } | null>(null)
-  const [draftActionMessage, setDraftActionMessage] = useState<string | null>(
-    null
-  )
+  const [draftActionMessage, setDraftActionMessage] =
+    useState<DraftActionNoticeCode | null>(null)
   const [isPreparingSubmission, setPreparingSubmission] = useState(false)
   const [isSavingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
   const [verifiedGuestSessionId, setVerifiedGuestSessionId] = useState<
     string | null
   >(null)
   const [submissionConnectivityMessage, setSubmissionConnectivityMessage] =
-    useState<string | null>(() =>
+    useState<SubmissionConnectivityCode | null>(() =>
       typeof navigator !== 'undefined' && navigator.onLine === false
-        ? '오프라인 상태입니다. 연결이 복구되면 동일 답안으로 다시 시도해 주세요.'
+        ? 'offline'
         : null
     )
   const sessionQuery = useGetStudySession(
@@ -108,6 +123,8 @@ export const PracticeSessionPage = (): ReactElement => {
     isAuthReady && role === 'GUEST',
     isAuthReady
   )
+  const isSessionRefreshUnavailable =
+    sessionQuery.isError || sessionQuery.fetchStatus === 'paused'
   const submitSession = useSubmitStudySession(sessionId)
   const hasCurrentGuestOwnerProof =
     isAuthReady && (role !== 'GUEST' || verifiedGuestSessionId === sessionId)
@@ -186,7 +203,7 @@ export const PracticeSessionPage = (): ReactElement => {
       hasDraftConflict ||
       isNavigationPromptBlocked ||
       isPreparingSubmission ||
-      sessionQuery.isError,
+      isSessionRefreshUnavailable,
     sessionId,
     user
   })
@@ -298,14 +315,10 @@ export const PracticeSessionPage = (): ReactElement => {
 
   useEffect(() => {
     const handleOffline = (): void => {
-      setSubmissionConnectivityMessage(
-        '오프라인 상태입니다. 연결이 복구되면 동일 답안으로 다시 시도해 주세요.'
-      )
+      setSubmissionConnectivityMessage('offline')
     }
     const handleOnline = (): void => {
-      setSubmissionConnectivityMessage(
-        '네트워크 연결이 복구되었습니다. 동일 답안으로 다시 시도할 수 있습니다.'
-      )
+      setSubmissionConnectivityMessage('restored')
     }
 
     window.addEventListener('offline', handleOffline)
@@ -432,6 +445,7 @@ export const PracticeSessionPage = (): ReactElement => {
   }, [currentQuestion?.id])
 
   const movePrevious = (): void => {
+    if (isSessionRefreshUnavailable) return
     if (isV2Session) {
       draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
     } else {
@@ -440,6 +454,7 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   const moveNext = (): void => {
+    if (isSessionRefreshUnavailable) return
     if (isV2Session) {
       draftController.moveToOrdinal(
         Math.min(questions.length, safeQuestionIndex + 2)
@@ -458,6 +473,7 @@ export const PracticeSessionPage = (): ReactElement => {
       !mustReplayFrozenSubmission &&
       !isNavigationPromptBlocked &&
       !isPreparingSubmission &&
+      !isSessionRefreshUnavailable &&
       sessionQuery.data?.session.status === 'IN_PROGRESS'
     ) {
       if (document.activeElement instanceof HTMLElement) {
@@ -482,6 +498,7 @@ export const PracticeSessionPage = (): ReactElement => {
     !isNavigationPromptBlocked &&
     !isPreparingSubmission &&
     !isSubmissionActive &&
+    !isSessionRefreshUnavailable &&
     draftController.isReady &&
     sessionQuery.data?.session.status === 'IN_PROGRESS' &&
     (!isV2Session || draftController.saveState !== 'saving')
@@ -494,6 +511,7 @@ export const PracticeSessionPage = (): ReactElement => {
       !isNavigationPromptBlocked &&
       !isPreparingSubmission &&
       !isSubmissionActive &&
+      !isSessionRefreshUnavailable &&
       draftController.isReady &&
       sessionQuery.data?.session.status === 'IN_PROGRESS',
     optionIds: currentQuestion?.options.map((option) => option.id) ?? [],
@@ -516,11 +534,7 @@ export const PracticeSessionPage = (): ReactElement => {
       submissionNavigationBlocker.proceed()
     } catch (error: unknown) {
       if (!isAuthTransitionSupersededError(error)) {
-        setDraftActionMessage(
-          error instanceof Error
-            ? error.message
-            : '작업본을 저장하지 못해 현재 화면에 머뭅니다.'
-        )
+        setDraftActionMessage('saveBeforeLeaveFailed')
       }
     } finally {
       setSavingBeforeNavigation(false)
@@ -534,8 +548,8 @@ export const PracticeSessionPage = (): ReactElement => {
         isV2Session &&
         !mustReplayFrozenSubmission
       }
-      title="작업본을 저장하고 이동할까요?"
-      description="현재 문항의 답과 경과 시간을 서버에 저장한 뒤 요청한 화면으로 이동합니다."
+      title={t('session.navigationGuard.title')}
+      description={t('session.navigationGuard.description')}
       footer={
         <>
           <Button
@@ -543,13 +557,13 @@ export const PracticeSessionPage = (): ReactElement => {
             disabled={isSavingBeforeNavigation}
             onClick={() => submissionNavigationBlocker.reset?.()}
           >
-            계속 풀기
+            {t('session.navigationGuard.continue')}
           </Button>
           <Button
             isLoading={isSavingBeforeNavigation}
             onClick={() => void handleSaveAndLeave()}
           >
-            저장하고 이동
+            {t('session.navigationGuard.saveAndLeave')}
           </Button>
         </>
       }
@@ -569,20 +583,23 @@ export const PracticeSessionPage = (): ReactElement => {
           <ErrorState
             autoFocus
             headingLevel={1}
-            title="이전 제출 결과 확인이 필요합니다"
-            description="응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없습니다. 연결이 복구되면 세션 상태를 자동으로 다시 확인합니다."
+            title={t('session.recovery.title')}
+            description={t('session.recovery.pendingDescription')}
             action={
               <div className="space-y-3">
                 <Button onClick={() => void sessionQuery.refetch()}>
-                  세션 상태 다시 확인
+                  {t('session.recovery.retry')}
                 </Button>
                 <p
                   className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
                   role="status"
                   aria-live="polite"
                 >
-                  {submissionConnectivityMessage ??
-                    '세션 상태를 불러오는 중입니다. 결과를 확인할 때까지 이 화면에 머물러 주세요.'}
+                  {submissionConnectivityMessage
+                    ? t(
+                        `session.submit.connectivity.${submissionConnectivityMessage}`
+                      )
+                    : t('session.recovery.checkingStatus')}
                 </p>
               </div>
             }
@@ -591,30 +608,44 @@ export const PracticeSessionPage = (): ReactElement => {
       )
     }
 
-    return <LoadingState message="문제를 준비하고 있습니다." />
+    if (sessionQuery.fetchStatus === 'paused') {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={t('session.errors.offlineSessionDescription')}
+        />
+      )
+    }
+
+    return <LoadingState message={t('session.loading.questions')} />
   }
 
-  if (sessionQuery.isError || !sessionQuery.data) {
+  if (!sessionQuery.data) {
     if (hasFrozenSubmissionAttempt) {
       return (
         <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
           <ErrorState
             autoFocus
             headingLevel={1}
-            title="이전 제출 결과 확인이 필요합니다"
-            description="응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없습니다. 네트워크 상태를 확인한 뒤 세션을 다시 불러와 동일 답안으로 계속해 주세요."
+            title={t('session.recovery.title')}
+            description={t('session.recovery.failedDescription')}
             action={
               <div className="space-y-3">
                 <Button onClick={() => void sessionQuery.refetch()}>
-                  세션 상태 다시 확인
+                  {t('session.recovery.retry')}
                 </Button>
                 <p
                   className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
                   role="status"
                   aria-live="polite"
                 >
-                  {submissionConnectivityMessage ??
-                    '네트워크가 연결되어 있습니다. 세션 상태를 다시 확인해 주세요.'}
+                  {submissionConnectivityMessage
+                    ? t(
+                        `session.submit.connectivity.${submissionConnectivityMessage}`
+                      )
+                    : t('session.recovery.connectedStatus')}
                 </p>
               </div>
             }
@@ -628,11 +659,15 @@ export const PracticeSessionPage = (): ReactElement => {
         <ErrorState
           autoFocus
           headingLevel={1}
-          title="학습 세션을 불러오지 못했습니다"
-          description="세션 주소를 확인하거나 새 학습을 시작해 주세요."
+          title={t('session.errors.sessionLoadTitle')}
+          description={
+            sessionQuery.isError && isOfflineApiError(sessionQuery.error)
+              ? t('session.errors.offlineSessionDescription')
+              : t('session.errors.sessionLoadDescription')
+          }
           action={
             <Button onClick={() => void sessionQuery.refetch()}>
-              다시 시도
+              {commonT('actions.retry')}
             </Button>
           }
         />
@@ -642,12 +677,39 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   if (!hasCurrentGuestOwnerProof) {
-    return <LoadingState message="게스트 세션 소유권을 확인하고 있습니다." />
+    if (sessionQuery.fetchStatus === 'paused') {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={t('session.errors.offlineSessionDescription')}
+        />
+      )
+    }
+
+    if (sessionQuery.isError) {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={t('session.errors.sessionLoadDescription')}
+          action={
+            <Button onClick={() => void sessionQuery.refetch()}>
+              {commonT('actions.retry')}
+            </Button>
+          }
+        />
+      )
+    }
+
+    return <LoadingState message={t('session.loading.guestOwnership')} />
   }
 
   if (sessionQuery.data.session.status === 'SUBMITTED') {
     if (isNavigationPromptBlocked) {
-      return <LoadingState message="제출 결과로 이동하고 있습니다." />
+      return <LoadingState message={t('session.loading.resultRedirect')} />
     }
     return <Navigate replace to={`/practice/result/${sessionId}`} />
   }
@@ -659,16 +721,16 @@ export const PracticeSessionPage = (): ReactElement => {
         headingLevel={1}
         title={
           sessionQuery.data.session.status === 'EXPIRED'
-            ? '만료된 학습 세션입니다'
-            : '취소된 학습 세션입니다'
+            ? t('session.terminal.expiredTitle')
+            : t('session.terminal.cancelledTitle')
         }
-        description="새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없습니다."
+        description={t('session.terminal.description')}
         action={
           <Link
             className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
-            학습 설정으로 이동
+            {t('session.terminal.openSetup')}
           </Link>
         }
       />
@@ -684,21 +746,21 @@ export const PracticeSessionPage = (): ReactElement => {
         <ErrorState
           autoFocus
           headingLevel={1}
-          title="서버 작업본을 불러오지 못했습니다"
-          description="답안을 화면에 복원하기 전에 세션 소유권과 최신 revision을 확인해야 합니다. 연결을 확인한 뒤 다시 시도해 주세요."
+          title={t('session.errors.draftLoadTitle')}
+          description={t('session.errors.draftLoadDescription')}
           action={
             <Button
               onClick={() =>
                 void draftController.retrySave().catch(() => undefined)
               }
             >
-              작업본 다시 확인
+              {t('session.recovery.retry')}
             </Button>
           }
         />
       )
     }
-    return <LoadingState message="서버 작업본을 확인하고 있습니다." />
+    return <LoadingState message={t('session.loading.draft')} />
   }
 
   if (!currentQuestion) {
@@ -706,14 +768,14 @@ export const PracticeSessionPage = (): ReactElement => {
       <ErrorState
         autoFocus
         headingLevel={1}
-        title="출제할 문제가 없습니다"
-        description="다른 급수, 과목 또는 출제 모드를 선택해 주세요."
+        title={t('session.errors.emptyTitle')}
+        description={t('session.errors.emptyDescription')}
         action={
           <Link
             className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
-            학습 설정으로 이동
+            {t('session.terminal.openSetup')}
           </Link>
         }
       />
@@ -733,7 +795,10 @@ export const PracticeSessionPage = (): ReactElement => {
   const hasPendingBookmarkMutation =
     bookmarkMutationActivity.pendingQuestionIds.size > 0
   const isBookmarkQueryUnavailable =
-    role !== 'GUEST' && (bookmarksQuery.isPending || bookmarksQuery.isError)
+    role !== 'GUEST' &&
+    (bookmarksQuery.isPending ||
+      bookmarksQuery.isError ||
+      bookmarksQuery.fetchStatus === 'paused')
 
   const toOptimisticBookmark = (): BookmarkSummary | undefined => {
     if (!currentQuestion.questionVersionId || !currentQuestion.tagSummaries) {
@@ -761,17 +826,18 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   const handleBookmark = (): void => {
+    if (isSessionRefreshUnavailable) return
     if (role === 'GUEST') {
       setBookmarkMessage({
-        questionId: currentQuestion.id,
-        text: '즐겨찾기를 저장하려면 로그인해 주세요.'
+        code: 'loginRequired',
+        questionId: currentQuestion.id
       })
       return
     }
     if (session.practiceContractVersion !== 2) {
       setBookmarkMessage({
-        questionId: currentQuestion.id,
-        text: '이전 계약 세션에서는 즐겨찾기를 변경할 수 없습니다.'
+        code: 'legacyReadOnly',
+        questionId: currentQuestion.id
       })
       return
     }
@@ -781,14 +847,14 @@ export const PracticeSessionPage = (): ReactElement => {
       deleteBookmark.mutate(currentQuestion.id, {
         onSuccess: () =>
           setBookmarkMessage({
-            questionId: currentQuestion.id,
-            text: '즐겨찾기에서 해제했습니다.'
+            code: 'removed',
+            questionId: currentQuestion.id
           }),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setBookmarkMessage({
-              questionId: currentQuestion.id,
-              text: '즐겨찾기 해제를 완료하지 못해 복원했습니다.'
+              code: 'removeRollback',
+              questionId: currentQuestion.id
             })
           }
         }
@@ -804,14 +870,14 @@ export const PracticeSessionPage = (): ReactElement => {
       {
         onSuccess: () =>
           setBookmarkMessage({
-            questionId: currentQuestion.id,
-            text: '즐겨찾기에 저장했습니다.'
+            code: 'saved',
+            questionId: currentQuestion.id
           }),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setBookmarkMessage({
-              questionId: currentQuestion.id,
-              text: '즐겨찾기를 저장하지 못해 이전 상태로 복원했습니다.'
+              code: 'saveRollback',
+              questionId: currentQuestion.id
             })
           }
         }
@@ -851,19 +917,13 @@ export const PracticeSessionPage = (): ReactElement => {
           errorCode === 'DRAFT_SUBMIT_MISMATCH'
         ) {
           await draftController.retrySave()
-          setDraftActionMessage(
-            '최신 서버 작업본을 확인했습니다. 충돌 항목을 확인한 뒤 다시 제출해 주세요.'
-          )
+          setDraftActionMessage('conflictRefreshComplete')
           return
         }
         await sessionQuery.refetch()
       } catch (reconciliationError: unknown) {
         if (!isAuthTransitionSupersededError(reconciliationError)) {
-          setDraftActionMessage(
-            reconciliationError instanceof Error
-              ? reconciliationError.message
-              : '최신 세션 상태를 확인하지 못했습니다.'
-          )
+          setDraftActionMessage('sessionRefreshFailed')
         }
       } finally {
         setPreparingSubmission(false)
@@ -872,7 +932,12 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   const handleSubmit = async (): Promise<void> => {
-    if (isSubmissionActive || isPreparingSubmission || hasDraftConflict) {
+    if (
+      isSubmissionActive ||
+      isPreparingSubmission ||
+      hasDraftConflict ||
+      isSessionRefreshUnavailable
+    ) {
       return
     }
 
@@ -893,11 +958,7 @@ export const PracticeSessionPage = (): ReactElement => {
         })
       } catch (error: unknown) {
         if (!isAuthTransitionSupersededError(error)) {
-          setDraftActionMessage(
-            error instanceof Error
-              ? error.message
-              : '서버 작업본을 저장하지 못해 제출하지 않았습니다.'
-          )
+          setDraftActionMessage('submissionPreparationFailed')
         }
       } finally {
         setPreparingSubmission(false)
@@ -943,27 +1004,74 @@ export const PracticeSessionPage = (): ReactElement => {
     setSubmitDialogRequestedOpen(open)
   }
 
+  const draftStatusMessage = t(
+    `session.draft.status.${draftController.status.code}`,
+    draftController.status.savedAt
+      ? {
+          time: formatDateTime(draftController.status.savedAt, locale, {
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        }
+      : undefined
+  )
+  const isDraftActionInformational =
+    draftActionMessage === 'conflictRefreshComplete'
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
       <div className="grid gap-5 border-b border-line pb-6 md:grid-cols-[1fr_auto] md:items-end">
         <div>
           <div className="flex flex-wrap gap-2">
             <Badge>{session.level}</Badge>
-            <Badge variant="neutral">{subjectLabels[session.subject]}</Badge>
-            <Badge variant="brand">{modeLabels[session.mode]}</Badge>
+            <Badge variant="neutral">
+              {commonT(`taxonomy.subjects.${session.subject}`)}
+            </Badge>
+            <Badge variant="brand">
+              {commonT(`taxonomy.studyModes.${session.mode}`)}
+            </Badge>
           </div>
           <p className="mt-4 text-sm font-semibold text-muted">
-            현재 {safeQuestionIndex + 1}번 / 전체 {questions.length}문제 · 답변{' '}
-            {answeredCount}문제
+            {t('session.header.progressSummary', {
+              answered: formatCount(answeredCount),
+              current: formatCount(safeQuestionIndex + 1),
+              total: formatCount(questions.length)
+            })}
           </p>
         </div>
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-muted">경과 시간</span>
+          <span className="text-muted">{t('session.header.elapsedTime')}</span>
           <strong className="font-mono text-lg">
             {formatDuration(elapsedSeconds)}
           </strong>
         </div>
       </div>
+
+      {sessionQuery.fetchStatus === 'paused' ? (
+        <p
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-950"
+          role="status"
+        >
+          {t('session.errors.cachedOfflineDescription')}
+        </p>
+      ) : sessionQuery.isError ? (
+        <div
+          className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+          role="alert"
+        >
+          <p className="font-semibold">
+            {t('session.errors.staleSessionDescription')}
+          </p>
+          <Button
+            className="mt-3"
+            size="sm"
+            variant="outline"
+            onClick={() => void sessionQuery.refetch()}
+          >
+            {t('session.errors.retrySession')}
+          </Button>
+        </div>
+      ) : null}
 
       {isV2Session ? (
         <div
@@ -972,10 +1080,10 @@ export const PracticeSessionPage = (): ReactElement => {
           aria-live="polite"
           data-save-state={draftController.saveState}
         >
-          <p>{draftController.statusMessage}</p>
+          <p>{draftStatusMessage}</p>
           {isDraftConflictPending && !hasResolvedDraftConflict ? (
             <p className="mt-2 font-medium">
-              최신 서버 작업본을 확인하는 동안 답안 저장과 제출을 잠시 멈춥니다.
+              {t('session.draft.conflictCheckPending')}
             </p>
           ) : null}
           {draftController.saveState === 'error' ||
@@ -987,13 +1095,11 @@ export const PracticeSessionPage = (): ReactElement => {
               onClick={() => {
                 setDraftActionMessage(null)
                 void draftController.retrySave().catch(() => {
-                  setDraftActionMessage(
-                    '작업본을 다시 저장하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.'
-                  )
+                  setDraftActionMessage('retrySaveFailed')
                 })
               }}
             >
-              작업본 저장 다시 시도
+              {t('session.draft.retry')}
             </Button>
           ) : null}
         </div>
@@ -1001,10 +1107,14 @@ export const PracticeSessionPage = (): ReactElement => {
 
       {draftActionMessage ? (
         <p
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-900"
-          role="alert"
+          className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold leading-6 ${
+            isDraftActionInformational
+              ? 'border-info-line bg-info-soft text-info-strong'
+              : 'border-danger-line bg-danger-soft text-danger-strong'
+          }`}
+          role={isDraftActionInformational ? 'status' : 'alert'}
         >
-          {draftActionMessage}
+          {t(`session.draft.notices.${draftActionMessage}`)}
         </p>
       ) : null}
 
@@ -1014,16 +1124,22 @@ export const PracticeSessionPage = (): ReactElement => {
           role="status"
         >
           {actualCount < requestedCount
-            ? `요청한 ${requestedCount}문제 중 ${modeLabels[session.mode]} 모드로 출제 가능한 ${actualCount}문제만 제공합니다. 다른 모드로 대체하지 않았습니다.`
+            ? t('session.supply.canonicalPartial', {
+                actual: formatCount(actualCount),
+                mode: commonT(`taxonomy.studyModes.${session.mode}`),
+                requested: formatCount(requestedCount)
+              })
             : session.practiceContractVersion === 1
-              ? '레거시 세션에서 선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공합니다.'
-              : '서버 권위 세션은 다른 모드로 대체하지 않습니다.'}
+              ? t('session.supply.legacyFallback')
+              : t('session.supply.canonicalNoFallback')}
         </div>
       ) : null}
 
       <div className="mt-5">
         <Progress
-          label={`문제풀이 진행률 ${progressValue}%`}
+          label={t('session.progressLabel', {
+            percent: formatCount(progressValue)
+          })}
           value={progressValue}
         />
       </div>
@@ -1037,12 +1153,19 @@ export const PracticeSessionPage = (): ReactElement => {
         ].join(' ')}
       >
         {currentQuestion.passage ? (
-          <article className="border-b border-line bg-slate-50 p-5 sm:p-8 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <article
+            aria-label={t('session.question.passageLabel')}
+            className="border-b border-line bg-slate-50 p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-8 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
+            tabIndex={0}
+          >
             <p className="text-xs font-black tracking-[0.14em] text-brand">
-              READING PASSAGE
+              {t('session.question.passageEyebrow')}
             </p>
-            <p className="sr-only">독해 지문</p>
-            <p className="mt-5 whitespace-pre-line text-base leading-8 text-slate-800">
+            <p className="sr-only">{t('session.question.passageLabel')}</p>
+            <p
+              className="mt-5 whitespace-pre-line text-base leading-8 text-slate-800"
+              lang="ja"
+            >
               {currentQuestion.passage}
             </p>
           </article>
@@ -1064,51 +1187,65 @@ export const PracticeSessionPage = (): ReactElement => {
                 mustReplayFrozenSubmission ||
                 isNavigationPromptBlocked ||
                 isPreparingSubmission ||
+                isSessionRefreshUnavailable ||
                 hasPendingBookmarkMutation ||
                 isBookmarkQueryUnavailable ||
                 session.practiceContractVersion !== 2
               }
-              aria-label={`${safeQuestionIndex + 1}번 문제 ${
-                isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'
-              }`}
+              aria-label={t(
+                isBookmarked
+                  ? 'session.bookmark.removeLabel'
+                  : 'session.bookmark.addLabel',
+                { ordinal: formatCount(safeQuestionIndex + 1) }
+              )}
               aria-pressed={isBookmarked}
               data-selected={isBookmarked}
               onClick={handleBookmark}
             >
-              {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
+              {isBookmarked
+                ? t('session.bookmark.remove')
+                : t('session.bookmark.add')}
             </button>
           </div>
-          {(bookmarkMessage?.questionId === currentQuestion.id &&
-            bookmarkMessage.text) ||
+          {bookmarkMessage?.questionId === currentQuestion.id ||
           bookmarkMutationActivity.isPaused ? (
             <p
               className="mt-3 text-sm font-semibold text-amber-800"
               role="status"
             >
               {bookmarkMutationActivity.isPaused
-                ? '오프라인입니다. 연결되면 즐겨찾기 변경을 다시 시도합니다.'
-                : bookmarkMessage?.text}{' '}
+                ? t('session.bookmark.offlineQueued')
+                : bookmarkMessage
+                  ? t(`session.bookmark.${bookmarkMessage.code}`)
+                  : null}{' '}
               {role === 'GUEST' ? (
                 <Link
                   className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
                   to="/login?redirect=%2Fpractice"
                 >
-                  로그인 선택
+                  {t('session.bookmark.chooseLogin')}
                 </Link>
               ) : null}
             </p>
           ) : null}
-          {role !== 'GUEST' && bookmarksQuery.isError ? (
+          {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
+            <p
+              className="mt-3 text-sm font-semibold text-amber-800"
+              role="status"
+            >
+              {t('session.bookmark.statusLoadOffline')}
+            </p>
+          ) : role !== 'GUEST' && bookmarksQuery.isError ? (
             <div
               className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-red-700"
               role="alert"
             >
-              <span>즐겨찾기 상태를 확인하지 못했습니다.</span>
+              <span>{t('session.bookmark.statusLoadFailed')}</span>
               <Button
                 variant="outline"
                 onClick={() => void bookmarksQuery.refetch()}
               >
-                다시 확인
+                {t('session.bookmark.retryStatus')}
               </Button>
             </div>
           ) : null}
@@ -1118,8 +1255,12 @@ export const PracticeSessionPage = (): ReactElement => {
             className="mt-7 rounded-sm text-2xl font-black leading-10 sm:text-3xl"
             tabIndex={-1}
           >
-            <span className="sr-only">{safeQuestionIndex + 1}번 문제. </span>
-            {currentQuestion.questionText}
+            <span className="sr-only">
+              {t('session.question.numberLabel', {
+                ordinal: formatCount(safeQuestionIndex + 1)
+              })}{' '}
+            </span>
+            <span lang="ja">{currentQuestion.questionText}</span>
           </h1>
 
           <div className="mt-7">
@@ -1129,21 +1270,25 @@ export const PracticeSessionPage = (): ReactElement => {
                 mustReplayFrozenSubmission ||
                 hasDraftConflict ||
                 isNavigationPromptBlocked ||
-                isPreparingSubmission
+                isPreparingSubmission ||
+                isSessionRefreshUnavailable
               }
               name={`question-${currentQuestion.id}`}
-              legend="정답 보기"
+              legend={t('session.question.answerLegend')}
               value={displayedSelectedAnswers[currentQuestion.id] ?? ''}
               options={currentQuestion.options.map((option) => ({
                 value: option.id,
-                label: `${option.label}. ${option.text}`
+                label: (
+                  <span lang="ja">
+                    {option.label}. {option.text}
+                  </span>
+                )
               }))}
               onValueChange={handleSelectOption}
             />
           </div>
           <p className="mt-4 text-sm leading-6 text-muted">
-            숫자 1–4로 답을 선택하고, ← → 키로 문제를 이동하며, 마지막 문제에서
-            Ctrl+⏎ 또는 ⌘+⏎로 제출 확인을 열 수 있습니다.
+            {t('session.question.keyboardHint')}
           </p>
         </article>
       </div>
@@ -1156,11 +1301,12 @@ export const PracticeSessionPage = (): ReactElement => {
             mustReplayFrozenSubmission ||
             hasDraftConflict ||
             isNavigationPromptBlocked ||
-            isPreparingSubmission
+            isPreparingSubmission ||
+            isSessionRefreshUnavailable
           }
           onClick={movePrevious}
         >
-          이전
+          {t('session.navigation.previous')}
         </Button>
         {isLastQuestion ? (
           <Button
@@ -1169,7 +1315,7 @@ export const PracticeSessionPage = (): ReactElement => {
             disabled={!canRequestSubmission}
             onClick={() => setSubmitDialogRequestedOpen(true)}
           >
-            답안 제출
+            {t('session.navigation.submit')}
           </Button>
         ) : (
           <Button
@@ -1177,16 +1323,17 @@ export const PracticeSessionPage = (): ReactElement => {
               mustReplayFrozenSubmission ||
               hasDraftConflict ||
               isNavigationPromptBlocked ||
-              isPreparingSubmission
+              isPreparingSubmission ||
+              isSessionRefreshUnavailable
             }
             onClick={moveNext}
           >
-            다음
+            {t('session.navigation.next')}
           </Button>
         )}
       </div>
 
-      <nav className="mt-8" aria-label="문제 바로가기">
+      <nav className="mt-8" aria-label={t('session.navigation.jumpLabel')}>
         <ol className="flex flex-wrap justify-center gap-2">
           {questions.map((question, index) => (
             <li key={question.id}>
@@ -1197,9 +1344,15 @@ export const PracticeSessionPage = (): ReactElement => {
                   mustReplayFrozenSubmission ||
                   hasDraftConflict ||
                   isNavigationPromptBlocked ||
-                  isPreparingSubmission
+                  isPreparingSubmission ||
+                  isSessionRefreshUnavailable
                 }
-                aria-label={`${index + 1}번 문제${displayedSelectedAnswers[question.id] ? ', 답변함' : ', 미응답'}`}
+                aria-label={t(
+                  displayedSelectedAnswers[question.id]
+                    ? 'session.navigation.jumpQuestionAnswered'
+                    : 'session.navigation.jumpQuestionUnanswered',
+                  { ordinal: formatCount(index + 1) }
+                )}
                 aria-current={index === safeQuestionIndex ? 'step' : undefined}
                 data-current={index === safeQuestionIndex}
                 data-answered={Boolean(displayedSelectedAnswers[question.id])}
@@ -1211,7 +1364,7 @@ export const PracticeSessionPage = (): ReactElement => {
                   }
                 }}
               >
-                {index + 1}
+                {formatCount(index + 1)}
               </button>
             </li>
           ))}
@@ -1220,14 +1373,16 @@ export const PracticeSessionPage = (): ReactElement => {
 
       <Dialog
         open={isSubmitDialogOpen && !hasDraftConflict}
-        title="답안을 제출하시겠습니까?"
+        title={t('session.submit.title')}
         returnFocusRef={submitButtonRef}
         description={
           hasFrozenSubmissionAttempt
-            ? '이전에 전송한 답안을 그대로 다시 제출합니다. 결과를 확인할 때까지 답안은 변경할 수 없습니다.'
+            ? t('session.submit.frozenDescription')
             : unansweredCount > 0
-              ? `아직 답하지 않은 문제가 ${unansweredCount}개 있습니다. 미응답은 오답으로 처리됩니다.`
-              : '모든 문제에 답했습니다. 제출 후에는 답을 수정할 수 없습니다.'
+              ? t('session.submit.unansweredDescription', {
+                  unanswered: formatCount(unansweredCount)
+                })
+              : t('session.submit.completeDescription')
         }
         footer={
           <>
@@ -1236,14 +1391,14 @@ export const PracticeSessionPage = (): ReactElement => {
               disabled={mustReplayFrozenSubmission}
               onClick={() => handleSubmitDialogOpenChange(false)}
             >
-              계속 풀기
+              {t('session.submit.continue')}
             </Button>
             <Button
-              disabled={hasDraftConflict}
+              disabled={hasDraftConflict || isSessionRefreshUnavailable}
               isLoading={isSubmissionActive || isPreparingSubmission}
               onClick={() => void handleSubmit()}
             >
-              제출하고 결과 보기
+              {t('session.submit.confirm')}
             </Button>
           </>
         }
@@ -1259,8 +1414,8 @@ export const PracticeSessionPage = (): ReactElement => {
                 role="alert"
               >
                 {hasFrozenSubmissionAttempt
-                  ? '결과를 확인하지 못했습니다. 네트워크 상태를 확인한 뒤 동일 답안으로 다시 시도해 주세요.'
-                  : '제출 요청이 처리되지 않았습니다. 입력과 세션 상태를 확인한 뒤 다시 시도해 주세요.'}
+                  ? t('session.submit.frozenFailure')
+                  : t('session.submit.requestFailure')}
               </div>
             ) : null}
             {hasFrozenSubmissionAttempt && submissionConnectivityMessage ? (
@@ -1269,7 +1424,9 @@ export const PracticeSessionPage = (): ReactElement => {
                 role="status"
                 aria-live="polite"
               >
-                {submissionConnectivityMessage}
+                {t(
+                  `session.submit.connectivity.${submissionConnectivityMessage}`
+                )}
               </p>
             ) : null}
           </div>
@@ -1278,8 +1435,10 @@ export const PracticeSessionPage = (): ReactElement => {
 
       <Dialog
         open={hasResolvedDraftConflict}
-        title="다른 기기의 작업과 충돌했습니다"
-        description={`${draftController.conflictCount}개 항목의 변경이 서로 다릅니다. 자동으로 덮어쓰지 않고 선택한 기록을 기준으로 이어갑니다.`}
+        title={t('session.conflict.title')}
+        description={t('session.conflict.description', {
+          conflicts: formatCount(draftController.conflictCount)
+        })}
         returnFocusRef={draftConflictReturnFocusRef}
         footer={
           <>
@@ -1287,10 +1446,10 @@ export const PracticeSessionPage = (): ReactElement => {
               variant="secondary"
               onClick={draftController.resolveConflictWithServer}
             >
-              서버 기록 사용
+              {t('session.conflict.useServer')}
             </Button>
             <Button onClick={draftController.resolveConflictWithLocal}>
-              내 변경 유지
+              {t('session.conflict.keepLocal')}
             </Button>
           </>
         }
@@ -1298,8 +1457,7 @@ export const PracticeSessionPage = (): ReactElement => {
         onOpenChange={() => undefined}
       >
         <p className="text-sm leading-6 text-slate-700">
-          서버 기록을 선택하면 이 탭의 충돌 변경을 버립니다. 내 변경을 선택하면
-          최신 revision 위에 다시 저장합니다.
+          {t('session.conflict.detail')}
         </p>
       </Dialog>
 

@@ -5,6 +5,19 @@ import {
   formatDashboardBasisPoints,
   toDashboardInsightsView
 } from '@app/dashboard/adapters/dashboardInsightsView'
+import { appI18n } from '@/i18n/config'
+
+const koLocalization = {
+  commonT: appI18n.getFixedT('ko', 'common'),
+  locale: 'ko' as const,
+  t: appI18n.getFixedT('ko', 'dashboard')
+}
+
+const jaLocalization = {
+  commonT: appI18n.getFixedT('ja', 'common'),
+  locale: 'ja' as const,
+  t: appI18n.getFixedT('ja', 'dashboard')
+}
 
 const recommendations: DashboardRecommendation[] = [
   {
@@ -92,17 +105,20 @@ const recommendations: DashboardRecommendation[] = [
 
 describe('dashboardInsightsView', () => {
   it('basis point의 null, 실제 0, 소수 퍼센트를 구분한다', () => {
-    expect(formatDashboardBasisPoints(null)).toBe('표본 없음')
-    expect(formatDashboardBasisPoints(0)).toBe('0%')
-    expect(formatDashboardBasisPoints(3_750)).toBe('37.5%')
-    expect(formatDashboardBasisPoints(3_755)).toBe('37.55%')
+    expect(formatDashboardBasisPoints(null, koLocalization)).toBe('표본 없음')
+    expect(formatDashboardBasisPoints(0, koLocalization)).toBe('0%')
+    expect(formatDashboardBasisPoints(3_750, koLocalization)).toBe('37.5%')
+    expect(formatDashboardBasisPoints(3_755, koLocalization)).toBe('37.55%')
   })
 
   it('여섯 recommendation kind를 한국어 근거로 exhaustive 변환하고 typed action을 보존한다', () => {
-    const view = toDashboardInsightsView({
-      ...dashboardInsightsConformanceFixture,
-      recommendations
-    })
+    const view = toDashboardInsightsView(
+      {
+        ...dashboardInsightsConformanceFixture,
+        recommendations
+      },
+      koLocalization
+    )
 
     expect(view.recommendations.map(({ title }) => title)).toEqual([
       '오늘 복습부터 시작하세요',
@@ -112,7 +128,12 @@ describe('dashboardInsightsView', () => {
       '목표 급수의 다음 문제를 풀어보세요',
       '목표 급수를 먼저 설정해 주세요'
     ])
-    expect(view.recommendations[2]?.reason).toContain('정답률은 37.5%')
+    expect(view.recommendations[2]?.reason.leading).toContain('정답률은 37.5%')
+    expect(view.recommendations[1]?.reason).toEqual({
+      japanesePreview: '문장 배열 문제',
+      leading: '“',
+      trailing: expect.stringContaining('2회 틀렸습니다')
+    })
     expect(view.recommendations.map(({ actionLabel }) => actionLabel)).toEqual([
       '오늘 복습 시작하기',
       '이 문제만 복습하기',
@@ -124,5 +145,21 @@ describe('dashboardInsightsView', () => {
     expect(view.recommendations.map(({ action }) => action)).toEqual(
       recommendations.map(({ action }) => action)
     )
+  })
+
+  it('일본어 locale에서도 반복 오답 preview를 번역문과 분리해 보존한다', () => {
+    const view = toDashboardInsightsView(
+      {
+        ...dashboardInsightsConformanceFixture,
+        recommendations: [recommendations[1]!]
+      },
+      jaLocalization
+    )
+
+    expect(view.recommendations[0]?.reason).toEqual({
+      japanesePreview: '문장 배열 문제',
+      leading: '「',
+      trailing: expect.stringContaining('2回間違えました')
+    })
   })
 })

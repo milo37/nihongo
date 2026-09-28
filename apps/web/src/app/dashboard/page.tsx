@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { DashboardInsightsSection } from '@app/dashboard/components/DashboardInsightsSection'
@@ -11,6 +12,7 @@ import { LoadingState } from '@common/components/LoadingState'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 
 export const DashboardPage = (): ReactElement => {
+  const { t } = useTranslation('dashboard')
   const { user } = useAuth()
   const dashboardQuery = useGetDashboardStats()
   const insightsQuery = useGetDashboardInsights()
@@ -40,7 +42,19 @@ export const DashboardPage = (): ReactElement => {
     insightsQuery.isPending &&
     !insightsQuery.data
   ) {
-    return <LoadingState message="학습 대시보드를 불러오고 있습니다." />
+    if (
+      dashboardQuery.fetchStatus === 'paused' ||
+      insightsQuery.fetchStatus === 'paused'
+    ) {
+      return (
+        <ErrorState
+          headingLevel={1}
+          title={t('offline.title')}
+          description={t('offline.description')}
+        />
+      )
+    }
+    return <LoadingState message={t('loading')} />
   }
 
   return (
@@ -48,44 +62,58 @@ export const DashboardPage = (): ReactElement => {
       <div className="flex flex-col gap-5 border-b border-line pb-8 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-black tracking-[0.16em] text-brand">
-            DASHBOARD
+            {t('eyebrow')}
           </p>
           <h1
             className="mt-2 rounded-sm text-4xl font-black"
             ref={headingRef}
             tabIndex={-1}
           >
-            학습 흐름을 확인하세요
+            {t('title')}
           </h1>
           <p className="mt-3 text-muted">
-            {user?.name ?? '학습자'}님의 목표 급수는{' '}
-            <strong className="text-ink">
-              {user?.targetLevel ?? '미설정'}
-            </strong>
-            입니다.
+            {t('greeting', {
+              level: user?.targetLevel ?? t('targetUnset'),
+              name: user?.name ?? t('learnerFallback')
+            })}
           </p>
           <p className="mt-2 text-sm font-semibold text-slate-600">
-            누적 수치는 전체 기간 기준이며, 최근 7일 날짜는 UTC 기준입니다.
+            {t('basisNote')}
           </p>
         </div>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 font-bold text-white"
           to="/practice"
         >
-          오늘 학습 시작
+          {t('startToday')}
         </Link>
       </div>
 
-      {dashboardQuery.isPending && !dashboardQuery.data ? (
-        <LoadingState message="누적 학습 통계를 불러오고 있습니다." />
+      {dashboardQuery.isPending &&
+      !dashboardQuery.data &&
+      dashboardQuery.fetchStatus === 'paused' ? (
+        <ErrorState
+          className="mt-8"
+          title={t('summary.offlineTitle')}
+          description={t('summary.offlineDescription')}
+        />
+      ) : dashboardQuery.isPending && !dashboardQuery.data ? (
+        <LoadingState message={t('summary.loading')} />
       ) : dashboardQuery.data ? (
         <>
-          {dashboardQuery.isError ? (
+          {dashboardQuery.fetchStatus === 'paused' ? (
+            <p
+              className="mt-8 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+              role="status"
+            >
+              {t('summary.cachedOffline')}
+            </p>
+          ) : dashboardQuery.isError ? (
             <ErrorState
               className="mt-8"
-              title="최신 누적 통계로 갱신하지 못했습니다"
-              description="현재 화면에는 마지막으로 확인한 결과를 유지합니다."
-              retryLabel="누적 통계 다시 시도"
+              title={t('summary.staleTitle')}
+              description={t('summary.staleDescription')}
+              retryLabel={t('summary.retry')}
               onRetry={() => {
                 shouldRestoreSummaryRetryFocusRef.current = true
                 void dashboardQuery.refetch()
@@ -97,9 +125,9 @@ export const DashboardPage = (): ReactElement => {
       ) : (
         <ErrorState
           className="mt-8"
-          title="누적 대시보드를 불러오지 못했습니다"
-          description="최근 90일 인사이트는 별도로 확인할 수 있습니다. 누적 통계만 다시 요청해 주세요."
-          retryLabel="누적 통계 다시 시도"
+          title={t('summary.errorTitle')}
+          description={t('summary.errorDescription')}
+          retryLabel={t('summary.retry')}
           onRetry={() => {
             shouldRestoreSummaryRetryFocusRef.current = true
             void dashboardQuery.refetch()
@@ -115,6 +143,7 @@ export const DashboardPage = (): ReactElement => {
         data={insightsQuery.data}
         isActionPending={recommendationAction.isActionPending}
         isError={insightsQuery.isError}
+        isPaused={insightsQuery.fetchStatus === 'paused'}
         isPending={insightsQuery.isPending}
         onRecommendationAction={recommendationAction.runRecommendation}
         onRetry={() => void recommendationAction.retryInsights()}

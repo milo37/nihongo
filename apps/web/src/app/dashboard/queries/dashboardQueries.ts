@@ -1,15 +1,11 @@
 import { queryOptions } from '@tanstack/react-query'
 import { getDashboardInsightsV1 } from '@api/dashboard/getDashboardInsightsV1'
 import { getDashboardStatsV1 } from '@api/dashboard/getDashboardStatsV1'
-import { toDashboardInsightsView } from '@app/dashboard/adapters/dashboardInsightsView'
-import { toCanonicalDashboardView } from '@app/dashboard/adapters/dashboardView'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 
-const getStats = async () =>
-  toCanonicalDashboardView(await getDashboardStatsV1())
+const getStats = () => getDashboardStatsV1()
 
-const getInsights = async () =>
-  toDashboardInsightsView(await getDashboardInsightsV1())
+const getInsights = () => getDashboardInsightsV1()
 
 export const dashboardQueries = {
   allKey: serverStateQueryKeys.dashboard.all,

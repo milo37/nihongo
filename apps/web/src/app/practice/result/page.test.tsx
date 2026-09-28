@@ -8,13 +8,24 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { toVersionedContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
+import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import { mockCanonicalSubmissionV2Operations } from '@mocks/adapters/studySubmissionContractAdapter'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { authQueries } from '@app/login/queries/authQueries'
+import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { PracticeResultPage } from '@app/practice/result/page'
 import { getOrCreateResultRetryAttempt } from '@app/practice/resultRetryAttemptStorage'
+import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'
+import { afterEach } from 'vitest'
+
+afterEach(() => {
+  act(() => onlineManager.setOnline(true))
+})
 
 const createClient = (): QueryClient =>
   new QueryClient({
@@ -24,7 +35,9 @@ const createClient = (): QueryClient =>
     }
   })
 
-const createSubmittedSource = (): {
+const createSubmittedSource = (
+  questionIds: string[] = ['n5-vocabulary-01']
+): {
   principalScope: string
   sourceSessionId: string
 } => {
@@ -34,8 +47,8 @@ const createSubmittedSource = (): {
     level: 'N5',
     subject: 'VOCABULARY',
     mode: 'RANDOM',
-    count: 1,
-    questionIds: ['n5-vocabulary-01']
+    count: questionIds.length,
+    questionIds
   })
   submitEmptySession(source.session.id)
   return {
@@ -101,6 +114,251 @@ const renderResultPage = (
   )
 
 describe('PracticeResultPage retry', () => {
+  it('cold offline에서 무한 loading 대신 자동 재확인 상태를 표시한다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const client = createClient()
+    client.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    act(() => onlineManager.setOnline(false))
+    const router = createRouter(crypto.randomUUID())
+
+    renderResultPage(client, router)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '오프라인에서 학습 결과를 기다리고 있습니다'
+      })
+    ).toBeVisible()
+    expect(
+      screen.queryByText('채점 결과를 불러오고 있습니다…')
+    ).not.toBeInTheDocument()
+    client.clear()
+  })
+
+  it('cached 결과 재확인 실패 시 내용을 유지하고 결과 기반 동작을 잠근다', async () => {
+    const { sourceSessionId } = createSubmittedSource()
+    const client = createClient()
+    const router = createRouter(sourceSessionId)
+    renderResultPage(client, router)
+
+    expect(
+      await screen.findByRole('heading', { name: '학습 결과' })
+    ).toBeVisible()
+    mockServer.use(
+      http.get('*/api/v1/study-sessions/:sessionId/result', () =>
+        HttpResponse.json(
+          {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'temporary result error',
+            requestId: crypto.randomUUID(),
+            retryable: true
+          },
+          { status: 503 }
+        )
+      ),
+      http.get('*/api/v1/study-sessions/:sessionId', () =>
+        HttpResponse.json(
+          {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'temporary session error',
+            requestId: crypto.randomUUID(),
+            retryable: true
+          },
+          { status: 503 }
+        )
+      )
+    )
+
+    await act(async () => {
+      await Promise.all([
+        client.refetchQueries({
+          exact: true,
+          queryKey: serverStateQueryKeys.study.result(sourceSessionId)
+        }),
+        client.refetchQueries({
+          exact: true,
+          queryKey: serverStateQueryKeys.study.session(sourceSessionId)
+        })
+      ])
+    })
+
+    expect(
+      await screen.findByText(
+        '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
+      )
+    ).toBeVisible()
+    expect(screen.getByRole('heading', { name: '학습 결과' })).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '오답만 다시 풀기' })
+    ).toBeDisabled()
+    expect(screen.queryByRole('button', { name: '문제 신고' })).toBeNull()
+    client.clear()
+  })
+
+  it('cached result에서 bookmark 조회만 offline이면 상태를 알리고 변경을 잠근다', async () => {
+    const { sourceSessionId } = createSubmittedSource()
+    const client = createClient()
+    const firstView = renderResultPage(client, createRouter(sourceSessionId))
+    expect(
+      await screen.findByRole('heading', { name: '학습 결과' })
+    ).toBeVisible()
+    firstView.unmount()
+    client.removeQueries({ queryKey: bookmarkQueries.allKey() })
+    act(() => onlineManager.setOnline(false))
+
+    renderResultPage(client, createRouter(sourceSessionId))
+
+    expect(
+      await screen.findByText(
+        '오프라인이라 즐겨찾기 상태를 확인할 수 없습니다. 연결되면 자동으로 다시 확인합니다.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '1번 문제 즐겨찾기 추가' })
+    ).toBeDisabled()
+    client.clear()
+  })
+
+  it('guest fresh owner probe 실패 시 cached 결과를 노출하지 않는다', async () => {
+    const { sourceSessionId } = createSubmittedSource()
+    const resultView = toCanonicalStudyResultView(
+      mockDatabase.getCanonicalStudyResult(sourceSessionId, null)
+    )
+    const sessionView = toCanonicalStudySessionView(
+      toVersionedContractStudySessionPayload(
+        mockDatabase.getCanonicalStudySessionSnapshotRecord(
+          sourceSessionId,
+          null
+        )
+      )
+    )
+    mockDatabase.logout()
+    useAppStore.setState({ currentUser: null })
+    const client = createClient()
+    client.setQueryData(authQueries.currentUser().queryKey, null)
+    client.setQueryData(
+      serverStateQueryKeys.study.result(sourceSessionId),
+      resultView
+    )
+    client.setQueryData(
+      serverStateQueryKeys.study.session(sourceSessionId),
+      sessionView
+    )
+    mockServer.use(
+      http.get('*/api/v1/study-sessions/:sessionId/result', () =>
+        HttpResponse.json(
+          {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'temporary guest result probe error',
+            requestId: crypto.randomUUID(),
+            retryable: true
+          },
+          { status: 503 }
+        )
+      ),
+      http.get('*/api/v1/study-sessions/:sessionId', () =>
+        HttpResponse.json(
+          {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'temporary guest session probe error',
+            requestId: crypto.randomUUID(),
+            retryable: true
+          },
+          { status: 503 }
+        )
+      )
+    )
+    const router = createRouter(sourceSessionId)
+
+    renderResultPage(client, router)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '학습 결과를 불러오지 못했습니다'
+      })
+    ).toBeVisible()
+    expect(screen.queryByRole('heading', { name: '학습 결과' })).toBeNull()
+    expect(screen.queryByText('「川」の 読み方は どれですか。')).toBeNull()
+    client.clear()
+  })
+
+  it('guest cached 결과의 fresh owner probe가 offline이면 내용을 노출하지 않는다', async () => {
+    const { sourceSessionId } = createSubmittedSource()
+    const resultView = toCanonicalStudyResultView(
+      mockDatabase.getCanonicalStudyResult(sourceSessionId, null)
+    )
+    const sessionView = toCanonicalStudySessionView(
+      toVersionedContractStudySessionPayload(
+        mockDatabase.getCanonicalStudySessionSnapshotRecord(
+          sourceSessionId,
+          null
+        )
+      )
+    )
+    mockDatabase.logout()
+    useAppStore.setState({ currentUser: null })
+    const client = createClient()
+    client.setQueryData(authQueries.currentUser().queryKey, null)
+    client.setQueryData(
+      serverStateQueryKeys.study.result(sourceSessionId),
+      resultView
+    )
+    client.setQueryData(
+      serverStateQueryKeys.study.session(sourceSessionId),
+      sessionView
+    )
+    act(() => onlineManager.setOnline(false))
+    const router = createRouter(sourceSessionId)
+
+    renderResultPage(client, router)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '오프라인에서 학습 결과를 기다리고 있습니다'
+      })
+    ).toBeVisible()
+    expect(screen.queryByRole('heading', { name: '학습 결과' })).toBeNull()
+    expect(screen.queryByText('「川」の 読み方は どれですか。')).toBeNull()
+    expect(screen.queryByText('채점 결과를 불러오고 있습니다…')).toBeNull()
+    client.clear()
+  })
+
+  it('payload availability에 따라 한국어 기본 해설과 일본어 선택을 함께 제공한다', async () => {
+    const user = userEvent.setup()
+    const { sourceSessionId } = createSubmittedSource([
+      'n5-vocabulary-01',
+      'n5-vocabulary-02'
+    ])
+    const client = createClient()
+    const router = createRouter(sourceSessionId)
+    renderResultPage(client, router)
+
+    expect(
+      await screen.findByText(
+        '「川」는 물이 흐르는 강을 뜻하며 「かわ」라고 읽습니다.'
+      )
+    ).toHaveAttribute('lang', 'ko')
+    expect(screen.getAllByRole('tablist')).toHaveLength(1)
+    expect(screen.getByRole('tab', { name: '한국어' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(
+      screen.getByText('일본어 해설이 없어 한국어 해설을 표시합니다.')
+    ).toBeVisible()
+    expect(screen.getByText('「川」の 読み方は どれですか。')).toHaveAttribute(
+      'lang',
+      'ja'
+    )
+
+    await user.click(screen.getByRole('tab', { name: '日本語' }))
+    expect(screen.getByText('「川」は「かわ」と読みます。')).toHaveAttribute(
+      'lang',
+      'ja'
+    )
+    client.clear()
+  })
+
   it('NO_ELIGIBLE를 focus 가능한 EmptyState로 전환하고 반복 요청을 막는다', async () => {
     const user = userEvent.setup()
     const { sourceSessionId } = createSubmittedSource()
@@ -270,10 +528,11 @@ describe('PracticeResultPage retry', () => {
 
     await user.click(retryButton)
     expect(
-      await screen.findByRole('heading', {
-        name: '학습 결과를 불러오지 못했습니다'
-      })
-    ).toBeInTheDocument()
+      await screen.findByText(
+        '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
+      )
+    ).toBeVisible()
+    expect(screen.getByRole('heading', { name: '학습 결과' })).toBeVisible()
 
     shouldFailRefetch = false
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
@@ -315,6 +574,18 @@ describe('PracticeResultPage retry', () => {
     expect(
       await screen.findByRole('button', { name: '오답만 다시 풀기' })
     ).toBeEnabled()
+    await waitFor(() => {
+      expect(
+        client.getQueryState(
+          serverStateQueryKeys.study.result(target.response.session.id)
+        )?.status
+      ).toBe('success')
+      expect(
+        client.getQueryState(
+          serverStateQueryKeys.study.session(target.response.session.id)
+        )?.status
+      ).toBe('success')
+    })
 
     act(() => onlineManager.setOnline(false))
     await user.click(screen.getByRole('button', { name: '오답만 다시 풀기' }))

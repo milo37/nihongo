@@ -1,38 +1,30 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import type { ReviewEventHistoryItem } from '@nihongo/contracts/wrong-note/list-review-events'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import type { useListReviewEvents } from '@app/wrong-note/hooks/useListReviewEvents'
+import { resolveUiLocale } from '@/i18n/types'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 
 type ReviewTimelineProps = {
   historyQuery: ReturnType<typeof useListReviewEvents>
 }
 
-const sourceLabels = {
-  STUDY_SUBMIT: '표준 학습 제출',
-  WRONG_NOTE_REVIEW: '오답 복습 제출',
-  VERSION_REBASE: '문제 버전 전환'
-} as const
-const statusLabels = {
-  NEW: '새 오답',
-  AGAIN: '다시 학습',
-  REVIEWING: '복습 중',
-  SOLVED: '해결'
-} as const
-const dateTimeFormatter = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'long'
-})
-
-const outcomeLabel = (event: ReviewEventHistoryItem): string => {
-  if (event.isCorrect === null) return '정답 판정 없음'
-  return event.isCorrect ? '정답' : '오답'
-}
-
 export const ReviewTimeline = ({
   historyQuery
 }: ReviewTimelineProps): ReactElement => {
+  const { i18n, t } = useTranslation('wrongNote')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const outcomeLabel = (event: ReviewEventHistoryItem): string => {
+    if (event.isCorrect === null) return t('timeline.outcomes.none')
+    return event.isCorrect
+      ? t('timeline.outcomes.correct')
+      : t('timeline.outcomes.incorrect')
+  }
   const loadMoreButtonRef = useRef<HTMLButtonElement>(null)
   const emptyStateRef = useRef<HTMLParagraphElement>(null)
   const previousItemCountRef = useRef(0)
@@ -85,14 +77,13 @@ export const ReviewTimeline = ({
     if (isHistoryPaused) {
       return (
         <p className="text-sm font-semibold text-amber-900" role="status">
-          오프라인에서는 복습 기록을 불러올 수 없습니다. 연결되면 자동으로 다시
-          불러옵니다.
+          {t('timeline.loadingOffline')}
         </p>
       )
     }
     return (
       <p className="text-sm font-semibold text-muted" role="status">
-        복습 기록을 불러오고 있습니다…
+        {t('timeline.loading')}
       </p>
     )
   }
@@ -103,7 +94,7 @@ export const ReviewTimeline = ({
         className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
         role="alert"
       >
-        <p>복습 기록을 불러오지 못했습니다.</p>
+        <p>{t('timeline.loadError')}</p>
         <Button
           className="mt-3"
           size="sm"
@@ -112,7 +103,7 @@ export const ReviewTimeline = ({
             void historyQuery.refetch()
           }}
         >
-          다시 시도
+          {commonT('actions.retry')}
         </Button>
       </div>
     )
@@ -123,10 +114,7 @@ export const ReviewTimeline = ({
       className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
       role="alert"
     >
-      <p>
-        복습 기록의 최신 상태를 확인하지 못했습니다. 현재까지 불러온 기록은
-        유지됩니다.
-      </p>
+      <p>{t('timeline.stale')}</p>
       <Button
         className="mt-3"
         size="sm"
@@ -135,7 +123,7 @@ export const ReviewTimeline = ({
           void historyQuery.refetch()
         }}
       >
-        복습 기록 다시 확인
+        {t('timeline.retryStale')}
       </Button>
     </div>
   ) : null
@@ -148,7 +136,7 @@ export const ReviewTimeline = ({
             className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-950"
             role="status"
           >
-            오프라인입니다. 연결되면 복습 기록을 다시 확인합니다.
+            {t('timeline.emptyOffline')}
           </p>
         ) : null}
         {backgroundRefreshError}
@@ -157,7 +145,7 @@ export const ReviewTimeline = ({
           className="rounded-lg bg-slate-50 p-4 text-sm text-muted"
           tabIndex={-1}
         >
-          아직 복습 이벤트가 없습니다.
+          {t('timeline.empty')}
         </p>
       </div>
     )
@@ -170,8 +158,7 @@ export const ReviewTimeline = ({
           className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-950"
           role="status"
         >
-          오프라인입니다. 현재 기록을 유지하며 연결되면 중단된 요청을
-          이어갑니다.
+          {t('timeline.cachedOffline')}
         </p>
       ) : null}
       {backgroundRefreshError}
@@ -180,7 +167,7 @@ export const ReviewTimeline = ({
           <li
             key={event.id}
             id={`review-event-${event.id}`}
-            className="rounded-xl border border-line bg-white p-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-brand"
+            className="content-auto rounded-xl border border-line bg-surface p-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-brand"
             tabIndex={-1}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -195,51 +182,64 @@ export const ReviewTimeline = ({
               >
                 {outcomeLabel(event)}
               </Badge>
-              <strong className="text-sm">{sourceLabels[event.source]}</strong>
+              <strong className="text-sm">
+                {t(`timeline.sources.${event.source}`)}
+              </strong>
               <time className="text-xs text-muted" dateTime={event.occurredAt}>
-                {dateTimeFormatter.format(new Date(event.occurredAt))}
+                {formatDateTime(event.occurredAt, locale, {
+                  dateStyle: 'medium',
+                  timeStyle: 'long'
+                })}
               </time>
             </div>
             <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-muted">상태 변화</dt>
+                <dt className="text-muted">{t('timeline.statusChange')}</dt>
                 <dd className="font-semibold">
                   {event.previousStatus
-                    ? statusLabels[event.previousStatus]
-                    : '기록 시작'}{' '}
-                  → {statusLabels[event.nextStatus]}
+                    ? commonT(
+                        `taxonomy.wrongNoteStatuses.${event.previousStatus}`
+                      )
+                    : t('timeline.recordStart')}{' '}
+                  → {commonT(`taxonomy.wrongNoteStatuses.${event.nextStatus}`)}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted">오답 횟수</dt>
+                <dt className="text-muted">{t('timeline.wrongCount')}</dt>
                 <dd className="font-semibold">
-                  {event.previousWrongCount ?? 0} → {event.wrongCountAfter}
+                  {formatCount(event.previousWrongCount ?? 0)} →{' '}
+                  {formatCount(event.wrongCountAfter)}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted">연속 정답</dt>
+                <dt className="text-muted">{t('timeline.streak')}</dt>
                 <dd className="font-semibold">
-                  {event.previousCorrectStreak ?? 0} → {event.nextCorrectStreak}
+                  {formatCount(event.previousCorrectStreak ?? 0)} →{' '}
+                  {formatCount(event.nextCorrectStreak)}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted">풀이 시간</dt>
+                <dt className="text-muted">{t('timeline.elapsed')}</dt>
                 <dd className="font-semibold">
                   {event.elapsedSec === null
-                    ? '기록 없음'
-                    : `${event.elapsedSec}초`}
+                    ? t('timeline.noRecord')
+                    : t('timeline.seconds', {
+                        formattedCount: formatCount(event.elapsedSec)
+                      })}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-muted">문제 버전</dt>
-                <dd className="break-all font-mono text-xs">
+                <dt className="text-muted">{t('timeline.questionVersion')}</dt>
+                <dd className="break-all font-mono text-xs" translate="no">
                   {event.questionVersionId}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-muted">알고리즘</dt>
-                <dd className="font-semibold">
-                  version {event.algorithmVersion}
+                <dt className="text-muted">{t('timeline.algorithm')}</dt>
+                <dd className="font-semibold" translate="no">
+                  {t('timeline.algorithmVersion', {
+                    version: event.algorithmVersion
+                  })}
                 </dd>
               </div>
             </dl>
@@ -251,7 +251,7 @@ export const ReviewTimeline = ({
           className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900"
           role="alert"
         >
-          이전 기록을 더 불러오지 못했습니다. 현재까지 불러온 기록은 유지됩니다.
+          {t('timeline.moreError')}
         </p>
       ) : null}
       {historyQuery.hasNextPage ? (
@@ -261,7 +261,9 @@ export const ReviewTimeline = ({
           variant="outline"
           isLoading={historyQuery.isFetchingNextPage || isHistoryPaused}
           loadingLabel={
-            isHistoryPaused ? '연결 대기 중…' : '이전 기록 불러오는 중…'
+            isHistoryPaused
+              ? t('timeline.waitingConnection')
+              : t('timeline.loadingMore')
           }
           onClick={() => {
             previousItemCountRef.current = items.length
@@ -270,12 +272,10 @@ export const ReviewTimeline = ({
             void historyQuery.fetchNextPage()
           }}
         >
-          이전 기록 더 보기
+          {t('timeline.loadMore')}
         </Button>
       ) : (
-        <p className="mt-4 text-sm text-muted">
-          첫 오답 기록까지 모두 확인했습니다.
-        </p>
+        <p className="mt-4 text-sm text-muted">{t('timeline.complete')}</p>
       )}
     </div>
   )

@@ -10,6 +10,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
+import { authQueries } from '@app/login/queries/authQueries'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { submitStudySessionCommand } from '@app/practice/commands/submitStudySessionCommand'
 import { PracticeSessionPage } from '@app/practice/session/page'
@@ -56,7 +57,7 @@ const createSubmittedFixture = async () => {
   })
   const rawResult = await getStudyResultV1(session.session.id)
   clearSubmissionAttempt(session.session.id)
-  return { rawResult, rawSession: created, session }
+  return { rawResult, rawSession: created, session, user }
 }
 
 const renderSession = (
@@ -280,7 +281,12 @@ describe('real canonical submission recovery UI', () => {
 
   it('shows frozen recovery when session reload fails, then refetches and replays', async () => {
     const user = userEvent.setup()
-    const { rawResult, rawSession, session } = await createSubmittedFixture()
+    const {
+      rawResult,
+      rawSession,
+      session,
+      user: currentUser
+    } = await createSubmittedFixture()
     const question = session.questions[0]
     const selectedOptionId = question.options[0].id
     const attempt = getOrCreateCanonicalSubmissionAttempt(
@@ -298,6 +304,7 @@ describe('real canonical submission recovery UI', () => {
       session
     )
     const client = createClient()
+    client.setQueryData(authQueries.currentUser().queryKey, currentUser)
     let sessionRequestCount = 0
     let replayBody: unknown
     let replayKey: string | null = null

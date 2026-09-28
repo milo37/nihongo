@@ -1,11 +1,15 @@
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { afterEach } from 'vitest'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { PracticeSessionPage } from '@app/practice/session/page'
+import { authQueries } from '@app/login/queries/authQueries'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
@@ -14,8 +18,233 @@ import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'
+import { appI18n } from '@/i18n/config'
+
+afterEach(() => {
+  act(() => onlineManager.setOnline(true))
+})
 
 describe('PracticeSessionPage', () => {
+  it('cold offline에서 무한 loading 대신 자동 재확인 상태를 표시한다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    queryClient.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    act(() => onlineManager.setOnline(false))
+    const sessionId = crypto.randomUUID()
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/practice/session/:sessionId',
+          element: (
+            <ProtectedRouteProvider>
+              <PracticeSessionPage />
+            </ProtectedRouteProvider>
+          )
+        }
+      ],
+      { initialEntries: [`/practice/session/${sessionId}`] }
+    )
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+
+    expect(
+      await screen.findByText(
+        '오프라인입니다. 연결되면 학습 세션을 자동으로 다시 확인합니다.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText('문제를 준비하고 있습니다…')
+    ).not.toBeInTheDocument()
+  })
+
+  it('cached session 재확인 실패 시 문제를 유지하되 답 변경과 제출을 잠근다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    queryClient.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    const sessionPayload = await createStudySessionV1({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
+    const queryKey = serverStateQueryKeys.study.session(
+      sessionPayload.session.id
+    )
+    queryClient.setQueryData(queryKey, sessionView)
+    await queryClient.invalidateQueries({
+      exact: true,
+      queryKey,
+      refetchType: 'none'
+    })
+    mockServer.use(
+      http.get('*/api/v1/study-sessions/:sessionId', () =>
+        HttpResponse.json(
+          {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'temporary error',
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 503 }
+        )
+      )
+    )
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/practice/session/:sessionId',
+          element: (
+            <ProtectedRouteProvider>
+              <PracticeSessionPage />
+            </ProtectedRouteProvider>
+          )
+        }
+      ],
+      { initialEntries: [`/practice/session/${sessionPayload.session.id}`] }
+    )
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+
+    expect(
+      await screen.findByText(
+        '학습 세션의 최신 상태를 확인하지 못했습니다. 현재 문제와 답안은 유지되며 다시 확인할 때까지 변경하거나 제출할 수 없습니다.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.getAttribute('lang') === 'ja' &&
+          element.textContent === sessionView.questions[0]?.questionText
+      )
+    ).toHaveAttribute('lang', 'ja')
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).toBeDisabled()
+    }
+    expect(screen.getByRole('button', { name: '답안 제출' })).toBeDisabled()
+  })
+
+  it('cached session에서 bookmark 조회만 offline이면 상태를 알리고 변경을 잠근다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const created = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    useAppStore
+      .getState()
+      .beginPractice(created.data.session.id, created.data.session.startedAt)
+    const createRouter = () =>
+      createMemoryRouter(
+        [
+          {
+            path: '/practice/session/:sessionId',
+            element: (
+              <ProtectedRouteProvider>
+                <PracticeSessionPage />
+              </ProtectedRouteProvider>
+            )
+          }
+        ],
+        { initialEntries: [`/practice/session/${created.data.session.id}`] }
+      )
+    const firstView = render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={createRouter()} />
+      </QueryClientProvider>
+    )
+    const question = created.data.questions[0]?.question
+    expect(question).toBeDefined()
+    if (!question) return
+    const findQuestionText = () =>
+      screen.findByText(
+        (_content, element) =>
+          element?.getAttribute('lang') === 'ja' &&
+          element.textContent === question.questionText
+      )
+    expect(await findQuestionText()).toBeVisible()
+    firstView.unmount()
+    queryClient.removeQueries({ queryKey: bookmarkQueries.allKey() })
+    act(() => onlineManager.setOnline(false))
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={createRouter()} />
+      </QueryClientProvider>
+    )
+
+    expect(await findQuestionText()).toBeVisible()
+    expect(
+      screen.getByText(
+        '오프라인이라 즐겨찾기 상태를 확인할 수 없습니다. 연결되면 자동으로 다시 확인합니다.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '1번 문제 즐겨찾기 추가' })
+    ).toBeDisabled()
+  })
+
+  it('guest cached session의 fresh owner probe가 offline이면 문제를 노출하지 않는다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const sessionPayload = await createStudySessionV1({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
+    mockDatabase.logout()
+    useAppStore.setState({ currentUser: null })
+    queryClient.setQueryData(authQueries.currentUser().queryKey, null)
+    queryClient.setQueryData(
+      serverStateQueryKeys.study.session(sessionPayload.session.id),
+      sessionView
+    )
+    act(() => onlineManager.setOnline(false))
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/practice/session/:sessionId',
+          element: (
+            <ProtectedRouteProvider>
+              <PracticeSessionPage />
+            </ProtectedRouteProvider>
+          )
+        }
+      ],
+      { initialEntries: [`/practice/session/${sessionPayload.session.id}`] }
+    )
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+
+    expect(
+      await screen.findByText(
+        '오프라인입니다. 연결되면 학습 세션을 자동으로 다시 확인합니다.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.queryByText(sessionView.questions[0]?.questionText ?? '')
+    ).toBeNull()
+    expect(
+      screen.queryByText('게스트 세션 소유권을 확인하고 있습니다…')
+    ).toBeNull()
+  })
+
   it('숫자 키와 클릭 선택이 같은 답안 상태와 radio 상태를 갱신한다', async () => {
     const user = userEvent.setup()
     useAppStore.setState({ currentUser: mockDatabase.loginAs('USER') })
@@ -87,6 +316,64 @@ describe('PracticeSessionPage', () => {
     expect(useAppStore.getState().selectedAnswers[firstQuestion.id]).toBe(
       firstQuestion.options[1]?.id
     )
+
+    await act(async () => appI18n.changeLanguage('ja'))
+
+    expect(
+      screen.getByRole('heading', { name: /1番の問題/u })
+    ).toBeInTheDocument()
+    expect(secondOption).toBeChecked()
+    expect(useAppStore.getState().selectedAnswers[firstQuestion.id]).toBe(
+      firstQuestion.options[1]?.id
+    )
+  })
+
+  it('독해 지문 scroll region을 keyboard로 진입하고 다음 control로 빠져나간다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    queryClient.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    const sessionPayload = await createStudySessionV1({
+      level: 'N5',
+      subject: 'READING',
+      mode: 'RANDOM',
+      count: 1
+    })
+    useAppStore
+      .getState()
+      .beginPractice(
+        sessionPayload.session.id,
+        sessionPayload.session.startedAt
+      )
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/practice/session/:sessionId',
+          element: (
+            <ProtectedRouteProvider>
+              <PracticeSessionPage />
+            </ProtectedRouteProvider>
+          )
+        }
+      ],
+      { initialEntries: [`/practice/session/${sessionPayload.session.id}`] }
+    )
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+
+    const passage = await screen.findByRole('article', {
+      name: '독해 지문'
+    })
+    await user.tab({ shift: true })
+    expect(passage).toHaveFocus()
+
+    await user.keyboard('{PageDown}')
+    await user.tab()
+    expect(screen.getAllByRole('radio')[0]).toHaveFocus()
   })
 
   it('제출 단축키로 Dialog를 열고 열린 동안 배경 단축키를 비활성화한다', async () => {

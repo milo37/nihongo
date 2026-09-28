@@ -5,6 +5,7 @@ import {
   useRef,
   useState
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import type { ReactElement, ReactNode, RefObject } from 'react'
 import {
@@ -14,6 +15,7 @@ import {
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { ErrorState } from '@common/components/ErrorState'
+import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import { LoadingState } from '@common/components/LoadingState'
 import { MemoEditor } from '@app/wrong-note/components/MemoEditor'
 import { ReviewTimeline } from '@app/wrong-note/components/ReviewTimeline'
@@ -32,6 +34,11 @@ import { readTargetedReviewAttempt } from '@app/wrong-note/targetedReviewAttempt
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
+import { resolveUiLocale } from '@/i18n/types'
+import {
+  formatDateTime as formatLocaleDateTime,
+  formatNumber
+} from '@libs/localeFormatters'
 
 type WrongNoteDetailContentProps = {
   action?: ReactNode
@@ -39,48 +46,33 @@ type WrongNoteDetailContentProps = {
   headingRef?: RefObject<HTMLHeadingElement | null>
 }
 
-const statusLabels = {
-  NEW: '새 오답',
-  REVIEWING: '복습 중',
-  AGAIN: '다시 학습',
-  SOLVED: '해결'
-} as const
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
-const reviewAvailabilityLabels = {
-  AVAILABLE: '현재 출제 가능',
-  ARCHIVED: '보관된 문제'
-} as const
-const dateTimeFormatter = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'short'
-})
-
-const formatDateTime = (value: string | null): string => {
-  if (!value) {
-    return '기록 없음'
-  }
-
-  return dateTimeFormatter.format(new Date(value))
-}
+type TargetedNoticeCode = 'endedArchived' | 'endedAvailable'
 
 export const WrongNoteDetailContent = ({
   action,
   data,
   headingRef
 }: WrongNoteDetailContentProps): ReactElement => {
+  const { i18n, t } = useTranslation('wrongNote')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const formatDateTime = (value: string | null): string =>
+    value
+      ? formatLocaleDateTime(value, locale, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        })
+      : t('detail.review.noRecord')
   return (
     <>
       <div className="flex flex-wrap gap-2">
         <Badge variant="brand">{data.question.level}</Badge>
-        <Badge>{subjectLabels[data.question.subject]}</Badge>
+        <Badge>{commonT(`taxonomy.subjects.${data.question.subject}`)}</Badge>
         <Badge
           variant={data.wrongNote.status === 'SOLVED' ? 'success' : 'warning'}
         >
-          {statusLabels[data.wrongNote.status]}
+          {commonT(`taxonomy.wrongNoteStatuses.${data.wrongNote.status}`)}
         </Badge>
         <Badge
           variant={
@@ -89,7 +81,9 @@ export const WrongNoteDetailContent = ({
               : 'info'
           }
         >
-          {reviewAvailabilityLabels[data.wrongNote.reviewAvailability]}
+          {commonT(
+            `taxonomy.availability.${data.wrongNote.reviewAvailability}`
+          )}
         </Badge>
       </div>
       <h1
@@ -97,20 +91,23 @@ export const WrongNoteDetailContent = ({
         className="mt-5 rounded-sm text-3xl font-black leading-tight"
         tabIndex={-1}
       >
-        마지막 오답 문제 상세
+        {t('detail.title')}
       </h1>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)]">
         <article className="rounded-xl border border-line bg-white p-5 sm:p-7">
           <p className="mb-4 rounded-lg bg-slate-100 p-3 text-sm font-semibold leading-6 text-slate-700">
-            아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전입니다.
+            {t('detail.snapshotNotice')}
           </p>
           {data.question.passage ? (
-            <div className="mb-6 border-l-4 border-slate-300 bg-slate-50 p-4 leading-8 text-slate-700">
+            <div
+              className="mb-6 border-l-4 border-slate-300 bg-slate-50 p-4 leading-8 text-slate-700"
+              lang="ja"
+            >
               {data.question.passage}
             </div>
           ) : null}
-          <h2 className="text-2xl font-black leading-9">
+          <h2 className="text-2xl font-black leading-9" lang="ja">
             {data.question.questionText}
           </h2>
           <ol className="mt-6 space-y-2">
@@ -124,26 +121,27 @@ export const WrongNoteDetailContent = ({
                     : 'border-line'
                 ].join(' ')}
               >
-                <span>
+                <span className="min-w-0 break-words" lang="ja">
                   {option.label}. {option.text}
                 </span>
                 {option.isCorrect ? (
-                  <strong className="text-sm text-emerald-800">정답</strong>
+                  <strong className="text-sm text-emerald-800">
+                    {t('detail.correct')}
+                  </strong>
                 ) : null}
               </li>
             ))}
           </ol>
 
           <div className="mt-7 border-t border-line pt-6">
-            <h3 className="text-lg font-black">해설</h3>
-            <p className="mt-3 leading-8 text-slate-700">
-              {data.question.explanationKo}
-            </p>
-            {data.question.explanationJa ? (
-              <p className="mt-3 text-sm leading-7 text-muted">
-                {data.question.explanationJa}
-              </p>
-            ) : null}
+            <h3 className="text-lg font-black">{t('detail.explanation')}</h3>
+            <div className="mt-3">
+              <ExplanationLanguagePanel
+                key={data.question.id}
+                explanationJa={data.question.explanationJa}
+                explanationKo={data.question.explanationKo}
+              />
+            </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             {data.question.tags.map((tag) => (
@@ -154,34 +152,38 @@ export const WrongNoteDetailContent = ({
 
         <aside className="space-y-5">
           <div className="rounded-xl border border-line bg-white p-5">
-            <h2 className="text-lg font-black">복습 기록</h2>
+            <h2 className="text-lg font-black">{t('detail.review.title')}</h2>
             <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <div>
-                <dt className="text-muted">틀린 횟수</dt>
+                <dt className="text-muted">{t('detail.review.wrongCount')}</dt>
                 <dd className="mt-1 text-xl font-black">
-                  {data.wrongNote.wrongCount}회
+                  {t('detail.review.count', {
+                    formattedCount: formatCount(data.wrongNote.wrongCount)
+                  })}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted">연속 정답</dt>
+                <dt className="text-muted">{t('detail.review.streak')}</dt>
                 <dd className="mt-1 text-xl font-black">
-                  {data.wrongNote.correctStreak}회
+                  {t('detail.review.count', {
+                    formattedCount: formatCount(data.wrongNote.correctStreak)
+                  })}
                 </dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-muted">최근 오답</dt>
+                <dt className="text-muted">{t('detail.review.lastWrong')}</dt>
                 <dd className="mt-1 font-semibold">
                   {formatDateTime(data.wrongNote.lastWrongAt)}
                 </dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-muted">다음 복습</dt>
+                <dt className="text-muted">{t('detail.review.nextReview')}</dt>
                 <dd className="mt-1 font-semibold">
                   {formatDateTime(data.wrongNote.nextReviewAt)}
                 </dd>
               </div>
               <div className="col-span-2">
-                <dt className="text-muted">최근 복습</dt>
+                <dt className="text-muted">{t('detail.review.lastReview')}</dt>
                 <dd className="mt-1 font-semibold">
                   {formatDateTime(data.wrongNote.lastReviewedAt)}
                 </dd>
@@ -191,13 +193,9 @@ export const WrongNoteDetailContent = ({
               className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
               role="status"
             >
-              {data.wrongNote.reviewAvailability === 'ARCHIVED' ? (
-                '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
-              ) : (
-                <>
-                  현재 출제 가능한 문제 버전으로 단일 복습을 시작할 수 있습니다.
-                </>
-              )}
+              {data.wrongNote.reviewAvailability === 'ARCHIVED'
+                ? t('detail.review.archived')
+                : t('detail.review.available')}
             </div>
             {action ? <div className="mt-4">{action}</div> : null}
           </div>
@@ -208,6 +206,7 @@ export const WrongNoteDetailContent = ({
 }
 
 export const WrongNoteDetailPage = (): ReactElement => {
+  const { t } = useTranslation('wrongNote')
   const { questionId = '' } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -223,7 +222,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
     questionId
   })
   const [targetedNotice, setTargetedNotice] = useState({
-    message: '',
+    code: null as TargetedNoticeCode | null,
     questionId
   })
   const [targetedAttemptState, setTargetedAttemptState] = useState(() => ({
@@ -243,7 +242,9 @@ export const WrongNoteDetailPage = (): ReactElement => {
   const isMemoDirty =
     memoDirtyState.questionId === questionId && memoDirtyState.isDirty
   const targetedMessage =
-    targetedNotice.questionId === questionId ? targetedNotice.message : ''
+    targetedNotice.questionId === questionId && targetedNotice.code
+      ? t(`detail.targeted.${targetedNotice.code}`)
+      : ''
   const isCurrentTargetedMutation =
     createTargeted.variables?.questionId === questionId
   const isTargetedPending =
@@ -285,15 +286,15 @@ export const WrongNoteDetailPage = (): ReactElement => {
       <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <ErrorState
           headingLevel={1}
-          title="오프라인에서는 오답 상세를 불러올 수 없습니다"
-          description="연결이 복구되면 이 문제를 자동으로 다시 불러옵니다."
+          title={t('detail.states.coldOfflineTitle')}
+          description={t('detail.states.coldOfflineDescription')}
         />
       </section>
     )
   }
 
   if (wrongNoteQuery.isPending) {
-    return <LoadingState message="오답 상세를 불러오고 있습니다." />
+    return <LoadingState message={t('detail.states.loading')} />
   }
 
   if (
@@ -305,14 +306,14 @@ export const WrongNoteDetailPage = (): ReactElement => {
       <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <ErrorState
           headingLevel={1}
-          title="오답을 찾을 수 없습니다"
-          description="삭제되었거나 현재 계정에 저장되지 않은 문제입니다."
+          title={t('detail.states.notFoundTitle')}
+          description={t('detail.states.notFoundDescription')}
           action={
             <Link
               className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
               to="/wrong-notes"
             >
-              오답노트로 돌아가기
+              {t('detail.states.backCenter')}
             </Link>
           }
         />
@@ -325,8 +326,8 @@ export const WrongNoteDetailPage = (): ReactElement => {
       <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <ErrorState
           headingLevel={1}
-          title="오답 상세를 불러오지 못했습니다"
-          description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+          title={t('detail.states.loadErrorTitle')}
+          description={t('detail.states.loadErrorDescription')}
           onRetry={() => {
             shouldRestoreRetryFocusRef.current = true
             void wrongNoteQuery.refetch()
@@ -343,10 +344,10 @@ export const WrongNoteDetailPage = (): ReactElement => {
         to={returnTo}
       >
         {returnTo.startsWith('/wrong-notes/history')
-          ? '전체 오답 기록으로 돌아가기'
+          ? t('detail.states.backHistory')
           : returnTo === '/dashboard'
-            ? '학습 대시보드로 돌아가기'
-            : '복습 센터로 돌아가기'}
+            ? t('detail.states.backDashboard')
+            : t('detail.states.backCenter')}
       </Link>
       <WrongNoteDetailContent
         data={wrongNoteQuery.data}
@@ -370,11 +371,13 @@ export const WrongNoteDetailPage = (): ReactElement => {
                   fullWidth
                   isLoading={isTargetedPending}
                   loadingLabel={
-                    isTargetedPaused ? '연결 대기 중…' : '단일 복습 준비 중…'
+                    isTargetedPaused
+                      ? t('detail.targeted.waitingConnection')
+                      : t('detail.targeted.loading')
                   }
                   disabled={isMemoDirty}
                   onClick={() => {
-                    setTargetedNotice({ message: '', questionId })
+                    setTargetedNotice({ code: null, questionId })
                     setTargetedAttemptState({
                       identityKey,
                       isPresent: true,
@@ -417,11 +420,11 @@ export const WrongNoteDetailPage = (): ReactElement => {
                             })
                           } else {
                             setTargetedNotice({
-                              message:
+                              code:
                                 wrongNoteQuery.data.wrongNote
                                   .reviewAvailability === 'ARCHIVED'
-                                  ? '이전에 만든 단일 복습 세션이 종료됐습니다. 보관된 문제에서는 새 단일 복습을 시작할 수 없습니다.'
-                                  : '이전에 만든 단일 복습 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.',
+                                  ? 'endedArchived'
+                                  : 'endedAvailable',
                               questionId
                             })
                             completeTargetedReviewAction(input)
@@ -441,20 +444,18 @@ export const WrongNoteDetailPage = (): ReactElement => {
                 >
                   {wrongNoteQuery.data.wrongNote.reviewAvailability ===
                   'ARCHIVED'
-                    ? '기존 단일 복습 복구'
-                    : '이 문제만 다시 풀기'}
+                    ? t('detail.targeted.recover')
+                    : t('detail.targeted.start')}
                 </Button>
                 {wrongNoteQuery.data.wrongNote.reviewAvailability ===
                 'ARCHIVED' ? (
                   <p className="mt-3 text-sm font-semibold text-muted">
-                    문제는 보관됐지만 이전에 생성된 단일 복습 세션은 같은 요청
-                    키로 복구할 수 있습니다.
+                    {t('detail.targeted.archivedRecovery')}
                   </p>
                 ) : null}
                 {isMemoDirty ? (
                   <p className="mt-3 text-sm font-semibold text-amber-900">
-                    메모를 저장하거나 변경을 취소한 뒤 단일 복습을 시작해
-                    주세요.
+                    {t('detail.targeted.memoDirty')}
                   </p>
                 ) : null}
                 {isTargetedPaused ? (
@@ -462,8 +463,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
                     className="mt-3 text-sm font-semibold text-amber-900"
                     role="status"
                   >
-                    오프라인입니다. 연결되면 같은 요청 키로 단일 복습 생성을
-                    이어갑니다.
+                    {t('detail.targeted.offline')}
                   </p>
                 ) : null}
                 {isTargetedError ? (
@@ -472,14 +472,14 @@ export const WrongNoteDetailPage = (): ReactElement => {
                     role="alert"
                   >
                     {isQuestionNotAvailableApiError(createTargeted.error)
-                      ? '현재 출제 가능한 문제 버전이 없습니다.'
-                      : '단일 복습 세션을 만들지 못했습니다. 다시 시도해 주세요.'}
+                      ? t('detail.targeted.unavailable')
+                      : t('detail.targeted.error')}
                   </p>
                 ) : null}
               </>
             ) : (
               <p className="text-sm font-semibold text-muted">
-                보관된 문제는 기록과 메모만 확인할 수 있습니다.
+                {t('detail.targeted.archivedOnly')}
               </p>
             )}
             <p
@@ -497,8 +497,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
           className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
           role="status"
         >
-          오프라인입니다. 현재 저장된 상세를 표시하며 연결되면 서버 상태를 다시
-          확인합니다.
+          {t('detail.states.cachedOffline')}
         </p>
       ) : null}
       {wrongNoteQuery.isError ? (
@@ -506,10 +505,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
           className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
           role="alert"
         >
-          <p className="font-semibold">
-            상세의 최신 상태를 확인하지 못했습니다. 표시 중인 내용과 작성 중인
-            메모는 유지됩니다.
-          </p>
+          <p className="font-semibold">{t('detail.states.stale')}</p>
           <Button
             className="mt-3"
             size="sm"
@@ -518,7 +514,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
               void wrongNoteQuery.refetch()
             }}
           >
-            상세 다시 확인
+            {t('detail.states.retry')}
           </Button>
         </div>
       ) : null}
@@ -529,10 +525,10 @@ export const WrongNoteDetailPage = (): ReactElement => {
           aria-labelledby="memo-heading"
         >
           <h2 id="memo-heading" className="text-xl font-black">
-            나의 메모
+            {t('detail.memoSection.title')}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            메모는 현재 계정의 이 오답에만 저장되며 자동 저장하지 않습니다.
+            {t('detail.memoSection.description')}
           </p>
           <div className="mt-5">
             <MemoEditor
@@ -550,10 +546,10 @@ export const WrongNoteDetailPage = (): ReactElement => {
           aria-labelledby="timeline-heading"
         >
           <h2 id="timeline-heading" className="text-xl font-black">
-            복습 타임라인
+            {t('detail.timelineSection.title')}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            최신 기록부터 표시하며 상태와 횟수 변화는 텍스트로 함께 제공합니다.
+            {t('detail.timelineSection.description')}
           </p>
           <div className="mt-5">
             <ReviewTimeline historyQuery={historyQuery} />

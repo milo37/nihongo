@@ -14,11 +14,11 @@ export const DashboardInsightChart = ({
         <div key={item.id}>
           <div className="flex items-center justify-between gap-4 text-sm">
             <span className="font-bold text-ink">{item.label}</span>
-            <span className="font-semibold text-slate-600">
+            <span className="font-semibold text-muted">
               {item.correctRateLabel}
             </span>
           </div>
-          <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-2 h-3 overflow-hidden rounded-full bg-surface-muted">
             <div
               className="h-full rounded-full bg-brand motion-safe:transition-[width] motion-safe:duration-300"
               style={{

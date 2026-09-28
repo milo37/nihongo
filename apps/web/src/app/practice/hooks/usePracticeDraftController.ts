@@ -74,7 +74,24 @@ export interface PracticeDraftController {
   saveState: ReturnType<typeof useAppStore.getState>['draftSaveState']
   selectOption: (sessionQuestionId: string, optionId: string) => void
   snapshot: StudyDraftSnapshot | null
-  statusMessage: string
+  status: PracticeDraftStatus
+}
+
+export type PracticeDraftStatusCode =
+  | 'remoteDeferred'
+  | 'conflictPending'
+  | 'dirty'
+  | 'saving'
+  | 'savedAt'
+  | 'saved'
+  | 'offline'
+  | 'conflict'
+  | 'error'
+  | 'synced'
+
+export interface PracticeDraftStatus {
+  readonly code: PracticeDraftStatusCode
+  readonly savedAt?: string
 }
 
 const snapshotElapsedById = (
@@ -187,37 +204,35 @@ const withConfirmedBase = (
   postFlightLocalDiff: createEmptyStudyDraftDiff()
 })
 
-const getStatusMessage = (
+const getStatus = (
   saveState: ReturnType<typeof useAppStore.getState>['draftSaveState'],
   savedAt: string | null,
   conflictPending: boolean,
   deferredRemoteRevision: boolean
-): string => {
+): PracticeDraftStatus => {
   if (deferredRemoteRevision) {
-    return '다른 탭의 최신 저장을 감지했습니다. 현재 저장 응답을 확인한 뒤 안전하게 병합합니다.'
+    return { code: 'remoteDeferred' }
   }
 
   if (conflictPending) {
-    return '다른 탭의 저장을 감지했습니다. 로컬 작업을 보존한 채 충돌을 확인합니다.'
+    return { code: 'conflictPending' }
   }
 
   switch (saveState) {
     case 'dirty':
-      return '변경 내용을 이 탭에 임시 보관했습니다.'
+      return { code: 'dirty' }
     case 'saving':
-      return '변경 내용을 서버에 저장하고 있습니다.'
+      return { code: 'saving' }
     case 'saved':
-      return savedAt
-        ? `서버에 저장했습니다. 마지막 저장 ${new Date(savedAt).toLocaleTimeString('ko-KR')}`
-        : '서버와 동기화했습니다.'
+      return savedAt ? { code: 'savedAt', savedAt } : { code: 'saved' }
     case 'offline':
-      return '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.'
+      return { code: 'offline' }
     case 'conflict':
-      return '다른 기기의 변경과 충돌했습니다. 서버 또는 로컬 기록을 선택해 주세요.'
+      return { code: 'conflict' }
     case 'error':
-      return '저장하지 못했습니다. 선택한 답은 유지되며 다시 시도할 수 있습니다.'
+      return { code: 'error' }
     default:
-      return '서버 작업본과 동기화되어 있습니다.'
+      return { code: 'synced' }
   }
 }
 
@@ -1816,7 +1831,7 @@ export const usePracticeDraftController = ({
       }))
     },
     snapshot,
-    statusMessage: getStatusMessage(
+    status: getStatus(
       draftSaveState,
       scopedWorkingCopy?.confirmedBase.savedAt ?? null,
       isDraftConflictPending,

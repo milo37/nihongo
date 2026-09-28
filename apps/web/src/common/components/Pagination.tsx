@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
+import { formatNumber } from '@libs/localeFormatters'
+import { resolveUiLocale } from '@/i18n/types'
 
 type PaginationItem = number | 'start-ellipsis' | 'end-ellipsis'
 
@@ -49,7 +51,9 @@ export const Pagination = ({
   onPageChange,
   totalPages
 }: PaginationProps): ReactElement | null => {
-  const { t } = useTranslation('common')
+  const { i18n, t } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatPage = (page: number): string => formatNumber(page, locale)
   const normalizedTotalPages =
     Number.isFinite(totalPages) && totalPages > 0 ? Math.floor(totalPages) : 0
 
@@ -112,12 +116,12 @@ export const Pagination = ({
                 disabled={disabled}
                 aria-current={isCurrent ? 'page' : undefined}
                 aria-label={t('pagination.pageLabel', {
-                  page: item,
+                  page: formatPage(item),
                   current: isCurrent ? t('pagination.currentSuffix') : ''
                 })}
                 onClick={() => onPageChange(item)}
               >
-                <span className="tabular-nums">{item}</span>
+                <span className="tabular-nums">{formatPage(item)}</span>
               </button>
             </li>
           )

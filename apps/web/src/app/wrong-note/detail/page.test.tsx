@@ -1,10 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { WrongNoteDetailContent } from '@app/wrong-note/detail/page'
+import { appI18n } from '@/i18n/config'
 
 const createDetail = (
-  reviewAvailability: 'ARCHIVED' | 'AVAILABLE'
+  reviewAvailability: 'ARCHIVED' | 'AVAILABLE',
+  explanationJa: string | null = null
 ): WrongNoteDetailView => ({
   wrongNote: {
     questionId: crypto.randomUUID(),
@@ -29,7 +32,7 @@ const createDetail = (
       { id: crypto.randomUUID(), label: '2', text: 'かわ', isCorrect: false }
     ],
     explanationKo: '山은 やま라고 읽습니다.',
-    explanationJa: null,
+    explanationJa,
     difficulty: 'EASY',
     tags: ['한자']
   },
@@ -54,6 +57,90 @@ const renderDetail = (data: WrongNoteDetailView): void => {
 }
 
 describe('canonical wrong-note detail', () => {
+  it('일본어 원문을 표시하고 payload에 일본어 해설이 없으면 한국어 fallback만 제공한다', () => {
+    renderDetail(createDetail('AVAILABLE'))
+
+    expect(
+      screen.getByText('「山」の読み方を選んでください。')
+    ).toHaveAttribute('lang', 'ja')
+    expect(screen.getByText('1. やま')).toHaveAttribute('lang', 'ja')
+    expect(screen.getByText('山은 やま라고 읽습니다.')).toHaveAttribute(
+      'lang',
+      'ko'
+    )
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('일본어 해설이 없어 한국어 해설을 표시합니다.')
+    ).toBeVisible()
+  })
+
+  it('일본어 해설이 있을 때도 한국어를 기본으로 두고 명시적 선택 뒤 전환한다', async () => {
+    const user = userEvent.setup()
+    renderDetail(createDetail('AVAILABLE', '「山」は「やま」と読みます。'))
+
+    expect(screen.getByRole('tab', { name: '한국어' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(
+      screen.queryByText('「山」は「やま」と読みます。')
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: '日本語' }))
+    expect(screen.getByText('「山」は「やま」と読みます。')).toHaveAttribute(
+      'lang',
+      'ja'
+    )
+
+    await act(async () => appI18n.changeLanguage('ja'))
+
+    expect(
+      screen.getByRole('heading', { name: '最後に間違えた問題の詳細' })
+    ).toBeVisible()
+    expect(screen.getByRole('tab', { name: '日本語' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByText('「山」は「やま」と読みます。')).toBeVisible()
+  })
+
+  it('cache된 다른 문제 route로 이동하면 해설 선택을 한국어 기본으로 초기화한다', async () => {
+    const user = userEvent.setup()
+    const first = createDetail('AVAILABLE', '最初の日本語解説')
+    const second = createDetail('AVAILABLE', '次の日本語解説')
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/first',
+          element: <WrongNoteDetailContent data={first} />
+        },
+        {
+          path: '/second',
+          element: <WrongNoteDetailContent data={second} />
+        }
+      ],
+      { initialEntries: ['/first'] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await user.click(screen.getByRole('tab', { name: '日本語' }))
+    expect(screen.getByText('最初の日本語解説')).toBeVisible()
+
+    await act(async () => {
+      await router.navigate('/second')
+    })
+
+    expect(screen.getByRole('tab', { name: '한국어' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByText('山은 やま라고 읽습니다.')).toHaveAttribute(
+      'lang',
+      'ko'
+    )
+    expect(screen.queryByText('次の日本語解説')).not.toBeInTheDocument()
+  })
+
   it('마지막 오답 snapshot과 현재 복습 가능 상태를 분리해 알린다', () => {
     renderDetail(createDetail('AVAILABLE'))
 

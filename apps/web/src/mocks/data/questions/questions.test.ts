@@ -6,6 +6,7 @@ import {
   type JlptLevel,
   type QuestionSubject
 } from '@common/types/domain'
+import { hasJapaneseExplanation } from '@common/components/ExplanationLanguagePanel'
 import { originalQuestions } from '@mocks/data/questions'
 
 const expectedCountBySubject: Record<QuestionSubject, number> = {
@@ -61,6 +62,18 @@ describe('originalQuestions', () => {
 
     expect(questionIds.size).toBe(65)
     expect(optionIds.size).toBe(260)
+  })
+
+  it('일본어 해설은 payload의 non-blank 값만 제공됨으로 판정한다', () => {
+    const available = originalQuestions.filter((question) =>
+      hasJapaneseExplanation(question.explanationJa)
+    )
+    const unavailable = originalQuestions.filter(
+      (question) => !hasJapaneseExplanation(question.explanationJa)
+    )
+
+    expect(available).toHaveLength(2)
+    expect(unavailable).toHaveLength(63)
   })
 
   it('정답 위치가 급수와 과목에 걸쳐 고르게 분포한다', () => {

@@ -12,3 +12,6 @@ export const INTL_LOCALE_BY_UI_LOCALE: Record<UiLocale, string> = {
 export const isUiLocale = (value: unknown): value is UiLocale => {
   return typeof value === 'string' && UI_LOCALES.includes(value as UiLocale)
 }
+
+export const resolveUiLocale = (value: unknown): UiLocale =>
+  isUiLocale(value) ? value : DEFAULT_UI_LOCALE

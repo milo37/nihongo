@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type { ParsedListReviewQueueQuery } from '@nihongo/contracts/wrong-note/list-review-queue'
@@ -19,55 +20,36 @@ import {
 } from '@app/wrong-note/reviewQueueSearch'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
+import { resolveUiLocale } from '@/i18n/types'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 import {
   isNoEligibleQuestionsApiError,
   isOfflineApiError
 } from '@util/apiError'
 
 const viewOptions = [
-  { value: 'DUE', label: '복습 예정', countKey: 'due' },
-  { value: 'UNREVIEWED', label: '아직 복습 전', countKey: 'unreviewed' },
-  { value: 'REPEATED', label: '반복 오답', countKey: 'repeated' },
-  { value: 'SOLVED', label: '해결', countKey: 'solved' }
+  { value: 'DUE', countKey: 'due' },
+  { value: 'UNREVIEWED', countKey: 'unreviewed' },
+  { value: 'REPEATED', countKey: 'repeated' },
+  { value: 'SOLVED', countKey: 'solved' }
 ] as const
 const batchCounts = [5, 10, 20] as const
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
-const questionTypeLabels = {
-  KANJI_READING: '한자 읽기',
-  ORTHOGRAPHY: '표기',
-  CONTEXT_VOCABULARY: '문맥 어휘',
-  PARAPHRASE: '유의 표현',
-  WORD_USAGE: '용법',
-  GRAMMAR_SELECT: '문법 선택',
-  SENTENCE_ORDER: '문장 배열',
-  TEXT_GRAMMAR: '글의 문법',
-  SHORT_READING: '단문 독해',
-  MEDIUM_READING: '중문 독해',
-  LONG_READING: '장문 독해',
-  INFO_RETRIEVAL: '정보 검색'
-} as const
-const statusLabels = {
-  NEW: '새 오답',
-  AGAIN: '다시 학습',
-  REVIEWING: '복습 중',
-  SOLVED: '해결'
-} as const
 const statusVariants = {
   NEW: 'info',
   AGAIN: 'danger',
   REVIEWING: 'warning',
   SOLVED: 'success'
 } as const
-const dateTimeFormatter = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'short'
-})
-
 export const WrongNoteReviewCenterPage = (): ReactElement => {
+  const { i18n, t } = useTranslation('wrongNote')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const formatObservedAt = (value: string): string =>
+    formatDateTime(value, locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const parsedSearch = useMemo(
@@ -213,24 +195,22 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
       <div className="flex flex-col gap-5 border-b border-line pb-7 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
           <p className="text-sm font-black tracking-[0.16em] text-brand">
-            REVIEW CENTER
+            {t('center.eyebrow')}
           </p>
           <h1
             ref={headingRef}
             className="mt-2 rounded-sm text-3xl font-black sm:text-4xl"
             tabIndex={-1}
           >
-            지금 복습할 오답을 확인하세요
+            {t('center.title')}
           </h1>
-          <p className="mt-3 leading-7 text-muted">
-            서버 복습 일정과 현재 출제 가능한 문제 버전을 기준으로 정렬합니다.
-          </p>
+          <p className="mt-3 leading-7 text-muted">{t('center.description')}</p>
         </div>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 font-bold text-ink hover:border-slate-400"
           to="/wrong-notes/history"
         >
-          전체 오답 기록
+          {t('center.history')}
         </Link>
       </div>
 
@@ -249,10 +229,10 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             onClick={() => setQueryValue('view', option.value)}
           >
             <span className="block text-sm font-bold text-muted">
-              {option.label}
+              {t(`center.views.${option.value}`)}
             </span>
             <strong className="mt-1 block text-2xl text-ink">
-              {counts?.[option.countKey] ?? '—'}
+              {counts ? formatCount(counts[option.countKey]) : '—'}
             </strong>
           </button>
         ))}
@@ -261,7 +241,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
       <div className="mt-5 grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-2 xl:grid-cols-5">
         <Select
           name="review-level"
-          label="급수"
+          label={t('center.filters.level')}
           value={parsedSearch.query.level ?? ''}
           onChange={(event) =>
             setQueryValue(
@@ -271,7 +251,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             )
           }
         >
-          <option value="">전체 급수</option>
+          <option value="">{t('center.filters.allLevels')}</option>
           {LEVELS.map((level) => (
             <option key={level} value={level}>
               {level}
@@ -280,7 +260,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
         </Select>
         <Select
           name="review-subject"
-          label="과목"
+          label={t('center.filters.subject')}
           value={parsedSearch.query.subject ?? ''}
           onChange={(event) =>
             setQueryValue(
@@ -290,16 +270,16 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             )
           }
         >
-          <option value="">전체 과목</option>
+          <option value="">{t('center.filters.allSubjects')}</option>
           {SUBJECTS.map((subject) => (
             <option key={subject} value={subject}>
-              {subjectLabels[subject]}
+              {commonT(`taxonomy.subjects.${subject}`)}
             </option>
           ))}
         </Select>
         <Select
           name="review-question-type"
-          label="문제 유형"
+          label={t('center.filters.questionType')}
           value={parsedSearch.query.questionType ?? ''}
           onChange={(event) =>
             setQueryValue(
@@ -309,22 +289,22 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             )
           }
         >
-          <option value="">전체 유형</option>
+          <option value="">{t('center.filters.allQuestionTypes')}</option>
           {QUESTION_TYPES.map((type) => (
             <option key={type} value={type}>
-              {questionTypeLabels[type]}
+              {commonT(`taxonomy.questionTypes.${type}`)}
             </option>
           ))}
         </Select>
         <Select
           name="review-tag"
-          label="태그"
+          label={t('center.filters.tag')}
           value={parsedSearch.query.tag ?? ''}
           onChange={(event) =>
             setQueryValue('tag', event.currentTarget.value || undefined, false)
           }
         >
-          <option value="">전체 태그</option>
+          <option value="">{t('center.filters.allTags')}</option>
           {visibleTags.map((tag) => (
             <option key={tag} value={tag}>
               {tag}
@@ -333,15 +313,15 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
         </Select>
         <Select
           name="review-sort"
-          label="정렬"
+          label={t('center.filters.sort')}
           value={parsedSearch.query.sort}
           onChange={(event) =>
             setQueryValue('sort', event.currentTarget.value, false)
           }
         >
-          <option value="NEXT_REVIEW">다음 복습순</option>
-          <option value="MOST_WRONG">많이 틀린 순</option>
-          <option value="RECENT">최근 오답순</option>
+          <option value="NEXT_REVIEW">{t('center.filters.nextReview')}</option>
+          <option value="MOST_WRONG">{t('center.filters.mostWrong')}</option>
+          <option value="RECENT">{t('center.filters.recent')}</option>
         </Select>
       </div>
 
@@ -350,7 +330,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           <Select
             className="sm:w-44"
             name="review-batch-count"
-            label="묶음 문제 수"
+            label={t('center.batch.count')}
             value={String(batchCount)}
             onChange={(event) =>
               setBatchCount(Number(event.currentTarget.value) as 5 | 10 | 20)
@@ -358,17 +338,19 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           >
             {batchCounts.map((count) => (
               <option key={count} value={count}>
-                {count}문제
+                {t('center.batch.countOption', {
+                  formattedCount: formatCount(count)
+                })}
               </option>
             ))}
           </Select>
           <Button
             isLoading={createSession.isPending}
-            loadingLabel="복습 세션 준비 중…"
+            loadingLabel={t('center.batch.loading')}
             disabled={!canStartBatch}
             onClick={handleBatchStart}
           >
-            조건에 맞는 오늘의 복습 시작
+            {t('center.batch.start')}
           </Button>
         </div>
       ) : null}
@@ -379,10 +361,10 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           role="alert"
         >
           {isOfflineApiError(createSession.error)
-            ? '오프라인에서는 복습 세션을 만들 수 없습니다. 연결 후 같은 조건으로 다시 시도해 주세요.'
+            ? t('center.batch.offline')
             : isNoEligibleQuestionsApiError(createSession.error)
-              ? '현재 조건으로 출제 가능한 복습 문제가 없습니다.'
-              : '복습 세션을 만들지 못했습니다. 입력과 연결 상태를 확인해 주세요.'}
+              ? t('center.batch.noEligible')
+              : t('center.batch.error')}
         </p>
       ) : null}
 
@@ -391,17 +373,16 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
           role="status"
         >
-          오프라인입니다. 연결이 복구되면 현재 URL 조건으로 복습 대기열을
-          자동으로 다시 불러옵니다.
+          {t('center.states.offline')}
         </p>
       ) : null}
       {queueQuery.isPending && !isQueuePaused && !isPageCorrectionPending ? (
-        <LoadingState message="복습 대기열을 불러오고 있습니다." />
+        <LoadingState message={t('center.states.loading')} />
       ) : null}
       {queueQuery.isError && !queueQuery.data ? (
         <ErrorState
-          title="복습 대기열을 불러오지 못했습니다"
-          description="연결 상태를 확인한 뒤 다시 시도해 주세요."
+          title={t('center.states.errorTitle')}
+          description={t('center.states.errorDescription')}
           action={
             <Button
               onClick={() => {
@@ -409,7 +390,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                 void queueQuery.refetch()
               }}
             >
-              다시 시도
+              {commonT('actions.retry')}
             </Button>
           }
         />
@@ -420,10 +401,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
           className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
           role="alert"
         >
-          <p className="font-semibold">
-            복습 대기열의 최신 상태를 확인하지 못했습니다. 현재 결과는 유지되며,
-            최신성을 확인할 때까지 묶음 복습을 시작할 수 없습니다.
-          </p>
+          <p className="font-semibold">{t('center.states.stale')}</p>
           <Button
             className="mt-3"
             size="sm"
@@ -432,13 +410,13 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
               void queueQuery.refetch()
             }}
           >
-            복습 대기열 다시 확인
+            {t('center.states.retryStale')}
           </Button>
         </div>
       ) : null}
 
       {isPageCorrectionPending ? (
-        <LoadingState message="유효한 복습 대기열 페이지로 이동하고 있습니다." />
+        <LoadingState message={t('center.states.correctingPage')} />
       ) : null}
 
       {queueQuery.data && !isPageCorrectionPending ? (
@@ -450,11 +428,14 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                 className="rounded-sm text-xl font-black"
                 tabIndex={-1}
               >
-                조건에 맞는 오답 {queueQuery.data.total}개
+                {t('center.results.count', {
+                  formattedCount: formatCount(queueQuery.data.total)
+                })}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                서버 기준 시각{' '}
-                {dateTimeFormatter.format(new Date(queueQuery.data.observedAt))}
+                {t('center.results.observedAt', {
+                  date: formatObservedAt(queueQuery.data.observedAt)
+                })}
               </p>
             </div>
             <Button
@@ -465,7 +446,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                 setSearchParams(nextSearch)
               }}
             >
-              필터 초기화
+              {t('center.results.resetFilters')}
             </Button>
           </div>
 
@@ -473,13 +454,13 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             <EmptyState
               title={
                 parsedSearch.query.view === 'DUE'
-                  ? '지금 예정된 복습이 없습니다'
-                  : '조건에 맞는 오답이 없습니다'
+                  ? t('center.results.dueEmptyTitle')
+                  : t('center.results.filteredEmptyTitle')
               }
               description={
                 parsedSearch.query.view === 'DUE'
-                  ? '전체 기록을 돌아보거나 새로운 문제를 풀어 다음 복습을 준비하세요.'
-                  : '필터를 바꾸거나 전체 오답 기록을 확인해 보세요.'
+                  ? t('center.results.dueEmptyDescription')
+                  : t('center.results.filteredEmptyDescription')
               }
               action={
                 <div className="flex flex-wrap justify-center gap-2">
@@ -487,13 +468,13 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                     className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-bold text-white"
                     to="/wrong-notes/history"
                   >
-                    전체 기록
+                    {t('center.results.history')}
                   </Link>
                   <Link
                     className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-4 font-bold"
                     to="/practice"
                   >
-                    학습 설정
+                    {t('center.results.setup')}
                   </Link>
                 </div>
               }
@@ -507,30 +488,51 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="brand">{item.level}</Badge>
-                    <Badge>{subjectLabels[item.subject]}</Badge>
+                    <Badge>
+                      {commonT(`taxonomy.subjects.${item.subject}`)}
+                    </Badge>
                     <Badge variant={statusVariants[item.status]}>
-                      {statusLabels[item.status]}
+                      {commonT(`taxonomy.wrongNoteStatuses.${item.status}`)}
                     </Badge>
                     {item.hasMemo ? (
-                      <Badge variant="info">메모 있음</Badge>
+                      <Badge variant="info">
+                        {t('center.results.hasMemo')}
+                      </Badge>
                     ) : null}
                   </div>
-                  <h3 className="mt-4 break-words text-lg font-black leading-7">
+                  <h3
+                    className="mt-4 break-words text-lg font-black leading-7"
+                    lang="ja"
+                  >
                     {item.questionPreview}
                   </h3>
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <dt className="text-muted">오답</dt>
-                      <dd className="font-bold">{item.wrongCount}회</dd>
+                      <dt className="text-muted">
+                        {t('center.results.wrong')}
+                      </dt>
+                      <dd className="font-bold">
+                        {t('center.results.wrongCount', {
+                          formattedCount: formatCount(item.wrongCount)
+                        })}
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-muted">연속 정답</dt>
-                      <dd className="font-bold">{item.correctStreak}회</dd>
+                      <dt className="text-muted">
+                        {t('center.results.streak')}
+                      </dt>
+                      <dd className="font-bold">
+                        {t('center.results.wrongCount', {
+                          formattedCount: formatCount(item.correctStreak)
+                        })}
+                      </dd>
                     </div>
                     <div className="col-span-2">
-                      <dt className="text-muted">다음 복습</dt>
+                      <dt className="text-muted">
+                        {t('center.results.nextReview')}
+                      </dt>
                       <dd className="font-bold">
-                        {dateTimeFormatter.format(new Date(item.nextReviewAt))}
+                        {formatObservedAt(item.nextReviewAt)}
                       </dd>
                     </div>
                   </dl>
@@ -543,7 +545,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                     className="mt-5 inline-flex min-h-11 items-center rounded-lg px-1 font-bold text-brand underline underline-offset-2 hover:no-underline"
                     to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
                   >
-                    상세·메모·복습 기록
+                    {t('center.results.detail')}
                   </Link>
                 </li>
               ))}
@@ -555,7 +557,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             currentPage={parsedSearch.query.page}
             totalPages={totalPages}
             disabled={queueQuery.isFetching}
-            label="복습 대기열 페이지"
+            label={t('center.results.pagination')}
             onPageChange={(page) => setQueryValue('page', page)}
           />
         </>

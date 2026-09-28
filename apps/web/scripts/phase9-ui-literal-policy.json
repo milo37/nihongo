@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "currentSlice": 2,
+  "currentSlice": 3,
   "scanRoot": "src",
   "excludedPathPrefixes": [
     {
@@ -38,26 +38,6 @@
     "src/provider/ProtectedRouteProvider.tsx"
   ],
   "deferredScopes": [
-    {
-      "path": "src/app/bookmark",
-      "rationale": "Learner bookmark surface is owned by Slice 3.",
-      "ownerSlice": 3
-    },
-    {
-      "path": "src/app/dashboard",
-      "rationale": "Learner dashboard and recommendation surface is owned by Slice 3.",
-      "ownerSlice": 3
-    },
-    {
-      "path": "src/app/practice",
-      "rationale": "Learner practice, session, and result surfaces are owned by Slice 3.",
-      "ownerSlice": 3
-    },
-    {
-      "path": "src/app/wrong-note",
-      "rationale": "Learner wrong-note surfaces are owned by Slice 3.",
-      "ownerSlice": 3
-    },
     {
       "path": "src/app/question-report",
       "rationale": "Question-report dialog is integrated with learner/admin work in Slices 3 and 4.",
@@ -336,6 +316,264 @@
       "literal": "문제에 속하지 않은 보기입니다: {{expression}}",
       "rationale": "Pure study invariant diagnostic; never primary UI copy.",
       "ownerSlice": 2
+    },
+    {
+      "path": "src/app/practice/commands/submitStudySessionCommand.ts",
+      "literal": "제출에 필요한 canonical sessionQuestionId 매핑이 없습니다. 세션을 다시 불러와 주세요.",
+      "rationale": "Pre-transport submission invariant; the session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopy.ts",
+      "literal": "answer diff에는 변경 필드가 하나 이상 필요합니다.",
+      "rationale": "Persisted working-copy schema invariant; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopy.ts",
+      "literal": "working copy의 현재 문항은 draft 범위 안이어야 합니다.",
+      "rationale": "Persisted working-copy scope invariant; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopy.ts",
+      "literal": "working copy 변경은 현재 세션 문제에만 적용할 수 있습니다.",
+      "rationale": "Persisted working-copy scope invariant; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopy.ts",
+      "literal": "post-flight 변경은 frozen attempt가 있을 때만 허용됩니다.",
+      "rationale": "Persisted working-copy lifecycle invariant; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopy.ts",
+      "literal": "전송 중 변경은 local diff가 아니라 post-flight에 저장합니다.",
+      "rationale": "Persisted working-copy lifecycle invariant; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopy.ts",
+      "literal": "충돌 기록은 현재 canonical base와 같은 세션이어야 합니다.",
+      "rationale": "Persisted working-copy conflict invariant; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/draft/studyDraftWorkingCopyStorage.ts",
+      "literal": "이 탭의 학습 작업을 안전하게 저장하지 못했습니다.",
+      "rationale": "Draft persistence diagnostic; the controller exposes a semantic error state to localized UI.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/useCreateResultRetrySession.ts",
+      "literal": "오답 재출제 세션의 현재 상태를 확인하지 못했습니다.",
+      "rationale": "Canonical retry reconciliation diagnostic; result UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "draft 응답의 세션 문제 경계가 일치하지 않습니다.",
+      "rationale": "Draft integrity diagnostic; the controller exposes semantic state instead of raw text.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "canonical draft의 revision 또는 내용이 일치하지 않습니다.",
+      "rationale": "Draft integrity diagnostic; the controller exposes semantic state instead of raw text.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "draft controller가 아직 준비되지 않았습니다.",
+      "rationale": "Draft controller lifecycle diagnostic; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "canonical draft의 세션 경계가 일치하지 않습니다.",
+      "rationale": "Draft integrity diagnostic; the controller exposes semantic state instead of raw text.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "canonical draft의 세션 문제 경계가 일치하지 않습니다.",
+      "rationale": "Draft integrity diagnostic; the controller exposes semantic state instead of raw text.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "동일 revision의 canonical draft 내용이 일치하지 않습니다.",
+      "rationale": "Draft integrity diagnostic; the controller exposes semantic state instead of raw text.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "다른 탭의 최신 revision을 확인하지 못했습니다.",
+      "rationale": "Cross-tab draft reconciliation diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "draft 저장 acknowledgement가 frozen 요청과 다릅니다.",
+      "rationale": "Draft acknowledgement integrity diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "저장 중 작업본 경계가 바뀌었습니다.",
+      "rationale": "Draft concurrency diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "저장할 작업본이 없습니다.",
+      "rationale": "Draft controller lifecycle diagnostic; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "원격 revision 확인 중 작업본 경계가 바뀌었습니다.",
+      "rationale": "Draft concurrency diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "충돌을 해결한 뒤 저장해 주세요.",
+      "rationale": "Draft conflict control diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "오프라인에서는 서버 작업본을 저장할 수 없습니다. 연결 후 다시 시도해 주세요.",
+      "rationale": "Draft connectivity diagnostic; localized UI receives an offline status code.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "작업본을 보존하지 못해 서버 요청을 보내지 않았습니다.",
+      "rationale": "Draft persistence guard diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "충돌 뒤 canonical draft revision이 앞으로 이동하지 않았습니다.",
+      "rationale": "Draft conflict reconciliation diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "학습 draft가 준비되지 않았습니다.",
+      "rationale": "Draft controller lifecycle diagnostic; it is never rendered as primary UI copy.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "다른 기기의 변경 충돌을 해결한 뒤 저장해 주세요.",
+      "rationale": "Draft conflict control diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "학습 draft 경계가 바뀌었습니다.",
+      "rationale": "Draft concurrency diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "연속 편집 저장을 완료하지 못했습니다. 다시 시도해 주세요.",
+      "rationale": "Draft post-flight persistence diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/usePracticeDraftController.ts",
+      "literal": "다른 기기의 변경 충돌을 해결한 뒤 제출해 주세요.",
+      "rationale": "Draft submission conflict diagnostic; localized UI receives semantic state only.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/useSubmitStudySession.ts",
+      "literal": "제출 action의 인증 경계를 확인하지 못했습니다.",
+      "rationale": "Submission auth-transition invariant; session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/hooks/useSubmitStudySessionV2.ts",
+      "literal": "v2 제출 action의 인증 경계를 확인하지 못했습니다.",
+      "rationale": "Submission auth-transition invariant; session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/queries/studyResultRetryQueries.ts",
+      "literal": "오답 재출제 복구 attempt를 확인하지 못했습니다.",
+      "rationale": "Retry lifecycle invariant; result UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/resultRetryAttemptStorage.ts",
+      "literal": "오답 재출제 복구 정보를 안전하게 저장하지 못해 요청을 전송하지 않았습니다.",
+      "rationale": "Retry persistence guard diagnostic; result UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/studyDraftSubmissionAttempt.ts",
+      "literal": "저장된 제출 답안의 세션 문제 ID는 서로 달라야 합니다.",
+      "rationale": "Persisted submission schema invariant; session UI renders catalog-owned preparation failure.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/studySubmissionRetry.ts",
+      "literal": "제출 결과를 확인하지 못했습니다. 동일 답안으로 다시 시도해 주세요.",
+      "rationale": "Ambiguous submission outcome diagnostic; session UI renders catalog-owned retry semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/studySubmissionRetry.ts",
+      "literal": "답안을 전송하기 전에 제출 준비에 실패했습니다.",
+      "rationale": "Pre-transport submission diagnostic; session UI renders catalog-owned preparation failure.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/submissionAttempt.ts",
+      "literal": "같은 문제의 답안을 중복 제출할 수 없습니다.",
+      "rationale": "Submission attempt schema invariant; session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/submissionAttempt.ts",
+      "literal": "현재 세션에 없는 문제의 답안은 제출할 수 없습니다.",
+      "rationale": "Submission attempt scope invariant; session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/submissionAttempt.ts",
+      "literal": "canonical sessionQuestionId 매핑을 찾지 못했습니다.",
+      "rationale": "Submission attempt mapping invariant; session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/practice/submissionAttemptStorage.ts",
+      "literal": "제출 재시도 정보를 안전하게 저장하지 못해 답안을 전송하지 않았습니다.",
+      "rationale": "Submission persistence guard diagnostic; session UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/wrong-note/hooks/useCreateTargetedReviewSession.ts",
+      "literal": "단일 복습 세션의 현재 상태를 확인하지 못했습니다.",
+      "rationale": "Targeted-review reconciliation diagnostic; detail UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/wrong-note/queries/wrongNoteMutations.ts",
+      "literal": "단일 복습 복구 attempt를 확인하지 못했습니다.",
+      "rationale": "Targeted-review lifecycle invariant; detail UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
+    },
+    {
+      "path": "src/app/wrong-note/targetedReviewAttemptStorage.ts",
+      "literal": "단일 복습 복구 정보를 안전하게 저장하지 못해 요청을 전송하지 않았습니다.",
+      "rationale": "Targeted-review persistence guard diagnostic; detail UI renders catalog-owned failure semantics.",
+      "ownerSlice": 3
     }
   ]
 }

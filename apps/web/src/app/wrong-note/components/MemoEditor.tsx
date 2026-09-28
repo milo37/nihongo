@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useBlocker } from 'react-router'
 import type { ReactElement } from 'react'
 import { updateWrongNoteMemoBodySchema } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
@@ -9,6 +10,11 @@ import { Textarea } from '@common/components/Textarea'
 import type { useGetWrongNoteMemo } from '@app/wrong-note/hooks/useGetWrongNoteMemo'
 import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
 import { isOfflineApiError } from '@util/apiError'
+import { resolveUiLocale } from '@/i18n/types'
+import { formatNumber } from '@libs/localeFormatters'
+
+type MemoStatusCode = 'saved' | 'deleted' | 'cancelled'
+type DeleteDialogTrigger = 'save' | 'delete'
 
 type MemoEditorProps = {
   disabled?: boolean
@@ -23,11 +29,19 @@ export const MemoEditor = ({
   onDirtyChange,
   questionId
 }: MemoEditorProps): ReactElement => {
+  const { i18n, t } = useTranslation('wrongNote')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
   const memoMutation = useUpdateWrongNoteMemo(questionId)
   const [draftText, setDraftText] = useState('')
   const [baselineText, setBaselineText] = useState('')
-  const [savedMessage, setSavedMessage] = useState('')
+  const [savedMessage, setSavedMessage] = useState<MemoStatusCode | null>(null)
+  const [deleteDialogTrigger, setDeleteDialogTrigger] =
+    useState<DeleteDialogTrigger | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const saveButtonRef = useRef<HTMLButtonElement>(null)
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
+  const shouldCloseDeleteDialogAfterMutationRef = useRef(false)
   const shouldFocusAfterRetryRef = useRef(false)
   const isDirty = draftText !== baselineText
   const blocker = useBlocker(isDirty)
@@ -73,35 +87,63 @@ export const MemoEditor = ({
     blocker.proceed()
   }, [blocker, isDirty])
 
+  useEffect(() => {
+    if (
+      !shouldCloseDeleteDialogAfterMutationRef.current ||
+      memoMutation.isPending ||
+      (!memoMutation.isSuccess && !memoMutation.isError)
+    ) {
+      return
+    }
+    shouldCloseDeleteDialogAfterMutationRef.current = false
+    setDeleteDialogTrigger(null)
+  }, [memoMutation.isError, memoMutation.isPending, memoMutation.isSuccess])
+
   const saveMemo = (value: string | null): void => {
     const parsed = updateWrongNoteMemoBodySchema.safeParse({ memo: value })
     if (!parsed.success || memoMutation.isPending) {
       textareaRef.current?.focus()
       return
     }
-    setSavedMessage('')
+    setSavedMessage(null)
     memoMutation.mutate(parsed.data, {
       onSuccess: (memo) => {
         const nextText = memo?.text ?? ''
         setDraftText(nextText)
         setBaselineText(nextText)
-        setSavedMessage(memo ? '메모를 저장했습니다.' : '메모를 삭제했습니다.')
+        setSavedMessage(memo ? 'saved' : 'deleted')
       }
     })
+  }
+
+  const requestMemoSave = (): void => {
+    const parsed = updateWrongNoteMemoBodySchema.safeParse({ memo: draftText })
+    if (!parsed.success || memoMutation.isPending) {
+      textareaRef.current?.focus()
+      return
+    }
+    if (parsed.data.memo === null) {
+      if (baselineText.length > 0) {
+        setDeleteDialogTrigger('save')
+      } else {
+        textareaRef.current?.focus()
+      }
+      return
+    }
+    saveMemo(parsed.data.memo)
   }
 
   if (memoQuery.isPending) {
     if (isMemoQueryPaused) {
       return (
         <p className="text-sm font-semibold text-amber-900" role="status">
-          오프라인에서는 메모를 불러올 수 없습니다. 연결되면 자동으로 다시
-          불러옵니다.
+          {t('memo.loadingOffline')}
         </p>
       )
     }
     return (
       <p className="text-sm font-semibold text-muted" role="status">
-        메모를 불러오고 있습니다…
+        {t('memo.loading')}
       </p>
     )
   }
@@ -112,7 +154,7 @@ export const MemoEditor = ({
         className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
         role="alert"
       >
-        <p>메모를 불러오지 못했습니다.</p>
+        <p>{t('memo.loadError')}</p>
         <Button
           className="mt-3"
           size="sm"
@@ -121,7 +163,7 @@ export const MemoEditor = ({
             void memoQuery.refetch()
           }}
         >
-          다시 시도
+          {commonT('actions.retry')}
         </Button>
       </div>
     )
@@ -129,7 +171,13 @@ export const MemoEditor = ({
 
   const validationError = validation.success
     ? undefined
-    : validation.error.issues[0]?.message
+    : draftText.includes('\u0000')
+      ? t('memo.validation.nul')
+      : codePointCount > userMemoMaximumCodePoints
+        ? t('memo.validation.tooLong', {
+            maximum: formatNumber(userMemoMaximumCodePoints, locale)
+          })
+        : t('memo.validation.invalidUnicode')
 
   return (
     <>
@@ -138,8 +186,7 @@ export const MemoEditor = ({
           className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-950"
           role="status"
         >
-          오프라인입니다. 현재 저장된 메모를 표시하며 연결되면 서버 상태를 다시
-          확인합니다.
+          {t('memo.cachedOffline')}
         </p>
       ) : null}
       {memoQuery.isError ? (
@@ -147,9 +194,7 @@ export const MemoEditor = ({
           className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
           role="alert"
         >
-          <p>
-            메모의 최신 상태를 확인하지 못했습니다. 작성 중인 입력은 유지됩니다.
-          </p>
+          <p>{t('memo.stale')}</p>
           <Button
             className="mt-3"
             size="sm"
@@ -158,7 +203,7 @@ export const MemoEditor = ({
               void memoQuery.refetch()
             }}
           >
-            메모 다시 확인
+            {t('memo.retryStale')}
           </Button>
         </div>
       ) : null}
@@ -167,21 +212,24 @@ export const MemoEditor = ({
         noValidate
         onSubmit={(event) => {
           event.preventDefault()
-          saveMemo(draftText)
+          requestMemoSave()
         }}
       >
         <Textarea
           ref={textareaRef}
           name="wrong-note-memo"
-          label="나의 메모"
+          label={t('memo.label')}
           rows={7}
           value={draftText}
           error={validationError}
-          hint={`trim 후 Unicode 문자 ${codePointCount.toLocaleString('ko-KR')}/${userMemoMaximumCodePoints.toLocaleString('ko-KR')}자 · 메모는 자동 저장되지 않습니다.`}
+          hint={t('memo.hint', {
+            current: formatNumber(codePointCount, locale),
+            maximum: formatNumber(userMemoMaximumCodePoints, locale)
+          })}
           disabled={disabled || memoMutation.isPending}
           onChange={(event) => {
             setDraftText(event.currentTarget.value)
-            setSavedMessage('')
+            setSavedMessage(null)
             if (memoMutation.isError) memoMutation.reset()
           }}
         />
@@ -191,54 +239,103 @@ export const MemoEditor = ({
             role="alert"
           >
             {isOfflineApiError(memoMutation.error)
-              ? '오프라인에서는 메모를 저장할 수 없습니다. 입력은 유지됩니다. 연결 후 다시 시도해 주세요.'
-              : '메모를 저장하지 못했습니다. 입력은 유지됩니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.'}
+              ? t('memo.saveOffline')
+              : t('memo.saveError')}
           </p>
         ) : null}
         <p
           className="min-h-6 text-sm font-semibold text-emerald-800"
           aria-live="polite"
         >
-          {savedMessage}
+          {savedMessage ? t(`memo.${savedMessage}`) : null}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
+            ref={saveButtonRef}
             type="submit"
             isLoading={memoMutation.isPending}
-            loadingLabel="저장 중…"
-            disabled={disabled || !isDirty || !validation.success}
+            loadingLabel={t('memo.saving')}
+            disabled={
+              disabled ||
+              !isDirty ||
+              !validation.success ||
+              (validation.data.memo === null && baselineText.length === 0)
+            }
           >
-            메모 저장
+            {t('memo.save')}
           </Button>
           <Button
             variant="outline"
             disabled={disabled || !isDirty || memoMutation.isPending}
             onClick={() => {
               setDraftText(baselineText)
-              setSavedMessage('변경 내용을 취소했습니다.')
+              setSavedMessage('cancelled')
               memoMutation.reset()
               textareaRef.current?.focus()
             }}
           >
-            변경 취소
+            {t('memo.cancel')}
           </Button>
           <Button
+            ref={deleteButtonRef}
             variant="danger"
             disabled={
               disabled || baselineText.length === 0 || memoMutation.isPending
             }
-            onClick={() => saveMemo(null)}
+            onClick={() => setDeleteDialogTrigger('delete')}
           >
-            메모 삭제
+            {t('memo.delete')}
           </Button>
         </div>
       </form>
 
       <Dialog
+        open={deleteDialogTrigger !== null}
+        fallbackFocusRef={textareaRef}
+        returnFocusRef={
+          deleteDialogTrigger === 'save' ? saveButtonRef : deleteButtonRef
+        }
+        title={t('memo.deleteDialog.title')}
+        description={t('memo.deleteDialog.description')}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={memoMutation.isPending}
+              onClick={() => {
+                shouldCloseDeleteDialogAfterMutationRef.current = false
+                setDeleteDialogTrigger(null)
+              }}
+            >
+              {t('memo.deleteDialog.keep')}
+            </Button>
+            <Button
+              variant="danger"
+              isLoading={memoMutation.isPending}
+              loadingLabel={t('memo.deleting')}
+              onClick={() => {
+                shouldCloseDeleteDialogAfterMutationRef.current = true
+                saveMemo(null)
+              }}
+            >
+              {t('memo.deleteDialog.confirm')}
+            </Button>
+          </>
+        }
+        preventClose={memoMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open && !memoMutation.isPending) {
+            shouldCloseDeleteDialogAfterMutationRef.current = false
+            setDeleteDialogTrigger(null)
+          }
+        }}
+      />
+
+      <Dialog
         open={blocker.state === 'blocked'}
         fallbackFocusRef={textareaRef}
-        title="저장하지 않은 메모가 있습니다"
-        description="이 페이지를 나가면 작성 중인 메모가 사라집니다."
+        title={t('memo.leaveDialog.title')}
+        description={t('memo.leaveDialog.description')}
         footer={
           <>
             <Button
@@ -247,7 +344,7 @@ export const MemoEditor = ({
                 if (blocker.state === 'blocked') blocker.reset()
               }}
             >
-              계속 작성
+              {t('memo.leaveDialog.continue')}
             </Button>
             <Button
               variant="danger"
@@ -255,7 +352,7 @@ export const MemoEditor = ({
                 if (blocker.state === 'blocked') blocker.proceed()
               }}
             >
-              변경사항 버리기
+              {t('memo.leaveDialog.discard')}
             </Button>
           </>
         }

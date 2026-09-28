@@ -1,9 +1,15 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
+
 import type {
   DashboardInsightBreakdownView,
   DashboardInsightsView
 } from '@app/dashboard/adapters/dashboardInsightsView'
+import type {
+  DashboardActionNotice,
+  DashboardActionNoticeCode
+} from '@app/dashboard/hooks/useDashboardRecommendationAction'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { EmptyState } from '@common/components/EmptyState'
@@ -12,6 +18,8 @@ import { LoadingState } from '@common/components/LoadingState'
 import { Skeleton } from '@common/components/Skeleton'
 import { Table } from '@common/components/Table'
 import { Tabs } from '@common/components/Tabs'
+import { resolveUiLocale } from '@/i18n/types'
+import { formatNumber } from '@libs/localeFormatters'
 
 const DashboardInsightChart = lazy(() =>
   import('@app/dashboard/components/DashboardInsightChart').then((module) => ({
@@ -20,13 +28,14 @@ const DashboardInsightChart = lazy(() =>
 )
 
 type DashboardInsightsSectionProps = {
-  actionNotice: { readonly id: number; readonly message: string } | null
+  actionNotice: DashboardActionNotice | null
   blockedRecommendationKind:
     | DashboardInsightsView['recommendations'][number]['kind']
     | null
   data: DashboardInsightsView | undefined
   isActionPending: boolean
   isError: boolean
+  isPaused: boolean
   isPending: boolean
   onRecommendationAction: (
     recommendation: DashboardInsightsView['recommendations'][number]
@@ -47,57 +56,114 @@ const MetricTable = ({
   items,
   label,
   title
-}: MetricTableProps): ReactElement => (
-  <section>
-    <h3 className="text-lg font-black">{title}</h3>
-    <Table
-      caption={`${title} 표`}
-      className="text-sm"
-      containerClassName="mt-4"
-      minWidthClassName="min-w-[42rem]"
-      scrollLabel={label}
-    >
-      <thead className="bg-surface-muted text-muted">
-        <tr>
-          <th className="px-4 py-3 font-bold" scope="col">
-            구분
-          </th>
-          <th className="px-4 py-3 font-bold" scope="col">
-            풀이
-          </th>
-          <th className="px-4 py-3 font-bold" scope="col">
-            정답
-          </th>
-          <th className="px-4 py-3 font-bold" scope="col">
-            정답률
-          </th>
-          <th className="px-4 py-3 font-bold" scope="col">
-            평균 시간
-          </th>
-          <th className="px-4 py-3 font-bold" scope="col">
-            최근 학습
-          </th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-line bg-surface">
-        {items.map((item) => (
-          <tr key={item.id}>
-            <th className="whitespace-nowrap px-4 py-3 font-bold" scope="row">
-              {item.label}
+}: MetricTableProps): ReactElement => {
+  const { i18n, t } = useTranslation('dashboard')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+
+  return (
+    <section>
+      <h3 className="text-lg font-black">{title}</h3>
+      <Table
+        caption={t('insights.table.caption', { title })}
+        className="text-sm"
+        containerClassName="mt-4"
+        minWidthClassName="min-w-[42rem]"
+        scrollLabel={label}
+      >
+        <thead className="bg-surface-muted text-muted">
+          <tr>
+            <th className="px-4 py-3 font-bold" scope="col">
+              {t('insights.table.category')}
             </th>
-            <td className="px-4 py-3">{item.attemptedCount}회</td>
-            <td className="px-4 py-3">{item.correctCount}회</td>
-            <td className="px-4 py-3 font-semibold">{item.correctRateLabel}</td>
-            <td className="px-4 py-3">{item.averageElapsedLabel}</td>
-            <td className="whitespace-nowrap px-4 py-3">
-              {item.lastAnsweredLabel}
-            </td>
+            <th className="px-4 py-3 font-bold" scope="col">
+              {t('insights.table.attempted')}
+            </th>
+            <th className="px-4 py-3 font-bold" scope="col">
+              {t('insights.table.correct')}
+            </th>
+            <th className="px-4 py-3 font-bold" scope="col">
+              {t('insights.table.accuracy')}
+            </th>
+            <th className="px-4 py-3 font-bold" scope="col">
+              {t('insights.table.averageTime')}
+            </th>
+            <th className="px-4 py-3 font-bold" scope="col">
+              {t('insights.table.recent')}
+            </th>
           </tr>
-        ))}
-      </tbody>
-    </Table>
-  </section>
-)
+        </thead>
+        <tbody className="divide-y divide-line bg-surface">
+          {items.map((item) => (
+            <tr key={item.id}>
+              <th className="whitespace-nowrap px-4 py-3 font-bold" scope="row">
+                {item.label}
+              </th>
+              <td className="px-4 py-3">
+                {t('insights.table.attemptCount', {
+                  formattedCount: formatNumber(item.attemptedCount, locale)
+                })}
+              </td>
+              <td className="px-4 py-3">
+                {t('insights.table.attemptCount', {
+                  formattedCount: formatNumber(item.correctCount, locale)
+                })}
+              </td>
+              <td className="px-4 py-3 font-semibold">
+                {item.correctRateLabel}
+              </td>
+              <td className="px-4 py-3">{item.averageElapsedLabel}</td>
+              <td className="whitespace-nowrap px-4 py-3">
+                {item.lastAnsweredLabel}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </section>
+  )
+}
+
+const assertNever = (value: never): never => {
+  throw new Error(`Unsupported dashboard notice value: ${String(value)}`)
+}
+
+const getNoticePresentation = (
+  code: DashboardActionNoticeCode
+): {
+  readonly className: string
+  readonly role: 'alert' | 'status'
+} => {
+  switch (code) {
+    case 'sessionExhausted':
+    case 'targetedEnded':
+    case 'targetedUnavailable':
+      return {
+        className:
+          'border-warning-line bg-warning-soft text-warning-strong focus-visible:outline-warning',
+        role: 'status'
+      }
+    case 'sessionRefreshed':
+    case 'targetedEndedRefreshed':
+    case 'targetedRefreshed':
+      return {
+        className:
+          'border-success-line bg-success-soft text-success-strong focus-visible:outline-success',
+        role: 'status'
+      }
+    case 'sessionRefreshFailed':
+    case 'sessionFailed':
+    case 'targetedEndedRefreshFailed':
+    case 'targetedRefreshFailed':
+    case 'targetedFailed':
+      return {
+        className:
+          'border-danger-line bg-danger-soft text-danger-strong focus-visible:outline-danger',
+        role: 'alert'
+      }
+    default:
+      return assertNever(code)
+  }
+}
 
 export const DashboardInsightsSection = ({
   actionNotice,
@@ -105,11 +171,14 @@ export const DashboardInsightsSection = ({
   data,
   isActionPending,
   isError,
+  isPaused,
   isPending,
   onRecommendationAction,
   onRetry,
   pendingRecommendationKind
 }: DashboardInsightsSectionProps): ReactElement => {
+  const { i18n, t } = useTranslation('dashboard')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const actionNoticeRef = useRef<HTMLParagraphElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
@@ -125,11 +194,21 @@ export const DashboardInsightsSection = ({
     if (actionNotice) actionNoticeRef.current?.focus()
   }, [actionNotice])
 
+  if (isPending && !data && isPaused) {
+    return (
+      <ErrorState
+        className="mt-8"
+        title={t('insights.offlineTitle')}
+        description={t('insights.offlineDescription')}
+      />
+    )
+  }
+
   if (isPending && !data) {
     return (
       <LoadingState
         className="mt-8 rounded-xl border border-line bg-surface"
-        message="최근 90일 인사이트를 불러오고 있습니다."
+        message={t('insights.loading')}
       />
     )
   }
@@ -138,9 +217,9 @@ export const DashboardInsightsSection = ({
     return (
       <ErrorState
         className="mt-8"
-        title="학습 인사이트를 불러오지 못했습니다"
-        description="기존 누적 통계는 그대로 확인할 수 있습니다. 최근 90일 분석만 다시 요청해 주세요."
-        retryLabel="최근 인사이트 다시 시도"
+        title={t('insights.errorTitle')}
+        description={t('insights.errorDescription')}
+        retryLabel={t('insights.retry')}
         onRetry={() => {
           shouldRestoreRetryFocusRef.current = true
           onRetry()
@@ -150,6 +229,10 @@ export const DashboardInsightsSection = ({
   }
 
   const hasAttempts = data.stats.overall.attemptedCount > 0
+  const noticePresentation = actionNotice
+    ? getNoticePresentation(actionNotice.code)
+    : null
+  const formatCount = (value: number): string => formatNumber(value, locale)
 
   return (
     <section
@@ -157,33 +240,43 @@ export const DashboardInsightsSection = ({
       aria-labelledby="dashboard-insights-title"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-black tracking-[0.16em] text-brand">
-            LAST 90 DAYS
+            {t('insights.eyebrow')}
           </p>
           <h2
-            className="mt-2 rounded-sm text-3xl font-black"
+            className="mt-2 rounded-sm text-3xl font-black focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
             id="dashboard-insights-title"
             ref={headingRef}
             tabIndex={-1}
           >
-            약점과 다음 학습 추천
+            {t('insights.title')}
           </h2>
           <p className="mt-3 text-sm font-semibold text-muted">
-            {data.window.durationDays}일 기록 · 최소 {data.window.minAttempts}회
-            표본 · {data.observedAtLabel} 기준
+            {t('insights.window', {
+              formattedAttempts: formatCount(data.window.minAttempts),
+              formattedDays: formatCount(data.window.durationDays),
+              observedAt: data.observedAtLabel
+            })}
           </p>
         </div>
-        <Badge>규칙 기반 추천</Badge>
+        <Badge>{t('insights.ruleBased')}</Badge>
       </div>
 
-      {isError ? (
+      {isPaused ? (
+        <p
+          className="mt-6 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+          role="status"
+        >
+          {t('insights.cachedOffline')}
+        </p>
+      ) : isError ? (
         <ErrorState
           className="mt-6"
           headingLevel={3}
-          title="최신 인사이트로 갱신하지 못했습니다"
-          description="현재 화면에는 마지막으로 확인한 결과를 유지합니다."
-          retryLabel="최근 인사이트 다시 시도"
+          title={t('insights.staleTitle')}
+          description={t('insights.staleDescription')}
+          retryLabel={t('insights.retry')}
           onRetry={() => {
             shouldRestoreRetryFocusRef.current = true
             onRetry()
@@ -193,41 +286,41 @@ export const DashboardInsightsSection = ({
 
       <dl className="mt-8 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
         <div className="bg-surface p-5">
-          <dt className="text-sm text-muted">최근 풀이</dt>
+          <dt className="text-sm text-muted">{t('insights.recentAttempts')}</dt>
           <dd className="mt-2 text-3xl font-black">
-            {data.stats.overall.attemptedCount}
+            {formatCount(data.stats.overall.attemptedCount)}
             <span className="ml-1 text-base font-semibold text-muted">
-              문제
+              {t('insights.questionUnit')}
             </span>
           </dd>
         </div>
         <div className="bg-surface p-5">
-          <dt className="text-sm text-muted">최근 정답률</dt>
+          <dt className="text-sm text-muted">{t('insights.recentAccuracy')}</dt>
           <dd className="mt-2 text-3xl font-black text-brand">
             {data.stats.overall.correctRateLabel}
           </dd>
         </div>
         <div className="bg-surface p-5">
-          <dt className="text-sm text-muted">평균 풀이 시간</dt>
+          <dt className="text-sm text-muted">{t('insights.averageTime')}</dt>
           <dd className="mt-2 text-3xl font-black">
             {data.stats.overall.averageElapsedLabel}
           </dd>
         </div>
         <div className="bg-surface p-5">
-          <dt className="text-sm text-muted">복습 예정</dt>
+          <dt className="text-sm text-muted">{t('insights.dueReview')}</dt>
           <dd className="mt-2 text-3xl font-black">
-            {data.reviewQueueCounts.due}
+            {formatCount(data.reviewQueueCounts.due)}
             <span className="ml-1 text-base font-semibold text-muted">
-              문제
+              {t('insights.questionUnit')}
             </span>
           </dd>
         </div>
         <div className="bg-surface p-5">
-          <dt className="text-sm text-muted">반복 오답</dt>
+          <dt className="text-sm text-muted">{t('insights.repeatedWrong')}</dt>
           <dd className="mt-2 text-3xl font-black">
-            {data.reviewQueueCounts.repeated}
+            {formatCount(data.reviewQueueCounts.repeated)}
             <span className="ml-1 text-base font-semibold text-muted">
-              문제
+              {t('insights.questionUnit')}
             </span>
           </dd>
         </div>
@@ -237,16 +330,16 @@ export const DashboardInsightsSection = ({
         <>
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
-              <h3 className="text-xl font-black">급수별 정답률</h3>
+              <h3 className="text-xl font-black">{t('insights.byLevel')}</h3>
               <p className="mt-2 text-sm text-muted">
-                막대와 같은 수치를 아래 표에서도 확인할 수 있습니다.
+                {t('insights.chartDescription')}
               </p>
               <div className="mt-6">
                 <Suspense
                   fallback={
                     <Skeleton
                       className="h-48"
-                      label="급수별 정답률 차트를 불러오는 중입니다."
+                      label={t('insights.chartLoading')}
                     />
                   }
                 >
@@ -258,8 +351,8 @@ export const DashboardInsightsSection = ({
             <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
               <MetricTable
                 items={data.stats.byLevel}
-                label="최근 90일 급수별 정답률 상세 표"
-                title="급수별 상세 수치"
+                label={t('insights.levelTableLabel')}
+                title={t('insights.levelTableTitle')}
               />
             </article>
           </div>
@@ -267,50 +360,52 @@ export const DashboardInsightsSection = ({
           <div className="mt-8 rounded-xl border border-line bg-surface p-5 sm:p-7">
             <MetricTable
               items={data.stats.bySubject}
-              label="최근 90일 과목별 정답률 상세 표"
-              title="과목별 통계"
+              label={t('insights.subjectTableLabel')}
+              title={t('insights.subjectTableTitle')}
             />
           </div>
 
           <details className="mt-6 rounded-xl border border-line bg-surface p-5 sm:p-7">
             <summary className="min-h-11 cursor-pointer py-2 text-lg font-black focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand">
-              유형·태그 세부 통계 보기
+              {t('insights.detailsSummary')}
             </summary>
             <div className="mt-6">
               <Tabs
-                label="세부 통계 종류"
+                label={t('insights.detailsLabel')}
                 tabs={[
                   {
                     id: 'question-type',
-                    label: '문제 유형',
+                    label: t('insights.questionType'),
                     panel: (
                       <MetricTable
                         items={data.stats.byQuestionType}
-                        label="최근 90일 문제 유형별 정답률 상세 표"
-                        title="문제 유형별 통계"
+                        label={t('insights.questionTypeTableLabel')}
+                        title={t('insights.questionTypeTableTitle')}
                       />
                     )
                   },
                   {
                     id: 'tag',
-                    label: '태그',
+                    label: t('insights.tag'),
                     panel: (
                       <div>
                         {data.stats.byTag.length > 0 ? (
                           <MetricTable
                             items={data.stats.byTag}
-                            label="최근 90일 태그별 정답률 상세 표"
-                            title="태그별 통계"
+                            label={t('insights.tagTableLabel')}
+                            title={t('insights.tagTableTitle')}
                           />
                         ) : (
                           <p className="text-sm text-muted">
-                            관측된 태그가 없습니다.
+                            {t('insights.noTags')}
                           </p>
                         )}
                         {data.stats.byTagTruncated ? (
                           <p className="mt-3 text-sm font-semibold text-warning-strong">
-                            태그 전체 {data.stats.byTagTotal}개 중 최대 100개를
-                            표시합니다.
+                            {t('insights.tagTruncated', {
+                              formattedLimit: formatCount(100),
+                              formattedTotal: formatCount(data.stats.byTagTotal)
+                            })}
                           </p>
                         ) : null}
                       </div>
@@ -324,23 +419,29 @@ export const DashboardInsightsSection = ({
       ) : (
         <EmptyState
           className="mt-8 rounded-xl border border-line bg-surface"
-          title="최근 90일 학습 기록이 없습니다"
-          description="문제를 풀면 급수·과목·유형·태그별 정확도와 평균 풀이 시간이 표시됩니다. 표본이 없는 값은 0%가 아니라 ‘표본 없음’으로 구분합니다."
+          title={t('insights.emptyTitle')}
+          description={t('insights.emptyDescription')}
         />
       )}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4">
-            <h3 className="text-xl font-black">분석된 약점</h3>
-            <Badge>{data.weaknesses.length}개</Badge>
+            <h3 className="text-xl font-black">{t('insights.weaknesses')}</h3>
+            <Badge>
+              {t('insights.count', {
+                formattedCount: formatCount(data.weaknesses.length)
+              })}
+            </Badge>
           </div>
           {data.weaknesses.length > 0 ? (
             <ol className="mt-5 divide-y divide-line">
               {data.weaknesses.map((weakness, index) => (
-                <li className="flex gap-4 py-4" key={weakness.key}>
-                  <span className="font-black text-brand">{index + 1}</span>
-                  <div>
+                <li className="flex min-w-0 gap-4 py-4" key={weakness.key}>
+                  <span className="font-black text-brand">
+                    {formatCount(index + 1)}
+                  </span>
+                  <div className="min-w-0 flex-1 break-words">
                     <p className="font-bold">{weakness.title}</p>
                     <p className="mt-1 text-sm text-muted">{weakness.detail}</p>
                     <p className="mt-1 text-xs font-semibold text-muted">
@@ -354,16 +455,24 @@ export const DashboardInsightsSection = ({
             <EmptyState
               className="py-8"
               headingLevel={3}
-              title="분석 기준을 충족한 약점이 없습니다"
-              description={`같은 분류에서 최소 ${data.window.minAttempts}회 표본이 쌓이고 오답이 있어야 약점으로 표시합니다.`}
+              title={t('insights.noWeaknessTitle')}
+              description={t('insights.noWeaknessDescription', {
+                formattedAttempts: formatCount(data.window.minAttempts)
+              })}
             />
           )}
         </article>
 
         <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4">
-            <h3 className="text-xl font-black">다음 학습 추천</h3>
-            <Badge variant="success">{data.recommendations.length}개</Badge>
+            <h3 className="text-xl font-black">
+              {t('insights.recommendations')}
+            </h3>
+            <Badge variant="success">
+              {t('insights.count', {
+                formattedCount: formatCount(data.recommendations.length)
+              })}
+            </Badge>
           </div>
           {data.personalizationNotice ? (
             <p
@@ -373,42 +482,53 @@ export const DashboardInsightsSection = ({
               {data.personalizationNotice}
             </p>
           ) : null}
-          {actionNotice ? (
+          {actionNotice && noticePresentation ? (
             <p
-              className="mt-4 rounded-lg border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-strong focus:outline-none focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-danger"
+              className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold focus:outline-none focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus ${noticePresentation.className}`}
               key={actionNotice.id}
               ref={actionNoticeRef}
-              role="alert"
+              role={noticePresentation.role}
               tabIndex={-1}
             >
-              {actionNotice.message}
+              {t(`insights.actionNotice.${actionNotice.code}`)}
             </p>
           ) : null}
           <ol className="mt-5 divide-y divide-line">
             {data.recommendations.map((recommendation) => (
-              <li className="flex gap-4 py-4" key={recommendation.kind}>
+              <li className="flex min-w-0 gap-4 py-4" key={recommendation.kind}>
                 <span className="font-black text-brand">
-                  {recommendation.rank}
+                  {formatCount(recommendation.rank)}
                 </span>
-                <div>
+                <div className="min-w-0 flex-1 break-words">
                   <p className="font-bold">{recommendation.title}</p>
                   <p className="mt-1 text-sm leading-6 text-muted">
-                    {recommendation.reason}
+                    {recommendation.reason.leading}
+                    {recommendation.reason.japanesePreview ? (
+                      <span lang="ja">
+                        {recommendation.reason.japanesePreview}
+                      </span>
+                    ) : null}
+                    {recommendation.reason.trailing}
                   </p>
                   <p className="mt-2 text-sm font-bold text-ink">
                     {recommendation.actionSummary}
                   </p>
                   <Button
-                    aria-label={`${recommendation.actionLabel}: ${recommendation.actionSummary}`}
+                    aria-label={t('insights.actionAriaLabel', {
+                      action: recommendation.actionLabel,
+                      summary: recommendation.actionSummary
+                    })}
                     className="mt-3"
                     disabled={
                       isActionPending ||
+                      isPaused ||
+                      isError ||
                       blockedRecommendationKind === recommendation.kind
                     }
                     isLoading={
                       pendingRecommendationKind === recommendation.kind
                     }
-                    loadingLabel="추천 학습 준비 중…"
+                    loadingLabel={t('insights.actionLoading')}
                     onClick={() => onRecommendationAction(recommendation)}
                     size="sm"
                   >

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type {
@@ -19,56 +20,30 @@ import {
   parseWrongNoteHistorySearch,
   type WrongNoteHistorySearchKey
 } from '@app/wrong-note/wrongNoteHistorySearch'
+import { resolveUiLocale } from '@/i18n/types'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
 const statusValues: WrongNoteStatus[] = ['NEW', 'REVIEWING', 'AGAIN', 'SOLVED']
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
-const statusLabels = {
-  NEW: '새 오답',
-  REVIEWING: '복습 중',
-  AGAIN: '다시 학습',
-  SOLVED: '해결'
-} as const
 const statusVariants = {
   NEW: 'info',
   REVIEWING: 'warning',
   AGAIN: 'danger',
   SOLVED: 'success'
 } as const
-const questionTypeLabels = {
-  KANJI_READING: '한자 읽기',
-  ORTHOGRAPHY: '표기',
-  CONTEXT_VOCABULARY: '문맥 어휘',
-  PARAPHRASE: '유의 표현',
-  WORD_USAGE: '용법',
-  GRAMMAR_SELECT: '문법 선택',
-  SENTENCE_ORDER: '문장 배열',
-  TEXT_GRAMMAR: '글의 문법',
-  SHORT_READING: '단문 독해',
-  MEDIUM_READING: '중문 독해',
-  LONG_READING: '장문 독해',
-  INFO_RETRIEVAL: '정보 검색'
-} as const
-const reviewAvailabilityLabels = {
-  AVAILABLE: '현재 출제 가능',
-  ARCHIVED: '보관된 문제'
-} as const
-const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric'
-})
-
-const formatDate = (isoDate: string): string => {
-  return dateFormatter.format(new Date(isoDate))
-}
 
 export const WrongNotePage = (): ReactElement => {
+  const { i18n, t } = useTranslation('wrongNote')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const formatDate = (value: string): string =>
+    formatDateTime(value, locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
   const headingRef = useRef<HTMLHeadingElement>(null)
   const resultHeadingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
@@ -148,36 +123,35 @@ export const WrongNotePage = (): ReactElement => {
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
           <p className="text-sm font-black tracking-[0.16em] text-brand">
-            WRONG NOTE
+            {t('history.eyebrow')}
           </p>
           <h1
             ref={headingRef}
             className="mt-2 rounded-sm text-4xl font-black"
             tabIndex={-1}
           >
-            전체 오답 기록
+            {t('history.title')}
           </h1>
           <p className="mt-4 leading-7 text-muted">
-            마지막으로 틀린 문제 버전과 당시 상태를 보존한 historical
-            archive입니다.
+            {t('history.description')}
           </p>
         </div>
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 font-bold text-ink hover:border-slate-400"
           to="/wrong-notes"
         >
-          복습 센터로 돌아가기
+          {t('history.backToCenter')}
         </Link>
       </div>
 
       <div className="mt-8 grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
         <Select
           name="level"
-          label="급수"
+          label={t('history.filters.level')}
           value={level ?? ''}
           onChange={(event) => setFilter('level', event.currentTarget.value)}
         >
-          <option value="">전체 급수</option>
+          <option value="">{t('history.filters.allLevels')}</option>
           {levelValues.map((value) => (
             <option key={value} value={value}>
               {value}
@@ -186,37 +160,37 @@ export const WrongNotePage = (): ReactElement => {
         </Select>
         <Select
           name="subject"
-          label="과목"
+          label={t('history.filters.subject')}
           value={subject ?? ''}
           onChange={(event) => setFilter('subject', event.currentTarget.value)}
         >
-          <option value="">전체 과목</option>
+          <option value="">{t('history.filters.allSubjects')}</option>
           {subjectValues.map((value) => (
             <option key={value} value={value}>
-              {subjectLabels[value]}
+              {commonT(`taxonomy.subjects.${value}`)}
             </option>
           ))}
         </Select>
         <Select
           name="status"
-          label="상태"
+          label={t('history.filters.status')}
           value={status ?? ''}
           onChange={(event) => setFilter('status', event.currentTarget.value)}
         >
-          <option value="">전체 상태</option>
+          <option value="">{t('history.filters.allStatuses')}</option>
           {statusValues.map((value) => (
             <option key={value} value={value}>
-              {statusLabels[value]}
+              {commonT(`taxonomy.wrongNoteStatuses.${value}`)}
             </option>
           ))}
         </Select>
         <Select
           name="tag"
-          label="태그"
+          label={t('history.filters.tag')}
           value={tag ?? ''}
           onChange={(event) => setFilter('tag', event.currentTarget.value)}
         >
-          <option value="">전체 태그</option>
+          <option value="">{t('history.filters.allTags')}</option>
           {visibleTags.map((value) => (
             <option key={value} value={value}>
               {value}
@@ -225,13 +199,13 @@ export const WrongNotePage = (): ReactElement => {
         </Select>
         <Select
           name="sort"
-          label="정렬"
+          label={t('history.filters.sort')}
           value={sort}
           onChange={(event) => setFilter('sort', event.currentTarget.value)}
         >
-          <option value="RECENT">최근 오답순</option>
-          <option value="MOST_WRONG">많이 틀린 순</option>
-          <option value="OLDEST">오래된 순</option>
+          <option value="RECENT">{t('history.filters.recent')}</option>
+          <option value="MOST_WRONG">{t('history.filters.mostWrong')}</option>
+          <option value="OLDEST">{t('history.filters.oldest')}</option>
         </Select>
       </div>
 
@@ -240,19 +214,18 @@ export const WrongNotePage = (): ReactElement => {
           className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
           role="status"
         >
-          오프라인입니다. 연결이 복구되면 현재 URL 조건으로 전체 오답 기록을
-          자동으로 다시 불러옵니다.
+          {t('history.states.offline')}
         </p>
       ) : null}
 
       {wrongNotesQuery.isPending && !isWrongNotesPaused ? (
-        <LoadingState message="오답노트를 불러오고 있습니다." />
+        <LoadingState message={t('history.states.loading')} />
       ) : null}
 
       {wrongNotesQuery.isError && !wrongNotesQuery.data ? (
         <ErrorState
-          title="오답노트를 불러오지 못했습니다"
-          description="잠시 후 다시 시도해 주세요."
+          title={t('history.states.errorTitle')}
+          description={t('history.states.errorDescription')}
           action={
             <Button
               onClick={() => {
@@ -260,7 +233,7 @@ export const WrongNotePage = (): ReactElement => {
                 void wrongNotesQuery.refetch()
               }}
             >
-              다시 시도
+              {commonT('actions.retry')}
             </Button>
           }
         />
@@ -271,10 +244,7 @@ export const WrongNotePage = (): ReactElement => {
           className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
           role="alert"
         >
-          <p className="font-semibold">
-            전체 오답 기록의 최신 상태를 확인하지 못했습니다. 현재까지 불러온
-            기록은 유지됩니다.
-          </p>
+          <p className="font-semibold">{t('history.states.stale')}</p>
           <Button
             className="mt-3"
             size="sm"
@@ -283,27 +253,27 @@ export const WrongNotePage = (): ReactElement => {
               void wrongNotesQuery.refetch()
             }}
           >
-            전체 오답 기록 다시 확인
+            {t('history.states.retryStale')}
           </Button>
         </div>
       ) : null}
 
       {isOutOfRangePage ? (
-        <LoadingState message="유효한 오답노트 페이지로 이동하고 있습니다." />
+        <LoadingState message={t('history.states.correctingPage')} />
       ) : null}
 
       {wrongNotesQuery.data &&
       wrongNotesQuery.data.items.length === 0 &&
       !isOutOfRangePage ? (
         <EmptyState
-          title="아직 조건에 맞는 오답이 없습니다"
-          description="문제를 풀고 틀린 항목은 자동으로 이곳에 저장됩니다."
+          title={t('history.states.emptyTitle')}
+          description={t('history.states.emptyDescription')}
           action={
             <Link
               className="inline-flex min-h-11 items-center rounded-lg bg-brand px-5 font-bold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
               to="/practice"
             >
-              첫 문제 풀기
+              {t('history.states.start')}
             </Link>
           }
         />
@@ -317,7 +287,9 @@ export const WrongNotePage = (): ReactElement => {
               className="rounded-sm text-xl font-black"
               tabIndex={-1}
             >
-              오답 {wrongNotesQuery.data.total}개
+              {t('history.results.count', {
+                formattedCount: formatCount(wrongNotesQuery.data.total)
+              })}
             </h2>
             <Button
               variant="ghost"
@@ -326,19 +298,21 @@ export const WrongNotePage = (): ReactElement => {
                 setSearchParams(new URLSearchParams())
               }}
             >
-              필터 초기화
+              {t('history.results.resetFilters')}
             </Button>
           </div>
           <ul className="mt-4 grid gap-4 lg:grid-cols-2">
             {wrongNotesQuery.data.items.map((item) => (
               <li key={item.questionId}>
-                <article className="content-auto flex h-full flex-col rounded-xl border border-line bg-white p-5">
+                <article className="content-auto flex h-full min-w-0 flex-col rounded-xl border border-line bg-surface p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="brand">{item.level}</Badge>
-                      <Badge>{subjectLabels[item.subject]}</Badge>
+                      <Badge>
+                        {commonT(`taxonomy.subjects.${item.subject}`)}
+                      </Badge>
                       <Badge variant={statusVariants[item.status]}>
-                        {statusLabels[item.status]}
+                        {commonT(`taxonomy.wrongNoteStatuses.${item.status}`)}
                       </Badge>
                       <Badge
                         variant={
@@ -347,25 +321,36 @@ export const WrongNotePage = (): ReactElement => {
                             : 'info'
                         }
                       >
-                        {reviewAvailabilityLabels[item.reviewAvailability]}
+                        {commonT(
+                          `taxonomy.availability.${item.reviewAvailability}`
+                        )}
                       </Badge>
                     </div>
                     <span className="text-sm font-bold text-red-700">
-                      {item.wrongCount}회 오답
+                      {t('history.results.wrongCount', {
+                        formattedCount: formatCount(item.wrongCount)
+                      })}
                     </span>
                   </div>
-                  <h3 className="mt-5 line-clamp-2 text-lg font-black leading-7">
+                  <h3
+                    className="mt-5 line-clamp-2 break-words text-lg font-black leading-7"
+                    lang="ja"
+                  >
                     {item.questionPreview}
                   </h3>
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <dt className="text-muted">문제 유형</dt>
+                      <dt className="text-muted">
+                        {t('history.results.questionType')}
+                      </dt>
                       <dd className="mt-1 font-semibold">
-                        {questionTypeLabels[item.questionType]}
+                        {commonT(`taxonomy.questionTypes.${item.questionType}`)}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-muted">마지막 오답</dt>
+                      <dt className="text-muted">
+                        {t('history.results.lastWrong')}
+                      </dt>
                       <dd className="mt-1 font-semibold">
                         {formatDate(item.lastWrongAt)}
                       </dd>
@@ -379,14 +364,14 @@ export const WrongNotePage = (): ReactElement => {
                   <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
                     <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
                       {item.reviewAvailability === 'ARCHIVED'
-                        ? '보관된 문제 · 재풀이 불가'
-                        : '현재 출제 가능 · 상세에서 단일 복습 가능'}
+                        ? t('history.results.archived')
+                        : t('history.results.available')}
                     </span>
                     <Link
                       className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
                       to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
                     >
-                      상세 보기
+                      {t('history.results.detail')}
                     </Link>
                   </div>
                 </article>

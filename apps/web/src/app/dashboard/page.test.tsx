@@ -1,5 +1,9 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider
+} from '@tanstack/react-query'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -13,8 +17,8 @@ import { practiceFlowConformanceFixture } from '@nihongo/contracts/testing/pract
 import { reviewCenterConformanceFixture } from '@nihongo/contracts/testing/review-center-conformance'
 import { apiClient } from '@api/config'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
-import { toDashboardInsightsView } from '@app/dashboard/adapters/dashboardInsightsView'
 import { DashboardPage } from '@app/dashboard/page'
+import { authQueries } from '@app/login/queries/authQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { queryClient } from '@libs/queryClient'
 import { toContractDashboardStats } from '@mocks/adapters/dashboardContractAdapter'
@@ -24,6 +28,12 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'
+import { appI18n } from '@/i18n/config'
+import { afterEach } from 'vitest'
+
+afterEach(() => {
+  act(() => onlineManager.setOnline(true))
+})
 
 const createTestQueryClient = (): QueryClient =>
   new QueryClient({
@@ -73,14 +83,11 @@ const cacheDashboardRecommendations = (
   recommendations: DashboardRecommendation[],
   personalizationFallbackReason: GetDashboardInsightsResponse['personalizationFallbackReason'] = null
 ): void => {
-  client.setQueryData(
-    dashboardQueries.insights().queryKey,
-    toDashboardInsightsView({
-      ...dashboardInsightsConformanceFixture,
-      personalizationFallbackReason,
-      recommendations
-    })
-  )
+  client.setQueryData(dashboardQueries.insights().queryKey, {
+    ...dashboardInsightsConformanceFixture,
+    personalizationFallbackReason,
+    recommendations
+  })
 }
 
 const targetLevelReadingRecommendation: DashboardRecommendation = {
@@ -177,6 +184,121 @@ const createDeferred = <Value,>(): {
 }
 
 describe('DashboardPage', () => {
+  it('locale 전환 시 실제 dashboard cache를 유지하고 재요청하지 않는다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const client = createTestQueryClient()
+    const get = vi.spyOn(apiClient, 'get')
+
+    renderDashboard(client)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '학습 흐름을 확인하세요'
+      })
+    ).toBeVisible()
+    await waitFor(() => {
+      expect(
+        client.getQueryState(dashboardQueries.stats().queryKey)?.fetchStatus
+      ).toBe('idle')
+      expect(
+        client.getQueryState(dashboardQueries.insights().queryKey)?.fetchStatus
+      ).toBe('idle')
+    })
+    const requestCountBefore = get.mock.calls.length
+
+    await act(async () => appI18n.changeLanguage('ja'))
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '学習の流れを確認しましょう'
+      })
+    ).toBeVisible()
+    expect(get).toHaveBeenCalledTimes(requestCountBefore)
+    expect(client.getQueryData(dashboardQueries.stats().queryKey)).toBeDefined()
+    expect(
+      client.getQueryData(dashboardQueries.insights().queryKey)
+    ).toBeDefined()
+    client.clear()
+  })
+
+  it('cold offline에서 무한 loading 대신 자동 재확인 상태를 표시한다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const client = createTestQueryClient()
+    client.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    act(() => onlineManager.setOnline(false))
+
+    renderDashboard(client)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '오프라인에서 대시보드를 기다리고 있습니다'
+      })
+    ).toBeVisible()
+    expect(
+      screen.queryByText('학습 대시보드를 불러오고 있습니다…')
+    ).not.toBeInTheDocument()
+    client.clear()
+  })
+
+  it('cached insights가 offline이면 추천을 유지하되 실행을 잠근다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const client = createTestQueryClient()
+    client.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    cacheDashboardRecommendations(client, [weaknessRecommendation])
+    await client.invalidateQueries({
+      exact: true,
+      queryKey: dashboardQueries.insights().queryKey,
+      refetchType: 'none'
+    })
+    act(() => onlineManager.setOnline(false))
+
+    renderDashboard(client)
+
+    expect(
+      await screen.findByText(
+        '오프라인이라 마지막으로 확인한 추천을 표시합니다. 연결될 때까지 추천 실행은 잠깁니다.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', {
+        name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+      })
+    ).toBeDisabled()
+    client.clear()
+  })
+
+  it('cached cumulative stats가 offline이면 읽기 전용 상태를 알린다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    const client = createTestQueryClient()
+    client.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    client.setQueryData(
+      dashboardQueries.stats().queryKey,
+      toContractDashboardStats(
+        mockDatabase.getCanonicalDashboardRecord(currentUser.id),
+        getDashboardStatsQuerySchema.parse({})
+      )
+    )
+    await client.invalidateQueries({
+      exact: true,
+      queryKey: dashboardQueries.stats().queryKey,
+      refetchType: 'none'
+    })
+    act(() => onlineManager.setOnline(false))
+
+    renderDashboard(client)
+
+    expect(
+      await screen.findByText(
+        '오프라인이라 마지막으로 확인한 누적 통계를 표시합니다. 연결되면 자동으로 다시 확인합니다.'
+      )
+    ).toBeVisible()
+    client.clear()
+  })
+
   it('재시도 성공 후 화면 제목으로 포커스를 복원한다', async () => {
     const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')
@@ -215,7 +337,7 @@ describe('DashboardPage', () => {
     const heading = await screen.findByRole('heading', {
       name: '학습 흐름을 확인하세요'
     })
-    await vi.waitFor(() => expect(heading).toHaveFocus())
+    await waitFor(() => expect(heading).toHaveFocus())
   })
 
   it('반복 오답에서 복습 센터와 안전한 대시보드 복귀 상세 링크를 제공한다', async () => {
@@ -294,7 +416,7 @@ describe('DashboardPage', () => {
 
     renderDashboard(createTestQueryClient())
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(started).toEqual(new Set(['summary', 'insights']))
     })
     await act(async () => {
@@ -353,7 +475,7 @@ describe('DashboardPage', () => {
       name: '약점과 다음 학습 추천'
     })
 
-    await vi.waitFor(() => expect(heading).toHaveFocus())
+    await waitFor(() => expect(heading).toHaveFocus())
   })
 
   it('표본 없음과 목표 급수 fallback을 서로 다른 비색상 상태로 안내한다', async () => {
@@ -456,7 +578,7 @@ describe('DashboardPage', () => {
 
     renderDashboard(createTestQueryClient())
 
-    expect(await screen.findByText('미설정')).toBeVisible()
+    expect(await screen.findByText(/목표 급수는 미설정입니다/u)).toBeVisible()
     expect(screen.getByText('목표 급수를 먼저 설정해 주세요')).toBeVisible()
     expect(screen.queryByText('N3')).not.toBeInTheDocument()
   })
@@ -572,7 +694,7 @@ describe('DashboardPage', () => {
 
     await user.click(startButton)
 
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
     )
     expect(post).toHaveBeenCalledWith(
@@ -635,8 +757,8 @@ describe('DashboardPage', () => {
     const notice = await screen.findByText(
       /요청한 모드는 다른 모드로 바꾸지 않았으며/u
     )
-    await vi.waitFor(() => expect(notice).toHaveFocus())
-    await vi.waitFor(() => expect(insightsRequestCount).toBe(1))
+    await waitFor(() => expect(notice).toHaveFocus())
+    await waitFor(() => expect(insightsRequestCount).toBe(1))
     expect(startButton).toBeDisabled()
     await user.click(startButton)
     expect(postBodies).toHaveLength(1)
@@ -644,8 +766,8 @@ describe('DashboardPage', () => {
     await act(async () => refreshGate.resolve())
     const refreshedNotice =
       await screen.findByText(/최신 추천을 새로 확인했습니다/u)
-    await vi.waitFor(() => expect(refreshedNotice).toHaveFocus())
-    await vi.waitFor(() =>
+    await waitFor(() => expect(refreshedNotice).toHaveFocus())
+    await waitFor(() =>
       expect(
         client.getQueryState(dashboardQueries.insights().queryKey)
       ).toMatchObject({ fetchStatus: 'idle', status: 'success' })
@@ -691,7 +813,7 @@ describe('DashboardPage', () => {
     })
     await user.dblClick(startButton)
 
-    await vi.waitFor(() => expect(postCount).toBe(1))
+    await waitFor(() => expect(postCount).toBe(1))
     expect(
       screen.getByRole('button', {
         name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
@@ -758,7 +880,7 @@ describe('DashboardPage', () => {
     await user.click(startButton)
 
     const failureNotice = await screen.findByText(/잠시 비활성화했습니다/u)
-    await vi.waitFor(() => expect(failureNotice).toHaveFocus())
+    await waitFor(() => expect(failureNotice).toHaveFocus())
     expect(startButton).toBeDisabled()
     await user.click(startButton)
     expect(postCount).toBe(1)
@@ -766,7 +888,7 @@ describe('DashboardPage', () => {
     await user.click(
       screen.getByRole('button', { name: '최근 인사이트 다시 시도' })
     )
-    await vi.waitFor(() => expect(insightsRequestCount).toBe(2))
+    await waitFor(() => expect(insightsRequestCount).toBe(2))
     const targetedButton = screen.getByRole('button', {
       name: '이 문제만 복습하기: 반복 오답 1문제 집중 복습'
     })
@@ -775,7 +897,7 @@ describe('DashboardPage', () => {
     expect(targetedPostCount).toBe(0)
 
     await act(async () => manualRetryGate.resolve())
-    await vi.waitFor(() => expect(failureNotice).not.toBeInTheDocument())
+    await waitFor(() => expect(failureNotice).not.toBeInTheDocument())
     expect(
       screen.getByRole('button', {
         name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
@@ -843,13 +965,17 @@ describe('DashboardPage', () => {
     const post = vi.spyOn(apiClient, 'post')
     const router = renderDashboard(client)
 
+    expect(await screen.findByText('반복 오답 추천 문제')).toHaveAttribute(
+      'lang',
+      'ja'
+    )
     await user.click(
-      await screen.findByRole('button', {
+      screen.getByRole('button', {
         name: '이 문제만 복습하기: 반복 오답 1문제 집중 복습'
       })
     )
 
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(router.state.location.pathname).toBe(
         `/practice/session/${reviewCenterConformanceFixture.targetedSession.session.id}`
       )
@@ -906,8 +1032,8 @@ describe('DashboardPage', () => {
 
       const notice =
         await screen.findByText(/다른 학습으로 자동 변경하지 않았으며/u)
-      await vi.waitFor(() => expect(notice).toHaveFocus())
-      await vi.waitFor(() => expect(insightsRequestCount).toBe(1))
+      await waitFor(() => expect(notice).toHaveFocus())
+      await waitFor(() => expect(insightsRequestCount).toBe(1))
       expect(targetedRequestCount).toBe(1)
       expect(router.state.location.pathname).toBe('/dashboard')
     }
@@ -950,7 +1076,7 @@ describe('DashboardPage', () => {
     expect(post).not.toHaveBeenCalled()
     await user.click(setupButton)
 
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(router.state.location.pathname).toBe('/practice')
     )
     expect(post).not.toHaveBeenCalled()

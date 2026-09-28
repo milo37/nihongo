@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type {
@@ -15,50 +16,36 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
+import { resolveUiLocale } from '@/i18n/types'
 import { useAppStore } from '@store/index'
 import { isNoEligibleQuestionsApiError } from '@util/apiError'
 
 const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
-const subjects: Array<{ value: QuestionSubject; label: string }> = [
-  { value: 'VOCABULARY', label: '문자·어휘' },
-  { value: 'GRAMMAR', label: '문법' },
-  { value: 'READING', label: '독해' }
-]
+const subjects: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
 const counts = [5, 10, 20] as const
 const modes: Array<{
   value: StudyMode
-  label: string
-  description: string
   requiresLogin: boolean
 }> = [
   {
     value: 'RANDOM',
-    label: '랜덤 문제',
-    description: '선택한 급수와 과목에서 무작위로 출제합니다.',
     requiresLogin: false
   },
   {
     value: 'WRONG_NOTE',
-    label: '오답 문제',
-    description: '아직 해결하지 못한 오답을 우선 출제합니다.',
     requiresLogin: true
   },
   {
     value: 'WEAKNESS',
-    label: '약점 추천',
-    description: '최근 제출에서 안정적으로 자주 틀린 문제를 우선합니다.',
     requiresLogin: false
   },
   {
     value: 'BOOKMARK',
-    label: '즐겨찾기',
-    description: '저장한 문제만 모아 다시 풉니다.',
     requiresLogin: true
   },
   {
     value: 'DAILY_REVIEW',
-    label: '오늘의 복습',
-    description: '서버 일정상 오늘 복습할 오답을 순서대로 풉니다.',
     requiresLogin: true
   }
 ]
@@ -68,8 +55,7 @@ const getInitialLevel = (value: string | null): JlptLevel => {
 }
 
 const getInitialSubject = (value: string | null): QuestionSubject => {
-  const values = subjects.map((item) => item.value)
-  return values.includes(value as QuestionSubject)
+  return subjects.includes(value as QuestionSubject)
     ? (value as QuestionSubject)
     : 'GRAMMAR'
 }
@@ -93,6 +79,10 @@ const loginRequiredModes: readonly StudyMode[] = [
 ]
 
 export const PracticePage = (): ReactElement => {
+  const { i18n, t } = useTranslation('practice')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -138,6 +128,8 @@ export const PracticePage = (): ReactElement => {
   const isCreatingSession = createSession.isPending || createSession.isPaused
   const noEligibleQuestions =
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
+  const isResumableSourceUnavailable =
+    resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
 
   useEffect(() => {
     if (
@@ -176,18 +168,17 @@ export const PracticePage = (): ReactElement => {
       <div className="flex flex-col gap-4 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-black tracking-[0.16em] text-brand">
-            PRACTICE SETUP
+            {t('setup.eyebrow')}
           </p>
           <h1 className="mt-2 text-4xl font-black tracking-tight">
-            오늘 풀 문제를 설정하세요
+            {t('setup.title')}
           </h1>
-          <p className="mt-3 text-muted">
-            출제 가능한 문제가 부족하면 가능한 수만 제공하고 실제 문항 수를
-            알려드립니다.
-          </p>
+          <p className="mt-3 text-muted">{t('setup.description')}</p>
         </div>
         <p className="text-sm font-semibold text-muted">
-          현재 역할: <span className="text-ink">{role}</span>
+          {t('setup.currentRole', {
+            role: commonT(`taxonomy.roles.${role}`)
+          })}
         </p>
       </div>
 
@@ -200,50 +191,83 @@ export const PracticePage = (): ReactElement => {
             <h2
               ref={resumableHeadingRef}
               id="resumable-practice-title"
-              className="text-xl font-black focus:outline-none"
+              className="rounded-sm text-xl font-black focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
               tabIndex={-1}
             >
-              이어서 풀기
+              {t('setup.resume.title')}
             </h2>
             <p className="mt-1 text-sm leading-6 text-muted">
-              서버에 저장된 진행 중 세션을 최신 작업본부터 보여드립니다.
+              {t('setup.resume.description')}
             </p>
           </div>
           {resumableSessions.isFetching && !resumableSessions.isPending ? (
             <span className="text-sm font-semibold text-muted" role="status">
-              목록 갱신 중…
+              {t('setup.resume.refreshing')}
             </span>
           ) : null}
         </div>
 
+        {canLoadResumableSessions &&
+        resumableSessions.data &&
+        isResumableSourceUnavailable ? (
+          <div
+            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+            role={resumableSessions.isError ? 'alert' : 'status'}
+          >
+            <p className="font-semibold">
+              {t(
+                resumableSessions.fetchStatus === 'paused'
+                  ? 'setup.resume.cachedOffline'
+                  : 'setup.resume.stale'
+              )}
+            </p>
+            {resumableSessions.isError ? (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => void resumableSessions.refetch()}
+              >
+                {commonT('actions.retry')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
         {!canLoadResumableSessions ? (
           <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
-            새 게스트 세션을 시작하면 이 탭에서 서버 작업본을 이어서 풀 수
-            있습니다. 로그인하면 다른 기기에서도 같은 계정의 작업본을 확인할 수
-            있습니다.
+            {t('setup.resume.guestHint')}
+          </p>
+        ) : resumableSessions.isPending &&
+          resumableSessions.fetchStatus === 'paused' ? (
+          <p
+            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900"
+            role="status"
+          >
+            {t('setup.resume.offline')}
           </p>
         ) : resumableSessions.isPending ? (
           <p className="mt-4 text-sm font-semibold text-muted" role="status">
-            저장된 작업본을 확인하고 있습니다…
+            {t('setup.resume.loading')}
           </p>
-        ) : resumableSessions.isError ? (
+        ) : resumableSessions.isError && !resumableSessions.data ? (
           <div
             className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
             role="alert"
           >
-            <p>이어풀기 목록을 불러오지 못했습니다.</p>
+            <p>{t('setup.resume.error')}</p>
             <Button
               className="mt-3"
               size="sm"
               variant="secondary"
               onClick={() => void resumableSessions.refetch()}
             >
-              다시 시도
+              {commonT('actions.retry')}
             </Button>
           </div>
         ) : resumableSessions.data.items.length === 0 ? (
           <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
-            저장된 진행 중 작업본이 없습니다. 아래에서 새 학습을 시작해 주세요.
+            {t('setup.resume.empty')}
           </p>
         ) : (
           <>
@@ -259,27 +283,32 @@ export const PracticePage = (): ReactElement => {
                   >
                     <p className="font-black">
                       {item.level} ·{' '}
-                      {subjects.find(({ value }) => value === item.subject)
-                        ?.label ?? item.subject}
+                      {commonT(`taxonomy.subjects.${item.subject}`)}
                     </p>
                     <p className="mt-1 text-xs font-black tracking-wide text-brand">
-                      {modes.find(({ value }) => value === item.mode)?.label ??
-                        item.mode}
+                      {t(`setup.modes.${item.mode}.label`)}
                     </p>
                     <p className="mt-1 text-sm leading-6 text-muted">
-                      {item.actualCount}문제 · 현재 {item.currentOrdinal ?? 1}번
-                      · revision {item.draftRevision ?? 0}
+                      {t('setup.resume.summary', {
+                        formattedCount: formatCount(item.actualCount),
+                        formattedOrdinal: formatCount(item.currentOrdinal ?? 1),
+                        formattedRevision: formatCount(item.draftRevision ?? 0)
+                      })}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-muted">
                       {item.draftSavedAt
-                        ? `마지막 저장 ${new Date(item.draftSavedAt).toLocaleString('ko-KR')}`
-                        : '아직 서버 저장 전'}
+                        ? t('setup.resume.lastSaved', {
+                            date: formatDateTime(item.draftSavedAt, locale, {
+                              dateStyle: 'medium',
+                              timeStyle: 'short'
+                            })
+                          })
+                        : t('setup.resume.notSaved')}
                     </p>
                     {item.resumeAvailability === 'LEGACY_LOCAL_ONLY' &&
                     !canResume ? (
                       <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-semibold leading-6 text-amber-900">
-                        이 세션은 다른 기기의 로컬 답안을 복원할 수 없습니다. 새
-                        학습을 시작하거나 세션을 취소해 주세요.
+                        {t('setup.resume.legacyUnavailable')}
                       </p>
                     ) : null}
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -288,15 +317,16 @@ export const PracticePage = (): ReactElement => {
                           className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           to={`/practice/session/${item.id}`}
                         >
-                          이어서 풀기
+                          {t('setup.resume.action')}
                         </Link>
                       ) : null}
                       <Button
                         size="sm"
                         variant="secondary"
+                        disabled={isResumableSourceUnavailable}
                         onClick={() => setCancelSessionId(item.id)}
                       >
-                        세션 취소
+                        {t('setup.resume.cancel')}
                       </Button>
                     </div>
                   </li>
@@ -306,26 +336,30 @@ export const PracticePage = (): ReactElement => {
             {resumableSessions.data.total > resumableSessions.data.pageSize ? (
               <nav
                 className="mt-4 flex items-center justify-center gap-3"
-                aria-label="이어풀기 페이지"
+                aria-label={t('setup.resume.paginationLabel')}
               >
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={resumablePage === 1}
+                  disabled={isResumableSourceUnavailable || resumablePage === 1}
                   onClick={() => setResumablePage((page) => page - 1)}
                 >
-                  이전
+                  {commonT('pagination.previous')}
                 </Button>
                 <span className="text-sm font-bold">
-                  {resumablePage} / {resumablePageCount}
+                  {formatCount(resumablePage)} /{' '}
+                  {formatCount(resumablePageCount)}
                 </span>
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={resumablePage >= resumablePageCount}
+                  disabled={
+                    isResumableSourceUnavailable ||
+                    resumablePage >= resumablePageCount
+                  }
                   onClick={() => setResumablePage((page) => page + 1)}
                 >
-                  다음
+                  {commonT('pagination.next')}
                 </Button>
               </nav>
             ) : null}
@@ -335,8 +369,10 @@ export const PracticePage = (): ReactElement => {
 
       <div className="mt-8 space-y-9 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-8">
         <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">1. 급수</legend>
-          <div className="mt-4 grid grid-cols-5 gap-2">
+          <legend className="text-lg font-black">
+            {t('setup.steps.level')}
+          </legend>
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
             {levels.map((option) => (
               <button
                 key={option}
@@ -356,28 +392,32 @@ export const PracticePage = (): ReactElement => {
         </fieldset>
 
         <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">2. 과목</legend>
+          <legend className="text-lg font-black">
+            {t('setup.steps.subject')}
+          </legend>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {subjects.map((option) => (
               <button
-                key={option.value}
+                key={option}
                 className="min-h-12 rounded-lg border border-line px-4 font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 type="button"
-                aria-pressed={subject === option.value}
-                data-selected={subject === option.value}
+                aria-pressed={subject === option}
+                data-selected={subject === option}
                 onClick={() => {
                   createSession.reset()
-                  setSubject(option.value)
+                  setSubject(option)
                 }}
               >
-                {option.label}
+                {commonT(`taxonomy.subjects.${option}`)}
               </button>
             ))}
           </div>
         </fieldset>
 
         <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">3. 문제 수</legend>
+          <legend className="text-lg font-black">
+            {t('setup.steps.count')}
+          </legend>
           <div className="mt-4 grid grid-cols-3 gap-2">
             {counts.map((option) => (
               <button
@@ -391,14 +431,18 @@ export const PracticePage = (): ReactElement => {
                   setCount(option)
                 }}
               >
-                {option}문제
+                {t('setup.questionCount', {
+                  formattedCount: formatCount(option)
+                })}
               </button>
             ))}
           </div>
         </fieldset>
 
         <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">4. 출제 모드</legend>
+          <legend className="text-lg font-black">
+            {t('setup.steps.mode')}
+          </legend>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {modes.map((option) => {
               const disabled =
@@ -416,13 +460,15 @@ export const PracticePage = (): ReactElement => {
                     setRequestedMode(option.value)
                   }}
                 >
-                  <strong className="block">{option.label}</strong>
+                  <strong className="block">
+                    {t(`setup.modes.${option.value}.label`)}
+                  </strong>
                   <span className="mt-1 block text-sm leading-6 text-muted">
-                    {option.description}
+                    {t(`setup.modes.${option.value}.description`)}
                   </span>
                   {disabled ? (
                     <span className="mt-1 block text-xs font-bold text-amber-700">
-                      로그인 후 이용 가능
+                      {t('setup.loginRequired')}
                     </span>
                   ) : null}
                 </button>
@@ -436,13 +482,12 @@ export const PracticePage = (): ReactElement => {
             className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
             role="alert"
           >
-            선택한 모드는 로그인 후 이용할 수 있습니다. 랜덤 문제로 바꾸지
-            않았습니다.{' '}
+            {t('setup.protectedMode')}{' '}
             <Link
               className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
               to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
             >
-              로그인하기
+              {t('setup.login')}
             </Link>
           </div>
         ) : null}
@@ -453,14 +498,11 @@ export const PracticePage = (): ReactElement => {
             role="alert"
           >
             <p className="font-bold">
-              현재 조건에는 출제 가능한{' '}
-              {modes.find((item) => item.value === mode)?.label} 문제가
-              없습니다.
+              {t('setup.noEligibleTitle', {
+                mode: t(`setup.modes.${mode}.label`)
+              })}
             </p>
-            <p className="mt-1 leading-6">
-              급수·과목·모드를 바꾸거나 랜덤 문제를 선택해 주세요. 서버가 다른
-              모드로 자동 대체하지는 않습니다.
-            </p>
+            <p className="mt-1 leading-6">{t('setup.noEligibleDescription')}</p>
             {mode !== 'RANDOM' ? (
               <Button
                 className="mt-3"
@@ -471,7 +513,7 @@ export const PracticePage = (): ReactElement => {
                   setRequestedMode('RANDOM')
                 }}
               >
-                랜덤 문제 선택
+                {t('setup.selectRandom')}
               </Button>
             ) : null}
           </div>
@@ -481,15 +523,13 @@ export const PracticePage = (): ReactElement => {
             className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
             role="alert"
           >
-            세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤 다시
-            시도해 주세요.
+            {t('setup.createError')}
           </div>
         ) : null}
 
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
-            서버 권위 출제 모드는 후보가 부족해도 다른 모드로 자동 대체하지
-            않습니다.
+            {t('setup.authorityNote')}
             {role === 'GUEST' ? (
               <>
                 {' '}
@@ -497,7 +537,7 @@ export const PracticePage = (): ReactElement => {
                   className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
                   to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
                 >
-                  로그인하기
+                  {t('setup.login')}
                 </Link>
               </>
             ) : null}
@@ -509,7 +549,7 @@ export const PracticePage = (): ReactElement => {
             size="lg"
             onClick={handleStart}
           >
-            학습 시작하기
+            {t('setup.start')}
           </Button>
         </div>
       </div>
@@ -517,8 +557,8 @@ export const PracticePage = (): ReactElement => {
       <Dialog
         open={cancelSessionId !== null}
         fallbackFocusRef={resumableHeadingRef}
-        title="진행 중 세션을 취소할까요?"
-        description="취소하면 서버 작업본은 삭제되며 이 세션에는 더 이상 답안을 저장하거나 제출할 수 없습니다."
+        title={t('setup.cancelDialog.title')}
+        description={t('setup.cancelDialog.description')}
         footer={
           <>
             <Button
@@ -526,7 +566,7 @@ export const PracticePage = (): ReactElement => {
               disabled={cancelSession.isPending}
               onClick={() => setCancelSessionId(null)}
             >
-              계속 보관
+              {t('setup.cancelDialog.keep')}
             </Button>
             <Button
               isLoading={cancelSession.isPending}
@@ -540,7 +580,7 @@ export const PracticePage = (): ReactElement => {
                 )
               }}
             >
-              세션 취소
+              {t('setup.cancelDialog.confirm')}
             </Button>
           </>
         }
@@ -557,8 +597,7 @@ export const PracticePage = (): ReactElement => {
             className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900"
             role="alert"
           >
-            세션을 취소하지 못했습니다. 상태를 새로 확인한 뒤 다시 시도해
-            주세요.
+            {t('setup.cancelDialog.error')}
           </p>
         ) : null}
       </Dialog>

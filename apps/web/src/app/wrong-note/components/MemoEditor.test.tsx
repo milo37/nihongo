@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Link, RouterProvider } from 'react-router'
@@ -95,9 +102,62 @@ describe('MemoEditor', () => {
     expect(observedBodies[0]).toEqual({ memo: validMemo })
 
     await user.click(screen.getByRole('button', { name: '메모 삭제' }))
+    const deleteDialog = screen.getByRole('dialog', {
+      name: '메모를 삭제할까요?'
+    })
+    await user.click(
+      within(deleteDialog).getByRole('button', { name: '메모 삭제' })
+    )
     expect(await screen.findByText('메모를 삭제했습니다.')).toBeInTheDocument()
     expect(observedBodies[1]).toEqual({ memo: null })
     expect(textarea).toHaveValue('')
+    await waitFor(() => expect(textarea).toHaveFocus())
+    client.clear()
+  })
+
+  it('requires the same confirmation when saving blank text would delete an existing memo', async () => {
+    const user = userEvent.setup()
+    const observedBodies: unknown[] = []
+    mockServer.use(
+      http.put('*/api/v1/wrong-notes/:questionId/memo', async ({ request }) => {
+        observedBodies.push(await request.json())
+        return HttpResponse.json(null)
+      })
+    )
+    const client = renderMemoEditor(reviewCenterConformanceFixture.memo)
+    const textarea = await screen.findByRole('textbox', { name: '나의 메모' })
+    await waitFor(() =>
+      expect(textarea).toHaveValue(reviewCenterConformanceFixture.memo.text)
+    )
+
+    await user.clear(textarea)
+    await user.type(textarea, '   ')
+    const saveButton = screen.getByRole('button', { name: '메모 저장' })
+    await user.click(saveButton)
+
+    let deleteDialog = screen.getByRole('dialog', {
+      name: '메모를 삭제할까요?'
+    })
+    expect(observedBodies).toHaveLength(0)
+    await user.click(
+      within(deleteDialog).getByRole('button', { name: '메모 유지' })
+    )
+    await waitFor(() => expect(saveButton).toHaveFocus())
+    expect(textarea).toHaveValue('   ')
+    expect(observedBodies).toHaveLength(0)
+
+    await user.click(saveButton)
+    deleteDialog = screen.getByRole('dialog', {
+      name: '메모를 삭제할까요?'
+    })
+    await user.click(
+      within(deleteDialog).getByRole('button', { name: '메모 삭제' })
+    )
+
+    expect(await screen.findByText('메모를 삭제했습니다.')).toBeVisible()
+    expect(observedBodies).toEqual([{ memo: null }])
+    expect(textarea).toHaveValue('')
+    await waitFor(() => expect(textarea).toHaveFocus())
     client.clear()
   })
 

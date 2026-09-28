@@ -19,6 +19,7 @@ import {
 interface AuthSynchronizationResult {
   canonicalUser: AuthenticatedUser | null | undefined
   hasError: boolean
+  isOffline: boolean
   isReady: boolean
   retry: () => void
 }
@@ -186,12 +187,16 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
     currentUserQuery.isSuccess &&
     projectedUser?.id === currentUserQuery.data?.id &&
     projectedUser?.role === currentUserQuery.data?.role
+  const isOffline =
+    currentUserQuery.fetchStatus === 'paused' &&
+    (!currentUserQuery.isSuccess || isAuthorizationBlocked)
 
   return {
     canonicalUser: currentUserQuery.isSuccess
       ? currentUserQuery.data
       : undefined,
     hasError: !isExternalSynchronizing && currentUserQuery.isError,
+    isOffline,
     // Keep the mounted route (and any local draft) alive while a cross-tab
     // data-only update revalidates the same canonical actor. Auth-storage
     // changes block immediately; a DB refresh that finds a different actor or
