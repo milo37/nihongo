@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches:
+      - codex/phase-8-dashboard-recommendations
       - codex/phase-7-admin-cms
       - codex/phase-6-original-content-release
       - codex/phase-5-review-center
@@ -121,7 +122,7 @@ jobs:
           fi
 
   e2e:
-    name: Phase 7 Chromium real and mock browser acceptance
+    name: Phase 8 dashboard and Phase 7 regression browser acceptance
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -172,19 +173,19 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Real browser acceptance
-        run: pnpm run test:phase7:browser:real
+        run: pnpm run test:phase8:browser:real
 
       - name: Canonical mock browser acceptance
-        run: pnpm run test:phase7:browser:mock
+        run: pnpm run test:phase8:browser:mock
 
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-phase7-${{ github.run_id }}-${{ github.run_attempt }}
+          name: playwright-phase8-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           path: |
-            playwright-report/phase7-real/
-            playwright-report/phase7-mock/
-            test-results/playwright-phase7-real/
-            test-results/playwright-phase7-mock/
+            playwright-report/phase8-real/
+            playwright-report/phase8-mock/
+            test-results/playwright-phase8-real/
+            test-results/playwright-phase8-mock/

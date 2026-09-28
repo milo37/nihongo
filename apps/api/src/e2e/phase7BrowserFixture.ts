@@ -15,6 +15,7 @@ export interface Phase7BrowserCredentials {
 
 export interface Phase7BrowserFixture {
   readonly author: Phase7BrowserCredentials
+  readonly insightsLearner: Phase7BrowserCredentials
   readonly learner: Phase7BrowserCredentials
   readonly reviewer: Phase7BrowserCredentials
 }
@@ -46,7 +47,7 @@ export interface Phase7BrowserFixtureDatabase {
 
 const createCredentials = (
   schemaName: string,
-  actor: 'author' | 'learner' | 'reviewer',
+  actor: 'author' | 'insights' | 'learner' | 'reviewer',
   name: string
 ): Phase7BrowserCredentials => {
   const suffix = schemaName.slice('phase7_'.length, 'phase7_'.length + 12)
@@ -142,26 +143,38 @@ export const createPhase7BrowserFixture = async (
 
   const fixture: Phase7BrowserFixture = {
     author: createCredentials(schemaName, 'author', 'Phase 7 작성 관리자'),
+    insightsLearner: createCredentials(
+      schemaName,
+      'insights',
+      'Phase 8 인사이트 학습자'
+    ),
     learner: createCredentials(schemaName, 'learner', 'Phase 7 학습자'),
     reviewer: createCredentials(schemaName, 'reviewer', 'Phase 7 검수 관리자')
   }
 
   try {
     await client.query('BEGIN')
-    for (const [credentials, role] of [
-      [fixture.author, 'ADMIN'],
-      [fixture.reviewer, 'ADMIN'],
-      [fixture.learner, 'USER']
+    for (const [credentials, role, targetLevel] of [
+      [fixture.author, 'ADMIN', 'N3'],
+      [fixture.reviewer, 'ADMIN', 'N3'],
+      [fixture.learner, 'USER', 'N3'],
+      [fixture.insightsLearner, 'USER', 'N2']
     ] as const) {
       await client.query(
         `INSERT INTO "User" (
            "id", "name", "email", "emailVerified", "role", "targetLevel",
            "accountStatus", "authorityGeneration", "createdAt", "updatedAt"
          ) VALUES (
-           $1::uuid, $2, $3, TRUE, $4::"UserRole", 'N3', 'ACTIVE', 1,
+           $1::uuid, $2, $3, TRUE, $4::"UserRole", $5::"JlptLevel", 'ACTIVE', 1,
            clock_timestamp(), clock_timestamp()
          )`,
-        [credentials.userId, credentials.name, credentials.email, role]
+        [
+          credentials.userId,
+          credentials.name,
+          credentials.email,
+          role,
+          targetLevel
+        ]
       )
       await client.query(
         `INSERT INTO "Account" (

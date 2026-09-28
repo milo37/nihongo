@@ -39,6 +39,8 @@
     "test:phase7:api": "pnpm --filter @nihongo/api run test:phase7:api",
     "test:phase7:browser:mock": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7Browser.ts mock",
     "test:phase7:browser:real": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7Browser.ts real",
+    "test:phase8:browser:mock": "PHASE8_BROWSER_ACCEPTANCE=1 pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7Browser.ts mock",
+    "test:phase8:browser:real": "PHASE8_BROWSER_ACCEPTANCE=1 pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7Browser.ts real",
     "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
     "content:author-prepare": "node scripts/content/run-retained-validator.mjs author-prepare",
     "content:check": "node scripts/content/run-retained-validator.mjs check",

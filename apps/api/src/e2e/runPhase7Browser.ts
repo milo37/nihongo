@@ -26,6 +26,8 @@ interface ManagedProcess {
 
 type BrowserMode = 'mock' | 'real'
 
+const isPhase8Acceptance = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
+const acceptancePhase = isPhase8Acceptance ? 'phase8' : 'phase7'
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
 const mode: BrowserMode | undefined =
   rawMode === 'mock' || rawMode === 'real' ? rawMode : undefined
@@ -270,6 +272,12 @@ const runPlaywright = async (
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): Promise<void> => {
+  const browserSpecs = [
+    'apps/web/e2e/phase7-admin-cms-mock.spec.ts',
+    ...(isPhase8Acceptance
+      ? ['apps/web/e2e/phase8-dashboard-real-mock.spec.ts']
+      : [])
+  ]
   await runCommand(
     'pnpm',
     [
@@ -278,15 +286,16 @@ const runPlaywright = async (
       'test',
       '--config',
       'playwright.config.ts',
-      'apps/web/e2e/phase7-admin-cms-mock.spec.ts',
+      ...browserSpecs,
       ...playwrightArguments
     ],
     {
       ...process.env,
       ...extraEnvironment,
       PHASE7_BROWSER_MODE: browserMode,
+      PHASE8_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: `phase7-${browserMode}`
+      PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
     }
   )
 }
@@ -299,7 +308,7 @@ const runMock = async (): Promise<void> => {
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
   const web = spawnOwned(
-    'phase7-mock-web',
+    `${acceptancePhase}-mock-web`,
     'pnpm',
     [
       '--filter',
@@ -361,7 +370,7 @@ const runReal = async (): Promise<void> => {
   }
   delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
   const api = spawnOwned(
-    'phase7-real-api',
+    `${acceptancePhase}-real-api`,
     'pnpm',
     ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/server.ts'],
     apiEnvironment
@@ -369,7 +378,7 @@ const runReal = async (): Promise<void> => {
   await waitForHttp(`${apiOrigin}/health/ready`, api)
 
   const web = spawnOwned(
-    'phase7-real-web',
+    `${acceptancePhase}-real-web`,
     'pnpm',
     [
       '--filter',
@@ -402,7 +411,8 @@ const runReal = async (): Promise<void> => {
   await runPlaywright('real', webOrigin, {
     PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
     PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
   await created.database.assertExpectedLifecycleDelta(baseline)
 }
@@ -417,7 +427,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 
 const run = async (): Promise<void> => {
   if (!mode) {
-    throw new Error('Phase 7 browser runner accepts mock or real mode.')
+    throw new Error(
+      `${acceptancePhase} browser runner accepts mock or real mode.`
+    )
   }
   if (mode === 'mock') await runMock()
   else await runReal()
@@ -437,7 +449,7 @@ const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `Phase 7 ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `${acceptancePhase} ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -456,7 +468,7 @@ const describeFailure = (
 void execute()
   .then(() => {
     process.stdout.write(
-      `${JSON.stringify({ event: `phase7.browser.${mode}.passed` })}\n`
+      `${JSON.stringify({ event: `${acceptancePhase}.browser.${mode}.passed` })}\n`
     )
   })
   .catch((error: unknown) => {
@@ -466,7 +478,7 @@ void execute()
         : undefined
     process.stderr.write(
       `${JSON.stringify({
-        event: `phase7.browser.${mode ?? 'unknown'}.failed`,
+        event: `${acceptancePhase}.browser.${mode ?? 'unknown'}.failed`,
         ...describeFailure(error),
         ...(causes ? { causes } : {})
       })}\n`

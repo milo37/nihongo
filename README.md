@@ -37,8 +37,12 @@ Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
 RANDOM fallback을 제거했습니다. Phase 5 Slice 6은 current review center의 실제·canonical
 mock Chromium 흐름, fresh-schema integration/E2E runner, process-tree cleanup과 최종 보고를
-완료했습니다. Phase 7 CI는 DB/API gate 뒤 전용 real Chromium → canonical mock Chromium을 순차
-실행하고, production mock negative build와 no-worker production artifact를 검증하도록 구성합니다.
+완료했습니다. Phase 8은 기존 누적 dashboard를 보존하면서 additive
+`GET /api/v1/dashboard/insights`에 90일 통계, 규칙 기반 약점과 설명 가능한 다음 학습 추천을
+연결합니다. 추천은 사용자의 명시적 CTA에만 기존 session/targeted command를 실행하며 다른 mode로
+자동 변경하지 않습니다. 현재 CI는 Phase 7 DB/API·CMS browser 회귀와 Phase 8 dashboard를 함께
+real Chromium → canonical mock Chromium 순서로 실행하고, 두 dashboard GET의 병렬 시작,
+canonical-only transport, production mock negative build와 no-worker production artifact를 검증합니다.
 
 ## 서비스 목적
 
@@ -209,6 +213,8 @@ pnpm run test:phase7:db
 pnpm run test:phase7:api
 pnpm run test:phase7:browser:real
 pnpm run test:phase7:browser:mock
+pnpm run test:phase8:browser:real
+pnpm run test:phase8:browser:mock
 ```
 
 runner는 canonical wrapper login이 하나라도 이미 존재하면 안전하게 중단합니다. 따라서
@@ -647,8 +653,8 @@ pnpm run typecheck
 pnpm run test
 pnpm run test:phase7:db
 pnpm run test:phase7:api
-pnpm run test:phase7:browser:real
-pnpm run test:phase7:browser:mock
+pnpm run test:phase8:browser:real
+pnpm run test:phase8:browser:mock
 NODE_ENV=production pnpm run build
 pnpm run content:foundation-check:static
 test ! -e apps/web/dist/mockServiceWorker.js

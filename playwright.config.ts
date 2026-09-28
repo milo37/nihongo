@@ -5,7 +5,7 @@ const outputLabel = process.env.PLAYWRIGHT_OUTPUT_LABEL ?? 'real'
 
 if (!baseURL) {
   throw new Error(
-    'PLAYWRIGHT_BASE_URL is required. Run an isolated Phase 7 browser script.'
+    'PLAYWRIGHT_BASE_URL is required. Run an isolated browser acceptance script.'
   )
 }
 
