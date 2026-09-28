@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { reauthenticateAdminResponseSchema } from '@nihongo/contracts/admin/phase7'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
+import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
 import { hashPassword } from 'better-auth/crypto'
@@ -35,6 +36,8 @@ import { createPhase7ReauthenticationContext } from '../auth/phase7Reauthenticat
 import { createPhase7SessionCookie } from '../auth/phase7SessionCookie.js'
 import { createPhase7PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
+import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
+import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createRoleDatabaseRuntime } from './database.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
@@ -156,6 +159,110 @@ const withUpgradeSchema = (rawUrl: string, schemaName: string): string => {
   url.searchParams.set('schema', schemaName)
   url.searchParams.delete('options')
   return url.toString()
+}
+
+const exerciseUpgradedDashboardInsights = async (
+  context: IsolatedUpgradeSchema
+): Promise<void> => {
+  const userId = randomUUID()
+  const sessionId = randomUUID()
+  const accountId = randomUUID()
+  const sessionToken = `phase8-upgrade-insights-${randomUUID()}`
+  await context.adminClient.query('BEGIN')
+  try {
+    await context.adminClient.query(
+      `INSERT INTO "User" (
+         "id", "name", "email", "emailVerified", "role",
+         "accountStatus", "createdAt", "updatedAt"
+       ) VALUES (
+         $1, 'Phase 8 upgrade insights', $2, true, 'USER',
+         'ACTIVE', clock_timestamp(), clock_timestamp()
+       )`,
+      [userId, `phase8-upgrade-${randomUUID()}@example.test`]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "Account" (
+         "id", "accountId", "providerId", "userId", "password",
+         "createdAt", "updatedAt"
+       ) VALUES (
+         $1, $2::uuid::text, 'credential', $2,
+         'phase8-upgrade-password-hash', clock_timestamp(), clock_timestamp()
+       )`,
+      [accountId, userId]
+    )
+    await context.adminClient.query('COMMIT')
+  } catch (error: unknown) {
+    await context.adminClient.query('ROLLBACK')
+    throw error
+  }
+  const readBusinessState = async (): Promise<unknown> =>
+    (
+      await context.adminClient.query(
+        `SELECT
+           (SELECT COUNT(*)::int FROM "User" WHERE "id" = $1)
+             AS "userCount",
+           (SELECT COUNT(*)::int FROM "StudySession" WHERE "userId" = $1)
+             AS "sessionCount",
+           (SELECT COUNT(*)::int FROM "WrongNote" WHERE "userId" = $1)
+             AS "wrongNoteCount",
+           (SELECT "updatedAt" FROM "User" WHERE "id" = $1)
+             AS "userUpdatedAt"`,
+        [userId]
+      )
+    ).rows
+  const before = await readBusinessState()
+  const applicationRuntime = createRoleDatabaseRuntime(
+    withUpgradeSchema(environment.DATABASE_URL, context.schemaName),
+    'nihongo_app'
+  )
+  const authGatewayRuntime = createRoleDatabaseRuntime(
+    withUpgradeSchema(authGatewayDatabaseUrl, context.schemaName),
+    'nihongo_auth_gateway'
+  )
+  try {
+    const issued = await authGatewayRuntime.client.$queryRawUnsafe<
+      Array<{ familyId: string }>
+    >(
+      `SELECT * FROM "phase7_issue_v1_session"(
+        $1, 1, 'USER', 'ACTIVE', $2, $3,
+        '127.0.0.1', 'phase8-upgrade-insights', false
+      )`,
+      userId,
+      sessionId,
+      sessionToken
+    )
+    expect(issued).toHaveLength(1)
+    const response = getDashboardInsightsResponseSchema.parse(
+      await createDashboardInsightsService(
+        createPrismaDashboardInsightsRepository(
+          applicationRuntime.client,
+          'PHASE7'
+        )
+      ).getDashboardInsights({
+        kind: 'PHASE7',
+        sessionToken,
+        userId
+      })
+    )
+    expect(response.stats.overall.attemptedCount).toBe(0)
+    expect(response.stats.byLevel).toHaveLength(5)
+    expect(response.stats.bySubject).toHaveLength(3)
+    expect(response.stats.byQuestionType).toHaveLength(12)
+    expect(response.recommendations).toEqual([
+      {
+        rank: 1,
+        kind: 'PRACTICE_SETUP',
+        reason: { code: 'TARGET_LEVEL_NOT_SET' },
+        action: { kind: 'OPEN_PRACTICE_SETUP' }
+      }
+    ])
+    expect(await readBusinessState()).toEqual(before)
+  } finally {
+    await Promise.all([
+      applicationRuntime.disconnect(),
+      authGatewayRuntime.disconnect()
+    ])
+  }
 }
 
 const exerciseUpgradedRealReauthentication = async (
@@ -3551,6 +3658,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         context,
         connectedSequentialMigrationClient
       )
+      await exerciseUpgradedDashboardInsights(context)
     } finally {
       await sequentialMigrationClient?.end().catch(() => undefined)
       await phase6Legacy?.client.end().catch(() => undefined)

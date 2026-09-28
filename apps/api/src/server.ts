@@ -43,6 +43,8 @@ import { createPrismaWrongNoteReviewCenterRepository } from './wrong-note/wrongN
 import { createWrongNoteReviewCenterService } from './wrong-note/wrongNoteReviewCenterService.js'
 import { createPrismaDashboardRepository } from './dashboard/dashboardRepository.js'
 import { createDashboardService } from './dashboard/dashboardService.js'
+import { createPrismaDashboardInsightsRepository } from './dashboard/dashboardInsightsRepository.js'
+import { createDashboardInsightsService } from './dashboard/dashboardInsightsService.js'
 import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.js'
 import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
@@ -237,6 +239,12 @@ const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
 const dashboardService = createDashboardService(
   createPrismaDashboardRepository(database.client)
 )
+const dashboardInsightsService = createDashboardInsightsService(
+  createPrismaDashboardInsightsRepository(
+    database.client,
+    technicalMode ? 'PHASE7' : 'LEGACY'
+  )
+)
 const bookmarkService = createBookmarkService(
   createPrismaBookmarkRepository(database.client)
 )
@@ -354,6 +362,7 @@ const app = createApiApp({
   logger,
   learning: {
     bookmarkService,
+    dashboardInsightsService,
     dashboardService,
     rateLimiter: applicationRateLimiter,
     reviewCenterEnabled: practiceRuntimeGate.practiceContractV2Enabled,

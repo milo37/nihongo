@@ -39,8 +39,10 @@ import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
+import type { DashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
 import { createDashboardRoutes } from '../routes/dashboard.js'
+import { createDashboardInsightsRoutes } from '../routes/dashboardInsights.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
@@ -155,6 +157,7 @@ interface CreateApiAppDependencies {
   }
   learning?: {
     bookmarkService?: BookmarkService
+    dashboardInsightsService?: DashboardInsightsService
     dashboardService: DashboardService
     rateLimiter: ApplicationRateLimiter
     reviewCenterEnabled: boolean
@@ -755,6 +758,17 @@ export const createApiApp = ({
           rateLimiter: learning.rateLimiter
         })
       )
+      if (learning.dashboardInsightsService) {
+        app.route(
+          '/api/v1/dashboard',
+          createDashboardInsightsRoutes({
+            dashboardInsightsService: learning.dashboardInsightsService,
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter
+          })
+        )
+      }
     }
   }
 

@@ -1410,6 +1410,7 @@ const run = async (): Promise<void> => {
     'src/db/phase7AdminCmsFoundation.integration.test.ts',
     'src/db/phase7ReauthenticationFoundation.integration.test.ts',
     'src/db/phase7ReauthenticationService.integration.test.ts',
+    'src/dashboard/dashboardInsights.integration.test.ts',
     'src/db/phase7AdminCmsUpgrade.integration.test.ts'
   ]) {
     await runCommand(
