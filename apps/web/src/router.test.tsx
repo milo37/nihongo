@@ -141,6 +141,22 @@ describe('application router boundaries', () => {
     })
   })
 
+  it('모바일 메뉴는 Escape로 닫고 trigger에 포커스를 복원한다', async () => {
+    const user = userEvent.setup()
+    renderRoutes('/')
+    await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
+
+    const menuButton = screen.getByRole('button', { name: '메뉴 열기' })
+    await user.click(menuButton)
+    expect(menuButton).toHaveAccessibleName('메뉴 닫기')
+    expect(menuButton).toHaveAttribute('aria-expanded', 'true')
+
+    await user.keyboard('{Escape}')
+    expect(menuButton).toHaveAccessibleName('메뉴 열기')
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false')
+    expect(menuButton).toHaveFocus()
+  })
+
   it('hash navigation은 main top scroll보다 대상 포커스를 우선한다', async () => {
     const scrollTo = vi
       .spyOn(window, 'scrollTo')

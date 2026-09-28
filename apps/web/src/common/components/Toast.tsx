@@ -48,10 +48,10 @@ type ToastProps = ToastRecord & {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const variantClassNames: Record<ToastVariant, string> = {
-  info: 'border-blue-200 bg-blue-50 text-blue-950',
-  success: 'border-green-200 bg-green-50 text-green-950',
-  warning: 'border-amber-200 bg-amber-50 text-amber-950',
-  danger: 'border-red-200 bg-red-50 text-red-950'
+  info: 'border-info-line bg-info-soft text-info-strong',
+  success: 'border-success-line bg-success-soft text-success-strong',
+  warning: 'border-warning-line bg-warning-soft text-warning-strong',
+  danger: 'border-danger-line bg-danger-soft text-danger-strong'
 }
 
 const variantLabels: Record<ToastVariant, string> = {
@@ -106,7 +106,7 @@ export const Toast = ({
   return (
     <article
       className={classNames(
-        'ui-toast pointer-events-auto grid grid-cols-[1fr_auto] gap-3 rounded-xl border p-4 shadow-soft',
+        'ui-toast pointer-events-auto grid grid-cols-[1fr_auto] gap-3 rounded-card border p-4 shadow-soft',
         variantClassNames[variant]
       )}
       role="status"
@@ -138,7 +138,7 @@ export const Toast = ({
         ) : null}
         {action ? (
           <button
-            className="mt-3 min-h-11 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            className="mt-3 min-h-11 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-current"
             type="button"
             onClick={action.onClick}
           >
@@ -197,7 +197,7 @@ export const ToastProvider = ({
     <ToastContext.Provider value={contextValue}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[70] ml-auto grid max-w-md gap-3"
+        className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-toast ml-auto grid max-w-md gap-3"
         aria-label="알림"
       >
         {toasts.map((toast) => (

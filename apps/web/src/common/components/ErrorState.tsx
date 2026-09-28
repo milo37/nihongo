@@ -37,7 +37,7 @@ export const ErrorState = ({
   return (
     <section
       className={classNames(
-        'rounded-xl border border-red-200 bg-red-50 px-5 py-6 text-red-950',
+        'rounded-card border border-danger/25 bg-danger-soft px-5 py-6 text-danger-strong',
         className
       )}
       role="alert"
@@ -51,7 +51,9 @@ export const ErrorState = ({
       >
         {title}
       </Heading>
-      <p className="mt-2 break-words leading-7 text-red-900">{description}</p>
+      <p className="mt-2 break-words leading-7 text-danger-strong">
+        {description}
+      </p>
       {onRetry ? (
         <Button className="mt-5" variant="danger" onClick={onRetry}>
           {retryLabel}

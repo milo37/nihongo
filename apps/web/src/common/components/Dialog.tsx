@@ -212,7 +212,7 @@ export const Dialog = ({
     <dialog
       ref={dialogRef}
       className={classNames(
-        'ui-dialog m-auto max-h-[min(90dvh,56rem)] w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-line bg-white p-0 text-ink shadow-2xl',
+        'ui-dialog m-auto max-h-[min(90dvh,56rem)] w-[calc(100%-2rem)] overflow-hidden rounded-panel border border-line bg-surface p-0 text-ink shadow-elevated',
         sizeClassNames[size],
         className
       )}
@@ -273,7 +273,7 @@ export const Dialog = ({
           </div>
         ) : null}
         {footer ? (
-          <div className="flex flex-col-reverse gap-2 border-t border-line bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="flex flex-col-reverse gap-2 border-t border-line bg-surface-muted px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
             {footer}
           </div>
         ) : null}

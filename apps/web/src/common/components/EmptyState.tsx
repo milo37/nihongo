@@ -40,7 +40,7 @@ export const EmptyState = ({
     >
       {icon ? (
         <span
-          className="mb-5 inline-grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-600"
+          className="mb-5 inline-grid size-12 place-items-center rounded-card bg-surface-muted text-muted"
           aria-hidden="true"
         >
           {icon}

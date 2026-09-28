@@ -22,14 +22,15 @@ type ButtonProps = ComponentPropsWithRef<'button'> & {
 
 const variantClassNames: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand text-white shadow-sm hover:bg-emerald-800 active:bg-emerald-900',
+    'bg-brand text-on-accent shadow-control hover:bg-brand-strong active:bg-brand-active',
   secondary:
-    'bg-slate-900 text-white shadow-sm hover:bg-slate-800 active:bg-slate-950',
-  dark: 'bg-slate-950 text-white shadow-sm hover:bg-slate-800 active:bg-black',
+    'bg-ink text-on-accent shadow-control hover:bg-ink/90 active:bg-ink/80',
+  dark: 'bg-ink text-on-accent shadow-control hover:bg-ink/90 active:bg-ink/80',
   outline:
-    'border border-line bg-white text-ink hover:border-slate-400 hover:bg-slate-50 active:bg-slate-100',
-  ghost: 'text-ink hover:bg-slate-100 active:bg-slate-200',
-  danger: 'bg-red-700 text-white shadow-sm hover:bg-red-800 active:bg-red-900'
+    'border border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-muted active:bg-line',
+  ghost: 'text-ink hover:bg-surface-muted active:bg-line',
+  danger:
+    'bg-danger text-on-accent shadow-control hover:bg-danger-strong active:bg-danger-strong/90'
 }
 
 const sizeClassNames: Record<ButtonSize, string> = {
@@ -53,9 +54,9 @@ export const Button = ({
   return (
     <button
       className={classNames(
-        'inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold',
+        'inline-flex select-none items-center justify-center gap-2 rounded-control font-semibold',
         'touch-manipulation transition-[background-color,border-color,color,box-shadow,transform] duration-150',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
         'disabled:cursor-not-allowed disabled:opacity-55',
         variantClassNames[variant],
         sizeClassNames[size],

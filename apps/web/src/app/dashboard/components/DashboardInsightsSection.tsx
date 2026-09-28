@@ -10,6 +10,8 @@ import { EmptyState } from '@common/components/EmptyState'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Skeleton } from '@common/components/Skeleton'
+import { Table } from '@common/components/Table'
+import { Tabs } from '@common/components/Tabs'
 
 const DashboardInsightChart = lazy(() =>
   import('@app/dashboard/components/DashboardInsightChart').then((module) => ({
@@ -48,55 +50,52 @@ const MetricTable = ({
 }: MetricTableProps): ReactElement => (
   <section>
     <h3 className="text-lg font-black">{title}</h3>
-    <div
-      aria-label={label}
-      className="mt-4 overflow-x-auto rounded-lg border border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-      role="region"
-      tabIndex={0}
+    <Table
+      caption={`${title} 표`}
+      className="text-sm"
+      containerClassName="mt-4"
+      minWidthClassName="min-w-[42rem]"
+      scrollLabel={label}
     >
-      <table className="min-w-[42rem] border-collapse text-left text-sm">
-        <thead className="bg-slate-50 text-slate-700">
-          <tr>
-            <th className="px-4 py-3 font-bold" scope="col">
-              구분
+      <thead className="bg-surface-muted text-muted">
+        <tr>
+          <th className="px-4 py-3 font-bold" scope="col">
+            구분
+          </th>
+          <th className="px-4 py-3 font-bold" scope="col">
+            풀이
+          </th>
+          <th className="px-4 py-3 font-bold" scope="col">
+            정답
+          </th>
+          <th className="px-4 py-3 font-bold" scope="col">
+            정답률
+          </th>
+          <th className="px-4 py-3 font-bold" scope="col">
+            평균 시간
+          </th>
+          <th className="px-4 py-3 font-bold" scope="col">
+            최근 학습
+          </th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line bg-surface">
+        {items.map((item) => (
+          <tr key={item.id}>
+            <th className="whitespace-nowrap px-4 py-3 font-bold" scope="row">
+              {item.label}
             </th>
-            <th className="px-4 py-3 font-bold" scope="col">
-              풀이
-            </th>
-            <th className="px-4 py-3 font-bold" scope="col">
-              정답
-            </th>
-            <th className="px-4 py-3 font-bold" scope="col">
-              정답률
-            </th>
-            <th className="px-4 py-3 font-bold" scope="col">
-              평균 시간
-            </th>
-            <th className="px-4 py-3 font-bold" scope="col">
-              최근 학습
-            </th>
+            <td className="px-4 py-3">{item.attemptedCount}회</td>
+            <td className="px-4 py-3">{item.correctCount}회</td>
+            <td className="px-4 py-3 font-semibold">{item.correctRateLabel}</td>
+            <td className="px-4 py-3">{item.averageElapsedLabel}</td>
+            <td className="whitespace-nowrap px-4 py-3">
+              {item.lastAnsweredLabel}
+            </td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-line bg-white">
-          {items.map((item) => (
-            <tr key={item.id}>
-              <th className="whitespace-nowrap px-4 py-3 font-bold" scope="row">
-                {item.label}
-              </th>
-              <td className="px-4 py-3">{item.attemptedCount}회</td>
-              <td className="px-4 py-3">{item.correctCount}회</td>
-              <td className="px-4 py-3 font-semibold">
-                {item.correctRateLabel}
-              </td>
-              <td className="px-4 py-3">{item.averageElapsedLabel}</td>
-              <td className="whitespace-nowrap px-4 py-3">
-                {item.lastAnsweredLabel}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </Table>
   </section>
 )
 
@@ -129,7 +128,7 @@ export const DashboardInsightsSection = ({
   if (isPending && !data) {
     return (
       <LoadingState
-        className="mt-8 rounded-xl border border-line bg-white"
+        className="mt-8 rounded-xl border border-line bg-surface"
         message="최근 90일 인사이트를 불러오고 있습니다."
       />
     )
@@ -170,7 +169,7 @@ export const DashboardInsightsSection = ({
           >
             약점과 다음 학습 추천
           </h2>
-          <p className="mt-3 text-sm font-semibold text-slate-600">
+          <p className="mt-3 text-sm font-semibold text-muted">
             {data.window.durationDays}일 기록 · 최소 {data.window.minAttempts}회
             표본 · {data.observedAtLabel} 기준
           </p>
@@ -193,7 +192,7 @@ export const DashboardInsightsSection = ({
       ) : null}
 
       <dl className="mt-8 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
-        <div className="bg-white p-5">
+        <div className="bg-surface p-5">
           <dt className="text-sm text-muted">최근 풀이</dt>
           <dd className="mt-2 text-3xl font-black">
             {data.stats.overall.attemptedCount}
@@ -202,19 +201,19 @@ export const DashboardInsightsSection = ({
             </span>
           </dd>
         </div>
-        <div className="bg-white p-5">
+        <div className="bg-surface p-5">
           <dt className="text-sm text-muted">최근 정답률</dt>
           <dd className="mt-2 text-3xl font-black text-brand">
             {data.stats.overall.correctRateLabel}
           </dd>
         </div>
-        <div className="bg-white p-5">
+        <div className="bg-surface p-5">
           <dt className="text-sm text-muted">평균 풀이 시간</dt>
           <dd className="mt-2 text-3xl font-black">
             {data.stats.overall.averageElapsedLabel}
           </dd>
         </div>
-        <div className="bg-white p-5">
+        <div className="bg-surface p-5">
           <dt className="text-sm text-muted">복습 예정</dt>
           <dd className="mt-2 text-3xl font-black">
             {data.reviewQueueCounts.due}
@@ -223,7 +222,7 @@ export const DashboardInsightsSection = ({
             </span>
           </dd>
         </div>
-        <div className="bg-white p-5">
+        <div className="bg-surface p-5">
           <dt className="text-sm text-muted">반복 오답</dt>
           <dd className="mt-2 text-3xl font-black">
             {data.reviewQueueCounts.repeated}
@@ -237,7 +236,7 @@ export const DashboardInsightsSection = ({
       {hasAttempts ? (
         <>
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <article className="rounded-xl border border-line bg-white p-5 sm:p-7">
+            <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
               <h3 className="text-xl font-black">급수별 정답률</h3>
               <p className="mt-2 text-sm text-muted">
                 막대와 같은 수치를 아래 표에서도 확인할 수 있습니다.
@@ -256,7 +255,7 @@ export const DashboardInsightsSection = ({
               </div>
             </article>
 
-            <article className="rounded-xl border border-line bg-white p-5 sm:p-7">
+            <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
               <MetricTable
                 items={data.stats.byLevel}
                 label="최근 90일 급수별 정답률 상세 표"
@@ -265,7 +264,7 @@ export const DashboardInsightsSection = ({
             </article>
           </div>
 
-          <div className="mt-8 rounded-xl border border-line bg-white p-5 sm:p-7">
+          <div className="mt-8 rounded-xl border border-line bg-surface p-5 sm:p-7">
             <MetricTable
               items={data.stats.bySubject}
               label="최근 90일 과목별 정답률 상세 표"
@@ -273,44 +272,65 @@ export const DashboardInsightsSection = ({
             />
           </div>
 
-          <details className="mt-6 rounded-xl border border-line bg-white p-5 sm:p-7">
-            <summary className="min-h-11 cursor-pointer py-2 text-lg font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+          <details className="mt-6 rounded-xl border border-line bg-surface p-5 sm:p-7">
+            <summary className="min-h-11 cursor-pointer py-2 text-lg font-black focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand">
               유형·태그 세부 통계 보기
             </summary>
-            <div className="mt-6 space-y-8">
-              <MetricTable
-                items={data.stats.byQuestionType}
-                label="최근 90일 문제 유형별 정답률 상세 표"
-                title="문제 유형별 통계"
+            <div className="mt-6">
+              <Tabs
+                label="세부 통계 종류"
+                tabs={[
+                  {
+                    id: 'question-type',
+                    label: '문제 유형',
+                    panel: (
+                      <MetricTable
+                        items={data.stats.byQuestionType}
+                        label="최근 90일 문제 유형별 정답률 상세 표"
+                        title="문제 유형별 통계"
+                      />
+                    )
+                  },
+                  {
+                    id: 'tag',
+                    label: '태그',
+                    panel: (
+                      <div>
+                        {data.stats.byTag.length > 0 ? (
+                          <MetricTable
+                            items={data.stats.byTag}
+                            label="최근 90일 태그별 정답률 상세 표"
+                            title="태그별 통계"
+                          />
+                        ) : (
+                          <p className="text-sm text-muted">
+                            관측된 태그가 없습니다.
+                          </p>
+                        )}
+                        {data.stats.byTagTruncated ? (
+                          <p className="mt-3 text-sm font-semibold text-warning-strong">
+                            태그 전체 {data.stats.byTagTotal}개 중 최대 100개를
+                            표시합니다.
+                          </p>
+                        ) : null}
+                      </div>
+                    )
+                  }
+                ]}
               />
-              {data.stats.byTag.length > 0 ? (
-                <MetricTable
-                  items={data.stats.byTag}
-                  label="최근 90일 태그별 정답률 상세 표"
-                  title="태그별 통계"
-                />
-              ) : (
-                <p className="text-sm text-muted">관측된 태그가 없습니다.</p>
-              )}
-              {data.stats.byTagTruncated ? (
-                <p className="text-sm font-semibold text-amber-900">
-                  태그 전체 {data.stats.byTagTotal}개 중 최대 100개를
-                  표시합니다.
-                </p>
-              ) : null}
             </div>
           </details>
         </>
       ) : (
         <EmptyState
-          className="mt-8 rounded-xl border border-line bg-white"
+          className="mt-8 rounded-xl border border-line bg-surface"
           title="최근 90일 학습 기록이 없습니다"
           description="문제를 풀면 급수·과목·유형·태그별 정확도와 평균 풀이 시간이 표시됩니다. 표본이 없는 값은 0%가 아니라 ‘표본 없음’으로 구분합니다."
         />
       )}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <article className="rounded-xl border border-line bg-white p-5 sm:p-7">
+        <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-xl font-black">분석된 약점</h3>
             <Badge>{data.weaknesses.length}개</Badge>
@@ -323,7 +343,7 @@ export const DashboardInsightsSection = ({
                   <div>
                     <p className="font-bold">{weakness.title}</p>
                     <p className="mt-1 text-sm text-muted">{weakness.detail}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-600">
+                    <p className="mt-1 text-xs font-semibold text-muted">
                       {weakness.scoreLabel}
                     </p>
                   </div>
@@ -340,14 +360,14 @@ export const DashboardInsightsSection = ({
           )}
         </article>
 
-        <article className="rounded-xl border border-line bg-white p-5 sm:p-7">
+        <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
           <div className="flex items-center justify-between gap-4">
             <h3 className="text-xl font-black">다음 학습 추천</h3>
             <Badge variant="success">{data.recommendations.length}개</Badge>
           </div>
           {data.personalizationNotice ? (
             <p
-              className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950"
+              className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
               role="status"
             >
               {data.personalizationNotice}
@@ -355,7 +375,7 @@ export const DashboardInsightsSection = ({
           ) : null}
           {actionNotice ? (
             <p
-              className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-950 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+              className="mt-4 rounded-lg border border-danger-line bg-danger-soft px-4 py-3 text-sm font-semibold text-danger-strong focus:outline-none focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-danger"
               key={actionNotice.id}
               ref={actionNoticeRef}
               role="alert"

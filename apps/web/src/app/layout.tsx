@@ -8,8 +8,8 @@ import { useAppStore } from '@store/index'
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
     'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
-    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-    isActive ? 'bg-emerald-50 text-brand' : 'text-slate-600 hover:text-ink'
+    'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
+    isActive ? 'bg-brand-soft text-brand' : 'text-muted hover:text-ink'
   ].join(' ')
 }
 
@@ -74,6 +74,7 @@ export const Layout = (): ReactElement => {
   const location = useLocation()
   const navigationType = useNavigationType()
   const mainRef = useRef<HTMLElement>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const previousPathnameRef = useRef(location.pathname)
   const previousHashRef = useRef('')
   const [routeAnnouncement, setRouteAnnouncement] = useState('')
@@ -148,27 +149,45 @@ export const Layout = (): ReactElement => {
     }
   }, [location.hash, location.pathname, navigationType])
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') {
+        return
+      }
+      event.preventDefault()
+      setMobileMenuOpen(false)
+      mobileMenuButtonRef.current?.focus()
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isMobileMenuOpen, setMobileMenuOpen])
+
   const closeMenu = (): void => {
     setMobileMenuOpen(false)
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-ink">
+    <div className="min-h-screen bg-canvas text-ink">
       <a
-        className="sr-only z-[100] rounded-lg bg-white px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
+        className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
         href="#main-content"
       >
         본문으로 바로가기
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+      <header className="sticky top-0 z-header border-b border-line bg-surface/95 backdrop-blur">
+        <div className="mx-auto flex min-h-16 max-w-content items-center justify-between gap-4 px-4 sm:px-6">
           <NavLink
-            className="flex min-h-11 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+            className="flex min-h-11 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
             to="/"
             onClick={closeMenu}
           >
             <span
-              className="grid size-10 place-items-center rounded-xl bg-emerald-700 font-black text-white"
+              className="grid size-10 place-items-center rounded-xl bg-brand-strong font-black text-on-accent"
               aria-hidden="true"
             >
               文
@@ -182,7 +201,8 @@ export const Layout = (): ReactElement => {
           </NavLink>
 
           <button
-            className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-line text-xl hover:border-slate-400 hover:bg-slate-50 md:hidden"
+            ref={mobileMenuButtonRef}
+            className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-line text-xl hover:border-line-strong hover:bg-surface-muted md:hidden"
             type="button"
             aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
             aria-expanded={isMobileMenuOpen}
@@ -195,12 +215,12 @@ export const Layout = (): ReactElement => {
           <nav
             id="primary-navigation"
             className={[
-              'absolute inset-x-0 top-16 border-b border-line bg-white p-4 md:static md:block md:border-0 md:p-0',
+              'absolute inset-x-0 top-16 border-b border-line bg-surface p-4 md:static md:block md:border-0 md:p-0',
               isMobileMenuOpen ? 'block' : 'hidden md:block'
             ].join(' ')}
             aria-label="주요 메뉴"
           >
-            <div className="mx-auto flex max-w-7xl flex-col gap-1 md:flex-row md:items-center">
+            <div className="mx-auto flex max-w-content flex-col gap-1 md:flex-row md:items-center">
               <NavLink
                 className={getNavClassName}
                 to="/practice"
@@ -260,14 +280,14 @@ export const Layout = (): ReactElement => {
 
       <main
         ref={mainRef}
-        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand"
+        className="focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus-inset focus-visible:outline-brand"
         id="main-content"
         tabIndex={-1}
       >
         <Suspense
           fallback={
             <div
-              className="mx-auto max-w-7xl px-4 py-16 text-center text-muted"
+              className="mx-auto max-w-content px-4 py-16 text-center text-muted"
               role="status"
             >
               페이지를 불러오는 중입니다…
@@ -282,8 +302,8 @@ export const Layout = (): ReactElement => {
         </Suspense>
       </main>
 
-      <footer className="border-t border-line bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:px-6 md:flex-row md:items-center md:justify-between">
+      <footer className="border-t border-line bg-surface">
+        <div className="mx-auto flex max-w-content flex-col gap-2 px-4 py-8 text-sm text-muted sm:px-6 md:flex-row md:items-center md:justify-between">
           <p>자체 제작 문제만 사용하는 포트폴리오 프로젝트입니다.</p>
           <p>청해·실제 JLPT 기출문제는 포함하지 않습니다.</p>
         </div>

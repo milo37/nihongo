@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node ../../scripts/architecture/cli.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/phase9-built-css-check.mjs && node ../../scripts/architecture/cli.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:phase9:tokens": "node --test scripts/phase9-design-token-contract.test.mjs scripts/phase9-built-css-contract.test.mjs && node scripts/phase9-design-token-check.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

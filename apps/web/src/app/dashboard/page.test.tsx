@@ -511,6 +511,51 @@ describe('DashboardPage', () => {
     expect(screen.getByText('약점 연습 · N2 문법 · 5문제')).toBeVisible()
   })
 
+  it('태그 제한 안내를 tag tab 안에서만 노출한다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    mockServer.use(
+      http.get('*/api/v1/dashboard/insights', () =>
+        HttpResponse.json({
+          ...dashboardInsightsConformanceFixture,
+          stats: {
+            ...dashboardInsightsConformanceFixture.stats,
+            byTag: Array.from({ length: 100 }, (_, index) => ({
+              ...dashboardInsightsConformanceFixture.stats.byTag[0],
+              tagId: toStableMockUuid('dashboard-tag', String(index)),
+              tagLabel: `태그 ${index + 1}`
+            })).toSorted((left, right) =>
+              left.tagId.localeCompare(right.tagId)
+            ),
+            byTagTotal: 101,
+            byTagTruncated: true
+          }
+        })
+      )
+    )
+
+    renderDashboard(createTestQueryClient())
+
+    await screen.findByText('약점과 다음 학습 추천')
+    await user.click(screen.getByText('유형·태그 세부 통계 보기'))
+
+    expect(
+      screen.queryByText('태그 전체 101개 중 최대 100개를 표시합니다.')
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: '태그' }))
+
+    expect(
+      screen.getByText('태그 전체 101개 중 최대 100개를 표시합니다.')
+    ).toBeVisible()
+
+    await user.click(screen.getByRole('tab', { name: '문제 유형' }))
+    expect(
+      screen.queryByText('태그 전체 101개 중 최대 100개를 표시합니다.')
+    ).not.toBeInTheDocument()
+  })
+
   it('명시적 CTA 전에는 command를 보내지 않고 65문항 독해 부족을 actualCount 축소로 유지한다', async () => {
     const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')

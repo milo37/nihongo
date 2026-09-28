@@ -16,10 +16,10 @@ type IconButtonProps = Omit<
 
 const variantClassNames: Record<IconButtonVariant, string> = {
   default:
-    'border border-line bg-white text-ink hover:border-slate-400 hover:bg-slate-50',
-  ghost: 'text-muted hover:bg-slate-100 hover:text-ink',
+    'border border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-muted',
+  ghost: 'text-muted hover:bg-surface-muted hover:text-ink',
   danger:
-    'border border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800'
+    'border border-danger/25 bg-surface text-danger hover:bg-danger-soft hover:text-danger-strong'
 }
 
 const sizeClassNames: Record<IconButtonSize, string> = {
@@ -41,9 +41,9 @@ export const IconButton = ({
   return (
     <button
       className={classNames(
-        'inline-grid shrink-0 select-none place-items-center rounded-lg',
+        'inline-grid shrink-0 select-none place-items-center rounded-control',
         'touch-manipulation transition-[background-color,border-color,color,box-shadow] duration-150',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+        'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
         'disabled:cursor-not-allowed disabled:opacity-55',
         variantClassNames[variant],
         sizeClassNames[size],

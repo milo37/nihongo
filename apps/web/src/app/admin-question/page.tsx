@@ -22,6 +22,7 @@ import { Input } from '@common/components/Input'
 import { LoadingState } from '@common/components/LoadingState'
 import { Pagination } from '@common/components/Pagination'
 import { Select } from '@common/components/Select'
+import { Table, TableSortHeader } from '@common/components/Table'
 
 const levels = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
 const subjects = ['VOCABULARY', 'GRAMMAR', 'READING'] as const
@@ -377,7 +378,7 @@ export const AdminQuestionPage = (): ReactElement => {
       </div>
 
       <form
-        className="mt-8 grid gap-3 rounded-2xl border border-line bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4"
+        className="mt-8 grid gap-3 rounded-panel border border-line bg-surface p-4 shadow-control sm:grid-cols-2 lg:grid-cols-4"
         role="search"
         onSubmit={handleSearch}
       >
@@ -542,12 +543,12 @@ export const AdminQuestionPage = (): ReactElement => {
       </form>
 
       {parsedSearch.error ? (
-        <p className="mt-3 font-semibold text-red-700" role="alert">
+        <p className="mt-3 font-semibold text-danger" role="alert">
           {parsedSearch.error}
         </p>
       ) : null}
 
-      <div className="mt-6 flex flex-col gap-3 rounded-xl border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-6 flex flex-col gap-3 rounded-panel border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="font-semibold" aria-live="polite">
           {selectedItems.length}개 선택됨 · 내보내기는 모든 상태에서 최대 100개,
           일괄 검수는 ACTIVE 초안·수정 요청만 최대 20개입니다. 현재 검수 요청
@@ -618,7 +619,7 @@ export const AdminQuestionPage = (): ReactElement => {
 
       {list.isError && list.data ? (
         <div
-          className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+          className="mt-4 rounded-panel border border-warning-line bg-warning-soft p-4 text-warning-strong"
           role="alert"
         >
           <p className="font-semibold">
@@ -662,146 +663,158 @@ export const AdminQuestionPage = (): ReactElement => {
             표가 화면보다 넓으면 가로로 스크롤할 수 있습니다.
             {list.isFetching ? ' 최신 목록을 확인 중입니다.' : ''}
           </p>
-          <div
-            className="mt-2 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm"
-            role="region"
-            aria-describedby="admin-table-help"
-            aria-label="관리자 문제 목록 가로 스크롤 영역"
-            tabIndex={0}
+          <Table
+            caption="관리자 문제 목록. 선택, 문제, 분류, 버전 상태, 풀이·정답률, 신고, 생성일, 수정일, 상세 열로 구성됩니다."
+            containerClassName="mt-2 rounded-panel shadow-control"
+            descriptionId="admin-table-help"
+            minWidthClassName="min-w-[84rem]"
+            scrollLabel="관리자 문제 목록 가로 스크롤 영역"
           >
-            <table className="w-full min-w-[84rem] border-collapse text-left text-sm">
-              <caption className="sr-only">
-                관리자 문제 목록. 선택, 문제, 분류, 버전 상태, 풀이·정답률,
-                신고, 생성일, 수정일, 상세 열로 구성됩니다.
-              </caption>
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3" scope="col">
-                    선택
-                  </th>
-                  <th className="px-4 py-3" scope="col">
-                    문제
-                  </th>
-                  <th
-                    className="px-4 py-3"
-                    scope="col"
-                    aria-sort={
-                      query.sort === 'LEVEL_ASC' ? 'ascending' : undefined
-                    }
-                  >
-                    분류
-                  </th>
-                  <th className="px-4 py-3" scope="col">
-                    상태
-                  </th>
-                  <th className="px-4 py-3" scope="col">
-                    풀이·정답률
-                  </th>
-                  <th
-                    className="px-4 py-3"
-                    scope="col"
-                    aria-sort={
-                      query.sort === 'REPORT_COUNT_DESC'
-                        ? 'descending'
-                        : undefined
-                    }
-                  >
-                    신고
-                  </th>
-                  <th
-                    className="px-4 py-3"
-                    scope="col"
-                    aria-sort={
-                      query.sort === 'CREATED_DESC' ? 'descending' : undefined
-                    }
-                  >
-                    생성일
-                  </th>
-                  <th
-                    className="px-4 py-3"
-                    scope="col"
-                    aria-sort={
-                      query.sort === 'UPDATED_DESC' ? 'descending' : undefined
-                    }
-                  >
-                    수정일
-                  </th>
-                  <th className="px-4 py-3" scope="col">
-                    상세
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {list.data.items.map((item) => (
-                  <tr key={item.questionId} className="align-top">
-                    <td className="px-4 py-4">
+            <thead className="bg-surface-muted text-muted">
+              <tr>
+                <th className="px-4 py-3" scope="col">
+                  선택
+                </th>
+                <th className="px-4 py-3" scope="col">
+                  문제
+                </th>
+                <TableSortHeader
+                  direction={
+                    query.sort === 'LEVEL_ASC' ? 'ascending' : undefined
+                  }
+                  sortLabel={
+                    query.sort === 'LEVEL_ASC'
+                      ? '분류, 급수 오름차순 정렬됨'
+                      : '분류, 급수 오름차순으로 정렬'
+                  }
+                  onSort={() => setFilter('sort', 'LEVEL_ASC')}
+                >
+                  분류
+                </TableSortHeader>
+                <th className="px-4 py-3" scope="col">
+                  상태
+                </th>
+                <th className="px-4 py-3" scope="col">
+                  풀이·정답률
+                </th>
+                <TableSortHeader
+                  direction={
+                    query.sort === 'REPORT_COUNT_DESC'
+                      ? 'descending'
+                      : undefined
+                  }
+                  sortLabel={
+                    query.sort === 'REPORT_COUNT_DESC'
+                      ? '신고, 많은 순 정렬됨'
+                      : '신고, 많은 순으로 정렬'
+                  }
+                  onSort={() => setFilter('sort', 'REPORT_COUNT_DESC')}
+                >
+                  신고
+                </TableSortHeader>
+                <TableSortHeader
+                  direction={
+                    query.sort === 'CREATED_DESC' ? 'descending' : undefined
+                  }
+                  sortLabel={
+                    query.sort === 'CREATED_DESC'
+                      ? '생성일, 최근순 정렬됨'
+                      : '생성일, 최근순으로 정렬'
+                  }
+                  onSort={() => setFilter('sort', 'CREATED_DESC')}
+                >
+                  생성일
+                </TableSortHeader>
+                <TableSortHeader
+                  direction={
+                    query.sort === 'UPDATED_DESC' ? 'descending' : undefined
+                  }
+                  sortLabel={
+                    query.sort === 'UPDATED_DESC'
+                      ? '수정일, 최근순 정렬됨'
+                      : '수정일, 최근순으로 정렬'
+                  }
+                  onSort={() => setFilter('sort', 'UPDATED_DESC')}
+                >
+                  수정일
+                </TableSortHeader>
+                <th className="px-4 py-3" scope="col">
+                  상세
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {list.data.items.map((item) => (
+                <tr key={item.questionId} className="align-top">
+                  <td className="px-4 py-4">
+                    <label className="inline-flex size-11 cursor-pointer items-center justify-center rounded-control hover:bg-surface-muted focus-within:outline focus-within:outline-focus focus-within:outline-offset-focus focus-within:outline-brand">
                       <input
-                        className="size-5 accent-emerald-700"
+                        className="size-5 accent-brand"
                         checked={selectedItems.some(
                           (selected) => selected.questionId === item.questionId
                         )}
                         type="checkbox"
-                        aria-label={`${item.questionTextPreview} 선택`}
                         onChange={() => toggleSelection(item.questionId)}
                       />
-                    </td>
-                    <th className="max-w-xl px-4 py-4 font-medium" scope="row">
-                      <span className="line-clamp-2">
-                        {item.questionTextPreview}
+                      <span className="sr-only">
+                        {item.questionTextPreview} 선택
                       </span>
-                      <span className="mt-1 block font-mono text-xs text-muted">
-                        {item.questionId}
-                      </span>
-                    </th>
-                    <td className="px-4 py-4">
-                      {item.level} · {subjectLabels[item.subject]}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge
-                          variant={
-                            item.lifecycleStatus === 'ARCHIVED'
-                              ? 'danger'
-                              : 'neutral'
-                          }
-                        >
-                          {item.lifecycleStatus === 'ACTIVE'
-                            ? '활성'
-                            : '보관됨'}
-                        </Badge>
-                        <Badge variant="info">
-                          {versionStatusLabels[item.versionStatus]}
-                        </Badge>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap tabular-nums">
-                      {item.answerCount}회 ·{' '}
-                      {item.correctRateBasisPoints === null
-                        ? '정답률 없음'
-                        : `정답률 ${(item.correctRateBasisPoints / 100).toFixed(1)}%`}
-                    </td>
-                    <td className="px-4 py-4 tabular-nums">
-                      {item.openReportCount}건
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      {formatDate(item.createdAt)}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      {formatDate(item.updatedAt)}
-                    </td>
-                    <td className="px-4 py-4">
-                      <Link
-                        className="inline-flex min-h-11 items-center rounded-lg px-3 font-semibold text-brand underline decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                        to={`/admin/questions/${item.questionId}`}
+                    </label>
+                  </td>
+                  <th className="max-w-xl px-4 py-4 font-medium" scope="row">
+                    <span className="line-clamp-2">
+                      {item.questionTextPreview}
+                    </span>
+                    <span className="mt-1 block font-mono text-xs text-muted">
+                      {item.questionId}
+                    </span>
+                  </th>
+                  <td className="px-4 py-4">
+                    {item.level} · {subjectLabels[item.subject]}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge
+                        variant={
+                          item.lifecycleStatus === 'ARCHIVED'
+                            ? 'danger'
+                            : 'neutral'
+                        }
                       >
-                        열기
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        {item.lifecycleStatus === 'ACTIVE' ? '활성' : '보관됨'}
+                      </Badge>
+                      <Badge variant="info">
+                        {versionStatusLabels[item.versionStatus]}
+                      </Badge>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap tabular-nums">
+                    {item.answerCount}회 ·{' '}
+                    {item.correctRateBasisPoints === null
+                      ? '정답률 없음'
+                      : `정답률 ${(item.correctRateBasisPoints / 100).toFixed(1)}%`}
+                  </td>
+                  <td className="px-4 py-4 tabular-nums">
+                    {item.openReportCount}건
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {formatDate(item.createdAt)}
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    {formatDate(item.updatedAt)}
+                  </td>
+                  <td className="px-4 py-4">
+                    <Link
+                      className="inline-flex min-h-11 items-center rounded-lg px-3 font-semibold text-brand underline decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+                      to={`/admin/questions/${item.questionId}`}
+                    >
+                      열기
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
           <Pagination
             className="mt-8"
             currentPage={page}

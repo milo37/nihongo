@@ -64,7 +64,7 @@ export const Pagination = ({
   )
   const items = createPaginationItems(safeCurrentPage, normalizedTotalPages)
   const pageButtonClassName =
-    'inline-grid size-11 place-items-center rounded-lg border border-line bg-white text-sm font-semibold text-ink touch-manipulation hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50'
+    'inline-grid size-11 place-items-center rounded-control border border-line bg-surface text-sm font-semibold text-ink touch-manipulation hover:border-line-strong hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50'
 
   return (
     <nav
@@ -104,7 +104,7 @@ export const Pagination = ({
                 className={classNames(
                   pageButtonClassName,
                   isCurrent &&
-                    'border-brand bg-brand text-white hover:bg-emerald-800'
+                    'border-brand bg-brand text-on-accent hover:bg-brand-strong'
                 )}
                 type="button"
                 disabled={disabled}

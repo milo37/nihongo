@@ -15,7 +15,7 @@ export const Skeleton = ({
       <span className="sr-only">{label}</span>
       <div
         className={classNames(
-          'ui-skeleton min-h-4 rounded-md bg-slate-200',
+          'ui-skeleton min-h-4 rounded-control bg-line',
           className
         )}
         aria-hidden="true"

@@ -31,7 +31,9 @@ const expectOnlySortedHeader = (
   direction: 'ascending' | 'descending'
 ): void => {
   for (const candidate of ['분류', '신고', '생성일', '수정일'] as const) {
-    const header = screen.getByRole('columnheader', { name: candidate })
+    const header = screen.getByRole('columnheader', {
+      name: new RegExp(`^${candidate}`, 'u')
+    })
     if (candidate === name)
       expect(header).toHaveAttribute('aria-sort', direction)
     else expect(header).not.toHaveAttribute('aria-sort')
@@ -71,6 +73,14 @@ describe('AdminQuestionPage list accessibility', () => {
     )
     expect(sort).toHaveFocus()
     expectOnlySortedHeader('신고', 'descending')
+
+    const updatedSortButton = screen.getByRole('button', {
+      name: '수정일, 최근순으로 정렬'
+    })
+    await user.click(updatedSortButton)
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    expect(updatedSortButton).toHaveFocus()
+    expectOnlySortedHeader('수정일', 'descending')
 
     unmount()
     client.clear()
