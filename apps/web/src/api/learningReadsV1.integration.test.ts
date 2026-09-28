@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getDashboardInsightsV1 } from '@api/dashboard/getDashboardInsightsV1'
 import { getDashboardStatsV1 } from '@api/dashboard/getDashboardStatsV1'
 import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
 import { listWrongNotesV1 } from '@api/wrong-note/listWrongNotesV1'
@@ -77,6 +78,7 @@ describe('canonical learning-read endpoint adapters', () => {
     })
     const detail = await getWrongNoteV1(questionId)
     const dashboard = await getDashboardStatsV1()
+    const insights = await getDashboardInsightsV1()
 
     expect(list.items).toHaveLength(1)
     expect(list.items[0]?.questionId).toBe(questionId)
@@ -90,6 +92,14 @@ describe('canonical learning-read endpoint adapters', () => {
       wrongNoteCount: 1,
       solvedWrongNoteCount: 0
     })
+    expect(insights.stats.overall).toMatchObject({
+      attemptedCount: 1,
+      correctCount: 0,
+      correctRateBasisPoints: 0
+    })
+    expect(insights.recommendations).toEqual([
+      expect.objectContaining({ kind: 'TARGET_LEVEL_PRACTICE' })
+    ])
   })
 
   it('invalid params는 safeGet 이전 shared request parser에서 동기 거부한다', () => {

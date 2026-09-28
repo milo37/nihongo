@@ -3,6 +3,7 @@ import { adminCmsReadHandlers } from '@mocks/handlers/adminCmsReadHandlers'
 import { authHandlers } from '@mocks/handlers/authHandlers'
 import { bookmarkHandlers } from '@mocks/handlers/bookmarkHandlers'
 import { dashboardHandlers } from '@mocks/handlers/dashboardHandlers'
+import { dashboardInsightsV1Handlers } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { dashboardV1Handlers } from '@mocks/handlers/dashboardV1Handlers'
 import { questionHandlers } from '@mocks/handlers/questionHandlers'
 import { reviewCenterHandlers } from '@mocks/handlers/reviewCenterHandlers'
@@ -21,6 +22,7 @@ export const handlers = [
   ...studySessionV1Handlers,
   ...reviewCenterHandlers,
   ...wrongNoteV1Handlers,
+  ...dashboardInsightsV1Handlers,
   ...dashboardV1Handlers,
   ...studyHandlers,
   ...wrongNoteHandlers,

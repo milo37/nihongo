@@ -47,6 +47,7 @@ describe('Phase 4 canonical UI cutover', () => {
         wrongNoteQueries.list({ page: 1, pageSize: 20, sort: 'RECENT' })
       )
       await client.fetchQuery(dashboardQueries.stats())
+      await client.fetchQuery(dashboardQueries.insights())
 
       expect(observedPaths).toEqual(
         expect.arrayContaining([
@@ -55,7 +56,8 @@ describe('Phase 4 canonical UI cutover', () => {
           `/api/v1/study-sessions/${session.session.id}/submission`,
           `/api/v1/study-sessions/${session.session.id}/result`,
           '/api/v1/wrong-notes',
-          '/api/v1/dashboard'
+          '/api/v1/dashboard',
+          '/api/v1/dashboard/insights'
         ])
       )
       expect(

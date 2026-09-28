@@ -368,6 +368,60 @@ export interface MockCanonicalDashboardRecord {
   readonly wrongNotes: readonly MockCanonicalWrongNoteRecord[]
 }
 
+export interface MockCanonicalDashboardInsightAnswerRecord {
+  readonly answerId: string
+  readonly answeredAt: string
+  readonly elapsedSec: number
+  readonly isCorrect: boolean
+  readonly level: JlptLevel
+  readonly questionId: string
+  readonly questionType: QuestionType
+  readonly questionVersionId: string
+  readonly sessionId: string
+  readonly subject: QuestionSubject
+  readonly tags: readonly {
+    readonly tagId: string
+    readonly tagLabel: string
+  }[]
+}
+
+export interface MockCanonicalDashboardInsightSessionRecord {
+  readonly id: string
+  readonly level: JlptLevel
+  readonly questionIds: readonly string[]
+  readonly subject: QuestionSubject
+  readonly submittedAt: string
+}
+
+export interface MockCanonicalDashboardInsightCatalogRecord {
+  readonly level: JlptLevel
+  readonly questionId: string
+  readonly questionText: string
+  readonly questionType: QuestionType
+  readonly subject: QuestionSubject
+}
+
+export interface MockCanonicalDashboardInsightWrongNoteRecord {
+  readonly isAvailable: boolean
+  readonly lastWrongAt: string
+  readonly level: JlptLevel
+  readonly nextReviewAt: string
+  readonly questionId: string
+  readonly questionText: string
+  readonly status: WrongNoteStatus
+  readonly subject: QuestionSubject
+  readonly wrongCount: number
+}
+
+export interface MockCanonicalDashboardInsightsRecord {
+  readonly answers: readonly MockCanonicalDashboardInsightAnswerRecord[]
+  readonly currentCatalog: readonly MockCanonicalDashboardInsightCatalogRecord[]
+  readonly observedAt: string
+  readonly sessions: readonly MockCanonicalDashboardInsightSessionRecord[]
+  readonly targetLevel: JlptLevel | null
+  readonly wrongNotes: readonly MockCanonicalDashboardInsightWrongNoteRecord[]
+}
+
 interface MockCanonicalIdempotencyRecordBase {
   readonly completedAt: string
   readonly contractVersion: 1 | 2
@@ -2775,6 +2829,103 @@ export class MockDatabase {
         submittedAt: result.submittedAt
       })),
       wrongNotes
+    })
+  }
+
+  getCanonicalDashboardInsightsRecord(
+    userId: string
+  ): MockCanonicalDashboardInsightsRecord {
+    this.assertCanonicalReadOwner(userId)
+    const user = this.userById.get(userId)
+    if (!user) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '대시보드 인사이트를 조회하려면 로그인이 필요합니다.'
+      )
+    }
+
+    const observedAt = this.now()
+    const submissions = this.getCanonicalUserSubmissionEvidence(userId)
+    const learnerReadModel = this.buildPhase7LearnerQuestionReadModel()
+    const currentCatalog = [...learnerReadModel.currentBySourceId.values()].map(
+      (question) => {
+        const contract = toContractPracticeQuestion(
+          question,
+          getQuestionVersionFingerprint(question),
+          getPhase7QuestionContractIdentity(question)
+        )
+        return {
+          level: contract.level,
+          questionId: contract.id,
+          questionText: contract.questionText,
+          questionType: contract.questionType,
+          subject: contract.subject
+        }
+      }
+    )
+    const currentBySourceId = learnerReadModel.currentBySourceId
+
+    return clone({
+      answers: submissions.flatMap((submission) =>
+        submission.answers.map(({ answer, question }) => {
+          const contract = toContractPracticeQuestion(
+            question,
+            getQuestionVersionFingerprint(question),
+            getPhase7QuestionContractIdentity(question)
+          )
+          if (contract.questionVersionId !== answer.questionVersionId) {
+            throwCanonicalIntegrityError(
+              'dashboard insights pinned question version이 Answer와 다릅니다.'
+            )
+          }
+          return {
+            answerId: answer.id,
+            answeredAt: answer.answeredAt,
+            elapsedSec: answer.elapsedSec,
+            isCorrect: answer.isCorrect,
+            level: contract.level,
+            questionId: contract.id,
+            questionType: contract.questionType,
+            questionVersionId: contract.questionVersionId,
+            sessionId: answer.sessionId,
+            subject: contract.subject,
+            tags: contract.tags.map((tag) => ({
+              tagId: tag.id,
+              tagLabel: tag.label
+            }))
+          }
+        })
+      ),
+      currentCatalog,
+      observedAt,
+      sessions: submissions.map(({ answers, result, session }) => ({
+        id: session.id,
+        level: session.level,
+        questionIds: answers.map(({ question }) =>
+          getCanonicalQuestionId(question)
+        ),
+        subject: session.subject,
+        submittedAt: result.submittedAt
+      })),
+      targetLevel: user.targetLevel,
+      wrongNotes: this.reconstructCanonicalWrongNotes(userId, submissions).map(
+        (note) => {
+          const currentQuestion = currentBySourceId.get(note.sourceQuestionId)
+          const displayQuestion = currentQuestion ?? note.lastWrongQuestion
+          return {
+            isAvailable: currentQuestion !== undefined,
+            lastWrongAt: note.lastWrongAt,
+            level: displayQuestion.level,
+            nextReviewAt: note.nextReviewAt,
+            questionId: getCanonicalQuestionId(displayQuestion),
+            questionText: displayQuestion.questionText,
+            status: note.status,
+            subject: displayQuestion.subject,
+            wrongCount: note.wrongCount
+          }
+        }
+      )
     })
   }
 

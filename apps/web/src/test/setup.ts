@@ -21,6 +21,7 @@ import {
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { resetAdminCmsCommandRateLimitForTesting } from '@mocks/handlers/adminCmsCommandHandlers'
 import { resetAdminCmsReadRateLimitForTesting } from '@mocks/handlers/adminCmsReadHandlers'
+import { resetDashboardInsightsRateLimitForTesting } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { useAppStore } from '@store/index'
 import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 
@@ -34,6 +35,7 @@ const resetTestState = async (): Promise<void> => {
   queryClient.clear()
   resetAdminCmsCommandRateLimitForTesting()
   resetAdminCmsReadRateLimitForTesting()
+  resetDashboardInsightsRateLimitForTesting()
   mockDatabase.reset()
   useAppStore.setState({
     currentUser: null,
