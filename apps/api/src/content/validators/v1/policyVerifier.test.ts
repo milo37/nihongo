@@ -13,7 +13,7 @@ import {
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readArtifactJson } from './artifactReader.js'
 import { canonicalJsonBytes } from './canonicalHash.js'
 import {
@@ -29,7 +29,19 @@ import { WORKSPACE_PACKAGE_MANIFEST_PATHS } from './policySchemas.js'
 import { verifyTrackedPolicySnapshots } from './contentCheck.js'
 import { verifyPolicySnapshot } from './policyVerifier.js'
 import { VALIDATOR_SOURCE_PATHS_V1 } from './sourceManifest.js'
-import { parseSshEd25519PublicKey } from './sshsigVerifier.js'
+import {
+  parseSshEd25519PublicKey,
+  readOpenSshVersion
+} from './sshsigVerifier.js'
+
+// Unit tests stay host-agnostic; the pinned retained image attests the exact toolchain.
+vi.mock('./sshsigVerifier.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./sshsigVerifier.js')>()
+  return {
+    ...actual,
+    readOpenSshVersion: vi.fn(async () => 'OpenSSH_9.9p2')
+  }
+})
 
 const execFileAsync = promisify(execFile)
 const temporaryRoots: string[] = []
@@ -197,6 +209,18 @@ describe('Phase 6 Slice 1 owner-signed policy snapshot', () => {
       runtimeManifest: built.runtimeManifest,
       sourceManifest: built.sourceManifest
     })
+
+    vi.mocked(readOpenSshVersion).mockResolvedValueOnce('OpenSSH_0.0')
+    await expect(
+      verifyPolicySnapshot({
+        repositoryRoot,
+        snapshotBytes: built.snapshotBytes,
+        signature,
+        ownerPublicKey: owner.publicKey,
+        expectedRootFingerprintSha256: owner.fingerprint,
+        expectedPolicySnapshotSha256: built.policySnapshotSha256
+      })
+    ).rejects.toMatchObject({ code: 'POLICY_RUNTIME_DRIFT' })
 
     await expect(
       verifyPolicySnapshot({
