@@ -12,6 +12,7 @@ import { useAppStore } from '@store/index'
 import {
   APP_STORE_KEY,
   MOCK_DATABASE_STORAGE_KEY,
+  PHASE7_ADMIN_CMS_STORAGE_KEY,
   subscribeStorageChanges
 } from '@libs/storage'
 
@@ -27,6 +28,7 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
   const projectedUser = useAppStore((state) => state.currentUser)
   const currentUserQuery = useGetCurrentUser()
   const [isExternalSynchronizing, setExternalSynchronizing] = useState(false)
+  const [isAuthorizationBlocked, setAuthorizationBlocked] = useState(false)
 
   useEffect(() => {
     if (
@@ -88,7 +90,7 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
               continue
             }
 
-            await commitCanonicalAuth(queryClient, user, { forceClear })
+            await commitCanonicalAuth(queryClient, user)
             if (requestedRevision !== revision) {
               shouldClearDataCache = shouldClearDataCache || forceClear
               continue
@@ -96,6 +98,7 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
 
             handledRevision = requestedRevision
             setExternalSynchronizing(false)
+            setAuthorizationBlocked(false)
             return
           } catch {
             if (requestedRevision !== revision) {
@@ -105,6 +108,7 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
 
             handledRevision = requestedRevision
             setExternalSynchronizing(false)
+            setAuthorizationBlocked(false)
             return
           }
         }
@@ -116,15 +120,27 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
       }
     }
 
-    const synchronize = (forceClear: boolean): void => {
+    const synchronize = (
+      forceClear: boolean,
+      blockAuthorization: boolean
+    ): void => {
       revision += 1
       shouldClearDataCache = shouldClearDataCache || forceClear
       invalidateCanonicalAuthTransitions()
       setExternalSynchronizing(true)
+      if (blockAuthorization) {
+        setAuthorizationBlocked(true)
+      }
 
       if (forceClear) {
         queryClient.removeQueries({
-          predicate: (query) => query.queryKey[0] !== authQueries.allKey()[0]
+          predicate: (query) =>
+            query.queryKey[0] !== authQueries.allKey()[0] &&
+            query.getObserversCount() === 0
+        })
+        void queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] !== authQueries.allKey()[0],
+          refetchType: 'active'
         })
       }
 
@@ -133,12 +149,30 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
 
     const unsubscribe = subscribeStorageChanges((event) => {
       if (event.key === APP_STORE_KEY) {
-        synchronize(false)
+        synchronize(false, true)
         return
       }
 
-      if (event.key === MOCK_DATABASE_STORAGE_KEY || event.key === null) {
-        synchronize(true)
+      if (event.key === MOCK_DATABASE_STORAGE_KEY) {
+        synchronize(true, false)
+        return
+      }
+
+      if (event.key === PHASE7_ADMIN_CMS_STORAGE_KEY) {
+        queryClient.removeQueries({
+          predicate: (query) =>
+            query.queryKey[0] !== authQueries.allKey()[0] &&
+            query.getObserversCount() === 0
+        })
+        void queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] !== authQueries.allKey()[0],
+          refetchType: 'active'
+        })
+        return
+      }
+
+      if (event.key === null) {
+        synchronize(true, true)
       }
     })
 
@@ -158,8 +192,12 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
       ? currentUserQuery.data
       : undefined,
     hasError: !isExternalSynchronizing && currentUserQuery.isError,
+    // Keep the mounted route (and any local draft) alive while a cross-tab
+    // data-only update revalidates the same canonical actor. Auth-storage
+    // changes block immediately; a DB refresh that finds a different actor or
+    // role also makes the identities diverge and closes this boundary.
     isReady:
-      !isExternalSynchronizing &&
+      !isAuthorizationBlocked &&
       currentUserQuery.isSuccess &&
       hasReconciledIdentity,
     retry: () => {

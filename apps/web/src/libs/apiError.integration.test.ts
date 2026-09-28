@@ -12,7 +12,8 @@ describe('validated API and central error bus', () => {
     expect(apiClient.defaults.withCredentials).toBe(true)
     expect(parseRetryAfterMs('7', now)).toBe(7_000)
     expect(parseRetryAfterMs('Fri, 14 Aug 2026 00:00:05 GMT', now)).toBe(5_000)
-    expect(parseRetryAfterMs('9999', now)).toBe(300_000)
+    expect(parseRetryAfterMs('3600', now)).toBe(3_600_000)
+    expect(parseRetryAfterMs('9999', now)).toBe(3_600_000)
     expect(parseRetryAfterMs('invalid', now)).toBeUndefined()
   })
 

@@ -4,7 +4,6 @@ import type { ReactElement } from 'react'
 import { LoadingState } from '@common/components/LoadingState'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
-import { isMockApiMode } from '@libs/apiMode'
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
@@ -28,8 +27,12 @@ const getRouteLabel = (pathname: string): string => {
   if (pathname.startsWith('/wrong-notes/')) return '오답 상세'
   if (pathname === '/bookmarks') return '즐겨찾기'
   if (pathname === '/admin/questions/new') return '문제 등록'
-  if (pathname.startsWith('/admin/questions/')) return '문제 수정'
+  if (pathname === '/admin/questions/import') return '문제 가져오기'
+  if (pathname.startsWith('/admin/questions/')) return '문제 상세'
   if (pathname === '/admin/questions') return '문제 관리'
+  if (pathname === '/admin/audit-log') return '관리자 감사 기록'
+  if (pathname.startsWith('/admin/reports/')) return '문제 신고 상세'
+  if (pathname === '/admin/reports') return '문제 신고 큐'
   if (pathname === '/forbidden') return '접근 권한 없음'
   return '페이지'
 }
@@ -230,7 +233,7 @@ export const Layout = (): ReactElement => {
                   </NavLink>
                 </>
               ) : null}
-              {role === 'ADMIN' && isMockApiMode ? (
+              {role === 'ADMIN' ? (
                 <NavLink
                   className={getNavClassName}
                   to="/admin/questions"

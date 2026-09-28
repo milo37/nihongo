@@ -26,6 +26,10 @@ export interface CanonicalAuthCommitResult {
   identityChanged: boolean
 }
 
+export interface CanonicalAuthRecoveryResult extends CanonicalAuthCommitResult {
+  user: AuthenticatedUser | null
+}
+
 export const hasSameAuthIdentity = (
   left: AuthenticatedUser | null,
   right: AuthenticatedUser | null
@@ -137,4 +141,31 @@ export const refreshCanonicalAuthAfterMutation = async (
   }
 
   return applyCanonicalAuth(queryClient, user, options, transitionEpoch)
+}
+
+export const recoverCanonicalAuthAfterAmbiguousMutation = async (
+  queryClient: QueryClient
+): Promise<CanonicalAuthRecoveryResult> => {
+  const transitionEpoch = advanceAuthTransitionEpoch()
+  const authQuery = authQueries.currentUser()
+  const authQueryKey = authQuery.queryKey
+
+  await queryClient.cancelQueries({ queryKey: authQueryKey, exact: true })
+  if (!isCurrentAuthTransitionEpoch(transitionEpoch)) {
+    return { applied: false, identityChanged: false, user: null }
+  }
+
+  queryClient.removeQueries({ queryKey: authQueryKey, exact: true })
+  const user = await queryClient.fetchQuery({ ...authQuery, staleTime: 0 })
+  if (!isCurrentAuthTransitionEpoch(transitionEpoch)) {
+    return { applied: false, identityChanged: false, user: null }
+  }
+
+  const commit = await applyCanonicalAuth(
+    queryClient,
+    user,
+    {},
+    transitionEpoch
+  )
+  return { ...commit, user }
 }

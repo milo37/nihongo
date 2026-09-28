@@ -26,6 +26,38 @@ export const assertCurrentAuthTransitionEpoch = (epoch: number): void => {
 export const isAuthTransitionSupersededError = (error: unknown): boolean =>
   error instanceof AuthTransitionSupersededError
 
+export interface AuthActorTransitionFence {
+  readonly actorId: string
+  readonly epoch: number
+  readonly role: string
+}
+
+interface AuthActorIdentity {
+  readonly id: string
+  readonly role: string
+}
+
+export const captureAuthActorTransitionFence = (
+  actor: AuthActorIdentity | null
+): AuthActorTransitionFence => {
+  if (!actor) throw new AuthTransitionSupersededError()
+  return {
+    actorId: actor.id,
+    epoch: captureAuthTransitionEpoch(),
+    role: actor.role
+  }
+}
+
+export const assertCurrentAuthActorTransitionFence = (
+  fence: AuthActorTransitionFence,
+  actor: AuthActorIdentity | null
+): void => {
+  assertCurrentAuthTransitionEpoch(fence.epoch)
+  if (actor?.id !== fence.actorId || actor.role !== fence.role) {
+    throw new AuthTransitionSupersededError()
+  }
+}
+
 export interface AuthBoundActionFence<Input> {
   assertCurrent: (input: Input) => void
   capture: (input: Input) => void

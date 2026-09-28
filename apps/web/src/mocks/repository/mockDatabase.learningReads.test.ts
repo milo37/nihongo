@@ -545,9 +545,12 @@ describe('MockDatabase canonical learning-read provenance', () => {
       listenToStorage: false
     })
     const user = bootstrap.loginAs('USER')
+    const pinnedSession = createPinnedSession(bootstrap)
     bootstrap.dispose()
     const fixture = readFixture(storage)
-    const question = fixture.questions.find(({ id }) => id === QUESTION_ID)
+    const question = fixture.sessionQuestionSnapshots
+      .find(([sessionId]) => sessionId === pinnedSession.session.id)?.[1]
+      .find(({ id }) => id === QUESTION_ID)
     if (!question) {
       throw new Error('exact historical tag source fixture가 필요합니다.')
     }
@@ -561,11 +564,9 @@ describe('MockDatabase canonical learning-read provenance', () => {
       listenToStorage: false
     })
     try {
-      const result = submitPinnedSession(
-        database,
-        createPinnedSession(database),
-        false
-      )
+      expect(database.getCurrentUser()?.id).toBe(user.id)
+      const result = submitPinnedSession(database, pinnedSession, false)
+      expect(database.getCurrentUser()?.id).toBe(user.id)
       const resultTag = result.items[0]?.question.tags[0]
       const detail = toContractWrongNoteDetail(
         database.getCanonicalWrongNoteRecord(

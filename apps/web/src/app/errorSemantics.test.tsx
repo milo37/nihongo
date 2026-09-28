@@ -5,8 +5,6 @@ import { delay, http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
-import { EditAdminQuestionPage } from '@app/admin-question/edit/page'
-import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
 import { PracticeResultPage } from '@app/practice/result/page'
 import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
@@ -118,51 +116,6 @@ describe('detail page error semantics', () => {
     expect(requestCount).toBe(2)
   })
 
-  it('관리자 수정은 서버 오류를 구분하고 retry 후 폼을 복구한다', async () => {
-    const user = userEvent.setup()
-    mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-01'
-    let requestCount = 0
-    mockServer.use(
-      http.get(`*/api/admin/question/${questionId}`, () => {
-        requestCount += 1
-        if (requestCount === 1) {
-          return HttpResponse.json({ message: 'server error' }, { status: 500 })
-        }
-        return HttpResponse.json(mockDatabase.getAdminQuestion(questionId))
-      })
-    )
-
-    renderPage(
-      `/admin/questions/${questionId}/edit`,
-      '/admin/questions/:questionId/edit',
-      <EditAdminQuestionPage />,
-      (client) => {
-        const queryKey = adminQuestionQueries.detail(questionId).queryKey
-        client.setQueryData(queryKey, mockDatabase.getAdminQuestion(questionId))
-        void client.invalidateQueries({ queryKey, exact: true })
-      }
-    )
-
-    expect(
-      await screen.findByRole('heading', {
-        name: '문제 정보를 불러오지 못했습니다'
-      })
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', {
-        name: '수정할 문제를 찾을 수 없습니다'
-      })
-    ).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '다시 시도' }))
-    const editHeading = await screen.findByRole('heading', {
-      name: '문제 수정'
-    })
-    await vi.waitFor(() => expect(editHeading).toHaveFocus())
-    expect(requestCount).toBe(2)
-  })
-
   it('오답 상세 retry 성공 후 복구된 제목으로 포커스를 이동한다', async () => {
     const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')
@@ -236,30 +189,6 @@ describe('detail page error semantics', () => {
     })
     await vi.waitFor(() => expect(detailHeading).toHaveFocus())
     expect(requestCount).toBe(2)
-  })
-
-  it('관리자 수정은 실제 404만 Not Found로 표시한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    mockServer.use(
-      http.get('*/api/admin/question/missing', () =>
-        HttpResponse.json({ message: 'not found' }, { status: 404 })
-      )
-    )
-
-    renderPage(
-      '/admin/questions/missing/edit',
-      '/admin/questions/:questionId/edit',
-      <EditAdminQuestionPage />
-    )
-
-    expect(
-      await screen.findByRole('heading', {
-        name: '수정할 문제를 찾을 수 없습니다'
-      })
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: '다시 시도' })
-    ).not.toBeInTheDocument()
   })
 
   it('결과는 실제 404만 Not Found로 표시한다', async () => {

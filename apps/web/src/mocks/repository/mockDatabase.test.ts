@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
+import type { QuestionRecord } from '@common/types/domain'
+import {
+  compareAdminTags,
+  type CreateAdminQuestionRequest
+} from '@nihongo/contracts/admin/phase7'
+import {
+  MOCK_DATABASE_STORAGE_KEY,
+  PHASE7_ADMIN_CMS_STORAGE_KEY
+} from '@libs/storage'
 import {
   mockCanonicalSubmissionOperations,
   mockCanonicalSubmissionV2Operations
@@ -8,7 +16,11 @@ import {
   toContractStudySessionPayload,
   toVersionedContractStudySessionPayload
 } from '@mocks/adapters/studySessionContractAdapter'
-import { getContractQuestionId } from '@mocks/adapters/questionContractAdapter'
+import {
+  getContractQuestionId,
+  getQuestionVersionFingerprint,
+  toContractPracticeQuestion
+} from '@mocks/adapters/questionContractAdapter'
 import { originalQuestions } from '@mocks/data/questions'
 import {
   MockDatabase,
@@ -17,6 +29,7 @@ import {
   type MockStorage,
   type SubmitCanonicalStudySessionInput
 } from '@mocks/repository/mockDatabase'
+import { toPracticeQuestion } from '@util/question'
 
 const FIXED_NOW = '2026-08-09T12:00:00.000Z'
 
@@ -565,7 +578,7 @@ describe('MockDatabase', () => {
     })
   })
 
-  it('초기 한 번 읽은 저장소를 메모리 캐시로 사용하고 mutation을 저장한다', () => {
+  it('두 authority key를 초기 한 번씩 읽고 mutation을 저장한다', () => {
     const values = new Map<string, string>()
     let readCount = 0
     const storage: MockStorage = {
@@ -586,13 +599,13 @@ describe('MockDatabase', () => {
       listenToStorage: false
     })
 
-    expect(readCount).toBe(1)
-    database.loginAs('ADMIN')
     expect(readCount).toBe(2)
+    database.loginAs('ADMIN')
+    expect(readCount).toBe(3)
     database.listQuestions({ level: 'N3', subject: 'GRAMMAR' })
     database.listQuestions({ level: 'N2', subject: 'READING' })
 
-    expect(readCount).toBe(2)
+    expect(readCount).toBe(3)
     expect(values.size).toBe(1)
 
     const restored = new MockDatabase({
@@ -1787,5 +1800,444 @@ describe('MockDatabase', () => {
     ).toHaveLength(1)
     reloaded.dispose()
     database.dispose()
+  })
+
+  it('persists Phase 7 v8 state, upgrades v7 as seed-only, and rolls back failed writes', async () => {
+    const values = new Map<string, string>()
+    let rejectNextWrite = false
+    const storage: MockStorage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => {
+        values.set(key, value)
+        if (rejectNextWrite) {
+          rejectNextWrite = false
+          return false
+        }
+      },
+      removeItem: (key) => {
+        values.delete(key)
+      }
+    }
+    const database = new MockDatabase({ storage, listenToStorage: false })
+    const admin = database.loginAs('ADMIN')
+    const state = database.getPhase7AdminCmsStateForHandlers()
+    const source = database.getCanonicalAdminCmsSnapshot().versions[0]
+    if (!source) throw new Error('Phase 7 persistence source is unavailable.')
+    const correctIndex = source.options.findIndex(
+      (option) => option.id === source.correctOptionId
+    )
+    if (correctIndex < 0) {
+      throw new Error('Phase 7 persistence correct option is unavailable.')
+    }
+    const createRequest: CreateAdminQuestionRequest = {
+      level: source.level,
+      subject: source.subject,
+      questionType: source.questionType,
+      difficulty: source.difficulty,
+      questionText: `${source.questionText}\nv8 persistence fixture`,
+      passage: source.passage,
+      explanationKo: source.explanationKo,
+      explanationJa: source.explanationJa,
+      tagNames: source.tags.map((tag) => tag.label),
+      options: source.options.map((option, index) => ({
+        clientOptionKey: `option-${index + 1}`,
+        text: option.text
+      })),
+      correctOptionKey: `option-${correctIndex + 1}`
+    }
+    const created = await state.createQuestion({
+      actorId: admin.id,
+      assertAuthority: () =>
+        database.assertPhase7AdminCommandAuthority({
+          actorId: admin.id,
+          requiresFresh: false
+        }),
+      request: createRequest,
+      requestId: crypto.randomUUID(),
+      sources: database.listCanonicalAdminQuestionSources()
+    })
+    const serializedV8 = values.get(MOCK_DATABASE_STORAGE_KEY)
+    if (!serializedV8) throw new Error('v8 persistence fixture is unavailable.')
+
+    const restored = new MockDatabase({ storage, listenToStorage: false })
+    expect(
+      restored
+        .getCanonicalAdminCmsSnapshot()
+        .questions.some(
+          (question) => question.questionId === created.questionId
+        )
+    ).toBe(true)
+    restored.dispose()
+
+    const v7 = JSON.parse(serializedV8) as Record<string, unknown>
+    v7.version = 7
+    delete v7.phase7AdminCms
+    values.set(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(v7))
+    values.delete(PHASE7_ADMIN_CMS_STORAGE_KEY)
+    const upgraded = new MockDatabase({ storage, listenToStorage: false })
+    expect(upgraded.getCanonicalAdminCmsSnapshot().questions).toHaveLength(65)
+    expect(
+      upgraded
+        .getCanonicalAdminCmsSnapshot()
+        .questions.some(
+          (question) => question.questionId === created.questionId
+        )
+    ).toBe(false)
+    const upgradedCreate = await upgraded
+      .getPhase7AdminCmsStateForHandlers()
+      .createQuestion({
+        actorId: admin.id,
+        assertAuthority: () =>
+          upgraded.assertPhase7AdminCommandAuthority({
+            actorId: admin.id,
+            requiresFresh: false
+          }),
+        request: {
+          ...createRequest,
+          questionText: `${createRequest.questionText}\nv7 first mutation`
+        },
+        requestId: crypto.randomUUID(),
+        sources: upgraded.listCanonicalAdminQuestionSources()
+      })
+    expect(
+      upgraded
+        .getCanonicalAdminCmsSnapshot()
+        .questions.some(
+          (question) => question.questionId === upgradedCreate.questionId
+        )
+    ).toBe(true)
+    expect(values.get(PHASE7_ADMIN_CMS_STORAGE_KEY)).toBeDefined()
+    upgraded.dispose()
+
+    values.set(MOCK_DATABASE_STORAGE_KEY, serializedV8)
+    const rollbackDatabase = new MockDatabase({
+      storage,
+      listenToStorage: false
+    })
+    const beforeSnapshot = rollbackDatabase.getCanonicalAdminCmsSnapshot()
+    const beforeStorage = values.get(MOCK_DATABASE_STORAGE_KEY)
+    const beforePhase7Storage = values.get(PHASE7_ADMIN_CMS_STORAGE_KEY)
+    rejectNextWrite = true
+    await expect(
+      rollbackDatabase.getPhase7AdminCmsStateForHandlers().createQuestion({
+        actorId: admin.id,
+        assertAuthority: () =>
+          rollbackDatabase.assertPhase7AdminCommandAuthority({
+            actorId: admin.id,
+            requiresFresh: false
+          }),
+        request: {
+          ...createRequest,
+          questionText: `${createRequest.questionText}\nrollback`
+        },
+        requestId: crypto.randomUUID(),
+        sources: rollbackDatabase.listCanonicalAdminQuestionSources()
+      })
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      disposition: 'DEFINITE_ROLLBACK'
+    })
+    expect(rollbackDatabase.getCanonicalAdminCmsSnapshot()).toEqual(
+      beforeSnapshot
+    )
+    expect(values.get(MOCK_DATABASE_STORAGE_KEY)).toBe(beforeStorage)
+    expect(values.get(PHASE7_ADMIN_CMS_STORAGE_KEY)).toBe(beforePhase7Storage)
+    rollbackDatabase.dispose()
+    database.dispose()
+  })
+
+  it('fails closed and never resurrects auth for persisted Phase 7 graph tampering', () => {
+    interface PersistedTagFixture {
+      id: string
+      label: string
+      normalizedName: string
+    }
+    interface PersistedVersionFixture {
+      level: string
+      questionId: string
+      questionType: string
+      subject: string
+      tags: PersistedTagFixture[]
+    }
+    interface PersistedTamperFixture {
+      currentUserId: string | null
+      questions: Array<{ id: string; tags: string[] }>
+      phase7AdminCms: {
+        questions: Array<{
+          currentPublishedVersionId: string | null
+          questionId: string
+        }>
+        versions: PersistedVersionFixture[]
+      }
+    }
+
+    const baselineStorage = createMemoryStorage()
+    const database = new MockDatabase({
+      storage: baselineStorage,
+      listenToStorage: false
+    })
+    database.loginAs('ADMIN')
+    const serialized = baselineStorage.getItem(MOCK_DATABASE_STORAGE_KEY)
+    if (!serialized) throw new Error('Phase 7 tamper fixture is unavailable.')
+    const baseline = JSON.parse(serialized) as PersistedTamperFixture
+    database.dispose()
+
+    const requireVersion = (
+      persisted: PersistedTamperFixture,
+      predicate: (version: PersistedVersionFixture) => boolean = () => true
+    ): PersistedVersionFixture => {
+      const version = persisted.phase7AdminCms.versions.find(predicate)
+      if (!version) throw new Error('Phase 7 version fixture is unavailable.')
+      return version
+    }
+    const tamperCases: ReadonlyArray<{
+      name: string
+      tamper: (persisted: PersistedTamperFixture) => void
+    }> = [
+      {
+        name: 'published pointer',
+        tamper: (persisted) => {
+          const question = persisted.phase7AdminCms.questions[0]
+          if (!question) {
+            throw new Error('Phase 7 question fixture is unavailable.')
+          }
+          question.currentPublishedVersionId = crypto.randomUUID()
+        }
+      },
+      {
+        name: 'tag label/normalizedName coupling',
+        tamper: (persisted) => {
+          const tag = requireVersion(persisted).tags[0]
+          if (!tag) throw new Error('Phase 7 tag fixture is unavailable.')
+          tag.label += ' 변조'
+        }
+      },
+      {
+        name: 'canonical tag order',
+        tamper: (persisted) => {
+          requireVersion(
+            persisted,
+            (version) => version.tags.length >= 2
+          ).tags.reverse()
+        }
+      },
+      {
+        name: 'trusted taxonomy applicability',
+        tamper: (persisted) => {
+          const target = requireVersion(persisted)
+          const targetApplicableTagNames = new Set(
+            persisted.phase7AdminCms.versions
+              .filter(
+                (version) =>
+                  version.level === target.level &&
+                  version.subject === target.subject &&
+                  version.questionType === target.questionType
+              )
+              .flatMap((version) =>
+                version.tags.map((tag) => tag.normalizedName)
+              )
+          )
+          const foreign = requireVersion(
+            persisted,
+            (version) =>
+              (version.level !== target.level ||
+                version.subject !== target.subject ||
+                version.questionType !== target.questionType) &&
+              version.tags.some(
+                (tag) => !targetApplicableTagNames.has(tag.normalizedName)
+              )
+          )
+          const foreignTag = foreign.tags.find(
+            (tag) => !targetApplicableTagNames.has(tag.normalizedName)
+          )
+          if (!foreignTag || !target.tags[0]) {
+            throw new Error('Foreign Phase 7 taxonomy fixture is unavailable.')
+          }
+          target.tags[0] = { ...foreignTag }
+          target.tags.sort(compareAdminTags)
+
+          const source = persisted.questions.find(
+            (question) =>
+              getContractQuestionId(question.id) === target.questionId
+          )
+          if (!source) {
+            throw new Error('Phase 7 source question fixture is unavailable.')
+          }
+          source.tags = target.tags.map((tag) => tag.label)
+        }
+      }
+    ]
+
+    for (const { name, tamper } of tamperCases) {
+      const storage = createMemoryStorage()
+      const persisted = structuredClone(baseline)
+      tamper(persisted)
+      storage.setItem(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(persisted))
+
+      const hydrated = new MockDatabase({ storage, listenToStorage: false })
+      expect(hydrated.getCurrentUser(), name).toBeNull()
+      expect(
+        hydrated.getCanonicalAdminCmsSnapshot().questions,
+        name
+      ).toHaveLength(65)
+      hydrated.createStudySession({
+        count: 1,
+        level: 'N5',
+        mode: 'RANDOM',
+        subject: 'VOCABULARY'
+      })
+      expect(hydrated.getCurrentUser(), name).toBeNull()
+      expect(
+        JSON.parse(storage.getItem(MOCK_DATABASE_STORAGE_KEY) ?? '{}'),
+        name
+      ).toMatchObject({ currentUserId: null })
+      hydrated.dispose()
+    }
+  })
+
+  it('ignores legacy source-only tag tampering across Phase 7 reads and entitlement', () => {
+    const storage = createMemoryStorage()
+    const database = new MockDatabase({ storage, listenToStorage: false })
+    const admin = database.loginAs('ADMIN')
+    const serialized = storage.getItem(MOCK_DATABASE_STORAGE_KEY)
+    if (!serialized) throw new Error('Phase 7 source fixture is unavailable.')
+    const persisted = JSON.parse(serialized) as {
+      questions: QuestionRecord[]
+    }
+    const source = persisted.questions[0]
+    if (!source) throw new Error('Legacy source question is unavailable.')
+    const canonical = originalQuestions.find(
+      (question) => question.id === source.id
+    )
+    if (!canonical) throw new Error('Canonical source question is unavailable.')
+    const canonicalQuestionId = getContractQuestionId(canonical.id)
+    const canonicalVersionId = database
+      .getCanonicalAdminCmsSnapshot()
+      .versions.find(
+        (version) => version.questionId === canonicalQuestionId
+      )?.questionVersionId
+    if (!canonicalVersionId) {
+      throw new Error('Canonical Phase 7 version is unavailable.')
+    }
+    source.tags = ['조작된 태그']
+    const forgedVersionId = toContractPracticeQuestion(
+      toPracticeQuestion(source),
+      getQuestionVersionFingerprint(source)
+    ).questionVersionId
+    expect(forgedVersionId).not.toBe(canonicalVersionId)
+    storage.setItem(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(persisted))
+    database.dispose()
+
+    const hydrated = new MockDatabase({ storage, listenToStorage: false })
+    expect(hydrated.getCurrentUser()).toMatchObject({ role: 'ADMIN' })
+    const authoritativeSource = hydrated
+      .listPhase7AuthoritativeAdminQuestionSources()
+      .find(({ question }) => question.id === source.id)
+    expect(authoritativeSource?.question.tags).toEqual(canonical.tags)
+
+    const seedVersion = hydrated
+      .getCanonicalAdminCmsSnapshot()
+      .versions.find((version) => version.questionId === canonicalQuestionId)
+    expect(seedVersion?.tags.map((tag) => tag.label).toSorted()).toEqual(
+      canonical.tags.toSorted()
+    )
+    expect(seedVersion?.tags.map((tag) => tag.label)).not.toContain(
+      '조작된 태그'
+    )
+    expect(
+      hydrated.resolvePhase7QuestionReportEntitlement(admin.id, forgedVersionId)
+    ).toBeNull()
+    expect(
+      hydrated.resolvePhase7QuestionReportEntitlement(
+        admin.id,
+        canonicalVersionId
+      )
+    ).toBe(canonicalQuestionId)
+    hydrated.createStudySession({
+      count: 1,
+      level: 'N5',
+      mode: 'RANDOM',
+      subject: 'VOCABULARY'
+    })
+    expect(hydrated.getCurrentUser()).toMatchObject({ role: 'ADMIN' })
+    hydrated.dispose()
+  })
+
+  it('ignores hydrated legacy content and seed-set tampering across Phase 7 reads and entitlement', () => {
+    const baselineStorage = createMemoryStorage()
+    const database = new MockDatabase({
+      storage: baselineStorage,
+      listenToStorage: false
+    })
+    const admin = database.loginAs('ADMIN')
+    const serialized = baselineStorage.getItem(MOCK_DATABASE_STORAGE_KEY)
+    if (!serialized) throw new Error('Phase 7 source fixture is unavailable.')
+    const canonical = originalQuestions[0]
+    if (!canonical) throw new Error('Canonical source question is unavailable.')
+    const canonicalQuestionId = getContractQuestionId(canonical.id)
+    const canonicalVersionId = database
+      .getCanonicalAdminCmsSnapshot()
+      .versions.find(
+        (version) => version.questionId === canonicalQuestionId
+      )?.questionVersionId
+    if (!canonicalVersionId) {
+      throw new Error('Canonical Phase 7 version is unavailable.')
+    }
+    database.dispose()
+
+    for (const mode of ['CONTENT', 'EMPTY'] as const) {
+      const storage = createMemoryStorage()
+      const persisted = JSON.parse(serialized) as {
+        questions: QuestionRecord[]
+      }
+      let forgedVersionId: string | null = null
+      if (mode === 'CONTENT') {
+        const source = persisted.questions.find(
+          (question) => question.id === canonical.id
+        )
+        if (!source) throw new Error('Legacy source question is unavailable.')
+        source.questionText += ' 조작'
+        forgedVersionId = toContractPracticeQuestion(
+          toPracticeQuestion(source),
+          getQuestionVersionFingerprint(source)
+        ).questionVersionId
+      } else {
+        persisted.questions = []
+      }
+      storage.setItem(MOCK_DATABASE_STORAGE_KEY, JSON.stringify(persisted))
+
+      const hydrated = new MockDatabase({ storage, listenToStorage: false })
+      expect(hydrated.getCurrentUser(), mode).toMatchObject({ role: 'ADMIN' })
+      expect(
+        hydrated.listPhase7AuthoritativeAdminQuestionSources(),
+        mode
+      ).toHaveLength(65)
+      expect(
+        hydrated.getCanonicalAdminCmsSnapshot().questions,
+        mode
+      ).toHaveLength(65)
+      expect(
+        hydrated.getCanonicalPublicQuestionRecord(canonicalQuestionId)
+          .questionText,
+        mode
+      ).toBe(canonical.questionText)
+      if (forgedVersionId) {
+        expect(
+          hydrated.resolvePhase7QuestionReportEntitlement(
+            admin.id,
+            forgedVersionId
+          ),
+          mode
+        ).toBeNull()
+      }
+      expect(
+        hydrated.resolvePhase7QuestionReportEntitlement(
+          admin.id,
+          canonicalVersionId
+        ),
+        mode
+      ).toBe(canonicalQuestionId)
+      hydrated.dispose()
+    }
   })
 })

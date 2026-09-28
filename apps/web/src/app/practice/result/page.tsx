@@ -31,6 +31,7 @@ import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { readResultRetryAttempt } from '@app/practice/resultRetryAttemptStorage'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -644,24 +645,32 @@ const PracticeResultPageContent = (): ReactElement => {
                   ))}
                 </div>
                 {role !== 'GUEST' ? (
-                  <button
-                    className="min-h-11 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    type="button"
-                    disabled={
-                      hasPendingBookmarkMutation ||
-                      bookmarksQuery.isPending ||
-                      bookmarksQuery.isError ||
-                      item.question.questionVersionId === null
-                    }
-                    aria-label={`${index + 1}번 문제 ${
-                      isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'
-                    }`}
-                    aria-pressed={isBookmarked}
-                    data-selected={isBookmarked}
-                    onClick={() => toggleBookmark(item, isBookmarked)}
-                  >
-                    {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="min-h-11 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                      type="button"
+                      disabled={
+                        hasPendingBookmarkMutation ||
+                        bookmarksQuery.isPending ||
+                        bookmarksQuery.isError ||
+                        item.question.questionVersionId === null
+                      }
+                      aria-label={`${index + 1}번 문제 ${
+                        isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'
+                      }`}
+                      aria-pressed={isBookmarked}
+                      data-selected={isBookmarked}
+                      onClick={() => toggleBookmark(item, isBookmarked)}
+                    >
+                      {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
+                    </button>
+                    {item.question.questionVersionId ? (
+                      <QuestionReportDialog
+                        questionId={item.question.id}
+                        questionVersionId={item.question.questionVersionId}
+                      />
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
 

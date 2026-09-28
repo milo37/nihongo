@@ -62,6 +62,15 @@ export const adminTagSummarySchema = z
       )
   })
   .strict()
+  .superRefine((value, context) => {
+    if (normalizePhase7TagKey(value.label) !== value.normalizedName) {
+      addIssue(
+        context,
+        ['normalizedName'],
+        'normalizedName은 label의 canonical normalizeTagKey v1 값이어야 합니다.'
+      )
+    }
+  })
 
 export const compareAdminTags = (
   left: { readonly id: string; readonly normalizedName: string },

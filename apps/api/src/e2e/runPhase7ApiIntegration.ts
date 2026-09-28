@@ -173,6 +173,20 @@ interface PgcryptoSnapshot {
   readonly version: string | null
 }
 
+export interface Phase7IsolatedDatabaseHarness {
+  readonly adminDatabaseUrl: string
+  readonly applicationDatabaseUrl: string
+  readonly authGatewayDatabaseUrl: string
+  readonly erasureWorkerDatabaseUrl: string
+  readonly migrationDatabaseUrl: string
+  readonly schemaName: string
+  readonly sharedEnvironment: NodeJS.ProcessEnv
+}
+
+interface PreparePhase7IsolatedDatabaseOptions {
+  readonly seedRuns?: number
+}
+
 const adminClient = new Client({
   connectionString: adminDatabaseUrl.toString()
 })
@@ -187,6 +201,7 @@ let pgcryptoCreated = false
 let pgcryptoSnapshot: PgcryptoSnapshot | undefined
 let provisioningLockAcquired = false
 let schemaCreated = false
+let databasePrepared = false
 
 const readDatabaseAcl = async (): Promise<DatabaseAclEntry[]> =>
   (
@@ -618,12 +633,8 @@ const cleanup = (): Promise<void> => {
   return cleanupPromise
 }
 
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.once(signal, () => {
-    void cleanup()
-      .then(() => process.exit(signal === 'SIGINT' ? 130 : 143))
-      .catch(() => process.exit(1))
-  })
+export const cleanupPhase7IsolatedDatabase = async (): Promise<void> => {
+  await cleanup()
 }
 
 const registerCapabilityAndActivate = async (): Promise<void> => {
@@ -658,7 +669,16 @@ const registerCapabilityAndActivate = async (): Promise<void> => {
   }
 }
 
-const run = async (): Promise<void> => {
+export const preparePhase7IsolatedDatabase = async ({
+  seedRuns = 0
+}: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
+  if (databasePrepared) {
+    throw new Error('Phase 7 isolated database harness is already prepared.')
+  }
+  if (!Number.isInteger(seedRuns) || seedRuns < 0 || seedRuns > 2) {
+    throw new Error('Phase 7 isolated database seed run count is invalid.')
+  }
+
   await adminClient.connect()
   adminConnected = true
   await acquireProvisioningLock()
@@ -701,6 +721,29 @@ const run = async (): Promise<void> => {
     sharedEnvironment
   )
   await registerCapabilityAndActivate()
+
+  for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+      sharedEnvironment
+    )
+  }
+
+  databasePrepared = true
+  return {
+    adminDatabaseUrl: targetDatabaseUrl.toString(),
+    applicationDatabaseUrl: applicationDatabaseUrl.toString(),
+    authGatewayDatabaseUrl: authGatewayDatabaseUrl.toString(),
+    erasureWorkerDatabaseUrl: erasureWorkerDatabaseUrl.toString(),
+    migrationDatabaseUrl: migrationDatabaseUrl.toString(),
+    schemaName,
+    sharedEnvironment
+  }
+}
+
+const run = async (): Promise<void> => {
+  const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
   await runCommand(
     'pnpm',
     [
@@ -750,36 +793,52 @@ const run = async (): Promise<void> => {
   )
 }
 
-void run()
-  .then(async () => {
-    await cleanup()
-    process.stdout.write(
-      `${JSON.stringify({
-        event: 'phase7.api.integration.passed',
-        schemaRemoved: true
-      })}\n`
-    )
-  })
-  .catch(async (error: unknown) => {
-    try {
+const isDirectExecution =
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
+
+if (isDirectExecution) {
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      void cleanup()
+        .then(() => process.exit(signal === 'SIGINT' ? 130 : 143))
+        .catch(() => process.exit(1))
+    })
+  }
+
+  void run()
+    .then(async () => {
       await cleanup()
-    } catch (cleanupError: unknown) {
+      process.stdout.write(
+        `${JSON.stringify({
+          event: 'phase7.api.integration.passed',
+          schemaRemoved: true
+        })}\n`
+      )
+    })
+    .catch(async (error: unknown) => {
+      try {
+        await cleanup()
+      } catch (cleanupError: unknown) {
+        process.stderr.write(
+          `${JSON.stringify({
+            event: 'phase7.api.integration.cleanup_failed',
+            errorName:
+              cleanupError instanceof Error
+                ? cleanupError.name
+                : 'UnknownError',
+            schemaName
+          })}\n`
+        )
+      }
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase7.api.integration.cleanup_failed',
-          errorName:
-            cleanupError instanceof Error ? cleanupError.name : 'UnknownError',
+          event: 'phase7.api.integration.failed',
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+          message: error instanceof Error ? error.message : 'Unknown failure',
           schemaName
         })}\n`
       )
-    }
-    process.stderr.write(
-      `${JSON.stringify({
-        event: 'phase7.api.integration.failed',
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-        message: error instanceof Error ? error.message : 'Unknown failure',
-        schemaName
-      })}\n`
-    )
-    process.exitCode = 1
-  })
+      process.exitCode = 1
+    })
+}

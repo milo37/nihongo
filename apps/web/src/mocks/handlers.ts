@@ -1,4 +1,3 @@
-import { adminQuestionHandlers } from '@mocks/handlers/adminQuestionHandlers'
 import { adminCmsCommandHandlers } from '@mocks/handlers/adminCmsCommandHandlers'
 import { adminCmsReadHandlers } from '@mocks/handlers/adminCmsReadHandlers'
 import { authHandlers } from '@mocks/handlers/authHandlers'
@@ -28,6 +27,5 @@ export const handlers = [
   ...bookmarkHandlers,
   ...dashboardHandlers,
   ...adminCmsCommandHandlers,
-  ...adminCmsReadHandlers,
-  ...adminQuestionHandlers
+  ...adminCmsReadHandlers
 ]

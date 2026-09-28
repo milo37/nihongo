@@ -10,6 +10,11 @@ import {
   expireMockGuestPrincipalCookie,
   inspectMockGuestProof
 } from '@mocks/guestPrincipal'
+import {
+  DEMO_ADMIN_ID,
+  DEMO_REVIEWER_ADMIN_ID,
+  DEMO_USER_ID
+} from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import {
   MockHttpError,
@@ -21,6 +26,16 @@ const MOCK_USER_EMAIL = 'user@example.com'
 const MOCK_USER_PASSWORD = 'Demo-user-2026!'
 const MOCK_ADMIN_EMAIL = 'admin@example.com'
 export const MOCK_ADMIN_PASSWORD = 'Demo-admin-2026!'
+const MOCK_REVIEWER_ADMIN_EMAIL = 'reviewer@example.com'
+export const MOCK_REVIEWER_ADMIN_PASSWORD = 'Demo-reviewer-2026!'
+
+export const isMockAdminPasswordForActor = (
+  actorId: string,
+  password: string
+): boolean =>
+  (actorId === DEMO_ADMIN_ID && password === MOCK_ADMIN_PASSWORD) ||
+  (actorId === DEMO_REVIEWER_ADMIN_ID &&
+    password === MOCK_REVIEWER_ADMIN_PASSWORD)
 
 const rejectUnsupportedMockAuth = (): never => {
   throw new MockHttpError(
@@ -51,7 +66,9 @@ export const authHandlers = [
         headers: { 'Cache-Control': 'private, no-store' }
       })
     } catch (error: unknown) {
-      return toErrorResponse(error)
+      const response = toErrorResponse(error)
+      response.headers.set('Cache-Control', 'private, no-store')
+      return response
     }
   }),
   http.delete('*/api/v1/guest-principal', ({ request }) => {
@@ -85,10 +102,13 @@ export const authHandlers = [
       const isAdmin =
         input.email === MOCK_ADMIN_EMAIL &&
         input.password === MOCK_ADMIN_PASSWORD
+      const isReviewerAdmin =
+        input.email === MOCK_REVIEWER_ADMIN_EMAIL &&
+        input.password === MOCK_REVIEWER_ADMIN_PASSWORD
       const isUser =
         input.email === MOCK_USER_EMAIL && input.password === MOCK_USER_PASSWORD
 
-      if (!isAdmin && !isUser) {
+      if (!isAdmin && !isReviewerAdmin && !isUser) {
         throw new MockHttpError(
           401,
           'INVALID_EMAIL_OR_PASSWORD',
@@ -96,7 +116,14 @@ export const authHandlers = [
         )
       }
 
-      mockDatabase.loginAs(isAdmin ? 'ADMIN' : 'USER')
+      mockDatabase.loginAs(
+        isAdmin || isReviewerAdmin ? 'ADMIN' : 'USER',
+        isAdmin
+          ? DEMO_ADMIN_ID
+          : isReviewerAdmin
+            ? DEMO_REVIEWER_ADMIN_ID
+            : DEMO_USER_ID
+      )
       return HttpResponse.json({ success: true as const })
     } catch (error: unknown) {
       return toErrorResponse(error)

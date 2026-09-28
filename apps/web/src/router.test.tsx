@@ -83,12 +83,12 @@ describe('application router boundaries', () => {
 
     expect(await findRouteHeading('문제 관리')).toBeInTheDocument()
     const tableRegion = await screen.findByRole('region', {
-      name: '관리자 문제 목록'
+      name: '관리자 문제 목록 가로 스크롤 영역'
     })
     expect(tableRegion).toHaveAttribute('tabindex', '0')
     expect(
       within(tableRegion).getByRole('table', {
-        name: /JLPT 관리자 문제 목록/
+        name: /관리자 문제 목록/
       })
     ).toBeInTheDocument()
   })

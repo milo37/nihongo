@@ -6,7 +6,7 @@ import {
   listAdminAuditLogResponseSchema,
   listAdminQuestionsResponseSchema,
   listQuestionVersionReviewsResponseSchema,
-  phase7DormantAfterSlice4OperationManifest,
+  phase7DormantAfterSlice5OperationManifest,
   previewQuestionVersionResponseSchema,
   reauthenticateAdminErrorSchema,
   reauthenticateAdminResponseSchema,
@@ -30,13 +30,17 @@ import { listReviewQueueResponseSchema } from '@nihongo/contracts/wrong-note/lis
 import { listWrongNotesResponseSchema } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { describe, expect, it, vi } from 'vitest'
 import { DEMO_ADMIN_ID, DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
-import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
+import {
+  MOCK_ADMIN_PASSWORD,
+  MOCK_REVIEWER_ADMIN_PASSWORD
+} from '@mocks/handlers/authHandlers'
 import {
   readPhase7MockJsonBody,
   resetAdminCmsCommandRateLimitForTesting
 } from '@mocks/handlers/adminCmsCommandHandlers'
-import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { MockDatabase, mockDatabase } from '@mocks/repository/mockDatabase'
 import type { MockPhase7AdminCmsState } from '@mocks/repository/phase7AdminCmsState'
+import { phase7RateLimitRepository } from '@mocks/repository/phase7RateLimitRepository'
 
 const BASE = 'http://localhost/api/v1/admin'
 const API_BASE = `${globalThis.location.origin}/api/v1`
@@ -48,11 +52,19 @@ const PRACTICE_V2_HEADERS = {
   'X-Nihongo-Practice-Contract': '2'
 } as const
 
-const materializeManifestPath = (path: string): string =>
-  path
-    .replace(':questionId', canonicalMissingId)
-    .replace(':versionId', canonicalMissingId)
-    .replace(':reportId', canonicalMissingId)
+const setPersistedFreshAssuranceForTesting = (
+  actorId: string,
+  issuedAt: string
+): void => {
+  const internals = mockDatabase as unknown as {
+    persist: () => void
+    persistPhase7AdminCmsState: () => void
+    phase7AdminCmsState: Pick<MockPhase7AdminCmsState, 'startSession'>
+  }
+  internals.phase7AdminCmsState.startSession(actorId, issuedAt)
+  internals.persist()
+  internals.persistPhase7AdminCmsState()
+}
 
 const requireVersionId = (versionId: string | null): string => {
   if (versionId === null) {
@@ -420,11 +432,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     )
 
     mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
-    const internalState = Reflect.get(
-      mockDatabase,
-      'phase7AdminCmsState'
-    ) as Pick<MockPhase7AdminCmsState, 'startSession'>
-    internalState.startSession(
+    setPersistedFreshAssuranceForTesting(
       DEMO_REVIEWER_ADMIN_ID,
       '2020-01-01T00:00:00.000Z'
     )
@@ -442,8 +450,16 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       beforeStaleApproval
     )
 
-    const reauthenticated = await jsonCommand('POST', '/reauthentication', {
+    const otherAdminPassword = await jsonCommand('POST', '/reauthentication', {
       password: MOCK_ADMIN_PASSWORD
+    })
+    expect(otherAdminPassword.status).toBe(401)
+    expect(
+      reauthenticateAdminErrorSchema.parse(await otherAdminPassword.json()).code
+    ).toBe('REAUTHENTICATION_FAILED')
+
+    const reauthenticated = await jsonCommand('POST', '/reauthentication', {
+      password: MOCK_REVIEWER_ADMIN_PASSWORD
     })
     expect(reauthenticated.status).toBe(200)
     expect(reauthenticated.headers.getSetCookie()).toHaveLength(2)
@@ -676,7 +692,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
           auditRequestId === withdrawalLoserRequestId
       )
     ).toBe(false)
-  })
+  }, 10_000)
 
   it('projects publish, retire, and archive through the real learner HTTP surface with native pins', async () => {
     resetAdminCmsCommandRateLimitForTesting()
@@ -703,7 +719,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(
       (
         await jsonCommand('POST', '/reauthentication', {
-          password: MOCK_ADMIN_PASSWORD
+          password: MOCK_REVIEWER_ADMIN_PASSWORD
         })
       ).status
     ).toBe(200)
@@ -1070,7 +1086,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(audit.items.map(({ command }) => command)).toEqual(
       expect.arrayContaining(['PUBLICATION', 'RETIREMENT', 'QUESTION_ARCHIVE'])
     )
-  })
+  }, 10_000)
 
   it('returns one winner for concurrent duplicate and rowVersion races', async () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
@@ -1162,11 +1178,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(user.status).toBe(403)
 
     mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
-    const internalState = Reflect.get(
-      mockDatabase,
-      'phase7AdminCmsState'
-    ) as Pick<MockPhase7AdminCmsState, 'startSession'>
-    internalState.startSession(
+    setPersistedFreshAssuranceForTesting(
       DEMO_REVIEWER_ADMIN_ID,
       '2020-01-01T00:00:00.000Z'
     )
@@ -1200,7 +1212,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       beforeReauthentication
     )
     const reauthenticated = await jsonCommand('POST', '/reauthentication', {
-      password: MOCK_ADMIN_PASSWORD
+      password: MOCK_REVIEWER_ADMIN_PASSWORD
     })
     expect(reauthenticated.status).toBe(200)
     const reauthentication = reauthenticateAdminResponseSchema.parse(
@@ -1251,6 +1263,54 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(apiFailureSchema.parse(await untrusted.json()).code).toBe(
       'UNTRUSTED_ORIGIN'
     )
+
+    const sameOriginMetadata = await fetch(`${BASE}/questions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Sec-Fetch-Site': 'same-origin'
+      },
+      body: '{}'
+    })
+    expect(sameOriginMetadata.status).toBe(422)
+    expect(apiFailureSchema.parse(await sameOriginMetadata.json()).code).toBe(
+      'VALIDATION_ERROR'
+    )
+
+    const forgedSameOriginMockAttestation = await fetch(`${BASE}/questions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nihongo-MSW-Client-Origin': 'http://localhost'
+      },
+      body: '{}'
+    })
+    expect(forgedSameOriginMockAttestation.status).toBe(403)
+    expect(
+      apiFailureSchema.parse(await forgedSameOriginMockAttestation.json()).code
+    ).toBe('UNTRUSTED_ORIGIN')
+
+    for (const headers of [
+      new Headers({
+        'Content-Type': 'application/json',
+        'X-Nihongo-MSW-Client-Origin': 'https://attacker.example'
+      }),
+      new Headers({
+        'Content-Type': 'application/json',
+        Origin: 'https://attacker.example',
+        'X-Nihongo-MSW-Client-Origin': 'http://localhost'
+      })
+    ]) {
+      const forgedMockAttestation = await fetch(`${BASE}/questions`, {
+        method: 'POST',
+        headers,
+        body: '{}'
+      })
+      expect(forgedMockAttestation.status).toBe(403)
+      expect(
+        apiFailureSchema.parse(await forgedMockAttestation.json()).code
+      ).toBe('UNTRUSTED_ORIGIN')
+    }
 
     const duplicateJson = await fetch(`${BASE}/questions`, {
       method: 'POST',
@@ -1381,62 +1441,30 @@ describe('Phase 7 canonical admin command MSW parity', () => {
     expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(before)
   })
 
-  it('manifest의 dormant 9개 전부를 guard/state/cookie/audit 전에 generic 404로 닫는다', async () => {
+  it('Slice 5 이후 command state facade를 완성하고 dormant operation을 0으로 유지한다', () => {
     mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
     const before = mockDatabase.getCanonicalAdminCmsSnapshot()
     const activeState = mockDatabase.getPhase7AdminCmsStateForHandlers()
     expect(Object.keys(activeState).toSorted()).toEqual([
+      'applyQuestionImport',
       'archiveAdminQuestion',
       'createQuestion',
+      'createQuestionReport',
       'createVersion',
+      'exportAdminQuestions',
       'hasFreshAssurance',
       'publishQuestionVersion',
       'reauthenticate',
+      'requestContentReviewBatch',
+      'resolveQuestionReport',
       'retireQuestionVersion',
       'transitionVersion',
-      'updateVersion'
+      'triageQuestionReport',
+      'updateVersion',
+      'validateQuestionImport'
     ])
     expect('getLearnerProjection' in activeState).toBe(false)
-    const authRead = vi.spyOn(mockDatabase, 'getCurrentUser')
-    const stateRead = vi.spyOn(
-      mockDatabase,
-      'getPhase7AdminCmsStateForHandlers'
-    )
-    const sourceRead = vi.spyOn(
-      mockDatabase,
-      'listCanonicalAdminQuestionSources'
-    )
-
-    expect(phase7DormantAfterSlice4OperationManifest).toHaveLength(9)
-    for (const entry of phase7DormantAfterSlice4OperationManifest) {
-      const response = await fetch(
-        `http://localhost${materializeManifestPath(entry.path)}`,
-        {
-          method: entry.method,
-          headers: {
-            'Content-Type': 'application/json',
-            Origin: 'http://localhost'
-          },
-          ...(entry.method === 'GET' ? {} : { body: '{}' })
-        }
-      )
-
-      expect(response.status, entry.operation).toBe(404)
-      expect(apiFailureSchema.parse(await response.json())).toMatchObject({
-        code: 'RESOURCE_NOT_FOUND',
-        message: '요청한 경로를 찾을 수 없습니다.',
-        retryable: false
-      })
-      expect(response.headers.get('Retry-After')).toBeNull()
-      expect(response.headers.get('Set-Cookie')).toBeNull()
-    }
-
-    expect(authRead).not.toHaveBeenCalled()
-    expect(stateRead).not.toHaveBeenCalled()
-    expect(sourceRead).not.toHaveBeenCalled()
-    authRead.mockRestore()
-    stateRead.mockRestore()
-    sourceRead.mockRestore()
+    expect(phase7DormantAfterSlice5OperationManifest).toHaveLength(0)
     expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(before)
   })
 
@@ -1464,7 +1492,7 @@ describe('Phase 7 canonical admin command MSW parity', () => {
       )
       const sourceRead = vi.spyOn(
         mockDatabase,
-        'listCanonicalAdminQuestionSources'
+        'listPhase7AuthoritativeAdminQuestionSources'
       )
       const response = await fetch(`${BASE}${pathname}`, {
         method,
@@ -1511,5 +1539,37 @@ describe('Phase 7 canonical admin command MSW parity', () => {
 
     expect(response.status).toBe(404)
     expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(before)
+  })
+
+  it('rejects stale cross-tab command and report sessions before rate or body parsing', async () => {
+    mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
+    const sessionTab = new MockDatabase({ listenToStorage: false })
+    const before = mockDatabase.getCanonicalAdminCmsSnapshot()
+    const consumeRate = vi.spyOn(phase7RateLimitRepository, 'consume')
+    sessionTab.logout()
+
+    for (const url of [
+      `${BASE}/questions`,
+      `${globalThis.location.origin}/api/v1/question-reports`
+    ]) {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: globalThis.location.origin
+        },
+        body: '{'
+      })
+      expect(response.status).toBe(401)
+      expect(apiFailureSchema.parse(await response.json()).code).toBe(
+        'AUTHENTICATION_REQUIRED'
+      )
+    }
+
+    expect(consumeRate).not.toHaveBeenCalled()
+    expect(mockDatabase.getCanonicalAdminCmsSnapshot()).toEqual(before)
+    expect(await (await fetch(`${API_BASE}/me`)).json()).toEqual({
+      kind: 'GUEST'
+    })
   })
 })

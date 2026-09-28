@@ -32,12 +32,22 @@ export const queryClient = new QueryClient({
 
         const status = isApiError(error) ? error.status : undefined
 
+        if (isApiError(error) && error.retryable === false) {
+          return false
+        }
+
         if (status === 429) {
           return failureCount < 2
         }
 
         if (status && status >= 400 && status < 500) {
           return false
+        }
+
+        if (status !== undefined) {
+          return isApiError(error) && error.retryable === true
+            ? failureCount < 1
+            : false
         }
 
         return failureCount < 1

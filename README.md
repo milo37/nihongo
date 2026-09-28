@@ -370,13 +370,14 @@ HttpOnly cookie에만 저장됩니다. `/api/v1/me`의 최소 사용자 projecti
 
 Mock 모드(`VITE_API_MODE=mock`)의 로컬 자격 증명은 다음과 같습니다.
 
-| 역할  | 이메일            | 비밀번호         | 사용 범위                            |
-| ----- | ----------------- | ---------------- | ------------------------------------ |
-| GUEST | 없음              | 없음             | 문제풀이와 결과 확인, 영구 저장 불가 |
-| USER  | user@example.com  | Demo-user-2026!  | 오답노트, 즐겨찾기, 대시보드 포함    |
-| ADMIN | admin@example.com | Demo-admin-2026! | USER 기능과 관리자 문제 CMS          |
+| 역할  | 이메일               | 비밀번호            | 사용 범위                            |
+| ----- | -------------------- | ------------------- | ------------------------------------ |
+| GUEST | 없음                 | 없음                | 문제풀이와 결과 확인, 영구 저장 불가 |
+| USER  | user@example.com     | Demo-user-2026!     | 오답노트, 즐겨찾기, 대시보드 포함    |
+| ADMIN | admin@example.com    | Demo-admin-2026!    | USER 기능과 관리자 문제 CMS          |
+| ADMIN | reviewer@example.com | Demo-reviewer-2026! | 작성자와 분리된 검수·승인 흐름       |
 
-Mock mode는 위 두 고정 계정의 sign-in/sign-out과 guest projection만 지원합니다.
+Mock mode는 위 세 고정 계정의 sign-in/sign-out과 guest projection만 지원합니다.
 회원가입, 이메일 인증, 비밀번호 재설정은 성공을 가장하지 않고 UI에서 비활성화하며,
 실제 흐름은 `VITE_API_MODE=real`에서 검증합니다. Mock 인증 projection은 로컬
 demo state일 뿐 session credential이 아닙니다.

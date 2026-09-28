@@ -9,7 +9,8 @@ import {
   primeAdminCmsReadRateLimitForTesting,
   resetAdminCmsReadRateLimitForTesting
 } from '@mocks/handlers/adminCmsReadHandlers'
-import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { MockDatabase, mockDatabase } from '@mocks/repository/mockDatabase'
+import { phase7RateLimitRepository } from '@mocks/repository/phase7RateLimitRepository'
 
 const BASE = 'http://localhost/api/v1/admin'
 
@@ -20,7 +21,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
     mockDatabase.loginAs('ADMIN')
     const sourceRead = vi.spyOn(
       mockDatabase,
-      'listCanonicalAdminQuestionSources'
+      'listPhase7AuthoritativeAdminQuestionSources'
     )
 
     for (const query of ['=x', '__proto__=x', 'constructor=x', 'q=%E0%A4%A']) {
@@ -94,7 +95,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
     const authRead = vi.spyOn(mockDatabase, 'getCurrentUser')
     const sourceRead = vi.spyOn(
       mockDatabase,
-      'listCanonicalAdminQuestionSources'
+      'listPhase7AuthoritativeAdminQuestionSources'
     )
     const aliases = [
       '/api/v1/%61dmin/questions',
@@ -128,7 +129,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
     const authRead = vi.spyOn(mockDatabase, 'getCurrentUser')
     const sourceRead = vi.spyOn(
       mockDatabase,
-      'listCanonicalAdminQuestionSources'
+      'listPhase7AuthoritativeAdminQuestionSources'
     )
     const id = '00000000-0000-7000-8000-000000000000'
     const fragmentAliases = [
@@ -161,7 +162,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
   it('OPTIONS는 auth/rate/source 없이 exact canonical path만 처리한다', async () => {
     const sourceRead = vi.spyOn(
       mockDatabase,
-      'listCanonicalAdminQuestionSources'
+      'listPhase7AuthoritativeAdminQuestionSources'
     )
     const preflight = await fetch(`${BASE}/questions`, {
       method: 'OPTIONS',
@@ -225,7 +226,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
     mockDatabase.loginAs('ADMIN')
     const actor = mockDatabase.getCurrentUser()
     if (!actor) throw new Error('관리자 fixture가 필요합니다.')
-    primeAdminCmsReadRateLimitForTesting(actor.id, 119)
+    await primeAdminCmsReadRateLimitForTesting(actor.id, 119)
 
     expect((await fetch(`${BASE}/questions?pageSize=1`)).status).toBe(200)
 
@@ -239,7 +240,7 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
     expect(limited.headers.get('x-request-id')).toBe(body.requestId)
   }, 30_000)
 
-  it('list leakage, dormant reports, legacy GET/POST 회귀를 고정한다', async () => {
+  it('list leakage, learner report method boundary, legacy GET/POST 차단을 고정한다', async () => {
     mockDatabase.loginAs('ADMIN')
     const serialized = JSON.stringify(
       await (await fetch(`${BASE}/questions?pageSize=100`)).json()
@@ -261,10 +262,10 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
           method: 'POST'
         })
       ).status
-    ).toBe(404)
+    ).toBe(400)
     expect(
       (await fetch('http://localhost/api/admin/question?pageSize=100')).status
-    ).toBe(200)
+    ).toBe(404)
     expect(
       (
         await fetch('http://localhost/api/admin/question', {
@@ -273,6 +274,28 @@ describe('Phase 7 canonical admin read boundary matrix', () => {
           body: '{}'
         })
       ).status
-    ).not.toBe(404)
+    ).toBe(404)
+  })
+
+  it('rejects a stale cross-tab ADMIN read before rate and query parsing', async () => {
+    mockDatabase.loginAs('ADMIN')
+    const sessionTab = new MockDatabase({ listenToStorage: false })
+    const consumeRate = vi.spyOn(phase7RateLimitRepository, 'consume')
+    const sourceRead = vi.spyOn(
+      mockDatabase,
+      'listPhase7AuthoritativeAdminQuestionSources'
+    )
+    sessionTab.logout()
+
+    const response = await fetch(`${BASE}/questions?page=%E0%A4%A`)
+    expect(response.status).toBe(401)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'AUTHENTICATION_REQUIRED'
+    )
+    expect(consumeRate).not.toHaveBeenCalled()
+    expect(sourceRead).not.toHaveBeenCalled()
+    expect(
+      await (await fetch(`${globalThis.location.origin}/api/v1/me`)).json()
+    ).toEqual({ kind: 'GUEST' })
   })
 })

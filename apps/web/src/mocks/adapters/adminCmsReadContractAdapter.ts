@@ -1,13 +1,17 @@
 import { comparePublicQuestionTags } from '@nihongo/contracts/question/get-question'
 import {
+  assertAdminAuditContentDigest,
   assertDiffQuestionVersionForRequest,
+  assertGetAdminQuestionReportForRequest,
   assertGetAdminQuestionForRequest,
   assertListAdminAuditLogForRequest,
+  assertListAdminQuestionReportsForRequest,
   assertListAdminQuestionsForRequest,
   assertListAdminQuestionVersionsForRequest,
   assertListAdminTagsForRequest,
   assertListQuestionVersionReviewsForRequest,
   assertPreviewQuestionVersionForRequest,
+  assertQuestionReportDescriptionDigest,
   compareAdminTags,
   compareUnicodeScalars,
   decodeAdminQuestionVersionCursor,
@@ -23,6 +27,8 @@ import {
   type DiffQuestionVersionQuery,
   type DiffQuestionVersionResponse,
   type GetAdminQuestionResponse,
+  type ListAdminQuestionReportsQuery,
+  type ListAdminQuestionReportsResponse,
   type ListAdminAuditLogQuery,
   type ListAdminAuditLogResponse,
   type ListAdminQuestionsQuery,
@@ -33,8 +39,11 @@ import {
   type ListAdminTagsResponse,
   type ListQuestionVersionReviewsQuery,
   type ListQuestionVersionReviewsResponse,
-  type PreviewQuestionVersionResponse
+  type PreviewQuestionVersionResponse,
+  type QuestionReportDetail,
+  type QuestionReportSummary
 } from '@nihongo/contracts/admin/phase7'
+import { phase7Sha256TextPort } from '@libs/phase7Sha256'
 import {
   getContractQuestionId,
   getQuestionVersionFingerprint,
@@ -217,7 +226,11 @@ const toQuestionSummary = (
       stats.answerCount,
       stats.correctCount
     ),
-    openReportCount: 0
+    openReportCount: model.snapshot.reports.filter(
+      (report) =>
+        report.questionId === question.questionId &&
+        (report.status === 'OPEN' || report.status === 'TRIAGED')
+    ).length
   }
 }
 
@@ -578,10 +591,89 @@ export const toCanonicalAdminQuestionReviews = (
   })
 }
 
-export const toCanonicalAdminAuditLog = (
+const toQuestionReportSummary = (
+  report: QuestionReportDetail
+): QuestionReportSummary => ({
+  id: report.id,
+  questionId: report.questionId,
+  questionVersionId: report.questionVersionId,
+  reason: report.reason,
+  status: report.status,
+  rowVersion: report.rowVersion,
+  reporter: report.reporter,
+  assignee: report.assignee,
+  createdAt: report.createdAt,
+  updatedAt: report.updatedAt
+})
+
+const compareQuestionReports = (
+  sort: ListAdminQuestionReportsQuery['sort'],
+  left: QuestionReportDetail,
+  right: QuestionReportDetail
+): number => {
+  const leftTime = sort === 'UPDATED_DESC' ? left.updatedAt : left.createdAt
+  const rightTime = sort === 'UPDATED_DESC' ? right.updatedAt : right.createdAt
+  return (
+    compareUnicodeScalars(rightTime, leftTime) ||
+    compareUnicodeScalars(right.id, left.id)
+  )
+}
+
+export const toCanonicalAdminQuestionReportList = (
+  model: MockAdminCmsReadModel,
+  query: ListAdminQuestionReportsQuery
+): ListAdminQuestionReportsResponse => {
+  const matches = model.snapshot.reports
+    .filter(
+      (report) =>
+        (query.status === undefined || report.status === query.status) &&
+        (query.reason === undefined || report.reason === query.reason) &&
+        (query.questionId === undefined ||
+          report.questionId === query.questionId) &&
+        (query.assigneeActorId === undefined ||
+          report.assignee?.actorId === query.assigneeActorId) &&
+        isInHalfOpenRange(
+          report.createdAt,
+          query.createdFrom,
+          query.createdTo
+        ) &&
+        isInHalfOpenRange(report.updatedAt, query.updatedFrom, query.updatedTo)
+    )
+    .toSorted((left, right) => compareQuestionReports(query.sort, left, right))
+  const offset = (BigInt(query.page) - 1n) * BigInt(query.pageSize)
+  const items =
+    offset >= BigInt(matches.length)
+      ? []
+      : matches
+          .slice(Number(offset), Number(offset) + query.pageSize)
+          .map(toQuestionReportSummary)
+  return assertListAdminQuestionReportsForRequest(query, {
+    items,
+    page: query.page,
+    pageSize: query.pageSize,
+    total: matches.length
+  })
+}
+
+export const toCanonicalAdminQuestionReportDetail = async (
+  model: MockAdminCmsReadModel,
+  reportId: string
+): Promise<QuestionReportDetail> => {
+  const report = model.snapshot.reports.find(
+    (candidate) => candidate.id === reportId
+  )
+  if (!report) {
+    throw new MockAdminCmsReadNotFoundError('문제 신고를 찾을 수 없습니다.')
+  }
+  const response = assertGetAdminQuestionReportForRequest({ reportId }, report)
+  await assertQuestionReportDescriptionDigest(phase7Sha256TextPort, response)
+  return response
+}
+
+export const toCanonicalAdminAuditLog = async (
   model: MockAdminCmsReadModel,
   query: ListAdminAuditLogQuery
-): ListAdminAuditLogResponse => {
+): Promise<ListAdminAuditLogResponse> => {
   const matches = model.snapshot.auditLogs
     .filter(
       (item) =>
@@ -603,8 +695,14 @@ export const toCanonicalAdminAuditLog = (
     )
     .toSorted(compareOccurredDescending)
   const items: AdminAuditLogItem[] = matches.slice(0, query.limit)
-  return assertListAdminAuditLogForRequest(query, {
+  const response = assertListAdminAuditLogForRequest(query, {
     items,
     nextCursor: occurredNextCursor(matches.length, query.limit, items)
   })
+  await Promise.all(
+    response.items.map((item) =>
+      assertAdminAuditContentDigest(phase7Sha256TextPort, item)
+    )
+  )
+  return response
 }

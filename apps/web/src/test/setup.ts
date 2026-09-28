@@ -14,6 +14,8 @@ import {
   cachedStorage,
   clearStorageCache,
   MOCK_DATABASE_STORAGE_KEY,
+  PHASE7_ADMIN_CMS_STORAGE_KEY,
+  PHASE7_RATE_LIMIT_STORAGE_KEY,
   PRACTICE_STORE_KEY
 } from '@libs/storage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -47,6 +49,8 @@ const resetTestState = async (): Promise<void> => {
   })
   cachedStorage.removeItem(APP_STORE_KEY)
   cachedStorage.removeItem(MOCK_DATABASE_STORAGE_KEY)
+  cachedStorage.removeItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
+  cachedStorage.removeItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
   cachedSessionStorage.removeItem(PRACTICE_STORE_KEY)
   clearStorageCache()
 }

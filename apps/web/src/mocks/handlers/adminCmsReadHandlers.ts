@@ -2,9 +2,11 @@ import {
   buildPhase7OperationFailureResponse,
   diffQuestionVersionParamsSchema,
   diffQuestionVersionQuerySchema,
+  getAdminQuestionReportParamsSchema,
   getAdminQuestionParamsSchema,
   getAdminQuestionQuerySchema,
   listAdminAuditLogQuerySchema,
+  listAdminQuestionReportsQuerySchema,
   listAdminQuestionsQuerySchema,
   listAdminQuestionVersionsParamsSchema,
   listAdminQuestionVersionsQuerySchema,
@@ -28,6 +30,8 @@ import {
   MockAdminCmsReadIntegrityError,
   MockAdminCmsReadNotFoundError,
   toCanonicalAdminAuditLog,
+  toCanonicalAdminQuestionReportDetail,
+  toCanonicalAdminQuestionReportList,
   toCanonicalAdminQuestionDetail,
   toCanonicalAdminQuestionDiff,
   toCanonicalAdminQuestionList,
@@ -37,9 +41,11 @@ import {
   toCanonicalAdminTagList
 } from '@mocks/adapters/adminCmsReadContractAdapter'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import {
+  phase7RateLimitRepository,
+  Phase7RateLimitRepositoryUnavailableError
+} from '@mocks/repository/phase7RateLimitRepository'
 
-const ADMIN_READ_LIMIT = 120
-const ADMIN_READ_WINDOW_MS = 60_000
 const LOWERCASE_UUID =
   '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 const canonicalPaths = [
@@ -50,15 +56,12 @@ const canonicalPaths = [
   new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/preview$`),
   new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/diff$`),
   new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/reviews$`),
-  /^\/api\/v1\/admin\/audit-log$/
+  /^\/api\/v1\/admin\/audit-log$/,
+  /^\/api\/v1\/admin\/question-reports$/,
+  new RegExp(`^/api/v1/admin/question-reports/${LOWERCASE_UUID}$`)
 ] as const
 const forbiddenQueryKeys = new Set(['__proto__', 'constructor', 'prototype'])
 const MALFORMED_PERCENT_PATTERN = /%(?![0-9a-f]{2})/iu
-
-interface RateLimitWindow {
-  count: number
-  windowStartedAt: number
-}
 
 class CanonicalReadError extends Error {
   readonly code: StableErrorCode
@@ -82,20 +85,18 @@ class CanonicalReadError extends Error {
   }
 }
 
-const rateLimitByKey = new Map<string, RateLimitWindow>()
-
 export const resetAdminCmsReadRateLimitForTesting = (): void => {
-  rateLimitByKey.clear()
+  phase7RateLimitRepository.resetForTesting()
 }
 
 export const primeAdminCmsReadRateLimitForTesting = (
   actorId: string,
   count: number
-): void => {
-  const windowStartedAt = Date.now()
-  rateLimitByKey.set(`actor:${actorId}`, { count, windowStartedAt })
-  rateLimitByKey.set('ip:mock-client', { count, windowStartedAt })
-}
+): Promise<void> =>
+  phase7RateLimitRepository.primeForTesting(
+    { actorId, group: 'ADMIN_READ' },
+    count
+  )
 
 const toFieldErrors = (
   error: ZodError,
@@ -229,7 +230,16 @@ const toFailureResponse = (
 }
 
 const requireAdmin = (): string => {
-  const user = mockDatabase.getCurrentUser()
+  let user: ReturnType<typeof mockDatabase.getCurrentUser>
+  try {
+    user = mockDatabase.getCurrentUser()
+  } catch {
+    throw new CanonicalReadError({
+      code: 'SERVICE_UNAVAILABLE',
+      message: '최신 인증 세션을 확인하지 못했습니다.',
+      retryable: true
+    })
+  }
   if (!user) {
     throw new CanonicalReadError({
       code: 'AUTHENTICATION_REQUIRED',
@@ -245,36 +255,31 @@ const requireAdmin = (): string => {
   return user.id
 }
 
-const consumeRateLimitKey = (key: string, now: number): number | null => {
-  const previous = rateLimitByKey.get(key)
-  const current =
-    !previous || now >= previous.windowStartedAt + ADMIN_READ_WINDOW_MS
-      ? { count: 1, windowStartedAt: now }
-      : { count: previous.count + 1, windowStartedAt: previous.windowStartedAt }
-  rateLimitByKey.set(key, current)
-  return current.count > ADMIN_READ_LIMIT
-    ? Math.max(
-        1,
-        Math.ceil(
-          (current.windowStartedAt + ADMIN_READ_WINDOW_MS - now) / 1_000
-        )
-      )
-    : null
-}
-
-const guardAdminRead = (request: Request): void => {
+const guardAdminRead = async (request: Request): Promise<void> => {
   const actorId = requireAdmin()
-  const now = Date.now()
-  const actorRetry = consumeRateLimitKey(`actor:${actorId}`, now)
-  const ipRetry = consumeRateLimitKey('ip:mock-client', now)
-  const retryAfterSeconds = Math.max(actorRetry ?? 0, ipRetry ?? 0)
-  if (retryAfterSeconds > 0) {
+  try {
+    const { retryAfterSeconds } = await phase7RateLimitRepository.consume({
+      actorId,
+      group: 'ADMIN_READ'
+    })
+    if (retryAfterSeconds === null) return
     throw new CanonicalReadError({
       code: 'RATE_LIMITED',
       message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
       retryable: true,
       retryAfterSeconds
     })
+  } catch (error: unknown) {
+    if (error instanceof CanonicalReadError) throw error
+    if (error instanceof Phase7RateLimitRepositoryUnavailableError) {
+      throw new CanonicalReadError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '요청 제한 상태를 확인할 수 없습니다.',
+        retryable: true,
+        retryAfterSeconds: error.retryAfterSeconds
+      })
+    }
+    throw error
   }
   void request
 }
@@ -398,15 +403,31 @@ const parseParams = <Schema extends ZodType>(
   return result.data
 }
 
-const withCanonicalRead = <Body extends JsonBodyType>(
+const withCanonicalRead = async <Body extends JsonBodyType>(
   operation: Phase7Operation,
   request: Request,
   read: () => Body
-): HttpResponse<Body | ApiFailure> => {
+): Promise<HttpResponse<Body | ApiFailure>> => {
   const requestId = getRequestId(request)
   try {
-    guardAdminRead(request)
+    await guardAdminRead(request)
     return HttpResponse.json(read(), {
+      headers: responseHeaders(requestId, undefined, request)
+    })
+  } catch (error: unknown) {
+    return toFailureResponse(requestId, error, request, operation)
+  }
+}
+
+const withCanonicalAsyncRead = async <Body extends JsonBodyType>(
+  operation: Phase7Operation,
+  request: Request,
+  read: () => Promise<Body>
+): Promise<HttpResponse<Body | ApiFailure>> => {
+  const requestId = getRequestId(request)
+  try {
+    await guardAdminRead(request)
+    return HttpResponse.json(await read(), {
       headers: responseHeaders(requestId, undefined, request)
     })
   } catch (error: unknown) {
@@ -497,7 +518,7 @@ const isNonCanonicalPhase7Alias = (request: Request): boolean => {
 }
 
 const readModel = () => {
-  const sources = mockDatabase.listCanonicalAdminQuestionSources()
+  const sources = mockDatabase.listPhase7AuthoritativeAdminQuestionSources()
   return {
     sources,
     snapshot: mockDatabase.getCanonicalAdminCmsSnapshot(sources)
@@ -670,7 +691,7 @@ export const adminCmsReadHandlers = [
   ),
   http.get('*/api/v1/admin/audit-log', ({ request }) =>
     hasCanonicalPath(request)
-      ? withCanonicalRead('listAdminAuditLog', request, () =>
+      ? withCanonicalAsyncRead('listAdminAuditLog', request, () =>
           toCanonicalAdminAuditLog(
             readModel(),
             parseRawQuery(
@@ -682,6 +703,46 @@ export const adminCmsReadHandlers = [
         )
       : genericNotFound(request)
   ),
+  http.get('*/api/v1/admin/question-reports', ({ request }) =>
+    hasCanonicalPath(request)
+      ? withCanonicalRead('listAdminQuestionReports', request, () =>
+          toCanonicalAdminQuestionReportList(
+            readModel(),
+            parseRawQuery(
+              request,
+              listAdminQuestionReportsQuerySchema,
+              '문제 신고 목록 조회 조건이 올바르지 않습니다.'
+            )
+          )
+        )
+      : genericNotFound(request)
+  ),
+  http.get(
+    '*/api/v1/admin/question-reports/:reportId',
+    ({ params, request }) =>
+      hasCanonicalPath(request)
+        ? withCanonicalAsyncRead(
+            'getAdminQuestionReport',
+            request,
+            async () => {
+              const parsed = parseParams(
+                getAdminQuestionReportParamsSchema,
+                { reportId: String(params.reportId ?? '') },
+                '문제 신고 ID 형식이 올바르지 않습니다.'
+              )
+              parseRawQuery(
+                request,
+                z.object({}).strict(),
+                '문제 신고 상세 조회 조건이 올바르지 않습니다.'
+              )
+              return toCanonicalAdminQuestionReportDetail(
+                readModel(),
+                parsed.reportId
+              )
+            }
+          )
+        : genericNotFound(request)
+  ),
   http.all('*/api/v1/admin', ({ request }) => genericNotFound(request)),
   http.all('*/api/v1/admin/*', ({ request }) => genericNotFound(request)),
   http.all('*/api/v1/question-reports', ({ request }) =>
@@ -689,5 +750,7 @@ export const adminCmsReadHandlers = [
   ),
   http.all('*/api/v1/question-reports/*', ({ request }) =>
     genericNotFound(request)
-  )
+  ),
+  http.all('*/api/admin/question', ({ request }) => genericNotFound(request)),
+  http.all('*/api/admin/question/*', ({ request }) => genericNotFound(request))
 ]

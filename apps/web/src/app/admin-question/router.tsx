@@ -1,7 +1,5 @@
 import { lazy } from 'react'
 import type { RouteObject } from 'react-router'
-import { UnsupportedFeaturePage } from '@app/unsupported/page'
-import { isMockApiMode } from '@libs/apiMode'
 
 const AdminQuestionPage = lazy(() =>
   import('@app/admin-question/page').then((module) => ({
@@ -13,37 +11,48 @@ const CreateAdminQuestionPage = lazy(() =>
     default: module.CreateAdminQuestionPage
   }))
 )
-const EditAdminQuestionPage = lazy(() =>
-  import('@app/admin-question/edit/page').then((module) => ({
-    default: module.EditAdminQuestionPage
+const AdminQuestionDetailPage = lazy(() =>
+  import('@app/admin-question/detail/page').then((module) => ({
+    default: module.AdminQuestionDetailPage
+  }))
+)
+const AdminQuestionImportPage = lazy(() =>
+  import('@app/admin-import/page').then((module) => ({
+    default: module.AdminQuestionImportPage
+  }))
+)
+const AdminAuditLogPage = lazy(() =>
+  import('@app/admin-audit/page').then((module) => ({
+    default: module.AdminAuditLogPage
+  }))
+)
+const AdminQuestionReportPage = lazy(() =>
+  import('@app/admin-report/page').then((module) => ({
+    default: module.AdminQuestionReportPage
+  }))
+)
+const AdminQuestionReportDetailPage = lazy(() =>
+  import('@app/admin-report/detail/page').then((module) => ({
+    default: module.AdminQuestionReportDetailPage
   }))
 )
 
-const mockAdminQuestionRoutes: RouteObject[] = [
+export const adminQuestionRoutes: RouteObject[] = [
+  { path: 'admin/questions', element: <AdminQuestionPage /> },
+  { path: 'admin/questions/new', element: <CreateAdminQuestionPage /> },
+  { path: 'admin/questions/import', element: <AdminQuestionImportPage /> },
   {
-    path: 'admin/questions',
-    element: <AdminQuestionPage />
-  },
-  {
-    path: 'admin/questions/new',
-    element: <CreateAdminQuestionPage />
+    path: 'admin/questions/:questionId',
+    element: <AdminQuestionDetailPage />
   },
   {
     path: 'admin/questions/:questionId/edit',
-    element: <EditAdminQuestionPage />
+    element: <AdminQuestionDetailPage />
+  },
+  { path: 'admin/audit-log', element: <AdminAuditLogPage /> },
+  { path: 'admin/reports', element: <AdminQuestionReportPage /> },
+  {
+    path: 'admin/reports/:reportId',
+    element: <AdminQuestionReportDetailPage />
   }
 ]
-
-export const adminQuestionRoutes: RouteObject[] = isMockApiMode
-  ? mockAdminQuestionRoutes
-  : [
-      {
-        path: 'admin/questions/*',
-        element: (
-          <UnsupportedFeaturePage
-            title="문제 관리는 아직 사용할 수 없습니다"
-            description="관리자 CMS는 실제 API 이관 전이므로 조회·등록·수정 요청을 보내지 않습니다."
-          />
-        )
-      }
-    ]

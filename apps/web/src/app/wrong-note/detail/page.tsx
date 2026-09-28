@@ -31,6 +31,7 @@ import { getSafeWrongNoteReturnTo } from '@app/wrong-note/reviewQueueSearch'
 import { readTargetedReviewAttempt } from '@app/wrong-note/targetedReviewAttemptStorage'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
+import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 
 type WrongNoteDetailContentProps = {
   action?: ReactNode
@@ -352,6 +353,16 @@ export const WrongNoteDetailPage = (): ReactElement => {
         headingRef={headingRef}
         action={
           <>
+            {wrongNoteQuery.data.question.questionVersionId ? (
+              <div className="mb-3">
+                <QuestionReportDialog
+                  questionId={wrongNoteQuery.data.question.id}
+                  questionVersionId={
+                    wrongNoteQuery.data.question.questionVersionId
+                  }
+                />
+              </div>
+            ) : null}
             {wrongNoteQuery.data.wrongNote.reviewAvailability === 'AVAILABLE' ||
             hasTargetedRecoveryAttempt ? (
               <>

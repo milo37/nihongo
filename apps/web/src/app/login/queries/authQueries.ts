@@ -7,6 +7,7 @@ export const authQueries = {
     queryOptions({
       queryKey: [...authQueries.allKey(), 'get-current-user'] as const,
       queryFn: getCurrentUser,
+      refetchOnReconnect: false,
       refetchOnWindowFocus: 'always',
       staleTime: 0
     })

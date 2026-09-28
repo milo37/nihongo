@@ -254,9 +254,10 @@ describe('real API Query and feature cutover', () => {
     expect(putSpy).not.toHaveBeenCalled()
   })
 
-  it('mounts canonical Bookmark while keeping admin management unavailable', async () => {
+  it('mounts canonical Bookmark and Phase 7 admin management in real mode', async () => {
     mockDatabase.loginAs('USER')
     const get = vi.spyOn(apiClient, 'get')
+    const request = vi.spyOn(apiClient, 'request')
     const post = vi.spyOn(apiClient, 'post')
     const put = vi.spyOn(apiClient, 'put')
     const del = vi.spyOn(apiClient, 'delete')
@@ -288,16 +289,38 @@ describe('real API Query and feature cutover', () => {
     const adminRouter = createMemoryRouter(adminQuestionRoutes, {
       initialEntries: ['/admin/questions']
     })
-    render(<RouterProvider router={adminRouter} />)
+    const adminClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    })
+    mockDatabase.loginAs('ADMIN')
+    render(
+      <QueryClientProvider client={adminClient}>
+        <RouterProvider router={adminRouter} />
+      </QueryClientProvider>
+    )
 
     expect(
       await screen.findByRole('heading', {
-        name: '문제 관리는 아직 사용할 수 없습니다'
+        name: '문제 관리'
+      })
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('region', {
+        name: '관리자 문제 목록 가로 스크롤 영역'
       })
     ).toBeInTheDocument()
     expect(get).toHaveBeenCalledWith('/v1/bookmarks?page=1&pageSize=20', {
       params: undefined
     })
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        url: '/v1/admin/questions'
+      })
+    )
+    expect(
+      request.mock.calls.some(([config]) => config.url === '/admin/question')
+    ).toBe(false)
     expect(post).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
     expect(del).not.toHaveBeenCalled()

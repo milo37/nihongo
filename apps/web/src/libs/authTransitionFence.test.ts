@@ -3,12 +3,34 @@ import { describe, expect, it, vi } from 'vitest'
 import { safeFactory } from '@api/config'
 import {
   advanceAuthTransitionEpoch,
-  AuthTransitionSupersededError
+  assertCurrentAuthActorTransitionFence,
+  AuthTransitionSupersededError,
+  captureAuthActorTransitionFence
 } from '@libs/authTransitionFence'
 import { emitApiError, subscribeApiError } from '@libs/errorBus'
 import { queryClient } from '@libs/queryClient'
 
 describe('auth transition response fence', () => {
+  it('rejects a same-epoch actor or role replacement', () => {
+    const fence = captureAuthActorTransitionFence({
+      id: 'admin-a',
+      role: 'ADMIN'
+    })
+
+    expect(() =>
+      assertCurrentAuthActorTransitionFence(fence, {
+        id: 'admin-b',
+        role: 'ADMIN'
+      })
+    ).toThrow(AuthTransitionSupersededError)
+    expect(() =>
+      assertCurrentAuthActorTransitionFence(fence, {
+        id: 'admin-a',
+        role: 'USER'
+      })
+    ).toThrow(AuthTransitionSupersededError)
+  })
+
   it('rejects a successful raw response that belongs to an older auth epoch', async () => {
     let releaseResponse: ((value: unknown) => void) | undefined
     const rawResponse = new Promise<unknown>((resolve) => {

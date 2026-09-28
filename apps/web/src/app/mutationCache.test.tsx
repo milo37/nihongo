@@ -1,15 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
-import { useDeleteAdminQuestion } from '@app/admin-question/hooks/useDeleteAdminQuestion'
-import { useUpdateAdminQuestion } from '@app/admin-question/hooks/useUpdateAdminQuestion'
-import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
 import { studyQueries } from '@app/practice/queries/studyQueries'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
-import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -39,37 +34,6 @@ const expectInvalidated = (
   queryKey: readonly unknown[]
 ): void => {
   expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true)
-}
-
-const toUpdateInput = (
-  questionId: string,
-  questionText: string
-): UpdateAdminQuestionRequest => {
-  const question = mockDatabase.getAdminQuestion(questionId)
-  const correctOption = question.options.find((option) => option.isCorrect)
-
-  if (!correctOption) {
-    throw new Error('테스트 문제에 정답이 없습니다.')
-  }
-
-  return {
-    level: question.level,
-    subject: question.subject,
-    questionType: question.questionType,
-    passage: question.passage,
-    questionText,
-    options: question.options.map(({ id, label, text }) => ({
-      id,
-      label,
-      text
-    })),
-    correctOptionId: correctOption.id,
-    explanationKo: question.explanationKo,
-    explanationJa: question.explanationJa,
-    difficulty: question.difficulty,
-    tags: question.tags,
-    status: question.status
-  }
 }
 
 describe('mutation cache contracts', () => {
@@ -208,125 +172,5 @@ describe('mutation cache contracts', () => {
     expect(
       client.getQueryData(studyQueries.result('missing-session').queryKey)
     ).toBeUndefined()
-  })
-
-  it('관리자 수정은 상세 데이터를 갱신하고 교차 도메인 캐시를 무효화한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-01'
-    const questionText = '수정된 관리자 문제 문장'
-    const client = createTestClient()
-    const detailKey = adminQuestionQueries.detail(questionId).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-
-    seedCache(client, detailKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useUpdateAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-
-    await act(async () => {
-      await result.current.mutateAsync({
-        questionId,
-        input: toUpdateInput(questionId, questionText)
-      })
-    })
-
-    expect(client.getQueryData(detailKey)).toMatchObject({ questionText })
-    expectInvalidated(client, detailKey)
-    expectInvalidated(client, bookmarkKey)
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
-  })
-
-  it('관리자 삭제는 상세 캐시를 제거하고 모든 관련 목록을 무효화한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-02'
-    const client = createTestClient()
-    const detailKey = adminQuestionQueries.detail(questionId).queryKey
-    const listKey = adminQuestionQueries.list({
-      page: 1,
-      pageSize: 20,
-      sort: 'RECENT'
-    }).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-
-    seedCache(client, detailKey)
-    seedCache(client, listKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useDeleteAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-
-    await act(async () => {
-      await result.current.mutateAsync(questionId)
-    })
-
-    expect(client.getQueryState(detailKey)).toBeUndefined()
-    expectInvalidated(client, listKey)
-    expectInvalidated(client, bookmarkKey)
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
-  })
-
-  it('관리자 수정·삭제 실패 시 상세 set/remove와 교차 무효화를 실행하지 않는다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    const client = createTestClient()
-    const missingQuestionId = 'missing-question'
-    const detailKey = adminQuestionQueries.detail(missingQuestionId).queryKey
-    const listKey = adminQuestionQueries.list({
-      page: 1,
-      pageSize: 20,
-      sort: 'RECENT'
-    }).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-    seedCache(client, detailKey)
-    seedCache(client, listKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const updateHook = renderHook(() => useUpdateAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-    const deleteHook = renderHook(() => useDeleteAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-    const validInput = toUpdateInput(
-      'n5-vocabulary-01',
-      '실패 테스트용 문제 문장'
-    )
-
-    await expect(
-      act(async () => {
-        await updateHook.result.current.mutateAsync({
-          questionId: missingQuestionId,
-          input: validInput
-        })
-      })
-    ).rejects.toBeDefined()
-    await expect(
-      act(async () => {
-        await deleteHook.result.current.mutateAsync(missingQuestionId)
-      })
-    ).rejects.toBeDefined()
-
-    expect(client.getQueryData(detailKey)).toEqual({ cached: true })
-    expect(client.getQueryState(detailKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(listKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(bookmarkKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
   })
 })

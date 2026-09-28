@@ -10,7 +10,7 @@ import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
-import { MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
+import { APP_STORE_KEY, MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
 import { useAppStore } from '@store/index'
 
 const createClient = (): QueryClient =>
@@ -201,6 +201,20 @@ describe('canonical auth synchronization', () => {
   it('같은 사용자 Mock 데이터 변경은 data cache만 제거하고 현재 tab practice는 유지한다', async () => {
     const currentUser = mockDatabase.loginAs('USER')
     const client = createClient()
+    let requestCount = 0
+    let releaseExternalRequest: (() => void) | undefined
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        requestCount += 1
+        if (requestCount === 2) {
+          await new Promise<void>((resolve) => {
+            releaseExternalRequest = resolve
+          })
+        }
+        return HttpResponse.json(toPrincipal(currentUser))
+      })
+    )
+
     renderProbe(client)
     expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
 
@@ -217,11 +231,48 @@ describe('canonical auth synchronization', () => {
       })
     )
 
+    await waitFor(() => expect(releaseExternalRequest).toBeDefined())
+    expect(screen.getByText('현재 역할: USER')).toBeInTheDocument()
+    expect(screen.queryByText('현재 역할: GUEST')).not.toBeInTheDocument()
+    releaseExternalRequest?.()
+
     await waitFor(() =>
       expect(client.getQueryData(['wrong-note', 'list'])).toBeUndefined()
     )
     expect(useAppStore.getState().sessionId).toBe('same-tab-session')
     expect(screen.getByText('현재 역할: USER')).toBeInTheDocument()
+  })
+
+  it('auth storage 변경은 canonical 재검증 동안 권한 경계를 닫는다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    let requestCount = 0
+    let releaseExternalRequest: (() => void) | undefined
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        requestCount += 1
+        if (requestCount === 2) {
+          await new Promise<void>((resolve) => {
+            releaseExternalRequest = resolve
+          })
+        }
+        return HttpResponse.json(toPrincipal(currentUser))
+      })
+    )
+
+    renderProbe(createClient())
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: APP_STORE_KEY,
+        newValue: 'canonical-auth-changed'
+      })
+    )
+
+    await waitFor(() => expect(releaseExternalRequest).toBeDefined())
+    expect(screen.getByText('현재 역할: GUEST')).toBeInTheDocument()
+    releaseExternalRequest?.()
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
   })
 
   it('canonical network failure에서는 persisted projection을 권한으로 사용하지 않는다', async () => {

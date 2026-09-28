@@ -7,6 +7,7 @@ import {
   clearStorageCache,
   createSplitAppStateStorage,
   PRACTICE_STORE_KEY,
+  readFreshLocalStorageItem,
   subscribeStorageChanges
 } from '@libs/storage'
 import { useAppStore } from '@store/index'
@@ -95,6 +96,20 @@ describe('storage adapters', () => {
       window.dispatchEvent(new StorageEvent('storage', { key: null }))
     })
     expect(listener).toHaveBeenCalledTimes(1)
+    cachedStorage.removeItem(key)
+  })
+
+  it('fresh read는 오래된 local cache를 우회하고 새 값을 cache에 반영한다', () => {
+    const key = 'storage-fresh-read-test'
+    window.localStorage.setItem(key, 'first')
+    clearStorageCache()
+    expect(cachedStorage.getItem(key)).toBe('first')
+
+    window.localStorage.setItem(key, 'second')
+    expect(cachedStorage.getItem(key)).toBe('first')
+    expect(readFreshLocalStorageItem(key)).toBe('second')
+    expect(cachedStorage.getItem(key)).toBe('second')
+
     cachedStorage.removeItem(key)
   })
 

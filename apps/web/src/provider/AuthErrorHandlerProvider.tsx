@@ -87,7 +87,11 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         return
       }
 
-      if (error.isAuthError) {
+      const isFreshAssuranceFlow =
+        error.code === 'FRESH_ASSURANCE_REQUIRED' ||
+        error.code === 'REAUTHENTICATION_FAILED'
+
+      if (error.isAuthError && !isFreshAssuranceFlow) {
         const redirect = encodeURIComponent(
           `${location.pathname}${location.search}`
         )
@@ -99,6 +103,17 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
             navigate(`/login?redirect=${redirect}`, { replace: true })
           }
         })
+        return
+      }
+
+      if (isFreshAssuranceFlow) {
+        return
+      }
+
+      // A valid ADMIN can receive object-level FORBIDDEN from a Phase 7
+      // command. Keep the owning screen and its draft mounted so that the
+      // command surface can render the error locally.
+      if (error.isForbiddenError && error.code === 'FORBIDDEN') {
         return
       }
 
@@ -121,13 +136,22 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         return
       }
 
-      if (error.isValidationError) {
-        if (!__NIHONGO_PRODUCTION_BUILD__ && error.isResponseValidationError) {
+      if (error.isResponseValidationError) {
+        if (!__NIHONGO_PRODUCTION_BUILD__) {
           console.error('API response validation failed')
         }
         setBanner({
           kind: 'error',
           message: '응답 형식이 올바르지 않습니다. 다시 시도해 주세요.'
+        })
+        return
+      }
+
+      if (error.isServerValidationError || error.isValidationError) {
+        setBanner({
+          kind: 'error',
+          message:
+            error.serverMessage ?? '입력 내용을 확인한 뒤 다시 시도해 주세요.'
         })
         return
       }

@@ -1,33 +1,69 @@
 import {
+  accountActorSnapshotSchema,
   adminAuditLogItemSchema,
   adminContentReviewItemSchema,
+  adminImportApplyResponseSchema,
+  adminImportIssueCodeSchema,
+  adminImportValidationResponseSchema,
+  adminQuestionContentInputSchema,
   adminQuestionMutationResultSchema,
+  adminReviewRequestBatchResultSchema,
+  adminTagSummarySchema,
+  assertAdminTagList,
+  assertAdminQuestionExportDocumentForRequest,
+  canonicalizeJson,
   compareAdminTags,
   compareUnicodeScalars,
   createAdminAuditContentDigestPreimage,
+  createAdminImportMappingDigest,
+  createAdminImportValidationDigest,
   createPhase7QuestionDuplicateIdentity,
+  createQuestionReportDescriptionDigest,
+  isApplicablePhase7ContentType,
+  normalizePhase7OptionComparison,
   normalizePhase7TagKey,
+  normalizePhase7Text,
+  questionReportDetailSchema,
+  questionReportMutationResultSchema,
   type AccountActorSnapshot,
   type AdminAuditLogItem,
   type AdminContentReviewItem,
+  type AdminImportApplyResponse,
+  type AdminImportItem,
+  type AdminImportValidationResponse,
+  type AdminQuestionExportDocumentV1,
   type AdminQuestionMutationResult,
+  type AdminReviewRequestBatchResult,
   type AdminTagSummary,
+  type ApplyQuestionImportRequest,
   type ApproveQuestionVersionRequest,
   type ArchiveAdminQuestionRequest,
   type CreateAdminQuestionRequest,
   type CreateAdminQuestionVersionRequest,
+  type CreateQuestionReportRequest,
+  type CanonicalJsonValue,
+  type ExportAdminQuestionsRequest,
   type Phase7ExecutionDisposition,
   type Phase7InternalFailureReason,
   type PublishQuestionVersionRequest,
+  type QuestionReportDetail,
+  type QuestionReportMutationResult,
   type QuestionVersionStatus,
+  type RequestContentReviewBatchRequest,
   type RetirementKind,
   type RequestContentReviewRequest,
   type RequestQuestionChangesRequest,
+  type ResolveAdminQuestionReportRequest,
   type RetireQuestionVersionRequest,
+  type Sha256TextPort,
+  type TriageAdminQuestionReportRequest,
   type UpdateQuestionVersionRequest,
+  type ValidateQuestionImportRequest,
   type WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/phase7'
+import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
+import { opaqueIdSchema } from '@nihongo/contracts/common/id'
 import {
   comparePublicQuestionTags,
   getQuestionResponseSchema,
@@ -73,8 +109,72 @@ const UPDATE_CHANGED_FIELD_ORDER = [
   'TAGS'
 ] as const
 const FIVE_MINUTES_MS = 5 * 60 * 1000
+const EXPORT_BODY_CAP = 8 * 1024 * 1024
 
 const clone = <Value>(value: Value): Value => structuredClone(value)
+
+const isCanonicalOpaqueId = (value: unknown): value is string => {
+  const parsed = opaqueIdSchema.safeParse(value)
+  return parsed.success && parsed.data === value
+}
+
+const isCanonicalIsoInstant = (value: unknown): value is string => {
+  const parsed = isoDateTimeSchema.safeParse(value)
+  return parsed.success && parsed.data === value
+}
+
+const hasCanonicalPersistedContent = (
+  version: Record<string, unknown>,
+  options: unknown,
+  tags: unknown
+): boolean => {
+  if (!Array.isArray(options) || !Array.isArray(tags)) return false
+  const optionRecords = options.map((option) =>
+    typeof option === 'object' && option !== null
+      ? (option as Record<string, unknown>)
+      : {}
+  )
+  const correctIndex = optionRecords.findIndex(
+    (option) => option.id === version.correctOptionId
+  )
+  if (correctIndex < 0) return false
+
+  const parsed = adminQuestionContentInputSchema.safeParse({
+    level: version.level,
+    subject: version.subject,
+    questionType: version.questionType,
+    difficulty: version.difficulty,
+    questionText: version.questionText,
+    passage: version.passage,
+    explanationKo: version.explanationKo,
+    explanationJa: version.explanationJa,
+    tagNames: tags.map((tag) =>
+      typeof tag === 'object' && tag !== null
+        ? (tag as Record<string, unknown>).label
+        : undefined
+    ),
+    options: optionRecords.map((option, index) => ({
+      clientOptionKey: `persisted-option-${index + 1}`,
+      text: option.text
+    })),
+    correctOptionKey: `persisted-option-${correctIndex + 1}`
+  })
+  if (!parsed.success) return false
+
+  return (
+    parsed.data.questionText === version.questionText &&
+    parsed.data.passage === version.passage &&
+    parsed.data.explanationKo === version.explanationKo &&
+    parsed.data.explanationJa === version.explanationJa &&
+    parsed.data.options.every(
+      (option, index) => option.text === optionRecords[index]?.text
+    ) &&
+    parsed.data.tagNames.every(
+      (tagName, index) =>
+        tagName === (tags[index] as Record<string, unknown> | undefined)?.label
+    )
+  )
+}
 
 export class MockPhase7AdminCommandError extends Error {
   readonly code: StableErrorCode
@@ -148,8 +248,31 @@ export interface MockPhase7AdminQuestion {
 export interface MockPhase7AdminCmsSnapshot {
   readonly auditLogs: readonly AdminAuditLogItem[]
   readonly questions: readonly MockPhase7AdminQuestion[]
+  readonly reports: readonly QuestionReportDetail[]
   readonly reviews: readonly AdminContentReviewItem[]
   readonly versions: readonly MockPhase7AdminVersion[]
+}
+
+export interface MockPhase7AdminCmsPersistedState
+  extends MockPhase7AdminCmsSnapshot {
+  readonly lifecycleControlledQuestionIds: readonly string[]
+  readonly mutationRevision?: number
+  readonly sessionIssuedAtByActorId: readonly (readonly [string, string])[]
+}
+
+export type MockPhase7MutationLease = <Result>(
+  operation: () => Promise<Result>
+) => Promise<Result>
+
+export interface MockPhase7AdminExportResult {
+  readonly auditEvidence: {
+    readonly selectionDigest: string
+    readonly responseBodyDigest: string
+    readonly questionCount: number
+    readonly versionCount: number
+  }
+  readonly canonicalBody: string
+  readonly document: AdminQuestionExportDocumentV1
 }
 
 export interface MockPhase7LearnerPins {
@@ -192,29 +315,43 @@ export interface MockPhase7LearnerProjection {
 
 export type MockPhase7ActiveAdminCmsState = Pick<
   MockPhase7AdminCmsState,
+  | 'applyQuestionImport'
   | 'archiveAdminQuestion'
+  | 'createQuestionReport'
   | 'createQuestion'
   | 'createVersion'
+  | 'exportAdminQuestions'
   | 'hasFreshAssurance'
   | 'publishQuestionVersion'
   | 'reauthenticate'
+  | 'requestContentReviewBatch'
+  | 'resolveQuestionReport'
   | 'retireQuestionVersion'
   | 'transitionVersion'
+  | 'triageQuestionReport'
   | 'updateVersion'
+  | 'validateQuestionImport'
 >
 
 export const createMockPhase7ActiveAdminCmsState = (
   state: MockPhase7AdminCmsState
 ): MockPhase7ActiveAdminCmsState => ({
+  applyQuestionImport: state.applyQuestionImport.bind(state),
   archiveAdminQuestion: state.archiveAdminQuestion.bind(state),
+  createQuestionReport: state.createQuestionReport.bind(state),
   createQuestion: state.createQuestion.bind(state),
   createVersion: state.createVersion.bind(state),
+  exportAdminQuestions: state.exportAdminQuestions.bind(state),
   hasFreshAssurance: state.hasFreshAssurance.bind(state),
   publishQuestionVersion: state.publishQuestionVersion.bind(state),
   reauthenticate: state.reauthenticate.bind(state),
+  requestContentReviewBatch: state.requestContentReviewBatch.bind(state),
+  resolveQuestionReport: state.resolveQuestionReport.bind(state),
   retireQuestionVersion: state.retireQuestionVersion.bind(state),
   transitionVersion: state.transitionVersion.bind(state),
-  updateVersion: state.updateVersion.bind(state)
+  triageQuestionReport: state.triageQuestionReport.bind(state),
+  updateVersion: state.updateVersion.bind(state),
+  validateQuestionImport: state.validateQuestionImport.bind(state)
 })
 
 type MutableQuestion = {
@@ -290,6 +427,19 @@ const accountActor = (actorId: string): AccountActorSnapshot => ({
   label: 'ACTIVE_ADMIN'
 })
 
+const reporterActor = (
+  actorId: string,
+  role: 'USER' | 'ADMIN'
+): AccountActorSnapshot => ({
+  kind: 'ACCOUNT',
+  actorId,
+  role,
+  label: role === 'ADMIN' ? 'ACTIVE_ADMIN' : 'ACTIVE_USER'
+})
+
+type AdminImportValidationIssue =
+  AdminImportValidationResponse['errors'][number]
+
 const toHex = (bytes: Uint8Array): string =>
   [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 
@@ -299,6 +449,8 @@ const sha256Utf8 = async (value: string): Promise<string> =>
       await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
     )
   )
+
+const sha256Port: Sha256TextPort = { digestUtf8: sha256Utf8 }
 
 const toDuplicateIdentity = (version: MockPhase7AdminVersion): string => {
   const correctOption = version.options.find(
@@ -318,7 +470,10 @@ const toDuplicateIdentity = (version: MockPhase7AdminVersion): string => {
 }
 
 const toRequestDuplicateIdentity = (
-  content: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+  content:
+    | CreateAdminQuestionRequest
+    | UpdateQuestionVersionRequest
+    | AdminImportItem['content']
 ): string => {
   const correctOptionText =
     'correctOptionKey' in content
@@ -364,6 +519,21 @@ const toArchiveMutationResult = (input: {
     questionRowVersion: input.question.rowVersion,
     versionRowVersion: null,
     occurredAt: input.occurredAt
+  })
+
+const toQuestionReportMutation = (
+  report: QuestionReportDetail
+): QuestionReportMutationResult =>
+  questionReportMutationResultSchema.parse({
+    id: report.id,
+    questionId: report.questionId,
+    questionVersionId: report.questionVersionId,
+    status: report.status,
+    rowVersion: report.rowVersion,
+    assignee: report.assignee,
+    resolution: report.resolution,
+    createdAt: report.createdAt,
+    updatedAt: report.updatedAt
   })
 
 const toPublicQuestion = (
@@ -455,10 +625,14 @@ const createSeedVersion = (
     })),
     correctOptionId: correctOption.id,
     tags: publicQuestion.tags
-      .map((tag) => ({
-        ...tag,
-        normalizedName: normalizePhase7TagKey(tag.label)
-      }))
+      .map((tag) => {
+        const label = normalizePhase7Text(tag.label)
+        return {
+          ...tag,
+          label,
+          normalizedName: normalizePhase7TagKey(label)
+        }
+      })
       .toSorted(compareAdminTags),
     author: null,
     latestReviewer: null,
@@ -475,6 +649,7 @@ export class MockPhase7AdminCmsState {
   private mutationTail: Promise<void> = Promise.resolve()
   private pendingMutationCount = 0
   private questionById = new Map<string, MockPhase7AdminQuestion>()
+  private reports: QuestionReportDetail[] = []
   private reviews: AdminContentReviewItem[] = []
   private sessionIssuedAtByActorId = new Map<string, string>()
   private successfulMutationRevision = 0
@@ -482,7 +657,13 @@ export class MockPhase7AdminCmsState {
 
   constructor(
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly auditEnvironment: AdminAuditLogItem['environment'] = 'TEST'
+    private readonly auditEnvironment: AdminAuditLogItem['environment'] = 'TEST',
+    private readonly persistState?: () => void,
+    private readonly synchronizeBeforeMutation?: () => boolean,
+    private readonly withMutationLease: MockPhase7MutationLease = async (
+      operation
+    ) => await operation(),
+    private readonly onMutationQueueIdle?: () => void
   ) {}
 
   reset(): void {
@@ -491,6 +672,7 @@ export class MockPhase7AdminCmsState {
     this.mutationTail = Promise.resolve()
     this.pendingMutationCount = 0
     this.questionById.clear()
+    this.reports = []
     this.reviews = []
     this.sessionIssuedAtByActorId.clear()
     this.successfulMutationRevision = 0
@@ -520,9 +702,172 @@ export class MockPhase7AdminCmsState {
     return clone({
       auditLogs: this.auditLogs,
       questions: [...this.questionById.values()],
+      reports: this.reports,
       reviews: this.reviews,
       versions: [...this.versionById.values()]
     })
+  }
+
+  persistedSnapshot(
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  ): MockPhase7AdminCmsPersistedState {
+    const snapshot = this.snapshot(sources)
+    return clone({
+      ...snapshot,
+      lifecycleControlledQuestionIds: [
+        ...this.lifecycleControlledQuestionIds
+      ].toSorted(compareUnicodeScalars),
+      mutationRevision: this.successfulMutationRevision,
+      sessionIssuedAtByActorId: [...this.sessionIssuedAtByActorId].toSorted(
+        ([left], [right]) => compareUnicodeScalars(left, right)
+      )
+    })
+  }
+
+  restore(
+    persisted: MockPhase7AdminCmsPersistedState,
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  ): void {
+    this.restorePersistedState(persisted, true, sources)
+  }
+
+  restoreGraph(
+    persisted: MockPhase7AdminCmsPersistedState,
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  ): void {
+    const localSessions = new Map(this.sessionIssuedAtByActorId)
+    this.restorePersistedState(persisted, true, sources)
+    this.mergeGraphSessions(localSessions)
+  }
+
+  restoreForMutation(
+    persisted: MockPhase7AdminCmsPersistedState,
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  ): void {
+    const localSessions = new Map(this.sessionIssuedAtByActorId)
+    this.restorePersistedState(persisted, false, sources)
+    this.mergeGraphSessions(localSessions)
+  }
+
+  private mergeGraphSessions(localSessions: ReadonlyMap<string, string>): void {
+    const incomingSessions = this.sessionIssuedAtByActorId
+    this.sessionIssuedAtByActorId = new Map(
+      [...localSessions].map(([actorId, localIssuedAt]) => {
+        const incomingIssuedAt = incomingSessions.get(actorId)
+        if (
+          incomingIssuedAt !== undefined &&
+          Date.parse(incomingIssuedAt) > Date.parse(localIssuedAt)
+        ) {
+          return [actorId, incomingIssuedAt] as const
+        }
+        return [actorId, localIssuedAt] as const
+      })
+    )
+  }
+
+  hasPendingMutations(): boolean {
+    return this.pendingMutationCount > 0
+  }
+
+  private restorePersistedState(
+    persisted: MockPhase7AdminCmsPersistedState,
+    resetQueue: boolean,
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  ): void {
+    const auditLogs = persisted.auditLogs.map((item) =>
+      adminAuditLogItemSchema.parse(item)
+    )
+    const reviews = persisted.reviews.map((item) =>
+      adminContentReviewItemSchema.parse(item)
+    )
+    const reports = persisted.reports.map((item) =>
+      questionReportDetailSchema.parse(item)
+    )
+    if (
+      !Array.isArray(persisted.questions) ||
+      !Array.isArray(persisted.versions) ||
+      !Array.isArray(persisted.lifecycleControlledQuestionIds) ||
+      !Array.isArray(persisted.sessionIssuedAtByActorId) ||
+      (persisted.mutationRevision !== undefined &&
+        (!Number.isSafeInteger(persisted.mutationRevision) ||
+          persisted.mutationRevision < 0)) ||
+      persisted.questions.some(
+        (question) => !this.isPersistedQuestion(question)
+      ) ||
+      persisted.versions.some((version) => !this.isPersistedVersion(version)) ||
+      persisted.lifecycleControlledQuestionIds.some(
+        (questionId) => !isCanonicalOpaqueId(questionId)
+      ) ||
+      persisted.sessionIssuedAtByActorId.some(
+        (entry) =>
+          !Array.isArray(entry) ||
+          entry.length !== 2 ||
+          !isCanonicalOpaqueId(entry[0]) ||
+          !isCanonicalIsoInstant(entry[1])
+      )
+    ) {
+      throw new Error('Persisted Phase 7 CMS state is malformed.')
+    }
+    const questionById = new Map(
+      persisted.questions.map((question) => [
+        question.questionId,
+        clone(question)
+      ])
+    )
+    const versionById = new Map(
+      persisted.versions.map((version) => [
+        version.questionVersionId,
+        clone(version)
+      ])
+    )
+    const lifecycleControlledQuestionIds = new Set(
+      persisted.lifecycleControlledQuestionIds
+    )
+    const sessionIssuedAtByActorId = new Map<string, string>(
+      persisted.sessionIssuedAtByActorId.map(([actorId, issuedAt]) => [
+        actorId,
+        issuedAt
+      ])
+    )
+    if (
+      questionById.size !== persisted.questions.length ||
+      versionById.size !== persisted.versions.length ||
+      auditLogs.length !== new Set(auditLogs.map((item) => item.id)).size ||
+      reviews.length !== new Set(reviews.map((item) => item.id)).size ||
+      reports.length !== new Set(reports.map((report) => report.id)).size ||
+      lifecycleControlledQuestionIds.size !==
+        persisted.lifecycleControlledQuestionIds.length ||
+      sessionIssuedAtByActorId.size !==
+        persisted.sessionIssuedAtByActorId.length ||
+      ![...lifecycleControlledQuestionIds].every((questionId) =>
+        questionById.has(questionId)
+      ) ||
+      [...versionById.values()].some(
+        (version) => !questionById.has(version.questionId)
+      )
+    ) {
+      throw new Error('Persisted Phase 7 CMS identity graph is malformed.')
+    }
+    this.assertPersistedGraph({
+      auditLogs,
+      questionById,
+      reports,
+      reviews,
+      versionById,
+      sources
+    })
+    this.auditLogs = clone(auditLogs)
+    this.lifecycleControlledQuestionIds = lifecycleControlledQuestionIds
+    if (resetQueue) {
+      this.mutationTail = Promise.resolve()
+      this.pendingMutationCount = 0
+    }
+    this.questionById = questionById
+    this.reports = clone(reports)
+    this.reviews = clone(reviews)
+    this.sessionIssuedAtByActorId = sessionIssuedAtByActorId
+    this.successfulMutationRevision = persisted.mutationRevision ?? 0
+    this.versionById = versionById
   }
 
   createQuestion(input: {
@@ -537,6 +882,7 @@ export class MockPhase7AdminCmsState {
       toRequestDuplicateIdentity(input.request)
     )
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const tags = this.resolveTags(input.sources, input.request)
       const occurredAt = this.now()
@@ -602,6 +948,7 @@ export class MockPhase7AdminCmsState {
       input.questionId
     )
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
       this.synchronizeSeeds(input.sources)
       const current = this.questionById.get(input.questionId)
       if (!current) {
@@ -921,6 +1268,133 @@ export class MockPhase7AdminCmsState {
       this.reviews.push(review)
       this.auditLogs.push(audit)
       return toMutationResult({ occurredAt, question, version })
+    })
+  }
+
+  requestContentReviewBatch(input: {
+    actorId: string
+    assertAuthority: () => void
+    request: RequestContentReviewBatchRequest
+    requestId: string
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  }): Promise<AdminReviewRequestBatchResult> {
+    return this.runExclusive(async () => {
+      input.assertAuthority()
+      this.synchronizeSeeds(input.sources)
+      const targets = input.request.items.map((item) => {
+        const version = this.versionById.get(item.versionId)
+        if (!version) {
+          throw new MockPhase7AdminCommandError({
+            code: 'RESOURCE_NOT_FOUND',
+            message: '일괄 검수 요청 대상 문제 버전을 찾을 수 없습니다.'
+          })
+        }
+        if (version.author?.actorId !== input.actorId) {
+          throw new MockPhase7AdminCommandError({
+            code: 'FORBIDDEN',
+            message: '각 문제 버전의 작성자만 일괄 검수를 요청할 수 있습니다.'
+          })
+        }
+        if (version.rowVersion !== item.expectedRowVersion) {
+          throw new MockPhase7AdminCommandError({
+            code: 'VERSION_CONFLICT',
+            message: '일괄 검수 요청 대상이 다른 요청으로 변경되었습니다.'
+          })
+        }
+        const question = this.questionById.get(version.questionId)
+        if (
+          !question ||
+          question.lifecycleStatus !== 'ACTIVE' ||
+          !['DRAFT', 'CHANGES_REQUESTED'].includes(version.versionStatus)
+        ) {
+          throw new MockPhase7AdminCommandError({
+            code: 'INVALID_STATE_TRANSITION',
+            message: '현재 상태에서는 일괄 검수를 요청할 수 없습니다.'
+          })
+        }
+        return { item, question, version }
+      })
+      const occurredAt = this.now()
+      const operationId = crypto.randomUUID()
+      const actor = accountActor(input.actorId)
+      const staged = await Promise.all(
+        targets.map(async ({ item, question, version }) => {
+          const next: MutableVersion = {
+            ...version,
+            versionStatus: 'IN_REVIEW',
+            rowVersion: version.rowVersion + 1,
+            updatedAt: occurredAt
+          }
+          const review = adminContentReviewItemSchema.parse({
+            id: crypto.randomUUID(),
+            questionId: version.questionId,
+            questionVersionId: version.questionVersionId,
+            action: 'REQUESTED',
+            fromState: version.versionStatus,
+            toState: 'IN_REVIEW',
+            actor,
+            counterpart: null,
+            reason: null,
+            comment: item.comment ?? null,
+            operationId,
+            requestId: input.requestId,
+            occurredAt
+          })
+          const audit = await createAudit({
+            command: 'REVIEW_REQUEST',
+            targetType: 'QUESTION_VERSION',
+            targetId: version.questionVersionId,
+            actor,
+            beforeState: version.versionStatus,
+            afterState: 'IN_REVIEW',
+            beforeRowVersion: version.rowVersion,
+            afterRowVersion: next.rowVersion,
+            changedFields: ['VERSION_STATUS'],
+            metadata: { kind: 'NONE_V1' },
+            operationId,
+            requestId: input.requestId,
+            environment: this.auditEnvironment,
+            occurredAt
+          })
+          return {
+            audit,
+            next,
+            question,
+            result: toMutationResult({ occurredAt, question, version: next }),
+            review
+          }
+        })
+      )
+      const batchAudit = await createAudit({
+        command: 'REVIEW_REQUEST_BATCH',
+        targetType: 'REVIEW_REQUEST_BATCH',
+        targetId: operationId,
+        actor,
+        beforeState: null,
+        afterState: null,
+        beforeRowVersion: null,
+        afterRowVersion: null,
+        changedFields: ['VERSION_STATUS'],
+        metadata: {
+          kind: 'REVIEW_REQUEST_BATCH_V1',
+          itemCount: staged.length
+        },
+        operationId,
+        requestId: input.requestId,
+        environment: this.auditEnvironment,
+        occurredAt
+      })
+      const result = adminReviewRequestBatchResultSchema.parse({
+        items: staged.map(({ result: item }) => item)
+      })
+      input.assertAuthority()
+      staged.forEach(({ audit, next, review }) => {
+        this.versionById.set(next.questionVersionId, next)
+        this.reviews.push(review)
+        this.auditLogs.push(audit)
+      })
+      this.auditLogs.push(batchAudit)
+      return result
     })
   }
 
@@ -1436,6 +1910,524 @@ export class MockPhase7AdminCmsState {
     })
   }
 
+  async validateQuestionImport(input: {
+    request: ValidateQuestionImportRequest
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  }): Promise<AdminImportValidationResponse> {
+    await this.mutationTail
+    this.synchronizeSeeds(input.sources)
+    return this.collectImportValidation(input.request.items, input.sources)
+  }
+
+  async applyQuestionImport(input: {
+    actorId: string
+    assertAuthority: () => void
+    request: ApplyQuestionImportRequest
+    requestId: string
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  }): Promise<AdminImportApplyResponse> {
+    const requestedDigest = await createAdminImportValidationDigest(
+      sha256Port,
+      input.request.items
+    )
+    if (requestedDigest !== input.request.validationDigest) {
+      throw new MockPhase7AdminCommandError({
+        code: 'IMPORT_IDENTITY_CONFLICT',
+        message: 'import 검증 digest와 적용 요청이 일치하지 않습니다.'
+      })
+    }
+    this.synchronizeSeeds(input.sources)
+    const preflight = await this.collectImportValidation(
+      input.request.items,
+      input.sources
+    )
+    this.assertImportValidationForApply(input.request, preflight)
+
+    return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
+      this.synchronizeSeeds(input.sources)
+      const validation = await this.collectImportValidation(
+        input.request.items,
+        input.sources
+      )
+      if (!validation.valid && hasConcurrentPredecessor) {
+        throw new MockPhase7AdminCommandError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: '동시 콘텐츠 중복으로 import를 확정하지 못했습니다.',
+          disposition: 'DEFINITE_ROLLBACK',
+          internalReason: 'CONTENT_DUPLICATE_CONCURRENT_RACE'
+        })
+      }
+      this.assertImportValidationForApply(input.request, validation)
+
+      const occurredAt = this.now()
+      const operationId = crypto.randomUUID()
+      const actor = accountActor(input.actorId)
+      const staged = await Promise.all(
+        input.request.items.map(async (item) => {
+          const question: MutableQuestion = {
+            questionId: crypto.randomUUID(),
+            lifecycleStatus: 'ACTIVE',
+            rowVersion: 1,
+            currentPublishedVersionId: null,
+            openCandidateVersionId: null,
+            archivedAt: null,
+            createdAt: occurredAt,
+            updatedAt: occurredAt
+          }
+          const tags = this.resolveTags(input.sources, item.content)
+          const version = this.createVersionContent({
+            actorId: input.actorId,
+            content: item.content,
+            occurredAt,
+            questionId: question.questionId,
+            tags,
+            versionNumber: 1
+          })
+          question.openCandidateVersionId = version.questionVersionId
+          const audit = await createAudit({
+            command: 'QUESTION_CREATE',
+            targetType: 'QUESTION',
+            targetId: question.questionId,
+            actor,
+            beforeState: null,
+            afterState: 'ACTIVE',
+            beforeRowVersion: null,
+            afterRowVersion: 1,
+            changedFields: [...CREATE_CHANGED_FIELDS],
+            metadata: { kind: 'NONE_V1' },
+            operationId,
+            requestId: input.requestId,
+            environment: this.auditEnvironment,
+            occurredAt
+          })
+          return { audit, item, question, version }
+        })
+      )
+      const responseItems = staged.map(({ item, question, version }) => ({
+        clientItemId: item.clientItemId,
+        questionId: question.questionId,
+        questionVersionId: version.questionVersionId,
+        lifecycleStatus: 'ACTIVE' as const,
+        versionStatus: 'DRAFT' as const,
+        questionRowVersion: 1 as const,
+        versionRowVersion: 1 as const
+      }))
+      const mappingDigest = await createAdminImportMappingDigest(
+        sha256Port,
+        responseItems
+      )
+      const importAudit = await createAudit({
+        command: 'IMPORT_APPLY',
+        targetType: 'IMPORT_REQUEST',
+        targetId: operationId,
+        actor,
+        beforeState: null,
+        afterState: null,
+        beforeRowVersion: null,
+        afterRowVersion: null,
+        changedFields: ['IMPORT_ITEMS'],
+        metadata: {
+          kind: 'IMPORT_APPLY_V1',
+          validationDigest: input.request.validationDigest,
+          mappingDigest,
+          itemCount: staged.length
+        },
+        operationId,
+        requestId: input.requestId,
+        environment: this.auditEnvironment,
+        occurredAt
+      })
+      const response = adminImportApplyResponseSchema.parse({
+        createdCount: staged.length,
+        items: responseItems,
+        occurredAt
+      })
+      input.assertAuthority()
+      staged.forEach(({ audit, question, version }) => {
+        this.questionById.set(question.questionId, question)
+        this.versionById.set(version.questionVersionId, version)
+        this.auditLogs.push(audit)
+      })
+      this.auditLogs.push(importAudit)
+      return response
+    })
+  }
+
+  exportAdminQuestions(input: {
+    actorId: string
+    assertAuthority: () => void
+    request: ExportAdminQuestionsRequest
+    requestId: string
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  }): Promise<MockPhase7AdminExportResult> {
+    return this.runExclusive(async () => {
+      input.assertAuthority()
+      this.synchronizeSeeds(input.sources)
+      const exportedAt = this.now()
+      const questions = input.request.questionIds.map((questionId) => {
+        const question = this.questionById.get(questionId)
+        if (!question) {
+          throw new MockPhase7AdminCommandError({
+            code: 'RESOURCE_NOT_FOUND',
+            message: '내보낼 관리자 문제를 찾을 수 없습니다.'
+          })
+        }
+        const versions = [...this.versionById.values()]
+          .filter((version) => version.questionId === questionId)
+          .toSorted(
+            (left, right) =>
+              left.versionNumber - right.versionNumber ||
+              compareUnicodeScalars(
+                left.questionVersionId,
+                right.questionVersionId
+              )
+          )
+        if (versions.length === 0) {
+          throw new MockPhase7AdminCommandError({
+            code: 'SERVICE_UNAVAILABLE',
+            message: '내보낼 문제의 보존 버전을 확인할 수 없습니다.'
+          })
+        }
+        return {
+          questionId: question.questionId,
+          lifecycleStatus: question.lifecycleStatus,
+          currentPublishedVersionId: question.currentPublishedVersionId,
+          versions: versions.map((version) => ({
+            questionVersionId: version.questionVersionId,
+            versionNumber: version.versionNumber,
+            versionStatus: version.versionStatus,
+            content: {
+              level: version.level,
+              subject: version.subject,
+              questionType: version.questionType,
+              difficulty: version.difficulty,
+              passage: version.passage,
+              questionText: version.questionText,
+              explanationKo: version.explanationKo,
+              explanationJa: version.explanationJa,
+              options: version.options
+                .toSorted((left, right) => left.ordinal - right.ordinal)
+                .map(({ id, ordinal, text }) => ({ id, ordinal, text })),
+              correctOptionId: version.correctOptionId,
+              tags: [...version.tags].toSorted(compareAdminTags)
+            }
+          }))
+        }
+      })
+      const document: AdminQuestionExportDocumentV1 = {
+        schemaVersion: 'admin-question-export-v1',
+        exportedAt,
+        questions
+      }
+      const canonicalBody = canonicalizeJson(
+        document as unknown as CanonicalJsonValue
+      )
+      if (
+        new TextEncoder().encode(canonicalBody).byteLength > EXPORT_BODY_CAP
+      ) {
+        throw new MockPhase7AdminCommandError({
+          code: 'VALIDATION_ERROR',
+          message: '선택한 문제의 내보내기 결과가 8 MiB를 초과합니다.',
+          fieldErrors: {
+            questionIds: ['더 작은 문제 묶음으로 나누어 내보내 주세요.']
+          }
+        })
+      }
+      const asserted = await assertAdminQuestionExportDocumentForRequest(
+        sha256Port,
+        input.request,
+        document,
+        { canonicalResponseBody: canonicalBody }
+      )
+      const auditEvidence = {
+        selectionDigest: asserted.selectionDigest,
+        responseBodyDigest: asserted.responseBodyDigest,
+        questionCount: asserted.questionCount,
+        versionCount: asserted.versionCount
+      }
+      const operationId = crypto.randomUUID()
+      const audit = await createAudit({
+        command: 'EXPORT',
+        targetType: 'EXPORT_REQUEST',
+        targetId: operationId,
+        actor: accountActor(input.actorId),
+        beforeState: null,
+        afterState: null,
+        beforeRowVersion: null,
+        afterRowVersion: null,
+        changedFields: ['EXPORT_SELECTION'],
+        metadata: { kind: 'EXPORT_V1', ...auditEvidence },
+        operationId,
+        requestId: input.requestId,
+        environment: this.auditEnvironment,
+        occurredAt: exportedAt
+      })
+      input.assertAuthority()
+      this.auditLogs.push(audit)
+      return {
+        document: asserted.document,
+        canonicalBody,
+        auditEvidence
+      }
+    })
+  }
+
+  createQuestionReport(input: {
+    actorId: string
+    actorRole: 'USER' | 'ADMIN'
+    assertAuthority: () => void
+    resolveEntitledQuestionId: (
+      disposition: 'DEFINITE_ROLLBACK' | 'NO_TX'
+    ) => string | null
+    request: CreateQuestionReportRequest
+  }): Promise<QuestionReportMutationResult> {
+    const entitledQuestionId = input.resolveEntitledQuestionId('NO_TX')
+    if (!entitledQuestionId) {
+      throw new MockPhase7AdminCommandError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.'
+      })
+    }
+    const duplicateWasVisible = this.hasOpenQuestionReportDuplicate(
+      input.actorId,
+      input.request.questionVersionId,
+      input.request.reason
+    )
+    if (duplicateWasVisible) {
+      throw new MockPhase7AdminCommandError({
+        code: 'QUESTION_REPORT_DUPLICATE',
+        message: '같은 문제 버전과 사유의 처리 중 신고가 이미 있습니다.'
+      })
+    }
+    return this.runExclusive(async ({ hasConcurrentPredecessor }) => {
+      input.assertAuthority()
+      const questionId = input.resolveEntitledQuestionId('DEFINITE_ROLLBACK')
+      if (!questionId || questionId !== entitledQuestionId) {
+        throw new MockPhase7AdminCommandError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.',
+          disposition: 'DEFINITE_ROLLBACK'
+        })
+      }
+      if (
+        this.hasOpenQuestionReportDuplicate(
+          input.actorId,
+          input.request.questionVersionId,
+          input.request.reason
+        )
+      ) {
+        throw new MockPhase7AdminCommandError({
+          code: 'QUESTION_REPORT_DUPLICATE',
+          message: '같은 문제 버전과 사유의 처리 중 신고가 이미 있습니다.',
+          disposition: hasConcurrentPredecessor ? 'DEFINITE_ROLLBACK' : 'NO_TX'
+        })
+      }
+      const occurredAt = this.now()
+      const report = questionReportDetailSchema.parse({
+        id: crypto.randomUUID(),
+        questionId,
+        questionVersionId: input.request.questionVersionId,
+        reason: input.request.reason,
+        description: input.request.description,
+        descriptionDigest: await createQuestionReportDescriptionDigest(
+          sha256Port,
+          input.request.description
+        ),
+        status: 'OPEN',
+        rowVersion: 1,
+        reporter: reporterActor(input.actorId, input.actorRole),
+        assignee: null,
+        resolution: null,
+        createdAt: occurredAt,
+        updatedAt: occurredAt
+      })
+      input.assertAuthority()
+      if (input.resolveEntitledQuestionId('DEFINITE_ROLLBACK') !== questionId) {
+        throw new MockPhase7AdminCommandError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.',
+          disposition: 'DEFINITE_ROLLBACK'
+        })
+      }
+      this.reports.push(report)
+      return toQuestionReportMutation(report)
+    })
+  }
+
+  triageQuestionReport(input: {
+    actorId: string
+    assertAuthority: () => void
+    reportId: string
+    request: TriageAdminQuestionReportRequest
+    requestId: string
+  }): Promise<QuestionReportMutationResult> {
+    return this.runExclusive(async () => {
+      input.assertAuthority()
+      const current = this.reports.find(
+        (report) => report.id === input.reportId
+      )
+      if (!current) {
+        throw new MockPhase7AdminCommandError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '문제 신고를 찾을 수 없습니다.'
+        })
+      }
+      if (current.rowVersion !== input.request.expectedRowVersion) {
+        throw new MockPhase7AdminCommandError({
+          code: 'VERSION_CONFLICT',
+          message: '다른 요청이 먼저 문제 신고를 변경했습니다.'
+        })
+      }
+      if (current.status !== 'OPEN') {
+        throw new MockPhase7AdminCommandError({
+          code: 'INVALID_STATE_TRANSITION',
+          message: 'OPEN 문제 신고만 triage할 수 있습니다.'
+        })
+      }
+      const occurredAt = this.now()
+      const report = questionReportDetailSchema.parse({
+        ...current,
+        status: 'TRIAGED',
+        rowVersion: current.rowVersion + 1,
+        assignee: accountActor(input.actorId),
+        updatedAt: occurredAt
+      })
+      const operationId = crypto.randomUUID()
+      const audit = await createAudit({
+        command: 'REPORT_TRIAGE',
+        targetType: 'QUESTION_REPORT',
+        targetId: report.id,
+        actor: accountActor(input.actorId),
+        beforeState: 'OPEN',
+        afterState: 'TRIAGED',
+        beforeRowVersion: current.rowVersion,
+        afterRowVersion: report.rowVersion,
+        changedFields: ['ASSIGNEE', 'REPORT_STATUS'],
+        metadata: { kind: 'NONE_V1' },
+        operationId,
+        requestId: input.requestId,
+        environment: this.auditEnvironment,
+        occurredAt
+      })
+      input.assertAuthority()
+      this.reports = this.reports.map((item) =>
+        item.id === report.id ? report : item
+      )
+      this.auditLogs.push(audit)
+      return toQuestionReportMutation(report)
+    })
+  }
+
+  resolveQuestionReport(input: {
+    actorId: string
+    assertAuthority: () => void
+    reportId: string
+    request: ResolveAdminQuestionReportRequest
+    requestId: string
+  }): Promise<QuestionReportMutationResult> {
+    return this.runExclusive(async () => {
+      input.assertAuthority()
+      const current = this.reports.find(
+        (report) => report.id === input.reportId
+      )
+      if (!current) {
+        throw new MockPhase7AdminCommandError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '문제 신고를 찾을 수 없습니다.'
+        })
+      }
+      if (current.rowVersion !== input.request.expectedRowVersion) {
+        throw new MockPhase7AdminCommandError({
+          code: 'VERSION_CONFLICT',
+          message: '다른 요청이 먼저 문제 신고를 변경했습니다.'
+        })
+      }
+      if (current.status !== 'TRIAGED') {
+        throw new MockPhase7AdminCommandError({
+          code: 'INVALID_STATE_TRANSITION',
+          message: 'TRIAGED 문제 신고만 종결할 수 있습니다.'
+        })
+      }
+      const remediationId = input.request.remediationVersionId ?? null
+      const remediation = remediationId
+        ? this.versionById.get(remediationId)
+        : undefined
+      const reportedVersion = this.versionById.get(current.questionVersionId)
+      if (!reportedVersion) {
+        throw new MockPhase7AdminCommandError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '사용할 수 있는 신고 대상 버전을 찾을 수 없습니다.'
+        })
+      }
+      if (
+        remediationId !== null &&
+        (!remediation ||
+          remediation.questionId !== current.questionId ||
+          remediation.questionVersionId === current.questionVersionId ||
+          remediation.versionNumber <= reportedVersion.versionNumber ||
+          !(
+            remediation.versionStatus === 'PUBLISHED' ||
+            (remediation.versionStatus === 'RETIRED' &&
+              remediation.retirementKind === 'PUBLISHED_RETIREMENT' &&
+              remediation.publishedAt !== null)
+          ))
+      ) {
+        throw new MockPhase7AdminCommandError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '사용할 수 있는 조치 버전을 찾을 수 없습니다.'
+        })
+      }
+      if (input.request.outcome === 'DISMISSED' && remediationId !== null) {
+        throw new MockPhase7AdminCommandError({
+          code: 'VALIDATION_ERROR',
+          message: '기각 처리에는 조치 버전을 지정할 수 없습니다.',
+          fieldErrors: {
+            remediationVersionId: [
+              'DISMISSED remediationVersionId는 null이어야 합니다.'
+            ]
+          }
+        })
+      }
+      const occurredAt = this.now()
+      const report = questionReportDetailSchema.parse({
+        ...current,
+        status: input.request.outcome,
+        rowVersion: current.rowVersion + 1,
+        resolution: {
+          outcome: input.request.outcome,
+          reason: input.request.reason,
+          remediationVersionId: remediationId,
+          resolvedAt: occurredAt
+        },
+        updatedAt: occurredAt
+      })
+      const operationId = crypto.randomUUID()
+      const audit = await createAudit({
+        command: 'REPORT_RESOLUTION',
+        targetType: 'QUESTION_REPORT',
+        targetId: report.id,
+        actor: accountActor(input.actorId),
+        beforeState: 'TRIAGED',
+        afterState: input.request.outcome,
+        beforeRowVersion: current.rowVersion,
+        afterRowVersion: report.rowVersion,
+        changedFields: ['RESOLUTION', 'REPORT_STATUS'],
+        metadata: { kind: 'NONE_V1' },
+        operationId,
+        requestId: input.requestId,
+        environment: this.auditEnvironment,
+        occurredAt
+      })
+      input.assertAuthority()
+      this.reports = this.reports.map((item) =>
+        item.id === report.id ? report : item
+      )
+      this.auditLogs.push(audit)
+      return toQuestionReportMutation(report)
+    })
+  }
+
   getLearnerProjection(
     sources: readonly MockCanonicalAdminQuestionSource[],
     pins: MockPhase7LearnerPins
@@ -1556,6 +2548,7 @@ export class MockPhase7AdminCmsState {
     reauthenticatedAt: string
   }> {
     return this.runExclusive(async () => {
+      input.assertAuthority()
       const reauthenticatedAt = this.now()
       const operationId = crypto.randomUUID()
       const audit = await createAudit({
@@ -1599,29 +2592,85 @@ export class MockPhase7AdminCmsState {
     const queuedBehindAnotherMutation = this.pendingMutationCount > 0
     const observedRevision = this.successfulMutationRevision
     this.pendingMutationCount += 1
-    const invoke = async (): Promise<Result> => {
-      const result = await operation({
-        hasConcurrentPredecessor:
-          queuedBehindAnotherMutation &&
-          this.successfulMutationRevision !== observedRevision
+    const invoke = async (): Promise<Result> =>
+      await this.withMutationLease(async () => {
+        const synchronizedExternalMutation =
+          this.synchronizeBeforeMutation?.() ?? false
+        const before = this.captureMutableState()
+        try {
+          const result = await operation({
+            hasConcurrentPredecessor:
+              synchronizedExternalMutation ||
+              (queuedBehindAnotherMutation &&
+                this.successfulMutationRevision !== observedRevision) ||
+              this.successfulMutationRevision !== observedRevision
+          })
+          this.successfulMutationRevision += 1
+          try {
+            this.persistState?.()
+          } catch {
+            this.restoreMutableState(before)
+            throw new MockPhase7AdminCommandError({
+              code: 'SERVICE_UNAVAILABLE',
+              message: '관리자 명령을 브라우저 저장소에 저장하지 못했습니다.',
+              disposition: 'DEFINITE_ROLLBACK'
+            })
+          }
+          return result
+        } catch (error: unknown) {
+          this.restoreMutableState(before)
+          throw error
+        }
       })
-      this.successfulMutationRevision += 1
-      return result
-    }
     const result = this.mutationTail.then(invoke, invoke)
     this.mutationTail = result.then(
       () => undefined,
       () => undefined
     )
-    void result.then(
-      () => {
-        this.pendingMutationCount -= 1
-      },
-      () => {
-        this.pendingMutationCount -= 1
-      }
-    )
+    const settle = (): void => {
+      this.pendingMutationCount -= 1
+      if (this.pendingMutationCount === 0) this.onMutationQueueIdle?.()
+    }
+    void result.then(settle, settle)
     return result
+  }
+
+  private captureMutableState(): MockPhase7AdminCmsPersistedState {
+    return clone({
+      auditLogs: this.auditLogs,
+      lifecycleControlledQuestionIds: [...this.lifecycleControlledQuestionIds],
+      mutationRevision: this.successfulMutationRevision,
+      questions: [...this.questionById.values()],
+      reports: this.reports,
+      reviews: this.reviews,
+      sessionIssuedAtByActorId: [...this.sessionIssuedAtByActorId],
+      versions: [...this.versionById.values()]
+    })
+  }
+
+  private restoreMutableState(state: MockPhase7AdminCmsPersistedState): void {
+    this.auditLogs = clone([...state.auditLogs])
+    this.lifecycleControlledQuestionIds = new Set(
+      state.lifecycleControlledQuestionIds
+    )
+    this.questionById = new Map(
+      state.questions.map((question) => [question.questionId, clone(question)])
+    )
+    this.reports = clone([...state.reports])
+    this.reviews = clone([...state.reviews])
+    this.sessionIssuedAtByActorId = new Map(
+      state.sessionIssuedAtByActorId.map(([actorId, issuedAt]) => [
+        actorId,
+        issuedAt
+      ])
+    )
+    this.successfulMutationRevision = state.mutationRevision ?? 0
+    this.versionById = new Map(
+      state.versions.map((version) => [
+        version.questionVersionId,
+        clone(version)
+      ])
+    )
   }
 
   private getCurrentPublicVersion(
@@ -1741,6 +2790,535 @@ export class MockPhase7AdminCmsState {
     }
   }
 
+  private async collectImportValidation(
+    items: readonly AdminImportItem[],
+    sources: readonly MockCanonicalAdminQuestionSource[]
+  ): Promise<AdminImportValidationResponse> {
+    this.synchronizeSeeds(sources)
+    const validationDigest = await createAdminImportValidationDigest(
+      sha256Port,
+      items
+    )
+    const issues: AdminImportValidationIssue[] = []
+    const pushIssue = (issue: AdminImportValidationIssue): void => {
+      if (
+        !issues.some(
+          (current) =>
+            current.itemIndex === issue.itemIndex &&
+            current.fieldPath === issue.fieldPath &&
+            current.code === issue.code
+        )
+      ) {
+        issues.push(issue)
+      }
+    }
+    const applicableTagKeys = new Set<string>()
+    for (const version of this.versionById.values()) {
+      for (const tag of version.tags) {
+        applicableTagKeys.add(
+          this.tagApplicabilityKey(tag.normalizedName, version)
+        )
+      }
+    }
+    const seenItemIds = new Set<string>()
+    const eligibleIdentities: Array<string | null> = items.map(() => null)
+
+    items.forEach((item, itemIndex) => {
+      const prefix = `/items/${itemIndex}`
+      if (seenItemIds.has(item.clientItemId)) {
+        pushIssue({
+          itemIndex,
+          fieldPath: `${prefix}/clientItemId`,
+          code: 'DUPLICATE_CLIENT_ITEM_ID',
+          message: 'clientItemId는 import 요청 안에서 고유해야 합니다.'
+        })
+      }
+      seenItemIds.add(item.clientItemId)
+
+      const optionKeys = new Set<string>()
+      const optionTexts = new Set<string>()
+      let hasDuplicateOptionKey = false
+      let hasDuplicateOptionText = false
+      item.content.options.forEach((option, optionIndex) => {
+        if (optionKeys.has(option.clientOptionKey)) {
+          hasDuplicateOptionKey = true
+          pushIssue({
+            itemIndex,
+            fieldPath: `${prefix}/content/options/${optionIndex}/clientOptionKey`,
+            code: 'DUPLICATE_CLIENT_OPTION_KEY',
+            message: 'clientOptionKey는 문제 안에서 고유해야 합니다.'
+          })
+        }
+        const normalizedText = normalizePhase7OptionComparison(option.text)
+        if (optionTexts.has(normalizedText)) {
+          hasDuplicateOptionText = true
+          pushIssue({
+            itemIndex,
+            fieldPath: `${prefix}/content/options/${optionIndex}/text`,
+            code: 'DUPLICATE_OPTION_TEXT',
+            message: '정규화된 보기 내용은 문제 안에서 고유해야 합니다.'
+          })
+        }
+        optionKeys.add(option.clientOptionKey)
+        optionTexts.add(normalizedText)
+      })
+      const correctKeyMatchCount = item.content.options.filter(
+        (option) => option.clientOptionKey === item.content.correctOptionKey
+      ).length
+      if (correctKeyMatchCount === 0) {
+        pushIssue({
+          itemIndex,
+          fieldPath: `${prefix}/content/correctOptionKey`,
+          code: 'CORRECT_OPTION_KEY_NOT_FOUND',
+          message: 'correctOptionKey는 같은 문제의 보기 key여야 합니다.'
+        })
+      }
+
+      const tagKeys = new Set<string>()
+      item.content.tagNames.forEach((tagName, tagIndex) => {
+        const normalizedName = normalizePhase7TagKey(tagName)
+        if (tagKeys.has(normalizedName)) {
+          pushIssue({
+            itemIndex,
+            fieldPath: `${prefix}/content/tagNames/${tagIndex}`,
+            code: 'DUPLICATE_TAG',
+            message: '정규화된 태그는 문제 안에서 고유해야 합니다.'
+          })
+        }
+        if (
+          !applicableTagKeys.has(
+            this.tagApplicabilityKey(normalizedName, item.content)
+          )
+        ) {
+          pushIssue({
+            itemIndex,
+            fieldPath: `${prefix}/content/tagNames/${tagIndex}`,
+            code: 'UNKNOWN_TAG',
+            message: '존재하며 문제 분류에 적용 가능한 태그가 필요합니다.'
+          })
+        }
+        tagKeys.add(normalizedName)
+      })
+
+      const passageIsValid =
+        item.content.subject === 'READING'
+          ? item.content.passage !== null
+          : item.content.questionType === 'TEXT_GRAMMAR' ||
+            item.content.passage === null
+      if (!passageIsValid) {
+        pushIssue({
+          itemIndex,
+          fieldPath: `${prefix}/content/passage`,
+          code: 'INVALID_READING_PASSAGE',
+          message: '문제 분류에 맞는 passage 구성이 필요합니다.'
+        })
+      }
+      const contentIsValid = isApplicablePhase7ContentType(
+        item.content.level,
+        item.content.subject,
+        item.content.questionType
+      )
+      if (!contentIsValid) {
+        pushIssue({
+          itemIndex,
+          fieldPath: `${prefix}/content/questionType`,
+          code: 'INVALID_CONTENT',
+          message: 'level/subject/questionType 조합이 올바르지 않습니다.'
+        })
+      }
+      if (
+        !hasDuplicateOptionKey &&
+        !hasDuplicateOptionText &&
+        correctKeyMatchCount === 1 &&
+        passageIsValid &&
+        contentIsValid
+      ) {
+        eligibleIdentities[itemIndex] = toRequestDuplicateIdentity(item.content)
+      }
+    })
+
+    const existingIdentities = new Set(
+      [...this.versionById.values()].map(toDuplicateIdentity)
+    )
+    const seenIdentities = new Set<string>()
+    eligibleIdentities.forEach((identity, itemIndex) => {
+      if (!identity) return
+      if (existingIdentities.has(identity) || seenIdentities.has(identity)) {
+        pushIssue({
+          itemIndex,
+          fieldPath: `/items/${itemIndex}/content/questionText`,
+          code: 'DUPLICATE_QUESTION_CONTENT',
+          message: '동일한 내용의 문제가 이미 존재합니다.'
+        })
+      }
+      seenIdentities.add(identity)
+    })
+    issues.sort(
+      (left, right) =>
+        left.itemIndex - right.itemIndex ||
+        compareUnicodeScalars(left.fieldPath, right.fieldPath) ||
+        adminImportIssueCodeSchema.options.indexOf(left.code) -
+          adminImportIssueCodeSchema.options.indexOf(right.code) ||
+        compareUnicodeScalars(left.message, right.message)
+    )
+    return adminImportValidationResponseSchema.parse({
+      valid: issues.length === 0,
+      validationDigest,
+      itemCount: items.length,
+      errors: issues
+    })
+  }
+
+  private assertImportValidationForApply(
+    request: ApplyQuestionImportRequest,
+    validation: AdminImportValidationResponse
+  ): void {
+    if (validation.validationDigest !== request.validationDigest) {
+      throw new MockPhase7AdminCommandError({
+        code: 'IMPORT_IDENTITY_CONFLICT',
+        message: 'import 검증 digest와 적용 요청이 일치하지 않습니다.'
+      })
+    }
+    if (validation.valid) return
+    const fieldErrors: Record<string, string[]> = {}
+    validation.errors.forEach((issue) => {
+      fieldErrors[issue.fieldPath] = [
+        ...(fieldErrors[issue.fieldPath] ?? []),
+        issue.message
+      ]
+    })
+    throw new MockPhase7AdminCommandError({
+      code: 'IMPORT_VALIDATION_FAILED',
+      message: 'import 의미 검증을 통과하지 못했습니다.',
+      fieldErrors
+    })
+  }
+
+  private tagApplicabilityKey(
+    normalizedName: string,
+    content: Pick<
+      CreateAdminQuestionRequest,
+      'level' | 'subject' | 'questionType'
+    >
+  ): string {
+    return `${normalizedName}\u0000${content.level}\u0000${content.subject}\u0000${content.questionType}`
+  }
+
+  private hasOpenQuestionReportDuplicate(
+    actorId: string,
+    versionId: string,
+    reason: CreateQuestionReportRequest['reason']
+  ): boolean {
+    return this.reports.some(
+      (report) =>
+        report.reporter.kind === 'ACCOUNT' &&
+        report.reporter.actorId === actorId &&
+        report.questionVersionId === versionId &&
+        report.reason === reason &&
+        (report.status === 'OPEN' || report.status === 'TRIAGED')
+    )
+  }
+
+  private assertPersistedGraph(input: {
+    readonly auditLogs: readonly AdminAuditLogItem[]
+    readonly questionById: ReadonlyMap<string, MockPhase7AdminQuestion>
+    readonly reports: readonly QuestionReportDetail[]
+    readonly reviews: readonly AdminContentReviewItem[]
+    readonly sources: readonly MockCanonicalAdminQuestionSource[]
+    readonly versionById: ReadonlyMap<string, MockPhase7AdminVersion>
+  }): void {
+    const fail = (): never => {
+      throw new Error('Persisted Phase 7 CMS relation graph is malformed.')
+    }
+    const tagIdentity = (tag: AdminTagSummary): string =>
+      JSON.stringify([tag.id, tag.label, tag.normalizedName])
+    const authoritativeTagIdentities = new Map<string, Set<string>>()
+    const authoritativeVersions = input.sources.map(createSeedVersion)
+    for (const version of authoritativeVersions) {
+      for (const tag of version.tags) {
+        const key = this.tagApplicabilityKey(tag.normalizedName, version)
+        const identities = authoritativeTagIdentities.get(key) ?? new Set()
+        identities.add(tagIdentity(tag))
+        authoritativeTagIdentities.set(key, identities)
+      }
+    }
+    const versionsByQuestionId = new Map<string, MockPhase7AdminVersion[]>()
+    for (const version of input.versionById.values()) {
+      const versions = versionsByQuestionId.get(version.questionId) ?? []
+      versions.push(version)
+      versionsByQuestionId.set(version.questionId, versions)
+
+      const createdAt = Date.parse(version.createdAt)
+      const updatedAt = Date.parse(version.updatedAt)
+      const publishedAt =
+        version.publishedAt === null ? null : Date.parse(version.publishedAt)
+      const retiredAt =
+        version.retiredAt === null ? null : Date.parse(version.retiredAt)
+      const statusTimesAreValid =
+        createdAt <= updatedAt &&
+        (publishedAt === null ||
+          (publishedAt >= createdAt && publishedAt <= updatedAt)) &&
+        (retiredAt === null ||
+          (retiredAt >= createdAt && retiredAt <= updatedAt))
+      const lifecycleIsValid =
+        version.versionStatus === 'PUBLISHED'
+          ? version.publishedAt !== null &&
+            version.retiredAt === null &&
+            version.retirementKind === null
+          : version.versionStatus === 'RETIRED'
+            ? version.retiredAt !== null &&
+              version.retirementKind !== null &&
+              (version.retirementKind === 'PUBLISHED_RETIREMENT'
+                ? version.publishedAt !== null
+                : version.publishedAt === null)
+            : version.publishedAt === null &&
+              version.retiredAt === null &&
+              version.retirementKind === null
+      const ordinals = version.options
+        .map((option) => option.ordinal)
+        .toSorted((left, right) => left - right)
+      const tagIds = new Set(version.tags.map((tag) => tag.id))
+      const tagNames = new Set(version.tags.map((tag) => tag.normalizedName))
+      let tagsAreCanonical = true
+      try {
+        assertAdminTagList(version.tags)
+      } catch {
+        tagsAreCanonical = false
+      }
+      const tagsAreApplicable = version.tags.every((tag) => {
+        const identities = authoritativeTagIdentities.get(
+          this.tagApplicabilityKey(tag.normalizedName, version)
+        )
+        return (
+          normalizePhase7TagKey(tag.label) === tag.normalizedName &&
+          identities?.has(tagIdentity(tag)) === true
+        )
+      })
+      const normalizedOptionTexts = new Set(
+        version.options.map((option) =>
+          normalizePhase7OptionComparison(option.text)
+        )
+      )
+      const passageIsValid =
+        version.subject === 'READING'
+          ? version.passage !== null
+          : version.questionType === 'TEXT_GRAMMAR' || version.passage === null
+      if (
+        !statusTimesAreValid ||
+        !lifecycleIsValid ||
+        !isApplicablePhase7ContentType(
+          version.level,
+          version.subject,
+          version.questionType
+        ) ||
+        !passageIsValid ||
+        ordinals.some((ordinal, index) => ordinal !== index + 1) ||
+        normalizedOptionTexts.size !== version.options.length ||
+        tagIds.size !== version.tags.length ||
+        tagNames.size !== version.tags.length ||
+        !tagsAreCanonical ||
+        !tagsAreApplicable ||
+        (version.provenance === 'ADMIN_AUTHORED' && version.author === null)
+      ) {
+        fail()
+      }
+    }
+
+    const duplicateQuestionByIdentity = new Map<string, string>()
+    for (const question of input.questionById.values()) {
+      const versions = versionsByQuestionId.get(question.questionId) ?? []
+      if (versions.length === 0) fail()
+      const versionNumbers = versions
+        .map((version) => version.versionNumber)
+        .toSorted((left, right) => left - right)
+      if (
+        new Set(versionNumbers).size !== versionNumbers.length ||
+        versionNumbers.some(
+          (versionNumber, index) => versionNumber !== index + 1
+        )
+      ) {
+        fail()
+      }
+      const published = versions.filter(
+        (version) => version.versionStatus === 'PUBLISHED'
+      )
+      const open = versions.filter((version) =>
+        ['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'].includes(
+          version.versionStatus
+        )
+      )
+      if (
+        published.length > 1 ||
+        open.length > 1 ||
+        question.currentPublishedVersionId !==
+          (published[0]?.questionVersionId ?? null) ||
+        question.openCandidateVersionId !==
+          (open[0]?.questionVersionId ?? null) ||
+        Date.parse(question.createdAt) > Date.parse(question.updatedAt) ||
+        (question.lifecycleStatus === 'ARCHIVED'
+          ? question.archivedAt === null ||
+            question.currentPublishedVersionId !== null ||
+            question.openCandidateVersionId !== null
+          : question.archivedAt !== null)
+      ) {
+        fail()
+      }
+      for (const version of versions) {
+        const identity = toDuplicateIdentity(version)
+        const existingQuestionId = duplicateQuestionByIdentity.get(identity)
+        if (
+          existingQuestionId !== undefined &&
+          existingQuestionId !== question.questionId
+        ) {
+          fail()
+        }
+        duplicateQuestionByIdentity.set(identity, question.questionId)
+      }
+    }
+
+    for (const review of input.reviews) {
+      const version = input.versionById.get(review.questionVersionId)
+      if (!version || version.questionId !== review.questionId) fail()
+    }
+    for (const report of input.reports) {
+      const version = input.versionById.get(report.questionVersionId)
+      const remediationVersion = report.resolution?.remediationVersionId
+        ? input.versionById.get(report.resolution.remediationVersionId)
+        : undefined
+      if (
+        !input.questionById.has(report.questionId) ||
+        !version ||
+        version.questionId !== report.questionId ||
+        (report.resolution !== null &&
+          report.resolution.remediationVersionId !== null &&
+          (!remediationVersion ||
+            remediationVersion.questionId !== report.questionId ||
+            remediationVersion.questionVersionId === report.questionVersionId ||
+            remediationVersion.versionNumber <= version.versionNumber ||
+            !(
+              remediationVersion.versionStatus === 'PUBLISHED' ||
+              (remediationVersion.versionStatus === 'RETIRED' &&
+                remediationVersion.retirementKind === 'PUBLISHED_RETIREMENT' &&
+                remediationVersion.publishedAt !== null)
+            )))
+      ) {
+        fail()
+      }
+    }
+    for (const audit of input.auditLogs) {
+      if (
+        (audit.targetType === 'QUESTION' &&
+          !input.questionById.has(audit.targetId)) ||
+        (audit.targetType === 'QUESTION_VERSION' &&
+          !input.versionById.has(audit.targetId)) ||
+        (audit.targetType === 'QUESTION_REPORT' &&
+          !input.reports.some((report) => report.id === audit.targetId))
+      ) {
+        fail()
+      }
+    }
+  }
+
+  private isPersistedQuestion(
+    value: unknown
+  ): value is MockPhase7AdminQuestion {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false
+    }
+    const question = value as Record<string, unknown>
+    return (
+      isCanonicalOpaqueId(question.questionId) &&
+      (question.lifecycleStatus === 'ACTIVE' ||
+        question.lifecycleStatus === 'ARCHIVED') &&
+      typeof question.rowVersion === 'number' &&
+      Number.isSafeInteger(question.rowVersion) &&
+      question.rowVersion > 0 &&
+      (question.currentPublishedVersionId === null ||
+        isCanonicalOpaqueId(question.currentPublishedVersionId)) &&
+      (question.openCandidateVersionId === null ||
+        isCanonicalOpaqueId(question.openCandidateVersionId)) &&
+      (question.archivedAt === null ||
+        isCanonicalIsoInstant(question.archivedAt)) &&
+      isCanonicalIsoInstant(question.createdAt) &&
+      isCanonicalIsoInstant(question.updatedAt)
+    )
+  }
+
+  private isPersistedVersion(value: unknown): value is MockPhase7AdminVersion {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false
+    }
+    const version = value as Record<string, unknown>
+    const options = version.options
+    const tags = version.tags
+    return (
+      isCanonicalOpaqueId(version.questionVersionId) &&
+      isCanonicalOpaqueId(version.questionId) &&
+      typeof version.versionNumber === 'number' &&
+      Number.isSafeInteger(version.versionNumber) &&
+      version.versionNumber > 0 &&
+      typeof version.rowVersion === 'number' &&
+      Number.isSafeInteger(version.rowVersion) &&
+      version.rowVersion > 0 &&
+      [
+        'DRAFT',
+        'IN_REVIEW',
+        'CHANGES_REQUESTED',
+        'APPROVED',
+        'PUBLISHED',
+        'RETIRED'
+      ].includes(String(version.versionStatus)) &&
+      (version.retirementKind === null ||
+        version.retirementKind === 'PUBLISHED_RETIREMENT' ||
+        version.retirementKind === 'QUESTION_ARCHIVE_ABANDONED' ||
+        version.retirementKind === 'AUTHOR_ERASURE_ABANDONED') &&
+      (version.provenance === 'SYSTEM_SEED' ||
+        version.provenance === 'ADMIN_AUTHORED') &&
+      ['N5', 'N4', 'N3', 'N2', 'N1'].includes(String(version.level)) &&
+      ['VOCABULARY', 'GRAMMAR', 'READING'].includes(String(version.subject)) &&
+      ['EASY', 'NORMAL', 'HARD'].includes(String(version.difficulty)) &&
+      typeof version.questionType === 'string' &&
+      typeof version.questionText === 'string' &&
+      (version.passage === null || typeof version.passage === 'string') &&
+      typeof version.explanationKo === 'string' &&
+      (version.explanationJa === null ||
+        typeof version.explanationJa === 'string') &&
+      hasCanonicalPersistedContent(version, options, tags) &&
+      isCanonicalOpaqueId(version.correctOptionId) &&
+      Array.isArray(options) &&
+      options.length === 4 &&
+      options.every(
+        (option) =>
+          typeof option === 'object' &&
+          option !== null &&
+          isCanonicalOpaqueId((option as Record<string, unknown>).id) &&
+          typeof (option as Record<string, unknown>).ordinal === 'number' &&
+          Number.isSafeInteger((option as Record<string, unknown>).ordinal) &&
+          typeof (option as Record<string, unknown>).text === 'string'
+      ) &&
+      new Set(options.map((option) => (option as Record<string, unknown>).id))
+        .size === 4 &&
+      options.some(
+        (option) =>
+          (option as Record<string, unknown>).id === version.correctOptionId
+      ) &&
+      Array.isArray(tags) &&
+      tags.length > 0 &&
+      tags.length <= 12 &&
+      tags.every((tag) => adminTagSummarySchema.safeParse(tag).success) &&
+      (version.author === null ||
+        accountActorSnapshotSchema.safeParse(version.author).success) &&
+      (version.latestReviewer === null ||
+        accountActorSnapshotSchema.safeParse(version.latestReviewer).success) &&
+      (version.publishedAt === null ||
+        isCanonicalIsoInstant(version.publishedAt)) &&
+      (version.retiredAt === null ||
+        isCanonicalIsoInstant(version.retiredAt)) &&
+      isCanonicalIsoInstant(version.createdAt) &&
+      isCanonicalIsoInstant(version.updatedAt)
+    )
+  }
+
   private resolveTags(
     sources: readonly MockCanonicalAdminQuestionSource[],
     content: Pick<
@@ -1779,7 +3357,7 @@ export class MockPhase7AdminCmsState {
 
   private createVersionContent(input: {
     actorId: string
-    content: CreateAdminQuestionRequest
+    content: CreateAdminQuestionRequest | AdminImportItem['content']
     occurredAt: string
     questionId: string
     tags: readonly AdminTagSummary[]

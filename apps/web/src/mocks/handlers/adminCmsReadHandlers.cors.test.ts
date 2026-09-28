@@ -5,7 +5,7 @@ describe('Phase 7 canonical admin technical CORS', () => {
   it('exact base headers를 auth/rate/source read 없이 반환한다', async () => {
     const sourceRead = vi.spyOn(
       mockDatabase,
-      'listCanonicalAdminQuestionSources'
+      'listPhase7AuthoritativeAdminQuestionSources'
     )
     const response = await fetch('http://localhost/api/v1/admin/questions', {
       method: 'OPTIONS',

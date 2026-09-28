@@ -11,6 +11,7 @@
     "pnpm": "10.2.1"
   },
   "scripts": {
+    "postinstall": "node scripts/msw/patch-worker.mjs",
     "dev": "pnpm run build:contracts && pnpm run build:domain && pnpm --parallel --filter @nihongo/web --filter @nihongo/api run dev",
     "dev:web": "pnpm run build:contracts && pnpm run build:domain && pnpm --filter @nihongo/web run dev",
     "dev:api": "pnpm run build:contracts && pnpm run build:domain && pnpm --filter @nihongo/api run dev",
@@ -30,12 +31,14 @@
     "test:domain": "pnpm --filter @nihongo/domain run test",
     "test:api": "pnpm --filter @nihongo/api run test",
     "test:historical-runner-boundary": "node --test scripts/assert-historical-pre-phase7-runner.test.mjs",
-    "test:phase7:static": "node --test scripts/assert-historical-pre-phase7-runner.test.mjs scripts/phase7-local-provisioning.test.mjs",
+    "test:phase7:static": "node scripts/msw/patch-worker.mjs --check && node --test scripts/assert-historical-pre-phase7-runner.test.mjs scripts/phase7-local-provisioning.test.mjs",
     "test:integration": "node scripts/assert-historical-pre-phase7-runner.mjs && pnpm --filter @nihongo/api exec tsx src/e2e/runSlice5Integration.ts",
     "test:integration:slice3": "node scripts/assert-historical-pre-phase7-runner.mjs && pnpm --filter @nihongo/api exec tsx src/e2e/runSlice3Integration.ts",
     "test:integration:slice5": "node scripts/assert-historical-pre-phase7-runner.mjs && pnpm --filter @nihongo/api exec tsx src/e2e/runSlice5Integration.ts",
     "test:phase7:db": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7DbIntegration.ts",
     "test:phase7:api": "pnpm --filter @nihongo/api run test:phase7:api",
+    "test:phase7:browser:mock": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7Browser.ts mock",
+    "test:phase7:browser:real": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7Browser.ts real",
     "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
     "content:author-prepare": "node scripts/content/run-retained-validator.mjs author-prepare",
     "content:check": "node scripts/content/run-retained-validator.mjs check",

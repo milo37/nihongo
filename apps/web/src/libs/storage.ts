@@ -5,6 +5,10 @@ import { LEVELS } from '@common/types/domain'
 export const APP_STORE_KEY = 'jlpt-drill-note-store'
 export const PRACTICE_STORE_KEY = 'jlpt-drill-note-practice:v2'
 export const MOCK_DATABASE_STORAGE_KEY = 'jlpt-drill-note:mock-database:v2'
+export const PHASE7_ADMIN_CMS_STORAGE_KEY =
+  'jlpt-drill-note:phase7-admin-cms:v1'
+export const PHASE7_RATE_LIMIT_STORAGE_KEY =
+  'jlpt-drill-note:phase7-rate-limit:v1'
 
 type StorageChangeListener = (event: StorageEvent) => void
 
@@ -141,6 +145,22 @@ const getLocalStorage = (): Storage | undefined => {
     return window.localStorage
   } catch {
     return undefined
+  }
+}
+
+export const readFreshLocalStorageItem = (key: string): string | null => {
+  const storage = getLocalStorage()
+  if (!storage) {
+    localStorageCache.delete(key)
+    return null
+  }
+  try {
+    const value = storage.getItem(key)
+    localStorageCache.set(key, value)
+    return value
+  } catch {
+    localStorageCache.delete(key)
+    return null
   }
 }
 

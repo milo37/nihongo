@@ -9,6 +9,7 @@ export const MockAuthenticationNotice = (): ReactElement => (
     <p className="font-black">Mock 데모 계정</p>
     <p>USER: user@example.com / Demo-user-2026!</p>
     <p>ADMIN: admin@example.com / Demo-admin-2026!</p>
+    <p>REVIEWER ADMIN: reviewer@example.com / Demo-reviewer-2026!</p>
     <p className="mt-1">
       회원가입·이메일 인증·비밀번호 재설정은 VITE_API_MODE=real인 실제 API
       모드에서 확인해 주세요.

@@ -10,6 +10,7 @@ import type { MockCanonicalAdminQuestionSource } from '@mocks/repository/mockDat
 import {
   MockPhase7AdminCmsState,
   MockPhase7AdminCommandError,
+  type MockPhase7AdminCmsPersistedState,
   type MockPhase7AdminCmsSnapshot,
   type MockPhase7LearnerPins
 } from '@mocks/repository/phase7AdminCmsState'
@@ -202,16 +203,18 @@ const createCandidateOnly = async (
 }
 
 describe('Phase 7 transition MSW authority ordering', () => {
+  const authorityFailure = (): never => {
+    throw new MockPhase7AdminCommandError({
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      message: 'fresh assurance expired',
+      disposition: 'DEFINITE_ROLLBACK'
+    })
+  }
+
   it('checks current authority before returning a missing transition target', async () => {
     const state = createState()
     const before = state.snapshot(sources)
-    const authority = vi.fn(() => {
-      throw new MockPhase7AdminCommandError({
-        code: 'FRESH_ASSURANCE_REQUIRED',
-        message: 'fresh assurance expired',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    })
+    const authority = vi.fn(authorityFailure)
 
     await expect(
       state.transitionVersion({
@@ -229,6 +232,96 @@ describe('Phase 7 transition MSW authority ordering', () => {
     })
     expect(authority).toHaveBeenCalledTimes(1)
     expect(state.snapshot(sources)).toEqual(before)
+  })
+
+  it('checks create and version authority before semantic target validation', async () => {
+    const state = createState()
+    const before = state.snapshot(sources)
+    const createAuthority = vi.fn(authorityFailure)
+    await expect(
+      state.createQuestion({
+        actorId: DEMO_ADMIN_ID,
+        assertAuthority: createAuthority,
+        request: {
+          ...createContent('initial create authority'),
+          tagNames: ['unknown-tag']
+        },
+        requestId: crypto.randomUUID(),
+        sources
+      })
+    ).rejects.toMatchObject({ code: 'FRESH_ASSURANCE_REQUIRED' })
+    expect(createAuthority).toHaveBeenCalledTimes(1)
+
+    const versionAuthority = vi.fn(authorityFailure)
+    await expect(
+      state.createVersion({
+        actorId: DEMO_ADMIN_ID,
+        assertAuthority: versionAuthority,
+        questionId: crypto.randomUUID(),
+        request: {
+          ...createContent('initial version authority'),
+          expectedQuestionRowVersion: 1
+        },
+        requestId: crypto.randomUUID(),
+        sources
+      })
+    ).rejects.toMatchObject({ code: 'FRESH_ASSURANCE_REQUIRED' })
+    expect(versionAuthority).toHaveBeenCalledTimes(1)
+    expect(state.snapshot(sources)).toEqual(before)
+  })
+
+  it('keeps create, version, and reauthentication writes at zero when the final authority fence fails', async () => {
+    const state = createState()
+    state.startSession(DEMO_ADMIN_ID, '2026-09-15T00:00:00.000Z')
+
+    const expectLateAuthorityRollback = async (
+      operation: (authority: () => void) => Promise<unknown>
+    ): Promise<void> => {
+      const before = state.persistedSnapshot(sources)
+      const authority = vi
+        .fn<() => void>()
+        .mockImplementationOnce(() => undefined)
+        .mockImplementationOnce(authorityFailure)
+      await expect(operation(authority)).rejects.toMatchObject({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+      expect(authority).toHaveBeenCalledTimes(2)
+      expect(state.persistedSnapshot(sources)).toEqual(before)
+    }
+
+    await expectLateAuthorityRollback((assertAuthority) =>
+      state.createQuestion({
+        actorId: DEMO_ADMIN_ID,
+        assertAuthority,
+        request: createContent('late create authority'),
+        requestId: crypto.randomUUID(),
+        sources
+      })
+    )
+
+    const seed = getQuestion(state.snapshot(sources))
+    await expectLateAuthorityRollback((assertAuthority) =>
+      state.createVersion({
+        actorId: DEMO_ADMIN_ID,
+        assertAuthority,
+        questionId: seed.questionId,
+        request: {
+          ...createContent('late version authority'),
+          expectedQuestionRowVersion: seed.rowVersion
+        },
+        requestId: crypto.randomUUID(),
+        sources
+      })
+    )
+
+    await expectLateAuthorityRollback((assertAuthority) =>
+      state.reauthenticate({
+        actorId: DEMO_ADMIN_ID,
+        assertAuthority,
+        requestId: crypto.randomUUID()
+      })
+    )
   })
 })
 
@@ -1519,5 +1612,231 @@ describe('Phase 7 Slice 4 publication MSW state', () => {
     })
     expect(authority).toHaveBeenCalledTimes(3)
     expect(state.snapshot(sources)).toEqual(before)
+  })
+})
+
+describe('Phase 7 persisted state v8 integrity', () => {
+  it('round-trips a complete graph and rejects representative tampering', async () => {
+    const state = createState()
+    state.startSession(DEMO_ADMIN_ID)
+    const candidate = await createCandidateForSeed(
+      state,
+      'IN_REVIEW',
+      'persisted relation fixture'
+    )
+    const current = getQuestion(state.snapshot(sources), candidate.questionId)
+    if (!current.currentPublishedVersionId) {
+      throw new Error('Published persistence fixture is unavailable.')
+    }
+    await state.createQuestionReport({
+      actorId: DEMO_ADMIN_ID,
+      actorRole: 'ADMIN',
+      assertAuthority: () => undefined,
+      resolveEntitledQuestionId: () => current.questionId,
+      request: {
+        questionVersionId: current.currentPublishedVersionId,
+        reason: 'OTHER',
+        description: '저장 상태 관계 검증용 신고입니다.'
+      }
+    })
+    const persisted = state.persistedSnapshot(sources)
+    const restored = createState()
+    restored.restore(persisted, sources)
+    expect(restored.persistedSnapshot(sources)).toEqual(persisted)
+
+    const expectRestoreFailure = (value: unknown): void => {
+      const target = createState()
+      expect(() =>
+        target.restore(value as MockPhase7AdminCmsPersistedState, sources)
+      ).toThrow(/Persisted Phase 7 CMS/u)
+    }
+    const firstQuestion = persisted.questions[0]
+    const firstVersion = persisted.versions[0]
+    const firstReport = persisted.reports[0]
+    const firstReview = persisted.reviews[0]
+    if (!firstQuestion || !firstVersion || !firstReport || !firstReview) {
+      throw new Error('Complete persistence fixture is unavailable.')
+    }
+    const seedVersion = persisted.versions.find(
+      (version) => version.questionVersionId === firstReport.questionVersionId
+    )
+    const candidateVersion = persisted.versions.find(
+      (version) => version.questionVersionId === candidate.versionId
+    )
+    if (!seedVersion || !candidateVersion) {
+      throw new Error('Persistence remediation versions are unavailable.')
+    }
+    const resolvedReport = (
+      questionVersionId: string,
+      remediationVersionId: string
+    ) => {
+      const updatedAt = new Date(
+        Date.parse(firstReport.updatedAt) + 1_000
+      ).toISOString()
+      return {
+        ...firstReport,
+        questionVersionId,
+        status: 'RESOLVED' as const,
+        rowVersion: firstReport.rowVersion + 1,
+        assignee: firstReview.actor,
+        updatedAt,
+        resolution: {
+          outcome: 'RESOLVED' as const,
+          reason: '저장된 조치 버전 관계를 검증합니다.',
+          remediationVersionId,
+          resolvedAt: updatedAt
+        }
+      }
+    }
+
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, index) =>
+        index === 0 ? { ...version, versionStatus: 'BROKEN' } : version
+      )
+    })
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, index) =>
+        index === 0 ? { ...version, questionText: '' } : version
+      )
+    })
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, index) =>
+        index === 0
+          ? { ...version, explanationKo: `${version.explanationKo} ` }
+          : version
+      )
+    })
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, index) =>
+        index === 0
+          ? {
+              ...version,
+              options: version.options.map((option) => ({
+                ...option,
+                ordinal: 1
+              }))
+            }
+          : version
+      )
+    })
+
+    const tagRichVersion = persisted.versions.find(
+      (version) => version.tags.length >= 2
+    )
+    if (!tagRichVersion) {
+      throw new Error('Canonical tag order fixture is unavailable.')
+    }
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, versionIndex) =>
+        versionIndex === 0
+          ? {
+              ...version,
+              tags: version.tags.map((tag, tagIndex) =>
+                tagIndex === 0 ? { ...tag, label: `${tag.label} 변조` } : tag
+              )
+            }
+          : version
+      )
+    })
+
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version) =>
+        version.questionVersionId === tagRichVersion.questionVersionId
+          ? { ...version, tags: [...version.tags].reverse() }
+          : version
+      )
+    })
+
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, index) =>
+        index === 0
+          ? { ...version, questionType: 'CONTEXT_VOCABULARY' as const }
+          : version
+      )
+    })
+
+    expectRestoreFailure({
+      ...persisted,
+      versions: persisted.versions.map((version, versionIndex) =>
+        versionIndex === 0
+          ? {
+              ...version,
+              tags: version.tags.map((tag, tagIndex) =>
+                tagIndex === 0 ? { ...tag, id: crypto.randomUUID() } : tag
+              )
+            }
+          : version
+      )
+    })
+
+    expectRestoreFailure({
+      ...persisted,
+      questions: persisted.questions.map((question, index) =>
+        index === 0
+          ? {
+              ...question,
+              currentPublishedVersionId: crypto.randomUUID()
+            }
+          : question
+      )
+    })
+    expectRestoreFailure({
+      ...persisted,
+      reports: [
+        { ...firstReport, questionVersionId: crypto.randomUUID() },
+        ...persisted.reports.slice(1)
+      ]
+    })
+    expectRestoreFailure({
+      ...persisted,
+      reports: [
+        resolvedReport(
+          seedVersion.questionVersionId,
+          seedVersion.questionVersionId
+        ),
+        ...persisted.reports.slice(1)
+      ]
+    })
+    expectRestoreFailure({
+      ...persisted,
+      reports: [
+        resolvedReport(
+          seedVersion.questionVersionId,
+          candidateVersion.questionVersionId
+        ),
+        ...persisted.reports.slice(1)
+      ]
+    })
+    expectRestoreFailure({
+      ...persisted,
+      reports: [
+        resolvedReport(
+          candidateVersion.questionVersionId,
+          seedVersion.questionVersionId
+        ),
+        ...persisted.reports.slice(1)
+      ]
+    })
+    expectRestoreFailure({
+      ...persisted,
+      reviews: [
+        { ...firstReview, questionId: crypto.randomUUID() },
+        ...persisted.reviews.slice(1)
+      ]
+    })
+    expectRestoreFailure({
+      ...persisted,
+      sessionIssuedAtByActorId: [
+        ...persisted.sessionIssuedAtByActorId,
+        [DEMO_ADMIN_ID, '2026-09-15']
+      ]
+    })
   })
 })

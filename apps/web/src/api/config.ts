@@ -1,12 +1,17 @@
 import axios from 'axios'
 import { z, type ZodType } from 'zod'
 import {
+  apiFailureSchema,
+  type ApiFailure
+} from '@nihongo/contracts/common/error'
+import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch
 } from '@libs/authTransitionFence'
 
 export interface ApiErrorFlags {
   code?: string
+  fieldErrors?: ApiFailure['fieldErrors']
   isAuthError?: boolean
   isForbiddenError?: boolean
   isNotFoundError?: boolean
@@ -14,17 +19,22 @@ export interface ApiErrorFlags {
   isNetworkError?: boolean
   isOffline?: boolean
   isResponseValidationError?: boolean
+  isServerValidationError?: boolean
   isValidationError?: boolean
+  requestId?: string
+  retryable?: boolean
   retryAfterMs?: number
+  serverMessage?: string
   status?: number
 }
 
 export type AppApiError = Error & ApiErrorFlags
 
 const API_TIMEOUT_MS = 10_000
-const MAX_RETRY_AFTER_MS = 5 * 60_000
+const MAX_RETRY_AFTER_MS = 60 * 60_000
 const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
   'code',
+  'fieldErrors',
   'isAuthError',
   'isForbiddenError',
   'isNotFoundError',
@@ -32,8 +42,12 @@ const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
   'isNetworkError',
   'isOffline',
   'isResponseValidationError',
+  'isServerValidationError',
   'isValidationError',
+  'requestId',
+  'retryable',
   'retryAfterMs',
+  'serverMessage',
   'status'
 ])
 
@@ -110,8 +124,21 @@ const checkOfflineStatus = (): boolean => {
   return navigator.onLine === false
 }
 
-const withErrorFlags = (error: Error, flags: ApiErrorFlags): AppApiError =>
-  Object.assign(error, flags)
+export const withErrorFlags = (
+  error: Error,
+  flags: ApiErrorFlags
+): AppApiError => Object.assign(error, flags)
+
+export const createResponseValidationError = (
+  cause: unknown,
+  status = 422
+): AppApiError =>
+  withErrorFlags(new Error('응답 형식이 올바르지 않습니다.', { cause }), {
+    isResponseValidationError: true,
+    isValidationError: true,
+    retryable: false,
+    status
+  })
 
 export const parseApiResponse = <Schema extends ZodType>(
   schema: Schema,
@@ -124,16 +151,7 @@ export const parseApiResponse = <Schema extends ZodType>(
       console.error('API response validation failed')
     }
 
-    throw withErrorFlags(
-      new Error('응답 형식이 올바르지 않습니다.', {
-        cause: parsedData.error
-      }),
-      {
-        isResponseValidationError: true,
-        isValidationError: true,
-        status: 422
-      }
-    )
+    throw createResponseValidationError(parsedData.error)
   }
 
   return parsedData.data
@@ -177,18 +195,32 @@ apiClient.interceptors.response.use(
       const retryAfterMs = parseRetryAfterMs(
         getRetryAfterHeader(error.response?.headers)
       )
-      const code = getApiErrorCode(error.response?.data)
+      const parsedFailure = apiFailureSchema.safeParse(error.response?.data)
+      const code = parsedFailure.success
+        ? parsedFailure.data.code
+        : getApiErrorCode(error.response?.data)
 
       return Promise.reject(
         withErrorFlags(error, {
           ...(code === undefined ? {} : { code }),
+          ...(parsedFailure.success && parsedFailure.data.fieldErrors
+            ? { fieldErrors: parsedFailure.data.fieldErrors }
+            : {}),
           isAuthError: status === 401,
           isForbiddenError: status === 403,
           isNotFoundError: status === 404,
           isServerError: status !== undefined && status >= 500,
           isNetworkError: error.response === undefined,
           isOffline: false,
+          isServerValidationError: status === 422 && parsedFailure.success,
           isValidationError: status === 422,
+          ...(parsedFailure.success
+            ? {
+                requestId: parsedFailure.data.requestId,
+                retryable: parsedFailure.data.retryable,
+                serverMessage: parsedFailure.data.message
+              }
+            : {}),
           ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
           status
         })

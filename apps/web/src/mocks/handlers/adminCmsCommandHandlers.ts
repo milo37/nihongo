@@ -1,13 +1,23 @@
 import {
+  adminQuestionExportContentDisposition,
+  adminQuestionExportContentType,
+  applyQuestionImportRequestSchema,
+  assertAdminImportApplyForRequest,
+  assertAdminImportValidationForRequest,
+  assertAdminQuestionExportDocumentForRequest,
   assertApproveQuestionVersionResponse,
   assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
+  assertCreateQuestionReportForRequest,
   assertPublishQuestionVersionResponse,
+  assertRequestContentReviewBatchResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
   assertReauthenticateAdminResponse,
+  assertResolveAdminQuestionReportResponse,
   assertRetireQuestionVersionResponse,
+  assertTriageAdminQuestionReportResponse,
   assertUpdateQuestionVersionResponse,
   assertWithdrawQuestionApprovalResponse,
   approveQuestionVersionParamsSchema,
@@ -18,19 +28,27 @@ import {
   createAdminQuestionRequestSchema,
   createAdminQuestionVersionParamsSchema,
   createAdminQuestionVersionRequestSchema,
+  createQuestionReportRequestSchema,
+  exportAdminQuestionsRequestSchema,
   parsePhase7JsonBytes,
   Phase7JsonParseError,
   publishQuestionVersionParamsSchema,
   publishQuestionVersionRequestSchema,
+  requestContentReviewBatchRequestSchema,
   requestContentReviewParamsSchema,
   requestContentReviewRequestSchema,
   requestQuestionChangesParamsSchema,
   requestQuestionChangesRequestSchema,
   reauthenticateAdminRequestSchema,
+  resolveAdminQuestionReportParamsSchema,
+  resolveAdminQuestionReportRequestSchema,
   retireQuestionVersionParamsSchema,
   retireQuestionVersionRequestSchema,
+  triageAdminQuestionReportParamsSchema,
+  triageAdminQuestionReportRequestSchema,
   updateQuestionVersionParamsSchema,
   updateQuestionVersionRequestSchema,
+  validateQuestionImportRequestSchema,
   withdrawQuestionApprovalParamsSchema,
   withdrawQuestionApprovalRequestSchema,
   type Phase7Operation
@@ -44,13 +62,22 @@ import { http, HttpResponse, type JsonBodyType } from 'msw'
 import { z, type ZodError, type ZodType } from 'zod'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { MockPhase7AdminCommandError } from '@mocks/repository/phase7AdminCmsState'
-import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
+import {
+  phase7RateLimitRepository,
+  Phase7RateLimitRepositoryUnavailableError,
+  type Phase7RateLimitInput
+} from '@mocks/repository/phase7RateLimitRepository'
+import { isMockAdminPasswordForActor } from '@mocks/handlers/authHandlers'
+import { phase7Sha256TextPort } from '@libs/phase7Sha256'
 
 const LARGE_BODY_CAP = 256 * 1024
+const IMPORT_BODY_CAP = 2 * 1024 * 1024
+const REPORT_BODY_CAP = 32 * 1024
 const SMALL_BODY_CAP = 16 * 1024
 const CANONICAL_CONTENT_LENGTH = /^(?:0|[1-9][0-9]*)$/u
 const JSON_MEDIA_TYPE =
   /^application\/json(?:[ \t]*;[ \t]*charset[ \t]*=[ \t]*(?:utf-8|"utf-8"))?$/iu
+const MOCK_CLIENT_ORIGIN_HEADER = 'X-Nihongo-MSW-Client-Origin'
 const LOWERCASE_UUID =
   '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 
@@ -71,7 +98,14 @@ const canonicalCommandPaths = [
   new RegExp(`^/api/v1/admin/questions/${LOWERCASE_UUID}/archive$`),
   new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/publication$`),
   new RegExp(`^/api/v1/admin/question-versions/${LOWERCASE_UUID}/retirement$`),
-  /^\/api\/v1\/admin\/reauthentication$/
+  /^\/api\/v1\/admin\/question-versions\/review-request-batch$/,
+  /^\/api\/v1\/admin\/questions\/import-validation$/,
+  /^\/api\/v1\/admin\/questions\/import-application$/,
+  /^\/api\/v1\/admin\/questions\/export$/,
+  new RegExp(`^/api/v1/admin/question-reports/${LOWERCASE_UUID}/triage$`),
+  new RegExp(`^/api/v1/admin/question-reports/${LOWERCASE_UUID}/resolution$`),
+  /^\/api\/v1\/admin\/reauthentication$/,
+  /^\/api\/v1\/question-reports$/
 ] as const
 
 const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
@@ -85,10 +119,21 @@ const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
   publishQuestionVersion: SMALL_BODY_CAP,
   retireQuestionVersion: SMALL_BODY_CAP,
   archiveAdminQuestion: SMALL_BODY_CAP,
+  requestContentReviewBatch: LARGE_BODY_CAP,
+  validateQuestionImport: IMPORT_BODY_CAP,
+  applyQuestionImport: IMPORT_BODY_CAP,
+  exportAdminQuestions: SMALL_BODY_CAP,
+  createQuestionReport: REPORT_BODY_CAP,
+  triageAdminQuestionReport: SMALL_BODY_CAP,
+  resolveAdminQuestionReport: SMALL_BODY_CAP,
   reauthenticateAdmin: 4 * 1024
 }
 
-type RateGroup = 'ADMIN_EDIT' | 'ADMIN_SENSITIVE' | 'REAUTHENTICATION'
+type RateGroup =
+  | 'ADMIN_EDIT'
+  | 'ADMIN_SENSITIVE'
+  | 'IMPORT_VALIDATION'
+  | 'REAUTHENTICATION'
 
 const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
   {
@@ -102,34 +147,29 @@ const groupByOperation: Readonly<Partial<Record<Phase7Operation, RateGroup>>> =
     publishQuestionVersion: 'ADMIN_SENSITIVE',
     retireQuestionVersion: 'ADMIN_SENSITIVE',
     archiveAdminQuestion: 'ADMIN_SENSITIVE',
+    requestContentReviewBatch: 'ADMIN_SENSITIVE',
+    validateQuestionImport: 'IMPORT_VALIDATION',
+    applyQuestionImport: 'ADMIN_SENSITIVE',
+    exportAdminQuestions: 'ADMIN_SENSITIVE',
+    triageAdminQuestionReport: 'ADMIN_EDIT',
+    resolveAdminQuestionReport: 'ADMIN_SENSITIVE',
     reauthenticateAdmin: 'REAUTHENTICATION'
   }
-
-const ratePolicyByGroup: Readonly<
-  Record<RateGroup, { limit: number; windowMs: number }>
-> = {
-  ADMIN_EDIT: { limit: 30, windowMs: 10 * 60 * 1000 },
-  ADMIN_SENSITIVE: { limit: 10, windowMs: 15 * 60 * 1000 },
-  REAUTHENTICATION: { limit: 5, windowMs: 15 * 60 * 1000 }
-}
 
 const freshOperations = new Set<Phase7Operation>([
   'approveQuestionVersion',
   'withdrawQuestionApproval',
   'publishQuestionVersion',
   'retireQuestionVersion',
-  'archiveAdminQuestion'
+  'archiveAdminQuestion',
+  'requestContentReviewBatch',
+  'applyQuestionImport',
+  'exportAdminQuestions',
+  'resolveAdminQuestionReport'
 ])
 
-interface RateWindow {
-  count: number
-  windowStartedAt: number
-}
-
-const rateWindowByKey = new Map<string, RateWindow>()
-
 export const resetAdminCmsCommandRateLimitForTesting = (): void => {
-  rateWindowByKey.clear()
+  phase7RateLimitRepository.resetForTesting()
 }
 
 const toFieldErrors = (error: ZodError): Record<string, string[]> => {
@@ -261,7 +301,16 @@ const assertDeclaredBodyBound = (
 }
 
 const requireAdmin = (): string => {
-  const user = mockDatabase.getCurrentUser()
+  let user: ReturnType<typeof mockDatabase.getCurrentUser>
+  try {
+    user = mockDatabase.getCurrentUser()
+  } catch {
+    throw new MockPhase7AdminCommandError({
+      code: 'SERVICE_UNAVAILABLE',
+      message: '최신 인증 세션을 확인하지 못했습니다.',
+      disposition: 'NO_TX'
+    })
+  }
   if (!user) {
     throw new MockPhase7AdminCommandError({
       code: 'AUTHENTICATION_REQUIRED',
@@ -277,14 +326,49 @@ const requireAdmin = (): string => {
   return user.id
 }
 
+const requireReporter = (): { actorId: string; role: 'USER' | 'ADMIN' } => {
+  let user: ReturnType<typeof mockDatabase.getCurrentUser>
+  try {
+    user = mockDatabase.getCurrentUser()
+  } catch {
+    throw new MockPhase7AdminCommandError({
+      code: 'SERVICE_UNAVAILABLE',
+      message: '최신 인증 세션을 확인하지 못했습니다.',
+      disposition: 'NO_TX'
+    })
+  }
+  if (!user) {
+    throw new MockPhase7AdminCommandError({
+      code: 'AUTHENTICATION_REQUIRED',
+      message: '문제를 신고하려면 로그인이 필요합니다.'
+    })
+  }
+  if (user.role !== 'USER' && user.role !== 'ADMIN') {
+    throw new MockPhase7AdminCommandError({
+      code: 'FORBIDDEN',
+      message: '문제 신고 권한이 없습니다.'
+    })
+  }
+  return { actorId: user.id, role: user.role }
+}
+
 const assertFreshAssurance = (
   operation: Phase7Operation,
   actorId: string
 ): void => {
-  if (
-    freshOperations.has(operation) &&
-    !mockDatabase.getPhase7AdminCmsStateForHandlers().hasFreshAssurance(actorId)
-  ) {
+  if (!freshOperations.has(operation)) return
+  let hasFreshAssurance: boolean
+  try {
+    hasFreshAssurance =
+      mockDatabase.hasAuthoritativePhase7FreshAssurance(actorId)
+  } catch {
+    throw new MockPhase7AdminCommandError({
+      code: 'SERVICE_UNAVAILABLE',
+      message: '최신 인증 보증 상태를 확인하지 못했습니다.',
+      disposition: 'NO_TX'
+    })
+  }
+  if (!hasFreshAssurance) {
     throw new MockPhase7AdminCommandError({
       code: 'FRESH_ASSURANCE_REQUIRED',
       message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.'
@@ -312,24 +396,82 @@ const assertJsonTransport = (request: Request): void => {
 const assertTrustedOrigin = (request: Request): void => {
   const origin = request.headers.get('Origin')
   const fetchSite = request.headers.get('Sec-Fetch-Site')
+  const mockClientOrigin = request.headers.get(MOCK_CLIENT_ORIGIN_HEADER)
+  const requestOrigin = new URL(request.url).origin
   const originIsTrusted =
-    origin !== null &&
-    !origin.includes(',') &&
-    origin === new URL(request.url).origin
+    origin !== null && !origin.includes(',') && origin === requestOrigin
   const trustedWithOrigin =
     originIsTrusted &&
     (fetchSite === null ||
       fetchSite === 'same-origin' ||
       fetchSite === 'same-site')
   const sameOriginWithoutOrigin = origin === null && fetchSite === 'same-origin'
-  if (trustedWithOrigin || sameOriginWithoutOrigin) return
+  let hasActiveMockController = false
+  if (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in window.navigator &&
+    window.navigator.serviceWorker.controller
+  ) {
+    const controllerUrl = new URL(
+      window.navigator.serviceWorker.controller.scriptURL,
+      window.location.href
+    )
+    hasActiveMockController =
+      controllerUrl.origin === requestOrigin &&
+      controllerUrl.pathname === '/mockServiceWorker.js' &&
+      controllerUrl.search === '' &&
+      controllerUrl.hash === ''
+  }
+  const sameOriginMockAttestation =
+    origin === null &&
+    fetchSite === null &&
+    hasActiveMockController &&
+    mockClientOrigin !== null &&
+    !mockClientOrigin.includes(',') &&
+    mockClientOrigin === requestOrigin
+  if (
+    trustedWithOrigin ||
+    sameOriginWithoutOrigin ||
+    sameOriginMockAttestation
+  ) {
+    return
+  }
   throw new MockPhase7AdminCommandError({
     code: 'UNTRUSTED_ORIGIN',
     message: '신뢰할 수 있는 요청 출처가 필요합니다.'
   })
 }
 
-const consumeRate = (operation: Phase7Operation, actorId: string): void => {
+const consumeSharedRate = async (
+  input: Phase7RateLimitInput
+): Promise<void> => {
+  let retryAfterSeconds: number | null
+  try {
+    ;({ retryAfterSeconds } = await phase7RateLimitRepository.consume(input))
+  } catch (error: unknown) {
+    if (error instanceof Phase7RateLimitRepositoryUnavailableError) {
+      throw new MockPhase7AdminCommandError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '요청 제한 상태를 확인할 수 없습니다.',
+        disposition: 'NO_TX',
+        retryAfterSeconds: error.retryAfterSeconds
+      })
+    }
+    throw error
+  }
+  if (retryAfterSeconds !== null) {
+    throw new MockPhase7AdminCommandError({
+      code: 'RATE_LIMITED',
+      message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+      retryAfterSeconds
+    })
+  }
+}
+
+const consumeRate = async (
+  operation: Phase7Operation,
+  actorId: string
+): Promise<void> => {
   const group = groupByOperation[operation]
   if (!group) {
     throw new MockPhase7AdminCommandError({
@@ -337,36 +479,18 @@ const consumeRate = (operation: Phase7Operation, actorId: string): void => {
       message: '관리자 명령 정책을 확인할 수 없습니다.'
     })
   }
-  const policy = ratePolicyByGroup[group]
-  const now = Date.now()
-  let maximumRetry = 0
-  for (const key of [`${group}:actor:${actorId}`, `${group}:ip:mock-client`]) {
-    const previous = rateWindowByKey.get(key)
-    const current =
-      !previous || now >= previous.windowStartedAt + policy.windowMs
-        ? { count: 1, windowStartedAt: now }
-        : {
-            count: previous.count + 1,
-            windowStartedAt: previous.windowStartedAt
-          }
-    rateWindowByKey.set(key, current)
-    if (current.count > policy.limit) {
-      maximumRetry = Math.max(
-        maximumRetry,
-        Math.max(
-          1,
-          Math.ceil((current.windowStartedAt + policy.windowMs - now) / 1000)
-        )
-      )
-    }
-  }
-  if (maximumRetry > 0) {
-    throw new MockPhase7AdminCommandError({
-      code: 'RATE_LIMITED',
-      message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
-      retryAfterSeconds: maximumRetry
-    })
-  }
+  await consumeSharedRate({ actorId, group })
+}
+
+const consumeQuestionReportRate = async (
+  group: 'REPORT_ACTOR' | 'REPORT_VERSION',
+  value: string
+): Promise<void> => {
+  await consumeSharedRate(
+    group === 'REPORT_ACTOR'
+      ? { actorId: value, group }
+      : { group, versionId: value }
+  )
 }
 
 const assertEmptyQuery = (request: Request): void => {
@@ -457,14 +581,17 @@ const parseBody = async <Schema extends ZodType>(
   })
 }
 
-const assertCommitted = <Result>(assertion: () => Result): Result => {
+const assertOperationResult = async <Result>(
+  assertion: () => Result | Promise<Result>,
+  disposition: 'NO_TX' | 'COMMIT_CONFIRMED'
+): Promise<Result> => {
   try {
-    return assertion()
+    return await assertion()
   } catch {
     throw new MockPhase7AdminCommandError({
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
-      disposition: 'COMMIT_CONFIRMED'
+      disposition
     })
   }
 }
@@ -474,7 +601,11 @@ const handleCommand = async <
   Result,
   Response extends JsonBodyType
 >(input: {
-  assertResult: (body: z.output<Schema>, raw: Result) => Response
+  assertResult: (
+    body: z.output<Schema>,
+    raw: Result
+  ) => Response | Promise<Response>
+  assertionDisposition?: 'NO_TX' | 'COMMIT_CONFIRMED'
   execute: (context: {
     actorId: string
     body: z.output<Schema>
@@ -499,7 +630,7 @@ const handleCommand = async <
     assertFreshAssurance(input.operation, actorId)
     assertJsonTransport(input.request)
     assertTrustedOrigin(input.request)
-    consumeRate(input.operation, actorId)
+    await consumeRate(input.operation, actorId)
     assertEmptyQuery(input.request)
     const body = await parseBody(
       input.request,
@@ -508,7 +639,10 @@ const handleCommand = async <
       input.message
     )
     const raw = await input.execute({ actorId, body, requestId })
-    const response = assertCommitted(() => input.assertResult(body, raw))
+    const response = await assertOperationResult(
+      () => input.assertResult(body, raw),
+      input.assertionDisposition ?? 'COMMIT_CONFIRMED'
+    )
     const headers = responseHeaders(requestId, input.request)
     for (const cookie of input.setCookies?.({
       actorId,
@@ -532,13 +666,119 @@ const parseParams = <Schema extends ZodType>(
   value: unknown
 ): z.output<Schema> => schema.parse(value)
 
-const sources = () => mockDatabase.listCanonicalAdminQuestionSources()
+const sources = () => mockDatabase.listPhase7AuthoritativeAdminQuestionSources()
 const state = () => mockDatabase.getPhase7AdminCmsStateForHandlers()
 const commitAuthority = (actorId: string, operation: Phase7Operation) => () =>
   mockDatabase.assertPhase7AdminCommandAuthority({
     actorId,
     requiresFresh: freshOperations.has(operation)
   })
+
+const handleExportAdminQuestions = async (
+  request: Request
+): Promise<HttpResponse<JsonBodyType | string>> => {
+  const operation = 'exportAdminQuestions' as const
+  const requestId = getRequestId(request)
+  try {
+    assertDeclaredBodyBound(request, bodyCap(operation))
+    const actorId = requireAdmin()
+    assertFreshAssurance(operation, actorId)
+    assertJsonTransport(request)
+    assertTrustedOrigin(request)
+    await consumeRate(operation, actorId)
+    assertEmptyQuery(request)
+    const body = await parseBody(
+      request,
+      operation,
+      exportAdminQuestionsRequestSchema,
+      '관리자 문제 내보내기 요청이 올바르지 않습니다.'
+    )
+    const raw = await state().exportAdminQuestions({
+      actorId,
+      assertAuthority: commitAuthority(actorId, operation),
+      request: body,
+      requestId,
+      sources: sources()
+    })
+    await assertOperationResult(
+      () =>
+        assertAdminQuestionExportDocumentForRequest(
+          phase7Sha256TextPort,
+          body,
+          raw.document,
+          {
+            canonicalResponseBody: raw.canonicalBody,
+            auditEvidence: raw.auditEvidence
+          }
+        ),
+      'COMMIT_CONFIRMED'
+    )
+    const headers = responseHeaders(requestId, request)
+    headers.set('Content-Type', adminQuestionExportContentType)
+    headers.set('Content-Disposition', adminQuestionExportContentDisposition)
+    return new HttpResponse(raw.canonicalBody, { status: 200, headers })
+  } catch (error: unknown) {
+    return toFailureResponse(operation, request, requestId, error)
+  }
+}
+
+const handleCreateQuestionReport = async (
+  request: Request
+): Promise<HttpResponse<JsonBodyType>> => {
+  const operation = 'createQuestionReport' as const
+  const requestId = getRequestId(request)
+  try {
+    assertDeclaredBodyBound(request, bodyCap(operation))
+    const reporter = requireReporter()
+    assertJsonTransport(request)
+    assertTrustedOrigin(request)
+    await consumeQuestionReportRate('REPORT_ACTOR', reporter.actorId)
+    assertEmptyQuery(request)
+    const body = await parseBody(
+      request,
+      operation,
+      createQuestionReportRequestSchema,
+      '문제 신고 요청이 올바르지 않습니다.'
+    )
+    const entitledQuestionId =
+      mockDatabase.resolvePhase7QuestionReportEntitlement(
+        reporter.actorId,
+        body.questionVersionId,
+        'NO_TX'
+      )
+    if (!entitledQuestionId) {
+      throw new MockPhase7AdminCommandError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.'
+      })
+    }
+    await consumeQuestionReportRate('REPORT_VERSION', body.questionVersionId)
+    const raw = await state().createQuestionReport({
+      actorId: reporter.actorId,
+      actorRole: reporter.role,
+      assertAuthority: () => {
+        mockDatabase.assertPhase7QuestionReportAuthority(reporter.actorId)
+      },
+      resolveEntitledQuestionId: (disposition) =>
+        mockDatabase.resolvePhase7QuestionReportEntitlement(
+          reporter.actorId,
+          body.questionVersionId,
+          disposition
+        ),
+      request: body
+    })
+    const response = await assertOperationResult(
+      () => assertCreateQuestionReportForRequest(body, raw),
+      'COMMIT_CONFIRMED'
+    )
+    return HttpResponse.json(response, {
+      status: 201,
+      headers: responseHeaders(requestId, request)
+    })
+  } catch (error: unknown) {
+    return toFailureResponse(operation, request, requestId, error)
+  }
+}
 
 export const adminCmsCommandHandlers = [
   http.options(
@@ -831,6 +1071,157 @@ export const adminCmsCommandHandlers = [
       })
     }
   ),
+  http.post(
+    '*/api/v1/admin/question-versions/review-request-batch',
+    ({ request }) =>
+      hasCanonicalCommandPath(request)
+        ? handleCommand({
+            operation: 'requestContentReviewBatch',
+            request,
+            schema: requestContentReviewBatchRequestSchema,
+            message: '일괄 콘텐츠 검수 요청이 올바르지 않습니다.',
+            execute: ({ actorId, body, requestId }) =>
+              state().requestContentReviewBatch({
+                actorId,
+                assertAuthority: commitAuthority(
+                  actorId,
+                  'requestContentReviewBatch'
+                ),
+                request: body,
+                requestId,
+                sources: sources()
+              }),
+            assertResult: (body, raw) =>
+              assertRequestContentReviewBatchResponse(body, raw)
+          })
+        : genericNotFound(request)
+  ),
+  http.post('*/api/v1/admin/questions/import-validation', ({ request }) =>
+    hasCanonicalCommandPath(request)
+      ? handleCommand({
+          operation: 'validateQuestionImport',
+          request,
+          schema: validateQuestionImportRequestSchema,
+          message: '문제 import 검증 요청이 올바르지 않습니다.',
+          assertionDisposition: 'NO_TX',
+          execute: ({ body }) =>
+            state().validateQuestionImport({
+              request: body,
+              sources: sources()
+            }),
+          assertResult: (body, raw) =>
+            assertAdminImportValidationForRequest(
+              phase7Sha256TextPort,
+              body,
+              raw
+            )
+        })
+      : genericNotFound(request)
+  ),
+  http.post('*/api/v1/admin/questions/import-application', ({ request }) =>
+    hasCanonicalCommandPath(request)
+      ? handleCommand({
+          operation: 'applyQuestionImport',
+          request,
+          schema: applyQuestionImportRequestSchema,
+          message: '문제 import 적용 요청이 올바르지 않습니다.',
+          status: 201,
+          execute: ({ actorId, body, requestId }) =>
+            state().applyQuestionImport({
+              actorId,
+              assertAuthority: commitAuthority(actorId, 'applyQuestionImport'),
+              request: body,
+              requestId,
+              sources: sources()
+            }),
+          assertResult: async (body, raw) =>
+            (
+              await assertAdminImportApplyForRequest(
+                phase7Sha256TextPort,
+                body,
+                raw
+              )
+            ).response
+        })
+      : genericNotFound(request)
+  ),
+  http.post('*/api/v1/admin/questions/export', ({ request }) =>
+    hasCanonicalCommandPath(request)
+      ? handleExportAdminQuestions(request)
+      : genericNotFound(request)
+  ),
+  http.post('*/api/v1/question-reports', ({ request }) =>
+    hasCanonicalCommandPath(request)
+      ? handleCreateQuestionReport(request)
+      : genericNotFound(request)
+  ),
+  http.post(
+    '*/api/v1/admin/question-reports/:reportId/triage',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(triageAdminQuestionReportParamsSchema, {
+        reportId: String(params.reportId ?? '')
+      })
+      return handleCommand({
+        operation: 'triageAdminQuestionReport',
+        request,
+        schema: triageAdminQuestionReportRequestSchema,
+        message: '문제 신고 triage 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().triageQuestionReport({
+            actorId,
+            assertAuthority: commitAuthority(
+              actorId,
+              'triageAdminQuestionReport'
+            ),
+            reportId: parsedParams.reportId,
+            request: body,
+            requestId
+          }),
+        assertResult: (body, raw) =>
+          assertTriageAdminQuestionReportResponse(parsedParams, body, raw)
+      })
+    }
+  ),
+  http.post(
+    '*/api/v1/admin/question-reports/:reportId/resolution',
+    ({ params, request }) => {
+      if (!hasCanonicalCommandPath(request)) return genericNotFound(request)
+      const parsedParams = parseParams(resolveAdminQuestionReportParamsSchema, {
+        reportId: String(params.reportId ?? '')
+      })
+      return handleCommand({
+        operation: 'resolveAdminQuestionReport',
+        request,
+        schema: resolveAdminQuestionReportRequestSchema,
+        message: '문제 신고 종결 요청이 올바르지 않습니다.',
+        execute: ({ actorId, body, requestId }) =>
+          state().resolveQuestionReport({
+            actorId,
+            assertAuthority: commitAuthority(
+              actorId,
+              'resolveAdminQuestionReport'
+            ),
+            reportId: parsedParams.reportId,
+            request: body,
+            requestId
+          }),
+        assertResult: (body, raw) => {
+          const response = assertResolveAdminQuestionReportResponse(
+            parsedParams,
+            body,
+            raw
+          )
+          if (response.rowVersion !== body.expectedRowVersion + 1) {
+            throw new Error(
+              'report resolution rowVersion이 request와 다릅니다.'
+            )
+          }
+          return response
+        }
+      })
+    }
+  ),
   http.post('*/api/v1/admin/reauthentication', ({ request }) =>
     hasCanonicalCommandPath(request)
       ? handleCommand({
@@ -839,7 +1230,12 @@ export const adminCmsCommandHandlers = [
           schema: reauthenticateAdminRequestSchema,
           message: '관리자 재인증 요청이 올바르지 않습니다.',
           execute: ({ actorId, body, requestId }) => {
-            if (body.password !== MOCK_ADMIN_PASSWORD) {
+            const assertAuthority = commitAuthority(
+              actorId,
+              'reauthenticateAdmin'
+            )
+            assertAuthority()
+            if (!isMockAdminPasswordForActor(actorId, body.password)) {
               throw new MockPhase7AdminCommandError({
                 code: 'REAUTHENTICATION_FAILED',
                 message: '비밀번호를 확인할 수 없습니다.'
@@ -847,7 +1243,7 @@ export const adminCmsCommandHandlers = [
             }
             return state().reauthenticate({
               actorId,
-              assertAuthority: commitAuthority(actorId, 'reauthenticateAdmin'),
+              assertAuthority,
               requestId
             })
           },

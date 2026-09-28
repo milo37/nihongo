@@ -8,6 +8,7 @@ import { createStudySession } from '@api/study/createStudySession'
 import { submitStudySession } from '@api/study/submitStudySession'
 import { LoginPage } from '@app/login/page'
 import { queryClient } from '@libs/queryClient'
+import { DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
@@ -96,6 +97,18 @@ describe('LoginPage role transition', () => {
     ).toMatchObject({ role: 'ADMIN' })
     expect(useAppStore.getState().currentUser?.role).toBe('ADMIN')
     expect(mockDatabase.getCurrentUser()?.role).toBe('ADMIN')
+  })
+
+  it('검수 관리자 자격 증명을 별도 actor에 연결한다', async () => {
+    await signInUser({
+      email: 'reviewer@example.com',
+      password: 'Demo-reviewer-2026!'
+    })
+
+    expect(mockDatabase.getCurrentUser()).toMatchObject({
+      id: DEMO_REVIEWER_ADMIN_ID,
+      role: 'ADMIN'
+    })
   })
 
   it('게스트가 보호 경로로 되돌아가지 않도록 홈으로 안내한다', async () => {

@@ -651,6 +651,16 @@ describe('Phase 7 admin command contracts', () => {
       assertAdminQuestionExportDocumentSemantics(duplicateTagName)
     ).toThrow()
 
+    const mismatchedTagName = structuredClone(exportDocument)
+    mismatchedTagName.questions[0]!.versions[0]!.content.tags[0] = {
+      id: id(30),
+      label: 'Kana',
+      normalizedName: 'different'
+    }
+    expect(
+      adminQuestionExportDocumentV1Schema.safeParse(mismatchedTagName).success
+    ).toBe(false)
+
     const nonCanonicalTagOrder = structuredClone(exportDocument)
     nonCanonicalTagOrder.questions[0]!.versions[0]!.content.tags = [
       { id: id(32), label: 'Zulu', normalizedName: 'zulu' },
