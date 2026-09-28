@@ -7,19 +7,25 @@ import { listWrongNote } from '@api/wrong-note/listWrongNote'
 import { createStudySession } from '@api/study/createStudySession'
 import { submitStudySession } from '@api/study/submitStudySession'
 import { LoginPage } from '@app/login/page'
+import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
 import { queryClient } from '@libs/queryClient'
 import { DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
+import { I18nProvider } from '@provider/I18nProvider'
 import { useAppStore } from '@store/index'
 
-const renderLoginPage = (redirect = '/practice'): void => {
+const renderLoginPage = (
+  redirect = '/practice',
+  withLocaleSwitcher = false
+): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(
     [
       {
         path: '/login',
         element: (
           <ProtectedRouteProvider>
+            {withLocaleSwitcher ? <LocaleSwitcher /> : null}
             <LoginPage />
           </ProtectedRouteProvider>
         )
@@ -38,9 +44,13 @@ const renderLoginPage = (redirect = '/practice'): void => {
 
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <I18nProvider>
+        <RouterProvider router={router} />
+      </I18nProvider>
     </QueryClientProvider>
   )
+
+  return router
 }
 
 describe('LoginPage role transition', () => {
@@ -139,5 +149,28 @@ describe('LoginPage role transition', () => {
     await user.click(screen.getByRole('button', { name: '게스트로 계속' }))
 
     expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+  })
+
+  it('locale 전환 중 RHF 입력과 redirect query를 보존한다', async () => {
+    const user = userEvent.setup()
+    const router = renderLoginPage('/practice?level=N2', true)
+    const email = screen.getByLabelText('이메일')
+    const password = screen.getByLabelText('비밀번호')
+
+    await user.type(email, 'learner@example.com')
+    await user.type(password, 'Unsubmitted-password!')
+    await user.selectOptions(screen.getByLabelText('언어'), 'ja')
+
+    expect(await screen.findByLabelText('メールアドレス')).toHaveValue(
+      'learner@example.com'
+    )
+    expect(screen.getByLabelText('パスワード')).toHaveValue(
+      'Unsubmitted-password!'
+    )
+    expect(router.state.location).toMatchObject({
+      pathname: '/login',
+      search: '?redirect=%2Fpractice%3Flevel%3DN2'
+    })
+    expect(document.documentElement).toHaveAttribute('lang', 'ja')
   })
 })

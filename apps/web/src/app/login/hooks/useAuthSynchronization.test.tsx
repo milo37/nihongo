@@ -11,6 +11,7 @@ import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
 import { APP_STORE_KEY, MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
+import { UI_LOCALE_STORAGE_KEY } from '@libs/localeStorage'
 import { useAppStore } from '@store/index'
 
 const createClient = (): QueryClient =>
@@ -241,6 +242,53 @@ describe('canonical auth synchronization', () => {
     )
     expect(useAppStore.getState().sessionId).toBe('same-tab-session')
     expect(screen.getByText('현재 역할: USER')).toBeInTheDocument()
+  })
+
+  it('locale storage event는 auth를 재조회하거나 Query cache를 변경하지 않는다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    let requestCount = 0
+    mockServer.use(
+      http.get('*/api/v1/me', () => {
+        requestCount += 1
+        return HttpResponse.json(toPrincipal(currentUser))
+      })
+    )
+    const client = createClient()
+    const sentinel = { owner: currentUser.id }
+
+    renderProbe(client)
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+    expect(requestCount).toBe(1)
+    client.setQueryData(['phase9', 'locale-sentinel'], sentinel)
+    const authStateBefore = client.getQueryState(
+      authQueries.currentUser().queryKey
+    )
+    const sentinelStateBefore = client.getQueryState([
+      'phase9',
+      'locale-sentinel'
+    ])
+
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: UI_LOCALE_STORAGE_KEY,
+        newValue: '{"version":1,"locale":"ja"}'
+      })
+    )
+    await Promise.resolve()
+
+    expect(requestCount).toBe(1)
+    expect(client.getQueryData(['phase9', 'locale-sentinel'])).toBe(sentinel)
+    expect(
+      client.getQueryState(authQueries.currentUser().queryKey)
+    ).toMatchObject({
+      dataUpdatedAt: authStateBefore?.dataUpdatedAt,
+      isInvalidated: false
+    })
+    expect(client.getQueryState(['phase9', 'locale-sentinel'])).toMatchObject({
+      dataUpdatedAt: sentinelStateBefore?.dataUpdatedAt,
+      isInvalidated: false
+    })
+    expect(useAppStore.getState().currentUser).toMatchObject({ role: 'USER' })
   })
 
   it('auth storage 변경은 canonical 재검증 동안 권한 경계를 닫는다', async () => {

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type { z } from 'zod'
@@ -24,6 +25,7 @@ type AuthMode = 'RESET_REQUEST' | 'SIGN_IN' | 'SIGN_UP'
 type SignInForm = z.input<typeof emailSignInSchema>
 type SignUpForm = z.input<typeof emailSignUpSchema>
 type ResetRequestForm = z.input<typeof passwordResetRequestSchema>
+type RegistrationNotice = 'registration' | 'resetRequested'
 
 const MockAuthenticationNotice = __NIHONGO_PRODUCTION_BUILD__
   ? null
@@ -53,16 +55,14 @@ const getGuestRedirect = (redirect: string): string => {
   return redirect.startsWith('/practice/') ? '/practice' : '/'
 }
 
-const getMutationErrorMessage = (isError: boolean): string | undefined =>
-  isError
-    ? '인증 요청을 처리하지 못했습니다. 입력 정보와 네트워크 상태를 확인해 주세요.'
-    : undefined
-
 export const LoginPage = (): ReactElement => {
+  const { t } = useTranslation('auth')
+  const { t: commonT } = useTranslation('common')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [mode, setMode] = useState<AuthMode>('SIGN_IN')
-  const [registrationNotice, setRegistrationNotice] = useState<string>()
+  const [registrationNotice, setRegistrationNotice] =
+    useState<RegistrationNotice>()
   const { user, role } = useAuth()
   const signIn = useSignInUser()
   const signUp = useSignUpUser()
@@ -114,9 +114,7 @@ export const LoginPage = (): ReactElement => {
   const submitSignUp = (values: SignUpForm): void => {
     signUp.mutate(values, {
       onSuccess: () => {
-        setRegistrationNotice(
-          '가입 요청을 완료했습니다. 받은 편지함에서 이메일 인증을 마친 뒤 로그인해 주세요.'
-        )
+        setRegistrationNotice('registration')
         signUpForm.reset()
       }
     })
@@ -125,9 +123,7 @@ export const LoginPage = (): ReactElement => {
   const submitResetRequest = (values: ResetRequestForm): void => {
     resetRequest.mutate(values, {
       onSuccess: () => {
-        setRegistrationNotice(
-          '가입 여부와 관계없이 요청을 접수했습니다. 계정이 존재하면 재설정 링크를 전송합니다.'
-        )
+        setRegistrationNotice('resetRequested')
         resetRequestForm.reset()
       }
     })
@@ -137,21 +133,19 @@ export const LoginPage = (): ReactElement => {
     <section className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
       <div className="max-w-2xl">
         <p className="text-sm font-black tracking-[0.16em] text-brand">
-          SECURE ACCESS
+          {t('eyebrow')}
         </p>
         <h1 className="mt-2 text-4xl font-black tracking-tight">
-          학습 계정으로 시작하세요
+          {t('title')}
         </h1>
         <p className="mt-4 leading-7 text-muted">
-          {isMockApiMode
-            ? '현재 로컬 Mock 인증 모드입니다. 아래 데모 계정 로그인만 제공하며 인증 상태는 로컬 데모 저장소에만 보관됩니다.'
-            : '이메일 인증을 마친 계정으로 로그인하면 오답노트와 학습 기록을 안전하게 이어갈 수 있습니다. 인증 정보는 브라우저 저장소가 아닌 보안 쿠키로 관리됩니다.'}
+          {isMockApiMode ? t('description.mock') : t('description.real')}
         </p>
         {isMockApiMode && MockAuthenticationNotice ? (
           <Suspense
             fallback={
               <p className="mt-4 text-sm text-muted" role="status">
-                Mock 계정 안내를 불러오고 있습니다…
+                {commonT('loading.mockNotice')}
               </p>
             }
           >
@@ -163,7 +157,7 @@ export const LoginPage = (): ReactElement => {
       {user ? (
         <div className="mt-8 flex flex-col gap-4 rounded-xl border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-muted">현재 계정</p>
+            <p className="text-sm text-muted">{t('currentAccount')}</p>
             <p className="mt-1 font-black">
               {user.name} · {role}
             </p>
@@ -173,7 +167,7 @@ export const LoginPage = (): ReactElement => {
             isLoading={logout.isPending}
             onClick={() => logout.mutate()}
           >
-            로그아웃
+            {t('logout')}
           </Button>
         </div>
       ) : null}
@@ -183,14 +177,14 @@ export const LoginPage = (): ReactElement => {
           <div
             className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1"
             role="group"
-            aria-label="인증 방식"
+            aria-label={t('methodLabel')}
           >
             <Button
               aria-pressed={mode === 'SIGN_IN'}
               variant={mode === 'SIGN_IN' ? 'primary' : 'ghost'}
               onClick={() => handleModeChange('SIGN_IN')}
             >
-              로그인
+              {t('signIn')}
             </Button>
             <Button
               aria-describedby={isMockApiMode ? 'mock-auth-notice' : undefined}
@@ -199,7 +193,7 @@ export const LoginPage = (): ReactElement => {
               variant={mode === 'SIGN_UP' ? 'primary' : 'ghost'}
               onClick={() => handleModeChange('SIGN_UP')}
             >
-              회원가입
+              {t('signUp')}
             </Button>
           </div>
 
@@ -212,18 +206,30 @@ export const LoginPage = (): ReactElement => {
               }}
             >
               <Input
-                label="이메일"
+                label={t('fields.email')}
                 type="email"
                 autoComplete="email"
-                error={signInForm.formState.errors.email?.message}
+                error={
+                  signInForm.formState.errors.email
+                    ? t('validation.email')
+                    : undefined
+                }
                 {...signInForm.register('email')}
               />
               <Input
-                label="비밀번호"
+                label={t('fields.password')}
                 type="password"
                 autoComplete="current-password"
-                hint="12자 이상 입력해 주세요."
-                error={signInForm.formState.errors.password?.message}
+                hint={t('hints.password')}
+                error={
+                  signInForm.formState.errors.password
+                    ? t(
+                        signInForm.formState.errors.password.type === 'too_big'
+                          ? 'validation.passwordMax'
+                          : 'validation.passwordMin'
+                      )
+                    : undefined
+                }
                 {...signInForm.register('password')}
               />
               {signIn.isError ? (
@@ -232,11 +238,11 @@ export const LoginPage = (): ReactElement => {
                   role="alert"
                   aria-live="polite"
                 >
-                  {getMutationErrorMessage(true)}
+                  {t('errors.request')}
                 </p>
               ) : null}
               <Button type="submit" fullWidth isLoading={signIn.isPending}>
-                로그인
+                {t('signIn')}
               </Button>
               <Button
                 aria-describedby={
@@ -247,7 +253,7 @@ export const LoginPage = (): ReactElement => {
                 variant="ghost"
                 onClick={() => handleModeChange('RESET_REQUEST')}
               >
-                비밀번호를 잊으셨나요?
+                {t('forgotPassword')}
               </Button>
             </form>
           ) : mode === 'SIGN_UP' ? (
@@ -259,28 +265,48 @@ export const LoginPage = (): ReactElement => {
               }}
             >
               <Input
-                label="이름"
+                label={t('fields.name')}
                 autoComplete="name"
-                error={signUpForm.formState.errors.name?.message}
+                error={
+                  signUpForm.formState.errors.name
+                    ? t(
+                        signUpForm.formState.errors.name.type === 'too_big'
+                          ? 'validation.nameMax'
+                          : 'validation.nameRequired'
+                      )
+                    : undefined
+                }
                 {...signUpForm.register('name')}
               />
               <Input
-                label="이메일"
+                label={t('fields.email')}
                 type="email"
                 autoComplete="email"
-                error={signUpForm.formState.errors.email?.message}
+                error={
+                  signUpForm.formState.errors.email
+                    ? t('validation.email')
+                    : undefined
+                }
                 {...signUpForm.register('email')}
               />
               <Input
-                label="비밀번호"
+                label={t('fields.password')}
                 type="password"
                 autoComplete="new-password"
-                hint="12자 이상 128자 이하로 입력해 주세요."
-                error={signUpForm.formState.errors.password?.message}
+                hint={t('hints.newPassword')}
+                error={
+                  signUpForm.formState.errors.password
+                    ? t(
+                        signUpForm.formState.errors.password.type === 'too_big'
+                          ? 'validation.passwordMax'
+                          : 'validation.passwordMin'
+                      )
+                    : undefined
+                }
                 {...signUpForm.register('password')}
               />
               <Select
-                label="목표 급수"
+                label={t('fields.targetLevel')}
                 options={levelOptions}
                 error={signUpForm.formState.errors.targetLevel?.message}
                 {...signUpForm.register('targetLevel')}
@@ -291,7 +317,7 @@ export const LoginPage = (): ReactElement => {
                   role="status"
                   aria-live="polite"
                 >
-                  {registrationNotice}
+                  {t(`notices.${registrationNotice}`)}
                 </p>
               ) : null}
               {signUp.isError ? (
@@ -300,11 +326,11 @@ export const LoginPage = (): ReactElement => {
                   role="alert"
                   aria-live="polite"
                 >
-                  {getMutationErrorMessage(true)}
+                  {t('errors.request')}
                 </p>
               ) : null}
               <Button type="submit" fullWidth isLoading={signUp.isPending}>
-                이메일 인증 요청
+                {t('signUpAction')}
               </Button>
             </form>
           ) : (
@@ -316,17 +342,20 @@ export const LoginPage = (): ReactElement => {
               }}
             >
               <div>
-                <h2 className="text-xl font-black">비밀번호 재설정</h2>
+                <h2 className="text-xl font-black">{t('reset.title')}</h2>
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  계정 이메일을 입력하면 1시간 동안 유효한 재설정 링크를
-                  보냅니다.
+                  {t('reset.description')}
                 </p>
               </div>
               <Input
-                label="이메일"
+                label={t('fields.email')}
                 type="email"
                 autoComplete="email"
-                error={resetRequestForm.formState.errors.email?.message}
+                error={
+                  resetRequestForm.formState.errors.email
+                    ? t('validation.email')
+                    : undefined
+                }
                 {...resetRequestForm.register('email')}
               />
               {registrationNotice ? (
@@ -335,12 +364,12 @@ export const LoginPage = (): ReactElement => {
                   role="status"
                   aria-live="polite"
                 >
-                  {registrationNotice}
+                  {t(`notices.${registrationNotice}`)}
                 </p>
               ) : null}
               {resetRequest.isError ? (
                 <p className="text-sm text-red-700" role="alert">
-                  재설정 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.
+                  {t('errors.resetRequest')}
                 </p>
               ) : null}
               <Button
@@ -348,14 +377,14 @@ export const LoginPage = (): ReactElement => {
                 fullWidth
                 isLoading={resetRequest.isPending}
               >
-                재설정 링크 요청
+                {t('reset.requestAction')}
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => handleModeChange('SIGN_IN')}
               >
-                로그인으로 돌아가기
+                {t('reset.backToLogin')}
               </Button>
             </form>
           )}
@@ -363,22 +392,22 @@ export const LoginPage = (): ReactElement => {
 
         <article className="flex flex-col rounded-xl border border-line bg-slate-950 p-6 text-white shadow-soft sm:p-8">
           <p className="text-sm font-black tracking-[0.12em] text-emerald-300">
-            GUEST
+            {t('guest.eyebrow')}
           </p>
-          <h2 className="mt-3 text-2xl font-black">가입 없이 먼저 체험</h2>
+          <h2 className="mt-3 text-2xl font-black">{t('guest.title')}</h2>
           <p className="mt-3 flex-1 leading-7 text-slate-300">
             {isMockApiMode
-              ? '랜덤 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 게스트 기록은 계정에 자동 합쳐지지 않으며 오답노트와 즐겨찾기는 로그인 후 사용할 수 있습니다.'
-              : 'RANDOM 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 로그인하면 이후 학습의 오답노트와 전체 학습 기록을 이어서 확인할 수 있습니다.'}
+              ? t('guest.descriptionMock')
+              : t('guest.descriptionReal')}
           </p>
           <Button
             className="mt-7 w-full"
             variant="outline"
             isLoading={logout.isPending}
-            loadingLabel="게스트 세션 준비 중…"
+            loadingLabel={t('guest.loading')}
             onClick={handleGuest}
           >
-            게스트로 계속
+            {t('guest.continue')}
           </Button>
         </article>
       </div>

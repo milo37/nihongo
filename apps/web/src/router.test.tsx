@@ -6,14 +6,17 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ReactElement } from 'react'
 import type { RouteObject } from 'react-router'
 import { appRoutes } from '@/router'
+import { apiClient } from '@api/config'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { authQueries } from '@app/login/queries/authQueries'
 import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { studyQueries } from '@app/practice/queries/studyQueries'
 import { ToastProvider } from '@common/components/Toast'
 import { queryClient } from '@libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { I18nProvider } from '@provider/I18nProvider'
 
 const DelayedHashTarget = (): ReactElement => {
   const [isReady, setReady] = useState(false)
@@ -40,9 +43,11 @@ const renderRoutes = (
 
   render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
     </QueryClientProvider>
   )
 
@@ -155,6 +160,78 @@ describe('application router boundaries', () => {
     expect(menuButton).toHaveAccessibleName('메뉴 열기')
     expect(menuButton).toHaveAttribute('aria-expanded', 'false')
     expect(menuButton).toHaveFocus()
+  })
+
+  it('locale 전환은 Home 선택·route·Query cache를 보존하고 request를 만들지 않는다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    const get = vi.spyOn(apiClient, 'get')
+    const post = vi.spyOn(apiClient, 'post')
+    const router = renderRoutes('/?campaign=phase9')
+
+    await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
+    expect(
+      await screen.findByRole('link', { name: currentUser.name })
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'N1' }))
+    await user.click(screen.getByRole('button', { name: /독해/u }))
+    const sentinel = { owner: 'phase9-locale' }
+    queryClient.setQueryData(['phase9', 'router-sentinel'], sentinel)
+    const queryStateBefore = queryClient.getQueryState([
+      'phase9',
+      'router-sentinel'
+    ])
+    const authDataBefore = queryClient.getQueryData(
+      authQueries.currentUser().queryKey
+    )
+    const authStateBefore = queryClient.getQueryState(
+      authQueries.currentUser().queryKey
+    )
+    const getCountBefore = get.mock.calls.length
+    const postCountBefore = post.mock.calls.length
+
+    await user.selectOptions(screen.getByLabelText('언어'), 'ja')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: /間違えた問題を 最後まで解決する学習/u
+      })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'N1' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByRole('button', { name: /読解/u })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(router.state.location).toMatchObject({
+      pathname: '/',
+      search: '?campaign=phase9',
+      hash: ''
+    })
+    expect(queryClient.getQueryData(['phase9', 'router-sentinel'])).toBe(
+      sentinel
+    )
+    expect(
+      queryClient.getQueryState(['phase9', 'router-sentinel'])
+    ).toMatchObject({
+      dataUpdatedAt: queryStateBefore?.dataUpdatedAt,
+      isInvalidated: false
+    })
+    expect(queryClient.getQueryData(authQueries.currentUser().queryKey)).toBe(
+      authDataBefore
+    )
+    expect(
+      queryClient.getQueryState(authQueries.currentUser().queryKey)
+    ).toMatchObject({
+      dataUpdatedAt: authStateBefore?.dataUpdatedAt,
+      isInvalidated: false
+    })
+    expect(get).toHaveBeenCalledTimes(getCountBefore)
+    expect(post).toHaveBeenCalledTimes(postCountBefore)
+    expect(document.documentElement).toHaveAttribute('lang', 'ja')
+    expect(document.title).toBe('ホーム | JLPT Drill Note')
   })
 
   it('hash navigation은 main top scroll보다 대상 포커스를 우선한다', async () => {
@@ -408,6 +485,9 @@ describe('application router boundaries', () => {
     expect(
       await findRouteHeading('화면을 불러오지 못했습니다')
     ).toBeInTheDocument()
-    expect(screen.getByText('route-render-failure')).toBeInTheDocument()
+    expect(
+      screen.getByText('예상하지 못한 오류가 발생했습니다.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('route-render-failure')).not.toBeInTheDocument()
   })
 })

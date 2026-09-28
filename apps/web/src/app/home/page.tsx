@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
 import type { JlptLevel, QuestionSubject } from '@common/types/domain'
@@ -10,50 +11,8 @@ import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
 const levelOptions: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
-const subjectOptions: Array<{
-  value: QuestionSubject
-  label: string
-  description: string
-}> = [
-  {
-    value: 'VOCABULARY',
-    label: '문자·어휘',
-    description: '한자 읽기와 문맥 어휘'
-  },
-  {
-    value: 'GRAMMAR',
-    label: '문법',
-    description: '형식 선택과 문장 구성'
-  },
-  {
-    value: 'READING',
-    label: '독해',
-    description: '짧은 글부터 정보 검색까지'
-  }
-]
-
-const featureItems = [
-  {
-    number: '01',
-    title: '자동 오답노트',
-    description:
-      '틀린 횟수와 복습 상태를 기록해 다시 볼 문제를 놓치지 않습니다.'
-  },
-  {
-    number: '02',
-    title: '약점 분석',
-    description:
-      '과목별 정답률과 반복 오답을 기반으로 다음 학습 방향을 잡습니다.'
-  },
-  {
-    number: '03',
-    title: '2회 연속 정답',
-    description:
-      '한 번의 우연이 아니라 두 번 연속 맞힐 때 해결한 문제로 전환합니다.'
-  }
-]
-
 export const HomePage = (): ReactElement => {
+  const { t } = useTranslation('home')
   const navigate = useNavigate()
   const { role } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
@@ -61,6 +20,44 @@ export const HomePage = (): ReactElement => {
   const [subject, setSubject] = useState<QuestionSubject>('GRAMMAR')
   const createSession = useCreateStudySession()
   const isCreatingSession = createSession.isPending || createSession.isPaused
+  const subjectOptions: Array<{
+    value: QuestionSubject
+    label: string
+    description: string
+  }> = [
+    {
+      value: 'VOCABULARY',
+      label: t('subjects.vocabulary.label'),
+      description: t('subjects.vocabulary.description')
+    },
+    {
+      value: 'GRAMMAR',
+      label: t('subjects.grammar.label'),
+      description: t('subjects.grammar.description')
+    },
+    {
+      value: 'READING',
+      label: t('subjects.reading.label'),
+      description: t('subjects.reading.description')
+    }
+  ]
+  const featureItems = [
+    {
+      number: '01',
+      title: t('loop.items.wrongNote.title'),
+      description: t('loop.items.wrongNote.description')
+    },
+    {
+      number: '02',
+      title: t('loop.items.weakness.title'),
+      description: t('loop.items.weakness.description')
+    },
+    {
+      number: '03',
+      title: t('loop.items.mastery.title'),
+      description: t('loop.items.mastery.description')
+    }
+  ]
 
   const handleQuickStart = (): void => {
     if (isCreatingSession) {
@@ -90,29 +87,30 @@ export const HomePage = (): ReactElement => {
         <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-20">
           <div>
             <p className="mb-5 text-sm font-black tracking-[0.18em] text-brand">
-              JLPT N5–N1 · VOCABULARY / GRAMMAR / READING
+              {t('eyebrow')}
             </p>
             <h1 className="max-w-3xl text-4xl font-black leading-[1.12] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              틀린 문제를
+              {t('hero.titleLine1')}
               <br />
-              끝까지 해결하는 학습
+              {t('hero.titleLine2')}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-              급수와 과목을 고르고 바로 문제를 푸세요. 제출한 오답은 자동으로
-              정리되고, 두 번 연속 맞힐 때까지 복습 흐름이 이어집니다.
+              {t('hero.description')}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 className="inline-flex min-h-12 items-center justify-center rounded-lg bg-slate-950 px-6 font-bold text-white transition-colors hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
                 to="/practice"
               >
-                학습 설정 열기
+                {t('hero.openSetup')}
               </Link>
               <Link
                 className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-white px-6 font-bold text-slate-800 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 to={role === 'GUEST' ? '/login' : '/dashboard'}
               >
-                {role === 'GUEST' ? '계정 로그인' : '내 학습 대시보드'}
+                {role === 'GUEST'
+                  ? t('hero.accountLogin')
+                  : t('hero.myDashboard')}
               </Link>
             </div>
           </div>
@@ -120,16 +118,22 @@ export const HomePage = (): ReactElement => {
           <div className="rounded-2xl border border-line bg-slate-50 p-5 shadow-soft sm:p-7">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-bold text-brand">QUICK DRILL</p>
-                <h2 className="mt-1 text-2xl font-black">10문제 바로 풀기</h2>
+                <p className="text-sm font-bold text-brand">
+                  {t('quickDrill.eyebrow')}
+                </p>
+                <h2 className="mt-1 text-2xl font-black">
+                  {t('quickDrill.title')}
+                </h2>
               </div>
               <span className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-muted">
-                기본 RANDOM
+                {t('quickDrill.defaultMode')}
               </span>
             </div>
 
             <fieldset disabled={isCreatingSession}>
-              <legend className="mb-3 text-sm font-bold">JLPT 급수</legend>
+              <legend className="mb-3 text-sm font-bold">
+                {t('quickDrill.levelLegend')}
+              </legend>
               <div className="grid grid-cols-5 gap-2">
                 {levelOptions.map((option) => (
                   <button
@@ -147,7 +151,9 @@ export const HomePage = (): ReactElement => {
             </fieldset>
 
             <fieldset className="mt-6" disabled={isCreatingSession}>
-              <legend className="mb-3 text-sm font-bold">학습 과목</legend>
+              <legend className="mb-3 text-sm font-bold">
+                {t('quickDrill.subjectLegend')}
+              </legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 {subjectOptions.map((option) => (
                   <button
@@ -173,7 +179,7 @@ export const HomePage = (): ReactElement => {
               size="lg"
               onClick={handleQuickStart}
             >
-              선택한 범위로 시작
+              {t('quickDrill.start')}
             </Button>
             {createSession.isError &&
             !isAuthTransitionSupersededError(createSession.error) ? (
@@ -181,12 +187,11 @@ export const HomePage = (): ReactElement => {
                 className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900"
                 role="alert"
               >
-                세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤
-                다시 시도해 주세요.
+                {t('quickDrill.error')}
               </p>
             ) : null}
             <p className="mt-3 text-center text-xs leading-5 text-muted">
-              문제가 10개보다 적으면 준비된 문제 수만큼 출제합니다.
+              {t('quickDrill.countNote')}
             </p>
           </div>
         </div>
@@ -198,10 +203,10 @@ export const HomePage = (): ReactElement => {
       >
         <div className="max-w-2xl">
           <p className="text-sm font-black tracking-[0.16em] text-brand">
-            LEARNING LOOP
+            {t('loop.eyebrow')}
           </p>
           <h2 id="loop-title" className="mt-2 text-3xl font-black">
-            문제를 푸는 순간부터 복습까지 연결됩니다
+            {t('loop.title')}
           </h2>
         </div>
         <div className="mt-9 grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">

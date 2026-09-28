@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -44,10 +45,11 @@ export const Pagination = ({
   className,
   currentPage,
   disabled = false,
-  label = '페이지 이동',
+  label,
   onPageChange,
   totalPages
 }: PaginationProps): ReactElement | null => {
+  const { t } = useTranslation('common')
   const normalizedTotalPages =
     Number.isFinite(totalPages) && totalPages > 0 ? Math.floor(totalPages) : 0
 
@@ -69,7 +71,7 @@ export const Pagination = ({
   return (
     <nav
       className={classNames('overflow-x-auto', className)}
-      aria-label={label}
+      aria-label={label ?? t('pagination.label')}
     >
       <ul className="flex min-w-max items-center justify-center gap-1 py-1">
         <li>
@@ -77,10 +79,10 @@ export const Pagination = ({
             className={classNames(pageButtonClassName, 'w-auto px-3')}
             type="button"
             disabled={disabled || safeCurrentPage === 1}
-            aria-label="이전 페이지"
+            aria-label={t('pagination.previousLabel')}
             onClick={() => onPageChange(safeCurrentPage - 1)}
           >
-            이전
+            {t('pagination.previous')}
           </button>
         </li>
         {items.map((item) => {
@@ -109,7 +111,10 @@ export const Pagination = ({
                 type="button"
                 disabled={disabled}
                 aria-current={isCurrent ? 'page' : undefined}
-                aria-label={`${item}페이지${isCurrent ? ', 현재 페이지' : ''}`}
+                aria-label={t('pagination.pageLabel', {
+                  page: item,
+                  current: isCurrent ? t('pagination.currentSuffix') : ''
+                })}
                 onClick={() => onPageChange(item)}
               >
                 <span className="tabular-nums">{item}</span>
@@ -122,10 +127,10 @@ export const Pagination = ({
             className={classNames(pageButtonClassName, 'w-auto px-3')}
             type="button"
             disabled={disabled || safeCurrentPage === normalizedTotalPages}
-            aria-label="다음 페이지"
+            aria-label={t('pagination.nextLabel')}
             onClick={() => onPageChange(safeCurrentPage + 1)}
           >
-            다음
+            {t('pagination.next')}
           </button>
         </li>
       </ul>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
 import { isApiError } from '@api/config'
@@ -7,15 +8,23 @@ import { commitCanonicalAuth } from '@app/login/authSession'
 import { subscribeApiError } from '@libs/errorBus'
 
 type BannerKind = 'error' | 'offline' | 'restored'
+type BannerMessageKey =
+  | 'banner.offline'
+  | 'banner.restored'
+  | 'banner.generic'
+  | 'banner.network'
+  | 'banner.response'
+  | 'banner.validation'
+  | 'banner.server'
 
 interface StatusBanner {
   kind: BannerKind
-  message: string
+  messageKey: BannerMessageKey
 }
 
 const offlineBanner: StatusBanner = {
   kind: 'offline',
-  message: '오프라인 상태입니다. 네트워크 연결을 확인해 주세요.'
+  messageKey: 'banner.offline'
 }
 
 const getInitialBanner = (): StatusBanner | null => {
@@ -39,6 +48,8 @@ const closeButtonClasses: Record<BannerKind, string> = {
 }
 
 export const AuthErrorHandlerProvider = (): ReactElement | null => {
+  const { t } = useTranslation('errors')
+  const { t: commonT } = useTranslation('common')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
@@ -64,8 +75,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       isOnlineRef.current = true
       setBanner({
         kind: 'restored',
-        message:
-          '네트워크 연결이 복구된 것으로 감지했습니다. 필요한 요청을 다시 시도해 주세요.'
+        messageKey: 'banner.restored'
       })
     }
 
@@ -82,7 +92,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       if (!isApiError(error)) {
         setBanner({
           kind: 'error',
-          message: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+          messageKey: 'banner.generic'
         })
         return
       }
@@ -131,7 +141,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       if (error.isNetworkError) {
         setBanner({
           kind: 'error',
-          message: '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.'
+          messageKey: 'banner.network'
         })
         return
       }
@@ -142,7 +152,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         }
         setBanner({
           kind: 'error',
-          message: '응답 형식이 올바르지 않습니다. 다시 시도해 주세요.'
+          messageKey: 'banner.response'
         })
         return
       }
@@ -150,8 +160,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       if (error.isServerValidationError || error.isValidationError) {
         setBanner({
           kind: 'error',
-          message:
-            error.serverMessage ?? '입력 내용을 확인한 뒤 다시 시도해 주세요.'
+          messageKey: 'banner.validation'
         })
         return
       }
@@ -159,8 +168,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       if (error.isServerError) {
         setBanner({
           kind: 'error',
-          message:
-            '서버 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+          messageKey: 'banner.server'
         })
       }
     })
@@ -177,13 +185,13 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       aria-live="polite"
       data-kind={banner.kind}
     >
-      <span>{banner.message}</span>
+      <span>{t(banner.messageKey)}</span>
       <button
         className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
         type="button"
         onClick={() => setBanner(null)}
       >
-        닫기
+        {commonT('actions.close')}
       </button>
     </div>
   )

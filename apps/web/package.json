@@ -9,18 +9,21 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:phase9:literals": "node --test scripts/phase9-ui-literal-contract.test.mjs && node scripts/phase9-ui-literal-check.mts",
     "test:phase9:tokens": "node --test scripts/phase9-design-token-contract.test.mjs scripts/phase9-built-css-contract.test.mjs && node scripts/phase9-design-token-check.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@nihongo/contracts": "workspace:*",
     "@hookform/resolvers": "^5.0.0",
+    "@nihongo/contracts": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.7.0",
+    "i18next": "26.4.2",
     "msw": "^2.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.0.0",
+    "react-i18next": "17.0.15",
     "react-router": "^7.0.0",
     "zod": "^4.0.0",
     "zustand": "^5.0.0"

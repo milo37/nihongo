@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ComponentPropsWithRef, ReactElement, ReactNode } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -45,12 +46,14 @@ export const Button = ({
   disabled = false,
   fullWidth = false,
   isLoading = false,
-  loadingLabel = '처리 중…',
+  loadingLabel,
   size = 'md',
   type = 'button',
   variant = 'primary',
   ...props
 }: ButtonProps): ReactElement => {
+  const { t } = useTranslation('common')
+
   return (
     <button
       className={classNames(
@@ -88,7 +91,7 @@ export const Button = ({
               />
             </svg>
           </span>
-          <span>{loadingLabel}</span>
+          <span>{loadingLabel ?? t('loading.processing')}</span>
         </>
       ) : (
         children

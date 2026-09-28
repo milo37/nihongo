@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ComponentPropsWithoutRef, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -7,12 +8,14 @@ type SkeletonProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'> & {
 
 export const Skeleton = ({
   className,
-  label = '콘텐츠를 불러오는 중입니다…',
+  label,
   ...props
 }: SkeletonProps): ReactElement => {
+  const { t } = useTranslation('common')
+
   return (
     <div role="status" aria-live="polite">
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{label ?? t('loading.content')}</span>
       <div
         className={classNames(
           'ui-skeleton min-h-4 rounded-control bg-line',

@@ -6,6 +6,7 @@ import {
   useMemo,
   useState
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { IconButton } from '@common/components/IconButton'
 import { classNames } from '@common/components/classNames'
@@ -54,12 +55,12 @@ const variantClassNames: Record<ToastVariant, string> = {
   danger: 'border-danger-line bg-danger-soft text-danger-strong'
 }
 
-const variantLabels: Record<ToastVariant, string> = {
-  info: '안내',
-  success: '성공',
-  warning: '주의',
-  danger: '오류'
-}
+const variantLabelKeys = {
+  info: 'toast.info',
+  success: 'toast.success',
+  warning: 'toast.warning',
+  danger: 'toast.danger'
+} as const satisfies Record<ToastVariant, string>
 
 const closeIcon = (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -89,6 +90,7 @@ export const Toast = ({
   title,
   variant = 'info'
 }: ToastProps): ReactElement => {
+  const { t } = useTranslation('common')
   const [isPaused, setIsPaused] = useState(false)
 
   useEffect(() => {
@@ -128,7 +130,7 @@ export const Toast = ({
     >
       <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-wide opacity-75">
-          {variantLabels[variant]}
+          {t(variantLabelKeys[variant])}
         </p>
         <p className="mt-1 break-words font-bold">{title}</p>
         {description ? (
@@ -148,7 +150,7 @@ export const Toast = ({
       </div>
       <IconButton
         className="-mr-2 -mt-2"
-        label="알림 닫기"
+        label={t('actions.closeNotification')}
         icon={closeIcon}
         size="sm"
         variant="ghost"
@@ -163,6 +165,7 @@ export const ToastProvider = ({
   defaultDurationMs = 4500,
   maxVisible = 3
 }: ToastProviderProps): ReactElement => {
+  const { t } = useTranslation('common')
   const [toasts, setToasts] = useState<ToastRecord[]>([])
 
   const dismissToast = useCallback((toastId: string): void => {
@@ -198,7 +201,7 @@ export const ToastProvider = ({
       {children}
       <div
         className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-toast ml-auto grid max-w-md gap-3"
-        aria-label="알림"
+        aria-label={t('toast.region')}
       >
         {toasts.map((toast) => (
           <Toast

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, useLocation, type Location } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
@@ -30,6 +31,7 @@ const getRedirectPath = (location: Location): string => {
 export const ProtectedRouteProvider = ({
   children
 }: ProtectedRouteProviderProps): ReactElement => {
+  const { t } = useTranslation('errors')
   const { canonicalUser, hasError, isReady, retry } = useAuthSynchronization()
   const shouldRestoreRetryFocusRef = useRef(false)
   const user = isReady ? (canonicalUser ?? null) : null
@@ -52,10 +54,10 @@ export const ProtectedRouteProvider = ({
       <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
         <ErrorState
           autoFocus
-          description="서버에서 로그인 상태를 확인하지 못했습니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다."
+          description={t('authStatus.description')}
           headingLevel={1}
           onRetry={handleRetry}
-          title="로그인 상태를 확인할 수 없습니다"
+          title={t('authStatus.title')}
         />
       </main>
     )
@@ -81,11 +83,12 @@ export const useAuth = (): AuthContextValue => {
 export const RequireRole = ({
   allowedRoles
 }: RequireRoleProps): ReactElement => {
+  const { t } = useTranslation('common')
   const { isReady, role } = useAuth()
   const location = useLocation()
 
   if (!isReady) {
-    return <LoadingState message="로그인 상태를 확인하고 있습니다…" />
+    return <LoadingState message={t('loading.auth')} />
   }
 
   if (allowedRoles.includes(role)) {

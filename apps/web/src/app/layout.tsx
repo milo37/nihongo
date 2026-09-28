@@ -1,7 +1,13 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router'
 import type { ReactElement } from 'react'
+import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
 import { LoadingState } from '@common/components/LoadingState'
+import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
+import { getRouteLabelKey } from '@/i18n/routePresentation'
+import type { UiLocale } from '@/i18n/types'
+import { useUiLocale } from '@provider/I18nProvider'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
@@ -11,30 +17,6 @@ const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
     'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
     isActive ? 'bg-brand-soft text-brand' : 'text-muted hover:text-ink'
   ].join(' ')
-}
-
-const getRouteLabel = (pathname: string): string => {
-  if (pathname === '/') return '홈'
-  if (pathname === '/login') return '로그인'
-  if (pathname === '/reset-password') return '비밀번호 재설정'
-  if (pathname === '/verify-email') return '이메일 인증'
-  if (pathname === '/dashboard') return '학습 대시보드'
-  if (pathname === '/practice') return '문제풀이 설정'
-  if (pathname.startsWith('/practice/session/')) return '문제풀이'
-  if (pathname.startsWith('/practice/result/')) return '학습 결과'
-  if (pathname === '/wrong-notes') return '오답 복습 센터'
-  if (pathname === '/wrong-notes/history') return '전체 오답 기록'
-  if (pathname.startsWith('/wrong-notes/')) return '오답 상세'
-  if (pathname === '/bookmarks') return '즐겨찾기'
-  if (pathname === '/admin/questions/new') return '문제 등록'
-  if (pathname === '/admin/questions/import') return '문제 가져오기'
-  if (pathname.startsWith('/admin/questions/')) return '문제 상세'
-  if (pathname === '/admin/questions') return '문제 관리'
-  if (pathname === '/admin/audit-log') return '관리자 감사 기록'
-  if (pathname.startsWith('/admin/reports/')) return '문제 신고 상세'
-  if (pathname === '/admin/reports') return '문제 신고 큐'
-  if (pathname === '/forbidden') return '접근 권한 없음'
-  return '페이지'
 }
 
 const hasPageOwnedFocus = (pathname: string): boolean => {
@@ -70,6 +52,9 @@ const focusHashTarget = (hash: string): boolean => {
 }
 
 export const Layout = (): ReactElement => {
+  const { t: commonT } = useTranslation('common')
+  const { t: navigationT } = useTranslation('navigation')
+  const { locale } = useUiLocale()
   const { isReady, role, user } = useAuth()
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -77,10 +62,20 @@ export const Layout = (): ReactElement => {
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const previousPathnameRef = useRef(location.pathname)
   const previousHashRef = useRef('')
-  const [routeAnnouncement, setRouteAnnouncement] = useState('')
+  const localeRef = useRef<UiLocale>(locale)
+  const [routeAnnouncement, setRouteAnnouncement] = useState<{
+    pathname: string
+    locale: UiLocale
+  } | null>(null)
   const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen)
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
+
+  useDocumentMetadata()
+
+  useEffect(() => {
+    localeRef.current = locale
+  }, [locale])
 
   useEffect(() => {
     const pathnameChanged = previousPathnameRef.current !== location.pathname
@@ -94,7 +89,7 @@ export const Layout = (): ReactElement => {
     }
 
     if (pathnameChanged) {
-      setRouteAnnouncement('')
+      setRouteAnnouncement(null)
     }
 
     let hashObserver: MutationObserver | undefined
@@ -114,9 +109,10 @@ export const Layout = (): ReactElement => {
 
     const timer = window.setTimeout(() => {
       if (pathnameChanged) {
-        setRouteAnnouncement(
-          `${getRouteLabel(location.pathname)} 화면으로 이동했습니다.`
-        )
+        setRouteAnnouncement({
+          pathname: location.pathname,
+          locale: localeRef.current
+        })
       }
 
       if (!location.hash) {
@@ -177,7 +173,7 @@ export const Layout = (): ReactElement => {
         className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
         href="#main-content"
       >
-        본문으로 바로가기
+        {navigationT('skipToContent')}
       </a>
       <header className="sticky top-0 z-header border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-content items-center justify-between gap-4 px-4 sm:px-6">
@@ -195,7 +191,7 @@ export const Layout = (): ReactElement => {
             <span className="leading-tight">
               <strong className="block text-base">JLPT Drill Note</strong>
               <span className="block text-xs text-muted">
-                풀고, 남기고, 다시
+                {commonT('tagline')}
               </span>
             </span>
           </NavLink>
@@ -204,7 +200,11 @@ export const Layout = (): ReactElement => {
             ref={mobileMenuButtonRef}
             className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-line text-xl hover:border-line-strong hover:bg-surface-muted md:hidden"
             type="button"
-            aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
+            aria-label={
+              isMobileMenuOpen
+                ? navigationT('menuClose')
+                : navigationT('menuOpen')
+            }
             aria-expanded={isMobileMenuOpen}
             aria-controls="primary-navigation"
             onClick={toggleMobileMenu}
@@ -218,7 +218,7 @@ export const Layout = (): ReactElement => {
               'absolute inset-x-0 top-16 border-b border-line bg-surface p-4 md:static md:block md:border-0 md:p-0',
               isMobileMenuOpen ? 'block' : 'hidden md:block'
             ].join(' ')}
-            aria-label="주요 메뉴"
+            aria-label={navigationT('primary')}
           >
             <div className="mx-auto flex max-w-content flex-col gap-1 md:flex-row md:items-center">
               <NavLink
@@ -226,7 +226,7 @@ export const Layout = (): ReactElement => {
                 to="/practice"
                 onClick={closeMenu}
               >
-                문제풀이
+                {navigationT('practice')}
               </NavLink>
               {role !== 'GUEST' ? (
                 <>
@@ -235,21 +235,21 @@ export const Layout = (): ReactElement => {
                     to="/wrong-notes"
                     onClick={closeMenu}
                   >
-                    오답노트
+                    {navigationT('wrongNotes')}
                   </NavLink>
                   <NavLink
                     className={getNavClassName}
                     to="/bookmarks"
                     onClick={closeMenu}
                   >
-                    즐겨찾기
+                    {navigationT('bookmarks')}
                   </NavLink>
                   <NavLink
                     className={getNavClassName}
                     to="/dashboard"
                     onClick={closeMenu}
                   >
-                    대시보드
+                    {navigationT('dashboard')}
                   </NavLink>
                 </>
               ) : null}
@@ -259,7 +259,7 @@ export const Layout = (): ReactElement => {
                   to="/admin/questions"
                   onClick={closeMenu}
                 >
-                  문제 관리
+                  {navigationT('adminQuestions')}
                 </NavLink>
               ) : null}
               <NavLink
@@ -267,15 +267,20 @@ export const Layout = (): ReactElement => {
                 to="/login"
                 onClick={closeMenu}
               >
-                {user ? user.name : '로그인'}
+                {user ? user.name : navigationT('login')}
               </NavLink>
+              <LocaleSwitcher />
             </div>
           </nav>
         </div>
       </header>
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {routeAnnouncement}
+        {routeAnnouncement && routeAnnouncement.locale === locale
+          ? navigationT('routeChanged', {
+              route: navigationT(getRouteLabelKey(routeAnnouncement.pathname))
+            })
+          : ''}
       </p>
 
       <main
@@ -290,22 +295,22 @@ export const Layout = (): ReactElement => {
               className="mx-auto max-w-content px-4 py-16 text-center text-muted"
               role="status"
             >
-              페이지를 불러오는 중입니다…
+              {commonT('loading.page')}
             </div>
           }
         >
           {isReady ? (
             <Outlet />
           ) : (
-            <LoadingState message="로그인 상태를 확인하고 있습니다…" />
+            <LoadingState message={commonT('loading.auth')} />
           )}
         </Suspense>
       </main>
 
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-content flex-col gap-2 px-4 py-8 text-sm text-muted sm:px-6 md:flex-row md:items-center md:justify-between">
-          <p>자체 제작 문제만 사용하는 포트폴리오 프로젝트입니다.</p>
-          <p>청해·실제 JLPT 기출문제는 포함하지 않습니다.</p>
+          <p>{commonT('footer.originalContent')}</p>
+          <p>{commonT('footer.scope')}</p>
         </div>
       </footer>
     </div>

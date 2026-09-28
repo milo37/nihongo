@@ -20,6 +20,7 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { toContractWrongNoteDetail } from '@mocks/adapters/wrongNoteReadContractAdapter'
 import { toVersionedContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
 import { ToastProvider } from '@common/components/Toast'
+import { I18nProvider } from '@provider/I18nProvider'
 import { mockServer } from '@/test/server'
 
 const renderPage = (
@@ -57,9 +58,11 @@ const renderPage = (
 
   render(
     <QueryClientProvider client={client}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
     </QueryClientProvider>
   )
 }

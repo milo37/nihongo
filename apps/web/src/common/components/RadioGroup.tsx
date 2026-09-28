@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -38,6 +39,7 @@ export const RadioGroup = ({
   required = false,
   value
 }: RadioGroupProps): ReactElement => {
+  const { t } = useTranslation('common')
   const generatedId = useId()
   const hintId = hint ? `${name}-${generatedId}-hint` : undefined
   const errorId = error ? `${name}-${generatedId}-error` : undefined
@@ -52,7 +54,9 @@ export const RadioGroup = ({
     >
       <legend className="text-sm font-semibold text-ink">
         {legend}
-        {required ? <span className="ml-1 text-danger">(필수)</span> : null}
+        {required ? (
+          <span className="ml-1 text-danger">{t('required')}</span>
+        ) : null}
       </legend>
       <div
         className={classNames(

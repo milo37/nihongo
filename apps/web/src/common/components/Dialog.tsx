@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   ReactElement,
@@ -87,7 +88,7 @@ const closeIcon = (
 export const Dialog = ({
   children,
   className,
-  closeLabel = '대화상자 닫기',
+  closeLabel,
   description,
   fallbackFocusRef,
   footer,
@@ -99,6 +100,7 @@ export const Dialog = ({
   size = 'md',
   title
 }: DialogProps): ReactElement => {
+  const { t } = useTranslation('common')
   const dialogRef = useRef<HTMLDialogElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -261,7 +263,7 @@ export const Dialog = ({
           <IconButton
             className="-mr-2 -mt-1"
             disabled={preventClose}
-            label={closeLabel}
+            label={closeLabel ?? t('actions.closeDialog')}
             icon={closeIcon}
             variant="ghost"
             onClick={requestClose}
