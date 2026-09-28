@@ -121,11 +121,7 @@ jobs:
           fi
 
   e2e:
-    # Slice 6 owns the Phase 7 real/mock browser cutover. Keep the historical
-    # job definition and artifact paths as evidence, but do not run its
-    # pre-Phase 7 harness against the Phase 7 migration graph.
-    name: Chromium real and mock browser acceptance (pending Slice 6)
-    if: ${{ false }}
+    name: Phase 7 Chromium real and mock browser acceptance
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -175,15 +171,20 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Browser acceptance
-        run: pnpm run test:e2e
+      - name: Real browser acceptance
+        run: pnpm run test:phase7:browser:real
+
+      - name: Canonical mock browser acceptance
+        run: pnpm run test:phase7:browser:mock
 
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-phase5-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: ignore
+          name: playwright-phase7-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
           path: |
-            playwright-report/
-            test-results/
+            playwright-report/phase7-real/
+            playwright-report/phase7-mock/
+            test-results/playwright-phase7-real/
+            test-results/playwright-phase7-mock/

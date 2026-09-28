@@ -27,15 +27,18 @@ adapter→Query Factory→hook/UI도 Slice 5에서 연결했습니다. `/wrong-n
 center, `/wrong-notes/history`는 historical archive이고 detail은 별도 memo editor와 infinite
 ReviewEvent timeline을 병렬로 제공합니다. USER/ADMIN self-only targeted one-question command와
 server-authoritative DUE batch CTA도 practice-v2/review-center gate 아래 real/canonical mock에
-연결했습니다. Phase 7 Slice 2에서는 `ADMIN_CMS_MODE=technical`인 TEST/DEVELOPMENT에 한해
-canonical ADMIN read API 8개를 열었습니다. mutation/report/import/export와 Web CMS
-adapter·query hook·UI는 아직 dormant이며 silent Mock fallback하지 않습니다.
+연결했습니다. Phase 7 Slice 6까지 `ADMIN_CMS_MODE=technical`인 TEST/DEVELOPMENT에 한해
+28개 canonical ADMIN CMS·QuestionReport operation을 Hono/PostgreSQL과 canonical MSW에 열고,
+Web endpoint adapter→Query Factory→hook→접근 가능한 UI까지 연결했습니다. real mode는 silent Mock
+fallback 없이 version 검수·공개·폐기·archive, batch/import/export, learner 신고와 ADMIN 처리 queue,
+fresh-assurance explicit rerun과 multi-tab conflict를 지원합니다. 이 fixture workflow는 실제 사람
+contributor나 STAGING/PRODUCTION publication 증거가 아닙니다.
 Phase 4 Slice 6에서 dashboard, practice create/read/submit/result와 WrongNote read의 active
 UI transport를 canonical `/api/v1/*`로 단일화하고, guest 보호 mode direct URL의 silent
 RANDOM fallback을 제거했습니다. Phase 5 Slice 6은 current review center의 실제·canonical
 mock Chromium 흐름, fresh-schema integration/E2E runner, process-tree cleanup과 최종 보고를
-완료했습니다. CI는 Phase 5 branch에서 fresh-schema integration과 real/mock Chromium,
-production mock negative build와 real artifact 검증을 실행하도록 연결됐습니다.
+완료했습니다. Phase 7 CI는 DB/API gate 뒤 전용 real Chromium → canonical mock Chromium을 순차
+실행하고, production mock negative build와 no-worker production artifact를 검증하도록 구성합니다.
 
 ## 서비스 목적
 
@@ -204,6 +207,8 @@ startup role로 적용합니다. 새 migration 작성용 `db:migrate:dev`와 과
 docker compose up -d --wait postgres
 pnpm run test:phase7:db
 pnpm run test:phase7:api
+pnpm run test:phase7:browser:real
+pnpm run test:phase7:browser:mock
 ```
 
 runner는 canonical wrapper login이 하나라도 이미 존재하면 안전하게 중단합니다. 따라서
@@ -415,10 +420,10 @@ interstitial로 전달하며, 사용자가 확인 버튼을 눌러야 POST verif
 .
 ├── apps/
 │   ├── api/                # Hono app, Prisma, auth/question/study/WrongNote/dashboard API
-│   │   ├── prisma/         # schema, 27 migrations, 65문제 seed
+│   │   ├── prisma/         # schema, 31 migrations, 65문제 seed
 │   │   └── src/            # app, middleware, DB, service/repository, E2E harness
 │   └── web/
-│       ├── e2e/            # Playwright real-browser practice-flow specs
+│       ├── e2e/            # Playwright real/canonical-mock 학습·Phase 7 CMS specs
 │       ├── src/
 │       │   ├── api/        # Axios, safe HTTP 함수, endpoint와 Zod schema
 │       │   ├── app/        # 라우트 도메인, Query Factory, 훅, 페이지
@@ -628,7 +633,8 @@ QuestionOption/Tag/QuestionVersionTag로 적재합니다. deterministic UUID와 
 ## 테스트와 코드 검증
 
 ```bash
-# 의도한 포맷·린트 자동 정리(작업 파일이 바뀐)
+# 의존성과 의도한 포맷·린트 자동 정리
+pnpm install --frozen-lockfile
 pnpm run format
 pnpm run lint:fix
 
@@ -639,13 +645,20 @@ pnpm run check:architecture
 pnpm run test:architecture
 pnpm run typecheck
 pnpm run test
-pnpm run db:migrate:test
-pnpm run db:seed:test
-pnpm run test:integration
-pnpm run test:e2e
-VITE_API_MODE=real pnpm run build
+pnpm run test:phase7:db
+pnpm run test:phase7:api
+pnpm run test:phase7:browser:real
+pnpm run test:phase7:browser:mock
+NODE_ENV=production pnpm run build
+pnpm run content:foundation-check:static
+test ! -e apps/web/dist/mockServiceWorker.js
 git diff --check
 ```
+
+`NODE_ENV=production VITE_API_MODE=mock pnpm --filter @nihongo/web run build`는 정확히
+`VITE_API_MODE=mock is forbidden in production.`으로 실패해야 합니다. `test:integration`과
+`test:e2e`는 Phase 7 migration graph에서 실행하지 않는 pre-Phase 7 historical runner이며,
+현재 source에서는 전용 Phase 7 명령을 사용하도록 fail closed합니다.
 
 Phase 3 최종 gate는 architecture fixture 5/5와 live checker, contracts 8 files/45
 tests, domain 3 files/21 tests, API unit 34 files/188 tests, web 44 files/222 tests,
@@ -1009,16 +1022,17 @@ Phase 7 이전 source ref에서만 유효합니다. 현재 source에서 해당 h
 부분 migration을 적용하기 전에 중단되고 Phase 7 gate 사용을 안내합니다.
 
 Phase 7 Slice 1 persistence/auth/security foundation은
-`5d85985ee6ecc50ab23f1f9bbcc8a1211b2dedfe`에 commit·push했습니다. 승인된 Slice 2는 shared
-operation contract 28개를 active ADMIN GET 8개와 dormant command/report/import/export 20개로
-분리하고, all-28 retry/disposition policy와 canonical Hono/MSW read parity를 구현했습니다. 실제
-PostgreSQL API gate는 2 files/24 tests, 전체 non-DB gate는 1,232 tests, production Web build는
-456 modules를 통과했습니다. 65문항 foundation은 contributor 0, exact duplicate 0, near duplicate
-1쌍과 API/Web projection digest
-`b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c`를 유지합니다. Slice 2
-source는 `5d85985` 위 dirty worktree에 uncommitted/unpushed로 보존했고, Slice 3 mutation,
-추가 migration/DB write, contributor 등록, signing/activation과 Web CMS UI는 별도 지시 전
-시작하지 않습니다.
+`5d85985ee6ecc50ab23f1f9bbcc8a1211b2dedfe`, Slice 2 shared contract/read surface는
+`94fd2910b35a1c781fd2eeb1355895ecd0fb02ca`에 commit·push했습니다. Slice 3 remediation/activation과
+Slice 4 publication·retirement·archive 뒤 Slice 5에서 server/API inventory를 active 28/dormant 0으로
+닫았습니다. Slice 6은 canonical Web/API/MSW, fresh assurance, cache invalidation, cross-tab conflict와
+real/mock Chromium acceptance를 완료해 `7047be7e35e8837923e3d05f56091d93d1eb808b`에
+commit·push했습니다. 이 checkpoint는 root 1,592 tests, Phase 7 API 10+14+9, migration 31개,
+Web build 467 modules와 65문항 foundation의 contributor 0, exact duplicate 0, near duplicate 1쌍,
+API/Web projection digest
+`b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c`, TEST seed 65 insert/65 verify를
+통과했습니다. contributor 등록, signing/activation, trusted production DB apply와
+STAGING/PRODUCTION CMS route는 Phase 13/v1.1 전까지 계속 dormant입니다.
 
 ## 향후 개선
 
