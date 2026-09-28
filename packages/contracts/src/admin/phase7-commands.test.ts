@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+
 import { describe, expect, it } from 'vitest'
 
 import {

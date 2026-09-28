@@ -1,4 +1,4 @@
-/// <reference types="node" />
+/// <reference lib="dom" />
 
 import { describe, expect, it } from 'vitest'
 
