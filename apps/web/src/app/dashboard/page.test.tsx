@@ -3,9 +3,19 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import type {
+  DashboardRecommendation,
+  GetDashboardInsightsResponse
+} from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { getDashboardStatsQuerySchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
 import { dashboardInsightsConformanceFixture } from '@nihongo/contracts/testing/dashboard-insights-conformance'
+import { practiceFlowConformanceFixture } from '@nihongo/contracts/testing/practice-flow-conformance'
+import { reviewCenterConformanceFixture } from '@nihongo/contracts/testing/review-center-conformance'
+import { apiClient } from '@api/config'
+import { getStudySessionV2 } from '@api/study/getStudySessionV2'
+import { toDashboardInsightsView } from '@app/dashboard/adapters/dashboardInsightsView'
 import { DashboardPage } from '@app/dashboard/page'
+import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { queryClient } from '@libs/queryClient'
 import { toContractDashboardStats } from '@mocks/adapters/dashboardContractAdapter'
 import { toContractDashboardInsights } from '@mocks/adapters/dashboardInsightsContractAdapter'
@@ -23,7 +33,9 @@ const createTestQueryClient = (): QueryClient =>
     }
   })
 
-const renderDashboard = (client: QueryClient = queryClient): void => {
+const renderDashboard = (
+  client: QueryClient = queryClient
+): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(
     [
       {
@@ -33,6 +45,15 @@ const renderDashboard = (client: QueryClient = queryClient): void => {
             <DashboardPage />
           </ProtectedRouteProvider>
         )
+      },
+      { path: '/practice', element: <p>연습 조건 화면</p> },
+      {
+        path: '/practice/session/:sessionId',
+        element: <p>연습 세션 화면</p>
+      },
+      {
+        path: '/practice/result/:sessionId',
+        element: <p>학습 결과 화면</p>
       }
     ],
     { initialEntries: ['/dashboard'] }
@@ -43,6 +64,103 @@ const renderDashboard = (client: QueryClient = queryClient): void => {
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
+
+  return router
+}
+
+const cacheDashboardRecommendations = (
+  client: QueryClient,
+  recommendations: DashboardRecommendation[],
+  personalizationFallbackReason: GetDashboardInsightsResponse['personalizationFallbackReason'] = null
+): void => {
+  client.setQueryData(
+    dashboardQueries.insights().queryKey,
+    toDashboardInsightsView({
+      ...dashboardInsightsConformanceFixture,
+      personalizationFallbackReason,
+      recommendations
+    })
+  )
+}
+
+const targetLevelReadingRecommendation: DashboardRecommendation = {
+  rank: 1,
+  kind: 'TARGET_LEVEL_PRACTICE',
+  reason: {
+    code: 'TARGET_LEVEL_RECENT_GAP',
+    catalogCount: 3,
+    nonRecentCount: 3,
+    lastStudiedAt: null,
+    level: 'N3',
+    subject: 'READING'
+  },
+  action: {
+    kind: 'START_SESSION',
+    mode: 'RANDOM',
+    level: 'N3',
+    subject: 'READING',
+    count: 5
+  }
+}
+
+const weaknessRecommendation: DashboardRecommendation = {
+  rank: 1,
+  kind: 'RECENT_LOW_ACCURACY_TYPE',
+  reason: {
+    code: 'RECENT_LOW_ACCURACY_TYPE',
+    questionType: 'SENTENCE_ORDER',
+    attemptedCount: 8,
+    incorrectCount: 5,
+    errorRateBasisPoints: 6_250,
+    scoreBasisPoints: 3_000,
+    actionableCandidateCount: 3
+  },
+  action: {
+    kind: 'START_SESSION',
+    mode: 'WEAKNESS',
+    level: 'N2',
+    subject: 'GRAMMAR',
+    count: 5
+  }
+}
+
+const targetedRecommendation: DashboardRecommendation = {
+  rank: 1,
+  kind: 'REPEATED_WRONG',
+  reason: {
+    code: 'REPEATED_WRONG_COUNT',
+    level: 'N5',
+    subject: 'VOCABULARY',
+    questionId: reviewCenterConformanceFixture.targetedQuestionId,
+    questionPreview: '반복 오답 추천 문제',
+    wrongCount: 2,
+    lastWrongAt: '2026-09-27T10:00:00.000Z'
+  },
+  action: {
+    kind: 'START_TARGETED_REVIEW',
+    questionId: reviewCenterConformanceFixture.targetedQuestionId
+  }
+}
+
+const staleWeaknessRecommendation: DashboardRecommendation = {
+  rank: 2,
+  kind: 'STALE_WEAK_SUBJECT',
+  reason: {
+    code: 'STALE_WEAK_SUBJECT',
+    attemptedCount: 5,
+    incorrectCount: 2,
+    errorRateBasisPoints: 4_000,
+    scoreBasisPoints: 700,
+    ageDays: 40,
+    actionableCandidateCount: 3
+  },
+  action: {
+    kind: 'START_SESSION',
+    mode: 'WEAKNESS',
+    level: 'N3',
+    subject: 'READING',
+    count: 5
+  }
 }
 
 const createDeferred = <Value,>(): {
@@ -391,5 +509,405 @@ describe('DashboardPage', () => {
       screen.getByText(/문장 배열 유형에서 8회 중 5회 틀렸습니다/)
     ).toBeVisible()
     expect(screen.getByText('약점 연습 · N2 문법 · 5문제')).toBeVisible()
+  })
+
+  it('명시적 CTA 전에는 command를 보내지 않고 65문항 독해 부족을 actualCount 축소로 유지한다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(client, [targetLevelReadingRecommendation])
+    const post = vi.spyOn(apiClient, 'post')
+    const router = renderDashboard(client)
+
+    const startButton = await screen.findByRole('button', {
+      name: '일반 연습 시작하기: 일반 연습 · N3 독해 · 5문제'
+    })
+    expect(post).not.toHaveBeenCalled()
+
+    await user.click(startButton)
+
+    await vi.waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
+    )
+    expect(post).toHaveBeenCalledWith(
+      '/v1/study-sessions',
+      {
+        count: 5,
+        level: 'N3',
+        mode: 'RANDOM',
+        subject: 'READING'
+      },
+      { headers: { 'X-Nihongo-Practice-Contract': '2' } }
+    )
+
+    const sessionId = useAppStore.getState().sessionId
+    if (!sessionId) throw new Error('추천으로 생성된 세션이 필요합니다.')
+    const created = await getStudySessionV2(sessionId)
+    expect(created.data.session).toMatchObject({
+      actualCount: 3,
+      mode: 'RANDOM',
+      requestedCount: 5,
+      usedFallback: false
+    })
+  })
+
+  it('session 후보 소진 시 mode를 바꾸지 않고 안내에 포커스한 뒤 insights만 다시 읽는다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(client, [weaknessRecommendation])
+    const postBodies: unknown[] = []
+    const refreshGate = createDeferred<void>()
+    let insightsRequestCount = 0
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', async ({ request }) => {
+        postBodies.push(await request.json())
+        return HttpResponse.json(
+          {
+            code: 'NO_ELIGIBLE_QUESTIONS',
+            message: '선택한 조건에 출제 가능한 문제가 없습니다.',
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 404 }
+        )
+      }),
+      http.get('*/api/v1/dashboard/insights', async () => {
+        insightsRequestCount += 1
+        await refreshGate.promise
+        return HttpResponse.json(dashboardInsightsConformanceFixture)
+      })
+    )
+    const router = renderDashboard(client)
+
+    const startButton = await screen.findByRole('button', {
+      name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+    })
+    await user.click(startButton)
+
+    const notice = await screen.findByText(
+      /요청한 모드는 다른 모드로 바꾸지 않았으며/u
+    )
+    await vi.waitFor(() => expect(notice).toHaveFocus())
+    await vi.waitFor(() => expect(insightsRequestCount).toBe(1))
+    expect(startButton).toBeDisabled()
+    await user.click(startButton)
+    expect(postBodies).toHaveLength(1)
+
+    await act(async () => refreshGate.resolve())
+    const refreshedNotice =
+      await screen.findByText(/최신 추천을 새로 확인했습니다/u)
+    await vi.waitFor(() => expect(refreshedNotice).toHaveFocus())
+    await vi.waitFor(() =>
+      expect(
+        client.getQueryState(dashboardQueries.insights().queryKey)
+      ).toMatchObject({ fetchStatus: 'idle', status: 'success' })
+    )
+    expect(postBodies).toEqual([
+      {
+        count: 5,
+        level: 'N2',
+        mode: 'WEAKNESS',
+        subject: 'GRAMMAR'
+      }
+    ])
+    expect(router.state.location.pathname).toBe('/dashboard')
+  })
+
+  it('추천 command가 pending인 동안 중복 클릭과 두 번째 POST를 차단한다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(client, [weaknessRecommendation])
+    const responseGate = createDeferred<void>()
+    let postCount = 0
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', async () => {
+        postCount += 1
+        await responseGate.promise
+        return HttpResponse.json(
+          {
+            code: 'NO_ELIGIBLE_QUESTIONS',
+            message: '선택한 조건에 출제 가능한 문제가 없습니다.',
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 404 }
+        )
+      })
+    )
+    renderDashboard(client)
+
+    const startButton = await screen.findByRole('button', {
+      name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+    })
+    await user.dblClick(startButton)
+
+    await vi.waitFor(() => expect(postCount).toBe(1))
+    expect(
+      screen.getByRole('button', {
+        name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+      })
+    ).toBeDisabled()
+
+    await act(async () => responseGate.resolve())
+    await screen.findByText(/요청한 모드는 다른 모드로 바꾸지 않았으며/u)
+    expect(postCount).toBe(1)
+  })
+
+  it('후보 소진 뒤 insights 갱신도 실패하면 stale CTA를 잠그고 수동 재시도 성공 때만 푼다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(client, [
+      weaknessRecommendation,
+      targetedRecommendation
+    ])
+    const manualRetryGate = createDeferred<void>()
+    let postCount = 0
+    let targetedPostCount = 0
+    let insightsRequestCount = 0
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', () => {
+        postCount += 1
+        return HttpResponse.json(
+          {
+            code: 'NO_ELIGIBLE_QUESTIONS',
+            message: '선택한 조건에 출제 가능한 문제가 없습니다.',
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 404 }
+        )
+      }),
+      http.post('*/api/v1/wrong-notes/:questionId/review-session', () => {
+        targetedPostCount += 1
+        return HttpResponse.json({}, { status: 500 })
+      }),
+      http.get('*/api/v1/dashboard/insights', async () => {
+        insightsRequestCount += 1
+        if (insightsRequestCount === 1) {
+          return HttpResponse.json(
+            {
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'temporary insights error',
+              requestId: crypto.randomUUID(),
+              retryable: true
+            },
+            { status: 500 }
+          )
+        }
+        await manualRetryGate.promise
+        return HttpResponse.json(dashboardInsightsConformanceFixture)
+      })
+    )
+    renderDashboard(client)
+
+    const startButton = await screen.findByRole('button', {
+      name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+    })
+    await user.click(startButton)
+
+    const failureNotice = await screen.findByText(/잠시 비활성화했습니다/u)
+    await vi.waitFor(() => expect(failureNotice).toHaveFocus())
+    expect(startButton).toBeDisabled()
+    await user.click(startButton)
+    expect(postCount).toBe(1)
+
+    await user.click(
+      screen.getByRole('button', { name: '최근 인사이트 다시 시도' })
+    )
+    await vi.waitFor(() => expect(insightsRequestCount).toBe(2))
+    const targetedButton = screen.getByRole('button', {
+      name: '이 문제만 복습하기: 반복 오답 1문제 집중 복습'
+    })
+    expect(targetedButton).toBeDisabled()
+    await user.click(targetedButton)
+    expect(targetedPostCount).toBe(0)
+
+    await act(async () => manualRetryGate.resolve())
+    await vi.waitFor(() => expect(failureNotice).not.toBeInTheDocument())
+    expect(
+      screen.getByRole('button', {
+        name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+      })
+    ).toBeEnabled()
+  })
+
+  it('동시에 표시되는 두 약점 추천 CTA를 급수와 과목으로 구분한다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(client, [
+      weaknessRecommendation,
+      staleWeaknessRecommendation
+    ])
+
+    renderDashboard(client)
+
+    expect(
+      await screen.findByRole('button', {
+        name: '약점 연습 시작하기: 약점 연습 · N2 문법 · 5문제'
+      })
+    ).toBeEnabled()
+    expect(
+      screen.getByRole('button', {
+        name: '약점 연습 시작하기: 약점 연습 · N3 독해 · 5문제'
+      })
+    ).toBeEnabled()
+  })
+
+  it('반복 오답 CTA는 기존 targeted command와 draft reconciliation을 거쳐 세션으로 이동한다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(client, [targetedRecommendation])
+    const observedQuestionIds: string[] = []
+    mockServer.use(
+      http.post(
+        '*/api/v1/wrong-notes/:questionId/review-session',
+        ({ params }) => {
+          observedQuestionIds.push(String(params.questionId))
+          return HttpResponse.json(
+            reviewCenterConformanceFixture.targetedSession,
+            {
+              status: 201,
+              headers: {
+                'Cache-Control': 'private, no-store',
+                Location: reviewCenterConformanceFixture.targetedLocation,
+                'X-Nihongo-Practice-Contract': '2'
+              }
+            }
+          )
+        }
+      ),
+      http.get('*/api/v1/study-sessions/:sessionId/draft-answers', () =>
+        HttpResponse.json(practiceFlowConformanceFixture.draft, {
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'X-Nihongo-Practice-Contract': '2'
+          }
+        })
+      )
+    )
+    const post = vi.spyOn(apiClient, 'post')
+    const router = renderDashboard(client)
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: '이 문제만 복습하기: 반복 오답 1문제 집중 복습'
+      })
+    )
+
+    await vi.waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/practice/session/${reviewCenterConformanceFixture.targetedSession.session.id}`
+      )
+    )
+    expect(observedQuestionIds).toEqual([
+      reviewCenterConformanceFixture.targetedQuestionId
+    ])
+    expect(
+      post.mock.calls.filter(([url]) => url === '/v1/study-sessions')
+    ).toHaveLength(0)
+    expect(useAppStore.getState().sessionId).toBe(
+      reviewCenterConformanceFixture.targetedSession.session.id
+    )
+  })
+
+  it.each([
+    ['QUESTION_NOT_AVAILABLE', 422],
+    ['RESOURCE_NOT_FOUND', 404]
+  ] as const)(
+    'targeted stale 오류 %s이면 다른 학습으로 바꾸지 않고 insights를 다시 읽는다',
+    async (errorCode, status) => {
+      const user = userEvent.setup()
+      const currentUser = mockDatabase.loginAs('USER')
+      useAppStore.getState().setCurrentUser(currentUser)
+      const client = createTestQueryClient()
+      cacheDashboardRecommendations(client, [targetedRecommendation])
+      let targetedRequestCount = 0
+      let insightsRequestCount = 0
+      mockServer.use(
+        http.post('*/api/v1/wrong-notes/:questionId/review-session', () => {
+          targetedRequestCount += 1
+          return HttpResponse.json(
+            {
+              code: errorCode,
+              message: '현재 복습할 수 없는 문제입니다.',
+              requestId: crypto.randomUUID(),
+              retryable: false
+            },
+            { status }
+          )
+        }),
+        http.get('*/api/v1/dashboard/insights', () => {
+          insightsRequestCount += 1
+          return HttpResponse.json(dashboardInsightsConformanceFixture)
+        })
+      )
+      const router = renderDashboard(client)
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: '이 문제만 복습하기: 반복 오답 1문제 집중 복습'
+        })
+      )
+
+      const notice =
+        await screen.findByText(/다른 학습으로 자동 변경하지 않았으며/u)
+      await vi.waitFor(() => expect(notice).toHaveFocus())
+      await vi.waitFor(() => expect(insightsRequestCount).toBe(1))
+      expect(targetedRequestCount).toBe(1)
+      expect(router.state.location.pathname).toBe('/dashboard')
+    }
+  )
+
+  it('목표 급수 미설정 setup CTA는 session POST 없이 연습 조건만 연다', async () => {
+    const user = userEvent.setup()
+    const currentUser = mockDatabase.loginAs('USER')
+    const userWithoutTarget = {
+      id: currentUser.id,
+      name: currentUser.name,
+      role: currentUser.role,
+      targetLevel: null
+    }
+    useAppStore.getState().setCurrentUser(userWithoutTarget)
+    const client = createTestQueryClient()
+    cacheDashboardRecommendations(
+      client,
+      [
+        {
+          rank: 1,
+          kind: 'PRACTICE_SETUP',
+          reason: { code: 'TARGET_LEVEL_NOT_SET' },
+          action: { kind: 'OPEN_PRACTICE_SETUP' }
+        }
+      ],
+      'TARGET_LEVEL_NOT_SET'
+    )
+    mockServer.use(
+      http.get('*/api/v1/me', () =>
+        HttpResponse.json({ kind: 'USER', user: userWithoutTarget })
+      )
+    )
+    const post = vi.spyOn(apiClient, 'post')
+    const router = renderDashboard(client)
+
+    const setupButton = await screen.findByRole('button', {
+      name: '연습 조건 설정 열기: 연습 조건 설정 열기'
+    })
+    expect(post).not.toHaveBeenCalled()
+    await user.click(setupButton)
+
+    await vi.waitFor(() =>
+      expect(router.state.location.pathname).toBe('/practice')
+    )
+    expect(post).not.toHaveBeenCalled()
   })
 })

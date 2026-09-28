@@ -80,6 +80,7 @@ export interface DashboardWeaknessView {
 
 export interface DashboardRecommendationView {
   readonly action: DashboardRecommendationAction
+  readonly actionLabel: string
   readonly actionSummary: string
   readonly kind: DashboardRecommendation['kind']
   readonly rank: number
@@ -157,6 +158,19 @@ const toActionSummary = (action: DashboardRecommendationAction): string => {
   }
 }
 
+const toActionLabel = (action: DashboardRecommendationAction): string => {
+  switch (action.kind) {
+    case 'START_SESSION':
+      return `${modeLabels[action.mode]} 시작하기`
+    case 'START_TARGETED_REVIEW':
+      return '이 문제만 복습하기'
+    case 'OPEN_PRACTICE_SETUP':
+      return '연습 조건 설정 열기'
+    default:
+      return assertNever(action)
+  }
+}
+
 const toRecommendationView = (
   recommendation: DashboardRecommendation
 ): DashboardRecommendationView => {
@@ -206,6 +220,7 @@ const toRecommendationView = (
 
   return {
     action: recommendation.action,
+    actionLabel: toActionLabel(recommendation.action),
     actionSummary: toActionSummary(recommendation.action),
     kind: recommendation.kind,
     rank: recommendation.rank,

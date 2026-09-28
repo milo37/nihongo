@@ -5,6 +5,7 @@ import type {
   DashboardInsightsView
 } from '@app/dashboard/adapters/dashboardInsightsView'
 import { Badge } from '@common/components/Badge'
+import { Button } from '@common/components/Button'
 import { EmptyState } from '@common/components/EmptyState'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
@@ -17,10 +18,21 @@ const DashboardInsightChart = lazy(() =>
 )
 
 type DashboardInsightsSectionProps = {
+  actionNotice: { readonly id: number; readonly message: string } | null
+  blockedRecommendationKind:
+    | DashboardInsightsView['recommendations'][number]['kind']
+    | null
   data: DashboardInsightsView | undefined
+  isActionPending: boolean
   isError: boolean
   isPending: boolean
+  onRecommendationAction: (
+    recommendation: DashboardInsightsView['recommendations'][number]
+  ) => void
   onRetry: () => void
+  pendingRecommendationKind:
+    | DashboardInsightsView['recommendations'][number]['kind']
+    | null
 }
 
 type MetricTableProps = {
@@ -89,12 +101,18 @@ const MetricTable = ({
 )
 
 export const DashboardInsightsSection = ({
+  actionNotice,
+  blockedRecommendationKind,
   data,
+  isActionPending,
   isError,
   isPending,
-  onRetry
+  onRecommendationAction,
+  onRetry,
+  pendingRecommendationKind
 }: DashboardInsightsSectionProps): ReactElement => {
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const actionNoticeRef = useRef<HTMLParagraphElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
 
   useEffect(() => {
@@ -103,6 +121,10 @@ export const DashboardInsightsSection = ({
       headingRef.current?.focus()
     }
   }, [data, isError])
+
+  useEffect(() => {
+    if (actionNotice) actionNoticeRef.current?.focus()
+  }, [actionNotice])
 
   if (isPending && !data) {
     return (
@@ -331,6 +353,17 @@ export const DashboardInsightsSection = ({
               {data.personalizationNotice}
             </p>
           ) : null}
+          {actionNotice ? (
+            <p
+              className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-950 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+              key={actionNotice.id}
+              ref={actionNoticeRef}
+              role="alert"
+              tabIndex={-1}
+            >
+              {actionNotice.message}
+            </p>
+          ) : null}
           <ol className="mt-5 divide-y divide-line">
             {data.recommendations.map((recommendation) => (
               <li className="flex gap-4 py-4" key={recommendation.kind}>
@@ -345,6 +378,22 @@ export const DashboardInsightsSection = ({
                   <p className="mt-2 text-sm font-bold text-ink">
                     {recommendation.actionSummary}
                   </p>
+                  <Button
+                    aria-label={`${recommendation.actionLabel}: ${recommendation.actionSummary}`}
+                    className="mt-3"
+                    disabled={
+                      isActionPending ||
+                      blockedRecommendationKind === recommendation.kind
+                    }
+                    isLoading={
+                      pendingRecommendationKind === recommendation.kind
+                    }
+                    loadingLabel="추천 학습 준비 중…"
+                    onClick={() => onRecommendationAction(recommendation)}
+                    size="sm"
+                  >
+                    {recommendation.actionLabel}
+                  </Button>
                 </div>
               </li>
             ))}

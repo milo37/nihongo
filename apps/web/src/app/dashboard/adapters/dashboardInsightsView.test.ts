@@ -113,6 +113,14 @@ describe('dashboardInsightsView', () => {
       '목표 급수를 먼저 설정해 주세요'
     ])
     expect(view.recommendations[2]?.reason).toContain('정답률은 37.5%')
+    expect(view.recommendations.map(({ actionLabel }) => actionLabel)).toEqual([
+      '오늘 복습 시작하기',
+      '이 문제만 복습하기',
+      '약점 연습 시작하기',
+      '약점 연습 시작하기',
+      '일반 연습 시작하기',
+      '연습 조건 설정 열기'
+    ])
     expect(view.recommendations.map(({ action }) => action)).toEqual(
       recommendations.map(({ action }) => action)
     )

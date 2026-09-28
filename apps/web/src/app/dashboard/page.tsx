@@ -5,6 +5,7 @@ import { DashboardInsightsSection } from '@app/dashboard/components/DashboardIns
 import { DashboardSummarySection } from '@app/dashboard/components/DashboardSummarySection'
 import { useGetDashboardInsights } from '@app/dashboard/hooks/useGetDashboardInsights'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
+import { useDashboardRecommendationAction } from '@app/dashboard/hooks/useDashboardRecommendationAction'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useAuth } from '@provider/ProtectedRouteProvider'
@@ -13,6 +14,12 @@ export const DashboardPage = (): ReactElement => {
   const { user } = useAuth()
   const dashboardQuery = useGetDashboardStats()
   const insightsQuery = useGetDashboardInsights()
+  const recommendationAction = useDashboardRecommendationAction({
+    refetchInsights: async () => {
+      const result = await insightsQuery.refetch()
+      return !result.isError && result.data !== undefined
+    }
+  })
   const headingRef = useRef<HTMLHeadingElement>(null)
   const shouldRestoreSummaryRetryFocusRef = useRef(false)
 
@@ -101,10 +108,19 @@ export const DashboardPage = (): ReactElement => {
       )}
 
       <DashboardInsightsSection
+        actionNotice={recommendationAction.actionNotice}
+        blockedRecommendationKind={
+          recommendationAction.blockedRecommendationKind
+        }
         data={insightsQuery.data}
+        isActionPending={recommendationAction.isActionPending}
         isError={insightsQuery.isError}
         isPending={insightsQuery.isPending}
-        onRetry={() => void insightsQuery.refetch()}
+        onRecommendationAction={recommendationAction.runRecommendation}
+        onRetry={() => void recommendationAction.retryInsights()}
+        pendingRecommendationKind={
+          recommendationAction.pendingRecommendationKind
+        }
       />
     </section>
   )

@@ -72,6 +72,22 @@ describe('toContractDashboardInsights', () => {
     ])
   })
 
+  it('목표 급수의 현재 catalog가 0이면 급수를 추론하지 않고 setup fallback을 반환한다', () => {
+    const response = toContractDashboardInsights(
+      createEmptyRecord({ currentCatalog: [], targetLevel: 'N2' })
+    )
+
+    expect(response.personalizationFallbackReason).toBe('NO_TARGET_CATALOG')
+    expect(response.recommendations).toEqual([
+      {
+        rank: 1,
+        kind: 'PRACTICE_SETUP',
+        reason: { code: 'NO_TARGET_CATALOG' },
+        action: { kind: 'OPEN_PRACTICE_SETUP' }
+      }
+    ])
+  })
+
   it('정확한 90일 경계와 최신 tag label tie-break를 적용한다', () => {
     const questionId = id('question', 'boundary')
     const tagId = id('tag', 'boundary')

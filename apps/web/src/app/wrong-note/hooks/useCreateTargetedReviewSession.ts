@@ -103,6 +103,10 @@ export const useCreateTargetedReviewSession = () => {
           queryKey: wrongNoteQueries.detail(input.questionId).queryKey,
           exact: true,
           refetchType: 'none'
+        }),
+        queryClient.invalidateQueries({
+          queryKey: serverStateQueryKeys.dashboard.all(),
+          refetchType: 'none'
         })
       ])
       assertCurrentTargetedReviewAction(input)

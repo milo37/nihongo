@@ -132,7 +132,7 @@ describe('useCreateTargetedReviewSession', () => {
     expect(client.getQueryState(memoKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(historyKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(queueKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
+    expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(true)
     expect(readTargetedReviewAttempt(principalScope, questionId)).not.toBeNull()
     completeTargetedReviewAction(input)
     expect(readTargetedReviewAttempt(principalScope, questionId)).toBeNull()
