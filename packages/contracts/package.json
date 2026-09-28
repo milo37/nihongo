@@ -56,6 +56,10 @@
       "types": "./dist/dashboard/get-dashboard-stats.d.ts",
       "import": "./dist/dashboard/get-dashboard-stats.js"
     },
+    "./dashboard/get-dashboard-insights": {
+      "types": "./dist/dashboard/get-dashboard-insights.d.ts",
+      "import": "./dist/dashboard/get-dashboard-insights.js"
+    },
     "./question/get-question": {
       "types": "./dist/question/get-question.d.ts",
       "import": "./dist/question/get-question.js"
@@ -151,6 +155,10 @@
     "./testing/question-read-conformance": {
       "types": "./dist/testing/question-read-conformance.d.ts",
       "import": "./dist/testing/question-read-conformance.js"
+    },
+    "./testing/dashboard-insights-conformance": {
+      "types": "./dist/testing/dashboard-insights-conformance.d.ts",
+      "import": "./dist/testing/dashboard-insights-conformance.js"
     },
     "./testing/practice-flow-conformance": {
       "types": "./dist/testing/practice-flow-conformance.d.ts",

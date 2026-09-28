@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./dashboard/calculate-dashboard-insights": {
+      "types": "./dist/dashboard/calculate-dashboard-insights.d.ts",
+      "import": "./dist/dashboard/calculate-dashboard-insights.js"
+    },
     "./content/validators/v1/canonical-json": {
       "types": "./dist/content/validators/v1/canonical-json.d.ts",
       "import": "./dist/content/validators/v1/canonical-json.js"
