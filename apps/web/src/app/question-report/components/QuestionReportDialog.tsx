@@ -37,6 +37,7 @@ export const QuestionReportDialog = ({
   const [reason, setReason] =
     useState<CreateQuestionReportRequest['reason']>('OTHER')
   const [description, setDescription] = useState('')
+  const [descriptionRequired, setDescriptionRequired] = useState(false)
   const [wasSubmitted, setWasSubmitted] = useState(false)
   const mutation = useCreatePhase7QuestionReport(() => {
     setOpen(false)
@@ -72,6 +73,7 @@ export const QuestionReportDialog = ({
         onClick={() => {
           mutation.reset()
           setWasSubmitted(false)
+          setDescriptionRequired(false)
           setOpen(true)
         }}
       >
@@ -90,9 +92,15 @@ export const QuestionReportDialog = ({
       >
         <form
           className="grid gap-5"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault()
             if (mutation.isPending) return
+            if (description.trim().length === 0) {
+              setDescriptionRequired(true)
+              descriptionRef.current?.focus()
+              return
+            }
             mutation.mutate({
               questionId,
               request: { questionVersionId, reason, description }
@@ -122,14 +130,23 @@ export const QuestionReportDialog = ({
           <Textarea
             ref={descriptionRef}
             disabled={mutation.isPending}
-            error={presentFieldError(fieldErrors?.description)}
+            error={
+              descriptionRequired
+                ? t('questionReportDialog.descriptionRequired')
+                : presentFieldError(fieldErrors?.description)
+            }
             label={t('questionReportDialog.details')}
             maxLength={2000}
             name="report-description"
             required
             rows={6}
             value={description}
-            onChange={(event) => setDescription(event.currentTarget.value)}
+            onChange={(event) => {
+              setDescription(event.currentTarget.value)
+              if (event.currentTarget.value.trim()) {
+                setDescriptionRequired(false)
+              }
+            }}
           />
           {errorMessage && !fieldErrors?.description?.length ? (
             <p className="font-semibold text-red-700" role="alert">
@@ -146,7 +163,7 @@ export const QuestionReportDialog = ({
             </Button>
             <Button
               ref={submitRef}
-              disabled={mutation.isPending || description.trim().length === 0}
+              disabled={mutation.isPending}
               isLoading={mutation.isPending}
               type="submit"
             >

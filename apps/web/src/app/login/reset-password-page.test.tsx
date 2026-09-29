@@ -70,7 +70,7 @@ describe('ResetPasswordPage', () => {
     expect(
       screen.getByText(/기존 로그인 세션은 모두 종료했습니다/u)
     ).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     await waitFor(() => expect(heading).toHaveFocus())
     expect(useAppStore.getState().currentUser).toBeNull()
     expect(useAppStore.getState().sessionId).toBeNull()

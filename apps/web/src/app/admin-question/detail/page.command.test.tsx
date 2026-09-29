@@ -131,7 +131,7 @@ describe('AdminQuestionDetailPage command validation', () => {
         name: '수정 요청'
       })
     )
-    const reason = screen.getByLabelText('사유 (필수)')
+    const reason = screen.getByLabelText('사유', { exact: true })
     const confirm = screen.getByRole('button', { name: '명시적으로 실행' })
     await interaction.type(reason, '가'.repeat(101))
     expect(
@@ -192,7 +192,7 @@ describe('AdminQuestionDetailPage command validation', () => {
       await screen.findByRole('button', { name: '수정 요청' })
     )
     await interaction.type(
-      screen.getByLabelText('사유 (필수)'),
+      screen.getByLabelText('사유', { exact: true }),
       'pending 잠금 테스트'
     )
     const confirm = screen.getByRole('button', { name: '명시적으로 실행' })

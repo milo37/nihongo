@@ -162,6 +162,21 @@ describe('application router boundaries', () => {
     expect(menuButton).toHaveFocus()
   })
 
+  it('모바일 메뉴의 마지막 항목을 벗어나면 overlay를 닫고 main 흐름을 가리지 않는다', async () => {
+    const user = userEvent.setup()
+    renderRoutes('/practice')
+    await findRouteHeading('오늘 풀 문제를 설정하세요')
+
+    const menuButton = screen.getByRole('button', { name: '메뉴 열기' })
+    await user.click(menuButton)
+    const locale = screen.getByLabelText('언어')
+    locale.focus()
+    await user.tab()
+
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('button', { name: 'N5' })).toHaveFocus()
+  })
+
   it('locale 전환은 Home 선택·route·Query cache를 보존하고 request를 만들지 않는다', async () => {
     const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')

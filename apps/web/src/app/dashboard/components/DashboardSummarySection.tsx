@@ -255,7 +255,7 @@ export const DashboardSummarySection = ({
                   </span>
                   <div className="min-w-0 flex-1">
                     <Link
-                      className="inline-flex min-h-11 max-w-full items-center break-words font-semibold hover:text-brand hover:underline"
+                      className="inline-flex min-h-11 max-w-full items-center [overflow-wrap:anywhere] font-semibold text-brand underline underline-offset-2 hover:no-underline"
                       lang="ja"
                       to={`/wrong-notes/${question.questionId}?returnTo=${encodeURIComponent('/dashboard')}`}
                     >

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ComponentPropsWithRef, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -20,9 +21,11 @@ export const Textarea = ({
   id,
   label,
   name,
+  required = false,
   rows = 5,
   ...props
 }: TextareaProps): ReactElement => {
+  const { t } = useTranslation('common')
   const generatedId = useId()
   const textareaId = id ?? `${name}-${generatedId}`
   const hintId = hint ? `${textareaId}-hint` : undefined
@@ -33,15 +36,17 @@ export const Textarea = ({
 
   return (
     <div className="grid gap-2">
-      <label
+      <div
         className={classNames(
           'text-sm font-semibold text-ink',
           hideLabel && 'sr-only'
         )}
-        htmlFor={textareaId}
       >
-        {label}
-      </label>
+        <label htmlFor={textareaId}>{label}</label>
+        {required ? (
+          <span className="ml-1 text-danger">{t('required')}</span>
+        ) : null}
+      </div>
       <textarea
         className={classNames(
           'min-h-28 w-full resize-y rounded-control border bg-surface px-3 py-2 text-base text-ink shadow-control',
@@ -53,6 +58,7 @@ export const Textarea = ({
         )}
         id={textareaId}
         name={name}
+        required={required}
         rows={rows}
         autoComplete={autoComplete ?? 'off'}
         aria-invalid={error ? true : undefined}

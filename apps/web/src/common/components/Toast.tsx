@@ -199,19 +199,22 @@ export const ToastProvider = ({
   return (
     <ToastContext.Provider value={contextValue}>
       {children}
-      <div
-        className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-toast ml-auto grid max-w-md gap-3"
-        aria-label={t('toast.region')}
-      >
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            {...toast}
-            defaultDurationMs={defaultDurationMs}
-            onDismiss={dismissToast}
-          />
-        ))}
-      </div>
+      {toasts.length > 0 ? (
+        <div
+          className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-toast ml-auto grid max-w-md gap-3"
+          aria-label={t('toast.region')}
+          role="region"
+        >
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              {...toast}
+              defaultDurationMs={defaultDurationMs}
+              onDismiss={dismissToast}
+            />
+          ))}
+        </div>
+      ) : null}
     </ToastContext.Provider>
   )
 }

@@ -53,7 +53,9 @@ export const TableSortHeader = ({
         onClick={onSort}
       >
         <span>{children}</span>
-        <span aria-hidden="true">{indicator}</span>
+        <span className="ui-table-sort-indicator" aria-hidden="true">
+          {indicator}
+        </span>
       </button>
     </th>
   )

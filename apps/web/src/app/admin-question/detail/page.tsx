@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import {
   updateQuestionVersionRequestSchema,
@@ -9,6 +9,7 @@ import {
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
+import { opaqueIdSchema } from '@nihongo/contracts/common/id'
 import {
   adminCommandKey,
   adminDiffFieldKey,
@@ -139,16 +140,16 @@ export const Phase7QuestionVersionDiff = ({
             className="rounded-lg border border-slate-200 bg-white p-4"
             key={change.field}
           >
-            <h4 className="font-bold">{label}</h4>
+            <h3 className="font-bold">{label}</h3>
             <div className="mt-3 grid gap-4 md:grid-cols-2">
               <section
                 aria-label={t('questionDetail.diffBeforeLabel', {
                   field: label
                 })}
               >
-                <h5 className="text-sm font-semibold text-muted">
+                <h4 className="text-sm font-semibold text-muted">
                   {t('questionDetail.diffBefore')}
-                </h5>
+                </h4>
                 <div className="mt-1">
                   <DiffValue change={change} side="before" />
                 </div>
@@ -158,9 +159,9 @@ export const Phase7QuestionVersionDiff = ({
                   field: label
                 })}
               >
-                <h5 className="text-sm font-semibold text-muted">
+                <h4 className="text-sm font-semibold text-muted">
                   {t('questionDetail.diffAfter')}
-                </h5>
+                </h4>
                 <div className="mt-1">
                   <DiffValue change={change} side="after" />
                 </div>
@@ -254,8 +255,15 @@ export const AdminQuestionDetailPage = (): ReactElement => {
     t
   } = useAdminPresentation()
   const { questionId = '' } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const freshAssurance = useFreshAssurance()
-  const [selectedVersionId, setSelectedVersionId] = useState('')
+  const rawSelectedVersionId = searchParams.get('version')?.trim() ?? ''
+  const parsedSelectedVersionId = rawSelectedVersionId
+    ? opaqueIdSchema.safeParse(rawSelectedVersionId)
+    : null
+  const selectedVersionId = parsedSelectedVersionId?.success
+    ? parsedSelectedVersionId.data
+    : ''
   const [commandNote, setCommandNote] = useState('')
   const [pendingCommand, setPendingCommand] =
     useState<Phase7AdminQuestionCommand | null>(null)
@@ -280,15 +288,50 @@ export const AdminQuestionDetailPage = (): ReactElement => {
     versionHistory.data?.pages.flatMap((page) => page.items) ??
     detail.data?.versions.items ??
     []
-  const effectiveSelectedVersionId =
-    selectedVersionId ||
+  const preferredVersionId =
     detail.data?.question.openCandidateVersionId ||
     detail.data?.question.currentPublishedVersionId ||
     detail.data?.versions.items[0]?.questionVersionId ||
     ''
+  const requestedVersionId = selectedVersionId || preferredVersionId
+  const requestedVersion = versions.find(
+    (version) => version.questionVersionId === requestedVersionId
+  )
+  const canResolveVersionHistory =
+    Boolean(versionHistory.data) &&
+    !versionHistory.isError &&
+    versionHistory.fetchStatus !== 'paused'
+  const isRequestedVersionStale = Boolean(
+    selectedVersionId &&
+      !requestedVersion &&
+      canResolveVersionHistory &&
+      !versionHistory.hasNextPage &&
+      !versionHistory.isFetchingNextPage
+  )
+  const resolvedFallbackVersionId =
+    [
+      detail.data?.question.openCandidateVersionId,
+      detail.data?.question.currentPublishedVersionId
+    ].find(
+      (candidate): candidate is string =>
+        Boolean(candidate) &&
+        versions.some((version) => version.questionVersionId === candidate)
+    ) ??
+    versions[0]?.questionVersionId ??
+    ''
+  const effectiveSelectedVersionId = isRequestedVersionStale
+    ? resolvedFallbackVersionId
+    : requestedVersionId
 
   const selectedVersion = versions.find(
     (version) => version.questionVersionId === effectiveSelectedVersionId
+  )
+  const isResolvingRequestedVersion = Boolean(
+    requestedVersionId &&
+      !requestedVersion &&
+      (!versionHistory.data ||
+        versionHistory.hasNextPage ||
+        versionHistory.isFetchingNextPage)
   )
   const selectedIndex = selectedVersion
     ? versions.findIndex(
@@ -321,6 +364,64 @@ export const AdminQuestionDetailPage = (): ReactElement => {
       candidate.questionVersionId ===
       detail.data?.question.openCandidateVersionId
   )
+  const fetchNextVersionPage = versionHistory.fetchNextPage
+  const hasNextVersionPage = versionHistory.hasNextPage
+  const isFetchingNextVersionPage = versionHistory.isFetchingNextPage
+  const loadedVersionPageCount = versionHistory.data?.pages.length
+
+  useEffect(() => {
+    if (!rawSelectedVersionId) return
+
+    const next = new URLSearchParams(searchParams)
+    if (!parsedSelectedVersionId?.success) {
+      next.delete('version')
+    } else if (rawSelectedVersionId !== selectedVersionId) {
+      next.set('version', selectedVersionId)
+    } else {
+      return
+    }
+    setSearchParams(next, { replace: true })
+  }, [
+    parsedSelectedVersionId?.success,
+    rawSelectedVersionId,
+    searchParams,
+    selectedVersionId,
+    setSearchParams
+  ])
+
+  useEffect(() => {
+    if (
+      !requestedVersionId ||
+      requestedVersion ||
+      !canResolveVersionHistory ||
+      !hasNextVersionPage ||
+      isFetchingNextVersionPage
+    ) {
+      return
+    }
+    void fetchNextVersionPage({ cancelRefetch: false })
+  }, [
+    canResolveVersionHistory,
+    requestedVersion,
+    requestedVersionId,
+    fetchNextVersionPage,
+    hasNextVersionPage,
+    isFetchingNextVersionPage,
+    loadedVersionPageCount
+  ])
+
+  useEffect(() => {
+    if (!isRequestedVersionStale) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('version')
+    setSearchParams(next, { replace: true })
+  }, [isRequestedVersionStale, searchParams, setSearchParams])
+
+  const selectVersion = (questionVersionId: string): void => {
+    const next = new URLSearchParams(searchParams)
+    next.set('version', questionVersionId)
+    setSearchParams(next)
+  }
 
   const commandMutation = usePhase7AdminQuestionCommand({
     currentPublishedVersionId:
@@ -551,8 +652,8 @@ export const AdminQuestionDetailPage = (): ReactElement => {
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[18rem_1fr]">
-        <aside className="rounded-2xl border border-line bg-white p-4">
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+        <aside className="min-w-0 rounded-2xl border border-line bg-white p-4">
           <h2 className="text-lg font-bold">{t('questionDetail.history')}</h2>
           {versionHistory.isError || isVersionHistoryPaused ? (
             <div className="mt-3 text-sm" role="alert">
@@ -573,9 +674,12 @@ export const AdminQuestionDetailPage = (): ReactElement => {
           ) : null}
           <ul className="mt-4 grid gap-2">
             {versions.map((version) => (
-              <li key={version.questionVersionId}>
+              <li
+                className="content-auto min-w-0"
+                key={version.questionVersionId}
+              >
                 <button
-                  className={`min-h-11 w-full rounded-lg border px-3 py-2 text-left ${
+                  className={`min-h-11 w-full min-w-0 max-w-full overflow-hidden rounded-lg border px-3 py-2 text-left ${
                     version.questionVersionId === effectiveSelectedVersionId
                       ? 'border-brand bg-emerald-50'
                       : 'border-line hover:bg-slate-50'
@@ -591,9 +695,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                     (isEditorDirty &&
                       version.questionVersionId !== effectiveSelectedVersionId)
                   }
-                  onClick={() =>
-                    setSelectedVersionId(version.questionVersionId)
-                  }
+                  onClick={() => selectVersion(version.questionVersionId)}
                 >
                   <span className="block font-bold">
                     v{formatAdminNumber(version.versionNumber)} ·{' '}
@@ -694,12 +796,13 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                 </p>
               ) : null}
               {baseVersion ? (
-                <div
-                  className="mt-4 rounded-xl bg-slate-50 p-4"
-                  aria-live="polite"
-                >
-                  <strong>{t('questionDetail.diffTitle')}</strong>
-                  <p className="mt-1 text-sm text-muted">
+                <div className="mt-4 rounded-xl bg-slate-50 p-4">
+                  <h2 className="font-bold">{t('questionDetail.diffTitle')}</h2>
+                  <p
+                    className="mt-1 text-sm text-muted"
+                    role="status"
+                    aria-atomic="true"
+                  >
                     {diff.isPending
                       ? t('questionDetail.diffLoading')
                       : diff.isError
@@ -728,7 +831,9 @@ export const AdminQuestionDetailPage = (): ReactElement => {
             </div>
           ) : null}
 
-          {preview.isPending && !preview.data && isPreviewPaused ? (
+          {isResolvingRequestedVersion ? (
+            <LoadingState message={t('questionDetail.previewLoading')} />
+          ) : preview.isPending && !preview.data && isPreviewPaused ? (
             <ErrorState
               description={t('common.pausedDescription')}
               onRetry={() => void preview.refetch()}
@@ -879,7 +984,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
               <ol className="mt-4 grid gap-3">
                 {reviewItems.map((review) => (
                   <li
-                    className="rounded-xl border border-line p-4"
+                    className="content-auto rounded-xl border border-line p-4"
                     key={review.id}
                   >
                     <strong>{t(adminReviewActionKey[review.action])}</strong>

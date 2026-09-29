@@ -1,4 +1,8 @@
-import { mutationOptions, queryOptions } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  mutationOptions,
+  queryOptions
+} from '@tanstack/react-query'
 import { cancelStudySession } from '@api/study/cancelStudySession'
 import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
 import { listResumableStudySessions } from '@api/study/listResumableStudySessions'
@@ -52,6 +56,7 @@ export const studyDraftQueries = {
       queryKey: serverStateQueryKeys.study.resumable(normalized),
       queryFn: async () => (await listResumableStudySessions(normalized)).data,
       enabled,
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     })
   }

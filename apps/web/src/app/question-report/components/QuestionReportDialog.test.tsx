@@ -32,6 +32,25 @@ const renderDialog = (): ReturnType<typeof render> => {
 }
 
 describe('QuestionReportDialog', () => {
+  it('validates an empty description on submit and moves focus to the field', async () => {
+    const post = vi.spyOn(apiClient, 'post')
+    const interaction = userEvent.setup()
+    renderDialog()
+
+    await interaction.click(screen.getByRole('button', { name: '문제 신고' }))
+    const submit = screen.getByRole('button', { name: '신고 접수' })
+    expect(submit).toBeEnabled()
+
+    await interaction.click(submit)
+
+    const description = screen.getByRole('textbox', { name: '설명' })
+    expect(description).toHaveFocus()
+    expect(description).toHaveAccessibleDescription(
+      '신고 설명을 입력해 주세요.'
+    )
+    expect(post).not.toHaveBeenCalled()
+  })
+
   it('keeps the draft and focuses submit after a non-field duplicate failure', async () => {
     const user = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(user)

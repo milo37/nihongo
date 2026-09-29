@@ -13,7 +13,11 @@ import {
   type ListAdminTagsQuery,
   type ListQuestionVersionReviewsQuery
 } from '@nihongo/contracts/admin/phase7'
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  queryOptions
+} from '@tanstack/react-query'
 import {
   diffPhase7QuestionVersion,
   getPhase7AdminQuestion,
@@ -89,6 +93,7 @@ export const phase7AdminQueries = {
     return queryOptions({
       queryKey: adminQuestionKeys.list(query),
       queryFn: () => listPhase7AdminQuestions(query),
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     })
   },
@@ -197,6 +202,7 @@ export const phase7AdminQueries = {
     return queryOptions({
       queryKey: adminQuestionReportKeys.list(query),
       queryFn: () => listPhase7AdminQuestionReports(query),
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     })
   },

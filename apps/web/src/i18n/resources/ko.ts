@@ -866,6 +866,7 @@ export const koResources = {
         offline:
           '오프라인입니다. 연결이 복구되면 현재 URL 조건으로 전체 오답 기록을 자동으로 다시 불러옵니다.',
         loading: '오답노트를 불러오고 있습니다…',
+        refreshing: '오답노트 페이지를 갱신하고 있습니다…',
         errorTitle: '오답노트를 불러오지 못했습니다',
         errorDescription: '잠시 후 다시 시도해 주세요.',
         stale:
@@ -928,6 +929,7 @@ export const koResources = {
         offline:
           '오프라인입니다. 연결이 복구되면 현재 URL 조건으로 복습 대기열을 자동으로 다시 불러옵니다.',
         loading: '복습 대기열을 불러오고 있습니다…',
+        refreshing: '복습 대기열 페이지를 갱신하고 있습니다…',
         errorTitle: '복습 대기열을 불러오지 못했습니다',
         errorDescription: '연결 상태를 확인한 뒤 다시 시도해 주세요.',
         stale:
@@ -1158,8 +1160,16 @@ export const koResources = {
       archivedDescription: '공개가 종료되어 새 학습 세션에는 포함되지 않습니다.'
     },
     remove: '즐겨찾기 해제',
+    removeDialog: {
+      title: '즐겨찾기를 해제할까요?',
+      description:
+        '이 문제는 즐겨찾기 목록에서 제거됩니다. 문제풀이 화면에서 다시 저장할 수 있습니다.',
+      cancel: '계속 보관',
+      confirm: '해제 확인'
+    },
     pagination: {
       label: '즐겨찾기 페이지',
+      refreshing: '즐겨찾기 페이지를 갱신하고 있습니다…',
       status: '{{page}} / {{pageCount}} 페이지'
     }
   },
@@ -1564,6 +1574,7 @@ export const koResources = {
       explanationKo: '한국어 해설',
       explanationJa: '일본어 해설',
       tagSearch: '등록된 태그 검색',
+      tagSuggestions: '등록된 태그 검색 결과',
       tagQueryError: '태그 검색어는 정규화 후 100자 이하여야 합니다.',
       tagLoadError: '태그 목록을 불러오지 못했습니다.',
       tagLoading: '태그를 검색하는 중입니다…',
@@ -1660,7 +1671,7 @@ export const koResources = {
         '현재 rowVersion을 기준으로 실행하며 충돌 시 자동 재시도하지 않습니다.',
       cancel: '취소',
       execute: '명시적으로 실행',
-      requiredReason: '사유 (필수)',
+      requiredReason: '사유',
       optionalReviewNote: '검수 메모 (선택)',
       noteLimit: '메모는 {{formattedCount}}자 이하여야 합니다.',
       commandWarning:
@@ -1711,6 +1722,7 @@ export const koResources = {
       description: '신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다.',
       reason: '신고 사유',
       details: '설명',
+      descriptionRequired: '신고 설명을 입력해 주세요.',
       cancel: '취소',
       submit: '신고 접수',
       submitted: '문제 신고를 접수했습니다.',
@@ -1742,6 +1754,7 @@ export const koResources = {
       error: '신고 큐를 불러오지 못했습니다.',
       retry: '신고 큐 다시 확인',
       loading: '신고 큐를 불러오는 중입니다…',
+      refreshing: '신고 큐 페이지를 갱신하고 있습니다…',
       emptyTitle: '신고가 없습니다',
       emptyDescription: '현재 조건에 맞는 신고가 없습니다.',
       tableScrollLabel: '문제 신고 목록 가로 스크롤 영역',

@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ComponentPropsWithRef, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -20,10 +21,12 @@ export const Input = ({
   id,
   label,
   name,
+  required = false,
   spellCheck,
   type = 'text',
   ...props
 }: InputProps): ReactElement => {
+  const { t } = useTranslation('common')
   const generatedId = useId()
   const inputId = id ?? `${name}-${generatedId}`
   const hintId = hint ? `${inputId}-hint` : undefined
@@ -34,15 +37,17 @@ export const Input = ({
 
   return (
     <div className="grid gap-2">
-      <label
+      <div
         className={classNames(
           'text-sm font-semibold text-ink',
           hideLabel && 'sr-only'
         )}
-        htmlFor={inputId}
       >
-        {label}
-      </label>
+        <label htmlFor={inputId}>{label}</label>
+        {required ? (
+          <span className="ml-1 text-danger">{t('required')}</span>
+        ) : null}
+      </div>
       <input
         className={classNames(
           'min-h-11 w-full rounded-control border bg-surface px-3 py-2 text-base text-ink shadow-control',
@@ -54,6 +59,7 @@ export const Input = ({
         )}
         id={inputId}
         name={name}
+        required={required}
         type={type}
         autoComplete={autoComplete ?? 'off'}
         spellCheck={spellCheck ?? (type === 'email' ? false : undefined)}

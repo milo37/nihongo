@@ -179,18 +179,25 @@ describe('Phase7QuestionEditor', () => {
       name: '등록된 태그 검색'
     })
     await user.type(search, '한자')
-    const suggestions = await within(
-      await screen.findByRole('listbox')
-    ).findAllByRole('option')
+    const listbox = await screen.findByRole('listbox', {
+      name: '등록된 태그 검색 결과'
+    })
+    const suggestions = await within(listbox).findAllByRole('option')
     const selectedLabel = suggestions[0]?.textContent
     if (!selectedLabel) throw new Error('Tag suggestion is unavailable.')
 
-    await user.keyboard('{ArrowDown}{Enter}')
+    expect(search).toHaveAttribute('aria-controls', listbox.id)
+    expect(suggestions[0]).toHaveAttribute('tabindex', '-1')
+
+    await user.keyboard('{ArrowDown}')
+    expect(suggestions[0]).toHaveClass('ui-active-option')
+    await user.keyboard('{Enter}')
 
     expect(
       screen.getByRole('button', { name: `${selectedLabel} 태그 제거` })
     ).toBeVisible()
     expect(search).toHaveValue('')
+    expect(search).not.toHaveAttribute('aria-controls')
   })
 
   it('keeps a dirty draft mounted when an overlong normalized tag query is pasted', async () => {

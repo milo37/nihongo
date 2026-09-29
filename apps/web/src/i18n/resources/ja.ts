@@ -878,6 +878,7 @@ export const jaResources = {
         offline:
           'オフラインです。接続が戻ると現在のURL条件で全記録を自動的に再読み込みします。',
         loading: '間違いノートを読み込んでいます…',
+        refreshing: '間違いノートのページを更新しています…',
         errorTitle: '間違いノートを読み込めませんでした',
         errorDescription: 'しばらく後にもう一度お試しください。',
         stale:
@@ -941,6 +942,7 @@ export const jaResources = {
         offline:
           'オフラインです。接続が戻ると現在のURL条件で復習キューを自動的に再読み込みします。',
         loading: '復習キューを読み込んでいます…',
+        refreshing: '復習キューのページを更新しています…',
         errorTitle: '復習キューを読み込めませんでした',
         errorDescription: '接続状態を確認して、もう一度お試しください。',
         stale:
@@ -1175,8 +1177,16 @@ export const jaResources = {
         '公開が終了したため、新しい学習セッションには含まれません。'
     },
     remove: 'ブックマークを解除',
+    removeDialog: {
+      title: 'ブックマークを解除しますか？',
+      description:
+        'この問題はブックマーク一覧から削除されます。問題演習画面からもう一度保存できます。',
+      cancel: 'ブックマークを残す',
+      confirm: '解除を確定'
+    },
     pagination: {
       label: 'ブックマークのページ',
+      refreshing: 'ブックマークのページを更新しています…',
       status: '{{page}} / {{pageCount}}ページ'
     }
   },
@@ -1584,6 +1594,7 @@ export const jaResources = {
       explanationKo: '韓国語解説',
       explanationJa: '日本語解説',
       tagSearch: '登録済みタグを検索',
+      tagSuggestions: '登録済みタグの検索結果',
       tagQueryError: 'タグ検索語は正規化後100文字以下にしてください。',
       tagLoadError: 'タグ一覧を読み込めませんでした。',
       tagLoading: 'タグを検索しています…',
@@ -1680,7 +1691,7 @@ export const jaResources = {
         '現在のrowVersionを基準に実行し、競合時には自動再試行しません。',
       cancel: 'キャンセル',
       execute: '明示的に実行',
-      requiredReason: '理由（必須）',
+      requiredReason: '理由',
       optionalReviewNote: 'レビューメモ（任意）',
       noteLimit: 'メモは{{formattedCount}}文字以下にしてください。',
       commandWarning:
@@ -1731,6 +1742,7 @@ export const jaResources = {
       description: '報告内容は管理者のみが確認し、HTMLとして解釈されません。',
       reason: '報告理由',
       details: '説明',
+      descriptionRequired: '報告の説明を入力してください。',
       cancel: 'キャンセル',
       submit: '報告を送信',
       submitted: '問題の報告を受け付けました。',
@@ -1762,6 +1774,7 @@ export const jaResources = {
       error: '報告キューを読み込めませんでした。',
       retry: '報告キューを再確認',
       loading: '報告キューを読み込んでいます…',
+      refreshing: '報告キューのページを更新しています…',
       emptyTitle: '報告がありません',
       emptyDescription: '現在の条件に一致する報告はありません。',
       tableScrollLabel: '問題報告一覧の横スクロール領域',

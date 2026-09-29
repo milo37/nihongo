@@ -19,6 +19,7 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 import { usePhase7AdminTags } from '@app/admin-question/hooks/usePhase7AdminQueries'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
+import { classNames } from '@common/components/classNames'
 import { Dialog } from '@common/components/Dialog'
 import { Input } from '@common/components/Input'
 import { Select } from '@common/components/Select'
@@ -226,6 +227,8 @@ export const Phase7QuestionEditor = ({
       : { q: 'unavailable-tag-query', limit: 8 },
     normalizedTagQuery.length > 0 && parsedTagQuery.success
   )
+  const tagSuggestions = tagSearch.data?.items ?? []
+  const hasTagSuggestions = tagSuggestions.length > 0
   const isDirty = useMemo(
     () => JSON.stringify(state) !== JSON.stringify(baselineState),
     [baselineState, state]
@@ -575,6 +578,7 @@ export const Phase7QuestionEditor = ({
               />
               <div className="flex gap-2 sm:flex-col">
                 <Button
+                  className="ui-option-reorder-control"
                   aria-label={t('editor.moveUp', {
                     number: formatAdminNumber(index + 1)
                   })}
@@ -586,6 +590,7 @@ export const Phase7QuestionEditor = ({
                   ↑
                 </Button>
                 <Button
+                  className="ui-option-reorder-control"
                   aria-label={t('editor.moveDown', {
                     number: formatAdminNumber(index + 1)
                   })}
@@ -639,10 +644,10 @@ export const Phase7QuestionEditor = ({
                   : undefined
               }
               aria-autocomplete="list"
-              aria-controls="admin-tag-suggestions"
-              aria-expanded={Boolean(
-                tagSearch.data && tagSearch.data.items.length > 0
-              )}
+              aria-controls={
+                hasTagSuggestions ? 'admin-tag-suggestions' : undefined
+              }
+              aria-expanded={hasTagSuggestions}
               data-field="tagNames"
               disabled={isSubmitting}
               error={fieldError('tagNames') ?? tagQueryError}
@@ -652,7 +657,7 @@ export const Phase7QuestionEditor = ({
               role="combobox"
               value={tagQuery}
               onKeyDown={(event) => {
-                const items = tagSearch.data?.items ?? []
+                const items = tagSuggestions
                 if (event.key === 'ArrowDown' && items.length > 0) {
                   event.preventDefault()
                   setActiveTagIndex((current) =>
@@ -697,20 +702,26 @@ export const Phase7QuestionEditor = ({
                 {t('editor.tagEmpty')}
               </p>
             ) : null}
-            {tagSearch.data && tagSearch.data.items.length > 0 ? (
+            {hasTagSuggestions ? (
               <ul
                 className="grid gap-1 rounded-xl border border-line bg-white p-2 shadow-sm"
                 id="admin-tag-suggestions"
                 role="listbox"
+                aria-label={t('editor.tagSuggestions')}
               >
-                {tagSearch.data.items.map((tag, index) => (
+                {tagSuggestions.map((tag, index) => (
                   <li key={tag.id} role="presentation">
                     <button
-                      className="min-h-11 w-full rounded-lg px-3 text-left hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                      className={classNames(
+                        'min-h-11 w-full rounded-lg border border-transparent px-3 text-left hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
+                        activeTagIndex === index &&
+                          'ui-active-option border-brand bg-brand-soft font-bold text-brand'
+                      )}
                       id={`admin-tag-suggestion-${index}`}
                       aria-selected={activeTagIndex === index}
                       disabled={isSubmitting}
                       role="option"
+                      tabIndex={-1}
                       type="button"
                       onClick={() => addTag(tag.label)}
                     >
@@ -723,6 +734,7 @@ export const Phase7QuestionEditor = ({
             <div
               className="flex flex-wrap gap-2"
               aria-label={t('editor.selectedTags')}
+              role="group"
             >
               {state.tagNames.map((tag) => (
                 <Badge key={normalizePhase7TagKey(tag)}>

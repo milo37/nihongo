@@ -62,7 +62,11 @@ export const WrongNotePage = (): ReactElement => {
         Math.ceil(wrongNotesQuery.data.total / wrongNotesQuery.data.pageSize)
       )
     : 1
-  const isOutOfRangePage = Boolean(wrongNotesQuery.data && page > totalPages)
+  const isOutOfRangePage = Boolean(
+    wrongNotesQuery.data &&
+      !wrongNotesQuery.isPlaceholderData &&
+      page > totalPages
+  )
   const availableTags = wrongNotesQuery.data?.availableTags ?? []
   const visibleTags =
     tag && !availableTags.includes(tag)
@@ -82,14 +86,21 @@ export const WrongNotePage = (): ReactElement => {
     }
 
     shouldFocusResultsRef.current = true
-    setSearchParams(
-      createWrongNoteHistorySearch({
-        ...parsedSearch.query,
-        page: totalPages
-      }),
-      { replace: true }
-    )
+    const next = createWrongNoteHistorySearch({
+      ...parsedSearch.query,
+      page: totalPages
+    })
+    setSearchParams(next, { replace: true })
   }, [isOutOfRangePage, page, parsedSearch.query, setSearchParams, totalPages])
+
+  const isPageCorrectionPending =
+    isOutOfRangePage ||
+    Boolean(
+      wrongNotesQuery.isPlaceholderData &&
+        wrongNotesQuery.data &&
+        wrongNotesQuery.data.page !== page &&
+        wrongNotesQuery.data.page > totalPages
+    )
 
   useEffect(() => {
     if (
@@ -103,11 +114,23 @@ export const WrongNotePage = (): ReactElement => {
   }, [wrongNotesQuery.data, wrongNotesQuery.isSuccess])
 
   useEffect(() => {
-    if (!wrongNotesQuery.isSuccess || !shouldFocusResultsRef.current) return
+    if (
+      !wrongNotesQuery.isSuccess ||
+      wrongNotesQuery.isPlaceholderData ||
+      wrongNotesQuery.fetchStatus !== 'idle' ||
+      !shouldFocusResultsRef.current
+    ) {
+      return
+    }
     shouldFocusResultsRef.current = false
     const focusTarget = resultHeadingRef.current ?? headingRef.current
     focusTarget?.focus()
-  }, [wrongNotesQuery.isSuccess, wrongNotesQuery.data])
+  }, [
+    wrongNotesQuery.data,
+    wrongNotesQuery.fetchStatus,
+    wrongNotesQuery.isPlaceholderData,
+    wrongNotesQuery.isSuccess
+  ])
 
   const setFilter = (key: WrongNoteHistorySearchKey, value: string): void => {
     const nextParams = createWrongNoteHistorySearch(parsedSearch.query)
@@ -222,8 +245,15 @@ export const WrongNotePage = (): ReactElement => {
         <LoadingState message={t('history.states.loading')} />
       ) : null}
 
+      {wrongNotesQuery.isFetching && wrongNotesQuery.data ? (
+        <p className="sr-only" role="status" aria-atomic="true">
+          {t('history.states.refreshing')}
+        </p>
+      ) : null}
+
       {wrongNotesQuery.isError && !wrongNotesQuery.data ? (
         <ErrorState
+          autoFocus
           title={t('history.states.errorTitle')}
           description={t('history.states.errorDescription')}
           action={
@@ -258,13 +288,13 @@ export const WrongNotePage = (): ReactElement => {
         </div>
       ) : null}
 
-      {isOutOfRangePage ? (
+      {isPageCorrectionPending ? (
         <LoadingState message={t('history.states.correctingPage')} />
       ) : null}
 
       {wrongNotesQuery.data &&
       wrongNotesQuery.data.items.length === 0 &&
-      !isOutOfRangePage ? (
+      !isPageCorrectionPending ? (
         <EmptyState
           title={t('history.states.emptyTitle')}
           description={t('history.states.emptyDescription')}
@@ -279,7 +309,9 @@ export const WrongNotePage = (): ReactElement => {
         />
       ) : null}
 
-      {wrongNotesQuery.data && wrongNotesQuery.data.items.length > 0 ? (
+      {wrongNotesQuery.data &&
+      wrongNotesQuery.data.items.length > 0 &&
+      !isPageCorrectionPending ? (
         <>
           <div className="mt-7 flex items-center justify-between gap-4">
             <h2
@@ -301,7 +333,10 @@ export const WrongNotePage = (): ReactElement => {
               {t('history.results.resetFilters')}
             </Button>
           </div>
-          <ul className="mt-4 grid gap-4 lg:grid-cols-2">
+          <ul
+            className="mt-4 grid gap-4 lg:grid-cols-2"
+            aria-busy={wrongNotesQuery.isFetching}
+          >
             {wrongNotesQuery.data.items.map((item) => (
               <li key={item.questionId}>
                 <article className="content-auto flex h-full min-w-0 flex-col rounded-xl border border-line bg-surface p-5">
@@ -383,6 +418,13 @@ export const WrongNotePage = (): ReactElement => {
             currentPage={wrongNotesQuery.data.page}
             totalPages={totalPages}
             disabled={wrongNotesQuery.isFetching}
+            getPageHref={(nextPage) => {
+              const next = createWrongNoteHistorySearch({
+                ...parsedSearch.query,
+                page: nextPage
+              })
+              return `?${next.toString()}`
+            }}
             onPageChange={(nextPage) => setFilter('page', String(nextPage))}
           />
         </>

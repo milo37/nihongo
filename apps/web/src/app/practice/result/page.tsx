@@ -601,23 +601,24 @@ const PracticeResultPageContent = (): ReactElement => {
               {t('actions.retryIncorrect')}
             </Button>
           ) : null}
-          <Button
-            variant="secondary"
-            onClick={() =>
-              void navigate(
-                role === 'GUEST'
-                  ? `/login?redirect=${encodeURIComponent('/practice')}`
-                  : '/wrong-notes'
-              )
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-ink/90 focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+            to={
+              role === 'GUEST'
+                ? `/login?redirect=${encodeURIComponent('/practice')}`
+                : '/wrong-notes'
             }
           >
             {role === 'GUEST'
               ? t('actions.loginChoice')
               : t('actions.openWrongNotes')}
-          </Button>
-          <Button onClick={() => void navigate('/practice')}>
+          </Link>
+          <Link
+            className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+            to="/practice"
+          >
             {t('newPractice')}
-          </Button>
+          </Link>
         </div>
       </div>
 
@@ -628,9 +629,12 @@ const PracticeResultPageContent = (): ReactElement => {
           title={t('retry.noEligibleTitle')}
           description={t('retry.noEligibleDescription')}
           action={
-            <Button onClick={() => void navigate('/practice')}>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+              to="/practice"
+            >
               {t('newPractice')}
-            </Button>
+            </Link>
           }
         />
       ) : incorrectItems.length > 0 && !canRequestCanonicalRetry ? (
@@ -646,9 +650,12 @@ const PracticeResultPageContent = (): ReactElement => {
           title={t('retry.allCorrectTitle')}
           description={t('retry.allCorrectDescription')}
           action={
-            <Button onClick={() => void navigate('/practice')}>
+            <Link
+              className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+              to="/practice"
+            >
               {t('newPractice')}
-            </Button>
+            </Link>
           }
         />
       ) : createRetrySession.isPaused ? (

@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type { JlptLevel, QuestionSubject } from '@common/types/domain'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
+import { Dialog } from '@common/components/Dialog'
 import { EmptyState } from '@common/components/EmptyState'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
+import { Pagination } from '@common/components/Pagination'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
@@ -21,6 +23,11 @@ import { isNoEligibleQuestionsApiError } from '@util/apiError'
 
 const PAGE_SIZE = 20
 
+const getBookmarkPage = (value: string | null): number => {
+  const page = Number(value)
+  return Number.isSafeInteger(page) && page > 0 ? page : 1
+}
+
 interface BookmarkPracticeGroup {
   level: JlptLevel
   subject: QuestionSubject
@@ -32,9 +39,29 @@ export const BookmarkPage = (): ReactElement => {
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const formatCount = (value: number): string => formatNumber(value, locale)
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const removalTriggerRef = useRef<HTMLButtonElement>(null)
   const ownerIdentityRef = useRef<string | null | undefined>(undefined)
-  const [page, setPage] = useState(1)
+  const page = getBookmarkPage(searchParams.get('page'))
+  const setPage = useCallback(
+    (nextPage: number, replace = false): void => {
+      const next = new URLSearchParams(searchParams)
+      if (nextPage === 1) next.delete('page')
+      else next.set('page', String(nextPage))
+      setSearchParams(next, { replace })
+    },
+    [searchParams, setSearchParams]
+  )
+  const getPageHref = (nextPage: number): string => {
+    const next = new URLSearchParams(searchParams)
+    if (nextPage === 1) next.delete('page')
+    else next.set('page', String(nextPage))
+    return `?${next.toString()}`
+  }
+  const [pendingRemovalQuestionId, setPendingRemovalQuestionId] = useState<
+    string | null
+  >(null)
   const [statusMessage, setStatusMessage] = useState<
     'removed' | 'removing' | 'restoreFailed' | null
   >(null)
@@ -56,15 +83,16 @@ export const BookmarkPage = (): ReactElement => {
     }
     if (ownerIdentityRef.current === currentUserId) return
     ownerIdentityRef.current = currentUserId
-    setPage(1)
+    setPage(1, true)
     setStatusMessage(null)
     resetCreateSession()
     resetDeleteBookmark()
-  }, [currentUserId, resetCreateSession, resetDeleteBookmark])
+  }, [currentUserId, resetCreateSession, resetDeleteBookmark, setPage])
 
   const pageCount = bookmarksQuery.data
     ? Math.max(1, Math.ceil(bookmarksQuery.data.total / PAGE_SIZE))
     : page
+  const displayedPage = bookmarksQuery.data?.page ?? page
   const noEligibleQuestions =
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
   const hasCreateSessionError =
@@ -72,14 +100,15 @@ export const BookmarkPage = (): ReactElement => {
     !noEligibleQuestions &&
     !isAuthTransitionSupersededError(createSession.error)
   const isBookmarksPaused = bookmarksQuery.fetchStatus === 'paused'
-  const isBookmarkNavigationLocked = isBookmarksPaused || bookmarksQuery.isError
+  const isBookmarkNavigationLocked =
+    isBookmarksPaused || bookmarksQuery.isError || bookmarksQuery.isFetching
 
   useEffect(() => {
     if (!bookmarksQuery.data || bookmarksQuery.data.page !== page) return
     if (bookmarkMutationActivity.pendingQuestionIds.size > 0) return
     if (bookmarksQuery.isFetching || bookmarksQuery.isStale) return
     if (page <= pageCount) return
-    const timerId = window.setTimeout(() => setPage(pageCount), 0)
+    const timerId = window.setTimeout(() => setPage(pageCount, true), 0)
     return () => window.clearTimeout(timerId)
   }, [
     bookmarkMutationActivity.pendingQuestionIds.size,
@@ -87,7 +116,8 @@ export const BookmarkPage = (): ReactElement => {
     bookmarksQuery.isFetching,
     bookmarksQuery.isStale,
     page,
-    pageCount
+    pageCount,
+    setPage
   ])
 
   if (bookmarksQuery.isPending && !isBookmarksPaused) {
@@ -97,6 +127,7 @@ export const BookmarkPage = (): ReactElement => {
   if (!bookmarksQuery.data && isBookmarksPaused) {
     return (
       <ErrorState
+        autoFocus
         headingLevel={1}
         title={t('error.offlineTitle')}
         description={t('error.offlineDescription')}
@@ -107,6 +138,7 @@ export const BookmarkPage = (): ReactElement => {
   if (!bookmarksQuery.data) {
     return (
       <ErrorState
+        autoFocus
         headingLevel={1}
         title={t('error.title')}
         description={t('error.description')}
@@ -157,11 +189,12 @@ export const BookmarkPage = (): ReactElement => {
     setStatusMessage('removing')
     deleteBookmark.mutate(questionId, {
       onSuccess: () => {
+        setPendingRemovalQuestionId(null)
         setStatusMessage('removed')
-        headingRef.current?.focus()
       },
       onError: (error) => {
         if (isAuthTransitionSupersededError(error)) return
+        setPendingRemovalQuestionId(null)
         setStatusMessage('restoreFailed')
       }
     })
@@ -228,27 +261,31 @@ export const BookmarkPage = (): ReactElement => {
 
       {bookmarksQuery.data.items.length === 0 ? (
         <EmptyState
-          title={page === 1 ? t('empty.firstTitle') : t('empty.pageTitle')}
+          title={
+            displayedPage === 1 ? t('empty.firstTitle') : t('empty.pageTitle')
+          }
           description={
-            page === 1
+            displayedPage === 1
               ? t('empty.firstDescription')
               : t('empty.pageDescription')
           }
           action={
-            page === 1 ? (
+            displayedPage === 1 ? (
               <Link
                 className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
                 to="/practice"
               >
                 {t('empty.start')}
               </Link>
+            ) : isBookmarkNavigationLocked ? (
+              <Button disabled>{t('empty.previousPage')}</Button>
             ) : (
-              <Button
-                disabled={isBookmarkNavigationLocked}
-                onClick={() => setPage((current) => current - 1)}
+              <Link
+                className="inline-flex min-h-11 items-center rounded-control border border-line bg-surface px-4 font-bold text-ink hover:border-line-strong hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+                to={getPageHref(displayedPage - 1)}
               >
                 {t('empty.previousPage')}
-              </Button>
+              </Link>
             )
           }
         />
@@ -345,7 +382,10 @@ export const BookmarkPage = (): ReactElement => {
             ) : null}
           </section>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+          <div
+            className="mt-8 grid gap-4 lg:grid-cols-2"
+            aria-busy={bookmarksQuery.isFetching}
+          >
             {bookmarksQuery.data.items.map((bookmark) => {
               const { question } = bookmark
               const isDeleting =
@@ -397,10 +437,21 @@ export const BookmarkPage = (): ReactElement => {
                   ) : null}
                   <div className="mt-6 border-t border-line pt-4">
                     <Button
+                      ref={(element) => {
+                        if (
+                          element &&
+                          pendingRemovalQuestionId === bookmark.questionId
+                        ) {
+                          removalTriggerRef.current = element
+                        }
+                      }}
                       variant="ghost"
                       disabled={hasPendingBookmarkMutation}
                       isLoading={isDeleting}
-                      onClick={() => removeBookmark(bookmark.questionId)}
+                      onClick={(event) => {
+                        removalTriggerRef.current = event.currentTarget
+                        setPendingRemovalQuestionId(bookmark.questionId)
+                      }}
                     >
                       {t('remove')}
                     </Button>
@@ -410,33 +461,66 @@ export const BookmarkPage = (): ReactElement => {
             })}
           </div>
 
-          <nav
-            className="mt-8 flex items-center justify-center gap-3"
-            aria-label={t('pagination.label')}
+          <p
+            className="sr-only"
+            role="status"
+            aria-atomic="true"
+            aria-live="polite"
           >
-            <Button
-              variant="outline"
-              disabled={page <= 1 || isBookmarkNavigationLocked}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >
-              {commonT('pagination.previous')}
-            </Button>
-            <span className="text-sm font-bold" aria-live="polite">
-              {t('pagination.status', {
-                page: formatCount(page),
-                pageCount: formatCount(pageCount)
-              })}
-            </span>
-            <Button
-              variant="outline"
-              disabled={page >= pageCount || isBookmarkNavigationLocked}
-              onClick={() => setPage((current) => current + 1)}
-            >
-              {commonT('pagination.next')}
-            </Button>
-          </nav>
+            {bookmarksQuery.isFetching
+              ? t('pagination.refreshing')
+              : t('pagination.status', {
+                  page: formatCount(displayedPage),
+                  pageCount: formatCount(pageCount)
+                })}
+          </p>
+          <Pagination
+            className="mt-8"
+            currentPage={displayedPage}
+            disabled={isBookmarkNavigationLocked}
+            getPageHref={getPageHref}
+            label={t('pagination.label')}
+            totalPages={pageCount}
+            onPageChange={setPage}
+          />
         </>
       )}
+
+      <Dialog
+        fallbackFocusRef={headingRef}
+        open={pendingRemovalQuestionId !== null}
+        preventClose={deleteBookmark.isPending}
+        returnFocusRef={removalTriggerRef}
+        title={t('removeDialog.title')}
+        description={t('removeDialog.description')}
+        footer={
+          <>
+            <Button
+              disabled={deleteBookmark.isPending}
+              variant="outline"
+              onClick={() => setPendingRemovalQuestionId(null)}
+            >
+              {t('removeDialog.cancel')}
+            </Button>
+            <Button
+              isLoading={deleteBookmark.isPending}
+              variant="danger"
+              onClick={() => {
+                if (pendingRemovalQuestionId) {
+                  removeBookmark(pendingRemovalQuestionId)
+                }
+              }}
+            >
+              {t('removeDialog.confirm')}
+            </Button>
+          </>
+        }
+        onOpenChange={(open) => {
+          if (!open && !deleteBookmark.isPending) {
+            setPendingRemovalQuestionId(null)
+          }
+        }}
+      />
     </section>
   )
 }

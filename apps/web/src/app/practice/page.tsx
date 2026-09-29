@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
@@ -9,6 +9,7 @@ import type {
 } from '@common/types/domain'
 import { Button } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'
+import { Pagination } from '@common/components/Pagination'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
@@ -72,6 +73,11 @@ const getRequestedMode = (value: string | null): StudyMode => {
   return requested?.value ?? 'RANDOM'
 }
 
+const getResumablePage = (value: string | null): number => {
+  const page = Number(value)
+  return Number.isSafeInteger(page) && page > 0 ? page : 1
+}
+
 const loginRequiredModes: readonly StudyMode[] = [
   'BOOKMARK',
   'DAILY_REVIEW',
@@ -85,25 +91,41 @@ export const PracticePage = (): ReactElement => {
   const formatCount = (value: number): string => formatNumber(value, locale)
   const location = useLocation()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { isReady, role, user } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const storedSessionId = useAppStore((state) => state.sessionId)
-  const [resumablePage, setResumablePage] = useState(1)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
-  const [level, setLevel] = useState<JlptLevel>(() =>
-    getInitialLevel(searchParams.get('level'))
+  const level = getInitialLevel(searchParams.get('level'))
+  const subject = getInitialSubject(searchParams.get('subject'))
+  const count = getInitialCount(searchParams.get('count'))
+  const requestedMode = getRequestedMode(searchParams.get('mode'))
+  const resumablePage = getResumablePage(searchParams.get('resumePage'))
+  const updateSearchParam = useCallback(
+    (
+      key: 'count' | 'level' | 'mode' | 'resumePage' | 'subject',
+      value: number | string,
+      defaultValue: number | string,
+      replace = false
+    ): void => {
+      const next = new URLSearchParams(searchParams)
+      if (value === defaultValue) next.delete(key)
+      else next.set(key, String(value))
+      setSearchParams(next, { replace })
+    },
+    [searchParams, setSearchParams]
   )
-  const [subject, setSubject] = useState<QuestionSubject>(() =>
-    getInitialSubject(searchParams.get('subject'))
-  )
-  const [count, setCount] = useState<5 | 10 | 20>(() =>
-    getInitialCount(searchParams.get('count'))
-  )
-  const [requestedMode, setRequestedMode] = useState<StudyMode>(() =>
-    getRequestedMode(searchParams.get('mode'))
-  )
+  const getSearchParamHref = (
+    key: 'count' | 'level' | 'mode' | 'resumePage' | 'subject',
+    value: number | string,
+    defaultValue: number | string
+  ): string => {
+    const next = new URLSearchParams(searchParams)
+    if (value === defaultValue) next.delete(key)
+    else next.set(key, String(value))
+    return `?${next.toString()}`
+  }
   const mode = requestedMode
   const isProtectedGuestMode =
     role === 'GUEST' && loginRequiredModes.includes(mode)
@@ -130,6 +152,8 @@ export const PracticePage = (): ReactElement => {
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
   const isResumableSourceUnavailable =
     resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
+  const isResumableInteractionLocked =
+    isResumableSourceUnavailable || resumableSessions.isFetching
 
   useEffect(() => {
     if (
@@ -140,11 +164,22 @@ export const PracticePage = (): ReactElement => {
     }
     if (resumablePage > resumablePageCount) {
       const timerId = window.setTimeout(() => {
-        setResumablePage(resumablePageCount)
+        updateSearchParam('resumePage', resumablePageCount, 1, true)
       }, 0)
       return () => window.clearTimeout(timerId)
     }
-  }, [resumablePage, resumablePageCount, resumableSessions.data])
+  }, [
+    resumablePage,
+    resumablePageCount,
+    resumableSessions.data,
+    updateSearchParam
+  ])
+
+  useEffect(() => {
+    if (resumableSessions.isError && !resumableSessions.data) {
+      resumableHeadingRef.current?.focus()
+    }
+  }, [resumableSessions.data, resumableSessions.isError])
 
   const handleStart = (): void => {
     if (!isReady || isCreatingSession || isProtectedGuestMode) {
@@ -201,7 +236,11 @@ export const PracticePage = (): ReactElement => {
             </p>
           </div>
           {resumableSessions.isFetching && !resumableSessions.isPending ? (
-            <span className="text-sm font-semibold text-muted" role="status">
+            <span
+              className="text-sm font-semibold text-muted"
+              role="status"
+              aria-atomic="true"
+            >
               {t('setup.resume.refreshing')}
             </span>
           ) : null}
@@ -271,7 +310,10 @@ export const PracticePage = (): ReactElement => {
           </p>
         ) : (
           <>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+            <ul
+              className="mt-4 grid gap-3 sm:grid-cols-2"
+              aria-busy={resumableSessions.isFetching}
+            >
               {resumableSessions.data.items.map((item) => {
                 const canResume =
                   item.resumeAvailability === 'SERVER' ||
@@ -323,7 +365,7 @@ export const PracticePage = (): ReactElement => {
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={isResumableSourceUnavailable}
+                        disabled={isResumableInteractionLocked}
                         onClick={() => setCancelSessionId(item.id)}
                       >
                         {t('setup.resume.cancel')}
@@ -334,34 +376,19 @@ export const PracticePage = (): ReactElement => {
               })}
             </ul>
             {resumableSessions.data.total > resumableSessions.data.pageSize ? (
-              <nav
-                className="mt-4 flex items-center justify-center gap-3"
-                aria-label={t('setup.resume.paginationLabel')}
-              >
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={isResumableSourceUnavailable || resumablePage === 1}
-                  onClick={() => setResumablePage((page) => page - 1)}
-                >
-                  {commonT('pagination.previous')}
-                </Button>
-                <span className="text-sm font-bold">
-                  {formatCount(resumablePage)} /{' '}
-                  {formatCount(resumablePageCount)}
-                </span>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={
-                    isResumableSourceUnavailable ||
-                    resumablePage >= resumablePageCount
-                  }
-                  onClick={() => setResumablePage((page) => page + 1)}
-                >
-                  {commonT('pagination.next')}
-                </Button>
-              </nav>
+              <Pagination
+                className="mt-4"
+                currentPage={resumableSessions.data.page}
+                disabled={isResumableInteractionLocked}
+                getPageHref={(page) =>
+                  getSearchParamHref('resumePage', page, 1)
+                }
+                label={t('setup.resume.paginationLabel')}
+                totalPages={resumablePageCount}
+                onPageChange={(page) =>
+                  updateSearchParam('resumePage', page, 1)
+                }
+              />
             ) : null}
           </>
         )}
@@ -382,7 +409,7 @@ export const PracticePage = (): ReactElement => {
                 data-selected={level === option}
                 onClick={() => {
                   createSession.reset()
-                  setLevel(option)
+                  updateSearchParam('level', option, 'N3')
                 }}
               >
                 {option}
@@ -405,7 +432,7 @@ export const PracticePage = (): ReactElement => {
                 data-selected={subject === option}
                 onClick={() => {
                   createSession.reset()
-                  setSubject(option)
+                  updateSearchParam('subject', option, 'GRAMMAR')
                 }}
               >
                 {commonT(`taxonomy.subjects.${option}`)}
@@ -428,7 +455,7 @@ export const PracticePage = (): ReactElement => {
                 data-selected={count === option}
                 onClick={() => {
                   createSession.reset()
-                  setCount(option)
+                  updateSearchParam('count', option, 10)
                 }}
               >
                 {t('setup.questionCount', {
@@ -457,7 +484,7 @@ export const PracticePage = (): ReactElement => {
                   data-selected={mode === option.value}
                   onClick={() => {
                     createSession.reset()
-                    setRequestedMode(option.value)
+                    updateSearchParam('mode', option.value, 'RANDOM')
                   }}
                 >
                   <strong className="block">
@@ -510,7 +537,7 @@ export const PracticePage = (): ReactElement => {
                 variant="secondary"
                 onClick={() => {
                   createSession.reset()
-                  setRequestedMode('RANDOM')
+                  updateSearchParam('mode', 'RANDOM', 'RANDOM')
                 }}
               >
                 {t('setup.selectRandom')}

@@ -61,7 +61,7 @@ const MetricTable = ({
   const locale = resolveUiLocale(i18n.resolvedLanguage)
 
   return (
-    <section>
+    <section className="min-w-0">
       <h3 className="text-lg font-black">{title}</h3>
       <Table
         caption={t('insights.table.caption', { title })}
@@ -180,7 +180,6 @@ export const DashboardInsightsSection = ({
   const { i18n, t } = useTranslation('dashboard')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const actionNoticeRef = useRef<HTMLParagraphElement>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
 
   useEffect(() => {
@@ -189,10 +188,6 @@ export const DashboardInsightsSection = ({
       headingRef.current?.focus()
     }
   }, [data, isError])
-
-  useEffect(() => {
-    if (actionNotice) actionNoticeRef.current?.focus()
-  }, [actionNotice])
 
   if (isPending && !data && isPaused) {
     return (
@@ -329,7 +324,7 @@ export const DashboardInsightsSection = ({
       {hasAttempts ? (
         <>
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
+            <article className="min-w-0 rounded-xl border border-line bg-surface p-5 sm:p-7">
               <h3 className="text-xl font-black">{t('insights.byLevel')}</h3>
               <p className="mt-2 text-sm text-muted">
                 {t('insights.chartDescription')}
@@ -348,7 +343,7 @@ export const DashboardInsightsSection = ({
               </div>
             </article>
 
-            <article className="rounded-xl border border-line bg-surface p-5 sm:p-7">
+            <article className="min-w-0 rounded-xl border border-line bg-surface p-5 sm:p-7">
               <MetricTable
                 items={data.stats.byLevel}
                 label={t('insights.levelTableLabel')}
@@ -484,11 +479,9 @@ export const DashboardInsightsSection = ({
           ) : null}
           {actionNotice && noticePresentation ? (
             <p
-              className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold focus:outline-none focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus ${noticePresentation.className}`}
+              className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold ${noticePresentation.className}`}
               key={actionNotice.id}
-              ref={actionNoticeRef}
               role={noticePresentation.role}
-              tabIndex={-1}
             >
               {t(`insights.actionNotice.${actionNotice.code}`)}
             </p>

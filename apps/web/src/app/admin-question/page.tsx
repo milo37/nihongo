@@ -301,6 +301,9 @@ export const AdminQuestionPage = (): ReactElement => {
     isPhase7UiApiError(batchReview.error) &&
     batchReview.error.code === 'VERSION_CONFLICT'
   const isPaused = list.fetchStatus === 'paused'
+  const hasPlaceholderPageMismatch = Boolean(
+    list.isPlaceholderData && list.data && list.data.page !== page
+  )
   const writesLocked = isPaused || list.isError || list.isFetching
 
   const refreshBatchConflict = async (): Promise<void> => {
@@ -315,10 +318,19 @@ export const AdminQuestionPage = (): ReactElement => {
   }
 
   useEffect(() => {
-    if (list.data && page > totalPages) {
-      setFilter('page', String(totalPages))
+    if (list.data && !list.isPlaceholderData && page > totalPages) {
+      const next = new URLSearchParams(searchParams)
+      next.set('page', String(totalPages))
+      setSearchParams(next, { replace: true })
     }
-  }, [list.data, page, setFilter, totalPages])
+  }, [
+    list.data,
+    list.isPlaceholderData,
+    page,
+    searchParams,
+    setSearchParams,
+    totalPages
+  ])
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
@@ -649,210 +661,243 @@ export const AdminQuestionPage = (): ReactElement => {
         </div>
       ) : null}
 
-      {list.isPending && !list.data && isPaused ? (
-        <ErrorState
-          autoFocus
-          className="mt-8"
-          description={t('common.pausedDescription')}
-          onRetry={() => void list.refetch()}
-          title={t('common.pausedTitle')}
-        />
-      ) : list.isPending && !list.data ? (
-        <LoadingState className="mt-8" message={t('questionList.loading')} />
-      ) : !list.data ? (
-        <ErrorState
-          autoFocus
-          className="mt-8"
-          description={presentError(list.error)}
-          onRetry={() => void list.refetch()}
-          title={t('questionList.loadErrorTitle')}
-        />
-      ) : list.data.items.length === 0 ? (
-        <EmptyState
-          className="mt-8"
-          description={t('questionList.emptyDescription')}
-          title={t('questionList.emptyTitle')}
-        />
-      ) : (
-        <>
-          <p className="mt-8 text-sm text-muted" id="admin-table-help">
-            {t('questionList.tableHelp')}
-            {list.isFetching ? t('questionList.tableRefreshing') : ''}
-          </p>
-          <Table
-            caption={t('questionList.tableCaption')}
-            containerClassName="mt-2 rounded-panel shadow-control"
-            descriptionId="admin-table-help"
-            minWidthClassName="min-w-[84rem]"
-            scrollLabel={t('questionList.tableScrollLabel')}
-          >
-            <thead className="bg-surface-muted text-muted">
-              <tr>
-                <th className="px-4 py-3" scope="col">
-                  {t('questionList.columns.select')}
-                </th>
-                <th className="px-4 py-3" scope="col">
-                  {t('questionList.columns.question')}
-                </th>
-                <TableSortHeader
-                  direction={
-                    query.sort === 'LEVEL_ASC' ? 'ascending' : undefined
-                  }
-                  sortLabel={
-                    query.sort === 'LEVEL_ASC'
-                      ? t('questionList.sortLabels.levelActive')
-                      : t('questionList.sortLabels.level')
-                  }
-                  onSort={() => setFilter('sort', 'LEVEL_ASC')}
-                >
-                  {t('questionList.columns.classification')}
-                </TableSortHeader>
-                <th className="px-4 py-3" scope="col">
-                  {t('questionList.columns.status')}
-                </th>
-                <th className="px-4 py-3" scope="col">
-                  {t('questionList.columns.attempts')}
-                </th>
-                <TableSortHeader
-                  direction={
-                    query.sort === 'REPORT_COUNT_DESC'
-                      ? 'descending'
-                      : undefined
-                  }
-                  sortLabel={
-                    query.sort === 'REPORT_COUNT_DESC'
-                      ? t('questionList.sortLabels.reportsActive')
-                      : t('questionList.sortLabels.reports')
-                  }
-                  onSort={() => setFilter('sort', 'REPORT_COUNT_DESC')}
-                >
-                  {t('questionList.columns.reports')}
-                </TableSortHeader>
-                <TableSortHeader
-                  direction={
-                    query.sort === 'CREATED_DESC' ? 'descending' : undefined
-                  }
-                  sortLabel={
-                    query.sort === 'CREATED_DESC'
-                      ? t('questionList.sortLabels.createdActive')
-                      : t('questionList.sortLabels.created')
-                  }
-                  onSort={() => setFilter('sort', 'CREATED_DESC')}
-                >
-                  {t('questionList.columns.createdAt')}
-                </TableSortHeader>
-                <TableSortHeader
-                  direction={
-                    query.sort === 'UPDATED_DESC' ? 'descending' : undefined
-                  }
-                  sortLabel={
-                    query.sort === 'UPDATED_DESC'
-                      ? t('questionList.sortLabels.updatedActive')
-                      : t('questionList.sortLabels.updated')
-                  }
-                  onSort={() => setFilter('sort', 'UPDATED_DESC')}
-                >
-                  {t('questionList.columns.updatedAt')}
-                </TableSortHeader>
-                <th className="px-4 py-3" scope="col">
-                  {t('questionList.columns.details')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {list.data.items.map((item) => (
-                <tr key={item.questionId} className="align-top">
-                  <td className="px-4 py-4">
-                    <label className="inline-flex size-11 cursor-pointer items-center justify-center rounded-control hover:bg-surface-muted focus-within:outline focus-within:outline-focus focus-within:outline-offset-focus focus-within:outline-brand">
-                      <input
-                        className="size-5 accent-brand"
-                        checked={selectedItems.some(
-                          (selected) => selected.questionId === item.questionId
-                        )}
-                        disabled={list.isFetching}
-                        type="checkbox"
-                        onChange={() => toggleSelection(item.questionId)}
-                      />
-                      <span className="sr-only">
-                        {t('questionList.selectQuestion', {
-                          question: item.questionTextPreview
-                        })}
-                      </span>
-                    </label>
-                  </td>
-                  <th className="max-w-xl px-4 py-4 font-medium" scope="row">
-                    <span className="line-clamp-2 break-words" lang="ja">
-                      {item.questionTextPreview}
-                    </span>
-                    <span className="mt-1 block font-mono text-xs text-muted">
-                      {item.questionId}
-                    </span>
-                  </th>
-                  <td className="px-4 py-4">
-                    {item.level} · {t(adminSubjectKey[item.subject])}
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge
-                        variant={
-                          item.lifecycleStatus === 'ARCHIVED'
-                            ? 'danger'
-                            : 'neutral'
-                        }
-                      >
-                        {t(adminLifecycleStatusKey[item.lifecycleStatus])}
-                      </Badge>
-                      <Badge variant="info">
-                        {t(adminVersionStatusKey[item.versionStatus])}
-                      </Badge>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap tabular-nums">
-                    {item.correctRateBasisPoints === null
-                      ? t('questionList.noAccuracy', {
-                          formattedCount: formatAdminNumber(item.answerCount)
-                        })
-                      : t('questionList.answerStats', {
-                          formattedCount: formatAdminNumber(item.answerCount),
-                          rate: formatAdminPercent(item.correctRateBasisPoints)
-                        })}
-                  </td>
-                  <td className="px-4 py-4 tabular-nums">
-                    {t('questionList.reportCount', {
-                      formattedCount: formatAdminNumber(item.openReportCount)
-                    })}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <time dateTime={item.createdAt}>
-                      {formatAdminDateTime(item.createdAt)}
-                    </time>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <time dateTime={item.updatedAt}>
-                      {formatAdminDateTime(item.updatedAt)}
-                    </time>
-                  </td>
-                  <td className="px-4 py-4">
-                    <Link
-                      className="inline-flex min-h-11 items-center rounded-lg px-3 font-semibold text-brand underline decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-                      to={`/admin/questions/${item.questionId}`}
-                    >
-                      {t('common.open')}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-          <Pagination
+      {list.data && list.isFetching ? (
+        <p
+          className="mt-8 text-sm font-semibold text-muted"
+          role="status"
+          aria-atomic="true"
+          aria-controls="admin-question-results"
+        >
+          {t('questionList.tableRefreshing')}
+        </p>
+      ) : null}
+      <div
+        id="admin-question-results"
+        aria-busy={Boolean(list.data && list.isFetching)}
+      >
+        {list.isPending && !list.data && isPaused ? (
+          <ErrorState
+            autoFocus
             className="mt-8"
-            currentPage={page}
-            disabled={list.isFetching || list.isError || isPaused}
-            totalPages={totalPages}
-            onPageChange={(nextPage) => setFilter('page', String(nextPage))}
+            description={t('common.pausedDescription')}
+            onRetry={() => void list.refetch()}
+            title={t('common.pausedTitle')}
           />
-        </>
-      )}
+        ) : list.isPending && !list.data ? (
+          <LoadingState className="mt-8" message={t('questionList.loading')} />
+        ) : !list.data ? (
+          <ErrorState
+            autoFocus
+            className="mt-8"
+            description={presentError(list.error)}
+            onRetry={() => void list.refetch()}
+            title={t('questionList.loadErrorTitle')}
+          />
+        ) : list.data.items.length === 0 ? (
+          hasPlaceholderPageMismatch ? null : (
+            <EmptyState
+              className="mt-8"
+              description={t('questionList.emptyDescription')}
+              title={t('questionList.emptyTitle')}
+            />
+          )
+        ) : (
+          <>
+            <p
+              className={
+                list.isFetching
+                  ? 'mt-2 text-sm text-muted'
+                  : 'mt-8 text-sm text-muted'
+              }
+              id="admin-table-help"
+            >
+              {t('questionList.tableHelp')}
+            </p>
+            <Table
+              aria-busy={list.isFetching}
+              caption={t('questionList.tableCaption')}
+              containerClassName="mt-2 rounded-panel shadow-control"
+              descriptionId="admin-table-help"
+              minWidthClassName="min-w-[84rem]"
+              scrollLabel={t('questionList.tableScrollLabel')}
+            >
+              <thead className="bg-surface-muted text-muted">
+                <tr>
+                  <th className="px-4 py-3" scope="col">
+                    {t('questionList.columns.select')}
+                  </th>
+                  <th className="px-4 py-3" scope="col">
+                    {t('questionList.columns.question')}
+                  </th>
+                  <TableSortHeader
+                    direction={
+                      query.sort === 'LEVEL_ASC' ? 'ascending' : undefined
+                    }
+                    sortLabel={
+                      query.sort === 'LEVEL_ASC'
+                        ? t('questionList.sortLabels.levelActive')
+                        : t('questionList.sortLabels.level')
+                    }
+                    onSort={() => setFilter('sort', 'LEVEL_ASC')}
+                  >
+                    {t('questionList.columns.classification')}
+                  </TableSortHeader>
+                  <th className="px-4 py-3" scope="col">
+                    {t('questionList.columns.status')}
+                  </th>
+                  <th className="px-4 py-3" scope="col">
+                    {t('questionList.columns.attempts')}
+                  </th>
+                  <TableSortHeader
+                    direction={
+                      query.sort === 'REPORT_COUNT_DESC'
+                        ? 'descending'
+                        : undefined
+                    }
+                    sortLabel={
+                      query.sort === 'REPORT_COUNT_DESC'
+                        ? t('questionList.sortLabels.reportsActive')
+                        : t('questionList.sortLabels.reports')
+                    }
+                    onSort={() => setFilter('sort', 'REPORT_COUNT_DESC')}
+                  >
+                    {t('questionList.columns.reports')}
+                  </TableSortHeader>
+                  <TableSortHeader
+                    direction={
+                      query.sort === 'CREATED_DESC' ? 'descending' : undefined
+                    }
+                    sortLabel={
+                      query.sort === 'CREATED_DESC'
+                        ? t('questionList.sortLabels.createdActive')
+                        : t('questionList.sortLabels.created')
+                    }
+                    onSort={() => setFilter('sort', 'CREATED_DESC')}
+                  >
+                    {t('questionList.columns.createdAt')}
+                  </TableSortHeader>
+                  <TableSortHeader
+                    direction={
+                      query.sort === 'UPDATED_DESC' ? 'descending' : undefined
+                    }
+                    sortLabel={
+                      query.sort === 'UPDATED_DESC'
+                        ? t('questionList.sortLabels.updatedActive')
+                        : t('questionList.sortLabels.updated')
+                    }
+                    onSort={() => setFilter('sort', 'UPDATED_DESC')}
+                  >
+                    {t('questionList.columns.updatedAt')}
+                  </TableSortHeader>
+                  <th className="px-4 py-3" scope="col">
+                    {t('questionList.columns.details')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {list.data.items.map((item) => (
+                  <tr key={item.questionId} className="align-top">
+                    <td className="px-4 py-4">
+                      <label className="inline-flex size-11 cursor-pointer items-center justify-center rounded-control hover:bg-surface-muted focus-within:outline focus-within:outline-focus focus-within:outline-offset-focus focus-within:outline-brand">
+                        <input
+                          className="size-5 accent-brand"
+                          checked={selectedItems.some(
+                            (selected) =>
+                              selected.questionId === item.questionId
+                          )}
+                          disabled={list.isFetching}
+                          type="checkbox"
+                          onChange={() => toggleSelection(item.questionId)}
+                        />
+                        <span className="sr-only">
+                          {t('questionList.selectQuestion', {
+                            question: item.questionTextPreview
+                          })}
+                        </span>
+                      </label>
+                    </td>
+                    <th className="max-w-xl px-4 py-4 font-medium" scope="row">
+                      <span className="line-clamp-2 break-words" lang="ja">
+                        {item.questionTextPreview}
+                      </span>
+                      <span className="mt-1 block font-mono text-xs text-muted">
+                        {item.questionId}
+                      </span>
+                    </th>
+                    <td className="px-4 py-4">
+                      {item.level} · {t(adminSubjectKey[item.subject])}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          variant={
+                            item.lifecycleStatus === 'ARCHIVED'
+                              ? 'danger'
+                              : 'neutral'
+                          }
+                        >
+                          {t(adminLifecycleStatusKey[item.lifecycleStatus])}
+                        </Badge>
+                        <Badge variant="info">
+                          {t(adminVersionStatusKey[item.versionStatus])}
+                        </Badge>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap tabular-nums">
+                      {item.correctRateBasisPoints === null
+                        ? t('questionList.noAccuracy', {
+                            formattedCount: formatAdminNumber(item.answerCount)
+                          })
+                        : t('questionList.answerStats', {
+                            formattedCount: formatAdminNumber(item.answerCount),
+                            rate: formatAdminPercent(
+                              item.correctRateBasisPoints
+                            )
+                          })}
+                    </td>
+                    <td className="px-4 py-4 tabular-nums">
+                      {t('questionList.reportCount', {
+                        formattedCount: formatAdminNumber(item.openReportCount)
+                      })}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <time dateTime={item.createdAt}>
+                        {formatAdminDateTime(item.createdAt)}
+                      </time>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <time dateTime={item.updatedAt}>
+                        {formatAdminDateTime(item.updatedAt)}
+                      </time>
+                    </td>
+                    <td className="px-4 py-4">
+                      <Link
+                        className="inline-flex min-h-11 items-center rounded-lg px-3 font-semibold text-brand underline decoration-2 underline-offset-4 focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+                        to={`/admin/questions/${item.questionId}`}
+                      >
+                        {t('common.open')}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <Pagination
+              className="mt-8"
+              currentPage={list.data.page}
+              disabled={list.isFetching || list.isError || isPaused}
+              getPageHref={(nextPage) => {
+                const next = new URLSearchParams(searchParams)
+                if (nextPage === 1) next.delete('page')
+                else next.set('page', String(nextPage))
+                return `?${next.toString()}`
+              }}
+              totalPages={totalPages}
+              onPageChange={(nextPage) => setFilter('page', String(nextPage))}
+            />
+          </>
+        )}
+      </div>
 
       <FreshAssuranceDialog controller={freshAssurance} />
     </section>

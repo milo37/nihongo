@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useBlocker, useParams } from 'react-router'
 import type { ReactElement } from 'react'
 import { resolveAdminQuestionReportRequestSchema } from '@nihongo/contracts/admin/phase7'
 import {
@@ -19,6 +19,7 @@ import {
 import { usePhase7AdminQuestionReportDetail } from '@app/admin-question/hooks/usePhase7AdminQueries'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
+import { Dialog } from '@common/components/Dialog'
 import { ErrorState } from '@common/components/ErrorState'
 import { Input } from '@common/components/Input'
 import { LoadingState } from '@common/components/LoadingState'
@@ -80,6 +81,28 @@ export const AdminQuestionReportDetailPage = (): ReactElement => {
       }
     }
   )
+  const isResolutionDirty = Boolean(
+    report.data?.status === 'TRIAGED' &&
+      (outcome !== 'RESOLVED' ||
+        reason.length > 0 ||
+        remediationVersionId.length > 0)
+  )
+  const navigationBlocker = useBlocker(isResolutionDirty && !resolve.isPending)
+
+  useEffect(() => {
+    if (!isResolutionDirty) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isResolutionDirty])
+
+  useEffect(() => {
+    if (isResolutionDirty || navigationBlocker.state !== 'blocked') return
+    navigationBlocker.proceed()
+  }, [isResolutionDirty, navigationBlocker])
 
   if (report.isPending && !report.data && isPaused) {
     return (
@@ -422,6 +445,41 @@ export const AdminQuestionReportDetailPage = (): ReactElement => {
         </p>
       ) : null}
       <FreshAssuranceDialog controller={freshAssurance} />
+      <Dialog
+        fallbackFocusRef={reasonRef}
+        open={navigationBlocker.state === 'blocked'}
+        title={t('editor.unsavedTitle')}
+        description={t('editor.unsavedDescription')}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (navigationBlocker.state === 'blocked') {
+                  navigationBlocker.reset()
+                }
+              }}
+            >
+              {t('editor.keepEditing')}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (navigationBlocker.state === 'blocked') {
+                  navigationBlocker.proceed()
+                }
+              }}
+            >
+              {t('editor.discardAndLeave')}
+            </Button>
+          </>
+        }
+        onOpenChange={(open) => {
+          if (!open && navigationBlocker.state === 'blocked') {
+            navigationBlocker.reset()
+          }
+        }}
+      />
     </section>
   )
 }

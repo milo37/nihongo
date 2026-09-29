@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import type { ReactElement } from 'react'
+import { Link } from 'react-router'
+import type { MouseEvent, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 import { formatNumber } from '@libs/localeFormatters'
 import { resolveUiLocale } from '@/i18n/types'
@@ -13,6 +14,7 @@ type PaginationProps = {
   label?: string
   disabled?: boolean
   className?: string
+  getPageHref?: (page: number) => string
 }
 
 const createPaginationItems = (
@@ -47,6 +49,7 @@ export const Pagination = ({
   className,
   currentPage,
   disabled = false,
+  getPageHref,
   label,
   onPageChange,
   totalPages
@@ -69,8 +72,69 @@ export const Pagination = ({
     normalizedTotalPages
   )
   const items = createPaginationItems(safeCurrentPage, normalizedTotalPages)
-  const pageButtonClassName =
-    'inline-grid size-11 place-items-center rounded-control border border-line bg-surface text-sm font-semibold text-ink touch-manipulation hover:border-line-strong hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50'
+  const pageButtonBaseClassName =
+    'inline-grid size-11 place-items-center rounded-control border text-sm font-semibold touch-manipulation focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand aria-disabled:cursor-not-allowed aria-disabled:opacity-50 disabled:cursor-not-allowed disabled:opacity-50'
+  const defaultPageClassName =
+    'border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-muted'
+  const currentPageClassName =
+    'ui-pagination-current border-brand bg-brand text-on-accent hover:bg-brand-strong'
+
+  const renderPageControl = (
+    page: number,
+    content: ReactElement,
+    options: {
+      readonly ariaLabel: string
+      readonly className: string
+      readonly isCurrent?: boolean
+      readonly isDisabled?: boolean
+    }
+  ): ReactElement => {
+    const isDisabled = disabled || Boolean(options.isDisabled)
+    if (getPageHref) {
+      return (
+        <Link
+          className={options.className}
+          to={getPageHref(isDisabled ? safeCurrentPage : page)}
+          aria-current={options.isCurrent ? 'page' : undefined}
+          aria-disabled={isDisabled || undefined}
+          aria-label={options.ariaLabel}
+          tabIndex={isDisabled ? -1 : undefined}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+            if (isDisabled) {
+              event.preventDefault()
+              return
+            }
+            if (
+              event.button !== 0 ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            ) {
+              return
+            }
+            event.preventDefault()
+            onPageChange(page)
+          }}
+        >
+          {content}
+        </Link>
+      )
+    }
+
+    return (
+      <button
+        className={options.className}
+        type="button"
+        disabled={isDisabled}
+        aria-current={options.isCurrent ? 'page' : undefined}
+        aria-label={options.ariaLabel}
+        onClick={() => onPageChange(page)}
+      >
+        {content}
+      </button>
+    )
+  }
 
   return (
     <nav
@@ -79,15 +143,19 @@ export const Pagination = ({
     >
       <ul className="flex min-w-max items-center justify-center gap-1 py-1">
         <li>
-          <button
-            className={classNames(pageButtonClassName, 'w-auto px-3')}
-            type="button"
-            disabled={disabled || safeCurrentPage === 1}
-            aria-label={t('pagination.previousLabel')}
-            onClick={() => onPageChange(safeCurrentPage - 1)}
-          >
-            {t('pagination.previous')}
-          </button>
+          {renderPageControl(
+            safeCurrentPage - 1,
+            <span>{t('pagination.previous')}</span>,
+            {
+              ariaLabel: t('pagination.previousLabel'),
+              className: classNames(
+                pageButtonBaseClassName,
+                defaultPageClassName,
+                'w-auto px-3'
+              ),
+              isDisabled: safeCurrentPage === 1
+            }
+          )}
         </li>
         {items.map((item) => {
           if (typeof item !== 'number') {
@@ -106,36 +174,38 @@ export const Pagination = ({
 
           return (
             <li key={item}>
-              <button
-                className={classNames(
-                  pageButtonClassName,
-                  isCurrent &&
-                    'border-brand bg-brand text-on-accent hover:bg-brand-strong'
-                )}
-                type="button"
-                disabled={disabled}
-                aria-current={isCurrent ? 'page' : undefined}
-                aria-label={t('pagination.pageLabel', {
-                  page: formatPage(item),
-                  current: isCurrent ? t('pagination.currentSuffix') : ''
-                })}
-                onClick={() => onPageChange(item)}
-              >
-                <span className="tabular-nums">{formatPage(item)}</span>
-              </button>
+              {renderPageControl(
+                item,
+                <span className="tabular-nums">{formatPage(item)}</span>,
+                {
+                  ariaLabel: t('pagination.pageLabel', {
+                    page: formatPage(item),
+                    current: isCurrent ? t('pagination.currentSuffix') : ''
+                  }),
+                  className: classNames(
+                    pageButtonBaseClassName,
+                    isCurrent ? currentPageClassName : defaultPageClassName
+                  ),
+                  isCurrent
+                }
+              )}
             </li>
           )
         })}
         <li>
-          <button
-            className={classNames(pageButtonClassName, 'w-auto px-3')}
-            type="button"
-            disabled={disabled || safeCurrentPage === normalizedTotalPages}
-            aria-label={t('pagination.nextLabel')}
-            onClick={() => onPageChange(safeCurrentPage + 1)}
-          >
-            {t('pagination.next')}
-          </button>
+          {renderPageControl(
+            safeCurrentPage + 1,
+            <span>{t('pagination.next')}</span>,
+            {
+              ariaLabel: t('pagination.nextLabel'),
+              className: classNames(
+                pageButtonBaseClassName,
+                defaultPageClassName,
+                'w-auto px-3'
+              ),
+              isDisabled: safeCurrentPage === normalizedTotalPages
+            }
+          )}
         </li>
       </ul>
     </nav>

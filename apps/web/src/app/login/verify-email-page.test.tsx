@@ -64,7 +64,7 @@ describe('VerifyEmailPage', () => {
     })
     expect(requestCount).toBe(1)
     expect(requestBody).toEqual({ token })
-    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
     await waitFor(() => expect(heading).toHaveFocus())
   })
 

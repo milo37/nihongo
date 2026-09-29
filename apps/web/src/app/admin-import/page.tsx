@@ -126,6 +126,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
           aria-invalid={fileError ? true : undefined}
           className="mt-3 min-h-11 w-full rounded-lg border border-line p-3 file:mr-4 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-brand"
           id="phase7-import-file"
+          name="question-import-file"
           accept="application/json,.json"
           disabled={isOperationPending}
           type="file"

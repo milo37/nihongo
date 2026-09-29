@@ -287,9 +287,13 @@ describe('study session create intent lock', () => {
       'pagination session'
     )
 
-    await screen.findByText('1 / 2')
-    await user.click(screen.getByRole('button', { name: '다음' }))
-    await screen.findByText('2 / 2')
+    expect(
+      await screen.findByRole('link', { name: '1페이지, 현재 페이지' })
+    ).toHaveAttribute('aria-current', 'page')
+    await user.click(screen.getByRole('link', { name: '다음 페이지' }))
+    expect(
+      await screen.findByRole('link', { name: '2페이지, 현재 페이지' })
+    ).toHaveAttribute('aria-current', 'page')
     await user.click(screen.getByRole('button', { name: '세션 취소' }))
     const dialog = screen.getByRole('dialog', {
       name: '진행 중 세션을 취소할까요?'
@@ -300,6 +304,9 @@ describe('study session create intent lock', () => {
       expect(screen.getAllByRole('button', { name: '세션 취소' })).toHaveLength(
         5
       )
+      expect(
+        screen.queryByRole('navigation', { name: '이어풀기 페이지' })
+      ).not.toBeInTheDocument()
       expect(requestedPages.at(-1)).toBe(1)
       expect(screen.getByRole('heading', { name: '이어서 풀기' })).toHaveFocus()
     })

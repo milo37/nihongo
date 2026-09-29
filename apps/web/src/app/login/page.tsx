@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -59,8 +59,14 @@ export const LoginPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const { t: commonT } = useTranslation('common')
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [mode, setMode] = useState<AuthMode>('SIGN_IN')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedMode: AuthMode =
+    searchParams.get('mode') === 'signup'
+      ? 'SIGN_UP'
+      : searchParams.get('mode') === 'reset'
+        ? 'RESET_REQUEST'
+        : 'SIGN_IN'
+  const mode: AuthMode = isMockApiMode ? 'SIGN_IN' : requestedMode
   const [registrationNotice, setRegistrationNotice] =
     useState<RegistrationNotice>()
   const { user, role } = useAuth()
@@ -87,6 +93,19 @@ export const LoginPage = (): ReactElement => {
     defaultValues: { email: '' }
   })
 
+  useEffect(() => {
+    if (
+      !isMockApiMode ||
+      (searchParams.get('mode') !== 'signup' &&
+        searchParams.get('mode') !== 'reset')
+    ) {
+      return
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('mode')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
   const completeLogin = (): void => {
     void navigate(redirect, { replace: true })
   }
@@ -100,7 +119,10 @@ export const LoginPage = (): ReactElement => {
   }
 
   const handleModeChange = (nextMode: AuthMode): void => {
-    setMode(nextMode)
+    const next = new URLSearchParams(searchParams)
+    if (nextMode === 'SIGN_IN') next.delete('mode')
+    else next.set('mode', nextMode === 'SIGN_UP' ? 'signup' : 'reset')
+    setSearchParams(next)
     setRegistrationNotice(undefined)
     signIn.reset()
     signUp.reset()

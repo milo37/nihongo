@@ -4,7 +4,11 @@ import {
   type ListBookmarksQuery
 } from '@nihongo/contracts/bookmark/list-bookmarks'
 import { opaqueIdSchema } from '@nihongo/contracts/common/id'
-import { mutationOptions, queryOptions } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  mutationOptions,
+  queryOptions
+} from '@tanstack/react-query'
 import { createBookmark } from '@api/bookmark/createBookmark'
 import { deleteBookmark } from '@api/bookmark/deleteBookmark'
 import { listBookmark } from '@api/bookmark/listBookmark'
@@ -72,6 +76,7 @@ export const bookmarkQueries = {
     return queryOptions({
       queryKey: [...bookmarkQueries.listsKey(), query] as const,
       queryFn: () => listBookmark(query),
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     })
   }

@@ -17,8 +17,11 @@ import { useAppStore } from '@store/index'
 
 const renderLoginPage = (
   redirect = '/practice',
-  withLocaleSwitcher = false
+  withLocaleSwitcher = false,
+  mode?: 'reset' | 'signup'
 ): ReturnType<typeof createMemoryRouter> => {
+  const params = new URLSearchParams({ redirect })
+  if (mode) params.set('mode', mode)
   const router = createMemoryRouter(
     [
       {
@@ -39,7 +42,7 @@ const renderLoginPage = (
         element: <p>홈 도착</p>
       }
     ],
-    { initialEntries: [`/login?redirect=${encodeURIComponent(redirect)}`] }
+    { initialEntries: [`/login?${params.toString()}`] }
   )
 
   render(
@@ -141,6 +144,27 @@ describe('LoginPage role transition', () => {
       screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
     ).toBeDisabled()
   })
+
+  it.each(['reset', 'signup'] as const)(
+    'Mock mode에서 %s deep-link를 로그인으로 canonical replace한다',
+    async (mode) => {
+      const router = renderLoginPage('/practice?level=N2', false, mode)
+
+      await screen.findByLabelText('비밀번호')
+      expect(
+        screen
+          .getAllByRole('button', { name: '로그인' })
+          .find((button) => button.hasAttribute('aria-pressed'))
+      ).toHaveAttribute('aria-pressed', 'true')
+      expect(router.state.location.search).toBe(
+        '?redirect=%2Fpractice%3Flevel%3DN2'
+      )
+      expect(
+        screen.queryByRole('heading', { name: '비밀번호 재설정' })
+      ).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
+    }
+  )
 
   it('게스트가 다른 사용자의 세션 URL 대신 학습 설정으로 이동한다', async () => {
     const user = userEvent.setup()

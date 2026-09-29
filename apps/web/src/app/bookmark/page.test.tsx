@@ -61,6 +61,7 @@ const renderBookmarkPage = (
   client: QueryClient = createClient()
 ): {
   client: QueryClient
+  router: ReturnType<typeof createMemoryRouter>
   unmount: () => void
 } => {
   const router = createMemoryRouter(
@@ -72,7 +73,7 @@ const renderBookmarkPage = (
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  return { client, unmount: view.unmount }
+  return { client, router, unmount: view.unmount }
 }
 
 const renderLastPageDelete = async () => {
@@ -138,10 +139,15 @@ const renderLastPageDelete = async () => {
   const user = userEvent.setup()
 
   await screen.findByText('1 / 2 페이지')
-  await user.click(screen.getByRole('button', { name: '다음' }))
+  await user.click(screen.getByRole('link', { name: '다음 페이지' }))
+  expect(router.state.location.search).toBe('?page=2')
   await screen.findByText(lastItem.question.questionTextPreview)
   expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: '즐겨찾기 해제' }))
+  expect(
+    screen.getByRole('heading', { name: '즐겨찾기를 해제할까요?' })
+  ).toBeVisible()
+  await user.click(screen.getByRole('button', { name: '해제 확인' }))
   await screen.findByText('이 페이지가 비었습니다')
 
   return {
@@ -245,8 +251,151 @@ describe('BookmarkPage pagination settlement', () => {
         '오프라인입니다. 현재 목록을 유지하며 연결되면 중단된 요청을 이어갑니다.'
       )
     ).toBeVisible()
-    expect(screen.getByRole('button', { name: '이전' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+    expect(screen.getByRole('link', { name: '이전 페이지' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    )
+    expect(screen.getByRole('link', { name: '다음 페이지' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    )
+    dispose(fixture.client, fixture.unmount)
+  })
+
+  it('keeps the activated URL pagination link focused through a cold page fetch', async () => {
+    const items = Array.from({ length: 21 }, (_, index) =>
+      createBookmark(index + 1)
+    )
+    const pageTwoGate = createDeferred<void>()
+    mockServer.use(
+      http.get('*/api/v1/bookmarks', async ({ request }) => {
+        const page = Number(
+          new URL(request.url).searchParams.get('page') ?? '1'
+        )
+        if (page === 2) await pageTwoGate.promise
+        return HttpResponse.json({
+          items: page === 1 ? items.slice(0, 20) : items.slice(20),
+          page,
+          pageSize: 20,
+          total: items.length
+        })
+      })
+    )
+    const fixture = renderBookmarkPage()
+    const interaction = userEvent.setup()
+    const next = await screen.findByRole('link', { name: '다음 페이지' })
+
+    await interaction.click(next)
+    expect(fixture.router.state.location.search).toBe('?page=2')
+    expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
+    expect(next).toHaveFocus()
+    expect(
+      screen.getByText(items[0]?.question.questionTextPreview ?? '')
+    ).toBeVisible()
+    expect(
+      screen.getByText('즐겨찾기 페이지를 갱신하고 있습니다…')
+    ).toHaveAttribute('role', 'status')
+    expect(
+      screen
+        .getByText(items[0]?.question.questionTextPreview ?? '')
+        .closest('[aria-busy]')
+    ).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('1')
+
+    await act(async () => pageTwoGate.resolve())
+    expect(
+      await screen.findByText(items[20]?.question.questionTextPreview ?? '')
+    ).toBeVisible()
+    expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
+    expect(next).toHaveFocus()
+    expect(next).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.queryByText('즐겨찾기 페이지를 갱신하고 있습니다…')
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2')
+    dispose(fixture.client, fixture.unmount)
+  })
+
+  it('keeps the activated URL pagination link focused when a cold page fetch fails', async () => {
+    const items = Array.from({ length: 20 }, (_, index) =>
+      createBookmark(index + 1)
+    )
+    const pageTwoGate = createDeferred<void>()
+    mockServer.use(
+      http.get('*/api/v1/bookmarks', async ({ request }) => {
+        const page = Number(
+          new URL(request.url).searchParams.get('page') ?? '1'
+        )
+        if (page === 2) {
+          await pageTwoGate.promise
+          return HttpResponse.json(
+            {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'temporary error',
+              requestId: crypto.randomUUID(),
+              retryable: true
+            },
+            { status: 503 }
+          )
+        }
+        return HttpResponse.json({
+          items,
+          page,
+          pageSize: 20,
+          total: 21
+        })
+      })
+    )
+    const fixture = renderBookmarkPage()
+    const interaction = userEvent.setup()
+    const next = await screen.findByRole('link', { name: '다음 페이지' })
+
+    await interaction.click(next)
+    expect(fixture.router.state.location.search).toBe('?page=2')
+    expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
+    expect(next).toHaveFocus()
+
+    await act(async () => pageTwoGate.resolve())
+    const errorHeading = await screen.findByRole('heading', {
+      name: '즐겨찾기를 불러오지 못했습니다'
+    })
+    expect(errorHeading).toHaveFocus()
+    expect(screen.queryByRole('link', { name: '다음 페이지' })).toBeNull()
+    dispose(fixture.client, fixture.unmount)
+  })
+
+  it('asks before removal and returns focus without a DELETE when cancelled', async () => {
+    const item = createBookmark(1, '확인 후 해제할 즐겨찾기')
+    let deleteCount = 0
+    mockServer.use(
+      http.get('*/api/v1/bookmarks', () =>
+        HttpResponse.json({
+          items: [item],
+          page: 1,
+          pageSize: 20,
+          total: 1
+        })
+      ),
+      http.delete('*/api/v1/bookmarks/:questionId', () => {
+        deleteCount += 1
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    const fixture = renderBookmarkPage()
+    const interaction = userEvent.setup()
+    const trigger = await screen.findByRole('button', {
+      name: '즐겨찾기 해제'
+    })
+
+    await interaction.click(trigger)
+    expect(
+      screen.getByRole('heading', { name: '즐겨찾기를 해제할까요?' })
+    ).toBeVisible()
+    await interaction.click(screen.getByRole('button', { name: '계속 보관' }))
+
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(deleteCount).toBe(0)
     dispose(fixture.client, fixture.unmount)
   })
 

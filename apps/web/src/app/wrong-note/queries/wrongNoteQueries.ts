@@ -1,4 +1,8 @@
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  queryOptions
+} from '@tanstack/react-query'
 import { listReviewQueueQuerySchema } from '@nihongo/contracts/wrong-note/list-review-queue'
 import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
 import { getWrongNoteMemo } from '@api/wrong-note/getWrongNoteMemo'
@@ -31,6 +35,7 @@ export const wrongNoteQueries = {
         params
       ] as const,
       queryFn: () => listWrongNotes(params),
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     }),
   list: (params: ListWrongNoteRequest) =>
@@ -49,6 +54,7 @@ export const wrongNoteQueries = {
         query
       ] as const,
       queryFn: () => listReviewQueue(query),
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     })
   },

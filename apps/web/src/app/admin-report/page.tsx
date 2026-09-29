@@ -102,6 +102,9 @@ export const AdminQuestionReportPage = (): ReactElement => {
   const page = query.page
   const reports = usePhase7AdminQuestionReportList(query)
   const isPaused = reports.fetchStatus === 'paused'
+  const hasPlaceholderPageMismatch = Boolean(
+    reports.isPlaceholderData && reports.data && reports.data.page !== page
+  )
 
   const setFilter = useCallback(
     (key: string, value: string): void => {
@@ -140,10 +143,19 @@ export const AdminQuestionReportPage = (): ReactElement => {
     : 1
 
   useEffect(() => {
-    if (reports.data && page > totalPages) {
-      setFilter('page', String(totalPages))
+    if (reports.data && !reports.isPlaceholderData && page > totalPages) {
+      const next = new URLSearchParams(searchParams)
+      next.set('page', String(totalPages))
+      setSearchParams(next, { replace: true })
     }
-  }, [page, reports.data, setFilter, totalPages])
+  }, [
+    page,
+    reports.data,
+    reports.isPlaceholderData,
+    searchParams,
+    setSearchParams,
+    totalPages
+  ])
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
@@ -285,154 +297,180 @@ export const AdminQuestionReportPage = (): ReactElement => {
         </div>
       ) : null}
 
-      {reports.isPending && !reports.data && isPaused ? (
-        <ErrorState
-          autoFocus
-          className="mt-8"
-          description={t('common.pausedDescription')}
-          onRetry={() => void reports.refetch()}
-          title={t('common.pausedTitle')}
-        />
-      ) : reports.isPending && !reports.data ? (
-        <LoadingState className="mt-8" message={t('reportList.loading')} />
-      ) : !reports.data ? (
-        <ErrorState
-          autoFocus
-          className="mt-8"
-          description={presentError(reports.error)}
-          onRetry={() => void reports.refetch()}
-        />
-      ) : reports.data.items.length === 0 ? (
-        <EmptyState
-          className="mt-8"
-          description={t('reportList.emptyDescription')}
-          title={t('reportList.emptyTitle')}
-        />
-      ) : (
-        <>
-          <Table
-            caption={t('reportList.tableCaption')}
-            containerClassName="mt-8"
-            minWidthClassName="min-w-[76rem]"
-            scrollLabel={t('reportList.tableScrollLabel')}
-          >
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-3" scope="col">
-                  {t('common.status')}
-                </th>
-                <th className="px-4 py-3" scope="col">
-                  {t('common.reason')}
-                </th>
-                <th className="px-4 py-3" scope="col">
-                  {t('common.question')}
-                </th>
-                <th className="px-4 py-3" scope="col">
-                  {t('common.reporter')}
-                </th>
-                <th className="px-4 py-3" scope="col">
-                  {t('common.assignee')}
-                </th>
-                <TableSortHeader
-                  direction={
-                    query.sort === 'CREATED_DESC' ? 'descending' : undefined
-                  }
-                  sortLabel={
-                    query.sort === 'CREATED_DESC'
-                      ? t('reportList.sortCreatedActive')
-                      : t('reportList.sortCreated')
-                  }
-                  onSort={() => setFilter('sort', 'CREATED_DESC')}
-                >
-                  {t('common.createdAt')}
-                </TableSortHeader>
-                <TableSortHeader
-                  direction={
-                    query.sort === 'UPDATED_DESC' ? 'descending' : undefined
-                  }
-                  sortLabel={
-                    query.sort === 'UPDATED_DESC'
-                      ? t('reportList.sortUpdatedActive')
-                      : t('reportList.sortUpdated')
-                  }
-                  onSort={() => setFilter('sort', 'UPDATED_DESC')}
-                >
-                  {t('common.updatedAt')}
-                </TableSortHeader>
-                <th className="px-4 py-3" scope="col">
-                  {t('common.details')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {reports.data.items.map((report) => (
-                <tr key={report.id}>
-                  <td className="px-4 py-4">
-                    <Badge
-                      variant={report.status === 'OPEN' ? 'warning' : 'neutral'}
-                    >
-                      {t(adminReportStatusKey[report.status])}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-4">
-                    {t(adminReportReasonKey[report.reason])}
-                  </td>
-                  <td className="px-4 py-4 font-mono text-xs">
-                    {report.questionId}
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="block">
-                      {t(adminActorLabelKey[report.reporter.label])}
-                    </span>
-                    <span className="block font-mono text-xs text-muted">
-                      {report.reporter.actorId}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4">
-                    {report.assignee ? (
-                      <>
-                        <span className="block">
-                          {t(adminActorLabelKey[report.assignee.label])}
-                        </span>
-                        <span className="block font-mono text-xs text-muted">
-                          {report.assignee.actorId}
-                        </span>
-                      </>
-                    ) : (
-                      t('common.unassigned')
-                    )}
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <time dateTime={report.createdAt}>
-                      {formatAdminDateTime(report.createdAt)}
-                    </time>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <time dateTime={report.updatedAt}>
-                      {formatAdminDateTime(report.updatedAt)}
-                    </time>
-                  </td>
-                  <td className="px-4 py-4">
-                    <Link
-                      className="inline-flex min-h-11 items-center font-semibold text-brand underline"
-                      to={`/admin/reports/${report.id}`}
-                    >
-                      {t('common.open')}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-          <Pagination
+      {reports.data && reports.isFetching ? (
+        <p
+          className="mt-8 text-sm font-semibold text-muted"
+          role="status"
+          aria-atomic="true"
+          aria-controls="admin-report-results"
+        >
+          {t('reportList.refreshing')}
+        </p>
+      ) : null}
+      <div
+        id="admin-report-results"
+        aria-busy={Boolean(reports.data && reports.isFetching)}
+      >
+        {reports.isPending && !reports.data && isPaused ? (
+          <ErrorState
+            autoFocus
             className="mt-8"
-            currentPage={query.page}
-            disabled={reports.isFetching || reports.isError || isPaused}
-            totalPages={totalPages}
-            onPageChange={(page) => setFilter('page', String(page))}
+            description={t('common.pausedDescription')}
+            onRetry={() => void reports.refetch()}
+            title={t('common.pausedTitle')}
           />
-        </>
-      )}
+        ) : reports.isPending && !reports.data ? (
+          <LoadingState className="mt-8" message={t('reportList.loading')} />
+        ) : !reports.data ? (
+          <ErrorState
+            autoFocus
+            className="mt-8"
+            description={presentError(reports.error)}
+            onRetry={() => void reports.refetch()}
+          />
+        ) : reports.data.items.length === 0 ? (
+          hasPlaceholderPageMismatch ? null : (
+            <EmptyState
+              className="mt-8"
+              description={t('reportList.emptyDescription')}
+              title={t('reportList.emptyTitle')}
+            />
+          )
+        ) : (
+          <>
+            <Table
+              aria-busy={reports.isFetching}
+              caption={t('reportList.tableCaption')}
+              containerClassName={reports.isFetching ? 'mt-2' : 'mt-8'}
+              minWidthClassName="min-w-[76rem]"
+              scrollLabel={t('reportList.tableScrollLabel')}
+            >
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3" scope="col">
+                    {t('common.status')}
+                  </th>
+                  <th className="px-4 py-3" scope="col">
+                    {t('common.reason')}
+                  </th>
+                  <th className="px-4 py-3" scope="col">
+                    {t('common.question')}
+                  </th>
+                  <th className="px-4 py-3" scope="col">
+                    {t('common.reporter')}
+                  </th>
+                  <th className="px-4 py-3" scope="col">
+                    {t('common.assignee')}
+                  </th>
+                  <TableSortHeader
+                    direction={
+                      query.sort === 'CREATED_DESC' ? 'descending' : undefined
+                    }
+                    sortLabel={
+                      query.sort === 'CREATED_DESC'
+                        ? t('reportList.sortCreatedActive')
+                        : t('reportList.sortCreated')
+                    }
+                    onSort={() => setFilter('sort', 'CREATED_DESC')}
+                  >
+                    {t('common.createdAt')}
+                  </TableSortHeader>
+                  <TableSortHeader
+                    direction={
+                      query.sort === 'UPDATED_DESC' ? 'descending' : undefined
+                    }
+                    sortLabel={
+                      query.sort === 'UPDATED_DESC'
+                        ? t('reportList.sortUpdatedActive')
+                        : t('reportList.sortUpdated')
+                    }
+                    onSort={() => setFilter('sort', 'UPDATED_DESC')}
+                  >
+                    {t('common.updatedAt')}
+                  </TableSortHeader>
+                  <th className="px-4 py-3" scope="col">
+                    {t('common.details')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {reports.data.items.map((report) => (
+                  <tr key={report.id}>
+                    <td className="px-4 py-4">
+                      <Badge
+                        variant={
+                          report.status === 'OPEN' ? 'warning' : 'neutral'
+                        }
+                      >
+                        {t(adminReportStatusKey[report.status])}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-4">
+                      {t(adminReportReasonKey[report.reason])}
+                    </td>
+                    <td className="px-4 py-4 font-mono text-xs">
+                      {report.questionId}
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="block">
+                        {t(adminActorLabelKey[report.reporter.label])}
+                      </span>
+                      <span className="block font-mono text-xs text-muted">
+                        {report.reporter.actorId}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      {report.assignee ? (
+                        <>
+                          <span className="block">
+                            {t(adminActorLabelKey[report.assignee.label])}
+                          </span>
+                          <span className="block font-mono text-xs text-muted">
+                            {report.assignee.actorId}
+                          </span>
+                        </>
+                      ) : (
+                        t('common.unassigned')
+                      )}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <time dateTime={report.createdAt}>
+                        {formatAdminDateTime(report.createdAt)}
+                      </time>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <time dateTime={report.updatedAt}>
+                        {formatAdminDateTime(report.updatedAt)}
+                      </time>
+                    </td>
+                    <td className="px-4 py-4">
+                      <Link
+                        className="inline-flex min-h-11 items-center font-semibold text-brand underline"
+                        to={`/admin/reports/${report.id}`}
+                      >
+                        {t('common.open')}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            <Pagination
+              className="mt-8"
+              currentPage={reports.data.page}
+              disabled={reports.isFetching || reports.isError || isPaused}
+              getPageHref={(nextPage) => {
+                const next = new URLSearchParams(searchParams)
+                if (nextPage === 1) next.delete('page')
+                else next.set('page', String(nextPage))
+                return `?${next.toString()}`
+              }}
+              totalPages={totalPages}
+              onPageChange={(page) => setFilter('page', String(page))}
+            />
+          </>
+        )}
+      </div>
     </section>
   )
 }

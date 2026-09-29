@@ -95,7 +95,7 @@ export const AdminAuditLogPage = (): ReactElement => {
         <ol className="mt-8 grid gap-3">
           {items.map((item) => (
             <li
-              className="rounded-xl border border-line bg-white p-5"
+              className="content-auto rounded-xl border border-line bg-white p-5"
               key={item.id}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">

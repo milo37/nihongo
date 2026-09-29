@@ -13,6 +13,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       '**/node_modules/**',
+      'playwright-report/**',
+      'test-results/**',
       'apps/web/public/mockServiceWorker.js'
     ]
   },

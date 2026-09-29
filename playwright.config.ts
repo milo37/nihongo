@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL
 const outputLabel = process.env.PLAYWRIGHT_OUTPUT_LABEL ?? 'real'
+const retainPassingEvidence = outputLabel.startsWith('phase9')
 
 if (!baseURL) {
   throw new Error(
@@ -28,10 +29,10 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL,
     locale: 'ko-KR',
-    screenshot: 'only-on-failure',
+    screenshot: retainPassingEvidence ? 'on' : 'only-on-failure',
     timezoneId: 'Asia/Tokyo',
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure'
+    trace: retainPassingEvidence ? 'on' : 'retain-on-failure',
+    video: retainPassingEvidence ? 'on' : 'retain-on-failure'
   },
   workers: 1
 })

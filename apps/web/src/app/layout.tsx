@@ -15,7 +15,9 @@ const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
     'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
     'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
-    isActive ? 'bg-brand-soft text-brand' : 'text-muted hover:text-ink'
+    isActive
+      ? 'ui-primary-nav-active bg-brand-soft text-brand underline decoration-2 underline-offset-4'
+      : 'text-muted hover:text-ink'
   ].join(' ')
 }
 
@@ -219,6 +221,14 @@ export const Layout = (): ReactElement => {
               isMobileMenuOpen ? 'block' : 'hidden md:block'
             ].join(' ')}
             aria-label={navigationT('primary')}
+            onBlur={(event) => {
+              if (
+                isMobileMenuOpen &&
+                !event.currentTarget.contains(event.relatedTarget)
+              ) {
+                setMobileMenuOpen(false)
+              }
+            }}
           >
             <div className="mx-auto flex max-w-content flex-col gap-1 md:flex-row md:items-center">
               <NavLink
@@ -263,11 +273,15 @@ export const Layout = (): ReactElement => {
                 </NavLink>
               ) : null}
               <NavLink
-                className={getNavClassName}
+                className={({ isActive }) =>
+                  `${getNavClassName({ isActive })} min-w-0 max-w-full`
+                }
                 to="/login"
                 onClick={closeMenu}
               >
-                {user ? user.name : navigationT('login')}
+                <span className="min-w-0 break-words md:max-w-40 md:truncate">
+                  {user ? user.name : navigationT('login')}
+                </span>
               </NavLink>
               <LocaleSwitcher />
             </div>

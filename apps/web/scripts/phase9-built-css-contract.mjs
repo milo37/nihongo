@@ -53,4 +53,22 @@ export const validateBuiltCssContract = (css) => {
   if (!hasSelectedTabRule) {
     throw new Error('Built CSS is missing the forced-colors selected-tab rule')
   }
+
+  const hasAnsweredQuestionRule = forcedColorBlocks.some((block) => {
+    const answeredRule = block.match(
+      /\.ui-question-jump\[data-answered=['"]?true['"]?\]\s*\{([^}]*)\}/iu
+    )?.[1]
+
+    return (
+      answeredRule !== undefined &&
+      /border-style:\s*double/iu.test(answeredRule) &&
+      /forced-color-adjust:\s*auto/iu.test(answeredRule)
+    )
+  })
+
+  if (!hasAnsweredQuestionRule) {
+    throw new Error(
+      'Built CSS is missing the forced-colors answered-question indicator'
+    )
+  }
 }

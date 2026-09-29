@@ -99,7 +99,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
   ])
 
   useEffect(() => {
-    if (!queueQuery.data) return
+    if (!queueQuery.data || queueQuery.isPlaceholderData) return
     const totalPages = Math.max(
       1,
       Math.ceil(queueQuery.data.total / queueQuery.data.pageSize)
@@ -111,7 +111,12 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
     })
     pendingResultsFocusSearchRef.current = next.toString()
     setSearchParams(next, { replace: true })
-  }, [parsedSearch.query, queueQuery.data, setSearchParams])
+  }, [
+    parsedSearch.query,
+    queueQuery.data,
+    queueQuery.isPlaceholderData,
+    setSearchParams
+  ])
 
   useEffect(() => {
     if (previousBatchRequestContextRef.current === batchRequestContext) return
@@ -141,16 +146,30 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
     ? Math.max(1, Math.ceil(queueQuery.data.total / queueQuery.data.pageSize))
     : 1
   const isOutOfRangePage = Boolean(
-    queueQuery.data && parsedSearch.query.page > totalPages
+    queueQuery.data &&
+      !queueQuery.isPlaceholderData &&
+      parsedSearch.query.page > totalPages
   )
-  const isPageCorrectionPending = isOutOfRangePage
+  const isPageCorrectionPending =
+    isOutOfRangePage ||
+    Boolean(
+      queueQuery.isPlaceholderData &&
+        queueQuery.data &&
+        queueQuery.data.page !== parsedSearch.query.page &&
+        queueQuery.data.page > totalPages
+    )
   const canOfferBatch =
     !isPageCorrectionPending &&
+    !queueQuery.isPlaceholderData &&
     (queueQuery.data?.total ?? 0) > 0 &&
     parsedSearch.query.view === 'DUE' &&
     parsedSearch.query.level !== undefined &&
     parsedSearch.query.subject !== undefined
-  const canStartBatch = canOfferBatch && !queueQuery.isError
+  const canStartBatch =
+    canOfferBatch &&
+    !queueQuery.isError &&
+    !queueQuery.isFetching &&
+    queueQuery.fetchStatus !== 'paused'
 
   const handleBatchStart = (): void => {
     const { level, questionType, subject, tag } = parsedSearch.query
@@ -379,8 +398,14 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
       {queueQuery.isPending && !isQueuePaused && !isPageCorrectionPending ? (
         <LoadingState message={t('center.states.loading')} />
       ) : null}
+      {queueQuery.isFetching && queueQuery.data ? (
+        <p className="sr-only" role="status" aria-atomic="true">
+          {t('center.states.refreshing')}
+        </p>
+      ) : null}
       {queueQuery.isError && !queueQuery.data ? (
         <ErrorState
+          autoFocus
           title={t('center.states.errorTitle')}
           description={t('center.states.errorDescription')}
           action={
@@ -422,7 +447,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
       {queueQuery.data && !isPageCorrectionPending ? (
         <>
           <div className="mt-7 flex flex-wrap items-end justify-between gap-3">
-            <div aria-live="polite" aria-atomic="true">
+            <div>
               <h2
                 ref={resultHeadingRef}
                 className="rounded-sm text-xl font-black"
@@ -480,7 +505,10 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
               }
             />
           ) : (
-            <ul className="mt-4 grid gap-4 lg:grid-cols-2">
+            <ul
+              className="mt-4 grid gap-4 lg:grid-cols-2"
+              aria-busy={queueQuery.isFetching}
+            >
               {queueQuery.data.items.map((item) => (
                 <li
                   key={item.questionId}
@@ -554,9 +582,16 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
 
           <Pagination
             className="mt-8"
-            currentPage={parsedSearch.query.page}
+            currentPage={queueQuery.data.page}
             totalPages={totalPages}
             disabled={queueQuery.isFetching}
+            getPageHref={(nextPage) => {
+              const next = createReviewQueueSearch({
+                ...parsedSearch.query,
+                page: nextPage
+              })
+              return `?${next.toString()}`
+            }}
             label={t('center.results.pagination')}
             onPageChange={(page) => setQueryValue('page', page)}
           />

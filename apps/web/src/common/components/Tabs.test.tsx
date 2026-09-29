@@ -75,5 +75,10 @@ describe('Tabs', () => {
     expect(selectedTab).toHaveClass('ui-tab')
     expect(selectedTab).toHaveAttribute('aria-selected', 'true')
     expect(inactiveTab).toHaveAttribute('aria-selected', 'false')
+    expect(selectedTab).toHaveAttribute(
+      'aria-controls',
+      screen.getByRole('tabpanel').id
+    )
+    expect(inactiveTab).not.toHaveAttribute('aria-controls')
   })
 })

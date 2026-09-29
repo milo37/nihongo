@@ -757,7 +757,7 @@ describe('DashboardPage', () => {
     const notice = await screen.findByText(
       /요청한 모드는 다른 모드로 바꾸지 않았으며/u
     )
-    await waitFor(() => expect(notice).toHaveFocus())
+    expect(notice).not.toHaveFocus()
     await waitFor(() => expect(insightsRequestCount).toBe(1))
     expect(startButton).toBeDisabled()
     await user.click(startButton)
@@ -766,7 +766,7 @@ describe('DashboardPage', () => {
     await act(async () => refreshGate.resolve())
     const refreshedNotice =
       await screen.findByText(/최신 추천을 새로 확인했습니다/u)
-    await waitFor(() => expect(refreshedNotice).toHaveFocus())
+    expect(refreshedNotice).not.toHaveFocus()
     await waitFor(() =>
       expect(
         client.getQueryState(dashboardQueries.insights().queryKey)
@@ -880,7 +880,7 @@ describe('DashboardPage', () => {
     await user.click(startButton)
 
     const failureNotice = await screen.findByText(/잠시 비활성화했습니다/u)
-    await waitFor(() => expect(failureNotice).toHaveFocus())
+    expect(failureNotice).not.toHaveFocus()
     expect(startButton).toBeDisabled()
     await user.click(startButton)
     expect(postCount).toBe(1)
@@ -1032,7 +1032,7 @@ describe('DashboardPage', () => {
 
       const notice =
         await screen.findByText(/다른 학습으로 자동 변경하지 않았으며/u)
-      await waitFor(() => expect(notice).toHaveFocus())
+      expect(notice).not.toHaveFocus()
       await waitFor(() => expect(insightsRequestCount).toBe(1))
       expect(targetedRequestCount).toBe(1)
       expect(router.state.location.pathname).toBe('/dashboard')

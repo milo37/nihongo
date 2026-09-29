@@ -20,5 +20,5 @@ const css = await readFile(resolve(assetsRoot, cssFiles[0]), 'utf8')
 validateBuiltCssContract(css)
 
 stdout.write(
-  `${JSON.stringify({ cssAsset: cssFiles[0], forcedColorsTabIndicator: true })}\n`
+  `${JSON.stringify({ cssAsset: cssFiles[0], forcedColorsAnsweredQuestionIndicator: true, forcedColorsTabIndicator: true })}\n`
 )

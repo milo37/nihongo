@@ -112,6 +112,10 @@ describe('AdminQuestionReportDetailPage conflict recovery', () => {
         {
           path: '/admin/reports/:reportId',
           element: <AdminQuestionReportDetailPage />
+        },
+        {
+          path: '/away',
+          element: <p>이동 완료</p>
         }
       ],
       { initialEntries: [`/admin/reports/${initialReport.id}`] }
@@ -146,5 +150,73 @@ describe('AdminQuestionReportDetailPage conflict recovery', () => {
       ).not.toBeInTheDocument()
     )
     expect(reason).toHaveValue('입력한 처리 사유는 유지되어야 합니다.')
+  })
+
+  it('warns before abandoning a dirty final-resolution draft', async () => {
+    hookMocks.reportDetail.mockReturnValue({
+      data: initialReport,
+      error: null,
+      fetchStatus: 'idle',
+      isError: false,
+      isFetching: false,
+      isPending: false,
+      refetch: vi.fn()
+    })
+    hookMocks.triageReport.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutate: vi.fn(),
+      reset: vi.fn()
+    })
+    hookMocks.resolveReport.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutate: vi.fn(),
+      reset: vi.fn()
+    })
+    const client = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false }
+      }
+    })
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/admin/reports/:reportId',
+          element: <AdminQuestionReportDetailPage />
+        },
+        { path: '/away', element: <p>이동 완료</p> }
+      ],
+      { initialEntries: [`/admin/reports/${initialReport.id}`] }
+    )
+    const interaction = userEvent.setup()
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+
+    const reason = await screen.findByLabelText('처리 사유')
+    await interaction.type(reason, '저장하지 않은 최종 처리 사유')
+    const beforeUnload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(beforeUnload)
+    expect(beforeUnload.defaultPrevented).toBe(true)
+
+    await router.navigate('/away')
+    expect(
+      await screen.findByRole('heading', {
+        name: '저장하지 않은 변경사항이 있습니다'
+      })
+    ).toBeVisible()
+    await interaction.click(screen.getByRole('button', { name: '계속 편집' }))
+    expect(reason).toHaveValue('저장하지 않은 최종 처리 사유')
+    expect(router.state.location.pathname).toContain('/admin/reports/')
+
+    await router.navigate('/away')
+    await interaction.click(
+      await screen.findByRole('button', { name: '변경사항 버리고 이동' })
+    )
+    expect(await screen.findByText('이동 완료')).toBeVisible()
   })
 })

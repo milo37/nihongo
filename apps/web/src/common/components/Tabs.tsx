@@ -137,7 +137,7 @@ export const Tabs = ({
               key={tab.id}
               type="button"
               role="tab"
-              aria-controls={panelId}
+              aria-controls={isActive ? panelId : undefined}
               aria-selected={isActive}
               disabled={tab.disabled}
               tabIndex={tab.id === rovingTabId ? 0 : -1}

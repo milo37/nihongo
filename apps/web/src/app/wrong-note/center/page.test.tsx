@@ -32,12 +32,15 @@ const createClient = (): QueryClient =>
   })
 
 const renderCenter = (
-  initialEntry: string
+  initialEntry: string | string[]
 ): {
   client: QueryClient
   router: ReturnType<typeof createMemoryRouter>
   unmount: () => void
 } => {
+  const initialEntries = Array.isArray(initialEntry)
+    ? initialEntry
+    : [initialEntry]
   const client = createClient()
   const router = createMemoryRouter(
     [
@@ -47,7 +50,7 @@ const renderCenter = (
         element: <h1>복습 세션 화면</h1>
       }
     ],
-    { initialEntries: [initialEntry] }
+    { initialEntries, initialIndex: initialEntries.length - 1 }
   )
   const rendered = render(
     <QueryClientProvider client={client}>
@@ -126,6 +129,110 @@ describe('WrongNoteReviewCenterPage', () => {
       'href',
       '/wrong-notes/history'
     )
+    client.clear()
+  })
+
+  it('preserves a valid page restored by browser back while its larger result is pending', async () => {
+    const pageTwoGate = createDeferred()
+    let pageTwoStarted = false
+    mockServer.use(
+      http.get('*/api/v1/review-queue', async ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page')
+        if (page === '2') {
+          pageTwoStarted = true
+          await pageTwoGate.promise
+          return HttpResponse.json({
+            ...reviewCenterConformanceFixture.queue,
+            page: 2,
+            total: 21
+          })
+        }
+        return HttpResponse.json({
+          ...reviewCenterConformanceFixture.queue,
+          page: 1,
+          total: 1
+        })
+      })
+    )
+    const { client, router, unmount } = renderCenter([
+      '/wrong-notes?page=2',
+      '/wrong-notes?view=SOLVED'
+    ])
+    await screen.findByRole('heading', { name: '조건에 맞는 오답 1개' })
+
+    await act(async () => router.navigate(-1))
+    await waitFor(() => expect(pageTwoStarted).toBe(true))
+    expect(router.state.location.search).toBe('?page=2')
+    expect(
+      screen.queryByText('유효한 복습 대기열 페이지로 이동하고 있습니다…')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '조건에 맞는 오답 1개' })
+    ).toBeVisible()
+    expect(
+      screen.getByText('복습 대기열 페이지를 갱신하고 있습니다…')
+    ).toHaveAttribute('role', 'status')
+    expect(document.querySelector('ul[aria-busy="true"]')).not.toBeNull()
+
+    await act(async () => pageTwoGate.release())
+    expect(
+      await screen.findByRole('heading', { name: '조건에 맞는 오답 21개' })
+    ).toBeVisible()
+    expect(router.state.location.search).toBe('?page=2')
+    expect(
+      screen.queryByText('복습 대기열 페이지를 갱신하고 있습니다…')
+    ).not.toBeInTheDocument()
+    expect(document.querySelector('ul[aria-busy="true"]')).toBeNull()
+    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2')
+    unmount()
+    client.clear()
+  })
+
+  it('does not offer a batch from placeholder results for a pending filter', async () => {
+    const user = userEvent.setup()
+    const filteredGate = createDeferred()
+    let filteredRequestStarted = false
+    mockServer.use(
+      http.get('*/api/v1/review-queue', async ({ request }) => {
+        const questionType = new URL(request.url).searchParams.get(
+          'questionType'
+        )
+        if (questionType === 'KANJI_READING') {
+          filteredRequestStarted = true
+          await filteredGate.promise
+        }
+        return HttpResponse.json(reviewCenterConformanceFixture.queue)
+      })
+    )
+    const { client, router, unmount } = renderCenter(
+      '/wrong-notes?level=N5&subject=VOCABULARY'
+    )
+    await screen.findByRole('button', {
+      name: '조건에 맞는 오늘의 복습 시작'
+    })
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: '문제 유형' }),
+      'KANJI_READING'
+    )
+    await waitFor(() => expect(filteredRequestStarted).toBe(true))
+    expect(router.state.location.search).toContain('questionType=KANJI_READING')
+    expect(
+      screen.queryByRole('button', {
+        name: '조건에 맞는 오늘의 복습 시작'
+      })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText('복습 대기열 페이지를 갱신하고 있습니다…')
+    ).toHaveAttribute('role', 'status')
+
+    await act(async () => filteredGate.release())
+    expect(
+      await screen.findByRole('button', {
+        name: '조건에 맞는 오늘의 복습 시작'
+      })
+    ).toBeEnabled()
+    unmount()
     client.clear()
   })
 
