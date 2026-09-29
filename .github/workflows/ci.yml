@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches:
+      - codex/phase-10-test-security-performance
       - codex/phase-9-design-i18n-accessibility
       - codex/phase-8-dashboard-recommendations
       - codex/phase-7-admin-cms

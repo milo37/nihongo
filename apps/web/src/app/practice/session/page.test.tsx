@@ -328,6 +328,68 @@ describe('PracticeSessionPage', () => {
     )
   })
 
+  it('V2 이전·다음 단축키가 첫·마지막 경계를 지키고 현재 문제 제목에 focus한다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    queryClient.setQueryData(authQueries.currentUser().queryKey, currentUser)
+    const created = await createStudySessionV2({
+      level: 'N5',
+      subject: 'READING',
+      mode: 'RANDOM',
+      count: 3
+    })
+    expect(created.data.session.actualCount).toBe(3)
+    useAppStore
+      .getState()
+      .beginPractice(created.data.session.id, created.data.session.startedAt)
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/practice/session/:sessionId',
+          element: (
+            <ProtectedRouteProvider>
+              <PracticeSessionPage />
+            </ProtectedRouteProvider>
+          )
+        }
+      ],
+      { initialEntries: [`/practice/session/${created.data.session.id}`] }
+    )
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    )
+
+    const expectFocusedQuestion = async (ordinal: number) => {
+      const heading = await screen.findByRole('heading', {
+        level: 1,
+        name: new RegExp(`^${ordinal}번 문제`, 'u')
+      })
+      await waitFor(() => expect(heading).toHaveFocus())
+      return heading
+    }
+
+    const firstHeading = await expectFocusedQuestion(1)
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    expect(firstHeading).toHaveFocus()
+    expect(firstHeading).toHaveAccessibleName(/^1번 문제/u)
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    await expectFocusedQuestion(2)
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    await expectFocusedQuestion(1)
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    await expectFocusedQuestion(2)
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    const lastHeading = await expectFocusedQuestion(3)
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(lastHeading).toHaveFocus()
+    expect(lastHeading).toHaveAccessibleName(/^3번 문제/u)
+  })
+
   it('독해 지문 scroll region을 keyboard로 진입하고 다음 control로 빠져나간다', async () => {
     const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')
