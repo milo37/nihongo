@@ -1158,7 +1158,7 @@ export const PracticeSessionPage = (): ReactElement => {
         {currentQuestion.passage ? (
           <article
             aria-label={t('session.question.passageLabel')}
-            className="border-b border-line bg-slate-50 p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-8 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
+            className="scroll-mt-24 border-b border-line bg-slate-50 p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-8 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
             tabIndex={0}
           >
             <p className="text-xs font-black tracking-[0.14em] text-brand">

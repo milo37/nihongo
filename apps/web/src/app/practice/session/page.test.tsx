@@ -368,6 +368,7 @@ describe('PracticeSessionPage', () => {
     const passage = await screen.findByRole('article', {
       name: '독해 지문'
     })
+    expect(passage).toHaveClass('scroll-mt-24')
     await user.tab({ shift: true })
     expect(passage).toHaveFocus()
 
