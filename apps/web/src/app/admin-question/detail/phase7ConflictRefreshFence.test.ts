@@ -51,7 +51,7 @@ describe('Phase 7 conflict refresh fence', () => {
           .fn()
           .mockResolvedValue({ isSuccess: false, data: preview })
       })
-    ).rejects.toThrow('문제 미리보기')
+    ).rejects.toMatchObject({ code: 'REFETCH_FAILED', resource: 'PREVIEW' })
   })
 
   it('rejects a torn snapshot when a concurrent write changes rowVersion', async () => {
@@ -71,6 +71,6 @@ describe('Phase 7 conflict refresh fence', () => {
           .fn()
           .mockResolvedValue({ isSuccess: true, data: preview })
       })
-    ).rejects.toThrow('버전이 다시 변경됐습니다')
+    ).rejects.toMatchObject({ code: 'SNAPSHOT_CHANGED' })
   })
 })

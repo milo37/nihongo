@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { FormEvent, ReactElement } from 'react'
 import type { FreshAssuranceController } from '@app/admin-question/hooks/useFreshAssurance'
+import { freshAssuranceReasonKey } from '@app/admin/presentation/adminPresentation'
 import { Button } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'
 import { Input } from '@common/components/Input'
@@ -12,11 +14,20 @@ interface FreshAssuranceDialogProps {
 export const FreshAssuranceDialog = ({
   controller
 }: FreshAssuranceDialogProps): ReactElement => {
+  const { t } = useTranslation('admin')
   const [password, setPassword] = useState('')
+  const [hasPasswordError, setHasPasswordError] = useState(false)
   const passwordRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
+    if (controller.isPending || controller.recoveryRequired) return
+    if (password.length < 12) {
+      setHasPasswordError(true)
+      passwordRef.current?.focus()
+      return
+    }
+    setHasPasswordError(false)
     void controller
       .reauthenticate(password)
       .catch(() => {
@@ -27,7 +38,9 @@ export const FreshAssuranceDialog = ({
   }
 
   const close = (): void => {
+    if (controller.isPending) return
     setPassword('')
+    setHasPasswordError(false)
     controller.close()
   }
 
@@ -36,10 +49,12 @@ export const FreshAssuranceDialog = ({
       initialFocusRef={passwordRef}
       open={controller.isOpen}
       preventClose={controller.isPending}
-      title="관리자 본인 확인"
+      title={t('freshAssurance.title')}
       description={
         controller.prompt
-          ? `${controller.prompt.reason} 비밀번호 확인 후 작업 버튼을 다시 눌러야 합니다.`
+          ? t('freshAssurance.description', {
+              reason: t(freshAssuranceReasonKey[controller.prompt.reasonCode])
+            })
           : undefined
       }
       onOpenChange={(open) => {
@@ -50,19 +65,24 @@ export const FreshAssuranceDialog = ({
         <Input
           ref={passwordRef}
           autoComplete="current-password"
-          disabled={controller.recoveryRequired}
+          disabled={controller.isPending || controller.recoveryRequired}
           error={
             controller.recoveryRequired
               ? undefined
-              : (controller.errorMessage ?? undefined)
+              : hasPasswordError
+                ? t('errors.fieldInvalid')
+                : (controller.errorMessage ?? undefined)
           }
-          label="현재 비밀번호"
+          label={t('freshAssurance.passwordLabel')}
           minLength={12}
           name="admin-password"
           required
           type="password"
           value={password}
-          onChange={(event) => setPassword(event.currentTarget.value)}
+          onChange={(event) => {
+            setPassword(event.currentTarget.value)
+            setHasPasswordError(false)
+          }}
         />
         {controller.recoveryRequired && controller.errorMessage ? (
           <p className="text-sm font-semibold text-red-700" role="alert">
@@ -70,7 +90,7 @@ export const FreshAssuranceDialog = ({
           </p>
         ) : null}
         <p className="text-sm leading-6 text-muted" aria-live="polite">
-          비밀번호는 저장하거나 원래 명령에 재사용하지 않습니다.
+          {t('freshAssurance.privacy')}
         </p>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
@@ -78,25 +98,25 @@ export const FreshAssuranceDialog = ({
             variant="outline"
             onClick={close}
           >
-            취소
+            {t('freshAssurance.cancel')}
           </Button>
           {controller.recoveryRequired ? (
             <Button
               isLoading={controller.isRecovering}
-              loadingLabel="로그인 상태 확인 중…"
+              loadingLabel={t('freshAssurance.checkingSession')}
               onClick={() =>
                 void controller.retryRecovery().catch(() => undefined)
               }
             >
-              로그인 상태 다시 확인
+              {t('freshAssurance.retrySession')}
             </Button>
           ) : (
             <Button
               isLoading={controller.isPending}
-              loadingLabel="확인 중…"
+              loadingLabel={t('freshAssurance.checking')}
               type="submit"
             >
-              본인 확인
+              {t('freshAssurance.confirm')}
             </Button>
           )}
         </div>

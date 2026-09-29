@@ -10,6 +10,18 @@ import {
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
 import {
+  adminCommandKey,
+  adminDiffFieldKey,
+  adminDifficultyKey,
+  adminLifecycleStatusKey,
+  adminQuestionTypeKey,
+  adminReviewActionKey,
+  adminSubjectKey,
+  adminVersionStatusKey,
+  getFreshAssuranceReasonCode
+} from '@app/admin/presentation/adminPresentation'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import {
   isPhase7UiApiError,
   usePhase7AdminQuestionCommand,
   useUpdatePhase7AdminQuestionVersion,
@@ -42,33 +54,6 @@ const sensitiveCommands = new Set<Phase7AdminQuestionCommand>([
   'WITHDRAW'
 ])
 
-const commandLabel: Record<Phase7AdminQuestionCommand, string> = {
-  APPROVE: '승인',
-  ARCHIVE: '문제 보관',
-  CHANGE_REQUEST: '수정 요청',
-  CREATE_VERSION: '새 버전 만들기',
-  PUBLISH: '공개',
-  REQUEST_REVIEW: '검수 요청',
-  RETIRE: '공개 중단',
-  WITHDRAW: '승인 철회'
-}
-
-const diffFieldLabel: Record<
-  DiffQuestionVersionResponse['changes'][number]['field'],
-  string
-> = {
-  LEVEL: '급수',
-  SUBJECT: '과목',
-  QUESTION_TYPE: '문제 유형',
-  DIFFICULTY: '난이도',
-  PASSAGE: '지문',
-  QUESTION_TEXT: '문제 문장',
-  EXPLANATION_KO: '한국어 해설',
-  EXPLANATION_JA: '일본어 해설',
-  OPTIONS: '선택지와 정답',
-  TAGS: '태그'
-}
-
 type DiffChange = DiffQuestionVersionResponse['changes'][number]
 
 const DiffValue = ({
@@ -78,14 +63,15 @@ const DiffValue = ({
   readonly change: DiffChange
   readonly side: 'after' | 'before'
 }): ReactElement => {
+  const { t } = useAdminPresentation()
   if (change.kind === 'OPTIONS') {
     const options = change[side]
     return (
       <ol className="grid gap-2">
         {options.map((option) => (
-          <li className="break-words" key={option.ordinal}>
+          <li className="break-words" key={option.ordinal} lang="ja">
             {option.ordinal}. {option.text}
-            {option.isCorrect ? ' (정답)' : ''}
+            {option.isCorrect ? t('questionDetail.correctSuffix') : ''}
           </li>
         ))}
       </ol>
@@ -107,9 +93,30 @@ const DiffValue = ({
     )
   }
   const value = change[side]
+  const presentedValue = (() => {
+    if (typeof value !== 'string') return t('common.none')
+    if (change.field === 'SUBJECT' && value in adminSubjectKey) {
+      return t(adminSubjectKey[value as keyof typeof adminSubjectKey])
+    }
+    if (change.field === 'QUESTION_TYPE' && value in adminQuestionTypeKey) {
+      return t(adminQuestionTypeKey[value as keyof typeof adminQuestionTypeKey])
+    }
+    if (change.field === 'DIFFICULTY' && value in adminDifficultyKey) {
+      return t(adminDifficultyKey[value as keyof typeof adminDifficultyKey])
+    }
+    return value
+  })()
+  const language =
+    change.field === 'EXPLANATION_KO'
+      ? 'ko'
+      : change.field === 'EXPLANATION_JA' ||
+          change.field === 'PASSAGE' ||
+          change.field === 'QUESTION_TEXT'
+        ? 'ja'
+        : undefined
   return (
-    <p className="whitespace-pre-wrap break-words">
-      {typeof value === 'string' ? value : '없음'}
+    <p className="whitespace-pre-wrap break-words" lang={language}>
+      {presentedValue}
     </p>
   )
 }
@@ -118,44 +125,52 @@ export const Phase7QuestionVersionDiff = ({
   value
 }: {
   readonly value: DiffQuestionVersionResponse
-}): ReactElement => (
-  <ul className="mt-4 grid gap-4" aria-label="버전별 변경 내용">
-    {value.changes.map((change) => {
-      const label = diffFieldLabel[change.field]
-      return (
-        <li
-          className="rounded-lg border border-slate-200 bg-white p-4"
-          key={change.field}
-        >
-          <h4 className="font-bold">{label}</h4>
-          <div className="mt-3 grid gap-4 md:grid-cols-2">
-            <section aria-label={`${label} 변경 전`}>
-              <h5 className="text-sm font-semibold text-muted">변경 전</h5>
-              <div className="mt-1">
-                <DiffValue change={change} side="before" />
-              </div>
-            </section>
-            <section aria-label={`${label} 변경 후`}>
-              <h5 className="text-sm font-semibold text-muted">변경 후</h5>
-              <div className="mt-1">
-                <DiffValue change={change} side="after" />
-              </div>
-            </section>
-          </div>
-        </li>
-      )
-    })}
-  </ul>
-)
-
-const errorText = (error: unknown): string => {
-  if (!isPhase7UiApiError(error)) {
-    return '관리자 작업을 완료하지 못했습니다.'
-  }
-  const message = error.serverMessage ?? error.message
-  return error.retryAfterMs
-    ? `${message} ${Math.ceil(error.retryAfterMs / 1000)}초 뒤 다시 시도해 주세요.`
-    : message
+}): ReactElement => {
+  const { t } = useAdminPresentation()
+  return (
+    <ul
+      className="mt-4 grid gap-4"
+      aria-label={t('questionDetail.diffListLabel')}
+    >
+      {value.changes.map((change) => {
+        const label = t(adminDiffFieldKey[change.field])
+        return (
+          <li
+            className="rounded-lg border border-slate-200 bg-white p-4"
+            key={change.field}
+          >
+            <h4 className="font-bold">{label}</h4>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <section
+                aria-label={t('questionDetail.diffBeforeLabel', {
+                  field: label
+                })}
+              >
+                <h5 className="text-sm font-semibold text-muted">
+                  {t('questionDetail.diffBefore')}
+                </h5>
+                <div className="mt-1">
+                  <DiffValue change={change} side="before" />
+                </div>
+              </section>
+              <section
+                aria-label={t('questionDetail.diffAfterLabel', {
+                  field: label
+                })}
+              >
+                <h5 className="text-sm font-semibold text-muted">
+                  {t('questionDetail.diffAfter')}
+                </h5>
+                <div className="mt-1">
+                  <DiffValue change={change} side="after" />
+                </div>
+              </section>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 const commandForStatus = (
@@ -184,53 +199,77 @@ type Phase7ReadOnlyPreviewProps = {
 const Phase7ReadOnlyPreview = ({
   preview,
   versionStatus
-}: Phase7ReadOnlyPreviewProps): ReactElement => (
-  <article className="rounded-2xl border border-line bg-white p-6">
-    <h2 className="text-xl font-bold">학습자 공개 화면 미리보기</h2>
-    <p className="mt-2 text-sm text-muted">
-      {versionStatus} 버전의 public projection을 읽기 전용으로 표시합니다.
-    </p>
-    <h3 className="mt-5 text-lg font-bold">{preview.question.questionText}</h3>
-    {preview.question.passage ? (
-      <p className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-50 p-4">
-        {preview.question.passage}
+}: Phase7ReadOnlyPreviewProps): ReactElement => {
+  const { t } = useAdminPresentation()
+  const answer =
+    preview.question.options.find(
+      (option) => option.id === preview.adminAnswer.correctOptionId
+    )?.label ?? preview.adminAnswer.correctOptionId
+  return (
+    <article className="rounded-2xl border border-line bg-white p-6">
+      <h2 className="text-xl font-bold">{t('questionDetail.previewTitle')}</h2>
+      <p className="mt-2 text-sm text-muted">
+        {t('questionDetail.previewDescription', {
+          status: t(adminVersionStatusKey[versionStatus])
+        })}
       </p>
-    ) : null}
-    <ol className="mt-4 grid gap-2">
-      {preview.question.options.map((option) => (
-        <li className="rounded-lg border border-line p-3" key={option.id}>
-          {option.label}. {option.text}
-        </li>
-      ))}
-    </ol>
-    <section className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
-      <h3 className="font-bold">관리자 정답·해설</h3>
-      <p className="mt-2">
-        정답:{' '}
-        {preview.question.options.find(
-          (option) => option.id === preview.adminAnswer.correctOptionId
-        )?.label ?? preview.adminAnswer.correctOptionId}
-      </p>
-      <p className="mt-2 whitespace-pre-wrap">
-        {preview.adminAnswer.explanationKo}
-      </p>
-    </section>
-  </article>
-)
+      <h3 className="mt-5 break-words text-lg font-bold" lang="ja">
+        {preview.question.questionText}
+      </h3>
+      {preview.question.passage ? (
+        <p
+          className="mt-4 whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-4"
+          lang="ja"
+        >
+          {preview.question.passage}
+        </p>
+      ) : null}
+      <ol className="mt-4 grid gap-2" lang="ja">
+        {preview.question.options.map((option) => (
+          <li
+            className="break-words rounded-lg border border-line p-3"
+            key={option.id}
+          >
+            {option.label}. {option.text}
+          </li>
+        ))}
+      </ol>
+      <section className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
+        <h3 className="font-bold">{t('questionDetail.answerExplanation')}</h3>
+        <p className="mt-2">{t('questionDetail.answer', { answer })}</p>
+        <p className="mt-2 whitespace-pre-wrap break-words" lang="ko">
+          {preview.adminAnswer.explanationKo}
+        </p>
+      </section>
+    </article>
+  )
+}
 
 export const AdminQuestionDetailPage = (): ReactElement => {
+  const {
+    formatAdminDateTime,
+    formatAdminNumber,
+    presentError,
+    presentFieldError,
+    t
+  } = useAdminPresentation()
   const { questionId = '' } = useParams()
   const freshAssurance = useFreshAssurance()
   const [selectedVersionId, setSelectedVersionId] = useState('')
   const [commandNote, setCommandNote] = useState('')
   const [pendingCommand, setPendingCommand] =
     useState<Phase7AdminQuestionCommand | null>(null)
-  const [announcement, setAnnouncement] = useState('')
+  const [announcement, setAnnouncement] = useState<
+    | { readonly command: Phase7AdminQuestionCommand; readonly kind: 'COMMAND' }
+    | { readonly kind: 'CONFLICT_FAILED' | 'CONFLICT_LOADED' | 'SAVED' }
+    | null
+  >(null)
   const [rowVersionRevision, setRowVersionRevision] = useState(0)
-  const [conflictRefreshError, setConflictRefreshError] = useState<string>()
+  const [conflictRefreshFailed, setConflictRefreshFailed] = useState(false)
   const [isEditorDirty, setEditorDirty] = useState(false)
   const commandNoteRef = useRef<HTMLTextAreaElement>(null)
   const commandConfirmRef = useRef<HTMLButtonElement>(null)
+  const workflowHeadingRef = useRef<HTMLHeadingElement>(null)
   const detail = usePhase7AdminQuestionDetail(questionId)
   const versionHistory = usePhase7AdminQuestionVersions(
     questionId,
@@ -293,7 +332,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
     onSuccess: (_result, variables) => {
       setCommandNote('')
       setPendingCommand(null)
-      setAnnouncement(`${commandLabel[variables.command]} 작업이 완료됐습니다.`)
+      setAnnouncement({ command: variables.command, kind: 'COMMAND' })
     },
     onError: (error, variables) => {
       const hasCommandFieldError =
@@ -307,9 +346,11 @@ export const AdminQuestionDetailPage = (): ReactElement => {
         isPhase7UiApiError(error) &&
         error.code === 'FRESH_ASSURANCE_REQUIRED'
       ) {
+        const reasonCode = getFreshAssuranceReasonCode(variables.command)
+        if (!reasonCode) return
         freshAssurance.open({
           questionIds: [questionId],
-          reason: `${commandLabel[variables.command]} 작업은 민감한 관리자 작업입니다.`
+          reasonCode
         })
       }
     }
@@ -319,7 +360,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
     questionId,
     effectiveSelectedVersionId,
     () => {
-      setAnnouncement('초안 변경사항을 저장했습니다.')
+      setAnnouncement({ kind: 'SAVED' })
     }
   )
 
@@ -328,7 +369,9 @@ export const AdminQuestionDetailPage = (): ReactElement => {
   const commandNoteScalarLimit = requiresNote ? 100 : 1000
   const commandNoteLengthError =
     [...commandNote].length > commandNoteScalarLimit
-      ? `메모는 ${commandNoteScalarLimit}자 이하여야 합니다.`
+      ? t('questionDetail.noteLimit', {
+          formattedCount: formatAdminNumber(commandNoteScalarLimit)
+        })
       : undefined
 
   const commandFieldErrors =
@@ -336,8 +379,8 @@ export const AdminQuestionDetailPage = (): ReactElement => {
       ? commandMutation.error.fieldErrors
       : undefined
   const commandNoteError =
-    commandFieldErrors?.reason?.[0] ??
-    commandFieldErrors?.comment?.[0] ??
+    presentFieldError(commandFieldErrors?.reason) ??
+    presentFieldError(commandFieldErrors?.comment) ??
     commandNoteLengthError
 
   useEffect(() => {
@@ -360,7 +403,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
   }
 
   const refreshAfterConflict = async (): Promise<void> => {
-    setConflictRefreshError(undefined)
+    setConflictRefreshFailed(false)
     try {
       await refreshPhase7ConflictSnapshot({
         questionVersionId: effectiveSelectedVersionId,
@@ -371,17 +414,25 @@ export const AdminQuestionDetailPage = (): ReactElement => {
       })
       updateVersion.reset()
       setRowVersionRevision((revision) => revision + 1)
-      setAnnouncement(
-        '서버의 최신 rowVersion과 차이를 불러왔습니다. 로컬 편집 내용은 유지됩니다.'
-      )
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : '최신 버전을 확인하지 못했습니다.'
-      setConflictRefreshError(message)
-      setAnnouncement(message)
+      setAnnouncement({ kind: 'CONFLICT_LOADED' })
+    } catch {
+      setConflictRefreshFailed(true)
+      setAnnouncement({ kind: 'CONFLICT_FAILED' })
     }
+  }
+
+  const openCommand = (command: Phase7AdminQuestionCommand): void => {
+    if (commandMutation.isPending) return
+    commandMutation.reset()
+    setCommandNote('')
+    setPendingCommand(command)
+  }
+
+  const closeCommand = (): void => {
+    if (commandMutation.isPending) return
+    commandMutation.reset()
+    setCommandNote('')
+    setPendingCommand(null)
   }
 
   const visibleCommands = selectedVersion
@@ -402,18 +453,42 @@ export const AdminQuestionDetailPage = (): ReactElement => {
         }
       : null
 
+  const isDetailPaused = detail.fetchStatus === 'paused'
+  const isVersionHistoryPaused = versionHistory.fetchStatus === 'paused'
+  const isPreviewPaused = preview.fetchStatus === 'paused'
+  const isReviewPaused = reviews.fetchStatus === 'paused'
+  const writesLocked =
+    isDetailPaused ||
+    detail.isError ||
+    detail.isFetching ||
+    isVersionHistoryPaused ||
+    versionHistory.isError ||
+    isPreviewPaused ||
+    preview.isError
+
+  if (detail.isPending && !detail.data && isDetailPaused) {
+    return (
+      <ErrorState
+        autoFocus
+        description={t('common.pausedDescription')}
+        headingLevel={1}
+        onRetry={() => void detail.refetch()}
+        title={t('common.pausedTitle')}
+      />
+    )
+  }
   if (detail.isPending && !detail.data) {
-    return <LoadingState message="관리자 문제 상세를 불러오는 중입니다…" />
+    return <LoadingState message={t('questionDetail.loading')} />
   }
   if (!detail.data) {
     return (
       <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
         <ErrorState
           autoFocus
-          description={errorText(detail.error)}
+          description={presentError(detail.error)}
           headingLevel={1}
           onRetry={() => void detail.refetch()}
-          title="문제 상세를 불러오지 못했습니다"
+          title={t('questionDetail.loadErrorTitle')}
         />
       </section>
     )
@@ -421,54 +496,81 @@ export const AdminQuestionDetailPage = (): ReactElement => {
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <nav aria-label="현재 위치">
+      <nav aria-label={t('common.breadcrumbLabel')}>
         <Link
           className="font-semibold text-brand underline"
           to="/admin/questions"
         >
-          문제 관리
+          {t('common.questions')}
         </Link>
         <span className="mx-2" aria-hidden="true">
           /
         </span>
-        <span aria-current="page">문제 상세</span>
+        <span aria-current="page">{t('common.questionDetail')}</span>
       </nav>
       <header className="mt-6 border-b border-line pb-8">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge>{detail.data.question.lifecycleStatus}</Badge>
+          <Badge>
+            {t(adminLifecycleStatusKey[detail.data.question.lifecycleStatus])}
+          </Badge>
           <span className="font-mono text-xs text-muted">{questionId}</span>
         </div>
-        <h1 className="mt-3 text-3xl font-black">문제 버전 워크플로</h1>
-        <p className="mt-3 text-muted">
-          행 버전 충돌 시 로컬 편집 내용은 유지되며, 새로고침 후 차이를 확인할
-          수 있습니다.
-        </p>
+        <h1
+          ref={workflowHeadingRef}
+          className="mt-3 text-3xl font-black"
+          tabIndex={-1}
+        >
+          {t('questionDetail.title')}
+        </h1>
+        <p className="mt-3 text-muted">{t('questionDetail.description')}</p>
       </header>
 
-      {detail.isError ? (
+      {detail.isError || isDetailPaused ? (
         <div
           className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
           role="alert"
         >
           <p className="font-semibold">
-            최신 문제 정보를 확인하지 못했습니다. 화면의 편집 내용은 그대로
-            유지됩니다.
+            {isDetailPaused
+              ? t('common.cachedPausedDescription')
+              : t('questionDetail.cachedError')}
           </p>
-          <p className="mt-1 text-sm">{errorText(detail.error)}</p>
+          <p className="mt-1 text-sm">
+            {isDetailPaused
+              ? t('common.pausedDescription')
+              : presentError(detail.error)}
+          </p>
           <Button
             className="mt-3"
             size="sm"
             variant="outline"
             onClick={() => void detail.refetch()}
           >
-            문제 정보 다시 확인
+            {t('questionDetail.retryDetail')}
           </Button>
         </div>
       ) : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[18rem_1fr]">
         <aside className="rounded-2xl border border-line bg-white p-4">
-          <h2 className="text-lg font-bold">버전 기록</h2>
+          <h2 className="text-lg font-bold">{t('questionDetail.history')}</h2>
+          {versionHistory.isError || isVersionHistoryPaused ? (
+            <div className="mt-3 text-sm" role="alert">
+              <p>
+                {isVersionHistoryPaused
+                  ? t('common.cachedPausedDescription')
+                  : presentError(versionHistory.error)}
+              </p>
+              <Button
+                className="mt-2"
+                size="sm"
+                variant="outline"
+                onClick={() => void versionHistory.refetch()}
+              >
+                {t('common.retry')}
+              </Button>
+            </div>
+          ) : null}
           <ul className="mt-4 grid gap-2">
             {versions.map((version) => (
               <li key={version.questionVersionId}>
@@ -479,16 +581,23 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                       : 'border-line hover:bg-slate-50'
                   }`}
                   type="button"
+                  aria-current={
+                    version.questionVersionId === effectiveSelectedVersionId
+                      ? 'true'
+                      : undefined
+                  }
                   disabled={
-                    isEditorDirty &&
-                    version.questionVersionId !== effectiveSelectedVersionId
+                    commandMutation.isPending ||
+                    (isEditorDirty &&
+                      version.questionVersionId !== effectiveSelectedVersionId)
                   }
                   onClick={() =>
                     setSelectedVersionId(version.questionVersionId)
                   }
                 >
                   <span className="block font-bold">
-                    v{version.versionNumber} · {version.versionStatus}
+                    v{formatAdminNumber(version.versionNumber)} ·{' '}
+                    {t(adminVersionStatusKey[version.versionStatus])}
                   </span>
                   <span className="block truncate text-xs text-muted">
                     {version.questionTextPreview}
@@ -500,14 +609,20 @@ export const AdminQuestionDetailPage = (): ReactElement => {
           {versionHistory.hasNextPage ? (
             <Button
               className="mt-4"
-              disabled={versionHistory.isFetchingNextPage}
+              disabled={
+                versionHistory.isFetchingNextPage ||
+                versionHistory.isError ||
+                isVersionHistoryPaused
+              }
               fullWidth
               variant="outline"
               onClick={() => void versionHistory.fetchNextPage()}
             >
-              {versionHistory.isFetchingNextPage
-                ? '이전 버전 불러오는 중…'
-                : '이전 버전 더 보기'}
+              {t(
+                versionHistory.isFetchingNextPage
+                  ? 'questionDetail.historyLoading'
+                  : 'questionDetail.historyMore'
+              )}
             </Button>
           ) : null}
           {detail.data.question.openCandidateVersionId === null &&
@@ -515,24 +630,28 @@ export const AdminQuestionDetailPage = (): ReactElement => {
           preview.data ? (
             <Button
               className="mt-4"
-              disabled={isEditorDirty}
+              disabled={
+                isEditorDirty || writesLocked || commandMutation.isPending
+              }
               fullWidth
               variant="outline"
-              onClick={() => setPendingCommand('CREATE_VERSION')}
+              onClick={() => openCommand('CREATE_VERSION')}
             >
-              새 초안 버전 만들기
+              {t('questionDetail.newDraft')}
             </Button>
           ) : null}
           {detail.data.question.lifecycleStatus === 'ACTIVE' &&
           selectedVersion ? (
             <Button
               className="mt-2"
-              disabled={isEditorDirty}
+              disabled={
+                isEditorDirty || writesLocked || commandMutation.isPending
+              }
               fullWidth
               variant="danger"
-              onClick={() => setPendingCommand('ARCHIVE')}
+              onClick={() => openCommand('ARCHIVE')}
             >
-              문제 보관
+              {t('questionDetail.archive')}
             </Button>
           ) : null}
         </aside>
@@ -543,8 +662,8 @@ export const AdminQuestionDetailPage = (): ReactElement => {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold">
-                    v{selectedVersion.versionNumber} ·{' '}
-                    {selectedVersion.versionStatus}
+                    v{formatAdminNumber(selectedVersion.versionNumber)} ·{' '}
+                    {t(adminVersionStatusKey[selectedVersion.versionStatus])}
                   </h2>
                   <p className="mt-1 text-sm text-muted">
                     rowVersion {selectedVersion.rowVersion}
@@ -554,21 +673,24 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                   {visibleCommands.map((command) => (
                     <Button
                       key={command}
-                      disabled={isEditorDirty}
+                      disabled={
+                        isEditorDirty ||
+                        writesLocked ||
+                        commandMutation.isPending
+                      }
                       variant={
                         sensitiveCommands.has(command) ? 'dark' : 'outline'
                       }
-                      onClick={() => setPendingCommand(command)}
+                      onClick={() => openCommand(command)}
                     >
-                      {commandLabel[command]}
+                      {t(adminCommandKey[command])}
                     </Button>
                   ))}
                 </div>
               </div>
               {isEditorDirty ? (
                 <p className="mt-3 text-sm font-semibold text-amber-800">
-                  저장하지 않은 편집 내용이 있어 버전 전환과 워크플로 명령을
-                  잠갔습니다. 먼저 초안을 저장해 주세요.
+                  {t('questionDetail.dirtyLock')}
                 </p>
               ) : null}
               {baseVersion ? (
@@ -576,15 +698,17 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                   className="mt-4 rounded-xl bg-slate-50 p-4"
                   aria-live="polite"
                 >
-                  <strong>이전 버전과 차이</strong>
+                  <strong>{t('questionDetail.diffTitle')}</strong>
                   <p className="mt-1 text-sm text-muted">
                     {diff.isPending
-                      ? '차이를 계산하는 중입니다…'
+                      ? t('questionDetail.diffLoading')
                       : diff.isError
-                        ? '차이를 불러오지 못했습니다.'
+                        ? t('questionDetail.diffError')
                         : diff.data?.changedFields.length
-                          ? diff.data.changedFields.join(', ')
-                          : '변경된 필드가 없습니다.'}
+                          ? diff.data.changedFields
+                              .map((field) => t(adminDiffFieldKey[field]))
+                              .join(', ')
+                          : t('questionDetail.diffEmpty')}
                   </p>
                   {diff.data && diff.data.changes.length > 0 ? (
                     <Phase7QuestionVersionDiff value={diff.data} />
@@ -596,7 +720,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                       variant="outline"
                       onClick={() => void diff.refetch()}
                     >
-                      차이 다시 불러오기
+                      {t('questionDetail.retryDiff')}
                     </Button>
                   ) : null}
                 </div>
@@ -604,33 +728,44 @@ export const AdminQuestionDetailPage = (): ReactElement => {
             </div>
           ) : null}
 
-          {preview.isPending && !preview.data ? (
-            <LoadingState message="버전 미리보기를 불러오는 중입니다…" />
+          {preview.isPending && !preview.data && isPreviewPaused ? (
+            <ErrorState
+              description={t('common.pausedDescription')}
+              onRetry={() => void preview.refetch()}
+              title={t('common.pausedTitle')}
+            />
+          ) : preview.isPending && !preview.data ? (
+            <LoadingState message={t('questionDetail.previewLoading')} />
           ) : !preview.data || !selectedVersion ? (
             <ErrorState
-              description={errorText(preview.error)}
+              description={presentError(preview.error)}
               onRetry={() => void preview.refetch()}
-              title="미리보기를 불러오지 못했습니다"
+              title={t('questionDetail.previewErrorTitle')}
             />
           ) : (
             <>
-              {preview.isError ? (
+              {preview.isError || isPreviewPaused ? (
                 <div
                   className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
                   role="alert"
                 >
                   <p className="font-semibold">
-                    최신 미리보기를 확인하지 못했습니다. 화면의 편집 내용은
-                    그대로 유지됩니다.
+                    {isPreviewPaused
+                      ? t('common.cachedPausedDescription')
+                      : t('questionDetail.previewCachedError')}
                   </p>
-                  <p className="mt-1 text-sm">{errorText(preview.error)}</p>
+                  <p className="mt-1 text-sm">
+                    {isPreviewPaused
+                      ? t('common.pausedDescription')
+                      : presentError(preview.error)}
+                  </p>
                   <Button
                     className="mt-3"
                     size="sm"
                     variant="outline"
                     onClick={() => void preview.refetch()}
                   >
-                    미리보기 다시 확인
+                    {t('questionDetail.retryPreview')}
                   </Button>
                 </div>
               ) : null}
@@ -643,11 +778,14 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                     initialPreview={preview.data}
                     isSubmitting={updateVersion.isPending}
                     mode="update"
-                    requiresConflictResolution={Boolean(
-                      updateVersion.error &&
-                        isPhase7UiApiError(updateVersion.error) &&
-                        updateVersion.error.code === 'VERSION_CONFLICT'
-                    )}
+                    requiresConflictResolution={
+                      writesLocked ||
+                      Boolean(
+                        updateVersion.error &&
+                          isPhase7UiApiError(updateVersion.error) &&
+                          updateVersion.error.code === 'VERSION_CONFLICT'
+                      )
+                    }
                     rowVersionRevision={rowVersionRevision}
                     serverFieldErrors={
                       updateVersion.error &&
@@ -657,10 +795,10 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                     }
                     serverMessage={
                       updateVersion.error
-                        ? errorText(updateVersion.error)
+                        ? presentError(updateVersion.error)
                         : undefined
                     }
-                    submitLabel="초안 변경사항 저장"
+                    submitLabel={t('questionDetail.saveDraft')}
                     onDirtyChange={setEditorDirty}
                     onSubmit={handleEditorSubmit}
                   />
@@ -683,47 +821,59 @@ export const AdminQuestionDetailPage = (): ReactElement => {
           updateVersion.error.code === 'VERSION_CONFLICT' ? (
             <ErrorState
               description={
-                conflictRefreshError ??
-                '다른 탭이나 관리자가 먼저 수정했습니다. 로컬 편집 내용은 유지됩니다.'
+                conflictRefreshFailed
+                  ? t('questionDetail.conflictLoadFailed')
+                  : t('questionDetail.versionConflictDescription')
               }
-              title="최신 버전 확인이 필요합니다"
+              title={t('questionDetail.versionConflictTitle')}
               action={
                 <Button onClick={() => void refreshAfterConflict()}>
-                  최신 rowVersion과 차이 불러오기
+                  {t('questionDetail.retryConflict')}
                 </Button>
               }
             />
           ) : null}
 
           <section className="rounded-2xl border border-line bg-white p-5">
-            <h2 className="text-xl font-bold">검수 기록</h2>
-            {reviews.isError && reviews.data ? (
+            <h2 className="text-xl font-bold">{t('questionDetail.reviews')}</h2>
+            {(reviews.isError || isReviewPaused) && reviews.data ? (
               <div
                 className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
                 role="alert"
               >
                 <p className="font-semibold">
-                  최신 검수 기록을 확인하지 못했습니다. 현재 기록은 그대로
-                  유지됩니다.
+                  {isReviewPaused
+                    ? t('common.cachedPausedDescription')
+                    : t('questionDetail.reviewsCachedError')}
                 </p>
-                <p className="mt-1 text-sm">{errorText(reviews.error)}</p>
+                <p className="mt-1 text-sm">
+                  {isReviewPaused
+                    ? t('common.pausedDescription')
+                    : presentError(reviews.error)}
+                </p>
                 <Button
                   className="mt-3"
                   size="sm"
                   variant="outline"
                   onClick={() => void reviews.refetch()}
                 >
-                  검수 기록 다시 확인
+                  {t('questionDetail.retryReviews')}
                 </Button>
               </div>
             ) : null}
-            {reviews.isPending && !reviews.data ? (
-              <LoadingState message="검수 기록을 불러오는 중입니다…" />
+            {reviews.isPending && !reviews.data && isReviewPaused ? (
+              <ErrorState
+                description={t('common.pausedDescription')}
+                onRetry={() => void reviews.refetch()}
+                title={t('common.pausedTitle')}
+              />
+            ) : reviews.isPending && !reviews.data ? (
+              <LoadingState message={t('questionDetail.reviewsLoading')} />
             ) : !reviews.data ? (
               <ErrorState
-                description={errorText(reviews.error)}
+                description={presentError(reviews.error)}
                 onRetry={() => void reviews.refetch()}
-                title="검수 기록을 불러오지 못했습니다"
+                title={t('questionDetail.reviewsErrorTitle')}
               />
             ) : reviewItems.length ? (
               <ol className="mt-4 grid gap-3">
@@ -732,10 +882,13 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                     className="rounded-xl border border-line p-4"
                     key={review.id}
                   >
-                    <strong>{review.action}</strong>
-                    <span className="ml-2 text-sm text-muted">
-                      {review.occurredAt}
-                    </span>
+                    <strong>{t(adminReviewActionKey[review.action])}</strong>
+                    <time
+                      className="ml-2 text-sm text-muted"
+                      dateTime={review.occurredAt}
+                    >
+                      {formatAdminDateTime(review.occurredAt)}
+                    </time>
                     {review.comment ? (
                       <p className="mt-2 whitespace-pre-wrap">
                         {review.comment}
@@ -745,18 +898,26 @@ export const AdminQuestionDetailPage = (): ReactElement => {
                 ))}
               </ol>
             ) : (
-              <p className="mt-3 text-muted">아직 검수 기록이 없습니다.</p>
+              <p className="mt-3 text-muted">
+                {t('questionDetail.reviewsEmpty')}
+              </p>
             )}
             {reviews.hasNextPage ? (
               <Button
                 className="mt-4"
-                disabled={reviews.isFetchingNextPage}
+                disabled={
+                  reviews.isFetchingNextPage ||
+                  reviews.isError ||
+                  isReviewPaused
+                }
                 variant="outline"
                 onClick={() => void reviews.fetchNextPage()}
               >
-                {reviews.isFetchingNextPage
-                  ? '이전 검수 기록 불러오는 중…'
-                  : '이전 검수 기록 더 보기'}
+                {t(
+                  reviews.isFetchingNextPage
+                    ? 'questionDetail.reviewsMoreLoading'
+                    : 'questionDetail.reviewsMore'
+                )}
               </Button>
             ) : null}
           </section>
@@ -766,47 +927,89 @@ export const AdminQuestionDetailPage = (): ReactElement => {
       {commandMutation.error ? (
         <ErrorState
           className="mt-6"
-          description={errorText(commandMutation.error)}
-          title="명령을 완료하지 못했습니다"
+          description={presentError(commandMutation.error)}
+          title={t('questionDetail.commandFailedTitle')}
           action={
             isPhase7UiApiError(commandMutation.error) &&
             commandMutation.error.code === 'VERSION_CONFLICT' ? (
               <Button onClick={() => void refreshAfterConflict()}>
-                최신 버전과 차이 불러오기
+                {t('questionDetail.retryConflict')}
               </Button>
             ) : undefined
           }
         />
       ) : null}
       <p className="sr-only" aria-live="polite">
-        {announcement || freshAssurance.completionMessage}
+        {announcement?.kind === 'COMMAND'
+          ? t('questionDetail.commandComplete', {
+              command: t(adminCommandKey[announcement.command])
+            })
+          : announcement?.kind === 'SAVED'
+            ? t('questionDetail.saveComplete')
+            : announcement?.kind === 'CONFLICT_LOADED'
+              ? t('questionDetail.conflictLoaded')
+              : announcement?.kind === 'CONFLICT_FAILED'
+                ? t('questionDetail.conflictLoadFailed')
+                : ''}
       </p>
+      {freshAssurance.completionMessage ? (
+        <p
+          className="mt-6 rounded-xl border border-success-line bg-success-soft p-4 font-semibold text-success-strong"
+          role="status"
+        >
+          {freshAssurance.completionMessage}
+        </p>
+      ) : null}
 
       <Dialog
+        fallbackFocusRef={workflowHeadingRef}
+        initialFocusRef={
+          pendingCommand === 'CHANGE_REQUEST' ||
+          pendingCommand === 'WITHDRAW' ||
+          pendingCommand === 'REQUEST_REVIEW' ||
+          pendingCommand === 'APPROVE'
+            ? commandNoteRef
+            : commandConfirmRef
+        }
         open={pendingCommand !== null}
         preventClose={commandMutation.isPending}
         title={
-          pendingCommand ? `${commandLabel[pendingCommand]} 확인` : '작업 확인'
+          pendingCommand
+            ? t('questionDetail.commandDialogTitle', {
+                command: t(adminCommandKey[pendingCommand])
+              })
+            : t('questionDetail.commandDialogFallbackTitle')
         }
-        description="현재 rowVersion을 기준으로 실행하며 충돌 시 자동 재시도하지 않습니다."
+        description={t('questionDetail.commandDialogDescription')}
         onOpenChange={(open) => {
-          if (!open && !commandMutation.isPending) setPendingCommand(null)
+          if (!open) closeCommand()
         }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setPendingCommand(null)}>
-              취소
+            <Button
+              disabled={commandMutation.isPending}
+              variant="outline"
+              onClick={closeCommand}
+            >
+              {t('questionDetail.cancel')}
             </Button>
             <Button
               ref={commandConfirmRef}
-              disabled={!canConfirm || !commandInput}
+              disabled={
+                commandMutation.isPending ||
+                writesLocked ||
+                !canConfirm ||
+                !commandInput
+              }
               isLoading={commandMutation.isPending}
               variant={pendingCommand === 'ARCHIVE' ? 'danger' : 'primary'}
               onClick={() => {
-                if (commandInput) commandMutation.mutate(commandInput)
+                if (!commandMutation.isPending && commandInput) {
+                  commandMutation.mutate(commandInput)
+                }
               }}
             >
-              명시적으로 실행
+              {t('questionDetail.execute')}
             </Button>
           </>
         }
@@ -817,8 +1020,13 @@ export const AdminQuestionDetailPage = (): ReactElement => {
         pendingCommand === 'APPROVE' ? (
           <Textarea
             ref={commandNoteRef}
+            disabled={commandMutation.isPending}
             error={commandNoteError}
-            label={requiresNote ? '사유 (필수)' : '검수 메모 (선택)'}
+            label={
+              requiresNote
+                ? t('questionDetail.requiredReason')
+                : t('questionDetail.optionalReviewNote')
+            }
             maxLength={commandNoteScalarLimit * 2}
             name="command-note"
             required={requiresNote}
@@ -827,10 +1035,7 @@ export const AdminQuestionDetailPage = (): ReactElement => {
             onChange={(event) => setCommandNote(event.currentTarget.value)}
           />
         ) : (
-          <p className="leading-7">
-            이 작업은 학습자 노출과 기록에 영향을 줄 수 있습니다. 결과를 확인한
-            뒤 실행해 주세요.
-          </p>
+          <p className="leading-7">{t('questionDetail.commandWarning')}</p>
         )}
       </Dialog>
       <FreshAssuranceDialog controller={freshAssurance} />

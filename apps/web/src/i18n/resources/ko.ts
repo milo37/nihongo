@@ -1164,7 +1164,624 @@ export const koResources = {
     }
   },
   admin: {
-    name: '관리자'
+    name: '관리자',
+    common: {
+      breadcrumbLabel: '현재 위치',
+      questions: '문제 관리',
+      questionDetail: '문제 상세',
+      newQuestion: '새 문제',
+      import: '가져오기',
+      auditLog: '감사 기록',
+      reports: '신고 큐',
+      reportDetail: '신고 상세',
+      none: '없음',
+      unassigned: '미할당',
+      open: '열기',
+      question: '문제',
+      version: '버전',
+      status: '상태',
+      reason: '사유',
+      reporter: '신고자',
+      assignee: '담당자',
+      actor: '행위자',
+      createdAt: '생성일',
+      updatedAt: '수정일',
+      details: '상세',
+      rowVersion: 'rowVersion',
+      selectedFile: '선택: {{fileName}}',
+      retryAfter: '{{message}} {{seconds}}초 뒤 다시 시도해 주세요.',
+      pausedTitle: '오프라인에서 최신 상태를 확인할 수 없습니다',
+      pausedDescription:
+        '연결이 복구되면 다시 확인해 주세요. 최신 상태를 확인할 때까지 관리자 변경 작업을 사용할 수 없습니다.',
+      cachedPausedDescription:
+        '오프라인이라 최신 상태를 확인하지 못했습니다. 현재 자료는 유지되며 관리자 변경 작업은 잠겼습니다.',
+      retry: '최신 상태 다시 확인'
+    },
+    enums: {
+      subjects: {
+        VOCABULARY: '문자·어휘',
+        GRAMMAR: '문법',
+        READING: '독해'
+      },
+      questionTypes: {
+        KANJI_READING: '한자 읽기',
+        ORTHOGRAPHY: '표기',
+        CONTEXT_VOCABULARY: '문맥 어휘',
+        PARAPHRASE: '유의 표현',
+        WORD_USAGE: '용법',
+        GRAMMAR_SELECT: '문법 선택',
+        SENTENCE_ORDER: '문장 배열',
+        TEXT_GRAMMAR: '글의 문법',
+        SHORT_READING: '단문 독해',
+        MEDIUM_READING: '중문 독해',
+        LONG_READING: '장문 독해',
+        INFO_RETRIEVAL: '정보 검색'
+      },
+      difficulties: {
+        EASY: '쉬움',
+        NORMAL: '보통',
+        HARD: '어려움'
+      },
+      lifecycleStatuses: {
+        ACTIVE: '활성',
+        ARCHIVED: '보관됨'
+      },
+      versionStatuses: {
+        DRAFT: '초안',
+        IN_REVIEW: '검수 중',
+        CHANGES_REQUESTED: '수정 요청',
+        APPROVED: '승인',
+        PUBLISHED: '공개',
+        RETIRED: '공개 중단'
+      },
+      questionSort: {
+        UPDATED_DESC: '최근 수정순',
+        CREATED_DESC: '최근 생성순',
+        LEVEL_ASC: '급수순',
+        REPORT_COUNT_DESC: '신고 많은 순'
+      },
+      reportSort: {
+        UPDATED_DESC: '최근 수정순',
+        CREATED_DESC: '최근 생성순'
+      },
+      reportReasons: {
+        ANSWER_ERROR: '정답 오류',
+        EXPLANATION_ERROR: '해설 오류',
+        TYPO_OR_GRAMMAR: '오탈자·문법 오류',
+        AMBIGUOUS: '모호한 문제',
+        LEVEL_OR_TAXONOMY: '급수·분류 오류',
+        OTHER: '기타'
+      },
+      reportStatuses: {
+        OPEN: '접수됨',
+        TRIAGED: '분류됨',
+        RESOLVED: '해결됨',
+        DISMISSED: '기각됨'
+      },
+      reportOutcomes: {
+        RESOLVED: '해결',
+        DISMISSED: '기각'
+      },
+      commands: {
+        APPROVE: '승인',
+        ARCHIVE: '문제 보관',
+        CHANGE_REQUEST: '수정 요청',
+        CREATE_VERSION: '새 버전 만들기',
+        PUBLISH: '공개',
+        REQUEST_REVIEW: '검수 요청',
+        RETIRE: '공개 중단',
+        WITHDRAW: '승인 철회'
+      },
+      reviewActions: {
+        REQUESTED: '검수 요청',
+        CHANGES_REQUESTED: '수정 요청',
+        APPROVED: '승인',
+        APPROVAL_WITHDRAWN: '승인 철회',
+        PUBLISHED: '공개',
+        RETIRED: '공개 중단',
+        ARCHIVE_ABANDONED: '보관으로 검수 종료',
+        AUTHOR_ERASURE_ABANDONED: '작성자 삭제로 검수 종료'
+      },
+      auditCommands: {
+        QUESTION_CREATE: '문제 생성',
+        QUESTION_VERSION_CREATE: '문제 버전 생성',
+        QUESTION_VERSION_UPDATE: '문제 버전 수정',
+        REVIEW_REQUEST: '검수 요청',
+        CHANGE_REQUEST: '수정 요청',
+        APPROVAL: '승인',
+        APPROVAL_WITHDRAWAL: '승인 철회',
+        PUBLICATION: '공개',
+        RETIREMENT: '공개 중단',
+        QUESTION_ARCHIVE: '문제 보관',
+        REVIEW_REQUEST_BATCH: '일괄 검수 요청',
+        IMPORT_APPLY: '가져오기 적용',
+        EXPORT: '내보내기',
+        REPORT_TRIAGE: '신고 분류',
+        REPORT_RESOLUTION: '신고 최종 처리',
+        REAUTHENTICATION: '관리자 본인 확인',
+        AUTHOR_ERASURE_ABANDON: '작성자 삭제 후 검수 종료'
+      },
+      auditTargetTypes: {
+        QUESTION: '문제',
+        QUESTION_VERSION: '문제 버전',
+        QUESTION_REPORT: '문제 신고',
+        REVIEW_REQUEST_BATCH: '일괄 검수 요청',
+        IMPORT_REQUEST: '가져오기 요청',
+        EXPORT_REQUEST: '내보내기 요청',
+        ADMIN_SESSION: '관리자 세션',
+        USER_ERASURE: '사용자 삭제'
+      },
+      auditStates: {
+        ACTIVE: '활성',
+        ARCHIVED: '보관됨',
+        DRAFT: '초안',
+        IN_REVIEW: '검수 중',
+        CHANGES_REQUESTED: '수정 요청',
+        APPROVED: '승인',
+        PUBLISHED: '공개',
+        RETIRED: '공개 중단',
+        OPEN: '접수됨',
+        TRIAGED: '분류됨',
+        RESOLVED: '해결됨',
+        DISMISSED: '기각됨',
+        SESSION_STALE: '본인 확인 만료',
+        SESSION_FRESH: '본인 확인 완료'
+      },
+      auditChangedFields: {
+        LIFECYCLE_STATUS: '문제 수명주기',
+        VERSION_STATUS: '버전 상태',
+        CURRENT_PUBLISHED_VERSION_ID: '현재 공개 버전',
+        LEVEL: '급수',
+        SUBJECT: '과목',
+        QUESTION_TYPE: '문제 유형',
+        DIFFICULTY: '난이도',
+        PASSAGE: '지문',
+        QUESTION_TEXT: '문제 문장',
+        EXPLANATION_KO: '한국어 해설',
+        EXPLANATION_JA: '일본어 해설',
+        OPTIONS: '보기',
+        CORRECT_OPTION: '정답',
+        TAGS: '태그',
+        ASSIGNEE: '담당자',
+        RESOLUTION: '처리 결과',
+        REPORT_STATUS: '신고 상태',
+        SESSION_ROTATION: '세션 교체',
+        IMPORT_ITEMS: '가져오기 항목',
+        EXPORT_SELECTION: '내보내기 선택',
+        AUTHOR_TOMBSTONE: '삭제된 작성자 표시'
+      },
+      auditEnvironments: {
+        TEST: '테스트',
+        DEVELOPMENT: '개발'
+      },
+      actorLabels: {
+        ACTIVE_USER: '활성 학습자',
+        DELETED_USER: '삭제된 학습자',
+        ACTIVE_ADMIN: '활성 관리자',
+        DELETED_ADMIN: '삭제된 관리자',
+        ACCOUNT_ERASURE: '계정 삭제 시스템 작업'
+      },
+      diffFields: {
+        LEVEL: '급수',
+        SUBJECT: '과목',
+        QUESTION_TYPE: '문제 유형',
+        DIFFICULTY: '난이도',
+        PASSAGE: '지문',
+        QUESTION_TEXT: '문제 문장',
+        EXPLANATION_KO: '한국어 해설',
+        EXPLANATION_JA: '일본어 해설',
+        OPTIONS: '선택지와 정답',
+        TAGS: '태그'
+      },
+      importIssueCodes: {
+        DUPLICATE_CLIENT_ITEM_ID: '가져오기 항목 ID 중복',
+        DUPLICATE_CLIENT_OPTION_KEY: '보기 key 중복',
+        DUPLICATE_OPTION_TEXT: '보기 내용 중복',
+        DUPLICATE_TAG: '태그 중복',
+        CORRECT_OPTION_KEY_NOT_FOUND: '정답 보기 key 없음',
+        UNKNOWN_TAG: '등록되지 않은 태그',
+        INVALID_READING_PASSAGE: '독해 지문 규칙 오류',
+        INVALID_CONTENT: '문항 내용 오류',
+        DUPLICATE_QUESTION_CONTENT: '문항 내용 중복'
+      }
+    },
+    errors: {
+      generic: '관리자 요청을 완료하지 못했습니다.',
+      offline: '오프라인 상태입니다. 입력과 선택은 유지됩니다.',
+      authenticationRequired: '로그인이 필요합니다. 다시 로그인해 주세요.',
+      sessionExpired: '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',
+      adminRequired: '관리자 권한이 필요합니다.',
+      forbidden: '이 관리자 작업을 실행할 권한이 없습니다.',
+      freshAssuranceRequired:
+        '이 작업을 실행하려면 관리자 본인 확인이 필요합니다.',
+      invalidId: '요청 식별자 형식이 올바르지 않습니다.',
+      invalidRequest: '요청 형식이 올바르지 않습니다. 입력을 확인해 주세요.',
+      requestTooLarge: '요청 크기가 허용 범위를 초과했습니다.',
+      validation: '입력 내용을 확인해 주세요.',
+      notFound: '요청한 관리자 자료를 찾을 수 없습니다.',
+      versionConflict: '다른 작업에서 최신 상태가 변경되었습니다.',
+      questionVersionImmutable: '이 문제 버전은 더 이상 수정할 수 없습니다.',
+      invalidState: '현재 상태에서는 이 작업을 실행할 수 없습니다.',
+      separationOfDuties:
+        '작성과 검수 역할을 분리해야 하므로 이 작업을 실행할 수 없습니다.',
+      duplicateQuestionContent: '같은 내용의 문제가 이미 있습니다.',
+      untrustedOrigin: '허용되지 않은 요청 출처입니다.',
+      rateLimited: '요청이 너무 많습니다.',
+      server: '서버에서 관리자 요청을 처리하지 못했습니다.',
+      unavailable: '관리자 기능을 잠시 사용할 수 없습니다.',
+      reportDuplicate: '같은 문제 버전에 처리 중인 신고가 이미 있습니다.',
+      importIdentityConflict:
+        '가져오기 항목의 식별자가 기존 자료와 충돌합니다.',
+      importValidationFailed:
+        '가져오기 검증 결과가 현재 요청과 일치하지 않습니다.',
+      reauthenticationFailed: '현재 비밀번호가 올바르지 않습니다.',
+      fieldInvalid: '이 입력값을 확인해 주세요.'
+    },
+    freshAssurance: {
+      title: '관리자 본인 확인',
+      description:
+        '{{reason}} 비밀번호 확인 후 작업 버튼을 다시 눌러야 합니다.',
+      passwordLabel: '현재 비밀번호',
+      privacy: '비밀번호는 저장하거나 원래 명령에 재사용하지 않습니다.',
+      cancel: '취소',
+      checkingSession: '로그인 상태 확인 중…',
+      retrySession: '로그인 상태 다시 확인',
+      checking: '확인 중…',
+      confirm: '본인 확인',
+      complete:
+        '본인 확인이 완료되었습니다. 원래 작업은 자동 실행되지 않았습니다. 내용을 확인한 뒤 다시 실행해 주세요.',
+      recovered:
+        '현재 관리자 세션을 확인했습니다. 비밀번호를 다시 입력해 본인 확인을 재시도해 주세요.',
+      recoveryFailed:
+        '로그인 상태를 확인하지 못했습니다. 로컬 작업은 유지됩니다. 로그인 상태 확인을 다시 시도해 주세요.',
+      failed: '본인 확인을 완료하지 못했습니다.',
+      reasons: {
+        BATCH_REVIEW: '일괄 검수 요청은 민감한 관리자 작업입니다.',
+        EXPORT: '문제 내보내기에는 민감한 정답·해설이 포함됩니다.',
+        IMPORT_APPLY:
+          '가져오기 적용은 여러 문제를 만드는 민감한 관리자 작업입니다.',
+        QUESTION_APPROVE: '승인 작업은 민감한 관리자 작업입니다.',
+        QUESTION_ARCHIVE: '문제 보관 작업은 민감한 관리자 작업입니다.',
+        QUESTION_PUBLISH: '공개 작업은 민감한 관리자 작업입니다.',
+        QUESTION_RETIRE: '공개 중단 작업은 민감한 관리자 작업입니다.',
+        QUESTION_WITHDRAW: '승인 철회 작업은 민감한 관리자 작업입니다.',
+        REPORT_RESOLUTION: '신고 최종 처리는 민감한 관리자 작업입니다.'
+      }
+    },
+    questionList: {
+      eyebrow: 'ADMIN QUESTION CMS · TECHNICAL MODE',
+      title: '문제 관리',
+      description:
+        'TEST/DEVELOPMENT용 버전·검수 워크플로입니다. 실제 사람 검수나 운영 공개를 의미하지 않습니다.',
+      searchLabel: '문제 문장 앞부분 검색',
+      searchPlaceholder: '검색어 입력',
+      level: '급수',
+      allLevels: '전체 급수',
+      questionType: '문제 유형',
+      allQuestionTypes: '전체 문제 유형',
+      difficulty: '난이도',
+      allDifficulties: '전체 난이도',
+      lifecycle: '문제 수명주기',
+      allLifecycles: '전체 수명주기',
+      subject: '과목',
+      allSubjects: '전체 과목',
+      tagKey: '태그 key',
+      tagPlaceholder: '등록된 태그 검색 key',
+      authorActorId: '작성자 actor ID',
+      reviewerActorId: '검수자 actor ID',
+      createdFrom: '생성 시작 시각',
+      createdTo: '생성 종료 시각',
+      updatedFrom: '수정 시작 시각',
+      updatedTo: '수정 종료 시각',
+      versionStatus: '버전 상태',
+      allStatuses: '전체 상태',
+      sort: '정렬',
+      applySearch: '검색 적용',
+      resetFilters: '필터 초기화',
+      invalidQuery:
+        'URL 검색 조건이 허용 범위를 벗어났습니다. 조건을 수정하거나 초기화해 주세요.',
+      selectionSummary:
+        '{{selectedCount}}개 선택됨 · 내보내기는 모든 상태에서 최대 100개, 일괄 검수는 활성 초안·수정 요청만 최대 20개입니다. 현재 검수 요청 가능 {{reviewableCount}}개',
+      requestReview: '선택 항목 검수 요청',
+      requesting: '요청 중…',
+      export: '민감 자료 내보내기',
+      validating: '검증 중…',
+      batchComplete: '{{formattedCount}}개 문제를 모두 검수 요청했습니다.',
+      exportStarted: '{{formattedCount}}개 문제 내보내기를 시작했습니다.',
+      conflictRefreshFailed:
+        '최신 목록을 확인하지 못했습니다. 선택 상태는 유지됩니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+      conflictRefreshed:
+        '최신 문제 상태를 반영했습니다. 선택 내용을 확인한 뒤 검수 요청을 다시 실행해 주세요.',
+      conflictTitle: '다른 작업에서 문제 버전이 변경됐습니다',
+      actionFailedTitle: '작업을 완료하지 못했습니다',
+      retryConflict: '최신 문제 목록 불러오기',
+      cachedError:
+        '최신 목록을 확인하지 못했습니다. 현재 목록과 선택 상태는 그대로 유지됩니다.',
+      retryList: '목록 다시 확인',
+      loading: '관리자 문제를 불러오는 중입니다…',
+      loadErrorTitle: '문제 목록을 불러오지 못했습니다',
+      emptyTitle: '표시할 문제가 없습니다',
+      emptyDescription: '검색 조건을 바꾸거나 새 문제를 만들어 주세요.',
+      tableHelp: '표가 화면보다 넓으면 가로로 스크롤할 수 있습니다.',
+      tableRefreshing: ' 최신 목록을 확인 중입니다.',
+      tableCaption:
+        '관리자 문제 목록. 선택, 문제, 분류, 버전 상태, 풀이·정답률, 신고, 생성일, 수정일, 상세 열로 구성됩니다.',
+      tableScrollLabel: '관리자 문제 목록 가로 스크롤 영역',
+      columns: {
+        select: '선택',
+        question: '문제',
+        classification: '분류',
+        status: '상태',
+        attempts: '풀이·정답률',
+        reports: '신고',
+        createdAt: '생성일',
+        updatedAt: '수정일',
+        details: '상세'
+      },
+      sortLabels: {
+        level: '분류, 급수 오름차순으로 정렬',
+        levelActive: '분류, 급수 오름차순 정렬됨',
+        reports: '신고, 많은 순으로 정렬',
+        reportsActive: '신고, 많은 순 정렬됨',
+        created: '생성일, 최근순으로 정렬',
+        createdActive: '생성일, 최근순 정렬됨',
+        updated: '수정일, 최근순으로 정렬',
+        updatedActive: '수정일, 최근순 정렬됨'
+      },
+      selectQuestion: '{{question}} 선택',
+      answerStats: '{{formattedCount}}회 · 정답률 {{rate}}',
+      noAccuracy: '{{formattedCount}}회 · 정답률 없음',
+      reportCount: '{{formattedCount}}건'
+    },
+    create: {
+      eyebrow: 'CREATE DRAFT',
+      title: '새 문제 초안 만들기',
+      description:
+        '생성 결과는 항상 새 초안 버전입니다. 공개 상태를 폼에서 직접 지정할 수 없습니다.',
+      submit: '초안 만들기',
+      error: '문제를 만들지 못했습니다.'
+    },
+    editor: {
+      classificationLegend: '분류와 본문',
+      level: 'JLPT 급수',
+      subject: '과목',
+      questionType: '문제 유형',
+      difficulty: '난이도',
+      questionText: '문제 문장',
+      passage: '지문',
+      passageHint:
+        '독해 문제에는 필수이며, 그 외에는 글의 문법 유형에서만 사용할 수 있습니다.',
+      optionsLegend: '보기와 정답',
+      reorderHint:
+        '이동 버튼 또는 보기 입력란에서 Alt+위/아래 화살표로 순서를 바꿀 수 있습니다.',
+      correctOption: '정답 {{number}}',
+      optionLabel: '{{number}}번 보기',
+      moveUp: '{{number}}번 보기 위로 이동',
+      moveDown: '{{number}}번 보기 아래로 이동',
+      optionMoved:
+        '{{from}}번 보기를 {{to}}번 위치로 이동했습니다. 정답 ID는 유지됩니다.',
+      explanationLegend: '해설과 태그',
+      explanationKo: '한국어 해설',
+      explanationJa: '일본어 해설',
+      tagSearch: '등록된 태그 검색',
+      tagQueryError: '태그 검색어는 정규화 후 100자 이하여야 합니다.',
+      tagLoadError: '태그 목록을 불러오지 못했습니다.',
+      tagLoading: '태그를 검색하는 중입니다…',
+      tagEmpty: '일치하는 등록 태그가 없습니다.',
+      tagOffline: '오프라인에서는 태그를 검색할 수 없습니다.',
+      selectedTags: '선택된 태그',
+      removeTag: '{{tag}} 태그 제거',
+      conflictTitle: '서버 최신본과 로컬 초안을 비교했습니다',
+      conflictDescription:
+        '다음 필드가 다릅니다. 자동 병합하거나 저장하지 않았습니다.',
+      rowVersionOnly: 'rowVersion만 변경됨',
+      rebaseAnnouncement:
+        '로컬 초안을 최신 rowVersion에 적용하도록 명시적으로 선택했습니다.',
+      rebaseAction: '검토한 로컬 초안을 최신 rowVersion에 적용',
+      saving: '저장 중…',
+      unsavedTitle: '저장하지 않은 변경사항이 있습니다',
+      unsavedDescription: '이 페이지를 떠나면 현재 편집 내용이 사라집니다.',
+      keepEditing: '계속 편집',
+      discardAndLeave: '변경사항 버리고 이동',
+      fields: {
+        level: 'JLPT 급수',
+        subject: '과목',
+        questionType: '문제 유형',
+        difficulty: '난이도',
+        questionText: '문제 문장',
+        passage: '지문',
+        options: '보기 내용·순서',
+        correctIdentity: '정답',
+        explanationKo: '한국어 해설',
+        explanationJa: '일본어 해설',
+        tagNames: '태그'
+      }
+    },
+    questionDetail: {
+      title: '문제 버전 워크플로',
+      description:
+        '행 버전 충돌 시 로컬 편집 내용은 유지되며, 새로고침 후 차이를 확인할 수 있습니다.',
+      loading: '관리자 문제 상세를 불러오는 중입니다…',
+      loadErrorTitle: '문제 상세를 불러오지 못했습니다',
+      cachedError:
+        '최신 문제 정보를 확인하지 못했습니다. 화면의 편집 내용은 그대로 유지됩니다.',
+      retryDetail: '문제 정보 다시 확인',
+      history: '버전 기록',
+      historyLoading: '이전 버전 불러오는 중…',
+      historyMore: '이전 버전 더 보기',
+      newDraft: '새 초안 버전 만들기',
+      archive: '문제 보관',
+      dirtyLock:
+        '저장하지 않은 편집 내용이 있어 버전 전환과 워크플로 명령을 잠갔습니다. 먼저 초안을 저장해 주세요.',
+      diffTitle: '이전 버전과 차이',
+      diffLoading: '차이를 계산하는 중입니다…',
+      diffError: '차이를 불러오지 못했습니다.',
+      diffEmpty: '변경된 필드가 없습니다.',
+      retryDiff: '차이 다시 불러오기',
+      diffListLabel: '버전별 변경 내용',
+      diffBefore: '변경 전',
+      diffAfter: '변경 후',
+      diffBeforeLabel: '{{field}} 변경 전',
+      diffAfterLabel: '{{field}} 변경 후',
+      correctSuffix: ' (정답)',
+      previewTitle: '학습자 공개 화면 미리보기',
+      previewDescription:
+        '{{status}} 버전의 공개 화면 투영을 읽기 전용으로 표시합니다.',
+      answerExplanation: '관리자 정답·해설',
+      answer: '정답: {{answer}}',
+      previewLoading: '버전 미리보기를 불러오는 중입니다…',
+      previewErrorTitle: '미리보기를 불러오지 못했습니다',
+      previewCachedError:
+        '최신 미리보기를 확인하지 못했습니다. 화면의 편집 내용은 그대로 유지됩니다.',
+      retryPreview: '미리보기 다시 확인',
+      saveDraft: '초안 변경사항 저장',
+      saveComplete: '초안 변경사항을 저장했습니다.',
+      versionConflictDescription:
+        '다른 탭이나 관리자가 먼저 수정했습니다. 로컬 편집 내용은 유지됩니다.',
+      versionConflictTitle: '최신 버전 확인이 필요합니다',
+      retryConflict: '최신 rowVersion과 차이 불러오기',
+      conflictLoaded:
+        '서버의 최신 rowVersion과 차이를 불러왔습니다. 로컬 편집 내용은 유지됩니다.',
+      conflictLoadFailed:
+        '최신 버전을 확인하지 못했습니다. 로컬 편집 내용은 유지됩니다.',
+      reviews: '검수 기록',
+      reviewsCachedError:
+        '최신 검수 기록을 확인하지 못했습니다. 현재 기록은 그대로 유지됩니다.',
+      retryReviews: '검수 기록 다시 확인',
+      reviewsLoading: '검수 기록을 불러오는 중입니다…',
+      reviewsErrorTitle: '검수 기록을 불러오지 못했습니다',
+      reviewsEmpty: '아직 검수 기록이 없습니다.',
+      reviewsMoreLoading: '이전 검수 기록 불러오는 중…',
+      reviewsMore: '이전 검수 기록 더 보기',
+      commandFailedTitle: '명령을 완료하지 못했습니다',
+      commandDialogTitle: '{{command}} 확인',
+      commandDialogFallbackTitle: '작업 확인',
+      commandDialogDescription:
+        '현재 rowVersion을 기준으로 실행하며 충돌 시 자동 재시도하지 않습니다.',
+      cancel: '취소',
+      execute: '명시적으로 실행',
+      requiredReason: '사유 (필수)',
+      optionalReviewNote: '검수 메모 (선택)',
+      noteLimit: '메모는 {{formattedCount}}자 이하여야 합니다.',
+      commandWarning:
+        '이 작업은 학습자 노출과 기록에 영향을 줄 수 있습니다. 결과를 확인한 뒤 실행해 주세요.',
+      commandComplete: '{{command}} 작업이 완료됐습니다.'
+    },
+    import: {
+      eyebrow: 'ATOMIC IMPORT',
+      title: '문제 초안 가져오기',
+      description:
+        '먼저 쓰기 없는 검증을 수행한 뒤, 동일 항목과 validation digest에 한해서만 전체 적용합니다.',
+      fileLabel: 'JSON 파일',
+      fileHint: '최대 2 MiB · 최대 100개 · UTF-8 strict JSON',
+      readingFile: '파일을 안전하게 읽고 있습니다…',
+      fileSizeError: '파일은 1 byte 이상 2 MiB 이하여야 합니다.',
+      fileFormatError:
+        '중복 JSON 키가 없고 canonical import request 형식인 UTF-8 JSON 파일이 필요합니다.',
+      validate: '쓰기 없이 검증',
+      valid: '검증 통과',
+      invalid: '검증 오류',
+      resultCount: '{{formattedCount}}개',
+      apply: '동일 검증 결과 원자 적용',
+      applied: '{{formattedCount}}개 초안을 원자적으로 만들었습니다.',
+      error: '가져오기 요청을 처리하지 못했습니다.',
+      issueLabel: '{{code}} · 항목 {{item}} · {{field}}'
+    },
+    audit: {
+      eyebrow: 'ADMIN AUDIT',
+      title: '관리자 감사 기록',
+      description:
+        '민감한 문제 본문 대신 허용된 상태·digest 증거만 표시합니다.',
+      cachedError:
+        '최신 감사 기록을 확인하지 못했습니다. 현재 기록은 그대로 유지됩니다.',
+      retry: '감사 기록 다시 확인',
+      loading: '감사 기록을 불러오는 중입니다…',
+      error: '감사 기록을 불러오지 못했습니다.',
+      emptyTitle: '감사 기록이 없습니다',
+      emptyDescription: '아직 기록된 관리자 명령이 없습니다.',
+      stateChange: '상태 변경',
+      changedFields: '변경 필드',
+      requestEnvironment: '요청 {{requestId}} · 환경 {{environment}}',
+      moreLoading: '이전 감사 기록 불러오는 중…',
+      more: '이전 감사 기록 더 보기'
+    },
+    questionReportDialog: {
+      trigger: '문제 신고',
+      title: '문제 신고',
+      description: '신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다.',
+      reason: '신고 사유',
+      details: '설명',
+      cancel: '취소',
+      submit: '신고 접수',
+      submitted: '문제 신고를 접수했습니다.',
+      error: '문제 신고를 접수하지 못했습니다.',
+      offline: '오프라인입니다. 작성한 설명은 유지됩니다.'
+    },
+    reportList: {
+      eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
+      title: '문제 신고 큐',
+      description:
+        '목록에서는 신고 설명을 노출하지 않습니다. 상세에서만 일반 텍스트로 확인합니다.',
+      invalidQuery:
+        'URL 신고 검색 조건이 허용 범위를 벗어났습니다. 안전한 기본 조건을 사용합니다.',
+      status: '처리 상태',
+      allStatuses: '전체 상태',
+      reason: '신고 사유',
+      allReasons: '전체 사유',
+      questionId: '문제 ID',
+      assigneeActorId: '담당자 actor ID',
+      createdFrom: '신고 생성 시작 시각',
+      createdTo: '신고 생성 종료 시각',
+      updatedFrom: '신고 수정 시작 시각',
+      updatedTo: '신고 수정 종료 시각',
+      sort: '정렬',
+      applySearch: '검색 적용',
+      resetFilters: '필터 초기화',
+      cachedError:
+        '최신 신고 큐를 확인하지 못했습니다. 현재 목록은 그대로 유지됩니다.',
+      error: '신고 큐를 불러오지 못했습니다.',
+      retry: '신고 큐 다시 확인',
+      loading: '신고 큐를 불러오는 중입니다…',
+      emptyTitle: '신고가 없습니다',
+      emptyDescription: '현재 조건에 맞는 신고가 없습니다.',
+      tableScrollLabel: '문제 신고 목록 가로 스크롤 영역',
+      tableCaption:
+        '문제 신고 큐 목록. 상태, 사유, 문제, 신고자, 담당자, 생성일, 수정일, 상세 열로 구성됩니다.',
+      sortCreated: '생성일, 최근순으로 정렬',
+      sortCreatedActive: '생성일, 최근순 정렬됨',
+      sortUpdated: '수정일, 최근순으로 정렬',
+      sortUpdatedActive: '수정일, 최근순 정렬됨'
+    },
+    reportDetail: {
+      title: '문제 신고 상세',
+      loading: '신고 상세를 불러오는 중입니다…',
+      error: '신고 상세를 불러오지 못했습니다.',
+      cachedError:
+        '최신 신고 상세를 확인하지 못했습니다. 현재 처리 입력은 그대로 유지됩니다.',
+      retry: '신고 상세 다시 확인',
+      description: '신고 설명',
+      noDescription: '설명이 입력되지 않았습니다.',
+      triageTitle: '분류 시작',
+      triageDescription: '현재 관리자에게 할당하고 분류됨 상태로 전환합니다.',
+      triage: '신고 분류 시작',
+      resolutionTitle: '최종 처리',
+      outcome: '처리 결과',
+      resolutionReason: '처리 사유',
+      remediationHint:
+        '선택 사항입니다. 같은 문제의 검증된 후속 버전 ID만 허용됩니다.',
+      remediationVersionId: '개선 버전 ID',
+      resolve: '최종 처리 실행',
+      resolved: '처리 완료: {{outcome}}',
+      statusChanged: '신고가 {{status}} 상태로 변경됐습니다.',
+      resolutionComplete: '신고를 {{status}} 처리했습니다.',
+      conflictRefreshFailed:
+        '최신 신고 상태를 확인하지 못했습니다. 입력은 유지됩니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
+      conflictRefreshed:
+        '최신 신고 상태를 반영했습니다. 입력을 확인한 뒤 작업을 다시 실행해 주세요.',
+      mutationError: '신고 상태를 변경하지 못했습니다.',
+      retryConflict: '최신 신고 상태 불러오기',
+      conflictTitle: '다른 작업에서 신고 상태가 변경됐습니다'
+    }
   },
   errors: {
     forbidden: {

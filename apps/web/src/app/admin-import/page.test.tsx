@@ -157,4 +157,63 @@ describe('AdminQuestionImportPage', () => {
     unmount()
     client.clear()
   })
+
+  it('keeps an applied validation digest locked after one successful POST', async () => {
+    const admin = mockDatabase.loginAs('ADMIN', DEMO_ADMIN_ID)
+    useAppStore.getState().setCurrentUser(admin)
+    let applyCount = 0
+    mockServer.use(
+      http.post('*/api/v1/admin/questions/import-application', () => {
+        applyCount += 1
+        return HttpResponse.json(
+          {
+            createdCount: 1,
+            items: [
+              {
+                clientItemId: 'slice6-import-page-test',
+                questionId: '019f0000-0000-7000-8000-000000000001',
+                questionVersionId: '019f0000-0000-7000-8000-000000000002',
+                lifecycleStatus: 'ACTIVE',
+                versionStatus: 'DRAFT',
+                questionRowVersion: 1,
+                versionRowVersion: 1
+              }
+            ],
+            occurredAt: '2026-09-29T00:00:00.000Z'
+          },
+          {
+            status: 201,
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Request-ID': crypto.randomUUID()
+            }
+          }
+        )
+      })
+    )
+    const user = userEvent.setup()
+    const { client, unmount } = renderPage()
+    fireEvent.change(screen.getByLabelText('JSON 파일'), {
+      target: { files: [createFile('valid.json', bytes)] }
+    })
+    const validateButton = screen.getByRole('button', {
+      name: '쓰기 없이 검증'
+    })
+    await waitFor(() => expect(validateButton).toBeEnabled())
+    await user.click(validateButton)
+    const applyButton = await screen.findByRole('button', {
+      name: '동일 검증 결과 원자 적용'
+    })
+    await user.click(applyButton)
+
+    expect(
+      await screen.findByText('1개 초안을 원자적으로 만들었습니다.')
+    ).toBeVisible()
+    expect(applyButton).toBeDisabled()
+    fireEvent.click(applyButton)
+    expect(applyCount).toBe(1)
+
+    unmount()
+    client.clear()
+  })
 })

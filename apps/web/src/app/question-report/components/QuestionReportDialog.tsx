@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/phase7'
+import { adminReportReasonKey } from '@app/admin/presentation/adminPresentation'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { isPhase7UiApiError } from '@app/admin-question/hooks/usePhase7AdminMutations'
 import { useCreatePhase7QuestionReport } from '@app/question-report/hooks/useCreatePhase7QuestionReport'
 import { Button } from '@common/components/Button'
@@ -26,6 +28,7 @@ export const QuestionReportDialog = ({
   questionId,
   questionVersionId
 }: QuestionReportDialogProps): ReactElement => {
+  const { presentError, presentFieldError, t } = useAdminPresentation()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const reasonRef = useRef<HTMLSelectElement>(null)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
@@ -34,23 +37,19 @@ export const QuestionReportDialog = ({
   const [reason, setReason] =
     useState<CreateQuestionReportRequest['reason']>('OTHER')
   const [description, setDescription] = useState('')
-  const [announcement, setAnnouncement] = useState('')
+  const [wasSubmitted, setWasSubmitted] = useState(false)
   const mutation = useCreatePhase7QuestionReport(() => {
     setOpen(false)
     setDescription('')
-    setAnnouncement('문제 신고를 접수했습니다.')
+    setWasSubmitted(true)
   })
 
   const errorMessage = mutation.error
     ? isPhase7UiApiError(mutation.error)
-      ? mutation.error.code === 'QUESTION_REPORT_DUPLICATE'
-        ? '같은 문제 버전에 처리 중인 신고가 이미 있습니다.'
-        : mutation.error.code === 'RATE_LIMITED'
-          ? `신고 요청이 너무 많습니다.${mutation.error.retryAfterMs ? ` ${Math.ceil(mutation.error.retryAfterMs / 1000)}초 뒤 다시 시도해 주세요.` : ''}`
-          : mutation.error.isOffline
-            ? '오프라인입니다. 작성한 설명은 유지됩니다.'
-            : (mutation.error.serverMessage ?? mutation.error.message)
-      : '문제 신고를 접수하지 못했습니다.'
+      ? mutation.error.isOffline
+        ? t('questionReportDialog.offline')
+        : presentError(mutation.error)
+      : t('questionReportDialog.error')
     : null
   const fieldErrors =
     mutation.error && isPhase7UiApiError(mutation.error)
@@ -72,18 +71,19 @@ export const QuestionReportDialog = ({
         variant="outline"
         onClick={() => {
           mutation.reset()
+          setWasSubmitted(false)
           setOpen(true)
         }}
       >
-        문제 신고
+        {t('questionReportDialog.trigger')}
       </Button>
       <Dialog
         initialFocusRef={descriptionRef}
         open={open}
         preventClose={mutation.isPending}
         returnFocusRef={triggerRef}
-        title="문제 신고"
-        description="신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다."
+        title={t('questionReportDialog.title')}
+        description={t('questionReportDialog.description')}
         onOpenChange={(nextOpen) => {
           if (!mutation.isPending) setOpen(nextOpen)
         }}
@@ -92,6 +92,7 @@ export const QuestionReportDialog = ({
           className="grid gap-5"
           onSubmit={(event) => {
             event.preventDefault()
+            if (mutation.isPending) return
             mutation.mutate({
               questionId,
               request: { questionVersionId, reason, description }
@@ -100,8 +101,9 @@ export const QuestionReportDialog = ({
         >
           <Select
             ref={reasonRef}
-            error={fieldErrors?.reason?.[0]}
-            label="신고 사유"
+            disabled={mutation.isPending}
+            error={presentFieldError(fieldErrors?.reason)}
+            label={t('questionReportDialog.reason')}
             name="report-reason"
             value={reason}
             onChange={(event) =>
@@ -112,13 +114,16 @@ export const QuestionReportDialog = ({
             }
           >
             {reasons.map((item) => (
-              <option key={item}>{item}</option>
+              <option key={item} value={item}>
+                {t(adminReportReasonKey[item])}
+              </option>
             ))}
           </Select>
           <Textarea
             ref={descriptionRef}
-            error={fieldErrors?.description?.[0]}
-            label="설명"
+            disabled={mutation.isPending}
+            error={presentFieldError(fieldErrors?.description)}
+            label={t('questionReportDialog.details')}
             maxLength={2000}
             name="report-description"
             required
@@ -137,21 +142,21 @@ export const QuestionReportDialog = ({
               variant="outline"
               onClick={() => setOpen(false)}
             >
-              취소
+              {t('questionReportDialog.cancel')}
             </Button>
             <Button
               ref={submitRef}
-              disabled={description.trim().length === 0}
+              disabled={mutation.isPending || description.trim().length === 0}
               isLoading={mutation.isPending}
               type="submit"
             >
-              신고 접수
+              {t('questionReportDialog.submit')}
             </Button>
           </div>
         </form>
       </Dialog>
       <p className="sr-only" aria-live="polite">
-        {announcement}
+        {wasSubmitted ? t('questionReportDialog.submitted') : ''}
       </p>
     </>
   )

@@ -46,8 +46,7 @@ describe('admin question report URL query boundary', () => {
         new URLSearchParams({ page: String(Number.MAX_SAFE_INTEGER + 1) })
       )
     ).toEqual({
-      error:
-        'URL 신고 검색 조건이 허용 범위를 벗어났습니다. 안전한 기본 조건을 사용합니다.',
+      error: 'INVALID_QUERY',
       query: { page: 1, pageSize: 20, sort: 'UPDATED_DESC' }
     })
   })

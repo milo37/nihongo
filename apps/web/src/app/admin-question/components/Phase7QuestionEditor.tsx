@@ -10,6 +10,12 @@ import {
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
+import {
+  adminDifficultyKey,
+  adminQuestionTypeKey,
+  adminSubjectKey
+} from '@app/admin/presentation/adminPresentation'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { usePhase7AdminTags } from '@app/admin-question/hooks/usePhase7AdminQueries'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
@@ -72,20 +78,19 @@ interface Phase7QuestionEditorProps {
   ) => Promise<void>
 }
 
-const conflictFieldLabels: ReadonlyArray<readonly [keyof EditorState, string]> =
-  [
-    ['level', 'JLPT 급수'],
-    ['subject', '과목'],
-    ['questionType', '문제 유형'],
-    ['difficulty', '난이도'],
-    ['questionText', '문제 문장'],
-    ['passage', '지문'],
-    ['options', '보기 내용·순서'],
-    ['correctIdentity', '정답'],
-    ['explanationKo', '한국어 해설'],
-    ['explanationJa', '일본어 해설'],
-    ['tagNames', '태그']
-  ]
+const conflictFieldLabels = [
+  ['level', 'editor.fields.level'],
+  ['subject', 'editor.fields.subject'],
+  ['questionType', 'editor.fields.questionType'],
+  ['difficulty', 'editor.fields.difficulty'],
+  ['questionText', 'editor.fields.questionText'],
+  ['passage', 'editor.fields.passage'],
+  ['options', 'editor.fields.options'],
+  ['correctIdentity', 'editor.fields.correctIdentity'],
+  ['explanationKo', 'editor.fields.explanationKo'],
+  ['explanationJa', 'editor.fields.explanationJa'],
+  ['tagNames', 'editor.fields.tagNames']
+] as const
 
 const createOptionKey = (index: number): string =>
   `option-${index + 1}-${crypto.randomUUID().replaceAll('-', '').slice(0, 8)}`
@@ -184,6 +189,7 @@ export const Phase7QuestionEditor = ({
   serverMessage,
   submitLabel
 }: Phase7QuestionEditorProps): ReactElement => {
+  const { formatAdminNumber, t } = useAdminPresentation()
   const [initialState] = useState(() => createInitialState(initialPreview))
   const [baselineState, setBaselineState] = useState(initialState)
   const [state, setState] = useState(initialState)
@@ -197,10 +203,14 @@ export const Phase7QuestionEditor = ({
     useState(rowVersionRevision)
   const [tagQuery, setTagQuery] = useState('')
   const [activeTagIndex, setActiveTagIndex] = useState(-1)
-  const [clientErrors, setClientErrors] = useState<
-    Readonly<Record<string, string>>
-  >({})
-  const [orderAnnouncement, setOrderAnnouncement] = useState('')
+  const [clientErrorPaths, setClientErrorPaths] = useState<ReadonlySet<string>>(
+    () => new Set()
+  )
+  const [orderAnnouncement, setOrderAnnouncement] = useState<
+    | { readonly from: number; readonly kind: 'MOVED'; readonly to: number }
+    | { readonly kind: 'REBASED' }
+    | null
+  >(null)
   const normalizedTagQuery = normalizePhase7TagKey(tagQuery)
   const parsedTagQuery = listAdminTagsQuerySchema.safeParse({
     q: normalizedTagQuery,
@@ -208,7 +218,7 @@ export const Phase7QuestionEditor = ({
   })
   const tagQueryError =
     tagQuery.length > 0 && !parsedTagQuery.success
-      ? '태그 검색어는 정규화 후 100자 이하여야 합니다.'
+      ? t('editor.tagQueryError')
       : undefined
   const tagSearch = usePhase7AdminTags(
     parsedTagQuery.success
@@ -226,12 +236,12 @@ export const Phase7QuestionEditor = ({
   const conflictFields = useMemo(() => {
     if (!isConflictRebasePending || !initialPreview) return []
     const serverState = createInitialState(initialPreview)
-    return conflictFieldLabels.flatMap(([key, label]) =>
+    return conflictFieldLabels.flatMap(([key, labelKey]) =>
       JSON.stringify(state[key]) === JSON.stringify(serverState[key])
         ? []
-        : [label]
+        : [t(labelKey)]
     )
-  }, [initialPreview, isConflictRebasePending, state])
+  }, [initialPreview, isConflictRebasePending, state, t])
 
   if (
     !isDirty &&
@@ -299,9 +309,11 @@ export const Phase7QuestionEditor = ({
       options.splice(toIndex, 0, option)
       return { ...current, options }
     })
-    setOrderAnnouncement(
-      `${fromIndex + 1}번 보기를 ${toIndex + 1}번 위치로 이동했습니다. 정답 ID는 유지됩니다.`
-    )
+    setOrderAnnouncement({
+      from: fromIndex + 1,
+      kind: 'MOVED',
+      to: toIndex + 1
+    })
   }
 
   const handleOptionKeyDown = (
@@ -338,12 +350,12 @@ export const Phase7QuestionEditor = ({
         ? createAdminQuestionRequestSchema.safeParse(candidate)
         : updateQuestionVersionRequestSchema.safeParse(candidate)
     if (!result.success) {
-      const nextErrors: Record<string, string> = {}
+      const nextErrorPaths = new Set<string>()
       result.error.issues.forEach((issue) => {
         const path = issue.path.join('.') || 'form'
-        nextErrors[path] ??= issue.message
+        nextErrorPaths.add(path)
       })
-      setClientErrors(nextErrors)
+      setClientErrorPaths(nextErrorPaths)
       const firstPath = result.error.issues[0]?.path.join('.')
       if (firstPath) {
         document
@@ -352,7 +364,7 @@ export const Phase7QuestionEditor = ({
       }
       return
     }
-    setClientErrors({})
+    setClientErrorPaths(new Set())
     try {
       await onSubmit(result.data)
       setBaselineState(state)
@@ -363,7 +375,9 @@ export const Phase7QuestionEditor = ({
   }
 
   const fieldError = (path: string): string | undefined =>
-    clientErrors[path] ?? serverFieldErrors?.[path]?.[0]
+    clientErrorPaths.has(path) || serverFieldErrors?.[path]?.length
+      ? t('errors.fieldInvalid')
+      : undefined
 
   return (
     <>
@@ -386,10 +400,13 @@ export const Phase7QuestionEditor = ({
         ) : null}
 
         <fieldset className="grid gap-5 rounded-2xl border border-line bg-white p-5 sm:grid-cols-2">
-          <legend className="px-2 text-lg font-bold">분류와 본문</legend>
+          <legend className="px-2 text-lg font-bold">
+            {t('editor.classificationLegend')}
+          </legend>
           <Select
             data-field="level"
-            label="JLPT 급수"
+            disabled={isSubmitting}
+            label={t('editor.level')}
             name="level"
             value={state.level}
             onChange={(event) =>
@@ -400,12 +417,15 @@ export const Phase7QuestionEditor = ({
             }
           >
             {levels.map((level) => (
-              <option key={level}>{level}</option>
+              <option key={level} value={level}>
+                {level}
+              </option>
             ))}
           </Select>
           <Select
             data-field="subject"
-            label="과목"
+            disabled={isSubmitting}
+            label={t('editor.subject')}
             name="subject"
             value={state.subject}
             onChange={(event) =>
@@ -416,13 +436,16 @@ export const Phase7QuestionEditor = ({
             }
           >
             {subjects.map((subject) => (
-              <option key={subject}>{subject}</option>
+              <option key={subject} value={subject}>
+                {t(adminSubjectKey[subject])}
+              </option>
             ))}
           </Select>
           <Select
             data-field="questionType"
+            disabled={isSubmitting}
             error={fieldError('questionType')}
-            label="문제 유형"
+            label={t('editor.questionType')}
             name="questionType"
             value={state.questionType}
             onChange={(event) =>
@@ -433,12 +456,15 @@ export const Phase7QuestionEditor = ({
             }
           >
             {questionTypes.map((questionType) => (
-              <option key={questionType}>{questionType}</option>
+              <option key={questionType} value={questionType}>
+                {t(adminQuestionTypeKey[questionType])}
+              </option>
             ))}
           </Select>
           <Select
             data-field="difficulty"
-            label="난이도"
+            disabled={isSubmitting}
+            label={t('editor.difficulty')}
             name="difficulty"
             value={state.difficulty}
             onChange={(event) =>
@@ -449,14 +475,18 @@ export const Phase7QuestionEditor = ({
             }
           >
             {difficulties.map((difficulty) => (
-              <option key={difficulty}>{difficulty}</option>
+              <option key={difficulty} value={difficulty}>
+                {t(adminDifficultyKey[difficulty])}
+              </option>
             ))}
           </Select>
           <div className="sm:col-span-2">
             <Textarea
               data-field="questionText"
+              disabled={isSubmitting}
               error={fieldError('questionText')}
-              label="문제 문장"
+              label={t('editor.questionText')}
+              lang="ja"
               name="questionText"
               rows={4}
               value={state.questionText}
@@ -468,9 +498,11 @@ export const Phase7QuestionEditor = ({
           <div className="sm:col-span-2">
             <Textarea
               data-field="passage"
+              disabled={isSubmitting}
               error={fieldError('passage')}
-              hint="독해 문제에는 필수이며, 그 외에는 TEXT_GRAMMAR에서만 사용할 수 있습니다."
-              label="지문"
+              hint={t('editor.passageHint')}
+              label={t('editor.passage')}
+              lang="ja"
               name="passage"
               rows={6}
               value={state.passage}
@@ -482,13 +514,19 @@ export const Phase7QuestionEditor = ({
         </fieldset>
 
         <fieldset className="grid gap-4 rounded-2xl border border-line bg-white p-5">
-          <legend className="px-2 text-lg font-bold">보기와 정답</legend>
-          <p className="text-sm text-muted">
-            이동 버튼 또는 보기 입력란에서 Alt+위/아래 화살표로 순서를 바꿀 수
-            있습니다.
-          </p>
+          <legend className="px-2 text-lg font-bold">
+            {t('editor.optionsLegend')}
+          </legend>
+          <p className="text-sm text-muted">{t('editor.reorderHint')}</p>
           <p className="sr-only" aria-live="polite">
-            {orderAnnouncement}
+            {orderAnnouncement?.kind === 'MOVED'
+              ? t('editor.optionMoved', {
+                  from: orderAnnouncement.from,
+                  to: orderAnnouncement.to
+                })
+              : orderAnnouncement?.kind === 'REBASED'
+                ? t('editor.rebaseAnnouncement')
+                : ''}
           </p>
           {state.options.map((option, index) => (
             <div
@@ -499,19 +537,26 @@ export const Phase7QuestionEditor = ({
                 <input
                   checked={state.correctIdentity === option.identity}
                   className="size-5 accent-emerald-700"
+                  disabled={isSubmitting}
                   name="correct-option"
                   type="radio"
                   onChange={() =>
                     updateField('correctIdentity', option.identity)
                   }
                 />
-                정답 {index + 1}
+                {t('editor.correctOption', {
+                  number: formatAdminNumber(index + 1)
+                })}
               </label>
               <Textarea
                 data-field={`options.${index}.text`}
+                disabled={isSubmitting}
                 error={fieldError(`options.${index}.text`)}
                 hideLabel
-                label={`${index + 1}번 보기`}
+                label={t('editor.optionLabel', {
+                  number: formatAdminNumber(index + 1)
+                })}
+                lang="ja"
                 name={`option-${option.identity}`}
                 rows={2}
                 value={option.text}
@@ -530,8 +575,10 @@ export const Phase7QuestionEditor = ({
               />
               <div className="flex gap-2 sm:flex-col">
                 <Button
-                  aria-label={`${index + 1}번 보기 위로 이동`}
-                  disabled={index === 0}
+                  aria-label={t('editor.moveUp', {
+                    number: formatAdminNumber(index + 1)
+                  })}
+                  disabled={isSubmitting || index === 0}
                   size="sm"
                   variant="outline"
                   onClick={() => moveOption(index, -1)}
@@ -539,8 +586,10 @@ export const Phase7QuestionEditor = ({
                   ↑
                 </Button>
                 <Button
-                  aria-label={`${index + 1}번 보기 아래로 이동`}
-                  disabled={index === state.options.length - 1}
+                  aria-label={t('editor.moveDown', {
+                    number: formatAdminNumber(index + 1)
+                  })}
+                  disabled={isSubmitting || index === state.options.length - 1}
                   size="sm"
                   variant="outline"
                   onClick={() => moveOption(index, 1)}
@@ -553,11 +602,15 @@ export const Phase7QuestionEditor = ({
         </fieldset>
 
         <fieldset className="grid gap-5 rounded-2xl border border-line bg-white p-5">
-          <legend className="px-2 text-lg font-bold">해설과 태그</legend>
+          <legend className="px-2 text-lg font-bold">
+            {t('editor.explanationLegend')}
+          </legend>
           <Textarea
             data-field="explanationKo"
+            disabled={isSubmitting}
             error={fieldError('explanationKo')}
-            label="한국어 해설"
+            label={t('editor.explanationKo')}
+            lang="ko"
             name="explanationKo"
             rows={5}
             value={state.explanationKo}
@@ -567,8 +620,10 @@ export const Phase7QuestionEditor = ({
           />
           <Textarea
             data-field="explanationJa"
+            disabled={isSubmitting}
             error={fieldError('explanationJa')}
-            label="일본어 해설"
+            label={t('editor.explanationJa')}
+            lang="ja"
             name="explanationJa"
             rows={4}
             value={state.explanationJa}
@@ -589,8 +644,9 @@ export const Phase7QuestionEditor = ({
                 tagSearch.data && tagSearch.data.items.length > 0
               )}
               data-field="tagNames"
+              disabled={isSubmitting}
               error={fieldError('tagNames') ?? tagQueryError}
-              label="등록된 태그 검색"
+              label={t('editor.tagSearch')}
               maxLength={500}
               name="tag-search"
               role="combobox"
@@ -622,9 +678,23 @@ export const Phase7QuestionEditor = ({
                 setActiveTagIndex(-1)
               }}
             />
-            {tagSearch.isError ? (
+            {tagSearch.fetchStatus === 'paused' ? (
+              <p className="text-sm font-semibold text-amber-800" role="status">
+                {t('editor.tagOffline')}
+              </p>
+            ) : tagSearch.isPending && normalizedTagQuery.length > 0 ? (
+              <p className="text-sm text-muted" role="status">
+                {t('editor.tagLoading')}
+              </p>
+            ) : tagSearch.isError ? (
               <p className="text-sm font-semibold text-red-700" role="alert">
-                태그 목록을 불러오지 못했습니다.
+                {t('editor.tagLoadError')}
+              </p>
+            ) : tagSearch.data &&
+              normalizedTagQuery.length > 0 &&
+              tagSearch.data.items.length === 0 ? (
+              <p className="text-sm text-muted" role="status">
+                {t('editor.tagEmpty')}
               </p>
             ) : null}
             {tagSearch.data && tagSearch.data.items.length > 0 ? (
@@ -634,14 +704,13 @@ export const Phase7QuestionEditor = ({
                 role="listbox"
               >
                 {tagSearch.data.items.map((tag, index) => (
-                  <li
-                    id={`admin-tag-suggestion-${index}`}
-                    key={tag.id}
-                    role="option"
-                    aria-selected={activeTagIndex === index}
-                  >
+                  <li key={tag.id} role="presentation">
                     <button
                       className="min-h-11 w-full rounded-lg px-3 text-left hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                      id={`admin-tag-suggestion-${index}`}
+                      aria-selected={activeTagIndex === index}
+                      disabled={isSubmitting}
+                      role="option"
                       type="button"
                       onClick={() => addTag(tag.label)}
                     >
@@ -651,14 +720,18 @@ export const Phase7QuestionEditor = ({
                 ))}
               </ul>
             ) : null}
-            <div className="flex flex-wrap gap-2" aria-label="선택된 태그">
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label={t('editor.selectedTags')}
+            >
               {state.tagNames.map((tag) => (
                 <Badge key={normalizePhase7TagKey(tag)}>
                   {tag}
                   <button
                     className="ml-2 min-h-11 min-w-11 rounded-md font-bold"
+                    disabled={isSubmitting}
                     type="button"
-                    aria-label={`${tag} 태그 제거`}
+                    aria-label={t('editor.removeTag', { tag })}
                     onClick={() =>
                       updateField(
                         'tagNames',
@@ -679,16 +752,12 @@ export const Phase7QuestionEditor = ({
             className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
             role="alert"
           >
-            <h3 className="font-bold">
-              서버 최신본과 로컬 초안을 비교했습니다
-            </h3>
-            <p className="mt-2 text-sm">
-              다음 필드가 다릅니다. 자동 병합하거나 저장하지 않았습니다.
-            </p>
+            <h3 className="font-bold">{t('editor.conflictTitle')}</h3>
+            <p className="mt-2 text-sm">{t('editor.conflictDescription')}</p>
             <ul className="mt-2 list-disc pl-5 text-sm">
               {(conflictFields.length > 0
                 ? conflictFields
-                : ['rowVersion만 변경됨']
+                : [t('editor.rowVersionOnly')]
               ).map((field) => (
                 <li key={field}>{field}</li>
               ))}
@@ -700,12 +769,10 @@ export const Phase7QuestionEditor = ({
               onClick={() => {
                 setSubmissionRowVersion(expectedRowVersion ?? 0)
                 setAcceptedRowVersionRevision(rowVersionRevision)
-                setOrderAnnouncement(
-                  '로컬 초안을 최신 rowVersion에 적용하도록 명시적으로 선택했습니다.'
-                )
+                setOrderAnnouncement({ kind: 'REBASED' })
               }}
             >
-              검토한 로컬 초안을 최신 rowVersion에 적용
+              {t('editor.rebaseAction')}
             </Button>
           </section>
         ) : null}
@@ -719,7 +786,7 @@ export const Phase7QuestionEditor = ({
               isConflictRebasePending
             }
             isLoading={isSubmitting}
-            loadingLabel="저장 중…"
+            loadingLabel={t('editor.saving')}
             type="submit"
           >
             {submitLabel}
@@ -729,18 +796,18 @@ export const Phase7QuestionEditor = ({
 
       <Dialog
         open={blocker.state === 'blocked'}
-        title="저장하지 않은 변경사항이 있습니다"
-        description="이 페이지를 떠나면 현재 편집 내용이 사라집니다."
+        title={t('editor.unsavedTitle')}
+        description={t('editor.unsavedDescription')}
         onOpenChange={(open) => {
           if (!open) blocker.reset?.()
         }}
         footer={
           <>
             <Button variant="outline" onClick={() => blocker.reset?.()}>
-              계속 편집
+              {t('editor.keepEditing')}
             </Button>
             <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              변경사항 버리고 이동
+              {t('editor.discardAndLeave')}
             </Button>
           </>
         }

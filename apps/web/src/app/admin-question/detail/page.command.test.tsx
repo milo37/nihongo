@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -61,6 +61,41 @@ const createReviewTarget = async (): Promise<{
   }
 }
 
+const createDeferred = (): {
+  readonly promise: Promise<void>
+  readonly release: () => void
+} => {
+  let release: (() => void) | undefined
+  const promise = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return { promise, release: () => release?.() }
+}
+
+const renderDetailPage = (questionId: string): QueryClient => {
+  const client = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false }
+    }
+  })
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/admin/questions/:questionId',
+        element: <AdminQuestionDetailPage />
+      }
+    ],
+    { initialEntries: [`/admin/questions/${questionId}`] }
+  )
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+  return client
+}
+
 describe('AdminQuestionDetailPage command validation', () => {
   it('keeps the command dialog open, retains the note, and focuses the first server field error', async () => {
     const target = await createReviewTarget()
@@ -88,27 +123,8 @@ describe('AdminQuestionDetailPage command validation', () => {
         }
       )
     )
-    const client = new QueryClient({
-      defaultOptions: {
-        mutations: { retry: false },
-        queries: { retry: false }
-      }
-    })
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/admin/questions/:questionId',
-          element: <AdminQuestionDetailPage />
-        }
-      ],
-      { initialEntries: [`/admin/questions/${target.questionId}`] }
-    )
     const interaction = userEvent.setup()
-    render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    )
+    renderDetailPage(target.questionId)
 
     await interaction.click(
       await screen.findByRole('button', {
@@ -134,8 +150,71 @@ describe('AdminQuestionDetailPage command validation', () => {
     ).toBeVisible()
     expect(reason).toHaveValue('로컬 입력을 유지해야 합니다.')
     expect(
-      screen.getByText('구체적인 수정 사유가 필요합니다.', { exact: true })
+      screen.getByText('이 입력값을 확인해 주세요.', { exact: true })
     ).toBeVisible()
     expect(reason).toHaveFocus()
+  })
+
+  it('keeps one pending command request inside the locked dialog', async () => {
+    const target = await createReviewTarget()
+    const reviewer = mockDatabase.loginAs('ADMIN', DEMO_REVIEWER_ADMIN_ID)
+    useAppStore.getState().setCurrentUser(reviewer)
+    const gate = createDeferred()
+    let postCount = 0
+    mockServer.use(
+      http.post(
+        `*/api/v1/admin/question-versions/${target.versionId}/change-request`,
+        async () => {
+          postCount += 1
+          await gate.promise
+          const requestId = crypto.randomUUID()
+          const response = buildPhase7OperationFailureResponse({
+            operation: 'requestQuestionChanges',
+            disposition: 'DEFINITE_ROLLBACK',
+            failure: {
+              code: 'VALIDATION_ERROR',
+              message: 'test pending gate',
+              requestId,
+              fieldErrors: { reason: ['test pending gate'] }
+            }
+          })
+          return HttpResponse.json(response.body, {
+            status: response.status,
+            headers: response.headers
+          })
+        }
+      )
+    )
+    const interaction = userEvent.setup()
+    renderDetailPage(target.questionId)
+
+    await interaction.click(
+      await screen.findByRole('button', { name: '수정 요청' })
+    )
+    await interaction.type(
+      screen.getByLabelText('사유 (필수)'),
+      'pending 잠금 테스트'
+    )
+    const confirm = screen.getByRole('button', { name: '명시적으로 실행' })
+    await interaction.click(confirm)
+    await waitFor(() => expect(postCount).toBe(1))
+
+    const dialog = screen.getByRole('dialog', { name: '수정 요청 확인' })
+    expect(screen.getByRole('button', { name: '대화상자 닫기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '취소' })).toBeDisabled()
+    expect(confirm).toBeDisabled()
+    fireEvent(dialog, new Event('cancel', { bubbles: true, cancelable: true }))
+    fireEvent.click(dialog)
+    fireEvent.click(confirm)
+    expect(dialog).toBeVisible()
+    expect(postCount).toBe(1)
+
+    await act(async () => {
+      gate.release()
+      await gate.promise
+    })
+    expect(
+      await screen.findByText('이 입력값을 확인해 주세요.', { exact: true })
+    ).toBeVisible()
   })
 })

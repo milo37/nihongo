@@ -5,6 +5,7 @@ import type {
   AdminQuestionVersionSummary,
   ApplyQuestionImportRequest,
   PreviewQuestionVersionResponse,
+  QuestionReportMutationResult,
   RequestContentReviewBatchRequest,
   ResolveAdminQuestionReportRequest,
   UpdateQuestionVersionRequest,
@@ -217,7 +218,7 @@ export const usePhase7AdminQuestionCommand = (
           })
         case 'CREATE_VERSION': {
           if (!options.preview) {
-            throw new Error('복제할 버전을 불러오지 못했습니다.')
+            throw new Error('SOURCE_VERSION_PREVIEW_UNAVAILABLE')
           }
           const optionKeyById = new Map(
             options.preview.question.options.map((option, index) => [
@@ -406,7 +407,7 @@ export const useApplyPhase7QuestionImport = (
 
 export const useTriagePhase7AdminQuestionReport = (
   reportId: string,
-  onSuccess?: (status: string) => void
+  onSuccess?: (status: QuestionReportMutationResult['status']) => void
 ) => {
   const queryClient = useQueryClient()
   return useMutation({
@@ -429,7 +430,7 @@ export const useTriagePhase7AdminQuestionReport = (
 
 export const useResolvePhase7AdminQuestionReport = (
   reportId: string,
-  onSuccess?: (status: string) => void,
+  onSuccess?: (status: QuestionReportMutationResult['status']) => void,
   onError?: (error: unknown) => void
 ) => {
   const queryClient = useQueryClient()

@@ -44,6 +44,25 @@ const ambiguousReauthentication = (beforeResponse?: () => void): void => {
 }
 
 describe('useFreshAssurance', () => {
+  it('presents a localized stable error for an incorrect password', async () => {
+    useAdmin()
+    const { result } = renderHook(() => useFreshAssurance(), { wrapper })
+
+    act(() => {
+      result.current.open({ reasonCode: 'QUESTION_PUBLISH' })
+    })
+    await act(async () => {
+      await result.current
+        .reauthenticate('definitely-wrong-password')
+        .catch(() => undefined)
+    })
+
+    expect(result.current.isOpen).toBe(true)
+    expect(result.current.errorMessage).toBe(
+      '현재 비밀번호가 올바르지 않습니다.'
+    )
+  })
+
   it('refreshes the principal, closes the prompt, and never replays the command after success', async () => {
     useAdmin()
     const { result } = renderHook(() => useFreshAssurance(), { wrapper })
@@ -51,7 +70,7 @@ describe('useFreshAssurance', () => {
     act(() => {
       result.current.open({
         questionIds: ['question-1'],
-        reason: '민감한 관리자 작업입니다.'
+        reasonCode: 'QUESTION_PUBLISH'
       })
     })
     await act(async () => {
@@ -92,7 +111,7 @@ describe('useFreshAssurance', () => {
     const { result } = renderHook(() => useFreshAssurance(), { wrapper })
 
     act(() => {
-      result.current.open({ reason: '민감한 관리자 작업입니다.' })
+      result.current.open({ reasonCode: 'QUESTION_PUBLISH' })
     })
     await act(async () => {
       await result.current
@@ -114,7 +133,7 @@ describe('useFreshAssurance', () => {
     const { result } = renderHook(() => useFreshAssurance(), { wrapper })
 
     act(() => {
-      result.current.open({ reason: '민감한 관리자 작업입니다.' })
+      result.current.open({ reasonCode: 'QUESTION_PUBLISH' })
     })
     await act(async () => {
       await result.current
@@ -139,7 +158,7 @@ describe('useFreshAssurance', () => {
     act(() => {
       result.current.open({
         questionIds: ['question-1'],
-        reason: '민감한 관리자 작업입니다.'
+        reasonCode: 'QUESTION_PUBLISH'
       })
     })
     await act(async () => {
@@ -195,7 +214,7 @@ describe('useFreshAssurance', () => {
     const { result } = renderHook(() => useFreshAssurance(), { wrapper })
 
     act(() => {
-      result.current.open({ reason: '민감한 관리자 작업입니다.' })
+      result.current.open({ reasonCode: 'QUESTION_PUBLISH' })
     })
     await act(async () => {
       await result.current

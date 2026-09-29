@@ -26,6 +26,32 @@ interface PreviewSnapshot {
   }
 }
 
+export type Phase7ConflictRefreshErrorCode =
+  | 'REFETCH_FAILED'
+  | 'SNAPSHOT_CHANGED'
+
+type Phase7ConflictRefreshResource =
+  | 'DETAIL_AFTER'
+  | 'DETAIL_BEFORE'
+  | 'DIFF'
+  | 'HISTORY'
+  | 'PREVIEW'
+
+export class Phase7ConflictRefreshError extends Error {
+  readonly code: Phase7ConflictRefreshErrorCode
+  readonly resource?: Phase7ConflictRefreshResource
+
+  constructor(
+    code: Phase7ConflictRefreshErrorCode,
+    resource?: Phase7ConflictRefreshResource
+  ) {
+    super(code)
+    this.name = 'Phase7ConflictRefreshError'
+    this.code = code
+    this.resource = resource
+  }
+}
+
 interface RefreshPhase7ConflictSnapshotInput<
   Detail extends DetailSnapshot,
   History extends HistorySnapshot,
@@ -40,10 +66,10 @@ interface RefreshPhase7ConflictSnapshotInput<
 
 const requireSuccessfulData = <Data>(
   result: RefetchResult<Data>,
-  resource: string
+  resource: Phase7ConflictRefreshResource
 ): Data => {
   if (!result.isSuccess || result.data === undefined) {
-    throw new Error(`${resource}을(를) 최신 상태로 불러오지 못했습니다.`)
+    throw new Phase7ConflictRefreshError('REFETCH_FAILED', resource)
   }
   return result.data
 }
@@ -78,15 +104,18 @@ export const refreshPhase7ConflictSnapshot = async <
 }: RefreshPhase7ConflictSnapshotInput<Detail, History, Preview>): Promise<{
   readonly rowVersion: number
 }> => {
-  const detailBefore = requireSuccessfulData(await refetchDetail(), '문제 상세')
-  const preview = requireSuccessfulData(await refetchPreview(), '문제 미리보기')
-  const history = requireSuccessfulData(await refetchHistory(), '버전 기록')
+  const detailBefore = requireSuccessfulData(
+    await refetchDetail(),
+    'DETAIL_BEFORE'
+  )
+  const preview = requireSuccessfulData(await refetchPreview(), 'PREVIEW')
+  const history = requireSuccessfulData(await refetchHistory(), 'HISTORY')
   if (refetchDiff) {
-    requireSuccessfulData(await refetchDiff(), '버전 차이')
+    requireSuccessfulData(await refetchDiff(), 'DIFF')
   }
   const detailAfter = requireSuccessfulData(
     await refetchDetail(),
-    '문제 상세 재확인'
+    'DETAIL_AFTER'
   )
 
   const beforeRowVersion = detailRowVersion(detailBefore, questionVersionId)
@@ -100,9 +129,7 @@ export const refreshPhase7ConflictSnapshot = async <
     beforeRowVersion !== historyVersion ||
     historyVersion !== afterRowVersion
   ) {
-    throw new Error(
-      '충돌 확인 중 버전이 다시 변경됐습니다. 최신본을 다시 불러와 주세요.'
-    )
+    throw new Phase7ConflictRefreshError('SNAPSHOT_CHANGED')
   }
 
   return { rowVersion: afterRowVersion }

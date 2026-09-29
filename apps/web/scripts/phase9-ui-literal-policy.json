@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "currentSlice": 3,
+  "currentSlice": 4,
   "scanRoot": "src",
   "excludedPathPrefixes": [
     {
@@ -37,33 +37,7 @@
     "src/provider/AuthErrorHandlerProvider.tsx",
     "src/provider/ProtectedRouteProvider.tsx"
   ],
-  "deferredScopes": [
-    {
-      "path": "src/app/question-report",
-      "rationale": "Question-report dialog is integrated with learner/admin work in Slices 3 and 4.",
-      "ownerSlice": 4
-    },
-    {
-      "path": "src/app/admin-audit",
-      "rationale": "ADMIN audit surface is owned by Slice 4.",
-      "ownerSlice": 4
-    },
-    {
-      "path": "src/app/admin-import",
-      "rationale": "ADMIN import surface is owned by Slice 4.",
-      "ownerSlice": 4
-    },
-    {
-      "path": "src/app/admin-question",
-      "rationale": "ADMIN question management is owned by Slice 4.",
-      "ownerSlice": 4
-    },
-    {
-      "path": "src/app/admin-report",
-      "rationale": "ADMIN report surfaces are owned by Slice 4.",
-      "ownerSlice": 4
-    }
-  ],
+  "deferredScopes": [],
   "allowlist": [
     {
       "path": "src/app/login/authSession.ts",

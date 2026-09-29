@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
 import { buildPhase7OperationFailureResponse } from '@nihongo/contracts/admin/phase7'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { apiClient } from '@api/config'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
+import { appI18n } from '@/i18n/config'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'
@@ -69,5 +71,30 @@ describe('QuestionReportDialog', () => {
     ).toBeVisible()
     expect(description).toHaveValue('중복 신고 포커스 복구 테스트')
     expect(submit).toHaveFocus()
+  })
+
+  it('preserves the semantic draft without submitting on locale change', async () => {
+    const user = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(user)
+    const post = vi.spyOn(apiClient, 'post')
+    const interaction = userEvent.setup()
+    renderDialog()
+
+    await interaction.click(screen.getByRole('button', { name: '문제 신고' }))
+    const reason = screen.getByRole('combobox', { name: '신고 사유' })
+    const description = screen.getByRole('textbox', { name: '설명' })
+    await interaction.selectOptions(reason, 'AMBIGUOUS')
+    await interaction.type(description, '전환 뒤에도 보존할 신고 설명')
+
+    await act(async () => appI18n.changeLanguage('ja'))
+
+    expect(screen.getByRole('heading', { name: '問題を報告' })).toBeVisible()
+    expect(screen.getByRole('combobox', { name: '報告理由' })).toHaveValue(
+      'AMBIGUOUS'
+    )
+    expect(screen.getByRole('textbox', { name: '説明' })).toHaveValue(
+      '전환 뒤에도 보존할 신고 설명'
+    )
+    expect(post).not.toHaveBeenCalled()
   })
 })

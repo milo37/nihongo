@@ -10,8 +10,10 @@ import {
   isPhase7UiApiError,
   useCreatePhase7AdminQuestion
 } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
+  const { presentError, t } = useAdminPresentation()
   const navigate = useNavigate()
   const createQuestion = useCreatePhase7AdminQuestion()
 
@@ -26,42 +28,37 @@ export const CreateAdminQuestionPage = (): ReactElement => {
   const error = createQuestion.error
   const serverMessage = error
     ? isPhase7UiApiError(error)
-      ? `${error.serverMessage ?? error.message}${
-          error.retryAfterMs
-            ? ` ${Math.ceil(error.retryAfterMs / 1000)}초 뒤 다시 시도해 주세요.`
-            : ''
-        }`
-      : '문제를 만들지 못했습니다.'
+      ? presentError(error)
+      : t('create.error')
     : undefined
   const serverFieldErrors =
     error && isPhase7UiApiError(error) ? error.fieldErrors : undefined
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      <nav aria-label="현재 위치">
+      <nav aria-label={t('common.breadcrumbLabel')}>
         <ol className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <li>
             <Link
               className="font-semibold text-brand underline"
               to="/admin/questions"
             >
-              문제 관리
+              {t('common.questions')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page">새 문제</li>
+          <li aria-current="page">{t('common.newQuestion')}</li>
         </ol>
       </nav>
       <header className="mb-8 mt-6 border-b border-line pb-8">
         <p className="text-sm font-bold tracking-[0.14em] text-brand">
-          CREATE DRAFT
+          {t('create.eyebrow')}
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-          새 문제 초안 만들기
+          {t('create.title')}
         </h1>
         <p className="mt-4 max-w-3xl leading-7 text-muted">
-          생성 결과는 항상 새 DRAFT 버전입니다. 공개 상태를 폼에서 직접 지정할
-          수 없습니다.
+          {t('create.description')}
         </p>
       </header>
       <Phase7QuestionEditor
@@ -69,7 +66,7 @@ export const CreateAdminQuestionPage = (): ReactElement => {
         mode="create"
         serverFieldErrors={serverFieldErrors}
         serverMessage={serverMessage}
-        submitLabel="초안 만들기"
+        submitLabel={t('create.submit')}
         onSubmit={handleSubmit}
       />
     </section>

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { reauthenticatePhase7Admin } from '@api/phase7/phase7AdminApi'
 import {
@@ -6,6 +7,10 @@ import {
   refreshCanonicalAuthAfterMutation
 } from '@app/login/authSession'
 import { invalidatePhase7AdminMutation } from '@app/admin-question/queries/phase7AdminInvalidation'
+import {
+  getAdminApiErrorKey,
+  type FreshAssuranceReasonCode
+} from '@app/admin/presentation/adminPresentation'
 import { isApiError } from '@api/config'
 import {
   AuthTransitionSupersededError,
@@ -18,16 +23,19 @@ import { useAppStore } from '@store/index'
 export interface FreshAssurancePrompt {
   readonly questionIds?: readonly string[]
   readonly reportId?: string
-  readonly reason: string
+  readonly reasonCode: FreshAssuranceReasonCode
 }
 
 export const useFreshAssurance = () => {
+  const { t } = useTranslation('admin')
   const queryClient = useQueryClient()
   const [prompt, setPrompt] = useState<FreshAssurancePrompt | null>(null)
-  const [completionMessage, setCompletionMessage] = useState<string | null>(
+  const [completionStatus, setCompletionStatus] = useState<'COMPLETE' | null>(
     null
   )
-  const [recoveryError, setRecoveryError] = useState<string | null>(null)
+  const [recoveryStatus, setRecoveryStatus] = useState<
+    'FAILED' | 'RECOVERED' | null
+  >(null)
   const [recoveryRequired, setRecoveryRequired] = useState(false)
   const [isRecovering, setIsRecovering] = useState(false)
   const recoveryActorId = useRef<string | null>(null)
@@ -40,8 +48,8 @@ export const useFreshAssurance = () => {
 
   const open = (nextPrompt: FreshAssurancePrompt): void => {
     mutation.reset()
-    setCompletionMessage(null)
-    setRecoveryError(null)
+    setCompletionStatus(null)
+    setRecoveryStatus(null)
     setRecoveryRequired(false)
     recoveryActorId.current = null
     confirmedReauthenticationPending.current = false
@@ -74,14 +82,12 @@ export const useFreshAssurance = () => {
     confirmedReauthenticationPending.current = false
     setPrompt(null)
     recoveryActorId.current = null
-    setCompletionMessage(
-      '본인 확인이 완료되었습니다. 원래 작업은 자동 실행되지 않았습니다. 내용을 확인한 뒤 다시 실행해 주세요.'
-    )
+    setCompletionStatus('COMPLETE')
   }
 
   const recoverPrincipal = async (): Promise<void> => {
     setIsRecovering(true)
-    setRecoveryError(null)
+    setRecoveryStatus(null)
     try {
       const recovery =
         await recoverCanonicalAuthAfterAmbiguousMutation(queryClient)
@@ -99,9 +105,7 @@ export const useFreshAssurance = () => {
           await settleConfirmedReauthentication(activePrompt, recovery.user.id)
           return
         }
-        setRecoveryError(
-          '현재 관리자 세션을 확인했습니다. 비밀번호를 다시 입력해 본인 확인을 재시도해 주세요.'
-        )
+        setRecoveryStatus('RECOVERED')
         return
       }
 
@@ -111,9 +115,7 @@ export const useFreshAssurance = () => {
     } catch (error: unknown) {
       if (isAuthTransitionSupersededError(error)) throw error
       setRecoveryRequired(true)
-      setRecoveryError(
-        '로그인 상태를 확인하지 못했습니다. 로컬 작업은 유지됩니다. 로그인 상태 확인을 다시 시도해 주세요.'
-      )
+      setRecoveryStatus('FAILED')
       throw error
     } finally {
       setIsRecovering(false)
@@ -128,7 +130,7 @@ export const useFreshAssurance = () => {
       throw new AuthTransitionSupersededError()
     }
     recoveryActorId.current = initialActor.id
-    setRecoveryError(null)
+    setRecoveryStatus(null)
     setRecoveryRequired(false)
 
     try {
@@ -166,13 +168,19 @@ export const useFreshAssurance = () => {
     }
   }
 
-  const errorMessage =
-    recoveryError ??
-    (mutation.error
+  const completionMessage =
+    completionStatus === 'COMPLETE' ? t('freshAssurance.complete') : null
+  const errorMessage = recoveryStatus
+    ? t(
+        recoveryStatus === 'RECOVERED'
+          ? 'freshAssurance.recovered'
+          : 'freshAssurance.recoveryFailed'
+      )
+    : mutation.error
       ? isApiError(mutation.error)
-        ? (mutation.error.serverMessage ?? mutation.error.message)
-        : '본인 확인을 완료하지 못했습니다.'
-      : null)
+        ? t(getAdminApiErrorKey(mutation.error))
+        : t('freshAssurance.failed')
+      : null
 
   return {
     close,

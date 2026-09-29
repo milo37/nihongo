@@ -7,6 +7,8 @@ import {
   type ValidateQuestionImportRequest
 } from '@nihongo/contracts/admin/phase7'
 import { FreshAssuranceDialog } from '@app/admin-question/components/FreshAssuranceDialog'
+import { adminImportIssueCodeKey } from '@app/admin/presentation/adminPresentation'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
   isPhase7UiApiError,
   useApplyPhase7QuestionImport,
@@ -19,19 +21,22 @@ import { ErrorState } from '@common/components/ErrorState'
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024
 
 export const AdminQuestionImportPage = (): ReactElement => {
+  const { formatAdminNumber, presentError, t } = useAdminPresentation()
   const freshAssurance = useFreshAssurance()
   const [request, setRequest] = useState<ValidateQuestionImportRequest | null>(
     null
   )
   const [fileName, setFileName] = useState('')
-  const [fileError, setFileError] = useState<string | null>(null)
-  const [announcement, setAnnouncement] = useState('')
+  const [fileError, setFileError] = useState<'FORMAT' | 'SIZE' | null>(null)
+  const [appliedCount, setAppliedCount] = useState<number | null>(null)
+  const [appliedDigest, setAppliedDigest] = useState<string | null>(null)
   const [isReadingFile, setIsReadingFile] = useState(false)
   const selectionRevision = useRef(0)
   const validation = useValidatePhase7QuestionImport()
   const applyImport = useApplyPhase7QuestionImport(
     (createdCount) => {
-      setAnnouncement(`${createdCount}개 초안을 원자적으로 만들었습니다.`)
+      setAppliedCount(createdCount)
+      setAppliedDigest(validation.data?.validationDigest ?? null)
     },
     (error) => {
       if (
@@ -39,7 +44,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
         error.code === 'FRESH_ASSURANCE_REQUIRED'
       ) {
         freshAssurance.open({
-          reason: '가져오기 적용은 여러 문제를 만드는 민감한 관리자 작업입니다.'
+          reasonCode: 'IMPORT_APPLY'
         })
       }
     }
@@ -54,7 +59,8 @@ export const AdminQuestionImportPage = (): ReactElement => {
     validation.reset()
     applyImport.reset()
     setRequest(null)
-    setAnnouncement('')
+    setAppliedCount(null)
+    setAppliedDigest(null)
     setFileError(null)
     if (!file) {
       setFileName('')
@@ -64,7 +70,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
     setFileName(file.name)
     setIsReadingFile(true)
     if (file.size === 0 || file.size > MAX_IMPORT_BYTES) {
-      setFileError('파일은 1 byte 이상 2 MiB 이하여야 합니다.')
+      setFileError('SIZE')
       setIsReadingFile(false)
       return
     }
@@ -77,9 +83,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
       setFileError(null)
     } catch {
       if (selectionRevision.current !== revision) return
-      setFileError(
-        '중복 JSON 키가 없고 canonical import request 형식인 UTF-8 JSON 파일이 필요합니다.'
-      )
+      setFileError('FORMAT')
     } finally {
       if (selectionRevision.current === revision) setIsReadingFile(false)
     }
@@ -90,36 +94,36 @@ export const AdminQuestionImportPage = (): ReactElement => {
 
   return (
     <section className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-14">
-      <nav aria-label="현재 위치">
+      <nav aria-label={t('common.breadcrumbLabel')}>
         <Link
           className="font-semibold text-brand underline"
           to="/admin/questions"
         >
-          문제 관리
+          {t('common.questions')}
         </Link>
         <span className="mx-2" aria-hidden="true">
           /
         </span>
-        <span aria-current="page">가져오기</span>
+        <span aria-current="page">{t('common.import')}</span>
       </nav>
       <header className="mt-6 border-b border-line pb-8">
         <p className="text-sm font-bold tracking-[0.14em] text-brand">
-          ATOMIC IMPORT
+          {t('import.eyebrow')}
         </p>
         <h1 className="mt-2 text-3xl font-black sm:text-4xl">
-          문제 초안 가져오기
+          {t('import.title')}
         </h1>
-        <p className="mt-4 leading-7 text-muted">
-          먼저 write 0 검증을 수행한 뒤, 동일 items와 validation digest에
-          한해서만 전체 적용합니다.
-        </p>
+        <p className="mt-4 leading-7 text-muted">{t('import.description')}</p>
       </header>
 
       <div className="mt-8 rounded-2xl border border-line bg-white p-5">
         <label className="block font-semibold" htmlFor="phase7-import-file">
-          JSON 파일
+          {t('import.fileLabel')}
         </label>
         <input
+          aria-busy={isReadingFile}
+          aria-describedby={`phase7-import-file-hint${isReadingFile ? ' phase7-import-file-status' : ''}${fileError ? ' phase7-import-file-error' : ''}`}
+          aria-invalid={fileError ? true : undefined}
           className="mt-3 min-h-11 w-full rounded-lg border border-line p-3 file:mr-4 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:font-semibold file:text-brand"
           id="phase7-import-file"
           accept="application/json,.json"
@@ -127,13 +131,34 @@ export const AdminQuestionImportPage = (): ReactElement => {
           type="file"
           onChange={(event) => void selectFile(event)}
         />
-        <p className="mt-2 text-sm text-muted">
-          최대 2 MiB · 최대 100개 · UTF-8 strict JSON
+        <p className="mt-2 text-sm text-muted" id="phase7-import-file-hint">
+          {t('import.fileHint')}
         </p>
-        {fileName ? <p className="mt-2 text-sm">선택: {fileName}</p> : null}
+        {isReadingFile ? (
+          <p
+            className="mt-2 text-sm text-muted"
+            id="phase7-import-file-status"
+            role="status"
+          >
+            {t('import.readingFile')}
+          </p>
+        ) : null}
+        {fileName ? (
+          <p className="mt-2 break-all text-sm">
+            {t('common.selectedFile', { fileName })}
+          </p>
+        ) : null}
         {fileError ? (
-          <p className="mt-3 text-sm font-semibold text-red-700" role="alert">
-            {fileError}
+          <p
+            className="mt-3 text-sm font-semibold text-red-700"
+            id="phase7-import-file-error"
+            role="alert"
+          >
+            {t(
+              fileError === 'SIZE'
+                ? 'import.fileSizeError'
+                : 'import.fileFormatError'
+            )}
           </p>
         ) : null}
         <Button
@@ -144,7 +169,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
             if (request) validation.mutate(request)
           }}
         >
-          쓰기 없이 검증
+          {t('import.validate')}
         </Button>
       </div>
 
@@ -154,8 +179,10 @@ export const AdminQuestionImportPage = (): ReactElement => {
           aria-live="polite"
         >
           <h2 className="text-lg font-bold">
-            {validation.data.valid ? '검증 통과' : '검증 오류'} ·{' '}
-            {validation.data.itemCount}개
+            {t(validation.data.valid ? 'import.valid' : 'import.invalid')} ·{' '}
+            {t('import.resultCount', {
+              formattedCount: formatAdminNumber(validation.data.itemCount)
+            })}
           </h2>
           <p className="mt-2 break-all text-xs text-muted">
             digest {validation.data.validationDigest}
@@ -167,9 +194,13 @@ export const AdminQuestionImportPage = (): ReactElement => {
                   className="rounded-lg bg-white p-3"
                   key={`${issue.itemIndex}:${issue.fieldPath}:${issue.code}`}
                 >
-                  <strong>{issue.code}</strong>
+                  <strong>{t(adminImportIssueCodeKey[issue.code])}</strong>
                   <p className="mt-1 break-all text-sm">
-                    {issue.fieldPath}: {issue.message}
+                    {t('import.issueLabel', {
+                      code: issue.code,
+                      field: issue.fieldPath,
+                      item: formatAdminNumber(issue.itemIndex + 1)
+                    })}
                   </p>
                 </li>
               ))}
@@ -177,7 +208,10 @@ export const AdminQuestionImportPage = (): ReactElement => {
           ) : (
             <Button
               className="mt-5"
-              disabled={isOperationPending}
+              disabled={
+                isOperationPending ||
+                appliedDigest === validation.data.validationDigest
+              }
               isLoading={applyImport.isPending}
               variant="dark"
               onClick={() => {
@@ -189,7 +223,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
                 }
               }}
             >
-              동일 검증 결과 원자 적용
+              {t('import.apply')}
             </Button>
           )}
         </section>
@@ -200,18 +234,29 @@ export const AdminQuestionImportPage = (): ReactElement => {
           className="mt-6"
           description={
             isPhase7UiApiError(operationError)
-              ? `${operationError.serverMessage ?? operationError.message}${
-                  operationError.retryAfterMs
-                    ? ` ${Math.ceil(operationError.retryAfterMs / 1000)}초 뒤 다시 시도해 주세요.`
-                    : ''
-                }`
-              : '가져오기 요청을 처리하지 못했습니다.'
+              ? presentError(operationError)
+              : t('import.error')
           }
         />
       ) : null}
-      <p className="sr-only" aria-live="polite">
-        {announcement || freshAssurance.completionMessage}
-      </p>
+      {appliedCount === null ? null : (
+        <p
+          className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 font-semibold"
+          role="status"
+        >
+          {t('import.applied', {
+            formattedCount: formatAdminNumber(appliedCount)
+          })}
+        </p>
+      )}
+      {freshAssurance.completionMessage ? (
+        <p
+          className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 font-semibold"
+          role="status"
+        >
+          {freshAssurance.completionMessage}
+        </p>
+      ) : null}
       <FreshAssuranceDialog controller={freshAssurance} />
     </section>
   )
