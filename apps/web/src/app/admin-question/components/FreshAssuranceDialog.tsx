@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FormEvent, ReactElement } from 'react'
 import type { FreshAssuranceController } from '@app/admin-question/hooks/useFreshAssurance'
@@ -18,6 +18,22 @@ export const FreshAssuranceDialog = ({
   const [password, setPassword] = useState('')
   const [hasPasswordError, setHasPasswordError] = useState(false)
   const passwordRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (
+      controller.isOpen &&
+      !controller.isPending &&
+      !controller.recoveryRequired &&
+      controller.errorMessage
+    ) {
+      passwordRef.current?.focus()
+    }
+  }, [
+    controller.errorMessage,
+    controller.isOpen,
+    controller.isPending,
+    controller.recoveryRequired
+  ])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault()

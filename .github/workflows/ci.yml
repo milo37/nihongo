@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches:
+      - codex/phase-9-design-i18n-accessibility
       - codex/phase-8-dashboard-recommendations
       - codex/phase-7-admin-cms
       - codex/phase-6-original-content-release
@@ -79,6 +80,9 @@ jobs:
       - name: TypeScript check
         run: pnpm run typecheck
 
+      - name: Phase 9 static UI and accessibility gate
+        run: pnpm run test:phase9:static
+
       - name: Test
         run: pnpm run test
 
@@ -122,10 +126,10 @@ jobs:
           fi
 
   e2e:
-    name: Phase 8 dashboard and Phase 7 regression browser acceptance
+    name: Phase 9 UI and Phase 8/7 regression browser acceptance
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
@@ -178,6 +182,12 @@ jobs:
       - name: Canonical mock browser acceptance
         run: pnpm run test:phase8:browser:mock
 
+      - name: Phase 9 real browser acceptance
+        run: pnpm run test:phase9:browser:real
+
+      - name: Phase 9 canonical mock browser acceptance
+        run: pnpm run test:phase9:browser:mock
+
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -189,3 +199,15 @@ jobs:
             playwright-report/phase8-mock/
             test-results/playwright-phase8-real/
             test-results/playwright-phase8-mock/
+
+      - name: Upload Phase 9 Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-phase9-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: |
+            playwright-report/phase9-real/
+            playwright-report/phase9-mock/
+            test-results/playwright-phase9-real/
+            test-results/playwright-phase9-mock/

@@ -316,7 +316,7 @@ const runQuestionCommand = async (
     page.getByRole('heading', { exact: true, name: `${label} 확인` })
   ).toBeVisible()
   if (note !== undefined) {
-    await page.getByLabel('사유 (필수)').fill(note)
+    await page.getByLabel('사유', { exact: true }).fill(note)
   }
   await page
     .getByRole('button', { exact: true, name: '명시적으로 실행' })
@@ -403,7 +403,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   await publishedCheckbox.uncheck()
 
   const filteredResponsePromise = waitForQuestionList(page, 'N5')
-  await page.getByLabel('급수').selectOption('N5')
+  await page.getByLabel('급수', { exact: true }).selectOption('N5')
   const filteredResponse = await filteredResponsePromise
   const filteredList = listAdminQuestionsResponseSchema.parse(
     await filteredResponse.json()
@@ -415,7 +415,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   await expect(page).toHaveURL(/level=N5/u)
 
   await page.goBack()
-  await expect(page.getByLabel('급수')).toHaveValue('')
+  await expect(page.getByLabel('급수', { exact: true })).toHaveValue('')
   const backResponsePromise = waitForQuestionList(page, null)
   await page.reload()
   const backResponse = await backResponsePromise
@@ -426,7 +426,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   expect(backList.total).toBe(initialList.total)
 
   await page.goForward()
-  await expect(page.getByLabel('급수')).toHaveValue('N5')
+  await expect(page.getByLabel('급수', { exact: true })).toHaveValue('N5')
   const forwardResponsePromise = waitForQuestionList(page, 'N5')
   await page.reload()
   const forwardResponse = await forwardResponsePromise
@@ -444,9 +444,12 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   )
   expect(reloadResponse.status()).toBe(200)
   expect(reloadedList.total).toBe(filteredList.total)
-  await expect(page.getByLabel('급수')).toHaveValue('N5')
+  await expect(page.getByLabel('급수', { exact: true })).toHaveValue('N5')
 
-  const sortSelect = page.getByLabel('정렬')
+  const sortSelect = page.getByRole('combobox', {
+    exact: true,
+    name: '정렬'
+  })
   const sortedHeaders = {
     CREATED_DESC: page.getByRole('columnheader', { name: '생성일' }),
     LEVEL_ASC: page.getByRole('columnheader', { name: '분류' }),
@@ -616,14 +619,14 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
     )
   ).toBe(true)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · DRAFT' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 초안' })
   ).toBeVisible()
 
   const reviewPath = `/api/v1/admin/question-versions/${versionId}/review-request`
   const reviewResponse = await runQuestionCommand(page, '검수 요청', reviewPath)
   expect(reviewResponse.status()).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · IN_REVIEW' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 검수 중' })
   ).toBeVisible()
 
   const approvalPath = `/api/v1/admin/question-versions/${versionId}/approval`
@@ -634,16 +637,19 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   )
   expect(sameAuthorApprovalResponse.status()).toBe(409)
   await expect(
-    page.getByText('작성자와 검수자는 서로 달라야 합니다.', { exact: true })
+    page.getByText(
+      '작성과 검수 역할을 분리해야 하므로 이 작업을 실행할 수 없습니다.',
+      { exact: true }
+    )
   ).toBeVisible()
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · IN_REVIEW' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 검수 중' })
   ).toBeVisible()
 
   await switchAccount(page, reviewer)
   await page.goto(detailPath)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · IN_REVIEW' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 검수 중' })
   ).toBeVisible()
   const reviewerApprovalResponse = await runQuestionCommand(
     page,
@@ -652,7 +658,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   )
   expect(reviewerApprovalResponse.status()).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · APPROVED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 승인' })
   ).toBeVisible()
   await switchAccount(page, author)
   const staleTime = new Date(initialTime.getTime() + 6 * 60 * 1000)
@@ -660,13 +666,13 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   else await ageRealAuthorSession()
   await page.goto(detailPath)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · APPROVED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 승인' })
   ).toBeVisible()
   const secondPage = await page.context().newPage()
   if (isMockBrowser) await secondPage.clock.setFixedTime(staleTime)
   await secondPage.goto(detailPath)
   await expect(
-    secondPage.getByRole('heading', { exact: true, name: 'v1 · APPROVED' })
+    secondPage.getByRole('heading', { exact: true, name: 'v1 · 승인' })
   ).toBeVisible()
 
   const publicationPath = `/api/v1/admin/question-versions/${versionId}/publication`
@@ -738,7 +744,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   )
   expect(publicationResponse.status()).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · PUBLISHED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 공개' })
   ).toBeVisible()
   await expect(
     page.getByRole('heading', {
@@ -773,7 +779,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   const draftVersionId = createVersionResult.questionVersionId
   if (!draftVersionId) throw new Error('Created draft version ID is missing.')
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v2 · DRAFT' })
+    page.getByRole('heading', { exact: true, name: 'v2 · 초안' })
   ).toBeVisible()
   await expect(
     page.getByRole('heading', {
@@ -787,7 +793,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
 
   await secondPage.goto(detailPath)
   await expect(
-    secondPage.getByRole('heading', { exact: true, name: 'v2 · DRAFT' })
+    secondPage.getByRole('heading', { exact: true, name: 'v2 · 초안' })
   ).toBeVisible()
 
   const secondOptionInput = page.getByRole('textbox', {
@@ -826,9 +832,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   await expect(
     page.getByRole('button', { exact: true, name: '문제 보관' })
   ).toBeDisabled()
-  await expect(
-    page.getByRole('button', { name: /^v1 · PUBLISHED/u })
-  ).toBeDisabled()
+  await expect(page.getByRole('button', { name: /^v1 · 공개/u })).toBeDisabled()
 
   const updateVersionPath = `/api/v1/admin/question-versions/${draftVersionId}`
   const secondTabSavePromise = waitForOperation(
@@ -925,7 +929,7 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
 
   await secondPage.reload()
   await expect(
-    secondPage.getByRole('heading', { exact: true, name: 'v2 · DRAFT' })
+    secondPage.getByRole('heading', { exact: true, name: 'v2 · 초안' })
   ).toBeVisible()
   await expect(
     secondPage.getByRole('textbox', { exact: true, name: '문제 문장' })
@@ -1019,10 +1023,10 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   ).toBeVisible()
   const updateAudit = verificationPage
     .getByRole('listitem')
-    .filter({ hasText: 'QUESTION_VERSION_UPDATE' })
+    .filter({ hasText: '문제 버전 수정' })
     .first()
   await expect(updateAudit).toContainText('행위자')
-  await expect(updateAudit).toContainText('ACTIVE_ADMIN')
+  await expect(updateAudit).toContainText('활성 관리자')
   await expect(updateAudit).toContainText('상태 변경')
   await expect(updateAudit).toContainText('변경 필드')
 
@@ -1105,7 +1109,11 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
   await expect(
     page.getByRole('heading', { exact: true, name: '검증 오류 · 1개' })
   ).toBeVisible()
-  await expect(page.getByText('UNKNOWN_TAG', { exact: true })).toBeVisible()
+  const unknownTagIssue = page
+    .getByRole('listitem')
+    .filter({ hasText: 'UNKNOWN_TAG' })
+  await expect(unknownTagIssue).toContainText('등록되지 않은 태그')
+  await expect(unknownTagIssue).toContainText('UNKNOWN_TAG')
   await expect(
     page.getByRole('button', {
       exact: true,
@@ -1148,10 +1156,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
   const tagSearchResponse = await tagSearchResponsePromise
   expect(tagSearchResponse.status()).toBe(200)
   expectExpectedApiTransport(tagSearchResponse)
-  await page
-    .getByRole('option', { exact: true, name: 'ことになる' })
-    .getByRole('button', { exact: true, name: 'ことになる' })
-    .click()
+  await page.getByRole('option', { exact: true, name: 'ことになる' }).click()
   await expect(
     page
       .getByLabel('선택된 태그')
@@ -1176,7 +1181,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
   const detailPath = `/admin/questions/${questionId}`
   await expect(page).toHaveURL(detailPath)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · DRAFT' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 초안' })
   ).toBeVisible()
 
   await page.goto('/admin/questions')
@@ -1198,7 +1203,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
   await switchAccount(page, reviewer)
   await page.goto(detailPath)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · IN_REVIEW' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 검수 중' })
   ).toBeVisible()
   const changeRequestPath = `/api/v1/admin/question-versions/${versionId}/change-request`
   expect(
@@ -1212,7 +1217,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
     ).status()
   ).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · CHANGES_REQUESTED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 수정 요청' })
   ).toBeVisible()
 
   const reviewPath = `/api/v1/admin/question-versions/${versionId}/review-request`
@@ -1224,7 +1229,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
     (await runQuestionCommand(page, '검수 요청', reviewPath)).status()
   ).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · IN_REVIEW' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 검수 중' })
   ).toBeVisible()
 
   await switchAccount(page, reviewer)
@@ -1233,7 +1238,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
     200
   )
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · APPROVED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 승인' })
   ).toBeVisible()
   expect(
     (
@@ -1246,7 +1251,7 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
     ).status()
   ).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · CHANGES_REQUESTED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 수정 요청' })
   ).toBeVisible()
 
   await switchAccount(page, author)
@@ -1267,14 +1272,14 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
     (await runQuestionCommand(page, '공개', publicationPath)).status()
   ).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · PUBLISHED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 공개' })
   ).toBeVisible()
   const retirementPath = `/api/v1/admin/question-versions/${versionId}/retirement`
   expect(
     (await runQuestionCommand(page, '공개 중단', retirementPath)).status()
   ).toBe(200)
   await expect(
-    page.getByRole('heading', { exact: true, name: 'v1 · RETIRED' })
+    page.getByRole('heading', { exact: true, name: 'v1 · 공개 중단' })
   ).toBeVisible()
 
   await switchAccount(page, reviewer)
@@ -1283,31 +1288,38 @@ test('ADMIN completes direct create, batch, change, withdrawal, retirement, and 
   expect(
     (await runQuestionCommand(page, '문제 보관', archivePath)).status()
   ).toBe(200)
-  await expect(page.getByText('ARCHIVED', { exact: true })).toBeVisible()
+  await expect(page.getByText('보관됨', { exact: true })).toBeVisible()
 
   await page.goto('/admin/audit-log')
   const questionAuditItems = page
     .getByRole('listitem')
     .filter({ hasText: questionId })
   await expect(
-    questionAuditItems.filter({ hasText: 'QUESTION_CREATE' })
+    questionAuditItems.filter({
+      has: page.locator('strong', { hasText: /^문제 생성$/u })
+    })
   ).toHaveCount(1)
   await expect(
-    questionAuditItems.filter({ hasText: 'QUESTION_ARCHIVE' })
+    questionAuditItems.filter({
+      has: page.locator('strong', { hasText: /^문제 보관$/u })
+    })
   ).toHaveCount(1)
   const versionAuditItems = page
     .getByRole('listitem')
     .filter({ hasText: versionId })
-  for (const command of [
-    'CHANGE_REQUEST',
-    'APPROVAL_WITHDRAWAL',
-    'PUBLICATION',
-    'RETIREMENT'
-  ]) {
-    await expect(versionAuditItems.filter({ hasText: command })).toHaveCount(1)
+  for (const command of ['수정 요청', '승인 철회', '공개', '공개 중단']) {
+    await expect(
+      versionAuditItems.filter({
+        has: page.locator('strong', {
+          hasText: new RegExp(`^${command}$`, 'u')
+        })
+      })
+    ).toHaveCount(1)
   }
   await expect(
-    page.getByRole('listitem').filter({ hasText: 'REVIEW_REQUEST_BATCH' })
+    page.getByRole('listitem').filter({
+      has: page.locator('strong', { hasText: /^일괄 검수 요청$/u })
+    })
   ).toHaveCount(1)
 
   await page.waitForLoadState('networkidle')
@@ -1447,9 +1459,9 @@ test('USER explicitly retries an offline report and ADMIN resolves it', async ({
   const reportRow = page
     .getByRole('row')
     .filter({ hasText: target.question.id })
-  await expect(reportRow).toContainText('OPEN')
-  await expect(reportRow).toContainText('TYPO_OR_GRAMMAR')
-  await expect(reportRow).toContainText('ACTIVE_USER')
+  await expect(reportRow).toContainText('접수됨')
+  await expect(reportRow).toContainText('오탈자·문법 오류')
+  await expect(reportRow).toContainText('활성 학습자')
   await expect(reportRow).toContainText('미할당')
   await expect(page.getByText(reportDescription, { exact: true })).toHaveCount(
     0
@@ -1474,7 +1486,11 @@ test('USER explicitly retries an offline report and ADMIN resolves it', async ({
     page.getByRole('heading', { level: 1, name: '문제 신고 상세' })
   ).toBeVisible()
   await expect(page.getByText(reportDescription, { exact: true })).toBeVisible()
-  await expect(page.getByText(/ACTIVE_USER/u)).toBeVisible()
+  await expect(
+    page.getByText(`활성 학습자 · ${reportDetail.reporter.actorId}`, {
+      exact: true
+    })
+  ).toBeVisible()
   await expect(page.getByText('미할당', { exact: true })).toBeVisible()
 
   const triagePath = `${reportDetailPath}/triage`
@@ -1511,7 +1527,7 @@ test('USER explicitly retries an offline report and ADMIN resolves it', async ({
     remediationVersionId: null
   })
   await expect(
-    page.getByRole('heading', { exact: true, name: '처리 완료: RESOLVED' })
+    page.getByRole('heading', { exact: true, name: '처리 완료: 해결' })
   ).toBeVisible()
   await expect(page.getByText(resolutionReason, { exact: true })).toBeVisible()
   await page.waitForLoadState('networkidle')

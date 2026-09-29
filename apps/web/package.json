@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:phase9:literals": "node --test scripts/phase9-ui-literal-contract.test.mjs && node scripts/phase9-ui-literal-check.mts",
     "test:phase9:tokens": "node --test scripts/phase9-design-token-contract.test.mjs scripts/phase9-built-css-contract.test.mjs && node scripts/phase9-design-token-check.mjs",
+    "test:phase9:static": "pnpm run test:phase9:literals && pnpm run test:phase9:tokens && node --test scripts/phase9-production-bundle-contract.test.mjs && vitest run src/i18n/resources.test.ts src/test/axeFindingDisposition.test.ts src/test/focusGeometry.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

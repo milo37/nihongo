@@ -108,6 +108,8 @@ export const PracticeSessionPage = (): ReactElement => {
   const [draftActionMessage, setDraftActionMessage] =
     useState<DraftActionNoticeCode | null>(null)
   const [isPreparingSubmission, setPreparingSubmission] = useState(false)
+  const [isSubmissionNavigationStarted, setSubmissionNavigationStarted] =
+    useState(false)
   const [isSavingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
   const [verifiedGuestSessionId, setVerifiedGuestSessionId] = useState<
     string | null
@@ -196,7 +198,7 @@ export const PracticeSessionPage = (): ReactElement => {
       question.sessionQuestionId ? [question.sessionQuestionId] : []
     ) ?? []
   const draftController = usePracticeDraftController({
-    enabled: isEditableV2Session,
+    enabled: isEditableV2Session && !isSubmissionNavigationStarted,
     expectedSessionQuestionIds,
     isInteractionPaused:
       isSubmitDialogOpen ||
@@ -887,6 +889,7 @@ export const PracticeSessionPage = (): ReactElement => {
 
   const completeSubmissionNavigation = (): void => {
     allowSubmissionNavigationRef.current = true
+    setSubmissionNavigationStarted(true)
     if (submissionNavigationBlocker.state === 'blocked') {
       submissionNavigationBlocker.reset()
     }
