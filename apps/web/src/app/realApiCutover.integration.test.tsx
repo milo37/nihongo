@@ -254,10 +254,9 @@ describe('real API Query and feature cutover', () => {
     expect(putSpy).not.toHaveBeenCalled()
   })
 
-  it('mounts canonical Bookmark and Phase 7 admin management in real mode', async () => {
+  it('mounts canonical Bookmark management in real mode', async () => {
     mockDatabase.loginAs('USER')
     const get = vi.spyOn(apiClient, 'get')
-    const request = vi.spyOn(apiClient, 'request')
     const post = vi.spyOn(apiClient, 'post')
     const put = vi.spyOn(apiClient, 'put')
     const del = vi.spyOn(apiClient, 'delete')
@@ -284,8 +283,21 @@ describe('real API Query and feature cutover', () => {
     expect(
       await screen.findByText('저장한 문제가 없습니다')
     ).toBeInTheDocument()
-    unmount()
+    expect(get).toHaveBeenCalledWith('/v1/bookmarks?page=1&pageSize=20', {
+      params: undefined
+    })
+    expect(post).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(del).not.toHaveBeenCalled()
 
+    unmount()
+  })
+
+  it('mounts canonical Phase 7 admin management in real mode', async () => {
+    const request = vi.spyOn(apiClient, 'request')
+    const post = vi.spyOn(apiClient, 'post')
+    const put = vi.spyOn(apiClient, 'put')
+    const del = vi.spyOn(apiClient, 'delete')
     const adminRouter = createMemoryRouter(adminQuestionRoutes, {
       initialEntries: ['/admin/questions']
     })
@@ -312,9 +324,6 @@ describe('real API Query and feature cutover', () => {
         name: '관리자 문제 목록 가로 스크롤 영역'
       })
     ).toBeInTheDocument()
-    expect(get).toHaveBeenCalledWith('/v1/bookmarks?page=1&pageSize=20', {
-      params: undefined
-    })
     expect(request).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'GET',
