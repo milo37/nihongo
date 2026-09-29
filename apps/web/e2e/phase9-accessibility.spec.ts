@@ -1715,6 +1715,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   })
 
   const submitted = await submitSessionThroughUi(page, session)
+  await waitForApiTransportQuiet(transport)
   const targetQuestion = session.questions[0]
   if (!targetQuestion) {
     throw new Error('Phase 9 learner question fixture is missing.')
