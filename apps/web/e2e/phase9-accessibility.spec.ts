@@ -1148,14 +1148,18 @@ const requestBrowserJson = async (
     { body, headers, pathname }
   )
 
-const freezePracticeMonotonicClock = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
+const installPracticeMonotonicClockFreeze = async (
+  page: Page,
+  pathname: string
+): Promise<void> => {
+  await page.addInitScript((targetPathname) => {
+    if (window.location.pathname !== targetPathname) return
     const fixedNow = performance.now()
     Object.defineProperty(performance, 'now', {
       configurable: true,
       value: () => fixedNow
     })
-  })
+  }, pathname)
 }
 
 const restorePracticeMonotonicClock = async (page: Page): Promise<void> => {
@@ -1222,7 +1226,6 @@ const submitSessionThroughUi = async (
   await page.goto(sessionPath)
   await settlePage(page)
   await setLocale(page, 'ko')
-  await freezePracticeMonotonicClock(page)
 
   const lastQuestionJump = page.getByRole('button', {
     name: `${session.session.actualCount}번 문제, 미응답`
@@ -1583,6 +1586,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
 
   const session = await createSession(page)
   const sessionPath = `/practice/session/${session.session.id}`
+  await installPracticeMonotonicClockFreeze(page, sessionPath)
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRouteLocales(page, testInfo, {
     label: 'practice-session',
@@ -1600,6 +1604,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     usedFallback: false
   })
   const readingSessionPath = `/practice/session/${readingSession.session.id}`
+  await installPracticeMonotonicClockFreeze(page, readingSessionPath)
   await verifyViewport(
     page,
     testInfo,
@@ -1645,7 +1650,6 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   ).toBe(true)
   await focusByTab(page, readingPassage)
   await attachFocusedElementEvidence(page, testInfo, 'learner-reading-passage')
-  await freezePracticeMonotonicClock(page)
   await focusByTab(page, firstAnswer)
   await page.keyboard.press('Space')
   await expect(firstAnswer).toBeChecked()
