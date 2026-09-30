@@ -107,8 +107,10 @@
   "pnpm": {
     "overrides": {
       "@prisma/config>deepmerge-ts": "8.0.2",
-      "ajv>fast-uri": "3.1.7",
+      "ajv>fast-uri": "3.1.8",
       "js-yaml": "4.3.2",
+      "minimatch@3.1.5>brace-expansion": "1.1.21",
+      "minimatch@10.2.6>brace-expansion": "5.0.12",
       "postcss": "8.5.28",
       "prisma>mysql2": "3.24.5"
     },
