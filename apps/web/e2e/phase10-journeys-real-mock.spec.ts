@@ -263,24 +263,46 @@ const resilienceRequestContract = [
   { method: 'POST', path: '/api/auth/sign-in/email', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
 
+const waitForLedgerToSettle = async (ledger: RequestLedger): Promise<void> => {
+  await expect
+    .poll(
+      () =>
+        ledger.entries
+          .filter(
+            ({ finishSequence, provenance, startSequence, status }) =>
+              finishSequence === null ||
+              finishSequence <= startSequence ||
+              provenance === 'pending' ||
+              status === null
+          )
+          .map(
+            ({
+              finishSequence,
+              method,
+              path,
+              provenance,
+              startSequence,
+              status
+            }) => ({
+              finishSequence,
+              method,
+              path,
+              provenance,
+              startSequence,
+              status
+            })
+          ),
+      { timeout: 10_000 }
+    )
+    .toEqual([])
+}
+
 const assertAndAttachLedger = async (
   ledger: RequestLedger,
   testInfo: TestInfo,
   label: string
 ): Promise<void> => {
-  await expect
-    .poll(
-      () =>
-        ledger.entries.every(
-          ({ finishSequence, provenance, startSequence, status }) =>
-            finishSequence !== null &&
-            finishSequence > startSequence &&
-            provenance !== 'pending' &&
-            status !== null
-        ),
-      { timeout: 10_000 }
-    )
-    .toBe(true)
+  await waitForLedgerToSettle(ledger)
   await testInfo.attach(label, {
     body: JSON.stringify(
       {
@@ -771,6 +793,7 @@ test('guest registration boundary and authenticated practice transition match th
   await expect(
     page.getByText('현재 역할: 학습자', { exact: true })
   ).toBeVisible()
+  await waitForLedgerToSettle(ledger)
   assertExactRequestMultiset(ledger, [
     { method: 'GET', path: '/api/v1/me', statuses: successfulStatuses(7) },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
@@ -899,6 +922,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   ).toBeVisible()
   await expectDashboardMetric(page, '전체 풀이', '6문제')
   await expectDashboardMetric(page, '누적 오답', '3개')
+  await waitForLedgerToSettle(ledger)
 
   const signInEntries = ledgerEntriesFor(
     ledger,
@@ -1039,6 +1063,7 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
     await assertFaultRecovery(page, ledger, fault)
   }
 
+  await waitForLedgerToSettle(ledger)
   assertExactRequestMultiset(ledger, resilienceRequestContract)
   await assertAndAttachLedger(
     ledger,
