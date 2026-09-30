@@ -14,6 +14,9 @@ const readJson = async (relativePath) =>
 const readText = async (relativePath) =>
   await readFile(path.join(repositoryRoot, relativePath), 'utf8')
 
+const absolutePerformanceEvidenceEnvironment =
+  'PHASE10_PERFORMANCE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}'
+
 const [rootPackage, webPackage, apiPackage, workflow, playwrightConfig] =
   await Promise.all([
     readJson('package.json'),
@@ -73,9 +76,13 @@ test('quality job executes final gates and run-unique performance evidence lifec
     workflow,
     /build:[\s\S]*runs-on: ubuntu-latest\n {4}timeout-minutes: 45/u
   )
-  assert.match(
+  assert.equal(
+    workflow.split(absolutePerformanceEvidenceEnvironment).length - 1,
+    5
+  )
+  assert.doesNotMatch(
     workflow,
-    /PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results\/phase10-evidence\/performance-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/u
+    /PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results\/phase10-evidence\/performance-/u
   )
   const qualityJobEnvironment = workflow.slice(
     workflow.indexOf('    env:\n'),
@@ -100,7 +107,7 @@ test('quality job executes final gates and run-unique performance evidence lifec
     const start = workflow.indexOf(`- name: ${stepName}`)
     const end = workflow.indexOf('\n      - name:', start + 1)
     const step = workflow.slice(start, end === -1 ? undefined : end)
-    assert.match(step, /PHASE10_PERFORMANCE_EVIDENCE_DIR/u, stepName)
+    assert.ok(step.includes(absolutePerformanceEvidenceEnvironment), stepName)
   }
   assertInOrder(workflow, [
     'run: pnpm install --frozen-lockfile\n',
@@ -136,7 +143,7 @@ test('quality job executes final gates and run-unique performance evidence lifec
   )
   assert.match(
     workflow,
-    /name: Clean Phase 10 performance evidence[\s\S]*if: \$\{\{ always\(\) \}\}[\s\S]*test "\$PHASE10_PERFORMANCE_EVIDENCE_DIR" = "\$expected"/u
+    /name: Clean Phase 10 performance evidence[\s\S]*if: \$\{\{ always\(\) \}\}[\s\S]*expected="\$\{GITHUB_WORKSPACE\}\/test-results\/phase10-evidence\/performance-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"[\s\S]*test "\$PHASE10_PERFORMANCE_EVIDENCE_DIR" = "\$expected"/u
   )
   assert.doesNotMatch(workflow, /continue-on-error:/u)
 })
