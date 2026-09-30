@@ -1,33 +1,18 @@
 import { spawnSync } from 'node:child_process'
-import type { ChildProcess } from 'node:child_process'
+import process from 'node:process'
 import { setTimeout as delay } from 'node:timers/promises'
-
-export interface OwnedProcess {
-  readonly child: ChildProcess
-  readonly label: string
-}
-
-interface StopOwnedProcessesOptions {
-  readonly forceKillTimeoutMs?: number
-  readonly gracefulTimeoutMs?: number
-  readonly onForceKill?: (process: OwnedProcess) => void
-  readonly readProcessGroupMemberPids?: (processGroupId: number) => number[]
-}
 
 export const shouldDetachOwnedProcess = process.platform !== 'win32'
 
-const readProcessErrorCode = (error: unknown): string | undefined =>
-  error instanceof Error && 'code' in error
-    ? (error as NodeJS.ErrnoException).code
-    : undefined
+const readProcessErrorCode = (error) =>
+  error instanceof Error && 'code' in error ? error.code : undefined
 
-const isMissingProcessError = (error: unknown): boolean =>
-  readProcessErrorCode(error) === 'ESRCH'
+const isMissingProcessError = (error) => readProcessErrorCode(error) === 'ESRCH'
 
-const isPermissionProcessError = (error: unknown): boolean =>
+const isPermissionProcessError = (error) =>
   readProcessErrorCode(error) === 'EPERM'
 
-const readOwnedProcessGroupMemberPids = (processGroupId: number): number[] => {
+const readOwnedProcessGroupMemberPids = (processGroupId) => {
   if (typeof process.getuid !== 'function') {
     throw new Error('Cannot verify an inaccessible POSIX process group.')
   }
@@ -57,23 +42,21 @@ const readOwnedProcessGroupMemberPids = (processGroupId: number): number[] => {
 }
 
 const signalOwnedProcess = (
-  ownedProcess: OwnedProcess,
-  signal: NodeJS.Signals,
-  readProcessGroupMemberPids: (processGroupId: number) => number[]
-): void => {
+  ownedProcess,
+  signal,
+  readProcessGroupMemberPids
+) => {
   const { child } = ownedProcess
   if (shouldDetachOwnedProcess && child.pid !== undefined) {
     try {
       process.kill(-child.pid, signal)
-    } catch (error: unknown) {
-      if (isMissingProcessError(error)) {
-        return
-      }
+    } catch (error) {
+      if (isMissingProcessError(error)) return
       if (!isPermissionProcessError(error)) throw error
       readProcessGroupMemberPids(child.pid).forEach((pid) => {
         try {
           process.kill(pid, signal)
-        } catch (memberError: unknown) {
+        } catch (memberError) {
           if (!isMissingProcessError(memberError)) throw memberError
         }
       })
@@ -82,26 +65,19 @@ const signalOwnedProcess = (
   }
   try {
     child.kill(signal)
-  } catch (error: unknown) {
-    if (!isMissingProcessError(error)) {
-      throw error
-    }
+  } catch (error) {
+    if (!isMissingProcessError(error)) throw error
   }
 }
 
-const isOwnedProcessRunning = (
-  ownedProcess: OwnedProcess,
-  readProcessGroupMemberPids: (processGroupId: number) => number[]
-): boolean => {
+const isOwnedProcessRunning = (ownedProcess, readProcessGroupMemberPids) => {
   const { child } = ownedProcess
   if (shouldDetachOwnedProcess && child.pid !== undefined) {
     try {
       process.kill(-child.pid, 0)
       return true
-    } catch (error: unknown) {
-      if (isMissingProcessError(error)) {
-        return false
-      }
+    } catch (error) {
+      if (isMissingProcessError(error)) return false
       if (!isPermissionProcessError(error)) throw error
       return readProcessGroupMemberPids(child.pid).length > 0
     }
@@ -110,15 +86,14 @@ const isOwnedProcessRunning = (
 }
 
 const waitForOwnedProcesses = async (
-  ownedProcesses: readonly OwnedProcess[],
-  timeoutMs: number,
-  readProcessGroupMemberPids: (processGroupId: number) => number[]
-): Promise<OwnedProcess[]> => {
+  ownedProcesses,
+  timeoutMs,
+  readProcessGroupMemberPids
+) => {
   const deadline = Date.now() + timeoutMs
   let running = ownedProcesses.filter((ownedProcess) =>
     isOwnedProcessRunning(ownedProcess, readProcessGroupMemberPids)
   )
-
   while (running.length > 0 && Date.now() < deadline) {
     await delay(Math.min(50, Math.max(1, deadline - Date.now())))
     running = running.filter((ownedProcess) =>
@@ -128,15 +103,11 @@ const waitForOwnedProcesses = async (
   return running
 }
 
-const waitForOwnedProcessLeaders = async (
-  ownedProcesses: readonly OwnedProcess[],
-  timeoutMs: number
-): Promise<OwnedProcess[]> => {
+const waitForOwnedProcessLeaders = async (ownedProcesses, timeoutMs) => {
   const deadline = Date.now() + timeoutMs
   let running = ownedProcesses.filter(
     ({ child }) => child.exitCode === null && child.signalCode === null
   )
-
   while (running.length > 0 && Date.now() < deadline) {
     await delay(Math.min(50, Math.max(1, deadline - Date.now())))
     running = running.filter(
@@ -146,10 +117,7 @@ const waitForOwnedProcessLeaders = async (
   return running
 }
 
-export const stopOwnedProcesses = async (
-  ownedProcesses: readonly OwnedProcess[],
-  options: StopOwnedProcessesOptions = {}
-): Promise<void> => {
+export const stopOwnedProcesses = async (ownedProcesses, options = {}) => {
   const uniqueProcesses = Array.from(
     new Map(
       ownedProcesses
@@ -174,7 +142,6 @@ export const stopOwnedProcesses = async (
     readProcessGroupMemberPids
   )
   survivors.forEach((ownedProcess) => {
-    options.onForceKill?.(ownedProcess)
     signalOwnedProcess(ownedProcess, 'SIGKILL', readProcessGroupMemberPids)
   })
   const remaining = await waitForOwnedProcesses(
@@ -186,7 +153,6 @@ export const stopOwnedProcesses = async (
     remaining.length === 0
       ? await waitForOwnedProcessLeaders(uniqueProcesses, forceKillTimeoutMs)
       : []
-
   if (remaining.length > 0 || unreapedLeaders.length > 0) {
     const labels = new Set(
       [...remaining, ...unreapedLeaders].map(({ label }) => label)
@@ -194,19 +160,5 @@ export const stopOwnedProcesses = async (
     throw new Error(
       `Owned process groups did not stop: ${[...labels].join(', ')}`
     )
-  }
-}
-
-export const retireOwnedProcess = async (
-  ownedProcesses: OwnedProcess[],
-  ownedProcess: OwnedProcess,
-  stopProcesses: (
-    processes: readonly OwnedProcess[]
-  ) => Promise<void> = stopOwnedProcesses
-): Promise<void> => {
-  await stopProcesses([ownedProcess])
-  const processIndex = ownedProcesses.indexOf(ownedProcess)
-  if (processIndex >= 0) {
-    ownedProcesses.splice(processIndex, 1)
   }
 }

@@ -10,8 +10,15 @@ import {
   validateQuestionImportRequestSchema
 } from '@nihongo/contracts/admin/phase7'
 import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/create-study-session'
-import type { BrowserContext, Page, Response } from '@playwright/test'
+import type { BrowserContext, Page, Response, Route } from '@playwright/test'
 import { DEMO_USER_ID } from '@mocks/data/users'
+import {
+  assertAndAttachLedger,
+  selectRequestLedger,
+  trackRequestLedger,
+  waitForLedgerSelectionToQuiesce
+} from './phase10-request-ledger'
+import type { RequestLedgerEntry } from './phase10-request-ledger'
 
 interface Credentials {
   readonly email: string
@@ -55,6 +62,62 @@ interface BrowserJsonResponse {
 
 const browserMode = process.env.PHASE7_BROWSER_MODE === 'real' ? 'real' : 'mock'
 const isMockBrowser = browserMode === 'mock'
+const isPhase8Acceptance = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
+
+const armAdminUpdateRaceBarrier = async (
+  context: BrowserContext,
+  page: Page,
+  versionId: string
+): Promise<() => Promise<void>> => {
+  if (isMockBrowser) {
+    await page.evaluate(async (targetVersionId) => {
+      const modulePath = '/src/test/phase10BrowserMockControl.ts'
+      const control = (await import(/* @vite-ignore */ modulePath)) as {
+        armPhase10AdminUpdateRaceBarrier: (value: string) => void
+      }
+      control.armPhase10AdminUpdateRaceBarrier(targetVersionId)
+    }, versionId)
+    return async () => {
+      await page.evaluate(async () => {
+        const modulePath = '/src/test/phase10BrowserMockControl.ts'
+        const control = (await import(/* @vite-ignore */ modulePath)) as {
+          disarmPhase10AdminUpdateRaceBarrier: () => void
+        }
+        control.disarmPhase10AdminUpdateRaceBarrier()
+      })
+    }
+  }
+
+  const pattern = `**/api/v1/admin/question-versions/${versionId}`
+  let requestCount = 0
+  let releaseBarrier = (): void => undefined
+  const barrier = new Promise<void>((resolve) => {
+    releaseBarrier = resolve
+  })
+  const timeout = setTimeout(releaseBarrier, 10_000)
+  const handler = async (route: Route): Promise<void> => {
+    if (route.request().method() !== 'PATCH') {
+      await route.continue()
+      return
+    }
+    requestCount += 1
+    if (requestCount === 2) {
+      clearTimeout(timeout)
+      releaseBarrier()
+    }
+    await barrier
+    if (requestCount < 2) {
+      throw new Error('Phase 10 real ADMIN race barrier timed out.')
+    }
+    await route.continue()
+  }
+  await context.route(pattern, handler)
+  return async () => {
+    clearTimeout(timeout)
+    releaseBarrier()
+    await context.unroute(pattern, handler)
+  }
+}
 
 const parseRealBrowserFixture = (): RealBrowserFixture | undefined => {
   if (browserMode !== 'real') return undefined
@@ -361,9 +424,12 @@ test('guest and USER cannot enter the ADMIN CMS', async ({ page }) => {
 
 test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flow', async ({
   page
-}) => {
+}, testInfo) => {
   test.setTimeout(150_000)
   const transport = trackApiTransport(page)
+  const phase8Ledger = isPhase8Acceptance
+    ? trackRequestLedger(page.context())
+    : undefined
   const apiRequests: RequestEvidence[] = []
   page.context().on('request', (request) => {
     const pathname = new URL(request.url()).pathname
@@ -1020,18 +1086,39 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
     'PATCH',
     updateVersionPath
   )
-  await Promise.all([
-    page
-      .getByRole('button', { exact: true, name: '초안 변경사항 저장' })
-      .click(),
-    secondPage
-      .getByRole('button', { exact: true, name: '초안 변경사항 저장' })
-      .click()
-  ])
-  const [firstRaceResponse, secondRaceResponse] = await Promise.all([
-    firstRaceResponsePromise,
-    secondRaceResponsePromise
-  ])
+  const removeRaceBarrier = await armAdminUpdateRaceBarrier(
+    page.context(),
+    page,
+    draftVersionId
+  )
+  const [firstRaceResponse, secondRaceResponse] = await (async () => {
+    try {
+      const firstRaceSaveButton = page.getByRole('button', {
+        exact: true,
+        name: '초안 변경사항 저장'
+      })
+      const secondRaceSaveButton = secondPage.getByRole('button', {
+        exact: true,
+        name: '초안 변경사항 저장'
+      })
+      await expect(firstRaceSaveButton).toBeEnabled()
+      await expect(secondRaceSaveButton).toBeEnabled()
+      await Promise.all([
+        firstRaceSaveButton.evaluate((button: HTMLButtonElement) =>
+          button.click()
+        ),
+        secondRaceSaveButton.evaluate((button: HTMLButtonElement) =>
+          button.click()
+        )
+      ])
+      return await Promise.all([
+        firstRaceResponsePromise,
+        secondRaceResponsePromise
+      ])
+    } finally {
+      await removeRaceBarrier()
+    }
+  })()
   expect(
     [firstRaceResponse.status(), secondRaceResponse.status()].toSorted()
   ).toEqual([200, 409])
@@ -1146,6 +1233,28 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
         (method === 'PUT' || method === 'DELETE')
     )
   ).toBe(false)
+  if (phase8Ledger) {
+    const isAdminCommand = ({ method, path }: RequestLedgerEntry) =>
+      method !== 'GET' && path.startsWith('/api/v1/admin/')
+    await waitForLedgerSelectionToQuiesce(phase8Ledger, isAdminCommand)
+    const adminCommandLedger = selectRequestLedger(phase8Ledger, isAdminCommand)
+    expect(adminCommandLedger.entries).toHaveLength(17)
+    const concurrentRaceEntries = adminCommandLedger.entries.slice(-2)
+    expect(
+      concurrentRaceEntries.every(
+        ({ bodyDigest }) =>
+          bodyDigest !== null && /^[a-f0-9]{64}$/u.test(bodyDigest)
+      )
+    ).toBe(true)
+    expect(
+      new Set(concurrentRaceEntries.map(({ bodyDigest }) => bodyDigest)).size
+    ).toBe(2)
+    await assertAndAttachLedger(
+      adminCommandLedger,
+      testInfo,
+      `phase8-admin-lifecycle-${browserMode}-request-ledger`
+    )
+  }
 })
 
 test('ADMIN completes direct create, batch, change, withdrawal, retirement, and archive workflows', async ({

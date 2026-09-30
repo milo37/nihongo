@@ -1,7 +1,10 @@
-import { performance } from 'node:perf_hooks'
 import { randomUUID } from 'node:crypto'
+import path from 'node:path'
+import { performance } from 'node:perf_hooks'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
+import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -20,6 +23,15 @@ import {
 } from '../study/studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
+import {
+  createPhase10TimingMeasurement,
+  phase10ApiPerformanceBudget,
+  phase10DatabasePerformanceBudget,
+  writePhase10DatabaseApiPerformanceEvidence
+} from '../e2e/phase10PerformanceEvidence.js'
+import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import type { ApiVariables } from '../middleware/requestContext.js'
+import { createDashboardInsightsRoutes } from '../routes/dashboardInsights.js'
 import {
   createDashboardInsightsClockQuery,
   createDashboardInsightsNonTagQuery,
@@ -45,6 +57,13 @@ interface StatementMetrics {
   transactionCount: number
 }
 
+interface BoundedPlanMetrics {
+  readonly diskSortCount: number
+  readonly overCardinalityNodeCount: number
+  readonly repeatedSubplanCount: number
+  readonly totalNodeCount: number
+}
+
 interface PopulationMetrics {
   answerCount: number
   sessionCount: number
@@ -63,7 +82,6 @@ interface ProjectionCardinality {
 const DAY_MILLISECONDS = 86_400_000
 const POPULATION_ROUNDS = 8
 const PERFORMANCE_SAMPLE_COUNT = 20
-const PERFORMANCE_TARGET_MS = 250
 const SUBJECTS = [
   'VOCABULARY',
   'GRAMMAR',
@@ -167,16 +185,17 @@ const createMeasuredClient = (metrics: StatementMetrics[]): PrismaClient =>
     }
   }) as unknown as PrismaClient
 
-const createAuthenticatedUser =
-  async (): Promise<DashboardInsightsPrincipal> => {
-    const userId = randomUUID()
-    const accountId = randomUUID()
-    const sessionId = randomUUID()
-    const sessionToken = `phase8-performance-${randomUUID()}`
-    const now = new Date()
+const createAuthenticatedUser = async (): Promise<
+  Extract<DashboardInsightsPrincipal, { readonly kind: 'PHASE7' }>
+> => {
+  const userId = randomUUID()
+  const accountId = randomUUID()
+  const sessionId = randomUUID()
+  const sessionToken = `phase8-performance-${randomUUID()}`
+  const now = new Date()
 
-    await adminDatabase.client.$transaction(async (transaction) => {
-      await transaction.$executeRaw`
+  await adminDatabase.client.$transaction(async (transaction) => {
+    await transaction.$executeRaw`
       INSERT INTO "User" (
         "id", "name", "email", "emailVerified", "role", "targetLevel",
         "accountStatus", "createdAt", "updatedAt"
@@ -186,7 +205,7 @@ const createAuthenticatedUser =
         'USER', 'N5', 'ACTIVE', ${now}, ${now}
       )
     `
-      await transaction.$executeRaw`
+    await transaction.$executeRaw`
       INSERT INTO "Account" (
         "id", "accountId", "providerId", "userId", "password",
         "createdAt", "updatedAt"
@@ -195,24 +214,24 @@ const createAuthenticatedUser =
         'phase8-performance-password-hash', ${now}, ${now}
       )
     `
-    })
+  })
 
-    const issued = await authGatewayDatabase.client.$queryRawUnsafe<
-      Array<{ familyId: string }>
-    >(
-      `SELECT * FROM "phase7_issue_v1_session"(
+  const issued = await authGatewayDatabase.client.$queryRawUnsafe<
+    Array<{ familyId: string }>
+  >(
+    `SELECT * FROM "phase7_issue_v1_session"(
       $1, 1, 'USER', 'ACTIVE', $2, $3,
       '127.0.0.1', 'phase8-dashboard-performance', false
     )`,
-      userId,
-      sessionId,
-      sessionToken
-    )
-    if (issued.length !== 1 || !issued[0]) {
-      throw new Error('Phase 8 performance Session was not issued.')
-    }
-    return { kind: 'PHASE7', sessionToken, userId }
+    userId,
+    sessionId,
+    sessionToken
+  )
+  if (issued.length !== 1 || !issued[0]) {
+    throw new Error('Phase 8 performance Session was not issued.')
   }
+  return { kind: 'PHASE7', sessionToken, userId }
+}
 
 const populateLearningHistory = async (
   principal: DashboardInsightsPrincipal
@@ -443,32 +462,36 @@ const assertBoundedPlan = (
   name: string,
   rows: readonly ExplainRow[],
   maximumLegitimateRows: number
-): void => {
+): BoundedPlanMetrics => {
   const nodes = readPlanNodes(rows)
-  expect(nodes.length, `${name} plan nodes`).toBeGreaterThan(0)
-  expect(
-    nodes.filter(
-      (node) =>
-        node['Parent Relationship'] === 'SubPlan' &&
-        readNumericPlanField(node, 'Actual Loops') > 1
-    ),
-    `${name} repeated per-row SubPlans`
-  ).toHaveLength(0)
-  expect(
-    nodes.filter((node) => {
-      const loops = Math.max(1, readNumericPlanField(node, 'Actual Loops'))
-      return (
-        readNumericPlanField(node, 'Actual Rows') * loops >
-        maximumLegitimateRows
-      )
-    }),
-    `${name} unbounded row expansion`
-  ).toHaveLength(0)
-  nodes
-    .filter(({ 'Node Type': nodeType }) =>
-      ['Incremental Sort', 'Sort'].includes(nodeType)
+  const repeatedSubplans = nodes.filter(
+    (node) =>
+      node['Parent Relationship'] === 'SubPlan' &&
+      readNumericPlanField(node, 'Actual Loops') > 1
+  )
+  const overCardinalityNodes = nodes.filter((node) => {
+    const loops = Math.max(1, readNumericPlanField(node, 'Actual Loops'))
+    return (
+      readNumericPlanField(node, 'Actual Rows') * loops > maximumLegitimateRows
     )
-    .forEach((node) => expect(node['Sort Space Type']).not.toBe('Disk'))
+  })
+  const diskSorts = nodes.filter(
+    (node) =>
+      ['Incremental Sort', 'Sort'].includes(node['Node Type']) &&
+      node['Sort Space Type'] === 'Disk'
+  )
+  expect(nodes.length, `${name} plan nodes`).toBeGreaterThan(0)
+  expect(repeatedSubplans, `${name} repeated per-row SubPlans`).toHaveLength(0)
+  expect(overCardinalityNodes, `${name} unbounded row expansion`).toHaveLength(
+    0
+  )
+  expect(diskSorts, `${name} disk sorts`).toHaveLength(0)
+  return {
+    diskSortCount: diskSorts.length,
+    overCardinalityNodeCount: overCardinalityNodes.length,
+    repeatedSubplanCount: repeatedSubplans.length,
+    totalNodeCount: nodes.length
+  }
 }
 
 const assertCteRows = (
@@ -476,7 +499,7 @@ const assertCteRows = (
   rows: readonly ExplainRow[],
   cteName: string,
   expectedRows: number
-): void => {
+): number => {
   const matchingNodes = readPlanNodes(rows).filter(
     (node) => node['Subplan Name'] === `CTE ${cteName}`
   )
@@ -489,6 +512,34 @@ const assertCteRows = (
     readNumericPlanField(matchingNode, 'Actual Rows'),
     `${queryName} ${cteName} CTE rows`
   ).toBe(expectedRows)
+  return matchingNodes.length
+}
+
+const createStatementEvidence = (metrics: readonly StatementMetrics[]) => {
+  const sampleCount = metrics.length
+  const totalExecuteCount = metrics.reduce(
+    (total, metric) => total + metric.executeCount,
+    0
+  )
+  const totalQueryCount = metrics.reduce(
+    (total, metric) => total + metric.queryCount,
+    0
+  )
+  const totalTransactionCount = metrics.reduce(
+    (total, metric) => total + metric.transactionCount,
+    0
+  )
+  return {
+    executePerSample: totalExecuteCount / sampleCount,
+    queryPerSample: totalQueryCount / sampleCount,
+    sampleCount,
+    sqlPerSample: (totalExecuteCount + totalQueryCount) / sampleCount,
+    totalExecuteCount,
+    totalQueryCount,
+    totalSqlCount: totalExecuteCount + totalQueryCount,
+    totalTransactionCount,
+    transactionPerSample: totalTransactionCount / sampleCount
+  }
 }
 
 beforeAll(async () => {
@@ -578,40 +629,63 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }
     )
-    plans.forEach(({ name, rows }) =>
+    const boundedPlanMetrics = plans.map(({ name, rows }) =>
       assertBoundedPlan(name, rows, cardinality.broadMaximumRows)
     )
     const planByName = new Map(plans.map((plan) => [plan.name, plan.rows]))
-    assertCteRows(
-      'non-tag',
-      planByName.get('non-tag') ?? [],
-      'fact',
-      cardinality.answerFactCount
-    )
-    assertCteRows(
-      'tag',
-      planByName.get('tag') ?? [],
-      'tag_fact',
-      cardinality.tagFactCount
-    )
-    assertCteRows(
-      'review',
-      planByName.get('review') ?? [],
-      'ranked_sessions',
-      cardinality.rankedSessionCount
-    )
-    assertCteRows(
-      'target',
-      planByName.get('target') ?? [],
-      'recent_sessions',
-      cardinality.recentSessionCount
-    )
-    assertCteRows(
-      'target',
-      planByName.get('target') ?? [],
-      'target_catalog',
-      cardinality.targetCatalogCount
-    )
+    const cteAssertionCount = [
+      assertCteRows(
+        'non-tag',
+        planByName.get('non-tag') ?? [],
+        'fact',
+        cardinality.answerFactCount
+      ),
+      assertCteRows(
+        'tag',
+        planByName.get('tag') ?? [],
+        'tag_fact',
+        cardinality.tagFactCount
+      ),
+      assertCteRows(
+        'review',
+        planByName.get('review') ?? [],
+        'ranked_sessions',
+        cardinality.rankedSessionCount
+      ),
+      assertCteRows(
+        'target',
+        planByName.get('target') ?? [],
+        'recent_sessions',
+        cardinality.recentSessionCount
+      ),
+      assertCteRows(
+        'target',
+        planByName.get('target') ?? [],
+        'target_catalog',
+        cardinality.targetCatalogCount
+      )
+    ].reduce((total, count) => total + count, 0)
+    const planEvidence = {
+      cardinality,
+      cteAssertionCount,
+      diskSortCount: boundedPlanMetrics.reduce(
+        (total, metric) => total + metric.diskSortCount,
+        0
+      ),
+      overCardinalityNodeCount: boundedPlanMetrics.reduce(
+        (total, metric) => total + metric.overCardinalityNodeCount,
+        0
+      ),
+      queryCount: plans.length,
+      repeatedSubplanCount: boundedPlanMetrics.reduce(
+        (total, metric) => total + metric.repeatedSubplanCount,
+        0
+      ),
+      totalNodeCount: boundedPlanMetrics.reduce(
+        (total, metric) => total + metric.totalNodeCount,
+        0
+      )
+    }
 
     const metrics: StatementMetrics[] = []
     const service = createDashboardInsightsService(
@@ -653,14 +727,195 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
     if (p95Milliseconds === undefined) {
       throw new Error('Phase 8 p95 performance sample is unavailable.')
     }
+    const databaseTiming = createPhase10TimingMeasurement({
+      ...phase10DatabasePerformanceBudget,
+      metric: 'dashboard-insights-service',
+      samplesMs: durations
+    })
+    expect(databaseTiming.budget.passed).toBe(true)
+
+    const apiMetrics: StatementMetrics[] = []
+    const apiService = createDashboardInsightsService(
+      createPrismaDashboardInsightsRepository(
+        createMeasuredClient(apiMetrics),
+        'PHASE7'
+      )
+    )
+    let noStoreCount = 0
+    let principalResolutionCount = 0
+    let rateLimitCount = 0
+    let requestCount = 0
+    let schemaValidationCount = 0
+    let statusOkCount = 0
+    const principalService = {
+      getAuthenticatedUser: async () => ({
+        id: principal.userId,
+        name: 'Phase 10 performance',
+        role: 'USER' as const,
+        targetLevel: 'N5' as const
+      }),
+      resolveAuthenticatedUser: async () => {
+        principalResolutionCount += 1
+        return {
+          clearSessionCookie: false,
+          headers: new Headers(),
+          phase7Session: {
+            createdAt: new Date(observedAt.getTime() - 60_000),
+            expiresAt: new Date(observedAt.getTime() + DAY_MILLISECONDS),
+            id: randomUUID(),
+            isFresh: true,
+            token: principal.sessionToken
+          },
+          user: {
+            id: principal.userId,
+            name: 'Phase 10 performance',
+            role: 'USER' as const,
+            targetLevel: 'N5' as const
+          }
+        }
+      }
+    } satisfies PrincipalService
+    const rateLimiter = {
+      consume: async (input) => {
+        expect(input).toEqual({
+          clientIp: 'unresolved',
+          max: 120,
+          operation: 'dashboard-insights-read',
+          windowMs: 60_000
+        })
+        rateLimitCount += 1
+      }
+    } satisfies ApplicationRateLimiter
+    const app = new Hono<{ Variables: ApiVariables }>()
+    app.use('*', async (context, next) => {
+      const requestUrl = new URL(context.req.url)
+      context.set(
+        'rawRequestTarget',
+        `${requestUrl.pathname}${requestUrl.search}`
+      )
+      await next()
+    })
+    app.route(
+      '/api/v1/dashboard',
+      createDashboardInsightsRoutes({
+        dashboardInsightsService: apiService,
+        environment,
+        principalService,
+        rateLimiter
+      })
+    )
+    const requestInsights = async (): Promise<void> => {
+      requestCount += 1
+      const response = await app.request('/api/v1/dashboard/insights')
+      if (response.status === 200) statusOkCount += 1
+      expect(response.status).toBe(200)
+      const cacheControl = response.headers.get('Cache-Control')
+      if (cacheControl === 'private, no-store') noStoreCount += 1
+      expect(cacheControl).toBe('private, no-store')
+      const body = getDashboardInsightsResponseSchema.parse(
+        await response.json()
+      )
+      schemaValidationCount += 1
+      expect(body.stats.overall.attemptedCount).toBe(populatedAnswerCount)
+      expect(body.stats.byTag.length).toBeLessThanOrEqual(100)
+      expect(body.weaknesses.length).toBeLessThanOrEqual(10)
+      expect(body.recommendations.length).toBeLessThanOrEqual(5)
+    }
+    await requestInsights()
+    const apiDurations: number[] = []
+    for (let index = 0; index < PERFORMANCE_SAMPLE_COUNT; index += 1) {
+      const startedAt = performance.now()
+      await requestInsights()
+      apiDurations.push(performance.now() - startedAt)
+    }
+    expect(principalResolutionCount).toBe(PERFORMANCE_SAMPLE_COUNT + 1)
+    expect(rateLimitCount).toBe(PERFORMANCE_SAMPLE_COUNT + 1)
+    expect(requestCount).toBe(PERFORMANCE_SAMPLE_COUNT + 1)
+    expect(statusOkCount).toBe(PERFORMANCE_SAMPLE_COUNT + 1)
+    expect(noStoreCount).toBe(PERFORMANCE_SAMPLE_COUNT + 1)
+    expect(schemaValidationCount).toBe(PERFORMANCE_SAMPLE_COUNT + 1)
+    expect(apiMetrics).toHaveLength(PERFORMANCE_SAMPLE_COUNT + 1)
+    apiMetrics.forEach((metric) => {
+      expect(metric).toEqual({
+        executeCount: 1,
+        queryCount: 5,
+        transactionCount: 1
+      })
+    })
+    expect(await readBusinessState(principal.userId)).toEqual(before)
+    const apiTiming = createPhase10TimingMeasurement({
+      ...phase10ApiPerformanceBudget,
+      metric: 'dashboard-insights-http',
+      samplesMs: apiDurations
+    })
+    expect(apiTiming.budget.passed).toBe(true)
+
+    const evidenceDirectory = process.env.PHASE10_PERFORMANCE_EVIDENCE_DIR
+    if (evidenceDirectory) {
+      const commit = process.env.PHASE10_PERFORMANCE_COMMIT
+      const sourceTreeDirty = process.env.PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY
+      const pnpmVersion = process.env.PHASE10_PERFORMANCE_PNPM_VERSION
+      if (
+        !commit ||
+        !pnpmVersion ||
+        (sourceTreeDirty !== 'true' && sourceTreeDirty !== 'false')
+      ) {
+        throw new Error('Phase 10 performance evidence metadata is missing.')
+      }
+      await writePhase10DatabaseApiPerformanceEvidence({
+        evidence: {
+          api: {
+            ...apiTiming,
+            cacheControl: 'private, no-store',
+            noStoreCount,
+            principalResolutionCount,
+            rateLimitCount,
+            requestCount,
+            route: 'GET /api/v1/dashboard/insights',
+            schemaValidationCount,
+            serviceCallCount: apiMetrics.length,
+            statements: createStatementEvidence(apiMetrics),
+            status: 200,
+            statusOkCount
+          },
+          database: {
+            ...databaseTiming,
+            plan: planEvidence,
+            statements: createStatementEvidence(metrics)
+          },
+          fixture: {
+            answerCount: population.answerCount,
+            sessionCount: population.sessionCount,
+            tagFactCount: population.tagFactCount
+          },
+          kind: 'nihongo.phase10.database-api-performance',
+          metadata: {
+            command: 'pnpm run test:phase10:performance:database-api',
+            commit,
+            generatedAt: new Date().toISOString(),
+            mode: 'test',
+            node: process.version,
+            pnpm: pnpmVersion,
+            sourceTreeDirty: sourceTreeDirty === 'true'
+          },
+          schemaVersion: 1,
+          status: 'passed',
+          writes: { businessWriteDelta: 0 }
+        },
+        filePath: path.join(evidenceDirectory, 'database-api.json')
+      })
+    }
     process.stdout.write(
       `${JSON.stringify({
         event: 'phase8.dashboard_insights.performance',
+        apiP95Milliseconds: apiTiming.statisticsMs.p95,
+        databaseP95Milliseconds: databaseTiming.statisticsMs.p95,
         populatedAnswerCount,
         samples: PERFORMANCE_SAMPLE_COUNT,
         p95Milliseconds: Number(p95Milliseconds.toFixed(3)),
-        targetMilliseconds: PERFORMANCE_TARGET_MS,
-        targetMet: p95Milliseconds <= PERFORMANCE_TARGET_MS
+        targetMilliseconds: phase10DatabasePerformanceBudget.absoluteCeilingMs,
+        targetMet:
+          p95Milliseconds <= phase10DatabasePerformanceBudget.absoluteCeilingMs
       })}\n`
     )
   }, 120_000)

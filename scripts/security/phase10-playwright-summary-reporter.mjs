@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import {
+  assertPlaywrightPerformanceMeasurement,
   assertPlaywrightRequestLedger,
   writeCanonicalEvidence
 } from './security-evidence.mjs'
@@ -14,7 +15,8 @@ const VALID_STATUS = new Set([
   'interrupted'
 ])
 const REQUEST_LEDGER_ATTACHMENT =
-  /^phase10-(?:guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger$/u
+  /^(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger$/u
+const PERFORMANCE_ATTACHMENT = /^phase8-dashboard-(?:real|mock)-performance$/u
 
 const normalizeStatus = (status) =>
   VALID_STATUS.has(status) ? status : 'failed'
@@ -30,8 +32,9 @@ export default class Phase10PlaywrightSummaryReporter {
     }
     this.outputDirectory = options.outputDirectory
     this.label = options.label
+    this.performanceMeasurements = []
     this.requestLedgers = []
-    this.requestLedgerError = false
+    this.invalidSafeAttachments = new Map()
     this.startedAt = 0
     this.tests = []
   }
@@ -42,8 +45,9 @@ export default class Phase10PlaywrightSummaryReporter {
 
   onBegin() {
     this.startedAt = Date.now()
+    this.performanceMeasurements = []
     this.requestLedgers = []
-    this.requestLedgerError = false
+    this.invalidSafeAttachments = new Map()
     this.tests = []
   }
 
@@ -62,7 +66,10 @@ export default class Phase10PlaywrightSummaryReporter {
       retry: Math.max(0, Math.round(result.retry ?? 0))
     })
     for (const attachment of result.attachments ?? []) {
-      if (!REQUEST_LEDGER_ATTACHMENT.test(attachment.name ?? '')) continue
+      const attachmentName = attachment.name ?? ''
+      const isRequestLedger = REQUEST_LEDGER_ATTACHMENT.test(attachmentName)
+      const isPerformance = PERFORMANCE_ATTACHMENT.test(attachmentName)
+      if (!isRequestLedger && !isPerformance) continue
       try {
         if (
           attachment.contentType !== 'application/json' ||
@@ -72,17 +79,36 @@ export default class Phase10PlaywrightSummaryReporter {
         }
         const payload = JSON.parse(attachment.body.toString('utf8'))
         const ledger = { label: attachment.name, ...payload }
-        assertPlaywrightRequestLedger(ledger, this.label)
-        this.requestLedgers.push(ledger)
-      } catch {
-        this.requestLedgerError = true
+        if (isRequestLedger) {
+          assertPlaywrightRequestLedger(ledger, this.label)
+          this.requestLedgers.push(ledger)
+        } else {
+          assertPlaywrightPerformanceMeasurement(ledger, this.label)
+          this.performanceMeasurements.push(ledger)
+        }
+      } catch (error) {
+        const errorCode =
+          error instanceof Error &&
+          /^SECURITY_EVIDENCE_[A-Z0-9_]+$/u.test(error.message)
+            ? error.message
+            : 'SECURITY_EVIDENCE_ATTACHMENT_INVALID'
+        this.invalidSafeAttachments.set(attachmentName, errorCode)
       }
     }
   }
 
   async onEnd(result) {
-    if (this.requestLedgerError) {
-      throw new Error('PHASE10_PLAYWRIGHT_REQUEST_LEDGER_INVALID')
+    if (this.invalidSafeAttachments.size > 0) {
+      throw new Error(
+        `PHASE10_PLAYWRIGHT_SAFE_ATTACHMENT_INVALID:${[
+          ...this.invalidSafeAttachments
+        ]
+          .toSorted(([leftName], [rightName]) =>
+            leftName.localeCompare(rightName)
+          )
+          .map(([name, errorCode]) => `${name}=${errorCode}`)
+          .join(',')}`
+      )
     }
     const tests = this.tests.toSorted(
       (left, right) =>
@@ -100,15 +126,19 @@ export default class Phase10PlaywrightSummaryReporter {
     const requestLedgers = this.requestLedgers.toSorted((left, right) =>
       left.label.localeCompare(right.label)
     )
+    const performanceMeasurements = this.performanceMeasurements.toSorted(
+      (left, right) => left.label.localeCompare(right.label)
+    )
     await writeCanonicalEvidence({
       filePath: path.join(this.outputDirectory, `${this.label}.json`),
       value: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: 'nihongo.playwright-safe-summary',
         label: this.label,
         status: result.status === 'passed' ? 'passed' : 'failed',
         durationMs: Math.max(0, Date.now() - this.startedAt),
         counts,
+        performanceMeasurements,
         requestLedgers,
         tests
       }

@@ -6,6 +6,15 @@ import {
   createStudySessionV2ResponseSchema
 } from '@nihongo/contracts/study/create-study-session'
 import type { BrowserContext, Page, Request, Response } from '@playwright/test'
+import {
+  assertAndAttachLedger,
+  assertExactRequestMultiset,
+  selectRequestLedger,
+  trackRequestLedger,
+  waitForLedgerToQuiesce,
+  waitForLedgerToSettle
+} from './phase10-request-ledger'
+import type { RequestLedger } from './phase10-request-ledger'
 
 type BrowserMode = 'mock' | 'real'
 
@@ -23,21 +32,30 @@ interface RealBrowserFixture {
   readonly insightsLearner: RealCredentials
 }
 
-interface RequestLifecycleEvent {
-  readonly kind: 'finished' | 'started'
-  readonly pathname: string
-  readonly sequence: number
-}
-
 interface ApiTransportEvidence {
   readonly failedRequests: string[]
   readonly unexpectedResponses: string[]
+}
+
+interface TimingStatistics {
+  readonly max: number
+  readonly median: number
+  readonly min: number
+  readonly p95: number
 }
 
 const canonicalDashboardPaths = [
   '/api/v1/dashboard',
   '/api/v1/dashboard/insights'
 ] as const
+
+const browserPerformanceBaselineP95Milliseconds = {
+  mock: 952.266,
+  real: 875.085
+} as const satisfies Readonly<Record<BrowserMode, number>>
+const browserPerformanceRatioLimit = 8
+const browserPerformanceAbsoluteCeilingMilliseconds = 10_000
+const browserPerformanceSampleCount = 20
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -116,12 +134,6 @@ const waitForResponse = (
     )
   })
 
-const isCanonicalDashboardRequest = (request: Request): boolean =>
-  request.method() === 'GET' &&
-  canonicalDashboardPaths.includes(
-    new URL(request.url()).pathname as (typeof canonicalDashboardPaths)[number]
-  )
-
 const trackApiTransport = (context: BrowserContext): ApiTransportEvidence => {
   const evidence: ApiTransportEvidence = {
     failedRequests: [],
@@ -153,45 +165,132 @@ const expectExpectedApiTransport = (response: Response): void => {
   expect(response.fromServiceWorker()).toBe(isMockBrowser)
 }
 
+const roundMilliseconds = (value: number): number =>
+  Math.round(value * 1_000) / 1_000
+
+const calculateTimingStatistics = (
+  samples: readonly number[]
+): TimingStatistics => {
+  expect(samples).toHaveLength(browserPerformanceSampleCount)
+  const sorted = samples.toSorted((left, right) => left - right)
+  return {
+    max: sorted.at(-1)!,
+    median: roundMilliseconds((sorted[9]! + sorted[10]!) / 2),
+    min: sorted[0]!,
+    p95: sorted[18]!
+  }
+}
+
+const selectCanonicalDashboardLedger = (
+  ledger: RequestLedger,
+  startIndex: number,
+  endIndex = ledger.entries.length
+): RequestLedger =>
+  selectRequestLedger(
+    ledger,
+    ({ method, path }) =>
+      method === 'GET' &&
+      canonicalDashboardPaths.includes(
+        path as (typeof canonicalDashboardPaths)[number]
+      ),
+    startIndex,
+    endIndex
+  )
+
+const assertCanonicalDashboardLedger = (ledger: RequestLedger): void => {
+  assertExactRequestMultiset(ledger, [
+    { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
+    { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] }
+  ])
+  const expectedProvenance = isMockBrowser
+    ? 'canonical-mock-service-worker'
+    : 'canonical-real-network'
+  expect(ledger.entries.map(({ provenance }) => provenance)).toEqual([
+    expectedProvenance,
+    expectedProvenance
+  ])
+  const startSequences = ledger.entries.map(({ startSequence }) =>
+    Number(startSequence)
+  )
+  const finishSequences = ledger.entries.map(({ finishSequence }) =>
+    Number(finishSequence)
+  )
+  expect(Math.max(...startSequences)).toBeLessThan(Math.min(...finishSequences))
+}
+
+const assertCanonicalDashboardAggregate = (
+  ledger: RequestLedger,
+  triggerCount: number
+): void => {
+  assertExactRequestMultiset(ledger, [
+    {
+      method: 'GET',
+      path: '/api/v1/dashboard',
+      statuses: Array.from({ length: triggerCount }, () => 200)
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/dashboard/insights',
+      statuses: Array.from({ length: triggerCount }, () => 200)
+    }
+  ])
+  for (let index = 0; index < triggerCount; index += 1) {
+    assertCanonicalDashboardLedger({
+      entries: ledger.entries.slice(index * 2, index * 2 + 2)
+    })
+  }
+}
+
+const measureDashboardNavigation = async (
+  page: Page,
+  ledger: RequestLedger
+): Promise<number> => {
+  const startIndex = ledger.entries.length
+  const startedAt = performance.now()
+  await page.goto('/dashboard')
+  await expect(
+    page.getByRole('heading', {
+      exact: true,
+      name: '학습 흐름을 확인하세요'
+    })
+  ).toBeVisible()
+  await expect(
+    page.getByRole('heading', { exact: true, name: '약점과 다음 학습 추천' })
+  ).toBeVisible()
+  await expect
+    .poll(
+      () => selectCanonicalDashboardLedger(ledger, startIndex).entries.length
+    )
+    .toBe(2)
+  const measuredLedger = selectCanonicalDashboardLedger(ledger, startIndex)
+  await waitForLedgerToSettle(measuredLedger)
+  assertCanonicalDashboardLedger(measuredLedger)
+  return roundMilliseconds(performance.now() - startedAt)
+}
+
 test('dashboard reads overlap in real and mock mode before an explicit recommendation action', async ({
   context,
   page
-}) => {
+}, testInfo) => {
   test.setTimeout(90_000)
   const transport = trackApiTransport(context)
+  const ledger = trackRequestLedger(context)
   await login(page, learner)
 
-  const lifecycle: RequestLifecycleEvent[] = []
-  const canonicalRequestCounts = new Map<string, number>()
   const sessionPostRequests: Request[] = []
   let legacyDashboardRequestCount = 0
-  let sequence = 0
 
   context.on('request', (request) => {
     const pathname = new URL(request.url()).pathname
     if (pathname.endsWith('/dashboard/stats')) {
       legacyDashboardRequestCount += 1
     }
-    if (isCanonicalDashboardRequest(request)) {
-      canonicalRequestCounts.set(
-        pathname,
-        (canonicalRequestCounts.get(pathname) ?? 0) + 1
-      )
-      lifecycle.push({ kind: 'started', pathname, sequence: ++sequence })
-    }
     if (request.method() === 'POST' && pathname === '/api/v1/study-sessions') {
       sessionPostRequests.push(request)
     }
   })
-  context.on('requestfinished', (request) => {
-    if (!isCanonicalDashboardRequest(request)) return
-    lifecycle.push({
-      kind: 'finished',
-      pathname: new URL(request.url()).pathname,
-      sequence: ++sequence
-    })
-  })
 
+  const initialDashboardStartIndex = ledger.entries.length
   const dashboardResponsePromise = waitForResponse(
     page,
     'GET',
@@ -223,20 +322,19 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
   )
 
   await expect
-    .poll(() => lifecycle.filter(({ kind }) => kind === 'finished').length)
+    .poll(
+      () =>
+        selectCanonicalDashboardLedger(ledger, initialDashboardStartIndex)
+          .entries.length
+    )
     .toBe(2)
-  for (const pathname of canonicalDashboardPaths) {
-    expect(canonicalRequestCounts.get(pathname)).toBe(1)
-  }
-  expect(legacyDashboardRequestCount).toBe(0)
-
-  const started = lifecycle.filter(({ kind }) => kind === 'started')
-  const finished = lifecycle.filter(({ kind }) => kind === 'finished')
-  expect(started).toHaveLength(2)
-  expect(finished).toHaveLength(2)
-  expect(Math.max(...started.map(({ sequence: value }) => value))).toBeLessThan(
-    Math.min(...finished.map(({ sequence: value }) => value))
+  const initialDashboardLedger = selectCanonicalDashboardLedger(
+    ledger,
+    initialDashboardStartIndex
   )
+  await waitForLedgerToSettle(initialDashboardLedger)
+  assertCanonicalDashboardLedger(initialDashboardLedger)
+  expect(legacyDashboardRequestCount).toBe(0)
 
   expect(insights.personalizationFallbackReason).toBe(
     'NO_PERSONALIZED_EVIDENCE'
@@ -285,6 +383,74 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
     )
   ).toBeVisible()
   expect(sessionPostRequests).toHaveLength(0)
+
+  const performanceSamples: number[] = []
+  for (let index = 0; index < browserPerformanceSampleCount; index += 1) {
+    performanceSamples.push(await measureDashboardNavigation(page, ledger))
+  }
+  await waitForLedgerToQuiesce(ledger, initialDashboardStartIndex)
+  const dashboardAggregateLedger = selectCanonicalDashboardLedger(
+    ledger,
+    initialDashboardStartIndex
+  )
+  assertCanonicalDashboardAggregate(
+    dashboardAggregateLedger,
+    browserPerformanceSampleCount + 1
+  )
+  await assertAndAttachLedger(
+    dashboardAggregateLedger,
+    testInfo,
+    `phase8-dashboard-${browserMode}-request-ledger`
+  )
+  const statisticsMs = calculateTimingStatistics(performanceSamples)
+  const baselineP95Milliseconds =
+    browserPerformanceBaselineP95Milliseconds[browserMode]
+  const observedToBaselineRatio = roundMilliseconds(
+    statisticsMs.p95 / baselineP95Milliseconds
+  )
+  const ratioCeilingMilliseconds = roundMilliseconds(
+    baselineP95Milliseconds * browserPerformanceRatioLimit
+  )
+  const effectiveCeilingMilliseconds = Math.min(
+    ratioCeilingMilliseconds,
+    browserPerformanceAbsoluteCeilingMilliseconds
+  )
+  const passed =
+    statisticsMs.p95 <= ratioCeilingMilliseconds &&
+    statisticsMs.p95 <= browserPerformanceAbsoluteCeilingMilliseconds
+  await testInfo.attach(`phase8-dashboard-${browserMode}-performance`, {
+    body: JSON.stringify(
+      {
+        schemaVersion: 1,
+        kind: 'nihongo.phase10.browser-performance',
+        surface: 'dashboard-navigation',
+        mode: browserMode,
+        warmupCount: 1,
+        sampleCount: browserPerformanceSampleCount,
+        samplesMs: performanceSamples,
+        statisticsMs,
+        budget: {
+          absoluteCeilingMilliseconds:
+            browserPerformanceAbsoluteCeilingMilliseconds,
+          baselineP95Milliseconds,
+          effectiveCeilingMilliseconds,
+          observedToBaselineRatio,
+          passed,
+          ratioCeilingMilliseconds,
+          ratioLimit: browserPerformanceRatioLimit
+        }
+      },
+      null,
+      2
+    ),
+    contentType: 'application/json'
+  })
+  expect(statisticsMs.p95).toBeLessThanOrEqual(ratioCeilingMilliseconds)
+  expect(statisticsMs.p95).toBeLessThanOrEqual(
+    browserPerformanceAbsoluteCeilingMilliseconds
+  )
+  expect(passed).toBe(true)
+  expect(legacyDashboardRequestCount).toBe(0)
 
   const actionSummary = `일반 연습 · ${action.level} ${subjectLabels[action.subject]} · ${action.count}문제`
   const actionButton = page.getByRole('button', {
@@ -341,9 +507,6 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
     return url.pathname === `/practice/session/${created.session.id}`
   })
 
-  for (const pathname of canonicalDashboardPaths) {
-    expect(canonicalRequestCounts.get(pathname)).toBe(1)
-  }
   expect(legacyDashboardRequestCount).toBe(0)
   expect(transport.unexpectedResponses).toEqual([])
   expect(transport.failedRequests).toEqual([])

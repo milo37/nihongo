@@ -68,6 +68,70 @@ describe('owned process groups', () => {
   )
 
   it.runIf(shouldDetachOwnedProcess)(
+    'waits for a leader state when the process group is already absent',
+    async () => {
+      let signalCode: NodeJS.Signals | null = null
+      const child = {
+        exitCode: null,
+        get signalCode() {
+          return signalCode
+        },
+        pid: 424_243
+      } as ChildProcess
+      const missingError = Object.assign(new Error('kill ESRCH'), {
+        code: 'ESRCH'
+      })
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => {
+        throw missingError
+      })
+      const stateTimer = setTimeout(() => {
+        signalCode = 'SIGTERM'
+      }, 25)
+
+      try {
+        await expect(
+          stopOwnedProcesses([{ child, label: 'already-absent-group' }], {
+            forceKillTimeoutMs: 250
+          })
+        ).resolves.toBeUndefined()
+        expect(signalCode).toBe('SIGTERM')
+      } finally {
+        clearTimeout(stateTimer)
+        killSpy.mockRestore()
+      }
+    }
+  )
+
+  it.runIf(shouldDetachOwnedProcess)(
+    'rejects within the leader timeout when an absent group never reports exit',
+    async () => {
+      const child = {
+        exitCode: null,
+        pid: 424_244,
+        signalCode: null
+      } as ChildProcess
+      const missingError = Object.assign(new Error('kill ESRCH'), {
+        code: 'ESRCH'
+      })
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => {
+        throw missingError
+      })
+      const startedAt = Date.now()
+
+      try {
+        await expect(
+          stopOwnedProcesses([{ child, label: 'unreaped-leader' }], {
+            forceKillTimeoutMs: 25
+          })
+        ).rejects.toThrow('Owned process groups did not stop: unreaped-leader')
+        expect(Date.now() - startedAt).toBeLessThan(500)
+      } finally {
+        killSpy.mockRestore()
+      }
+    }
+  )
+
+  it.runIf(shouldDetachOwnedProcess)(
     'stops a command and its descendant before resolving',
     async () => {
       const child = spawn(

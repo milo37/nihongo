@@ -186,6 +186,7 @@ export interface Phase7IsolatedDatabaseHarness {
 }
 
 interface PreparePhase7IsolatedDatabaseOptions {
+  readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
 }
 
@@ -513,36 +514,54 @@ const formatCommand = (command: string, args: readonly string[]): string =>
 const runCommand = async (
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv
-): Promise<void> =>
-  await new Promise<void>((resolve, reject) => {
-    let spawnError: Error | undefined
-    const child = spawn(command, args, {
-      cwd: repositoryRoot,
-      detached: shouldDetachOwnedProcess,
-      env: environment,
-      stdio: 'inherit'
-    })
-    const ownedCommand = { child, label: formatCommand(command, args) }
-    commandProcesses.push(ownedCommand)
+  environment: NodeJS.ProcessEnv,
+  abortSignal?: AbortSignal
+): Promise<void> => {
+  abortSignal?.throwIfAborted()
+  let spawnError: Error | undefined
+  const child = spawn(command, args, {
+    cwd: repositoryRoot,
+    detached: shouldDetachOwnedProcess,
+    env: environment,
+    stdio: 'inherit'
+  })
+  const ownedCommand = { child, label: formatCommand(command, args) }
+  commandProcesses.push(ownedCommand)
+  let handleAbort: (() => void) | undefined
+  const childOutcome = new Promise<{
+    code: number | null
+    signal: NodeJS.Signals | null
+  }>((resolve) => {
     child.once('error', (error) => {
       spawnError = error
     })
-    child.once('close', (code, signal) => {
-      void retireOwnedProcess(commandProcesses, ownedCommand).then(
-        () => {
-          if (spawnError) return reject(spawnError)
-          if (code === 0) return resolve()
-          reject(
-            new Error(
-              `${ownedCommand.label} failed (${signal ?? `exit ${code ?? 'unknown'}`}).`
-            )
-          )
-        },
-        (error: unknown) => reject(error)
-      )
-    })
+    child.once('close', (code, signal) => resolve({ code, signal }))
   })
+  const abortOutcome = new Promise<{ aborted: true }>((resolve) => {
+    if (!abortSignal) return
+    handleAbort = () => resolve({ aborted: true })
+    abortSignal.addEventListener('abort', handleAbort, { once: true })
+    if (abortSignal.aborted) handleAbort()
+  })
+  try {
+    const outcome = await Promise.race([childOutcome, abortOutcome])
+    await retireOwnedProcess(commandProcesses, ownedCommand)
+    abortSignal?.throwIfAborted()
+    if (spawnError) throw spawnError
+    if ('aborted' in outcome) {
+      throw new Error('Phase 7 command aborted without an abort reason.')
+    }
+    if (outcome.code === 0) return
+    throw new Error(
+      `${ownedCommand.label} failed (` +
+        `${outcome.signal ?? `exit ${outcome.code ?? 'unknown'}`}).`
+    )
+  } finally {
+    if (abortSignal && handleAbort) {
+      abortSignal.removeEventListener('abort', handleAbort)
+    }
+  }
+}
 
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= (async () => {
@@ -639,13 +658,18 @@ export const cleanupPhase7IsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
-const registerCapabilityAndActivate = async (): Promise<void> => {
+const registerCapabilityAndActivate = async (
+  abortSignal?: AbortSignal
+): Promise<void> => {
+  abortSignal?.throwIfAborted()
   const migrationClient = new Client({
     connectionString: migrationDatabaseUrl.toString()
   })
   await migrationClient.connect()
   try {
+    abortSignal?.throwIfAborted()
     await migrationClient.query(`SET search_path TO ${quoteSchema(schemaName)}`)
+    abortSignal?.throwIfAborted()
     const endpoint = await migrationClient.query<{
       databaseName: string
       serverAddress: string
@@ -659,19 +683,23 @@ const registerCapabilityAndActivate = async (): Promise<void> => {
     if (!target) {
       throw new Error('Phase 7 API endpoint identity is unavailable.')
     }
+    abortSignal?.throwIfAborted()
     await migrationClient.query(
       `SELECT "phase7_register_database_capability"(
          $1, $2::inet, $3, 'TEST'
        )`,
       [target.databaseName, target.serverAddress, target.serverPort]
     )
+    abortSignal?.throwIfAborted()
     await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+    abortSignal?.throwIfAborted()
   } finally {
     await migrationClient.end()
   }
 }
 
 export const preparePhase7IsolatedDatabase = async ({
+  abortSignal,
   seedRuns = 0
 }: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
   if (databasePrepared) {
@@ -681,20 +709,30 @@ export const preparePhase7IsolatedDatabase = async ({
     throw new Error('Phase 7 isolated database seed run count is invalid.')
   }
 
+  abortSignal?.throwIfAborted()
   await adminClient.connect()
   adminConnected = true
+  abortSignal?.throwIfAborted()
   await acquireProvisioningLock()
+  abortSignal?.throwIfAborted()
   await verifySchemaAbsent()
+  abortSignal?.throwIfAborted()
   databaseSnapshot = await readDatabaseSnapshot()
+  abortSignal?.throwIfAborted()
   await attestBootstrap()
+  abortSignal?.throwIfAborted()
   await provisionRoles()
+  abortSignal?.throwIfAborted()
   await ensurePgcrypto()
+  abortSignal?.throwIfAborted()
   await applyMigrationDatabaseBoundary()
+  abortSignal?.throwIfAborted()
   await adminClient.query(
     `CREATE SCHEMA ${quoteSchema(schemaName)}
      AUTHORIZATION "nihongo_phase7_migration"`
   )
   schemaCreated = true
+  abortSignal?.throwIfAborted()
 
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
@@ -710,28 +748,42 @@ export const preparePhase7IsolatedDatabase = async ({
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
 
-  await runCommand('pnpm', ['run', 'build:contracts'], sharedEnvironment)
-  await runCommand('pnpm', ['run', 'build:domain'], sharedEnvironment)
+  await runCommand(
+    'pnpm',
+    ['run', 'build:contracts'],
+    sharedEnvironment,
+    abortSignal
+  )
+  await runCommand(
+    'pnpm',
+    ['run', 'build:domain'],
+    sharedEnvironment,
+    abortSignal
+  )
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:generate'],
-    sharedEnvironment
+    sharedEnvironment,
+    abortSignal
   )
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-    sharedEnvironment
+    sharedEnvironment,
+    abortSignal
   )
-  await registerCapabilityAndActivate()
+  await registerCapabilityAndActivate(abortSignal)
 
   for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
     await runCommand(
       'pnpm',
       ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-      sharedEnvironment
+      sharedEnvironment,
+      abortSignal
     )
   }
 
+  abortSignal?.throwIfAborted()
   databasePrepared = true
   return {
     adminDatabaseUrl: targetDatabaseUrl.toString(),

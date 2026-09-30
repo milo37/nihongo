@@ -12,6 +12,7 @@
     "test:watch": "pnpm run db:generate && vitest",
     "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
     "test:phase7:api": "tsx src/e2e/runPhase7ApiIntegration.ts",
+    "test:phase10:performance": "tsx src/e2e/runPhase10Performance.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
     "content:materialize-slice1": "tsx prisma/phase6Slice1ArtifactMaterializer.ts",
     "content:foundation-check": "tsx prisma/phase6Slice1FoundationCheck.ts",

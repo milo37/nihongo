@@ -12,13 +12,15 @@
     "test:phase9:literals": "node --test scripts/phase9-ui-literal-contract.test.mjs && node scripts/phase9-ui-literal-check.mts",
     "test:phase9:tokens": "node --test scripts/phase9-design-token-contract.test.mjs scripts/phase9-built-css-contract.test.mjs && node scripts/phase9-design-token-check.mjs",
     "test:phase9:static": "pnpm run test:phase9:literals && pnpm run test:phase9:tokens && node --test scripts/phase9-production-bundle-contract.test.mjs && vitest run src/i18n/resources.test.ts src/test/axeFindingDisposition.test.ts src/test/focusGeometry.test.ts",
+    "test:phase10:bundle": "node scripts/phase10-production-bundle-clean.mjs && node --test scripts/phase10-production-bundle-contract.test.mjs && node scripts/phase10-production-bundle-check.mjs && node --test scripts/phase10-production-bundle-evidence.test.mjs",
+    "test:phase10:ledger": "vitest run --config scripts/phase10-request-ledger.vitest.config.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.0",
     "@nihongo/contracts": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
-    "axios": "^1.7.0",
+    "axios": "^1.20.0",
     "i18next": "26.4.2",
     "msw": "^2.0.0",
     "react": "^19.2.0",

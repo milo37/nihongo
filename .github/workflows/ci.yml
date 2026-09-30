@@ -24,6 +24,7 @@ jobs:
   build:
     name: Quality and production build
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
@@ -85,6 +86,9 @@ jobs:
       - name: Phase 9 static UI and accessibility gate
         run: pnpm run test:phase9:static
 
+      - name: Phase 10 static contract
+        run: pnpm run test:phase10:static
+
       - name: Initialize unique Phase 10 security evidence
         shell: bash
         run: |
@@ -138,10 +142,65 @@ jobs:
         run: pnpm run build
 
       - name: Contributor-free content foundation
-        run: pnpm run content:foundation-check:static
+        run: pnpm run content:foundation-check
 
       - name: Production artifact excludes the mock worker
         run: test ! -e apps/web/dist/mockServiceWorker.js
+
+      - name: Initialize unique Phase 10 performance evidence
+        env:
+          PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$PHASE10_PERFORMANCE_EVIDENCE_DIR"
+          install -d -m 700 "$PHASE10_PERFORMANCE_EVIDENCE_DIR"
+
+      - name: Phase 10 performance gate
+        id: phase10_performance_evidence
+        env:
+          PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
+        run: pnpm run test:phase10:performance
+
+      - name: Verify Phase 10 performance evidence
+        if: ${{ steps.phase10_performance_evidence.outcome == 'success' }}
+        env:
+          PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t evidence_files < <(find "$PHASE10_PERFORMANCE_EVIDENCE_DIR" -mindepth 1 -maxdepth 1 -type f -print | sort)
+          test "${#evidence_files[@]}" -eq 2
+          for name in bundle.json database-api.json; do
+            file="$PHASE10_PERFORMANCE_EVIDENCE_DIR/$name"
+            test -f "$file"
+            test ! -L "$file"
+            test "$(stat -c '%a' "$file")" = 600
+          done
+
+      - name: Upload safe Phase 10 performance evidence
+        if: ${{ steps.phase10_performance_evidence.outcome == 'success' }}
+        env:
+          PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: |
+            ${{ env.PHASE10_PERFORMANCE_EVIDENCE_DIR }}/bundle.json
+            ${{ env.PHASE10_PERFORMANCE_EVIDENCE_DIR }}/database-api.json
+
+      - name: Clean Phase 10 performance evidence
+        if: ${{ always() }}
+        env:
+          PHASE10_PERFORMANCE_EVIDENCE_DIR: test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/phase10-evidence/performance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PHASE10_PERFORMANCE_EVIDENCE_DIR" = "$expected"
+          rm -rf -- "$expected"
+          test ! -e "$expected"
 
       - name: Git whitespace check
         env:
@@ -183,6 +242,7 @@ jobs:
       AUTH_EMAIL_FROM: auth@example.test
       AUTH_EMAIL_DELIVERY_MODE: test-sink
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
+      PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -204,6 +264,13 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Initialize unique safe Playwright evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
+          install -d -m 700 "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
+
       - name: Phase 10 real browser acceptance
         run: pnpm run test:phase10:browser:real
 
@@ -214,7 +281,7 @@ jobs:
         id: phase10_playwright_evidence
         run: >-
           node scripts/security/security-evidence.mjs verify
-          --directory test-results/phase10-evidence/playwright
+          --directory "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
           --profile playwright
           --required phase8-real,phase8-mock,phase9-real,phase9-mock,phase10-real,phase10-mock
 
@@ -224,14 +291,15 @@ jobs:
         with:
           name: playwright-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
-          path: test-results/phase10-evidence/playwright/
+          path: ${{ env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR }}/
 
       - name: Clean safe Playwright evidence
         if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
-          expected="test-results/phase10-evidence/playwright"
+          expected="test-results/phase10-evidence/playwright-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR" = "$expected"
           rm -rf -- "$expected"
           test ! -e "$expected"
 
@@ -241,5 +309,14 @@ jobs:
         run: |
           set -euo pipefail
           expected="test-results/phase10-raw"
+          rm -rf -- "$expected"
+          test ! -e "$expected"
+
+      - name: Clean Phase 9 browser diagnostics
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/playwright-phase9-real"
           rm -rf -- "$expected"
           test ! -e "$expected"

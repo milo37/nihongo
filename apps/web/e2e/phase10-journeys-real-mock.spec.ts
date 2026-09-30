@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { expect, test } from '@playwright/test'
 import {
   createStudySessionV2ResponseSchema,
@@ -8,13 +7,19 @@ import {
   submitStudySessionV2ResponseSchema,
   type SubmitStudySessionV2Response
 } from '@nihongo/contracts/study/submit-study-session'
+import type { BrowserContext, Page, Route } from '@playwright/test'
+import {
+  assertAndAttachLedger,
+  assertExactRequestMultiset,
+  ledgerEntriesFor,
+  trackRequestLedger,
+  waitForLedgerToQuiesce
+} from './phase10-request-ledger'
 import type {
-  BrowserContext,
-  Page,
-  Request,
-  Route,
-  TestInfo
-} from '@playwright/test'
+  RequestLedger,
+  RequestLedgerEntry,
+  RequestLedgerContractEntry
+} from './phase10-request-ledger'
 
 type DashboardFault = 'malformed' | 'network' | 'rate-limit'
 
@@ -31,32 +36,6 @@ interface RealBrowserFixture {
 
 interface RegistrationCredentials extends Credentials {
   readonly targetLevel: 'N4'
-}
-
-interface RequestLedgerEntry {
-  readonly bodyDigest: string | null
-  finishSequence: number | null
-  readonly idempotencyKeyDigest: string | null
-  readonly method: string
-  readonly path: string
-  provenance:
-    | 'canonical-mock-service-worker'
-    | 'canonical-real-network'
-    | 'injected-test-fault'
-    | 'network-failure'
-    | 'pending'
-  readonly startSequence: number
-  status: number | 'NETWORK_ERROR' | null
-}
-
-interface RequestLedger {
-  readonly entries: RequestLedgerEntry[]
-}
-
-interface RequestLedgerContractEntry {
-  readonly method: string
-  readonly path: string
-  readonly statuses: ReadonlyArray<number | 'NETWORK_ERROR'>
 }
 
 const browserMode = process.env.PHASE10_BROWSER_MODE
@@ -93,102 +72,6 @@ const registration = parseJsonEnvironment<RegistrationCredentials>(
 )
 const learner = realFixture?.learner ?? demoLearner
 const journeyLearner = realFixture?.journeyLearner ?? demoLearner
-
-const normalizeApiPath = (request: Request): string =>
-  new URL(request.url()).pathname.replace(
-    /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu,
-    ':id'
-  )
-
-const digest = (value: string | null): string | null =>
-  value === null
-    ? null
-    : createHash('sha256').update(value, 'utf8').digest('hex')
-
-const trackRequestLedger = (context: BrowserContext): RequestLedger => {
-  const entries: RequestLedgerEntry[] = []
-  const entryByRequest = new WeakMap<Request, RequestLedgerEntry>()
-  let sequence = 0
-
-  context.on('request', (request) => {
-    const path = normalizeApiPath(request)
-    if (!path.startsWith('/api/')) return
-    const entry: RequestLedgerEntry = {
-      bodyDigest: digest(request.postData()),
-      finishSequence: null,
-      idempotencyKeyDigest: digest(
-        request.headers()['idempotency-key'] ?? null
-      ),
-      method: request.method(),
-      path,
-      provenance: 'pending',
-      startSequence: ++sequence,
-      status: null
-    }
-    entries.push(entry)
-    entryByRequest.set(request, entry)
-  })
-  context.on('response', (response) => {
-    const entry = entryByRequest.get(response.request())
-    if (!entry) return
-    entry.status = response.status()
-    entry.provenance = response.headers()['x-phase10-test-fault']
-      ? 'injected-test-fault'
-      : response.fromServiceWorker()
-        ? 'canonical-mock-service-worker'
-        : 'canonical-real-network'
-  })
-  context.on('requestfinished', (request) => {
-    const entry = entryByRequest.get(request)
-    if (!entry) return
-    entry.finishSequence = ++sequence
-  })
-  context.on('requestfailed', (request) => {
-    const entry = entryByRequest.get(request)
-    if (!entry) return
-    entry.finishSequence = ++sequence
-    entry.status = 'NETWORK_ERROR'
-    entry.provenance = 'network-failure'
-  })
-
-  return { entries }
-}
-
-const ledgerEntriesFor = (
-  ledger: RequestLedger,
-  method: string,
-  path: string,
-  startIndex = 0
-): RequestLedgerEntry[] =>
-  ledger.entries
-    .slice(startIndex)
-    .filter((entry) => entry.method === method && entry.path === path)
-
-const assertExactRequestMultiset = (
-  ledger: RequestLedger,
-  contract: readonly RequestLedgerContractEntry[]
-): void => {
-  const keyOf = ({
-    method,
-    path
-  }: {
-    readonly method: string
-    readonly path: string
-  }) => `${method} ${path}`
-  expect([...new Set(ledger.entries.map(keyOf))].toSorted()).toEqual(
-    contract.map(keyOf).toSorted()
-  )
-  expect(ledger.entries).toHaveLength(
-    contract.reduce((total, entry) => total + entry.statuses.length, 0)
-  )
-  for (const expected of contract) {
-    expect(
-      ledgerEntriesFor(ledger, expected.method, expected.path).map(
-        ({ status }) => status
-      )
-    ).toEqual(expected.statuses)
-  }
-}
 
 const successfulStatuses = (count: number): readonly number[] =>
   Array.from({ length: count }, () => 200)
@@ -263,74 +146,6 @@ const resilienceRequestContract = [
   { method: 'POST', path: '/api/auth/sign-in/email', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
 
-const waitForLedgerToSettle = async (ledger: RequestLedger): Promise<void> => {
-  await expect
-    .poll(
-      () =>
-        ledger.entries
-          .filter(
-            ({ finishSequence, provenance, startSequence, status }) =>
-              finishSequence === null ||
-              finishSequence <= startSequence ||
-              provenance === 'pending' ||
-              status === null
-          )
-          .map(
-            ({
-              finishSequence,
-              method,
-              path,
-              provenance,
-              startSequence,
-              status
-            }) => ({
-              finishSequence,
-              method,
-              path,
-              provenance,
-              startSequence,
-              status
-            })
-          ),
-      { timeout: 10_000 }
-    )
-    .toEqual([])
-}
-
-const assertAndAttachLedger = async (
-  ledger: RequestLedger,
-  testInfo: TestInfo,
-  label: string
-): Promise<void> => {
-  await waitForLedgerToSettle(ledger)
-  await testInfo.attach(label, {
-    body: JSON.stringify(
-      {
-        entries: ledger.entries.map(
-          ({
-            finishSequence,
-            method,
-            path,
-            provenance,
-            startSequence,
-            status
-          }) => ({
-            finishSequence,
-            method,
-            path,
-            provenance,
-            startSequence,
-            status
-          })
-        )
-      },
-      null,
-      2
-    ),
-    contentType: 'application/json'
-  })
-}
-
 const setRealClientAddress = async (
   page: Page,
   address: string
@@ -341,10 +156,12 @@ const setRealClientAddress = async (
 
 const login = async (
   page: Page,
+  ledger: RequestLedger,
   credentials: Credentials,
   address: string
 ): Promise<void> => {
   await setRealClientAddress(page, address)
+  const loginStartIndex = ledger.entries.length
   await page.goto('/login')
   const form = page.locator('form').filter({
     has: page.locator('input[name="password"]')
@@ -358,6 +175,7 @@ const login = async (
   await expect(
     page.getByRole('link', { exact: true, name: credentials.name })
   ).toBeVisible()
+  await waitForLedgerToQuiesce(ledger, loginStartIndex)
 }
 
 const navigateToDeliveredVerification = async (
@@ -573,7 +391,15 @@ const restorePracticeClock = async (page: Page): Promise<void> => {
 const startVocabularySessionThroughUi = async (
   page: Page
 ): Promise<CreateStudySessionV2Response> => {
+  const bootstrapResponse = page.waitForResponse((response) => {
+    const request = response.request()
+    return (
+      request.method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/me'
+    )
+  })
   await page.goto('/practice')
+  expect((await bootstrapResponse).status()).toBe(200)
   await page.getByRole('button', { exact: true, name: 'N5' }).click()
   await page.getByRole('button', { exact: true, name: '문자·어휘' }).click()
   await page.getByRole('button', { exact: true, name: '5문제' }).click()
@@ -724,7 +550,7 @@ test('guest registration boundary and authenticated practice transition match th
         { exact: true }
       )
     ).toBeVisible()
-    await login(page, learner, '203.0.113.243')
+    await login(page, ledger, learner, '203.0.113.243')
   } else {
     if (!registration) {
       throw new Error('Phase 10 registration fixture is missing.')
@@ -779,7 +605,7 @@ test('guest registration boundary and authenticated practice transition match th
       .locator('#main-content')
       .getByRole('link', { exact: true, name: '로그인' })
       .click()
-    await login(page, registration, '203.0.113.242')
+    await login(page, ledger, registration, '203.0.113.242')
 
     expect(
       ledgerEntriesFor(ledger, 'POST', '/api/auth/sign-up/email')
@@ -793,7 +619,7 @@ test('guest registration boundary and authenticated practice transition match th
   await expect(
     page.getByText('현재 역할: 학습자', { exact: true })
   ).toBeVisible()
-  await waitForLedgerToSettle(ledger)
+  await waitForLedgerToQuiesce(ledger)
   assertExactRequestMultiset(ledger, [
     { method: 'GET', path: '/api/v1/me', statuses: successfulStatuses(7) },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
@@ -826,7 +652,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
 }, testInfo) => {
   test.setTimeout(150_000)
   const ledger = trackRequestLedger(context)
-  await login(page, journeyLearner, '203.0.113.245')
+  await login(page, ledger, journeyLearner, '203.0.113.245')
 
   const created = await startVocabularySessionThroughUi(page)
   await answerEveryQuestionWithFirstOption(page, created.session.actualCount)
@@ -922,7 +748,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   ).toBeVisible()
   await expectDashboardMetric(page, '전체 풀이', '6문제')
   await expectDashboardMetric(page, '누적 오답', '3개')
-  await waitForLedgerToSettle(ledger)
+  await waitForLedgerToQuiesce(ledger)
 
   const signInEntries = ledgerEntriesFor(
     ledger,
@@ -954,19 +780,30 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   expect(draftEntries).toHaveLength(6)
   expect(submissionEntries).toHaveLength(2)
   expect(targetedEntries).toHaveLength(1)
+  const mutationEntries = [
+    ...draftEntries,
+    ...submissionEntries,
+    ...targetedEntries
+  ]
   expect(
-    [...draftEntries, ...submissionEntries, ...targetedEntries].every(
+    mutationEntries.every(
       ({ idempotencyKeyDigest }) =>
         idempotencyKeyDigest !== null &&
         /^[a-f0-9]{64}$/u.test(idempotencyKeyDigest)
     )
   ).toBe(true)
-  const mutationDigests = [
-    ...draftEntries,
-    ...submissionEntries,
-    ...targetedEntries
-  ].map(({ idempotencyKeyDigest }) => idempotencyKeyDigest)
-  expect(new Set(mutationDigests).size).toBe(mutationDigests.length)
+  expect(
+    mutationEntries.every(
+      ({ bodyDigest }) =>
+        bodyDigest !== null && /^[a-f0-9]{64}$/u.test(bodyDigest)
+    )
+  ).toBe(true)
+  const idempotencyKeyDigests = mutationEntries.map(
+    ({ idempotencyKeyDigest }) => idempotencyKeyDigest
+  )
+  const bodyDigests = mutationEntries.map(({ bodyDigest }) => bodyDigest)
+  expect(new Set(idempotencyKeyDigests).size).toBe(idempotencyKeyDigests.length)
+  expect(new Set(bodyDigests).size).toBe(bodyDigests.length)
 
   const requireFinished = (entry: RequestLedgerEntry | undefined): number => {
     expect(entry).toBeDefined()
@@ -1049,7 +886,7 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
 }, testInfo) => {
   test.setTimeout(120_000)
   const ledger = trackRequestLedger(context)
-  await login(page, learner, '203.0.113.244')
+  await login(page, ledger, learner, '203.0.113.244')
   await page.goto('/dashboard')
   await expect(
     page.getByRole('heading', { exact: true, name: '약점과 다음 학습 추천' })
@@ -1063,7 +900,7 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
     await assertFaultRecovery(page, ledger, fault)
   }
 
-  await waitForLedgerToSettle(ledger)
+  await waitForLedgerToQuiesce(ledger)
   assertExactRequestMultiset(ledger, resilienceRequestContract)
   await assertAndAttachLedger(
     ledger,

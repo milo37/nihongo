@@ -1,9 +1,10 @@
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { worker } from '@mocks/browser'
 
 export type Phase10DashboardFault = 'malformed' | 'network' | 'rate-limit'
 
 const dashboardInsightsPath = '*/api/v1/dashboard/insights'
+let resetAdminUpdateRaceBarrier = (): void => undefined
 
 const createRateLimitFailure = () =>
   http.get(
@@ -71,4 +72,26 @@ export const armPhase10DashboardInsightsFault = (
       { once: true }
     )
   )
+}
+
+export const armPhase10AdminUpdateRaceBarrier = (versionId: string): void => {
+  resetAdminUpdateRaceBarrier()
+  resetAdminUpdateRaceBarrier = (): void => {
+    worker.resetHandlers()
+    resetAdminUpdateRaceBarrier = (): void => undefined
+  }
+  worker.use(
+    http.patch(
+      `*/api/v1/admin/question-versions/${versionId}`,
+      async () => {
+        await delay(1_000)
+        return undefined
+      },
+      { once: true }
+    )
+  )
+}
+
+export const disarmPhase10AdminUpdateRaceBarrier = (): void => {
+  resetAdminUpdateRaceBarrier()
 }
