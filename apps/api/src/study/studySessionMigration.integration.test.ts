@@ -5,7 +5,10 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
-import { getPostgresSchema } from '../db/databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 
 const environment = parseApiEnvironment(process.env)
@@ -15,21 +18,80 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 StudySession migration tests require fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const createdUserIds = new Set<string>()
 const createdSessionIds = new Set<string>()
 
 const createUser = async (label: string): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: `Slice3 ${label}`,
-      email: `slice3-migration-${label}-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: `Slice3 ${label}`,
+        email: `slice3-migration-${label}-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
   })
-  createdUserIds.add(user.id)
-  return user.id
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (!erasureWorkerClient) {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+    return
+  }
+  await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+    userId
+  ])
 }
 
 const getPinnedQuestions = async (count: number) => {
@@ -93,18 +155,28 @@ const createCompleteSession = async (
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
-  if (createdSessionIds.size > 0) {
+  if (!erasureWorkerClient && createdSessionIds.size > 0) {
     await database.client.studySession.deleteMany({
       where: { id: { in: [...createdSessionIds] } }
     })
   }
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    for (const userId of createdUserIds) {
+      await eraseUser(userId)
+    }
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -276,7 +348,8 @@ describe('StudySession migration invariants', () => {
   })
 
   it('forward guard가 legacy incomplete aggregate를 migration 시점에 거부한다', async () => {
-    const schema = getPostgresSchema(environment.DATABASE_URL)
+    const guardDatabaseUrl = fixtureDatabaseUrl ?? environment.DATABASE_URL
+    const schema = getPostgresSchema(guardDatabaseUrl)
     if (!schema) {
       throw new Error('StudySession migration test schema가 필요합니다.')
     }
@@ -290,23 +363,16 @@ describe('StudySession migration invariants', () => {
       'utf8'
     )
     const client = new Client({
-      connectionString: environment.DATABASE_URL,
+      connectionString: guardDatabaseUrl,
       options: `-c search_path=${schema}`
     })
-    const userId = randomUUID()
+    const userId = await createUser('guard')
     const sessionId = randomUUID()
     let connected = false
 
     try {
       await client.connect()
       connected = true
-      await client.query(
-        `INSERT INTO "User" (
-          "id", "name", "email", "emailVerified", "role", "accountStatus",
-          "createdAt", "updatedAt"
-        ) VALUES ($1, 'Legacy guard user', $2, true, 'USER', 'ACTIVE', now(), now())`,
-        [userId, `slice3-guard-${randomUUID()}@example.test`]
-      )
       await client.query('BEGIN')
       await client.query(
         'ALTER TABLE "StudySession" DISABLE TRIGGER "StudySession_validate_selection_complete"'
@@ -342,9 +408,6 @@ describe('StudySession migration invariants', () => {
         await client.query('ROLLBACK').catch(() => undefined)
         await client
           .query('DELETE FROM "StudySession" WHERE "id" = $1', [sessionId])
-          .catch(() => undefined)
-        await client
-          .query('DELETE FROM "User" WHERE "id" = $1', [userId])
           .catch(() => undefined)
         await client.end()
       }
@@ -442,7 +505,7 @@ describe('StudySession migration invariants', () => {
     ).rejects.toThrow()
   })
 
-  it('Session 또는 User 삭제 cascade는 immutable child trigger를 안전하게 통과한다', async () => {
+  it('Session 삭제와 승인된 User erasure cascade는 immutable child trigger를 안전하게 통과한다', async () => {
     const directUserId = await createUser('session-cascade')
     const question = await getPinnedQuestions(1)
     const directSessionId = await createCompleteSession(directUserId, question)
@@ -459,7 +522,17 @@ describe('StudySession migration invariants', () => {
 
     const userId = await createUser('user-cascade')
     const sessionId = await createCompleteSession(userId, question)
-    await database.client.user.delete({ where: { id: userId } })
+    if (isPhase10CurrentSource) {
+      await expect(
+        database.client.user.delete({ where: { id: userId } })
+      ).rejects.toThrow()
+      expect(
+        await database.client.studySession.findUnique({
+          where: { id: sessionId }
+        })
+      ).not.toBeNull()
+    }
+    await eraseUser(userId)
     createdUserIds.delete(userId)
     createdSessionIds.delete(sessionId)
     expect(

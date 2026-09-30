@@ -21,6 +21,92 @@ import {
 import { MockDatabaseError, mockDatabase } from '@mocks/repository/mockDatabase'
 import { MockHttpError, parseSearchParams } from '@mocks/handlers/shared'
 
+export type QuestionReadOperation =
+  | 'question-list-read'
+  | 'question-detail-read'
+
+const QUESTION_READ_IDENTITY = 'canonical-mock-question-client'
+const QUESTION_READ_RATE_LIMIT_MAX = 120
+const QUESTION_READ_RATE_WINDOW_MILLISECONDS = 60_000
+
+interface QuestionReadRateBucket {
+  count: number
+  windowStartedAt: number
+}
+
+class QuestionReadRateLimitError extends Error {
+  readonly retryAfterSeconds: number
+
+  constructor(retryAfterSeconds: number) {
+    super('요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.')
+    this.name = 'QuestionReadRateLimitError'
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
+const questionReadRateBuckets = new Map<string, QuestionReadRateBucket>()
+
+export const resetQuestionReadRateLimitForTesting = (): void => {
+  questionReadRateBuckets.clear()
+}
+
+export const primeQuestionReadRateLimitForTesting = (
+  operation: QuestionReadOperation,
+  count: number
+): void => {
+  if (
+    !Number.isSafeInteger(count) ||
+    count < 1 ||
+    count > QUESTION_READ_RATE_LIMIT_MAX
+  ) {
+    throw new Error('question read rate count가 올바르지 않습니다.')
+  }
+  questionReadRateBuckets.set(`${operation}:${QUESTION_READ_IDENTITY}`, {
+    count,
+    windowStartedAt: Date.now()
+  })
+}
+
+const consumeQuestionReadRateLimit = (
+  operation: QuestionReadOperation
+): void => {
+  const observedAt = Date.now()
+  const key = `${operation}:${QUESTION_READ_IDENTITY}`
+  const previous = questionReadRateBuckets.get(key)
+
+  if (
+    !previous ||
+    observedAt < previous.windowStartedAt ||
+    observedAt - previous.windowStartedAt >=
+      QUESTION_READ_RATE_WINDOW_MILLISECONDS
+  ) {
+    questionReadRateBuckets.set(key, {
+      count: 1,
+      windowStartedAt: observedAt
+    })
+    return
+  }
+
+  const next = {
+    count: previous.count + 1,
+    windowStartedAt: previous.windowStartedAt
+  }
+  questionReadRateBuckets.set(key, next)
+  if (next.count > QUESTION_READ_RATE_LIMIT_MAX) {
+    throw new QuestionReadRateLimitError(
+      Math.max(
+        1,
+        Math.ceil(
+          (next.windowStartedAt +
+            QUESTION_READ_RATE_WINDOW_MILLISECONDS -
+            observedAt) /
+            1_000
+        )
+      )
+    )
+  }
+}
+
 const getErrorStatus = (code: string): number =>
   code === 'INVALID_ID' || code === 'VALIDATION_ERROR'
     ? 422
@@ -34,36 +120,39 @@ const getErrorStatus = (code: string): number =>
 
 const getErrorHeaders = (
   code: string,
-  requestId: string
+  requestId: string,
+  retryAfterSeconds?: number
 ): Record<string, string> => ({
   'Cache-Control': 'private, no-store',
   'X-Request-Id': requestId,
-  ...(code === 'RATE_LIMITED'
-    ? { 'Retry-After': '30' }
+  ...(code === 'RATE_LIMITED' && retryAfterSeconds !== undefined
+    ? { 'Retry-After': String(retryAfterSeconds) }
     : code === 'SERVICE_UNAVAILABLE'
       ? { 'Retry-After': '5' }
       : {})
 })
 
 const createQuestionErrorResponse = (
-  error: GetQuestionError
+  error: GetQuestionError,
+  retryAfterSeconds?: number
 ): HttpResponse<GetQuestionError> => {
   const payload = getQuestionErrorSchema.parse(error)
 
   return HttpResponse.json(payload, {
     status: getErrorStatus(payload.code),
-    headers: getErrorHeaders(payload.code, payload.requestId)
+    headers: getErrorHeaders(payload.code, payload.requestId, retryAfterSeconds)
   })
 }
 
 const createListQuestionsErrorResponse = (
-  error: ListQuestionsError
+  error: ListQuestionsError,
+  retryAfterSeconds?: number
 ): HttpResponse<ListQuestionsError> => {
   const payload = listQuestionsErrorSchema.parse(error)
 
   return HttpResponse.json(payload, {
     status: getErrorStatus(payload.code),
-    headers: getErrorHeaders(payload.code, payload.requestId)
+    headers: getErrorHeaders(payload.code, payload.requestId, retryAfterSeconds)
   })
 }
 
@@ -83,6 +172,7 @@ export const questionHandlers = [
     const requestId = crypto.randomUUID()
 
     try {
+      consumeQuestionReadRateLimit('question-list-read')
       const query = parseSearchParams(request, listQuestionsQuerySchema)
       const summaries = listAllPublishedQuestions(query)
         .map(toContractQuestionSummary)
@@ -102,6 +192,17 @@ export const questionHandlers = [
         }
       })
     } catch (error: unknown) {
+      if (error instanceof QuestionReadRateLimitError) {
+        return createListQuestionsErrorResponse(
+          {
+            code: 'RATE_LIMITED',
+            message: error.message,
+            requestId,
+            retryable: true
+          },
+          error.retryAfterSeconds
+        )
+      }
       if (error instanceof MockHttpError) {
         return createListQuestionsErrorResponse({
           code: 'VALIDATION_ERROR',
@@ -123,20 +224,22 @@ export const questionHandlers = [
   }),
   http.get('*/api/v1/questions/:questionId', ({ params }) => {
     const requestId = crypto.randomUUID()
-    const parsedParams = getQuestionParamsSchema.safeParse({
-      questionId: String(params.questionId ?? '')
-    })
-
-    if (!parsedParams.success) {
-      return createQuestionErrorResponse({
-        code: 'INVALID_ID',
-        message: '문제 ID 형식이 올바르지 않습니다.',
-        requestId,
-        retryable: false
-      })
-    }
 
     try {
+      consumeQuestionReadRateLimit('question-detail-read')
+      const parsedParams = getQuestionParamsSchema.safeParse({
+        questionId: String(params.questionId ?? '')
+      })
+
+      if (!parsedParams.success) {
+        return createQuestionErrorResponse({
+          code: 'INVALID_ID',
+          message: '문제 ID 형식이 올바르지 않습니다.',
+          requestId,
+          retryable: false
+        })
+      }
+
       const sourceQuestion = mockDatabase.getCanonicalPublicQuestionRecord(
         parsedParams.data.questionId
       )
@@ -155,6 +258,17 @@ export const questionHandlers = [
         }
       })
     } catch (error: unknown) {
+      if (error instanceof QuestionReadRateLimitError) {
+        return createQuestionErrorResponse(
+          {
+            code: 'RATE_LIMITED',
+            message: error.message,
+            requestId,
+            retryable: true
+          },
+          error.retryAfterSeconds
+        )
+      }
       if (error instanceof MockDatabaseError && error.status === 404) {
         return createQuestionErrorResponse({
           code: 'RESOURCE_NOT_FOUND',

@@ -66,6 +66,6 @@ export const assertSlice5IntegrationWarningBudget = (
   fullSuiteOutput: string,
   historicalPinOutput: string
 ): void => {
-  assertIntegrationWarningBudget(fullSuiteOutput, 7)
-  assertIntegrationWarningBudget(historicalPinOutput, 1)
+  assertIntegrationWarningBudget(fullSuiteOutput, 0)
+  assertIntegrationWarningBudget(historicalPinOutput, 0)
 }

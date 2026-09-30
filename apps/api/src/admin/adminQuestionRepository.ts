@@ -277,11 +277,6 @@ const OPEN_CANDIDATE_STATUSES = [
   'CHANGES_REQUESTED',
   'APPROVED'
 ] as const
-const REVIEWER_ACTIONS = [
-  'CHANGES_REQUESTED',
-  'APPROVED',
-  'APPROVAL_WITHDRAWN'
-] as const
 const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024', 'P2034'])
 
 const isUnavailableError = (error: unknown): boolean =>
@@ -383,7 +378,7 @@ const toSafeActor = (input: {
   return actor
 }
 
-const versionSummarySelect = {
+const versionSummaryScalarSelect = {
   id: true,
   questionId: true,
   versionNumber: true,
@@ -401,43 +396,195 @@ const versionSummarySelect = {
   createdAt: true,
   updatedAt: true,
   publishedAt: true,
-  retiredAt: true,
-  tags: {
+  retiredAt: true
+} satisfies Prisma.QuestionVersionSelect
+
+const versionScalarSelect = {
+  ...versionSummaryScalarSelect,
+  passage: true,
+  correctOptionId: true,
+  explanationKo: true,
+  explanationJa: true
+} satisfies Prisma.QuestionVersionSelect
+
+type SelectedVersionSummaryScalar = Prisma.QuestionVersionGetPayload<{
+  select: typeof versionSummaryScalarSelect
+}>
+type SelectedVersionScalar = Prisma.QuestionVersionGetPayload<{
+  select: typeof versionScalarSelect
+}>
+
+interface SelectedVersionTag {
+  readonly questionVersionId: string
+  readonly tagId: string
+  readonly labelSnapshot: string
+  readonly normalizedNameSnapshot: string
+}
+
+interface SelectedLatestReviewer {
+  readonly questionVersionId: string
+  readonly actorId: string | null
+  readonly actorRole: 'USER' | 'ADMIN' | 'SYSTEM'
+  readonly actorLabel:
+    | 'ACTIVE_USER'
+    | 'DELETED_USER'
+    | 'ACTIVE_ADMIN'
+    | 'DELETED_ADMIN'
+    | null
+}
+
+interface SelectedVersionOption {
+  readonly questionVersionId: string
+  readonly id: string
+  readonly label: string
+  readonly ordinal: number
+  readonly text: string
+}
+
+type SelectedVersionSummary = SelectedVersionSummaryScalar & {
+  readonly tags: readonly SelectedVersionTag[]
+  readonly contentReviews: readonly SelectedLatestReviewer[]
+}
+
+type SelectedVersion = SelectedVersionScalar & {
+  readonly tags: readonly SelectedVersionTag[]
+  readonly contentReviews: readonly SelectedLatestReviewer[]
+  readonly options: readonly SelectedVersionOption[]
+}
+
+interface VersionSummaryRelations {
+  readonly tagsByVersionId: ReadonlyMap<string, readonly SelectedVersionTag[]>
+  readonly latestReviewerByVersionId: ReadonlyMap<
+    string,
+    SelectedLatestReviewer
+  >
+}
+
+const loadVersionSummaryRelations = async (
+  transaction: Prisma.TransactionClient,
+  versionIds: readonly string[]
+): Promise<VersionSummaryRelations> => {
+  if (versionIds.length === 0) {
+    return {
+      tagsByVersionId: new Map(),
+      latestReviewerByVersionId: new Map()
+    }
+  }
+
+  const tags = await transaction.questionVersionTag.findMany({
+    where: { questionVersionId: { in: [...versionIds] } },
+    orderBy: [
+      { questionVersionId: 'asc' },
+      { normalizedNameSnapshot: 'asc' },
+      { tagId: 'asc' }
+    ],
     select: {
+      questionVersionId: true,
       tagId: true,
       labelSnapshot: true,
       normalizedNameSnapshot: true
     }
-  },
-  contentReviews: {
-    where: {
-      action: { in: [...REVIEWER_ACTIONS] },
-      actorKind: 'ACCOUNT' as const
-    },
-    orderBy: [{ occurredAt: 'desc' as const }, { id: 'desc' as const }],
-    take: 1,
-    select: { actorId: true, actorRole: true, actorLabel: true }
+  })
+  const reviews = await transaction.$queryRaw<SelectedLatestReviewer[]>(
+    Prisma.sql`
+      SELECT DISTINCT ON (review."questionVersionId")
+        review."questionVersionId",
+        review."actorId",
+        review."actorRole",
+        review."actorLabel"
+      FROM "ContentReview" review
+      WHERE review."questionVersionId" IN (
+        ${Prisma.join(
+          versionIds.map((versionId) => Prisma.sql`${versionId}::uuid`)
+        )}
+      )
+        AND review."action" IN (
+          'CHANGES_REQUESTED'::"ContentReviewAction",
+          'APPROVED'::"ContentReviewAction",
+          'APPROVAL_WITHDRAWN'::"ContentReviewAction"
+        )
+        AND review."actorKind" = 'ACCOUNT'::"EvidenceActorKind"
+      ORDER BY
+        review."questionVersionId" ASC,
+        review."occurredAt" DESC,
+        review."id" DESC
+    `
+  )
+  const tagsByVersionId = new Map<string, SelectedVersionTag[]>()
+  for (const tag of tags) {
+    const existing = tagsByVersionId.get(tag.questionVersionId) ?? []
+    existing.push(tag)
+    tagsByVersionId.set(tag.questionVersionId, existing)
   }
-} satisfies Prisma.QuestionVersionSelect
-
-const versionSelect = {
-  ...versionSummarySelect,
-  passage: true,
-  correctOptionId: true,
-  explanationKo: true,
-  explanationJa: true,
-  options: {
-    orderBy: { ordinal: 'asc' as const },
-    select: { id: true, label: true, ordinal: true, text: true }
+  const latestReviewerByVersionId = new Map<string, SelectedLatestReviewer>()
+  for (const review of reviews) {
+    latestReviewerByVersionId.set(review.questionVersionId, review)
   }
-} satisfies Prisma.QuestionVersionSelect
+  return { tagsByVersionId, latestReviewerByVersionId }
+}
 
-type SelectedVersionSummary = Prisma.QuestionVersionGetPayload<{
-  select: typeof versionSummarySelect
-}>
-type SelectedVersion = Prisma.QuestionVersionGetPayload<{
-  select: typeof versionSelect
-}>
+const attachVersionSummaryRelations = <
+  Version extends SelectedVersionSummaryScalar
+>(
+  versions: readonly Version[],
+  relations: VersionSummaryRelations
+): Array<Version & SelectedVersionSummary> =>
+  versions.map((version) => {
+    const latestReviewer = relations.latestReviewerByVersionId.get(version.id)
+    return {
+      ...version,
+      tags: relations.tagsByVersionId.get(version.id) ?? [],
+      contentReviews: latestReviewer ? [latestReviewer] : []
+    }
+  })
+
+const loadVersionSummaries = async (
+  transaction: Prisma.TransactionClient,
+  versions: readonly SelectedVersionSummaryScalar[]
+): Promise<SelectedVersionSummary[]> =>
+  attachVersionSummaryRelations(
+    versions,
+    await loadVersionSummaryRelations(
+      transaction,
+      versions.map(({ id }) => id)
+    )
+  )
+
+const loadVersions = async (
+  transaction: Prisma.TransactionClient,
+  versions: readonly SelectedVersionScalar[]
+): Promise<SelectedVersion[]> => {
+  const versionIds = versions.map(({ id }) => id)
+  const relations = await loadVersionSummaryRelations(transaction, versionIds)
+  const options =
+    versionIds.length === 0
+      ? []
+      : await transaction.questionOption.findMany({
+          where: { questionVersionId: { in: versionIds } },
+          orderBy: [
+            { questionVersionId: 'asc' },
+            { ordinal: 'asc' },
+            { id: 'asc' }
+          ],
+          select: {
+            questionVersionId: true,
+            id: true,
+            label: true,
+            ordinal: true,
+            text: true
+          }
+        })
+  const optionsByVersionId = new Map<string, SelectedVersionOption[]>()
+  for (const option of options) {
+    const existing = optionsByVersionId.get(option.questionVersionId) ?? []
+    existing.push(option)
+    optionsByVersionId.set(option.questionVersionId, existing)
+  }
+  return attachVersionSummaryRelations(versions, relations).map((version) => ({
+    ...version,
+    options: optionsByVersionId.get(version.id) ?? []
+  }))
+}
 
 const compareTagRecord = (
   left: AdminTagRecord,
@@ -748,12 +895,13 @@ const listQuestionPage = async (
   )
   if (pageRows.length === 0) return { items: [], total }
 
-  const versions = await transaction.questionVersion.findMany({
+  const versionRows = await transaction.questionVersion.findMany({
     where: {
       id: { in: pageRows.map(({ selectedVersionId }) => selectedVersionId) }
     },
-    select: versionSummarySelect
+    select: versionSummaryScalarSelect
   })
+  const versions = await loadVersionSummaries(transaction, versionRows)
   const versionById = new Map(
     versions.map((version) => [version.id, mapVersionSummary(version)])
   )
@@ -819,15 +967,17 @@ const getQuestionDetail = async (
       currentPublishedVersionId: true,
       rowVersion: true,
       createdAt: true,
-      updatedAt: true,
-      versions: {
-        orderBy: [{ versionNumber: 'desc' }, { id: 'desc' }],
-        take: 21,
-        select: versionSummarySelect
-      }
+      updatedAt: true
     }
   })
   if (!question) return null
+  const versionRows = await transaction.questionVersion.findMany({
+    where: { questionId },
+    orderBy: [{ versionNumber: 'desc' }, { id: 'desc' }],
+    take: 21,
+    select: versionSummaryScalarSelect
+  })
+  const versions = await loadVersionSummaries(transaction, versionRows)
   const openCandidate = await transaction.questionVersion.findFirst({
     where: {
       questionId,
@@ -872,8 +1022,8 @@ const getQuestionDetail = async (
     openCandidateVersionId: openCandidate?.id ?? null,
     createdAt: question.createdAt,
     updatedAt: question.updatedAt,
-    versions: question.versions.slice(0, 20).map(mapVersionSummary),
-    hasMoreVersions: question.versions.length > 20,
+    versions: versions.slice(0, 20).map(mapVersionSummary),
+    hasMoreVersions: versions.length > 20,
     auditSummary: {
       lastCommand: lastAudit?.command ?? null,
       lastActor: lastAudit
@@ -906,15 +1056,16 @@ const listQuestionVersions = async (
     where: { id: input.questionId }
   })
   if (exists === 0) return null
-  const versions = await transaction.questionVersion.findMany({
+  const versionRows = await transaction.questionVersion.findMany({
     where: {
       questionId: input.questionId,
       ...versionCursorWhere(input.cursor)
     },
     orderBy: [{ versionNumber: 'desc' }, { id: 'desc' }],
     take: input.limit + 1,
-    select: versionSummarySelect
+    select: versionSummaryScalarSelect
   })
+  const versions = await loadVersionSummaries(transaction, versionRows)
   return versions.map(mapVersionSummary)
 }
 
@@ -922,10 +1073,12 @@ const findQuestionVersion = async (
   transaction: Prisma.TransactionClient,
   versionId: string
 ): Promise<AdminVersionRecord | null> => {
-  const version = await transaction.questionVersion.findUnique({
+  const versionRow = await transaction.questionVersion.findUnique({
     where: { id: versionId },
-    select: versionSelect
+    select: versionScalarSelect
   })
+  if (!versionRow) return null
+  const [version] = await loadVersions(transaction, [versionRow])
   return version ? mapVersion(version) : null
 }
 
@@ -933,16 +1086,20 @@ const findQuestionVersionPair = async (
   transaction: Prisma.TransactionClient,
   input: { targetVersionId: string; baseVersionId: string }
 ): Promise<{ target: AdminVersionRecord; base: AdminVersionRecord } | null> => {
-  const target = await transaction.questionVersion.findUnique({
+  const targetRow = await transaction.questionVersion.findUnique({
     where: { id: input.targetVersionId },
-    select: versionSelect
+    select: versionScalarSelect
   })
-  if (!target) return null
-  const base = await transaction.questionVersion.findFirst({
-    where: { id: input.baseVersionId, questionId: target.questionId },
-    select: versionSelect
+  if (!targetRow) return null
+  const baseRow = await transaction.questionVersion.findFirst({
+    where: { id: input.baseVersionId, questionId: targetRow.questionId },
+    select: versionScalarSelect
   })
-  return base ? { target: mapVersion(target), base: mapVersion(base) } : null
+  if (!baseRow) return null
+  const [target, base] = await loadVersions(transaction, [targetRow, baseRow])
+  return target && base
+    ? { target: mapVersion(target), base: mapVersion(base) }
+    : null
 }
 
 const listQuestionVersionReviews = async (

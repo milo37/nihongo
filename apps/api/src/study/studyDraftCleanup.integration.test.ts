@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
 import { createPrismaStudyDraftCleanupRepository } from './studyDraftCleanupRepository.js'
@@ -15,6 +20,8 @@ import { createPrismaStudySessionCleanupRepository } from './studySessionCleanup
 import { createStudySessionCleanupService } from './studySessionCleanupService.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
+import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS
@@ -27,7 +34,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 StudyDraft cleanup requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const draftRepository = createPrismaStudyDraftRepository(database.client)
 const cleanupService = createStudyDraftCleanupService(
@@ -38,16 +83,27 @@ const createdUserIds = new Set<string>()
 const createdGuestIds = new Set<string>()
 
 const createUser = async (): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: 'Slice 1 cleanup user',
-      email: `slice1-cleanup-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: 'Slice 1 cleanup user',
+        email: `slice1-cleanup-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
   })
-  createdUserIds.add(user.id)
-  return user.id
+  createdUserIds.add(userId)
+  return userId
 }
 
 const createSession = async ({
@@ -145,7 +201,7 @@ const createBulkOverdueSessions = async (
     throw new Error('Published question fixture가 필요합니다.')
   }
 
-  return await database.client.$transaction(async (transaction) => {
+  return await fixtureDatabase.client.$transaction(async (transaction) => {
     await transaction.$executeRaw`
       CREATE TEMP TABLE "slice1_bulk_draft_cleanup" (
         "sessionId" UUID PRIMARY KEY,
@@ -234,18 +290,37 @@ const createBarrier = () => {
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of createdUserIds) {
+        await erasureWorkerClient.query(
+          `SELECT "phase7_erase_user"($1, 'TEST')`,
+          [userId]
+        )
+      }
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
   }
   if (createdGuestIds.size > 0) {
     await database.client.guestPrincipal.deleteMany({
       where: { id: { in: [...createdGuestIds] } }
     })
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -508,76 +583,24 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
 
   it('targeted review 7일 TTL을 별도 batch·metric으로 정리하고 target session은 보존한다', async () => {
     const userId = await createUser()
-    const expiredSession = await createSession({
-      userId,
-      practiceContractVersion: 1,
-      startedAt: new Date(NOW.getTime() - 8 * DAY_MS),
-      expiresAt: new Date(NOW.getTime() + DAY_MS)
-    })
-    const activeSession = await createSession({
-      userId,
-      practiceContractVersion: 1,
-      startedAt: new Date(NOW.getTime() - 8 * DAY_MS),
-      expiresAt: new Date(NOW.getTime() + DAY_MS)
-    })
     const expiredCompletedAt = new Date(NOW.getTime() - 7 * DAY_MS)
     const activeCompletedAt = new Date(expiredCompletedAt.getTime() + 1)
-
-    await database.client.$executeRawUnsafe(
-      'ALTER TABLE "IdempotencyRecord" DISABLE TRIGGER ' +
-        '"IdempotencyRecord_validate_change"'
+    const source = await createSubmittedIncorrectSession(
+      userId,
+      new Date(expiredCompletedAt.getTime() - HOUR_MS)
     )
-    await database.client.$executeRawUnsafe(
-      'ALTER TABLE "IdempotencyRecord" DISABLE TRIGGER ' +
-        '"IdempotencyRecord_validate_committed_state"'
-    )
-    try {
-      await database.client.idempotencyRecord.createMany({
-        data: [
-          {
-            id: randomUUID(),
-            principalType: 'USER',
-            userId,
-            operation: 'STUDY_TARGETED_REVIEW_CREATE',
-            idempotencyKey: randomUUID(),
-            studySessionId: expiredSession.id,
-            requestHash: 'a'.repeat(64),
-            contractVersion: 2,
-            state: 'SUCCEEDED',
-            responseStatus: 201,
-            responseBody: {},
-            createdAt: expiredCompletedAt,
-            completedAt: expiredCompletedAt,
-            expiresAt: NOW
-          },
-          {
-            id: randomUUID(),
-            principalType: 'USER',
-            userId,
-            operation: 'STUDY_TARGETED_REVIEW_CREATE',
-            idempotencyKey: randomUUID(),
-            studySessionId: activeSession.id,
-            requestHash: 'b'.repeat(64),
-            contractVersion: 2,
-            state: 'SUCCEEDED',
-            responseStatus: 201,
-            responseBody: {},
-            createdAt: activeCompletedAt,
-            completedAt: activeCompletedAt,
-            expiresAt: new Date(NOW.getTime() + 1)
-          }
-        ]
-      })
-    } finally {
-      await database.client.$executeRawUnsafe(
-        'ALTER TABLE "IdempotencyRecord" ENABLE TRIGGER ' +
-          '"IdempotencyRecord_validate_change"'
-      )
-      await database.client.$executeRawUnsafe(
-        'ALTER TABLE "IdempotencyRecord" ENABLE TRIGGER ' +
-          '"IdempotencyRecord_validate_committed_state"'
-      )
+    const questionId = source.questions[0]?.question.id
+    if (!questionId) {
+      throw new Error('Targeted review question fixture가 필요합니다.')
     }
+    const expiredTarget = await createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client),
+      () => expiredCompletedAt
+    ).createTargetedReviewSession(userId, questionId, randomUUID())
+    const activeTarget = await createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client),
+      () => activeCompletedAt
+    ).createTargetedReviewSession(userId, questionId, randomUUID())
 
     const cleanup = createStudyDraftCleanupService(
       createPrismaStudyDraftCleanupRepository(database.client),
@@ -602,7 +625,7 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
       await database.client.idempotencyRecord.count({
         where: {
           operation: 'STUDY_TARGETED_REVIEW_CREATE',
-          studySessionId: expiredSession.id
+          studySessionId: expiredTarget.response.session.id
         }
       })
     ).toBe(0)
@@ -610,13 +633,20 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
       await database.client.idempotencyRecord.count({
         where: {
           operation: 'STUDY_TARGETED_REVIEW_CREATE',
-          studySessionId: activeSession.id
+          studySessionId: activeTarget.response.session.id
         }
       })
     ).toBe(1)
     expect(
       await database.client.studySession.count({
-        where: { id: { in: [expiredSession.id, activeSession.id] } }
+        where: {
+          id: {
+            in: [
+              expiredTarget.response.session.id,
+              activeTarget.response.session.id
+            ]
+          }
+        }
       })
     ).toBe(2)
     await expect(cleanup.cleanup({ batchSize: 1 })).resolves.toMatchObject({

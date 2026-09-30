@@ -14,7 +14,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
 const app = createApiApp({
   checkReadiness: database.checkReadiness,
   logger: createJsonLogger('silent'),

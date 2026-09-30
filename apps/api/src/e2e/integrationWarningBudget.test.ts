@@ -60,16 +60,17 @@ describe('integration warning budget', () => {
   })
 
   it('locks the Slice 5 full and historical warning distribution', () => {
-    const fullSuite = Array.from({ length: 7 }, () => trace).join('\n')
-
-    expect(() =>
-      assertSlice5IntegrationWarningBudget(fullSuite, trace)
-    ).not.toThrow()
     expect(() =>
       assertSlice5IntegrationWarningBudget(
-        Array.from({ length: 6 }, () => trace).join('\n'),
-        `${trace}\n${trace}`
+        'clean full suite',
+        'clean pin suite'
       )
-    ).toThrow('Expected 7')
+    ).not.toThrow()
+    expect(() =>
+      assertSlice5IntegrationWarningBudget(trace, 'clean pin suite')
+    ).toThrow('Expected 0')
+    expect(() =>
+      assertSlice5IntegrationWarningBudget('clean full suite', trace)
+    ).toThrow('Expected 0')
   })
 })

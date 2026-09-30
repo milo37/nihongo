@@ -120,82 +120,65 @@ const executeRepositoryOperation = async <Result>(
   }
 }
 
-const summarySelect = {
+const wrongNoteBaseSelect = {
   id: true,
   questionId: true,
+  lastWrongQuestionVersionId: true,
   currentReviewQuestionVersionId: true,
   wrongCount: true,
   correctStreak: true,
   status: true,
   lastWrongAt: true,
   lastReviewedAt: true,
-  schedule: { select: { nextReviewAt: true } },
-  question: {
-    select: {
-      lifecycleStatus: true,
-      currentPublishedVersion: { select: { status: true } }
-    }
-  },
-  lastWrongQuestionVersion: {
-    select: {
-      id: true,
-      level: true,
-      subject: true,
-      questionType: true,
-      questionText: true,
-      tags: {
-        orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-        select: { tagId: true, labelSnapshot: true }
-      }
-    }
-  }
+  schedule: { select: { nextReviewAt: true } }
 } satisfies Prisma.WrongNoteSelect
 
-const detailSelect = {
+const questionAvailabilitySelect = {
   id: true,
-  questionId: true,
-  currentReviewQuestionVersionId: true,
-  wrongCount: true,
-  correctStreak: true,
-  status: true,
-  lastWrongAt: true,
-  lastReviewedAt: true,
-  schedule: { select: { nextReviewAt: true } },
-  question: {
-    select: {
-      lifecycleStatus: true,
-      currentPublishedVersion: { select: { status: true } }
-    }
-  },
-  lastWrongQuestionVersion: {
-    select: {
-      id: true,
-      level: true,
-      subject: true,
-      questionType: true,
-      passage: true,
-      questionText: true,
-      correctOptionId: true,
-      explanationKo: true,
-      explanationJa: true,
-      difficulty: true,
-      options: {
-        orderBy: { ordinal: 'asc' },
-        select: { id: true, label: true, text: true }
-      },
-      tags: {
-        orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-        select: { tagId: true, labelSnapshot: true }
-      }
-    }
-  }
-} satisfies Prisma.WrongNoteSelect
+  lifecycleStatus: true,
+  currentPublishedVersion: { select: { status: true } }
+} satisfies Prisma.QuestionSelect
 
-type WrongNoteSummaryRow = Prisma.WrongNoteGetPayload<{
-  select: typeof summarySelect
+const summaryVersionSelect = {
+  id: true,
+  level: true,
+  subject: true,
+  questionType: true,
+  questionText: true,
+  tags: {
+    orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
+    select: { tagId: true, labelSnapshot: true }
+  }
+} satisfies Prisma.QuestionVersionSelect
+
+const detailVersionSelect = {
+  id: true,
+  level: true,
+  subject: true,
+  questionType: true,
+  passage: true,
+  questionText: true,
+  correctOptionId: true,
+  explanationKo: true,
+  explanationJa: true,
+  difficulty: true,
+  options: {
+    orderBy: { ordinal: 'asc' },
+    select: { id: true, label: true, text: true }
+  }
+} satisfies Prisma.QuestionVersionSelect
+
+type WrongNoteBaseRow = Prisma.WrongNoteGetPayload<{
+  select: typeof wrongNoteBaseSelect
 }>
-type WrongNoteDetailRow = Prisma.WrongNoteGetPayload<{
-  select: typeof detailSelect
+type QuestionAvailabilityRow = Prisma.QuestionGetPayload<{
+  select: typeof questionAvailabilitySelect
+}>
+type WrongNoteSummaryVersionRow = Prisma.QuestionVersionGetPayload<{
+  select: typeof summaryVersionSelect
+}>
+type WrongNoteDetailVersionRow = Prisma.QuestionVersionGetPayload<{
+  select: typeof detailVersionSelect
 }>
 
 const toTags = (
@@ -206,7 +189,11 @@ const toTags = (
     label: labelSnapshot
   }))
 
-const toSummaryRecord = (row: WrongNoteSummaryRow): WrongNoteReadRecord => ({
+const toSummaryRecord = (
+  row: WrongNoteBaseRow,
+  question: QuestionAvailabilityRow,
+  version: WrongNoteSummaryVersionRow
+): WrongNoteReadRecord => ({
   id: row.id,
   questionId: row.questionId,
   currentReviewQuestionVersionId: row.currentReviewQuestionVersionId,
@@ -216,21 +203,26 @@ const toSummaryRecord = (row: WrongNoteSummaryRow): WrongNoteReadRecord => ({
   lastWrongAt: row.lastWrongAt,
   lastReviewedAt: row.lastReviewedAt,
   nextReviewAt: row.schedule?.nextReviewAt ?? null,
-  questionLifecycleStatus: row.question.lifecycleStatus,
+  questionLifecycleStatus: question.lifecycleStatus,
   currentPublishedVersionStatus:
-    row.question.currentPublishedVersion?.status ?? null,
+    question.currentPublishedVersion?.status ?? null,
   question: {
     id: row.questionId,
-    questionVersionId: row.lastWrongQuestionVersion.id,
-    level: row.lastWrongQuestionVersion.level,
-    subject: row.lastWrongQuestionVersion.subject,
-    questionType: row.lastWrongQuestionVersion.questionType,
-    questionText: row.lastWrongQuestionVersion.questionText,
-    tags: toTags(row.lastWrongQuestionVersion.tags)
+    questionVersionId: version.id,
+    level: version.level,
+    subject: version.subject,
+    questionType: version.questionType,
+    questionText: version.questionText,
+    tags: toTags(version.tags)
   }
 })
 
-const toDetailRecord = (row: WrongNoteDetailRow): WrongNoteDetailRecord => ({
+const toDetailRecord = (
+  row: WrongNoteBaseRow,
+  question: QuestionAvailabilityRow,
+  version: WrongNoteDetailVersionRow,
+  tags: readonly { readonly labelSnapshot: string; readonly tagId: string }[]
+): WrongNoteDetailRecord => ({
   id: row.id,
   questionId: row.questionId,
   currentReviewQuestionVersionId: row.currentReviewQuestionVersionId,
@@ -240,23 +232,23 @@ const toDetailRecord = (row: WrongNoteDetailRow): WrongNoteDetailRecord => ({
   lastWrongAt: row.lastWrongAt,
   lastReviewedAt: row.lastReviewedAt,
   nextReviewAt: row.schedule?.nextReviewAt ?? null,
-  questionLifecycleStatus: row.question.lifecycleStatus,
+  questionLifecycleStatus: question.lifecycleStatus,
   currentPublishedVersionStatus:
-    row.question.currentPublishedVersion?.status ?? null,
+    question.currentPublishedVersion?.status ?? null,
   question: {
     id: row.questionId,
-    questionVersionId: row.lastWrongQuestionVersion.id,
-    level: row.lastWrongQuestionVersion.level,
-    subject: row.lastWrongQuestionVersion.subject,
-    questionType: row.lastWrongQuestionVersion.questionType,
-    passage: row.lastWrongQuestionVersion.passage,
-    questionText: row.lastWrongQuestionVersion.questionText,
-    correctOptionId: row.lastWrongQuestionVersion.correctOptionId,
-    explanationKo: row.lastWrongQuestionVersion.explanationKo,
-    explanationJa: row.lastWrongQuestionVersion.explanationJa,
-    difficulty: row.lastWrongQuestionVersion.difficulty,
-    options: row.lastWrongQuestionVersion.options,
-    tags: toTags(row.lastWrongQuestionVersion.tags)
+    questionVersionId: version.id,
+    level: version.level,
+    subject: version.subject,
+    questionType: version.questionType,
+    passage: version.passage,
+    questionText: version.questionText,
+    correctOptionId: version.correctOptionId,
+    explanationKo: version.explanationKo,
+    explanationJa: version.explanationJa,
+    difficulty: version.difficulty,
+    options: version.options,
+    tags: toTags(tags)
   }
 })
 
@@ -320,9 +312,30 @@ export const createPrismaWrongNoteRepository = (
       runReadOnlySnapshot(client, async (transaction) => {
         const row = await transaction.wrongNote.findFirst({
           where: { userId, questionId },
-          select: detailSelect
+          select: wrongNoteBaseSelect
         })
-        return row ? toDetailRecord(row) : null
+        if (!row) {
+          return null
+        }
+        const question = await transaction.question.findUnique({
+          where: { id: row.questionId },
+          select: questionAvailabilitySelect
+        })
+        const version = await transaction.questionVersion.findUnique({
+          where: { id: row.lastWrongQuestionVersionId },
+          select: detailVersionSelect
+        })
+        const tags = await transaction.questionVersionTag.findMany({
+          where: { questionVersionId: row.lastWrongQuestionVersionId },
+          orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
+          select: { tagId: true, labelSnapshot: true }
+        })
+        if (!question || !version) {
+          throw new WrongNoteRepositoryIntegrityError(
+            'WrongNote references a missing question projection.'
+          )
+        }
+        return toDetailRecord(row, question, version, tags)
       })
     ),
   listOwned: (input) =>
@@ -341,8 +354,32 @@ export const createPrismaWrongNoteRepository = (
                 orderBy: toOrderBy(input.sort),
                 skip: Number(offset),
                 take: input.pageSize,
-                select: summarySelect
+                select: wrongNoteBaseSelect
               })
+        const questionIds = rows.map(({ questionId }) => questionId)
+        const versionIds = rows.map(
+          ({ lastWrongQuestionVersionId }) => lastWrongQuestionVersionId
+        )
+        const questions =
+          questionIds.length === 0
+            ? []
+            : await transaction.question.findMany({
+                where: { id: { in: questionIds } },
+                select: questionAvailabilitySelect
+              })
+        const versions =
+          versionIds.length === 0
+            ? []
+            : await transaction.questionVersion.findMany({
+                where: { id: { in: versionIds } },
+                select: summaryVersionSelect
+              })
+        const questionsById = new Map(
+          questions.map((question) => [question.id, question])
+        )
+        const versionsById = new Map(
+          versions.map((version) => [version.id, version])
+        )
         const tagRows = await transaction.$queryRaw<AvailableTagLabelRow[]>(
           Prisma.sql`
             SELECT DISTINCT version_tag."labelSnapshot" AS "label"
@@ -354,7 +391,16 @@ export const createPrismaWrongNoteRepository = (
         )
 
         return {
-          items: rows.map(toSummaryRecord),
+          items: rows.map((row) => {
+            const question = questionsById.get(row.questionId)
+            const version = versionsById.get(row.lastWrongQuestionVersionId)
+            if (!question || !version) {
+              throw new WrongNoteRepositoryIntegrityError(
+                'WrongNote references a missing question projection.'
+              )
+            }
+            return toSummaryRecord(row, question, version)
+          }),
           total,
           availableTagLabels: tagRows.map(({ label }) => label)
         }

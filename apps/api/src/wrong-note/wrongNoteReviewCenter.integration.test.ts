@@ -17,9 +17,13 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
-import { getPostgresSchema } from '../db/databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
+import { Prisma } from '../generated/prisma/client.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createStudySessionService } from '../study/studySessionService.js'
 import { createPrismaWrongNoteReviewCenterRepository } from './wrongNoteReviewCenterRepository.js'
@@ -44,7 +48,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 wrong-note review center requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const repository = createPrismaWrongNoteReviewCenterRepository(database.client)
 const service = createWrongNoteReviewCenterService(repository)
 const createdUserIds = new Set<string>()
@@ -67,17 +109,130 @@ let fixture: ReviewCenterFixture
 let foreignUserId: string
 let questionRestoreState: QuestionRestoreState | null = null
 
-const createUser = async (label: string): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: `Slice 2 review-center ${label}`,
-      email: `slice2-review-${label}-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+interface RawDatabaseErrorIdentity {
+  readonly message: string
+  readonly sqlState: string
+}
+
+const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readRawDatabaseErrorIdentity = (
+  error: unknown
+): RawDatabaseErrorIdentity | undefined => {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2010' ||
+    !isUnknownRecord(error.meta)
+  ) {
+    return undefined
+  }
+  const identities: RawDatabaseErrorIdentity[] = []
+  if (
+    typeof error.meta.code === 'string' &&
+    typeof error.meta.message === 'string'
+  ) {
+    identities.push({ message: error.meta.message, sqlState: error.meta.code })
+  }
+  const driverAdapterError = error.meta.driverAdapterError
+  if (isUnknownRecord(driverAdapterError)) {
+    const cause = driverAdapterError.cause
+    if (
+      isUnknownRecord(cause) &&
+      typeof cause.originalCode === 'string' &&
+      typeof cause.originalMessage === 'string'
+    ) {
+      identities.push({
+        message: cause.originalMessage,
+        sqlState: cause.originalCode
+      })
+    }
+  }
+  const [identity, ...rest] = identities
+  if (
+    !identity ||
+    rest.some(
+      (candidate) =>
+        candidate.sqlState !== identity.sqlState ||
+        candidate.message !== identity.message
+    )
+  ) {
+    return undefined
+  }
+  return {
+    message:
+      identity.message
+        .split('\n', 1)[0]
+        ?.replace(/^ERROR:\s*/u, '')
+        .trim() ?? '',
+    sqlState: identity.sqlState
+  }
+}
+
+const expectRawDatabaseError = async ({
+  expectedMessage,
+  operation,
+  sqlState
+}: {
+  readonly expectedMessage: string
+  readonly operation: () => Promise<unknown>
+  readonly sqlState: string
+}): Promise<void> => {
+  let caughtError: unknown
+  try {
+    await operation()
+  } catch (error: unknown) {
+    caughtError = error
+  }
+  expect(caughtError).toMatchObject({ code: 'P2010' })
+  expect(readRawDatabaseErrorIdentity(caughtError)).toEqual({
+    message: expectedMessage,
+    sqlState
   })
-  createdUserIds.add(user.id)
-  return user.id
+}
+
+const createApplicationClient = (): Client =>
+  new Client({
+    connectionString: environment.DATABASE_URL,
+    options: createPostgresStartupOptions(
+      getPostgresSchema(environment.DATABASE_URL),
+      isPhase10CurrentSource ? 'nihongo_app' : undefined
+    )
+  })
+
+const createUser = async (label: string): Promise<string> => {
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixtureClient) => {
+    await fixtureClient.user.create({
+      data: {
+        id: userId,
+        name: `Slice 2 review-center ${label}`,
+        email: `slice2-review-${label}-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixtureClient.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
+  })
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
 }
 
 const createInitialWrongNote = async (
@@ -230,11 +385,11 @@ const insertVersionRebaseEvents = async (
   count: number,
   startingOffset: number
 ): Promise<void> => {
-  await database.client.$executeRawUnsafe(
+  await fixtureDatabase.client.$executeRawUnsafe(
     'ALTER TABLE "ReviewEvent" DISABLE TRIGGER USER'
   )
   try {
-    await database.client.$executeRaw`
+    await fixtureDatabase.client.$executeRaw`
       INSERT INTO "ReviewEvent" (
         "id", "wrongNoteId", "userId", "questionId", "questionVersionId",
         "source", "studySessionId", "studyAnswerId", "selectedOptionId",
@@ -253,7 +408,7 @@ const insertVersionRebaseEvents = async (
       FROM generate_series(1, ${count}) AS series(position)
     `
   } finally {
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "ReviewEvent" ENABLE TRIGGER USER'
     )
   }
@@ -294,14 +449,18 @@ const collectHistoryFromCursor = async (
   return items
 }
 
-const waitForBackendLock = async (backendPid: number): Promise<void> => {
+const waitForBackendLock = async (
+  observerClient: Client,
+  backendPid: number
+): Promise<void> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    const rows = await database.client.$queryRaw<{ waiting: boolean }[]>`
-      SELECT (activity.wait_event_type = 'Lock') AS waiting
-      FROM pg_stat_activity AS activity
-      WHERE activity.pid = ${backendPid}::int
-    `
-    if (rows[0]?.waiting === true) {
+    const result = await observerClient.query<{ waiting: boolean }>(
+      `SELECT (activity.wait_event_type = 'Lock') AS waiting
+       FROM pg_stat_activity AS activity
+       WHERE activity.pid = $1::int`,
+      [backendPid]
+    )
+    if (result.rows[0]?.waiting === true) {
       return
     }
     await new Promise<void>((resolve) => setTimeout(resolve, 10))
@@ -317,13 +476,13 @@ const setQueueFixtureState = async (
     | { readonly kind: 'SOLVED'; readonly occurredAt: Date }
 ): Promise<void> => {
   for (const tableName of ['WrongNote', 'ReviewSchedule']) {
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       `ALTER TABLE "${tableName}" DISABLE TRIGGER USER`
     )
   }
   try {
     if (state.kind === 'NEW') {
-      await database.client.wrongNote.update({
+      await fixtureDatabase.client.wrongNote.update({
         where: { id: target.wrongNoteId },
         data: {
           status: 'NEW',
@@ -334,7 +493,7 @@ const setQueueFixtureState = async (
           updatedAt: SUBMITTED_AT
         }
       })
-      await database.client.reviewSchedule.update({
+      await fixtureDatabase.client.reviewSchedule.update({
         where: { wrongNoteId: target.wrongNoteId },
         data: {
           nextReviewAt: new Date(SUBMITTED_AT.getTime() + DAY_MILLISECONDS),
@@ -346,7 +505,7 @@ const setQueueFixtureState = async (
       return
     }
 
-    await database.client.wrongNote.update({
+    await fixtureDatabase.client.wrongNote.update({
       where: { id: target.wrongNoteId },
       data: {
         status: state.kind,
@@ -357,7 +516,7 @@ const setQueueFixtureState = async (
         updatedAt: state.occurredAt
       }
     })
-    await database.client.reviewSchedule.update({
+    await fixtureDatabase.client.reviewSchedule.update({
       where: { wrongNoteId: target.wrongNoteId },
       data: {
         nextReviewAt: new Date(
@@ -371,7 +530,7 @@ const setQueueFixtureState = async (
     })
   } finally {
     for (const tableName of ['ReviewSchedule', 'WrongNote']) {
-      await database.client.$executeRawUnsafe(
+      await fixtureDatabase.client.$executeRawUnsafe(
         `ALTER TABLE "${tableName}" ENABLE TRIGGER USER`
       )
     }
@@ -436,6 +595,10 @@ const captureApplicationFailure = async (
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
   const ownerUserId = await createUser('owner')
   foreignUserId = await createUser('foreign')
   fixture = await createInitialWrongNote(ownerUserId)
@@ -444,7 +607,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (questionRestoreState) {
-    await database.client.question.update({
+    await fixtureDatabase.client.question.update({
       where: { id: questionRestoreState.questionId },
       data: {
         lifecycleStatus: questionRestoreState.lifecycleStatus,
@@ -455,9 +618,19 @@ afterAll(async () => {
     })
   }
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of [...createdUserIds]) await eraseUser(userId)
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -564,7 +737,9 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       select: {
         lifecycleStatus: true,
         archivedAt: true,
-        currentPublishedVersionId: true
+        currentPublishedVersionId: true,
+        rowVersion: true,
+        updatedAt: true
       }
     })
     try {
@@ -629,236 +804,390 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       })
       expect(solved).toMatchObject({ total: 1, items: [{ status: 'SOLVED' }] })
 
-      await database.client.question.update({
-        where: { id: fixture.questionId },
-        data: {
-          lifecycleStatus: 'ARCHIVED',
-          archivedAt: new Date(dueAt.getTime() + 1_000),
-          currentPublishedVersionId: null
-        }
-      })
+      const archiveTime = new Date(dueAt.getTime() + 1_000)
+      if (isPhase10CurrentSource) {
+        await expectRawDatabaseError({
+          expectedMessage:
+            'An armed trusted Phase 7 operation intent is required.',
+          operation: async () =>
+            await database.client.$executeRaw`
+              UPDATE "Question"
+              SET
+                "lifecycleStatus" = 'ARCHIVED',
+                "archivedAt" = ${archiveTime},
+                "currentPublishedVersionId" = NULL,
+                "rowVersion" = "rowVersion" + 1,
+                "updatedAt" = ${archiveTime}
+              WHERE "id" = ${fixture.questionId}::uuid
+            `,
+          sqlState: '42501'
+        })
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: fixture.questionId },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        ).resolves.toEqual(originalQuestion)
+      } else {
+        await database.client.question.update({
+          where: { id: fixture.questionId },
+          data: {
+            lifecycleStatus: 'ARCHIVED',
+            archivedAt: archiveTime,
+            currentPublishedVersionId: null
+          }
+        })
+      }
       const archived = listReviewQueueResponseSchema.parse(
         await solvedQueueService.listReviewQueue(fixture.userId, queueQuery)
       )
-      expect(archived).toMatchObject({
-        items: [],
-        total: 0,
-        counts: { due: 0, unreviewed: 0, repeated: 0, solved: 0 }
-      })
+      expect(archived).toMatchObject(
+        isPhase10CurrentSource
+          ? {
+              total: 1,
+              counts: { due: 1, unreviewed: 0, repeated: 1, solved: 1 },
+              items: [{ status: 'SOLVED' }]
+            }
+          : {
+              items: [],
+              total: 0,
+              counts: { due: 0, unreviewed: 0, repeated: 0, solved: 0 }
+            }
+      )
     } finally {
-      await database.client.question.update({
-        where: { id: fixture.questionId },
-        data: originalQuestion
-      })
+      if (!isPhase10CurrentSource) {
+        await fixtureDatabase.client.question.update({
+          where: { id: fixture.questionId },
+          data: {
+            archivedAt: originalQuestion.archivedAt,
+            currentPublishedVersionId:
+              originalQuestion.currentPublishedVersionId,
+            lifecycleStatus: originalQuestion.lifecycleStatus
+          }
+        })
+      }
       await setQueueFixtureState(fixture, { kind: 'NEW' })
     }
 
-    const rollbackMarker = new Error('ROLLBACK_CURRENT_VERSION_PARITY')
-    await expect(
-      database.client.$transaction(
-        async (transaction) => {
-          const historicalVersion =
-            await transaction.questionVersion.findUniqueOrThrow({
-              where: { id: fixture.questionVersionId },
-              include: {
-                options: { orderBy: { ordinal: 'asc' } },
-                tags: true
-              }
-            })
-          const historicalTag = historicalVersion.tags[0]?.labelSnapshot
-          const correctOrdinal = historicalVersion.options.find(
-            ({ id }) => id === historicalVersion.correctOptionId
-          )?.ordinal
-          if (!historicalTag || correctOrdinal === undefined) {
-            throw new Error(
-              'current-version parity fixture의 historical pin이 필요합니다.'
-            )
+    if (isPhase10CurrentSource) {
+      const currentVersion =
+        await database.client.questionVersion.findUniqueOrThrow({
+          where: { id: fixture.questionVersionId },
+          include: {
+            tags: {
+              orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }]
+            }
           }
-          const currentVersionId = randomUUID()
-          const currentTagId = randomUUID()
-          const currentTag = `현재판-${randomUUID().slice(0, 8)}`
-          const currentPreview = `현재 공개 버전 ${randomUUID().slice(0, 8)}`
-          const nextVersionNumber =
-            (
-              await transaction.questionVersion.aggregate({
-                where: { questionId: fixture.questionId },
-                _max: { versionNumber: true }
-              })
-            )._max.versionNumber ?? 0
-          const currentOptions = historicalVersion.options.map((option) => ({
-            id: randomUUID(),
-            questionVersionId: currentVersionId,
-            label: option.label,
-            ordinal: option.ordinal,
-            text: option.text
-          }))
-          const currentCorrectOptionId = currentOptions.find(
-            ({ ordinal }) => ordinal === correctOrdinal
-          )?.id
-          if (!currentCorrectOptionId) {
-            throw new Error(
-              'current-version parity fixture의 정답 pin이 필요합니다.'
-            )
-          }
+        })
+      const currentTag = currentVersion.tags[0]?.labelSnapshot
+      if (!currentTag) {
+        throw new Error(
+          'current-version parity fixture의 canonical tag가 필요합니다.'
+        )
+      }
+      const filteredQuery = listReviewQueueQuerySchema.parse({
+        ...queueQuery,
+        questionType: currentVersion.questionType,
+        tag: currentTag
+      })
+      const currentQueue = listReviewQueueResponseSchema.parse(
+        await queueService.listReviewQueue(fixture.userId, filteredQuery)
+      )
+      expect(currentQueue.items).toEqual([
+        expect.objectContaining({
+          questionId: fixture.questionId,
+          currentQuestionVersionId: currentVersion.id,
+          tags: expect.arrayContaining([currentTag])
+        })
+      ])
+      expect(
+        await database.client.wrongNote.findUniqueOrThrow({
+          where: { id: fixture.wrongNoteId },
+          select: { lastWrongQuestionVersionId: true }
+        })
+      ).toEqual({ lastWrongQuestionVersionId: fixture.questionVersionId })
 
-          await transaction.questionVersion.create({
-            data: {
-              id: currentVersionId,
-              questionId: fixture.questionId,
-              versionNumber: nextVersionNumber + 1,
-              level: historicalVersion.level,
-              subject: historicalVersion.subject,
-              questionType: historicalVersion.questionType,
-              passage: historicalVersion.passage,
-              questionText: currentPreview,
-              explanationKo: historicalVersion.explanationKo,
-              explanationJa: historicalVersion.explanationJa,
-              difficulty: historicalVersion.difficulty,
-              sourceType: historicalVersion.sourceType,
-              createdByLabelSnapshot: historicalVersion.createdByLabelSnapshot
+      const studyService = createStudySessionService(
+        createPrismaStudySessionRepository(database.client, {
+          delay: async () => undefined,
+          jitterMilliseconds: () => 0,
+          random: () => 0
+        }),
+        () => dueAt
+      )
+      for (const mode of ['DAILY_REVIEW', 'WRONG_NOTE'] as const) {
+        const created = await studyService.create(
+          createStudySessionV2BodySchema.parse({
+            level: 'N5',
+            subject: 'VOCABULARY',
+            mode,
+            count: 20,
+            reviewFilter: {
+              questionType: currentVersion.questionType,
+              tag: currentTag
             }
-          })
-          await transaction.questionOption.createMany({ data: currentOptions })
-          await transaction.tag.create({
-            data: {
-              id: currentTagId,
-              label: currentTag,
-              normalizedName: `phase5-current-${randomUUID()}`
+          }),
+          { kind: 'USER', userId: fixture.userId },
+          2
+        )
+        const session = createStudySessionV2ResponseSchema.parse(
+          created.payload
+        )
+        expect(session.session).toMatchObject({
+          mode,
+          actualCount: currentQueue.total,
+          usedFallback: false,
+          fallbackReason: null
+        })
+        expect(
+          session.questions.map(({ question }) => ({
+            questionId: question.id,
+            questionVersionId: question.questionVersionId
+          }))
+        ).toEqual([
+          {
+            questionId: fixture.questionId,
+            questionVersionId: currentVersion.id
+          }
+        ])
+      }
+
+      const forbiddenTagId = randomUUID()
+      await expectRawDatabaseError({
+        expectedMessage: 'permission denied for table Tag',
+        operation: async () =>
+          await database.client.$executeRaw`
+            INSERT INTO "Tag" (
+              "id", "label", "normalizedName", "createdAt", "updatedAt"
+            ) VALUES (
+              ${forbiddenTagId}::uuid,
+              'phase10-forbidden-tag',
+              ${`phase10-forbidden-${randomUUID()}`},
+              ${dueAt},
+              ${dueAt}
+            )
+          `,
+        sqlState: '42501'
+      })
+      await expect(
+        database.client.tag.findUnique({ where: { id: forbiddenTagId } })
+      ).resolves.toBeNull()
+    } else {
+      const rollbackMarker = new Error('ROLLBACK_CURRENT_VERSION_PARITY')
+      await expect(
+        database.client.$transaction(
+          async (transaction) => {
+            const historicalVersion =
+              await transaction.questionVersion.findUniqueOrThrow({
+                where: { id: fixture.questionVersionId },
+                include: {
+                  options: { orderBy: { ordinal: 'asc' } },
+                  tags: true
+                }
+              })
+            const historicalTag = historicalVersion.tags[0]?.labelSnapshot
+            const correctOrdinal = historicalVersion.options.find(
+              ({ id }) => id === historicalVersion.correctOptionId
+            )?.ordinal
+            if (!historicalTag || correctOrdinal === undefined) {
+              throw new Error(
+                'current-version parity fixture의 historical pin이 필요합니다.'
+              )
             }
-          })
-          await transaction.questionVersionTag.create({
-            data: {
+            const currentVersionId = randomUUID()
+            const currentTagId = randomUUID()
+            const currentTag = `현재판-${randomUUID().slice(0, 8)}`
+            const currentPreview = `현재 공개 버전 ${randomUUID().slice(0, 8)}`
+            const nextVersionNumber =
+              (
+                await transaction.questionVersion.aggregate({
+                  where: { questionId: fixture.questionId },
+                  _max: { versionNumber: true }
+                })
+              )._max.versionNumber ?? 0
+            const currentOptions = historicalVersion.options.map((option) => ({
               id: randomUUID(),
               questionVersionId: currentVersionId,
-              tagId: currentTagId,
-              labelSnapshot: currentTag
+              label: option.label,
+              ordinal: option.ordinal,
+              text: option.text
+            }))
+            const currentCorrectOptionId = currentOptions.find(
+              ({ ordinal }) => ordinal === correctOrdinal
+            )?.id
+            if (!currentCorrectOptionId) {
+              throw new Error(
+                'current-version parity fixture의 정답 pin이 필요합니다.'
+              )
             }
-          })
-          await transaction.questionVersion.update({
-            where: { id: currentVersionId },
-            data: {
-              correctOptionId: currentCorrectOptionId,
-              status: 'PUBLISHED',
-              publishedAt: dueAt
-            }
-          })
-          await transaction.question.update({
-            where: { id: fixture.questionId },
-            data: { currentPublishedVersionId: currentVersionId }
-          })
 
-          const queueTransaction = {
-            $executeRaw: async () => 0,
-            $queryRaw: transaction.$queryRaw.bind(transaction)
-          } as unknown as typeof transaction
-          const queueClient = {
-            $transaction: async <Result>(
-              operation: (client: typeof transaction) => Promise<Result>
-            ): Promise<Result> => await operation(queueTransaction)
-          } as unknown as typeof database.client
-          const studyClient = {
-            $transaction: async <Result>(
-              operation: (client: typeof transaction) => Promise<Result>
-            ): Promise<Result> => await operation(transaction)
-          } as unknown as typeof database.client
-          const currentQueueService = createWrongNoteReviewQueueService(
-            createPrismaWrongNoteReviewQueueRepository(queueClient),
-            () => dueAt
-          )
-          const currentQueue = listReviewQueueResponseSchema.parse(
-            await currentQueueService.listReviewQueue(
-              fixture.userId,
-              queueQuery
-            )
-          )
-          expect(currentQueue.items).toEqual([
-            expect.objectContaining({
-              questionId: fixture.questionId,
-              currentQuestionVersionId: currentVersionId,
-              questionPreview: currentPreview,
-              tags: [currentTag]
-            })
-          ])
-          expect(
-            await transaction.wrongNote.findUniqueOrThrow({
-              where: { id: fixture.wrongNoteId },
-              select: { lastWrongQuestionVersionId: true }
-            })
-          ).toEqual({ lastWrongQuestionVersionId: fixture.questionVersionId })
-
-          const oldTagQueue = listReviewQueueResponseSchema.parse(
-            await currentQueueService.listReviewQueue(
-              fixture.userId,
-              listReviewQueueQuerySchema.parse({
-                ...queueQuery,
-                questionType: historicalVersion.questionType,
-                tag: historicalTag
-              })
-            )
-          )
-          expect(oldTagQueue).toMatchObject({ total: 0, items: [] })
-
-          const filteredQuery = listReviewQueueQuerySchema.parse({
-            ...queueQuery,
-            questionType: historicalVersion.questionType,
-            tag: currentTag
-          })
-          const filteredQueue = listReviewQueueResponseSchema.parse(
-            await currentQueueService.listReviewQueue(
-              fixture.userId,
-              filteredQuery
-            )
-          )
-          const studyService = createStudySessionService(
-            createPrismaStudySessionRepository(studyClient, {
-              delay: async () => undefined,
-              jitterMilliseconds: () => 0,
-              random: () => 0
-            }),
-            () => dueAt
-          )
-
-          for (const mode of ['DAILY_REVIEW', 'WRONG_NOTE'] as const) {
-            const created = await studyService.create(
-              createStudySessionV2BodySchema.parse({
-                level: 'N5',
-                subject: 'VOCABULARY',
-                mode,
-                count: 20,
-                reviewFilter: {
-                  questionType: historicalVersion.questionType,
-                  tag: currentTag
-                }
-              }),
-              { kind: 'USER', userId: fixture.userId },
-              2
-            )
-            const session = createStudySessionV2ResponseSchema.parse(
-              created.payload
-            )
-            expect(session.session).toMatchObject({
-              mode,
-              actualCount: filteredQueue.total,
-              usedFallback: false,
-              fallbackReason: null
-            })
-            expect(
-              session.questions.map(({ question }) => ({
-                questionId: question.id,
-                questionVersionId: question.questionVersionId
-              }))
-            ).toEqual([
-              {
+            await transaction.questionVersion.create({
+              data: {
+                id: currentVersionId,
                 questionId: fixture.questionId,
-                questionVersionId: currentVersionId
+                versionNumber: nextVersionNumber + 1,
+                level: historicalVersion.level,
+                subject: historicalVersion.subject,
+                questionType: historicalVersion.questionType,
+                passage: historicalVersion.passage,
+                questionText: currentPreview,
+                explanationKo: historicalVersion.explanationKo,
+                explanationJa: historicalVersion.explanationJa,
+                difficulty: historicalVersion.difficulty,
+                sourceType: historicalVersion.sourceType,
+                createdByLabelSnapshot: historicalVersion.createdByLabelSnapshot
               }
+            })
+            await transaction.questionOption.createMany({
+              data: currentOptions
+            })
+            await transaction.tag.create({
+              data: {
+                id: currentTagId,
+                label: currentTag,
+                normalizedName: `phase5-current-${randomUUID()}`
+              }
+            })
+            await transaction.questionVersionTag.create({
+              data: {
+                id: randomUUID(),
+                questionVersionId: currentVersionId,
+                tagId: currentTagId,
+                labelSnapshot: currentTag
+              }
+            })
+            await transaction.questionVersion.update({
+              where: { id: currentVersionId },
+              data: {
+                correctOptionId: currentCorrectOptionId,
+                status: 'PUBLISHED',
+                publishedAt: dueAt
+              }
+            })
+            await transaction.question.update({
+              where: { id: fixture.questionId },
+              data: { currentPublishedVersionId: currentVersionId }
+            })
+
+            const queueTransaction = {
+              $executeRaw: async () => 0,
+              $queryRaw: transaction.$queryRaw.bind(transaction)
+            } as unknown as typeof transaction
+            const queueClient = {
+              $transaction: async <Result>(
+                operation: (client: typeof transaction) => Promise<Result>
+              ): Promise<Result> => await operation(queueTransaction)
+            } as unknown as typeof database.client
+            const studyClient = {
+              $transaction: async <Result>(
+                operation: (client: typeof transaction) => Promise<Result>
+              ): Promise<Result> => await operation(transaction)
+            } as unknown as typeof database.client
+            const currentQueueService = createWrongNoteReviewQueueService(
+              createPrismaWrongNoteReviewQueueRepository(queueClient),
+              () => dueAt
+            )
+            const currentQueue = listReviewQueueResponseSchema.parse(
+              await currentQueueService.listReviewQueue(
+                fixture.userId,
+                queueQuery
+              )
+            )
+            expect(currentQueue.items).toEqual([
+              expect.objectContaining({
+                questionId: fixture.questionId,
+                currentQuestionVersionId: currentVersionId,
+                questionPreview: currentPreview,
+                tags: [currentTag]
+              })
             ])
-          }
-          throw rollbackMarker
-        },
-        { timeout: 20_000 }
-      )
-    ).rejects.toBe(rollbackMarker)
+            expect(
+              await transaction.wrongNote.findUniqueOrThrow({
+                where: { id: fixture.wrongNoteId },
+                select: { lastWrongQuestionVersionId: true }
+              })
+            ).toEqual({ lastWrongQuestionVersionId: fixture.questionVersionId })
+
+            const oldTagQueue = listReviewQueueResponseSchema.parse(
+              await currentQueueService.listReviewQueue(
+                fixture.userId,
+                listReviewQueueQuerySchema.parse({
+                  ...queueQuery,
+                  questionType: historicalVersion.questionType,
+                  tag: historicalTag
+                })
+              )
+            )
+            expect(oldTagQueue).toMatchObject({ total: 0, items: [] })
+
+            const filteredQuery = listReviewQueueQuerySchema.parse({
+              ...queueQuery,
+              questionType: historicalVersion.questionType,
+              tag: currentTag
+            })
+            const filteredQueue = listReviewQueueResponseSchema.parse(
+              await currentQueueService.listReviewQueue(
+                fixture.userId,
+                filteredQuery
+              )
+            )
+            const studyService = createStudySessionService(
+              createPrismaStudySessionRepository(studyClient, {
+                delay: async () => undefined,
+                jitterMilliseconds: () => 0,
+                random: () => 0
+              }),
+              () => dueAt
+            )
+
+            for (const mode of ['DAILY_REVIEW', 'WRONG_NOTE'] as const) {
+              const created = await studyService.create(
+                createStudySessionV2BodySchema.parse({
+                  level: 'N5',
+                  subject: 'VOCABULARY',
+                  mode,
+                  count: 20,
+                  reviewFilter: {
+                    questionType: historicalVersion.questionType,
+                    tag: currentTag
+                  }
+                }),
+                { kind: 'USER', userId: fixture.userId },
+                2
+              )
+              const session = createStudySessionV2ResponseSchema.parse(
+                created.payload
+              )
+              expect(session.session).toMatchObject({
+                mode,
+                actualCount: filteredQueue.total,
+                usedFallback: false,
+                fallbackReason: null
+              })
+              expect(
+                session.questions.map(({ question }) => ({
+                  questionId: question.id,
+                  questionVersionId: question.questionVersionId
+                }))
+              ).toEqual([
+                {
+                  questionId: fixture.questionId,
+                  questionVersionId: currentVersionId
+                }
+              ])
+            }
+            throw rollbackMarker
+          },
+          { timeout: 20_000 }
+        )
+      ).rejects.toBe(rollbackMarker)
+    }
   })
 
   it('memo normalize/no-op/update/delete와 concurrent last-commit을 review state 변경 없이 보존한다', async () => {
@@ -935,6 +1264,12 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
     const secondBackendPid = new Promise<number>((resolve) => {
       announceSecondBackendPid = resolve
     })
+    const secondDatabase = createDatabaseRuntime(
+      environment.DATABASE_URL,
+      isPhase10CurrentSource
+        ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+        : {}
+    )
     const firstRepository = createPrismaWrongNoteReviewCenterRepository(
       database.client,
       {
@@ -945,28 +1280,49 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       }
     )
     const secondRepository = createPrismaWrongNoteReviewCenterRepository(
-      database.client,
+      secondDatabase.client,
       {
         beforeOwnedWrongNoteLock: async (backendPid) => {
           announceSecondBackendPid?.(backendPid)
         }
       }
     )
-    const firstWrite = firstRepository.updateOwnedMemo({
-      userId: fixture.userId,
-      questionId: fixture.questionId,
-      memo: 'first writer'
-    })
-    await locked
-    const secondWrite = secondRepository.updateOwnedMemo({
-      userId: fixture.userId,
-      questionId: fixture.questionId,
-      memo: 'second writer'
-    })
-    await waitForBackendLock(await secondBackendPid)
-    releaseLock?.()
-    const firstResult = await firstWrite
-    const secondResult = await secondWrite
+    let firstWrite:
+      | ReturnType<typeof firstRepository.updateOwnedMemo>
+      | undefined
+    let secondWrite:
+      | ReturnType<typeof secondRepository.updateOwnedMemo>
+      | undefined
+    let secondWriteSettled = false
+    const [firstResult, secondResult] = await (async () => {
+      try {
+        firstWrite = firstRepository.updateOwnedMemo({
+          userId: fixture.userId,
+          questionId: fixture.questionId,
+          memo: 'first writer'
+        })
+        await locked
+        secondWrite = secondRepository
+          .updateOwnedMemo({
+            userId: fixture.userId,
+            questionId: fixture.questionId,
+            memo: 'second writer'
+          })
+          .finally(() => {
+            secondWriteSettled = true
+          })
+        await secondBackendPid
+        await new Promise<void>((resolve) => setTimeout(resolve, 25))
+        expect(secondWriteSettled).toBe(false)
+        releaseLock?.()
+        return [await firstWrite, await secondWrite] as const
+      } finally {
+        releaseLock?.()
+        await firstWrite?.catch(() => undefined)
+        await secondWrite?.catch(() => undefined)
+        await secondDatabase.disconnect()
+      }
+    })()
 
     if (!firstResult.found || firstResult.memo === null) {
       throw new Error('첫 번째 memo writer 결과가 필요합니다.')
@@ -997,188 +1353,233 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
     expect(await readReviewStateDigest(fixture)).toBe(stateBefore)
   })
 
-  it('205-event keyset은 concurrent newest append 뒤에도 duplicate/skip 없이 archive에서 유지된다', async () => {
-    const firstPage = listReviewEventsResponseSchema.parse(
-      await service.listReviewEvents(fixture.userId, fixture.questionId, {
-        pageSize: 100
-      })
-    )
-    assertNoReviewCenterForbiddenKeys('HISTORY', firstPage)
-    expect(firstPage.items).toHaveLength(100)
-    expect(firstPage.nextCursor).not.toBeNull()
-    const initialIds = (
-      await database.client.reviewEvent.findMany({
-        where: { wrongNoteId: fixture.wrongNoteId },
-        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-        select: { id: true }
-      })
-    ).map(({ id }) => id)
-    expect(initialIds).toHaveLength(HISTORY_CARDINALITY)
-
-    await insertVersionRebaseEvents(fixture, 1, 300)
-    const continuation = await collectHistoryFromCursor(
-      service,
-      fixture,
-      firstPage.nextCursor
-    )
-    const oldCursorIds = [
-      ...firstPage.items.map(({ id }) => id),
-      ...continuation.map(({ id }) => id)
-    ]
-    const oldCursorItems = [...firstPage.items, ...continuation]
-    expect(oldCursorIds).toEqual(initialIds)
-    expect(new Set(oldCursorIds).size).toBe(HISTORY_CARDINALITY)
-    const boundaryNewer = firstPage.items.at(-1)
-    const boundaryOlder = continuation[0]
-    if (!boundaryNewer || !boundaryOlder) {
-      throw new Error('동일 occurredAt cursor 경계 event가 필요합니다.')
-    }
-    expect(boundaryNewer.occurredAt).toBe(boundaryOlder.occurredAt)
-    expect(boundaryNewer.id > boundaryOlder.id).toBe(true)
-    expectHistoryChain(oldCursorItems)
-    expect(oldCursorItems.at(-1)).toMatchObject({
-      source: 'STUDY_SUBMIT',
-      questionVersionId: fixture.questionVersionId,
-      selectedOptionId: null,
-      isCorrect: false,
-      elapsedSec: 9,
-      previousStatus: null,
-      nextStatus: 'NEW',
-      wrongCountAfter: 1
-    })
-
-    const refreshedFirstPage = listReviewEventsResponseSchema.parse(
-      await service.listReviewEvents(fixture.userId, fixture.questionId, {
-        pageSize: 100
-      })
-    )
-    expect(refreshedFirstPage.items).toHaveLength(100)
-    expect(refreshedFirstPage.items[0]?.id).not.toBe(initialIds[0])
-    assertNoReviewCenterForbiddenKeys('HISTORY', refreshedFirstPage)
-    const refreshedContinuation = await collectHistoryFromCursor(
-      service,
-      fixture,
-      refreshedFirstPage.nextCursor
-    )
-    const refreshedItems = [
-      ...refreshedFirstPage.items,
-      ...refreshedContinuation
-    ]
-    const refreshedIds = refreshedItems.map(({ id }) => id)
-    expect(refreshedIds).toHaveLength(HISTORY_CARDINALITY + 1)
-    expect(new Set(refreshedIds).size).toBe(HISTORY_CARDINALITY + 1)
-    expectHistoryChain(refreshedItems)
-    expect(
-      refreshedItems.every(
-        ({ questionVersionId }) =>
-          questionVersionId === fixture.questionVersionId
+  it(
+    isPhase10CurrentSource
+      ? '205-event keyset은 concurrent append와 비인가 archive 거부 뒤에도 duplicate/skip 없이 유지된다'
+      : '205-event keyset은 concurrent newest append 뒤에도 duplicate/skip 없이 archive에서 유지된다',
+    async () => {
+      const firstPage = listReviewEventsResponseSchema.parse(
+        await service.listReviewEvents(fixture.userId, fixture.questionId, {
+          pageSize: 100
+        })
       )
-    ).toBe(true)
+      assertNoReviewCenterForbiddenKeys('HISTORY', firstPage)
+      expect(firstPage.items).toHaveLength(100)
+      expect(firstPage.nextCursor).not.toBeNull()
+      const initialIds = (
+        await database.client.reviewEvent.findMany({
+          where: { wrongNoteId: fixture.wrongNoteId },
+          orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+          select: { id: true }
+        })
+      ).map(({ id }) => id)
+      expect(initialIds).toHaveLength(HISTORY_CARDINALITY)
 
-    const originalQuestion = await database.client.question.findUniqueOrThrow({
-      where: { id: fixture.questionId },
-      select: {
-        id: true,
-        lifecycleStatus: true,
-        archivedAt: true,
-        currentPublishedVersionId: true
-      }
-    })
-    questionRestoreState = {
-      questionId: originalQuestion.id,
-      lifecycleStatus: originalQuestion.lifecycleStatus,
-      archivedAt: originalQuestion.archivedAt,
-      currentPublishedVersionId: originalQuestion.currentPublishedVersionId
-    }
-    await database.client.question.update({
-      where: { id: fixture.questionId },
-      data: {
-        lifecycleStatus: 'ARCHIVED',
-        archivedAt: new Date('2026-08-22T01:00:00.000Z'),
-        currentPublishedVersionId: null
-      }
-    })
-
-    const archivedMemo = await service.getMemo(
-      fixture.userId,
-      fixture.questionId
-    )
-    const archivedFirstPage = listReviewEventsResponseSchema.parse(
-      await service.listReviewEvents(fixture.userId, fixture.questionId, {
-        pageSize: 100
-      })
-    )
-    const archivedContinuation = await collectHistoryFromCursor(
-      service,
-      fixture,
-      archivedFirstPage.nextCursor
-    )
-    const archivedItems = [...archivedFirstPage.items, ...archivedContinuation]
-    expect(archivedMemo?.text).toBe('second writer')
-    expect(archivedItems.map(({ id }) => id)).toEqual(refreshedIds)
-    expect(
-      archivedItems.every(
-        ({ questionVersionId }) =>
-          questionVersionId === fixture.questionVersionId
+      await insertVersionRebaseEvents(fixture, 1, 300)
+      const continuation = await collectHistoryFromCursor(
+        service,
+        fixture,
+        firstPage.nextCursor
       )
-    ).toBe(true)
-    assertNoReviewCenterForbiddenKeys('HISTORY', {
-      items: archivedItems.slice(0, 100),
-      nextCursor: archivedFirstPage.nextCursor
-    })
-
-    const memoBeforeUnauthorizedWrites =
-      await database.client.userMemo.findUniqueOrThrow({
-        where: { wrongNoteId: fixture.wrongNoteId }
+      const oldCursorIds = [
+        ...firstPage.items.map(({ id }) => id),
+        ...continuation.map(({ id }) => id)
+      ]
+      const oldCursorItems = [...firstPage.items, ...continuation]
+      expect(oldCursorIds).toEqual(initialIds)
+      expect(new Set(oldCursorIds).size).toBe(HISTORY_CARDINALITY)
+      const boundaryNewer = firstPage.items.at(-1)
+      const boundaryOlder = continuation[0]
+      if (!boundaryNewer || !boundaryOlder) {
+        throw new Error('동일 occurredAt cursor 경계 event가 필요합니다.')
+      }
+      expect(boundaryNewer.occurredAt).toBe(boundaryOlder.occurredAt)
+      expect(boundaryNewer.id > boundaryOlder.id).toBe(true)
+      expectHistoryChain(oldCursorItems)
+      expect(oldCursorItems.at(-1)).toMatchObject({
+        source: 'STUDY_SUBMIT',
+        questionVersionId: fixture.questionVersionId,
+        selectedOptionId: null,
+        isCorrect: false,
+        elapsedSec: 9,
+        previousStatus: null,
+        nextStatus: 'NEW',
+        wrongCountAfter: 1
       })
-    const failures: {
-      readonly code: string
-      readonly message: string
-      readonly retryable: boolean
-    }[] = []
-    for (const [userId, questionId] of [
-      [foreignUserId, fixture.questionId],
-      [fixture.userId, randomUUID()]
-    ] as const) {
-      failures.push(
-        await captureNotFound(() => service.getMemo(userId, questionId)),
-        await captureNotFound(() =>
-          service.updateMemo(
-            userId,
-            questionId,
-            updateWrongNoteMemoBodySchema.parse({ memo: 'unauthorized' })
-          )
-        ),
-        await captureNotFound(() =>
-          service.listReviewEvents(userId, questionId, { pageSize: 1 })
+
+      const refreshedFirstPage = listReviewEventsResponseSchema.parse(
+        await service.listReviewEvents(fixture.userId, fixture.questionId, {
+          pageSize: 100
+        })
+      )
+      expect(refreshedFirstPage.items).toHaveLength(100)
+      expect(refreshedFirstPage.items[0]?.id).not.toBe(initialIds[0])
+      assertNoReviewCenterForbiddenKeys('HISTORY', refreshedFirstPage)
+      const refreshedContinuation = await collectHistoryFromCursor(
+        service,
+        fixture,
+        refreshedFirstPage.nextCursor
+      )
+      const refreshedItems = [
+        ...refreshedFirstPage.items,
+        ...refreshedContinuation
+      ]
+      const refreshedIds = refreshedItems.map(({ id }) => id)
+      expect(refreshedIds).toHaveLength(HISTORY_CARDINALITY + 1)
+      expect(new Set(refreshedIds).size).toBe(HISTORY_CARDINALITY + 1)
+      expectHistoryChain(refreshedItems)
+      expect(
+        refreshedItems.every(
+          ({ questionVersionId }) =>
+            questionVersionId === fixture.questionVersionId
         )
+      ).toBe(true)
+
+      const originalQuestion = await database.client.question.findUniqueOrThrow(
+        {
+          where: { id: fixture.questionId },
+          select: {
+            id: true,
+            lifecycleStatus: true,
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            rowVersion: true,
+            updatedAt: true
+          }
+        }
       )
+      const archiveTime = new Date('2026-08-22T01:00:00.000Z')
+      if (isPhase10CurrentSource) {
+        await expectRawDatabaseError({
+          expectedMessage:
+            'An armed trusted Phase 7 operation intent is required.',
+          operation: async () =>
+            await database.client.$executeRaw`
+            UPDATE "Question"
+            SET
+              "lifecycleStatus" = 'ARCHIVED',
+              "archivedAt" = ${archiveTime},
+              "currentPublishedVersionId" = NULL,
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${archiveTime}
+            WHERE "id" = ${fixture.questionId}::uuid
+          `,
+          sqlState: '42501'
+        })
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: fixture.questionId },
+            select: {
+              id: true,
+              lifecycleStatus: true,
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        ).resolves.toEqual(originalQuestion)
+      } else {
+        questionRestoreState = {
+          questionId: originalQuestion.id,
+          lifecycleStatus: originalQuestion.lifecycleStatus,
+          archivedAt: originalQuestion.archivedAt,
+          currentPublishedVersionId: originalQuestion.currentPublishedVersionId
+        }
+        await database.client.question.update({
+          where: { id: fixture.questionId },
+          data: {
+            lifecycleStatus: 'ARCHIVED',
+            archivedAt: archiveTime,
+            currentPublishedVersionId: null
+          }
+        })
+      }
+
+      const archivedMemo = await service.getMemo(
+        fixture.userId,
+        fixture.questionId
+      )
+      const archivedFirstPage = listReviewEventsResponseSchema.parse(
+        await service.listReviewEvents(fixture.userId, fixture.questionId, {
+          pageSize: 100
+        })
+      )
+      const archivedContinuation = await collectHistoryFromCursor(
+        service,
+        fixture,
+        archivedFirstPage.nextCursor
+      )
+      const archivedItems = [
+        ...archivedFirstPage.items,
+        ...archivedContinuation
+      ]
+      expect(archivedMemo?.text).toBe('second writer')
+      expect(archivedItems.map(({ id }) => id)).toEqual(refreshedIds)
+      expect(
+        archivedItems.every(
+          ({ questionVersionId }) =>
+            questionVersionId === fixture.questionVersionId
+        )
+      ).toBe(true)
+      assertNoReviewCenterForbiddenKeys('HISTORY', {
+        items: archivedItems.slice(0, 100),
+        nextCursor: archivedFirstPage.nextCursor
+      })
+
+      const memoBeforeUnauthorizedWrites =
+        await database.client.userMemo.findUniqueOrThrow({
+          where: { wrongNoteId: fixture.wrongNoteId }
+        })
+      const failures: {
+        readonly code: string
+        readonly message: string
+        readonly retryable: boolean
+      }[] = []
+      for (const [userId, questionId] of [
+        [foreignUserId, fixture.questionId],
+        [fixture.userId, randomUUID()]
+      ] as const) {
+        failures.push(
+          await captureNotFound(() => service.getMemo(userId, questionId)),
+          await captureNotFound(() =>
+            service.updateMemo(
+              userId,
+              questionId,
+              updateWrongNoteMemoBodySchema.parse({ memo: 'unauthorized' })
+            )
+          ),
+          await captureNotFound(() =>
+            service.listReviewEvents(userId, questionId, { pageSize: 1 })
+          )
+        )
+      }
+      failures.forEach((failure) =>
+        expect(failure).toMatchObject({
+          code: 'RESOURCE_NOT_FOUND',
+          message: '오답 노트를 찾을 수 없습니다.',
+          retryable: false
+        })
+      )
+      expect(
+        await database.client.userMemo.findUniqueOrThrow({
+          where: { wrongNoteId: fixture.wrongNoteId }
+        })
+      ).toEqual(memoBeforeUnauthorizedWrites)
+      expect(failures).toHaveLength(6)
+      expect(
+        new Set(failures.map((failure) => JSON.stringify(failure))).size
+      ).toBe(1)
+      expect(archivedItems.at(-1)).toMatchObject({
+        source: 'STUDY_SUBMIT',
+        elapsedSec: 9,
+        questionVersionId: fixture.questionVersionId
+      })
+      expect(archivedItems).toHaveLength(HISTORY_CARDINALITY + 1)
+      expect(archivedFirstPage.items).toHaveLength(100)
+      expect(archivedFirstPage.nextCursor).not.toBeNull()
     }
-    failures.forEach((failure) =>
-      expect(failure).toMatchObject({
-        code: 'RESOURCE_NOT_FOUND',
-        message: '오답 노트를 찾을 수 없습니다.',
-        retryable: false
-      })
-    )
-    expect(
-      await database.client.userMemo.findUniqueOrThrow({
-        where: { wrongNoteId: fixture.wrongNoteId }
-      })
-    ).toEqual(memoBeforeUnauthorizedWrites)
-    expect(failures).toHaveLength(6)
-    expect(
-      new Set(failures.map((failure) => JSON.stringify(failure))).size
-    ).toBe(1)
-    expect(archivedItems.at(-1)).toMatchObject({
-      source: 'STUDY_SUBMIT',
-      elapsedSec: 9,
-      questionVersionId: fixture.questionVersionId
-    })
-    expect(archivedItems).toHaveLength(HISTORY_CARDINALITY + 1)
-    expect(archivedFirstPage.items).toHaveLength(100)
-    expect(archivedFirstPage.nextCursor).not.toBeNull()
-  })
+  )
 })
 
 describe.sequential('Slice 4 targeted review PostgreSQL', () => {
@@ -1215,7 +1616,12 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
     const idempotencyKey = randomUUID()
 
     const outcomes = await (async () => {
-      const contenderDatabase = createDatabaseRuntime(environment.DATABASE_URL)
+      const contenderDatabase = createDatabaseRuntime(
+        environment.DATABASE_URL,
+        isPhase10CurrentSource
+          ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+          : {}
+      )
       const contenderService = createWrongNoteTargetedReviewService(
         createPrismaWrongNoteTargetedReviewRepository(
           contenderDatabase.client,
@@ -1343,18 +1749,40 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           archivedAt: true,
           currentPublishedVersionId: true,
           lifecycleStatus: true,
+          rowVersion: true,
           updatedAt: true
         }
       })
-    try {
-      await database.client.question.update({
-        where: { id: targetFixture.questionId },
-        data: {
-          lifecycleStatus: 'ARCHIVED',
-          archivedAt: new Date(TARGETED_AT.getTime() + 2_000),
-          currentPublishedVersionId: null
-        }
+    const archiveTime = new Date(TARGETED_AT.getTime() + 2_000)
+    if (isPhase10CurrentSource) {
+      await expectRawDatabaseError({
+        expectedMessage:
+          'An armed trusted Phase 7 operation intent is required.',
+        operation: async () =>
+          await database.client.$executeRaw`
+            UPDATE "Question"
+            SET
+              "lifecycleStatus" = 'ARCHIVED',
+              "archivedAt" = ${archiveTime},
+              "currentPublishedVersionId" = NULL,
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${archiveTime}
+            WHERE "id" = ${targetFixture.questionId}::uuid
+          `,
+        sqlState: '42501'
       })
+      await expect(
+        database.client.question.findUniqueOrThrow({
+          where: { id: targetFixture.questionId },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true,
+            rowVersion: true,
+            updatedAt: true
+          }
+        })
+      ).resolves.toEqual(questionBeforeArchive)
       await expect(
         targetService.createTargetedReviewSession(
           userId,
@@ -1362,155 +1790,235 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           idempotencyKey
         )
       ).resolves.toEqual({ replayed: true, response: created })
-      await expect(
-        targetService.createTargetedReviewSession(
-          userId,
-          targetFixture.questionId,
-          randomUUID()
-        )
-      ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
-    } finally {
-      await database.client.question.update({
-        where: { id: targetFixture.questionId },
-        data: questionBeforeArchive
-      })
-    }
-  })
-
-  it('current-version share lock 뒤 archive를 직렬화하고 pinned historical replay를 보존한다', async () => {
-    const userId = await createUser('targeted-lock')
-    const targetFixture = await createInitialWrongNote(userId)
-    const schema = getPostgresSchema(environment.DATABASE_URL)
-    const archiveClient = new Client({
-      connectionString: environment.DATABASE_URL,
-      ...(schema ? { options: `-c search_path=${schema}` } : {})
-    })
-    let announceQuestionLock: (() => void) | undefined
-    let releaseQuestionLock: (() => void) | undefined
-    const questionLocked = new Promise<void>((resolve) => {
-      announceQuestionLock = resolve
-    })
-    const questionReleased = new Promise<void>((resolve) => {
-      releaseQuestionLock = resolve
-    })
-    const targetService = createWrongNoteTargetedReviewService(
-      createPrismaWrongNoteTargetedReviewRepository(database.client, {
-        afterQuestionLocked: async () => {
-          announceQuestionLock?.()
-          await questionReleased
-        },
-        delay: async () => undefined,
-        jitterMilliseconds: () => 0
-      }),
-      () => new Date(TARGETED_AT)
-    )
-    const originalQuestion = await database.client.question.findUniqueOrThrow({
-      where: { id: targetFixture.questionId },
-      select: {
-        archivedAt: true,
-        currentPublishedVersionId: true,
-        lifecycleStatus: true,
-        updatedAt: true
-      }
-    })
-    const idempotencyKey = randomUUID()
-    let createPromise:
-      | ReturnType<typeof targetService.createTargetedReviewSession>
-      | undefined
-    let archiveUpdate: Promise<unknown> | undefined
-    let archiveTransactionOpen = false
-    let archiveCommitted = false
-
-    try {
-      await archiveClient.connect()
-      createPromise = targetService.createTargetedReviewSession(
-        userId,
-        targetFixture.questionId,
-        idempotencyKey
-      )
-      await Promise.race([
-        questionLocked,
-        createPromise.then(() => {
-          throw new Error(
-            'targeted create가 current-version lock hook을 건너뛰었습니다.'
-          )
-        })
-      ])
-      const backend = await archiveClient.query<{ processId: number }>(
-        'SELECT pg_backend_pid() AS "processId"'
-      )
-      const processId = backend.rows[0]?.processId
-      if (processId === undefined) {
-        throw new Error('targeted archive backend PID가 필요합니다.')
-      }
-      await archiveClient.query('BEGIN')
-      archiveTransactionOpen = true
-      let archiveSettled = false
-      archiveUpdate = archiveClient
-        .query(
-          `UPDATE "Question"
-           SET "lifecycleStatus" = 'ARCHIVED',
-               "archivedAt" = $2,
-               "currentPublishedVersionId" = NULL,
-               "updatedAt" = $2
-           WHERE "id" = $1`,
-          [targetFixture.questionId, new Date(TARGETED_AT.getTime() + 1_000)]
-        )
-        .finally(() => {
-          archiveSettled = true
-        })
-      await waitForBackendLock(processId)
-      expect(archiveSettled).toBe(false)
-      releaseQuestionLock?.()
-
-      const created = await createPromise
-      await archiveUpdate
-      await archiveClient.query('COMMIT')
-      archiveTransactionOpen = false
-      archiveCommitted = true
-      expect(created.response.questions[0]?.question).toMatchObject({
-        id: targetFixture.questionId,
-        questionVersionId: targetFixture.questionVersionId
-      })
-      expect(
-        await database.client.question.findUniqueOrThrow({
+    } else {
+      try {
+        await database.client.question.update({
           where: { id: targetFixture.questionId },
-          select: { lifecycleStatus: true, currentPublishedVersionId: true }
+          data: {
+            lifecycleStatus: 'ARCHIVED',
+            archivedAt: archiveTime,
+            currentPublishedVersionId: null
+          }
         })
-      ).toEqual({
-        lifecycleStatus: 'ARCHIVED',
-        currentPublishedVersionId: null
+        await expect(
+          targetService.createTargetedReviewSession(
+            userId,
+            targetFixture.questionId,
+            idempotencyKey
+          )
+        ).resolves.toEqual({ replayed: true, response: created })
+        await expect(
+          targetService.createTargetedReviewSession(
+            userId,
+            targetFixture.questionId,
+            randomUUID()
+          )
+        ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
+      } finally {
+        await fixtureDatabase.client.question.update({
+          where: { id: targetFixture.questionId },
+          data: {
+            archivedAt: questionBeforeArchive.archivedAt,
+            currentPublishedVersionId:
+              questionBeforeArchive.currentPublishedVersionId,
+            lifecycleStatus: questionBeforeArchive.lifecycleStatus
+          }
+        })
+      }
+    }
+  }, 15_000)
+
+  it(
+    isPhase10CurrentSource
+      ? 'current-version share lock 뒤 비인가 archive를 거부하고 pinned replay를 보존한다'
+      : 'current-version share lock 뒤 archive를 직렬화하고 pinned historical replay를 보존한다',
+    async () => {
+      const userId = await createUser('targeted-lock')
+      const targetFixture = await createInitialWrongNote(userId)
+      const archiveClient = createApplicationClient()
+      const lockObserverClient = createApplicationClient()
+      let announceQuestionLock: (() => void) | undefined
+      let releaseQuestionLock: (() => void) | undefined
+      const questionLocked = new Promise<void>((resolve) => {
+        announceQuestionLock = resolve
       })
-      await expect(
-        targetService.createTargetedReviewSession(
+      const questionReleased = new Promise<void>((resolve) => {
+        releaseQuestionLock = resolve
+      })
+      const targetService = createWrongNoteTargetedReviewService(
+        createPrismaWrongNoteTargetedReviewRepository(database.client, {
+          afterQuestionLocked: async () => {
+            announceQuestionLock?.()
+            await questionReleased
+          },
+          delay: async () => undefined,
+          jitterMilliseconds: () => 0
+        }),
+        () => new Date(TARGETED_AT)
+      )
+      const originalQuestion = await database.client.question.findUniqueOrThrow(
+        {
+          where: { id: targetFixture.questionId },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true,
+            rowVersion: true,
+            updatedAt: true
+          }
+        }
+      )
+      const idempotencyKey = randomUUID()
+      let createPromise:
+        | ReturnType<typeof targetService.createTargetedReviewSession>
+        | undefined
+      let archiveUpdate: Promise<unknown> | undefined
+      let archiveError: unknown
+      let archiveTransactionOpen = false
+      let archiveCommitted = false
+
+      try {
+        await Promise.all([
+          archiveClient.connect(),
+          lockObserverClient.connect()
+        ])
+        createPromise = targetService.createTargetedReviewSession(
           userId,
           targetFixture.questionId,
           idempotencyKey
         )
-      ).resolves.toEqual({ replayed: true, response: created.response })
-      await expect(
-        targetService.createTargetedReviewSession(
-          userId,
-          targetFixture.questionId,
-          randomUUID()
-        )
-      ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
-    } finally {
-      releaseQuestionLock?.()
-      await createPromise?.catch(() => undefined)
-      await archiveUpdate?.catch(() => undefined)
-      if (archiveTransactionOpen) {
-        await archiveClient.query('ROLLBACK').catch(() => undefined)
-      }
-      if (archiveCommitted) {
-        await database.client.question.update({
-          where: { id: targetFixture.questionId },
-          data: originalQuestion
+        await Promise.race([
+          questionLocked,
+          createPromise.then(() => {
+            throw new Error(
+              'targeted create가 current-version lock hook을 건너뛰었습니다.'
+            )
+          })
+        ])
+        let processId: number | undefined
+        if (!isPhase10CurrentSource) {
+          const backend = await archiveClient.query<{ processId: number }>(
+            'SELECT pg_backend_pid() AS "processId"'
+          )
+          processId = backend.rows[0]?.processId
+          if (processId === undefined) {
+            throw new Error('targeted archive backend PID가 필요합니다.')
+          }
+        }
+        await archiveClient.query('BEGIN')
+        archiveTransactionOpen = true
+        let archiveSettled = false
+        const archiveTime = new Date(TARGETED_AT.getTime() + 1_000)
+        archiveUpdate = archiveClient
+          .query(
+            isPhase10CurrentSource
+              ? `UPDATE "Question"
+                 SET "lifecycleStatus" = 'ARCHIVED',
+                     "archivedAt" = $2,
+                     "currentPublishedVersionId" = NULL,
+                     "rowVersion" = "rowVersion" + 1,
+                     "updatedAt" = $2
+                 WHERE "id" = $1`
+              : `UPDATE "Question"
+                 SET "lifecycleStatus" = 'ARCHIVED',
+                     "archivedAt" = $2,
+                     "currentPublishedVersionId" = NULL,
+                     "updatedAt" = $2
+                 WHERE "id" = $1`,
+            [targetFixture.questionId, archiveTime]
+          )
+          .catch((error: unknown) => {
+            archiveError = error
+          })
+          .finally(() => {
+            archiveSettled = true
+          })
+        if (!isPhase10CurrentSource && processId !== undefined) {
+          await waitForBackendLock(lockObserverClient, processId)
+          expect(archiveSettled).toBe(false)
+        }
+        releaseQuestionLock?.()
+
+        const created = await createPromise
+        await archiveUpdate
+        expect(created.response.questions[0]?.question).toMatchObject({
+          id: targetFixture.questionId,
+          questionVersionId: targetFixture.questionVersionId
         })
+        if (isPhase10CurrentSource) {
+          expect(archiveError).toMatchObject({
+            code: '42501',
+            message: 'An armed trusted Phase 7 operation intent is required.'
+          })
+          await archiveClient.query('ROLLBACK')
+          archiveTransactionOpen = false
+          await expect(
+            database.client.question.findUniqueOrThrow({
+              where: { id: targetFixture.questionId },
+              select: {
+                archivedAt: true,
+                currentPublishedVersionId: true,
+                lifecycleStatus: true,
+                rowVersion: true,
+                updatedAt: true
+              }
+            })
+          ).resolves.toEqual(originalQuestion)
+        } else {
+          if (archiveError) throw archiveError
+          await archiveClient.query('COMMIT')
+          archiveTransactionOpen = false
+          archiveCommitted = true
+          expect(
+            await database.client.question.findUniqueOrThrow({
+              where: { id: targetFixture.questionId },
+              select: { lifecycleStatus: true, currentPublishedVersionId: true }
+            })
+          ).toEqual({
+            lifecycleStatus: 'ARCHIVED',
+            currentPublishedVersionId: null
+          })
+        }
+        await expect(
+          targetService.createTargetedReviewSession(
+            userId,
+            targetFixture.questionId,
+            idempotencyKey
+          )
+        ).resolves.toEqual({ replayed: true, response: created.response })
+        if (!isPhase10CurrentSource) {
+          await expect(
+            targetService.createTargetedReviewSession(
+              userId,
+              targetFixture.questionId,
+              randomUUID()
+            )
+          ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
+        }
+      } finally {
+        releaseQuestionLock?.()
+        await createPromise?.catch(() => undefined)
+        await archiveUpdate?.catch(() => undefined)
+        if (archiveTransactionOpen) {
+          await archiveClient.query('ROLLBACK').catch(() => undefined)
+        }
+        if (archiveCommitted) {
+          await fixtureDatabase.client.question.update({
+            where: { id: targetFixture.questionId },
+            data: {
+              archivedAt: originalQuestion.archivedAt,
+              currentPublishedVersionId:
+                originalQuestion.currentPublishedVersionId,
+              lifecycleStatus: originalQuestion.lifecycleStatus
+            }
+          })
+        }
+        await archiveClient.end().catch(() => undefined)
+        await lockObserverClient.end().catch(() => undefined)
       }
-      await archiveClient.end().catch(() => undefined)
-    }
-  }, 15_000)
+    },
+    15_000
+  )
 
   it('foreign/missing 404를 구분하지 않고 pointer 이후 실패를 전부 rollback한다', async () => {
     const userId = await createUser('targeted-rollback')

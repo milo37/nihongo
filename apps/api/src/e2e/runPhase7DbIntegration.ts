@@ -14,6 +14,8 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
+import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const DATABASE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
@@ -1406,28 +1408,12 @@ const run = async (): Promise<void> => {
   await runCommand('pnpm', seedCommand, seedEnvironment)
   await assertSeedWriteCount('65')
 
-  for (const testFile of [
-    'src/db/phase7AdminCmsFoundation.integration.test.ts',
-    'src/db/phase7ReauthenticationFoundation.integration.test.ts',
-    'src/db/phase7ReauthenticationService.integration.test.ts',
-    'src/dashboard/dashboardInsights.integration.test.ts',
-    'src/dashboard/dashboardInsightsPerformance.integration.test.ts',
-    'src/db/phase7AdminCmsUpgrade.integration.test.ts'
-  ]) {
-    await runCommand(
-      'pnpm',
-      [
-        '--filter',
-        '@nihongo/api',
-        'exec',
-        'vitest',
-        'run',
-        '--config',
-        'vitest.integration.config.ts',
-        testFile
-      ],
-      integrationEnvironment
-    )
+  for (const testFile of getPhase10ApiIntegrationPathsByOwner('phase7-db')) {
+    await runPhase10ManifestVitestFile({
+      runCommand,
+      testFile,
+      environment: integrationEnvironment
+    })
   }
 }
 

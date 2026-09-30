@@ -49,6 +49,7 @@ jobs:
       AUTH_EMAIL_FROM: auth@example.test
       AUTH_EMAIL_DELIVERY_MODE: test-sink
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
+      PHASE10_SECURITY_EVIDENCE_DIR: test-results/phase10-evidence/security-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,14 +85,40 @@ jobs:
       - name: Phase 9 static UI and accessibility gate
         run: pnpm run test:phase9:static
 
+      - name: Initialize unique Phase 10 security evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$PHASE10_SECURITY_EVIDENCE_DIR"
+          install -d -m 700 "$PHASE10_SECURITY_EVIDENCE_DIR"
+
+      - name: Phase 10 security gate
+        id: phase10_security_evidence
+        run: pnpm run test:phase10:security
+
+      - name: Upload safe Phase 10 security evidence
+        if: ${{ steps.phase10_security_evidence.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: ${{ env.PHASE10_SECURITY_EVIDENCE_DIR }}/
+
+      - name: Clean Phase 10 security evidence
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/phase10-evidence/security-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PHASE10_SECURITY_EVIDENCE_DIR" = "$expected"
+          rm -rf -- "$expected"
+          test ! -e "$expected"
+
       - name: Test
         run: pnpm run test
 
-      - name: Phase 7 database foundation gate
-        run: pnpm run test:phase7:db
-
-      - name: Phase 7 technical API gate
-        run: pnpm run test:phase7:api
+      - name: Phase 10 complete API integration gate
+        run: pnpm run test:phase10:api-integration
 
       - name: Production mock mode stays fail closed
         env:
@@ -189,26 +216,18 @@ jobs:
       - name: Phase 9 canonical mock browser acceptance
         run: pnpm run test:phase9:browser:mock
 
-      - name: Upload Playwright evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-phase8-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: error
-          path: |
-            playwright-report/phase8-real/
-            playwright-report/phase8-mock/
-            test-results/playwright-phase8-real/
-            test-results/playwright-phase8-mock/
+      - name: Verify safe Playwright evidence
+        id: phase10_playwright_evidence
+        run: >-
+          node scripts/security/security-evidence.mjs verify
+          --directory test-results/phase10-evidence/playwright
+          --profile playwright
+          --required phase8-real,phase8-mock,phase9-real,phase9-mock
 
-      - name: Upload Phase 9 Playwright evidence
-        if: always()
+      - name: Upload safe Playwright evidence
+        if: ${{ steps.phase10_playwright_evidence.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-phase9-${{ github.run_id }}-${{ github.run_attempt }}
+          name: playwright-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
-          path: |
-            playwright-report/phase9-real/
-            playwright-report/phase9-mock/
-            test-results/playwright-phase9-real/
-            test-results/playwright-phase9-mock/
+          path: test-results/phase10-evidence/playwright/

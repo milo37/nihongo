@@ -14,6 +14,8 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
+import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
+import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
@@ -744,53 +746,43 @@ export const preparePhase7IsolatedDatabase = async ({
 
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
-  await runCommand(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'vitest',
-      'run',
-      '--config',
-      'vitest.integration.config.ts',
-      'src/app/phase7ApiGate.integration.test.ts'
-    ],
-    sharedEnvironment
-  )
-  await runCommand(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'vitest',
-      'run',
-      '--config',
-      'vitest.integration.config.ts',
-      'src/admin/adminQuestionRepository.integration.test.ts'
-    ],
-    sharedEnvironment
-  )
+  const phase7ApiEntries = getPhase10ApiIntegrationEntriesByOwner('phase7-api')
+  const [apiGateEntry, repositoryEntry, commandRepositoryEntry] =
+    phase7ApiEntries
+  if (
+    phase7ApiEntries.length !== 3 ||
+    !apiGateEntry ||
+    !repositoryEntry ||
+    !commandRepositoryEntry ||
+    apiGateEntry.shard !== 'phase7-api-pre-seed' ||
+    apiGateEntry.seedPolicy !== 'none' ||
+    repositoryEntry.shard !== 'phase7-api-pre-seed' ||
+    repositoryEntry.seedPolicy !== 'none' ||
+    commandRepositoryEntry.shard !== 'phase7-api-post-seed' ||
+    commandRepositoryEntry.seedPolicy !== 'canonical-once'
+  ) {
+    throw new Error('Phase 7 API integration manifest is incomplete.')
+  }
+  await runPhase10ManifestVitestFile({
+    runCommand,
+    testFile: apiGateEntry.path,
+    environment: sharedEnvironment
+  })
+  await runPhase10ManifestVitestFile({
+    runCommand,
+    testFile: repositoryEntry.path,
+    environment: sharedEnvironment
+  })
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
     sharedEnvironment
   )
-  await runCommand(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'vitest',
-      'run',
-      '--config',
-      'vitest.integration.config.ts',
-      'src/admin/adminQuestionCommandRepository.integration.test.ts'
-    ],
-    sharedEnvironment
-  )
+  await runPhase10ManifestVitestFile({
+    runCommand,
+    testFile: commandRepositoryEntry.path,
+    environment: sharedEnvironment
+  })
 }
 
 const isDirectExecution =

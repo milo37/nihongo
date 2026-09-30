@@ -122,6 +122,10 @@ interface CreateApiAppDependencies {
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
   questionReader: QuestionReader
+  questionReadSecurity?: {
+    readonly environment: ApiEnvironment
+    readonly rateLimiter: ApplicationRateLimiter
+  }
   auth?: {
     environment: ApiEnvironment
     gateway: AuthGateway
@@ -376,6 +380,7 @@ export const createApiApp = ({
   logger,
   learning,
   questionReader,
+  questionReadSecurity,
   study,
   enableTestRoutes = false
 }: CreateApiAppDependencies): Hono<{ Variables: ApiVariables }> => {
@@ -772,7 +777,10 @@ export const createApiApp = ({
     }
   }
 
-  app.route('/api/v1/questions', createQuestionRoutes({ questionReader }))
+  app.route(
+    '/api/v1/questions',
+    createQuestionRoutes({ questionReader, questionReadSecurity })
+  )
 
   if (enableTestRoutes) {
     app.get('/__test/error', () => {

@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createPrismaStudySessionCleanupRepository } from './studySessionCleanupRepository.js'
@@ -20,7 +25,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 session cleanup requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
@@ -73,16 +116,27 @@ const createGuestPrincipal = async (expiresAt: Date): Promise<string> => {
 }
 
 const createUser = async (): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: 'Cleanup fixture user',
-      email: `slice3-cleanup-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: 'Cleanup fixture user',
+        email: `slice3-cleanup-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
   })
-  createdUserIds.add(user.id)
-  return user.id
+  createdUserIds.add(userId)
+  return userId
 }
 
 const createSession = async ({
@@ -246,6 +300,10 @@ const createSession = async ({
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
   const question = await database.client.question.findFirst({
     where: {
       lifecycleStatus: 'ACTIVE',
@@ -274,9 +332,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of createdUserIds) {
+        await erasureWorkerClient.query(
+          `SELECT "phase7_erase_user"($1, 'TEST')`,
+          [userId]
+        )
+      }
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
   }
   if (createdSessionIds.size > 0) {
     await database.client.studySession.deleteMany({
@@ -287,6 +354,12 @@ afterAll(async () => {
     await database.client.guestPrincipal.deleteMany({
       where: { id: { in: [...createdGuestPrincipalIds] } }
     })
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })

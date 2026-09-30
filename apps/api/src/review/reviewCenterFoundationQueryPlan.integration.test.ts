@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import type { QuestionType } from '@nihongo/contracts/common/enum'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
 import {
@@ -39,8 +44,10 @@ interface PlanNode extends Record<string, unknown> {
 interface ReviewCenterPlanFixture {
   readonly historyCursorId: string
   readonly historyCursorOccurredAt: Date
+  readonly questionCount: number
   readonly questionId: string
   readonly questionType: QuestionType
+  readonly questionVersionCount: number
   readonly sessionId: string
   readonly tag: string
   readonly targetedIdempotencyKey: string
@@ -85,10 +92,59 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 review query plans require fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const createdDraftVersionIds = new Set<string>()
 const createdTagPrefixes = new Set<string>()
 const createdUserIds = new Set<string>()
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
+}
 
 const collectPlanNodes = (value: unknown, nodes: PlanNode[]): void => {
   if (Array.isArray(value)) {
@@ -381,13 +437,23 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
   const userIds = [targetUserId, ...decoyUserIds]
   createdUserIds.clear()
   userIds.forEach((userId) => createdUserIds.add(userId))
-  await database.client.user.createMany({
-    data: userIds.map((id, index) => ({
-      id,
-      name: `Phase 5 query-plan user ${index}`,
-      email: `phase5-query-plan-${id}@example.test`,
-      emailVerified: true
-    }))
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.createMany({
+      data: userIds.map((id, index) => ({
+        id,
+        name: `Phase 5 query-plan user ${index}`,
+        email: `phase5-query-plan-${id}@example.test`,
+        emailVerified: true
+      }))
+    })
+    await fixture.account.createMany({
+      data: userIds.map((userId) => ({
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }))
+    })
   })
 
   const { sessionId, wrongNote } = await createTargetWrongNote(targetUserId)
@@ -407,66 +473,68 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
   if (!tag) {
     throw new Error('Review queue query-plan fixture tag가 필요합니다.')
   }
-  const tagPrefix = `phase5-plan-${randomUUID()}`
-  const draftVersionId = randomUUID()
-  createdDraftVersionIds.add(draftVersionId)
-  createdTagPrefixes.add(tagPrefix)
-  await database.client.$executeRaw(Prisma.sql`
-    INSERT INTO "QuestionVersion" (
-      "id", "questionId", "versionNumber", "status", "level",
-      "subject", "questionType", "passage", "questionText",
-      "correctOptionId", "explanationKo", "explanationJa",
-      "difficulty", "sourceType", "rowVersion", "createdByUserId",
-      "createdByLabelSnapshot", "createdAt", "updatedAt"
-    )
-    SELECT
-      ${draftVersionId}::uuid,
-      ${wrongNote.questionId}::uuid,
-      COALESCE(MAX(version."versionNumber"), 0) + 1,
-      'DRAFT', 'N5', 'VOCABULARY', ${currentVersion.questionType}::"QuestionType",
-      NULL, 'query-plan tag decoy', NULL, 'query-plan tag decoy', NULL,
-      'NORMAL', 'ORIGINAL', 1, NULL, 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
-    FROM "QuestionVersion" AS version
-    WHERE version."questionId" = ${wrongNote.questionId}::uuid
-  `)
-  await database.client.$executeRaw(Prisma.sql`
-    WITH inserted_tag AS (
-      INSERT INTO "Tag" (
-        "id", "label", "normalizedName", "createdAt", "updatedAt"
+  if (!isPhase10CurrentSource) {
+    const tagPrefix = `phase5-plan-${randomUUID()}`
+    const draftVersionId = randomUUID()
+    createdDraftVersionIds.add(draftVersionId)
+    createdTagPrefixes.add(tagPrefix)
+    await fixtureDatabase.client.$executeRaw(Prisma.sql`
+      INSERT INTO "QuestionVersion" (
+        "id", "questionId", "versionNumber", "status", "level",
+        "subject", "questionType", "passage", "questionText",
+        "correctOptionId", "explanationKo", "explanationJa",
+        "difficulty", "sourceType", "rowVersion", "createdByUserId",
+        "createdByLabelSnapshot", "createdAt", "updatedAt"
+      )
+      SELECT
+        ${draftVersionId}::uuid,
+        ${wrongNote.questionId}::uuid,
+        COALESCE(MAX(version."versionNumber"), 0) + 1,
+        'DRAFT', 'N5', 'VOCABULARY', ${currentVersion.questionType}::"QuestionType",
+        NULL, 'query-plan tag decoy', NULL, 'query-plan tag decoy', NULL,
+        'NORMAL', 'ORIGINAL', 1, NULL, 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
+      FROM "QuestionVersion" AS version
+      WHERE version."questionId" = ${wrongNote.questionId}::uuid
+    `)
+    await fixtureDatabase.client.$executeRaw(Prisma.sql`
+      WITH inserted_tag AS (
+        INSERT INTO "Tag" (
+          "id", "label", "normalizedName", "createdAt", "updatedAt"
+        )
+        SELECT
+          gen_random_uuid(),
+          ${tagPrefix} || '-label-' || fixture.position::text,
+          ${tagPrefix} || '-normalized-' || fixture.position::text,
+          ${PLAN_NOW},
+          ${PLAN_NOW}
+        FROM generate_series(1, 512) AS fixture(position)
+        RETURNING "id", "label"
+      )
+      INSERT INTO "QuestionVersionTag" (
+        "id", "questionVersionId", "tagId", "labelSnapshot"
       )
       SELECT
         gen_random_uuid(),
-        ${tagPrefix} || '-label-' || fixture.position::text,
-        ${tagPrefix} || '-normalized-' || fixture.position::text,
-        ${PLAN_NOW},
-        ${PLAN_NOW}
-      FROM generate_series(1, 512) AS fixture(position)
-      RETURNING "id", "label"
-    )
-    INSERT INTO "QuestionVersionTag" (
-      "id", "questionVersionId", "tagId", "labelSnapshot"
-    )
-    SELECT
-      gen_random_uuid(),
-      ${draftVersionId}::uuid,
-      tag."id",
-      tag."label"
-    FROM inserted_tag AS tag
-  `)
-  await database.client.$executeRawUnsafe(
+        ${draftVersionId}::uuid,
+        tag."id",
+        tag."label"
+      FROM inserted_tag AS tag
+    `)
+  }
+  await fixtureDatabase.client.$executeRawUnsafe(
     'ALTER TABLE "WrongNote" DISABLE TRIGGER USER'
   )
-  await database.client.$executeRawUnsafe(
+  await fixtureDatabase.client.$executeRawUnsafe(
     'ALTER TABLE "ReviewEvent" DISABLE TRIGGER USER'
   )
-  await database.client.$executeRawUnsafe(
+  await fixtureDatabase.client.$executeRawUnsafe(
     'ALTER TABLE "ReviewSchedule" DISABLE TRIGGER USER'
   )
-  await database.client.$executeRawUnsafe(
+  await fixtureDatabase.client.$executeRawUnsafe(
     'ALTER TABLE "IdempotencyRecord" DISABLE TRIGGER USER'
   )
   try {
-    await database.client.$executeRaw(Prisma.sql`
+    await fixtureDatabase.client.$executeRaw(Prisma.sql`
       WITH selected_question AS (
         SELECT
           question."id" AS "questionId",
@@ -507,7 +575,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
       FROM selected_question AS question
       WHERE question."questionId" <> ${wrongNote.questionId}::uuid
     `)
-    await database.client.$executeRaw(Prisma.sql`
+    await fixtureDatabase.client.$executeRaw(Prisma.sql`
       INSERT INTO "ReviewSchedule" (
         "id", "wrongNoteId", "nextReviewAt", "intervalDays",
         "algorithmVersion", "updatedAt"
@@ -519,7 +587,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
       WHERE note."userId" IN (${Prisma.join(userIds)})
         AND note."id" <> ${wrongNote.id}::uuid
     `)
-    await database.client.$executeRaw(Prisma.sql`
+    await fixtureDatabase.client.$executeRaw(Prisma.sql`
       INSERT INTO "UserMemo" (
         "id", "wrongNoteId", "text", "createdAt", "updatedAt"
       )
@@ -528,7 +596,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
       FROM "WrongNote" AS note
       WHERE note."userId" IN (${Prisma.join(memoOwnerIds)})
     `)
-    await database.client.$executeRaw`
+    await fixtureDatabase.client.$executeRaw`
       INSERT INTO "ReviewEvent" (
         "id", "wrongNoteId", "userId", "questionId", "questionVersionId",
         "source", "studySessionId", "studyAnswerId", "selectedOptionId",
@@ -546,14 +614,14 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
           + fixture.sequence * INTERVAL '1 millisecond'
       FROM generate_series(1, ${HISTORY_CARDINALITY - 1}) AS fixture(sequence)
     `
-    await database.client.$executeRaw`
+    await fixtureDatabase.client.$executeRaw`
       UPDATE "ReviewEvent"
       SET "occurredAt" = ${PLAN_NOW}::timestamptz
         + ${HISTORY_CARDINALITY} * INTERVAL '1 millisecond'
       WHERE "wrongNoteId" = ${wrongNote.id}::uuid
         AND "studyAnswerId" IS NOT NULL
     `
-    await database.client.$executeRaw(Prisma.sql`
+    await fixtureDatabase.client.$executeRaw(Prisma.sql`
       WITH ordered_notes AS (
         SELECT
           note."id",
@@ -584,7 +652,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
         CASE WHEN note.position <= ${RECONCILIATION_LIMIT} THEN 1 ELSE 4 END
       ) AS fixture(sequence)
     `)
-    await database.client.$executeRaw`
+    await fixtureDatabase.client.$executeRaw`
       INSERT INTO "IdempotencyRecord" (
         "id", "principalType", "userId", "guestPrincipalId", "operation",
         "idempotencyKey", "studySessionId", "requestHash", "contractVersion",
@@ -628,16 +696,16 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
       ) AS fixture(sequence)
     `
   } finally {
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "IdempotencyRecord" ENABLE TRIGGER USER'
     )
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "ReviewEvent" ENABLE TRIGGER USER'
     )
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "ReviewSchedule" ENABLE TRIGGER USER'
     )
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "WrongNote" ENABLE TRIGGER USER'
     )
   }
@@ -649,9 +717,11 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     'QuestionVersionTag',
     'IdempotencyRecord'
   ]) {
-    await database.client.$executeRawUnsafe(`ANALYZE "${tableName}"`)
+    await fixtureDatabase.client.$executeRawUnsafe(`ANALYZE "${tableName}"`)
   }
-  await database.client.$executeRawUnsafe('VACUUM (ANALYZE) "ReviewEvent"')
+  await fixtureDatabase.client.$executeRawUnsafe(
+    'VACUUM (ANALYZE) "ReviewEvent"'
+  )
 
   const historyCursor = await database.client.reviewEvent.findFirstOrThrow({
     where: { wrongNoteId: wrongNote.id },
@@ -659,11 +729,17 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     skip: HISTORY_LIMIT - 1,
     select: { id: true, occurredAt: true }
   })
+  const [questionCount, questionVersionCount] = await Promise.all([
+    database.client.question.count(),
+    database.client.questionVersion.count()
+  ])
   return {
     historyCursorId: historyCursor.id,
     historyCursorOccurredAt: historyCursor.occurredAt,
+    questionCount,
     questionId: wrongNote.questionId,
     questionType: currentVersion.questionType,
+    questionVersionCount,
     sessionId,
     tag,
     targetedIdempotencyKey,
@@ -674,60 +750,74 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
   if (createdDraftVersionIds.size > 0) {
-    await database.client.questionVersion.deleteMany({
+    await fixtureDatabase.client.questionVersion.deleteMany({
       where: { id: { in: [...createdDraftVersionIds] } }
     })
   }
   for (const prefix of createdTagPrefixes) {
-    await database.client.tag.deleteMany({
+    await fixtureDatabase.client.tag.deleteMany({
       where: { normalizedName: { startsWith: prefix } }
     })
   }
   if (createdUserIds.size > 0) {
-    for (const tableName of [
-      'IdempotencyRecord',
-      'ReviewEvent',
-      'ReviewSchedule',
-      'WrongNote'
-    ]) {
-      await database.client.$executeRawUnsafe(
-        `ALTER TABLE "${tableName}" DISABLE TRIGGER USER`
-      )
-    }
-    try {
-      await database.client.user.deleteMany({
-        where: { id: { in: [...createdUserIds] } }
-      })
-    } finally {
+    if (isPhase10CurrentSource) {
+      for (const userId of [...createdUserIds]) await eraseUser(userId)
+    } else {
       for (const tableName of [
-        'WrongNote',
-        'ReviewSchedule',
+        'IdempotencyRecord',
         'ReviewEvent',
-        'IdempotencyRecord'
+        'ReviewSchedule',
+        'WrongNote'
       ]) {
-        await database.client.$executeRawUnsafe(
-          `ALTER TABLE "${tableName}" ENABLE TRIGGER USER`
+        await fixtureDatabase.client.$executeRawUnsafe(
+          `ALTER TABLE "${tableName}" DISABLE TRIGGER USER`
+        )
+      }
+      try {
+        await fixtureDatabase.client.user.deleteMany({
+          where: { id: { in: [...createdUserIds] } }
+        })
+      } finally {
+        for (const tableName of [
+          'WrongNote',
+          'ReviewSchedule',
+          'ReviewEvent',
+          'IdempotencyRecord'
+        ]) {
+          await fixtureDatabase.client.$executeRawUnsafe(
+            `ALTER TABLE "${tableName}" ENABLE TRIGGER USER`
+          )
+        }
+      }
+      for (const tableName of [
+        'StudySession',
+        'WrongNote',
+        'ReviewEvent',
+        'ReviewSchedule',
+        'UserMemo',
+        'IdempotencyRecord',
+        'Question',
+        'QuestionVersion'
+      ]) {
+        await fixtureDatabase.client.$executeRawUnsafe(
+          `VACUUM (FULL, ANALYZE) "${tableName}"`
         )
       }
     }
-    for (const tableName of [
-      'StudySession',
-      'WrongNote',
-      'ReviewEvent',
-      'ReviewSchedule',
-      'UserMemo',
-      'IdempotencyRecord',
-      'Question',
-      'QuestionVersion'
-    ]) {
-      await database.client.$executeRawUnsafe(
-        `VACUUM (FULL, ANALYZE) "${tableName}"`
-      )
-    }
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -844,43 +934,45 @@ describe('Phase 5 review-center populated query plans', () => {
               reconciliationNoteRows.map(({ id }) => id)
             )}
           `)
-        await transaction.$executeRaw`
-          CREATE TEMP TABLE "phase5_targeted_plan_catalog" (
-            "questionId" UUID PRIMARY KEY,
-            "questionVersionId" UUID UNIQUE NOT NULL
-          ) ON COMMIT DROP
-        `
-        await transaction.$executeRaw`
-          INSERT INTO "phase5_targeted_plan_catalog" (
-            "questionId", "questionVersionId"
-          )
-          SELECT gen_random_uuid(), gen_random_uuid()
-          FROM generate_series(1, ${TARGETED_CATALOG_DECOY_CARDINALITY})
-        `
-        await transaction.$executeRaw`
-          INSERT INTO "Question" (
-            "id", "lifecycleStatus", "createdByLabelSnapshot",
-            "createdAt", "updatedAt"
-          )
-          SELECT
-            "questionId", 'ACTIVE', 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
-          FROM "phase5_targeted_plan_catalog"
-        `
-        await transaction.$executeRaw`
-          INSERT INTO "QuestionVersion" (
-            "id", "questionId", "versionNumber", "status", "level",
-            "subject", "questionType", "questionText", "explanationKo",
-            "difficulty", "createdByLabelSnapshot", "createdAt", "updatedAt"
-          )
-          SELECT
-            "questionVersionId", "questionId", 1, 'DRAFT', 'N5',
-            'VOCABULARY', 'KANJI_READING', 'targeted plan decoy',
-            '실행 계획 전용 설명입니다.', 'EASY', 'SYSTEM_SEED',
-            ${PLAN_NOW}, ${PLAN_NOW}
-          FROM "phase5_targeted_plan_catalog"
-        `
-        await transaction.$executeRaw`ANALYZE "Question"`
-        await transaction.$executeRaw`ANALYZE "QuestionVersion"`
+        if (!isPhase10CurrentSource) {
+          await transaction.$executeRaw`
+            CREATE TEMP TABLE "phase5_targeted_plan_catalog" (
+              "questionId" UUID PRIMARY KEY,
+              "questionVersionId" UUID UNIQUE NOT NULL
+            ) ON COMMIT DROP
+          `
+          await transaction.$executeRaw`
+            INSERT INTO "phase5_targeted_plan_catalog" (
+              "questionId", "questionVersionId"
+            )
+            SELECT gen_random_uuid(), gen_random_uuid()
+            FROM generate_series(1, ${TARGETED_CATALOG_DECOY_CARDINALITY})
+          `
+          await transaction.$executeRaw`
+            INSERT INTO "Question" (
+              "id", "lifecycleStatus", "createdByLabelSnapshot",
+              "createdAt", "updatedAt"
+            )
+            SELECT
+              "questionId", 'ACTIVE', 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
+            FROM "phase5_targeted_plan_catalog"
+          `
+          await transaction.$executeRaw`
+            INSERT INTO "QuestionVersion" (
+              "id", "questionId", "versionNumber", "status", "level",
+              "subject", "questionType", "questionText", "explanationKo",
+              "difficulty", "createdByLabelSnapshot", "createdAt", "updatedAt"
+            )
+            SELECT
+              "questionVersionId", "questionId", 1, 'DRAFT', 'N5',
+              'VOCABULARY', 'KANJI_READING', 'targeted plan decoy',
+              '실행 계획 전용 설명입니다.', 'EASY', 'SYSTEM_SEED',
+              ${PLAN_NOW}, ${PLAN_NOW}
+            FROM "phase5_targeted_plan_catalog"
+          `
+          await transaction.$executeRaw`ANALYZE "Question"`
+          await transaction.$executeRaw`ANALYZE "QuestionVersion"`
+        }
         const targetedExistingRecord = await transaction.$queryRaw<
           ExplainRow[]
         >(Prisma.sql`
@@ -965,7 +1057,11 @@ describe('Phase 5 review-center populated query plans', () => {
       plans.memoOwnerLock,
       plans.historyOwnerRead
     ]) {
-      expect(readIndexNames(plan)).toContain('WrongNote_userId_questionId_key')
+      if (!isPhase10CurrentSource) {
+        expect(readIndexNames(plan)).toContain(
+          'WrongNote_userId_questionId_key'
+        )
+      }
       expectNoSequentialScan(plan, 'WrongNote')
       expectBoundedRelationRows(plan, 'WrongNote', 1)
     }
@@ -998,9 +1094,11 @@ describe('Phase 5 review-center populated query plans', () => {
       expectNoSequentialScan(plan, 'StudyAnswer')
       expectBoundedRelationRows(plan, 'ReviewEvent', HISTORY_LIMIT)
       expectBoundedRelationRows(plan, 'StudyAnswer', HISTORY_LIMIT)
-      expect(readIndexNames(plan)).toContain(
-        'StudyAnswer_id_questionVersionId_key'
-      )
+      if (!isPhase10CurrentSource) {
+        expect(readIndexNames(plan)).toContain(
+          'StudyAnswer_id_questionVersionId_key'
+        )
+      }
       expect(readRootPlan(plan)['Actual Rows']).toBe(HISTORY_LIMIT)
       expectPlanBuffersAtMost(plan, 512)
     }
@@ -1020,12 +1118,18 @@ describe('Phase 5 review-center populated query plans', () => {
     expect(
       readRootPlan(plans.reviewQueueItems)['Actual Rows']
     ).toBeLessThanOrEqual(100)
-    expect(readIndexNames(plans.reviewQueueItems)).toContain(
-      'WrongNote_userId_questionId_key'
-    )
-    expect(readIndexNames(plans.reviewQueueItems)).toContain(
-      'QuestionVersionTag_questionVersionId_tagId_key'
-    )
+    if (!isPhase10CurrentSource) {
+      expect(readIndexNames(plans.reviewQueueItems)).toContain(
+        'WrongNote_userId_questionId_key'
+      )
+    }
+    if (isPhase10CurrentSource) {
+      expectRelationExecuted(plans.reviewQueueItems, 'QuestionVersionTag')
+    } else {
+      expect(readIndexNames(plans.reviewQueueItems)).toContain(
+        'QuestionVersionTag_questionVersionId_tagId_key'
+      )
+    }
 
     expect(readIndexNames(plans.reconciliationNotes)).toContain(
       'WrongNote_pkey'
@@ -1040,9 +1144,14 @@ describe('Phase 5 review-center populated query plans', () => {
       RECONCILIATION_LIMIT
     )
     expect(reconciliationNoteCount).toBe(RECONCILIATION_LIMIT)
-    expect(readIndexNames(plans.reconciliationEvents)).toContain(
-      'ReviewEvent_wrongNoteId_occurredAt_idx'
-    )
+    expect(
+      [...readIndexNames(plans.reconciliationEvents)].some((indexName) =>
+        [
+          'ReviewEvent_wrongNoteId_occurredAt_idx',
+          'ReviewEvent_wrongNoteId_occurredAt_id_idx'
+        ].includes(indexName)
+      )
+    ).toBe(true)
     expectNoSequentialScan(plans.reconciliationEvents, 'ReviewEvent')
     expectBoundedRelationRows(
       plans.reconciliationEvents,
@@ -1084,35 +1193,65 @@ describe('Phase 5 review-center populated query plans', () => {
       1
     )
 
-    expect(
-      [...readIndexNames(plans.targetedQuestionLock)].some((indexName) =>
-        [
-          'Question_pkey',
-          'Question_currentPublishedVersionId_key',
-          'Question_id_currentPublishedVersionId_key'
-        ].includes(indexName)
+    if (isPhase10CurrentSource) {
+      expectRelationExecuted(plans.targetedQuestionLock, 'Question')
+      expectRelationExecuted(plans.targetedQuestionLock, 'QuestionVersion')
+      expectBoundedRelationRows(
+        plans.targetedQuestionLock,
+        'Question',
+        fixture.questionCount
       )
-    ).toBe(true)
-    expect(
-      [...readIndexNames(plans.targetedQuestionLock)].some((indexName) =>
-        [
-          'QuestionVersion_pkey',
-          'QuestionVersion_questionId_id_key',
-          'QuestionVersion_questionId_status_versionNumber_idx'
-        ].includes(indexName)
+      expectBoundedRelationRows(
+        plans.targetedQuestionLock,
+        'QuestionVersion',
+        fixture.questionVersionCount
       )
-    ).toBe(true)
-    for (const relationName of ['Question', 'QuestionVersion']) {
-      expectNoSequentialScan(plans.targetedQuestionLock, relationName)
-      expectBoundedRelationRows(plans.targetedQuestionLock, relationName, 1)
+    } else {
+      expect(
+        [...readIndexNames(plans.targetedQuestionLock)].some((indexName) =>
+          [
+            'Question_pkey',
+            'Question_currentPublishedVersionId_key',
+            'Question_id_currentPublishedVersionId_key'
+          ].includes(indexName)
+        )
+      ).toBe(true)
+      expect(
+        [...readIndexNames(plans.targetedQuestionLock)].some((indexName) =>
+          [
+            'QuestionVersion_pkey',
+            'QuestionVersion_questionId_id_key',
+            'QuestionVersion_questionId_status_versionNumber_idx'
+          ].includes(indexName)
+        )
+      ).toBe(true)
+      for (const relationName of ['Question', 'QuestionVersion']) {
+        expectNoSequentialScan(plans.targetedQuestionLock, relationName)
+        expectBoundedRelationRows(plans.targetedQuestionLock, relationName, 1)
+      }
     }
 
-    expect(readIndexNames(plans.targetedWrongNoteLock)).toContain(
-      'WrongNote_userId_questionId_key'
-    )
-    for (const relationName of ['WrongNote', 'QuestionVersion']) {
-      expectNoSequentialScan(plans.targetedWrongNoteLock, relationName)
-      expectBoundedRelationRows(plans.targetedWrongNoteLock, relationName, 1)
+    if (!isPhase10CurrentSource) {
+      expect(readIndexNames(plans.targetedWrongNoteLock)).toContain(
+        'WrongNote_userId_questionId_key'
+      )
+    }
+    expectNoSequentialScan(plans.targetedWrongNoteLock, 'WrongNote')
+    expectBoundedRelationRows(plans.targetedWrongNoteLock, 'WrongNote', 1)
+    if (isPhase10CurrentSource) {
+      expectRelationExecuted(plans.targetedWrongNoteLock, 'QuestionVersion')
+      expectBoundedRelationRows(
+        plans.targetedWrongNoteLock,
+        'QuestionVersion',
+        fixture.questionVersionCount
+      )
+    } else {
+      expectNoSequentialScan(plans.targetedWrongNoteLock, 'QuestionVersion')
+      expectBoundedRelationRows(
+        plans.targetedWrongNoteLock,
+        'QuestionVersion',
+        1
+      )
     }
     for (const plan of [
       plans.targetedQuestionLock,

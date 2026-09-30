@@ -409,7 +409,11 @@ beforeAll(async () => {
     logger: createJsonLogger('debug', (line) => apiLogLines.push(line)),
     questionReader: createQuestionService(
       createPrismaQuestionRepository(applicationRuntime.client)
-    )
+    ),
+    questionReadSecurity: {
+      environment,
+      rateLimiter
+    }
   })
 }, 30_000)
 

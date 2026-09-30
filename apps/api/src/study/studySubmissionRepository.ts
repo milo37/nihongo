@@ -336,7 +336,7 @@ const lockGuestProof = async (
 }
 
 const assertGuestProof = async (
-  client: PrismaClient,
+  client: PrismaClient | Prisma.TransactionClient,
   owner: Extract<ExistingStudyOwner, { kind: 'GUEST' }>,
   observedAt: Date
 ): Promise<void> => {
@@ -365,41 +365,66 @@ const loadAtomicSession = async (
       expiresAt: true,
       startedAt: true,
       mode: true,
-      practiceContractVersion: true,
-      draft: {
-        select: {
-          revision: true,
-          answers: {
-            select: {
-              studySessionQuestionId: true,
-              selectedOptionId: true,
-              elapsedSec: true
-            }
-          }
-        }
-      },
-      questions: {
-        orderBy: { ordinal: 'asc' },
-        select: {
-          id: true,
-          ordinal: true,
-          questionId: true,
-          questionVersionId: true,
-          questionVersion: {
-            select: {
-              correctOptionId: true,
-              options: {
-                orderBy: { ordinal: 'asc' },
-                select: { id: true }
-              }
-            }
-          }
-        }
-      }
+      practiceContractVersion: true
     }
   })
   if (!session) {
     return null
+  }
+
+  const draft = await transaction.studyDraft.findUnique({
+    where: { studySessionId: sessionId },
+    select: { revision: true }
+  })
+  const draftAnswers = draft
+    ? await transaction.studyDraftAnswer.findMany({
+        where: { studySessionId: sessionId },
+        select: {
+          studySessionQuestionId: true,
+          selectedOptionId: true,
+          elapsedSec: true
+        }
+      })
+    : []
+  const sessionQuestions = await transaction.studySessionQuestion.findMany({
+    where: { studySessionId: sessionId },
+    orderBy: { ordinal: 'asc' },
+    select: {
+      id: true,
+      ordinal: true,
+      questionId: true,
+      questionVersionId: true
+    }
+  })
+  const questionVersionIds = sessionQuestions.map(
+    ({ questionVersionId }) => questionVersionId
+  )
+  const questionVersions =
+    questionVersionIds.length === 0
+      ? []
+      : await transaction.questionVersion.findMany({
+          where: { id: { in: questionVersionIds } },
+          select: { id: true, correctOptionId: true }
+        })
+  const options =
+    questionVersionIds.length === 0
+      ? []
+      : await transaction.questionOption.findMany({
+          where: { questionVersionId: { in: questionVersionIds } },
+          orderBy: [{ questionVersionId: 'asc' }, { ordinal: 'asc' }],
+          select: { id: true, questionVersionId: true }
+        })
+  const versionsById = new Map(
+    questionVersions.map((version) => [version.id, version])
+  )
+  const optionIdsByVersionId = new Map<string, string[]>()
+  for (const option of options) {
+    const optionIds = optionIdsByVersionId.get(option.questionVersionId)
+    if (optionIds) {
+      optionIds.push(option.id)
+    } else {
+      optionIdsByVersionId.set(option.questionVersionId, [option.id])
+    }
   }
 
   return {
@@ -408,9 +433,10 @@ const loadAtomicSession = async (
     startedAt: session.startedAt,
     mode: session.mode,
     practiceContractVersion: session.practiceContractVersion,
-    draft: session.draft,
-    questions: session.questions.map((question) => {
-      if (!question.questionVersion.correctOptionId) {
+    draft: draft ? { revision: draft.revision, answers: draftAnswers } : null,
+    questions: sessionQuestions.map((question) => {
+      const questionVersion = versionsById.get(question.questionVersionId)
+      if (!questionVersion?.correctOptionId) {
         throw new StudySubmissionRepositoryIntegrityError(
           'Pinned QuestionVersion has no correct option.'
         )
@@ -420,8 +446,8 @@ const loadAtomicSession = async (
         questionId: question.questionId,
         questionVersionId: question.questionVersionId,
         ordinal: question.ordinal,
-        correctOptionId: question.questionVersion.correctOptionId,
-        optionIds: question.questionVersion.options.map(({ id }) => id)
+        correctOptionId: questionVersion.correctOptionId,
+        optionIds: optionIdsByVersionId.get(question.questionVersionId) ?? []
       }
     })
   }
@@ -552,66 +578,150 @@ const loadStudyResultRecord = async (
       level: true,
       subject: true,
       mode: true,
-      submittedAt: true,
-      result: {
-        select: {
-          totalCount: true,
-          correctCount: true,
-          incorrectCount: true,
-          correctRateBasisPoints: true,
-          durationSec: true
-        }
-      },
-      questions: {
-        orderBy: { ordinal: 'asc' },
-        select: {
-          id: true,
-          ordinal: true,
-          questionId: true,
-          questionVersion: {
-            select: {
-              id: true,
-              level: true,
-              subject: true,
-              questionType: true,
-              passage: true,
-              questionText: true,
-              difficulty: true,
-              correctOptionId: true,
-              explanationKo: true,
-              explanationJa: true,
-              options: {
-                orderBy: { ordinal: 'asc' },
-                select: { id: true, label: true, text: true }
-              },
-              tags: {
-                orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-                select: { tagId: true, labelSnapshot: true }
-              }
-            }
-          },
-          answer: {
-            select: {
-              selectedOptionId: true,
-              isCorrect: true,
-              reviewEvent: { select: { nextStatus: true } }
-            }
-          }
-        }
-      }
+      submittedAt: true
     }
   })
 
   if (!session) {
     return null
   }
-  if (!session.result || !session.submittedAt) {
+  const result = await client.studyResult.findUnique({
+    where: { studySessionId: sessionId },
+    select: {
+      totalCount: true,
+      correctCount: true,
+      incorrectCount: true,
+      correctRateBasisPoints: true,
+      durationSec: true
+    }
+  })
+  if (!result || !session.submittedAt) {
     return null
   }
 
-  const questions = session.questions.map((item) => {
-    const { answer, questionVersion } = item
-    if (!answer || !questionVersion.correctOptionId) {
+  const sessionQuestions = await client.studySessionQuestion.findMany({
+    where: { studySessionId: sessionId },
+    orderBy: { ordinal: 'asc' },
+    select: {
+      id: true,
+      ordinal: true,
+      questionId: true,
+      questionVersionId: true
+    }
+  })
+  const questionVersionIds = sessionQuestions.map(
+    ({ questionVersionId }) => questionVersionId
+  )
+  const questionVersions =
+    questionVersionIds.length === 0
+      ? []
+      : await client.questionVersion.findMany({
+          where: { id: { in: questionVersionIds } },
+          select: {
+            id: true,
+            level: true,
+            subject: true,
+            questionType: true,
+            passage: true,
+            questionText: true,
+            difficulty: true,
+            correctOptionId: true,
+            explanationKo: true,
+            explanationJa: true
+          }
+        })
+  const options =
+    questionVersionIds.length === 0
+      ? []
+      : await client.questionOption.findMany({
+          where: { questionVersionId: { in: questionVersionIds } },
+          orderBy: [{ questionVersionId: 'asc' }, { ordinal: 'asc' }],
+          select: {
+            id: true,
+            label: true,
+            text: true,
+            questionVersionId: true
+          }
+        })
+  const tags =
+    questionVersionIds.length === 0
+      ? []
+      : await client.questionVersionTag.findMany({
+          where: { questionVersionId: { in: questionVersionIds } },
+          orderBy: [
+            { questionVersionId: 'asc' },
+            { labelSnapshot: 'asc' },
+            { tagId: 'asc' }
+          ],
+          select: {
+            questionVersionId: true,
+            tagId: true,
+            labelSnapshot: true
+          }
+        })
+  const sessionQuestionIds = sessionQuestions.map(({ id }) => id)
+  const answers =
+    sessionQuestionIds.length === 0
+      ? []
+      : await client.studyAnswer.findMany({
+          where: { studySessionQuestionId: { in: sessionQuestionIds } },
+          select: {
+            id: true,
+            studySessionQuestionId: true,
+            selectedOptionId: true,
+            isCorrect: true
+          }
+        })
+  const answerIds = answers.map(({ id }) => id)
+  const reviewEvents =
+    answerIds.length === 0
+      ? []
+      : await client.reviewEvent.findMany({
+          where: { studyAnswerId: { in: answerIds } },
+          select: { studyAnswerId: true, nextStatus: true }
+        })
+  const versionsById = new Map(
+    questionVersions.map((version) => [version.id, version])
+  )
+  const optionsByVersionId = new Map<
+    string,
+    Array<{ id: string; label: string; text: string }>
+  >()
+  for (const option of options) {
+    const versionOptions = optionsByVersionId.get(option.questionVersionId)
+    const value = { id: option.id, label: option.label, text: option.text }
+    if (versionOptions) {
+      versionOptions.push(value)
+    } else {
+      optionsByVersionId.set(option.questionVersionId, [value])
+    }
+  }
+  const tagsByVersionId = new Map<
+    string,
+    Array<{ id: string; label: string }>
+  >()
+  for (const tag of tags) {
+    const versionTags = tagsByVersionId.get(tag.questionVersionId)
+    const value = { id: tag.tagId, label: tag.labelSnapshot }
+    if (versionTags) {
+      versionTags.push(value)
+    } else {
+      tagsByVersionId.set(tag.questionVersionId, [value])
+    }
+  }
+  const answersBySessionQuestionId = new Map(
+    answers.map((answer) => [answer.studySessionQuestionId, answer])
+  )
+  const reviewEventsByAnswerId = new Map(
+    reviewEvents.flatMap((event) =>
+      event.studyAnswerId ? [[event.studyAnswerId, event] as const] : []
+    )
+  )
+
+  const questions = sessionQuestions.map((item) => {
+    const answer = answersBySessionQuestionId.get(item.id)
+    const questionVersion = versionsById.get(item.questionVersionId)
+    if (!answer || !questionVersion?.correctOptionId) {
       throw new StudySubmissionRepositoryIntegrityError(
         'Submitted StudySession has an incomplete result projection.'
       )
@@ -625,11 +735,8 @@ const loadStudyResultRecord = async (
       passage: questionVersion.passage,
       questionText: questionVersion.questionText,
       difficulty: questionVersion.difficulty,
-      options: questionVersion.options,
-      tags: questionVersion.tags.map(({ labelSnapshot, tagId }) => ({
-        id: tagId,
-        label: labelSnapshot
-      })),
+      options: optionsByVersionId.get(questionVersion.id) ?? [],
+      tags: tagsByVersionId.get(questionVersion.id) ?? [],
       correctOptionId: questionVersion.correctOptionId,
       explanationKo: questionVersion.explanationKo,
       explanationJa: questionVersion.explanationJa
@@ -642,7 +749,7 @@ const loadStudyResultRecord = async (
       answer: {
         selectedOptionId: answer.selectedOptionId,
         isCorrect: answer.isCorrect,
-        reviewEvent: answer.reviewEvent
+        reviewEvent: reviewEventsByAnswerId.get(answer.id) ?? null
       }
     }
   })
@@ -653,7 +760,7 @@ const loadStudyResultRecord = async (
     subject: session.subject,
     mode: session.mode,
     submittedAt: session.submittedAt,
-    ...session.result,
+    ...result,
     questions
   }
 }
@@ -1285,39 +1392,48 @@ export const createPrismaStudySubmissionRepository = (
       }),
     findOwnedResult: (sessionId, owner, observedAt) =>
       withRepositoryErrors(async () => {
-        if (owner.kind === 'GUEST') {
-          await assertGuestProof(client, owner, observedAt)
-        }
-        const session = await client.studySession.findFirst({
-          where: { id: sessionId, ...ownerWhere(owner) },
-          select: { status: true }
-        })
-        if (!session) {
-          return { kind: 'NOT_FOUND' }
-        }
-        if (session.status !== 'SUBMITTED') {
-          return { kind: 'NOT_READY' }
-        }
-        const record = await loadStudyResultRecord(client, sessionId, owner)
-        if (!record) {
-          const stillOwned = await client.studySession.findFirst({
-            where: { id: sessionId, ...ownerWhere(owner) },
-            select: { status: true }
-          })
-          if (!stillOwned) {
-            return { kind: 'NOT_FOUND' }
-          }
-          if (stillOwned.status !== 'SUBMITTED') {
-            return { kind: 'NOT_READY' }
-          }
-          throw new StudySubmissionRepositoryIntegrityError(
-            'Submitted StudySession has no complete StudyResult.'
-          )
-        }
-        return {
-          kind: 'READY',
-          response: toStudyResult(record)
-        }
+        return await client.$transaction(
+          async (transaction) => {
+            if (owner.kind === 'GUEST') {
+              await assertGuestProof(transaction, owner, observedAt)
+            }
+            const session = await transaction.studySession.findFirst({
+              where: { id: sessionId, ...ownerWhere(owner) },
+              select: { status: true }
+            })
+            if (!session) {
+              return { kind: 'NOT_FOUND' } as const
+            }
+            if (session.status !== 'SUBMITTED') {
+              return { kind: 'NOT_READY' } as const
+            }
+            const record = await loadStudyResultRecord(
+              transaction,
+              sessionId,
+              owner
+            )
+            if (!record) {
+              const stillOwned = await transaction.studySession.findFirst({
+                where: { id: sessionId, ...ownerWhere(owner) },
+                select: { status: true }
+              })
+              if (!stillOwned) {
+                return { kind: 'NOT_FOUND' } as const
+              }
+              if (stillOwned.status !== 'SUBMITTED') {
+                return { kind: 'NOT_READY' } as const
+              }
+              throw new StudySubmissionRepositoryIntegrityError(
+                'Submitted StudySession has no complete StudyResult.'
+              )
+            }
+            return {
+              kind: 'READY',
+              response: toStudyResult(record)
+            } as const
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }
+        )
       })
   }
 }

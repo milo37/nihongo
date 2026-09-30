@@ -198,8 +198,25 @@ const toOptions = (
 ): readonly QuestionOptionRecord[] =>
   options.map(({ id, label, text }) => ({ id, label, text }))
 
+const groupByQuestionVersionId = <
+  RecordValue extends { questionVersionId: string }
+>(
+  records: readonly RecordValue[]
+): ReadonlyMap<string, readonly RecordValue[]> => {
+  const grouped = new Map<string, RecordValue[]>()
+  for (const record of records) {
+    const existing = grouped.get(record.questionVersionId)
+    if (existing) {
+      existing.push(record)
+    } else {
+      grouped.set(record.questionVersionId, [record])
+    }
+  }
+  return grouped
+}
+
 export const loadStudySessionRecord = async (
-  client: Prisma.TransactionClient | PrismaClient,
+  client: Prisma.TransactionClient,
   sessionId: string,
   owner?: ExistingStudyOwner
 ): Promise<StudySessionRecord | null> => {
@@ -228,34 +245,7 @@ export const loadStudySessionRecord = async (
       expiresAt: true,
       submittedAt: true,
       durationSec: true,
-      practiceContractVersion: true,
-      questions: {
-        orderBy: { ordinal: 'asc' },
-        select: {
-          id: true,
-          ordinal: true,
-          questionId: true,
-          questionVersion: {
-            select: {
-              id: true,
-              level: true,
-              subject: true,
-              questionType: true,
-              passage: true,
-              questionText: true,
-              difficulty: true,
-              options: {
-                orderBy: { ordinal: 'asc' },
-                select: { id: true, label: true, text: true }
-              },
-              tags: {
-                orderBy: { labelSnapshot: 'asc' },
-                select: { tagId: true, labelSnapshot: true }
-              }
-            }
-          }
-        }
-      }
+      practiceContractVersion: true
     }
   })
 
@@ -281,26 +271,91 @@ export const loadStudySessionRecord = async (
     )
   }
 
+  const sessionQuestions = await client.studySessionQuestion.findMany({
+    where: { studySessionId: session.id },
+    orderBy: { ordinal: 'asc' },
+    select: {
+      id: true,
+      ordinal: true,
+      questionId: true,
+      questionVersionId: true
+    }
+  })
+  const questionVersionIds = sessionQuestions.map(
+    ({ questionVersionId }) => questionVersionId
+  )
+  const versions =
+    questionVersionIds.length === 0
+      ? []
+      : await client.questionVersion.findMany({
+          where: { id: { in: questionVersionIds } },
+          select: {
+            id: true,
+            level: true,
+            subject: true,
+            questionType: true,
+            passage: true,
+            questionText: true,
+            difficulty: true
+          }
+        })
+  const options =
+    questionVersionIds.length === 0
+      ? []
+      : await client.questionOption.findMany({
+          where: { questionVersionId: { in: questionVersionIds } },
+          orderBy: [{ questionVersionId: 'asc' }, { ordinal: 'asc' }],
+          select: {
+            id: true,
+            label: true,
+            text: true,
+            questionVersionId: true
+          }
+        })
+  const tags =
+    questionVersionIds.length === 0
+      ? []
+      : await client.questionVersionTag.findMany({
+          where: { questionVersionId: { in: questionVersionIds } },
+          orderBy: [{ questionVersionId: 'asc' }, { labelSnapshot: 'asc' }],
+          select: {
+            questionVersionId: true,
+            tagId: true,
+            labelSnapshot: true
+          }
+        })
+  const versionsById = new Map(versions.map((version) => [version.id, version]))
+  const optionsByVersionId = groupByQuestionVersionId(options)
+  const tagsByVersionId = groupByQuestionVersionId(tags)
+
   return {
     ...session,
     practiceContractVersion,
     fallbackReason,
-    questions: session.questions.map((item) => ({
-      sessionQuestionId: item.id,
-      ordinal: item.ordinal,
-      question: {
-        id: item.questionId,
-        questionVersionId: item.questionVersion.id,
-        level: item.questionVersion.level,
-        subject: item.questionVersion.subject,
-        questionType: item.questionVersion.questionType,
-        passage: item.questionVersion.passage,
-        questionText: item.questionVersion.questionText,
-        difficulty: item.questionVersion.difficulty,
-        options: toOptions(item.questionVersion.options),
-        tags: toTags(item.questionVersion.tags)
+    questions: sessionQuestions.map((item) => {
+      const version = versionsById.get(item.questionVersionId)
+      if (!version) {
+        throw new StudySessionRepositoryIntegrityError(
+          'StudySessionQuestion references a missing question version.'
+        )
       }
-    }))
+      return {
+        sessionQuestionId: item.id,
+        ordinal: item.ordinal,
+        question: {
+          id: item.questionId,
+          questionVersionId: version.id,
+          level: version.level,
+          subject: version.subject,
+          questionType: version.questionType,
+          passage: version.passage,
+          questionText: version.questionText,
+          difficulty: version.difficulty,
+          options: toOptions(optionsByVersionId.get(version.id) ?? []),
+          tags: toTags(tagsByVersionId.get(version.id) ?? [])
+        }
+      }
+    })
   }
 }
 

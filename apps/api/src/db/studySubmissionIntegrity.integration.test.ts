@@ -3,7 +3,10 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from './database.js'
-import { getPostgresSchema } from './databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from './databaseOptions.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
@@ -33,11 +36,52 @@ if (!schema) {
   throw new Error('Study submission integrity test schema가 필요합니다.')
 }
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 submission integrity requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
 const client = new Client({
   connectionString: environment.DATABASE_URL,
-  options: `-c search_path=${schema}`
+  options: createPostgresStartupOptions(
+    schema,
+    isPhase10CurrentSource ? 'nihongo_app' : undefined
+  )
 })
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const createdUserIds = new Set<string>()
 const createdGuestIds = new Set<string>()
 
@@ -60,19 +104,37 @@ const transaction = async <T>(work: () => Promise<T>): Promise<T> => {
 
 const createUser = async (label: string): Promise<string> => {
   const id = randomUUID()
-  await client.query(
-    `INSERT INTO "User" (
-      "id", "name", "email", "emailVerified", "role", "accountStatus",
-      "createdAt", "updatedAt"
-    ) VALUES ($1, $2, $3, true, 'USER', 'ACTIVE', now(), now())`,
-    [
-      id,
-      `Slice4 integrity ${label}`,
-      `slice4-integrity-${randomUUID()}@example.test`
-    ]
-  )
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id,
+        email: `slice4-integrity-${randomUUID()}@example.test`,
+        emailVerified: true,
+        name: `Slice4 integrity ${label}`
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: id,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId: id
+      }
+    })
+  })
   createdUserIds.add(id)
   return id
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
+  }
+  createdUserIds.delete(userId)
 }
 
 const loadQuestion = async (): Promise<QuestionFixture> => {
@@ -372,13 +434,15 @@ const transitionToReviewing = async (
 beforeAll(async () => {
   await database.checkReadiness()
   await client.connect()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
   for (const userId of createdUserIds) {
-    await client
-      .query('DELETE FROM "User" WHERE "id" = $1', [userId])
-      .catch(() => undefined)
+    await eraseUser(userId).catch(() => undefined)
   }
   for (const guestId of createdGuestIds) {
     await client
@@ -386,6 +450,12 @@ afterAll(async () => {
       .catch(() => undefined)
   }
   await client.end()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
   await database.disconnect()
 })
 
@@ -459,7 +529,7 @@ describe('Slice 4 submission integrity follow-up', () => {
     )
   })
 
-  it('current review pointer의 최초 설정·null 복귀·non-current 대상을 DB에서 강제한다', async () => {
+  it('current review pointer의 최초 설정·null 복귀·unknown 대상을 DB에서 강제한다', async () => {
     const userId = await createUser('slice3-pointer')
     const question = await loadQuestion()
     const occurredAt = new Date()
@@ -506,60 +576,18 @@ describe('Slice 4 submission integrity follow-up', () => {
       message: 'WrongNote current review pointer cannot return to null.'
     })
 
-    const draftVersionId = randomUUID()
-    await client.query(
-      `INSERT INTO "QuestionVersion" (
-        "id", "questionId", "versionNumber", "status", "level",
-        "subject", "questionType", "passage", "questionText",
-        "explanationKo", "explanationJa", "difficulty", "sourceType",
-        "rowVersion", "createdByUserId", "createdByLabelSnapshot",
-        "createdAt", "updatedAt"
+    await expect(
+      client.query(
+        `UPDATE "WrongNote"
+         SET "currentReviewQuestionVersionId" = $2
+         WHERE "id" = $1`,
+        [first.noteId, randomUUID()]
       )
-      SELECT
-        $1,
-        current."questionId",
-        (
-          SELECT MAX(version."versionNumber") + 1
-          FROM "QuestionVersion" AS version
-          WHERE version."questionId" = current."questionId"
-        ),
-        'DRAFT',
-        current."level",
-        current."subject",
-        current."questionType",
-        current."passage",
-        current."questionText" || ' draft',
-        current."explanationKo",
-        current."explanationJa",
-        current."difficulty",
-        current."sourceType",
-        1,
-        current."createdByUserId",
-        current."createdByLabelSnapshot",
-        now(),
-        now()
-      FROM "QuestionVersion" AS current
-      WHERE current."id" = $2`,
-      [draftVersionId, question.questionVersionId]
-    )
-    try {
-      await expect(
-        client.query(
-          `UPDATE "WrongNote"
-           SET "currentReviewQuestionVersionId" = $2
-           WHERE "id" = $1`,
-          [first.noteId, draftVersionId]
-        )
-      ).rejects.toMatchObject({
-        code: '23514',
-        message:
-          'WrongNote current review pointer must target the current published version.'
-      })
-    } finally {
-      await client.query('DELETE FROM "QuestionVersion" WHERE "id" = $1', [
-        draftVersionId
-      ])
-    }
+    ).rejects.toMatchObject({
+      code: '23514',
+      message:
+        'WrongNote current review pointer must target the current published version.'
+    })
   })
 
   it('ReviewEvent source가 DAILY_REVIEW·RANDOM evidence mode와 어긋나면 거부한다', async () => {
@@ -732,10 +760,10 @@ describe('Slice 4 submission integrity follow-up', () => {
     await expect(
       client.query('DELETE FROM "StudySession" WHERE "id" = $1', [session.id])
     ).rejects.toMatchObject({
-      code: '23514',
-      message: 'Submitted USER StudySession can only be deleted with its user.'
+      code: '42501',
+      message: 'permission denied for table User'
     })
-    await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
+    await eraseUser(userId)
     expect(
       (
         await client.query<{ count: number }>(
@@ -1062,7 +1090,7 @@ describe('Slice 4 submission integrity follow-up', () => {
       eventCount: 2
     })
 
-    await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
+    await eraseUser(userId)
     const cascaded = await client.query<{ count: number }>(
       `SELECT COUNT(*)::int AS count
        FROM "ReviewEvent"

@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import {
+  approveQuestionVersionRequestSchema,
+  createAdminQuestionVersionRequestSchema,
+  publishQuestionVersionRequestSchema,
+  requestContentReviewRequestSchema
+} from '@nihongo/contracts/admin/phase7'
+import {
   copyFileSync,
   cpSync,
   mkdirSync,
@@ -15,11 +21,21 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
+import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
+import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { parseApiEnvironment } from '../config/env.js'
+import {
+  createPreparedAdminQuestionCommandRepository,
+  type AdminCommandAuthority
+} from '../admin/adminQuestionCommandRepository.js'
+import {
+  createAdminQuestionCommandService,
+  createAdminQuestionPublicationCommandService
+} from '../admin/adminQuestionCommandService.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
-import { createDatabaseRuntime } from './database.js'
+import { createDatabaseRuntime, createRoleDatabaseRuntime } from './database.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
 import {
   assertMigrationCompatibility,
@@ -136,18 +152,43 @@ const priorMigrationNames = migrationNames.filter(
     )
 )
 
-const environment = parseApiEnvironment(process.env)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const requireEnvironmentValue = (name: string): string => {
+  const value = process.env[name]?.trim()
+  if (!value) {
+    throw new Error(`Study submission upgrade integration requires ${name}.`)
+  }
+  return value
+}
+const environment = isPhase10CurrentSource
+  ? undefined
+  : parseApiEnvironment(process.env)
+const fixtureDatabaseUrl = isPhase10CurrentSource
+  ? requireEnvironmentValue('PHASE10_FIXTURE_DATABASE_URL')
+  : environment!.DATABASE_URL
 assertSafeTestDatabase({
-  nodeEnvironment: environment.NODE_ENV,
-  databaseUrl: environment.DATABASE_URL,
+  nodeEnvironment: process.env.NODE_ENV,
+  databaseUrl: fixtureDatabaseUrl,
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
+const withSchema = (databaseUrl: string, schemaName: string): string => {
+  const scopedUrl = new URL(databaseUrl)
+  scopedUrl.searchParams.set('schema', schemaName)
+  return scopedUrl.toString()
+}
+
 interface IsolatedMigrationSchema {
   readonly adminClient: Client
+  readonly adminDatabaseUrl: string
+  readonly applicationDatabaseUrl: string
+  readonly authGatewayDatabaseUrl: string
   readonly configPath: string
   readonly databaseUrl: string
   readonly migrationsPath: string
+  readonly originalLegacyDirectConnect: boolean | undefined
+  readonly databaseName: string | undefined
   readonly quotedSchemaName: string
   readonly schemaName: string
   readonly temporaryDirectory: string
@@ -161,10 +202,27 @@ const createIsolatedMigrationSchema =
     const migrationsPath = join(temporaryDirectory, 'migrations')
     const schemaPath = join(temporaryDirectory, 'schema.prisma')
     const configPath = join(temporaryDirectory, 'prisma.config.ts')
-    const databaseUrl = new URL(environment.DATABASE_URL)
-    databaseUrl.searchParams.set('schema', schemaName)
+    const adminDatabaseUrl = withSchema(fixtureDatabaseUrl, schemaName)
+    const applicationDatabaseUrl = withSchema(
+      isPhase10CurrentSource
+        ? requireEnvironmentValue('PHASE10_APPLICATION_DATABASE_URL')
+        : environment!.DATABASE_URL,
+      schemaName
+    )
+    const authGatewayDatabaseUrl = withSchema(
+      isPhase10CurrentSource
+        ? requireEnvironmentValue('AUTH_GATEWAY_DATABASE_URL')
+        : environment!.DATABASE_URL,
+      schemaName
+    )
+    const databaseUrl = withSchema(
+      isPhase10CurrentSource
+        ? requireEnvironmentValue('PHASE7_MIGRATION_DATABASE_URL')
+        : environment!.DATABASE_URL,
+      schemaName
+    )
     const adminClient = new Client({
-      connectionString: environment.DATABASE_URL
+      connectionString: adminDatabaseUrl
     })
 
     mkdirSync(migrationsPath)
@@ -184,13 +242,59 @@ const createIsolatedMigrationSchema =
     )
 
     await adminClient.connect()
-    await adminClient.query(`CREATE SCHEMA ${quotedSchemaName}`)
+    let databaseName: string | undefined
+    let originalLegacyDirectConnect: boolean | undefined
+    if (isPhase10CurrentSource) {
+      const database = await adminClient.query<{ databaseName: string }>(
+        `SELECT current_database() AS "databaseName"`
+      )
+      databaseName = database.rows[0]?.databaseName
+      if (!databaseName || !/^[a-z0-9_]+_test$/u.test(databaseName)) {
+        throw new Error(
+          'Study submission upgrade integration received an unsafe database.'
+        )
+      }
+      const directConnect = await adminClient.query<{ granted: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM pg_database AS database_record
+           CROSS JOIN LATERAL aclexplode(
+             COALESCE(
+               database_record.datacl,
+               acldefault('d', database_record.datdba)
+             )
+           ) AS privilege_record
+           JOIN pg_roles AS granted_role
+             ON granted_role.oid = privilege_record.grantee
+           WHERE database_record.datname = current_database()
+             AND granted_role.rolname = 'nihongo_test_legacy_app_login'
+             AND privilege_record.privilege_type = 'CONNECT'
+             AND NOT privilege_record.is_grantable
+         ) AS granted`
+      )
+      originalLegacyDirectConnect = directConnect.rows[0]?.granted ?? false
+      if (!originalLegacyDirectConnect) {
+        await adminClient.query(
+          `GRANT CONNECT ON DATABASE "${databaseName}" TO "nihongo_test_legacy_app_login"`
+        )
+      }
+    }
+    await adminClient.query(
+      isPhase10CurrentSource
+        ? `CREATE SCHEMA ${quotedSchemaName} AUTHORIZATION "nihongo_phase7_migration"`
+        : `CREATE SCHEMA ${quotedSchemaName}`
+    )
 
     return {
       adminClient,
+      adminDatabaseUrl,
+      applicationDatabaseUrl,
+      authGatewayDatabaseUrl,
       configPath,
-      databaseUrl: databaseUrl.toString(),
+      databaseUrl,
+      databaseName,
       migrationsPath,
+      originalLegacyDirectConnect,
       quotedSchemaName,
       schemaName,
       temporaryDirectory
@@ -226,14 +330,49 @@ const deploy = async ({
 
 const dispose = async ({
   adminClient,
+  databaseName,
+  originalLegacyDirectConnect,
   quotedSchemaName,
   temporaryDirectory
 }: IsolatedMigrationSchema): Promise<void> => {
+  const cleanupErrors: unknown[] = []
   try {
-    await adminClient.query(`DROP SCHEMA IF EXISTS ${quotedSchemaName} CASCADE`)
+    try {
+      await adminClient.query(
+        `DROP SCHEMA IF EXISTS ${quotedSchemaName} CASCADE`
+      )
+    } catch (error: unknown) {
+      cleanupErrors.push(error)
+    }
+    if (
+      isPhase10CurrentSource &&
+      databaseName &&
+      originalLegacyDirectConnect !== undefined
+    ) {
+      try {
+        await adminClient.query(
+          originalLegacyDirectConnect
+            ? `GRANT CONNECT ON DATABASE "${databaseName}" TO "nihongo_test_legacy_app_login"`
+            : `REVOKE CONNECT ON DATABASE "${databaseName}" FROM "nihongo_test_legacy_app_login"`
+        )
+      } catch (error: unknown) {
+        cleanupErrors.push(error)
+      }
+    }
   } finally {
-    await adminClient.end()
+    try {
+      await adminClient.end()
+    } catch (error: unknown) {
+      cleanupErrors.push(error)
+    }
     rmSync(temporaryDirectory, { force: true, recursive: true })
+  }
+  if (cleanupErrors.length === 1) throw cleanupErrors[0]
+  if (cleanupErrors.length > 1) {
+    throw new AggregateError(
+      cleanupErrors,
+      'Study submission upgrade cleanup failed.'
+    )
   }
 }
 
@@ -250,6 +389,197 @@ const readLedger = async (
      FROM ${context.quotedSchemaName}."_prisma_migrations"`
   )
   return result.rows
+}
+
+const insertPhase6Question = async (
+  client: Client,
+  seed: QuestionAggregateSeed
+): Promise<void> => {
+  const timestamp = new Date('2026-01-01T00:00:00.000Z')
+  await client.query(
+    `INSERT INTO "Question" (
+      "id", "lifecycleStatus", "currentPublishedVersionId",
+      "createdByUserId", "createdByLabelSnapshot", "createdAt", "updatedAt"
+    ) VALUES ($1, 'ACTIVE', NULL, NULL, 'SYSTEM_SEED', $2, $2)`,
+    [seed.questionId, timestamp]
+  )
+  await client.query(
+    `INSERT INTO "QuestionVersion" (
+      "id", "questionId", "versionNumber", "status", "level", "subject",
+      "questionType", "passage", "questionText", "correctOptionId",
+      "explanationKo", "explanationJa", "difficulty", "sourceType",
+      "rowVersion", "createdByUserId", "createdByLabelSnapshot",
+      "createdAt", "updatedAt"
+    ) VALUES (
+      $1, $2, 1, 'DRAFT', $3, $4, $5, $6, $7, NULL, $8, $9, $10,
+      'ORIGINAL', 1, NULL, 'SYSTEM_SEED', $11, $11
+    )`,
+    [
+      seed.versionId,
+      seed.questionId,
+      seed.level,
+      seed.subject,
+      seed.questionType,
+      seed.passage,
+      seed.questionText,
+      seed.explanationKo,
+      seed.explanationJa,
+      seed.difficulty,
+      timestamp
+    ]
+  )
+  for (const option of seed.options) {
+    await client.query(
+      `INSERT INTO "QuestionOption" (
+        "id", "questionVersionId", "label", "text", "ordinal"
+      ) VALUES ($1, $2, $3, $4, $5)`,
+      [option.id, seed.versionId, option.label, option.text, option.ordinal]
+    )
+  }
+  for (const tag of seed.tags) {
+    await client.query(
+      `INSERT INTO "QuestionVersionTag" (
+        "id", "questionVersionId", "tagId", "labelSnapshot"
+      ) VALUES ($1, $2, $3, $4)`,
+      [tag.versionTagId, seed.versionId, tag.id, tag.label]
+    )
+  }
+  await client.query(
+    `UPDATE "QuestionVersion"
+     SET "correctOptionId" = $1, "status" = 'PUBLISHED',
+         "publishedAt" = $2, "updatedAt" = $2
+     WHERE "id" = $3`,
+    [seed.correctOptionId, timestamp, seed.versionId]
+  )
+  await client.query(
+    `UPDATE "Question"
+     SET "currentPublishedVersionId" = $1, "updatedAt" = $2
+     WHERE "id" = $3`,
+    [seed.versionId, timestamp, seed.questionId]
+  )
+}
+
+const seedPhase6Catalog = async (client: Client): Promise<void> => {
+  const seeds = buildAllQuestionSeeds()
+  const tags = new Map(
+    seeds.flatMap(({ tags: questionTags }) =>
+      questionTags.map((tag) => [tag.id, tag] as const)
+    )
+  )
+  const timestamp = new Date('2026-01-01T00:00:00.000Z')
+
+  await client.query('BEGIN')
+  try {
+    for (const tag of [...tags.values()].toSorted((left, right) =>
+      left.id.localeCompare(right.id)
+    )) {
+      await client.query(
+        `INSERT INTO "Tag" (
+          "id", "label", "normalizedName", "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, $4)`,
+        [tag.id, tag.label, tag.normalizedName, timestamp]
+      )
+    }
+    for (const seed of seeds) {
+      await insertPhase6Question(client, seed)
+    }
+    await client.query('COMMIT')
+  } catch (error: unknown) {
+    await client.query('ROLLBACK')
+    throw error
+  }
+
+  const counts = await client.query<{
+    optionCount: number
+    questionCount: number
+    tagCount: number
+    versionCount: number
+    versionTagCount: number
+  }>(
+    `SELECT
+       (SELECT COUNT(*)::int FROM "Question") AS "questionCount",
+       (SELECT COUNT(*)::int FROM "QuestionVersion") AS "versionCount",
+       (SELECT COUNT(*)::int FROM "QuestionOption") AS "optionCount",
+       (SELECT COUNT(*)::int FROM "Tag") AS "tagCount",
+       (SELECT COUNT(*)::int FROM "QuestionVersionTag") AS "versionTagCount"`
+  )
+  expect(counts.rows).toEqual([
+    {
+      optionCount: 260,
+      questionCount: 65,
+      tagCount: 108,
+      versionCount: 65,
+      versionTagCount: 130
+    }
+  ])
+}
+
+const registerPhase7CapabilityAndActivate = async (
+  context: IsolatedMigrationSchema
+): Promise<void> => {
+  const migrationClient = new Client({ connectionString: context.databaseUrl })
+  await migrationClient.connect()
+  try {
+    await migrationClient.query(
+      `SET search_path TO ${context.quotedSchemaName}`
+    )
+    const endpoint = await migrationClient.query<{
+      databaseName: string
+      serverAddress: string
+      serverPort: number
+    }>(
+      `SELECT current_database() AS "databaseName",
+         inet_server_addr()::text AS "serverAddress",
+         inet_server_port() AS "serverPort"`
+    )
+    const target = endpoint.rows[0]
+    if (!target) {
+      throw new Error('Phase 7 upgrade endpoint identity is unavailable.')
+    }
+    await migrationClient.query(
+      `SELECT "phase7_register_database_capability"(
+         $1, $2::inet, $3, 'TEST'
+       )`,
+      [target.databaseName, target.serverAddress, target.serverPort]
+    )
+    await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+  } finally {
+    await migrationClient.end()
+  }
+}
+
+const insertCredentialUser = async (
+  client: Client,
+  input: {
+    readonly id: string
+    readonly name: string
+    readonly role: 'ADMIN' | 'USER'
+    readonly timestamp: Date
+  }
+): Promise<void> => {
+  await client.query(
+    `INSERT INTO "User" (
+       "id", "name", "email", "emailVerified", "role",
+       "accountStatus", "createdAt", "updatedAt"
+     ) VALUES ($1, $2, $3, true, $4::"UserRole", 'ACTIVE', $5, $5)`,
+    [
+      input.id,
+      input.name,
+      `phase10-upgrade-${randomUUID()}@example.test`,
+      input.role,
+      input.timestamp
+    ]
+  )
+  await client.query(
+    `INSERT INTO "Account" (
+       "id", "accountId", "providerId", "userId", "password",
+       "createdAt", "updatedAt"
+     ) VALUES (
+       $1, $2::uuid::text, 'credential', $2::uuid,
+       'integration-password-hash', $3, $3
+     )`,
+    [randomUUID(), input.id, input.timestamp]
+  )
 }
 
 const deployThroughPhase4Slice1 = async (
@@ -1493,82 +1823,23 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(25)
 
+      await seedPhase6Catalog(context.adminClient)
+      const oldBinarySeed = buildAllQuestionSeeds().find(
+        ({ level, questionType, subject }) =>
+          level === 'N5' &&
+          subject === 'VOCABULARY' &&
+          questionType === 'KANJI_READING'
+      )
+      if (!oldBinarySeed) {
+        throw new Error('Canonical old-binary question fixture is required.')
+      }
       const oldBinarySessionId = randomUUID()
       const oldBinarySessionQuestionId = randomUUID()
-      const oldBinaryQuestionId = randomUUID()
-      const oldBinaryQuestionVersionId = randomUUID()
-      const oldBinaryOptionIds = Array.from({ length: 4 }, () => randomUUID())
-      const oldBinaryTagId = randomUUID()
       const oldBinaryStartedAt = new Date()
       const oldBinaryIdempotencyKey = randomUUID()
 
       await context.adminClient.query('BEGIN')
       try {
-        await context.adminClient.query(
-          `INSERT INTO "Question" (
-            "id", "createdByLabelSnapshot", "createdAt", "updatedAt"
-          ) VALUES ($1, 'SYSTEM_SEED', $2, $2)`,
-          [oldBinaryQuestionId, oldBinaryStartedAt]
-        )
-        await context.adminClient.query(
-          `INSERT INTO "QuestionVersion" (
-            "id", "questionId", "versionNumber", "level", "subject",
-            "questionType", "questionText", "explanationKo", "difficulty",
-            "createdByLabelSnapshot", "createdAt", "updatedAt"
-          ) VALUES (
-            $1, $2, 1, 'N5', 'VOCABULARY', 'KANJI_READING',
-            'Phase 4 old binary compatibility question',
-            '구 binary v1 제출 호환성 검증', 'EASY', 'SYSTEM_SEED', $3, $3
-          )`,
-          [oldBinaryQuestionVersionId, oldBinaryQuestionId, oldBinaryStartedAt]
-        )
-        for (const [index, optionId] of oldBinaryOptionIds.entries()) {
-          await context.adminClient.query(
-            `INSERT INTO "QuestionOption" (
-              "id", "questionVersionId", "label", "text", "ordinal"
-            ) VALUES ($1, $2, $3, $4, $5)`,
-            [
-              optionId,
-              oldBinaryQuestionVersionId,
-              String(index + 1),
-              `보기 ${index + 1}`,
-              index + 1
-            ]
-          )
-        }
-        await context.adminClient.query(
-          `INSERT INTO "Tag" (
-            "id", "label", "normalizedName", "createdAt", "updatedAt"
-          ) VALUES ($1, '호환성', $2, $3, $3)`,
-          [
-            oldBinaryTagId,
-            `phase4-old-binary-${randomUUID()}`,
-            oldBinaryStartedAt
-          ]
-        )
-        await context.adminClient.query(
-          `INSERT INTO "QuestionVersionTag" (
-            "id", "questionVersionId", "tagId", "labelSnapshot"
-          ) VALUES ($1, $2, $3, '호환성')`,
-          [randomUUID(), oldBinaryQuestionVersionId, oldBinaryTagId]
-        )
-        await context.adminClient.query(
-          `UPDATE "QuestionVersion"
-           SET "correctOptionId" = $1, "status" = 'PUBLISHED',
-               "publishedAt" = $2, "updatedAt" = $2
-           WHERE "id" = $3`,
-          [
-            oldBinaryOptionIds[0],
-            oldBinaryStartedAt,
-            oldBinaryQuestionVersionId
-          ]
-        )
-        await context.adminClient.query(
-          `UPDATE "Question"
-           SET "currentPublishedVersionId" = $1, "updatedAt" = $2
-           WHERE "id" = $3`,
-          [oldBinaryQuestionVersionId, oldBinaryStartedAt, oldBinaryQuestionId]
-        )
         await context.adminClient.query(
           `INSERT INTO "StudySession" (
             "id", "userId", "level", "subject", "mode", "status",
@@ -1588,8 +1859,8 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
           [
             oldBinarySessionQuestionId,
             oldBinarySessionId,
-            oldBinaryQuestionId,
-            oldBinaryQuestionVersionId,
+            oldBinarySeed.questionId,
+            oldBinarySeed.versionId,
             oldBinaryStartedAt
           ]
         )
@@ -1619,7 +1890,10 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       expect(await readLedger(context)).toHaveLength(31)
 
       const currentRuntimeWithPhase4Path = createDatabaseRuntime(
-        context.databaseUrl
+        context.applicationDatabaseUrl,
+        isPhase10CurrentSource
+          ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+          : { migrationProfile: 'current' }
       )
       try {
         await currentRuntimeWithPhase4Path.checkReadiness()
@@ -1636,7 +1910,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
           answers: [
             {
               studySessionQuestionId: oldBinarySessionQuestionId,
-              selectedOptionId: oldBinaryOptionIds[0] ?? null,
+              selectedOptionId: oldBinarySeed.correctOptionId,
               elapsedSec: 2
             }
           ],
@@ -2645,110 +2919,129 @@ describe('Phase 4 Slice 3 historical review pins', () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
-      for (const migrationName of repositoryMigrationNames) {
+      for (const migrationName of repositoryMigrationNames.filter(
+        (name) =>
+          !phase7Slice1Migrations.includes(
+            name as (typeof phase7Slice1Migrations)[number]
+          )
+      )) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(27)
+      await context.adminClient.query(
+        `SET search_path TO ${context.quotedSchemaName}`
+      )
+      await seedPhase6Catalog(context.adminClient)
+      for (const migrationName of phase7Slice1Migrations) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(31)
+      expect(
+        await context.adminClient.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM "TagApplicability"`
+        )
+      ).toMatchObject({ rows: [{ count: 127 }] })
+      await registerPhase7CapabilityAndActivate(context)
 
-      const runtime = createDatabaseRuntime(context.databaseUrl)
+      const historicalSeed = buildAllQuestionSeeds().find(
+        ({ level, questionType, subject }) =>
+          level === 'N5' &&
+          subject === 'VOCABULARY' &&
+          questionType === 'KANJI_READING'
+      )
+      const historicalTag = historicalSeed?.tags[0]
+      if (!historicalSeed || !historicalTag) {
+        throw new Error('Canonical historical pin fixture is required.')
+      }
+      const userId = randomUUID()
+      const authorId = randomUUID()
+      const reviewerId = randomUUID()
+      const authorToken = `phase10-upgrade-author-${randomUUID()}`
+      const reviewerToken = `phase10-upgrade-reviewer-${randomUUID()}`
+      const questionId = historicalSeed.questionId
+      const versionOneId = historicalSeed.versionId
+      const baseTime = new Date('2026-08-18T03:00:00.000Z').getTime()
+
+      await context.adminClient.query('BEGIN')
+      try {
+        await insertCredentialUser(context.adminClient, {
+          id: userId,
+          name: 'Slice 3 historical pin user',
+          role: 'USER',
+          timestamp: new Date(baseTime)
+        })
+        await insertCredentialUser(context.adminClient, {
+          id: authorId,
+          name: 'Slice 3 historical pin author',
+          role: 'ADMIN',
+          timestamp: new Date(baseTime)
+        })
+        await insertCredentialUser(context.adminClient, {
+          id: reviewerId,
+          name: 'Slice 3 historical pin reviewer',
+          role: 'ADMIN',
+          timestamp: new Date(baseTime)
+        })
+        await context.adminClient.query('COMMIT')
+      } catch (error: unknown) {
+        await context.adminClient.query('ROLLBACK')
+        throw error
+      }
+
+      const authGatewayRuntime = createRoleDatabaseRuntime(
+        context.authGatewayDatabaseUrl,
+        'nihongo_auth_gateway'
+      )
+      const issueAdminSession = async (
+        actorId: string,
+        rawSessionToken: string
+      ): Promise<void> => {
+        const rows = await authGatewayRuntime.client.$queryRawUnsafe<
+          Array<{ id: string }>
+        >(
+          `SELECT * FROM "phase7_issue_v1_session"(
+             $1, 1, 'ADMIN'::"UserRole", 'ACTIVE', $2, $3,
+             '127.0.0.1', 'phase10-submission-upgrade', false
+           )`,
+          actorId,
+          randomUUID(),
+          rawSessionToken
+        )
+        if (rows.length !== 1) {
+          throw new Error('Phase 10 upgrade admin session was not issued.')
+        }
+      }
+      await issueAdminSession(authorId, authorToken)
+      await issueAdminSession(reviewerId, reviewerToken)
+
+      const runtime = createDatabaseRuntime(
+        context.applicationDatabaseUrl,
+        isPhase10CurrentSource
+          ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+          : { migrationProfile: 'current' }
+      )
       try {
         await runtime.checkReadiness()
         const client = runtime.client
         const sessionRepository = createPrismaStudySessionRepository(client)
         const submissionRepository =
           createPrismaStudySubmissionRepository(client)
-        const userId = randomUUID()
-        const questionId = randomUUID()
-        const versionOneId = randomUUID()
-        const versionTwoId = randomUUID()
-        const tagId = randomUUID()
-        const versionOneOptionIds = Array.from({ length: 4 }, () =>
-          randomUUID()
+        const preparedRepository = createPreparedAdminQuestionCommandRepository(
+          { auditEnvironment: 'TEST', client }
         )
-        const versionTwoOptionIds = Array.from({ length: 4 }, () =>
-          randomUUID()
-        )
-        const versionOneCorrectOptionId = versionOneOptionIds[0]
-        const versionTwoCorrectOptionId = versionTwoOptionIds[0]
-        const baseTime = new Date('2026-08-18T03:00:00.000Z').getTime()
-
-        if (!versionOneCorrectOptionId || !versionTwoCorrectOptionId) {
-          throw new Error('Slice 3 historical pin options are required.')
+        const commandService = {
+          ...createAdminQuestionCommandService(preparedRepository),
+          ...createAdminQuestionPublicationCommandService(preparedRepository)
         }
-
-        await client.$transaction(async (transaction) => {
-          await transaction.user.create({
-            data: {
-              id: userId,
-              name: 'Slice 3 historical pin user',
-              email: `slice3-history-${randomUUID()}@example.test`,
-              emailVerified: true,
-              createdAt: new Date(baseTime),
-              updatedAt: new Date(baseTime)
-            }
-          })
-          await transaction.question.create({
-            data: {
-              id: questionId,
-              createdByLabelSnapshot: 'SYSTEM_SEED',
-              createdAt: new Date(baseTime),
-              updatedAt: new Date(baseTime)
-            }
-          })
-          await transaction.questionVersion.create({
-            data: {
-              id: versionOneId,
-              questionId,
-              versionNumber: 1,
-              level: 'N5',
-              subject: 'VOCABULARY',
-              questionType: 'KANJI_READING',
-              questionText: 'Slice 3 historical pin fixture v1',
-              explanationKo: '버전별 핀을 검증하는 원본 더미 설명입니다.',
-              difficulty: 'EASY',
-              createdByLabelSnapshot: 'SYSTEM_SEED',
-              createdAt: new Date(baseTime),
-              updatedAt: new Date(baseTime)
-            }
-          })
-          await transaction.questionOption.createMany({
-            data: versionOneOptionIds.map((id, index) => ({
-              id,
-              questionVersionId: versionOneId,
-              label: String(index + 1),
-              text: `Slice 3 v1 option ${index + 1}`,
-              ordinal: index + 1
-            }))
-          })
-          await transaction.tag.create({
-            data: {
-              id: tagId,
-              label: 'Slice 3 historical pin',
-              normalizedName: `slice3-historical-pin-${randomUUID()}`,
-              createdAt: new Date(baseTime),
-              updatedAt: new Date(baseTime)
-            }
-          })
-          await transaction.questionVersionTag.create({
-            data: {
-              questionVersionId: versionOneId,
-              tagId,
-              labelSnapshot: 'Slice 3 historical pin'
-            }
-          })
-          await transaction.questionVersion.update({
-            where: { id: versionOneId },
-            data: {
-              correctOptionId: versionOneCorrectOptionId,
-              status: 'PUBLISHED',
-              publishedAt: new Date(baseTime)
-            }
-          })
-          await transaction.question.update({
-            where: { id: questionId },
-            data: { currentPublishedVersionId: versionOneId }
-          })
+        const authority = (
+          actorId: string,
+          rawSessionToken: string
+        ): AdminCommandAuthority => ({
+          actorId,
+          rawSessionToken,
+          requestId: randomUUID()
         })
 
         const owner = { kind: 'USER' as const, userId }
@@ -2828,60 +3121,144 @@ describe('Phase 4 Slice 3 historical review pins', () => {
           })
         ).resolves.toEqual({ currentReviewQuestionVersionId: versionOneId })
 
-        const versionTwoPublishedAt = new Date(baseTime + 20_000)
-        await client.$transaction(async (transaction) => {
-          await transaction.questionVersion.create({
-            data: {
-              id: versionTwoId,
-              questionId,
-              versionNumber: 2,
-              level: 'N5',
-              subject: 'VOCABULARY',
-              questionType: 'KANJI_READING',
-              questionText: 'Slice 3 historical pin fixture v2',
-              explanationKo: '새 버전 포인터를 검증하는 원본 더미 설명입니다.',
-              difficulty: 'EASY',
-              createdByLabelSnapshot: 'SYSTEM_SEED',
-              createdAt: versionTwoPublishedAt,
-              updatedAt: versionTwoPublishedAt
-            }
+        const questionState = await context.adminClient.query<{
+          rowVersion: number
+        }>(`SELECT "rowVersion" FROM "Question" WHERE "id" = $1`, [questionId])
+        const expectedQuestionRowVersion = questionState.rows[0]?.rowVersion
+        if (!expectedQuestionRowVersion) {
+          throw new Error('Canonical question rowVersion is unavailable.')
+        }
+        const createVersionRequest =
+          createAdminQuestionVersionRequestSchema.parse({
+            expectedQuestionRowVersion,
+            level: 'N5',
+            subject: 'VOCABULARY',
+            questionType: 'KANJI_READING',
+            difficulty: 'NORMAL',
+            passage: null,
+            questionText: '次の漢字の読み方を選んでください。履歴固定版二',
+            explanationKo: '새 버전 포인터를 검증하는 원본 더미 설명입니다.',
+            explanationJa: null,
+            tagNames: [historicalTag.label],
+            options: [
+              { clientOptionKey: 'a', text: 'れきし' },
+              { clientOptionKey: 'b', text: 'りれき' },
+              { clientOptionKey: 'c', text: 'きろく' },
+              { clientOptionKey: 'd', text: 'ふくしゅう' }
+            ],
+            correctOptionKey: 'b'
           })
-          await transaction.questionOption.createMany({
-            data: versionTwoOptionIds.map((id, index) => ({
-              id,
-              questionVersionId: versionTwoId,
-              label: String(index + 1),
-              text: `Slice 3 v2 option ${index + 1}`,
-              ordinal: index + 1
-            }))
-          })
-          await transaction.questionVersionTag.create({
-            data: {
-              questionVersionId: versionTwoId,
-              tagId,
-              labelSnapshot: 'Slice 3 historical pin'
-            }
-          })
-          await transaction.questionVersion.update({
-            where: { id: versionTwoId },
-            data: {
-              correctOptionId: versionTwoCorrectOptionId,
-              status: 'PUBLISHED',
-              publishedAt: versionTwoPublishedAt
-            }
-          })
-          await transaction.question.update({
-            where: { id: questionId },
-            data: { currentPublishedVersionId: versionTwoId }
-          })
-          await transaction.questionVersion.update({
-            where: { id: versionOneId },
-            data: {
-              status: 'RETIRED',
-              retiredAt: versionTwoPublishedAt
-            }
-          })
+        const created = await commandService.createVersion(
+          authority(authorId, authorToken),
+          questionId,
+          createVersionRequest
+        )
+        const versionTwoId = created.questionVersionId
+        const createdVersionRowVersion = created.versionRowVersion
+        if (!versionTwoId || !createdVersionRowVersion) {
+          throw new Error('Created historical version is unavailable.')
+        }
+        const reviewRequest = requestContentReviewRequestSchema.parse({
+          expectedRowVersion: createdVersionRowVersion
         })
+        const inReview = await commandService.requestReview(
+          authority(authorId, authorToken),
+          versionTwoId,
+          reviewRequest
+        )
+        if (!inReview.versionRowVersion) {
+          throw new Error('In-review historical version is unavailable.')
+        }
+        const approvalRequest = approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: inReview.versionRowVersion
+        })
+        const approved = await commandService.approveVersion(
+          authority(reviewerId, reviewerToken),
+          versionTwoId,
+          approvalRequest
+        )
+        if (!approved.versionRowVersion) {
+          throw new Error('Approved historical version is unavailable.')
+        }
+        const publishAuthority = authority(authorId, authorToken)
+        const publishRequest = publishQuestionVersionRequestSchema.parse({
+          expectedRowVersion: approved.versionRowVersion,
+          expectedQuestionRowVersion: approved.questionRowVersion
+        })
+        const published = await commandService.publishVersion(
+          publishAuthority,
+          versionTwoId,
+          publishRequest
+        )
+        expect(published).toMatchObject({
+          questionId,
+          questionVersionId: versionTwoId,
+          lifecycleStatus: 'ACTIVE',
+          versionStatus: 'PUBLISHED'
+        })
+        expect(
+          (
+            await context.adminClient.query<{
+              currentPublishedVersionId: string
+            }>(
+              `SELECT "currentPublishedVersionId"
+               FROM "Question" WHERE "id" = $1`,
+              [questionId]
+            )
+          ).rows
+        ).toEqual([{ currentPublishedVersionId: versionTwoId }])
+        expect(
+          (
+            await context.adminClient.query<{
+              id: string
+              retirementKind: string | null
+              status: string
+            }>(
+              `SELECT "id", "status", "retirementKind"
+               FROM "QuestionVersion"
+               WHERE "id" = ANY($1::uuid[])
+               ORDER BY "versionNumber"`,
+              [[versionOneId, versionTwoId]]
+            )
+          ).rows
+        ).toEqual([
+          {
+            id: versionOneId,
+            retirementKind: 'PUBLISHED_RETIREMENT',
+            status: 'RETIRED'
+          },
+          { id: versionTwoId, retirementKind: null, status: 'PUBLISHED' }
+        ])
+        expect(
+          await context.adminClient.query<{ count: number }>(
+            `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"`
+          )
+        ).toMatchObject({ rows: [{ count: 0 }] })
+        expect(
+          await context.adminClient.query<{ command: string }>(
+            `SELECT "command" FROM "AdminAuditLog"
+             WHERE "requestId" = $1`,
+            [publishAuthority.requestId]
+          )
+        ).toMatchObject({ rows: [{ command: 'PUBLICATION' }] })
+        expect(
+          (
+            await context.adminClient.query<{
+              action: string
+              questionVersionId: string
+            }>(
+              `SELECT "action", "questionVersionId"
+               FROM "ContentReview"
+               WHERE "questionVersionId" = ANY($1::uuid[])`,
+              [[versionOneId, versionTwoId]]
+            )
+          ).rows
+        ).toEqual(
+          expect.arrayContaining([
+            { action: 'PUBLISHED', questionVersionId: versionTwoId },
+            { action: 'RETIRED', questionVersionId: versionOneId }
+          ])
+        )
 
         const sessionBStartedAt = new Date(baseTime + 30_000)
         const sessionB = (
@@ -2974,12 +3351,16 @@ describe('Phase 4 Slice 3 historical review pins', () => {
           lastWrongQuestionVersionId: versionOneId
         })
       } finally {
-        await runtime.disconnect()
+        try {
+          await runtime.disconnect()
+        } finally {
+          await authGatewayRuntime.disconnect()
+        }
       }
     } finally {
       await dispose(context)
     }
-  }, 40_000)
+  }, 90_000)
 })
 
 describe('Slice 5 migration upgrade', () => {

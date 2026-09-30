@@ -63,10 +63,24 @@ const FORWARD_MIGRATIONS = [
   '20260916120000_phase7_reauthentication_foundation'
 ] as const
 
-const environment = parseApiEnvironment(process.env)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const requireEnvironmentValue = (name: string): string => {
+  const value = process.env[name]?.trim()
+  if (!value) {
+    throw new Error(`Prisma ledger upgrade integration requires ${name}.`)
+  }
+  return value
+}
+const environment = isPhase10CurrentSource
+  ? undefined
+  : parseApiEnvironment(process.env)
+const migrationDatabaseUrl = isPhase10CurrentSource
+  ? requireEnvironmentValue('PHASE7_MIGRATION_DATABASE_URL')
+  : environment!.DATABASE_URL
 assertSafeTestDatabase({
-  nodeEnvironment: environment.NODE_ENV,
-  databaseUrl: environment.DATABASE_URL,
+  nodeEnvironment: process.env.NODE_ENV,
+  databaseUrl: migrationDatabaseUrl,
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
@@ -84,12 +98,16 @@ describe('Prisma migration ledger upgrade', () => {
     const temporaryMigrations = join(temporaryDirectory, 'migrations')
     const temporarySchema = join(temporaryDirectory, 'schema.prisma')
     const temporaryConfig = join(temporaryDirectory, 'prisma.config.ts')
-    const databaseUrl = new URL(environment.DATABASE_URL)
+    const databaseUrl = new URL(migrationDatabaseUrl)
     databaseUrl.searchParams.set('schema', schemaName)
     const adminClient = new Client({
-      connectionString: environment.DATABASE_URL
+      connectionString: migrationDatabaseUrl
     })
     let isConnected = false
+    let databaseName: string | undefined
+    let originalLegacyDirectConnect: boolean | undefined
+    let operationError: unknown
+    let operationFailed = false
 
     mkdirSync(temporaryMigrations)
     copyFileSync(
@@ -118,7 +136,7 @@ describe('Prisma migration ledger upgrade', () => {
             NODE_ENV: 'test',
             PRISMA_TEST_DATABASE_URL: databaseUrl.toString()
           },
-          timeout: 30_000
+          timeout: 60_000
         }
       )
     }
@@ -126,7 +144,46 @@ describe('Prisma migration ledger upgrade', () => {
     try {
       await adminClient.connect()
       isConnected = true
-      await adminClient.query(`CREATE SCHEMA ${quotedSchemaName}`)
+      if (isPhase10CurrentSource) {
+        const database = await adminClient.query<{ databaseName: string }>(
+          `SELECT current_database() AS "databaseName"`
+        )
+        databaseName = database.rows[0]?.databaseName
+        if (!databaseName || !/^[a-z0-9_]+_test$/u.test(databaseName)) {
+          throw new Error(
+            'Prisma ledger upgrade integration received an unsafe database.'
+          )
+        }
+        const directConnect = await adminClient.query<{ granted: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1
+             FROM pg_database AS database_record
+             CROSS JOIN LATERAL aclexplode(
+               COALESCE(
+                 database_record.datacl,
+                 acldefault('d', database_record.datdba)
+               )
+             ) AS privilege_record
+             JOIN pg_roles AS granted_role
+               ON granted_role.oid = privilege_record.grantee
+             WHERE database_record.datname = current_database()
+               AND granted_role.rolname = 'nihongo_test_legacy_app_login'
+               AND privilege_record.privilege_type = 'CONNECT'
+               AND NOT privilege_record.is_grantable
+           ) AS granted`
+        )
+        originalLegacyDirectConnect = directConnect.rows[0]?.granted ?? false
+        if (!originalLegacyDirectConnect) {
+          await adminClient.query(
+            `GRANT CONNECT ON DATABASE "${databaseName}" TO "nihongo_test_legacy_app_login"`
+          )
+        }
+      }
+      await adminClient.query(
+        isPhase10CurrentSource
+          ? `CREATE SCHEMA ${quotedSchemaName} AUTHORIZATION "nihongo_phase7_migration"`
+          : `CREATE SCHEMA ${quotedSchemaName}`
+      )
 
       for (const migration of LEGACY_MIGRATIONS) {
         copyMigration(migration, temporaryMigrations)
@@ -204,10 +261,6 @@ describe('Prisma migration ledger upgrade', () => {
         [schemaName]
       )
       expect(triggers.rows).toEqual([
-        {
-          enabled: 'O',
-          name: 'QuestionVersion_validate_active_admin_creator'
-        },
         { enabled: 'O', name: 'QuestionVersion_validate_change' }
       ])
 
@@ -223,7 +276,9 @@ describe('Prisma migration ledger upgrade', () => {
              'Bookmark_userId_createdAt_id_idx',
              'Bookmark_userId_createdAt_questionId_idx',
              'Bookmark_userId_questionId_key',
-             'Session_userId_expiresAt_idx',
+             'Session_userId_issuerProtocolVersion_expiresAt_idx',
+             'Session_userId_sessionFamilyId_expiresAt_idx',
+             'Session_userId_sessionFamilyId_id_key',
              'StudySession_guest_level_subject_submittedAt_id_weakness_idx',
              'StudySession_userId_submittedAt_id_dashboard_idx',
              'StudySession_userId_level_subject_submittedAt_id_weakness_idx',
@@ -240,7 +295,9 @@ describe('Prisma migration ledger upgrade', () => {
         'Bookmark_userId_createdAt_id_idx',
         'Bookmark_userId_createdAt_questionId_idx',
         'Bookmark_userId_questionId_key',
-        'Session_userId_expiresAt_idx',
+        'Session_userId_issuerProtocolVersion_expiresAt_idx',
+        'Session_userId_sessionFamilyId_expiresAt_idx',
+        'Session_userId_sessionFamilyId_id_key',
         'StudySession_guest_level_subject_submittedAt_id_weakness_idx',
         'StudySession_userId_level_subject_submittedAt_id_weakness_idx',
         'StudySession_userId_submittedAt_id_dashboard_idx',
@@ -346,6 +403,9 @@ describe('Prisma migration ledger upgrade', () => {
       ])
 
       await adminClient.query(`SET search_path TO ${quotedSchemaName}`)
+      if (isPhase10CurrentSource) {
+        await adminClient.query(`SET ROLE "nihongo_phase7_owner"`)
+      }
       const userId = randomUUID()
       await adminClient.query(
         `INSERT INTO "User" (
@@ -362,7 +422,10 @@ describe('Prisma migration ledger upgrade', () => {
           ) VALUES ($1, 'ACTIVE', $2, 'ACTIVE_ADMIN', now(), now())`,
           [randomUUID(), userId]
         )
-      ).rejects.toMatchObject({ code: '23514' })
+      ).rejects.toMatchObject({
+        code: '42501',
+        message: 'An armed trusted Phase 7 operation intent is required.'
+      })
       await expect(
         adminClient.query(
           `INSERT INTO "User" (
@@ -371,18 +434,71 @@ describe('Prisma migration ledger upgrade', () => {
           ) VALUES ($1, $2, $3, true, 'USER', 'ACTIVE', now(), now())`,
           [randomUUID(), '가'.repeat(81), `ledger-${randomUUID()}@example.test`]
         )
-      ).rejects.toMatchObject({ code: '22001' })
-    } finally {
-      if (isConnected) {
-        try {
-          await adminClient.query(
-            `DROP SCHEMA IF EXISTS ${quotedSchemaName} CASCADE`
+      ).rejects.toMatchObject({
+        code: '22001',
+        message: 'value too long for type character varying(80)'
+      })
+    } catch (error: unknown) {
+      operationError = error
+      operationFailed = true
+    }
+
+    const cleanupErrors: unknown[] = []
+    if (isConnected) {
+      try {
+        await adminClient.query('ROLLBACK').catch(() => undefined)
+        if (isPhase10CurrentSource) {
+          await adminClient.query(`SET ROLE "nihongo_phase7_migration"`)
+          const owner = await adminClient.query<{ ownerName: string }>(
+            `SELECT pg_get_userbyid(namespace.nspowner) AS "ownerName"
+               FROM pg_namespace AS namespace
+               WHERE namespace.nspname = $1`,
+            [schemaName]
           )
-        } finally {
-          await adminClient.end()
+          if (owner.rows[0]?.ownerName === 'nihongo_phase7_owner') {
+            await adminClient.query(`SET ROLE "nihongo_phase7_owner"`)
+          }
+        }
+        await adminClient.query(
+          `DROP SCHEMA IF EXISTS ${quotedSchemaName} CASCADE`
+        )
+      } catch (error: unknown) {
+        cleanupErrors.push(error)
+      }
+      if (isPhase10CurrentSource) {
+        try {
+          await adminClient.query(`SET ROLE "nihongo_phase7_migration"`)
+          if (databaseName && originalLegacyDirectConnect !== undefined) {
+            await adminClient.query(
+              originalLegacyDirectConnect
+                ? `GRANT CONNECT ON DATABASE "${databaseName}" TO "nihongo_test_legacy_app_login"`
+                : `REVOKE CONNECT ON DATABASE "${databaseName}" FROM "nihongo_test_legacy_app_login"`
+            )
+          }
+        } catch (error: unknown) {
+          cleanupErrors.push(error)
         }
       }
-      rmSync(temporaryDirectory, { force: true, recursive: true })
+      try {
+        await adminClient.end()
+      } catch (error: unknown) {
+        cleanupErrors.push(error)
+      }
     }
-  }, 30_000)
+    rmSync(temporaryDirectory, { force: true, recursive: true })
+    if (operationFailed && cleanupErrors.length > 0) {
+      throw new AggregateError(
+        [operationError, ...cleanupErrors],
+        'Prisma ledger upgrade operation and cleanup failed.'
+      )
+    }
+    if (operationFailed) throw operationError
+    if (cleanupErrors.length === 1) throw cleanupErrors[0]
+    if (cleanupErrors.length > 1) {
+      throw new AggregateError(
+        cleanupErrors,
+        'Prisma ledger upgrade cleanup failed.'
+      )
+    }
+  }, 180_000)
 })

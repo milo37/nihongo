@@ -304,7 +304,7 @@ const run = async (): Promise<void> => {
     process.stdout.write(
       `${JSON.stringify({
         event: 'phase5.slice6.integration.pg_warning_budget_verified',
-        warningCount: 8
+        warningCount: 0
       })}\n`
     )
   }

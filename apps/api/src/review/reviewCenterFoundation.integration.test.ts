@@ -2,9 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import { Client } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { PracticeCompatibilityFenceError } from '../db/practiceCompatibilityFence.js'
 import { Prisma } from '../generated/prisma/client.js'
@@ -26,14 +31,148 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 review foundation requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const createdUserIds = new Set<string>()
+
+const createApplicationClient = (): Client =>
+  new Client({
+    connectionString: environment.DATABASE_URL,
+    options: createPostgresStartupOptions(
+      getPostgresSchema(environment.DATABASE_URL),
+      isPhase10CurrentSource ? 'nihongo_app' : undefined
+    )
+  })
 
 interface CommandFailure extends Error {
   readonly code: number | string
   readonly stderr: string
   readonly stdout: string
+}
+
+interface RawDatabaseErrorIdentity {
+  readonly message: string
+  readonly sqlState: string
+}
+
+const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readRawDatabaseErrorIdentity = (
+  error: unknown
+): RawDatabaseErrorIdentity | undefined => {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2010' ||
+    !isUnknownRecord(error.meta)
+  ) {
+    return undefined
+  }
+
+  const identities: RawDatabaseErrorIdentity[] = []
+  if (
+    typeof error.meta.code === 'string' &&
+    typeof error.meta.message === 'string'
+  ) {
+    identities.push({
+      message: error.meta.message,
+      sqlState: error.meta.code
+    })
+  }
+  const driverAdapterError = error.meta.driverAdapterError
+  if (isUnknownRecord(driverAdapterError)) {
+    const cause = driverAdapterError.cause
+    if (
+      isUnknownRecord(cause) &&
+      typeof cause.originalCode === 'string' &&
+      typeof cause.originalMessage === 'string'
+    ) {
+      identities.push({
+        message: cause.originalMessage,
+        sqlState: cause.originalCode
+      })
+    }
+  }
+
+  const [identity, ...rest] = identities
+  if (
+    !identity ||
+    rest.some(
+      (candidate) =>
+        candidate.sqlState !== identity.sqlState ||
+        candidate.message !== identity.message
+    )
+  ) {
+    return undefined
+  }
+  return {
+    message:
+      identity.message
+        .split('\n', 1)[0]
+        ?.replace(/^ERROR:\s*/u, '')
+        .trim() ?? '',
+    sqlState: identity.sqlState
+  }
+}
+
+const expectRawDatabaseError = async ({
+  expectedMessage,
+  operation,
+  sqlState
+}: {
+  readonly expectedMessage: string
+  readonly operation: () => Promise<unknown>
+  readonly sqlState: string
+}): Promise<void> => {
+  let caughtError: unknown
+  try {
+    await operation()
+  } catch (error: unknown) {
+    caughtError = error
+  }
+  expect(caughtError).toMatchObject({ code: 'P2010' })
+  expect(readRawDatabaseErrorIdentity(caughtError)).toEqual({
+    message: expectedMessage,
+    sqlState
+  })
 }
 
 const isCommandFailure = (error: unknown): error is CommandFailure =>
@@ -46,16 +185,38 @@ const isCommandFailure = (error: unknown): error is CommandFailure =>
   typeof error.stderr === 'string'
 
 const createUser = async (): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: 'Phase 5 review foundation user',
-      email: `phase5-review-foundation-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: 'Phase 5 review foundation user',
+        email: `phase5-review-foundation-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
   })
-  createdUserIds.add(user.id)
-  return user.id
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
 }
 
 const createWrongNote = async (userId: string) => {
@@ -195,18 +356,25 @@ const createWrongNote = async (userId: string) => {
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterEach(async () => {
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
-    createdUserIds.clear()
+    for (const userId of [...createdUserIds]) await eraseUser(userId)
   }
 })
 
 afterAll(async () => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
   await database.disconnect()
 })
 
@@ -243,21 +411,29 @@ describe('Phase 5 review-center data foundation', () => {
     ).rejects.toMatchObject({ code: 'P2002' })
 
     for (const invalidText of [' 앞뒤 공백 ', '🙂'.repeat(2001)]) {
-      await expect(
-        database.client.$executeRaw`
+      await expectRawDatabaseError({
+        expectedMessage:
+          'new row for relation "UserMemo" violates check constraint "UserMemo_text_normalized_check"',
+        operation: async () =>
+          await database.client.$executeRaw`
           UPDATE "UserMemo"
           SET "text" = ${invalidText}
           WHERE "id" = ${memoId}::uuid
-        `
-      ).rejects.toMatchObject({ code: 'P2010' })
+        `,
+        sqlState: '23514'
+      })
     }
-    await expect(
-      database.client.$executeRaw`
+    await expectRawDatabaseError({
+      expectedMessage:
+        'new row for relation "UserMemo" violates check constraint "UserMemo_timestamp_order_check"',
+      operation: async () =>
+        await database.client.$executeRaw`
         UPDATE "UserMemo"
         SET "updatedAt" = "createdAt" - INTERVAL '1 millisecond'
         WHERE "id" = ${memoId}::uuid
-      `
-    ).rejects.toMatchObject({ code: 'P2010' })
+      `,
+      sqlState: '23514'
+    })
 
     const twoThousandCodePoints = '🙂'.repeat(2000)
     await database.client.userMemo.update({
@@ -284,23 +460,75 @@ describe('Phase 5 review-center data foundation', () => {
         updatedAt: true
       }
     })
-    try {
-      await database.client.question.update({
+    if (isPhase10CurrentSource) {
+      const currentQuestion = await database.client.question.findUniqueOrThrow({
         where: { id: wrongNote.questionId },
-        data: {
-          archivedAt: new Date(NOW.getTime() + HOUR_MS),
-          currentPublishedVersionId: null,
-          lifecycleStatus: 'ARCHIVED'
+        select: {
+          archivedAt: true,
+          currentPublishedVersionId: true,
+          lifecycleStatus: true,
+          rowVersion: true,
+          updatedAt: true
         }
       })
+      const applicationClient = createApplicationClient()
+      let archiveError: unknown
+      try {
+        await applicationClient.connect()
+        await applicationClient.query(
+          `UPDATE "Question"
+           SET
+             "lifecycleStatus" = 'ARCHIVED',
+             "archivedAt" = $2,
+             "currentPublishedVersionId" = NULL,
+             "rowVersion" = "rowVersion" + 1,
+             "updatedAt" = $2
+           WHERE "id" = $1`,
+          [wrongNote.questionId, new Date(NOW.getTime() + HOUR_MS)]
+        )
+      } catch (error: unknown) {
+        archiveError = error
+      } finally {
+        await applicationClient.end().catch(() => undefined)
+      }
+      expect(archiveError).toMatchObject({
+        code: '42501',
+        message: 'An armed trusted Phase 7 operation intent is required.'
+      })
+      await expect(
+        database.client.question.findUniqueOrThrow({
+          where: { id: wrongNote.questionId },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true,
+            rowVersion: true,
+            updatedAt: true
+          }
+        })
+      ).resolves.toEqual(currentQuestion)
       await expect(
         database.client.userMemo.findUnique({ where: { id: memoId } })
       ).resolves.toMatchObject({ wrongNoteId: wrongNote.id })
-    } finally {
-      await database.client.question.update({
-        where: { id: wrongNote.questionId },
-        data: originalQuestion
-      })
+    } else {
+      try {
+        await database.client.question.update({
+          where: { id: wrongNote.questionId },
+          data: {
+            archivedAt: new Date(NOW.getTime() + HOUR_MS),
+            currentPublishedVersionId: null,
+            lifecycleStatus: 'ARCHIVED'
+          }
+        })
+        await expect(
+          database.client.userMemo.findUnique({ where: { id: memoId } })
+        ).resolves.toMatchObject({ wrongNoteId: wrongNote.id })
+      } finally {
+        await database.client.question.update({
+          where: { id: wrongNote.questionId },
+          data: originalQuestion
+        })
+      }
     }
 
     await database.client.userMemo.delete({ where: { id: memoId } })
@@ -314,8 +542,7 @@ describe('Phase 5 review-center data foundation', () => {
         updatedAt: NOW
       }
     })
-    await database.client.user.delete({ where: { id: userId } })
-    createdUserIds.delete(userId)
+    await eraseUser(userId)
     expect(
       await database.client.userMemo.count({ where: { id: memoId } })
     ).toBe(0)
@@ -332,18 +559,18 @@ describe('Phase 5 review-center data foundation', () => {
     expect(clean.mismatchWrongNoteCount).toBe(0)
     expect(clean.categories.every(({ count }) => count === 0)).toBe(true)
 
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "ReviewSchedule" DISABLE TRIGGER USER'
     )
     try {
-      await database.client.reviewSchedule.update({
+      await fixtureDatabase.client.reviewSchedule.update({
         where: { wrongNoteId: wrongNote.id },
         data: {
           intervalDays: wrongNote.schedule?.intervalDays === 7 ? 14 : 7
         }
       })
     } finally {
-      await database.client.$executeRawUnsafe(
+      await fixtureDatabase.client.$executeRawUnsafe(
         'ALTER TABLE "ReviewSchedule" ENABLE TRIGGER USER'
       )
     }
@@ -388,19 +615,19 @@ describe('Phase 5 review-center data foundation', () => {
     const rebaseEventId = 'ffffffff-ffff-4fff-bfff-ffffffffffff'
 
     for (const tableName of ['ReviewEvent', 'WrongNote', 'ReviewSchedule']) {
-      await database.client.$executeRawUnsafe(
+      await fixtureDatabase.client.$executeRawUnsafe(
         `ALTER TABLE "${tableName}" DISABLE TRIGGER USER`
       )
     }
     try {
-      await database.client.$executeRaw`
+      await fixtureDatabase.client.$executeRaw`
         UPDATE "ReviewEvent"
         SET
           "source" = 'WRONG_NOTE_REVIEW',
           "selectedOptionId" = ${alternateOption.id}::uuid
         WHERE "id" = ${event.id}::uuid
       `
-      await database.client.$executeRaw`
+      await fixtureDatabase.client.$executeRaw`
         INSERT INTO "ReviewEvent" (
           "id", "wrongNoteId", "userId", "questionId", "questionVersionId",
           "source", "studySessionId", "studyAnswerId", "selectedOptionId",
@@ -415,19 +642,19 @@ describe('Phase 5 review-center data foundation', () => {
           ${event.occurredAt}
         )
       `
-      await database.client.$executeRaw`
+      await fixtureDatabase.client.$executeRaw`
         UPDATE "WrongNote"
         SET "lastWrongAt" = "lastWrongAt" + INTERVAL '1 hour'
         WHERE "id" = ${corruptWrongNote.id}::uuid
       `
-      await database.client.$executeRaw`
+      await fixtureDatabase.client.$executeRaw`
         UPDATE "ReviewSchedule"
         SET "intervalDays" = 7
         WHERE "wrongNoteId" = ${corruptWrongNote.id}::uuid
       `
     } finally {
       for (const tableName of ['ReviewSchedule', 'WrongNote', 'ReviewEvent']) {
-        await database.client.$executeRawUnsafe(
+        await fixtureDatabase.client.$executeRawUnsafe(
           `ALTER TABLE "${tableName}" ENABLE TRIGGER USER`
         )
       }
@@ -502,7 +729,7 @@ describe('Phase 5 review-center data foundation', () => {
   it('targeted v2 session의 owner·pin·initial draft·pointer·stored response를 commit 시 검증한다', async () => {
     const userId = await createUser()
     const wrongNote = await createWrongNote(userId)
-    const targetStartedAt = new Date(NOW.getTime() + HOUR_MS)
+    const targetStartedAt = new Date(Date.now() + HOUR_MS)
     const target = (
       await sessionRepository.create({
         owner: { kind: 'USER', userId },
@@ -550,45 +777,65 @@ describe('Phase 5 review-center data foundation', () => {
       }
     )
 
-    await expect(
-      database.client.idempotencyRecord.delete({
-        where: { id: targetedRecordId }
+    if (isPhase10CurrentSource) {
+      await expectRawDatabaseError({
+        expectedMessage: 'permission denied for table User',
+        operation: async () =>
+          await database.client.$executeRaw`
+            DELETE FROM "IdempotencyRecord"
+            WHERE "id" = ${targetedRecordId}::uuid
+          `,
+        sqlState: '42501'
       })
-    ).rejects.toThrow('Active IdempotencyRecord cannot be deleted.')
+    }
+    await expectRawDatabaseError({
+      expectedMessage: 'Active IdempotencyRecord cannot be deleted.',
+      operation: async () =>
+        await fixtureDatabase.client.$executeRaw`
+          DELETE FROM "IdempotencyRecord"
+          WHERE "id" = ${targetedRecordId}::uuid
+        `,
+      sqlState: '23514'
+    })
 
-    await expect(
-      database.client.$transaction(async (transaction) => {
-        const record = await transaction.idempotencyRecord.create({
-          data: {
-            id: randomUUID(),
-            principalType: 'USER',
-            userId,
-            guestPrincipalId: null,
-            operation: 'STUDY_TARGETED_REVIEW_CREATE',
-            idempotencyKey: randomUUID(),
-            studySessionId: target.id,
-            requestHash: 'e'.repeat(64),
-            contractVersion: 2,
-            state: 'PROCESSING',
-            createdAt: targetStartedAt
-          },
-          select: { id: true }
-        })
-        await transaction.idempotencyRecord.update({
-          where: { id: record.id },
-          data: {
-            state: 'SUCCEEDED',
-            responseStatus: 201,
-            responseBody: {
-              ...response,
-              session: { ...response.session, actualCount: 2 }
-            } as Prisma.InputJsonValue,
-            completedAt,
-            expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
-          }
-        })
-      })
-    ).rejects.toThrow()
+    await expectRawDatabaseError({
+      expectedMessage:
+        'Committed targeted-review state does not match its owner, note, draft, or response.',
+      operation: async () =>
+        await database.client.$transaction(async (transaction) => {
+          const record = await transaction.idempotencyRecord.create({
+            data: {
+              id: randomUUID(),
+              principalType: 'USER',
+              userId,
+              guestPrincipalId: null,
+              operation: 'STUDY_TARGETED_REVIEW_CREATE',
+              idempotencyKey: randomUUID(),
+              studySessionId: target.id,
+              requestHash: 'e'.repeat(64),
+              contractVersion: 2,
+              state: 'PROCESSING',
+              createdAt: targetStartedAt
+            },
+            select: { id: true }
+          })
+          await transaction.idempotencyRecord.update({
+            where: { id: record.id },
+            data: {
+              state: 'SUCCEEDED',
+              responseStatus: 201,
+              responseBody: {
+                ...response,
+                session: { ...response.session, actualCount: 2 }
+              } as Prisma.InputJsonValue,
+              completedAt,
+              expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
+            }
+          })
+          await transaction.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE`
+        }),
+      sqlState: '23514'
+    })
 
     expect(
       await database.client.wrongNote.findUniqueOrThrow({

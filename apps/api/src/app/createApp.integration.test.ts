@@ -65,6 +65,38 @@ const principalService: PrincipalService = {
 }
 
 describe('Hono operational boundary', () => {
+  it('question read security dependency가 없으면 validation과 reader 전에 fail closed한다', async () => {
+    const { logger } = createTestLogger()
+    const gatedQuestionReader: QuestionReader = {
+      getQuestion: vi.fn(),
+      listQuestions: vi.fn()
+    }
+    const app = createApiApp({
+      checkReadiness: vi.fn().mockResolvedValue(undefined),
+      logger,
+      questionReader: gatedQuestionReader
+    })
+
+    const [queryResponse, idResponse] = await Promise.all([
+      app.request('/api/v1/questions?page=0'),
+      app.request('/api/v1/questions/not-a-uuid')
+    ])
+
+    for (const response of [queryResponse, idResponse]) {
+      const failure = apiFailureSchema.parse(await response.json())
+      expect(response.status).toBe(503)
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+      expect(response.headers.get('Retry-After')).toBe('5')
+      expect(response.headers.get('X-Request-Id')).toBe(failure.requestId)
+      expect(failure).toMatchObject({
+        code: 'SERVICE_UNAVAILABLE',
+        retryable: true
+      })
+    }
+    expect(gatedQuestionReader.listQuestions).not.toHaveBeenCalled()
+    expect(gatedQuestionReader.getQuestion).not.toHaveBeenCalled()
+  })
+
   it.each([
     {
       pathname: '/api/v1/questions',

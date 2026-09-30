@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { compareWrongNoteTagLabels } from '@nihongo/contracts/wrong-note/list-wrong-notes'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDashboardService } from '../dashboard/dashboardService.js'
 import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { Prisma } from '../generated/prisma/client.js'
 import {
   createPrismaStudySessionRepository,
   type ExistingStudyOwner
@@ -28,7 +34,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 wrong-note dashboard requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const submissionRepository = createPrismaStudySubmissionRepository(
   database.client
@@ -63,22 +107,126 @@ interface TagRestoreState {
   readonly tagId: string
 }
 
+interface RawDatabaseErrorIdentity {
+  readonly message: string
+  readonly sqlState: string
+}
+
 const createdUserIds = new Set<string>()
 const submittedFixtures: SubmittedFixture[] = []
 let questionRestoreState: QuestionRestoreState | null = null
 let tagRestoreState: TagRestoreState | null = null
 
-const createUser = async (label: string): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: `Slice 5 ${label}`,
-      email: `slice5-${label}-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readRawDatabaseErrorIdentity = (
+  error: unknown
+): RawDatabaseErrorIdentity | undefined => {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2010' ||
+    !isUnknownRecord(error.meta)
+  ) {
+    return undefined
+  }
+  const identities: RawDatabaseErrorIdentity[] = []
+  if (
+    typeof error.meta.code === 'string' &&
+    typeof error.meta.message === 'string'
+  ) {
+    identities.push({ message: error.meta.message, sqlState: error.meta.code })
+  }
+  const driverAdapterError = error.meta.driverAdapterError
+  if (isUnknownRecord(driverAdapterError)) {
+    const cause = driverAdapterError.cause
+    if (
+      isUnknownRecord(cause) &&
+      typeof cause.originalCode === 'string' &&
+      typeof cause.originalMessage === 'string'
+    ) {
+      identities.push({
+        message: cause.originalMessage,
+        sqlState: cause.originalCode
+      })
+    }
+  }
+  const [identity, ...rest] = identities
+  if (
+    !identity ||
+    rest.some(
+      (candidate) =>
+        candidate.sqlState !== identity.sqlState ||
+        candidate.message !== identity.message
+    )
+  ) {
+    return undefined
+  }
+  return {
+    message:
+      identity.message
+        .split('\n', 1)[0]
+        ?.replace(/^ERROR:\s*/u, '')
+        .trim() ?? '',
+    sqlState: identity.sqlState
+  }
+}
+
+const expectRawDatabaseError = async ({
+  expectedMessage,
+  operation,
+  sqlState
+}: {
+  readonly expectedMessage: string
+  readonly operation: () => Promise<unknown>
+  readonly sqlState: string
+}): Promise<void> => {
+  let caughtError: unknown
+  try {
+    await operation()
+  } catch (error: unknown) {
+    caughtError = error
+  }
+  expect(caughtError).toMatchObject({ code: 'P2010' })
+  expect(readRawDatabaseErrorIdentity(caughtError)).toEqual({
+    message: expectedMessage,
+    sqlState
   })
-  createdUserIds.add(user.id)
-  return user.id
+}
+
+const createUser = async (label: string): Promise<string> => {
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: `Slice 5 ${label}`,
+        email: `slice5-${label}-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
+  })
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
 }
 
 const submitRandomSession = async (
@@ -202,6 +350,10 @@ const toSortedExactLabels = (labels: readonly string[]): string[] =>
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
@@ -226,9 +378,19 @@ afterAll(async () => {
     })
   }
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of [...createdUserIds]) await eraseUser(userId)
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -267,208 +429,290 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     )
   })
 
-  it('exact historical tag filter는 mutable Tag rename과 owner isolation에 영향받지 않는다', async () => {
-    const target = await database.client.wrongNote.findFirstOrThrow({
-      where: { userId: ownerUserId },
-      orderBy: [{ wrongCount: 'desc' }, { id: 'asc' }],
-      select: {
-        questionId: true,
-        lastWrongQuestionVersion: {
-          select: {
-            tags: {
-              orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-              select: {
-                labelSnapshot: true,
-                tag: {
-                  select: { id: true, label: true, normalizedName: true }
+  it(
+    isPhase10CurrentSource
+      ? '비인가 Tag rename을 42501로 거부하고 exact historical tag filter와 owner isolation을 유지한다'
+      : 'exact historical tag filter는 mutable Tag rename과 owner isolation에 영향받지 않는다',
+    async () => {
+      const target = await database.client.wrongNote.findFirstOrThrow({
+        where: { userId: ownerUserId },
+        orderBy: [{ wrongCount: 'desc' }, { id: 'asc' }],
+        select: {
+          questionId: true,
+          lastWrongQuestionVersion: {
+            select: {
+              tags: {
+                orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
+                select: {
+                  labelSnapshot: true,
+                  tag: {
+                    select: { id: true, label: true, normalizedName: true }
+                  }
                 }
               }
             }
           }
         }
+      })
+      const historicalTag = target.lastWrongQuestionVersion.tags[0]
+      if (!historicalTag) {
+        throw new Error('Historical tag fixture is required.')
       }
-    })
-    const historicalTag = target.lastWrongQuestionVersion.tags[0]
-    if (!historicalTag) {
-      throw new Error('Historical tag fixture is required.')
-    }
-    tagRestoreState = {
-      tagId: historicalTag.tag.id,
-      label: historicalTag.tag.label,
-      normalizedName: historicalTag.tag.normalizedName
-    }
-    const renamedLabel = `renamed-${randomUUID()}`
-    await database.client.tag.update({
-      where: { id: historicalTag.tag.id },
-      data: { label: renamedLabel, normalizedName: renamedLabel }
-    })
-
-    const exact = await wrongNoteService.listWrongNotes(ownerUserId, {
-      page: 1,
-      pageSize: 100,
-      sort: 'RECENT',
-      tag: historicalTag.labelSnapshot
-    })
-    const different = await wrongNoteService.listWrongNotes(ownerUserId, {
-      page: 1,
-      pageSize: 100,
-      sort: 'RECENT',
-      tag: `${historicalTag.labelSnapshot}-different`
-    })
-    const outsider = await wrongNoteService.listWrongNotes(outsiderUserId, {
-      page: 1,
-      pageSize: 100,
-      sort: 'RECENT',
-      tag: historicalTag.labelSnapshot
-    })
-
-    expect(
-      exact.items.some(({ questionId }) => questionId === target.questionId)
-    ).toBe(true)
-    expect(exact.availableTags).toContain(historicalTag.labelSnapshot)
-    expect(exact.availableTags).not.toContain(renamedLabel)
-    expect(different.total).toBe(0)
-    expect(outsider.total).toBe(0)
-    expect(outsider.availableTags).toEqual([])
-  })
-
-  it('list pagination/sorts와 archived historical detail은 lastWrong version을 유지한다', async () => {
-    const mostWrong = await wrongNoteService.listWrongNotes(ownerUserId, {
-      page: 1,
-      pageSize: 1,
-      sort: 'MOST_WRONG'
-    })
-    const recent = await wrongNoteService.listWrongNotes(ownerUserId, {
-      page: 1,
-      pageSize: 100,
-      sort: 'RECENT'
-    })
-    const oldest = await wrongNoteService.listWrongNotes(ownerUserId, {
-      page: 1,
-      pageSize: 100,
-      sort: 'OLDEST'
-    })
-    const beyondLast = await wrongNoteService.listWrongNotes(ownerUserId, {
-      page: Number.MAX_SAFE_INTEGER,
-      pageSize: 100,
-      sort: 'RECENT'
-    })
-    const target = mostWrong.items[0]
-    if (!target) {
-      throw new Error('WrongNote fixture is required.')
-    }
-    const targetWrongNote = await database.client.wrongNote.findUniqueOrThrow({
-      where: {
-        userId_questionId: {
-          userId: ownerUserId,
-          questionId: target.questionId
+      const renamedLabel = `renamed-${randomUUID()}`
+      if (isPhase10CurrentSource) {
+        await expectRawDatabaseError({
+          expectedMessage: 'permission denied for table Tag',
+          operation: async () =>
+            await database.client.$executeRaw`
+            UPDATE "Tag"
+            SET "label" = ${renamedLabel}, "normalizedName" = ${renamedLabel}
+            WHERE "id" = ${historicalTag.tag.id}::uuid
+          `,
+          sqlState: '42501'
+        })
+        await expect(
+          database.client.tag.findUniqueOrThrow({
+            where: { id: historicalTag.tag.id },
+            select: { id: true, label: true, normalizedName: true }
+          })
+        ).resolves.toEqual(historicalTag.tag)
+      } else {
+        tagRestoreState = {
+          tagId: historicalTag.tag.id,
+          label: historicalTag.tag.label,
+          normalizedName: historicalTag.tag.normalizedName
         }
-      },
-      select: { id: true }
-    })
-    const memoObservedAt = new Date('2026-08-16T02:30:00.000Z')
-    await database.client.userMemo.create({
-      data: {
-        wrongNoteId: targetWrongNote.id,
-        text: 'Phase 5 retained memo',
-        createdAt: memoObservedAt,
-        updatedAt: memoObservedAt
+        await database.client.tag.update({
+          where: { id: historicalTag.tag.id },
+          data: { label: renamedLabel, normalizedName: renamedLabel }
+        })
       }
-    })
-    const listWithMemoFact = await wrongNoteService.listWrongNotes(
-      ownerUserId,
-      {
+
+      const exact = await wrongNoteService.listWrongNotes(ownerUserId, {
+        page: 1,
+        pageSize: 100,
+        sort: 'RECENT',
+        tag: historicalTag.labelSnapshot
+      })
+      const different = await wrongNoteService.listWrongNotes(ownerUserId, {
+        page: 1,
+        pageSize: 100,
+        sort: 'RECENT',
+        tag: `${historicalTag.labelSnapshot}-different`
+      })
+      const outsider = await wrongNoteService.listWrongNotes(outsiderUserId, {
+        page: 1,
+        pageSize: 100,
+        sort: 'RECENT',
+        tag: historicalTag.labelSnapshot
+      })
+
+      expect(
+        exact.items.some(({ questionId }) => questionId === target.questionId)
+      ).toBe(true)
+      expect(exact.availableTags).toContain(historicalTag.labelSnapshot)
+      expect(exact.availableTags).not.toContain(renamedLabel)
+      expect(different.total).toBe(0)
+      expect(outsider.total).toBe(0)
+      expect(outsider.availableTags).toEqual([])
+    }
+  )
+
+  it(
+    isPhase10CurrentSource
+      ? 'list pagination/sorts와 archive 거부 뒤 historical detail은 lastWrong version을 유지한다'
+      : 'list pagination/sorts와 archived historical detail은 lastWrong version을 유지한다',
+    async () => {
+      const mostWrong = await wrongNoteService.listWrongNotes(ownerUserId, {
+        page: 1,
+        pageSize: 1,
+        sort: 'MOST_WRONG'
+      })
+      const recent = await wrongNoteService.listWrongNotes(ownerUserId, {
         page: 1,
         pageSize: 100,
         sort: 'RECENT'
-      }
-    )
-    expect(mostWrong.items).toHaveLength(1)
-    expect(mostWrong.total).toBeGreaterThan(1)
-    expect(recent.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
-      recent.items
-        .map(({ lastWrongAt }) => lastWrongAt)
-        .toSorted()
-        .toReversed()
-    )
-    expect(recent.items.every(({ hasMemo }) => hasMemo === false)).toBe(true)
-    expect(
-      listWithMemoFact.items.find(
-        ({ questionId }) => questionId === target.questionId
-      )?.hasMemo
-    ).toBe(false)
-    expect(oldest.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
-      oldest.items.map(({ lastWrongAt }) => lastWrongAt).toSorted()
-    )
-    expect(beyondLast).toMatchObject({
-      items: [],
-      total: recent.total,
-      availableTags: recent.availableTags
-    })
-
-    const originalQuestion = await database.client.question.findUniqueOrThrow({
-      where: { id: target.questionId },
-      select: {
-        id: true,
-        lifecycleStatus: true,
-        archivedAt: true,
-        currentPublishedVersionId: true
-      }
-    })
-    questionRestoreState = {
-      questionId: originalQuestion.id,
-      lifecycleStatus: originalQuestion.lifecycleStatus,
-      archivedAt: originalQuestion.archivedAt,
-      currentPublishedVersionId: originalQuestion.currentPublishedVersionId
-    }
-    await database.client.question.update({
-      where: { id: target.questionId },
-      data: {
-        lifecycleStatus: 'ARCHIVED',
-        archivedAt: new Date('2026-08-16T03:00:00.000Z'),
-        currentPublishedVersionId: null
-      }
-    })
-
-    const rawDetail = await wrongNoteRepository.findOwnedDetail(
-      ownerUserId,
-      target.questionId
-    )
-    if (!rawDetail) {
-      throw new Error('Owned detail fixture is required.')
-    }
-    const detail = toWrongNoteDetail(rawDetail)
-    expect(detail.wrongNote.reviewAvailability).toBe('ARCHIVED')
-    expect(detail.memo).toBeNull()
-    expect(
-      await database.client.userMemo.findUnique({
-        where: { wrongNoteId: targetWrongNote.id },
-        select: { text: true }
       })
-    ).toEqual({ text: 'Phase 5 retained memo' })
-    expect(detail.currentReviewQuestionVersionId).toBe(
-      detail.lastWrongQuestionVersionId
-    )
-    expect(detail.lastWrongQuestionVersionId).toBe(
-      detail.question.questionVersionId
-    )
-    expect(detail.wrongNote).toMatchObject({
-      questionId: detail.question.id,
-      level: detail.question.level,
-      subject: detail.question.subject,
-      questionType: detail.question.questionType,
-      questionPreview: createWrongNoteQuestionPreview(
-        detail.question.questionText
-      ),
-      tags: toSortedExactLabels(detail.question.tags.map(({ label }) => label))
-    })
-    await expect(
-      wrongNoteService.getWrongNote(outsiderUserId, target.questionId)
-    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
-    await expect(
-      wrongNoteService.getWrongNote(ownerUserId, randomUUID())
-    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
-  })
+      const oldest = await wrongNoteService.listWrongNotes(ownerUserId, {
+        page: 1,
+        pageSize: 100,
+        sort: 'OLDEST'
+      })
+      const beyondLast = await wrongNoteService.listWrongNotes(ownerUserId, {
+        page: Number.MAX_SAFE_INTEGER,
+        pageSize: 100,
+        sort: 'RECENT'
+      })
+      const target = mostWrong.items[0]
+      if (!target) {
+        throw new Error('WrongNote fixture is required.')
+      }
+      const targetWrongNote = await database.client.wrongNote.findUniqueOrThrow(
+        {
+          where: {
+            userId_questionId: {
+              userId: ownerUserId,
+              questionId: target.questionId
+            }
+          },
+          select: { id: true }
+        }
+      )
+      const memoObservedAt = new Date('2026-08-16T02:30:00.000Z')
+      await database.client.userMemo.create({
+        data: {
+          wrongNoteId: targetWrongNote.id,
+          text: 'Phase 5 retained memo',
+          createdAt: memoObservedAt,
+          updatedAt: memoObservedAt
+        }
+      })
+      const listWithMemoFact = await wrongNoteService.listWrongNotes(
+        ownerUserId,
+        {
+          page: 1,
+          pageSize: 100,
+          sort: 'RECENT'
+        }
+      )
+      expect(mostWrong.items).toHaveLength(1)
+      expect(mostWrong.total).toBeGreaterThan(1)
+      expect(recent.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
+        recent.items
+          .map(({ lastWrongAt }) => lastWrongAt)
+          .toSorted()
+          .toReversed()
+      )
+      expect(recent.items.every(({ hasMemo }) => hasMemo === false)).toBe(true)
+      expect(
+        listWithMemoFact.items.find(
+          ({ questionId }) => questionId === target.questionId
+        )?.hasMemo
+      ).toBe(false)
+      expect(oldest.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
+        oldest.items.map(({ lastWrongAt }) => lastWrongAt).toSorted()
+      )
+      expect(beyondLast).toMatchObject({
+        items: [],
+        total: recent.total,
+        availableTags: recent.availableTags
+      })
+
+      let expectedReviewAvailability: 'ARCHIVED' | 'AVAILABLE'
+      if (isPhase10CurrentSource) {
+        const originalQuestion =
+          await database.client.question.findUniqueOrThrow({
+            where: { id: target.questionId },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        const archiveTime = new Date('2026-08-16T03:00:00.000Z')
+        await expectRawDatabaseError({
+          expectedMessage:
+            'An armed trusted Phase 7 operation intent is required.',
+          operation: async () =>
+            await database.client.$executeRaw`
+            UPDATE "Question"
+            SET
+              "lifecycleStatus" = 'ARCHIVED',
+              "archivedAt" = ${archiveTime},
+              "currentPublishedVersionId" = NULL,
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${archiveTime}
+            WHERE "id" = ${target.questionId}::uuid
+          `,
+          sqlState: '42501'
+        })
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: target.questionId },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        ).resolves.toEqual(originalQuestion)
+        expectedReviewAvailability = 'AVAILABLE'
+      } else {
+        const originalQuestion =
+          await database.client.question.findUniqueOrThrow({
+            where: { id: target.questionId },
+            select: {
+              id: true,
+              lifecycleStatus: true,
+              archivedAt: true,
+              currentPublishedVersionId: true
+            }
+          })
+        questionRestoreState = {
+          questionId: originalQuestion.id,
+          lifecycleStatus: originalQuestion.lifecycleStatus,
+          archivedAt: originalQuestion.archivedAt,
+          currentPublishedVersionId: originalQuestion.currentPublishedVersionId
+        }
+        await database.client.question.update({
+          where: { id: target.questionId },
+          data: {
+            lifecycleStatus: 'ARCHIVED',
+            archivedAt: new Date('2026-08-16T03:00:00.000Z'),
+            currentPublishedVersionId: null
+          }
+        })
+        expectedReviewAvailability = 'ARCHIVED'
+      }
+
+      const rawDetail = await wrongNoteRepository.findOwnedDetail(
+        ownerUserId,
+        target.questionId
+      )
+      if (!rawDetail) {
+        throw new Error('Owned detail fixture is required.')
+      }
+      const detail = toWrongNoteDetail(rawDetail)
+      expect(detail.wrongNote.reviewAvailability).toBe(
+        expectedReviewAvailability
+      )
+      expect(detail.memo).toBeNull()
+      expect(
+        await database.client.userMemo.findUnique({
+          where: { wrongNoteId: targetWrongNote.id },
+          select: { text: true }
+        })
+      ).toEqual({ text: 'Phase 5 retained memo' })
+      expect(detail.currentReviewQuestionVersionId).toBe(
+        detail.lastWrongQuestionVersionId
+      )
+      expect(detail.lastWrongQuestionVersionId).toBe(
+        detail.question.questionVersionId
+      )
+      expect(detail.wrongNote).toMatchObject({
+        questionId: detail.question.id,
+        level: detail.question.level,
+        subject: detail.question.subject,
+        questionType: detail.question.questionType,
+        questionPreview: createWrongNoteQuestionPreview(
+          detail.question.questionText
+        ),
+        tags: toSortedExactLabels(
+          detail.question.tags.map(({ label }) => label)
+        )
+      })
+      await expect(
+        wrongNoteService.getWrongNote(outsiderUserId, target.questionId)
+      ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
+      await expect(
+        wrongNoteService.getWrongNote(ownerUserId, randomUUID())
+      ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
+    }
+  )
 
   it('dashboard는 all-mode activity range와 all-time WrongNote snapshot을 분리한다', async () => {
     const storedUtcSessions = await database.client.$queryRaw<
@@ -594,6 +838,49 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
   })
 
   it('migration trim CHECK가 draft historical snapshot edge space를 거부한다', async () => {
+    if (isPhase10CurrentSource) {
+      const version =
+        await fixtureDatabase.client.questionVersion.findFirstOrThrow({
+          orderBy: { id: 'asc' },
+          select: { id: true }
+        })
+      const tagId = randomUUID()
+      const normalizedName = `trim-check-${randomUUID()}`
+      await expectRawDatabaseError({
+        expectedMessage:
+          'new row for relation "QuestionVersionTag" violates check constraint "QuestionVersionTag_label_snapshot_trimmed_check"',
+        operation: async () =>
+          await fixtureDatabase.client.$transaction(async (fixture) => {
+            await fixture.tag.create({
+              data: { id: tagId, label: 'trim-check', normalizedName }
+            })
+            await fixture.$executeRawUnsafe(
+              'ALTER TABLE "QuestionVersionTag" DISABLE TRIGGER USER'
+            )
+            await fixture.$executeRaw`
+              INSERT INTO "QuestionVersionTag" (
+                "id",
+                "questionVersionId",
+                "tagId",
+                "labelSnapshot",
+                "normalizedNameSnapshot"
+              ) VALUES (
+                ${randomUUID()}::uuid,
+                ${version.id}::uuid,
+                ${tagId}::uuid,
+                ' trim-check ',
+                ${normalizedName}
+              )
+            `
+            throw new Error(
+              'QuestionVersionTag trim constraint unexpectedly accepted edge spaces.'
+            )
+          }),
+        sqlState: '23514'
+      })
+      return
+    }
+
     const questionId = randomUUID()
     const versionId = randomUUID()
     const tagId = randomUUID()

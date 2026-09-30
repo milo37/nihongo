@@ -1,11 +1,16 @@
-import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
+import { Client } from 'pg'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createStudySessionService } from '../study/studySessionService.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { createDatabaseRuntime } from './database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from './databaseOptions.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
 import { PracticeCompatibilityFenceError } from './practiceCompatibilityFence.js'
 
@@ -16,7 +21,49 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 current-source compatibility tests require fixture and erasure databases.'
+  )
+}
+if (fixtureDatabaseUrl) {
+  assertSafeTestDatabase({
+    nodeEnvironment: environment.NODE_ENV,
+    databaseUrl: fixtureDatabaseUrl,
+    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+  })
+}
+if (erasureWorkerDatabaseUrl) {
+  assertSafeTestDatabase({
+    nodeEnvironment: environment.NODE_ENV,
+    databaseUrl: erasureWorkerDatabaseUrl,
+    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+  })
+}
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
@@ -27,6 +74,13 @@ const studySessionService = createStudySessionService(
 const guestPrincipalIds = new Set<string>()
 const userIds = new Set<string>()
 
+beforeAll(async () => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
+})
+
 afterEach(async () => {
   if (guestPrincipalIds.size > 0) {
     await database.client.guestPrincipal.deleteMany({
@@ -35,14 +89,29 @@ afterEach(async () => {
     guestPrincipalIds.clear()
   }
   if (userIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...userIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of userIds) {
+        await erasureWorkerClient.query(
+          `SELECT "phase7_erase_user"($1, 'TEST')`,
+          [userId]
+        )
+      }
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...userIds] } }
+      })
+    }
     userIds.clear()
   }
 })
 
 afterAll(async () => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
   await database.disconnect()
 })
 
@@ -96,15 +165,26 @@ describe('practice compatibility pre-listen fence', () => {
       checkDatabaseReadiness: database.checkReadiness,
       checkV1Compatibility: database.checkV1Compatibility
     })
-    const user = await database.client.user.create({
-      data: {
-        email: `slice4-fence-${randomUUID()}@example.test`,
-        emailVerified: true,
-        name: 'Slice 4 fence'
-      },
-      select: { id: true }
+    const userId = randomUUID()
+    await fixtureDatabase.client.$transaction(async (transaction) => {
+      await transaction.user.create({
+        data: {
+          id: userId,
+          email: `slice4-fence-${randomUUID()}@example.test`,
+          emailVerified: true,
+          name: 'Slice 4 fence'
+        }
+      })
+      await transaction.account.create({
+        data: {
+          accountId: userId,
+          password: 'phase10-fixture-password-hash',
+          providerId: 'credential',
+          userId
+        }
+      })
     })
-    userIds.add(user.id)
+    userIds.add(userId)
     const question = await database.client.question.findFirstOrThrow({
       where: {
         lifecycleStatus: 'ACTIVE',
@@ -117,7 +197,7 @@ describe('practice compatibility pre-listen fence', () => {
     await database.client.bookmark.create({
       data: {
         id: randomUUID(),
-        userId: user.id,
+        userId,
         questionId: question.id
       }
     })
@@ -129,7 +209,9 @@ describe('practice compatibility pre-listen fence', () => {
       PracticeCompatibilityFenceError
     )
 
-    await database.client.bookmark.deleteMany({ where: { userId: user.id } })
+    await database.client.bookmark.deleteMany({
+      where: { userId }
+    })
     await expect(database.checkV1Compatibility()).resolves.toBeUndefined()
   })
 })

@@ -32,7 +32,6 @@ const DECOY_HISTORY_CARDINALITY = 512
 const DECOY_NOTE_CARDINALITY = 512
 const BOOKMARK_DECOY_OWNER_CARDINALITY = 16
 const FILTER_DECOY_CARDINALITY = 256
-const RANKING_TARGET_CARDINALITY = 512
 const PAGE_SIZE = 5
 
 const environment = parseApiEnvironment(process.env)
@@ -42,7 +41,31 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+if (isPhase10CurrentSource && !fixtureDatabaseUrl) {
+  throw new Error(
+    'Phase 10 study-selection query-plan tests require a fixture database.'
+  )
+}
+if (fixtureDatabaseUrl) {
+  assertSafeTestDatabase({
+    nodeEnvironment: environment.NODE_ENV,
+    databaseUrl: fixtureDatabaseUrl,
+    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+  })
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
 
 const collectPlanNodes = (value: unknown, nodes: PlanNode[]): void => {
   if (Array.isArray(value)) {
@@ -145,13 +168,13 @@ const expectBoundedRelationRows = (
 }
 
 const analyzeSelectionTables = async (): Promise<void> => {
-  await database.client.$executeRaw`ANALYZE "StudySession"`
-  await database.client.$executeRaw`ANALYZE "StudySessionQuestion"`
-  await database.client.$executeRaw`ANALYZE "StudyAnswer"`
-  await database.client.$executeRaw`ANALYZE "StudyResult"`
-  await database.client.$executeRaw`ANALYZE "WrongNote"`
-  await database.client.$executeRaw`ANALYZE "ReviewSchedule"`
-  await database.client.$executeRaw`ANALYZE "Bookmark"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudySession"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudySessionQuestion"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudyAnswer"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudyResult"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "WrongNote"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "ReviewSchedule"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "Bookmark"`
 }
 
 beforeAll(async () => {
@@ -160,6 +183,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await analyzeSelectionTables()
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
   await database.disconnect()
 })
 
@@ -199,11 +225,21 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
         }
       }
     })
+    const selectionQuestionCount = await database.client.question.count({
+      where: {
+        lifecycleStatus: 'ACTIVE',
+        currentPublishedVersion: {
+          is: {
+            status: 'PUBLISHED'
+          }
+        }
+      }
+    })
 
     const rollbackSentinel = new Error('ROLLBACK_SLICE3_QUERY_PLAN_FIXTURE')
     let plans: QueryPlans | undefined
     try {
-      await database.client.$transaction(async (transaction) => {
+      await fixtureDatabase.client.$transaction(async (transaction) => {
         await transaction.$executeRaw`
           CREATE TEMP TABLE "slice3_plan_session" (
             "kind" TEXT NOT NULL,
@@ -306,88 +342,6 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
             AND version."status" = 'PUBLISHED'
             AND version."correctOptionId" IS NOT NULL
           ORDER BY question."id" ASC`
-        await transaction.$executeRaw`
-          INSERT INTO "slice3_plan_target_note" (
-            "questionId", "questionVersionId", "correctOptionId",
-            "wrongNoteId", "scheduleId", "isSynthetic"
-          )
-          SELECT
-            gen_random_uuid(),
-            gen_random_uuid(),
-            gen_random_uuid(),
-            gen_random_uuid(),
-            gen_random_uuid(),
-            true
-          FROM generate_series(1, ${RANKING_TARGET_CARDINALITY})`
-        await transaction.$executeRaw`
-          INSERT INTO "Question" (
-            "id", "lifecycleStatus", "createdByLabelSnapshot",
-            "createdAt", "updatedAt"
-          )
-          SELECT
-            target."questionId",
-            'ACTIVE',
-            'SYSTEM_SEED',
-            ${now},
-            ${now}
-          FROM "slice3_plan_target_note" AS target
-          WHERE target."isSynthetic"`
-        await transaction.$executeRaw`
-          INSERT INTO "QuestionVersion" (
-            "id", "questionId", "versionNumber", "status", "level",
-            "subject", "questionType", "questionText", "explanationKo",
-            "difficulty", "createdByLabelSnapshot", "createdAt", "updatedAt"
-          )
-          SELECT
-            target."questionVersionId",
-            target."questionId",
-            1,
-            'DRAFT',
-            'N5',
-            'VOCABULARY',
-            'KANJI_READING',
-            'Slice 3 query plan synthetic question',
-            '실행 계획 전용 원문 설명입니다.',
-            'EASY',
-            'SYSTEM_SEED',
-            ${now},
-            ${now}
-          FROM "slice3_plan_target_note" AS target
-          WHERE target."isSynthetic"`
-        await transaction.$executeRaw`
-          INSERT INTO "QuestionOption" (
-            "id", "questionVersionId", "label", "text", "ordinal"
-          )
-          SELECT
-            target."correctOptionId",
-            target."questionVersionId",
-            '1',
-            '실행 계획 정답',
-            1
-          FROM "slice3_plan_target_note" AS target
-          WHERE target."isSynthetic"`
-        await transaction.$executeRaw`
-          ALTER TABLE "QuestionVersion" DISABLE TRIGGER USER`
-        await transaction.$executeRaw`
-          UPDATE "QuestionVersion" AS version
-          SET
-            "status" = 'PUBLISHED',
-            "correctOptionId" = target."correctOptionId",
-            "publishedAt" = ${now},
-            "updatedAt" = ${now}
-          FROM "slice3_plan_target_note" AS target
-          WHERE target."isSynthetic"
-            AND version."id" = target."questionVersionId"`
-        await transaction.$executeRaw`
-          ALTER TABLE "QuestionVersion" ENABLE TRIGGER USER`
-        await transaction.$executeRaw`
-          UPDATE "Question" AS question
-          SET
-            "currentPublishedVersionId" = target."questionVersionId",
-            "updatedAt" = ${now}
-          FROM "slice3_plan_target_note" AS target
-          WHERE target."isSynthetic"
-            AND question."id" = target."questionId"`
         await transaction.$executeRaw`
           INSERT INTO "User" (
             "id", "name", "email", "emailVerified", "role",
@@ -657,6 +611,10 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
         await transaction.$executeRaw`ANALYZE "WrongNote"`
         await transaction.$executeRaw`ANALYZE "ReviewSchedule"`
         await transaction.$executeRaw`ANALYZE "Bookmark"`
+
+        if (isPhase10CurrentSource) {
+          await transaction.$executeRaw`SET LOCAL ROLE "nihongo_app"`
+        }
 
         const plannerSettings = await transaction.$queryRaw<
           { enableSeqscan: string; enableSort: string }[]
@@ -936,15 +894,17 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
 
     Object.values(plans).forEach(assertCommonPlanEvidence)
     expect(readRootPlan(plans.bookmarkList)['Actual Rows']).toBe(20)
-    expect(readRootPlan(plans.bookmarkMode)['Actual Rows']).toBe(20)
+    expect(readRootPlan(plans.bookmarkMode)['Actual Rows']).toBe(
+      Math.min(eligibleReviewQuestionCount, 20)
+    )
     expect(readRootPlan(plans.bookmarkModeOwnerScan)['Actual Rows']).toBe(20)
     expect(readRootPlan(plans.userWeakness)['Actual Rows']).toBe(1)
     expect(readRootPlan(plans.guestWeakness)['Actual Rows']).toBe(1)
     expect(readRootPlan(plans.wrongNote)['Actual Rows']).toBe(
-      Math.min(eligibleReviewQuestionCount + RANKING_TARGET_CARDINALITY, 20)
+      Math.min(eligibleReviewQuestionCount, 20)
     )
     expect(readRootPlan(plans.dailyReview)['Actual Rows']).toBe(
-      Math.min(eligibleReviewQuestionCount + RANKING_TARGET_CARDINALITY, 20)
+      Math.min(eligibleReviewQuestionCount, 20)
     )
     expect(readRootPlan(plans.wrongNoteOwnerScan)['Actual Rows']).toBe(20)
     expect(readRootPlan(plans.dailyReviewOwnerScan)['Actual Rows']).toBe(20)
@@ -1008,27 +968,27 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
     expectBoundedRelationRows(
       plans.wrongNote,
       'WrongNote',
-      RANKING_TARGET_CARDINALITY + 65
+      selectionQuestionCount
     )
     expectBoundedRelationRows(
       plans.dailyReview,
       'WrongNote',
-      RANKING_TARGET_CARDINALITY + 65
+      selectionQuestionCount
     )
     expectBoundedRelationRows(
       plans.bookmarkList,
       'Bookmark',
-      RANKING_TARGET_CARDINALITY + 65
+      selectionQuestionCount
     )
     expectBoundedRelationRows(
       plans.bookmarkMode,
       'Bookmark',
-      RANKING_TARGET_CARDINALITY + 65
+      selectionQuestionCount
     )
     expectBoundedRelationRows(
       plans.bookmarkModeOwnerScan,
       'Bookmark',
-      RANKING_TARGET_CARDINALITY + 65
+      selectionQuestionCount
     )
     expectBoundedRelationRows(
       plans.bookmarkQuestionCleanup,

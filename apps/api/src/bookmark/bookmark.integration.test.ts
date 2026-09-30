@@ -3,7 +3,10 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
-import { getPostgresSchema } from '../db/databaseOptions.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createStudySessionService } from '../study/studySessionService.js'
@@ -17,7 +20,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 bookmark tests require fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const repository = createPrismaBookmarkRepository(database.client)
 const bookmarkService = createBookmarkService(repository)
 const studySessionRepository = createPrismaStudySessionRepository(
@@ -25,22 +66,53 @@ const studySessionRepository = createPrismaStudySessionRepository(
 )
 const createdUserIds = new Set<string>()
 
+const createApplicationClient = (): Client =>
+  new Client({
+    connectionString: environment.DATABASE_URL,
+    options: createPostgresStartupOptions(
+      getPostgresSchema(environment.DATABASE_URL),
+      isPhase10CurrentSource ? 'nihongo_app' : undefined
+    )
+  })
+
 interface PublishedQuestionFixture {
   id: string
   questionVersionId: string
 }
 
 const createUser = async (label: string): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      email: `slice4-bookmark-${label}-${randomUUID()}@example.test`,
-      emailVerified: true,
-      name: `Slice 4 ${label}`
-    },
-    select: { id: true }
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        email: `slice4-bookmark-${label}-${randomUUID()}@example.test`,
+        emailVerified: true,
+        id: userId,
+        name: `Slice 4 ${label}`
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
   })
-  createdUserIds.add(user.id)
-  return user.id
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
 }
 
 const readPublishedQuestions = async (): Promise<PublishedQuestionFixture[]> =>
@@ -110,6 +182,10 @@ const waitForPostgresLockWait = async (
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
   const questions = await readPublishedQuestions()
   if (questions.length < 3) {
     throw new Error('Bookmark integration에는 공개 문제 3개가 필요합니다.')
@@ -118,9 +194,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    for (const userId of [...createdUserIds]) await eraseUser(userId)
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -239,73 +319,169 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
     ).resolves.toBe(1)
   })
 
-  it('기존 Bookmark의 public snapshot은 archive 뒤에도 보존하고 신규 추가는 막는다', async () => {
-    const ownerId = await createUser('archive-owner')
-    const foreignId = await createUser('archive-foreign')
-    const [question] = await readPublishedQuestions()
-    if (!question) throw new Error('Bookmark archive fixture가 필요합니다.')
-    const originalQuestion = await database.client.question.findUniqueOrThrow({
-      where: { id: question.id },
-      select: {
-        archivedAt: true,
-        currentPublishedVersionId: true,
-        lifecycleStatus: true
-      }
-    })
-    const initial = await bookmarkService.create(ownerId, question.id)
-
-    try {
-      await database.client.question.update({
-        where: { id: question.id },
-        data: {
-          archivedAt: new Date('2026-08-21T03:00:00.000Z'),
-          currentPublishedVersionId: null,
-          lifecycleStatus: 'ARCHIVED'
+  it(
+    isPhase10CurrentSource
+      ? '기존 Bookmark snapshot을 보존하고 비인가 archive를 원자 거부한다'
+      : '기존 Bookmark의 public snapshot은 archive 뒤에도 보존하고 신규 추가는 막는다',
+    async () => {
+      const ownerId = await createUser('archive-owner')
+      const foreignId = await createUser('archive-foreign')
+      const [question] = await readPublishedQuestions()
+      if (!question) throw new Error('Bookmark archive fixture가 필요합니다.')
+      const originalQuestion = await database.client.question.findUniqueOrThrow(
+        {
+          where: { id: question.id },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true
+          }
         }
-      })
+      )
+      const initial = await bookmarkService.create(ownerId, question.id)
 
-      const listed = await bookmarkService.list(ownerId, {
-        page: 1,
-        pageSize: 20
-      })
-      const repeated = await bookmarkService.create(ownerId, question.id)
-      expect(listed.items).toEqual([
-        expect.objectContaining({
-          availability: 'ARCHIVED',
-          questionId: question.id,
-          question: expect.objectContaining({
-            questionVersionId: question.questionVersionId
+      if (isPhase10CurrentSource) {
+        const currentQuestion =
+          await database.client.question.findUniqueOrThrow({
+            where: { id: question.id },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
           })
-        })
-      ])
-      expect(repeated).toMatchObject({
-        created: false,
-        bookmark: {
-          availability: 'ARCHIVED',
-          createdAt: initial.bookmark.createdAt,
-          questionId: question.id
+        const applicationClient = createApplicationClient()
+        let archiveError: unknown
+        try {
+          await applicationClient.connect()
+          await applicationClient.query(
+            `UPDATE "Question"
+           SET
+             "lifecycleStatus" = 'ARCHIVED',
+             "archivedAt" = $2,
+             "currentPublishedVersionId" = NULL,
+             "rowVersion" = "rowVersion" + 1,
+             "updatedAt" = $2
+           WHERE "id" = $1`,
+            [question.id, new Date('2026-08-21T03:00:00.000Z')]
+          )
+        } catch (error: unknown) {
+          archiveError = error
+        } finally {
+          await applicationClient.end().catch(() => undefined)
         }
-      })
-      await expect(
-        bookmarkService.create(foreignId, question.id)
-      ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
-      const keys = new Set<string>()
-      collectKeys(listed, keys)
-      ;[
-        'answer',
-        'correctOptionId',
-        'explanationJa',
-        'explanationKo',
-        'ownerId',
-        'userId'
-      ].forEach((key) => expect(keys).not.toContain(key))
-    } finally {
-      await database.client.question.update({
-        where: { id: question.id },
-        data: originalQuestion
-      })
+        expect(archiveError).toMatchObject({
+          code: '42501',
+          message: 'An armed trusted Phase 7 operation intent is required.'
+        })
+
+        const listed = await bookmarkService.list(ownerId, {
+          page: 1,
+          pageSize: 20
+        })
+        const repeated = await bookmarkService.create(ownerId, question.id)
+        const foreign = await bookmarkService.create(foreignId, question.id)
+        expect(listed.items).toEqual([
+          expect.objectContaining({
+            availability: 'AVAILABLE',
+            questionId: question.id,
+            question: expect.objectContaining({
+              questionVersionId: question.questionVersionId
+            })
+          })
+        ])
+        expect(repeated).toMatchObject({
+          created: false,
+          bookmark: {
+            availability: 'AVAILABLE',
+            createdAt: initial.bookmark.createdAt,
+            questionId: question.id
+          }
+        })
+        expect(foreign).toMatchObject({
+          created: true,
+          bookmark: { availability: 'AVAILABLE', questionId: question.id }
+        })
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: question.id },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        ).resolves.toEqual(currentQuestion)
+        const keys = new Set<string>()
+        collectKeys(listed, keys)
+        ;[
+          'answer',
+          'correctOptionId',
+          'explanationJa',
+          'explanationKo',
+          'ownerId',
+          'userId'
+        ].forEach((key) => expect(keys).not.toContain(key))
+        return
+      }
+
+      try {
+        await database.client.question.update({
+          where: { id: question.id },
+          data: {
+            archivedAt: new Date('2026-08-21T03:00:00.000Z'),
+            currentPublishedVersionId: null,
+            lifecycleStatus: 'ARCHIVED'
+          }
+        })
+
+        const listed = await bookmarkService.list(ownerId, {
+          page: 1,
+          pageSize: 20
+        })
+        const repeated = await bookmarkService.create(ownerId, question.id)
+        expect(listed.items).toEqual([
+          expect.objectContaining({
+            availability: 'ARCHIVED',
+            questionId: question.id,
+            question: expect.objectContaining({
+              questionVersionId: question.questionVersionId
+            })
+          })
+        ])
+        expect(repeated).toMatchObject({
+          created: false,
+          bookmark: {
+            availability: 'ARCHIVED',
+            createdAt: initial.bookmark.createdAt,
+            questionId: question.id
+          }
+        })
+        await expect(
+          bookmarkService.create(foreignId, question.id)
+        ).rejects.toMatchObject({ code: 'QUESTION_NOT_AVAILABLE' })
+        const keys = new Set<string>()
+        collectKeys(listed, keys)
+        ;[
+          'answer',
+          'correctOptionId',
+          'explanationJa',
+          'explanationKo',
+          'ownerId',
+          'userId'
+        ].forEach((key) => expect(keys).not.toContain(key))
+      } finally {
+        await database.client.question.update({
+          where: { id: question.id },
+          data: originalQuestion
+        })
+      }
     }
-  })
+  )
 
   it('BOOKMARK mode는 createdAt과 stable question ID 순서로 partial v2 session을 만든다', async () => {
     const ownerId = await createUser('mode-owner')
@@ -398,144 +574,61 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
     ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
   })
 
-  it('BOOKMARK selection과 archive를 직렬화하고 이미 선택한 version pin을 보존한다', async () => {
-    const ownerId = await createUser('archive-race')
-    const [question] = await readPublishedQuestions()
-    if (!question) throw new Error('Bookmark race fixture가 필요합니다.')
-    await bookmarkService.create(ownerId, question.id)
+  it(
+    isPhase10CurrentSource
+      ? 'BOOKMARK selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
+      : 'BOOKMARK selection과 archive를 직렬화하고 이미 선택한 version pin을 보존한다',
+    async () => {
+      const ownerId = await createUser('archive-race')
+      const [question] = await readPublishedQuestions()
+      if (!question) throw new Error('Bookmark race fixture가 필요합니다.')
+      await bookmarkService.create(ownerId, question.id)
 
-    const schema = getPostgresSchema(environment.DATABASE_URL)
-    const connectionOptions = schema
-      ? { options: `-c search_path=${schema}` }
-      : {}
-    const archiveClient = new Client({
-      connectionString: environment.DATABASE_URL,
-      ...connectionOptions
-    })
-    const observerClient = new Client({
-      connectionString: environment.DATABASE_URL,
-      ...connectionOptions
-    })
-    let releaseSelection = (): void => undefined
-    const selectionRelease = new Promise<void>((resolve) => {
-      releaseSelection = resolve
-    })
-    let reportSelection!: (
-      selected: readonly { questionId: string; questionVersionId: string }[]
-    ) => void
-    const selectionLocked = new Promise<
-      readonly { questionId: string; questionVersionId: string }[]
-    >((resolve) => {
-      reportSelection = resolve
-    })
-    const raceRepository = createPrismaStudySessionRepository(database.client, {
-      afterSelectionLocked: async (selected) => {
-        reportSelection(selected)
-        await selectionRelease
-      }
-    })
-    const raceService = createStudySessionService(
-      raceRepository,
-      () => new Date('2026-08-21T08:00:00.000Z')
-    )
-    let createPromise: ReturnType<typeof raceService.create> | undefined
-    let archiveUpdate: Promise<unknown> | undefined
-    let archiveTransactionOpen = false
-    let archiveCommitted = false
-    let originalQuestion:
-      | {
-          archivedAt: Date | null
-          currentPublishedVersionId: string | null
-          lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
-          updatedAt: Date
-        }
-      | undefined
-
-    try {
-      await Promise.all([archiveClient.connect(), observerClient.connect()])
-      createPromise = raceService.create(
-        {
-          count: 1,
-          level: 'N5',
-          mode: 'BOOKMARK',
-          subject: 'VOCABULARY'
-        },
-        { kind: 'USER', userId: ownerId },
-        2
-      )
-      const selected = await Promise.race([
-        selectionLocked,
-        createPromise.then(() => {
-          throw new Error('BOOKMARK session creation bypassed the lock hook.')
-        })
-      ])
-      expect(selected).toEqual([
-        {
-          questionId: question.id,
-          questionVersionId: question.questionVersionId
-        }
-      ])
-      const original = await observerClient.query<{
-        archivedAt: Date | null
-        currentPublishedVersionId: string | null
-        lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
-        updatedAt: Date
-      }>(
-        `SELECT
-           "archivedAt",
-           "currentPublishedVersionId",
-           "lifecycleStatus",
-           "updatedAt"
-         FROM "Question"
-         WHERE "id" = $1`,
-        [question.id]
-      )
-      originalQuestion = original.rows[0]
-      if (!originalQuestion) {
-        throw new Error('Bookmark race restore fixture가 필요합니다.')
-      }
-      const backend = await archiveClient.query<{ processId: number }>(
-        'SELECT pg_backend_pid() AS "processId"'
-      )
-      const processId = backend.rows[0]?.processId
-      if (processId === undefined) {
-        throw new Error('Bookmark archive backend PID가 필요합니다.')
-      }
-
-      await archiveClient.query('BEGIN')
-      archiveTransactionOpen = true
-      let archiveSettled = false
-      archiveUpdate = archiveClient
-        .query(
-          `UPDATE "Question"
-           SET
-             "lifecycleStatus" = 'ARCHIVED',
-             "archivedAt" = $2,
-             "currentPublishedVersionId" = NULL,
-             "updatedAt" = $2
-           WHERE "id" = $1`,
-          [question.id, new Date('2026-08-21T08:00:01.000Z')]
-        )
-        .finally(() => {
-          archiveSettled = true
-        })
-
-      await waitForPostgresLockWait(observerClient, processId)
-      expect(archiveSettled).toBe(false)
-      releaseSelection()
-
-      const created = await createPromise
-      await archiveUpdate
-      await archiveClient.query('COMMIT')
-      archiveTransactionOpen = false
-      archiveCommitted = true
-      expect(created.payload.questions).toHaveLength(1)
-      expect(created.payload.questions[0]?.question).toMatchObject({
-        id: question.id,
-        questionVersionId: question.questionVersionId
+      const archiveClient = createApplicationClient()
+      const observerClient = createApplicationClient()
+      let releaseSelection = (): void => undefined
+      const selectionRelease = new Promise<void>((resolve) => {
+        releaseSelection = resolve
       })
-      await expect(
-        raceService.create(
+      let reportSelection!: (
+        selected: readonly { questionId: string; questionVersionId: string }[]
+      ) => void
+      const selectionLocked = new Promise<
+        readonly { questionId: string; questionVersionId: string }[]
+      >((resolve) => {
+        reportSelection = resolve
+      })
+      const raceRepository = createPrismaStudySessionRepository(
+        database.client,
+        {
+          afterSelectionLocked: async (selected) => {
+            reportSelection(selected)
+            await selectionRelease
+          }
+        }
+      )
+      const raceService = createStudySessionService(
+        raceRepository,
+        () => new Date('2026-08-21T08:00:00.000Z')
+      )
+      let createPromise: ReturnType<typeof raceService.create> | undefined
+      let archiveUpdate: Promise<unknown> | undefined
+      let archiveTransactionOpen = false
+      let archiveCommitted = false
+      let archiveError: unknown
+      let originalQuestion:
+        | {
+            archivedAt: Date | null
+            currentPublishedVersionId: string | null
+            lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
+            rowVersion?: number
+            updatedAt: Date
+          }
+        | undefined
+
+      try {
+        await Promise.all([archiveClient.connect(), observerClient.connect()])
+        createPromise = raceService.create(
           {
             count: 1,
             level: 'N5',
@@ -545,36 +638,169 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
           { kind: 'USER', userId: ownerId },
           2
         )
-      ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
-    } finally {
-      releaseSelection()
-      await createPromise?.catch(() => undefined)
-      await archiveUpdate?.catch(() => undefined)
-      if (archiveTransactionOpen) {
-        await archiveClient.query('ROLLBACK').catch(() => undefined)
-      }
-      if (archiveCommitted && originalQuestion) {
-        await observerClient.query(
-          `UPDATE "Question"
+        const selected = await Promise.race([
+          selectionLocked,
+          createPromise.then(() => {
+            throw new Error('BOOKMARK session creation bypassed the lock hook.')
+          })
+        ])
+        expect(selected).toEqual([
+          {
+            questionId: question.id,
+            questionVersionId: question.questionVersionId
+          }
+        ])
+        const original = await observerClient.query<{
+          archivedAt: Date | null
+          currentPublishedVersionId: string | null
+          lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
+          updatedAt: Date
+        }>(
+          `SELECT
+           "archivedAt",
+           "currentPublishedVersionId",
+           "lifecycleStatus",
+           ${isPhase10CurrentSource ? '"rowVersion",' : ''}
+           "updatedAt"
+         FROM "Question"
+         WHERE "id" = $1`,
+          [question.id]
+        )
+        originalQuestion = original.rows[0]
+        if (!originalQuestion) {
+          throw new Error('Bookmark race restore fixture가 필요합니다.')
+        }
+        const backend = await archiveClient.query<{ processId: number }>(
+          'SELECT pg_backend_pid() AS "processId"'
+        )
+        const processId = backend.rows[0]?.processId
+        if (processId === undefined) {
+          throw new Error('Bookmark archive backend PID가 필요합니다.')
+        }
+
+        await archiveClient.query('BEGIN')
+        archiveTransactionOpen = true
+        let archiveSettled = false
+        archiveUpdate = archiveClient
+          .query(
+            isPhase10CurrentSource
+              ? `UPDATE "Question"
+               SET
+                 "lifecycleStatus" = 'ARCHIVED',
+                 "archivedAt" = $2,
+                 "currentPublishedVersionId" = NULL,
+                 "rowVersion" = "rowVersion" + 1,
+                 "updatedAt" = $2
+               WHERE "id" = $1`
+              : `UPDATE "Question"
+               SET
+                 "lifecycleStatus" = 'ARCHIVED',
+                 "archivedAt" = $2,
+                 "currentPublishedVersionId" = NULL,
+                 "updatedAt" = $2
+               WHERE "id" = $1`,
+            [question.id, new Date('2026-08-21T08:00:01.000Z')]
+          )
+          .catch((error: unknown) => {
+            archiveError = error
+          })
+          .finally(() => {
+            archiveSettled = true
+          })
+
+        if (isPhase10CurrentSource) {
+          releaseSelection()
+        } else {
+          await waitForPostgresLockWait(observerClient, processId)
+          expect(archiveSettled).toBe(false)
+          releaseSelection()
+        }
+
+        const created = await createPromise
+        await archiveUpdate
+        expect(archiveSettled).toBe(true)
+        expect(created.payload.questions).toHaveLength(1)
+        expect(created.payload.questions[0]?.question).toMatchObject({
+          id: question.id,
+          questionVersionId: question.questionVersionId
+        })
+
+        if (isPhase10CurrentSource) {
+          expect(archiveError).toMatchObject({
+            code: '42501',
+            message: 'An armed trusted Phase 7 operation intent is required.'
+          })
+          await archiveClient.query('ROLLBACK')
+          archiveTransactionOpen = false
+          await expect(
+            observerClient.query<{
+              archivedAt: Date | null
+              currentPublishedVersionId: string | null
+              lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
+              rowVersion: number
+              updatedAt: Date
+            }>(
+              `SELECT
+               "archivedAt",
+               "currentPublishedVersionId",
+               "lifecycleStatus",
+               "rowVersion",
+               "updatedAt"
+             FROM "Question"
+             WHERE "id" = $1`,
+              [question.id]
+            )
+          ).resolves.toMatchObject({ rows: [originalQuestion] })
+          return
+        }
+
+        expect(archiveError).toBeUndefined()
+        await archiveClient.query('COMMIT')
+        archiveTransactionOpen = false
+        archiveCommitted = true
+        await expect(
+          raceService.create(
+            {
+              count: 1,
+              level: 'N5',
+              mode: 'BOOKMARK',
+              subject: 'VOCABULARY'
+            },
+            { kind: 'USER', userId: ownerId },
+            2
+          )
+        ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
+      } finally {
+        releaseSelection()
+        await createPromise?.catch(() => undefined)
+        await archiveUpdate?.catch(() => undefined)
+        if (archiveTransactionOpen) {
+          await archiveClient.query('ROLLBACK').catch(() => undefined)
+        }
+        if (archiveCommitted && originalQuestion) {
+          await observerClient.query(
+            `UPDATE "Question"
            SET
              "lifecycleStatus" = $2,
              "archivedAt" = $3,
              "currentPublishedVersionId" = $4,
              "updatedAt" = $5
            WHERE "id" = $1`,
-          [
-            question.id,
-            originalQuestion.lifecycleStatus,
-            originalQuestion.archivedAt,
-            originalQuestion.currentPublishedVersionId,
-            originalQuestion.updatedAt
-          ]
-        )
+            [
+              question.id,
+              originalQuestion.lifecycleStatus,
+              originalQuestion.archivedAt,
+              originalQuestion.currentPublishedVersionId,
+              originalQuestion.updatedAt
+            ]
+          )
+        }
+        await Promise.all([
+          archiveClient.end().catch(() => undefined),
+          observerClient.end().catch(() => undefined)
+        ])
       }
-      await Promise.all([
-        archiveClient.end().catch(() => undefined),
-        observerClient.end().catch(() => undefined)
-      ])
-    }
-  }, 15_000)
+    },
+    15_000
+  )
 })

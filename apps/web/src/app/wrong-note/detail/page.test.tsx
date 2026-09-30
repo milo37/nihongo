@@ -42,7 +42,7 @@ const createDetail = (
   canUpdateMemo: false
 })
 
-const renderDetail = (data: WrongNoteDetailView): void => {
+const renderDetail = (data: WrongNoteDetailView) => {
   const router = createMemoryRouter(
     [
       {
@@ -53,7 +53,7 @@ const renderDetail = (data: WrongNoteDetailView): void => {
     ],
     { initialEntries: [`/wrong-notes/${data.question.id}`] }
   )
-  render(<RouterProvider router={router} />)
+  return render(<RouterProvider router={router} />)
 }
 
 describe('canonical wrong-note detail', () => {
@@ -160,5 +160,41 @@ describe('canonical wrong-note detail', () => {
       '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
     )
     expect(screen.queryByText(/단일 복습을 시작/u)).not.toBeInTheDocument()
+  })
+
+  it('HTML-shaped question content를 실행하지 않고 plain text로 표시한다', () => {
+    document.body.removeAttribute('data-phase10-xss-executed')
+    const execute =
+      "document.body.setAttribute('data-phase10-xss-executed','true')"
+    const questionText = `<img data-phase10-hostile="question" src="x" onerror="${execute}">`
+    const passage = `<svg data-phase10-hostile="passage" onload="${execute}"></svg>`
+    const optionText = `<a data-phase10-hostile="option" href="javascript:${execute}">x</a>`
+    const explanationKo = `</p><script data-phase10-hostile="explanation">${execute}</script>`
+    const base = createDetail('AVAILABLE')
+    const detail: WrongNoteDetailView = {
+      ...base,
+      question: {
+        ...base.question,
+        explanationKo,
+        passage,
+        questionText,
+        options: [
+          { ...base.question.options[0]!, text: optionText },
+          base.question.options[1]!
+        ]
+      }
+    }
+
+    const { container } = renderDetail(detail)
+
+    expect(screen.getByText(questionText, { exact: true })).toBeVisible()
+    expect(screen.getByText(passage, { exact: true })).toBeVisible()
+    expect(screen.getByText(`1. ${optionText}`, { exact: true })).toBeVisible()
+    expect(screen.getByText(explanationKo, { exact: true })).toBeVisible()
+    expect(container.querySelectorAll('[data-phase10-hostile]')).toHaveLength(0)
+    expect(
+      container.querySelectorAll('script, iframe, object, embed')
+    ).toHaveLength(0)
+    expect(document.body).not.toHaveAttribute('data-phase10-xss-executed')
   })
 })

@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL
 const outputLabel = process.env.PLAYWRIGHT_OUTPUT_LABEL ?? 'real'
-const retainPassingEvidence = outputLabel.startsWith('phase9')
+const safeEvidenceDirectory =
+  process.env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR ??
+  'test-results/phase10-evidence/playwright'
 
 if (!baseURL) {
   throw new Error(
@@ -18,8 +20,8 @@ export default defineConfig({
   reporter: [
     ['list'],
     [
-      'html',
-      { open: 'never', outputFolder: `playwright-report/${outputLabel}` }
+      './scripts/security/phase10-playwright-summary-reporter.mjs',
+      { label: outputLabel, outputDirectory: safeEvidenceDirectory }
     ]
   ],
   retries: 0,
@@ -29,10 +31,10 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL,
     locale: 'ko-KR',
-    screenshot: retainPassingEvidence ? 'on' : 'only-on-failure',
+    screenshot: 'off',
     timezoneId: 'Asia/Tokyo',
-    trace: retainPassingEvidence ? 'on' : 'retain-on-failure',
-    video: retainPassingEvidence ? 'on' : 'retain-on-failure'
+    trace: 'off',
+    video: 'off'
   },
   workers: 1
 })

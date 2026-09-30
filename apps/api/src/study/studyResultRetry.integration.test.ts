@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { Prisma } from '../generated/prisma/client.js'
 import type { ExistingStudyOwner } from './studySessionRepository.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
@@ -20,7 +26,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 result retry requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const submissionRepository = createPrismaStudySubmissionRepository(
   database.client
@@ -33,25 +77,130 @@ const guestPrincipalService = createGuestPrincipalService({
 })
 const createdUserIds = new Set<string>()
 const createdGuestIds = new Set<string>()
-const historicalPinTest =
-  process.env.RUN_SLICE5_HISTORICAL_PIN_TEST === '1' ? it : it.skip
 
 interface AnswerMaterial {
   readonly correctOptionId: string
   readonly studySessionQuestionId: string
 }
 
-const createUser = async (label: string): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: `Slice 5 ${label}`,
-      email: `slice5-${label}-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+interface RawDatabaseErrorIdentity {
+  readonly message: string
+  readonly sqlState: string
+}
+
+const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readRawDatabaseErrorIdentity = (
+  error: unknown
+): RawDatabaseErrorIdentity | undefined => {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2010' ||
+    !isUnknownRecord(error.meta)
+  ) {
+    return undefined
+  }
+  const identities: RawDatabaseErrorIdentity[] = []
+  if (
+    typeof error.meta.code === 'string' &&
+    typeof error.meta.message === 'string'
+  ) {
+    identities.push({
+      message: error.meta.message,
+      sqlState: error.meta.code
+    })
+  }
+  const driverAdapterError = error.meta.driverAdapterError
+  if (isUnknownRecord(driverAdapterError)) {
+    const cause = driverAdapterError.cause
+    if (
+      isUnknownRecord(cause) &&
+      typeof cause.originalCode === 'string' &&
+      typeof cause.originalMessage === 'string'
+    ) {
+      identities.push({
+        message: cause.originalMessage,
+        sqlState: cause.originalCode
+      })
+    }
+  }
+  const [identity, ...rest] = identities
+  if (
+    !identity ||
+    rest.some(
+      (candidate) =>
+        candidate.sqlState !== identity.sqlState ||
+        candidate.message !== identity.message
+    )
+  ) {
+    return undefined
+  }
+  return {
+    message:
+      identity.message
+        .split('\n', 1)[0]
+        ?.replace(/^ERROR:\s*/u, '')
+        .trim() ?? '',
+    sqlState: identity.sqlState
+  }
+}
+
+const expectRawDatabaseError = async ({
+  expectedMessage,
+  operation,
+  sqlState
+}: {
+  readonly expectedMessage: string
+  readonly operation: () => Promise<unknown>
+  readonly sqlState: string
+}): Promise<void> => {
+  let caughtError: unknown
+  try {
+    await operation()
+  } catch (error: unknown) {
+    caughtError = error
+  }
+  expect(caughtError).toMatchObject({ code: 'P2010' })
+  expect(readRawDatabaseErrorIdentity(caughtError)).toEqual({
+    message: expectedMessage,
+    sqlState
   })
-  createdUserIds.add(user.id)
-  return user.id
+}
+
+const createUser = async (label: string): Promise<string> => {
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: `Slice 5 ${label}`,
+        email: `slice5-${label}-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
+  })
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
 }
 
 const createGuestOwner = async (): Promise<
@@ -134,18 +283,26 @@ const createSubmittedSource = async (
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    for (const userId of [...createdUserIds]) await eraseUser(userId)
   }
   if (createdGuestIds.size > 0) {
     await database.client.guestPrincipal.deleteMany({
       where: { id: { in: [...createdGuestIds] } }
     })
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -219,7 +376,7 @@ describe('study result retry integration', () => {
         },
         select: { id: true, responseBody: true }
       })
-    await database.client.$executeRawUnsafe(
+    await fixtureDatabase.client.$executeRawUnsafe(
       'ALTER TABLE "IdempotencyRecord" ' +
         'DISABLE TRIGGER "IdempotencyRecord_validate_change"'
     )
@@ -237,17 +394,21 @@ describe('study result retry integration', () => {
           '"2"'::jsonb, true
         )`
       ]) {
-        await expect(
-          database.client.$executeRawUnsafe(
-            `UPDATE "IdempotencyRecord"
+        await expectRawDatabaseError({
+          expectedMessage:
+            'Committed retry idempotency state does not match its target session.',
+          operation: async () =>
+            await fixtureDatabase.client.$executeRawUnsafe(
+              `UPDATE "IdempotencyRecord"
              SET "responseBody" = ${responseExpression}
              WHERE "id" = $1::uuid`,
-            retryRecord.id
-          )
-        ).rejects.toMatchObject({ code: 'P2010' })
+              retryRecord.id
+            ),
+          sqlState: '23514'
+        })
       }
     } finally {
-      await database.client.$executeRawUnsafe(
+      await fixtureDatabase.client.$executeRawUnsafe(
         'ALTER TABLE "IdempotencyRecord" ' +
           'ENABLE TRIGGER "IdempotencyRecord_validate_change"'
       )
@@ -359,7 +520,11 @@ describe('study result retry integration', () => {
         randomUUID(),
         { kind: 'USER', userId: foreignUserId }
       )
-    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
+    ).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+      message: '재출제할 학습 결과를 찾을 수 없습니다.',
+      retryable: false
+    })
   })
 
   it('correct-only는 404이고 archived 오답은 partial actualCount로 제외한다', async () => {
@@ -372,7 +537,11 @@ describe('study result retry integration', () => {
         randomUUID(),
         owner
       )
-    ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
+    ).rejects.toMatchObject({
+      code: 'NO_ELIGIBLE_QUESTIONS',
+      message: '다시 풀 수 있는 오답 문제가 없습니다.',
+      retryable: false
+    })
 
     const allWrong = await createSubmittedSource(owner, new Set([1, 2]))
     const archivedQuestionId = allWrong.submitted.response.items[0]?.question.id
@@ -382,11 +551,58 @@ describe('study result retry integration', () => {
     const original = await database.client.question.findUniqueOrThrow({
       where: { id: archivedQuestionId },
       select: {
-        lifecycleStatus: true,
         archivedAt: true,
-        currentPublishedVersionId: true
+        currentPublishedVersionId: true,
+        lifecycleStatus: true,
+        rowVersion: true,
+        updatedAt: true
       }
     })
+    if (isPhase10CurrentSource) {
+      const archiveTime = new Date()
+      await expectRawDatabaseError({
+        expectedMessage:
+          'An armed trusted Phase 7 operation intent is required.',
+        operation: async () =>
+          await database.client.$executeRaw`
+            UPDATE "Question"
+            SET
+              "lifecycleStatus" = 'ARCHIVED',
+              "archivedAt" = ${archiveTime},
+              "currentPublishedVersionId" = NULL,
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${archiveTime}
+            WHERE "id" = ${archivedQuestionId}::uuid
+          `,
+        sqlState: '42501'
+      })
+      await expect(
+        database.client.question.findUniqueOrThrow({
+          where: { id: archivedQuestionId },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true,
+            rowVersion: true,
+            updatedAt: true
+          }
+        })
+      ).resolves.toEqual(original)
+      const retry = await createStudyResultRetryService(
+        retryRepository,
+        () => new Date()
+      ).create(allWrong.created.session.id, randomUUID(), owner)
+      expect(retry.response.session).toMatchObject({
+        requestedCount: 2,
+        actualCount: 2
+      })
+      expect(
+        retry.response.questions.some(
+          ({ question }) => question.id === archivedQuestionId
+        )
+      ).toBe(true)
+      return
+    }
     try {
       await database.client.question.update({
         where: { id: archivedQuestionId },
@@ -410,16 +626,116 @@ describe('study result retry integration', () => {
     } finally {
       await database.client.question.update({
         where: { id: archivedQuestionId },
-        data: original
+        data: {
+          archivedAt: original.archivedAt,
+          currentPublishedVersionId: original.currentPublishedVersionId,
+          lifecycleStatus: original.lifecycleStatus,
+          rowVersion: original.rowVersion,
+          updatedAt: original.updatedAt
+        }
       })
     }
   })
 
-  historicalPinTest(
-    'source v1을 retire하고 v2를 publish해도 retry와 ReviewEvent는 v1 pin을 보존한다',
+  it(
+    isPhase10CurrentSource
+      ? 'direct retirement 거부 뒤에도 retry와 ReviewEvent가 historical pin을 보존한다'
+      : 'source v1을 retire하고 v2를 publish해도 retry와 ReviewEvent는 v1 pin을 보존한다',
     async () => {
       const userId = await createUser('historical-pin')
       const owner = { kind: 'USER' as const, userId }
+      if (isPhase10CurrentSource) {
+        const startedAt = new Date()
+        const source = await createSubmittedSource(
+          owner,
+          new Set([1]),
+          startedAt
+        )
+        const sourceItem = source.submitted.response.items.find(
+          ({ isCorrect }) => !isCorrect
+        )
+        if (!sourceItem) {
+          throw new Error('Phase 10 historical pin source가 필요합니다.')
+        }
+        const sourceVersionId = sourceItem.question.questionVersionId
+        const sourceQuestionId = sourceItem.question.id
+        const [versionBefore, questionBefore] = await Promise.all([
+          database.client.questionVersion.findUniqueOrThrow({
+            where: { id: sourceVersionId }
+          }),
+          database.client.question.findUniqueOrThrow({
+            where: { id: sourceQuestionId },
+            select: { currentPublishedVersionId: true }
+          })
+        ])
+        const retirementTime = new Date(startedAt.getTime() + 2_000)
+        await expectRawDatabaseError({
+          expectedMessage:
+            'An armed trusted Phase 7 operation intent is required.',
+          operation: async () =>
+            await database.client.$executeRaw`
+            UPDATE "QuestionVersion"
+            SET
+              "status" = 'RETIRED',
+              "retirementKind" = 'PUBLISHED_RETIREMENT',
+              "retiredAt" = ${retirementTime},
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${retirementTime}
+            WHERE "id" = ${sourceVersionId}::uuid
+          `,
+          sqlState: '42501'
+        })
+        await expect(
+          database.client.questionVersion.findUniqueOrThrow({
+            where: { id: sourceVersionId }
+          })
+        ).resolves.toEqual(versionBefore)
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: sourceQuestionId },
+            select: { currentPublishedVersionId: true }
+          })
+        ).resolves.toEqual(questionBefore)
+
+        const retried = await createStudyResultRetryService(
+          retryRepository,
+          () => new Date(startedAt.getTime() + 3_000)
+        ).create(source.created.session.id, randomUUID(), owner)
+        expect(retried.response.questions).toHaveLength(1)
+        expect(retried.response.questions[0]?.question.questionVersionId).toBe(
+          sourceVersionId
+        )
+        await createStudySubmissionService(
+          submissionRepository,
+          () => new Date(startedAt.getTime() + 4_000)
+        ).submit(
+          retried.response.session.id,
+          randomUUID(),
+          {
+            answers: retried.response.questions.map(
+              ({ sessionQuestionId }) => ({
+                studySessionQuestionId: sessionQuestionId,
+                selectedOptionId: null,
+                elapsedSec: 0
+              })
+            ),
+            durationSec: 0,
+            expectedDraftRevision: 0
+          },
+          owner,
+          2
+        )
+        await expect(
+          database.client.reviewEvent.findFirstOrThrow({
+            where: { studySessionId: retried.response.session.id },
+            select: { questionVersionId: true, source: true }
+          })
+        ).resolves.toEqual({
+          questionVersionId: sourceVersionId,
+          source: 'WRONG_NOTE_REVIEW'
+        })
+        return
+      }
       const questionId = randomUUID()
       const versionOneId = randomUUID()
       const versionTwoId = randomUUID()

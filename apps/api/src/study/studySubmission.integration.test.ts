@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { studyResultSchema } from '@nihongo/contracts/study/study-result'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { Prisma } from '../generated/prisma/client.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import {
@@ -24,7 +30,45 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 study submission requires fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const submissionRepository = createPrismaStudySubmissionRepository(
   database.client
@@ -47,17 +91,121 @@ interface PinnedQuestionMaterial {
   questionVersionId: string
 }
 
-const createUser = async (): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: 'Slice 4 submission user',
-      email: `slice4-submit-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+interface RawDatabaseErrorIdentity {
+  readonly message: string
+  readonly sqlState: string
+}
+
+const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readRawDatabaseErrorIdentity = (
+  error: unknown
+): RawDatabaseErrorIdentity | undefined => {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2010' ||
+    !isUnknownRecord(error.meta)
+  ) {
+    return undefined
+  }
+  const identities: RawDatabaseErrorIdentity[] = []
+  if (
+    typeof error.meta.code === 'string' &&
+    typeof error.meta.message === 'string'
+  ) {
+    identities.push({ message: error.meta.message, sqlState: error.meta.code })
+  }
+  const driverAdapterError = error.meta.driverAdapterError
+  if (isUnknownRecord(driverAdapterError)) {
+    const cause = driverAdapterError.cause
+    if (
+      isUnknownRecord(cause) &&
+      typeof cause.originalCode === 'string' &&
+      typeof cause.originalMessage === 'string'
+    ) {
+      identities.push({
+        message: cause.originalMessage,
+        sqlState: cause.originalCode
+      })
+    }
+  }
+  const [identity, ...rest] = identities
+  if (
+    !identity ||
+    rest.some(
+      (candidate) =>
+        candidate.sqlState !== identity.sqlState ||
+        candidate.message !== identity.message
+    )
+  ) {
+    return undefined
+  }
+  return {
+    message:
+      identity.message
+        .split('\n', 1)[0]
+        ?.replace(/^ERROR:\s*/u, '')
+        .trim() ?? '',
+    sqlState: identity.sqlState
+  }
+}
+
+const expectRawDatabaseError = async ({
+  expectedMessage,
+  operation,
+  sqlState
+}: {
+  readonly expectedMessage: string
+  readonly operation: () => Promise<unknown>
+  readonly sqlState: string
+}): Promise<void> => {
+  let caughtError: unknown
+  try {
+    await operation()
+  } catch (error: unknown) {
+    caughtError = error
+  }
+  expect(caughtError).toMatchObject({ code: 'P2010' })
+  expect(readRawDatabaseErrorIdentity(caughtError)).toEqual({
+    message: expectedMessage,
+    sqlState
   })
-  createdUserIds.add(user.id)
-  return user.id
+}
+
+const createUser = async (): Promise<string> => {
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: 'Slice 4 submission user',
+        email: `slice4-submit-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
+  })
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
 }
 
 const createSession = async (
@@ -218,18 +366,32 @@ const countSessionAnswers = async (sessionId: string): Promise<number> =>
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of [...createdUserIds]) await eraseUser(userId)
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
   }
   if (createdGuestIds.size > 0) {
     await database.client.guestPrincipal.deleteMany({
       where: { id: { in: [...createdGuestIds] } }
     })
+  }
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
   }
   await database.disconnect()
 })
@@ -909,65 +1071,108 @@ describe('Study submission PostgreSQL transaction', () => {
     ).toEqual({ status: 'IN_PROGRESS' })
   })
 
-  it('Question pointer 제거와 archive 뒤에도 pinned version으로 채점·조회한다', async () => {
-    const userId = await createUser()
-    const owner = { kind: 'USER' as const, userId }
-    const startedAt = new Date()
-    const pinned = await loadPinnedQuestion()
-    const session = await createPinnedSession(owner, pinned, startedAt)
-    const originalQuestion = await database.client.question.findUniqueOrThrow({
-      where: { id: pinned.questionId },
-      select: {
-        lifecycleStatus: true,
-        archivedAt: true,
-        currentPublishedVersionId: true
+  it(
+    isPhase10CurrentSource
+      ? '비인가 Question archive를 42501로 거부하고 pinned version으로 채점·조회한다'
+      : 'Question pointer 제거와 archive 뒤에도 pinned version으로 채점·조회한다',
+    async () => {
+      const userId = await createUser()
+      const owner = { kind: 'USER' as const, userId }
+      const startedAt = new Date()
+      const pinned = await loadPinnedQuestion()
+      const session = await createPinnedSession(owner, pinned, startedAt)
+      const originalQuestion = await database.client.question.findUniqueOrThrow(
+        {
+          where: { id: pinned.questionId },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true,
+            rowVersion: true,
+            updatedAt: true
+          }
+        }
+      )
+      if (isPhase10CurrentSource) {
+        const archiveTime = new Date(startedAt.getTime() + 500)
+        await expectRawDatabaseError({
+          expectedMessage:
+            'An armed trusted Phase 7 operation intent is required.',
+          operation: async () =>
+            await database.client.$executeRaw`
+            UPDATE "Question"
+            SET
+              "lifecycleStatus" = 'ARCHIVED',
+              "archivedAt" = ${archiveTime},
+              "currentPublishedVersionId" = NULL,
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${archiveTime}
+            WHERE "id" = ${pinned.questionId}::uuid
+          `,
+          sqlState: '42501'
+        })
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: pinned.questionId },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        ).resolves.toEqual(originalQuestion)
+      } else {
+        await database.client.question.update({
+          where: { id: pinned.questionId },
+          data: {
+            lifecycleStatus: 'ARCHIVED',
+            archivedAt: new Date(startedAt.getTime() + 500),
+            currentPublishedVersionId: null
+          }
+        })
       }
-    })
-    await database.client.question.update({
-      where: { id: pinned.questionId },
-      data: {
-        lifecycleStatus: 'ARCHIVED',
-        archivedAt: new Date(startedAt.getTime() + 500),
-        currentPublishedVersionId: null
+
+      try {
+        const service = createStudySubmissionService(
+          submissionRepository,
+          () => new Date(startedAt.getTime() + 1_000)
+        )
+        const body = createBody(
+          [session.material],
+          ({ correctOptionId }) => correctOptionId
+        )
+        const submitted = await service.submit(
+          session.id,
+          randomUUID(),
+          body,
+          owner
+        )
+
+        expect(submitted.response).toMatchObject({
+          sessionId: session.id,
+          correctCount: 1,
+          incorrectCount: 0
+        })
+        expect(submitted.response.items[0]?.question).toMatchObject({
+          id: pinned.questionId,
+          questionVersionId: pinned.questionVersionId,
+          correctOptionId: pinned.correctOptionId
+        })
+        await expect(service.getResult(session.id, owner)).resolves.toEqual(
+          submitted.response
+        )
+      } finally {
+        if (!isPhase10CurrentSource) {
+          await database.client.question.update({
+            where: { id: pinned.questionId },
+            data: originalQuestion
+          })
+        }
       }
-    })
-
-    try {
-      const service = createStudySubmissionService(
-        submissionRepository,
-        () => new Date(startedAt.getTime() + 1_000)
-      )
-      const body = createBody(
-        [session.material],
-        ({ correctOptionId }) => correctOptionId
-      )
-      const submitted = await service.submit(
-        session.id,
-        randomUUID(),
-        body,
-        owner
-      )
-
-      expect(submitted.response).toMatchObject({
-        sessionId: session.id,
-        correctCount: 1,
-        incorrectCount: 0
-      })
-      expect(submitted.response.items[0]?.question).toMatchObject({
-        id: pinned.questionId,
-        questionVersionId: pinned.questionVersionId,
-        correctOptionId: pinned.correctOptionId
-      })
-      await expect(service.getResult(session.id, owner)).resolves.toEqual(
-        submitted.response
-      )
-    } finally {
-      await database.client.question.update({
-        where: { id: pinned.questionId },
-        data: originalQuestion
-      })
     }
-  })
+  )
 
   it('guest submit은 proof를 7일 연장하고 replay에서 DB timestamp를 다시 쓰지 않는다', async () => {
     const resolved = await guestPrincipalService.create()

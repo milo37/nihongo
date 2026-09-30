@@ -372,6 +372,10 @@ const app = createApiApp({
     wrongNoteService
   },
   questionReader,
+  questionReadSecurity: {
+    environment,
+    rateLimiter: applicationRateLimiter
+  },
   study: {
     draftService: studyDraftService,
     practiceContractV2Enabled: practiceRuntimeGate.practiceContractV2Enabled,

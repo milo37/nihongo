@@ -44,6 +44,15 @@
     "test:phase9:static": "node --test scripts/phase9-database-contract.test.mjs && pnpm --filter @nihongo/web run test:phase9:static",
     "test:phase9:browser:mock": "pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase9Browser.ts mock",
     "test:phase9:browser:real": "pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase9Browser.ts real",
+    "test:phase10:security:contracts": "node --test scripts/security/*.test.mjs",
+    "test:phase10:security:static": "node scripts/security/tracked-source-security.mjs",
+    "test:phase10:security:ui": "pnpm --filter @nihongo/web exec vitest run src/app/wrong-note/detail/page.test.tsx src/mocks/handlers/questionHandlers.integration.test.ts",
+    "test:phase10:security:dependency:prod": "node scripts/security/dependency-audit.mjs --scope production",
+    "test:phase10:security:dependency:dev": "node scripts/security/dependency-audit.mjs --scope development",
+    "test:phase10:security": "pnpm run test:phase10:security:contracts && pnpm run test:phase10:security:static && pnpm run test:phase10:security:ui && pnpm run test:phase10:security:dependency:prod && pnpm run test:phase10:security:dependency:dev && node scripts/security/security-evidence.mjs verify --directory \"${PHASE10_SECURITY_EVIDENCE_DIR:-test-results/phase10-evidence/security}\" --profile security && node scripts/security/security-evidence.mjs verify-workflow --file .github/workflows/ci.yml",
+    "test:phase10:api-manifest": "pnpm --filter @nihongo/api exec tsx src/e2e/validatePhase10ApiIntegrationManifest.ts",
+    "test:phase10:api-current": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase10ApiIntegration.ts",
+    "test:phase10:api-integration": "pnpm run test:phase10:api-manifest && pnpm run test:phase7:db && pnpm run test:phase7:api && pnpm run test:phase10:api-current",
     "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
     "content:author-prepare": "node scripts/content/run-retained-validator.mjs author-prepare",
     "content:check": "node scripts/content/run-retained-validator.mjs check",
@@ -94,6 +103,13 @@
     "typescript-eslint": "^8.0.0"
   },
   "pnpm": {
+    "overrides": {
+      "@prisma/config>deepmerge-ts": "8.0.2",
+      "ajv>fast-uri": "3.1.7",
+      "js-yaml": "4.3.2",
+      "postcss": "8.5.28",
+      "prisma>mysql2": "3.24.5"
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "msw",

@@ -1,19 +1,31 @@
 import { randomUUID } from 'node:crypto'
 import { createStudySessionResponseSchema } from '@nihongo/contracts/study/create-study-session'
 import { getStudySessionResponseSchema } from '@nihongo/contracts/study/get-study-session'
+import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { createPrincipalService } from '../auth/principalService.js'
+import { createPhase7AuthFacade } from '../auth/phase7AuthFacade.js'
+import {
+  createPhase7PrincipalService,
+  createPrincipalService
+} from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
-import { createDatabaseRuntime } from '../db/database.js'
-import { getPostgresSchema } from '../db/databaseOptions.js'
+import {
+  createDatabaseRuntime,
+  createRoleDatabaseRuntime
+} from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { Prisma } from '../generated/prisma/client.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
@@ -30,32 +42,106 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 study-session tests require fixture, erasure, and auth-gateway databases.'
+  )
+}
+for (const databaseUrl of [
+  fixtureDatabaseUrl,
+  erasureWorkerDatabaseUrl,
+  authGatewayDatabaseUrl
+]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const authGatewayDatabase = isPhase10CurrentSource
+  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  : undefined
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const emailPort = new InMemoryAuthEmailPort()
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort
 })
-const auth = createAuthRuntime({
-  client: database.client,
-  emailDispatcher,
-  environment
-})
+const auth = isPhase10CurrentSource
+  ? undefined
+  : createAuthRuntime({
+      client: database.client,
+      emailDispatcher,
+      environment
+    })
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = createPrincipalService({
-  authApi: auth.api,
-  client: database.client
-})
+const principalService = isPhase10CurrentSource
+  ? createPhase7PrincipalService({
+      client: database.client,
+      isProduction: false,
+      refreshClient: authGatewayDatabase!.client,
+      secret: environment.BETTER_AUTH_SECRET
+    })
+  : createPrincipalService({
+      authApi: auth!.api,
+      client: database.client
+    })
 const repository = createPrismaStudySessionRepository(database.client)
 const noOpRateLimiter: ApplicationRateLimiter = {
   consume: async () => undefined
 }
+const technicalAuthRateLimiter = createApplicationRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
 const app = createApiApp({
   auth: {
     environment,
-    gateway: createAuthGateway({ auth, client: database.client, environment }),
+    gateway: isPhase10CurrentSource
+      ? createAuthGateway({
+          delay: async () => undefined,
+          environment,
+          phase7Facade: createPhase7AuthFacade({
+            client: authGatewayDatabase!.client,
+            emailDispatcher,
+            environment
+          }),
+          technicalRateLimiter: technicalAuthRateLimiter
+        })
+      : createAuthGateway({
+          auth: auth!,
+          client: database.client,
+          environment
+        }),
     guestPrincipalService,
     principalService
   },
@@ -79,6 +165,132 @@ if (!origin) {
 const createdSessionIds = new Set<string>()
 const createdGuestIds = new Set<string>()
 const createdUserIds = new Set<string>()
+
+const createApplicationClient = (): Client =>
+  new Client({
+    connectionString: environment.DATABASE_URL,
+    options: createPostgresStartupOptions(
+      getPostgresSchema(environment.DATABASE_URL),
+      isPhase10CurrentSource ? 'nihongo_app' : undefined
+    )
+  })
+
+interface RawDatabaseErrorIdentity {
+  readonly message: string
+  readonly sqlState: string
+}
+
+const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const readRawDatabaseErrorIdentity = (
+  error: unknown
+): RawDatabaseErrorIdentity | undefined => {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2010' ||
+    !isUnknownRecord(error.meta)
+  ) {
+    return undefined
+  }
+  const identities: RawDatabaseErrorIdentity[] = []
+  if (
+    typeof error.meta.code === 'string' &&
+    typeof error.meta.message === 'string'
+  ) {
+    identities.push({ message: error.meta.message, sqlState: error.meta.code })
+  }
+  const driverAdapterError = error.meta.driverAdapterError
+  if (isUnknownRecord(driverAdapterError)) {
+    const cause = driverAdapterError.cause
+    if (
+      isUnknownRecord(cause) &&
+      typeof cause.originalCode === 'string' &&
+      typeof cause.originalMessage === 'string'
+    ) {
+      identities.push({
+        message: cause.originalMessage,
+        sqlState: cause.originalCode
+      })
+    }
+  }
+  const [identity, ...rest] = identities
+  if (
+    !identity ||
+    rest.some(
+      (candidate) =>
+        candidate.sqlState !== identity.sqlState ||
+        candidate.message !== identity.message
+    )
+  ) {
+    return undefined
+  }
+  return {
+    message:
+      identity.message
+        .split('\n', 1)[0]
+        ?.replace(/^ERROR:\s*/u, '')
+        .trim() ?? '',
+    sqlState: identity.sqlState
+  }
+}
+
+const expectRawDatabaseError = async ({
+  expectedMessage,
+  operation,
+  sqlState
+}: {
+  readonly expectedMessage: string
+  readonly operation: () => Promise<unknown>
+  readonly sqlState: string
+}): Promise<void> => {
+  let caughtError: unknown
+  try {
+    await operation()
+  } catch (error: unknown) {
+    caughtError = error
+  }
+  expect(caughtError).toMatchObject({ code: 'P2010' })
+  expect(readRawDatabaseErrorIdentity(caughtError)).toEqual({
+    message: expectedMessage,
+    sqlState
+  })
+}
+
+const createFixtureUser = async (label: string): Promise<string> => {
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        email: `slice3-${label}-${randomUUID()}@example.test`,
+        emailVerified: true,
+        id: userId,
+        name: `Slice3 ${label}`
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
+  })
+  createdUserIds.add(userId)
+  return userId
+}
+
+const eraseUser = async (userId: string): Promise<void> => {
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
+      userId
+    ])
+  } else {
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+  }
+  createdUserIds.delete(userId)
+}
 
 const getCookieHeader = (response: Response): string => {
   const setCookies = response.headers.getSetCookie?.()
@@ -144,6 +356,38 @@ const createAuthenticatedActor = async (
 ): Promise<{ cookie: string; userId: string }> => {
   const email = `slice3-${role.toLowerCase()}-${randomUUID()}@example.test`
   const password = 'Slice3-password-2026!'
+  if (isPhase10CurrentSource) {
+    const userId = randomUUID()
+    const passwordHash = await hashPassword(password)
+    await fixtureDatabase.client.$transaction(async (fixture) => {
+      await fixture.user.create({
+        data: {
+          email,
+          emailVerified: true,
+          id: userId,
+          name: `Slice3 ${role}`,
+          role
+        }
+      })
+      await fixture.account.create({
+        data: {
+          accountId: userId,
+          password: passwordHash,
+          providerId: 'credential',
+          userId
+        }
+      })
+    })
+    createdUserIds.add(userId)
+    const signIn = await postAuth('/api/auth/sign-in/email', {
+      email,
+      password
+    })
+    expect(signIn.status).toBe(200)
+    const cookie = getAllCookieHeader(signIn)
+    expect(cookie).not.toBe('')
+    return { cookie, userId }
+  }
   const signUp = await postAuth('/api/auth/sign-up/email', {
     email,
     name: `Slice3 ${role}`,
@@ -151,7 +395,7 @@ const createAuthenticatedActor = async (
   })
   expect(signUp.status).toBe(200)
 
-  const user = await database.client.user.findUniqueOrThrow({
+  const user = await fixtureDatabase.client.user.findUniqueOrThrow({
     where: { email },
     select: { id: true }
   })
@@ -173,7 +417,7 @@ const createAuthenticatedActor = async (
   expect(verified.status).toBe(200)
 
   if (role === 'ADMIN') {
-    await database.client.user.update({
+    await fixtureDatabase.client.user.update({
       where: { id: user.id },
       data: { role: 'ADMIN' }
     })
@@ -238,19 +482,29 @@ const waitForPostgresLockWait = async (
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
   await database.client.rateLimit.deleteMany()
 })
 
+beforeEach(async () => {
+  if (!isPhase10CurrentSource) return
+  await database.client.rateLimit.deleteMany({
+    where: { key: { startsWith: 'application:auth:' } }
+  })
+})
+
 afterAll(async () => {
-  if (createdSessionIds.size > 0) {
-    await database.client.studySession.deleteMany({
-      where: { id: { in: [...createdSessionIds] } }
-    })
-  }
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of [...createdUserIds]) await eraseUser(userId)
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
   }
   if (createdGuestIds.size > 0) {
     await database.client.guestPrincipal.deleteMany({
@@ -261,6 +515,13 @@ afterAll(async () => {
     where: { key: { startsWith: 'application:slice3-integration:' } }
   })
   await emailDispatcher.drain()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
+  await authGatewayDatabase?.disconnect()
   await database.disconnect()
 })
 
@@ -579,6 +840,30 @@ describe('StudySession PostgreSQL vertical slice', () => {
   })
 
   it('후보 0건이면 guest/session을 쓰지 않고 404를 반환한다', async () => {
+    if (isPhase10CurrentSource) {
+      const owner = await createAuthenticatedActor('USER')
+      const beforeGuests = await database.client.guestPrincipal.count()
+      const beforeSessions = await database.client.studySession.count()
+      const response = await postStudySession(
+        {
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'BOOKMARK',
+          count: 3
+        },
+        owner.cookie,
+        2
+      )
+      expect(response.status).toBe(404)
+      expect(await response.json()).toMatchObject({
+        code: 'NO_ELIGIBLE_QUESTIONS',
+        retryable: false
+      })
+      expect(response.headers.get('Set-Cookie')).toBeNull()
+      expect(await database.client.guestPrincipal.count()).toBe(beforeGuests)
+      expect(await database.client.studySession.count()).toBe(beforeSessions)
+      return
+    }
     const candidates = await database.client.question.findMany({
       where: {
         lifecycleStatus: 'ACTIVE',
@@ -738,287 +1023,389 @@ describe('StudySession PostgreSQL vertical slice', () => {
     })
   })
 
-  it('Question을 archive해도 pinned version payload를 그대로 조회한다', async () => {
-    const response = await postStudySession({
-      level: 'N3',
-      subject: 'READING',
-      mode: 'RANDOM',
-      count: 1
-    })
-    const payload = createStudySessionResponseSchema.parse(
-      await response.json()
-    )
-    const cookie = getCookieHeader(response)
-    await rememberSessionOwner(payload.session.id)
-    const questionId = payload.questions[0]?.question.id
-    const questionVersionId = payload.questions[0]?.question.questionVersionId
-    if (!questionId || !questionVersionId) {
-      throw new Error('Pinned question fixture가 필요합니다.')
-    }
-
-    await database.client.question.update({
-      where: { id: questionId },
-      data: {
-        lifecycleStatus: 'ARCHIVED',
-        archivedAt: new Date(),
-        currentPublishedVersionId: null
-      }
-    })
-    try {
-      const reloadedResponse = await app.request(
-        `/api/v1/study-sessions/${payload.session.id}`,
-        { headers: { Cookie: cookie } }
-      )
-      const reloaded = getStudySessionResponseSchema.parse(
-        await reloadedResponse.json()
-      )
-      expect(reloaded).toEqual(payload)
-    } finally {
-      await database.client.question.update({
-        where: { id: questionId },
-        data: {
-          lifecycleStatus: 'ACTIVE',
-          archivedAt: null,
-          currentPublishedVersionId: questionVersionId
-        }
+  it(
+    isPhase10CurrentSource
+      ? '비인가 Question archive를 42501로 거부하고 pinned payload를 보존한다'
+      : 'Question을 archive해도 pinned version payload를 그대로 조회한다',
+    async () => {
+      const response = await postStudySession({
+        level: 'N3',
+        subject: 'READING',
+        mode: 'RANDOM',
+        count: 1
       })
-    }
-  })
-
-  it('동시 archive를 selection lock 뒤로 직렬화하고 pinned payload를 보존한다', async () => {
-    const schema = getPostgresSchema(environment.DATABASE_URL)
-    const connectionOptions = schema
-      ? { options: `-c search_path=${schema}` }
-      : {}
-    const archiveClient = new Client({
-      connectionString: environment.DATABASE_URL,
-      ...connectionOptions
-    })
-    const observerClient = new Client({
-      connectionString: environment.DATABASE_URL,
-      ...connectionOptions
-    })
-    const credential = guestPrincipalService.prepareCredential()
-    const startedAt = new Date()
-    let releaseSelection = (): void => undefined
-    const selectionRelease = new Promise<void>((resolve) => {
-      releaseSelection = resolve
-    })
-    let reportSelection!: (
-      selected: readonly {
-        questionId: string
-        questionVersionId: string
-      }[]
-    ) => void
-    const selectionLocked = new Promise<
-      readonly { questionId: string; questionVersionId: string }[]
-    >((resolve) => {
-      reportSelection = resolve
-    })
-    const raceRepository = createPrismaStudySessionRepository(database.client, {
-      afterSelectionLocked: async (selected) => {
-        reportSelection(selected)
-        await selectionRelease
+      const payload = createStudySessionResponseSchema.parse(
+        await response.json()
+      )
+      const cookie = getCookieHeader(response)
+      await rememberSessionOwner(payload.session.id)
+      const questionId = payload.questions[0]?.question.id
+      const questionVersionId = payload.questions[0]?.question.questionVersionId
+      if (!questionId || !questionVersionId) {
+        throw new Error('Pinned question fixture가 필요합니다.')
       }
-    })
-    const raceService = createStudySessionService(
-      raceRepository,
-      () => startedAt
-    )
-    let createPromise: ReturnType<typeof raceService.create> | undefined
-    let archiveUpdate: Promise<unknown> | undefined
-    let archiveTransactionOpen = false
-    let archiveCommitted = false
-    let selectedQuestionId: string | undefined
-    let originalQuestion:
-      | {
-          archivedAt: Date | null
-          currentPublishedVersionId: string | null
-          lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
-          updatedAt: Date
-        }
-      | undefined
 
-    try {
-      await Promise.all([archiveClient.connect(), observerClient.connect()])
-      createPromise = raceService.create(
+      const originalQuestion = await database.client.question.findUniqueOrThrow(
         {
-          level: 'N5',
-          subject: 'VOCABULARY',
-          mode: 'RANDOM',
-          count: 3
-        },
-        { kind: 'NEW_GUEST', credential }
-      )
-      const selected = await Promise.race([
-        selectionLocked,
-        createPromise.then(() => {
-          throw new Error('StudySession creation bypassed the lock test hook.')
-        })
-      ])
-      const target = selected[0]
-      if (!target) {
-        throw new Error(
-          'Selection lock fixture requires one selected question.'
-        )
-      }
-      selectedQuestionId = target.questionId
-
-      const original = await observerClient.query<{
-        archivedAt: Date | null
-        currentPublishedVersionId: string | null
-        lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
-        updatedAt: Date
-      }>(
-        `SELECT
-           "archivedAt",
-           "currentPublishedVersionId",
-           "lifecycleStatus",
-           "updatedAt"
-         FROM "Question"
-         WHERE "id" = $1`,
-        [target.questionId]
-      )
-      originalQuestion = original.rows[0]
-      expect(originalQuestion).toMatchObject({
-        lifecycleStatus: 'ACTIVE',
-        currentPublishedVersionId: target.questionVersionId
-      })
-
-      const backend = await archiveClient.query<{ processId: number }>(
-        'SELECT pg_backend_pid() AS "processId"'
-      )
-      const processId = backend.rows[0]?.processId
-      if (processId === undefined) {
-        throw new Error('Archive PostgreSQL backend PID is missing.')
-      }
-
-      await archiveClient.query('BEGIN')
-      archiveTransactionOpen = true
-      let archiveSettled = false
-      archiveUpdate = archiveClient
-        .query(
-          `UPDATE "Question"
-           SET
-             "lifecycleStatus" = 'ARCHIVED',
-             "archivedAt" = $2,
-             "currentPublishedVersionId" = NULL,
-             "updatedAt" = $2
-           WHERE "id" = $1`,
-          [target.questionId, new Date()]
-        )
-        .finally(() => {
-          archiveSettled = true
-        })
-
-      await waitForPostgresLockWait(observerClient, processId)
-      expect(archiveSettled).toBe(false)
-      releaseSelection()
-
-      const created = await createPromise
-      await archiveUpdate
-      await archiveClient.query('COMMIT')
-      archiveTransactionOpen = false
-      archiveCommitted = true
-
-      expect(created.payload.session).toMatchObject({
-        actualCount: 3,
-        requestedCount: 3,
-        status: 'IN_PROGRESS'
-      })
-      expect(
-        created.payload.questions.map(({ question }) => ({
-          questionId: question.id,
-          questionVersionId: question.questionVersionId
-        }))
-      ).toEqual(selected)
-
-      const getResponse = await app.request(
-        `/api/v1/study-sessions/${created.payload.session.id}`,
-        {
-          headers: {
-            Cookie: `${GUEST_COOKIE_NAME}=${credential.cookieValue}`
+          where: { id: questionId },
+          select: {
+            archivedAt: true,
+            currentPublishedVersionId: true,
+            lifecycleStatus: true,
+            rowVersion: true,
+            updatedAt: true
           }
         }
       )
-      expect(getResponse.status).toBe(200)
-      expect(
-        getStudySessionResponseSchema.parse(await getResponse.json())
-      ).toEqual(created.payload)
-      expect(
-        await database.client.question.findUniqueOrThrow({
-          where: { id: target.questionId },
-          select: { lifecycleStatus: true, currentPublishedVersionId: true }
+      if (isPhase10CurrentSource) {
+        const archiveTime = new Date()
+        await expectRawDatabaseError({
+          expectedMessage:
+            'An armed trusted Phase 7 operation intent is required.',
+          operation: async () =>
+            await database.client.$executeRaw`
+            UPDATE "Question"
+            SET
+              "lifecycleStatus" = 'ARCHIVED',
+              "archivedAt" = ${archiveTime},
+              "currentPublishedVersionId" = NULL,
+              "rowVersion" = "rowVersion" + 1,
+              "updatedAt" = ${archiveTime}
+            WHERE "id" = ${questionId}::uuid
+          `,
+          sqlState: '42501'
         })
-      ).toEqual({
-        lifecycleStatus: 'ARCHIVED',
-        currentPublishedVersionId: null
-      })
-    } finally {
-      releaseSelection()
-      await createPromise?.catch(() => undefined)
-      await archiveUpdate?.catch(() => undefined)
-      if (archiveTransactionOpen) {
-        await archiveClient.query('ROLLBACK').catch(() => undefined)
+        await expect(
+          database.client.question.findUniqueOrThrow({
+            where: { id: questionId },
+            select: {
+              archivedAt: true,
+              currentPublishedVersionId: true,
+              lifecycleStatus: true,
+              rowVersion: true,
+              updatedAt: true
+            }
+          })
+        ).resolves.toEqual(originalQuestion)
+        const reloadedResponse = await app.request(
+          `/api/v1/study-sessions/${payload.session.id}`,
+          { headers: { Cookie: cookie } }
+        )
+        expect(reloadedResponse.status).toBe(200)
+        expect(
+          getStudySessionResponseSchema.parse(await reloadedResponse.json())
+        ).toEqual(payload)
+        return
       }
-      if (
-        archiveCommitted &&
-        selectedQuestionId !== undefined &&
-        originalQuestion !== undefined
-      ) {
-        await observerClient.query(
-          `UPDATE "Question"
+
+      await database.client.question.update({
+        where: { id: questionId },
+        data: {
+          lifecycleStatus: 'ARCHIVED',
+          archivedAt: new Date(),
+          currentPublishedVersionId: null
+        }
+      })
+      try {
+        const reloadedResponse = await app.request(
+          `/api/v1/study-sessions/${payload.session.id}`,
+          { headers: { Cookie: cookie } }
+        )
+        const reloaded = getStudySessionResponseSchema.parse(
+          await reloadedResponse.json()
+        )
+        expect(reloaded).toEqual(payload)
+      } finally {
+        await database.client.question.update({
+          where: { id: questionId },
+          data: {
+            archivedAt: originalQuestion.archivedAt,
+            currentPublishedVersionId:
+              originalQuestion.currentPublishedVersionId,
+            lifecycleStatus: originalQuestion.lifecycleStatus,
+            rowVersion: originalQuestion.rowVersion,
+            updatedAt: originalQuestion.updatedAt
+          }
+        })
+      }
+    }
+  )
+
+  it(
+    isPhase10CurrentSource
+      ? 'selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
+      : '동시 archive를 selection lock 뒤로 직렬화하고 pinned payload를 보존한다',
+    async () => {
+      const archiveClient = createApplicationClient()
+      const observerClient = createApplicationClient()
+      const credential = guestPrincipalService.prepareCredential()
+      const startedAt = new Date()
+      let releaseSelection = (): void => undefined
+      const selectionRelease = new Promise<void>((resolve) => {
+        releaseSelection = resolve
+      })
+      let reportSelection!: (
+        selected: readonly {
+          questionId: string
+          questionVersionId: string
+        }[]
+      ) => void
+      const selectionLocked = new Promise<
+        readonly { questionId: string; questionVersionId: string }[]
+      >((resolve) => {
+        reportSelection = resolve
+      })
+      const raceRepository = createPrismaStudySessionRepository(
+        database.client,
+        {
+          afterSelectionLocked: async (selected) => {
+            reportSelection(selected)
+            await selectionRelease
+          }
+        }
+      )
+      const raceService = createStudySessionService(
+        raceRepository,
+        () => startedAt
+      )
+      let createPromise: ReturnType<typeof raceService.create> | undefined
+      let archiveUpdate: Promise<unknown> | undefined
+      let archiveTransactionOpen = false
+      let archiveCommitted = false
+      let archiveError: unknown
+      let selectedQuestionId: string | undefined
+      let originalQuestion:
+        | {
+            archivedAt: Date | null
+            currentPublishedVersionId: string | null
+            lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
+            rowVersion?: number
+            updatedAt: Date
+          }
+        | undefined
+
+      try {
+        await Promise.all([archiveClient.connect(), observerClient.connect()])
+        createPromise = raceService.create(
+          {
+            level: 'N5',
+            subject: 'VOCABULARY',
+            mode: 'RANDOM',
+            count: 3
+          },
+          { kind: 'NEW_GUEST', credential }
+        )
+        const selected = await Promise.race([
+          selectionLocked,
+          createPromise.then(() => {
+            throw new Error(
+              'StudySession creation bypassed the lock test hook.'
+            )
+          })
+        ])
+        const target = selected[0]
+        if (!target) {
+          throw new Error(
+            'Selection lock fixture requires one selected question.'
+          )
+        }
+        selectedQuestionId = target.questionId
+
+        const original = await observerClient.query<{
+          archivedAt: Date | null
+          currentPublishedVersionId: string | null
+          lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
+          rowVersion?: number
+          updatedAt: Date
+        }>(
+          `SELECT
+           "archivedAt",
+           "currentPublishedVersionId",
+           "lifecycleStatus",
+           ${isPhase10CurrentSource ? '"rowVersion",' : ''}
+           "updatedAt"
+         FROM "Question"
+         WHERE "id" = $1`,
+          [target.questionId]
+        )
+        originalQuestion = original.rows[0]
+        expect(originalQuestion).toMatchObject({
+          lifecycleStatus: 'ACTIVE',
+          currentPublishedVersionId: target.questionVersionId
+        })
+
+        const backend = await archiveClient.query<{ processId: number }>(
+          'SELECT pg_backend_pid() AS "processId"'
+        )
+        const processId = backend.rows[0]?.processId
+        if (processId === undefined) {
+          throw new Error('Archive PostgreSQL backend PID is missing.')
+        }
+
+        await archiveClient.query('BEGIN')
+        archiveTransactionOpen = true
+        let archiveSettled = false
+        archiveUpdate = archiveClient
+          .query(
+            isPhase10CurrentSource
+              ? `UPDATE "Question"
+               SET
+                 "lifecycleStatus" = 'ARCHIVED',
+                 "archivedAt" = $2,
+                 "currentPublishedVersionId" = NULL,
+                 "rowVersion" = "rowVersion" + 1,
+                 "updatedAt" = $2
+               WHERE "id" = $1`
+              : `UPDATE "Question"
+               SET
+                 "lifecycleStatus" = 'ARCHIVED',
+                 "archivedAt" = $2,
+                 "currentPublishedVersionId" = NULL,
+                 "updatedAt" = $2
+               WHERE "id" = $1`,
+            [target.questionId, new Date()]
+          )
+          .catch((error: unknown) => {
+            archiveError = error
+          })
+          .finally(() => {
+            archiveSettled = true
+          })
+
+        if (isPhase10CurrentSource) {
+          releaseSelection()
+        } else {
+          await waitForPostgresLockWait(observerClient, processId)
+          expect(archiveSettled).toBe(false)
+          releaseSelection()
+        }
+
+        const created = await createPromise
+        await archiveUpdate
+        expect(archiveSettled).toBe(true)
+
+        if (isPhase10CurrentSource) {
+          expect(archiveError).toMatchObject({
+            code: '42501',
+            message: 'An armed trusted Phase 7 operation intent is required.'
+          })
+          await archiveClient.query('ROLLBACK')
+          archiveTransactionOpen = false
+        } else {
+          expect(archiveError).toBeUndefined()
+          await archiveClient.query('COMMIT')
+          archiveTransactionOpen = false
+          archiveCommitted = true
+        }
+
+        expect(created.payload.session).toMatchObject({
+          actualCount: 3,
+          requestedCount: 3,
+          status: 'IN_PROGRESS'
+        })
+        expect(
+          created.payload.questions.map(({ question }) => ({
+            questionId: question.id,
+            questionVersionId: question.questionVersionId
+          }))
+        ).toEqual(selected)
+
+        const getResponse = await app.request(
+          `/api/v1/study-sessions/${created.payload.session.id}`,
+          {
+            headers: {
+              Cookie: `${GUEST_COOKIE_NAME}=${credential.cookieValue}`
+            }
+          }
+        )
+        expect(getResponse.status).toBe(200)
+        expect(
+          getStudySessionResponseSchema.parse(await getResponse.json())
+        ).toEqual(created.payload)
+        if (isPhase10CurrentSource) {
+          await expect(
+            observerClient.query<{
+              archivedAt: Date | null
+              currentPublishedVersionId: string | null
+              lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
+              rowVersion: number
+              updatedAt: Date
+            }>(
+              `SELECT
+               "archivedAt",
+               "currentPublishedVersionId",
+               "lifecycleStatus",
+               "rowVersion",
+               "updatedAt"
+             FROM "Question"
+             WHERE "id" = $1`,
+              [target.questionId]
+            )
+          ).resolves.toMatchObject({ rows: [originalQuestion] })
+        } else {
+          expect(
+            await database.client.question.findUniqueOrThrow({
+              where: { id: target.questionId },
+              select: { lifecycleStatus: true, currentPublishedVersionId: true }
+            })
+          ).toEqual({
+            lifecycleStatus: 'ARCHIVED',
+            currentPublishedVersionId: null
+          })
+        }
+      } finally {
+        releaseSelection()
+        await createPromise?.catch(() => undefined)
+        await archiveUpdate?.catch(() => undefined)
+        if (archiveTransactionOpen) {
+          await archiveClient.query('ROLLBACK').catch(() => undefined)
+        }
+        if (
+          archiveCommitted &&
+          selectedQuestionId !== undefined &&
+          originalQuestion !== undefined
+        ) {
+          await observerClient.query(
+            `UPDATE "Question"
            SET
              "lifecycleStatus" = $2,
              "archivedAt" = $3,
              "currentPublishedVersionId" = $4,
              "updatedAt" = $5
            WHERE "id" = $1`,
-          [
-            selectedQuestionId,
-            originalQuestion.lifecycleStatus,
-            originalQuestion.archivedAt,
-            originalQuestion.currentPublishedVersionId,
-            originalQuestion.updatedAt
-          ]
-        )
+            [
+              selectedQuestionId,
+              originalQuestion.lifecycleStatus,
+              originalQuestion.archivedAt,
+              originalQuestion.currentPublishedVersionId,
+              originalQuestion.updatedAt
+            ]
+          )
+        }
+        await database.client.studySession.deleteMany({
+          where: { guestPrincipalId: credential.id }
+        })
+        await database.client.guestPrincipal.deleteMany({
+          where: { id: credential.id }
+        })
+        await Promise.all([
+          archiveClient.end().catch(() => undefined),
+          observerClient.end().catch(() => undefined)
+        ])
       }
-      await database.client.studySession.deleteMany({
-        where: { guestPrincipalId: credential.id }
-      })
-      await database.client.guestPrincipal.deleteMany({
-        where: { id: credential.id }
-      })
-      await Promise.all([
-        archiveClient.end().catch(() => undefined),
-        observerClient.end().catch(() => undefined)
-      ])
-    }
-  }, 15_000)
+    },
+    15_000
+  )
 
   it('owner scoped GET에서 만료 상태를 영속하고 foreign user는 404다', async () => {
-    const [ownerUser, foreignUser] = await Promise.all([
-      database.client.user.create({
-        data: {
-          name: 'Slice3 owner',
-          email: `slice3-owner-${randomUUID()}@example.test`,
-          emailVerified: true
-        }
-      }),
-      database.client.user.create({
-        data: {
-          name: 'Slice3 foreign',
-          email: `slice3-foreign-${randomUUID()}@example.test`,
-          emailVerified: true
-        }
-      })
+    const [ownerUserId, foreignUserId] = await Promise.all([
+      createFixtureUser('owner'),
+      createFixtureUser('foreign')
     ])
-    createdUserIds.add(ownerUser.id)
-    createdUserIds.add(foreignUser.id)
     const startedAt = new Date(Date.now() - 48 * 60 * 60 * 1_000)
     const expired = (
       await repository.createRandom({
-        owner: { kind: 'USER', userId: ownerUser.id },
+        owner: { kind: 'USER', userId: ownerUserId },
         level: 'N2',
         subject: 'VOCABULARY',
         requestedCount: 1,
@@ -1031,14 +1418,14 @@ describe('StudySession PostgreSQL vertical slice', () => {
     await expect(
       repository.findOwnedById(
         expired.id,
-        { kind: 'USER', userId: foreignUser.id },
+        { kind: 'USER', userId: foreignUserId },
         new Date()
       )
     ).resolves.toBeNull()
 
     const owned = await repository.findOwnedById(
       expired.id,
-      { kind: 'USER', userId: ownerUser.id },
+      { kind: 'USER', userId: ownerUserId },
       new Date()
     )
     expect(owned?.status).toBe('EXPIRED')

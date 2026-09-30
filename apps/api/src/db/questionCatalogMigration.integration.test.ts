@@ -23,16 +23,25 @@ const readMigration = (name: (typeof MIGRATION_NAMES)[number]): string =>
     'utf8'
   )
 
-const environment = parseApiEnvironment(process.env)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const databaseUrl = isPhase10CurrentSource
+  ? process.env.PHASE10_FIXTURE_DATABASE_URL
+  : parseApiEnvironment(process.env).DATABASE_URL
+if (!databaseUrl) {
+  throw new Error(
+    'Phase 10 question catalog migration tests require an owner fixture database.'
+  )
+}
 assertSafeTestDatabase({
-  nodeEnvironment: environment.NODE_ENV,
-  databaseUrl: environment.DATABASE_URL,
+  nodeEnvironment: process.env.NODE_ENV,
+  databaseUrl,
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
 const schemaName = `slice1_upgrade_${randomUUID().replaceAll('-', '')}`
 const quotedSchemaName = `"${schemaName}"`
-const client = new Client({ connectionString: environment.DATABASE_URL })
+const client = new Client({ connectionString: databaseUrl })
 
 const questionId = randomUUID()
 const versionId = randomUUID()
@@ -119,7 +128,10 @@ describe('question catalog legacy migration chain', () => {
          WHERE "id" = $1`,
         [versionId]
       )
-    ).rejects.toThrow()
+    ).rejects.toMatchObject({
+      code: '23514',
+      message: 'PUBLISHED QuestionVersion is immutable.'
+    })
     await client.query(
       `ALTER TABLE "QuestionVersion"
        ENABLE TRIGGER "QuestionVersion_validate_change"`
@@ -181,6 +193,12 @@ describe('question catalog legacy migration chain', () => {
         `INSERT INTO "Question" ("id", "updatedAt") VALUES ($1, NOW())`,
         [randomUUID()]
       )
-    ).rejects.toThrow()
+    ).rejects.toMatchObject({
+      code: '23502',
+      column: 'createdByLabelSnapshot',
+      message:
+        'null value in column "createdByLabelSnapshot" of relation "Question" violates not-null constraint',
+      table: 'Question'
+    })
   })
 })

@@ -4,6 +4,7 @@ import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/cre
 import { getStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/get-study-draft-answers'
 import { listResumableStudySessionsResponseSchema } from '@nihongo/contracts/study/list-resumable-study-sessions'
 import { saveStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/save-study-draft-answers'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
@@ -11,10 +12,22 @@ import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { createPrincipalService } from '../auth/principalService.js'
+import { createPhase7AuthFacade } from '../auth/phase7AuthFacade.js'
+import {
+  createPhase7PrincipalService,
+  createPrincipalService
+} from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
-import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createDatabaseRuntime,
+  createRoleDatabaseRuntime
+} from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
@@ -42,22 +55,81 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 StudyDraft requires fixture, erasure, and auth-gateway databases.'
+  )
+}
+for (const databaseUrl of [
+  fixtureDatabaseUrl,
+  erasureWorkerDatabaseUrl,
+  authGatewayDatabaseUrl
+]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const authGatewayDatabase = isPhase10CurrentSource
+  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  : undefined
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort: new InMemoryAuthEmailPort()
 })
-const auth = createAuthRuntime({
-  client: database.client,
-  emailDispatcher,
-  environment
-})
+const auth = isPhase10CurrentSource
+  ? undefined
+  : createAuthRuntime({
+      client: database.client,
+      emailDispatcher,
+      environment
+    })
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = createPrincipalService({
-  authApi: auth.api,
-  client: database.client
+const principalService = isPhase10CurrentSource
+  ? createPhase7PrincipalService({
+      client: database.client,
+      isProduction: false,
+      refreshClient: authGatewayDatabase!.client,
+      secret: environment.BETTER_AUTH_SECRET
+    })
+  : createPrincipalService({
+      authApi: auth!.api,
+      client: database.client
+    })
+const technicalAuthRateLimiter = createApplicationRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
 })
 const noOpRateLimiter: ApplicationRateLimiter = {
   consume: async () => undefined
@@ -72,7 +144,21 @@ const studySubmissionRepository = createPrismaStudySubmissionRepository(
 const app = createApiApp({
   auth: {
     environment,
-    gateway: createAuthGateway({ auth, client: database.client, environment }),
+    gateway: isPhase10CurrentSource
+      ? createAuthGateway({
+          environment,
+          phase7Facade: createPhase7AuthFacade({
+            client: authGatewayDatabase!.client,
+            emailDispatcher,
+            environment
+          }),
+          technicalRateLimiter: technicalAuthRateLimiter
+        })
+      : createAuthGateway({
+          auth: auth!,
+          client: database.client,
+          environment
+        }),
     guestPrincipalService,
     principalService
   },
@@ -163,16 +249,27 @@ const draftRequest = async (
   })
 
 const createUser = async (): Promise<string> => {
-  const user = await database.client.user.create({
-    data: {
-      name: 'Slice 1 draft user',
-      email: `slice1-draft-${randomUUID()}@example.test`,
-      emailVerified: true
-    },
-    select: { id: true }
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: 'Slice 1 draft user',
+        email: `slice1-draft-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
   })
-  createdUserIds.add(user.id)
-  return user.id
+  createdUserIds.add(userId)
+  return userId
 }
 
 const createOwnedV2Session = async (
@@ -247,6 +344,10 @@ const createBarrier = () => {
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
@@ -256,11 +357,27 @@ afterAll(async () => {
     })
   }
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of createdUserIds) {
+        await erasureWorkerClient.query(
+          `SELECT "phase7_erase_user"($1, 'TEST')`,
+          [userId]
+        )
+      }
+    } else {
+      await database.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
   }
   await database.client.rateLimit.deleteMany()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
+  await authGatewayDatabase?.disconnect()
   await database.disconnect()
 })
 

@@ -6,15 +6,31 @@ import {
   listQuestionsQuerySchema,
   listQuestionsResponseSchema
 } from '@nihongo/contracts/question/list-questions'
+import { getConnInfo } from '@hono/node-server/conninfo'
 import { z, type ZodError } from 'zod'
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
+import { createClientIpAuthority } from '../auth/clientIp.js'
+import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
+import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { QuestionReader } from '../question/questionService.js'
 
-interface QuestionRouteDependencies {
-  questionReader: QuestionReader
+type QuestionRouteEnvironment = { Variables: ApiVariables }
+type QuestionReadOperation = 'question-list-read' | 'question-detail-read'
+
+interface QuestionReadSecurityDependencies {
+  readonly environment: ApiEnvironment
+  readonly rateLimiter: ApplicationRateLimiter
 }
+
+interface QuestionRouteDependencies {
+  readonly questionReader: QuestionReader
+  readonly questionReadSecurity: QuestionReadSecurityDependencies | undefined
+}
+
+const QUESTION_READ_MAX = 120
+const QUESTION_READ_WINDOW_MILLISECONDS = 60_000
 
 const toFieldErrors = (error: ZodError): Record<string, string[]> => {
   const fieldErrors: Record<string, string[]> = {}
@@ -28,10 +44,48 @@ const toFieldErrors = (error: ZodError): Record<string, string[]> => {
 }
 
 export const createQuestionRoutes = ({
-  questionReader
-}: QuestionRouteDependencies): Hono<{ Variables: ApiVariables }> => {
-  const routes = new Hono<{ Variables: ApiVariables }>()
+  questionReader,
+  questionReadSecurity
+}: QuestionRouteDependencies): Hono<QuestionRouteEnvironment> => {
+  const routes = new Hono<QuestionRouteEnvironment>()
+  const clientIpAuthority = questionReadSecurity
+    ? createClientIpAuthority(
+        questionReadSecurity.environment.AUTH_TRUSTED_PROXY_CIDRS
+      )
+    : undefined
+  const consumeQuestionReadRateLimit = async (
+    context: Context<QuestionRouteEnvironment>,
+    operation: QuestionReadOperation
+  ): Promise<void> => {
+    if (!questionReadSecurity || !clientIpAuthority) {
+      throw new ApplicationError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '문제 조회 요청 제한을 적용할 수 없습니다.',
+        retryable: true,
+        retryAfterSeconds: 5
+      })
+    }
+
+    let peerAddress: string | undefined
+    try {
+      peerAddress = getConnInfo(context).remote.address
+    } catch {
+      peerAddress = undefined
+    }
+
+    await questionReadSecurity.rateLimiter.consume({
+      clientIp: clientIpAuthority.resolve(
+        peerAddress,
+        context.req.header('X-Forwarded-For') ?? null
+      ),
+      max: QUESTION_READ_MAX,
+      operation,
+      windowMs: QUESTION_READ_WINDOW_MILLISECONDS
+    })
+  }
+
   routes.get('/', async (context) => {
+    await consumeQuestionReadRateLimit(context, 'question-list-read')
     let query
 
     try {
@@ -58,6 +112,7 @@ export const createQuestionRoutes = ({
   })
 
   routes.get('/:questionId', async (context) => {
+    await consumeQuestionReadRateLimit(context, 'question-detail-read')
     let params
 
     try {

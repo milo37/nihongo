@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import {
+  createPostgresStartupOptions,
+  getPostgresSchema
+} from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
 import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
@@ -57,9 +62,71 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const database = createDatabaseRuntime(environment.DATABASE_URL)
+const isPhase10CurrentSource =
+  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+if (
+  isPhase10CurrentSource &&
+  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+) {
+  throw new Error(
+    'Phase 10 StudyDraft query-plan tests require fixture and erasure databases.'
+  )
+}
+for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+  if (databaseUrl) {
+    assertSafeTestDatabase({
+      nodeEnvironment: environment.NODE_ENV,
+      databaseUrl,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+  }
+}
+
+const database = createDatabaseRuntime(
+  environment.DATABASE_URL,
+  isPhase10CurrentSource
+    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
+    : {}
+)
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const erasureWorkerClient = erasureWorkerDatabaseUrl
+  ? new Client({
+      connectionString: erasureWorkerDatabaseUrl,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(erasureWorkerDatabaseUrl)
+      )
+    })
+  : undefined
 const createdUserIds = new Set<string>()
 const createdGuestIds = new Set<string>()
+
+const createUser = async (kind: string): Promise<{ readonly id: string }> => {
+  const userId = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id: userId,
+        name: `Slice 1 query plan ${kind} user`,
+        email: `slice1-plan-${kind}-${randomUUID()}@example.test`,
+        emailVerified: true
+      }
+    })
+    await fixture.account.create({
+      data: {
+        accountId: userId,
+        password: 'phase10-fixture-password-hash',
+        providerId: 'credential',
+        userId
+      }
+    })
+  })
+  createdUserIds.add(userId)
+  return { id: userId }
+}
 
 const collectPlanNodes = (value: unknown, nodes: PlanNode[]): void => {
   if (Array.isArray(value)) {
@@ -198,10 +265,10 @@ const digestGuestToken = (guestPrincipalId: string): string =>
   createHash('sha256').update(guestPrincipalId).digest('hex')
 
 const analyzeFixtureTables = async (): Promise<void> => {
-  await database.client.$executeRaw`ANALYZE "StudySession"`
-  await database.client.$executeRaw`ANALYZE "StudyDraft"`
-  await database.client.$executeRaw`ANALYZE "StudyDraftAnswer"`
-  await database.client.$executeRaw`ANALYZE "IdempotencyRecord"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudySession"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudyDraft"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "StudyDraftAnswer"`
+  await fixtureDatabase.client.$executeRaw`ANALYZE "IdempotencyRecord"`
 }
 
 const createRepresentativeFixture = async ({
@@ -237,7 +304,7 @@ const createRepresentativeFixture = async ({
     throw new Error('Published question fixture가 필요합니다.')
   }
 
-  return await database.client.$transaction(async (transaction) => {
+  return await fixtureDatabase.client.$transaction(async (transaction) => {
     await transaction.$executeRaw`
       CREATE TEMP TABLE "slice1_query_plan_fixture" (
         "kind" TEXT NOT NULL,
@@ -522,20 +589,39 @@ const createExpiredGuestRetryFixture = async (
 
 beforeAll(async () => {
   await database.checkReadiness()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.connect()
+    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  }
 })
 
 afterAll(async () => {
   if (createdGuestIds.size > 0) {
-    await database.client.guestPrincipal.deleteMany({
+    await fixtureDatabase.client.guestPrincipal.deleteMany({
       where: { id: { in: [...createdGuestIds] } }
     })
   }
   if (createdUserIds.size > 0) {
-    await database.client.user.deleteMany({
-      where: { id: { in: [...createdUserIds] } }
-    })
+    if (erasureWorkerClient) {
+      for (const userId of createdUserIds) {
+        await erasureWorkerClient.query(
+          `SELECT "phase7_erase_user"($1, 'TEST')`,
+          [userId]
+        )
+      }
+    } else {
+      await fixtureDatabase.client.user.deleteMany({
+        where: { id: { in: [...createdUserIds] } }
+      })
+    }
   }
   await analyzeFixtureTables()
+  if (erasureWorkerClient) {
+    await erasureWorkerClient.end()
+  }
+  if (fixtureDatabase !== database) {
+    await fixtureDatabase.disconnect()
+  }
   await database.disconnect()
 })
 
@@ -543,31 +629,17 @@ describe('Phase 4 representative PostgreSQL query plans', () => {
   it('기본 planner가 resumable·cleanup·child FK index와 bounded sort를 선택한다', async () => {
     const now = new Date()
     const [targetUser, ownerScanUser, decoyUser] = await Promise.all(
-      ['target', 'owner-scan', 'decoy'].map(
-        async (kind) =>
-          await database.client.user.create({
-            data: {
-              name: `Slice 1 query plan ${kind} user`,
-              email: `slice1-plan-${kind}-${randomUUID()}@example.test`,
-              emailVerified: true
-            },
-            select: { id: true }
-          })
-      )
+      ['target', 'owner-scan', 'decoy'].map(createUser)
     )
     if (!targetUser || !ownerScanUser || !decoyUser) {
       throw new Error('Query plan users가 필요합니다.')
     }
-    createdUserIds.add(targetUser.id)
-    createdUserIds.add(ownerScanUser.id)
-    createdUserIds.add(decoyUser.id)
-
     const targetGuestId = randomUUID()
     const ownerScanGuestId = randomUUID()
     const oldGuestTimestamp = new Date(
       now.getTime() - 11 * 24 * 60 * 60 * 1_000
     )
-    await database.client.guestPrincipal.createMany({
+    await fixtureDatabase.client.guestPrincipal.createMany({
       data: [
         {
           id: targetGuestId,
