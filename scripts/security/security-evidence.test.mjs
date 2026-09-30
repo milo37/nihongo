@@ -36,11 +36,34 @@ test('environment values and strong credential shapes are rejected without echoi
 
 test('safe Playwright reporter hashes identity and ignores title, errors, output and attachments', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase10-reporter-'))
-  const sentinel = 'reporter-secret-sentinel'
+  const sentinel = 'phase10-verification-token-sentinel'
   const reporter = new Phase10PlaywrightSummaryReporter({
     outputDirectory: directory,
     label: 'phase10-real'
   })
+  const requestLedgerAttachments = [
+    'guest-auth',
+    'resilience',
+    'user-journey'
+  ].map((journey) => ({
+    name: `phase10-${journey}-real-request-ledger`,
+    contentType: 'application/json',
+    body: Buffer.from(
+      JSON.stringify({
+        entries: [
+          {
+            finishSequence: 2,
+            method: 'GET',
+            path: '/api/v1/me',
+            provenance: 'canonical-real-network',
+            startSequence: 1,
+            status: 200
+          }
+        ]
+      }),
+      'utf8'
+    )
+  }))
   reporter.onBegin()
   reporter.onTestEnd(
     {
@@ -51,9 +74,12 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
       status: 'passed',
       duration: 10,
       retry: 0,
-      error: new Error(sentinel),
-      stdout: [sentinel],
-      attachments: [{ name: sentinel, body: Buffer.from(sentinel) }]
+      error: new Error(`/verify-email#token=${sentinel}`),
+      stdout: [`#token=${sentinel}`],
+      attachments: [
+        { name: sentinel, body: Buffer.from(sentinel) },
+        ...requestLedgerAttachments
+      ]
     }
   )
   await reporter.onEnd({ status: 'passed' })
@@ -61,7 +87,16 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   const value = JSON.parse(raw)
 
   assert.equal(raw.includes(sentinel), false)
+  assert.equal(raw.includes('#token='), false)
   assert.match(value.tests[0].testId, /^[0-9a-f]{64}$/u)
+  assert.deepEqual(
+    value.requestLedgers.map(({ label }) => label),
+    [
+      'phase10-guest-auth-real-request-ledger',
+      'phase10-resilience-real-request-ledger',
+      'phase10-user-journey-real-request-ledger'
+    ]
+  )
   assert.deepEqual(value.counts, {
     passed: 1,
     failed: 0,
@@ -70,6 +105,72 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
     interrupted: 0,
     total: 1
   })
+  const manifest = await verifyArtifactDirectory({
+    directory,
+    profile: 'playwright',
+    requiredLabels: ['phase10-real']
+  })
+  assert.equal(manifest.files.length, 1)
+})
+
+test('Playwright evidence rejects empty and skipped-only summaries', async () => {
+  for (const [name, tests, counts] of [
+    [
+      'empty',
+      [],
+      {
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        timedOut: 0,
+        interrupted: 0,
+        total: 0
+      }
+    ],
+    [
+      'skipped',
+      [
+        {
+          testId: 'b'.repeat(64),
+          status: 'skipped',
+          durationMs: 0,
+          retry: 0
+        }
+      ],
+      {
+        passed: 0,
+        failed: 0,
+        skipped: 1,
+        timedOut: 0,
+        interrupted: 0,
+        total: 1
+      }
+    ]
+  ]) {
+    const directory = await mkdtemp(
+      path.join(tmpdir(), `phase10-${name}-evidence-`)
+    )
+    await writeCanonicalEvidence({
+      filePath: path.join(directory, 'phase8-real.json'),
+      value: {
+        schemaVersion: 1,
+        kind: 'nihongo.playwright-safe-summary',
+        label: 'phase8-real',
+        status: 'passed',
+        durationMs: 0,
+        counts,
+        requestLedgers: [],
+        tests
+      }
+    })
+    await assert.rejects(() =>
+      verifyArtifactDirectory({
+        directory,
+        profile: 'playwright',
+        requiredLabels: ['phase8-real']
+      })
+    )
+  }
 })
 
 test('artifact verifier accepts only complete closed-schema security JSON', async () => {
@@ -148,6 +249,19 @@ test('workflow artifact policy rejects raw/broad Playwright paths and permits ex
     assertWorkflowArtifactPolicy('path: playwright-report/phase9-real/')
   )
   assert.throws(() => assertWorkflowArtifactPolicy('path: test-results/'))
+  assert.throws(() =>
+    assertWorkflowArtifactPolicy(`
+      - name: Upload raw Playwright output
+        uses: actions/upload-artifact@v4
+        with:
+          path: test-results/phase10-raw/
+
+      - name: Upload safe Playwright evidence
+        uses: actions/upload-artifact@v4
+        with:
+          path: test-results/phase10-evidence/playwright/
+    `)
+  )
   assert.doesNotThrow(() =>
     assertWorkflowArtifactPolicy(
       'path: test-results/phase10-evidence/playwright/'

@@ -5,12 +5,22 @@ import { fileURLToPath } from 'node:url'
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const SAFE_LABEL_PATTERN = /^phase(?:8|9|10)-(?:real|mock)$/u
+const SAFE_LEDGER_LABEL_PATTERN =
+  /^phase10-(?:guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger$/u
+const SAFE_LEDGER_PATH_PATTERN = /^\/api\/[a-z0-9._~:/-]+$/iu
 const SAFE_TEST_STATUS = new Set([
   'passed',
   'failed',
   'skipped',
   'timedOut',
   'interrupted'
+])
+const SAFE_LEDGER_METHOD = new Set(['DELETE', 'GET', 'PATCH', 'POST', 'PUT'])
+const SAFE_LEDGER_PROVENANCE = new Set([
+  'canonical-mock-service-worker',
+  'canonical-real-network',
+  'injected-test-fault',
+  'network-failure'
 ])
 const SENSITIVE_ENVIRONMENT_KEY =
   /(?:_SECRET|_PASSWORD|_TOKEN|DATABASE_URL|COOKIE|AUTHORIZATION|PHASE\d+_BROWSER_FIXTURE)/iu
@@ -238,6 +248,52 @@ const assertDependencyEvidence = (value) => {
   value.findings.forEach(assertDependencyFinding)
 }
 
+export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
+  if (
+    !exactKeys(ledger, ['label', 'entries']) ||
+    typeof ledger.label !== 'string' ||
+    !SAFE_LEDGER_LABEL_PATTERN.test(ledger.label) ||
+    !ledger.label.includes(`-${summaryLabel.split('-').at(-1)}-`) ||
+    !Array.isArray(ledger.entries) ||
+    ledger.entries.length === 0
+  ) {
+    throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
+  }
+  const sequences = new Set()
+  for (const entry of ledger.entries) {
+    if (
+      !exactKeys(entry, [
+        'finishSequence',
+        'method',
+        'path',
+        'provenance',
+        'startSequence',
+        'status'
+      ]) ||
+      typeof entry.method !== 'string' ||
+      !SAFE_LEDGER_METHOD.has(entry.method) ||
+      typeof entry.path !== 'string' ||
+      !SAFE_LEDGER_PATH_PATTERN.test(entry.path) ||
+      !Number.isSafeInteger(entry.startSequence) ||
+      entry.startSequence < 1 ||
+      !Number.isSafeInteger(entry.finishSequence) ||
+      entry.finishSequence <= entry.startSequence ||
+      (entry.status !== 'NETWORK_ERROR' &&
+        (!Number.isSafeInteger(entry.status) ||
+          entry.status < 100 ||
+          entry.status > 599)) ||
+      typeof entry.provenance !== 'string' ||
+      !SAFE_LEDGER_PROVENANCE.has(entry.provenance) ||
+      sequences.has(entry.startSequence) ||
+      sequences.has(entry.finishSequence)
+    ) {
+      throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
+    }
+    sequences.add(entry.startSequence)
+    sequences.add(entry.finishSequence)
+  }
+}
+
 const assertPlaywrightEvidence = (value) => {
   if (
     !exactKeys(value, [
@@ -247,7 +303,8 @@ const assertPlaywrightEvidence = (value) => {
       'status',
       'durationMs',
       'counts',
-      'tests'
+      'tests',
+      'requestLedgers'
     ]) ||
     value.schemaVersion !== 1 ||
     value.kind !== 'nihongo.playwright-safe-summary' ||
@@ -267,7 +324,8 @@ const assertPlaywrightEvidence = (value) => {
     !Object.values(value.counts).every(
       (count) => Number.isSafeInteger(count) && count >= 0
     ) ||
-    !Array.isArray(value.tests)
+    !Array.isArray(value.tests) ||
+    !Array.isArray(value.requestLedgers)
   ) {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
   }
@@ -294,7 +352,35 @@ const assertPlaywrightEvidence = (value) => {
     total: value.tests.length
   }
   for (const test of value.tests) calculatedCounts[test.status] += 1
-  if (JSON.stringify(calculatedCounts) !== JSON.stringify(value.counts)) {
+  if (
+    !Object.entries(calculatedCounts).every(
+      ([status, count]) => value.counts[status] === count
+    ) ||
+    calculatedCounts.total === 0 ||
+    calculatedCounts.passed !== calculatedCounts.total ||
+    calculatedCounts.failed !== 0 ||
+    calculatedCounts.skipped !== 0 ||
+    calculatedCounts.timedOut !== 0 ||
+    calculatedCounts.interrupted !== 0
+  ) {
+    throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
+  }
+  const mode = value.label.split('-').at(-1)
+  const expectedLedgerLabels = value.label.startsWith('phase10-')
+    ? [
+        `phase10-guest-auth-${mode}-request-ledger`,
+        `phase10-resilience-${mode}-request-ledger`,
+        `phase10-user-journey-${mode}-request-ledger`
+      ]
+    : []
+  value.requestLedgers.forEach((ledger) =>
+    assertPlaywrightRequestLedger(ledger, value.label)
+  )
+  if (
+    JSON.stringify(
+      value.requestLedgers.map(({ label }) => label).toSorted()
+    ) !== JSON.stringify(expectedLedgerLabels.toSorted())
+  ) {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
   }
 }
@@ -428,6 +514,15 @@ export const assertWorkflowArtifactPolicy = (workflowText) => {
     /^\s*path:.*[*?]/gmu
   ]
   if (banned.some((pattern) => pattern.test(workflowText))) {
+    throw new Error('SECURITY_WORKFLOW_ARTIFACT_POLICY')
+  }
+  const workflowSteps = workflowText.split(/(?=^\s*-\s+(?:name|uses):)/gmu)
+  const uploadsRawPlaywrightOutput = workflowSteps.some(
+    (step) =>
+      /uses:\s*actions\/upload-artifact@/u.test(step) &&
+      step.includes('test-results/phase10-raw')
+  )
+  if (uploadsRawPlaywrightOutput) {
     throw new Error('SECURITY_WORKFLOW_ARTIFACT_POLICY')
   }
   if (!workflowText.includes('test-results/phase10-evidence/')) {

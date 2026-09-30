@@ -154,7 +154,7 @@ jobs:
           fi
 
   e2e:
-    name: Phase 9 UI and Phase 8/7 regression browser acceptance
+    name: Phase 10 real/mock browser and regression acceptance
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -204,17 +204,11 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Real browser acceptance
-        run: pnpm run test:phase8:browser:real
+      - name: Phase 10 real browser acceptance
+        run: pnpm run test:phase10:browser:real
 
-      - name: Canonical mock browser acceptance
-        run: pnpm run test:phase8:browser:mock
-
-      - name: Phase 9 real browser acceptance
-        run: pnpm run test:phase9:browser:real
-
-      - name: Phase 9 canonical mock browser acceptance
-        run: pnpm run test:phase9:browser:mock
+      - name: Phase 10 canonical mock browser acceptance
+        run: pnpm run test:phase10:browser:mock
 
       - name: Verify safe Playwright evidence
         id: phase10_playwright_evidence
@@ -222,7 +216,7 @@ jobs:
           node scripts/security/security-evidence.mjs verify
           --directory test-results/phase10-evidence/playwright
           --profile playwright
-          --required phase8-real,phase8-mock,phase9-real,phase9-mock
+          --required phase8-real,phase8-mock,phase9-real,phase9-mock,phase10-real,phase10-mock
 
       - name: Upload safe Playwright evidence
         if: ${{ steps.phase10_playwright_evidence.outcome == 'success' }}
@@ -231,3 +225,21 @@ jobs:
           name: playwright-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           path: test-results/phase10-evidence/playwright/
+
+      - name: Clean safe Playwright evidence
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/phase10-evidence/playwright"
+          rm -rf -- "$expected"
+          test ! -e "$expected"
+
+      - name: Clean raw Playwright output
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/phase10-raw"
+          rm -rf -- "$expected"
+          test ! -e "$expected"

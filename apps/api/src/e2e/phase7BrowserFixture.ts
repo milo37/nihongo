@@ -16,6 +16,7 @@ export interface Phase7BrowserCredentials {
 export interface Phase7BrowserFixture {
   readonly author: Phase7BrowserCredentials
   readonly insightsLearner: Phase7BrowserCredentials
+  readonly journeyLearner: Phase7BrowserCredentials
   readonly learner: Phase7BrowserCredentials
   readonly reviewer: Phase7BrowserCredentials
 }
@@ -38,6 +39,10 @@ interface Phase7BrowserDatabaseSnapshot {
 
 export interface Phase7BrowserFixtureDatabase {
   readonly ageFreshAssurance: (userId: string) => Promise<void>
+  readonly assertRegisteredUser: (input: {
+    readonly email: string
+    readonly targetLevel: 'N1' | 'N2' | 'N3' | 'N4' | 'N5'
+  }) => Promise<void>
   readonly assertExpectedLifecycleDelta: (
     before: Phase7BrowserDatabaseSnapshot
   ) => Promise<void>
@@ -47,7 +52,7 @@ export interface Phase7BrowserFixtureDatabase {
 
 const createCredentials = (
   schemaName: string,
-  actor: 'author' | 'insights' | 'learner' | 'reviewer',
+  actor: 'author' | 'insights' | 'journey' | 'learner' | 'reviewer',
   name: string
 ): Phase7BrowserCredentials => {
   const suffix = schemaName.slice('phase7_'.length, 'phase7_'.length + 12)
@@ -148,6 +153,11 @@ export const createPhase7BrowserFixture = async (
       'insights',
       'Phase 8 인사이트 학습자'
     ),
+    journeyLearner: createCredentials(
+      schemaName,
+      'journey',
+      'Phase 10 통합 학습자'
+    ),
     learner: createCredentials(schemaName, 'learner', 'Phase 7 학습자'),
     reviewer: createCredentials(schemaName, 'reviewer', 'Phase 7 검수 관리자')
   }
@@ -158,7 +168,8 @@ export const createPhase7BrowserFixture = async (
       [fixture.author, 'ADMIN', 'N3'],
       [fixture.reviewer, 'ADMIN', 'N3'],
       [fixture.learner, 'USER', 'N3'],
-      [fixture.insightsLearner, 'USER', 'N2']
+      [fixture.insightsLearner, 'USER', 'N2'],
+      [fixture.journeyLearner, 'USER', 'N5']
     ] as const) {
       await client.query(
         `INSERT INTO "User" (
@@ -242,6 +253,45 @@ export const createPhase7BrowserFixture = async (
             throw error
           }
         })
+      },
+      assertRegisteredUser: async ({ email, targetLevel }): Promise<void> => {
+        const result = await runWithFixtureClient(
+          async (operationClient) =>
+            await operationClient.query<{
+              accountCount: number
+              activeSessionCount: number
+              emailVerified: boolean
+              role: string
+              targetLevel: string | null
+            }>(
+              `SELECT
+               target_user."emailVerified",
+               target_user."role"::text AS "role",
+               target_user."targetLevel"::text AS "targetLevel",
+               (SELECT COUNT(*)::int FROM "Account"
+                WHERE "userId" = target_user."id"
+                  AND "providerId" = 'credential') AS "accountCount",
+               (SELECT COUNT(*)::int FROM "Session"
+                WHERE "userId" = target_user."id"
+                  AND "authorizationState" = 'ACTIVE'
+                  AND "expiresAt" > clock_timestamp()) AS "activeSessionCount"
+             FROM "User" AS target_user
+             WHERE lower(target_user."email") = lower($1)`,
+              [email]
+            )
+        )
+        if (
+          result.rowCount !== 1 ||
+          result.rows[0]?.emailVerified !== true ||
+          result.rows[0]?.role !== 'USER' ||
+          result.rows[0]?.targetLevel !== targetLevel ||
+          result.rows[0]?.accountCount !== 1 ||
+          result.rows[0]?.activeSessionCount !== 1
+        ) {
+          throw new Error(
+            'Phase 10 browser registration persistence contract failed.'
+          )
+        }
       },
       assertExpectedLifecycleDelta: async (before): Promise<void> => {
         const after = await runWithFixtureClient(readSnapshot)

@@ -281,6 +281,25 @@ const requestBrowserJson = async (
     return { bodyText: await response.text(), status: response.status }
   }, input)
 
+const primeMockControlledPage = async (page: Page): Promise<void> => {
+  if (!isMockBrowser) return
+
+  await page.goto('/mockServiceWorker.js')
+  const hasMockController = async (): Promise<boolean> =>
+    await page.evaluate(() => {
+      const controller = navigator.serviceWorker.controller
+      return (
+        controller !== null &&
+        new URL(controller.scriptURL).pathname === '/mockServiceWorker.js'
+      )
+    })
+
+  if (!(await hasMockController())) {
+    await page.reload()
+  }
+  await expect.poll(hasMockController).toBe(true)
+}
+
 const switchAccount = async (
   page: Page,
   credentials: Credentials
@@ -419,31 +438,34 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   const backResponsePromise = waitForQuestionList(page, null)
   await page.reload()
   const backResponse = await backResponsePromise
-  const backList = listAdminQuestionsResponseSchema.parse(
-    await backResponse.json()
-  )
   expect(backResponse.status()).toBe(200)
-  expect(backList.total).toBe(initialList.total)
+  expectExpectedApiTransport(backResponse)
+  await expect(page.locator('#admin-question-results tbody tr')).toHaveCount(
+    Math.min(initialList.total, initialList.pageSize)
+  )
 
   await page.goForward()
   await expect(page.getByLabel('급수', { exact: true })).toHaveValue('N5')
   const forwardResponsePromise = waitForQuestionList(page, 'N5')
   await page.reload()
   const forwardResponse = await forwardResponsePromise
-  const forwardList = listAdminQuestionsResponseSchema.parse(
-    await forwardResponse.json()
-  )
   expect(forwardResponse.status()).toBe(200)
-  expect(forwardList.items.every((item) => item.level === 'N5')).toBe(true)
+  expectExpectedApiTransport(forwardResponse)
+  const filteredLevelCells = page.locator(
+    '#admin-question-results tbody tr > td:nth-child(3)'
+  )
+  await expect(filteredLevelCells).toHaveText(
+    filteredList.items.map(() => /N5 ·/u)
+  )
 
   const reloadResponsePromise = waitForQuestionList(page, 'N5')
   await page.reload()
   const reloadResponse = await reloadResponsePromise
-  const reloadedList = listAdminQuestionsResponseSchema.parse(
-    await reloadResponse.json()
-  )
   expect(reloadResponse.status()).toBe(200)
-  expect(reloadedList.total).toBe(filteredList.total)
+  expectExpectedApiTransport(reloadResponse)
+  await expect(filteredLevelCells).toHaveText(
+    filteredList.items.map(() => /N5 ·/u)
+  )
   await expect(page.getByLabel('급수', { exact: true })).toHaveValue('N5')
 
   const sortSelect = page.getByRole('combobox', {
@@ -668,11 +690,12 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
   await expect(
     page.getByRole('heading', { exact: true, name: 'v1 · 승인' })
   ).toBeVisible()
-  const secondPage = await page.context().newPage()
-  if (isMockBrowser) await secondPage.clock.setFixedTime(staleTime)
-  await secondPage.goto(detailPath)
+  const freshnessPage = await page.context().newPage()
+  await primeMockControlledPage(freshnessPage)
+  if (isMockBrowser) await freshnessPage.clock.setFixedTime(staleTime)
+  await freshnessPage.goto(detailPath)
   await expect(
-    secondPage.getByRole('heading', { exact: true, name: 'v1 · 승인' })
+    freshnessPage.getByRole('heading', { exact: true, name: 'v1 · 승인' })
   ).toBeVisible()
 
   const publicationPath = `/api/v1/admin/question-versions/${versionId}/publication`
@@ -730,12 +753,13 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
     )
   ).toHaveLength(1)
 
-  const crossTabFreshResponse = await requestBrowserJson(secondPage, {
+  const crossTabFreshResponse = await requestBrowserJson(freshnessPage, {
     body: { expectedRowVersion: 3 },
     method: 'POST',
     pathname: approvalPath
   })
   expect(crossTabFreshResponse.status).toBe(409)
+  await freshnessPage.close()
 
   const publicationResponse = await runQuestionCommand(
     page,
@@ -752,6 +776,38 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
       name: '명령을 완료하지 못했습니다'
     })
   ).toHaveCount(0)
+
+  await switchAccount(page, learner)
+  const learnerDeliveryResponse = await requestBrowserJson(page, {
+    body: {
+      count: 20,
+      level: 'N5',
+      mode: 'RANDOM',
+      subject: 'GRAMMAR'
+    },
+    headers: { 'X-Nihongo-Practice-Contract': '2' },
+    method: 'POST',
+    pathname: '/api/v1/study-sessions'
+  })
+  expect(learnerDeliveryResponse.status).toBe(201)
+  const learnerDelivery = createStudySessionV2ResponseSchema.parse(
+    JSON.parse(learnerDeliveryResponse.bodyText) as unknown
+  )
+  const deliveredQuestion = learnerDelivery.questions.find(
+    (item) => item.question.id === questionId
+  )
+  expect(deliveredQuestion?.question).toMatchObject({
+    id: questionId,
+    questionText: importedQuestionText,
+    questionVersionId: versionId
+  })
+  expect(deliveredQuestion?.question).not.toHaveProperty('correctOptionId')
+  expect(deliveredQuestion?.question).not.toHaveProperty('explanationKo')
+  await switchAccount(page, author)
+  await page.goto(detailPath)
+  await expect(
+    page.getByRole('heading', { exact: true, name: 'v1 · 공개' })
+  ).toBeVisible()
 
   const createVersionPath = `/api/v1/admin/questions/${questionId}/versions`
   const createVersionResponsePromise = waitForOperation(
@@ -791,7 +847,18 @@ test('ADMIN completes the canonical lifecycle, fresh assurance, and conflict flo
     page.getByRole('heading', { exact: true, name: '관리자 정답·해설' })
   ).toBeVisible()
 
+  const secondPage = await page.context().newPage()
+  await primeMockControlledPage(secondPage)
+  if (isMockBrowser) await secondPage.clock.setFixedTime(staleTime)
+  const secondPageMeResponsePromise = waitForOperation(
+    secondPage,
+    'GET',
+    '/api/v1/me'
+  )
   await secondPage.goto(detailPath)
+  const secondPageMeResponse = await secondPageMeResponsePromise
+  expect(secondPageMeResponse.status()).toBe(200)
+  expectExpectedApiTransport(secondPageMeResponse)
   await expect(
     secondPage.getByRole('heading', { exact: true, name: 'v2 · 초안' })
   ).toBeVisible()

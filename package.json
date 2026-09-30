@@ -53,6 +53,8 @@
     "test:phase10:api-manifest": "pnpm --filter @nihongo/api exec tsx src/e2e/validatePhase10ApiIntegrationManifest.ts",
     "test:phase10:api-current": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase10ApiIntegration.ts",
     "test:phase10:api-integration": "pnpm run test:phase10:api-manifest && pnpm run test:phase7:db && pnpm run test:phase7:api && pnpm run test:phase10:api-current",
+    "test:phase10:browser:real": "pnpm run test:phase8:browser:real && pnpm run test:phase9:browser:real && pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts real",
+    "test:phase10:browser:mock": "pnpm run test:phase8:browser:mock && pnpm run test:phase9:browser:mock && pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts mock",
     "auth:provision-admin": "pnpm --filter @nihongo/api run auth:provision-admin",
     "content:author-prepare": "node scripts/content/run-retained-validator.mjs author-prepare",
     "content:check": "node scripts/content/run-retained-validator.mjs check",
