@@ -344,17 +344,36 @@ test('rejects stale and repository-mismatched provenance', async () => {
 })
 
 test('removes atomic temporary evidence after rename failure', async () => {
+  const temporaryDirectoriesBefore = new Set(
+    (await readdir(tmpdir())).filter((name) =>
+      name.startsWith('phase10-bundle-write-')
+    )
+  )
   const directory = await mkdtemp(path.join(tmpdir(), 'phase10-bundle-write-'))
   const evidencePath = path.join(directory, 'bundle.json')
-  await mkdir(evidencePath)
-  await assert.rejects(() =>
-    writeCanonicalBundleEvidence(evidencePath, evidence)
-  )
+  try {
+    await mkdir(evidencePath)
+    await assert.rejects(() =>
+      writeCanonicalBundleEvidence(evidencePath, evidence)
+    )
+    assert.deepEqual(
+      (await readdir(directory)).filter(
+        (name) => name.startsWith('.bundle.json.') && name.endsWith('.tmp')
+      ),
+      []
+    )
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+  }
+
+  await assert.rejects(() => access(directory), { code: 'ENOENT' })
   assert.deepEqual(
-    (await readdir(directory)).filter(
-      (name) => name.startsWith('.bundle.json.') && name.endsWith('.tmp')
+    new Set(
+      (await readdir(tmpdir())).filter((name) =>
+        name.startsWith('phase10-bundle-write-')
+      )
     ),
-    []
+    temporaryDirectoriesBefore
   )
 })
 
