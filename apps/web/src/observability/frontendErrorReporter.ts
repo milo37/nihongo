@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import type { AnalyticsEnvironment } from '@nihongo/contracts/analytics/events'
 import { routeLabelKeys, type RouteLabelKey } from '@/i18n/routePresentation'
-import { releaseId } from '@libs/releaseId'
 
 const frontendErrorEventSchema = z
   .object({
@@ -80,7 +79,7 @@ export const createFrontendErrorReporter = ({
 
 export const frontendErrorReporter = createFrontendErrorReporter({
   deploymentEnvironment: 'LOCAL',
-  releaseId
+  releaseId: __NIHONGO_RELEASE_ID__
 })
 
 export const installGlobalFrontendErrorReporting = (

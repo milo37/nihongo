@@ -101,6 +101,7 @@ const compatibilityAuthority =
       )
     : undefined
 const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
+const runtimeMigrationProfile = technicalMode ? 'current' : 'pre-phase7'
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (technicalMode && !authGatewayDatabaseUrl) {
   throw new Error('Technical auth gateway DB URL is unavailable.')
@@ -116,8 +117,8 @@ if (technicalMode) {
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
   technicalMode
-    ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-    : { migrationProfile: 'pre-phase7' }
+    ? { migrationProfile: runtimeMigrationProfile, startupRole: 'nihongo_app' }
+    : { migrationProfile: runtimeMigrationProfile }
 )
 const authGatewayDatabase = technicalMode
   ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
@@ -222,7 +223,9 @@ const principalService = technicalMode
       client: database.client
     })
 const questionReader = createQuestionService(
-  createPrismaQuestionRepository(database.client)
+  createPrismaQuestionRepository(database.client, {
+    migrationProfile: runtimeMigrationProfile
+  })
 )
 const studySessionService = createStudySessionService(
   createPrismaStudySessionRepository(database.client)
@@ -258,7 +261,9 @@ const dashboardInsightsService = createDashboardInsightsService(
   )
 )
 const bookmarkService = createBookmarkService(
-  createPrismaBookmarkRepository(database.client)
+  createPrismaBookmarkRepository(database.client, {
+    migrationProfile: runtimeMigrationProfile
+  })
 )
 const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,

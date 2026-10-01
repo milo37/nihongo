@@ -4,7 +4,7 @@ import {
   type AnalyticsEvent,
   type AnalyticsEventInput
 } from '@nihongo/contracts/analytics/events'
-import { releaseId } from '@libs/releaseId'
+import { useEffect, useRef } from 'react'
 
 export interface AnalyticsTransport {
   send: (event: AnalyticsEvent) => void | Promise<void>
@@ -56,5 +56,24 @@ export const createAnalyticsClient = ({
 
 export const analyticsClient = createAnalyticsClient({
   environment: 'LOCAL',
-  releaseId
+  releaseId: __NIHONGO_RELEASE_ID__
 })
+
+type WrongNoteSurface = 'LIST' | 'DETAIL' | 'REVIEW_CENTER'
+
+export const useTrackWrongNoteOpened = (
+  surface: WrongNoteSurface,
+  routeInstanceKey: string = surface,
+  analytics: AnalyticsClient = analyticsClient
+): void => {
+  const trackedRouteInstanceRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (trackedRouteInstanceRef.current === routeInstanceKey) return
+    trackedRouteInstanceRef.current = routeInstanceKey
+    analytics.track({
+      event: 'wrong_note_opened',
+      payload: { surface }
+    })
+  }, [analytics, routeInstanceKey, surface])
+}

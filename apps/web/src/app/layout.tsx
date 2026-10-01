@@ -7,10 +7,14 @@ import { LoadingState } from '@common/components/LoadingState'
 import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
 import { getRouteLabelKey } from '@/i18n/routePresentation'
 import type { UiLocale } from '@/i18n/types'
-import { releaseLabel } from '@libs/releaseId'
 import { useUiLocale } from '@provider/I18nProvider'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
+
+const releaseLabel =
+  __NIHONGO_RELEASE_ID__ === '0000000000000000000000000000000000000000'
+    ? 'local'
+    : __NIHONGO_RELEASE_ID__.slice(0, 12)
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [

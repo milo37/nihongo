@@ -107,6 +107,24 @@ describe('application router boundaries', () => {
     ])
   })
 
+  it('운영 안내 내부 링크는 문서 reload 없이 SPA 경로와 hash를 전환한다', async () => {
+    const user = userEvent.setup()
+    const router = renderRoutes('/legal')
+    await findRouteHeading('서비스 이용과 콘텐츠 안내')
+
+    const navigation = screen.getByRole('navigation', {
+      name: '서비스 정보 목차'
+    })
+    await user.click(within(navigation).getByRole('link', { name: '문의' }))
+
+    expect(await findRouteHeading('문제 신고와 문의 안내')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/support')
+    expect(router.state.location.hash).toBe('#contact')
+    await vi.waitFor(() => {
+      expect(document.getElementById('contact')).toHaveFocus()
+    })
+  })
+
   it('운영 안내의 locale 전환은 경로와 hash를 보존한다', async () => {
     const user = userEvent.setup()
     const router = renderRoutes('/legal#privacy')

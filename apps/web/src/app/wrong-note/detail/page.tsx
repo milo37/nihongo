@@ -39,7 +39,7 @@ import {
   formatDateTime as formatLocaleDateTime,
   formatNumber
 } from '@libs/localeFormatters'
-import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
+import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 type WrongNoteDetailContentProps = {
   action?: ReactNode

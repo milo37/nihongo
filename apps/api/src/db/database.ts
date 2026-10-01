@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient, type Prisma } from '../generated/prisma/client.js'
 import {
   assertMigrationCompatibility,
   createSingleFlightReadiness,
@@ -31,9 +31,42 @@ interface CreateDatabaseRuntimeOptions {
   readonly startupRole?: 'nihongo_app' | 'nihongo_auth_gateway'
 }
 
+export const selectDatabaseGlobalOmit = (
+  migrationProfile?: MigrationCompatibilityProfile
+): Prisma.GlobalOmitConfig | undefined =>
+  migrationProfile === 'pre-phase7'
+    ? {
+        question: {
+          createdByActorId: true,
+          createdByRoleSnapshot: true,
+          rowVersion: true
+        },
+        questionVersion: {
+          contentFingerprint: true,
+          createdByActorId: true,
+          createdByRoleSnapshot: true,
+          retirementKind: true
+        },
+        questionVersionTag: { normalizedNameSnapshot: true },
+        session: {
+          authorityGeneration: true,
+          authorizationState: true,
+          issuerProtocolVersion: true,
+          sessionFamilyId: true
+        },
+        user: { authorityGeneration: true },
+        verification: {
+          capturedGeneration: true,
+          purpose: true,
+          resetUserId: true,
+          tokenSelector: true
+        }
+      }
+    : undefined
+
 const createPrismaClient = (
   connectionString: string,
-  { startupRole }: CreateDatabaseRuntimeOptions = {}
+  { migrationProfile, startupRole }: CreateDatabaseRuntimeOptions = {}
 ): PrismaClient => {
   const schema = getPostgresSchema(connectionString)
   const adapter = new PrismaPg(
@@ -49,7 +82,8 @@ const createPrismaClient = (
     schema ? { schema } : {}
   )
 
-  return new PrismaClient({ adapter })
+  const omit = selectDatabaseGlobalOmit(migrationProfile)
+  return new PrismaClient({ adapter, ...(omit ? { omit } : {}) })
 }
 
 export const createRoleDatabaseRuntime = (

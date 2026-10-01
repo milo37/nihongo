@@ -22,7 +22,7 @@ import {
 } from '@app/wrong-note/wrongNoteHistorySearch'
 import { resolveUiLocale } from '@/i18n/types'
 import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
+import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']

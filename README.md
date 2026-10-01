@@ -375,9 +375,13 @@ pnpm run recovery:verify -- --mode verify-backup \
 ```
 
 `recovery:verify`는 verify-only이며 백업, 복원, migration, DB·network·provider 작업을
-실행하지 않습니다. v1 Staging/Production은 전체 31개가 아니라 release manifest의 첫
-27개인 `v1-runtime-pre-phase7` profile만 허용합니다. `prisma migrate reset`, `db push`,
-`migrate dev`, reverse migration, ad-hoc Production SQL, source target 위 복원은 금지합니다.
+실행하지 않습니다. release manifest의 첫 27개인 `v1-runtime-pre-phase7`은 v1
+Staging/Production의 검증되지 않은 activation candidate일 뿐, 현재 OCI artifact와의
+stateful 호환성 또는 배포 가능성을 증명하지 않습니다. runtime smoke evidence v2로
+exact-27 격리 DB에서 가입, 로그인, session, `/api/v1/me`, 태그 문제 조회, 인증된
+즐겨찾기 생성·조회까지 통과하고 신뢰 가능한 registry/provider adapter가 연결되기
+전에는 활성화할 수 없습니다. `prisma migrate reset`, `db push`, `migrate dev`,
+reverse migration, ad-hoc Production SQL, source target 위 복원은 금지합니다.
 
 ## 인증과 로컬 Mock 계정
 

@@ -60,7 +60,7 @@ test('all analytics events are wired at authoritative learner boundaries', () =>
       )
     ].join('\n'),
     study_submitted: read('apps/web/src/analytics/studyEvents.ts'),
-    wrong_note_opened: read('apps/web/src/analytics/useTrackWrongNoteOpened.ts')
+    wrong_note_opened: read('apps/web/src/analytics/client.ts')
   }
 
   for (const event of analyticsEvents) {

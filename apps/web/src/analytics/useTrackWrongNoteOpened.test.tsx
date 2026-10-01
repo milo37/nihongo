@@ -1,7 +1,9 @@
 import { renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { AnalyticsClient } from '@/analytics/client'
-import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
+import {
+  useTrackWrongNoteOpened,
+  type AnalyticsClient
+} from '@/analytics/client'
 
 describe('wrong-note analytics page view', () => {
   it('records a surface once for the mounted route', () => {

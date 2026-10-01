@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { runRecoveryEvidenceCli } from './recovery-evidence.mjs'
 import { createRecoveryFixtures } from './recovery-test-fixtures.mjs'
 
@@ -148,3 +150,79 @@ test('CLI rejects symlinked and oversized evidence inputs', () => {
     rmSync(fixture.directory, { force: true, recursive: true })
   }
 })
+
+test('CLI rejects top-level and nested duplicate JSON members', () => {
+  const fixture = createCliFixture()
+  try {
+    const topLevelPath = join(fixture.directory, 'duplicate-top-level.json')
+    writeFileSync(
+      topLevelPath,
+      `{"environment":"PRODUCTION",${JSON.stringify(fixture.plan).slice(1)}`,
+      { mode: 0o600 }
+    )
+    assert.throws(
+      () =>
+        runRecoveryEvidenceCli(
+          commonArguments(fixture, fixture.backupPath, 'verify-backup').map(
+            (argument) =>
+              argument === fixture.planPath ? topLevelPath : argument
+          ),
+          { now: () => fixture.now }
+        ),
+      /bounded regular JSON file/u
+    )
+
+    const nestedPath = join(fixture.directory, 'duplicate-nested.json')
+    const serialized = JSON.stringify(fixture.plan)
+    const duplicateIdentity = JSON.stringify(
+      fixture.plan.identities.runtimeSha256
+    )
+    writeFileSync(
+      nestedPath,
+      serialized.replace(
+        '"identities":{',
+        `"identities":{"runtimeSha256":${duplicateIdentity},`
+      ),
+      { mode: 0o600 }
+    )
+    assert.throws(
+      () =>
+        runRecoveryEvidenceCli(
+          commonArguments(fixture, fixture.backupPath, 'verify-backup').map(
+            (argument) =>
+              argument === fixture.planPath ? nestedPath : argument
+          ),
+          { now: () => fixture.now }
+        ),
+      /bounded regular JSON file/u
+    )
+  } finally {
+    rmSync(fixture.directory, { force: true, recursive: true })
+  }
+})
+
+test(
+  'CLI rejects FIFO input without waiting for a writer',
+  { skip: process.platform === 'win32' },
+  () => {
+    const fixture = createCliFixture()
+    try {
+      const fifoPath = join(fixture.directory, 'backup.fifo')
+      execFileSync('mkfifo', [fifoPath])
+      const result = spawnSync(
+        process.execPath,
+        [
+          fileURLToPath(new URL('./recovery-evidence.mjs', import.meta.url)),
+          ...commonArguments(fixture, fifoPath, 'verify-backup')
+        ],
+        { encoding: 'utf8', timeout: 2_000 }
+      )
+
+      assert.equal(result.status, 1)
+      assert.equal(result.signal, null)
+      assert.match(result.stderr, /verification failed/u)
+    } finally {
+      rmSync(fixture.directory, { force: true, recursive: true })
+    }
+  }
+)

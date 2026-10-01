@@ -113,6 +113,20 @@ const assertExactHealth = (body, expectedStatus, label) => {
   }
 }
 
+export const isCanonicalViteAssetPath = (path) => {
+  if (typeof path !== 'string' || !path.startsWith('/assets/')) return false
+  const segments = path.slice('/assets/'.length).split('/')
+  return (
+    segments.length > 0 &&
+    segments.every(
+      (segment) =>
+        /^[A-Za-z0-9_][A-Za-z0-9._-]*$/u.test(segment) &&
+        segment !== '.' &&
+        segment !== '..'
+    )
+  )
+}
+
 const getAssetPaths = (html, origin) => {
   const paths = new Set()
   for (const match of html.matchAll(/(?:src|href)=["']([^"']+)["']/giu)) {
@@ -128,16 +142,7 @@ const getAssetPaths = (html, origin) => {
           'Web shell asset references must not contain credentials, query, or fragment data.'
         )
       }
-      const segments = url.pathname.slice('/assets/'.length).split('/')
-      if (
-        segments.length === 0 ||
-        segments.some(
-          (segment) =>
-            !/^[A-Za-z0-9_][A-Za-z0-9._-]*$/u.test(segment) ||
-            segment === '.' ||
-            segment === '..'
-        )
-      ) {
+      if (!isCanonicalViteAssetPath(url.pathname)) {
         throw new Error('Web shell contains an unsafe Vite asset path.')
       }
       paths.add(url.pathname)

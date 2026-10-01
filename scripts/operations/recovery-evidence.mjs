@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs'
-import { isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   verifyBackupEvidence,
@@ -9,6 +7,7 @@ import {
   verifyRecoveryPlan,
   verifyRestoreEvidence
 } from './recovery-contract.mjs'
+import { readBoundedUniqueKeyJsonFile } from './json-boundary.mjs'
 
 const MAXIMUM_INPUT_BYTES = 1_048_576
 
@@ -38,46 +37,10 @@ const assertExactArguments = (argumentsMap, expectedKeys) => {
 }
 
 const readBoundedJson = (path, label) => {
-  if (typeof path !== 'string' || !isAbsolute(path)) {
-    throw new Error(`${label} path must be absolute.`)
-  }
-  const absolutePath = resolve(path)
-  let descriptor
-  try {
-    descriptor = openSync(
-      absolutePath,
-      constants.O_RDONLY | constants.O_NOFOLLOW
-    )
-    const metadata = fstatSync(descriptor)
-    if (
-      !metadata.isFile() ||
-      metadata.size <= 0 ||
-      metadata.size > MAXIMUM_INPUT_BYTES
-    ) {
-      throw new Error(`${label} must be a bounded regular file.`)
-    }
-    const input = Buffer.allocUnsafe(MAXIMUM_INPUT_BYTES + 1)
-    let totalBytes = 0
-    while (totalBytes < input.length) {
-      const bytesRead = readSync(
-        descriptor,
-        input,
-        totalBytes,
-        input.length - totalBytes,
-        null
-      )
-      if (bytesRead === 0) break
-      totalBytes += bytesRead
-    }
-    if (totalBytes === 0 || totalBytes > MAXIMUM_INPUT_BYTES) {
-      throw new Error(`${label} exceeds the input boundary.`)
-    }
-    return JSON.parse(input.subarray(0, totalBytes).toString('utf8'))
-  } catch {
-    throw new Error(`${label} must be a bounded regular JSON file.`)
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor)
-  }
+  return readBoundedUniqueKeyJsonFile(path, {
+    label,
+    maximumBytes: MAXIMUM_INPUT_BYTES
+  })
 }
 
 export const runRecoveryEvidenceCli = (

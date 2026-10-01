@@ -129,7 +129,7 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     'phase11_release:',
     'name: Build and verify portable Phase 11 OCI release',
     'pnpm run release:runtime-smoke',
-    'pnpm run release:runtime-smoke -- --mode verify',
+    'pnpm run release:runtime-smoke --mode verify',
     'name: Upload safe Phase 11 release evidence',
     'name: Clean Phase 11 release and evidence'
   ])
@@ -142,11 +142,16 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     workflow,
     /docker cp "\$PHASE11_CONTAINER_NAME:\/app\/release-manifest\.json"/u
   )
-  assert.match(workflow, /pnpm run release:evidence -- --mode create/u)
+  assert.match(workflow, /pnpm run release:evidence --mode create/u)
   assert.match(
     workflow,
-    /pnpm run release:runtime-smoke -- --image "\$PHASE11_IMAGE_TAG" --release-id "\$GITHUB_SHA"/u
+    /pnpm run release:runtime-smoke --image "\$image_id" --expected-image-id "\$image_id" --release-id "\$GITHUB_SHA"/u
   )
+  assert.match(
+    workflow,
+    /pnpm run release:runtime-smoke --mode verify --expected-image-id "\$image_id"/u
+  )
+  assert.doesNotMatch(workflow, /pnpm run release:[^\n]+ -- --/u)
   assert.match(workflow, /runtime-smoke\.json/u)
   assert.match(
     workflow,
@@ -169,6 +174,11 @@ test('one immutable runtime binds the same release to API and Web', () => {
   )
   assert.match(dockerfile, /HEALTHCHECK[^\n]*process\.env\.PORT/u)
   assert.match(dockerfile, /VITE_RELEASE_ID=\$RELEASE_ID/u)
+  assertInOrder(dockerfile, [
+    'pnpm --filter @nihongo/api deploy --prod --legacy /release/api',
+    'node scripts/operations/normalize-api-deploy.mjs --api-directory /release/api --workspace-api-directory /workspace/apps/api',
+    'node scripts/operations/release-manifest.mjs --mode create-oci-component'
+  ])
   assert.match(serverSource, /releaseId: environment\.RELEASE_ID/u)
   assert.match(
     serverSource,
@@ -270,6 +280,8 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
     )
   }
   assert.match(recoveryRunbook, /not Staging or Production recovery proof/u)
+  assert.match(recoveryRunbook, /unverified activation\s+candidate/u)
+  assert.match(recoveryRunbook, /exact-27 isolated stateful sign-up/u)
   assert.doesNotMatch(workflow, /pnpm run recovery:verify/u)
   assert.doesNotMatch(workflow, /pg_dump|pg_restore|prisma migrate deploy/u)
 })

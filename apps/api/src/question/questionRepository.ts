@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
+import type { MigrationCompatibilityProfile } from '../db/readiness.js'
 
 export interface QuestionTagRecord {
   id: string
@@ -64,6 +65,10 @@ export interface QuestionRepository {
   ) => Promise<ListPublishedQuestionsResult>
 }
 
+interface CreatePrismaQuestionRepositoryOptions {
+  readonly migrationProfile?: MigrationCompatibilityProfile
+}
+
 export class QuestionRepositoryUnavailableError extends Error {
   constructor(options: ErrorOptions) {
     super('Question repository is unavailable.', options)
@@ -108,7 +113,8 @@ const executeRepositoryOperation = async <Result>(
 }
 
 export const createPrismaQuestionRepository = (
-  client: PrismaClient | Prisma.TransactionClient
+  client: PrismaClient | Prisma.TransactionClient,
+  options: CreatePrismaQuestionRepositoryOptions = {}
 ): QuestionRepository => ({
   findPublishedById: (questionId) =>
     executeRepositoryOperation(async () => {
@@ -179,7 +185,9 @@ export const createPrismaQuestionRepository = (
           ? {
               tags: {
                 some: {
-                  normalizedNameSnapshot: input.normalizedTag
+                  ...(options.migrationProfile === 'pre-phase7'
+                    ? { tag: { normalizedName: input.normalizedTag } }
+                    : { normalizedNameSnapshot: input.normalizedTag })
                 }
               }
             }

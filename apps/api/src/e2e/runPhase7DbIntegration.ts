@@ -161,13 +161,83 @@ const formatCommand = (command: string, args: readonly string[]): string =>
 
 const commandProcesses: Array<{ child: ChildProcess; label: string }> = []
 
-const EXPECTED_PRISMA_COLLATION_DIFF = [
+// Prisma cannot preserve COLLATE C in this index or express a database-owned
+// enum default without compiling that default into legacy INSERT statements.
+// The live defaults are attested independently before this exact no-op SQL is
+// accepted, so a missing or changed database default cannot hide here.
+const EXPECTED_PRISMA_REPRESENTATION_DIFF = [
   '-- DropIndex',
   'DROP INDEX "QuestionVersion_questionText_prefix_idx";',
+  '',
+  '-- AlterTable',
+  'ALTER TABLE "Question" ALTER COLUMN "rowVersion" SET DEFAULT 1;',
+  '',
+  '-- AlterTable',
+  'ALTER TABLE "QuestionVersionTag" ALTER COLUMN "normalizedNameSnapshot" SET DEFAULT \'\'::text;',
+  '',
+  '-- AlterTable',
+  'ALTER TABLE "Session" ALTER COLUMN "authorityGeneration" SET DEFAULT 1,',
+  'ALTER COLUMN "issuerProtocolVersion" SET DEFAULT \'LEGACY\'::"AuthSessionIssuerProtocolVersion",',
+  'ALTER COLUMN "authorizationState" SET DEFAULT \'ACTIVE\'::"AuthSessionAuthorizationState";',
+  '',
+  '-- AlterTable',
+  'ALTER TABLE "User" ALTER COLUMN "authorityGeneration" SET DEFAULT 1;',
   '',
   '-- CreateIndex',
   'CREATE INDEX "QuestionVersion_questionText_prefix_idx" ON "QuestionVersion"("questionText" text_pattern_ops);'
 ].join('\n')
+
+interface Phase7DatabaseDefault {
+  readonly columnName: string
+  readonly defaultExpression: string
+  readonly tableName: string
+}
+
+class Phase7DatabaseDefaultAttestationError extends Error {
+  public constructor(
+    actual: readonly Phase7DatabaseDefault[],
+    expected: readonly Phase7DatabaseDefault[]
+  ) {
+    super(
+      'Phase 7 database default attestation failed. ' +
+        JSON.stringify({ actual, expected })
+    )
+    this.name = 'Phase7DatabaseDefaultAttestationError'
+  }
+}
+
+const EXPECTED_PHASE7_DATABASE_DEFAULTS: readonly Phase7DatabaseDefault[] = [
+  {
+    columnName: 'rowVersion',
+    defaultExpression: '1',
+    tableName: 'Question'
+  },
+  {
+    columnName: 'normalizedNameSnapshot',
+    defaultExpression: "''::text",
+    tableName: 'QuestionVersionTag'
+  },
+  {
+    columnName: 'authorityGeneration',
+    defaultExpression: '1',
+    tableName: 'Session'
+  },
+  {
+    columnName: 'authorizationState',
+    defaultExpression: '\'ACTIVE\'::"AuthSessionAuthorizationState"',
+    tableName: 'Session'
+  },
+  {
+    columnName: 'issuerProtocolVersion',
+    defaultExpression: '\'LEGACY\'::"AuthSessionIssuerProtocolVersion"',
+    tableName: 'Session'
+  },
+  {
+    columnName: 'authorityGeneration',
+    defaultExpression: '1',
+    tableName: 'User'
+  }
+]
 
 const runCommand = async (
   command: string,
@@ -310,17 +380,18 @@ const runCommandExpectFailure = async (
 const normalizePrismaDiff = (value: string): string =>
   value.replaceAll('\r\n', '\n').trim()
 
-const assertExpectedPrismaCollationDiff = (value: string): void => {
+const assertExpectedPrismaRepresentationDiff = (value: string): void => {
   const normalized = normalizePrismaDiff(value)
-  if (normalized !== EXPECTED_PRISMA_COLLATION_DIFF) {
+  if (normalized !== EXPECTED_PRISMA_REPRESENTATION_DIFF) {
     throw new Error(
-      'Phase 7 Prisma drift exceeded the single COLLATE C index allowlist.\n' +
+      'Phase 7 Prisma drift exceeded the exact representation allowlist.\n' +
         normalized
     )
   }
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.prisma_collation_diff_allowlisted',
+      event: 'phase7.db.integration.prisma_representation_diff_allowlisted',
+      enumDefaults: ['ACTIVE', 'LEGACY'],
       indexName: 'QuestionVersion_questionText_prefix_idx'
     })}\n`
   )
@@ -329,6 +400,79 @@ const assertExpectedPrismaCollationDiff = (value: string): void => {
 const adminClient = new Client({
   connectionString: adminDatabaseUrl.toString()
 })
+
+const assertPhase7DatabaseDefaults = async (): Promise<void> => {
+  const result = await adminClient.query<Phase7DatabaseDefault>(
+    `SELECT relation.relname AS "tableName",
+            attribute.attname AS "columnName",
+            pg_get_expr(default_value.adbin, default_value.adrelid)
+              AS "defaultExpression"
+       FROM pg_catalog.pg_attrdef AS default_value
+       JOIN pg_catalog.pg_attribute AS attribute
+         ON attribute.attrelid = default_value.adrelid
+        AND attribute.attnum = default_value.adnum
+       JOIN pg_catalog.pg_class AS relation
+         ON relation.oid = default_value.adrelid
+       JOIN pg_catalog.pg_namespace AS namespace
+         ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = $1
+        AND (relation.relname, attribute.attname) IN (
+          VALUES
+            ('Question', 'rowVersion'),
+            ('QuestionVersionTag', 'normalizedNameSnapshot'),
+            ('Session', 'authorityGeneration'),
+            ('Session', 'authorizationState'),
+            ('Session', 'issuerProtocolVersion'),
+            ('User', 'authorityGeneration')
+        )
+      ORDER BY relation.relname, attribute.attname`,
+    [schemaName]
+  )
+  const quotedSchemaQualifier = `"${schemaName}".`
+  const unquotedSchemaQualifier = `${schemaName}.`
+  const actual = result.rows.map(
+    ({ columnName, defaultExpression, tableName }) => ({
+      columnName,
+      defaultExpression: defaultExpression
+        .replaceAll(quotedSchemaQualifier, '')
+        .replaceAll(unquotedSchemaQualifier, ''),
+      tableName
+    })
+  )
+  if (
+    JSON.stringify(actual) !== JSON.stringify(EXPECTED_PHASE7_DATABASE_DEFAULTS)
+  ) {
+    throw new Phase7DatabaseDefaultAttestationError(
+      actual,
+      EXPECTED_PHASE7_DATABASE_DEFAULTS
+    )
+  }
+}
+
+const assertPhase7DatabaseDefaultDriftRejected = async (
+  mutationSql: string
+): Promise<void> => {
+  await adminClient.query('BEGIN')
+  try {
+    await adminClient.query(mutationSql)
+    let rejected = false
+    try {
+      await assertPhase7DatabaseDefaults()
+    } catch (error: unknown) {
+      if (error instanceof Phase7DatabaseDefaultAttestationError) {
+        rejected = true
+      } else {
+        throw error
+      }
+    }
+    if (!rejected) {
+      throw new Error('Phase 7 database default drift was not rejected.')
+    }
+  } finally {
+    await adminClient.query('ROLLBACK')
+  }
+}
+
 interface DatabaseAclEntry {
   readonly grantee: string
   readonly grantor: string
@@ -1280,6 +1424,22 @@ const run = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     migrationEnvironment
   )
+  await assertPhase7DatabaseDefaultDriftRejected(
+    `ALTER TABLE ${quoteSchema(schemaName)}."Session"
+       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
+  )
+  await assertPhase7DatabaseDefaultDriftRejected(
+    `ALTER TABLE ${quoteSchema(schemaName)}."Session"
+       ALTER COLUMN "authorizationState" DROP DEFAULT`
+  )
+  await assertPhase7DatabaseDefaults()
+  process.stdout.write(
+    `${JSON.stringify({
+      event: 'phase7.db.integration.database_defaults_attested',
+      defaultCount: EXPECTED_PHASE7_DATABASE_DEFAULTS.length,
+      driftRejections: 2
+    })}\n`
+  )
   const prismaDiff = await runCommandCapture(
     'pnpm',
     [
@@ -1298,7 +1458,7 @@ const run = async (): Promise<void> => {
     ],
     driftEnvironment
   )
-  assertExpectedPrismaCollationDiff(prismaDiff)
+  assertExpectedPrismaRepresentationDiff(prismaDiff)
 
   const readQuestionCount = async (): Promise<string> => {
     const result = await adminClient.query<{ count: string }>(

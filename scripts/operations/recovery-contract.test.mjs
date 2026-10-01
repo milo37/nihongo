@@ -84,7 +84,7 @@ test('migration profiles separate all 31 TEST entries from the exact v1 runtime 
   )
 })
 
-test('recovery plan is deterministic, target-bound and identity-separated', () => {
+test('recovery plan is deterministic, registry-committed, self-attested and identity-separated', () => {
   const { contract, plan, releaseManifest } = createRecoveryFixtures()
 
   assert.equal(
@@ -169,6 +169,28 @@ test('recovery plan is deterministic, target-bound and identity-separated', () =
         releaseManifest
       }),
     /SHA-256 digest/u
+  )
+})
+
+test('registry digest drift changes the plan commitment and invalidates evidence', () => {
+  const { backupEvidence, contract, now, plan, releaseManifest } =
+    createRecoveryFixtures()
+  const registryDrift = {
+    ...plan,
+    environmentRegistrySha256: 'f'.repeat(64)
+  }
+
+  assert.notEqual(digestCanonicalJson(registryDrift), digestCanonicalJson(plan))
+  assert.throws(
+    () =>
+      verifyBackupEvidence(backupEvidence, {
+        contract,
+        expectedEnvironment: 'TEST',
+        now,
+        plan: registryDrift,
+        releaseManifest
+      }),
+    /binding mismatch/u
   )
 })
 

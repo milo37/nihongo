@@ -1,11 +1,18 @@
-import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ComponentType, ReactElement, ReactNode } from 'react'
+import type { TFunction } from 'i18next'
 
 export type OperationsInformationPageKind = 'account' | 'legal' | 'support'
 
+export type OperationsInformationLinkProps = {
+  readonly children: ReactNode
+  readonly className: string
+  readonly href: string
+}
+
 interface OperationsInformationPageProps {
+  readonly LinkComponent: ComponentType<OperationsInformationLinkProps>
   readonly page: OperationsInformationPageKind
+  readonly translate: TFunction<'operations'>
 }
 
 const sectionIdsByPage = {
@@ -35,44 +42,45 @@ const sectionDomIds = {
 } as const
 
 export const OperationsInformationPage = ({
-  page
+  LinkComponent,
+  page,
+  translate
 }: OperationsInformationPageProps): ReactElement => {
-  const { t } = useTranslation('operations')
   const sections = sectionIdsByPage[page]
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:py-16">
       <p className="text-sm font-black tracking-[0.16em] text-brand">
-        {t(`pages.${page}.eyebrow`)}
+        {translate(`pages.${page}.eyebrow`)}
       </p>
       <h1 className="mt-2 text-4xl font-black tracking-tight">
-        {t(`pages.${page}.title`)}
+        {translate(`pages.${page}.title`)}
       </h1>
       <p className="mt-4 max-w-3xl leading-7 text-muted">
-        {t(`pages.${page}.description`)}
+        {translate(`pages.${page}.description`)}
       </p>
 
       <div
         className="mt-8 rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950"
         role="status"
       >
-        <p className="font-black">{t('foundation.title')}</p>
-        <p className="mt-2 leading-7">{t('foundation.description')}</p>
+        <p className="font-black">{translate('foundation.title')}</p>
+        <p className="mt-2 leading-7">{translate('foundation.description')}</p>
       </div>
 
       <nav
-        aria-label={t('navigation.label')}
+        aria-label={translate('navigation.label')}
         className="mt-8 rounded-xl border border-line bg-white p-5"
       >
         <ul className="flex flex-wrap gap-x-5 gap-y-2">
           {informationLinks.map(({ href, key }) => (
             <li key={key}>
-              <Link
+              <LinkComponent
                 className="inline-flex min-h-11 items-center font-bold text-brand underline decoration-2 underline-offset-4"
-                to={href}
+                href={href}
               >
-                {t(`navigation.${key}`)}
-              </Link>
+                {translate(`navigation.${key}`)}
+              </LinkComponent>
             </li>
           ))}
         </ul>
@@ -87,16 +95,16 @@ export const OperationsInformationPage = ({
             tabIndex={-1}
           >
             <h2 className="text-2xl font-black">
-              {t(`sections.${section}.title`)}
+              {translate(`sections.${section}.title`)}
             </h2>
             <p className="mt-4 leading-7 text-ink">
-              {t(`sections.${section}.summary`)}
+              {translate(`sections.${section}.summary`)}
             </p>
             <p className="mt-3 leading-7 text-muted">
-              {t(`sections.${section}.details`)}
+              {translate(`sections.${section}.details`)}
             </p>
             <p className="mt-4 border-l-4 border-amber-400 pl-4 text-sm font-semibold leading-6 text-amber-950">
-              {t(`sections.${section}.status`)}
+              {translate(`sections.${section}.status`)}
             </p>
           </article>
         ))}

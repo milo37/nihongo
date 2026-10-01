@@ -13,9 +13,14 @@ fingerprints, backup evidence, deployment approver, incident owner, and a
 maintenance or generation lease. Never infer an environment from a hostname.
 
 `technical-current-test` is TEST-only and selects all 31 repository migrations.
-`v1-runtime-pre-phase7` is the only v1 Staging/Production profile and selects
-the exact 27 entries before `20260827100000_phase7_admin_cms_enums`. Never point
-bare `prisma migrate deploy` at the full current migration directory for a v1
+`v1-runtime-pre-phase7` selects the exact 27 entries before
+`20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
+candidate rather than current-artifact compatibility or deployability proof.
+Activation remains blocked until the packaged current artifact passes an
+exact-27 isolated stateful sign-up, sign-in, session, principal, tagged question
+read, and authenticated bookmark create/list smoke and a trusted
+registry/provider adapter is available. Never point bare
+`prisma migrate deploy` at the full current migration directory for a v1
 Staging or Production target.
 
 ## Backup proof

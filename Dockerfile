@@ -29,6 +29,7 @@ ENV VITE_RELEASE_ID=$RELEASE_ID
 RUN node -e "const id=process.env.RELEASE_ID;if(!/^[0-9a-f]{40}$/.test(id)||/^0+$/.test(id))process.exit(1)"
 RUN pnpm run build
 RUN pnpm --filter @nihongo/api deploy --prod --legacy /release/api
+RUN node scripts/operations/normalize-api-deploy.mjs --api-directory /release/api --workspace-api-directory /workspace/apps/api
 RUN cp -R apps/web/dist /release/web
 RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --workspace /workspace --release-id "$RELEASE_ID" --api-directory /release/api --web-directory /release/web --output /release/release-manifest.json
 

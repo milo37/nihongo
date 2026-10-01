@@ -1,6 +1,7 @@
 import type { ParsedListBookmarksQuery } from '@nihongo/contracts/bookmark/list-bookmarks'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import type { PublishedQuestionSummaryRecord } from '../question/questionRepository.js'
+import type { MigrationCompatibilityProfile } from '../db/readiness.js'
 
 export interface BookmarkReadRecord {
   readonly availability: 'AVAILABLE' | 'ARCHIVED'
@@ -31,6 +32,10 @@ export interface BookmarkRepository {
     items: readonly BookmarkReadRecord[]
     total: number
   }>
+}
+
+interface CreatePrismaBookmarkRepositoryOptions {
+  readonly migrationProfile?: MigrationCompatibilityProfile
 }
 
 export class BookmarkQuestionNotFoundError extends Error {
@@ -104,35 +109,41 @@ const versionSummarySelect = {
   }
 } satisfies Prisma.QuestionVersionSelect
 
-const bookmarkReadSelect = {
-  id: true,
-  questionId: true,
-  createdAt: true,
-  question: {
-    select: {
-      lifecycleStatus: true,
-      currentPublishedVersion: { select: versionSummarySelect },
-      versions: {
-        where: {
-          publishedAt: { not: null },
-          OR: [
-            { status: 'PUBLISHED' },
-            {
-              status: 'RETIRED',
-              retirementKind: 'PUBLISHED_RETIREMENT'
-            }
-          ]
-        },
-        orderBy: [{ versionNumber: 'desc' }, { id: 'asc' }],
-        take: 1,
-        select: versionSummarySelect
+const createBookmarkReadSelect = (
+  migrationProfile?: MigrationCompatibilityProfile
+) =>
+  ({
+    id: true,
+    questionId: true,
+    createdAt: true,
+    question: {
+      select: {
+        lifecycleStatus: true,
+        currentPublishedVersion: { select: versionSummarySelect },
+        versions: {
+          where:
+            migrationProfile === 'pre-phase7'
+              ? { status: { in: ['PUBLISHED', 'RETIRED'] } }
+              : {
+                  publishedAt: { not: null },
+                  OR: [
+                    { status: 'PUBLISHED' },
+                    {
+                      status: 'RETIRED',
+                      retirementKind: 'PUBLISHED_RETIREMENT'
+                    }
+                  ]
+                },
+          orderBy: [{ versionNumber: 'desc' }, { id: 'asc' }],
+          take: 1,
+          select: versionSummarySelect
+        }
       }
     }
-  }
-} satisfies Prisma.BookmarkSelect
+  }) satisfies Prisma.BookmarkSelect
 
 type BookmarkReadRow = Prisma.BookmarkGetPayload<{
-  select: typeof bookmarkReadSelect
+  select: ReturnType<typeof createBookmarkReadSelect>
 }>
 
 const toQuestionRecord = (
@@ -176,17 +187,19 @@ const toBookmarkRecord = (row: BookmarkReadRow): BookmarkReadRecord => {
 const findOwnedBookmark = async (
   transaction: Prisma.TransactionClient,
   userId: string,
-  questionId: string
+  questionId: string,
+  migrationProfile?: MigrationCompatibilityProfile
 ): Promise<BookmarkReadRecord | null> => {
   const bookmark = await transaction.bookmark.findUnique({
     where: { userId_questionId: { userId, questionId } },
-    select: bookmarkReadSelect
+    select: createBookmarkReadSelect(migrationProfile)
   })
   return bookmark ? toBookmarkRecord(bookmark) : null
 }
 
 export const createPrismaBookmarkRepository = (
-  client: PrismaClient
+  client: PrismaClient,
+  options: CreatePrismaBookmarkRepositoryOptions = {}
 ): BookmarkRepository => ({
   createOwned: (input) =>
     executeRepositoryOperation(
@@ -209,7 +222,8 @@ export const createPrismaBookmarkRepository = (
             const existing = await findOwnedBookmark(
               transaction,
               input.userId,
-              input.questionId
+              input.questionId,
+              options.migrationProfile
             )
             if (existing) {
               return { bookmark: existing, created: false }
@@ -243,7 +257,8 @@ export const createPrismaBookmarkRepository = (
             const bookmark = await findOwnedBookmark(
               transaction,
               input.userId,
-              input.questionId
+              input.questionId,
+              options.migrationProfile
             )
             if (!bookmark) {
               throw new BookmarkRepositoryIntegrityError(
@@ -282,7 +297,7 @@ export const createPrismaBookmarkRepository = (
                     orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
                     skip: Number(offset),
                     take: input.pageSize,
-                    select: bookmarkReadSelect
+                    select: createBookmarkReadSelect(options.migrationProfile)
                   })
             return { total, items: rows.map(toBookmarkRecord) }
           },

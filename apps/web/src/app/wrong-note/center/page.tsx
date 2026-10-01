@@ -26,7 +26,7 @@ import {
   isNoEligibleQuestionsApiError,
   isOfflineApiError
 } from '@util/apiError'
-import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
+import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 const viewOptions = [
   { value: 'DUE', countKey: 'due' },
