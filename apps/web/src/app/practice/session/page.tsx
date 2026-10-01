@@ -58,6 +58,7 @@ import {
   isOfflineApiError,
   isNotFoundApiError
 } from '@util/apiError'
+import { analyticsClient } from '@/analytics/client'
 
 type BookmarkNoticeCode =
   | 'loginRequired'
@@ -209,7 +210,7 @@ export const PracticeSessionPage = (): ReactElement => {
     sessionId,
     user
   })
-  const createBookmark = useCreateBookmark()
+  const createBookmark = useCreateBookmark('PRACTICE')
   const deleteBookmark = useDeleteBookmark()
   const bookmarkMutationActivity = useBookmarkMutationActivity()
   const bookmarkQuestionIds =
@@ -481,6 +482,7 @@ export const PracticeSessionPage = (): ReactElement => {
       if (document.activeElement instanceof HTMLElement) {
         draftConflictReturnFocusRef.current = document.activeElement
       }
+      const isFirstAnswer = !displayedSelectedAnswers[currentQuestion.id]
       if (isV2Session && currentQuestion.sessionQuestionId) {
         draftController.selectOption(
           currentQuestion.sessionQuestionId,
@@ -488,6 +490,12 @@ export const PracticeSessionPage = (): ReactElement => {
         )
       } else {
         selectAnswer(currentQuestion.id, optionId)
+      }
+      if (isFirstAnswer) {
+        analyticsClient.track({
+          event: 'question_answered',
+          payload: { ordinal: currentQuestion.ordinal }
+        })
       }
     }
   }

@@ -94,7 +94,15 @@ export const koResources = {
     footer: {
       originalContent: '자체 제작 문제만 사용하는 포트폴리오 프로젝트입니다.',
       scope: '청해·실제 JLPT 기출문제는 포함하지 않습니다.',
-      release: '배포 버전 {{release}}'
+      release: '배포 버전 {{release}}',
+      informationLabel: '서비스 정보',
+      terms: '이용 조건',
+      privacy: '개인정보 안내',
+      copyright: '저작권 안내',
+      deletion: '계정 삭제',
+      dataExport: '데이터 내보내기',
+      questionReport: '문제 신고',
+      contact: '문의'
     }
   },
   navigation: {
@@ -125,6 +133,9 @@ export const koResources = {
       wrongNoteHistory: '전체 오답 기록',
       wrongNoteDetail: '오답 상세',
       bookmarks: '즐겨찾기',
+      legal: '법적 안내',
+      accountData: '계정 데이터 안내',
+      support: '지원 안내',
       adminQuestionNew: '문제 등록',
       adminQuestionImport: '문제 가져오기',
       adminQuestionDetail: '문제 상세',
@@ -134,6 +145,107 @@ export const koResources = {
       adminReports: '문제 신고 큐',
       forbidden: '접근 권한 없음',
       page: '페이지'
+    }
+  },
+  operations: {
+    pages: {
+      legal: {
+        eyebrow: 'LEGAL FOUNDATION',
+        title: '서비스 이용과 콘텐츠 안내',
+        description:
+          '서비스 이용 조건, 개인정보 처리 구조, 자체 제작 콘텐츠 원칙을 한곳에서 확인합니다.'
+      },
+      account: {
+        eyebrow: 'ACCOUNT DATA FOUNDATION',
+        title: '계정과 학습 데이터 관리 안내',
+        description:
+          '계정 삭제와 데이터 내보내기의 현재 지원 범위와 활성화 전 제한을 설명합니다.'
+      },
+      support: {
+        eyebrow: 'SUPPORT FOUNDATION',
+        title: '문제 신고와 문의 안내',
+        description:
+          '문제 내용 오류를 신고하는 방법과 공식 문의 채널의 현재 상태를 안내합니다.'
+      }
+    },
+    foundation: {
+      title: '미정 항목이 있는 운영 전 구조 안내',
+      description:
+        '미정: 실제 서비스 운영자 정보, 관할, 시행일, 보유·삭제 기간, 공식 연락처와 법률 검토. 이 화면은 한국어·일본어 정보 구조를 검증하기 위한 초안이며, 해당 항목이 확정되기 전에는 최종 법적 고지가 아닙니다.'
+    },
+    navigation: {
+      label: '서비스 정보 목차',
+      terms: '이용 조건',
+      privacy: '개인정보',
+      copyright: '저작권',
+      deletion: '계정 삭제',
+      dataExport: '데이터 내보내기',
+      questionReport: '문제 신고',
+      contact: '문의'
+    },
+    sections: {
+      terms: {
+        title: '이용 조건',
+        summary:
+          'JLPT Drill Note는 N5–N1 어휘·문법·독해 연습과 오답 복습을 제공하는 학습용 프로젝트입니다.',
+        details:
+          '결제, 커뮤니티, 듣기, 실제 시험 문제, 합격 보장 기능은 포함하지 않습니다. 기능 가용성과 운영 책임의 최종 조건은 서비스 활성화 전에 별도 확정해야 합니다.',
+        status: '운영 주체·관할·시행일과 법률 검토가 아직 확정되지 않았습니다.'
+      },
+      privacy: {
+        title: '개인정보 안내',
+        summary:
+          '선택한 환경에서는 계정 정보, 학습 세션, 답안, 오답노트, 즐겨찾기와 문제 신고 정보가 기능 제공을 위해 처리될 수 있습니다.',
+        details:
+          '현재 관측 계약은 원문 답안·문제·자유 입력을 로그나 분석 이벤트에 넣지 않도록 제한합니다. 분석 전송은 provider-disabled 기본값으로 요청·큐·저장을 만들지 않습니다. 실제 처리자, 저장 위치, 법적 근거, 보유·삭제 기간과 제3자 제공 여부는 운영 환경 등록부가 확정되어야 합니다.',
+        status:
+          '외부 처리자와 보유 기간이 정해지지 않아 최종 개인정보 처리방침으로 사용할 수 없습니다.'
+      },
+      copyright: {
+        title: '저작권과 문제 출처',
+        summary:
+          '수록 문제와 해설은 이 프로젝트를 위해 자체 작성한 예시 자료이며 실제 JLPT나 상업 교재 문항을 복제하지 않습니다.',
+        details:
+          '침해 가능성이 있는 콘텐츠를 발견하면 문제 신고 기능을 이용할 수 있습니다. 정식 권리자 통지 절차와 담당자 정보는 운영 활성화 전에 확정해야 합니다.',
+        status:
+          '정식 권리자 연락처와 통지 처리 책임자는 아직 지정되지 않았습니다.'
+      },
+      deletion: {
+        title: '계정 삭제',
+        summary:
+          '계정 삭제 요청은 인증된 사용자와 정확한 데이터 범위를 확인한 뒤 처리되어야 합니다.',
+        details:
+          '현재 이 구조 화면은 삭제 요청을 전송하거나 완료했다고 표시하지 않습니다. 운영용 인증 절차, 보존 예외, 처리 기한과 결과 통지 채널이 준비되기 전에는 민감한 정보를 임의 주소로 보내지 마세요.',
+        status:
+          'Production 삭제 접수 채널과 담당자가 아직 활성화되지 않았습니다.'
+      },
+      dataExport: {
+        title: '데이터 내보내기',
+        summary:
+          '학습자가 자신의 계정·학습 데이터 사본을 요청할 수 있는 절차가 필요합니다.',
+        details:
+          '현재 이 화면에는 실제 내보내기 작업이나 다운로드 링크가 없습니다. 신원 재확인, 범위, 포맷, 만료, 감사 증거가 검증된 뒤에만 운영 기능을 활성화해야 합니다.',
+        status:
+          'Production 학습자 데이터 내보내기 기능은 아직 활성화되지 않았습니다.'
+      },
+      questionReport: {
+        title: '문제 신고',
+        summary:
+          '지원되는 환경에서는 학습 결과나 오답 상세 화면에서 문제 내용·정답·해설·저작권 관련 사유를 신고할 수 있습니다.',
+        details:
+          '신고에는 문제 식별 정보, 사유와 선택적 설명이 포함될 수 있습니다. 신고 기능 노출 여부는 환경별로 다르며, 운영 처리 책임자·보유 기간·응답 기준이 확정되기 전에는 Production 지원을 약속하지 않습니다.',
+        status:
+          '운영용 신고 저장소와 분류·해결 담당자가 아직 확정되지 않았습니다.'
+      },
+      contact: {
+        title: '문의',
+        summary:
+          '계정, 개인정보, 권리자 통지와 일반 지원을 위한 검증된 공식 연락 채널이 필요합니다.',
+        details:
+          '현재 공개할 수 있는 공식 이메일·주소·운영 주체가 없습니다. 자격 증명, 비밀번호, 원문 학습 데이터와 그 밖의 민감한 정보는 확인되지 않은 채널로 보내지 마세요.',
+        status:
+          '공식 서비스 운영자와 문의 주소는 Production 활성화 게이트에서 확정해야 합니다.'
+      }
     }
   },
   home: {

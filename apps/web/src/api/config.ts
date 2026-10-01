@@ -147,10 +147,6 @@ export const parseApiResponse = <Schema extends ZodType>(
   const parsedData = schema.safeParse(rawData)
 
   if (!parsedData.success) {
-    if (!__NIHONGO_PRODUCTION_BUILD__) {
-      console.error('API response validation failed')
-    }
-
     throw createResponseValidationError(parsedData.error)
   }
 

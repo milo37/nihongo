@@ -1,12 +1,23 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
+import { getRouteLabelKey } from '@/i18n/routePresentation'
+import { frontendErrorReporter } from '@/observability/frontendErrorReporter'
 
 export const RouteErrorPage = (): ReactElement => {
   const { t } = useTranslation('errors')
   const { t: commonT } = useTranslation('common')
+  const location = useLocation()
   useDocumentMetadata()
+
+  useEffect(() => {
+    frontendErrorReporter.report({
+      source: 'ROUTE_RENDER',
+      routeKey: getRouteLabelKey(location.pathname)
+    })
+  }, [location.pathname])
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-20 text-center" role="alert">

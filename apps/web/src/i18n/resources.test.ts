@@ -4,6 +4,7 @@ import { jaResources, koResources } from '@/i18n/resources'
 const requiredNamespaces = [
   'common',
   'navigation',
+  'operations',
   'auth',
   'practice',
   'result',

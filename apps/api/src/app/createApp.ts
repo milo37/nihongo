@@ -21,6 +21,10 @@ import {
 } from '../middleware/requestContext.js'
 import { createRequestLogger } from '../middleware/requestLogger.js'
 import type { StructuredLogger } from '../observability/logger.js'
+import {
+  toBoundedDurationMs,
+  toHttpStatusClass
+} from '../observability/httpLog.js'
 import { createHealthRoutes } from '../routes/health.js'
 import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
@@ -313,14 +317,13 @@ export const createApiErrorHandler =
 
     logger.error('http.request.failed', {
       requestId,
-      method: context.req.method,
-      path: routePath(context, -1),
-      status,
-      code: failure.code,
-      errorName: error.name,
-      ...(phase7Failure?.contractViolation === true
-        ? { phase7ContractViolation: true }
-        : {})
+      routeTemplate: routePath(context, -1),
+      statusClass: toHttpStatusClass(status),
+      durationMs: toBoundedDurationMs(context.get('requestStartedAt')),
+      errorCode:
+        phase7Failure?.contractViolation === true
+          ? 'PHASE7_CONTRACT_VIOLATION'
+          : failure.code
     })
     if (phase7Failure === null) {
       context.header('Cache-Control', 'private, no-store')

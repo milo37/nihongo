@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ParsedSubmitStudySessionV2Request } from '@api/study/submitStudySessionV2/schema'
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
+import type { StudySessionView } from '@app/practice/adapters/studySessionView'
+import { trackStudySubmission } from '@/analytics/studyEvents'
 import { clearStudyDraftWorkingCopy } from '@app/practice/draft/studyDraftWorkingCopyStorage'
 import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
 import {
@@ -60,6 +62,9 @@ export const useSubmitStudySessionV2 = (
     retryDelay: getStudySubmissionRetryDelay,
     onSuccess: async (result, input) => {
       assertCurrentStudySubmissionV2Action(input)
+      const session = queryClient.getQueryData<StudySessionView>(
+        serverStateQueryKeys.study.session(sessionId)
+      )
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: serverStateQueryKeys.study.session(sessionId),
@@ -87,6 +92,10 @@ export const useSubmitStudySessionV2 = (
       )
       clearStudyDraftWorkingCopy(principalScope, sessionId)
       clearSubmissionAttempt(sessionId)
+      trackStudySubmission({
+        questionCount: result.totalCount,
+        session
+      })
     },
     onError: (error) => {
       if (isDefinitiveStudySubmissionError(error)) {

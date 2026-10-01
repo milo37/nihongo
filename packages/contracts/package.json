@@ -7,6 +7,10 @@
     "dist"
   ],
   "exports": {
+    "./analytics/events": {
+      "types": "./dist/analytics/events.d.ts",
+      "import": "./dist/analytics/events.js"
+    },
     "./admin/phase7": {
       "types": "./dist/admin/phase7.d.ts",
       "import": "./dist/admin/phase7.js"

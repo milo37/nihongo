@@ -26,6 +26,7 @@ import {
   isNoEligibleQuestionsApiError,
   isOfflineApiError
 } from '@util/apiError'
+import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
 
 const viewOptions = [
   { value: 'DUE', countKey: 'due' },
@@ -41,6 +42,7 @@ const statusVariants = {
   SOLVED: 'success'
 } as const
 export const WrongNoteReviewCenterPage = (): ReactElement => {
+  useTrackWrongNoteOpened('REVIEW_CENTER')
   const { i18n, t } = useTranslation('wrongNote')
   const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)

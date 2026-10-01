@@ -93,7 +93,7 @@ const PracticeResultPageContent = (): ReactElement => {
       !allowRetryNavigationRef.current &&
       currentLocation.pathname !== nextLocation.pathname
   )
-  const createBookmark = useCreateBookmark()
+  const createBookmark = useCreateBookmark('RESULT')
   const deleteBookmark = useDeleteBookmark()
   const bookmarkMutationActivity = useBookmarkMutationActivity()
   const resultQuestionIds =

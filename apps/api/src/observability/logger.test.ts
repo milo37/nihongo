@@ -1,53 +1,76 @@
-import { describe, expect, it } from 'vitest'
-import { createJsonLogger, sanitizeLogContext } from './logger.js'
+import { describe, expect, it, vi } from 'vitest'
+import { createJsonLogger, type LogContext } from './logger.js'
 
-describe('structured logger', () => {
-  it('인증·개인·문항·DB 민감 필드를 중첩 구조에서 redaction한다', () => {
-    expect(
-      sanitizeLogContext({
-        authorization: 'Bearer credential',
-        connectionString: 'postgresql://credential',
-        correctOptionId: 'option-1',
-        email: 'learner@example.com',
-        memo: '개인 학습 메모',
-        nested: {
-          answerText: '정답 원문',
-          password: 'credential',
-          pii: { name: '학습자' },
-          query: 'SELECT secret FROM users',
-          safe: 'visible'
-        },
-        databaseUrl: 'postgresql://credential'
-      })
-    ).toEqual({
-      authorization: '[REDACTED]',
-      connectionString: '[REDACTED]',
-      correctOptionId: '[REDACTED]',
-      email: '[REDACTED]',
-      memo: '[REDACTED]',
-      nested: {
-        answerText: '[REDACTED]',
-        password: '[REDACTED]',
-        pii: '[REDACTED]',
-        query: '[REDACTED]',
-        safe: 'visible'
-      },
-      databaseUrl: '[REDACTED]'
-    })
-  })
+const releaseId = '1234567890abcdef1234567890abcdef12345678'
 
-  it('설정한 level 이상의 JSON 로그만 기록한다', () => {
+describe('closed structured logger', () => {
+  it('records only exact event fields with release and environment correlation', () => {
     const lines: string[] = []
-    const logger = createJsonLogger('warn', (line) => lines.push(line))
+    const logger = createJsonLogger('info', (line) => lines.push(line), {
+      deploymentEnvironment: 'STAGING',
+      releaseId
+    })
 
-    logger.info('ignored')
-    logger.error('request.failed', { requestId: 'request-id' })
+    logger.info('http.request.completed', {
+      requestId: '00000000-0000-4000-8000-000000000001',
+      routeTemplate: '/api/v1/questions/:questionId',
+      statusClass: '2xx',
+      durationMs: 18
+    })
 
     expect(lines).toHaveLength(1)
     expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
-      level: 'error',
-      event: 'request.failed',
-      requestId: 'request-id'
+      schemaVersion: 1,
+      level: 'info',
+      event: 'http.request.completed',
+      deploymentEnvironment: 'STAGING',
+      releaseId,
+      requestId: '00000000-0000-4000-8000-000000000001',
+      routeTemplate: '/api/v1/questions/:questionId',
+      statusClass: '2xx',
+      durationMs: 18
     })
+  })
+
+  it('drops unknown fields, unsafe route data, and unknown runtime events', () => {
+    const lines: string[] = []
+    const logger = createJsonLogger('debug', (line) => lines.push(line))
+    const base = {
+      requestId: '00000000-0000-4000-8000-000000000001',
+      routeTemplate: '/api/v1/questions/:questionId',
+      statusClass: '2xx',
+      durationMs: 18
+    }
+
+    logger.info('http.request.completed', {
+      ...base,
+      body: 'private answer'
+    })
+    logger.info('http.request.completed', {
+      ...base,
+      routeTemplate: '/api/v1/questions?token=private'
+    })
+    ;(logger.info as unknown as (event: string, context?: LogContext) => void)(
+      'unknown.event',
+      {}
+    )
+
+    expect(lines).toEqual([])
+  })
+
+  it('honors levels and swallows sink failures', () => {
+    const sink = vi.fn(() => {
+      throw new Error('sink unavailable')
+    })
+    const logger = createJsonLogger('warn', sink)
+
+    expect(() => logger.info('api.started')).not.toThrow()
+    expect(() =>
+      logger.error('api.shutdown.failed', {
+        signal: 'SIGTERM',
+        errorCode: 'SHUTDOWN_FAILED'
+      })
+    ).not.toThrow()
+    expect(sink).toHaveBeenCalledTimes(1)
   })
 })

@@ -21,6 +21,7 @@ test('portable runtime environment is production-shaped without migration creden
   })
 
   assert.equal(environment.NODE_ENV, 'production')
+  assert.equal(environment.DEPLOYMENT_ENVIRONMENT, 'TEST')
   assert.equal(environment.ADMIN_CMS_MODE, 'disabled')
   assert.equal(environment.PRACTICE_CONTRACT_RUNTIME, 'v1-v2')
   assert.equal(environment.RELEASE_ID, releaseId)

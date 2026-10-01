@@ -22,6 +22,7 @@ import {
 } from '@app/wrong-note/wrongNoteHistorySearch'
 import { resolveUiLocale } from '@/i18n/types'
 import { formatDateTime, formatNumber } from '@libs/localeFormatters'
+import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
@@ -34,6 +35,7 @@ const statusVariants = {
 } as const
 
 export const WrongNotePage = (): ReactElement => {
+  useTrackWrongNoteOpened('LIST')
   const { i18n, t } = useTranslation('wrongNote')
   const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)

@@ -12,6 +12,7 @@ import {
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { analyticsClient } from '@/analytics/client'
 
 class TargetedReviewReconciliationError extends Error {
   constructor(options: ErrorOptions) {
@@ -114,6 +115,24 @@ export const useCreateTargetedReviewSession = () => {
         studySessionQueries.session(created.session.session.id).queryKey,
         created.session
       )
+      if (created.session.session.status === 'IN_PROGRESS') {
+        analyticsClient.track({
+          event: 'study_started',
+          payload: {
+            level: created.session.session.level,
+            subject: created.session.session.subject,
+            mode: created.session.session.mode,
+            questionCount: created.session.actualCount
+          }
+        })
+        analyticsClient.track({
+          event: 'review_started',
+          payload: {
+            source: 'WRONG_NOTE',
+            questionCount: created.session.actualCount
+          }
+        })
+      }
     }
   })
 }

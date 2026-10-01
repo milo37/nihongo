@@ -8,6 +8,7 @@ import {
   captureAuthActorTransitionFence
 } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
+import { analyticsClient } from '@/analytics/client'
 
 interface CreatePhase7QuestionReportInput {
   readonly questionId: string
@@ -42,6 +43,10 @@ export const useCreatePhase7QuestionReport = (onSuccess?: () => void) => {
         fence,
         useAppStore.getState().currentUser
       )
+      analyticsClient.track({
+        event: 'question_reported',
+        payload: { reason: input.request.reason }
+      })
       onSuccess?.()
     }
   })

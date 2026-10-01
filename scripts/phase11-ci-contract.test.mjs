@@ -178,12 +178,20 @@ test('environment contract is secret-name-only and external activation stays clo
   )
   assert.ok(environmentContract.publicVariableNames.includes('RELEASE_ID'))
   assert.ok(
+    environmentContract.publicVariableNames.includes('DEPLOYMENT_ENVIRONMENT')
+  )
+  assert.ok(
     environmentContract.publicVariableNames.includes('VITE_API_BASE_URL')
   )
   assert.deepEqual(environmentContract.variableScopes.releaseBuild.secret, [])
   assert.ok(
     environmentContract.variableScopes.productionRuntime.secret.includes(
       'DATABASE_URL'
+    )
+  )
+  assert.ok(
+    environmentContract.variableScopes.productionRuntime.public.includes(
+      'DEPLOYMENT_ENVIRONMENT'
     )
   )
   assert.ok(

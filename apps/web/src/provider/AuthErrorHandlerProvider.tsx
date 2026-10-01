@@ -6,6 +6,8 @@ import type { ReactElement } from 'react'
 import { isApiError } from '@api/config'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { subscribeApiError } from '@libs/errorBus'
+import { getRouteLabelKey } from '@/i18n/routePresentation'
+import { frontendErrorReporter } from '@/observability/frontendErrorReporter'
 
 type BannerKind = 'error' | 'offline' | 'restored'
 type BannerMessageKey =
@@ -16,6 +18,17 @@ type BannerMessageKey =
   | 'banner.response'
   | 'banner.validation'
   | 'banner.server'
+
+const toStatusClass = (
+  status: number | undefined
+): '1xx' | '2xx' | '3xx' | '4xx' | '5xx' | undefined => {
+  if (status === undefined) return undefined
+  if (status >= 100 && status < 200) return '1xx'
+  if (status >= 200 && status < 300) return '2xx'
+  if (status >= 300 && status < 400) return '3xx'
+  if (status >= 400 && status < 500) return '4xx'
+  return '5xx'
+}
 
 interface StatusBanner {
   kind: BannerKind
@@ -90,6 +103,10 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   useEffect(() => {
     return subscribeApiError((error) => {
       if (!isApiError(error)) {
+        frontendErrorReporter.report({
+          source: 'UNEXPECTED_API_ERROR',
+          routeKey: getRouteLabelKey(location.pathname)
+        })
         setBanner({
           kind: 'error',
           messageKey: 'banner.generic'
@@ -147,9 +164,13 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       }
 
       if (error.isResponseValidationError) {
-        if (!__NIHONGO_PRODUCTION_BUILD__) {
-          console.error('API response validation failed')
-        }
+        const statusClass = toStatusClass(error.status)
+        frontendErrorReporter.report({
+          source: 'API_RESPONSE_VALIDATION',
+          routeKey: getRouteLabelKey(location.pathname),
+          ...(error.requestId ? { requestId: error.requestId } : {}),
+          ...(statusClass ? { statusClass } : {})
+        })
         setBanner({
           kind: 'error',
           messageKey: 'banner.response'

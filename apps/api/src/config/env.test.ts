@@ -23,6 +23,7 @@ describe('parseApiEnvironment', () => {
       })
     ).toMatchObject({
       NODE_ENV: 'test',
+      DEPLOYMENT_ENVIRONMENT: 'TEST',
       ADMIN_CMS_MODE: 'disabled',
       HOST: '127.0.0.1',
       PORT: 3001,
@@ -176,6 +177,7 @@ describe('parseApiEnvironment', () => {
   it('production에서 명시적 항목·DB TLS·HTTPS origin을 요구한다', () => {
     const productionEnvironment = {
       NODE_ENV: 'production',
+      DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
       RELEASE_ID: '1234567890abcdef1234567890abcdef12345678',
       HOST: '0.0.0.0',
       PORT: '3001',
@@ -196,6 +198,7 @@ describe('parseApiEnvironment', () => {
 
     expect(parseApiEnvironment(productionEnvironment)).toMatchObject({
       NODE_ENV: 'production',
+      DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
       ADMIN_CMS_MODE: 'disabled',
       TRUSTED_ORIGINS: ['https://nihongo.example.com']
     })
@@ -246,6 +249,12 @@ describe('parseApiEnvironment', () => {
       parseApiEnvironment({
         ...productionEnvironment,
         TRUSTED_ORIGINS: 'https://nihongo.example.com,https://extra.example.com'
+      })
+    ).toThrow(EnvironmentValidationError)
+    expect(() =>
+      parseApiEnvironment({
+        ...productionEnvironment,
+        DEPLOYMENT_ENVIRONMENT: 'LOCAL'
       })
     ).toThrow(EnvironmentValidationError)
     expect(() =>

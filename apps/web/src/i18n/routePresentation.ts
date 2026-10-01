@@ -1,25 +1,31 @@
-export type RouteLabelKey =
-  | 'routes.home'
-  | 'routes.login'
-  | 'routes.resetPassword'
-  | 'routes.verifyEmail'
-  | 'routes.dashboard'
-  | 'routes.practiceSetup'
-  | 'routes.practiceSession'
-  | 'routes.result'
-  | 'routes.wrongNoteCenter'
-  | 'routes.wrongNoteHistory'
-  | 'routes.wrongNoteDetail'
-  | 'routes.bookmarks'
-  | 'routes.adminQuestionNew'
-  | 'routes.adminQuestionImport'
-  | 'routes.adminQuestionDetail'
-  | 'routes.adminQuestions'
-  | 'routes.adminAudit'
-  | 'routes.adminReportDetail'
-  | 'routes.adminReports'
-  | 'routes.forbidden'
-  | 'routes.page'
+export const routeLabelKeys = [
+  'routes.home',
+  'routes.login',
+  'routes.resetPassword',
+  'routes.verifyEmail',
+  'routes.dashboard',
+  'routes.practiceSetup',
+  'routes.practiceSession',
+  'routes.result',
+  'routes.wrongNoteCenter',
+  'routes.wrongNoteHistory',
+  'routes.wrongNoteDetail',
+  'routes.bookmarks',
+  'routes.legal',
+  'routes.accountData',
+  'routes.support',
+  'routes.adminQuestionNew',
+  'routes.adminQuestionImport',
+  'routes.adminQuestionDetail',
+  'routes.adminQuestions',
+  'routes.adminAudit',
+  'routes.adminReportDetail',
+  'routes.adminReports',
+  'routes.forbidden',
+  'routes.page'
+] as const
+
+export type RouteLabelKey = (typeof routeLabelKeys)[number]
 
 export const getRouteLabelKey = (pathname: string): RouteLabelKey => {
   if (pathname === '/') return 'routes.home'
@@ -34,6 +40,9 @@ export const getRouteLabelKey = (pathname: string): RouteLabelKey => {
   if (pathname === '/wrong-notes/history') return 'routes.wrongNoteHistory'
   if (pathname.startsWith('/wrong-notes/')) return 'routes.wrongNoteDetail'
   if (pathname === '/bookmarks') return 'routes.bookmarks'
+  if (pathname === '/legal') return 'routes.legal'
+  if (pathname === '/account/data') return 'routes.accountData'
+  if (pathname === '/support') return 'routes.support'
   if (pathname === '/admin/questions/new') return 'routes.adminQuestionNew'
   if (pathname === '/admin/questions/import') {
     return 'routes.adminQuestionImport'

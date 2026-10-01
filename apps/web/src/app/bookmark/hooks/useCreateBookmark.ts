@@ -15,6 +15,9 @@ import {
 } from '@app/bookmark/hooks/bookmarkOptimisticCache'
 import { settleBookmarkMutation } from '@app/bookmark/hooks/bookmarkMutationSettlement'
 import type { CreateBookmarkActionInput } from '@app/bookmark/queries/bookmarkQueries'
+import { analyticsClient } from '@/analytics/client'
+
+type BookmarkAnalyticsSurface = 'PRACTICE' | 'RESULT' | 'WRONG_NOTE'
 
 type CreateBookmarkMutateOptions = MutateOptions<
   CreateBookmarkTransportResponse,
@@ -36,7 +39,7 @@ const isCurrentAction = (input: CreateBookmarkActionInput): boolean => {
   }
 }
 
-export const useCreateBookmark = () => {
+export const useCreateBookmark = (surface?: BookmarkAnalyticsSurface) => {
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
@@ -60,6 +63,12 @@ export const useCreateBookmark = () => {
     onSuccess: (response, input) => {
       assertCurrentCreateBookmarkAction(input)
       replaceOptimisticBookmark(queryClient, response.data)
+      if (surface && response.status === 201) {
+        analyticsClient.track({
+          event: 'bookmark_created',
+          payload: { surface }
+        })
+      }
     },
     onSettled: async (_data, _error, input) => {
       if (!isCurrentAction(input)) return

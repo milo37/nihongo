@@ -11,6 +11,7 @@ import {
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { analyticsClient } from '@/analytics/client'
 
 class ResultRetryReconciliationError extends Error {
   constructor(options: ErrorOptions) {
@@ -69,6 +70,26 @@ export const useCreateResultRetrySession = () => {
       })
       assertCurrentResultRetryAction(input)
       clearCompletedResultRetryAction(input)
+      if (created.session.session.status === 'IN_PROGRESS') {
+        analyticsClient.track({
+          event: 'study_started',
+          payload: {
+            level: created.session.session.level,
+            subject: created.session.session.subject,
+            mode: created.session.session.mode,
+            questionCount: created.session.actualCount
+          }
+        })
+        if (created.session.session.mode === 'WRONG_NOTE') {
+          analyticsClient.track({
+            event: 'review_started',
+            payload: {
+              source: 'WRONG_NOTE',
+              questionCount: created.session.actualCount
+            }
+          })
+        }
+      }
     }
   })
 }

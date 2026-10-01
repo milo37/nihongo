@@ -778,15 +778,15 @@ describe('Phase 5 review-center memo/history routes', () => {
     expect(dependencies.logger.info).toHaveBeenCalledWith(
       'http.request.completed',
       expect.objectContaining({
-        path: '/api/v1/wrong-notes/:questionId/memo',
-        status: 200
+        routeTemplate: '/api/v1/wrong-notes/:questionId/memo',
+        statusClass: '2xx'
       })
     )
     expect(dependencies.logger.error).toHaveBeenCalledWith(
       'http.request.failed',
       expect.objectContaining({
-        path: '/api/v1/wrong-notes/:questionId/memo',
-        status: 500
+        routeTemplate: '/api/v1/wrong-notes/:questionId/memo',
+        statusClass: '5xx'
       })
     )
     const logs = JSON.stringify({

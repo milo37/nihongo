@@ -18,6 +18,12 @@ import { queryClient } from '@libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { I18nProvider } from '@provider/I18nProvider'
 
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  configurable: true,
+  value: vi.fn(),
+  writable: true
+})
+
 const DelayedHashTarget = (): ReactElement => {
   const [isReady, setReady] = useState(false)
 
@@ -60,6 +66,62 @@ const findRouteHeading = (
 ) => screen.findByRole('heading', { name, ...options }, { timeout: 3_000 })
 
 describe('application router boundaries', () => {
+  it.each([
+    ['/legal#privacy', '서비스 이용과 콘텐츠 안내', 'privacy'],
+    [
+      '/account/data#data-export',
+      '계정과 학습 데이터 관리 안내',
+      'data-export'
+    ],
+    ['/support#contact', '문제 신고와 문의 안내', 'contact']
+  ])(
+    '공개 운영 안내 경로 %s는 게스트도 접근하고 hash 대상에 포커스한다',
+    async (path, heading, targetId) => {
+      const router = renderRoutes(path)
+
+      expect(await findRouteHeading(heading)).toBeInTheDocument()
+      await vi.waitFor(() => {
+        expect(document.getElementById(targetId)).toHaveFocus()
+      })
+      expect(router.state.location.pathname + router.state.location.hash).toBe(
+        path
+      )
+      expect(screen.getByText(/미정:/u)).toBeInTheDocument()
+    }
+  )
+
+  it('footer에서 일곱 운영 안내 표면을 모두 찾을 수 있다', async () => {
+    renderRoutes('/legal')
+    await findRouteHeading('서비스 이용과 콘텐츠 안내')
+
+    const navigation = screen.getByRole('navigation', { name: '서비스 정보' })
+    const links = within(navigation).getAllByRole('link')
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/legal#terms',
+      '/legal#privacy',
+      '/legal#copyright',
+      '/account/data#deletion',
+      '/account/data#data-export',
+      '/support#question-report',
+      '/support#contact'
+    ])
+  })
+
+  it('운영 안내의 locale 전환은 경로와 hash를 보존한다', async () => {
+    const user = userEvent.setup()
+    const router = renderRoutes('/legal#privacy')
+    await findRouteHeading('서비스 이용과 콘텐츠 안내')
+
+    await user.selectOptions(screen.getByLabelText('언어'), 'ja')
+
+    expect(
+      await findRouteHeading('サービス利用とコンテンツの案内')
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/legal')
+    expect(router.state.location.hash).toBe('#privacy')
+    expect(screen.getByText(/未定:/u)).toBeInTheDocument()
+  })
+
   it('guest의 보호 경로와 search를 login redirect에 보존한다', async () => {
     const router = renderRoutes('/wrong-notes?status=NEW')
 

@@ -40,6 +40,7 @@
   },
   "publicVariableNames": [
     "NODE_ENV",
+    "DEPLOYMENT_ENVIRONMENT",
     "RELEASE_ID",
     "HOST",
     "PORT",
@@ -78,6 +79,7 @@
     "productionRuntime": {
       "public": [
         "NODE_ENV",
+        "DEPLOYMENT_ENVIRONMENT",
         "RELEASE_ID",
         "HOST",
         "PORT",

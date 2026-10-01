@@ -39,6 +39,7 @@ import {
   formatDateTime as formatLocaleDateTime,
   formatNumber
 } from '@libs/localeFormatters'
+import { useTrackWrongNoteOpened } from '@/analytics/useTrackWrongNoteOpened'
 
 type WrongNoteDetailContentProps = {
   action?: ReactNode
@@ -208,6 +209,7 @@ export const WrongNoteDetailContent = ({
 export const WrongNoteDetailPage = (): ReactElement => {
   const { t } = useTranslation('wrongNote')
   const { questionId = '' } = useParams()
+  useTrackWrongNoteOpened('DETAIL', questionId)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()

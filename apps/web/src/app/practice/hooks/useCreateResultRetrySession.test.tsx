@@ -197,7 +197,7 @@ describe('useCreateResultRetrySession', () => {
     ).toMatchObject({ session: { id: replayedTargetId } })
     expect(client.getQueryState(resumableKey)?.isInvalidated).toBe(true)
     expect(client.getQueryState(sourceResultKey)?.isInvalidated).toBe(false)
-    expect(consoleError).toHaveBeenCalled()
+    expect(consoleError).not.toHaveBeenCalled()
     client.clear()
   })
 
@@ -280,7 +280,7 @@ describe('useCreateResultRetrySession', () => {
       attempt.idempotencyKey,
       attempt.idempotencyKey
     ])
-    expect(consoleError).toHaveBeenCalled()
+    expect(consoleError).not.toHaveBeenCalled()
     expect(targetGetCount).toBe(2)
     expect(readResultRetryAttempt(principalScope, sourceSessionId)).toBeNull()
     client.clear()

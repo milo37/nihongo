@@ -323,10 +323,75 @@ export const Layout = (): ReactElement => {
       </main>
 
       <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-content flex-col gap-2 px-4 py-8 text-sm text-muted sm:px-6 md:flex-row md:items-center md:justify-between">
-          <p>{commonT('footer.originalContent')}</p>
-          <p>{commonT('footer.scope')}</p>
-          <p>{commonT('footer.release', { release: releaseLabel })}</p>
+        <div className="mx-auto max-w-content px-4 py-8 text-sm text-muted sm:px-6">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <p>{commonT('footer.originalContent')}</p>
+            <p>{commonT('footer.scope')}</p>
+            <p>{commonT('footer.release', { release: releaseLabel })}</p>
+          </div>
+          <nav
+            aria-label={commonT('footer.informationLabel')}
+            className="mt-5 border-t border-line pt-4"
+          >
+            <ul className="flex flex-wrap gap-x-5 gap-y-2">
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/legal#terms"
+                >
+                  {commonT('footer.terms')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/legal#privacy"
+                >
+                  {commonT('footer.privacy')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/legal#copyright"
+                >
+                  {commonT('footer.copyright')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/account/data#deletion"
+                >
+                  {commonT('footer.deletion')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/account/data#data-export"
+                >
+                  {commonT('footer.dataExport')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/support#question-report"
+                >
+                  {commonT('footer.questionReport')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  className="underline underline-offset-4"
+                  to="/support#contact"
+                >
+                  {commonT('footer.contact')}
+                </NavLink>
+              </li>
+            </ul>
+          </nav>
         </div>
       </footer>
     </div>

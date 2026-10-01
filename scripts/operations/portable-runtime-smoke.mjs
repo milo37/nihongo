@@ -113,6 +113,7 @@ export const createRuntimeEnvironment = ({
     BETTER_AUTH_SECRET: secret,
     BETTER_AUTH_URL: 'https://smoke.invalid',
     DATABASE_URL: `postgresql://${databaseUser}:${databasePassword}@${databaseHost}:5432/${databaseName}?sslmode=require&uselibpqcompat=true`,
+    DEPLOYMENT_ENVIRONMENT: 'TEST',
     GUEST_COOKIE_SECRET: randomBytes(32).toString('hex'),
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',

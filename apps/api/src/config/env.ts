@@ -3,6 +3,13 @@ import { z } from 'zod'
 
 const logLevelSchema = z.enum(['debug', 'info', 'warn', 'error', 'silent'])
 const runtimeEnvironmentSchema = z.enum(['development', 'test', 'production'])
+const deploymentEnvironmentSchema = z.enum([
+  'LOCAL',
+  'TEST',
+  'DEVELOPMENT',
+  'STAGING',
+  'PRODUCTION'
+])
 const adminCmsModeSchema = z.enum(['disabled', 'technical'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
@@ -173,6 +180,7 @@ const exactOriginSchema = z.url().transform((value, context) => {
 const apiEnvironmentSchema = z
   .object({
     NODE_ENV: runtimeEnvironmentSchema,
+    DEPLOYMENT_ENVIRONMENT: deploymentEnvironmentSchema,
     RELEASE_ID: releaseIdSchema,
     ADMIN_CMS_MODE: adminCmsModeSchema,
     HOST: z.string().min(1),
@@ -192,6 +200,37 @@ const apiEnvironmentSchema = z
   })
   .strict()
   .superRefine((environment, context) => {
+    const deploymentEnvironment = environment.DEPLOYMENT_ENVIRONMENT
+    if (
+      environment.NODE_ENV === 'production' &&
+      !['TEST', 'STAGING', 'PRODUCTION'].includes(deploymentEnvironment)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['DEPLOYMENT_ENVIRONMENT'],
+        message:
+          'production-shaped runtime은 TEST, STAGING 또는 PRODUCTION 배포 환경이어야 합니다.'
+      })
+    }
+    if (environment.NODE_ENV === 'test' && deploymentEnvironment !== 'TEST') {
+      context.addIssue({
+        code: 'custom',
+        path: ['DEPLOYMENT_ENVIRONMENT'],
+        message: 'test runtime은 TEST 배포 환경이어야 합니다.'
+      })
+    }
+    if (
+      environment.NODE_ENV === 'development' &&
+      deploymentEnvironment !== 'LOCAL' &&
+      deploymentEnvironment !== 'DEVELOPMENT'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['DEPLOYMENT_ENVIRONMENT'],
+        message: 'development runtime은 LOCAL 또는 DEVELOPMENT여야 합니다.'
+      })
+    }
+
     if (
       environment.ADMIN_CMS_MODE === 'technical' &&
       environment.NODE_ENV === 'production'
@@ -352,9 +391,10 @@ type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 // explicit `disabled` default.
 export type ApiEnvironment = Omit<
   ParsedApiEnvironment,
-  'ADMIN_CMS_MODE' | 'RELEASE_ID'
+  'ADMIN_CMS_MODE' | 'DEPLOYMENT_ENVIRONMENT' | 'RELEASE_ID'
 > & {
   readonly ADMIN_CMS_MODE?: ParsedApiEnvironment['ADMIN_CMS_MODE']
+  readonly DEPLOYMENT_ENVIRONMENT?: ParsedApiEnvironment['DEPLOYMENT_ENVIRONMENT']
   readonly RELEASE_ID?: ParsedApiEnvironment['RELEASE_ID']
 }
 
@@ -376,6 +416,14 @@ export const parseApiEnvironment = (
     runtimeEnvironment.success && runtimeEnvironment.data !== 'production'
   const parsed = apiEnvironmentSchema.safeParse({
     NODE_ENV: source.NODE_ENV,
+    DEPLOYMENT_ENVIRONMENT:
+      source.DEPLOYMENT_ENVIRONMENT ??
+      (runtimeEnvironment.success && runtimeEnvironment.data === 'test'
+        ? 'TEST'
+        : runtimeEnvironment.success &&
+            runtimeEnvironment.data === 'development'
+          ? 'LOCAL'
+          : undefined),
     RELEASE_ID:
       source.RELEASE_ID ??
       (canUseDevelopmentDefaults ? LOCAL_RELEASE_ID : undefined),

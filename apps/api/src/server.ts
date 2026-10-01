@@ -88,7 +88,12 @@ const practiceEnvironment = parsePracticeRuntimeEnvironment(
   process.env,
   environment.NODE_ENV
 )
-const logger = createJsonLogger(environment.LOG_LEVEL)
+const logger = createJsonLogger(environment.LOG_LEVEL, undefined, {
+  deploymentEnvironment:
+    environment.DEPLOYMENT_ENVIRONMENT ??
+    (environment.NODE_ENV === 'test' ? 'TEST' : 'LOCAL'),
+  releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID
+})
 const compatibilityAuthority =
   practiceEnvironment.runtime === 'v1-compatible'
     ? createFilePracticeCompatibilityAuthority(
@@ -164,7 +169,10 @@ const practiceRuntimeGate = createPracticeRuntimeGate({
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort: createAuthEmailPort(environment),
   onDeliveryFailure: (purpose, reason) =>
-    logger.warn('auth.email.delivery_failed', { purpose, reason })
+    logger.warn('auth.email.delivery_failed', {
+      purpose,
+      deliveryReason: reason
+    })
 })
 const auth = technicalMode
   ? undefined
@@ -419,19 +427,15 @@ const reauthenticationMaintenance =
   technicalMode && authGatewayDatabase
     ? startPhase7ReauthenticationMaintenance({
         client: authGatewayDatabase.client,
-        onFailure: (error) => {
+        onFailure: () => {
           logger.error('auth.reauthentication.maintenance_failed', {
-            errorName: error instanceof Error ? error.name : 'UnknownError'
+            errorCode: 'MAINTENANCE_FAILED'
           })
         }
       })
     : undefined
 
-logger.info('api.started', {
-  host: environment.HOST,
-  port: environment.PORT,
-  environment: environment.NODE_ENV
-})
+logger.info('api.started')
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   logger.info('api.shutdown.started', { signal })
@@ -464,10 +468,10 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     void shutdownCoordinator
       .begin(signal)
       .then(() => process.exit(0))
-      .catch((error: unknown) => {
+      .catch(() => {
         logger.error('api.shutdown.failed', {
           signal,
-          errorName: error instanceof Error ? error.name : 'UnknownError'
+          errorCode: 'SHUTDOWN_FAILED'
         })
         process.exit(1)
       })
