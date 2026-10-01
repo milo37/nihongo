@@ -20,6 +20,7 @@ import {
 export const LOCAL_RELEASE_ID = '0000000000000000000000000000000000000000'
 export const RELEASE_ID_PATTERN = /^[0-9a-f]{40}$/u
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
+const MIGRATION_NAME_PATTERN = /^\d{14}_[a-z0-9]+(?:_[a-z0-9]+)*$/u
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
 
@@ -199,6 +200,9 @@ const collectMigrationInventory = (migrationsDirectory) => {
   const migrations = readdirSync(migrationsDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => {
+      if (!MIGRATION_NAME_PATTERN.test(entry.name)) {
+        throw new Error(`Invalid migration directory name: ${entry.name}`)
+      }
       const migrationFile = join(
         migrationsDirectory,
         entry.name,
@@ -416,8 +420,7 @@ export const verifyReleaseManifest = (manifest) => {
     assertExactKeys(migration, ['name', 'sha256'], 'Migration entry')
     if (
       typeof migration.name !== 'string' ||
-      migration.name.length === 0 ||
-      migration.name.includes('/') ||
+      !MIGRATION_NAME_PATTERN.test(migration.name) ||
       (previousMigrationName.length > 0 &&
         previousMigrationName >= migration.name) ||
       !SHA256_PATTERN.test(migration.sha256)

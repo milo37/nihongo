@@ -357,20 +357,27 @@ PRACTICE_CONTRACT_RUNTIME=v1-v2
 
 ### DB 백업·복원 확인
 
-운영에서는 관리형 PostgreSQL의 PITR을 우선 사용합니다. 로컬에서 migration 전
-백업과 복원을 확인할 때는 원본 DB를 덮어쓰지 말고 별도 검증 DB를 사용합니다.
+Phase 11의 provider-neutral 복구 정책은
+[`operations/recovery-contract.v1.json`](operations/recovery-contract.v1.json), 실행 판단과
+중단 조건은 [`operations/runbooks/recovery.v1.md`](operations/runbooks/recovery.v1.md)를
+따릅니다. 현재 저장소가 검증할 수 있는 범위는 TEST 증거의 구조와 체인뿐이며, 실제
+Staging/Production 자동 백업·PITR·RPO/RTO·격리 복원을 증명하지 않습니다. 신뢰 가능한
+provider adapter가 연결되기 전에는 외부 환경 증거가 구조적으로 맞아도 거부합니다.
 
 ```bash
-pg_dump --dbname="$DATABASE_URL" --format=custom --file=/private/tmp/nihongo.backup
-createdb --host=127.0.0.1 --port=55432 --username=nihongo nihongo_restore_test
-pg_restore --host=127.0.0.1 --port=55432 --username=nihongo \
-  --dbname=nihongo_restore_test --no-owner --exit-on-error \
-  /private/tmp/nihongo.backup
-dropdb --host=127.0.0.1 --port=55432 --username=nihongo nihongo_restore_test
+pnpm run test:phase11:recovery
+pnpm run recovery:verify -- --mode verify-backup \
+  --contract /absolute/private/recovery-contract.json \
+  --plan /absolute/private/recovery-plan.json \
+  --release-manifest /absolute/private/release-manifest.json \
+  --evidence /absolute/private/backup-evidence.json \
+  --expected-environment TEST
 ```
 
-복원 확인이 끝난 뒤에만 정확히 이름을 확인한 검증 DB를 삭제합니다. production에서
-`prisma migrate reset`, `db push`, 적용 완료 migration 수정은 사용하지 않습니다.
+`recovery:verify`는 verify-only이며 백업, 복원, migration, DB·network·provider 작업을
+실행하지 않습니다. v1 Staging/Production은 전체 31개가 아니라 release manifest의 첫
+27개인 `v1-runtime-pre-phase7` profile만 허용합니다. `prisma migrate reset`, `db push`,
+`migrate dev`, reverse migration, ad-hoc Production SQL, source target 위 복원은 금지합니다.
 
 ## 인증과 로컬 Mock 계정
 

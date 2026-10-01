@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "classifications": {
+    "TEST": "provider-neutral-isolated-fixture",
+    "STAGING": "exact-external-target-evidence",
+    "PRODUCTION": "exact-external-target-evidence"
+  },
+  "requiredRegistryFields": [
+    "database.runtimeIdentity",
+    "database.migrationIdentity",
+    "database.administrationIdentity",
+    "database.targetFingerprint",
+    "backup.capability",
+    "backup.evidenceAdapter",
+    "backup.rpo",
+    "backup.rto",
+    "backup.retention",
+    "backup.restoreTarget",
+    "governance.deploymentApprover",
+    "governance.incidentOwner"
+  ],
+  "migrationProfiles": {
+    "technical-current-test": {
+      "environments": ["TEST"],
+      "selection": "all-release-manifest-entries",
+      "expectedCount": 31,
+      "expectedDigestSha256": "3efd321d7d66f31505c0887f3ef9b0bb64dbe89831d70ea132066fba24b63aea",
+      "externalRecoveryClaimAllowed": false
+    },
+    "v1-runtime-pre-phase7": {
+      "environments": ["STAGING", "PRODUCTION"],
+      "selection": "entries-before-boundary",
+      "boundaryMigration": "20260827100000_phase7_admin_cms_enums",
+      "expectedCount": 27,
+      "expectedDigestSha256": "6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea",
+      "externalRecoveryClaimAllowed": false
+    }
+  },
+  "sequence": [
+    "release-manifest-verified",
+    "quality-gates-green",
+    "exact-backup-proof-accepted",
+    "migration-profile-preflight-green",
+    "migration-applied",
+    "artifact-deployed",
+    "liveness-green",
+    "readiness-green",
+    "post-deploy-smoke-green",
+    "recovery-evidence-verified"
+  ],
+  "rollbackMatrix": [
+    {
+      "state": "before-migration",
+      "action": "abort-without-target-write"
+    },
+    {
+      "state": "unchanged-migration-profile",
+      "action": "previous-artifact-allowed"
+    },
+    {
+      "state": "additive-compatible-migration",
+      "action": "previous-artifact-only-with-reviewed-compatibility-evidence"
+    },
+    {
+      "state": "other-schema-change",
+      "action": "forward-fix-only"
+    }
+  ],
+  "forbiddenOperations": [
+    "prisma migrate reset",
+    "prisma db push",
+    "prisma migrate dev",
+    "reverse migration",
+    "ad-hoc production sql",
+    "restore over source target"
+  ],
+  "evidencePolicy": {
+    "maximumInputBytes": 1048576,
+    "identifiers": "sha256-fingerprints-only",
+    "supportedVerifierEnvironments": ["TEST"],
+    "externalEvidence": "disabled-until-trusted-adapter",
+    "forbiddenMaterial": [
+      "url",
+      "credential",
+      "database-name",
+      "dump-or-backup-path",
+      "sql",
+      "provider-output",
+      "private-row",
+      "request-body",
+      "raw-error"
+    ],
+    "testExternalClaims": "all-false"
+  }
+}

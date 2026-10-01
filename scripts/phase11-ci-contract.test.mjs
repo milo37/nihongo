@@ -21,6 +21,8 @@ const [
   workflow,
   dockerfile,
   environmentContract,
+  recoveryContract,
+  recoveryRunbook,
   dockerignore,
   serverSource,
   webViteConfig
@@ -32,6 +34,8 @@ const [
   readText('.github/workflows/ci.yml'),
   readText('Dockerfile'),
   readJson('operations/environment-contract.v1.json'),
+  readJson('operations/recovery-contract.v1.json'),
+  readText('operations/runbooks/recovery.v1.md'),
   readText('.dockerignore'),
   readText('apps/api/src/server.ts'),
   readText('apps/web/vite.config.ts')
@@ -66,6 +70,14 @@ test('Phase 11 scripts expose manifest, static and smoke boundaries', () => {
   assert.equal(
     rootPackage.scripts['release:smoke'],
     'node scripts/operations/post-deploy-smoke.mjs'
+  )
+  assert.equal(
+    rootPackage.scripts['test:phase11:recovery'],
+    'node --test scripts/operations/recovery-*.test.mjs'
+  )
+  assert.equal(
+    rootPackage.scripts['recovery:verify'],
+    'node scripts/operations/recovery-evidence.mjs'
   )
 })
 
@@ -232,4 +244,32 @@ test('environment contract is secret-name-only and external activation stays clo
   const serialized = JSON.stringify(environmentContract)
   assert.doesNotMatch(serialized, /postgres(?:ql)?:\/\//u)
   assert.doesNotMatch(serialized, /BEGIN (?:RSA |OPENSSH )?PRIVATE KEY/u)
+})
+
+test('recovery foundation stays provider-neutral and outside generic CI execution', () => {
+  assert.equal(recoveryContract.schemaVersion, 1)
+  assert.equal(
+    recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
+    31
+  )
+  assert.deepEqual(
+    recoveryContract.migrationProfiles['technical-current-test'].environments,
+    ['TEST']
+  )
+  assert.equal(
+    recoveryContract.migrationProfiles['v1-runtime-pre-phase7'].expectedCount,
+    27
+  )
+  assert.deepEqual(
+    recoveryContract.migrationProfiles['v1-runtime-pre-phase7'].environments,
+    ['STAGING', 'PRODUCTION']
+  )
+  for (const field of recoveryContract.requiredRegistryFields) {
+    assert.ok(
+      environmentContract.requiredExternalRegistryFields.includes(field)
+    )
+  }
+  assert.match(recoveryRunbook, /not Staging or Production recovery proof/u)
+  assert.doesNotMatch(workflow, /pnpm run recovery:verify/u)
+  assert.doesNotMatch(workflow, /pg_dump|pg_restore|prisma migrate deploy/u)
 })

@@ -136,6 +136,23 @@ test('release IDs reject invalid and local sentinel values', () => {
   )
 })
 
+test('migration names reject digest delimiters and control characters', () => {
+  const fixture = createFixture()
+  try {
+    const manifest = buildManifest(fixture)
+    for (const name of [
+      '20260101000000_init\0collision',
+      '20260101000000_init\ncollision'
+    ]) {
+      const invalid = structuredClone(manifest)
+      invalid.migrations.entries[0].name = name
+      assert.throws(() => verifyReleaseManifest(invalid), /migration entry/u)
+    }
+  } finally {
+    fixture.cleanup()
+  }
+})
+
 test('web payload rejects secrets and escaping symlinks', () => {
   const fixture = createFixture()
   try {

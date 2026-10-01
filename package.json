@@ -59,6 +59,8 @@
     "test:phase10:browser:real": "pnpm run test:phase8:browser:real && pnpm run test:phase9:browser:real && pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts real",
     "test:phase10:browser:mock": "pnpm run test:phase8:browser:mock && pnpm run test:phase9:browser:mock && pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts mock",
     "test:phase11:static": "node --test scripts/operations/*.test.mjs scripts/phase11-ci-contract.test.mjs",
+    "test:phase11:recovery": "node --test scripts/operations/recovery-*.test.mjs",
+    "recovery:verify": "node scripts/operations/recovery-evidence.mjs",
     "release:manifest": "node scripts/operations/release-manifest.mjs",
     "release:evidence": "node scripts/operations/oci-evidence.mjs",
     "release:runtime-smoke": "node scripts/operations/portable-runtime-smoke.mjs",

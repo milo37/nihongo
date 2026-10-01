@@ -12,8 +12,9 @@ const apiArtifact = summarizeInventory([
 const webArtifact = summarizeInventory([
   { bytes: 1, path: 'index.html', sha256: digest, type: 'file' }
 ])
+const migrationName = '20260101000000_init'
 const migrationDigest = createHash('sha256')
-  .update(`init\0${digest}\n`)
+  .update(`${migrationName}\0${digest}\n`)
   .digest('hex')
 const manifest = {
   schemaVersion: 1,
@@ -27,7 +28,7 @@ const manifest = {
   migrations: {
     count: 1,
     digestSha256: migrationDigest,
-    entries: [{ name: 'init', sha256: digest }]
+    entries: [{ name: migrationName, sha256: digest }]
   },
   environmentContract: {
     path: 'operations/environment-contract.v1.json',
