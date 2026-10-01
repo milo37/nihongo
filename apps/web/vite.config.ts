@@ -3,6 +3,7 @@ import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 import { resolveApiMode } from './src/libs/resolveApiMode.ts'
+import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
 
 const aliases = {
   '@': path.resolve(import.meta.dirname, 'src'),
@@ -40,16 +41,43 @@ export const sharedViteConfig = defineConfig({
 export default defineConfig(({ command, mode }) => {
   const environment = loadEnv(mode, import.meta.dirname, 'VITE_')
   const isProductionBuild = command === 'build'
+  const isReleaseBuild = process.env.NIHONGO_RELEASE_BUILD === '1'
   const apiMode = resolveApiMode({
     configuredMode: environment.VITE_API_MODE,
     isProduction: isProductionBuild
   })
+  const releaseId = resolveReleaseId(environment.VITE_RELEASE_ID, {
+    requireDeployable: isReleaseBuild
+  })
+  if (isReleaseBuild && environment.VITE_API_BASE_URL !== '/api') {
+    throw new Error('Release builds require VITE_API_BASE_URL=/api.')
+  }
 
   const resolvedConfig = {
     ...sharedViteConfig,
+    plugins: [
+      ...(sharedViteConfig.plugins ?? []),
+      {
+        name: 'nihongo-release-metadata',
+        transformIndexHtml: {
+          order: 'pre' as const,
+          handler: () => [
+            {
+              tag: 'meta',
+              attrs: {
+                name: 'nihongo-release-id',
+                content: releaseId
+              },
+              injectTo: 'head' as const
+            }
+          ]
+        }
+      }
+    ],
     define: {
       __NIHONGO_API_MODE__: JSON.stringify(apiMode),
-      __NIHONGO_PRODUCTION_BUILD__: JSON.stringify(isProductionBuild)
+      __NIHONGO_PRODUCTION_BUILD__: JSON.stringify(isProductionBuild),
+      __NIHONGO_RELEASE_ID__: JSON.stringify(releaseId)
     }
   }
 

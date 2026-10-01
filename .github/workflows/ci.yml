@@ -5,6 +5,7 @@ on:
   pull_request:
   push:
     branches:
+      - codex/phase-11-deployment-operations
       - codex/phase-10-test-security-performance
       - codex/phase-9-design-i18n-accessibility
       - codex/phase-8-dashboard-recommendations
@@ -88,6 +89,9 @@ jobs:
 
       - name: Phase 10 static contract
         run: pnpm run test:phase10:static
+
+      - name: Phase 11 static operations contract
+        run: pnpm run test:phase11:static
 
       - name: Initialize unique Phase 10 security evidence
         shell: bash
@@ -320,3 +324,87 @@ jobs:
           expected="test-results/playwright-phase9-real"
           rm -rf -- "$expected"
           test ! -e "$expected"
+
+  phase11_release:
+    name: Phase 11 portable release and production-mode smoke
+    needs: [build, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and verify portable Phase 11 OCI release
+        id: phase11_release
+        env:
+          PHASE11_IMAGE_TAG: nihongo-phase11:${{ github.run_id }}-${{ github.run_attempt }}
+          PHASE11_CONTAINER_NAME: nihongo-phase11-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          PHASE11_RELEASE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase11-evidence/release-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test ! -e "$PHASE11_RELEASE_EVIDENCE_DIR"
+          install -d -m 700 "$PHASE11_RELEASE_EVIDENCE_DIR"
+          docker build --build-arg "RELEASE_ID=${GITHUB_SHA}" --tag "$PHASE11_IMAGE_TAG" .
+          image_id="$(docker image inspect --format '{{.Id}}' "$PHASE11_IMAGE_TAG")"
+          docker create --name "$PHASE11_CONTAINER_NAME" "$PHASE11_IMAGE_TAG"
+          docker cp "$PHASE11_CONTAINER_NAME:/app/release-manifest.json" "$PHASE11_RELEASE_EVIDENCE_DIR/release-manifest.json"
+          docker rm "$PHASE11_CONTAINER_NAME"
+          chmod 600 "$PHASE11_RELEASE_EVIDENCE_DIR/release-manifest.json"
+          pnpm run release:manifest -- --mode verify --input "$PHASE11_RELEASE_EVIDENCE_DIR/release-manifest.json"
+          pnpm run release:evidence -- --mode create --release-id "$GITHUB_SHA" --image-id "$image_id" --manifest "$PHASE11_RELEASE_EVIDENCE_DIR/release-manifest.json" --output "$PHASE11_RELEASE_EVIDENCE_DIR/oci-evidence.json"
+          pnpm run release:evidence -- --mode verify --input "$PHASE11_RELEASE_EVIDENCE_DIR/oci-evidence.json"
+          pnpm run release:runtime-smoke -- --image "$PHASE11_IMAGE_TAG" --release-id "$GITHUB_SHA" --output "$PHASE11_RELEASE_EVIDENCE_DIR/runtime-smoke.json"
+          pnpm run release:runtime-smoke -- --mode verify --input "$PHASE11_RELEASE_EVIDENCE_DIR/runtime-smoke.json"
+          for name in release-manifest.json oci-evidence.json runtime-smoke.json; do
+            file="$PHASE11_RELEASE_EVIDENCE_DIR/$name"
+            test -f "$file"
+            test ! -L "$file"
+            test "$(stat -c '%a' "$file")" = 600
+          done
+
+      - name: Upload safe Phase 11 release evidence
+        if: ${{ steps.phase11_release.outcome == 'success' }}
+        env:
+          PHASE11_RELEASE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase11-evidence/release-${{ github.run_id }}-${{ github.run_attempt }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-safe-phase11-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: |
+            ${{ env.PHASE11_RELEASE_EVIDENCE_DIR }}/release-manifest.json
+            ${{ env.PHASE11_RELEASE_EVIDENCE_DIR }}/oci-evidence.json
+            ${{ env.PHASE11_RELEASE_EVIDENCE_DIR }}/runtime-smoke.json
+
+      - name: Clean Phase 11 release and evidence
+        if: ${{ always() }}
+        env:
+          PHASE11_IMAGE_TAG: nihongo-phase11:${{ github.run_id }}-${{ github.run_attempt }}
+          PHASE11_CONTAINER_NAME: nihongo-phase11-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          PHASE11_RELEASE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase11-evidence/release-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_evidence="${GITHUB_WORKSPACE}/test-results/phase11-evidence/release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PHASE11_RELEASE_EVIDENCE_DIR" = "$expected_evidence"
+          if docker container inspect "$PHASE11_CONTAINER_NAME" >/dev/null 2>&1; then docker rm -f "$PHASE11_CONTAINER_NAME"; fi
+          if docker image inspect "$PHASE11_IMAGE_TAG" >/dev/null 2>&1; then docker image rm -f "$PHASE11_IMAGE_TAG"; fi
+          rm -rf -- "$expected_evidence"
+          test ! -e "$expected_evidence"

@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import type { Server } from 'node:http'
+import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { createApiApp } from './app/createApp.js'
 import { createAuthGateway } from './auth/authGateway.js'
@@ -18,7 +19,7 @@ import {
   createPhase7PrincipalService,
   createPrincipalService
 } from './auth/principalService.js'
-import { parseApiEnvironment } from './config/env.js'
+import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
 import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
 import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
 import {
@@ -74,6 +75,9 @@ import { createPrismaQuestionReportRepository } from './admin/questionReportRepo
 import { createQuestionReportService } from './admin/questionReportService.js'
 
 const environment = parseApiEnvironment(process.env)
+const packagedWebAssetsDirectory = fileURLToPath(
+  new URL('../../web/', import.meta.url)
+)
 assertSafeAdminCmsDatabase({
   adminCmsMode: environment.ADMIN_CMS_MODE,
   nodeEnvironment: environment.NODE_ENV,
@@ -343,6 +347,10 @@ const app = createApiApp({
       }
     : {}),
   assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
+  releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID,
+  ...(environment.NODE_ENV === 'production'
+    ? { webAssetsDirectory: packagedWebAssetsDirectory }
+    : {}),
   auth: {
     environment,
     gateway: createAuthGateway({

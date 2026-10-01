@@ -83,6 +83,7 @@ import {
   isCanonicalPhase7Slice2ReadRequest,
   isPhase7ExcludedRequest
 } from './phase7PrefixExclusion.js'
+import { installStaticWeb } from './staticWeb.js'
 
 const TECHNICAL_CORS_METHODS = [
   'DELETE',
@@ -122,6 +123,8 @@ interface CreateApiAppDependencies {
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
   questionReader: QuestionReader
+  releaseId?: string
+  webAssetsDirectory?: string
   questionReadSecurity?: {
     readonly environment: ApiEnvironment
     readonly rateLimiter: ApplicationRateLimiter
@@ -381,7 +384,9 @@ export const createApiApp = ({
   learning,
   questionReader,
   questionReadSecurity,
+  releaseId = '0000000000000000000000000000000000000000',
   study,
+  webAssetsDirectory,
   enableTestRoutes = false
 }: CreateApiAppDependencies): Hono<{ Variables: ApiVariables }> => {
   const app = new Hono<{ Variables: ApiVariables }>()
@@ -463,7 +468,7 @@ export const createApiApp = ({
     return context.json(failure, 404)
   })
 
-  app.route('/health', createHealthRoutes({ checkReadiness }))
+  app.route('/health', createHealthRoutes({ checkReadiness, releaseId }))
 
   if (auth) {
     app.all('/api/auth/*', async (context) => {
@@ -786,6 +791,10 @@ export const createApiApp = ({
     app.get('/__test/error', () => {
       throw new Error('sensitive internal failure')
     })
+  }
+
+  if (webAssetsDirectory) {
+    installStaticWeb({ app, releaseId, webAssetsDirectory })
   }
 
   app.notFound((context) => {

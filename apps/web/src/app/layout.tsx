@@ -7,6 +7,7 @@ import { LoadingState } from '@common/components/LoadingState'
 import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
 import { getRouteLabelKey } from '@/i18n/routePresentation'
 import type { UiLocale } from '@/i18n/types'
+import { releaseLabel } from '@libs/releaseId'
 import { useUiLocale } from '@provider/I18nProvider'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
@@ -325,6 +326,7 @@ export const Layout = (): ReactElement => {
         <div className="mx-auto flex max-w-content flex-col gap-2 px-4 py-8 text-sm text-muted sm:px-6 md:flex-row md:items-center md:justify-between">
           <p>{commonT('footer.originalContent')}</p>
           <p>{commonT('footer.scope')}</p>
+          <p>{commonT('footer.release', { release: releaseLabel })}</p>
         </div>
       </footer>
     </div>

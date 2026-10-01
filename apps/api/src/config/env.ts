@@ -7,6 +7,9 @@ const adminCmsModeSchema = z.enum(['disabled', 'technical'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
+const releaseIdSchema = z.string().regex(/^[0-9a-f]{40}$/u)
+
+export const LOCAL_RELEASE_ID = '0000000000000000000000000000000000000000'
 
 const toUrlOrNull = (value: string): URL | null => {
   try {
@@ -170,6 +173,7 @@ const exactOriginSchema = z.url().transform((value, context) => {
 const apiEnvironmentSchema = z
   .object({
     NODE_ENV: runtimeEnvironmentSchema,
+    RELEASE_ID: releaseIdSchema,
     ADMIN_CMS_MODE: adminCmsModeSchema,
     HOST: z.string().min(1),
     PORT: z.coerce.number().int().min(1).max(65_535),
@@ -253,6 +257,14 @@ const apiEnvironmentSchema = z
       return
     }
 
+    if (environment.RELEASE_ID === LOCAL_RELEASE_ID) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RELEASE_ID'],
+        message: 'production release ID는 로컬 sentinel일 수 없습니다.'
+      })
+    }
+
     const databaseUrl = toUrlOrNull(environment.DATABASE_URL)
     if (!databaseUrl) return
     const sslModes = databaseUrl.searchParams.getAll('sslmode')
@@ -295,6 +307,14 @@ const apiEnvironmentSchema = z
       })
     }
 
+    if (environment.TRUSTED_ORIGINS.length !== 1) {
+      context.addIssue({
+        code: 'custom',
+        path: ['TRUSTED_ORIGINS'],
+        message: 'production은 auth URL과 같은 하나의 origin만 허용합니다.'
+      })
+    }
+
     if (
       environment.AUTH_EMAIL_DELIVERY_MODE !== 'webhook' ||
       !environment.AUTH_EMAIL_WEBHOOK_URL ||
@@ -330,8 +350,12 @@ type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 // Directly constructed test/application dependency fixtures from the pre-Phase
 // 7 surface remain valid; absence is the same fail-closed value as the parser's
 // explicit `disabled` default.
-export type ApiEnvironment = Omit<ParsedApiEnvironment, 'ADMIN_CMS_MODE'> & {
+export type ApiEnvironment = Omit<
+  ParsedApiEnvironment,
+  'ADMIN_CMS_MODE' | 'RELEASE_ID'
+> & {
   readonly ADMIN_CMS_MODE?: ParsedApiEnvironment['ADMIN_CMS_MODE']
+  readonly RELEASE_ID?: ParsedApiEnvironment['RELEASE_ID']
 }
 
 export class EnvironmentValidationError extends Error {
@@ -352,6 +376,9 @@ export const parseApiEnvironment = (
     runtimeEnvironment.success && runtimeEnvironment.data !== 'production'
   const parsed = apiEnvironmentSchema.safeParse({
     NODE_ENV: source.NODE_ENV,
+    RELEASE_ID:
+      source.RELEASE_ID ??
+      (canUseDevelopmentDefaults ? LOCAL_RELEASE_ID : undefined),
     ADMIN_CMS_MODE: source.ADMIN_CMS_MODE ?? 'disabled',
     HOST: source.HOST ?? (canUseDevelopmentDefaults ? '127.0.0.1' : undefined),
     PORT: source.PORT ?? (canUseDevelopmentDefaults ? '3001' : undefined),

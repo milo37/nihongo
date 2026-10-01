@@ -13,10 +13,12 @@ export const readyHealthResponseSchema = z
 
 interface HealthRouteDependencies {
   checkReadiness: () => Promise<void>
+  releaseId: string
   readinessTimeoutMs?: number
 }
 
 const DEFAULT_READINESS_TIMEOUT_MS = 3_000
+const releaseIdSchema = z.string().regex(/^[0-9a-f]{40}$/u)
 
 const waitForReadiness = async (
   checkReadiness: () => Promise<void>,
@@ -43,17 +45,21 @@ const waitForReadiness = async (
 
 export const createHealthRoutes = ({
   checkReadiness,
+  releaseId,
   readinessTimeoutMs = DEFAULT_READINESS_TIMEOUT_MS
 }: HealthRouteDependencies): Hono<{ Variables: ApiVariables }> => {
   const routes = new Hono<{ Variables: ApiVariables }>()
+  const parsedReleaseId = releaseIdSchema.parse(releaseId)
 
   routes.get('/live', (context) => {
     context.header('Cache-Control', 'no-store')
+    context.header('X-Release-Id', parsedReleaseId)
     return context.json(liveHealthResponseSchema.parse({ status: 'ok' }), 200)
   })
 
   routes.get('/ready', async (context) => {
     context.header('Cache-Control', 'no-store')
+    context.header('X-Release-Id', parsedReleaseId)
 
     try {
       await waitForReadiness(checkReadiness, readinessTimeoutMs)

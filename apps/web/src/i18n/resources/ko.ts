@@ -93,7 +93,8 @@ export const koResources = {
     },
     footer: {
       originalContent: '자체 제작 문제만 사용하는 포트폴리오 프로젝트입니다.',
-      scope: '청해·실제 JLPT 기출문제는 포함하지 않습니다.'
+      scope: '청해·실제 JLPT 기출문제는 포함하지 않습니다.',
+      release: '배포 버전 {{release}}'
     }
   },
   navigation: {

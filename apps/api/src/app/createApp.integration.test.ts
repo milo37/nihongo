@@ -422,11 +422,13 @@ describe('Hono operational boundary', () => {
 
   it('live 응답과 유효한 request ID를 보존한다', async () => {
     const requestId = randomUUID()
+    const releaseId = '1234567890abcdef1234567890abcdef12345678'
     const { logger } = createTestLogger()
     const app = createApiApp({
       checkReadiness: vi.fn().mockResolvedValue(undefined),
       logger,
-      questionReader
+      questionReader,
+      releaseId
     })
     const response = await app.request('/health/live', {
       headers: { 'X-Request-Id': requestId }
@@ -434,6 +436,8 @@ describe('Hono operational boundary', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('X-Request-Id')).toBe(requestId)
+    expect(response.headers.get('X-Release-Id')).toBe(releaseId)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect(await response.json()).toEqual({ status: 'ok' })
   })
 
@@ -470,6 +474,9 @@ describe('Hono operational boundary', () => {
     expect(payload.message).not.toContain('secret')
     expect(response.headers.get('X-Request-Id')).toBe(payload.requestId)
     expect(response.headers.get('Retry-After')).toBe('5')
+    expect(response.headers.get('X-Release-Id')).toBe(
+      '0000000000000000000000000000000000000000'
+    )
   })
 
   it('예상하지 못한 오류를 request ID가 포함된 500으로 정규화한다', async () => {

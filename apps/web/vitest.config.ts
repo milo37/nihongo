@@ -7,7 +7,10 @@ export default mergeConfig(
   defineConfig({
     define: {
       __NIHONGO_API_MODE__: JSON.stringify('mock'),
-      __NIHONGO_PRODUCTION_BUILD__: JSON.stringify(false)
+      __NIHONGO_PRODUCTION_BUILD__: JSON.stringify(false),
+      __NIHONGO_RELEASE_ID__: JSON.stringify(
+        '0000000000000000000000000000000000000000'
+      )
     },
     test: {
       environment: 'jsdom',

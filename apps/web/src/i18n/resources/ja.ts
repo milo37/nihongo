@@ -100,7 +100,8 @@ export const jaResources = {
     footer: {
       originalContent:
         'すべてオリジナル問題を使用するポートフォリオプロジェクトです。',
-      scope: '聴解と実際のJLPT過去問題は含まれません。'
+      scope: '聴解と実際のJLPT過去問題は含まれません。',
+      release: 'リリース {{release}}'
     }
   },
   navigation: {

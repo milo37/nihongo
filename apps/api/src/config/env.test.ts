@@ -176,6 +176,7 @@ describe('parseApiEnvironment', () => {
   it('production에서 명시적 항목·DB TLS·HTTPS origin을 요구한다', () => {
     const productionEnvironment = {
       NODE_ENV: 'production',
+      RELEASE_ID: '1234567890abcdef1234567890abcdef12345678',
       HOST: '0.0.0.0',
       PORT: '3001',
       DATABASE_URL:
@@ -221,6 +222,30 @@ describe('parseApiEnvironment', () => {
       parseApiEnvironment({
         NODE_ENV: 'production',
         DATABASE_URL: productionEnvironment.DATABASE_URL
+      })
+    ).toThrow(EnvironmentValidationError)
+    expect(() =>
+      parseApiEnvironment({
+        ...productionEnvironment,
+        RELEASE_ID: undefined
+      })
+    ).toThrow(EnvironmentValidationError)
+    expect(() =>
+      parseApiEnvironment({
+        ...productionEnvironment,
+        RELEASE_ID: 'not-a-git-commit'
+      })
+    ).toThrow(EnvironmentValidationError)
+    expect(() =>
+      parseApiEnvironment({
+        ...productionEnvironment,
+        RELEASE_ID: '0000000000000000000000000000000000000000'
+      })
+    ).toThrow(EnvironmentValidationError)
+    expect(() =>
+      parseApiEnvironment({
+        ...productionEnvironment,
+        TRUSTED_ORIGINS: 'https://nihongo.example.com,https://extra.example.com'
       })
     ).toThrow(EnvironmentValidationError)
     expect(() =>

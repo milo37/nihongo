@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./dashboard/calculate-dashboard-insights": {
       "types": "./dist/dashboard/calculate-dashboard-insights.d.ts",
