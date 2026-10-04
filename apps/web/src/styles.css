@@ -423,4 +423,64 @@ footer > div[class] {
   .learning-note > header h1 {
     overflow-wrap: anywhere;
   }
+
+  .ui-dialog {
+    width: calc(100% - 1rem);
+    overflow-y: auto;
+  }
+
+  .ui-dialog-layout {
+    max-height: none;
+  }
+
+  .ui-dialog-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .ui-dialog-header > button {
+    grid-row: 1;
+    justify-self: end;
+    margin: 0;
+  }
+
+  .ui-dialog-header > div {
+    grid-row: 2;
+    min-width: 0;
+  }
+
+  .ui-dialog-title {
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-dialog-content,
+  .ui-dialog-footer {
+    flex-shrink: 0;
+    padding: 0.5rem;
+  }
+
+  .ui-dialog-footer :is(button, a) {
+    min-width: 2.75rem;
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* The public quick-start exists in both the committed and learning-note homes.
+   Size its intrinsic grid items without imposing a document width or clipping. */
+main > section:has(fieldset .grid-cols-5) {
+  overflow-wrap: anywhere;
+}
+
+main > section:has(fieldset .grid-cols-5) .grid > *,
+main > section:has(fieldset .grid-cols-5) fieldset {
+  min-inline-size: 0;
+}
+
+main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
+  grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
 }

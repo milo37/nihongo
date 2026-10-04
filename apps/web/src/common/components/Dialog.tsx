@@ -240,12 +240,12 @@ export const Dialog = ({
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className="flex max-h-[min(90dvh,56rem)] flex-col overscroll-contain">
-        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
+      <div className="ui-dialog-layout flex max-h-[min(90dvh,56rem)] flex-col overscroll-contain">
+        <div className="ui-dialog-header flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2
               ref={titleRef}
-              className="scroll-mt-24 text-balance text-xl font-bold"
+              className="ui-dialog-title scroll-mt-24 text-balance text-xl font-bold"
               id={titleId}
               tabIndex={-1}
             >
@@ -270,12 +270,12 @@ export const Dialog = ({
           />
         </div>
         {children ? (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+          <div className="ui-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
             {children}
           </div>
         ) : null}
         {footer ? (
-          <div className="flex flex-col-reverse gap-2 border-t border-line bg-surface-muted px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <div className="ui-dialog-footer flex flex-col-reverse gap-2 border-t border-line bg-surface-muted px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
             {footer}
           </div>
         ) : null}
