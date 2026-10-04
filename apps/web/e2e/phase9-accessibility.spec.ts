@@ -31,6 +31,91 @@ import { isFocusedElementUnobscured } from '../src/test/focusGeometry'
 type BrowserMode = 'mock' | 'real'
 type UiLocale = 'ja' | 'ko'
 
+// This function is serialized into the browser. Canvas resolves supported CSS
+// color spaces into sRGB instead of treating OKLCH coordinates as RGB bytes.
+const measureContrast = (element: Element) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 1
+  const context = canvas.getContext('2d', { colorSpace: 'srgb' })
+  if (!context) throw new Error('sRGB color normalization unavailable')
+  type Color = readonly [number, number, number, number]
+  const normalize = (raw: string): Color => {
+    if (!CSS.supports('color', raw)) {
+      throw new Error(`Unsupported computed color: ${raw}`)
+    }
+    // Two sentinels distinguish an unsupported canvas color from a valid color
+    // that happens to equal one sentinel. No guessed fallback color is allowed.
+    context.fillStyle = '#010203'
+    context.fillStyle = raw
+    const first = context.fillStyle
+    context.fillStyle = '#040506'
+    context.fillStyle = raw
+    if (first !== context.fillStyle) {
+      throw new Error(`Canvas cannot normalize computed color: ${raw}`)
+    }
+    context.clearRect(0, 0, 1, 1)
+    context.fillRect(0, 0, 1, 1)
+    const pixel = context.getImageData(0, 0, 1, 1).data
+    return [pixel[0], pixel[1], pixel[2], pixel[3] / 255]
+  }
+  const composite = (front: Color, back: Color): Color => {
+    const alpha = front[3] + back[3] * (1 - front[3])
+    if (alpha === 0) return [0, 0, 0, 0]
+    return [
+      (front[0] * front[3] + back[0] * back[3] * (1 - front[3])) / alpha,
+      (front[1] * front[3] + back[1] * back[3] * (1 - front[3])) / alpha,
+      (front[2] * front[3] + back[2] * back[3] * (1 - front[3])) / alpha,
+      alpha
+    ]
+  }
+  const layers: Array<{ raw: string; color: Color }> = []
+  let current: Element | null = element
+  while (current) {
+    const style = getComputedStyle(current)
+    // CSS group opacity and images need a rendered compositing measurement.
+    // Reject them explicitly rather than report a guessed contrast as PASS.
+    if (Number(style.opacity) !== 1 || style.backgroundImage !== 'none') {
+      throw new Error(
+        'Contrast measurement requires opacity 1 and no background images'
+      )
+    }
+    const raw = style.backgroundColor
+    layers.push({ raw, color: normalize(raw) })
+    current = current.parentElement
+  }
+  let background: Color = [255, 255, 255, 1]
+  for (const layer of [...layers].reverse()) {
+    background = composite(layer.color, background)
+  }
+  const rawForeground = getComputedStyle(element).color
+  const foreground = composite(normalize(rawForeground), background)
+  const luminance = (color: Color): number => {
+    const linear = color.slice(0, 3).map((channel) => {
+      const normalized = channel / 255
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4
+    })
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+  }
+  const fg = luminance(foreground)
+  const bg = luminance(background)
+  return {
+    ratio: (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05),
+    rawForeground,
+    rawBackgrounds: layers.map((layer) => layer.raw),
+    foreground,
+    background,
+    state: {
+      ariaSort: element.closest('th')?.getAttribute('aria-sort') ?? null,
+      label: element.closest('button')?.getAttribute('aria-label') ?? null,
+      hover: element.closest('button')?.matches(':hover') ?? false,
+      focusVisible:
+        element.closest('button')?.matches(':focus-visible') ?? false
+    }
+  }
+}
+
 interface Credentials {
   readonly email: string
   readonly password: string
@@ -716,57 +801,28 @@ const scanCurrentPage = async (
 
     for (const node of finding.nodes) {
       const selector = node.target.map(String).join(' ')
-      const measurement = await page
-        .locator(selector)
-        .first()
-        .evaluate((element, selectors) => {
-          const parseColor = (
-            color: string
-          ): readonly [number, number, number, number] | null => {
-            const channels = color.match(/[\d.]+/gu)?.map(Number)
-            if (!channels || channels.length < 3) return null
-            return [
-              channels[0] ?? 0,
-              channels[1] ?? 0,
-              channels[2] ?? 0,
-              channels[3] ?? 1
-            ]
-          }
-          const luminance = (color: readonly number[]): number => {
-            const [red = 0, green = 0, blue = 0] = color.map((channel) => {
-              const normalized = channel / 255
-              return normalized <= 0.04045
-                ? normalized / 12.92
-                : ((normalized + 0.055) / 1.055) ** 2.4
-            })
-            return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-          }
-          const foreground = parseColor(getComputedStyle(element).color)
-          let current: Element | null = element
-          let background: readonly [number, number, number, number] | null =
-            null
-          while (current && (!background || background[3] === 0)) {
-            background = parseColor(getComputedStyle(current).backgroundColor)
-            current = current.parentElement
-          }
-          if (!foreground || !background) return null
-
-          const foregroundLuminance = luminance(foreground)
-          const backgroundLuminance = luminance(background)
-          const ratio =
-            (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
-            (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
-          const kind = element.closest(selectors.paginationCurrent)
+      const target = page.locator(selector).first()
+      const kind = await target.evaluate(
+        (element, selectors) =>
+          element.closest(selectors.paginationCurrent)
             ? 'pagination-current-text'
             : element.matches(selectors.optionReorderControl)
               ? 'option-reorder-control'
               : element.matches(selectors.tableSortIndicator)
                 ? 'table-sort-indicator'
-                : null
-
-          return kind ? { kind, ratio } : null
-        }, axeFindingDispositionSelectors)
-      if (!measurement) continue
+                : null,
+        axeFindingDispositionSelectors
+      )
+      if (!kind) continue
+      const measurement = { kind, ...(await target.evaluate(measureContrast)) }
+      // Preserve raw colors and state before an assertion can abort the scan.
+      await testInfo.attach(
+        `contrast-${toArtifactSlug(label)}-${incompleteDispositions.length}`,
+        {
+          body: JSON.stringify({ selector, ...measurement }, null, 2),
+          contentType: 'application/json'
+        }
+      )
 
       const threshold = measurement.kind === 'pagination-current-text' ? 4.5 : 3
       expect(
@@ -2308,5 +2364,45 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     transport,
     testInfo,
     'admin-cms-read-dialog-matrix'
+  )
+})
+
+test('color normalization regression: equivalent spaces and real low contrast', async ({
+  page
+}, testInfo) => {
+  await page.setContent(`<div style="background:white">
+    <span id="rgb" style="color:rgb(15,23,42);background:rgb(248,250,252)">RGB</span>
+    <span id="oklch" style="color:rgb(15,23,42);background:oklch(98.4% .003 247.858)">OKLCH</span>
+    <span id="srgb" style="color:color(srgb 0.0588235294 0.0901960784 0.1647058824);background:rgb(248,250,252)">sRGB</span>
+    <div style="background:rgb(0 0 0 / 50%)"><span id="alpha" style="color:rgba(0,0,0,.5);background:transparent">Alpha</span></div>
+    <span id="low" style="color:rgb(200,200,200);background:white">Low contrast</span>
+    <span id="unsupported" style="opacity:.5;color:black">Group opacity</span>
+  </div>`)
+  const rgb = await page.locator('#rgb').evaluate(measureContrast)
+  const oklch = await page.locator('#oklch').evaluate(measureContrast)
+  const srgb = await page.locator('#srgb').evaluate(measureContrast)
+  expect(Math.abs(rgb.ratio - oklch.ratio)).toBeLessThanOrEqual(0.01)
+  expect(Math.abs(rgb.ratio - srgb.ratio)).toBeLessThanOrEqual(0.01)
+  expect(oklch.ratio).toBeGreaterThanOrEqual(3)
+  expect(oklch.rawBackgrounds.some((color) => color.startsWith('oklch('))).toBe(
+    true
+  )
+  const alpha = await page.locator('#alpha').evaluate(measureContrast)
+  expect(alpha.background[0]).toBeCloseTo(127, 0)
+  expect(alpha.foreground[0]).toBeGreaterThan(62)
+  expect(alpha.foreground[0]).toBeLessThan(65)
+  expect(alpha.ratio).toBeLessThan(3)
+  const low = await page.locator('#low').evaluate(measureContrast)
+  await testInfo.attach('color-normalization-regression', {
+    body: JSON.stringify({ rgb, oklch, srgb, alpha, low }, null, 2),
+    contentType: 'application/json'
+  })
+  expect(low.ratio).toBeLessThan(3)
+  // The existing >=3 acceptance assertion must reject a genuinely low ratio.
+  expect(() => expect(low.ratio).toBeGreaterThanOrEqual(3)).toThrow()
+  await expect(
+    page.locator('#unsupported').evaluate(measureContrast)
+  ).rejects.toThrow(
+    'Contrast measurement requires opacity 1 and no background images'
   )
 })
