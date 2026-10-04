@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss' source(none);
+@config "../tailwind.config.ts";
 
 :root {
   color-scheme: light;
@@ -96,7 +95,7 @@
   }
 
   html {
-    min-width: 320px;
+    min-width: 0;
     min-height: 100%;
     background: rgb(var(--page-background));
     scroll-behavior: smooth;
@@ -108,7 +107,7 @@
   }
 
   body {
-    min-width: 320px;
+    min-width: 0;
     min-height: 100dvh;
     margin: 0;
     background: rgb(var(--page-background));
@@ -350,5 +349,78 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* NH-P01: a continuous learning page; existing tokens remain authoritative. */
+@layer components {
+  .learning-note {
+    @apply text-ink;
+    overflow-wrap: anywhere;
+  }
+
+  .note-primary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-5 py-3 font-semibold text-on-accent hover:bg-brand-strong;
+  }
+
+  .note-link {
+    @apply inline-flex min-h-11 items-center py-2 font-semibold text-ink underline decoration-line underline-offset-4 hover:text-brand;
+  }
+
+  .note-primary:focus-visible,
+  .note-link:focus-visible {
+    outline: var(--focus-width) solid rgb(var(--color-brand));
+    outline-offset: var(--focus-offset);
+  }
+}
+
+/* Legal links and original-content notices remain available below the lesson. */
+footer > div[class] {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+/* Keep Korean title words intact; Japanese retains natural strict line breaks. */
+.learning-note > header h1 {
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+.learning-note > header h1:lang(ja) {
+  word-break: normal;
+  line-break: strict;
+}
+
+/* Browser zoom can reduce a 320px physical screen to a 160px CSS viewport.
+   Reflow only below the ordinary mobile baseline; never clip the document. */
+@media (max-width: 319px) {
+  .learning-note fieldset {
+    min-inline-size: 0;
+  }
+
+  .learning-note fieldset .grid-cols-5 {
+    grid-template-columns: repeat(2, minmax(2.75rem, 1fr));
+  }
+
+  .learning-note > .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .learning-note .flex {
+    flex-wrap: wrap;
+  }
+
+  .learning-note .flex > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .learning-note :is(button, a) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .learning-note > header h1 {
+    overflow-wrap: anywhere;
   }
 }

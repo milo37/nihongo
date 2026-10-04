@@ -50,6 +50,8 @@ const config: Config = {
         elevated: 'var(--shadow-elevated)'
       },
       borderRadius: {
+        // Preserve the v3 small radius used by focusable headings.
+        sm: '0.125rem',
         control: 'var(--radius-control)',
         card: 'var(--radius-card)',
         panel: 'var(--radius-panel)',

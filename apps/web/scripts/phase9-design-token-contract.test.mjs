@@ -1,3 +1,5 @@
+import postcss from 'postcss'
+import tailwindPostcss from '@tailwindcss/postcss'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { test } from 'node:test'
@@ -40,4 +42,35 @@ test('rejects a missing typography line-height token', () => {
     () => validateDesignTokenContract(missingLineHeight, tailwind),
     /Missing CSS token --text-display-line-height/u
   )
+})
+
+// Exercise the real compiler, not just source-text aliases: a package upgrade
+// can silently stop loading the TS config while its declarations remain intact.
+test('Tailwind compiles configured colors, alpha, note apply and zoom rules', async () => {
+  const result = await postcss([tailwindPostcss()]).process(
+    `${styles}\n@source inline("bg-brand/10 rounded-sm");`,
+    { from: resolve(webRoot, 'src/styles.css') }
+  )
+  const declarations = (selector, property) => {
+    const values = []
+    result.root.walkRules(selector, (rule) => {
+      rule.walkDecls(property, (declaration) => values.push(declaration.value))
+    })
+    return values.join(' ')
+  }
+  assert.match(
+    declarations('.bg-brand', 'background-color'),
+    /var\(--color-brand\)/u
+  )
+  assert.match(
+    declarations('.bg-brand\\/10', 'background-color'),
+    /(?:10%|0\.1)/u
+  )
+  assert.match(
+    declarations('.note-primary', 'background-color'),
+    /var\(--color-brand\)/u
+  )
+  assert.match(declarations('.rounded-sm', 'border-radius'), /0?\.125rem/u)
+  assert.match(result.css, /max-width:\s*319px/u)
+  assert.match(result.css, /forced-colors:\s*active/u)
 })
