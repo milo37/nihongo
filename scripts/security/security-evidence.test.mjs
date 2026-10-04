@@ -179,6 +179,34 @@ test('environment values and strong credential shapes are rejected without echoi
   )
 })
 
+test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labels', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'phase7-reporter-'))
+  for (const mode of ['real', 'mock']) {
+    const label = `phase7-${mode}`
+    const reporter = new Phase10PlaywrightSummaryReporter({
+      outputDirectory: directory,
+      label
+    })
+    reporter.onBegin()
+    await reporter.onEnd({ status: 'passed' })
+    const summary = JSON.parse(
+      await readFile(path.join(directory, `${label}.json`), 'utf8')
+    )
+    assert.equal(summary.label, label)
+    assert.equal(summary.status, 'passed')
+  }
+  for (const label of ['phase6-real', 'phase7-live', '../phase7-real']) {
+    assert.throws(
+      () =>
+        new Phase10PlaywrightSummaryReporter({
+          outputDirectory: directory,
+          label
+        }),
+      /PHASE10_PLAYWRIGHT_REPORTER_OPTIONS_INVALID/
+    )
+  }
+})
+
 test('safe Playwright reporter hashes identity and ignores title, errors, output and attachments', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase10-reporter-'))
   const sentinel = 'phase10-verification-token-sentinel'

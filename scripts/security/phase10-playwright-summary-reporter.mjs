@@ -6,7 +6,7 @@ import {
   writeCanonicalEvidence
 } from './security-evidence.mjs'
 
-const VALID_LABEL = /^phase(?:8|9|10)-(?:real|mock)$/u
+const VALID_LABEL = /^phase(?:7|8|9|10)-(?:real|mock)$/u
 const VALID_STATUS = new Set([
   'passed',
   'failed',
