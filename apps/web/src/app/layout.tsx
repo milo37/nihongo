@@ -183,21 +183,21 @@ export const Layout = (): ReactElement => {
         {navigationT('skipToContent')}
       </a>
       <header className="sticky top-0 z-header border-b border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-content items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex min-h-16 max-w-content flex-wrap items-center justify-between gap-4 px-4 sm:px-6">
           <NavLink
-            className="flex min-h-11 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+            className="flex min-h-11 min-w-0 w-full flex-none items-center gap-3 sm:w-auto sm:flex-1 rounded-lg focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
             to="/"
             onClick={closeMenu}
           >
             <span
-              className="grid size-10 place-items-center rounded-xl bg-brand-strong font-black text-on-accent"
+              className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-strong font-black text-on-accent"
               aria-hidden="true"
             >
               文
             </span>
-            <span className="leading-tight">
+            <span className="min-w-0 leading-tight">
               <strong className="block text-base">JLPT Drill Note</strong>
-              <span className="block text-xs text-muted">
+              <span className="hidden text-xs text-muted sm:block">
                 {commonT('tagline')}
               </span>
             </span>
@@ -205,7 +205,7 @@ export const Layout = (): ReactElement => {
 
           <button
             ref={mobileMenuButtonRef}
-            className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-line text-xl hover:border-line-strong hover:bg-surface-muted md:hidden"
+            className="ml-auto grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-line text-xl hover:border-line-strong hover:bg-surface-muted md:hidden"
             type="button"
             aria-label={
               isMobileMenuOpen
@@ -222,7 +222,7 @@ export const Layout = (): ReactElement => {
           <nav
             id="primary-navigation"
             className={[
-              'absolute inset-x-0 top-16 border-b border-line bg-surface p-4 md:static md:block md:border-0 md:p-0',
+              'absolute inset-x-0 top-full border-b border-line bg-surface p-4 md:static md:block md:border-0 md:p-0',
               isMobileMenuOpen ? 'block' : 'hidden md:block'
             ].join(' ')}
             aria-label={navigationT('primary')}
