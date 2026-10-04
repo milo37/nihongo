@@ -46,8 +46,8 @@ const PLAYWRIGHT_BROWSER_PERFORMANCE_BUDGETS = {
 const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'phase8-mock': 5,
   'phase8-real': 5,
-  'phase9-mock': 3,
-  'phase9-real': 3,
+  'phase9-mock': 4,
+  'phase9-real': 4,
   'phase10-mock': 3,
   'phase10-real': 3
 }

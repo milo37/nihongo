@@ -293,52 +293,141 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   )
 })
 
-test('Phase 9 evidence rejects a partial all-passing suite', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'phase9-reporter-'))
-  const filePath = path.join(directory, 'phase9-real.json')
-  const value = {
-    schemaVersion: 2,
-    kind: 'nihongo.playwright-safe-summary',
-    label: 'phase9-real',
-    status: 'passed',
-    durationMs: 1,
-    counts: {
-      passed: 3,
-      failed: 0,
-      skipped: 0,
-      timedOut: 0,
-      interrupted: 0,
-      total: 3
-    },
-    performanceMeasurements: [],
-    requestLedgers: [],
-    tests: Array.from({ length: 3 }, (_, index) => ({
-      testId: String(index + 1).repeat(64),
+for (const mode of ['real', 'mock']) {
+  test(`Phase 9 ${mode} evidence accepts four tests and rejects unsafe suites`, async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'phase9-count-'))
+    const label = `phase9-${mode}`
+    const filePath = path.join(directory, `${label}.json`)
+    const makeSummary = (count) => ({
+      schemaVersion: 2,
+      kind: 'nihongo.playwright-safe-summary',
+      label,
       status: 'passed',
       durationMs: 1,
-      retry: 0
-    }))
-  }
-  await writeCanonicalEvidence({ filePath, value })
-  await assert.doesNotReject(() =>
-    verifyArtifactDirectory({
-      directory,
-      profile: 'playwright',
-      requiredLabels: ['phase9-real']
+      counts: {
+        passed: count,
+        failed: 0,
+        skipped: 0,
+        timedOut: 0,
+        interrupted: 0,
+        total: count
+      },
+      performanceMeasurements: [],
+      requestLedgers: [],
+      tests: Array.from({ length: count }, (_, index) => ({
+        testId: String(index + 1).repeat(64),
+        status: 'passed',
+        durationMs: 1,
+        retry: 0
+      }))
     })
-  )
+    const verify = async (value) => {
+      await writeCanonicalEvidence({ filePath, value })
+      return verifyArtifactDirectory({
+        directory,
+        profile: 'playwright',
+        requiredLabels: [label]
+      })
+    }
+    await assert.doesNotReject(() => verify(makeSummary(4)))
+    for (const count of [3, 5]) {
+      await assert.rejects(
+        () => verify(makeSummary(count)),
+        /SECURITY_EVIDENCE_SCHEMA_INVALID/
+      )
+    }
+    const skipped = makeSummary(4)
+    skipped.tests[0].status = 'skipped'
+    skipped.counts.passed = 3
+    skipped.counts.skipped = 1
+    await assert.rejects(
+      () => verify(skipped),
+      /SECURITY_EVIDENCE_SCHEMA_INVALID/
+    )
+    const retried = makeSummary(4)
+    retried.tests[0].retry = 1
+    await assert.rejects(
+      () => verify(retried),
+      /SECURITY_EVIDENCE_SCHEMA_INVALID/
+    )
+    const extra = makeSummary(4)
+    extra.rawColor = 'black'
+    await assert.rejects(
+      () => verify(extra),
+      /SECURITY_EVIDENCE_SCHEMA_INVALID/
+    )
+    await assert.rejects(
+      () =>
+        verify(makeSummary(4)).then(() =>
+          verifyArtifactDirectory({
+            directory,
+            profile: 'playwright',
+            requiredLabels: [label],
+            additionalSecrets: [makeSummary(4).tests[0].testId]
+          })
+        ),
+      /SECURITY_EVIDENCE_ENVIRONMENT_SECRET/
+    )
+  })
+}
 
-  value.tests.pop()
-  value.counts.passed -= 1
-  value.counts.total -= 1
-  await writeCanonicalEvidence({ filePath, value })
-  await assert.rejects(() =>
-    verifyArtifactDirectory({
-      directory,
-      profile: 'playwright',
-      requiredLabels: ['phase9-real']
-    })
-  )
+test('all six safe suites retain exact 5/4/3 counts and approved attachments', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'six-safe-suites-'))
+  const labels = []
+  for (const mode of ['real', 'mock']) {
+    for (const [phase, count] of [
+      [8, 5],
+      [9, 4],
+      [10, 3]
+    ]) {
+      const label = `phase${phase}-${mode}`
+      labels.push(label)
+      const reporter = new Phase10PlaywrightSummaryReporter({
+        outputDirectory: directory,
+        label
+      })
+      const attachments =
+        phase === 8
+          ? [
+              createRequestLedgerAttachment(
+                `phase8-admin-lifecycle-${mode}-request-ledger`
+              ),
+              createRequestLedgerAttachment(
+                `phase8-dashboard-${mode}-request-ledger`
+              ),
+              createPerformanceAttachment(mode)
+            ]
+          : phase === 10
+            ? ['guest-auth', 'resilience', 'user-journey'].map((journey) =>
+                createRequestLedgerAttachment(
+                  `phase10-${journey}-${mode}-request-ledger`
+                )
+              )
+            : []
+      reporter.onBegin()
+      for (let index = 0; index < count; index += 1) {
+        reporter.onTestEnd(
+          {
+            location: { file: '/private/safe-suite.ts', line: index + 1 },
+            titlePath: () => [label, `test-${index}`]
+          },
+          {
+            status: 'passed',
+            duration: 1,
+            retry: 0,
+            attachments: index === 0 ? attachments : []
+          }
+        )
+      }
+      await reporter.onEnd({ status: 'passed' })
+    }
+  }
+  const manifest = await verifyArtifactDirectory({
+    directory,
+    profile: 'playwright',
+    requiredLabels: labels
+  })
+  assert.equal(manifest.files.length, 6)
 })
 
 test('Phase 8 reporter retains exact ledger and performance evidence', async () => {
