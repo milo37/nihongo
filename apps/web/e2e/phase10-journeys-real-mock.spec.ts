@@ -412,7 +412,7 @@ const startVocabularySessionThroughUi = async (
       new URL(response.url()).pathname === '/api/v1/study-sessions'
     )
   })
-  await page.getByRole('button', { exact: true, name: '학습 시작하기' }).click()
+  await page.getByRole('button', { exact: true, name: 'N5 어휘 시작' }).click()
   const response = await responsePromise
   expect(response.status()).toBe(201)
   const created = createStudySessionV2ResponseSchema.parse(

@@ -10,6 +10,7 @@ import type { CreateStudySessionV2TransportResponse } from '@api/study/createStu
 import { HomePage } from '@app/home/page'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { PracticePage } from '@app/practice/page'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
@@ -24,11 +25,16 @@ const createClient = (): QueryClient =>
     }
   })
 
-const createFixture = async (): Promise<
-  CreateStudySessionV2TransportResponse['data']
-> => {
-  const user = mockDatabase.loginAs('USER')
-  useAppStore.getState().setCurrentUser(user)
+const createFixture = async (
+  role: 'GUEST' | 'USER' = 'USER'
+): Promise<CreateStudySessionV2TransportResponse['data']> => {
+  if (role === 'GUEST') {
+    mockDatabase.logout()
+    useAppStore.getState().setCurrentUser(null)
+  } else {
+    const user = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(user)
+  }
   return (
     await createStudySessionV2({
       level: 'N3',
@@ -54,7 +60,7 @@ const renderPage = (
   page: ReactElement,
   initialPath: string,
   resultText: string
-): { client: QueryClient } => {
+): { client: QueryClient; router: ReturnType<typeof createMemoryRouter> } => {
   const client = createClient()
   const router = createMemoryRouter(
     [
@@ -65,6 +71,10 @@ const renderPage = (
       {
         path: '/practice/session/:sessionId',
         element: <p>{resultText}</p>
+      },
+      {
+        path: '/dashboard',
+        element: <h1>인증 후 학습 홈</h1>
       }
     ],
     { initialEntries: [initialPath] }
@@ -75,20 +85,22 @@ const renderPage = (
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  return { client }
+  return { client, router }
 }
 
 describe('study session create intent lock', () => {
   it('locks Home controls to one request and re-enables the same intent after failure', async () => {
     const user = userEvent.setup()
-    const fixture = await createFixture()
+    const fixture = await createFixture('GUEST')
     let requestCount = 0
+    const requestInputs: unknown[] = []
     let releaseFirst: (() => void) | undefined
     const firstRequestGate = new Promise<void>((resolve) => {
       releaseFirst = resolve
     })
     mockServer.use(
-      http.post('*/api/v1/study-sessions', async () => {
+      http.post('*/api/v1/study-sessions', async ({ request }) => {
+        requestInputs.push(await request.json())
         requestCount += 1
         if (requestCount === 1) {
           await firstRequestGate
@@ -103,47 +115,53 @@ describe('study session create intent lock', () => {
     renderPage(<HomePage />, '/', '홈 세션 도착')
 
     const start = await screen.findByRole('button', {
-      name: '선택한 범위로 시작'
+      name: 'N3 문법 시작'
     })
     await user.click(start)
     await waitFor(() => expect(requestCount).toBe(1))
 
-    const pendingStart = screen.getByRole('button', { name: '처리 중…' })
-    const originalLevel = screen.getByRole('button', { name: 'N3' })
-    const otherLevel = screen.getByRole('button', { name: 'N5' })
-    const originalSubject = screen.getByRole('button', { name: /문법/ })
-    const otherSubject = screen.getByRole('button', { name: /문자·어휘/ })
+    const pendingStart = screen.getByRole('button', { name: '불러오는 중' })
+    const originalLevel = screen.getByRole('radio', { name: 'N3' })
+    const otherLevel = screen.getByRole('radio', { name: 'N5' })
+    const originalSubject = screen.getByRole('radio', { name: '문법' })
+    const otherSubject = screen.getByRole('radio', { name: '어휘' })
     expect(pendingStart).toBeDisabled()
     expect(otherLevel).toBeDisabled()
     expect(otherSubject).toBeDisabled()
     await user.click(otherLevel)
     await user.click(otherSubject)
     await user.click(pendingStart)
-    expect(originalLevel).toHaveAttribute('aria-pressed', 'true')
-    expect(originalSubject).toHaveAttribute('aria-pressed', 'true')
+    expect(originalLevel).toBeChecked()
+    expect(originalSubject).toBeChecked()
     expect(requestCount).toBe(1)
 
     releaseFirst?.()
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '네트워크 상태와 선택 조건을 확인'
     )
-    expect(screen.getByRole('button', { name: 'N5' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: '선택한 범위로 시작' }))
+    expect(screen.getByRole('radio', { name: 'N5' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'N3 문법 시작' }))
 
     expect(await screen.findByText('홈 세션 도착')).toBeInTheDocument()
     expect(requestCount).toBe(2)
+    expect(requestInputs).toEqual([
+      { level: 'N3', subject: 'GRAMMAR', count: 10, mode: 'RANDOM' },
+      { level: 'N3', subject: 'GRAMMAR', count: 10, mode: 'RANDOM' }
+    ])
   })
 
   it('locks every Practice setup control and CTA to the displayed request intent', async () => {
     const user = userEvent.setup()
     const fixture = await createFixture()
     let requestCount = 0
+    const requestInputs: unknown[] = []
     let releaseResponse: (() => void) | undefined
     const responseGate = new Promise<void>((resolve) => {
       releaseResponse = resolve
     })
     mockServer.use(
-      http.post('*/api/v1/study-sessions', async () => {
+      http.post('*/api/v1/study-sessions', async ({ request }) => {
+        requestInputs.push(await request.json())
         requestCount += 1
         await responseGate
         return createV2Response(fixture)
@@ -152,12 +170,12 @@ describe('study session create intent lock', () => {
     renderPage(<PracticePage />, '/practice', '설정 세션 도착')
 
     const start = await screen.findByRole('button', {
-      name: '학습 시작하기'
+      name: 'N3 문법 시작'
     })
     await user.click(start)
     await waitFor(() => expect(requestCount).toBe(1))
 
-    expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '불러오는 중' })).toBeDisabled()
     for (const name of ['N5', '문자·어휘', '5문제']) {
       expect(screen.getByRole('button', { name })).toBeDisabled()
     }
@@ -174,50 +192,77 @@ describe('study session create intent lock', () => {
     releaseResponse?.()
     expect(await screen.findByText('설정 세션 도착')).toBeInTheDocument()
     expect(requestCount).toBe(1)
+    expect(requestInputs).toEqual([
+      { level: 'N3', subject: 'GRAMMAR', count: 10, mode: 'RANDOM' }
+    ])
   })
 
-  it('silently re-enables Home controls when an old create is superseded by auth', async () => {
+  it('opens the canonical member dashboard and ignores a guest create superseded by auth', async () => {
     const user = userEvent.setup()
-    const fixture = await createFixture()
+    const fixture = await createFixture('GUEST')
+    let requestCount = 0
     let releaseResponse: (() => void) | undefined
     const responseGate = new Promise<void>((resolve) => {
       releaseResponse = resolve
     })
     mockServer.use(
       http.post('*/api/v1/study-sessions', async () => {
+        requestCount += 1
         await responseGate
         return createV2Response(fixture)
       })
     )
-    const { client } = renderPage(<HomePage />, '/', '이전 사용자 세션')
+    const { client, router } = renderPage(<HomePage />, '/', '이전 사용자 세션')
 
     await user.click(
       await screen.findByRole('button', {
-        name: '선택한 범위로 시작'
+        name: 'N3 문법 시작'
       })
     )
     expect(
-      await screen.findByRole('button', { name: '처리 중…' })
+      await screen.findByRole('button', { name: '불러오는 중' })
     ).toBeDisabled()
+    await waitFor(() => expect(requestCount).toBe(1))
+    const pendingCreate = client.getMutationCache().getAll()[0]
+    expect(pendingCreate).toBeDefined()
+    if (!pendingCreate) {
+      throw new Error('Expected a pending guest create mutation')
+    }
     const nextUser = demoUsers.find(({ role }) => role === 'ADMIN')
     expect(nextUser).toBeDefined()
     if (!nextUser) {
-      return
+      throw new Error('Expected the canonical admin fixture')
     }
 
     await act(async () => {
+      mockDatabase.loginAs('ADMIN', nextUser.id)
       await commitCanonicalAuth(client, nextUser, {
         forceClear: true,
         forcePracticeReset: true
       })
     })
-    releaseResponse?.()
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: '선택한 범위로 시작' })
-      ).toBeEnabled()
+    expect(
+      await screen.findByRole('heading', { name: '인증 후 학습 홈' })
+    ).toBeVisible()
+    expect(router.state.location).toMatchObject({
+      pathname: '/dashboard',
+      search: '?view=learning'
+    })
+    releaseResponse?.()
+    await waitFor(() => expect(pendingCreate.state.status).toBe('error'))
+    expect(isAuthTransitionSupersededError(pendingCreate.state.error)).toBe(
+      true
     )
+    expect(
+      screen.queryByRole('button', { name: 'N3 문법 시작' })
+    ).not.toBeInTheDocument()
+    expect(requestCount).toBe(1)
+    expect(useAppStore.getState().currentUser?.id).toBe(nextUser.id)
+    expect(router.state.location).toMatchObject({
+      pathname: '/dashboard',
+      search: '?view=learning'
+    })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByText('이전 사용자 세션')).not.toBeInTheDocument()
     expect(useAppStore.getState().sessionId).toBeNull()
