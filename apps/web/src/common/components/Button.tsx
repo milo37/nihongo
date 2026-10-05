@@ -18,12 +18,13 @@ type ButtonProps = ComponentPropsWithRef<'button'> & {
   size?: ButtonSize
   isLoading?: boolean
   loadingLabel?: string
+  showLoadingIndicator?: boolean
   fullWidth?: boolean
 }
 
 const variantClassNames: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand text-ink shadow-control hover:bg-brand-strong active:bg-brand-active',
+    'bg-brand text-on-accent shadow-control hover:bg-brand-strong active:bg-brand-active',
   secondary:
     'bg-ink text-on-accent shadow-control hover:bg-ink/90 active:bg-ink/80',
   dark: 'bg-ink text-on-accent shadow-control hover:bg-ink/90 active:bg-ink/80',
@@ -47,6 +48,7 @@ export const Button = ({
   fullWidth = false,
   isLoading = false,
   loadingLabel,
+  showLoadingIndicator = true,
   size = 'md',
   type = 'button',
   variant = 'primary',
@@ -73,24 +75,26 @@ export const Button = ({
     >
       {isLoading ? (
         <>
-          <span className="ui-spinner" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <circle
-                cx="12"
-                cy="12"
-                r="9"
-                stroke="currentColor"
-                strokeOpacity="0.28"
-                strokeWidth="3"
-              />
-              <path
-                d="M12 3a9 9 0 0 1 9 9"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="3"
-              />
-            </svg>
-          </span>
+          {showLoadingIndicator ? (
+            <span className="ui-spinner" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  stroke="currentColor"
+                  strokeOpacity="0.28"
+                  strokeWidth="3"
+                />
+                <path
+                  d="M12 3a9 9 0 0 1 9 9"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="3"
+                />
+              </svg>
+            </span>
+          ) : null}
           <span>{loadingLabel ?? t('loading.processing')}</span>
         </>
       ) : (

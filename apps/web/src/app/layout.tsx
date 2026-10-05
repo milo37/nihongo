@@ -1,6 +1,12 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router'
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigationType
+} from 'react-router'
 import type { ReactElement } from 'react'
 import { LearningIcon } from '@app/home/LearningIcon'
 import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
@@ -19,11 +25,11 @@ const releaseLabel =
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
-    'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
+    'ui-primary-nav-item inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm transition-colors',
     'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
     isActive
-      ? 'ui-primary-nav-active bg-brand-soft text-brand underline decoration-2 underline-offset-4'
-      : 'text-muted hover:text-ink'
+      ? 'ui-primary-nav-active bg-brand-soft text-brand font-semibold'
+      : 'text-ink font-normal'
   ].join(' ')
 }
 
@@ -66,6 +72,10 @@ export const Layout = (): ReactElement => {
   const { isReady, role, user } = useAuth()
   const location = useLocation()
   const navigationType = useNavigationType()
+  const isLearningEntry =
+    location.pathname === '/' ||
+    (location.pathname === '/dashboard' &&
+      new URLSearchParams(location.search).get('view') === 'learning')
   const mainRef = useRef<HTMLElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const previousPathnameRef = useRef(location.pathname)
@@ -177,7 +187,7 @@ export const Layout = (): ReactElement => {
 
   return (
     <div
-      className={`min-h-screen bg-canvas text-ink ${location.pathname === '/' || (location.pathname === '/dashboard' && new URLSearchParams(location.search).get('view') === 'learning') ? 'a2-shell' : ''}`}
+      className={`min-h-screen bg-canvas text-ink ${isLearningEntry ? 'a2-shell' : ''}`}
     >
       <a
         className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
@@ -233,6 +243,14 @@ export const Layout = (): ReactElement => {
             }}
           >
             <div className="mx-auto flex max-w-content flex-col gap-1 md:flex-row md:items-center">
+              <Link
+                className={getNavClassName({ isActive: isLearningEntry })}
+                to={role === 'GUEST' ? '/' : '/dashboard?view=learning'}
+                aria-current={isLearningEntry ? 'page' : undefined}
+                onClick={closeMenu}
+              >
+                {navigationT('learningStart')}
+              </Link>
               <NavLink
                 className={getNavClassName}
                 to="/practice"
@@ -257,8 +275,13 @@ export const Layout = (): ReactElement => {
                     {navigationT('bookmarks')}
                   </NavLink>
                   <NavLink
-                    className={getNavClassName}
+                    className={({ isActive }) =>
+                      getNavClassName({
+                        isActive: isActive && !isLearningEntry
+                      })
+                    }
                     to="/dashboard"
+                    aria-current={isLearningEntry ? false : 'page'}
                     onClick={closeMenu}
                   >
                     {navigationT('dashboard')}

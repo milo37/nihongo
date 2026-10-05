@@ -110,6 +110,7 @@ export const koResources = {
     menuOpen: '메뉴 열기',
     menuClose: '메뉴 닫기',
     primary: '주요 메뉴',
+    learningStart: '학습 시작',
     practice: '문제풀이',
     wrongNotes: '오답노트',
     bookmarks: '즐겨찾기',
@@ -303,7 +304,7 @@ export const koResources = {
       defaultMode: '기본 RANDOM',
       levelLegend: 'JLPT 급수',
       subjectLegend: '학습 과목',
-      start: '선택한 범위로 시작',
+      start: '{{level}} {{subject}} 시작',
       error:
         '세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
       countNote: '문제가 10개보다 적으면 준비된 문제 수만큼 출제합니다.'

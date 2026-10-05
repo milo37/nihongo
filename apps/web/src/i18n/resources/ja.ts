@@ -116,6 +116,7 @@ export const jaResources = {
     menuOpen: 'メニューを開く',
     menuClose: 'メニューを閉じる',
     primary: 'メインメニュー',
+    learningStart: '学習開始',
     practice: '問題演習',
     wrongNotes: '間違いノート',
     bookmarks: 'ブックマーク',
@@ -305,7 +306,7 @@ export const jaResources = {
       defaultMode: 'デフォルト RANDOM',
       levelLegend: 'JLPTレベル',
       subjectLegend: '学習科目',
-      start: '選択範囲で開始',
+      start: '{{level}} {{subject}}を開始',
       error:
         'セッションを作成できませんでした。ネットワーク状態と選択条件を確認し、もう一度お試しください。',
       countNote: '問題が10問未満の場合は、用意された問題数だけ出題します。'

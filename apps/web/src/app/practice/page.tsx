@@ -88,6 +88,7 @@ const loginRequiredModes: readonly StudyMode[] = [
 export const PracticePage = (): ReactElement => {
   const { i18n, t } = useTranslation('practice')
   const { t: commonT } = useTranslation('common')
+  const { t: homeT } = useTranslation('home')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const formatCount = (value: number): string => formatNumber(value, locale)
   const location = useLocation()
@@ -100,6 +101,14 @@ export const PracticePage = (): ReactElement => {
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const level = getInitialLevel(searchParams.get('level'))
   const subject = getInitialSubject(searchParams.get('subject'))
+  const subjectLabel = homeT(
+    subject === 'VOCABULARY'
+      ? 'approved.vocabulary'
+      : subject === 'GRAMMAR'
+        ? 'subjects.grammar.label'
+        : 'subjects.reading.label'
+  )
+  const startLabel = homeT('quickDrill.start', { level, subject: subjectLabel })
   const count = getInitialCount(searchParams.get('count'))
   const requestedMode = getRequestedMode(searchParams.get('mode'))
   const resumablePage = getResumablePage(searchParams.get('resumePage'))
@@ -586,13 +595,18 @@ export const PracticePage = (): ReactElement => {
             ) : null}
           </p>
           <Button
-            className="shrink-0"
+            className="a2-start-button shrink-0"
+            aria-label={
+              isCreatingSession ? homeT('approved.loading') : startLabel
+            }
             disabled={!isReady || isProtectedGuestMode}
             isLoading={isCreatingSession}
+            loadingLabel={homeT('approved.loading')}
+            showLoadingIndicator={false}
             size="lg"
             onClick={handleStart}
           >
-            {t('setup.start')}
+            {startLabel}
           </Button>
         </div>
       </div>

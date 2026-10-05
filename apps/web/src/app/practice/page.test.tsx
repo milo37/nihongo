@@ -76,9 +76,15 @@ describe('PracticePage guest mode boundary', () => {
       'aria-pressed',
       'true'
     )
+    expect(
+      screen.getByRole('button', { name: 'N2 독해 시작' })
+    ).toHaveTextContent('N2 독해 시작')
     await interaction.click(screen.getByRole('button', { name: 'N5' }))
     expect(router.state.location.search).toContain('level=N5')
     expect(router.state.location.search).toContain('subject=READING')
+    expect(
+      screen.getByRole('button', { name: 'N5 독해 시작' })
+    ).toHaveTextContent('N5 독해 시작')
 
     await act(async () => router.navigate(-1))
     await waitFor(() =>
@@ -357,7 +363,7 @@ describe('PracticePage guest mode boundary', () => {
         )
       })
       expect(
-        screen.getByRole('button', { name: '학습 시작하기' })
+        screen.getByRole('button', { name: 'N3 문법 시작' })
       ).toBeDisabled()
     }
   )

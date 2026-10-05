@@ -43,7 +43,7 @@ const QuickStart = (): ReactElement => {
     }
   ]
   const handleQuickStart = (): void => {
-    if (isCreatingSession) {
+    if (isCreatingSession || !selectedSubject) {
       return
     }
 
@@ -72,6 +72,9 @@ const QuickStart = (): ReactElement => {
   const selectedSubject = subjectOptions.find(
     (option) => option.value === subject
   )
+  const startLabel = selectedSubject
+    ? t('quickDrill.start', { level, subject: selectedSubject.label })
+    : ''
   return (
     <form
       className="a2-start-form"
@@ -142,13 +145,15 @@ const QuickStart = (): ReactElement => {
         <p className="mt-3 text-muted">{t('approved.maximum')}</p>
         <Button
           className="a2-start-button mt-6 w-full"
+          aria-label={isCreatingSession ? t('approved.loading') : startLabel}
+          disabled={!selectedSubject}
           isLoading={isCreatingSession}
           loadingLabel={t('approved.loading')}
+          showLoadingIndicator={false}
           size="lg"
           type="submit"
         >
-          {t('quickDrill.start')}{' '}
-          <LearningIcon className="size-5" name="arrow-right" />
+          {startLabel}
         </Button>
         {createSession.isError &&
         !isAuthTransitionSupersededError(createSession.error) ? (

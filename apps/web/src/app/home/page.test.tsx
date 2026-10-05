@@ -69,9 +69,7 @@ it('keeps guest start available while disclosing example data', () => {
   expect(
     screen.getByRole('link', { name: '데모 계정으로 로그인' })
   ).toHaveAttribute('href', '/login?redirect=%2Fdashboard%3Fview%3Dlearning')
-  expect(
-    screen.getByRole('button', { name: '선택한 범위로 시작' })
-  ).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'N3 문법 시작' })).toBeEnabled()
   client.clear()
 })
 
@@ -112,7 +110,7 @@ it.each(['ko', 'ja'] as const)(
     ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name: locale === 'ko' ? '선택한 범위로 시작' : '選択範囲で開始'
+        name: locale === 'ko' ? 'N3 문법 시작' : 'N3 文法を開始'
       })
     ).toBeEnabled()
     client.clear()
@@ -182,6 +180,8 @@ it('announces loading and prevents duplicate start requests', () => {
   const submit = screen.getByRole('button')
   expect(submit).toBeDisabled()
   expect(submit).toHaveAttribute('aria-busy', 'true')
+  expect(submit).toHaveAccessibleName(appI18n.t('home:approved.loading'))
+  expect(submit.querySelector('svg')).toBeNull()
   expect(
     screen
       .getAllByRole('radio')
@@ -193,3 +193,35 @@ it('announces loading and prevents duplicate start requests', () => {
   fireEvent.submit(screen.getByRole('form'))
   expect(mocks.mutate).not.toHaveBeenCalled()
 })
+
+it.each([
+  ['ko', 'N5', 'VOCABULARY', '어휘', 'N5 어휘 시작'],
+  ['ko', 'N3', 'GRAMMAR', '문법', 'N3 문법 시작'],
+  ['ko', 'N1', 'READING', '독해', 'N1 독해 시작'],
+  ['ja', 'N5', 'VOCABULARY', '語彙', 'N5 語彙を開始'],
+  ['ja', 'N3', 'GRAMMAR', '文法', 'N3 文法を開始'],
+  ['ja', 'N1', 'READING', '読解', 'N1 読解を開始']
+] as const)(
+  'shows and submits the same current scope without a CTA icon (%s %s %s)',
+  async (locale, level, subject, subjectLabel, label) => {
+    await appI18n.changeLanguage(locale)
+    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    )
+    fireEvent.click(screen.getByRole('radio', { name: level }))
+    fireEvent.click(screen.getByRole('radio', { name: subjectLabel }))
+    const start = screen.getByRole('button', { name: label })
+    expect(start).toHaveTextContent(label)
+    expect(start).toHaveAttribute('aria-label', label)
+    expect(start.querySelector('svg')).toBeNull()
+    expect(screen.getByRole('radio', { name: level })).toBeChecked()
+    fireEvent.click(start)
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      { level, subject, count: 10, mode: 'RANDOM' },
+      expect.objectContaining({ onSuccess: expect.any(Function) })
+    )
+  }
+)
