@@ -873,12 +873,12 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
             : 'canonical-real-network')
     )
   ).toBe(true)
-  assertExactRequestMultiset(ledger, userJourneyRequestContract)
   await assertAndAttachLedger(
     ledger,
     testInfo,
     `phase10-user-journey-${browserMode}-request-ledger`
   )
+  assertExactRequestMultiset(ledger, userJourneyRequestContract)
 })
 
 test('network, rate-limit, and malformed responses require explicit recovery without duplicate requests', async ({
@@ -923,10 +923,10 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   }
 
   await waitForLedgerToQuiesce(ledger)
-  assertExactRequestMultiset(ledger, resilienceRequestContract)
   await assertAndAttachLedger(
     ledger,
     testInfo,
     `phase10-resilience-${browserMode}-request-ledger`
   )
+  assertExactRequestMultiset(ledger, resilienceRequestContract)
 })
