@@ -3,45 +3,45 @@
 
 :root {
   color-scheme: light;
-  --color-canvas: 248 250 252;
-  --color-ink: 15 23 42;
-  --color-muted: 71 85 105;
-  --color-subtle: 100 116 139;
-  --color-link: 3 105 161;
+  --color-canvas: 255 245 250;
+  --color-ink: 71 36 59;
+  --color-muted: 112 81 104;
+  --color-subtle: 112 81 104;
+  --color-link: 39 97 106;
   --color-inverse: 255 255 255;
-  --color-brand: 4 120 87;
-  --color-brand-strong: 6 95 70;
-  --color-brand-active: 6 78 59;
-  --color-brand-soft: 236 253 245;
+  --color-brand: 245 166 197;
+  --color-brand-strong: 237 147 183;
+  --color-brand-active: 233 128 170;
+  --color-brand-soft: 253 228 239;
   --color-surface: 255 255 255;
   --color-surface-raised: 255 255 255;
-  --color-surface-muted: 241 245 249;
-  --color-surface-sunken: 226 232 240;
-  --color-line: 226 232 240;
-  --color-line-strong: 148 163 184;
-  --color-line-interactive: 4 120 87;
-  --color-line-invalid: 185 28 28;
-  --color-success: 21 128 61;
-  --color-success-strong: 20 83 45;
-  --color-success-soft: 240 253 244;
-  --color-success-line: 187 247 208;
-  --color-warning: 180 83 9;
-  --color-warning-strong: 120 53 15;
-  --color-warning-soft: 255 251 235;
-  --color-warning-line: 253 230 138;
-  --color-danger: 185 28 28;
-  --color-danger-strong: 127 29 29;
-  --color-danger-soft: 254 242 242;
-  --color-danger-line: 254 202 202;
-  --color-info: 29 78 216;
-  --color-info-strong: 30 58 138;
-  --color-info-soft: 239 246 255;
-  --color-info-line: 191 219 254;
-  --color-overlay: 15 23 42;
+  --color-surface-muted: 255 240 245;
+  --color-surface-sunken: 233 223 229;
+  --color-line: 205 180 194;
+  --color-line-strong: 142 118 133;
+  --color-line-interactive: 43 139 147;
+  --color-line-invalid: 161 43 49;
+  --color-success: 39 99 68;
+  --color-success-strong: 29 75 52;
+  --color-success-soft: 241 246 242;
+  --color-success-line: 39 99 68;
+  --color-warning: 128 80 13;
+  --color-warning-strong: 101 64 11;
+  --color-warning-soft: 255 246 229;
+  --color-warning-line: 128 80 13;
+  --color-danger: 159 36 77;
+  --color-danger-strong: 159 36 77;
+  --color-danger-soft: 255 240 245;
+  --color-danger-line: 159 36 77;
+  --color-info: 39 97 106;
+  --color-info-strong: 39 97 106;
+  --color-info-soft: 253 228 239;
+  --color-info-line: 43 139 147;
+  --color-overlay: 32 36 43;
   --color-on-accent: 255 255 255;
   --page-background: var(--color-canvas);
-  --focus-color: 4 120 87;
-  --focus-width: 2px;
+  --focus-color: 39 97 106;
+  --focus-width: 3px;
   --focus-offset: 3px;
   --focus-inset-offset: -2px;
   --font-sans:
@@ -483,4 +483,169 @@ main > section:has(fieldset .grid-cols-5) fieldset {
 
 main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   grid-template-columns: repeat(auto-fit, minmax(2.75rem, 1fr));
+}
+
+/* Reading-sized answers apply only to the learning session. */
+.learning-note .learning-options label span[lang='ja'] {
+  font-size: 1.125rem;
+  line-height: 1.65;
+}
+
+@layer utilities {
+  .text-brand {
+    color: rgb(var(--color-link));
+  }
+  .outline-brand {
+    outline-color: rgb(var(--focus-color));
+  }
+  .border-brand {
+    border-color: rgb(var(--color-line-interactive));
+  }
+  .bg-brand.text-white,
+  .bg-brand.text-on-accent,
+  .bg-brand-strong.text-on-accent {
+    color: rgb(var(--color-ink));
+  }
+}
+.a2-home {
+  max-width: 1164px;
+  margin-inline: auto;
+  padding: 32px 24px;
+}
+.a2-home h1 {
+  font-size: 1.6875rem;
+}
+.a2-start-form {
+  display: grid;
+  gap: 36px;
+  padding-top: 32px;
+}
+.a2-subjects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.a2-levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.a2-choice {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-height: 52px;
+  min-width: 0;
+  padding: 8px 4px;
+  border: 1px solid rgb(var(--color-line-strong));
+  border-radius: 6px;
+  background: rgb(var(--color-surface));
+  cursor: pointer;
+  font-size: 1rem;
+}
+.a2-levels .a2-choice {
+  min-height: 48px;
+}
+.a2-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.a2-choice:has(input:checked) {
+  background: rgb(var(--color-brand-soft));
+  border-color: rgb(var(--color-line-interactive));
+  font-weight: 600;
+}
+.a2-choice:hover {
+  background: rgb(var(--color-brand-soft));
+}
+.a2-choice:has(input:focus-visible) {
+  outline: 3px solid rgb(var(--focus-color));
+  outline-offset: 3px;
+}
+.a2-choice:has(input:disabled) {
+  cursor: not-allowed;
+  background: #e9dfe5;
+  color: #756470;
+}
+.a2-subject-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.a2-check {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: rgb(var(--color-line-interactive));
+}
+.a2-start-button {
+  min-height: 52px;
+}
+.a2-start-button:disabled {
+  background: #e9dfe5;
+  color: #756470;
+  opacity: 1;
+}
+@media (min-width: 1280px) {
+  .a2-shell {
+    padding-left: 224px;
+  }
+  .a2-shell > header {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 224px;
+    border-right: 1px solid rgb(var(--color-line));
+    background: rgb(var(--color-surface));
+  }
+  .a2-shell > header > div {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 24px;
+  }
+  .a2-shell > header nav {
+    position: static;
+    display: block;
+  }
+  .a2-shell > header nav > div {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .a2-home {
+    padding: 40px 48px;
+  }
+  .a2-home h1 {
+    font-size: 1.875rem;
+  }
+  .a2-start-form {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 332px);
+    gap: 48px;
+  }
+}
+@media (forced-colors: active) {
+  .a2-choice:has(input:checked) {
+    border: 2px solid Highlight;
+  }
+  .a2-choice:has(input:focus-visible) {
+    outline-color: Highlight;
+  }
+  .a2-check {
+    color: CanvasText;
+  }
+}
+
+.a2-choice[data-selected='true'] {
+  background: rgb(var(--color-brand-soft));
+  border-color: rgb(var(--color-line-interactive));
+  font-weight: 600;
+}
+@media (forced-colors: active) {
+  .a2-choice[data-selected='true'] {
+    border: 2px solid Highlight;
+  }
 }

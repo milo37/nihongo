@@ -23,7 +23,7 @@ type ButtonProps = ComponentPropsWithRef<'button'> & {
 
 const variantClassNames: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand text-on-accent shadow-control hover:bg-brand-strong active:bg-brand-active',
+    'bg-brand text-ink shadow-control hover:bg-brand-strong active:bg-brand-active',
   secondary:
     'bg-ink text-on-accent shadow-control hover:bg-ink/90 active:bg-ink/80',
   dark: 'bg-ink text-on-accent shadow-control hover:bg-ink/90 active:bg-ink/80',

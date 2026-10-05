@@ -1,3 +1,4 @@
+import { LearningIcon } from '@app/home/LearningIcon'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
@@ -218,7 +219,7 @@ export const PracticePage = (): ReactElement => {
       </div>
 
       <section
-        className="mt-8 rounded-2xl border border-line bg-slate-50 p-5 sm:p-6"
+        className="mt-8 border-y border-line py-6"
         aria-labelledby="resumable-practice-title"
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -333,8 +334,7 @@ export const PracticePage = (): ReactElement => {
                     <p className="mt-1 text-sm leading-6 text-muted">
                       {t('setup.resume.summary', {
                         formattedCount: formatCount(item.actualCount),
-                        formattedOrdinal: formatCount(item.currentOrdinal ?? 1),
-                        formattedRevision: formatCount(item.draftRevision ?? 0)
+                        formattedOrdinal: formatCount(item.currentOrdinal ?? 1)
                       })}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-muted">
@@ -356,7 +356,7 @@ export const PracticePage = (): ReactElement => {
                     <div className="mt-4 flex flex-wrap gap-2">
                       {canResume ? (
                         <Link
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-white hover:bg-brand-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           to={`/practice/session/${item.id}`}
                         >
                           {t('setup.resume.action')}
@@ -397,13 +397,49 @@ export const PracticePage = (): ReactElement => {
       <div className="mt-8 space-y-9 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-8">
         <fieldset disabled={isCreatingSession}>
           <legend className="text-lg font-black">
+            {t('setup.steps.subject')}
+          </legend>
+          <div className="mt-4 a2-subjects">
+            {subjects.map((option) => (
+              <button
+                key={option}
+                className="a2-choice"
+                type="button"
+                aria-pressed={subject === option}
+                data-selected={subject === option}
+                onClick={() => {
+                  createSession.reset()
+                  updateSearchParam('subject', option, 'GRAMMAR')
+                }}
+              >
+                <LearningIcon
+                  className="a2-subject-icon"
+                  name={
+                    option === 'VOCABULARY'
+                      ? 'languages'
+                      : option === 'GRAMMAR'
+                        ? 'text-cursor-input'
+                        : 'book-open'
+                  }
+                />
+                {commonT(`taxonomy.subjects.${option}`)}
+                {subject === option ? (
+                  <LearningIcon className="a2-check" name="check" />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset disabled={isCreatingSession}>
+          <legend className="text-lg font-black">
             {t('setup.steps.level')}
           </legend>
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-5">
+          <div className="mt-4 a2-levels">
             {levels.map((option) => (
               <button
                 key={option}
-                className="min-h-12 rounded-lg border border-line font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                className="a2-choice"
                 type="button"
                 aria-pressed={level === option}
                 data-selected={level === option}
@@ -413,29 +449,9 @@ export const PracticePage = (): ReactElement => {
                 }}
               >
                 {option}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">
-            {t('setup.steps.subject')}
-          </legend>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {subjects.map((option) => (
-              <button
-                key={option}
-                className="min-h-12 rounded-lg border border-line px-4 font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                type="button"
-                aria-pressed={subject === option}
-                data-selected={subject === option}
-                onClick={() => {
-                  createSession.reset()
-                  updateSearchParam('subject', option, 'GRAMMAR')
-                }}
-              >
-                {commonT(`taxonomy.subjects.${option}`)}
+                {level === option ? (
+                  <LearningIcon className="a2-check" name="check" />
+                ) : null}
               </button>
             ))}
           </div>
@@ -449,7 +465,7 @@ export const PracticePage = (): ReactElement => {
             {counts.map((option) => (
               <button
                 key={option}
-                className="min-h-12 rounded-lg border border-line font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                className="min-h-12 rounded-lg border border-line font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-brand-soft data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 type="button"
                 aria-pressed={count === option}
                 data-selected={count === option}
@@ -477,7 +493,7 @@ export const PracticePage = (): ReactElement => {
               return (
                 <button
                   key={option.value}
-                  className="min-h-24 rounded-xl border border-line p-4 text-left enabled:hover:border-slate-400 enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  className="min-h-24 rounded-xl border border-line p-4 text-left enabled:hover:border-slate-400 enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 data-[selected=true]:border-brand data-[selected=true]:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   type="button"
                   disabled={disabled}
                   aria-pressed={mode === option.value}

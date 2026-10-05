@@ -1,8 +1,10 @@
+import { isMockApiMode } from '@libs/apiMode'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router'
+import { Link, Navigate, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
 import type { JlptLevel, QuestionSubject } from '@common/types/domain'
+import { LearningIcon } from '@app/home/LearningIcon'
 import { Button } from '@common/components/Button'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
@@ -11,10 +13,9 @@ import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
 const levelOptions: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
-export const HomePage = (): ReactElement => {
+const QuickStart = (): ReactElement => {
   const { t } = useTranslation('home')
   const navigate = useNavigate()
-  const { role } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const [level, setLevel] = useState<JlptLevel>('N3')
   const [subject, setSubject] = useState<QuestionSubject>('GRAMMAR')
@@ -27,7 +28,7 @@ export const HomePage = (): ReactElement => {
   }> = [
     {
       value: 'VOCABULARY',
-      label: t('subjects.vocabulary.label'),
+      label: t('approved.vocabulary'),
       description: t('subjects.vocabulary.description')
     },
     {
@@ -41,24 +42,6 @@ export const HomePage = (): ReactElement => {
       description: t('subjects.reading.description')
     }
   ]
-  const featureItems = [
-    {
-      number: '01',
-      title: t('loop.items.wrongNote.title'),
-      description: t('loop.items.wrongNote.description')
-    },
-    {
-      number: '02',
-      title: t('loop.items.weakness.title'),
-      description: t('loop.items.weakness.description')
-    },
-    {
-      number: '03',
-      title: t('loop.items.mastery.title'),
-      description: t('loop.items.mastery.description')
-    }
-  ]
-
   const handleQuickStart = (): void => {
     if (isCreatingSession) {
       return
@@ -81,144 +64,159 @@ export const HomePage = (): ReactElement => {
     )
   }
 
+  const subjectIcon = {
+    VOCABULARY: 'languages',
+    GRAMMAR: 'text-cursor-input',
+    READING: 'book-open'
+  } as const
+  const selectedSubject = subjectOptions.find(
+    (option) => option.value === subject
+  )
   return (
-    <>
-      <section className="border-b border-line bg-white">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-20">
-          <div>
-            <p className="mb-5 text-sm font-black tracking-[0.18em] text-brand">
-              {t('eyebrow')}
-            </p>
-            <h1 className="max-w-3xl text-4xl font-black leading-[1.12] tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              {t('hero.titleLine1')}
-              <br />
-              {t('hero.titleLine2')}
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-              {t('hero.description')}
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-slate-950 px-6 font-bold text-white transition-colors hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
-                to="/practice"
-              >
-                {t('hero.openSetup')}
-              </Link>
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-white px-6 font-bold text-slate-800 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                to={role === 'GUEST' ? '/login' : '/dashboard'}
-              >
-                {role === 'GUEST'
-                  ? t('hero.accountLogin')
-                  : t('hero.myDashboard')}
-              </Link>
-            </div>
+    <form
+      className="a2-start-form"
+      aria-labelledby="quick-start-title"
+      onSubmit={(event) => {
+        event.preventDefault()
+        handleQuickStart()
+      }}
+    >
+      <div className="a2-settings">
+        <h2 id="quick-start-title" className="sr-only">
+          {t('quickDrill.title')}
+        </h2>
+        <fieldset disabled={isCreatingSession}>
+          <legend className="mb-4 font-semibold">
+            {t('quickDrill.subjectLegend')}
+          </legend>
+          <div className="a2-subjects">
+            {subjectOptions.map((option) => (
+              <label className="a2-choice" key={option.value}>
+                <input
+                  type="radio"
+                  name="quick-subject"
+                  value={option.value}
+                  checked={subject === option.value}
+                  onChange={() => setSubject(option.value)}
+                />
+                <LearningIcon
+                  className="a2-subject-icon"
+                  name={subjectIcon[option.value]}
+                />
+                <span>{option.label}</span>
+                {subject === option.value ? (
+                  <LearningIcon className="a2-check" name="check" />
+                ) : null}
+              </label>
+            ))}
           </div>
-
-          <div className="rounded-2xl border border-line bg-slate-50 p-5 shadow-soft sm:p-7">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-bold text-brand">
-                  {t('quickDrill.eyebrow')}
-                </p>
-                <h2 className="mt-1 text-2xl font-black">
-                  {t('quickDrill.title')}
-                </h2>
-              </div>
-              <span className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-muted">
-                {t('quickDrill.defaultMode')}
-              </span>
-            </div>
-
-            <fieldset disabled={isCreatingSession}>
-              <legend className="mb-3 text-sm font-bold">
-                {t('quickDrill.levelLegend')}
-              </legend>
-              <div className="grid grid-cols-5 gap-2">
-                {levelOptions.map((option) => (
-                  <button
-                    key={option}
-                    className="min-h-11 rounded-lg border border-line bg-white text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    type="button"
-                    data-selected={level === option}
-                    aria-pressed={level === option}
-                    onClick={() => setLevel(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="mt-6" disabled={isCreatingSession}>
-              <legend className="mb-3 text-sm font-bold">
-                {t('quickDrill.subjectLegend')}
-              </legend>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {subjectOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    className="min-h-20 rounded-lg border border-line bg-white px-3 py-3 text-left hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    type="button"
-                    data-selected={subject === option.value}
-                    aria-pressed={subject === option.value}
-                    onClick={() => setSubject(option.value)}
-                  >
-                    <strong className="block text-sm">{option.label}</strong>
-                    <span className="mt-1 block text-xs leading-5 text-muted">
-                      {option.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <Button
-              className="mt-6 w-full"
-              isLoading={isCreatingSession}
-              size="lg"
-              onClick={handleQuickStart}
-            >
-              {t('quickDrill.start')}
-            </Button>
-            {createSession.isError &&
-            !isAuthTransitionSupersededError(createSession.error) ? (
-              <p
-                className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900"
-                role="alert"
-              >
-                {t('quickDrill.error')}
-              </p>
-            ) : null}
-            <p className="mt-3 text-center text-xs leading-5 text-muted">
-              {t('quickDrill.countNote')}
-            </p>
+        </fieldset>
+        <fieldset className="mt-9" disabled={isCreatingSession}>
+          <legend className="mb-4 font-semibold">
+            {t('quickDrill.levelLegend')}
+          </legend>
+          <div className="a2-levels">
+            {levelOptions.map((option) => (
+              <label className="a2-choice" key={option}>
+                <input
+                  type="radio"
+                  name="quick-level"
+                  value={option}
+                  checked={level === option}
+                  onChange={() => setLevel(option)}
+                />
+                <span>{option}</span>
+                {level === option ? (
+                  <LearningIcon className="a2-check" name="check" />
+                ) : null}
+              </label>
+            ))}
           </div>
-        </div>
-      </section>
-
-      <section
-        className="mx-auto max-w-7xl px-4 py-16 sm:px-6"
-        aria-labelledby="loop-title"
-      >
-        <div className="max-w-2xl">
-          <p className="text-sm font-black tracking-[0.16em] text-brand">
-            {t('loop.eyebrow')}
+        </fieldset>
+      </div>
+      <div className="a2-summary">
+        <p className="text-sm text-muted">{t('approved.selected')}</p>
+        <p className="mt-3 text-2xl font-semibold" aria-live="polite">
+          {level} {selectedSubject?.label}
+        </p>
+        <p className="mt-3 text-muted">{t('approved.maximum')}</p>
+        <Button
+          className="a2-start-button mt-6 w-full"
+          isLoading={isCreatingSession}
+          loadingLabel={t('approved.loading')}
+          size="lg"
+          type="submit"
+        >
+          {t('quickDrill.start')}{' '}
+          <LearningIcon className="size-5" name="arrow-right" />
+        </Button>
+        {createSession.isError &&
+        !isAuthTransitionSupersededError(createSession.error) ? (
+          <p
+            className="mt-3 border border-danger-line bg-danger-soft p-3 text-sm font-semibold text-danger-strong"
+            role="alert"
+          >
+            {t('quickDrill.error')}
           </p>
-          <h2 id="loop-title" className="mt-2 text-3xl font-black">
-            {t('loop.title')}
-          </h2>
+        ) : null}
+        <p className="mt-3 text-sm leading-6 text-muted">
+          {t('quickDrill.countNote')}
+        </p>
+      </div>
+    </form>
+  )
+}
+
+export const HomePage = (): ReactElement => {
+  const { t } = useTranslation('home')
+  const { isReady, role } = useAuth()
+  if (isReady && role !== 'GUEST')
+    return <Navigate to="/dashboard?view=learning" replace />
+  return (
+    <section className="learning-note a2-home">
+      <header className="border-b border-line pb-4">
+        <p className="text-xs text-muted">{t('entry.eyebrow')}</p>
+        <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
+          {t('approved.title')}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {t('approved.description')}
+        </p>
+      </header>
+      {role === 'GUEST' ? (
+        <>
+          <QuickStart />
+          <section
+            className="mt-10 border-t border-line pt-6"
+            aria-label={t('entry.records')}
+          >
+            <h2 className="text-lg font-semibold">{t('entry.records')}</h2>
+            {isMockApiMode ? (
+              <aside
+                className="mt-3 text-sm leading-6 text-muted"
+                aria-label={t('entry.guestNoticeTitle')}
+              >
+                <p>{t('entry.guestNotice')}</p>
+                <Link
+                  className="note-link"
+                  to="/login?redirect=%2Fdashboard%3Fview%3Dlearning"
+                >
+                  {t('entry.demoLogin')}
+                </Link>
+              </aside>
+            ) : null}
+          </section>
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-line py-4">
+          <Link className="note-link" to="/practice?count=5">
+            {t('entry.other')}
+          </Link>
+          <Link className="note-link" to="/dashboard">
+            {t('entry.records')}
+          </Link>
         </div>
-        <div className="mt-9 grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
-          {featureItems.map((feature) => (
-            <article key={feature.number} className="bg-white p-7">
-              <p className="text-sm font-black text-brand">{feature.number}</p>
-              <h3 className="mt-5 text-xl font-black">{feature.title}</h3>
-              <p className="mt-3 leading-7 text-muted">{feature.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-    </>
+      )}
+    </section>
   )
 }

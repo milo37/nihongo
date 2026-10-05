@@ -98,10 +98,9 @@ export const jaResources = {
       danger: 'エラー'
     },
     footer: {
-      originalContent:
-        'すべてオリジナル問題を使用するポートフォリオプロジェクトです。',
+      originalContent: 'オリジナル問題で学習します。',
       scope: '聴解と実際のJLPT過去問題は含まれません。',
-      release: 'リリース {{release}}',
+      release: '· {{release}}',
       informationLabel: 'サービス情報',
       terms: '利用条件',
       privacy: 'プライバシー',
@@ -253,6 +252,43 @@ export const jaResources = {
     }
   },
   home: {
+    approved: {
+      vocabulary: '語彙',
+      title: '今日の日本語学習',
+      description: '科目とレベルを選んで始めましょう。',
+      selected: '選択した学習',
+      maximum: '最大10問',
+      loading: '読み込み中'
+    },
+    entry: {
+      guestNoticeTitle: '未ログインの学習について',
+      guestNotice:
+        '開発用のサンプルデータで学習します。実際のアカウント記録とは別です。',
+      demoLogin: 'デモアカウントでログイン',
+      eyebrow: '今日の学習ノート',
+      title: '少しずつ、苦手なところから。',
+      description: '途中の学習を続けるか、今取り組む内容を選んで始めましょう。',
+      loading: '続けられる学習を確認しています…',
+      recommended: '次の一枚',
+      recommendationError:
+        'おすすめを確認できませんでした。再確認するか、別の学習を選んでください。',
+      resumeError:
+        '途中の学習を確認できませんでした。再確認するか、学習設定で確認してください。',
+      retry: '再確認',
+      subjectScope:
+        'この形式の記録を参考にした科目単位の苦手学習です。他の形式も出題されることがあります。',
+      noRecommendation:
+        '今始められるおすすめがありません。別の学習を選んでください。',
+      resumeEyebrow: '途中の一枚',
+      position: '現在{{current}}番 · 実際の問題数{{total}}問',
+      savedAt: 'サーバーへの最終保存 {{date}}',
+      notSaved: '保存済みの回答はまだありません。',
+      resume: '続きから解く',
+      legacyUnavailable:
+        'この端末で再開できる回答が見つかりません。学習設定で確認してください。',
+      other: '別の学習を選ぶ',
+      records: '学習記録'
+    },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
       titleLine1: '間違えた問題を',
@@ -421,8 +457,7 @@ export const jaResources = {
       currentRole: '現在のロール: {{role}}',
       resume: {
         title: '続きから解く',
-        description:
-          'サーバーに保存された進行中のセッションを、最新の下書きから表示します。',
+        description: '最近保存した学習から再開できます。',
         refreshing: '一覧を更新中…',
         guestHint:
           '新しいゲストセッションを始めると、このタブでサーバーの下書きから再開できます。ログインすると、別の端末でも同じアカウントの下書きを確認できます。',
@@ -437,7 +472,7 @@ export const jaResources = {
         empty:
           '保存された進行中の下書きはありません。下から新しい学習を始めてください。',
         summary:
-          '{{formattedCount}}問 · 現在{{formattedOrdinal}}番 · revision {{formattedRevision}}',
+          '実際の問題数{{formattedCount}}問 · 現在{{formattedOrdinal}}番',
         lastSaved: '最終保存 {{date}}',
         notSaved: 'まだサーバーに保存されていません',
         legacyUnavailable:
@@ -531,7 +566,7 @@ export const jaResources = {
         retrySession: '学習セッションを再確認',
         draftLoadTitle: 'サーバーの作業内容を読み込めませんでした',
         draftLoadDescription:
-          '回答を画面に復元する前に、セッションの所有権と最新revisionを確認する必要があります。接続を確認してもう一度お試しください。',
+          '安全に再開するため、最新の回答を確認する必要があります。接続を確認して再試行してください。',
         emptyTitle: '出題する問題がありません',
         emptyDescription: '別のレベル、科目、出題モードを選んでください。'
       },
@@ -543,15 +578,15 @@ export const jaResources = {
         openSetup: '学習設定へ移動'
       },
       navigationGuard: {
-        title: '作業内容を保存して移動しますか？',
+        title: 'ひと休みしますか？',
         description:
-          '現在の問題の回答と経過時間をサーバーに保存してから、指定した画面へ移動します。',
+          '今の回答と解答時間を保存して移動します。あとで続きから解けます。',
         continue: '続けて解く',
         saveAndLeave: '保存して移動'
       },
       header: {
         progressSummary:
-          '現在{{current}}番 / 全{{total}}問 · 回答済み{{answered}}問',
+          '現在{{current}}番 / 実際{{total}}問 · 回答済み{{answered}}問',
         elapsedTime: '経過時間'
       },
       draft: {
@@ -563,13 +598,13 @@ export const jaResources = {
           dirty: '変更内容をこのタブに一時保存しました。',
           saving: '変更内容をサーバーに保存しています。',
           savedAt: 'サーバーに保存しました。最終保存 {{time}}',
-          saved: 'サーバーと同期しました。',
+          saved: '回答をサーバーに保存しました。',
           offline:
             'オフラインです。変更内容はこの端末だけに一時保存し、接続後に再保存します。',
           conflict:
             '別の端末の変更と競合しました。サーバーまたはローカルの記録を選んでください。',
           error: '保存できませんでした。選んだ回答は保持され、再試行できます。',
-          synced: 'サーバーの作業内容と同期しています。'
+          synced: 'サーバーに保存した回答と一致しています。'
         },
         conflictCheckPending:
           '最新のサーバー作業内容を確認している間、回答の保存と提出を一時停止します。',
@@ -591,10 +626,10 @@ export const jaResources = {
           '指定した{{requested}}問のうち、{{mode}}モードで出題可能な{{actual}}問だけを提供します。別のモードには変更していません。',
         legacyFallback:
           'レガシーセッションでは選んだモードの問題が不足したため、ランダム問題も含めています。',
-        canonicalNoFallback:
-          'サーバー権威セッションは別のモードに変更しません。'
+        canonicalNoFallback: '選択したモードは自動で変更しません。'
       },
-      progressLabel: '問題演習の進捗 {{percent}}%',
+      keyboardHelp: '解答のヒント',
+      progressLabel: '回答済み {{percent}}%',
       question: {
         passageEyebrow: 'READING PASSAGE',
         passageLabel: '読解文',
@@ -659,12 +694,18 @@ export const jaResources = {
         useServer: 'サーバーの記録を使用',
         keepLocal: '自分の変更を保持',
         detail:
-          'サーバーの記録を選ぶと、このタブの競合する変更を破棄します。自分の変更を選ぶと、最新revisionの上に再保存します。'
+          'サーバーに保存された回答を選ぶと、このタブの競合する変更は破棄されます。自分の変更を選ぶと、最新の回答に再保存します。'
       }
     }
   },
   result: {
     name: '学習結果',
+    finish: '今日はここまで',
+    reviewExplanations: '解説を確認する',
+    outcomes:
+      '正解{{correct}} · 選択した不正解{{wrong}} · 未回答{{unanswered}}',
+    outcomesNote:
+      '未回答も採点では不正解に含まれます。解説を確認し、必要なときに解き直しましょう。',
     loading: '採点結果を読み込んでいます…',
     error: {
       title: '学習結果を読み込めませんでした',
@@ -1013,9 +1054,9 @@ export const jaResources = {
     },
     center: {
       eyebrow: 'REVIEW CENTER',
-      title: '今復習する問題を確認しましょう',
+      title: '間違いノートの復習',
       description:
-        'サーバーの復習予定と現在出題可能な問題バージョンを基準に並べます。',
+        '間違えた問題をもう一度解いて、身についた問題を解決済みにしましょう。',
       history: 'すべての間違い記録',
       views: {
         DUE: '復習予定',
@@ -1033,6 +1074,9 @@ export const jaResources = {
         tag: 'タグ',
         allTags: 'すべてのタグ',
         sort: '並び順',
+        more: '詳細フィルターを開く',
+        less: '詳細フィルターを閉じる',
+        active: '詳細条件 {{formattedCount}}件を適用中',
         nextReview: '次の復習順',
         mostWrong: '間違い回数順',
         recent: '最近の間違い順'

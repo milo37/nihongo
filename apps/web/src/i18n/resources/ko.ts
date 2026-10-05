@@ -92,9 +92,9 @@ export const koResources = {
       danger: '오류'
     },
     footer: {
-      originalContent: '자체 제작 문제만 사용하는 포트폴리오 프로젝트입니다.',
+      originalContent: '자체 제작 문제로 학습합니다.',
       scope: '청해·실제 JLPT 기출문제는 포함하지 않습니다.',
-      release: '배포 버전 {{release}}',
+      release: '· {{release}}',
       informationLabel: '서비스 정보',
       terms: '이용 조건',
       privacy: '개인정보 안내',
@@ -249,6 +249,44 @@ export const koResources = {
     }
   },
   home: {
+    approved: {
+      vocabulary: '어휘',
+      title: '오늘의 일본어 학습',
+      description: '과목과 급수를 고르고 시작하세요.',
+      selected: '선택한 학습',
+      maximum: '최대 10문제',
+      loading: '불러오는 중'
+    },
+    entry: {
+      guestNoticeTitle: '미로그인 학습 안내',
+      guestNotice:
+        '개발용 예시 데이터로 학습합니다. 실제 계정 기록과는 별개입니다.',
+      demoLogin: '데모 계정으로 로그인',
+      eyebrow: '오늘의 학습 노트',
+      title: '한 번에 조금씩, 약한 곳부터.',
+      description:
+        '남겨 둔 학습을 이어가거나, 지금 보완할 내용을 골라 시작하세요.',
+      loading: '이어갈 학습을 확인하고 있습니다…',
+      recommended: '다음 한 장',
+      recommendationError:
+        '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
+      resumeError:
+        '이어갈 학습을 확인하지 못했습니다. 다시 확인하거나 학습 설정에서 확인해 주세요.',
+      retry: '다시 확인',
+      subjectScope:
+        '이 유형의 기록을 참고한 과목별 약점 학습입니다. 다른 유형도 함께 나올 수 있습니다.',
+      noRecommendation:
+        '지금 시작할 추천이 없습니다. 다른 학습을 선택해 주세요.',
+      resumeEyebrow: '남겨 둔 한 장',
+      position: '현재 {{current}}번 · 실제 {{total}}문제',
+      savedAt: '서버에 마지막 저장 {{date}}',
+      notSaved: '아직 저장된 답안이 없습니다.',
+      resume: '이어서 풀기',
+      legacyUnavailable:
+        '이 기기에서 이어갈 답안을 찾을 수 없습니다. 학습 설정에서 확인해 주세요.',
+      other: '다른 학습 고르기',
+      records: '내 학습 기록'
+    },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
       titleLine1: '틀린 문제를',
@@ -409,14 +447,13 @@ export const koResources = {
     name: '문제풀이',
     setup: {
       eyebrow: 'PRACTICE SETUP',
-      title: '오늘 풀 문제를 설정하세요',
+      title: '이번에 풀 분량을 골라 주세요',
       description:
         '출제 가능한 문제가 부족하면 가능한 수만 제공하고 실제 문항 수를 알려드립니다.',
       currentRole: '현재 역할: {{role}}',
       resume: {
         title: '이어서 풀기',
-        description:
-          '서버에 저장된 진행 중 세션을 최신 작업본부터 보여드립니다.',
+        description: '최근 저장한 학습부터 이어갈 수 있습니다.',
         refreshing: '목록 갱신 중…',
         guestHint:
           '새 게스트 세션을 시작하면 이 탭에서 서버 작업본을 이어서 풀 수 있습니다. 로그인하면 다른 기기에서도 같은 계정의 작업본을 확인할 수 있습니다.',
@@ -430,10 +467,9 @@ export const koResources = {
         error: '이어풀기 목록을 불러오지 못했습니다.',
         empty:
           '저장된 진행 중 작업본이 없습니다. 아래에서 새 학습을 시작해 주세요.',
-        summary:
-          '{{formattedCount}}문제 · 현재 {{formattedOrdinal}}번 · revision {{formattedRevision}}',
+        summary: '실제 {{formattedCount}}문제 · 현재 {{formattedOrdinal}}번',
         lastSaved: '마지막 저장 {{date}}',
-        notSaved: '아직 서버 저장 전',
+        notSaved: '아직 답안 저장 전',
         legacyUnavailable:
           '이 세션은 다른 기기의 로컬 답안을 복원할 수 없습니다. 새 학습을 시작하거나 세션을 취소해 주세요.',
         action: '이어서 풀기',
@@ -480,7 +516,7 @@ export const koResources = {
       createError:
         '세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
       authorityNote:
-        '서버 권위 출제 모드는 후보가 부족해도 다른 모드로 자동 대체하지 않습니다.',
+        '선택한 범위에서 준비된 문제만 출제합니다. 다른 모드로 자동 변경하지 않습니다.',
       start: '학습 시작하기',
       cancelDialog: {
         title: '진행 중 세션을 취소할까요?',
@@ -497,7 +533,7 @@ export const koResources = {
         questions: '문제를 준비하고 있습니다…',
         guestOwnership: '게스트 세션 소유권을 확인하고 있습니다…',
         resultRedirect: '제출 결과로 이동하고 있습니다…',
-        draft: '서버 작업본을 확인하고 있습니다…'
+        draft: '저장한 답안을 확인하고 있습니다…'
       },
       recovery: {
         title: '이전 제출 결과 확인이 필요합니다',
@@ -524,7 +560,7 @@ export const koResources = {
         retrySession: '학습 세션 다시 확인',
         draftLoadTitle: '서버 작업본을 불러오지 못했습니다',
         draftLoadDescription:
-          '답안을 화면에 복원하기 전에 세션 소유권과 최신 revision을 확인해야 합니다. 연결을 확인한 뒤 다시 시도해 주세요.',
+          '안전하게 이어가기 위해 최신 답안을 확인해야 합니다. 연결을 확인한 뒤 다시 시도해 주세요.',
         emptyTitle: '출제할 문제가 없습니다',
         emptyDescription: '다른 급수, 과목 또는 출제 모드를 선택해 주세요.'
       },
@@ -536,15 +572,15 @@ export const koResources = {
         openSetup: '학습 설정으로 이동'
       },
       navigationGuard: {
-        title: '작업본을 저장하고 이동할까요?',
+        title: '잠시 쉬어 갈까요?',
         description:
-          '현재 문항의 답과 경과 시간을 서버에 저장한 뒤 요청한 화면으로 이동합니다.',
+          '현재 답과 풀이 시간을 저장한 뒤 이동합니다. 나중에 이어서 풀 수 있습니다.',
         continue: '계속 풀기',
         saveAndLeave: '저장하고 이동'
       },
       header: {
         progressSummary:
-          '현재 {{current}}번 / 전체 {{total}}문제 · 답변 {{answered}}문제',
+          '현재 {{current}}번 / 실제 {{total}}문제 · 답변 완료 {{answered}}문제',
         elapsedTime: '경과 시간'
       },
       draft: {
@@ -556,14 +592,14 @@ export const koResources = {
           dirty: '변경 내용을 이 탭에 임시 보관했습니다.',
           saving: '변경 내용을 서버에 저장하고 있습니다.',
           savedAt: '서버에 저장했습니다. 마지막 저장 {{time}}',
-          saved: '서버와 동기화했습니다.',
+          saved: '답안을 서버에 저장했습니다.',
           offline:
             '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.',
           conflict:
             '다른 기기의 변경과 충돌했습니다. 서버 또는 로컬 기록을 선택해 주세요.',
           error:
             '저장하지 못했습니다. 선택한 답은 유지되며 다시 시도할 수 있습니다.',
-          synced: '서버 작업본과 동기화되어 있습니다.'
+          synced: '서버에 저장한 답안과 일치합니다.'
         },
         conflictCheckPending:
           '최신 서버 작업본을 확인하는 동안 답안 저장과 제출을 잠시 멈춥니다.',
@@ -586,7 +622,8 @@ export const koResources = {
           '레거시 세션에서 선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공합니다.',
         canonicalNoFallback: '서버 권위 세션은 다른 모드로 대체하지 않습니다.'
       },
-      progressLabel: '문제풀이 진행률 {{percent}}%',
+      keyboardHelp: '풀이 도움말',
+      progressLabel: '답변 완료 {{percent}}%',
       question: {
         passageEyebrow: 'READING PASSAGE',
         passageLabel: '독해 지문',
@@ -650,12 +687,17 @@ export const koResources = {
         useServer: '서버 기록 사용',
         keepLocal: '내 변경 유지',
         detail:
-          '서버 기록을 선택하면 이 탭의 충돌 변경을 버립니다. 내 변경을 선택하면 최신 revision 위에 다시 저장합니다.'
+          '서버에 저장된 답안을 선택하면 이 탭의 충돌하는 변경은 버립니다. 내 변경을 선택하면 최신 답안에 다시 저장합니다.'
       }
     }
   },
   result: {
     name: '학습 결과',
+    finish: '오늘은 여기까지',
+    reviewExplanations: '해설 확인하기',
+    outcomes: '정답 {{correct}} · 선택 오답 {{wrong}} · 미응답 {{unanswered}}',
+    outcomesNote:
+      '미응답도 채점에서는 오답으로 포함됩니다. 해설을 확인하고 필요할 때 다시 풀어 보세요.',
     loading: '채점 결과를 불러오고 있습니다…',
     error: {
       title: '학습 결과를 불러오지 못했습니다',
@@ -1003,9 +1045,8 @@ export const koResources = {
     },
     center: {
       eyebrow: 'REVIEW CENTER',
-      title: '지금 복습할 오답을 확인하세요',
-      description:
-        '서버 복습 일정과 현재 출제 가능한 문제 버전을 기준으로 정렬합니다.',
+      title: '오답 복습',
+      description: '틀린 문제를 다시 풀고, 익숙해진 문제는 해결로 옮겨 보세요.',
       history: '전체 오답 기록',
       views: {
         DUE: '복습 예정',
@@ -1023,6 +1064,9 @@ export const koResources = {
         tag: '태그',
         allTags: '전체 태그',
         sort: '정렬',
+        more: '상세 필터 열기',
+        less: '상세 필터 닫기',
+        active: '상세 조건 {{formattedCount}}개 적용 중',
         nextReview: '다음 복습순',
         mostWrong: '많이 틀린 순',
         recent: '최근 오답순'

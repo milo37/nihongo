@@ -2,6 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router'
 import type { ReactElement } from 'react'
+import { LearningIcon } from '@app/home/LearningIcon'
 import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
 import { LoadingState } from '@common/components/LoadingState'
 import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
@@ -175,7 +176,9 @@ export const Layout = (): ReactElement => {
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
+    <div
+      className={`min-h-screen bg-canvas text-ink ${location.pathname === '/' || (location.pathname === '/dashboard' && new URLSearchParams(location.search).get('view') === 'learning') ? 'a2-shell' : ''}`}
+    >
       <a
         className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
         href="#main-content"
@@ -189,12 +192,6 @@ export const Layout = (): ReactElement => {
             to="/"
             onClick={closeMenu}
           >
-            <span
-              className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-strong font-black text-on-accent"
-              aria-hidden="true"
-            >
-              文
-            </span>
             <span className="min-w-0 leading-tight">
               <strong className="block text-base">JLPT Drill Note</strong>
               <span className="hidden text-xs text-muted sm:block">
@@ -216,7 +213,7 @@ export const Layout = (): ReactElement => {
             aria-controls="primary-navigation"
             onClick={toggleMobileMenu}
           >
-            <span aria-hidden="true">{isMobileMenuOpen ? '×' : '≡'}</span>
+            <LearningIcon className="size-5" name="menu" />
           </button>
 
           <nav

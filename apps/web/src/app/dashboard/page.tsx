@@ -1,6 +1,7 @@
+import { LearningEntry } from '@app/dashboard/components/LearningEntry'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import { DashboardInsightsSection } from '@app/dashboard/components/DashboardInsightsSection'
 import { DashboardSummarySection } from '@app/dashboard/components/DashboardSummarySection'
@@ -11,7 +12,7 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 
-export const DashboardPage = (): ReactElement => {
+const DashboardRecordsPage = (): ReactElement => {
   const { t } = useTranslation('dashboard')
   const { user } = useAuth()
   const dashboardQuery = useGetDashboardStats()
@@ -152,5 +153,43 @@ export const DashboardPage = (): ReactElement => {
         }
       />
     </section>
+  )
+}
+
+export const LearningHomePage = (): ReactElement => {
+  const { t } = useTranslation('home')
+  const { user } = useAuth()
+  return (
+    <section className="learning-note a2-home">
+      <header className="border-b border-line pb-4">
+        <p className="text-xs text-muted">{t('entry.eyebrow')}</p>
+        <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
+          {t('entry.title')}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {t('entry.description')}
+        </p>
+      </header>
+      <div className="py-7">
+        <LearningEntry key={user?.id ?? 'guest'} isMember={user !== null} />
+      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-line py-4">
+        <Link className="note-link" to="/practice?count=5">
+          {t('entry.other')}
+        </Link>
+        <Link className="note-link" to="/dashboard">
+          {t('entry.records')}
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+export const DashboardPage = (): ReactElement => {
+  const [searchParams] = useSearchParams()
+  return searchParams.get('view') === 'learning' ? (
+    <LearningHomePage />
+  ) : (
+    <DashboardRecordsPage />
   )
 }
