@@ -19,11 +19,12 @@ export const n5Questions = [
     level: 'N5',
     subject: 'VOCABULARY',
     questionType: 'CONTEXT_VOCABULARY',
-    questionText: 'わたしは 毎朝 七時に（　）。',
+    questionText:
+      '母が「朝ですよ。ふとんから 出て ください」と 言いました。わたしは「はい、今（　）」と 答えて、ふとんから 出ました。',
     options: ['あそびます', 'おきます', 'ねます', 'あらいます'],
     correctIndex: 1,
     explanationKo:
-      '아침 7시에 하는 동작으로 자연스러운 것은 「おきます(일어납니다)」입니다.',
+      '어머니가 이불 밖으로 나오라고 하자, 화자가 응답하고 이불 밖으로 나왔습니다. 이 요청에 맞는 응답은 「今 おきます(지금 일어날게요)」입니다. 「あそびます」는 놀다, 「ねます」는 자다, 「あらいます」는 씻다라는 뜻으로, 이불에서 일어나라는 요청에 답하는 동작과 다릅니다.',
     difficulty: 'EASY',
     tags: ['일상', '동사']
   }),

@@ -40,7 +40,7 @@ import { buildAllQuestionSeeds } from './seedQuestionCatalog.js'
 const REPOSITORY_ROOT_URL = new URL('../../../', import.meta.url)
 
 export const FOUNDATION_PUBLIC_PROJECTION_SHA256 =
-  'b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c'
+  '85c8c0095349c9c52f6317bfe2d3235dabba505840dee91d7903ee7121ce66e1'
 
 export const FOUNDATION_INPUT_PATHS_V1 = [
   'content/contributors.v1.json',

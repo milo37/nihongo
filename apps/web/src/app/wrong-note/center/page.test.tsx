@@ -402,9 +402,7 @@ describe('WrongNoteReviewCenterPage', () => {
       })
     ).toBeEnabled()
     await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { name: '지금 복습할 오답을 확인하세요' })
-      ).toHaveFocus()
+      expect(screen.getByRole('heading', { name: '오답 복습' })).toHaveFocus()
     )
     expect(requestCount).toBe(3)
     client.clear()

@@ -36,12 +36,32 @@ describe('browser zoom reflow CSS contract', () => {
         node.name === 'media' &&
         node.params === '(max-width: 319px)'
     )
-    expect(zoomRules).toHaveLength(1)
-    const scope = zoomRules[0]
-    if (scope.type !== 'atrule') throw new Error('Expected narrow media scope')
-    scope.walkDecls(/^(font-size|overflow|overflow-x)$/, () => {
-      throw new Error('Zoom reflow must not shrink text or hide overflow')
-    })
+    expect(zoomRules.length).toBeGreaterThan(0)
+    const narrowColumns = new Map<string, string>()
+    const narrowSelectors = new Set<string>()
+    for (const scope of zoomRules) {
+      if (scope.type !== 'atrule')
+        throw new Error('Expected narrow media scope')
+      scope.walkDecls(/^(font-size|overflow|overflow-x)$/, () => {
+        throw new Error('Zoom reflow must not shrink text or hide overflow')
+      })
+      scope.walkRules((rule) => {
+        narrowSelectors.add(rule.selector)
+        rule.walkDecls('grid-template-columns', (declaration) => {
+          narrowColumns.set(
+            rule.selector,
+            declaration.value.replace(/\s/gu, '')
+          )
+        })
+      })
+    }
+    expect(narrowColumns.get('.learning-note fieldset .grid-cols-5')).toBe(
+      'repeat(2,minmax(2.75rem,1fr))'
+    )
+    expect(narrowColumns.get('.learning-note > .grid')).toBe('minmax(0,1fr)')
+    expect(narrowSelectors.has('.ui-dialog')).toBe(true)
+    expect(narrowColumns.get('.a2-subjects')).toBe('minmax(0,1fr)')
+    expect(narrowColumns.get('.a2-levels')).toBe('repeat(2,minmax(0,1fr))')
   })
 })
 

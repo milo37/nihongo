@@ -203,14 +203,12 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     renderRoutes('/')
-    expect(
-      await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
-    ).toBeInTheDocument()
+    expect(await findRouteHeading('오늘의 일본어 학습')).toBeInTheDocument()
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
     await user.click(within(navigation).getByRole('link', { name: '문제풀이' }))
     expect(
-      await findRouteHeading('오늘 풀 문제를 설정하세요')
+      await findRouteHeading('이번에 풀 분량을 골라 주세요')
     ).toBeInTheDocument()
 
     await vi.waitFor(() => {
@@ -229,7 +227,7 @@ describe('application router boundaries', () => {
   it('모바일 메뉴는 Escape로 닫고 trigger에 포커스를 복원한다', async () => {
     const user = userEvent.setup()
     renderRoutes('/')
-    await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
+    await findRouteHeading('오늘의 일본어 학습')
 
     const menuButton = screen.getByRole('button', { name: '메뉴 열기' })
     await user.click(menuButton)
@@ -245,7 +243,7 @@ describe('application router boundaries', () => {
   it('모바일 메뉴의 마지막 항목을 벗어나면 overlay를 닫고 main 흐름을 가리지 않는다', async () => {
     const user = userEvent.setup()
     renderRoutes('/practice')
-    await findRouteHeading('오늘 풀 문제를 설정하세요')
+    await findRouteHeading('이번에 풀 분량을 골라 주세요')
 
     const menuButton = screen.getByRole('button', { name: '메뉴 열기' })
     await user.click(menuButton)
@@ -254,80 +252,103 @@ describe('application router boundaries', () => {
     await user.tab()
 
     expect(menuButton).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByRole('button', { name: 'N5' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: '문자·어휘' })).toHaveFocus()
   })
 
-  it('locale 전환은 Home 선택·route·Query cache를 보존하고 request를 만들지 않는다', async () => {
-    const user = userEvent.setup()
-    const currentUser = mockDatabase.loginAs('USER')
-    const get = vi.spyOn(apiClient, 'get')
-    const post = vi.spyOn(apiClient, 'post')
-    const router = renderRoutes('/?campaign=phase9')
-
-    await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
-    expect(
-      await screen.findByRole('link', { name: currentUser.name })
-    ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'N1' }))
-    await user.click(screen.getByRole('button', { name: /독해/u }))
-    const sentinel = { owner: 'phase9-locale' }
-    queryClient.setQueryData(['phase9', 'router-sentinel'], sentinel)
-    const queryStateBefore = queryClient.getQueryState([
-      'phase9',
-      'router-sentinel'
-    ])
-    const authDataBefore = queryClient.getQueryData(
-      authQueries.currentUser().queryKey
-    )
-    const authStateBefore = queryClient.getQueryState(
-      authQueries.currentUser().queryKey
-    )
-    const getCountBefore = get.mock.calls.length
-    const postCountBefore = post.mock.calls.length
-
-    await user.selectOptions(screen.getByLabelText('언어'), 'ja')
-
-    expect(
-      await screen.findByRole('heading', {
-        name: /間違えた問題を 最後まで解決する学習/u
-      })
-    ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'N1' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-    expect(screen.getByRole('button', { name: /読解/u })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-    expect(router.state.location).toMatchObject({
+  it.each([
+    {
+      role: 'GUEST',
+      koHeading: '오늘의 일본어 학습',
+      jaHeading: '今日の日本語学習',
       pathname: '/',
       search: '?campaign=phase9',
-      hash: ''
-    })
-    expect(queryClient.getQueryData(['phase9', 'router-sentinel'])).toBe(
-      sentinel
-    )
-    expect(
-      queryClient.getQueryState(['phase9', 'router-sentinel'])
-    ).toMatchObject({
-      dataUpdatedAt: queryStateBefore?.dataUpdatedAt,
-      isInvalidated: false
-    })
-    expect(queryClient.getQueryData(authQueries.currentUser().queryKey)).toBe(
-      authDataBefore
-    )
-    expect(
-      queryClient.getQueryState(authQueries.currentUser().queryKey)
-    ).toMatchObject({
-      dataUpdatedAt: authStateBefore?.dataUpdatedAt,
-      isInvalidated: false
-    })
-    expect(get).toHaveBeenCalledTimes(getCountBefore)
-    expect(post).toHaveBeenCalledTimes(postCountBefore)
-    expect(document.documentElement).toHaveAttribute('lang', 'ja')
-    expect(document.title).toBe('ホーム | JLPT Drill Note')
-  })
+      documentTitle: 'ホーム | JLPT Drill Note'
+    },
+    {
+      role: 'USER',
+      koHeading: '한 번에 조금씩, 약한 곳부터.',
+      jaHeading: '少しずつ、苦手なところから。',
+      pathname: '/dashboard',
+      search: '?view=learning',
+      documentTitle: '学習ダッシュボード | JLPT Drill Note'
+    }
+  ] as const)(
+    '$role locale 전환은 현재 학습·route·Query cache를 보존하고 request를 만들지 않는다',
+    async ({ role, koHeading, jaHeading, pathname, search, documentTitle }) => {
+      const user = userEvent.setup()
+      const currentUser = role === 'USER' ? mockDatabase.loginAs('USER') : null
+      if (!currentUser) mockDatabase.logout()
+      const get = vi.spyOn(apiClient, 'get')
+      const post = vi.spyOn(apiClient, 'post')
+      const router = renderRoutes('/?campaign=phase9')
+
+      await findRouteHeading(koHeading, { level: 1 })
+      if (currentUser) {
+        expect(
+          await screen.findByRole('link', { name: currentUser.name })
+        ).toBeInTheDocument()
+      } else {
+        await user.click(screen.getByRole('radio', { name: 'N1' }))
+        await user.click(screen.getByRole('radio', { name: '독해' }))
+      }
+      await vi.waitFor(() => expect(queryClient.isFetching()).toBe(0))
+      const sentinel = { owner: 'phase9-locale' }
+      queryClient.setQueryData(['phase9', 'router-sentinel'], sentinel)
+      const queryStateBefore = queryClient.getQueryState([
+        'phase9',
+        'router-sentinel'
+      ])
+      const authDataBefore = queryClient.getQueryData(
+        authQueries.currentUser().queryKey
+      )
+      const authStateBefore = queryClient.getQueryState(
+        authQueries.currentUser().queryKey
+      )
+      const getCountBefore = get.mock.calls.length
+      const postCountBefore = post.mock.calls.length
+
+      await user.selectOptions(screen.getByLabelText('언어'), 'ja')
+
+      expect(
+        await findRouteHeading(jaHeading, { level: 1 })
+      ).toBeInTheDocument()
+      if (currentUser) {
+        expect(
+          screen.getByRole('link', { name: currentUser.name })
+        ).toBeInTheDocument()
+      } else {
+        expect(screen.getByRole('radio', { name: 'N1' })).toBeChecked()
+        expect(screen.getByRole('radio', { name: '読解' })).toBeChecked()
+      }
+      expect(router.state.location).toMatchObject({
+        pathname,
+        search,
+        hash: ''
+      })
+      expect(queryClient.getQueryData(['phase9', 'router-sentinel'])).toBe(
+        sentinel
+      )
+      expect(
+        queryClient.getQueryState(['phase9', 'router-sentinel'])
+      ).toMatchObject({
+        dataUpdatedAt: queryStateBefore?.dataUpdatedAt,
+        isInvalidated: false
+      })
+      expect(queryClient.getQueryData(authQueries.currentUser().queryKey)).toBe(
+        authDataBefore
+      )
+      expect(
+        queryClient.getQueryState(authQueries.currentUser().queryKey)
+      ).toMatchObject({
+        dataUpdatedAt: authStateBefore?.dataUpdatedAt,
+        isInvalidated: false
+      })
+      expect(get).toHaveBeenCalledTimes(getCountBefore)
+      expect(post).toHaveBeenCalledTimes(postCountBefore)
+      expect(document.documentElement).toHaveAttribute('lang', 'ja')
+      expect(document.title).toBe(documentTitle)
+    }
+  )
 
   it('hash navigation은 main top scroll보다 대상 포커스를 우선한다', async () => {
     const scrollTo = vi
@@ -342,12 +363,11 @@ describe('application router boundaries', () => {
 
     try {
       const router = renderRoutes('/')
-      const target = await findRouteHeading(
-        '문제를 푸는 순간부터 복습까지 연결됩니다'
-      )
+      const target = await findRouteHeading('10문제 바로 풀기', { level: 2 })
+      expect(target).toHaveAttribute('id', 'quick-start-title')
 
       await act(async () => {
-        await router.navigate('/#loop-title')
+        await router.navigate('/#quick-start-title')
       })
 
       await vi.waitFor(() => {
@@ -368,7 +388,7 @@ describe('application router boundaries', () => {
   })
 
   it('lazy route의 hash target이 늦게 나타나도 해당 대상을 포커스한다', async () => {
-    const rootRoute = appRoutes[0]
+    const rootRoute = appRoutes.find((route) => route.path === '/')
     expect(rootRoute).toBeDefined()
     if (!rootRoute) {
       return
@@ -423,7 +443,7 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
-    await findRouteHeading('오늘 풀 문제를 설정하세요')
+    await findRouteHeading('이번에 풀 분량을 골라 주세요')
     const main = document.querySelector('#main-content')
     expect(main).not.toHaveFocus()
 
@@ -443,18 +463,18 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/')
-    await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
+    await findRouteHeading('오늘의 일본어 학습')
 
     await act(async () => {
       await router.navigate('/practice')
     })
-    await findRouteHeading('오늘 풀 문제를 설정하세요')
+    await findRouteHeading('이번에 풀 분량을 골라 주세요')
     scrollTo.mockClear()
 
     await act(async () => {
       await router.navigate(-1)
     })
-    await findRouteHeading(/틀린 문제를 끝까지 해결하는 학습/)
+    await findRouteHeading('오늘의 일본어 학습')
 
     expect(scrollTo).not.toHaveBeenCalled()
   })
@@ -475,7 +495,7 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
-    await findRouteHeading('오늘 풀 문제를 설정하세요')
+    await findRouteHeading('이번에 풀 분량을 골라 주세요')
 
     await act(async () => {
       await router.navigate(`/practice/session/${sessionPayload.session.id}`)
@@ -533,7 +553,7 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
-    await findRouteHeading('오늘 풀 문제를 설정하세요')
+    await findRouteHeading('이번에 풀 분량을 골라 주세요')
 
     await act(async () => {
       await router.navigate(`/practice/result/${sessionPayload.session.id}`)
@@ -544,7 +564,7 @@ describe('application router boundaries', () => {
     await act(async () => {
       await router.navigate('/practice')
     })
-    await findRouteHeading('오늘 풀 문제를 설정하세요')
+    await findRouteHeading('이번에 풀 분량을 골라 주세요')
     await vi.waitFor(() =>
       expect(document.querySelector('#main-content')).toHaveFocus()
     )
@@ -562,7 +582,7 @@ describe('application router boundaries', () => {
     const BrokenPage = (): never => {
       throw new Error('route-render-failure')
     }
-    const rootRoute = appRoutes[0]
+    const rootRoute = appRoutes.find((route) => route.path === '/')
     expect(rootRoute).toBeDefined()
     if (!rootRoute) {
       return
