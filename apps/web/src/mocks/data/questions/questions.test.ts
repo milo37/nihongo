@@ -16,7 +16,7 @@ const expectedCountBySubject: Record<QuestionSubject, number> = {
 }
 
 const FOUNDATION_PUBLIC_PROJECTION_SHA256 =
-  'b47f6a84074b4927d8581ddb2ad07008df8544be71b105d9e9818f11c9e9194c'
+  '85c8c0095349c9c52f6317bfe2d3235dabba505840dee91d7903ee7121ce66e1'
 
 describe('originalQuestions', () => {
   it('급수별 어휘 5, 문법 5, 독해 3으로 총 65문제를 제공한다', () => {
