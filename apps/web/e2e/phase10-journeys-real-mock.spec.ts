@@ -143,6 +143,7 @@ const resilienceRequestContract = [
     ]
   },
   { method: 'GET', path: '/api/v1/me', statuses: successfulStatuses(4) },
+  { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
   { method: 'POST', path: '/api/auth/sign-in/email', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
 
@@ -682,7 +683,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await page.getByRole('link', { exact: true, name: '오답노트 보기' }).click()
   await expect(page).toHaveURL(/\/wrong-notes(?:\?.*)?$/u)
   await expect(
-    page.getByRole('heading', { name: '지금 복습할 오답을 확인하세요' })
+    page.getByRole('heading', { exact: true, name: '오답 복습' })
   ).toBeVisible()
   const unreviewedView = page.getByRole('button', {
     name: /^아직 복습 전\s*3$/u
@@ -887,6 +888,27 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   test.setTimeout(120_000)
   const ledger = trackRequestLedger(context)
   await login(page, ledger, learner, '203.0.113.244')
+  await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  const landingReads = ledgerEntriesFor(ledger, 'GET', '/api/v1/study-sessions')
+  expect(landingReads).toHaveLength(1)
+  expect(landingReads[0]).toMatchObject({
+    provenance: isMockBrowser
+      ? 'canonical-mock-service-worker'
+      : 'canonical-real-network',
+    status: 200
+  })
+  expect(landingReads[0]?.finishSequence).toBeGreaterThan(
+    landingReads[0]?.startSequence ?? -1
+  )
+  const signInRequests = ledgerEntriesFor(
+    ledger,
+    'POST',
+    '/api/auth/sign-in/email'
+  )
+  expect(signInRequests).toHaveLength(1)
+  expect(landingReads[0]?.startSequence).toBeGreaterThan(
+    signInRequests[0]?.finishSequence ?? -1
+  )
   await page.goto('/dashboard')
   await expect(
     page.getByRole('heading', { exact: true, name: '약점과 다음 학습 추천' })
