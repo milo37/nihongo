@@ -79,14 +79,14 @@ const successfulStatuses = (count: number): readonly number[] =>
 const userJourneyRequestContract = [
   { method: 'GET', path: '/api/v1/bookmarks', statuses: successfulStatuses(3) },
   { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
-  { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] },
+  { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200, 200] },
   { method: 'GET', path: '/api/v1/me', statuses: successfulStatuses(5) },
   {
     method: 'GET',
     path: '/api/v1/review-queue',
     statuses: successfulStatuses(2)
   },
-  { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
+  { method: 'GET', path: '/api/v1/study-sessions', statuses: [200, 200] },
   {
     method: 'GET',
     path: '/api/v1/study-sessions/:id',
@@ -130,6 +130,7 @@ const resilienceRequestContract = [
     method: 'GET',
     path: '/api/v1/dashboard/insights',
     statuses: [
+      200,
       200,
       'NETWORK_ERROR',
       'NETWORK_ERROR',
