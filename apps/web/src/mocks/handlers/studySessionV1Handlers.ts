@@ -404,7 +404,7 @@ const normalizeResultError = (
 }
 
 export const studySessionV1Handlers = [
-  http.post('*/api/v1/study-sessions', async ({ request }) => {
+  http.post('*/api/v1/study-sessions', async ({ request, cookies }) => {
     const requestId = crypto.randomUUID()
     const practiceContractVersion = getRequestedPracticeContractVersion(request)
 
@@ -467,7 +467,7 @@ export const studySessionV1Handlers = [
           retryable: false
         })
       }
-      const inspectedGuestProof = inspectMockGuestProof(request)
+      const inspectedGuestProof = inspectMockGuestProof(request, cookies)
       const canReuseGuestProof =
         isGuest &&
         inspectedGuestProof.kind === 'VERIFIED' &&
@@ -520,98 +520,103 @@ export const studySessionV1Handlers = [
       return createCreateErrorResponse(normalizeCreateError(error, requestId))
     }
   }),
-  http.get('*/api/v1/study-sessions/:sessionId', ({ params, request }) => {
-    const requestId = crypto.randomUUID()
-    const requestedPracticeContractVersion =
-      getRequestedPracticeContractVersion(request)
-    if (requestedPracticeContractVersion === null) {
-      return createGetErrorResponse({
-        code: 'INVALID_REQUEST',
-        message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
-        requestId,
-        retryable: false
+  http.get(
+    '*/api/v1/study-sessions/:sessionId',
+    ({ params, request, cookies }) => {
+      const requestId = crypto.randomUUID()
+      const requestedPracticeContractVersion =
+        getRequestedPracticeContractVersion(request)
+      if (requestedPracticeContractVersion === null) {
+        return createGetErrorResponse({
+          code: 'INVALID_REQUEST',
+          message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+          requestId,
+          retryable: false
+        })
+      }
+      const parsedParams = getStudySessionParamsSchema.safeParse({
+        sessionId: String(params.sessionId ?? '')
       })
-    }
-    const parsedParams = getStudySessionParamsSchema.safeParse({
-      sessionId: String(params.sessionId ?? '')
-    })
 
-    if (!parsedParams.success) {
-      return createGetErrorResponse({
-        code: 'INVALID_ID',
-        message: '학습 세션 ID 형식이 올바르지 않습니다.',
-        requestId,
-        retryable: false
-      })
-    }
-
-    try {
-      const inspectedGuestProof = inspectMockGuestProof(request)
-      if (
-        mockDatabase.getCurrentUser() === null &&
-        inspectedGuestProof.kind === 'ABSENT'
-      ) {
+      if (!parsedParams.success) {
         return createGetErrorResponse({
-          code: 'AUTHENTICATION_REQUIRED',
-          message: '학습 세션을 조회하려면 인증 정보가 필요합니다.',
+          code: 'INVALID_ID',
+          message: '학습 세션 ID 형식이 올바르지 않습니다.',
           requestId,
           retryable: false
         })
       }
-      if (
-        mockDatabase.getCurrentUser() === null &&
-        (inspectedGuestProof.kind === 'INVALID' ||
-          (inspectedGuestProof.kind === 'VERIFIED' &&
-            !mockDatabase.isCanonicalGuestPrincipalActive(
-              inspectedGuestProof.id
-            )))
-      ) {
-        return createGetErrorResponse({
-          code: 'GUEST_SESSION_EXPIRED',
-          message: '게스트 세션이 만료됐습니다.',
-          requestId,
-          retryable: false
-        })
-      }
-      const source = mockDatabase.getCanonicalStudySessionSnapshotRecord(
-        parsedParams.data.sessionId,
-        inspectedGuestProof.kind === 'VERIFIED' ? inspectedGuestProof.id : null
-      )
-      if (
-        requestedPracticeContractVersion === 1 &&
-        source.practiceContractVersion === 2
-      ) {
-        return createGetErrorResponse({
-          code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
-          message: 'v2 학습 세션은 practice contract header 2가 필요합니다.',
-          requestId,
-          retryable: false
-        })
-      }
-      const response =
-        requestedPracticeContractVersion === 2
-          ? getStudySessionV2ResponseSchema.parse(
-              toVersionedContractStudySessionPayload(source)
-            )
-          : getStudySessionResponseSchema.parse(
-              toContractStudySessionPayload(source)
-            )
 
-      return HttpResponse.json(response, {
-        headers: {
-          ...getHeaders(requestId),
-          'X-Nihongo-Practice-Contract': String(
-            source.practiceContractVersion ?? 1
-          )
+      try {
+        const inspectedGuestProof = inspectMockGuestProof(request, cookies)
+        if (
+          mockDatabase.getCurrentUser() === null &&
+          inspectedGuestProof.kind === 'ABSENT'
+        ) {
+          return createGetErrorResponse({
+            code: 'AUTHENTICATION_REQUIRED',
+            message: '학습 세션을 조회하려면 인증 정보가 필요합니다.',
+            requestId,
+            retryable: false
+          })
         }
-      })
-    } catch (error: unknown) {
-      return createGetErrorResponse(normalizeGetError(error, requestId))
+        if (
+          mockDatabase.getCurrentUser() === null &&
+          (inspectedGuestProof.kind === 'INVALID' ||
+            (inspectedGuestProof.kind === 'VERIFIED' &&
+              !mockDatabase.isCanonicalGuestPrincipalActive(
+                inspectedGuestProof.id
+              )))
+        ) {
+          return createGetErrorResponse({
+            code: 'GUEST_SESSION_EXPIRED',
+            message: '게스트 세션이 만료됐습니다.',
+            requestId,
+            retryable: false
+          })
+        }
+        const source = mockDatabase.getCanonicalStudySessionSnapshotRecord(
+          parsedParams.data.sessionId,
+          inspectedGuestProof.kind === 'VERIFIED'
+            ? inspectedGuestProof.id
+            : null
+        )
+        if (
+          requestedPracticeContractVersion === 1 &&
+          source.practiceContractVersion === 2
+        ) {
+          return createGetErrorResponse({
+            code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+            message: 'v2 학습 세션은 practice contract header 2가 필요합니다.',
+            requestId,
+            retryable: false
+          })
+        }
+        const response =
+          requestedPracticeContractVersion === 2
+            ? getStudySessionV2ResponseSchema.parse(
+                toVersionedContractStudySessionPayload(source)
+              )
+            : getStudySessionResponseSchema.parse(
+                toContractStudySessionPayload(source)
+              )
+
+        return HttpResponse.json(response, {
+          headers: {
+            ...getHeaders(requestId),
+            'X-Nihongo-Practice-Contract': String(
+              source.practiceContractVersion ?? 1
+            )
+          }
+        })
+      } catch (error: unknown) {
+        return createGetErrorResponse(normalizeGetError(error, requestId))
+      }
     }
-  }),
+  ),
   http.post(
     '*/api/v1/study-sessions/:sessionId/submission',
-    async ({ params, request }) => {
+    async ({ params, request, cookies }) => {
       const requestId = crypto.randomUUID()
       const practiceContractVersion =
         getRequestedPracticeContractVersion(request)
@@ -701,7 +706,7 @@ export const studySessionV1Handlers = [
           practiceContractVersion
         )
         const currentUser = mockDatabase.getCurrentUser()
-        const inspectedGuestProof = inspectMockGuestProof(request)
+        const inspectedGuestProof = inspectMockGuestProof(request, cookies)
         if (!currentUser && inspectedGuestProof.kind === 'ABSENT') {
           return createSubmitErrorResponse(
             {
@@ -782,7 +787,7 @@ export const studySessionV1Handlers = [
   ),
   http.get(
     '*/api/v1/study-sessions/:sessionId/result',
-    ({ params, request }) => {
+    ({ params, request, cookies }) => {
       const requestId = crypto.randomUUID()
       const parsedParams = getStudyResultParamsSchema.safeParse({
         sessionId: String(params.sessionId ?? '')
@@ -799,7 +804,7 @@ export const studySessionV1Handlers = [
 
       try {
         const currentUser = mockDatabase.getCurrentUser()
-        const inspectedGuestProof = inspectMockGuestProof(request)
+        const inspectedGuestProof = inspectMockGuestProof(request, cookies)
         if (!currentUser && inspectedGuestProof.kind === 'ABSENT') {
           return createResultErrorResponse({
             code: 'AUTHENTICATION_REQUIRED',

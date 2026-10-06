@@ -71,7 +71,7 @@ export const authHandlers = [
       return response
     }
   }),
-  http.delete('*/api/v1/guest-principal', ({ request }) => {
+  http.delete('*/api/v1/guest-principal', ({ request, cookies }) => {
     try {
       if (mockDatabase.getCurrentUser()) {
         return new HttpResponse(null, {
@@ -80,7 +80,7 @@ export const authHandlers = [
         })
       }
 
-      const proof = inspectMockGuestProof(request)
+      const proof = inspectMockGuestProof(request, cookies)
       if (proof.kind === 'VERIFIED') {
         mockDatabase.deleteCanonicalGuestPrincipal(proof.id)
       }

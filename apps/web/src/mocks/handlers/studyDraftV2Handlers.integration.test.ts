@@ -17,6 +17,7 @@ import {
 } from '@nihongo/contracts/study/submit-study-session'
 import { cancelStudySessionErrorSchema } from '@nihongo/contracts/study/cancel-study-session'
 import { describe, expect, it, vi } from 'vitest'
+import { clearMockGuestPrincipalCookie } from '@/test/server'
 import { MOCK_GUEST_PRINCIPAL_COOKIE_NAME } from '@mocks/guestPrincipal'
 import {
   MockDatabase,
@@ -724,4 +725,187 @@ describe('canonical practice v2 MSW integration', () => {
       submitStudySessionV2ErrorSchema.parse(await submitCancelledV2.json()).code
     ).toBe('STUDY_SESSION_NOT_EDITABLE')
   })
+})
+
+describe('MSW stored guest cookie lifecycle without request Cookie injection', () => {
+  it('creates, reads, saves, restores persisted draft, submits, reads result and retries', async () => {
+    const headers = { ...PRACTICE_HEADERS, 'Content-Type': 'application/json' }
+    const create = await fetch(BASE_URL, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 2
+      })
+    })
+    expect(create.status).toBe(201)
+    const created = createStudySessionV2ResponseSchema.parse(
+      await create.json()
+    )
+    const cookie = create.headers.get('Set-Cookie')?.split(';', 1)[0]
+    if (!cookie) throw new Error('Issued guest cookie required')
+    const ownerId = cookie.slice(MOCK_GUEST_PRINCIPAL_COOKIE_NAME.length + 1)
+    const sessionUrl = `${BASE_URL}/${created.session.id}`
+    const read = (url: string) =>
+      fetch(url, { credentials: 'include', headers: PRACTICE_HEADERS })
+    const session = await read(sessionUrl)
+    expect(session.status).toBe(200)
+    expect(
+      getStudySessionV2ResponseSchema.parse(await session.json()).session.id
+    ).toBe(created.session.id)
+    const draftResponse = await read(`${sessionUrl}/draft-answers`)
+    const draft = getStudyDraftAnswersResponseSchema.parse(
+      await draftResponse.json()
+    )
+    const optionId = created.questions[0]?.question.options[0]?.id
+    if (!optionId) throw new Error('Answer fixture required')
+    const save = await fetch(`${sessionUrl}/draft-answers`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify({
+        expectedRevision: 0,
+        currentOrdinal: 2,
+        answers: draft.answers.map((answer, index) =>
+          index === 0
+            ? { ...answer, selectedOptionId: optionId, elapsedSec: 1 }
+            : answer
+        )
+      })
+    })
+    expect(save.status).toBe(200)
+    const saved = saveStudyDraftAnswersResponseSchema.parse(await save.json())
+    const reloaded = new MockDatabase({ listenToStorage: false })
+    try {
+      expect(
+        reloaded.getCanonicalStudyDraft(created.session.id, ownerId)
+      ).toEqual(saved)
+    } finally {
+      reloaded.dispose()
+    }
+    const resumed = await read(`${sessionUrl}/draft-answers`)
+    expect(
+      getStudyDraftAnswersResponseSchema.parse(await resumed.json())
+    ).toEqual(saved)
+    const list = await read(`${BASE_URL}?status=IN_PROGRESS&page=1&pageSize=20`)
+    expect(
+      listResumableStudySessionsResponseSchema.parse(await list.json()).items
+    ).toEqual([
+      expect.objectContaining({ id: created.session.id, draftRevision: 1 })
+    ])
+    const submit = await fetch(`${sessionUrl}/submission`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify({
+        answers: saved.answers,
+        durationSec: 1,
+        expectedDraftRevision: 1
+      })
+    })
+    expect(submit.status).toBe(201)
+    expect(
+      submitStudySessionV2ResponseSchema.parse(await submit.json()).sessionId
+    ).toBe(created.session.id)
+    const result = await read(`${sessionUrl}/result`)
+    expect(result.status).toBe(200)
+    const retry = await fetch(`${sessionUrl}/retry`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+      body: '{}'
+    })
+    expect(retry.status).toBe(201)
+    const retried = createStudySessionV2ResponseSchema.parse(await retry.json())
+    const cancel = await fetch(
+      `${BASE_URL}/${retried.session.id}/cancellation`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: '{}'
+      }
+    )
+    expect(cancel.status).toBe(204)
+    const deleted = await fetch('http://localhost/api/v1/guest-principal', {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+    expect(deleted.status).toBe(204)
+    expect(mockDatabase.isCanonicalGuestPrincipalActive(ownerId)).toBe(false)
+    const denied = await read(sessionUrl)
+    expect(denied.status).toBe(401)
+  })
+})
+
+it('stored resolver proof rejects foreign, inactive and absent guests across session consumers', async () => {
+  const created = await createV2Session()
+  const headers = { ...PRACTICE_HEADERS, 'Content-Type': 'application/json' }
+  const sessionUrl = `${BASE_URL}/${created.payload.session.id}`
+  const draftResponse = await fetch(`${sessionUrl}/draft-answers`, {
+    headers: PRACTICE_HEADERS,
+    credentials: 'include'
+  })
+  const draft = getStudyDraftAnswersResponseSchema.parse(
+    await draftResponse.json()
+  )
+  const submissionBody = {
+    answers: draft.answers,
+    durationSec: 0,
+    expectedDraftRevision: 0
+  }
+  const submitted = await fetch(`${sessionUrl}/submission`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+    body: JSON.stringify(submissionBody)
+  })
+  expect(submitted.status).toBe(201)
+  await clearMockGuestPrincipalCookie()
+  const foreign = await createV2Session()
+  const foreignId = foreign.cookie.slice(
+    MOCK_GUEST_PRINCIPAL_COOKIE_NAME.length + 1
+  )
+  const requests = [
+    { path: '', method: 'GET' },
+    { path: '/draft-answers', method: 'GET' },
+    { path: '/result', method: 'GET' },
+    {
+      path: '/draft-answers',
+      method: 'PUT',
+      body: { expectedRevision: 0, currentOrdinal: 1, answers: draft.answers }
+    },
+    { path: '/submission', method: 'POST', body: submissionBody },
+    { path: '/cancellation', method: 'POST', body: {} },
+    { path: '/retry', method: 'POST', body: {} }
+  ]
+  const expectDenied = async (status: number, code: string) => {
+    for (const input of requests) {
+      const response = await fetch(`${sessionUrl}${input.path}`, {
+        method: input.method,
+        credentials: 'include',
+        headers: { ...headers, 'Idempotency-Key': crypto.randomUUID() },
+        ...(input.body ? { body: JSON.stringify(input.body) } : {})
+      })
+      expect(response.status, `${input.method} ${input.path}`).toBe(status)
+      expect(await response.json()).toMatchObject({ code })
+    }
+  }
+  await expectDenied(404, 'RESOURCE_NOT_FOUND')
+  const foreignList = await fetch(
+    `${BASE_URL}?status=IN_PROGRESS&page=1&pageSize=20`,
+    { headers: PRACTICE_HEADERS, credentials: 'include' }
+  )
+  expect(
+    listResumableStudySessionsResponseSchema
+      .parse(await foreignList.json())
+      .items.map(({ id }) => id)
+  ).not.toContain(created.payload.session.id)
+  mockDatabase.deleteCanonicalGuestPrincipal(foreignId)
+  await expectDenied(401, 'GUEST_SESSION_EXPIRED')
+  await clearMockGuestPrincipalCookie()
+  await expectDenied(401, 'AUTHENTICATION_REQUIRED')
 })

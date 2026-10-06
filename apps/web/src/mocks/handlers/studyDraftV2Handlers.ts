@@ -23,7 +23,10 @@ import {
 } from '@nihongo/contracts/study/save-study-draft-answers'
 import { http, HttpResponse } from 'msw'
 import { z, type ZodType } from 'zod'
-import { inspectMockGuestProof } from '@mocks/guestPrincipal'
+import {
+  inspectMockGuestProof,
+  type MockGuestCookies
+} from '@mocks/guestPrincipal'
 import {
   hasTrustedMockWriteOrigin,
   MockHttpError,
@@ -103,7 +106,8 @@ const parseCancellationBody = async (request: Request): Promise<void> => {
 }
 
 const resolveGuestPrincipalId = (
-  request: Request
+  request: Request,
+  cookies: MockGuestCookies
 ): {
   errorCode?: 'AUTHENTICATION_REQUIRED' | 'GUEST_SESSION_EXPIRED'
   id: string | null
@@ -111,7 +115,7 @@ const resolveGuestPrincipalId = (
   if (mockDatabase.getCurrentUser()) {
     return { id: null }
   }
-  const proof = inspectMockGuestProof(request)
+  const proof = inspectMockGuestProof(request, cookies)
   if (proof.kind === 'ABSENT') {
     return { errorCode: 'AUTHENTICATION_REQUIRED', id: null }
   }
@@ -200,7 +204,7 @@ const parseListQuery = (
 }
 
 export const studyDraftV2Handlers = [
-  http.get('*/api/v1/study-sessions', ({ request }) => {
+  http.get('*/api/v1/study-sessions', ({ request, cookies }) => {
     const requestId = crypto.randomUUID()
     if (!hasRequiredPracticeHeader(request)) {
       return errorResponse(listResumableStudySessionsErrorSchema, {
@@ -212,7 +216,7 @@ export const studyDraftV2Handlers = [
     }
     try {
       const query = parseListQuery(request)
-      const guest = resolveGuestPrincipalId(request)
+      const guest = resolveGuestPrincipalId(request, cookies)
       if (guest.errorCode) {
         return errorResponse(listResumableStudySessionsErrorSchema, {
           code: guest.errorCode,
@@ -247,7 +251,7 @@ export const studyDraftV2Handlers = [
   }),
   http.get(
     '*/api/v1/study-sessions/:sessionId/draft-answers',
-    ({ params, request }) => {
+    ({ params, request, cookies }) => {
       const requestId = crypto.randomUUID()
       if (!hasRequiredPracticeHeader(request)) {
         return errorResponse(getStudyDraftAnswersErrorSchema, {
@@ -269,7 +273,7 @@ export const studyDraftV2Handlers = [
         })
       }
       try {
-        const guest = resolveGuestPrincipalId(request)
+        const guest = resolveGuestPrincipalId(request, cookies)
         if (guest.errorCode) {
           return errorResponse(getStudyDraftAnswersErrorSchema, {
             code: guest.errorCode,
@@ -300,7 +304,7 @@ export const studyDraftV2Handlers = [
   ),
   http.put(
     '*/api/v1/study-sessions/:sessionId/draft-answers',
-    async ({ params, request }) => {
+    async ({ params, request, cookies }) => {
       const requestId = crypto.randomUUID()
       if (!hasRequiredPracticeHeader(request)) {
         return errorResponse(saveStudyDraftAnswersErrorSchema, {
@@ -356,7 +360,7 @@ export const studyDraftV2Handlers = [
       }
       try {
         const body = await parseSaveDraftBody(request)
-        const guest = resolveGuestPrincipalId(request)
+        const guest = resolveGuestPrincipalId(request, cookies)
         if (guest.errorCode) {
           return errorResponse(saveStudyDraftAnswersErrorSchema, {
             code: guest.errorCode,
@@ -395,7 +399,7 @@ export const studyDraftV2Handlers = [
   ),
   http.post(
     '*/api/v1/study-sessions/:sessionId/cancellation',
-    async ({ params, request }) => {
+    async ({ params, request, cookies }) => {
       const requestId = crypto.randomUUID()
       if (!hasRequiredPracticeHeader(request)) {
         return errorResponse(cancelStudySessionErrorSchema, {
@@ -438,7 +442,7 @@ export const studyDraftV2Handlers = [
       }
       try {
         await parseCancellationBody(request)
-        const guest = resolveGuestPrincipalId(request)
+        const guest = resolveGuestPrincipalId(request, cookies)
         if (guest.errorCode) {
           return errorResponse(cancelStudySessionErrorSchema, {
             code: guest.errorCode,

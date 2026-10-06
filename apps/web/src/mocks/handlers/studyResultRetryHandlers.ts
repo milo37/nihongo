@@ -117,7 +117,7 @@ const normalizeError = (
 export const studyResultRetryHandlers = [
   http.post(
     '*/api/v1/study-sessions/:sessionId/retry',
-    async ({ params, request }) => {
+    async ({ params, request, cookies }) => {
       const requestId = crypto.randomUUID()
       if (
         !JSON_CONTENT_TYPE_PATTERN.test(
@@ -185,7 +185,7 @@ export const studyResultRetryHandlers = [
         }
 
         const currentUser = mockDatabase.getCurrentUser()
-        const guestProof = inspectMockGuestProof(request)
+        const guestProof = inspectMockGuestProof(request, cookies)
         if (!currentUser && guestProof.kind === 'ABSENT') {
           return createErrorResponse({
             code: 'AUTHENTICATION_REQUIRED',
