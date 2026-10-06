@@ -125,14 +125,15 @@ const approvedPhase7Checksums = [
   'ceca4c83981de1e21c528952157fb8c0452583889c4374cba70e3875acbd2298',
   '6e34969b93b6b07c7be9e5fb13a1d2a4612a2825fe6e08871e8d1ea15e9355d7',
   'afa59638fa9ff3662fb00abe28fe8fb3a14777b98ecf3b2b8e8226493794adfe',
-  'ae57562faf7342e2ae2ce1a83d35bf9cec00f1ecbe64c21f7d947a7bd3009e08'
+  'ae57562faf7342e2ae2ce1a83d35bf9cec00f1ecbe64c21f7d947a7bd3009e08',
+  'ca4d9e9bcc158f524038a63fe3158347e0f811a3f481e700c3aa22f3036af848'
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('승인된 기존 30개 checksum을 보존하고 Slice 3R만 append한다', () => {
+  it('승인된 기존 31개 checksum을 보존하고 정본 revision2만 append한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(31)
+    expect(manifest).toHaveLength(32)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedPrePhase7MigrationNames
     )
@@ -143,7 +144,8 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       enumMigrationName,
       foundationMigrationName,
       archiveVerifierMigrationName,
-      reauthenticationMigrationName
+      reauthenticationMigrationName,
+      '20261005120000_phase7_reviewed_seed_revision2'
     ])
     expect(manifest.slice(27).map(({ checksum }) => checksum)).toEqual(
       approvedPhase7Checksums
