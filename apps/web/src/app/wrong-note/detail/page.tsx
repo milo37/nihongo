@@ -521,9 +521,9 @@ export const WrongNoteDetailPage = (): ReactElement => {
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section
-          className="rounded-xl border border-line bg-white p-5 sm:p-7"
+          className="min-w-0 rounded-xl border border-line bg-white p-5 sm:p-7"
           aria-labelledby="memo-heading"
         >
           <h2 id="memo-heading" className="text-xl font-black">
@@ -544,7 +544,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
         </section>
 
         <section
-          className="rounded-xl border border-line bg-slate-50 p-5 sm:p-7"
+          className="min-w-0 rounded-xl border border-line bg-slate-50 p-5 sm:p-7"
           aria-labelledby="timeline-heading"
         >
           <h2 id="timeline-heading" className="text-xl font-black">
