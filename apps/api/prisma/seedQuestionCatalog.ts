@@ -1,3 +1,4 @@
+import { writeSeedDiagnostic } from './seedDiagnostics.js'
 import { createHash } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../src/generated/prisma/client.js'
 import {
@@ -275,7 +276,9 @@ export const seedQuestionCatalog = async (
   const seedsToInsert: QuestionAggregateSeed[] = []
   let verifiedCount = 0
 
-  for (const seed of buildAllQuestionSeeds()) {
+  const seeds = buildAllQuestionSeeds()
+  writeSeedDiagnostic('CATALOG_READY')
+  for (const seed of seeds) {
     const existing = await client.question.findUnique({
       where: { id: seed.questionId },
       select: { id: true }
@@ -290,12 +293,14 @@ export const seedQuestionCatalog = async (
     seedsToInsert.push(seed)
   }
 
+  writeSeedDiagnostic('LOOKUP_DONE')
   if (seedsToInsert.length > 0) {
     await client.$transaction(
       async (transaction) => {
         for (const seed of seedsToInsert) {
           await insertQuestionSeed(transaction, seed)
         }
+        writeSeedDiagnostic('WRITE_CALLBACK_DONE')
       },
       { isolationLevel: 'Serializable' }
     )

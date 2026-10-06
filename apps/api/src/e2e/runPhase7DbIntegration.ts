@@ -1,3 +1,4 @@
+import { runPhase7SeedExecution } from './phase7SeedExecution.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -1537,7 +1538,19 @@ const run = async (): Promise<void> => {
     )
   }
 
-  await runCommand('pnpm', seedCommand, seedEnvironment)
+  await runPhase7SeedExecution(
+    'FIRST_NORMAL_SEED',
+    () => runCommand('pnpm', seedCommand, seedEnvironment),
+    (phase, state) => {
+      process.stdout.write(
+        JSON.stringify({
+          event: 'phase7.db.integration.seed_phase',
+          phase,
+          state
+        }) + '\n'
+      )
+    }
+  )
   await assertSeedWriteCount('65')
 
   const migrationCatalogClient = new Client({
@@ -1565,7 +1578,19 @@ const run = async (): Promise<void> => {
   } finally {
     await migrationCatalogClient.end()
   }
-  await runCommand('pnpm', seedCommand, seedEnvironment)
+  await runPhase7SeedExecution(
+    'RESEED',
+    () => runCommand('pnpm', seedCommand, seedEnvironment),
+    (phase, state) => {
+      process.stdout.write(
+        JSON.stringify({
+          event: 'phase7.db.integration.seed_phase',
+          phase,
+          state
+        }) + '\n'
+      )
+    }
+  )
   await assertSeedWriteCount('65')
 
   for (const testFile of getPhase10ApiIntegrationPathsByOwner('phase7-db')) {
