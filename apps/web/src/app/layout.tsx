@@ -76,6 +76,10 @@ export const Layout = (): ReactElement => {
     location.pathname === '/' ||
     (location.pathname === '/dashboard' &&
       new URLSearchParams(location.search).get('view') === 'learning')
+  const isLearningSurface =
+    isLearningEntry ||
+    location.pathname.startsWith('/practice') ||
+    location.pathname.startsWith('/wrong-notes')
   const mainRef = useRef<HTMLElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const previousPathnameRef = useRef(location.pathname)
@@ -187,7 +191,7 @@ export const Layout = (): ReactElement => {
 
   return (
     <div
-      className={`min-h-screen bg-canvas text-ink ${isLearningEntry ? 'a2-shell' : ''}`}
+      className={`min-h-screen bg-canvas text-ink ${isLearningSurface ? 'a2-shell study-shell' : ''}`}
     >
       <a
         className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"

@@ -630,6 +630,11 @@ export const jaResources = {
         canonicalNoFallback: '選択したモードは自動で変更しません。'
       },
       keyboardHelp: '解答のヒント',
+      guide: {
+        title: '解答の案内',
+        beforeSubmit: '回答は提出前まで変更できます。',
+        afterSubmit: '正解と解説は提出後に確認できます。'
+      },
       progressLabel: '回答済み {{percent}}%',
       question: {
         passageEyebrow: 'READING PASSAGE',

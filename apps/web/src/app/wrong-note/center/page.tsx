@@ -347,7 +347,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
       </div>
 
       {canOfferBatch ? (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="study-review-batch mt-5 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-end sm:justify-between">
           <Select
             className="sm:w-44"
             name="review-batch-count"
@@ -378,7 +378,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
 
       {createSession.isError ? (
         <p
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-900"
+          className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm font-semibold text-danger-strong"
           role="alert"
         >
           {isOfflineApiError(createSession.error)
@@ -391,7 +391,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
 
       {isQueuePaused ? (
         <p
-          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
+          className="mt-6 rounded-lg border border-warning-line bg-warning-soft p-4 text-sm font-semibold text-warning-strong"
           role="status"
         >
           {t('center.states.offline')}
@@ -425,7 +425,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
 
       {queueQuery.isError && queueQuery.data ? (
         <div
-          className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+          className="mt-6 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
           role="alert"
         >
           <p className="font-semibold">{t('center.states.stale')}</p>
@@ -508,13 +508,13 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             />
           ) : (
             <ul
-              className="mt-4 grid gap-4 lg:grid-cols-2"
+              className="study-review-list mt-4 grid gap-4 lg:grid-cols-2"
               aria-busy={queueQuery.isFetching}
             >
               {queueQuery.data.items.map((item) => (
                 <li
                   key={item.questionId}
-                  className="content-auto min-w-0 rounded-xl border border-line bg-white p-5"
+                  className="study-review-row content-auto min-w-0 border-b border-line py-5"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="brand">{item.level}</Badge>
@@ -531,7 +531,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
                     ) : null}
                   </div>
                   <h3
-                    className="mt-4 break-words text-lg font-black leading-7"
+                    className="mt-4 break-words text-lg font-semibold leading-7"
                     lang="ja"
                   >
                     {item.questionPreview}

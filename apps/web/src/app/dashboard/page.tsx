@@ -162,7 +162,6 @@ export const LearningHomePage = (): ReactElement => {
   return (
     <section className="learning-note a2-home">
       <header className="border-b border-line pb-4">
-        <p className="text-xs text-muted">{t('entry.eyebrow')}</p>
         <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
           {t('entry.title')}
         </h1>
@@ -170,7 +169,7 @@ export const LearningHomePage = (): ReactElement => {
           {t('entry.description')}
         </p>
       </header>
-      <div className="py-7">
+      <div className="study-member-entry py-7">
         <LearningEntry key={user?.id ?? 'guest'} isMember={user !== null} />
       </div>
       <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-line py-4">

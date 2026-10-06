@@ -144,15 +144,12 @@ export const WrongNotePage = (): ReactElement => {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+    <section className="learning-note study-page study-review mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
-          <p className="text-sm font-black tracking-[0.16em] text-brand">
-            {t('history.eyebrow')}
-          </p>
           <h1
             ref={headingRef}
-            className="mt-2 rounded-sm text-4xl font-black"
+            className="study-page-title mt-2 rounded-sm text-4xl font-black"
             tabIndex={-1}
           >
             {t('history.title')}
@@ -336,12 +333,12 @@ export const WrongNotePage = (): ReactElement => {
             </Button>
           </div>
           <ul
-            className="mt-4 grid gap-4 lg:grid-cols-2"
+            className="study-review-list mt-4 grid gap-4 lg:grid-cols-2"
             aria-busy={wrongNotesQuery.isFetching}
           >
             {wrongNotesQuery.data.items.map((item) => (
               <li key={item.questionId}>
-                <article className="content-auto flex h-full min-w-0 flex-col rounded-xl border border-line bg-surface p-5">
+                <article className="study-review-row content-auto flex h-full min-w-0 flex-col border-b border-line py-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="brand">{item.level}</Badge>
@@ -363,14 +360,14 @@ export const WrongNotePage = (): ReactElement => {
                         )}
                       </Badge>
                     </div>
-                    <span className="text-sm font-bold text-red-700">
+                    <span className="text-sm font-semibold text-danger">
                       {t('history.results.wrongCount', {
                         formattedCount: formatCount(item.wrongCount)
                       })}
                     </span>
                   </div>
                   <h3
-                    className="mt-5 line-clamp-2 break-words text-lg font-black leading-7"
+                    className="mt-4 break-words text-lg font-semibold leading-7"
                     lang="ja"
                   >
                     {item.questionPreview}
@@ -398,14 +395,14 @@ export const WrongNotePage = (): ReactElement => {
                       <Badge key={tagLabel}>{tagLabel}</Badge>
                     ))}
                   </div>
-                  <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
-                    <span className="inline-flex min-h-11 items-center rounded-lg border border-amber-200 bg-amber-50 px-3 text-sm font-bold text-amber-950">
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex min-h-11 items-center text-sm font-semibold text-muted">
                       {item.reviewAvailability === 'ARCHIVED'
                         ? t('history.results.archived')
                         : t('history.results.available')}
                     </span>
                     <Link
-                      className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
+                      className="note-link px-1 text-sm text-brand"
                       to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
                     >
                       {t('history.results.detail')}

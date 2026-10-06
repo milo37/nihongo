@@ -624,6 +624,11 @@ export const koResources = {
         canonicalNoFallback: '서버 권위 세션은 다른 모드로 대체하지 않습니다.'
       },
       keyboardHelp: '풀이 도움말',
+      guide: {
+        title: '풀이 안내',
+        beforeSubmit: '답은 제출 전까지 바꿀 수 있어요.',
+        afterSubmit: '정답과 해설은 제출 후 확인합니다.'
+      },
       progressLabel: '답변 완료 {{percent}}%',
       question: {
         passageEyebrow: 'READING PASSAGE',

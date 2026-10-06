@@ -584,7 +584,7 @@ const PracticeResultPageContent = (): ReactElement => {
           canRequestCanonicalRetry &&
           !isNoEligibleQuestionsApiError(createRetrySession.error) ? (
             <Button
-              variant="outline"
+              size="lg"
               disabled={isResultSourceUnavailable}
               isLoading={
                 createRetrySession.isPending || isRetrySourceRefreshing

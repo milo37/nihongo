@@ -138,7 +138,7 @@ const QuickStart = (): ReactElement => {
         </fieldset>
       </div>
       <div className="a2-summary">
-        <p className="text-sm text-muted">{t('approved.selected')}</p>
+        <p className="sr-only">{t('approved.selected')}</p>
         <p className="mt-3 text-2xl font-semibold" aria-live="polite">
           {level} {selectedSubject?.label}
         </p>
@@ -180,7 +180,6 @@ export const HomePage = (): ReactElement => {
   return (
     <section className="learning-note a2-home">
       <header className="border-b border-line pb-4">
-        <p className="text-xs text-muted">{t('entry.eyebrow')}</p>
         <h1 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
           {t('approved.title')}
         </h1>
