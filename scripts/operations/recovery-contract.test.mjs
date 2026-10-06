@@ -37,13 +37,13 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate all 31 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate all 32 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 31,
+      count: 32,
       digestSha256: releaseManifest.migrations.digestSha256,
       name: 'technical-current-test'
     }
@@ -53,6 +53,10 @@ test('migration profiles separate all 31 TEST entries from the exact v1 runtime 
     'v1-runtime-pre-phase7'
   )
   assert.equal(runtime.count, 27)
+  assert.equal(
+    runtime.digestSha256,
+    '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea'
+  )
   assert.notEqual(runtime.digestSha256, releaseManifest.migrations.digestSha256)
 
   const boundaryDrift = structuredClone(releaseManifest)
@@ -82,6 +86,57 @@ test('migration profiles separate all 31 TEST entries from the exact v1 runtime 
     () => deriveMigrationProfile(immutablePrefixDrift, 'v1-runtime-pre-phase7'),
     /profile inventory mismatch/u
   )
+})
+
+test('technical recovery rejects stale and unexpected migration inventories', () => {
+  const { contract, releaseManifest } = createRecoveryFixtures()
+  for (const staleProfile of [
+    { expectedCount: 31 },
+    {
+      expectedDigestSha256:
+        '3efd321d7d66f31505c0887f3ef9b0bb64dbe89831d70ea132066fba24b63aea'
+    }
+  ]) {
+    const staleContract = structuredClone(contract)
+    Object.assign(
+      staleContract.migrationProfiles['technical-current-test'],
+      staleProfile
+    )
+    assert.throws(
+      () => verifyRecoveryContract(staleContract),
+      /Technical migration profile is invalid/u
+    )
+  }
+
+  for (const change of ['remove', 'add', 'rewrite']) {
+    const inventoryDrift = structuredClone(releaseManifest)
+    if (change === 'remove') {
+      inventoryDrift.migrations.entries.pop()
+    } else if (change === 'add') {
+      inventoryDrift.migrations.entries.push({
+        name: '20261005183000_unreviewed_migration',
+        sha256: 'a'.repeat(64)
+      })
+    } else {
+      inventoryDrift.migrations.entries.at(-1).sha256 = 'a'.repeat(64)
+    }
+    inventoryDrift.migrations.count = inventoryDrift.migrations.entries.length
+    inventoryDrift.migrations.digestSha256 = createHash('sha256')
+      .update(
+        inventoryDrift.migrations.entries
+          .map(({ name, sha256 }) => `${name}\0${sha256}\n`)
+          .join('')
+      )
+      .digest('hex')
+    assert.throws(
+      () => deriveMigrationProfile(inventoryDrift, 'technical-current-test'),
+      /Technical migration profile count mismatch|Recovery migration profile inventory mismatch/u
+    )
+    assert.deepEqual(
+      deriveMigrationProfile(inventoryDrift, 'v1-runtime-pre-phase7'),
+      deriveMigrationProfile(releaseManifest, 'v1-runtime-pre-phase7')
+    )
+  }
 })
 
 test('recovery plan is deterministic, registry-committed, self-attested and identity-separated', () => {

@@ -260,7 +260,7 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   assert.equal(recoveryContract.schemaVersion, 1)
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
-    31
+    32
   )
   assert.deepEqual(
     recoveryContract.migrationProfiles['technical-current-test'].environments,
