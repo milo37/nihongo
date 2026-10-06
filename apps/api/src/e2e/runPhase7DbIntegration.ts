@@ -1,3 +1,8 @@
+import {
+  getPostSeedErrorCode,
+  runPostSeedDiagnostic,
+  type PostSeedDiagnostic
+} from './phase7PostSeedDiagnostics.js'
 import { runPhase7SeedExecution } from './phase7SeedExecution.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -1269,6 +1274,15 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   })
 }
 
+const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
+  process.stdout.write(
+    JSON.stringify({
+      event: 'phase7.db.integration.post_seed',
+      ...diagnostic
+    }) + '\n'
+  )
+}
+
 const run = async (): Promise<void> => {
   await adminClient.connect()
   adminConnected = true
@@ -1591,30 +1605,39 @@ const run = async (): Promise<void> => {
       )
     }
   )
-  await assertSeedWriteCount('65')
+  await runPostSeedDiagnostic(
+    'COUNT',
+    () => assertSeedWriteCount('65'),
+    reportPostSeedDiagnostic
+  )
 
   for (const testFile of getPhase10ApiIntegrationPathsByOwner('phase7-db')) {
-    await runPhase10ManifestVitestFile({
-      runCommand,
-      testFile,
-      environment: integrationEnvironment
-    })
+    await runPostSeedDiagnostic(
+      'FILE',
+      () =>
+        runPhase10ManifestVitestFile({
+          runCommand,
+          testFile,
+          environment: integrationEnvironment
+        }),
+      reportPostSeedDiagnostic,
+      testFile
+    )
   }
 }
 
 void run()
   .then(async () => {
-    await cleanup()
+    await runPostSeedDiagnostic('CLEANUP', cleanup, reportPostSeedDiagnostic)
   })
   .catch(async (error: unknown) => {
     try {
-      await cleanup()
+      await runPostSeedDiagnostic('CLEANUP', cleanup, reportPostSeedDiagnostic)
     } catch (cleanupError: unknown) {
       process.stderr.write(
         `${JSON.stringify({
           event: 'phase7.db.integration.cleanup_failed',
-          errorName:
-            cleanupError instanceof Error ? cleanupError.name : 'UnknownError',
+          errorCode: getPostSeedErrorCode(cleanupError),
           schemaName
         })}\n`
       )
@@ -1622,8 +1645,7 @@ void run()
     process.stderr.write(
       `${JSON.stringify({
         event: 'phase7.db.integration.failed',
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-        message: error instanceof Error ? error.message : 'Unknown failure',
+        errorCode: getPostSeedErrorCode(error),
         schemaName
       })}\n`
     )
