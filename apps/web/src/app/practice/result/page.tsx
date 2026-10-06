@@ -486,92 +486,364 @@ const PracticeResultPageContent = (): ReactElement => {
   }
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
-      {isResultSourceUnavailable ? (
-        <div
-          className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-          role={
-            resultQuery.isError || sessionQuery.isError ? 'alert' : 'status'
-          }
-        >
-          <p className="font-semibold">
-            {t(
-              resultQuery.fetchStatus === 'paused' ||
-                sessionQuery.fetchStatus === 'paused'
-                ? 'error.cachedOffline'
-                : 'error.staleDescription'
-            )}
+    <section className="learning-note study-page study-result mx-auto max-w-[760px] px-4 py-10 sm:px-6 lg:py-14">
+      <div className="study-result-main">
+        {isResultSourceUnavailable ? (
+          <div
+            className="mb-6 rounded-lg border border-warning-line bg-warning-soft p-4 text-sm text-warning-strong"
+            role={
+              resultQuery.isError || sessionQuery.isError ? 'alert' : 'status'
+            }
+          >
+            <p className="font-semibold">
+              {t(
+                resultQuery.fetchStatus === 'paused' ||
+                  sessionQuery.fetchStatus === 'paused'
+                  ? 'error.cachedOffline'
+                  : 'error.staleDescription'
+              )}
+            </p>
+            {resultQuery.isError || sessionQuery.isError ? (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  shouldRestoreRetryFocusRef.current = true
+                  void Promise.all([
+                    resultQuery.refetch(),
+                    sessionQuery.refetch()
+                  ])
+                }}
+              >
+                {commonT('actions.retry')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="study-result-summary border-b border-line pb-6">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="brand">{session.level}</Badge>
+            <Badge>{commonT(`taxonomy.subjects.${session.subject}`)}</Badge>
+          </div>
+          <h1
+            ref={summaryHeadingRef}
+            className="mt-3 rounded-sm text-2xl font-black sm:text-3xl"
+            tabIndex={-1}
+          >
+            {t('name')}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            {t('description')}
           </p>
-          {resultQuery.isError || sessionQuery.isError ? (
-            <Button
-              className="mt-3"
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                shouldRestoreRetryFocusRef.current = true
-                void Promise.all([
-                  resultQuery.refetch(),
-                  sessionQuery.refetch()
-                ])
-              }}
-            >
-              {commonT('actions.retry')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-      <div className="rounded-2xl bg-slate-950 p-6 text-white sm:p-9">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="brand">{session.level}</Badge>
-          <Badge>{commonT(`taxonomy.subjects.${session.subject}`)}</Badge>
-        </div>
-        <h1
-          ref={summaryHeadingRef}
-          className="mt-6 rounded-sm text-3xl font-black sm:text-4xl"
-          tabIndex={-1}
-        >
-          {t('name')}
-        </h1>
-        <p className="mt-3 text-slate-300">{t('description')}</p>
 
-        <dl className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-slate-700 sm:grid-cols-5">
-          <div className="bg-slate-900 p-4">
-            <dt className="text-xs text-slate-400">{t('metrics.total')}</dt>
-            <dd className="mt-1 text-2xl font-black">
-              {formatCount(result.totalCount)}
-            </dd>
+          <p className="mt-5 text-lg font-bold">
+            {t('outcomes', {
+              correct: formatCount(result.correctCount),
+              wrong: formatCount(
+                result.items.filter(
+                  (item) => !item.isCorrect && item.selectedOptionId !== null
+                ).length
+              ),
+              unanswered: formatCount(
+                result.items.filter((item) => item.selectedOptionId === null)
+                  .length
+              )
+            })}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            {t('outcomesNote')}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a className="note-primary" href="#result-explanations">
+              {t('reviewExplanations')}
+            </a>
+            <Link
+              className="note-link"
+              to={role === 'GUEST' ? '/' : '/dashboard?view=learning'}
+            >
+              {t('finish')}
+            </Link>
           </div>
-          <div className="bg-slate-900 p-4">
-            <dt className="text-xs text-slate-400">{t('metrics.correct')}</dt>
-            <dd className="mt-1 text-2xl font-black text-emerald-300">
-              {formatCount(result.correctCount)}
-            </dd>
+          <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <div className="min-w-0">
+              <dt className="text-xs text-muted">{t('metrics.total')}</dt>
+              <dd className="mt-1 font-semibold">
+                {formatCount(result.totalCount)}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted">{t('metrics.correct')}</dt>
+              <dd className="mt-1 font-semibold">
+                {formatCount(result.correctCount)}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted">{t('metrics.incorrect')}</dt>
+              <dd className="mt-1 font-semibold">
+                {formatCount(result.incorrectCount)}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted">{t('metrics.accuracy')}</dt>
+              <dd className="mt-1 font-semibold">
+                {formatNumber(result.correctRate, locale, {
+                  maximumFractionDigits: 2
+                })}
+                %
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted">{t('metrics.duration')}</dt>
+              <dd className="mt-1 font-semibold">
+                {formatDuration(result.durationSec)}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        {isNoEligibleQuestionsApiError(createRetrySession.error) ? (
+          <EmptyState
+            autoFocus
+            className="mt-4 rounded-lg border border-warning-line bg-warning-soft"
+            title={t('retry.noEligibleTitle')}
+            description={t('retry.noEligibleDescription')}
+            action={
+              <Link className="note-link" to="/practice">
+                {t('newPractice')}
+              </Link>
+            }
+          />
+        ) : incorrectItems.length > 0 && !canRequestCanonicalRetry ? (
+          <p
+            className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+            role="status"
+          >
+            {t('retry.unsupported')}
+          </p>
+        ) : incorrectItems.length === 0 ? (
+          <EmptyState
+            className="mt-4 rounded-lg border border-success-line bg-success-soft"
+            title={t('retry.allCorrectTitle')}
+            description={t('retry.allCorrectDescription')}
+            action={
+              <Link className="note-link" to="/practice">
+                {t('newPractice')}
+              </Link>
+            }
+          />
+        ) : createRetrySession.isPaused ? (
+          <p
+            className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+            role="status"
+            aria-live="polite"
+          >
+            {t('retry.offline')}
+          </p>
+        ) : createRetrySession.isError &&
+          !isStudyResultNotReadyApiError(createRetrySession.error) &&
+          !isAuthTransitionSupersededError(createRetrySession.error) ? (
+          <div
+            className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
+            role="alert"
+          >
+            <p className="font-bold">{t('retry.errorTitle')}</p>
+            <p className="mt-1 leading-6">{t('retry.errorDescription')}</p>
           </div>
-          <div className="bg-slate-900 p-4">
-            <dt className="text-xs text-slate-400">{t('metrics.incorrect')}</dt>
-            <dd className="mt-1 text-2xl font-black text-red-300">
-              {formatCount(result.incorrectCount)}
-            </dd>
-          </div>
-          <div className="bg-slate-900 p-4">
-            <dt className="text-xs text-slate-400">{t('metrics.accuracy')}</dt>
-            <dd className="mt-1 text-2xl font-black">
-              {formatNumber(result.correctRate, locale, {
-                maximumFractionDigits: 2
-              })}
-              %
-            </dd>
-          </div>
-          <div className="col-span-2 bg-slate-900 p-4 sm:col-span-1">
-            <dt className="text-xs text-slate-400">{t('metrics.duration')}</dt>
-            <dd className="mt-1 text-lg font-black">
-              {formatDuration(result.durationSec)}
-            </dd>
-          </div>
-        </dl>
+        ) : retryMessage ? (
+          <p
+            className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+            role="status"
+            aria-live="polite"
+          >
+            {t(`retry.${retryMessage}`)}
+          </p>
+        ) : null}
+
+        <div className="study-explanations mt-7 space-y-5">
+          <h2
+            id="result-explanations"
+            className="scroll-mt-24 text-2xl font-black"
+          >
+            {t('items.title')}
+          </h2>
+          {bookmarkMutationActivity.isPaused ? (
+            <p
+              className="rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+              role="status"
+              aria-live="polite"
+            >
+              {t('bookmark.offline')}
+            </p>
+          ) : null}
+          {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
+            <p
+              className="rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
+              role="status"
+            >
+              {t('bookmark.loadOffline')}
+            </p>
+          ) : role !== 'GUEST' && bookmarksQuery.isError ? (
+            <div
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm font-semibold text-danger"
+              role="alert"
+            >
+              <span>{t('bookmark.loadError')}</span>
+              <Button
+                variant="outline"
+                onClick={() => void bookmarksQuery.refetch()}
+              >
+                {t('bookmark.retry')}
+              </Button>
+            </div>
+          ) : null}
+          {result.items.map((item, index) => {
+            const optionById = new Map(
+              item.question.options.map((option) => [option.id, option])
+            )
+            const selectedOption = item.selectedOptionId
+              ? optionById.get(item.selectedOptionId)
+              : undefined
+            const correctOption = optionById.get(item.correctOptionId)
+            const isBookmarked = Boolean(
+              bookmarksQuery.data?.items.some(
+                (bookmark) => bookmark.questionId === item.question.id
+              )
+            )
+            return (
+              <article
+                key={item.question.id}
+                className="study-result-item content-auto border-t border-line py-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={item.isCorrect ? 'success' : 'danger'}>
+                      {item.isCorrect
+                        ? t('items.correct')
+                        : item.selectedOptionId === null
+                          ? t('items.unanswered')
+                          : t('items.incorrect')}
+                    </Badge>
+                    <span className="text-sm font-semibold text-muted">
+                      {t('items.ordinal', {
+                        formattedOrdinal: formatCount(index + 1)
+                      })}
+                    </span>
+                    {item.tags.map((tag) => (
+                      <span key={tag} className="text-sm text-muted">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  {role !== 'GUEST' ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="min-h-11 rounded-lg border border-line px-3 text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[selected=true]:border-warning-line data-[selected=true]:bg-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        type="button"
+                        disabled={
+                          hasPendingBookmarkMutation ||
+                          isResultSourceUnavailable ||
+                          bookmarksQuery.isPending ||
+                          bookmarksQuery.isError ||
+                          bookmarksQuery.fetchStatus === 'paused' ||
+                          item.question.questionVersionId === null
+                        }
+                        aria-label={t(
+                          isBookmarked
+                            ? 'bookmark.removeLabel'
+                            : 'bookmark.addLabel',
+                          { formattedOrdinal: formatCount(index + 1) }
+                        )}
+                        aria-pressed={isBookmarked}
+                        data-selected={isBookmarked}
+                        onClick={() => toggleBookmark(item, isBookmarked)}
+                      >
+                        {isBookmarked
+                          ? t('bookmark.remove')
+                          : t('bookmark.add')}
+                      </button>
+                      {item.question.questionVersionId &&
+                      !isResultSourceUnavailable ? (
+                        <QuestionReportDialog
+                          questionId={item.question.id}
+                          questionVersionId={item.question.questionVersionId}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                {bookmarkMessage?.questionId === item.question.id ? (
+                  <p
+                    className="mt-3 text-sm font-semibold text-warning"
+                    role="status"
+                  >
+                    {t(`bookmark.${bookmarkMessage.code}`)}
+                  </p>
+                ) : null}
+
+                {item.question.passage ? (
+                  <div
+                    className="mt-5 max-w-[65ch] border-b border-line pb-4 leading-7"
+                    lang="ja"
+                  >
+                    {item.question.passage}
+                  </div>
+                ) : null}
+                <h3
+                  className="mt-5 max-w-[65ch] text-xl font-semibold leading-[1.7]"
+                  lang="ja"
+                >
+                  {item.question.questionText}
+                </h3>
+
+                <dl
+                  className={`study-answer-comparison mt-5 grid gap-3 rounded-control p-4 ${item.isCorrect ? 'bg-success-soft' : 'bg-danger-soft'}`}
+                >
+                  <div className="min-w-0">
+                    <dt className="text-xs font-bold text-muted">
+                      {t('items.selectedAnswer')}
+                    </dt>
+                    <dd
+                      className={`mt-1 font-semibold ${item.isCorrect ? 'text-success' : 'text-danger'}`}
+                      lang={selectedOption ? 'ja' : undefined}
+                    >
+                      {selectedOption
+                        ? `${selectedOption.label}. ${selectedOption.text}`
+                        : t('items.unanswered')}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs font-bold text-muted">
+                      {t('items.correctAnswer')}
+                    </dt>
+                    <dd
+                      className="mt-1 font-semibold text-success"
+                      lang={correctOption ? 'ja' : undefined}
+                    >
+                      {correctOption
+                        ? `${correctOption.label}. ${correctOption.text}`
+                        : t('items.correctAnswerUnavailable')}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="study-explanation-copy mt-5 pt-1">
+                  <h4 className="font-black">{t('items.explanation')}</h4>
+                  <div className="mt-3 max-w-[65ch] text-base leading-7">
+                    <ExplanationLanguagePanel
+                      explanationJa={item.explanationJa}
+                      explanationKo={item.explanationKo}
+                    />
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 rounded-xl border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <aside className="study-result-actions mt-4 flex flex-col gap-3">
         <p className="text-sm leading-6 text-muted">
           {role === 'GUEST'
             ? t('status.guest')
@@ -602,7 +874,7 @@ const PracticeResultPageContent = (): ReactElement => {
             </Button>
           ) : null}
           <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-control bg-ink px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-ink/90 focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+            className="note-link"
             to={
               role === 'GUEST'
                 ? `/login?redirect=${encodeURIComponent('/practice')}`
@@ -614,241 +886,13 @@ const PracticeResultPageContent = (): ReactElement => {
               : t('actions.openWrongNotes')}
           </Link>
           <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+            className="inline-flex min-h-11 items-center justify-center rounded-control px-4 py-2.5 text-sm font-semibold text-muted hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
             to="/practice"
           >
             {t('newPractice')}
           </Link>
         </div>
-      </div>
-
-      {isNoEligibleQuestionsApiError(createRetrySession.error) ? (
-        <EmptyState
-          autoFocus
-          className="mt-4 rounded-lg border border-amber-200 bg-amber-50"
-          title={t('retry.noEligibleTitle')}
-          description={t('retry.noEligibleDescription')}
-          action={
-            <Link
-              className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-              to="/practice"
-            >
-              {t('newPractice')}
-            </Link>
-          }
-        />
-      ) : incorrectItems.length > 0 && !canRequestCanonicalRetry ? (
-        <p
-          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-          role="status"
-        >
-          {t('retry.unsupported')}
-        </p>
-      ) : incorrectItems.length === 0 ? (
-        <EmptyState
-          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50"
-          title={t('retry.allCorrectTitle')}
-          description={t('retry.allCorrectDescription')}
-          action={
-            <Link
-              className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-              to="/practice"
-            >
-              {t('newPractice')}
-            </Link>
-          }
-        />
-      ) : createRetrySession.isPaused ? (
-        <p
-          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-          role="status"
-          aria-live="polite"
-        >
-          {t('retry.offline')}
-        </p>
-      ) : createRetrySession.isError &&
-        !isStudyResultNotReadyApiError(createRetrySession.error) &&
-        !isAuthTransitionSupersededError(createRetrySession.error) ? (
-        <div
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-          role="alert"
-        >
-          <p className="font-bold">{t('retry.errorTitle')}</p>
-          <p className="mt-1 leading-6">{t('retry.errorDescription')}</p>
-        </div>
-      ) : retryMessage ? (
-        <p
-          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-          role="status"
-          aria-live="polite"
-        >
-          {t(`retry.${retryMessage}`)}
-        </p>
-      ) : null}
-
-      <div className="mt-10 space-y-5">
-        <h2 className="text-2xl font-black">{t('items.title')}</h2>
-        {bookmarkMutationActivity.isPaused ? (
-          <p
-            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-            role="status"
-            aria-live="polite"
-          >
-            {t('bookmark.offline')}
-          </p>
-        ) : null}
-        {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
-          <p
-            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-            role="status"
-          >
-            {t('bookmark.loadOffline')}
-          </p>
-        ) : role !== 'GUEST' && bookmarksQuery.isError ? (
-          <div
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"
-            role="alert"
-          >
-            <span>{t('bookmark.loadError')}</span>
-            <Button
-              variant="outline"
-              onClick={() => void bookmarksQuery.refetch()}
-            >
-              {t('bookmark.retry')}
-            </Button>
-          </div>
-        ) : null}
-        {result.items.map((item, index) => {
-          const optionById = new Map(
-            item.question.options.map((option) => [option.id, option])
-          )
-          const selectedOption = item.selectedOptionId
-            ? optionById.get(item.selectedOptionId)
-            : undefined
-          const correctOption = optionById.get(item.correctOptionId)
-          const isBookmarked = Boolean(
-            bookmarksQuery.data?.items.some(
-              (bookmark) => bookmark.questionId === item.question.id
-            )
-          )
-          return (
-            <article
-              key={item.question.id}
-              className="content-auto rounded-xl border border-line bg-white p-5 sm:p-7"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={item.isCorrect ? 'success' : 'danger'}>
-                    {item.isCorrect ? t('items.correct') : t('items.incorrect')}
-                  </Badge>
-                  <Badge>
-                    {t('items.ordinal', {
-                      formattedOrdinal: formatCount(index + 1)
-                    })}
-                  </Badge>
-                  {item.tags.map((tag) => (
-                    <Badge key={tag}>{tag}</Badge>
-                  ))}
-                </div>
-                {role !== 'GUEST' ? (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className="min-h-11 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                      type="button"
-                      disabled={
-                        hasPendingBookmarkMutation ||
-                        isResultSourceUnavailable ||
-                        bookmarksQuery.isPending ||
-                        bookmarksQuery.isError ||
-                        bookmarksQuery.fetchStatus === 'paused' ||
-                        item.question.questionVersionId === null
-                      }
-                      aria-label={t(
-                        isBookmarked
-                          ? 'bookmark.removeLabel'
-                          : 'bookmark.addLabel',
-                        { formattedOrdinal: formatCount(index + 1) }
-                      )}
-                      aria-pressed={isBookmarked}
-                      data-selected={isBookmarked}
-                      onClick={() => toggleBookmark(item, isBookmarked)}
-                    >
-                      {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
-                    </button>
-                    {item.question.questionVersionId &&
-                    !isResultSourceUnavailable ? (
-                      <QuestionReportDialog
-                        questionId={item.question.id}
-                        questionVersionId={item.question.questionVersionId}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-
-              {bookmarkMessage?.questionId === item.question.id ? (
-                <p
-                  className="mt-3 text-sm font-semibold text-amber-800"
-                  role="status"
-                >
-                  {t(`bookmark.${bookmarkMessage.code}`)}
-                </p>
-              ) : null}
-
-              {item.question.passage ? (
-                <div
-                  className="mt-5 border-l-4 border-slate-200 bg-slate-50 p-4 leading-7 text-slate-700"
-                  lang="ja"
-                >
-                  {item.question.passage}
-                </div>
-              ) : null}
-              <h3 className="mt-5 text-xl font-black leading-8" lang="ja">
-                {item.question.questionText}
-              </h3>
-
-              <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg bg-slate-50 p-4">
-                  <dt className="text-xs font-bold text-muted">
-                    {t('items.selectedAnswer')}
-                  </dt>
-                  <dd
-                    className="mt-1 font-semibold"
-                    lang={selectedOption ? 'ja' : undefined}
-                  >
-                    {selectedOption
-                      ? `${selectedOption.label}. ${selectedOption.text}`
-                      : t('items.unanswered')}
-                  </dd>
-                </div>
-                <div className="rounded-lg bg-emerald-50 p-4">
-                  <dt className="text-xs font-bold text-emerald-800">
-                    {t('items.correctAnswer')}
-                  </dt>
-                  <dd
-                    className="mt-1 font-semibold text-emerald-950"
-                    lang={correctOption ? 'ja' : undefined}
-                  >
-                    {correctOption
-                      ? `${correctOption.label}. ${correctOption.text}`
-                      : t('items.correctAnswerUnavailable')}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-5 border-t border-line pt-5">
-                <h4 className="font-black">{t('items.explanation')}</h4>
-                <div className="mt-3">
-                  <ExplanationLanguagePanel
-                    explanationJa={item.explanationJa}
-                    explanationKo={item.explanationKo}
-                  />
-                </div>
-              </div>
-            </article>
-          )
-        })}
-      </div>
+      </aside>
 
       <Dialog
         open={retryNavigationBlocker.state === 'blocked'}

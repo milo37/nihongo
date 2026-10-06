@@ -212,15 +212,12 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
   const returnTo = `/wrong-notes${parsedSearch.canonicalSearch ? `?${parsedSearch.canonicalSearch}` : ''}`
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
-      <div className="flex flex-col gap-5 border-b border-line pb-7 md:flex-row md:items-end md:justify-between">
+    <section className="learning-note study-page study-review study-review-center mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:py-8">
+      <div className="flex flex-col gap-2 border-b border-line pb-4 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
-          <p className="text-sm font-black tracking-[0.16em] text-brand">
-            {t('center.eyebrow')}
-          </p>
           <h1
             ref={headingRef}
-            className="mt-2 rounded-sm text-3xl font-black sm:text-4xl"
+            className="study-page-title mt-2 rounded-sm text-2xl font-semibold sm:text-3xl"
             tabIndex={-1}
           >
             {t('center.title')}
@@ -242,7 +239,7 @@ export const WrongNoteReviewCenterPage = (): ReactElement => {
             className={[
               'min-h-20 rounded-xl border p-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
               parsedSearch.query.view === option.value
-                ? 'border-brand bg-emerald-50'
+                ? 'border-brand bg-brand-soft'
                 : 'border-line bg-white hover:border-slate-400'
             ].join(' ')}
             type="button"

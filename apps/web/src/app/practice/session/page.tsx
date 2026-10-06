@@ -8,7 +8,6 @@ import {
   useParams
 } from 'react-router'
 import type { ReactElement } from 'react'
-import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'
 import { ErrorState } from '@common/components/ErrorState'
@@ -19,6 +18,7 @@ import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMuta
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
+import { LearningIcon } from '@app/home/LearningIcon'
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
 import { useClearGuestPracticeQueryCache } from '@app/practice/hooks/useClearGuestPracticeQueryCache'
@@ -1029,328 +1029,315 @@ export const PracticeSessionPage = (): ReactElement => {
   const isDraftActionInformational =
     draftActionMessage === 'conflictRefreshComplete'
 
+  const isCompactDraftStatus =
+    ['synced', 'saved', 'savedAt', 'dirty', 'saving'].includes(
+      draftController.status.code
+    ) && !(isDraftConflictPending && !hasResolvedDraftConflict)
+
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
-      <div className="grid gap-5 border-b border-line pb-6 md:grid-cols-[1fr_auto] md:items-end">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <Badge>{session.level}</Badge>
-            <Badge variant="neutral">
-              {commonT(`taxonomy.subjects.${session.subject}`)}
-            </Badge>
-            <Badge variant="brand">
-              {commonT(`taxonomy.studyModes.${session.mode}`)}
-            </Badge>
-          </div>
-          <p className="mt-4 text-sm font-semibold text-muted">
-            {t('session.header.progressSummary', {
-              answered: formatCount(answeredCount),
-              current: formatCount(safeQuestionIndex + 1),
-              total: formatCount(questions.length)
-            })}
-          </p>
-        </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-muted">{t('session.header.elapsedTime')}</span>
-          <strong className="font-mono text-lg">
-            {formatDuration(elapsedSeconds)}
-          </strong>
-        </div>
-      </div>
-
-      {sessionQuery.fetchStatus === 'paused' ? (
-        <p
-          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-950"
-          role="status"
-        >
-          {t('session.errors.cachedOfflineDescription')}
-        </p>
-      ) : sessionQuery.isError ? (
-        <div
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-          role="alert"
-        >
-          <p className="font-semibold">
-            {t('session.errors.staleSessionDescription')}
-          </p>
-          <Button
-            className="mt-3"
-            size="sm"
-            variant="outline"
-            onClick={() => void sessionQuery.refetch()}
-          >
-            {t('session.errors.retrySession')}
-          </Button>
-        </div>
-      ) : null}
-
-      {isV2Session ? (
-        <div
-          className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold leading-6 text-sky-950"
-          role="status"
-          aria-live="polite"
-          data-save-state={draftController.saveState}
-        >
-          <p>{draftStatusMessage}</p>
-          {isDraftConflictPending && !hasResolvedDraftConflict ? (
-            <p className="mt-2 font-medium">
-              {t('session.draft.conflictCheckPending')}
-            </p>
-          ) : null}
-          {draftController.saveState === 'error' ||
-          draftController.saveState === 'offline' ? (
-            <Button
-              className="mt-3"
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setDraftActionMessage(null)
-                void draftController.retrySave().catch(() => {
-                  setDraftActionMessage('retrySaveFailed')
-                })
-              }}
-            >
-              {t('session.draft.retry')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {draftActionMessage ? (
-        <p
-          className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold leading-6 ${
-            isDraftActionInformational
-              ? 'border-info-line bg-info-soft text-info-strong'
-              : 'border-danger-line bg-danger-soft text-danger-strong'
-          }`}
-          role={isDraftActionInformational ? 'status' : 'alert'}
-        >
-          {t(`session.draft.notices.${draftActionMessage}`)}
-        </p>
-      ) : null}
-
-      {actualCount < requestedCount || usedFallback ? (
-        <div
-          className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          role="status"
-        >
-          {actualCount < requestedCount
-            ? t('session.supply.canonicalPartial', {
-                actual: formatCount(actualCount),
-                mode: commonT(`taxonomy.studyModes.${session.mode}`),
-                requested: formatCount(requestedCount)
-              })
-            : session.practiceContractVersion === 1
-              ? t('session.supply.legacyFallback')
-              : t('session.supply.canonicalNoFallback')}
-        </div>
-      ) : null}
-
-      <div className="mt-5">
-        <Progress
-          label={t('session.progressLabel', {
-            percent: formatCount(progressValue)
-          })}
-          value={progressValue}
-        />
-      </div>
-
-      <div
-        className={[
-          'mt-6 overflow-hidden rounded-2xl border border-line bg-white shadow-soft',
-          currentQuestion.subject === 'READING'
-            ? 'lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
-            : ''
-        ].join(' ')}
-      >
-        {currentQuestion.passage ? (
-          <article
-            aria-label={t('session.question.passageLabel')}
-            className="scroll-mt-24 border-b border-line bg-slate-50 p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-8 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
-            tabIndex={0}
-          >
-            <p className="text-xs font-black tracking-[0.14em] text-brand">
-              {t('session.question.passageEyebrow')}
-            </p>
-            <p className="sr-only">{t('session.question.passageLabel')}</p>
-            <p
-              className="mt-5 whitespace-pre-line text-base leading-8 text-slate-800"
-              lang="ja"
-            >
-              {currentQuestion.passage}
-            </p>
-          </article>
-        ) : null}
-
-        <article className="p-5 sm:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-wrap gap-2">
-              {currentQuestion.tags.map((tag) => (
-                <Badge key={tag} variant="neutral">
-                  {tag}
-                </Badge>
-              ))}
+    <section
+      className={`learning-note study-page study-session mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
+    >
+      <div className="study-session-layout">
+        <div className="study-session-main">
+          <div className="grid gap-2 border-b border-line pb-3 md:grid-cols-[1fr_auto] md:items-end">
+            <div>
+              <p className="study-session-title">
+                {session.level}{' '}
+                {commonT(`taxonomy.subjects.${session.subject}`)}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="text-sm text-muted">
+                  {commonT(`taxonomy.studyModes.${session.mode}`)}
+                </span>
+              </div>
             </div>
-            <button
-              className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              type="button"
-              disabled={
-                mustReplayFrozenSubmission ||
-                isNavigationPromptBlocked ||
-                isPreparingSubmission ||
-                isSessionRefreshUnavailable ||
-                hasPendingBookmarkMutation ||
-                isBookmarkQueryUnavailable ||
-                session.practiceContractVersion !== 2
-              }
-              aria-label={t(
-                isBookmarked
-                  ? 'session.bookmark.removeLabel'
-                  : 'session.bookmark.addLabel',
-                { ordinal: formatCount(safeQuestionIndex + 1) }
-              )}
-              aria-pressed={isBookmarked}
-              data-selected={isBookmarked}
-              onClick={handleBookmark}
-            >
-              {isBookmarked
-                ? t('session.bookmark.remove')
-                : t('session.bookmark.add')}
-            </button>
           </div>
-          {bookmarkMessage?.questionId === currentQuestion.id ||
-          bookmarkMutationActivity.isPaused ? (
+
+          {sessionQuery.fetchStatus === 'paused' ? (
             <p
-              className="mt-3 text-sm font-semibold text-amber-800"
+              className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold leading-6 text-warning-strong"
               role="status"
             >
-              {bookmarkMutationActivity.isPaused
-                ? t('session.bookmark.offlineQueued')
-                : bookmarkMessage
-                  ? t(`session.bookmark.${bookmarkMessage.code}`)
-                  : null}{' '}
-              {role === 'GUEST' ? (
-                <Link
-                  className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
-                  to="/login?redirect=%2Fpractice"
-                >
-                  {t('session.bookmark.chooseLogin')}
-                </Link>
-              ) : null}
+              {t('session.errors.cachedOfflineDescription')}
             </p>
-          ) : null}
-          {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
-            <p
-              className="mt-3 text-sm font-semibold text-amber-800"
-              role="status"
-            >
-              {t('session.bookmark.statusLoadOffline')}
-            </p>
-          ) : role !== 'GUEST' && bookmarksQuery.isError ? (
+          ) : sessionQuery.isError ? (
             <div
-              className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-red-700"
+              className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
               role="alert"
             >
-              <span>{t('session.bookmark.statusLoadFailed')}</span>
+              <p className="font-semibold">
+                {t('session.errors.staleSessionDescription')}
+              </p>
               <Button
+                className="mt-3"
+                size="sm"
                 variant="outline"
-                onClick={() => void bookmarksQuery.refetch()}
+                onClick={() => void sessionQuery.refetch()}
               >
-                {t('session.bookmark.retryStatus')}
+                {t('session.errors.retrySession')}
               </Button>
             </div>
           ) : null}
 
-          <h1
-            ref={headingRef}
-            className="mt-7 rounded-sm text-2xl font-black leading-10 sm:text-3xl"
-            tabIndex={-1}
-          >
-            <span className="sr-only">
-              {t('session.question.numberLabel', {
-                ordinal: formatCount(safeQuestionIndex + 1)
-              })}{' '}
-            </span>
-            <span lang="ja">{currentQuestion.questionText}</span>
-          </h1>
-
-          <div className="mt-7">
-            <RadioGroup
-              disabled={
-                isSubmitDialogOpen ||
-                mustReplayFrozenSubmission ||
-                hasDraftConflict ||
-                isNavigationPromptBlocked ||
-                isPreparingSubmission ||
-                isSessionRefreshUnavailable
+          {isV2Session ? (
+            <div
+              className={
+                isCompactDraftStatus
+                  ? 'mt-2 text-xs leading-5 text-muted'
+                  : 'mt-4 rounded-lg border border-info-line bg-info-soft px-4 py-3 text-sm font-semibold leading-6 text-info-strong'
               }
-              name={`question-${currentQuestion.id}`}
-              legend={t('session.question.answerLegend')}
-              value={displayedSelectedAnswers[currentQuestion.id] ?? ''}
-              options={currentQuestion.options.map((option) => ({
-                value: option.id,
-                label: (
-                  <span lang="ja">
-                    {option.label}. {option.text}
-                  </span>
-                )
-              }))}
-              onValueChange={handleSelectOption}
+              role="status"
+              aria-live="polite"
+              data-save-state={draftController.saveState}
+            >
+              <p>{draftStatusMessage}</p>
+              {isDraftConflictPending && !hasResolvedDraftConflict ? (
+                <p className="mt-2 font-medium">
+                  {t('session.draft.conflictCheckPending')}
+                </p>
+              ) : null}
+              {draftController.saveState === 'error' ||
+              draftController.saveState === 'offline' ? (
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setDraftActionMessage(null)
+                    void draftController.retrySave().catch(() => {
+                      setDraftActionMessage('retrySaveFailed')
+                    })
+                  }}
+                >
+                  {t('session.draft.retry')}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {draftActionMessage ? (
+            <p
+              className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold leading-6 ${
+                isDraftActionInformational
+                  ? 'border-info-line bg-info-soft text-info-strong'
+                  : 'border-danger-line bg-danger-soft text-danger-strong'
+              }`}
+              role={isDraftActionInformational ? 'status' : 'alert'}
+            >
+              {t(`session.draft.notices.${draftActionMessage}`)}
+            </p>
+          ) : null}
+
+          {actualCount < requestedCount || usedFallback ? (
+            <div
+              className="mt-5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-strong"
+              role="status"
+            >
+              {actualCount < requestedCount
+                ? t('session.supply.canonicalPartial', {
+                    actual: formatCount(actualCount),
+                    mode: commonT(`taxonomy.studyModes.${session.mode}`),
+                    requested: formatCount(requestedCount)
+                  })
+                : session.practiceContractVersion === 1
+                  ? t('session.supply.legacyFallback')
+                  : t('session.supply.canonicalNoFallback')}
+            </div>
+          ) : null}
+
+          <div className="mt-3">
+            <Progress
+              label={t('session.header.progressSummary', {
+                answered: formatCount(answeredCount),
+                current: formatCount(safeQuestionIndex + 1),
+                total: formatCount(questions.length)
+              })}
+              value={progressValue}
+              showValue={false}
             />
           </div>
-          <p className="mt-4 text-sm leading-6 text-muted">
-            {t('session.question.keyboardHint')}
-          </p>
-        </article>
-      </div>
 
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <Button
-          variant="secondary"
-          disabled={
-            safeQuestionIndex === 0 ||
-            mustReplayFrozenSubmission ||
-            hasDraftConflict ||
-            isNavigationPromptBlocked ||
-            isPreparingSubmission ||
-            isSessionRefreshUnavailable
-          }
-          onClick={movePrevious}
-        >
-          {t('session.navigation.previous')}
-        </Button>
-        {isLastQuestion ? (
-          <Button
-            ref={submitButtonRef}
-            aria-keyshortcuts="Control+Enter Meta+Enter"
-            disabled={!canRequestSubmission}
-            onClick={() => setSubmitDialogRequestedOpen(true)}
+          <div
+            className={[
+              'study-question mt-4 border-line',
+              currentQuestion.subject === 'READING'
+                ? 'lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
+                : ''
+            ].join(' ')}
           >
-            {t('session.navigation.submit')}
-          </Button>
-        ) : (
-          <Button
-            disabled={
-              mustReplayFrozenSubmission ||
-              hasDraftConflict ||
-              isNavigationPromptBlocked ||
-              isPreparingSubmission ||
-              isSessionRefreshUnavailable
-            }
-            onClick={moveNext}
-          >
-            {t('session.navigation.next')}
-          </Button>
-        )}
-      </div>
+            {currentQuestion.passage ? (
+              <article
+                aria-label={t('session.question.passageLabel')}
+                className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
+                tabIndex={0}
+              >
+                <p className="text-xs font-black tracking-[0.14em] text-brand">
+                  {t('session.question.passageEyebrow')}
+                </p>
+                <p className="sr-only">{t('session.question.passageLabel')}</p>
+                <p
+                  className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
+                  lang="ja"
+                >
+                  {currentQuestion.passage}
+                </p>
+              </article>
+            ) : null}
 
-      <nav className="mt-8" aria-label={t('session.navigation.jumpLabel')}>
-        <ol className="flex flex-wrap justify-center gap-2">
-          {questions.map((question, index) => (
-            <li key={question.id}>
-              <button
-                className="ui-question-jump min-h-11 min-w-11 rounded-lg border border-line bg-white text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[current=true]:border-brand data-[current=true]:bg-brand data-[current=true]:text-white data-[answered=true]:ring-2 data-[answered=true]:ring-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                type="button"
+            <article className="study-question-content min-w-0 py-4 sm:py-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap gap-2">
+                  {currentQuestion.tags.map((tag) => (
+                    <span key={tag} className="text-sm text-muted">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[selected=true]:border-warning-line data-[selected=true]:bg-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  type="button"
+                  disabled={
+                    mustReplayFrozenSubmission ||
+                    isNavigationPromptBlocked ||
+                    isPreparingSubmission ||
+                    isSessionRefreshUnavailable ||
+                    hasPendingBookmarkMutation ||
+                    isBookmarkQueryUnavailable ||
+                    session.practiceContractVersion !== 2
+                  }
+                  aria-label={t(
+                    isBookmarked
+                      ? 'session.bookmark.removeLabel'
+                      : 'session.bookmark.addLabel',
+                    { ordinal: formatCount(safeQuestionIndex + 1) }
+                  )}
+                  aria-pressed={isBookmarked}
+                  data-selected={isBookmarked}
+                  onClick={handleBookmark}
+                >
+                  {isBookmarked
+                    ? t('session.bookmark.remove')
+                    : t('session.bookmark.add')}
+                </button>
+              </div>
+              {bookmarkMessage?.questionId === currentQuestion.id ||
+              bookmarkMutationActivity.isPaused ? (
+                <p
+                  className="mt-3 text-sm font-semibold text-warning"
+                  role="status"
+                >
+                  {bookmarkMutationActivity.isPaused
+                    ? t('session.bookmark.offlineQueued')
+                    : bookmarkMessage
+                      ? t(`session.bookmark.${bookmarkMessage.code}`)
+                      : null}{' '}
+                  {role === 'GUEST' ? (
+                    <Link
+                      className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
+                      to="/login?redirect=%2Fpractice"
+                    >
+                      {t('session.bookmark.chooseLogin')}
+                    </Link>
+                  ) : null}
+                </p>
+              ) : null}
+              {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
+                <p
+                  className="mt-3 text-sm font-semibold text-warning"
+                  role="status"
+                >
+                  {t('session.bookmark.statusLoadOffline')}
+                </p>
+              ) : role !== 'GUEST' && bookmarksQuery.isError ? (
+                <div
+                  className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-danger"
+                  role="alert"
+                >
+                  <span>{t('session.bookmark.statusLoadFailed')}</span>
+                  <Button
+                    variant="outline"
+                    onClick={() => void bookmarksQuery.refetch()}
+                  >
+                    {t('session.bookmark.retryStatus')}
+                  </Button>
+                </div>
+              ) : null}
+
+              <h1
+                ref={headingRef}
+                className="mt-4 rounded-sm text-2xl font-semibold leading-[1.7]"
+                tabIndex={-1}
+              >
+                <span className="mb-2 block text-sm font-medium text-muted">
+                  {t('session.question.numberLabel', {
+                    ordinal: formatCount(safeQuestionIndex + 1)
+                  })}{' '}
+                </span>
+                <span lang="ja">{currentQuestion.questionText}</span>
+              </h1>
+
+              <div className="mt-4">
+                <RadioGroup
+                  className="learning-options study-answer-options"
+                  disabled={
+                    isSubmitDialogOpen ||
+                    mustReplayFrozenSubmission ||
+                    hasDraftConflict ||
+                    isNavigationPromptBlocked ||
+                    isPreparingSubmission ||
+                    isSessionRefreshUnavailable
+                  }
+                  name={`question-${currentQuestion.id}`}
+                  legend={t('session.question.answerLegend')}
+                  value={displayedSelectedAnswers[currentQuestion.id] ?? ''}
+                  options={currentQuestion.options.map((option) => ({
+                    value: option.id,
+                    label: (
+                      <span className="study-answer-label">
+                        <span lang="ja">
+                          {option.label}. {option.text}
+                        </span>
+                        {displayedSelectedAnswers[currentQuestion.id] ===
+                        option.id ? (
+                          <LearningIcon
+                            className="size-5 shrink-0"
+                            name="check"
+                          />
+                        ) : null}
+                      </span>
+                    )
+                  }))}
+                  onValueChange={handleSelectOption}
+                />
+              </div>
+              <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
+                <summary className="note-link cursor-pointer">
+                  {t('session.keyboardHelp')}
+                </summary>
+                <p className="mb-2">
+                  {t('session.header.elapsedTime')}{' '}
+                  <span className="font-mono tabular-nums">
+                    {formatDuration(elapsedSeconds)}
+                  </span>
+                </p>
+                <p>{t('session.question.keyboardHint')}</p>
+              </details>
+            </article>
+          </div>
+
+          <div className="study-question-actions mt-5 grid grid-cols-[1fr_2fr] gap-3 sm:flex sm:items-center sm:justify-between">
+            {isLastQuestion ? (
+              <Button
+                ref={submitButtonRef}
+                aria-keyshortcuts="Control+Enter Meta+Enter"
+                disabled={!canRequestSubmission}
+                onClick={() => setSubmitDialogRequestedOpen(true)}
+              >
+                {t('session.navigation.submit')}
+              </Button>
+            ) : (
+              <Button
                 disabled={
                   mustReplayFrozenSubmission ||
                   hasDraftConflict ||
@@ -1358,29 +1345,78 @@ export const PracticeSessionPage = (): ReactElement => {
                   isPreparingSubmission ||
                   isSessionRefreshUnavailable
                 }
-                aria-label={t(
-                  displayedSelectedAnswers[question.id]
-                    ? 'session.navigation.jumpQuestionAnswered'
-                    : 'session.navigation.jumpQuestionUnanswered',
-                  { ordinal: formatCount(index + 1) }
-                )}
-                aria-current={index === safeQuestionIndex ? 'step' : undefined}
-                data-current={index === safeQuestionIndex}
-                data-answered={Boolean(displayedSelectedAnswers[question.id])}
-                onClick={() => {
-                  if (isV2Session) {
-                    draftController.moveToOrdinal(index + 1)
-                  } else {
-                    setCurrentQuestionIndex(index)
-                  }
-                }}
+                onClick={moveNext}
               >
-                {formatCount(index + 1)}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </nav>
+                {t('session.navigation.next')}
+              </Button>
+            )}
+          </div>
+
+          <nav
+            className="study-question-jump mt-8"
+            aria-label={t('session.navigation.jumpLabel')}
+          >
+            <Button
+              variant="outline"
+              disabled={
+                safeQuestionIndex === 0 ||
+                mustReplayFrozenSubmission ||
+                hasDraftConflict ||
+                isNavigationPromptBlocked ||
+                isPreparingSubmission ||
+                isSessionRefreshUnavailable
+              }
+              onClick={movePrevious}
+            >
+              {t('session.navigation.previous')}
+            </Button>
+            <ol className="flex flex-wrap justify-center gap-2">
+              {questions.map((question, index) => (
+                <li key={question.id}>
+                  <button
+                    className="ui-question-jump min-h-11 min-w-11 rounded-lg border border-line bg-surface text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[current=true]:border-brand data-[current=true]:bg-brand data-[current=true]:text-on-accent data-[answered=true]:ring-2 data-[answered=true]:ring-line-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    type="button"
+                    disabled={
+                      mustReplayFrozenSubmission ||
+                      hasDraftConflict ||
+                      isNavigationPromptBlocked ||
+                      isPreparingSubmission ||
+                      isSessionRefreshUnavailable
+                    }
+                    aria-label={t(
+                      displayedSelectedAnswers[question.id]
+                        ? 'session.navigation.jumpQuestionAnswered'
+                        : 'session.navigation.jumpQuestionUnanswered',
+                      { ordinal: formatCount(index + 1) }
+                    )}
+                    aria-current={
+                      index === safeQuestionIndex ? 'step' : undefined
+                    }
+                    data-current={index === safeQuestionIndex}
+                    data-answered={Boolean(
+                      displayedSelectedAnswers[question.id]
+                    )}
+                    onClick={() => {
+                      if (isV2Session) {
+                        draftController.moveToOrdinal(index + 1)
+                      } else {
+                        setCurrentQuestionIndex(index)
+                      }
+                    }}
+                  >
+                    {formatCount(index + 1)}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+        <aside className="study-question-guide text-sm leading-7 text-muted">
+          <h2 className="font-semibold text-ink">{t('session.guide.title')}</h2>
+          <p className="mt-3">{t('session.guide.beforeSubmit')}</p>
+          <p>{t('session.guide.afterSubmit')}</p>
+        </aside>
+      </div>
 
       <Dialog
         open={isSubmitDialogOpen && !hasDraftConflict}
