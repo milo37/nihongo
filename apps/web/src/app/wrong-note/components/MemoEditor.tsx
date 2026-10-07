@@ -9,7 +9,7 @@ import { Dialog } from '@common/components/Dialog'
 import { Textarea } from '@common/components/Textarea'
 import type { useGetWrongNoteMemo } from '@app/wrong-note/hooks/useGetWrongNoteMemo'
 import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
-import { isOfflineApiError } from '@util/apiError'
+import { isOfflineApiError } from '@libs/apiError'
 import { resolveUiLocale } from '@/i18n/types'
 import { formatNumber } from '@libs/localeFormatters'
 

@@ -14,7 +14,7 @@ import {
   isNoEligibleQuestionsApiError,
   isNotFoundApiError,
   isStudyResultNotReadyApiError
-} from '@util/apiError'
+} from '@libs/apiError'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'

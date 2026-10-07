@@ -40,7 +40,7 @@ import {
 } from '@libs/authTransitionFence'
 import { emitApiError } from '@libs/errorBus'
 import { useAppStore } from '@store/index'
-import { isNotFoundApiError } from '@util/apiError'
+import { isNotFoundApiError } from '@libs/apiError'
 
 export const STUDY_DRAFT_AUTOSAVE_DELAY_MS = 750
 

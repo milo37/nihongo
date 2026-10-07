@@ -57,7 +57,7 @@ import {
   isAuthenticationBoundaryApiError,
   isOfflineApiError,
   isNotFoundApiError
-} from '@util/apiError'
+} from '@libs/apiError'
 import { analyticsClient } from '@/analytics/client'
 
 type BookmarkNoticeCode =

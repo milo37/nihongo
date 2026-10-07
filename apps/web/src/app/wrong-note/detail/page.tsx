@@ -11,7 +11,7 @@ import type { ReactElement, ReactNode, RefObject } from 'react'
 import {
   isNotFoundApiError,
   isQuestionNotAvailableApiError
-} from '@util/apiError'
+} from '@libs/apiError'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { ErrorState } from '@common/components/ErrorState'

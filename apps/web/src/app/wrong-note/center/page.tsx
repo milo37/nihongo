@@ -25,7 +25,7 @@ import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 import {
   isNoEligibleQuestionsApiError,
   isOfflineApiError
-} from '@util/apiError'
+} from '@libs/apiError'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 const viewOptions = [

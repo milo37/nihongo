@@ -6,7 +6,7 @@ import { toCanonicalStudySessionView } from '@app/practice/adapters/studySession
 import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
 import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
 import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
-import { isNotFoundApiError } from '@util/apiError'
+import { isNotFoundApiError } from '@libs/apiError'
 
 const createSessionActionFence =
   createObjectAuthBoundActionFence<CreateStudySessionV2Request>()

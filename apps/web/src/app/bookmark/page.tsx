@@ -19,7 +19,7 @@ import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { formatNumber } from '@libs/localeFormatters'
 import { useAppStore } from '@store/index'
 import { resolveUiLocale } from '@/i18n/types'
-import { isNoEligibleQuestionsApiError } from '@util/apiError'
+import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 
 const PAGE_SIZE = 20
 

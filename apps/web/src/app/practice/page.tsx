@@ -21,7 +21,7 @@ import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 import { resolveUiLocale } from '@/i18n/types'
 import { useAppStore } from '@store/index'
-import { isNoEligibleQuestionsApiError } from '@util/apiError'
+import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 
 const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjects: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']

@@ -16,7 +16,7 @@ import {
   isNotFoundApiError,
   isNoEligibleQuestionsApiError,
   isQuestionNotAvailableApiError
-} from '@util/apiError'
+} from '@libs/apiError'
 
 export interface DashboardActionNotice {
   readonly code: DashboardActionNoticeCode
