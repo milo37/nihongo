@@ -10,7 +10,7 @@ import {
   isDefinitiveStudySubmissionError,
   isRetryableStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch

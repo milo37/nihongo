@@ -12,7 +12,7 @@ import {
 } from '@api/study/listResumableStudySessions/schema'
 import { saveStudyDraftAnswers } from '@api/study/saveStudyDraftAnswers'
 import type { ParsedSaveStudyDraftAnswersRequest } from '@api/study/saveStudyDraftAnswers/schema'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
 
 export interface SaveStudyDraftMutationInput {

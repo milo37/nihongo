@@ -19,7 +19,7 @@ import {
   getOrCreateCanonicalSubmissionAttempt,
   getSubmissionAttemptStorageKey
 } from '@app/practice/submissionAttempt'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { cachedSessionStorage } from '@libs/storage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'

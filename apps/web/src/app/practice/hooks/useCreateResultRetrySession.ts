@@ -9,7 +9,7 @@ import {
   type CreateResultRetryActionInput
 } from '@app/practice/queries/studyResultRetryQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { analyticsClient } from '@/analytics/client'
 

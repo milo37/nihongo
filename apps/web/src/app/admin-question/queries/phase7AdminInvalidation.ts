@@ -8,7 +8,7 @@ import {
 } from '@app/admin-question/queries/phase7AdminQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { authQueries } from '@app/login/queries/authQueries'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 
 export type Phase7AdminMutationKind =
   | 'CONTENT_EDIT'

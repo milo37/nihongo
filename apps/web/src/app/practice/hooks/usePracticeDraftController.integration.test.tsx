@@ -29,7 +29,7 @@ import {
   usePracticeDraftController
 } from '@app/practice/hooks/usePracticeDraftController'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { subscribeApiError } from '@libs/errorBus'
 import { useAppStore } from '@store/index'
 import { mockServer } from '@/test/server'

@@ -7,7 +7,7 @@ import {
   getOrCreateResultRetryAttempt,
   type ResultRetryAttempt
 } from '@app/practice/resultRetryAttemptStorage'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
 
 export interface CreateResultRetryActionInput {

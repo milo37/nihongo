@@ -4,7 +4,7 @@ import {
   wrongNoteMutations
 } from '@app/wrong-note/queries/wrongNoteMutations'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 
 export const useUpdateWrongNoteMemo = (questionId: string) => {
   const queryClient = useQueryClient()

@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
 import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
 
 const getResult = async (sessionId: string) => {

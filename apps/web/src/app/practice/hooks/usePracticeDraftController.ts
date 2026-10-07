@@ -32,7 +32,7 @@ import { useGetStudyDraft } from '@app/practice/hooks/useGetStudyDraft'
 import { useSaveStudyDraft } from '@app/practice/hooks/useSaveStudyDraft'
 import { fetchStudyDraftSnapshot } from '@app/practice/queries/studyDraftQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch,

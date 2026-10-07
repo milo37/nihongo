@@ -3,7 +3,7 @@ import {
   studySessionMutations,
   studySessionQueries
 } from '@app/practice/queries/studySessionQueries'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { studyDraftQueries } from '@app/practice/queries/studyDraftQueries'
 import { studyResultRetryMutations } from '@app/practice/queries/studyResultRetryQueries'
 

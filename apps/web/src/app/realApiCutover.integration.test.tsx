@@ -40,7 +40,7 @@ import {
   getOrCreateCanonicalSubmissionAttempt,
   getSubmissionAttemptStorageKey
 } from '@app/practice/submissionAttempt'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { demoUsers } from '@mocks/data/users'

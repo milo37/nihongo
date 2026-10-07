@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { getDashboardInsightsV1 } from '@api/dashboard/getDashboardInsightsV1'
 import { getDashboardStatsV1 } from '@api/dashboard/getDashboardStatsV1'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 
 const getStats = () => getDashboardStatsV1()
 

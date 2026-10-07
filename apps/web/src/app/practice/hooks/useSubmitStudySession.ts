@@ -3,7 +3,7 @@ import type { SubmitStudySessionRequest } from '@api/study/submitStudySession/sc
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { trackStudySubmission } from '@/analytics/studyEvents'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionRetryDelay,

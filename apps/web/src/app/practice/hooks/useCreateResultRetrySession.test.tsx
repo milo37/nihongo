@@ -16,7 +16,7 @@ import {
   getOrCreateResultRetryAttempt,
   readResultRetryAttempt
 } from '@app/practice/resultRetryAttemptStorage'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'

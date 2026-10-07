@@ -4,7 +4,7 @@ import {
   studyDraftMutations,
   type CancelStudySessionMutationInput
 } from '@app/practice/queries/studyDraftQueries'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { clearStudyDraftWorkingCopy } from '@app/practice/draft/studyDraftWorkingCopyStorage'
 
 export const useCancelStudySession = (principalScope: string) => {

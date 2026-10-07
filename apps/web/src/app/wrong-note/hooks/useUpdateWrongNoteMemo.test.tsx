@@ -5,7 +5,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { reviewCenterConformanceFixture } from '@nihongo/contracts/testing/review-center-conformance'
 import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { mockServer } from '@/test/server'
 
 const createClient = (): QueryClient =>

@@ -9,7 +9,7 @@ import {
   getOrCreateTargetedReviewAttempt,
   type TargetedReviewAttempt
 } from '@app/wrong-note/targetedReviewAttemptStorage'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
 
 export type UpdateMemoActionInput = ParsedUpdateWrongNoteMemoBody

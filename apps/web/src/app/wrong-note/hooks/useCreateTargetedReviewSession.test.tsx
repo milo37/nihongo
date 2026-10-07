@@ -12,7 +12,7 @@ import { commitCanonicalAuth } from '@app/login/authSession'
 import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
 import { completeTargetedReviewAction } from '@app/wrong-note/queries/wrongNoteMutations'
 import { readTargetedReviewAttempt } from '@app/wrong-note/targetedReviewAttemptStorage'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { demoUsers } from '@mocks/data/users'
 import { mockServer } from '@/test/server'
 

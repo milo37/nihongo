@@ -15,7 +15,7 @@ import {
   toCanonicalWrongNoteDetailView,
   toCanonicalWrongNoteListView
 } from '@app/wrong-note/adapters/wrongNoteView'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 
 const listWrongNotes = async (params: ListWrongNoteRequest) => {
   return toCanonicalWrongNoteListView(await listWrongNotesV1(params))

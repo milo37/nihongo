@@ -3,7 +3,7 @@ import type { CreateStudySessionV2Request } from '@api/study/createStudySessionV
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
-import { serverStateQueryKeys } from '@app/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
 import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
 import { isNotFoundApiError } from '@libs/apiError'
