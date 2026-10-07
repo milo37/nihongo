@@ -1,15 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { adminReportReasonKey } from '@app/admin/presentation/adminPresentation'
+import { adminReportReasonKey } from '@app/content-operations/reports/presentation/questionReportPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
-  invalidatePhase7AdminMutation,
-  type Phase7InvalidationTarget
-} from '@app/admin-question/queries/phase7AdminInvalidation'
+  invalidateCreatedQuestionReportCaches,
+  type CreatedQuestionReportInvalidationTarget
+} from '@app/content-operations/reports/queries/questionReportInvalidation'
 
-type CreatedQuestionReportTarget = Pick<
-  Phase7InvalidationTarget,
-  'questionIds' | 'reportId'
-> & { readonly kind: 'REPORT_CREATE' }
+type CreatedQuestionReportTarget = CreatedQuestionReportInvalidationTarget & {
+  readonly kind: 'REPORT_CREATE'
+}
 
 export const questionReportReasonKey = adminReportReasonKey
 
@@ -21,4 +20,4 @@ export const useQuestionReportPresentation = () => {
 export const invalidateCreatedQuestionReport = (
   queryClient: QueryClient,
   target: CreatedQuestionReportTarget
-): Promise<void> => invalidatePhase7AdminMutation(queryClient, target)
+): Promise<void> => invalidateCreatedQuestionReportCaches(queryClient, target)

@@ -9,6 +9,8 @@ import {
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { authQueries } from '@app/login/queries/authQueries'
 import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+import { uniqueKeys } from '@app/content-operations/queries/uniqueInvalidationKeys'
+import { invalidateCreatedQuestionReportCaches } from '@app/content-operations/reports/queries/questionReportInvalidation'
 
 export type Phase7AdminMutationKind =
   | 'CONTENT_EDIT'
@@ -29,27 +31,19 @@ export interface Phase7InvalidationTarget {
   readonly versionIds?: readonly string[]
 }
 
-const uniqueKeys = (keys: readonly QueryKey[]): QueryKey[] => {
-  const seen = new Set<string>()
-  return keys.filter((key) => {
-    const encoded = JSON.stringify(key)
-    if (seen.has(encoded)) return false
-    seen.add(encoded)
-    return true
-  })
-}
-
 export const invalidatePhase7AdminMutation = async (
   queryClient: QueryClient,
   target: Phase7InvalidationTarget
 ): Promise<void> => {
+  if (target.kind === 'REPORT_CREATE') {
+    return invalidateCreatedQuestionReportCaches(queryClient, target)
+  }
+
   const questionIds = target.questionIds ?? []
   const versionIds = target.versionIds ?? []
   const keys: QueryKey[] = []
 
-  if (target.kind !== 'REPORT_CREATE') {
-    keys.push(adminAuditLogKeys.allLists())
-  }
+  keys.push(adminAuditLogKeys.allLists())
 
   if (
     target.kind === 'CONTENT_EDIT' ||
@@ -57,7 +51,6 @@ export const invalidatePhase7AdminMutation = async (
     target.kind === 'PUBLICATION' ||
     target.kind === 'BATCH_REVIEW' ||
     target.kind === 'IMPORT_APPLY' ||
-    target.kind === 'REPORT_CREATE' ||
     target.kind === 'REPORT_RESOLVE'
   ) {
     keys.push(adminQuestionKeys.allLists())
@@ -96,11 +89,7 @@ export const invalidatePhase7AdminMutation = async (
     })
   }
 
-  if (
-    target.kind === 'REPORT_CREATE' ||
-    target.kind === 'REPORT_TRIAGE' ||
-    target.kind === 'REPORT_RESOLVE'
-  ) {
+  if (target.kind === 'REPORT_TRIAGE' || target.kind === 'REPORT_RESOLVE') {
     keys.push(adminQuestionReportKeys.allLists())
     if (target.reportId) {
       keys.push(adminQuestionReportKeys.detail(target.reportId))
