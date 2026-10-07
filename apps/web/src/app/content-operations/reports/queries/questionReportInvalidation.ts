@@ -1,9 +1,7 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
-import {
-  adminQuestionKeys,
-  adminQuestionReportKeys
-} from '@app/admin-question/queries/phase7AdminQueries'
+import { adminQuestionKeys } from '@app/admin-question/queries/phase7AdminQueries'
 import { uniqueKeys } from '@app/content-operations/queries/uniqueInvalidationKeys'
+import { adminQuestionReportKeys } from '@app/content-operations/reports/queries/questionReportKeys'
 
 export interface CreatedQuestionReportInvalidationTarget {
   readonly questionIds?: readonly string[]
