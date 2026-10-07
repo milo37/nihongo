@@ -483,8 +483,8 @@ export const jaResources = {
         paginationLabel: '再開セッションのページ'
       },
       steps: {
-        level: '1. レベル',
-        subject: '2. 科目',
+        level: '2. レベル',
+        subject: '1. 科目',
         count: '3. 問題数',
         mode: '4. 出題モード'
       },

@@ -9,6 +9,7 @@ import type {
   StudyMode
 } from '@common/types/domain'
 import { Button } from '@common/components/Button'
+import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
 import { Dialog } from '@common/components/Dialog'
 import { Pagination } from '@common/components/Pagination'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
@@ -209,8 +210,8 @@ export const PracticePage = (): ReactElement => {
   }
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:py-16">
-      <div className="flex flex-col gap-4 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
+    <section className="practice-setup-page">
+      <div className="practice-setup-heading">
         <div>
           <p className="text-sm font-black tracking-[0.16em] text-brand">
             {t('setup.eyebrow')}
@@ -225,6 +226,193 @@ export const PracticePage = (): ReactElement => {
             role: commonT(`taxonomy.roles.${role}`)
           })}
         </p>
+      </div>
+
+      <div className="practice-selection">
+        <ChoiceRadioGroup
+          name="practice-subject"
+          legend={t('setup.steps.subject')}
+          value={subject}
+          disabled={isCreatingSession}
+          selectionIndicator={
+            <LearningIcon className="a2-check" name="check" />
+          }
+          options={subjects.map((option) => ({
+            value: option,
+            label: (
+              <>
+                <LearningIcon
+                  className="a2-subject-icon"
+                  name={
+                    option === 'VOCABULARY'
+                      ? 'languages'
+                      : option === 'GRAMMAR'
+                        ? 'text-cursor-input'
+                        : 'book-open'
+                  }
+                />
+                <span>{commonT(`taxonomy.subjects.${option}`)}</span>
+              </>
+            )
+          }))}
+          onValueChange={(option) => {
+            createSession.reset()
+            updateSearchParam('subject', option, 'GRAMMAR')
+          }}
+        />
+        <ChoiceRadioGroup
+          className="choice-levels"
+          name="practice-level"
+          legend={t('setup.steps.level')}
+          value={level}
+          disabled={isCreatingSession}
+          selectionIndicator={
+            <LearningIcon className="a2-check" name="check" />
+          }
+          options={levels.map((option) => ({ value: option, label: option }))}
+          onValueChange={(option) => {
+            createSession.reset()
+            updateSearchParam('level', option, 'N3')
+          }}
+        />
+        <ChoiceRadioGroup
+          name="practice-count"
+          legend={t('setup.steps.count')}
+          value={String(count)}
+          disabled={isCreatingSession}
+          selectionIndicator={
+            <LearningIcon className="a2-check" name="check" />
+          }
+          options={counts.map((option) => ({
+            value: String(option),
+            label: t('setup.questionCount', {
+              formattedCount: formatCount(option)
+            })
+          }))}
+          onValueChange={(option) => {
+            createSession.reset()
+            updateSearchParam('count', Number(option), 10)
+          }}
+        />
+        <ChoiceRadioGroup
+          className="choice-modes"
+          name="practice-mode"
+          legend={t('setup.steps.mode')}
+          value={mode}
+          disabled={isCreatingSession}
+          selectionIndicator={
+            <LearningIcon className="a2-check" name="check" />
+          }
+          options={modes
+            .filter((option) => !option.requiresLogin)
+            .concat(modes.filter((option) => option.requiresLogin))
+            .map((option) => {
+              const disabled =
+                !isReady || (option.requiresLogin && role === 'GUEST')
+              return {
+                value: option.value,
+                label: t(`setup.modes.${option.value}.label`),
+                description: (
+                  <>
+                    {t(`setup.modes.${option.value}.description`)}
+                    {disabled ? (
+                      <span className="block">{t('setup.loginRequired')}</span>
+                    ) : null}
+                  </>
+                ),
+                disabled
+              }
+            })}
+          onValueChange={(option) => {
+            createSession.reset()
+            updateSearchParam('mode', option, 'RANDOM')
+          }}
+        />
+
+        {isProtectedGuestMode ? (
+          <div
+            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+            role="alert"
+          >
+            {t('setup.protectedMode')}{' '}
+            <Link
+              className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
+              to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+            >
+              {t('setup.login')}
+            </Link>
+          </div>
+        ) : null}
+
+        {noEligibleQuestions ? (
+          <div
+            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+            role="alert"
+          >
+            <p className="font-bold">
+              {t('setup.noEligibleTitle', {
+                mode: t(`setup.modes.${mode}.label`)
+              })}
+            </p>
+            <p className="mt-1 leading-6">{t('setup.noEligibleDescription')}</p>
+            {mode !== 'RANDOM' ? (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  createSession.reset()
+                  updateSearchParam('mode', 'RANDOM', 'RANDOM')
+                }}
+              >
+                {t('setup.selectRandom')}
+              </Button>
+            ) : null}
+          </div>
+        ) : createSession.isError &&
+          !isAuthTransitionSupersededError(createSession.error) ? (
+          <div
+            className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+            role="alert"
+          >
+            {t('setup.createError')}
+          </div>
+        ) : null}
+
+        <div className="practice-start-summary">
+          <p className="practice-selection-summary" aria-live="polite">
+            {level} {subjectLabel} ·{' '}
+            {t('setup.questionCount', { formattedCount: formatCount(count) })}
+          </p>
+          <p className="text-sm text-muted">
+            {t('setup.authorityNote')}
+            {role === 'GUEST' ? (
+              <>
+                {' '}
+                <Link
+                  className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+                  to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+                >
+                  {t('setup.login')}
+                </Link>
+              </>
+            ) : null}
+          </p>
+          <Button
+            className="a2-start-button shrink-0"
+            aria-label={
+              isCreatingSession ? homeT('approved.loading') : startLabel
+            }
+            disabled={!isReady || isProtectedGuestMode}
+            isLoading={isCreatingSession}
+            loadingLabel={homeT('approved.loading')}
+            showLoadingIndicator={false}
+            size="lg"
+            onClick={handleStart}
+          >
+            {startLabel}
+          </Button>
+        </div>
       </div>
 
       <section
@@ -402,214 +590,6 @@ export const PracticePage = (): ReactElement => {
           </>
         )}
       </section>
-
-      <div className="mt-8 space-y-9 rounded-2xl border border-line bg-white p-5 shadow-soft sm:p-8">
-        <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">
-            {t('setup.steps.subject')}
-          </legend>
-          <div className="mt-4 a2-subjects">
-            {subjects.map((option) => (
-              <button
-                key={option}
-                className="a2-choice"
-                type="button"
-                aria-pressed={subject === option}
-                data-selected={subject === option}
-                onClick={() => {
-                  createSession.reset()
-                  updateSearchParam('subject', option, 'GRAMMAR')
-                }}
-              >
-                <LearningIcon
-                  className="a2-subject-icon"
-                  name={
-                    option === 'VOCABULARY'
-                      ? 'languages'
-                      : option === 'GRAMMAR'
-                        ? 'text-cursor-input'
-                        : 'book-open'
-                  }
-                />
-                {commonT(`taxonomy.subjects.${option}`)}
-                {subject === option ? (
-                  <LearningIcon className="a2-check" name="check" />
-                ) : null}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">
-            {t('setup.steps.level')}
-          </legend>
-          <div className="mt-4 a2-levels">
-            {levels.map((option) => (
-              <button
-                key={option}
-                className="a2-choice"
-                type="button"
-                aria-pressed={level === option}
-                data-selected={level === option}
-                onClick={() => {
-                  createSession.reset()
-                  updateSearchParam('level', option, 'N3')
-                }}
-              >
-                {option}
-                {level === option ? (
-                  <LearningIcon className="a2-check" name="check" />
-                ) : null}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">
-            {t('setup.steps.count')}
-          </legend>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {counts.map((option) => (
-              <button
-                key={option}
-                className="min-h-12 rounded-lg border border-line font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-brand data-[selected=true]:bg-brand-soft data-[selected=true]:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                type="button"
-                aria-pressed={count === option}
-                data-selected={count === option}
-                onClick={() => {
-                  createSession.reset()
-                  updateSearchParam('count', option, 10)
-                }}
-              >
-                {t('setup.questionCount', {
-                  formattedCount: formatCount(option)
-                })}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset disabled={isCreatingSession}>
-          <legend className="text-lg font-black">
-            {t('setup.steps.mode')}
-          </legend>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {modes.map((option) => {
-              const disabled =
-                !isReady || (option.requiresLogin && role === 'GUEST')
-              return (
-                <button
-                  key={option.value}
-                  className="min-h-24 rounded-xl border border-line p-4 text-left enabled:hover:border-slate-400 enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 data-[selected=true]:border-brand data-[selected=true]:bg-brand-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                  type="button"
-                  disabled={disabled}
-                  aria-pressed={mode === option.value}
-                  data-selected={mode === option.value}
-                  onClick={() => {
-                    createSession.reset()
-                    updateSearchParam('mode', option.value, 'RANDOM')
-                  }}
-                >
-                  <strong className="block">
-                    {t(`setup.modes.${option.value}.label`)}
-                  </strong>
-                  <span className="mt-1 block text-sm leading-6 text-muted">
-                    {t(`setup.modes.${option.value}.description`)}
-                  </span>
-                  {disabled ? (
-                    <span className="mt-1 block text-xs font-bold text-amber-700">
-                      {t('setup.loginRequired')}
-                    </span>
-                  ) : null}
-                </button>
-              )
-            })}
-          </div>
-        </fieldset>
-
-        {isProtectedGuestMode ? (
-          <div
-            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
-            role="alert"
-          >
-            {t('setup.protectedMode')}{' '}
-            <Link
-              className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
-              to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
-            >
-              {t('setup.login')}
-            </Link>
-          </div>
-        ) : null}
-
-        {noEligibleQuestions ? (
-          <div
-            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
-            role="alert"
-          >
-            <p className="font-bold">
-              {t('setup.noEligibleTitle', {
-                mode: t(`setup.modes.${mode}.label`)
-              })}
-            </p>
-            <p className="mt-1 leading-6">{t('setup.noEligibleDescription')}</p>
-            {mode !== 'RANDOM' ? (
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  createSession.reset()
-                  updateSearchParam('mode', 'RANDOM', 'RANDOM')
-                }}
-              >
-                {t('setup.selectRandom')}
-              </Button>
-            ) : null}
-          </div>
-        ) : createSession.isError &&
-          !isAuthTransitionSupersededError(createSession.error) ? (
-          <div
-            className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-            role="alert"
-          >
-            {t('setup.createError')}
-          </div>
-        ) : null}
-
-        <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted">
-            {t('setup.authorityNote')}
-            {role === 'GUEST' ? (
-              <>
-                {' '}
-                <Link
-                  className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-                  to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
-                >
-                  {t('setup.login')}
-                </Link>
-              </>
-            ) : null}
-          </p>
-          <Button
-            className="a2-start-button shrink-0"
-            aria-label={
-              isCreatingSession ? homeT('approved.loading') : startLabel
-            }
-            disabled={!isReady || isProtectedGuestMode}
-            isLoading={isCreatingSession}
-            loadingLabel={homeT('approved.loading')}
-            showLoadingIndicator={false}
-            size="lg"
-            onClick={handleStart}
-          >
-            {startLabel}
-          </Button>
-        </div>
-      </div>
 
       <Dialog
         open={cancelSessionId !== null}

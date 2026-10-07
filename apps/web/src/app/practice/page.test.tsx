@@ -72,14 +72,11 @@ describe('PracticePage guest mode boundary', () => {
       </QueryClientProvider>
     )
 
-    expect(await screen.findByRole('button', { name: 'N2' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(await screen.findByRole('radio', { name: 'N2' })).toBeChecked()
     expect(
       screen.getByRole('button', { name: 'N2 독해 시작' })
     ).toHaveTextContent('N2 독해 시작')
-    await interaction.click(screen.getByRole('button', { name: 'N5' }))
+    await interaction.click(screen.getByRole('radio', { name: 'N5' }))
     expect(router.state.location.search).toContain('level=N5')
     expect(router.state.location.search).toContain('subject=READING')
     expect(
@@ -88,10 +85,7 @@ describe('PracticePage guest mode boundary', () => {
 
     await act(async () => router.navigate(-1))
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'N2' })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      )
+      expect(screen.getByRole('radio', { name: 'N2' })).toBeChecked()
     )
     client.clear()
   })
@@ -348,11 +342,11 @@ describe('PracticePage guest mode boundary', () => {
       )
 
       expect(
-        await screen.findByRole('button', { name: new RegExp(`^${label}`) })
-      ).toHaveAttribute('aria-pressed', 'true')
+        await screen.findByRole('radio', { name: new RegExp(`^${label}`) })
+      ).toBeChecked()
       expect(
-        screen.getByRole('button', { name: /^랜덤 문제/u })
-      ).toHaveAttribute('aria-pressed', 'false')
+        screen.getByRole('radio', { name: /^랜덤 문제/u })
+      ).not.toBeChecked()
       expect(screen.getByRole('alert')).toHaveTextContent(
         '랜덤 문제로 바꾸지 않았습니다.'
       )

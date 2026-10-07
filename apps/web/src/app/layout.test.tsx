@@ -8,7 +8,7 @@ import { useAppStore } from '@store/index'
 
 const mocks = vi.hoisted(() => ({
   setLocale: vi.fn(),
-  role: 'GUEST' as 'GUEST' | 'USER'
+  role: 'GUEST' as 'GUEST' | 'USER' | 'ADMIN'
 }))
 vi.mock('@provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ isReady: true, role: mocks.role, user: null })
@@ -60,6 +60,44 @@ it.each(['ko', 'ja'] as const)(
     await userEvent.keyboard('{Escape}')
     expect(menu).toHaveAttribute('aria-expanded', 'false')
     expect(menu).toHaveFocus()
+  }
+)
+
+it.each(['ko', 'ja'] as const)(
+  'keeps the seven information destinations in policy/account/support order (%s)',
+  async (locale) => {
+    await appI18n.changeLanguage(locale)
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Layout />
+      </MemoryRouter>
+    )
+    const footer = screen.getByRole('contentinfo')
+    const nav = within(footer).getByRole('navigation', {
+      name: appI18n.t('common:footer.informationLabel')
+    })
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toEqual([
+      '/legal#terms',
+      '/legal#privacy',
+      '/legal#copyright',
+      '/account/data#deletion',
+      '/account/data#data-export',
+      '/support#question-report',
+      '/support#contact'
+    ])
+    expect(
+      within(footer).getByText(appI18n.t('common:footer.originalContent'), {
+        exact: false
+      })
+    ).toHaveTextContent(appI18n.t('common:footer.scope'))
+    expect(
+      screen.getByRole('main').compareDocumentPosition(footer) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   }
 )
 

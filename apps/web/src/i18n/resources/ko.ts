@@ -478,8 +478,8 @@ export const koResources = {
         paginationLabel: '이어풀기 페이지'
       },
       steps: {
-        level: '1. 급수',
-        subject: '2. 과목',
+        level: '2. 급수',
+        subject: '1. 과목',
         count: '3. 문제 수',
         mode: '4. 출제 모드'
       },

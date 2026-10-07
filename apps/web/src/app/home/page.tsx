@@ -6,6 +6,7 @@ import type { ReactElement } from 'react'
 import type { JlptLevel, QuestionSubject } from '@common/types/domain'
 import { LearningIcon } from '@app/home/LearningIcon'
 import { Button } from '@common/components/Button'
+import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
@@ -88,54 +89,43 @@ const QuickStart = (): ReactElement => {
         <h2 id="quick-start-title" className="sr-only">
           {t('quickDrill.title')}
         </h2>
-        <fieldset disabled={isCreatingSession}>
-          <legend className="mb-4 font-semibold">
-            {t('quickDrill.subjectLegend')}
-          </legend>
-          <div className="a2-subjects">
-            {subjectOptions.map((option) => (
-              <label className="a2-choice" key={option.value}>
-                <input
-                  type="radio"
-                  name="quick-subject"
-                  value={option.value}
-                  checked={subject === option.value}
-                  onChange={() => setSubject(option.value)}
-                />
+        <ChoiceRadioGroup
+          name="quick-subject"
+          legend={t('quickDrill.subjectLegend')}
+          value={subject}
+          disabled={isCreatingSession}
+          onValueChange={setSubject}
+          selectionIndicator={
+            <LearningIcon className="a2-check" name="check" />
+          }
+          options={subjectOptions.map((option) => ({
+            value: option.value,
+            label: (
+              <>
                 <LearningIcon
                   className="a2-subject-icon"
                   name={subjectIcon[option.value]}
                 />
                 <span>{option.label}</span>
-                {subject === option.value ? (
-                  <LearningIcon className="a2-check" name="check" />
-                ) : null}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="mt-9" disabled={isCreatingSession}>
-          <legend className="mb-4 font-semibold">
-            {t('quickDrill.levelLegend')}
-          </legend>
-          <div className="a2-levels">
-            {levelOptions.map((option) => (
-              <label className="a2-choice" key={option}>
-                <input
-                  type="radio"
-                  name="quick-level"
-                  value={option}
-                  checked={level === option}
-                  onChange={() => setLevel(option)}
-                />
-                <span>{option}</span>
-                {level === option ? (
-                  <LearningIcon className="a2-check" name="check" />
-                ) : null}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+              </>
+            )
+          }))}
+        />
+        <ChoiceRadioGroup
+          className="choice-levels"
+          name="quick-level"
+          legend={t('quickDrill.levelLegend')}
+          value={level}
+          disabled={isCreatingSession}
+          onValueChange={setLevel}
+          selectionIndicator={
+            <LearningIcon className="a2-check" name="check" />
+          }
+          options={levelOptions.map((option) => ({
+            value: option,
+            label: option
+          }))}
+        />
       </div>
       <div className="a2-summary">
         <p className="sr-only">{t('approved.selected')}</p>
