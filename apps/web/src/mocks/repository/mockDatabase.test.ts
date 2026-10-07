@@ -29,7 +29,7 @@ import {
   type MockStorage,
   type SubmitCanonicalStudySessionInput
 } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 
 const FIXED_NOW = '2026-08-09T12:00:00.000Z'
 

@@ -17,7 +17,7 @@ import type {
   MockCanonicalSubmissionOperations,
   MockStudySessionSnapshotRecord
 } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 
 const STUDY_SUBMISSION_CANONICAL_PREFIX = 'submit-v1:'
 const STUDY_SUBMISSION_V2_CANONICAL_PREFIX = 'submit-v2:'

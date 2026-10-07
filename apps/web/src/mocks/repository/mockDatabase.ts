@@ -89,7 +89,7 @@ import {
   runWithPhase7BrowserMutationLease
 } from '@mocks/repository/phase7MutationCoordinator'
 import { addDaysToIso, toDateKey } from '@util/date'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 import {
   createSeededRandom,
   seededShuffle,
@@ -103,12 +103,12 @@ import {
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@mocks/adapters/studyCandidateSelection'
-import { calculateStudyResult } from '@util/study'
+import { calculateStudyResult } from '@mocks/logic/study'
 import {
   createWrongNoteFromIncorrectAnswer,
   updateWrongNoteAfterCorrectReview,
   updateWrongNoteAfterIncorrectAnswer
-} from '@util/wrongNote'
+} from '@mocks/logic/wrongNote'
 
 const RECENT_SESSION_LIMIT = 5
 const REPEATED_WRONG_LIMIT = 5

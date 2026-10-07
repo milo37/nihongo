@@ -21,7 +21,7 @@ import type {
   MockCanonicalDashboardSessionRecord,
   MockCanonicalWrongNoteRecord
 } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 
 const sourceQuestion = originalQuestions[0]
 if (!sourceQuestion) {

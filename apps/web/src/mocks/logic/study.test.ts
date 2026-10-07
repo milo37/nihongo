@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { originalQuestions } from '@mocks/data/questions'
-import { calculateStudyResult, StudyResultCalculationError } from '@util/study'
+import {
+  calculateStudyResult,
+  StudyResultCalculationError
+} from '@mocks/logic/study'
 
 const getCorrectOptionId = (questionIndex: number): string => {
   const option = originalQuestions[questionIndex].options.find(

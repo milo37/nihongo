@@ -75,7 +75,7 @@ import {
   toContractPracticeQuestion
 } from '@mocks/adapters/questionContractAdapter'
 import type { MockCanonicalAdminQuestionSource } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 
 const CREATE_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',

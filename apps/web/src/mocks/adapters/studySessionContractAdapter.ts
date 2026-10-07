@@ -9,7 +9,7 @@ import {
   toStableMockUuid
 } from '@mocks/adapters/questionContractAdapter'
 import type { MockStudySessionSnapshotRecord } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 
 const STUDY_SESSION_TTL_MS = 24 * 60 * 60 * 1_000
 

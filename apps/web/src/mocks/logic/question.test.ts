@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { originalQuestions } from '@mocks/data/questions'
-import { toPracticeQuestion } from '@util/question'
+import { toPracticeQuestion } from '@mocks/logic/question'
 
 describe('toPracticeQuestion', () => {
   it('정답, 해설, 관리자 상태를 공개 모델에서 제거한다', () => {

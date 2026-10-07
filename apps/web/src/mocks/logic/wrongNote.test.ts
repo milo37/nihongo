@@ -3,7 +3,7 @@ import {
   createWrongNoteFromIncorrectAnswer,
   updateWrongNoteAfterCorrectReview,
   updateWrongNoteAfterIncorrectAnswer
-} from '@util/wrongNote'
+} from '@mocks/logic/wrongNote'
 
 const FIRST_WRONG_AT = '2026-08-01T00:00:00.000Z'
 const FIRST_REVIEW_AT = '2026-08-02T00:00:00.000Z'

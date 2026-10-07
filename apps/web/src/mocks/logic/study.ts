@@ -4,7 +4,7 @@ import type {
   StudyResult,
   StudyResultItem
 } from '@common/types/domain'
-import { getCorrectOption, toPracticeQuestion } from '@util/question'
+import { getCorrectOption, toPracticeQuestion } from '@mocks/logic/question'
 
 export type StudyResultErrorCode =
   | 'DUPLICATE_ANSWER'
