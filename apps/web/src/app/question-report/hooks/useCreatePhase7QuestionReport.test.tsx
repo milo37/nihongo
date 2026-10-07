@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/phase7'
 import { useCreatePhase7QuestionReport } from '@app/question-report/hooks/useCreatePhase7QuestionReport'
+import { analyticsClient } from '@/analytics/client'
 import { AuthTransitionSupersededError } from '@libs/authTransitionFence'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@store/index'
@@ -29,6 +30,69 @@ const reportResult = createQuestionReportResponseSchema.parse({
 })
 
 describe('question report mutation settlement fence', () => {
+  it('waits for all report caches before publishing successful settlement', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } }
+    })
+    const wrapper = ({ children }: { readonly children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    useAppStore.getState().setCurrentUser(mockDatabase.loginAs('USER'))
+    createQuestionReport.mockResolvedValueOnce(reportResult)
+    const analytics = vi.spyOn(analyticsClient, 'track')
+    const releaseInvalidations: (() => void)[] = []
+    const invalidation = vi
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockImplementation(
+        () => new Promise<void>((resolve) => releaseInvalidations.push(resolve))
+      )
+    const callback = vi.fn()
+    const { result } = renderHook(
+      () => useCreatePhase7QuestionReport(callback),
+      { wrapper }
+    )
+
+    let reportPromise!: Promise<unknown>
+    act(() => {
+      reportPromise = result.current.mutateAsync({
+        questionId: reportResult.questionId,
+        request: {
+          questionVersionId: reportResult.questionVersionId,
+          reason: 'OTHER',
+          description: 'Cache settlement regression.'
+        }
+      })
+    })
+    await waitFor(() => expect(invalidation).toHaveBeenCalledTimes(4))
+    expect(
+      invalidation.mock.calls.map(([filters]) => filters?.queryKey)
+    ).toEqual([
+      ['phase7-admin', 'questions', 'list'],
+      ['phase7-admin', 'questions', 'detail', reportResult.questionId],
+      ['phase7-admin', 'question-reports', 'list'],
+      ['phase7-admin', 'question-reports', 'detail', reportResult.id]
+    ])
+    expect(callback).not.toHaveBeenCalled()
+    expect(analytics).not.toHaveBeenCalled()
+
+    await act(async () => {
+      releaseInvalidations.slice(0, 3).forEach((release) => release())
+      await Promise.resolve()
+    })
+    expect(callback).not.toHaveBeenCalled()
+    expect(analytics).not.toHaveBeenCalled()
+
+    await act(async () => {
+      releaseInvalidations[3]?.()
+      await reportPromise
+    })
+    expect(callback).toHaveBeenCalledTimes(1)
+    expect(analytics).toHaveBeenCalledExactlyOnceWith({
+      event: 'question_reported',
+      payload: { reason: 'OTHER' }
+    })
+  })
+
   it('suppresses the success callback after a same-epoch actor change', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { mutations: { retry: false }, queries: { retry: false } }

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/phase7'
-import { adminReportReasonKey } from '@app/admin/presentation/adminPresentation'
-import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import {
+  questionReportReasonKey as adminReportReasonKey,
+  useQuestionReportPresentation as useAdminPresentation
+} from '@app/content-operations/reports/questionReportPublic'
 import { isPhase7UiApiError } from '@libs/apiError'
 import { useCreatePhase7QuestionReport } from '@app/question-report/hooks/useCreatePhase7QuestionReport'
 import { Button } from '@common/components/Button'

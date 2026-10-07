@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/phase7'
 import { createPhase7QuestionReport } from '@api/phase7/phase7AdminApi'
-import { invalidatePhase7AdminMutation } from '@app/admin-question/queries/phase7AdminInvalidation'
+import { invalidateCreatedQuestionReport as invalidatePhase7AdminMutation } from '@app/content-operations/reports/questionReportPublic'
 import {
   AuthTransitionSupersededError,
   assertCurrentAuthActorTransitionFence,
