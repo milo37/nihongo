@@ -23,12 +23,12 @@ import {
 } from '@app/admin/presentation/adminPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
-  isPhase7UiApiError,
   usePhase7AdminQuestionCommand,
   useUpdatePhase7AdminQuestionVersion,
   type Phase7AdminQuestionCommand,
   type Phase7AdminQuestionCommandInput
 } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { isPhase7UiApiError } from '@libs/apiError'
 import {
   usePhase7AdminQuestionDetail,
   usePhase7AdminQuestionDiff,

@@ -39,26 +39,6 @@ import {
 } from '@libs/authTransitionFence'
 import { useAppStore } from '@store/index'
 
-export interface Phase7UiApiError extends Error {
-  readonly code?: string
-  readonly fieldErrors?: Record<string, string[]>
-  readonly isOffline?: boolean
-  readonly requestId?: string
-  readonly retryAfterMs?: number
-  readonly serverMessage?: string
-  readonly status?: number
-}
-
-export const isPhase7UiApiError = (error: unknown): error is Phase7UiApiError =>
-  error instanceof Error &&
-  ('code' in error ||
-    'fieldErrors' in error ||
-    'isOffline' in error ||
-    'requestId' in error ||
-    'retryAfterMs' in error ||
-    'serverMessage' in error ||
-    'status' in error)
-
 const captureAdminMutationFence = (): AuthActorTransitionFence => {
   const actor = useAppStore.getState().currentUser
   if (actor?.role !== 'ADMIN') throw new AuthTransitionSupersededError()

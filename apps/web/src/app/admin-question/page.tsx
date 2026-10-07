@@ -18,10 +18,10 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 import { FreshAssuranceDialog } from '@app/admin-question/components/FreshAssuranceDialog'
 import { useFreshAssurance } from '@app/admin-question/hooks/useFreshAssurance'
 import {
-  isPhase7UiApiError,
   usePhase7AdminExport,
   usePhase7ContentReviewBatch
 } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { isPhase7UiApiError } from '@libs/apiError'
 import { usePhase7AdminQuestionList } from '@app/admin-question/hooks/usePhase7AdminQueries'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'

@@ -6,10 +6,8 @@ import {
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/phase7'
 import { Phase7QuestionEditor } from '@app/admin-question/components/Phase7QuestionEditor'
-import {
-  isPhase7UiApiError,
-  useCreatePhase7AdminQuestion
-} from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { useCreatePhase7AdminQuestion } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { isPhase7UiApiError } from '@libs/apiError'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const CreateAdminQuestionPage = (): ReactElement => {

@@ -10,10 +10,10 @@ import { FreshAssuranceDialog } from '@app/admin-question/components/FreshAssura
 import { adminImportIssueCodeKey } from '@app/admin/presentation/adminPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
-  isPhase7UiApiError,
   useApplyPhase7QuestionImport,
   useValidatePhase7QuestionImport
 } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { isPhase7UiApiError } from '@libs/apiError'
 import { useFreshAssurance } from '@app/admin-question/hooks/useFreshAssurance'
 import { Button } from '@common/components/Button'
 import { ErrorState } from '@common/components/ErrorState'

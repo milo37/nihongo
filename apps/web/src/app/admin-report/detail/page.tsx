@@ -12,10 +12,10 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 import { FreshAssuranceDialog } from '@app/admin-question/components/FreshAssuranceDialog'
 import { useFreshAssurance } from '@app/admin-question/hooks/useFreshAssurance'
 import {
-  isPhase7UiApiError,
   useResolvePhase7AdminQuestionReport,
   useTriagePhase7AdminQuestionReport
 } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import { isPhase7UiApiError } from '@libs/apiError'
 import { usePhase7AdminQuestionReportDetail } from '@app/admin-question/hooks/usePhase7AdminQueries'
 import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
