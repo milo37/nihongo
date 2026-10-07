@@ -177,16 +177,15 @@ describe('study session create intent lock', () => {
 
     expect(screen.getByRole('button', { name: '불러오는 중' })).toBeDisabled()
     for (const name of ['N5', '문자·어휘', '5문제']) {
-      expect(screen.getByRole('button', { name })).toBeDisabled()
+      expect(screen.getByRole('radio', { name })).toBeDisabled()
     }
-    expect(screen.getByRole('button', { name: /^랜덤 문제/ })).toBeDisabled()
-    await user.click(screen.getByRole('button', { name: 'N5' }))
-    await user.click(screen.getByRole('button', { name: '문자·어휘' }))
-    await user.click(screen.getByRole('button', { name: '5문제' }))
-    expect(screen.getByRole('button', { name: 'N3' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(screen.getByRole('radio', { name: /^랜덤 문제/ })).toBeDisabled()
+    await user.click(screen.getByRole('radio', { name: 'N5' }))
+    await user.click(screen.getByRole('radio', { name: '문자·어휘' }))
+    await user.click(screen.getByRole('radio', { name: '5문제' }))
+    for (const name of ['N3', '문법', '10문제', /^랜덤 문제/]) {
+      expect(screen.getByRole('radio', { name })).toBeChecked()
+    }
     expect(requestCount).toBe(1)
 
     releaseResponse?.()

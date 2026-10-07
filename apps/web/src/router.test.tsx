@@ -252,7 +252,11 @@ describe('application router boundaries', () => {
     await user.tab()
 
     expect(menuButton).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByRole('button', { name: '문자·어휘' })).toHaveFocus()
+    const selectedSubject = screen.getByRole('radio', { name: '문법' })
+    expect(selectedSubject).toBeChecked()
+    expect(selectedSubject).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole('radio', { name: 'N3' })).toHaveFocus()
   })
 
   it.each([
