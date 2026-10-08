@@ -99,23 +99,39 @@ test('public KO/JA operations foundation exposes all seven truthful surfaces', (
   const router = read('apps/web/src/app/operations/router.tsx')
   const page = read('apps/web/src/app/operations/page.tsx')
   const layout = read('apps/web/src/app/layout.tsx')
+  const footer = read('apps/web/src/common/components/InformationFooter.tsx')
   const ko = read('apps/web/src/i18n/resources/ko.ts')
   const ja = read('apps/web/src/i18n/resources/ja.ts')
+  const destinations = [
+    '/legal#terms',
+    '/legal#privacy',
+    '/legal#copyright',
+    '/account/data#deletion',
+    '/account/data#data-export',
+    '/support#question-report',
+    '/support#contact'
+  ]
+  const footerDestinations = Array.from(
+    footer.matchAll(/\bto:\s*'([^']+)'/gu),
+    (match) => match[1]
+  )
 
   for (const path of ['legal', 'account/data', 'support']) {
     assert.match(router, new RegExp(`path: '${path.replace('/', '\\/')}'`, 'u'))
   }
-  for (const anchor of [
-    '#terms',
-    '#privacy',
-    '#copyright',
-    '#deletion',
-    '#data-export',
-    '#question-report',
-    '#contact'
-  ]) {
+  assert.match(
+    layout,
+    /import\s+\{\s*InformationFooter\s*\}\s+from\s+'@common\/components\/InformationFooter'/u
+  )
+  assert.match(layout, /<InformationFooter\b[^>]*\/>/u)
+  assert.match(footer, /groups\.map\(/u)
+  assert.match(footer, /group\.map\(\(\{\s*to,\s*key\s*\}\)\s*=>/u)
+  assert.match(footer, /<Link\s+to=\{to\}/u)
+  assert.deepEqual(footerDestinations.toSorted(), destinations.toSorted())
+  for (const destination of destinations) {
+    const anchor = destination.slice(destination.indexOf('#'))
+    assert.equal(page.includes(destination), true, destination)
     assert.equal(page.includes(anchor), true, anchor)
-    assert.equal(layout.includes(anchor), true, anchor)
   }
   assert.match(ko, /미정:/u)
   assert.match(ja, /未定:/u)
