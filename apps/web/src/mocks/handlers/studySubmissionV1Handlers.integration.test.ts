@@ -100,7 +100,9 @@ const getCanonicalResult = (
 const getSourceQuestion = (question: CanonicalQuestion) => {
   const sourceQuestionId = getSourceQuestionId(
     question.question.id,
-    mockDatabase.listAdminQuestions({ pageSize: 100 }).items
+    mockDatabase
+      .listAdminQuestions({ pageSize: 100 })
+      .items.map(({ id }) => mockDatabase.getAdminQuestion(id))
   )
   if (!sourceQuestionId) {
     throw new Error('contract 문제에 대응하는 source 문제가 필요합니다.')
@@ -203,6 +205,73 @@ const withoutRequestId = (failure: {
 })
 
 describe('canonical study submission/result v1 MSW integration', () => {
+  it('원래 독해와 실제 UUID 승인 독해를 함께 제출해 같은 원본 기준으로 채점한다', async () => {
+    const created = await createCanonicalSession({
+      level: 'N5',
+      subject: 'READING',
+      mode: 'RANDOM',
+      count: 20
+    })
+    const cookie = requireGuestCookie(created.cookie)
+
+    expect(created.response.status).toBe(201)
+    expect(created.payload.session.actualCount).toBe(6)
+    for (const questionId of [
+      '510cf3fc-e5c7-41c4-b188-ce0b557a5be1',
+      '934f1ef1-99d7-4f07-a369-0771a97bf134',
+      'fadef91c-4e79-4bae-bb5b-9f35e64950bf'
+    ]) {
+      expect(
+        created.payload.questions.map(({ question }) => question.id)
+      ).toContain(questionId)
+    }
+    expect(
+      created.payload.questions
+        .map((question) => getSourceQuestion(question).id)
+        .toSorted()
+    ).toEqual([
+      'n5-reading-01',
+      'n5-reading-02',
+      'n5-reading-03',
+      'n5-reading-04',
+      'n5-reading-05',
+      'n5-reading-06'
+    ])
+    for (const { question } of created.payload.questions) {
+      expect(question).not.toHaveProperty('correctOptionId')
+      expect(question).not.toHaveProperty('explanationKo')
+      expect(question).not.toHaveProperty('explanationJa')
+      for (const option of question.options) {
+        expect(option).not.toHaveProperty('isCorrect')
+      }
+    }
+
+    const response = await submitCanonicalSession(
+      created.payload.session.id,
+      crypto.randomUUID(),
+      {
+        answers: created.payload.questions.map((question) =>
+          toAnswer(question, getCorrectOptionId(question), 1)
+        ),
+        durationSec: 6
+      },
+      cookie
+    )
+    const result = submitStudySessionResponseSchema.parse(await response.json())
+
+    expect(response.status).toBe(201)
+    expect(result).toMatchObject({
+      sessionId: created.payload.session.id,
+      totalCount: 6,
+      correctCount: 6,
+      incorrectCount: 0
+    })
+    expect(result.items.every(({ isCorrect }) => isCorrect)).toBe(true)
+    expect(result.items.map(({ question }) => question.id)).toEqual(
+      created.payload.questions.map(({ question }) => question.id)
+    )
+  })
+
   it('full answer/null을 서버 채점하고 same-key reorder replay와 reload를 동일 결과로 고정한다', async () => {
     const created = await createCanonicalSession({
       level: 'N5',

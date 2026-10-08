@@ -259,45 +259,56 @@ describe('canonical study session v1 MSW integration', () => {
     expect(fetched.payload).toEqual(created.payload)
   })
 
-  it('세션 생성 당시 full question snapshot을 수정·삭제 뒤에도 고정한다', async () => {
-    const createdResult = await postCanonicalSession({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
-    const created = createdResult.payload
-    const guestCookie = requireGuestCookie(createdResult.guestCookie)
-    const contractQuestionId = created.questions[0]?.question.id
+  it.each(['VOCABULARY', 'READING'] as const)(
+    '세션 생성 당시 %s full question snapshot을 수정·삭제 뒤에도 고정한다',
+    async (subject) => {
+      const createdResult = await postCanonicalSession({
+        level: 'N5',
+        subject,
+        mode: 'RANDOM',
+        count: subject === 'READING' ? 20 : 1
+      })
+      const created = createdResult.payload
+      const guestCookie = requireGuestCookie(createdResult.guestCookie)
+      const contractQuestionId =
+        subject === 'READING'
+          ? created.questions.find(
+              ({ question }) =>
+                question.id === '510cf3fc-e5c7-41c4-b188-ce0b557a5be1'
+            )?.question.id
+          : created.questions[0]?.question.id
 
-    if (!contractQuestionId) {
-      throw new Error('테스트 세션에 문제가 필요합니다.')
+      if (!contractQuestionId) {
+        throw new Error('테스트 세션에 문제가 필요합니다.')
+      }
+
+      const sourceQuestionId = getSourceQuestionId(
+        contractQuestionId,
+        mockDatabase
+          .listAdminQuestions({ pageSize: 100 })
+          .items.map(({ id }) => mockDatabase.getAdminQuestion(id))
+      )
+
+      if (!sourceQuestionId) {
+        throw new Error('contract 문제에 대응하는 source 문제가 필요합니다.')
+      }
+
+      const source = mockDatabase.getAdminQuestion(sourceQuestionId)
+      mockDatabase.updateQuestion(source.id, {
+        ...toAdminInput(source),
+        questionText: `${source.questionText} 수정`,
+        explanationKo: `${source.explanationKo} 수정`
+      })
+      mockDatabase.deleteQuestion(source.id)
+
+      const { payload: fetched } = await getCanonicalSession(
+        created.session.id,
+        guestCookie
+      )
+
+      expect(fetched).toEqual(created)
     }
-
-    const sourceQuestionId = getSourceQuestionId(
-      contractQuestionId,
-      mockDatabase.listAdminQuestions({ pageSize: 100 }).items
-    )
-
-    if (!sourceQuestionId) {
-      throw new Error('contract 문제에 대응하는 source 문제가 필요합니다.')
-    }
-
-    const source = mockDatabase.getAdminQuestion(sourceQuestionId)
-    mockDatabase.updateQuestion(source.id, {
-      ...toAdminInput(source),
-      questionText: `${source.questionText} 수정`,
-      explanationKo: `${source.explanationKo} 수정`
-    })
-    mockDatabase.deleteQuestion(source.id)
-
-    const { payload: fetched } = await getCanonicalSession(
-      created.session.id,
-      guestCookie
-    )
-
-    expect(fetched).toEqual(created)
-  })
+  )
 
   it('persisted full snapshot을 새 MockDatabase 인스턴스에서 동일하게 복구한다', async () => {
     const createdResult = await postCanonicalSession({
