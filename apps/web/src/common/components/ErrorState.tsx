@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@common/components/Button'
 import { classNames } from '@common/components/classNames'
@@ -21,9 +22,10 @@ export const ErrorState = ({
   description,
   headingLevel = 2,
   onRetry,
-  retryLabel = '다시 시도',
-  title = '요청을 완료하지 못했습니다'
+  retryLabel,
+  title
 }: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation('common')
   const Heading = headingLevel === 1 ? 'h1' : headingLevel === 2 ? 'h2' : 'h3'
   const headingRef = useRef<HTMLHeadingElement>(null)
   const titleId = useId()
@@ -37,7 +39,7 @@ export const ErrorState = ({
   return (
     <section
       className={classNames(
-        'rounded-xl border border-red-200 bg-red-50 px-5 py-6 text-red-950',
+        'rounded-card border border-danger/25 bg-danger-soft px-5 py-6 text-danger-strong',
         className
       )}
       role="alert"
@@ -49,12 +51,14 @@ export const ErrorState = ({
         id={titleId}
         tabIndex={autoFocus ? -1 : undefined}
       >
-        {title}
+        {title ?? t('state.requestFailed')}
       </Heading>
-      <p className="mt-2 break-words leading-7 text-red-900">{description}</p>
+      <p className="mt-2 break-words leading-7 text-danger-strong">
+        {description}
+      </p>
       {onRetry ? (
         <Button className="mt-5" variant="danger" onClick={onRetry}>
-          {retryLabel}
+          {retryLabel ?? t('actions.retry')}
         </Button>
       ) : null}
       {action ? <div className="mt-5">{action}</div> : null}

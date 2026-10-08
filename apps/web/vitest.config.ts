@@ -1,13 +1,22 @@
 import { mergeConfig } from 'vite'
 import { defineConfig } from 'vitest/config'
-import viteConfig from './vite.config.ts'
+import { sharedViteConfig } from './vite.config.ts'
 
 export default mergeConfig(
-  viteConfig,
+  sharedViteConfig,
   defineConfig({
+    define: {
+      __NIHONGO_API_MODE__: JSON.stringify('mock'),
+      __NIHONGO_PRODUCTION_BUILD__: JSON.stringify(false),
+      __NIHONGO_RELEASE_ID__: JSON.stringify(
+        '0000000000000000000000000000000000000000'
+      )
+    },
     test: {
       environment: 'jsdom',
       globals: true,
+      include: ['src/**/*.test.{ts,tsx}'],
+      maxWorkers: 4,
       setupFiles: ['./src/test/setup.ts'],
       css: true,
       restoreMocks: true

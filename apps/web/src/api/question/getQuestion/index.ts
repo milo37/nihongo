@@ -12,5 +12,5 @@ export const getQuestion = (
 ): Promise<GetQuestionResponse> => {
   const request = getQuestionRequestSchema.parse({ questionId })
 
-  return requestQuestion(`/question/${request.questionId}`)
+  return requestQuestion(`/v1/questions/${request.questionId}`)
 }

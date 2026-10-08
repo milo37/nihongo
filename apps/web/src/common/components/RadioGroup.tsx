@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -38,6 +39,7 @@ export const RadioGroup = ({
   required = false,
   value
 }: RadioGroupProps): ReactElement => {
+  const { t } = useTranslation('common')
   const generatedId = useId()
   const hintId = hint ? `${name}-${generatedId}-hint` : undefined
   const errorId = error ? `${name}-${generatedId}-error` : undefined
@@ -52,7 +54,9 @@ export const RadioGroup = ({
     >
       <legend className="text-sm font-semibold text-ink">
         {legend}
-        {required ? <span className="ml-1 text-red-700">(필수)</span> : null}
+        {required ? (
+          <span className="ml-1 text-danger">{t('required')}</span>
+        ) : null}
       </legend>
       <div
         className={classNames(
@@ -71,19 +75,19 @@ export const RadioGroup = ({
           return (
             <label
               className={classNames(
-                'group flex min-h-12 min-w-0 cursor-pointer items-start gap-3 rounded-lg border bg-white px-3 py-3',
+                'group flex min-h-12 min-w-0 cursor-pointer items-start gap-3 rounded-control border bg-surface px-3 py-3',
                 'touch-manipulation transition-[background-color,border-color,box-shadow] duration-150',
-                'hover:border-slate-400 hover:bg-slate-50',
-                'focus-within:border-brand focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand',
-                'has-[:checked]:border-brand has-[:checked]:bg-emerald-50',
-                'has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-slate-100 has-[:disabled]:opacity-60',
-                error ? 'border-red-300' : 'border-line'
+                'hover:border-line-strong hover:bg-surface-muted',
+                'focus-within:border-brand focus-within:outline focus-within:outline-focus focus-within:outline-offset-focus focus-within:outline-brand',
+                'has-[:checked]:border-brand has-[:checked]:bg-brand-soft',
+                'has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-surface-muted has-[:disabled]:opacity-60',
+                error ? 'border-line-invalid' : 'border-line'
               )}
               key={option.value}
               htmlFor={optionId}
             >
               <input
-                className="mt-0.5 size-5 shrink-0 accent-emerald-700"
+                className="mt-0.5 size-5 shrink-0 accent-brand"
                 id={optionId}
                 type="radio"
                 name={name}
@@ -114,7 +118,7 @@ export const RadioGroup = ({
       ) : null}
       {error ? (
         <p
-          className="text-sm font-medium text-red-700"
+          className="text-sm font-medium text-danger"
           id={errorId}
           role="alert"
         >

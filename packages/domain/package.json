@@ -1,0 +1,77 @@
+{
+  "name": "@nihongo/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./dashboard/calculate-dashboard-insights": {
+      "types": "./dist/dashboard/calculate-dashboard-insights.d.ts",
+      "import": "./dist/dashboard/calculate-dashboard-insights.js"
+    },
+    "./content/validators/v1/canonical-json": {
+      "types": "./dist/content/validators/v1/canonical-json.d.ts",
+      "import": "./dist/content/validators/v1/canonical-json.js"
+    },
+    "./content/validators/v1/coverage": {
+      "types": "./dist/content/validators/v1/coverage.d.ts",
+      "import": "./dist/content/validators/v1/coverage.js"
+    },
+    "./content/validators/v1/duplicates": {
+      "types": "./dist/content/validators/v1/duplicates.d.ts",
+      "import": "./dist/content/validators/v1/duplicates.js"
+    },
+    "./content/validators/v1/question-content": {
+      "types": "./dist/content/validators/v1/question-content.d.ts",
+      "import": "./dist/content/validators/v1/question-content.js"
+    },
+    "./content/validators/v1/release-hash": {
+      "types": "./dist/content/validators/v1/release-hash.d.ts",
+      "import": "./dist/content/validators/v1/release-hash.js"
+    },
+    "./content/validators/v1/types": {
+      "types": "./dist/content/validators/v1/types.d.ts",
+      "import": "./dist/content/validators/v1/types.js"
+    },
+    "./content/validators/v1/unicode": {
+      "types": "./dist/content/validators/v1/unicode.d.ts",
+      "import": "./dist/content/validators/v1/unicode.js"
+    },
+    "./grading/grade-study-submission": {
+      "types": "./dist/grading/grade-study-submission.d.ts",
+      "import": "./dist/grading/grade-study-submission.js"
+    },
+    "./review/apply-wrong-note-review": {
+      "types": "./dist/review/apply-wrong-note-review.d.ts",
+      "import": "./dist/review/apply-wrong-note-review.js"
+    },
+    "./review/reconcile-wrong-note-review": {
+      "types": "./dist/review/reconcile-wrong-note-review.d.ts",
+      "import": "./dist/review/reconcile-wrong-note-review.js"
+    },
+    "./selection/select-study-candidates": {
+      "types": "./dist/selection/select-study-candidates.d.ts",
+      "import": "./dist/selection/select-study-candidates.js"
+    },
+    "./selection/select-result-retry-candidates": {
+      "types": "./dist/selection/select-result-retry-candidates.d.ts",
+      "import": "./dist/selection/select-result-retry-candidates.js"
+    },
+    "./submission/canonicalize-study-submission": {
+      "types": "./dist/submission/canonicalize-study-submission.d.ts",
+      "import": "./dist/submission/canonicalize-study-submission.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vitest": "4.1.11"
+  }
+}

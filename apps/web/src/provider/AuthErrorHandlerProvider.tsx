@@ -1,21 +1,43 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
 import { isApiError } from '@api/config'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { subscribeApiError } from '@libs/errorBus'
+import { getRouteLabelKey } from '@/i18n/routePresentation'
+import { frontendErrorReporter } from '@/observability/frontendErrorReporter'
 
 type BannerKind = 'error' | 'offline' | 'restored'
+type BannerMessageKey =
+  | 'banner.offline'
+  | 'banner.restored'
+  | 'banner.generic'
+  | 'banner.network'
+  | 'banner.response'
+  | 'banner.validation'
+  | 'banner.server'
+
+const toStatusClass = (
+  status: number | undefined
+): '1xx' | '2xx' | '3xx' | '4xx' | '5xx' | undefined => {
+  if (status === undefined) return undefined
+  if (status >= 100 && status < 200) return '1xx'
+  if (status >= 200 && status < 300) return '2xx'
+  if (status >= 300 && status < 400) return '3xx'
+  if (status >= 400 && status < 500) return '4xx'
+  return '5xx'
+}
 
 interface StatusBanner {
   kind: BannerKind
-  message: string
+  messageKey: BannerMessageKey
 }
 
 const offlineBanner: StatusBanner = {
   kind: 'offline',
-  message: '오프라인 상태입니다. 네트워크 연결을 확인해 주세요.'
+  messageKey: 'banner.offline'
 }
 
 const getInitialBanner = (): StatusBanner | null => {
@@ -39,6 +61,8 @@ const closeButtonClasses: Record<BannerKind, string> = {
 }
 
 export const AuthErrorHandlerProvider = (): ReactElement | null => {
+  const { t } = useTranslation('errors')
+  const { t: commonT } = useTranslation('common')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
@@ -64,8 +88,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       isOnlineRef.current = true
       setBanner({
         kind: 'restored',
-        message:
-          '네트워크 연결이 복구된 것으로 감지했습니다. 필요한 요청을 다시 시도해 주세요.'
+        messageKey: 'banner.restored'
       })
     }
 
@@ -80,14 +103,22 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   useEffect(() => {
     return subscribeApiError((error) => {
       if (!isApiError(error)) {
+        frontendErrorReporter.report({
+          source: 'UNEXPECTED_API_ERROR',
+          routeKey: getRouteLabelKey(location.pathname)
+        })
         setBanner({
           kind: 'error',
-          message: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+          messageKey: 'banner.generic'
         })
         return
       }
 
-      if (error.isAuthError) {
+      const isFreshAssuranceFlow =
+        error.code === 'FRESH_ASSURANCE_REQUIRED' ||
+        error.code === 'REAUTHENTICATION_FAILED'
+
+      if (error.isAuthError && !isFreshAssuranceFlow) {
         const redirect = encodeURIComponent(
           `${location.pathname}${location.search}`
         )
@@ -99,6 +130,17 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
             navigate(`/login?redirect=${redirect}`, { replace: true })
           }
         })
+        return
+      }
+
+      if (isFreshAssuranceFlow) {
+        return
+      }
+
+      // A valid ADMIN can receive object-level FORBIDDEN from a Phase 7
+      // command. Keep the owning screen and its draft mounted so that the
+      // command surface can render the error locally.
+      if (error.isForbiddenError && error.code === 'FORBIDDEN') {
         return
       }
 
@@ -116,18 +158,30 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       if (error.isNetworkError) {
         setBanner({
           kind: 'error',
-          message: '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.'
+          messageKey: 'banner.network'
         })
         return
       }
 
-      if (error.isValidationError) {
-        if (import.meta.env.DEV) {
-          console.error('API response validation failed', error)
-        }
+      if (error.isResponseValidationError) {
+        const statusClass = toStatusClass(error.status)
+        frontendErrorReporter.report({
+          source: 'API_RESPONSE_VALIDATION',
+          routeKey: getRouteLabelKey(location.pathname),
+          ...(error.requestId ? { requestId: error.requestId } : {}),
+          ...(statusClass ? { statusClass } : {})
+        })
         setBanner({
           kind: 'error',
-          message: '응답 형식이 올바르지 않습니다. 다시 시도해 주세요.'
+          messageKey: 'banner.response'
+        })
+        return
+      }
+
+      if (error.isServerValidationError || error.isValidationError) {
+        setBanner({
+          kind: 'error',
+          messageKey: 'banner.validation'
         })
         return
       }
@@ -135,8 +189,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       if (error.isServerError) {
         setBanner({
           kind: 'error',
-          message:
-            '서버 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+          messageKey: 'banner.server'
         })
       }
     })
@@ -153,13 +206,13 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       aria-live="polite"
       data-kind={banner.kind}
     >
-      <span>{banner.message}</span>
+      <span>{t(banner.messageKey)}</span>
       <button
         className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
         type="button"
         onClick={() => setBanner(null)}
       >
-        닫기
+        {commonT('actions.close')}
       </button>
     </div>
   )

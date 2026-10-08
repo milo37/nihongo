@@ -1,6 +1,14 @@
 node_modules
 dist
 coverage
+!content/coverage
+!content/coverage/**
 .agents
 apps/web/public/mockServiceWorker.js
 pnpm-lock.yaml
+content/policy-snapshots/
+content/policies/activations/
+content/policies/release-policy-manifest.v1.json
+content/runtime/validator-runtime-manifest.v1.json
+content/runtime/validator-source-manifest.v1.json
+content/fixtures/invalid/duplicate-key.json

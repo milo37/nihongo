@@ -7,6 +7,7 @@ import {
   clearStorageCache,
   createSplitAppStateStorage,
   PRACTICE_STORE_KEY,
+  readFreshLocalStorageItem,
   subscribeStorageChanges
 } from '@libs/storage'
 import { useAppStore } from '@store/index'
@@ -98,6 +99,20 @@ describe('storage adapters', () => {
     cachedStorage.removeItem(key)
   })
 
+  it('fresh read는 오래된 local cache를 우회하고 새 값을 cache에 반영한다', () => {
+    const key = 'storage-fresh-read-test'
+    window.localStorage.setItem(key, 'first')
+    clearStorageCache()
+    expect(cachedStorage.getItem(key)).toBe('first')
+
+    window.localStorage.setItem(key, 'second')
+    expect(cachedStorage.getItem(key)).toBe('first')
+    expect(readFreshLocalStorageItem(key)).toBe('second')
+    expect(cachedStorage.getItem(key)).toBe('second')
+
+    cachedStorage.removeItem(key)
+  })
+
   it('auth는 공유하면서 서로 다른 tab session storage의 practice를 격리한다', () => {
     const sharedAuth = createMemoryStorage()
     const tabAStorage = createMemoryStorage()
@@ -118,8 +133,12 @@ describe('storage adapters', () => {
 
     expect(tabAState.state?.sessionId).toBe('session-a')
     expect(tabBState.state?.sessionId).toBe('session-b')
-    expect(tabAState.state?.currentUser?.id).toBe('demo-user')
-    expect(tabBState.state?.currentUser?.id).toBe('demo-user')
+    expect(tabAState.state?.currentUser?.id).toBe(
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'
+    )
+    expect(tabBState.state?.currentUser?.id).toBe(
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'
+    )
   })
 
   it('v1 persist에서는 auth만 이전하고 tab 귀속이 없는 practice를 폐기한다', async () => {
@@ -144,7 +163,9 @@ describe('storage adapters', () => {
 
     await useAppStore.persist.rehydrate()
 
-    expect(useAppStore.getState().currentUser?.id).toBe('demo-user')
+    expect(useAppStore.getState().currentUser?.id).toBe(
+      '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'
+    )
     expect(useAppStore.getState().sessionId).toBeNull()
     expect(useAppStore.getState().selectedAnswers).toEqual({})
   })

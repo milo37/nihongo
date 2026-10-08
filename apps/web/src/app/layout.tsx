@@ -1,33 +1,32 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigationType
+} from 'react-router'
 import type { ReactElement } from 'react'
+import { LearningIcon } from '@app/home/LearningIcon'
+import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
+import { InformationFooter } from '@common/components/InformationFooter'
 import { LoadingState } from '@common/components/LoadingState'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
+import { getRouteLabelKey } from '@/i18n/routePresentation'
+import type { UiLocale } from '@/i18n/types'
+import { useUiLocale } from '@provider/I18nProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { useAppStore } from '@store/index'
 
 const getNavClassName = ({ isActive }: { isActive: boolean }): string => {
   return [
-    'rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
-    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-    isActive ? 'bg-emerald-50 text-brand' : 'text-slate-600 hover:text-ink'
+    'ui-primary-nav-item inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm transition-colors',
+    'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
+    isActive
+      ? 'ui-primary-nav-active bg-brand-soft text-brand font-semibold'
+      : 'text-ink font-normal'
   ].join(' ')
-}
-
-const getRouteLabel = (pathname: string): string => {
-  if (pathname === '/') return '홈'
-  if (pathname === '/login') return '데모 로그인'
-  if (pathname === '/dashboard') return '학습 대시보드'
-  if (pathname === '/practice') return '문제풀이 설정'
-  if (pathname.startsWith('/practice/session/')) return '문제풀이'
-  if (pathname.startsWith('/practice/result/')) return '학습 결과'
-  if (pathname === '/wrong-notes') return '오답노트'
-  if (pathname.startsWith('/wrong-notes/')) return '오답 상세'
-  if (pathname === '/bookmarks') return '즐겨찾기'
-  if (pathname === '/admin/questions/new') return '문제 등록'
-  if (pathname.startsWith('/admin/questions/')) return '문제 수정'
-  if (pathname === '/admin/questions') return '문제 관리'
-  if (pathname === '/forbidden') return '접근 권한 없음'
-  return '페이지'
 }
 
 const hasPageOwnedFocus = (pathname: string): boolean => {
@@ -63,16 +62,41 @@ const focusHashTarget = (hash: string): boolean => {
 }
 
 export const Layout = (): ReactElement => {
-  const { isReady, role, user } = useDemoAuth()
+  const { t: commonT } = useTranslation('common')
+  const { t: navigationT } = useTranslation('navigation')
+  const { locale } = useUiLocale()
+  const { isReady, role, user } = useAuth()
   const location = useLocation()
   const navigationType = useNavigationType()
+  const isLearningEntry =
+    location.pathname === '/' ||
+    (location.pathname === '/dashboard' &&
+      new URLSearchParams(location.search).get('view') === 'learning')
+  const isLearningSurface =
+    isLearningEntry ||
+    location.pathname.startsWith('/practice') ||
+    location.pathname.startsWith('/wrong-notes')
+  const isPracticeSurface =
+    location.pathname === '/practice' ||
+    location.pathname.startsWith('/practice/')
   const mainRef = useRef<HTMLElement>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const previousPathnameRef = useRef(location.pathname)
   const previousHashRef = useRef('')
-  const [routeAnnouncement, setRouteAnnouncement] = useState('')
+  const localeRef = useRef<UiLocale>(locale)
+  const [routeAnnouncement, setRouteAnnouncement] = useState<{
+    pathname: string
+    locale: UiLocale
+  } | null>(null)
   const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen)
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
+
+  useDocumentMetadata()
+
+  useEffect(() => {
+    localeRef.current = locale
+  }, [locale])
 
   useEffect(() => {
     const pathnameChanged = previousPathnameRef.current !== location.pathname
@@ -86,7 +110,7 @@ export const Layout = (): ReactElement => {
     }
 
     if (pathnameChanged) {
-      setRouteAnnouncement('')
+      setRouteAnnouncement(null)
     }
 
     let hashObserver: MutationObserver | undefined
@@ -106,9 +130,10 @@ export const Layout = (): ReactElement => {
 
     const timer = window.setTimeout(() => {
       if (pathnameChanged) {
-        setRouteAnnouncement(
-          `${getRouteLabel(location.pathname)} 화면으로 이동했습니다.`
-        )
+        setRouteAnnouncement({
+          pathname: location.pathname,
+          locale: localeRef.current
+        })
       }
 
       if (!location.hash) {
@@ -141,65 +166,98 @@ export const Layout = (): ReactElement => {
     }
   }, [location.hash, location.pathname, navigationType])
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') {
+        return
+      }
+      event.preventDefault()
+      setMobileMenuOpen(false)
+      mobileMenuButtonRef.current?.focus()
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isMobileMenuOpen, setMobileMenuOpen])
+
   const closeMenu = (): void => {
     setMobileMenuOpen(false)
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-ink">
+    <div
+      className={`app-shell bg-canvas text-ink ${isLearningSurface ? 'study-shell' : ''}`}
+    >
       <a
-        className="sr-only z-[100] rounded-lg bg-white px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
         href="#main-content"
       >
-        본문으로 바로가기
+        {navigationT('skipToContent')}
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+      <header className="app-shell-header">
+        <div className="app-shell-header-inner">
           <NavLink
-            className="flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+            className="app-brand flex min-h-11 min-w-0 items-center rounded-control focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
             to="/"
             onClick={closeMenu}
           >
-            <span
-              className="grid size-10 place-items-center rounded-xl bg-emerald-700 font-black text-white"
-              aria-hidden="true"
-            >
-              文
-            </span>
-            <span className="leading-tight">
+            <span className="min-w-0 leading-tight">
               <strong className="block text-base">JLPT Drill Note</strong>
-              <span className="block text-xs text-muted">
-                풀고, 남기고, 다시
-              </span>
+              <span className="sr-only">{commonT('tagline')}</span>
             </span>
           </NavLink>
 
           <button
-            className="grid min-h-11 min-w-11 place-items-center rounded-lg border border-line text-xl hover:border-slate-400 hover:bg-slate-50 md:hidden"
+            ref={mobileMenuButtonRef}
+            className="app-menu-toggle min-h-11 min-w-11 shrink-0 place-items-center rounded-control border border-line text-xl hover:border-line-strong hover:bg-surface-muted"
             type="button"
-            aria-label={isMobileMenuOpen ? '메뉴 닫기' : '메뉴 열기'}
+            aria-label={
+              isMobileMenuOpen
+                ? navigationT('menuClose')
+                : navigationT('menuOpen')
+            }
             aria-expanded={isMobileMenuOpen}
             aria-controls="primary-navigation"
             onClick={toggleMobileMenu}
           >
-            <span aria-hidden="true">{isMobileMenuOpen ? '×' : '≡'}</span>
+            <LearningIcon className="size-5" name="menu" />
           </button>
 
           <nav
             id="primary-navigation"
             className={[
-              'absolute inset-x-0 top-16 border-b border-line bg-white p-4 md:static md:block md:border-0 md:p-0',
-              isMobileMenuOpen ? 'block' : 'hidden md:block'
+              'app-primary-navigation',
+              isMobileMenuOpen ? 'is-open' : ''
             ].join(' ')}
-            aria-label="주요 메뉴"
+            aria-label={navigationT('primary')}
+            onBlur={(event) => {
+              if (
+                isMobileMenuOpen &&
+                !event.currentTarget.contains(event.relatedTarget)
+              ) {
+                setMobileMenuOpen(false)
+              }
+            }}
           >
-            <div className="mx-auto flex max-w-7xl flex-col gap-1 md:flex-row md:items-center">
+            <div className="app-navigation-items">
+              <Link
+                className={getNavClassName({ isActive: isLearningEntry })}
+                to={role === 'GUEST' ? '/' : '/dashboard?view=learning'}
+                aria-current={isLearningEntry ? 'page' : undefined}
+                onClick={closeMenu}
+              >
+                {navigationT('learningStart')}
+              </Link>
               <NavLink
                 className={getNavClassName}
                 to="/practice"
                 onClick={closeMenu}
               >
-                문제풀이
+                {navigationT('practice')}
               </NavLink>
               {role !== 'GUEST' ? (
                 <>
@@ -208,21 +266,26 @@ export const Layout = (): ReactElement => {
                     to="/wrong-notes"
                     onClick={closeMenu}
                   >
-                    오답노트
+                    {navigationT('wrongNotes')}
                   </NavLink>
                   <NavLink
                     className={getNavClassName}
                     to="/bookmarks"
                     onClick={closeMenu}
                   >
-                    즐겨찾기
+                    {navigationT('bookmarks')}
                   </NavLink>
                   <NavLink
-                    className={getNavClassName}
+                    className={({ isActive }) =>
+                      getNavClassName({
+                        isActive: isActive && !isLearningEntry
+                      })
+                    }
                     to="/dashboard"
+                    aria-current={isLearningEntry ? false : 'page'}
                     onClick={closeMenu}
                   >
-                    대시보드
+                    {navigationT('dashboard')}
                   </NavLink>
                 </>
               ) : null}
@@ -232,55 +295,59 @@ export const Layout = (): ReactElement => {
                   to="/admin/questions"
                   onClick={closeMenu}
                 >
-                  문제 관리
+                  {navigationT('adminQuestions')}
                 </NavLink>
               ) : null}
               <NavLink
-                className={getNavClassName}
+                className={({ isActive }) =>
+                  `${getNavClassName({ isActive })} min-w-0 max-w-full`
+                }
                 to="/login"
                 onClick={closeMenu}
               >
-                {user ? user.name : '데모 로그인'}
+                <span className="min-w-0 break-words md:max-w-40 md:truncate">
+                  {user ? user.name : navigationT('login')}
+                </span>
               </NavLink>
+              <LocaleSwitcher />
             </div>
           </nav>
         </div>
       </header>
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {routeAnnouncement}
+        {routeAnnouncement && routeAnnouncement.locale === locale
+          ? navigationT('routeChanged', {
+              route: navigationT(getRouteLabelKey(routeAnnouncement.pathname))
+            })
+          : ''}
       </p>
 
       <main
         ref={mainRef}
-        className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand"
+        className="focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus-inset focus-visible:outline-brand"
         id="main-content"
         tabIndex={-1}
       >
         <Suspense
           fallback={
             <div
-              className="mx-auto max-w-7xl px-4 py-16 text-center text-muted"
+              className="mx-auto max-w-content px-4 py-16 text-center text-muted"
               role="status"
             >
-              페이지를 불러오는 중입니다…
+              {commonT('loading.page')}
             </div>
           }
         >
           {isReady ? (
             <Outlet />
           ) : (
-            <LoadingState message="로그인 상태를 확인하고 있습니다…" />
+            <LoadingState message={commonT('loading.auth')} />
           )}
         </Suspense>
       </main>
 
-      <footer className="border-t border-line bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:px-6 md:flex-row md:items-center md:justify-between">
-          <p>자체 제작 문제만 사용하는 포트폴리오 프로젝트입니다.</p>
-          <p>청해·실제 JLPT 기출문제는 포함하지 않습니다.</p>
-        </div>
-      </footer>
+      <InformationFooter density={isPracticeSurface ? 'compact' : 'regular'} />
     </div>
   )
 }

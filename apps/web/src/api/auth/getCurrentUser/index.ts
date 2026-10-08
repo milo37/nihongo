@@ -5,4 +5,4 @@ import { safeGet } from '@api/http'
 const requestCurrentUser = safeGet(getCurrentUserResponseSchema)
 
 export const getCurrentUser = (): Promise<GetCurrentUserResponse> =>
-  requestCurrentUser('/auth/current-user')
+  requestCurrentUser('/v1/me')

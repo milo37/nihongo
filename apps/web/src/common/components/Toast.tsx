@@ -6,6 +6,7 @@ import {
   useMemo,
   useState
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { IconButton } from '@common/components/IconButton'
 import { classNames } from '@common/components/classNames'
@@ -48,18 +49,18 @@ type ToastProps = ToastRecord & {
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const variantClassNames: Record<ToastVariant, string> = {
-  info: 'border-blue-200 bg-blue-50 text-blue-950',
-  success: 'border-green-200 bg-green-50 text-green-950',
-  warning: 'border-amber-200 bg-amber-50 text-amber-950',
-  danger: 'border-red-200 bg-red-50 text-red-950'
+  info: 'border-info-line bg-info-soft text-info-strong',
+  success: 'border-success-line bg-success-soft text-success-strong',
+  warning: 'border-warning-line bg-warning-soft text-warning-strong',
+  danger: 'border-danger-line bg-danger-soft text-danger-strong'
 }
 
-const variantLabels: Record<ToastVariant, string> = {
-  info: '안내',
-  success: '성공',
-  warning: '주의',
-  danger: '오류'
-}
+const variantLabelKeys = {
+  info: 'toast.info',
+  success: 'toast.success',
+  warning: 'toast.warning',
+  danger: 'toast.danger'
+} as const satisfies Record<ToastVariant, string>
 
 const closeIcon = (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -89,6 +90,7 @@ export const Toast = ({
   title,
   variant = 'info'
 }: ToastProps): ReactElement => {
+  const { t } = useTranslation('common')
   const [isPaused, setIsPaused] = useState(false)
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export const Toast = ({
   return (
     <article
       className={classNames(
-        'ui-toast pointer-events-auto grid grid-cols-[1fr_auto] gap-3 rounded-xl border p-4 shadow-soft',
+        'ui-toast pointer-events-auto grid grid-cols-[1fr_auto] gap-3 rounded-card border p-4 shadow-soft',
         variantClassNames[variant]
       )}
       role="status"
@@ -128,7 +130,7 @@ export const Toast = ({
     >
       <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-wide opacity-75">
-          {variantLabels[variant]}
+          {t(variantLabelKeys[variant])}
         </p>
         <p className="mt-1 break-words font-bold">{title}</p>
         {description ? (
@@ -138,7 +140,7 @@ export const Toast = ({
         ) : null}
         {action ? (
           <button
-            className="mt-3 min-h-10 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            className="mt-3 min-h-11 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-current"
             type="button"
             onClick={action.onClick}
           >
@@ -148,7 +150,7 @@ export const Toast = ({
       </div>
       <IconButton
         className="-mr-2 -mt-2"
-        label="알림 닫기"
+        label={t('actions.closeNotification')}
         icon={closeIcon}
         size="sm"
         variant="ghost"
@@ -163,6 +165,7 @@ export const ToastProvider = ({
   defaultDurationMs = 4500,
   maxVisible = 3
 }: ToastProviderProps): ReactElement => {
+  const { t } = useTranslation('common')
   const [toasts, setToasts] = useState<ToastRecord[]>([])
 
   const dismissToast = useCallback((toastId: string): void => {
@@ -196,19 +199,22 @@ export const ToastProvider = ({
   return (
     <ToastContext.Provider value={contextValue}>
       {children}
-      <div
-        className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-[70] ml-auto grid max-w-md gap-3"
-        aria-label="알림"
-      >
-        {toasts.map((toast) => (
-          <Toast
-            key={toast.id}
-            {...toast}
-            defaultDurationMs={defaultDurationMs}
-            onDismiss={dismissToast}
-          />
-        ))}
-      </div>
+      {toasts.length > 0 ? (
+        <div
+          className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-toast ml-auto grid max-w-md gap-3"
+          aria-label={t('toast.region')}
+          role="region"
+        >
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              {...toast}
+              defaultDurationMs={defaultDurationMs}
+              onDismiss={dismissToast}
+            />
+          ))}
+        </div>
+      ) : null}
     </ToastContext.Provider>
   )
 }

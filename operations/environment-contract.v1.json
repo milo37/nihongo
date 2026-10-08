@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "releaseId": {
+    "format": "lowercase-full-git-sha",
+    "localSentinel": "0000000000000000000000000000000000000000",
+    "productionSentinelAllowed": false
+  },
+  "topology": {
+    "originCountPerEnvironment": 1,
+    "apiPrefixes": ["/api/", "/health/"],
+    "spaFallback": "/index.html",
+    "httpsRequiredFor": ["STAGING", "PRODUCTION"]
+  },
+  "environments": {
+    "LOCAL": {
+      "activation": "developer-owned",
+      "network": "loopback",
+      "data": "disposable"
+    },
+    "TEST": {
+      "activation": "automation-owned",
+      "network": "loopback-or-ci-service",
+      "data": "isolated-fixture"
+    },
+    "DEVELOPMENT": {
+      "activation": "developer-owned",
+      "network": "loopback",
+      "data": "development-only"
+    },
+    "STAGING": {
+      "activation": "blocked-until-exact-registry",
+      "network": "https",
+      "data": "isolated-staging"
+    },
+    "PRODUCTION": {
+      "activation": "blocked-until-staging-and-exact-registry",
+      "network": "https",
+      "data": "isolated-production"
+    }
+  },
+  "publicVariableNames": [
+    "NODE_ENV",
+    "DEPLOYMENT_ENVIRONMENT",
+    "RELEASE_ID",
+    "HOST",
+    "PORT",
+    "TRUSTED_ORIGINS",
+    "LOG_LEVEL",
+    "BETTER_AUTH_URL",
+    "AUTH_EMAIL_FROM",
+    "AUTH_EMAIL_DELIVERY_MODE",
+    "AUTH_TRUSTED_PROXY_CIDRS",
+    "ADMIN_CMS_MODE",
+    "PRACTICE_CONTRACT_RUNTIME",
+    "PRACTICE_COMPATIBILITY_AUTHORITY_FILE",
+    "VITE_API_MODE",
+    "VITE_API_BASE_URL",
+    "VITE_RELEASE_ID"
+  ],
+  "secretVariableNames": [
+    "DATABASE_URL",
+    "AUTH_GATEWAY_DATABASE_URL",
+    "PRODUCTION_DATABASE_URL",
+    "BETTER_AUTH_SECRET",
+    "GUEST_COOKIE_SECRET",
+    "AUTH_EMAIL_WEBHOOK_URL",
+    "AUTH_EMAIL_WEBHOOK_SECRET"
+  ],
+  "variableScopes": {
+    "releaseBuild": {
+      "public": [
+        "RELEASE_ID",
+        "VITE_API_MODE",
+        "VITE_API_BASE_URL",
+        "VITE_RELEASE_ID"
+      ],
+      "secret": []
+    },
+    "productionRuntime": {
+      "public": [
+        "NODE_ENV",
+        "DEPLOYMENT_ENVIRONMENT",
+        "RELEASE_ID",
+        "HOST",
+        "PORT",
+        "TRUSTED_ORIGINS",
+        "LOG_LEVEL",
+        "BETTER_AUTH_URL",
+        "AUTH_EMAIL_FROM",
+        "AUTH_EMAIL_DELIVERY_MODE",
+        "AUTH_TRUSTED_PROXY_CIDRS",
+        "ADMIN_CMS_MODE",
+        "PRACTICE_CONTRACT_RUNTIME",
+        "PRACTICE_COMPATIBILITY_AUTHORITY_FILE"
+      ],
+      "secret": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "GUEST_COOKIE_SECRET",
+        "AUTH_EMAIL_WEBHOOK_URL",
+        "AUTH_EMAIL_WEBHOOK_SECRET"
+      ],
+      "forbidden": [
+        "AUTH_GATEWAY_DATABASE_URL",
+        "PRODUCTION_DATABASE_URL",
+        "VITE_API_MODE",
+        "VITE_API_BASE_URL",
+        "VITE_RELEASE_ID"
+      ]
+    },
+    "technicalDevelopmentOnly": {
+      "public": [],
+      "secret": ["AUTH_GATEWAY_DATABASE_URL", "PRODUCTION_DATABASE_URL"]
+    }
+  },
+  "requiredExternalRegistryFields": [
+    "compute.provider",
+    "compute.account",
+    "compute.project",
+    "compute.region",
+    "compute.plan",
+    "artifact.registry",
+    "artifact.repository",
+    "ingress.origin",
+    "ingress.dnsOwner",
+    "ingress.tlsOwner",
+    "ingress.tlsIssuer",
+    "ingress.routingOwner",
+    "database.runtimeIdentity",
+    "database.migrationIdentity",
+    "database.administrationIdentity",
+    "database.targetFingerprint",
+    "secrets.store",
+    "secrets.project",
+    "secrets.accessOwner",
+    "secrets.rotationOwner",
+    "secrets.rotationInterval",
+    "authentication.provider",
+    "authentication.endpoint",
+    "authentication.endpointOwner",
+    "authentication.credentialSecretNames",
+    "authentication.retention",
+    "monitoring.processor",
+    "monitoring.project",
+    "monitoring.endpoints",
+    "monitoring.credentialSecretNames",
+    "monitoring.retention",
+    "monitoring.alertOwner",
+    "analytics.decision",
+    "analytics.retention",
+    "analytics.deletionPolicy",
+    "backup.capability",
+    "backup.evidenceAdapter",
+    "backup.rpo",
+    "backup.rto",
+    "backup.retention",
+    "backup.restoreTarget",
+    "governance.billingOwner",
+    "governance.deploymentApprover",
+    "governance.incidentOwner",
+    "governance.legalServiceIdentity",
+    "governance.jurisdiction",
+    "governance.contactAddresses"
+  ],
+  "conditionalExternalRegistryFields": {
+    "analyticsProviderWhenEnabled": [
+      "analytics.processor",
+      "analytics.project",
+      "analytics.endpoint",
+      "analytics.credentialSecretNames"
+    ],
+    "analyticsNoProvider": [
+      "analytics.decision",
+      "analytics.retention",
+      "analytics.deletionPolicy"
+    ]
+  },
+  "forbiddenReleaseFileNames": [
+    ".env",
+    ".env.local",
+    ".env.test",
+    ".env.production"
+  ],
+  "forbiddenReleaseExtensions": [".backup", ".dump", ".pem", ".key"]
+}

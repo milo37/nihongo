@@ -38,7 +38,7 @@ describe('architecture checker', () => {
 
     assert.ok((countByCode.get('ARCH002') ?? 0) >= 4)
     assert.ok((countByCode.get('ARCH003') ?? 0) >= 3)
-    assert.ok((countByCode.get('ARCH005') ?? 0) >= 8)
+    assert.ok((countByCode.get('ARCH005') ?? 0) >= 12)
 
     const codesFor = (suffix) =>
       diagnostics
@@ -57,7 +57,22 @@ describe('architecture checker', () => {
     assert.deepEqual(codesFor('/getClientMethodDestructure/index.ts'), [
       'ARCH005'
     ])
+    assert.deepEqual(codesFor('/getMetadataUnchecked/index.ts'), ['ARCH005'])
+    assert.deepEqual(codesFor('/study/saveStudyDraftAnswers/index.ts'), [
+      'ARCH005'
+    ])
+    assert.deepEqual(codesFor('/queries/directMetadata.ts'), [
+      'ARCH005',
+      'ARCH005'
+    ])
+    assert.deepEqual(codesFor('/queries/legacyWrongNoteMutation.ts'), [
+      'ARCH003',
+      'ARCH003',
+      'ARCH003',
+      'ARCH003'
+    ])
     assert.deepEqual(codesFor('/WindowFetchPage.tsx'), ['ARCH002'])
+    assert.equal(codesFor('/BrokenPage.tsx').includes('ARCH004'), true)
     assert.deepEqual(codesFor('/GlobalFetchPage.tsx'), ['ARCH002'])
     assert.deepEqual(codesFor('/IndirectPage.tsx'), ['ARCH002', 'ARCH003'])
     assert.deepEqual(codesFor('/DynamicImportPage.tsx'), ['ARCH002'])

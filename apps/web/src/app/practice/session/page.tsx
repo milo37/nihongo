@@ -1,139 +1,776 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import {
+  Link,
+  Navigate,
+  useBlocker,
+  useNavigate,
+  useParams
+} from 'react-router'
 import type { ReactElement } from 'react'
-import { Badge } from '@common/components/Badge'
 import { Button } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'
 import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Progress } from '@common/components/Progress'
 import { RadioGroup } from '@common/components/RadioGroup'
+import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
+import { LearningIcon } from '@app/home/LearningIcon'
+import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
+import { useClearGuestPracticeQueryCache } from '@app/practice/hooks/useClearGuestPracticeQueryCache'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
+import { usePracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
-import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import {
+  assertCurrentStudySubmissionAction,
+  useSubmitStudySession
+} from '@app/practice/hooks/useSubmitStudySession'
+import {
+  assertCurrentStudySubmissionV2Action,
+  useSubmitStudySessionV2
+} from '@app/practice/hooks/useSubmitStudySessionV2'
+import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import {
+  clearGuestStudyDraftWorkingCopies,
+  clearStudyDraftWorkingCopy
+} from '@app/practice/draft/studyDraftWorkingCopyStorage'
+import { readStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
+import {
+  clearSubmissionAttempt,
+  hasStoredSubmissionAttempt,
+  readStoredSubmissionLogicalRequest
+} from '@app/practice/submissionAttemptStorage'
+import {
+  getStudySubmissionErrorCode,
+  isDefinitiveStudySubmissionError
+} from '@app/practice/studySubmissionRetry'
+import { useAuth } from '@provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
 import { useAppStore } from '@store/index'
+import { resolveUiLocale } from '@/i18n/types'
+import {
+  isAuthenticationBoundaryApiError,
+  isOfflineApiError,
+  isNotFoundApiError
+} from '@libs/apiError'
+import { analyticsClient } from '@/analytics/client'
 
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
+type BookmarkNoticeCode =
+  | 'loginRequired'
+  | 'legacyReadOnly'
+  | 'removed'
+  | 'removeRollback'
+  | 'saved'
+  | 'saveRollback'
 
-const modeLabels = {
-  RANDOM: '랜덤',
-  WRONG_NOTE: '오답',
-  WEAKNESS: '약점 추천',
-  BOOKMARK: '즐겨찾기'
-} as const
+type DraftActionNoticeCode =
+  | 'saveBeforeLeaveFailed'
+  | 'conflictRefreshComplete'
+  | 'sessionRefreshFailed'
+  | 'submissionPreparationFailed'
+  | 'retrySaveFailed'
 
-const formatDuration = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60)
-  const remainder = seconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
-}
+type SubmissionConnectivityCode = 'offline' | 'restored'
 
 export const PracticeSessionPage = (): ReactElement => {
+  const { i18n, t } = useTranslation('practice')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const formatDuration = (seconds: number): string => {
+    const options: Intl.NumberFormatOptions = {
+      minimumIntegerDigits: 2,
+      useGrouping: false
+    }
+    return `${formatNumber(Math.floor(seconds / 60), locale, options)}:${formatNumber(
+      seconds % 60,
+      locale,
+      options
+    )}`
+  }
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
-  const { role } = useDemoAuth()
+  const clearGuestPracticeQueryCache = useClearGuestPracticeQueryCache()
+  const { isReady: isAuthReady, role, user } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const [isSubmitDialogOpen, setSubmitDialogOpen] = useState(false)
-  const [bookmarkMessage, setBookmarkMessage] = useState<string | null>(null)
-  const sessionQuery = useGetStudySession(sessionId)
+  const draftConflictReturnFocusRef = useRef<HTMLElement | null>(null)
+  const submitButtonRef = useRef<HTMLButtonElement>(null)
+  const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
+    useState(false)
+  const [bookmarkMessage, setBookmarkMessage] = useState<{
+    code: BookmarkNoticeCode
+    questionId: string
+  } | null>(null)
+  const [draftActionMessage, setDraftActionMessage] =
+    useState<DraftActionNoticeCode | null>(null)
+  const [isPreparingSubmission, setPreparingSubmission] = useState(false)
+  const [isSubmissionNavigationStarted, setSubmissionNavigationStarted] =
+    useState(false)
+  const [isSavingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
+  const [verifiedGuestSessionId, setVerifiedGuestSessionId] = useState<
+    string | null
+  >(null)
+  const [submissionConnectivityMessage, setSubmissionConnectivityMessage] =
+    useState<SubmissionConnectivityCode | null>(() =>
+      typeof navigator !== 'undefined' && navigator.onLine === false
+        ? 'offline'
+        : null
+    )
+  const sessionQuery = useGetStudySession(
+    sessionId,
+    isAuthReady && role === 'GUEST',
+    isAuthReady
+  )
+  const isSessionRefreshUnavailable =
+    sessionQuery.isError || sessionQuery.fetchStatus === 'paused'
   const submitSession = useSubmitStudySession(sessionId)
-  const createBookmark = useCreateBookmark()
+  const hasCurrentGuestOwnerProof =
+    isAuthReady && (role !== 'GUEST' || verifiedGuestSessionId === sessionId)
+  const isCanonicalSessionBoundaryTerminal =
+    (Boolean(sessionQuery.data) &&
+      sessionQuery.data?.session.status !== 'IN_PROGRESS') ||
+    (sessionQuery.isError && isNotFoundApiError(sessionQuery.error))
+  const isV2Session = sessionQuery.data?.session.practiceContractVersion === 2
+  const isEditableV2Session =
+    isV2Session &&
+    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
+    hasCurrentGuestOwnerProof &&
+    !isCanonicalSessionBoundaryTerminal
+  const principalScope = getStudyDraftPrincipalScope(user)
+  const submitSessionV2 = useSubmitStudySessionV2(sessionId, principalScope)
+  const hasResolvedDraftConflict = useAppStore((state) =>
+    Boolean(state.draftConflict)
+  )
+  const isDraftConflictPending = useAppStore(
+    (state) => state.isDraftConflictPending
+  )
+  const hasDraftConflict = hasResolvedDraftConflict || isDraftConflictPending
+  const isScopedDraftReady = useAppStore(
+    (state) =>
+      state.draftWorkingCopy?.principalScope === principalScope &&
+      state.draftWorkingCopy.sessionId === sessionId
+  )
+  const allowSubmissionNavigationRef = useRef(false)
+  const isSubmissionActive = isV2Session
+    ? submitSessionV2.isPending || submitSessionV2.isPaused
+    : submitSession.isPending || submitSession.isPaused
+  const submissionError = isV2Session
+    ? submitSessionV2.error
+    : submitSession.error
+  const isSubmissionError = isV2Session
+    ? submitSessionV2.isError
+    : submitSession.isError
+  const frozenLogicalRequest = readStoredSubmissionLogicalRequest(sessionId)
+  const frozenV2Attempt = readStudyDraftSubmissionAttempt(sessionId)
+  const hasRawFrozenSubmissionAttempt =
+    hasStoredSubmissionAttempt(sessionId) ||
+    (isSubmissionError &&
+      !isAuthTransitionSupersededError(submissionError) &&
+      !isDefinitiveStudySubmissionError(submissionError))
+  const hasFrozenSubmissionAttempt =
+    hasRawFrozenSubmissionAttempt && !isCanonicalSessionBoundaryTerminal
+  const terminalSettlementKey =
+    sessionQuery.isError && isNotFoundApiError(sessionQuery.error)
+      ? `${sessionId}:NOT_FOUND`
+      : sessionQuery.data?.session.status &&
+          sessionQuery.data.session.status !== 'IN_PROGRESS'
+        ? `${sessionId}:${sessionQuery.data.session.status}`
+        : null
+  const terminalSettlementRef = useRef<string | null>(null)
+  const isSubmitDialogOpen =
+    isSubmitDialogRequestedOpen || hasFrozenSubmissionAttempt
+  const mustReplayFrozenSubmission =
+    !isCanonicalSessionBoundaryTerminal &&
+    (isSubmissionActive || hasRawFrozenSubmissionAttempt)
+  const mustBlockNavigation =
+    mustReplayFrozenSubmission || (isEditableV2Session && isScopedDraftReady)
+  const submissionNavigationBlocker = useBlocker(
+    () => mustBlockNavigation && !allowSubmissionNavigationRef.current
+  )
+  const isNavigationPromptBlocked =
+    submissionNavigationBlocker.state === 'blocked'
+  const expectedSessionQuestionIds =
+    sessionQuery.data?.questions.flatMap((question) =>
+      question.sessionQuestionId ? [question.sessionQuestionId] : []
+    ) ?? []
+  const draftController = usePracticeDraftController({
+    enabled: isEditableV2Session && !isSubmissionNavigationStarted,
+    expectedSessionQuestionIds,
+    isInteractionPaused:
+      isSubmitDialogOpen ||
+      hasDraftConflict ||
+      isNavigationPromptBlocked ||
+      isPreparingSubmission ||
+      isSessionRefreshUnavailable,
+    sessionId,
+    user
+  })
+  const createBookmark = useCreateBookmark('PRACTICE')
   const deleteBookmark = useDeleteBookmark()
-  const bookmarksQuery = useListBookmarks(role !== 'GUEST')
+  const bookmarkMutationActivity = useBookmarkMutationActivity()
+  const bookmarkQuestionIds =
+    sessionQuery.data?.session.practiceContractVersion === 2
+      ? sessionQuery.data.questions.map((question) => question.id).toSorted()
+      : []
+  const bookmarksQuery = useListBookmarks(
+    {
+      page: 1,
+      pageSize: 20,
+      ...(bookmarkQuestionIds.length > 0
+        ? { questionIds: bookmarkQuestionIds }
+        : {})
+    },
+    role !== 'GUEST' && bookmarkQuestionIds.length > 0
+  )
   const storedSessionId = useAppStore((state) => state.sessionId)
-  const currentQuestionIndex = useAppStore(
+  const storedCurrentQuestionIndex = useAppStore(
     (state) => state.currentQuestionIndex
   )
   const selectedAnswers = useAppStore((state) => state.selectedAnswers)
   const startedAt = useAppStore((state) => state.startedAt)
-  const pendingBookmarkIds = useAppStore((state) => state.pendingBookmarkIds)
   const beginPractice = useAppStore((state) => state.beginPractice)
   const setCurrentQuestionIndex = useAppStore(
     (state) => state.setCurrentQuestionIndex
   )
   const selectAnswer = useAppStore((state) => state.selectAnswer)
-  const setPendingBookmark = useAppStore((state) => state.setPendingBookmark)
   const resetPractice = useAppStore((state) => state.resetPractice)
-  const elapsedSeconds = useElapsedSeconds(startedAt)
+  const legacyElapsedSeconds = useElapsedSeconds(startedAt)
+
+  useEffect(() => {
+    let nextVerifiedSessionId: string | null | undefined
+    if (!isAuthReady || role !== 'GUEST') {
+      nextVerifiedSessionId = null
+    }
+    if (
+      nextVerifiedSessionId === undefined &&
+      sessionQuery.isSuccess &&
+      sessionQuery.isFetchedAfterMount &&
+      sessionQuery.data.session.id === sessionId
+    ) {
+      nextVerifiedSessionId = sessionId
+    }
+    if (
+      nextVerifiedSessionId === undefined &&
+      sessionQuery.isError &&
+      isAuthenticationBoundaryApiError(sessionQuery.error)
+    ) {
+      nextVerifiedSessionId = null
+    }
+    if (nextVerifiedSessionId === undefined) {
+      return
+    }
+
+    let active = true
+    queueMicrotask(() => {
+      if (active) {
+        setVerifiedGuestSessionId((current) =>
+          current === nextVerifiedSessionId ? current : nextVerifiedSessionId
+        )
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [
+    isAuthReady,
+    role,
+    sessionId,
+    sessionQuery.data,
+    sessionQuery.error,
+    sessionQuery.isError,
+    sessionQuery.isFetchedAfterMount,
+    sessionQuery.isSuccess
+  ])
+
+  useEffect(() => {
+    if (!mustBlockNavigation) {
+      allowSubmissionNavigationRef.current = isCanonicalSessionBoundaryTerminal
+      if (submissionNavigationBlocker.state === 'blocked') {
+        if (isCanonicalSessionBoundaryTerminal) {
+          submissionNavigationBlocker.reset()
+        } else {
+          submissionNavigationBlocker.reset()
+        }
+      }
+    }
+  }, [
+    isCanonicalSessionBoundaryTerminal,
+    mustBlockNavigation,
+    submissionNavigationBlocker
+  ])
+
+  useEffect(() => {
+    if (!mustReplayFrozenSubmission) {
+      return
+    }
+    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [mustReplayFrozenSubmission])
+
+  useEffect(() => {
+    const handleOffline = (): void => {
+      setSubmissionConnectivityMessage('offline')
+    }
+    const handleOnline = (): void => {
+      setSubmissionConnectivityMessage('restored')
+    }
+
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!terminalSettlementKey) {
+      terminalSettlementRef.current = null
+      return
+    }
+    if (terminalSettlementRef.current === terminalSettlementKey) {
+      return
+    }
+    terminalSettlementRef.current = terminalSettlementKey
+    allowSubmissionNavigationRef.current = true
+    clearSubmissionAttempt(sessionId)
+    clearStudyDraftWorkingCopy(principalScope, sessionId)
+    if (role === 'GUEST' && terminalSettlementKey.endsWith(':NOT_FOUND')) {
+      clearGuestStudyDraftWorkingCopies()
+      clearGuestPracticeQueryCache()
+    }
+    if (submitSession.isError || submitSession.isPending) {
+      submitSession.reset()
+    }
+    if (submitSessionV2.isError || submitSessionV2.isPending) {
+      submitSessionV2.reset()
+    }
+    resetPractice()
+  }, [
+    principalScope,
+    clearGuestPracticeQueryCache,
+    role,
+    resetPractice,
+    sessionId,
+    submitSession,
+    submitSessionV2,
+    terminalSettlementKey
+  ])
 
   const questions = sessionQuery.data?.questions ?? []
+  const currentQuestionIndex = isV2Session
+    ? draftController.currentOrdinal - 1
+    : storedCurrentQuestionIndex
   const safeQuestionIndex =
     questions.length > 0
       ? Math.min(currentQuestionIndex, questions.length - 1)
       : 0
+  const isLastQuestion =
+    questions.length > 0 && safeQuestionIndex === questions.length - 1
   const currentQuestion = questions[safeQuestionIndex]
+  const canFocusCurrentQuestion =
+    !sessionQuery.isPending &&
+    !sessionQuery.isError &&
+    Boolean(sessionQuery.data) &&
+    hasCurrentGuestOwnerProof &&
+    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
+    (!isV2Session || draftController.isReady) &&
+    Boolean(currentQuestion)
+  const v2Answers =
+    frozenV2Attempt?.canonicalBody.answers ??
+    draftController.snapshot?.answers ??
+    []
+  const v2AnswersBySessionQuestionId = new Map(
+    v2Answers.map((answer) => [
+      answer.studySessionQuestionId,
+      answer.selectedOptionId
+    ])
+  )
+  const displayedSelectedAnswers = isV2Session
+    ? Object.fromEntries(
+        questions.flatMap((question) => {
+          const selectedOptionId = question.sessionQuestionId
+            ? v2AnswersBySessionQuestionId.get(question.sessionQuestionId)
+            : null
+          return selectedOptionId ? [[question.id, selectedOptionId]] : []
+        })
+      )
+    : frozenLogicalRequest
+      ? Object.fromEntries(
+          frozenLogicalRequest.answers.map((answer) => [
+            answer.questionId,
+            answer.selectedOptionId
+          ])
+        )
+      : selectedAnswers
+  const elapsedSeconds = isV2Session
+    ? (frozenV2Attempt?.canonicalBody.durationSec ??
+      draftController.elapsedSeconds)
+    : legacyElapsedSeconds
   const answeredCount = questions.reduce(
-    (count, question) => (selectedAnswers[question.id] ? count + 1 : count),
+    (count, question) =>
+      displayedSelectedAnswers[question.id] ? count + 1 : count,
     0
   )
   const unansweredCount = Math.max(0, questions.length - answeredCount)
 
   useEffect(() => {
-    if (!sessionQuery.data || storedSessionId === sessionId) {
+    if (!sessionQuery.data || isV2Session || storedSessionId === sessionId) {
       return
     }
 
     beginPractice(sessionId, sessionQuery.data.session.startedAt)
-  }, [beginPractice, sessionId, sessionQuery.data, storedSessionId])
+  }, [
+    beginPractice,
+    isV2Session,
+    sessionId,
+    sessionQuery.data,
+    storedSessionId
+  ])
 
   useEffect(() => {
-    headingRef.current?.focus()
+    if (canFocusCurrentQuestion && !isNavigationPromptBlocked) {
+      headingRef.current?.focus()
+    }
+  }, [canFocusCurrentQuestion, currentQuestion?.id, isNavigationPromptBlocked])
+
+  useEffect(() => {
+    draftConflictReturnFocusRef.current = null
   }, [currentQuestion?.id])
 
   const movePrevious = (): void => {
-    setCurrentQuestionIndex(Math.max(0, safeQuestionIndex - 1))
-  }
-
-  const moveNext = (): void => {
-    setCurrentQuestionIndex(
-      Math.min(Math.max(questions.length - 1, 0), safeQuestionIndex + 1)
-    )
-  }
-
-  const handleSelectOption = (optionId: string): void => {
-    if (currentQuestion) {
-      selectAnswer(currentQuestion.id, optionId)
+    if (isSessionRefreshUnavailable) return
+    if (isV2Session) {
+      draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
+    } else {
+      setCurrentQuestionIndex(Math.max(0, safeQuestionIndex - 1))
     }
   }
 
+  const moveNext = (): void => {
+    if (isSessionRefreshUnavailable) return
+    if (isV2Session) {
+      draftController.moveToOrdinal(
+        Math.min(questions.length, safeQuestionIndex + 2)
+      )
+    } else {
+      setCurrentQuestionIndex(
+        Math.min(Math.max(questions.length - 1, 0), safeQuestionIndex + 1)
+      )
+    }
+  }
+
+  const handleSelectOption = (optionId: string): void => {
+    if (
+      currentQuestion &&
+      !isSubmitDialogOpen &&
+      !mustReplayFrozenSubmission &&
+      !isNavigationPromptBlocked &&
+      !isPreparingSubmission &&
+      !isSessionRefreshUnavailable &&
+      sessionQuery.data?.session.status === 'IN_PROGRESS'
+    ) {
+      if (document.activeElement instanceof HTMLElement) {
+        draftConflictReturnFocusRef.current = document.activeElement
+      }
+      const isFirstAnswer = !displayedSelectedAnswers[currentQuestion.id]
+      if (isV2Session && currentQuestion.sessionQuestionId) {
+        draftController.selectOption(
+          currentQuestion.sessionQuestionId,
+          optionId
+        )
+      } else {
+        selectAnswer(currentQuestion.id, optionId)
+      }
+      if (isFirstAnswer) {
+        analyticsClient.track({
+          event: 'question_answered',
+          payload: { ordinal: currentQuestion.ordinal }
+        })
+      }
+    }
+  }
+
+  const canRequestSubmission =
+    isLastQuestion &&
+    !isSubmitDialogOpen &&
+    !mustReplayFrozenSubmission &&
+    !hasDraftConflict &&
+    !isNavigationPromptBlocked &&
+    !isPreparingSubmission &&
+    !isSubmissionActive &&
+    !isSessionRefreshUnavailable &&
+    draftController.isReady &&
+    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
+    (!isV2Session || draftController.saveState !== 'saving')
+
   usePracticeKeyboard({
     enabled:
-      !isSubmitDialogOpen && sessionQuery.data?.session.status !== 'SUBMITTED',
+      !isSubmitDialogOpen &&
+      !mustReplayFrozenSubmission &&
+      !hasDraftConflict &&
+      !isNavigationPromptBlocked &&
+      !isPreparingSubmission &&
+      !isSubmissionActive &&
+      !isSessionRefreshUnavailable &&
+      draftController.isReady &&
+      sessionQuery.data?.session.status === 'IN_PROGRESS',
     optionIds: currentQuestion?.options.map((option) => option.id) ?? [],
     onSelectOption: handleSelectOption,
     onPrevious: movePrevious,
-    onNext: moveNext
+    onNext: moveNext,
+    onSubmit: () => setSubmitDialogRequestedOpen(true),
+    submitEnabled: canRequestSubmission
   })
 
-  if (sessionQuery.isPending) {
-    return <LoadingState message="문제를 준비하고 있습니다." />
+  const handleSaveAndLeave = async (): Promise<void> => {
+    if (submissionNavigationBlocker.state !== 'blocked') {
+      return
+    }
+    setSavingBeforeNavigation(true)
+    setDraftActionMessage(null)
+    try {
+      await draftController.flush()
+      allowSubmissionNavigationRef.current = true
+      submissionNavigationBlocker.proceed()
+    } catch (error: unknown) {
+      if (!isAuthTransitionSupersededError(error)) {
+        setDraftActionMessage('saveBeforeLeaveFailed')
+      }
+    } finally {
+      setSavingBeforeNavigation(false)
+    }
   }
 
-  if (sessionQuery.isError || !sessionQuery.data) {
+  const navigationPrompt = (
+    <Dialog
+      open={
+        submissionNavigationBlocker.state === 'blocked' &&
+        isV2Session &&
+        !mustReplayFrozenSubmission
+      }
+      title={t('session.navigationGuard.title')}
+      description={t('session.navigationGuard.description')}
+      footer={
+        <>
+          <Button
+            variant="secondary"
+            disabled={isSavingBeforeNavigation}
+            onClick={() => submissionNavigationBlocker.reset?.()}
+          >
+            {t('session.navigationGuard.continue')}
+          </Button>
+          <Button
+            isLoading={isSavingBeforeNavigation}
+            onClick={() => void handleSaveAndLeave()}
+          >
+            {t('session.navigationGuard.saveAndLeave')}
+          </Button>
+        </>
+      }
+      preventClose={isSavingBeforeNavigation}
+      onOpenChange={(open) => {
+        if (!open && !isSavingBeforeNavigation) {
+          submissionNavigationBlocker.reset?.()
+        }
+      }}
+    />
+  )
+
+  if (sessionQuery.isPending) {
+    if (hasFrozenSubmissionAttempt) {
+      return (
+        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+          <ErrorState
+            autoFocus
+            headingLevel={1}
+            title={t('session.recovery.title')}
+            description={t('session.recovery.pendingDescription')}
+            action={
+              <div className="space-y-3">
+                <Button onClick={() => void sessionQuery.refetch()}>
+                  {t('session.recovery.retry')}
+                </Button>
+                <p
+                  className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {submissionConnectivityMessage
+                    ? t(
+                        `session.submit.connectivity.${submissionConnectivityMessage}`
+                      )
+                    : t('session.recovery.checkingStatus')}
+                </p>
+              </div>
+            }
+          />
+        </section>
+      )
+    }
+
+    if (sessionQuery.fetchStatus === 'paused') {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={t('session.errors.offlineSessionDescription')}
+        />
+      )
+    }
+
+    return <LoadingState message={t('session.loading.questions')} />
+  }
+
+  if (!sessionQuery.data) {
+    if (hasFrozenSubmissionAttempt) {
+      return (
+        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+          <ErrorState
+            autoFocus
+            headingLevel={1}
+            title={t('session.recovery.title')}
+            description={t('session.recovery.failedDescription')}
+            action={
+              <div className="space-y-3">
+                <Button onClick={() => void sessionQuery.refetch()}>
+                  {t('session.recovery.retry')}
+                </Button>
+                <p
+                  className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {submissionConnectivityMessage
+                    ? t(
+                        `session.submit.connectivity.${submissionConnectivityMessage}`
+                      )
+                    : t('session.recovery.connectedStatus')}
+                </p>
+              </div>
+            }
+          />
+        </section>
+      )
+    }
+
+    return (
+      <>
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={
+            sessionQuery.isError && isOfflineApiError(sessionQuery.error)
+              ? t('session.errors.offlineSessionDescription')
+              : t('session.errors.sessionLoadDescription')
+          }
+          action={
+            <Button onClick={() => void sessionQuery.refetch()}>
+              {commonT('actions.retry')}
+            </Button>
+          }
+        />
+        {navigationPrompt}
+      </>
+    )
+  }
+
+  if (!hasCurrentGuestOwnerProof) {
+    if (sessionQuery.fetchStatus === 'paused') {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={t('session.errors.offlineSessionDescription')}
+        />
+      )
+    }
+
+    if (sessionQuery.isError) {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.sessionLoadTitle')}
+          description={t('session.errors.sessionLoadDescription')}
+          action={
+            <Button onClick={() => void sessionQuery.refetch()}>
+              {commonT('actions.retry')}
+            </Button>
+          }
+        />
+      )
+    }
+
+    return <LoadingState message={t('session.loading.guestOwnership')} />
+  }
+
+  if (sessionQuery.data.session.status === 'SUBMITTED') {
+    if (isNavigationPromptBlocked) {
+      return <LoadingState message={t('session.loading.resultRedirect')} />
+    }
+    return <Navigate replace to={`/practice/result/${sessionId}`} />
+  }
+
+  if (sessionQuery.data.session.status !== 'IN_PROGRESS') {
     return (
       <ErrorState
         autoFocus
         headingLevel={1}
-        title="학습 세션을 불러오지 못했습니다"
-        description="세션 주소를 확인하거나 새 학습을 시작해 주세요."
+        title={
+          sessionQuery.data.session.status === 'EXPIRED'
+            ? t('session.terminal.expiredTitle')
+            : t('session.terminal.cancelledTitle')
+        }
+        description={t('session.terminal.description')}
         action={
-          <Button onClick={() => void sessionQuery.refetch()}>다시 시도</Button>
+          <Link
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+            to="/practice"
+          >
+            {t('session.terminal.openSetup')}
+          </Link>
         }
       />
     )
   }
 
-  if (sessionQuery.data.session.status === 'SUBMITTED') {
-    return <Navigate replace to={`/practice/result/${sessionId}`} />
+  if (isV2Session && !draftController.isReady) {
+    if (
+      draftController.draftQuery.isError ||
+      draftController.saveState === 'error'
+    ) {
+      return (
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.errors.draftLoadTitle')}
+          description={t('session.errors.draftLoadDescription')}
+          action={
+            <Button
+              onClick={() =>
+                void draftController.retrySave().catch(() => undefined)
+              }
+            >
+              {t('session.recovery.retry')}
+            </Button>
+          }
+        />
+      )
+    }
+    return <LoadingState message={t('session.loading.draft')} />
   }
 
   if (!currentQuestion) {
@@ -141,14 +778,14 @@ export const PracticeSessionPage = (): ReactElement => {
       <ErrorState
         autoFocus
         headingLevel={1}
-        title="출제할 문제가 없습니다"
-        description="다른 급수, 과목 또는 출제 모드를 선택해 주세요."
+        title={t('session.errors.emptyTitle')}
+        description={t('session.errors.emptyDescription')}
         action={
           <Link
-            className="font-bold text-brand underline hover:no-underline"
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
             to="/practice"
           >
-            학습 설정으로 이동
+            {t('session.terminal.openSetup')}
           </Link>
         }
       />
@@ -160,48 +797,194 @@ export const PracticeSessionPage = (): ReactElement => {
   const progressValue = Math.round(
     ((safeQuestionIndex + 1) / questions.length) * 100
   )
-  const isLastQuestion = safeQuestionIndex === questions.length - 1
-  const isBookmarked =
-    pendingBookmarkIds[currentQuestion.id] ??
-    Boolean(
-      bookmarksQuery.data?.items.some(
-        ({ question }) => question.id === currentQuestion.id
-      )
+  const isBookmarked = Boolean(
+    bookmarksQuery.data?.items.some(
+      (bookmark) => bookmark.questionId === currentQuestion.id
     )
+  )
+  const hasPendingBookmarkMutation =
+    bookmarkMutationActivity.pendingQuestionIds.size > 0
+  const isBookmarkQueryUnavailable =
+    role !== 'GUEST' &&
+    (bookmarksQuery.isPending ||
+      bookmarksQuery.isError ||
+      bookmarksQuery.fetchStatus === 'paused')
+
+  const toOptimisticBookmark = (): BookmarkSummary | undefined => {
+    if (!currentQuestion.questionVersionId || !currentQuestion.tagSummaries) {
+      return undefined
+    }
+    const characters = [...currentQuestion.questionText]
+    return {
+      questionId: currentQuestion.id,
+      question: {
+        id: currentQuestion.id,
+        questionVersionId: currentQuestion.questionVersionId,
+        level: currentQuestion.level,
+        subject: currentQuestion.subject,
+        questionType: currentQuestion.questionType,
+        difficulty: currentQuestion.difficulty,
+        questionTextPreview:
+          characters.length <= 160
+            ? currentQuestion.questionText
+            : `${characters.slice(0, 157).join('')}...`,
+        tags: currentQuestion.tagSummaries
+      },
+      availability: 'AVAILABLE',
+      createdAt: new Date().toISOString()
+    }
+  }
 
   const handleBookmark = (): void => {
+    if (isSessionRefreshUnavailable) return
     if (role === 'GUEST') {
-      setBookmarkMessage('즐겨찾기를 저장하려면 데모 학습자로 로그인해 주세요.')
+      setBookmarkMessage({
+        code: 'loginRequired',
+        questionId: currentQuestion.id
+      })
+      return
+    }
+    if (session.practiceContractVersion !== 2) {
+      setBookmarkMessage({
+        code: 'legacyReadOnly',
+        questionId: currentQuestion.id
+      })
       return
     }
 
     setBookmarkMessage(null)
     if (isBookmarked) {
-      setPendingBookmark(currentQuestion.id, false)
       deleteBookmark.mutate(currentQuestion.id, {
-        onError: () => setPendingBookmark(currentQuestion.id, true)
+        onSuccess: () =>
+          setBookmarkMessage({
+            code: 'removed',
+            questionId: currentQuestion.id
+          }),
+        onError: (error) => {
+          if (!isAuthTransitionSupersededError(error)) {
+            setBookmarkMessage({
+              code: 'removeRollback',
+              questionId: currentQuestion.id
+            })
+          }
+        }
       })
       return
     }
 
-    setPendingBookmark(currentQuestion.id, true)
     createBookmark.mutate(
-      { questionId: currentQuestion.id },
       {
-        onError: () => setPendingBookmark(currentQuestion.id, false)
+        questionId: currentQuestion.id,
+        optimisticBookmark: toOptimisticBookmark()
+      },
+      {
+        onSuccess: () =>
+          setBookmarkMessage({
+            code: 'saved',
+            questionId: currentQuestion.id
+          }),
+        onError: (error) => {
+          if (!isAuthTransitionSupersededError(error)) {
+            setBookmarkMessage({
+              code: 'saveRollback',
+              questionId: currentQuestion.id
+            })
+          }
+        }
       }
     )
   }
 
-  const handleSubmit = (): void => {
+  const completeSubmissionNavigation = (): void => {
+    allowSubmissionNavigationRef.current = true
+    setSubmissionNavigationStarted(true)
+    if (submissionNavigationBlocker.state === 'blocked') {
+      submissionNavigationBlocker.reset()
+    }
+    setSubmitDialogRequestedOpen(false)
+    resetPractice()
+    void navigate(`/practice/result/${sessionId}`)
+  }
+
+  const handleSubmissionFailure = (error: unknown): void => {
+    if (isAuthTransitionSupersededError(error)) {
+      return
+    }
+    const errorCode = getStudySubmissionErrorCode(error)
+    if (
+      errorCode !== 'RESOURCE_NOT_FOUND' &&
+      errorCode !== 'STUDY_SESSION_NOT_EDITABLE' &&
+      errorCode !== 'DRAFT_VERSION_CONFLICT' &&
+      errorCode !== 'DRAFT_SUBMIT_MISMATCH'
+    ) {
+      return
+    }
+
+    setPreparingSubmission(true)
+    void (async (): Promise<void> => {
+      try {
+        if (
+          errorCode === 'DRAFT_VERSION_CONFLICT' ||
+          errorCode === 'DRAFT_SUBMIT_MISMATCH'
+        ) {
+          await draftController.retrySave()
+          setDraftActionMessage('conflictRefreshComplete')
+          return
+        }
+        await sessionQuery.refetch()
+      } catch (reconciliationError: unknown) {
+        if (!isAuthTransitionSupersededError(reconciliationError)) {
+          setDraftActionMessage('sessionRefreshFailed')
+        }
+      } finally {
+        setPreparingSubmission(false)
+      }
+    })()
+  }
+
+  const handleSubmit = async (): Promise<void> => {
+    if (
+      isSubmissionActive ||
+      isPreparingSubmission ||
+      hasDraftConflict ||
+      isSessionRefreshUnavailable
+    ) {
+      return
+    }
+
+    setDraftActionMessage(null)
+
+    if (isV2Session) {
+      setPreparingSubmission(true)
+      try {
+        const prepared = frozenV2Attempt
+          ? frozenV2Attempt.canonicalBody
+          : await draftController.prepareSubmission()
+        submitSessionV2.mutate(prepared, {
+          onSuccess: (_result, input) => {
+            assertCurrentStudySubmissionV2Action(input)
+            completeSubmissionNavigation()
+          },
+          onError: handleSubmissionFailure
+        })
+      } catch (error: unknown) {
+        if (!isAuthTransitionSupersededError(error)) {
+          setDraftActionMessage('submissionPreparationFailed')
+        }
+      } finally {
+        setPreparingSubmission(false)
+      }
+      return
+    }
+
     const elapsedPerQuestion = Math.floor(
       elapsedSeconds / Math.max(questions.length, 1)
     )
     submitSession.mutate(
-      {
+      frozenLogicalRequest ?? {
         durationSec: elapsedSeconds,
         answers: questions.flatMap((question) => {
-          const selectedOptionId = selectedAnswers[question.id]
+          const selectedOptionId = displayedSelectedAnswers[question.id]
 
           return selectedOptionId
             ? [
@@ -215,194 +998,517 @@ export const PracticeSessionPage = (): ReactElement => {
         })
       },
       {
-        onSuccess: () => {
-          setSubmitDialogOpen(false)
-          resetPractice()
-          void navigate(`/practice/result/${sessionId}`)
-        }
+        onSuccess: (_result, input) => {
+          assertCurrentStudySubmissionAction(input)
+          completeSubmissionNavigation()
+        },
+        onError: handleSubmissionFailure
       }
     )
   }
 
+  const handleSubmitDialogOpenChange = (open: boolean): void => {
+    if (!open && mustReplayFrozenSubmission) {
+      return
+    }
+
+    setSubmitDialogRequestedOpen(open)
+  }
+
+  const draftStatusMessage = t(
+    `session.draft.status.${draftController.status.code}`,
+    draftController.status.savedAt
+      ? {
+          time: formatDateTime(draftController.status.savedAt, locale, {
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        }
+      : undefined
+  )
+  const isDraftActionInformational =
+    draftActionMessage === 'conflictRefreshComplete'
+
+  const isCompactDraftStatus =
+    ['synced', 'saved', 'savedAt', 'dirty', 'saving'].includes(
+      draftController.status.code
+    ) && !(isDraftConflictPending && !hasResolvedDraftConflict)
+
   return (
-    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
-      <div className="grid gap-5 border-b border-line pb-6 md:grid-cols-[1fr_auto] md:items-end">
-        <div>
-          <div className="flex flex-wrap gap-2">
-            <Badge>{session.level}</Badge>
-            <Badge variant="neutral">{subjectLabels[session.subject]}</Badge>
-            <Badge variant="brand">{modeLabels[session.mode]}</Badge>
-          </div>
-          <p className="mt-4 text-sm font-semibold text-muted">
-            현재 {safeQuestionIndex + 1}번 / 전체 {questions.length}문제 · 답변{' '}
-            {answeredCount}문제
-          </p>
-        </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-muted">경과 시간</span>
-          <strong className="font-mono text-lg">
-            {formatDuration(elapsedSeconds)}
-          </strong>
-        </div>
-      </div>
-
-      {actualCount < requestedCount || usedFallback ? (
-        <div
-          className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          role="status"
-        >
-          {actualCount < requestedCount
-            ? `요청한 ${requestedCount}문제 중 출제 가능한 ${actualCount}문제를 제공합니다.`
-            : '선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공합니다.'}
-        </div>
-      ) : null}
-
-      <div className="mt-5">
-        <Progress
-          label={`문제풀이 진행률 ${progressValue}%`}
-          value={progressValue}
-        />
-      </div>
-
-      <div
-        className={[
-          'mt-6 overflow-hidden rounded-2xl border border-line bg-white shadow-soft',
-          currentQuestion.subject === 'READING'
-            ? 'lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
-            : ''
-        ].join(' ')}
-      >
-        {currentQuestion.passage ? (
-          <article className="border-b border-line bg-slate-50 p-5 sm:p-8 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r">
-            <p className="text-xs font-black tracking-[0.14em] text-brand">
-              READING PASSAGE
-            </p>
-            <p className="sr-only">독해 지문</p>
-            <p className="mt-5 whitespace-pre-line text-base leading-8 text-slate-800">
-              {currentQuestion.passage}
-            </p>
-          </article>
-        ) : null}
-
-        <article className="p-5 sm:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-wrap gap-2">
-              {currentQuestion.tags.map((tag) => (
-                <Badge key={tag} variant="neutral">
-                  {tag}
-                </Badge>
-              ))}
+    <section
+      className={`learning-note study-page study-session mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
+    >
+      <div className="study-session-layout">
+        <div className="study-session-main">
+          <div className="grid gap-2 border-b border-line pb-3 md:grid-cols-[1fr_auto] md:items-end">
+            <div>
+              <p className="study-session-title">
+                {session.level}{' '}
+                {commonT(`taxonomy.subjects.${session.subject}`)}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="text-sm text-muted">
+                  {commonT(`taxonomy.studyModes.${session.mode}`)}
+                </span>
+              </div>
             </div>
-            <button
-              className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[selected=true]:border-amber-500 data-[selected=true]:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              type="button"
-              aria-pressed={isBookmarked}
-              data-selected={isBookmarked}
-              onClick={handleBookmark}
-            >
-              {isBookmarked ? '즐겨찾기 해제' : '즐겨찾기'}
-            </button>
           </div>
-          {bookmarkMessage ? (
+
+          {sessionQuery.fetchStatus === 'paused' ? (
             <p
-              className="mt-3 text-sm font-semibold text-amber-800"
+              className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold leading-6 text-warning-strong"
               role="status"
             >
-              {bookmarkMessage}{' '}
-              <Link
-                className="underline hover:no-underline"
-                to="/login?redirect=%2Fpractice"
+              {t('session.errors.cachedOfflineDescription')}
+            </p>
+          ) : sessionQuery.isError ? (
+            <div
+              className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
+              role="alert"
+            >
+              <p className="font-semibold">
+                {t('session.errors.staleSessionDescription')}
+              </p>
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="outline"
+                onClick={() => void sessionQuery.refetch()}
               >
-                로그인 선택
-              </Link>
+                {t('session.errors.retrySession')}
+              </Button>
+            </div>
+          ) : null}
+
+          {isV2Session ? (
+            <div
+              className={
+                isCompactDraftStatus
+                  ? 'mt-2 text-xs leading-5 text-muted'
+                  : 'mt-4 rounded-lg border border-info-line bg-info-soft px-4 py-3 text-sm font-semibold leading-6 text-info-strong'
+              }
+              role="status"
+              aria-live="polite"
+              data-save-state={draftController.saveState}
+            >
+              <p>{draftStatusMessage}</p>
+              {isDraftConflictPending && !hasResolvedDraftConflict ? (
+                <p className="mt-2 font-medium">
+                  {t('session.draft.conflictCheckPending')}
+                </p>
+              ) : null}
+              {draftController.saveState === 'error' ||
+              draftController.saveState === 'offline' ? (
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setDraftActionMessage(null)
+                    void draftController.retrySave().catch(() => {
+                      setDraftActionMessage('retrySaveFailed')
+                    })
+                  }}
+                >
+                  {t('session.draft.retry')}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {draftActionMessage ? (
+            <p
+              className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold leading-6 ${
+                isDraftActionInformational
+                  ? 'border-info-line bg-info-soft text-info-strong'
+                  : 'border-danger-line bg-danger-soft text-danger-strong'
+              }`}
+              role={isDraftActionInformational ? 'status' : 'alert'}
+            >
+              {t(`session.draft.notices.${draftActionMessage}`)}
             </p>
           ) : null}
 
-          <h1
-            ref={headingRef}
-            className="mt-7 rounded-sm text-2xl font-black leading-10 sm:text-3xl"
-            tabIndex={-1}
-          >
-            <span className="sr-only">{safeQuestionIndex + 1}번 문제. </span>
-            {currentQuestion.questionText}
-          </h1>
+          {actualCount < requestedCount || usedFallback ? (
+            <div
+              className="mt-5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-strong"
+              role="status"
+            >
+              {actualCount < requestedCount
+                ? t('session.supply.canonicalPartial', {
+                    actual: formatCount(actualCount),
+                    mode: commonT(`taxonomy.studyModes.${session.mode}`),
+                    requested: formatCount(requestedCount)
+                  })
+                : session.practiceContractVersion === 1
+                  ? t('session.supply.legacyFallback')
+                  : t('session.supply.canonicalNoFallback')}
+            </div>
+          ) : null}
 
-          <div className="mt-7">
-            <RadioGroup
-              name={`question-${currentQuestion.id}`}
-              legend="정답 보기"
-              value={selectedAnswers[currentQuestion.id] ?? ''}
-              options={currentQuestion.options.map((option) => ({
-                value: option.id,
-                label: `${option.label}. ${option.text}`
-              }))}
-              onValueChange={handleSelectOption}
+          <div className="mt-3">
+            <Progress
+              label={t('session.header.progressSummary', {
+                answered: formatCount(answeredCount),
+                current: formatCount(safeQuestionIndex + 1),
+                total: formatCount(questions.length)
+              })}
+              value={progressValue}
+              showValue={false}
             />
           </div>
-          <p className="mt-4 text-sm leading-6 text-muted">
-            숫자 1–4로 답을 선택하고, ← → 키로 문제를 이동할 수 있습니다.
-          </p>
-        </article>
-      </div>
 
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <Button
-          variant="secondary"
-          disabled={safeQuestionIndex === 0}
-          onClick={movePrevious}
-        >
-          이전
-        </Button>
-        {isLastQuestion ? (
-          <Button onClick={() => setSubmitDialogOpen(true)}>답안 제출</Button>
-        ) : (
-          <Button onClick={moveNext}>다음</Button>
-        )}
-      </div>
-
-      <nav className="mt-8" aria-label="문제 바로가기">
-        <ol className="flex flex-wrap justify-center gap-2">
-          {questions.map((question, index) => (
-            <li key={question.id}>
-              <button
-                className="min-h-11 min-w-11 rounded-lg border border-line bg-white text-sm font-bold hover:border-slate-400 hover:bg-slate-50 data-[current=true]:border-brand data-[current=true]:bg-brand data-[current=true]:text-white data-[answered=true]:ring-2 data-[answered=true]:ring-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                type="button"
-                aria-label={`${index + 1}번 문제${selectedAnswers[question.id] ? ', 답변함' : ', 미응답'}`}
-                aria-current={index === safeQuestionIndex ? 'step' : undefined}
-                data-current={index === safeQuestionIndex}
-                data-answered={Boolean(selectedAnswers[question.id])}
-                onClick={() => setCurrentQuestionIndex(index)}
+          <div
+            className={[
+              'study-question mt-4 border-line',
+              currentQuestion.subject === 'READING'
+                ? 'lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
+                : ''
+            ].join(' ')}
+          >
+            {currentQuestion.passage ? (
+              <article
+                aria-label={t('session.question.passageLabel')}
+                className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
+                tabIndex={0}
               >
-                {index + 1}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </nav>
+                <p className="text-xs font-black tracking-[0.14em] text-brand">
+                  {t('session.question.passageEyebrow')}
+                </p>
+                <p className="sr-only">{t('session.question.passageLabel')}</p>
+                <p
+                  className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
+                  lang="ja"
+                >
+                  {currentQuestion.passage}
+                </p>
+              </article>
+            ) : null}
+
+            <article className="study-question-content min-w-0 py-4 sm:py-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap gap-2">
+                  {currentQuestion.tags.map((tag) => (
+                    <span key={tag} className="text-sm text-muted">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="min-h-11 shrink-0 rounded-lg border border-line px-3 text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[selected=true]:border-warning-line data-[selected=true]:bg-warning-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  type="button"
+                  disabled={
+                    mustReplayFrozenSubmission ||
+                    isNavigationPromptBlocked ||
+                    isPreparingSubmission ||
+                    isSessionRefreshUnavailable ||
+                    hasPendingBookmarkMutation ||
+                    isBookmarkQueryUnavailable ||
+                    session.practiceContractVersion !== 2
+                  }
+                  aria-label={t(
+                    isBookmarked
+                      ? 'session.bookmark.removeLabel'
+                      : 'session.bookmark.addLabel',
+                    { ordinal: formatCount(safeQuestionIndex + 1) }
+                  )}
+                  aria-pressed={isBookmarked}
+                  data-selected={isBookmarked}
+                  onClick={handleBookmark}
+                >
+                  {isBookmarked
+                    ? t('session.bookmark.remove')
+                    : t('session.bookmark.add')}
+                </button>
+              </div>
+              {bookmarkMessage?.questionId === currentQuestion.id ||
+              bookmarkMutationActivity.isPaused ? (
+                <p
+                  className="mt-3 text-sm font-semibold text-warning"
+                  role="status"
+                >
+                  {bookmarkMutationActivity.isPaused
+                    ? t('session.bookmark.offlineQueued')
+                    : bookmarkMessage
+                      ? t(`session.bookmark.${bookmarkMessage.code}`)
+                      : null}{' '}
+                  {role === 'GUEST' ? (
+                    <Link
+                      className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
+                      to="/login?redirect=%2Fpractice"
+                    >
+                      {t('session.bookmark.chooseLogin')}
+                    </Link>
+                  ) : null}
+                </p>
+              ) : null}
+              {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
+                <p
+                  className="mt-3 text-sm font-semibold text-warning"
+                  role="status"
+                >
+                  {t('session.bookmark.statusLoadOffline')}
+                </p>
+              ) : role !== 'GUEST' && bookmarksQuery.isError ? (
+                <div
+                  className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-danger"
+                  role="alert"
+                >
+                  <span>{t('session.bookmark.statusLoadFailed')}</span>
+                  <Button
+                    variant="outline"
+                    onClick={() => void bookmarksQuery.refetch()}
+                  >
+                    {t('session.bookmark.retryStatus')}
+                  </Button>
+                </div>
+              ) : null}
+
+              <h1
+                ref={headingRef}
+                className="mt-4 rounded-sm text-2xl font-semibold leading-[1.7]"
+                tabIndex={-1}
+              >
+                <span className="mb-2 block text-sm font-medium text-muted">
+                  {t('session.question.numberLabel', {
+                    ordinal: formatCount(safeQuestionIndex + 1)
+                  })}{' '}
+                </span>
+                <span lang="ja">{currentQuestion.questionText}</span>
+              </h1>
+
+              <div className="mt-4">
+                <RadioGroup
+                  className="learning-options study-answer-options"
+                  disabled={
+                    isSubmitDialogOpen ||
+                    mustReplayFrozenSubmission ||
+                    hasDraftConflict ||
+                    isNavigationPromptBlocked ||
+                    isPreparingSubmission ||
+                    isSessionRefreshUnavailable
+                  }
+                  name={`question-${currentQuestion.id}`}
+                  legend={t('session.question.answerLegend')}
+                  value={displayedSelectedAnswers[currentQuestion.id] ?? ''}
+                  options={currentQuestion.options.map((option) => ({
+                    value: option.id,
+                    label: (
+                      <span className="study-answer-label">
+                        <span lang="ja">
+                          {option.label}. {option.text}
+                        </span>
+                        {displayedSelectedAnswers[currentQuestion.id] ===
+                        option.id ? (
+                          <LearningIcon
+                            className="size-5 shrink-0"
+                            name="check"
+                          />
+                        ) : null}
+                      </span>
+                    )
+                  }))}
+                  onValueChange={handleSelectOption}
+                />
+              </div>
+              <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
+                <summary className="note-link cursor-pointer">
+                  {t('session.keyboardHelp')}
+                </summary>
+                <p className="mb-2">
+                  {t('session.header.elapsedTime')}{' '}
+                  <span className="font-mono tabular-nums">
+                    {formatDuration(elapsedSeconds)}
+                  </span>
+                </p>
+                <p>{t('session.question.keyboardHint')}</p>
+              </details>
+            </article>
+          </div>
+
+          <div className="study-question-actions mt-5 grid grid-cols-[1fr_2fr] gap-3 sm:flex sm:items-center sm:justify-between">
+            {isLastQuestion ? (
+              <Button
+                ref={submitButtonRef}
+                aria-keyshortcuts="Control+Enter Meta+Enter"
+                disabled={!canRequestSubmission}
+                onClick={() => setSubmitDialogRequestedOpen(true)}
+              >
+                {t('session.navigation.submit')}
+              </Button>
+            ) : (
+              <Button
+                disabled={
+                  mustReplayFrozenSubmission ||
+                  hasDraftConflict ||
+                  isNavigationPromptBlocked ||
+                  isPreparingSubmission ||
+                  isSessionRefreshUnavailable
+                }
+                onClick={moveNext}
+              >
+                {t('session.navigation.next')}
+              </Button>
+            )}
+          </div>
+
+          <nav
+            className="study-question-jump mt-8"
+            aria-label={t('session.navigation.jumpLabel')}
+          >
+            <Button
+              variant="outline"
+              disabled={
+                safeQuestionIndex === 0 ||
+                mustReplayFrozenSubmission ||
+                hasDraftConflict ||
+                isNavigationPromptBlocked ||
+                isPreparingSubmission ||
+                isSessionRefreshUnavailable
+              }
+              onClick={movePrevious}
+            >
+              {t('session.navigation.previous')}
+            </Button>
+            <ol className="flex flex-wrap justify-center gap-2">
+              {questions.map((question, index) => (
+                <li key={question.id}>
+                  <button
+                    className="ui-question-jump min-h-11 min-w-11 rounded-lg border border-line bg-surface text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[current=true]:border-brand data-[current=true]:bg-brand data-[current=true]:text-on-accent data-[answered=true]:ring-2 data-[answered=true]:ring-line-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    type="button"
+                    disabled={
+                      mustReplayFrozenSubmission ||
+                      hasDraftConflict ||
+                      isNavigationPromptBlocked ||
+                      isPreparingSubmission ||
+                      isSessionRefreshUnavailable
+                    }
+                    aria-label={t(
+                      displayedSelectedAnswers[question.id]
+                        ? 'session.navigation.jumpQuestionAnswered'
+                        : 'session.navigation.jumpQuestionUnanswered',
+                      { ordinal: formatCount(index + 1) }
+                    )}
+                    aria-current={
+                      index === safeQuestionIndex ? 'step' : undefined
+                    }
+                    data-current={index === safeQuestionIndex}
+                    data-answered={Boolean(
+                      displayedSelectedAnswers[question.id]
+                    )}
+                    onClick={() => {
+                      if (isV2Session) {
+                        draftController.moveToOrdinal(index + 1)
+                      } else {
+                        setCurrentQuestionIndex(index)
+                      }
+                    }}
+                  >
+                    {formatCount(index + 1)}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
+        <aside className="study-question-guide text-sm leading-7 text-muted">
+          <h2 className="font-semibold text-ink">{t('session.guide.title')}</h2>
+          <p className="mt-3">{t('session.guide.beforeSubmit')}</p>
+          <p>{t('session.guide.afterSubmit')}</p>
+        </aside>
+      </div>
 
       <Dialog
-        open={isSubmitDialogOpen}
-        title="답안을 제출하시겠습니까?"
+        open={isSubmitDialogOpen && !hasDraftConflict}
+        title={t('session.submit.title')}
+        returnFocusRef={submitButtonRef}
         description={
-          unansweredCount > 0
-            ? `아직 답하지 않은 문제가 ${unansweredCount}개 있습니다. 미응답은 오답으로 처리됩니다.`
-            : '모든 문제에 답했습니다. 제출 후에는 답을 수정할 수 없습니다.'
+          hasFrozenSubmissionAttempt
+            ? t('session.submit.frozenDescription')
+            : unansweredCount > 0
+              ? t('session.submit.unansweredDescription', {
+                  unanswered: formatCount(unansweredCount)
+                })
+              : t('session.submit.completeDescription')
         }
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => setSubmitDialogOpen(false)}
+              disabled={mustReplayFrozenSubmission}
+              onClick={() => handleSubmitDialogOpenChange(false)}
             >
-              계속 풀기
+              {t('session.submit.continue')}
             </Button>
-            <Button isLoading={submitSession.isPending} onClick={handleSubmit}>
-              제출하고 결과 보기
+            <Button
+              disabled={hasDraftConflict || isSessionRefreshUnavailable}
+              isLoading={isSubmissionActive || isPreparingSubmission}
+              onClick={() => void handleSubmit()}
+            >
+              {t('session.submit.confirm')}
             </Button>
           </>
         }
-        onOpenChange={setSubmitDialogOpen}
-      />
+        preventClose={mustReplayFrozenSubmission}
+        onOpenChange={handleSubmitDialogOpenChange}
+      >
+        {isSubmissionError ||
+        (hasFrozenSubmissionAttempt && submissionConnectivityMessage) ? (
+          <div className="space-y-3">
+            {isSubmissionError ? (
+              <div
+                className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-900"
+                role="alert"
+              >
+                {hasFrozenSubmissionAttempt
+                  ? t('session.submit.frozenFailure')
+                  : t('session.submit.requestFailure')}
+              </div>
+            ) : null}
+            {hasFrozenSubmissionAttempt && submissionConnectivityMessage ? (
+              <p
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+                role="status"
+                aria-live="polite"
+              >
+                {t(
+                  `session.submit.connectivity.${submissionConnectivityMessage}`
+                )}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={hasResolvedDraftConflict}
+        title={t('session.conflict.title')}
+        description={t('session.conflict.description', {
+          conflicts: formatCount(draftController.conflictCount)
+        })}
+        returnFocusRef={draftConflictReturnFocusRef}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={draftController.resolveConflictWithServer}
+            >
+              {t('session.conflict.useServer')}
+            </Button>
+            <Button onClick={draftController.resolveConflictWithLocal}>
+              {t('session.conflict.keepLocal')}
+            </Button>
+          </>
+        }
+        preventClose
+        onOpenChange={() => undefined}
+      >
+        <p className="text-sm leading-6 text-slate-700">
+          {t('session.conflict.detail')}
+        </p>
+      </Dialog>
+
+      {navigationPrompt}
     </section>
   )
 }

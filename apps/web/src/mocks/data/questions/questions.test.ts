@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import {
   LEVELS,
@@ -5,6 +6,7 @@ import {
   type JlptLevel,
   type QuestionSubject
 } from '@common/types/domain'
+import { hasJapaneseExplanation } from '@common/components/ExplanationLanguagePanel'
 import { originalQuestions } from '@mocks/data/questions'
 
 const expectedCountBySubject: Record<QuestionSubject, number> = {
@@ -12,6 +14,9 @@ const expectedCountBySubject: Record<QuestionSubject, number> = {
   GRAMMAR: 5,
   READING: 3
 }
+
+const FOUNDATION_PUBLIC_PROJECTION_SHA256 =
+  '85c8c0095349c9c52f6317bfe2d3235dabba505840dee91d7903ee7121ce66e1'
 
 describe('originalQuestions', () => {
   it('급수별 어휘 5, 문법 5, 독해 3으로 총 65문제를 제공한다', () => {
@@ -59,6 +64,18 @@ describe('originalQuestions', () => {
     expect(optionIds.size).toBe(260)
   })
 
+  it('일본어 해설은 payload의 non-blank 값만 제공됨으로 판정한다', () => {
+    const available = originalQuestions.filter((question) =>
+      hasJapaneseExplanation(question.explanationJa)
+    )
+    const unavailable = originalQuestions.filter(
+      (question) => !hasJapaneseExplanation(question.explanationJa)
+    )
+
+    expect(available).toHaveLength(2)
+    expect(unavailable).toHaveLength(63)
+  })
+
   it('정답 위치가 급수와 과목에 걸쳐 고르게 분포한다', () => {
     const overallPositions = [0, 0, 0, 0]
     const positionsByLevel = new Map<JlptLevel, number[]>()
@@ -94,5 +111,25 @@ describe('originalQuestions', () => {
         Math.max(...positions) - Math.min(...positions)
       ).toBeLessThanOrEqual(1)
     }
+  })
+
+  it('API authority와 독립적으로 고정한 public projection hash를 유지한다', () => {
+    const projection = originalQuestions.map((question) => ({
+      id: question.id,
+      level: question.level,
+      subject: question.subject,
+      questionType: question.questionType,
+      passage: question.passage,
+      questionText: question.questionText,
+      options: question.options.map(({ text }) => text),
+      correctIndex: question.options.findIndex(({ isCorrect }) => isCorrect),
+      explanationKo: question.explanationKo,
+      explanationJa: question.explanationJa,
+      difficulty: question.difficulty,
+      tags: question.tags
+    }))
+    expect(
+      createHash('sha256').update(JSON.stringify(projection)).digest('hex')
+    ).toBe(FOUNDATION_PUBLIC_PROJECTION_SHA256)
   })
 })

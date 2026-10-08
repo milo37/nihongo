@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type {
   JlptLevel,
@@ -13,76 +14,50 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Pagination } from '@common/components/Pagination'
 import { Select } from '@common/components/Select'
-import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { useListWrongNotes } from '@app/wrong-note/hooks/useListWrongNotes'
-import { useAppStore } from '@store/index'
+import {
+  createWrongNoteHistorySearch,
+  parseWrongNoteHistorySearch,
+  type WrongNoteHistorySearchKey
+} from '@app/wrong-note/wrongNoteHistorySearch'
+import { resolveUiLocale } from '@/i18n/types'
+import { formatDateTime, formatNumber } from '@libs/localeFormatters'
+import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
 const statusValues: WrongNoteStatus[] = ['NEW', 'REVIEWING', 'AGAIN', 'SOLVED']
-const sortValues = ['RECENT', 'MOST_WRONG', 'OLDEST'] as const
-
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
-const statusLabels = {
-  NEW: '새 오답',
-  REVIEWING: '복습 중',
-  AGAIN: '다시 학습',
-  SOLVED: '해결'
-} as const
 const statusVariants = {
   NEW: 'info',
   REVIEWING: 'warning',
   AGAIN: 'danger',
   SOLVED: 'success'
 } as const
-const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric'
-})
-
-const isValue = <T extends string>(
-  value: string | null,
-  values: readonly T[]
-): value is T => {
-  return value !== null && values.includes(value as T)
-}
-
-const formatDate = (isoDate: string): string => {
-  return dateFormatter.format(new Date(isoDate))
-}
 
 export const WrongNotePage = (): ReactElement => {
-  const navigate = useNavigate()
+  useTrackWrongNoteOpened('LIST')
+  const { i18n, t } = useTranslation('wrongNote')
+  const { t: commonT } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const formatCount = (value: number): string => formatNumber(value, locale)
+  const formatDate = (value: string): string =>
+    formatDateTime(value, locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null)
+  const shouldRestoreRetryFocusRef = useRef(false)
+  const shouldFocusResultsRef = useRef(false)
   const [searchParams, setSearchParams] = useSearchParams()
-  const beginPractice = useAppStore((state) => state.beginPractice)
-  const levelParam = searchParams.get('level')
-  const subjectParam = searchParams.get('subject')
-  const statusParam = searchParams.get('status')
-  const sortParam = searchParams.get('sort')
-  const level = isValue(levelParam, levelValues) ? levelParam : undefined
-  const subject = isValue(subjectParam, subjectValues)
-    ? subjectParam
-    : undefined
-  const status = isValue(statusParam, statusValues) ? statusParam : undefined
-  const sort = isValue(sortParam, sortValues) ? sortParam : 'RECENT'
-  const tag = searchParams.get('tag') || undefined
-  const page = Math.max(1, Number(searchParams.get('page')) || 1)
-  const pageSize = 12
-  const wrongNotesQuery = useListWrongNotes({
-    level,
-    subject,
-    status,
-    tag,
-    sort,
-    page,
-    pageSize
-  })
-  const createSession = useCreateStudySession()
+  const parsedSearch = useMemo(
+    () => parseWrongNoteHistorySearch(searchParams),
+    [searchParams]
+  )
+  const { level, page, sort, status, subject, tag } = parsedSearch.query
+  const returnTo = `/wrong-notes/history${parsedSearch.canonicalSearch ? `?${parsedSearch.canonicalSearch}` : ''}`
+  const wrongNotesQuery = useListWrongNotes(parsedSearch.query)
   const totalPages = wrongNotesQuery.data
     ? Math.max(
         1,
@@ -91,82 +66,114 @@ export const WrongNotePage = (): ReactElement => {
     : 1
   const isOutOfRangePage = Boolean(
     wrongNotesQuery.data &&
-      wrongNotesQuery.data.total > 0 &&
-      wrongNotesQuery.data.items.length === 0
+      !wrongNotesQuery.isPlaceholderData &&
+      page > totalPages
   )
+  const availableTags = wrongNotesQuery.data?.availableTags ?? []
+  const visibleTags =
+    tag && !availableTags.includes(tag)
+      ? [tag, ...availableTags]
+      : availableTags
+  const isWrongNotesPaused = wrongNotesQuery.fetchStatus === 'paused'
+
+  useEffect(() => {
+    if (!parsedSearch.needsReplace) return
+    shouldFocusResultsRef.current = true
+    setSearchParams(parsedSearch.canonicalSearch, { replace: true })
+  }, [parsedSearch, setSearchParams])
 
   useEffect(() => {
     if (!isOutOfRangePage || page <= totalPages) {
       return
     }
 
-    const nextParams = new URLSearchParams(searchParams)
-    if (totalPages === 1) {
-      nextParams.delete('page')
-    } else {
-      nextParams.set('page', String(totalPages))
-    }
-    setSearchParams(nextParams, { replace: true })
-  }, [isOutOfRangePage, page, searchParams, setSearchParams, totalPages])
+    shouldFocusResultsRef.current = true
+    const next = createWrongNoteHistorySearch({
+      ...parsedSearch.query,
+      page: totalPages
+    })
+    setSearchParams(next, { replace: true })
+  }, [isOutOfRangePage, page, parsedSearch.query, setSearchParams, totalPages])
 
-  const setFilter = (key: string, value: string): void => {
-    const nextParams = new URLSearchParams(searchParams)
-    if (value) {
-      nextParams.set(key, value)
-    } else {
-      nextParams.delete(key)
-    }
-    if (key !== 'page') {
-      nextParams.delete('page')
-    }
-    setSearchParams(nextParams)
-  }
-
-  const retryQuestion = (
-    questionId: string,
-    levelValue: JlptLevel,
-    subjectValue: QuestionSubject
-  ): void => {
-    createSession.mutate(
-      {
-        level: levelValue,
-        subject: subjectValue,
-        mode: 'WRONG_NOTE',
-        count: 1,
-        questionIds: [questionId]
-      },
-      {
-        onSuccess: ({ session }) => {
-          beginPractice(session.id, session.startedAt)
-          void navigate(`/practice/session/${session.id}`)
-        }
-      }
+  const isPageCorrectionPending =
+    isOutOfRangePage ||
+    Boolean(
+      wrongNotesQuery.isPlaceholderData &&
+        wrongNotesQuery.data &&
+        wrongNotesQuery.data.page !== page &&
+        wrongNotesQuery.data.page > totalPages
     )
+
+  useEffect(() => {
+    if (
+      wrongNotesQuery.isSuccess &&
+      wrongNotesQuery.data &&
+      shouldRestoreRetryFocusRef.current
+    ) {
+      shouldRestoreRetryFocusRef.current = false
+      headingRef.current?.focus()
+    }
+  }, [wrongNotesQuery.data, wrongNotesQuery.isSuccess])
+
+  useEffect(() => {
+    if (
+      !wrongNotesQuery.isSuccess ||
+      wrongNotesQuery.isPlaceholderData ||
+      wrongNotesQuery.fetchStatus !== 'idle' ||
+      !shouldFocusResultsRef.current
+    ) {
+      return
+    }
+    shouldFocusResultsRef.current = false
+    const focusTarget = resultHeadingRef.current ?? headingRef.current
+    focusTarget?.focus()
+  }, [
+    wrongNotesQuery.data,
+    wrongNotesQuery.fetchStatus,
+    wrongNotesQuery.isPlaceholderData,
+    wrongNotesQuery.isSuccess
+  ])
+
+  const setFilter = (key: WrongNoteHistorySearchKey, value: string): void => {
+    const nextParams = createWrongNoteHistorySearch(parsedSearch.query)
+    if (value) nextParams.set(key, value)
+    else nextParams.delete(key)
+    if (key !== 'page') nextParams.delete('page')
+    shouldFocusResultsRef.current = true
+    setSearchParams(parseWrongNoteHistorySearch(nextParams).canonicalSearch)
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="max-w-3xl">
-        <p className="text-sm font-black tracking-[0.16em] text-brand">
-          WRONG NOTE
-        </p>
-        <h1 className="mt-2 text-4xl font-black">
-          오답을 해결 상태까지 관리하세요
-        </h1>
-        <p className="mt-4 leading-7 text-muted">
-          처음 틀린 문제부터 두 번 연속 맞힌 문제까지 복습 상태와 횟수를
-          한곳에서 확인합니다.
-        </p>
+    <section className="learning-note study-page study-review mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <h1
+            ref={headingRef}
+            className="study-page-title mt-2 rounded-sm text-4xl font-black"
+            tabIndex={-1}
+          >
+            {t('history.title')}
+          </h1>
+          <p className="mt-4 leading-7 text-muted">
+            {t('history.description')}
+          </p>
+        </div>
+        <Link
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 font-bold text-ink hover:border-slate-400"
+          to="/wrong-notes"
+        >
+          {t('history.backToCenter')}
+        </Link>
       </div>
 
       <div className="mt-8 grid gap-3 rounded-xl border border-line bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
         <Select
           name="level"
-          label="급수"
+          label={t('history.filters.level')}
           value={level ?? ''}
           onChange={(event) => setFilter('level', event.currentTarget.value)}
         >
-          <option value="">전체 급수</option>
+          <option value="">{t('history.filters.allLevels')}</option>
           {levelValues.map((value) => (
             <option key={value} value={value}>
               {value}
@@ -175,38 +182,38 @@ export const WrongNotePage = (): ReactElement => {
         </Select>
         <Select
           name="subject"
-          label="과목"
+          label={t('history.filters.subject')}
           value={subject ?? ''}
           onChange={(event) => setFilter('subject', event.currentTarget.value)}
         >
-          <option value="">전체 과목</option>
+          <option value="">{t('history.filters.allSubjects')}</option>
           {subjectValues.map((value) => (
             <option key={value} value={value}>
-              {subjectLabels[value]}
+              {commonT(`taxonomy.subjects.${value}`)}
             </option>
           ))}
         </Select>
         <Select
           name="status"
-          label="상태"
+          label={t('history.filters.status')}
           value={status ?? ''}
           onChange={(event) => setFilter('status', event.currentTarget.value)}
         >
-          <option value="">전체 상태</option>
+          <option value="">{t('history.filters.allStatuses')}</option>
           {statusValues.map((value) => (
             <option key={value} value={value}>
-              {statusLabels[value]}
+              {commonT(`taxonomy.wrongNoteStatuses.${value}`)}
             </option>
           ))}
         </Select>
         <Select
           name="tag"
-          label="태그"
+          label={t('history.filters.tag')}
           value={tag ?? ''}
           onChange={(event) => setFilter('tag', event.currentTarget.value)}
         >
-          <option value="">전체 태그</option>
-          {(wrongNotesQuery.data?.availableTags ?? []).map((value) => (
+          <option value="">{t('history.filters.allTags')}</option>
+          {visibleTags.map((value) => (
             <option key={value} value={value}>
               {value}
             </option>
@@ -214,134 +221,209 @@ export const WrongNotePage = (): ReactElement => {
         </Select>
         <Select
           name="sort"
-          label="정렬"
+          label={t('history.filters.sort')}
           value={sort}
           onChange={(event) => setFilter('sort', event.currentTarget.value)}
         >
-          <option value="RECENT">최근 오답순</option>
-          <option value="MOST_WRONG">많이 틀린 순</option>
-          <option value="OLDEST">오래된 순</option>
+          <option value="RECENT">{t('history.filters.recent')}</option>
+          <option value="MOST_WRONG">{t('history.filters.mostWrong')}</option>
+          <option value="OLDEST">{t('history.filters.oldest')}</option>
         </Select>
       </div>
 
-      {wrongNotesQuery.isPending ? (
-        <LoadingState message="오답노트를 불러오고 있습니다." />
+      {isWrongNotesPaused ? (
+        <p
+          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
+          role="status"
+        >
+          {t('history.states.offline')}
+        </p>
       ) : null}
 
-      {wrongNotesQuery.isError ? (
+      {wrongNotesQuery.isPending && !isWrongNotesPaused ? (
+        <LoadingState message={t('history.states.loading')} />
+      ) : null}
+
+      {wrongNotesQuery.isFetching && wrongNotesQuery.data ? (
+        <p className="sr-only" role="status" aria-atomic="true">
+          {t('history.states.refreshing')}
+        </p>
+      ) : null}
+
+      {wrongNotesQuery.isError && !wrongNotesQuery.data ? (
         <ErrorState
-          title="오답노트를 불러오지 못했습니다"
-          description="잠시 후 다시 시도해 주세요."
+          autoFocus
+          title={t('history.states.errorTitle')}
+          description={t('history.states.errorDescription')}
           action={
-            <Button onClick={() => void wrongNotesQuery.refetch()}>
-              다시 시도
+            <Button
+              onClick={() => {
+                shouldRestoreRetryFocusRef.current = true
+                void wrongNotesQuery.refetch()
+              }}
+            >
+              {commonT('actions.retry')}
             </Button>
           }
         />
       ) : null}
 
-      {isOutOfRangePage ? (
-        <LoadingState message="유효한 오답노트 페이지로 이동하고 있습니다." />
+      {wrongNotesQuery.isError && wrongNotesQuery.data ? (
+        <div
+          className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+          role="alert"
+        >
+          <p className="font-semibold">{t('history.states.stale')}</p>
+          <Button
+            className="mt-3"
+            size="sm"
+            onClick={() => {
+              shouldRestoreRetryFocusRef.current = true
+              void wrongNotesQuery.refetch()
+            }}
+          >
+            {t('history.states.retryStale')}
+          </Button>
+        </div>
+      ) : null}
+
+      {isPageCorrectionPending ? (
+        <LoadingState message={t('history.states.correctingPage')} />
       ) : null}
 
       {wrongNotesQuery.data &&
       wrongNotesQuery.data.items.length === 0 &&
-      !isOutOfRangePage ? (
+      !isPageCorrectionPending ? (
         <EmptyState
-          title="아직 조건에 맞는 오답이 없습니다"
-          description="문제를 풀고 틀린 항목은 자동으로 이곳에 저장됩니다."
+          title={t('history.states.emptyTitle')}
+          description={t('history.states.emptyDescription')}
           action={
             <Link
               className="inline-flex min-h-11 items-center rounded-lg bg-brand px-5 font-bold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
               to="/practice"
             >
-              첫 문제 풀기
+              {t('history.states.start')}
             </Link>
           }
         />
       ) : null}
 
-      {wrongNotesQuery.data && wrongNotesQuery.data.items.length > 0 ? (
+      {wrongNotesQuery.data &&
+      wrongNotesQuery.data.items.length > 0 &&
+      !isPageCorrectionPending ? (
         <>
           <div className="mt-7 flex items-center justify-between gap-4">
-            <h2 className="text-xl font-black">
-              오답 {wrongNotesQuery.data.total}개
+            <h2
+              ref={resultHeadingRef}
+              className="rounded-sm text-xl font-black"
+              tabIndex={-1}
+            >
+              {t('history.results.count', {
+                formattedCount: formatCount(wrongNotesQuery.data.total)
+              })}
             </h2>
             <Button
               variant="ghost"
-              onClick={() => setSearchParams(new URLSearchParams())}
+              onClick={() => {
+                shouldFocusResultsRef.current = true
+                setSearchParams(new URLSearchParams())
+              }}
             >
-              필터 초기화
+              {t('history.results.resetFilters')}
             </Button>
           </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {wrongNotesQuery.data.items.map(({ wrongNote, question }) => (
-              <article
-                key={wrongNote.id}
-                className="content-auto flex flex-col rounded-xl border border-line bg-white p-5"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="brand">{question.level}</Badge>
-                    <Badge>{subjectLabels[question.subject]}</Badge>
-                    <Badge variant={statusVariants[wrongNote.status]}>
-                      {statusLabels[wrongNote.status]}
-                    </Badge>
+          <ul
+            className="study-review-list mt-4 grid gap-4 lg:grid-cols-2"
+            aria-busy={wrongNotesQuery.isFetching}
+          >
+            {wrongNotesQuery.data.items.map((item) => (
+              <li key={item.questionId}>
+                <article className="study-review-row content-auto flex h-full min-w-0 flex-col border-b border-line py-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="brand">{item.level}</Badge>
+                      <Badge>
+                        {commonT(`taxonomy.subjects.${item.subject}`)}
+                      </Badge>
+                      <Badge variant={statusVariants[item.status]}>
+                        {commonT(`taxonomy.wrongNoteStatuses.${item.status}`)}
+                      </Badge>
+                      <Badge
+                        variant={
+                          item.reviewAvailability === 'ARCHIVED'
+                            ? 'neutral'
+                            : 'info'
+                        }
+                      >
+                        {commonT(
+                          `taxonomy.availability.${item.reviewAvailability}`
+                        )}
+                      </Badge>
+                    </div>
+                    <span className="text-sm font-semibold text-danger">
+                      {t('history.results.wrongCount', {
+                        formattedCount: formatCount(item.wrongCount)
+                      })}
+                    </span>
                   </div>
-                  <span className="text-sm font-bold text-red-700">
-                    {wrongNote.wrongCount}회 오답
-                  </span>
-                </div>
-                <h3 className="mt-5 line-clamp-2 text-lg font-black leading-7">
-                  {question.questionText}
-                </h3>
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-muted">문제 유형</dt>
-                    <dd className="mt-1 font-semibold">
-                      {question.questionType}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">마지막 오답</dt>
-                    <dd className="mt-1 font-semibold">
-                      {formatDate(wrongNote.lastWrongAt)}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {question.tags.map((item) => (
-                    <Badge key={item}>{item}</Badge>
-                  ))}
-                </div>
-                <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
-                  <Button
-                    variant="outline"
-                    isLoading={createSession.isPending}
-                    onClick={() =>
-                      retryQuestion(
-                        question.id,
-                        question.level,
-                        question.subject
-                      )
-                    }
+                  <h3
+                    className="mt-4 break-words text-lg font-semibold leading-7"
+                    lang="ja"
                   >
-                    재풀이
-                  </Button>
-                  <Link
-                    className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
-                    to={`/wrong-notes/${question.id}`}
-                  >
-                    상세 보기
-                  </Link>
-                </div>
-              </article>
+                    {item.questionPreview}
+                  </h3>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-muted">
+                        {t('history.results.questionType')}
+                      </dt>
+                      <dd className="mt-1 font-semibold">
+                        {commonT(`taxonomy.questionTypes.${item.questionType}`)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted">
+                        {t('history.results.lastWrong')}
+                      </dt>
+                      <dd className="mt-1 font-semibold">
+                        {formatDate(item.lastWrongAt)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.tags.map((tagLabel) => (
+                      <Badge key={tagLabel}>{tagLabel}</Badge>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex min-h-11 items-center text-sm font-semibold text-muted">
+                      {item.reviewAvailability === 'ARCHIVED'
+                        ? t('history.results.archived')
+                        : t('history.results.available')}
+                    </span>
+                    <Link
+                      className="note-link px-1 text-sm text-brand"
+                      to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
+                    >
+                      {t('history.results.detail')}
+                    </Link>
+                  </div>
+                </article>
+              </li>
             ))}
-          </div>
+          </ul>
           <Pagination
             className="mt-8"
             currentPage={wrongNotesQuery.data.page}
             totalPages={totalPages}
+            disabled={wrongNotesQuery.isFetching}
+            getPageHref={(nextPage) => {
+              const next = createWrongNoteHistorySearch({
+                ...parsedSearch.query,
+                page: nextPage
+              })
+              return `?${next.toString()}`
+            }}
             onPageChange={(nextPage) => setFilter('page', String(nextPage))}
           />
         </>

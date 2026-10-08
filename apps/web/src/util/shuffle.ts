@@ -19,7 +19,7 @@ const normalizeSeed = (seed: ShuffleSeed): number => {
   return Math.trunc(seed) >>> 0
 }
 
-const createSeededRandom = (seed: ShuffleSeed): (() => number) => {
+export const createSeededRandom = (seed: ShuffleSeed): (() => number) => {
   let state = normalizeSeed(seed)
 
   return (): number => {

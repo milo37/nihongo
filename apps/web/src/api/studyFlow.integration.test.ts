@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { isApiError } from '@api/config'
-import { loginDemoUser } from '@api/auth/loginDemoUser'
+import { getCurrentUser } from '@api/auth/getCurrentUser'
 import { logoutUser } from '@api/auth/logoutUser'
+import { signInUser } from '@api/auth/signInUser'
 import { createStudySession } from '@api/study/createStudySession'
 import { submitStudySession } from '@api/study/submitStudySession'
 import { listWrongNote } from '@api/wrong-note/listWrongNote'
@@ -12,7 +13,11 @@ describe('MSW 학습 API 흐름', () => {
   })
 
   it('로그인 후 세션을 제출하면 오답노트에 저장한다', async () => {
-    const user = await loginDemoUser()
+    await signInUser({
+      email: 'user@example.com',
+      password: 'Demo-user-2026!'
+    })
+    const user = await getCurrentUser()
     const { session, questions, actualCount } = await createStudySession({
       level: 'N5',
       subject: 'VOCABULARY',
@@ -20,7 +25,7 @@ describe('MSW 학습 API 흐름', () => {
       count: 5
     })
 
-    expect(user.role).toBe('USER')
+    expect(user?.role).toBe('USER')
     expect(actualCount).toBeGreaterThan(0)
     expect(questions).toHaveLength(actualCount)
     expect(questions[0]).not.toHaveProperty('explanationKo')
@@ -45,7 +50,10 @@ describe('MSW 학습 API 흐름', () => {
   })
 
   it('세션에 속하지 않은 답안은 검증 오류로 분류한다', async () => {
-    await loginDemoUser()
+    await signInUser({
+      email: 'user@example.com',
+      password: 'Demo-user-2026!'
+    })
     const { session } = await createStudySession({
       level: 'N5',
       subject: 'GRAMMAR',

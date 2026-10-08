@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import type { User } from '@common/types/domain'
-import { LEVELS, USER_ROLES } from '@common/types/domain'
+import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
+import { LEVELS } from '@common/types/domain'
 import { APP_STORE_KEY, splitAppStateStorage } from '@libs/storage'
 import { createAuthSlice, type AuthSlice } from '@store/slices/authSlice'
 import {
@@ -13,7 +13,7 @@ import { createUiSlice, type UiSlice } from '@store/slices/uiSlice'
 export type AppStore = AuthSlice & PracticeSlice & UiSlice
 
 const LEVEL_SET: ReadonlySet<string> = new Set(LEVELS)
-const ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
+const ROLE_SET: ReadonlySet<string> = new Set(['USER', 'ADMIN'])
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -26,14 +26,7 @@ const isStringRecord = (value: unknown): value is Record<string, string> => {
   )
 }
 
-const isBooleanRecord = (value: unknown): value is Record<string, boolean> => {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((entry) => typeof entry === 'boolean')
-  )
-}
-
-const isPersistedUser = (value: unknown): value is User => {
+const isPersistedUser = (value: unknown): value is AuthenticatedUser => {
   if (!isRecord(value)) {
     return false
   }
@@ -43,10 +36,9 @@ const isPersistedUser = (value: unknown): value is User => {
     typeof value.name === 'string' &&
     typeof value.role === 'string' &&
     ROLE_SET.has(value.role) &&
-    typeof value.targetLevel === 'string' &&
-    LEVEL_SET.has(value.targetLevel) &&
-    typeof value.createdAt === 'string' &&
-    typeof value.updatedAt === 'string'
+    (value.targetLevel === null ||
+      (typeof value.targetLevel === 'string' &&
+        LEVEL_SET.has(value.targetLevel)))
   )
 }
 
@@ -82,10 +74,6 @@ const sanitizePersistedState = (
   if (typeof value.startedAt === 'string' || value.startedAt === null) {
     sanitized.startedAt = value.startedAt
   }
-  if (isBooleanRecord(value.pendingBookmarkIds)) {
-    sanitized.pendingBookmarkIds = value.pendingBookmarkIds
-  }
-
   return sanitized
 }
 
@@ -111,8 +99,7 @@ export const useAppStore = create<AppStore>()(
         sessionId: state.sessionId,
         currentQuestionIndex: state.currentQuestionIndex,
         selectedAnswers: state.selectedAnswers,
-        startedAt: state.startedAt,
-        pendingBookmarkIds: state.pendingBookmarkIds
+        startedAt: state.startedAt
       })
     }
   )

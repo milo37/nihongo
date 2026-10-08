@@ -1,0 +1,200 @@
+{
+  "name": "@nihongo/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./analytics/events": {
+      "types": "./dist/analytics/events.d.ts",
+      "import": "./dist/analytics/events.js"
+    },
+    "./admin/phase7": {
+      "types": "./dist/admin/phase7.d.ts",
+      "import": "./dist/admin/phase7.js"
+    },
+    "./bookmark/bookmark": {
+      "types": "./dist/bookmark/bookmark.d.ts",
+      "import": "./dist/bookmark/bookmark.js"
+    },
+    "./bookmark/create-bookmark": {
+      "types": "./dist/bookmark/create-bookmark.d.ts",
+      "import": "./dist/bookmark/create-bookmark.js"
+    },
+    "./bookmark/delete-bookmark": {
+      "types": "./dist/bookmark/delete-bookmark.d.ts",
+      "import": "./dist/bookmark/delete-bookmark.js"
+    },
+    "./bookmark/list-bookmarks": {
+      "types": "./dist/bookmark/list-bookmarks.d.ts",
+      "import": "./dist/bookmark/list-bookmarks.js"
+    },
+    "./auth/delete-guest-principal": {
+      "types": "./dist/auth/delete-guest-principal.d.ts",
+      "import": "./dist/auth/delete-guest-principal.js"
+    },
+    "./auth/get-current-principal": {
+      "types": "./dist/auth/get-current-principal.d.ts",
+      "import": "./dist/auth/get-current-principal.js"
+    },
+    "./common/date": {
+      "types": "./dist/common/date.d.ts",
+      "import": "./dist/common/date.js"
+    },
+    "./common/enum": {
+      "types": "./dist/common/enum.d.ts",
+      "import": "./dist/common/enum.js"
+    },
+    "./common/error": {
+      "types": "./dist/common/error.d.ts",
+      "import": "./dist/common/error.js"
+    },
+    "./common/id": {
+      "types": "./dist/common/id.d.ts",
+      "import": "./dist/common/id.js"
+    },
+    "./common/pagination": {
+      "types": "./dist/common/pagination.d.ts",
+      "import": "./dist/common/pagination.js"
+    },
+    "./dashboard/get-dashboard-stats": {
+      "types": "./dist/dashboard/get-dashboard-stats.d.ts",
+      "import": "./dist/dashboard/get-dashboard-stats.js"
+    },
+    "./dashboard/get-dashboard-insights": {
+      "types": "./dist/dashboard/get-dashboard-insights.d.ts",
+      "import": "./dist/dashboard/get-dashboard-insights.js"
+    },
+    "./question/get-question": {
+      "types": "./dist/question/get-question.d.ts",
+      "import": "./dist/question/get-question.js"
+    },
+    "./question/list-questions": {
+      "types": "./dist/question/list-questions.d.ts",
+      "import": "./dist/question/list-questions.js"
+    },
+    "./study/create-study-session": {
+      "types": "./dist/study/create-study-session.d.ts",
+      "import": "./dist/study/create-study-session.js"
+    },
+    "./study/cancel-study-session": {
+      "types": "./dist/study/cancel-study-session.d.ts",
+      "import": "./dist/study/cancel-study-session.js"
+    },
+    "./study/create-result-retry-session": {
+      "types": "./dist/study/create-result-retry-session.d.ts",
+      "import": "./dist/study/create-result-retry-session.js"
+    },
+    "./study/get-study-draft-answers": {
+      "types": "./dist/study/get-study-draft-answers.d.ts",
+      "import": "./dist/study/get-study-draft-answers.js"
+    },
+    "./study/get-study-session": {
+      "types": "./dist/study/get-study-session.d.ts",
+      "import": "./dist/study/get-study-session.js"
+    },
+    "./study/list-resumable-study-sessions": {
+      "types": "./dist/study/list-resumable-study-sessions.d.ts",
+      "import": "./dist/study/list-resumable-study-sessions.js"
+    },
+    "./study/practice-contract": {
+      "types": "./dist/study/practice-contract.d.ts",
+      "import": "./dist/study/practice-contract.js"
+    },
+    "./study/save-study-draft-answers": {
+      "types": "./dist/study/save-study-draft-answers.d.ts",
+      "import": "./dist/study/save-study-draft-answers.js"
+    },
+    "./study/study-draft": {
+      "types": "./dist/study/study-draft.d.ts",
+      "import": "./dist/study/study-draft.js"
+    },
+    "./study/get-study-result": {
+      "types": "./dist/study/get-study-result.d.ts",
+      "import": "./dist/study/get-study-result.js"
+    },
+    "./study/study-session": {
+      "types": "./dist/study/study-session.d.ts",
+      "import": "./dist/study/study-session.js"
+    },
+    "./study/study-result": {
+      "types": "./dist/study/study-result.d.ts",
+      "import": "./dist/study/study-result.js"
+    },
+    "./study/submit-study-session": {
+      "types": "./dist/study/submit-study-session.d.ts",
+      "import": "./dist/study/submit-study-session.js"
+    },
+    "./wrong-note/get-wrong-note": {
+      "types": "./dist/wrong-note/get-wrong-note.d.ts",
+      "import": "./dist/wrong-note/get-wrong-note.js"
+    },
+    "./wrong-note/get-wrong-note-memo": {
+      "types": "./dist/wrong-note/get-wrong-note-memo.d.ts",
+      "import": "./dist/wrong-note/get-wrong-note-memo.js"
+    },
+    "./wrong-note/create-targeted-review-session": {
+      "types": "./dist/wrong-note/create-targeted-review-session.d.ts",
+      "import": "./dist/wrong-note/create-targeted-review-session.js"
+    },
+    "./wrong-note/list-review-events": {
+      "types": "./dist/wrong-note/list-review-events.d.ts",
+      "import": "./dist/wrong-note/list-review-events.js"
+    },
+    "./wrong-note/list-review-queue": {
+      "types": "./dist/wrong-note/list-review-queue.d.ts",
+      "import": "./dist/wrong-note/list-review-queue.js"
+    },
+    "./wrong-note/list-wrong-notes": {
+      "types": "./dist/wrong-note/list-wrong-notes.d.ts",
+      "import": "./dist/wrong-note/list-wrong-notes.js"
+    },
+    "./wrong-note/update-wrong-note-memo": {
+      "types": "./dist/wrong-note/update-wrong-note-memo.d.ts",
+      "import": "./dist/wrong-note/update-wrong-note-memo.js"
+    },
+    "./wrong-note/user-memo": {
+      "types": "./dist/wrong-note/user-memo.d.ts",
+      "import": "./dist/wrong-note/user-memo.js"
+    },
+    "./testing/question-read-conformance": {
+      "types": "./dist/testing/question-read-conformance.d.ts",
+      "import": "./dist/testing/question-read-conformance.js"
+    },
+    "./testing/dashboard-insights-conformance": {
+      "types": "./dist/testing/dashboard-insights-conformance.d.ts",
+      "import": "./dist/testing/dashboard-insights-conformance.js"
+    },
+    "./testing/practice-flow-conformance": {
+      "types": "./dist/testing/practice-flow-conformance.d.ts",
+      "import": "./dist/testing/practice-flow-conformance.js"
+    },
+    "./testing/phase7-admin-conformance": {
+      "types": "./dist/testing/phase7-admin-conformance.d.ts",
+      "import": "./dist/testing/phase7-admin-conformance.js"
+    },
+    "./testing/review-center-conformance": {
+      "types": "./dist/testing/review-center-conformance.d.ts",
+      "import": "./dist/testing/review-center-conformance.js"
+    },
+    "./testing/study-submit-version-conformance": {
+      "types": "./dist/testing/study-submit-version-conformance.d.ts",
+      "import": "./dist/testing/study-submit-version-conformance.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vitest": "4.1.11"
+  }
+}

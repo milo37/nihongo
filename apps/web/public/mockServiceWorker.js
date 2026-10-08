@@ -265,6 +265,21 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
 
   // Notify the client that a request has been intercepted.
   const serializedRequest = await serializeRequest(event.request)
+  // Same-origin browser fetches may expose neither Origin nor Fetch Metadata
+  // to the Service Worker. A forbidden Origin header would be stripped again
+  // when MSW reconstructs the Request in the page, so attach a mock-only
+  // attestation that is always overwritten at this trusted boundary.
+  const mockClientOriginHeader = 'x-nihongo-msw-client-origin'
+  delete serializedRequest.headers[mockClientOriginHeader]
+  const clientOrigin = new URL(client.url).origin
+  const requestOrigin = new URL(event.request.url).origin
+  if (
+    event.clientId !== '' &&
+    client.id === event.clientId &&
+    clientOrigin === requestOrigin
+  ) {
+    serializedRequest.headers[mockClientOriginHeader] = clientOrigin
+  }
   const clientMessage = await sendToClient(
     client,
     {

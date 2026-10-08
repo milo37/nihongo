@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
 
 export const jlptLevelSchema = z.enum(['N5', 'N4', 'N3', 'N2', 'N1'])
 export const questionSubjectSchema = z.enum([
@@ -26,7 +27,8 @@ export const studyModeSchema = z.enum([
   'RANDOM',
   'WRONG_NOTE',
   'WEAKNESS',
-  'BOOKMARK'
+  'BOOKMARK',
+  'DAILY_REVIEW'
 ])
 export const studySessionStatusSchema = z.enum(['IN_PROGRESS', 'SUBMITTED'])
 export const wrongNoteStatusSchema = z.enum([
@@ -280,6 +282,16 @@ export const questionEditorInputSchema = z
         code: 'custom',
         path: ['options'],
         message: '동일한 보기를 중복해서 입력할 수 없습니다.'
+      })
+    }
+
+    const normalizedTags = value.tags.map(normalizeQuestionTagText)
+
+    if (new Set(normalizedTags).size !== normalizedTags.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['tags'],
+        message: '정규화했을 때 같은 태그를 중복해서 입력할 수 없습니다.'
       })
     }
 
