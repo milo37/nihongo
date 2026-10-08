@@ -15,7 +15,8 @@ type ChoiceRadioGroupProps<Value extends string> = {
   options: readonly ChoiceRadioOption<Value>[]
   value: Value
   onValueChange: (value: Value) => void
-  selectionIndicator: ReactNode
+  selectionIndicator?: ReactNode
+  appearance?: 'cards' | 'segmented'
   disabled?: boolean
   className?: string
 }
@@ -27,13 +28,18 @@ export const ChoiceRadioGroup = <Value extends string>({
   value,
   onValueChange,
   selectionIndicator,
+  appearance = 'cards',
   disabled = false,
   className
 }: ChoiceRadioGroupProps<Value>): ReactElement => {
   const id = useId()
   return (
     <fieldset
-      className={classNames('choice-group', className)}
+      className={classNames(
+        'choice-group',
+        appearance === 'segmented' && 'choice-group-segmented',
+        className
+      )}
       disabled={disabled}
     >
       <legend>{legend}</legend>
@@ -55,9 +61,11 @@ export const ChoiceRadioGroup = <Value extends string>({
             />
             <span className="choice-surface">
               <span className="choice-label">{option.label}</span>
-              <span className="choice-check" aria-hidden="true">
-                {selectionIndicator}
-              </span>
+              {appearance === 'cards' ? (
+                <span className="choice-check" aria-hidden="true">
+                  {selectionIndicator}
+                </span>
+              ) : null}
               {option.description ? (
                 <span className="choice-description">{option.description}</span>
               ) : null}

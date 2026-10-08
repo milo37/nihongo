@@ -179,13 +179,16 @@ describe('study session create intent lock', () => {
     for (const name of ['N5', '문자·어휘', '5문제']) {
       expect(screen.getByRole('radio', { name })).toBeDisabled()
     }
-    expect(screen.getByRole('radio', { name: /^랜덤 문제/ })).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: '출제 모드' })).toBeDisabled()
     await user.click(screen.getByRole('radio', { name: 'N5' }))
     await user.click(screen.getByRole('radio', { name: '문자·어휘' }))
     await user.click(screen.getByRole('radio', { name: '5문제' }))
-    for (const name of ['N3', '문법', '10문제', /^랜덤 문제/]) {
+    for (const name of ['N3', '문법', '10문제']) {
       expect(screen.getByRole('radio', { name })).toBeChecked()
     }
+    expect(screen.getByRole('combobox', { name: '출제 모드' })).toHaveValue(
+      'RANDOM'
+    )
     expect(requestCount).toBe(1)
 
     releaseResponse?.()
@@ -331,6 +334,9 @@ describe('study session create intent lock', () => {
       'pagination session'
     )
 
+    await user.click(
+      await screen.findByRole('button', { name: '다른 진행 학습 보기' })
+    )
     expect(
       await screen.findByRole('link', { name: '1페이지, 현재 페이지' })
     ).toHaveAttribute('aria-current', 'page')

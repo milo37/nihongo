@@ -1190,6 +1190,7 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   height: 100%;
   transform: none;
 }
+
 .information-footer {
   flex-shrink: 0;
   background: rgb(var(--color-canvas));
@@ -1490,4 +1491,467 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .app-shell .a2-summary > p[aria-live] {
   font-size: 1.5rem;
   line-height: 1.7;
+}
+
+/* Approved JLP-372 v6: shared segmented choices and practice composition. */
+.choice-group-segmented .choice-options {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-control);
+  background: rgb(var(--color-surface));
+}
+.choice-group-segmented .choice-option {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 3px;
+}
+.choice-group-segmented .choice-option > input {
+  position: static;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  opacity: 1;
+  appearance: none;
+  border: 1.5px solid rgb(var(--color-muted));
+  border-radius: 50%;
+  background: rgb(var(--color-surface));
+}
+.choice-group-segmented .choice-option > input:checked {
+  border: 5px solid rgb(var(--color-brand));
+}
+.choice-group-segmented .choice-surface,
+.choice-group-segmented .choice-option > input:checked + .choice-surface,
+.choice-group-segmented
+  .choice-option:hover
+  > input:not(:disabled)
+  + .choice-surface {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.choice-group-segmented .choice-option:has(input:checked) {
+  background: rgb(var(--color-brand-soft));
+  font-weight: 600;
+}
+.choice-group-segmented .choice-option:has(input:not(:disabled)):hover {
+  background: rgb(var(--color-brand-soft));
+}
+.choice-group-segmented .choice-option > input:focus-visible,
+.choice-group-segmented .choice-option > input:focus-visible + .choice-surface {
+  outline: none;
+}
+.choice-group-segmented .choice-option:has(input:focus-visible) {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.choice-group-segmented .choice-option:has(input:disabled) {
+  background: rgb(var(--color-disabled-background));
+  color: rgb(var(--color-disabled-text));
+}
+.practice-setup-page {
+  padding: 40px var(--shell-gutter);
+}
+.practice-setup-heading,
+.practice-selection,
+.practice-resumable {
+  max-width: 880px;
+}
+.practice-setup-heading h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+.practice-selection {
+  display: block;
+}
+.practice-selection .choice-group {
+  margin-bottom: 24px;
+}
+.practice-selection .choice-group > legend {
+  float: left;
+  width: 104px;
+  margin: 0;
+  line-height: 48px;
+  font-size: 0.9375rem;
+}
+.practice-selection .choice-options {
+  margin-inline-start: 120px;
+}
+.practice-mode-field > div {
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+.practice-mode-field label {
+  font-size: 0.9375rem;
+}
+.practice-mode-select {
+  min-height: 48px;
+  padding: 10px 16px;
+  box-shadow: none;
+}
+.practice-field-detail {
+  margin: 10px 0 0 120px;
+  color: rgb(var(--color-muted));
+  font-size: 0.875rem;
+}
+.practice-mode-login {
+  margin-top: 0;
+  font-size: 0.8125rem;
+}
+.practice-mode-login a,
+.practice-other-toggle {
+  min-height: 44px;
+  color: rgb(var(--color-brand));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.practice-mode-login a {
+  display: inline-flex;
+  align-items: center;
+}
+.practice-setup-feedback {
+  margin: 20px 0 0 120px;
+}
+.practice-setup-feedback:empty {
+  display: none;
+}
+.practice-setup-feedback > * + * {
+  margin-top: 12px;
+}
+.practice-start-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 248px;
+  align-items: center;
+  gap: 12px 24px;
+  margin: 24px 0 0 120px;
+  padding-top: 20px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.practice-selection-summary {
+  font-size: 1.125rem;
+}
+.practice-supply-note {
+  margin-top: 4px;
+  color: rgb(var(--color-muted));
+  font-size: 0.8125rem;
+}
+.practice-start-summary > .a2-start-button {
+  min-height: 56px;
+}
+.practice-resumable {
+  margin-bottom: 28px;
+}
+.practice-recent {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 16px 20px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-control);
+  background: rgb(var(--color-canvas));
+}
+.practice-recent-single {
+  display: inline-flex;
+}
+.practice-recent-record,
+.practice-resume-record {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.practice-resume-info {
+  min-width: 0;
+}
+.practice-resume-info h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.practice-resume-progress {
+  margin-top: 4px;
+  color: rgb(var(--color-muted));
+  font-size: 0.875rem;
+}
+.practice-resume-context {
+  margin-top: 2px;
+  color: rgb(var(--color-muted));
+  font-size: 0.8125rem;
+}
+.practice-resume-actions {
+  display: flex;
+  flex-shrink: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+.practice-resume-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 112px;
+  padding: 8px 16px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-control);
+  background: rgb(var(--color-surface));
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+}
+.practice-resume-link:hover {
+  border-color: rgb(var(--color-brand));
+  color: rgb(var(--color-brand));
+}
+.practice-resume-link:focus-visible,
+.practice-other-sessions h3:focus-visible,
+.practice-resume-heading:focus-visible,
+.practice-setup-heading h1:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.practice-resume-cancel {
+  font-size: 0.8125rem;
+  color: rgb(var(--color-muted));
+}
+.practice-other-toggle {
+  margin-inline-start: auto;
+  font-size: 0.875rem;
+}
+.practice-other-sessions {
+  margin-top: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgb(var(--color-line));
+}
+.practice-other-sessions > h3 {
+  margin-bottom: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.practice-other-sessions li {
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.practice-other-sessions .practice-resume-actions {
+  margin-inline-start: auto;
+}
+.practice-other-sessions nav {
+  margin-top: 12px;
+}
+.practice-resume-status {
+  margin-bottom: 12px;
+  color: rgb(var(--color-muted));
+  font-size: 0.875rem;
+}
+.practice-resume-heading {
+  margin-bottom: 12px;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.practice-resume-warning {
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgb(var(--color-warning));
+  border-radius: var(--radius-control);
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-warning-soft));
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.practice-resume-warning button {
+  margin-top: 8px;
+}
+.information-footer-compact {
+  padding: 12px var(--shell-gutter) calc(12px + env(safe-area-inset-bottom));
+}
+.information-footer-compact .information-footer-inner {
+  display: block;
+}
+.information-footer-compact .information-footer-about {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+.information-footer-compact .information-footer-brand {
+  margin: 0;
+}
+.information-footer-compact .information-footer-description {
+  max-width: none;
+  line-height: 1.6;
+}
+.information-footer-compact nav {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: none;
+  gap: 0 24px;
+  margin-top: 4px;
+}
+.information-footer-compact .information-footer-group {
+  display: flex;
+  flex-basis: auto;
+  gap: 0 12px;
+  align-items: center;
+}
+.information-footer-group-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.information-footer-compact a {
+  font-size: 0.8125rem;
+}
+@media (max-width: 700px) {
+  .practice-setup-page {
+    padding: 28px 24px 32px;
+  }
+  .practice-setup-heading {
+    margin-bottom: 24px;
+  }
+  .practice-setup-heading h1 {
+    font-size: 1.5rem;
+  }
+  .practice-selection .choice-group {
+    margin-bottom: 20px;
+  }
+  .practice-selection .choice-group > legend {
+    float: none;
+    width: auto;
+    margin-bottom: 8px;
+    line-height: 1.5;
+    font-size: 0.875rem;
+  }
+  .practice-selection .choice-options {
+    margin-inline-start: 0;
+    gap: 2px;
+  }
+  .practice-selection .choice-levels .choice-options {
+    gap: 0;
+  }
+  .choice-group-segmented .choice-option {
+    padding: 0 8px;
+    gap: 6px;
+    font-size: 0.875rem;
+  }
+  .choice-group-segmented.choice-levels .choice-option {
+    padding: 0 3px;
+    gap: 5px;
+  }
+  .choice-group-segmented.choice-levels .choice-option > input {
+    width: 14px;
+    height: 14px;
+  }
+  .choice-group-segmented.choice-levels .choice-option > input:checked {
+    border-width: 4px;
+  }
+  .practice-mode-field > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .practice-mode-field label {
+    font-size: 0.875rem;
+  }
+  .practice-field-detail,
+  .practice-setup-feedback {
+    margin-inline-start: 0;
+  }
+  .practice-start-summary {
+    display: block;
+    margin-inline-start: 0;
+    padding-top: 16px;
+  }
+  .practice-selection-summary {
+    font-size: 1.0625rem;
+  }
+  .practice-start-summary > .a2-start-button {
+    width: 100%;
+    margin-top: 12px;
+  }
+  .practice-resumable {
+    margin-bottom: 24px;
+  }
+  .practice-recent {
+    display: flex;
+    padding: 14px 16px;
+    gap: 8px 12px;
+  }
+  .practice-recent-record,
+  .practice-resume-record {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  .practice-resume-info h3 {
+    font-size: 1rem;
+  }
+  .practice-resume-progress,
+  .practice-resume-context {
+    font-size: 0.8125rem;
+  }
+  .practice-other-toggle {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    margin-inline-start: 0;
+    padding: 0;
+    font-size: 0.8125rem;
+  }
+  .practice-resume-link {
+    min-width: 104px;
+  }
+  .practice-other-sessions .practice-resume-actions {
+    margin-inline-start: 0;
+  }
+  .information-footer-compact {
+    padding-inline: 20px;
+  }
+  .information-footer-compact .information-footer-about {
+    display: block;
+  }
+  .information-footer-compact .information-footer-brand {
+    display: none;
+  }
+  .information-footer-compact .information-footer-description {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+  .information-footer-compact nav {
+    display: block;
+  }
+  .information-footer-compact .information-footer-group-label {
+    min-width: 54px;
+    font-size: 0.75rem;
+  }
+  .information-footer-compact a {
+    font-size: 0.75rem;
+  }
+}
+@media (max-width: 350px) {
+  .choice-group-segmented.choice-levels .choice-option {
+    gap: 3px;
+    font-size: 0.8125rem;
+  }
+  .choice-group-segmented.choice-levels .choice-option > input {
+    width: 12px;
+    height: 12px;
+  }
+}
+@media (forced-colors: active) {
+  .choice-group-segmented .choice-option > input:checked {
+    border-color: Highlight;
+  }
+  .choice-group-segmented .choice-option > input:checked + .choice-surface {
+    border: 0;
+  }
+  .choice-group-segmented .choice-option:has(input:focus-visible) {
+    outline-color: Highlight;
+  }
 }

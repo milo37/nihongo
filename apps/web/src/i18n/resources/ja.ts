@@ -101,6 +101,7 @@ export const jaResources = {
       originalContent: 'オリジナル問題で学習します。',
       scope: '聴解と実際のJLPT過去問題は含まれません。',
       release: '· {{release}}',
+      groups: { guidance: '利用案内', help: 'ヘルプ', account: 'アカウント' },
       informationLabel: 'サービス情報',
       terms: '利用条件',
       privacy: 'プライバシー',
@@ -452,12 +453,14 @@ export const jaResources = {
     name: '問題演習',
     setup: {
       eyebrow: 'PRACTICE SETUP',
-      title: '今日解く問題を設定してください',
+      title: '学習設定',
       description:
         '出題可能な問題が不足する場合は、用意できる数だけを提供し、実際の問題数をお知らせします。',
       currentRole: '現在のロール: {{role}}',
       resume: {
         title: '続きから解く',
+        otherTitle: 'ほかの進行中の学習',
+        otherAction: 'ほかの進行中の学習を見る',
         description: '最近保存した学習から再開できます。',
         refreshing: '一覧を更新中…',
         guestHint:
@@ -472,8 +475,7 @@ export const jaResources = {
         error: '再開できる一覧を読み込めませんでした。',
         empty:
           '保存された進行中の下書きはありません。下から新しい学習を始めてください。',
-        summary:
-          '実際の問題数{{formattedCount}}問 · 現在{{formattedOrdinal}}番',
+        summary: '{{formattedCount}}問中、{{formattedOrdinal}}問目',
         lastSaved: '最終保存 {{date}}',
         notSaved: 'まだサーバーに保存されていません',
         legacyUnavailable:
@@ -483,10 +485,10 @@ export const jaResources = {
         paginationLabel: '再開セッションのページ'
       },
       steps: {
-        level: '2. レベル',
-        subject: '1. 科目',
-        count: '3. 問題数',
-        mode: '4. 出題モード'
+        level: 'レベル',
+        subject: '科目',
+        count: '問題数',
+        mode: '出題モード'
       },
       questionCount: '{{formattedCount}}問',
       modes: {
@@ -512,6 +514,10 @@ export const jaResources = {
             'サーバーの予定に従い、今日復習する間違いを順番に解きます。'
         }
       },
+      memberModes: '会員機能',
+      memberModesHint:
+        '間違えた問題・ブックマーク・今日の復習はログイン後に利用できます。',
+      availableCountNote: '問題が不足する場合は、用意できる数を提供します。',
       loginRequired: 'ログイン後に利用できます',
       protectedMode:
         '選択したモードはログイン後に利用できます。ランダム問題には変更していません。',

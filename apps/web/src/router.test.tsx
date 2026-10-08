@@ -207,9 +207,7 @@ describe('application router boundaries', () => {
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
     await user.click(within(navigation).getByRole('link', { name: '문제풀이' }))
-    expect(
-      await findRouteHeading('이번에 풀 분량을 골라 주세요')
-    ).toBeInTheDocument()
+    expect(await findRouteHeading('학습 설정')).toBeInTheDocument()
 
     await vi.waitFor(() => {
       expect(document.querySelector('#main-content')).toHaveFocus()
@@ -243,7 +241,7 @@ describe('application router boundaries', () => {
   it('모바일 메뉴의 마지막 항목을 벗어나면 overlay를 닫고 main 흐름을 가리지 않는다', async () => {
     const user = userEvent.setup()
     renderRoutes('/practice')
-    await findRouteHeading('이번에 풀 분량을 골라 주세요')
+    await findRouteHeading('학습 설정')
 
     const menuButton = screen.getByRole('button', { name: '메뉴 열기' })
     await user.click(menuButton)
@@ -447,7 +445,7 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
-    await findRouteHeading('이번에 풀 분량을 골라 주세요')
+    await findRouteHeading('학습 설정')
     const main = document.querySelector('#main-content')
     expect(main).not.toHaveFocus()
 
@@ -472,7 +470,7 @@ describe('application router boundaries', () => {
     await act(async () => {
       await router.navigate('/practice')
     })
-    await findRouteHeading('이번에 풀 분량을 골라 주세요')
+    await findRouteHeading('학습 설정')
     scrollTo.mockClear()
 
     await act(async () => {
@@ -499,7 +497,7 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
-    await findRouteHeading('이번에 풀 분량을 골라 주세요')
+    await findRouteHeading('학습 설정')
 
     await act(async () => {
       await router.navigate(`/practice/session/${sessionPayload.session.id}`)
@@ -557,7 +555,7 @@ describe('application router boundaries', () => {
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
-    await findRouteHeading('이번에 풀 분량을 골라 주세요')
+    await findRouteHeading('학습 설정')
 
     await act(async () => {
       await router.navigate(`/practice/result/${sessionPayload.session.id}`)
@@ -568,7 +566,7 @@ describe('application router boundaries', () => {
     await act(async () => {
       await router.navigate('/practice')
     })
-    await findRouteHeading('이번에 풀 분량을 골라 주세요')
+    await findRouteHeading('학습 설정')
     await vi.waitFor(() =>
       expect(document.querySelector('#main-content')).toHaveFocus()
     )

@@ -34,6 +34,197 @@ const createDeferred = (): {
 const createUuid = (value: number): string =>
   `10000000-0000-4000-8000-${String(value).padStart(12, '0')}`
 
+const renderPracticeFixture = (member = false) => {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false }
+    }
+  })
+  if (member) {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.setState({ currentUser })
+    client.setQueryData(authQueries.currentUser().queryKey, currentUser)
+  }
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/practice',
+        element: (
+          <ProtectedRouteProvider>
+            <PracticePage />
+          </ProtectedRouteProvider>
+        )
+      },
+      { path: '/practice/session/:sessionId', element: <p>Resume target</p> }
+    ],
+    { initialEntries: ['/practice'] }
+  )
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+  return { client, router }
+}
+
+const resumableSummary = (value: number) => ({
+  id: createUuid(value),
+  level: 'N5',
+  subject: 'VOCABULARY',
+  mode: 'RANDOM',
+  status: 'IN_PROGRESS',
+  actualCount: 10,
+  startedAt: '2026-09-29T00:00:00.000Z',
+  expiresAt: '2026-10-29T00:00:00.000Z',
+  practiceContractVersion: 2,
+  draftRevision: 1,
+  draftSavedAt: '2026-10-08T04:00:00.000Z',
+  currentOrdinal: 7,
+  resumeAvailability: 'SERVER'
+})
+
+describe('PracticePage approved v6 resume and mode behavior', () => {
+  it.each(['empty', 'error'] as const)(
+    'hides a confirmed empty area while keeping a %s response distinct',
+    async (response) => {
+      mockServer.use(
+        http.get('*/api/v1/study-sessions', () =>
+          response === 'empty'
+            ? HttpResponse.json(
+                { items: [], page: 1, pageSize: 5, total: 0 },
+                {
+                  headers: {
+                    'Cache-Control': 'private, no-store',
+                    'X-Nihongo-Practice-Contract': '2'
+                  }
+                }
+              )
+            : HttpResponse.json(
+                {
+                  code: 'SERVICE_UNAVAILABLE',
+                  message: 'temporary resumable error',
+                  requestId: crypto.randomUUID(),
+                  retryable: true
+                },
+                { status: 503 }
+              )
+        )
+      )
+      const { client } = renderPracticeFixture(true)
+      await screen.findByRole('heading', { name: '학습 설정' })
+      await waitFor(() => expect(client.isFetching()).toBe(0))
+      if (response === 'empty') {
+        await waitFor(() =>
+          expect(
+            screen.queryByRole('region', { name: '이어서 풀기' })
+          ).toBeNull()
+        )
+      } else {
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+          '이어풀기 목록을 불러오지 못했습니다.'
+        )
+        expect(
+          screen.getByRole('heading', { name: '이어서 풀기' })
+        ).toHaveFocus()
+      }
+      client.clear()
+    }
+  )
+
+  it('keeps the first server record as recent, without promoting or duplicating an eligible record', async () => {
+    const recent = {
+      ...resumableSummary(1),
+      practiceContractVersion: 1,
+      draftRevision: null,
+      draftSavedAt: null,
+      currentOrdinal: null,
+      resumeAvailability: 'LEGACY_LOCAL_ONLY'
+    }
+    const other = resumableSummary(2)
+    mockServer.use(
+      http.get('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          { items: [recent, other], page: 1, pageSize: 5, total: 2 },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          }
+        )
+      )
+    )
+    const { client } = renderPracticeFixture(true)
+    const interaction = userEvent.setup()
+    await screen.findByText(
+      /이 세션은 다른 기기의 로컬 답안을 복원할 수 없습니다/u
+    )
+    expect(screen.queryByRole('link', { name: '이어서 풀기' })).toBeNull()
+    await interaction.click(
+      screen.getByRole('button', { name: '다른 진행 학습 보기' })
+    )
+    const links = screen.getAllByRole('link', { name: '이어서 풀기' })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', `/practice/session/${other.id}`)
+    expect(screen.getAllByText('10문제 중 7번째 문항')).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: '세션 취소' })).toHaveLength(2)
+    client.clear()
+  })
+
+  it('opens the existing session URL without resetting current answers', async () => {
+    const session = resumableSummary(3)
+    mockServer.use(
+      http.get('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          { items: [session], page: 1, pageSize: 5, total: 1 },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          }
+        )
+      )
+    )
+    const { client, router } = renderPracticeFixture(true)
+    const interaction = userEvent.setup()
+    const link = await screen.findByRole('link', { name: '이어서 풀기' })
+    act(() =>
+      useAppStore.setState({
+        sessionId: createUuid(99),
+        selectedAnswers: { question: 'answer' }
+      })
+    )
+    await interaction.click(link)
+    expect(router.state.location.pathname).toBe(
+      `/practice/session/${session.id}`
+    )
+    expect(useAppStore.getState().sessionId).toBe(createUuid(99))
+    expect(useAppStore.getState().selectedAnswers).toEqual({
+      question: 'answer'
+    })
+    client.clear()
+  })
+
+  it('uses a single mode select and skips member options for a guest keyboard', async () => {
+    const { client, router } = renderPracticeFixture()
+    const interaction = userEvent.setup()
+    const select = await screen.findByRole('combobox', { name: '출제 모드' })
+    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    await interaction.click(select)
+    await interaction.keyboard('{End}')
+    expect(select).toHaveValue('WEAKNESS')
+    expect(router.state.location.search).toContain('mode=WEAKNESS')
+    await interaction.keyboard('{ArrowDown}')
+    expect(select).toHaveValue('WEAKNESS')
+    await interaction.keyboard('{Home}')
+    expect(select).toHaveValue('RANDOM')
+    expect(router.state.location.search).not.toContain('mode=')
+    client.clear()
+  })
+})
+
 const protectedModes = [
   ['BOOKMARK', '즐겨찾기'],
   ['DAILY_REVIEW', '오늘의 복습'],
@@ -276,6 +467,9 @@ describe('PracticePage guest mode boundary', () => {
     )
     const user = userEvent.setup()
     const region = await screen.findByRole('region', { name: '이어서 풀기' })
+    await user.click(
+      await within(region).findByRole('button', { name: '다른 진행 학습 보기' })
+    )
     const next = await within(region).findByRole('link', {
       name: '다음 페이지'
     })
@@ -342,11 +536,13 @@ describe('PracticePage guest mode boundary', () => {
       )
 
       expect(
-        await screen.findByRole('radio', { name: new RegExp(`^${label}`) })
-      ).toBeChecked()
-      expect(
-        screen.getByRole('radio', { name: /^랜덤 문제/u })
-      ).not.toBeChecked()
+        await screen.findByRole('combobox', { name: '출제 모드' })
+      ).toHaveValue(mode)
+      expect(screen.getByRole('option', { name: label })).toBeDisabled()
+      expect(screen.getByRole('option', { name: '랜덤 문제' })).toHaveProperty(
+        'selected',
+        false
+      )
       expect(screen.getByRole('alert')).toHaveTextContent(
         '랜덤 문제로 바꾸지 않았습니다.'
       )

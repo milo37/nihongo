@@ -1,4 +1,3 @@
-import { LearningIcon } from '@app/home/LearningIcon'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
@@ -8,10 +7,10 @@ import type {
   QuestionSubject,
   StudyMode
 } from '@common/types/domain'
+import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
+import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { Button } from '@common/components/Button'
-import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
 import { Dialog } from '@common/components/Dialog'
-import { Pagination } from '@common/components/Pagination'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
@@ -19,8 +18,6 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
 import { useAppStore } from '@store/index'
 import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 
@@ -87,11 +84,8 @@ const loginRequiredModes: readonly StudyMode[] = [
 ]
 
 export const PracticePage = (): ReactElement => {
-  const { i18n, t } = useTranslation('practice')
-  const { t: commonT } = useTranslation('common')
+  const { t } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
-  const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const formatCount = (value: number): string => formatNumber(value, locale)
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -100,6 +94,7 @@ export const PracticePage = (): ReactElement => {
   const storedSessionId = useAppStore((state) => state.sessionId)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
+  const setupHeadingRef = useRef<HTMLHeadingElement>(null)
   const level = getInitialLevel(searchParams.get('level'))
   const subject = getInitialSubject(searchParams.get('subject'))
   const subjectLabel = homeT(
@@ -192,6 +187,8 @@ export const PracticePage = (): ReactElement => {
     }
   }, [resumableSessions.data, resumableSessions.isError])
 
+  const loginHref = `/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`
+
   const handleStart = (): void => {
     if (!isReady || isCreatingSession || isProtectedGuestMode) {
       return
@@ -211,389 +208,121 @@ export const PracticePage = (): ReactElement => {
 
   return (
     <section className="practice-setup-page">
+      <ResumablePractice
+        query={resumableSessions}
+        canLoad={canLoadResumableSessions}
+        storedSessionId={storedSessionId}
+        requestedPage={resumablePage}
+        pageCount={resumablePageCount}
+        sourceUnavailable={isResumableSourceUnavailable}
+        interactionLocked={isResumableInteractionLocked}
+        headingRef={resumableHeadingRef}
+        getPageHref={(page) => getSearchParamHref('resumePage', page, 1)}
+        onPageChange={(page) => updateSearchParam('resumePage', page, 1)}
+        onCancel={setCancelSessionId}
+      />
       <div className="practice-setup-heading">
-        <div>
-          <p className="text-sm font-black tracking-[0.16em] text-brand">
-            {t('setup.eyebrow')}
-          </p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight">
-            {t('setup.title')}
-          </h1>
-          <p className="mt-3 text-muted">{t('setup.description')}</p>
-        </div>
-        <p className="text-sm font-semibold text-muted">
-          {t('setup.currentRole', {
-            role: commonT(`taxonomy.roles.${role}`)
-          })}
-        </p>
+        <h1 ref={setupHeadingRef} tabIndex={-1}>
+          {t('setup.title')}
+        </h1>
       </div>
-
-      <div className="practice-selection">
-        <ChoiceRadioGroup
-          name="practice-subject"
-          legend={t('setup.steps.subject')}
-          value={subject}
-          disabled={isCreatingSession}
-          selectionIndicator={
-            <LearningIcon className="a2-check" name="check" />
-          }
-          options={subjects.map((option) => ({
-            value: option,
-            label: (
-              <>
-                <LearningIcon
-                  className="a2-subject-icon"
-                  name={
-                    option === 'VOCABULARY'
-                      ? 'languages'
-                      : option === 'GRAMMAR'
-                        ? 'text-cursor-input'
-                        : 'book-open'
-                  }
-                />
-                <span>{commonT(`taxonomy.subjects.${option}`)}</span>
-              </>
-            )
-          }))}
-          onValueChange={(option) => {
-            createSession.reset()
-            updateSearchParam('subject', option, 'GRAMMAR')
-          }}
-        />
-        <ChoiceRadioGroup
-          className="choice-levels"
-          name="practice-level"
-          legend={t('setup.steps.level')}
-          value={level}
-          disabled={isCreatingSession}
-          selectionIndicator={
-            <LearningIcon className="a2-check" name="check" />
-          }
-          options={levels.map((option) => ({ value: option, label: option }))}
-          onValueChange={(option) => {
-            createSession.reset()
-            updateSearchParam('level', option, 'N3')
-          }}
-        />
-        <ChoiceRadioGroup
-          name="practice-count"
-          legend={t('setup.steps.count')}
-          value={String(count)}
-          disabled={isCreatingSession}
-          selectionIndicator={
-            <LearningIcon className="a2-check" name="check" />
-          }
-          options={counts.map((option) => ({
-            value: String(option),
-            label: t('setup.questionCount', {
-              formattedCount: formatCount(option)
-            })
-          }))}
-          onValueChange={(option) => {
-            createSession.reset()
-            updateSearchParam('count', Number(option), 10)
-          }}
-        />
-        <ChoiceRadioGroup
-          className="choice-modes"
-          name="practice-mode"
-          legend={t('setup.steps.mode')}
-          value={mode}
-          disabled={isCreatingSession}
-          selectionIndicator={
-            <LearningIcon className="a2-check" name="check" />
-          }
-          options={modes
-            .filter((option) => !option.requiresLogin)
-            .concat(modes.filter((option) => option.requiresLogin))
-            .map((option) => {
-              const disabled =
-                !isReady || (option.requiresLogin && role === 'GUEST')
-              return {
-                value: option.value,
-                label: t(`setup.modes.${option.value}.label`),
-                description: (
-                  <>
-                    {t(`setup.modes.${option.value}.description`)}
-                    {disabled ? (
-                      <span className="block">{t('setup.loginRequired')}</span>
-                    ) : null}
-                  </>
-                ),
-                disabled
-              }
-            })}
-          onValueChange={(option) => {
-            createSession.reset()
-            updateSearchParam('mode', option, 'RANDOM')
-          }}
-        />
-
-        {isProtectedGuestMode ? (
-          <div
-            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
-            role="alert"
-          >
-            {t('setup.protectedMode')}{' '}
-            <Link
-              className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
-              to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
-            >
-              {t('setup.login')}
-            </Link>
-          </div>
-        ) : null}
-
-        {noEligibleQuestions ? (
-          <div
-            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
-            role="alert"
-          >
-            <p className="font-bold">
-              {t('setup.noEligibleTitle', {
-                mode: t(`setup.modes.${mode}.label`)
-              })}
-            </p>
-            <p className="mt-1 leading-6">{t('setup.noEligibleDescription')}</p>
-            {mode !== 'RANDOM' ? (
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  createSession.reset()
-                  updateSearchParam('mode', 'RANDOM', 'RANDOM')
-                }}
+      <PracticeSetupForm
+        level={level}
+        subject={subject}
+        count={count}
+        mode={mode}
+        levels={levels}
+        subjects={subjects}
+        counts={counts}
+        modes={modes}
+        isReady={isReady}
+        isGuest={role === 'GUEST'}
+        isCreating={isCreatingSession}
+        isProtectedGuestMode={isProtectedGuestMode}
+        subjectLabel={subjectLabel}
+        startLabel={startLabel}
+        loginHref={loginHref}
+        onSubjectChange={(option) => {
+          createSession.reset()
+          updateSearchParam('subject', option, 'GRAMMAR')
+        }}
+        onLevelChange={(option) => {
+          createSession.reset()
+          updateSearchParam('level', option, 'N3')
+        }}
+        onCountChange={(option) => {
+          createSession.reset()
+          updateSearchParam('count', option, 10)
+        }}
+        onModeChange={(option) => {
+          createSession.reset()
+          updateSearchParam('mode', option, 'RANDOM')
+        }}
+        onStart={handleStart}
+        feedback={
+          <>
+            {isProtectedGuestMode ? (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+                role="alert"
               >
-                {t('setup.selectRandom')}
-              </Button>
-            ) : null}
-          </div>
-        ) : createSession.isError &&
-          !isAuthTransitionSupersededError(createSession.error) ? (
-          <div
-            className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-            role="alert"
-          >
-            {t('setup.createError')}
-          </div>
-        ) : null}
-
-        <div className="practice-start-summary">
-          <p className="practice-selection-summary" aria-live="polite">
-            {level} {subjectLabel} ·{' '}
-            {t('setup.questionCount', { formattedCount: formatCount(count) })}
-          </p>
-          <p className="text-sm text-muted">
-            {t('setup.authorityNote')}
-            {role === 'GUEST' ? (
-              <>
-                {' '}
+                {t('setup.protectedMode')}{' '}
                 <Link
-                  className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-                  to={`/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+                  className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
+                  to={loginHref}
                 >
                   {t('setup.login')}
                 </Link>
-              </>
+              </div>
             ) : null}
-          </p>
-          <Button
-            className="a2-start-button shrink-0"
-            aria-label={
-              isCreatingSession ? homeT('approved.loading') : startLabel
-            }
-            disabled={!isReady || isProtectedGuestMode}
-            isLoading={isCreatingSession}
-            loadingLabel={homeT('approved.loading')}
-            showLoadingIndicator={false}
-            size="lg"
-            onClick={handleStart}
-          >
-            {startLabel}
-          </Button>
-        </div>
-      </div>
 
-      <section
-        className="mt-8 border-y border-line py-6"
-        aria-labelledby="resumable-practice-title"
-      >
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2
-              ref={resumableHeadingRef}
-              id="resumable-practice-title"
-              className="rounded-sm text-xl font-black focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-              tabIndex={-1}
-            >
-              {t('setup.resume.title')}
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-muted">
-              {t('setup.resume.description')}
-            </p>
-          </div>
-          {resumableSessions.isFetching && !resumableSessions.isPending ? (
-            <span
-              className="text-sm font-semibold text-muted"
-              role="status"
-              aria-atomic="true"
-            >
-              {t('setup.resume.refreshing')}
-            </span>
-          ) : null}
-        </div>
-
-        {canLoadResumableSessions &&
-        resumableSessions.data &&
-        isResumableSourceUnavailable ? (
-          <div
-            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-            role={resumableSessions.isError ? 'alert' : 'status'}
-          >
-            <p className="font-semibold">
-              {t(
-                resumableSessions.fetchStatus === 'paused'
-                  ? 'setup.resume.cachedOffline'
-                  : 'setup.resume.stale'
-              )}
-            </p>
-            {resumableSessions.isError ? (
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="secondary"
-                onClick={() => void resumableSessions.refetch()}
+            {noEligibleQuestions ? (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+                role="alert"
               >
-                {commonT('actions.retry')}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {!canLoadResumableSessions ? (
-          <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
-            {t('setup.resume.guestHint')}
-          </p>
-        ) : resumableSessions.isPending &&
-          resumableSessions.fetchStatus === 'paused' ? (
-          <p
-            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-900"
-            role="status"
-          >
-            {t('setup.resume.offline')}
-          </p>
-        ) : resumableSessions.isPending ? (
-          <p className="mt-4 text-sm font-semibold text-muted" role="status">
-            {t('setup.resume.loading')}
-          </p>
-        ) : resumableSessions.isError && !resumableSessions.data ? (
-          <div
-            className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-            role="alert"
-          >
-            <p>{t('setup.resume.error')}</p>
-            <Button
-              className="mt-3"
-              size="sm"
-              variant="secondary"
-              onClick={() => void resumableSessions.refetch()}
-            >
-              {commonT('actions.retry')}
-            </Button>
-          </div>
-        ) : resumableSessions.data.items.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-line bg-white p-4 text-sm leading-6 text-muted">
-            {t('setup.resume.empty')}
-          </p>
-        ) : (
-          <>
-            <ul
-              className="mt-4 grid gap-3 sm:grid-cols-2"
-              aria-busy={resumableSessions.isFetching}
-            >
-              {resumableSessions.data.items.map((item) => {
-                const canResume =
-                  item.resumeAvailability === 'SERVER' ||
-                  storedSessionId === item.id
-                return (
-                  <li
-                    key={item.id}
-                    className="rounded-xl border border-line bg-white p-4"
+                <p className="font-bold">
+                  {t('setup.noEligibleTitle', {
+                    mode: t(`setup.modes.${mode}.label`)
+                  })}
+                </p>
+                <p className="mt-1 leading-6">
+                  {t('setup.noEligibleDescription')}
+                </p>
+                {mode !== 'RANDOM' ? (
+                  <Button
+                    className="mt-3"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      createSession.reset()
+                      updateSearchParam('mode', 'RANDOM', 'RANDOM')
+                    }}
                   >
-                    <p className="font-black">
-                      {item.level} ·{' '}
-                      {commonT(`taxonomy.subjects.${item.subject}`)}
-                    </p>
-                    <p className="mt-1 text-xs font-black tracking-wide text-brand">
-                      {t(`setup.modes.${item.mode}.label`)}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-muted">
-                      {t('setup.resume.summary', {
-                        formattedCount: formatCount(item.actualCount),
-                        formattedOrdinal: formatCount(item.currentOrdinal ?? 1)
-                      })}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-muted">
-                      {item.draftSavedAt
-                        ? t('setup.resume.lastSaved', {
-                            date: formatDateTime(item.draftSavedAt, locale, {
-                              dateStyle: 'medium',
-                              timeStyle: 'short'
-                            })
-                          })
-                        : t('setup.resume.notSaved')}
-                    </p>
-                    {item.resumeAvailability === 'LEGACY_LOCAL_ONLY' &&
-                    !canResume ? (
-                      <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm font-semibold leading-6 text-amber-900">
-                        {t('setup.resume.legacyUnavailable')}
-                      </p>
-                    ) : null}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {canResume ? (
-                        <Link
-                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-sm font-bold text-white hover:bg-brand-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                          to={`/practice/session/${item.id}`}
-                        >
-                          {t('setup.resume.action')}
-                        </Link>
-                      ) : null}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={isResumableInteractionLocked}
-                        onClick={() => setCancelSessionId(item.id)}
-                      >
-                        {t('setup.resume.cancel')}
-                      </Button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-            {resumableSessions.data.total > resumableSessions.data.pageSize ? (
-              <Pagination
-                className="mt-4"
-                currentPage={resumableSessions.data.page}
-                disabled={isResumableInteractionLocked}
-                getPageHref={(page) =>
-                  getSearchParamHref('resumePage', page, 1)
-                }
-                label={t('setup.resume.paginationLabel')}
-                totalPages={resumablePageCount}
-                onPageChange={(page) =>
-                  updateSearchParam('resumePage', page, 1)
-                }
-              />
+                    {t('setup.selectRandom')}
+                  </Button>
+                ) : null}
+              </div>
+            ) : createSession.isError &&
+              !isAuthTransitionSupersededError(createSession.error) ? (
+              <div
+                className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+                role="alert"
+              >
+                {t('setup.createError')}
+              </div>
             ) : null}
           </>
-        )}
-      </section>
+        }
+      />
 
       <Dialog
         open={cancelSessionId !== null}
-        fallbackFocusRef={resumableHeadingRef}
+        fallbackFocusRef={
+          resumableSessions.data?.total === 0
+            ? setupHeadingRef
+            : resumableHeadingRef
+        }
         title={t('setup.cancelDialog.title')}
         description={t('setup.cancelDialog.description')}
         footer={

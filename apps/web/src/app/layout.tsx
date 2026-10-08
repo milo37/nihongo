@@ -76,6 +76,9 @@ export const Layout = (): ReactElement => {
     isLearningEntry ||
     location.pathname.startsWith('/practice') ||
     location.pathname.startsWith('/wrong-notes')
+  const isPracticeSurface =
+    location.pathname === '/practice' ||
+    location.pathname.startsWith('/practice/')
   const mainRef = useRef<HTMLElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const previousPathnameRef = useRef(location.pathname)
@@ -344,7 +347,7 @@ export const Layout = (): ReactElement => {
         </Suspense>
       </main>
 
-      <InformationFooter />
+      <InformationFooter density={isPracticeSurface ? 'compact' : 'regular'} />
     </div>
   )
 }

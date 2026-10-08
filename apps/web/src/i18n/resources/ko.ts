@@ -95,6 +95,7 @@ export const koResources = {
       originalContent: '자체 제작 문제로 학습합니다.',
       scope: '청해·실제 JLPT 기출문제는 포함하지 않습니다.',
       release: '· {{release}}',
+      groups: { guidance: '이용 안내', help: '도움', account: '계정' },
       informationLabel: '서비스 정보',
       terms: '이용 조건',
       privacy: '개인정보 안내',
@@ -448,12 +449,14 @@ export const koResources = {
     name: '문제풀이',
     setup: {
       eyebrow: 'PRACTICE SETUP',
-      title: '이번에 풀 분량을 골라 주세요',
+      title: '학습 설정',
       description:
         '출제 가능한 문제가 부족하면 가능한 수만 제공하고 실제 문항 수를 알려드립니다.',
       currentRole: '현재 역할: {{role}}',
       resume: {
         title: '이어서 풀기',
+        otherTitle: '다른 진행 중 학습',
+        otherAction: '다른 진행 학습 보기',
         description: '최근 저장한 학습부터 이어갈 수 있습니다.',
         refreshing: '목록 갱신 중…',
         guestHint:
@@ -468,7 +471,7 @@ export const koResources = {
         error: '이어풀기 목록을 불러오지 못했습니다.',
         empty:
           '저장된 진행 중 작업본이 없습니다. 아래에서 새 학습을 시작해 주세요.',
-        summary: '실제 {{formattedCount}}문제 · 현재 {{formattedOrdinal}}번',
+        summary: '{{formattedCount}}문제 중 {{formattedOrdinal}}번째 문항',
         lastSaved: '마지막 저장 {{date}}',
         notSaved: '아직 답안 저장 전',
         legacyUnavailable:
@@ -478,10 +481,10 @@ export const koResources = {
         paginationLabel: '이어풀기 페이지'
       },
       steps: {
-        level: '2. 급수',
-        subject: '1. 과목',
-        count: '3. 문제 수',
-        mode: '4. 출제 모드'
+        level: '급수',
+        subject: '과목',
+        count: '문제 수',
+        mode: '출제 모드'
       },
       questionCount: '{{formattedCount}}문제',
       modes: {
@@ -506,6 +509,10 @@ export const koResources = {
           description: '서버 일정상 오늘 복습할 오답을 순서대로 풉니다.'
         }
       },
+      memberModes: '회원 기능',
+      memberModesHint:
+        '오답·즐겨찾기·오늘의 복습은 로그인 후 이용할 수 있습니다.',
+      availableCountNote: '문제가 부족하면 가능한 수만 제공합니다.',
       loginRequired: '로그인 후 이용 가능',
       protectedMode:
         '선택한 모드는 로그인 후 이용할 수 있습니다. 랜덤 문제로 바꾸지 않았습니다.',
