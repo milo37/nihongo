@@ -30,6 +30,7 @@ import {
   listPhase7QuestionVersionReviews,
   previewPhase7QuestionVersion
 } from '@api/phase7/phase7AdminApi'
+import { adminAuditLogKeys } from '@app/content-operations/audit/queries/auditLogKeys'
 import { adminQuestionReportKeys } from '@app/content-operations/reports/queries/questionReportKeys'
 
 const rootKey = ['phase7-admin'] as const
@@ -65,12 +66,7 @@ export const adminQuestionVersionKeys = {
     [...adminQuestionVersionKeys.diffFamily(versionId), query] as const
 } as const
 
-export const adminAuditLogKeys = {
-  all: () => [...rootKey, 'audit-log'] as const,
-  allLists: () => [...adminAuditLogKeys.all(), 'list'] as const,
-  list: (query: ListAdminAuditLogQuery) =>
-    [...adminAuditLogKeys.allLists(), query] as const
-} as const
+export { adminAuditLogKeys }
 
 export { adminQuestionReportKeys }
 
