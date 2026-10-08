@@ -268,30 +268,6 @@
       "ownerSlice": 2
     },
     {
-      "path": "src/util/study.ts",
-      "literal": "세션에 없는 문제입니다: {{expression}}",
-      "rationale": "Pure study invariant diagnostic; never primary UI copy.",
-      "ownerSlice": 2
-    },
-    {
-      "path": "src/util/study.ts",
-      "literal": "같은 문제의 답안이 중복되었습니다: {{expression}}",
-      "rationale": "Pure study invariant diagnostic; never primary UI copy.",
-      "ownerSlice": 2
-    },
-    {
-      "path": "src/util/study.ts",
-      "literal": "정답이 정확히 하나가 아닌 문제입니다: {{expression}}",
-      "rationale": "Pure study invariant diagnostic; never primary UI copy.",
-      "ownerSlice": 2
-    },
-    {
-      "path": "src/util/study.ts",
-      "literal": "문제에 속하지 않은 보기입니다: {{expression}}",
-      "rationale": "Pure study invariant diagnostic; never primary UI copy.",
-      "ownerSlice": 2
-    },
-    {
       "path": "src/app/practice/commands/submitStudySessionCommand.ts",
       "literal": "제출에 필요한 canonical sessionQuestionId 매핑이 없습니다. 세션을 다시 불러와 주세요.",
       "rationale": "Pre-transport submission invariant; the session UI renders catalog-owned failure semantics.",
