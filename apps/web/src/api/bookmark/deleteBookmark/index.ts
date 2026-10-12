@@ -1,16 +1,17 @@
-import { safeDel } from '@api/http'
+import { safeDelWithMetadata } from '@api/http'
 import {
   deleteBookmarkRequestSchema,
-  deleteBookmarkResponseSchema
+  deleteBookmarkTransportResponseSchema
 } from '@api/bookmark/deleteBookmark/schema'
-import type { DeleteBookmarkResponse } from '@api/bookmark/deleteBookmark/schema'
+import type { DeleteBookmarkTransportResponse } from '@api/bookmark/deleteBookmark/schema'
 
-const requestBookmarkDeletion = safeDel(deleteBookmarkResponseSchema)
+const requestBookmarkDeletion = safeDelWithMetadata(
+  deleteBookmarkTransportResponseSchema
+)
 
 export const deleteBookmark = (
   questionId: string
-): Promise<DeleteBookmarkResponse> => {
+): Promise<DeleteBookmarkTransportResponse> => {
   const request = deleteBookmarkRequestSchema.parse({ questionId })
-
-  return requestBookmarkDeletion(`/bookmark/${request.questionId}`)
+  return requestBookmarkDeletion(`/v1/bookmarks/${request.questionId}`)
 }

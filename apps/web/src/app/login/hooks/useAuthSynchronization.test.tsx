@@ -4,7 +4,7 @@ import { http, HttpResponse, delay } from 'msw'
 import type { ReactElement } from 'react'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { authQueries } from '@app/login/queries/authQueries'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -25,7 +25,7 @@ const AuthProbe = ({
 }: {
   observedRoles?: string[]
 }): ReactElement => {
-  const { role } = useDemoAuth()
+  const { role } = useAuth()
   observedRoles?.push(role)
   return <p>현재 역할: {role}</p>
 }
