@@ -116,7 +116,7 @@ describe('application router boundaries', () => {
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
-    renderRoutes('/')
+    const router = renderRoutes('/')
     expect(
       await screen.findByRole('heading', {
         name: '학습'
@@ -125,11 +125,11 @@ describe('application router boundaries', () => {
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
     await user.click(within(navigation).getByRole('link', { name: '학습' }))
-    expect(
-      await screen.findByRole('heading', {
-        name: '학습'
-      })
-    ).toBeInTheDocument()
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/practice')
+      expect(router.state.navigation.state).toBe('idle')
+      expect(screen.getByRole('heading', { name: '학습' })).toBeInTheDocument()
+    })
 
     await vi.waitFor(() => {
       expect(document.querySelector('#main-content')).toHaveFocus()
