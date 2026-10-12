@@ -4,22 +4,23 @@
   "private": true,
   "packageManager": "pnpm@10.2.1",
   "engines": {
-    "node": ">=22.12.0"
+    "node": "22.23.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @nihongo/web run dev",
-    "build": "pnpm --filter @nihongo/web run build",
+    "dev": "pnpm run build:contracts && pnpm --filter @nihongo/web run dev",
+    "build": "pnpm run build:contracts && pnpm --filter @nihongo/web run build",
     "preview": "pnpm --filter @nihongo/web run preview",
-    "check:architecture": "node scripts/architecture/cli.mjs",
-    "typecheck": "pnpm --filter @nihongo/web run typecheck",
+    "check:architecture": "pnpm run build:contracts && node scripts/architecture/cli.mjs",
+    "typecheck": "pnpm run build:contracts && pnpm --filter @nihongo/web run typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:architecture": "node --test scripts/architecture/checker.test.mjs",
-    "test:web": "pnpm --filter @nihongo/web run test",
+    "test:web": "pnpm run build:contracts && pnpm --filter @nihongo/web run test",
     "test": "pnpm run test:architecture && pnpm run test:web",
-    "test:watch": "pnpm --filter @nihongo/web run test:watch"
+    "test:watch": "pnpm --filter @nihongo/web run test:watch",
+    "build:contracts": "pnpm --filter @nihongo/contracts run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -44,5 +45,9 @@
     "workerDirectory": [
       "apps/web/public"
     ]
+  },
+  "volta": {
+    "node": "22.23.0",
+    "pnpm": "10.2.1"
   }
 }
