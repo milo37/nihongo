@@ -1211,6 +1211,7 @@
     align-items: start;
     gap: 10px;
     padding: 16px 0;
+    padding-inline-end: calc(var(--focus-width) + var(--focus-offset));
   }
   .bookmark-meta {
     gap: 4px 8px;

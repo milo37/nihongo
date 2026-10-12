@@ -76,7 +76,9 @@ const renderBookmarkPage = (
   return { client, router, unmount: view.unmount }
 }
 
-const renderLastPageDelete = async () => {
+const renderLastPageDelete = async (
+  activation: 'pointer' | 'keyboard' = 'pointer'
+) => {
   const initialItems = Array.from({ length: 21 }, (_, index) =>
     createBookmark(index + 1)
   )
@@ -85,6 +87,7 @@ const renderLastPageDelete = async () => {
   const replacement = createBookmark(22, '동시에 추가된 책갈피')
   const settlement = createDeferred<DeleteSettlement>()
   let serverItems = initialItems
+  let deleteRequests = 0
 
   mockServer.use(
     http.get('*/api/v1/bookmarks', ({ request }) => {
@@ -100,6 +103,7 @@ const renderLastPageDelete = async () => {
       })
     }),
     http.delete('*/api/v1/bookmarks/:questionId', async () => {
+      deleteRequests += 1
       const result = await settlement.promise
       if (result === 'FAILURE') {
         return HttpResponse.json(
@@ -144,11 +148,23 @@ const renderLastPageDelete = async () => {
   await screen.findByText(lastItem.question.questionTextPreview)
   expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
   const removalTrigger = screen.getByRole('button', { name: '책갈피 해제' })
-  await user.click(removalTrigger)
+  if (activation === 'keyboard') {
+    removalTrigger.focus()
+    await user.keyboard('{Enter}')
+  } else {
+    await user.click(removalTrigger)
+  }
   expect(
     screen.getByRole('heading', { name: '책갈피를 해제할까요?' })
   ).toBeVisible()
-  await user.click(screen.getByRole('button', { name: '해제 확인' }))
+  const confirm = screen.getByRole('button', { name: '해제 확인' })
+  if (activation === 'keyboard') {
+    await user.tab({ shift: true })
+    expect(confirm).toHaveFocus()
+    await user.keyboard('{Enter}')
+  } else {
+    await user.click(confirm)
+  }
   await screen.findByText('이 페이지가 비었습니다')
   expect(removalTrigger.isConnected).toBe(false)
 
@@ -158,6 +174,9 @@ const renderLastPageDelete = async () => {
     replacement,
     removalTrigger,
     settlement,
+    get deleteRequests() {
+      return deleteRequests
+    },
     unmount: view.unmount
   }
 }
@@ -505,6 +524,26 @@ describe('BookmarkPage pagination settlement', () => {
       await screen.findByText(fixture.replacement.question.questionTextPreview)
     ).toBeInTheDocument()
     expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    dispose(fixture.client, fixture.unmount)
+  })
+
+  it('키보드 해제 확인 실패 후 복원된 해제 버튼으로 초점을 돌려준다', async () => {
+    const fixture = await renderLastPageDelete('keyboard')
+
+    await act(async () => fixture.settlement.resolve('FAILURE'))
+
+    expect(
+      await screen.findByText(fixture.lastItem.question.questionTextPreview)
+    ).toBeVisible()
+    expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    expect(
+      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했습니다.')
+    ).toBeVisible()
+    const restoredTrigger = screen.getByRole('button', { name: '책갈피 해제' })
+    expect(restoredTrigger).not.toBe(fixture.removalTrigger)
+    await waitFor(() => expect(restoredTrigger).toHaveFocus())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(fixture.deleteRequests).toBe(1)
     dispose(fixture.client, fixture.unmount)
   })
 })
