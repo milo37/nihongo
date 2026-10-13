@@ -13,7 +13,22 @@ export type IconName =
   | 'bookmark'
   | 'user-round'
   | 'arrow-left'
+  | 'circle-check'
+  | 'circle-alert'
 const paths: Record<IconName, ReactElement> = {
+  'circle-check': (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  'circle-alert': (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </>
+  ),
   house: (
     <>
       <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" />

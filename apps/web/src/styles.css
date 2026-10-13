@@ -896,7 +896,7 @@
 
 .study-result {
   display: block;
-  max-width: 840px;
+  max-width: 1120px;
 }
 
 .study-result-summary h1 {
@@ -2260,4 +2260,100 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 .review-document-actions .note-primary {
   gap: 8px;
+}
+
+/* Approved R7 general-result navigation and selected explanation only. */
+.study-result-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.study-result-questions {
+  display: grid;
+  gap: 4px;
+}
+.study-result-question {
+  justify-content: flex-start;
+  padding: 8px 12px;
+  text-align: start;
+  white-space: nowrap;
+}
+.study-result-detail {
+  min-width: 0;
+  padding: 24px;
+  background: rgb(var(--color-surface));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-card);
+}
+.study-result-detail-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.study-result-detail-heading > p {
+  font-size: 13px;
+  font-weight: 600;
+}
+.study-result-question-copy {
+  margin-top: 28px;
+  font-size: 24px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.study-result-passage {
+  margin-top: 24px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.study-result-answer-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 28px;
+}
+.study-result-answer-comparison dt {
+  font-size: 13px;
+}
+.study-result-answer-comparison dd {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.study-result-explanation {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.study-result-explanation h3 {
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .study-result-layout {
+    display: block;
+  }
+  .study-result-questions {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding: calc(var(--focus-width) + var(--focus-offset));
+    margin: calc(-1 * (var(--focus-width) + var(--focus-offset)));
+    margin-bottom: 14px;
+  }
+  .study-result-question {
+    flex: 0 0 auto;
+    min-width: 94px;
+    justify-content: center;
+    border: 1px solid rgb(var(--color-line));
+    font-size: 13px;
+  }
+  .study-result-detail {
+    padding: 18px 16px;
+  }
+  .study-result-detail .study-result-actions > .flex {
+    display: grid;
+  }
 }

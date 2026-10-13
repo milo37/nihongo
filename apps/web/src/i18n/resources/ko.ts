@@ -724,6 +724,13 @@ export const koResources = {
     }
   },
   result: {
+    navigation: {
+      label: '해설 문항',
+      question: '문제 {{formattedOrdinal}}',
+      openBookmarks: '책갈피 보기',
+      emptyTitle: '확인할 문항이 없습니다',
+      emptyDescription: '학습 설정으로 돌아가 새 문제를 풀어 보세요.'
+    },
     name: '학습 결과',
     finish: '오늘은 여기까지',
     reviewExplanations: '해설 확인하기',

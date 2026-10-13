@@ -730,6 +730,13 @@ export const jaResources = {
     }
   },
   result: {
+    navigation: {
+      label: '解説する問題',
+      question: '問題 {{formattedOrdinal}}',
+      openBookmarks: 'ブックマークを見る',
+      emptyTitle: '確認する問題がありません',
+      emptyDescription: '学習設定に戻り、新しい問題を解いてください。'
+    },
     name: '学習結果',
     finish: '今日はここまで',
     reviewExplanations: '解説を確認する',

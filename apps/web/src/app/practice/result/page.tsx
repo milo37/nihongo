@@ -5,6 +5,7 @@ import {
   useBlocker,
   useNavigate,
   useNavigationType,
+  useLocation,
   useParams
 } from 'react-router'
 import type { ReactElement } from 'react'
@@ -25,7 +26,6 @@ import { Button, getButtonClassName } from '@common/components/Button'
 import { Dialog } from '@common/components/Dialog'
 import { EmptyState } from '@common/components/EmptyState'
 import { ErrorState } from '@common/components/ErrorState'
-import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import { LoadingState } from '@common/components/LoadingState'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
@@ -38,7 +38,8 @@ import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { readResultRetryAttempt } from '@app/practice/resultRetryAttemptStorage'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
+import { ResultQuestionNavigation } from '@app/practice/result/ResultQuestionNavigation'
+import { ResultQuestionDetail } from '@app/practice/result/ResultQuestionDetail'
 import { resolveUiLocale } from '@/i18n/types'
 import { formatNumber } from '@libs/localeFormatters'
 
@@ -64,7 +65,9 @@ const PracticeResultPageContent = (): ReactElement => {
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
   const navigationType = useNavigationType()
+  const location = useLocation()
   const summaryHeadingRef = useRef<HTMLHeadingElement>(null)
+  const readyResultPathRef = useRef<string | null>(null)
   const shouldRestoreRetryFocusRef = useRef(false)
   const allowRetryNavigationRef = useRef(false)
   const navigatedRetryDestinationRef = useRef<string | null>(null)
@@ -242,17 +245,24 @@ const PracticeResultPageContent = (): ReactElement => {
       !isRetrySourceRefreshing &&
       isResultReady &&
       resultQuery.isSuccess &&
-      sessionQuery.isSuccess &&
-      (navigationType !== 'POP' || shouldRestoreRetryFocusRef.current)
+      sessionQuery.isSuccess
     ) {
-      shouldRestoreRetryFocusRef.current = false
-      summaryHeadingRef.current?.focus()
+      const isNewResultPath = readyResultPathRef.current !== location.pathname
+      readyResultPathRef.current = location.pathname
+      if (
+        (isNewResultPath && navigationType !== 'POP') ||
+        shouldRestoreRetryFocusRef.current
+      ) {
+        shouldRestoreRetryFocusRef.current = false
+        summaryHeadingRef.current?.focus()
+      }
     }
   }, [
     hasCurrentGuestOwnerProof,
     isAuthReady,
     isRetrySourceRefreshing,
     isResultReady,
+    location.pathname,
     navigationType,
     resultQuery.isSuccess,
     sessionQuery.isSuccess
@@ -368,6 +378,27 @@ const PracticeResultPageContent = (): ReactElement => {
 
   const result = resultQuery.data
   const session = sessionQuery.data.session
+  const selection = new URLSearchParams(location.search).get('question')
+  const selectedIndex = Math.max(
+    0,
+    result.items.findIndex((item) => item.question.id === selection)
+  )
+  const selectedItem = result.items[selectedIndex]
+  const selectedIsBookmarked = Boolean(
+    selectedItem &&
+      bookmarksQuery.data?.items.some(
+        (bookmark) => bookmark.questionId === selectedItem.question.id
+      )
+  )
+  const selectQuestion = (questionId: string): void => {
+    if (!result.items.some((item) => item.question.id === questionId)) return
+    const next = new URLSearchParams(location.search)
+    next.set('question', questionId)
+    void navigate(
+      { search: next.toString(), hash: location.hash },
+      { replace: true, preventScrollReset: true }
+    )
+  }
   const isResultSourceUnavailable =
     resultQuery.isError ||
     sessionQuery.isError ||
@@ -736,202 +767,106 @@ const PracticeResultPageContent = (): ReactElement => {
               </Button>
             </div>
           ) : null}
-          {result.items.map((item, index) => {
-            const optionById = new Map(
-              item.question.options.map((option) => [option.id, option])
-            )
-            const selectedOption = item.selectedOptionId
-              ? optionById.get(item.selectedOptionId)
-              : undefined
-            const correctOption = optionById.get(item.correctOptionId)
-            const isBookmarked = Boolean(
-              bookmarksQuery.data?.items.some(
-                (bookmark) => bookmark.questionId === item.question.id
-              )
-            )
-            return (
-              <article
-                key={item.question.id}
-                className="study-result-item content-auto border-t border-line py-6"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant={item.isCorrect ? 'success' : 'danger'}>
-                      {item.isCorrect
-                        ? t('items.correct')
-                        : item.selectedOptionId === null
-                          ? t('items.unanswered')
-                          : t('items.incorrect')}
-                    </Badge>
-                    <span className="text-sm font-semibold text-muted">
-                      {t('items.ordinal', {
-                        formattedOrdinal: formatCount(index + 1)
-                      })}
-                    </span>
-                    {item.tags.map((tag) => (
-                      <span key={tag} className="text-sm text-muted">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  {role !== 'GUEST' ? (
+          {selectedItem ? (
+            <div className="study-result-layout">
+              <ResultQuestionNavigation
+                items={result.items}
+                selectedQuestionId={selectedItem.question.id}
+                onSelect={selectQuestion}
+              />
+              <ResultQuestionDetail
+                key={selectedItem.question.id}
+                item={selectedItem}
+                ordinal={selectedIndex + 1}
+                canManage={role !== 'GUEST'}
+                isBookmarked={selectedIsBookmarked}
+                bookmarkDisabled={
+                  hasPendingBookmarkMutation ||
+                  isResultSourceUnavailable ||
+                  bookmarksQuery.isPending ||
+                  bookmarksQuery.isError ||
+                  bookmarksQuery.fetchStatus === 'paused'
+                }
+                isResultSourceUnavailable={isResultSourceUnavailable}
+                bookmarkMessage={
+                  bookmarkMessage?.questionId === selectedItem.question.id
+                    ? t(`bookmark.${bookmarkMessage.code}`)
+                    : null
+                }
+                onToggleBookmark={() =>
+                  toggleBookmark(selectedItem, selectedIsBookmarked)
+                }
+                actions={
+                  <div className="study-result-actions mt-4 flex flex-col gap-3">
+                    <p className="text-sm leading-6 text-muted">
+                      {role === 'GUEST'
+                        ? t('status.guest')
+                        : t('status.savedWrongCount', {
+                            formattedCount: formatCount(incorrectItems.length)
+                          })}
+                    </p>
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        type="button"
-                        disabled={
-                          hasPendingBookmarkMutation ||
-                          isResultSourceUnavailable ||
-                          bookmarksQuery.isPending ||
-                          bookmarksQuery.isError ||
-                          bookmarksQuery.fetchStatus === 'paused' ||
-                          item.question.questionVersionId === null
-                        }
-                        aria-label={t(
-                          isBookmarked
-                            ? 'bookmark.removeLabel'
-                            : 'bookmark.addLabel',
-                          { formattedOrdinal: formatCount(index + 1) }
-                        )}
-                        aria-pressed={isBookmarked}
-                        data-selected={isBookmarked}
-                        onClick={() => toggleBookmark(item, isBookmarked)}
-                      >
-                        {isBookmarked
-                          ? t('bookmark.remove')
-                          : t('bookmark.add')}
-                      </Button>
-                      {item.question.questionVersionId &&
-                      !isResultSourceUnavailable ? (
-                        <QuestionReportDialog
-                          questionId={item.question.id}
-                          questionVersionId={item.question.questionVersionId}
-                        />
+                      {incorrectItems.length > 0 &&
+                      canRequestCanonicalRetry &&
+                      !isNoEligibleQuestionsApiError(
+                        createRetrySession.error
+                      ) ? (
+                        <Button
+                          size="lg"
+                          disabled={isResultSourceUnavailable}
+                          isLoading={
+                            createRetrySession.isPending ||
+                            isRetrySourceRefreshing
+                          }
+                          loadingLabel={
+                            isRetrySourceRefreshing
+                              ? t('retry.checking')
+                              : createRetrySession.isPaused
+                                ? t('retry.waitingConnection')
+                                : t('retry.creating')
+                          }
+                          onClick={handleRetryIncorrect}
+                        >
+                          {t('actions.retryIncorrect')}
+                        </Button>
                       ) : null}
+                      <Link
+                        className={getButtonClassName({ variant: 'outline' })}
+                        to="/bookmarks"
+                      >
+                        {t('navigation.openBookmarks')}
+                      </Link>
+                      <Link
+                        className="note-link"
+                        to={
+                          role === 'GUEST'
+                            ? `/login?redirect=${encodeURIComponent('/practice')}`
+                            : `/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`
+                        }
+                      >
+                        {role === 'GUEST'
+                          ? t('actions.loginChoice')
+                          : t('actions.openWrongNotes')}
+                      </Link>
+                      <Link
+                        className="inline-flex min-h-11 items-center justify-center rounded-control px-4 py-2.5 text-sm font-semibold text-muted hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+                        to="/practice"
+                      >
+                        {t('newPractice')}
+                      </Link>
                     </div>
-                  ) : null}
-                </div>
-
-                {bookmarkMessage?.questionId === item.question.id ? (
-                  <p
-                    className="mt-3 text-sm font-semibold text-warning"
-                    role="status"
-                  >
-                    {t(`bookmark.${bookmarkMessage.code}`)}
-                  </p>
-                ) : null}
-
-                {item.question.passage ? (
-                  <div
-                    className="mt-5 max-w-[65ch] border-b border-line pb-4 leading-7"
-                    lang="ja"
-                  >
-                    {item.question.passage}
                   </div>
-                ) : null}
-                <h3
-                  className="mt-5 max-w-[65ch] text-xl font-semibold leading-[1.7]"
-                  lang="ja"
-                >
-                  {item.question.questionText}
-                </h3>
-
-                <dl
-                  className={`study-answer-comparison mt-5 grid gap-3 rounded-control p-4 ${item.isCorrect ? 'bg-success-soft' : 'bg-danger-soft'}`}
-                >
-                  <div className="min-w-0">
-                    <dt className="text-xs font-bold text-muted">
-                      {t('items.selectedAnswer')}
-                    </dt>
-                    <dd
-                      className={`mt-1 font-semibold ${item.isCorrect ? 'text-success' : 'text-danger'}`}
-                      lang={selectedOption ? 'ja' : undefined}
-                    >
-                      {selectedOption
-                        ? `${selectedOption.label}. ${selectedOption.text}`
-                        : t('items.unanswered')}
-                    </dd>
-                  </div>
-                  <div className="min-w-0">
-                    <dt className="text-xs font-bold text-muted">
-                      {t('items.correctAnswer')}
-                    </dt>
-                    <dd
-                      className="mt-1 font-semibold text-success"
-                      lang={correctOption ? 'ja' : undefined}
-                    >
-                      {correctOption
-                        ? `${correctOption.label}. ${correctOption.text}`
-                        : t('items.correctAnswerUnavailable')}
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="study-explanation-copy mt-5 pt-1">
-                  <h4 className="font-black">{t('items.explanation')}</h4>
-                  <div className="mt-3 max-w-[65ch] text-base leading-7">
-                    <ExplanationLanguagePanel
-                      explanationJa={item.explanationJa}
-                      explanationKo={item.explanationKo}
-                    />
-                  </div>
-                </div>
-              </article>
-            )
-          })}
+                }
+              />
+            </div>
+          ) : (
+            <EmptyState
+              title={t('navigation.emptyTitle')}
+              description={t('navigation.emptyDescription')}
+            />
+          )}
         </div>
       </div>
-
-      <aside className="study-result-actions mt-4 flex flex-col gap-3">
-        <p className="text-sm leading-6 text-muted">
-          {role === 'GUEST'
-            ? t('status.guest')
-            : t('status.savedWrongCount', {
-                formattedCount: formatCount(incorrectItems.length)
-              })}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {incorrectItems.length > 0 &&
-          canRequestCanonicalRetry &&
-          !isNoEligibleQuestionsApiError(createRetrySession.error) ? (
-            <Button
-              size="lg"
-              disabled={isResultSourceUnavailable}
-              isLoading={
-                createRetrySession.isPending || isRetrySourceRefreshing
-              }
-              loadingLabel={
-                isRetrySourceRefreshing
-                  ? t('retry.checking')
-                  : createRetrySession.isPaused
-                    ? t('retry.waitingConnection')
-                    : t('retry.creating')
-              }
-              onClick={handleRetryIncorrect}
-            >
-              {t('actions.retryIncorrect')}
-            </Button>
-          ) : null}
-          <Link
-            className="note-link"
-            to={
-              role === 'GUEST'
-                ? `/login?redirect=${encodeURIComponent('/practice')}`
-                : `/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`
-            }
-          >
-            {role === 'GUEST'
-              ? t('actions.loginChoice')
-              : t('actions.openWrongNotes')}
-          </Link>
-          <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-control px-4 py-2.5 text-sm font-semibold text-muted hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-            to="/practice"
-          >
-            {t('newPractice')}
-          </Link>
-        </div>
-      </aside>
 
       <Dialog
         open={retryNavigationBlocker.state === 'blocked'}
