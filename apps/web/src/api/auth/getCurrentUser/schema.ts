@@ -1,10 +1,9 @@
-import { userSchema } from '@api/schema'
-import { z } from 'zod'
+import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
+import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 
-export const getCurrentUserRequestSchema = z.object({}).strict()
-export const getCurrentUserResponseSchema = userSchema.nullable()
+export const getCurrentUserResponseSchema =
+  getCurrentPrincipalResponseSchema.transform((principal) =>
+    principal.kind === 'USER' ? principal.user : null
+  )
 
-export type GetCurrentUserRequest = z.infer<typeof getCurrentUserRequestSchema>
-export type GetCurrentUserResponse = z.infer<
-  typeof getCurrentUserResponseSchema
->
+export type GetCurrentUserResponse = AuthenticatedUser | null

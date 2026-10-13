@@ -26,7 +26,8 @@ export const studyModeSchema = z.enum([
   'RANDOM',
   'WRONG_NOTE',
   'WEAKNESS',
-  'BOOKMARK'
+  'BOOKMARK',
+  'DAILY_REVIEW'
 ])
 export const studySessionStatusSchema = z.enum(['IN_PROGRESS', 'SUBMITTED'])
 export const wrongNoteStatusSchema = z.enum([
