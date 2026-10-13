@@ -2,10 +2,19 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { unregisterMockServiceWorker } from '@api/mockServiceWorker'
 import { isMockApiMode } from '@libs/apiMode'
+import {
+  frontendErrorReporter,
+  installGlobalFrontendErrorReporting
+} from '@/observability/frontendErrorReporter'
+import { getRouteLabelKey } from '@/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
 import '@/styles.css'
 
 const rootElement = document.getElementById('root')
+
+installGlobalFrontendErrorReporting(frontendErrorReporter, () =>
+  getRouteLabelKey(window.location.pathname)
+)
 
 if (!rootElement) {
   throw new Error('Root element was not found')

@@ -30,7 +30,13 @@ export const sharedViteConfig = defineConfig({
   resolve: { alias: aliases },
   server: {
     port: 5173,
-    proxy: apiProxy
+    proxy: {
+      ...apiProxy,
+      '/health': {
+        target: process.env.NIHONGO_API_PROXY_TARGET ?? 'http://127.0.0.1:3001',
+        changeOrigin: false
+      }
+    }
   },
   preview: {
     port: 4173,
