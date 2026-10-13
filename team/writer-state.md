@@ -2,6 +2,40 @@
 
 ## Current
 
+- Task: JLP-496 R1 root/build checkpoint
+- Status: source frozen/released; sole Git executor active until final handoff devops_engineer / jlpt-06-devops-murotrbl
+- Acquired: 2026-10-13T17:36:03.567811+00:00
+- Cwd: /Users/doji/Desktop/dev/nihongo-worktrees/jlp-496-git-workflow
+- Branch: codex/feature/jlp-496-devops-git-workflow
+- Base: 8ebd13dd8aa56fb05d711ca7f0f10df5cdbd0ac5
+- Source witness: 0765caf5907564140588eab2c5f33a6ce2ca2557
+- Product scope (5): .nvmrc, .npmrc, package.json, pnpm-lock.yaml, scripts/msw/patch-worker.mjs
+- Coordination only: team/writer-state.md
+- Invariant: pnpm-workspace.yaml exact hash, no edit
+- Checks: exact source hash / scoped diff / PR2+PR3 heads and current-head CI only; no install/build/product PASS
+- Next owner: god assigns BE after this exact checkpoint/remote/PR/lease handoff
+- Original dirty/index/phase11, other worktrees and user5173: preserved
+
+- Source released: 2026-10-13T17:38:25.651872+00:00
+- Exact source5 hash/diff check: passed; install/build/native tests not run
+
+## Coordination policy
+
+Each assigned worktree has one writer; record actual task/role/cwd/branch/base/head/files/acquired/released/checks/unresolved/next owner. Munder and the private handoff carry absolute cwd and actual post-commit SHA/PR. A commit cannot contain its own future SHA; read the resulting head and hand it off after commit.
+
+Keep earlier records when ownership changes. Do not import the original dirty checkout's history into a new task PR. Common Git metadata uses one god-designated operator; this file is coordination, not an operating-system lock. Task source/configuration remains frozen while independent review runs.
+
+## Previous turn
+
+- Acquired: 2026-10-12T10:27:54.807298+00:00
+- Source released: 2026-10-12T10:35:23.068Z
+- Scope: document9, correction1; same sole Git operator lease remained active.
+- Reopened reason: god638f0a asks preservation of original Cursor sentence and explicit Graph trigger.
+
+## R1 previous Current (preserved verbatim)
+
+## Current
+
 - Task: JLP-496 revision2 governance adoption
 - Status: released source/config writer devops_engineer / jlpt-06-devops-murotrbl
 - Source released: 2026-10-12T10:42:18.919Z
@@ -18,15 +52,4 @@
 - Next: metadata-only scoped commit/normal push/Draft PR; god routes exact-head independent review; source remains frozen
 - Original checkout writer-state/index/dirty303/phase11/5173: preserved; its released status is unchanged
 
-## Coordination policy
-
-Each assigned worktree has one writer; record actual task/role/cwd/branch/base/head/files/acquired/released/checks/unresolved/next owner. Munder and the private handoff carry absolute cwd and actual post-commit SHA/PR. A commit cannot contain its own future SHA; read the resulting head and hand it off after commit.
-
-Keep earlier records when ownership changes. Do not import the original dirty checkout's history into a new task PR. Common Git metadata uses one god-designated operator; this file is coordination, not an operating-system lock. Task source/configuration remains frozen while independent review runs.
-
-## Previous turn
-
-- Acquired: 2026-10-12T10:27:54.807298+00:00
-- Source released: 2026-10-12T10:35:23.068Z
-- Scope: document9, correction1; same sole Git operator lease remained active.
-- Reopened reason: god638f0a asks preservation of original Cursor sentence and explicit Graph trigger.
+<!-- End preserved prior Current. -->
