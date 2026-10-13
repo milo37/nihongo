@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand'
-import type { User } from '@common/types/domain'
+import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 
 export interface AuthSlice {
-  currentUser: User | null
-  setCurrentUser: (user: User | null) => void
+  currentUser: AuthenticatedUser | null
+  setCurrentUser: (user: AuthenticatedUser | null) => void
   continueAsGuest: () => void
 }
 

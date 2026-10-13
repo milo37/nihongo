@@ -31,9 +31,14 @@ export const appRoutes: RouteObject[] = [
       ...homeRoutes,
       ...loginRoutes,
       ...practiceRoutes,
+      ...wrongNoteRoutes.filter((route) => route.path === 'wrong-notes'),
       {
         element: <RequireRole allowedRoles={['USER', 'ADMIN']} />,
-        children: [...dashboardRoutes, ...wrongNoteRoutes, ...bookmarkRoutes]
+        children: [
+          ...dashboardRoutes,
+          ...wrongNoteRoutes.filter((route) => route.path !== 'wrong-notes'),
+          ...bookmarkRoutes
+        ]
       },
       {
         element: <RequireRole allowedRoles={['ADMIN']} />,

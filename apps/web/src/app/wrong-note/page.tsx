@@ -1,3 +1,4 @@
+import { saveReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
@@ -13,7 +14,12 @@ import { ErrorState } from '@common/components/ErrorState'
 import { LoadingState } from '@common/components/LoadingState'
 import { Pagination } from '@common/components/Pagination'
 import { Select } from '@common/components/Select'
-import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
+import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import {
+  assertCurrentTargetedReviewAction,
+  completeTargetedReviewAction
+} from '@app/wrong-note/queries/wrongNoteMutations'
 import { useListWrongNotes } from '@app/wrong-note/hooks/useListWrongNotes'
 import { useAppStore } from '@store/index'
 
@@ -82,7 +88,7 @@ export const WrongNotePage = (): ReactElement => {
     page,
     pageSize
   })
-  const createSession = useCreateStudySession()
+  const createSession = useCreateTargetedReviewSession()
   const totalPages = wrongNotesQuery.data
     ? Math.max(
         1,
@@ -122,23 +128,37 @@ export const WrongNotePage = (): ReactElement => {
     setSearchParams(nextParams)
   }
 
-  const retryQuestion = (
-    questionId: string,
-    levelValue: JlptLevel,
-    subjectValue: QuestionSubject
-  ): void => {
+  const retryQuestion = (questionId: string): void => {
     createSession.mutate(
       {
-        level: levelValue,
-        subject: subjectValue,
-        mode: 'WRONG_NOTE',
-        count: 1,
-        questionIds: [questionId]
+        questionId,
+        principalScope: getStudyDraftPrincipalScope(
+          useAppStore.getState().currentUser
+        )
       },
       {
-        onSuccess: ({ session }) => {
-          beginPractice(session.id, session.startedAt)
-          void navigate(`/practice/session/${session.id}`)
+        onSuccess: ({ session }, input) => {
+          assertCurrentTargetedReviewAction(input)
+          if (
+            session.session.status === 'IN_PROGRESS' ||
+            session.session.status === 'SUBMITTED'
+          ) {
+            saveReviewReturnContext({
+              principalScope: input.principalScope,
+              sessionId: session.session.id,
+              questionId: input.questionId,
+              returnTo: `/wrong-notes?${searchParams.toString()}`
+            })
+          }
+          if (session.session.status === 'IN_PROGRESS') {
+            beginPractice(session.session.id, session.session.startedAt)
+            void navigate(`/practice/session/${session.session.id}`)
+          } else if (session.session.status === 'SUBMITTED') {
+            void navigate(`/practice/result/${session.session.id}`)
+          } else {
+            void navigate(`/wrong-notes/${questionId}`)
+          }
+          completeTargetedReviewAction(input)
         }
       }
     )
@@ -275,62 +295,54 @@ export const WrongNotePage = (): ReactElement => {
             </Button>
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {wrongNotesQuery.data.items.map(({ wrongNote, question }) => (
+            {wrongNotesQuery.data.items.map((item) => (
               <article
-                key={wrongNote.id}
+                key={item.questionId}
                 className="content-auto flex flex-col rounded-xl border border-line bg-white p-5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="brand">{question.level}</Badge>
-                    <Badge>{subjectLabels[question.subject]}</Badge>
-                    <Badge variant={statusVariants[wrongNote.status]}>
-                      {statusLabels[wrongNote.status]}
+                    <Badge variant="brand">{item.level}</Badge>
+                    <Badge>{subjectLabels[item.subject]}</Badge>
+                    <Badge variant={statusVariants[item.status]}>
+                      {statusLabels[item.status]}
                     </Badge>
                   </div>
                   <span className="text-sm font-bold text-red-700">
-                    {wrongNote.wrongCount}회 오답
+                    {item.wrongCount}회 오답
                   </span>
                 </div>
                 <h3 className="mt-5 line-clamp-2 text-lg font-black leading-7">
-                  {question.questionText}
+                  {item.questionPreview}
                 </h3>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <dt className="text-muted">문제 유형</dt>
-                    <dd className="mt-1 font-semibold">
-                      {question.questionType}
-                    </dd>
+                    <dd className="mt-1 font-semibold">{item.questionType}</dd>
                   </div>
                   <div>
                     <dt className="text-muted">마지막 오답</dt>
                     <dd className="mt-1 font-semibold">
-                      {formatDate(wrongNote.lastWrongAt)}
+                      {formatDate(item.lastWrongAt)}
                     </dd>
                   </div>
                 </dl>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {question.tags.map((item) => (
-                    <Badge key={item}>{item}</Badge>
+                  {item.tags.map((tag) => (
+                    <Badge key={tag}>{tag}</Badge>
                   ))}
                 </div>
                 <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-4">
                   <Button
                     variant="outline"
                     isLoading={createSession.isPending}
-                    onClick={() =>
-                      retryQuestion(
-                        question.id,
-                        question.level,
-                        question.subject
-                      )
-                    }
+                    onClick={() => retryQuestion(item.questionId)}
                   >
                     재풀이
                   </Button>
                   <Link
                     className="inline-flex min-h-11 items-center rounded-lg bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
-                    to={`/wrong-notes/${question.id}`}
+                    to={`/wrong-notes/${item.questionId}`}
                   >
                     상세 보기
                   </Link>

@@ -1,5 +1,6 @@
 import type { QuestionRecord, User } from '@common/types/domain'
 import { originalQuestions } from '@mocks/data/questions'
+import { approvedN5ReadingQuestions } from '@mocks/data/questions/approvedN5Reading'
 import { demoUsers } from '@mocks/data/users'
 
 export interface MockSeedData {
@@ -8,6 +9,6 @@ export interface MockSeedData {
 }
 
 export const mockSeedData: MockSeedData = {
-  questions: originalQuestions,
+  questions: [...originalQuestions, ...approvedN5ReadingQuestions],
   users: demoUsers
 }

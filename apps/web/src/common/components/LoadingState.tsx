@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -5,25 +6,37 @@ type LoadingStateProps = {
   label?: string
   message?: string
   className?: string
+  density?: 'regular' | 'inline'
 }
 
 export const LoadingState = ({
   className,
+  density = 'regular',
   label,
   message
 }: LoadingStateProps): ReactElement => {
-  const statusMessage = message ?? label ?? '콘텐츠를 불러오는 중입니다…'
+  const { t } = useTranslation('common')
+  const statusMessage = message ?? label ?? t('loading.content')
 
   return (
     <div
       className={classNames(
-        'flex min-h-40 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-muted',
+        'flex items-center gap-3 text-muted',
+        density === 'inline'
+          ? 'min-h-11 py-2 text-sm'
+          : 'min-h-40 flex-col justify-center px-4 py-10 text-center',
         className
       )}
       role="status"
       aria-live="polite"
     >
-      <span className="ui-spinner size-7 text-brand" aria-hidden="true">
+      <span
+        className={classNames(
+          'ui-spinner text-brand',
+          density === 'inline' ? 'size-5' : 'size-7'
+        )}
+        aria-hidden="true"
+      >
         <svg viewBox="0 0 24 24" fill="none">
           <circle
             cx="12"
