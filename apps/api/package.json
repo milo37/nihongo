@@ -1,0 +1,57 @@
+{
+  "name": "@nihongo/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "prisma/migrations"
+  ],
+  "scripts": {
+    "dev": "pnpm run db:generate && tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "pnpm run db:generate && tsc -p tsconfig.build.json",
+    "typecheck": "pnpm run db:generate && tsc --noEmit",
+    "test": "pnpm run db:generate && vitest run --exclude '**/*.integration.test.ts'",
+    "test:watch": "pnpm run db:generate && vitest",
+    "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
+    "test:phase7:api": "tsx src/e2e/runPhase7ApiIntegration.ts",
+    "test:phase10:performance": "tsx src/e2e/runPhase10Performance.ts",
+    "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
+    "content:materialize-slice1": "tsx prisma/phase6Slice1ArtifactMaterializer.ts",
+    "content:foundation-check": "tsx prisma/phase6Slice1FoundationCheck.ts",
+    "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
+    "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
+    "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate:dev": "prisma migrate dev --config prisma.dev.config.ts",
+    "db:migrate:dev:deploy": "prisma migrate deploy --config prisma.dev.config.ts",
+    "db:migrate:deploy": "prisma migrate deploy --config prisma.migrate.config.ts",
+    "db:migrate:phase7": "prisma migrate deploy --config prisma.migrate.config.ts",
+    "db:migrate:test": "prisma migrate deploy --config prisma.test.config.ts",
+    "db:seed:dev": "pnpm run db:generate && SEED_TARGET=development tsx prisma/seed.ts",
+    "db:seed:test": "pnpm run db:generate && SEED_TARGET=test tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@better-auth/prisma-adapter": "1.6.28",
+    "@hono/node-server": "2.1.0",
+    "@nihongo/contracts": "workspace:*",
+    "@nihongo/domain": "workspace:*",
+    "@prisma/adapter-pg": "7.9.1",
+    "@prisma/client": "7.9.1",
+    "better-auth": "1.6.28",
+    "dotenv": "17.4.2",
+    "hono": "4.13.11",
+    "pg": "8.23.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.32",
+    "@types/pg": "8.21.0",
+    "prisma": "7.9.1",
+    "tsx": "4.23.12",
+    "typescript": "5.8.3",
+    "vitest": "4.1.11"
+  }
+}

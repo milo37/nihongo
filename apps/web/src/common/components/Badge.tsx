@@ -15,12 +15,12 @@ type BadgeProps = ComponentPropsWithoutRef<'span'> & {
 }
 
 const variantClassNames: Record<BadgeVariant, string> = {
-  neutral: 'border-slate-200 bg-slate-100 text-slate-700',
-  brand: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  success: 'border-green-200 bg-green-50 text-green-800',
-  warning: 'border-amber-200 bg-amber-50 text-amber-900',
-  danger: 'border-red-200 bg-red-50 text-red-800',
-  info: 'border-blue-200 bg-blue-50 text-blue-800'
+  neutral: 'border-line bg-surface-muted text-muted',
+  brand: 'border-line-interactive bg-brand-soft text-brand-strong',
+  success: 'border-success-line bg-success-soft text-success-strong',
+  warning: 'border-warning-line bg-warning-soft text-warning-strong',
+  danger: 'border-danger-line bg-danger-soft text-danger-strong',
+  info: 'border-info-line bg-info-soft text-info-strong'
 }
 
 export const Badge = ({
@@ -32,8 +32,8 @@ export const Badge = ({
   return (
     <span
       className={classNames(
-        'inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-xs font-semibold leading-5',
-        'break-words',
+        'inline-flex max-w-full items-center rounded-control border px-2 py-0.5 text-xs font-semibold leading-5',
+        '[overflow-wrap:anywhere]',
         variantClassNames[variant],
         className
       )}
