@@ -276,9 +276,10 @@ export const ResumablePractice = ({
                 </li>
               ))}
             </ul>
-            {data && data.total > data.pageSize ? (
+            {data && data.total > 1 ? (
               <Pagination
                 currentPage={data.page}
+                requestedPage={requestedPage}
                 disabled={interactionLocked}
                 getPageHref={getPageHref}
                 label={t('setup.resume.paginationLabel')}

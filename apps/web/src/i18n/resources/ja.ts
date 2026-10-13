@@ -82,6 +82,8 @@ export const jaResources = {
       }
     },
     pagination: {
+      firstLabel: '最初のページ',
+      lastLabel: '最後のページ',
       label: 'ページ移動',
       previous: '前へ',
       previousLabel: '前のページ',

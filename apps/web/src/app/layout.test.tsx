@@ -42,7 +42,9 @@ it.each(['ko', 'ja'] as const)(
       </MemoryRouter>
     )
     expect(
-      screen.getByRole('link', { name: appI18n.t('common:appName') })
+      within(screen.getByRole('banner')).getByRole('link', {
+        name: appI18n.t('common:appName')
+      })
     ).toHaveAttribute('href', '/')
     const primary = screen.getByRole('navigation', {
       name: appI18n.t('navigation:primary')
@@ -176,4 +178,44 @@ it('keeps review session/result navigation in review context', () => {
   ).toHaveAttribute('aria-current', 'page')
   expect(nav.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
   expect(document.title).toContain(appI18n.t('common:appName'))
+})
+
+it('composes desktop navigation outside the utility header without duplicating destination IDs', () => {
+  render(
+    <MemoryRouter initialEntries={['/bookmarks']}>
+      <Layout />
+    </MemoryRouter>
+  )
+  const sidebar = screen.getByRole('navigation', {
+    name: appI18n.t('navigation:primary')
+  })
+  expect(sidebar.closest('.app-side-navigation')).not.toBeNull()
+  expect(screen.getByRole('banner').contains(sidebar)).toBe(false)
+  expect(
+    within(screen.getByRole('banner')).queryByRole('link', {
+      name: appI18n.t('navigation:learningStart')
+    })
+  ).not.toBeInTheDocument()
+  expect(document.querySelectorAll('#primary-navigation')).toHaveLength(1)
+  expect(document.querySelectorAll('#mobile-navigation')).toHaveLength(1)
+  expect(
+    within(sidebar).getByRole('link', {
+      name: appI18n.t('navigation:bookmarks')
+    })
+  ).toHaveAttribute('aria-current', 'page')
+})
+it('keeps an ordinary result in learning context rather than switching it to review', () => {
+  render(
+    <MemoryRouter initialEntries={['/practice/result/session']}>
+      <Layout />
+    </MemoryRouter>
+  )
+  const sidebar = screen.getByRole('navigation', {
+    name: appI18n.t('navigation:primary')
+  })
+  expect(
+    within(sidebar).getByRole('link', {
+      name: appI18n.t('navigation:learningStart')
+    })
+  ).toHaveAttribute('aria-current', 'page')
 })

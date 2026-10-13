@@ -15,7 +15,25 @@ export type IconName =
   | 'arrow-left'
   | 'circle-check'
   | 'circle-alert'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'chevrons-left'
+  | 'chevrons-right'
 const paths: Record<IconName, ReactElement> = {
+  'chevron-left': <path d="m15 18-6-6 6-6" />,
+  'chevron-right': <path d="m9 18 6-6-6-6" />,
+  'chevrons-left': (
+    <>
+      <path d="m11 17-5-5 5-5" />
+      <path d="m18 17-5-5 5-5" />
+    </>
+  ),
+  'chevrons-right': (
+    <>
+      <path d="m6 17 5-5-5-5" />
+      <path d="m13 17 5-5-5-5" />
+    </>
+  ),
   'circle-check': (
     <>
       <circle cx="12" cy="12" r="10" />

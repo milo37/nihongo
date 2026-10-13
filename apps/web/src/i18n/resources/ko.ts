@@ -76,6 +76,8 @@ export const koResources = {
       }
     },
     pagination: {
+      firstLabel: '첫 페이지',
+      lastLabel: '마지막 페이지',
       label: '페이지 이동',
       previous: '이전',
       previousLabel: '이전 페이지',
