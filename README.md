@@ -79,6 +79,105 @@ pnpm build
 pnpm preview
 ```
 
+실제 Hono API와 PostgreSQL을 함께 실행할 때 루트 `.env`는 Docker Compose가,
+`apps/api/.env`와 `.env.test`는 API·migration·seed process가 읽습니다. Phase 7은
+canonical wrapper login을 영구 보관하는 로컬 기술 DB와 wrapper를 매번 생성·회수하는
+통합 테스트 DB를 의도적으로 분리합니다.
+
+```bash
+cp .env.example .env
+cp apps/web/.env.example apps/web/.env
+cp apps/api/.env.example apps/api/.env
+cp apps/api/.env.test.example apps/api/.env.test
+```
+
+루트 `.env`의 `POSTGRES_PASSWORD`와 열 개 `PHASE7_*_PASSWORD`에는 각각 다른
+24자 이상의 URL-safe local secret을 넣습니다. 예를 들어 각 항목마다
+`openssl rand -hex 24`를 새로 실행할 수 있습니다. `apps/api/.env(.test)` URL의
+password도 대응하는 root 값과 같게 바꿉니다. 예시의 `replace_me*`, 빈 값,
+중복 값은 fresh-volume init에서 거부됩니다.
+
+Phase 7 로컬 기술 DB는 명시적 profile, 별도 55433 port, 별도 Compose project
+volume에서만 시작합니다. init은 fresh volume에서 TEST와 DEVELOPMENT의 canonical
+NOLOGIN role, wrapper login, SET-only membership, database/schema owner, `pgcrypto`,
+exact CONNECT ACL을 만든 뒤 스스로 재검증합니다.
+
+```bash
+docker compose --project-name nihongo-phase7-local \
+  --profile phase7-local up -d --wait postgres-phase7
+node --test scripts/phase7-local-provisioning.test.mjs
+```
+
+init script는 빈 volume에서 한 번만 실행되며 전체 self-attestation 뒤에만 health
+sentinel을 남깁니다. secret 검증이나 init이 실패한 volume은 health가 열리지 않으며,
+credential을 고친 뒤에도 재사용하지 말고 해당 local Compose project volume을 새로
+만들어야 합니다. 기존 volume을 자동 수리하거나 운영 cluster에 적용하지 않습니다. 이
+profile과 credential은 TEST/DEVELOPMENT local-only이며 production provisioning의
+대체물이 아닙니다.
+
+TEST 기술 workflow는 `.env.test`에서 `ADMIN_CMS_MODE=technical`로 바꾸고
+`DATABASE_URL`을 다음 canonical app wrapper로 바꾼 뒤 migration→seed→startup 순서로
+실행합니다. password에는 root의 `PHASE7_TEST_APP_PASSWORD` 값을 사용합니다.
+
+```dotenv
+DATABASE_URL=postgresql://nihongo_test_app_login:TEST_APP_PASSWORD@127.0.0.1:55433/nihongo_test?schema=public
+```
+
+```bash
+NODE_ENV=test pnpm run db:migrate:phase7
+ADMIN_CMS_MODE=technical pnpm run db:seed:test
+# 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다.
+docker compose --project-name nihongo-phase7-local \
+  --profile phase7-local exec -T postgres-phase7 sh -eu -c \
+  'PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_phase7_migration" psql --username nihongo_test_phase7_migration_login --dbname nihongo_test --set=phase7_environment=TEST --file=/docker-entrypoint-initdb.d/phase7-local-activate.psql'
+DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical \
+  pnpm run dev:api
+```
+
+DEVELOPMENT 기술 workflow는 `.env`에서 `ADMIN_CMS_MODE=technical`로 바꾸고
+`DATABASE_URL`을 다음 canonical app wrapper로 바꾼 뒤 같은 순서를 사용합니다.
+password에는 root의 `PHASE7_DEVELOPMENT_APP_PASSWORD` 값을 사용합니다.
+
+```dotenv
+DATABASE_URL=postgresql://nihongo_development_app_login:DEVELOPMENT_APP_PASSWORD@127.0.0.1:55433/nihongo_dev?schema=public
+```
+
+```bash
+pnpm run db:migrate:phase7
+ADMIN_CMS_MODE=technical pnpm run db:seed:dev
+# 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다.
+docker compose --project-name nihongo-phase7-local \
+  --profile phase7-local exec -T postgres-phase7 sh -eu -c \
+  'PGPASSWORD="$PHASE7_DEVELOPMENT_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_phase7_migration" psql --username nihongo_development_phase7_migration_login --dbname nihongo_dev --set=phase7_environment=DEVELOPMENT --file=/docker-entrypoint-initdb.d/phase7-local-activate.psql'
+ADMIN_CMS_MODE=technical pnpm run dev:api
+```
+
+각 activation command는 등록된 local endpoint를 확인한 뒤 legacy issuer/session과 legacy
+wrapper CONNECT를 one-way로 닫는 persistent local DB write입니다. migration과 seed만
+확인할 때는 실행하지 않으며, 명시적 후속 승인 전에는 실행 금지입니다. technical startup의
+readiness gate는 activation 전에는 의도적으로 실패하므로, 승인된 disposable local
+volume에서 기술 runtime을 실제 시작할 때만 한 번 실행합니다.
+
+`db:migrate:phase7`은 저장소에 커밋된 migration을 canonical migration wrapper와
+startup role로 적용합니다. 새 migration 작성용 `db:migrate:dev`와 과거 일반
+`db:migrate:dev:deploy`/`db:migrate:test`는 이 Phase 7 external-provisioning workflow에
+사용하지 않습니다.
+
+통합 runner는 영구 wrapper가 없는 기본 55432 service만 사용합니다.
+`apps/api/.env.test`의 `PHASE7_INTEGRATION_DATABASE_URL`과
+`PHASE7_API_INTEGRATION_DATABASE_URL`을 bootstrap `nihongo` login의 55432 URL로
+유지한 상태에서 실행합니다.
+
+```bash
+docker compose up -d --wait postgres
+pnpm run test:phase7:db
+pnpm run test:phase7:api
+```
+
+runner는 canonical wrapper login이 하나라도 이미 존재하면 안전하게 중단합니다. 따라서
+두 integration URL을 `postgres-phase7`/55433으로 바꾸거나 두 workflow가 같은 volume을
+공유하게 만들지 않습니다.
+
 ## 환경 변수
 
 ```dotenv
