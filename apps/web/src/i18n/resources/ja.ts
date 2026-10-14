@@ -25,6 +25,7 @@ export const jaResources = {
       processing: '処理中…'
     },
     actions: {
+      goPractice: '学習に戻る',
       retry: 'もう一度試す',
       close: '閉じる',
       closeDialog: 'ダイアログを閉じる',
@@ -359,6 +360,18 @@ export const jaResources = {
     }
   },
   auth: {
+    checkingTitle: 'ログイン状態を確認中',
+    currentTitle: 'ログインしています',
+    currentDescription: '現在のアカウントで学習を続けられます。',
+    loginDescription: '復習とブックマークを続けて利用しましょう。',
+    signupDescription: '学習アカウントを作成してメールを確認してください。',
+    continueAccount: '学習に戻る',
+    changeAccount: 'ログアウトして別のアカウントでログイン',
+    showPassword: '表示',
+    hidePassword: '隠す',
+    signupPrompt: 'アカウントをお持ちでない方',
+    registrationTitle: '受信トレイを確認してください',
+    requestTitle: 'リクエストを受け付けました',
     eyebrow: 'SECURE ACCESS',
     title: '学習アカウントで始めましょう',
     description: {
@@ -389,6 +402,8 @@ export const jaResources = {
         '登録の有無にかかわらずリクエストを受け付けました。アカウントが存在する場合は再設定リンクを送信します。'
     },
     errors: {
+      logout:
+        'ログアウトできませんでした。現在のアカウントは維持されています。もう一度お試しください。',
       request:
         '認証リクエストを処理できませんでした。入力内容とネットワーク状態を確認してください。',
       resetRequest:
@@ -2098,6 +2113,10 @@ export const jaResources = {
   },
   errors: {
     forbidden: {
+      memberDescription: '現在のアカウントではこの画面にアクセスできません。',
+      guestDescription:
+        'この画面にアクセスできるアカウントでログインしてください。',
+      accountAction: 'アカウントを確認',
       eyebrow: '403 · アクセス権限なし',
       title: 'このページを表示する権限がありません',
       description:

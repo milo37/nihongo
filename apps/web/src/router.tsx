@@ -21,7 +21,9 @@ export const appRoutes: RouteObject[] = [
   {
     path: '/',
     element: (
-      <ProtectedRouteProvider>
+      <ProtectedRouteProvider
+        renderAuthError={(content) => <Layout>{content}</Layout>}
+      >
         <AuthErrorHandlerProvider />
         <Layout />
       </ProtectedRouteProvider>

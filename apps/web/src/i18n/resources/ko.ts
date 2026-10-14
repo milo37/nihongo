@@ -19,6 +19,7 @@ export const koResources = {
       processing: '처리 중…'
     },
     actions: {
+      goPractice: '학습으로 돌아가기',
       retry: '다시 시도',
       close: '닫기',
       closeDialog: '대화상자 닫기',
@@ -357,6 +358,18 @@ export const koResources = {
     }
   },
   auth: {
+    checkingTitle: '로그인 상태 확인 중',
+    currentTitle: '로그인되어 있어요',
+    currentDescription: '현재 계정으로 학습을 계속할 수 있어요.',
+    loginDescription: '복습과 책갈피를 이어서 이용하세요.',
+    signupDescription: '학습 계정을 만들고 이메일을 확인해 주세요.',
+    continueAccount: '학습으로 돌아가기',
+    changeAccount: '로그아웃하고 다른 계정으로 로그인',
+    showPassword: '보기',
+    hidePassword: '숨기기',
+    signupPrompt: '아직 계정이 없으신가요?',
+    registrationTitle: '받은 편지함을 확인해 주세요',
+    requestTitle: '요청을 접수했습니다',
     eyebrow: 'SECURE ACCESS',
     title: '학습 계정으로 시작하세요',
     description: {
@@ -387,6 +400,8 @@ export const koResources = {
         '가입 여부와 관계없이 요청을 접수했습니다. 계정이 존재하면 재설정 링크를 전송합니다.'
     },
     errors: {
+      logout:
+        '로그아웃하지 못했습니다. 현재 계정이 유지됩니다. 다시 시도해 주세요.',
       request:
         '인증 요청을 처리하지 못했습니다. 입력 정보와 네트워크 상태를 확인해 주세요.',
       resetRequest:
@@ -2082,6 +2097,9 @@ export const koResources = {
   },
   errors: {
     forbidden: {
+      memberDescription: '현재 계정에 이 화면을 볼 수 있는 권한이 없습니다.',
+      guestDescription: '이 화면을 볼 수 있는 계정으로 로그인해 주세요.',
+      accountAction: '계정 확인',
       eyebrow: '403 · 접근 권한 없음',
       title: '이 페이지를 볼 권한이 없습니다',
       description:

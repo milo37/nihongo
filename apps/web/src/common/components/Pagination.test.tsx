@@ -179,27 +179,81 @@ it('waits for the response and cancels a pending page focus when URL intent is r
     screen.getByRole('button', { name: '2페이지, 현재 페이지' })
   ).not.toHaveFocus()
 })
-it('changes the actual DOM order at the mobile breakpoint without duplicating controls', () => {
-  let mobile = false
+it.each([
+  [390, 1, [1, 2, 3]],
+  [390, 4, [3, 4, 5]],
+  [390, 7, [5, 6, 7]],
+  [320, 1, [1, 2]],
+  [320, 4, [4, 5]],
+  [320, 7, [6, 7]],
+  [383, 4, [4, 5]],
+  [384, 4, [3, 4, 5]],
+  [760, 4, [3, 4, 5]],
+  [761, 4, [2, 3, 4, 5, 6]]
+] as const)(
+  'keeps the current page in its consecutive window at %spx/page %s',
+  (width, current, expected) => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: width <= (query.includes('383') ? 383 : 760),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    }))
+    render(
+      <Pagination currentPage={current} totalPages={7} onPageChange={vi.fn()} />
+    )
+    expect(
+      Array.from(
+        document.querySelectorAll('.pagination-numbers button'),
+        (node) => Number(node.textContent)
+      )
+    ).toEqual(expected)
+    expect(screen.getByRole('button', { current: 'page' })).toHaveTextContent(
+      String(current)
+    )
+    const controls = screen.getAllByRole('button')
+    expect(
+      controls.slice(0, 2).map((control) => control.getAttribute('aria-label'))
+    ).toEqual(['첫 페이지', '이전 페이지'])
+    expect(
+      controls.slice(-2).map((control) => control.getAttribute('aria-label'))
+    ).toEqual(['다음 페이지', '마지막 페이지'])
+  }
+)
+it('preserves DOM order, current focus and URL intent across viewport changes', () => {
+  let width = 1440
   const listeners = new Set<() => void>()
-  vi.stubGlobal('matchMedia', () => ({
-    matches: mobile,
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: width <= (query.includes('383') ? 383 : 760),
     addEventListener: (_event: string, listener: () => void) =>
       listeners.add(listener),
     removeEventListener: (_event: string, listener: () => void) =>
       listeners.delete(listener)
   }))
+  const change = vi.fn()
   const view = render(
-    <Pagination currentPage={4} totalPages={7} onPageChange={vi.fn()} />
+    <MemoryRouter>
+      <Pagination
+        currentPage={4}
+        totalPages={7}
+        onPageChange={change}
+        getPageHref={(page) => `?view=SOLVED&page=${page}`}
+      />
+    </MemoryRouter>
   )
-  const controls = document.querySelector('.pagination-controls')!
-  expect(controls.firstElementChild).toHaveClass('pagination-previous')
-  act(() => {
-    mobile = true
-    listeners.forEach((listener) => listener())
-  })
-  expect(controls.firstElementChild).toHaveClass('pagination-numbers')
-  expect(screen.getAllByRole('button')).toHaveLength(9)
+  const current = screen.getByRole('link', { current: 'page' })
+  current.focus()
+  for (const nextWidth of [390, 320, 1440]) {
+    act(() => {
+      width = nextWidth
+      listeners.forEach((listener) => listener())
+    })
+    expect(current).toHaveFocus()
+    expect(current).toHaveAttribute('href', '/?view=SOLVED&page=4')
+    expect(
+      document.querySelector('.pagination-controls')!.firstElementChild
+    ).toHaveClass('pagination-previous')
+  }
+  expect(change).not.toHaveBeenCalled()
   view.unmount()
   expect(listeners.size).toBe(0)
 })
