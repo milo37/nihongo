@@ -2458,6 +2458,14 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   max-width: none;
 }
 .number-pagination {
+  --pagination-text: rgb(var(--color-muted));
+  --pagination-hover-text: rgb(var(--color-ink));
+  --pagination-current-text: rgb(var(--selection-text));
+  --pagination-current-background: rgb(var(--selection-background));
+  --pagination-hover-background: rgb(var(--color-surface-sunken));
+  --pagination-pressed-background: rgb(232 232 232);
+  --pagination-disabled-text: rgb(170 164 156);
+  --pagination-focus-color: rgb(var(--focus-color));
   display: flex;
   justify-content: flex-end;
   width: 100%;
@@ -2482,44 +2490,91 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 .pagination-control {
   position: relative;
+  isolation: isolate;
   display: inline-grid;
   flex: none;
   place-items: center;
   width: 44px;
+  height: 44px;
   min-width: 44px;
   min-height: 44px;
-  border: 1px solid rgb(var(--color-line-interactive));
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-control);
-  background: rgb(var(--color-surface));
-  color: rgb(var(--color-ink));
+  background: transparent;
+  box-shadow: none;
+  color: var(--pagination-text);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
+  text-decoration: none;
   touch-action: manipulation;
+}
+.pagination-control::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  z-index: -1;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  pointer-events: none;
+}
+.pagination-control svg {
+  width: 20px;
+  height: 20px;
 }
 .pagination-control:hover:not(:disabled):not([aria-disabled='true']):not(
     [aria-current='page']
   ) {
-  background: rgb(var(--color-surface-muted));
+  color: var(--pagination-hover-text);
+}
+.pagination-control:hover:not(:disabled):not([aria-disabled='true']):not(
+    [aria-current='page']
+  )::before {
+  background: var(--pagination-hover-background);
+}
+.pagination-control:active:not(:disabled):not([aria-disabled='true']):not(
+    [aria-current='page']
+  )::before {
+  background: var(--pagination-pressed-background);
 }
 .pagination-control[aria-current='page'] {
-  background: rgb(var(--selection-background));
-  border-color: rgb(var(--selection-border));
-  box-shadow: inset 0 0 0 1px rgb(var(--selection-border));
-  color: rgb(var(--selection-text));
+  color: var(--pagination-current-text);
   font-weight: 750;
+}
+.pagination-control[aria-current='page']::before {
+  background: var(--pagination-current-background);
 }
 .pagination-control:disabled,
 .pagination-control[aria-disabled='true'] {
-  background: rgb(var(--color-disabled-background));
-  border-color: rgb(var(--color-line));
-  color: rgb(var(--color-muted));
+  color: var(--pagination-disabled-text);
   cursor: not-allowed;
-  box-shadow: none;
+}
+.pagination-control:disabled::before,
+.pagination-control[aria-disabled='true']::before {
+  background: transparent;
 }
 .pagination-control:focus-visible {
   z-index: 1;
-  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline: var(--focus-width) solid var(--pagination-focus-color);
   outline-offset: var(--focus-offset);
+}
+@media (forced-colors: active) {
+  .number-pagination {
+    --pagination-text: LinkText;
+    --pagination-hover-text: LinkText;
+    --pagination-current-text: CanvasText;
+    --pagination-current-background: Canvas;
+    --pagination-hover-background: Canvas;
+    --pagination-pressed-background: Canvas;
+    --pagination-disabled-text: GrayText;
+    --pagination-focus-color: Highlight;
+  }
+  .pagination-control[aria-current='page'] {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
 }
 @media (max-width: 760px) {
   .app-shell {
