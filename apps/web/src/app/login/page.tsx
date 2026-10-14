@@ -69,7 +69,7 @@ export const LoginPage = (): ReactElement => {
   const mode: AuthMode = isMockApiMode ? 'SIGN_IN' : requestedMode
   const [registrationNotice, setRegistrationNotice] =
     useState<RegistrationNotice>()
-  const { isReady, user, role } = useAuth()
+  const { isReady, user } = useAuth()
   const signIn = useSignInUser()
   const signUp = useSignUpUser()
   const resetRequest = useRequestPasswordReset()
@@ -204,9 +204,7 @@ export const LoginPage = (): ReactElement => {
           <>
             <div className="auth-account">
               <p>{t('currentAccount')}</p>
-              <strong>
-                {user.name} · {role}
-              </strong>
+              <strong>{user.name}</strong>
             </div>
             <div className="auth-actions">
               <Button fullWidth size="lg" onClick={completeLogin}>
@@ -481,7 +479,7 @@ export const LoginPage = (): ReactElement => {
             {t('errors.logout')}
           </p>
         ) : null}
-        {isReady ? (
+        {isReady && !user ? (
           <div className="auth-guest">
             <Button
               fullWidth

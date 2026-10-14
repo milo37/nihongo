@@ -11,6 +11,8 @@ import { ErrorState } from '@common/components/ErrorState'
 import { Input } from '@common/components/Input'
 import { passwordResetConfirmSchema } from '@common/schemas/auth'
 import { isApiError } from '@api/config'
+import { isMockApiMode } from '@libs/apiMode'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 
 type ResetPasswordForm = Pick<
   z.input<typeof passwordResetConfirmSchema>,
@@ -52,6 +54,7 @@ const getResetPasswordErrorKey = (error: unknown): ResetPasswordErrorKey => {
 export const ResetPasswordPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const { t: commonT } = useTranslation('common')
+  const { isReady, user } = useAuth()
   const [token] = useState(readResetPasswordToken)
   const resetPassword = useResetPassword()
   const [showPassword, setShowPassword] = useState(false)
@@ -86,16 +89,30 @@ export const ResetPasswordPage = (): ReactElement => {
         <div className="auth-panel auth-standalone-panel">
           <ErrorState
             className="auth-link-error"
-            description={t('reset.missingToken')}
+            description={
+              !isReady
+                ? commonT('loading.auth')
+                : isMockApiMode
+                  ? t('reset.missingTokenMock')
+                  : user
+                    ? t('reset.missingTokenMember')
+                    : t('reset.missingToken')
+            }
             headingLevel={1}
             title={t('reset.invalidTitle')}
             action={
-              <Link
-                className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-                to="/login"
-              >
-                {commonT('actions.goLogin')}
-              </Link>
+              isReady ? (
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+                  to={isMockApiMode ? '/login' : '/login?mode=reset'}
+                >
+                  {user
+                    ? t('reset.recoveryAccount')
+                    : isMockApiMode
+                      ? t('reset.recoveryLogin')
+                      : t('reset.requestAction')}
+                </Link>
+              ) : undefined
             }
           />
         </div>

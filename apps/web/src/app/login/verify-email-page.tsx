@@ -37,7 +37,6 @@ const getVerificationErrorKey = (error: unknown): VerificationErrorKey => {
 
 export const VerifyEmailPage = (): ReactElement => {
   const { t } = useTranslation('auth')
-  const { t: commonT } = useTranslation('common')
   const [token] = useState(readVerificationToken)
   const verifyEmail = useVerifyEmail()
   const successHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -73,7 +72,7 @@ export const VerifyEmailPage = (): ReactElement => {
                 className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand px-4 py-2.5 text-sm font-semibold text-on-accent shadow-control hover:bg-brand-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
                 to="/login"
               >
-                {commonT('actions.goLogin')}
+                {t('verify.recoveryAction')}
               </Link>
             }
           />

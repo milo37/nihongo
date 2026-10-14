@@ -68,7 +68,7 @@ describe('VerifyEmailPage', () => {
     await waitFor(() => expect(heading).toHaveFocus())
   })
 
-  it('fragment token이 없으면 서버 요청 없이 새 인증 메일을 안내한다', () => {
+  it('fragment token이 없으면 원래 메일 링크와 실제 로그인·계정 확인을 안내한다', () => {
     window.history.replaceState({}, '', '/verify-email')
 
     renderPage()
@@ -81,6 +81,11 @@ describe('VerifyEmailPage', () => {
     expect(
       screen.queryByRole('button', { name: '이메일 인증하기' })
     ).not.toBeInTheDocument()
+    expect(screen.getByText(/원래 인증 링크를 다시 열어/u)).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: '로그인·계정 확인' })
+    ).toHaveAttribute('href', '/login')
+    expect(screen.queryByText(/인증 메일을 다시 요청/u)).not.toBeInTheDocument()
   })
 
   it('Mock 미지원 응답을 만료 링크로 오표시하지 않는다', async () => {

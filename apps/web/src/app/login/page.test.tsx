@@ -57,12 +57,17 @@ const renderLoginPage = (
 }
 
 describe('LoginPage role transition', () => {
-  it('게스트 전환 시 Mock 인증도 로그아웃하여 학습 결과를 저장하지 않는다', async () => {
+  it('회원이 명시적 계정 전환 후 게스트로 계속하면 학습 결과를 저장하지 않는다', async () => {
     const user = userEvent.setup()
     const demoUser = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(demoUser)
     renderLoginPage()
 
+    await user.click(
+      await screen.findByRole('button', {
+        name: '로그아웃하고 다른 계정으로 로그인'
+      })
+    )
     await user.click(
       await screen.findByRole('button', { name: '게스트로 계속' })
     )
@@ -223,4 +228,23 @@ it('password visibility preserves the typed secret and never adds it to the URL'
   expect(router.state.location.search).toBe(
     '?redirect=%2Fpractice%3Flevel%3DN2'
   )
+})
+
+it('회원에게 현재 이름과 복귀·전환만 제공하고 게스트 안내와 내부 역할은 표시하지 않는다', async () => {
+  const user = userEvent.setup()
+  const member = mockDatabase.loginAs('USER')
+  useAppStore.getState().setCurrentUser(member)
+  renderLoginPage('/practice')
+
+  await screen.findByRole('heading', { name: '로그인되어 있어요' })
+  expect(screen.getByText(member.name)).toBeInTheDocument()
+  expect(screen.queryByText(/· USER/u)).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: '게스트로 계속' })
+  ).not.toBeInTheDocument()
+  expect(screen.queryByText(/게스트 기록은/u)).not.toBeInTheDocument()
+  expect(mockDatabase.getCurrentUser()?.id).toBe(member.id)
+  await user.click(screen.getByRole('button', { name: '학습으로 돌아가기' }))
+  expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+  expect(mockDatabase.getCurrentUser()?.id).toBe(member.id)
 })
