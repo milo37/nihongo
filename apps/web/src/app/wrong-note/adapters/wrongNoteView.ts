@@ -63,6 +63,7 @@ export interface WrongNoteDetailView {
     tags: string[]
   }
   memo: string | null
+  lastWrongQuestionVersionId: string | null
   currentReviewQuestionVersionId: string | null
   canRetry: boolean
   canUpdateMemo: boolean
@@ -132,6 +133,7 @@ export const toLegacyWrongNoteDetailView = (
     tags: response.question.tags
   },
   memo: response.wrongNote.memo,
+  lastWrongQuestionVersionId: null,
   currentReviewQuestionVersionId: null,
   canRetry: true,
   canUpdateMemo: true
@@ -168,6 +170,7 @@ export const toCanonicalWrongNoteDetailView = (
     tags: response.question.tags.map(({ label }) => label)
   },
   memo: response.memo,
+  lastWrongQuestionVersionId: response.lastWrongQuestionVersionId,
   currentReviewQuestionVersionId: response.currentReviewQuestionVersionId,
   canRetry: false,
   canUpdateMemo: false

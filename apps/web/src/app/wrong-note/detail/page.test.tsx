@@ -1,3 +1,5 @@
+import { encodeReviewEventCursor } from '@nihongo/contracts/wrong-note/list-review-events'
+import { listReviewEvents } from '@api/wrong-note/listReviewEvents'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
@@ -13,7 +15,7 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { I18nProvider } from '@provider/I18nProvider'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
@@ -22,7 +24,9 @@ import { mockServer } from '@/test/server'
 
 const returnTo = '/wrong-notes?view=UNREVIEWED&level=N5&subject=VOCABULARY'
 
-const renderReadonlyDetail = async () => {
+const renderReadonlyDetail = async (
+  historyMode: 'default' | 'selected' | 'missing' | 'error' = 'default'
+) => {
   mockDatabase.loginAs('USER')
   const created = await createStudySessionV1({
     level: 'N5',
@@ -48,6 +52,59 @@ const renderReadonlyDetail = async () => {
     crypto.randomUUID()
   )
   const detail = await getWrongNoteV1(question.id)
+  const historyRequests: Array<string | null> = []
+  if (historyMode !== 'default') {
+    const history = await listReviewEvents(question.id, { pageSize: 20 })
+    const initial = history.items[0]
+    const wrongOption = detail.question.options.find(
+      ({ id }) => id !== detail.question.correctOptionId
+    )
+    if (!initial || !wrongOption)
+      throw new Error('Owned wrong-answer history required')
+    const previous = { ...initial, selectedOptionId: wrongOption.id }
+    const recent = {
+      ...initial,
+      id: crypto.randomUUID(),
+      source: 'WRONG_NOTE_REVIEW' as const,
+      selectedOptionId: detail.question.correctOptionId,
+      isCorrect: true,
+      elapsedSec: 1,
+      previousStatus: initial.nextStatus,
+      nextStatus: 'REVIEWING' as const,
+      previousCorrectStreak: 0,
+      nextCorrectStreak: 1,
+      previousWrongCount: initial.wrongCountAfter,
+      occurredAt: new Date(Date.parse(initial.occurredAt) + 1000).toISOString()
+    }
+    const cursor = encodeReviewEventCursor({
+      v: 1,
+      occurredAt: recent.occurredAt,
+      id: recent.id
+    })
+    mockServer.use(
+      http.get(
+        `*/api/v1/wrong-notes/${question.id}/review-events`,
+        ({ request }) => {
+          const requestedCursor = new URL(request.url).searchParams.get(
+            'cursor'
+          )
+          historyRequests.push(requestedCursor)
+          if (historyMode === 'error')
+            return HttpResponse.json(
+              { message: 'history unavailable' },
+              { status: 500 }
+            )
+          if (historyMode === 'missing')
+            return HttpResponse.json({ items: [], nextCursor: null })
+          return HttpResponse.json(
+            requestedCursor === cursor
+              ? { items: [previous], nextCursor: null }
+              : { items: [recent], nextCursor: cursor }
+          )
+        }
+      )
+    )
+  }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
@@ -90,7 +147,7 @@ const renderReadonlyDetail = async () => {
   await screen.findByRole('heading', {
     name: appI18n.t('wrongNote:integration.detail')
   })
-  return { question, detail, router, principal }
+  return { question, detail, router, principal, historyRequests }
 }
 
 describe('wrong-note approved R9 readonly workflow', () => {
@@ -107,6 +164,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
       ).toBeInTheDocument()
     }
     expect(screen.getByText(detail.question.explanationKo)).toBeInTheDocument()
+    expect(await screen.findByText('내 이전 답: 미응답')).toBeInTheDocument()
     expect(
       screen.queryByRole('textbox', { name: '나의 메모' })
     ).not.toBeInTheDocument()
@@ -169,5 +227,50 @@ describe('wrong-note approved R9 readonly workflow', () => {
       readReviewReturnContext(getStudyDraftPrincipalScope(principal), sessionId)
     ).toMatchObject({ questionId: question.id, returnTo })
     expect(memoWrites).toBe(0)
+  })
+
+  it('follows only the needed history cursor and labels the previous answer as readonly text', async () => {
+    const { detail, historyRequests } = await renderReadonlyDetail('selected')
+    const marker = await screen.findByText('내 이전 답')
+    const row = marker.closest('li')
+    const wrongOption = detail.question.options.find(
+      ({ id }) => id !== detail.question.correctOptionId
+    )
+    if (!row || !wrongOption)
+      throw new Error('Historical wrong option row required')
+    expect(
+      within(row).getByText(`${wrongOption.label}. ${wrongOption.text}`)
+    ).toBeInTheDocument()
+    expect(screen.getByText('정답')).toBeInTheDocument()
+    expect(row).not.toHaveAttribute('aria-selected')
+    expect(row).not.toHaveAttribute('aria-pressed')
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(historyRequests).toHaveLength(2)
+    expect(historyRequests[0]).toBeNull()
+    expect(historyRequests[1]).not.toBeNull()
+    expect(screen.queryByText('내 이전 답: 미응답')).not.toBeInTheDocument()
+  })
+
+  it('keeps missing history distinct from an unanswered attempt', async () => {
+    await renderReadonlyDetail('missing')
+    expect(
+      await screen.findByText('내 이전 답: 기록 확인 불가')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('내 이전 답: 미응답')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: '이 문제만 다시 풀기' })
+    ).toBeInTheDocument()
+  })
+
+  it('reports a history read error while preserving the question and explanation', async () => {
+    const { question, detail } = await renderReadonlyDetail('error')
+    expect(
+      await screen.findByText('내 이전 답을 불러오지 못했습니다.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: question.questionText })
+    ).toBeInTheDocument()
+    expect(screen.getByText(detail.question.explanationKo)).toBeInTheDocument()
+    expect(screen.queryByText('내 이전 답: 미응답')).not.toBeInTheDocument()
   })
 })

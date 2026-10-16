@@ -1264,6 +1264,14 @@ export const koResources = {
       title: '마지막 오답 문제 상세',
       snapshotNotice:
         '아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전입니다.',
+      previousAnswer: {
+        selected: '내 이전 답',
+        unanswered: '내 이전 답: 미응답',
+        unavailable: '내 이전 답: 기록 확인 불가',
+        loading: '내 이전 답을 확인하고 있습니다…',
+        error: '내 이전 답을 불러오지 못했습니다.',
+        paused: '연결이 복구되면 내 이전 답을 확인합니다.'
+      },
       correct: '정답',
       explanation: '해설',
       review: {

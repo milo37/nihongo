@@ -113,6 +113,84 @@ export const phase10ApiIntegrationManifest = [
     isolation: 'suite-owned migration-history schema'
   },
   {
+    path: 'src/content/approvedReadingTags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-reading-tags',
+    order: 7,
+    databaseState: 'seeded-65-tags108-applicability127-registration-unapplied',
+    connectionRole: 'owner',
+    requiredEnvironment: ['DATABASE_URL', 'PHASE7_ADMIN_DATABASE_URL'],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approvedN3ReadingTags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-n3-reading-tags',
+    order: 8,
+    databaseState:
+      'canonical33-plus-n3-migration-seeded-65-before-n5-application',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approvedN4N2ReadingTags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-n4-n2-reading-tags',
+    order: 9,
+    databaseState: 'canonical36-seeded-65-without-current-catalog107-126',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approvedN4ReadingBatch7Tags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-batch7-reading-tags',
+    order: 10,
+    databaseState: 'explicit-legacy-or-current-batch7-unapplied-predecessor',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approved308Tags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved308-tags',
+    order: 11,
+    databaseState: 'current38-seeded-65-tags107-applicability126-no-imports',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL',
+      'PHASE7_APPROVED308_FIXTURE_PROFILE'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
     path: 'src/app/createApp.integration.test.ts',
     executionOwner: 'phase10',
     shard: 'pure',
