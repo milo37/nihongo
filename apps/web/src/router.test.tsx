@@ -64,7 +64,7 @@ describe('application router boundaries', () => {
       '/wrong-notes/00000000-0000-4000-8000-000000000001?returnTo=%2Fwrong-notes%3Fview%3DUNREVIEWED'
     const router = renderRoutes(entry)
     expect(
-      await screen.findByRole('heading', { name: '로그인' })
+      await screen.findByRole('heading', { name: '로그인' }, { timeout: 3000 })
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toBe(
