@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Outlet, useLocation, useNavigationType } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { AppShell } from '@common/components/AppShell'
@@ -54,7 +54,9 @@ const focusHashTarget = (hash: string): boolean => {
   return true
 }
 
-export const Layout = (): ReactElement => {
+type LayoutProps = { children?: ReactNode }
+
+export const Layout = ({ children }: LayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
   const { locale } = useUiLocale()
@@ -357,7 +359,9 @@ export const Layout = (): ReactElement => {
       }}
     >
       <Suspense fallback={<LoadingState message={commonT('loading.page')} />}>
-        {isReady ? (
+        {children !== undefined ? (
+          children
+        ) : isReady ? (
           <Outlet
             context={
               { reviewReturnContext } satisfies PracticeNavigationContext

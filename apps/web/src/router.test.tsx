@@ -18,7 +18,9 @@ import { studyResultQueries } from '@app/practice/queries/studyResultQueries'
 import { I18nProvider } from '@provider/I18nProvider'
 import { ToastProvider } from '@common/components/Toast'
 import { queryClient } from '@libs/queryClient'
+import { adminQuestionHandlers } from '@mocks/handlers/adminQuestionHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { mockServer } from '@/test/server'
 
 const DelayedHashTarget = (): ReactElement => {
   const [isReady, setReady] = useState(false)
@@ -62,7 +64,7 @@ describe('application router boundaries', () => {
       '/wrong-notes/00000000-0000-4000-8000-000000000001?returnTo=%2Fwrong-notes%3Fview%3DUNREVIEWED'
     const router = renderRoutes(entry)
     expect(
-      await screen.findByRole('heading', { name: '학습 역할을 선택하세요' })
+      await screen.findByRole('heading', { name: '로그인' }, { timeout: 3000 })
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toBe(
@@ -96,13 +98,15 @@ describe('application router boundaries', () => {
     expect(router.state.location.pathname).toBe('/forbidden')
   })
 
-  it('ADMIN은 관리자 문제 목록에 접근한다', async () => {
+  it('ADMIN은 목록 fixture가 준비된 관리자 경로에 접근한다', async () => {
+    mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
-    renderRoutes('/admin/questions')
+    const router = renderRoutes('/admin/questions')
 
     expect(
       await screen.findByRole('heading', { name: '문제 관리' })
     ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/admin/questions')
     const tableRegion = await screen.findByRole('region', {
       name: '관리자 문제 목록'
     })
@@ -440,6 +444,9 @@ describe('application router boundaries', () => {
         name: '화면을 불러오지 못했습니다'
       })
     ).toBeInTheDocument()
-    expect(screen.getByText('route-render-failure')).toBeInTheDocument()
+    expect(
+      screen.getByText('예상하지 못한 오류가 발생했습니다.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('route-render-failure')).not.toBeInTheDocument()
   })
 })
