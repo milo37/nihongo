@@ -1,4 +1,6 @@
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
+import { copyFileSync, cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import nodePath from 'node:path'
@@ -819,21 +821,76 @@ export const preparePhase7IsolatedDatabase = async ({
     sharedEnvironment,
     abortSignal
   )
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-    sharedEnvironment,
-    abortSignal
+  const canonicalMigrationsPath = nodePath.join(
+    repositoryRoot,
+    'apps/api/prisma/migrations'
   )
-  await registerCapabilityAndActivate(abortSignal)
-
-  for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
+  const lastBootstrapMigration =
+    '20261009092000_phase7_n4_n2_revision2_digest_fix'
+  const migrationNames = readdirSync(canonicalMigrationsPath, {
+    withFileTypes: true
+  })
+    .filter(
+      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
+    )
+    .map((entry) => entry.name)
+    .sort()
+  if (
+    migrationNames.length !== 37 ||
+    migrationNames.at(-1) !== lastBootstrapMigration
+  ) {
+    throw new Error(
+      'Phase 7 canonical content migration prefix is inconsistent.'
+    )
+  }
+  const bootstrapMigrationsPath = mkdtempSync(
+    nodePath.join(tmpdir(), 'nihongo-phase7-content-')
+  )
+  try {
+    copyFileSync(
+      nodePath.join(canonicalMigrationsPath, 'migration_lock.toml'),
+      nodePath.join(bootstrapMigrationsPath, 'migration_lock.toml')
+    )
+    for (const name of migrationNames) {
+      cpSync(
+        nodePath.join(canonicalMigrationsPath, name),
+        nodePath.join(bootstrapMigrationsPath, name),
+        { recursive: true }
+      )
+    }
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-      sharedEnvironment,
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      {
+        ...sharedEnvironment,
+        PHASE7_TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
+      },
       abortSignal
     )
+    await registerCapabilityAndActivate(abortSignal)
+
+    for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
+      await runCommand(
+        'pnpm',
+        ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+        sharedEnvironment,
+        abortSignal
+      )
+    }
+    // Seed-free callers retain the prefix until their explicit seed step.
+    if (seedRuns > 0) {
+      await runCommand(
+        'pnpm',
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        {
+          ...sharedEnvironment,
+          PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+        },
+        abortSignal
+      )
+    }
+  } finally {
+    rmSync(bootstrapMigrationsPath, { recursive: true, force: true })
   }
 
   abortSignal?.throwIfAborted()

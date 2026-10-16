@@ -22,6 +22,8 @@ import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateT
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { useGetWrongNote } from '@app/wrong-note/hooks/useGetWrongNote'
+import { useWrongNotePreviousAnswer } from '@app/wrong-note/hooks/useWrongNotePreviousAnswer'
+import type { WrongNotePreviousAnswer } from '@app/wrong-note/adapters/wrongNotePreviousAnswer'
 import {
   assertCurrentTargetedReviewAction,
   completeTargetedReviewAction
@@ -36,6 +38,7 @@ import { useTrackWrongNoteOpened } from '@/analytics/client'
 type WrongNoteDetailContentProps = {
   action?: ReactNode
   data: WrongNoteDetailView
+  previousAnswer: WrongNotePreviousAnswer
   headingRef?: RefObject<HTMLHeadingElement | null>
 }
 
@@ -44,6 +47,7 @@ type TargetedNoticeCode = 'endedArchived' | 'endedAvailable'
 export const WrongNoteDetailContent = ({
   action,
   data,
+  previousAnswer,
   headingRef
 }: WrongNoteDetailContentProps): ReactElement => {
   const { t } = useTranslation('wrongNote')
@@ -69,12 +73,21 @@ export const WrongNoteDetailContent = ({
       <h2 className="review-question" lang="ja">
         {data.question.questionText}
       </h2>
+      {previousAnswer.status !== 'selected' ? (
+        <p className="review-notice" role="status">
+          {t(`detail.previousAnswer.${previousAnswer.status}`)}
+        </p>
+      ) : null}
       <ol className="review-options">
         {data.question.options.map((option) => (
           <li key={option.id} className={option.isCorrect ? 'is-correct' : ''}>
             <span lang="ja">
               {option.label}. {option.text}
             </span>
+            {previousAnswer.status === 'selected' &&
+            previousAnswer.optionId === option.id ? (
+              <strong>{t('detail.previousAnswer.selected')}</strong>
+            ) : null}
             {option.isCorrect ? <strong>{t('detail.correct')}</strong> : null}
           </li>
         ))}
@@ -114,6 +127,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
   const { user } = useAuth()
   const identityKey = getStudyDraftPrincipalScope(user)
   const wrongNoteQuery = useGetWrongNote(questionId)
+  const previousAnswer = useWrongNotePreviousAnswer(wrongNoteQuery.data)
   const createTargeted = useCreateTargetedReviewSession()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const [targetedNotice, setTargetedNotice] = useState({
@@ -237,6 +251,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
       </Link>
       <WrongNoteDetailContent
         data={wrongNoteQuery.data}
+        previousAnswer={previousAnswer}
         headingRef={headingRef}
         action={
           <>
