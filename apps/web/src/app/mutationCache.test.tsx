@@ -19,7 +19,9 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { useAppStore } from '@store/index'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
+import { adminQuestionHandlers } from '@mocks/handlers/adminQuestionHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { mockServer } from '@/test/server'
 
 const createTestClient = (): QueryClient =>
   new QueryClient({
@@ -318,6 +320,7 @@ describe('mutation cache contracts', () => {
   })
 
   it('관리자 수정은 상세 데이터를 갱신하고 교차 도메인 캐시를 무효화한다', async () => {
+    mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
     const questionId = 'n5-vocabulary-01'
     const questionText = '수정된 관리자 문제 문장'
@@ -351,6 +354,7 @@ describe('mutation cache contracts', () => {
   })
 
   it('관리자 삭제는 상세 캐시를 제거하고 모든 관련 목록을 무효화한다', async () => {
+    mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
     const questionId = 'n5-vocabulary-02'
     const client = createTestClient()
@@ -386,6 +390,7 @@ describe('mutation cache contracts', () => {
   })
 
   it('관리자 수정·삭제 실패 시 상세 set/remove와 교차 무효화를 실행하지 않는다', async () => {
+    mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
     const client = createTestClient()
     const missingQuestionId = 'missing-question'
@@ -422,12 +427,12 @@ describe('mutation cache contracts', () => {
           input: validInput
         })
       })
-    ).rejects.toBeDefined()
+    ).rejects.toMatchObject({ status: 404 })
     await expect(
       act(async () => {
         await deleteHook.result.current.mutateAsync(missingQuestionId)
       })
-    ).rejects.toBeDefined()
+    ).rejects.toMatchObject({ status: 404 })
 
     expect(client.getQueryData(detailKey)).toEqual({ cached: true })
     expect(client.getQueryState(detailKey)?.isInvalidated).toBe(false)
