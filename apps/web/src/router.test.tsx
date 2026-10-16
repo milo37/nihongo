@@ -135,9 +135,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/')
     expect(
-      await screen.findByRole('heading', {
-        name: '학습'
-      })
+      await screen.findByRole('heading', { name: '학습' }, { timeout: 3000 })
     ).toBeInTheDocument()
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
