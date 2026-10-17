@@ -47,7 +47,7 @@ export const Input = ({
         className={classNames(
           'min-h-11 w-full rounded-lg border bg-white px-3 py-2 text-base text-ink shadow-sm',
           'placeholder:text-slate-400 hover:border-slate-400',
-          'focus-visible:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
+          'focus-visible:border-brand focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
           'disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-muted',
           error ? 'border-red-500' : 'border-line',
           className
