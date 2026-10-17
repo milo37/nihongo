@@ -1,15 +1,17 @@
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { MouseEvent, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
+import { Icon } from '@common/components/Icon'
+import type { IconName } from '@common/components/Icon'
 import { formatNumber } from '@libs/localeFormatters'
 import { resolveUiLocale } from '@/i18n/types'
-
-type PaginationItem = number | 'start-ellipsis' | 'end-ellipsis'
 
 type PaginationProps = {
   currentPage: number
   totalPages: number
+  requestedPage?: number
   onPageChange: (page: number) => void
   label?: string
   disabled?: boolean
@@ -17,32 +19,21 @@ type PaginationProps = {
   getPageHref?: (page: number) => string
 }
 
-const createPaginationItems = (
-  currentPage: number,
-  totalPages: number
-): PaginationItem[] => {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const items: PaginationItem[] = [1]
-  const rangeStart = Math.max(2, currentPage - 1)
-  const rangeEnd = Math.min(totalPages - 1, currentPage + 1)
-
-  if (rangeStart > 2) {
-    items.push('start-ellipsis')
-  }
-
-  for (let page = rangeStart; page <= rangeEnd; page += 1) {
-    items.push(page)
-  }
-
-  if (rangeEnd < totalPages - 1) {
-    items.push('end-ellipsis')
-  }
-
-  items.push(totalPages)
-  return items
+const mobileQuery = '(max-width: 760px)'
+const narrowMobileQuery = '(max-width: 383px)'
+const subscribeToViewport = (onChange: () => void): (() => void) => {
+  if (typeof window.matchMedia !== 'function') return () => undefined
+  const queries = [mobileQuery, narrowMobileQuery].map((query) =>
+    window.matchMedia(query)
+  )
+  queries.forEach((query) => query.addEventListener('change', onChange))
+  return () =>
+    queries.forEach((query) => query.removeEventListener('change', onChange))
+}
+const readPageLimit = (): number => {
+  if (typeof window.matchMedia !== 'function') return 5
+  if (window.matchMedia(narrowMobileQuery).matches) return 2
+  return window.matchMedia(mobileQuery).matches ? 3 : 5
 }
 
 export const Pagination = ({
@@ -52,55 +43,85 @@ export const Pagination = ({
   getPageHref,
   label,
   onPageChange,
+  requestedPage,
   totalPages
 }: PaginationProps): ReactElement | null => {
   const { i18n, t } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const formatPage = (page: number): string => formatNumber(page, locale)
-  const normalizedTotalPages =
-    Number.isFinite(totalPages) && totalPages > 0 ? Math.floor(totalPages) : 0
-
-  if (normalizedTotalPages <= 1) {
-    return null
-  }
-
-  const normalizedCurrentPage = Number.isFinite(currentPage)
-    ? Math.floor(currentPage)
-    : 1
-  const safeCurrentPage = Math.min(
-    Math.max(normalizedCurrentPage, 1),
-    normalizedTotalPages
+  const pageLimit = useSyncExternalStore(
+    subscribeToViewport,
+    readPageLimit,
+    () => 5
   )
-  const items = createPaginationItems(safeCurrentPage, normalizedTotalPages)
-  const pageButtonBaseClassName =
-    'inline-grid size-11 place-items-center rounded-control border text-sm font-semibold touch-manipulation focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand aria-disabled:cursor-not-allowed aria-disabled:opacity-50 disabled:cursor-not-allowed disabled:opacity-50'
-  const defaultPageClassName =
-    'border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-muted'
-  const currentPageClassName =
-    'ui-pagination-current border-brand bg-brand text-on-accent hover:bg-brand-strong'
+  const navRef = useRef<HTMLElement>(null)
+  const pendingPage = useRef<number | null>(null)
+  const normalizedTotal =
+    Number.isFinite(totalPages) && totalPages > 0 ? Math.floor(totalPages) : 0
+  const safePage = Math.min(
+    Math.max(Number.isFinite(currentPage) ? Math.floor(currentPage) : 1, 1),
+    Math.max(1, normalizedTotal)
+  )
 
-  const renderPageControl = (
+  useEffect(() => {
+    if (requestedPage !== undefined && pendingPage.current !== requestedPage) {
+      pendingPage.current = null
+    }
+    if (pendingPage.current !== safePage || disabled) return
+    pendingPage.current = null
+    const current = navRef.current?.querySelector<HTMLElement>(
+      '[aria-current="page"]'
+    )
+    current?.focus({ preventScroll: true })
+    const rect = current?.getBoundingClientRect()
+    if (
+      rect &&
+      (rect.top < 3 ||
+        rect.bottom > window.innerHeight - 3 ||
+        rect.left < 3 ||
+        rect.right > window.innerWidth - 3)
+    ) {
+      current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    }
+  }, [disabled, requestedPage, safePage])
+
+  if (normalizedTotal === 0) return null
+  const count = Math.min(pageLimit, normalizedTotal)
+  const start = Math.max(
+    1,
+    Math.min(
+      safePage - Math.floor((count - 1) / 2),
+      normalizedTotal - count + 1
+    )
+  )
+  const pages = Array.from({ length: count }, (_, index) => start + index)
+  const changePage = (page: number): void => {
+    if (disabled || page === safePage) return
+    pendingPage.current = page
+    onPageChange(page)
+  }
+  const renderControl = (
     page: number,
     content: ReactElement,
-    options: {
-      readonly ariaLabel: string
-      readonly className: string
-      readonly isCurrent?: boolean
-      readonly isDisabled?: boolean
-    }
+    ariaLabel: string,
+    unavailable = false,
+    current = false
   ): ReactElement => {
-    const isDisabled = disabled || Boolean(options.isDisabled)
+    const locked = disabled || unavailable
+    const controlClass = classNames(
+      'pagination-control',
+      current && 'ui-pagination-current'
+    )
     if (getPageHref) {
       return (
         <Link
-          className={options.className}
-          to={getPageHref(isDisabled ? safeCurrentPage : page)}
-          aria-current={options.isCurrent ? 'page' : undefined}
-          aria-disabled={isDisabled || undefined}
-          aria-label={options.ariaLabel}
-          tabIndex={isDisabled ? -1 : undefined}
+          className={controlClass}
+          to={getPageHref(locked ? safePage : page)}
+          aria-label={ariaLabel}
+          aria-current={current ? 'page' : undefined}
+          aria-disabled={locked || undefined}
+          tabIndex={locked ? -1 : undefined}
           onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-            if (isDisabled) {
+            if (locked) {
               event.preventDefault()
               return
             }
@@ -110,104 +131,98 @@ export const Pagination = ({
               event.ctrlKey ||
               event.shiftKey ||
               event.altKey
-            ) {
+            )
               return
-            }
             event.preventDefault()
-            onPageChange(page)
+            changePage(page)
           }}
         >
           {content}
         </Link>
       )
     }
-
     return (
       <button
-        className={options.className}
+        className={controlClass}
         type="button"
-        disabled={isDisabled}
-        aria-current={options.isCurrent ? 'page' : undefined}
-        aria-label={options.ariaLabel}
-        onClick={() => onPageChange(page)}
+        disabled={locked}
+        aria-label={ariaLabel}
+        aria-current={current ? 'page' : undefined}
+        onClick={() => changePage(page)}
       >
         {content}
       </button>
     )
   }
-
+  const moveControl = (
+    page: number,
+    icon: IconName,
+    key: string,
+    unavailable: boolean
+  ): ReactElement =>
+    renderControl(
+      page,
+      <Icon name={icon} />,
+      t(`pagination.${key}`),
+      unavailable
+    )
+  const previous = (
+    <div className="pagination-previous" key="previous">
+      {moveControl(1, 'chevrons-left', 'firstLabel', safePage === 1)}
+      {moveControl(
+        safePage - 1,
+        'chevron-left',
+        'previousLabel',
+        safePage === 1
+      )}
+    </div>
+  )
+  const numbers = (
+    <ol className="pagination-numbers" key="numbers">
+      {pages.map((page) => (
+        <li key={page}>
+          {renderControl(
+            page,
+            <span className="tabular-nums">{formatNumber(page, locale)}</span>,
+            t('pagination.pageLabel', {
+              page: formatNumber(page, locale),
+              current: page === safePage ? t('pagination.currentSuffix') : ''
+            }),
+            false,
+            page === safePage
+          )}
+        </li>
+      ))}
+    </ol>
+  )
+  const following = (
+    <div className="pagination-following" key="following">
+      {moveControl(
+        safePage + 1,
+        'chevron-right',
+        'nextLabel',
+        safePage === normalizedTotal
+      )}
+      {moveControl(
+        normalizedTotal,
+        'chevrons-right',
+        'lastLabel',
+        safePage === normalizedTotal
+      )}
+    </div>
+  )
   return (
     <nav
-      className={classNames('overflow-x-auto', className)}
+      ref={navRef}
+      className={classNames('number-pagination', className)}
       aria-label={label ?? t('pagination.label')}
     >
-      <ul className="flex min-w-max items-center justify-center gap-1 py-1">
-        <li>
-          {renderPageControl(
-            safeCurrentPage - 1,
-            <span>{t('pagination.previous')}</span>,
-            {
-              ariaLabel: t('pagination.previousLabel'),
-              className: classNames(
-                pageButtonBaseClassName,
-                defaultPageClassName,
-                'w-auto px-3'
-              ),
-              isDisabled: safeCurrentPage === 1
-            }
-          )}
-        </li>
-        {items.map((item) => {
-          if (typeof item !== 'number') {
-            return (
-              <li
-                className="grid size-11 place-items-center text-muted"
-                key={item}
-                aria-hidden="true"
-              >
-                …
-              </li>
-            )
-          }
-
-          const isCurrent = item === safeCurrentPage
-
-          return (
-            <li key={item}>
-              {renderPageControl(
-                item,
-                <span className="tabular-nums">{formatPage(item)}</span>,
-                {
-                  ariaLabel: t('pagination.pageLabel', {
-                    page: formatPage(item),
-                    current: isCurrent ? t('pagination.currentSuffix') : ''
-                  }),
-                  className: classNames(
-                    pageButtonBaseClassName,
-                    isCurrent ? currentPageClassName : defaultPageClassName
-                  ),
-                  isCurrent
-                }
-              )}
-            </li>
-          )
-        })}
-        <li>
-          {renderPageControl(
-            safeCurrentPage + 1,
-            <span>{t('pagination.next')}</span>,
-            {
-              ariaLabel: t('pagination.nextLabel'),
-              className: classNames(
-                pageButtonBaseClassName,
-                defaultPageClassName,
-                'w-auto px-3'
-              ),
-              isDisabled: safeCurrentPage === normalizedTotalPages
-            }
-          )}
-        </li>
-      </ul>
+      <div
+        className="pagination-controls"
+        data-mobile={pageLimit < 5 || undefined}
+      >
+        {[previous, numbers, following]}
+      </div>
     </nav>
   )
 }

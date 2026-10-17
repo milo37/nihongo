@@ -1,9 +1,11 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Outlet, useLocation, useNavigationType } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { AppShell } from '@common/components/AppShell'
+import { SideNavigation } from '@common/components/SideNavigation'
 import { Icon } from '@common/components/Icon'
 import { IconButton } from '@common/components/IconButton'
 import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
@@ -52,7 +54,9 @@ const focusHashTarget = (hash: string): boolean => {
   return true
 }
 
-export const Layout = (): ReactElement => {
+type LayoutProps = { children?: ReactNode }
+
+export const Layout = ({ children }: LayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
   const { locale } = useUiLocale()
@@ -211,11 +215,11 @@ export const Layout = (): ReactElement => {
     }
   ] as const
 
-  const renderNavigation = (mobile: boolean): ReactElement => (
+  const renderMobileNavigation = (): ReactElement => (
     <nav
-      id={mobile ? 'mobile-navigation' : 'primary-navigation'}
-      className={mobile ? 'app-mobile-navigation' : 'app-primary-navigation'}
-      aria-label={navigationT(mobile ? 'mobilePrimary' : 'primary')}
+      id="mobile-navigation"
+      className="app-mobile-navigation"
+      aria-label={navigationT('mobilePrimary')}
     >
       {navigationItems.map((item) => (
         <Link
@@ -233,111 +237,140 @@ export const Layout = (): ReactElement => {
   )
 
   return (
-    <div
-      className={`app-shell bg-canvas text-ink${isFocusSession ? ' app-shell-focus' : ''}`}
-      data-surface={
+    <AppShell
+      className={isFocusSession ? 'app-shell-focus' : undefined}
+      surface={
         isReviewSurface ? 'review' : isLearningActive ? 'learning' : 'general'
       }
-    >
-      <a
-        className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
-        href="#main-content"
-      >
-        {navigationT('skipToContent')}
-      </a>
-      {!isFocusSession ? (
-        <header className="app-shell-header">
-          <div className="app-shell-header-inner">
-            <Link className="app-brand" to="/" onClick={closeMenu}>
-              <Icon name="book-open" />
-              <strong>{commonT('appName')}</strong>
-            </Link>
-            {renderNavigation(false)}
-            <div className="app-account">
-              <div className="app-desktop-locale">
-                <LocaleSwitcher />
-              </div>
-              <div
-                className="app-account-control"
-                onBlur={(event) => {
-                  if (
-                    isMobileMenuOpen &&
-                    event.relatedTarget &&
-                    !event.currentTarget.contains(event.relatedTarget)
-                  ) {
-                    setMobileMenuOpen(false)
-                  }
-                }}
+      beforeMain={
+        <>
+          <a
+            className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
+            href="#main-content"
+          >
+            {navigationT('skipToContent')}
+          </a>
+          <p className="sr-only" aria-live="polite" aria-atomic="true">
+            {routeAnnouncement && routeAnnouncement.locale === locale
+              ? navigationT('routeChanged', {
+                  route: navigationT(
+                    getRouteLabelKey(routeAnnouncement.pathname)
+                  )
+                })
+              : ''}
+          </p>
+        </>
+      }
+      sidebar={
+        !isFocusSession ? (
+          <SideNavigation
+            id="primary-navigation"
+            label={navigationT('primary')}
+            brand={
+              <Link className="app-brand" to="/" onClick={closeMenu}>
+                <Icon name="book-open" />
+                <strong>{commonT('appName')}</strong>
+              </Link>
+            }
+            items={navigationItems.map((item) => ({
+              ...item,
+              label: navigationT(item.label)
+            }))}
+            onNavigate={closeMenu}
+          />
+        ) : null
+      }
+      header={
+        !isFocusSession ? (
+          <header className="app-shell-header">
+            <div className="app-shell-header-inner">
+              <Link
+                className="app-brand app-mobile-brand"
+                to="/"
+                onClick={closeMenu}
               >
-                <IconButton
-                  ref={mobileMenuButtonRef}
-                  variant="ghost"
-                  label={navigationT('account')}
-                  icon={<Icon name="user-round" />}
-                  aria-expanded={isMobileMenuOpen}
-                  aria-controls="account-navigation"
-                  onClick={toggleMobileMenu}
-                />
-                {isMobileMenuOpen ? (
-                  <nav
-                    id="account-navigation"
-                    className="app-account-menu"
-                    aria-label={navigationT('account')}
-                  >
-                    <Link to="/login" onClick={closeMenu}>
-                      {user ? user.name : navigationT('login')}
-                    </Link>
-                    {role !== 'GUEST' ? (
-                      <Link to="/dashboard?view=learning" onClick={closeMenu}>
-                        {navigationT('learningStart')}
+                <Icon name="book-open" />
+                <strong>{commonT('appName')}</strong>
+              </Link>
+
+              <div className="app-account">
+                <div className="app-desktop-locale">
+                  <LocaleSwitcher />
+                </div>
+                <div
+                  className="app-account-control"
+                  onBlur={(event) => {
+                    if (
+                      isMobileMenuOpen &&
+                      event.relatedTarget &&
+                      !event.currentTarget.contains(event.relatedTarget)
+                    ) {
+                      setMobileMenuOpen(false)
+                    }
+                  }}
+                >
+                  <IconButton
+                    ref={mobileMenuButtonRef}
+                    variant="ghost"
+                    label={navigationT('account')}
+                    icon={<Icon name="user-round" />}
+                    aria-expanded={isMobileMenuOpen}
+                    aria-controls="account-navigation"
+                    onClick={toggleMobileMenu}
+                  />
+                  {isMobileMenuOpen ? (
+                    <nav
+                      id="account-navigation"
+                      className="app-account-menu"
+                      aria-label={navigationT('account')}
+                    >
+                      <Link to="/login" onClick={closeMenu}>
+                        {user ? user.name : navigationT('login')}
                       </Link>
-                    ) : null}
-                    {role === 'ADMIN' ? (
-                      <Link to="/admin/questions" onClick={closeMenu}>
-                        {navigationT('adminQuestions')}
-                      </Link>
-                    ) : null}
-                    <div className="app-mobile-locale">
-                      <LocaleSwitcher />
-                    </div>
-                  </nav>
-                ) : null}
+                      {role !== 'GUEST' ? (
+                        <Link to="/dashboard?view=learning" onClick={closeMenu}>
+                          {navigationT('learningStart')}
+                        </Link>
+                      ) : null}
+                      {role === 'ADMIN' ? (
+                        <Link to="/admin/questions" onClick={closeMenu}>
+                          {navigationT('adminQuestions')}
+                        </Link>
+                      ) : null}
+                      <div className="app-mobile-locale">
+                        <LocaleSwitcher />
+                      </div>
+                    </nav>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
-        </header>
-      ) : null}
-      <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {routeAnnouncement && routeAnnouncement.locale === locale
-          ? navigationT('routeChanged', {
-              route: navigationT(getRouteLabelKey(routeAnnouncement.pathname))
-            })
-          : ''}
-      </p>
-      <main
-        ref={mainRef}
-        className="focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus-inset focus-visible:outline-brand"
-        id="main-content"
-        tabIndex={-1}
-      >
-        <Suspense fallback={<LoadingState message={commonT('loading.page')} />}>
-          {isReady ? (
-            <Outlet
-              context={
-                { reviewReturnContext } satisfies PracticeNavigationContext
-              }
-            />
-          ) : (
-            <LoadingState message={commonT('loading.auth')} />
-          )}
-        </Suspense>
-      </main>
-      {!isFocusSession ? (
-        <>
-          <InformationFooter density="compact" />
-          {renderNavigation(true)}
-        </>
-      ) : null}
-    </div>
+          </header>
+        ) : null
+      }
+      footer={!isFocusSession ? <InformationFooter density="compact" /> : null}
+      bottomNavigation={!isFocusSession ? renderMobileNavigation() : null}
+      mainProps={{
+        ref: mainRef,
+        className:
+          'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus-inset focus-visible:outline-brand',
+        id: 'main-content',
+        tabIndex: -1
+      }}
+    >
+      <Suspense fallback={<LoadingState message={commonT('loading.page')} />}>
+        {children !== undefined ? (
+          children
+        ) : isReady ? (
+          <Outlet
+            context={
+              { reviewReturnContext } satisfies PracticeNavigationContext
+            }
+          />
+        ) : (
+          <LoadingState message={commonT('loading.auth')} />
+        )}
+      </Suspense>
+    </AppShell>
   )
 }

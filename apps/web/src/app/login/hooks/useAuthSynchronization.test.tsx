@@ -1,3 +1,5 @@
+import { createMemoryRouter, RouterProvider } from 'react-router'
+import { Layout } from '@app/layout'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import type { User } from '@common/types/domain'
@@ -256,4 +258,68 @@ describe('canonical auth synchronization', () => {
     expect(requests).toBe(2)
     expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
   })
+})
+
+const renderShellProbe = (client: QueryClient): void => {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/',
+        element: (
+          <ProtectedRouteProvider
+            renderAuthError={(content) => <Layout>{content}</Layout>}
+          >
+            <Layout />
+          </ProtectedRouteProvider>
+        ),
+        children: [{ path: 'login', element: <AuthProbe /> }]
+      }
+    ],
+    { initialEntries: ['/login'] }
+  )
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
+        <RouterProvider router={router} />
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+}
+
+it('reuses the real desktop/mobile shell during auth error and restores main focus after retry', async () => {
+  const user = userEvent.setup()
+  const currentUser = mockDatabase.loginAs('USER')
+  useAppStore.getState().setCurrentUser(currentUser)
+  let fail = true
+  mockServer.use(
+    http.get('*/api/v1/me', () =>
+      fail ? HttpResponse.error() : HttpResponse.json(toPrincipal(currentUser))
+    )
+  )
+  renderShellProbe(createClient())
+  await screen.findByRole('heading', {
+    name: '로그인 상태를 확인할 수 없습니다'
+  })
+  expect(document.querySelector('.app-side-navigation')).toBeInTheDocument()
+  expect(document.querySelector('.app-mobile-navigation')).toBeInTheDocument()
+  expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+  expect(document.querySelector('main#main-content')).toBeInTheDocument()
+  expect(screen.queryByText('현재 역할: USER')).not.toBeInTheDocument()
+  expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
+  fail = false
+  await user.click(screen.getByRole('button', { name: '다시 시도' }))
+  await screen.findByText('현재 역할: USER')
+  await waitFor(() =>
+    expect(document.getElementById('main-content')).toHaveFocus()
+  )
+  expect(
+    screen.queryByRole('heading', { name: '로그인 상태를 확인할 수 없습니다' })
+  ).not.toBeInTheDocument()
+})
+it('keeps the default Layout Outlet when no body override is supplied', async () => {
+  mockDatabase.logout()
+  renderShellProbe(createClient())
+  expect(await screen.findByText('현재 역할: GUEST')).toBeInTheDocument()
+  expect(document.querySelector('.app-side-navigation')).toBeInTheDocument()
+  expect(screen.getByRole('contentinfo')).toBeInTheDocument()
 })

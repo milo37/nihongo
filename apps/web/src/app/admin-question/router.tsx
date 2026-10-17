@@ -1,5 +1,6 @@
 import { lazy } from 'react'
 import type { RouteObject } from 'react-router'
+import { adminReportRoutes } from '@app/admin-report/router'
 
 const AdminQuestionPage = lazy(() =>
   import('@app/admin-question/page').then((module) => ({
@@ -18,6 +19,7 @@ const EditAdminQuestionPage = lazy(() =>
 )
 
 export const adminQuestionRoutes: RouteObject[] = [
+  ...adminReportRoutes,
   {
     path: 'admin/questions',
     element: <AdminQuestionPage />

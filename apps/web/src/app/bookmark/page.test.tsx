@@ -323,7 +323,7 @@ describe('BookmarkPage pagination settlement', () => {
     dispose(fixture.client, fixture.unmount)
   })
 
-  it('keeps the activated URL pagination link focused through a cold page fetch', async () => {
+  it('keeps the activated link during fetch and focuses the current number after response', async () => {
     const items = Array.from({ length: 21 }, (_, index) =>
       createBookmark(index + 1)
     )
@@ -368,7 +368,7 @@ describe('BookmarkPage pagination settlement', () => {
       await screen.findByText(items[20]?.question.questionTextPreview ?? '')
     ).toBeVisible()
     expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
-    expect(next).toHaveFocus()
+    expect(screen.getByRole('link', { current: 'page' })).toHaveFocus()
     expect(next).toHaveAttribute('aria-disabled', 'true')
     expect(
       screen.queryByText('책갈피 페이지를 갱신하고 있습니다…')
@@ -546,4 +546,28 @@ describe('BookmarkPage pagination settlement', () => {
     expect(fixture.deleteRequests).toBe(1)
     dispose(fixture.client, fixture.unmount)
   })
+})
+
+it('displays one real bookmark page without adding unsupported filters', async () => {
+  const item = createBookmark(1)
+  mockServer.use(
+    http.get('*/api/v1/bookmarks', () =>
+      HttpResponse.json({ items: [item], page: 1, pageSize: 20, total: 1 })
+    )
+  )
+  const fixture = renderBookmarkPage()
+  await screen.findByText(item.question.questionTextPreview)
+  expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('1')
+  for (const label of [
+    '첫 페이지',
+    '이전 페이지',
+    '다음 페이지',
+    '마지막 페이지'
+  ])
+    expect(screen.getByRole('link', { name: label })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    )
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  dispose(fixture.client, fixture.unmount)
 })

@@ -13,7 +13,40 @@ export type IconName =
   | 'bookmark'
   | 'user-round'
   | 'arrow-left'
+  | 'circle-check'
+  | 'circle-alert'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'chevrons-left'
+  | 'chevrons-right'
 const paths: Record<IconName, ReactElement> = {
+  'chevron-left': <path d="m15 18-6-6 6-6" />,
+  'chevron-right': <path d="m9 18 6-6-6-6" />,
+  'chevrons-left': (
+    <>
+      <path d="m11 17-5-5 5-5" />
+      <path d="m18 17-5-5 5-5" />
+    </>
+  ),
+  'chevrons-right': (
+    <>
+      <path d="m6 17 5-5-5-5" />
+      <path d="m13 17 5-5-5-5" />
+    </>
+  ),
+  'circle-check': (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  'circle-alert': (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </>
+  ),
   house: (
     <>
       <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" />

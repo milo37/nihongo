@@ -18,6 +18,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 type ProtectedRouteProviderProps = {
   children: ReactNode
+  renderAuthError?: (content: ReactNode) => ReactNode
 }
 
 type RequireRoleProps = {
@@ -29,7 +30,8 @@ const getRedirectPath = (location: Location): string => {
 }
 
 export const ProtectedRouteProvider = ({
-  children
+  children,
+  renderAuthError
 }: ProtectedRouteProviderProps): ReactElement => {
   const { t } = useTranslation('errors')
   const { canonicalUser, hasError, isOffline, isReady, retry } =
@@ -51,20 +53,36 @@ export const ProtectedRouteProvider = ({
   }
 
   if (hasError || isOffline) {
+    const errorContent = (
+      <div className="auth-page">
+        <div className="auth-panel auth-standalone-panel">
+          <ErrorState
+            className="auth-link-error"
+            autoFocus
+            description={t(
+              isOffline
+                ? 'authStatus.offlineDescription'
+                : 'authStatus.description'
+            )}
+            headingLevel={1}
+            onRetry={handleRetry}
+            title={t(
+              isOffline ? 'authStatus.offlineTitle' : 'authStatus.title'
+            )}
+          />
+        </div>
+      </div>
+    )
     return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-        <ErrorState
-          autoFocus
-          description={t(
-            isOffline
-              ? 'authStatus.offlineDescription'
-              : 'authStatus.description'
-          )}
-          headingLevel={1}
-          onRetry={handleRetry}
-          title={t(isOffline ? 'authStatus.offlineTitle' : 'authStatus.title')}
-        />
-      </main>
+      <AuthContext.Provider value={{ user, role, isReady }}>
+        {renderAuthError ? (
+          renderAuthError(errorContent)
+        ) : (
+          <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+            {errorContent}
+          </main>
+        )}
+      </AuthContext.Provider>
     )
   }
 

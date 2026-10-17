@@ -90,7 +90,10 @@ export const BookmarkPage = (): ReactElement => {
   }, [currentUserId, resetCreateSession, resetDeleteBookmark, setPage])
 
   const pageCount = bookmarksQuery.data
-    ? Math.max(1, Math.ceil(bookmarksQuery.data.total / PAGE_SIZE))
+    ? Math.max(
+        1,
+        Math.ceil(bookmarksQuery.data.total / bookmarksQuery.data.pageSize)
+      )
     : page
   const displayedPage = bookmarksQuery.data?.page ?? page
   const noEligibleQuestions =
@@ -504,6 +507,7 @@ export const BookmarkPage = (): ReactElement => {
           <Pagination
             className="mt-8"
             currentPage={displayedPage}
+            requestedPage={page}
             disabled={isBookmarkNavigationLocked}
             getPageHref={getPageHref}
             label={t('pagination.label')}
