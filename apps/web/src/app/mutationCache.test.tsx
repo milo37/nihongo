@@ -1,9 +1,22 @@
+import * as phase7AdminApi from '@api/phase7/phase7AdminApi'
+import { updateQuestionVersionRequestSchema } from '@nihongo/contracts/admin/phase7'
+import { useUpdatePhase7AdminQuestionVersion } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import {
+  adminQuestionKeys,
+  adminQuestionVersionKeys,
+  adminAuditLogKeys,
+  phase7AdminQueries
+} from '@app/admin-question/queries/phase7AdminQueries'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
 import { authQueries } from '@app/login/queries/authQueries'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery
+} from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
@@ -318,36 +331,104 @@ describe('mutation cache contracts', () => {
   })
 
   it('관리자 수정은 상세 데이터를 갱신하고 교차 도메인 캐시를 무효화한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-01'
-    const questionText = '수정된 관리자 문제 문장'
+    const admin = mockDatabase.loginAs('ADMIN')
+    useAppStore.getState().setCurrentUser(admin)
+    const source = toUpdateInput('n5-vocabulary-01', '캐시 검증용 관리자 초안')
+    const created = await phase7AdminApi.createPhase7AdminQuestion({
+      level: source.level,
+      subject: source.subject,
+      questionType: source.questionType,
+      difficulty: source.difficulty,
+      questionText: source.questionText,
+      passage: source.passage,
+      explanationKo: source.explanationKo,
+      explanationJa: source.explanationJa,
+      tagNames: source.tags,
+      options: source.options.map(({ label, text }) => ({
+        clientOptionKey: label,
+        text
+      })),
+      correctOptionKey: '1'
+    })
+    if (!created.questionVersionId)
+      throw new Error('편집 버전 fixture가 필요합니다.')
+    const questionId = created.questionId
+    const versionId = created.questionVersionId
+    const detail = await phase7AdminApi.getPhase7AdminQuestion(questionId)
+    const version = detail.versions.items.find(
+      (item) => item.questionVersionId === versionId
+    )
+    if (!version) throw new Error('현재 rowVersion fixture가 필요합니다.')
     const client = createTestClient()
-    const detailKey = adminQuestionQueries.detail(questionId).queryKey
+    const preview = await client.fetchQuery(
+      phase7AdminQueries.preview(versionId)
+    )
+    const questionText = '수정된 관리자 문제 문장'
+    const body = updateQuestionVersionRequestSchema.parse({
+      level: preview.question.level,
+      subject: preview.question.subject,
+      questionType: preview.question.questionType,
+      difficulty: preview.question.difficulty,
+      passage: preview.question.passage,
+      questionText,
+      explanationKo: preview.adminAnswer.explanationKo,
+      explanationJa: preview.adminAnswer.explanationJa,
+      tagNames: preview.question.tags.map((tag) => tag.label),
+      options: preview.question.options.map(({ id, label, text }) => ({
+        id,
+        ordinal: Number(label),
+        text
+      })),
+      correctOptionId: preview.adminAnswer.correctOptionId,
+      expectedRowVersion: version.rowVersion
+    })
+    const updateApi = vi.spyOn(phase7AdminApi, 'updatePhase7QuestionVersion')
+    const detailKey = adminQuestionKeys.detail(questionId)
+    const historyKey = [
+      ...adminQuestionVersionKeys.historyFamily(questionId),
+      'seed'
+    ] as const
+    const diffKey = [
+      ...adminQuestionVersionKeys.diffFamily(versionId),
+      'seed'
+    ] as const
+    const listKey = [...adminQuestionKeys.allLists(), 'seed'] as const
+    const auditKey = [...adminAuditLogKeys.allLists(), 'seed'] as const
     const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
     const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
     const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-
-    seedCache(client, detailKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useUpdateAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-
+    client.setQueryData(detailKey, detail)
+    for (const key of [
+      historyKey,
+      diffKey,
+      listKey,
+      auditKey,
+      bookmarkKey,
+      wrongKey,
+      dashboardKey
+    ])
+      seedCache(client, key)
+    const { result } = renderHook(
+      () => ({
+        preview: useQuery(phase7AdminQueries.preview(versionId)),
+        update: useUpdatePhase7AdminQuestionVersion(questionId, versionId)
+      }),
+      { wrapper: createWrapper(client) }
+    )
+    await waitFor(() => expect(result.current.preview.isSuccess).toBe(true))
     await act(async () => {
-      await result.current.mutateAsync({
-        questionId,
-        input: toUpdateInput(questionId, questionText)
-      })
+      await result.current.update.mutateAsync(body)
     })
-
-    expect(client.getQueryData(detailKey)).toMatchObject({ questionText })
-    expectInvalidated(client, detailKey)
-    expectInvalidated(client, bookmarkKey)
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
+    expect(updateApi).toHaveBeenCalledExactlyOnceWith(versionId, body)
+    expect(
+      client.getQueryData(phase7AdminQueries.preview(versionId).queryKey)
+        ?.question.questionText
+    ).toBe(questionText)
+    for (const key of [detailKey, historyKey, diffKey, listKey, auditKey])
+      expectInvalidated(client, key)
+    // A content edit affects admin caches. Learner caches change only on publication.
+    for (const key of [bookmarkKey, wrongKey, dashboardKey])
+      expect(client.getQueryState(key)?.isInvalidated).toBe(false)
   })
 
   it('관리자 삭제는 상세 캐시를 제거하고 모든 관련 목록을 무효화한다', async () => {

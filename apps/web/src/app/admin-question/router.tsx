@@ -12,9 +12,9 @@ const CreateAdminQuestionPage = lazy(() =>
     default: module.CreateAdminQuestionPage
   }))
 )
-const EditAdminQuestionPage = lazy(() =>
-  import('@app/admin-question/edit/page').then((module) => ({
-    default: module.EditAdminQuestionPage
+const AdminQuestionDetailPage = lazy(() =>
+  import('@app/admin-question/detail/page').then((module) => ({
+    default: module.AdminQuestionDetailPage
   }))
 )
 
@@ -29,7 +29,11 @@ export const adminQuestionRoutes: RouteObject[] = [
     element: <CreateAdminQuestionPage />
   },
   {
+    path: 'admin/questions/:questionId',
+    element: <AdminQuestionDetailPage />
+  },
+  {
     path: 'admin/questions/:questionId/edit',
-    element: <EditAdminQuestionPage />
+    element: <AdminQuestionDetailPage />
   }
 ]
