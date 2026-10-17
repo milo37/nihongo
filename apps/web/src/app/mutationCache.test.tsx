@@ -1,6 +1,15 @@
+import { apiClient } from '@api/config'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+import { MOCK_ADMIN_PASSWORD } from '@mocks/handlers/authHandlers'
 import * as phase7AdminApi from '@api/phase7/phase7AdminApi'
-import { updateQuestionVersionRequestSchema } from '@nihongo/contracts/admin/phase7'
-import { useUpdatePhase7AdminQuestionVersion } from '@app/admin-question/hooks/usePhase7AdminMutations'
+import {
+  archiveAdminQuestionRequestSchema,
+  updateQuestionVersionRequestSchema
+} from '@nihongo/contracts/admin/phase7'
+import {
+  usePhase7AdminQuestionCommand,
+  useUpdatePhase7AdminQuestionVersion
+} from '@app/admin-question/hooks/usePhase7AdminMutations'
 import {
   adminQuestionKeys,
   adminQuestionVersionKeys,
@@ -15,7 +24,8 @@ import { toCanonicalStudySessionView } from '@app/practice/adapters/studySession
 import {
   QueryClient,
   QueryClientProvider,
-  useQuery
+  useQuery,
+  type QueryKey
 } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
@@ -431,39 +441,125 @@ describe('mutation cache contracts', () => {
       expect(client.getQueryState(key)?.isInvalidated).toBe(false)
   })
 
-  it('관리자 삭제는 상세 캐시를 제거하고 모든 관련 목록을 무효화한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-02'
+  it('관리자 보관은 상세를 보존·갱신하고 관련 공개·학습 캐시를 무효화한다', async () => {
+    const admin = mockDatabase.loginAs('ADMIN')
+    useAppStore.getState().setCurrentUser(admin)
+    const source = toUpdateInput(
+      'n5-vocabulary-02',
+      '보관 캐시 검증용 관리자 초안'
+    )
+    const created = await phase7AdminApi.createPhase7AdminQuestion({
+      level: source.level,
+      subject: source.subject,
+      questionType: source.questionType,
+      difficulty: source.difficulty,
+      questionText: source.questionText,
+      passage: source.passage,
+      explanationKo: source.explanationKo,
+      explanationJa: source.explanationJa,
+      tagNames: source.tags,
+      options: source.options.map(({ label, text }) => ({
+        clientOptionKey: label,
+        text
+      })),
+      correctOptionKey: '1'
+    })
+    const questionId = created.questionId
+    const detail = await phase7AdminApi.getPhase7AdminQuestion(questionId)
+    const version = detail.versions.items.find(
+      (item) =>
+        item.questionVersionId === detail.question.openCandidateVersionId
+    )
+    if (!version) throw new Error('보관할 열린 후보 버전 fixture가 필요합니다.')
+    const versionId = version.questionVersionId
+    const body = archiveAdminQuestionRequestSchema.parse({
+      expectedQuestionRowVersion: detail.question.rowVersion,
+      expectedOpenCandidateVersionId: versionId,
+      expectedOpenCandidateRowVersion: version.rowVersion
+    })
+    await phase7AdminApi.reauthenticatePhase7Admin({
+      password: MOCK_ADMIN_PASSWORD
+    })
     const client = createTestClient()
-    const detailKey = adminQuestionQueries.detail(questionId).queryKey
-    const listKey = adminQuestionQueries.list({
-      page: 1,
-      pageSize: 20,
-      sort: 'RECENT'
-    }).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-
-    seedCache(client, detailKey)
-    seedCache(client, listKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useDeleteAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-
+    const detailQuery = phase7AdminQueries.questionDetail(questionId)
+    const detailKey = detailQuery.queryKey
+    const relatedKeys: QueryKey[] = [
+      detailKey,
+      phase7AdminQueries.questionList({
+        page: 1,
+        pageSize: 20,
+        sort: 'UPDATED_DESC'
+      }).queryKey,
+      phase7AdminQueries.versionHistoryConnection(questionId).queryKey,
+      phase7AdminQueries.reviewConnection(versionId).queryKey,
+      phase7AdminQueries.preview(versionId).queryKey,
+      phase7AdminQueries.diff(versionId, { baseVersionId: versionId }).queryKey,
+      adminAuditLogKeys.allLists(),
+      // Public-question and candidate family roots are part of the archive contract.
+      ['question'],
+      ['study', 'candidates'],
+      bookmarkQueries.list({ page: 1, pageSize: 20 }).queryKey,
+      bookmarkQueries.list({ questionIds: [questionId] }).queryKey,
+      wrongNoteQueries.historicalList({ page: 1, pageSize: 20, sort: 'RECENT' })
+        .queryKey,
+      wrongNoteQueries.detail(questionId).queryKey,
+      serverStateQueryKeys.wrongNote.reviewQueues(),
+      dashboardQueries.allKey()
+    ]
+    for (const key of relatedKeys) seedCache(client, key)
+    client.setQueryData(detailKey, detail)
+    for (const key of relatedKeys) {
+      expect(client.getQueryState(key)?.isInvalidated).toBe(false)
+    }
+    const archiveApi = vi.spyOn(phase7AdminApi, 'archivePhase7AdminQuestion')
+    const requestApi = vi.spyOn(apiClient, 'request')
+    const { result } = renderHook(
+      () =>
+        usePhase7AdminQuestionCommand({
+          currentPublishedVersionId: detail.question.currentPublishedVersionId,
+          openCandidateVersionId: body.expectedOpenCandidateVersionId,
+          openCandidateVersionRowVersion: body.expectedOpenCandidateRowVersion
+        }),
+      { wrapper: createWrapper(client) }
+    )
     await act(async () => {
-      await result.current.mutateAsync(questionId)
+      const archived = await result.current.mutateAsync({
+        command: 'ARCHIVE',
+        note: '',
+        questionId,
+        questionRowVersion: body.expectedQuestionRowVersion,
+        version
+      })
+      expect(archived).toMatchObject({
+        questionId,
+        lifecycleStatus: 'ARCHIVED',
+        questionRowVersion: body.expectedQuestionRowVersion + 1,
+        questionVersionId: null,
+        versionStatus: null,
+        versionRowVersion: null
+      })
     })
-
-    expect(client.getQueryState(detailKey)).toBeUndefined()
-    expectInvalidated(client, listKey)
-    expectInvalidated(client, bookmarkKey)
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
+    expect(archiveApi).toHaveBeenCalledExactlyOnceWith(questionId, body)
+    expect(requestApi).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        method: 'POST',
+        url: `/v1/admin/questions/${questionId}/archive`,
+        data: body
+      })
+    )
+    // Invalidation is awaited; an archive retains the detail instead of removing it.
+    expect(client.getQueryData(detailKey)).toEqual(detail)
+    for (const key of relatedKeys) expectInvalidated(client, key)
+    const refreshed = await client.fetchQuery(detailQuery)
+    expect(refreshed.question).toMatchObject({
+      questionId,
+      lifecycleStatus: 'ARCHIVED',
+      rowVersion: body.expectedQuestionRowVersion + 1,
+      currentPublishedVersionId: null,
+      openCandidateVersionId: null
+    })
+    expect(client.getQueryData(detailKey)).toEqual(refreshed)
+    expect(client.getQueryState(detailKey)?.isInvalidated).toBe(false)
   })
 
   it('관리자 수정·삭제 실패 시 상세 set/remove와 교차 무효화를 실행하지 않는다', async () => {
