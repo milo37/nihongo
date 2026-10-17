@@ -1,5 +1,6 @@
 import { lazy } from 'react'
 import type { RouteObject } from 'react-router'
+import { adminReportRoutes } from '@app/admin-report/router'
 
 const AdminQuestionPage = lazy(() =>
   import('@app/admin-question/page').then((module) => ({
@@ -11,13 +12,14 @@ const CreateAdminQuestionPage = lazy(() =>
     default: module.CreateAdminQuestionPage
   }))
 )
-const EditAdminQuestionPage = lazy(() =>
-  import('@app/admin-question/edit/page').then((module) => ({
-    default: module.EditAdminQuestionPage
+const AdminQuestionDetailPage = lazy(() =>
+  import('@app/admin-question/detail/page').then((module) => ({
+    default: module.AdminQuestionDetailPage
   }))
 )
 
 export const adminQuestionRoutes: RouteObject[] = [
+  ...adminReportRoutes,
   {
     path: 'admin/questions',
     element: <AdminQuestionPage />
@@ -27,7 +29,11 @@ export const adminQuestionRoutes: RouteObject[] = [
     element: <CreateAdminQuestionPage />
   },
   {
+    path: 'admin/questions/:questionId',
+    element: <AdminQuestionDetailPage />
+  },
+  {
     path: 'admin/questions/:questionId/edit',
-    element: <EditAdminQuestionPage />
+    element: <AdminQuestionDetailPage />
   }
 ]

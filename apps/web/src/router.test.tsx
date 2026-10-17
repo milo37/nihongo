@@ -6,7 +6,16 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ReactElement } from 'react'
 import type { RouteObject } from 'react-router'
 import { appRoutes } from '@/router'
-import { studyQueries } from '@app/practice/queries/studyQueries'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
+import { getStudySessionV2 } from '@api/study/getStudySessionV2'
+import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
+import { getStudyResultV1 } from '@api/study/getStudyResultV1'
+import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
+import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
+import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
+import { studyResultQueries } from '@app/practice/queries/studyResultQueries'
+import { I18nProvider } from '@provider/I18nProvider'
 import { ToastProvider } from '@common/components/Toast'
 import { queryClient } from '@libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -36,9 +45,11 @@ const renderRoutes = (
 
   render(
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
     </QueryClientProvider>
   )
 
@@ -46,18 +57,31 @@ const renderRoutes = (
 }
 
 describe('application router boundaries', () => {
-  it('guest의 보호 경로와 search를 login redirect에 보존한다', async () => {
-    const router = renderRoutes('/wrong-notes?status=NEW')
-
+  it('guest의 보호 상세 경로와 search를 login redirect에 보존한다', async () => {
+    const entry =
+      '/wrong-notes/00000000-0000-4000-8000-000000000001?returnTo=%2Fwrong-notes%3Fview%3DUNREVIEWED'
+    const router = renderRoutes(entry)
     expect(
-      await screen.findByRole('heading', {
-        name: '학습 역할을 선택하세요'
-      })
+      await screen.findByRole('heading', { name: '로그인' }, { timeout: 3000 })
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toBe(
-      '?redirect=%2Fwrong-notes%3Fstatus%3DNEW'
+      `?redirect=${encodeURIComponent(entry)}`
     )
+  })
+
+  it('guest의 공개 복습 진입은 로그인 안내와 보호된 기록 경계를 제공한다', async () => {
+    const router = renderRoutes('/wrong-notes')
+    expect(
+      await screen.findByRole('heading', { name: '복습' })
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/wrong-notes')
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('link', { name: '로그인' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fwrong-notes'
+    )
+    expect(within(main).queryByRole('combobox')).not.toBeInTheDocument()
   })
 
   it('USER의 관리자 경로는 forbidden으로 이동한다', async () => {
@@ -77,15 +101,23 @@ describe('application router boundaries', () => {
     renderRoutes('/admin/questions')
 
     expect(
-      await screen.findByRole('heading', { name: '문제 관리' })
+      await screen.findByRole(
+        'heading',
+        { name: '문제 관리' },
+        { timeout: 3000 }
+      )
     ).toBeInTheDocument()
-    const tableRegion = await screen.findByRole('region', {
-      name: '관리자 문제 목록'
-    })
+    const tableRegion = await screen.findByRole(
+      'region',
+      {
+        name: '관리자 문제 목록 가로 스크롤 영역'
+      },
+      { timeout: 3000 }
+    )
     expect(tableRegion).toHaveAttribute('tabindex', '0')
     expect(
       within(tableRegion).getByRole('table', {
-        name: /JLPT 관리자 문제 목록/
+        name: /관리자 문제 목록/
       })
     ).toBeInTheDocument()
   })
@@ -105,25 +137,25 @@ describe('application router boundaries', () => {
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
-    renderRoutes('/')
+    const router = renderRoutes('/')
     expect(
       await screen.findByRole('heading', {
-        name: /틀린 문제를 끝까지 해결하는 학습/
+        name: '학습'
       })
     ).toBeInTheDocument()
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
-    await user.click(within(navigation).getByRole('link', { name: '문제풀이' }))
-    expect(
-      await screen.findByRole('heading', {
-        name: '오늘 풀 문제를 설정하세요'
-      })
-    ).toBeInTheDocument()
+    await user.click(within(navigation).getByRole('link', { name: '학습' }))
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/practice')
+      expect(router.state.navigation.state).toBe('idle')
+      expect(screen.getByRole('heading', { name: '학습' })).toBeInTheDocument()
+    })
 
     await vi.waitFor(() => {
       expect(document.querySelector('#main-content')).toHaveFocus()
       expect(
-        screen.getByText('문제풀이 설정 화면으로 이동했습니다.')
+        screen.getByText('학습 화면으로 이동했습니다.')
       ).toBeInTheDocument()
     })
     expect(scrollTo).toHaveBeenCalledWith({
@@ -145,13 +177,21 @@ describe('application router boundaries', () => {
     })
 
     try {
-      const router = renderRoutes('/')
-      const target = await screen.findByRole('heading', {
-        name: '문제를 푸는 순간부터 복습까지 연결됩니다'
-      })
-
+      const rootRoute = appRoutes[0]
+      if (!rootRoute) throw new Error('Application root route required')
+      const router = renderRoutes('/hash', [
+        {
+          path: rootRoute.path,
+          element: rootRoute.element,
+          errorElement: rootRoute.errorElement,
+          children: [
+            { path: 'hash', element: <h1 id="hash-target">해시 대상</h1> }
+          ]
+        }
+      ])
+      const target = await screen.findByRole('heading', { name: '해시 대상' })
       await act(async () => {
-        await router.navigate('/#loop-title')
+        await router.navigate('/hash#hash-target')
       })
 
       await vi.waitFor(() => {
@@ -230,7 +270,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
     await screen.findByRole('heading', {
-      name: '오늘 풀 문제를 설정하세요'
+      name: '학습'
     })
     const main = document.querySelector('#main-content')
     expect(main).not.toHaveFocus()
@@ -252,14 +292,14 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/')
     await screen.findByRole('heading', {
-      name: /틀린 문제를 끝까지 해결하는 학습/
+      name: '학습'
     })
 
     await act(async () => {
       await router.navigate('/practice')
     })
     await screen.findByRole('heading', {
-      name: '오늘 풀 문제를 설정하세요'
+      name: '학습'
     })
     scrollTo.mockClear()
 
@@ -267,29 +307,31 @@ describe('application router boundaries', () => {
       await router.navigate(-1)
     })
     await screen.findByRole('heading', {
-      name: /틀린 문제를 끝까지 해결하는 학습/
+      name: '학습'
     })
 
     expect(scrollTo).not.toHaveBeenCalled()
   })
 
   it('문제풀이 화면은 Layout main 대신 현재 문제 제목을 포커스한다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
+    const sessionPayload = (
+      await createStudySessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1
+      })
+    ).data
     queryClient.setQueryData(
-      studyQueries.session(sessionPayload.session.id).queryKey,
-      sessionPayload
+      studySessionQueries.session(sessionPayload.session.id).queryKey,
+      toCanonicalStudySessionView(sessionPayload)
     )
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
     await screen.findByRole('heading', {
-      name: '오늘 풀 문제를 설정하세요'
+      name: '학습'
     })
 
     await act(async () => {
@@ -300,7 +342,10 @@ describe('application router boundaries', () => {
       'heading',
       {
         level: 1,
-        name: /1번 문제/
+        name: new RegExp(
+          sessionPayload.questions[0]?.question.questionText ??
+            'missing-fixture'
+        )
       },
       { timeout: 3000 }
     )
@@ -315,40 +360,39 @@ describe('application router boundaries', () => {
   })
 
   it('POP으로 결과 화면에 복귀할 때 결과 포커스가 native scroll 복원을 덮지 않는다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    const created = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
+    const sessionId = created.data.session.id
+    const draft = (await getStudyDraftAnswers(sessionId)).data
+    await submitStudySessionV2(
+      sessionId,
+      {
+        answers: draft.answers,
+        durationSec: 0,
+        expectedDraftRevision: draft.revision
+      },
+      crypto.randomUUID()
     )
-    const result = mockDatabase.submitStudySession({
-      sessionId: sessionPayload.session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: question.options[0].id,
-          elapsedSec: 2
-        }
-      ],
-      durationSec: 2
-    })
+    const sessionPayload = (await getStudySessionV2(sessionId)).data
+    const result = await getStudyResultV1(sessionId)
     queryClient.setQueryData(
-      studyQueries.session(sessionPayload.session.id).queryKey,
-      sessionPayload
+      studySessionQueries.session(sessionId).queryKey,
+      toCanonicalStudySessionView(sessionPayload)
     )
     queryClient.setQueryData(
-      studyQueries.result(sessionPayload.session.id).queryKey,
-      result
+      studyResultQueries.result(sessionId).queryKey,
+      toCanonicalStudyResultView(result)
     )
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
     await screen.findByRole('heading', {
-      name: '오늘 풀 문제를 설정하세요'
+      name: '학습'
     })
 
     await act(async () => {
@@ -363,7 +407,7 @@ describe('application router boundaries', () => {
       await router.navigate('/practice')
     })
     await screen.findByRole('heading', {
-      name: '오늘 풀 문제를 설정하세요'
+      name: '학습'
     })
     await vi.waitFor(() =>
       expect(document.querySelector('#main-content')).toHaveFocus()
@@ -404,6 +448,9 @@ describe('application router boundaries', () => {
         name: '화면을 불러오지 못했습니다'
       })
     ).toBeInTheDocument()
-    expect(screen.getByText('route-render-failure')).toBeInTheDocument()
+    expect(
+      screen.getByText('예상하지 못한 오류가 발생했습니다.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('route-render-failure')).not.toBeInTheDocument()
   })
 })

@@ -178,6 +178,33 @@ describe('AuthErrorHandlerProvider', () => {
     expect(useAppStore.getState().sessionId).toBe('active-session')
   })
 
+  it('ADMIN object-level FORBIDDEN은 현재 화면과 로컬 오류 소비 경계를 유지한다', async () => {
+    const currentUser = mockDatabase.loginAs('ADMIN')
+    useAppStore.getState().setCurrentUser(currentUser)
+    queryClient.setQueryData(['phase7-admin', 'draft'], {
+      questionText: '저장하지 않은 로컬 초안'
+    })
+    const { router } = renderProvider('/admin/questions/question-1')
+
+    act(() => {
+      emitApiError(
+        Object.assign(new Error('Object-level forbidden'), {
+          code: 'FORBIDDEN',
+          isForbiddenError: true,
+          status: 403
+        })
+      )
+    })
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/admin/questions/question-1')
+    )
+    expect(queryClient.getQueryData(['phase7-admin', 'draft'])).toEqual({
+      questionText: '저장하지 않은 로컬 초안'
+    })
+    expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
+  })
+
   it('unmount 시 online과 offline listener를 정리한다', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
