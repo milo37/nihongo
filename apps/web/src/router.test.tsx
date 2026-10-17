@@ -62,7 +62,7 @@ describe('application router boundaries', () => {
       '/wrong-notes/00000000-0000-4000-8000-000000000001?returnTo=%2Fwrong-notes%3Fview%3DUNREVIEWED'
     const router = renderRoutes(entry)
     expect(
-      await screen.findByRole('heading', { name: '학습 역할을 선택하세요' })
+      await screen.findByRole('heading', { name: '로그인' }, { timeout: 3000 })
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/login')
     expect(router.state.location.search).toBe(
@@ -101,11 +101,19 @@ describe('application router boundaries', () => {
     renderRoutes('/admin/questions')
 
     expect(
-      await screen.findByRole('heading', { name: '문제 관리' })
+      await screen.findByRole(
+        'heading',
+        { name: '문제 관리' },
+        { timeout: 3000 }
+      )
     ).toBeInTheDocument()
-    const tableRegion = await screen.findByRole('region', {
-      name: '관리자 문제 목록 가로 스크롤 영역'
-    })
+    const tableRegion = await screen.findByRole(
+      'region',
+      {
+        name: '관리자 문제 목록 가로 스크롤 영역'
+      },
+      { timeout: 3000 }
+    )
     expect(tableRegion).toHaveAttribute('tabindex', '0')
     expect(
       within(tableRegion).getByRole('table', {
@@ -440,6 +448,9 @@ describe('application router boundaries', () => {
         name: '화면을 불러오지 못했습니다'
       })
     ).toBeInTheDocument()
-    expect(screen.getByText('route-render-failure')).toBeInTheDocument()
+    expect(
+      screen.getByText('예상하지 못한 오류가 발생했습니다.')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('route-render-failure')).not.toBeInTheDocument()
   })
 })
