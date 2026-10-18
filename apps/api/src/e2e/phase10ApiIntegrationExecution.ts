@@ -14,6 +14,44 @@ export const phase7DbFoundationTestFile =
 
 export const phase7SsoTestFile = 'src/db/phase7Sso.integration.test.ts' as const
 
+// Public deterministic fixtures for this TEST runner, never provider credentials.
+const phase7SsoTestProfile = {
+  NODE_ENV: 'test',
+  DEPLOYMENT_ENVIRONMENT: 'TEST',
+  RELEASE_ID: '0'.repeat(40),
+  ADMIN_CMS_MODE: 'technical',
+  HOST: '127.0.0.1',
+  PORT: '3001',
+  LOG_LEVEL: 'silent',
+  BETTER_AUTH_SECRET: 'phase7-sso-db-auth-test-only-secret-v1',
+  GUEST_COOKIE_SECRET: 'phase7-sso-db-guest-test-only-secret-v1',
+  BETTER_AUTH_URL: 'http://127.0.0.1:3001',
+  TRUSTED_ORIGINS: 'http://127.0.0.1:5173',
+  AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
+  AUTH_EMAIL_FROM: 'sso-db@example.test',
+  AUTH_EMAIL_DELIVERY_MODE: 'test-sink'
+} as const
+const phase7SsoExcludedParentKeys = new Set([
+  ...Object.keys(phase7SsoTestProfile),
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'APPLE_CLIENT_ID',
+  'APPLE_CLIENT_SECRET',
+  'AUTH_EMAIL_WEBHOOK_URL',
+  'AUTH_EMAIL_WEBHOOK_SECRET'
+])
+
+export const createPhase7SsoTestEnvironment = (
+  base: NodeJS.ProcessEnv
+): NodeJS.ProcessEnv => {
+  const environment: NodeJS.ProcessEnv = { ...phase7SsoTestProfile }
+  // Do not read even shadowed parent credential/accessor values.
+  for (const key of Object.keys(base)) {
+    if (!phase7SsoExcludedParentKeys.has(key)) environment[key] = base[key]
+  }
+  return environment
+}
+
 const phase7SingleTestFiles: readonly string[] = [
   phase7DbFoundationTestFile,
   phase7SsoTestFile
@@ -36,6 +74,9 @@ export const selectPhase7DbIntegrationFiles = (
 
 const sanitizeCollectionError = (value: string) => {
   const text = value.slice(0, 8_192)
+  if (classifyCollectionDiagnostic(text).code === 'ENVIRONMENT_INVALID') {
+    return { diagnosticId: 'CONFIG_ENVIRONMENT_INVALID', location: 'setup' }
+  }
   const rules: readonly [RegExp, string, 'module' | 'config' | 'setup'][] = [
     [
       /Cannot find (?:module|package)|ERR_MODULE_NOT_FOUND/u,
@@ -58,7 +99,6 @@ const sanitizeCollectionError = (value: string) => {
       'CONFIG_TARGET_REJECTED',
       'config'
     ],
-    [/ZodError|Invalid environment/u, 'CONFIG_ENVIRONMENT_INVALID', 'config'],
     [
       /Phase 7 DB endpoint identity is unavailable/u,
       'SETUP_ENDPOINT_UNAVAILABLE',
