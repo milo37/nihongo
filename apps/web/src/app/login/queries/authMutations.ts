@@ -1,4 +1,5 @@
 import { mutationOptions } from '@tanstack/react-query'
+import { startAdminFresh } from '@api/auth/startAdminFresh'
 import { logoutUser } from '@api/auth/logoutUser'
 import { signInSocial } from '@api/auth/signInSocial'
 import type { SignInSocialRequest } from '@api/auth/signInSocial/schema'
@@ -8,6 +9,18 @@ import { advanceAuthTransitionEpoch } from '@libs/authTransitionFence'
 import { isMockApiMode } from '@libs/apiMode'
 
 export const authMutations = {
+  startAdminFresh: () =>
+    mutationOptions({
+      mutationKey: [...authQueries.allKey(), 'admin-fresh'] as const,
+      networkMode: 'always',
+      mutationFn: async (input: Parameters<typeof startAdminFresh>[0]) => {
+        try {
+          return await startAdminFresh(input)
+        } catch (error: unknown) {
+          throw new AuthFlowError(error)
+        }
+      }
+    }),
   signInSocial: () =>
     mutationOptions({
       mutationKey: [...authQueries.allKey(), 'sign-in-social'] as const,

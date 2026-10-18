@@ -10,6 +10,7 @@ import type {
   SsoCallbackOutcome,
   SsoProviderId
 } from '@nihongo/contracts/auth/sign-in-social'
+import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
 import { AuthFlowError } from '@app/login/authFlowErrors'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
@@ -127,6 +128,12 @@ export const LoginPage = (): ReactElement => {
               <span>{t('currentAccount')}</span>
               <strong>{user.name}</strong>
             </div>
+            {user.role === 'ADMIN' ? (
+              <AdminFreshEntry
+                returnPath={redirect === '/' ? '/login' : redirect}
+                disabled={logoutOpen || logout.isPending}
+              />
+            ) : null}
             <div className="auth-actions">
               <Button
                 fullWidth

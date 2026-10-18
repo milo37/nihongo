@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
+import { AdminFreshReturnNotice } from '@app/login/components/AdminFreshReturnNotice'
 import { AuthFlowError } from '@app/login/authFlowErrors'
 import { isApiError } from '@api/config'
 import { commitCanonicalAuth } from '@app/login/authSession'
@@ -235,25 +236,26 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
     })
   }, [location.pathname, location.search, navigate, queryClient])
 
-  if (!banner) {
-    return null
-  }
-
   return (
-    <div
-      className={`app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm shadow-soft ${bannerClasses[banner.kind]}`}
-      role="status"
-      aria-live="polite"
-      data-kind={banner.kind}
-    >
-      <span>{t(banner.messageKey)}</span>
-      <button
-        className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
-        type="button"
-        onClick={() => setBanner(null)}
-      >
-        {commonT('actions.close')}
-      </button>
-    </div>
+    <>
+      <AdminFreshReturnNotice suppressed={banner !== null} />
+      {banner ? (
+        <div
+          className={`app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm shadow-soft ${bannerClasses[banner.kind]}`}
+          role="status"
+          aria-live="polite"
+          data-kind={banner.kind}
+        >
+          <span>{t(banner.messageKey)}</span>
+          <button
+            className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
+            type="button"
+            onClick={() => setBanner(null)}
+          >
+            {commonT('actions.close')}
+          </button>
+        </div>
+      ) : null}
+    </>
   )
 }

@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw'
+import { adminFreshSsoRequestSchema } from '@nihongo/contracts/auth/admin-fresh-sso'
 import { z } from 'zod'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import {
@@ -100,8 +101,32 @@ export const authHandlers = [
   }),
   http.post('*/api/auth/sign-in/social', async ({ request }) => {
     try {
-      const input = await parseJsonBody(request, signInSocialRequestSchema)
-      pendingProvider = input.provider
+      const input = await parseJsonBody(
+        request,
+        z.union([signInSocialRequestSchema, adminFreshSsoRequestSchema])
+      )
+      if ('purpose' in input) {
+        pendingProvider = null
+        const actor = mockDatabase.getCurrentUser()
+        if (!actor)
+          throw new MockHttpError(
+            401,
+            'AUTHENTICATION_REQUIRED',
+            '로그인이 필요합니다.'
+          )
+        if (actor.role !== 'ADMIN')
+          throw new MockHttpError(
+            403,
+            'ADMIN_REQUIRED',
+            '관리자 권한이 필요합니다.'
+          )
+        if (fixtureIds[input.provider] !== actor.id)
+          throw new MockHttpError(
+            401,
+            'REAUTHENTICATION_FAILED',
+            '같은 관리자 계정으로 다시 시도해 주세요.'
+          )
+      } else pendingProvider = input.provider
       const url = new URL(
         input.provider === 'apple'
           ? 'https://appleid.apple.com/auth/authorize'
