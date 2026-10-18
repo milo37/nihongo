@@ -377,6 +377,10 @@ export const createSsoDbHarness = () => {
         `SELECT "phase7_register_database_capability"($1,$2::inet,$3,'TEST')`,
         [endpoint.name, endpoint.address, endpoint.port]
       )
+      await roleQuery(
+        'nihongo_phase7_migration',
+        `SELECT "phase7_activate_v1_issuer"('TEST')`
+      )
     },
     close: async () => {
       await Promise.allSettled([
