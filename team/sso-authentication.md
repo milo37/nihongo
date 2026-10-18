@@ -4,11 +4,11 @@
 
 ## 이번 체크포인트와 남은 구현
 
-현재 로컬 체크포인트는 technical TEST/development 모드의 public start/callback, Apple·Google env schema/process mapping, provider/sub→stable User 해석, PHASE7_V1 발급·확인·실패 보상까지 연결합니다. FE 화면은 `269fbeaad334f19b83626fa33e8c9b864ad82b36`에 고정했습니다. 공개 이메일 가입·암호 로그인·reset/verify/change 경로는 gateway allowlist에서 404로 닫고 일반 Better Auth email/password를 비활성화했습니다.
+현재 소스는 public Apple/Google SSO의 DB/profile/principal/gateway/readiness/rate 선택을 CMS 모드와 분리합니다. 별도 auth-gateway DB authority가 설정되면 CMS가 disabled인 production-shaped 조합에서도 current profile·app/gateway 역할·PHASE7 principal/sign-out·SSO가 선택됩니다. CMS 자체는 기존 technical 안전모드·권한/DB/capability 제한을 그대로 사용합니다.
 
-**SSO 전용 제품 전환은 미완료이며 배포 후보가 아닙니다.** 기존 관리자 password reauthentication과 fresh-operation guard/service/route, mail startup 요건은 대체 fresh SSO 보호 검증 전까지 보존합니다. god admin-fresh-sso-order에 따라 동일 내부 ADMIN·현재 세션·generation·provider-bound fresh SSO를 먼저 완성한 뒤 기존 관리자 암호 경로와 mail wiring을 종료합니다. LINK/UNLINK/탈퇴/capabilities·목적별 결과 계약은 FE 합의 요구사항이 있으며 아직 제공하지 않습니다. 다른 SSO 로그인이나 이메일 일치로 현재 회원의 fresh 권한을 만들지 않습니다.
+로컬 fake-port 검증에서 production-shaped 조합과 별도 ADMIN_FRESH가 통과한 뒤 legacy 관리자 password route를 삭제하고 password service를 404/NO_TX 호환 stub으로 퇴역했습니다. 공개 password request 계약은 z.never이며 server는 mail dispatcher·password reauth adapter를 주입하지 않습니다. mail 환경 입력은 시작의 필수조건이 아닙니다. 기존 migration/audit·fixture 소스의 비밀 없는 타입/결과 및 명시적 과거 helper는 이력 호환이며 현재 공개 경로가 아닙니다.
 
-로컬 API SSO unit 70개, API type/build, Web type/build·architecture, scoped lint/format과 Prisma schema validation을 확인했습니다. 이 결과는 DB SQL 실행·동시성/ACL·실제 Apple/Google·전체 auth 회귀·독립 최종 QA/실화면 승인과 구분합니다. production의 기존 mode 제한·TLS·역할·원래 checkout/5173도 그대로입니다.
+**전체 SSO 제품 전환·실제 production startup은 아직 검증하지 않았습니다.** 현재 migration/role/capability는 기존 \_test/\_dev 대상만 지원하며 실제 production DB provisioning은 후속 DevOps 범위입니다. API 101/공유 계약152 unit, API type/native build, Web type/build/architecture 및 로컬 schema 검증은 실제 DB/OAuth/browser 검증과 구분합니다. capability/link/unlink/delete 전체 기능과 실제 credential data 정리는 이번 두 P1 범위에 포함하지 않습니다.
 
 ## 회원·데이터·권한
 
@@ -16,7 +16,7 @@
 - 내부 User.id, 서버 role/accountStatus/authorityGeneration, 학습·오답·복습·책갈피 FK와 기존 자료를 보존합니다. 신규 회원은 서버에서 USER로 생성하고 삭제/중지 회원은 로그인할 수 없습니다.
 - 이메일이 같은 미연결 계정을 자동 연결하거나 덮어쓰지 않습니다. 기존 확인된 서버 세션과 새 공급자 증명으로 명시 연결하거나, 검증된 운영자 이전을 사용해야 합니다. 증명이 없는 과거 계정은 데이터와 함께 보존하며 접근 복구를 별도로 해결합니다.
 - 유일한 SSO 연결 해제는 접근 불능을 만들므로 차단합니다. 로그아웃은 서버 세션 종료이며 연결 해제·탈퇴와 구분합니다. 탈퇴와 관리자 민감 명령은 현재 사용자/세션에 묶인 fresh SSO 증명과 기존 서버 role 검사를 요구합니다. 로그인으로 권한을 자동 승격하지 않습니다.
-- 새 `20261019100000_sso_identity_mapping`은 legacy credential을 보존하면서 신규 SSO 회원을 허용하고, 마지막 SSO 삭제를 별도 검사합니다. 같은 User의 deferred 검사를 잠금으로 직렬화하며 실제 동시성·ERASURE 검사는 격리 TEST에서 남아 있습니다. 관리자 password SQL 전환은 아직 남아 있습니다. 기존 불변 migration을 수정하거나 제약을 우회하지 않습니다.
+- 새 `20261019100000_sso_identity_mapping`은 legacy credential을 보존하면서 신규 SSO 회원을 허용하고, 마지막 SSO 삭제를 별도 검사합니다. 같은 User의 deferred 검사를 잠금으로 직렬화하며 실제 동시성·ERASURE 검사는 격리 TEST에서 남아 있습니다. ADMIN_FRESH는 별도 전진 migration의 private proof와 기존 native prepare/stage/finalize/confirm 경계를 사용합니다. password-bearing 실제 credential/Verification 자료의 삭제·정리는 수행하지 않았습니다. 기존 불변 migration을 수정하거나 제약을 우회하지 않습니다.
 
 ## 콜백 보안 기반
 
@@ -26,11 +26,11 @@ SsoLoginTransaction은 TTL 10분, 단회 DELETE RETURNING 소비입니다. 잘�
 
 바인딩 쿠키는 host-only·HttpOnly·SameSite=Lax, 운영은 \_\_Host-/Secure입니다. 콜백 결과에서 쿠키를 만료시켜야 합니다. code/state/provider 오류를 SPA·storage·Zustand·로그로 전달하지 않습니다. IDENTITY_VERIFIED는 공급자 증명 결과이며 제품 로그인 성공이 아닙니다. 호출자는 내부 회원 확인과 기존 세션 발급·확인·실패 보상 뒤에만 세션과 성공 복귀를 허용합니다.
 
-## FE transport 합의 v1 — technical runtime 연결
+## FE transport 합의 v1 — CMS와 독립된 runtime
 
 - 시작 POST /api/auth/sign-in/social: provider=apple|google 및 선택 callbackURL 상대 업무 경로 → 선택 공급자에 대응하는 고정 HTTPS url, redirect=true. 미설정/일시 장애는 503 SSO_UNAVAILABLE입니다. Origin/JSON/체적/속도 제한을 유지합니다.
 - 고정 GET /api/auth/callback/google: 상태 검증 후 서버 HttpOnly 세션과 trusted SPA redirect. 취소·실패는 CANCELLED/FAILED/INVALID_CALLBACK 유한 결과로 번역하고 안전한 로그인 오류 상태와 원래 업무 경로를 보존합니다. 공유 request/response와 이 유한 outcome은 FE55d1fc 합의로 packages/contracts/auth/sign-in-social에 제공합니다.
-- /api/v1/me와 정상 POST /api/auth/sign-out의 canonical 권위를 유지합니다. gateway의 암호·메일 인증 endpoint는 404이며 별도 관리자 재인증 종료는 fresh SSO 대체 검증 뒤입니다. 같은 내부 회원 복원·다른 회원 격리 검사를 재사용합니다.
+- /api/v1/me와 정상 POST /api/auth/sign-out의 canonical 권위를 유지합니다. gateway의 암호·메일 인증 endpoint와 기존 관리자 password 재인증 경로는 404입니다. 같은 내부 회원 복원·다른 회원 격리 검사를 재사용합니다.
 - 복귀는 현재 업무 route와 허용 필터 query만 보존합니다. 외부·//·역슬래시·제어문자·fragment·encoded path·인증 자기복귀·중복 query는 /로 바꿉니다. 허용18키는 level/subject/type/status/tagId/difficulty/mode/page/pageSize/sort/search/view/count/resumePage/questionType/tag/question/returnTo입니다. returnTo는 wrong-note 상세에서만 review 목록·legacy history를 받으며 공유 review query 의미로 /wrong-notes에 정규화합니다. 외부/인증/중복/중첩 returnTo는 callback 기본 /로 거부합니다. API와 FE가 같은 브라우저 안전 함수를 소비합니다.
 
 ## 안전한 DB 전환·계수
@@ -55,8 +55,20 @@ Google은 GET /api/auth/callback/google, Apple은 HTTPS POST form /api/auth/call
 
 Apple cross-site form_post용 binding 쿠키는 개발 모드여도 \_\_Host-/Secure/SameSite=None입니다. Google은 Lax를 유지합니다. Apple callback은 HTTPS 도메인이 필요하며 localhost/IP는 거부합니다. 원래 Google-only migration은 보존하고 20261019093000 전진 migration으로 두 공급자 제약·provider-bound v2 함수를 추가하며 옛 함수 실행은 닫습니다. 실제 DB/HTTP form callback 연결은 아직 미실행입니다. PKCE 매개변수는 두 어댑터에 전달되지만 Apple 서버의 PKCE enforcement를 실제 검증했다고 주장하지 않습니다.
 
-후속 환경 제안 이름은 GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET 및 APPLE_CLIENT_ID/APPLE_CLIENT_SECRET입니다. Apple secret JWT 발급에는 Team ID/Key ID/개인키가 필요할 수 있으며 운영자 비밀 전달로 처리합니다. 네 이름은 이제 env.ts schema/process mapping과 technical startup에 연결돼 있으며 각 ID/secret을 함께 설정해야 합니다. Apple은 HTTPS domain API origin을 요구하고 Google은 기존 HTTPS/loopback callback 정책을 사용합니다. 미설정된 선택 공급자는 공개503을 반환합니다. Apple secret은 운영자가 전달하는 signed client-secret JWT 문자열이며 이 저장소가 개인키 발급·외부 등록·rotation을 수행하지 않습니다. mail 요건 제거와 production 활성화는 아직 남아 있습니다. callback 등록은 실제 API origin의 각 /api/auth/callback/google 및 /api/auth/callback/apple이고 운영 origin을 임의 지정하지 않습니다.
+후속 환경 제안 이름은 GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET 및 APPLE_CLIENT_ID/APPLE_CLIENT_SECRET입니다. Apple secret JWT 발급에는 Team ID/Key ID/개인키가 필요할 수 있으며 운영자 비밀 전달로 처리합니다. 네 이름은 이제 env.ts schema/process mapping과 CMS와 독립된 auth startup에 연결돼 있으며 각 ID/secret을 함께 설정해야 합니다. Apple은 HTTPS domain API origin을 요구하고 Google은 기존 HTTPS/loopback callback 정책을 사용합니다. 미설정된 선택 공급자는 공개503을 반환합니다. Apple secret은 운영자가 전달하는 signed client-secret JWT 문자열이며 이 저장소가 개인키 발급·외부 등록·rotation을 수행하지 않습니다. mail startup 요건은 제거됐고 실제 production 활성화/provisioning은 아직 수행하지 않았습니다. callback 등록은 실제 API origin의 각 /api/auth/callback/google 및 /api/auth/callback/apple이고 운영 origin을 임의 지정하지 않습니다.
 
 공식 Apple 근거: https://developer.apple.com/documentation/signinwithapple/incorporating-sign-in-with-apple-into-other-platforms
 
 FE는 공유 isSsoAuthorizationURLForProvider(provider, url)로 선택한 공급자와 응답 URL의 대응도 검증합니다. 서버 서비스도 provider와 URL·저장 상태·검증 identity를 함께 대조합니다.
+
+## ADMIN_FRESH — 현재 세션에 묶인 별도 SSO
+
+FE e168f1 합의의 `@nihongo/contracts/auth/admin-fresh-sso`는 strict `{ purpose: 'ADMIN_FRESH', provider: 'apple'|'google', callbackURL? }`를 제공합니다. 기존 LOGIN DTO·실패3종·return18은 그대로입니다. fresh 전용 복귀는 정확한 `/login`(기본) 또는 기존 안전 업무 경로이며 일반 LOGIN의 인증 자기복귀 금지는 완화하지 않습니다. 결과 힌트는 `ssoFresh=REAUTHENTICATED|CANCELLED|FAILED|INVALID_CALLBACK`이고 `/me`는 신원/role 정본입니다. `/me`와 성공 URL 힌트만으로 freshness를 추정하거나 민감 명령을 자동 재실행하지 않습니다.
+
+시작은 활성 원래 session·동일 내부 ADMIN User.id/generation·이미 연결된 선택 provider/accountId를 private context에 캡처합니다. 일반 LOGIN 신원 생성/이메일 병합/새 link/다른 ADMIN·USER 전환을 호출하지 않습니다. LOGIN v2 임시 상태 함수는 그대로 보존하고 ADMIN_FRESH는 별도 private transaction/proof 테이블을 사용합니다. F로 시작하는 난수 state namespace와 단회 digest 소비·provider/nonce/PKCE·브라우저 binding으로 목적을 분리합니다. 기존 native 준비 intent의 2분 수명을 유지합니다.
+
+Apple POST에는 canonical SameSite=Lax session cookie가 없을 수 있습니다. 공급자 증명만으로 교체하지 않고, HttpOnly one-use proof cookie 뒤 같은 origin `GET /api/auth/sso/admin-fresh/complete`에서 **정확한 원래 현재 세션**을 다시 확인합니다. 같은 User의 다른 session도 거부하며 role/generation/unlink race를 DB 잠금 아래 재검사합니다. code/state/토큰/계정 ID를 SPA·storage·로그·URL 결과에 전달하지 않습니다.
+
+최종화는 기존 native PENDING_REAUTH staging→정확한 old CAS 삭제→같은 family rotation fence/audit→FINALIZED→confirm을 한 소유 SQL statement/transaction으로 실행합니다. 교체된 session의 canonical 시각+5분과 private SSO proof가 모두 유효해야 민감 guard가 허용합니다. 기존 CMS role·generation·family·5분 검사도 유지하며 operation admission/commit에서 SSO proof를 추가 확인합니다. 일반 로그인 세션은 fresh SSO 권한을 얻지 않습니다.
+
+취소와 커밋 전 확정 실패는 현재 session을 바꾸지 않습니다. 커밋 응답 유실은 rollback과 다릅니다. exact proof/new token의 native reconcile을 먼저 시도하고, 확인된 FINALIZED만 새 cookie를 전달합니다. 확인 불가인 COMMIT_UNKNOWN은 성공을 표시하거나 old token을 복원하지 않습니다. 비최종 proof 보상은 기존 pending/intent만 취소하며 이미 교체된 old 세션을 되살리는 기능이 아닙니다. 실제 SQL/ACL/동시성/ERASURE·commit 유실 복구·5분 경계는 후속 격리 TEST 검증이 남아 있습니다.

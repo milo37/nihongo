@@ -203,8 +203,7 @@ export const createPhase7PrincipalService = ({
 
       const rows = await client.$queryRawUnsafe<Phase7PrincipalRow[]>(
         `SELECT principal.*,
-           principal."createdAt" + INTERVAL '5 minutes' > clock_timestamp()
-             AS "isFresh"
+           "phase7_sso_admin_session_is_fresh"($1) AS "isFresh"
          FROM "phase7_resolve_v1_principal"($1) AS principal`,
         credential.token
       )

@@ -72,14 +72,12 @@ import type { QuestionReportService } from '../admin/questionReportService.js'
 import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
 import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommands.js'
-import { createAdminReauthenticationRoutes } from '../routes/adminReauthentication.js'
 import { createAdminQuestionReportRoutes } from '../routes/adminQuestionReports.js'
 import { createQuestionReportRoutes } from '../routes/questionReports.js'
 import {
   getCanonicalPhase7ActiveOperation,
   isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7PublicationCommandRequest,
-  isCanonicalPhase7ReauthenticationRequest,
   isCanonicalPhase7LearnerReportRequest,
   isCanonicalPhase7Slice5AdminCommandRequest,
   isCanonicalPhase7Slice5AdminReadRequest,
@@ -449,12 +447,7 @@ export const createApiApp = ({
             isCanonicalPhase7LearnerReportRequest({
               method: context.req.method,
               requestTarget
-            }))) ||
-        (admin?.reauthentication !== undefined &&
-          isCanonicalPhase7ReauthenticationRequest({
-            method: context.req.method,
-            requestTarget
-          })))
+            }))))
     ) {
       await next()
       return
@@ -612,20 +605,6 @@ export const createApiApp = ({
             ...(admin.commands.slice5Service
               ? { slice5CommandService: admin.commands.slice5Service }
               : {})
-          })
-        )
-      }
-      if (admin.reauthentication) {
-        app.route(
-          '/api/v1/admin',
-          createAdminReauthenticationRoutes({
-            guard: createAdminCommandGuard({
-              assertCapability: admin.assertCapability,
-              environment: auth.environment,
-              principalService: auth.principalService,
-              rateLimiter: admin.reauthentication.rateLimiter
-            }),
-            service: admin.reauthentication.service
           })
         )
       }

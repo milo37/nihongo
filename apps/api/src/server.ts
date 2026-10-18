@@ -5,27 +5,15 @@ import { serve } from '@hono/node-server'
 import { createApiApp } from './app/createApp.js'
 import { createAuthGateway } from './auth/authGateway.js'
 import { createAuthRuntime } from './auth/createAuth.js'
-import { createPhase7ReauthenticationAuthApi } from './auth/createPhase7ReauthenticationAuth.js'
-import { createPhase7AuthFacade } from './auth/phase7AuthFacade.js'
-import {
-  createConfiguredSsoProviders,
-  createSsoPublicRuntime
-} from './auth/ssoPublicRuntime.js'
-import { createSsoIdentityRepository } from './auth/ssoIdentityRepository.js'
-import { createSsoTransactionStore } from './auth/ssoTransactionRepository.js'
-import { createPhase7ReauthenticationContext } from './auth/phase7ReauthenticationContext.js'
+import { createSsoAuthentication } from './auth/createSsoAuthentication.js'
 import {
   runPhase7ReauthenticationStartupMaintenance,
   startPhase7ReauthenticationMaintenance
 } from './auth/phase7ReauthenticationStartupMaintenance.js'
-import { createAuthEmailDispatcher } from './auth/emailDispatcher.js'
-import { createAuthEmailPort } from './auth/emailPort.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
-import {
-  createPhase7PrincipalService,
-  createPrincipalService
-} from './auth/principalService.js'
+import { createPrincipalService } from './auth/principalService.js'
 import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
+import { createAuthRuntimePlan } from './config/authRuntimePlan.js'
 import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
 import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
 import {
@@ -33,7 +21,7 @@ import {
   createRoleDatabaseRuntime
 } from './db/database.js'
 import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
-import { attestPhase7RuntimeRoles } from './db/phase7RuntimeRoleAttestation.js'
+import { createOwnedAuthReadiness } from './auth/ownedAuthReadiness.js'
 import { stopServerGracefully } from './lifecycle/gracefulShutdown.js'
 import { createShutdownCoordinator } from './lifecycle/shutdownCoordinator.js'
 import { createJsonLogger } from './observability/logger.js'
@@ -75,7 +63,6 @@ import {
   createAdminQuestionPublicationCommandService,
   createAdminQuestionSlice5CommandService
 } from './admin/adminQuestionCommandService.js'
-import { createAdminReauthenticationService } from './admin/adminReauthenticationService.js'
 import { createQuestionReportRateLimiter } from './admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from './admin/questionReportRepository.js'
 import { createQuestionReportService } from './admin/questionReportService.js'
@@ -84,12 +71,14 @@ const environment = parseApiEnvironment(process.env)
 const packagedWebAssetsDirectory = fileURLToPath(
   new URL('../../web/', import.meta.url)
 )
-assertSafeAdminCmsDatabase({
-  adminCmsMode: environment.ADMIN_CMS_MODE,
-  nodeEnvironment: environment.NODE_ENV,
-  databaseUrl: environment.DATABASE_URL,
-  productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-})
+const authRuntimePlan = createAuthRuntimePlan(environment)
+if (!authRuntimePlan.ownedAuth || authRuntimePlan.cmsEnabled)
+  assertSafeAdminCmsDatabase({
+    adminCmsMode: environment.ADMIN_CMS_MODE,
+    nodeEnvironment: environment.NODE_ENV,
+    databaseUrl: environment.DATABASE_URL,
+    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+  })
 const practiceEnvironment = parsePracticeRuntimeEnvironment(
   process.env,
   environment.NODE_ENV
@@ -107,7 +96,8 @@ const compatibilityAuthority =
       )
     : undefined
 const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
-const runtimeMigrationProfile = technicalMode ? 'current' : 'pre-phase7'
+const ownedAuth = authRuntimePlan.ownedAuth
+const runtimeMigrationProfile = authRuntimePlan.migrationProfile
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (technicalMode && !authGatewayDatabaseUrl) {
   throw new Error('Technical auth gateway DB URL is unavailable.')
@@ -122,45 +112,26 @@ if (technicalMode) {
 }
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  technicalMode
+  ownedAuth
     ? { migrationProfile: runtimeMigrationProfile, startupRole: 'nihongo_app' }
     : { migrationProfile: runtimeMigrationProfile }
 )
-const authGatewayDatabase = technicalMode
+const authGatewayDatabase = ownedAuth
   ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
   : undefined
-const checkDatabaseReadiness = async (): Promise<void> => {
-  await database.checkReadiness()
-  if (!technicalMode) {
-    // The activation transaction revokes this legacy table surface. A new
-    // disabled-mode process must therefore fail before opening its listener
-    // instead of starting with a drained old-binary credential.
-    await database.client.$queryRawUnsafe('SELECT 1 FROM "User" LIMIT 0')
-    return
-  }
-  if (authGatewayDatabase && authGatewayDatabaseUrl) {
-    await attestPhase7RuntimeRoles({
-      application: {
-        client: database.client,
-        connectionString: environment.DATABASE_URL,
-        expectedRole: 'nihongo_app'
-      },
-      authGateway: {
-        client: authGatewayDatabase.client,
-        connectionString: authGatewayDatabaseUrl,
-        expectedRole: 'nihongo_auth_gateway'
+const checkDatabaseReadiness =
+  ownedAuth && authGatewayDatabase && authGatewayDatabaseUrl
+    ? createOwnedAuthReadiness({
+        checkDatabaseReadiness: database.checkReadiness,
+        applicationClient: database.client,
+        gatewayClient: authGatewayDatabase.client,
+        applicationUrl: environment.DATABASE_URL,
+        gatewayUrl: authGatewayDatabaseUrl
+      })
+    : async (): Promise<void> => {
+        await database.checkReadiness()
+        await database.client.$queryRawUnsafe('SELECT 1 FROM "User" LIMIT 0')
       }
-    })
-    await Promise.all([
-      database.client.$queryRawUnsafe(
-        'SELECT "phase7_require_runtime_ready"()'
-      ),
-      authGatewayDatabase.client.$queryRawUnsafe(
-        'SELECT "phase7_require_runtime_ready"()'
-      )
-    ])
-  }
-}
 const disconnectDatabases = async (): Promise<void> => {
   await Promise.all([
     database.disconnect(),
@@ -173,70 +144,29 @@ const practiceRuntimeGate = createPracticeRuntimeGate({
   checkDatabaseReadiness,
   checkV1Compatibility: database.checkV1Compatibility
 })
-const emailDispatcher = createAuthEmailDispatcher({
-  emailPort: createAuthEmailPort(environment),
-  onDeliveryFailure: (purpose, reason) =>
-    logger.warn('auth.email.delivery_failed', {
-      purpose,
-      deliveryReason: reason
-    })
+const applicationRateLimiter = createApplicationRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
 })
-const auth = technicalMode
+const auth = ownedAuth
   ? undefined
-  : createAuthRuntime({
-      client: database.client,
-      emailDispatcher,
-      environment
-    })
-const phase7AuthFacade =
-  technicalMode && authGatewayDatabase
-    ? createPhase7AuthFacade({
-        client: authGatewayDatabase.client,
-        emailDispatcher,
-        environment
-      })
-    : undefined
-const ssoPublicRuntime =
-  technicalMode && authGatewayDatabase
-    ? createSsoPublicRuntime({
+  : createAuthRuntime({ client: database.client, environment })
+const ssoAuthentication =
+  ownedAuth && authGatewayDatabase
+    ? createSsoAuthentication({
         environment,
-        providers: createConfiguredSsoProviders(environment),
-        store: createSsoTransactionStore(authGatewayDatabase.client),
-        identities: createSsoIdentityRepository(authGatewayDatabase.client)
+        applicationClient: database.client,
+        gatewayClient: authGatewayDatabase.client,
+        rateLimiter: applicationRateLimiter
       })
-    : undefined
-const adminReauthenticationService =
-  technicalMode && authGatewayDatabase
-    ? (() => {
-        const context = createPhase7ReauthenticationContext()
-        return createAdminReauthenticationService({
-          auditEnvironment:
-            environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
-          authApi: createPhase7ReauthenticationAuthApi({
-            client: authGatewayDatabase.client,
-            context,
-            environment
-          }),
-          client: authGatewayDatabase.client,
-          context
-        })
-      })()
     : undefined
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = technicalMode
-  ? createPhase7PrincipalService({
-      client: database.client,
-      isProduction: environment.NODE_ENV === 'production',
-      refreshClient: authGatewayDatabase!.client,
-      secret: environment.BETTER_AUTH_SECRET
-    })
-  : createPrincipalService({
-      authApi: auth!.api,
-      client: database.client
-    })
+const principalService =
+  ssoAuthentication?.principalService ??
+  createPrincipalService({ authApi: auth!.api, client: database.client })
 const questionReader = createQuestionService(
   createPrismaQuestionRepository(database.client, {
     migrationProfile: runtimeMigrationProfile
@@ -272,7 +202,7 @@ const dashboardService = createDashboardService(
 const dashboardInsightsService = createDashboardInsightsService(
   createPrismaDashboardInsightsRepository(
     database.client,
-    technicalMode ? 'PHASE7' : 'LEGACY'
+    ownedAuth ? 'PHASE7' : 'LEGACY'
   )
 )
 const bookmarkService = createBookmarkService(
@@ -280,10 +210,6 @@ const bookmarkService = createBookmarkService(
     migrationProfile: runtimeMigrationProfile
   })
 )
-const applicationRateLimiter = createApplicationRateLimiter({
-  client: database.client,
-  keySecret: environment.GUEST_COOKIE_SECRET
-})
 const adminQuestionReader = technicalMode
   ? createAdminQuestionService(
       createPrismaAdminQuestionRepository(database.client)
@@ -345,7 +271,6 @@ const app = createApiApp({
   adminReadRateLimiter &&
   adminQuestionCommandService &&
   adminCommandRateLimiter &&
-  adminReauthenticationService &&
   questionReportRateLimiter &&
   questionReportService &&
   adminQuestionSlice5Repository
@@ -360,10 +285,6 @@ const app = createApiApp({
             rateLimiter: adminCommandRateLimiter,
             service: adminQuestionCommandService,
             slice5Service: adminQuestionCommandService
-          },
-          reauthentication: {
-            rateLimiter: adminCommandRateLimiter,
-            service: adminReauthenticationService
           },
           reports: {
             rateLimiter: questionReportRateLimiter,
@@ -381,17 +302,9 @@ const app = createApiApp({
     : {}),
   auth: {
     environment,
-    gateway: createAuthGateway({
-      ...(auth ? { auth, client: database.client } : {}),
-      environment,
-      ...(phase7AuthFacade
-        ? {
-            phase7Facade: phase7AuthFacade,
-            ssoRuntime: ssoPublicRuntime!,
-            technicalRateLimiter: applicationRateLimiter
-          }
-        : {})
-    }),
+    gateway:
+      ssoAuthentication?.gateway ??
+      createAuthGateway({ auth: auth!, client: database.client, environment }),
     guestPrincipalService,
     principalService
   },
@@ -425,7 +338,7 @@ const app = createApiApp({
 
 const checkStartupReadiness = async (): Promise<void> => {
   await practiceRuntimeGate.checkReadiness()
-  if (technicalMode && authGatewayDatabase) {
+  if (ownedAuth && authGatewayDatabase) {
     await runPhase7ReauthenticationStartupMaintenance(
       authGatewayDatabase.client
     )
@@ -445,7 +358,7 @@ const server = await startApiListener({
 server.headersTimeout = 10_000
 server.requestTimeout = 15_000
 const reauthenticationMaintenance =
-  technicalMode && authGatewayDatabase
+  ownedAuth && authGatewayDatabase
     ? startPhase7ReauthenticationMaintenance({
         client: authGatewayDatabase.client,
         onFailure: () => {
@@ -465,11 +378,10 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
 
   await stopServerGracefully({
     server,
-    abortBackgroundTasks: emailDispatcher.abort,
+    abortBackgroundTasks: () => undefined,
     drainBackgroundTasks: async () => {
       const results = await Promise.allSettled([
-        reauthenticationMaintenanceDrain,
-        emailDispatcher.drain()
+        reauthenticationMaintenanceDrain
       ])
       const failure = results.find(
         (result): result is PromiseRejectedResult =>

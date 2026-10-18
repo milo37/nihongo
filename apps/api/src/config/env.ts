@@ -56,8 +56,9 @@ const hasSingleSafePostgresSchema = (value: string): boolean => {
   const parameters = Array.from(url.searchParams.keys())
   return (
     schemas.length === 1 &&
-    parameters.length === 1 &&
-    parameters[0] === 'schema' &&
+    parameters.every(
+      (parameter) => parameter === 'schema' || parameter === 'sslmode'
+    ) &&
     postgresSchemaPattern.test(schemas[0] ?? '')
   )
 }
@@ -196,8 +197,8 @@ const apiEnvironmentSchema = z
     GOOGLE_CLIENT_SECRET: z.string().min(1).max(4096).optional(),
     APPLE_CLIENT_ID: z.string().trim().min(1).max(512).optional(),
     APPLE_CLIENT_SECRET: z.string().min(1).max(8192).optional(),
-    AUTH_EMAIL_FROM: z.email(),
-    AUTH_EMAIL_DELIVERY_MODE: emailDeliveryModeSchema,
+    AUTH_EMAIL_FROM: z.email().default('retired@invalid.local'),
+    AUTH_EMAIL_DELIVERY_MODE: emailDeliveryModeSchema.default('test-sink'),
     AUTH_EMAIL_WEBHOOK_URL: z.url().optional(),
     AUTH_EMAIL_WEBHOOK_SECRET: secretSchema.optional(),
     AUTH_TRUSTED_PROXY_CIDRS: trustedProxyListSchema
@@ -215,6 +216,16 @@ const apiEnvironmentSchema = z
           message: 'SSO client ID and secret must be configured together.'
         })
       }
+    }
+    if (
+      (environment.APPLE_CLIENT_ID || environment.GOOGLE_CLIENT_ID) &&
+      !environment.AUTH_GATEWAY_DATABASE_URL
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_GATEWAY_DATABASE_URL'],
+        message: 'SSO requires its dedicated auth gateway database authority.'
+      })
     }
     if (environment.APPLE_CLIENT_ID) {
       const callback = new URL(environment.BETTER_AUTH_URL)
@@ -289,7 +300,10 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (environment.ADMIN_CMS_MODE === 'technical') {
+    if (
+      environment.ADMIN_CMS_MODE === 'technical' ||
+      environment.AUTH_GATEWAY_DATABASE_URL
+    ) {
       for (const [field, roleSuffix] of [
         ['DATABASE_URL', 'app_login'],
         ['AUTH_GATEWAY_DATABASE_URL', 'auth_gateway_login']
@@ -355,6 +369,21 @@ const apiEnvironmentSchema = z
       })
     }
 
+    if (environment.AUTH_GATEWAY_DATABASE_URL) {
+      const tls =
+        toUrlOrNull(environment.AUTH_GATEWAY_DATABASE_URL)?.searchParams.getAll(
+          'sslmode'
+        ) ?? []
+      if (
+        tls.length !== 1 ||
+        !['require', 'verify-ca', 'verify-full'].includes(tls[0] ?? '')
+      )
+        context.addIssue({
+          code: 'custom',
+          path: ['AUTH_GATEWAY_DATABASE_URL'],
+          message: 'Production SSO gateway PostgreSQL requires TLS.'
+        })
+    }
     for (const origin of environment.TRUSTED_ORIGINS) {
       if (new URL(origin).protocol !== 'https:') {
         context.addIssue({
@@ -386,19 +415,6 @@ const apiEnvironmentSchema = z
         code: 'custom',
         path: ['TRUSTED_ORIGINS'],
         message: 'production은 auth URL과 같은 하나의 origin만 허용합니다.'
-      })
-    }
-
-    if (
-      environment.AUTH_EMAIL_DELIVERY_MODE !== 'webhook' ||
-      !environment.AUTH_EMAIL_WEBHOOK_URL ||
-      !environment.AUTH_EMAIL_WEBHOOK_SECRET ||
-      toUrlOrNull(environment.AUTH_EMAIL_WEBHOOK_URL)?.protocol !== 'https:'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['AUTH_EMAIL_DELIVERY_MODE'],
-        message: 'production email은 HTTPS webhook adapter가 필요합니다.'
       })
     }
 

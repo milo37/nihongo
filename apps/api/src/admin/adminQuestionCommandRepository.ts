@@ -639,8 +639,7 @@ const classifyAuthorityFailure = async (
       `SELECT principal."userId" AS "principalUserId",
          principal."role" AS "principalRole",
          CASE WHEN principal."userId" IS NULL THEN NULL
-           ELSE principal."createdAt" + INTERVAL '5 minutes' >
-             clock_timestamp()
+           ELSE "phase7_sso_admin_session_is_fresh"($1)
          END AS "isFresh"
        FROM "phase7_resolve_v1_principal"($1) AS principal`,
       authority.rawSessionToken

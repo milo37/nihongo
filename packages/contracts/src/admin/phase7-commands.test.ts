@@ -337,40 +337,16 @@ describe('Phase 7 admin command contracts', () => {
       }).success
     ).toBe(false)
 
-    const opaquePassword = '  1234567890  '
-    expect(
-      reauthenticateAdminRequestSchema.parse({ password: opaquePassword })
-        .password
-    ).toBe(opaquePassword)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({ password: '😀'.repeat(6) })
-        .success
-    ).toBe(true)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({ password: 'a'.repeat(11) })
-        .success
-    ).toBe(false)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({ password: 'a'.repeat(12) })
-        .success
-    ).toBe(true)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({ password: 'a'.repeat(128) })
-        .success
-    ).toBe(true)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({ password: 'a'.repeat(129) })
-        .success
-    ).toBe(false)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({ password: '\ud800' }).success
-    ).toBe(false)
-    expect(
-      reauthenticateAdminRequestSchema.safeParse({
-        password: opaquePassword,
-        email: 'forbidden@example.com'
-      }).success
-    ).toBe(false)
+    for (const request of [
+      {},
+      { password: 'a'.repeat(12) },
+      { password: 'a'.repeat(128) },
+      { provider: 'google', purpose: 'ADMIN_FRESH' }
+    ]) {
+      expect(reauthenticateAdminRequestSchema.safeParse(request).success).toBe(
+        false
+      )
+    }
   })
 
   it('단건 command 성공을 path/request ID·state·expected+1과 결합한다', () => {

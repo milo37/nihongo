@@ -1,6 +1,6 @@
 # JLPT Drill Note
 
-> 현재 인증 기준(2026-10-19): 사용자 결정으로 SSO 전용 가입·재로그인으로 전환합니다. 아래의 과거 데모 역할 선택·이메일/암호·미구현 OAuth 설명은 superseded 이력입니다. 최신 사용자 확정 공급자는 Apple과 Google뿐이며 이전 Google 1차 기획 기준을 대체합니다. FE 화면 체크포인트와 technical TEST/development의 공개 SSO·내부 회원/세션 연결을 추가했습니다. 관리자 fresh SSO·계정 관리·mail 종료·실제 DB/OAuth 검증은 남아 있어 전용 전환 완료나 배포 후보가 아닙니다. [현재 계약과 남은 구현](team/sso-authentication.md)을 따릅니다.
+> 현재 인증 기준(2026-10-19): 사용자 결정으로 SSO 전용 가입·재로그인으로 전환합니다. 아래의 과거 데모 역할 선택·이메일/암호·미구현 OAuth 설명은 superseded 이력입니다. 최신 사용자 확정 공급자는 Apple과 Google뿐이며 이전 Google 1차 기획 기준을 대체합니다. FE 화면 체크포인트, CMS와 독립된 공개 SSO·내부 회원/세션 연결, 별도 ADMIN_FRESH와 legacy 암호/mail startup 퇴역을 추가했습니다. 로컬 production-shaped fake-port 검증과 실제 운영/DB/OAuth는 구분하며 계정 관리 전체·실제 자료 정리·운영 검증은 남아 있습니다. [현재 계약과 남은 구현](team/sso-authentication.md)을 따릅니다.
 
 JLPT N5부터 N1까지 문자·어휘, 문법, 독해 문제를 풀고, 틀린 문제를
 자동으로 오답노트에 저장해 반복 학습하는 프런트엔드 포트폴리오

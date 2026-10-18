@@ -186,6 +186,10 @@
     "./auth/sign-in-social": {
       "types": "./dist/auth/sign-in-social.d.ts",
       "import": "./dist/auth/sign-in-social.js"
+    },
+    "./auth/admin-fresh-sso": {
+      "types": "./dist/auth/admin-fresh-sso.d.ts",
+      "import": "./dist/auth/admin-fresh-sso.js"
     }
   },
   "scripts": {

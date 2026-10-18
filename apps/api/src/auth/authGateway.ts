@@ -65,7 +65,9 @@ const isAllowedOperation = (method: string, pathname: string): boolean =>
     (pathname === '/api/auth/sign-out' ||
       pathname === '/api/auth/sign-in/social' ||
       pathname === '/api/auth/callback/apple')) ||
-  (method === 'GET' && pathname === '/api/auth/callback/google')
+  (method === 'GET' &&
+    (pathname === '/api/auth/callback/google' ||
+      pathname === '/api/auth/sso/admin-fresh/complete'))
 
 const stripCredentials = (value: unknown): unknown => {
   if (Array.isArray(value)) {
@@ -603,7 +605,7 @@ export const createAuthGateway = ({
   delay = sleep,
   now = Date.now
 }: CreateAuthGatewayDependencies): AuthGateway => {
-  const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
+  const technicalMode = phase7Facade !== undefined
   if (
     technicalMode ? !phase7Facade || !technicalRateLimiter : !auth || !client
   ) {
@@ -663,7 +665,8 @@ export const createAuthGateway = ({
       if (
         pathname === '/api/auth/sign-in/social' ||
         pathname === '/api/auth/callback/google' ||
-        pathname === '/api/auth/callback/apple'
+        pathname === '/api/auth/callback/apple' ||
+        pathname === '/api/auth/sso/admin-fresh/complete'
       ) {
         let result: Response
         if (pathname === '/api/auth/sign-in/social') {
@@ -679,6 +682,10 @@ export const createAuthGateway = ({
         })
         if (!ssoRuntime) {
           result = Response.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
+        } else if (pathname === '/api/auth/sso/admin-fresh/complete') {
+          result = ssoRuntime.completeAdminFresh
+            ? await ssoRuntime.completeAdminFresh(request)
+            : Response.json({ code: 'AUTH_ROUTE_NOT_FOUND' }, { status: 404 })
         } else if (pathname === '/api/auth/sign-in/social') {
           result = await ssoRuntime.start(
             request,

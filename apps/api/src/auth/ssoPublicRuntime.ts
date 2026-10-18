@@ -17,10 +17,12 @@ import {
 import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
 import { createPhase7SessionCookie } from './phase7SessionCookie.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
+import type { SsoAdminFreshRuntime } from './ssoAdminFreshRuntime.js'
 
 export interface SsoPublicRuntime {
   start: (request: Request, payload: unknown) => Promise<Response>
   callback: (request: Request, provider: SsoProviderId) => Promise<Response>
+  completeAdminFresh?: (request: Request) => Promise<Response>
 }
 const unavailable = (): Response =>
   Response.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
@@ -56,12 +58,14 @@ export const createSsoPublicRuntime = ({
   environment,
   providers,
   store,
-  identities
+  identities,
+  adminFresh
 }: {
   environment: ApiEnvironment
   providers: Partial<Record<SsoProviderId, SsoProvider>>
   store: SsoTransactionStore
   identities: SsoIdentityPort
+  adminFresh?: SsoAdminFreshRuntime
 }): SsoPublicRuntime => {
   const production = environment.NODE_ENV === 'production'
   const spaOrigin =
@@ -107,7 +111,15 @@ export const createSsoPublicRuntime = ({
     return redirect(provider, `/login?${query}`)
   }
   return {
+    ...(adminFresh ? { completeAdminFresh: adminFresh.complete } : {}),
     start: async (_request, payload) => {
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        'purpose' in payload &&
+        payload.purpose === 'ADMIN_FRESH'
+      )
+        return adminFresh ? adminFresh.start(_request, payload) : unavailable()
       const parsed = signInSocialRequestSchema.safeParse(payload)
       if (!parsed.success)
         return Response.json({ code: 'INVALID_AUTH_PAYLOAD' }, { status: 400 })
@@ -155,6 +167,15 @@ export const createSsoPublicRuntime = ({
             return failure(provider, 'INVALID_CALLBACK')
           query = url.searchParams
         }
+        if (query.get('state')?.startsWith('F'))
+          return adminFresh
+            ? adminFresh.callback(
+                request,
+                provider,
+                query,
+                readSsoBindingCookie(request.headers, production, provider)
+              )
+            : failure(provider, 'INVALID_CALLBACK')
         const verified = await services[provider].finish({
           query,
           binding: readSsoBindingCookie(request.headers, production, provider)

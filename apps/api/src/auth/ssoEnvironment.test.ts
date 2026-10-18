@@ -6,7 +6,10 @@ import {
 import { createConfiguredSsoProviders } from './ssoPublicRuntime.js'
 const input = {
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://unused:unused@localhost/unused_test',
+  DATABASE_URL:
+    'postgresql://nihongo_test_app_login:placeholder@localhost/unused_test?schema=public',
+  AUTH_GATEWAY_DATABASE_URL:
+    'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/unused_test?schema=public',
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
   GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
   AUTH_EMAIL_FROM: 'test@example.test'

@@ -103,15 +103,23 @@ export const readSsoBindingCookie = (
 export const createSsoLoginService = ({
   provider,
   store,
-  providerId = 'google'
+  providerId = 'google',
+  purpose = 'LOGIN',
+  returnPathPolicy = safeSsoReturnPath
 }: {
   provider: SsoProvider | undefined
   store: SsoTransactionStore
   providerId?: SsoProviderId
+  purpose?: 'LOGIN' | 'ADMIN_FRESH'
+  returnPathPolicy?: (value: unknown) => string
 }) => ({
   start: async (callbackURL: unknown) => {
     if (!provider) throw new SsoUnavailableError()
-    const state = randomBytes(32).toString('base64url')
+    let state = randomBytes(32).toString('base64url')
+    if (purpose === 'ADMIN_FRESH') state = `F${state.slice(1)}`
+    else
+      while (state.startsWith('F'))
+        state = randomBytes(32).toString('base64url')
     const binding = randomBytes(32).toString('base64url')
     const nonce = randomBytes(32).toString('base64url')
     const codeVerifier = randomBytes(64).toString('base64url')
@@ -147,7 +155,7 @@ export const createSsoLoginService = ({
         bindingDigest: ssoTransactionDigest(binding),
         nonce,
         codeVerifier,
-        callbackURL: safeSsoReturnPath(callbackURL)
+        callbackURL: returnPathPolicy(callbackURL)
       })
       return { url, binding }
     } catch {
@@ -173,6 +181,9 @@ export const createSsoLoginService = ({
     if (
       !state ||
       !TOKEN_PATTERN.test(state) ||
+      (purpose === 'ADMIN_FRESH'
+        ? !state.startsWith('F')
+        : state.startsWith('F')) ||
       !binding ||
       !TOKEN_PATTERN.test(binding)
     )
@@ -195,7 +206,7 @@ export const createSsoLoginService = ({
       return { kind: 'FAILED', callbackURL: '/' }
     }
     if (!transaction || transaction.provider !== providerId) return invalid
-    const callbackURL = safeSsoReturnPath(transaction.callbackURL)
+    const callbackURL = returnPathPolicy(transaction.callbackURL)
     if (error !== null)
       return {
         kind: error === 'access_denied' ? 'CANCELLED' : 'FAILED',

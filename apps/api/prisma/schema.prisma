@@ -1002,3 +1002,30 @@ model SsoLoginTransaction {
 
   @@index([expiresAt])
 }
+
+// Private, short-lived ADMIN_FRESH state; independent of LOGIN transactions.
+model SsoAdminFreshTransaction {
+  stateDigest   String   @id @db.VarChar(64)
+  bindingDigest String   @db.VarChar(64)
+  provider      String   @db.VarChar(32)
+  nonce         String   @db.VarChar(43)
+  codeVerifier  String   @db.VarChar(86)
+  callbackURL   String   @db.VarChar(2048)
+  context       Json
+  createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt     DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
+
+model SsoAdminFreshProof {
+  proofDigest        String    @id @db.VarChar(64)
+  context            Json
+  callbackURL        String    @db.VarChar(2048)
+  createdAt          DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt          DateTime  @db.Timestamptz(3)
+  completedSessionId String?   @db.Uuid
+  completedAt        DateTime? @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
