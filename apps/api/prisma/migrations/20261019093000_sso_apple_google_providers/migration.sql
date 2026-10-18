@@ -23,7 +23,8 @@ BEGIN
   END IF;
 END;
 $preflight$;
-SELECT pg_catalog.set_config('search_path', 'pg_catalog, ' ||
+-- Keep the creation namespace on the owned target; pg_catalog is implicit first.
+SELECT pg_catalog.set_config('search_path',
   pg_catalog.quote_ident(pg_catalog.current_setting('app.phase7_target_schema', false)) ||
   ', pg_temp', true);
 SET LOCAL ROLE "nihongo_phase7_owner";
@@ -85,5 +86,21 @@ GRANT EXECUTE ON FUNCTION "phase7_create_sso_transaction_v2"(TEXT,TEXT,TEXT,TEXT
   "phase7_consume_sso_transaction_v2"(TEXT,TEXT,TEXT) TO "nihongo_auth_gateway";
 REVOKE EXECUTE ON FUNCTION "phase7_create_sso_transaction"(TEXT,TEXT,TEXT,TEXT,TEXT),
   "phase7_consume_sso_transaction"(TEXT,TEXT) FROM "nihongo_auth_gateway";
+-- Restore the exact runtime contract for every created/replaced definer.
+DO $harden_sso_functions$
+DECLARE
+  target_schema NAME := pg_catalog.current_setting('app.phase7_target_schema', false)::NAME;
+  function_signature TEXT;
+BEGIN
+  FOREACH function_signature IN ARRAY ARRAY[
+    '"phase7_create_sso_transaction_v2"(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT)',
+    '"phase7_consume_sso_transaction_v2"(TEXT,TEXT,TEXT)'
+  ] LOOP
+    EXECUTE pg_catalog.format(
+      'ALTER FUNCTION %I.%s SET search_path TO pg_catalog, %I, pg_temp',
+      target_schema, function_signature, target_schema);
+  END LOOP;
+END;
+$harden_sso_functions$;
 SET LOCAL ROLE "nihongo_phase7_migration";
 COMMIT;

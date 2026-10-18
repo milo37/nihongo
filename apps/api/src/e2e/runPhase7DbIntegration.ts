@@ -259,15 +259,31 @@ const EXPECTED_PHASE7_DATABASE_DEFAULTS: readonly Phase7DatabaseDefault[] = [
 const runCommand = async (
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  output: 'inherit' | 'redacted' = 'inherit'
 ): Promise<void> =>
   await new Promise<void>((resolve, reject) => {
     let spawnError: Error | undefined
+    const script =
+      args.find(
+        (argument) =>
+          argument === 'db:migrate:phase7' || argument === 'db:migrate:deploy'
+      ) ?? 'UNKNOWN_REDACTED'
+    const reportCommand = (
+      state: 'BEGIN' | 'COMPLETE' | 'FAILED',
+      exitCode: number | null
+    ): void => {
+      if (output !== 'redacted') return
+      process.stdout.write(
+        `${JSON.stringify({ event: 'phase7.db.integration.migration_command', script, state, exitCode })}\n`
+      )
+    }
+    reportCommand('BEGIN', null)
     const child = spawn(command, args, {
       cwd: repositoryRoot,
       detached: shouldDetachOwnedProcess,
       env: environment,
-      stdio: 'inherit'
+      stdio: output === 'redacted' ? 'ignore' : 'inherit'
     })
     const ownedCommand = { child, label: formatCommand(command, args) }
     commandProcesses.push(ownedCommand)
@@ -278,13 +294,16 @@ const runCommand = async (
       void retireOwnedProcess(commandProcesses, ownedCommand).then(
         () => {
           if (spawnError) {
+            reportCommand('FAILED', code)
             reject(spawnError)
             return
           }
           if (code === 0) {
+            reportCommand('COMPLETE', 0)
             resolve()
             return
           }
+          reportCommand('FAILED', code)
           reject(
             new Error(
               `${formatCommand(command, args)} failed (` +
@@ -292,7 +311,10 @@ const runCommand = async (
             )
           )
         },
-        (error: unknown) => reject(error)
+        (error: unknown) => {
+          reportCommand('FAILED', code)
+          reject(error)
+        }
       )
     })
   })
@@ -1294,6 +1316,76 @@ const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
   )
 }
 
+const migrationDiagnosticNames = [
+  '20260827100000_phase7_admin_cms_enums',
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation',
+  '20261019090000_sso_login_transactions',
+  '20261019093000_sso_apple_google_providers',
+  '20261019100000_sso_identity_mapping',
+  '20261019103000_sso_admin_fresh',
+  '20261019110000_sso_admin_fresh_erasure_ownership'
+] as const
+
+const sanitizeMigrationDatabaseError = (error: unknown) => {
+  const ownText = (key: string, limit: number): string | undefined => {
+    if (error === null || typeof error !== 'object') return undefined
+    const property = Object.getOwnPropertyDescriptor(error, key)
+    const value: unknown =
+      property && 'value' in property ? property.value : undefined
+    return typeof value === 'string' && value.length <= limit
+      ? value
+      : undefined
+  }
+  const code = ownText('code', 5)
+  const message = ownText('message', 256)
+  const position = ownText('position', 10)
+  // Only static, value-free messages may leave this private TEST runner.
+  const safeMessages = [
+    'permission denied for schema pg_catalog',
+    `permission denied for schema ${schemaName}`,
+    'SSO migration principal is not canonical.',
+    'Activated auth requires a sign-in Account.',
+    'Last SSO sign-in method cannot be removed.',
+    'Malformed verified SSO identity.',
+    'SSO staging rejected.',
+    'SSO rotation confirmation rejected.',
+    'Phase 7 operation authority is stale or insufficient.'
+  ]
+  const where = ownText('where', 2048)
+    ?.split('\n')
+    .find((frame) =>
+      /^PL\/pgSQL function (?:inline_code_block|(?:phase7_[a-z0-9_]+|validate_phase7_[a-z0-9_]+)\([a-z0-9_, ]*\)) line [1-9][0-9]{0,5} at (?:RAISE|SQL statement|EXECUTE|assignment|PERFORM|RETURN|IF)$/u.test(
+        frame
+      )
+    )
+  return {
+    code: code && /^[0-9A-Z]{5}$/u.test(code) ? code : 'UNKNOWN_REDACTED',
+    message:
+      message && safeMessages.includes(message) ? message : 'UNKNOWN_REDACTED',
+    position: position && /^[1-9][0-9]{0,9}$/u.test(position) ? position : null,
+    where: where ?? null
+  }
+}
+
+const reportMigrationFailure = (
+  migrationName: string,
+  error: unknown,
+  replayOutcome: 'FAILED' | 'SUCCEEDED'
+): void => {
+  if (!migrationDiagnosticNames.some((name) => name === migrationName)) return
+  process.stderr.write(
+    `${JSON.stringify({
+      event: 'phase7.db.integration.migration_failure',
+      diagnosticSource: 'BOUNDED_REPLAY',
+      migrationName,
+      replayOutcome,
+      databaseError: sanitizeMigrationDatabaseError(error)
+    })}\n`
+  )
+}
+
 const run = async (): Promise<void> => {
   const selectedTestFiles = selectPhase7DbIntegrationFiles(
     getPhase10ApiIntegrationPathsByOwner('phase7-db'),
@@ -1390,7 +1482,8 @@ const run = async (): Promise<void> => {
       await runCommand(
         'pnpm',
         ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-        environment
+        environment,
+        'redacted'
       )
     } catch (error: unknown) {
       const failedMigration = await adminClient.query<{
@@ -1406,18 +1499,13 @@ const run = async (): Promise<void> => {
       if (row) {
         let replayDetail = ''
         if (
-          row.migrationName === '20260827100000_phase7_admin_cms_enums' ||
-          row.migrationName === '20260827101000_phase7_admin_cms_foundation' ||
-          row.migrationName ===
-            '20260909120000_phase7_archive_empty_manifest_verifier' ||
-          row.migrationName ===
-            '20260916120000_phase7_reauthentication_foundation'
+          migrationDiagnosticNames.some((name) => name === row.migrationName)
         ) {
           const diagnosticClient = new Client({
             connectionString: migrationDatabaseUrl.toString()
           })
-          await diagnosticClient.connect()
           try {
+            await diagnosticClient.connect()
             await diagnosticClient.query(
               `SET search_path TO ${quoteSchema(schemaName)}`
             )
@@ -1432,23 +1520,18 @@ const run = async (): Promise<void> => {
             )
             await diagnosticClient.query(migrationSql)
             replayDetail = ' Manual wrapper replay unexpectedly succeeded.'
+            reportMigrationFailure(row.migrationName, undefined, 'SUCCEEDED')
           } catch (replayError: unknown) {
-            const databaseError = replayError as {
-              code?: unknown
-              message?: unknown
-              position?: unknown
-              where?: unknown
-            }
             replayDetail =
               ' Manual wrapper replay: ' +
-              JSON.stringify({
-                code: databaseError.code,
-                message: databaseError.message,
-                position: databaseError.position,
-                where: databaseError.where
-              })
+              JSON.stringify(sanitizeMigrationDatabaseError(replayError))
+            reportMigrationFailure(row.migrationName, replayError, 'FAILED')
           } finally {
-            await diagnosticClient.end()
+            try {
+              await diagnosticClient.end()
+            } catch {
+              // Keep the original migration failure as the primary error.
+            }
           }
         }
         throw new Error(
@@ -1605,7 +1688,8 @@ const run = async (): Promise<void> => {
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-    canonicalMigrationEnvironment
+    canonicalMigrationEnvironment,
+    'redacted'
   )
   await assertPhase7DatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"

@@ -24,7 +24,8 @@ BEGIN
   END IF;
 END;
 $preflight$;
-SELECT pg_catalog.set_config('search_path', 'pg_catalog, ' ||
+-- Keep the creation namespace on the owned target; pg_catalog is implicit first.
+SELECT pg_catalog.set_config('search_path',
   pg_catalog.quote_ident(pg_catalog.current_setting('app.phase7_target_schema', false)) ||
   ', pg_temp', true);
 SET LOCAL ROLE "nihongo_phase7_owner";
@@ -272,5 +273,29 @@ CREATE TRIGGER "Phase7OperationIntent_sso_fresh_admission" BEFORE INSERT ON "Pha
   FOR EACH ROW EXECUTE FUNCTION "validate_phase7_sso_fresh_operation"();
 CREATE CONSTRAINT TRIGGER "Phase7OperationIntent_sso_fresh_commit" AFTER INSERT ON "Phase7OperationIntent"
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "validate_phase7_sso_fresh_operation"();
+-- Restore the exact runtime contract for every created/replaced definer.
+DO $harden_sso_functions$
+DECLARE
+  target_schema NAME := pg_catalog.current_setting('app.phase7_target_schema', false)::NAME;
+  function_signature TEXT;
+BEGIN
+  FOREACH function_signature IN ARRAY ARRAY[
+    '"phase7_sso_fresh_context_valid"(JSONB)',
+    '"phase7_prepare_sso_admin_fresh"(TEXT,TEXT)',
+    '"phase7_create_sso_admin_fresh_transaction"(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB)',
+    '"phase7_consume_sso_admin_fresh_transaction"(TEXT,TEXT,TEXT)',
+    '"phase7_stage_sso_admin_fresh_proof"(JSONB,TEXT,TEXT,TEXT,TEXT)',
+    '"phase7_complete_sso_admin_fresh"(TEXT,TEXT,UUID,TEXT,TEXT,TEXT)',
+    '"phase7_reconcile_sso_admin_fresh"(TEXT,TEXT)',
+    '"phase7_cancel_sso_admin_fresh_proof"(TEXT)',
+    '"phase7_sso_admin_session_is_fresh"(TEXT)',
+    '"validate_phase7_sso_fresh_operation"()'
+  ] LOOP
+    EXECUTE pg_catalog.format(
+      'ALTER FUNCTION %I.%s SET search_path TO pg_catalog, %I, pg_temp',
+      target_schema, function_signature, target_schema);
+  END LOOP;
+END;
+$harden_sso_functions$;
 SET LOCAL ROLE "nihongo_phase7_migration";
 COMMIT;

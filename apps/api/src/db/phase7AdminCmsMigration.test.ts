@@ -224,35 +224,116 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       {
         name: '20261019090000_sso_login_transactions',
         checksum:
-          'a68a52e08a30db120654c497b1b059988c58ce9a0a8986308a8b86354367ac14'
+          '4a89ac9d8b5665bcb5d5d3088ef2a933e22ac112431671556e8e8385b86d4cdc'
       },
       {
         name: '20261019093000_sso_apple_google_providers',
         checksum:
-          '0f61ba8fb08450688fdc7b0c00fe62d691c460a54181794aa0962af558ebb0cd'
+          '309095c6db46793acafd6a6ee0ddcd0d96243530f178d5cd00883bf95dc4227b'
       },
       {
         name: '20261019100000_sso_identity_mapping',
         checksum:
-          '7cb2e3fb66ba925799a2d71d68b1877c8e658a89128d17dd1b82c6bd382342ee'
+          '2e5cb49adf6566aa36715941548204b884e86896091b110ca871e34cf4895aa9'
       },
       {
         name: '20261019103000_sso_admin_fresh',
         checksum:
-          '7a7a2e4f6ea2b07eff7ad4a83cf9effe2872f66a1ad2c126a4e43f9c78c0bf4a'
+          'a9b152386e05eacf74ced813dbff4bd3875717958133d05ea6c8a1cdbc54e88c'
       }
     ])
     expect(digest(manifest.slice(0, 43))).toBe(
-      '42caeea63209fbc1c4a8d776e9d6b55453fc0a9db376119e997c623371cf7d72'
+      '394a68aaeb5e7299dc623eb0094426e74dcac050bce467183c11b161aa4d0fec'
     )
     expect(manifest.slice(43)).toEqual([
       {
         name: '20261019110000_sso_admin_fresh_erasure_ownership',
         checksum:
-          'c7a05a75e4c278243d1389296d2507c217ef9d377380fea91e80ba36cf40917a'
+          '3dd06daf9b64b780e5bfcf4c73012a0f7f87a3db63569e94dd7dea60c7dafd1b'
       }
     ])
+    expect(digest(manifest.slice(39))).toBe(
+      '7625f9212f1abd9f24c51153bd5ffc1c021bab63d1aa7faf8682a6597cac3abd'
+    )
+    expect(digest(manifest)).toBe(
+      '9c273aa902d6f008b112badd9c6b327abdc96905e10569696d32850268aaead0'
+    )
   })
+
+  it.each([
+    '20261019090000_sso_login_transactions',
+    '20261019093000_sso_apple_google_providers',
+    '20261019100000_sso_identity_mapping',
+    '20261019103000_sso_admin_fresh',
+    '20261019110000_sso_admin_fresh_erasure_ownership'
+  ])(
+    '%s creates in the owned target and hardens every exact definer signature',
+    (name) => {
+      const sql = readFileSync(
+        `${migrationsDirectory}/${name}/migration.sql`,
+        'utf8'
+      )
+      const ddlPath = sql.indexOf(
+        '-- Keep the creation namespace on the owned target'
+      )
+      const firstCreate = sql.search(
+        /CREATE(?: OR REPLACE)? (?:TABLE|FUNCTION)/u
+      )
+      expect(ddlPath).toBeGreaterThan(0)
+      expect(ddlPath).toBeLessThan(firstCreate)
+      expect(sql.slice(ddlPath, firstCreate)).toContain(
+        "pg_catalog.quote_ident(pg_catalog.current_setting('app.phase7_target_schema', false)) ||\n  ', pg_temp', true)"
+      )
+      expect(sql.slice(ddlPath, firstCreate)).not.toContain("'pg_catalog, '")
+      const definitions = [
+        ...sql.matchAll(
+          /CREATE(?: OR REPLACE)? FUNCTION "([^"]+)"\(([\s\S]*?)\)\s*RETURNS/gu
+        )
+      ]
+      const signatures = definitions.map((match) => {
+        const argumentTypes = match[2]!
+          .split(',')
+          .filter((argument) => argument.trim())
+          .map((argument) => argument.trim().split(/\s+/u).at(-1))
+        return `"${match[1]}"(${argumentTypes.join(',')})`
+      })
+      const hardenIndex = sql.indexOf('DO $harden_sso_functions$')
+      const rolesBeforeHarden = [
+        ...removeDollarQuotedBodies(sql.slice(0, hardenIndex)).matchAll(
+          /SET LOCAL ROLE "([^"]+)";/gu
+        )
+      ]
+      expect(rolesBeforeHarden.at(-1)?.[1]).toBe('nihongo_phase7_owner')
+      expect(sql.indexOf('$harden_sso_functions$;')).toBeLessThan(
+        sql.lastIndexOf('SET LOCAL ROLE "nihongo_phase7_migration";')
+      )
+      const harden = sql.slice(hardenIndex)
+      const hardenedSignatures = [
+        ...harden.matchAll(/'("[a-z0-9_]+"\([^']*\))'/gu)
+      ].map((match) => match[1])
+      expect(signatures.length).toBeGreaterThan(0)
+      expect(hardenedSignatures).toEqual(signatures)
+      expect(
+        (sql.match(/SECURITY DEFINER SET search_path FROM CURRENT/gu) ?? [])
+          .length
+      ).toBe(signatures.length)
+      expect(harden).toContain(
+        'ALTER FUNCTION %I.%s SET search_path TO pg_catalog, %I, pg_temp'
+      )
+      expect(harden).toContain(
+        'target_schema, function_signature, target_schema'
+      )
+      expect(sql.lastIndexOf('$function$;')).toBeLessThan(
+        sql.indexOf('DO $harden_sso_functions$')
+      )
+      expect(sql.indexOf('$harden_sso_functions$;')).toBeLessThan(
+        sql.lastIndexOf('COMMIT;')
+      )
+      expect(sql).not.toMatch(
+        /GRANT[^;]*(?:CREATE|USAGE)[^;]*ON SCHEMA[^;]*pg_catalog/iu
+      )
+    }
+  )
 
   it('Slice 3R은 append-only auth foundation과 partial live-intent fence를 선언한다', () => {
     expect(reauthenticationMigrationSql).toContain(
