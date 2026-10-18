@@ -886,3 +886,62 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
     }
   })
 })
+
+describe('migration-owned approved registration representation', () => {
+  const schema = readFileSync(
+    new URL('../../prisma/schema.prisma', import.meta.url),
+    'utf8'
+  )
+  const registrations = [
+    [
+      '20261007060000_phase7_approved_reading_tags',
+      'Phase7ApprovedReadingTagRegistration'
+    ],
+    [
+      '20261009060000_phase7_approved_n3_reading_tags',
+      'Phase7ApprovedN3ReadingTagRegistration'
+    ],
+    [
+      '20261009072500_phase7_approved_n4_n2_reading_tags',
+      'Phase7ApprovedN4N2ReadingTagRegistration'
+    ],
+    [
+      '20261009120000_phase7_approved_n4_reading_batch7_tags',
+      'Phase7ApprovedN4ReadingBatch7TagRegistration'
+    ],
+    [
+      '20261010071000_phase7_approved308_tags',
+      'Phase7Approved308TagRegistration'
+    ]
+  ] as const
+
+  for (const [migration, model] of registrations) {
+    it(`${model} matches its SQL table without exposing a Prisma delegate`, () => {
+      const sql = readFileSync(
+        `${migrationsDirectory}/${migration}/migration.sql`,
+        'utf8'
+      )
+      const table = sql.match(
+        new RegExp(String.raw`CREATE TABLE "${model}" \(([^;]+)\n\);`, 'u')
+      )?.[1]
+      expect(table).toBeDefined()
+      const columns = table
+        ?.trim()
+        .split('\n')
+        .map((line) => line.trim())
+      expect(columns).toHaveLength(2)
+      expect(columns?.[0]).toMatch(
+        /^"batch" TEXT PRIMARY KEY CHECK \("batch" = '[a-z0-9-]+'\),$/u
+      )
+      expect(columns?.[1]).toBe(
+        '"appliedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'
+      )
+      const representation = schema.match(
+        new RegExp(String.raw`model ${model} \{([^}]+)\}`, 'u')
+      )?.[1]
+      expect(representation?.replace(/\s+/gu, ' ').trim()).toBe(
+        'batch String @id appliedAt DateTime @default(now()) @db.Timestamptz(6) @@ignore'
+      )
+    })
+  }
+})

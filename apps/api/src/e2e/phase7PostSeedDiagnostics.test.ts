@@ -10,7 +10,13 @@ import {
 const file = getPhase10ApiIntegrationPathsByOwner('phase7-db')[0]!
 
 describe('post-reseed finite diagnostics', () => {
-  for (const operation of ['COUNT', 'FILE', 'CLEANUP'] as const) {
+  for (const operation of [
+    'COUNT',
+    'FILE',
+    'CLEANUP',
+    'PRISMA_DIFF_CAPTURE',
+    'PRISMA_DIFF_REPRESENTATION'
+  ] as const) {
     it(`${operation} preserves command result and execution order`, async () => {
       const events: Array<PostSeedDiagnostic | 'command'> = []
       const result = await runPostSeedDiagnostic(
@@ -52,6 +58,82 @@ describe('post-reseed finite diagnostics', () => {
         { stage: `${operation}_FAILED`, ...path, errorCode: '42501' }
       ])
       expect(JSON.stringify(events)).not.toContain('private message')
+    })
+  }
+
+  for (const operation of [
+    'PRISMA_DIFF_CAPTURE',
+    'PRISMA_DIFF_REPRESENTATION'
+  ] as const) {
+    it(`${operation} redacts unsafe and inherited codes without serializing the primary error`, async () => {
+      const secret = 'postgresql://private:credential@private/db SELECT secret'
+      for (const error of [
+        Object.assign(new Error(secret), { code: secret, stack: secret }),
+        Object.assign(Object.create({ code: '42501' }), {
+          message: secret,
+          stack: secret
+        }) as unknown
+      ]) {
+        const events: PostSeedDiagnostic[] = []
+        let received: unknown
+        try {
+          await runPostSeedDiagnostic(
+            operation,
+            async () => {
+              throw error
+            },
+            (event) => events.push(event),
+            file
+          )
+        } catch (caught: unknown) {
+          received = caught
+        }
+        expect(received).toBe(error)
+        expect(events).toEqual([
+          { stage: `${operation}_BEGIN` },
+          { stage: `${operation}_FAILED`, errorCode: 'UNKNOWN_REDACTED' }
+        ])
+        expect(JSON.stringify(events)).not.toContain(secret)
+      }
+    })
+
+    it(`${operation} never evaluates code, message or stack accessors`, async () => {
+      let invoked = 0
+      const error = Object.defineProperties(
+        {},
+        Object.fromEntries(
+          ['code', 'message', 'stack'].map((name) => [
+            name,
+            {
+              enumerable: true,
+              get: () => {
+                invoked += 1
+                throw new Error('private accessor')
+              }
+            }
+          ])
+        )
+      )
+      const events: PostSeedDiagnostic[] = []
+      let received: unknown
+      try {
+        await runPostSeedDiagnostic(
+          operation,
+          async () => {
+            throw error
+          },
+          (event) => events.push(event),
+          file
+        )
+      } catch (caught: unknown) {
+        received = caught
+      }
+      expect(received).toBe(error)
+      expect(invoked).toBe(0)
+      expect(events).toEqual([
+        { stage: `${operation}_BEGIN` },
+        { stage: `${operation}_FAILED`, errorCode: 'UNKNOWN_REDACTED' }
+      ])
     })
   }
 

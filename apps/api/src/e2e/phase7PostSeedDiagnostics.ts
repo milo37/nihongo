@@ -1,6 +1,11 @@
 import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 
-export type PostSeedOperation = 'COUNT' | 'FILE' | 'CLEANUP'
+export type PostSeedOperation =
+  | 'COUNT'
+  | 'FILE'
+  | 'CLEANUP'
+  | 'PRISMA_DIFF_CAPTURE'
+  | 'PRISMA_DIFF_REPRESENTATION'
 export type PostSeedState = 'BEGIN' | 'COMPLETE' | 'FAILED'
 const errorCodes = [
   '23514',

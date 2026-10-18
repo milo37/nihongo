@@ -1037,3 +1037,39 @@ model SsoAdminFreshProof {
   @@index([expiresAt])
   @@index([userId])
 }
+
+// Migration-owned registration evidence is represented for drift checks only.
+model Phase7ApprovedReadingTagRegistration {
+  batch     String   @id
+  appliedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@ignore
+}
+
+model Phase7ApprovedN3ReadingTagRegistration {
+  batch     String   @id
+  appliedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@ignore
+}
+
+model Phase7ApprovedN4N2ReadingTagRegistration {
+  batch     String   @id
+  appliedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@ignore
+}
+
+model Phase7ApprovedN4ReadingBatch7TagRegistration {
+  batch     String   @id
+  appliedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@ignore
+}
+
+model Phase7Approved308TagRegistration {
+  batch     String   @id
+  appliedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@ignore
+}

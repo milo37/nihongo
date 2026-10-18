@@ -331,7 +331,7 @@ const runCommandCapture = async (
       cwd: repositoryRoot,
       detached: shouldDetachOwnedProcess,
       env: environment,
-      stdio: ['inherit', 'pipe', 'inherit']
+      stdio: ['ignore', 'pipe', 'ignore']
     })
     const ownedCommand = { child, label: formatCommand(command, args) }
     commandProcesses.push(ownedCommand)
@@ -423,8 +423,7 @@ const assertExpectedPrismaRepresentationDiff = (value: string): void => {
   const normalized = normalizePrismaDiff(value)
   if (normalized !== EXPECTED_PRISMA_REPRESENTATION_DIFF) {
     throw new Error(
-      'Phase 7 Prisma drift exceeded the exact representation allowlist.\n' +
-        normalized
+      'Phase 7 Prisma drift exceeded the exact representation allowlist.'
     )
   }
   process.stdout.write(
@@ -1707,25 +1706,34 @@ const run = async (): Promise<void> => {
       driftRejections: 2
     })}\n`
   )
-  const prismaDiff = await runCommandCapture(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'prisma',
-      'migrate',
-      'diff',
-      '--config',
-      'prisma.test.config.ts',
-      '--from-config-datasource',
-      '--to-schema',
-      'prisma/schema.prisma',
-      '--script'
-    ],
-    driftEnvironment
+  const prismaDiff = await runPostSeedDiagnostic(
+    'PRISMA_DIFF_CAPTURE',
+    () =>
+      runCommandCapture(
+        'pnpm',
+        [
+          '--filter',
+          '@nihongo/api',
+          'exec',
+          'prisma',
+          'migrate',
+          'diff',
+          '--config',
+          'prisma.test.config.ts',
+          '--from-config-datasource',
+          '--to-schema',
+          'prisma/schema.prisma',
+          '--script'
+        ],
+        driftEnvironment
+      ),
+    reportPostSeedDiagnostic
   )
-  assertExpectedPrismaRepresentationDiff(prismaDiff)
+  await runPostSeedDiagnostic(
+    'PRISMA_DIFF_REPRESENTATION',
+    async () => assertExpectedPrismaRepresentationDiff(prismaDiff),
+    reportPostSeedDiagnostic
+  )
 
   const migrationCatalogClient = new Client({
     connectionString: migrationDatabaseUrl.toString()
