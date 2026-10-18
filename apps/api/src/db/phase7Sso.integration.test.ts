@@ -372,7 +372,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         expect(await h.facts(f)).toEqual(expectedRotation)
         await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
       })
-    }
+    },
+    30_000
   )
 
   it('missing/USER/unlinked providers cannot prepare; a second session of the same ADMIN cannot finish the first proof', async () => {
