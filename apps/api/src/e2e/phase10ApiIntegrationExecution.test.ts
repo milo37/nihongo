@@ -652,6 +652,32 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     }
   )
 
+  it('classifies only the exact source-owned constraint checkpoint first line', () => {
+    const input = canonical()
+    Object.assign(assertion(input), {
+      failureMessages: [
+        'SSO learning constraint checkpoint failed.\n    at private-stack'
+      ]
+    })
+    const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
+    expect(report.firstFailedAssertion).toEqual({
+      caseOrdinal: 6,
+      errorClass: 'TypeError'
+    })
+    expect(JSON.stringify(report)).not.toMatch(
+      /SSO learning constraint checkpoint|private-stack/
+    )
+
+    Object.assign(assertion(input), {
+      failureMessages: [
+        'SSO learning constraint checkpoint failed. private-secret'
+      ]
+    })
+    expect(
+      sanitizePhase7VitestReport(input, phase7SsoTestFile).firstFailedAssertion
+    ).toEqual({ caseOrdinal: 6 })
+  })
+
   it('examines at most three messages and 8192 characters without a truncated token match', () => {
     const input = canonical()
     const messages = [

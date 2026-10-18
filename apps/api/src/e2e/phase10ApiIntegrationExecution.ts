@@ -126,6 +126,8 @@ export const sanitizePhase7VitestReport = (
     Number.isSafeInteger(value) && (value ?? -1) >= 0 ? value : null
   const errorClasses = ['AssertionError', 'TypeError', 'Error'] as const
   const sqlstates = ['23503', '23514', '42501'] as const
+  const learningConstraintCheckpointMessage =
+    'SSO learning constraint checkpoint failed.'
   let firstFailedAssertion:
     | {
         caseOrdinal: number
@@ -175,9 +177,18 @@ export const sanitizePhase7VitestReport = (
           text: message.slice(0, 8192),
           truncated: message.length > 8192
         }))
-      const errorClass = messages.flatMap(({ text }) =>
-        errorClasses.filter((name) => text.startsWith(`${name}:`))
-      )[0]
+      const errorClass =
+        messages.flatMap(({ text }) =>
+          errorClasses.filter((name) => text.startsWith(`${name}:`))
+        )[0] ??
+        (messages.some(
+          ({ text }) =>
+            text === learningConstraintCheckpointMessage ||
+            text.startsWith(`${learningConstraintCheckpointMessage}\n`) ||
+            text.startsWith(`${learningConstraintCheckpointMessage}\r\n`)
+        )
+          ? 'TypeError'
+          : undefined)
       // Text tokens only, never a claim about a structured PostgreSQL error code.
       const recognizedSqlstates = sqlstates.filter((code) =>
         messages.some(({ text, truncated }) => {
