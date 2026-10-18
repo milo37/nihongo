@@ -124,6 +124,79 @@ export const sanitizePhase7VitestReport = (
 ) => {
   const safeCount = (value: number | undefined) =>
     Number.isSafeInteger(value) && (value ?? -1) >= 0 ? value : null
+  const errorClasses = ['AssertionError', 'TypeError', 'Error'] as const
+  const sqlstates = ['23503', '23514', '42501'] as const
+  let firstFailedAssertion:
+    | {
+        caseOrdinal: number
+        errorClass?: (typeof errorClasses)[number]
+        recognizedSqlstates?: (typeof sqlstates)[number][]
+      }
+    | undefined
+  const fileResult = result.testResults?.[0]
+  const assertions = fileResult?.assertionResults
+  if (
+    testFile === phase7SsoTestFile &&
+    result.numTotalTests === 36 &&
+    result.numFailedTests === 1 &&
+    Array.isArray(result.testResults) &&
+    result.testResults.length === 1 &&
+    fileResult &&
+    typeof fileResult.name === 'string' &&
+    normalizeResultPath(fileResult.name) === phase7SsoTestFile &&
+    fileResult.status === 'failed' &&
+    !fileResult.failureMessage &&
+    !fileResult.message &&
+    Array.isArray(fileResult.assertionResults) &&
+    assertions?.length === 36 &&
+    assertions.every(
+      (assertion) =>
+        assertion &&
+        typeof assertion === 'object' &&
+        ['passed', 'failed', 'skipped', 'pending', 'todo', 'disabled'].includes(
+          assertion.status ?? ''
+        )
+    )
+  ) {
+    const failed = assertions.flatMap((assertion, index) =>
+      assertion.status === 'failed' ? [{ assertion, index }] : []
+    )
+    if (failed.length === 1) {
+      const { assertion, index } = failed[0]!
+      const messages = (
+        Array.isArray(assertion.failureMessages)
+          ? assertion.failureMessages.slice(0, 3)
+          : []
+      )
+        .filter(
+          (message: unknown): message is string => typeof message === 'string'
+        )
+        .map((message) => ({
+          text: message.slice(0, 8192),
+          truncated: message.length > 8192
+        }))
+      const errorClass = messages.flatMap(({ text }) =>
+        errorClasses.filter((name) => text.startsWith(`${name}:`))
+      )[0]
+      // Text tokens only, never a claim about a structured PostgreSQL error code.
+      const recognizedSqlstates = sqlstates.filter((code) =>
+        messages.some(({ text, truncated }) => {
+          const pattern = new RegExp(
+            `(?:^|[^A-Za-z0-9_])${code}(?=$|[^A-Za-z0-9_])`,
+            'gu'
+          )
+          return [...text.matchAll(pattern)].some(
+            (match) => !truncated || match.index + match[0].length < text.length
+          )
+        })
+      )
+      firstFailedAssertion = {
+        caseOrdinal: index + 1,
+        ...(errorClass ? { errorClass } : {}),
+        ...(recognizedSqlstates.length > 0 ? { recognizedSqlstates } : {})
+      }
+    }
+  }
   return {
     schemaVersion: 1,
     testFile: phase7SingleTestFiles.includes(testFile)
@@ -141,6 +214,7 @@ export const sanitizePhase7VitestReport = (
         environment.PHASE7_DEVELOPMENT_APP_DATABASE_URL?.trim()
       )
     },
+    ...(firstFailedAssertion ? { firstFailedAssertion } : {}),
     errors: (result.testResults ?? [])
       .flatMap(({ failureMessage, message }) => [failureMessage, message])
       .filter(
@@ -165,7 +239,7 @@ interface VitestJsonResult {
     readonly status?: string
     readonly assertionResults?: ReadonlyArray<{
       readonly fullName?: string
-      readonly failureMessages?: readonly string[]
+      readonly failureMessages?: readonly string[] | null
       readonly status?: string
     }>
   }>

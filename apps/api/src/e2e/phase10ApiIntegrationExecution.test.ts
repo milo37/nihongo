@@ -418,3 +418,351 @@ describe('Phase 7 opt-in foundation execution', () => {
     }
   )
 })
+
+describe('Phase 7 bounded SSO first failed assertion', () => {
+  type Mutable<T> = T extends readonly (infer U)[]
+    ? Mutable<U>[]
+    : T extends object
+      ? { -readonly [P in keyof T]: Mutable<T[P]> }
+      : T
+  type Report = Mutable<Parameters<typeof sanitizePhase7VitestReport>[0]>
+  const canonical = (): Report => ({
+    numTotalTests: 36,
+    numPassedTests: 5,
+    numFailedTests: 1,
+    numPendingTests: 0,
+    numTodoTests: 0,
+    testResults: [
+      {
+        name: '/synthetic/apps/api/' + phase7SsoTestFile,
+        status: 'failed',
+        message: '',
+        assertionResults: Array.from({ length: 36 }, (_, index) => ({
+          status: index === 5 ? 'failed' : index < 5 ? 'passed' : 'pending',
+          fullName: 'private-name',
+          failureMessages:
+            index === 5
+              ? ['AssertionError: private-message code 23514 private-stack']
+              : null
+        }))
+      }
+    ]
+  })
+  const file = (report: Report) => report.testResults![0]!
+  const assertion = (report: Report) => file(report).assertionResults![5]!
+
+  it('adds only ordinal6, fixed prefix class and canonical allowlisted text tokens', () => {
+    const input = canonical()
+    const target = assertion(input)
+    Object.assign(target, {
+      title: 'private-title',
+      ancestorTitles: ['private-ancestor'],
+      name: 'arbitrary-class',
+      stack: 'private-stack',
+      failureMessages: [
+        'AssertionError: private-message 42501 23514 23503 23514 42P01',
+        'postgres://private:private-password@private/db?token=private-secret'
+      ]
+    })
+    const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
+    expect(report).toEqual({
+      schemaVersion: 1,
+      testFile: phase7SsoTestFile,
+      total: 36,
+      passed: 5,
+      failed: 1,
+      pending: 0,
+      todo: 0,
+      dependenciesPresent: {
+        adminWrapper: false,
+        legacyWrapper: false,
+        developmentWrapper: false
+      },
+      errors: [],
+      firstFailedAssertion: {
+        caseOrdinal: 6,
+        errorClass: 'AssertionError',
+        recognizedSqlstates: ['23503', '23514', '42501']
+      }
+    })
+    expect(JSON.stringify(report)).not.toMatch(
+      /private|arbitrary|42P01|postgres:/
+    )
+  })
+
+  it.each([
+    [
+      'wrong path',
+      (r: Report) => {
+        file(r).name = 'src/db/other.test.ts'
+      }
+    ],
+    [
+      'missing path',
+      (r: Report) => {
+        delete file(r).name
+      }
+    ],
+    [
+      'parent path',
+      (r: Report) => {
+        file(r).name = '../' + phase7SsoTestFile
+      }
+    ],
+    [
+      'wrong total',
+      (r: Report) => {
+        r.numTotalTests = 35
+      }
+    ],
+    [
+      'short assertions',
+      (r: Report) => {
+        file(r).assertionResults = file(r).assertionResults!.slice(1)
+      }
+    ],
+    [
+      'long assertions',
+      (r: Report) => {
+        file(r).assertionResults = [
+          ...file(r).assertionResults!,
+          { status: 'pending' }
+        ]
+      }
+    ],
+    [
+      'missing assertions',
+      (r: Report) => {
+        delete file(r).assertionResults
+      }
+    ],
+    [
+      'multiple failures',
+      (r: Report) => {
+        Object.assign(file(r).assertionResults![7]!, { status: 'failed' })
+      }
+    ],
+    [
+      'zero failed count',
+      (r: Report) => {
+        r.numFailedTests = 0
+      }
+    ],
+    [
+      'multiple failed count',
+      (r: Report) => {
+        r.numFailedTests = 2
+      }
+    ],
+    [
+      'no failed assertion',
+      (r: Report) => {
+        Object.assign(assertion(r), { status: 'pending' })
+      }
+    ],
+    [
+      'multiple file results',
+      (r: Report) => {
+        r.testResults = [...r.testResults!, file(r)]
+      }
+    ],
+    [
+      'unknown assertion status',
+      (r: Report) => {
+        Object.assign(file(r).assertionResults![8]!, { status: 'arbitrary' })
+      }
+    ],
+    [
+      'success file',
+      (r: Report) => {
+        file(r).status = 'passed'
+      }
+    ],
+    [
+      'collection failure',
+      (r: Report) => {
+        file(r).message = 'Error: Cannot find module private-module'
+      }
+    ]
+  ])('omits metadata for noncanonical %s', (_label, mutate) => {
+    const input = canonical()
+    mutate(input)
+    const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
+    expect(report).not.toHaveProperty('firstFailedAssertion')
+    if (_label === 'collection failure') {
+      expect(report.errors).toEqual([
+        { diagnosticId: 'MODULE_DEPENDENCY_MISSING', location: 'module' }
+      ])
+    }
+  })
+
+  it('keeps success, foundation and arbitrary selector shapes unchanged', () => {
+    const success = canonical()
+    success.numFailedTests = 0
+    success.numPassedTests = 36
+    file(success).status = 'passed'
+    file(success).assertionResults = Array.from({ length: 36 }, () => ({
+      status: 'passed',
+      failureMessages: null
+    }))
+    for (const [input, selected] of [
+      [success, phase7SsoTestFile],
+      [canonical(), phase7DbFoundationTestFile],
+      [canonical(), '../private-file']
+    ] as const) {
+      expect(sanitizePhase7VitestReport(input, selected)).not.toHaveProperty(
+        'firstFailedAssertion'
+      )
+    }
+  })
+
+  it.each([
+    { failureMessages: null },
+    { failureMessages: undefined },
+    { failureMessages: ['arbitrary-class: private-secret 42P01'] },
+    {
+      failureMessages: [
+        'private-prefix AssertionError: 123514 23514X X42501 _23503 42501_'
+      ]
+    },
+    { failureMessages: ['private-message\nError: private-stack'] }
+  ])(
+    'omits unmatched class and tokens without copying raw fields: %j',
+    ({ failureMessages }) => {
+      const input = canonical()
+      Object.assign(assertion(input), { failureMessages })
+      expect(
+        sanitizePhase7VitestReport(input, phase7SsoTestFile)
+          .firstFailedAssertion
+      ).toEqual({ caseOrdinal: 6 })
+    }
+  )
+
+  it.each(['AssertionError', 'TypeError', 'Error'] as const)(
+    'classifies only the fixed %s prefix',
+    (name) => {
+      const input = canonical()
+      Object.assign(assertion(input), {
+        failureMessages: [`${name}: private-secret`]
+      })
+      expect(
+        sanitizePhase7VitestReport(input, phase7SsoTestFile)
+          .firstFailedAssertion
+      ).toEqual({ caseOrdinal: 6, errorClass: name })
+    }
+  )
+
+  it('examines at most three messages and 8192 characters without a truncated token match', () => {
+    const input = canonical()
+    const messages = [
+      'private-secret',
+      ' '.repeat(8187) + '23514X',
+      ' '.repeat(8192) + 'Error: 42501'
+    ]
+    Object.defineProperty(messages, 3, {
+      get: () => {
+        throw new Error('fourth message accessed')
+      }
+    })
+    Object.assign(assertion(input), { failureMessages: messages })
+    expect(
+      sanitizePhase7VitestReport(input, phase7SsoTestFile).firstFailedAssertion
+    ).toEqual({ caseOrdinal: 6 })
+  })
+
+  it('fails closed on null assertions and tolerates malformed failureMessages', () => {
+    const input = canonical()
+    const malformed = JSON.parse(JSON.stringify(input)) as Report
+    Object.assign(file(malformed), {
+      assertionResults: [null, ...file(input).assertionResults!.slice(1)]
+    })
+    expect(
+      sanitizePhase7VitestReport(malformed, phase7SsoTestFile)
+    ).not.toHaveProperty('firstFailedAssertion')
+    for (const failureMessages of [42, {}, [null, 42, {}]]) {
+      Object.assign(assertion(input), { failureMessages })
+      expect(
+        sanitizePhase7VitestReport(input, phase7SsoTestFile)
+          .firstFailedAssertion
+      ).toEqual({ caseOrdinal: 6 })
+    }
+  })
+
+  it.each([1, 36])(
+    'keeps the marked assertion ordinal within 1..36: %s',
+    (ordinal) => {
+      const input = canonical()
+      Object.assign(assertion(input), { status: 'pending' })
+      Object.assign(file(input).assertionResults![ordinal - 1]!, {
+        status: 'failed',
+        failureMessages: null
+      })
+      expect(
+        sanitizePhase7VitestReport(input, phase7SsoTestFile)
+          .firstFailedAssertion
+      ).toEqual({ caseOrdinal: ordinal })
+    }
+  )
+
+  it('recognizes allowlisted tokens without inventing an arbitrary error class', () => {
+    const input = canonical()
+    Object.assign(assertion(input), {
+      failureMessages: ['PrivateDatabaseError: private-secret 23514']
+    })
+    expect(
+      sanitizePhase7VitestReport(input, phase7SsoTestFile).firstFailedAssertion
+    ).toEqual({ caseOrdinal: 6, recognizedSqlstates: ['23514'] })
+  })
+
+  it('preserves canonical bounded metadata and collection diagnostics while deleting the raw temp report', async () => {
+    const output = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    const onCollectionDiagnostic = vi.fn()
+    let rawPath = ''
+    let safePath = ''
+    try {
+      await expect(
+        runPhase10ManifestVitestFile({
+          testFile: phase7SsoTestFile,
+          preserveSanitizedReport: true,
+          onCollectionDiagnostic,
+          environment: {
+            AUTH_GATEWAY_DATABASE_URL: 'private-gateway',
+            PHASE7_ADMIN_DATABASE_URL: 'private-admin',
+            PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
+            PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
+            PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
+          },
+          runCommand: async (_command, args) => {
+            rawPath = args
+              .find((arg) => arg.startsWith('--outputFile='))!
+              .slice('--outputFile='.length)
+            await writeFile(rawPath, JSON.stringify(canonical()))
+            throw new Error('private-failure')
+          }
+        })
+      ).rejects.toThrow('process failed')
+      await expect(stat(rawPath)).rejects.toThrow()
+      safePath = (
+        JSON.parse(String(output.mock.calls[0]?.[0])) as { reportFile: string }
+      ).reportFile
+      expect((await stat(safePath)).mode & 0o777).toBe(0o600)
+      const safe = await readFile(safePath, 'utf8')
+      expect(safe).not.toMatch(/private/)
+      expect(JSON.parse(safe).firstFailedAssertion).toEqual({
+        caseOrdinal: 6,
+        errorClass: 'AssertionError',
+        recognizedSqlstates: ['23514']
+      })
+      expect(onCollectionDiagnostic).toHaveBeenCalledWith({
+        stage: 'unknown',
+        name: 'UNKNOWN_REDACTED',
+        code: 'UNKNOWN_REDACTED'
+      })
+    } finally {
+      output.mockRestore()
+      if (safePath) await rm(safePath, { force: true })
+    }
+  })
+})
