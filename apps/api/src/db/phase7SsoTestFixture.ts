@@ -276,10 +276,6 @@ export const createSsoDbHarness = () => {
       [sqId, sessionId, q.questionId, q.versionId]
     )
     await owner.query(
-      `UPDATE "StudySession" SET status='SUBMITTED',"submittedAt"=transaction_timestamp(),"durationSec"=0,"submissionHash"=repeat('a',64) WHERE id=$1`,
-      [sessionId]
-    )
-    await owner.query(
       `INSERT INTO "StudyAnswer" (id,"studySessionQuestionId","questionVersionId","selectedOptionId","isCorrect","elapsedSec","gradingVersion","answeredAt","gradedAt") VALUES ($1,$2,$3,NULL,false,0,'server-grading-v1',transaction_timestamp(),transaction_timestamp())`,
       [answerId, sqId, q.versionId]
     )
@@ -306,6 +302,10 @@ export const createSsoDbHarness = () => {
         sessionId,
         answerId
       ]
+    )
+    await owner.query(
+      `UPDATE "StudySession" SET status='SUBMITTED',"submittedAt"=transaction_timestamp(),"durationSec"=0,"submissionHash"=repeat('a',64) WHERE id=$1`,
+      [sessionId]
     )
     await owner.query(
       `INSERT INTO "Bookmark" (id,"userId","questionId") VALUES ($1,$2,$3)`,
