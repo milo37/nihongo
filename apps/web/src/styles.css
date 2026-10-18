@@ -148,10 +148,11 @@
   color: rgb(var(--color-ink));
 }
 
-.app-brand > svg {
-  width: 22px;
-  height: 22px;
-  color: rgb(var(--color-brand));
+.app-brand-lockup {
+  display: block;
+  width: 160px;
+  min-width: 160px;
+  height: auto;
 }
 
 .app-primary-navigation {

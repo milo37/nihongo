@@ -268,8 +268,13 @@ export const Layout = ({ children }: LayoutProps): ReactElement => {
             label={navigationT('primary')}
             brand={
               <Link className="app-brand" to="/" onClick={closeMenu}>
-                <Icon name="book-open" />
-                <strong>{commonT('appName')}</strong>
+                <img
+                  className="app-brand-lockup"
+                  src="/brand/harumaru-lockup.svg"
+                  width={770}
+                  height={210}
+                  alt={commonT('appName')}
+                />
               </Link>
             }
             items={navigationItems.map((item) => ({
@@ -289,8 +294,13 @@ export const Layout = ({ children }: LayoutProps): ReactElement => {
                 to="/"
                 onClick={closeMenu}
               >
-                <Icon name="book-open" />
-                <strong>{commonT('appName')}</strong>
+                <img
+                  className="app-brand-lockup"
+                  src="/brand/harumaru-lockup.svg"
+                  width={770}
+                  height={210}
+                  alt={commonT('appName')}
+                />
               </Link>
 
               <div className="app-account">
