@@ -126,11 +126,10 @@ export const sanitizePhase7VitestReport = (
     Number.isSafeInteger(value) && (value ?? -1) >= 0 ? value : null
   const errorClasses = ['AssertionError', 'TypeError', 'Error'] as const
   const sqlstates = ['23503', '23514', '42501'] as const
-  const learningConstraintCheckpointMessage =
-    'SSO learning constraint checkpoint failed.'
   let firstFailedAssertion:
     | {
         caseOrdinal: number
+        stageOrdinal?: number
         errorClass?: (typeof errorClasses)[number]
         recognizedSqlstates?: (typeof sqlstates)[number][]
       }
@@ -177,18 +176,20 @@ export const sanitizePhase7VitestReport = (
           text: message.slice(0, 8192),
           truncated: message.length > 8192
         }))
-      const errorClass =
-        messages.flatMap(({ text }) =>
-          errorClasses.filter((name) => text.startsWith(`${name}:`))
-        )[0] ??
-        (messages.some(
-          ({ text }) =>
-            text === learningConstraintCheckpointMessage ||
-            text.startsWith(`${learningConstraintCheckpointMessage}\n`) ||
-            text.startsWith(`${learningConstraintCheckpointMessage}\r\n`)
-        )
-          ? 'TypeError'
-          : undefined)
+      const stageMatch =
+        index === 5
+          ? messages
+              .map(({ text }) =>
+                /^(?:TypeError: )?SSO ADMIN_FRESH stage checkpoint (10|[1-9]) failed\.(?:\r?\n|$)/u.exec(
+                  text
+                )
+              )
+              .find((match) => match !== null)
+          : undefined
+      const stageOrdinal = stageMatch ? Number(stageMatch[1]) : undefined
+      const errorClass = messages.flatMap(({ text }) =>
+        errorClasses.filter((name) => text.startsWith(`${name}:`))
+      )[0]
       // Text tokens only, never a claim about a structured PostgreSQL error code.
       const recognizedSqlstates = sqlstates.filter((code) =>
         messages.some(({ text, truncated }) => {
@@ -203,8 +204,12 @@ export const sanitizePhase7VitestReport = (
       )
       firstFailedAssertion = {
         caseOrdinal: index + 1,
-        ...(errorClass ? { errorClass } : {}),
-        ...(recognizedSqlstates.length > 0 ? { recognizedSqlstates } : {})
+        ...(stageOrdinal
+          ? { stageOrdinal }
+          : {
+              ...(errorClass ? { errorClass } : {}),
+              ...(recognizedSqlstates.length > 0 ? { recognizedSqlstates } : {})
+            })
       }
     }
   }

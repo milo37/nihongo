@@ -652,30 +652,58 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     }
   )
 
-  it('classifies only the exact source-owned constraint checkpoint first line', () => {
+  it.each([
+    ['SSO ADMIN_FRESH stage checkpoint 1 failed.', 1],
+    [
+      'TypeError: SSO ADMIN_FRESH stage checkpoint 10 failed.\nprivate-stack 23514',
+      10
+    ]
+  ] as const)(
+    'retains only the bounded ordinal6 stage from %s',
+    (failureMessage, stageOrdinal) => {
+      const input = canonical()
+      Object.assign(assertion(input), { failureMessages: [failureMessage] })
+      const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
+      expect(report.firstFailedAssertion).toEqual({
+        caseOrdinal: 6,
+        stageOrdinal
+      })
+      expect(JSON.stringify(report)).not.toMatch(
+        /ADMIN_FRESH stage|private-stack|23514/
+      )
+    }
+  )
+
+  it.each([
+    'SSO ADMIN_FRESH stage checkpoint 0 failed.',
+    'SSO ADMIN_FRESH stage checkpoint 11 failed.',
+    'SSO ADMIN_FRESH stage checkpoint 01 failed.',
+    'SSO ADMIN_FRESH stage checkpoint 1 failed. private-secret'
+  ])(
+    'rejects an out-of-range or suffixed stage marker: %s',
+    (failureMessage) => {
+      const input = canonical()
+      Object.assign(assertion(input), { failureMessages: [failureMessage] })
+      expect(
+        sanitizePhase7VitestReport(input, phase7SsoTestFile)
+          .firstFailedAssertion
+      ).toEqual({ caseOrdinal: 6 })
+    }
+  )
+
+  it('does not attach a stage marker outside ordinal6', () => {
     const input = canonical()
     Object.assign(assertion(input), {
-      failureMessages: [
-        'SSO learning constraint checkpoint failed.\n    at private-stack'
-      ]
+      status: 'pending',
+      failureMessages: null
     })
-    const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
-    expect(report.firstFailedAssertion).toEqual({
-      caseOrdinal: 6,
-      errorClass: 'TypeError'
-    })
-    expect(JSON.stringify(report)).not.toMatch(
-      /SSO learning constraint checkpoint|private-stack/
-    )
-
-    Object.assign(assertion(input), {
-      failureMessages: [
-        'SSO learning constraint checkpoint failed. private-secret'
-      ]
+    Object.assign(file(input).assertionResults![6]!, {
+      status: 'failed',
+      failureMessages: ['SSO ADMIN_FRESH stage checkpoint 5 failed.']
     })
     expect(
       sanitizePhase7VitestReport(input, phase7SsoTestFile).firstFailedAssertion
-    ).toEqual({ caseOrdinal: 6 })
+    ).toEqual({ caseOrdinal: 7 })
   })
 
   it('examines at most three messages and 8192 characters without a truncated token match', () => {
