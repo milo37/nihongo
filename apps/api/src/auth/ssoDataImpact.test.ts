@@ -34,19 +34,24 @@ describe('SSO aggregate diagnostic and owned transaction port', () => {
   it('consumes through the owned function with parameterized digests', async () => {
     const $queryRawUnsafe = vi.fn().mockResolvedValue([
       {
+        provider: 'google',
         nonce: 'n'.repeat(43),
         codeVerifier: 'v'.repeat(86),
         callbackURL: '/bookmarks'
       }
     ])
     const store = createSsoTransactionStore({ $queryRawUnsafe })
-    expect(await store.consume('state-digest', 'browser-digest')).toEqual({
+    expect(
+      await store.consume('state-digest', 'browser-digest', 'google')
+    ).toEqual({
+      provider: 'google',
       nonce: 'n'.repeat(43),
       codeVerifier: 'v'.repeat(86),
       callbackURL: '/bookmarks'
     })
     expect($queryRawUnsafe).toHaveBeenCalledWith(
-      'SELECT * FROM "phase7_consume_sso_transaction"($1, $2)',
+      'SELECT * FROM "phase7_consume_sso_transaction_v2"($1, $2, $3)',
+      'google',
       'state-digest',
       'browser-digest'
     )
@@ -54,14 +59,15 @@ describe('SSO aggregate diagnostic and owned transaction port', () => {
   it('fails closed on malformed/multiple transaction results or failed creation', async () => {
     const $queryRawUnsafe = vi.fn().mockResolvedValue([{ unexpected: true }])
     const store = createSsoTransactionStore({ $queryRawUnsafe })
-    await expect(store.consume('s', 'b')).rejects.toThrow()
+    await expect(store.consume('s', 'b', 'google')).rejects.toThrow()
     $queryRawUnsafe.mockResolvedValueOnce([{}, {}])
-    await expect(store.consume('s', 'b')).rejects.toThrow()
+    await expect(store.consume('s', 'b', 'google')).rejects.toThrow()
     $queryRawUnsafe.mockResolvedValueOnce([])
-    expect(await store.consume('s', 'b')).toBeNull()
+    expect(await store.consume('s', 'b', 'google')).toBeNull()
     $queryRawUnsafe.mockResolvedValueOnce([{ created: false }])
     await expect(
       store.create({
+        provider: 'google',
         stateDigest: 's',
         bindingDigest: 'b',
         nonce: 'n',

@@ -1,31 +1,19 @@
 import { createHash, randomBytes } from 'node:crypto'
+import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
+import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
+export { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 
 export const SSO_TRANSACTION_SECONDS = 600
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/u
-const FILTER_KEYS = new Set([
-  'level',
-  'subject',
-  'type',
-  'status',
-  'tagId',
-  'difficulty',
-  'mode',
-  'page',
-  'pageSize',
-  'sort',
-  'search'
-])
-const BUSINESS_PATH =
-  /^\/(?:$|dashboard$|bookmarks$|practice(?:\/(?:session|result)\/[A-Za-z0-9-]+)?$|wrong-notes(?:\/(?:history|[A-Za-z0-9-]+))?$|admin\/questions(?:\/[A-Za-z0-9/-]+)?$)/u
-
 export interface SsoVerifiedIdentity {
-  readonly provider: 'google'
+  readonly provider: SsoProviderId
   readonly accountId: string
   readonly email: string
   readonly name: string
 }
 
 export interface SsoTransaction {
+  readonly provider: SsoProviderId
   readonly stateDigest: string
   readonly bindingDigest: string
   readonly nonce: string
@@ -38,7 +26,8 @@ export interface SsoTransactionStore {
   /** Atomically deletes and returns an unexpired, browser-bound transaction. */
   readonly consume: (
     stateDigest: string,
-    bindingDigest: string
+    bindingDigest: string,
+    provider: SsoProviderId
   ) => Promise<Omit<SsoTransaction, 'stateDigest' | 'bindingDigest'> | null>
 }
 
@@ -77,35 +66,6 @@ const hasControlOrSpace = (value: string): boolean =>
       character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127
   )
 
-export const safeSsoReturnPath = (value: unknown): string => {
-  if (
-    typeof value !== 'string' ||
-    value.length > 2048 ||
-    !value.startsWith('/') ||
-    value.startsWith('//') ||
-    /[\\#]/u.test(value) ||
-    hasControlOrSpace(value)
-  )
-    return '/'
-  try {
-    const parsed = new URL(value, 'https://return.invalid')
-    if (
-      parsed.origin !== 'https://return.invalid' ||
-      parsed.pathname !== value.split('?')[0] ||
-      !BUSINESS_PATH.test(parsed.pathname)
-    )
-      return '/'
-    const seen = new Set<string>()
-    for (const key of parsed.searchParams.keys()) {
-      if (!FILTER_KEYS.has(key) || seen.has(key)) return '/'
-      seen.add(key)
-    }
-    return parsed.pathname + parsed.search
-  } catch {
-    return '/'
-  }
-}
-
 export const ssoTransactionDigest = (value: string): string =>
   createHash('sha256').update(value, 'utf8').digest('hex')
 
@@ -114,22 +74,27 @@ export const ssoBindingCookieName = (production: boolean): string =>
 
 export const createSsoBindingCookie = (
   binding: string | null,
-  production: boolean
+  production: boolean,
+  provider: SsoProviderId = 'google'
 ): string => {
   if (binding !== null && !TOKEN_PATTERN.test(binding)) {
     throw new TypeError('Invalid SSO browser binding.')
   }
-  return `${ssoBindingCookieName(production)}=${binding ?? ''}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${binding === null ? 0 : SSO_TRANSACTION_SECONDS}${production ? '; Secure' : ''}`
+  return `${ssoBindingCookieName(production || provider === 'apple')}=${binding ?? ''}; Path=/; HttpOnly; SameSite=${provider === 'apple' ? 'None' : 'Lax'}; Max-Age=${binding === null ? 0 : SSO_TRANSACTION_SECONDS}${production || provider === 'apple' ? '; Secure' : ''}`
 }
 
 export const readSsoBindingCookie = (
   headers: Headers,
-  production: boolean
+  production: boolean,
+  provider: SsoProviderId = 'google'
 ): string | null => {
   const matches = (headers.get('Cookie') ?? '')
     .split(';')
     .map((part) => part.trim().split('='))
-    .filter(([name]) => name === ssoBindingCookieName(production))
+    .filter(
+      ([name]) =>
+        name === ssoBindingCookieName(production || provider === 'apple')
+    )
   if (matches.length !== 1 || matches[0]?.length !== 2) return null
   const value = matches[0]?.[1]
   return value && TOKEN_PATTERN.test(value) ? value : null
@@ -137,10 +102,12 @@ export const readSsoBindingCookie = (
 
 export const createSsoLoginService = ({
   provider,
-  store
+  store,
+  providerId = 'google'
 }: {
   provider: SsoProvider | undefined
   store: SsoTransactionStore
+  providerId?: SsoProviderId
 }) => ({
   start: async (callbackURL: unknown) => {
     if (!provider) throw new SsoUnavailableError()
@@ -156,8 +123,13 @@ export const createSsoLoginService = ({
       })
       const target = new URL(url)
       if (
-        target.origin !== 'https://accounts.google.com' ||
-        target.pathname !== '/o/oauth2/v2/auth' ||
+        (providerId === 'google'
+          ? target.origin !== 'https://accounts.google.com' ||
+            target.pathname !== '/o/oauth2/v2/auth'
+          : target.origin !== 'https://appleid.apple.com' ||
+            target.pathname !== '/auth/authorize' ||
+            target.searchParams.get('response_mode') !== 'form_post' ||
+            target.searchParams.get('response_type') !== 'code') ||
         target.username ||
         target.password ||
         target.hash ||
@@ -170,6 +142,7 @@ export const createSsoLoginService = ({
         throw new SsoUnavailableError()
       }
       await store.create({
+        provider: providerId,
         stateDigest: ssoTransactionDigest(state),
         bindingDigest: ssoTransactionDigest(binding),
         nonce,
@@ -215,12 +188,13 @@ export const createSsoLoginService = ({
     try {
       transaction = await store.consume(
         ssoTransactionDigest(state),
-        ssoTransactionDigest(binding)
+        ssoTransactionDigest(binding),
+        providerId
       )
     } catch {
       return { kind: 'FAILED', callbackURL: '/' }
     }
-    if (!transaction) return invalid
+    if (!transaction || transaction.provider !== providerId) return invalid
     const callbackURL = safeSsoReturnPath(transaction.callbackURL)
     if (error !== null)
       return {
@@ -234,7 +208,7 @@ export const createSsoLoginService = ({
         nonce: transaction.nonce,
         codeVerifier: transaction.codeVerifier
       })
-      return identity
+      return identity && identity.provider === providerId
         ? { kind: 'IDENTITY_VERIFIED', identity, callbackURL }
         : { kind: 'FAILED', callbackURL }
     } catch {

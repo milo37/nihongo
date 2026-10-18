@@ -21,12 +21,19 @@ const fixture = () => {
     create: vi.fn(async (transaction: SsoTransaction) => {
       transactions.set(transaction.stateDigest, transaction)
     }),
-    consume: vi.fn(async (state: string, binding: string) => {
-      const transaction = transactions.get(state)
-      if (!transaction || transaction.bindingDigest !== binding) return null
-      transactions.delete(state)
-      return transaction
-    })
+    consume: vi.fn(
+      async (state: string, binding: string, provider = 'google') => {
+        const transaction = transactions.get(state)
+        if (
+          !transaction ||
+          transaction.bindingDigest !== binding ||
+          transaction.provider !== provider
+        )
+          return null
+        transactions.delete(state)
+        return transaction
+      }
+    )
   } satisfies SsoTransactionStore
   const provider = {
     authorizationURL: vi.fn(async ({ state, nonce, codeVerifier }) => {

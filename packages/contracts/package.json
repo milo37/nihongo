@@ -182,6 +182,10 @@
     "./testing/study-submit-version-conformance": {
       "types": "./dist/testing/study-submit-version-conformance.d.ts",
       "import": "./dist/testing/study-submit-version-conformance.js"
+    },
+    "./auth/sign-in-social": {
+      "types": "./dist/auth/sign-in-social.d.ts",
+      "import": "./dist/auth/sign-in-social.js"
     }
   },
   "scripts": {
