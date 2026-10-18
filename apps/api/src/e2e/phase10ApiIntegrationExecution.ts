@@ -12,6 +12,13 @@ import { phase10ApiIntegrationManifest } from './phase10ApiIntegrationManifest.j
 export const phase7DbFoundationTestFile =
   'src/db/phase7AdminCmsFoundation.integration.test.ts' as const
 
+export const phase7SsoTestFile = 'src/db/phase7Sso.integration.test.ts' as const
+
+const phase7SingleTestFiles: readonly string[] = [
+  phase7DbFoundationTestFile,
+  phase7SsoTestFile
+]
+
 export const selectPhase7DbIntegrationFiles = (
   defaultFiles: readonly string[],
   environment: NodeJS.ProcessEnv
@@ -19,7 +26,7 @@ export const selectPhase7DbIntegrationFiles = (
   const selected = environment.PHASE7_DB_SINGLE_TEST
   if (selected === undefined) return defaultFiles
   if (
-    selected !== phase7DbFoundationTestFile ||
+    !phase7SingleTestFiles.includes(selected) ||
     !defaultFiles.includes(selected)
   ) {
     throw new Error('Phase 7 single test is outside the fixed allowlist.')
@@ -206,9 +213,9 @@ export const runPhase10ManifestVitestFile = async ({
   readonly preserveSanitizedReport?: boolean
   readonly onCollectionDiagnostic?: (diagnostic: CollectionDiagnostic) => void
 }): Promise<number> => {
-  if (preserveSanitizedReport && testFile !== phase7DbFoundationTestFile) {
+  if (preserveSanitizedReport && !phase7SingleTestFiles.includes(testFile)) {
     throw new Error(
-      'Phase 7 report preservation requires the fixed foundation file.'
+      'Phase 7 report preservation requires a fixed allowlisted file.'
     )
   }
   if (preserveSanitizedReport) {
@@ -238,6 +245,14 @@ export const runPhase10ManifestVitestFile = async ({
           '--config',
           'vitest.integration.config.ts',
           testFile,
+          ...(testFile === phase7SsoTestFile
+            ? [
+                '--maxWorkers=1',
+                '--no-file-parallelism',
+                '--bail=1',
+                '--retry=0'
+              ]
+            : []),
           '--reporter=json',
           `--outputFile=${outputFile}`
         ],

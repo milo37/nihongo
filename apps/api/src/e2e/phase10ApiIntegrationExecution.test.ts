@@ -2,6 +2,7 @@ import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
 import {
   phase7DbFoundationTestFile,
+  phase7SsoTestFile,
   runPhase10ManifestVitestFile,
   sanitizePhase7VitestReport,
   selectPhase7DbIntegrationFiles
@@ -19,6 +20,31 @@ describe('Phase 7 opt-in foundation execution', () => {
     expect(() =>
       selectPhase7DbIntegrationFiles(files, {
         PHASE7_DB_SINGLE_TEST: '../secret'
+      })
+    ).toThrow('allowlist')
+  })
+
+  it('selects only the registered SSO file and rejects absent or expanded selectors', () => {
+    const files = [phase7DbFoundationTestFile, phase7SsoTestFile]
+    expect(
+      selectPhase7DbIntegrationFiles(files, {
+        PHASE7_DB_SINGLE_TEST: phase7SsoTestFile
+      })
+    ).toEqual([phase7SsoTestFile])
+    for (const selector of [
+      phase7SsoTestFile + ' other.ts',
+      'src/db/*.integration.test.ts',
+      '../' + phase7SsoTestFile
+    ]) {
+      expect(() =>
+        selectPhase7DbIntegrationFiles(files, {
+          PHASE7_DB_SINGLE_TEST: selector
+        })
+      ).toThrow('allowlist')
+    }
+    expect(() =>
+      selectPhase7DbIntegrationFiles([phase7DbFoundationTestFile], {
+        PHASE7_DB_SINGLE_TEST: phase7SsoTestFile
       })
     ).toThrow('allowlist')
   })
@@ -113,14 +139,21 @@ describe('Phase 7 opt-in foundation execution', () => {
     }
   )
 
-  it.each([false, true])(
-    'deletes raw JSON and preserves only opt-in sanitized failure evidence: %s',
-    async (preserve) => {
+  it.each([
+    [phase7DbFoundationTestFile, false],
+    [phase7DbFoundationTestFile, true],
+    [phase7SsoTestFile, false],
+    [phase7SsoTestFile, true]
+  ] as const)(
+    'deletes raw JSON and preserves only opt-in sanitized failure evidence: %s / %s',
+    async (testFile, preserve) => {
       let rawPath = ''
       const output = vi
         .spyOn(process.stdout, 'write')
         .mockImplementation(() => true)
       const environment = {
+        AUTH_GATEWAY_DATABASE_URL: 'private-gateway',
+        PHASE7_ADMIN_DATABASE_URL: 'private-admin',
         PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
         PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
         PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
@@ -128,11 +161,20 @@ describe('Phase 7 opt-in foundation execution', () => {
       try {
         await expect(
           runPhase10ManifestVitestFile({
-            testFile: phase7DbFoundationTestFile,
+            testFile,
             environment,
             preserveSanitizedReport: preserve,
             runCommand: async (_command, args, actualEnvironment) => {
               expect(actualEnvironment).toBe(environment)
+              if (testFile === phase7SsoTestFile)
+                expect(args).toEqual(
+                  expect.arrayContaining([
+                    '--maxWorkers=1',
+                    '--no-file-parallelism',
+                    '--bail=1',
+                    '--retry=0'
+                  ])
+                )
               rawPath = args
                 .find((arg) => arg.startsWith('--outputFile='))!
                 .slice('--outputFile='.length)

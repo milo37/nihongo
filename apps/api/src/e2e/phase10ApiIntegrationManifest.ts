@@ -47,6 +47,21 @@ export const phase10ApiIntegrationManifest = [
     isolation: 'dedicated Phase 7 API schema'
   },
   {
+    path: 'src/db/phase7Sso.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-sso',
+    order: 12,
+    databaseState: 'canonical43-sso-current-capability-active-canonical-65',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'AUTH_GATEWAY_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'existing runner-owned disposable Phase 7 schema; SQL-only provider proofs; no external OAuth'
+  },
+  {
     path: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-current',

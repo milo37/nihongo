@@ -130,10 +130,10 @@ const approvedPhase7Checksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존27·old35/36 checksum을 보존하고 revision2 교정과38/37 후보를 확인한다', () => {
+  it('기존39 migration의 순서와 모든 역사 prefix checksum을 보존하고 SSO4개를 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(39)
+    expect(manifest).toHaveLength(44)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedPrePhase7MigrationNames
     )
@@ -217,9 +217,41 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       checksum:
         '600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401'
     })
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 39))).toBe(
       '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1'
     )
+    expect(manifest.slice(39, 43)).toEqual([
+      {
+        name: '20261019090000_sso_login_transactions',
+        checksum:
+          'a68a52e08a30db120654c497b1b059988c58ce9a0a8986308a8b86354367ac14'
+      },
+      {
+        name: '20261019093000_sso_apple_google_providers',
+        checksum:
+          '0f61ba8fb08450688fdc7b0c00fe62d691c460a54181794aa0962af558ebb0cd'
+      },
+      {
+        name: '20261019100000_sso_identity_mapping',
+        checksum:
+          '7cb2e3fb66ba925799a2d71d68b1877c8e658a89128d17dd1b82c6bd382342ee'
+      },
+      {
+        name: '20261019103000_sso_admin_fresh',
+        checksum:
+          '7a7a2e4f6ea2b07eff7ad4a83cf9effe2872f66a1ad2c126a4e43f9c78c0bf4a'
+      }
+    ])
+    expect(digest(manifest.slice(0, 43))).toBe(
+      '42caeea63209fbc1c4a8d776e9d6b55453fc0a9db376119e997c623371cf7d72'
+    )
+    expect(manifest.slice(43)).toEqual([
+      {
+        name: '20261019110000_sso_admin_fresh_erasure_ownership',
+        checksum:
+          '3afe0b8d1024b0a160f0d5a706fce0e946c6d16471b6250f99ebf340923e1a64'
+      }
+    ])
   })
 
   it('Slice 3R은 append-only auth foundation과 partial live-intent fence를 선언한다', () => {
