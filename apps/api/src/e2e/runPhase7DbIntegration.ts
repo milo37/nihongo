@@ -1383,51 +1383,14 @@ const run = async (): Promise<void> => {
     ],
     migrationEnvironment
   )
-  const canonicalMigrationsPath = path.join(
-    repositoryRoot,
-    'apps/api/prisma/migrations'
-  )
-  const lastBootstrapMigration =
-    '20261009092000_phase7_n4_n2_revision2_digest_fix'
-  const migrationNames = readdirSync(canonicalMigrationsPath, {
-    withFileTypes: true
-  })
-    .filter(
-      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
-    )
-    .map((entry) => entry.name)
-    .sort()
-  if (
-    migrationNames.length !== 37 ||
-    migrationNames.at(-1) !== lastBootstrapMigration
-  ) {
-    throw new Error(
-      'Phase 7 canonical content migration prefix is inconsistent.'
-    )
-  }
-  const prefixMigrationsPath = mkdtempSync(
-    path.join(tmpdir(), 'nihongo-phase7-current37-')
-  )
-  try {
-    copyFileSync(
-      path.join(canonicalMigrationsPath, 'migration_lock.toml'),
-      path.join(prefixMigrationsPath, 'migration_lock.toml')
-    )
-    for (const name of migrationNames) {
-      cpSync(
-        path.join(canonicalMigrationsPath, name),
-        path.join(prefixMigrationsPath, name),
-        { recursive: true }
-      )
-    }
+  const deployPhase7Migrations = async (
+    environment: NodeJS.ProcessEnv
+  ): Promise<void> => {
     try {
       await runCommand(
         'pnpm',
         ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-        {
-          ...migrationEnvironment,
-          PHASE7_TEST_MIGRATIONS_PATH: prefixMigrationsPath
-        }
+        environment
       )
     } catch (error: unknown) {
       const failedMigration = await adminClient.query<{
@@ -1497,6 +1460,52 @@ const run = async (): Promise<void> => {
       }
       throw error
     }
+  }
+  const canonicalMigrationsPath = path.join(
+    repositoryRoot,
+    'apps/api/prisma/migrations'
+  )
+  const canonicalMigrationEnvironment: NodeJS.ProcessEnv = {
+    ...migrationEnvironment,
+    PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+  }
+  const lastBootstrapMigration =
+    '20261009092000_phase7_n4_n2_revision2_digest_fix'
+  const migrationNames = readdirSync(canonicalMigrationsPath, {
+    withFileTypes: true
+  })
+    .filter(
+      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
+    )
+    .map((entry) => entry.name)
+    .sort()
+  if (
+    migrationNames.length !== 37 ||
+    migrationNames.at(-1) !== lastBootstrapMigration
+  ) {
+    throw new Error(
+      'Phase 7 canonical content migration prefix is inconsistent.'
+    )
+  }
+  const prefixMigrationsPath = mkdtempSync(
+    path.join(tmpdir(), 'nihongo-phase7-current37-')
+  )
+  try {
+    copyFileSync(
+      path.join(canonicalMigrationsPath, 'migration_lock.toml'),
+      path.join(prefixMigrationsPath, 'migration_lock.toml')
+    )
+    for (const name of migrationNames) {
+      cpSync(
+        path.join(canonicalMigrationsPath, name),
+        path.join(prefixMigrationsPath, name),
+        { recursive: true }
+      )
+    }
+    await deployPhase7Migrations({
+      ...migrationEnvironment,
+      PHASE7_TEST_MIGRATIONS_PATH: prefixMigrationsPath
+    })
   } finally {
     rmSync(prefixMigrationsPath, { recursive: true, force: true })
   }
@@ -1592,15 +1601,11 @@ const run = async (): Promise<void> => {
   )
   await assertSeedWriteCount('65')
 
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-    migrationEnvironment
-  )
+  await deployPhase7Migrations(canonicalMigrationEnvironment)
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-    migrationEnvironment
+    canonicalMigrationEnvironment
   )
   await assertPhase7DatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
