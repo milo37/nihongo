@@ -1057,9 +1057,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const context = await h.prepare(f)
       const state = digest(),
         binding = digest()
-      await h.roleQuery(
+      const created = await h.roleQuery<{ created: boolean }>(
         'nihongo_auth_gateway',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS created',
         [
           f.provider,
           state,
@@ -1070,6 +1070,15 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           JSON.stringify(context)
         ]
       )
+      expect(created.rows).toEqual([{ created: true }])
+      expect(
+        (
+          await h.owner.query<{ count: number }>(
+            `SELECT count(*)::int AS count FROM "SsoAdminFreshTransaction" WHERE "stateDigest"=$1 AND "userId"=$2 AND context=$3::jsonb`,
+            [state, f.userId, JSON.stringify(context)]
+          )
+        ).rows
+      ).toEqual([{ count: 1 }])
       expect(
         (
           await h.roleQuery<{ erased: boolean }>(
