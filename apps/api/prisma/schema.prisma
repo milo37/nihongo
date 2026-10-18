@@ -988,3 +988,17 @@ model IdempotencyRecord {
 
   @@index([studySessionId, requestHash])
 }
+
+// Ephemeral authentication material: no browser or application-role table access.
+model SsoLoginTransaction {
+  stateDigest   String   @id @db.VarChar(64)
+  bindingDigest String   @db.VarChar(64)
+  provider      String   @default("google") @db.VarChar(32)
+  nonce         String   @db.VarChar(43)
+  codeVerifier  String   @db.VarChar(86)
+  callbackURL   String   @db.VarChar(2048)
+  createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt     DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
