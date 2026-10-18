@@ -7,6 +7,12 @@ import { createAuthGateway } from './auth/authGateway.js'
 import { createAuthRuntime } from './auth/createAuth.js'
 import { createPhase7ReauthenticationAuthApi } from './auth/createPhase7ReauthenticationAuth.js'
 import { createPhase7AuthFacade } from './auth/phase7AuthFacade.js'
+import {
+  createConfiguredSsoProviders,
+  createSsoPublicRuntime
+} from './auth/ssoPublicRuntime.js'
+import { createSsoIdentityRepository } from './auth/ssoIdentityRepository.js'
+import { createSsoTransactionStore } from './auth/ssoTransactionRepository.js'
 import { createPhase7ReauthenticationContext } from './auth/phase7ReauthenticationContext.js'
 import {
   runPhase7ReauthenticationStartupMaintenance,
@@ -188,6 +194,15 @@ const phase7AuthFacade =
         client: authGatewayDatabase.client,
         emailDispatcher,
         environment
+      })
+    : undefined
+const ssoPublicRuntime =
+  technicalMode && authGatewayDatabase
+    ? createSsoPublicRuntime({
+        environment,
+        providers: createConfiguredSsoProviders(environment),
+        store: createSsoTransactionStore(authGatewayDatabase.client),
+        identities: createSsoIdentityRepository(authGatewayDatabase.client)
       })
     : undefined
 const adminReauthenticationService =
@@ -372,6 +387,7 @@ const app = createApiApp({
       ...(phase7AuthFacade
         ? {
             phase7Facade: phase7AuthFacade,
+            ssoRuntime: ssoPublicRuntime!,
             technicalRateLimiter: applicationRateLimiter
           }
         : {})

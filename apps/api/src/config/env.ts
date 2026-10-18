@@ -192,6 +192,10 @@ const apiEnvironmentSchema = z
     BETTER_AUTH_SECRET: secretSchema,
     BETTER_AUTH_URL: exactOriginSchema,
     GUEST_COOKIE_SECRET: secretSchema,
+    GOOGLE_CLIENT_ID: z.string().trim().min(1).max(512).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(1).max(4096).optional(),
+    APPLE_CLIENT_ID: z.string().trim().min(1).max(512).optional(),
+    APPLE_CLIENT_SECRET: z.string().min(1).max(8192).optional(),
     AUTH_EMAIL_FROM: z.email(),
     AUTH_EMAIL_DELIVERY_MODE: emailDeliveryModeSchema,
     AUTH_EMAIL_WEBHOOK_URL: z.url().optional(),
@@ -200,6 +204,37 @@ const apiEnvironmentSchema = z
   })
   .strict()
   .superRefine((environment, context) => {
+    for (const [id, secret] of [
+      ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'],
+      ['APPLE_CLIENT_ID', 'APPLE_CLIENT_SECRET']
+    ] as const) {
+      if (Boolean(environment[id]) !== Boolean(environment[secret])) {
+        context.addIssue({
+          code: 'custom',
+          path: [id],
+          message: 'SSO client ID and secret must be configured together.'
+        })
+      }
+    }
+    if (environment.APPLE_CLIENT_ID) {
+      const callback = new URL(environment.BETTER_AUTH_URL)
+      const hostname = callback.hostname
+        .replace(/^\[|\]$/gu, '')
+        .replace(/\.$/u, '')
+      if (
+        callback.protocol !== 'https:' ||
+        !hostname.includes('.') ||
+        isIP(hostname) !== 0 ||
+        hostname === 'localhost' ||
+        hostname.endsWith('.localhost')
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['BETTER_AUTH_URL'],
+          message: 'Apple SSO requires an HTTPS domain callback origin.'
+        })
+      }
+    }
     const deploymentEnvironment = environment.DEPLOYMENT_ENVIRONMENT
     if (
       environment.NODE_ENV === 'production' &&
@@ -442,6 +477,10 @@ export const parseApiEnvironment = (
       source.BETTER_AUTH_URL ??
       (canUseDevelopmentDefaults ? 'http://localhost:3001' : undefined),
     GUEST_COOKIE_SECRET: source.GUEST_COOKIE_SECRET,
+    GOOGLE_CLIENT_ID: source.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: source.GOOGLE_CLIENT_SECRET,
+    APPLE_CLIENT_ID: source.APPLE_CLIENT_ID,
+    APPLE_CLIENT_SECRET: source.APPLE_CLIENT_SECRET,
     AUTH_EMAIL_FROM: source.AUTH_EMAIL_FROM,
     AUTH_EMAIL_DELIVERY_MODE:
       source.AUTH_EMAIL_DELIVERY_MODE ??
