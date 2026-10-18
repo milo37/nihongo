@@ -1,250 +1,339 @@
+import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
-import { signInUser } from '@api/auth/signInUser'
-import { listWrongNote } from '@api/wrong-note/listWrongNote'
-import { createStudySession } from '@api/study/createStudySession'
-import { submitStudySession } from '@api/study/submitStudySession'
-import { LoginPage } from '@app/login/page'
+import { http, HttpResponse } from 'msw'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { getCurrentUser } from '@api/auth/getCurrentUser'
+import { signInSocial } from '@api/auth/signInSocial'
+import { completeMockSocialSignIn } from '@api/auth/completeMockSocialSignIn'
+import { loginRoutes } from '@app/login/router'
 import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
 import { queryClient } from '@libs/queryClient'
-import { DEMO_REVIEWER_ADMIN_ID } from '@mocks/data/users'
+import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
+import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { I18nProvider } from '@provider/I18nProvider'
 import { useAppStore } from '@store/index'
+import { mockServer } from '@/test/server'
 
-const renderLoginPage = (
-  redirect = '/practice',
-  withLocaleSwitcher = false,
-  mode?: 'reset' | 'signup'
-): ReturnType<typeof createMemoryRouter> => {
-  const params = new URLSearchParams({ redirect })
-  if (mode) params.set('mode', mode)
+const renderLogin = (entry = '/login', gateOutlet = false) => {
+  const Shell = () => {
+    const content = (
+      <>
+        <AuthErrorHandlerProvider />
+        <LocaleSwitcher />
+        <Outlet />
+      </>
+    )
+    return (
+      <ProtectedRouteProvider>
+        {gateOutlet ? <ReadyOutlet /> : content}
+      </ProtectedRouteProvider>
+    )
+  }
+  // Match the actual Layout readiness gate: canonical refresh may remove the
+  // login observer while the mutation's owning onSuccess still must navigate.
+  const ReadyOutlet = () => {
+    const { isReady } = useAuth()
+    return isReady ? (
+      <>
+        <AuthErrorHandlerProvider />
+        <Outlet />
+      </>
+    ) : (
+      <p>확인 중</p>
+    )
+  }
   const router = createMemoryRouter(
     [
       {
-        path: '/login',
-        element: (
-          <ProtectedRouteProvider>
-            {withLocaleSwitcher ? <LocaleSwitcher /> : null}
-            <LoginPage />
-          </ProtectedRouteProvider>
-        )
-      },
-      {
-        path: '/practice',
-        element: <p>학습 설정 도착</p>
-      },
-      {
-        path: '/',
-        element: <p>홈 도착</p>
+        element: <Shell />,
+        children: [
+          ...loginRoutes,
+          { path: '/practice', element: <p>학습 설정 도착</p> },
+          { path: '/dashboard', element: <p>대시보드 도착</p> },
+          { path: '/', element: <p>홈 도착</p> }
+        ]
       }
     ],
-    { initialEntries: [`/login?${params.toString()}`] }
+    { initialEntries: [entry] }
   )
-
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <RouterProvider router={router} />
+        <Suspense fallback={<p>불러오는 중</p>}>
+          <RouterProvider router={router} />
+        </Suspense>
       </I18nProvider>
     </QueryClientProvider>
   )
-
   return router
 }
+import { useAuth } from '@provider/ProtectedRouteProvider'
 
-describe('LoginPage role transition', () => {
-  it('회원이 명시적 계정 전환 후 게스트로 계속하면 학습 결과를 저장하지 않는다', async () => {
-    const user = userEvent.setup()
-    const demoUser = mockDatabase.loginAs('USER')
-    useAppStore.getState().setCurrentUser(demoUser)
-    renderLoginPage()
+describe('Apple·Google SSO 로그인', () => {
+  it('두 공식 공급자 버튼만 제공하고 암호·가입 폼은 제거한다', async () => {
+    renderLogin()
+    const apple = await screen.findByRole('button', {
+      name: 'Apple로 계속하기'
+    })
+    const google = screen.getByRole('button', { name: 'Google로 계속하기' })
+    expect(
+      apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(document.querySelector('input[type=password]')).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: '회원가입' })
+    ).not.toBeInTheDocument()
+  })
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: '로그아웃하고 다른 계정으로 로그인'
+  it.each(['Apple', 'Google'])(
+    '%s 선택 후 새 canonical 회원을 확인하고 안전한 필터로 돌아간다',
+    async (provider) => {
+      const user = userEvent.setup()
+      queryClient.setQueryData(['wrong-note', 'private'], {
+        owner: 'previous-account'
+      })
+      useAppStore
+        .getState()
+        .beginPractice('stale-private-session', '2026-10-19T00:00:00.000Z')
+      const router = renderLogin(
+        '/login?redirect=' +
+          encodeURIComponent(
+            '/practice?level=N2&subject=GRAMMAR&count=10&resumePage=2'
+          ),
+        true
+      )
+      await user.click(
+        await screen.findByRole('button', { name: provider + '로 계속하기' })
+      )
+      expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+      expect(router.state.location.search).toBe(
+        '?level=N2&subject=GRAMMAR&count=10&resumePage=2'
+      )
+      expect(useAppStore.getState().currentUser).toMatchObject({
+        id: DEMO_USER_ID,
+        role: 'USER'
+      })
+      expect(
+        queryClient.getQueryData(['wrong-note', 'private'])
+      ).toBeUndefined()
+      expect(useAppStore.getState().sessionId).toBeNull()
+    }
+  )
+
+  it('동시 공급자 시작을 막고 실패 후 두 버튼과 현재 복귀 경로를 복구한다', async () => {
+    let respond: (() => void) | undefined
+    let starts = 0
+    mockServer.use(
+      http.post('*/api/auth/sign-in/social', async () => {
+        starts += 1
+        await new Promise<void>((resolve) => {
+          respond = resolve
+        })
+        return HttpResponse.json(
+          {
+            code: 'SSO_UNAVAILABLE',
+            message: 'server detail must stay private'
+          },
+          { status: 503 }
+        )
       })
     )
-    await user.click(
-      await screen.findByRole('button', { name: '게스트로 계속' })
+    const user = userEvent.setup()
+    const router = renderLogin(
+      '/login?redirect=' + encodeURIComponent('/dashboard?view=learning')
     )
-    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+    const apple = await screen.findByRole('button', {
+      name: 'Apple로 계속하기'
+    })
+    await user.click(apple)
+    await waitFor(() => expect(starts).toBe(1))
+    expect(apple).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Google로 계속하기' })
+    ).toBeDisabled()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Apple로 이동하고 있어요.'
+    )
+    await act(async () => {
+      respond?.()
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '지금은 Apple 로그인을 이용할 수 없어요.'
+    )
+    expect(apple).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Google로 계속하기' })
+    ).toBeEnabled()
+    expect(router.state.location.pathname).toBe('/login')
+    expect(
+      new URLSearchParams(router.state.location.search).get('redirect')
+    ).toBe('/dashboard?view=learning')
+    expect(document.body).not.toHaveTextContent('server detail')
+    expect(starts).toBe(1)
+  })
+
+  it.each(['CANCELLED', 'FAILED', 'INVALID_CALLBACK'])(
+    '서버 %s 복귀는 상태를 알리고 원문 query·fragment를 제거한다',
+    async (outcome) => {
+      const router = renderLogin(
+        '/login?sso=' +
+          outcome +
+          '&redirect=' +
+          encodeURIComponent('/practice?level=N1') +
+          '&code=private-value#id_token=private-value'
+      )
+      await screen.findByRole('button', { name: 'Google로 계속하기' })
+      await waitFor(() =>
+        expect(router.state.location.search).toBe(
+          '?redirect=%2Fpractice%3Flevel%3DN1'
+        )
+      )
+      expect(router.state.location.hash).toBe('')
+      expect(document.body).not.toHaveTextContent('private-value')
+      expect(mockDatabase.getCurrentUser()).toBeNull()
+      expect(screen.getByRole('heading', { name: '로그인' })).toHaveFocus()
+    }
+  )
+
+  it.each(['/reset-password', '/verify-email', '/login?mode=signup'])(
+    '구형 링크 %s는 민감 값을 버리고 SSO 안내로 replace한다',
+    async (path) => {
+      const router = renderLogin(
+        path +
+          (path.includes('?') ? '&' : '?') +
+          'token=legacy-secret&redirect=' +
+          encodeURIComponent('/practice?count=5') +
+          '#legacy-secret'
+      )
+      expect(
+        await screen.findByText(
+          '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.'
+        )
+      ).toBeInTheDocument()
+      await waitFor(() =>
+        expect(
+          router.state.location.pathname + router.state.location.search
+        ).toBe('/login?redirect=%2Fpractice%3Fcount%3D5')
+      )
+      expect(router.state.location.hash).toBe('')
+      expect(router.state.historyAction).toBe('REPLACE')
+    }
+  )
+
+  it('자기 인증·외부 복귀 주소는 홈으로 정규화하고 게스트는 공개 학습으로 간다', async () => {
+    const user = userEvent.setup()
+    const router = renderLogin(
+      '/login?redirect=' +
+        encodeURIComponent('/login?redirect=https://outside.example')
+    )
+    await user.click(
+      await screen.findByRole('link', { name: '로그인 없이 학습하기' })
+    )
+    expect(await screen.findByText('홈 도착')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/')
     expect(mockDatabase.getCurrentUser()).toBeNull()
-    expect(useAppStore.getState().currentUser).toBeNull()
-
-    const sessionPayload = await createStudySession({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
-    expect(sessionPayload.session.userId).toBeNull()
-    await submitStudySession(sessionPayload.session.id, {
-      answers: [],
-      durationSec: 10
-    })
-
-    await signInUser({
-      email: 'user@example.com',
-      password: 'Demo-user-2026!'
-    })
-    const wrongNotes = await listWrongNote()
-    expect(wrongNotes.total).toBe(0)
   })
 
-  it('역할을 바꾸면 이전 사용자의 Query cache를 제거한다', async () => {
+  it('로그아웃 취소는 유지하고 확인 후 fresh /me의 GUEST와 cache 정리를 확인한다', async () => {
+    const existing = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(existing)
     const user = userEvent.setup()
-    const demoUser = mockDatabase.loginAs('USER')
-    useAppStore.getState().setCurrentUser(demoUser)
-    queryClient.setQueryData(['wrong-note', 'list-wrong-notes'], {
-      owner: demoUser.id
-    })
-    renderLoginPage()
+    const router = renderLogin('/login?redirect=%2Fdashboard', true)
+    const button = await screen.findByRole('button', { name: '로그아웃' })
+    queryClient.setQueryData(['bookmarks', 'private'], { owner: existing.id })
+    await user.click(button)
+    let dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: '취소' })).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
+    expect(mockDatabase.getCurrentUser()?.id).toBe(existing.id)
+    expect(button).toHaveFocus()
+    await user.click(button)
+    dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: '로그아웃' }))
+    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/practice')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '로그아웃했어요.'
+    )
+    expect(useAppStore.getState().currentUser).toBeNull()
+    expect(queryClient.getQueryData(['auth', 'get-current-user'])).toBeNull()
+    expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
+  })
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: '로그아웃하고 다른 계정으로 로그인'
+  it('불명확한 로그아웃은 명령을 반복하지 않고 canonical 상태부터 다시 확인한다', async () => {
+    mockDatabase.loginAs('USER')
+    let signouts = 0
+    mockServer.use(
+      http.post('*/api/auth/sign-out', () => {
+        signouts += 1
+        return HttpResponse.json(
+          { code: 'SERVER_ERROR', message: 'private error' },
+          { status: 500 }
+        )
       })
     )
-    await screen.findByLabelText('이메일')
-    await user.type(screen.getByLabelText('이메일'), 'admin@example.com')
-    await user.type(screen.getByLabelText('비밀번호'), 'Demo-admin-2026!')
-    await user.keyboard('{Enter}')
-
-    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
-    expect(
-      queryClient.getQueryData(['wrong-note', 'list-wrong-notes'])
-    ).toBeUndefined()
-    expect(
-      queryClient.getQueryData(['auth', 'get-current-user'])
-    ).toMatchObject({ role: 'ADMIN' })
-    expect(useAppStore.getState().currentUser?.role).toBe('ADMIN')
-    expect(mockDatabase.getCurrentUser()?.role).toBe('ADMIN')
+    renderLogin()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: '로그아웃' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      '로그아웃 상태를 확인하지 못했어요.'
+    )
+    expect(signouts).toBe(1)
+    await user.click(within(dialog).getByRole('button', { name: '다시 확인' }))
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole('button', { name: '로그아웃' })
+      ).toBeEnabled()
+    )
+    expect(mockDatabase.getCurrentUser()?.id).toBe(DEMO_USER_ID)
+    expect(signouts).toBe(1)
   })
 
-  it('검수 관리자 자격 증명을 별도 actor에 연결한다', async () => {
-    await signInUser({
-      email: 'reviewer@example.com',
-      password: 'Demo-reviewer-2026!'
-    })
-
-    expect(mockDatabase.getCurrentUser()).toMatchObject({
-      id: DEMO_REVIEWER_ADMIN_ID,
+  it('공급자 이름이 권한을 정하지 않으며 fixture의 기존 내부 계정을 소비한다', async () => {
+    setMockSsoAccountForTesting('apple', DEMO_ADMIN_ID)
+    const user = userEvent.setup()
+    renderLogin('/login?redirect=%2Fdashboard')
+    await user.click(
+      await screen.findByRole('button', { name: 'Apple로 계속하기' })
+    )
+    expect(await screen.findByText('대시보드 도착')).toBeInTheDocument()
+    expect(useAppStore.getState().currentUser).toMatchObject({
+      id: DEMO_ADMIN_ID,
       role: 'ADMIN'
     })
   })
 
-  it('게스트가 보호 경로로 되돌아가지 않도록 홈으로 안내한다', async () => {
-    const user = userEvent.setup()
-    renderLoginPage('/dashboard')
-
-    await user.click(
-      await screen.findByRole('button', { name: '게스트로 계속' })
-    )
-
-    expect(await screen.findByText('홈 도착')).toBeInTheDocument()
+  it('시작 요청만으로 로그인되지 않고 일치한 callback만 한 번 소비한다', async () => {
+    await signInSocial({ provider: 'apple' })
+    expect(await getCurrentUser()).toBeNull()
+    await expect(completeMockSocialSignIn('google')).rejects.toBeDefined()
+    expect(await getCurrentUser()).toBeNull()
+    await completeMockSocialSignIn('apple')
+    expect(await getCurrentUser()).toMatchObject({ id: DEMO_USER_ID })
+    await expect(completeMockSocialSignIn('apple')).rejects.toBeDefined()
   })
 
-  it('Mock mode에서는 미구현 auth 기능을 성공처럼 노출하지 않는다', async () => {
-    renderLoginPage()
-    await screen.findByLabelText('비밀번호')
-
+  it('KO·JA 전환에서 두 공급자 이름과 버튼 의미가 유지된다', async () => {
+    renderLogin()
+    await screen.findByRole('button', { name: 'Apple로 계속하기' })
+    const user = userEvent.setup()
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: '언어' }),
+      'ja'
+    )
     expect(
-      screen.getByText(/회원가입·이메일 인증·비밀번호 재설정은/u)
+      await screen.findByRole('button', { name: 'Appleで続ける' })
     ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '회원가입' })).toBeDisabled()
     expect(
-      screen.getByRole('button', { name: '비밀번호를 잊으셨나요?' })
-    ).toBeDisabled()
+      screen.getByRole('button', { name: 'Googleで続ける' })
+    ).toBeInTheDocument()
   })
-
-  it.each(['reset', 'signup'] as const)(
-    'Mock mode에서 %s deep-link를 로그인으로 canonical replace한다',
-    async (mode) => {
-      const router = renderLoginPage('/practice?level=N2', false, mode)
-
-      await screen.findByLabelText('비밀번호')
-      expect(
-        screen.getByRole('heading', { name: '로그인' })
-      ).toBeInTheDocument()
-      expect(router.state.location.search).toBe(
-        '?redirect=%2Fpractice%3Flevel%3DN2'
-      )
-      expect(
-        screen.queryByRole('heading', { name: '비밀번호 재설정' })
-      ).not.toBeInTheDocument()
-      expect(screen.queryByLabelText('이름')).not.toBeInTheDocument()
-    }
-  )
-
-  it('게스트가 다른 사용자의 세션 URL 대신 학습 설정으로 이동한다', async () => {
-    const user = userEvent.setup()
-    renderLoginPage('/practice/session/user-session')
-
-    await user.click(
-      await screen.findByRole('button', { name: '게스트로 계속' })
-    )
-
-    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
-  })
-
-  it('locale 전환 중 RHF 입력과 redirect query를 보존한다', async () => {
-    const user = userEvent.setup()
-    const router = renderLoginPage('/practice?level=N2', true)
-    const email = await screen.findByLabelText('이메일')
-    const password = screen.getByLabelText('비밀번호')
-
-    await user.type(email, 'learner@example.com')
-    await user.type(password, 'Unsubmitted-password!')
-    await user.selectOptions(screen.getByLabelText('언어'), 'ja')
-
-    expect(await screen.findByLabelText('メールアドレス')).toHaveValue(
-      'learner@example.com'
-    )
-    expect(screen.getByLabelText('パスワード')).toHaveValue(
-      'Unsubmitted-password!'
-    )
-    expect(router.state.location).toMatchObject({
-      pathname: '/login',
-      search: '?redirect=%2Fpractice%3Flevel%3DN2'
-    })
-    expect(document.documentElement).toHaveAttribute('lang', 'ja')
-  })
-})
-
-it('password visibility preserves the typed secret and never adds it to the URL', async () => {
-  const user = userEvent.setup()
-  const router = renderLoginPage('/practice?level=N2')
-  const input = await screen.findByLabelText('비밀번호')
-  await user.type(input, 'Private-password-2026!')
-  await user.click(screen.getByRole('button', { name: '비밀번호 보기' }))
-  expect(input).toHaveAttribute('type', 'text')
-  expect(input).toHaveValue('Private-password-2026!')
-  await user.click(screen.getByRole('button', { name: '비밀번호 숨기기' }))
-  expect(input).toHaveAttribute('type', 'password')
-  expect(router.state.location.search).toBe(
-    '?redirect=%2Fpractice%3Flevel%3DN2'
-  )
-})
-
-it('회원에게 현재 이름과 복귀·전환만 제공하고 게스트 안내와 내부 역할은 표시하지 않는다', async () => {
-  const user = userEvent.setup()
-  const member = mockDatabase.loginAs('USER')
-  useAppStore.getState().setCurrentUser(member)
-  renderLoginPage('/practice')
-
-  await screen.findByRole('heading', { name: '로그인되어 있어요' })
-  expect(screen.getByText(member.name)).toBeInTheDocument()
-  expect(screen.queryByText(/· USER/u)).not.toBeInTheDocument()
-  expect(
-    screen.queryByRole('button', { name: '게스트로 계속' })
-  ).not.toBeInTheDocument()
-  expect(screen.queryByText(/게스트 기록은/u)).not.toBeInTheDocument()
-  expect(mockDatabase.getCurrentUser()?.id).toBe(member.id)
-  await user.click(screen.getByRole('button', { name: '학습으로 돌아가기' }))
-  expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
-  expect(mockDatabase.getCurrentUser()?.id).toBe(member.id)
 })

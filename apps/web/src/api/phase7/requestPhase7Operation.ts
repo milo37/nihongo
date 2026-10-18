@@ -20,7 +20,6 @@ import {
   assertPreviewQuestionVersionForRequest,
   assertPublishQuestionVersionResponse,
   assertQuestionReportDescriptionDigest,
-  assertReauthenticateAdminResponse,
   assertRequestContentReviewBatchResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
@@ -149,7 +148,7 @@ const toClientPath = (manifestPath: string, params: unknown): string => {
 }
 
 const assertCorrelatedResponse = async (
-  operation: Phase7Operation,
+  operation: Exclude<Phase7Operation, 'reauthenticateAdmin'>,
   params: unknown,
   query: unknown,
   body: unknown,
@@ -217,8 +216,6 @@ const assertCorrelatedResponse = async (
       )
       return asserted
     }
-    case 'reauthenticateAdmin':
-      return assertReauthenticateAdminResponse(body, response)
     case 'createQuestionReport':
       return assertCreateQuestionReportForRequest(body, response)
     case 'listAdminQuestionReports':
@@ -239,7 +236,10 @@ const assertCorrelatedResponse = async (
 }
 
 export const requestPhase7Operation = async <
-  Operation extends Exclude<Phase7Operation, 'exportAdminQuestions'>
+  Operation extends Exclude<
+    Phase7Operation,
+    'exportAdminQuestions' | 'reauthenticateAdmin'
+  >
 >(
   input: Phase7OperationRequest<Operation>
 ): Promise<Phase7OperationResult<Operation>> => {

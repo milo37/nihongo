@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { AuthFlowError } from '@app/login/authFlowErrors'
 import { emitApiError } from '@libs/errorBus'
 import { queryClient } from '@libs/queryClient'
 import { commitCanonicalAuth } from '@app/login/authSession'
@@ -220,4 +221,16 @@ describe('AuthErrorHandlerProvider', () => {
       expect(removeEventListener).toHaveBeenCalledWith(eventName, added?.[1])
     }
   })
+})
+
+it('auth-owned SSO failures remain local without a duplicate banner or self-redirect', () => {
+  const { router } = renderProvider('/login?redirect=%2Fpractice')
+  act(() =>
+    emitApiError(new AuthFlowError(new Error('private provider detail')))
+  )
+  expect(router.state.location.pathname + router.state.location.search).toBe(
+    '/login?redirect=%2Fpractice'
+  )
+  expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })

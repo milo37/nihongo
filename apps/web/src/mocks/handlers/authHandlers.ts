@@ -1,20 +1,17 @@
 import { http, HttpResponse } from 'msw'
+import { z } from 'zod'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
-import { signInUserRequestSchema } from '@api/auth/signInUser/schema'
-import { signUpUserRequestSchema } from '@api/auth/signUpUser/schema'
-import { requestPasswordResetRequestSchema } from '@api/auth/requestPasswordReset/schema'
-import { resetPasswordRequestSchema } from '@api/auth/resetPassword/schema'
-import { verifyEmailRequestSchema } from '@api/auth/verifyEmail/schema'
+import {
+  signInSocialRequestSchema,
+  ssoProviderIdSchema,
+  type SsoProviderId
+} from '@nihongo/contracts/auth/sign-in-social'
 import type { User } from '@common/types/domain'
 import {
   expireMockGuestPrincipalCookie,
   inspectMockGuestProof
 } from '@mocks/guestPrincipal'
-import {
-  DEMO_ADMIN_ID,
-  DEMO_REVIEWER_ADMIN_ID,
-  DEMO_USER_ID
-} from '@mocks/data/users'
+import { DEMO_USER_ID, demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import {
   MockHttpError,
@@ -22,29 +19,34 @@ import {
   toErrorResponse
 } from '@mocks/handlers/shared'
 
-const MOCK_USER_EMAIL = 'user@example.com'
-const MOCK_USER_PASSWORD = 'Demo-user-2026!'
-const MOCK_ADMIN_EMAIL = 'admin@example.com'
-export const MOCK_ADMIN_PASSWORD = 'Demo-admin-2026!'
-const MOCK_REVIEWER_ADMIN_EMAIL = 'reviewer@example.com'
-export const MOCK_REVIEWER_ADMIN_PASSWORD = 'Demo-reviewer-2026!'
-
-export const isMockAdminPasswordForActor = (
-  actorId: string,
-  password: string
-): boolean =>
-  (actorId === DEMO_ADMIN_ID && password === MOCK_ADMIN_PASSWORD) ||
-  (actorId === DEMO_REVIEWER_ADMIN_ID &&
-    password === MOCK_REVIEWER_ADMIN_PASSWORD)
-
-const rejectUnsupportedMockAuth = (): never => {
-  throw new MockHttpError(
-    501,
-    'MOCK_AUTH_UNSUPPORTED',
-    '이 인증 기능은 real API 모드에서만 사용할 수 있습니다.'
-  )
+// Fixture identity comes from this private Mock mapping, never request roles/email.
+const fixtureIds: Record<SsoProviderId, string> = {
+  apple: DEMO_USER_ID,
+  google: DEMO_USER_ID
 }
-
+let pendingProvider: SsoProviderId | null = null
+export const resetMockSocialSignInForTesting = (): void => {
+  pendingProvider = null
+  fixtureIds.apple = DEMO_USER_ID
+  fixtureIds.google = DEMO_USER_ID
+}
+export const setMockSsoAccountForTesting = (
+  provider: SsoProviderId,
+  userId: string
+): void => {
+  if (!demoUsers.some((user) => user.id === userId))
+    throw new Error('Unknown Mock identity fixture.')
+  fixtureIds[provider] = userId
+}
+const mockCallbackSchema = z.object({ provider: ssoProviderIdSchema }).strict()
+const removedAuthPaths = [
+  '/api/auth/sign-in/email',
+  '/api/auth/sign-up/email',
+  '/api/auth/request-password-reset',
+  '/api/auth/reset-password',
+  '/api/auth/verify-email',
+  '/api/auth/change-password'
+] as const
 const toAuthenticatedUser = (user: User) => ({
   id: user.id,
   name: user.name,
@@ -96,73 +98,68 @@ export const authHandlers = [
       return toErrorResponse(error)
     }
   }),
-  http.post('*/api/auth/sign-in/email', async ({ request }) => {
+  http.post('*/api/auth/sign-in/social', async ({ request }) => {
     try {
-      const input = await parseJsonBody(request, signInUserRequestSchema)
-      const isAdmin =
-        input.email === MOCK_ADMIN_EMAIL &&
-        input.password === MOCK_ADMIN_PASSWORD
-      const isReviewerAdmin =
-        input.email === MOCK_REVIEWER_ADMIN_EMAIL &&
-        input.password === MOCK_REVIEWER_ADMIN_PASSWORD
-      const isUser =
-        input.email === MOCK_USER_EMAIL && input.password === MOCK_USER_PASSWORD
-
-      if (!isAdmin && !isReviewerAdmin && !isUser) {
-        throw new MockHttpError(
-          401,
-          'INVALID_EMAIL_OR_PASSWORD',
-          '이메일 또는 비밀번호가 올바르지 않습니다.'
-        )
-      }
-
-      mockDatabase.loginAs(
-        isAdmin || isReviewerAdmin ? 'ADMIN' : 'USER',
-        isAdmin
-          ? DEMO_ADMIN_ID
-          : isReviewerAdmin
-            ? DEMO_REVIEWER_ADMIN_ID
-            : DEMO_USER_ID
+      const input = await parseJsonBody(request, signInSocialRequestSchema)
+      pendingProvider = input.provider
+      const url = new URL(
+        input.provider === 'apple'
+          ? 'https://appleid.apple.com/auth/authorize'
+          : 'https://accounts.google.com/o/oauth2/v2/auth'
       )
-      return HttpResponse.json({ success: true as const })
+      // Synthetic protocol-shape fixture only; never sent to a provider.
+      url.search = new URLSearchParams({
+        client_id: 'mock-client',
+        response_type: 'code',
+        state: 's'.repeat(43),
+        nonce: 'n'.repeat(43),
+        code_challenge: 'c'.repeat(43),
+        code_challenge_method: 'S256',
+        ...(input.provider === 'apple' ? { response_mode: 'form_post' } : {})
+      }).toString()
+      return HttpResponse.json(
+        { url: url.href, redirect: true },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
     } catch (error: unknown) {
       return toErrorResponse(error)
     }
   }),
-  http.post('*/api/auth/sign-up/email', async ({ request }) => {
+  // This endpoint exists only in the dev/test MSW worker; no real OAuth tokens.
+  http.post('*/api/_mock/auth/social/callback', async ({ request }) => {
     try {
-      await parseJsonBody(request, signUpUserRequestSchema)
-      return rejectUnsupportedMockAuth()
+      const { provider } = await parseJsonBody(request, mockCallbackSchema)
+      if (pendingProvider !== provider)
+        throw new MockHttpError(
+          400,
+          'INVALID_CALLBACK',
+          'Mock 로그인 요청이 일치하지 않습니다.'
+        )
+      pendingProvider = null
+      const fixture = demoUsers.find((user) => user.id === fixtureIds[provider])
+      if (!fixture) throw new Error('Missing Mock identity fixture.')
+      mockDatabase.loginAs(
+        fixture.role === 'ADMIN' ? 'ADMIN' : 'USER',
+        fixture.id
+      )
+      return HttpResponse.json(createCurrentPrincipalResponse(), {
+        headers: { 'Cache-Control': 'private, no-store' }
+      })
     } catch (error: unknown) {
       return toErrorResponse(error)
     }
   }),
-  http.post('*/api/auth/request-password-reset', async ({ request }) => {
-    try {
-      await parseJsonBody(request, requestPasswordResetRequestSchema)
-      return rejectUnsupportedMockAuth()
-    } catch (error: unknown) {
-      return toErrorResponse(error)
-    }
-  }),
-  http.post('*/api/auth/reset-password', async ({ request }) => {
-    try {
-      await parseJsonBody(request, resetPasswordRequestSchema)
-      return rejectUnsupportedMockAuth()
-    } catch (error: unknown) {
-      return toErrorResponse(error)
-    }
-  }),
-  http.post('*/api/auth/verify-email', async ({ request }) => {
-    try {
-      await parseJsonBody(request, verifyEmailRequestSchema)
-      return rejectUnsupportedMockAuth()
-    } catch (error: unknown) {
-      return toErrorResponse(error)
-    }
-  }),
+  ...removedAuthPaths.map((path) =>
+    http.all('*' + path, () =>
+      HttpResponse.json(
+        { code: 'NOT_FOUND', message: '요청한 경로를 찾을 수 없습니다.' },
+        { status: 404 }
+      )
+    )
+  ),
   http.post('*/api/auth/sign-out', () => {
     try {
+      pendingProvider = null
       mockDatabase.logout()
       return HttpResponse.json({ success: true as const })
     } catch (error: unknown) {

@@ -1,57 +1,44 @@
 import { mutationOptions } from '@tanstack/react-query'
 import { logoutUser } from '@api/auth/logoutUser'
-import { requestPasswordReset } from '@api/auth/requestPasswordReset'
-import { resetPassword } from '@api/auth/resetPassword'
-import { signInUser } from '@api/auth/signInUser'
-import { signUpUser } from '@api/auth/signUpUser'
-import { verifyEmail } from '@api/auth/verifyEmail'
+import { signInSocial } from '@api/auth/signInSocial'
+import type { SignInSocialRequest } from '@api/auth/signInSocial/schema'
+import { AuthFlowError } from '@app/login/authFlowErrors'
 import { authQueries } from '@app/login/queries/authQueries'
 import { advanceAuthTransitionEpoch } from '@libs/authTransitionFence'
+import { isMockApiMode } from '@libs/apiMode'
 
 export const authMutations = {
-  signIn: () =>
+  signInSocial: () =>
     mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'sign-in-user'] as const,
+      mutationKey: [...authQueries.allKey(), 'sign-in-social'] as const,
       networkMode: 'always',
-      mutationFn: (input: Parameters<typeof signInUser>[0]) => {
-        advanceAuthTransitionEpoch()
-        return signInUser(input)
+      mutationFn: async (input: SignInSocialRequest) => {
+        try {
+          const response = await signInSocial(input)
+          if (!__NIHONGO_PRODUCTION_BUILD__ && isMockApiMode) {
+            const { completeMockSocialSignIn } = await import(
+              '@api/auth/completeMockSocialSignIn'
+            )
+            advanceAuthTransitionEpoch()
+            await completeMockSocialSignIn(input.provider)
+          }
+          return response
+        } catch (error: unknown) {
+          throw new AuthFlowError(error)
+        }
       }
-    }),
-  signUp: () =>
-    mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'sign-up-user'] as const,
-      networkMode: 'always',
-      mutationFn: signUpUser
-    }),
-  requestPasswordReset: () =>
-    mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'request-password-reset'] as const,
-      networkMode: 'always',
-      mutationFn: requestPasswordReset
-    }),
-  resetPassword: () =>
-    mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'reset-password'] as const,
-      networkMode: 'always',
-      mutationFn: (input: Parameters<typeof resetPassword>[0]) => {
-        advanceAuthTransitionEpoch()
-        return resetPassword(input)
-      }
-    }),
-  verifyEmail: () =>
-    mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'verify-email'] as const,
-      networkMode: 'always',
-      mutationFn: verifyEmail
     }),
   logout: () =>
     mutationOptions({
       mutationKey: [...authQueries.allKey(), 'logout-user'] as const,
       networkMode: 'always',
-      mutationFn: () => {
+      mutationFn: async () => {
         advanceAuthTransitionEpoch()
-        return logoutUser()
+        try {
+          return await logoutUser()
+        } catch (error: unknown) {
+          throw new AuthFlowError(error)
+        }
       }
     })
 } as const

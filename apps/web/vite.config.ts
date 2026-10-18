@@ -8,6 +8,8 @@ import { resolveApiMode } from './src/libs/resolveApiMode.ts'
 import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
 
 const approvedBrandAssetPaths = [
+  'auth/apple-mark.svg',
+  'auth/google-mark.svg',
   'brand/harumaru-lockup-160.png',
   'brand/harumaru-lockup-320.png',
   'brand/harumaru-lockup.svg',

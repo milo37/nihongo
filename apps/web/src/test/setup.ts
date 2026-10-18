@@ -20,6 +20,7 @@ import {
   PRACTICE_STORE_KEY
 } from '@libs/storage'
 import { UI_LOCALE_STORAGE_KEY } from '@libs/localeStorage'
+import { resetMockSocialSignInForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { resetAdminCmsCommandRateLimitForTesting } from '@mocks/handlers/adminCmsCommandHandlers'
 import { resetAdminCmsReadRateLimitForTesting } from '@mocks/handlers/adminCmsReadHandlers'
@@ -40,6 +41,7 @@ const resetTestState = async (): Promise<void> => {
   resetAdminCmsReadRateLimitForTesting()
   resetDashboardInsightsRateLimitForTesting()
   resetQuestionReadRateLimitForTesting()
+  resetMockSocialSignInForTesting()
   mockDatabase.reset()
   useAppStore.setState({
     currentUser: null,

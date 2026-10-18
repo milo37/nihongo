@@ -1,8 +1,6 @@
 export const routeLabelKeys = [
   'routes.home',
   'routes.login',
-  'routes.resetPassword',
-  'routes.verifyEmail',
   'routes.dashboard',
   'routes.practiceSetup',
   'routes.practiceSession',
@@ -30,8 +28,8 @@ export type RouteLabelKey = (typeof routeLabelKeys)[number]
 export const getRouteLabelKey = (pathname: string): RouteLabelKey => {
   if (pathname === '/') return 'routes.home'
   if (pathname === '/login') return 'routes.login'
-  if (pathname === '/reset-password') return 'routes.resetPassword'
-  if (pathname === '/verify-email') return 'routes.verifyEmail'
+  if (pathname === '/reset-password') return 'routes.login'
+  if (pathname === '/verify-email') return 'routes.login'
   if (pathname === '/dashboard') return 'routes.dashboard'
   if (pathname === '/practice') return 'routes.practiceSetup'
   if (pathname.startsWith('/practice/session/')) return 'routes.practiceSession'

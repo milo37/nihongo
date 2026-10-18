@@ -3,14 +3,16 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
+import { AuthFlowError } from '@app/login/authFlowErrors'
 import { isApiError } from '@api/config'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { subscribeApiError } from '@libs/errorBus'
 import { getRouteLabelKey } from '@/i18n/routePresentation'
 import { frontendErrorReporter } from '@/observability/frontendErrorReporter'
 
-type BannerKind = 'error' | 'offline' | 'restored'
+type BannerKind = 'error' | 'offline' | 'restored' | 'signedOut'
 type BannerMessageKey =
+  | 'banner.loggedOut'
   | 'banner.offline'
   | 'banner.restored'
   | 'banner.generic'
@@ -51,13 +53,15 @@ const getInitialBanner = (): StatusBanner | null => {
 const bannerClasses: Record<BannerKind, string> = {
   error: 'border-red-200 bg-red-50 text-red-900',
   offline: 'border-amber-200 bg-amber-50 text-amber-950',
-  restored: 'border-emerald-200 bg-emerald-50 text-emerald-950'
+  restored: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+  signedOut: 'border-line bg-surface text-ink'
 }
 
 const closeButtonClasses: Record<BannerKind, string> = {
   error: 'hover:bg-red-100 focus-visible:outline-red-700',
   offline: 'hover:bg-amber-100 focus-visible:outline-amber-700',
-  restored: 'hover:bg-emerald-100 focus-visible:outline-emerald-700'
+  restored: 'hover:bg-emerald-100 focus-visible:outline-emerald-700',
+  signedOut: 'hover:bg-surface-muted focus-visible:outline-brand'
 }
 
 export const AuthErrorHandlerProvider = (): ReactElement | null => {
@@ -70,6 +74,38 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   const isOnlineRef = useRef(
     typeof navigator === 'undefined' || navigator.onLine !== false
   )
+
+  const [consumedSignOutKey, setConsumedSignOutKey] = useState<string | null>(
+    null
+  )
+  const routeState: unknown = location.state
+  const isConfirmedSignOut = Boolean(
+    routeState &&
+      typeof routeState === 'object' &&
+      'signedOut' in routeState &&
+      routeState.signedOut === true
+  )
+  if (isConfirmedSignOut && consumedSignOutKey !== location.key) {
+    setConsumedSignOutKey(location.key)
+    setBanner({ kind: 'signedOut', messageKey: 'banner.loggedOut' })
+  }
+  useEffect(() => {
+    if (!isConfirmedSignOut) return
+    void navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash
+      },
+      { replace: true, state: null }
+    )
+  }, [
+    isConfirmedSignOut,
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate
+  ])
 
   useEffect(() => {
     const handleOffline = (): void => {
@@ -102,6 +138,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
 
   useEffect(() => {
     return subscribeApiError((error) => {
+      if (error instanceof AuthFlowError) return
       if (!isApiError(error)) {
         frontendErrorReporter.report({
           source: 'UNEXPECTED_API_ERROR',
@@ -127,7 +164,10 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
           forcePracticeReset: true
         }).then(({ applied }) => {
           if (applied) {
-            navigate(`/login?redirect=${redirect}`, { replace: true })
+            navigate(`/login?redirect=${redirect}`, {
+              replace: true,
+              state: { sessionExpired: true }
+            })
           }
         })
         return
