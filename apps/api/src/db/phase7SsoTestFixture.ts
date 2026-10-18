@@ -336,7 +336,11 @@ export const createSsoDbHarness = () => {
       `UPDATE "IdempotencyRecord" SET state='SUCCEEDED',"responseStatus"=201,"responseBody"=jsonb_build_object('sessionId',$2::text),"completedAt"=transaction_timestamp(),"expiresAt"=transaction_timestamp()+interval '24 hours' WHERE id=$1`,
       [idempotencyId, sessionId]
     )
-    await owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    try {
+      await owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    } catch {
+      throw new TypeError('SSO learning constraint checkpoint failed.')
+    }
     await owner.query('SET CONSTRAINTS ALL DEFERRED')
   }
   return {
