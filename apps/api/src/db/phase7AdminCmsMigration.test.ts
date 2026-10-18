@@ -249,7 +249,7 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       {
         name: '20261019110000_sso_admin_fresh_erasure_ownership',
         checksum:
-          '3afe0b8d1024b0a160f0d5a706fce0e946c6d16471b6250f99ebf340923e1a64'
+          'c7a05a75e4c278243d1389296d2507c217ef9d377380fea91e80ba36cf40917a'
       }
     ])
   })

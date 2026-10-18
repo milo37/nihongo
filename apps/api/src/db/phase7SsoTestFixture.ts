@@ -69,9 +69,18 @@ export const createSsoDbHarness = () => {
   ) => {
     await owner.query(`SET ROLE "${role}"`)
     try {
-      return await owner.query<Row>(sql, [...values])
-    } finally {
+      const result = await owner.query<Row>(sql, [...values])
       await owner.query('RESET ROLE')
+      return result
+    } catch (error: unknown) {
+      // A failed transaction rejects RESET with25P02. Preserve the original
+      // SQLSTATE; the caller rolls back before restoring role after failure.
+      try {
+        await owner.query('RESET ROLE')
+      } catch {
+        /* original error wins */
+      }
+      throw error
     }
   }
   const rollback = async (action: () => Promise<void>) => {

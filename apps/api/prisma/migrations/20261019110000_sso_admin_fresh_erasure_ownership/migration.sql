@@ -29,16 +29,32 @@ SELECT pg_catalog.set_config('search_path', 'pg_catalog, ' ||
   ', pg_temp', true);
 SET LOCAL ROLE "nihongo_phase7_owner";
 
+-- Lock User before private-table DDL, matching the native erase lock order.
+-- EXCLUSIVE also excludes SELECT FOR UPDATE/KEY SHARE holders and User DML,
+-- so an erase cannot commit between orphan backfill and FK validation.
+LOCK TABLE "User" IN EXCLUSIVE MODE;
+
 -- Normalize private context ownership so the existing trusted User erasure
 -- path cascades the complete row, including provider subject/session context.
 -- Only orphaned contexts whose User no longer exists are removed on upgrade;
 -- rows belonging to an existing User are backfilled without changing context.
 ALTER TABLE "SsoAdminFreshTransaction" ADD COLUMN "userId" UUID;
 ALTER TABLE "SsoAdminFreshProof" ADD COLUMN "userId" UUID;
+-- Malformed/missing/non-string identities are ephemeral invalid context,
+-- not another User's row. No UUID cast is evaluated until shape is proven.
+DELETE FROM "SsoAdminFreshTransaction" AS context_row
+ WHERE jsonb_typeof(context_row."context"->'userId') IS DISTINCT FROM 'string'
+    OR (context_row."context"->>'userId') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 DELETE FROM "SsoAdminFreshTransaction" AS context_row
  WHERE NOT EXISTS (SELECT 1 FROM "User" AS actor
-   WHERE actor."id" = (context_row."context"->>'userId')::UUID);
-UPDATE "SsoAdminFreshTransaction" SET "userId" = ("context"->>'userId')::UUID;
+   WHERE actor."id" = CASE
+     WHEN jsonb_typeof(context_row."context"->'userId') = 'string'
+      AND (context_row."context"->>'userId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+     THEN (context_row."context"->>'userId')::UUID END);
+UPDATE "SsoAdminFreshTransaction" SET "userId" = CASE
+ WHEN jsonb_typeof("context"->'userId') = 'string'
+  AND ("context"->>'userId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ THEN ("context"->>'userId')::UUID END;
 ALTER TABLE "SsoAdminFreshTransaction" ALTER COLUMN "userId" SET NOT NULL;
 ALTER TABLE "SsoAdminFreshTransaction"
  ADD CONSTRAINT "SsoAdminFreshTransaction_user_context_check"
@@ -46,10 +62,21 @@ ALTER TABLE "SsoAdminFreshTransaction"
  ADD CONSTRAINT "SsoAdminFreshTransaction_userId_fkey"
  FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 CREATE INDEX "SsoAdminFreshTransaction_userId_idx" ON "SsoAdminFreshTransaction"("userId");
+-- Malformed/missing/non-string identities are ephemeral invalid context,
+-- not another User's row. No UUID cast is evaluated until shape is proven.
+DELETE FROM "SsoAdminFreshProof" AS context_row
+ WHERE jsonb_typeof(context_row."context"->'userId') IS DISTINCT FROM 'string'
+    OR (context_row."context"->>'userId') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 DELETE FROM "SsoAdminFreshProof" AS context_row
  WHERE NOT EXISTS (SELECT 1 FROM "User" AS actor
-   WHERE actor."id" = (context_row."context"->>'userId')::UUID);
-UPDATE "SsoAdminFreshProof" SET "userId" = ("context"->>'userId')::UUID;
+   WHERE actor."id" = CASE
+     WHEN jsonb_typeof(context_row."context"->'userId') = 'string'
+      AND (context_row."context"->>'userId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+     THEN (context_row."context"->>'userId')::UUID END);
+UPDATE "SsoAdminFreshProof" SET "userId" = CASE
+ WHEN jsonb_typeof("context"->'userId') = 'string'
+  AND ("context"->>'userId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ THEN ("context"->>'userId')::UUID END;
 ALTER TABLE "SsoAdminFreshProof" ALTER COLUMN "userId" SET NOT NULL;
 ALTER TABLE "SsoAdminFreshProof"
  ADD CONSTRAINT "SsoAdminFreshProof_user_context_check"

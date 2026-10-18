@@ -86,8 +86,9 @@ export const sanitizePhase7VitestReport = (
     Number.isSafeInteger(value) && (value ?? -1) >= 0 ? value : null
   return {
     schemaVersion: 1,
-    testFile:
-      testFile === phase7DbFoundationTestFile ? testFile : 'not-allowlisted',
+    testFile: phase7SingleTestFiles.includes(testFile)
+      ? testFile
+      : 'not-allowlisted',
     total: safeCount(result.numTotalTests),
     passed: safeCount(result.numPassedTests),
     failed: safeCount(result.numFailedTests),

@@ -49,6 +49,14 @@ describe('Phase 7 opt-in foundation execution', () => {
     ).toThrow('allowlist')
   })
 
+  it('labels both fixed selectors accurately and redacts arbitrary report paths', () => {
+    for (const file of [phase7DbFoundationTestFile, phase7SsoTestFile])
+      expect(sanitizePhase7VitestReport({}, file).testFile).toBe(file)
+    expect(sanitizePhase7VitestReport({}, '../private-password').testFile).toBe(
+      'not-allowlisted'
+    )
+  })
+
   it('excludes failure messages, names, URLs, and unknown fields', () => {
     const report = sanitizePhase7VitestReport(
       {
@@ -206,6 +214,9 @@ describe('Phase 7 opt-in foundation execution', () => {
             expect(await readFile(notice.reportFile, 'utf8')).not.toMatch(
               /private/
             )
+            expect(
+              JSON.parse(await readFile(notice.reportFile, 'utf8')).testFile
+            ).toBe(testFile)
           } finally {
             await rm(notice.reportFile, { force: true })
           }

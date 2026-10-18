@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
@@ -1272,5 +1273,63 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         )
       ).rows
     ).toEqual([{ users: 0, transactions: 0, proofs: 0 }])
+  })
+  it('the exact forward backfill safely removes malformed/orphan contexts and preserves existing User contexts', async () => {
+    const sql = readFileSync(
+      new URL(
+        '../../prisma/migrations/20261019110000_sso_admin_fresh_erasure_ownership/migration.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+    expect(sql.indexOf('LOCK TABLE "User" IN EXCLUSIVE MODE')).toBeLessThan(
+      sql.indexOf('ALTER TABLE "SsoAdminFreshTransaction"')
+    )
+    await h.rollback(async () => {
+      const first = await h.fixture(),
+        second = await h.fixture()
+      const before = await h.snapshot()
+      for (const table of ['SsoAdminFreshTransaction', 'SsoAdminFreshProof']) {
+        const temporary = `sso_backfill_${randomUUID().replaceAll('-', '_')}`
+        await h.owner.query(
+          `CREATE TEMP TABLE "${temporary}" (id int PRIMARY KEY,context jsonb,"userId" uuid)`
+        )
+        const contexts = [
+          { userId: first.userId, accountId: first.subject },
+          {},
+          { userId: 'malformed' },
+          { userId: 17 },
+          { userId: [first.userId] },
+          { userId: randomUUID() },
+          { userId: second.userId, accountId: second.subject }
+        ]
+        for (const [index, context] of contexts.entries())
+          await h.owner.query(
+            `INSERT INTO "${temporary}" (id,context) VALUES ($1,$2::jsonb)`,
+            [index, JSON.stringify(context)]
+          )
+        const start = sql.indexOf(`DELETE FROM "${table}" AS context_row`)
+        const end = sql.indexOf(
+          `ALTER TABLE "${table}" ALTER COLUMN "userId" SET NOT NULL;`,
+          start
+        )
+        expect(start).toBeGreaterThan(0)
+        expect(end).toBeGreaterThan(start)
+        await h.owner.query(
+          sql.slice(start, end).replaceAll(`"${table}"`, `"${temporary}"`)
+        )
+        expect(
+          (
+            await h.owner.query(
+              `SELECT id,context,"userId" FROM "${temporary}" ORDER BY id`
+            )
+          ).rows
+        ).toEqual([
+          { id: 0, context: contexts[0], userId: first.userId },
+          { id: 6, context: contexts[6], userId: second.userId }
+        ])
+      }
+      expect(await h.snapshot()).toEqual(before)
+    })
   })
 })
