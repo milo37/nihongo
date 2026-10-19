@@ -77,10 +77,28 @@ dotenv.config({
   quiet: true
 })
 
+const apiIntegrationCase = process.env.PHASE7_API_INTEGRATION_CASE
+if (
+  apiIntegrationCase !== undefined &&
+  apiIntegrationCase !== 'sso-browser-google'
+) {
+  throw new Error(
+    'Phase 7 API integration case is outside the fixed allowlist.'
+  )
+}
+
 const baseDatabaseUrl =
   process.env.PHASE7_API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 if (!baseDatabaseUrl) {
   throw new Error('Phase 7 API integration requires a test PostgreSQL URL.')
+}
+
+if (apiIntegrationCase === 'sso-browser-google') {
+  try {
+    new URL(baseDatabaseUrl)
+  } catch {
+    throw new Error('SSO browser TEST database URL is invalid.')
+  }
 }
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
@@ -523,6 +541,7 @@ const runCommand = async (
   abortSignal?.throwIfAborted()
   let spawnError: Error | undefined
   const isSeed =
+    apiIntegrationCase !== 'sso-browser-google' &&
     command === 'pnpm' &&
     args.join(' ') === '--filter @nihongo/api run db:seed:test'
   let seedStage = 'SEED_GENERATE'
@@ -535,7 +554,12 @@ const runCommand = async (
     cwd: repositoryRoot,
     detached: shouldDetachOwnedProcess,
     env: environment,
-    stdio: isSeed ? ['inherit', 'pipe', 'pipe'] : 'inherit'
+    stdio:
+      apiIntegrationCase === 'sso-browser-google'
+        ? 'ignore'
+        : isSeed
+          ? ['inherit', 'pipe', 'pipe']
+          : 'inherit'
   })
   if (isSeed) {
     for (const stream of [child.stdout, child.stderr]) {
@@ -947,11 +971,234 @@ const run = async (): Promise<void> => {
   })
 }
 
+const readSsoBrowserLoopbackInputs = (source: NodeJS.ProcessEnv) => {
+  const host = source.PHASE7_SSO_BROWSER_API_HOST
+  const portText = source.PHASE7_SSO_BROWSER_API_PORT
+  const webOrigin = source.PHASE7_SSO_BROWSER_WEB_ORIGIN
+  if (
+    host !== '127.0.0.1' ||
+    !portText ||
+    !/^[1-9][0-9]{0,4}$/u.test(portText) ||
+    Number(portText) > 65_535 ||
+    Number(portText) === 5173 ||
+    !webOrigin
+  ) {
+    throw new Error('SSO browser requires explicit owned loopback inputs.')
+  }
+  let web: URL
+  try {
+    web = new URL(webOrigin)
+  } catch {
+    throw new Error('SSO browser web origin is invalid.')
+  }
+  if (
+    web.protocol !== 'http:' ||
+    web.hostname !== host ||
+    web.origin !== webOrigin ||
+    web.port === '5173'
+  ) {
+    throw new Error('SSO browser web origin must be an owned loopback origin.')
+  }
+  return {
+    host,
+    port: Number(portText),
+    webOrigin,
+    apiOrigin: `http://${host}:${portText}`
+  }
+}
+
+const runSsoBrowserGoogle = async (): Promise<void> => {
+  const { host, port, webOrigin, apiOrigin } = readSsoBrowserLoopbackInputs(
+    process.env
+  )
+  const [
+    { createServer },
+    { getRequestListener },
+    { parseApiEnvironment },
+    { createPhase7SsoBrowserApiFixture }
+  ] = await Promise.all([
+    import('node:http'),
+    import('@hono/node-server'),
+    import('../config/env.js'),
+    import('./phase7BrowserFixture.js')
+  ])
+  const controller = new AbortController()
+  const shutdownReason = new Error('SSO browser shutdown requested.')
+  let server: import('node:http').Server | undefined
+  let fixture:
+    | Awaited<ReturnType<typeof createPhase7SsoBrowserApiFixture>>
+    | undefined
+  let stop: (() => void) | undefined
+  let firstFailure: unknown
+  let closePromise: Promise<void> | undefined
+  const onSignal = () => {
+    controller.abort(shutdownReason)
+    stop?.()
+  }
+  const onFailure = () => {
+    firstFailure ??= new Error('SSO browser dependency failed.')
+    controller.abort(firstFailure)
+    stop?.()
+  }
+  const close = (): Promise<void> => {
+    closePromise ??= (async () => {
+      let firstCleanupFailure: unknown
+      const record = (error: unknown) => {
+        firstCleanupFailure ??= error
+      }
+      const ownedServer = server
+      if (ownedServer) {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            ownedServer.close((error) => {
+              if (
+                error &&
+                (!('code' in error) || error.code !== 'ERR_SERVER_NOT_RUNNING')
+              )
+                reject(error)
+              else resolve()
+            })
+            ownedServer.closeAllConnections()
+          })
+        } catch (error: unknown) {
+          record(error)
+        }
+      }
+      try {
+        await fixture?.disconnect()
+      } catch (error: unknown) {
+        record(error)
+      }
+      try {
+        await cleanupPhase7IsolatedDatabase()
+      } catch (error: unknown) {
+        record(error)
+      }
+      if (firstCleanupFailure) throw firstCleanupFailure
+    })()
+    return closePromise
+  }
+  for (const signal of ['SIGINT', 'SIGTERM'] as const)
+    process.on(signal, onSignal)
+  adminClient.on('error', onFailure)
+  try {
+    const harness = await preparePhase7IsolatedDatabase({
+      seedRuns: 0,
+      abortSignal: controller.signal
+    })
+    // The full migration chain requires the canonical prefix content bootstrap.
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+      harness.sharedEnvironment,
+      controller.signal
+    )
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      {
+        ...harness.sharedEnvironment,
+        PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+          repositoryRoot,
+          'apps/api/prisma/migrations'
+        )
+      },
+      controller.signal
+    )
+    const environment = parseApiEnvironment({
+      NODE_ENV: 'test',
+      DEPLOYMENT_ENVIRONMENT: 'TEST',
+      RELEASE_ID: '0'.repeat(40),
+      ADMIN_CMS_MODE: 'disabled',
+      HOST: host,
+      PORT: String(port),
+      DATABASE_URL: harness.applicationDatabaseUrl,
+      AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
+      TRUSTED_ORIGINS: webOrigin,
+      BETTER_AUTH_URL: apiOrigin,
+      BETTER_AUTH_SECRET: 'phase7-sso-browser-auth-test-only-secret-v1',
+      GUEST_COOKIE_SECRET: 'phase7-sso-browser-guest-test-only-secret-v1',
+      LOG_LEVEL: 'silent'
+    })
+    controller.signal.throwIfAborted()
+    fixture = await createPhase7SsoBrowserApiFixture({
+      databaseUrl: harness.applicationDatabaseUrl,
+      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      environment
+    })
+    await fixture.checkReadiness()
+    controller.signal.throwIfAborted()
+    const stopped = new Promise<void>((resolve) => {
+      stop = resolve
+    })
+    const listener = getRequestListener(fixture.app.fetch, {
+      hostname: host,
+      errorHandler: () => {
+        onFailure()
+        return new Response('SSO browser request failed.', { status: 500 })
+      }
+    })
+    server = createServer((incoming, outgoing) => {
+      void listener(incoming, outgoing).catch(() => {
+        onFailure()
+        outgoing.destroy()
+      })
+    })
+    server.on('error', onFailure)
+    server.once('close', () => {
+      if (!controller.signal.aborted) onFailure()
+    })
+    const ownedServer = server
+    await new Promise<void>((resolve, reject) => {
+      ownedServer.once('error', reject)
+      ownedServer.listen(port, host, () => {
+        ownedServer.removeListener('error', reject)
+        resolve()
+      })
+    })
+    controller.signal.throwIfAborted()
+    const address = server.address()
+    if (
+      !address ||
+      typeof address === 'string' ||
+      address.address !== host ||
+      address.port !== port
+    ) {
+      throw new Error('SSO browser listener did not bind the owned endpoint.')
+    }
+    process.stdout.write(
+      `${JSON.stringify({ event: 'phase7.api.sso_browser.ready', apiOrigin })}\n`
+    )
+    await stopped
+    if (firstFailure) throw firstFailure
+  } catch (error: unknown) {
+    if (error !== shutdownReason) firstFailure ??= error
+  } finally {
+    try {
+      await close()
+    } catch (error: unknown) {
+      firstFailure ??= error
+    }
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+      process.removeListener(signal, onSignal)
+    }
+    adminClient.removeListener('error', onFailure)
+  }
+  if (firstFailure) throw firstFailure
+}
+
 const isDirectExecution =
   process.argv[1] !== undefined &&
   fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
 
-if (isDirectExecution) {
+if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
+  void runSsoBrowserGoogle().catch(() => {
+    process.stderr.write(
+      `${JSON.stringify({ event: 'phase7.api.sso_browser.failed' })}\n`
+    )
+    process.exitCode = 1
+  })
+} else if (isDirectExecution) {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
       void cleanup()
