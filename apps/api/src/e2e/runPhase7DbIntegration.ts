@@ -30,8 +30,7 @@ import {
 } from './ownedProcessGroup.js'
 import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 import {
-  createPhase7SsoTestEnvironment,
-  phase7SsoTestFile,
+  createPhase7DbFileEnvironment,
   runPhase10ManifestVitestFile,
   selectPhase7DbIntegrationFiles
 } from './phase10ApiIntegrationExecution.js'
@@ -1782,10 +1781,10 @@ const run = async (): Promise<void> => {
   )
 
   for (const testFile of selectedTestFiles) {
-    const fileEnvironment =
-      testFile === phase7SsoTestFile
-        ? createPhase7SsoTestEnvironment(integrationEnvironment)
-        : integrationEnvironment
+    const fileEnvironment = createPhase7DbFileEnvironment(
+      testFile,
+      integrationEnvironment
+    )
     await runPostSeedDiagnostic(
       'FILE',
       () =>

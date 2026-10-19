@@ -7,8 +7,10 @@ import {
 import {
   assertPhase10VitestFileResult,
   createPhase7SsoTestEnvironment,
+  createPhase7DbFileEnvironment,
   phase7DbFoundationTestFile,
   phase7SsoTestFile,
+  phase7SsoAccountLifecycleTestFile,
   phase7SsoOrdinal6Title,
   phase7SsoOrdinal6Pattern,
   phase7SsoIdentityTitle,
@@ -1035,5 +1037,117 @@ describe.each([
       })
     ).rejects.toThrow('requires sanitized reporting')
     expect(runCommand).not.toHaveBeenCalled()
+  })
+})
+
+describe('fixed account lifecycle TEST slice', () => {
+  it('gives default and single lifecycle selection a deterministic clean-parent TEST profile', () => {
+    const files = [phase7SsoTestFile, phase7SsoAccountLifecycleTestFile]
+    const clean = {
+      DATABASE_URL:
+        'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
+      AUTH_GATEWAY_DATABASE_URL:
+        'postgresql://nihongo_test_auth_gateway_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
+      NODE_ENV: 'test',
+      ADMIN_CMS_MODE: 'technical'
+    }
+    for (const selected of [
+      selectPhase7DbIntegrationFiles(files, {}),
+      selectPhase7DbIntegrationFiles(files, {
+        PHASE7_DB_SINGLE_TEST: phase7SsoAccountLifecycleTestFile
+      })
+    ])
+      for (const file of selected) {
+        const environment = createPhase7DbFileEnvironment(file, clean)
+        expect(parseApiEnvironment(environment).NODE_ENV).toBe('test')
+        expect(environment.DATABASE_URL).toBe(clean.DATABASE_URL)
+        expect(environment.BETTER_AUTH_SECRET).toBeTruthy()
+        expect(environment.GUEST_COOKIE_SECRET).toBeTruthy()
+      }
+    expect(
+      createPhase7DbFileEnvironment(phase7DbFoundationTestFile, clean)
+    ).toBe(clean)
+    expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
+  })
+
+  const report = (count = 3) => ({
+    numTotalTests: count,
+    numPassedTests: count,
+    numFailedTests: 0,
+    numPendingTests: 0,
+    numTodoTests: 0,
+    testResults: [{ name: phase7SsoAccountLifecycleTestFile }]
+  })
+  it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
+    for (const count of [1, 2, 4])
+      expect(() =>
+        assertPhase10VitestFileResult({
+          result: report(count),
+          expectedPath: phase7SsoAccountLifecycleTestFile
+        })
+      ).toThrow()
+    expect(() =>
+      assertPhase10VitestFileResult({
+        result: report(),
+        expectedPath: phase7SsoAccountLifecycleTestFile
+      })
+    ).not.toThrow()
+  })
+  it('runs exactly the lifecycle file with bounded workers, bail and no retry', async () => {
+    let rawPath = ''
+    const count = await runPhase10ManifestVitestFile({
+      testFile: phase7SsoAccountLifecycleTestFile,
+      environment: {
+        DATABASE_URL: 'synthetic',
+        AUTH_GATEWAY_DATABASE_URL: 'synthetic',
+        PHASE7_ADMIN_DATABASE_URL: 'synthetic'
+      },
+      runCommand: async (_command, args) => {
+        expect(args).toContain('--maxWorkers=1')
+        expect(args).toContain('--no-file-parallelism')
+        expect(args).toContain('--bail=1')
+        expect(args).toContain('--retry=0')
+        expect(
+          args.filter((arg) => arg.endsWith('.integration.test.ts'))
+        ).toEqual([phase7SsoAccountLifecycleTestFile])
+        rawPath = args
+          .find((arg) => arg.startsWith('--outputFile='))!
+          .slice('--outputFile='.length)
+        await writeFile(rawPath, JSON.stringify(report()))
+      }
+    })
+    expect(count).toBe(3)
+    await expect(stat(rawPath)).rejects.toThrow()
+  })
+  it('retains only a wholly safe original first error line', () => {
+    const safe =
+      "AssertionError: expected null to be '/login' // Object.is equality"
+    const make = (message: string) => ({
+      ...report(),
+      numPassedTests: 0,
+      numFailedTests: 1,
+      testResults: [
+        {
+          name: phase7SsoAccountLifecycleTestFile,
+          assertionResults: [{ status: 'failed', failureMessages: [message] }]
+        }
+      ]
+    })
+    expect(
+      sanitizePhase7VitestReport(make(safe), phase7SsoAccountLifecycleTestFile)
+        .lifecycleFailure
+    ).toEqual({
+      caseOrdinal: 1,
+      originalFirstLineRetained: true,
+      originalFirstLine: safe,
+      sourcePath: phase7SsoAccountLifecycleTestFile
+    })
+    const privateMessage = 'Error: private-user token secret@example.test'
+    const result = sanitizePhase7VitestReport(
+      make(privateMessage),
+      phase7SsoAccountLifecycleTestFile
+    )
+    expect(result.lifecycleFailure?.originalFirstLineRetained).toBe(false)
+    expect(JSON.stringify(result)).not.toContain(privateMessage)
   })
 })

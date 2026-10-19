@@ -1,7 +1,14 @@
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
-import { copyFileSync, cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import {
+  copyFileSync,
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import nodePath from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,7 +25,11 @@ import {
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
 import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
-import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import {
+  createPhase7SsoTestEnvironment,
+  phase7SsoAccountLifecycleTestFile,
+  runPhase10ManifestVitestFile
+} from './phase10ApiIntegrationExecution.js'
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
@@ -80,7 +91,8 @@ dotenv.config({
 const apiIntegrationCase = process.env.PHASE7_API_INTEGRATION_CASE
 if (
   apiIntegrationCase !== undefined &&
-  apiIntegrationCase !== 'sso-browser-google'
+  apiIntegrationCase !== 'sso-browser-google' &&
+  apiIntegrationCase !== 'sso-account-lifecycle'
 ) {
   throw new Error(
     'Phase 7 API integration case is outside the fixed allowlist.'
@@ -971,6 +983,100 @@ const run = async (): Promise<void> => {
   })
 }
 
+const runSsoAccountLifecycle = async (): Promise<void> => {
+  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 1 })
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    {
+      ...harness.sharedEnvironment,
+      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+        repositoryRoot,
+        'apps/api/prisma/migrations'
+      )
+    }
+  )
+  const migrationsPath = nodePath.join(
+    repositoryRoot,
+    'apps/api/prisma/migrations'
+  )
+  const names = readdirSync(migrationsPath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+  const applied = await adminClient.query<{
+    migration_name: string
+    checksum: string
+  }>(
+    `SELECT migration_name, checksum FROM ${quoteSchema(schemaName)}."_prisma_migrations"
+     WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
+  )
+  if (
+    names.length !== 46 ||
+    names.at(-1) !== '20261020230000_sso_account_lifecycle' ||
+    applied.rows.length !== names.length ||
+    applied.rows.some(
+      (row, index) =>
+        row.migration_name !== names[index] ||
+        row.checksum !==
+          createHash('sha256')
+            .update(
+              readFileSync(
+                nodePath.join(
+                  migrationsPath,
+                  row.migration_name,
+                  'migration.sql'
+                )
+              )
+            )
+            .digest('hex')
+    )
+  )
+    throw new Error(
+      'SSO account lifecycle canonical46 migration history mismatch.'
+    )
+  process.stdout.write(
+    JSON.stringify({
+      event: 'phase7.api.sso_account_lifecycle.migrations_verified',
+      canonicalCount: 46,
+      checksumMatch: true,
+      reentry: true
+    }) + '\n'
+  )
+  const environment = createPhase7SsoTestEnvironment({
+    ...harness.sharedEnvironment,
+    PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
+  })
+  const count = await runPhase10ManifestVitestFile({
+    runCommand,
+    testFile: phase7SsoAccountLifecycleTestFile,
+    environment,
+    preserveSanitizedReport: true
+  })
+  const orphanResult = await adminClient.query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM (
+      SELECT f."userId" FROM ${quoteSchema(schemaName)}."SsoAccountFreshProof" f
+      LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE u.id IS NULL
+      UNION ALL
+      SELECT f."userId" FROM ${quoteSchema(schemaName)}."SsoAccountFreshTransaction" f
+      LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE u.id IS NULL
+      UNION ALL
+      SELECT f."userId" FROM ${quoteSchema(schemaName)}."SsoAccountErasureRequest" f
+      LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE f."userId" IS NOT NULL AND u.id IS NULL
+    ) orphan_rows`
+  )
+  if (count !== 3 || orphanResult.rows[0]?.count !== 0)
+    throw new Error('SSO account lifecycle exact3/orphan verification failed.')
+  process.stdout.write(
+    JSON.stringify({
+      event: 'phase7.api.sso_account_lifecycle.tests_verified',
+      selected: 3,
+      passed: count,
+      orphanCount: 0
+    }) + '\n'
+  )
+}
+
 const readSsoBrowserLoopbackInputs = (source: NodeJS.ProcessEnv) => {
   const host = source.PHASE7_SSO_BROWSER_API_HOST
   const portText = source.PHASE7_SSO_BROWSER_API_PORT
@@ -1478,7 +1584,11 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
     })
   }
 
-  void run()
+  void (
+    apiIntegrationCase === 'sso-account-lifecycle'
+      ? runSsoAccountLifecycle()
+      : run()
+  )
     .then(async () => {
       await cleanup()
       process.stdout.write(

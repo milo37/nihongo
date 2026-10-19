@@ -13,6 +13,8 @@ export const phase7DbFoundationTestFile =
   'src/db/phase7AdminCmsFoundation.integration.test.ts' as const
 
 export const phase7SsoTestFile = 'src/db/phase7Sso.integration.test.ts' as const
+export const phase7SsoAccountLifecycleTestFile =
+  'src/db/phase7SsoAccountLifecycle.integration.test.ts' as const
 export const phase7SsoOrdinal6Title =
   'apple ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts' as const
 export const phase7SsoOrdinal6Pattern = `${phase7SsoOrdinal6Title}$`
@@ -75,9 +77,19 @@ export const createPhase7SsoTestEnvironment = (
   return environment
 }
 
+export const createPhase7DbFileEnvironment = (
+  testFile: string,
+  base: NodeJS.ProcessEnv
+): NodeJS.ProcessEnv =>
+  testFile === phase7SsoTestFile ||
+  testFile === phase7SsoAccountLifecycleTestFile
+    ? createPhase7SsoTestEnvironment(base)
+    : base
+
 const phase7SingleTestFiles: readonly string[] = [
   phase7DbFoundationTestFile,
-  phase7SsoTestFile
+  phase7SsoTestFile,
+  phase7SsoAccountLifecycleTestFile
 ]
 
 export const selectPhase7DbIntegrationFiles = (
@@ -353,6 +365,26 @@ export const sanitizePhase7VitestReport = (
       }
     }
   }
+  const lifecycleFailed =
+    testFile === phase7SsoAccountLifecycleTestFile
+      ? assertions?.findIndex((assertion) => assertion.status === 'failed')
+      : undefined
+  const lifecycleMessage =
+    lifecycleFailed !== undefined && lifecycleFailed >= 0
+      ? assertions?.[lifecycleFailed]?.failureMessages?.[0]
+          ?.split('\n')[0]
+          ?.trim()
+      : undefined
+  // Retain original first lines only when their entire grammar is non-private.
+  const lifecycleSafeMessage =
+    lifecycleMessage &&
+    [
+      /^AssertionError: expected (?:null|undefined|true|false|[0-9]+) to (?:be|equal|deeply equal|be truthy|be falsy|have a length of)(?: (?:true|false|null|undefined|[0-9]+|'\/login'))?(?: \/\/ (?:Object.is|deep) equality)?$/u,
+      /^(?:Error|error): permission denied for (?:table|function|schema) [A-Za-z_][A-Za-z0-9_]*$/u,
+      /^(?:Error|error): column "[A-Za-z_][A-Za-z0-9_]*" does not exist$/u
+    ].some((pattern) => pattern.test(lifecycleMessage))
+      ? lifecycleMessage
+      : undefined
   return {
     schemaVersion: 1,
     testFile: phase7SingleTestFiles.includes(testFile)
@@ -371,6 +403,18 @@ export const sanitizePhase7VitestReport = (
       )
     },
     ...(firstFailedAssertion ? { firstFailedAssertion } : {}),
+    ...(lifecycleFailed !== undefined && lifecycleFailed >= 0
+      ? {
+          lifecycleFailure: {
+            caseOrdinal: lifecycleFailed + 1,
+            originalFirstLineRetained: lifecycleSafeMessage !== undefined,
+            ...(lifecycleSafeMessage
+              ? { originalFirstLine: lifecycleSafeMessage }
+              : {}),
+            sourcePath: phase7SsoAccountLifecycleTestFile
+          }
+        }
+      : {}),
     ...(selectedCase ? { selectedCase } : {}),
     errors: (result.testResults ?? [])
       .flatMap(({ failureMessage, message }) => [failureMessage, message])
@@ -472,6 +516,14 @@ export const assertPhase10VitestFileResult = ({
       `Phase 10 integration result is incomplete: ${expectedPath}.`
     )
   }
+  if (
+    expectedPath === phase7SsoAccountLifecycleTestFile &&
+    result.numTotalTests !== 3
+  ) {
+    throw new Error(
+      'SSO account lifecycle requires exactly three passing tests.'
+    )
+  }
   const resultPaths = (result.testResults ?? [])
     .map(({ name }) => (name ? normalizeResultPath(name) : ''))
     .filter(Boolean)
@@ -513,7 +565,10 @@ export const runPhase10ManifestVitestFile = async ({
       'Phase 7 report preservation requires a fixed allowlisted file.'
     )
   }
-  if (preserveSanitizedReport) {
+  if (
+    preserveSanitizedReport &&
+    testFile !== phase7SsoAccountLifecycleTestFile
+  ) {
     for (const name of [
       'PHASE7_LEGACY_DATABASE_URL',
       'PHASE7_DEVELOPMENT_APP_DATABASE_URL'
@@ -540,7 +595,8 @@ export const runPhase10ManifestVitestFile = async ({
           '--config',
           'vitest.integration.config.ts',
           testFile,
-          ...(testFile === phase7SsoTestFile
+          ...(testFile === phase7SsoTestFile ||
+          testFile === phase7SsoAccountLifecycleTestFile
             ? [
                 '--maxWorkers=1',
                 '--no-file-parallelism',
