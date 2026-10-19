@@ -1124,6 +1124,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     fixture = await createPhase7SsoBrowserApiFixture({
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      adminDatabaseUrl: harness.adminDatabaseUrl,
       environment
     })
     await fixture.checkReadiness()
@@ -1132,6 +1133,9 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       stop = resolve
     })
     const app = fixture.app
+    const armOwnedSessionExpiry = fixture.armOwnedSessionExpiry
+    let ownedSessionExpiryAttempted = false
+    let ownedSessionExpiryOperation: Promise<void> | undefined
     const listener = getRequestListener(
       async (...args: Parameters<typeof app.fetch>) => {
         const [request] = args
@@ -1139,7 +1143,47 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
           request.method !== 'POST' ||
           new URL(request.url).pathname !== '/api/auth/sign-in/social'
         ) {
-          return app.fetch(...args)
+          const response = await app.fetch(...args)
+          if (
+            request.method === 'PUT' &&
+            /^\/api\/v1\/bookmarks\/[^/]+$/.test(
+              new URL(request.url).pathname
+            ) &&
+            response.status === 201
+          ) {
+            if (!ownedSessionExpiryAttempted) {
+              ownedSessionExpiryAttempted = true
+              ownedSessionExpiryOperation = (async () => {
+                try {
+                  const receipt = await armOwnedSessionExpiry()
+                  if (
+                    receipt.armed !== true ||
+                    receipt.expired !== true ||
+                    receipt.sessionCount !== 1
+                  ) {
+                    throw new Error('SSO browser dependency failed.')
+                  }
+                } catch {
+                  onFailure()
+                  throw new Error('SSO browser dependency failed.')
+                }
+                try {
+                  process.stdout.write(
+                    `${JSON.stringify({
+                      event: 'phase7.api.sso_browser.session_expiry.armed',
+                      armed: true,
+                      expired: true,
+                      sessionCount: 1
+                    })}\n`
+                  )
+                } catch {
+                  // Diagnostics must not change the request outcome.
+                }
+              })()
+            }
+            await ownedSessionExpiryOperation
+          }
+          return response
         }
         try {
           process.stdout.write(
