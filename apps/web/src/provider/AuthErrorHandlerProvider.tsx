@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
@@ -72,6 +72,10 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
+  const currentPathnameRef = useRef(location.pathname)
+  useLayoutEffect(() => {
+    currentPathnameRef.current = location.pathname
+  }, [location.pathname])
   const [banner, setBanner] = useState<StatusBanner | null>(getInitialBanner)
   const isOnlineRef = useRef(
     typeof navigator === 'undefined' || navigator.onLine !== false
@@ -165,7 +169,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
           forceClear: true,
           forcePracticeReset: true
         }).then(({ applied }) => {
-          if (applied && location.pathname !== '/login') {
+          if (applied && currentPathnameRef.current !== '/login') {
             navigate(`/login?redirect=${redirect}`, {
               replace: true,
               state: { sessionExpired: true }
