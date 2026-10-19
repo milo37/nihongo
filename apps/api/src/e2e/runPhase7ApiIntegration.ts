@@ -1131,13 +1131,77 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     const stopped = new Promise<void>((resolve) => {
       stop = resolve
     })
-    const listener = getRequestListener(fixture.app.fetch, {
-      hostname: host,
-      errorHandler: () => {
-        onFailure()
-        return new Response('SSO browser request failed.', { status: 500 })
+    const app = fixture.app
+    const listener = getRequestListener(
+      async (...args: Parameters<typeof app.fetch>) => {
+        const [request] = args
+        if (
+          request.method !== 'POST' ||
+          new URL(request.url).pathname !== '/api/auth/sign-in/social'
+        ) {
+          return app.fetch(...args)
+        }
+        try {
+          process.stdout.write(
+            `${JSON.stringify({
+              event: 'phase7.api.sso_browser.start.entered',
+              method: 'POST',
+              path: '/api/auth/sign-in/social'
+            })}\n`
+          )
+        } catch {
+          // Diagnostics must not change the request outcome.
+        }
+        let response: Response
+        try {
+          response = await app.fetch(...args)
+        } catch (error: unknown) {
+          try {
+            process.stdout.write(
+              `${JSON.stringify({
+                event: 'phase7.api.sso_browser.start.fetch_failed',
+                method: 'POST',
+                path: '/api/auth/sign-in/social'
+              })}\n`
+            )
+          } catch {
+            // Preserve the original fetch error even if diagnostics fail.
+          }
+          throw error
+        }
+        const status = response.status
+        const statusClass =
+          status >= 200 && status < 300
+            ? '2xx'
+            : status >= 400 && status < 500
+              ? '4xx'
+              : status >= 500 && status < 600
+                ? '5xx'
+                : undefined
+        try {
+          process.stdout.write(
+            `${JSON.stringify({
+              event: statusClass
+                ? 'phase7.api.sso_browser.start.completed'
+                : 'phase7.api.sso_browser.start.status_failed',
+              method: 'POST',
+              path: '/api/auth/sign-in/social',
+              ...(statusClass ? { statusClass } : {})
+            })}\n`
+          )
+        } catch {
+          // Diagnostics must not replace the original response.
+        }
+        return response
+      },
+      {
+        hostname: host,
+        errorHandler: () => {
+          onFailure()
+          return new Response('SSO browser request failed.', { status: 500 })
+        }
       }
-    })
+    )
     server = createServer((incoming, outgoing) => {
       void listener(incoming, outgoing).catch(() => {
         onFailure()
