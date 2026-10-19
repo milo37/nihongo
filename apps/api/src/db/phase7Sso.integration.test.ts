@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
+import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { loadExpectedMigrationManifest } from './readiness.js'
 import { createSsoDbHarness, digest } from './phase7SsoTestFixture.js'
@@ -307,6 +308,81 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (name) => !['User', 'Account'].includes(name)
       ))
         expect(after[table]).toEqual(before[table])
+      // Keep the real repository calls inside this rollback and gateway role.
+      const learner = await h.fixture('google', 'USER')
+      const beforeSignIn = await h.snapshot()
+      const authorizationSql = `SELECT 'Session' AS kind,s.id,md5(to_jsonb(s)::text) AS fingerprint FROM "Session" s
+        UNION ALL SELECT 'AuthSessionFamily' AS kind,f.id,md5(to_jsonb(f)::text) AS fingerprint FROM "AuthSessionFamily" f ORDER BY kind,id`
+      const authorizationBefore = (
+        await h.owner.query<{ kind: string; id: string; fingerprint: string }>(
+          authorizationSql
+        )
+      ).rows
+      const gatewayQuery = async (sql: string, ...values: unknown[]) =>
+        (await h.roleQuery('nihongo_auth_gateway', sql, values)).rows
+      const repository = createSsoIdentityRepository({
+        $queryRawUnsafe: gatewayQuery
+      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const newAuthorizations = new Set<string>()
+      const tokens = new Set<string>()
+      for (const attempt of [1, 2]) {
+        const signedIn = await repository.signIn(
+          {
+            provider: 'google',
+            accountId: learner.subject,
+            email: `${randomUUID()}@example.test`,
+            name: 'SSO session bridge fixture'
+          },
+          { ipAddress: '127.0.0.1', userAgent: 'sso-db-session-bridge' }
+        )
+        expect(signedIn.kind).toBe('SESSION_CONFIRMED')
+        if (signedIn.kind !== 'SESSION_CONFIRMED')
+          throw new Error('SSO bridge session was not confirmed.')
+        expect(tokens.has(signedIn.token)).toBe(false)
+        tokens.add(signedIn.token)
+        const issued = await h.owner.query<{ id: string; familyId: string }>(
+          `SELECT s.id,s."sessionFamilyId" AS "familyId",s."userId",u.role::text AS role,
+          u."accountStatus"::text AS "accountStatus",s."authorityGeneration",u."authorityGeneration" AS "userGeneration",
+          s."issuerProtocolVersion"::text AS "issuerProtocolVersion",s."authorizationState"::text AS "authorizationState",
+          family.status::text AS "familyStatus",s."createdAt",s."expiresAt"
+          FROM "Session" s JOIN "User" u ON u.id=s."userId"
+          JOIN "AuthSessionFamily" family ON family.id=s."sessionFamilyId" AND family."userId"=s."userId"
+          WHERE s.token=$1`,
+          [signedIn.token]
+        )
+        expect(issued.rows).toHaveLength(1)
+        expect(issued.rows[0]).toMatchObject({
+          userId: learner.userId,
+          role: 'USER',
+          accountStatus: 'ACTIVE',
+          authorityGeneration: 1,
+          userGeneration: 1,
+          issuerProtocolVersion: 'PHASE7_V1',
+          authorizationState: 'ACTIVE',
+          familyStatus: 'ACTIVE',
+          createdAt: signedIn.createdAt,
+          expiresAt: signedIn.expiresAt
+        })
+        const session = issued.rows[0]
+        if (!session) throw new Error('SSO bridge session row unavailable.')
+        newAuthorizations.add(`Session:${session.id}`)
+        newAuthorizations.add(`AuthSessionFamily:${session.familyId}`)
+        expect(newAuthorizations.size).toBe(attempt * 2)
+        const authorizationAfter = (
+          await h.owner.query<(typeof authorizationBefore)[number]>(
+            authorizationSql
+          )
+        ).rows
+        expect(authorizationAfter).toHaveLength(
+          authorizationBefore.length + attempt * 2
+        )
+        expect(
+          authorizationAfter.filter(
+            (row) => !newAuthorizations.has(`${row.kind}:${row.id}`)
+          )
+        ).toEqual(authorizationBefore)
+        expect(await h.snapshot()).toEqual(beforeSignIn)
+      }
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })
