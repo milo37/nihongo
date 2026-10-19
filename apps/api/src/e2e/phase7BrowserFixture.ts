@@ -1,6 +1,27 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
+import { createApiApp } from '../app/createApp.js'
+import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
+import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
+import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
+import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
+import type { SsoProvider } from '../auth/ssoProtocol.js'
+import type { ApiEnvironment } from '../config/env.js'
+import {
+  createDatabaseRuntime,
+  createRoleDatabaseRuntime
+} from '../db/database.js'
+import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
+import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import { createJsonLogger } from '../observability/logger.js'
+import { createPrismaQuestionRepository } from '../question/questionRepository.js'
+import { createQuestionService } from '../question/questionService.js'
+import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
+import { createStudyDraftService } from '../study/studyDraftService.js'
+import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
+import { createStudySessionService } from '../study/studySessionService.js'
 import {
   createPostgresStartupOptions,
   getPostgresSchema
@@ -315,5 +336,181 @@ export const createPhase7BrowserFixture = async (
       snapshot: async (): Promise<Phase7BrowserDatabaseSnapshot> =>
         await runWithFixtureClient(readSnapshot)
     }
+  }
+}
+
+/** TEST-only DI; the caller owns provisioning, readiness, listener and browser. */
+export const createPhase7SsoBrowserApiFixture = async ({
+  databaseUrl,
+  authGatewayDatabaseUrl,
+  environment
+}: {
+  databaseUrl: string
+  authGatewayDatabaseUrl: string
+  environment: ApiEnvironment
+}) => {
+  if (
+    environment.NODE_ENV !== 'test' ||
+    environment.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
+    environment.ADMIN_CMS_MODE !== 'disabled' ||
+    environment.DATABASE_URL !== databaseUrl ||
+    environment.AUTH_GATEWAY_DATABASE_URL !== authGatewayDatabaseUrl ||
+    environment.GOOGLE_CLIENT_ID !== undefined ||
+    environment.GOOGLE_CLIENT_SECRET !== undefined ||
+    environment.APPLE_CLIENT_ID !== undefined ||
+    environment.APPLE_CLIENT_SECRET !== undefined
+  )
+    throw new Error(
+      'SSO browser API fixture requires its fixed TEST environment.'
+    )
+
+  const applicationTarget = new URL(databaseUrl)
+  const gatewayTarget = new URL(authGatewayDatabaseUrl)
+  const schema = getPostgresSchema(databaseUrl)
+  for (const [value, login] of [
+    [databaseUrl, 'nihongo_test_app_login'],
+    [authGatewayDatabaseUrl, 'nihongo_test_auth_gateway_login']
+  ] as const) {
+    assertSafeTestDatabase({ nodeEnvironment: 'test', databaseUrl: value })
+    const target = new URL(value)
+    if (
+      decodeURIComponent(target.username) !== login ||
+      target.searchParams.getAll('schema').length !== 1 ||
+      [...target.searchParams.keys()].some(
+        (key) => key !== 'schema' && key !== 'sslmode'
+      ) ||
+      !schema ||
+      !/^phase7_[a-f0-9]{32}_test$/u.test(schema) ||
+      getPostgresSchema(value) !== schema
+    )
+      throw new Error(
+        'SSO browser API fixture requires task-owned TEST roles/schema.'
+      )
+  }
+  if (
+    applicationTarget.hostname !== gatewayTarget.hostname ||
+    (applicationTarget.port || '5432') !== (gatewayTarget.port || '5432') ||
+    applicationTarget.pathname !== gatewayTarget.pathname
+  )
+    throw new Error(
+      'SSO browser API fixture requires one TEST database target.'
+    )
+  for (const origin of [
+    environment.BETTER_AUTH_URL,
+    ...environment.TRUSTED_ORIGINS
+  ]) {
+    const target = new URL(origin)
+    if (
+      target.protocol !== 'http:' ||
+      !['127.0.0.1', 'localhost', '[::1]'].includes(target.hostname) ||
+      target.origin !== origin
+    )
+      throw new Error('SSO browser API fixture requires loopback TEST origins.')
+  }
+
+  const expectedIdentity = Object.freeze({
+    provider: 'google' as const,
+    accountId: 'phase7-sso-browser-google-subject',
+    email: 'phase7-sso-browser@example.test',
+    name: 'Phase 7 SSO browser learner'
+  })
+  const authorizationProvider = createGoogleSsoProvider({
+    clientId: 'phase7-sso-browser-test-client',
+    clientSecret: 'phase7-sso-browser-unused-test-secret',
+    callbackURL: new URL(
+      '/api/auth/callback/google',
+      environment.BETTER_AUTH_URL
+    ).href
+  })
+  const fakeProvider: SsoProvider = {
+    // Keep the installed Google URL/state/nonce/PKCE implementation intact.
+    authorizationURL: authorizationProvider.authorizationURL,
+    exchange: async () => ({ ...expectedIdentity })
+  }
+  const database = createDatabaseRuntime(databaseUrl, {
+    migrationProfile: 'current',
+    startupRole: 'nihongo_app'
+  })
+  const disconnectors = [database.disconnect]
+  let disconnectPromise: Promise<void> | undefined
+  const disconnect = (): Promise<void> => {
+    disconnectPromise ??= Promise.allSettled(
+      disconnectors.map(async (close) => close())
+    ).then((results) => {
+      if (results.some((result) => result.status === 'rejected'))
+        throw new Error('SSO browser API fixture database disconnect failed.')
+    })
+    return disconnectPromise
+  }
+  try {
+    const gateway = createRoleDatabaseRuntime(
+      authGatewayDatabaseUrl,
+      'nihongo_auth_gateway'
+    )
+    disconnectors.push(gateway.disconnect)
+    const checkDatabaseReadiness = createOwnedAuthReadiness({
+      checkDatabaseReadiness: database.checkReadiness,
+      applicationClient: database.client,
+      gatewayClient: gateway.client,
+      applicationUrl: databaseUrl,
+      gatewayUrl: authGatewayDatabaseUrl
+    })
+    const practice = createPracticeRuntimeGate({
+      runtime: 'v1-v2',
+      checkDatabaseReadiness,
+      checkV1Compatibility: database.checkV1Compatibility
+    })
+    const rateLimiter = createApplicationRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET
+    })
+    const auth = createSsoAuthentication({
+      environment,
+      applicationClient: database.client,
+      gatewayClient: gateway.client,
+      rateLimiter,
+      providers: { google: fakeProvider }
+    })
+    const app = createApiApp({
+      auth: {
+        environment,
+        ...auth,
+        guestPrincipalService: createGuestPrincipalService({
+          client: database.client,
+          secret: environment.GUEST_COOKIE_SECRET
+        })
+      },
+      assertPracticeRuntimeAuthority: practice.assertRequestAuthority,
+      checkReadiness: practice.checkReadiness,
+      logger: createJsonLogger('silent'),
+      ...(environment.RELEASE_ID === undefined
+        ? {}
+        : { releaseId: environment.RELEASE_ID }),
+      questionReader: createQuestionService(
+        createPrismaQuestionRepository(database.client, {
+          migrationProfile: 'current'
+        })
+      ),
+      questionReadSecurity: { environment, rateLimiter },
+      study: {
+        draftService: createStudyDraftService(
+          createPrismaStudyDraftRepository(database.client)
+        ),
+        practiceContractV2Enabled: practice.practiceContractV2Enabled,
+        rateLimiter,
+        service: createStudySessionService(
+          createPrismaStudySessionRepository(database.client)
+        )
+      }
+    })
+    return {
+      app,
+      checkReadiness: practice.checkReadiness,
+      expectedIdentity,
+      disconnect
+    }
+  } catch (error: unknown) {
+    await disconnect().catch(() => undefined)
+    throw error
   }
 }
