@@ -5,9 +5,12 @@ import {
   parseApiEnvironment
 } from '../config/env.js'
 import {
+  assertPhase10VitestFileResult,
   createPhase7SsoTestEnvironment,
   phase7DbFoundationTestFile,
   phase7SsoTestFile,
+  phase7SsoOrdinal6Title,
+  phase7SsoOrdinal6Pattern,
   runPhase10ManifestVitestFile,
   sanitizePhase7VitestReport,
   selectPhase7DbIntegrationFiles
@@ -764,5 +767,204 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
       output.mockRestore()
       if (safePath) await rm(safePath, { force: true })
     }
+  })
+})
+
+describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
+  const environment = {
+    PHASE7_DB_CASE: 'sso-ordinal6',
+    PHASE7_DB_SINGLE_TEST: phase7SsoTestFile,
+    PHASE7_DB_PRESERVE_REPORT: '1',
+    PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
+    AUTH_GATEWAY_DATABASE_URL: 'synthetic-auth',
+    PHASE7_LEGACY_DATABASE_URL: 'synthetic-legacy',
+    PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
+    PRISMA_TEST_DATABASE_URL: 'synthetic-test'
+  }
+  const report = (status: 'passed' | 'failed') => ({
+    numTotalTests: 36,
+    numPassedTests: status === 'passed' ? 1 : 0,
+    numFailedTests: status === 'failed' ? 1 : 0,
+    numPendingTests: 35,
+    numTodoTests: 0,
+    testResults: [
+      {
+        name: phase7SsoTestFile as string,
+        status,
+        assertionResults: Array.from({ length: 36 }, (_, index) => ({
+          fullName:
+            index === 5
+              ? `JLP-508 SSO task-owned PostgreSQL contract ${phase7SsoOrdinal6Title}`
+              : 'private-other-title',
+          status: index === 5 ? status : 'pending',
+          failureMessages:
+            index === 5 && status === 'failed'
+              ? [
+                  "PrismaClientKnownRequestError: private-value SQL secret code: 'P2010' SQLSTATE 23514\n    at privateFunction (/private/user/apps/api/src/auth/ssoAdminFreshRepository.ts:123:4)\n    at privateFunction (/private/user/apps/api/src/db/phase7SsoTestFixture.ts:99:1)"
+                ]
+              : []
+        }))
+      }
+    ]
+  })
+
+  it('accepts only the fixed mode with SSO file and sanitized report preservation', () => {
+    expect(
+      selectPhase7DbIntegrationFiles([phase7SsoTestFile], environment)
+    ).toEqual([phase7SsoTestFile])
+    for (const invalid of [
+      { PHASE7_DB_CASE: phase7SsoOrdinal6Pattern },
+      { PHASE7_DB_CASE: '' },
+      { PHASE7_DB_SINGLE_TEST: undefined },
+      { PHASE7_DB_SINGLE_TEST: phase7DbFoundationTestFile },
+      { PHASE7_DB_PRESERVE_REPORT: undefined }
+    ]) {
+      expect(() =>
+        selectPhase7DbIntegrationFiles([phase7SsoTestFile], {
+          ...environment,
+          ...invalid
+        })
+      ).toThrow('fixed SSO report mode')
+    }
+  })
+
+  it('projects only finite error labels and source paths, never text SQLSTATE or private values', () => {
+    const sanitized = sanitizePhase7VitestReport(
+      report('failed'),
+      phase7SsoTestFile,
+      environment
+    )
+    expect(sanitized.selectedCase).toEqual({
+      id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
+      sourceOrdinal: 6,
+      matched: 1,
+      status: 'failed',
+      failure: {
+        errorClass: 'PrismaClientKnownRequestError',
+        recognizedTextCodes: ['P2010'],
+        recognizedSourcePaths: [
+          'src/auth/ssoAdminFreshRepository.ts',
+          'src/db/phase7SsoTestFixture.ts'
+        ]
+      }
+    })
+    expect(sanitized).not.toHaveProperty('firstFailedAssertion')
+    const json = JSON.stringify(sanitized)
+    for (const privateValue of [
+      'private',
+      'SQL',
+      '23514',
+      '123',
+      '99',
+      phase7SsoOrdinal6Title
+    ])
+      expect(json).not.toContain(privateValue)
+    expect(json).not.toContain('sqlstate')
+  })
+
+  it('bounds messages and ignores unrecognized codes/classes/paths and unrelated selected shapes', () => {
+    const value = report('failed')
+    value.testResults[0]!.assertionResults[5]!.failureMessages = [
+      "UnrecognizedError: private code: 'SECRET' SQLSTATE 42501",
+      'x'.repeat(8192) +
+        "code: 'P2028'\n    at /private/src/db/phase7SsoTestFixture.ts:1:2",
+      'private path /private/src/auth/ssoAdminFreshRepository.ts:1:2',
+      "TypeError: private code: 'P2034'"
+    ]
+    expect(
+      sanitizePhase7VitestReport(value, phase7SsoTestFile, environment)
+        .selectedCase?.failure
+    ).toEqual({ recognizedTextCodes: [], recognizedSourcePaths: [] })
+    for (const mutation of [
+      (data: ReturnType<typeof report>) => {
+        data.testResults[0]!.assertionResults[5]!.fullName += ' altered'
+      },
+      (data: ReturnType<typeof report>) => {
+        data.testResults[0]!.assertionResults[0]!.status = 'passed'
+      },
+      (data: ReturnType<typeof report>) => {
+        data.numPendingTests = 34
+      },
+      (data: ReturnType<typeof report>) => {
+        data.testResults[0]!.name = phase7DbFoundationTestFile
+      }
+    ]) {
+      const changed = report('passed')
+      mutation(changed)
+      expect(
+        sanitizePhase7VitestReport(changed, phase7SsoTestFile, environment)
+      ).not.toHaveProperty('selectedCase')
+      expect(() =>
+        assertPhase10VitestFileResult({
+          result: changed,
+          expectedPath: phase7SsoTestFile,
+          selectedSsoOrdinal6: true
+        })
+      ).toThrow('incomplete')
+    }
+  })
+
+  it.each(['passed', 'failed'] as const)(
+    'uses the literal pattern, returns one selected success and deletes raw %s reporter data',
+    async (status) => {
+      let rawPath = ''
+      let reportPath = ''
+      const stdout = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk) => {
+          const event = JSON.parse(String(chunk)) as { reportFile: string }
+          reportPath = event.reportFile
+          return true
+        })
+      try {
+        const run = runPhase10ManifestVitestFile({
+          testFile: phase7SsoTestFile,
+          environment,
+          preserveSanitizedReport: true,
+          runCommand: async (_command, args) => {
+            expect(
+              args.slice(
+                args.indexOf('--testNamePattern'),
+                args.indexOf('--testNamePattern') + 2
+              )
+            ).toEqual(['--testNamePattern', phase7SsoOrdinal6Pattern])
+            for (const flag of [
+              '--maxWorkers=1',
+              '--no-file-parallelism',
+              '--bail=1',
+              '--retry=0'
+            ])
+              expect(args).toContain(flag)
+            rawPath = args
+              .find((arg) => arg.startsWith('--outputFile='))!
+              .slice('--outputFile='.length)
+            await writeFile(rawPath, JSON.stringify(report(status)))
+            if (status === 'failed') throw new Error('private child failure')
+          }
+        })
+        if (status === 'passed') await expect(run).resolves.toBe(1)
+        else await expect(run).rejects.toThrow('tests=redacted')
+        await expect(stat(rawPath)).rejects.toThrow()
+        expect((await stat(reportPath)).mode & 0o777).toBe(0o600)
+        const safe = await readFile(reportPath, 'utf8')
+        expect(JSON.parse(safe).selectedCase.status).toBe(status)
+        expect(safe).not.toContain('private')
+      } finally {
+        stdout.mockRestore()
+        if (reportPath) await rm(reportPath, { force: true })
+      }
+    }
+  )
+
+  it('rejects inconsistent direct helper options before starting a child', async () => {
+    const runCommand = vi.fn()
+    await expect(
+      runPhase10ManifestVitestFile({
+        testFile: phase7SsoTestFile,
+        environment,
+        runCommand
+      })
+    ).rejects.toThrow('requires sanitized reporting')
+    expect(runCommand).not.toHaveBeenCalled()
   })
 })

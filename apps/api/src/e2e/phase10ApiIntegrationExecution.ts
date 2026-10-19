@@ -13,6 +13,9 @@ export const phase7DbFoundationTestFile =
   'src/db/phase7AdminCmsFoundation.integration.test.ts' as const
 
 export const phase7SsoTestFile = 'src/db/phase7Sso.integration.test.ts' as const
+export const phase7SsoOrdinal6Title =
+  'apple ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts' as const
+export const phase7SsoOrdinal6Pattern = `${phase7SsoOrdinal6Title}$`
 
 // Public deterministic fixtures for this TEST runner, never provider credentials.
 const phase7SsoTestProfile = {
@@ -62,6 +65,16 @@ export const selectPhase7DbIntegrationFiles = (
   environment: NodeJS.ProcessEnv
 ): readonly string[] => {
   const selected = environment.PHASE7_DB_SINGLE_TEST
+  if (
+    environment.PHASE7_DB_CASE !== undefined &&
+    (environment.PHASE7_DB_CASE !== 'sso-ordinal6' ||
+      selected !== phase7SsoTestFile ||
+      environment.PHASE7_DB_PRESERVE_REPORT !== '1')
+  ) {
+    throw new Error(
+      'Phase 7 case selection requires the fixed SSO report mode.'
+    )
+  }
   if (selected === undefined) return defaultFiles
   if (
     !phase7SingleTestFiles.includes(selected) ||
@@ -136,6 +149,7 @@ export const sanitizePhase7VitestReport = (
   const fileResult = result.testResults?.[0]
   const assertions = fileResult?.assertionResults
   if (
+    environment.PHASE7_DB_CASE === undefined &&
     testFile === phase7SsoTestFile &&
     result.numTotalTests === 36 &&
     result.numFailedTests === 1 &&
@@ -197,6 +211,121 @@ export const sanitizePhase7VitestReport = (
       }
     }
   }
+  let selectedCase:
+    | {
+        id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6'
+        sourceOrdinal: 6
+        matched: 1
+        status: 'passed' | 'failed'
+        failure?: {
+          errorClass?: string
+          recognizedTextCodes: string[]
+          recognizedSourcePaths: string[]
+        }
+      }
+    | undefined
+  if (
+    environment.PHASE7_DB_CASE === 'sso-ordinal6' &&
+    testFile === phase7SsoTestFile &&
+    result.testResults?.length === 1 &&
+    fileResult &&
+    typeof fileResult.name === 'string' &&
+    normalizeResultPath(fileResult.name) === phase7SsoTestFile &&
+    !fileResult.failureMessage &&
+    !fileResult.message &&
+    result.numTotalTests === 36 &&
+    result.numPendingTests === 35 &&
+    (result.numTodoTests ?? 0) === 0 &&
+    Array.isArray(assertions) &&
+    assertions.length === 36
+  ) {
+    const matches = assertions.filter(
+      (assertion) =>
+        assertion?.fullName ===
+        `JLP-508 SSO task-owned PostgreSQL contract ${phase7SsoOrdinal6Title}`
+    )
+    const selected = matches[0]
+    if (
+      matches.length === 1 &&
+      selected &&
+      (selected.status === 'passed' || selected.status === 'failed') &&
+      fileResult.status === selected.status &&
+      result.numPassedTests === (selected.status === 'passed' ? 1 : 0) &&
+      result.numFailedTests === (selected.status === 'failed' ? 1 : 0) &&
+      assertions.every(
+        (assertion) =>
+          assertion === selected ||
+          ['pending', 'skipped'].includes(assertion?.status ?? '')
+      )
+    ) {
+      // Vitest JSON exposes stack/message strings, not structured error codes.
+      // Never promote SQLSTATE-like text to a structured PostgreSQL SQLSTATE.
+      const messages = (
+        Array.isArray(selected.failureMessages)
+          ? (selected.failureMessages as readonly unknown[])
+          : []
+      )
+        .slice(0, 3)
+        .filter((message): message is string => typeof message === 'string')
+        .map((message) => message.slice(0, 8192))
+      const classes = [
+        'AssertionError',
+        'TypeError',
+        'RangeError',
+        'Error',
+        'PrismaClientKnownRequestError',
+        'PrismaClientUnknownRequestError',
+        'PrismaClientInitializationError'
+      ]
+      const errorClass = classes.find((name) =>
+        messages.some((message) => message.startsWith(`${name}:`))
+      )
+      const recognizedTextCodes = [
+        'P2002',
+        'P2010',
+        'P2028',
+        'P2034',
+        'ERR_ASSERTION'
+      ].filter((code) =>
+        messages.some((message) =>
+          new RegExp(`\\bcode\\s*[:=]\\s*['"]${code}['"]`, 'u').test(message)
+        )
+      )
+      const recognizedSourcePaths = [
+        'src/auth/ssoAdminFreshRepository.ts',
+        'src/db/phase7SsoTestFixture.ts',
+        phase7SsoTestFile
+      ].filter((source) =>
+        messages.some((message) =>
+          message
+            .split('\n')
+            .some(
+              (line) =>
+                /^\s+at /u.test(line) &&
+                new RegExp(
+                  `(?:^|[ /])${source.replaceAll('.', '\\.')}:[0-9]+:[0-9]+[)]?$`,
+                  'u'
+                ).test(line)
+            )
+        )
+      )
+      selectedCase = {
+        id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
+        sourceOrdinal: 6,
+        matched: 1,
+        status: selected.status,
+        ...(selected.status === 'failed'
+          ? {
+              failure: {
+                ...(errorClass ? { errorClass } : {}),
+                recognizedTextCodes,
+                recognizedSourcePaths
+              }
+            }
+          : {})
+      }
+    }
+  }
   return {
     schemaVersion: 1,
     testFile: phase7SingleTestFiles.includes(testFile)
@@ -215,6 +344,7 @@ export const sanitizePhase7VitestReport = (
       )
     },
     ...(firstFailedAssertion ? { firstFailedAssertion } : {}),
+    ...(selectedCase ? { selectedCase } : {}),
     errors: (result.testResults ?? [])
       .flatMap(({ failureMessage, message }) => [failureMessage, message])
       .filter(
@@ -287,11 +417,22 @@ export const assertPhase10RequiredEnvironment = ({
 
 export const assertPhase10VitestFileResult = ({
   result,
-  expectedPath
+  expectedPath,
+  selectedSsoOrdinal6 = false
 }: {
   readonly result: VitestJsonResult
   readonly expectedPath: string
+  readonly selectedSsoOrdinal6?: boolean
 }): void => {
+  if (selectedSsoOrdinal6) {
+    const report = sanitizePhase7VitestReport(result, expectedPath, {
+      PHASE7_DB_CASE: 'sso-ordinal6'
+    })
+    if (report.selectedCase?.status !== 'passed') {
+      throw new Error('Phase 7 fixed SSO case result is incomplete.')
+    }
+    return
+  }
   if (
     result.numFailedTests !== 0 ||
     result.numPendingTests !== 0 ||
@@ -328,6 +469,13 @@ export const runPhase10ManifestVitestFile = async ({
   readonly preserveSanitizedReport?: boolean
   readonly onCollectionDiagnostic?: (diagnostic: CollectionDiagnostic) => void
 }): Promise<number> => {
+  const selectedSsoOrdinal6 = environment.PHASE7_DB_CASE !== undefined
+  if (selectedSsoOrdinal6) {
+    selectPhase7DbIntegrationFiles([testFile], environment)
+    if (!preserveSanitizedReport) {
+      throw new Error('Phase 7 fixed SSO case requires sanitized reporting.')
+    }
+  }
   if (preserveSanitizedReport && !phase7SingleTestFiles.includes(testFile)) {
     throw new Error(
       'Phase 7 report preservation requires a fixed allowlisted file.'
@@ -368,6 +516,9 @@ export const runPhase10ManifestVitestFile = async ({
                 '--retry=0'
               ]
             : []),
+          ...(selectedSsoOrdinal6
+            ? ['--testNamePattern', phase7SsoOrdinal6Pattern]
+            : []),
           '--reporter=json',
           `--outputFile=${outputFile}`
         ],
@@ -407,8 +558,12 @@ export const runPhase10ManifestVitestFile = async ({
     const result = JSON.parse(
       await readFile(outputFile, 'utf8')
     ) as VitestJsonResult
-    assertPhase10VitestFileResult({ result, expectedPath: testFile })
-    return result.numTotalTests ?? 0
+    assertPhase10VitestFileResult({
+      result,
+      expectedPath: testFile,
+      selectedSsoOrdinal6
+    })
+    return selectedSsoOrdinal6 ? 1 : (result.numTotalTests ?? 0)
   } finally {
     try {
       if (preserveSanitizedReport) {
