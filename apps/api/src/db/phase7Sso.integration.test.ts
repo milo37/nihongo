@@ -62,7 +62,7 @@ const unchangedSession = {
 }
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly45 completed names/checksums preserving the old44 prefix', async () => {
+  it('deploy and re-entry leave exactly46 completed names/checksums preserving the old45 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -73,7 +73,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(45)
+    expect(expected).toHaveLength(46)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -91,9 +91,13 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       '20261019103000_sso_admin_fresh',
       '20261019110000_sso_admin_fresh_erasure_ownership'
     ])
+    expect(
+      actual.rows.slice(0, 45).map(({ name, checksum }) => ({ name, checksum }))
+    ).toEqual(expected.slice(0, 45))
+    expect(actual.rows[45]?.name).toBe('20261020230000_sso_account_lifecycle')
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(45)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(46)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {

@@ -110,15 +110,17 @@ export const createSsoLoginService = ({
   provider: SsoProvider | undefined
   store: SsoTransactionStore
   providerId?: SsoProviderId
-  purpose?: 'LOGIN' | 'ADMIN_FRESH'
+  purpose?: 'LOGIN' | 'ADMIN_FRESH' | 'ACCOUNT_FRESH' | 'ACCOUNT_LINK'
   returnPathPolicy?: (value: unknown) => string
 }) => ({
   start: async (callbackURL: unknown) => {
     if (!provider) throw new SsoUnavailableError()
     let state = randomBytes(32).toString('base64url')
     if (purpose === 'ADMIN_FRESH') state = `F${state.slice(1)}`
+    else if (purpose === 'ACCOUNT_FRESH') state = `A${state.slice(1)}`
+    else if (purpose === 'ACCOUNT_LINK') state = `L${state.slice(1)}`
     else
-      while (state.startsWith('F'))
+      while (/^[FAL]/u.test(state))
         state = randomBytes(32).toString('base64url')
     const binding = randomBytes(32).toString('base64url')
     const nonce = randomBytes(32).toString('base64url')
@@ -183,7 +185,11 @@ export const createSsoLoginService = ({
       !TOKEN_PATTERN.test(state) ||
       (purpose === 'ADMIN_FRESH'
         ? !state.startsWith('F')
-        : state.startsWith('F')) ||
+        : purpose === 'ACCOUNT_FRESH'
+          ? !state.startsWith('A')
+          : purpose === 'ACCOUNT_LINK'
+            ? !state.startsWith('L')
+            : /^[FAL]/u.test(state)) ||
       !binding ||
       !TOKEN_PATTERN.test(binding)
     )

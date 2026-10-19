@@ -190,6 +190,10 @@
     "./auth/admin-fresh-sso": {
       "types": "./dist/auth/admin-fresh-sso.d.ts",
       "import": "./dist/auth/admin-fresh-sso.js"
+    },
+    "./auth/sso-account-management": {
+      "types": "./dist/auth/sso-account-management.d.ts",
+      "import": "./dist/auth/sso-account-management.js"
     }
   },
   "scripts": {

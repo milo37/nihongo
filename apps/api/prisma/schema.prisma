@@ -254,36 +254,39 @@ enum IdempotencyState {
 }
 
 model User {
-  id                        String                     @id @default(uuid()) @db.Uuid
-  name                      String                     @db.VarChar(80)
-  email                     String                     @unique
-  emailVerified             Boolean                    @default(false)
-  image                     String?
-  role                      UserRole                   @default(USER)
-  targetLevel               JlptLevel?
-  accountStatus             UserAccountStatus          @default(ACTIVE)
-  authorityGeneration       Int                        @default(dbgenerated("1"))
-  deletedAt                 DateTime?                  @db.Timestamptz(3)
-  createdAt                 DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt                 DateTime                   @updatedAt @db.Timestamptz(3)
-  sessions                  Session[]
-  sessionFamilies           AuthSessionFamily[]
-  sessionRotationFences     AuthSessionRotationFence[]
-  accounts                  Account[]
-  resetVerifications        Verification[]             @relation("PasswordResetUser")
-  createdQuestions          Question[]                 @relation("QuestionCreator")
-  createdQuestionVersions   QuestionVersion[]          @relation("QuestionVersionCreator")
-  contentReviewActors       ContentReview[]            @relation("ContentReviewActor")
-  contentReviewCounterparts ContentReview[]            @relation("ContentReviewCounterpart")
-  adminAuditActors          AdminAuditLog[]            @relation("AdminAuditActor")
-  submittedQuestionReports  QuestionReport[]           @relation("QuestionReportReporter")
-  assignedQuestionReports   QuestionReport[]           @relation("QuestionReportAssignee")
-  studySessions             StudySession[]
-  wrongNotes                WrongNote[]
-  bookmarks                 Bookmark[]
-  ssoAdminFreshTransactions SsoAdminFreshTransaction[]
-  ssoAdminFreshProofs       SsoAdminFreshProof[]
-  idempotencyRecords        IdempotencyRecord[]
+  id                          String                       @id @default(uuid()) @db.Uuid
+  name                        String                       @db.VarChar(80)
+  email                       String                       @unique
+  emailVerified               Boolean                      @default(false)
+  image                       String?
+  role                        UserRole                     @default(USER)
+  targetLevel                 JlptLevel?
+  accountStatus               UserAccountStatus            @default(ACTIVE)
+  authorityGeneration         Int                          @default(dbgenerated("1"))
+  deletedAt                   DateTime?                    @db.Timestamptz(3)
+  createdAt                   DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime                     @updatedAt @db.Timestamptz(3)
+  sessions                    Session[]
+  sessionFamilies             AuthSessionFamily[]
+  sessionRotationFences       AuthSessionRotationFence[]
+  accounts                    Account[]
+  resetVerifications          Verification[]               @relation("PasswordResetUser")
+  createdQuestions            Question[]                   @relation("QuestionCreator")
+  createdQuestionVersions     QuestionVersion[]            @relation("QuestionVersionCreator")
+  contentReviewActors         ContentReview[]              @relation("ContentReviewActor")
+  contentReviewCounterparts   ContentReview[]              @relation("ContentReviewCounterpart")
+  adminAuditActors            AdminAuditLog[]              @relation("AdminAuditActor")
+  submittedQuestionReports    QuestionReport[]             @relation("QuestionReportReporter")
+  assignedQuestionReports     QuestionReport[]             @relation("QuestionReportAssignee")
+  studySessions               StudySession[]
+  wrongNotes                  WrongNote[]
+  bookmarks                   Bookmark[]
+  ssoAdminFreshTransactions   SsoAdminFreshTransaction[]
+  ssoAdminFreshProofs         SsoAdminFreshProof[]
+  ssoAccountFreshTransactions SsoAccountFreshTransaction[]
+  ssoAccountFreshProofs       SsoAccountFreshProof[]
+  ssoAccountErasureRequest    SsoAccountErasureRequest?
+  idempotencyRecords          IdempotencyRecord[]
 
   @@index([role, accountStatus])
 }
@@ -1072,4 +1075,47 @@ model Phase7Approved308TagRegistration {
   appliedAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@ignore
+}
+
+model SsoAccountFreshTransaction {
+  stateDigest   String   @id @db.VarChar(64)
+  bindingDigest String   @db.VarChar(64)
+  provider      String   @db.VarChar(32)
+  nonce         String   @db.VarChar(43)
+  codeVerifier  String   @db.VarChar(86)
+  callbackURL   String   @db.VarChar(2048)
+  context       Json
+  userId        String   @db.Uuid
+  createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt     DateTime @db.Timestamptz(3)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model SsoAccountFreshProof {
+  proofDigest String    @id @db.VarChar(64)
+  context     Json
+  userId      String    @db.Uuid
+  callbackURL String    @db.VarChar(2048)
+  createdAt   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt   DateTime  @db.Timestamptz(3)
+  verifiedAt  DateTime? @db.Timestamptz(3)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model SsoAccountErasureRequest {
+  id               String    @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  userId           String?   @unique @db.Uuid
+  receiptDigest    String    @unique @db.VarChar(64)
+  appStatus        String    @default("DELETION_PENDING") @db.VarChar(32)
+  providerCleanup  Json
+  createdAt        DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  receiptExpiresAt DateTime  @db.Timestamptz(3)
+  completedAt      DateTime? @db.Timestamptz(3)
+  user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([appStatus, createdAt])
 }

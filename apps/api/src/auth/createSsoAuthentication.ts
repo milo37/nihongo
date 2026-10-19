@@ -1,3 +1,5 @@
+import { createSsoAccountRepository } from './ssoAccountRepository.js'
+import { createSsoAccountRuntime } from './ssoAccountRuntime.js'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import type { ApiEnvironment } from '../config/env.js'
 import { createAuthRuntimePlan } from '../config/authRuntimePlan.js'
@@ -47,12 +49,18 @@ export const createSsoAuthentication = ({
     providers,
     port: createSsoAdminFreshRepository(gatewayClient)
   })
+  const accountRuntime = createSsoAccountRuntime({
+    environment,
+    providers,
+    port: createSsoAccountRepository(gatewayClient)
+  })
   const social = createSsoPublicRuntime({
     environment,
     providers,
     store: createSsoTransactionStore(gatewayClient),
     identities: createSsoIdentityRepository(gatewayClient),
-    adminFresh
+    adminFresh,
+    accountRuntime
   })
   const facade: Phase7AuthFacade = {
     handle: async (request, pathname, payload) => {
@@ -93,7 +101,8 @@ export const createSsoAuthentication = ({
       environment,
       phase7Facade: facade,
       technicalRateLimiter: rateLimiter,
-      ssoRuntime: social
+      ssoRuntime: social,
+      ssoAccountRuntime: accountRuntime
     })
   }
 }

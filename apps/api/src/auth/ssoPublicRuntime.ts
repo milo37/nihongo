@@ -1,3 +1,4 @@
+import type { SsoAccountRuntime } from './ssoAccountRuntime.js'
 import {
   signInSocialRequestSchema,
   signInSocialResponseSchema,
@@ -59,13 +60,15 @@ export const createSsoPublicRuntime = ({
   providers,
   store,
   identities,
-  adminFresh
+  adminFresh,
+  accountRuntime
 }: {
   environment: ApiEnvironment
   providers: Partial<Record<SsoProviderId, SsoProvider>>
   store: SsoTransactionStore
   identities: SsoIdentityPort
   adminFresh?: SsoAdminFreshRuntime
+  accountRuntime?: SsoAccountRuntime
 }): SsoPublicRuntime => {
   const production = environment.NODE_ENV === 'production'
   const spaOrigin =
@@ -96,7 +99,12 @@ export const createSsoPublicRuntime = ({
       'Set-Cookie',
       createSsoBindingCookie(null, production, provider)
     )
-    if (cookie) headers.append('Set-Cookie', cookie)
+    if (cookie) {
+      headers.append('Set-Cookie', cookie)
+      // A new canonical login cannot inherit another account's private receipt.
+      for (const value of accountRuntime?.clearOnLogin() ?? [])
+        headers.append('Set-Cookie', value)
+    }
     return new Response(null, { status: 303, headers })
   }
   const failure = (
@@ -113,6 +121,16 @@ export const createSsoPublicRuntime = ({
   return {
     ...(adminFresh ? { completeAdminFresh: adminFresh.complete } : {}),
     start: async (_request, payload) => {
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        'purpose' in payload &&
+        (payload.purpose === 'ACCOUNT_FRESH' ||
+          payload.purpose === 'ACCOUNT_LINK')
+      )
+        return accountRuntime
+          ? accountRuntime.start(_request, payload)
+          : unavailable()
       if (
         payload &&
         typeof payload === 'object' &&
@@ -167,6 +185,21 @@ export const createSsoPublicRuntime = ({
             return failure(provider, 'INVALID_CALLBACK')
           query = url.searchParams
         }
+        if (
+          query.get('state')?.startsWith('A') ||
+          query.get('state')?.startsWith('L')
+        )
+          return accountRuntime
+            ? accountRuntime.callback(
+                request,
+                provider,
+                query,
+                readSsoBindingCookie(request.headers, production, provider),
+                query.get('state')!.startsWith('A')
+                  ? 'ACCOUNT_FRESH'
+                  : 'ACCOUNT_LINK'
+              )
+            : failure(provider, 'INVALID_CALLBACK')
         if (query.get('state')?.startsWith('F'))
           return adminFresh
             ? adminFresh.callback(
