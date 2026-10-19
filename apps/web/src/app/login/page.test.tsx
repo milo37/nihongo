@@ -12,6 +12,7 @@ import { AdminFreshReturnNotice } from '@app/login/components/AdminFreshReturnNo
 import { invalidateCanonicalAuthTransitions } from '@app/login/authSession'
 import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
 import { queryClient } from '@libs/queryClient'
+import { emitApiError } from '@libs/errorBus'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -56,6 +57,10 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
         children: [
           ...loginRoutes,
           { path: '/practice', element: <p>학습 설정 도착</p> },
+          {
+            path: '/practice/session/:sessionId',
+            element: <p>학습 풀이 도착</p>
+          },
           { path: '/dashboard', element: <p>대시보드 도착</p> },
           { path: '/admin/questions', element: <p>관리자 작업 화면</p> },
           { path: '/', element: <p>홈 도착</p> }
@@ -126,6 +131,82 @@ describe('Apple·Google SSO 로그인', () => {
         queryClient.getQueryData(['wrong-note', 'private'])
       ).toBeUndefined()
       expect(useAppStore.getState().sessionId).toBeNull()
+    }
+  )
+
+  it.each(['apple', 'google'] as const)(
+    '%s는 중복 만료 오류 뒤에도 하나의 안전한 학습 세션 경로를 callback으로 보존한다',
+    async (provider) => {
+      const actor = mockDatabase.loginAs('USER')
+      const target =
+        '/practice/session/018f6b7a-1f4b-7d5e-8a91-000000000900?level=N2&subject=GRAMMAR'
+      const starts: unknown[] = []
+      const router = renderLogin(target)
+      await waitFor(() =>
+        expect(useAppStore.getState().currentUser?.id).toBe(actor.id)
+      )
+      mockServer.use(
+        http.get('*/api/v1/me', () => HttpResponse.json({ kind: 'GUEST' })),
+        http.post('*/api/auth/sign-in/social', async ({ request }) => {
+          starts.push(await request.json())
+          return HttpResponse.json(
+            {
+              code: 'SSO_UNAVAILABLE',
+              message: 'Synthetic provider unavailable'
+            },
+            { status: 503 }
+          )
+        })
+      )
+      useAppStore
+        .getState()
+        .beginPractice('synthetic-private-expired', '2026-10-20T00:00:00.000Z')
+      queryClient.setQueryData(['bookmarks', 'expired-private'], {
+        owner: 'synthetic-old-user'
+      })
+      const expire = () =>
+        emitApiError(
+          Object.assign(new Error('Synthetic expired session'), {
+            isAuthError: true,
+            status: 401,
+            code: 'AUTH_SESSION_EXPIRED'
+          })
+        )
+      act(() => {
+        expire()
+        expire()
+      })
+      const apple = await screen.findByRole('button', {
+        name: 'Apple로 계속하기'
+      })
+      await waitFor(() => expect(router.state.location.state).toBeNull())
+      await act(async () => {
+        expire()
+        expire()
+      })
+      const search = new URLSearchParams(router.state.location.search)
+      expect(router.state.location.pathname).toBe('/login')
+      expect(search.getAll('redirect')).toEqual([target])
+      expect([...search.keys()]).toEqual(['redirect'])
+      expect(router.state.location.state).toBeNull()
+      expect(router.state.location.hash).toBe('')
+      expect(useAppStore.getState().currentUser).toBeNull()
+      expect(useAppStore.getState().sessionId).toBeNull()
+      expect(
+        queryClient.getQueryData(['bookmarks', 'expired-private'])
+      ).toBeUndefined()
+      expect(starts).toEqual([])
+      expect(apple).toBeEnabled()
+      const chosen = screen.getByRole('button', {
+        name: (provider === 'apple' ? 'Apple' : 'Google') + '로 계속하기'
+      })
+      await userEvent.setup().click(chosen)
+      await screen.findByRole('alert')
+      expect(starts).toEqual([{ provider, callbackURL: target }])
+      expect(
+        new URLSearchParams(router.state.location.search).getAll('redirect')
+      ).toEqual([target])
+      expect(chosen).toHaveFocus()
     }
   )
 

@@ -149,6 +149,48 @@ describe('AuthErrorHandlerProvider', () => {
     expect(router.state.location.pathname).toBe('/practice')
   })
 
+  it('전환 중 중복401과 로그인 도착 뒤 SESSION 오류는 최초 안전한 학습 복귀 경로를 덮지 않는다', async () => {
+    const actor = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(actor)
+    const target = '/practice/session/018f6b7a-1f4b-7d5e-8a91-000000000900'
+    const { router } = renderProvider(target)
+    const cancelQueries = queryClient.cancelQueries.bind(queryClient)
+    let releaseFirst: (() => void) | undefined
+    let cancellations = 0
+    const firstCancellation = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    vi.spyOn(queryClient, 'cancelQueries').mockImplementation(
+      async (filters, options) => {
+        cancellations += 1
+        if (cancellations === 1) await firstCancellation
+        return cancelQueries(filters, options)
+      }
+    )
+    const expire = () =>
+      emitApiError(
+        Object.assign(new Error('Synthetic expired session'), {
+          isAuthError: true,
+          status: 401,
+          code: 'AUTH_SESSION_EXPIRED'
+        })
+      )
+    act(expire)
+    await waitFor(() => expect(cancellations).toBe(1))
+    act(expire)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    const loginKey = router.state.location.key
+    await act(async () => releaseFirst?.())
+    await act(async () => {
+      expire()
+    })
+    const search = new URLSearchParams(router.state.location.search)
+    expect(search.getAll('redirect')).toEqual([target])
+    expect([...search.keys()]).toEqual(['redirect'])
+    expect(router.state.location.key).toBe(loginKey)
+    expect(useAppStore.getState().currentUser).toBeNull()
+  })
+
   it('403은 auth, cache, practice를 유지하고 forbidden으로 이동한다', async () => {
     const currentUser = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(currentUser)

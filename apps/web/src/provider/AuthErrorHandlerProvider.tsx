@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
+import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 import { AdminFreshReturnNotice } from '@app/login/components/AdminFreshReturnNotice'
 import { AuthFlowError } from '@app/login/authFlowErrors'
 import { isApiError } from '@api/config'
@@ -158,13 +159,13 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
 
       if (error.isAuthError && !isFreshAssuranceFlow) {
         const redirect = encodeURIComponent(
-          `${location.pathname}${location.search}`
+          safeSsoReturnPath(`${location.pathname}${location.search}`)
         )
         void commitCanonicalAuth(queryClient, null, {
           forceClear: true,
           forcePracticeReset: true
         }).then(({ applied }) => {
-          if (applied) {
+          if (applied && location.pathname !== '/login') {
             navigate(`/login?redirect=${redirect}`, {
               replace: true,
               state: { sessionExpired: true }
