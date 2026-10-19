@@ -129,7 +129,6 @@ export const sanitizePhase7VitestReport = (
   let firstFailedAssertion:
     | {
         caseOrdinal: number
-        stageOrdinal?: number
         errorClass?: (typeof errorClasses)[number]
         recognizedSqlstates?: (typeof sqlstates)[number][]
       }
@@ -176,17 +175,6 @@ export const sanitizePhase7VitestReport = (
           text: message.slice(0, 8192),
           truncated: message.length > 8192
         }))
-      const stageMatch =
-        index === 5
-          ? messages
-              .map(({ text }) =>
-                /^(?:TypeError: )?SSO ADMIN_FRESH stage checkpoint (10|[1-9]) failed\.(?:\r?\n|$)/u.exec(
-                  text
-                )
-              )
-              .find((match) => match !== null)
-          : undefined
-      const stageOrdinal = stageMatch ? Number(stageMatch[1]) : undefined
       const errorClass = messages.flatMap(({ text }) =>
         errorClasses.filter((name) => text.startsWith(`${name}:`))
       )[0]
@@ -204,12 +192,8 @@ export const sanitizePhase7VitestReport = (
       )
       firstFailedAssertion = {
         caseOrdinal: index + 1,
-        ...(stageOrdinal
-          ? { stageOrdinal }
-          : {
-              ...(errorClass ? { errorClass } : {}),
-              ...(recognizedSqlstates.length > 0 ? { recognizedSqlstates } : {})
-            })
+        ...(errorClass ? { errorClass } : {}),
+        ...(recognizedSqlstates.length > 0 ? { recognizedSqlstates } : {})
       }
     }
   }

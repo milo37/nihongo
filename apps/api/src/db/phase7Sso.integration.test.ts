@@ -307,91 +307,71 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
   it.each(['apple', 'google'] as const)(
     '%s ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts',
     async (provider) => {
-      let stageOrdinal = 1
-      try {
-        await h.rollback(async () => {
-          stageOrdinal = 1
-          const f = await h.fixture(provider)
-          stageOrdinal = 2
-          await h.learningFixture(f.userId)
-          stageOrdinal = 3
-          const before = await h.snapshot()
-          for (const table of [
-            'StudySession',
-            'StudySessionQuestion',
-            'StudyDraft',
-            'StudyDraftAnswer',
-            'StudyAnswer',
-            'StudyResult',
-            'WrongNote',
-            'ReviewSchedule',
-            'ReviewEvent',
-            'Bookmark'
-          ])
-            expect(before[table]?.count).toBeGreaterThan(0)
-          stageOrdinal = 4
-          expect(await fresh(f.token)).toBe(false)
-          stageOrdinal = 5
-          const { context, proof } = await staged(f)
-          expect(context).toMatchObject({
-            userId: f.userId,
-            sessionId: f.sessionId,
-            authorityGeneration: 1,
-            provider,
-            accountId: f.subject
-          })
-          stageOrdinal = 6
-          const next = await h.rotate(f, proof)
-          stageOrdinal = 7
-          expect(await h.facts(f)).toEqual(expectedRotation)
-          expect(await fresh(f.token)).toBe(false)
-          expect(await fresh(next.token)).toBe(true)
-          stageOrdinal = 8
-          expect(await h.snapshot()).toEqual(before)
-          stageOrdinal = 9
-          const audit = await h.owner.query<{
-            command: string
-            afterState: string
-            changedFields: unknown
-            metadata: unknown
-            verified: boolean
-          }>(
-            `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"="phase7_admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
-            [f.userId]
-          )
-          expect(audit.rows).toEqual([
-            {
-              command: 'REAUTHENTICATION',
-              afterState: 'SESSION_FRESH',
-              changedFields: ['SESSION_ROTATION'],
-              metadata: {
-                kind: 'REAUTHENTICATION_V1',
-                rotation: 'OLD_REVOKED_NEW_ISSUED'
-              },
-              verified: true
-            }
-          ])
-          stageOrdinal = 10
-          expect(
-            (
-              await h.roleQuery(
-                'nihongo_auth_gateway',
-                h.completeSql,
-                h.completeValues(f, proof).values
-              )
-            ).rowCount
-          ).toBe(0)
-          expect(await h.facts(f)).toEqual(expectedRotation)
-          await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+      await h.rollback(async () => {
+        const f = await h.fixture(provider)
+        await h.learningFixture(f.userId)
+        const before = await h.snapshot()
+        for (const table of [
+          'StudySession',
+          'StudySessionQuestion',
+          'StudyDraft',
+          'StudyDraftAnswer',
+          'StudyAnswer',
+          'StudyResult',
+          'WrongNote',
+          'ReviewSchedule',
+          'ReviewEvent',
+          'Bookmark'
+        ])
+          expect(before[table]?.count).toBeGreaterThan(0)
+        expect(await fresh(f.token)).toBe(false)
+        const { context, proof } = await staged(f)
+        expect(context).toMatchObject({
+          userId: f.userId,
+          sessionId: f.sessionId,
+          authorityGeneration: 1,
+          provider,
+          accountId: f.subject
         })
-      } catch (error: unknown) {
-        if (provider !== 'apple') throw error
-        const checkpoint = new TypeError(
-          `SSO ADMIN_FRESH stage checkpoint ${stageOrdinal} failed.`
+        const next = await h.rotate(f, proof)
+        expect(await h.facts(f)).toEqual(expectedRotation)
+        expect(await fresh(f.token)).toBe(false)
+        expect(await fresh(next.token)).toBe(true)
+        expect(await h.snapshot()).toEqual(before)
+        const audit = await h.owner.query<{
+          command: string
+          afterState: string
+          changedFields: unknown
+          metadata: unknown
+          verified: boolean
+        }>(
+          `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"="phase7_admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
+          [f.userId]
         )
-        checkpoint.stack = checkpoint.message
-        throw checkpoint
-      }
+        expect(audit.rows).toEqual([
+          {
+            command: 'REAUTHENTICATION',
+            afterState: 'SESSION_FRESH',
+            changedFields: ['SESSION_ROTATION'],
+            metadata: {
+              kind: 'REAUTHENTICATION_V1',
+              rotation: 'OLD_REVOKED_NEW_ISSUED'
+            },
+            verified: true
+          }
+        ])
+        expect(
+          (
+            await h.roleQuery(
+              'nihongo_auth_gateway',
+              h.completeSql,
+              h.completeValues(f, proof).values
+            )
+          ).rowCount
+        ).toBe(0)
+        expect(await h.facts(f)).toEqual(expectedRotation)
+        await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+      })
     },
     30_000
   )
