@@ -307,71 +307,153 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
   it.each(['apple', 'google'] as const)(
     '%s ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts',
     async (provider) => {
-      await h.rollback(async () => {
-        const f = await h.fixture(provider)
-        await h.learningFixture(f.userId)
-        const before = await h.snapshot()
-        for (const table of [
-          'StudySession',
-          'StudySessionQuestion',
-          'StudyDraft',
-          'StudyDraftAnswer',
-          'StudyAnswer',
-          'StudyResult',
-          'WrongNote',
-          'ReviewSchedule',
-          'ReviewEvent',
-          'Bookmark'
-        ])
-          expect(before[table]?.count).toBeGreaterThan(0)
-        expect(await fresh(f.token)).toBe(false)
-        const { context, proof } = await staged(f)
-        expect(context).toMatchObject({
-          userId: f.userId,
-          sessionId: f.sessionId,
-          authorityGeneration: 1,
-          provider,
-          accountId: f.subject
-        })
-        const next = await h.rotate(f, proof)
-        expect(await h.facts(f)).toEqual(expectedRotation)
-        expect(await fresh(f.token)).toBe(false)
-        expect(await fresh(next.token)).toBe(true)
-        expect(await h.snapshot()).toEqual(before)
-        const audit = await h.owner.query<{
-          command: string
-          afterState: string
-          changedFields: unknown
-          metadata: unknown
-          verified: boolean
-        }>(
-          `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"="phase7_admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
-          [f.userId]
-        )
-        expect(audit.rows).toEqual([
-          {
-            command: 'REAUTHENTICATION',
-            afterState: 'SESSION_FRESH',
-            changedFields: ['SESSION_ROTATION'],
-            metadata: {
-              kind: 'REAUTHENTICATION_V1',
-              rotation: 'OLD_REVOKED_NEW_ISSUED'
-            },
-            verified: true
-          }
-        ])
-        expect(
-          (
-            await h.roleQuery(
-              'nihongo_auth_gateway',
-              h.completeSql,
-              h.completeValues(f, proof).values
+      type Sso6Stage =
+        | 'TX_BEGIN'
+        | 'SESSION_FIXTURE'
+        | 'LEARNING_FIXTURE'
+        | 'BASELINE'
+        | 'OLD_NOT_FRESH'
+        | 'PREPARE_STAGE'
+        | 'CONTEXT_BINDING'
+        | 'ROTATE'
+        | 'ROTATION_FACTS_FRESH'
+        | 'DATA_UNCHANGED'
+        | 'AUDIT'
+        | 'REPLAY'
+        | 'FINAL_CONSTRAINTS'
+        | 'TX_ROLLBACK'
+      const sso6Enabled =
+        provider === 'apple' && process.env.PHASE7_DB_CASE === 'sso-ordinal6'
+      let sso6Stage: Sso6Stage = 'TX_BEGIN'
+      let sso6LineCount = 0
+      let sso6FailureEmitted = false
+      const sso6Emit = (state: 'BEGIN' | 'COMPLETE' | 'FAILED') => {
+        if (!sso6Enabled || sso6LineCount >= 29) return
+        sso6LineCount += 1
+        try {
+          process.stdout.write(
+            `${JSON.stringify({
+              event: 'phase7.db.integration.post_seed',
+              stage: `SSO6_${sso6Stage}_${state}`
+            })}\n`
+          )
+        } catch {
+          // Diagnostic output must not change the test failure.
+        }
+      }
+      const sso6Begin = (stage: Sso6Stage) => {
+        sso6Stage = stage
+        sso6Emit('BEGIN')
+      }
+      const sso6Complete = () => sso6Emit('COMPLETE')
+      const sso6Failed = () => {
+        if (sso6FailureEmitted) return
+        sso6FailureEmitted = true
+        sso6Emit('FAILED')
+      }
+      sso6Begin('TX_BEGIN')
+      try {
+        await h.rollback(async () => {
+          sso6Complete()
+          try {
+            sso6Begin('SESSION_FIXTURE')
+            const f = await h.fixture(provider)
+            sso6Complete()
+            sso6Begin('LEARNING_FIXTURE')
+            await h.learningFixture(f.userId)
+            sso6Complete()
+            sso6Begin('BASELINE')
+            const before = await h.snapshot()
+            for (const table of [
+              'StudySession',
+              'StudySessionQuestion',
+              'StudyDraft',
+              'StudyDraftAnswer',
+              'StudyAnswer',
+              'StudyResult',
+              'WrongNote',
+              'ReviewSchedule',
+              'ReviewEvent',
+              'Bookmark'
+            ])
+              expect(before[table]?.count).toBeGreaterThan(0)
+            sso6Complete()
+            sso6Begin('OLD_NOT_FRESH')
+            expect(await fresh(f.token)).toBe(false)
+            sso6Complete()
+            sso6Begin('PREPARE_STAGE')
+            const { context, proof } = await staged(f)
+            sso6Complete()
+            sso6Begin('CONTEXT_BINDING')
+            expect(context).toMatchObject({
+              userId: f.userId,
+              sessionId: f.sessionId,
+              authorityGeneration: 1,
+              provider,
+              accountId: f.subject
+            })
+            sso6Complete()
+            sso6Begin('ROTATE')
+            const next = await h.rotate(f, proof)
+            sso6Complete()
+            sso6Begin('ROTATION_FACTS_FRESH')
+            expect(await h.facts(f)).toEqual(expectedRotation)
+            expect(await fresh(f.token)).toBe(false)
+            expect(await fresh(next.token)).toBe(true)
+            sso6Complete()
+            sso6Begin('DATA_UNCHANGED')
+            expect(await h.snapshot()).toEqual(before)
+            sso6Complete()
+            sso6Begin('AUDIT')
+            const audit = await h.owner.query<{
+              command: string
+              afterState: string
+              changedFields: unknown
+              metadata: unknown
+              verified: boolean
+            }>(
+              `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"="phase7_admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
+              [f.userId]
             )
-          ).rowCount
-        ).toBe(0)
-        expect(await h.facts(f)).toEqual(expectedRotation)
-        await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
-      })
+            expect(audit.rows).toEqual([
+              {
+                command: 'REAUTHENTICATION',
+                afterState: 'SESSION_FRESH',
+                changedFields: ['SESSION_ROTATION'],
+                metadata: {
+                  kind: 'REAUTHENTICATION_V1',
+                  rotation: 'OLD_REVOKED_NEW_ISSUED'
+                },
+                verified: true
+              }
+            ])
+            sso6Complete()
+            sso6Begin('REPLAY')
+            expect(
+              (
+                await h.roleQuery(
+                  'nihongo_auth_gateway',
+                  h.completeSql,
+                  h.completeValues(f, proof).values
+                )
+              ).rowCount
+            ).toBe(0)
+            expect(await h.facts(f)).toEqual(expectedRotation)
+            sso6Complete()
+            sso6Begin('FINAL_CONSTRAINTS')
+            await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+            sso6Complete()
+          } catch (sso6Error: unknown) {
+            sso6Failed()
+            throw sso6Error
+          }
+          sso6Begin('TX_ROLLBACK')
+        })
+        sso6Complete()
+      } catch (sso6Error: unknown) {
+        sso6Failed()
+        throw sso6Error
+      }
     },
     30_000
   )
