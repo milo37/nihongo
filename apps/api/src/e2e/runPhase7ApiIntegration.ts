@@ -1031,6 +1031,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   let stop: (() => void) | undefined
   let firstFailure: unknown
   let closePromise: Promise<void> | undefined
+  let ownedSessionExpiryArmed = false
+  let ownedSessionExpiryReconciled = false
   const onSignal = () => {
     controller.abort(shutdownReason)
     stop?.()
@@ -1042,6 +1044,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   }
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
+      if (ownedSessionExpiryArmed && !ownedSessionExpiryReconciled) onFailure()
       let firstCleanupFailure: unknown
       const record = (error: unknown) => {
         firstCleanupFailure ??= error
@@ -1069,6 +1072,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       } catch (error: unknown) {
         record(error)
       }
+      if (ownedSessionExpiryArmed && !ownedSessionExpiryReconciled) onFailure()
       try {
         await cleanupPhase7IsolatedDatabase()
       } catch (error: unknown) {
@@ -1136,14 +1140,168 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     const armOwnedSessionExpiry = fixture.armOwnedSessionExpiry
     let ownedSessionExpiryAttempted = false
     let ownedSessionExpiryOperation: Promise<void> | undefined
+    const reconcileOwnedSessionExpiry = fixture.reconcileOwnedSessionExpiry
+    let expiryPhase:
+      | 'NOT_ARMED'
+      | 'WAIT_FIRST_PROTECTED'
+      | 'FIRST_PROTECTED_IN_FLIGHT'
+      | 'FIRST_401_CONFIRMED'
+      | 'RECONCILING'
+      | 'RECONCILED' = 'NOT_ARMED'
+    let protectedIngressCountBeforeFirst401 = 0
+    let reconciliationAttempted = false
+    let signInEnteredCount = 0
+    let signInCompleted2xxCount = 0
+    const failExpiryDependency = (): never => {
+      onFailure()
+      throw new Error('SSO browser dependency failed.')
+    }
+    const expectedReconciliation = {
+      baselineOwnedUserAccountCaptured: true,
+      baselineOwnedSessionFamilyCaptured: true,
+      saveAnswerABeforeBookmarkB: true,
+      saveBookmarkUserDelta: 0,
+      saveBookmarkAccountDelta: 0,
+      saveBookmarkBookmarkDelta: 0,
+      ownedSessionExpiryArmedOnce: 1,
+      oldL0Expired: true,
+      oldF0Active: true,
+      login2SameInternalUserU: true,
+      login2UserDeltaFromSaveBookmark: 0,
+      login2AccountDeltaFromSaveBookmark: 0,
+      login2BookmarkDeltaFromSaveBookmark: 0,
+      login2SessionDeltaFromSaveBookmark: 1,
+      login2FamilyDeltaFromSaveBookmark: 1,
+      samePracticeRetained: true,
+      answerARetained: true,
+      bookmarkBRetained: true
+    } as const
     const listener = getRequestListener(
       async (...args: Parameters<typeof app.fetch>) => {
         const [request] = args
+        const pathname = new URL(request.url).pathname
+        const isBookmarkList =
+          request.method === 'GET' && pathname === '/api/v1/bookmarks'
+        if (firstFailure) failExpiryDependency()
+        let claimsFirstProtected = false
+        if (
+          request.method !== 'OPTIONS' &&
+          pathname.startsWith('/api/v1/') &&
+          (expiryPhase === 'WAIT_FIRST_PROTECTED' ||
+            expiryPhase === 'FIRST_PROTECTED_IN_FLIGHT')
+        ) {
+          protectedIngressCountBeforeFirst401 += 1
+          if (
+            expiryPhase !== 'WAIT_FIRST_PROTECTED' ||
+            protectedIngressCountBeforeFirst401 !== 1 ||
+            !isBookmarkList
+          ) {
+            failExpiryDependency()
+          }
+          expiryPhase = 'FIRST_PROTECTED_IN_FLIGHT'
+          claimsFirstProtected = true
+        }
+        const claimsReconciliation =
+          isBookmarkList &&
+          signInEnteredCount === 2 &&
+          signInCompleted2xxCount === 2 &&
+          (expiryPhase === 'FIRST_401_CONFIRMED' ||
+            expiryPhase === 'RECONCILING')
+        if (claimsReconciliation && reconciliationAttempted) {
+          failExpiryDependency()
+        }
         if (
           request.method !== 'POST' ||
-          new URL(request.url).pathname !== '/api/auth/sign-in/social'
+          pathname !== '/api/auth/sign-in/social'
         ) {
           const response = await app.fetch(...args)
+          if (claimsFirstProtected) {
+            try {
+              if (response.status !== 401) failExpiryDependency()
+              const body: unknown = await response.clone().json()
+              if (
+                !body ||
+                typeof body !== 'object' ||
+                !('code' in body) ||
+                body.code !== 'AUTH_SESSION_EXPIRED' ||
+                protectedIngressCountBeforeFirst401 !== 1 ||
+                firstFailure
+              ) {
+                failExpiryDependency()
+              }
+              expiryPhase = 'FIRST_401_CONFIRMED'
+              process.stdout.write(
+                `${JSON.stringify({
+                  event:
+                    'phase7.api.sso_browser.session_expiry.first_protected',
+                  kind: 'BOOKMARK_LIST',
+                  firstProtectedIngressAfterArm: true,
+                  countBeforeFirst401: protectedIngressCountBeforeFirst401,
+                  firstStatus: 401,
+                  firstCode: 'AUTH_SESSION_EXPIRED'
+                })}\n`
+              )
+            } catch {
+              failExpiryDependency()
+            }
+          }
+          if (claimsReconciliation && response.status === 200) {
+            if (reconciliationAttempted) failExpiryDependency()
+            reconciliationAttempted = true
+            expiryPhase = 'RECONCILING'
+            try {
+              const receipt = await reconcileOwnedSessionExpiry()
+              const finalReceipt = {
+                baselineOwnedUserAccountCaptured:
+                  receipt.baselineOwnedUserAccountCaptured,
+                baselineOwnedSessionFamilyCaptured:
+                  receipt.baselineOwnedSessionFamilyCaptured,
+                saveAnswerABeforeBookmarkB: receipt.saveAnswerABeforeBookmarkB,
+                saveBookmarkUserDelta: receipt.saveBookmarkUserDelta,
+                saveBookmarkAccountDelta: receipt.saveBookmarkAccountDelta,
+                saveBookmarkBookmarkDelta: receipt.saveBookmarkBookmarkDelta,
+                ownedSessionExpiryArmedOnce:
+                  receipt.ownedSessionExpiryArmedOnce,
+                oldL0Expired: receipt.oldL0Expired,
+                oldF0Active: receipt.oldF0Active,
+                login2SameInternalUserU: receipt.login2SameInternalUserU,
+                login2UserDeltaFromSaveBookmark:
+                  receipt.login2UserDeltaFromSaveBookmark,
+                login2AccountDeltaFromSaveBookmark:
+                  receipt.login2AccountDeltaFromSaveBookmark,
+                login2BookmarkDeltaFromSaveBookmark:
+                  receipt.login2BookmarkDeltaFromSaveBookmark,
+                login2SessionDeltaFromSaveBookmark:
+                  receipt.login2SessionDeltaFromSaveBookmark,
+                login2FamilyDeltaFromSaveBookmark:
+                  receipt.login2FamilyDeltaFromSaveBookmark,
+                samePracticeRetained: receipt.samePracticeRetained,
+                answerARetained: receipt.answerARetained,
+                bookmarkBRetained: receipt.bookmarkBRetained
+              }
+              if (
+                firstFailure ||
+                Object.keys(receipt).length !== 18 ||
+                Object.entries(expectedReconciliation).some(
+                  ([key, expected]) =>
+                    finalReceipt[key as keyof typeof expectedReconciliation] !==
+                    expected
+                )
+              ) {
+                failExpiryDependency()
+              }
+              process.stdout.write(
+                `${JSON.stringify({
+                  event: 'phase7.api.sso_browser.session_expiry.reconciled',
+                  ...finalReceipt
+                })}\n`
+              )
+              ownedSessionExpiryReconciled = true
+              expiryPhase = 'RECONCILED'
+            } catch {
+              failExpiryDependency()
+            }
+          }
           if (
             request.method === 'PUT' &&
             /^\/api\/v1\/bookmarks\/[^/]+$/.test(
@@ -1163,6 +1321,9 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                   ) {
                     throw new Error('SSO browser dependency failed.')
                   }
+                  if (firstFailure) failExpiryDependency()
+                  ownedSessionExpiryArmed = true
+                  expiryPhase = 'WAIT_FIRST_PROTECTED'
                 } catch {
                   onFailure()
                   throw new Error('SSO browser dependency failed.')
@@ -1185,6 +1346,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
           }
           return response
         }
+        signInEnteredCount += 1
         try {
           process.stdout.write(
             `${JSON.stringify({
@@ -1222,6 +1384,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               : status >= 500 && status < 600
                 ? '5xx'
                 : undefined
+        if (statusClass === '2xx') signInCompleted2xxCount += 1
         try {
           process.stdout.write(
             `${JSON.stringify({
