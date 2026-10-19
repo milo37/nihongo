@@ -347,13 +347,13 @@ export const createPhase7SsoBrowserApiFixture = async ({
   databaseUrl,
   authGatewayDatabaseUrl,
   environment,
-  ownerDatabaseUrl
+  adminDatabaseUrl
 }: {
   databaseUrl: string
   authGatewayDatabaseUrl: string
   environment: ApiEnvironment
-  /** Existing isolated harness adminDatabaseUrl; never delivered to the app. */
-  ownerDatabaseUrl?: string
+  /** TEST admin-only/private harness URL; never delivered to the app or browser. */
+  adminDatabaseUrl?: string
 }) => {
   if (
     environment.NODE_ENV !== 'test' ||
@@ -414,13 +414,13 @@ export const createPhase7SsoBrowserApiFixture = async ({
       throw new Error('SSO browser API fixture requires loopback TEST origins.')
   }
 
-  if (ownerDatabaseUrl !== undefined) {
+  if (adminDatabaseUrl !== undefined) {
     try {
       assertSafeTestDatabase({
         nodeEnvironment: 'test',
-        databaseUrl: ownerDatabaseUrl
+        databaseUrl: adminDatabaseUrl
       })
-      const target = new URL(ownerDatabaseUrl)
+      const target = new URL(adminDatabaseUrl)
       decodeURIComponent(target.username)
       decodeURIComponent(target.password)
       decodeURIComponent(target.pathname)
@@ -434,7 +434,7 @@ export const createPhase7SsoBrowserApiFixture = async ({
         [applicationTarget.username, gatewayTarget.username].includes(
           target.username
         ) ||
-        getPostgresSchema(ownerDatabaseUrl) !== schema ||
+        getPostgresSchema(adminDatabaseUrl) !== schema ||
         target.searchParams.getAll('schema').length !== 1 ||
         [...target.searchParams.keys()].some(
           (key) => key !== 'schema' && key !== 'sslmode'
@@ -502,11 +502,11 @@ export const createPhase7SsoBrowserApiFixture = async ({
     // An unsuccessful attempt is consumed too. Never retry/rearm a partial commit.
     expiryAttempted = true
     const session = ownedSession
-    if (!ownerDatabaseUrl || !session || disconnectPromise)
+    if (!adminDatabaseUrl || !session || disconnectPromise)
       return Promise.reject(failure())
     expiryOperation = (async (): Promise<ExpiryReceipt> => {
-      const target = new URL(ownerDatabaseUrl)
-      target.search = ''
+      const target = new URL(adminDatabaseUrl)
+      target.searchParams.delete('schema')
       const owner = new Client({
         connectionString: target.toString(),
         options: createPostgresStartupOptions(schema),
@@ -694,7 +694,7 @@ export const createPhase7SsoBrowserApiFixture = async ({
       providers: { google: fakeProvider }
     })
     const principalService =
-      ownerDatabaseUrl === undefined
+      adminDatabaseUrl === undefined
         ? auth.principalService
         : {
             ...auth.principalService,
