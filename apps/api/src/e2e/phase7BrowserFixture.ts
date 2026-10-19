@@ -7,6 +7,8 @@ import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
 import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
 import type { SsoProvider } from '../auth/ssoProtocol.js'
+import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
+import { createBookmarkService } from '../bookmark/bookmarkService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -16,6 +18,7 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
+import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -343,11 +346,14 @@ export const createPhase7BrowserFixture = async (
 export const createPhase7SsoBrowserApiFixture = async ({
   databaseUrl,
   authGatewayDatabaseUrl,
-  environment
+  environment,
+  ownerDatabaseUrl
 }: {
   databaseUrl: string
   authGatewayDatabaseUrl: string
   environment: ApiEnvironment
+  /** Existing isolated harness adminDatabaseUrl; never delivered to the app. */
+  ownerDatabaseUrl?: string
 }) => {
   if (
     environment.NODE_ENV !== 'test' ||
@@ -408,6 +414,40 @@ export const createPhase7SsoBrowserApiFixture = async ({
       throw new Error('SSO browser API fixture requires loopback TEST origins.')
   }
 
+  if (ownerDatabaseUrl !== undefined) {
+    try {
+      assertSafeTestDatabase({
+        nodeEnvironment: 'test',
+        databaseUrl: ownerDatabaseUrl
+      })
+      const target = new URL(ownerDatabaseUrl)
+      decodeURIComponent(target.username)
+      decodeURIComponent(target.password)
+      decodeURIComponent(target.pathname)
+      if (
+        target.protocol !== applicationTarget.protocol ||
+        target.hostname !== applicationTarget.hostname ||
+        (target.port || '5432') !== (applicationTarget.port || '5432') ||
+        target.pathname !== applicationTarget.pathname ||
+        target.hash ||
+        !target.username ||
+        [applicationTarget.username, gatewayTarget.username].includes(
+          target.username
+        ) ||
+        getPostgresSchema(ownerDatabaseUrl) !== schema ||
+        target.searchParams.getAll('schema').length !== 1 ||
+        [...target.searchParams.keys()].some(
+          (key) => key !== 'schema' && key !== 'sslmode'
+        )
+      )
+        throw new Error()
+    } catch {
+      throw new Error(
+        'SSO browser TTL owner requires the same isolated TEST target.'
+      )
+    }
+  }
+
   const expectedIdentity = Object.freeze({
     provider: 'google' as const,
     accountId: 'phase7-sso-browser-google-subject',
@@ -442,6 +482,188 @@ export const createPhase7SsoBrowserApiFixture = async ({
     })
     return disconnectPromise
   }
+  type ExpiryReceipt = {
+    readonly armed: true
+    readonly expired: true
+    readonly sessionCount: 1
+  }
+  let ownedSession: { id: string; userId: string; token: string } | undefined
+  let expiryAttempted = false
+  let expiryOperation: Promise<ExpiryReceipt> | undefined
+  disconnectors.push(async () => {
+    await expiryOperation?.then(
+      () => undefined,
+      () => undefined
+    )
+  })
+  const armOwnedSessionExpiry = (): Promise<ExpiryReceipt> => {
+    const failure = () => new Error('SSO browser TTL fixture failed.')
+    if (expiryAttempted) return Promise.reject(failure())
+    // An unsuccessful attempt is consumed too. Never retry/rearm a partial commit.
+    expiryAttempted = true
+    const session = ownedSession
+    if (!ownerDatabaseUrl || !session || disconnectPromise)
+      return Promise.reject(failure())
+    expiryOperation = (async (): Promise<ExpiryReceipt> => {
+      const target = new URL(ownerDatabaseUrl)
+      target.search = ''
+      const owner = new Client({
+        connectionString: target.toString(),
+        options: createPostgresStartupOptions(schema),
+        connectionTimeoutMillis: 2_000,
+        query_timeout: 2_000,
+        statement_timeout: 1_000
+      })
+      let inTransaction = false
+      let ownerFailed = false
+      owner.on('error', () => {
+        ownerFailed = true
+      })
+      try {
+        await owner.connect()
+        await owner.query('BEGIN')
+        inTransaction = true
+        await owner.query("SET LOCAL lock_timeout = '1s'")
+        const authority = await owner.query<{ safe: boolean }>(
+          `SELECT current_user = session_user
+            AND current_setting('role') = 'none'
+            AND current_setting('session_replication_role') = 'origin'
+            AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles
+              WHERE rolname = current_user AND rolsuper)
+            AND EXISTS (SELECT 1 FROM pg_catalog.pg_namespace namespace
+              JOIN pg_catalog.pg_roles role ON role.oid = namespace.nspowner
+              WHERE namespace.nspname = $1 AND role.rolname = 'nihongo_phase7_owner')
+            AND current_schema() = $1 AS safe`,
+          [schema]
+        )
+        if (authority.rows.length !== 1 || authority.rows[0]?.safe !== true)
+          throw failure()
+        // Lock the fixed provider mapping/User before issuance can add a session.
+        const user = await owner.query(
+          `SELECT target.id FROM "User" target
+            JOIN "Account" account ON account."userId" = target.id
+            WHERE target.id = $1::uuid AND target.role = 'USER'
+              AND target."accountStatus" = 'ACTIVE' AND target."deletedAt" IS NULL
+              AND account."providerId" = $2 AND account."accountId" = $3
+            FOR UPDATE OF target, account`,
+          [
+            session.userId,
+            expectedIdentity.provider,
+            expectedIdentity.accountId
+          ]
+        )
+        if (user.rowCount !== 1) throw failure()
+        const selected = await owner.query<{
+          id: string
+          familyId: string
+          expiresAt: Date
+          matchesToken: boolean
+          immutableDigest: string
+        }>(
+          `SELECT session.id, family.id AS "familyId", session."expiresAt",
+              session.token = $2 AS "matchesToken",
+              md5((to_jsonb(session) - 'expiresAt')::text) AS "immutableDigest"
+            FROM "Session" session
+            JOIN "User" target ON target.id = session."userId"
+            JOIN "AuthSessionFamily" family ON family.id = session."sessionFamilyId"
+              AND family."userId" = target.id
+            WHERE target.id = $1::uuid AND target.role = 'USER'
+              AND target."accountStatus" = 'ACTIVE'
+              AND session."authorityGeneration" = target."authorityGeneration"
+              AND session."issuerProtocolVersion" = 'PHASE7_V1'
+              AND session."authorizationState" = 'ACTIVE' AND family.status = 'ACTIVE'
+              AND session."expiresAt" > clock_timestamp()
+              AND session."expiresAt" > session."createdAt" + INTERVAL '1 day'
+              AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
+            FOR UPDATE OF session, family`,
+          [session.userId, session.token]
+        )
+        const original = selected.rows[0]
+        if (
+          selected.rowCount !== 1 ||
+          !original ||
+          original.id !== session.id ||
+          !original.matchesToken ||
+          ownerFailed ||
+          disconnectPromise
+        )
+          throw failure()
+        await owner.query('SET LOCAL session_replication_role = replica')
+        const changed = await owner.query<{
+          expiresAt: Date
+          preserved: boolean
+        }>(
+          `WITH deadline AS (SELECT clock_timestamp() + INTERVAL '2 seconds' AS value)
+            UPDATE "Session" session SET "expiresAt" = deadline.value
+            FROM deadline
+            WHERE session.id = $1::uuid AND session."userId" = $2::uuid
+              AND session."sessionFamilyId" = $3::uuid
+              AND session."expiresAt" = $4::timestamptz
+              AND session."createdAt" < deadline.value
+              AND deadline.value < session."expiresAt"
+              AND deadline.value > clock_timestamp()
+            RETURNING session."expiresAt",
+              md5((to_jsonb(session) - 'expiresAt')::text) = $5 AS preserved`,
+          [
+            session.id,
+            session.userId,
+            original.familyId,
+            original.expiresAt,
+            original.immutableDigest
+          ]
+        )
+        const armed = changed.rows[0]
+        if (changed.rowCount !== 1 || !armed || armed.preserved !== true)
+          throw failure()
+        await owner.query('SET LOCAL session_replication_role = origin')
+        if (ownerFailed || disconnectPromise) throw failure()
+        await owner.query('COMMIT')
+        inTransaction = false
+        // Monotonic time bounds the wait; only DB time proves the crossing.
+        const waitDeadline = performance.now() + 5_000
+        for (
+          let attempt = 0;
+          attempt < 40 && performance.now() < waitDeadline;
+          attempt += 1
+        ) {
+          if (ownerFailed || disconnectPromise) throw failure()
+          const crossed = await owner.query<{ expired: boolean }>(
+            `SELECT session."expiresAt" <= clock_timestamp() AS expired
+              FROM "Session" session JOIN "AuthSessionFamily" family
+                ON family.id = session."sessionFamilyId" AND family."userId" = session."userId"
+              WHERE session.id = $1::uuid AND session."userId" = $2::uuid
+                AND session."sessionFamilyId" = $3::uuid
+                AND session."expiresAt" = $4::timestamptz
+                AND session."authorizationState" = 'ACTIVE' AND family.status = 'ACTIVE'
+                AND md5((to_jsonb(session) - 'expiresAt')::text) = $5`,
+            [
+              session.id,
+              session.userId,
+              original.familyId,
+              armed.expiresAt,
+              original.immutableDigest
+            ]
+          )
+          if (crossed.rowCount !== 1 || ownerFailed || disconnectPromise)
+            throw failure()
+          if (crossed.rows[0]?.expired === true)
+            return { armed: true, expired: true, sessionCount: 1 }
+          await new Promise<void>((resolve) => setTimeout(resolve, 100))
+        }
+        throw failure()
+      } catch {
+        if (inTransaction) await owner.query('ROLLBACK').catch(() => undefined)
+        throw failure()
+      } finally {
+        await owner.end().catch(() => {
+          throw failure()
+        })
+      }
+    })().catch(() => {
+      throw failure()
+    })
+    return expiryOperation
+  }
   try {
     const gateway = createRoleDatabaseRuntime(
       authGatewayDatabaseUrl,
@@ -471,10 +693,37 @@ export const createPhase7SsoBrowserApiFixture = async ({
       rateLimiter,
       providers: { google: fakeProvider }
     })
+    const principalService =
+      ownerDatabaseUrl === undefined
+        ? auth.principalService
+        : {
+            ...auth.principalService,
+            resolveAuthenticatedUser: async (
+              ...args: Parameters<
+                typeof auth.principalService.resolveAuthenticatedUser
+              >
+            ) => {
+              const resolution =
+                await auth.principalService.resolveAuthenticatedUser(...args)
+              if (
+                !ownedSession &&
+                resolution.user?.role === 'USER' &&
+                resolution.phase7Session
+              ) {
+                ownedSession = {
+                  id: resolution.phase7Session.id,
+                  userId: resolution.user.id,
+                  token: resolution.phase7Session.token
+                }
+              }
+              return resolution
+            }
+          }
     const app = createApiApp({
       auth: {
         environment,
         ...auth,
+        principalService,
         guestPrincipalService: createGuestPrincipalService({
           client: database.client,
           secret: environment.GUEST_COOKIE_SECRET
@@ -503,11 +752,23 @@ export const createPhase7SsoBrowserApiFixture = async ({
         )
       }
     })
+    app.route(
+      '/api/v1/bookmarks',
+      createBookmarkRoutes({
+        bookmarkService: createBookmarkService(
+          createPrismaBookmarkRepository(database.client)
+        ),
+        environment,
+        principalService,
+        rateLimiter
+      })
+    )
     return {
       app,
       checkReadiness: practice.checkReadiness,
       expectedIdentity,
-      disconnect
+      disconnect,
+      armOwnedSessionExpiry
     }
   } catch (error: unknown) {
     await disconnect().catch(() => undefined)
