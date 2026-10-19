@@ -11,6 +11,8 @@ import {
   phase7SsoTestFile,
   phase7SsoOrdinal6Title,
   phase7SsoOrdinal6Pattern,
+  phase7SsoIdentityTitle,
+  phase7SsoIdentityPattern,
   runPhase10ManifestVitestFile,
   sanitizePhase7VitestReport,
   selectPhase7DbIntegrationFiles
@@ -770,9 +772,24 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
   })
 })
 
-describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
+describe.each([
+  {
+    mode: 'sso-ordinal6',
+    title: phase7SsoOrdinal6Title,
+    pattern: phase7SsoOrdinal6Pattern,
+    id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
+    sourceOrdinal: 6
+  },
+  {
+    mode: 'sso-identity',
+    title: phase7SsoIdentityTitle,
+    pattern: phase7SsoIdentityPattern,
+    id: 'SSO_PROVIDER_SUB_IDENTITY_ORDINAL5',
+    sourceOrdinal: 5
+  }
+] as const)('Phase 7 fixed SSO $mode diagnosis', (fixedCase) => {
   const environment = {
-    PHASE7_DB_CASE: 'sso-ordinal6',
+    PHASE7_DB_CASE: fixedCase.mode,
     PHASE7_DB_SINGLE_TEST: phase7SsoTestFile,
     PHASE7_DB_PRESERVE_REPORT: '1',
     PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
@@ -793,12 +810,12 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
         status,
         assertionResults: Array.from({ length: 36 }, (_, index) => ({
           fullName:
-            index === 5
-              ? `JLP-508 SSO task-owned PostgreSQL contract ${phase7SsoOrdinal6Title}`
+            index === fixedCase.sourceOrdinal - 1
+              ? `JLP-508 SSO task-owned PostgreSQL contract ${fixedCase.title}`
               : 'private-other-title',
-          status: index === 5 ? status : 'pending',
+          status: index === fixedCase.sourceOrdinal - 1 ? status : 'pending',
           failureMessages:
-            index === 5 && status === 'failed'
+            index === fixedCase.sourceOrdinal - 1 && status === 'failed'
               ? [
                   "PrismaClientKnownRequestError: private-value SQL secret code: 'P2010' SQLSTATE 23514\n    at privateFunction (/private/user/apps/api/src/auth/ssoAdminFreshRepository.ts:123:4)\n    at privateFunction (/private/user/apps/api/src/db/phase7SsoTestFixture.ts:99:1)"
                 ]
@@ -813,8 +830,9 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
       selectPhase7DbIntegrationFiles([phase7SsoTestFile], environment)
     ).toEqual([phase7SsoTestFile])
     for (const invalid of [
-      { PHASE7_DB_CASE: phase7SsoOrdinal6Pattern },
+      { PHASE7_DB_CASE: fixedCase.pattern },
       { PHASE7_DB_CASE: '' },
+      { PHASE7_DB_CASE: 'sso-unknown' },
       { PHASE7_DB_SINGLE_TEST: undefined },
       { PHASE7_DB_SINGLE_TEST: phase7DbFoundationTestFile },
       { PHASE7_DB_PRESERVE_REPORT: undefined }
@@ -835,8 +853,8 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
       environment
     )
     expect(sanitized.selectedCase).toEqual({
-      id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
-      sourceOrdinal: 6,
+      id: fixedCase.id,
+      sourceOrdinal: fixedCase.sourceOrdinal,
       matched: 1,
       status: 'failed',
       failure: {
@@ -856,7 +874,7 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
       '23514',
       '123',
       '99',
-      phase7SsoOrdinal6Title
+      fixedCase.title
     ])
       expect(json).not.toContain(privateValue)
     expect(json).not.toContain('sqlstate')
@@ -864,7 +882,9 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
 
   it('bounds messages and ignores unrecognized codes/classes/paths and unrelated selected shapes', () => {
     const value = report('failed')
-    value.testResults[0]!.assertionResults[5]!.failureMessages = [
+    value.testResults[0]!.assertionResults[
+      fixedCase.sourceOrdinal - 1
+    ]!.failureMessages = [
       "UnrecognizedError: private code: 'SECRET' SQLSTATE 42501",
       'x'.repeat(8192) +
         "code: 'P2028'\n    at /private/src/db/phase7SsoTestFixture.ts:1:2",
@@ -877,7 +897,9 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
     ).toEqual({ recognizedTextCodes: [], recognizedSourcePaths: [] })
     for (const mutation of [
       (data: ReturnType<typeof report>) => {
-        data.testResults[0]!.assertionResults[5]!.fullName += ' altered'
+        data.testResults[0]!.assertionResults[
+          fixedCase.sourceOrdinal - 1
+        ]!.fullName += ' altered'
       },
       (data: ReturnType<typeof report>) => {
         data.testResults[0]!.assertionResults[0]!.status = 'passed'
@@ -887,6 +909,33 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
       },
       (data: ReturnType<typeof report>) => {
         data.testResults[0]!.name = phase7DbFoundationTestFile
+      },
+      (data: ReturnType<typeof report>) => {
+        data.testResults[0]!.assertionResults[0]!.fullName = `JLP-508 SSO task-owned PostgreSQL contract ${fixedCase.title}`
+      },
+      (data: ReturnType<typeof report>) => {
+        data.testResults[0]!.assertionResults[
+          fixedCase.sourceOrdinal - 1
+        ]!.fullName =
+          `JLP-508 SSO task-owned PostgreSQL contract ${fixedCase.mode === 'sso-identity' ? phase7SsoOrdinal6Title : phase7SsoIdentityTitle}`
+      },
+      (data: ReturnType<typeof report>) => {
+        data.numPassedTests = 2
+      },
+      (data: ReturnType<typeof report>) => {
+        data.numFailedTests = 1
+      },
+      (data: ReturnType<typeof report>) => {
+        data.numTodoTests = 1
+      },
+      (data: ReturnType<typeof report>) => {
+        data.numTotalTests = 35
+      },
+      (data: ReturnType<typeof report>) => {
+        data.testResults[0]!.status = 'failed'
+      },
+      (data: ReturnType<typeof report>) => {
+        data.testResults.push(data.testResults[0]!)
       }
     ]) {
       const changed = report('passed')
@@ -898,7 +947,7 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
         assertPhase10VitestFileResult({
           result: changed,
           expectedPath: phase7SsoTestFile,
-          selectedSsoOrdinal6: true
+          selectedSsoCase: fixedCase.mode
         })
       ).toThrow('incomplete')
     }
@@ -927,7 +976,7 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
                 args.indexOf('--testNamePattern'),
                 args.indexOf('--testNamePattern') + 2
               )
-            ).toEqual(['--testNamePattern', phase7SsoOrdinal6Pattern])
+            ).toEqual(['--testNamePattern', fixedCase.pattern])
             for (const flag of [
               '--maxWorkers=1',
               '--no-file-parallelism',
@@ -947,7 +996,12 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
         await expect(stat(rawPath)).rejects.toThrow()
         expect((await stat(reportPath)).mode & 0o777).toBe(0o600)
         const safe = await readFile(reportPath, 'utf8')
-        expect(JSON.parse(safe).selectedCase.status).toBe(status)
+        expect(JSON.parse(safe).selectedCase).toMatchObject({
+          id: fixedCase.id,
+          sourceOrdinal: fixedCase.sourceOrdinal,
+          matched: 1,
+          status
+        })
         expect(safe).not.toContain('private')
       } finally {
         stdout.mockRestore()
@@ -955,6 +1009,21 @@ describe('Phase 7 fixed SSO ordinal6 diagnosis', () => {
       }
     }
   )
+
+  it('rejects arbitrary direct selectors before starting a child', async () => {
+    for (const mode of ['sso-unknown', '', fixedCase.pattern]) {
+      const runCommand = vi.fn()
+      await expect(
+        runPhase10ManifestVitestFile({
+          testFile: phase7SsoTestFile,
+          environment: { ...environment, PHASE7_DB_CASE: mode },
+          preserveSanitizedReport: true,
+          runCommand
+        })
+      ).rejects.toThrow('fixed SSO report mode')
+      expect(runCommand).not.toHaveBeenCalled()
+    }
+  })
 
   it('rejects inconsistent direct helper options before starting a child', async () => {
     const runCommand = vi.fn()

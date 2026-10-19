@@ -16,6 +16,26 @@ export const phase7SsoTestFile = 'src/db/phase7Sso.integration.test.ts' as const
 export const phase7SsoOrdinal6Title =
   'apple ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts' as const
 export const phase7SsoOrdinal6Pattern = `${phase7SsoOrdinal6Title}$`
+export const phase7SsoIdentityTitle =
+  'provider/sub alone resolves stable IDs; contact conflicts never merge or promote; new identities are USER' as const
+export const phase7SsoIdentityPattern = `${phase7SsoIdentityTitle}$`
+
+const phase7SsoCases = {
+  'sso-ordinal6': {
+    title: phase7SsoOrdinal6Title,
+    pattern: phase7SsoOrdinal6Pattern,
+    id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
+    sourceOrdinal: 6
+  },
+  'sso-identity': {
+    title: phase7SsoIdentityTitle,
+    pattern: phase7SsoIdentityPattern,
+    id: 'SSO_PROVIDER_SUB_IDENTITY_ORDINAL5',
+    sourceOrdinal: 5
+  }
+} as const
+
+type Phase7SsoCase = keyof typeof phase7SsoCases
 
 // Public deterministic fixtures for this TEST runner, never provider credentials.
 const phase7SsoTestProfile = {
@@ -67,7 +87,8 @@ export const selectPhase7DbIntegrationFiles = (
   const selected = environment.PHASE7_DB_SINGLE_TEST
   if (
     environment.PHASE7_DB_CASE !== undefined &&
-    (environment.PHASE7_DB_CASE !== 'sso-ordinal6' ||
+    ((environment.PHASE7_DB_CASE !== 'sso-ordinal6' &&
+      environment.PHASE7_DB_CASE !== 'sso-identity') ||
       selected !== phase7SsoTestFile ||
       environment.PHASE7_DB_PRESERVE_REPORT !== '1')
   ) {
@@ -211,10 +232,16 @@ export const sanitizePhase7VitestReport = (
       }
     }
   }
+  const selectedSsoCaseName = environment.PHASE7_DB_CASE
+  const selectedSsoCase =
+    selectedSsoCaseName === 'sso-ordinal6' ||
+    selectedSsoCaseName === 'sso-identity'
+      ? phase7SsoCases[selectedSsoCaseName]
+      : undefined
   let selectedCase:
     | {
-        id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6'
-        sourceOrdinal: 6
+        id: (typeof phase7SsoCases)[Phase7SsoCase]['id']
+        sourceOrdinal: (typeof phase7SsoCases)[Phase7SsoCase]['sourceOrdinal']
         matched: 1
         status: 'passed' | 'failed'
         failure?: {
@@ -225,7 +252,7 @@ export const sanitizePhase7VitestReport = (
       }
     | undefined
   if (
-    environment.PHASE7_DB_CASE === 'sso-ordinal6' &&
+    selectedSsoCase &&
     testFile === phase7SsoTestFile &&
     result.testResults?.length === 1 &&
     fileResult &&
@@ -242,7 +269,7 @@ export const sanitizePhase7VitestReport = (
     const matches = assertions.filter(
       (assertion) =>
         assertion?.fullName ===
-        `JLP-508 SSO task-owned PostgreSQL contract ${phase7SsoOrdinal6Title}`
+        `JLP-508 SSO task-owned PostgreSQL contract ${selectedSsoCase.title}`
     )
     const selected = matches[0]
     if (
@@ -310,8 +337,8 @@ export const sanitizePhase7VitestReport = (
         )
       )
       selectedCase = {
-        id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
-        sourceOrdinal: 6,
+        id: selectedSsoCase.id,
+        sourceOrdinal: selectedSsoCase.sourceOrdinal,
         matched: 1,
         status: selected.status,
         ...(selected.status === 'failed'
@@ -418,15 +445,15 @@ export const assertPhase10RequiredEnvironment = ({
 export const assertPhase10VitestFileResult = ({
   result,
   expectedPath,
-  selectedSsoOrdinal6 = false
+  selectedSsoCase
 }: {
   readonly result: VitestJsonResult
   readonly expectedPath: string
-  readonly selectedSsoOrdinal6?: boolean
+  readonly selectedSsoCase?: Phase7SsoCase
 }): void => {
-  if (selectedSsoOrdinal6) {
+  if (selectedSsoCase !== undefined) {
     const report = sanitizePhase7VitestReport(result, expectedPath, {
-      PHASE7_DB_CASE: 'sso-ordinal6'
+      PHASE7_DB_CASE: selectedSsoCase
     })
     if (report.selectedCase?.status !== 'passed') {
       throw new Error('Phase 7 fixed SSO case result is incomplete.')
@@ -469,8 +496,13 @@ export const runPhase10ManifestVitestFile = async ({
   readonly preserveSanitizedReport?: boolean
   readonly onCollectionDiagnostic?: (diagnostic: CollectionDiagnostic) => void
 }): Promise<number> => {
-  const selectedSsoOrdinal6 = environment.PHASE7_DB_CASE !== undefined
-  if (selectedSsoOrdinal6) {
+  const selectedSsoCaseName = environment.PHASE7_DB_CASE
+  const selectedSsoCase =
+    selectedSsoCaseName === 'sso-ordinal6' ||
+    selectedSsoCaseName === 'sso-identity'
+      ? selectedSsoCaseName
+      : undefined
+  if (selectedSsoCaseName !== undefined) {
     selectPhase7DbIntegrationFiles([testFile], environment)
     if (!preserveSanitizedReport) {
       throw new Error('Phase 7 fixed SSO case requires sanitized reporting.')
@@ -516,8 +548,8 @@ export const runPhase10ManifestVitestFile = async ({
                 '--retry=0'
               ]
             : []),
-          ...(selectedSsoOrdinal6
-            ? ['--testNamePattern', phase7SsoOrdinal6Pattern]
+          ...(selectedSsoCase
+            ? ['--testNamePattern', phase7SsoCases[selectedSsoCase].pattern]
             : []),
           '--reporter=json',
           `--outputFile=${outputFile}`
@@ -561,9 +593,9 @@ export const runPhase10ManifestVitestFile = async ({
     assertPhase10VitestFileResult({
       result,
       expectedPath: testFile,
-      selectedSsoOrdinal6
+      ...(selectedSsoCase === undefined ? {} : { selectedSsoCase })
     })
-    return selectedSsoOrdinal6 ? 1 : (result.numTotalTests ?? 0)
+    return selectedSsoCase ? 1 : (result.numTotalTests ?? 0)
   } finally {
     try {
       if (preserveSanitizedReport) {
