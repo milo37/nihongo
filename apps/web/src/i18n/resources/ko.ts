@@ -375,6 +375,29 @@ export const koResources = {
     currentDescription: '현재 계정으로 학습을 계속할 수 있어요.',
     currentAccount: '현재 계정',
     sso: {
+      accountTitle: '계정 관리',
+      connected: '연결된 로그인 방법',
+      linkProvider: '{{provider}} 연결',
+      linked: '로그인 방법을 연결했어요. 연결된 계정을 확인해 주세요.',
+      freshConfirmed:
+        '본인 확인을 완료했어요. 원하는 작업을 선택하고 최종 확인해 주세요.',
+      freshNeeded:
+        '현재 계정에 연결된 로그인 방법으로 본인을 확인한 뒤, 원하는 작업을 다시 선택해 주세요.',
+      checkingAccount: '계정 상태를 확인하고 있어요.',
+      remainingUnavailable:
+        '다른 로그인 방법을 현재 이용할 수 없어 연결을 해제할 수 없어요.',
+      openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
+      cancelledAccount:
+        '본인 확인이나 계정 연결을 취소했어요. 기존 계정은 유지돼요.',
+      dataGuide: '계정과 데이터 안내',
+      dataDescription:
+        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
+      deletionUnknown:
+        '탈퇴 결과를 확인할 수 없어요. 요청을 반복하지 말고 상태를 다시 확인해 주세요.',
+      cleanupPending: '연결 정리가 아직 완료되지 않았어요.',
+      cleanupComplete: '이 로그인 방법의 연결 정리가 완료됐어요.',
+      cleanupFailed:
+        '연결 정리를 완료하지 못했어요. 앱 탈퇴 상태와 별도로 확인해 주세요.',
       title: '로그인',
       description: '연결한 계정으로 학습 기록을 이어가세요.',
       continueProvider: '{{provider}}로 계속하기',

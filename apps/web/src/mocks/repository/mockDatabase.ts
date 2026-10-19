@@ -1,3 +1,4 @@
+import { MockSsoAccountRepository } from '@mocks/repository/ssoAccountRepository'
 import {
   LEVELS,
   SUBJECTS,
@@ -992,6 +993,10 @@ const toAdminSummary = (question: QuestionRecord): AdminQuestionSummary => ({
 })
 
 export class MockDatabase {
+  readonly ssoAccounts = new MockSsoAccountRepository(
+    () => this.getCurrentUser(),
+    () => this.logout()
+  )
   private readonly now: () => string
   private readonly phase7AdminCmsState: MockPhase7AdminCmsState
   private readonly phase7ActiveAdminCmsState: MockPhase7ActiveAdminCmsState
@@ -1113,6 +1118,7 @@ export class MockDatabase {
       throw new MockDatabaseError('NOT_FOUND', 404, '데모 사용자가 없습니다.')
     }
 
+    this.ssoAccounts.newSession()
     this.currentUserId = user.id
     this.phase7AdminCmsState.startSession(user.id)
     this.persist({ currentUserId: user.id })
@@ -1120,6 +1126,7 @@ export class MockDatabase {
   }
 
   logout(): void {
+    this.ssoAccounts.clearProof()
     if (this.currentUserId) {
       this.phase7AdminCmsState.endSession(this.currentUserId)
     }
@@ -3961,6 +3968,7 @@ export class MockDatabase {
   }
 
   reset(): void {
+    this.ssoAccounts.reset()
     this.storage.removeItem(MOCK_DATABASE_STORAGE_KEY)
     this.storage.removeItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
     this.currentUserId = null

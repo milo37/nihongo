@@ -377,6 +377,30 @@ export const jaResources = {
     currentDescription: '現在のアカウントで学習を続けられます。',
     currentAccount: '現在のアカウント',
     sso: {
+      accountTitle: 'アカウント管理',
+      connected: '連携済みのログイン方法',
+      linkProvider: '{{provider}}を連携',
+      linked:
+        'ログイン方法を連携しました。連携済みアカウントを確認してください。',
+      freshConfirmed:
+        '本人確認が完了しました。操作を選び、最後に確認してください。',
+      freshNeeded:
+        '現在のアカウントに連携済みのログイン方法で本人確認した後、操作をもう一度選んでください。',
+      checkingAccount: 'アカウントの状態を確認しています。',
+      remainingUnavailable:
+        '他のログイン方法を利用できないため、連携を解除できません。',
+      openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
+      cancelledAccount:
+        '本人確認または連携をキャンセルしました。元のアカウントは維持されます。',
+      dataGuide: 'アカウントとデータの案内',
+      dataDescription:
+        'ログアウトはアプリのセッションを終了し、連携解除はログイン方法を削除し、退会はアプリアカウントの削除処理を申請します。',
+      deletionUnknown:
+        '退会結果を確認できません。申請を繰り返さず、状態を再確認してください。',
+      cleanupPending: '連携の整理はまだ完了していません。',
+      cleanupComplete: 'このログイン方法の連携整理が完了しました。',
+      cleanupFailed:
+        '連携を整理できませんでした。アプリの退会状態とは別に確認してください。',
       title: 'ログイン',
       description: '連携したアカウントで学習を続けましょう。',
       continueProvider: '{{provider}}で続ける',

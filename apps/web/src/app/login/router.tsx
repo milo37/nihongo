@@ -10,7 +10,13 @@ const LegacyAuthRedirect = lazy(() =>
   }))
 )
 
+const AccountDataPage = lazy(() =>
+  import('@app/login/account-data-page').then((module) => ({
+    default: module.AccountDataPage
+  }))
+)
 export const loginRoutes: RouteObject[] = [
+  { path: 'account/data', element: <AccountDataPage /> },
   { path: 'login', element: <LoginPage /> },
   { path: 'reset-password', element: <LegacyAuthRedirect /> },
   { path: 'verify-email', element: <LegacyAuthRedirect /> }

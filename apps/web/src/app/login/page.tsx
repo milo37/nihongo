@@ -10,6 +10,11 @@ import type {
   SsoCallbackOutcome,
   SsoProviderId
 } from '@nihongo/contracts/auth/sign-in-social'
+import { SsoAccountManagement } from '@app/login/components/SsoAccountManagement'
+import {
+  accountFreshOutcomeSchema,
+  accountLinkOutcomeSchema
+} from '@nihongo/contracts/auth/sso-account-management'
 import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
 import { AuthFlowError } from '@app/login/authFlowErrors'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
@@ -59,6 +64,14 @@ export const LoginPage = (): ReactElement => {
   useEffect(() => {
     const canonical = new URLSearchParams()
     if (redirect !== '/') canonical.set('redirect', redirect)
+    for (const [key, schema] of [
+      ['ssoAccountFresh', accountFreshOutcomeSchema],
+      ['ssoAccountLink', accountLinkOutcomeSchema]
+    ] as const) {
+      const values = search.getAll(key)
+      const parsed = schema.safeParse(values[0])
+      if (values.length === 1 && parsed.success) canonical.set(key, parsed.data)
+    }
     const desired = canonical.toString()
     if (
       location.search !== (desired ? '?' + desired : '') ||
@@ -70,7 +83,14 @@ export const LoginPage = (): ReactElement => {
         { replace: true, state: null }
       )
     }
-  }, [location.hash, location.search, location.state, navigate, redirect])
+  }, [
+    location.hash,
+    location.search,
+    location.state,
+    navigate,
+    redirect,
+    search
+  ])
 
   useEffect(() => {
     if (notice) heading.current?.focus()
@@ -199,6 +219,7 @@ export const LoginPage = (): ReactElement => {
             </div>
           </>
         )}
+        <SsoAccountManagement />
       </div>
       <Dialog
         open={logoutOpen && user !== null}

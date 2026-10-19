@@ -1,3 +1,14 @@
+import type {
+  SsoAccountCapabilities,
+  SsoAccountDeletion,
+  UnlinkSsoAccountResponse
+} from '@nihongo/contracts/auth/sso-account-management'
+import {
+  accountSsoRequestSchema,
+  unlinkSsoAccountRequestSchema,
+  deleteSsoAccountRequestSchema
+} from '@nihongo/contracts/auth/sso-account-management'
+import { MockSsoAccountError } from '@mocks/repository/ssoAccountRepository'
 import { http, HttpResponse } from 'msw'
 import { adminFreshSsoRequestSchema } from '@nihongo/contracts/auth/admin-fresh-sso'
 import { z } from 'zod'
@@ -62,7 +73,62 @@ const createCurrentPrincipalResponse = () => {
   )
 }
 
+const accountErrorResponse = (error: unknown) =>
+  error instanceof MockSsoAccountError
+    ? HttpResponse.json(
+        { code: error.code, message: '계정 요청을 완료하지 못했습니다.' },
+        { status: error.status }
+      )
+    : toErrorResponse(error)
+const accountRead = (
+  operation: () =>
+    | SsoAccountCapabilities
+    | SsoAccountDeletion
+    | UnlinkSsoAccountResponse,
+  status = 200
+) => {
+  try {
+    return HttpResponse.json(operation(), {
+      status,
+      headers: { 'Cache-Control': 'private, no-store' }
+    })
+  } catch (error: unknown) {
+    return accountErrorResponse(error)
+  }
+}
 export const authHandlers = [
+  http.get('*/api/auth/sso/accounts', () =>
+    accountRead(() => mockDatabase.ssoAccounts.capabilities())
+  ),
+  http.get('*/api/auth/sso/deletion', () =>
+    accountRead(() => mockDatabase.ssoAccounts.deletion())
+  ),
+  http.post('*/api/auth/sso/unlink', async ({ request }) => {
+    try {
+      const input = await parseJsonBody(request, unlinkSsoAccountRequestSchema)
+      return accountRead(() => mockDatabase.ssoAccounts.unlink(input.provider))
+    } catch (error: unknown) {
+      return accountErrorResponse(error)
+    }
+  }),
+  http.post('*/api/auth/sso/delete-account', async ({ request }) => {
+    try {
+      await parseJsonBody(request, deleteSsoAccountRequestSchema)
+      return accountRead(() => mockDatabase.ssoAccounts.deleteAccount(), 202)
+    } catch (error: unknown) {
+      return accountErrorResponse(error)
+    }
+  }),
+  http.post('*/api/_mock/auth/account/callback', async ({ request }) => {
+    try {
+      const input = await parseJsonBody(request, accountSsoRequestSchema)
+      return accountRead(() =>
+        mockDatabase.ssoAccounts.complete(input, fixtureIds[input.provider])
+      )
+    } catch (error: unknown) {
+      return accountErrorResponse(error)
+    }
+  }),
   http.get('*/api/v1/me', () => {
     try {
       return HttpResponse.json(createCurrentPrincipalResponse(), {
@@ -96,16 +162,22 @@ export const authHandlers = [
         }
       })
     } catch (error: unknown) {
-      return toErrorResponse(error)
+      return accountErrorResponse(error)
     }
   }),
   http.post('*/api/auth/sign-in/social', async ({ request }) => {
     try {
       const input = await parseJsonBody(
         request,
-        z.union([signInSocialRequestSchema, adminFreshSsoRequestSchema])
+        z.union([
+          signInSocialRequestSchema,
+          adminFreshSsoRequestSchema,
+          accountSsoRequestSchema
+        ])
       )
-      if ('purpose' in input) {
+      if ('purpose' in input && input.purpose !== 'ADMIN_FRESH') {
+        mockDatabase.ssoAccounts.prepare(input)
+      } else if ('purpose' in input) {
         pendingProvider = null
         const actor = mockDatabase.getCurrentUser()
         if (!actor)
@@ -147,7 +219,7 @@ export const authHandlers = [
         { headers: { 'Cache-Control': 'private, no-store' } }
       )
     } catch (error: unknown) {
-      return toErrorResponse(error)
+      return accountErrorResponse(error)
     }
   }),
   // This endpoint exists only in the dev/test MSW worker; no real OAuth tokens.
@@ -163,6 +235,7 @@ export const authHandlers = [
       pendingProvider = null
       const fixture = demoUsers.find((user) => user.id === fixtureIds[provider])
       if (!fixture) throw new Error('Missing Mock identity fixture.')
+      mockDatabase.ssoAccounts.noteLogin(provider, fixture.id)
       mockDatabase.loginAs(
         fixture.role === 'ADMIN' ? 'ADMIN' : 'USER',
         fixture.id
@@ -171,7 +244,7 @@ export const authHandlers = [
         headers: { 'Cache-Control': 'private, no-store' }
       })
     } catch (error: unknown) {
-      return toErrorResponse(error)
+      return accountErrorResponse(error)
     }
   }),
   ...removedAuthPaths.map((path) =>
@@ -188,7 +261,7 @@ export const authHandlers = [
       mockDatabase.logout()
       return HttpResponse.json({ success: true as const })
     } catch (error: unknown) {
-      return toErrorResponse(error)
+      return accountErrorResponse(error)
     }
   })
 ]
