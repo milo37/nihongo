@@ -1,1 +1,3 @@
-export { ssoAccountCapabilitiesSchema as getSsoAccountsResponseSchema } from '@nihongo/contracts/auth/sso-account-management'
+import { ssoAccountCapabilitiesSchema as sharedGetSsoAccountsResponseSchema } from '@nihongo/contracts/auth/sso-account-management'
+
+export const getSsoAccountsResponseSchema = sharedGetSsoAccountsResponseSchema

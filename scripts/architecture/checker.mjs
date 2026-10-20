@@ -17,6 +17,7 @@ const normalizePath = (value) => value.split(path.sep).join('/')
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const defaultRootDir = path.resolve(scriptDirectory, '../..')
 const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
+  ['api/auth/deleteSsoAccount/index.ts', 'safePostWithMetadata'],
   ['api/bookmark/createBookmark/index.ts', 'safePutWithMetadata'],
   ['api/bookmark/deleteBookmark/index.ts', 'safeDelWithMetadata'],
   ['api/study/cancelStudySession/index.ts', 'safePostWithMetadata'],

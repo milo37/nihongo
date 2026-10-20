@@ -1,17 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
-import { accountQueries } from '@app/login/queries/accountQueries'
-import { useAuth } from '@provider/ProtectedRouteProvider'
+import { useSsoAccountDeletion } from '@app/login/hooks/useSsoAccountDeletion'
 import { Button, getButtonClassName } from '@common/components/Button'
 export const AccountDataPage = (): ReactElement => {
   const { t } = useTranslation('auth')
-  const { isReady, user } = useAuth()
-  const receipt = useQuery({
-    ...accountQueries.deletion(),
-    enabled: isReady && user === null
-  })
+  const { isReady, user, receipt } = useSsoAccountDeletion()
   return (
     <section className="auth-page">
       <div className="auth-panel">
