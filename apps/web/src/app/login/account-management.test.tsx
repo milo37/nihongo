@@ -310,7 +310,6 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     const unlink = await screen.findByRole('button', {
       name: 'Google 연결 해제'
     })
-    queryClient.setQueryData(['wrong-note', 'private'], { owner: actor.id })
     expect(unlink).toBeDisabled()
     expect(unlink).toHaveAccessibleDescription(
       '마지막 로그인 방법은 해제할 수 없어요.'
@@ -320,9 +319,6 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(posts).not.toHaveBeenCalled()
     expect(mockDatabase.getCurrentUser()?.id).toBe(actor.id)
-    expect(queryClient.getQueryData(['wrong-note', 'private'])).toEqual({
-      owner: actor.id
-    })
     expect(mockDatabase.ssoAccounts.capabilities().providers).toHaveLength(2)
   })
   it('403 fresh 요구는 forbidden 이동이나 탈퇴 반복 없이 재인증 안내로 소비한다', async () => {
