@@ -221,6 +221,7 @@ export interface Phase7IsolatedDatabaseHarness {
 interface PreparePhase7IsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
+  readonly issuerActivationOwner?: 'runner' | 'fixture'
 }
 
 const adminClient = new Client({
@@ -749,8 +750,9 @@ export const cleanupPhase7IsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
-const registerCapabilityAndActivate = async (
-  abortSignal?: AbortSignal
+export const registerCapabilityAndActivate = async (
+  abortSignal?: AbortSignal,
+  issuerActivationOwner: 'runner' | 'fixture' = 'runner'
 ): Promise<void> => {
   abortSignal?.throwIfAborted()
   const migrationClient = new Client({
@@ -782,7 +784,10 @@ const registerCapabilityAndActivate = async (
       [target.databaseName, target.serverAddress, target.serverPort]
     )
     abortSignal?.throwIfAborted()
-    await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+    // Lifecycle's existing SSO fixture owns the one-way activation in connect().
+    if (issuerActivationOwner === 'runner') {
+      await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+    }
     abortSignal?.throwIfAborted()
   } finally {
     await migrationClient.end()
@@ -791,7 +796,8 @@ const registerCapabilityAndActivate = async (
 
 export const preparePhase7IsolatedDatabase = async ({
   abortSignal,
-  seedRuns = 0
+  seedRuns = 0,
+  issuerActivationOwner = 'runner'
 }: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
   if (databasePrepared) {
     throw new Error('Phase 7 isolated database harness is already prepared.')
@@ -903,7 +909,7 @@ export const preparePhase7IsolatedDatabase = async ({
       },
       abortSignal
     )
-    await registerCapabilityAndActivate(abortSignal)
+    await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
 
     for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
       await runCommand(
@@ -984,7 +990,10 @@ const run = async (): Promise<void> => {
 }
 
 const runSsoAccountLifecycle = async (): Promise<void> => {
-  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 1 })
+  const harness = await preparePhase7IsolatedDatabase({
+    seedRuns: 1,
+    issuerActivationOwner: 'fixture'
+  })
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
