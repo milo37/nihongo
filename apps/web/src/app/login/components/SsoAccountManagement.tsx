@@ -43,9 +43,6 @@ export const SsoAccountManagement = (): ReactElement | null => {
               : 'checkingAccount'
   const unlinkProvider =
     flow.dialog?.kind === 'unlink' ? flow.dialog.provider : null
-  const remaining = caps?.providers.find(
-    (p) => p.provider !== unlinkProvider
-  )?.provider
   if (!flow.isReady || !flow.user)
     return flow.feedback === 'unlinked' ? (
       <p role="status" className="auth-notice">
@@ -77,50 +74,52 @@ export const SsoAccountManagement = (): ReactElement | null => {
             <p role="status">{t('sso.migrationIncomplete')}</p>
           ) : null}
           <ul className="grid min-w-0 gap-4">
-            {caps.providers.map((p, index) => (
-              <li
-                key={p.provider}
-                className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between"
-              >
-                <div className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
-                  <strong>{providerName(p.provider)}</strong>
-                  <p>{t('sso.connected')}</p>
-                  {!p.reauthAvailable ? (
-                    <p>
-                      {t('sso.unavailableProvider', {
-                        provider: providerName(p.provider)
-                      })}
-                    </p>
-                  ) : null}
-                  {!p.canUnlink ? (
-                    <p id={headingId + '-reason-' + index}>
-                      {t(
-                        p.unlinkBlockedReason === 'LAST_SIGN_IN_METHOD'
-                          ? 'sso.lastMethodTitle'
-                          : 'sso.remainingUnavailable'
-                      )}
-                    </p>
-                  ) : null}
-                </div>
-                <Button
-                  className="whitespace-normal break-words"
-                  variant="outline"
-                  disabled={!p.canUnlink || flow.busy || flow.uncertain}
-                  aria-describedby={
-                    !p.canUnlink ? headingId + '-reason-' + index : undefined
-                  }
-                  aria-label={
-                    providerName(p.provider) + ' ' + t('sso.unlinkAction')
-                  }
-                  onClick={(event) => {
-                    trigger.current = event.currentTarget
-                    flow.request({ kind: 'unlink', provider: p.provider })
-                  }}
+            {caps.providers
+              .filter((p) => p.provider === 'google')
+              .map((p, index) => (
+                <li
+                  key={p.provider}
+                  className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between"
                 >
-                  {t('sso.unlinkAction')}
-                </Button>
-              </li>
-            ))}
+                  <div className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
+                    <strong>{providerName(p.provider)}</strong>
+                    <p>{t('sso.connected')}</p>
+                    {!p.reauthAvailable ? (
+                      <p>
+                        {t('sso.unavailableProvider', {
+                          provider: providerName(p.provider)
+                        })}
+                      </p>
+                    ) : null}
+                    {!p.canUnlink ? (
+                      <p id={headingId + '-reason-' + index}>
+                        {t(
+                          p.unlinkBlockedReason === 'LAST_SIGN_IN_METHOD'
+                            ? 'sso.lastMethodTitle'
+                            : 'sso.remainingUnavailable'
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    className="whitespace-normal break-words"
+                    variant="outline"
+                    disabled={!p.canUnlink || flow.busy || flow.uncertain}
+                    aria-describedby={
+                      !p.canUnlink ? headingId + '-reason-' + index : undefined
+                    }
+                    aria-label={
+                      providerName(p.provider) + ' ' + t('sso.unlinkAction')
+                    }
+                    onClick={(event) => {
+                      trigger.current = event.currentTarget
+                      flow.request({ kind: 'unlink', provider: p.provider })
+                    }}
+                  >
+                    {t('sso.unlinkAction')}
+                  </Button>
+                </li>
+              ))}
           </ul>
           {caps.providers.length === 0 ||
           caps.providers.some((p) => !p.reauthAvailable) ? (
@@ -134,27 +133,31 @@ export const SsoAccountManagement = (): ReactElement | null => {
             </Button>
           ) : null}
           <div className="auth-actions">
-            {caps.linkableProviders.map((provider) => (
-              <Button
-                className="whitespace-normal break-words"
-                key={provider}
-                variant="outline"
-                disabled={flow.busy || flow.uncertain}
-                onClick={(event) => {
-                  trigger.current = event.currentTarget
-                  flow.begin('ACCOUNT_LINK', provider)
-                }}
-              >
-                {t('sso.linkProvider', { provider: providerName(provider) })}
-              </Button>
-            ))}
+            {caps.linkableProviders
+              .filter((provider) => provider === 'google')
+              .map((provider) => (
+                <Button
+                  className="whitespace-normal break-words"
+                  key={provider}
+                  variant="outline"
+                  disabled={flow.busy || flow.uncertain}
+                  onClick={(event) => {
+                    trigger.current = event.currentTarget
+                    flow.begin('ACCOUNT_LINK', provider)
+                  }}
+                >
+                  {t('sso.linkProvider', { provider: providerName(provider) })}
+                </Button>
+              ))}
             <Button
               className="whitespace-normal break-words"
               variant="outline"
               disabled={
                 flow.busy ||
                 flow.uncertain ||
-                !caps.providers.some((p) => p.reauthAvailable)
+                !caps.providers.some(
+                  (p) => p.provider === 'google' && p.reauthAvailable
+                )
               }
               onClick={(event) => {
                 trigger.current = event.currentTarget
@@ -226,8 +229,7 @@ export const SsoAccountManagement = (): ReactElement | null => {
             ? t('sso.freshNeeded')
             : flow.dialog?.kind === 'unlink'
               ? t('sso.unlinkDescription', {
-                  provider: unlinkProvider ? providerName(unlinkProvider) : '',
-                  remainingProvider: remaining ? providerName(remaining) : ''
+                  provider: unlinkProvider ? providerName(unlinkProvider) : ''
                 })
               : t('sso.deleteDescription')
         }
@@ -272,22 +274,20 @@ export const SsoAccountManagement = (): ReactElement | null => {
         {flow.dialog?.kind === 'fresh' ? (
           <div className="auth-actions">
             {caps?.providers
-              .filter((p) => p.reauthAvailable)
+              .filter((p) => p.provider === 'google' && p.reauthAvailable)
               .map((p) => (
                 <SsoProviderButton
                   key={p.provider}
                   provider={p.provider}
-                  buttonRef={p.provider === 'apple' ? apple : google}
-                  label={t(
-                    p.provider === 'apple'
-                      ? 'sso.continueApple'
-                      : 'sso.continueGoogle'
-                  )}
+                  buttonRef={google}
+                  label={t('sso.continueGoogle')}
                   disabled={flow.busy}
                   onClick={() => flow.begin('ACCOUNT_FRESH', p.provider)}
                 />
               ))}
-            {!caps?.providers.some((p) => p.reauthAvailable) ? (
+            {!caps?.providers.some(
+              (p) => p.provider === 'google' && p.reauthAvailable
+            ) ? (
               <p role="status">{t('sso.remainingUnavailable')}</p>
             ) : null}
           </div>

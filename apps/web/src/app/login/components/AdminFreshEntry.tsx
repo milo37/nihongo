@@ -37,13 +37,6 @@ export const AdminFreshEntry = ({
       <p>{t('adminFresh.description')}</p>
       <div className="auth-actions" aria-busy={busy || undefined}>
         <SsoProviderButton
-          provider="apple"
-          label={t('sso.continueApple')}
-          buttonRef={apple}
-          disabled={disabled || busy}
-          onClick={() => begin('apple')}
-        />
-        <SsoProviderButton
           provider="google"
           label={t('sso.continueGoogle')}
           buttonRef={google}

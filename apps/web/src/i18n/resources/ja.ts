@@ -436,7 +436,7 @@ export const jaResources = {
       loggedOut: 'ログアウトしました。',
       unlinkTitle: '{{provider}}との連携を解除しますか？',
       unlinkDescription:
-        '連携を解除した後は、{{remainingProvider}}でログインしてください。学習記録は維持されます。退会は別の操作です。',
+        '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
       unlinkAction: '連携を解除',
       lastMethodTitle: '最後のログイン方法は解除できません。',
       lastMethodDescription:
@@ -446,7 +446,7 @@ export const jaResources = {
       wrongAccount: '最初にログインしたアカウントでもう一度お試しください。',
       deleteTitle: '退会しますか？',
       deleteDescription:
-        '退会後は、このアカウントで하루마루を利用できません。データの取り扱いはアカウントとデータの案内をご確認ください。AppleやGoogleのアカウント自体は削除されません。',
+        '退会後は、このアカウントで하루마루を利用できません。データの取り扱いはアカウントとデータの案内をご確認ください。連携した外部アカウント自体は削除されません。',
       deleteAction: '退会する',
       processing: '処理しています。',
       actionFailed:

@@ -163,7 +163,10 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     expect(unlink).toHaveAccessibleDescription(
       '最後のログイン方法は解除できません。'
     )
-    expect(screen.getByRole('button', { name: 'Appleを連携' })).toBeEnabled()
+    expect(
+      screen.queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Apple')
   })
   it.each(['ssoAccountFresh=CANCELLED', 'ssoAccountLink=FAILED'])(
     '복귀 %s는 기존 회원·개인 cache를 지우거나 mutation하지 않는다',
@@ -171,7 +174,7 @@ describe('계정 연결·해제·탈퇴 소비', () => {
       const actor = mockDatabase.loginAs('USER')
       const posts = vi.spyOn(apiClient, 'post')
       const router = renderAccount()
-      await screen.findByRole('button', { name: 'Apple 연결' })
+      await screen.findByRole('button', { name: 'Google 연결 해제' })
       queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
       await act(async () => {
         await router.navigate('/login?' + query)
@@ -240,7 +243,9 @@ describe('계정 연결·해제·탈퇴 소비', () => {
       expect(unlink).toHaveAccessibleDescription(
         '마지막 로그인 방법은 해제할 수 없어요.'
       )
-      const link = screen.getByRole('button', { name: 'Apple 연결' })
+      const link = screen.getByRole('button', {
+        name: '계속하려면 다시 로그인해 주세요.'
+      })
       await user.click(link)
       const dialog = screen.getByRole('dialog')
       expect(
@@ -255,32 +260,42 @@ describe('계정 연결·해제·탈퇴 소비', () => {
       expect(posts).not.toHaveBeenCalled()
     }
   )
-  it('기존 연결의 fresh 뒤 사용자 재클릭으로만 두 번째 방법을 연결하고 ID·개인 cache를 보존한다', async () => {
+  it('Google 본인 확인은 계정과 cache를 보존하고 보류한 Apple을 자동 연결하지 않는다', async () => {
     const actor = mockDatabase.loginAs('USER')
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
     renderAccount()
-    await user.click(await screen.findByRole('button', { name: 'Apple 연결' }))
+    await screen.findByRole('button', { name: 'Google 연결 해제' })
+    expect(
+      screen.queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
     queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
     await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', {
-        name: 'Google로 계속하기'
-      })
+      screen.getByRole('button', { name: '계속하려면 다시 로그인해 주세요.' })
+    )
+    const dialog = screen.getByRole('dialog')
+    expect(
+      within(dialog).queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Google로 계속하기' })
     )
     await waitFor(() =>
       expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(true)
     )
     expect(countPosts(posts, '/auth/sign-in/social')).toBe(1)
-    expect(mockDatabase.ssoAccounts.capabilities().providers).toHaveLength(1)
-    await user.click(await screen.findByRole('button', { name: 'Apple 연결' }))
-    await screen.findByRole('button', { name: 'Apple 연결 해제' })
+    expect(
+      mockDatabase.ssoAccounts.capabilities().providers.map((p) => p.provider)
+    ).toEqual(['google'])
     expect(mockDatabase.getCurrentUser()?.id).toBe(actor.id)
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toEqual({
       owner: actor.id
     })
-    expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(false)
     expect(countPosts(posts, '/auth/sso/unlink')).toBe(0)
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(0)
+    expect(
+      screen.queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
   })
   it('해제 확인을 취소할 수 있고 최종 클릭 뒤 개인 cache를 지워 로그인으로 돌아간다', async () => {
     linkedActor()
@@ -292,7 +307,9 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     })
     await user.click(trigger)
     expect(
-      within(screen.getByRole('dialog')).getByText(/Apple로 로그인해 주세요/)
+      within(screen.getByRole('dialog')).getByText(
+        /연결된 다른 로그인 방법으로 로그인해 주세요/
+      )
     ).toBeInTheDocument()
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', { name: '취소' })
@@ -305,7 +322,7 @@ describe('계정 연결·해제·탈퇴 소비', () => {
         name: '연결 해제'
       })
     )
-    await screen.findByRole('button', { name: 'Apple로 계속하기' })
+    await screen.findByRole('button', { name: 'Google로 계속하기' })
     expect(countPosts(posts, '/auth/sso/unlink')).toBe(1)
     expect(router.state.location.pathname).toBe('/login')
     expect(useAppStore.getState().currentUser).toBeNull()
@@ -405,7 +422,7 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
     const router = renderAccount('/login?ssoAccountFresh=REAUTHENTICATED')
-    await screen.findByRole('button', { name: 'Apple 연결' })
+    await screen.findByRole('button', { name: 'Google 연결 해제' })
     await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(false)
     expect(posts).not.toHaveBeenCalled()
@@ -422,13 +439,40 @@ describe('계정 연결·해제·탈퇴 소비', () => {
       http.get('*/api/auth/sso/deletion', () =>
         HttpResponse.json({
           appStatus: 'DELETED',
-          providerCleanup: [{ provider: 'apple', status }]
+          providerCleanup: [{ provider: 'google', status }]
         })
       )
     )
     renderAccount('/account/data')
     await screen.findByText('회원 탈퇴가 완료됐어요.')
     expect(screen.getByText(label)).toBeInTheDocument()
+  })
+  it('Apple 표시를 숨겨도 혼합 receipt의 앱 완료와 Google 정리 상태를 바꾸지 않는다', async () => {
+    mockServer.use(
+      http.get('*/api/auth/sso/deletion', () =>
+        HttpResponse.json({
+          appStatus: 'DELETED',
+          providerCleanup: [
+            { provider: 'apple', status: 'FAILED' },
+            { provider: 'google', status: 'PENDING' }
+          ]
+        })
+      )
+    )
+    const posts = vi.spyOn(apiClient, 'post')
+    renderAccount('/account/data')
+    await screen.findByText('회원 탈퇴가 완료됐어요.')
+    expect(screen.getByText('Google')).toBeInTheDocument()
+    expect(
+      screen.getByText('연결 정리가 아직 완료되지 않았어요.')
+    ).toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Apple')
+    expect(
+      screen.queryByText(
+        '연결 정리를 완료하지 못했어요. 앱 탈퇴 상태와 별도로 확인해 주세요.'
+      )
+    ).not.toBeInTheDocument()
+    expect(posts).not.toHaveBeenCalled()
   })
   it('receipt 없음은 완료나 재신청으로 바꾸지 않는다', async () => {
     const posts = vi.spyOn(apiClient, 'post')

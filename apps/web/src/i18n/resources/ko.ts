@@ -430,7 +430,7 @@ export const koResources = {
       loggedOut: '로그아웃했어요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
-        '연결 해제 후에는 {{remainingProvider}}로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
+        '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
       unlinkAction: '연결 해제',
       lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
       lastMethodDescription:
@@ -440,7 +440,7 @@ export const koResources = {
       wrongAccount: '처음 로그인한 계정으로 다시 시도해 주세요.',
       deleteTitle: '회원 탈퇴할까요?',
       deleteDescription:
-        '회원 탈퇴 후에는 이 계정으로 하루마루를 이용할 수 없어요. 데이터 처리 내용은 계정과 데이터 안내에서 확인해 주세요. Apple이나 Google 계정 자체가 삭제되지는 않아요.',
+        '회원 탈퇴 후에는 이 계정으로 하루마루를 이용할 수 없어요. 데이터 처리 내용은 계정과 데이터 안내에서 확인해 주세요. 연결한 외부 계정 자체가 삭제되지는 않아요.',
       deleteAction: '회원 탈퇴',
       processing: '처리하고 있어요.',
       actionFailed: '요청을 완료하지 못했어요. 다시 확인해 주세요.',

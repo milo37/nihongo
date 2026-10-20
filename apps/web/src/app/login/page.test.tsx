@@ -82,21 +82,22 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
 }
 import { useAuth } from '@provider/ProtectedRouteProvider'
 
-describe('Apple·Google SSO 로그인', () => {
+describe('현재 Google SSO 로그인', () => {
   beforeAll(async () => {
     // Await the lazy route module before the first DOM query starts its timeout.
     await import('@app/login/page')
   })
 
-  it('두 공식 공급자 버튼만 제공하고 암호·가입 폼은 제거한다', async () => {
+  it('Google만 노출하고 Apple·이메일·암호·가입 UI는 제공하지 않는다', async () => {
     renderLogin()
-    const apple = await screen.findByRole('button', {
-      name: 'Apple로 계속하기'
-    })
-    const google = screen.getByRole('button', { name: 'Google로 계속하기' })
     expect(
-      apple.compareDocumentPosition(google) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
+      await screen.findByRole('button', { name: 'Google로 계속하기' })
+    ).toBeEnabled()
+    expect(
+      screen.queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Apple')
+    expect(document.querySelector('[data-provider="apple"]')).toBeNull()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(document.querySelector('input[type=password]')).toBeNull()
     expect(
@@ -104,7 +105,7 @@ describe('Apple·Google SSO 로그인', () => {
     ).not.toBeInTheDocument()
   })
 
-  it.each(['Apple', 'Google'])(
+  it.each(['Google'])(
     '%s 선택 후 새 canonical 회원을 확인하고 안전한 필터로 돌아간다',
     async (provider) => {
       const user = userEvent.setup()
@@ -139,7 +140,7 @@ describe('Apple·Google SSO 로그인', () => {
     }
   )
 
-  it.each(['apple', 'google'] as const)(
+  it.each(['google'] as const)(
     '%s는 중복 만료 오류 뒤에도 하나의 안전한 학습 세션 경로를 callback으로 보존한다',
     async (provider) => {
       const actor = mockDatabase.loginAs('USER')
@@ -181,8 +182,8 @@ describe('Apple·Google SSO 로그인', () => {
         expire()
         expire()
       })
-      const apple = await screen.findByRole('button', {
-        name: 'Apple로 계속하기'
+      const google = await screen.findByRole('button', {
+        name: 'Google로 계속하기'
       })
       await waitFor(() => expect(router.state.location.state).toBeNull())
       await act(async () => {
@@ -201,9 +202,9 @@ describe('Apple·Google SSO 로그인', () => {
         queryClient.getQueryData(['bookmarks', 'expired-private'])
       ).toBeUndefined()
       expect(starts).toEqual([])
-      expect(apple).toBeEnabled()
+      expect(google).toBeEnabled()
       const chosen = screen.getByRole('button', {
-        name: (provider === 'apple' ? 'Apple' : 'Google') + '로 계속하기'
+        name: 'Google로 계속하기'
       })
       await userEvent.setup().click(chosen)
       await screen.findByRole('alert')
@@ -215,7 +216,7 @@ describe('Apple·Google SSO 로그인', () => {
     }
   )
 
-  it('동시 공급자 시작을 막고 실패 후 두 버튼과 현재 복귀 경로를 복구한다', async () => {
+  it('중복 Google 시작을 막고 실패 후 버튼과 현재 복귀 경로를 복구한다', async () => {
     let respond: (() => void) | undefined
     let starts = 0
     mockServer.use(
@@ -237,25 +238,25 @@ describe('Apple·Google SSO 로그인', () => {
     const router = renderLogin(
       '/login?redirect=' + encodeURIComponent('/dashboard?view=learning')
     )
-    const apple = await screen.findByRole('button', {
-      name: 'Apple로 계속하기'
+    const google = await screen.findByRole('button', {
+      name: 'Google로 계속하기'
     })
-    await user.click(apple)
+    await user.dblClick(google)
     await waitFor(() => expect(starts).toBe(1))
-    expect(apple).toBeDisabled()
+    expect(google).toBeDisabled()
     expect(
       screen.getByRole('button', { name: 'Google로 계속하기' })
     ).toBeDisabled()
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Apple로 이동하고 있어요.'
+      'Google로 이동하고 있어요.'
     )
     await act(async () => {
       respond?.()
     })
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '지금은 Apple 로그인을 이용할 수 없어요.'
+      '지금은 Google 로그인을 이용할 수 없어요.'
     )
-    expect(apple).toBeEnabled()
+    expect(google).toBeEnabled()
     expect(
       screen.getByRole('button', { name: 'Google로 계속하기' })
     ).toBeEnabled()
@@ -387,11 +388,11 @@ describe('Apple·Google SSO 로그인', () => {
   })
 
   it('공급자 이름이 권한을 정하지 않으며 fixture의 기존 내부 계정을 소비한다', async () => {
-    setMockSsoAccountForTesting('apple', DEMO_ADMIN_ID)
+    setMockSsoAccountForTesting('google', DEMO_ADMIN_ID)
     const user = userEvent.setup()
     renderLogin('/login?redirect=%2Fdashboard')
     await user.click(
-      await screen.findByRole('button', { name: 'Apple로 계속하기' })
+      await screen.findByRole('button', { name: 'Google로 계속하기' })
     )
     expect(await screen.findByText('대시보드 도착')).toBeInTheDocument()
     expect(useAppStore.getState().currentUser).toMatchObject({
@@ -410,20 +411,21 @@ describe('Apple·Google SSO 로그인', () => {
     await expect(completeMockSocialSignIn('apple')).rejects.toBeDefined()
   })
 
-  it('KO·JA 전환에서 두 공급자 이름과 버튼 의미가 유지된다', async () => {
+  it('KO·JA 전환에도 Google만 노출하고 Apple 안내를 숨긴다', async () => {
     renderLogin()
-    await screen.findByRole('button', { name: 'Apple로 계속하기' })
+    await screen.findByRole('button', { name: 'Google로 계속하기' })
     const user = userEvent.setup()
     await user.selectOptions(
       screen.getByRole('combobox', { name: '언어' }),
       'ja'
     )
     expect(
-      await screen.findByRole('button', { name: 'Appleで続ける' })
-    ).toBeInTheDocument()
+      await screen.findByRole('button', { name: 'Googleで続ける' })
+    ).toBeEnabled()
     expect(
-      screen.getByRole('button', { name: 'Googleで続ける' })
-    ).toBeInTheDocument()
+      screen.queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('Apple')
   })
 })
 
@@ -445,7 +447,7 @@ const validFreshURL = (provider: 'apple' | 'google'): string => {
 }
 
 describe('관리자 ADMIN_FRESH 소비', () => {
-  it.each(['apple', 'google'] as const)(
+  it.each(['google'] as const)(
     '%s에서 목적·업무 경로를 보내고 돌아와도 명령·fresh 권한을 만들지 않는다',
     async (provider) => {
       const actor = mockDatabase.loginAs('ADMIN')
@@ -473,7 +475,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
       const user = userEvent.setup()
       await user.click(
         within(region).getByRole('button', {
-          name: (provider === 'apple' ? 'Apple' : 'Google') + '로 계속하기'
+          name: 'Google로 계속하기'
         })
       )
       expect(await screen.findByText('관리자 작업 화면')).toBeInTheDocument()
@@ -549,7 +551,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
     mockDatabase.logout()
     renderLogin('/login?ssoFresh=FAILED')
-    await screen.findByRole('button', { name: 'Apple로 계속하기' })
+    await screen.findByRole('button', { name: 'Google로 계속하기' })
     await waitFor(() => expect(useAppStore.getState().currentUser).toBeNull())
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
     expect(
@@ -615,7 +617,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('시작503은 두 버튼을 잠근 뒤 복구하고 이전 ADMIN·초안을 유지한다', async () => {
+  it('Google 시작503은 버튼을 잠근 뒤 복구하고 이전 ADMIN·초안을 유지한다', async () => {
     const actor = mockDatabase.loginAs('ADMIN')
     let finish: (() => void) | undefined
     let starts = 0
@@ -639,23 +641,21 @@ describe('관리자 ADMIN_FRESH 소비', () => {
       .getState()
       .beginPractice('preserved-fresh-error', '2026-10-19T00:00:00.000Z')
     const user = userEvent.setup()
-    const apple = within(region).getByRole('button', {
-      name: 'Apple로 계속하기'
-    })
     const google = within(region).getByRole('button', {
       name: 'Google로 계속하기'
     })
-    await user.click(apple)
+    expect(
+      within(region).queryByRole('button', { name: /Apple/ })
+    ).not.toBeInTheDocument()
+    await user.dblClick(google)
     await waitFor(() => expect(starts).toBe(1))
-    expect(apple).toBeDisabled()
     expect(google).toBeDisabled()
     await act(async () => finish?.())
     expect(await within(region).findByRole('alert')).toHaveTextContent(
       '지금은 로그인을 이용할 수 없어요.'
     )
-    expect(apple).toBeEnabled()
     expect(google).toBeEnabled()
-    expect(apple).toHaveFocus()
+    expect(google).toHaveFocus()
     expect(useAppStore.getState().currentUser?.id).toBe(actor.id)
     expect(useAppStore.getState().sessionId).toBe('preserved-fresh-error')
     expect(document.body).not.toHaveTextContent('private-detail')

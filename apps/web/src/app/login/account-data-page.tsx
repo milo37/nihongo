@@ -26,22 +26,22 @@ export const AccountDataPage = (): ReactElement => {
               )}
             </p>
             <ul className="grid gap-3">
-              {receipt.data.providerCleanup.map((item) => (
-                <li key={item.provider}>
-                  <strong>
-                    {item.provider === 'apple' ? 'Apple' : 'Google'}
-                  </strong>
-                  <p>
-                    {t(
-                      item.status === 'COMPLETED'
-                        ? 'sso.cleanupComplete'
-                        : item.status === 'FAILED'
-                          ? 'sso.cleanupFailed'
-                          : 'sso.cleanupPending'
-                    )}
-                  </p>
-                </li>
-              ))}
+              {receipt.data.providerCleanup
+                .filter((item) => item.provider === 'google')
+                .map((item) => (
+                  <li key={item.provider}>
+                    <strong>Google</strong>
+                    <p>
+                      {t(
+                        item.status === 'COMPLETED'
+                          ? 'sso.cleanupComplete'
+                          : item.status === 'FAILED'
+                            ? 'sso.cleanupFailed'
+                            : 'sso.cleanupPending'
+                      )}
+                    </p>
+                  </li>
+                ))}
             </ul>
           </>
         ) : !user ? (

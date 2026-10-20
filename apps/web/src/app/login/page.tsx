@@ -175,13 +175,6 @@ export const LoginPage = (): ReactElement => {
           <>
             <div className="auth-actions" aria-busy={busy || undefined}>
               <SsoProviderButton
-                provider="apple"
-                label={t('sso.continueApple')}
-                disabled={busy}
-                buttonRef={appleButton}
-                onClick={() => begin('apple')}
-              />
-              <SsoProviderButton
                 provider="google"
                 label={t('sso.continueGoogle')}
                 disabled={busy}
