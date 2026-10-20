@@ -20,6 +20,10 @@ export const SsoAccountManagement = (): ReactElement | null => {
   const google = useRef<HTMLButtonElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const caps = flow.capabilities.isError ? undefined : flow.capabilities.data
+  const visibleProviders =
+    caps?.providers.filter((p) => p.provider === 'google') ?? []
+  const isLastVisibleMethod =
+    visibleProviders.filter((p) => p.reauthAvailable).length <= 1
   const selected = flow.start.variables?.provider
   useEffect(() => {
     if (flow.start.isError)
@@ -74,52 +78,57 @@ export const SsoAccountManagement = (): ReactElement | null => {
             <p role="status">{t('sso.migrationIncomplete')}</p>
           ) : null}
           <ul className="grid min-w-0 gap-4">
-            {caps.providers
-              .filter((p) => p.provider === 'google')
-              .map((p, index) => (
-                <li
-                  key={p.provider}
-                  className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between"
+            {visibleProviders.map((p, index) => (
+              <li
+                key={p.provider}
+                className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between"
+              >
+                <div className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
+                  <strong>{providerName(p.provider)}</strong>
+                  <p>{t('sso.connected')}</p>
+                  {!p.reauthAvailable ? (
+                    <p>
+                      {t('sso.unavailableProvider', {
+                        provider: providerName(p.provider)
+                      })}
+                    </p>
+                  ) : null}
+                  {!p.canUnlink || isLastVisibleMethod ? (
+                    <p id={headingId + '-reason-' + index}>
+                      {t(
+                        p.unlinkBlockedReason === 'PROVIDER_UNAVAILABLE'
+                          ? 'sso.remainingUnavailable'
+                          : 'sso.lastMethodTitle'
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  className="whitespace-normal break-words"
+                  variant="outline"
+                  disabled={
+                    !p.canUnlink ||
+                    isLastVisibleMethod ||
+                    flow.busy ||
+                    flow.uncertain
+                  }
+                  aria-describedby={
+                    !p.canUnlink || isLastVisibleMethod
+                      ? headingId + '-reason-' + index
+                      : undefined
+                  }
+                  aria-label={
+                    providerName(p.provider) + ' ' + t('sso.unlinkAction')
+                  }
+                  onClick={(event) => {
+                    trigger.current = event.currentTarget
+                    flow.request({ kind: 'unlink', provider: p.provider })
+                  }}
                 >
-                  <div className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
-                    <strong>{providerName(p.provider)}</strong>
-                    <p>{t('sso.connected')}</p>
-                    {!p.reauthAvailable ? (
-                      <p>
-                        {t('sso.unavailableProvider', {
-                          provider: providerName(p.provider)
-                        })}
-                      </p>
-                    ) : null}
-                    {!p.canUnlink ? (
-                      <p id={headingId + '-reason-' + index}>
-                        {t(
-                          p.unlinkBlockedReason === 'LAST_SIGN_IN_METHOD'
-                            ? 'sso.lastMethodTitle'
-                            : 'sso.remainingUnavailable'
-                        )}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Button
-                    className="whitespace-normal break-words"
-                    variant="outline"
-                    disabled={!p.canUnlink || flow.busy || flow.uncertain}
-                    aria-describedby={
-                      !p.canUnlink ? headingId + '-reason-' + index : undefined
-                    }
-                    aria-label={
-                      providerName(p.provider) + ' ' + t('sso.unlinkAction')
-                    }
-                    onClick={(event) => {
-                      trigger.current = event.currentTarget
-                      flow.request({ kind: 'unlink', provider: p.provider })
-                    }}
-                  >
-                    {t('sso.unlinkAction')}
-                  </Button>
-                </li>
-              ))}
+                  {t('sso.unlinkAction')}
+                </Button>
+              </li>
+            ))}
           </ul>
           {caps.providers.length === 0 ||
           caps.providers.some((p) => !p.reauthAvailable) ? (

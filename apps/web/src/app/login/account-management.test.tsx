@@ -297,38 +297,35 @@ describe('계정 연결·해제·탈퇴 소비', () => {
       screen.queryByRole('button', { name: /Apple/ })
     ).not.toBeInTheDocument()
   })
-  it('해제 확인을 취소할 수 있고 최종 클릭 뒤 개인 cache를 지워 로그인으로 돌아간다', async () => {
-    linkedActor()
+  it('서버가 Apple을 남겨 해제를 허용해도 마지막 노출 수단 Google은 보호한다', async () => {
+    const actor = linkedActor()
+    const caps = mockDatabase.ssoAccounts.capabilities()
+    expect(caps.providers.find((p) => p.provider === 'google')?.canUnlink).toBe(
+      true
+    )
+    expect(caps.providers.map((p) => p.provider)).toEqual(['apple', 'google'])
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
-    const router = renderAccount()
-    const trigger = await screen.findByRole('button', {
+    renderAccount()
+    const unlink = await screen.findByRole('button', {
       name: 'Google 연결 해제'
     })
-    await user.click(trigger)
-    expect(
-      within(screen.getByRole('dialog')).getByText(
-        /연결된 다른 로그인 방법으로 로그인해 주세요/
-      )
-    ).toBeInTheDocument()
-    await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: '취소' })
+    queryClient.setQueryData(['wrong-note', 'private'], { owner: actor.id })
+    expect(unlink).toBeDisabled()
+    expect(unlink).toHaveAccessibleDescription(
+      '마지막 로그인 방법은 해제할 수 없어요.'
     )
-    expect(trigger).toHaveFocus()
-    queryClient.setQueryData(['wrong-note', 'private'], { private: true })
-    await user.click(trigger)
-    await user.dblClick(
-      within(screen.getByRole('dialog')).getByRole('button', {
-        name: '연결 해제'
-      })
-    )
-    await screen.findByRole('button', { name: 'Google로 계속하기' })
-    expect(countPosts(posts, '/auth/sso/unlink')).toBe(1)
-    expect(router.state.location.pathname).toBe('/login')
-    expect(useAppStore.getState().currentUser).toBeNull()
-    expect(queryClient.getQueryData(['wrong-note', 'private'])).toBeUndefined()
+    expect(document.body).not.toHaveTextContent('Apple')
+    await user.click(unlink)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(posts).not.toHaveBeenCalled()
+    expect(mockDatabase.getCurrentUser()?.id).toBe(actor.id)
+    expect(queryClient.getQueryData(['wrong-note', 'private'])).toEqual({
+      owner: actor.id
+    })
+    expect(mockDatabase.ssoAccounts.capabilities().providers).toHaveLength(2)
   })
-  it('403 fresh 요구는 forbidden 이동이나 자동 해제 없이 재인증 안내로 소비한다', async () => {
+  it('403 fresh 요구는 forbidden 이동이나 탈퇴 반복 없이 재인증 안내로 소비한다', async () => {
     linkedActor()
     const caps = mockDatabase.ssoAccounts.capabilities()
     mockServer.use(
@@ -339,7 +336,7 @@ describe('계정 연결·해제·탈퇴 소비', () => {
           unlinkRequiresFresh: true
         })
       ),
-      http.post('*/api/auth/sso/unlink', () =>
+      http.post('*/api/auth/sso/delete-account', () =>
         HttpResponse.json(
           { code: 'SSO_FRESH_REQUIRED', message: '확인 필요' },
           { status: 403 }
@@ -349,19 +346,18 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
     const router = renderAccount()
-    await user.click(
-      await screen.findByRole('button', { name: 'Google 연결 해제' })
-    )
+    await user.click(await screen.findByRole('button', { name: '회원 탈퇴' }))
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', {
-        name: '연결 해제'
+        name: '회원 탈퇴'
       })
     )
     await within(screen.getByRole('dialog')).findByRole('button', {
       name: 'Google로 계속하기'
     })
     expect(router.state.location.pathname).toBe('/login')
-    expect(countPosts(posts, '/auth/sso/unlink')).toBe(1)
+    expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
+    expect(countPosts(posts, '/auth/sso/unlink')).toBe(0)
   })
   it('탈퇴는 최종 클릭 뒤 202 접수로만 알리고 private receipt를 읽으며 개인 cache를 지운다', async () => {
     freshActor()
