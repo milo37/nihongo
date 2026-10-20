@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation, useNavigationType } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
 import { AppShell } from '@common/components/AppShell'
 import { SideNavigation } from '@common/components/SideNavigation'
 import { Icon } from '@common/components/Icon'
@@ -94,7 +95,7 @@ export const Layout = ({ children }: LayoutProps): ReactElement => {
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
 
-  useDocumentMetadata()
+  useDocumentMetadata({ robots: getRouteIndexingPolicy(location.pathname) })
 
   useEffect(() => {
     localeRef.current = locale

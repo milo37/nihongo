@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
+import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
 
 // This fallback must render even when the authenticated app shell fails.
 export const RouteErrorPage = (): ReactElement => {
+  useDocumentMetadata({ robots: 'noindex,follow' })
   const { t } = useTranslation('errors')
   const { t: commonT } = useTranslation('common')
   return (

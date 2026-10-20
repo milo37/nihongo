@@ -3,7 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
 import { getRouteLabelKey } from '@/i18n/routePresentation'
 
-export const useDocumentMetadata = (): void => {
+type DocumentMetadataOptions = {
+  readonly robots: 'index,follow' | 'noindex,follow'
+}
+
+export const useDocumentMetadata = ({
+  robots
+}: DocumentMetadataOptions): void => {
   const location = useLocation()
   const { t, i18n } = useTranslation('navigation')
 
@@ -20,5 +26,14 @@ export const useDocumentMetadata = (): void => {
       document.head.append(description)
     }
     description.content = t('metaDescription')
-  }, [i18n.resolvedLanguage, location.pathname, t])
+
+    const robotsNodes = Array.from(
+      document.head.querySelectorAll<HTMLMetaElement>('meta[name="robots" i]')
+    )
+    const robotsMeta = robotsNodes[0] ?? document.createElement('meta')
+    robotsMeta.name = 'robots'
+    robotsMeta.content = robots
+    if (robotsNodes.length === 0) document.head.append(robotsMeta)
+    robotsNodes.slice(1).forEach((node) => node.remove())
+  }, [i18n.resolvedLanguage, location.pathname, robots, t])
 }
