@@ -83,6 +83,11 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
 import { useAuth } from '@provider/ProtectedRouteProvider'
 
 describe('Apple·Google SSO 로그인', () => {
+  beforeAll(async () => {
+    // Await the lazy route module before the first DOM query starts its timeout.
+    await import('@app/login/page')
+  })
+
   it('두 공식 공급자 버튼만 제공하고 암호·가입 폼은 제거한다', async () => {
     renderLogin()
     const apple = await screen.findByRole('button', {

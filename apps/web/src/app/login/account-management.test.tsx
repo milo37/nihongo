@@ -88,6 +88,11 @@ const countPosts = (
   path: string
 ) => posts.mock.calls.filter((call) => call[0] === path).length
 describe('계정 연결·해제·탈퇴 소비', () => {
+  beforeAll(async () => {
+    // Await the lazy route module before the first DOM query starts its timeout.
+    await import('@app/login/page')
+  })
+
   it('서버 공급자 불가·관리 작업 제한에는 이유와 GET 재조회만 제공한다', async () => {
     mockDatabase.loginAs('ADMIN')
     const caps = mockDatabase.ssoAccounts.capabilities()
