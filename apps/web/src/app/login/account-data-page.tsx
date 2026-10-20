@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { accountQueries } from '@app/login/queries/accountQueries'
 import { useAuth } from '@provider/ProtectedRouteProvider'
-import { Button } from '@common/components/Button'
+import { Button, getButtonClassName } from '@common/components/Button'
 export const AccountDataPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const { isReady, user } = useAuth()
@@ -53,17 +53,39 @@ export const AccountDataPage = (): ReactElement => {
         ) : !user ? (
           <p role="status">{t('sso.deletionUnknown')}</p>
         ) : null}
-        {!user ? (
-          <Button
-            variant="outline"
-            disabled={receipt.isFetching}
-            onClick={() => void receipt.refetch()}
+        <div className="auth-actions">
+          {!user ? (
+            <Button
+              className="whitespace-normal break-words text-center"
+              fullWidth
+              variant="outline"
+              disabled={receipt.isFetching}
+              onClick={() => void receipt.refetch()}
+            >
+              {t('sso.recheck')}
+            </Button>
+          ) : null}
+          <Link
+            to="/login"
+            className={getButtonClassName({
+              variant: 'outline',
+              fullWidth: true,
+              className: 'whitespace-normal break-words text-center'
+            })}
           >
-            {t('sso.recheck')}
-          </Button>
-        ) : null}
-        <Link to="/login">{t('sso.accountTitle')}</Link>
-        <Link to="/practice">{t('sso.guest')}</Link>
+            {t('sso.accountTitle')}
+          </Link>
+          <Link
+            to="/practice"
+            className={getButtonClassName({
+              variant: 'ghost',
+              fullWidth: true,
+              className: 'whitespace-normal break-words text-center'
+            })}
+          >
+            {t('sso.guest')}
+          </Link>
+        </div>
       </div>
     </section>
   )
