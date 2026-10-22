@@ -1,9 +1,24 @@
+import type { LocaleCatalog } from '@/i18n/resources/ja'
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import { i18nResources } from '@/i18n/resources'
 import { DEFAULT_UI_LOCALE, UI_LOCALES } from '@/i18n/types'
 import { readUiLocalePreference } from '@libs/localeStorage'
 
+// Both resources are ready before first render, including immediate offline switching.
+const [{ koResources }, { jaCoreResources }, { jaAdminResources }] =
+  await Promise.all([
+    import('@/i18n/resources/ko'),
+    import('@/i18n/resources/ja'),
+    import('@/i18n/resources/ja-admin')
+  ])
+const { errors, a11y, ...jaNamespaces } = jaCoreResources
+const jaResources = {
+  ...jaNamespaces,
+  admin: jaAdminResources,
+  errors,
+  a11y
+} as const satisfies LocaleCatalog<typeof koResources>
+const i18nResources = { ko: koResources, ja: jaResources }
 const initialLocale = readUiLocalePreference()
 
 void i18n.use(initReactI18next).init({

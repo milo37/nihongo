@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:phase10:ledger": "vitest run --config scripts/phase10-request-ledger.vitest.config.mjs",
+    "test:phase10:bundle": "node scripts/phase10-production-bundle-clean.mjs && node --test scripts/phase10-production-bundle-contract.test.mjs && node scripts/phase10-production-bundle-check.mjs && node --test scripts/phase10-production-bundle-evidence.test.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
