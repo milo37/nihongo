@@ -2,6 +2,22 @@
 
 ## Current
 
+- Task: JLP-496 leading branch prefix removal / baf9ce
+- Status: source frozen / devops_engineer / jlpt-06-devops-murotrbl
+- Acquired: 2026-10-22T17:01:34.169293+00:00
+- Cwd: /Users/doji/Desktop/dev/nihongo-worktrees/jlp-496-phase10-local-integration
+- Branch: integration/jlp-496-phase10-local
+- Base: 38b25b499a0529dd5bb00fc93e8a4679c8c63ff1 / clean and index0
+- Allowed files: AGENTS.md, team/git-workflow.md, .codex/agents/frontend-engineer.toml, .codex/agents/backend-engineer.toml, team/writer-state.md
+- Scope: current branch names and replacement Draft PR reference; preserve prior records and all product behavior
+- Checks: changed Markdown Prettier; role TOML parsing; current names and branch-filter readback; current-head automatic CI
+- Boundary: no application/DB/browser/full local regression/main/merge/tag/version/release/deployment/protection changes
+- Frozen: 2026-10-22T17:05:32.976354+00:00
+- Source writer: released; external sole Git lease remains active until commit/push/CI handoff
+- Next owner: god after scoped commit, normal push and CI readback
+
+## Previous Current — JLP-496 PR12 Vitest discovery (preserved)
+
 - Task: JLP-496 PR12 Vitest discovery exact1 / ca6de0
 - Status: released after changed1 lint/format and Web Vitest PASS / frontend_engineer / jlpt-03--murooaxt
 - Acquired: 2026-10-22T15:20:24.732381+00:00

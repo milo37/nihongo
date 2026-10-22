@@ -2,24 +2,26 @@
 
 2026-10-12 사용자 승인 revision2 정본의 SHA-256은 279b0cffc515d6baff6da3320633f4e78508896b8161d015c53331d8f7dbf6cf입니다. God는 통합 책임자입니다. JLP-496 전환의 Git 실행자는 DevOps 한 명이며 다른 직원은 원본 checkout에서 Git 쓰기를 하지 않습니다. 이후 owner의 Git 쓰기는 god가 실제 cwd/branch/파일 범위를 배정한 턴에만 허용됩니다.
 
+브랜치 이름은 2026-10-23 사용자 승인에 따라 선두 접두사를 제거한 표기를 사용합니다. 기존 PR #1~12는 닫힌 이력으로 보존하고 같은 순서의 Draft PR #13~24로 이어집니다. 현재 통합 후보는 `integration/jlp-496-phase10-local`의 [PR #24](https://github.com/milo37/nihongo/pull/24)입니다. 원본 commit과 기존 검수·릴리스 정책은 그대로입니다.
+
 ## 브랜치와 수용 대상
 
-| branch/변경                                                  | base·수명                       | PR target / owner·검수                                                    |
-| ------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------- |
-| main                                                         | 영구 최종 기준                  | 검수된 release/hotfix PR만; god 책임 G3→G4                                |
-| codex/frontend                                               | 승인 main M, FE 통합 유지       | FE task·공통 PR 수용; 승인 F→release / FE·BE·QA·해당 디자인·god           |
-| codex/backend                                                | FE와 같은 M, BE 통합 유지       | BE task·공통 PR 수용; 승인 B→release / BE·FE·QA·god·해당 디자인           |
-| codex/feature/jlp-ID-fe-topic 또는 codex/fix/jlp-ID-fe-topic | 고정 FE head, task 종료까지     | frontend / FE writer; G1 후 수용, G2 actual head                          |
-| codex/feature/jlp-ID-be-topic 또는 codex/fix/jlp-ID-be-topic | 고정 BE head, task 종료까지     | backend / BE writer; G1/G2                                                |
-| 공통 contracts task                                          | main M+승인 의존, 양쪽 소비까지 | 동결된 같은 source head로 FE/BE 각각 PR / BE 단일 writer·양쪽 합의·QA·god |
-| CI/Docker/운영·root runtime/deps/lockfile 공통 task          | main M+의존, 양쪽 소비까지      | 양쪽 영역 PR / named DevOps·FE/BE 영향 검수; provisioning은 BE 합의       |
-| BE 전용 provisioning/DB task                                 | BE 승인 head                    | backend / DevOps provisioning, BE schema/migration; 범위 분리             |
-| 제품 version/CHANGELOG/release-record task                   | 통합 후보 R, 해당 배치까지      | release 후보 / god 지정 DevOps release owner·FE/BE/QA                     |
-| 콘텐츠 데이터·seed·게시 계약                                 | BE 승인 head                    | backend / BE repository writer·named 콘텐츠/기획 검수·FE·QA               |
-| UI 콘텐츠·번역                                               | FE 승인 head                    | frontend / FE writer·기획·디자인·BE·QA                                    |
-| codex/release/<target-semver>                                | 최신 승인 M, 한 배치            | main / named integration writer·양쪽 owner·QA·디자인·god                  |
-| codex/fix/jlp-ID-role-hotfix-topic                           | 현재 main, 긴급 수정 종료까지   | main, 이후 FE/BE/열린 후보 sync / 영향 owner·전체 gate                    |
-| legacy phase11/PR1                                           | 이관 판정까지 보존              | 기존 상태 유지; 전체 main 반영·force·삭제 금지                            |
+| branch/변경                                         | base·수명                       | PR target / owner·검수                                                    |
+| --------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
+| main                                                | 영구 최종 기준                  | 검수된 release/hotfix PR만; god 책임 G3→G4                                |
+| frontend                                            | 승인 main M, FE 통합 유지       | FE task·공통 PR 수용; 승인 F→release / FE·BE·QA·해당 디자인·god           |
+| backend                                             | FE와 같은 M, BE 통합 유지       | BE task·공통 PR 수용; 승인 B→release / BE·FE·QA·god·해당 디자인           |
+| feature/jlp-ID-fe-topic 또는 fix/jlp-ID-fe-topic    | 고정 FE head, task 종료까지     | frontend / FE writer; G1 후 수용, G2 actual head                          |
+| feature/jlp-ID-be-topic 또는 fix/jlp-ID-be-topic    | 고정 BE head, task 종료까지     | backend / BE writer; G1/G2                                                |
+| 공통 contracts task                                 | main M+승인 의존, 양쪽 소비까지 | 동결된 같은 source head로 FE/BE 각각 PR / BE 단일 writer·양쪽 합의·QA·god |
+| CI/Docker/운영·root runtime/deps/lockfile 공통 task | main M+의존, 양쪽 소비까지      | 양쪽 영역 PR / named DevOps·FE/BE 영향 검수; provisioning은 BE 합의       |
+| BE 전용 provisioning/DB task                        | BE 승인 head                    | backend / DevOps provisioning, BE schema/migration; 범위 분리             |
+| 제품 version/CHANGELOG/release-record task          | 통합 후보 R, 해당 배치까지      | release 후보 / god 지정 DevOps release owner·FE/BE/QA                     |
+| 콘텐츠 데이터·seed·게시 계약                        | BE 승인 head                    | backend / BE repository writer·named 콘텐츠/기획 검수·FE·QA               |
+| UI 콘텐츠·번역                                      | FE 승인 head                    | frontend / FE writer·기획·디자인·BE·QA                                    |
+| release/<target-semver>                             | 최신 승인 M, 한 배치            | main / named integration writer·양쪽 owner·QA·디자인·god                  |
+| fix/jlp-ID-role-hotfix-topic                        | 현재 main, 긴급 수정 종료까지   | main, 이후 FE/BE/열린 후보 sync / 영향 owner·전체 gate                    |
+| legacy phase11/PR1                                  | 이관 판정까지 보존              | 기존 상태 유지; 전체 main 반영·force·삭제 금지                            |
 
 task ref에는 fe/be/devops 등 실제 role과 topic을 넣어 같은 JLP의 FE/BE 이름 충돌을 막습니다. <target-semver>는 목표 버전 자리표시자이며 다음 버전이 확정됐다는 뜻이 아닙니다. 영구 develop이나 구버전 maintenance line은 만들지 않습니다. 사용/미병합/소유 불명·의존 중 branch는 삭제하지 않습니다. 적격 삭제는 god가 소유/병합/검수/비사용/의존 종료를 확인한 task 범위만이며 현재 JLP-496 조사에서는0입니다.
 
