@@ -1750,11 +1750,17 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 
 .study-question-actions > button:last-child {
-  grid-row: 1;
+  grid-row: auto;
   width: 100%;
   min-height: 56px;
   border-radius: var(--radius-control);
   font-size: 1rem;
+}
+
+@media (min-width: 761px) {
+  .study-question-actions > button:last-child {
+    grid-row: auto;
+  }
 }
 
 .study-question-jump {
