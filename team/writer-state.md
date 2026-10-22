@@ -9,7 +9,7 @@
 - Branch: codex/integration/jlp-496-phase10-local
 - Base: 60f6d62d5016850cff2331dfe53a4c0012459e60 / clean and index0 before acquisition
 - Allowed files: apps/web/vitest.config.ts
-- Scope: preserve configDefaults.exclude and exclude only scripts/phase10-production-bundle-*.test.mjs from jsdom Vitest
+- Scope: preserve configDefaults.exclude and exclude only scripts/phase10-production-bundle-\*.test.mjs from jsdom Vitest
 - Checks: changed1 lint/format; CI Web Vitest path pnpm run test:web exactly1
 - Boundary: no product/package/workflow/node-test/bundle-budget changes; no build/canonical/DB/browser/commit/push/PR/main/CI-rerun/deploy/Slack
 - Next owner: god after exact check result and source/writer freeze
