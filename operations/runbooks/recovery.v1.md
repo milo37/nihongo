@@ -87,12 +87,21 @@ current technical recovery profile or as a fallback.
 `v1-runtime-pre-phase7` selects the exact 27 entries before
 `20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
 candidate rather than current-artifact compatibility or deployability proof.
-Activation remains blocked until the packaged current artifact passes an
-exact-27 isolated stateful sign-up, sign-in, session, principal, tagged question
-read, and authenticated bookmark create/list smoke and a trusted
-registry/provider adapter is available. Never point bare
-`prisma migrate deploy` at the full current migration directory for a v1
-Staging or Production target.
+The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
+The replacement candidate uses a current-46 controlled Google-linked TEST session:
+task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
+reviewed canonical65 seed helper, and remaining immutable migrations. An existing
+unique canonical tag must return exactly one matching question/version. The same
+confirmed session must read the principal and create/list exactly one bookmark.
+The production image reuses its identity repository and production cookie signer;
+external Google exchange remains unverified. This fixture is not a Google login,
+Staging/Production recovery proof, or permission to activate an external target.
+Actual Docker/database execution of this candidate remains unverified. The host
+setup requires installed API dependencies, tsx and the generated Prisma client;
+it reads no environment files and runs no TEST replacement server in the image.
+Activation remains blocked pending exact current-artifact compatibility evidence
+and a trusted registry/provider adapter. Never point bare `prisma migrate deploy`
+at the full current directory for a historical v1 Staging/Production target.
 
 ## Backup proof
 

@@ -26,20 +26,19 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const firstPhase7Migration = '20260827100000_phase7_admin_cms_enums'
-const prePhase7MigrationCount = 27
+const currentMigrationCount = 46
+const currentMigrationDigest =
+  'f7305166f989353d2d0429f8ab7a5fada3f5f78a053c15f0e62ea77d55e77d16'
+const lastBootstrapMigration =
+  '20261009092000_phase7_n4_n2_revision2_digest_fix'
+const migrationLogin = 'nihongo_test_phase7_migration_login'
+const applicationLogin = 'nihongo_test_app_login'
+const gatewayLogin = 'nihongo_test_auth_gateway_login'
+const schemaPattern = /^phase7_[0-9a-f]{32}_test$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
 const imageIdPattern = /^sha256:[0-9a-f]{64}$/u
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
-const learnerCompatibilityFixture = Object.freeze({
-  questionId: '00000000-0000-4000-8000-000000000101',
-  questionText: '「朝」の読み方を選んでください。',
-  tagId: '00000000-0000-4000-8000-000000000120',
-  tagLabel: 'phase11-smoke-tag',
-  versionId: '00000000-0000-4000-8000-000000000102'
-})
-
 const assertExactKeys = (value, expectedKeys, label) => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`${label} must be an object.`)
@@ -104,38 +103,118 @@ const requiredArgument = (argumentsMap, name) => {
   return value
 }
 
-export const selectPrePhase7MigrationNames = (migrationsDirectory) => {
-  const names = readdirSync(migrationsDirectory, { withFileTypes: true })
+export const selectCurrentMigrationNames = (migrationsDirectory) => {
+  const manifest = readdirSync(migrationsDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort()
+    .map((name) => ({
+      name,
+      checksum: createHash('sha256')
+        .update(readFileSync(join(migrationsDirectory, name, 'migration.sql')))
+        .digest('hex')
+    }))
   if (
-    names[prePhase7MigrationCount] !== firstPhase7Migration ||
-    names.length <= prePhase7MigrationCount
+    manifest.length !== currentMigrationCount ||
+    createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
+      currentMigrationDigest ||
+    manifest[36]?.name !== lastBootstrapMigration
   ) {
-    throw new Error('Repository pre-Phase-7 migration boundary is invalid.')
+    throw new Error('Repository current-46 migration inventory is invalid.')
   }
-  return names.slice(0, prePhase7MigrationCount)
+  return manifest.map(({ name }) => name)
+}
+
+export const selectLearnerCompatibilityFixture = (questions) => {
+  if (!Array.isArray(questions) || questions.length !== 65) {
+    throw new Error(
+      'Canonical question catalog must contain exactly 65 questions.'
+    )
+  }
+  const question = questions.find(
+    ({ questionId }) => questionId === '565d941a-3f60-4e7d-8d87-01a467eacfad'
+  )
+  const tag = question?.tags.find(
+    ({ id }) =>
+      questions.filter((candidate) =>
+        candidate.tags.some((item) => item.id === id)
+      ).length === 1
+  )
+  if (
+    !question ||
+    !tag ||
+    question.level !== 'N5' ||
+    [...question.questionText].length > 160
+  ) {
+    throw new Error(
+      'Canonical learner fixture requires an existing unique tag and exact preview.'
+    )
+  }
+  return {
+    questionId: question.questionId,
+    versionId: question.versionId,
+    questionText: question.questionText,
+    difficulty: question.difficulty,
+    level: question.level,
+    subject: question.subject,
+    questionType: question.questionType,
+    tags: question.tags.map(({ id, label }) => ({ id, label })),
+    tagId: tag.id,
+    tagLabel: tag.label
+  }
+}
+
+const testSetupEnvironment = () =>
+  Object.fromEntries(
+    ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'SystemRoot']
+      .filter((name) => process.env[name] !== undefined)
+      .map((name) => [name, process.env[name]])
+  )
+
+export const readCanonicalLearnerFixture = (runCommand = run) => {
+  const source = `
+    import { buildAllQuestionSeeds } from './prisma/seedQuestionCatalog.ts';
+    import { selectLearnerCompatibilityFixture } from '../../scripts/operations/portable-runtime-smoke.mjs';
+    console.log(JSON.stringify(selectLearnerCompatibilityFixture(buildAllQuestionSeeds())));
+  `
+  const result = runCommand(
+    process.execPath,
+    ['--import', 'tsx', '--input-type=module', '--eval', source],
+    {
+      cwd: join(repositoryRoot, 'apps/api'),
+      env: testSetupEnvironment(),
+      failureLabel: 'Reviewed canonical catalog inspection'
+    }
+  )
+  return parseUniqueKeyJson(result.stdout.trim())
 }
 
 export const createRuntimeEnvironment = ({
   databaseHost,
   databaseName,
   databasePassword,
-  databaseUser,
+  gatewayPassword,
+  schemaName,
   releaseId
 }) => {
-  const secret = randomBytes(32).toString('hex')
+  if (
+    !schemaPattern.test(schemaName) ||
+    !/^[a-z_][a-z0-9_]*_test$/u.test(databaseName) ||
+    !/^[a-z0-9-]+$/u.test(databaseHost) ||
+    !/^[a-f0-9]{48}$/u.test(databasePassword) ||
+    !/^[a-f0-9]{48}$/u.test(gatewayPassword) ||
+    databasePassword === gatewayPassword
+  ) {
+    throw new Error('Isolated owned-auth TEST database inputs are invalid.')
+  }
+  const databaseUrl = (login, password) =>
+    `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=require&uselibpqcompat=true`
   return {
     ADMIN_CMS_MODE: 'disabled',
-    AUTH_EMAIL_DELIVERY_MODE: 'webhook',
-    AUTH_EMAIL_FROM: 'auth@smoke.invalid',
-    AUTH_EMAIL_WEBHOOK_SECRET: randomBytes(32).toString('hex'),
-    AUTH_EMAIL_WEBHOOK_URL: 'https://mail.smoke.invalid/auth-events',
-    AUTH_TRUSTED_PROXY_CIDRS: '172.16.0.0/12',
-    BETTER_AUTH_SECRET: secret,
+    AUTH_GATEWAY_DATABASE_URL: databaseUrl(gatewayLogin, gatewayPassword),
+    BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     BETTER_AUTH_URL: 'https://smoke.invalid',
-    DATABASE_URL: `postgresql://${databaseUser}:${databasePassword}@${databaseHost}:5432/${databaseName}?sslmode=require&uselibpqcompat=true`,
+    DATABASE_URL: databaseUrl(applicationLogin, databasePassword),
     DEPLOYMENT_ENVIRONMENT: 'TEST',
     GUEST_COOKIE_SECRET: randomBytes(32).toString('hex'),
     HOST: '0.0.0.0',
@@ -185,32 +264,31 @@ const waitForPostgres = async (containerName, databaseUser, databaseName) => {
   )
 }
 
-const applyPrePhase7Migrations = ({
-  containerName,
-  databaseName,
-  databaseUser,
-  migrationsDirectory
-}) => {
-  const migrationNames = selectPrePhase7MigrationNames(migrationsDirectory)
-  const ledgerSql = `
-CREATE TABLE "_prisma_migrations" (
-  "id" VARCHAR(36) PRIMARY KEY,
-  "checksum" VARCHAR(64) NOT NULL,
-  "finished_at" TIMESTAMPTZ,
-  "migration_name" VARCHAR(255) NOT NULL,
-  "logs" TEXT,
-  "rolled_back_at" TIMESTAMPTZ,
-  "started_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  "applied_steps_count" INTEGER NOT NULL DEFAULT 0
-);
-`
+const databaseCommand = (
+  { containerName, databaseName, databaseUser, password, schemaName },
+  input
+) =>
   run(
     'docker',
     [
       'exec',
       '-i',
+      '--env',
+      `PGPASSWORD=${password}`,
+      ...(schemaName
+        ? [
+            '--env',
+            `PGOPTIONS=-c search_path=${schemaName} -c role=nihongo_phase7_migration -c TimeZone=UTC`
+          ]
+        : []),
       containerName,
       'psql',
+      '-X',
+      '-q',
+      '-A',
+      '-t',
+      '-h',
+      containerName,
       '-v',
       'ON_ERROR_STOP=1',
       '-U',
@@ -218,216 +296,155 @@ CREATE TABLE "_prisma_migrations" (
       '-d',
       databaseName
     ],
-    {
-      failureLabel: 'Prisma migration ledger initialization',
-      includeStderr: true,
-      input: ledgerSql
-    }
+    { input, failureLabel: 'Isolated TEST database preparation' }
   )
 
-  for (const name of migrationNames) {
+const provisionRuntimeIdentity = (database, schemaName, passwords) => {
+  const groups = [
+    'nihongo_phase7_owner',
+    'nihongo_phase7_migration',
+    'nihongo_app',
+    'nihongo_auth_gateway',
+    'nihongo_erasure_worker'
+  ]
+  const sql = groups.map(
+    (role) =>
+      `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;`
+  )
+  sql.push(
+    'GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration" WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;'
+  )
+  for (const prefix of ['nihongo_test', 'nihongo_development']) {
+    for (const [suffix, group] of [
+      ['phase7_migration', 'nihongo_phase7_migration'],
+      ['app', 'nihongo_app'],
+      ['auth_gateway', 'nihongo_auth_gateway'],
+      ['erasure_worker', 'nihongo_erasure_worker'],
+      ['legacy_app', null]
+    ]) {
+      const role = `${prefix}_${suffix}_login`
+      const password = passwords[role] ?? randomBytes(24).toString('hex')
+      sql.push(
+        `CREATE ROLE "${role}" LOGIN PASSWORD '${password}' NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;`
+      )
+      if (group)
+        sql.push(
+          `GRANT "${group}" TO "${role}" WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;`
+        )
+    }
+  }
+  sql.push(`CREATE EXTENSION pgcrypto WITH SCHEMA public;
+    ALTER DATABASE "${database.databaseName}" OWNER TO "nihongo_phase7_migration";
+    REVOKE ALL PRIVILEGES ON DATABASE "${database.databaseName}" FROM PUBLIC, "${database.databaseUser}", "nihongo_phase7_migration";
+    GRANT CREATE, TEMPORARY ON DATABASE "${database.databaseName}" TO "nihongo_phase7_migration";
+    GRANT CONNECT ON DATABASE "${database.databaseName}" TO "${migrationLogin}", "${applicationLogin}", "${gatewayLogin}", "nihongo_test_erasure_worker_login", "nihongo_test_legacy_app_login";
+    CREATE SCHEMA "${schemaName}" AUTHORIZATION "nihongo_phase7_migration";`)
+  databaseCommand(database, sql.join('\n'))
+}
+
+const applyCurrentMigrations = (
+  database,
+  migrationsDirectory,
+  names,
+  initialize = false
+) => {
+  if (initialize)
+    databaseCommand(
+      database,
+      `CREATE TABLE "_prisma_migrations" (
+    "id" VARCHAR(36) PRIMARY KEY, "checksum" VARCHAR(64) NOT NULL,
+    "finished_at" TIMESTAMPTZ, "migration_name" VARCHAR(255) NOT NULL,
+    "logs" TEXT, "rolled_back_at" TIMESTAMPTZ,
+    "started_at" TIMESTAMPTZ NOT NULL DEFAULT now(), "applied_steps_count" INTEGER NOT NULL DEFAULT 0);`
+    )
+  for (const name of names) {
     const sql = readFileSync(join(migrationsDirectory, name, 'migration.sql'))
-    run(
-      'docker',
-      [
-        'exec',
-        '-i',
-        containerName,
-        'psql',
-        '-v',
-        'ON_ERROR_STOP=1',
-        '-U',
-        databaseUser,
-        '-d',
-        databaseName
-      ],
-      {
-        failureLabel: `Pre-Phase-7 migration ${name}`,
-        includeStderr: true,
-        input: sql
-      }
-    )
+    databaseCommand(database, sql)
     const checksum = createHash('sha256').update(sql).digest('hex')
-    const ledgerEntry = `
-INSERT INTO "_prisma_migrations" (
-  "id", "checksum", "finished_at", "migration_name", "logs",
-  "rolled_back_at", "started_at", "applied_steps_count"
-) VALUES (
-  '${randomUUID()}', '${checksum}', now(), '${name}', NULL, NULL, now(), 1
-);
-`
-    run(
-      'docker',
-      [
-        'exec',
-        '-i',
-        containerName,
-        'psql',
-        '-v',
-        'ON_ERROR_STOP=1',
-        '-U',
-        databaseUser,
-        '-d',
-        databaseName
-      ],
-      {
-        failureLabel: `Prisma migration ledger entry ${name}`,
-        includeStderr: true,
-        input: ledgerEntry
-      }
+    databaseCommand(
+      database,
+      `INSERT INTO "_prisma_migrations"
+      ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
+      VALUES ('${randomUUID()}', '${checksum}', now(), '${name}', now(), 1);`
     )
   }
-  return migrationNames.length
 }
 
-const seedLearnerCompatibilityFixture = ({
-  containerName,
-  databaseAdminUser,
-  databaseName
-}) => {
-  const { questionId, questionText, tagId, tagLabel, versionId } =
-    learnerCompatibilityFixture
-  const sql = [
-    'BEGIN;',
-    'INSERT INTO "Tag" ("id", "label", "normalizedName", "createdAt", "updatedAt")',
-    "VALUES ('" +
-      tagId +
-      "', '" +
-      tagLabel +
-      "', '" +
-      tagLabel +
-      "', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');",
-    'INSERT INTO "Question" ("id", "lifecycleStatus", "currentPublishedVersionId", "createdByUserId", "createdByLabelSnapshot", "createdAt", "updatedAt")',
-    "VALUES ('" +
-      questionId +
-      "', 'ACTIVE', NULL, NULL, 'SYSTEM_SEED', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');",
-    'INSERT INTO "QuestionVersion" ("id", "questionId", "versionNumber", "status", "level", "subject", "questionType", "passage", "questionText", "correctOptionId", "explanationKo", "explanationJa", "difficulty", "sourceType", "rowVersion", "createdByUserId", "createdByLabelSnapshot", "createdAt", "updatedAt")',
-    "VALUES ('" +
-      versionId +
-      "', '" +
-      questionId +
-      "', 1, 'DRAFT', 'N5', 'VOCABULARY', 'KANJI_READING', NULL, '" +
-      questionText +
-      "', NULL, '「朝」는 「あさ」라고 읽습니다.', NULL, 'EASY', 'ORIGINAL', 1, NULL, 'SYSTEM_SEED', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z');",
-    'INSERT INTO "QuestionOption" ("id", "questionVersionId", "label", "text", "ordinal")',
-    "VALUES ('00000000-0000-4000-8000-000000000111', '" +
-      versionId +
-      "', '1', 'あさ', 1),",
-    "('00000000-0000-4000-8000-000000000112', '" +
-      versionId +
-      "', '2', 'ひる', 2),",
-    "('00000000-0000-4000-8000-000000000113', '" +
-      versionId +
-      "', '3', 'よる', 3),",
-    "('00000000-0000-4000-8000-000000000114', '" +
-      versionId +
-      "', '4', 'ゆう', 4);",
-    'INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId", "labelSnapshot")',
-    "VALUES ('00000000-0000-4000-8000-000000000121', '" +
-      versionId +
-      "', '" +
-      tagId +
-      "', '" +
-      tagLabel +
-      "');",
-    'UPDATE "QuestionVersion"',
-    'SET "correctOptionId" = \'00000000-0000-4000-8000-000000000111\', "status" = \'PUBLISHED\', "publishedAt" = \'2026-01-01T00:00:00.000Z\', "updatedAt" = \'2026-01-01T00:00:00.000Z\'',
-    'WHERE "id" = \'' + versionId + "';",
-    'UPDATE "Question"',
-    'SET "currentPublishedVersionId" = \'' +
-      versionId +
-      "', \"updatedAt\" = '2026-01-01T00:00:00.000Z'",
-    'WHERE "id" = \'' + questionId + "';",
-    'COMMIT;'
-  ].join('\n')
+// TEST setup stays on the host; the production image and server are unchanged.
+export const canonicalSeedProgram = `
+import { readFileSync } from 'node:fs';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from './src/generated/prisma/client.ts';
+import { seedQuestionCatalog } from './prisma/seedQuestionCatalog.ts';
+import { assertSafePhase7MigrationDatabase } from './src/db/databaseTargetGuard.ts';
+import { createPostgresStartupOptions, getPostgresSchema } from './src/db/databaseOptions.ts';
+const { databaseUrl, runtimeDatabaseUrl } = JSON.parse(readFileSync(0, 'utf8'));
+const migrationUrl = new URL(databaseUrl);
+migrationUrl.searchParams.set('options', '-c role=nihongo_phase7_migration');
+const productionSentinel = new URL(databaseUrl);
+productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
+productionSentinel.search = '';
+assertSafePhase7MigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
+  runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
+const schema = getPostgresSchema(databaseUrl);
+if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
+  throw new Error('Controlled TEST seed target is invalid.');
+const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
+  options: createPostgresStartupOptions(schema, 'nihongo_phase7_migration') }, { schema }) });
+try {
+  const result = await client.$transaction(async (transaction) => {
+    await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_phase7_owner');
+    const roles = await transaction.$queryRawUnsafe('SELECT current_user AS role, session_user AS login');
+    if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_owner' || roles[0].login !== 'nihongo_test_phase7_migration_login')
+      throw new Error('Controlled TEST seed role attestation failed.');
+    const scoped = new Proxy(transaction, { get(target, property, receiver) {
+      return property === '$transaction' ? async (callback) => await callback(transaction) : Reflect.get(target, property, receiver);
+    } });
+    return await seedQuestionCatalog(scoped);
+  }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 60000 });
+  if (result.insertedCount !== 65 || result.verifiedCount !== 0)
+    throw new Error('Controlled TEST canonical seed count is invalid.');
+  const roles = await client.$queryRawUnsafe('SELECT current_user AS role');
+  if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_migration')
+    throw new Error('Controlled TEST seed role boundary did not close.');
+} finally { await client.$disconnect(); }
+`
+
+const seedLearnerCompatibilityFixture = (databaseUrl, runtimeDatabaseUrl) =>
   run(
-    'docker',
-    [
-      'exec',
-      '-i',
-      containerName,
-      'psql',
-      '-v',
-      'ON_ERROR_STOP=1',
-      '-U',
-      databaseAdminUser,
-      '-d',
-      databaseName
-    ],
+    process.execPath,
+    ['--import', 'tsx', '--input-type=module', '--eval', canonicalSeedProgram],
     {
-      failureLabel: 'Learner compatibility fixture seed',
-      includeStderr: true,
-      input: sql
+      cwd: join(repositoryRoot, 'apps/api'),
+      env: { ...testSetupEnvironment(), NODE_ENV: 'test' },
+      input: JSON.stringify({ databaseUrl, runtimeDatabaseUrl }),
+      failureLabel: 'Reviewed canonical65 TEST setup'
     }
   )
-}
 
-const provisionRuntimeIdentity = ({
-  containerName,
-  databaseAdminUser,
-  databaseName,
-  runtimePassword,
-  runtimeUser
-}) => {
-  const sql = `
-CREATE ROLE "${runtimeUser}"
-  LOGIN PASSWORD '${runtimePassword}'
-  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-GRANT CONNECT ON DATABASE "${databaseName}" TO "${runtimeUser}";
-GRANT USAGE ON SCHEMA public TO "${runtimeUser}";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "${runtimeUser}";
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO "${runtimeUser}";
-REVOKE INSERT, UPDATE, DELETE ON TABLE public."_prisma_migrations" FROM "${runtimeUser}";
+export const controlledSessionProgram = `
+import { createRoleDatabaseRuntime } from '/app/api/dist/db/database.js';
+import { createSsoIdentityRepository } from '/app/api/dist/auth/ssoIdentityRepository.js';
+import { createPhase7SessionCookie } from '/app/api/dist/auth/phase7SessionCookie.js';
+import { readFileSync } from 'node:fs';
+const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
+const url = new URL(process.env.AUTH_GATEWAY_DATABASE_URL);
+if (process.env.NODE_ENV !== 'production' || process.env.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
+    !/^[a-f0-9]{12}$/.test(suffix) || !url.pathname.endsWith('_test') ||
+    !/^phase7_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
+  throw new Error('Controlled TEST session target is invalid.');
+const gateway = createRoleDatabaseRuntime(url.toString(), 'nihongo_auth_gateway');
+try {
+  const session = await createSsoIdentityRepository(gateway.client).signIn({
+    provider: 'google', accountId: 'phase11-' + suffix,
+    email: 'phase11-' + suffix + '@example.test', name: 'Phase 11 smoke'
+  }, { ipAddress: '127.0.0.1', userAgent: 'Phase11 controlled TEST fixture' });
+  if (session.kind !== 'SESSION_CONFIRMED') throw new Error('Controlled TEST session was not confirmed.');
+  const cookie = createPhase7SessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
+    isProduction: true, rememberMe: true, now: session.createdAt, expiresAt: session.expiresAt });
+  process.stdout.write(JSON.stringify({ cookie, kind: 'controlled-test-session', provider: 'google' }));
+} finally { await gateway.disconnect(); }
 `
-  run(
-    'docker',
-    [
-      'exec',
-      '-i',
-      containerName,
-      'psql',
-      '-v',
-      'ON_ERROR_STOP=1',
-      '-U',
-      databaseAdminUser,
-      '-d',
-      databaseName
-    ],
-    { failureLabel: 'Runtime database identity provisioning', input: sql }
-  )
-  const attributes = run('docker', [
-    'exec',
-    containerName,
-    'psql',
-    '-A',
-    '-t',
-    '-U',
-    databaseAdminUser,
-    '-d',
-    databaseName,
-    '-c',
-    `SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = '${runtimeUser}'`
-  ]).stdout.trim()
-  if (attributes !== 'f|f|f|f|f') {
-    throw new Error('Isolated runtime database identity is over-privileged.')
-  }
-  const ledgerPrivileges = run('docker', [
-    'exec',
-    containerName,
-    'psql',
-    '-A',
-    '-t',
-    '-U',
-    databaseAdminUser,
-    '-d',
-    databaseName,
-    '-c',
-    `SELECT has_table_privilege('${runtimeUser}', 'public."_prisma_migrations"', 'SELECT'), has_table_privilege('${runtimeUser}', 'public."_prisma_migrations"', 'INSERT'), has_table_privilege('${runtimeUser}', 'public."_prisma_migrations"', 'UPDATE'), has_table_privilege('${runtimeUser}', 'public."_prisma_migrations"', 'DELETE')`
-  ]).stdout.trim()
-  if (ledgerPrivileges !== 't|f|f|f') {
-    throw new Error('Isolated runtime migration ledger privileges are invalid.')
-  }
-}
 
 export const readSafeRuntimeFailureDiagnostics = (
   containerName,
@@ -511,34 +528,6 @@ export const readBoundedAuthResponse = async (response) => {
   }
 }
 
-const expectCookieOnlySuccess = async (response, label) => {
-  if (response.status !== 200) {
-    throw new Error(`${label} did not succeed.`)
-  }
-  const body = parseUniqueKeyJson(await readBoundedAuthResponse(response))
-  if (
-    typeof body !== 'object' ||
-    body === null ||
-    Array.isArray(body) ||
-    Object.keys(body).length !== 1 ||
-    body.success !== true
-  ) {
-    throw new Error(`${label} returned an invalid contract.`)
-  }
-}
-
-const postAuth = async (origin, path, body) =>
-  await fetch(`${origin}${path}`, {
-    body: JSON.stringify(body),
-    headers: {
-      'Content-Type': 'application/json',
-      Origin: 'https://smoke.invalid'
-    },
-    method: 'POST',
-    redirect: 'manual',
-    signal: AbortSignal.timeout(15_000)
-  })
-
 export const readProductionSessionCookie = (response) => {
   const getSetCookie = response.headers.getSetCookie?.bind(response.headers)
   const values = getSetCookie
@@ -603,7 +592,7 @@ export const validateStatefulPrincipal = (principal) => {
   return principal
 }
 
-export const validateLearnerQuestionSummary = (question) => {
+export const validateLearnerQuestionSummary = (question, fixture) => {
   assertExactKeys(
     question,
     [
@@ -619,23 +608,27 @@ export const validateLearnerQuestionSummary = (question) => {
     'Learner compatibility question'
   )
   if (
-    question.id !== learnerCompatibilityFixture.questionId ||
-    question.questionVersionId !== learnerCompatibilityFixture.versionId ||
-    question.level !== 'N5' ||
-    question.subject !== 'VOCABULARY' ||
-    question.questionType !== 'KANJI_READING' ||
-    question.difficulty !== 'EASY' ||
-    question.questionTextPreview !== learnerCompatibilityFixture.questionText ||
+    question.id !== fixture.questionId ||
+    question.questionVersionId !== fixture.versionId ||
+    question.level !== fixture.level ||
+    question.subject !== fixture.subject ||
+    question.questionType !== fixture.questionType ||
+    question.difficulty !== fixture.difficulty ||
+    question.questionTextPreview !== fixture.questionText ||
     !Array.isArray(question.tags) ||
-    question.tags.length !== 1
+    question.tags.length !== fixture.tags.length
   ) {
     throw new Error('Learner compatibility question contract is invalid.')
   }
-  const tag = question.tags[0]
-  assertExactKeys(tag, ['id', 'label'], 'Learner compatibility tag')
+  for (const tag of question.tags)
+    assertExactKeys(tag, ['id', 'label'], 'Learner compatibility tag')
+  const sortedTags = (tags) =>
+    tags
+      .toSorted((left, right) => left.id.localeCompare(right.id))
+      .map(({ id, label }) => ({ id, label }))
   if (
-    tag.id !== learnerCompatibilityFixture.tagId ||
-    tag.label !== learnerCompatibilityFixture.tagLabel
+    JSON.stringify(sortedTags(question.tags)) !==
+    JSON.stringify(sortedTags(fixture.tags))
   ) {
     throw new Error('Learner compatibility question contract is invalid.')
   }
@@ -645,14 +638,14 @@ export const validateLearnerQuestionSummary = (question) => {
 const canonicalIsoDateTimePattern =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u
 
-export const validateLearnerBookmark = (bookmark) => {
+export const validateLearnerBookmark = (bookmark, fixture) => {
   assertExactKeys(
     bookmark,
     ['availability', 'createdAt', 'question', 'questionId'],
     'Learner compatibility bookmark'
   )
   if (
-    bookmark.questionId !== learnerCompatibilityFixture.questionId ||
+    bookmark.questionId !== fixture.questionId ||
     bookmark.availability !== 'AVAILABLE' ||
     typeof bookmark.createdAt !== 'string' ||
     !canonicalIsoDateTimePattern.test(bookmark.createdAt) ||
@@ -661,7 +654,7 @@ export const validateLearnerBookmark = (bookmark) => {
   ) {
     throw new Error('Learner compatibility bookmark contract is invalid.')
   }
-  validateLearnerQuestionSummary(bookmark.question)
+  validateLearnerQuestionSummary(bookmark.question, fixture)
   return bookmark
 }
 
@@ -674,13 +667,19 @@ const readExpectedJsonResponse = async (response, expectedStatus, label) => {
   return parseUniqueKeyJson(await readBoundedAuthResponse(response))
 }
 
-const runLearnerCompatibilityProbe = async ({ origin, sessionCookie }) => {
-  const questionResponse = await fetch(
+export const runLearnerCompatibilityProbe = async ({
+  origin,
+  sessionCookie,
+  fixture,
+  fetchResponse = fetch
+}) => {
+  const questionResponse = await fetchResponse(
     origin +
       '/api/v1/questions?tag=' +
-      learnerCompatibilityFixture.tagLabel +
+      encodeURIComponent(fixture.tagLabel) +
       '&page=1&pageSize=20',
     {
+      headers: { Cookie: sessionCookie },
       method: 'GET',
       redirect: 'manual',
       signal: AbortSignal.timeout(10_000)
@@ -705,10 +704,10 @@ const runLearnerCompatibilityProbe = async ({ origin, sessionCookie }) => {
   ) {
     throw new Error('Learner compatibility question page is invalid.')
   }
-  validateLearnerQuestionSummary(questionList.items[0])
+  validateLearnerQuestionSummary(questionList.items[0], fixture)
 
-  const bookmarkCreateResponse = await fetch(
-    origin + '/api/v1/bookmarks/' + learnerCompatibilityFixture.questionId,
+  const bookmarkCreateResponse = await fetchResponse(
+    origin + '/api/v1/bookmarks/' + fixture.questionId,
     {
       body: '{}',
       headers: {
@@ -726,10 +725,11 @@ const runLearnerCompatibilityProbe = async ({ origin, sessionCookie }) => {
       bookmarkCreateResponse,
       201,
       'Learner compatibility bookmark creation'
-    )
+    ),
+    fixture
   )
 
-  const bookmarkListResponse = await fetch(
+  const bookmarkListResponse = await fetchResponse(
     origin + '/api/v1/bookmarks?page=1&pageSize=20',
     {
       headers: { Cookie: sessionCookie },
@@ -757,7 +757,7 @@ const runLearnerCompatibilityProbe = async ({ origin, sessionCookie }) => {
   ) {
     throw new Error('Learner compatibility bookmark page is invalid.')
   }
-  validateLearnerBookmark(bookmarkList.items[0])
+  validateLearnerBookmark(bookmarkList.items[0], fixture)
 
   return {
     bookmarkCreateStatus: bookmarkCreateResponse.status,
@@ -769,91 +769,111 @@ const runLearnerCompatibilityProbe = async ({ origin, sessionCookie }) => {
 }
 
 export const runStatefulAuthCompatibilityProbe = async ({
-  containerName,
-  databaseAdminUser,
-  databaseName,
+  database,
+  runtimeContainer,
+  schemaName,
   origin,
-  suffix
+  suffix,
+  fixture,
+  runCommand = run,
+  fetchResponse = fetch
 }) => {
-  if (!/^[0-9a-f]{12}$/u.test(suffix)) {
-    throw new Error('Stateful auth smoke suffix is invalid.')
+  if (!/^[0-9a-f]{12}$/u.test(suffix) || !schemaPattern.test(schemaName)) {
+    throw new Error('Controlled TEST fixture inputs are invalid.')
   }
-  const email = `phase11-${suffix}@example.test`
-  const password = `Phase11-${suffix}-password!`
-  const signUpResponse = await postAuth(origin, '/api/auth/sign-up/email', {
-    email,
-    name: 'Phase 11 smoke',
-    password,
-    targetLevel: 'N5'
-  })
-  await expectCookieOnlySuccess(signUpResponse, 'Stateful auth sign-up')
-
-  const updateResult = run('docker', [
-    'exec',
-    containerName,
-    'psql',
-    '-U',
-    databaseAdminUser,
-    '-d',
-    databaseName,
-    '-v',
-    'ON_ERROR_STOP=1',
-    '-c',
-    `UPDATE "User" SET "emailVerified" = true WHERE email = '${email}'`
-  ]).stdout
-  if (updateResult.trim() !== 'UPDATE 1') {
-    throw new Error('Stateful auth smoke could not verify its disposable user.')
+  const session = parseUniqueKeyJson(
+    runCommand(
+      'docker',
+      ['exec', '-i', runtimeContainer, 'node', '--input-type=module'],
+      {
+        input: controlledSessionProgram.replace(
+          "readFileSync(0, 'utf8')",
+          JSON.stringify(JSON.stringify({ suffix }))
+        ),
+        failureLabel: 'Controlled Google-linked TEST session preparation'
+      }
+    ).stdout
+  )
+  assertExactKeys(
+    session,
+    ['cookie', 'kind', 'provider'],
+    'Controlled TEST session'
+  )
+  if (
+    session.kind !== 'controlled-test-session' ||
+    session.provider !== 'google'
+  ) {
+    throw new Error('Controlled TEST session classification is invalid.')
   }
-
-  const signInResponse = await postAuth(origin, '/api/auth/sign-in/email', {
-    email,
-    password
-  })
-  const sessionCookie = readProductionSessionCookie(signInResponse)
-  await expectCookieOnlySuccess(signInResponse, 'Stateful auth sign-in')
-
-  const principalResponse = await fetch(`${origin}/api/v1/me`, {
+  const sessionCookie = readProductionSessionCookie(
+    new Response(null, { headers: { 'Set-Cookie': session.cookie } })
+  )
+  const result = runCommand(
+    'docker',
+    [
+      'exec',
+      '-i',
+      database.containerName,
+      'psql',
+      '-X',
+      '-q',
+      '-A',
+      '-t',
+      '-U',
+      database.databaseUser,
+      '-d',
+      database.databaseName,
+      '-v',
+      'ON_ERROR_STOP=1'
+    ],
+    {
+      input: `SET search_path TO "${schemaName}";
+        UPDATE "User" SET "targetLevel" = 'N5' WHERE "id" IN
+          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'phase11-${suffix}');
+        SELECT u."id" FROM "User" u JOIN "Account" a ON a."userId" = u."id"
+        JOIN "Session" s ON s."userId" = u."id"
+        JOIN "AuthSessionFamily" f ON f."userId" = u."id" AND f."id" = s."sessionFamilyId"
+        WHERE a."providerId" = 'google' AND a."accountId" = 'phase11-${suffix}' AND a."password" IS NULL
+          AND u."accountStatus" = 'ACTIVE' AND u."targetLevel" = 'N5' AND u."role" = 'USER'
+          AND s."issuerProtocolVersion" = 'V1' AND s."authorizationState" = 'ACTIVE'
+          AND s."authorityGeneration" = u."authorityGeneration" AND s."expiresAt" > clock_timestamp()
+          AND f."status" = 'ACTIVE' AND (SELECT count(*) FROM "User") = 1
+          AND (SELECT count(*) FROM "Account") = 1 AND (SELECT count(*) FROM "Session") = 1;`,
+      failureLabel: 'Controlled TEST session persistence and profile'
+    }
+  ).stdout.trim()
+  if (!uuidPattern.test(result))
+    throw new Error('Controlled TEST Google/session persistence is incomplete.')
+  const principalResponse = await fetchResponse(`${origin}/api/v1/me`, {
     headers: { Cookie: sessionCookie },
     method: 'GET',
     redirect: 'manual',
     signal: AbortSignal.timeout(10_000)
   })
-  if (principalResponse.status !== 200) {
-    throw new Error('Stateful auth principal lookup did not succeed.')
-  }
-  validateStatefulPrincipal(
-    parseUniqueKeyJson(await readBoundedAuthResponse(principalResponse))
+  const principal = validateStatefulPrincipal(
+    await readExpectedJsonResponse(
+      principalResponse,
+      200,
+      'Stateful auth principal'
+    )
   )
-
-  const counts = run('docker', [
-    'exec',
-    containerName,
-    'psql',
-    '-A',
-    '-t',
-    '-U',
-    databaseAdminUser,
-    '-d',
-    databaseName,
-    '-c',
-    `SELECT (SELECT count(*) FROM "User" WHERE email = '${email}'), (SELECT count(*) FROM "Account" WHERE "userId" = (SELECT id FROM "User" WHERE email = '${email}')), (SELECT count(*) FROM "Session" WHERE "userId" = (SELECT id FROM "User" WHERE email = '${email}'))`
-  ]).stdout.trim()
-  if (counts !== '1|1|1') {
-    throw new Error('Stateful auth smoke persistence is incomplete.')
-  }
-
+  if (principal.user.id !== result)
+    throw new Error('Controlled TEST session actor does not match persistence.')
   return {
     learnerCompatibility: await runLearnerCompatibilityProbe({
       origin,
-      sessionCookie
+      sessionCookie,
+      fixture,
+      fetchResponse
     }),
     statefulAuth: {
       accountRows: 1,
       principalStatus: principalResponse.status,
       sessionRows: 1,
-      signInStatus: signInResponse.status,
-      signUpStatus: signUpResponse.status,
-      userRows: 1
+      userRows: 1,
+      fixtureKind: 'controlled-test-session',
+      provider: 'google',
+      providerExchangeVerified: false
     }
   }
 }
@@ -943,10 +963,10 @@ export const verifyPortableRuntimeSmokeEvidence = (evidence) => {
     'Runtime smoke evidence'
   )
   if (
-    evidence.schemaVersion !== 2 ||
+    evidence.schemaVersion !== 3 ||
     evidence.evidenceClassification !== 'TEST' ||
     evidence.profile !== 'isolated-production-mode' ||
-    evidence.migrationCount !== prePhase7MigrationCount ||
+    evidence.migrationCount !== currentMigrationCount ||
     !imageIdPattern.test(evidence.imageId)
   ) {
     throw new Error('Runtime smoke evidence identity is invalid.')
@@ -987,8 +1007,9 @@ export const verifyPortableRuntimeSmokeEvidence = (evidence) => {
       'accountRows',
       'principalStatus',
       'sessionRows',
-      'signInStatus',
-      'signUpStatus',
+      'fixtureKind',
+      'provider',
+      'providerExchangeVerified',
       'userRows'
     ],
     'Runtime stateful auth evidence'
@@ -997,8 +1018,9 @@ export const verifyPortableRuntimeSmokeEvidence = (evidence) => {
     evidence.statefulAuth.accountRows !== 1 ||
     evidence.statefulAuth.principalStatus !== 200 ||
     evidence.statefulAuth.sessionRows !== 1 ||
-    evidence.statefulAuth.signInStatus !== 200 ||
-    evidence.statefulAuth.signUpStatus !== 200 ||
+    evidence.statefulAuth.fixtureKind !== 'controlled-test-session' ||
+    evidence.statefulAuth.provider !== 'google' ||
+    evidence.statefulAuth.providerExchangeVerified !== false ||
     evidence.statefulAuth.userRows !== 1
   ) {
     throw new Error('Runtime stateful auth evidence is invalid.')
@@ -1111,16 +1133,28 @@ export const runPortableRuntimeSmoke = async ({
   const networkName = `nihongo-p11-${suffix}`
   const databaseContainer = `nihongo-p11-db-${suffix}`
   const runtimeContainer = `nihongo-p11-app-${suffix}`
-  const certificateDirectory = mkdtempSync(join(tmpdir(), 'nihongo-p11-cert-'))
   const databaseName = 'nihongo_runtime_smoke_test'
   const databaseAdminUser = 'nihongo_runtime_smoke_migration'
   const databaseAdminPassword = randomBytes(24).toString('hex')
-  const runtimeUser = 'nihongo_runtime_smoke_app'
   const runtimePassword = randomBytes(24).toString('hex')
+  const gatewayPassword = randomBytes(24).toString('hex')
+  const migrationPassword = randomBytes(24).toString('hex')
+  const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+  const migrationNames = selectCurrentMigrationNames(
+    resolve(repositoryRoot, 'apps/api/prisma/migrations')
+  )
+  const fixture = readCanonicalLearnerFixture()
+  const database = {
+    containerName: databaseContainer,
+    databaseName,
+    databaseUser: databaseAdminUser,
+    password: databaseAdminPassword
+  }
   const migrationsDirectory = resolve(
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
+  const certificateDirectory = mkdtempSync(join(tmpdir(), 'nihongo-p11-cert-'))
   let cleanupError
   let operationError
 
@@ -1166,6 +1200,8 @@ export const runPortableRuntimeSmoke = async ({
       databaseContainer,
       '--network',
       networkName,
+      '--publish',
+      '127.0.0.1::5432',
       '--env',
       `POSTGRES_DB=${databaseName}`,
       '--env',
@@ -1183,34 +1219,60 @@ export const runPortableRuntimeSmoke = async ({
       'ssl_key_file=/certs/server.key'
     ])
     await waitForPostgres(databaseContainer, databaseAdminUser, databaseName)
-    const migrationCount = applyPrePhase7Migrations({
-      containerName: databaseContainer,
-      databaseName,
-      databaseUser: databaseAdminUser,
-      migrationsDirectory
+    provisionRuntimeIdentity(database, schemaName, {
+      [migrationLogin]: migrationPassword,
+      [applicationLogin]: runtimePassword,
+      [gatewayLogin]: gatewayPassword
     })
-    seedLearnerCompatibilityFixture({
-      containerName: databaseContainer,
-      databaseAdminUser,
-      databaseName
-    })
-    provisionRuntimeIdentity({
-      containerName: databaseContainer,
-      databaseAdminUser,
-      databaseName,
-      runtimePassword,
-      runtimeUser
-    })
+    const migrationDatabase = {
+      ...database,
+      databaseUser: migrationLogin,
+      password: migrationPassword,
+      schemaName
+    }
+    applyCurrentMigrations(
+      migrationDatabase,
+      migrationsDirectory,
+      migrationNames.slice(0, 37),
+      true
+    )
+    databaseCommand(
+      migrationDatabase,
+      `SELECT "phase7_register_database_capability"(
+      current_database(), inet_server_addr(), inet_server_port(), 'TEST');
+      SELECT "phase7_activate_v1_issuer"('TEST');`
+    )
+    const databasePortOutput = run('docker', [
+      'port',
+      databaseContainer,
+      '5432/tcp'
+    ]).stdout.trim()
+    const databasePort = /^127\.0\.0\.1:(\d+)$/u.exec(databasePortOutput)?.[1]
+    if (!databasePort)
+      throw new Error('Unable to resolve isolated TEST database port.')
+    seedLearnerCompatibilityFixture(
+      `postgresql://${migrationLogin}:${migrationPassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=require&uselibpqcompat=true`,
+      `postgresql://${applicationLogin}:${runtimePassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=require&uselibpqcompat=true`
+    )
+    applyCurrentMigrations(
+      migrationDatabase,
+      migrationsDirectory,
+      migrationNames.slice(37)
+    )
+    const migrationCount = migrationNames.length
 
     const runtimeEnvironment = createRuntimeEnvironment({
       databaseHost: databaseContainer,
       databaseName,
       databasePassword: runtimePassword,
-      databaseUser: runtimeUser,
+      gatewayPassword,
+      schemaName,
       releaseId: exactReleaseId
     })
     const runtimeSensitiveValues = [
-      runtimeEnvironment.AUTH_EMAIL_WEBHOOK_SECRET,
+      runtimeEnvironment.AUTH_GATEWAY_DATABASE_URL,
+      gatewayPassword,
+      migrationPassword,
       runtimeEnvironment.BETTER_AUTH_SECRET,
       runtimeEnvironment.DATABASE_URL,
       runtimeEnvironment.GUEST_COOKIE_SECRET,
@@ -1252,10 +1314,11 @@ export const runPortableRuntimeSmoke = async ({
     const origin = `http://127.0.0.1:${port}`
     await waitForRuntime(origin, runtimeContainer, runtimeSensitiveValues)
     const compatibility = await runStatefulAuthCompatibilityProbe({
-      containerName: databaseContainer,
-      databaseAdminUser,
-      databaseName,
+      database,
+      runtimeContainer,
+      schemaName,
       origin,
+      fixture,
       suffix
     })
     const smoke = await runPostDeploySmoke({
@@ -1285,7 +1348,7 @@ export const runPortableRuntimeSmoke = async ({
       throw new Error('Isolated runtime did not stop cleanly after SIGTERM.')
     }
     const evidence = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       evidenceClassification: 'TEST',
       profile: 'isolated-production-mode',
       releaseId: exactReleaseId,

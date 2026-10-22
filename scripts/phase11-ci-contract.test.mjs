@@ -217,9 +217,29 @@ test('environment contract is secret-name-only and external activation stays clo
     )
   )
   assert.ok(
-    environmentContract.variableScopes.productionRuntime.forbidden.includes(
+    environmentContract.variableScopes.productionRuntime.secret.includes(
       'AUTH_GATEWAY_DATABASE_URL'
     )
+  )
+  for (const scope of ['releaseBuild', 'technicalDevelopmentOnly']) {
+    assert.equal(
+      environmentContract.variableScopes[scope].secret.includes(
+        'AUTH_GATEWAY_DATABASE_URL'
+      ),
+      false
+    )
+  }
+  assert.equal(
+    environmentContract.variableScopes.productionRuntime.forbidden.includes(
+      'AUTH_GATEWAY_DATABASE_URL'
+    ),
+    false
+  )
+  assert.equal(
+    environmentContract.publicVariableNames.includes(
+      'AUTH_GATEWAY_DATABASE_URL'
+    ),
+    false
   )
   assert.equal(
     environmentContract.variableScopes.productionRuntime.secret.includes(
@@ -334,7 +354,12 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   }
   assert.match(recoveryRunbook, /not Staging or Production recovery proof/u)
   assert.match(recoveryRunbook, /unverified activation\s+candidate/u)
-  assert.match(recoveryRunbook, /exact-27 isolated stateful sign-up/u)
+  assert.match(
+    recoveryRunbook,
+    /current-46 controlled Google-linked TEST session/u
+  )
+  assert.match(recoveryRunbook, /external Google exchange remains unverified/u)
+  assert.doesNotMatch(recoveryRunbook, /stateful sign-up, sign-in/u)
   assert.match(
     recoveryRunbook,
     /historical canonical 37-migration isolated DB candidate excludes\s+`20261005183000_phase7_reviewed_catalog_current`/u

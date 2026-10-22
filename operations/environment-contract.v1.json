@@ -95,13 +95,13 @@
       ],
       "secret": [
         "DATABASE_URL",
+        "AUTH_GATEWAY_DATABASE_URL",
         "BETTER_AUTH_SECRET",
         "GUEST_COOKIE_SECRET",
         "AUTH_EMAIL_WEBHOOK_URL",
         "AUTH_EMAIL_WEBHOOK_SECRET"
       ],
       "forbidden": [
-        "AUTH_GATEWAY_DATABASE_URL",
         "PRODUCTION_DATABASE_URL",
         "VITE_API_MODE",
         "VITE_API_BASE_URL",
@@ -110,7 +110,7 @@
     },
     "technicalDevelopmentOnly": {
       "public": [],
-      "secret": ["AUTH_GATEWAY_DATABASE_URL", "PRODUCTION_DATABASE_URL"]
+      "secret": ["PRODUCTION_DATABASE_URL"]
     }
   },
   "requiredExternalRegistryFields": [

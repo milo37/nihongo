@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import {
+  cpSync,
   mkdtempSync,
-  mkdirSync,
   rmSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import {
   assertExpectedRuntimeImageId,
@@ -21,7 +22,12 @@ import {
   readRuntimeContainerImageId,
   readSafeRuntimeFailureDiagnostics,
   runPortableRuntimeSmokeCli,
-  selectPrePhase7MigrationNames,
+  selectCurrentMigrationNames,
+  selectLearnerCompatibilityFixture,
+  readCanonicalLearnerFixture,
+  runStatefulAuthCompatibilityProbe,
+  controlledSessionProgram,
+  canonicalSeedProgram,
   validateLearnerBookmark,
   validateLearnerQuestionSummary,
   validateStatefulPrincipal,
@@ -29,6 +35,17 @@ import {
 } from './portable-runtime-smoke.mjs'
 
 const releaseId = '1234567890abcdef1234567890abcdef12345678'
+const fixture = readCanonicalLearnerFixture()
+const questionSummary = () => ({
+  difficulty: fixture.difficulty,
+  id: fixture.questionId,
+  level: fixture.level,
+  questionTextPreview: fixture.questionText,
+  questionType: fixture.questionType,
+  questionVersionId: fixture.versionId,
+  subject: fixture.subject,
+  tags: fixture.tags.map((tag) => ({ ...tag }))
+})
 
 test('stateful auth response reader cancels an unbounded chunked body', async () => {
   let cancelled = false
@@ -235,56 +252,37 @@ test('stateful auth principal validation is strict and privacy-safe', () => {
 })
 
 test('learner compatibility question validation is exact and privacy-safe', () => {
-  const question = {
-    difficulty: 'EASY',
-    id: '00000000-0000-4000-8000-000000000101',
-    level: 'N5',
-    questionTextPreview: '「朝」の読み方を選んでください。',
-    questionType: 'KANJI_READING',
-    questionVersionId: '00000000-0000-4000-8000-000000000102',
-    subject: 'VOCABULARY',
-    tags: [
-      {
-        id: '00000000-0000-4000-8000-000000000120',
-        label: 'phase11-smoke-tag'
-      }
-    ]
-  }
-  assert.equal(validateLearnerQuestionSummary(question), question)
+  const question = questionSummary()
+  assert.equal(validateLearnerQuestionSummary(question, fixture), question)
   assert.throws(
     () =>
-      validateLearnerQuestionSummary({
-        ...question,
-        contentFingerprint: 'private'
-      }),
+      validateLearnerQuestionSummary(
+        {
+          ...question,
+          contentFingerprint: 'private'
+        },
+        fixture
+      ),
     /invalid key set/u
   )
   assert.throws(
     () =>
-      validateLearnerQuestionSummary({
-        ...question,
-        tags: [{ ...question.tags[0], normalizedName: 'private' }]
-      }),
+      validateLearnerQuestionSummary(
+        {
+          ...question,
+          tags: question.tags.map((tag) => ({
+            ...tag,
+            normalizedName: 'private'
+          }))
+        },
+        fixture
+      ),
     /invalid key set/u
   )
 })
 
 test('learner compatibility bookmark validation requires an exact canonical response', () => {
-  const question = {
-    difficulty: 'EASY',
-    id: '00000000-0000-4000-8000-000000000101',
-    level: 'N5',
-    questionTextPreview: '「朝」の読み方を選んでください。',
-    questionType: 'KANJI_READING',
-    questionVersionId: '00000000-0000-4000-8000-000000000102',
-    subject: 'VOCABULARY',
-    tags: [
-      {
-        id: '00000000-0000-4000-8000-000000000120',
-        label: 'phase11-smoke-tag'
-      }
-    ]
-  }
+  const question = questionSummary()
   const bookmark = {
     availability: 'AVAILABLE',
     createdAt: '2026-10-01T00:00:00.000Z',
@@ -292,17 +290,24 @@ test('learner compatibility bookmark validation requires an exact canonical resp
     questionId: question.id
   }
 
-  assert.equal(validateLearnerBookmark(bookmark), bookmark)
+  assert.equal(validateLearnerBookmark(bookmark, fixture), bookmark)
   assert.throws(
-    () => validateLearnerBookmark({ ...bookmark, internalNote: 'private' }),
+    () =>
+      validateLearnerBookmark(
+        { ...bookmark, internalNote: 'private' },
+        fixture
+      ),
     /invalid key set/u
   )
   assert.throws(
     () =>
-      validateLearnerBookmark({
-        ...bookmark,
-        createdAt: 'Thu, 01 Oct 2026 00:00:00 GMT'
-      }),
+      validateLearnerBookmark(
+        {
+          ...bookmark,
+          createdAt: 'Thu, 01 Oct 2026 00:00:00 GMT'
+        },
+        fixture
+      ),
     /contract is invalid/u
   )
 })
@@ -355,8 +360,9 @@ test('portable runtime environment is production-shaped without migration creden
   const environment = createRuntimeEnvironment({
     databaseHost: 'database',
     databaseName: 'nihongo_smoke_test',
-    databasePassword: 'test-password',
-    databaseUser: 'runtime_user',
+    databasePassword: 'a'.repeat(48),
+    gatewayPassword: 'b'.repeat(48),
+    schemaName: `phase7_${'c'.repeat(32)}_test`,
     releaseId
   })
 
@@ -369,6 +375,16 @@ test('portable runtime environment is production-shaped without migration creden
     environment.DATABASE_URL,
     /sslmode=require&uselibpqcompat=true$/u
   )
+  const app = new URL(environment.DATABASE_URL)
+  const gateway = new URL(environment.AUTH_GATEWAY_DATABASE_URL)
+  assert.equal(app.username, 'nihongo_test_app_login')
+  assert.equal(gateway.username, 'nihongo_test_auth_gateway_login')
+  assert.equal(
+    app.searchParams.get('schema'),
+    gateway.searchParams.get('schema')
+  )
+  assert.notEqual(app.password, gateway.password)
+  assert.equal('AUTH_EMAIL_DELIVERY_MODE' in environment, false)
   assert.equal('PHASE7_MIGRATION_DATABASE_URL' in environment, false)
   assert.equal('PRODUCTION_DATABASE_URL' in environment, false)
   assert.notEqual(
@@ -398,35 +414,310 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime smoke selects exactly the pre-Phase-7 boundary', () => {
+test('portable runtime requires the pinned current46 inventory and rejects count/checksum drift', () => {
+  const source = fileURLToPath(
+    new URL('../../apps/api/prisma/migrations/', import.meta.url)
+  )
+  const names = selectCurrentMigrationNames(source)
+  assert.equal(names.length, 46)
+  assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
-    for (let index = 0; index < 27; index += 1) {
-      mkdirSync(
-        join(directory, `202607${String(index).padStart(6, '0')}_migration`)
-      )
-    }
-    mkdirSync(join(directory, '20260827100000_phase7_admin_cms_enums'))
-
-    const selected = selectPrePhase7MigrationNames(directory)
-    assert.equal(selected.length, 27)
-    assert.equal(
-      selected.includes('20260827100000_phase7_admin_cms_enums'),
-      false
+    cpSync(source, directory, { recursive: true })
+    writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
+    assert.throws(
+      () => selectCurrentMigrationNames(directory),
+      /current-46 migration inventory/u
+    )
+    rmSync(join(directory, names[0]), { recursive: true })
+    assert.throws(
+      () => selectCurrentMigrationNames(directory),
+      /current-46 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
   }
 })
 
+test('canonical65 selection proves an existing unique tag without copying seed rows', () => {
+  assert.equal(fixture.questionId, '565d941a-3f60-4e7d-8d87-01a467eacfad')
+  assert.equal(fixture.versionId, '16a02b21-7b83-4205-8610-182f76dcacd5')
+  assert.equal(fixture.tagId, '4d89c6c7-7e47-44c6-8ca4-e56657013c78')
+  assert.equal(fixture.tags.length, 2)
+  assert.throws(() => selectLearnerCompatibilityFixture([]), /exactly 65/u)
+  const shared = Array.from({ length: 65 }, (_, index) => ({
+    questionId: index ? String(index) : fixture.questionId,
+    level: 'N5',
+    questionText: 'test',
+    tags: fixture.tags
+  }))
+  assert.throws(
+    () => selectLearnerCompatibilityFixture(shared),
+    /existing unique tag/u
+  )
+  for (const change of [
+    { id: 'different' },
+    { questionVersionId: 'different' },
+    { difficulty: 'HARD' },
+    { tags: fixture.tags.slice(0, 1) },
+    { tags: [fixture.tags[0], fixture.tags[0]] }
+  ]) {
+    assert.throws(
+      () =>
+        validateLearnerQuestionSummary(
+          { ...questionSummary(), ...change },
+          fixture
+        ),
+      /contract is invalid/u
+    )
+  }
+})
+
+test('controlled TEST probe binds the exact actor, Google persistence, question and bookmarks to one cookie', async () => {
+  const actor = '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a1'
+  const question = questionSummary()
+  const bookmark = {
+    availability: 'AVAILABLE',
+    createdAt: '2026-10-01T00:00:00.000Z',
+    question,
+    questionId: question.id
+  }
+  const cookie =
+    '__Secure-nihongo.session_token=fixture; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax; Secure'
+  const nativeCalls = []
+  const httpCalls = []
+  const input = {
+    database: {
+      containerName: 'owned-db',
+      databaseUser: 'owned-admin',
+      databaseName: 'nihongo_smoke_test'
+    },
+    runtimeContainer: 'owned-runtime',
+    schemaName: `phase7_${'a'.repeat(32)}_test`,
+    origin: 'http://127.0.0.1:4567',
+    suffix: '012345abcdef',
+    fixture,
+    runCommand: (command, args, options) => {
+      nativeCalls.push({ command, args, options })
+      return {
+        status: 0,
+        stdout:
+          nativeCalls.length === 1
+            ? JSON.stringify({
+                cookie,
+                kind: 'controlled-test-session',
+                provider: 'google'
+              })
+            : actor
+      }
+    },
+    fetchResponse: async (url, options) => {
+      httpCalls.push({ url, options })
+      assert.equal(
+        options.headers.Cookie,
+        '__Secure-nihongo.session_token=fixture'
+      )
+      if (url.endsWith('/api/v1/me'))
+        return Response.json({
+          kind: 'USER',
+          user: {
+            id: actor,
+            name: 'Phase 11 smoke',
+            role: 'USER',
+            targetLevel: 'N5'
+          }
+        })
+      if (options.method === 'PUT')
+        return Response.json(bookmark, { status: 201 })
+      return Response.json({
+        items: [url.includes('/questions?') ? question : bookmark],
+        page: 1,
+        pageSize: 20,
+        total: 1
+      })
+    }
+  }
+  const result = await runStatefulAuthCompatibilityProbe(input)
+  assert.equal(httpCalls.length, 4)
+  assert.equal(
+    new URL(httpCalls[1].url).searchParams.get('tag'),
+    fixture.tagLabel
+  )
+  assert.equal(nativeCalls.length, 2)
+  assert.match(nativeCalls[0].options.input, /createSsoIdentityRepository/u)
+  assert.match(
+    nativeCalls[1].options.input,
+    /s\."authorityGeneration" = u\."authorityGeneration"/u
+  )
+  assert.deepEqual(result.statefulAuth, {
+    accountRows: 1,
+    principalStatus: 200,
+    sessionRows: 1,
+    userRows: 1,
+    fixtureKind: 'controlled-test-session',
+    provider: 'google',
+    providerExchangeVerified: false
+  })
+  const wrongPrincipal = async () =>
+    Response.json({
+      kind: 'USER',
+      user: {
+        id: '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a2',
+        name: 'Phase 11 smoke',
+        role: 'USER',
+        targetLevel: 'N5'
+      }
+    })
+  await assert.rejects(
+    () =>
+      runStatefulAuthCompatibilityProbe({
+        ...input,
+        runCommand: (_command, args) => ({
+          stdout: args.includes('node')
+            ? JSON.stringify({
+                cookie,
+                kind: 'controlled-test-session',
+                provider: 'google'
+              })
+            : actor
+        }),
+        fetchResponse: wrongPrincipal
+      }),
+    /actor does not match/u
+  )
+  await assert.rejects(
+    () =>
+      runStatefulAuthCompatibilityProbe({
+        ...input,
+        runCommand: () => ({
+          stdout: JSON.stringify({
+            cookie,
+            kind: 'controlled-test-session',
+            provider: 'credential'
+          })
+        })
+      }),
+    /classification is invalid/u
+  )
+})
+
+test('TEST preparation programs keep canonical seed/owned issuance boundaries and reject production fixture use', async () => {
+  assert.match(canonicalSeedProgram, /assertSafePhase7MigrationDatabase/u)
+  assert.match(canonicalSeedProgram, /seedQuestionCatalog\(scoped\)/u)
+  assert.doesNotMatch(
+    canonicalSeedProgram + controlledSessionProgram,
+    /dotenv|sign-up\/email|sign-in\/email|INSERT INTO|createServer/u
+  )
+  const execute = Object.getPrototypeOf(async () => {}).constructor
+  const body = controlledSessionProgram.replace(/^import .*;$/gmu, '')
+  const fakeProcess = {
+    env: {
+      NODE_ENV: 'production',
+      DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
+      AUTH_GATEWAY_DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=phase7_${'a'.repeat(32)}_test`
+    }
+  }
+  let touched = false
+  await assert.rejects(
+    () =>
+      new execute(
+        'createRoleDatabaseRuntime',
+        'createSsoIdentityRepository',
+        'createPhase7SessionCookie',
+        'readFileSync',
+        'process',
+        body
+      )(
+        () => {
+          touched = true
+        },
+        () => {},
+        () => {},
+        () => JSON.stringify({ suffix: '012345abcdef' }),
+        fakeProcess
+      ),
+    /TEST session target is invalid/u
+  )
+  assert.equal(touched, false)
+
+  const createdAt = new Date('2026-10-01T00:00:00.000Z')
+  const expiresAt = new Date('2026-10-08T00:00:00.000Z')
+  const calls = []
+  const session = {
+    kind: 'SESSION_CONFIRMED',
+    token: 'disposable-test-token',
+    createdAt,
+    expiresAt
+  }
+  const testProcess = {
+    env: {
+      ...fakeProcess.env,
+      DEPLOYMENT_ENVIRONMENT: 'TEST',
+      BETTER_AUTH_SECRET: 'test-fixture-secret'
+    },
+    stdout: { write: (value) => calls.push(JSON.parse(value)) }
+  }
+  const invoke = async (issued) =>
+    await new execute(
+      'createRoleDatabaseRuntime',
+      'createSsoIdentityRepository',
+      'createPhase7SessionCookie',
+      'readFileSync',
+      'process',
+      body
+    )(
+      () => ({
+        client: {},
+        disconnect: async () => {
+          calls.push('disconnect')
+        }
+      }),
+      () => ({
+        signIn: async (identity) => {
+          assert.equal(identity.provider, 'google')
+          calls.push('signIn')
+          return issued
+        }
+      }),
+      (options) => {
+        assert.equal(options.token, session.token)
+        assert.equal(options.now, createdAt)
+        assert.equal(options.expiresAt, expiresAt)
+        assert.equal(options.isProduction, true)
+        assert.equal(options.rememberMe, true)
+        calls.push('signCookie')
+        return 'signed-fixture-cookie'
+      },
+      () => JSON.stringify({ suffix: '012345abcdef' }),
+      testProcess
+    )
+  await invoke(session)
+  assert.deepEqual(calls, [
+    'signIn',
+    'signCookie',
+    {
+      cookie: 'signed-fixture-cookie',
+      kind: 'controlled-test-session',
+      provider: 'google'
+    },
+    'disconnect'
+  ])
+  calls.length = 0
+  await assert.rejects(
+    () => invoke({ kind: 'IDENTITY_CONFLICT' }),
+    /not confirmed/u
+  )
+  assert.deepEqual(calls, ['signIn', 'disconnect'])
+})
+
 test('portable runtime smoke evidence is closed and bound to TEST', () => {
   const evidence = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     evidenceClassification: 'TEST',
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 27,
+    migrationCount: 46,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,
@@ -449,8 +740,9 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
       accountRows: 1,
       principalStatus: 200,
       sessionRows: 1,
-      signInStatus: 200,
-      signUpStatus: 200,
+      fixtureKind: 'controlled-test-session',
+      provider: 'google',
+      providerExchangeVerified: false,
       userRows: 1
     },
     smoke: {
@@ -471,6 +763,20 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
   }
 
   assert.equal(verifyPortableRuntimeSmokeEvidence(evidence), evidence)
+  for (const change of [
+    { signInStatus: 200 },
+    { providerExchangeVerified: true },
+    { fixtureKind: 'google-login' }
+  ]) {
+    assert.throws(
+      () =>
+        verifyPortableRuntimeSmokeEvidence({
+          ...evidence,
+          statefulAuth: { ...evidence.statefulAuth, ...change }
+        }),
+      /invalid key set|stateful auth evidence/u
+    )
+  }
   assert.throws(
     () =>
       verifyPortableRuntimeSmokeEvidence({
