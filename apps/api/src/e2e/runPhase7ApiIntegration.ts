@@ -1,5 +1,14 @@
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
-import { randomUUID } from 'node:crypto'
+import {
+  copyFileSync,
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import nodePath from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +25,11 @@ import {
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
 import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
-import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import {
+  createPhase7SsoTestEnvironment,
+  phase7SsoAccountLifecycleTestFile,
+  runPhase10ManifestVitestFile
+} from './phase10ApiIntegrationExecution.js'
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
@@ -75,10 +88,29 @@ dotenv.config({
   quiet: true
 })
 
+const apiIntegrationCase = process.env.PHASE7_API_INTEGRATION_CASE
+if (
+  apiIntegrationCase !== undefined &&
+  apiIntegrationCase !== 'sso-browser-google' &&
+  apiIntegrationCase !== 'sso-account-lifecycle'
+) {
+  throw new Error(
+    'Phase 7 API integration case is outside the fixed allowlist.'
+  )
+}
+
 const baseDatabaseUrl =
   process.env.PHASE7_API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 if (!baseDatabaseUrl) {
   throw new Error('Phase 7 API integration requires a test PostgreSQL URL.')
+}
+
+if (apiIntegrationCase === 'sso-browser-google') {
+  try {
+    new URL(baseDatabaseUrl)
+  } catch {
+    throw new Error('SSO browser TEST database URL is invalid.')
+  }
 }
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
@@ -189,6 +221,7 @@ export interface Phase7IsolatedDatabaseHarness {
 interface PreparePhase7IsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
+  readonly issuerActivationOwner?: 'runner' | 'fixture'
 }
 
 const adminClient = new Client({
@@ -521,6 +554,7 @@ const runCommand = async (
   abortSignal?.throwIfAborted()
   let spawnError: Error | undefined
   const isSeed =
+    apiIntegrationCase !== 'sso-browser-google' &&
     command === 'pnpm' &&
     args.join(' ') === '--filter @nihongo/api run db:seed:test'
   let seedStage = 'SEED_GENERATE'
@@ -533,7 +567,12 @@ const runCommand = async (
     cwd: repositoryRoot,
     detached: shouldDetachOwnedProcess,
     env: environment,
-    stdio: isSeed ? ['inherit', 'pipe', 'pipe'] : 'inherit'
+    stdio:
+      apiIntegrationCase === 'sso-browser-google'
+        ? 'ignore'
+        : isSeed
+          ? ['inherit', 'pipe', 'pipe']
+          : 'inherit'
   })
   if (isSeed) {
     for (const stream of [child.stdout, child.stderr]) {
@@ -711,8 +750,9 @@ export const cleanupPhase7IsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
-const registerCapabilityAndActivate = async (
-  abortSignal?: AbortSignal
+export const registerCapabilityAndActivate = async (
+  abortSignal?: AbortSignal,
+  issuerActivationOwner: 'runner' | 'fixture' = 'runner'
 ): Promise<void> => {
   abortSignal?.throwIfAborted()
   const migrationClient = new Client({
@@ -744,7 +784,10 @@ const registerCapabilityAndActivate = async (
       [target.databaseName, target.serverAddress, target.serverPort]
     )
     abortSignal?.throwIfAborted()
-    await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+    // Lifecycle's existing SSO fixture owns the one-way activation in connect().
+    if (issuerActivationOwner === 'runner') {
+      await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+    }
     abortSignal?.throwIfAborted()
   } finally {
     await migrationClient.end()
@@ -753,7 +796,8 @@ const registerCapabilityAndActivate = async (
 
 export const preparePhase7IsolatedDatabase = async ({
   abortSignal,
-  seedRuns = 0
+  seedRuns = 0,
+  issuerActivationOwner = 'runner'
 }: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
   if (databasePrepared) {
     throw new Error('Phase 7 isolated database harness is already prepared.')
@@ -819,21 +863,76 @@ export const preparePhase7IsolatedDatabase = async ({
     sharedEnvironment,
     abortSignal
   )
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-    sharedEnvironment,
-    abortSignal
+  const canonicalMigrationsPath = nodePath.join(
+    repositoryRoot,
+    'apps/api/prisma/migrations'
   )
-  await registerCapabilityAndActivate(abortSignal)
-
-  for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
+  const lastBootstrapMigration =
+    '20261009092000_phase7_n4_n2_revision2_digest_fix'
+  const migrationNames = readdirSync(canonicalMigrationsPath, {
+    withFileTypes: true
+  })
+    .filter(
+      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
+    )
+    .map((entry) => entry.name)
+    .sort()
+  if (
+    migrationNames.length !== 37 ||
+    migrationNames.at(-1) !== lastBootstrapMigration
+  ) {
+    throw new Error(
+      'Phase 7 canonical content migration prefix is inconsistent.'
+    )
+  }
+  const bootstrapMigrationsPath = mkdtempSync(
+    nodePath.join(tmpdir(), 'nihongo-phase7-content-')
+  )
+  try {
+    copyFileSync(
+      nodePath.join(canonicalMigrationsPath, 'migration_lock.toml'),
+      nodePath.join(bootstrapMigrationsPath, 'migration_lock.toml')
+    )
+    for (const name of migrationNames) {
+      cpSync(
+        nodePath.join(canonicalMigrationsPath, name),
+        nodePath.join(bootstrapMigrationsPath, name),
+        { recursive: true }
+      )
+    }
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-      sharedEnvironment,
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      {
+        ...sharedEnvironment,
+        PHASE7_TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
+      },
       abortSignal
     )
+    await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
+
+    for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
+      await runCommand(
+        'pnpm',
+        ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+        sharedEnvironment,
+        abortSignal
+      )
+    }
+    // Seed-free callers retain the prefix until their explicit seed step.
+    if (seedRuns > 0) {
+      await runCommand(
+        'pnpm',
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        {
+          ...sharedEnvironment,
+          PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+        },
+        abortSignal
+      )
+    }
+  } finally {
+    rmSync(bootstrapMigrationsPath, { recursive: true, force: true })
   }
 
   abortSignal?.throwIfAborted()
@@ -890,11 +989,602 @@ const run = async (): Promise<void> => {
   })
 }
 
+const runSsoAccountLifecycle = async (): Promise<void> => {
+  const harness = await preparePhase7IsolatedDatabase({
+    seedRuns: 1,
+    issuerActivationOwner: 'fixture'
+  })
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    {
+      ...harness.sharedEnvironment,
+      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+        repositoryRoot,
+        'apps/api/prisma/migrations'
+      )
+    }
+  )
+  const migrationsPath = nodePath.join(
+    repositoryRoot,
+    'apps/api/prisma/migrations'
+  )
+  const names = readdirSync(migrationsPath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+  const applied = await adminClient.query<{
+    migration_name: string
+    checksum: string
+  }>(
+    `SELECT migration_name, checksum FROM ${quoteSchema(schemaName)}."_prisma_migrations"
+     WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
+  )
+  if (
+    names.length !== 46 ||
+    names.at(-1) !== '20261020230000_sso_account_lifecycle' ||
+    applied.rows.length !== names.length ||
+    applied.rows.some(
+      (row, index) =>
+        row.migration_name !== names[index] ||
+        row.checksum !==
+          createHash('sha256')
+            .update(
+              readFileSync(
+                nodePath.join(
+                  migrationsPath,
+                  row.migration_name,
+                  'migration.sql'
+                )
+              )
+            )
+            .digest('hex')
+    )
+  )
+    throw new Error(
+      'SSO account lifecycle canonical46 migration history mismatch.'
+    )
+  process.stdout.write(
+    JSON.stringify({
+      event: 'phase7.api.sso_account_lifecycle.migrations_verified',
+      canonicalCount: 46,
+      checksumMatch: true,
+      reentry: true
+    }) + '\n'
+  )
+  const environment = createPhase7SsoTestEnvironment({
+    ...harness.sharedEnvironment,
+    PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
+  })
+  const count = await runPhase10ManifestVitestFile({
+    runCommand,
+    testFile: phase7SsoAccountLifecycleTestFile,
+    environment,
+    preserveSanitizedReport: true
+  })
+  const orphanResult = await adminClient.query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM (
+      SELECT f."userId" FROM ${quoteSchema(schemaName)}."SsoAccountFreshProof" f
+      LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE u.id IS NULL
+      UNION ALL
+      SELECT f."userId" FROM ${quoteSchema(schemaName)}."SsoAccountFreshTransaction" f
+      LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE u.id IS NULL
+      UNION ALL
+      SELECT f."userId" FROM ${quoteSchema(schemaName)}."SsoAccountErasureRequest" f
+      LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE f."userId" IS NOT NULL AND u.id IS NULL
+    ) orphan_rows`
+  )
+  if (count !== 3 || orphanResult.rows[0]?.count !== 0)
+    throw new Error('SSO account lifecycle exact3/orphan verification failed.')
+  process.stdout.write(
+    JSON.stringify({
+      event: 'phase7.api.sso_account_lifecycle.tests_verified',
+      selected: 3,
+      passed: count,
+      orphanCount: 0
+    }) + '\n'
+  )
+}
+
+const readSsoBrowserLoopbackInputs = (source: NodeJS.ProcessEnv) => {
+  const host = source.PHASE7_SSO_BROWSER_API_HOST
+  const portText = source.PHASE7_SSO_BROWSER_API_PORT
+  const webOrigin = source.PHASE7_SSO_BROWSER_WEB_ORIGIN
+  if (
+    host !== '127.0.0.1' ||
+    !portText ||
+    !/^[1-9][0-9]{0,4}$/u.test(portText) ||
+    Number(portText) > 65_535 ||
+    Number(portText) === 5173 ||
+    !webOrigin
+  ) {
+    throw new Error('SSO browser requires explicit owned loopback inputs.')
+  }
+  let web: URL
+  try {
+    web = new URL(webOrigin)
+  } catch {
+    throw new Error('SSO browser web origin is invalid.')
+  }
+  if (
+    web.protocol !== 'http:' ||
+    web.hostname !== host ||
+    web.origin !== webOrigin ||
+    web.port === '5173'
+  ) {
+    throw new Error('SSO browser web origin must be an owned loopback origin.')
+  }
+  return {
+    host,
+    port: Number(portText),
+    webOrigin,
+    apiOrigin: `http://${host}:${portText}`
+  }
+}
+
+const runSsoBrowserGoogle = async (): Promise<void> => {
+  const { host, port, webOrigin, apiOrigin } = readSsoBrowserLoopbackInputs(
+    process.env
+  )
+  const [
+    { createServer },
+    { getRequestListener },
+    { parseApiEnvironment },
+    { createPhase7SsoBrowserApiFixture }
+  ] = await Promise.all([
+    import('node:http'),
+    import('@hono/node-server'),
+    import('../config/env.js'),
+    import('./phase7BrowserFixture.js')
+  ])
+  const controller = new AbortController()
+  const shutdownReason = new Error('SSO browser shutdown requested.')
+  let server: import('node:http').Server | undefined
+  let fixture:
+    | Awaited<ReturnType<typeof createPhase7SsoBrowserApiFixture>>
+    | undefined
+  let stop: (() => void) | undefined
+  let firstFailure: unknown
+  let closePromise: Promise<void> | undefined
+  let ownedSessionExpiryArmed = false
+  let ownedSessionExpiryReconciled = false
+  const onSignal = () => {
+    controller.abort(shutdownReason)
+    stop?.()
+  }
+  const onFailure = () => {
+    firstFailure ??= new Error('SSO browser dependency failed.')
+    controller.abort(firstFailure)
+    stop?.()
+  }
+  const close = (): Promise<void> => {
+    closePromise ??= (async () => {
+      if (ownedSessionExpiryArmed && !ownedSessionExpiryReconciled) onFailure()
+      let firstCleanupFailure: unknown
+      const record = (error: unknown) => {
+        firstCleanupFailure ??= error
+      }
+      const ownedServer = server
+      if (ownedServer) {
+        try {
+          await new Promise<void>((resolve, reject) => {
+            ownedServer.close((error) => {
+              if (
+                error &&
+                (!('code' in error) || error.code !== 'ERR_SERVER_NOT_RUNNING')
+              )
+                reject(error)
+              else resolve()
+            })
+            ownedServer.closeAllConnections()
+          })
+        } catch (error: unknown) {
+          record(error)
+        }
+      }
+      try {
+        await fixture?.disconnect()
+      } catch (error: unknown) {
+        record(error)
+      }
+      if (ownedSessionExpiryArmed && !ownedSessionExpiryReconciled) onFailure()
+      try {
+        await cleanupPhase7IsolatedDatabase()
+      } catch (error: unknown) {
+        record(error)
+      }
+      if (firstCleanupFailure) throw firstCleanupFailure
+    })()
+    return closePromise
+  }
+  for (const signal of ['SIGINT', 'SIGTERM'] as const)
+    process.on(signal, onSignal)
+  adminClient.on('error', onFailure)
+  try {
+    const harness = await preparePhase7IsolatedDatabase({
+      seedRuns: 0,
+      abortSignal: controller.signal
+    })
+    // The full migration chain requires the canonical prefix content bootstrap.
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+      harness.sharedEnvironment,
+      controller.signal
+    )
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      {
+        ...harness.sharedEnvironment,
+        PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+          repositoryRoot,
+          'apps/api/prisma/migrations'
+        )
+      },
+      controller.signal
+    )
+    const environment = parseApiEnvironment({
+      NODE_ENV: 'test',
+      DEPLOYMENT_ENVIRONMENT: 'TEST',
+      RELEASE_ID: '0'.repeat(40),
+      ADMIN_CMS_MODE: 'disabled',
+      HOST: host,
+      PORT: String(port),
+      DATABASE_URL: harness.applicationDatabaseUrl,
+      AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
+      TRUSTED_ORIGINS: webOrigin,
+      BETTER_AUTH_URL: apiOrigin,
+      BETTER_AUTH_SECRET: 'phase7-sso-browser-auth-test-only-secret-v1',
+      GUEST_COOKIE_SECRET: 'phase7-sso-browser-guest-test-only-secret-v1',
+      LOG_LEVEL: 'silent'
+    })
+    controller.signal.throwIfAborted()
+    fixture = await createPhase7SsoBrowserApiFixture({
+      databaseUrl: harness.applicationDatabaseUrl,
+      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      adminDatabaseUrl: harness.adminDatabaseUrl,
+      environment
+    })
+    await fixture.checkReadiness()
+    controller.signal.throwIfAborted()
+    const stopped = new Promise<void>((resolve) => {
+      stop = resolve
+    })
+    const app = fixture.app
+    const armOwnedSessionExpiry = fixture.armOwnedSessionExpiry
+    let ownedSessionExpiryAttempted = false
+    let ownedSessionExpiryOperation: Promise<void> | undefined
+    const reconcileOwnedSessionExpiry = fixture.reconcileOwnedSessionExpiry
+    let expiryPhase:
+      | 'NOT_ARMED'
+      | 'WAIT_FIRST_PROTECTED'
+      | 'FIRST_PROTECTED_IN_FLIGHT'
+      | 'FIRST_401_CONFIRMED'
+      | 'RECONCILING'
+      | 'RECONCILED' = 'NOT_ARMED'
+    let protectedIngressCountBeforeFirst401 = 0
+    let reconciliationAttempted = false
+    let signInEnteredCount = 0
+    let signInCompleted2xxCount = 0
+    const failExpiryDependency = (): never => {
+      onFailure()
+      throw new Error('SSO browser dependency failed.')
+    }
+    const expectedReconciliation = {
+      baselineOwnedUserAccountCaptured: true,
+      baselineOwnedSessionFamilyCaptured: true,
+      saveAnswerABeforeBookmarkB: true,
+      saveBookmarkUserDelta: 0,
+      saveBookmarkAccountDelta: 0,
+      saveBookmarkBookmarkDelta: 0,
+      ownedSessionExpiryArmedOnce: 1,
+      oldL0Expired: true,
+      oldF0Active: true,
+      login2SameInternalUserU: true,
+      login2UserDeltaFromSaveBookmark: 0,
+      login2AccountDeltaFromSaveBookmark: 0,
+      login2BookmarkDeltaFromSaveBookmark: 0,
+      login2SessionDeltaFromSaveBookmark: 1,
+      login2FamilyDeltaFromSaveBookmark: 1,
+      samePracticeRetained: true,
+      answerARetained: true,
+      bookmarkBRetained: true
+    } as const
+    const listener = getRequestListener(
+      async (...args: Parameters<typeof app.fetch>) => {
+        const [request] = args
+        const pathname = new URL(request.url).pathname
+        const isBookmarkList =
+          request.method === 'GET' && pathname === '/api/v1/bookmarks'
+        if (firstFailure) failExpiryDependency()
+        let claimsFirstProtected = false
+        if (
+          request.method !== 'OPTIONS' &&
+          pathname.startsWith('/api/v1/') &&
+          (expiryPhase === 'WAIT_FIRST_PROTECTED' ||
+            expiryPhase === 'FIRST_PROTECTED_IN_FLIGHT')
+        ) {
+          protectedIngressCountBeforeFirst401 += 1
+          if (
+            expiryPhase !== 'WAIT_FIRST_PROTECTED' ||
+            protectedIngressCountBeforeFirst401 !== 1 ||
+            !isBookmarkList
+          ) {
+            failExpiryDependency()
+          }
+          expiryPhase = 'FIRST_PROTECTED_IN_FLIGHT'
+          claimsFirstProtected = true
+        }
+        const claimsReconciliation =
+          isBookmarkList &&
+          signInEnteredCount === 2 &&
+          signInCompleted2xxCount === 2 &&
+          (expiryPhase === 'FIRST_401_CONFIRMED' ||
+            expiryPhase === 'RECONCILING')
+        if (claimsReconciliation && reconciliationAttempted) {
+          failExpiryDependency()
+        }
+        if (
+          request.method !== 'POST' ||
+          pathname !== '/api/auth/sign-in/social'
+        ) {
+          const response = await app.fetch(...args)
+          if (claimsFirstProtected) {
+            try {
+              if (response.status !== 401) failExpiryDependency()
+              const body: unknown = await response.clone().json()
+              if (
+                !body ||
+                typeof body !== 'object' ||
+                !('code' in body) ||
+                body.code !== 'AUTH_SESSION_EXPIRED' ||
+                protectedIngressCountBeforeFirst401 !== 1 ||
+                firstFailure
+              ) {
+                failExpiryDependency()
+              }
+              expiryPhase = 'FIRST_401_CONFIRMED'
+              process.stdout.write(
+                `${JSON.stringify({
+                  event:
+                    'phase7.api.sso_browser.session_expiry.first_protected',
+                  kind: 'BOOKMARK_LIST',
+                  firstProtectedIngressAfterArm: true,
+                  countBeforeFirst401: protectedIngressCountBeforeFirst401,
+                  firstStatus: 401,
+                  firstCode: 'AUTH_SESSION_EXPIRED'
+                })}\n`
+              )
+            } catch {
+              failExpiryDependency()
+            }
+          }
+          if (claimsReconciliation && response.status === 200) {
+            if (reconciliationAttempted) failExpiryDependency()
+            reconciliationAttempted = true
+            expiryPhase = 'RECONCILING'
+            try {
+              const receipt = await reconcileOwnedSessionExpiry()
+              const finalReceipt = {
+                baselineOwnedUserAccountCaptured:
+                  receipt.baselineOwnedUserAccountCaptured,
+                baselineOwnedSessionFamilyCaptured:
+                  receipt.baselineOwnedSessionFamilyCaptured,
+                saveAnswerABeforeBookmarkB: receipt.saveAnswerABeforeBookmarkB,
+                saveBookmarkUserDelta: receipt.saveBookmarkUserDelta,
+                saveBookmarkAccountDelta: receipt.saveBookmarkAccountDelta,
+                saveBookmarkBookmarkDelta: receipt.saveBookmarkBookmarkDelta,
+                ownedSessionExpiryArmedOnce:
+                  receipt.ownedSessionExpiryArmedOnce,
+                oldL0Expired: receipt.oldL0Expired,
+                oldF0Active: receipt.oldF0Active,
+                login2SameInternalUserU: receipt.login2SameInternalUserU,
+                login2UserDeltaFromSaveBookmark:
+                  receipt.login2UserDeltaFromSaveBookmark,
+                login2AccountDeltaFromSaveBookmark:
+                  receipt.login2AccountDeltaFromSaveBookmark,
+                login2BookmarkDeltaFromSaveBookmark:
+                  receipt.login2BookmarkDeltaFromSaveBookmark,
+                login2SessionDeltaFromSaveBookmark:
+                  receipt.login2SessionDeltaFromSaveBookmark,
+                login2FamilyDeltaFromSaveBookmark:
+                  receipt.login2FamilyDeltaFromSaveBookmark,
+                samePracticeRetained: receipt.samePracticeRetained,
+                answerARetained: receipt.answerARetained,
+                bookmarkBRetained: receipt.bookmarkBRetained
+              }
+              if (
+                firstFailure ||
+                Object.keys(receipt).length !== 18 ||
+                Object.entries(expectedReconciliation).some(
+                  ([key, expected]) =>
+                    finalReceipt[key as keyof typeof expectedReconciliation] !==
+                    expected
+                )
+              ) {
+                failExpiryDependency()
+              }
+              process.stdout.write(
+                `${JSON.stringify({
+                  event: 'phase7.api.sso_browser.session_expiry.reconciled',
+                  ...finalReceipt
+                })}\n`
+              )
+              ownedSessionExpiryReconciled = true
+              expiryPhase = 'RECONCILED'
+            } catch {
+              failExpiryDependency()
+            }
+          }
+          if (
+            request.method === 'PUT' &&
+            /^\/api\/v1\/bookmarks\/[^/]+$/.test(
+              new URL(request.url).pathname
+            ) &&
+            response.status === 201
+          ) {
+            if (!ownedSessionExpiryAttempted) {
+              ownedSessionExpiryAttempted = true
+              ownedSessionExpiryOperation = (async () => {
+                try {
+                  const receipt = await armOwnedSessionExpiry()
+                  if (
+                    receipt.armed !== true ||
+                    receipt.expired !== true ||
+                    receipt.sessionCount !== 1
+                  ) {
+                    throw new Error('SSO browser dependency failed.')
+                  }
+                  if (firstFailure) failExpiryDependency()
+                  ownedSessionExpiryArmed = true
+                  expiryPhase = 'WAIT_FIRST_PROTECTED'
+                } catch {
+                  onFailure()
+                  throw new Error('SSO browser dependency failed.')
+                }
+                try {
+                  process.stdout.write(
+                    `${JSON.stringify({
+                      event: 'phase7.api.sso_browser.session_expiry.armed',
+                      armed: true,
+                      expired: true,
+                      sessionCount: 1
+                    })}\n`
+                  )
+                } catch {
+                  // Diagnostics must not change the request outcome.
+                }
+              })()
+            }
+            await ownedSessionExpiryOperation
+          }
+          return response
+        }
+        signInEnteredCount += 1
+        try {
+          process.stdout.write(
+            `${JSON.stringify({
+              event: 'phase7.api.sso_browser.start.entered',
+              method: 'POST',
+              path: '/api/auth/sign-in/social'
+            })}\n`
+          )
+        } catch {
+          // Diagnostics must not change the request outcome.
+        }
+        let response: Response
+        try {
+          response = await app.fetch(...args)
+        } catch (error: unknown) {
+          try {
+            process.stdout.write(
+              `${JSON.stringify({
+                event: 'phase7.api.sso_browser.start.fetch_failed',
+                method: 'POST',
+                path: '/api/auth/sign-in/social'
+              })}\n`
+            )
+          } catch {
+            // Preserve the original fetch error even if diagnostics fail.
+          }
+          throw error
+        }
+        const status = response.status
+        const statusClass =
+          status >= 200 && status < 300
+            ? '2xx'
+            : status >= 400 && status < 500
+              ? '4xx'
+              : status >= 500 && status < 600
+                ? '5xx'
+                : undefined
+        if (statusClass === '2xx') signInCompleted2xxCount += 1
+        try {
+          process.stdout.write(
+            `${JSON.stringify({
+              event: statusClass
+                ? 'phase7.api.sso_browser.start.completed'
+                : 'phase7.api.sso_browser.start.status_failed',
+              method: 'POST',
+              path: '/api/auth/sign-in/social',
+              ...(statusClass ? { statusClass } : {})
+            })}\n`
+          )
+        } catch {
+          // Diagnostics must not replace the original response.
+        }
+        return response
+      },
+      {
+        hostname: host,
+        errorHandler: () => {
+          onFailure()
+          return new Response('SSO browser request failed.', { status: 500 })
+        }
+      }
+    )
+    server = createServer((incoming, outgoing) => {
+      void listener(incoming, outgoing).catch(() => {
+        onFailure()
+        outgoing.destroy()
+      })
+    })
+    server.on('error', onFailure)
+    server.once('close', () => {
+      if (!controller.signal.aborted) onFailure()
+    })
+    const ownedServer = server
+    await new Promise<void>((resolve, reject) => {
+      ownedServer.once('error', reject)
+      ownedServer.listen(port, host, () => {
+        ownedServer.removeListener('error', reject)
+        resolve()
+      })
+    })
+    controller.signal.throwIfAborted()
+    const address = server.address()
+    if (
+      !address ||
+      typeof address === 'string' ||
+      address.address !== host ||
+      address.port !== port
+    ) {
+      throw new Error('SSO browser listener did not bind the owned endpoint.')
+    }
+    process.stdout.write(
+      `${JSON.stringify({ event: 'phase7.api.sso_browser.ready', apiOrigin })}\n`
+    )
+    await stopped
+    if (firstFailure) throw firstFailure
+  } catch (error: unknown) {
+    if (error !== shutdownReason) firstFailure ??= error
+  } finally {
+    try {
+      await close()
+    } catch (error: unknown) {
+      firstFailure ??= error
+    }
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+      process.removeListener(signal, onSignal)
+    }
+    adminClient.removeListener('error', onFailure)
+  }
+  if (firstFailure) throw firstFailure
+}
+
 const isDirectExecution =
   process.argv[1] !== undefined &&
   fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
 
-if (isDirectExecution) {
+if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
+  void runSsoBrowserGoogle().catch(() => {
+    process.stderr.write(
+      `${JSON.stringify({ event: 'phase7.api.sso_browser.failed' })}\n`
+    )
+    process.exitCode = 1
+  })
+} else if (isDirectExecution) {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => {
       void cleanup()
@@ -903,7 +1593,11 @@ if (isDirectExecution) {
     })
   }
 
-  void run()
+  void (
+    apiIntegrationCase === 'sso-account-lifecycle'
+      ? runSsoAccountLifecycle()
+      : run()
+  )
     .then(async () => {
       await cleanup()
       process.stdout.write(

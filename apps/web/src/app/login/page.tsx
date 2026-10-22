@@ -1,515 +1,252 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import type { z } from 'zod'
-import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
-import { useRequestPasswordReset } from '@app/login/hooks/useRequestPasswordReset'
-import { useSignInUser } from '@app/login/hooks/useSignInUser'
-import { useSignUpUser } from '@app/login/hooks/useSignUpUser'
-import { Button } from '@common/components/Button'
-import { Input } from '@common/components/Input'
-import { Select } from '@common/components/Select'
 import {
-  emailSignInSchema,
-  emailSignUpSchema,
-  passwordResetRequestSchema
-} from '@common/schemas/auth'
-import { LEVELS } from '@common/types/domain'
-import { isMockApiMode } from '@libs/apiMode'
+  safeSsoReturnPath,
+  ssoCallbackOutcomeSchema
+} from '@nihongo/contracts/auth/sign-in-social'
+import type {
+  SsoCallbackOutcome,
+  SsoProviderId
+} from '@nihongo/contracts/auth/sign-in-social'
+import { SsoAccountManagement } from '@app/login/components/SsoAccountManagement'
+import {
+  accountFreshOutcomeSchema,
+  accountLinkOutcomeSchema
+} from '@nihongo/contracts/auth/sso-account-management'
+import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
+import { AuthFlowError } from '@app/login/authFlowErrors'
+import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
+import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
+import { useStartSocialSignIn } from '@app/login/hooks/useStartSocialSignIn'
+import { Button } from '@common/components/Button'
+import { Dialog } from '@common/components/Dialog'
 import { useAuth } from '@provider/ProtectedRouteProvider'
 
-type AuthMode = 'RESET_REQUEST' | 'SIGN_IN' | 'SIGN_UP'
-type SignInForm = z.input<typeof emailSignInSchema>
-type SignUpForm = z.input<typeof emailSignUpSchema>
-type ResetRequestForm = z.input<typeof passwordResetRequestSchema>
-type RegistrationNotice = 'registration' | 'resetRequested'
+type Notice = SsoCallbackOutcome | 'LEGACY' | 'EXPIRED'
 
-const MockAuthenticationNotice = __NIHONGO_PRODUCTION_BUILD__
-  ? null
-  : lazy(() =>
-      import('@mocks/components/MockAuthenticationNotice').then((module) => ({
-        default: module.MockAuthenticationNotice
-      }))
-    )
-
-const levelOptions = LEVELS.map((level) => ({
-  value: level,
-  label: level
-}))
-
-const getSafeRedirect = (redirect: string | null): string => {
-  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
-    return '/'
-  }
-  return redirect
-}
-
-const getGuestRedirect = (redirect: string): string => {
-  if (redirect === '/' || redirect === '/practice') {
-    return redirect
-  }
-
-  return redirect.startsWith('/practice/') ? '/practice' : '/'
-}
+const hasStateFlag = (state: unknown, flag: string): boolean =>
+  state !== null &&
+  typeof state === 'object' &&
+  flag in state &&
+  Reflect.get(state, flag) === true
 
 export const LoginPage = (): ReactElement => {
   const { t } = useTranslation('auth')
-  const { t: commonT } = useTranslation('common')
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const requestedMode: AuthMode =
-    searchParams.get('mode') === 'signup'
-      ? 'SIGN_UP'
-      : searchParams.get('mode') === 'reset'
-        ? 'RESET_REQUEST'
-        : 'SIGN_IN'
-  const mode: AuthMode = isMockApiMode ? 'SIGN_IN' : requestedMode
-  const [registrationNotice, setRegistrationNotice] =
-    useState<RegistrationNotice>()
+  const location = useLocation()
+  const [search] = useSearchParams()
   const { isReady, user } = useAuth()
-  const signIn = useSignInUser()
-  const signUp = useSignUpUser()
-  const resetRequest = useRequestPasswordReset()
+  const start = useStartSocialSignIn()
   const logout = useLogoutUser()
-  const noticeHeadingRef = useRef<HTMLHeadingElement>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const redirect = getSafeRedirect(searchParams.get('redirect'))
-  const signInForm = useForm<SignInForm>({
-    resolver: zodResolver(emailSignInSchema),
-    defaultValues: { email: '', password: '' }
-  })
-  const signUpForm = useForm<SignUpForm>({
-    resolver: zodResolver(emailSignUpSchema),
-    defaultValues: {
-      email: '',
-      name: '',
-      password: '',
-      targetLevel: 'N3'
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const logoutButton = useRef<HTMLButtonElement>(null)
+  const cancelButton = useRef<HTMLButtonElement>(null)
+  const appleButton = useRef<HTMLButtonElement>(null)
+  const googleButton = useRef<HTMLButtonElement>(null)
+  const redirect = safeSsoReturnPath(search.get('redirect'))
+  const [notice, setNotice] = useState<Notice | null>(() => {
+    if (search.has('sso')) {
+      const outcome = ssoCallbackOutcomeSchema.safeParse(search.get('sso'))
+      return outcome.success ? outcome.data : 'INVALID_CALLBACK'
     }
+    if (search.has('mode') || hasStateFlag(location.state, 'legacyAuthMethod'))
+      return 'LEGACY'
+    if (hasStateFlag(location.state, 'sessionExpired')) return 'EXPIRED'
+    return null
   })
-  const resetRequestForm = useForm<ResetRequestForm>({
-    resolver: zodResolver(passwordResetRequestSchema),
-    defaultValues: { email: '' }
-  })
+  const busy = start.isPending || start.isRedirecting
+  const provider = start.variables?.provider
+  const providerName = provider === 'apple' ? 'Apple' : 'Google'
 
   useEffect(() => {
+    const canonical = new URLSearchParams()
+    if (redirect !== '/') canonical.set('redirect', redirect)
+    for (const [key, schema] of [
+      ['ssoAccountFresh', accountFreshOutcomeSchema],
+      ['ssoAccountLink', accountLinkOutcomeSchema]
+    ] as const) {
+      const values = search.getAll(key)
+      const parsed = schema.safeParse(values[0])
+      if (values.length === 1 && parsed.success) canonical.set(key, parsed.data)
+    }
+    const desired = canonical.toString()
     if (
-      !isMockApiMode ||
-      (searchParams.get('mode') !== 'signup' &&
-        searchParams.get('mode') !== 'reset')
+      location.search !== (desired ? '?' + desired : '') ||
+      location.hash ||
+      location.state
     ) {
-      return
+      void navigate(
+        { pathname: '/login', search: desired, hash: '' },
+        { replace: true, state: null }
+      )
     }
-    const next = new URLSearchParams(searchParams)
-    next.delete('mode')
-    setSearchParams(next, { replace: true })
-  }, [searchParams, setSearchParams])
-
-  const completeLogin = (): void => {
-    void navigate(redirect, { replace: true })
-  }
-
-  const handleGuest = (): void => {
-    logout.mutate(undefined, {
-      onSuccess: () => {
-        void navigate(getGuestRedirect(redirect), { replace: true })
-      }
-    })
-  }
-
-  const handleModeChange = (nextMode: AuthMode): void => {
-    const next = new URLSearchParams(searchParams)
-    if (nextMode === 'SIGN_IN') next.delete('mode')
-    else next.set('mode', nextMode === 'SIGN_UP' ? 'signup' : 'reset')
-    setSearchParams(next)
-    setShowPassword(false)
-    setRegistrationNotice(undefined)
-    signIn.reset()
-    signUp.reset()
-    resetRequest.reset()
-  }
-
-  const submitSignIn = (values: SignInForm): void => {
-    signIn.mutate(values, { onSuccess: completeLogin })
-  }
-
-  const submitSignUp = (values: SignUpForm): void => {
-    signUp.mutate(values, {
-      onSuccess: () => {
-        setRegistrationNotice('registration')
-        signUpForm.reset()
-      }
-    })
-  }
-
-  const submitResetRequest = (values: ResetRequestForm): void => {
-    resetRequest.mutate(values, {
-      onSuccess: () => {
-        setRegistrationNotice('resetRequested')
-        resetRequestForm.reset()
-      }
-    })
-  }
+  }, [
+    location.hash,
+    location.search,
+    location.state,
+    navigate,
+    redirect,
+    search
+  ])
 
   useEffect(() => {
-    if (registrationNotice) noticeHeadingRef.current?.focus()
-  }, [registrationNotice])
+    if (notice) heading.current?.focus()
+  }, [notice])
+
+  useEffect(() => {
+    if (start.isError) {
+      ;(provider === 'apple' ? appleButton : googleButton).current?.focus()
+    }
+  }, [provider, start.isError])
+
+  const begin = (selected: SsoProviderId): void => {
+    if (busy) return
+    setNotice(null)
+    start.mutate({ provider: selected, callbackURL: redirect })
+  }
+  const noticeKey =
+    notice === 'CANCELLED'
+      ? 'cancelled'
+      : notice === 'FAILED'
+        ? 'failed'
+        : notice === 'INVALID_CALLBACK'
+          ? 'expired'
+          : notice === 'EXPIRED'
+            ? 'sessionExpired'
+            : 'legacyMethod'
+  const failed = notice === 'FAILED' || notice === 'INVALID_CALLBACK'
+  const errorKey =
+    start.error instanceof AuthFlowError && start.error.unavailable
+      ? 'unavailableProvider'
+      : 'failedProvider'
 
   return (
     <section className="auth-page">
       <div className="auth-panel">
         <header className="auth-heading">
-          <h1
-            ref={noticeHeadingRef}
-            tabIndex={registrationNotice ? -1 : undefined}
-          >
+          <h1 ref={heading} tabIndex={notice ? -1 : undefined}>
             {!isReady
-              ? t('checkingTitle')
+              ? t('sso.checkingSession')
               : user
-                ? t('currentTitle')
-                : registrationNotice
-                  ? t(
-                      registrationNotice === 'registration'
-                        ? 'registrationTitle'
-                        : 'requestTitle'
-                    )
-                  : mode === 'SIGN_UP'
-                    ? t('signUp')
-                    : mode === 'RESET_REQUEST'
-                      ? t('reset.title')
-                      : t('signIn')}
+                ? t('sso.alreadySignedIn')
+                : t('sso.title')}
           </h1>
-          <p>
-            {!isReady
-              ? commonT('loading.auth')
-              : user
-                ? t('currentDescription')
-                : registrationNotice
-                  ? t(`notices.${registrationNotice}`)
-                  : mode === 'SIGN_UP'
-                    ? t('signupDescription')
-                    : mode === 'RESET_REQUEST'
-                      ? t('reset.description')
-                      : t('loginDescription')}
-          </p>
+          {isReady ? (
+            <p>{user ? t('currentDescription') : t('sso.description')}</p>
+          ) : null}
         </header>
         {!isReady ? (
           <p className="auth-notice" role="status">
-            {commonT('loading.auth')}
+            {t('sso.checkingSession')}
           </p>
         ) : user ? (
           <>
             <div className="auth-account">
-              <p>{t('currentAccount')}</p>
+              <span>{t('currentAccount')}</span>
               <strong>{user.name}</strong>
             </div>
+            {user.role === 'ADMIN' ? (
+              <AdminFreshEntry
+                returnPath={redirect === '/' ? '/login' : redirect}
+                disabled={logoutOpen || logout.isPending}
+              />
+            ) : null}
             <div className="auth-actions">
-              <Button fullWidth size="lg" onClick={completeLogin}>
-                {t('continueAccount')}
-              </Button>
               <Button
                 fullWidth
-                size="lg"
-                variant="outline"
-                isLoading={logout.isPending}
-                onClick={() => logout.mutate()}
+                onClick={() => void navigate(redirect, { replace: true })}
               >
-                {t('changeAccount')}
+                {t('sso.backToLearning')}
+              </Button>
+              <Button
+                ref={logoutButton}
+                fullWidth
+                variant="outline"
+                onClick={() => setLogoutOpen(true)}
+              >
+                {t('sso.logoutAction')}
               </Button>
             </div>
           </>
-        ) : registrationNotice ? (
-          <div className="auth-actions">
-            <Button
-              fullWidth
-              size="lg"
-              onClick={() => handleModeChange('SIGN_IN')}
-            >
-              {t('reset.backToLogin')}
-            </Button>
-          </div>
         ) : (
           <>
-            {mode === 'SIGN_IN' ? (
-              <form
-                aria-busy={
-                  signIn.isPending ||
-                  signUp.isPending ||
-                  resetRequest.isPending ||
-                  undefined
-                }
-                className="auth-fields"
-                noValidate
-                onSubmit={(event) => {
-                  void signInForm.handleSubmit(submitSignIn)(event)
-                }}
-              >
-                <Input
-                  className="auth-input"
-                  label={t('fields.email')}
-                  type="email"
-                  autoComplete="email"
-                  error={
-                    signInForm.formState.errors.email
-                      ? t('validation.email')
-                      : undefined
-                  }
-                  {...signInForm.register('email')}
-                />
-                <div className="auth-password">
-                  <Input
-                    className="auth-input"
-                    label={t('fields.password')}
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    hint={t('hints.password')}
-                    error={
-                      signInForm.formState.errors.password
-                        ? t(
-                            signInForm.formState.errors.password.type ===
-                              'too_big'
-                              ? 'validation.passwordMax'
-                              : 'validation.passwordMin'
-                          )
-                        : undefined
-                    }
-                    {...signInForm.register('password')}
-                  />
-                  <button
-                    className="auth-reveal"
-                    type="button"
-                    aria-pressed={showPassword}
-                    disabled={signIn.isPending || signUp.isPending}
-                    aria-label={`${t('fields.password')} ${t(showPassword ? 'hidePassword' : 'showPassword')}`}
-                    onClick={() => setShowPassword((visible) => !visible)}
-                  >
-                    {t(showPassword ? 'hidePassword' : 'showPassword')}
-                  </button>
-                </div>
-                {signIn.isError ? (
-                  <p className="auth-error" role="alert" aria-live="polite">
-                    {t('errors.request')}
-                  </p>
-                ) : null}
-                <Button type="submit" fullWidth isLoading={signIn.isPending}>
-                  {t('signIn')}
-                </Button>
-                <Button
-                  aria-describedby={
-                    isMockApiMode ? 'mock-auth-notice' : undefined
-                  }
-                  disabled={isMockApiMode}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handleModeChange('RESET_REQUEST')}
-                >
-                  {t('forgotPassword')}
-                </Button>
-              </form>
-            ) : mode === 'SIGN_UP' ? (
-              <form
-                aria-busy={
-                  signIn.isPending ||
-                  signUp.isPending ||
-                  resetRequest.isPending ||
-                  undefined
-                }
-                className="auth-fields"
-                noValidate
-                onSubmit={(event) => {
-                  void signUpForm.handleSubmit(submitSignUp)(event)
-                }}
-              >
-                <Input
-                  className="auth-input"
-                  label={t('fields.name')}
-                  autoComplete="name"
-                  error={
-                    signUpForm.formState.errors.name
-                      ? t(
-                          signUpForm.formState.errors.name.type === 'too_big'
-                            ? 'validation.nameMax'
-                            : 'validation.nameRequired'
-                        )
-                      : undefined
-                  }
-                  {...signUpForm.register('name')}
-                />
-                <Input
-                  className="auth-input"
-                  label={t('fields.email')}
-                  type="email"
-                  autoComplete="email"
-                  error={
-                    signUpForm.formState.errors.email
-                      ? t('validation.email')
-                      : undefined
-                  }
-                  {...signUpForm.register('email')}
-                />
-                <div className="auth-password">
-                  <Input
-                    className="auth-input"
-                    label={t('fields.password')}
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    hint={t('hints.newPassword')}
-                    error={
-                      signUpForm.formState.errors.password
-                        ? t(
-                            signUpForm.formState.errors.password.type ===
-                              'too_big'
-                              ? 'validation.passwordMax'
-                              : 'validation.passwordMin'
-                          )
-                        : undefined
-                    }
-                    {...signUpForm.register('password')}
-                  />
-                  <button
-                    className="auth-reveal"
-                    type="button"
-                    aria-pressed={showPassword}
-                    disabled={signIn.isPending || signUp.isPending}
-                    aria-label={`${t('fields.password')} ${t(showPassword ? 'hidePassword' : 'showPassword')}`}
-                    onClick={() => setShowPassword((visible) => !visible)}
-                  >
-                    {t(showPassword ? 'hidePassword' : 'showPassword')}
-                  </button>
-                </div>
-                <Select
-                  label={t('fields.targetLevel')}
-                  options={levelOptions}
-                  error={signUpForm.formState.errors.targetLevel?.message}
-                  {...signUpForm.register('targetLevel')}
-                />
-                {signUp.isError ? (
-                  <p className="auth-error" role="alert" aria-live="polite">
-                    {t('errors.request')}
-                  </p>
-                ) : null}
-                <Button type="submit" fullWidth isLoading={signUp.isPending}>
-                  {t('signUpAction')}
-                </Button>
-              </form>
-            ) : (
-              <form
-                aria-busy={
-                  signIn.isPending ||
-                  signUp.isPending ||
-                  resetRequest.isPending ||
-                  undefined
-                }
-                className="auth-fields"
-                noValidate
-                onSubmit={(event) => {
-                  void resetRequestForm.handleSubmit(submitResetRequest)(event)
-                }}
-              >
-                <Input
-                  className="auth-input"
-                  label={t('fields.email')}
-                  type="email"
-                  autoComplete="email"
-                  error={
-                    resetRequestForm.formState.errors.email
-                      ? t('validation.email')
-                      : undefined
-                  }
-                  {...resetRequestForm.register('email')}
-                />
-                {resetRequest.isError ? (
-                  <p className="auth-error" role="alert">
-                    {t('errors.resetRequest')}
-                  </p>
-                ) : null}
-                <Button
-                  type="submit"
-                  fullWidth
-                  isLoading={resetRequest.isPending}
-                >
-                  {t('reset.requestAction')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handleModeChange('SIGN_IN')}
-                >
-                  {t('reset.backToLogin')}
-                </Button>
-              </form>
-            )}
-            {mode === 'SIGN_IN' ? (
-              <div
-                className="auth-link-row"
-                role="group"
-                aria-label={t('methodLabel')}
-              >
-                <span>{t('signupPrompt')}</span>
-                <button
-                  type="button"
-                  className="auth-text-link"
-                  disabled={isMockApiMode}
-                  aria-describedby={
-                    isMockApiMode ? 'mock-auth-notice' : undefined
-                  }
-                  onClick={() => handleModeChange('SIGN_UP')}
-                >
-                  {t('signUp')}
-                </button>
-              </div>
-            ) : mode === 'SIGN_UP' ? (
-              <div className="auth-link-row">
-                <button
-                  type="button"
-                  className="auth-text-link"
-                  onClick={() => handleModeChange('SIGN_IN')}
-                >
-                  {t('reset.backToLogin')}
-                </button>
-              </div>
+            <div className="auth-actions" aria-busy={busy || undefined}>
+              <SsoProviderButton
+                provider="google"
+                label={t('sso.continueGoogle')}
+                disabled={busy}
+                buttonRef={googleButton}
+                onClick={() => begin('google')}
+              />
+            </div>
+            {busy ? (
+              <p className="auth-notice" role="status">
+                {t('sso.redirecting', { provider: providerName })}
+              </p>
             ) : null}
+            {start.isError ? (
+              <p className="auth-notice auth-error" role="alert">
+                {t('sso.' + errorKey, { provider: providerName })}
+              </p>
+            ) : notice ? (
+              <p
+                className={'auth-notice' + (failed ? ' auth-error' : '')}
+                role={failed ? 'alert' : 'status'}
+              >
+                {t('sso.' + noticeKey)}
+              </p>
+            ) : null}
+            <div className="auth-guest">
+              <Link
+                to={
+                  redirect === '/' || redirect.startsWith('/practice')
+                    ? redirect
+                    : '/practice'
+                }
+              >
+                {t('sso.guest')}
+              </Link>
+            </div>
           </>
         )}
-        {logout.isError ? (
-          <p className="auth-error" role="alert">
-            {t('errors.logout')}
-          </p>
-        ) : null}
-        {isReady && !user ? (
-          <div className="auth-guest">
-            <Button
-              fullWidth
-              size="lg"
-              variant="outline"
-              isLoading={logout.isPending}
-              loadingLabel={t('guest.loading')}
-              onClick={handleGuest}
-            >
-              {t('guest.continue')}
-            </Button>
-            <p>
-              {isMockApiMode
-                ? t('guest.descriptionMock')
-                : t('guest.descriptionReal')}
-            </p>
-          </div>
-        ) : null}
-        {isMockApiMode && MockAuthenticationNotice ? (
-          <Suspense
-            fallback={
-              <p className="auth-notice" role="status">
-                {commonT('loading.mockNotice')}
-              </p>
-            }
-          >
-            <MockAuthenticationNotice />
-          </Suspense>
-        ) : null}
+        <SsoAccountManagement />
       </div>
+      <Dialog
+        open={logoutOpen && user !== null}
+        onOpenChange={setLogoutOpen}
+        title={t('sso.logoutTitle')}
+        description={t('sso.logoutDescription')}
+        preventClose={logout.isPending}
+        initialFocusRef={cancelButton}
+        returnFocusRef={logoutButton}
+        fallbackFocusRef={heading}
+        footer={
+          <>
+            <Button
+              ref={cancelButton}
+              variant="outline"
+              disabled={logout.isPending}
+              onClick={() => setLogoutOpen(false)}
+            >
+              {t('sso.cancel')}
+            </Button>
+            <Button
+              disabled={logout.isPending}
+              onClick={() =>
+                logout.isError ? logout.recheck() : logout.mutate()
+              }
+            >
+              {t(logout.isError ? 'sso.recheck' : 'sso.logoutAction')}
+            </Button>
+          </>
+        }
+      >
+        {logout.isPending ? <p role="status">{t('sso.loggingOut')}</p> : null}
+        {logout.isError ? <p role="alert">{t('sso.logoutUnknown')}</p> : null}
+      </Dialog>
     </section>
   )
 }

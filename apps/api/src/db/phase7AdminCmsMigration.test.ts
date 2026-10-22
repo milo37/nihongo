@@ -130,10 +130,10 @@ const approvedPhase7Checksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존27·old35/36 checksum을 보존하고 revision2 교정과38/37 후보를 확인한다', () => {
+  it('기존45 migration의 순서와 모든 역사 prefix checksum을 보존하고 migration46을 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(39)
+    expect(manifest).toHaveLength(46)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedPrePhase7MigrationNames
     )
@@ -217,10 +217,139 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       checksum:
         '600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401'
     })
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 39))).toBe(
       '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1'
     )
+    expect(manifest.slice(39, 43)).toEqual([
+      {
+        name: '20261019090000_sso_login_transactions',
+        checksum:
+          '4a89ac9d8b5665bcb5d5d3088ef2a933e22ac112431671556e8e8385b86d4cdc'
+      },
+      {
+        name: '20261019093000_sso_apple_google_providers',
+        checksum:
+          '309095c6db46793acafd6a6ee0ddcd0d96243530f178d5cd00883bf95dc4227b'
+      },
+      {
+        name: '20261019100000_sso_identity_mapping',
+        checksum:
+          '2e5cb49adf6566aa36715941548204b884e86896091b110ca871e34cf4895aa9'
+      },
+      {
+        name: '20261019103000_sso_admin_fresh',
+        checksum:
+          'a9b152386e05eacf74ced813dbff4bd3875717958133d05ea6c8a1cdbc54e88c'
+      }
+    ])
+    expect(digest(manifest.slice(0, 43))).toBe(
+      '394a68aaeb5e7299dc623eb0094426e74dcac050bce467183c11b161aa4d0fec'
+    )
+    expect(manifest.slice(43, 44)).toEqual([
+      {
+        name: '20261019110000_sso_admin_fresh_erasure_ownership',
+        checksum:
+          '3dd06daf9b64b780e5bfcf4c73012a0f7f87a3db63569e94dd7dea60c7dafd1b'
+      }
+    ])
+    expect(digest(manifest.slice(39, 44))).toBe(
+      '7625f9212f1abd9f24c51153bd5ffc1c021bab63d1aa7faf8682a6597cac3abd'
+    )
+    expect(digest(manifest.slice(0, 44))).toBe(
+      '9c273aa902d6f008b112badd9c6b327abdc96905e10569696d32850268aaead0'
+    )
+    expect(manifest[44]).toEqual({
+      name: '20261019113000_sso_admin_fresh_column_qualification',
+      checksum:
+        '3a33a3248b6363b05a6a1e1a7fb4d5b02ba8c4c79fb2ee092a370e6fc780152a'
+    })
+    expect(digest(manifest.slice(0, 45))).toBe(
+      'a9f3d09938b40f6630a3b3270b8afdbb2d9a31385741965b7e0c24d424901ef2'
+    )
+    expect(manifest[45]).toEqual({
+      name: '20261020230000_sso_account_lifecycle',
+      checksum:
+        'd0a81eff438c516b761ed8c4b3eeba72276f9a539d81baad2799fa455cda8b2a'
+    })
+    expect(digest(manifest)).toBe(
+      '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+    )
   })
+
+  it.each([
+    '20261019090000_sso_login_transactions',
+    '20261019093000_sso_apple_google_providers',
+    '20261019100000_sso_identity_mapping',
+    '20261019103000_sso_admin_fresh',
+    '20261019110000_sso_admin_fresh_erasure_ownership'
+  ])(
+    '%s creates in the owned target and hardens every exact definer signature',
+    (name) => {
+      const sql = readFileSync(
+        `${migrationsDirectory}/${name}/migration.sql`,
+        'utf8'
+      )
+      const ddlPath = sql.indexOf(
+        '-- Keep the creation namespace on the owned target'
+      )
+      const firstCreate = sql.search(
+        /CREATE(?: OR REPLACE)? (?:TABLE|FUNCTION)/u
+      )
+      expect(ddlPath).toBeGreaterThan(0)
+      expect(ddlPath).toBeLessThan(firstCreate)
+      expect(sql.slice(ddlPath, firstCreate)).toContain(
+        "pg_catalog.quote_ident(pg_catalog.current_setting('app.phase7_target_schema', false)) ||\n  ', pg_temp', true)"
+      )
+      expect(sql.slice(ddlPath, firstCreate)).not.toContain("'pg_catalog, '")
+      const definitions = [
+        ...sql.matchAll(
+          /CREATE(?: OR REPLACE)? FUNCTION "([^"]+)"\(([\s\S]*?)\)\s*RETURNS/gu
+        )
+      ]
+      const signatures = definitions.map((match) => {
+        const argumentTypes = match[2]!
+          .split(',')
+          .filter((argument) => argument.trim())
+          .map((argument) => argument.trim().split(/\s+/u).at(-1))
+        return `"${match[1]}"(${argumentTypes.join(',')})`
+      })
+      const hardenIndex = sql.indexOf('DO $harden_sso_functions$')
+      const rolesBeforeHarden = [
+        ...removeDollarQuotedBodies(sql.slice(0, hardenIndex)).matchAll(
+          /SET LOCAL ROLE "([^"]+)";/gu
+        )
+      ]
+      expect(rolesBeforeHarden.at(-1)?.[1]).toBe('nihongo_phase7_owner')
+      expect(sql.indexOf('$harden_sso_functions$;')).toBeLessThan(
+        sql.lastIndexOf('SET LOCAL ROLE "nihongo_phase7_migration";')
+      )
+      const harden = sql.slice(hardenIndex)
+      const hardenedSignatures = [
+        ...harden.matchAll(/'("[a-z0-9_]+"\([^']*\))'/gu)
+      ].map((match) => match[1])
+      expect(signatures.length).toBeGreaterThan(0)
+      expect(hardenedSignatures).toEqual(signatures)
+      expect(
+        (sql.match(/SECURITY DEFINER SET search_path FROM CURRENT/gu) ?? [])
+          .length
+      ).toBe(signatures.length)
+      expect(harden).toContain(
+        'ALTER FUNCTION %I.%s SET search_path TO pg_catalog, %I, pg_temp'
+      )
+      expect(harden).toContain(
+        'target_schema, function_signature, target_schema'
+      )
+      expect(sql.lastIndexOf('$function$;')).toBeLessThan(
+        sql.indexOf('DO $harden_sso_functions$')
+      )
+      expect(sql.indexOf('$harden_sso_functions$;')).toBeLessThan(
+        sql.lastIndexOf('COMMIT;')
+      )
+      expect(sql).not.toMatch(
+        /GRANT[^;]*(?:CREATE|USAGE)[^;]*ON SCHEMA[^;]*pg_catalog/iu
+      )
+    }
+  )
 
   it('Slice 3R은 append-only auth foundation과 partial live-intent fence를 선언한다', () => {
     expect(reauthenticationMigrationSql).toContain(
@@ -772,4 +901,63 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       expect(registration).toContain(preserved)
     }
   })
+})
+
+describe('migration-owned approved registration representation', () => {
+  const schema = readFileSync(
+    new URL('../../prisma/schema.prisma', import.meta.url),
+    'utf8'
+  )
+  const registrations = [
+    [
+      '20261007060000_phase7_approved_reading_tags',
+      'Phase7ApprovedReadingTagRegistration'
+    ],
+    [
+      '20261009060000_phase7_approved_n3_reading_tags',
+      'Phase7ApprovedN3ReadingTagRegistration'
+    ],
+    [
+      '20261009072500_phase7_approved_n4_n2_reading_tags',
+      'Phase7ApprovedN4N2ReadingTagRegistration'
+    ],
+    [
+      '20261009120000_phase7_approved_n4_reading_batch7_tags',
+      'Phase7ApprovedN4ReadingBatch7TagRegistration'
+    ],
+    [
+      '20261010071000_phase7_approved308_tags',
+      'Phase7Approved308TagRegistration'
+    ]
+  ] as const
+
+  for (const [migration, model] of registrations) {
+    it(`${model} matches its SQL table without exposing a Prisma delegate`, () => {
+      const sql = readFileSync(
+        `${migrationsDirectory}/${migration}/migration.sql`,
+        'utf8'
+      )
+      const table = sql.match(
+        new RegExp(String.raw`CREATE TABLE "${model}" \(([^;]+)\n\);`, 'u')
+      )?.[1]
+      expect(table).toBeDefined()
+      const columns = table
+        ?.trim()
+        .split('\n')
+        .map((line) => line.trim())
+      expect(columns).toHaveLength(2)
+      expect(columns?.[0]).toMatch(
+        /^"batch" TEXT PRIMARY KEY CHECK \("batch" = '[a-z0-9-]+'\),$/u
+      )
+      expect(columns?.[1]).toBe(
+        '"appliedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'
+      )
+      const representation = schema.match(
+        new RegExp(String.raw`model ${model} \{([^}]+)\}`, 'u')
+      )?.[1]
+      expect(representation?.replace(/\s+/gu, ' ').trim()).toBe(
+        'batch String @id appliedAt DateTime @default(now()) @db.Timestamptz(6) @@ignore'
+      )
+    })
+  }
 })

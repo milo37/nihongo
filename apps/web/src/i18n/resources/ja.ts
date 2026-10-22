@@ -141,8 +141,6 @@ export const jaResources = {
     routes: {
       home: '学習',
       login: 'ログイン',
-      resetPassword: 'パスワード再設定',
-      verifyEmail: 'メール認証',
       dashboard: '学習',
       practiceSetup: '学習',
       practiceSession: '問題演習',
@@ -360,125 +358,115 @@ export const jaResources = {
     }
   },
   auth: {
-    checkingTitle: 'ログイン状態を確認中',
-    currentTitle: 'ログインしています',
+    adminFresh: {
+      title: '管理者の本人確認',
+      description:
+        '慎重な確認が必要な操作を続けるには、同じ管理者アカウントに連携したログイン方法を選んでください。',
+      checking: '現在のログイン状態を再確認しています。',
+      returned:
+        'ログイン状態を再確認しました。元の操作に戻り、内容を確認してから手動でもう一度実行してください。操作の権限はサーバーで再確認されます。',
+      cancelled:
+        '本人確認をキャンセルしました。現在のログイン状態を確認し、必要な場合はもう一度お試しください。',
+      failed:
+        '本人確認の結果を確認できませんでした。現在のログイン状態と元の操作を確認してから、もう一度お試しください。',
+      invalid:
+        '本人確認のリクエストが期限切れか、正しくありません。必要な場合はやり直してください。',
+      unknown:
+        '現在のログイン状態を確認できませんでした。完了したかどうかは確定できません。接続を確認してから、もう一度状態を確認してください。'
+    },
     currentDescription: '現在のアカウントで学習を続けられます。',
-    loginDescription: '復習とブックマークを続けて利用しましょう。',
-    signupDescription: '学習アカウントを作成してメールを確認してください。',
-    continueAccount: '学習に戻る',
-    changeAccount: 'ログアウトして別のアカウントでログイン',
-    showPassword: '表示',
-    hidePassword: '隠す',
-    signupPrompt: 'アカウントをお持ちでない方',
-    registrationTitle: '受信トレイを確認してください',
-    requestTitle: 'リクエストを受け付けました',
-    eyebrow: 'SECURE ACCESS',
-    title: '学習アカウントで始めましょう',
-    description: {
-      mock: '現在はローカルMock認証モードです。以下のデモアカウントのログインのみ提供し、認証状態はローカルデモストレージにのみ保存されます。',
-      real: 'メール認証を完了したアカウントでログインすると、間違いノートと学習履歴を安全に継続できます。認証情報はブラウザストレージではなく安全なCookieで管理されます。'
-    },
     currentAccount: '現在のアカウント',
-    logout: 'ログアウト',
-    methodLabel: '認証方法',
-    signIn: 'ログイン',
-    signUp: '新規登録',
-    forgotPassword: 'パスワードをお忘れですか？',
-    fields: {
-      name: '名前',
-      email: 'メールアドレス',
-      password: 'パスワード',
-      newPassword: '新しいパスワード',
-      targetLevel: '目標レベル'
-    },
-    hints: {
-      password: '12文字以上で入力してください。',
-      newPassword: '12文字以上128文字以下で入力してください。'
-    },
-    notices: {
-      registration:
-        '登録リクエストを完了しました。受信トレイでメール認証を完了してからログインしてください。',
-      resetRequested:
-        '登録の有無にかかわらずリクエストを受け付けました。アカウントが存在する場合は再設定リンクを送信します。'
-    },
-    errors: {
-      logout:
-        'ログアウトできませんでした。現在のアカウントは維持されています。もう一度お試しください。',
-      request:
-        '認証リクエストを処理できませんでした。入力内容とネットワーク状態を確認してください。',
-      resetRequest:
-        '再設定リクエストを処理できませんでした。しばらく後にもう一度お試しください。',
-      temporary:
-        '一時的なエラーが発生しました。しばらく後にもう一度お試しください。',
-      resetUnsupported:
-        'Mockモードではパスワード再設定を利用できません。real APIモードでもう一度お試しください。',
-      resetExpired:
-        'リンクの有効期限が切れたか、すでに使用されています。新しいリンクをリクエストしてください。',
-      verifyUnsupported:
-        'Mockモードではメール認証を利用できません。real APIモードでもう一度お試しください。',
-      verifyExpired:
-        'リンクの有効期限が切れたか、すでに使用されています。新しい認証メールをリクエストしてください。'
-    },
-    signUpAction: 'メール認証をリクエスト',
-    reset: {
-      title: 'パスワード再設定',
-      description:
-        'アカウントのメールアドレスを入力すると、1時間有効な再設定リンクを送信します。',
-      requestAction: '再設定リンクをリクエスト',
-      backToLogin: 'ログインに戻る',
-      invalidTitle: '無効な再設定リンク',
-      missingToken:
-        '再設定リンクの情報がありません。再読み込みした場合は、受信したメールの元の再設定リンクを開き直してください。新しいリンクが必要な場合は再設定リンクをリクエストしてください。',
-      missingTokenMember:
-        '再設定リンクの情報がありません。再読み込みした場合は、受信したメールの元の再設定リンクを開き直してください。新しいリンクが必要な場合は、アカウント確認画面で自分でログアウトしてから再設定リンクをリクエストしてください。',
-      missingTokenMock:
-        '再設定リンクの情報がありません。再読み込みした場合は、受信したメールの元の再設定リンクを開き直してください。体験環境では新しい再設定メールをリクエストできません。',
-      recoveryAccount: 'アカウントを確認・切り替え',
-      recoveryLogin: 'ログイン・アカウント確認',
-      successTitle: 'パスワードを変更しました',
-      successDescription:
-        '既存のログインセッションはすべて終了しました。新しいパスワードで再度ログインしてください。',
-      formTitle: '新しいパスワードを設定',
-      formDescription:
-        '12文字以上128文字以下の新しいパスワードを入力してください。',
-      submit: 'パスワードを変更'
-    },
-    verify: {
-      invalidTitle: '無効なメール認証リンク',
-      missingToken:
-        'メール認証リンクの情報がありません。再読み込みした場合は、受信したメールの元の認証リンクを開き直してください。認証済みの場合は、ログイン・アカウント確認画面で状態を確認してください。',
-      recoveryAction: 'ログイン・アカウント確認',
-      successTitle: 'メール認証が完了しました',
-      successDescription:
-        '登録したメールアドレスとパスワードでログインできます。',
-      title: 'メールアドレスの確認',
-      description:
-        '下のボタンを押すとメールアドレスの認証が完了します。リンクを開くだけではアカウントの状態は変更されません。',
-      submit: 'メールアドレスを認証'
-    },
-    guest: {
-      eyebrow: 'GUEST',
-      title: '登録せずにまず体験',
-      descriptionMock:
-        'ランダム演習と結果確認をすぐに始められます。ゲストの記録はアカウントに自動統合されず、間違いノートとブックマークはログイン後に利用できます。',
-      descriptionReal:
-        'RANDOM演習と結果確認をすぐに始められます。ログインすると、今後の間違いノートとすべての学習履歴を継続して確認できます。',
-      loading: 'ゲストセッションを準備中…',
-      continue: 'ゲストで続ける'
-    },
-    mockNotice: {
-      title: 'Mockデモアカウント',
-      limitation:
-        '新規登録・メール認証・パスワード再設定は、VITE_API_MODE=realの実APIモードで確認してください。'
-    },
-    validation: {
-      email: '有効なメールアドレスを入力してください。',
-      nameRequired: '名前を入力してください。',
-      nameMax: '名前は80文字以下で入力してください。',
-      passwordMin: 'パスワードは12文字以上で入力してください。',
-      passwordMax: 'パスワードは128文字以下で入力してください。',
-      newPasswordMin: '新しいパスワードは12文字以上で入力してください。',
-      newPasswordMax: '新しいパスワードは128文字以下で入力してください。'
+    sso: {
+      accountTitle: 'アカウント管理',
+      connected: '連携済みのログイン方法',
+      linkProvider: '{{provider}}を連携',
+      linked:
+        'ログイン方法を連携しました。連携済みアカウントを確認してください。',
+      freshConfirmed:
+        '本人確認が完了しました。操作を選び、最後に確認してください。',
+      freshNeeded:
+        '現在のアカウントに連携済みのログイン方法で本人確認した後、操作をもう一度選んでください。',
+      checkingAccount: 'アカウントの状態を確認しています。',
+      remainingUnavailable:
+        '他のログイン方法を利用できないため、連携を解除できません。',
+      openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
+      cancelledAccount:
+        '本人確認または連携をキャンセルしました。元のアカウントは維持されます。',
+      dataGuide: 'アカウントとデータの案内',
+      dataDescription:
+        'ログアウトはアプリのセッションを終了し、連携解除はログイン方法を削除し、退会はアプリアカウントの削除処理を申請します。',
+      deletionUnknown:
+        '退会結果を確認できません。申請を繰り返さず、状態を再確認してください。',
+      cleanupPending: '連携の整理はまだ完了していません。',
+      cleanupComplete: 'このログイン方法の連携整理が完了しました。',
+      cleanupFailed:
+        '連携を整理できませんでした。アプリの退会状態とは別に確認してください。',
+      title: 'ログイン',
+      description: '連携したアカウントで学習を続けましょう。',
+      continueProvider: '{{provider}}で続ける',
+      guest: 'ログインせずに学習する',
+      checkingSession: 'ログイン状態を確認しています。',
+      redirecting: '{{provider}}に移動しています。',
+      checkingReturn: 'ログインを確認しています。',
+      cancelled:
+        'ログインをキャンセルしました。もう一度試すか、ログインせずに学習できます。',
+      failed: 'ログインできませんでした。もう一度お試しください。',
+      expired:
+        'ログインのリクエストが期限切れになりました。もう一度お試しください。',
+      unavailable:
+        '現在ログインを利用できません。しばらくしてからお試しください。',
+      conflict:
+        'このアカウントとの連携を完了できませんでした。これまで使っていたログイン方法でお試しください。',
+      sessionExpired:
+        'ログインの有効期限が切れました。もう一度ログインしてください。',
+      alreadySignedIn: 'ログインしています。',
+      backToLearning: '学習に戻る',
+      migrationIncomplete:
+        'これまでの学習記録を連携できませんでした。ログイン方法の移行案内をご確認ください。',
+      cancel: 'キャンセル',
+      close: '閉じる',
+      recheck: 'もう一度確認',
+      logoutTitle: 'ログアウトしますか？',
+      logoutDescription:
+        '하루마루からログアウトします。アカウントの連携は維持されます。',
+      logoutAction: 'ログアウト',
+      loggingOut: 'ログアウトしています。',
+      logoutUnknown:
+        'ログアウトの状態を確認できませんでした。もう一度ご確認ください。',
+      loggedOut: 'ログアウトしました。',
+      unlinkTitle: '{{provider}}との連携を解除しますか？',
+      unlinkDescription:
+        '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
+      unlinkAction: '連携を解除',
+      lastMethodTitle: '最後のログイン方法は解除できません。',
+      lastMethodDescription:
+        '連携を解除するとログインできなくなります。アカウントを削除する場合は退会の案内をご確認ください。',
+      withdrawalHelp: '退会の案内',
+      reauthTitle: '続けるには、もう一度ログインしてください。',
+      wrongAccount: '最初にログインしたアカウントでもう一度お試しください。',
+      deleteTitle: '退会しますか？',
+      deleteDescription:
+        '退会後は、このアカウントで하루마루を利用できません。データの取り扱いはアカウントとデータの案内をご確認ください。連携した外部アカウント自体は削除されません。',
+      deleteAction: '退会する',
+      processing: '処理しています。',
+      actionFailed:
+        'リクエストを完了できませんでした。もう一度ご確認ください。',
+      deletionAccepted: '退会のリクエストを受け付けました。',
+      deletionComplete: '退会が完了しました。',
+      unlinked: '連携を解除しました。',
+      providerCleanupPending:
+        '退会は完了しました。{{provider}}との連携の解除はまだ完了していません。',
+      legacyMethod:
+        'ログイン方法が変更されました。連携したアカウントで続けてください。',
+      continueApple: 'Appleで続ける',
+      continueGoogle: 'Googleで続ける',
+      checkingProviderReturn: '{{provider}}でのログインを確認しています。',
+      cancelledProvider:
+        '{{provider}}でのログインをキャンセルしました。もう一度試すか、ログインせずに学習できます。',
+      failedProvider:
+        '{{provider}}でログインできませんでした。もう一度お試しください。',
+      unavailableProvider:
+        '現在、{{provider}}でのログインは利用できません。しばらくしてからお試しください。'
     }
   },
   practice: {
@@ -1273,6 +1261,14 @@ export const jaResources = {
       title: '最後に間違えた問題の詳細',
       snapshotNotice:
         '以下の問題・選択肢・解説は、最後に間違えた時点の問題バージョンです。',
+      previousAnswer: {
+        selected: '前回の回答',
+        unanswered: '前回の回答: 未回答',
+        unavailable: '前回の回答: 記録を確認できません',
+        loading: '前回の回答を確認しています…',
+        error: '前回の回答を読み込めませんでした。',
+        paused: '接続が戻ると前回の回答を確認します。'
+      },
       correct: '正解',
       explanation: '解説',
       review: {
@@ -1745,25 +1741,23 @@ export const jaResources = {
         'インポート項目の識別子が既存データと競合しています。',
       importValidationFailed:
         'インポートの検証結果が現在のリクエストと一致しません。',
-      reauthenticationFailed: '現在のパスワードが正しくありません。',
+      reauthenticationFailed:
+        '連携したアカウントで本人確認を完了できませんでした。',
       fieldInvalid: 'この入力値を確認してください。'
     },
     freshAssurance: {
       title: '管理者本人確認',
       description:
-        '{{reason}} パスワード確認後、操作ボタンをもう一度押す必要があります。',
-      passwordLabel: '現在のパスワード',
-      privacy:
-        'パスワードは保存されず、元のコマンドに再利用されることもありません。',
+        '{{reason}} 連携したアカウントで本人確認後、操作ボタンをもう一度押す必要があります。',
       cancel: 'キャンセル',
       checkingSession: 'ログイン状態を確認しています…',
       retrySession: 'ログイン状態を再確認',
       checking: '確認しています…',
       confirm: '本人確認',
       complete:
-        '本人確認が完了しました。元の操作は自動実行されていません。内容を確認してからもう一度実行してください。',
+        'ログイン状態を再確認しました。元の操作は自動実行されていません。内容を確認してから手動でもう一度実行してください。',
       recovered:
-        '現在の管理者セッションを確認しました。パスワードを再入力して本人確認をやり直してください。',
+        '現在の管理者セッションを確認しました。連携したアカウントで本人確認をやり直してください。',
       recoveryFailed:
         'ログイン状態を確認できませんでした。ローカル作業は保持されます。ログイン状態の確認をもう一度お試しください。',
       failed: '本人確認を完了できませんでした。',
@@ -2149,6 +2143,7 @@ export const jaResources = {
         '接続が復旧したらログイン状態を再確認します。保存済みのアカウント情報は権限判定に使用していません。'
     },
     banner: {
+      loggedOut: 'ログアウトしました。',
       offline: 'オフラインです。ネットワーク接続を確認してください。',
       restored:
         'ネットワーク接続の復旧を検出しました。必要なリクエストをもう一度お試しください。',

@@ -148,10 +148,11 @@
   color: rgb(var(--color-ink));
 }
 
-.app-brand > svg {
-  width: 22px;
-  height: 22px;
-  color: rgb(var(--color-brand));
+.app-brand-lockup {
+  display: block;
+  width: 160px;
+  min-width: 160px;
+  height: auto;
 }
 
 .app-primary-navigation {
@@ -1750,11 +1751,17 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 
 .study-question-actions > button:last-child {
-  grid-row: 1;
+  grid-row: auto;
   width: 100%;
   min-height: 56px;
   border-radius: var(--radius-control);
   font-size: 1rem;
+}
+
+@media (min-width: 761px) {
+  .study-question-actions > button:last-child {
+    grid-row: auto;
+  }
 }
 
 .study-question-jump {
@@ -2846,4 +2853,66 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   display: flex;
   width: 100%;
   justify-content: center;
+}
+
+.auth-sso-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.auth-sso-button[data-provider='google'] {
+  font-family: Roboto, Arial, sans-serif;
+}
+.auth-sso-button[data-provider='apple'] {
+  border-color: #000;
+}
+.auth-sso-button img {
+  flex: 0 0 20px;
+  object-fit: contain;
+}
+.auth-sso-button:hover:enabled {
+  background: rgb(var(--color-surface-muted));
+}
+.auth-sso-button:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.auth-sso-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.auth-account > span {
+  display: block;
+  color: rgb(var(--color-muted));
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.auth-guest > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: rgb(var(--color-link));
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.auth-guest > a:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+@media (max-width: 760px) {
+  .auth-sso-button {
+    min-height: 50px;
+  }
 }

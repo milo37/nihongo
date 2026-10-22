@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { AuthFlowError } from '@app/login/authFlowErrors'
 import { emitApiError } from '@libs/errorBus'
 import { queryClient } from '@libs/queryClient'
 import { commitCanonicalAuth } from '@app/login/authSession'
@@ -148,6 +149,105 @@ describe('AuthErrorHandlerProvider', () => {
     expect(router.state.location.pathname).toBe('/practice')
   })
 
+  it('전환 중 중복401과 로그인 도착 뒤 SESSION 오류는 최초 안전한 학습 복귀 경로를 덮지 않는다', async () => {
+    const actor = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(actor)
+    const target = '/practice/session/018f6b7a-1f4b-7d5e-8a91-000000000900'
+    const { router } = renderProvider(target)
+    const cancelQueries = queryClient.cancelQueries.bind(queryClient)
+    let releaseFirst: (() => void) | undefined
+    let cancellations = 0
+    const firstCancellation = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    vi.spyOn(queryClient, 'cancelQueries').mockImplementation(
+      async (filters, options) => {
+        cancellations += 1
+        if (cancellations === 1) await firstCancellation
+        return cancelQueries(filters, options)
+      }
+    )
+    const expire = () =>
+      emitApiError(
+        Object.assign(new Error('Synthetic expired session'), {
+          isAuthError: true,
+          status: 401,
+          code: 'AUTH_SESSION_EXPIRED'
+        })
+      )
+    act(expire)
+    await waitFor(() => expect(cancellations).toBe(1))
+    act(expire)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/login'))
+    const loginKey = router.state.location.key
+    await act(async () => releaseFirst?.())
+    await act(async () => {
+      expire()
+    })
+    const search = new URLSearchParams(router.state.location.search)
+    expect(search.getAll('redirect')).toEqual([target])
+    expect([...search.keys()]).toEqual(['redirect'])
+    expect(router.state.location.key).toBe(loginKey)
+    expect(useAppStore.getState().currentUser).toBeNull()
+  })
+
+  it('인증 정리 대기 중 별도로 도착한 로그인 화면의 key와 redirect와 state를 유지한다', async () => {
+    const actor = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(actor)
+    // This session path is a synthetic fixture, never a captured user URL.
+    const target =
+      '/practice/session/018f6b7a-1f4b-7d5e-8a91-000000000900?level=N2&subject=GRAMMAR'
+    useAppStore
+      .getState()
+      .beginPractice('synthetic-pending-session', '2026-08-12T00:00:00.000Z')
+    queryClient.setQueryData(['wrong-note', 'private'], { owner: actor.id })
+    const { router } = renderProvider(target)
+    const cancelQueries = queryClient.cancelQueries.bind(queryClient)
+    let releaseCancellation: (() => void) | undefined
+    const pendingCancellation = new Promise<void>((resolve) => {
+      releaseCancellation = resolve
+    })
+    const cancellations = vi
+      .spyOn(queryClient, 'cancelQueries')
+      .mockImplementationOnce(async (filters, options) => {
+        await pendingCancellation
+        return cancelQueries(filters, options)
+      })
+
+    act(() =>
+      emitApiError(
+        Object.assign(new Error('Synthetic expired session'), {
+          isAuthError: true,
+          status: 401,
+          code: 'AUTH_SESSION_EXPIRED'
+        })
+      )
+    )
+    expect(cancellations).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      await router.navigate(`/login?redirect=${encodeURIComponent(target)}`, {
+        replace: true,
+        state: { sessionExpired: false }
+      })
+    })
+    const loginLocation = router.state.location
+    expect(useAppStore.getState().currentUser).toEqual(actor)
+
+    await act(async () => releaseCancellation?.())
+
+    expect(useAppStore.getState().currentUser).toBeNull()
+    expect(useAppStore.getState().sessionId).toBeNull()
+    expect(queryClient.getQueryData(['wrong-note', 'private'])).toBeUndefined()
+    expect(cancellations).toHaveBeenCalledTimes(1)
+    expect(router.state.location.pathname).toBe('/login')
+    expect(router.state.location.key).toBe(loginLocation.key)
+    expect(router.state.location.search).toBe(loginLocation.search)
+    expect(
+      new URLSearchParams(router.state.location.search).getAll('redirect')
+    ).toEqual([target])
+    expect(router.state.location.state).toEqual({ sessionExpired: false })
+  })
+
   it('403은 auth, cache, practice를 유지하고 forbidden으로 이동한다', async () => {
     const currentUser = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(currentUser)
@@ -220,4 +320,16 @@ describe('AuthErrorHandlerProvider', () => {
       expect(removeEventListener).toHaveBeenCalledWith(eventName, added?.[1])
     }
   })
+})
+
+it('auth-owned SSO failures remain local without a duplicate banner or self-redirect', () => {
+  const { router } = renderProvider('/login?redirect=%2Fpractice')
+  act(() =>
+    emitApiError(new AuthFlowError(new Error('private provider detail')))
+  )
+  expect(router.state.location.pathname + router.state.location.search).toBe(
+    '/login?redirect=%2Fpractice'
+  )
+  expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })

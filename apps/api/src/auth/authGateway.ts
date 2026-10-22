@@ -1,4 +1,7 @@
+import { SSO_ACCOUNT_PATHS } from './ssoAccountRuntime.js'
+import type { SsoAccountRuntime } from './ssoAccountRuntime.js'
 import { z } from 'zod'
+import type { SsoPublicRuntime } from './ssoPublicRuntime.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createClientIpAuthority } from './clientIp.js'
@@ -14,22 +17,6 @@ const ENUMERATION_PROTECTED_PATHS = new Set([
   '/api/auth/request-password-reset',
   '/api/auth/send-verification-email',
   '/api/auth/sign-up/email'
-])
-
-const ALLOWED_AUTH_OPERATIONS = new Map<string, ReadonlySet<string>>([
-  [
-    'POST',
-    new Set([
-      '/api/auth/change-password',
-      '/api/auth/request-password-reset',
-      '/api/auth/reset-password',
-      '/api/auth/send-verification-email',
-      '/api/auth/sign-in/email',
-      '/api/auth/sign-out',
-      '/api/auth/sign-up/email',
-      '/api/auth/verify-email'
-    ])
-  ]
 ])
 
 const CREDENTIAL_KEY_PATTERN =
@@ -67,6 +54,8 @@ interface CreateAuthGatewayDependencies {
   environment: ApiEnvironment
   phase7Facade?: Phase7AuthFacade
   technicalRateLimiter?: ApplicationRateLimiter
+  ssoRuntime?: SsoPublicRuntime
+  ssoAccountRuntime?: SsoAccountRuntime
   delay?: (milliseconds: number) => Promise<void>
   now?: () => number
 }
@@ -75,7 +64,19 @@ const sleep = async (milliseconds: number): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 const isAllowedOperation = (method: string, pathname: string): boolean =>
-  ALLOWED_AUTH_OPERATIONS.get(method)?.has(pathname) ?? false
+  (method === 'POST' &&
+    (pathname === '/api/auth/sign-out' ||
+      pathname === '/api/auth/sign-in/social' ||
+      pathname === '/api/auth/callback/apple' ||
+      pathname === SSO_ACCOUNT_PATHS.unlink ||
+      pathname === SSO_ACCOUNT_PATHS.deletion)) ||
+  (method === 'GET' &&
+    (pathname === '/api/auth/callback/google' ||
+      pathname === '/api/auth/sso/admin-fresh/complete' ||
+      pathname === SSO_ACCOUNT_PATHS.capabilities ||
+      pathname === SSO_ACCOUNT_PATHS.status ||
+      pathname === SSO_ACCOUNT_PATHS.freshComplete ||
+      pathname === SSO_ACCOUNT_PATHS.linkComplete))
 
 const stripCredentials = (value: unknown): unknown => {
   if (Array.isArray(value)) {
@@ -130,7 +131,7 @@ const toCookieOnlySuccess = (response: Response): Response => {
   })
 }
 
-const assertTrustedWriteRequest = (
+export const assertTrustedWriteRequest = (
   request: Request,
   trustedOrigins: readonly string[]
 ): void => {
@@ -353,10 +354,10 @@ const parseDeclaredContentLength = (request: Request): number | null => {
   return value
 }
 
-const readLimitedJsonBody = async (
+export const readLimitedAuthBody = async (
   request: Request,
   maximumBytes: number
-): Promise<Record<string, unknown>> => {
+): Promise<string> => {
   let declaredLength: number | null
   try {
     declaredLength = parseDeclaredContentLength(request)
@@ -415,13 +416,7 @@ const readLimitedJsonBody = async (
     if (declaredLength !== null && bytes.byteLength !== declaredLength) {
       throw new AuthGatewayError(400, 'INVALID_REQUEST')
     }
-    const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-    new JsonMemberScanner(source).scan()
-    const payload: unknown = JSON.parse(source)
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new AuthGatewayError(400, 'INVALID_JSON')
-    }
-    return payload as Record<string, unknown>
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
   } catch (error: unknown) {
     if (error instanceof AuthGatewayError) {
       throw error
@@ -432,6 +427,22 @@ const readLimitedJsonBody = async (
       clearTimeout(timeout)
     }
     reader.releaseLock()
+  }
+}
+
+export const readLimitedJsonBody = async (
+  request: Request,
+  maximumBytes: number
+): Promise<Record<string, unknown>> => {
+  const source = await readLimitedAuthBody(request, maximumBytes)
+  try {
+    new JsonMemberScanner(source).scan()
+    const payload: unknown = JSON.parse(source)
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+      throw new SyntaxError('Invalid object.')
+    return payload as Record<string, unknown>
+  } catch {
+    throw new AuthGatewayError(400, 'INVALID_JSON')
   }
 }
 
@@ -599,10 +610,12 @@ export const createAuthGateway = ({
   environment,
   phase7Facade,
   technicalRateLimiter,
+  ssoRuntime,
+  ssoAccountRuntime,
   delay = sleep,
   now = Date.now
 }: CreateAuthGatewayDependencies): AuthGateway => {
-  const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
+  const technicalMode = phase7Facade !== undefined
   if (
     technicalMode ? !phase7Facade || !technicalRateLimiter : !auth || !client
   ) {
@@ -658,6 +671,79 @@ export const createAuthGateway = ({
 
       if (!isAllowedOperation(request.method, pathname)) {
         throw new AuthGatewayError(404, 'AUTH_ROUTE_NOT_FOUND')
+      }
+      if (Object.values(SSO_ACCOUNT_PATHS).some((path) => path === pathname)) {
+        if (requestUrl.search)
+          throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')
+        if (request.method === 'POST')
+          assertTrustedWriteRequest(request, environment.TRUSTED_ORIGINS)
+        await technicalRateLimiter?.consume({
+          clientIp: request.headers.get('x-nihongo-client-ip') ?? 'unresolved',
+          max: 10,
+          operation: `auth:${pathname}`,
+          windowMs: 60_000
+        })
+        const result = !ssoAccountRuntime
+          ? Response.json(
+              { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE' },
+              { status: 503 }
+            )
+          : pathname === SSO_ACCOUNT_PATHS.freshComplete
+            ? await ssoAccountRuntime.complete(request, 'ACCOUNT_FRESH')
+            : pathname === SSO_ACCOUNT_PATHS.linkComplete
+              ? await ssoAccountRuntime.complete(request, 'ACCOUNT_LINK')
+              : await ssoAccountRuntime.handle(
+                  request,
+                  pathname,
+                  request.method === 'POST'
+                    ? await readLimitedJsonBody(
+                        request,
+                        MAX_TECHNICAL_AUTH_BODY_BYTES
+                      )
+                    : {}
+                )
+        return appendPrivateNoStore(
+          appendDevelopmentCors(result, request, environment)
+        )
+      }
+      if (
+        pathname === '/api/auth/sign-in/social' ||
+        pathname === '/api/auth/callback/google' ||
+        pathname === '/api/auth/callback/apple' ||
+        pathname === '/api/auth/sso/admin-fresh/complete'
+      ) {
+        let result: Response
+        if (pathname === '/api/auth/sign-in/social') {
+          if (requestUrl.search)
+            throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')
+          assertTrustedWriteRequest(request, environment.TRUSTED_ORIGINS)
+        }
+        await technicalRateLimiter?.consume({
+          clientIp: request.headers.get('x-nihongo-client-ip') ?? 'unresolved',
+          max: 10,
+          operation: `auth:${pathname}`,
+          windowMs: 60_000
+        })
+        if (!ssoRuntime) {
+          result = Response.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
+        } else if (pathname === '/api/auth/sso/admin-fresh/complete') {
+          result = ssoRuntime.completeAdminFresh
+            ? await ssoRuntime.completeAdminFresh(request)
+            : Response.json({ code: 'AUTH_ROUTE_NOT_FOUND' }, { status: 404 })
+        } else if (pathname === '/api/auth/sign-in/social') {
+          result = await ssoRuntime.start(
+            request,
+            await readLimitedJsonBody(request, MAX_TECHNICAL_AUTH_BODY_BYTES)
+          )
+        } else {
+          result = await ssoRuntime.callback(
+            request,
+            pathname.endsWith('/apple') ? 'apple' : 'google'
+          )
+        }
+        return appendPrivateNoStore(
+          appendDevelopmentCors(result, request, environment)
+        )
       }
       if (technicalMode && request.url.includes('?')) {
         throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')

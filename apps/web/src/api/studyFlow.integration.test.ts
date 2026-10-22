@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { isApiError } from '@api/config'
-import { signInUser } from '@api/auth/signInUser'
+import { signInMockAccount } from '@/test/auth'
+import { createBookmark } from '@api/bookmark/createBookmark'
+import { listBookmark } from '@api/bookmark/listBookmark'
+import { DEMO_ADMIN_ID } from '@mocks/data/users'
+import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { getCurrentUser } from '@api/auth/getCurrentUser'
 import { logoutUser } from '@api/auth/logoutUser'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
@@ -14,7 +18,7 @@ describe('MSW 학습 API 흐름', () => {
   })
 
   it('로그인 후 세션을 제출하면 오답노트에 저장한다', async () => {
-    await signInUser({ email: 'user@example.com', password: 'Demo-user-2026!' })
+    await signInMockAccount()
     const user = await getCurrentUser()
     const {
       data: { session, questions }
@@ -52,10 +56,40 @@ describe('MSW 학습 API 흐름', () => {
     )
     for (const { question } of questions)
       expect(savedQuestionIds.has(question.id)).toBe(true)
+    const bookmarked = questions[0]?.question.id
+    if (!bookmarked) throw new Error('Question fixture required')
+    await createBookmark(bookmarked)
+    await logoutUser()
+    setMockSsoAccountForTesting('apple', DEMO_ADMIN_ID)
+    await signInMockAccount('apple')
+    const otherWrongNotes = await listWrongNotesV1({ pageSize: 100 })
+    expect(
+      otherWrongNotes.items.every(
+        ({ questionId }) => !savedQuestionIds.has(questionId)
+      )
+    ).toBe(true)
+    expect(
+      (await listBookmark({ page: 1, pageSize: 100 })).items.some(
+        ({ questionId }) => questionId === bookmarked
+      )
+    ).toBe(false)
+    await logoutUser()
+    await signInMockAccount('google')
+    expect((await getCurrentUser())?.id).toBe(user?.id)
+    expect(
+      (await listWrongNotesV1({ pageSize: 100 })).items.map(
+        ({ questionId }) => questionId
+      )
+    ).toEqual(wrongNotes.items.map(({ questionId }) => questionId))
+    expect(
+      (await listBookmark({ page: 1, pageSize: 100 })).items.some(
+        ({ questionId }) => questionId === bookmarked
+      )
+    ).toBe(true)
   })
 
   it('세션에 속하지 않은 답안은 검증 오류로 분류한다', async () => {
-    await signInUser({ email: 'user@example.com', password: 'Demo-user-2026!' })
+    await signInMockAccount()
     const input = {
       level: 'N5',
       subject: 'GRAMMAR',

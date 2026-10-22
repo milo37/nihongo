@@ -263,18 +263,8 @@ export const exportAdminQuestionsRequestSchema = z
     })
   })
 
-export const adminReauthenticationPasswordSchema = z
-  .string()
-  .refine((password) => password.length >= 12 && password.length <= 128, {
-    message: 'password는 UTF-16 code-unit 길이 12..128이어야 합니다.'
-  })
-  .refine((password) => !/[\ud800-\udfff]/u.test(password), {
-    message: 'password는 unpaired surrogate를 포함할 수 없습니다.'
-  })
-
-export const reauthenticateAdminRequestSchema = z
-  .object({ password: adminReauthenticationPasswordSchema })
-  .strict()
+// Retired public operation: ADMIN_FRESH SSO is the sole replacement.
+export const reauthenticateAdminRequestSchema = z.never()
 
 export const adminQuestionMutationResultSchema = z
   .object({

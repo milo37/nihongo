@@ -4,28 +4,20 @@ import type { RouteObject } from 'react-router'
 const LoginPage = lazy(() =>
   import('@app/login/page').then((module) => ({ default: module.LoginPage }))
 )
-const ResetPasswordPage = lazy(() =>
-  import('@app/login/reset-password-page').then((module) => ({
-    default: module.ResetPasswordPage
-  }))
-)
-const VerifyEmailPage = lazy(() =>
-  import('@app/login/verify-email-page').then((module) => ({
-    default: module.VerifyEmailPage
+const LegacyAuthRedirect = lazy(() =>
+  import('@app/login/legacy-auth-redirect').then((module) => ({
+    default: module.LegacyAuthRedirect
   }))
 )
 
+const AccountDataPage = lazy(() =>
+  import('@app/login/account-data-page').then((module) => ({
+    default: module.AccountDataPage
+  }))
+)
 export const loginRoutes: RouteObject[] = [
-  {
-    path: 'login',
-    element: <LoginPage />
-  },
-  {
-    path: 'reset-password',
-    element: <ResetPasswordPage />
-  },
-  {
-    path: 'verify-email',
-    element: <VerifyEmailPage />
-  }
+  { path: 'account/data', element: <AccountDataPage /> },
+  { path: 'login', element: <LoginPage /> },
+  { path: 'reset-password', element: <LegacyAuthRedirect /> },
+  { path: 'verify-email', element: <LegacyAuthRedirect /> }
 ]

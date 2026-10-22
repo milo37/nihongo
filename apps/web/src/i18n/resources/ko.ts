@@ -135,8 +135,6 @@ export const koResources = {
     routes: {
       home: '학습',
       login: '로그인',
-      resetPassword: '비밀번호 재설정',
-      verifyEmail: '이메일 인증',
       dashboard: '학습',
       practiceSetup: '학습',
       practiceSession: '문제풀이',
@@ -358,123 +356,110 @@ export const koResources = {
     }
   },
   auth: {
-    checkingTitle: '로그인 상태 확인 중',
-    currentTitle: '로그인되어 있어요',
+    adminFresh: {
+      title: '관리자 본인 확인',
+      description:
+        '민감한 작업을 계속하려면 같은 관리자 계정에 연결한 로그인 방법을 선택하세요.',
+      checking: '현재 로그인 상태를 다시 확인하고 있어요.',
+      returned:
+        '로그인 상태를 다시 확인했어요. 원래 작업으로 돌아가 내용을 확인하고 직접 다시 실행해 주세요. 작업 권한은 서버에서 다시 확인합니다.',
+      cancelled:
+        '본인 확인을 취소했어요. 현재 로그인 상태를 확인한 뒤 필요하면 다시 시도해 주세요.',
+      failed:
+        '본인 확인 결과를 확인하지 못했어요. 현재 로그인 상태와 원래 작업을 확인한 뒤 다시 시도해 주세요.',
+      invalid:
+        '본인 확인 요청이 만료되었거나 올바르지 않아요. 필요하면 다시 시작해 주세요.',
+      unknown:
+        '현재 로그인 상태를 확인하지 못했어요. 완료 여부를 확정할 수 없어요. 연결을 확인하고 다시 조회해 주세요.'
+    },
     currentDescription: '현재 계정으로 학습을 계속할 수 있어요.',
-    loginDescription: '복습과 책갈피를 이어서 이용하세요.',
-    signupDescription: '학습 계정을 만들고 이메일을 확인해 주세요.',
-    continueAccount: '학습으로 돌아가기',
-    changeAccount: '로그아웃하고 다른 계정으로 로그인',
-    showPassword: '보기',
-    hidePassword: '숨기기',
-    signupPrompt: '아직 계정이 없으신가요?',
-    registrationTitle: '받은 편지함을 확인해 주세요',
-    requestTitle: '요청을 접수했습니다',
-    eyebrow: 'SECURE ACCESS',
-    title: '학습 계정으로 시작하세요',
-    description: {
-      mock: '현재 로컬 Mock 인증 모드입니다. 아래 데모 계정 로그인만 제공하며 인증 상태는 로컬 데모 저장소에만 보관됩니다.',
-      real: '이메일 인증을 마친 계정으로 로그인하면 오답노트와 학습 기록을 안전하게 이어갈 수 있습니다. 인증 정보는 브라우저 저장소가 아닌 보안 쿠키로 관리됩니다.'
-    },
     currentAccount: '현재 계정',
-    logout: '로그아웃',
-    methodLabel: '인증 방식',
-    signIn: '로그인',
-    signUp: '회원가입',
-    forgotPassword: '비밀번호를 잊으셨나요?',
-    fields: {
-      name: '이름',
-      email: '이메일',
-      password: '비밀번호',
-      newPassword: '새 비밀번호',
-      targetLevel: '목표 급수'
-    },
-    hints: {
-      password: '12자 이상 입력해 주세요.',
-      newPassword: '12자 이상 128자 이하로 입력해 주세요.'
-    },
-    notices: {
-      registration:
-        '가입 요청을 완료했습니다. 받은 편지함에서 이메일 인증을 마친 뒤 로그인해 주세요.',
-      resetRequested:
-        '가입 여부와 관계없이 요청을 접수했습니다. 계정이 존재하면 재설정 링크를 전송합니다.'
-    },
-    errors: {
-      logout:
-        '로그아웃하지 못했습니다. 현재 계정이 유지됩니다. 다시 시도해 주세요.',
-      request:
-        '인증 요청을 처리하지 못했습니다. 입력 정보와 네트워크 상태를 확인해 주세요.',
-      resetRequest:
-        '재설정 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      temporary: '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
-      resetUnsupported:
-        'Mock 모드에서는 비밀번호 재설정을 지원하지 않습니다. real API 모드에서 다시 시도해 주세요.',
-      resetExpired:
-        '링크가 만료되었거나 이미 사용되었습니다. 새 링크를 요청해 주세요.',
-      verifyUnsupported:
-        'Mock 모드에서는 이메일 인증을 지원하지 않습니다. real API 모드에서 다시 시도해 주세요.',
-      verifyExpired:
-        '링크가 만료되었거나 이미 사용되었습니다. 새 인증 메일을 요청해 주세요.'
-    },
-    signUpAction: '이메일 인증 요청',
-    reset: {
-      title: '비밀번호 재설정',
-      description:
-        '계정 이메일을 입력하면 1시간 동안 유효한 재설정 링크를 보냅니다.',
-      requestAction: '재설정 링크 요청',
-      backToLogin: '로그인으로 돌아가기',
-      invalidTitle: '유효하지 않은 재설정 링크',
-      missingToken:
-        '재설정 링크 정보가 없습니다. 새로고침했다면 받은 메일의 원래 재설정 링크를 다시 열어 주세요. 새 링크가 필요하면 재설정 링크를 요청하세요.',
-      missingTokenMember:
-        '재설정 링크 정보가 없습니다. 새로고침했다면 받은 메일의 원래 재설정 링크를 다시 열어 주세요. 새 링크가 필요하면 계정 확인 화면에서 직접 로그아웃한 뒤 재설정 링크를 요청하세요.',
-      missingTokenMock:
-        '재설정 링크 정보가 없습니다. 새로고침했다면 받은 메일의 원래 재설정 링크를 다시 열어 주세요. 체험 환경에서는 새 재설정 메일을 요청할 수 없습니다.',
-      recoveryAccount: '계정 확인·전환',
-      recoveryLogin: '로그인·계정 확인',
-      successTitle: '비밀번호를 변경했습니다',
-      successDescription:
-        '기존 로그인 세션은 모두 종료했습니다. 새 비밀번호로 다시 로그인해 주세요.',
-      formTitle: '새 비밀번호 설정',
-      formDescription: '12자 이상 128자 이하의 새 비밀번호를 입력해 주세요.',
-      submit: '비밀번호 변경'
-    },
-    verify: {
-      invalidTitle: '유효하지 않은 이메일 인증 링크',
-      missingToken:
-        '이메일 인증 링크 정보가 없습니다. 새로고침했다면 받은 메일의 원래 인증 링크를 다시 열어 주세요. 이미 인증했다면 로그인·계정 확인 화면에서 상태를 확인하세요.',
-      recoveryAction: '로그인·계정 확인',
-      successTitle: '이메일 인증을 완료했습니다',
-      successDescription:
-        '이제 가입한 이메일과 비밀번호로 로그인할 수 있습니다.',
-      title: '이메일 주소 확인',
-      description:
-        '아래 버튼을 누르면 이메일 주소 인증을 완료합니다. 링크를 직접 열기만 해서는 계정 상태가 변경되지 않습니다.',
-      submit: '이메일 인증하기'
-    },
-    guest: {
-      eyebrow: 'GUEST',
-      title: '가입 없이 먼저 체험',
-      descriptionMock:
-        '랜덤 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 게스트 기록은 계정에 자동 합쳐지지 않으며 오답노트와 책갈피는 로그인 후 사용할 수 있습니다.',
-      descriptionReal:
-        'RANDOM 문제풀이와 결과 확인을 바로 시작할 수 있습니다. 로그인하면 이후 학습의 오답노트와 전체 학습 기록을 이어서 확인할 수 있습니다.',
-      loading: '게스트 세션 준비 중…',
-      continue: '게스트로 계속'
-    },
-    mockNotice: {
-      title: 'Mock 데모 계정',
-      limitation:
-        '회원가입·이메일 인증·비밀번호 재설정은 VITE_API_MODE=real인 실제 API 모드에서 확인해 주세요.'
-    },
-    validation: {
-      email: '올바른 이메일 주소를 입력해 주세요.',
-      nameRequired: '이름을 입력해 주세요.',
-      nameMax: '이름은 80자 이하로 입력해 주세요.',
-      passwordMin: '비밀번호는 12자 이상이어야 합니다.',
-      passwordMax: '비밀번호는 128자 이하여야 합니다.',
-      newPasswordMin: '새 비밀번호는 12자 이상이어야 합니다.',
-      newPasswordMax: '새 비밀번호는 128자 이하여야 합니다.'
+    sso: {
+      accountTitle: '계정 관리',
+      connected: '연결된 로그인 방법',
+      linkProvider: '{{provider}} 연결',
+      linked: '로그인 방법을 연결했어요. 연결된 계정을 확인해 주세요.',
+      freshConfirmed:
+        '본인 확인을 완료했어요. 원하는 작업을 선택하고 최종 확인해 주세요.',
+      freshNeeded:
+        '현재 계정에 연결된 로그인 방법으로 본인을 확인한 뒤, 원하는 작업을 다시 선택해 주세요.',
+      checkingAccount: '계정 상태를 확인하고 있어요.',
+      remainingUnavailable:
+        '다른 로그인 방법을 현재 이용할 수 없어 연결을 해제할 수 없어요.',
+      openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
+      cancelledAccount:
+        '본인 확인이나 계정 연결을 취소했어요. 기존 계정은 유지돼요.',
+      dataGuide: '계정과 데이터 안내',
+      dataDescription:
+        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
+      deletionUnknown:
+        '탈퇴 결과를 확인할 수 없어요. 요청을 반복하지 말고 상태를 다시 확인해 주세요.',
+      cleanupPending: '연결 정리가 아직 완료되지 않았어요.',
+      cleanupComplete: '이 로그인 방법의 연결 정리가 완료됐어요.',
+      cleanupFailed:
+        '연결 정리를 완료하지 못했어요. 앱 탈퇴 상태와 별도로 확인해 주세요.',
+      title: '로그인',
+      description: '연결한 계정으로 학습 기록을 이어가세요.',
+      continueProvider: '{{provider}}로 계속하기',
+      guest: '로그인 없이 학습하기',
+      checkingSession: '로그인 상태를 확인하고 있어요.',
+      redirecting: '{{provider}}로 이동하고 있어요.',
+      checkingReturn: '로그인을 확인하고 있어요.',
+      cancelled:
+        '로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
+      failed: '로그인을 완료하지 못했어요. 다시 시도해 주세요.',
+      expired: '로그인 요청이 만료되었어요. 다시 시작해 주세요.',
+      unavailable:
+        '지금은 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.',
+      conflict:
+        '이 계정으로 연결을 완료하지 못했어요. 기존에 사용한 로그인 방법으로 다시 시도해 주세요.',
+      sessionExpired: '로그인이 만료되었어요. 다시 로그인해 주세요.',
+      alreadySignedIn: '로그인되어 있어요.',
+      backToLearning: '학습으로 돌아가기',
+      migrationIncomplete:
+        '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.',
+      cancel: '취소',
+      close: '닫기',
+      recheck: '다시 확인',
+      logoutTitle: '로그아웃할까요?',
+      logoutDescription:
+        '하루마루에서 로그아웃합니다. 연결한 계정은 그대로 유지돼요.',
+      logoutAction: '로그아웃',
+      loggingOut: '로그아웃하고 있어요.',
+      logoutUnknown: '로그아웃 상태를 확인하지 못했어요. 다시 확인해 주세요.',
+      loggedOut: '로그아웃했어요.',
+      unlinkTitle: '{{provider}} 연결을 해제할까요?',
+      unlinkDescription:
+        '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
+      unlinkAction: '연결 해제',
+      lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
+      lastMethodDescription:
+        '연결을 해제하면 다시 로그인할 수 없어요. 계정을 삭제하려면 회원 탈퇴 안내를 확인해 주세요.',
+      withdrawalHelp: '회원 탈퇴 안내',
+      reauthTitle: '계속하려면 다시 로그인해 주세요.',
+      wrongAccount: '처음 로그인한 계정으로 다시 시도해 주세요.',
+      deleteTitle: '회원 탈퇴할까요?',
+      deleteDescription:
+        '회원 탈퇴 후에는 이 계정으로 하루마루를 이용할 수 없어요. 데이터 처리 내용은 계정과 데이터 안내에서 확인해 주세요. 연결한 외부 계정 자체가 삭제되지는 않아요.',
+      deleteAction: '회원 탈퇴',
+      processing: '처리하고 있어요.',
+      actionFailed: '요청을 완료하지 못했어요. 다시 확인해 주세요.',
+      deletionAccepted: '회원 탈퇴 요청을 접수했어요.',
+      deletionComplete: '회원 탈퇴가 완료됐어요.',
+      unlinked: '연결을 해제했어요.',
+      providerCleanupPending:
+        '회원 탈퇴는 완료됐어요. {{provider}} 연결 정리는 아직 완료되지 않았어요.',
+      legacyMethod:
+        '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
+      continueApple: 'Apple로 계속하기',
+      continueGoogle: 'Google로 계속하기',
+      checkingProviderReturn: '{{provider}} 로그인을 확인하고 있어요.',
+      cancelledProvider:
+        '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
+      failedProvider:
+        '{{provider}} 로그인을 완료하지 못했어요. 다시 시도해 주세요.',
+      unavailableProvider:
+        '지금은 {{provider}} 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.'
     }
   },
   practice: {
@@ -1264,6 +1249,14 @@ export const koResources = {
       title: '마지막 오답 문제 상세',
       snapshotNotice:
         '아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전입니다.',
+      previousAnswer: {
+        selected: '내 이전 답',
+        unanswered: '내 이전 답: 미응답',
+        unavailable: '내 이전 답: 기록 확인 불가',
+        loading: '내 이전 답을 확인하고 있습니다…',
+        error: '내 이전 답을 불러오지 못했습니다.',
+        paused: '연결이 복구되면 내 이전 답을 확인합니다.'
+      },
       correct: '정답',
       explanation: '해설',
       review: {
@@ -1730,24 +1723,23 @@ export const koResources = {
         '가져오기 항목의 식별자가 기존 자료와 충돌합니다.',
       importValidationFailed:
         '가져오기 검증 결과가 현재 요청과 일치하지 않습니다.',
-      reauthenticationFailed: '현재 비밀번호가 올바르지 않습니다.',
+      reauthenticationFailed:
+        '연결한 계정으로 본인 확인을 완료하지 못했습니다.',
       fieldInvalid: '이 입력값을 확인해 주세요.'
     },
     freshAssurance: {
       title: '관리자 본인 확인',
       description:
-        '{{reason}} 비밀번호 확인 후 작업 버튼을 다시 눌러야 합니다.',
-      passwordLabel: '현재 비밀번호',
-      privacy: '비밀번호는 저장하거나 원래 명령에 재사용하지 않습니다.',
+        '{{reason}} 연결한 계정으로 본인 확인 후 작업 버튼을 다시 눌러야 합니다.',
       cancel: '취소',
       checkingSession: '로그인 상태 확인 중…',
       retrySession: '로그인 상태 다시 확인',
       checking: '확인 중…',
       confirm: '본인 확인',
       complete:
-        '본인 확인이 완료되었습니다. 원래 작업은 자동 실행되지 않았습니다. 내용을 확인한 뒤 다시 실행해 주세요.',
+        '로그인 상태를 다시 확인했습니다. 원래 작업은 자동 실행되지 않았습니다. 내용을 확인한 뒤 직접 다시 실행해 주세요.',
       recovered:
-        '현재 관리자 세션을 확인했습니다. 비밀번호를 다시 입력해 본인 확인을 재시도해 주세요.',
+        '현재 관리자 세션을 확인했습니다. 연결한 계정으로 본인 확인을 재시도해 주세요.',
       recoveryFailed:
         '로그인 상태를 확인하지 못했습니다. 로컬 작업은 유지됩니다. 로그인 상태 확인을 다시 시도해 주세요.',
       failed: '본인 확인을 완료하지 못했습니다.',
@@ -2132,6 +2124,7 @@ export const koResources = {
         '연결이 복구되면 로그인 상태를 다시 확인합니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다.'
     },
     banner: {
+      loggedOut: '로그아웃했어요.',
       offline: '오프라인 상태입니다. 네트워크 연결을 확인해 주세요.',
       restored:
         '네트워크 연결이 복구된 것으로 감지했습니다. 필요한 요청을 다시 시도해 주세요.',

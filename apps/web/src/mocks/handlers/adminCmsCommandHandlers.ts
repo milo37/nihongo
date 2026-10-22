@@ -14,7 +14,6 @@ import {
   assertRequestContentReviewBatchResponse,
   assertRequestContentReviewResponse,
   assertRequestQuestionChangesResponse,
-  assertReauthenticateAdminResponse,
   assertResolveAdminQuestionReportResponse,
   assertRetireQuestionVersionResponse,
   assertTriageAdminQuestionReportResponse,
@@ -39,7 +38,6 @@ import {
   requestContentReviewRequestSchema,
   requestQuestionChangesParamsSchema,
   requestQuestionChangesRequestSchema,
-  reauthenticateAdminRequestSchema,
   resolveAdminQuestionReportParamsSchema,
   resolveAdminQuestionReportRequestSchema,
   retireQuestionVersionParamsSchema,
@@ -67,7 +65,6 @@ import {
   Phase7RateLimitRepositoryUnavailableError,
   type Phase7RateLimitInput
 } from '@mocks/repository/phase7RateLimitRepository'
-import { isMockAdminPasswordForActor } from '@mocks/handlers/authHandlers'
 import { phase7Sha256TextPort } from '@libs/phase7Sha256'
 
 const LARGE_BODY_CAP = 256 * 1024
@@ -371,7 +368,8 @@ const assertFreshAssurance = (
   if (!hasFreshAssurance) {
     throw new MockPhase7AdminCommandError({
       code: 'FRESH_ASSURANCE_REQUIRED',
-      message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.'
+      message:
+        '민감한 관리자 작업을 위해 연결한 계정으로 본인 확인이 필요합니다.'
     })
   }
 }
@@ -1223,37 +1221,6 @@ export const adminCmsCommandHandlers = [
     }
   ),
   http.post('*/api/v1/admin/reauthentication', ({ request }) =>
-    hasCanonicalCommandPath(request)
-      ? handleCommand({
-          operation: 'reauthenticateAdmin',
-          request,
-          schema: reauthenticateAdminRequestSchema,
-          message: '관리자 재인증 요청이 올바르지 않습니다.',
-          execute: ({ actorId, body, requestId }) => {
-            const assertAuthority = commitAuthority(
-              actorId,
-              'reauthenticateAdmin'
-            )
-            assertAuthority()
-            if (!isMockAdminPasswordForActor(actorId, body.password)) {
-              throw new MockPhase7AdminCommandError({
-                code: 'REAUTHENTICATION_FAILED',
-                message: '비밀번호를 확인할 수 없습니다.'
-              })
-            }
-            return state().reauthenticate({
-              actorId,
-              assertAuthority,
-              requestId
-            })
-          },
-          assertResult: (body, raw) =>
-            assertReauthenticateAdminResponse(body, raw),
-          setCookies: () => [
-            `nihongo.session_token=mock-${crypto.randomUUID()}; Path=/; HttpOnly; SameSite=Lax`,
-            'nihongo.dont_remember=1; Path=/; HttpOnly; SameSite=Lax'
-          ]
-        })
-      : genericNotFound(request)
+    genericNotFound(request)
   )
 ]

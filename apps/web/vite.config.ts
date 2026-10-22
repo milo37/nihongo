@@ -1,9 +1,42 @@
 import path from 'node:path'
+import { readFile } from 'node:fs/promises'
 import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import type { Plugin } from 'vite'
 import { resolveApiMode } from './src/libs/resolveApiMode.ts'
 import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
+
+const approvedBrandAssetPaths = [
+  'auth/apple-mark.svg',
+  'auth/google-mark.svg',
+  'brand/harumaru-lockup-160.png',
+  'brand/harumaru-lockup-320.png',
+  'brand/harumaru-lockup.svg',
+  'brand/harumaru-symbol-16.png',
+  'brand/harumaru-symbol-32.png',
+  'brand/harumaru-symbol.svg',
+  'favicon.ico',
+  'favicon.svg',
+  'icons/icon-192.png',
+  'icons/icon-512.png'
+] as const
+
+const approvedBrandAssetsPlugin: Plugin = {
+  name: 'nihongo-approved-brand-assets',
+  apply: 'build',
+  async generateBundle() {
+    for (const fileName of approvedBrandAssetPaths) {
+      this.emitFile({
+        type: 'asset',
+        fileName,
+        source: await readFile(
+          path.resolve(import.meta.dirname, 'public', fileName)
+        )
+      })
+    }
+  }
+}
 
 const aliases = {
   '@': path.resolve(import.meta.dirname, 'src'),
@@ -63,6 +96,7 @@ export default defineConfig(({ command, mode }) => {
     ...sharedViteConfig,
     plugins: [
       ...(sharedViteConfig.plugins ?? []),
+      approvedBrandAssetsPlugin,
       {
         name: 'nihongo-release-metadata',
         transformIndexHtml: {

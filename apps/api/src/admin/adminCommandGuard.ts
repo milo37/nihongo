@@ -274,7 +274,8 @@ export const createAdminCommandGuard = ({
     if (freshOperations.has(operation) && !resolution.phase7Session.isFresh) {
       throw new ApplicationError({
         code: 'FRESH_ASSURANCE_REQUIRED',
-        message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
+        message:
+          '민감한 관리자 작업을 위해 연결된 SSO 계정으로 다시 인증해 주세요.',
         retryable: false,
         phase7Disposition: 'NO_TX'
       })

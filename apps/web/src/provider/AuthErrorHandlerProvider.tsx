@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
+import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
+import { AdminFreshReturnNotice } from '@app/login/components/AdminFreshReturnNotice'
+import { AuthFlowError } from '@app/login/authFlowErrors'
 import { isApiError } from '@api/config'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { subscribeApiError } from '@libs/errorBus'
 import { getRouteLabelKey } from '@/i18n/routePresentation'
 import { frontendErrorReporter } from '@/observability/frontendErrorReporter'
 
-type BannerKind = 'error' | 'offline' | 'restored'
+type BannerKind = 'error' | 'offline' | 'restored' | 'signedOut'
 type BannerMessageKey =
+  | 'banner.loggedOut'
   | 'banner.offline'
   | 'banner.restored'
   | 'banner.generic'
@@ -51,13 +55,15 @@ const getInitialBanner = (): StatusBanner | null => {
 const bannerClasses: Record<BannerKind, string> = {
   error: 'border-red-200 bg-red-50 text-red-900',
   offline: 'border-amber-200 bg-amber-50 text-amber-950',
-  restored: 'border-emerald-200 bg-emerald-50 text-emerald-950'
+  restored: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+  signedOut: 'border-line bg-surface text-ink'
 }
 
 const closeButtonClasses: Record<BannerKind, string> = {
   error: 'hover:bg-red-100 focus-visible:outline-red-700',
   offline: 'hover:bg-amber-100 focus-visible:outline-amber-700',
-  restored: 'hover:bg-emerald-100 focus-visible:outline-emerald-700'
+  restored: 'hover:bg-emerald-100 focus-visible:outline-emerald-700',
+  signedOut: 'hover:bg-surface-muted focus-visible:outline-brand'
 }
 
 export const AuthErrorHandlerProvider = (): ReactElement | null => {
@@ -66,10 +72,46 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
+  const currentPathnameRef = useRef(location.pathname)
+  useLayoutEffect(() => {
+    currentPathnameRef.current = location.pathname
+  }, [location.pathname])
   const [banner, setBanner] = useState<StatusBanner | null>(getInitialBanner)
   const isOnlineRef = useRef(
     typeof navigator === 'undefined' || navigator.onLine !== false
   )
+
+  const [consumedSignOutKey, setConsumedSignOutKey] = useState<string | null>(
+    null
+  )
+  const routeState: unknown = location.state
+  const isConfirmedSignOut = Boolean(
+    routeState &&
+      typeof routeState === 'object' &&
+      'signedOut' in routeState &&
+      routeState.signedOut === true
+  )
+  if (isConfirmedSignOut && consumedSignOutKey !== location.key) {
+    setConsumedSignOutKey(location.key)
+    setBanner({ kind: 'signedOut', messageKey: 'banner.loggedOut' })
+  }
+  useEffect(() => {
+    if (!isConfirmedSignOut) return
+    void navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash
+      },
+      { replace: true, state: null }
+    )
+  }, [
+    isConfirmedSignOut,
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate
+  ])
 
   useEffect(() => {
     const handleOffline = (): void => {
@@ -102,6 +144,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
 
   useEffect(() => {
     return subscribeApiError((error) => {
+      if (error instanceof AuthFlowError) return
       if (!isApiError(error)) {
         frontendErrorReporter.report({
           source: 'UNEXPECTED_API_ERROR',
@@ -120,14 +163,17 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
 
       if (error.isAuthError && !isFreshAssuranceFlow) {
         const redirect = encodeURIComponent(
-          `${location.pathname}${location.search}`
+          safeSsoReturnPath(`${location.pathname}${location.search}`)
         )
         void commitCanonicalAuth(queryClient, null, {
           forceClear: true,
           forcePracticeReset: true
         }).then(({ applied }) => {
-          if (applied) {
-            navigate(`/login?redirect=${redirect}`, { replace: true })
+          if (applied && currentPathnameRef.current !== '/login') {
+            navigate(`/login?redirect=${redirect}`, {
+              replace: true,
+              state: { sessionExpired: true }
+            })
           }
         })
         return
@@ -195,25 +241,26 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
     })
   }, [location.pathname, location.search, navigate, queryClient])
 
-  if (!banner) {
-    return null
-  }
-
   return (
-    <div
-      className={`app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm shadow-soft ${bannerClasses[banner.kind]}`}
-      role="status"
-      aria-live="polite"
-      data-kind={banner.kind}
-    >
-      <span>{t(banner.messageKey)}</span>
-      <button
-        className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
-        type="button"
-        onClick={() => setBanner(null)}
-      >
-        {commonT('actions.close')}
-      </button>
-    </div>
+    <>
+      <AdminFreshReturnNotice suppressed={banner !== null} />
+      {banner ? (
+        <div
+          className={`app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm shadow-soft ${bannerClasses[banner.kind]}`}
+          role="status"
+          aria-live="polite"
+          data-kind={banner.kind}
+        >
+          <span>{t(banner.messageKey)}</span>
+          <button
+            className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
+            type="button"
+            onClick={() => setBanner(null)}
+          >
+            {commonT('actions.close')}
+          </button>
+        </div>
+      ) : null}
+    </>
   )
 }

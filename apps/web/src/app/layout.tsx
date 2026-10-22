@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation, useNavigationType } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
 import { AppShell } from '@common/components/AppShell'
 import { SideNavigation } from '@common/components/SideNavigation'
 import { Icon } from '@common/components/Icon'
@@ -94,7 +95,7 @@ export const Layout = ({ children }: LayoutProps): ReactElement => {
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
 
-  useDocumentMetadata()
+  useDocumentMetadata({ robots: getRouteIndexingPolicy(location.pathname) })
 
   useEffect(() => {
     localeRef.current = locale
@@ -268,8 +269,13 @@ export const Layout = ({ children }: LayoutProps): ReactElement => {
             label={navigationT('primary')}
             brand={
               <Link className="app-brand" to="/" onClick={closeMenu}>
-                <Icon name="book-open" />
-                <strong>{commonT('appName')}</strong>
+                <img
+                  className="app-brand-lockup"
+                  src="/brand/harumaru-lockup.svg"
+                  width={770}
+                  height={210}
+                  alt={commonT('appName')}
+                />
               </Link>
             }
             items={navigationItems.map((item) => ({
@@ -289,8 +295,13 @@ export const Layout = ({ children }: LayoutProps): ReactElement => {
                 to="/"
                 onClick={closeMenu}
               >
-                <Icon name="book-open" />
-                <strong>{commonT('appName')}</strong>
+                <img
+                  className="app-brand-lockup"
+                  src="/brand/harumaru-lockup.svg"
+                  width={770}
+                  height={210}
+                  alt={commonT('appName')}
+                />
               </Link>
 
               <div className="app-account">

@@ -14,7 +14,6 @@ import type {
   ListAdminTagsQuery,
   ListQuestionVersionReviewsQuery,
   PublishQuestionVersionRequest,
-  ReauthenticateAdminRequest,
   RequestContentReviewBatchRequest,
   RequestContentReviewRequest,
   RequestQuestionChangesRequest,
@@ -239,14 +238,6 @@ export const listPhase7AdminAuditLog = (query: ListAdminAuditLogQuery) =>
     params: {},
     query,
     body: undefined
-  })
-
-export const reauthenticatePhase7Admin = (body: ReauthenticateAdminRequest) =>
-  requestPhase7Operation({
-    operation: 'reauthenticateAdmin',
-    params: {},
-    query: {},
-    body
   })
 
 export const createPhase7QuestionReport = (body: CreateQuestionReportRequest) =>

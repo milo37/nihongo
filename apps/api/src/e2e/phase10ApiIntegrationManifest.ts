@@ -47,6 +47,38 @@ export const phase10ApiIntegrationManifest = [
     isolation: 'dedicated Phase 7 API schema'
   },
   {
+    path: 'src/db/phase7Sso.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-sso',
+    order: 12,
+    databaseState: 'canonical43-sso-current-capability-active-canonical-65',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'AUTH_GATEWAY_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'existing runner-owned disposable Phase 7 schema; SQL-only provider proofs; no external OAuth'
+  },
+  {
+    path: 'src/db/phase7SsoAccountLifecycle.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-sso-account-lifecycle',
+    order: 13,
+    databaseState:
+      'canonical46-account-lifecycle-current-capability-active-canonical-65',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'AUTH_GATEWAY_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'existing runner-owned disposable TEST schema; exact3; SQL-only proofs; no external OAuth'
+  },
+  {
     path: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-current',
@@ -111,6 +143,84 @@ export const phase10ApiIntegrationManifest = [
     requiredEnvironment: ['PHASE7_MIGRATION_DATABASE_URL'],
     seedPolicy: 'none',
     isolation: 'suite-owned migration-history schema'
+  },
+  {
+    path: 'src/content/approvedReadingTags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-reading-tags',
+    order: 7,
+    databaseState: 'seeded-65-tags108-applicability127-registration-unapplied',
+    connectionRole: 'owner',
+    requiredEnvironment: ['DATABASE_URL', 'PHASE7_ADMIN_DATABASE_URL'],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approvedN3ReadingTags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-n3-reading-tags',
+    order: 8,
+    databaseState:
+      'canonical33-plus-n3-migration-seeded-65-before-n5-application',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approvedN4N2ReadingTags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-n4-n2-reading-tags',
+    order: 9,
+    databaseState: 'canonical36-seeded-65-without-current-catalog107-126',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approvedN4ReadingBatch7Tags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved-batch7-reading-tags',
+    order: 10,
+    databaseState: 'explicit-legacy-or-current-batch7-unapplied-predecessor',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
+  },
+  {
+    path: 'src/content/approved308Tags.integration.test.ts',
+    executionOwner: 'phase7-db',
+    shard: 'phase7-db-approved308-tags',
+    order: 11,
+    databaseState: 'current38-seeded-65-tags107-applicability126-no-imports',
+    connectionRole: 'owner',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'PRISMA_TEST_DATABASE_URL',
+      'PHASE7_ADMIN_DATABASE_URL',
+      'PHASE7_APPROVED308_FIXTURE_PROFILE'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'separately prepared disposable fixture; suite mutations roll back'
   },
   {
     path: 'src/app/createApp.integration.test.ts',

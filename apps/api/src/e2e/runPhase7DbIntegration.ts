@@ -6,7 +6,15 @@ import {
 import { runPhase7SeedExecution } from './phase7SeedExecution.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  cpSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
@@ -22,6 +30,7 @@ import {
 } from './ownedProcessGroup.js'
 import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 import {
+  createPhase7DbFileEnvironment,
   runPhase10ManifestVitestFile,
   selectPhase7DbIntegrationFiles
 } from './phase10ApiIntegrationExecution.js'
@@ -251,15 +260,31 @@ const EXPECTED_PHASE7_DATABASE_DEFAULTS: readonly Phase7DatabaseDefault[] = [
 const runCommand = async (
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  output: 'inherit' | 'redacted' = 'inherit'
 ): Promise<void> =>
   await new Promise<void>((resolve, reject) => {
     let spawnError: Error | undefined
+    const script =
+      args.find(
+        (argument) =>
+          argument === 'db:migrate:phase7' || argument === 'db:migrate:deploy'
+      ) ?? 'UNKNOWN_REDACTED'
+    const reportCommand = (
+      state: 'BEGIN' | 'COMPLETE' | 'FAILED',
+      exitCode: number | null
+    ): void => {
+      if (output !== 'redacted') return
+      process.stdout.write(
+        `${JSON.stringify({ event: 'phase7.db.integration.migration_command', script, state, exitCode })}\n`
+      )
+    }
+    reportCommand('BEGIN', null)
     const child = spawn(command, args, {
       cwd: repositoryRoot,
       detached: shouldDetachOwnedProcess,
       env: environment,
-      stdio: 'inherit'
+      stdio: output === 'redacted' ? 'ignore' : 'inherit'
     })
     const ownedCommand = { child, label: formatCommand(command, args) }
     commandProcesses.push(ownedCommand)
@@ -270,13 +295,16 @@ const runCommand = async (
       void retireOwnedProcess(commandProcesses, ownedCommand).then(
         () => {
           if (spawnError) {
+            reportCommand('FAILED', code)
             reject(spawnError)
             return
           }
           if (code === 0) {
+            reportCommand('COMPLETE', 0)
             resolve()
             return
           }
+          reportCommand('FAILED', code)
           reject(
             new Error(
               `${formatCommand(command, args)} failed (` +
@@ -284,7 +312,10 @@ const runCommand = async (
             )
           )
         },
-        (error: unknown) => reject(error)
+        (error: unknown) => {
+          reportCommand('FAILED', code)
+          reject(error)
+        }
       )
     })
   })
@@ -301,7 +332,7 @@ const runCommandCapture = async (
       cwd: repositoryRoot,
       detached: shouldDetachOwnedProcess,
       env: environment,
-      stdio: ['inherit', 'pipe', 'inherit']
+      stdio: ['ignore', 'pipe', 'ignore']
     })
     const ownedCommand = { child, label: formatCommand(command, args) }
     commandProcesses.push(ownedCommand)
@@ -393,8 +424,7 @@ const assertExpectedPrismaRepresentationDiff = (value: string): void => {
   const normalized = normalizePrismaDiff(value)
   if (normalized !== EXPECTED_PRISMA_REPRESENTATION_DIFF) {
     throw new Error(
-      'Phase 7 Prisma drift exceeded the exact representation allowlist.\n' +
-        normalized
+      'Phase 7 Prisma drift exceeded the exact representation allowlist.'
     )
   }
   process.stdout.write(
@@ -1286,6 +1316,76 @@ const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
   )
 }
 
+const migrationDiagnosticNames = [
+  '20260827100000_phase7_admin_cms_enums',
+  '20260827101000_phase7_admin_cms_foundation',
+  '20260909120000_phase7_archive_empty_manifest_verifier',
+  '20260916120000_phase7_reauthentication_foundation',
+  '20261019090000_sso_login_transactions',
+  '20261019093000_sso_apple_google_providers',
+  '20261019100000_sso_identity_mapping',
+  '20261019103000_sso_admin_fresh',
+  '20261019110000_sso_admin_fresh_erasure_ownership'
+] as const
+
+const sanitizeMigrationDatabaseError = (error: unknown) => {
+  const ownText = (key: string, limit: number): string | undefined => {
+    if (error === null || typeof error !== 'object') return undefined
+    const property = Object.getOwnPropertyDescriptor(error, key)
+    const value: unknown =
+      property && 'value' in property ? property.value : undefined
+    return typeof value === 'string' && value.length <= limit
+      ? value
+      : undefined
+  }
+  const code = ownText('code', 5)
+  const message = ownText('message', 256)
+  const position = ownText('position', 10)
+  // Only static, value-free messages may leave this private TEST runner.
+  const safeMessages = [
+    'permission denied for schema pg_catalog',
+    `permission denied for schema ${schemaName}`,
+    'SSO migration principal is not canonical.',
+    'Activated auth requires a sign-in Account.',
+    'Last SSO sign-in method cannot be removed.',
+    'Malformed verified SSO identity.',
+    'SSO staging rejected.',
+    'SSO rotation confirmation rejected.',
+    'Phase 7 operation authority is stale or insufficient.'
+  ]
+  const where = ownText('where', 2048)
+    ?.split('\n')
+    .find((frame) =>
+      /^PL\/pgSQL function (?:inline_code_block|(?:phase7_[a-z0-9_]+|validate_phase7_[a-z0-9_]+)\([a-z0-9_, ]*\)) line [1-9][0-9]{0,5} at (?:RAISE|SQL statement|EXECUTE|assignment|PERFORM|RETURN|IF)$/u.test(
+        frame
+      )
+    )
+  return {
+    code: code && /^[0-9A-Z]{5}$/u.test(code) ? code : 'UNKNOWN_REDACTED',
+    message:
+      message && safeMessages.includes(message) ? message : 'UNKNOWN_REDACTED',
+    position: position && /^[1-9][0-9]{0,9}$/u.test(position) ? position : null,
+    where: where ?? null
+  }
+}
+
+const reportMigrationFailure = (
+  migrationName: string,
+  error: unknown,
+  replayOutcome: 'FAILED' | 'SUCCEEDED'
+): void => {
+  if (!migrationDiagnosticNames.some((name) => name === migrationName)) return
+  process.stderr.write(
+    `${JSON.stringify({
+      event: 'phase7.db.integration.migration_failure',
+      diagnosticSource: 'BOUNDED_REPLAY',
+      migrationName,
+      replayOutcome,
+      databaseError: sanitizeMigrationDatabaseError(error)
+    })}\n`
+  )
+}
+
 const run = async (): Promise<void> => {
   const selectedTestFiles = selectPhase7DbIntegrationFiles(
     getPhase10ApiIntegrationPathsByOwner('phase7-db'),
@@ -1336,6 +1436,7 @@ const run = async (): Promise<void> => {
       developmentApplicationDatabaseUrl.toString(),
     PHASE7_LEGACY_DATABASE_URL: legacyDatabaseUrl.toString(),
     PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    PHASE7_TEST_MIGRATIONS_PATH: undefined,
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
   const migrationEnvironment: NodeJS.ProcessEnv = { ...sharedEnvironment }
@@ -1374,121 +1475,123 @@ const run = async (): Promise<void> => {
     ],
     migrationEnvironment
   )
-  try {
-    await runCommand(
-      'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
-      migrationEnvironment
-    )
-  } catch (error: unknown) {
-    const failedMigration = await adminClient.query<{
-      logs: string | null
-      migrationName: string
-    }>(
-      `SELECT migration_name AS "migrationName", logs
-       FROM ${quoteSchema(schemaName)}."_prisma_migrations"
-       WHERE finished_at IS NULL AND rolled_back_at IS NULL
-       ORDER BY started_at DESC LIMIT 1`
-    )
-    const row = failedMigration.rows[0]
-    if (row) {
-      let replayDetail = ''
-      if (
-        row.migrationName === '20260827100000_phase7_admin_cms_enums' ||
-        row.migrationName === '20260827101000_phase7_admin_cms_foundation' ||
-        row.migrationName ===
-          '20260909120000_phase7_archive_empty_manifest_verifier' ||
-        row.migrationName ===
-          '20260916120000_phase7_reauthentication_foundation'
-      ) {
-        const diagnosticClient = new Client({
-          connectionString: migrationDatabaseUrl.toString()
-        })
-        await diagnosticClient.connect()
-        try {
-          await diagnosticClient.query(
-            `SET search_path TO ${quoteSchema(schemaName)}`
-          )
-          const migrationSql = readFileSync(
-            path.join(
-              repositoryRoot,
-              'apps/api/prisma/migrations',
-              row.migrationName,
-              'migration.sql'
-            ),
-            'utf8'
-          )
-          await diagnosticClient.query(migrationSql)
-          replayDetail = ' Manual wrapper replay unexpectedly succeeded.'
-        } catch (replayError: unknown) {
-          const databaseError = replayError as {
-            code?: unknown
-            message?: unknown
-            position?: unknown
-            where?: unknown
+  const deployPhase7Migrations = async (
+    environment: NodeJS.ProcessEnv
+  ): Promise<void> => {
+    try {
+      await runCommand(
+        'pnpm',
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        environment,
+        'redacted'
+      )
+    } catch (error: unknown) {
+      const failedMigration = await adminClient.query<{
+        logs: string | null
+        migrationName: string
+      }>(
+        `SELECT migration_name AS "migrationName", logs
+         FROM ${quoteSchema(schemaName)}."_prisma_migrations"
+         WHERE finished_at IS NULL AND rolled_back_at IS NULL
+         ORDER BY started_at DESC LIMIT 1`
+      )
+      const row = failedMigration.rows[0]
+      if (row) {
+        let replayDetail = ''
+        if (
+          migrationDiagnosticNames.some((name) => name === row.migrationName)
+        ) {
+          const diagnosticClient = new Client({
+            connectionString: migrationDatabaseUrl.toString()
+          })
+          try {
+            await diagnosticClient.connect()
+            await diagnosticClient.query(
+              `SET search_path TO ${quoteSchema(schemaName)}`
+            )
+            const migrationSql = readFileSync(
+              path.join(
+                repositoryRoot,
+                'apps/api/prisma/migrations',
+                row.migrationName,
+                'migration.sql'
+              ),
+              'utf8'
+            )
+            await diagnosticClient.query(migrationSql)
+            replayDetail = ' Manual wrapper replay unexpectedly succeeded.'
+            reportMigrationFailure(row.migrationName, undefined, 'SUCCEEDED')
+          } catch (replayError: unknown) {
+            replayDetail =
+              ' Manual wrapper replay: ' +
+              JSON.stringify(sanitizeMigrationDatabaseError(replayError))
+            reportMigrationFailure(row.migrationName, replayError, 'FAILED')
+          } finally {
+            try {
+              await diagnosticClient.end()
+            } catch {
+              // Keep the original migration failure as the primary error.
+            }
           }
-          replayDetail =
-            ' Manual wrapper replay: ' +
-            JSON.stringify({
-              code: databaseError.code,
-              message: databaseError.message,
-              position: databaseError.position,
-              where: databaseError.where
-            })
-        } finally {
-          await diagnosticClient.end()
         }
+        throw new Error(
+          `Phase 7 migration ${row.migrationName} failed: ` +
+            (row.logs?.trim().slice(-4000) ?? 'migration log unavailable') +
+            replayDetail,
+          { cause: error }
+        )
       }
-      throw new Error(
-        `Phase 7 migration ${row.migrationName} failed: ` +
-          (row.logs?.trim().slice(-4000) ?? 'migration log unavailable') +
-          replayDetail,
-        { cause: error }
+      throw error
+    }
+  }
+  const canonicalMigrationsPath = path.join(
+    repositoryRoot,
+    'apps/api/prisma/migrations'
+  )
+  const canonicalMigrationEnvironment: NodeJS.ProcessEnv = {
+    ...migrationEnvironment,
+    PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+  }
+  const lastBootstrapMigration =
+    '20261009092000_phase7_n4_n2_revision2_digest_fix'
+  const migrationNames = readdirSync(canonicalMigrationsPath, {
+    withFileTypes: true
+  })
+    .filter(
+      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
+    )
+    .map((entry) => entry.name)
+    .sort()
+  if (
+    migrationNames.length !== 37 ||
+    migrationNames.at(-1) !== lastBootstrapMigration
+  ) {
+    throw new Error(
+      'Phase 7 canonical content migration prefix is inconsistent.'
+    )
+  }
+  const prefixMigrationsPath = mkdtempSync(
+    path.join(tmpdir(), 'nihongo-phase7-current37-')
+  )
+  try {
+    copyFileSync(
+      path.join(canonicalMigrationsPath, 'migration_lock.toml'),
+      path.join(prefixMigrationsPath, 'migration_lock.toml')
+    )
+    for (const name of migrationNames) {
+      cpSync(
+        path.join(canonicalMigrationsPath, name),
+        path.join(prefixMigrationsPath, name),
+        { recursive: true }
       )
     }
-    throw error
+    await deployPhase7Migrations({
+      ...migrationEnvironment,
+      PHASE7_TEST_MIGRATIONS_PATH: prefixMigrationsPath
+    })
+  } finally {
+    rmSync(prefixMigrationsPath, { recursive: true, force: true })
   }
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-    migrationEnvironment
-  )
-  await assertPhase7DatabaseDefaultDriftRejected(
-    `ALTER TABLE ${quoteSchema(schemaName)}."Session"
-       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
-  )
-  await assertPhase7DatabaseDefaultDriftRejected(
-    `ALTER TABLE ${quoteSchema(schemaName)}."Session"
-       ALTER COLUMN "authorizationState" DROP DEFAULT`
-  )
-  await assertPhase7DatabaseDefaults()
-  process.stdout.write(
-    `${JSON.stringify({
-      event: 'phase7.db.integration.database_defaults_attested',
-      defaultCount: EXPECTED_PHASE7_DATABASE_DEFAULTS.length,
-      driftRejections: 2
-    })}\n`
-  )
-  const prismaDiff = await runCommandCapture(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'prisma',
-      'migrate',
-      'diff',
-      '--config',
-      'prisma.test.config.ts',
-      '--from-config-datasource',
-      '--to-schema',
-      'prisma/schema.prisma',
-      '--script'
-    ],
-    driftEnvironment
-  )
-  assertExpectedPrismaRepresentationDiff(prismaDiff)
-
   const readQuestionCount = async (): Promise<string> => {
     const result = await adminClient.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count
@@ -1581,6 +1684,58 @@ const run = async (): Promise<void> => {
   )
   await assertSeedWriteCount('65')
 
+  await deployPhase7Migrations(canonicalMigrationEnvironment)
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
+    canonicalMigrationEnvironment,
+    'redacted'
+  )
+  await assertPhase7DatabaseDefaultDriftRejected(
+    `ALTER TABLE ${quoteSchema(schemaName)}."Session"
+       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
+  )
+  await assertPhase7DatabaseDefaultDriftRejected(
+    `ALTER TABLE ${quoteSchema(schemaName)}."Session"
+       ALTER COLUMN "authorizationState" DROP DEFAULT`
+  )
+  await assertPhase7DatabaseDefaults()
+  process.stdout.write(
+    `${JSON.stringify({
+      event: 'phase7.db.integration.database_defaults_attested',
+      defaultCount: EXPECTED_PHASE7_DATABASE_DEFAULTS.length,
+      driftRejections: 2
+    })}\n`
+  )
+  const prismaDiff = await runPostSeedDiagnostic(
+    'PRISMA_DIFF_CAPTURE',
+    () =>
+      runCommandCapture(
+        'pnpm',
+        [
+          '--filter',
+          '@nihongo/api',
+          'exec',
+          'prisma',
+          'migrate',
+          'diff',
+          '--config',
+          'prisma.test.config.ts',
+          '--from-config-datasource',
+          '--to-schema',
+          'prisma/schema.prisma',
+          '--script'
+        ],
+        driftEnvironment
+      ),
+    reportPostSeedDiagnostic
+  )
+  await runPostSeedDiagnostic(
+    'PRISMA_DIFF_REPRESENTATION',
+    async () => assertExpectedPrismaRepresentationDiff(prismaDiff),
+    reportPostSeedDiagnostic
+  )
+
   const migrationCatalogClient = new Client({
     connectionString: migrationDatabaseUrl.toString()
   })
@@ -1626,13 +1781,17 @@ const run = async (): Promise<void> => {
   )
 
   for (const testFile of selectedTestFiles) {
+    const fileEnvironment = createPhase7DbFileEnvironment(
+      testFile,
+      integrationEnvironment
+    )
     await runPostSeedDiagnostic(
       'FILE',
       () =>
         runPhase10ManifestVitestFile({
           runCommand,
           testFile,
-          environment: integrationEnvironment,
+          environment: fileEnvironment,
           preserveSanitizedReport
         }),
       reportPostSeedDiagnostic,

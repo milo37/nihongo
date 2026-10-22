@@ -24,7 +24,10 @@ if (!databaseUrl) {
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
-    path: 'prisma/migrations'
+    path:
+      process.env.NODE_ENV === 'test'
+        ? (process.env.PHASE7_TEST_MIGRATIONS_PATH ?? 'prisma/migrations')
+        : 'prisma/migrations'
   },
   datasource: {
     url: databaseUrl
