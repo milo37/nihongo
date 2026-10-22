@@ -1,16 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { randomBytes, randomUUID } from 'node:crypto'
-import {
-  createServer as createHttpServer,
-  type IncomingMessage,
-  type Server
-} from 'node:http'
 import { createServer as createNetServer } from 'node:net'
 import nodePath from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import type { AddressInfo } from 'node:net'
-import type { Phase7BrowserFixtureDatabase } from '../apps/api/src/e2e/phase7BrowserFixture.js'
 import { cleanupPhase10BrowserResources } from '../apps/api/src/e2e/phase10BrowserCleanup.js'
 import {
   retireOwnedProcess,
@@ -29,19 +22,6 @@ interface ManagedProcess {
   spawnError: Error | undefined
 }
 
-interface RegistrationCredentials {
-  readonly email: string
-  readonly name: string
-  readonly password: string
-  readonly targetLevel: 'N4'
-}
-
-interface AuthEmailMessageCandidate {
-  readonly purpose?: unknown
-  readonly recipient?: unknown
-  readonly url?: unknown
-}
-
 type BrowserMode = 'mock' | 'real'
 
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
@@ -51,9 +31,6 @@ const playwrightArguments = rawPlaywrightArguments.filter(
   (argument, index) => !(index === 0 && argument === '--')
 )
 const ownedProcesses: ManagedProcess[] = []
-let controlServer: Server | undefined
-let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
-let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
 
 const formatCommand = (command: string, args: readonly string[]): string =>
@@ -171,129 +148,6 @@ const reserveLoopbackPort = async (): Promise<number> =>
     })
   })
 
-const readJsonBody = async (request: IncomingMessage): Promise<unknown> => {
-  let body = ''
-  for await (const chunk of request) {
-    body += String(chunk)
-    if (body.length > 65_536) {
-      throw new Error('Phase 10 email control payload is too large.')
-    }
-  }
-  return JSON.parse(body) as unknown
-}
-
-const closeControlServer = async (): Promise<void> => {
-  const server = controlServer
-  controlServer = undefined
-  if (!server) return
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
-      if (error) reject(error)
-      else resolve()
-    })
-  })
-}
-
-const startEmailControlServer = async ({
-  expectedRecipient,
-  secret,
-  webOrigin
-}: {
-  readonly expectedRecipient: string
-  readonly secret: string
-  readonly webOrigin: string
-}): Promise<string> => {
-  const port = await reserveLoopbackPort()
-  let verificationUrl: string | undefined
-  const server = createHttpServer((request, response) => {
-    void (async () => {
-      const requestUrl = new URL(request.url ?? '/', `http://127.0.0.1:${port}`)
-      const bearerAuthorized =
-        request.headers.authorization === `Bearer ${secret}`
-      const cookieAuthorized = request.headers.cookie
-        ?.split(';')
-        .some((cookie) => cookie.trim() === `phase10_control=${secret}`)
-      if (!bearerAuthorized && !cookieAuthorized) {
-        response.writeHead(404).end()
-        return
-      }
-
-      if (
-        request.method === 'POST' &&
-        requestUrl.pathname === '/auth-email' &&
-        bearerAuthorized
-      ) {
-        const payload = (await readJsonBody(
-          request
-        )) as AuthEmailMessageCandidate
-        if (
-          payload.purpose !== 'EMAIL_VERIFICATION' ||
-          payload.recipient !== expectedRecipient ||
-          typeof payload.url !== 'string'
-        ) {
-          response.writeHead(400).end()
-          return
-        }
-        const candidate = new URL(payload.url)
-        if (
-          candidate.origin !== webOrigin ||
-          candidate.pathname !== '/verify-email' ||
-          !candidate.hash.startsWith('#token=')
-        ) {
-          response.writeHead(400).end()
-          return
-        }
-        verificationUrl = candidate.href
-        response.writeHead(204, { 'Cache-Control': 'no-store' }).end()
-        return
-      }
-
-      if (
-        request.method === 'GET' &&
-        requestUrl.pathname === '/verification-ready' &&
-        bearerAuthorized
-      ) {
-        if (!verificationUrl) {
-          response.writeHead(404, { 'Cache-Control': 'no-store' }).end()
-          return
-        }
-        response.writeHead(204, { 'Cache-Control': 'no-store' }).end()
-        return
-      }
-
-      if (
-        request.method === 'GET' &&
-        requestUrl.pathname === '/verification-navigation' &&
-        cookieAuthorized &&
-        verificationUrl
-      ) {
-        const location = verificationUrl
-        verificationUrl = undefined
-        response
-          .writeHead(302, {
-            'Cache-Control': 'no-store',
-            Location: location,
-            'Set-Cookie':
-              'phase10_control=; Max-Age=0; Path=/verification-navigation; HttpOnly; SameSite=Strict'
-          })
-          .end()
-        return
-      }
-
-      response.writeHead(404).end()
-    })().catch(() => {
-      if (!response.headersSent) response.writeHead(500)
-      response.end()
-    })
-  })
-  controlServer = server
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject)
-    server.listen(port, '127.0.0.1', resolve)
-  })
-  return `http://127.0.0.1:${port}`
-}
-
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= cleanupPhase10BrowserResources({
     stopOwnedProcesses: async () => {
@@ -306,31 +160,11 @@ const cleanup = (): Promise<void> => {
       })
       ownedProcesses.length = 0
     },
-    closeControlServer,
+    closeControlServer: async () => {
+      // The existing SSO child owns its listener.
+    },
     cleanupDatabase: async () => {
-      const errors: unknown[] = []
-      if (fixtureDatabase) {
-        try {
-          await fixtureDatabase.disconnect()
-        } catch (error: unknown) {
-          errors.push(error)
-        }
-        fixtureDatabase = undefined
-      }
-
-      if (cleanupDatabaseHarness) {
-        try {
-          await cleanupDatabaseHarness()
-        } catch (error: unknown) {
-          errors.push(error)
-        }
-        cleanupDatabaseHarness = undefined
-      }
-
-      if (errors.length === 1) throw errors[0]
-      if (errors.length > 1) {
-        throw new AggregateError(errors, 'Phase 10 database cleanup failed.')
-      }
+      // The existing SSO child owns TEST fixture and harness cleanup.
     }
   })
   return cleanupPromise
@@ -395,61 +229,29 @@ const runMock = async (): Promise<void> => {
 }
 
 const runReal = async (): Promise<void> => {
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
-  const { createPhase7BrowserFixture } = await import(
-    '../apps/api/src/e2e/phase7BrowserFixture.js'
-  )
-  const created = await createPhase7BrowserFixture(harness.adminDatabaseUrl)
-  fixtureDatabase = created.database
-
-  const registration: RegistrationCredentials = {
-    email: `phase10-browser-${randomUUID()}@example.test`,
-    name: 'Phase 10 가입 학습자',
-    password: `Phase10-${randomBytes(18).toString('base64url')}!Aa9`,
-    targetLevel: 'N4'
-  }
-  const [apiPort, webPort] = await Promise.all([
-    reserveLoopbackPort(),
-    reserveLoopbackPort()
-  ])
-  const apiOrigin = `http://127.0.0.1:${apiPort}`
+  const webPort = await reserveLoopbackPort()
+  const apiPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
-  const controlSecret = randomBytes(32).toString('base64url')
-  const controlOrigin = await startEmailControlServer({
-    expectedRecipient: registration.email,
-    secret: controlSecret,
-    webOrigin
-  })
-  const apiEnvironment: NodeJS.ProcessEnv = {
-    ...harness.sharedEnvironment,
-    ADMIN_CMS_MODE: 'technical',
-    AUTH_EMAIL_DELIVERY_MODE: 'webhook',
-    AUTH_EMAIL_FROM: 'auth@example.test',
-    AUTH_EMAIL_WEBHOOK_SECRET: controlSecret,
-    AUTH_EMAIL_WEBHOOK_URL: `${controlOrigin}/auth-email`,
-    AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
-    BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
-    BETTER_AUTH_URL: apiOrigin,
-    GUEST_COOKIE_SECRET: randomBytes(32).toString('base64url'),
-    HOST: '127.0.0.1',
-    LOG_LEVEL: 'silent',
-    NODE_ENV: 'test',
-    PORT: String(apiPort),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
-    TRUSTED_ORIGINS: webOrigin
-  }
-  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
+  const apiOrigin = `http://127.0.0.1:${apiPort}`
   const api = spawnOwned(
-    'phase10-real-api',
+    'phase10-real-sso-api',
     'pnpm',
-    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/server.ts'],
-    apiEnvironment
+    [
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'tsx',
+      'src/e2e/runPhase7ApiIntegration.ts'
+    ],
+    {
+      ...process.env,
+      PHASE7_API_INTEGRATION_CASE: 'sso-browser-google',
+      PHASE7_SSO_BROWSER_API_HOST: '127.0.0.1',
+      PHASE7_SSO_BROWSER_API_PORT: String(apiPort),
+      PHASE7_SSO_BROWSER_WEB_ORIGIN: webOrigin
+    }
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
-
   const web = spawnOwned(
     'phase10-real-web',
     'pnpm',
@@ -474,14 +276,7 @@ const runReal = async (): Promise<void> => {
     }
   )
   await waitForHttp(webOrigin, web)
-
-  await runPlaywright('real', webOrigin, {
-    PHASE10_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE10_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE10_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE10_REGISTRATION_FIXTURE: JSON.stringify(registration)
-  })
-  await created.database.assertRegisteredUser(registration)
+  await runPlaywright('real', webOrigin)
 }
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
