@@ -43,8 +43,7 @@
 
 ## 로컬 Mock 실행
 
-Node.js **22.23.0**, pnpm **10.2.1**을 사용합니다.
-아래 명령은 모두 저장소 루트에서 실행합니다.
+Node.js **22.23.0**, pnpm **10.2.1**을 사용합니다. 아래 명령은 모두 저장소 루트에서 실행합니다.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -61,6 +60,38 @@ API 모드는 `apps/web/.env`의 `VITE_API_MODE=mock|real`로 선택합니다.
 프로덕션 빌드에서는 `mock`을 허용하지 않습니다.
 실제 API·DB 연결은 [API 환경 예시](apps/api/.env.example)와
 [컨테이너 구성](compose.yaml)을 확인한 뒤 별도 환경에서 준비합니다.
+
+## 실제 API·DB 로컬 실행
+
+루트·API의 `.env.example`과 API의 `.env.test.example`을 각각 `.env`·`.env.test`로 복사합니다.
+루트의 `POSTGRES_PASSWORD`·`PHASE7_*_PASSWORD`는 서로 다른 24자 이상 URL-safe 값으로 설정하고 API 연결 URL에 대응시킵니다.
+이 로컬 구성은 production provisioning의 대체물이 아닙니다.
+
+**지속형 기술 runtime: 55433, 별도 project·volume**
+TEST·DEVELOPMENT의 API 환경에서 `ADMIN_CMS_MODE=technical`과 해당 wrapper 연결 URL을 설정한 뒤 각각 실행합니다.
+
+```bash
+docker compose --project-name nihongo-phase7-local --profile phase7-local up -d --wait postgres-phase7
+NODE_ENV=test pnpm run db:migrate:phase7
+ADMIN_CMS_MODE=technical pnpm run db:seed:test
+pnpm run db:migrate:phase7
+ADMIN_CMS_MODE=technical pnpm run db:seed:dev
+```
+
+activation에는 `phase7_environment=TEST` 또는 `phase7_environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
+기술 startup은 activation 전에는 의도적으로 실패합니다.
+승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical pnpm run dev:api`, DEVELOPMENT는 `ADMIN_CMS_MODE=technical pnpm run dev:api`로 시작합니다.
+
+**임시 통합 runner: 55432, 위 runtime과 volume 공유 금지**
+API `.env.test`의 `PHASE7_INTEGRATION_DATABASE_URL`·`PHASE7_API_INTEGRATION_DATABASE_URL`은 기본 55432 연결을 유지합니다.
+
+```bash
+docker compose up -d --wait postgres
+pnpm run test:phase7:db
+pnpm run test:phase7:api
+```
+
+runner는 wrapper login이 하나라도 이미 존재하면 안전하게 중단합니다.
 
 ## 검사 명령
 
