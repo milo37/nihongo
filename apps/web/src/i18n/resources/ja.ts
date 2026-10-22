@@ -1273,6 +1273,14 @@ export const jaResources = {
       title: '最後に間違えた問題の詳細',
       snapshotNotice:
         '以下の問題・選択肢・解説は、最後に間違えた時点の問題バージョンです。',
+      previousAnswer: {
+        selected: '前回の回答',
+        unanswered: '前回の回答: 未回答',
+        unavailable: '前回の回答: 記録を確認できません',
+        loading: '前回の回答を確認しています…',
+        error: '前回の回答を読み込めませんでした。',
+        paused: '接続が戻ると前回の回答を確認します。'
+      },
       correct: '正解',
       explanation: '解説',
       review: {
