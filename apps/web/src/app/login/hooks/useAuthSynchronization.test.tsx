@@ -1,15 +1,22 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider
+} from '@tanstack/react-query'
+import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse, delay } from 'msw'
 import type { ReactElement } from 'react'
+import { afterEach } from 'vitest'
 import { commitCanonicalAuth } from '@app/login/authSession'
 import { authQueries } from '@app/login/queries/authQueries'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
 import { demoUsers } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
-import { MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
+import { APP_STORE_KEY, MOCK_DATABASE_STORAGE_KEY } from '@libs/storage'
+import { UI_LOCALE_STORAGE_KEY } from '@libs/localeStorage'
 import { useAppStore } from '@store/index'
 
 const createClient = (): QueryClient =>
@@ -20,12 +27,22 @@ const createClient = (): QueryClient =>
     }
   })
 
+const toPrincipal = (user: (typeof demoUsers)[number]) => ({
+  kind: 'USER' as const,
+  user: {
+    id: user.id,
+    name: user.name,
+    role: user.role,
+    targetLevel: user.targetLevel
+  }
+})
+
 const AuthProbe = ({
   observedRoles
 }: {
   observedRoles?: string[]
 }): ReactElement => {
-  const { role } = useDemoAuth()
+  const { role } = useAuth()
   observedRoles?.push(role)
   return <p>현재 역할: {role}</p>
 }
@@ -37,12 +54,40 @@ const renderProbe = (
   render(
     <QueryClientProvider client={client}>
       <ProtectedRouteProvider>
-        <AuthProbe observedRoles={observedRoles} />
+        <main id="main-content" tabIndex={-1}>
+          <AuthProbe observedRoles={observedRoles} />
+        </main>
       </ProtectedRouteProvider>
     </QueryClientProvider>
   )
 
+afterEach(() => {
+  act(() => onlineManager.setOnline(true))
+})
+
 describe('canonical auth synchronization', () => {
+  it('빈 auth cache로 cold offline 진입해도 권한을 닫고 재시도 상태를 표시한다', async () => {
+    const currentUser = mockDatabase.loginAs('ADMIN')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const client = createClient()
+    act(() => onlineManager.setOnline(false))
+
+    renderProbe(client)
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '오프라인에서 로그인 상태를 확인할 수 없습니다'
+      })
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeVisible()
+    expect(screen.queryByText('현재 역할: ADMIN')).not.toBeInTheDocument()
+    expect(screen.queryByText('현재 역할: GUEST')).not.toBeInTheDocument()
+
+    act(() => onlineManager.setOnline(true))
+    expect(await screen.findByText('현재 역할: ADMIN')).toBeVisible()
+    client.clear()
+  })
+
   it('persisted ADMIN보다 canonical guest를 첫 ready render부터 우선한다', async () => {
     const admin = mockDatabase.loginAs('ADMIN')
     useAppStore.getState().setCurrentUser(admin)
@@ -104,15 +149,15 @@ describe('canonical auth synchronization', () => {
     let requestCount = 0
     let releasePreviousRequest: (() => void) | undefined
     mockServer.use(
-      http.get('*/api/auth/current-user', async () => {
+      http.get('*/api/v1/me', async () => {
         requestCount += 1
         if (requestCount === 1) {
           await new Promise<void>((resolve) => {
             releasePreviousRequest = resolve
           })
-          return HttpResponse.json(admin)
+          return HttpResponse.json(toPrincipal(admin))
         }
-        return HttpResponse.json(user)
+        return HttpResponse.json(toPrincipal(user))
       })
     )
     const observedRoles: string[] = []
@@ -138,23 +183,26 @@ describe('canonical auth synchronization', () => {
     const admin = demoUsers.find(({ role }) => role === 'ADMIN')
     expect(user).toBeDefined()
     expect(admin).toBeDefined()
+    if (!user || !admin) {
+      return
+    }
     let requestCount = 0
     let releaseFirstExternalRequest: (() => void) | undefined
 
     mockServer.use(
-      http.get('*/api/auth/current-user', async () => {
+      http.get('*/api/v1/me', async () => {
         requestCount += 1
         if (requestCount === 1) {
-          return HttpResponse.json(user)
+          return HttpResponse.json(toPrincipal(user))
         }
         if (requestCount === 2) {
           const snapshot = user
           await new Promise<void>((resolve) => {
             releaseFirstExternalRequest = resolve
           })
-          return HttpResponse.json(snapshot)
+          return HttpResponse.json(toPrincipal(snapshot))
         }
-        return HttpResponse.json(admin)
+        return HttpResponse.json(toPrincipal(admin))
       })
     )
 
@@ -185,6 +233,20 @@ describe('canonical auth synchronization', () => {
   it('같은 사용자 Mock 데이터 변경은 data cache만 제거하고 현재 tab practice는 유지한다', async () => {
     const currentUser = mockDatabase.loginAs('USER')
     const client = createClient()
+    let requestCount = 0
+    let releaseExternalRequest: (() => void) | undefined
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        requestCount += 1
+        if (requestCount === 2) {
+          await new Promise<void>((resolve) => {
+            releaseExternalRequest = resolve
+          })
+        }
+        return HttpResponse.json(toPrincipal(currentUser))
+      })
+    )
+
     renderProbe(client)
     expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
 
@@ -201,6 +263,11 @@ describe('canonical auth synchronization', () => {
       })
     )
 
+    await waitFor(() => expect(releaseExternalRequest).toBeDefined())
+    expect(screen.getByText('현재 역할: USER')).toBeInTheDocument()
+    expect(screen.queryByText('현재 역할: GUEST')).not.toBeInTheDocument()
+    releaseExternalRequest?.()
+
     await waitFor(() =>
       expect(client.getQueryData(['wrong-note', 'list'])).toBeUndefined()
     )
@@ -208,19 +275,114 @@ describe('canonical auth synchronization', () => {
     expect(screen.getByText('현재 역할: USER')).toBeInTheDocument()
   })
 
-  it('canonical network failure에서는 안전한 기존 projection을 유지한다', async () => {
+  it('locale storage event는 auth를 재조회하거나 Query cache를 변경하지 않는다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    let requestCount = 0
+    mockServer.use(
+      http.get('*/api/v1/me', () => {
+        requestCount += 1
+        return HttpResponse.json(toPrincipal(currentUser))
+      })
+    )
+    const client = createClient()
+    const sentinel = { owner: currentUser.id }
+
+    renderProbe(client)
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+    expect(requestCount).toBe(1)
+    client.setQueryData(['phase9', 'locale-sentinel'], sentinel)
+    const authStateBefore = client.getQueryState(
+      authQueries.currentUser().queryKey
+    )
+    const sentinelStateBefore = client.getQueryState([
+      'phase9',
+      'locale-sentinel'
+    ])
+
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: UI_LOCALE_STORAGE_KEY,
+        newValue: '{"version":1,"locale":"ja"}'
+      })
+    )
+    await Promise.resolve()
+
+    expect(requestCount).toBe(1)
+    expect(client.getQueryData(['phase9', 'locale-sentinel'])).toBe(sentinel)
+    expect(
+      client.getQueryState(authQueries.currentUser().queryKey)
+    ).toMatchObject({
+      dataUpdatedAt: authStateBefore?.dataUpdatedAt,
+      isInvalidated: false
+    })
+    expect(client.getQueryState(['phase9', 'locale-sentinel'])).toMatchObject({
+      dataUpdatedAt: sentinelStateBefore?.dataUpdatedAt,
+      isInvalidated: false
+    })
+    expect(useAppStore.getState().currentUser).toMatchObject({ role: 'USER' })
+  })
+
+  it('auth storage 변경은 canonical 재검증 동안 권한 경계를 닫는다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    let requestCount = 0
+    let releaseExternalRequest: (() => void) | undefined
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        requestCount += 1
+        if (requestCount === 2) {
+          await new Promise<void>((resolve) => {
+            releaseExternalRequest = resolve
+          })
+        }
+        return HttpResponse.json(toPrincipal(currentUser))
+      })
+    )
+
+    renderProbe(createClient())
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: APP_STORE_KEY,
+        newValue: 'canonical-auth-changed'
+      })
+    )
+
+    await waitFor(() => expect(releaseExternalRequest).toBeDefined())
+    expect(screen.getByText('현재 역할: GUEST')).toBeInTheDocument()
+    releaseExternalRequest?.()
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+  })
+
+  it('canonical network failure에서는 persisted projection을 권한으로 사용하지 않는다', async () => {
+    const user = userEvent.setup()
     const currentUser = mockDatabase.loginAs('USER')
     useAppStore.getState().setCurrentUser(currentUser)
+    let requestCount = 0
     mockServer.use(
-      http.get('*/api/auth/current-user', async () => {
+      http.get('*/api/v1/me', async () => {
+        requestCount += 1
         await delay(1)
-        return HttpResponse.error()
+        return requestCount === 1
+          ? HttpResponse.error()
+          : HttpResponse.json(toPrincipal(currentUser))
       })
     )
 
     renderProbe(createClient())
 
-    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', {
+        name: '로그인 상태를 확인할 수 없습니다'
+      })
+    ).toBeInTheDocument()
+    expect(screen.queryByText('현재 역할: USER')).not.toBeInTheDocument()
     expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
+
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByText('현재 역할: USER')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(document.querySelector('#main-content')).toHaveFocus()
+    )
   })
 })

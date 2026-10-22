@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { commitCanonicalAuth } from '@app/login/authSession'
+import { refreshCanonicalAuthAfterMutation } from '@app/login/authSession'
 import { authMutations } from '@app/login/queries/authMutations'
 
 export const useLogoutUser = () => {
@@ -7,8 +7,9 @@ export const useLogoutUser = () => {
 
   return useMutation({
     ...authMutations.logout(),
-    onSuccess: () => {
-      return commitCanonicalAuth(queryClient, null, {
+    onSuccess: async () => {
+      return refreshCanonicalAuthAfterMutation(queryClient, {
+        expectedIdentity: 'GUEST',
         forceClear: true,
         forcePracticeReset: true
       })

@@ -1,13 +1,15 @@
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, useLocation, type Location } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
-import type { User, UserRole } from '@common/types/domain'
+import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
+import { ErrorState } from '@common/components/ErrorState'
+import type { UserRole } from '@common/types/domain'
 import { LoadingState } from '@common/components/LoadingState'
 import { useAuthSynchronization } from '@app/login/hooks/useAuthSynchronization'
-import { useAppStore } from '@store/index'
 
 interface AuthContextValue {
-  user: User | null
+  user: AuthenticatedUser | null
   role: UserRole
   isReady: boolean
 }
@@ -29,14 +31,42 @@ const getRedirectPath = (location: Location): string => {
 export const ProtectedRouteProvider = ({
   children
 }: ProtectedRouteProviderProps): ReactElement => {
-  const projectedUser = useAppStore((state) => state.currentUser)
-  const { canonicalUser, isReady } = useAuthSynchronization()
-  const user = isReady
-    ? canonicalUser !== undefined
-      ? canonicalUser
-      : projectedUser
-    : null
+  const { t } = useTranslation('errors')
+  const { canonicalUser, hasError, isOffline, isReady, retry } =
+    useAuthSynchronization()
+  const shouldRestoreRetryFocusRef = useRef(false)
+  const user = isReady ? (canonicalUser ?? null) : null
   const role: UserRole = user?.role ?? 'GUEST'
+
+  useEffect(() => {
+    if (!hasError && isReady && shouldRestoreRetryFocusRef.current) {
+      shouldRestoreRetryFocusRef.current = false
+      document.querySelector<HTMLElement>('#main-content')?.focus()
+    }
+  }, [hasError, isReady])
+
+  const handleRetry = (): void => {
+    shouldRestoreRetryFocusRef.current = true
+    retry()
+  }
+
+  if (hasError || isOffline) {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+        <ErrorState
+          autoFocus
+          description={t(
+            isOffline
+              ? 'authStatus.offlineDescription'
+              : 'authStatus.description'
+          )}
+          headingLevel={1}
+          onRetry={handleRetry}
+          title={t(isOffline ? 'authStatus.offlineTitle' : 'authStatus.title')}
+        />
+      </main>
+    )
+  }
 
   return (
     <AuthContext.Provider value={{ user, role, isReady }}>
@@ -45,11 +75,11 @@ export const ProtectedRouteProvider = ({
   )
 }
 
-export const useDemoAuth = (): AuthContextValue => {
+export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext)
 
   if (!context) {
-    throw new Error('useDemoAuth must be used inside ProtectedRouteProvider')
+    throw new Error('useAuth must be used inside ProtectedRouteProvider')
   }
 
   return context
@@ -58,11 +88,12 @@ export const useDemoAuth = (): AuthContextValue => {
 export const RequireRole = ({
   allowedRoles
 }: RequireRoleProps): ReactElement => {
-  const { isReady, role } = useDemoAuth()
+  const { t } = useTranslation('common')
+  const { isReady, role } = useAuth()
   const location = useLocation()
 
   if (!isReady) {
-    return <LoadingState message="로그인 상태를 확인하고 있습니다…" />
+    return <LoadingState message={t('loading.auth')} />
   }
 
   if (allowedRoles.includes(role)) {

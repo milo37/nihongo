@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -12,7 +13,8 @@ export const LoadingState = ({
   label,
   message
 }: LoadingStateProps): ReactElement => {
-  const statusMessage = message ?? label ?? '콘텐츠를 불러오는 중입니다…'
+  const { t } = useTranslation('common')
+  const statusMessage = message ?? label ?? t('loading.content')
 
   return (
     <div

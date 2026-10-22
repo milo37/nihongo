@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "bundleSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policySnapshotSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "catalogSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "duplicateCorpusSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reviewEvidenceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "items": {
+      "minItems": 1,
+      "maxItems": 25,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "contentKey": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{2,79}$"
+          },
+          "itemSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "warnings": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "candidate": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "CATALOG_VERSION"
+                        },
+                        "contentKey": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]{2,79}$"
+                        },
+                        "versionNumber": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "duplicateIdentitySha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "contentKey",
+                        "versionNumber",
+                        "duplicateIdentitySha256"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "BUNDLE_ITEM"
+                        },
+                        "contentKey": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9._-]{2,79}$"
+                        },
+                        "itemSha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "duplicateIdentitySha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "contentKey",
+                        "itemSha256",
+                        "duplicateIdentitySha256"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "ruleId": {
+                  "type": "string",
+                  "enum": [
+                    "QUESTION_PASSAGE_TRIGRAM_V1",
+                    "QUESTION_TEXT_EDIT_V1",
+                    "READING_PASSAGE_TRIGRAM_V1"
+                  ]
+                },
+                "scoreNumerator": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "scoreDenominator": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "scoreBasisPoints": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "candidate",
+                "ruleId",
+                "scoreNumerator",
+                "scoreDenominator",
+                "scoreBasisPoints"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["contentKey", "itemSha256", "warnings"],
+        "additionalProperties": false
+      }
+    },
+    "duplicateReviewPlanSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "bundleSha256",
+    "policySnapshotSha256",
+    "catalogSha256",
+    "duplicateCorpusSha256",
+    "reviewEvidenceSha256",
+    "createdAt",
+    "items",
+    "duplicateReviewPlanSha256"
+  ],
+  "additionalProperties": false
+}

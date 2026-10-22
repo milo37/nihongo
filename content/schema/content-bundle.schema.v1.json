@@ -1,0 +1,404 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "releaseKey": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+    },
+    "releaseRevision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "policyVersion": {
+      "type": "string",
+      "const": "original-content-v1"
+    },
+    "taxonomyVersion": {
+      "type": "string",
+      "const": "tags-v1"
+    },
+    "reviewRubricVersion": {
+      "type": "string",
+      "const": "review-rubric-v1"
+    },
+    "policySnapshotSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "items": {
+      "minItems": 1,
+      "maxItems": 25,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "contentKey": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{2,79}$"
+          },
+          "intent": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "CREATE"
+                  },
+                  "expectedCurrentVersionNumber": {
+                    "type": "null"
+                  },
+                  "expectedCurrentSemanticContentSha256": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "expectedCurrentVersionNumber",
+                  "expectedCurrentSemanticContentSha256"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "NEW_VERSION"
+                  },
+                  "expectedCurrentVersionNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "expectedCurrentSemanticContentSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "changeKind": {
+                    "type": "string",
+                    "enum": [
+                      "TYPO_FIX",
+                      "WORDING_CLARIFICATION",
+                      "DISTRACTOR_FIX",
+                      "EXPLANATION_FIX",
+                      "TAG_FIX",
+                      "DIFFICULTY_ADJUSTMENT",
+                      "LEGACY_HUMAN_REAUTHORING",
+                      "PROVENANCE_EVIDENCE_ONLY"
+                    ]
+                  },
+                  "changeSummary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "kind",
+                  "expectedCurrentVersionNumber",
+                  "expectedCurrentSemanticContentSha256",
+                  "changeKind",
+                  "changeSummary"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "content": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": ["N5", "N4", "N3", "N2", "N1"]
+              },
+              "subject": {
+                "type": "string",
+                "enum": ["VOCABULARY", "GRAMMAR", "READING"]
+              },
+              "questionType": {
+                "type": "string",
+                "enum": [
+                  "KANJI_READING",
+                  "ORTHOGRAPHY",
+                  "CONTEXT_VOCABULARY",
+                  "PARAPHRASE",
+                  "WORD_USAGE",
+                  "GRAMMAR_SELECT",
+                  "SENTENCE_ORDER",
+                  "TEXT_GRAMMAR",
+                  "SHORT_READING",
+                  "MEDIUM_READING",
+                  "LONG_READING",
+                  "INFO_RETRIEVAL"
+                ]
+              },
+              "difficulty": {
+                "type": "string",
+                "enum": ["EASY", "NORMAL", "HARD"]
+              },
+              "passage": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "questionText": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "options": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "const": "1"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "required": ["key", "text"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "const": "2"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "required": ["key", "text"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "const": "3"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "required": ["key", "text"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "const": "4"
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "required": ["key", "text"],
+                    "additionalProperties": false
+                  }
+                ],
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "correctOptionKey": {
+                "type": "string",
+                "enum": ["1", "2", "3", "4"]
+              },
+              "explanationKo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "explanationJa": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "tagKeys": {
+                "minItems": 1,
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "distractorRationalesKo": {
+                "type": "object",
+                "properties": {
+                  "1": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "2": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "3": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "4": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": ["1", "2", "3", "4"],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "level",
+              "subject",
+              "questionType",
+              "difficulty",
+              "passage",
+              "questionText",
+              "options",
+              "correctOptionKey",
+              "explanationKo",
+              "explanationJa",
+              "tagKeys",
+              "distractorRationalesKo"
+            ],
+            "additionalProperties": false
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "sourceType": {
+                "type": "string",
+                "const": "ORIGINAL"
+              },
+              "authorRef": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+              },
+              "creationMethod": {
+                "type": "string",
+                "const": "HUMAN"
+              },
+              "rightsAttestation": {
+                "type": "string",
+                "const": "ORIGINAL_NO_COPY"
+              },
+              "authoredAt": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+              },
+              "sourceNote": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "sourceType",
+              "authorRef",
+              "creationMethod",
+              "rightsAttestation",
+              "authoredAt",
+              "sourceNote"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["contentKey", "intent", "content", "provenance"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "releaseKey",
+    "releaseRevision",
+    "title",
+    "createdAt",
+    "policyVersion",
+    "taxonomyVersion",
+    "reviewRubricVersion",
+    "policySnapshotSha256",
+    "items"
+  ],
+  "additionalProperties": false
+}

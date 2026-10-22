@@ -31,16 +31,17 @@ export const Checkbox = ({
     <div className="grid gap-2">
       <label
         className={classNames(
-          'flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-transparent p-2',
-          'touch-manipulation hover:bg-slate-50 focus-within:bg-slate-50',
-          'focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand',
+          'flex min-h-11 cursor-pointer items-start gap-3 rounded-control border p-2',
+          'touch-manipulation hover:bg-surface-muted focus-within:bg-surface-muted',
+          'focus-within:outline focus-within:outline-focus focus-within:outline-offset-focus focus-within:outline-brand',
           'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60',
+          error ? 'border-line-invalid' : 'border-transparent',
           className
         )}
         htmlFor={checkboxId}
       >
         <input
-          className="mt-0.5 size-5 shrink-0 accent-emerald-700"
+          className="mt-0.5 size-5 shrink-0 accent-brand"
           id={checkboxId}
           type="checkbox"
           name={name}
@@ -62,7 +63,7 @@ export const Checkbox = ({
       </label>
       {error ? (
         <p
-          className="pl-2 text-sm font-medium text-red-700"
+          className="pl-2 text-sm font-medium text-danger"
           id={errorId}
           role="alert"
         >

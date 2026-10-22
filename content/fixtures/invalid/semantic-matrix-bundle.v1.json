@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "releaseKey": "phase6-slice1-invalid",
+  "releaseRevision": 1,
+  "title": "의미 규칙 위반 검증 묶음",
+  "createdAt": "2026-08-25T00:00:00.000Z",
+  "policyVersion": "original-content-v1",
+  "taxonomyVersion": "tags-v1",
+  "reviewRubricVersion": "review-rubric-v1",
+  "policySnapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "items": [
+    {
+      "contentKey": "invalid.n5.reading.001",
+      "intent": {
+        "kind": "CREATE",
+        "expectedCurrentVersionNumber": null,
+        "expectedCurrentSemanticContentSha256": null
+      },
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "LONG_READING",
+        "difficulty": "NORMAL",
+        "passage": null,
+        "questionText": "本文の内容に合うものを選んでください。",
+        "options": [
+          {
+            "key": "1",
+            "text": "同じ答え"
+          },
+          {
+            "key": "2",
+            "text": "同じ答え"
+          },
+          {
+            "key": "3",
+            "text": "三番目の答え"
+          },
+          {
+            "key": "4",
+            "text": "四番目の答え"
+          }
+        ],
+        "correctOptionKey": "1",
+        "explanationKo": "의도적으로 여러 의미 규칙을 위반하는 고정 자료입니다.",
+        "explanationJa": null,
+        "tagKeys": ["동사"],
+        "distractorRationalesKo": {
+          "1": "정답에는 오답 근거가 없어야 합니다.",
+          "2": null,
+          "3": "오답 근거입니다.",
+          "4": "오답 근거입니다."
+        }
+      },
+      "provenance": {
+        "sourceType": "ORIGINAL",
+        "authorRef": "fixture-author",
+        "creationMethod": "HUMAN",
+        "rightsAttestation": "ORIGINAL_NO_COPY",
+        "authoredAt": "2026-08-24T00:00:00.000Z",
+        "sourceNote": "의미 규칙 거부 동작을 검증하기 위한 고정 자료입니다."
+      }
+    }
+  ]
+}

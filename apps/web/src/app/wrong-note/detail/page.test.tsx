@@ -1,207 +1,200 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { delay, http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { WrongNoteDetailContent } from '@app/wrong-note/detail/page'
-import { originalQuestions } from '@mocks/data/questions'
-import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { ToastProvider } from '@common/components/Toast'
-import { useAppStore } from '@store/index'
-import { mockServer } from '@/test/server'
+import { appI18n } from '@/i18n/config'
 
-describe('wrong-note memo workflow', () => {
-  it('dirty 이탈을 막고 저장 성공 후 확정값으로 reset한다', async () => {
-    const user = userEvent.setup()
-    const currentUser = mockDatabase.loginAs('USER')
-    useAppStore.getState().setCurrentUser(currentUser)
-    const question = originalQuestions.find(
-      ({ id }) => id === 'n5-vocabulary-01'
+const createDetail = (
+  reviewAvailability: 'ARCHIVED' | 'AVAILABLE',
+  explanationJa: string | null = null
+): WrongNoteDetailView => ({
+  wrongNote: {
+    questionId: crypto.randomUUID(),
+    wrongCount: 1,
+    correctStreak: 0,
+    status: 'NEW',
+    lastWrongAt: '2026-08-21T00:00:00.000Z',
+    lastReviewedAt: null,
+    nextReviewAt: '2026-08-22T00:00:00.000Z',
+    reviewAvailability
+  },
+  question: {
+    id: crypto.randomUUID(),
+    questionVersionId: crypto.randomUUID(),
+    level: 'N5',
+    subject: 'VOCABULARY',
+    questionType: 'KANJI_READING',
+    passage: null,
+    questionText: '「山」の読み方を選んでください。',
+    options: [
+      { id: crypto.randomUUID(), label: '1', text: 'やま', isCorrect: true },
+      { id: crypto.randomUUID(), label: '2', text: 'かわ', isCorrect: false }
+    ],
+    explanationKo: '山은 やま라고 읽습니다.',
+    explanationJa,
+    difficulty: 'EASY',
+    tags: ['한자']
+  },
+  memo: null,
+  currentReviewQuestionVersionId: crypto.randomUUID(),
+  canRetry: false,
+  canUpdateMemo: false
+})
+
+const renderDetail = (data: WrongNoteDetailView) => {
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/wrong-notes/:questionId',
+        element: <WrongNoteDetailContent data={data} />
+      },
+      { path: '/practice', element: <h1>학습 설정</h1> }
+    ],
+    { initialEntries: [`/wrong-notes/${data.question.id}`] }
+  )
+  return render(<RouterProvider router={router} />)
+}
+
+describe('canonical wrong-note detail', () => {
+  it('일본어 원문을 표시하고 payload에 일본어 해설이 없으면 한국어 fallback만 제공한다', () => {
+    renderDetail(createDetail('AVAILABLE'))
+
+    expect(
+      screen.getByText('「山」の読み方を選んでください。')
+    ).toHaveAttribute('lang', 'ja')
+    expect(screen.getByText('1. やま')).toHaveAttribute('lang', 'ja')
+    expect(screen.getByText('山은 やま라고 읽습니다.')).toHaveAttribute(
+      'lang',
+      'ko'
     )
-    const wrongOption = question?.options.find(({ isCorrect }) => !isCorrect)
-    expect(question).toBeDefined()
-    expect(wrongOption).toBeDefined()
-    if (!question || !wrongOption) {
-      return
-    }
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('일본어 해설이 없어 한국어 해설을 표시합니다.')
+    ).toBeVisible()
+  })
 
-    const { session } = mockDatabase.createStudySession({
-      level: question.level,
-      subject: question.subject,
-      mode: 'RANDOM',
-      count: 1,
-      questionIds: [question.id]
-    })
-    mockDatabase.submitStudySession({
-      sessionId: session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: wrongOption.id,
-          elapsedSec: 4
-        }
-      ],
-      durationSec: 4
-    })
-    const data = mockDatabase.getWrongNote(currentUser.id, question.id)
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false }
-      }
-    })
+  it('일본어 해설이 있을 때도 한국어를 기본으로 두고 명시적 선택 뒤 전환한다', async () => {
+    const user = userEvent.setup()
+    renderDetail(createDetail('AVAILABLE', '「山」は「やま」と読みます。'))
+
+    expect(screen.getByRole('tab', { name: '한국어' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(
+      screen.queryByText('「山」は「やま」と読みます。')
+    ).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: '日本語' }))
+    expect(screen.getByText('「山」は「やま」と読みます。')).toHaveAttribute(
+      'lang',
+      'ja'
+    )
+
+    await act(async () => appI18n.changeLanguage('ja'))
+
+    expect(
+      screen.getByRole('heading', { name: '最後に間違えた問題の詳細' })
+    ).toBeVisible()
+    expect(screen.getByRole('tab', { name: '日本語' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByText('「山」は「やま」と読みます。')).toBeVisible()
+  })
+
+  it('cache된 다른 문제 route로 이동하면 해설 선택을 한국어 기본으로 초기화한다', async () => {
+    const user = userEvent.setup()
+    const first = createDetail('AVAILABLE', '最初の日本語解説')
+    const second = createDetail('AVAILABLE', '次の日本語解説')
     const router = createMemoryRouter(
       [
         {
-          path: '/wrong-notes/:questionId',
-          element: <WrongNoteDetailContent data={data} />
+          path: '/first',
+          element: <WrongNoteDetailContent data={first} />
         },
         {
-          path: '/next',
-          element: <h1>다음 화면</h1>
+          path: '/second',
+          element: <WrongNoteDetailContent data={second} />
         }
       ],
-      { initialEntries: ['/wrong-notes/' + question.id] }
+      { initialEntries: ['/first'] }
     )
+    render(<RouterProvider router={router} />)
 
-    render(
-      <QueryClientProvider client={client}>
-        <ToastProvider>
-          <RouterProvider router={router} />
-        </ToastProvider>
-      </QueryClientProvider>
-    )
-
-    const textarea = screen.getByRole('textbox', { name: '나의 메모' })
-    const saveButton = screen.getByRole('button', { name: '메모 저장' })
-    const retryButton = screen.getByRole('button', {
-      name: '이 문제 다시 풀기'
-    })
-    expect(saveButton).toBeDisabled()
-
-    await user.type(textarea, '동사 활용을 다시 확인')
-    expect(saveButton).toBeEnabled()
-    expect(retryButton).toBeDisabled()
-    expect(
-      screen.getByText('저장하지 않은 변경사항이 있습니다.')
-    ).toBeInTheDocument()
-
-    const beforeUnloadEvent = new Event('beforeunload', {
-      cancelable: true
-    })
-    window.dispatchEvent(beforeUnloadEvent)
-    expect(beforeUnloadEvent.defaultPrevented).toBe(true)
-
-    act(() => {
-      void router.navigate('/next')
-    })
-    expect(
-      await screen.findByRole('heading', {
-        name: '저장하지 않은 메모를 버리시겠습니까?'
-      })
-    ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '계속 작성' }))
-    expect(router.state.location.pathname).toContain('/wrong-notes/')
-
-    await user.click(saveButton)
-    expect(await screen.findByText('메모를 저장했습니다.')).toBeInTheDocument()
-    expect(saveButton).toBeDisabled()
-    expect(retryButton).toBeEnabled()
-    expect(
-      mockDatabase.getWrongNote(currentUser.id, question.id).wrongNote.memo
-    ).toBe('동사 활용을 다시 확인')
+    await user.click(screen.getByRole('tab', { name: '日本語' }))
+    expect(screen.getByText('最初の日本語解説')).toBeVisible()
 
     await act(async () => {
-      await router.navigate('/next')
+      await router.navigate('/second')
     })
+
+    expect(screen.getByRole('tab', { name: '한국어' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByText('山은 やま라고 읽습니다.')).toHaveAttribute(
+      'lang',
+      'ko'
+    )
+    expect(screen.queryByText('次の日本語解説')).not.toBeInTheDocument()
+  })
+
+  it('마지막 오답 snapshot과 현재 복습 가능 상태를 분리해 알린다', () => {
+    renderDetail(createDetail('AVAILABLE'))
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(
-      await screen.findByRole('heading', { name: '다음 화면' })
+      screen.getByText(/마지막으로 틀렸을 때 고정된 문제 버전/u)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/현재 출제 가능한 문제 버전으로 단일 복습/u)
     ).toBeInTheDocument()
   })
 
-  it('저장 중 중복 제출을 막고 실패 후 입력과 dirty 상태를 유지한다', async () => {
-    const user = userEvent.setup()
-    const currentUser = mockDatabase.loginAs('USER')
-    useAppStore.getState().setCurrentUser(currentUser)
-    const question = originalQuestions.find(
-      ({ id }) => id === 'n5-vocabulary-01'
+  it('보관된 문제는 재출제 불가 상태를 텍스트로 알린다', () => {
+    renderDetail(createDetail('ARCHIVED'))
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.'
     )
-    const wrongOption = question?.options.find(({ isCorrect }) => !isCorrect)
-    expect(question).toBeDefined()
-    expect(wrongOption).toBeDefined()
-    if (!question || !wrongOption) {
-      return
+    expect(screen.queryByText(/단일 복습을 시작/u)).not.toBeInTheDocument()
+  })
+
+  it('HTML-shaped question content를 실행하지 않고 plain text로 표시한다', () => {
+    document.body.removeAttribute('data-phase10-xss-executed')
+    const execute =
+      "document.body.setAttribute('data-phase10-xss-executed','true')"
+    const questionText = `<img data-phase10-hostile="question" src="x" onerror="${execute}">`
+    const passage = `<svg data-phase10-hostile="passage" onload="${execute}"></svg>`
+    const optionText = `<a data-phase10-hostile="option" href="javascript:${execute}">x</a>`
+    const explanationKo = `</p><script data-phase10-hostile="explanation">${execute}</script>`
+    const base = createDetail('AVAILABLE')
+    const detail: WrongNoteDetailView = {
+      ...base,
+      question: {
+        ...base.question,
+        explanationKo,
+        passage,
+        questionText,
+        options: [
+          { ...base.question.options[0]!, text: optionText },
+          base.question.options[1]!
+        ]
+      }
     }
 
-    const { session } = mockDatabase.createStudySession({
-      level: question.level,
-      subject: question.subject,
-      mode: 'RANDOM',
-      count: 1,
-      questionIds: [question.id]
-    })
-    mockDatabase.submitStudySession({
-      sessionId: session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: wrongOption.id,
-          elapsedSec: 4
-        }
-      ],
-      durationSec: 4
-    })
-    const data = mockDatabase.getWrongNote(currentUser.id, question.id)
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false }
-      }
-    })
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/wrong-notes/:questionId',
-          element: <WrongNoteDetailContent data={data} />
-        }
-      ],
-      { initialEntries: ['/wrong-notes/' + question.id] }
-    )
-    let requestCount = 0
-    mockServer.use(
-      http.put(`*/api/wrong-note/${question.id}/memo`, async () => {
-        requestCount += 1
-        await delay(50)
-        return HttpResponse.json(
-          { message: 'temporary memo error' },
-          { status: 500 }
-        )
-      })
-    )
+    const { container } = renderDetail(detail)
 
-    render(
-      <QueryClientProvider client={client}>
-        <ToastProvider>
-          <RouterProvider router={router} />
-        </ToastProvider>
-      </QueryClientProvider>
-    )
-
-    const textarea = screen.getByRole('textbox', { name: '나의 메모' })
-    const saveButton = screen.getByRole('button', { name: '메모 저장' })
-    await user.type(textarea, '실패해도 남아야 하는 메모')
-    await user.click(saveButton)
-
-    expect(screen.getByText('메모를 저장하고 있습니다…')).toBeInTheDocument()
-    expect(textarea).toBeDisabled()
-    expect(saveButton).toBeDisabled()
-    await user.click(saveButton)
-
-    await waitFor(() => expect(requestCount).toBe(1))
-    await waitFor(() => expect(saveButton).toBeEnabled())
-    expect(textarea).toHaveValue('실패해도 남아야 하는 메모')
+    expect(screen.getByText(questionText, { exact: true })).toBeVisible()
+    expect(screen.getByText(passage, { exact: true })).toBeVisible()
+    expect(screen.getByText(`1. ${optionText}`, { exact: true })).toBeVisible()
+    expect(screen.getByText(explanationKo, { exact: true })).toBeVisible()
+    expect(container.querySelectorAll('[data-phase10-hostile]')).toHaveLength(0)
     expect(
-      screen.getByText('저장하지 않은 변경사항이 있습니다.')
-    ).toBeInTheDocument()
+      container.querySelectorAll('script, iframe, object, embed')
+    ).toHaveLength(0)
+    expect(document.body).not.toHaveAttribute('data-phase10-xss-executed')
   })
 })

@@ -1,0 +1,1703 @@
+import { expect, test } from '@playwright/test'
+import type {
+  Browser,
+  BrowserContext,
+  Locator,
+  Page,
+  Request,
+  Route
+} from '@playwright/test'
+
+interface Credentials {
+  email: string
+  name: string
+  password: string
+}
+
+interface CreatedQuestion {
+  sessionQuestionId: string
+  question: {
+    id: string
+    options: Array<{ id: string }>
+  }
+}
+
+interface CreatedSession {
+  questions: CreatedQuestion[]
+  session: {
+    actualCount: number
+    fallbackReason: string | null
+    id: string
+    mode: string
+    requestedCount: number
+    usedFallback: boolean
+  }
+}
+
+interface Slice3SelectionFixture {
+  recentQuestionIds: [string, string, string]
+  weaknessQuestionId: string
+}
+
+interface BookmarkList {
+  items: Array<{ questionId: string }>
+  total: number
+}
+
+interface DraftSnapshot {
+  answers: Array<{
+    elapsedSec: number
+    selectedOptionId: string | null
+    studySessionQuestionId: string
+  }>
+  currentOrdinal: number
+  revision: number
+  savedAt: string | null
+  studySessionId: string
+}
+
+type BrowserStorageState = Awaited<ReturnType<BrowserContext['storageState']>>
+
+const readCredentials = (prefix: 'A' | 'B' | 'C' | 'D'): Credentials => {
+  const email = process.env[`E2E_USER_${prefix}_EMAIL`]
+  const name = process.env[`E2E_USER_${prefix}_NAME`]
+  const password = process.env[`E2E_USER_${prefix}_PASSWORD`]
+  if (!email || !name || !password) {
+    throw new Error(`E2E user ${prefix} credentials are missing.`)
+  }
+  return { email, name, password }
+}
+
+const userA = readCredentials('A')
+const userB = readCredentials('B')
+const userC = readCredentials('C')
+const userD = readCredentials('D')
+const clientIpByEmail = new Map([
+  [userA.email, '198.51.100.10'],
+  [userB.email, '198.51.100.11'],
+  [userC.email, '198.51.100.12'],
+  [userD.email, '198.51.100.13']
+])
+const schemaName = process.env.PHASE5_E2E_SCHEMA
+const authenticatedStorage = new Map<string, BrowserStorageState>()
+
+const moveFocusWithKeyboard = async (
+  page: Page,
+  target: Locator,
+  maximumTabs = 40
+): Promise<void> => {
+  for (let index = 0; index <= maximumTabs; index += 1) {
+    if (
+      await target.evaluate(
+        (element) => element === element.ownerDocument.activeElement
+      )
+    ) {
+      return
+    }
+    await page.keyboard.press('Tab')
+  }
+  throw new Error('Keyboard focus did not reach the expected target.')
+}
+
+const readSlice3SelectionFixture = (): Slice3SelectionFixture => {
+  const serialized = process.env.SLICE3_E2E_SELECTION
+  if (!serialized) {
+    throw new Error('Slice 3 E2E selection fixture is missing.')
+  }
+  const candidate = JSON.parse(serialized) as Partial<Slice3SelectionFixture>
+  if (
+    !Array.isArray(candidate.recentQuestionIds) ||
+    candidate.recentQuestionIds.length !== 3 ||
+    candidate.recentQuestionIds.some((id) => typeof id !== 'string') ||
+    typeof candidate.weaknessQuestionId !== 'string'
+  ) {
+    throw new Error('Slice 3 E2E selection fixture is invalid.')
+  }
+  return candidate as Slice3SelectionFixture
+}
+
+const slice3Selection = readSlice3SelectionFixture()
+
+if (!/^phase5_slice6_e2e_[0-9]+_[a-f0-9]{8}_test$/.test(schemaName ?? '')) {
+  throw new Error('The isolated Phase 5 E2E schema marker is missing.')
+}
+
+const login = async (page: Page, credentials: Credentials): Promise<void> => {
+  await page.goto('/login')
+  const form = page.locator('form').filter({ has: page.getByLabel('이메일') })
+  await form.getByLabel('이메일').fill(credentials.email)
+  await form.getByLabel('비밀번호').fill(credentials.password)
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === '/', { timeout: 15_000 }),
+    form.getByRole('button', { exact: true, name: '로그인' }).click()
+  ])
+  await expect(
+    page.getByRole('link', { exact: true, name: credentials.name })
+  ).toBeVisible()
+}
+
+const createSession = async (page: Page): Promise<CreatedSession> => {
+  const result = await page.evaluate(async () => {
+    const response = await fetch('/api/v1/study-sessions', {
+      body: JSON.stringify({
+        count: 5,
+        level: 'N5',
+        mode: 'RANDOM',
+        subject: 'VOCABULARY'
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nihongo-Practice-Contract': '2'
+      },
+      method: 'POST'
+    })
+    return {
+      body: (await response.json()) as CreatedSession,
+      status: response.status
+    }
+  })
+  expect(result.status).toBe(201)
+  expect(result.body.questions).toHaveLength(5)
+  return result.body
+}
+
+const submitAllWrong = async (
+  page: Page,
+  created: CreatedSession
+): Promise<void> => {
+  const status = await page.evaluate(async (session) => {
+    const response = await fetch(
+      `/api/v1/study-sessions/${session.session.id}/submission`,
+      {
+        body: JSON.stringify({
+          answers: session.questions.map(({ sessionQuestionId }) => ({
+            studySessionQuestionId: sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 0
+          })),
+          durationSec: 0,
+          expectedDraftRevision: 0
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+          'X-Nihongo-Practice-Contract': '2'
+        },
+        method: 'POST'
+      }
+    )
+    return response.status
+  }, created)
+  expect(status).toBe(201)
+}
+
+const startSessionFromSetup = async (
+  page: Page,
+  modeName: '랜덤 문제' | '약점 추천' | '오답 문제' | '오늘의 복습'
+): Promise<CreatedSession> => {
+  await page.goto('/practice')
+  await page.getByRole('button', { exact: true, name: 'N5' }).click()
+  await page.getByRole('button', { exact: true, name: '문자·어휘' }).click()
+  await page.getByRole('button', { exact: true, name: '20문제' }).click()
+  await page.getByRole('button', { name: new RegExp(`^${modeName}`) }).click()
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return (
+      response.request().method() === 'POST' &&
+      url.pathname === '/api/v1/study-sessions'
+    )
+  })
+  await page.getByRole('button', { name: '학습 시작하기' }).click()
+  const response = await responsePromise
+  expect(response.status()).toBe(201)
+  const created = (await response.json()) as CreatedSession
+  await expect(page).toHaveURL(
+    new RegExp(`/practice/session/${created.session.id}$`)
+  )
+  return created
+}
+
+const cancelCreatedSession = async (
+  page: Page,
+  sessionId: string
+): Promise<void> => {
+  const status = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/v1/study-sessions/${id}/cancellation`, {
+      body: '{}',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nihongo-Practice-Contract': '2'
+      },
+      method: 'POST'
+    })
+    return response.status
+  }, sessionId)
+  expect(status).toBe(204)
+}
+
+const getDraft = async (
+  page: Page,
+  sessionId: string
+): Promise<DraftSnapshot> =>
+  await page.evaluate(async (id) => {
+    const response = await fetch(`/api/v1/study-sessions/${id}/draft-answers`, {
+      headers: { 'X-Nihongo-Practice-Contract': '2' }
+    })
+    if (!response.ok) {
+      throw new Error(`Draft GET failed with ${response.status}.`)
+    }
+    return (await response.json()) as DraftSnapshot
+  }, sessionId)
+
+const saveDraft = async (
+  page: Page,
+  snapshot: DraftSnapshot,
+  answerIndex: number,
+  selectedOptionId: string
+): Promise<DraftSnapshot> => {
+  const result = await page.evaluate(
+    async ({ answerIndex, selectedOptionId, snapshot }) => {
+      const response = await fetch(
+        `/api/v1/study-sessions/${snapshot.studySessionId}/draft-answers`,
+        {
+          body: JSON.stringify({
+            answers: snapshot.answers.map((answer, index) =>
+              index === answerIndex ? { ...answer, selectedOptionId } : answer
+            ),
+            currentOrdinal: snapshot.currentOrdinal,
+            expectedRevision: snapshot.revision
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': crypto.randomUUID(),
+            'X-Nihongo-Practice-Contract': '2'
+          },
+          method: 'PUT'
+        }
+      )
+      return {
+        body: (await response.json()) as DraftSnapshot,
+        status: response.status
+      }
+    },
+    { answerIndex, selectedOptionId, snapshot }
+  )
+  expect(result.status).toBe(200)
+  return result.body
+}
+
+const openSession = async (page: Page, sessionId: string): Promise<void> => {
+  await page.goto(`/practice/session/${sessionId}`)
+  await expect(page.locator('[data-save-state]')).toBeVisible()
+  await expect(page.getByRole('radio')).toHaveCount(4)
+  await expect(page.locator('h1')).toBeFocused()
+}
+
+const waitForSaved = async (page: Page): Promise<void> => {
+  await expect(page.locator('[data-save-state]')).toHaveAttribute(
+    'data-save-state',
+    'saved',
+    { timeout: 15_000 }
+  )
+}
+
+const goToQuestion = async (page: Page, ordinal: number): Promise<void> => {
+  await page
+    .getByRole('button', { name: new RegExp(`^${ordinal}번 문제`) })
+    .click()
+}
+
+const getDraftPattern = (sessionId: string): RegExp =>
+  new RegExp(`/api/v1/study-sessions/${sessionId}/draft-answers(?:\\?.*)?$`)
+
+const assertIndependentContexts = async (
+  contextA: BrowserContext,
+  pageA: Page,
+  contextB: BrowserContext,
+  pageB: Page
+): Promise<void> => {
+  await pageA.evaluate(() => {
+    sessionStorage.setItem('slice2-context-probe', 'context-a')
+  })
+  expect(
+    await pageB.evaluate(() => sessionStorage.getItem('slice2-context-probe'))
+  ).toBeNull()
+
+  const cookieValuesA = (await contextA.cookies()).map(({ value }) => value)
+  const cookieValuesB = (await contextB.cookies()).map(({ value }) => value)
+  expect(cookieValuesA.length).toBeGreaterThan(0)
+  expect(cookieValuesB.length).toBeGreaterThan(0)
+  expect(cookieValuesA).not.toEqual(cookieValuesB)
+}
+
+const createLoggedInContext = async (
+  browser: Browser,
+  credentials: Credentials,
+  options: { forceFreshLogin?: boolean } = {}
+): Promise<{ context: BrowserContext; page: Page }> => {
+  const storageState = options.forceFreshLogin
+    ? undefined
+    : authenticatedStorage.get(credentials.email)
+  const context = await browser.newContext({
+    extraHTTPHeaders: {
+      'X-Forwarded-For':
+        clientIpByEmail.get(credentials.email) ?? '198.51.100.254'
+    },
+    ...(storageState ? { storageState } : {})
+  })
+  const page = await context.newPage()
+  if (storageState) {
+    await page.goto('/')
+    await expect(
+      page.getByRole('link', { exact: true, name: credentials.name })
+    ).toBeVisible()
+  } else {
+    await login(page, credentials)
+    authenticatedStorage.set(credentials.email, await context.storageState())
+  }
+  return { context, page }
+}
+
+test.describe.serial('Slice 2 real practice flow', () => {
+  test('two independent BrowserContexts reconcile a stale USER draft without losing the local choice', async ({
+    browser
+  }) => {
+    const first = await createLoggedInContext(browser, userA, {
+      forceFreshLogin: true
+    })
+    const second = await createLoggedInContext(browser, userA, {
+      forceFreshLogin: true
+    })
+    const freezeMonotonicClock = (): void => {
+      const fixedNow = performance.now()
+      Object.defineProperty(performance, 'now', {
+        configurable: true,
+        value: () => fixedNow
+      })
+    }
+    await Promise.all([
+      first.context.addInitScript(freezeMonotonicClock),
+      second.context.addInitScript(freezeMonotonicClock)
+    ])
+
+    try {
+      await assertIndependentContexts(
+        first.context,
+        first.page,
+        second.context,
+        second.page
+      )
+      const created = await createSession(first.page)
+      await openSession(first.page, created.session.id)
+      await second.page.goto('/practice')
+      const resumeLink = second.page.locator(
+        `a[href="/practice/session/${created.session.id}"]`
+      )
+      await expect(resumeLink).toBeVisible()
+      await resumeLink.click()
+      await expect(second.page).toHaveURL(
+        new RegExp(`/practice/session/${created.session.id}$`)
+      )
+      await expect(second.page.locator('[data-save-state]')).toContainText(
+        /서버 작업본과 동기화|서버에 저장됨/
+      )
+      await expect(second.page.locator('h1')).toBeFocused()
+
+      await first.page.getByRole('radio').nth(0).click()
+      await waitForSaved(first.page)
+
+      const conflictingChoice = second.page.getByRole('radio').nth(1)
+      await conflictingChoice.click()
+      const conflictDialog = second.page.getByRole('dialog', {
+        name: '다른 기기의 작업과 충돌했습니다'
+      })
+      await expect(conflictDialog).toBeVisible({ timeout: 15_000 })
+      await expect(
+        conflictDialog.getByRole('heading', {
+          name: '다른 기기의 작업과 충돌했습니다'
+        })
+      ).toBeFocused()
+      await expect(second.page.getByRole('radio').nth(1)).toBeChecked()
+      await second.page.keyboard.press('Tab')
+      await expect(
+        conflictDialog.getByRole('button', { name: '서버 기록 사용' })
+      ).toBeFocused()
+      await second.page.keyboard.press('Tab')
+      await expect(
+        conflictDialog.getByRole('button', { name: '내 변경 유지' })
+      ).toBeFocused()
+      await second.page.keyboard.press('Tab')
+      await expect(
+        conflictDialog.getByRole('button', { name: '서버 기록 사용' })
+      ).toBeFocused()
+      await second.page.keyboard.press('Enter')
+      await expect(conflictDialog).toBeHidden()
+      await expect(conflictingChoice).toBeFocused()
+      await expect(second.page.getByRole('radio').nth(0)).toBeChecked()
+
+      await second.page.getByRole('radio').nth(2).click()
+      await waitForSaved(second.page)
+      await second.page.reload()
+      await expect(second.page.getByRole('radio').nth(2)).toBeChecked()
+
+      const canonical = await getDraft(second.page, created.session.id)
+      expect(canonical.revision).toBe(2)
+      expect(canonical.answers[0]?.selectedOptionId).toBe(
+        created.questions[0]?.question.options[2]?.id
+      )
+    } finally {
+      await first.context.close()
+      await second.context.close()
+    }
+  })
+
+  test('one BrowserContext clears the previous account state and ignores a delayed PUT response', async ({
+    browser
+  }) => {
+    const context = await browser.newContext()
+    await context.addInitScript(() => {
+      const NativeBroadcastChannel = window.BroadcastChannel
+      const events: Array<{
+        name: string
+        payload?: unknown
+        type: 'close' | 'open' | 'post'
+      }> = []
+
+      class ObservedBroadcastChannel extends NativeBroadcastChannel {
+        readonly observedName: string
+
+        constructor(name: string) {
+          super(name)
+          this.observedName = name
+          events.push({ name, type: 'open' })
+        }
+
+        postMessage(message: unknown): void {
+          events.push({
+            name: this.observedName,
+            payload: message,
+            type: 'post'
+          })
+          super.postMessage(message)
+        }
+
+        close(): void {
+          events.push({ name: this.observedName, type: 'close' })
+          super.close()
+        }
+      }
+
+      Object.defineProperty(window, 'BroadcastChannel', {
+        configurable: true,
+        value: ObservedBroadcastChannel
+      })
+      Object.defineProperty(window, '__slice2BroadcastEvents', {
+        configurable: true,
+        value: events
+      })
+    })
+    const page = await context.newPage()
+    const authPage = await context.newPage()
+    let releaseDelayedResponse = (): void => undefined
+    let resolveDeliveredResponse = (): void => undefined
+    const deliveredResponse = new Promise<void>((resolve) => {
+      resolveDeliveredResponse = resolve
+    })
+
+    try {
+      await login(page, userA)
+      const created = await createSession(page)
+      const draftPattern = getDraftPattern(created.session.id)
+      await openSession(page, created.session.id)
+
+      await page.evaluate(async () => {
+        const importModule = async (specifier: string): Promise<unknown> =>
+          await import(/* @vite-ignore */ specifier)
+        const { queryClient } = (await importModule(
+          '/src/libs/queryClient.ts'
+        )) as {
+          queryClient: {
+            setQueryData: (key: readonly unknown[], data: unknown) => void
+          }
+        }
+        queryClient.setQueryData(['study', 'sessions', 'owner-a-sentinel'], {
+          owner: 'A'
+        })
+      })
+
+      let resolveCommitted = (): void => undefined
+      const committed = new Promise<void>((resolve) => {
+        resolveCommitted = resolve
+      })
+      const delayedResponseGate = new Promise<void>((resolve) => {
+        releaseDelayedResponse = resolve
+      })
+      const delayFirstPut = async (route: Route): Promise<void> => {
+        if (route.request().method() !== 'PUT') {
+          await route.continue()
+          return
+        }
+        const response = await route.fetch()
+        expect(response.status()).toBe(200)
+        resolveCommitted()
+        await delayedResponseGate
+        await route.fulfill({ response })
+        resolveDeliveredResponse()
+      }
+      await page.route(draftPattern, delayFirstPut)
+
+      await page.getByRole('radio').nth(0).click()
+      await committed
+      const beforeSwitch = await page.evaluate(async (sessionId) => {
+        const importModule = async (specifier: string): Promise<unknown> =>
+          await import(/* @vite-ignore */ specifier)
+        const { queryClient } = (await importModule(
+          '/src/libs/queryClient.ts'
+        )) as {
+          queryClient: {
+            getQueryData: (key: readonly unknown[]) => unknown
+          }
+        }
+        const draftKeys = Object.keys(sessionStorage).filter(
+          (key) =>
+            key.startsWith('jlpt-drill-note:study-draft-working-copy:v1:') &&
+            key.includes(sessionId)
+        )
+        const serialized = draftKeys[0]
+          ? sessionStorage.getItem(draftKeys[0])
+          : null
+        const record = serialized
+          ? (JSON.parse(serialized) as { frozenAttempt?: unknown })
+          : null
+        const events = (
+          window as unknown as {
+            __slice2BroadcastEvents: Array<{
+              name: string
+              type: string
+            }>
+          }
+        ).__slice2BroadcastEvents
+
+        return {
+          channelName:
+            events.find(
+              (event) => event.type === 'open' && event.name.includes(sessionId)
+            )?.name ?? null,
+          draftKeys,
+          frozen: Boolean(record?.frozenAttempt),
+          ownerSentinel:
+            queryClient.getQueryData([
+              'study',
+              'sessions',
+              'owner-a-sentinel'
+            ]) ?? null
+        }
+      }, created.session.id)
+      expect(beforeSwitch.ownerSentinel).toEqual({ owner: 'A' })
+      expect(beforeSwitch.draftKeys).toHaveLength(1)
+      expect(beforeSwitch.frozen).toBe(true)
+      expect(beforeSwitch.channelName).not.toBeNull()
+
+      await authPage.goto('/login')
+      await expect(
+        authPage.getByRole('link', { exact: true, name: userA.name })
+      ).toBeVisible()
+      await authPage.getByRole('button', { name: '로그아웃' }).click()
+      await expect(authPage.getByLabel('이메일')).toBeVisible()
+      await login(authPage, userB)
+      authenticatedStorage.set(userB.email, await context.storageState())
+      await expect(
+        page.getByRole('link', { exact: true, name: userB.name })
+      ).toBeVisible({ timeout: 15_000 })
+
+      const afterSwitch = await page.evaluate(async (sessionId) => {
+        const importModule = async (specifier: string): Promise<unknown> =>
+          await import(/* @vite-ignore */ specifier)
+        const [{ queryClient }, { useAppStore }] = (await Promise.all([
+          importModule('/src/libs/queryClient.ts'),
+          importModule('/src/store/index.ts')
+        ])) as [
+          {
+            queryClient: {
+              getMutationCache: () => {
+                getAll: () => Array<{
+                  options: { mutationKey?: readonly unknown[] }
+                  state: { status: string }
+                }>
+              }
+              getQueryData: (key: readonly unknown[]) => unknown
+              setQueryData: (key: readonly unknown[], data: unknown) => void
+            }
+          },
+          {
+            useAppStore: {
+              getState: () => {
+                currentUser: { id: string } | null
+                draftConflict: unknown
+                draftWorkingCopy: unknown
+                selectedAnswers: Record<string, string>
+                sessionId: string | null
+              }
+            }
+          }
+        ]
+        queryClient.setQueryData(['study', 'sessions', 'next-owner-probe'], {
+          owner: 'B'
+        })
+        const state = useAppStore.getState()
+        const events = (
+          window as unknown as {
+            __slice2BroadcastEvents: Array<{
+              name: string
+              type: string
+            }>
+          }
+        ).__slice2BroadcastEvents
+
+        return {
+          closedChannelCount: events.filter(
+            (event) => event.type === 'close' && event.name.includes(sessionId)
+          ).length,
+          currentUserId: state.currentUser?.id ?? null,
+          draftConflict: state.draftConflict,
+          draftKeys: Object.keys(sessionStorage).filter((key) =>
+            key.startsWith('jlpt-drill-note:study-draft-working-copy:v1:')
+          ),
+          draftWorkingCopy: state.draftWorkingCopy,
+          ownerSentinel:
+            queryClient.getQueryData([
+              'study',
+              'sessions',
+              'owner-a-sentinel'
+            ]) ?? null,
+          pendingDraftSaveMutations: queryClient
+            .getMutationCache()
+            .getAll()
+            .filter(
+              (mutation) =>
+                mutation.state.status === 'pending' &&
+                mutation.options.mutationKey?.[2] === sessionId &&
+                mutation.options.mutationKey?.[4] === 'save'
+            ).length,
+          selectedAnswers: state.selectedAnswers,
+          sessionId: state.sessionId
+        }
+      }, created.session.id)
+      expect(afterSwitch.currentUserId).toEqual(expect.any(String))
+      expect(afterSwitch.ownerSentinel).toBeNull()
+      expect(afterSwitch.pendingDraftSaveMutations).toBe(0)
+      expect(afterSwitch.sessionId).toBeNull()
+      expect(afterSwitch.selectedAnswers).toEqual({})
+      expect(afterSwitch.draftWorkingCopy).toBeNull()
+      expect(afterSwitch.draftConflict).toBeNull()
+      expect(afterSwitch.draftKeys).toHaveLength(0)
+      expect(afterSwitch.closedChannelCount).toBeGreaterThan(0)
+
+      const eventsBeforeRelease = await page.evaluate(
+        (sessionId) =>
+          (
+            window as unknown as {
+              __slice2BroadcastEvents: Array<{
+                name: string
+                type: string
+              }>
+            }
+          ).__slice2BroadcastEvents.filter((event) =>
+            event.name.includes(sessionId)
+          ).length,
+        created.session.id
+      )
+      releaseDelayedResponse()
+      await deliveredResponse
+
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async (sessionId) => {
+              const importModule = async (
+                specifier: string
+              ): Promise<unknown> => await import(/* @vite-ignore */ specifier)
+              const [{ queryClient }, { useAppStore }] = (await Promise.all([
+                importModule('/src/libs/queryClient.ts'),
+                importModule('/src/store/index.ts')
+              ])) as [
+                {
+                  queryClient: {
+                    getMutationCache: () => {
+                      getAll: () => Array<{
+                        options: { mutationKey?: readonly unknown[] }
+                        state: { status: string }
+                      }>
+                    }
+                    getQueryCache: () => {
+                      find: (input: {
+                        exact: boolean
+                        queryKey: readonly unknown[]
+                      }) => { state: { isInvalidated: boolean } } | undefined
+                    }
+                    getQueryData: (key: readonly unknown[]) => unknown
+                  }
+                },
+                {
+                  useAppStore: {
+                    getState: () => {
+                      currentUser: { id: string } | null
+                      draftWorkingCopy: unknown
+                      sessionId: string | null
+                    }
+                  }
+                }
+              ]
+              const key = ['study', 'sessions', 'next-owner-probe'] as const
+              const state = useAppStore.getState()
+              const query = queryClient
+                .getQueryCache()
+                .find({ exact: true, queryKey: key })
+              const events = (
+                window as unknown as {
+                  __slice2BroadcastEvents: Array<{
+                    name: string
+                    type: string
+                  }>
+                }
+              ).__slice2BroadcastEvents.filter((event) =>
+                event.name.includes(sessionId)
+              )
+
+              return {
+                currentUserId: state.currentUser?.id ?? null,
+                draftKeys: Object.keys(sessionStorage).filter((storageKey) =>
+                  storageKey.startsWith(
+                    'jlpt-drill-note:study-draft-working-copy:v1:'
+                  )
+                ),
+                draftWorkingCopy: state.draftWorkingCopy,
+                events: events.length,
+                invalidated: query?.state.isInvalidated ?? null,
+                nextOwnerSentinel: queryClient.getQueryData(key) ?? null,
+                pendingDraftSaveMutations: queryClient
+                  .getMutationCache()
+                  .getAll()
+                  .filter(
+                    (mutation) =>
+                      mutation.state.status === 'pending' &&
+                      mutation.options.mutationKey?.[2] === sessionId &&
+                      mutation.options.mutationKey?.[4] === 'save'
+                  ).length,
+                sessionId: state.sessionId
+              }
+            }, created.session.id)
+        )
+        .toMatchObject({
+          currentUserId: afterSwitch.currentUserId,
+          draftKeys: [],
+          draftWorkingCopy: null,
+          events: eventsBeforeRelease,
+          invalidated: false,
+          nextOwnerSentinel: { owner: 'B' },
+          pendingDraftSaveMutations: 0,
+          sessionId: null
+        })
+      await expect(
+        page.getByRole('link', { exact: true, name: userB.name })
+      ).toBeVisible()
+      await expect(page.getByRole('radio')).toHaveCount(0)
+      await page.unroute(draftPattern, delayFirstPut)
+    } finally {
+      releaseDelayedResponse()
+      await context.close()
+    }
+  })
+
+  test('response loss hard reload replays the exact frozen PUT before GET and rebases post-flight work', async ({
+    browser
+  }) => {
+    const first = await createLoggedInContext(browser, userD)
+    const second = await createLoggedInContext(browser, userD)
+
+    try {
+      const created = await createSession(first.page)
+      const draftPattern = getDraftPattern(created.session.id)
+      await openSession(first.page, created.session.id)
+      await openSession(second.page, created.session.id)
+
+      let resolveCommitted = (): void => undefined
+      let releaseLostResponse = (): void => undefined
+      const committed = new Promise<void>((resolve) => {
+        resolveCommitted = resolve
+      })
+      const lostResponseGate = new Promise<void>((resolve) => {
+        releaseLostResponse = resolve
+      })
+      let originalKey: string | null = null
+      let originalBody: string | null = null
+      let responseWasLost = false
+
+      const loseFirstPut = async (route: Route): Promise<void> => {
+        if (route.request().method() !== 'PUT' || responseWasLost) {
+          await route.continue()
+          return
+        }
+        responseWasLost = true
+        originalKey = route.request().headers()['idempotency-key'] ?? null
+        originalBody = route.request().postData()
+        await route.fetch()
+        resolveCommitted()
+        await lostResponseGate
+        await route.abort('failed')
+      }
+      await first.page.route(draftPattern, loseFirstPut)
+
+      await first.page.getByRole('radio').nth(0).click()
+      await committed
+      await goToQuestion(first.page, 3)
+      await first.page.getByRole('radio').nth(2).click()
+      releaseLostResponse()
+      await expect(first.page.locator('[data-save-state]')).toHaveAttribute(
+        'data-save-state',
+        /^(?:error|offline)$/
+      )
+      await first.page.unroute(draftPattern, loseFirstPut)
+
+      const afterFirstCommit = await getDraft(second.page, created.session.id)
+      expect(afterFirstCommit.revision).toBe(1)
+      const secondAcknowledgement = await saveDraft(
+        second.page,
+        afterFirstCommit,
+        1,
+        created.questions[1]?.question.options[1]?.id ?? ''
+      )
+      expect(secondAcknowledgement.revision).toBe(2)
+
+      const wireOrder: string[] = []
+      let replayKey: string | null = null
+      let replayBody: string | null = null
+      const observeRecovery = async (route: Route): Promise<void> => {
+        const method = route.request().method()
+        wireOrder.push(method)
+        if (method === 'PUT' && replayKey === null) {
+          replayKey = route.request().headers()['idempotency-key'] ?? null
+          replayBody = route.request().postData()
+        }
+        const response = await route.fetch()
+        await route.fulfill({ response })
+      }
+      await first.page.route(draftPattern, observeRecovery)
+      first.page.on('dialog', (dialog) => {
+        void dialog.accept()
+      })
+      await first.page.reload({ waitUntil: 'domcontentloaded' })
+
+      await expect
+        .poll(() => wireOrder.slice(0, 4))
+        .toEqual(['PUT', 'GET', 'PUT', 'GET'])
+      await waitForSaved(first.page)
+      expect(replayKey).toBe(originalKey)
+      expect(replayBody).toBe(originalBody)
+
+      const canonical = await getDraft(first.page, created.session.id)
+      expect(canonical.revision).toBe(3)
+      expect(canonical.answers[0]?.selectedOptionId).toBe(
+        created.questions[0]?.question.options[0]?.id
+      )
+      expect(canonical.answers[1]?.selectedOptionId).toBe(
+        created.questions[1]?.question.options[1]?.id
+      )
+      expect(canonical.answers[2]?.selectedOptionId).toBe(
+        created.questions[2]?.question.options[2]?.id
+      )
+      await first.page.unroute(draftPattern, observeRecovery)
+    } finally {
+      await first.context.close()
+      await second.context.close()
+    }
+  })
+
+  test('offline edits remain local and reconnect checks canonical revision before saving', async ({
+    browser
+  }) => {
+    const first = await createLoggedInContext(browser, userA)
+    const second = await createLoggedInContext(browser, userA)
+
+    try {
+      const created = await createSession(first.page)
+      const draftPattern = getDraftPattern(created.session.id)
+      await openSession(first.page, created.session.id)
+      await openSession(second.page, created.session.id)
+
+      let offlinePutAttempts = 0
+      const countOfflinePut = (request: Request): void => {
+        if (request.method() === 'PUT' && draftPattern.test(request.url())) {
+          offlinePutAttempts += 1
+        }
+      }
+      first.page.on('request', countOfflinePut)
+      await first.context.setOffline(true)
+      await first.page.getByRole('radio').nth(0).click()
+      await expect(first.page.locator('[data-save-state]')).toHaveAttribute(
+        'data-save-state',
+        'offline'
+      )
+      await first.page.waitForTimeout(1_100)
+      expect(offlinePutAttempts).toBe(0)
+
+      const remoteBase = await getDraft(second.page, created.session.id)
+      const remoteAcknowledgement = await saveDraft(
+        second.page,
+        remoteBase,
+        1,
+        created.questions[1]?.question.options[1]?.id ?? ''
+      )
+      expect(remoteAcknowledgement.revision).toBe(1)
+
+      const reconnectOrder: string[] = []
+      const observeReconnect = async (route: Route): Promise<void> => {
+        reconnectOrder.push(route.request().method())
+        const response = await route.fetch()
+        await route.fulfill({ response })
+      }
+      await first.page.route(draftPattern, observeReconnect)
+      await first.context.setOffline(false)
+      await expect.poll(() => reconnectOrder.includes('PUT')).toBe(true)
+      expect(reconnectOrder[0]).toBe('GET')
+      await waitForSaved(first.page)
+
+      const canonical = await getDraft(first.page, created.session.id)
+      expect(canonical.revision).toBe(2)
+      expect(canonical.answers[0]?.selectedOptionId).toBe(
+        created.questions[0]?.question.options[0]?.id
+      )
+      expect(canonical.answers[1]?.selectedOptionId).toBe(
+        created.questions[1]?.question.options[1]?.id
+      )
+      first.page.off('request', countOfflinePut)
+      await first.page.unroute(draftPattern, observeReconnect)
+    } finally {
+      await first.context.close()
+      await second.context.close()
+    }
+  })
+
+  test('Slice 3 USER modes preserve recent ordering and exact mode-owned candidates', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userB)
+    const { context, page } = authenticated
+
+    try {
+      const random = await startSessionFromSetup(page, '랜덤 문제')
+      const randomQuestionIds = random.questions.map(
+        ({ question }) => question.id
+      )
+      const recentIds = new Set(slice3Selection.recentQuestionIds)
+      const firstRecentIndex = randomQuestionIds.findIndex((id) =>
+        recentIds.has(id)
+      )
+
+      expect(random.session).toMatchObject({
+        actualCount: 5,
+        fallbackReason: null,
+        mode: 'RANDOM',
+        requestedCount: 20,
+        usedFallback: false
+      })
+      expect(new Set(randomQuestionIds).size).toBe(randomQuestionIds.length)
+      expect(firstRecentIndex).toBe(2)
+      expect(
+        randomQuestionIds
+          .slice(0, firstRecentIndex)
+          .every((id) => !recentIds.has(id))
+      ).toBe(true)
+      expect(new Set(randomQuestionIds.slice(firstRecentIndex))).toEqual(
+        recentIds
+      )
+      await expect(
+        page.getByText(/다른 모드로 대체하지 않았습니다/u)
+      ).toBeVisible()
+      await cancelCreatedSession(page, random.session.id)
+
+      const weakness = await startSessionFromSetup(page, '약점 추천')
+      expect(weakness.session).toMatchObject({
+        actualCount: 1,
+        fallbackReason: null,
+        mode: 'WEAKNESS',
+        requestedCount: 20,
+        usedFallback: false
+      })
+      expect(weakness.questions.map(({ question }) => question.id)).toEqual([
+        slice3Selection.weaknessQuestionId
+      ])
+      await expect(
+        page.getByText(/다른 모드로 대체하지 않았습니다/u)
+      ).toBeVisible()
+      await cancelCreatedSession(page, weakness.session.id)
+
+      for (const mode of [
+        { apiMode: 'WRONG_NOTE', label: '오답 문제' },
+        { apiMode: 'DAILY_REVIEW', label: '오늘의 복습' }
+      ] as const) {
+        const created = await startSessionFromSetup(page, mode.label)
+        expect(created.session).toMatchObject({
+          actualCount: 3,
+          fallbackReason: null,
+          mode: mode.apiMode,
+          requestedCount: 20,
+          usedFallback: false
+        })
+        expect(
+          new Set(created.questions.map(({ question }) => question.id))
+        ).toEqual(recentIds)
+        await expect(
+          page.getByText(/다른 모드로 대체하지 않았습니다/u)
+        ).toBeVisible()
+        await cancelCreatedSession(page, created.session.id)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Slice 3 guest policy keeps protected modes closed and clears a stale empty-state error', async ({
+    browser
+  }) => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+
+    try {
+      await page.goto('/practice?mode=BOOKMARK')
+      const loginLink = page
+        .getByRole('alert')
+        .getByRole('link', { name: '로그인하기' })
+      await expect(loginLink).toHaveAttribute(
+        'href',
+        '/login?redirect=%2Fpractice%3Fmode%3DBOOKMARK'
+      )
+      const loginLinkBox = await loginLink.boundingBox()
+      expect(loginLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(loginLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+
+      await page.goto('/practice')
+      await expect(
+        page.getByRole('button', { name: /^약점 추천/u })
+      ).toBeEnabled()
+      await expect(
+        page.getByRole('button', { name: /^오답 문제/u })
+      ).toBeDisabled()
+      await expect(
+        page.getByRole('button', { name: /^오늘의 복습/u })
+      ).toBeDisabled()
+      await expect(
+        page.getByRole('button', { name: /^즐겨찾기/u })
+      ).toBeDisabled()
+
+      await page.getByRole('button', { exact: true, name: 'N5' }).click()
+      await page.getByRole('button', { exact: true, name: '문자·어휘' }).click()
+      await page.getByRole('button', { name: /^약점 추천/u }).click()
+      const emptyResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'POST' &&
+          url.pathname === '/api/v1/study-sessions'
+        )
+      })
+      await page.getByRole('button', { name: '학습 시작하기' }).click()
+      const emptyResponse = await emptyResponsePromise
+      expect(emptyResponse.status()).toBe(404)
+      await expect(emptyResponse.json()).resolves.toMatchObject({
+        code: 'NO_ELIGIBLE_QUESTIONS'
+      })
+
+      const emptyAlert = page.getByRole('alert').filter({
+        hasText: '현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.'
+      })
+      await expect(emptyAlert).toBeVisible()
+      await emptyAlert.getByRole('button', { name: '랜덤 문제 선택' }).click()
+      await expect(emptyAlert).toBeHidden()
+      await expect(
+        page.getByRole('button', { name: /^랜덤 문제/u })
+      ).toHaveAttribute('aria-pressed', 'true')
+
+      let randomQuestionIds: Set<string> | undefined
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const random = await createSession(page)
+        expect(random.session.mode).toBe('RANDOM')
+        expect(
+          new Set(random.questions.map(({ question }) => question.id)).size
+        ).toBe(random.questions.length)
+        randomQuestionIds ??= new Set(
+          random.questions.map(({ question }) => question.id)
+        )
+        await submitAllWrong(page, random)
+      }
+
+      const weakness = await startSessionFromSetup(page, '약점 추천')
+      expect(weakness.session).toMatchObject({
+        actualCount: 5,
+        fallbackReason: null,
+        mode: 'WEAKNESS',
+        usedFallback: false
+      })
+      expect(
+        new Set(weakness.questions.map(({ question }) => question.id))
+      ).toEqual(randomQuestionIds)
+      await page.getByRole('button', { name: '1번 문제 즐겨찾기 추가' }).click()
+      const guestBookmarkLoginLink = page.getByRole('link', {
+        name: '로그인 선택'
+      })
+      await expect(guestBookmarkLoginLink).toBeVisible()
+      const guestBookmarkLoginBox = await guestBookmarkLoginLink.boundingBox()
+      expect(guestBookmarkLoginBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(guestBookmarkLoginBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+      await cancelCreatedSession(page, weakness.session.id)
+
+      for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW', 'BOOKMARK'] as const) {
+        const protectedModeResult = await page.evaluate(async (inputMode) => {
+          const response = await fetch('/api/v1/study-sessions', {
+            body: JSON.stringify({
+              count: 5,
+              level: 'N5',
+              mode: inputMode,
+              subject: 'VOCABULARY'
+            }),
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Nihongo-Practice-Contract': '2'
+            },
+            method: 'POST'
+          })
+          return {
+            body: (await response.json()) as { code?: string },
+            status: response.status
+          }
+        }, mode)
+        expect(protectedModeResult).toEqual({
+          body: expect.objectContaining({ code: 'AUTHENTICATION_REQUIRED' }),
+          status: 401
+        })
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Slice 4 USER can add, list, practice, and remove canonical Bookmarks', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userD)
+    const { context, page } = authenticated
+
+    try {
+      const random = await createSession(page)
+      await openSession(page, random.session.id)
+      const bookmarkedQuestionIds: string[] = []
+
+      for (const ordinal of [1, 2]) {
+        if (ordinal > 1) await goToQuestion(page, ordinal)
+        const button = page.getByRole('button', {
+          name: `${ordinal}번 문제 즐겨찾기 추가`
+        })
+        await expect(button).toBeEnabled()
+        const responsePromise = page.waitForResponse((response) => {
+          const url = new URL(response.url())
+          return (
+            response.request().method() === 'PUT' &&
+            url.pathname.startsWith('/api/v1/bookmarks/')
+          )
+        })
+        await button.click()
+        const response = await responsePromise
+        expect(response.status()).toBe(201)
+        await expect(
+          page.getByRole('button', {
+            name: `${ordinal}번 문제 즐겨찾기 해제`
+          })
+        ).toHaveAttribute('aria-pressed', 'true')
+        const questionId = random.questions[ordinal - 1]?.question.id
+        if (!questionId) throw new Error('Bookmark E2E question이 필요합니다.')
+        bookmarkedQuestionIds.push(questionId)
+      }
+
+      await cancelCreatedSession(page, random.session.id)
+      await page.goto('/bookmarks')
+      await expect(
+        page.getByRole('heading', { name: '즐겨찾기 문제' })
+      ).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: '즐겨찾기 해제' })
+      ).toHaveCount(2)
+
+      const canonicalBookmarks = await page.evaluate(async () => {
+        const response = await fetch('/api/v1/bookmarks?page=1&pageSize=20')
+        if (!response.ok) {
+          throw new Error(`Bookmark list failed with ${response.status}.`)
+        }
+        return (await response.json()) as BookmarkList
+      })
+      expect(canonicalBookmarks.total).toBe(2)
+      expect(
+        new Set(canonicalBookmarks.items.map(({ questionId }) => questionId))
+      ).toEqual(new Set(bookmarkedQuestionIds))
+
+      const createResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'POST' &&
+          url.pathname === '/api/v1/study-sessions'
+        )
+      })
+      await page
+        .getByRole('button', {
+          name: /N5 · 문자·어휘 · 최대 20문제 풀기/u
+        })
+        .click()
+      const createResponse = await createResponsePromise
+      expect(createResponse.status()).toBe(201)
+      const bookmarkSession = (await createResponse.json()) as CreatedSession
+      expect(bookmarkSession.session).toMatchObject({
+        actualCount: 2,
+        fallbackReason: null,
+        mode: 'BOOKMARK',
+        requestedCount: 20,
+        usedFallback: false
+      })
+      expect(
+        bookmarkSession.questions.map(({ question }) => question.id)
+      ).toEqual(canonicalBookmarks.items.map(({ questionId }) => questionId))
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${bookmarkSession.session.id}$`)
+      )
+      await expect(
+        page.getByText(/다른 모드로 대체하지 않았습니다/u)
+      ).toBeVisible()
+
+      const removeButton = page.getByRole('button', {
+        name: '1번 문제 즐겨찾기 해제'
+      })
+      await expect(removeButton).toBeEnabled()
+      const deleteResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'DELETE' &&
+          url.pathname.startsWith('/api/v1/bookmarks/')
+        )
+      })
+      await removeButton.click()
+      const deleteResponse = await deleteResponsePromise
+      expect(deleteResponse.status()).toBe(204)
+      await expect(
+        page.getByRole('button', { name: '1번 문제 즐겨찾기 추가' })
+      ).toHaveAttribute('aria-pressed', 'false')
+      await cancelCreatedSession(page, bookmarkSession.session.id)
+      await page.goto('/bookmarks')
+      await expect(
+        page.getByRole('button', { name: '즐겨찾기 해제' })
+      ).toHaveCount(1)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Slice 5 retry response loss reuses the exact key and converges on one target', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userC)
+    const { context, page } = authenticated
+
+    try {
+      const source = await createSession(page)
+      await submitAllWrong(page, source)
+      await page.goto(`/practice/result/${source.session.id}`)
+      await expect(
+        page.getByRole('heading', { name: '학습 결과' })
+      ).toBeVisible()
+
+      const retryPattern = new RegExp(
+        `/api/v1/study-sessions/${source.session.id}/retry$`
+      )
+      const observedKeys: string[] = []
+      let committedResponse: CreatedSession | undefined
+      let committedTargetId = ''
+      let retryRequestCount = 0
+      const loseFirstCommittedResponse = async (
+        route: Route
+      ): Promise<void> => {
+        const request = route.request()
+        if (request.method() !== 'POST') {
+          await route.continue()
+          return
+        }
+        retryRequestCount += 1
+        observedKeys.push(request.headers()['idempotency-key'] ?? '')
+        expect(request.headers()['x-nihongo-practice-contract']).toBe('2')
+        expect(request.postDataJSON()).toEqual({})
+        const response = await route.fetch()
+        expect(response.status()).toBe(201)
+        const body = (await response.json()) as CreatedSession
+        expect(body.session.mode).toBe('WRONG_NOTE')
+        expect(body.questions).toHaveLength(5)
+        if (retryRequestCount === 1) {
+          expect(response.headers()['idempotency-replayed']).toBeUndefined()
+          committedResponse = body
+          committedTargetId = body.session.id
+          await route.abort('failed')
+          return
+        }
+        expect(response.headers()['idempotency-replayed']).toBe('true')
+        expect(body).toEqual(committedResponse)
+        await route.fulfill({ response })
+      }
+      await page.route(retryPattern, loseFirstCommittedResponse)
+
+      const retryButton = page.getByRole('button', {
+        name: '오답만 다시 풀기'
+      })
+      await retryButton.click()
+      await expect(
+        page.getByRole('alert').filter({ hasText: '오답 재출제 세션' })
+      ).toBeVisible()
+      let sawBeforeUnload = false
+      page.once('dialog', (dialog) => {
+        expect(dialog.type()).toBe('beforeunload')
+        sawBeforeUnload = true
+        void dialog.accept()
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      expect(sawBeforeUnload).toBe(true)
+      await expect(
+        page.getByRole('heading', { name: '학습 결과' })
+      ).toBeVisible()
+      await page.getByRole('button', { name: '오답만 다시 풀기' }).click()
+
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${committedTargetId}$`),
+        { timeout: 20_000 }
+      )
+      expect(retryRequestCount).toBe(2)
+      expect(observedKeys[0]).toMatch(/^[0-9a-f-]{36}$/u)
+      expect(observedKeys[1]).toBe(observedKeys[0])
+      await expect(page.locator('[data-save-state]')).toBeVisible()
+      await page.unroute(retryPattern, loseFirstCommittedResponse)
+      await cancelCreatedSession(page, committedTargetId)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('submit response loss replays the exact key, body, and committed result', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userC)
+    const { context, page } = authenticated
+
+    try {
+      const created = await createSession(page)
+      await openSession(page, created.session.id)
+      await goToQuestion(page, 5)
+      await page.getByRole('radio').nth(0).click()
+      await waitForSaved(page)
+
+      const submissionPattern = new RegExp(
+        `/api/v1/study-sessions/${created.session.id}/submission$`
+      )
+      const observedBodies: string[] = []
+      const observedKeys: string[] = []
+      let committedResult: unknown
+      let requestCount = 0
+      const loseFirstSubmissionResponse = async (
+        route: Route
+      ): Promise<void> => {
+        const request = route.request()
+        if (request.method() !== 'POST') {
+          await route.continue()
+          return
+        }
+
+        requestCount += 1
+        observedBodies.push(request.postData() ?? '')
+        observedKeys.push(request.headers()['idempotency-key'] ?? '')
+        const response = await route.fetch()
+        expect(response.status()).toBe(201)
+        const result = await response.json()
+        if (requestCount === 1) {
+          expect(response.headers()['idempotency-replayed']).toBeUndefined()
+          committedResult = result
+          await route.abort('failed')
+          return
+        }
+
+        expect(response.headers()['idempotency-replayed']).toBe('true')
+        expect(result).toEqual(committedResult)
+        await route.fulfill({ response })
+      }
+      await page.route(submissionPattern, loseFirstSubmissionResponse)
+
+      await page.getByRole('button', { name: '답안 제출' }).click()
+      const dialog = page.getByRole('dialog', {
+        name: '답안을 제출하시겠습니까?'
+      })
+      await dialog.getByRole('button', { name: '제출하고 결과 보기' }).click()
+
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/result/${created.session.id}$`),
+        { timeout: 20_000 }
+      )
+      expect(requestCount).toBe(2)
+      expect(observedKeys[0]).toMatch(/^[0-9a-f-]{36}$/u)
+      expect(observedKeys[1]).toBe(observedKeys[0])
+      expect(observedBodies[1]).toBe(observedBodies[0])
+      await page.unroute(submissionPattern, loseFirstSubmissionResponse)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('keyboard, responsive, reduced-motion, live status, and v2 submission use the saved revision', async ({
+    browser
+  }) => {
+    const authenticated = await createLoggedInContext(browser, userB)
+    const { context, page } = authenticated
+
+    try {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto('/practice')
+      await page.keyboard.press('Tab')
+      const skipLink = page.getByRole('link', {
+        name: '본문으로 바로가기'
+      })
+      await expect(skipLink).toBeFocused()
+      const skipLinkBox = await skipLink.boundingBox()
+      expect(skipLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(skipLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+      for (const buttonName of ['N5', '문자·어휘', '5문제'] as const) {
+        const button = page.getByRole('button', {
+          exact: true,
+          name: buttonName
+        })
+        await moveFocusWithKeyboard(page, button)
+        await page.keyboard.press('Enter')
+      }
+      const createResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return (
+          response.request().method() === 'POST' &&
+          url.pathname === '/api/v1/study-sessions'
+        )
+      })
+      const startButton = page.getByRole('button', {
+        name: '학습 시작하기'
+      })
+      await moveFocusWithKeyboard(page, startButton)
+      await page.keyboard.press('Enter')
+      const createResponse = await createResponsePromise
+      expect(createResponse.status()).toBe(201)
+      const created = (await createResponse.json()) as CreatedSession
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/session/${created.session.id}$`)
+      )
+      await expect(page.locator('[data-save-state]')).toBeVisible()
+      await expect(page.locator('h1')).toBeFocused()
+
+      for (const [index, width] of [320, 375, 768, 1280].entries()) {
+        await page.setViewportSize({ height: 800, width })
+        await page.keyboard.press('1')
+        await expect(page.getByRole('radio').nth(0)).toBeChecked()
+        await waitForSaved(page)
+        expect(
+          await page.evaluate(
+            () =>
+              document.documentElement.scrollWidth <=
+              document.documentElement.clientWidth
+          )
+        ).toBe(true)
+        const touchTargets = page.locator(
+          'button:visible, a[href]:visible:not(.sr-only), label:has(input[type="radio"]):visible'
+        )
+        for (
+          let targetIndex = 0;
+          targetIndex < (await touchTargets.count());
+          targetIndex += 1
+        ) {
+          const box = await touchTargets.nth(targetIndex).boundingBox()
+          expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+          expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
+        }
+        await page.keyboard.press('ArrowRight')
+        await expect(
+          page.getByRole('button', {
+            name: new RegExp(`^${index + 2}번 문제,`)
+          })
+        ).toHaveAttribute('aria-current', 'step')
+        await expect(page.locator('h1')).toBeFocused()
+      }
+
+      const transitionDuration = await page
+        .locator('label')
+        .first()
+        .evaluate((element) => getComputedStyle(element).transitionDuration)
+      const transitionDurationSeconds = transitionDuration.endsWith('ms')
+        ? Number.parseFloat(transitionDuration) / 1_000
+        : Number.parseFloat(transitionDuration)
+      expect(transitionDurationSeconds).toBeLessThanOrEqual(0.001)
+
+      await expect(page.locator('[data-save-state]')).toHaveAttribute(
+        'aria-live',
+        'polite'
+      )
+
+      let releaseSaveResponse = (): void => undefined
+      const saveResponseGate = new Promise<void>((resolve) => {
+        releaseSaveResponse = resolve
+      })
+      const draftPattern = getDraftPattern(created.session.id)
+      const delaySaveResponse = async (route: Route): Promise<void> => {
+        if (route.request().method() !== 'PUT') {
+          await route.continue()
+          return
+        }
+        const response = await route.fetch()
+        await saveResponseGate
+        await route.fulfill({ response })
+      }
+      await page.route(draftPattern, delaySaveResponse)
+      await page.keyboard.press('1')
+      await expect(page.locator('[data-save-state]')).toHaveAttribute(
+        'data-save-state',
+        'saving'
+      )
+      await page.keyboard.press('Control+Enter')
+      await expect(
+        page.getByRole('dialog', { name: '답안을 제출하시겠습니까?' })
+      ).toHaveCount(0)
+      releaseSaveResponse()
+      await waitForSaved(page)
+      await page.unroute(draftPattern, delaySaveResponse)
+      let submissionBody: Record<string, unknown> | undefined
+      page.on('request', (request) => {
+        if (
+          request.method() === 'POST' &&
+          request
+            .url()
+            .endsWith(`/study-sessions/${created.session.id}/submission`)
+        ) {
+          submissionBody = request.postDataJSON() as Record<string, unknown>
+        }
+      })
+      await expect(
+        page.getByRole('button', { name: '답안 제출' })
+      ).toHaveAttribute('aria-keyshortcuts', 'Control+Enter Meta+Enter')
+      const submitButton = page.getByRole('button', { name: '답안 제출' })
+      await moveFocusWithKeyboard(page, submitButton)
+      await page.keyboard.press('Enter')
+      const submitDialog = page.getByRole('dialog', {
+        name: '답안을 제출하시겠습니까?'
+      })
+      await expect(submitDialog).toBeVisible()
+      await expect(
+        submitDialog.getByRole('heading', {
+          name: '답안을 제출하시겠습니까?'
+        })
+      ).toBeFocused()
+      const dialogTargets = submitDialog.getByRole('button')
+      for (
+        let targetIndex = 0;
+        targetIndex < (await dialogTargets.count());
+        targetIndex += 1
+      ) {
+        const box = await dialogTargets.nth(targetIndex).boundingBox()
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44)
+      }
+      await page.keyboard.press('Escape')
+      await expect(submitDialog).toBeHidden()
+      await expect(submitButton).toBeFocused()
+
+      await page.keyboard.press('Control+Enter')
+      await expect(submitDialog).toBeVisible()
+      await expect(page.locator('html')).toHaveClass(/has-modal/)
+      await expect(
+        submitDialog.getByRole('heading', {
+          name: '답안을 제출하시겠습니까?'
+        })
+      ).toBeFocused()
+      const focusDialogControl = async (
+        control: Locator,
+        key: 'Shift+Tab' | 'Tab'
+      ): Promise<void> => {
+        for (
+          let tabIndex = 0;
+          tabIndex <= (await dialogTargets.count()) + 1;
+          tabIndex += 1
+        ) {
+          if (
+            await control.evaluate(
+              (element) => element === document.activeElement
+            )
+          ) {
+            return
+          }
+          await page.keyboard.press(key)
+          await expect(submitDialog.locator(':focus')).toHaveCount(1)
+        }
+        await expect(control).toBeFocused()
+      }
+      const submitDialogButton = submitDialog.getByRole('button', {
+        name: '제출하고 결과 보기'
+      })
+      const closeDialogButton = submitDialog.getByRole('button', {
+        name: '대화상자 닫기'
+      })
+      const continueButton = submitDialog.getByRole('button', {
+        name: '계속 풀기'
+      })
+      await focusDialogControl(submitDialogButton, 'Shift+Tab')
+      await expect(page.locator('html')).toHaveClass(/has-modal/)
+      await focusDialogControl(closeDialogButton, 'Tab')
+      await focusDialogControl(continueButton, 'Tab')
+      await focusDialogControl(submitDialogButton, 'Tab')
+      await page.keyboard.press('Enter')
+      await expect(page).toHaveURL(
+        new RegExp(`/practice/result/${created.session.id}$`),
+        { timeout: 20_000 }
+      )
+      expect(submissionBody?.expectedDraftRevision).toEqual(expect.any(Number))
+      expect(submissionBody?.expectedDraftRevision).toBeGreaterThan(0)
+
+      const cancelled = await createSession(page)
+      await cancelCreatedSession(page, cancelled.session.id)
+      await page.goto(`/practice/session/${cancelled.session.id}`)
+      await expect(
+        page.getByRole('heading', { name: '취소된 학습 세션입니다' })
+      ).toBeVisible()
+      const cancelledSessionLink = page.getByRole('link', {
+        name: '학습 설정으로 이동'
+      })
+      const cancelledSessionLinkBox = await cancelledSessionLink.boundingBox()
+      expect(cancelledSessionLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(cancelledSessionLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+
+      await page.goto('/practice/result/ffffffff-ffff-4fff-8fff-ffffffffffff')
+      await expect(
+        page.getByRole('heading', { name: '학습 결과를 찾을 수 없습니다' })
+      ).toBeVisible()
+      const missingResultLink = page.getByRole('link', {
+        name: '새 문제 풀기'
+      })
+      const missingResultLinkBox = await missingResultLink.boundingBox()
+      expect(missingResultLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(missingResultLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+
+      await page.goto('/bookmarks')
+      await expect(
+        page.getByRole('heading', { name: '저장한 문제가 없습니다' })
+      ).toBeVisible()
+      const emptyBookmarkLink = page.getByRole('link', {
+        name: '문제 풀러 가기'
+      })
+      const emptyBookmarkLinkBox = await emptyBookmarkLink.boundingBox()
+      expect(emptyBookmarkLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+      expect(emptyBookmarkLinkBox?.width ?? 0).toBeGreaterThanOrEqual(44)
+    } finally {
+      await context.close()
+    }
+  })
+})

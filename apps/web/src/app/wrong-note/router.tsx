@@ -1,7 +1,12 @@
 import { lazy } from 'react'
 import type { RouteObject } from 'react-router'
 
-const WrongNotePage = lazy(() =>
+const WrongNoteReviewCenterPage = lazy(() =>
+  import('@app/wrong-note/center/page').then((module) => ({
+    default: module.WrongNoteReviewCenterPage
+  }))
+)
+const WrongNoteHistoryPage = lazy(() =>
   import('@app/wrong-note/page').then((module) => ({
     default: module.WrongNotePage
   }))
@@ -15,7 +20,11 @@ const WrongNoteDetailPage = lazy(() =>
 export const wrongNoteRoutes: RouteObject[] = [
   {
     path: 'wrong-notes',
-    element: <WrongNotePage />
+    element: <WrongNoteReviewCenterPage />
+  },
+  {
+    path: 'wrong-notes/history',
+    element: <WrongNoteHistoryPage />
   },
   {
     path: 'wrong-notes/:questionId',

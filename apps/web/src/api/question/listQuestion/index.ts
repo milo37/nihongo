@@ -13,4 +13,4 @@ const requestQuestionList = safeGet(listQuestionResponseSchema)
 export const listQuestion = (
   params: ListQuestionRequest = {}
 ): Promise<ListQuestionResponse> =>
-  requestQuestionList('/question', listQuestionRequestSchema.parse(params))
+  requestQuestionList('/v1/questions', listQuestionRequestSchema.parse(params))

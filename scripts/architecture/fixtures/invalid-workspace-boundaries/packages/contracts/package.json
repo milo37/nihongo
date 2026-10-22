@@ -1,0 +1,9 @@
+{
+  "name": "@nihongo/contracts",
+  "dependencies": {
+    "@better-auth/prisma-adapter": "1.6.28",
+    "@nihongo/api": "workspace:*",
+    "pg": "8.23.0",
+    "zod": "4.4.3"
+  }
+}

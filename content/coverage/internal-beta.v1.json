@@ -1,0 +1,344 @@
+{
+  "schemaVersion": 1,
+  "coverageVersion": "internal-beta-v1",
+  "total": 400,
+  "levelFloors": [
+    {
+      "level": "N5",
+      "count": 60,
+      "subjects": [
+        {
+          "subject": "VOCABULARY",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "KANJI_READING",
+              "count": 4
+            },
+            {
+              "questionType": "ORTHOGRAPHY",
+              "count": 4
+            },
+            {
+              "questionType": "CONTEXT_VOCABULARY",
+              "count": 4
+            },
+            {
+              "questionType": "PARAPHRASE",
+              "count": 4
+            },
+            {
+              "questionType": "WORD_USAGE",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "subject": "GRAMMAR",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "GRAMMAR_SELECT",
+              "count": 8
+            },
+            {
+              "questionType": "SENTENCE_ORDER",
+              "count": 6
+            },
+            {
+              "questionType": "TEXT_GRAMMAR",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "subject": "READING",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "SHORT_READING",
+              "count": 10
+            },
+            {
+              "questionType": "INFO_RETRIEVAL",
+              "count": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": "N4",
+      "count": 60,
+      "subjects": [
+        {
+          "subject": "VOCABULARY",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "KANJI_READING",
+              "count": 4
+            },
+            {
+              "questionType": "ORTHOGRAPHY",
+              "count": 4
+            },
+            {
+              "questionType": "CONTEXT_VOCABULARY",
+              "count": 4
+            },
+            {
+              "questionType": "PARAPHRASE",
+              "count": 4
+            },
+            {
+              "questionType": "WORD_USAGE",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "subject": "GRAMMAR",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "GRAMMAR_SELECT",
+              "count": 8
+            },
+            {
+              "questionType": "SENTENCE_ORDER",
+              "count": 6
+            },
+            {
+              "questionType": "TEXT_GRAMMAR",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "subject": "READING",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "SHORT_READING",
+              "count": 10
+            },
+            {
+              "questionType": "INFO_RETRIEVAL",
+              "count": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": "N3",
+      "count": 110,
+      "subjects": [
+        {
+          "subject": "VOCABULARY",
+          "count": 40,
+          "typeFloors": [
+            {
+              "questionType": "KANJI_READING",
+              "count": 8
+            },
+            {
+              "questionType": "ORTHOGRAPHY",
+              "count": 8
+            },
+            {
+              "questionType": "CONTEXT_VOCABULARY",
+              "count": 8
+            },
+            {
+              "questionType": "PARAPHRASE",
+              "count": 8
+            },
+            {
+              "questionType": "WORD_USAGE",
+              "count": 8
+            }
+          ]
+        },
+        {
+          "subject": "GRAMMAR",
+          "count": 40,
+          "typeFloors": [
+            {
+              "questionType": "GRAMMAR_SELECT",
+              "count": 14
+            },
+            {
+              "questionType": "SENTENCE_ORDER",
+              "count": 13
+            },
+            {
+              "questionType": "TEXT_GRAMMAR",
+              "count": 13
+            }
+          ]
+        },
+        {
+          "subject": "READING",
+          "count": 30,
+          "typeFloors": [
+            {
+              "questionType": "SHORT_READING",
+              "count": 10
+            },
+            {
+              "questionType": "MEDIUM_READING",
+              "count": 10
+            },
+            {
+              "questionType": "INFO_RETRIEVAL",
+              "count": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": "N2",
+      "count": 110,
+      "subjects": [
+        {
+          "subject": "VOCABULARY",
+          "count": 40,
+          "typeFloors": [
+            {
+              "questionType": "KANJI_READING",
+              "count": 8
+            },
+            {
+              "questionType": "ORTHOGRAPHY",
+              "count": 8
+            },
+            {
+              "questionType": "CONTEXT_VOCABULARY",
+              "count": 8
+            },
+            {
+              "questionType": "PARAPHRASE",
+              "count": 8
+            },
+            {
+              "questionType": "WORD_USAGE",
+              "count": 8
+            }
+          ]
+        },
+        {
+          "subject": "GRAMMAR",
+          "count": 40,
+          "typeFloors": [
+            {
+              "questionType": "GRAMMAR_SELECT",
+              "count": 14
+            },
+            {
+              "questionType": "SENTENCE_ORDER",
+              "count": 13
+            },
+            {
+              "questionType": "TEXT_GRAMMAR",
+              "count": 13
+            }
+          ]
+        },
+        {
+          "subject": "READING",
+          "count": 30,
+          "typeFloors": [
+            {
+              "questionType": "MEDIUM_READING",
+              "count": 10
+            },
+            {
+              "questionType": "LONG_READING",
+              "count": 10
+            },
+            {
+              "questionType": "INFO_RETRIEVAL",
+              "count": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "level": "N1",
+      "count": 60,
+      "subjects": [
+        {
+          "subject": "VOCABULARY",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "KANJI_READING",
+              "count": 4
+            },
+            {
+              "questionType": "ORTHOGRAPHY",
+              "count": 4
+            },
+            {
+              "questionType": "CONTEXT_VOCABULARY",
+              "count": 4
+            },
+            {
+              "questionType": "PARAPHRASE",
+              "count": 4
+            },
+            {
+              "questionType": "WORD_USAGE",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "subject": "GRAMMAR",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "GRAMMAR_SELECT",
+              "count": 8
+            },
+            {
+              "questionType": "SENTENCE_ORDER",
+              "count": 6
+            },
+            {
+              "questionType": "TEXT_GRAMMAR",
+              "count": 6
+            }
+          ]
+        },
+        {
+          "subject": "READING",
+          "count": 20,
+          "typeFloors": [
+            {
+              "questionType": "MEDIUM_READING",
+              "count": 5
+            },
+            {
+              "questionType": "LONG_READING",
+              "count": 10
+            },
+            {
+              "questionType": "INFO_RETRIEVAL",
+              "count": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "difficultyRule": {
+    "requiredDifficulties": ["EASY", "NORMAL", "HARD"],
+    "minimumCellCountForAllDifficulties": 4,
+    "preferredCenter": "NORMAL"
+  }
+}

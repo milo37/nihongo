@@ -1,12 +1,24 @@
 import { queryOptions } from '@tanstack/react-query'
-import { getDashboardStats } from '@api/dashboard/getDashboardStats'
+import { getDashboardInsightsV1 } from '@api/dashboard/getDashboardInsightsV1'
+import { getDashboardStatsV1 } from '@api/dashboard/getDashboardStatsV1'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+
+const getStats = () => getDashboardStatsV1()
+
+const getInsights = () => getDashboardInsightsV1()
 
 export const dashboardQueries = {
-  allKey: () => ['dashboard'] as const,
+  allKey: serverStateQueryKeys.dashboard.all,
   stats: () =>
     queryOptions({
       queryKey: [...dashboardQueries.allKey(), 'get-stats'] as const,
-      queryFn: getDashboardStats,
+      queryFn: getStats,
+      staleTime: 30_000
+    }),
+  insights: () =>
+    queryOptions({
+      queryKey: [...dashboardQueries.allKey(), 'get-insights'] as const,
+      queryFn: getInsights,
       staleTime: 30_000
     })
 } as const

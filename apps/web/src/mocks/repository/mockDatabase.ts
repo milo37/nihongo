@@ -20,21 +20,95 @@ import {
   type WrongNote,
   type WrongNoteStatus
 } from '@common/types/domain'
+import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
+import type { AdminAuditLogItem } from '@nihongo/contracts/admin/phase7'
+import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
 import {
   cachedStorage,
   MOCK_DATABASE_STORAGE_KEY,
+  PHASE7_ADMIN_CMS_STORAGE_KEY,
+  readFreshLocalStorageItem,
   subscribeStorageChanges
 } from '@libs/storage'
+import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
+import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
+import type { ParsedSaveStudyDraftAnswersBody } from '@nihongo/contracts/study/save-study-draft-answers'
+import type { ReviewSelectionFilter } from '@nihongo/contracts/study/create-study-session'
+import {
+  compareReviewQueueItems,
+  type ListReviewQueueResponse,
+  type ParsedListReviewQueueQuery,
+  type ReviewQueueItem
+} from '@nihongo/contracts/wrong-note/list-review-queue'
+import type { ReviewEventHistoryItem } from '@nihongo/contracts/wrong-note/list-review-events'
+import type { UserMemo } from '@nihongo/contracts/wrong-note/user-memo'
+import {
+  createTargetedReviewSessionCanonicalMaterial,
+  createTargetedReviewSessionResponseForQuestionSchema,
+  type CreateTargetedReviewSessionResponse
+} from '@nihongo/contracts/wrong-note/create-targeted-review-session'
+import { compareWrongNoteTagLabels } from '@nihongo/contracts/wrong-note/list-wrong-notes'
+import type {
+  ListResumableStudySessionsResponse,
+  ResumableStudySessionSummary
+} from '@nihongo/contracts/study/list-resumable-study-sessions'
+import type { StudyDraftSnapshot } from '@nihongo/contracts/study/study-draft'
+import type { VersionedStudySessionPayload } from '@nihongo/contracts/study/study-session'
+import {
+  reviewedQuestionSchema as canonicalReviewedQuestionSchema,
+  studyResultSchema as canonicalStudyResultSchema,
+  type StudyResult as CanonicalStudyResult
+} from '@nihongo/contracts/study/study-result'
+import {
+  getCanonicalQuestionId,
+  getContractQuestionId,
+  getPhase7QuestionContractIdentity,
+  getQuestionVersionFingerprint,
+  toContractPracticeQuestion,
+  toStableMockUuid,
+  withPhase7QuestionContractIdentity,
+  type Phase7ProjectedQuestionRecord
+} from '@mocks/adapters/questionContractAdapter'
+import type {
+  MockCanonicalGradedItem,
+  MockCanonicalGrading
+} from '@mocks/adapters/studySubmissionContractAdapter'
 import { mockSeedData } from '@mocks/data'
-import { toDateKey } from '@util/date'
-import { toPracticeQuestion } from '@util/question'
-import { seededShuffle, type ShuffleSeed } from '@util/shuffle'
-import { calculateStudyResult } from '@util/study'
+import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
+import {
+  createMockPhase7ActiveAdminCmsState,
+  MockPhase7AdminCommandError,
+  MockPhase7AdminCmsState,
+  type MockPhase7MutationLease,
+  type MockPhase7ActiveAdminCmsState,
+  type MockPhase7AdminCmsPersistedState,
+  type MockPhase7AdminCmsSnapshot
+} from '@mocks/repository/phase7AdminCmsState'
+import {
+  Phase7MutationCoordinatorUnavailableError,
+  runWithPhase7BrowserMutationLease
+} from '@mocks/repository/phase7MutationCoordinator'
+import { addDaysToIso, toDateKey } from '@util/date'
+import { toPracticeQuestion } from '@mocks/logic/question'
+import {
+  createSeededRandom,
+  seededShuffle,
+  type ShuffleSeed
+} from '@util/shuffle'
+import { toVersionedContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
+import {
+  selectBookmarkStudyCandidates,
+  selectDailyReviewStudyCandidates,
+  selectRandomStudyCandidates,
+  selectWeaknessStudyCandidates,
+  selectWrongNoteStudyCandidates
+} from '@mocks/adapters/studyCandidateSelection'
+import { calculateStudyResult } from '@mocks/logic/study'
 import {
   createWrongNoteFromIncorrectAnswer,
   updateWrongNoteAfterCorrectReview,
   updateWrongNoteAfterIncorrectAnswer
-} from '@util/wrongNote'
+} from '@mocks/logic/wrongNote'
 
 const RECENT_SESSION_LIMIT = 5
 const REPEATED_WRONG_LIMIT = 5
@@ -42,13 +116,24 @@ const MIN_WEAKNESS_ATTEMPTS = 3
 const WEAKNESS_SESSION_LIMIT = 10
 
 export type MockDatabaseErrorCode =
+  | 'ANSWER_NOT_IN_SESSION'
   | 'AUTH_REQUIRED'
   | 'DUPLICATE_RESOURCE'
+  | 'DRAFT_SUBMIT_MISMATCH'
+  | 'DRAFT_VERSION_CONFLICT'
   | 'FORBIDDEN'
+  | 'IDEMPOTENCY_KEY_REUSED'
   | 'INVALID_INPUT'
   | 'NOT_FOUND'
+  | 'NO_ELIGIBLE_QUESTIONS'
+  | 'OPTION_NOT_IN_VERSION'
   | 'PERSISTENCE_FAILED'
+  | 'PRACTICE_CONTRACT_VERSION_MISMATCH'
+  | 'QUESTION_NOT_AVAILABLE'
+  | 'SERVICE_UNAVAILABLE'
   | 'SESSION_SUBMITTED'
+  | 'STUDY_RESULT_NOT_READY'
+  | 'STUDY_SESSION_NOT_EDITABLE'
 
 export class MockDatabaseError extends Error {
   readonly code: MockDatabaseErrorCode
@@ -67,6 +152,7 @@ export interface QuestionListFilters {
   subject?: QuestionSubject
   questionType?: QuestionType
   difficulty?: QuestionDifficulty
+  tag?: string
   search?: string
   page?: number
   pageSize?: number
@@ -80,10 +166,13 @@ export interface QuestionListResult {
 }
 
 export interface CreateStudySessionInput {
+  canonicalGuestPrincipalId?: string
+  canonicalContractVersion?: 1 | 2
   userId?: string | null
   level: JlptLevel
   subject: QuestionSubject
   mode: StudyMode
+  reviewFilter?: ReviewSelectionFilter
   count: number
   questionIds?: string[]
   seed?: ShuffleSeed
@@ -95,6 +184,14 @@ export interface StudySessionPayload {
   requestedCount: number
   actualCount: number
   usedFallback: boolean
+}
+
+export interface MockStudySessionSnapshotRecord {
+  canonicalStatus?: 'CANCELLED' | 'EXPIRED'
+  practiceContractVersion?: 1 | 2
+  session: StudySession
+  requestedCount: number
+  questions: QuestionRecord[]
 }
 
 export interface SubmitStudySessionInput {
@@ -158,6 +255,12 @@ export interface BookmarkListResult {
   total: number
 }
 
+export interface CanonicalBookmarkSourceRecord {
+  availability: 'AVAILABLE' | 'ARCHIVED'
+  bookmark: Bookmark
+  question: QuestionRecord
+}
+
 export interface AdminQuestionOptionInput {
   id?: string
   label: QuestionOptionLabel
@@ -191,6 +294,265 @@ export interface AdminQuestionSummary {
   updatedAt: string
 }
 
+export interface MockCanonicalStudyAnswerRecord {
+  readonly id: string
+  readonly answeredAt: string
+  readonly elapsedSec: number
+  readonly isCorrect: boolean
+  readonly questionVersionId: string
+  readonly selectedOptionId: string | null
+  readonly sessionId: string
+  readonly sourceQuestionId: string
+  readonly studySessionQuestionId: string
+}
+
+export interface MockCanonicalReviewEventRecord {
+  readonly algorithmVersion: 1
+  readonly id: string
+  readonly isCorrect: boolean | null
+  readonly nextCorrectStreak: number
+  readonly nextStatus: WrongNoteStatus
+  readonly occurredAt: string
+  readonly previousCorrectStreak: number | null
+  readonly previousStatus: WrongNoteStatus | null
+  readonly previousWrongCount: number | null
+  readonly questionId: string
+  readonly questionVersionId: string
+  readonly selectedOptionId: string | null
+  readonly source: 'STUDY_SUBMIT' | 'WRONG_NOTE_REVIEW' | 'VERSION_REBASE'
+  readonly studyAnswerId: string | null
+  readonly studySessionId: string | null
+  readonly userId: string
+  readonly wrongCountAfter: number
+  readonly wrongNoteId: string
+}
+
+export interface MockCanonicalWrongNoteRecord {
+  readonly correctStreak: number
+  readonly currentReviewQuestionVersionId: string | null
+  readonly isCurrentPublished: boolean
+  readonly lastReviewedAt: string | null
+  readonly lastWrongAt: string
+  readonly lastWrongQuestion: QuestionRecord
+  readonly lastWrongQuestionVersionId: string
+  readonly nextReviewAt: string
+  readonly sourceQuestionId: string
+  readonly status: WrongNoteStatus
+  readonly updatedAt: string
+  readonly userId: string
+  readonly wrongCount: number
+  readonly wrongNoteId: string
+}
+
+interface MockCanonicalUserMemoRecord {
+  readonly createdAt: string
+  readonly text: string
+  readonly updatedAt: string
+  readonly wrongNoteId: string
+}
+
+export interface MockCanonicalDashboardSessionRecord {
+  readonly correctCount: number
+  readonly durationSec: number
+  readonly id: string
+  readonly level: JlptLevel
+  readonly mode: StudyMode
+  readonly subject: QuestionSubject
+  readonly submittedAt: string
+  readonly totalCount: number
+}
+
+export interface MockCanonicalDashboardRecord {
+  readonly observedAt: string
+  readonly sessions: readonly MockCanonicalDashboardSessionRecord[]
+  readonly wrongNotes: readonly MockCanonicalWrongNoteRecord[]
+}
+
+export interface MockCanonicalDashboardInsightAnswerRecord {
+  readonly answerId: string
+  readonly answeredAt: string
+  readonly elapsedSec: number
+  readonly isCorrect: boolean
+  readonly level: JlptLevel
+  readonly questionId: string
+  readonly questionType: QuestionType
+  readonly questionVersionId: string
+  readonly sessionId: string
+  readonly subject: QuestionSubject
+  readonly tags: readonly {
+    readonly tagId: string
+    readonly tagLabel: string
+  }[]
+}
+
+export interface MockCanonicalDashboardInsightSessionRecord {
+  readonly id: string
+  readonly level: JlptLevel
+  readonly questionIds: readonly string[]
+  readonly subject: QuestionSubject
+  readonly submittedAt: string
+}
+
+export interface MockCanonicalDashboardInsightCatalogRecord {
+  readonly level: JlptLevel
+  readonly questionId: string
+  readonly questionText: string
+  readonly questionType: QuestionType
+  readonly subject: QuestionSubject
+}
+
+export interface MockCanonicalDashboardInsightWrongNoteRecord {
+  readonly isAvailable: boolean
+  readonly lastWrongAt: string
+  readonly level: JlptLevel
+  readonly nextReviewAt: string
+  readonly questionId: string
+  readonly questionText: string
+  readonly status: WrongNoteStatus
+  readonly subject: QuestionSubject
+  readonly wrongCount: number
+}
+
+export interface MockCanonicalDashboardInsightsRecord {
+  readonly answers: readonly MockCanonicalDashboardInsightAnswerRecord[]
+  readonly currentCatalog: readonly MockCanonicalDashboardInsightCatalogRecord[]
+  readonly observedAt: string
+  readonly sessions: readonly MockCanonicalDashboardInsightSessionRecord[]
+  readonly targetLevel: JlptLevel | null
+  readonly wrongNotes: readonly MockCanonicalDashboardInsightWrongNoteRecord[]
+}
+
+interface MockCanonicalIdempotencyRecordBase {
+  readonly completedAt: string
+  readonly contractVersion: 1 | 2
+  readonly expiresAt: string
+  readonly idempotencyKey: string
+  readonly principalId: string
+  readonly principalKind: 'GUEST' | 'USER'
+  readonly requestMaterial: string
+  readonly sessionId: string
+}
+
+export interface MockCanonicalSubmissionIdempotencyRecord
+  extends MockCanonicalIdempotencyRecordBase {
+  readonly operation: 'study.submitStudySession'
+  readonly response: CanonicalStudyResult
+  readonly responseStatus: 201
+}
+
+export interface MockCanonicalDraftIdempotencyRecord
+  extends MockCanonicalIdempotencyRecordBase {
+  readonly operation: 'study.saveStudyDraftAnswers'
+  readonly response: StudyDraftSnapshot
+  readonly responseStatus: 200
+}
+
+export interface MockCanonicalRetryIdempotencyRecord
+  extends MockCanonicalIdempotencyRecordBase {
+  readonly operation: 'study.createResultRetrySession'
+  readonly response: VersionedStudySessionPayload
+  readonly responseStatus: 201
+  readonly sourceSessionId: string
+}
+
+export interface MockCanonicalTargetedReviewIdempotencyRecord
+  extends MockCanonicalIdempotencyRecordBase {
+  readonly operation: 'wrongNote.createTargetedReviewSession'
+  readonly questionId: string
+  readonly response: CreateTargetedReviewSessionResponse
+  readonly responseStatus: 201
+}
+
+export type MockCanonicalIdempotencyRecord =
+  | MockCanonicalSubmissionIdempotencyRecord
+  | MockCanonicalDraftIdempotencyRecord
+  | MockCanonicalRetryIdempotencyRecord
+  | MockCanonicalTargetedReviewIdempotencyRecord
+
+export interface SubmitCanonicalStudySessionInput {
+  readonly body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
+  readonly contractVersion?: 1 | 2
+  readonly guestPrincipalId: string | null
+  readonly idempotencyKey: string
+  readonly sessionId: string
+}
+
+export interface MockCanonicalSubmissionOperations {
+  readonly canonicalize: (
+    record: MockStudySessionSnapshotRecord,
+    body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
+  ) => string
+  readonly grade: (
+    record: MockStudySessionSnapshotRecord,
+    body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body,
+    submittedAt: string
+  ) => MockCanonicalGrading
+  readonly toResult: (
+    grading: MockCanonicalGrading,
+    wrongNoteStatusBySessionQuestionId: ReadonlyMap<
+      string,
+      CanonicalStudyResult['items'][number]['wrongNoteStatus']
+    >
+  ) => CanonicalStudyResult
+}
+
+export interface SubmitCanonicalStudySessionResult {
+  readonly replayed: boolean
+  readonly response: CanonicalStudyResult
+}
+
+export interface SaveCanonicalStudyDraftInput {
+  readonly body: ParsedSaveStudyDraftAnswersBody
+  readonly guestPrincipalId: string | null
+  readonly idempotencyKey: string
+  readonly sessionId: string
+}
+
+export interface SaveCanonicalStudyDraftResult {
+  readonly replayed: boolean
+  readonly response: StudyDraftSnapshot
+}
+
+export interface CreateCanonicalResultRetryInput {
+  readonly guestPrincipalId: string | null
+  readonly idempotencyKey: string
+  readonly sourceSessionId: string
+}
+
+export interface CreateCanonicalResultRetryResult {
+  readonly replayed: boolean
+  readonly response: VersionedStudySessionPayload
+}
+
+export interface CreateCanonicalTargetedReviewInput {
+  readonly idempotencyKey: string
+  readonly questionId: string
+  readonly userId: string
+}
+
+export interface CreateCanonicalTargetedReviewResult {
+  readonly replayed: boolean
+  readonly response: CreateTargetedReviewSessionResponse
+}
+
+interface MockCanonicalOwner {
+  readonly principalId: string
+  readonly principalKind: 'GUEST' | 'USER'
+  readonly userId: string | null
+}
+
+interface MockCanonicalAnswerEvidence {
+  readonly answer: MockCanonicalStudyAnswerRecord
+  readonly question: QuestionRecord
+  readonly resultItem: CanonicalStudyResult['items'][number]
+}
+
+interface MockCanonicalSubmissionEvidence {
+  readonly answers: readonly MockCanonicalAnswerEvidence[]
+  readonly result: CanonicalStudyResult
+  readonly session: StudySession
+}
+
 export type AdminQuestionSort = 'RECENT' | 'LEVEL' | 'STATUS'
 
 export interface AdminQuestionListFilters {
@@ -211,13 +573,33 @@ export interface AdminQuestionListResult {
   pageSize: number
 }
 
+export interface MockCanonicalAdminQuestionSource {
+  readonly answerCount: number
+  readonly correctCount: number
+  readonly question: QuestionRecord
+}
+
+interface Phase7LearnerQuestionReadModel {
+  readonly currentBySourceId: ReadonlyMap<string, Phase7ProjectedQuestionRecord>
+  readonly lifecycleBySourceId: ReadonlyMap<string, 'ACTIVE' | 'ARCHIVED'>
+  readonly retainedPublishedBySourceId: ReadonlyMap<
+    string,
+    Phase7ProjectedQuestionRecord
+  >
+}
+
 interface SessionMetadata {
+  canonicalGuestPrincipalId?: string
+  canonicalContractVersion?: 1 | 2
+  canonicalTerminalStatus?: 'CANCELLED' | 'EXPIRED'
+  creationOrder?: number
+  retryOfStudySessionId?: string
   requestedCount: number
   usedFallback: boolean
 }
 
-interface PersistedMockState {
-  version: 2
+interface PersistedMockStateBase {
+  activeCanonicalGuestPrincipalIds?: string[]
   currentUserId: string | null
   questions: QuestionRecord[]
   sessions: StudySession[]
@@ -228,17 +610,93 @@ interface PersistedMockState {
   bookmarks: Bookmark[]
 }
 
+interface PersistedMockStateV2 extends PersistedMockStateBase {
+  version: 2
+}
+
+interface PersistedMockStateV3 extends PersistedMockStateBase {
+  version: 3
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+}
+
+interface PersistedMockStateV4 extends PersistedMockStateBase {
+  version: 4
+  canonicalDrafts: StudyDraftSnapshot[]
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+}
+
+interface PersistedMockStateV5 extends PersistedMockStateBase {
+  version: 5
+  archivedQuestions: QuestionRecord[]
+  canonicalDrafts: StudyDraftSnapshot[]
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+}
+
+interface PersistedMockStateV6 extends PersistedMockStateBase {
+  version: 6
+  archivedQuestions: QuestionRecord[]
+  canonicalDrafts: StudyDraftSnapshot[]
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+}
+
+interface PersistedMockStateV7 extends PersistedMockStateBase {
+  version: 7
+  archivedQuestions: QuestionRecord[]
+  canonicalDrafts: StudyDraftSnapshot[]
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+  canonicalUserMemos: MockCanonicalUserMemoRecord[]
+}
+
+interface PersistedMockState extends PersistedMockStateBase {
+  version: 8
+  archivedQuestions: QuestionRecord[]
+  canonicalDrafts: StudyDraftSnapshot[]
+  canonicalIdempotencyRecords: MockCanonicalIdempotencyRecord[]
+  canonicalReviewEvents: MockCanonicalReviewEventRecord[]
+  canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
+  canonicalStudyResults: CanonicalStudyResult[]
+  canonicalUserMemos: MockCanonicalUserMemoRecord[]
+  phase7AdminCms: MockPhase7AdminCmsPersistedState
+}
+
+type HydratablePersistedMockState =
+  | PersistedMockState
+  | PersistedMockStateV2
+  | PersistedMockStateV3
+  | PersistedMockStateV4
+  | PersistedMockStateV5
+  | PersistedMockStateV6
+  | PersistedMockStateV7
+
 export interface MockStorage {
   getItem: (key: string) => string | null
+  getLatestItem?: (key: string) => string | null
   setItem: (key: string, value: string) => boolean | void
   removeItem: (key: string) => void
 }
 
 export interface MockDatabaseOptions {
+  auditEnvironment?: AdminAuditLogItem['environment']
   now?: () => string
   seed?: ShuffleSeed
   storage?: MockStorage
   listenToStorage?: boolean
+  mutationLease?: MockPhase7MutationLease
 }
 
 const defaultStorage: MockStorage = {
@@ -246,6 +704,7 @@ const defaultStorage: MockStorage = {
     const value = cachedStorage.getItem(key)
     return typeof value === 'string' ? value : null
   },
+  getLatestItem: (key): string | null => readFreshLocalStorageItem(key),
   setItem: (key, value): boolean => {
     return cachedStorage.setItem(key, value)
   },
@@ -260,8 +719,101 @@ const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-const isPersistedMockState = (value: unknown): value is PersistedMockState => {
-  if (!isRecord(value) || value.version !== 2) {
+function throwCanonicalIntegrityError(message: string): never {
+  throw new MockDatabaseError('PERSISTENCE_FAILED', 500, message)
+}
+
+const toCanonicalIsoInstant = (value: unknown, field: string): string => {
+  const parsed = isoDateTimeSchema.safeParse(value)
+  if (!parsed.success) {
+    return throwCanonicalIntegrityError(`${field} 시각이 올바르지 않습니다.`)
+  }
+  return parsed.data
+}
+
+const getCanonicalSessionQuestionId = (
+  sessionId: string,
+  ordinal: number
+): string =>
+  toStableMockUuid('study-session-question', `${sessionId}:${ordinal}`)
+
+const getCanonicalQuestionVersionId = (question: QuestionRecord): string =>
+  getPhase7QuestionContractIdentity(question)?.questionVersionId ??
+  toStableMockUuid(
+    'question-version',
+    `${question.id}:${getQuestionVersionFingerprint(question)}`
+  )
+
+const getCanonicalOptionId = (
+  question: QuestionRecord,
+  optionId: string
+): string =>
+  getPhase7QuestionContractIdentity(question)?.optionIdBySourceId[optionId] ??
+  toStableMockUuid(
+    'question-option',
+    `${optionId}:${getQuestionVersionFingerprint(question)}`
+  )
+
+const toCanonicalReviewedQuestion = (
+  question: QuestionRecord
+): CanonicalStudyResult['items'][number]['question'] => {
+  const correctOptions = question.options.filter(({ isCorrect }) => isCorrect)
+  const correctOption = correctOptions[0]
+  if (!correctOption || correctOptions.length !== 1) {
+    return throwCanonicalIntegrityError(
+      'canonical 문제 snapshot에는 정답 보기가 정확히 하나여야 합니다.'
+    )
+  }
+  const fingerprint = getQuestionVersionFingerprint(question)
+
+  return {
+    ...toContractPracticeQuestion(
+      toPracticeQuestion(question),
+      fingerprint,
+      getPhase7QuestionContractIdentity(question)
+    ),
+    correctOptionId: getCanonicalOptionId(question, correctOption.id),
+    explanationKo: question.explanationKo,
+    explanationJa: question.explanationJa
+  }
+}
+
+const assertCanonicalProjectionEqual = (
+  actual: unknown,
+  expected: unknown,
+  message: string
+): void => {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throwCanonicalIntegrityError(message)
+  }
+}
+
+const getCanonicalReviewIntervalDays = (correctStreak: number): number => {
+  if (correctStreak === 1) {
+    return 3
+  }
+  if (correctStreak === 2) {
+    return 7
+  }
+  if (correctStreak === 3) {
+    return 14
+  }
+  return 30
+}
+
+const isPersistedMockState = (
+  value: unknown
+): value is HydratablePersistedMockState => {
+  if (
+    !isRecord(value) ||
+    (value.version !== 2 &&
+      value.version !== 3 &&
+      value.version !== 4 &&
+      value.version !== 5 &&
+      value.version !== 6 &&
+      value.version !== 7 &&
+      value.version !== 8)
+  ) {
     return false
   }
 
@@ -270,16 +822,133 @@ const isPersistedMockState = (value: unknown): value is PersistedMockState => {
     Array.isArray(value.questions) &&
     Array.isArray(value.sessions) &&
     Array.isArray(value.sessionMetadata) &&
+    (value.activeCanonicalGuestPrincipalIds === undefined ||
+      (Array.isArray(value.activeCanonicalGuestPrincipalIds) &&
+        value.activeCanonicalGuestPrincipalIds.every(
+          (guestPrincipalId) => typeof guestPrincipalId === 'string'
+        ))) &&
     Array.isArray(value.sessionQuestionSnapshots) &&
     Array.isArray(value.results) &&
     Array.isArray(value.wrongNotes) &&
-    Array.isArray(value.bookmarks)
+    Array.isArray(value.bookmarks) &&
+    (value.version === 2 ||
+      (Array.isArray(value.canonicalIdempotencyRecords) &&
+        Array.isArray(value.canonicalReviewEvents) &&
+        Array.isArray(value.canonicalStudyAnswers) &&
+        Array.isArray(value.canonicalStudyResults) &&
+        (value.version === 3 || Array.isArray(value.canonicalDrafts)) &&
+        (value.version < 5 || Array.isArray(value.archivedQuestions)) &&
+        (value.version < 7 || Array.isArray(value.canonicalUserMemos)) &&
+        (value.version < 8 ||
+          (isRecord(value.phase7AdminCms) &&
+            Array.isArray(value.phase7AdminCms.auditLogs) &&
+            Array.isArray(value.phase7AdminCms.questions) &&
+            Array.isArray(value.phase7AdminCms.reports) &&
+            Array.isArray(value.phase7AdminCms.reviews) &&
+            Array.isArray(value.phase7AdminCms.versions) &&
+            Array.isArray(
+              value.phase7AdminCms.lifecycleControlledQuestionIds
+            ) &&
+            Array.isArray(value.phase7AdminCms.sessionIssuedAtByActorId)))))
   )
 }
 
 const makeUserQuestionKey = (userId: string, questionId: string): string => {
   return `${userId}:${questionId}`
 }
+
+const makeCanonicalIdempotencyKey = (
+  principalKind: MockCanonicalIdempotencyRecord['principalKind'],
+  principalId: string,
+  operation: MockCanonicalIdempotencyRecord['operation'],
+  idempotencyKey: string
+): string => `${principalKind}:${principalId}:${operation}:${idempotencyKey}`
+
+const getCanonicalIdempotencyExpiresAt = (
+  completedAt: string,
+  operation: MockCanonicalIdempotencyRecord['operation']
+): string => {
+  const completedAtMs = Date.parse(completedAt)
+  if (!Number.isFinite(completedAtMs)) {
+    throw new MockDatabaseError(
+      'PERSISTENCE_FAILED',
+      500,
+      'canonical IdempotencyRecord 완료 시간이 올바르지 않습니다.'
+    )
+  }
+  const ttlMs =
+    operation === 'study.createResultRetrySession' ||
+    operation === 'wrongNote.createTargetedReviewSession'
+      ? 7 * 24 * 60 * 60 * 1_000
+      : operation === 'study.saveStudyDraftAnswers'
+        ? 48 * 60 * 60 * 1_000
+        : 24 * 60 * 60 * 1_000
+  return new Date(completedAtMs + ttlMs).toISOString()
+}
+
+const isCanonicalIdempotencyRecordActive = (
+  record: MockCanonicalIdempotencyRecord,
+  observedAt: string
+): boolean => {
+  const expiresAtMs = Date.parse(record.expiresAt)
+  const observedAtMs = Date.parse(observedAt)
+  if (!Number.isFinite(expiresAtMs) || !Number.isFinite(observedAtMs)) {
+    throw new MockDatabaseError(
+      'PERSISTENCE_FAILED',
+      500,
+      'canonical IdempotencyRecord 만료 시간이 올바르지 않습니다.'
+    )
+  }
+  return expiresAtMs > observedAtMs
+}
+
+const canonicalizeMockStudyDraftSave = (
+  sessionId: string,
+  orderedSessionQuestionIds: readonly string[],
+  body: ParsedSaveStudyDraftAnswersBody
+): string => {
+  const ordinalById = new Map(
+    orderedSessionQuestionIds.map((id, index) => [id, index + 1])
+  )
+  const answers = body.answers
+    .map((answer) => ({
+      studySessionQuestionId: answer.studySessionQuestionId,
+      selectedOptionId: answer.selectedOptionId,
+      elapsedSec: answer.elapsedSec
+    }))
+    .toSorted((left, right) => {
+      const leftOrdinal =
+        ordinalById.get(left.studySessionQuestionId) ?? Number.MAX_SAFE_INTEGER
+      const rightOrdinal =
+        ordinalById.get(right.studySessionQuestionId) ?? Number.MAX_SAFE_INTEGER
+      return (
+        leftOrdinal - rightOrdinal ||
+        left.studySessionQuestionId.localeCompare(right.studySessionQuestionId)
+      )
+    })
+
+  return `draft-save-v2:${JSON.stringify({
+    sessionId,
+    expectedRevision: body.expectedRevision,
+    currentOrdinal: body.currentOrdinal,
+    answers
+  })}`
+}
+
+const toDuplicatePreservingKey = (
+  records: ReadonlyMap<string, unknown>,
+  key: string,
+  index: number
+): string => (records.has(key) ? `${key}:duplicate:${index}` : key)
+
+const fromDuplicatePreservingKey = (key: string): string =>
+  key.replace(/:duplicate:\d+$/u, '')
+
+const isCanonicalSessionMetadata = (
+  metadata: SessionMetadata | undefined
+): boolean =>
+  metadata?.canonicalContractVersion !== undefined ||
+  metadata?.canonicalGuestPrincipalId !== undefined
 
 const normalizePagination = (
   page = 1,
@@ -324,14 +993,43 @@ const toAdminSummary = (question: QuestionRecord): AdminQuestionSummary => ({
 
 export class MockDatabase {
   private readonly now: () => string
+  private readonly phase7AdminCmsState: MockPhase7AdminCmsState
+  private readonly phase7ActiveAdminCmsState: MockPhase7ActiveAdminCmsState
+  private readonly phase7MutationLease: MockPhase7MutationLease
   private readonly randomSeed: ShuffleSeed
   private readonly storage: MockStorage
+  private authoritativePhase7GraphValidation:
+    | { serialized: string; valid: boolean }
+    | undefined
+  private deferredExternalStorageChange = false
+  private phase7MutationStorageBaseline: string | null | undefined
+  private useLegacyQuestionSourcesForLearnerProjection = true
   private unsubscribeStorage: (() => void) | undefined
   private readonly userById = new Map<string, User>()
   private questionById = new Map<string, QuestionRecord>()
+  private archivedQuestionById = new Map<string, QuestionRecord>()
   private sessionById = new Map<string, StudySession>()
   private sessionMetadataById = new Map<string, SessionMetadata>()
   private sessionQuestionSnapshotsById = new Map<string, QuestionRecord[]>()
+  private canonicalAnswerBySessionId = new Map<
+    string,
+    MockCanonicalStudyAnswerRecord[]
+  >()
+  private canonicalResultBySessionId = new Map<string, CanonicalStudyResult>()
+  private canonicalDraftBySessionId = new Map<string, StudyDraftSnapshot>()
+  private canonicalReviewEventByStudyAnswerId = new Map<
+    string,
+    MockCanonicalReviewEventRecord
+  >()
+  private canonicalIdempotencyRecordByKey = new Map<
+    string,
+    MockCanonicalIdempotencyRecord
+  >()
+  private canonicalUserMemoByWrongNoteId = new Map<
+    string,
+    MockCanonicalUserMemoRecord
+  >()
+  private activeCanonicalGuestPrincipalIds = new Set<string>()
   private resultBySessionId = new Map<string, StudyResult>()
   private wrongNoteByQuestionId = new Map<string, WrongNote>()
   private bookmarkByQuestionId = new Map<string, Bookmark>()
@@ -340,8 +1038,22 @@ export class MockDatabase {
 
   constructor(options: MockDatabaseOptions = {}) {
     this.now = options.now ?? (() => new Date().toISOString())
-    this.randomSeed = options.seed ?? 'jlpt-drill-note'
     this.storage = options.storage ?? defaultStorage
+    this.phase7MutationLease =
+      options.mutationLease ?? runWithPhase7BrowserMutationLease
+    this.phase7AdminCmsState = new MockPhase7AdminCmsState(
+      this.now,
+      options.auditEnvironment ??
+        (import.meta.env.MODE === 'test' ? 'TEST' : 'DEVELOPMENT'),
+      () => this.persistPhase7AdminCmsState(),
+      () => this.rebaseFromLatestStorageForPhase7Mutation(),
+      async (operation) => await this.runPhase7CrossTabExclusive(operation),
+      () => this.completePhase7MutationQueue()
+    )
+    this.phase7ActiveAdminCmsState = createMockPhase7ActiveAdminCmsState(
+      this.phase7AdminCmsState
+    )
+    this.randomSeed = options.seed ?? 'jlpt-drill-note'
 
     for (const user of mockSeedData.users) {
       this.userById.set(user.id, clone(user))
@@ -349,6 +1061,10 @@ export class MockDatabase {
 
     this.resetMemoryToSeed()
     this.hydrateFromStorage(this.storage.getItem(MOCK_DATABASE_STORAGE_KEY))
+    this.hydratePhase7State(
+      this.storage.getItem(PHASE7_ADMIN_CMS_STORAGE_KEY),
+      false
+    )
 
     if (options.listenToStorage !== false) {
       this.listenForExternalStorageChanges()
@@ -356,30 +1072,103 @@ export class MockDatabase {
   }
 
   getCurrentUser(): User | null {
-    if (!this.currentUserId) {
+    const authoritative = this.readAuthoritativePersistedState()
+    const persisted = authoritative?.state ?? null
+    if (
+      authoritative?.state.version === 8 &&
+      !this.hasValidEmbeddedPhase7Graph(
+        authoritative.serialized,
+        authoritative.state.phase7AdminCms
+      )
+    ) {
+      this.currentUserId = null
+      return null
+    }
+    const currentUserId = persisted?.currentUserId ?? null
+    this.currentUserId = currentUserId
+    if (!currentUserId) {
       return null
     }
 
-    const user = this.userById.get(this.currentUserId)
-    return user ? clone(user) : null
+    const user = this.userById.get(currentUserId)
+    if (!user) {
+      throw new MockDatabaseError(
+        'SERVICE_UNAVAILABLE',
+        503,
+        '최신 인증 세션을 확인하지 못했습니다.'
+      )
+    }
+    return clone(user)
   }
 
-  loginAs(role: Extract<UserRole, 'USER' | 'ADMIN'>): User {
-    const userId = role === 'ADMIN' ? 'demo-admin' : 'demo-user'
+  loginAs(
+    role: Extract<UserRole, 'USER' | 'ADMIN'>,
+    fixtureUserId?: string
+  ): User {
+    const userId =
+      fixtureUserId ?? (role === 'ADMIN' ? DEMO_ADMIN_ID : DEMO_USER_ID)
     const user = this.userById.get(userId)
 
-    if (!user) {
+    if (!user || user.role !== role) {
       throw new MockDatabaseError('NOT_FOUND', 404, '데모 사용자가 없습니다.')
     }
 
     this.currentUserId = user.id
-    this.persist()
+    this.phase7AdminCmsState.startSession(user.id)
+    this.persist({ currentUserId: user.id })
     return clone(user)
   }
 
   logout(): void {
+    if (this.currentUserId) {
+      this.phase7AdminCmsState.endSession(this.currentUserId)
+    }
     this.currentUserId = null
+    this.persist({ currentUserId: null })
+  }
+
+  isCanonicalGuestPrincipalActive(guestPrincipalId: string): boolean {
+    return this.activeCanonicalGuestPrincipalIds.has(guestPrincipalId)
+  }
+
+  deleteCanonicalGuestPrincipal(guestPrincipalId: string): number {
+    this.activeCanonicalGuestPrincipalIds.delete(guestPrincipalId)
+    let deletedSessionCount = 0
+
+    for (const [sessionId, metadata] of this.sessionMetadataById) {
+      if (metadata.canonicalGuestPrincipalId !== guestPrincipalId) {
+        continue
+      }
+
+      const session = this.sessionById.get(sessionId)
+      if (session?.userId === null && this.sessionById.delete(sessionId)) {
+        deletedSessionCount += 1
+      }
+      this.sessionMetadataById.delete(sessionId)
+      this.sessionQuestionSnapshotsById.delete(sessionId)
+      this.canonicalDraftBySessionId.delete(sessionId)
+      this.canonicalAnswerBySessionId.delete(sessionId)
+      this.canonicalResultBySessionId.delete(sessionId)
+      for (const [studyAnswerId, event] of this
+        .canonicalReviewEventByStudyAnswerId) {
+        if (event.studySessionId === sessionId) {
+          this.canonicalReviewEventByStudyAnswerId.delete(studyAnswerId)
+        }
+      }
+      this.resultBySessionId.delete(sessionId)
+    }
+
+    for (const [key, record] of this.canonicalIdempotencyRecordByKey) {
+      if (
+        record.principalKind === 'GUEST' &&
+        record.principalId === guestPrincipalId
+      ) {
+        this.canonicalIdempotencyRecordByKey.delete(key)
+      }
+    }
+
     this.persist()
+    return deletedSessionCount
   }
 
   listQuestions(filters: QuestionListFilters = {}): QuestionListResult {
@@ -388,6 +1177,9 @@ export class MockDatabase {
       filters.pageSize
     )
     const normalizedSearch = filters.search?.trim().toLocaleLowerCase()
+    const normalizedTag = filters.tag
+      ? normalizeQuestionTagText(filters.tag)
+      : undefined
     const matches: QuestionRecord[] = []
 
     for (const question of this.questionById.values()) {
@@ -410,6 +1202,14 @@ export class MockDatabase {
         continue
       }
       if (
+        normalizedTag &&
+        !question.tags.some(
+          (tag) => normalizeQuestionTagText(tag) === normalizedTag
+        )
+      ) {
+        continue
+      }
+      if (
         normalizedSearch &&
         !`${question.questionText} ${question.tags.join(' ')}`
           .toLocaleLowerCase()
@@ -421,8 +1221,11 @@ export class MockDatabase {
       matches.push(question)
     }
 
+    const sortedMatches = matches.toSorted((left, right) =>
+      left.id.localeCompare(right.id)
+    )
     return {
-      items: paginate(matches, page, pageSize).map(toPracticeQuestion),
+      items: paginate(sortedMatches, page, pageSize).map(toPracticeQuestion),
       total: matches.length,
       page,
       pageSize
@@ -452,13 +1255,30 @@ export class MockDatabase {
   createStudySession(input: CreateStudySessionInput): StudySessionPayload {
     const requestedCount = Math.min(20, Math.max(1, Math.trunc(input.count)))
     const userId = input.userId ?? this.currentUserId
-    const eligible = this.getEligibleQuestions(input.level, input.subject)
+    const eligible = this.getEligibleQuestions(
+      input.level,
+      input.subject,
+      input.canonicalContractVersion !== undefined
+    ).filter(
+      (question) =>
+        input.reviewFilter === undefined ||
+        ((input.reviewFilter.questionType === undefined ||
+          question.questionType === input.reviewFilter.questionType) &&
+          (input.reviewFilter.tag === undefined ||
+            question.tags.includes(input.reviewFilter.tag)))
+    )
+    const startedAt = this.now()
 
-    if (!userId && (input.mode === 'WRONG_NOTE' || input.mode === 'BOOKMARK')) {
+    if (
+      !userId &&
+      (input.mode === 'WRONG_NOTE' ||
+        input.mode === 'BOOKMARK' ||
+        input.mode === 'DAILY_REVIEW')
+    ) {
       throw new MockDatabaseError(
         'AUTH_REQUIRED',
         401,
-        '오답 및 즐겨찾기 모드는 로그인이 필요합니다.'
+        '이 출제 모드는 로그인이 필요합니다.'
       )
     }
 
@@ -470,9 +1290,10 @@ export class MockDatabase {
       )
     }
 
-    const selection = this.selectQuestions(input, eligible, userId)
-    const sessionId = this.createId('session')
-    const startedAt = this.now()
+    const selection = input.canonicalContractVersion
+      ? this.selectCanonicalQuestions(input, eligible, userId, startedAt)
+      : this.selectQuestions(input, eligible, userId)
+    const sessionId = this.createStudySessionId()
     const session: StudySession = {
       id: sessionId,
       userId,
@@ -488,13 +1309,42 @@ export class MockDatabase {
 
     this.sessionById.set(sessionId, session)
     this.sessionMetadataById.set(sessionId, {
+      ...(input.canonicalContractVersion
+        ? { canonicalContractVersion: input.canonicalContractVersion }
+        : {}),
+      ...(!userId && input.canonicalGuestPrincipalId
+        ? { canonicalGuestPrincipalId: input.canonicalGuestPrincipalId }
+        : {}),
+      creationOrder: this.sequence,
       requestedCount,
       usedFallback: selection.usedFallback
     })
+    if (!userId && input.canonicalGuestPrincipalId) {
+      this.activeCanonicalGuestPrincipalIds.add(input.canonicalGuestPrincipalId)
+    }
     this.sessionQuestionSnapshotsById.set(sessionId, clone(selection.questions))
+    if (input.canonicalContractVersion === 2) {
+      this.canonicalDraftBySessionId.set(sessionId, {
+        studySessionId: sessionId,
+        revision: 0,
+        currentOrdinal: 1,
+        savedAt: null,
+        answers: selection.questions.map((_, index) => ({
+          studySessionQuestionId: getCanonicalSessionQuestionId(
+            sessionId,
+            index + 1
+          ),
+          selectedOptionId: null,
+          elapsedSec: 0
+        }))
+      })
+    }
     this.persist()
 
-    return this.buildStudySessionPayload(session)
+    return this.buildStudySessionPayload(
+      session,
+      input.canonicalContractVersion !== undefined
+    )
   }
 
   getStudySession(sessionId: string): StudySession {
@@ -510,7 +1360,1611 @@ export class MockDatabase {
   }
 
   getStudySessionPayload(sessionId: string): StudySessionPayload {
+    this.assertLegacyStudySession(sessionId)
     return this.buildStudySessionPayload(this.getStudySession(sessionId))
+  }
+
+  getStudySessionSnapshotRecord(
+    sessionId: string
+  ): MockStudySessionSnapshotRecord {
+    this.assertLegacyStudySession(sessionId)
+    const session = this.getStudySession(sessionId)
+    const metadata = this.sessionMetadataById.get(session.id) ?? {
+      requestedCount: session.questionIds.length,
+      usedFallback: false
+    }
+
+    return {
+      session,
+      requestedCount: metadata.requestedCount,
+      questions: this.getSessionQuestionSnapshot(session)
+    }
+  }
+
+  getCanonicalStudySessionSnapshotRecord(
+    sessionId: string,
+    guestPrincipalId: string | null
+  ): MockStudySessionSnapshotRecord {
+    const session = this.sessionById.get(sessionId)
+
+    if (!session) {
+      throw new MockDatabaseError('NOT_FOUND', 404, '학습 세션이 없습니다.')
+    }
+
+    const metadata = this.sessionMetadataById.get(session.id)
+    if (!metadata || !isCanonicalSessionMetadata(metadata)) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        'canonical 학습 세션이 아닙니다.'
+      )
+    }
+    this.resolveCanonicalOwner(session, metadata, guestPrincipalId)
+    const canonicalStatus = this.observeCanonicalStatus(session, metadata)
+
+    return {
+      ...(canonicalStatus === 'CANCELLED' || canonicalStatus === 'EXPIRED'
+        ? { canonicalStatus }
+        : {}),
+      practiceContractVersion: metadata?.canonicalContractVersion,
+      session: clone(session),
+      requestedCount: metadata?.requestedCount ?? session.questionIds.length,
+      questions: this.getSessionQuestionSnapshot(session)
+    }
+  }
+
+  listCanonicalResumableStudySessions(
+    guestPrincipalId: string | null,
+    page = 1,
+    pageSize = 20
+  ): ListResumableStudySessionsResponse {
+    const normalized = normalizePagination(page, pageSize)
+    const currentUser = this.getCurrentUser()
+    if (!currentUser) {
+      if (!guestPrincipalId) {
+        throw new MockDatabaseError(
+          'AUTH_REQUIRED',
+          401,
+          '재개 가능한 세션을 조회하려면 인증 정보가 필요합니다.'
+        )
+      }
+      if (!this.activeCanonicalGuestPrincipalIds.has(guestPrincipalId)) {
+        throw new MockDatabaseError(
+          'AUTH_REQUIRED',
+          401,
+          '게스트 세션이 만료됐습니다.'
+        )
+      }
+    }
+
+    const rows: Array<{
+      draft: StudyDraftSnapshot | null
+      session: StudySession
+      summary: ResumableStudySessionSummary
+    }> = []
+    for (const session of this.sessionById.values()) {
+      const metadata = this.sessionMetadataById.get(session.id)
+      if (!metadata?.canonicalContractVersion) {
+        continue
+      }
+      const owned = currentUser
+        ? session.userId === currentUser.id
+        : session.userId === null &&
+          metadata.canonicalGuestPrincipalId === guestPrincipalId
+      if (
+        !owned ||
+        this.getEffectiveCanonicalStatus(session, metadata) !== 'IN_PROGRESS'
+      ) {
+        continue
+      }
+
+      const draft = this.canonicalDraftBySessionId.get(session.id) ?? null
+      if (metadata.canonicalContractVersion === 2 && !draft) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          'v2 학습 세션 draft가 완전하지 않습니다.'
+        )
+      }
+      const startedAtMs = Date.parse(session.startedAt)
+      const summary: ResumableStudySessionSummary = {
+        id: session.id,
+        level: session.level,
+        subject: session.subject,
+        mode: session.mode,
+        status: 'IN_PROGRESS',
+        actualCount: session.questionIds.length,
+        startedAt: session.startedAt,
+        expiresAt: new Date(startedAtMs + 24 * 60 * 60 * 1_000).toISOString(),
+        practiceContractVersion: metadata.canonicalContractVersion,
+        draftRevision: draft?.revision ?? null,
+        draftSavedAt: draft?.savedAt ?? null,
+        currentOrdinal: draft?.currentOrdinal ?? null,
+        resumeAvailability:
+          metadata.canonicalContractVersion === 1
+            ? 'LEGACY_LOCAL_ONLY'
+            : 'SERVER'
+      }
+      rows.push({ draft, session, summary })
+    }
+
+    rows.sort((left, right) => {
+      const leftSavedAt = left.draft?.savedAt
+      const rightSavedAt = right.draft?.savedAt
+      if (leftSavedAt !== rightSavedAt) {
+        if (leftSavedAt === null || leftSavedAt === undefined) return 1
+        if (rightSavedAt === null || rightSavedAt === undefined) return -1
+        return rightSavedAt.localeCompare(leftSavedAt)
+      }
+      return (
+        right.session.startedAt.localeCompare(left.session.startedAt) ||
+        left.session.id.localeCompare(right.session.id)
+      )
+    })
+
+    return {
+      items: paginate(rows, normalized.page, normalized.pageSize).map(
+        ({ summary }) => clone(summary)
+      ),
+      total: rows.length,
+      page: normalized.page,
+      pageSize: normalized.pageSize
+    }
+  }
+
+  getCanonicalStudyDraft(
+    sessionId: string,
+    guestPrincipalId: string | null
+  ): StudyDraftSnapshot {
+    const snapshot = this.getCanonicalStudySessionSnapshotRecord(
+      sessionId,
+      guestPrincipalId
+    )
+    if (snapshot.practiceContractVersion !== 2) {
+      throw new MockDatabaseError(
+        'PRACTICE_CONTRACT_VERSION_MISMATCH',
+        409,
+        'v2 학습 세션에서만 server draft를 조회할 수 있습니다.'
+      )
+    }
+    if (snapshot.canonicalStatus || snapshot.session.status !== 'IN_PROGRESS') {
+      throw new MockDatabaseError(
+        'STUDY_SESSION_NOT_EDITABLE',
+        409,
+        '현재 상태에서는 학습 draft를 조회할 수 없습니다.'
+      )
+    }
+    const draft = this.canonicalDraftBySessionId.get(sessionId)
+    if (!draft) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'v2 학습 세션 draft가 완전하지 않습니다.'
+      )
+    }
+    return clone(draft)
+  }
+
+  saveCanonicalStudyDraft(
+    input: SaveCanonicalStudyDraftInput
+  ): SaveCanonicalStudyDraftResult {
+    const snapshot = this.getCanonicalStudySessionSnapshotRecord(
+      input.sessionId,
+      input.guestPrincipalId
+    )
+    const session = this.sessionById.get(input.sessionId)
+    const metadata = this.sessionMetadataById.get(input.sessionId)
+    if (!session || !metadata) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'canonical 학습 세션 상태가 완전하지 않습니다.'
+      )
+    }
+    const owner = this.resolveCanonicalOwner(
+      session,
+      metadata,
+      input.guestPrincipalId
+    )
+    const orderedSessionQuestionIds = snapshot.questions.map((_, index) =>
+      getCanonicalSessionQuestionId(session.id, index + 1)
+    )
+    const requestMaterial = canonicalizeMockStudyDraftSave(
+      session.id,
+      orderedSessionQuestionIds,
+      input.body
+    )
+    const recordKey = makeCanonicalIdempotencyKey(
+      owner.principalKind,
+      owner.principalId,
+      'study.saveStudyDraftAnswers',
+      input.idempotencyKey
+    )
+    const observedAt = this.now()
+    const storedRecord = this.canonicalIdempotencyRecordByKey.get(recordKey)
+    const existingRecord =
+      storedRecord &&
+      isCanonicalIdempotencyRecordActive(storedRecord, observedAt)
+        ? storedRecord
+        : undefined
+    if (existingRecord) {
+      if (
+        existingRecord.operation !== 'study.saveStudyDraftAnswers' ||
+        existingRecord.contractVersion !== 2 ||
+        existingRecord.requestMaterial !== requestMaterial
+      ) {
+        throw new MockDatabaseError(
+          'IDEMPOTENCY_KEY_REUSED',
+          409,
+          '같은 멱등 키를 다른 draft 요청에 사용할 수 없습니다.'
+        )
+      }
+      return { replayed: true, response: clone(existingRecord.response) }
+    }
+
+    if (metadata.canonicalContractVersion !== 2) {
+      throw new MockDatabaseError(
+        'PRACTICE_CONTRACT_VERSION_MISMATCH',
+        409,
+        'v2 학습 세션에서만 server draft를 저장할 수 있습니다.'
+      )
+    }
+    if (metadata.canonicalTerminalStatus || session.status !== 'IN_PROGRESS') {
+      throw new MockDatabaseError(
+        'STUDY_SESSION_NOT_EDITABLE',
+        409,
+        '현재 상태에서는 학습 draft를 저장할 수 없습니다.'
+      )
+    }
+    const currentDraft = this.canonicalDraftBySessionId.get(session.id)
+    if (!currentDraft) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'v2 학습 세션 draft가 완전하지 않습니다.'
+      )
+    }
+    if (input.body.expectedRevision !== currentDraft.revision) {
+      throw new MockDatabaseError(
+        'DRAFT_VERSION_CONFLICT',
+        409,
+        '학습 draft revision이 현재 서버 상태와 다릅니다.'
+      )
+    }
+    const answerById = new Map(
+      input.body.answers.map((answer) => [
+        answer.studySessionQuestionId,
+        answer
+      ])
+    )
+    if (
+      answerById.size !== orderedSessionQuestionIds.length ||
+      input.body.answers.length !== orderedSessionQuestionIds.length ||
+      orderedSessionQuestionIds.some((id) => !answerById.has(id))
+    ) {
+      throw new MockDatabaseError(
+        'ANSWER_NOT_IN_SESSION',
+        422,
+        '모든 세션 문제의 draft 답안을 정확히 한 번씩 저장해야 합니다.'
+      )
+    }
+    const answers = snapshot.questions.map((question, index) => {
+      const studySessionQuestionId = orderedSessionQuestionIds[index]
+      const answer = answerById.get(studySessionQuestionId)
+      if (!studySessionQuestionId || !answer) {
+        throw new MockDatabaseError(
+          'ANSWER_NOT_IN_SESSION',
+          422,
+          '모든 세션 문제의 draft 답안을 정확히 한 번씩 저장해야 합니다.'
+        )
+      }
+      const optionIds = new Set(
+        toContractPracticeQuestion(
+          toPracticeQuestion(question),
+          getQuestionVersionFingerprint(question),
+          getPhase7QuestionContractIdentity(question)
+        ).options.map(({ id }) => id)
+      )
+      if (
+        answer.selectedOptionId !== null &&
+        !optionIds.has(answer.selectedOptionId)
+      ) {
+        throw new MockDatabaseError(
+          'OPTION_NOT_IN_VERSION',
+          422,
+          '선택한 보기가 고정된 문제 version에 속하지 않습니다.'
+        )
+      }
+      return clone(answer)
+    })
+    const savedAt = observedAt
+    const response: StudyDraftSnapshot = {
+      studySessionId: session.id,
+      revision: currentDraft.revision + 1,
+      currentOrdinal: input.body.currentOrdinal,
+      savedAt,
+      answers
+    }
+    const record: MockCanonicalDraftIdempotencyRecord = {
+      completedAt: savedAt,
+      contractVersion: 2,
+      expiresAt: getCanonicalIdempotencyExpiresAt(
+        savedAt,
+        'study.saveStudyDraftAnswers'
+      ),
+      idempotencyKey: input.idempotencyKey,
+      operation: 'study.saveStudyDraftAnswers',
+      principalId: owner.principalId,
+      principalKind: owner.principalKind,
+      requestMaterial,
+      response: clone(response),
+      responseStatus: 200,
+      sessionId: session.id
+    }
+    this.canonicalDraftBySessionId.set(session.id, response)
+    this.canonicalIdempotencyRecordByKey.set(recordKey, record)
+    this.persist()
+    return { replayed: false, response: clone(response) }
+  }
+
+  cancelCanonicalStudySession(
+    sessionId: string,
+    guestPrincipalId: string | null
+  ): void {
+    this.getCanonicalStudySessionSnapshotRecord(sessionId, guestPrincipalId)
+    const session = this.sessionById.get(sessionId)
+    const metadata = this.sessionMetadataById.get(sessionId)
+    if (!session || !metadata) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'canonical 학습 세션 상태가 완전하지 않습니다.'
+      )
+    }
+    if (metadata.canonicalTerminalStatus === 'CANCELLED') {
+      return
+    }
+    if (
+      metadata.canonicalTerminalStatus === 'EXPIRED' ||
+      session.status !== 'IN_PROGRESS'
+    ) {
+      throw new MockDatabaseError(
+        'STUDY_SESSION_NOT_EDITABLE',
+        409,
+        '현재 상태에서는 학습 세션을 취소할 수 없습니다.'
+      )
+    }
+    metadata.canonicalTerminalStatus = 'CANCELLED'
+    this.canonicalDraftBySessionId.delete(session.id)
+    this.persist()
+  }
+
+  submitCanonicalStudySession(
+    input: SubmitCanonicalStudySessionInput,
+    operations: MockCanonicalSubmissionOperations
+  ): SubmitCanonicalStudySessionResult {
+    const contractVersion = input.contractVersion ?? 1
+    const snapshot = this.getCanonicalStudySessionSnapshotRecord(
+      input.sessionId,
+      input.guestPrincipalId
+    )
+    const session = this.sessionById.get(input.sessionId)
+    const metadata = this.sessionMetadataById.get(input.sessionId)
+    if (!session || !metadata) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'canonical 학습 세션 상태가 완전하지 않습니다.'
+      )
+    }
+    const owner = this.resolveCanonicalOwner(
+      session,
+      metadata,
+      input.guestPrincipalId
+    )
+    const requestMaterial = operations.canonicalize(snapshot, input.body)
+    const recordKey = makeCanonicalIdempotencyKey(
+      owner.principalKind,
+      owner.principalId,
+      'study.submitStudySession',
+      input.idempotencyKey
+    )
+    const observedAt = this.now()
+    const storedRecord = this.canonicalIdempotencyRecordByKey.get(recordKey)
+    const existingRecord =
+      storedRecord &&
+      isCanonicalIdempotencyRecordActive(storedRecord, observedAt)
+        ? storedRecord
+        : undefined
+    if (existingRecord) {
+      if (
+        existingRecord.operation !== 'study.submitStudySession' ||
+        existingRecord.contractVersion !== contractVersion ||
+        existingRecord.requestMaterial !== requestMaterial
+      ) {
+        throw new MockDatabaseError(
+          'IDEMPOTENCY_KEY_REUSED',
+          409,
+          '같은 멱등 키를 다른 제출 요청에 사용할 수 없습니다.'
+        )
+      }
+      return { replayed: true, response: clone(existingRecord.response) }
+    }
+
+    if (metadata.canonicalContractVersion !== contractVersion) {
+      throw new MockDatabaseError(
+        'PRACTICE_CONTRACT_VERSION_MISMATCH',
+        409,
+        '학습 세션 contract version이 요청과 다릅니다.'
+      )
+    }
+
+    if (snapshot.canonicalStatus) {
+      throw new MockDatabaseError(
+        'STUDY_SESSION_NOT_EDITABLE',
+        409,
+        '현재 상태에서는 학습 세션을 제출할 수 없습니다.'
+      )
+    }
+
+    const observedAtMs = Date.parse(observedAt)
+    const startedAtMs = Date.parse(session.startedAt)
+    if (!Number.isFinite(observedAtMs) || !Number.isFinite(startedAtMs)) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '학습 세션 시간이 올바르지 않습니다.'
+      )
+    }
+    if (session.status === 'SUBMITTED') {
+      throw new MockDatabaseError(
+        'SESSION_SUBMITTED',
+        409,
+        '이미 제출한 학습 세션입니다.'
+      )
+    }
+    if (
+      session.status !== 'IN_PROGRESS' ||
+      observedAtMs >= startedAtMs + 24 * 60 * 60 * 1_000
+    ) {
+      throw new MockDatabaseError(
+        'STUDY_SESSION_NOT_EDITABLE',
+        409,
+        '현재 상태에서는 학습 세션을 제출할 수 없습니다.'
+      )
+    }
+
+    if (contractVersion === 2) {
+      const draft = this.canonicalDraftBySessionId.get(session.id)
+      const expectedDraftRevision =
+        'expectedDraftRevision' in input.body
+          ? input.body.expectedDraftRevision
+          : null
+      if (!draft || expectedDraftRevision !== draft.revision) {
+        throw new MockDatabaseError(
+          'DRAFT_VERSION_CONFLICT',
+          409,
+          '학습 draft revision이 현재 서버 상태와 다릅니다.'
+        )
+      }
+      if (!this.hasMatchingDraftAnswers(draft, input.body.answers)) {
+        throw new MockDatabaseError(
+          'DRAFT_SUBMIT_MISMATCH',
+          422,
+          '제출 답안이 저장된 draft와 다릅니다.'
+        )
+      }
+    }
+
+    const canonicalWrongNoteByQuestionId = owner.userId
+      ? new Map(
+          this.reconstructCanonicalWrongNotes(owner.userId).map((record) => [
+            record.sourceQuestionId,
+            record
+          ])
+        )
+      : new Map<string, MockCanonicalWrongNoteRecord>()
+
+    let submittedAtMs = Math.max(observedAtMs, startedAtMs)
+    if (owner.userId) {
+      for (const question of snapshot.questions) {
+        const previous = canonicalWrongNoteByQuestionId.get(question.id)
+        if (previous) {
+          const previousUpdatedAtMs = Date.parse(previous.updatedAt)
+          if (!Number.isFinite(previousUpdatedAtMs)) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              '오답 상태 시간이 올바르지 않습니다.'
+            )
+          }
+          submittedAtMs = Math.max(submittedAtMs, previousUpdatedAtMs + 1)
+        }
+      }
+    }
+    const submittedAt = new Date(submittedAtMs).toISOString()
+    const grading = operations.grade(snapshot, input.body, submittedAt)
+    const answerBySessionQuestionId = new Map(
+      input.body.answers.map((answer) => [
+        answer.studySessionQuestionId,
+        answer
+      ])
+    )
+    const answers = grading.items.map((item) => {
+      const answer = answerBySessionQuestionId.get(item.studySessionQuestionId)
+      if (!answer) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          '채점된 답안 projection이 완전하지 않습니다.'
+        )
+      }
+      return {
+        id: toStableMockUuid('study-answer', item.studySessionQuestionId),
+        answeredAt: submittedAt,
+        elapsedSec: item.elapsedSec,
+        isCorrect: item.isCorrect,
+        questionVersionId: item.questionVersionId,
+        selectedOptionId: answer.selectedOptionId,
+        sessionId: session.id,
+        sourceQuestionId: item.sourceQuestionId,
+        studySessionQuestionId: item.studySessionQuestionId
+      } satisfies MockCanonicalStudyAnswerRecord
+    })
+    const answerRecordBySessionQuestionId = new Map(
+      answers.map((answer) => [answer.studySessionQuestionId, answer])
+    )
+    const wrongNotePlan = this.planCanonicalWrongNoteUpdates(
+      owner.userId,
+      session.mode,
+      grading.items,
+      answerRecordBySessionQuestionId,
+      canonicalWrongNoteByQuestionId,
+      submittedAt
+    )
+    const response = operations.toResult(
+      grading,
+      wrongNotePlan.statusBySessionQuestionId
+    )
+    const idempotencyRecord: MockCanonicalIdempotencyRecord = {
+      completedAt: submittedAt,
+      contractVersion,
+      expiresAt: getCanonicalIdempotencyExpiresAt(
+        submittedAt,
+        'study.submitStudySession'
+      ),
+      idempotencyKey: input.idempotencyKey,
+      operation: 'study.submitStudySession',
+      principalId: owner.principalId,
+      principalKind: owner.principalKind,
+      requestMaterial,
+      response,
+      responseStatus: 201,
+      sessionId: session.id
+    }
+
+    for (const event of wrongNotePlan.events) {
+      this.canonicalReviewEventByStudyAnswerId.set(
+        event.studyAnswerId ?? event.id,
+        event
+      )
+    }
+    session.status = 'SUBMITTED'
+    session.submittedAt = submittedAt
+    session.durationSec = response.durationSec
+    this.canonicalAnswerBySessionId.set(session.id, answers)
+    this.canonicalResultBySessionId.set(session.id, response)
+    if (contractVersion === 2) {
+      this.canonicalDraftBySessionId.delete(session.id)
+    }
+    this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
+    this.persist()
+
+    return { replayed: false, response: clone(response) }
+  }
+
+  getCanonicalStudyResult(
+    sessionId: string,
+    guestPrincipalId: string | null
+  ): CanonicalStudyResult {
+    const { session } = this.getCanonicalStudySessionSnapshotRecord(
+      sessionId,
+      guestPrincipalId
+    )
+    const result = this.canonicalResultBySessionId.get(sessionId)
+    if (!result && session.status !== 'SUBMITTED') {
+      throw new MockDatabaseError(
+        'STUDY_RESULT_NOT_READY',
+        409,
+        '아직 제출 결과가 준비되지 않았습니다.'
+      )
+    }
+    if (!result) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '제출된 학습 세션의 결과가 완전하지 않습니다.'
+      )
+    }
+    return clone(result)
+  }
+
+  createCanonicalResultRetry(
+    input: CreateCanonicalResultRetryInput
+  ): CreateCanonicalResultRetryResult {
+    const source = this.getCanonicalStudySessionSnapshotRecord(
+      input.sourceSessionId,
+      input.guestPrincipalId
+    )
+    const sourceSession = this.sessionById.get(input.sourceSessionId)
+    const sourceMetadata = this.sessionMetadataById.get(input.sourceSessionId)
+    if (!sourceSession || !sourceMetadata) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        'canonical 원본 학습 세션 상태가 완전하지 않습니다.'
+      )
+    }
+    const owner = this.resolveCanonicalOwner(
+      sourceSession,
+      sourceMetadata,
+      input.guestPrincipalId
+    )
+    const requestMaterial = `study-result-retry-v1\n${input.sourceSessionId}`
+    const recordKey = makeCanonicalIdempotencyKey(
+      owner.principalKind,
+      owner.principalId,
+      'study.createResultRetrySession',
+      input.idempotencyKey
+    )
+    const observedAt = this.now()
+    const storedRecord = this.canonicalIdempotencyRecordByKey.get(recordKey)
+    const existingRecord =
+      storedRecord &&
+      isCanonicalIdempotencyRecordActive(storedRecord, observedAt)
+        ? storedRecord
+        : undefined
+    if (existingRecord) {
+      if (
+        existingRecord.operation !== 'study.createResultRetrySession' ||
+        existingRecord.contractVersion !== 2 ||
+        existingRecord.principalKind !== owner.principalKind ||
+        existingRecord.principalId !== owner.principalId ||
+        existingRecord.requestMaterial !== requestMaterial ||
+        existingRecord.sourceSessionId !== input.sourceSessionId
+      ) {
+        throw new MockDatabaseError(
+          'IDEMPOTENCY_KEY_REUSED',
+          409,
+          '같은 멱등 키를 다른 결과 재시도 요청에 사용할 수 없습니다.'
+        )
+      }
+      const targetSession = this.sessionById.get(existingRecord.sessionId)
+      const targetMetadata = this.sessionMetadataById.get(
+        existingRecord.sessionId
+      )
+      const targetQuestions = this.sessionQuestionSnapshotsById.get(
+        existingRecord.sessionId
+      )
+      const targetDraft = this.canonicalDraftBySessionId.get(
+        existingRecord.sessionId
+      )
+      const sourceResult = this.canonicalResultBySessionId.get(
+        input.sourceSessionId
+      )
+      if (
+        !targetSession ||
+        !targetMetadata ||
+        !isCanonicalSessionMetadata(targetMetadata) ||
+        !targetQuestions ||
+        targetMetadata.canonicalContractVersion !== 2 ||
+        targetMetadata.retryOfStudySessionId !== input.sourceSessionId ||
+        targetMetadata.canonicalGuestPrincipalId !==
+          sourceMetadata.canonicalGuestPrincipalId ||
+        targetSession.userId !== sourceSession.userId ||
+        targetSession.mode !== (owner.userId ? 'WRONG_NOTE' : 'RANDOM') ||
+        targetSession.questionIds.length !== targetQuestions.length ||
+        targetSession.questionIds.some(
+          (questionId, index) => questionId !== targetQuestions[index]?.id
+        )
+      ) {
+        return throwCanonicalIntegrityError(
+          '재출제 IdempotencyRecord의 target provenance가 손상되었습니다.'
+        )
+      }
+      let previousSourceOrdinal = 0
+      targetQuestions.forEach((targetQuestion, index) => {
+        const sourceIndex = source.questions.findIndex(
+          ({ id }) => id === targetQuestion.id
+        )
+        const sourceResultItem = sourceResult?.items[sourceIndex]
+        if (
+          sourceIndex < previousSourceOrdinal ||
+          !sourceResultItem ||
+          sourceResultItem.isCorrect ||
+          sourceResultItem.question.id !==
+            getCanonicalQuestionId(targetQuestion) ||
+          sourceResultItem.question.questionVersionId !==
+            getCanonicalQuestionVersionId(targetQuestion) ||
+          targetSession.questionIds[index] !== targetQuestion.id
+        ) {
+          return throwCanonicalIntegrityError(
+            '재출제 target이 source 오답의 historical pin과 다릅니다.'
+          )
+        }
+        assertCanonicalProjectionEqual(
+          targetQuestion,
+          source.questions[sourceIndex],
+          '재출제 target 문제 snapshot이 source historical pin과 다릅니다.'
+        )
+        previousSourceOrdinal = sourceIndex + 1
+      })
+      if (
+        this.getEffectiveCanonicalStatus(targetSession, targetMetadata) ===
+          'IN_PROGRESS' &&
+        (!targetDraft ||
+          targetDraft.studySessionId !== targetSession.id ||
+          targetDraft.answers.length !== targetQuestions.length ||
+          targetDraft.answers.some(
+            ({ studySessionQuestionId }, index) =>
+              studySessionQuestionId !==
+              getCanonicalSessionQuestionId(targetSession.id, index + 1)
+          ))
+      ) {
+        return throwCanonicalIntegrityError(
+          '진행 중인 재출제 target의 revision draft가 손상되었습니다.'
+        )
+      }
+      const expectedResponse = toVersionedContractStudySessionPayload(
+        {
+          practiceContractVersion: 2,
+          session: {
+            ...targetSession,
+            status: 'IN_PROGRESS',
+            submittedAt: null,
+            durationSec: null
+          },
+          requestedCount: targetMetadata.requestedCount,
+          questions: targetQuestions
+        },
+        new Date(existingRecord.completedAt)
+      )
+      assertCanonicalProjectionEqual(
+        existingRecord.response,
+        expectedResponse,
+        '재출제 IdempotencyRecord response가 target snapshot과 다릅니다.'
+      )
+      return { replayed: true, response: clone(existingRecord.response) }
+    }
+
+    if (source.session.status !== 'SUBMITTED') {
+      throw new MockDatabaseError(
+        'STUDY_RESULT_NOT_READY',
+        409,
+        '제출이 완료된 학습 결과에서만 다시 풀 수 있습니다.'
+      )
+    }
+    const result = this.getCanonicalStudyResult(
+      input.sourceSessionId,
+      input.guestPrincipalId
+    )
+    const sourceAnswers = this.canonicalAnswerBySessionId.get(
+      input.sourceSessionId
+    )
+    const answerBySessionQuestionId = new Map(
+      sourceAnswers?.map((answer) => [answer.studySessionQuestionId, answer]) ??
+        []
+    )
+    if (
+      result.totalCount !== source.questions.length ||
+      result.items.length !== source.questions.length ||
+      !sourceAnswers ||
+      sourceAnswers.length !== source.questions.length ||
+      answerBySessionQuestionId.size !== source.questions.length ||
+      result.correctCount + result.incorrectCount !== result.totalCount ||
+      result.correctCount !==
+        result.items.filter(({ isCorrect }) => isCorrect).length ||
+      result.incorrectCount !==
+        result.items.filter(({ isCorrect }) => !isCorrect).length
+    ) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '원본 결과와 고정된 문제 snapshot의 개수가 다릅니다.'
+      )
+    }
+
+    const learnerQuestionReadModel = this.buildPhase7LearnerQuestionReadModel()
+    const selectedQuestions = source.questions.flatMap((question, index) => {
+      const resultItem = result.items[index]
+      const expectedSessionQuestionId = getCanonicalSessionQuestionId(
+        source.session.id,
+        index + 1
+      )
+      const answer = answerBySessionQuestionId.get(expectedSessionQuestionId)
+      const reviewedQuestion = toCanonicalReviewedQuestion(question)
+      const isCorrect =
+        answer?.selectedOptionId !== null &&
+        answer?.selectedOptionId === reviewedQuestion.correctOptionId
+      if (
+        !resultItem ||
+        !answer ||
+        resultItem.sessionQuestionId !== expectedSessionQuestionId ||
+        resultItem.question.id !== getCanonicalQuestionId(question) ||
+        resultItem.question.questionVersionId !==
+          getCanonicalQuestionVersionId(question) ||
+        answer.sessionId !== source.session.id ||
+        answer.sourceQuestionId !== question.id ||
+        answer.studySessionQuestionId !== expectedSessionQuestionId ||
+        answer.questionVersionId !== getCanonicalQuestionVersionId(question) ||
+        (answer.selectedOptionId !== null &&
+          !reviewedQuestion.options.some(
+            ({ id }) => id === answer.selectedOptionId
+          )) ||
+        answer.isCorrect !== isCorrect ||
+        resultItem.selectedOptionId !== answer.selectedOptionId ||
+        resultItem.isCorrect !== isCorrect
+      ) {
+        return throwCanonicalIntegrityError(
+          '원본 결과가 고정된 session question과 다릅니다.'
+        )
+      }
+      assertCanonicalProjectionEqual(
+        resultItem.question,
+        toCanonicalReviewedQuestion(question),
+        '원본 결과의 문제 snapshot이 고정 version과 다릅니다.'
+      )
+      if (resultItem.isCorrect) {
+        return []
+      }
+      const phase7Lifecycle = learnerQuestionReadModel.lifecycleBySourceId.get(
+        question.id
+      )
+      const isLogicalQuestionActive =
+        phase7Lifecycle === 'ACTIVE' ||
+        (phase7Lifecycle === undefined && this.questionById.has(question.id))
+      return isLogicalQuestionActive ? [clone(question)] : []
+    })
+    if (selectedQuestions.length === 0) {
+      throw new MockDatabaseError(
+        'NO_ELIGIBLE_QUESTIONS',
+        404,
+        '현재 다시 풀 수 있는 오답이 없습니다.'
+      )
+    }
+    if (
+      new Set(selectedQuestions.map(({ id }) => id)).size !==
+      selectedQuestions.length
+    ) {
+      throw new MockDatabaseError(
+        'PERSISTENCE_FAILED',
+        500,
+        '재시도 후보에 같은 문제가 중복되었습니다.'
+      )
+    }
+
+    const sessionId = this.createStudySessionId()
+    const session: StudySession = {
+      id: sessionId,
+      userId: owner.userId,
+      level: source.session.level,
+      subject: source.session.subject,
+      mode: owner.userId ? 'WRONG_NOTE' : 'RANDOM',
+      questionIds: selectedQuestions.map(({ id }) => id),
+      status: 'IN_PROGRESS',
+      startedAt: observedAt,
+      submittedAt: null,
+      durationSec: null
+    }
+    const metadata: SessionMetadata = {
+      canonicalContractVersion: 2,
+      ...(owner.principalKind === 'GUEST'
+        ? { canonicalGuestPrincipalId: owner.principalId }
+        : {}),
+      creationOrder: this.sequence,
+      retryOfStudySessionId: source.session.id,
+      requestedCount: result.incorrectCount,
+      usedFallback: false
+    }
+    const draft: StudyDraftSnapshot = {
+      studySessionId: session.id,
+      revision: 0,
+      currentOrdinal: 1,
+      savedAt: null,
+      answers: selectedQuestions.map((_, index) => ({
+        studySessionQuestionId: getCanonicalSessionQuestionId(
+          session.id,
+          index + 1
+        ),
+        selectedOptionId: null,
+        elapsedSec: 0
+      }))
+    }
+    const response = toVersionedContractStudySessionPayload(
+      {
+        practiceContractVersion: 2,
+        session,
+        requestedCount: result.incorrectCount,
+        questions: selectedQuestions
+      },
+      new Date(observedAt)
+    )
+    const idempotencyRecord: MockCanonicalRetryIdempotencyRecord = {
+      completedAt: observedAt,
+      contractVersion: 2,
+      expiresAt: getCanonicalIdempotencyExpiresAt(
+        observedAt,
+        'study.createResultRetrySession'
+      ),
+      idempotencyKey: input.idempotencyKey,
+      operation: 'study.createResultRetrySession',
+      principalId: owner.principalId,
+      principalKind: owner.principalKind,
+      requestMaterial,
+      response: clone(response),
+      responseStatus: 201,
+      sessionId,
+      sourceSessionId: source.session.id
+    }
+
+    this.sessionById.set(session.id, session)
+    this.sessionMetadataById.set(session.id, metadata)
+    this.sessionQuestionSnapshotsById.set(session.id, clone(selectedQuestions))
+    this.canonicalDraftBySessionId.set(session.id, draft)
+    this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
+    this.persist()
+
+    return { replayed: false, response: clone(response) }
+  }
+
+  createCanonicalTargetedReview(
+    input: CreateCanonicalTargetedReviewInput
+  ): CreateCanonicalTargetedReviewResult {
+    this.assertCanonicalReadOwner(input.userId)
+    const observedAt = this.now()
+    const requestMaterial = createTargetedReviewSessionCanonicalMaterial(
+      input.questionId
+    )
+    const recordKey = makeCanonicalIdempotencyKey(
+      'USER',
+      input.userId,
+      'wrongNote.createTargetedReviewSession',
+      input.idempotencyKey
+    )
+    const storedRecord = this.canonicalIdempotencyRecordByKey.get(recordKey)
+    let existingRecord: MockCanonicalTargetedReviewIdempotencyRecord | undefined
+    if (storedRecord) {
+      if (
+        storedRecord.operation !== 'wrongNote.createTargetedReviewSession' ||
+        storedRecord.principalKind !== 'USER' ||
+        storedRecord.principalId !== input.userId ||
+        storedRecord.idempotencyKey !== input.idempotencyKey ||
+        storedRecord.responseStatus !== 201 ||
+        storedRecord.expiresAt !==
+          getCanonicalIdempotencyExpiresAt(
+            storedRecord.completedAt,
+            storedRecord.operation
+          )
+      ) {
+        return throwCanonicalIntegrityError(
+          'targeted 복습 IdempotencyRecord envelope가 손상되었습니다.'
+        )
+      }
+      if (isCanonicalIdempotencyRecordActive(storedRecord, observedAt)) {
+        existingRecord = storedRecord
+      } else {
+        this.canonicalIdempotencyRecordByKey.delete(recordKey)
+      }
+    }
+    if (existingRecord) {
+      if (
+        existingRecord.contractVersion !== 2 ||
+        existingRecord.requestMaterial !== requestMaterial
+      ) {
+        throw new MockDatabaseError(
+          'IDEMPOTENCY_KEY_REUSED',
+          409,
+          '같은 멱등 키를 다른 targeted 복습 요청에 사용할 수 없습니다.'
+        )
+      }
+      if (existingRecord.questionId !== input.questionId) {
+        return throwCanonicalIntegrityError(
+          'targeted 복습 IdempotencyRecord question provenance가 손상되었습니다.'
+        )
+      }
+      const targetSession = this.sessionById.get(existingRecord.sessionId)
+      const targetMetadata = this.sessionMetadataById.get(
+        existingRecord.sessionId
+      )
+      const targetQuestions = this.sessionQuestionSnapshotsById.get(
+        existingRecord.sessionId
+      )
+      const targetDraft = this.canonicalDraftBySessionId.get(
+        existingRecord.sessionId
+      )
+      const targetQuestion = targetQuestions?.[0]
+      if (
+        !targetSession ||
+        !targetMetadata ||
+        !isCanonicalSessionMetadata(targetMetadata) ||
+        !targetQuestions ||
+        !targetQuestion ||
+        targetMetadata.canonicalContractVersion !== 2 ||
+        targetMetadata.canonicalGuestPrincipalId !== undefined ||
+        targetMetadata.retryOfStudySessionId !== undefined ||
+        targetMetadata.requestedCount !== 1 ||
+        targetMetadata.usedFallback ||
+        targetSession.userId !== input.userId ||
+        targetSession.mode !== 'WRONG_NOTE' ||
+        targetSession.questionIds.length !== 1 ||
+        targetQuestions.length !== 1 ||
+        targetSession.questionIds[0] !== targetQuestion.id ||
+        getCanonicalQuestionId(targetQuestion) !== input.questionId
+      ) {
+        return throwCanonicalIntegrityError(
+          'targeted 복습 IdempotencyRecord의 target provenance가 손상되었습니다.'
+        )
+      }
+      if (
+        this.getEffectiveCanonicalStatus(targetSession, targetMetadata) ===
+          'IN_PROGRESS' &&
+        (!this.hasValidCanonicalInProgressDraft(
+          targetSession.id,
+          targetQuestions,
+          targetDraft
+        ) ||
+          this.canonicalAnswerBySessionId.has(existingRecord.sessionId) ||
+          this.canonicalResultBySessionId.has(existingRecord.sessionId) ||
+          [...this.canonicalReviewEventByStudyAnswerId.values()].some(
+            (event) => event.studySessionId === existingRecord.sessionId
+          ))
+      ) {
+        return throwCanonicalIntegrityError(
+          '진행 중인 targeted 복습 target의 revision draft가 손상되었습니다.'
+        )
+      }
+      const expectedResponse =
+        createTargetedReviewSessionResponseForQuestionSchema(
+          input.questionId
+        ).parse(
+          toVersionedContractStudySessionPayload(
+            {
+              practiceContractVersion: 2,
+              session: {
+                ...targetSession,
+                status: 'IN_PROGRESS',
+                submittedAt: null,
+                durationSec: null
+              },
+              requestedCount: 1,
+              questions: targetQuestions
+            },
+            new Date(existingRecord.completedAt)
+          )
+        )
+      assertCanonicalProjectionEqual(
+        existingRecord.response,
+        expectedResponse,
+        'targeted 복습 IdempotencyRecord response가 target snapshot과 다릅니다.'
+      )
+      return { replayed: true, response: clone(existingRecord.response) }
+    }
+    const wrongNote = this.getCanonicalWrongNoteRecord(
+      input.userId,
+      input.questionId
+    )
+    const currentQuestion =
+      this.buildPhase7LearnerQuestionReadModel().currentBySourceId.get(
+        wrongNote.sourceQuestionId
+      )
+    if (
+      !currentQuestion ||
+      currentQuestion.status !== 'PUBLISHED' ||
+      getCanonicalQuestionId(currentQuestion) !== input.questionId
+    ) {
+      throw new MockDatabaseError(
+        'QUESTION_NOT_AVAILABLE',
+        422,
+        '현재 복습할 수 없는 문제입니다.'
+      )
+    }
+
+    const sessionId = this.createStudySessionId()
+    const session: StudySession = {
+      id: sessionId,
+      userId: input.userId,
+      level: currentQuestion.level,
+      subject: currentQuestion.subject,
+      mode: 'WRONG_NOTE',
+      questionIds: [currentQuestion.id],
+      status: 'IN_PROGRESS',
+      startedAt: observedAt,
+      submittedAt: null,
+      durationSec: null
+    }
+    const metadata: SessionMetadata = {
+      canonicalContractVersion: 2,
+      creationOrder: this.sequence,
+      requestedCount: 1,
+      usedFallback: false
+    }
+    const questions = [clone(currentQuestion)]
+    const draft: StudyDraftSnapshot = {
+      studySessionId: session.id,
+      revision: 0,
+      currentOrdinal: 1,
+      savedAt: null,
+      answers: [
+        {
+          studySessionQuestionId: getCanonicalSessionQuestionId(session.id, 1),
+          selectedOptionId: null,
+          elapsedSec: 0
+        }
+      ]
+    }
+    const response = createTargetedReviewSessionResponseForQuestionSchema(
+      input.questionId
+    ).parse(
+      toVersionedContractStudySessionPayload(
+        {
+          practiceContractVersion: 2,
+          session,
+          requestedCount: 1,
+          questions
+        },
+        new Date(observedAt)
+      )
+    )
+    const idempotencyRecord: MockCanonicalTargetedReviewIdempotencyRecord = {
+      completedAt: observedAt,
+      contractVersion: 2,
+      expiresAt: getCanonicalIdempotencyExpiresAt(
+        observedAt,
+        'wrongNote.createTargetedReviewSession'
+      ),
+      idempotencyKey: input.idempotencyKey,
+      operation: 'wrongNote.createTargetedReviewSession',
+      principalId: input.userId,
+      principalKind: 'USER',
+      questionId: input.questionId,
+      requestMaterial,
+      response: clone(response),
+      responseStatus: 201,
+      sessionId
+    }
+
+    this.sessionById.set(session.id, session)
+    this.sessionMetadataById.set(session.id, metadata)
+    this.sessionQuestionSnapshotsById.set(session.id, questions)
+    this.canonicalDraftBySessionId.set(session.id, draft)
+    this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
+    this.persist()
+
+    return { replayed: false, response: clone(response) }
+  }
+
+  listCanonicalWrongNoteRecords(
+    userId: string
+  ): MockCanonicalWrongNoteRecord[] {
+    this.assertCanonicalReadOwner(userId)
+    return clone(this.reconstructCanonicalWrongNotes(userId))
+  }
+
+  getCanonicalWrongNoteRecord(
+    userId: string,
+    contractQuestionId: string
+  ): MockCanonicalWrongNoteRecord {
+    this.assertCanonicalReadOwner(userId)
+    const matches = this.reconstructCanonicalWrongNotes(userId).filter(
+      ({ lastWrongQuestion }) =>
+        getCanonicalQuestionId(lastWrongQuestion) === contractQuestionId
+    )
+    if (matches.length !== 1) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        '오답 노트를 찾을 수 없습니다.'
+      )
+    }
+
+    return clone(matches[0])
+  }
+
+  listCanonicalReviewQueue(
+    userId: string,
+    query: ParsedListReviewQueueQuery
+  ): ListReviewQueueResponse {
+    this.assertCanonicalReadOwner(userId)
+    const observedAt = this.now()
+    const observedAtMs = Date.parse(observedAt)
+    const currentQuestions =
+      this.buildPhase7LearnerQuestionReadModel().currentBySourceId
+    const allCandidates = this.reconstructCanonicalWrongNotes(userId).flatMap(
+      (note): ReviewQueueItem[] => {
+        const question = currentQuestions.get(note.sourceQuestionId)
+        if (!question || question.status !== 'PUBLISHED') {
+          return []
+        }
+        const tags = [...new Set(question.tags)].toSorted(
+          compareWrongNoteTagLabels
+        )
+        const characters = [...question.questionText]
+        const questionPreview =
+          characters.length <= 160
+            ? question.questionText
+            : `${characters.slice(0, 157).join('')}...`
+        return [
+          {
+            questionId: getCanonicalQuestionId(question),
+            currentQuestionVersionId: getCanonicalQuestionVersionId(question),
+            level: question.level,
+            subject: question.subject,
+            questionType: question.questionType,
+            questionPreview,
+            tags,
+            status: note.status,
+            wrongCount: note.wrongCount,
+            correctStreak: note.correctStreak,
+            lastWrongAt: note.lastWrongAt,
+            lastReviewedAt: note.lastReviewedAt,
+            nextReviewAt: note.nextReviewAt,
+            hasMemo: this.canonicalUserMemoByWrongNoteId.has(note.wrongNoteId)
+          }
+        ]
+      }
+    )
+    const matchesBase = (item: ReviewQueueItem, includeTag: boolean): boolean =>
+      (query.level === undefined || item.level === query.level) &&
+      (query.subject === undefined || item.subject === query.subject) &&
+      (query.questionType === undefined ||
+        item.questionType === query.questionType) &&
+      (!includeTag || query.tag === undefined || item.tags.includes(query.tag))
+    const base = allCandidates.filter((item) => matchesBase(item, true))
+    const isDue = (item: ReviewQueueItem): boolean =>
+      Date.parse(item.nextReviewAt) <= observedAtMs
+    const matchesView = (item: ReviewQueueItem): boolean => {
+      switch (query.view) {
+        case 'DUE':
+          return isDue(item)
+        case 'UNREVIEWED':
+          return item.lastReviewedAt === null
+        case 'REPEATED':
+          return item.wrongCount >= 2
+        case 'SOLVED':
+          return item.status === 'SOLVED'
+      }
+    }
+    const selected = base
+      .filter(matchesView)
+      .toSorted((left, right) =>
+        compareReviewQueueItems(left, right, query.sort)
+      )
+    const offset = (BigInt(query.page) - 1n) * BigInt(query.pageSize)
+    const items =
+      offset >= BigInt(selected.length)
+        ? []
+        : selected.slice(Number(offset), Number(offset) + query.pageSize)
+    const availableTags = [
+      ...new Set(
+        allCandidates
+          .filter((item) => matchesBase(item, false))
+          .flatMap(({ tags }) => tags)
+      )
+    ].toSorted(compareWrongNoteTagLabels)
+
+    return clone({
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      total: selected.length,
+      counts: {
+        due: base.filter(isDue).length,
+        unreviewed: base.filter(({ lastReviewedAt }) => lastReviewedAt === null)
+          .length,
+        repeated: base.filter(({ wrongCount }) => wrongCount >= 2).length,
+        solved: base.filter(({ status }) => status === 'SOLVED').length
+      },
+      availableTags,
+      observedAt
+    })
+  }
+
+  getCanonicalUserMemo(
+    userId: string,
+    contractQuestionId: string
+  ): UserMemo | null {
+    const note = this.getCanonicalWrongNoteRecord(userId, contractQuestionId)
+    const memo = this.canonicalUserMemoByWrongNoteId.get(note.wrongNoteId)
+    return memo
+      ? clone({
+          questionId: contractQuestionId,
+          text: memo.text,
+          createdAt: memo.createdAt,
+          updatedAt: memo.updatedAt
+        })
+      : null
+  }
+
+  updateCanonicalUserMemo(
+    userId: string,
+    contractQuestionId: string,
+    text: string | null
+  ): UserMemo | null {
+    const note = this.getCanonicalWrongNoteRecord(userId, contractQuestionId)
+    const existing = this.canonicalUserMemoByWrongNoteId.get(note.wrongNoteId)
+    if (text === null) {
+      if (existing) {
+        this.canonicalUserMemoByWrongNoteId.delete(note.wrongNoteId)
+        this.persist()
+      }
+      return null
+    }
+    if (existing?.text === text) {
+      return this.getCanonicalUserMemo(userId, contractQuestionId)
+    }
+    const observedAt = this.now()
+    const updatedAt = existing
+      ? new Date(
+          Math.max(Date.parse(existing.updatedAt), Date.parse(observedAt))
+        ).toISOString()
+      : observedAt
+    this.canonicalUserMemoByWrongNoteId.set(note.wrongNoteId, {
+      wrongNoteId: note.wrongNoteId,
+      text,
+      createdAt: existing?.createdAt ?? observedAt,
+      updatedAt
+    })
+    this.persist()
+    return this.getCanonicalUserMemo(userId, contractQuestionId)
+  }
+
+  listCanonicalReviewEvents(
+    userId: string,
+    contractQuestionId: string
+  ): ReviewEventHistoryItem[] {
+    const note = this.getCanonicalWrongNoteRecord(userId, contractQuestionId)
+    const answerById = new Map(
+      [...this.canonicalAnswerBySessionId.values()]
+        .flat()
+        .map((answer) => [answer.id, answer])
+    )
+    return clone(
+      [...this.canonicalReviewEventByStudyAnswerId.values()]
+        .filter(
+          (event) =>
+            event.userId === userId && event.wrongNoteId === note.wrongNoteId
+        )
+        .toSorted(
+          (left, right) =>
+            Date.parse(
+              toCanonicalIsoInstant(right.occurredAt, 'ReviewEvent.occurredAt')
+            ) -
+              Date.parse(
+                toCanonicalIsoInstant(left.occurredAt, 'ReviewEvent.occurredAt')
+              ) || right.id.localeCompare(left.id)
+        )
+        .map((event) => {
+          const occurredAt = toCanonicalIsoInstant(
+            event.occurredAt,
+            'ReviewEvent.occurredAt'
+          )
+          if (event.source === 'VERSION_REBASE') {
+            if (
+              event.studySessionId !== null ||
+              event.studyAnswerId !== null ||
+              event.selectedOptionId !== null ||
+              event.isCorrect !== null
+            ) {
+              throwCanonicalIntegrityError(
+                'VERSION_REBASE ReviewEvent evidence가 비어 있지 않습니다.'
+              )
+            }
+            return {
+              id: event.id,
+              source: event.source,
+              questionVersionId: event.questionVersionId,
+              selectedOptionId: null,
+              isCorrect: null,
+              elapsedSec: null,
+              previousStatus: event.previousStatus,
+              nextStatus: event.nextStatus,
+              previousCorrectStreak: event.previousCorrectStreak,
+              nextCorrectStreak: event.nextCorrectStreak,
+              previousWrongCount: event.previousWrongCount,
+              wrongCountAfter: event.wrongCountAfter,
+              algorithmVersion: event.algorithmVersion,
+              occurredAt
+            }
+          }
+          if (
+            event.studyAnswerId === null ||
+            event.studySessionId === null ||
+            event.isCorrect === null
+          ) {
+            throwCanonicalIntegrityError(
+              'answer-backed ReviewEvent evidence가 완전하지 않습니다.'
+            )
+          }
+          const answer = answerById.get(event.studyAnswerId)
+          if (!answer) {
+            throwCanonicalIntegrityError(
+              'canonical ReviewEvent의 StudyAnswer evidence가 없습니다.'
+            )
+          }
+          return {
+            id: event.id,
+            source: event.source,
+            questionVersionId: event.questionVersionId,
+            selectedOptionId: event.selectedOptionId,
+            isCorrect: event.isCorrect,
+            elapsedSec: answer.elapsedSec,
+            previousStatus: event.previousStatus,
+            nextStatus: event.nextStatus,
+            previousCorrectStreak: event.previousCorrectStreak,
+            nextCorrectStreak: event.nextCorrectStreak,
+            previousWrongCount: event.previousWrongCount,
+            wrongCountAfter: event.wrongCountAfter,
+            algorithmVersion: event.algorithmVersion,
+            occurredAt
+          }
+        })
+    )
+  }
+
+  getCanonicalDashboardRecord(userId: string): MockCanonicalDashboardRecord {
+    this.assertCanonicalReadOwner(userId)
+    const submissions = this.getCanonicalUserSubmissionEvidence(userId)
+    const wrongNotes = this.reconstructCanonicalWrongNotes(userId, submissions)
+
+    return clone({
+      observedAt: this.now(),
+      sessions: submissions.map(({ result, session }) => ({
+        id: session.id,
+        level: result.level,
+        subject: result.subject,
+        mode: result.mode,
+        totalCount: result.totalCount,
+        correctCount: result.correctCount,
+        durationSec: result.durationSec,
+        submittedAt: result.submittedAt
+      })),
+      wrongNotes
+    })
+  }
+
+  getCanonicalDashboardInsightsRecord(
+    userId: string
+  ): MockCanonicalDashboardInsightsRecord {
+    this.assertCanonicalReadOwner(userId)
+    const user = this.userById.get(userId)
+    if (!user) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '대시보드 인사이트를 조회하려면 로그인이 필요합니다.'
+      )
+    }
+
+    const observedAt = this.now()
+    const submissions = this.getCanonicalUserSubmissionEvidence(userId)
+    const learnerReadModel = this.buildPhase7LearnerQuestionReadModel()
+    const currentCatalog = [...learnerReadModel.currentBySourceId.values()].map(
+      (question) => {
+        const contract = toContractPracticeQuestion(
+          question,
+          getQuestionVersionFingerprint(question),
+          getPhase7QuestionContractIdentity(question)
+        )
+        return {
+          level: contract.level,
+          questionId: contract.id,
+          questionText: contract.questionText,
+          questionType: contract.questionType,
+          subject: contract.subject
+        }
+      }
+    )
+    const currentBySourceId = learnerReadModel.currentBySourceId
+
+    return clone({
+      answers: submissions.flatMap((submission) =>
+        submission.answers.map(({ answer, question }) => {
+          const contract = toContractPracticeQuestion(
+            question,
+            getQuestionVersionFingerprint(question),
+            getPhase7QuestionContractIdentity(question)
+          )
+          if (contract.questionVersionId !== answer.questionVersionId) {
+            throwCanonicalIntegrityError(
+              'dashboard insights pinned question version이 Answer와 다릅니다.'
+            )
+          }
+          return {
+            answerId: answer.id,
+            answeredAt: answer.answeredAt,
+            elapsedSec: answer.elapsedSec,
+            isCorrect: answer.isCorrect,
+            level: contract.level,
+            questionId: contract.id,
+            questionType: contract.questionType,
+            questionVersionId: contract.questionVersionId,
+            sessionId: answer.sessionId,
+            subject: contract.subject,
+            tags: contract.tags.map((tag) => ({
+              tagId: tag.id,
+              tagLabel: tag.label
+            }))
+          }
+        })
+      ),
+      currentCatalog,
+      observedAt,
+      sessions: submissions.map(({ answers, result, session }) => ({
+        id: session.id,
+        level: session.level,
+        questionIds: answers.map(({ question }) =>
+          getCanonicalQuestionId(question)
+        ),
+        subject: session.subject,
+        submittedAt: result.submittedAt
+      })),
+      targetLevel: user.targetLevel,
+      wrongNotes: this.reconstructCanonicalWrongNotes(userId, submissions).map(
+        (note) => {
+          const currentQuestion = currentBySourceId.get(note.sourceQuestionId)
+          const displayQuestion = currentQuestion ?? note.lastWrongQuestion
+          return {
+            isAvailable: currentQuestion !== undefined,
+            lastWrongAt: note.lastWrongAt,
+            level: displayQuestion.level,
+            nextReviewAt: note.nextReviewAt,
+            questionId: getCanonicalQuestionId(displayQuestion),
+            questionText: displayQuestion.questionText,
+            status: note.status,
+            subject: displayQuestion.subject,
+            wrongCount: note.wrongCount
+          }
+        }
+      )
+    })
+  }
+
+  getCanonicalStudyAnswerRecords(
+    sessionId: string
+  ): MockCanonicalStudyAnswerRecord[] {
+    return clone(this.canonicalAnswerBySessionId.get(sessionId) ?? [])
+  }
+
+  getCanonicalReviewEventRecords(
+    sessionId?: string
+  ): MockCanonicalReviewEventRecord[] {
+    return clone(
+      [...this.canonicalReviewEventByStudyAnswerId.values()]
+        .filter(
+          (event) =>
+            sessionId === undefined || event.studySessionId === sessionId
+        )
+        .toSorted(
+          (left, right) =>
+            Date.parse(
+              toCanonicalIsoInstant(left.occurredAt, 'ReviewEvent.occurredAt')
+            ) -
+              Date.parse(
+                toCanonicalIsoInstant(
+                  right.occurredAt,
+                  'ReviewEvent.occurredAt'
+                )
+              ) || left.id.localeCompare(right.id)
+        )
+    )
+  }
+
+  getCanonicalIdempotencyRecords(): MockCanonicalIdempotencyRecord[] {
+    return clone([...this.canonicalIdempotencyRecordByKey.values()])
+  }
+
+  hasCanonicalStudyResultRecord(sessionId: string): boolean {
+    return this.canonicalResultBySessionId.has(sessionId)
   }
 
   getPracticeQuestionsForSession(sessionId: string): PracticeQuestion[] {
@@ -523,6 +2977,7 @@ export class MockDatabase {
     if (!session) {
       throw new MockDatabaseError('NOT_FOUND', 404, '학습 세션이 없습니다.')
     }
+    this.assertLegacyStudySession(session.id)
     this.assertCurrentSessionOwner(session)
     if (session.status === 'SUBMITTED') {
       throw new MockDatabaseError(
@@ -559,6 +3014,7 @@ export class MockDatabase {
     if (!session) {
       throw new MockDatabaseError('NOT_FOUND', 404, '학습 세션이 없습니다.')
     }
+    this.assertLegacyStudySession(session.id)
     this.assertCurrentSessionOwner(session)
 
     const result = this.resultBySessionId.get(sessionId)
@@ -719,6 +3175,116 @@ export class MockDatabase {
     )
 
     return { items: sortedItems, total: sortedItems.length }
+  }
+
+  resolveCanonicalQuestionId(contractQuestionId: string): string | null {
+    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    for (const question of readModel.retainedPublishedBySourceId.values()) {
+      if (
+        getPhase7QuestionContractIdentity(question)?.questionId ===
+        contractQuestionId
+      ) {
+        return question.id
+      }
+    }
+    const legacy = [
+      ...this.questionById.values(),
+      ...this.archivedQuestionById.values()
+    ].find(
+      (question) =>
+        question.status === 'PUBLISHED' &&
+        getContractQuestionId(question.id) === contractQuestionId
+    )
+    if (legacy) {
+      return legacy.id
+    }
+    return null
+  }
+
+  listCanonicalBookmarkSources(
+    userId: string
+  ): CanonicalBookmarkSourceRecord[] {
+    this.assertUser(userId)
+    const sources: CanonicalBookmarkSourceRecord[] = []
+    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    for (const bookmark of this.bookmarkByQuestionId.values()) {
+      if (bookmark.userId !== userId) continue
+      const source = this.resolveCanonicalBookmarkSource(
+        bookmark.questionId,
+        readModel
+      )
+      if (!source) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          '즐겨찾기 문제 snapshot을 찾을 수 없습니다.'
+        )
+      }
+      sources.push({
+        bookmark: clone(bookmark),
+        question: clone(source.question),
+        availability: source.availability
+      })
+    }
+    return sources.toSorted(
+      (left, right) =>
+        right.bookmark.createdAt.localeCompare(left.bookmark.createdAt) ||
+        left.bookmark.id.localeCompare(right.bookmark.id)
+    )
+  }
+
+  createCanonicalBookmark(
+    userId: string,
+    questionId: string
+  ): { created: boolean; source: CanonicalBookmarkSourceRecord } {
+    this.assertUser(userId)
+    const key = makeUserQuestionKey(userId, questionId)
+    const existing = this.bookmarkByQuestionId.get(key)
+    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    const source = this.resolveCanonicalBookmarkSource(questionId, readModel)
+    if (existing) {
+      if (!source) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          '즐겨찾기 문제 snapshot을 찾을 수 없습니다.'
+        )
+      }
+      return {
+        created: false,
+        source: {
+          bookmark: clone(existing),
+          question: clone(source.question),
+          availability: source.availability
+        }
+      }
+    }
+    if (!source) {
+      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
+    }
+    if (source.availability !== 'AVAILABLE') {
+      throw new MockDatabaseError(
+        'INVALID_INPUT',
+        422,
+        '현재 공개 중인 문제만 즐겨찾기에 추가할 수 있습니다.'
+      )
+    }
+    const bookmark: Bookmark = {
+      id: this.createId('bookmark'),
+      userId,
+      questionId: source.question.id,
+      createdAt: this.now()
+    }
+    this.bookmarkByQuestionId.set(key, bookmark)
+    this.persist()
+    return {
+      created: true,
+      source: {
+        bookmark: clone(bookmark),
+        question: clone(source.question),
+        availability: 'AVAILABLE'
+      }
+    }
   }
 
   createBookmark(userId: string, questionId: string): BookmarkListItem {
@@ -938,7 +3504,406 @@ export class MockDatabase {
     return this.getQuestion(questionId)
   }
 
+  listCanonicalAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
+    const answerStatsByVersionId = new Map<
+      string,
+      { answerCount: number; correctCount: number }
+    >()
+
+    for (const answers of this.canonicalAnswerBySessionId.values()) {
+      for (const answer of answers) {
+        const current = answerStatsByVersionId.get(
+          answer.questionVersionId
+        ) ?? {
+          answerCount: 0,
+          correctCount: 0
+        }
+        current.answerCount += 1
+        if (answer.isCorrect) {
+          current.correctCount += 1
+        }
+        answerStatsByVersionId.set(answer.questionVersionId, current)
+      }
+    }
+
+    return clone(
+      [...this.questionById.values()]
+        .filter((question) => question.status === 'PUBLISHED')
+        .map((question) => {
+          const stats = answerStatsByVersionId.get(
+            getCanonicalQuestionVersionId(question)
+          ) ?? { answerCount: 0, correctCount: 0 }
+
+          return {
+            answerCount: stats.answerCount,
+            correctCount: stats.correctCount,
+            question
+          }
+        })
+    )
+  }
+
+  listPhase7AuthoritativeAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
+    const answerStatsByVersionId = new Map<
+      string,
+      { answerCount: number; correctCount: number }
+    >()
+    for (const answers of this.canonicalAnswerBySessionId.values()) {
+      for (const answer of answers) {
+        const current = answerStatsByVersionId.get(
+          answer.questionVersionId
+        ) ?? { answerCount: 0, correctCount: 0 }
+        current.answerCount += 1
+        if (answer.isCorrect) current.correctCount += 1
+        answerStatsByVersionId.set(answer.questionVersionId, current)
+      }
+    }
+    return clone(
+      mockSeedData.questions
+        .filter((question) => question.status === 'PUBLISHED')
+        .map((question) => {
+          const stats = answerStatsByVersionId.get(
+            getCanonicalQuestionVersionId(question)
+          ) ?? { answerCount: 0, correctCount: 0 }
+          return {
+            answerCount: stats.answerCount,
+            correctCount: stats.correctCount,
+            question
+          }
+        })
+    )
+  }
+
+  private listPhase7AuthoritativeTaxonomySources(): MockCanonicalAdminQuestionSource[] {
+    return clone(
+      mockSeedData.questions
+        .filter((question) => question.status === 'PUBLISHED')
+        .map((question) => ({
+          answerCount: 0,
+          correctCount: 0,
+          question
+        }))
+    )
+  }
+
+  listCanonicalPublicQuestionRecords(
+    filters: QuestionListFilters = {}
+  ): QuestionRecord[] {
+    const normalizedSearch = filters.search?.trim().toLocaleLowerCase()
+    const normalizedTag = filters.tag
+      ? normalizeQuestionTagText(filters.tag)
+      : undefined
+    return clone(
+      [...this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()]
+        .filter(
+          (question) =>
+            (filters.level === undefined || question.level === filters.level) &&
+            (filters.subject === undefined ||
+              question.subject === filters.subject) &&
+            (filters.questionType === undefined ||
+              question.questionType === filters.questionType) &&
+            (filters.difficulty === undefined ||
+              question.difficulty === filters.difficulty) &&
+            (normalizedTag === undefined ||
+              question.tags.some(
+                (tag) => normalizeQuestionTagText(tag) === normalizedTag
+              )) &&
+            (normalizedSearch === undefined ||
+              `${question.questionText} ${question.tags.join(' ')}`
+                .toLocaleLowerCase()
+                .includes(normalizedSearch))
+        )
+        .toSorted((left, right) => {
+          const leftId = getPhase7QuestionContractIdentity(left)?.questionId
+          const rightId = getPhase7QuestionContractIdentity(right)?.questionId
+          return (leftId ?? left.id).localeCompare(rightId ?? right.id)
+        })
+    )
+  }
+
+  getCanonicalPublicQuestionRecord(contractQuestionId: string): QuestionRecord {
+    const question = [
+      ...this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()
+    ].find(
+      (candidate) =>
+        getPhase7QuestionContractIdentity(candidate)?.questionId ===
+        contractQuestionId
+    )
+    if (!question) {
+      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
+    }
+    return clone(question)
+  }
+
+  getCanonicalAdminCmsSnapshot(
+    sources = this.listPhase7AuthoritativeAdminQuestionSources()
+  ): MockPhase7AdminCmsSnapshot {
+    return this.phase7AdminCmsState.snapshot(sources)
+  }
+
+  getPhase7AdminCmsStateForHandlers(): MockPhase7ActiveAdminCmsState {
+    return this.phase7ActiveAdminCmsState
+  }
+
+  hasAuthoritativePhase7FreshAssurance(actorId: string): boolean {
+    const authoritative = this.readAuthoritativePersistedState()
+    const persisted = authoritative?.state ?? null
+    if (!persisted || persisted.currentUserId !== actorId) return false
+    if (
+      persisted.version === 8 &&
+      authoritative !== null &&
+      !this.hasValidEmbeddedPhase7Graph(
+        authoritative.serialized,
+        persisted.phase7AdminCms
+      )
+    ) {
+      throw new MockDatabaseError(
+        'SERVICE_UNAVAILABLE',
+        503,
+        '최신 인증 보증 상태를 확인하지 못했습니다.'
+      )
+    }
+
+    let hasFreshAssurance = this.phase7AdminCmsState.hasFreshAssurance(actorId)
+    const sources = this.listPhase7AuthoritativeTaxonomySources()
+    const inspectPersistedState = (
+      candidate: MockPhase7AdminCmsPersistedState
+    ): void => {
+      const verifier = new MockPhase7AdminCmsState(this.now)
+      try {
+        verifier.restore(candidate, sources)
+      } catch {
+        throw new MockDatabaseError(
+          'SERVICE_UNAVAILABLE',
+          503,
+          '최신 인증 보증 상태를 확인하지 못했습니다.'
+        )
+      }
+      hasFreshAssurance ||= verifier.hasFreshAssurance(actorId)
+    }
+
+    if (persisted.version === 8) {
+      inspectPersistedState(persisted.phase7AdminCms)
+    }
+
+    let dedicatedSerialized: string | null
+    try {
+      dedicatedSerialized = this.readLatestStorageItem(
+        PHASE7_ADMIN_CMS_STORAGE_KEY
+      )
+    } catch {
+      throw new MockDatabaseError(
+        'SERVICE_UNAVAILABLE',
+        503,
+        '최신 인증 보증 상태를 확인하지 못했습니다.'
+      )
+    }
+    if (dedicatedSerialized !== null) {
+      const dedicated = this.parsePhase7PersistedState(dedicatedSerialized)
+      if (!dedicated) {
+        throw new MockDatabaseError(
+          'SERVICE_UNAVAILABLE',
+          503,
+          '최신 인증 보증 상태를 확인하지 못했습니다.'
+        )
+      }
+      inspectPersistedState(dedicated)
+    }
+
+    return hasFreshAssurance
+  }
+
+  assertPhase7AdminCommandAuthority(input: {
+    actorId: string
+    requiresFresh: boolean
+  }): void {
+    let user: User | null
+    try {
+      user = this.getCurrentUser()
+    } catch {
+      throw new MockPhase7AdminCommandError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '최신 인증 세션을 확인하지 못했습니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    if (!user || user.id !== input.actorId) {
+      throw new MockPhase7AdminCommandError({
+        code: 'AUTH_SESSION_EXPIRED',
+        message: '로그인 세션이 만료됐습니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    if (user.role !== 'ADMIN') {
+      throw new MockPhase7AdminCommandError({
+        code: 'ADMIN_REQUIRED',
+        message: '관리자 권한이 필요합니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    let hasFreshAssurance = true
+    if (input.requiresFresh) {
+      try {
+        hasFreshAssurance = this.hasAuthoritativePhase7FreshAssurance(
+          input.actorId
+        )
+      } catch {
+        throw new MockPhase7AdminCommandError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: '최신 인증 보증 상태를 확인하지 못했습니다.',
+          disposition: 'DEFINITE_ROLLBACK'
+        })
+      }
+    }
+    if (!hasFreshAssurance) {
+      throw new MockPhase7AdminCommandError({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+  }
+
+  assertPhase7QuestionReportAuthority(actorId: string): 'USER' | 'ADMIN' {
+    let user: User | null
+    try {
+      user = this.getCurrentUser()
+    } catch {
+      throw new MockPhase7AdminCommandError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '최신 인증 세션을 확인하지 못했습니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    if (!user || user.id !== actorId) {
+      throw new MockPhase7AdminCommandError({
+        code: 'AUTH_SESSION_EXPIRED',
+        message: '로그인 세션이 만료됐습니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    if (user.role !== 'USER' && user.role !== 'ADMIN') {
+      throw new MockPhase7AdminCommandError({
+        code: 'FORBIDDEN',
+        message: '문제 신고 권한이 없습니다.',
+        disposition: 'DEFINITE_ROLLBACK'
+      })
+    }
+    return user.role
+  }
+
+  resolvePhase7QuestionReportEntitlement(
+    actorId: string,
+    questionVersionId: string,
+    disposition: 'DEFINITE_ROLLBACK' | 'NO_TX' = 'NO_TX'
+  ): string | null {
+    try {
+      const persisted = this.readAuthoritativePersistedState()?.state ?? null
+      if (!persisted) return null
+
+      let phase7State =
+        persisted.version === 8 ? persisted.phase7AdminCms : undefined
+      const dedicatedSerialized = this.readLatestStorageItem(
+        PHASE7_ADMIN_CMS_STORAGE_KEY
+      )
+      if (dedicatedSerialized !== null) {
+        const dedicated = this.parsePhase7PersistedState(dedicatedSerialized)
+        if (!dedicated) throw new Error('Invalid dedicated Phase 7 state.')
+        phase7State = dedicated
+      }
+
+      const sources = this.listPhase7AuthoritativeTaxonomySources()
+      const verifier = new MockPhase7AdminCmsState(this.now)
+      if (phase7State) {
+        verifier.restore(
+          phase7State,
+          this.listPhase7AuthoritativeTaxonomySources()
+        )
+      }
+      const snapshot = verifier.snapshot(sources)
+      const version = snapshot.versions.find(
+        (candidate) => candidate.questionVersionId === questionVersionId
+      )
+      if (!version) return null
+
+      const question = snapshot.questions.find(
+        (candidate) => candidate.questionId === version.questionId
+      )
+      if (
+        question?.lifecycleStatus === 'ACTIVE' &&
+        question.currentPublishedVersionId === questionVersionId &&
+        version.versionStatus === 'PUBLISHED'
+      ) {
+        return version.questionId
+      }
+
+      const sessionById = new Map<string, StudySession>()
+      for (const session of persisted.sessions as readonly unknown[]) {
+        if (
+          !isRecord(session) ||
+          typeof session.id !== 'string' ||
+          (typeof session.userId !== 'string' && session.userId !== null) ||
+          sessionById.has(session.id)
+        ) {
+          throw new Error('Invalid persisted study session proof.')
+        }
+        sessionById.set(session.id, session as unknown as StudySession)
+      }
+
+      const snapshotsBySessionId = new Map<string, readonly QuestionRecord[]>()
+      for (const entry of persisted.sessionQuestionSnapshots as readonly unknown[]) {
+        if (
+          !Array.isArray(entry) ||
+          entry.length !== 2 ||
+          typeof entry[0] !== 'string' ||
+          !Array.isArray(entry[1]) ||
+          snapshotsBySessionId.has(entry[0]) ||
+          !sessionById.has(entry[0])
+        ) {
+          throw new Error('Invalid persisted study-session question proof.')
+        }
+        snapshotsBySessionId.set(
+          entry[0],
+          entry[1] as readonly QuestionRecord[]
+        )
+      }
+      if (
+        [...sessionById.keys()].some(
+          (sessionId) => !snapshotsBySessionId.has(sessionId)
+        )
+      ) {
+        throw new Error('Incomplete persisted study-session question proof.')
+      }
+
+      const hasOwnedSessionPin = [...sessionById.values()].some((session) => {
+        if (session.userId !== actorId) return false
+        return snapshotsBySessionId.get(session.id)?.some((candidate) => {
+          const identity = getPhase7QuestionContractIdentity(candidate)
+          return (
+            (identity?.questionId ?? getContractQuestionId(candidate.id)) ===
+              version.questionId &&
+            getCanonicalQuestionVersionId(candidate) === questionVersionId
+          )
+        })
+      })
+
+      // Mock WrongNote version pointers are projections of retained actor-owned
+      // session snapshots. No mock retention path removes those sessions, so
+      // this exact fresh projection covers both StudySessionQuestion and every
+      // reachable last-wrong/current-review entitlement proof.
+      return hasOwnedSessionPin ? version.questionId : null
+    } catch (error: unknown) {
+      if (error instanceof MockPhase7AdminCommandError) throw error
+      throw new MockPhase7AdminCommandError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: '최신 문제 신고 권한을 확인하지 못했습니다.',
+        disposition
+      })
+    }
+  }
+
   createQuestion(input: AdminQuestionInput): QuestionRecord {
+    this.useLegacyQuestionSourcesForLearnerProjection = true
     const questionId = this.createId('question')
     const timestamp = this.now()
     const question = this.buildQuestionRecord(
@@ -956,10 +3921,15 @@ export class MockDatabase {
     questionId: string,
     input: AdminQuestionInput
   ): QuestionRecord {
+    this.useLegacyQuestionSourcesForLearnerProjection = true
     const existing = this.questionById.get(questionId)
 
     if (!existing) {
       throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
+    }
+
+    if (existing.status === 'PUBLISHED' && input.status !== 'PUBLISHED') {
+      this.archivedQuestionById.set(questionId, clone(existing))
     }
 
     const question = this.buildQuestionRecord(
@@ -974,19 +3944,16 @@ export class MockDatabase {
   }
 
   deleteQuestion(questionId: string): boolean {
-    if (!this.questionById.delete(questionId)) {
+    this.useLegacyQuestionSourcesForLearnerProjection = true
+    const existing = this.questionById.get(questionId)
+    if (!existing || !this.questionById.delete(questionId)) {
       throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
     }
-
-    for (const [key, bookmark] of this.bookmarkByQuestionId) {
-      if (bookmark.questionId === questionId) {
-        this.bookmarkByQuestionId.delete(key)
-      }
-    }
-    for (const [key, wrongNote] of this.wrongNoteByQuestionId) {
-      if (wrongNote.questionId === questionId) {
-        this.wrongNoteByQuestionId.delete(key)
-      }
+    if (
+      existing.status === 'PUBLISHED' ||
+      !this.archivedQuestionById.has(questionId)
+    ) {
+      this.archivedQuestionById.set(questionId, clone(existing))
     }
 
     this.persist()
@@ -995,17 +3962,28 @@ export class MockDatabase {
 
   reset(): void {
     this.storage.removeItem(MOCK_DATABASE_STORAGE_KEY)
+    this.storage.removeItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
     this.currentUserId = null
+    this.useLegacyQuestionSourcesForLearnerProjection = true
     this.resetMemoryToSeed()
   }
 
   private resetMemoryToSeed(): void {
+    this.phase7AdminCmsState.reset()
     this.questionById = new Map(
       mockSeedData.questions.map((question) => [question.id, clone(question)])
     )
+    this.archivedQuestionById.clear()
     this.sessionById.clear()
     this.sessionMetadataById.clear()
     this.sessionQuestionSnapshotsById.clear()
+    this.canonicalAnswerBySessionId.clear()
+    this.canonicalResultBySessionId.clear()
+    this.canonicalDraftBySessionId.clear()
+    this.canonicalReviewEventByStudyAnswerId.clear()
+    this.canonicalIdempotencyRecordByKey.clear()
+    this.canonicalUserMemoByWrongNoteId.clear()
+    this.activeCanonicalGuestPrincipalIds.clear()
     this.resultBySessionId.clear()
     this.wrongNoteByQuestionId.clear()
     this.bookmarkByQuestionId.clear()
@@ -1054,6 +4032,294 @@ export class MockDatabase {
       questions: seededShuffle(source, seed).slice(0, count),
       usedFallback
     }
+  }
+
+  private selectCanonicalQuestions(
+    input: CreateStudySessionInput,
+    eligible: QuestionRecord[],
+    userId: string | null,
+    observedAt: string
+  ): { questions: QuestionRecord[]; usedFallback: false } {
+    const count = Math.min(20, Math.max(1, Math.trunc(input.count)))
+    if (input.questionIds && input.questionIds.length > 0) {
+      if (new Set(input.questionIds).size !== input.questionIds.length) {
+        throw new MockDatabaseError(
+          'INVALID_INPUT',
+          422,
+          '같은 문제를 한 세션에 중복 출제할 수 없습니다.'
+        )
+      }
+      const eligibleById = new Map(
+        eligible.map((question) => [question.id, question])
+      )
+      const questions = input.questionIds.map((questionId) => {
+        const question = eligibleById.get(questionId)
+        if (!question) {
+          throw new MockDatabaseError(
+            'INVALID_INPUT',
+            422,
+            `출제 조건에 맞지 않는 문제입니다: ${questionId}`
+          )
+        }
+        return question
+      })
+      return { questions: questions.slice(0, count), usedFallback: false }
+    }
+    const eligibleById = new Map(
+      eligible.map((question) => [question.id, question])
+    )
+    const toPin = (question: QuestionRecord) => ({
+      questionId: question.id,
+      questionVersionId: getCanonicalQuestionVersionId(question)
+    })
+    const belongsToActor = (session: StudySession): boolean => {
+      const metadata = this.sessionMetadataById.get(session.id)
+      if (metadata?.canonicalContractVersion === undefined) {
+        return false
+      }
+      if (userId) {
+        return session.userId === userId
+      }
+      const guestPrincipalId = input.canonicalGuestPrincipalId
+      return (
+        guestPrincipalId !== undefined &&
+        session.userId === null &&
+        metadata.canonicalGuestPrincipalId === guestPrincipalId
+      )
+    }
+    const selectedQuestionIds = (() => {
+      if (input.mode === 'RANDOM') {
+        const observedAtMs = Date.parse(observedAt)
+        const recentSinceMs = observedAtMs - 7 * 24 * 60 * 60 * 1_000
+        const recentQuestionIds = new Set(
+          [...this.sessionById.values()]
+            .filter((session) => {
+              const submittedAtMs = Date.parse(session.submittedAt ?? '')
+              return (
+                belongsToActor(session) &&
+                session.status === 'SUBMITTED' &&
+                Number.isFinite(submittedAtMs) &&
+                submittedAtMs >= recentSinceMs &&
+                submittedAtMs <= observedAtMs
+              )
+            })
+            .toSorted(
+              (left, right) =>
+                (right.submittedAt ?? '').localeCompare(
+                  left.submittedAt ?? ''
+                ) || left.id.localeCompare(right.id)
+            )
+            .slice(0, 3)
+            .flatMap((session) => session.questionIds)
+        )
+        const seed =
+          input.seed ?? `${this.randomSeed}:${observedAt}:${this.sequence}`
+        return selectRandomStudyCandidates(
+          eligible.map((question) => ({
+            ...toPin(question),
+            isRecent: recentQuestionIds.has(question.id)
+          })),
+          count,
+          createSeededRandom(seed)
+        ).map(({ questionId }) => questionId)
+      }
+
+      if (input.mode === 'WEAKNESS') {
+        const recentSessions = [...this.sessionById.values()]
+          .filter(
+            (session) =>
+              belongsToActor(session) &&
+              session.level === input.level &&
+              session.subject === input.subject &&
+              session.status === 'SUBMITTED' &&
+              session.submittedAt !== null
+          )
+          .toSorted(
+            (left, right) =>
+              (right.submittedAt ?? '').localeCompare(left.submittedAt ?? '') ||
+              left.id.localeCompare(right.id)
+          )
+          .slice(0, WEAKNESS_SESSION_LIMIT)
+        const aggregates = new Map<
+          string,
+          {
+            answeredCount: number
+            incorrectCount: number
+            lastAnsweredAt: Date
+          }
+        >()
+        for (const session of recentSessions) {
+          const canonicalAnswers = this.canonicalAnswerBySessionId.get(
+            session.id
+          )
+          if (canonicalAnswers) {
+            for (const answer of canonicalAnswers) {
+              const question = eligibleById.get(answer.sourceQuestionId)
+              if (!question) continue
+              const previous = aggregates.get(question.id) ?? {
+                answeredCount: 0,
+                incorrectCount: 0,
+                lastAnsweredAt: new Date(0)
+              }
+              previous.answeredCount += 1
+              previous.incorrectCount += answer.isCorrect ? 0 : 1
+              previous.lastAnsweredAt = new Date(
+                Math.max(
+                  previous.lastAnsweredAt.getTime(),
+                  Date.parse(answer.answeredAt)
+                )
+              )
+              aggregates.set(question.id, previous)
+            }
+            continue
+          }
+        }
+        return selectWeaknessStudyCandidates(
+          [...aggregates].flatMap(([questionId, aggregate]) => {
+            const question = eligibleById.get(questionId)
+            return question &&
+              aggregate.answeredCount >= MIN_WEAKNESS_ATTEMPTS &&
+              aggregate.incorrectCount >= 1
+              ? [{ ...toPin(question), ...aggregate }]
+              : []
+          }),
+          count
+        ).map(({ questionId }) => questionId)
+      }
+
+      if (!userId) {
+        return []
+      }
+      const canonicalNotes = new Map(
+        this.reconstructCanonicalWrongNotes(userId).map((note) => [
+          note.sourceQuestionId,
+          note
+        ])
+      )
+      if (input.mode === 'WRONG_NOTE') {
+        const sourceByContractQuestionId = new Map<string, string>()
+        const candidates = new Map<
+          string,
+          {
+            questionId: string
+            questionVersionId: string
+            lastWrongAt: Date
+            wrongCount: number
+          }
+        >()
+        for (const note of canonicalNotes.values()) {
+          const question = eligibleById.get(note.sourceQuestionId)
+          if (note.status !== 'SOLVED' && question) {
+            const contractQuestionId = getCanonicalQuestionId(question)
+            sourceByContractQuestionId.set(contractQuestionId, question.id)
+            candidates.set(contractQuestionId, {
+              questionId: contractQuestionId,
+              questionVersionId: getCanonicalQuestionVersionId(question),
+              lastWrongAt: new Date(note.lastWrongAt),
+              wrongCount: note.wrongCount
+            })
+          }
+        }
+        return selectWrongNoteStudyCandidates(
+          [...candidates.values()],
+          count
+        ).map(({ questionId }) => {
+          const sourceQuestionId = sourceByContractQuestionId.get(questionId)
+          if (!sourceQuestionId) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              'WRONG_NOTE 후보의 stable Question ID를 복원할 수 없습니다.'
+            )
+          }
+          return sourceQuestionId
+        })
+      }
+
+      if (input.mode === 'BOOKMARK') {
+        const sourceByContractQuestionId = new Map<string, string>()
+        const selected = selectBookmarkStudyCandidates(
+          [...this.bookmarkByQuestionId.values()].flatMap((bookmark) => {
+            const question = eligibleById.get(bookmark.questionId)
+            if (bookmark.userId !== userId || !question) return []
+            const contractQuestionId = getCanonicalQuestionId(question)
+            sourceByContractQuestionId.set(contractQuestionId, question.id)
+            return [
+              {
+                ...toPin(question),
+                questionId: contractQuestionId,
+                createdAt: new Date(bookmark.createdAt)
+              }
+            ]
+          }),
+          count
+        )
+        return selected.map(({ questionId }) => {
+          const sourceQuestionId = sourceByContractQuestionId.get(questionId)
+          if (!sourceQuestionId) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              '즐겨찾기 후보의 stable Question ID를 복원할 수 없습니다.'
+            )
+          }
+          return sourceQuestionId
+        })
+      }
+
+      const observedAtMs = Date.parse(observedAt)
+      const sourceByContractQuestionId = new Map<string, string>()
+      const candidates = new Map<
+        string,
+        {
+          questionId: string
+          questionVersionId: string
+          nextReviewAt: Date
+          status: WrongNoteStatus
+        }
+      >()
+      for (const note of canonicalNotes.values()) {
+        const question = eligibleById.get(note.sourceQuestionId)
+        const nextReviewAtMs = Date.parse(note.nextReviewAt)
+        if (question && nextReviewAtMs <= observedAtMs) {
+          const contractQuestionId = getCanonicalQuestionId(question)
+          sourceByContractQuestionId.set(contractQuestionId, question.id)
+          candidates.set(contractQuestionId, {
+            ...toPin(question),
+            questionId: contractQuestionId,
+            nextReviewAt: new Date(nextReviewAtMs),
+            status: note.status
+          })
+        }
+      }
+      return selectDailyReviewStudyCandidates(
+        [...candidates.values()],
+        count
+      ).map(({ questionId }) => {
+        const sourceQuestionId = sourceByContractQuestionId.get(questionId)
+        if (!sourceQuestionId) {
+          throw new MockDatabaseError(
+            'PERSISTENCE_FAILED',
+            500,
+            'DAILY_REVIEW 후보의 stable Question ID를 복원할 수 없습니다.'
+          )
+        }
+        return sourceQuestionId
+      })
+    })()
+
+    const questions = selectedQuestionIds.flatMap((questionId) => {
+      const question = eligibleById.get(questionId)
+      return question ? [question] : []
+    })
+    if (questions.length === 0) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        '선택한 조건에 출제 가능한 문제가 없습니다.'
+      )
+    }
+    return { questions, usedFallback: false }
   }
 
   private getModeCandidates(
@@ -1173,12 +4439,169 @@ export class MockDatabase {
     return weakestType
   }
 
+  private buildPhase7LearnerQuestionReadModel(): Phase7LearnerQuestionReadModel {
+    const sources = this.useLegacyQuestionSourcesForLearnerProjection
+      ? this.listCanonicalAdminQuestionSources()
+      : this.listPhase7AuthoritativeAdminQuestionSources()
+    const snapshot = this.phase7AdminCmsState.snapshot(sources)
+    const sourceIdByQuestionId = new Map(
+      sources.map(({ question }) => [
+        getContractQuestionId(question.id),
+        question.id
+      ])
+    )
+    const versionsByQuestionId = new Map<string, typeof snapshot.versions>()
+    for (const question of snapshot.questions) {
+      versionsByQuestionId.set(
+        question.questionId,
+        snapshot.versions.filter(
+          (version) => version.questionId === question.questionId
+        )
+      )
+    }
+    const toProjectedRecord = (
+      question: (typeof snapshot.questions)[number],
+      version: (typeof snapshot.versions)[number]
+    ): Phase7ProjectedQuestionRecord => {
+      const sourceQuestionId =
+        sourceIdByQuestionId.get(question.questionId) ??
+        `phase7-question:${question.questionId}`
+      const options = version.options
+        .toSorted((left, right) => left.ordinal - right.ordinal)
+        .map((option) => ({
+          id: option.id,
+          label: String(option.ordinal) as QuestionOptionLabel,
+          text: option.text,
+          isCorrect: option.id === version.correctOptionId
+        }))
+      return withPhase7QuestionContractIdentity(
+        {
+          id: sourceQuestionId,
+          level: version.level,
+          subject: version.subject,
+          questionType: version.questionType,
+          passage: version.passage,
+          questionText: version.questionText,
+          options,
+          explanationKo: version.explanationKo,
+          explanationJa: version.explanationJa,
+          difficulty: version.difficulty,
+          tags: version.tags.map(({ label }) => label),
+          status: 'PUBLISHED',
+          sourceType: 'ORIGINAL',
+          createdAt: question.createdAt,
+          updatedAt: version.updatedAt
+        },
+        {
+          questionId: question.questionId,
+          questionVersionId: version.questionVersionId,
+          optionIdBySourceId: Object.fromEntries(
+            version.options.map(({ id }) => [id, id])
+          ),
+          tagIdByNormalizedLabel: Object.fromEntries(
+            version.tags.map(({ id, normalizedName }) => [normalizedName, id])
+          )
+        }
+      )
+    }
+    const currentBySourceId = new Map<string, Phase7ProjectedQuestionRecord>()
+    const lifecycleBySourceId = new Map<string, 'ACTIVE' | 'ARCHIVED'>()
+    const retainedPublishedBySourceId = new Map<
+      string,
+      Phase7ProjectedQuestionRecord
+    >()
+    for (const question of snapshot.questions) {
+      const sourceQuestionId =
+        sourceIdByQuestionId.get(question.questionId) ??
+        `phase7-question:${question.questionId}`
+      lifecycleBySourceId.set(sourceQuestionId, question.lifecycleStatus)
+      const versions = versionsByQuestionId.get(question.questionId) ?? []
+      const retained = versions
+        .filter(
+          (version) =>
+            version.publishedAt !== null &&
+            (version.versionStatus === 'PUBLISHED' ||
+              (version.versionStatus === 'RETIRED' &&
+                version.retirementKind === 'PUBLISHED_RETIREMENT'))
+        )
+        .toSorted(
+          (left, right) =>
+            right.versionNumber - left.versionNumber ||
+            right.questionVersionId.localeCompare(left.questionVersionId)
+        )[0]
+      if (retained) {
+        const record = toProjectedRecord(question, retained)
+        retainedPublishedBySourceId.set(record.id, record)
+      }
+      if (
+        question.lifecycleStatus !== 'ACTIVE' ||
+        question.currentPublishedVersionId === null
+      ) {
+        continue
+      }
+      const current = versions.find(
+        (version) =>
+          version.questionVersionId === question.currentPublishedVersionId &&
+          version.versionStatus === 'PUBLISHED'
+      )
+      if (!current) {
+        throwCanonicalIntegrityError(
+          'Phase 7 공개 문제 포인터가 learner read model과 일치하지 않습니다.'
+        )
+      }
+      const record = toProjectedRecord(question, current)
+      currentBySourceId.set(record.id, record)
+    }
+    if (!this.useLegacyQuestionSourcesForLearnerProjection) {
+      for (const sourceQuestionId of this.archivedQuestionById.keys()) {
+        if (this.questionById.get(sourceQuestionId)?.status === 'PUBLISHED') {
+          continue
+        }
+        currentBySourceId.delete(sourceQuestionId)
+        if (retainedPublishedBySourceId.has(sourceQuestionId)) {
+          lifecycleBySourceId.set(sourceQuestionId, 'ARCHIVED')
+        }
+      }
+    }
+    return {
+      currentBySourceId,
+      lifecycleBySourceId,
+      retainedPublishedBySourceId
+    }
+  }
+
+  private resolveCanonicalBookmarkSource(
+    sourceQuestionId: string,
+    readModel: Phase7LearnerQuestionReadModel
+  ): Pick<CanonicalBookmarkSourceRecord, 'availability' | 'question'> | null {
+    const current = readModel.currentBySourceId.get(sourceQuestionId)
+    if (current) {
+      return { availability: 'AVAILABLE', question: current }
+    }
+    const retained = readModel.retainedPublishedBySourceId.get(sourceQuestionId)
+    if (retained) {
+      return { availability: 'ARCHIVED', question: retained }
+    }
+    const legacyCurrent = this.questionById.get(sourceQuestionId)
+    if (legacyCurrent?.status === 'PUBLISHED') {
+      return { availability: 'AVAILABLE', question: legacyCurrent }
+    }
+    const legacyArchived = this.archivedQuestionById.get(sourceQuestionId)
+    return legacyArchived?.status === 'PUBLISHED'
+      ? { availability: 'ARCHIVED', question: legacyArchived }
+      : null
+  }
+
   private getEligibleQuestions(
     level: JlptLevel,
-    subject: QuestionSubject
+    subject: QuestionSubject,
+    canonical = false
   ): QuestionRecord[] {
     const eligible: QuestionRecord[] = []
-    for (const question of this.questionById.values()) {
+    const questions = canonical
+      ? this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()
+      : this.questionById.values()
+    for (const question of questions) {
       if (
         question.status === 'PUBLISHED' &&
         question.level === level &&
@@ -1190,7 +4613,13 @@ export class MockDatabase {
     return eligible
   }
 
-  private buildStudySessionPayload(session: StudySession): StudySessionPayload {
+  private buildStudySessionPayload(
+    session: StudySession,
+    allowCanonical = false
+  ): StudySessionPayload {
+    if (!allowCanonical) {
+      this.assertLegacyStudySession(session.id)
+    }
     const metadata = this.sessionMetadataById.get(session.id) ?? {
       requestedCount: session.questionIds.length,
       usedFallback: false
@@ -1205,6 +4634,765 @@ export class MockDatabase {
       actualCount: questions.length,
       usedFallback: metadata.usedFallback
     }
+  }
+
+  private getCanonicalUserSubmissionEvidence(
+    userId: string
+  ): MockCanonicalSubmissionEvidence[] {
+    this.assertUniqueCanonicalFactKeys()
+    const submissions: MockCanonicalSubmissionEvidence[] = []
+    const seenAnswerIds = new Set<string>()
+
+    for (const session of this.sessionById.values()) {
+      if (session.userId !== userId) {
+        continue
+      }
+      const metadata = this.sessionMetadataById.get(session.id)
+      if (metadata?.canonicalContractVersion === undefined) {
+        continue
+      }
+      if (metadata.canonicalGuestPrincipalId !== undefined) {
+        throwCanonicalIntegrityError(
+          'USER canonical 세션에 guest principal provenance가 섞여 있습니다.'
+        )
+      }
+      const startedAt = toCanonicalIsoInstant(
+        session.startedAt,
+        'StudySession.startedAt'
+      )
+
+      const rawResult = this.canonicalResultBySessionId.get(session.id)
+      const rawAnswers = this.canonicalAnswerBySessionId.get(session.id)
+      if (session.status === 'IN_PROGRESS') {
+        if (rawResult || rawAnswers) {
+          throwCanonicalIntegrityError(
+            '미제출 canonical 세션에 제출 evidence가 존재합니다.'
+          )
+        }
+        continue
+      }
+      if (
+        session.status !== 'SUBMITTED' ||
+        session.submittedAt === null ||
+        session.durationSec === null ||
+        !Number.isInteger(session.durationSec) ||
+        session.durationSec < 0 ||
+        session.durationSec > 604_800
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical 제출 세션 상태가 완전하지 않습니다.'
+        )
+      }
+      if (!rawResult || !rawAnswers) {
+        throwCanonicalIntegrityError(
+          'canonical 제출 세션의 Answer/Result evidence가 없습니다.'
+        )
+      }
+      const questions = this.sessionQuestionSnapshotsById.get(session.id)
+      if (
+        !questions ||
+        questions.length !== session.questionIds.length ||
+        questions.length !== rawAnswers.length
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical session snapshot/Answer cardinality가 다릅니다.'
+        )
+      }
+      if (
+        new Set(questions.map(({ id }) => id)).size !== questions.length ||
+        new Set(questions.map(getCanonicalQuestionVersionId)).size !==
+          questions.length
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical session snapshot의 source question/version이 중복됩니다.'
+        )
+      }
+      const parsedResult = canonicalStudyResultSchema.safeParse(rawResult)
+      if (!parsedResult.success) {
+        throwCanonicalIntegrityError(
+          'canonical StudyResult contract evidence가 손상되었습니다.'
+        )
+      }
+      const result = parsedResult.data
+      const submittedAt = toCanonicalIsoInstant(
+        session.submittedAt,
+        'StudySession.submittedAt'
+      )
+      if (Date.parse(submittedAt) < Date.parse(startedAt)) {
+        throwCanonicalIntegrityError(
+          'canonical StudySession 제출 시각이 시작 시각보다 빠릅니다.'
+        )
+      }
+      if (
+        result.sessionId !== session.id ||
+        result.level !== session.level ||
+        result.subject !== session.subject ||
+        result.mode !== session.mode ||
+        toCanonicalIsoInstant(result.submittedAt, 'StudyResult.submittedAt') !==
+          submittedAt ||
+        result.durationSec !== session.durationSec
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical StudyResult가 고정된 StudySession과 일치하지 않습니다.'
+        )
+      }
+      if (questions.length !== result.items.length) {
+        throwCanonicalIntegrityError(
+          'canonical session snapshot/Result cardinality가 다릅니다.'
+        )
+      }
+      const answerBySessionQuestionId = new Map(
+        rawAnswers.map((answer) => [answer.studySessionQuestionId, answer])
+      )
+      if (answerBySessionQuestionId.size !== rawAnswers.length) {
+        throwCanonicalIntegrityError(
+          'canonical StudyAnswer의 session-question provenance가 중복됩니다.'
+        )
+      }
+
+      const answers = questions.map((question, index) => {
+        const sessionQuestionId = getCanonicalSessionQuestionId(
+          session.id,
+          index + 1
+        )
+        const answer = answerBySessionQuestionId.get(sessionQuestionId)
+        const resultItem = result.items[index]
+        const questionVersionId = getCanonicalQuestionVersionId(question)
+        if (
+          session.questionIds[index] !== question.id ||
+          question.status !== 'PUBLISHED' ||
+          question.level !== session.level ||
+          question.subject !== session.subject ||
+          !answer ||
+          !resultItem ||
+          answer.id !== toStableMockUuid('study-answer', sessionQuestionId) ||
+          answer.sessionId !== session.id ||
+          answer.sourceQuestionId !== question.id ||
+          answer.studySessionQuestionId !== sessionQuestionId ||
+          answer.questionVersionId !== questionVersionId ||
+          toCanonicalIsoInstant(answer.answeredAt, 'StudyAnswer.answeredAt') !==
+            submittedAt ||
+          !Number.isInteger(answer.elapsedSec) ||
+          answer.elapsedSec < 0 ||
+          answer.elapsedSec > 86_400
+        ) {
+          throwCanonicalIntegrityError(
+            'canonical StudyAnswer가 pinned session question과 일치하지 않습니다.'
+          )
+        }
+        if (seenAnswerIds.has(answer.id)) {
+          throwCanonicalIntegrityError(
+            'canonical StudyAnswer evidence ID가 중복됩니다.'
+          )
+        }
+        seenAnswerIds.add(answer.id)
+
+        const parsedReviewedQuestion =
+          canonicalReviewedQuestionSchema.safeParse(
+            toCanonicalReviewedQuestion(question)
+          )
+        if (!parsedReviewedQuestion.success) {
+          throwCanonicalIntegrityError(
+            'canonical pinned ReviewedQuestion contract가 손상되었습니다.'
+          )
+        }
+        const reviewedQuestion = parsedReviewedQuestion.data
+        const optionIds = new Set(reviewedQuestion.options.map(({ id }) => id))
+        if (
+          answer.selectedOptionId !== null &&
+          !optionIds.has(answer.selectedOptionId)
+        ) {
+          throwCanonicalIntegrityError(
+            'canonical StudyAnswer 선택지가 pinned version에 속하지 않습니다.'
+          )
+        }
+        const isCorrect =
+          answer.selectedOptionId !== null &&
+          answer.selectedOptionId === reviewedQuestion.correctOptionId
+        if (
+          answer.isCorrect !== isCorrect ||
+          resultItem.sessionQuestionId !== sessionQuestionId ||
+          resultItem.selectedOptionId !== answer.selectedOptionId ||
+          resultItem.isCorrect !== isCorrect
+        ) {
+          throwCanonicalIntegrityError(
+            'canonical Answer/Result 채점 evidence가 서로 다릅니다.'
+          )
+        }
+        assertCanonicalProjectionEqual(
+          resultItem.question,
+          reviewedQuestion,
+          'canonical Result question이 pinned historical snapshot과 다릅니다.'
+        )
+
+        return {
+          answer: clone({ ...answer, answeredAt: submittedAt }),
+          question: clone(question),
+          resultItem: clone(resultItem)
+        }
+      })
+
+      submissions.push({
+        answers,
+        result: clone(result),
+        session: clone({ ...session, submittedAt })
+      })
+    }
+
+    this.assertCanonicalUserIdempotencyEvidence(userId, submissions)
+
+    return submissions.toSorted(
+      (left, right) =>
+        (left.session.submittedAt ?? '').localeCompare(
+          right.session.submittedAt ?? ''
+        ) || left.session.id.localeCompare(right.session.id)
+    )
+  }
+
+  private assertUniqueCanonicalFactKeys(): void {
+    const answerSessionIds = new Set<string>()
+    for (const sessionId of this.canonicalAnswerBySessionId.keys()) {
+      const canonicalSessionId = fromDuplicatePreservingKey(sessionId)
+      if (answerSessionIds.has(canonicalSessionId)) {
+        throwCanonicalIntegrityError(
+          'canonical StudyAnswer bundle session key가 중복됩니다.'
+        )
+      }
+      answerSessionIds.add(canonicalSessionId)
+    }
+
+    const resultSessionIds = new Set<string>()
+    for (const result of this.canonicalResultBySessionId.values()) {
+      if (resultSessionIds.has(result.sessionId)) {
+        throwCanonicalIntegrityError(
+          'canonical StudyResult session key가 중복됩니다.'
+        )
+      }
+      resultSessionIds.add(result.sessionId)
+    }
+
+    const reviewEventAnswerIds = new Set<string>()
+    const reviewEventIds = new Set<string>()
+    for (const event of this.canonicalReviewEventByStudyAnswerId.values()) {
+      if (reviewEventIds.has(event.id)) {
+        throwCanonicalIntegrityError('canonical ReviewEvent ID가 중복됩니다.')
+      }
+      reviewEventIds.add(event.id)
+      if (event.studyAnswerId === null) {
+        continue
+      }
+      if (reviewEventAnswerIds.has(event.studyAnswerId)) {
+        throwCanonicalIntegrityError(
+          'canonical ReviewEvent study-answer key가 중복됩니다.'
+        )
+      }
+      reviewEventAnswerIds.add(event.studyAnswerId)
+    }
+  }
+
+  private assertCanonicalUserIdempotencyEvidence(
+    userId: string,
+    submissions: readonly MockCanonicalSubmissionEvidence[]
+  ): void {
+    const records = [...this.canonicalIdempotencyRecordByKey.values()]
+    const seenCompositeKeys = new Set<string>()
+    for (const record of records) {
+      if (
+        record.expiresAt !==
+        getCanonicalIdempotencyExpiresAt(record.completedAt, record.operation)
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical IdempotencyRecord TTL이 operation 정책과 다릅니다.'
+        )
+      }
+      const compositeKey = makeCanonicalIdempotencyKey(
+        record.principalKind,
+        record.principalId,
+        record.operation,
+        record.idempotencyKey
+      )
+      if (seenCompositeKeys.has(compositeKey)) {
+        throwCanonicalIntegrityError(
+          'canonical IdempotencyRecord composite key가 중복됩니다.'
+        )
+      }
+      seenCompositeKeys.add(compositeKey)
+    }
+
+    const submissionBySessionId = new Map(
+      submissions.map((submission) => [submission.session.id, submission])
+    )
+    const consumedSessionIds = new Set<string>()
+    const canonicalUuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+    const targetedSessionIds = new Set<string>()
+
+    for (const record of records) {
+      if (
+        record.operation !== 'wrongNote.createTargetedReviewSession' ||
+        record.principalId !== userId
+      ) {
+        continue
+      }
+      const session = this.sessionById.get(record.sessionId)
+      const metadata = this.sessionMetadataById.get(record.sessionId)
+      const questions = this.sessionQuestionSnapshotsById.get(record.sessionId)
+      const question = questions?.[0]
+      const effectiveStatus =
+        session && metadata
+          ? this.getEffectiveCanonicalStatus(session, metadata)
+          : null
+      const draft = this.canonicalDraftBySessionId.get(record.sessionId)
+      if (
+        !session ||
+        !metadata ||
+        !isCanonicalSessionMetadata(metadata) ||
+        !questions ||
+        !question ||
+        targetedSessionIds.has(record.sessionId) ||
+        !canonicalUuidPattern.test(record.idempotencyKey) ||
+        record.principalKind !== 'USER' ||
+        record.contractVersion !== 2 ||
+        record.responseStatus !== 201 ||
+        record.requestMaterial !==
+          createTargetedReviewSessionCanonicalMaterial(record.questionId) ||
+        session.userId !== userId ||
+        session.mode !== 'WRONG_NOTE' ||
+        session.questionIds.length !== 1 ||
+        questions.length !== 1 ||
+        session.questionIds[0] !== question.id ||
+        getCanonicalQuestionId(question) !== record.questionId ||
+        metadata.canonicalContractVersion !== 2 ||
+        metadata.canonicalGuestPrincipalId !== undefined ||
+        metadata.retryOfStudySessionId !== undefined ||
+        metadata.requestedCount !== 1 ||
+        metadata.usedFallback
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical targeted IdempotencyRecord aggregate가 target evidence와 다릅니다.'
+        )
+      }
+      if (
+        effectiveStatus === 'IN_PROGRESS' &&
+        (!this.hasValidCanonicalInProgressDraft(session.id, questions, draft) ||
+          this.canonicalAnswerBySessionId.has(record.sessionId) ||
+          this.canonicalResultBySessionId.has(record.sessionId) ||
+          [...this.canonicalReviewEventByStudyAnswerId.values()].some(
+            (event) => event.studySessionId === record.sessionId
+          ))
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical targeted target의 initial draft/fact shape가 손상되었습니다.'
+        )
+      }
+      const expectedResponse =
+        createTargetedReviewSessionResponseForQuestionSchema(
+          record.questionId
+        ).parse(
+          toVersionedContractStudySessionPayload(
+            {
+              practiceContractVersion: 2,
+              session: {
+                ...session,
+                status: 'IN_PROGRESS',
+                submittedAt: null,
+                durationSec: null
+              },
+              requestedCount: 1,
+              questions
+            },
+            new Date(record.completedAt)
+          )
+        )
+      assertCanonicalProjectionEqual(
+        record.response,
+        expectedResponse,
+        'canonical targeted IdempotencyRecord response가 target과 다릅니다.'
+      )
+      targetedSessionIds.add(record.sessionId)
+    }
+
+    for (const record of records) {
+      if (record.operation !== 'study.submitStudySession') {
+        continue
+      }
+      const submission = submissionBySessionId.get(record.sessionId)
+      const belongsToUser =
+        record.principalKind === 'USER' && record.principalId === userId
+      if (!submission && !belongsToUser) {
+        continue
+      }
+      if (!submission || !belongsToUser) {
+        throwCanonicalIntegrityError(
+          'canonical IdempotencyRecord owner/session provenance가 다릅니다.'
+        )
+      }
+      if (consumedSessionIds.has(record.sessionId)) {
+        throwCanonicalIntegrityError(
+          'canonical 제출 세션에 IdempotencyRecord가 중복됩니다.'
+        )
+      }
+
+      const expectedPayload = {
+        sessionId: submission.session.id,
+        answers: submission.answers.map(({ answer }) => ({
+          studySessionQuestionId: answer.studySessionQuestionId,
+          selectedOptionId: answer.selectedOptionId,
+          elapsedSec: answer.elapsedSec
+        })),
+        durationSec: submission.result.durationSec
+      }
+      const expectedRequestMaterial = `submit-v1:${JSON.stringify(expectedPayload)}`
+      const hasValidV2RequestMaterial = (() => {
+        if (!record.requestMaterial.startsWith('submit-v2:')) {
+          return false
+        }
+        try {
+          const parsed: unknown = JSON.parse(
+            record.requestMaterial.slice('submit-v2:'.length)
+          )
+          return (
+            isRecord(parsed) &&
+            Number.isSafeInteger(parsed.expectedDraftRevision) &&
+            parsed.expectedDraftRevision !== undefined &&
+            JSON.stringify({
+              sessionId: parsed.sessionId,
+              answers: parsed.answers,
+              durationSec: parsed.durationSec
+            }) === JSON.stringify(expectedPayload)
+          )
+        } catch {
+          return false
+        }
+      })()
+      if (
+        record.responseStatus !== 201 ||
+        !canonicalUuidPattern.test(record.idempotencyKey) ||
+        toCanonicalIsoInstant(
+          record.completedAt,
+          'IdempotencyRecord.completedAt'
+        ) !== submission.session.submittedAt ||
+        (record.contractVersion === 1
+          ? record.requestMaterial !== expectedRequestMaterial
+          : !hasValidV2RequestMaterial)
+      ) {
+        throwCanonicalIntegrityError(
+          'canonical IdempotencyRecord aggregate가 제출 evidence와 다릅니다.'
+        )
+      }
+      const parsedResponse = canonicalStudyResultSchema.safeParse(
+        record.response
+      )
+      if (!parsedResponse.success) {
+        throwCanonicalIntegrityError(
+          'canonical IdempotencyRecord response contract가 손상되었습니다.'
+        )
+      }
+      assertCanonicalProjectionEqual(
+        parsedResponse.data,
+        submission.result,
+        'canonical IdempotencyRecord response가 StudyResult와 다릅니다.'
+      )
+      consumedSessionIds.add(record.sessionId)
+    }
+  }
+
+  private getCanonicalReviewPointer(
+    userId: string,
+    sourceQuestionId: string
+  ): string | null {
+    const reviewSessions = [...this.sessionById.values()]
+      .filter((session) => {
+        const metadata = this.sessionMetadataById.get(session.id)
+        return (
+          session.userId === userId &&
+          metadata?.canonicalContractVersion === 2 &&
+          metadata.retryOfStudySessionId === undefined &&
+          (session.mode === 'WRONG_NOTE' || session.mode === 'DAILY_REVIEW') &&
+          this.sessionQuestionSnapshotsById
+            .get(session.id)
+            ?.some((question) => question.id === sourceQuestionId) === true
+        )
+      })
+      .toSorted((left, right) => {
+        const leftOrder =
+          this.sessionMetadataById.get(left.id)?.creationOrder ?? 0
+        const rightOrder =
+          this.sessionMetadataById.get(right.id)?.creationOrder ?? 0
+        return (
+          rightOrder - leftOrder ||
+          right.startedAt.localeCompare(left.startedAt)
+        )
+      })
+    const latest = reviewSessions[0]
+    const question = latest
+      ? this.sessionQuestionSnapshotsById
+          .get(latest.id)
+          ?.find((candidate) => candidate.id === sourceQuestionId)
+      : undefined
+    return question ? getCanonicalQuestionVersionId(question) : null
+  }
+
+  private reconstructCanonicalWrongNotes(
+    userId: string,
+    submissions = this.getCanonicalUserSubmissionEvidence(userId)
+  ): MockCanonicalWrongNoteRecord[] {
+    const recordsByQuestionId = new Map<string, MockCanonicalWrongNoteRecord>()
+    const consumedEventAnswerIds = new Set<string>()
+    const currentQuestions =
+      this.buildPhase7LearnerQuestionReadModel().currentBySourceId
+    const evidence = submissions
+      .flatMap(({ answers }) => answers)
+      .toSorted(
+        (left, right) =>
+          left.answer.answeredAt.localeCompare(right.answer.answeredAt) ||
+          left.answer.id.localeCompare(right.answer.id)
+      )
+
+    for (const { answer, question, resultItem } of evidence) {
+      const previous = recordsByQuestionId.get(answer.sourceQuestionId) ?? null
+      const event = this.canonicalReviewEventByStudyAnswerId.get(answer.id)
+      if (previous === null && answer.isCorrect) {
+        if (event || resultItem.wrongNoteStatus !== null) {
+          throwCanonicalIntegrityError(
+            '첫 정답 Answer에는 ReviewEvent나 오답 상태가 없어야 합니다.'
+          )
+        }
+        continue
+      }
+      if (!event) {
+        throwCanonicalIntegrityError(
+          'canonical 오답 전이의 ReviewEvent evidence가 없습니다.'
+        )
+      }
+
+      const occurredAt = toCanonicalIsoInstant(
+        event.occurredAt,
+        'ReviewEvent.occurredAt'
+      )
+      const answeredAt = toCanonicalIsoInstant(
+        answer.answeredAt,
+        'StudyAnswer.answeredAt'
+      )
+      const previousUpdatedAtMs = previous
+        ? Date.parse(previous.updatedAt)
+        : Number.NEGATIVE_INFINITY
+      if (
+        occurredAt !== answeredAt ||
+        (previous && Date.parse(occurredAt) <= previousUpdatedAtMs)
+      ) {
+        throwCanonicalIntegrityError(
+          'ReviewEvent 시각이 Answer 또는 이전 canonical 상태와 일치하지 않습니다.'
+        )
+      }
+
+      const nextCorrectStreak = answer.isCorrect
+        ? (previous?.correctStreak ?? 0) + 1
+        : 0
+      const wrongCountAfter = answer.isCorrect
+        ? (previous?.wrongCount ?? 0)
+        : (previous?.wrongCount ?? 0) + 1
+      const nextStatus: WrongNoteStatus = answer.isCorrect
+        ? nextCorrectStreak >= 2
+          ? 'SOLVED'
+          : 'REVIEWING'
+        : previous
+          ? 'AGAIN'
+          : 'NEW'
+      const wrongNoteId =
+        previous?.wrongNoteId ??
+        `wrong-note-${userId}-${answer.sourceQuestionId}`
+
+      if (
+        event.algorithmVersion !== 1 ||
+        event.id !== toStableMockUuid('review-event', answer.id) ||
+        event.source !==
+          (this.sessionById.get(answer.sessionId)?.mode === 'WRONG_NOTE' ||
+          this.sessionById.get(answer.sessionId)?.mode === 'DAILY_REVIEW'
+            ? 'WRONG_NOTE_REVIEW'
+            : 'STUDY_SUBMIT') ||
+        event.studyAnswerId !== answer.id ||
+        event.studySessionId !== answer.sessionId ||
+        event.userId !== userId ||
+        event.questionId !== answer.sourceQuestionId ||
+        event.questionVersionId !== answer.questionVersionId ||
+        event.selectedOptionId !== answer.selectedOptionId ||
+        event.isCorrect !== answer.isCorrect ||
+        event.previousStatus !== (previous?.status ?? null) ||
+        event.previousCorrectStreak !== (previous?.correctStreak ?? null) ||
+        event.previousWrongCount !== (previous?.wrongCount ?? null) ||
+        event.nextStatus !== nextStatus ||
+        event.nextCorrectStreak !== nextCorrectStreak ||
+        event.wrongCountAfter !== wrongCountAfter ||
+        event.wrongNoteId !== wrongNoteId ||
+        resultItem.wrongNoteStatus !== nextStatus
+      ) {
+        throwCanonicalIntegrityError(
+          'ReviewEvent chain projection이 Answer와 이전 상태를 정확히 잇지 않습니다.'
+        )
+      }
+      consumedEventAnswerIds.add(answer.id)
+
+      const intervalDays = answer.isCorrect
+        ? getCanonicalReviewIntervalDays(nextCorrectStreak)
+        : 1
+      const nextReviewAt = addDaysToIso(occurredAt, intervalDays)
+      recordsByQuestionId.set(answer.sourceQuestionId, {
+        wrongNoteId,
+        userId,
+        sourceQuestionId: answer.sourceQuestionId,
+        currentReviewQuestionVersionId: this.getCanonicalReviewPointer(
+          userId,
+          answer.sourceQuestionId
+        ),
+        wrongCount: wrongCountAfter,
+        correctStreak: nextCorrectStreak,
+        status: nextStatus,
+        lastWrongAt: answer.isCorrect
+          ? (previous?.lastWrongAt ?? occurredAt)
+          : occurredAt,
+        lastReviewedAt:
+          previous === null && !answer.isCorrect ? null : occurredAt,
+        nextReviewAt,
+        updatedAt: occurredAt,
+        lastWrongQuestion: answer.isCorrect
+          ? clone(previous?.lastWrongQuestion ?? question)
+          : clone(question),
+        lastWrongQuestionVersionId: answer.isCorrect
+          ? (previous?.lastWrongQuestionVersionId ?? answer.questionVersionId)
+          : answer.questionVersionId,
+        isCurrentPublished: currentQuestions.has(answer.sourceQuestionId)
+      })
+    }
+
+    for (const event of this.canonicalReviewEventByStudyAnswerId.values()) {
+      if (event.source === 'VERSION_REBASE') {
+        if (
+          event.studySessionId !== null ||
+          event.studyAnswerId !== null ||
+          event.selectedOptionId !== null ||
+          event.isCorrect !== null ||
+          event.previousStatus === null ||
+          event.previousCorrectStreak === null ||
+          event.previousWrongCount === null ||
+          event.nextStatus !== event.previousStatus ||
+          event.nextCorrectStreak !== event.previousCorrectStreak ||
+          event.wrongCountAfter !== event.previousWrongCount
+        ) {
+          throwCanonicalIntegrityError(
+            'VERSION_REBASE ReviewEvent chain이 상태를 보존하지 않습니다.'
+          )
+        }
+        continue
+      }
+      if (
+        event.userId === userId &&
+        (event.studyAnswerId === null ||
+          !consumedEventAnswerIds.has(event.studyAnswerId))
+      ) {
+        throwCanonicalIntegrityError(
+          '사용자 canonical chain에 연결되지 않은 ReviewEvent가 있습니다.'
+        )
+      }
+    }
+
+    return [...recordsByQuestionId.values()]
+  }
+
+  private planCanonicalWrongNoteUpdates(
+    userId: string | null,
+    sessionMode: StudyMode,
+    items: readonly MockCanonicalGradedItem[],
+    answerBySessionQuestionId: ReadonlyMap<
+      string,
+      MockCanonicalStudyAnswerRecord
+    >,
+    existingByQuestionId: ReadonlyMap<string, MockCanonicalWrongNoteRecord>,
+    reviewedAt: string
+  ): {
+    statusBySessionQuestionId: Map<
+      string,
+      CanonicalStudyResult['items'][number]['wrongNoteStatus']
+    >
+    events: MockCanonicalReviewEventRecord[]
+  } {
+    const statusBySessionQuestionId = new Map<
+      string,
+      CanonicalStudyResult['items'][number]['wrongNoteStatus']
+    >()
+    const events: MockCanonicalReviewEventRecord[] = []
+
+    if (!userId) {
+      return { statusBySessionQuestionId, events }
+    }
+
+    const seenQuestionIds = new Set<string>()
+
+    for (const item of items) {
+      if (seenQuestionIds.has(item.sourceQuestionId)) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          'canonical 제출에는 같은 source question이 중복될 수 없습니다.'
+        )
+      }
+      seenQuestionIds.add(item.sourceQuestionId)
+      const existing = existingByQuestionId.get(item.sourceQuestionId) ?? null
+
+      if (item.isCorrect && !existing) {
+        continue
+      }
+      const answer = answerBySessionQuestionId.get(item.studySessionQuestionId)
+      if (!answer) {
+        throw new MockDatabaseError(
+          'PERSISTENCE_FAILED',
+          500,
+          'ReviewEvent evidence 답안이 없습니다.'
+        )
+      }
+      const nextCorrectStreak = item.isCorrect
+        ? (existing?.correctStreak ?? 0) + 1
+        : 0
+      const nextStatus: WrongNoteStatus = item.isCorrect
+        ? nextCorrectStreak >= 2
+          ? 'SOLVED'
+          : 'REVIEWING'
+        : existing
+          ? 'AGAIN'
+          : 'NEW'
+      const wrongCountAfter = item.isCorrect
+        ? (existing?.wrongCount ?? 0)
+        : (existing?.wrongCount ?? 0) + 1
+      const wrongNoteId =
+        existing?.wrongNoteId ?? `wrong-note-${userId}-${item.sourceQuestionId}`
+
+      statusBySessionQuestionId.set(item.studySessionQuestionId, nextStatus)
+      events.push({
+        algorithmVersion: 1,
+        id: toStableMockUuid('review-event', answer.id),
+        isCorrect: item.isCorrect,
+        nextCorrectStreak,
+        nextStatus,
+        occurredAt: reviewedAt,
+        previousCorrectStreak: existing?.correctStreak ?? null,
+        previousStatus: existing?.status ?? null,
+        previousWrongCount: existing?.wrongCount ?? null,
+        questionId: item.sourceQuestionId,
+        questionVersionId: item.questionVersionId,
+        selectedOptionId: answer.selectedOptionId,
+        source:
+          sessionMode === 'WRONG_NOTE' || sessionMode === 'DAILY_REVIEW'
+            ? 'WRONG_NOTE_REVIEW'
+            : 'STUDY_SUBMIT',
+        studyAnswerId: answer.id,
+        studySessionId: answer.sessionId,
+        userId,
+        wrongCountAfter,
+        wrongNoteId
+      })
+    }
+
+    return { statusBySessionQuestionId, events }
   }
 
   private applyResultToWrongNotes(
@@ -1361,6 +5549,15 @@ export class MockDatabase {
       )
     }
 
+    const normalizedTags = input.tags.map(normalizeQuestionTagText)
+    if (new Set(normalizedTags).size !== normalizedTags.length) {
+      throw new MockDatabaseError(
+        'INVALID_INPUT',
+        422,
+        '정규화했을 때 같은 태그를 중복할 수 없습니다.'
+      )
+    }
+
     const options = input.options.map((option) => {
       const id = option.id ?? `${questionId}-option-${option.label}`
       return {
@@ -1421,6 +5618,214 @@ export class MockDatabase {
     return clone(snapshot)
   }
 
+  private getEffectiveCanonicalStatus(
+    session: StudySession,
+    metadata: SessionMetadata
+  ): 'CANCELLED' | 'EXPIRED' | 'IN_PROGRESS' | 'SUBMITTED' {
+    if (metadata.canonicalTerminalStatus) {
+      return metadata.canonicalTerminalStatus
+    }
+    if (session.status === 'SUBMITTED') {
+      return 'SUBMITTED'
+    }
+    const observedAtMs = Date.parse(this.now())
+    const startedAtMs = Date.parse(session.startedAt)
+    if (
+      Number.isFinite(observedAtMs) &&
+      Number.isFinite(startedAtMs) &&
+      observedAtMs >= startedAtMs + 24 * 60 * 60 * 1_000
+    ) {
+      return 'EXPIRED'
+    }
+    return 'IN_PROGRESS'
+  }
+
+  private observeCanonicalStatus(
+    session: StudySession,
+    metadata: SessionMetadata
+  ): 'CANCELLED' | 'EXPIRED' | 'IN_PROGRESS' | 'SUBMITTED' {
+    const status = this.getEffectiveCanonicalStatus(session, metadata)
+    if (
+      status === 'EXPIRED' &&
+      metadata.canonicalTerminalStatus !== 'EXPIRED'
+    ) {
+      metadata.canonicalTerminalStatus = 'EXPIRED'
+      this.canonicalDraftBySessionId.delete(session.id)
+      this.persist()
+    }
+    return status
+  }
+
+  private hasMatchingDraftAnswers(
+    draft: StudyDraftSnapshot,
+    answers: readonly {
+      studySessionQuestionId: string
+      selectedOptionId: string | null
+      elapsedSec: number
+    }[]
+  ): boolean {
+    if (draft.answers.length !== answers.length) {
+      return false
+    }
+    const answerById = new Map(
+      answers.map((answer) => [answer.studySessionQuestionId, answer])
+    )
+    return (
+      answerById.size === answers.length &&
+      draft.answers.every((draftAnswer) => {
+        const answer = answerById.get(draftAnswer.studySessionQuestionId)
+        return (
+          answer?.selectedOptionId === draftAnswer.selectedOptionId &&
+          answer.elapsedSec === draftAnswer.elapsedSec
+        )
+      })
+    )
+  }
+
+  private hasValidCanonicalInProgressDraft(
+    sessionId: string,
+    questions: readonly QuestionRecord[],
+    draft: StudyDraftSnapshot | undefined
+  ): boolean {
+    if (
+      !draft ||
+      draft.studySessionId !== sessionId ||
+      !Number.isSafeInteger(draft.revision) ||
+      draft.revision < 0 ||
+      !Number.isSafeInteger(draft.currentOrdinal) ||
+      draft.currentOrdinal < 1 ||
+      draft.currentOrdinal > questions.length ||
+      draft.answers.length !== questions.length
+    ) {
+      return false
+    }
+
+    const answerById = new Map(
+      draft.answers.map((answer) => [answer.studySessionQuestionId, answer])
+    )
+    if (answerById.size !== questions.length) {
+      return false
+    }
+    const answersAreValid = questions.every((question, index) => {
+      const answer = answerById.get(
+        getCanonicalSessionQuestionId(sessionId, index + 1)
+      )
+      const optionIds = new Set(
+        toContractPracticeQuestion(
+          toPracticeQuestion(question),
+          getQuestionVersionFingerprint(question),
+          getPhase7QuestionContractIdentity(question)
+        ).options.map(({ id }) => id)
+      )
+      return (
+        answer !== undefined &&
+        Number.isSafeInteger(answer.elapsedSec) &&
+        answer.elapsedSec >= 0 &&
+        answer.elapsedSec <= 86_400 &&
+        (answer.selectedOptionId === null ||
+          optionIds.has(answer.selectedOptionId))
+      )
+    })
+    if (!answersAreValid) {
+      return false
+    }
+
+    if (draft.revision === 0) {
+      return (
+        draft.savedAt === null &&
+        draft.currentOrdinal === 1 &&
+        draft.answers.every(
+          ({ elapsedSec, selectedOptionId }) =>
+            elapsedSec === 0 && selectedOptionId === null
+        )
+      )
+    }
+
+    return (
+      draft.savedAt !== null &&
+      isoDateTimeSchema.safeParse(draft.savedAt).success
+    )
+  }
+
+  private resolveCanonicalOwner(
+    session: StudySession,
+    metadata: SessionMetadata | undefined,
+    guestPrincipalId: string | null
+  ): MockCanonicalOwner {
+    if (this.currentUserId !== null) {
+      if (session.userId !== this.currentUserId) {
+        throw new MockDatabaseError(
+          'NOT_FOUND',
+          404,
+          '학습 세션을 찾을 수 없습니다.'
+        )
+      }
+      return {
+        principalId: this.currentUserId,
+        principalKind: 'USER',
+        userId: this.currentUserId
+      }
+    }
+
+    if (!guestPrincipalId) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '학습 세션을 조회하려면 guest proof가 필요합니다.'
+      )
+    }
+    if (!this.activeCanonicalGuestPrincipalIds.has(guestPrincipalId)) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        '게스트 세션이 만료됐습니다.'
+      )
+    }
+    if (
+      session.userId !== null ||
+      metadata?.canonicalGuestPrincipalId !== guestPrincipalId
+    ) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        '학습 세션을 찾을 수 없습니다.'
+      )
+    }
+
+    return {
+      principalId: guestPrincipalId,
+      principalKind: 'GUEST',
+      userId: null
+    }
+  }
+
+  private assertCanonicalReadOwner(userId: string): void {
+    if (!this.currentUserId) {
+      throw new MockDatabaseError(
+        'AUTH_REQUIRED',
+        401,
+        'canonical 학습 기록 조회에는 로그인이 필요합니다.'
+      )
+    }
+    if (this.currentUserId !== userId) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        'canonical 학습 기록을 찾을 수 없습니다.'
+      )
+    }
+  }
+
+  private assertLegacyStudySession(sessionId: string): void {
+    if (isCanonicalSessionMetadata(this.sessionMetadataById.get(sessionId))) {
+      throw new MockDatabaseError(
+        'NOT_FOUND',
+        404,
+        'legacy 학습 경로에서는 canonical 세션을 찾을 수 없습니다.'
+      )
+    }
+  }
+
   private assertCurrentSessionOwner(session: StudySession): void {
     if (session.userId === this.currentUserId) {
       return
@@ -1441,37 +5846,272 @@ export class MockDatabase {
     )
   }
 
+  private createStudySessionId(): string {
+    this.sequence += 1
+    return crypto.randomUUID()
+  }
+
   private createId(prefix: string): string {
     this.sequence += 1
     return `${prefix}-${Date.parse(this.now())}-${this.sequence}`
   }
 
-  private persist(): void {
-    const state: PersistedMockState = {
-      version: 2,
-      currentUserId: this.currentUserId,
+  private createPersistedState(
+    currentUserId: string | null
+  ): PersistedMockState {
+    return {
+      version: 8,
+      archivedQuestions: [...this.archivedQuestionById.values()],
+      canonicalDrafts: [...this.canonicalDraftBySessionId.values()],
+      canonicalIdempotencyRecords: [
+        ...this.canonicalIdempotencyRecordByKey.values()
+      ],
+      canonicalReviewEvents: [
+        ...this.canonicalReviewEventByStudyAnswerId.values()
+      ],
+      canonicalStudyAnswers: [...this.canonicalAnswerBySessionId].map(
+        ([sessionId, answers]) => [
+          fromDuplicatePreservingKey(sessionId),
+          answers
+        ]
+      ),
+      canonicalStudyResults: [...this.canonicalResultBySessionId.values()],
+      canonicalUserMemos: [...this.canonicalUserMemoByWrongNoteId.values()],
+      activeCanonicalGuestPrincipalIds: [
+        ...this.activeCanonicalGuestPrincipalIds
+      ].toSorted(),
+      currentUserId,
       questions: [...this.questionById.values()],
       sessions: [...this.sessionById.values()],
       sessionMetadata: [...this.sessionMetadataById],
       sessionQuestionSnapshots: [...this.sessionQuestionSnapshotsById],
       results: [...this.resultBySessionId.values()],
       wrongNotes: [...this.wrongNoteByQuestionId.values()],
-      bookmarks: [...this.bookmarkByQuestionId.values()]
+      bookmarks: [...this.bookmarkByQuestionId.values()],
+      phase7AdminCms: this.phase7AdminCmsState.persistedSnapshot(
+        this.listPhase7AuthoritativeAdminQuestionSources()
+      )
     }
-    const previousState = this.storage.getItem(MOCK_DATABASE_STORAGE_KEY)
+  }
 
+  private writePersistedState(currentUserId: string | null): void {
+    const serialized = JSON.stringify(this.createPersistedState(currentUserId))
+    const didPersist = this.storage.setItem(
+      MOCK_DATABASE_STORAGE_KEY,
+      serialized
+    )
+    if (didPersist === false) {
+      throw new Error('Mock storage rejected the write.')
+    }
+  }
+
+  private readLatestStorageItem(key: string): string | null {
+    return this.storage.getLatestItem
+      ? this.storage.getLatestItem(key)
+      : this.storage.getItem(key)
+  }
+
+  private readAuthoritativePersistedState(): {
+    serialized: string
+    state: HydratablePersistedMockState
+  } | null {
+    let serialized: string | null
     try {
+      serialized = this.readLatestStorageItem(MOCK_DATABASE_STORAGE_KEY)
+    } catch {
+      throw new MockDatabaseError(
+        'SERVICE_UNAVAILABLE',
+        503,
+        '최신 인증 세션을 확인하지 못했습니다.'
+      )
+    }
+    return serialized === null
+      ? null
+      : {
+          serialized,
+          state: this.parseAuthoritativePersistedState(serialized)
+        }
+  }
+
+  private parseAuthoritativePersistedState(
+    serialized: string
+  ): HydratablePersistedMockState {
+    try {
+      const parsed: unknown = JSON.parse(serialized)
+      if (!isPersistedMockState(parsed)) throw new Error('Invalid mock state.')
+      return parsed
+    } catch {
+      throw new MockDatabaseError(
+        'SERVICE_UNAVAILABLE',
+        503,
+        '최신 인증 세션을 확인하지 못했습니다.'
+      )
+    }
+  }
+
+  private hasValidEmbeddedPhase7Graph(
+    serialized: string,
+    persisted: MockPhase7AdminCmsPersistedState
+  ): boolean {
+    if (this.authoritativePhase7GraphValidation?.serialized === serialized) {
+      return this.authoritativePhase7GraphValidation.valid
+    }
+
+    let valid = false
+    try {
+      new MockPhase7AdminCmsState(this.now).restore(
+        persisted,
+        this.listPhase7AuthoritativeTaxonomySources()
+      )
+      valid = true
+    } catch {
+      valid = false
+    }
+    this.authoritativePhase7GraphValidation = { serialized, valid }
+    return valid
+  }
+
+  private resolvePersistedCurrentUserId(serialized: string): string | null {
+    const persisted = this.parseAuthoritativePersistedState(serialized)
+    if (
+      persisted.version === 8 &&
+      !this.hasValidEmbeddedPhase7Graph(serialized, persisted.phase7AdminCms)
+    ) {
+      return null
+    }
+    return persisted.currentUserId
+  }
+
+  private parsePhase7PersistedState(
+    serialized: string
+  ): MockPhase7AdminCmsPersistedState | null {
+    try {
+      const parsed: unknown = JSON.parse(serialized)
+      if (
+        !isRecord(parsed) ||
+        !Array.isArray(parsed.auditLogs) ||
+        !Array.isArray(parsed.questions) ||
+        !Array.isArray(parsed.reports) ||
+        !Array.isArray(parsed.reviews) ||
+        !Array.isArray(parsed.versions) ||
+        !Array.isArray(parsed.lifecycleControlledQuestionIds) ||
+        !Array.isArray(parsed.sessionIssuedAtByActorId)
+      ) {
+        return null
+      }
+      return parsed as unknown as MockPhase7AdminCmsPersistedState
+    } catch {
+      return null
+    }
+  }
+
+  private hydratePhase7State(
+    serialized: string | null,
+    forMutation: boolean
+  ): boolean {
+    if (serialized === null) return false
+    const parsed = this.parsePhase7PersistedState(serialized)
+    if (!parsed) {
+      if (forMutation) {
+        throw new MockPhase7AdminCommandError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: '최신 관리자 저장 상태를 확인하지 못했습니다.',
+          disposition: 'NO_TX'
+        })
+      }
+      return false
+    }
+    const sources = this.listPhase7AuthoritativeAdminQuestionSources()
+    const taxonomySources = this.listPhase7AuthoritativeTaxonomySources()
+    const current = this.phase7AdminCmsState.persistedSnapshot(sources)
+    const changed = JSON.stringify(current) !== JSON.stringify(parsed)
+    if (changed) {
+      if (forMutation)
+        this.phase7AdminCmsState.restoreForMutation(parsed, taxonomySources)
+      else this.phase7AdminCmsState.restoreGraph(parsed, taxonomySources)
+    }
+    return changed
+  }
+
+  private async runPhase7CrossTabExclusive<Result>(
+    operation: () => Promise<Result>
+  ): Promise<Result> {
+    try {
+      return await this.phase7MutationLease(operation)
+    } catch (error: unknown) {
+      if (error instanceof Phase7MutationCoordinatorUnavailableError) {
+        throw new MockPhase7AdminCommandError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: '탭 간 관리자 쓰기 잠금을 사용할 수 없습니다.',
+          disposition: 'NO_TX'
+        })
+      }
+      throw error
+    }
+  }
+
+  private rebaseFromLatestStorageForPhase7Mutation(): boolean {
+    const serialized = this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
+    this.phase7MutationStorageBaseline = serialized
+    return this.hydratePhase7State(serialized, true)
+  }
+
+  private persistPhase7AdminCmsState(): void {
+    const previousState = this.readLatestStorageItem(
+      PHASE7_ADMIN_CMS_STORAGE_KEY
+    )
+    try {
+      if (
+        this.phase7MutationStorageBaseline !== undefined &&
+        previousState !== this.phase7MutationStorageBaseline
+      ) {
+        throw new Error('Mock storage changed outside the Phase 7 lease.')
+      }
+      const phase7AdminCms = this.phase7AdminCmsState.persistedSnapshot(
+        this.listPhase7AuthoritativeAdminQuestionSources()
+      )
       const didPersist = this.storage.setItem(
-        MOCK_DATABASE_STORAGE_KEY,
-        JSON.stringify(state)
+        PHASE7_ADMIN_CMS_STORAGE_KEY,
+        JSON.stringify(phase7AdminCms)
       )
       if (didPersist === false) {
         throw new Error('Mock storage rejected the write.')
       }
+    } catch (error: unknown) {
+      this.restorePersistedStorage(previousState, PHASE7_ADMIN_CMS_STORAGE_KEY)
+      throw error
+    } finally {
+      this.phase7MutationStorageBaseline = undefined
+    }
+  }
+
+  private completePhase7MutationQueue(): void {
+    this.phase7MutationStorageBaseline = undefined
+    this.synchronizeDeferredStorageChange()
+  }
+
+  private persist(authTransition?: { currentUserId: string | null }): void {
+    let previousState: string | null | undefined
+    let shouldRestorePreviousState = false
+
+    try {
+      previousState = this.readLatestStorageItem(MOCK_DATABASE_STORAGE_KEY)
+      const currentUserId =
+        authTransition !== undefined
+          ? authTransition.currentUserId
+          : previousState === null
+            ? null
+            : this.resolvePersistedCurrentUserId(previousState)
+      shouldRestorePreviousState = true
+      this.writePersistedState(currentUserId)
+      this.currentUserId = currentUserId
     } catch {
+      if (shouldRestorePreviousState && previousState !== undefined) {
+        this.restorePersistedStorage(previousState)
+      }
       this.resetMemoryToSeed()
       this.currentUserId = null
-      this.hydrateFromStorage(previousState)
+      this.hydrateFromStorage(previousState ?? null)
       throw new MockDatabaseError(
         'PERSISTENCE_FAILED',
         500,
@@ -1480,28 +6120,172 @@ export class MockDatabase {
     }
   }
 
+  private restorePersistedStorage(
+    previousState: string | null,
+    key = MOCK_DATABASE_STORAGE_KEY
+  ): void {
+    try {
+      if (previousState === null) {
+        this.storage.removeItem(key)
+      } else {
+        this.storage.setItem(key, previousState)
+      }
+    } catch {
+      // The in-memory rollback below remains authoritative for this runtime.
+    }
+  }
+
   private hydrateFromStorage(serialized: string | null): void {
     if (!serialized) {
+      this.useLegacyQuestionSourcesForLearnerProjection = true
       return
     }
+
+    this.useLegacyQuestionSourcesForLearnerProjection = false
 
     try {
       const parsed: unknown = JSON.parse(serialized)
       if (!isPersistedMockState(parsed)) {
         return
       }
+      this.useLegacyQuestionSourcesForLearnerProjection = parsed.version < 8
 
       this.currentUserId = parsed.currentUserId
       this.questionById = new Map(
         parsed.questions.map((question) => [question.id, question])
       )
+      this.archivedQuestionById = new Map(
+        parsed.version === 5 ||
+        parsed.version === 6 ||
+        parsed.version === 7 ||
+        parsed.version === 8
+          ? parsed.archivedQuestions.map((question) => [question.id, question])
+          : []
+      )
       this.sessionById = new Map(
         parsed.sessions.map((session) => [session.id, session])
       )
-      this.sessionMetadataById = new Map(parsed.sessionMetadata)
+      this.sessionMetadataById = new Map(
+        parsed.sessionMetadata.map(([sessionId, metadata], index) => [
+          sessionId,
+          {
+            ...metadata,
+            // v2 guest metadata is the only unambiguous canonical marker. An
+            // unmarked v2 USER/ADMIN session remains legacy and canonical
+            // paths fail closed; those old mock sessions must be recreated.
+            ...(parsed.version === 2 && metadata.canonicalGuestPrincipalId
+              ? { canonicalContractVersion: 1 as const }
+              : {}),
+            creationOrder: metadata.creationOrder ?? index + 1
+          }
+        ])
+      )
+      this.sequence = Math.max(
+        this.sequence,
+        ...[...this.sessionMetadataById.values()].map(
+          ({ creationOrder }) => creationOrder ?? 0
+        )
+      )
+      this.activeCanonicalGuestPrincipalIds = new Set(
+        parsed.activeCanonicalGuestPrincipalIds ??
+          parsed.sessionMetadata.flatMap(([, metadata]) =>
+            metadata.canonicalGuestPrincipalId
+              ? [metadata.canonicalGuestPrincipalId]
+              : []
+          )
+      )
       this.sessionQuestionSnapshotsById = new Map(
         parsed.sessionQuestionSnapshots
       )
+      if (
+        parsed.version === 3 ||
+        parsed.version === 4 ||
+        parsed.version === 5 ||
+        parsed.version === 6 ||
+        parsed.version === 7 ||
+        parsed.version === 8
+      ) {
+        this.canonicalReviewEventByStudyAnswerId = new Map()
+        parsed.canonicalReviewEvents.forEach((event, index) => {
+          const storageKey = toDuplicatePreservingKey(
+            this.canonicalReviewEventByStudyAnswerId,
+            event.studyAnswerId ?? event.id,
+            index
+          )
+          this.canonicalReviewEventByStudyAnswerId.set(storageKey, clone(event))
+        })
+        this.canonicalAnswerBySessionId = new Map()
+        parsed.canonicalStudyAnswers.forEach(([sessionId, answers], index) => {
+          const storageKey = toDuplicatePreservingKey(
+            this.canonicalAnswerBySessionId,
+            sessionId,
+            index
+          )
+          this.canonicalAnswerBySessionId.set(storageKey, clone(answers))
+        })
+        this.canonicalResultBySessionId = new Map()
+        parsed.canonicalStudyResults.forEach((result, index) => {
+          const storageKey = toDuplicatePreservingKey(
+            this.canonicalResultBySessionId,
+            result.sessionId,
+            index
+          )
+          this.canonicalResultBySessionId.set(storageKey, clone(result))
+        })
+        this.canonicalDraftBySessionId = new Map()
+        if (
+          parsed.version === 4 ||
+          parsed.version === 5 ||
+          parsed.version === 6 ||
+          parsed.version === 7 ||
+          parsed.version === 8
+        ) {
+          parsed.canonicalDrafts.forEach((draft) => {
+            this.canonicalDraftBySessionId.set(
+              draft.studySessionId,
+              clone(draft)
+            )
+          })
+        }
+        this.canonicalIdempotencyRecordByKey = new Map()
+        parsed.canonicalIdempotencyRecords.forEach((record, index) => {
+          const hydratedRecord: MockCanonicalIdempotencyRecord = {
+            ...record,
+            contractVersion:
+              parsed.version === 3 ? (1 as const) : record.contractVersion,
+            expiresAt:
+              typeof record.expiresAt === 'string'
+                ? record.expiresAt
+                : getCanonicalIdempotencyExpiresAt(
+                    record.completedAt,
+                    record.operation
+                  )
+          }
+          const compositeKey = makeCanonicalIdempotencyKey(
+            hydratedRecord.principalKind,
+            hydratedRecord.principalId,
+            hydratedRecord.operation,
+            hydratedRecord.idempotencyKey
+          )
+          const storageKey = this.canonicalIdempotencyRecordByKey.has(
+            compositeKey
+          )
+            ? `${compositeKey}:duplicate:${index}`
+            : compositeKey
+          this.canonicalIdempotencyRecordByKey.set(
+            storageKey,
+            clone(hydratedRecord)
+          )
+        })
+        this.canonicalUserMemoByWrongNoteId = new Map(
+          parsed.version === 7 || parsed.version === 8
+            ? parsed.canonicalUserMemos.map((memo) => [
+                memo.wrongNoteId,
+                clone(memo)
+              ])
+            : []
+        )
+      }
       this.resultBySessionId = new Map(
         parsed.results.map((result) => [result.sessionId, result])
       )
@@ -1511,12 +6295,26 @@ export class MockDatabase {
           wrongNote
         ])
       )
+      const hydratedBookmarks =
+        parsed.version >= 5
+          ? parsed.bookmarks
+          : parsed.bookmarks.filter(
+              (bookmark) =>
+                this.questionById.get(bookmark.questionId)?.status ===
+                'PUBLISHED'
+            )
       this.bookmarkByQuestionId = new Map(
-        parsed.bookmarks.map((bookmark) => [
+        hydratedBookmarks.map((bookmark) => [
           makeUserQuestionKey(bookmark.userId, bookmark.questionId),
           bookmark
         ])
       )
+      if (parsed.version === 8) {
+        this.phase7AdminCmsState.restore(
+          parsed.phase7AdminCms,
+          this.listPhase7AuthoritativeTaxonomySources()
+        )
+      }
     } catch {
       this.resetMemoryToSeed()
       this.currentUserId = null
@@ -1530,7 +6328,25 @@ export class MockDatabase {
 
   private listenForExternalStorageChanges(): void {
     this.unsubscribeStorage = subscribeStorageChanges((event) => {
-      if (event.key !== MOCK_DATABASE_STORAGE_KEY && event.key !== null) {
+      if (
+        event.key !== MOCK_DATABASE_STORAGE_KEY &&
+        event.key !== PHASE7_ADMIN_CMS_STORAGE_KEY &&
+        event.key !== null
+      ) {
+        return
+      }
+
+      if (this.phase7AdminCmsState.hasPendingMutations()) {
+        this.deferredExternalStorageChange = true
+        return
+      }
+
+      if (event.key === PHASE7_ADMIN_CMS_STORAGE_KEY) {
+        if (event.newValue === null) {
+          this.phase7AdminCmsState.reset()
+          return
+        }
+        this.hydratePhase7State(event.newValue, false)
         return
       }
 
@@ -1541,7 +6357,25 @@ export class MockDatabase {
           ? event.newValue
           : this.storage.getItem(MOCK_DATABASE_STORAGE_KEY)
       this.hydrateFromStorage(serialized)
+      this.hydratePhase7State(
+        this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY),
+        false
+      )
     })
+  }
+
+  private synchronizeDeferredStorageChange(): void {
+    if (!this.deferredExternalStorageChange) return
+    this.deferredExternalStorageChange = false
+    this.resetMemoryToSeed()
+    this.currentUserId = null
+    this.hydrateFromStorage(
+      this.readLatestStorageItem(MOCK_DATABASE_STORAGE_KEY)
+    )
+    this.hydratePhase7State(
+      this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY),
+      false
+    )
   }
 }
 

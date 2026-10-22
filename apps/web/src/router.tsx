@@ -9,6 +9,7 @@ import { Layout } from '@app/layout'
 import { loginRoutes } from '@app/login/router'
 import { NotFoundPage } from '@app/not-found/page'
 import { RouteErrorPage } from '@app/not-found/route-error'
+import { operationsRoutes } from '@app/operations/router'
 import { practiceRoutes } from '@app/practice/router'
 import { wrongNoteRoutes } from '@app/wrong-note/router'
 import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
@@ -31,6 +32,7 @@ export const appRoutes: RouteObject[] = [
       ...homeRoutes,
       ...loginRoutes,
       ...practiceRoutes,
+      ...operationsRoutes,
       {
         element: <RequireRole allowedRoles={['USER', 'ADMIN']} />,
         children: [...dashboardRoutes, ...wrongNoteRoutes, ...bookmarkRoutes]

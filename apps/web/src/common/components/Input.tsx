@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ComponentPropsWithRef, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
 
@@ -20,10 +21,12 @@ export const Input = ({
   id,
   label,
   name,
+  required = false,
   spellCheck,
   type = 'text',
   ...props
 }: InputProps): ReactElement => {
+  const { t } = useTranslation('common')
   const generatedId = useId()
   const inputId = id ?? `${name}-${generatedId}`
   const hintId = hint ? `${inputId}-hint` : undefined
@@ -34,26 +37,29 @@ export const Input = ({
 
   return (
     <div className="grid gap-2">
-      <label
+      <div
         className={classNames(
           'text-sm font-semibold text-ink',
           hideLabel && 'sr-only'
         )}
-        htmlFor={inputId}
       >
-        {label}
-      </label>
+        <label htmlFor={inputId}>{label}</label>
+        {required ? (
+          <span className="ml-1 text-danger">{t('required')}</span>
+        ) : null}
+      </div>
       <input
         className={classNames(
-          'min-h-11 w-full rounded-lg border bg-white px-3 py-2 text-base text-ink shadow-sm',
-          'placeholder:text-slate-400 hover:border-slate-400',
-          'focus-visible:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-          'disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-muted',
-          error ? 'border-red-500' : 'border-line',
+          'min-h-11 w-full rounded-control border bg-surface px-3 py-2 text-base text-ink shadow-control',
+          'placeholder:text-muted/70 hover:border-line-strong',
+          'focus-visible:border-brand focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
+          'disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted',
+          error ? 'border-line-invalid' : 'border-line',
           className
         )}
         id={inputId}
         name={name}
+        required={required}
         type={type}
         autoComplete={autoComplete ?? 'off'}
         spellCheck={spellCheck ?? (type === 'email' ? false : undefined)}
@@ -68,7 +74,7 @@ export const Input = ({
       ) : null}
       {error ? (
         <p
-          className="text-sm font-medium text-red-700"
+          className="text-sm font-medium text-danger"
           id={errorId}
           role="alert"
         >

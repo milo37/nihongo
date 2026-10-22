@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "releaseKey": "phase6-slice1-fixture",
+  "releaseRevision": 1,
+  "title": "N5 생활 문맥 어휘 검증 묶음",
+  "createdAt": "2026-08-25T00:00:00.000Z",
+  "policyVersion": "original-content-v1",
+  "taxonomyVersion": "tags-v1",
+  "reviewRubricVersion": "review-rubric-v1",
+  "policySnapshotSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "items": [
+    {
+      "contentKey": "original.n5.context.001",
+      "intent": {
+        "kind": "CREATE",
+        "expectedCurrentVersionNumber": null,
+        "expectedCurrentSemanticContentSha256": null
+      },
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "passage": null,
+        "questionText": "毎朝、駅の前で新聞を（　）。",
+        "options": [
+          {
+            "key": "1",
+            "text": "読みます"
+          },
+          {
+            "key": "2",
+            "text": "飲みます"
+          },
+          {
+            "key": "3",
+            "text": "洗います"
+          },
+          {
+            "key": "4",
+            "text": "眠ります"
+          }
+        ],
+        "correctOptionKey": "1",
+        "explanationKo": "신문과 자연스럽게 결합하는 동작은 읽다이므로 読みます가 알맞습니다.",
+        "explanationJa": "新聞と自然に結び付く動作は読むことです。",
+        "tagKeys": ["동사", "일상"],
+        "distractorRationalesKo": {
+          "1": null,
+          "2": "신문은 마시는 대상이 아닙니다.",
+          "3": "이 문맥에서는 신문을 씻는 동작이 자연스럽지 않습니다.",
+          "4": "신문을 목적어로 삼아 잠든다는 표현은 성립하지 않습니다."
+        }
+      },
+      "provenance": {
+        "sourceType": "ORIGINAL",
+        "authorRef": "fixture-author",
+        "creationMethod": "HUMAN",
+        "rightsAttestation": "ORIGINAL_NO_COPY",
+        "authoredAt": "2026-08-24T00:00:00.000Z",
+        "sourceNote": "생활 동작 문맥 검증을 위해 새로 작성한 문항입니다."
+      }
+    }
+  ]
+}
