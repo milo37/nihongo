@@ -1,4 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { once } from 'node:events'
+import { createRequire } from 'node:module'
 import { createServer as createNetServer } from 'node:net'
 import nodePath from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -20,6 +22,10 @@ interface ManagedProcess {
   readonly child: ChildProcess
   readonly label: string
   spawnError: Error | undefined
+  completion?: {
+    readonly code: number | null
+    readonly signal: NodeJS.Signals | null
+  }
 }
 
 type BrowserMode = 'mock' | 'real'
@@ -40,10 +46,11 @@ const spawnOwned = (
   label: string,
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv
+  environment: NodeJS.ProcessEnv,
+  cwd = repositoryRoot
 ): ManagedProcess => {
   const child = spawn(command, args, {
-    cwd: repositoryRoot,
+    cwd,
     detached: shouldDetachOwnedProcess,
     env: environment,
     stdio: ['ignore', 'inherit', 'inherit']
@@ -55,6 +62,9 @@ const spawnOwned = (
   }
   child.once('error', (error) => {
     ownedProcess.spawnError = error
+  })
+  child.once('close', (code, signal) => {
+    ownedProcess.completion = { code, signal }
   })
   ownedProcesses.push(ownedProcess)
   return ownedProcess
@@ -151,13 +161,44 @@ const reserveLoopbackPort = async (): Promise<number> =>
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= cleanupPhase10BrowserResources({
     stopOwnedProcesses: async () => {
+      const api = ownedProcesses.find(
+        ({ label }) => label === 'phase10-real-sso-api'
+      )
+      const exitedEarly =
+        api !== undefined &&
+        (api.completion !== undefined ||
+          api.child.exitCode !== null ||
+          api.child.signalCode !== null)
+      let apiForced = false
       await stopOwnedProcesses(ownedProcesses, {
-        onForceKill: ({ label }) => {
+        onForceKill: (owned) => {
+          const { label } = owned
+          if (owned === api) apiForced = true
           process.stderr.write(
             `[${label}] graceful stop timed out; sending SIGKILL.\n`
           )
         }
       })
+      if (api) {
+        if (api.spawnError) throw api.spawnError
+        if (exitedEarly || apiForced) {
+          throw new Error(
+            'Real SSO child exited early or required a forced stop.'
+          )
+        }
+        if (!api.completion) {
+          await once(api.child, 'close', { signal: AbortSignal.timeout(2_000) })
+        }
+        if (
+          !api.completion ||
+          api.completion.code !== 0 ||
+          api.completion.signal !== null
+        ) {
+          throw new Error(
+            'Real SSO child did not complete TEST fixture cleanup successfully.'
+          )
+        }
+      }
       ownedProcesses.length = 0
     },
     closeControlServer: async () => {
@@ -235,12 +276,12 @@ const runReal = async (): Promise<void> => {
   const apiOrigin = `http://127.0.0.1:${apiPort}`
   const api = spawnOwned(
     'phase10-real-sso-api',
-    'pnpm',
+    process.execPath,
     [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'tsx',
+      '--import',
+      createRequire(
+        new URL('../apps/api/package.json', import.meta.url)
+      ).resolve('tsx'),
       'src/e2e/runPhase7ApiIntegration.ts'
     ],
     {
@@ -249,7 +290,8 @@ const runReal = async (): Promise<void> => {
       PHASE7_SSO_BROWSER_API_HOST: '127.0.0.1',
       PHASE7_SSO_BROWSER_API_PORT: String(apiPort),
       PHASE7_SSO_BROWSER_WEB_ORIGIN: webOrigin
-    }
+    },
+    nodePath.join(repositoryRoot, 'apps/api')
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
   const web = spawnOwned(
@@ -325,23 +367,31 @@ const describeFailure = (
   message: error instanceof Error ? error.message : 'Unknown failure'
 })
 
-void execute()
-  .then(() => {
-    process.stdout.write(
-      `${JSON.stringify({ event: `phase10.browser.${mode}.passed` })}\n`
-    )
-  })
-  .catch((error: unknown) => {
-    const causes =
-      error instanceof AggregateError
-        ? error.errors.map((cause) => describeFailure(cause))
-        : undefined
-    process.stderr.write(
-      `${JSON.stringify({
-        event: `phase10.browser.${mode ?? 'unknown'}.failed`,
-        ...describeFailure(error),
-        ...(causes ? { causes } : {})
-      })}\n`
-    )
-    process.exitCode = 1
-  })
+export const main = (): Promise<void> =>
+  execute()
+    .then(() => {
+      process.stdout.write(
+        `${JSON.stringify({ event: `phase10.browser.${mode}.passed` })}\n`
+      )
+    })
+    .catch((error: unknown) => {
+      const causes =
+        error instanceof AggregateError
+          ? error.errors.map((cause) => describeFailure(cause))
+          : undefined
+      process.stderr.write(
+        `${JSON.stringify({
+          event: `phase10.browser.${mode ?? 'unknown'}.failed`,
+          ...describeFailure(error),
+          ...(causes ? { causes } : {})
+        })}\n`
+      )
+      process.exitCode = 1
+    })
+
+if (
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
+) {
+  void main()
+}
