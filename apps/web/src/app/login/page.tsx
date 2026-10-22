@@ -4,7 +4,7 @@ import { Button } from '@common/components/Button'
 import { useLoginDemoAdmin } from '@app/login/hooks/useLoginDemoAdmin'
 import { useLoginDemoUser } from '@app/login/hooks/useLoginDemoUser'
 import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 
 const getSafeRedirect = (redirect: string | null): string => {
   if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
@@ -28,7 +28,7 @@ const getGuestRedirect = (redirect: string): string => {
 export const LoginPage = (): ReactElement => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { user, role } = useDemoAuth()
+  const { user, role } = useAuth()
   const loginUser = useLoginDemoUser()
   const loginAdmin = useLoginDemoAdmin()
   const logout = useLogoutUser()

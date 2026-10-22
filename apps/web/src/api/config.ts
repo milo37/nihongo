@@ -1,28 +1,53 @@
 import axios from 'axios'
 import { z, type ZodType } from 'zod'
+import {
+  apiFailureSchema,
+  type ApiFailure
+} from '@nihongo/contracts/common/error'
+import {
+  assertCurrentAuthTransitionEpoch,
+  captureAuthTransitionEpoch
+} from '@libs/authTransitionFence'
 
 export interface ApiErrorFlags {
+  code?: string
+  fieldErrors?: ApiFailure['fieldErrors']
   isAuthError?: boolean
   isForbiddenError?: boolean
   isNotFoundError?: boolean
   isServerError?: boolean
   isNetworkError?: boolean
   isOffline?: boolean
+  isResponseValidationError?: boolean
+  isServerValidationError?: boolean
   isValidationError?: boolean
+  requestId?: string
+  retryable?: boolean
+  retryAfterMs?: number
+  serverMessage?: string
   status?: number
 }
 
 export type AppApiError = Error & ApiErrorFlags
 
 const API_TIMEOUT_MS = 10_000
+const MAX_RETRY_AFTER_MS = 60 * 60_000
 const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
+  'code',
+  'fieldErrors',
   'isAuthError',
   'isForbiddenError',
   'isNotFoundError',
   'isServerError',
   'isNetworkError',
   'isOffline',
+  'isResponseValidationError',
+  'isServerValidationError',
   'isValidationError',
+  'requestId',
+  'retryable',
+  'retryAfterMs',
+  'serverMessage',
   'status'
 ])
 
@@ -31,8 +56,55 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: API_TIMEOUT_MS
+  timeout: API_TIMEOUT_MS,
+  withCredentials: true
 })
+
+export const parseRetryAfterMs = (
+  value: unknown,
+  now = Date.now()
+): number | undefined => {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (typeof candidate !== 'string' && typeof candidate !== 'number') {
+    return undefined
+  }
+
+  const normalized = String(candidate).trim()
+  if (/^\d+$/u.test(normalized)) {
+    return Math.min(Number(normalized) * 1_000, MAX_RETRY_AFTER_MS)
+  }
+
+  const retryAt = Date.parse(normalized)
+  if (Number.isNaN(retryAt)) {
+    return undefined
+  }
+
+  return Math.min(Math.max(0, retryAt - now), MAX_RETRY_AFTER_MS)
+}
+
+const getRetryAfterHeader = (headers: unknown): unknown => {
+  if (!headers || typeof headers !== 'object') {
+    return undefined
+  }
+
+  if ('get' in headers && typeof headers.get === 'function') {
+    return headers.get('retry-after')
+  }
+
+  if ('retry-after' in headers) {
+    return headers['retry-after']
+  }
+
+  return undefined
+}
+
+const getApiErrorCode = (data: unknown): string | undefined => {
+  if (!data || typeof data !== 'object' || !('code' in data)) {
+    return undefined
+  }
+
+  return typeof data.code === 'string' ? data.code : undefined
+}
 
 export const isApiError = (error: unknown): error is AppApiError => {
   if (!(error instanceof Error)) {
@@ -52,8 +124,34 @@ const checkOfflineStatus = (): boolean => {
   return navigator.onLine === false
 }
 
-const withErrorFlags = (error: Error, flags: ApiErrorFlags): AppApiError =>
-  Object.assign(error, flags)
+export const withErrorFlags = (
+  error: Error,
+  flags: ApiErrorFlags
+): AppApiError => Object.assign(error, flags)
+
+export const createResponseValidationError = (
+  cause: unknown,
+  status = 422
+): AppApiError =>
+  withErrorFlags(new Error('응답 형식이 올바르지 않습니다.', { cause }), {
+    isResponseValidationError: true,
+    isValidationError: true,
+    retryable: false,
+    status
+  })
+
+export const parseApiResponse = <Schema extends ZodType>(
+  schema: Schema,
+  rawData: unknown
+): z.output<Schema> => {
+  const parsedData = schema.safeParse(rawData)
+
+  if (!parsedData.success) {
+    throw createResponseValidationError(parsedData.error)
+  }
+
+  return parsedData.data
+}
 
 apiClient.interceptors.request.use((config) => {
   if (!checkOfflineStatus()) {
@@ -90,16 +188,36 @@ apiClient.interceptors.response.use(
 
     if (axios.isAxiosError(error)) {
       const status = error.response?.status
+      const retryAfterMs = parseRetryAfterMs(
+        getRetryAfterHeader(error.response?.headers)
+      )
+      const parsedFailure = apiFailureSchema.safeParse(error.response?.data)
+      const code = parsedFailure.success
+        ? parsedFailure.data.code
+        : getApiErrorCode(error.response?.data)
 
       return Promise.reject(
         withErrorFlags(error, {
+          ...(code === undefined ? {} : { code }),
+          ...(parsedFailure.success && parsedFailure.data.fieldErrors
+            ? { fieldErrors: parsedFailure.data.fieldErrors }
+            : {}),
           isAuthError: status === 401,
           isForbiddenError: status === 403,
           isNotFoundError: status === 404,
           isServerError: status !== undefined && status >= 500,
           isNetworkError: error.response === undefined,
           isOffline: false,
+          isServerValidationError: status === 422 && parsedFailure.success,
           isValidationError: status === 422,
+          ...(parsedFailure.success
+            ? {
+                requestId: parsedFailure.data.requestId,
+                retryable: parsedFailure.data.retryable,
+                serverMessage: parsedFailure.data.message
+              }
+            : {}),
+          ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
           status
         })
       )
@@ -122,24 +240,16 @@ export const safeFactory =
   <Arguments extends unknown[]>(method: AsyncMethod<Arguments>) =>
   <Schema extends ZodType>(schema: Schema) =>
   async (...args: Arguments): Promise<z.output<Schema>> => {
-    const rawData = await method(...args)
-    const parsedData = schema.safeParse(rawData)
+    const requestEpoch = captureAuthTransitionEpoch()
+    let rawData: unknown
 
-    if (!parsedData.success) {
-      if (import.meta.env.DEV) {
-        console.error('API response validation failed', parsedData.error)
-      }
-
-      throw withErrorFlags(
-        new Error('응답 형식이 올바르지 않습니다.', {
-          cause: parsedData.error
-        }),
-        {
-          isValidationError: true,
-          status: 422
-        }
-      )
+    try {
+      rawData = await method(...args)
+    } catch (error: unknown) {
+      assertCurrentAuthTransitionEpoch(requestEpoch)
+      throw error
     }
 
-    return parsedData.data
+    assertCurrentAuthTransitionEpoch(requestEpoch)
+    return parseApiResponse(schema, rawData)
   }

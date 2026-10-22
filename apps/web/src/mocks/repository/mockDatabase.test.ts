@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { originalQuestions } from '@mocks/data/questions'
 import {
+  MOCK_DATABASE_STORAGE_KEY,
+  PHASE7_ADMIN_CMS_STORAGE_KEY
+} from '@libs/storage'
+import {
   MockDatabase,
   MockDatabaseError,
   type MockStorage
@@ -85,10 +89,10 @@ describe('MockDatabase', () => {
 
   it('초기 한 번 읽은 저장소를 메모리 캐시로 사용하고 mutation을 저장한다', () => {
     const values = new Map<string, string>()
-    let readCount = 0
+    const reads: string[] = []
     const storage: MockStorage = {
       getItem: (key) => {
-        readCount += 1
+        reads.push(key)
         return values.get(key) ?? null
       },
       setItem: (key, value) => {
@@ -103,16 +107,18 @@ describe('MockDatabase', () => {
       storage,
       listenToStorage: false
     })
-
-    expect(readCount).toBe(1)
+    expect(reads).toEqual([
+      MOCK_DATABASE_STORAGE_KEY,
+      PHASE7_ADMIN_CMS_STORAGE_KEY
+    ])
     database.loginAs('ADMIN')
-    expect(readCount).toBe(2)
+    expect(values.has(MOCK_DATABASE_STORAGE_KEY)).toBe(true)
+    // Auth transitions persist the embedded CMS snapshot in the database key.
+    expect([...values.keys()]).toEqual([MOCK_DATABASE_STORAGE_KEY])
+    const readsAfterMutation = [...reads]
     database.listQuestions({ level: 'N3', subject: 'GRAMMAR' })
     database.listQuestions({ level: 'N2', subject: 'READING' })
-
-    expect(readCount).toBe(2)
-    expect(values.size).toBe(1)
-
+    expect(reads).toEqual(readsAfterMutation)
     const restored = new MockDatabase({
       now: () => FIXED_NOW,
       storage,

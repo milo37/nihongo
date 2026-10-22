@@ -2,10 +2,12 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { loginDemoUser } from '@api/auth/loginDemoUser'
-import { listWrongNote } from '@api/wrong-note/listWrongNote'
-import { createStudySession } from '@api/study/createStudySession'
-import { submitStudySession } from '@api/study/submitStudySession'
+import { signInUser } from '@api/auth/signInUser'
+import { refreshCanonicalAuthAfterMutation } from '@app/login/authSession'
+import { listWrongNotesV1 } from '@api/wrong-note/listWrongNotesV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
+import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
+import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import { LoginPage } from '@app/login/page'
 import { queryClient } from '@libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -54,20 +56,37 @@ describe('LoginPage role transition', () => {
     expect(mockDatabase.getCurrentUser()).toBeNull()
     expect(useAppStore.getState().currentUser).toBeNull()
 
-    const sessionPayload = await createStudySession({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
-    expect(sessionPayload.session.userId).toBeNull()
-    await submitStudySession(sessionPayload.session.id, {
-      answers: [],
-      durationSec: 10
-    })
+    const sessionPayload = (
+      await createStudySessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1
+      })
+    ).data
+    expect(
+      mockDatabase.getStudySession(sessionPayload.session.id).userId
+    ).toBeNull()
+    const draft = (await getStudyDraftAnswers(sessionPayload.session.id)).data
+    const submitted = await submitStudySessionV2(
+      sessionPayload.session.id,
+      {
+        answers: draft.answers,
+        durationSec: 0,
+        expectedDraftRevision: draft.revision
+      },
+      crypto.randomUUID()
+    )
+    expect(submitted.data.items).toHaveLength(1)
+    expect(submitted.data.items[0]?.selectedOptionId).toBeNull()
 
-    await loginDemoUser()
-    const wrongNotes = await listWrongNote()
+    await signInUser({ email: 'user@example.com', password: 'Demo-user-2026!' })
+    await refreshCanonicalAuthAfterMutation(queryClient, {
+      expectedIdentity: 'AUTHENTICATED',
+      forceClear: true
+    })
+    expect(useAppStore.getState().currentUser?.id).toBe(demoUser.id)
+    const wrongNotes = await listWrongNotesV1()
     expect(wrongNotes.total).toBe(0)
   })
 
