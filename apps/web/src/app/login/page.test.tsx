@@ -524,7 +524,8 @@ describe('관리자 ADMIN_FRESH 소비', () => {
         router.state.location.pathname + router.state.location.search
       ).toBe('/admin/questions?level=N2&page=2')
       expect(router.state.historyAction).toBe('REPLACE')
-      expect(screen.getByRole('status')).toHaveFocus()
+      // The notice text commits before its passive focus effect.
+      await waitFor(() => expect(screen.getByRole('status')).toHaveFocus())
       expect(mockDatabase.getCurrentUser()?.role).toBe('ADMIN')
     }
   )
