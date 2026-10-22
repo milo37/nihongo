@@ -20,15 +20,21 @@ type PaginationProps = {
 }
 
 const mobileQuery = '(max-width: 760px)'
+const narrowMobileQuery = '(max-width: 383px)'
 const subscribeToViewport = (onChange: () => void): (() => void) => {
   if (typeof window.matchMedia !== 'function') return () => undefined
-  const query = window.matchMedia(mobileQuery)
-  query.addEventListener('change', onChange)
-  return () => query.removeEventListener('change', onChange)
+  const queries = [mobileQuery, narrowMobileQuery].map((query) =>
+    window.matchMedia(query)
+  )
+  queries.forEach((query) => query.addEventListener('change', onChange))
+  return () =>
+    queries.forEach((query) => query.removeEventListener('change', onChange))
 }
-const readMobileViewport = (): boolean =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia(mobileQuery).matches
+const readPageLimit = (): number => {
+  if (typeof window.matchMedia !== 'function') return 5
+  if (window.matchMedia(narrowMobileQuery).matches) return 2
+  return window.matchMedia(mobileQuery).matches ? 3 : 5
+}
 
 export const Pagination = ({
   className,
@@ -42,10 +48,10 @@ export const Pagination = ({
 }: PaginationProps): ReactElement | null => {
   const { i18n, t } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const isMobile = useSyncExternalStore(
+  const pageLimit = useSyncExternalStore(
     subscribeToViewport,
-    readMobileViewport,
-    () => false
+    readPageLimit,
+    () => 5
   )
   const navRef = useRef<HTMLElement>(null)
   const pendingPage = useRef<number | null>(null)
@@ -79,8 +85,14 @@ export const Pagination = ({
   }, [disabled, requestedPage, safePage])
 
   if (normalizedTotal === 0) return null
-  const count = Math.min(5, normalizedTotal)
-  const start = Math.max(1, Math.min(safePage - 2, normalizedTotal - count + 1))
+  const count = Math.min(pageLimit, normalizedTotal)
+  const start = Math.max(
+    1,
+    Math.min(
+      safePage - Math.floor((count - 1) / 2),
+      normalizedTotal - count + 1
+    )
+  )
   const pages = Array.from({ length: count }, (_, index) => start + index)
   const changePage = (page: number): void => {
     if (disabled || page === safePage) return
@@ -205,10 +217,11 @@ export const Pagination = ({
       className={classNames('number-pagination', className)}
       aria-label={label ?? t('pagination.label')}
     >
-      <div className="pagination-controls" data-mobile={isMobile || undefined}>
-        {isMobile
-          ? [numbers, previous, following]
-          : [previous, numbers, following]}
+      <div
+        className="pagination-controls"
+        data-mobile={pageLimit < 5 || undefined}
+      >
+        {[previous, numbers, following]}
       </div>
     </nav>
   )

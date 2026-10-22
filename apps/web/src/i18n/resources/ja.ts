@@ -25,6 +25,7 @@ export const jaResources = {
       processing: '処理中…'
     },
     actions: {
+      goPractice: '学習に戻る',
       retry: 'もう一度試す',
       close: '閉じる',
       closeDialog: 'ダイアログを閉じる',
@@ -359,6 +360,18 @@ export const jaResources = {
     }
   },
   auth: {
+    checkingTitle: 'ログイン状態を確認中',
+    currentTitle: 'ログインしています',
+    currentDescription: '現在のアカウントで学習を続けられます。',
+    loginDescription: '復習とブックマークを続けて利用しましょう。',
+    signupDescription: '学習アカウントを作成してメールを確認してください。',
+    continueAccount: '学習に戻る',
+    changeAccount: 'ログアウトして別のアカウントでログイン',
+    showPassword: '表示',
+    hidePassword: '隠す',
+    signupPrompt: 'アカウントをお持ちでない方',
+    registrationTitle: '受信トレイを確認してください',
+    requestTitle: 'リクエストを受け付けました',
     eyebrow: 'SECURE ACCESS',
     title: '学習アカウントで始めましょう',
     description: {
@@ -389,6 +402,8 @@ export const jaResources = {
         '登録の有無にかかわらずリクエストを受け付けました。アカウントが存在する場合は再設定リンクを送信します。'
     },
     errors: {
+      logout:
+        'ログアウトできませんでした。現在のアカウントは維持されています。もう一度お試しください。',
       request:
         '認証リクエストを処理できませんでした。入力内容とネットワーク状態を確認してください。',
       resetRequest:
@@ -413,7 +428,13 @@ export const jaResources = {
       backToLogin: 'ログインに戻る',
       invalidTitle: '無効な再設定リンク',
       missingToken:
-        '再設定トークンがありません。ログイン画面から新しいリンクをリクエストしてください。',
+        '再設定リンクの情報がありません。再読み込みした場合は、受信したメールの元の再設定リンクを開き直してください。新しいリンクが必要な場合は再設定リンクをリクエストしてください。',
+      missingTokenMember:
+        '再設定リンクの情報がありません。再読み込みした場合は、受信したメールの元の再設定リンクを開き直してください。新しいリンクが必要な場合は、アカウント確認画面で自分でログアウトしてから再設定リンクをリクエストしてください。',
+      missingTokenMock:
+        '再設定リンクの情報がありません。再読み込みした場合は、受信したメールの元の再設定リンクを開き直してください。体験環境では新しい再設定メールをリクエストできません。',
+      recoveryAccount: 'アカウントを確認・切り替え',
+      recoveryLogin: 'ログイン・アカウント確認',
       successTitle: 'パスワードを変更しました',
       successDescription:
         '既存のログインセッションはすべて終了しました。新しいパスワードで再度ログインしてください。',
@@ -425,7 +446,8 @@ export const jaResources = {
     verify: {
       invalidTitle: '無効なメール認証リンク',
       missingToken:
-        '認証トークンがありません。ログイン画面から認証メールを再送信してください。',
+        'メール認証リンクの情報がありません。再読み込みした場合は、受信したメールの元の認証リンクを開き直してください。認証済みの場合は、ログイン・アカウント確認画面で状態を確認してください。',
+      recoveryAction: 'ログイン・アカウント確認',
       successTitle: 'メール認証が完了しました',
       successDescription:
         '登録したメールアドレスとパスワードでログインできます。',
@@ -2098,6 +2120,10 @@ export const jaResources = {
   },
   errors: {
     forbidden: {
+      memberDescription: '現在のアカウントではこの画面にアクセスできません。',
+      guestDescription:
+        'この画面にアクセスできるアカウントでログインしてください。',
+      accountAction: 'アカウントを確認',
       eyebrow: '403 · アクセス権限なし',
       title: 'このページを表示する権限がありません',
       description:
