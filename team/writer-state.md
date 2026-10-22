@@ -2,6 +2,28 @@
 
 ## Current
 
+- Task: JLP-496 PR12 Vitest discovery exact1 / ca6de0
+- Status: released after changed1 lint/format and Web Vitest PASS / frontend_engineer / jlpt-03--murooaxt
+- Acquired: 2026-10-22T15:20:24.732381+00:00
+- Cwd: /Users/doji/Desktop/dev/nihongo-worktrees/jlp-496-phase10-local-integration
+- Branch: codex/integration/jlp-496-phase10-local
+- Base: 60f6d62d5016850cff2331dfe53a4c0012459e60 / clean and index0 before acquisition
+- Allowed files: apps/web/vitest.config.ts
+- Scope: preserve configDefaults.exclude and exclude only scripts/phase10-production-bundle-*.test.mjs from jsdom Vitest
+- Checks: changed1 lint/format; CI Web Vitest path pnpm run test:web exactly1
+- Boundary: no product/package/workflow/node-test/bundle-budget changes; no build/canonical/DB/browser/commit/push/PR/main/CI-rerun/deploy/Slack
+- Next owner: god after exact check result and source/writer freeze
+
+- Frozen: 2026-10-22T15:22:09.926783+00:00
+- Released: 2026-10-22T15:22:09.928097+00:00
+- Result: config exact1 lint/format PASS; CI Web Vitest path exactly1 PASS42files/308tests; no build/canonical/remote/Git/Slack
+
+## Previous Current (preserved verbatim)
+
+# Worktree writing turns
+
+## Current
+
 - Task: JLP-496 R1 root/build checkpoint
 - Status: source frozen/released; sole Git executor active until final handoff devops_engineer / jlpt-06-devops-murotrbl
 - Acquired: 2026-10-13T17:36:03.567811+00:00
