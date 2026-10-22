@@ -1,16 +1,19 @@
-import { safePost } from '@api/http'
+import { safePutWithMetadata } from '@api/http'
 import {
+  createBookmarkRequestBodySchema,
   createBookmarkRequestSchema,
-  createBookmarkResponseSchema
+  createBookmarkTransportResponseSchema
 } from '@api/bookmark/createBookmark/schema'
-import type { CreateBookmarkResponse } from '@api/bookmark/createBookmark/schema'
+import type { CreateBookmarkTransportResponse } from '@api/bookmark/createBookmark/schema'
 
-const requestBookmarkCreation = safePost(createBookmarkResponseSchema)
+const requestBookmarkCreation = safePutWithMetadata(
+  createBookmarkTransportResponseSchema
+)
 
 export const createBookmark = (
   questionId: string
-): Promise<CreateBookmarkResponse> => {
+): Promise<CreateBookmarkTransportResponse> => {
   const request = createBookmarkRequestSchema.parse({ questionId })
-
-  return requestBookmarkCreation(`/bookmark/${request.questionId}`, {})
+  const body = createBookmarkRequestBodySchema.parse({})
+  return requestBookmarkCreation(`/v1/bookmarks/${request.questionId}`, body)
 }

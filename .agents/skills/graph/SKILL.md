@@ -18,7 +18,7 @@ description: >
 - Do not spawn nested subagents.
 - Do not allow unbounded delegation.
 - Do not let multiple agents edit the same worktree concurrently.
-- Only one implementation agent may modify application source at a time.
+- Keep one implementation writer per assigned worktree and one named operator for common Git metadata. Preserve the original dirty checkout/index/5173.
 - Explorer and reviewer agents are read-only.
 - Tester agents may execute commands but must not modify source or config files.
 - Never claim that a command, test, or review ran unless it actually ran.
@@ -27,7 +27,7 @@ description: >
 
 ## Stage 0: Decide whether a graph is warranted
 
-Assess these signals before creating any subagent:
+Assess these signals before routing work to existing roles:
 
 1. **Different expertise:** The task needs distinct perspectives such as
    investigation, implementation, security, testing, or content review.
@@ -41,14 +41,14 @@ Assess these signals before creating any subagent:
 
 Apply these decision rules:
 
-- If no signal applies, create no subagent.
+- If no signal applies, complete the assigned task directly with its matching role.
 - Do not use a graph for a small edit, a clear single-file change, a simple type
   error, or one or two CSS lines.
 - Add only one necessary role per signal.
-- Use between one and three explorers when exploration is required.
+- Assign one to three non-overlapping read-only investigation angles to existing roles when needed.
 - Never force the workflow to contain three roles.
 
-When a graph is unnecessary, reply and stop using this format:
+When a graph is unnecessary, finish the authorized role scope directly. A brief rationale may use this format:
 
 > 이 작업은 Graph로 나눌 필요가 없습니다.
 > 이유: (해당 신호가 없는 이유)
@@ -105,21 +105,22 @@ Define non-overlapping investigation angles, such as:
 - Tests and regression risks
 - Official documentation or version constraints
 
-Create the necessary explorers in parallel in the same stage. Prefer the
-`graph_explorer` custom agent. If it is unavailable, use the built-in
-`explorer`. Assign one investigation angle to each explorer.
+Route necessary read-only investigation angles to god-designated existing roles in parallel when available. The graph_explorer guidance can be reused without creating new staff. Assign one angle to each investigator.
 
 Require this output:
 
 ```markdown
 ## Evidence
+
 - `path/to/file.ts:line` — verified fact
 - `path/to/file.ts:line` — related call or dependency
 
 ## Risks
+
 - risk — supporting file or command
 
 ## Unknowns
+
 - unverified item — reason
 ```
 
@@ -144,12 +145,7 @@ The main agent must:
 
 ### Implement
 
-Only one agent may modify application source. Use this priority:
-
-1. One built-in `worker` agent
-2. The main agent, when a worker is unavailable
-
-Never create two implementation agents concurrently. Give the implementer:
+Use the existing assigned FE, BE or DevOps owner; the lead coordinates rather than becoming a full-stack implementer. Keep one writer per designated worktree and separate role/file boundaries. No new worker/temp is required. Give the implementer:
 
 - The original request
 - The task contract
@@ -171,8 +167,7 @@ The implementer must:
 
 ### Review and test
 
-After implementation, create one fresh reviewer and one tester. Run them in
-parallel when possible.
+After implementation, freeze the exact source/config diff and route independent review/testing to existing god-designated QA/review roles in parallel when available. Do not edit their frozen target.
 
 Use `graph_reviewer` for review. Give it only the original request, task
 contract, final diff, and changed files. Do not pass implementation intent or
@@ -182,6 +177,7 @@ self-assessment. The reviewer is read-only and must return:
 판정: 통과 | 수정필요
 
 ## 지적
+
 1. [severity] `file:line` — 문제 — 근거 — 필요한 확인 또는 수정
 ```
 
@@ -195,8 +191,7 @@ Reviewer rules:
 - Return `통과` without inventing findings when no issue exists.
 
 Use `graph_tester` for verification. It must read `AGENTS.md` and
-`package.json`, start with the smallest relevant test, and then run applicable
-lint, typecheck, test, and production build commands. It may create build caches
+`package.json`, start with the smallest relevant check, and run applicable lint, typecheck, test and build. Document/role/skill changes use scoped format, TOML/Skill validation and do not require unrelated DB/browser regression. It may create build caches
 and test artifacts but must not edit source or configuration, and must not run
 auto-fix commands. Require this output:
 
@@ -204,12 +199,15 @@ auto-fix commands. Require this output:
 판정: 통과 | 실패 | 실행불가
 
 ## Commands
+
 - `<command>` — exit code N
 
 ## Failures
+
 - failure — related file or concise output
 
 ## Not run
+
 - command — reason
 ```
 
@@ -224,7 +222,7 @@ agent only:
 - Allowed correction scope
 
 Correct the reported scope before considering broader work. Do not start a new
-large refactor. Run a new review and test pass after each correction. Allow at
+large refactor. Re-review and rerun checks affected by the correction, preserving unaffected valid evidence. Allow at
 most two correction loops.
 
 After two failed loops, stop and report:
@@ -244,16 +242,18 @@ Run these stages:
 2. Run explorers in parallel.
 3. Merge evidence notes.
 4. Have a separate writer or the main agent draft the result.
-5. Have a fresh reviewer inspect it independently.
+5. Have an existing independent reviewer inspect the frozen target.
 6. Correct no more than twice.
 
 Require each research explorer to return:
 
 ```markdown
 ## Facts
+
 - fact — source
 
 ## Unverified
+
 - unverified claim — reason
 ```
 
@@ -273,7 +273,7 @@ Writer rules:
 - Put missing information under `확인 필요`.
 - Return only the requested deliverable body.
 
-The fresh reviewer must not praise or directly rewrite the result. It may report
+The independent reviewer must not praise or directly rewrite the result. It may report
 at most five findings and must check only:
 
 1. Claims unsupported by evidence
@@ -284,7 +284,8 @@ at most five findings and must check only:
 ## Delegation limits and fallback
 
 - Maximum explorers: 3
-- Concurrent source-editing agents: 1
+- Writers: 1 per assigned worktree; common Git metadata operator: 1
+- Concurrent contributors: at most3 plus god; no new employees/temps
 - Reviewers: 1
 - Testers: 1
 - Correction loops: 2
@@ -297,8 +298,7 @@ If subagents are unavailable, state:
 
 > Subagent 기능을 사용할 수 없어 단일 Agent 흐름으로 전환했습니다.
 
-Continue as one agent using the same task contract and review criteria. Do not
-claim parallel execution.
+The assigned matching role may finish its own scope using the same task contract and review criteria. The lead routes unassigned FE/BE work instead of switching roles. Record independent review as unexecuted when unavailable; do not claim parallel execution.
 
 ## Final output
 
@@ -334,9 +334,18 @@ For a research/document workflow, use:
 [결과물]
 
 ---
+
 조사 각도: ...
 Explorer: N개
 검사: 통과 또는 수정필요
 수정 루프: N회
 확인 필요: 없음 또는 남은 항목
 ```
+
+## Approved office and Git coordination
+
+Reuse the existing seven office roles under god's task/cwd/branch/file dispatch. Do not create employees, temps or nested workers. Role configuration is guidance, not proof of native loading or an always-running chat.
+
+Follow [the canonical Git workflow](../../../team/git-workflow.md) for main/FE/BE/task/release targets, common source mapping, admission freeze, G1–G4 exact-head god/independent QA/relevant design/current actual-success CI, version/hotfix/rollback and staged migration. Same-account QA is not native independent approval. WIP commits/Draft PRs may precede final gates; god alone integrates.
+
+Munder owns start/handoff/block/verification/completion and evidence; its existing god-operated Notion mirror is separate. Only the authorized mirror operator writes Notion. Preserve original dirty/index/phase11/5173 and Node22.23.0/pnpm10.2.1; new costs/permissions/credentials/deployment/DB operations require their actual task authority.
