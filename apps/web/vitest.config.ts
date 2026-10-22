@@ -16,12 +16,24 @@ export default mergeConfig(
       environment: 'jsdom',
       exclude: [
         ...configDefaults.exclude,
-        'scripts/phase10-production-bundle-*.test.mjs'
+        'scripts/phase10-production-bundle-*.test.mjs',
+        'e2e/**/*.spec.ts',
+        'scripts/phase10-runner-cleanup.test.ts'
       ],
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
       css: true,
-      restoreMocks: true
+      restoreMocks: true,
+      projects: [
+        { extends: true, test: { name: 'web' } },
+        {
+          test: {
+            name: 'phase10-runner',
+            environment: 'node',
+            include: ['scripts/phase10-runner-cleanup.test.ts']
+          }
+        }
+      ]
     }
   })
 )
