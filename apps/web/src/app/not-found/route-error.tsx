@@ -1,27 +1,26 @@
-import { Link, useRouteError } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message
-  }
-  return '예상하지 못한 오류가 발생했습니다.'
-}
-
+// This fallback must render even when the authenticated app shell fails.
 export const RouteErrorPage = (): ReactElement => {
-  const error = useRouteError()
-
+  const { t } = useTranslation('errors')
+  const { t: commonT } = useTranslation('common')
   return (
-    <section className="mx-auto max-w-2xl px-4 py-20 text-center" role="alert">
-      <p className="mb-3 text-sm font-bold text-red-700">페이지 오류</p>
-      <h1 className="text-3xl font-black">화면을 불러오지 못했습니다</h1>
-      <p className="mt-4 text-muted">{getErrorMessage(error)}</p>
-      <Link
-        className="mt-8 inline-flex min-h-11 items-center rounded-lg bg-brand px-5 font-bold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        to="/"
-      >
-        홈으로 이동
-      </Link>
-    </section>
+    <main
+      id="main-content"
+      className="auth-page auth-route-fallback"
+      role="alert"
+      tabIndex={-1}
+    >
+      <div className="auth-panel auth-system-panel">
+        <h1>{t('route.title')}</h1>
+        <p className="auth-result-description">{t('route.fallback')}</p>
+        <div className="auth-actions">
+          <a className="auth-fallback-action" href="/practice">
+            {commonT('actions.goPractice')}
+          </a>
+        </div>
+      </div>
+    </main>
   )
 }

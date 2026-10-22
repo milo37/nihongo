@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "src",
+    "prisma/**/*.ts",
+    "prisma.config.ts",
+    "prisma.dev.config.ts",
+    "prisma.test.config.ts",
+    "vitest*.ts"
+  ]
+}
