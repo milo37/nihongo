@@ -1,134 +1,215 @@
-import type { ReactElement } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
+import type { MouseEvent, ReactElement } from 'react'
 import { classNames } from '@common/components/classNames'
-
-type PaginationItem = number | 'start-ellipsis' | 'end-ellipsis'
+import { Icon } from '@common/components/Icon'
+import type { IconName } from '@common/components/Icon'
+import { formatNumber } from '@libs/localeFormatters'
+import { resolveUiLocale } from '@/i18n/types'
 
 type PaginationProps = {
   currentPage: number
   totalPages: number
+  requestedPage?: number
   onPageChange: (page: number) => void
   label?: string
   disabled?: boolean
   className?: string
+  getPageHref?: (page: number) => string
 }
 
-const createPaginationItems = (
-  currentPage: number,
-  totalPages: number
-): PaginationItem[] => {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const items: PaginationItem[] = [1]
-  const rangeStart = Math.max(2, currentPage - 1)
-  const rangeEnd = Math.min(totalPages - 1, currentPage + 1)
-
-  if (rangeStart > 2) {
-    items.push('start-ellipsis')
-  }
-
-  for (let page = rangeStart; page <= rangeEnd; page += 1) {
-    items.push(page)
-  }
-
-  if (rangeEnd < totalPages - 1) {
-    items.push('end-ellipsis')
-  }
-
-  items.push(totalPages)
-  return items
+const mobileQuery = '(max-width: 760px)'
+const subscribeToViewport = (onChange: () => void): (() => void) => {
+  if (typeof window.matchMedia !== 'function') return () => undefined
+  const query = window.matchMedia(mobileQuery)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
 }
+const readMobileViewport = (): boolean =>
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia(mobileQuery).matches
 
 export const Pagination = ({
   className,
   currentPage,
   disabled = false,
-  label = '페이지 이동',
+  getPageHref,
+  label,
   onPageChange,
+  requestedPage,
   totalPages
 }: PaginationProps): ReactElement | null => {
-  const normalizedTotalPages =
-    Number.isFinite(totalPages) && totalPages > 0 ? Math.floor(totalPages) : 0
-
-  if (normalizedTotalPages <= 1) {
-    return null
-  }
-
-  const normalizedCurrentPage = Number.isFinite(currentPage)
-    ? Math.floor(currentPage)
-    : 1
-  const safeCurrentPage = Math.min(
-    Math.max(normalizedCurrentPage, 1),
-    normalizedTotalPages
+  const { i18n, t } = useTranslation('common')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const isMobile = useSyncExternalStore(
+    subscribeToViewport,
+    readMobileViewport,
+    () => false
   )
-  const items = createPaginationItems(safeCurrentPage, normalizedTotalPages)
-  const pageButtonClassName =
-    'inline-grid size-11 place-items-center rounded-lg border border-line bg-white text-sm font-semibold text-ink touch-manipulation hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50'
+  const navRef = useRef<HTMLElement>(null)
+  const pendingPage = useRef<number | null>(null)
+  const normalizedTotal =
+    Number.isFinite(totalPages) && totalPages > 0 ? Math.floor(totalPages) : 0
+  const safePage = Math.min(
+    Math.max(Number.isFinite(currentPage) ? Math.floor(currentPage) : 1, 1),
+    Math.max(1, normalizedTotal)
+  )
 
+  useEffect(() => {
+    if (requestedPage !== undefined && pendingPage.current !== requestedPage) {
+      pendingPage.current = null
+    }
+    if (pendingPage.current !== safePage || disabled) return
+    pendingPage.current = null
+    const current = navRef.current?.querySelector<HTMLElement>(
+      '[aria-current="page"]'
+    )
+    current?.focus({ preventScroll: true })
+    const rect = current?.getBoundingClientRect()
+    if (
+      rect &&
+      (rect.top < 3 ||
+        rect.bottom > window.innerHeight - 3 ||
+        rect.left < 3 ||
+        rect.right > window.innerWidth - 3)
+    ) {
+      current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    }
+  }, [disabled, requestedPage, safePage])
+
+  if (normalizedTotal === 0) return null
+  const count = Math.min(5, normalizedTotal)
+  const start = Math.max(1, Math.min(safePage - 2, normalizedTotal - count + 1))
+  const pages = Array.from({ length: count }, (_, index) => start + index)
+  const changePage = (page: number): void => {
+    if (disabled || page === safePage) return
+    pendingPage.current = page
+    onPageChange(page)
+  }
+  const renderControl = (
+    page: number,
+    content: ReactElement,
+    ariaLabel: string,
+    unavailable = false,
+    current = false
+  ): ReactElement => {
+    const locked = disabled || unavailable
+    const controlClass = classNames(
+      'pagination-control',
+      current && 'ui-pagination-current'
+    )
+    if (getPageHref) {
+      return (
+        <Link
+          className={controlClass}
+          to={getPageHref(locked ? safePage : page)}
+          aria-label={ariaLabel}
+          aria-current={current ? 'page' : undefined}
+          aria-disabled={locked || undefined}
+          tabIndex={locked ? -1 : undefined}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+            if (locked) {
+              event.preventDefault()
+              return
+            }
+            if (
+              event.button !== 0 ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return
+            event.preventDefault()
+            changePage(page)
+          }}
+        >
+          {content}
+        </Link>
+      )
+    }
+    return (
+      <button
+        className={controlClass}
+        type="button"
+        disabled={locked}
+        aria-label={ariaLabel}
+        aria-current={current ? 'page' : undefined}
+        onClick={() => changePage(page)}
+      >
+        {content}
+      </button>
+    )
+  }
+  const moveControl = (
+    page: number,
+    icon: IconName,
+    key: string,
+    unavailable: boolean
+  ): ReactElement =>
+    renderControl(
+      page,
+      <Icon name={icon} />,
+      t(`pagination.${key}`),
+      unavailable
+    )
+  const previous = (
+    <div className="pagination-previous" key="previous">
+      {moveControl(1, 'chevrons-left', 'firstLabel', safePage === 1)}
+      {moveControl(
+        safePage - 1,
+        'chevron-left',
+        'previousLabel',
+        safePage === 1
+      )}
+    </div>
+  )
+  const numbers = (
+    <ol className="pagination-numbers" key="numbers">
+      {pages.map((page) => (
+        <li key={page}>
+          {renderControl(
+            page,
+            <span className="tabular-nums">{formatNumber(page, locale)}</span>,
+            t('pagination.pageLabel', {
+              page: formatNumber(page, locale),
+              current: page === safePage ? t('pagination.currentSuffix') : ''
+            }),
+            false,
+            page === safePage
+          )}
+        </li>
+      ))}
+    </ol>
+  )
+  const following = (
+    <div className="pagination-following" key="following">
+      {moveControl(
+        safePage + 1,
+        'chevron-right',
+        'nextLabel',
+        safePage === normalizedTotal
+      )}
+      {moveControl(
+        normalizedTotal,
+        'chevrons-right',
+        'lastLabel',
+        safePage === normalizedTotal
+      )}
+    </div>
+  )
   return (
     <nav
-      className={classNames('overflow-x-auto', className)}
-      aria-label={label}
+      ref={navRef}
+      className={classNames('number-pagination', className)}
+      aria-label={label ?? t('pagination.label')}
     >
-      <ul className="flex min-w-max items-center justify-center gap-1 py-1">
-        <li>
-          <button
-            className={classNames(pageButtonClassName, 'w-auto px-3')}
-            type="button"
-            disabled={disabled || safeCurrentPage === 1}
-            aria-label="이전 페이지"
-            onClick={() => onPageChange(safeCurrentPage - 1)}
-          >
-            이전
-          </button>
-        </li>
-        {items.map((item) => {
-          if (typeof item !== 'number') {
-            return (
-              <li
-                className="grid size-11 place-items-center text-muted"
-                key={item}
-                aria-hidden="true"
-              >
-                …
-              </li>
-            )
-          }
-
-          const isCurrent = item === safeCurrentPage
-
-          return (
-            <li key={item}>
-              <button
-                className={classNames(
-                  pageButtonClassName,
-                  isCurrent &&
-                    'border-brand bg-brand text-white hover:bg-emerald-800'
-                )}
-                type="button"
-                disabled={disabled}
-                aria-current={isCurrent ? 'page' : undefined}
-                aria-label={`${item}페이지${isCurrent ? ', 현재 페이지' : ''}`}
-                onClick={() => onPageChange(item)}
-              >
-                <span className="tabular-nums">{item}</span>
-              </button>
-            </li>
-          )
-        })}
-        <li>
-          <button
-            className={classNames(pageButtonClassName, 'w-auto px-3')}
-            type="button"
-            disabled={disabled || safeCurrentPage === normalizedTotalPages}
-            aria-label="다음 페이지"
-            onClick={() => onPageChange(safeCurrentPage + 1)}
-          >
-            다음
-          </button>
-        </li>
-      </ul>
+      <div className="pagination-controls" data-mobile={isMobile || undefined}>
+        {isMobile
+          ? [numbers, previous, following]
+          : [previous, numbers, following]}
+      </div>
     </nav>
   )
 }

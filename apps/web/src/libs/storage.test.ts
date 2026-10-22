@@ -1,5 +1,5 @@
 import { act } from '@testing-library/react'
-import { demoUsers } from '@mocks/data/users'
+import { demoUsers, DEMO_USER_ID } from '@mocks/data/users'
 import {
   APP_STORE_KEY,
   cachedSessionStorage,
@@ -118,8 +118,8 @@ describe('storage adapters', () => {
 
     expect(tabAState.state?.sessionId).toBe('session-a')
     expect(tabBState.state?.sessionId).toBe('session-b')
-    expect(tabAState.state?.currentUser?.id).toBe('demo-user')
-    expect(tabBState.state?.currentUser?.id).toBe('demo-user')
+    expect(tabAState.state?.currentUser?.id).toBe(DEMO_USER_ID)
+    expect(tabBState.state?.currentUser?.id).toBe(DEMO_USER_ID)
   })
 
   it('v1 persist에서는 auth만 이전하고 tab 귀속이 없는 practice를 폐기한다', async () => {
@@ -144,7 +144,7 @@ describe('storage adapters', () => {
 
     await useAppStore.persist.rehydrate()
 
-    expect(useAppStore.getState().currentUser?.id).toBe('demo-user')
+    expect(useAppStore.getState().currentUser?.id).toBe(DEMO_USER_ID)
     expect(useAppStore.getState().sessionId).toBeNull()
     expect(useAppStore.getState().selectedAnswers).toEqual({})
   })

@@ -1,17 +1,22 @@
-const shouldEnableMocks = (): boolean =>
-  import.meta.env.DEV || import.meta.env.VITE_ENABLE_MOCKS === 'true'
+const MOCK_SERVICE_WORKER_PATH = '/mockServiceWorker.js'
 
 export const enableMocking = async (): Promise<void> => {
-  if (!shouldEnableMocks() || typeof window === 'undefined') {
+  if (typeof window === 'undefined') {
     return
   }
 
   const { worker } = await import('@mocks/browser')
 
   await worker.start({
-    onUnhandledRequest: 'bypass',
+    onUnhandledRequest: (request, print) => {
+      const pathname = new URL(request.url).pathname
+
+      if (pathname.startsWith('/api/')) {
+        print.error()
+      }
+    },
     serviceWorker: {
-      url: '/mockServiceWorker.js'
+      url: MOCK_SERVICE_WORKER_PATH
     }
   })
 }

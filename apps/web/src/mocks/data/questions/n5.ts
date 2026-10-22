@@ -19,11 +19,12 @@ export const n5Questions = [
     level: 'N5',
     subject: 'VOCABULARY',
     questionType: 'CONTEXT_VOCABULARY',
-    questionText: 'わたしは 毎朝 七時に（　）。',
+    questionText:
+      '母が「朝ですよ。ふとんから 出て ください」と 言いました。わたしは「はい、今（　）」と 答えて、ふとんから 出ました。',
     options: ['あそびます', 'おきます', 'ねます', 'あらいます'],
     correctIndex: 1,
     explanationKo:
-      '아침 7시에 하는 동작으로 자연스러운 것은 「おきます(일어납니다)」입니다.',
+      '어머니가 이불 밖으로 나오라고 하자, 화자가 응답하고 이불 밖으로 나왔습니다. 이 요청에 맞는 응답은 「今 おきます(지금 일어날게요)」입니다. 「あそびます」는 놀다, 「ねます」는 자다, 「あらいます」는 씻다라는 뜻으로, 이불에서 일어나라는 요청에 답하는 동작과 다릅니다.',
     difficulty: 'EASY',
     tags: ['일상', '동사']
   }),
@@ -102,11 +103,12 @@ export const n5Questions = [
     level: 'N5',
     subject: 'GRAMMAR',
     questionType: 'GRAMMAR_SELECT',
-    questionText: 'いっしょに 映画を 見（　）か。',
-    options: ['ない', 'ませんでした', 'なく', 'ません'],
+    questionText:
+      'A「明日、いっしょに 映画を 見（　）か。」\nB「いいですね。いっしょに 行きましょう。」',
+    options: ['ました', 'ませんでした', 'なく', 'ません'],
     correctIndex: 3,
     explanationKo:
-      '상대에게 함께 하자고 권할 때 동사의 ます형 어간에 「ませんか」를 붙입니다.',
+      '내일 함께 영화를 보자는 권유에 B가 좋다며 함께 가자고 응답합니다. 따라서 「見ませんか」가 알맞습니다. 「見ましたか」와 「見ませんでしたか」는 과거에 보았는지 또는 보지 않았는지를 묻는 표현으로, 내일의 초대와 맞지 않습니다. 「見なくか」는 이 문장에서 올바른 의문문 형태가 아닙니다.',
     difficulty: 'EASY',
     tags: ['권유', '동사 활용']
   }),
@@ -127,19 +129,15 @@ export const n5Questions = [
     id: 'n5-grammar-05',
     level: 'N5',
     subject: 'GRAMMAR',
-    questionType: 'SENTENCE_ORDER',
-    questionText: '「저는 일본어를 조금 할 수 있습니다」와 같은 뜻인 문장은?',
-    options: [
-      '日本語は わたしを 少し します。',
-      'わたしは 日本語が 少し できます。',
-      'わたしが 日本語を 少し あります。',
-      'わたしは 少し 日本語に います。'
-    ],
+    questionType: 'GRAMMAR_SELECT',
+    questionText:
+      'A「英語が できますか。」\nB「いいえ、英語は できません。でも、日本語（　）少し できます。」',
+    options: ['を', 'が', 'に', 'で'],
     correctIndex: 1,
     explanationKo:
-      '능력을 나타내는 「できます」는 가능한 대상을 보통 조사 「が」로 받습니다.',
+      'A는 영어를 할 수 있는지 언어 능력을 묻고 있습니다. B는 영어는 못하지만 일본어는 조금 할 수 있다고 답하므로, 가능한 언어의 대상인 「日本語」에 「が」를 붙입니다. 정답은 「日本語が 少し できます」입니다. 「で」는 어떤 일을 일본어로 한다는 수단, 「に」는 무언가를 일본어로 바꾸는 결과를 나타낼 수 있지만 이 대화에는 그런 과제가 없습니다. 두 조사가 다른 문맥에서도 틀린 것은 아닙니다.',
     difficulty: 'NORMAL',
-    tags: ['가능 표현', '어순']
+    tags: ['가능 표현', '조사']
   }),
   createOriginalQuestion({
     id: 'n5-reading-01',

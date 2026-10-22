@@ -6,6 +6,8 @@ interface PracticeKeyboardOptions {
   onSelectOption: (optionId: string) => void
   onPrevious: () => void
   onNext: () => void
+  onSubmit: () => void
+  submitEnabled?: boolean
 }
 
 export const usePracticeKeyboard = ({
@@ -13,7 +15,9 @@ export const usePracticeKeyboard = ({
   optionIds,
   onNext,
   onPrevious,
-  onSelectOption
+  onSelectOption,
+  onSubmit,
+  submitEnabled = false
 }: PracticeKeyboardOptions): void => {
   useKeyboardShortcuts(
     [
@@ -28,7 +32,21 @@ export const usePracticeKeyboard = ({
       {
         key: 'ArrowRight',
         onTrigger: onNext
-      }
+      },
+      ...(submitEnabled
+        ? [
+            {
+              ctrlKey: true,
+              key: 'Enter',
+              onTrigger: onSubmit
+            },
+            {
+              key: 'Enter',
+              metaKey: true,
+              onTrigger: onSubmit
+            }
+          ]
+        : [])
     ],
     { enabled }
   )

@@ -1,3 +1,8 @@
+import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { authQueries } from '@app/login/queries/authQueries'
+import { commitCanonicalAuth } from '@app/login/authSession'
+import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
@@ -8,7 +13,10 @@ import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
 import { studyQueries } from '@app/practice/queries/studyQueries'
-import { useReviewWrongNote } from '@app/wrong-note/hooks/useReviewWrongNote'
+import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
+import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
+import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { useAppStore } from '@store/index'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
@@ -73,22 +81,31 @@ const toUpdateInput = (
 
 describe('mutation cache contracts', () => {
   it('학습 제출 성공 후 결과를 저장하고 관련 캐시 무효화를 기다린다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    mockDatabase.loginAs('USER')
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
     const sessionId = sessionPayload.session.id
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
-    )
-    const selectedOptionId = question.options[0].id
+    const question = sessionView.questions[0]
+
+    if (!question) {
+      throw new Error('테스트 세션에 문제가 없습니다.')
+    }
+
+    const selectedOptionId = question.options[0]?.id ?? null
     const client = createTestClient()
 
-    seedCache(client, studyQueries.session(sessionId).queryKey)
+    client.setQueryData(
+      studySessionQueries.session(sessionId).queryKey,
+      sessionView
+    )
     seedCache(client, [...wrongNoteQueries.allKey(), 'seed'])
-    seedCache(client, [...dashboardQueries.allKey(), 'seed'])
+    seedCache(client, dashboardQueries.stats().queryKey)
+    seedCache(client, dashboardQueries.insights().queryKey)
 
     const { result } = renderHook(() => useSubmitStudySession(sessionId), {
       wrapper: createWrapper(client)
@@ -110,23 +127,33 @@ describe('mutation cache contracts', () => {
     expect(
       client.getQueryData(studyQueries.result(sessionId).queryKey)
     ).toMatchObject({ sessionId })
-    expectInvalidated(client, studyQueries.session(sessionId).queryKey)
+    expectInvalidated(client, studySessionQueries.session(sessionId).queryKey)
     expectInvalidated(client, [...wrongNoteQueries.allKey(), 'seed'])
-    expectInvalidated(client, [...dashboardQueries.allKey(), 'seed'])
+    expectInvalidated(client, dashboardQueries.stats().queryKey)
+    expectInvalidated(client, dashboardQueries.insights().queryKey)
   })
 
   it('mutateAsync는 병렬 cache invalidation이 모두 끝날 때까지 pending을 유지한다', async () => {
-    const sessionPayload = mockDatabase.createStudySession({
+    mockDatabase.loginAs('USER')
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
+    const sessionView = toCanonicalStudySessionView(sessionPayload)
     const sessionId = sessionPayload.session.id
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
-    )
+    const question = sessionView.questions[0]
+
+    if (!question) {
+      throw new Error('테스트 세션에 문제가 없습니다.')
+    }
+
     const client = createTestClient()
+    client.setQueryData(
+      studySessionQueries.session(sessionId).queryKey,
+      sessionView
+    )
     const originalInvalidateQueries = client.invalidateQueries.bind(client)
     let releaseInvalidations: (() => void) | undefined
     const invalidationGate = new Promise<void>((resolve) => {
@@ -148,7 +175,7 @@ describe('mutation cache contracts', () => {
         answers: [
           {
             questionId: question.id,
-            selectedOptionId: question.options[0].id,
+            selectedOptionId: question.options[0]?.id ?? null,
             elapsedSec: 3
           }
         ],
@@ -168,13 +195,15 @@ describe('mutation cache contracts', () => {
 
   it('학습 제출 실패 시 기존 캐시를 무효화하지 않는다', async () => {
     const client = createTestClient()
-    const sessionKey = studyQueries.session('missing-session').queryKey
+    const sessionKey = studySessionQueries.session('missing-session').queryKey
     const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
+    const dashboardStatsKey = dashboardQueries.stats().queryKey
+    const dashboardInsightsKey = dashboardQueries.insights().queryKey
 
     seedCache(client, sessionKey)
     seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
+    seedCache(client, dashboardStatsKey)
+    seedCache(client, dashboardInsightsKey)
 
     const { result } = renderHook(
       () => useSubmitStudySession('missing-session'),
@@ -192,7 +221,10 @@ describe('mutation cache contracts', () => {
 
     expect(client.getQueryState(sessionKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
+    expect(client.getQueryState(dashboardStatsKey)?.isInvalidated).toBe(false)
+    expect(client.getQueryState(dashboardInsightsKey)?.isInvalidated).toBe(
+      false
+    )
     expect(
       client.getQueryData(studyQueries.result('missing-session').queryKey)
     ).toBeUndefined()
@@ -200,45 +232,54 @@ describe('mutation cache contracts', () => {
 
   it('오답 복습 성공 후 오답과 대시보드 캐시를 함께 무효화한다', async () => {
     mockDatabase.loginAs('USER')
-    const sessionPayload = mockDatabase.createStudySession({
+    const sessionPayload = await createStudySessionV1({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       count: 1
     })
-    const question = mockDatabase.getAdminQuestion(
-      sessionPayload.questions[0].id
-    )
-    const incorrectOption = question.options.find((option) => !option.isCorrect)
-
-    if (!incorrectOption) {
-      throw new Error('테스트 문제에 오답 보기가 없습니다.')
+    const question = toCanonicalStudySessionView(sessionPayload).questions[0]
+    if (!question || !question.sessionQuestionId) {
+      throw new Error('A canonical session-question fixture is required.')
     }
-
-    mockDatabase.submitStudySession({
-      sessionId: sessionPayload.session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: incorrectOption.id,
-          elapsedSec: 2
-        }
-      ],
-      durationSec: 2
-    })
+    await submitStudySessionV1(
+      sessionPayload.session.id,
+      {
+        answers: [
+          {
+            studySessionQuestionId: question.sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 2
+          }
+        ],
+        durationSec: 2
+      },
+      crypto.randomUUID()
+    )
 
     const client = createTestClient()
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
+    const currentUser = await client.fetchQuery(authQueries.currentUser())
+    expect(currentUser?.role).toBe('USER')
+    await commitCanonicalAuth(client, currentUser)
+    const wrongKey = wrongNoteQueries.detail(question.id).queryKey
     const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
     seedCache(client, wrongKey)
     seedCache(client, dashboardKey)
 
-    const { result } = renderHook(() => useReviewWrongNote(question.id), {
+    const { result } = renderHook(() => useCreateTargetedReviewSession(), {
       wrapper: createWrapper(client)
     })
 
     await act(async () => {
-      await result.current.mutateAsync({ isCorrect: true })
+      const created = await result.current.mutateAsync({
+        questionId: question.id,
+        principalScope: getStudyDraftPrincipalScope(
+          useAppStore.getState().currentUser
+        )
+      })
+      expect(created.session.questions.map(({ id }) => id)).toEqual([
+        question.id
+      ])
     })
 
     expectInvalidated(client, wrongKey)
@@ -248,19 +289,28 @@ describe('mutation cache contracts', () => {
   it('오답 복습 실패 시 성공용 캐시 무효화를 실행하지 않는다', async () => {
     mockDatabase.loginAs('USER')
     const client = createTestClient()
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
+    const currentUser = await client.fetchQuery(authQueries.currentUser())
+    expect(currentUser?.role).toBe('USER')
+    await commitCanonicalAuth(client, currentUser)
+    const wrongKey = wrongNoteQueries.detail(
+      '00000000-0000-4000-8000-ffffffffffff'
+    ).queryKey
     const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
     seedCache(client, wrongKey)
     seedCache(client, dashboardKey)
 
-    const { result } = renderHook(
-      () => useReviewWrongNote('missing-question'),
-      { wrapper: createWrapper(client) }
-    )
+    const { result } = renderHook(() => useCreateTargetedReviewSession(), {
+      wrapper: createWrapper(client)
+    })
 
     await expect(
       act(async () => {
-        await result.current.mutateAsync({ isCorrect: true })
+        await result.current.mutateAsync({
+          questionId: '00000000-0000-4000-8000-ffffffffffff',
+          principalScope: getStudyDraftPrincipalScope(
+            useAppStore.getState().currentUser
+          )
+        })
       })
     ).rejects.toBeDefined()
     expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
