@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { reauthenticateAdminResponseSchema } from '@nihongo/contracts/admin/phase7'
-import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
+import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
@@ -21,10 +20,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
-import {
-  buildAllQuestionSeeds,
-  type SeedQuestionCatalogResult
-} from '../../prisma/seedQuestionCatalog.js'
+import type { SeedQuestionCatalogResult } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
@@ -39,6 +35,7 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createRoleDatabaseRuntime } from './database.js'
+import { buildPhase6CanonicalSeeds } from './fixtures/phase6CanonicalSeeds.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createJsonLogger } from '../observability/logger.js'
@@ -68,10 +65,6 @@ const repositoryMigrationNames = readdirSync(sourceMigrationsDirectory, {
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .toSorted()
-const phase6MigrationNames = repositoryMigrationNames.filter(
-  (name) =>
-    !PHASE7_MIGRATIONS.includes(name as (typeof PHASE7_MIGRATIONS)[number])
-)
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -265,7 +258,7 @@ const exerciseUpgradedDashboardInsights = async (
   }
 }
 
-const exerciseUpgradedRealReauthentication = async (
+const exerciseUpgradedRetiredPasswordBoundary = async (
   context: IsolatedUpgradeSchema,
   migrationClient: Client
 ): Promise<void> => {
@@ -353,27 +346,21 @@ const exerciseUpgradedRealReauthentication = async (
       throw new Error('Upgrade DB old Session cookie is unavailable.')
     }
 
-    let finalizeResponseLost = false
-    const recoveryQuery = async <QueryResult>(
+    let finalizerCallCount = 0
+    const observedQuery = async <QueryResult>(
       query: string,
       ...values: unknown[]
     ): Promise<QueryResult> => {
-      const result =
-        await authGatewayRuntime.client.$queryRawUnsafe<QueryResult>(
-          query,
-          ...values
-        )
-      if (
-        !finalizeResponseLost &&
-        query.includes('phase7_finalize_reauthentication')
-      ) {
-        finalizeResponseLost = true
-        throw new Error('injected committed finalizer response loss')
+      if (query.includes('phase7_finalize_reauthentication')) {
+        finalizerCallCount += 1
       }
-      return result
+      return await authGatewayRuntime.client.$queryRawUnsafe<QueryResult>(
+        query,
+        ...values
+      )
     }
-    const recoveryClient = {
-      $queryRawUnsafe: recoveryQuery
+    const observedClient = {
+      $queryRawUnsafe: observedQuery
     } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>
     const reauthenticationContext = createPhase7ReauthenticationContext()
     const realAuthApi = createPhase7ReauthenticationAuthApi({
@@ -381,19 +368,10 @@ const exerciseUpgradedRealReauthentication = async (
       context: reauthenticationContext,
       environment
     })
-    let betterAuthCookies: readonly string[] = []
     const service = createAdminReauthenticationService({
       auditEnvironment: 'TEST',
-      authApi: {
-        verifyPassword: async (input) =>
-          await realAuthApi.verifyPassword(input),
-        signInEmail: async (input) => {
-          const result = await realAuthApi.signInEmail(input)
-          betterAuthCookies = result.headers.getSetCookie()
-          return result
-        }
-      },
-      client: recoveryClient,
+      authApi: realAuthApi,
+      client: observedClient,
       context: reauthenticationContext
     })
     const principalService = createPhase7PrincipalService({
@@ -450,6 +428,27 @@ const exerciseUpgradedRealReauthentication = async (
       questionReader
     })
 
+    const readAuthWriteDigest = async () =>
+      (
+        await context.adminClient.query<{ digest: string }>(
+          `SELECT encode(public.digest(convert_to(jsonb_build_object(
+          'Session', (SELECT COALESCE(jsonb_agg(to_jsonb(row)
+            ORDER BY to_jsonb(row)::text), '[]'::jsonb) FROM "Session" AS row),
+          'Phase7ReauthenticationIntent', (SELECT COALESCE(jsonb_agg(to_jsonb(row)
+            ORDER BY to_jsonb(row)::text), '[]'::jsonb) FROM "Phase7ReauthenticationIntent" AS row),
+          'AdminAuditLog', (SELECT COALESCE(jsonb_agg(to_jsonb(row)
+            ORDER BY to_jsonb(row)::text), '[]'::jsonb) FROM "AdminAuditLog" AS row),
+          'AuthSessionRotationFence', (SELECT COALESCE(jsonb_agg(to_jsonb(row)
+            ORDER BY to_jsonb(row)::text), '[]'::jsonb) FROM "AuthSessionRotationFence" AS row),
+          'RateLimit', (SELECT COALESCE(jsonb_agg(to_jsonb(row)
+            ORDER BY to_jsonb(row)::text), '[]'::jsonb) FROM "RateLimit" AS row),
+          'Phase7TrustedExecution', (SELECT COALESCE(jsonb_agg(to_jsonb(row)
+            ORDER BY to_jsonb(row)::text), '[]'::jsonb) FROM "Phase7TrustedExecution" AS row)
+          )::text, 'UTF8'), 'sha256'), 'hex') AS digest`
+        )
+      ).rows
+    const beforeAuthWrites = await readAuthWriteDigest()
+
     const response = await app.request(
       'http://localhost:3001/api/v1/admin/reauthentication',
       {
@@ -465,54 +464,38 @@ const exerciseUpgradedRealReauthentication = async (
         body: JSON.stringify({ password })
       }
     )
-    expect(response.status).toBe(200)
-    expect(finalizeResponseLost).toBe(true)
-    const output = reauthenticateAdminResponseSchema.parse(
-      await response.json()
-    )
-    expect(new Date(output.assuranceExpiresAt).getTime()).toBe(
-      new Date(output.reauthenticatedAt).getTime() + 5 * 60_000
-    )
-    const responseCookies = response.headers.getSetCookie()
-    expect(responseCookies).toEqual(betterAuthCookies)
-    expect(responseCookies).toHaveLength(2)
-
-    const newCookieHeader = responseCookies
-      .map((cookie) => cookie.split(';')[0])
-      .filter((cookie): cookie is string => cookie !== undefined)
-      .join('; ')
-    const oldPrincipal = await app.request('http://localhost:3001/api/v1/me', {
-      headers: { Cookie: oldCookieHeader }
+    expect(response.status).toBe(404)
+    expect(apiFailureSchema.parse(await response.json())).toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+      requestId,
+      retryable: false
     })
-    const newPrincipal = await app.request('http://localhost:3001/api/v1/me', {
-      headers: { Cookie: newCookieHeader }
-    })
-    expect(
-      getCurrentPrincipalResponseSchema.parse(await oldPrincipal.json())
-    ).toEqual({ kind: 'GUEST' })
-    expect(
-      getCurrentPrincipalResponseSchema.parse(await newPrincipal.json())
-    ).toMatchObject({ kind: 'USER', user: { id: userId, role: 'ADMIN' } })
+    expect(response.headers.get('X-Request-Id')).toBe(requestId)
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(response.headers.getSetCookie()).toHaveLength(0)
+    expect(finalizerCallCount).toBe(0)
+    expect(await readAuthWriteDigest()).toEqual(beforeAuthWrites)
 
     const proof = await context.adminClient.query<{
       auditCount: number
       fenceCount: number
-      intentState: string
-      oldSessionCount: number
+      intentCount: number
+      oldActiveCount: number
       replacementCount: number
       trustedExecutionCount: number
     }>(
       `SELECT
-         (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
-           AS "oldSessionCount",
+         (SELECT COUNT(*)::int FROM "Session"
+          WHERE "id" = $1 AND "authorizationState" = 'ACTIVE')
+           AS "oldActiveCount",
          (SELECT COUNT(*)::int
           FROM "Phase7ReauthenticationIntent" AS intent
           JOIN "Session" AS session ON session."id" = intent."stagedSessionId"
           WHERE intent."requestId" = $2
             AND session."authorizationState" = 'ACTIVE')
            AS "replacementCount",
-         (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
-          WHERE "requestId" = $2) AS "intentState",
+         (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
+          WHERE "requestId" = $2) AS "intentCount",
          (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
           JOIN "Phase7ReauthenticationIntent" AS intent
             ON intent."operationId" = fence."operationId"
@@ -526,11 +509,11 @@ const exerciseUpgradedRealReauthentication = async (
     )
     expect(proof.rows).toEqual([
       {
-        auditCount: 1,
-        fenceCount: 1,
-        intentState: 'FINALIZED',
-        oldSessionCount: 0,
-        replacementCount: 1,
+        auditCount: 0,
+        fenceCount: 0,
+        intentCount: 0,
+        oldActiveCount: 1,
+        replacementCount: 0,
         trustedExecutionCount: 0
       }
     ])
@@ -2015,7 +1998,7 @@ const insertPhase6Question = async (
 const seedPhase6Catalog = async (
   client: Client
 ): Promise<SeedQuestionCatalogResult> => {
-  const seeds = buildAllQuestionSeeds()
+  const seeds = buildPhase6CanonicalSeeds()
   const tags = new Map(
     seeds.flatMap(({ tags: questionTags }) =>
       questionTags.map((tag) => [tag.id, tag] as const)
@@ -2149,8 +2132,61 @@ const readPhase6SemanticDigest = async (client: Client): Promise<string> => {
   return digest
 }
 
+const bootstrapFreshCanonicalCatalog = async (
+  context: IsolatedUpgradeSchema
+): Promise<void> => {
+  const runtimeDatabaseUrl = new URL(environment.DATABASE_URL)
+  runtimeDatabaseUrl.searchParams.set('schema', context.schemaName)
+  const seeded = await execFileAsync(
+    process.execPath,
+    ['--import', 'tsx', join(apiRoot, 'prisma', 'seed.ts')],
+    {
+      cwd: apiRoot,
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        ADMIN_CMS_MODE: 'technical',
+        SEED_TARGET: 'test',
+        DATABASE_URL: runtimeDatabaseUrl.toString(),
+        PHASE7_MIGRATION_DATABASE_URL: context.databaseUrl,
+        PRISMA_TEST_DATABASE_URL: context.databaseUrl
+      },
+      timeout: 60_000
+    }
+  )
+  expect(seeded.stdout).toContain(
+    'Question catalog seed completed: 65 inserted, 0 verified.'
+  )
+  const counts = await context.adminClient.query<{
+    questionCount: number
+    versionCount: number
+    optionCount: number
+    tagCount: number
+    versionTagCount: number
+    applicabilityCount: number
+  }>(
+    `SELECT
+      (SELECT COUNT(*)::int FROM ${context.quotedSchemaName}."Question") AS "questionCount",
+      (SELECT COUNT(*)::int FROM ${context.quotedSchemaName}."QuestionVersion") AS "versionCount",
+      (SELECT COUNT(*)::int FROM ${context.quotedSchemaName}."QuestionOption") AS "optionCount",
+      (SELECT COUNT(*)::int FROM ${context.quotedSchemaName}."Tag") AS "tagCount",
+      (SELECT COUNT(*)::int FROM ${context.quotedSchemaName}."QuestionVersionTag") AS "versionTagCount",
+      (SELECT COUNT(*)::int FROM ${context.quotedSchemaName}."TagApplicability") AS "applicabilityCount"`
+  )
+  expect(counts.rows).toEqual([
+    {
+      questionCount: 65,
+      versionCount: 65,
+      optionCount: 260,
+      tagCount: 107,
+      versionTagCount: 130,
+      applicabilityCount: 126
+    }
+  ])
+}
+
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 fresh 31개를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current46를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     try {
       // The preceding activation coverage intentionally removes the legacy
@@ -2161,12 +2197,50 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)}
          TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
       )
-      for (const migrationName of repositoryMigrationNames) {
+      const lastBootstrapMigration =
+        '20261009092000_phase7_n4_n2_revision2_digest_fix'
+      const prefix = repositoryMigrationNames.filter(
+        (name) => name <= lastBootstrapMigration
+      )
+      expect(repositoryMigrationNames).toHaveLength(46)
+      expect(prefix).toHaveLength(37)
+      expect(prefix.at(-1)).toBe(lastBootstrapMigration)
+      for (const migrationName of prefix) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      const prefixLedger = await readLedger(context)
+      expect(prefixLedger).toHaveLength(37)
+      expect(() =>
+        assertMigrationCompatibility(
+          loadExpectedMigrationManifest(sourceMigrationsDirectory).slice(0, 37),
+          prefixLedger
+        )
+      ).not.toThrow()
+      await bootstrapFreshCanonicalCatalog(context)
+      const remainder = repositoryMigrationNames.slice(37)
+      expect(remainder).toHaveLength(9)
+      expect(remainder[0]).toBe(
+        '20261009120000_phase7_approved_n4_reading_batch7_tags'
+      )
+      for (const migrationName of remainder) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(31)
+      expect(ledger).toHaveLength(46)
+      expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
+        repositoryMigrationNames
+      )
+      expect(
+        ledger.slice(-5).map(({ migrationName }) => migrationName)
+      ).toEqual([
+        '20261019100000_sso_identity_mapping',
+        '20261019103000_sso_admin_fresh',
+        '20261019110000_sso_admin_fresh_erasure_ownership',
+        '20261019113000_sso_admin_fresh_column_qualification',
+        '20261020230000_sso_account_lifecycle'
+      ])
       expect(
         ledger.every(
           ({ finishedAt, logs, rolledBackAt }) =>
@@ -2175,7 +2249,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toBe(true)
       expect(
         ledger
-          .slice(-4)
+          .slice(-5)
           .every(
             ({ finishedAt, rolledBackAt }) =>
               finishedAt !== null && rolledBackAt === null
@@ -2187,7 +2261,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 31)
+      await verifyCanonicalMigrationLedgerAccess(context, 46)
       expect(
         (
           await context.adminClient.query<{
@@ -2243,9 +2317,47 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       | Array<{ currentRole: string; pid: number; sessionUser: string }>
       | undefined
     try {
-      expect(repositoryMigrationNames).toHaveLength(31)
+      const historicalManifest = loadExpectedMigrationManifest(
+        sourceMigrationsDirectory
+      ).filter(
+        ({ name }) =>
+          name <= '20260916120000_phase7_reauthentication_foundation'
+      )
+      const phase6Manifest = selectExpectedMigrationManifest(
+        historicalManifest,
+        'pre-phase7'
+      )
+      const historicalMigrationNames = historicalManifest.map(
+        ({ name }) => name
+      )
+      const phase6MigrationNames = phase6Manifest.map(({ name }) => name)
+      expect(historicalMigrationNames).toHaveLength(31)
       expect(phase6MigrationNames).toHaveLength(27)
-      expect(repositoryMigrationNames.slice(-4)).toEqual(PHASE7_MIGRATIONS)
+      expect(historicalMigrationNames.at(-1)).toBe(
+        '20260916120000_phase7_reauthentication_foundation'
+      )
+      expect(phase6MigrationNames.at(-1)).toBe(
+        '20260821152000_phase5_review_center_foundation'
+      )
+      expect(historicalMigrationNames.slice(27)).toEqual(PHASE7_MIGRATIONS)
+      expect(
+        createHash('sha256')
+          .update(
+            historicalManifest
+              .map(({ name, checksum }) => `${name}|${checksum}`)
+              .join('\n')
+          )
+          .digest('hex')
+      ).toBe('bfc8de4352d180aec62e200f8b270b14e559484afb940d22615a4978ae47f487')
+      expect(
+        createHash('sha256')
+          .update(
+            phase6Manifest
+              .map(({ name, checksum }) => `${name}|${checksum}`)
+              .join('\n')
+          )
+          .digest('hex')
+      ).toBe('a73db05d6895a4381c6a7ffb2752ea830eace3c9da43f76ed1fd3ce23d6f11ac')
 
       for (const migrationName of phase6MigrationNames) {
         copyMigration(migrationName, context.migrationsPath)
@@ -3052,7 +3164,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           .catch(() => undefined)
       }
 
-      const firstTag = buildAllQuestionSeeds()[0]?.tags[0]
+      const firstTag = buildPhase6CanonicalSeeds()[0]?.tags[0]
       if (!firstTag) {
         throw new Error('Phase 7 upgrade drift fixture is unavailable.')
       }
@@ -3292,10 +3404,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           )
       ).toBe(true)
       expect(() =>
-        assertMigrationCompatibility(
-          loadExpectedMigrationManifest(sourceMigrationsDirectory),
-          finalLedger
-        )
+        assertMigrationCompatibility(historicalManifest, finalLedger)
       ).not.toThrow()
       expect(await readOperationManifestVerifierCatalog(context)).toEqual(
         verifierCatalogBefore
@@ -3505,7 +3614,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toEqual([{ id: legacySessionId }])
       const retainedBookmarkId = randomUUID()
       const rejectedUserId = randomUUID()
-      const retainedQuestionId = buildAllQuestionSeeds()[0]?.questionId
+      const retainedQuestionId = buildPhase6CanonicalSeeds()[0]?.questionId
       if (!retainedQuestionId) {
         throw new Error('Phase 7 FK update fixture question is unavailable.')
       }
@@ -3611,7 +3720,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           versionTagCount: 130
         }
       ])
-      const expectedFingerprints = buildAllQuestionSeeds()
+      const expectedFingerprints = buildPhase6CanonicalSeeds()
         .map((seed) => ({
           contentFingerprint: createExpectedFingerprint(seed),
           id: seed.versionId
@@ -3654,7 +3763,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ])
       await phase6Legacy.client.end()
       phase6Legacy = undefined
-      await exerciseUpgradedRealReauthentication(
+      await exerciseUpgradedRetiredPasswordBoundary(
         context,
         connectedSequentialMigrationClient
       )
