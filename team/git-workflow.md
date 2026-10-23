@@ -60,6 +60,8 @@ C0를 main M에서 단일 owner가 한 번 작성하고 source SHA·정규 변�
 
 검수 tuple은 H(task/PR head), T(최신 target base), E(GitHub가 평가한 head/merge-ref), S(actual checkout), merge tree, run ID/attempt, 검수 manifest hash입니다. H/T/E/S/범위가 바뀌면 이전 승인·CI는 무효입니다.
 
+**최신 사용자 결정 — 2026-10-24, G3 및 reviewer 정책 override:** 작성자와 독립 QA는 서로 다른 담당 AI이면 충분합니다. 같은 `milo37` GitHub 계정 사용이나 별도 reviewer 계정 부재 자체는 main 보류 사유가 아닙니다. 독립 QA·팀장 최종 승인·current-head required CI 성공과 해당 디자인 등 기존 검수 조건은 유지합니다. 아래 G3의 “별도 적법한 native 승인” 및 뒤의 별도 reviewer identity/HOLD 문구는 역사적 원문으로 보존하며, 해당 계정 분리 요구에는 이 결정이 우선합니다. GitHub native 자기 PR `APPROVE`가 성공했다고 주장하지 않으며, 별도 계정 생성이나 보호 설정 변경도 하지 않습니다.
+
 | gate                            | 필수 조건                                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | G1 task→영역/후보               | exact H/T/E/S god 승인·독립 QA·해당 UI 디자인, owner scope·관련 unit/lint/type/build·계약/DB 영향·필수 CI actual success                                                        |
