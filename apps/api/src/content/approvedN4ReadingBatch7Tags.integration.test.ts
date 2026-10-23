@@ -18,6 +18,12 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
+import {
+  createPhase7HistoricalSchemaFixture,
+  LEGACY_APP_LOGIN,
+  quoteIdentifier
+} from '../db/fixtures/phase7HistoricalSchema.js'
+import type { IsolatedUpgradeSchema } from '../db/fixtures/phase7HistoricalSchema.js'
 import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import { toStableSeedUuid } from '../../prisma/seed-data/id.js'
 import {
@@ -46,7 +52,7 @@ const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (environment.NODE_ENV !== 'test' || !explicitTestUrl || !adminUrl) {
   throw new Error('Explicit isolated TEST and admin database URLs required')
 }
-const schema = getPostgresSchema(explicitTestUrl)
+let schema = getPostgresSchema(explicitTestUrl)
 if (
   !schema ||
   !/^phase7_[a-z0-9_]+_test$/.test(schema) ||
@@ -69,10 +75,7 @@ if (
   throw new Error('Disposable TEST database endpoint mismatch')
 }
 connectionUrl.searchParams.delete('schema')
-const client = new Client({
-  connectionString: connectionUrl.toString(),
-  options: createPostgresStartupOptions(schema)
-})
+let client: Client
 const runtimeRoles = [
   'nihongo_app',
   'nihongo_auth_gateway',
@@ -378,16 +381,85 @@ const approvedSources = [
   }
 ] as const
 
-// The assigned external fixture first freezes original65/canonical36 and applies
-// the unchanged20/24 command ONCE, then captures128/151 and installs this append.
-// This suite never prepares a database, repeats that command or imports content.
-// Transaction rollback is unconditional even when beforeEach or an assertion fails.
+// Prepare canonical36/revision2, apply the unchanged predecessor20/24 once, then
+// install Batch7 definitions. Each case still rolls back its own changes.
 const defineLegacyFixtureTests = () => {
-  beforeAll(async () => {
-    await client.connect()
+  const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
+  if (!legacyDatabaseUrl)
+    throw new Error('Phase 7 legacy compatibility database URL is required.')
+  const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+  if (!migrationDatabaseUrl)
+    throw new Error('Phase 7 migration wrapper database URL is required.')
+  const {
+    copyMigration,
+    createIsolatedUpgradeSchema,
+    deploy,
+    dispose,
+    readLedger,
+    seedReviewedRevision2Catalog
+  } = createPhase7HistoricalSchemaFixture({
+    adminDatabaseUrl: adminUrl,
+    legacyDatabaseUrl,
+    migrationDatabaseUrl,
+    expect
   })
+  let historicalContext: IsolatedUpgradeSchema | undefined
+  beforeAll(async () => {
+    const context = await createIsolatedUpgradeSchema()
+    historicalContext = context
+    client = context.adminClient
+    schema = context.schemaName
+    const predecessor = loadExpectedMigrationManifest().filter(
+      ({ name }) =>
+        name < installation &&
+        name !== '20261005183000_phase7_reviewed_catalog_current'
+    )
+    expect(predecessor).toHaveLength(36)
+    expect(predecessor.at(-1)?.name).toBe(
+      '20261009092000_phase7_n4_n2_revision2_digest_fix'
+    )
+    await context.serverClient.query(
+      `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)} TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+    )
+    for (const { name } of predecessor)
+      copyMigration(name, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(36)
+    await client.query(`SET search_path TO ${context.quotedSchemaName}`)
+    await client.query('SET ROLE nihongo_phase7_owner')
+    try {
+      await expect(seedReviewedRevision2Catalog(client)).resolves.toEqual({
+        insertedCount: 65,
+        verifiedCount: 0
+      })
+    } finally {
+      await client.query('RESET ROLE')
+    }
+    await client.query('SET ROLE nihongo_phase7_migration')
+    try {
+      await client.query('SELECT "apply_phase7_approved_n4_n2_reading_tags"()')
+    } finally {
+      await client.query('RESET ROLE')
+    }
+    expect(await counts()).toEqual(baselineCounts)
+    copyMigration(installation, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(37)
+  }, 180_000)
   afterAll(async () => {
-    await client.end()
+    if (!historicalContext) return
+    try {
+      await historicalContext.adminClient
+        .query('ROLLBACK')
+        .catch(() => undefined)
+      await historicalContext.serverClient
+        .query(
+          `REVOKE CONNECT ON DATABASE ${quoteIdentifier(historicalContext.databaseName)} FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+        )
+        .catch(() => undefined)
+    } finally {
+      await dispose(historicalContext)
+    }
   })
   beforeEach(async () => {
     await client.query('BEGIN')
@@ -396,7 +468,9 @@ const defineLegacyFixtureTests = () => {
     expect(await counts()).toEqual(baselineCounts)
     expect((await snapshot()).newEvidence).toEqual([])
     const expected = loadExpectedMigrationManifest().filter(
-      ({ name }) => name !== '20261005183000_phase7_reviewed_catalog_current'
+      ({ name }) =>
+        name <= installation &&
+        name !== '20261005183000_phase7_reviewed_catalog_current'
     )
     expect(expected).toHaveLength(37)
     expect(expected.at(-1)?.name).toBe(installation)
@@ -938,7 +1012,7 @@ if (fixtureProfile === 'legacy') {
   )
 }
 
-// Select an explicitly prepared fixture; neither profile provisions or seeds a DB.
+// The current profile keeps its explicitly prepared external fixture.
 // Run legacy8 and current8 separately. Selection does not skip individual cases.
 if (fixtureProfile === 'current') {
   const currentCounts = {
@@ -1008,6 +1082,10 @@ if (fixtureProfile === 'current') {
 
   describe('approved N4 reading Batch7 current installation database contract', () => {
     beforeAll(async () => {
+      client = new Client({
+        connectionString: connectionUrl.toString(),
+        options: createPostgresStartupOptions(schema)
+      })
       await client.connect()
     })
     afterAll(async () => {
