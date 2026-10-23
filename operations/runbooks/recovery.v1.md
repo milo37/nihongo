@@ -12,28 +12,30 @@ digest, source target fingerprint, three separated database identity
 fingerprints, backup evidence, deployment approver, incident owner, and a
 maintenance or generation lease. Never infer an environment from a hostname.
 
-`technical-current-test` is TEST-only and selects the exact 39 ordered physical
+`technical-current-test` is TEST-only and selects the exact 46 ordered physical
 release migrations, including the current catalog migration. Both the count and
 the reviewed SHA256 digest
-`611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1`
+`5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa`
 are fixed; an internally consistent count or digest alone is not sufficient.
 The current source pin for
 `20261009120000_phase7_approved_n4_reading_batch7_tags` is
-`d4d2caac296296fd941b7631cf6cf7016da2b1be1f764c01386d1d2b1413d806`. The last entry
+`d4d2caac296296fd941b7631cf6cf7016da2b1be1f764c01386d1d2b1413d806`. The catalog entry
 `20261010071000_phase7_approved308_tags` has reviewed file SHA256
 `600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401`.
 These are source-inventory pins, not evidence that either SQL file was applied.
 They do not authorize rewriting an applied migration or repairing a live ledger.
 
-The current physical 37 predecessor, physical 38 batch7-installed prefix and
+The historical physical 37 predecessor, physical 38 batch7-installed prefix and
 physical 39 inventory have respective ordered file digests
 `89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad`,
 `6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd` and
-`611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1`. Only the last is the technical recovery
-profile. A current catalog-excluded 38-entry inventory has file digest
+`611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1`. These predecessor profiles are rejected as the current technical recovery
+profile. The physical46 source adds seven SSO migrations after approved308, ending
+at `20261020230000_sso_account_lifecycle`; its file digest is
+`d0a81eff438c516b761ed8c4b3eeba72276f9a539d81baad2799fa455cda8b2a`. A current catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical39 or catalog-excluded38 DB execution is verified here.
+No current physical46, historical39 or catalog-excluded38 DB execution is verified here.
 
 The previous physical 38 source freeze used digest
 `fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9`
@@ -49,7 +51,7 @@ That historical disposable-fixture plan was to first complete canonical36 with t
 original 65 questions, 108 tags and 127 applicability cells; its prior unchanged
 20-name/24-cell command was to reach 128/151, followed by the then-new append,
 completed canonical37 and the closed 15-name/15-cell command. These historical
-counts and commands are not preparation instructions for the current SQL39.
+counts and commands are not preparation instructions for the current SQL46.
 All predecessor, historical and catalog-excluded inventories remain rejected
 as the current technical profile, even when their own digests are consistent.
 No fixture preparation, SQL execution, activation or deployment is performed by

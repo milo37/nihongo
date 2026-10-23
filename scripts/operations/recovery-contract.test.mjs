@@ -37,23 +37,23 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 39 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 46 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
-  assert.deepEqual(releaseManifest.migrations.entries.at(-2), {
+  assert.deepEqual(releaseManifest.migrations.entries[37], {
     name: '20261009120000_phase7_approved_n4_reading_batch7_tags',
     sha256: 'd4d2caac296296fd941b7631cf6cf7016da2b1be1f764c01386d1d2b1413d806'
   })
-  assert.deepEqual(releaseManifest.migrations.entries.at(-1), {
+  assert.deepEqual(releaseManifest.migrations.entries[38], {
     name: '20261010071000_phase7_approved308_tags',
     sha256: '600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401'
   })
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 39,
+      count: 46,
       digestSha256:
-        '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1',
+        '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa',
       name: 'technical-current-test'
     }
   )
@@ -104,6 +104,7 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
   const approved308Tags = '20261010071000_phase7_approved308_tags'
   // Historical test metadata only; never rewrite an applied SQL file.
   const historicalPhysical38 = releaseManifest.migrations.entries
+    .slice(0, 39)
     .filter(({ name }) => name !== approved308Tags)
     .map((entry) =>
       entry.name === batch7Tags
@@ -237,6 +238,11 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
 
   for (const [count, entries, digestSha256] of [
     [
+      39,
+      releaseManifest.migrations.entries.slice(0, 39),
+      '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1'
+    ],
+    [
       38,
       historicalPhysical38,
       'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9'
@@ -253,9 +259,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
     ],
     [
       38,
-      releaseManifest.migrations.entries.filter(
-        ({ name }) => name !== '20261005183000_phase7_reviewed_catalog_current'
-      ),
+      releaseManifest.migrations.entries
+        .slice(0, 39)
+        .filter(
+          ({ name }) =>
+            name !== '20261005183000_phase7_reviewed_catalog_current'
+        ),
       '0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b'
     ],
     [
@@ -372,12 +381,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261010071001_unreviewed_migration',
+        name: '20261020230001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261010071001_unreviewed_migration'
+        '20261020230001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags

@@ -289,12 +289,12 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   ])
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
-    39
+    46
   )
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test']
       .expectedDigestSha256,
-    '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1'
+    '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
   )
   for (const distinctDigest of [
     'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9',
@@ -368,14 +368,14 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
     recoveryRunbook,
     /neither this technical\s+recovery profile nor a runtime profile/u
   )
-  assert.match(recoveryRunbook, /exact 39 ordered physical/u)
+  assert.match(recoveryRunbook, /exact 46 ordered physical/u)
   assert.match(
     recoveryRunbook,
-    /No current physical39 or catalog-excluded38 DB execution is verified here/u
+    /No current physical46, historical39 or catalog-excluded38 DB execution is verified here/u
   )
   assert.ok(
     recoveryRunbook.includes(
-      '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1'
+      '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
     )
   )
   assert.ok(
