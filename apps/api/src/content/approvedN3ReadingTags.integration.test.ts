@@ -1,4 +1,4 @@
-import { Client } from 'pg'
+import type { Client } from 'pg'
 import {
   afterAll,
   afterEach,
@@ -11,10 +11,13 @@ import {
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
 import { parseApiEnvironment } from '../config/env.js'
+import { getPostgresSchema } from '../db/databaseOptions.js'
 import {
-  createPostgresStartupOptions,
-  getPostgresSchema
-} from '../db/databaseOptions.js'
+  createPhase7HistoricalSchemaFixture,
+  LEGACY_APP_LOGIN,
+  quoteIdentifier
+} from '../db/fixtures/phase7HistoricalSchema.js'
+import type { IsolatedUpgradeSchema } from '../db/fixtures/phase7HistoricalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 import { createApprovedReadingBatch3Import } from './approvedReadingBatch3.js'
 
@@ -30,7 +33,7 @@ const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (environment.NODE_ENV !== 'test' || !explicitTestUrl || !adminUrl) {
   throw new Error('Explicit isolated TEST and admin database URLs required')
 }
-const schema = getPostgresSchema(explicitTestUrl)
+let schema = getPostgresSchema(explicitTestUrl)
 if (
   !schema ||
   !/^phase7_[a-z0-9_]+_test$/.test(schema) ||
@@ -52,11 +55,29 @@ if (
 ) {
   throw new Error('Disposable TEST database endpoint mismatch')
 }
-connectionUrl.searchParams.delete('schema')
-const client = new Client({
-  connectionString: connectionUrl.toString(),
-  options: createPostgresStartupOptions(schema)
+const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
+if (!legacyDatabaseUrl)
+  throw new Error('Phase 7 legacy compatibility database URL is required.')
+const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+if (!migrationDatabaseUrl)
+  throw new Error('Phase 7 migration wrapper database URL is required.')
+const {
+  copyMigration,
+  createIsolatedUpgradeSchema,
+  deploy,
+  dispose,
+  readHistoricalMigrationProfile,
+  readLedger,
+  seedPhase6Catalog,
+  transferPhase6TargetOwnership
+} = createPhase7HistoricalSchemaFixture({
+  adminDatabaseUrl: adminUrl,
+  legacyDatabaseUrl,
+  migrationDatabaseUrl,
+  expect
 })
+let historicalContext: IsolatedUpgradeSchema | undefined
+let client: Client
 const runtimeRoles = [
   'nihongo_app',
   'nihongo_auth_gateway',
@@ -147,15 +168,57 @@ const request = {
   )
 }
 
-// Install canonical33 + this additive migration, then seed unchanged65.
+// Prepare historical31 + N5/N3 command definitions over the unchanged Phase6 seed65.
 // Current107/126 or prior N5 application is not this profile. Every mutation,
 // including fault injection and the N5-order rejection case, rolls back.
 describe('approved N3 reading04 dictionary database contract', () => {
   beforeAll(async () => {
-    await client.connect()
-  })
+    const context = await createIsolatedUpgradeSchema()
+    historicalContext = context
+    client = context.adminClient
+    schema = context.schemaName
+    const { phase6MigrationNames, historicalMigrationNames } =
+      readHistoricalMigrationProfile()
+    for (const name of phase6MigrationNames)
+      copyMigration(name, context.migrationsPath)
+    await deploy(context, context.legacyOwnerDatabaseUrl)
+    expect(await readLedger(context)).toHaveLength(27)
+    await client.query(`SET search_path TO ${context.quotedSchemaName}`)
+    await expect(seedPhase6Catalog(client)).resolves.toEqual({
+      insertedCount: 65,
+      verifiedCount: 0
+    })
+    await context.serverClient.query(
+      `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)} TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+    )
+    await transferPhase6TargetOwnership(context)
+    for (const name of historicalMigrationNames.slice(27))
+      copyMigration(name, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(31)
+    // Install both command definitions without applying the N5 or N3 registration.
+    for (const name of [
+      '20261007060000_phase7_approved_reading_tags',
+      '20261009060000_phase7_approved_n3_reading_tags'
+    ])
+      copyMigration(name, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(33)
+  }, 180_000)
   afterAll(async () => {
-    await client.end()
+    if (!historicalContext) return
+    try {
+      await historicalContext.adminClient
+        .query('ROLLBACK')
+        .catch(() => undefined)
+      await historicalContext.serverClient
+        .query(
+          `REVOKE CONNECT ON DATABASE ${quoteIdentifier(historicalContext.databaseName)} FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+        )
+        .catch(() => undefined)
+    } finally {
+      await dispose(historicalContext)
+    }
   })
   beforeEach(async () => {
     await client.query('BEGIN')
