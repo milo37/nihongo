@@ -60,12 +60,12 @@ C0를 main M에서 단일 owner가 한 번 작성하고 source SHA·정규 변�
 
 검수 tuple은 H(task/PR head), T(최신 target base), E(GitHub가 평가한 head/merge-ref), S(actual checkout), merge tree, run ID/attempt, 검수 manifest hash입니다. H/T/E/S/범위가 바뀌면 이전 승인·CI는 무효입니다.
 
-| gate                            | 필수 조건                                                                                                                                                                                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| G1 task→영역/후보               | exact H/T/E/S god 승인·독립 QA·해당 UI 디자인, owner scope·관련 unit/lint/type/build·계약/DB 영향·필수 CI actual success                                                                                                                  |
-| G2 actual 영역/공통/재구성 head | exact head/M god·독립 QA·해당 디자인, 전체 diff/ancestry/closure/common map·양쪽 build·migration/호환·real 권한/소비·CI actual success; 재구성은 전면 검수                                                                                |
-| G3 후보→main PR                 | 승인 목록/M/F/B 또는 재구성/R/E/S, real API·인증·학습 저장/재개·제출/복습·DB migration·회귀·KO/JA/PC/mobile·보안/운영, 작성자와 서로 다른 담당 AI의 독립 QA·팀장(god) 최종 승인·해당 디자인·최신 merge tree·current-head required CI 성공 |
-| G4 actual main C                | C의 CI/build/manifest·버전/artifact/DB 호환, tree 변화 영향 재검수 또는 god/QA의 C 재사용 범위 확인; 완결 전 final tag/Release 금지                                                                                                       |
+| gate                            | 필수 조건                                                                                                                                                                                                                                |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1 task→영역/후보               | exact H/T/E/S god 승인·독립 QA·해당 UI 디자인, owner scope·관련 unit/lint/type/build·계약/DB 영향·필수 CI actual success                                                                                                                 |
+| G2 actual 영역/공통/재구성 head | exact head/M god·독립 QA·해당 디자인, 전체 diff/ancestry/closure/common map·양쪽 build·migration/호환·real 권한/소비·CI actual success; 재구성은 전면 검수                                                                               |
+| G3 후보→main PR                 | 승인 목록/M/F/B 또는 재구성/R/E/S, real API·인증·학습 저장/재개·제출/복습·DB migration·회귀·KO/JA/PC/mobile·보안/운영, 아래 내부/외부 PR 승인 기준·독립 QA·팀장(god) 최종 승인·해당 디자인·최신 merge tree·current-head required CI 성공 |
+| G4 actual main C                | C의 CI/build/manifest·버전/artifact/DB 호환, tree 변화 영향 재검수 또는 god/QA의 C 재사용 범위 확인; 완결 전 final tag/Release 금지                                                                                                      |
 
 기존 필수 main contexts는 Quality and production build, Phase 10 real/mock browser and regression acceptance, Phase 11 portable release and production-mode smoke입니다. 단일 JLPT required gate와 admission_binding은 승인 전략의 **향후 named CI 구현 범위**이며 이 문서9 commit에 구현하지 않습니다. 기존 검사를 제거/약화하지 않습니다.
 
@@ -79,7 +79,12 @@ JLP-496 실제 gh GET/ls-remote 관찰: 원격 main a0c6dd47d44193ed4f09d2c2581f
 
 현재 main source workflow는 Quality job 하나이며 Phase10/11, 새 area push, required aggregator/binding은 없습니다. 누락 필수 context를 임의 제거하지 않고 named foundation/CI task에서 보완해야 합니다. 새 영역이 자동으로 main 보호를 상속한다고 주장하지 않습니다. 영역 보호가 설정되지 않았으면 운영 규칙과 서버 enforcement를 구분하고 완료로 표시하지 않습니다.
 
-작성자와 서로 다른 담당 AI가 수행한 독립 QA·팀장(god) 최종 승인·current-head required CI 성공을 확인합니다. 같은 `milo37` GitHub 계정 사용은 main 보류 사유가 아닙니다. GitHub native 자기 PR `APPROVE` 성공을 주장하지 않으며 별도 계정 생성이나 보호 설정 변경은 하지 않습니다. actual CI/영역 보호/immutable Release 확인은 남은 gate입니다.
+PR 승인 기준은 다음 두 경우로 구분합니다.
+
+- `milo37` 명의 기존 AI팀 PR: writer와 다른 담당 AI의 독립 QA·팀장(god) 최종 승인·current-head required CI 성공이 필요합니다. Native 자기 PR `APPROVE`는 불필요하며 성공했다고 주장하지 않습니다. 현재 내부 PR24에 외부 계정 승인 조건을 적용하지 않습니다.
+- 그 외 GitHub 계정 PR: 작성자와 다른 write/admin 권한 계정의 실제 `APPROVED` 리뷰 1건 이상·독립 QA·팀장(god) 최종 승인·current-head required CI 성공이 필요합니다. 팀장은 사용자 계정으로 외부 작성자 PR을 승인할 수 있습니다.
+
+GitHub required approvals는 관찰된 0을 유지하며 위 기준은 운영 정책입니다. 서버가 이 승인 기준을 강제한다고 주장하지 않으며 보호 설정·계정·workflow는 변경하지 않습니다. actual CI/영역 보호/immutable Release 확인은 남은 gate입니다.
 
 ## 제품 버전·공개 계약·Release
 
