@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { Client } from 'pg'
+import type { Client } from 'pg'
 import {
   afterAll,
   afterEach,
@@ -13,10 +13,13 @@ import {
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
 import { parseApiEnvironment } from '../config/env.js'
+import { getPostgresSchema } from '../db/databaseOptions.js'
 import {
-  createPostgresStartupOptions,
-  getPostgresSchema
-} from '../db/databaseOptions.js'
+  createPhase7HistoricalSchemaFixture,
+  LEGACY_APP_LOGIN,
+  quoteIdentifier
+} from '../db/fixtures/phase7HistoricalSchema.js'
+import type { IsolatedUpgradeSchema } from '../db/fixtures/phase7HistoricalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import { toStableSeedUuid } from '../../prisma/seed-data/id.js'
@@ -41,7 +44,7 @@ const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (environment.NODE_ENV !== 'test' || !explicitTestUrl || !adminUrl) {
   throw new Error('Explicit isolated TEST and admin database URLs required')
 }
-const schema = getPostgresSchema(explicitTestUrl)
+let schema = getPostgresSchema(explicitTestUrl)
 if (
   !schema ||
   !/^phase7_[a-z0-9_]+_test$/.test(schema) ||
@@ -63,11 +66,27 @@ if (
 ) {
   throw new Error('Disposable TEST database endpoint mismatch')
 }
-connectionUrl.searchParams.delete('schema')
-const client = new Client({
-  connectionString: connectionUrl.toString(),
-  options: createPostgresStartupOptions(schema)
+const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
+if (!legacyDatabaseUrl)
+  throw new Error('Phase 7 legacy compatibility database URL is required.')
+const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+if (!migrationDatabaseUrl)
+  throw new Error('Phase 7 migration wrapper database URL is required.')
+const {
+  copyMigration,
+  createIsolatedUpgradeSchema,
+  deploy,
+  dispose,
+  readLedger,
+  seedReviewedRevision2Catalog
+} = createPhase7HistoricalSchemaFixture({
+  adminDatabaseUrl: adminUrl,
+  legacyDatabaseUrl,
+  migrationDatabaseUrl,
+  expect
 })
+let historicalContext: IsolatedUpgradeSchema | undefined
+let client: Client
 const runtimeRoles = [
   'nihongo_app',
   'nihongo_auth_gateway',
@@ -470,15 +489,54 @@ const apply = async () => {
   await client.query('SET LOCAL ROLE nihongo_phase7_owner')
 }
 
-// Separate canonical36 fixture: unchanged canonical35 + forward correction, excluding
-// current-catalog107/126. No fixture creation, seed/import/apply/publish harness.
+// Deploy empty canonical36 through correction before inserting the reviewed revision2
+// cohort. Setup installs command definitions without applying any registration.
 // Every test is one transaction; even synthetic failures roll back in afterEach.
 describe('approved N4/N2 reading dictionary database contract', () => {
   beforeAll(async () => {
-    await client.connect()
-  })
+    const context = await createIsolatedUpgradeSchema()
+    historicalContext = context
+    client = context.adminClient
+    schema = context.schemaName
+    const expected = loadExpectedMigrationManifest().filter(
+      ({ name }) =>
+        name <= correction &&
+        name !== '20261005183000_phase7_reviewed_catalog_current'
+    )
+    expect(expected).toHaveLength(36)
+    expect(expected.at(-2)?.name).toBe(installation)
+    expect(expected.at(-1)?.name).toBe(correction)
+    await context.serverClient.query(
+      `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)} TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+    )
+    for (const { name } of expected) copyMigration(name, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(36)
+    await client.query(`SET search_path TO ${context.quotedSchemaName}`)
+    await client.query('SET ROLE nihongo_phase7_owner')
+    try {
+      await expect(seedReviewedRevision2Catalog(client)).resolves.toEqual({
+        insertedCount: 65,
+        verifiedCount: 0
+      })
+    } finally {
+      await client.query('RESET ROLE')
+    }
+  }, 180_000)
   afterAll(async () => {
-    await client.end()
+    if (!historicalContext) return
+    try {
+      await historicalContext.adminClient
+        .query('ROLLBACK')
+        .catch(() => undefined)
+      await historicalContext.serverClient
+        .query(
+          `REVOKE CONNECT ON DATABASE ${quoteIdentifier(historicalContext.databaseName)} FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+        )
+        .catch(() => undefined)
+    } finally {
+      await dispose(historicalContext)
+    }
   })
   beforeEach(async () => {
     await client.query('BEGIN')
@@ -492,8 +550,8 @@ describe('approved N4/N2 reading dictionary database contract', () => {
     expect(owner.rows).toEqual([{ owner: 'nihongo_phase7_owner' }])
     const expected = loadExpectedMigrationManifest().filter(
       ({ name }) =>
-        name !== '20261005183000_phase7_reviewed_catalog_current' &&
-        name !== '20261009120000_phase7_approved_n4_reading_batch7_tags'
+        name <= correction &&
+        name !== '20261005183000_phase7_reviewed_catalog_current'
     )
     expect(expected).toHaveLength(36)
     expect(expected.at(-2)?.name).toBe(installation)

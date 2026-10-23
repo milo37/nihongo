@@ -15,7 +15,12 @@ import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import type { ExpectStatic } from 'vitest'
 import type { SeedQuestionCatalogResult } from '../../../prisma/seedQuestionCatalog.js'
-import type { QuestionAggregateSeed } from '../../../prisma/seed-data/buildQuestionSeed.js'
+import {
+  buildQuestionAggregateSeed,
+  type QuestionAggregateSeed
+} from '../../../prisma/seed-data/buildQuestionSeed.js'
+import { toStableSeedUuid } from '../../../prisma/seed-data/id.js'
+import { n5Questions } from '../../../prisma/seed-data/questions/n5.js'
 import { buildPhase6CanonicalSeeds } from './phase6CanonicalSeeds.js'
 import {
   loadExpectedMigrationManifest,
@@ -779,8 +784,8 @@ export const createPhase7HistoricalSchemaFixture = ({
       "rowVersion", "createdByUserId", "createdByLabelSnapshot",
       "createdAt", "updatedAt"
     ) VALUES (
-      $1, $2, 1, 'DRAFT', $3, $4, $5, $6, $7, NULL, $8, $9, $10,
-      'ORIGINAL', 1, NULL, 'SYSTEM_SEED', $11, $11
+      $1, $2, 1, 'DRAFT', $3, $4, $5, $6, $7, $8, $9, $10, $11,
+      'ORIGINAL', 1, NULL, 'SYSTEM_SEED', $12, $12
     )`,
       [
         seed.versionId,
@@ -790,6 +795,7 @@ export const createPhase7HistoricalSchemaFixture = ({
         seed.questionType,
         seed.passage,
         seed.questionText,
+        seed.correctOptionId,
         seed.explanationKo,
         seed.explanationJa,
         seed.difficulty,
@@ -831,10 +837,10 @@ export const createPhase7HistoricalSchemaFixture = ({
     )
   }
 
-  const seedPhase6Catalog = async (
-    client: Client
+  const seedCatalog = async (
+    client: Client,
+    seeds: readonly QuestionAggregateSeed[]
   ): Promise<SeedQuestionCatalogResult> => {
-    const seeds = buildPhase6CanonicalSeeds()
     const tags = new Map(
       seeds.flatMap(({ tags: questionTags }) =>
         questionTags.map((tag) => [tag.id, tag] as const)
@@ -844,6 +850,10 @@ export const createPhase7HistoricalSchemaFixture = ({
 
     await client.query('BEGIN')
     try {
+      // The version precedes its options; Phase6 starts this FK as IMMEDIATE.
+      await client.query(
+        'SET CONSTRAINTS "QuestionVersion_id_correctOptionId_fkey" DEFERRED'
+      )
       for (const tag of [...tags.values()].toSorted((left, right) =>
         left.id.localeCompare(right.id)
       )) {
@@ -865,6 +875,28 @@ export const createPhase7HistoricalSchemaFixture = ({
 
     return { insertedCount: seeds.length, verifiedCount: 0 }
   }
+  const seedPhase6Catalog = (
+    client: Client
+  ): Promise<SeedQuestionCatalogResult> =>
+    seedCatalog(client, buildPhase6CanonicalSeeds())
+
+  const seedReviewedRevision2Catalog = (
+    client: Client
+  ): Promise<SeedQuestionCatalogResult> => {
+    // JLP-34 revision2 is the sole reviewed change in this historical cohort.
+    const reviewed = n5Questions.find(({ id }) => id === 'n5-vocabulary-02')
+    if (!reviewed) throw new Error('Reviewed revision2 seed is unavailable.')
+    const revision2 = buildQuestionAggregateSeed(reviewed, toStableSeedUuid)
+    if (revision2.versionId !== '9ca3de63-e0b6-45e4-85c7-0603b11e0ebc') {
+      throw new Error('Reviewed revision2 seed identity drifted.')
+    }
+    return seedCatalog(
+      client,
+      buildPhase6CanonicalSeeds().map((seed) =>
+        seed.legacyId === revision2.legacyId ? revision2 : seed
+      )
+    )
+  }
   return {
     copyMigration,
     createIsolatedUpgradeSchema,
@@ -874,6 +906,7 @@ export const createPhase7HistoricalSchemaFixture = ({
     readLedger,
     readNonCanonicalTargetOwnerCount,
     seedPhase6Catalog,
+    seedReviewedRevision2Catalog,
     transferPhase6TargetOwnership
   }
 }
