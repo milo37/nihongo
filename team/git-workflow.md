@@ -60,14 +60,12 @@ C0를 main M에서 단일 owner가 한 번 작성하고 source SHA·정규 변�
 
 검수 tuple은 H(task/PR head), T(최신 target base), E(GitHub가 평가한 head/merge-ref), S(actual checkout), merge tree, run ID/attempt, 검수 manifest hash입니다. H/T/E/S/범위가 바뀌면 이전 승인·CI는 무효입니다.
 
-**최신 사용자 결정 — 2026-10-24, G3 및 reviewer 정책 override:** 작성자와 독립 QA는 서로 다른 담당 AI이면 충분합니다. 같은 `milo37` GitHub 계정 사용이나 별도 reviewer 계정 부재 자체는 main 보류 사유가 아닙니다. 독립 QA·팀장 최종 승인·current-head required CI 성공과 해당 디자인 등 기존 검수 조건은 유지합니다. 아래 G3의 “별도 적법한 native 승인” 및 뒤의 별도 reviewer identity/HOLD 문구는 역사적 원문으로 보존하며, 해당 계정 분리 요구에는 이 결정이 우선합니다. GitHub native 자기 PR `APPROVE`가 성공했다고 주장하지 않으며, 별도 계정 생성이나 보호 설정 변경도 하지 않습니다.
-
-| gate                            | 필수 조건                                                                                                                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| G1 task→영역/후보               | exact H/T/E/S god 승인·독립 QA·해당 UI 디자인, owner scope·관련 unit/lint/type/build·계약/DB 영향·필수 CI actual success                                                        |
-| G2 actual 영역/공통/재구성 head | exact head/M god·독립 QA·해당 디자인, 전체 diff/ancestry/closure/common map·양쪽 build·migration/호환·real 권한/소비·CI actual success; 재구성은 전면 검수                      |
-| G3 후보→main PR                 | 승인 목록/M/F/B 또는 재구성/R/E/S, real API·인증·학습 저장/재개·제출/복습·DB migration·회귀·KO/JA/PC/mobile·보안/운영, god·QA·디자인·별도 적법한 native 승인·최신 merge tree/CI |
-| G4 actual main C                | C의 CI/build/manifest·버전/artifact/DB 호환, tree 변화 영향 재검수 또는 god/QA의 C 재사용 범위 확인; 완결 전 final tag/Release 금지                                             |
+| gate                            | 필수 조건                                                                                                                                                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1 task→영역/후보               | exact H/T/E/S god 승인·독립 QA·해당 UI 디자인, owner scope·관련 unit/lint/type/build·계약/DB 영향·필수 CI actual success                                                                                                                  |
+| G2 actual 영역/공통/재구성 head | exact head/M god·독립 QA·해당 디자인, 전체 diff/ancestry/closure/common map·양쪽 build·migration/호환·real 권한/소비·CI actual success; 재구성은 전면 검수                                                                                |
+| G3 후보→main PR                 | 승인 목록/M/F/B 또는 재구성/R/E/S, real API·인증·학습 저장/재개·제출/복습·DB migration·회귀·KO/JA/PC/mobile·보안/운영, 작성자와 서로 다른 담당 AI의 독립 QA·팀장(god) 최종 승인·해당 디자인·최신 merge tree·current-head required CI 성공 |
+| G4 actual main C                | C의 CI/build/manifest·버전/artifact/DB 호환, tree 변화 영향 재검수 또는 god/QA의 C 재사용 범위 확인; 완결 전 final tag/Release 금지                                                                                                       |
 
 기존 필수 main contexts는 Quality and production build, Phase 10 real/mock browser and regression acceptance, Phase 11 portable release and production-mode smoke입니다. 단일 JLPT required gate와 admission_binding은 승인 전략의 **향후 named CI 구현 범위**이며 이 문서9 commit에 구현하지 않습니다. 기존 검사를 제거/약화하지 않습니다.
 
@@ -81,7 +79,7 @@ JLP-496 실제 gh GET/ls-remote 관찰: 원격 main a0c6dd47d44193ed4f09d2c2581f
 
 현재 main source workflow는 Quality job 하나이며 Phase10/11, 새 area push, required aggregator/binding은 없습니다. 누락 필수 context를 임의 제거하지 않고 named foundation/CI task에서 보완해야 합니다. 새 영역이 자동으로 main 보호를 상속한다고 주장하지 않습니다. 영역 보호가 설정되지 않았으면 운영 규칙과 서버 enforcement를 구분하고 완료로 표시하지 않습니다.
 
-같은 milo37 계정의 god/QA 역할은 native 독립 reviewer/merge 권한 분리가 아닙니다. 정책상 적법한 별도 reviewer identity가 없으면 main gate는 HOLD이며 실제 required count0이 이를 면제하지 않습니다. reviewer identity/actual CI/영역 보호/immutable Release 확인은 남은 gate입니다. 새 계정·plan·권한 확대나 보호 완화는 임의 수행하지 않습니다.
+작성자와 서로 다른 담당 AI가 수행한 독립 QA·팀장(god) 최종 승인·current-head required CI 성공을 확인합니다. 같은 `milo37` GitHub 계정 사용은 main 보류 사유가 아닙니다. GitHub native 자기 PR `APPROVE` 성공을 주장하지 않으며 별도 계정 생성이나 보호 설정 변경은 하지 않습니다. actual CI/영역 보호/immutable Release 확인은 남은 gate입니다.
 
 ## 제품 버전·공개 계약·Release
 
@@ -116,3 +114,7 @@ main이 stable보다 앞서면 current M′에서 fix를 작성하고 S→M′ �
 코드 rollback은 exact DB 호환이 확인된 불변 artifact 또는 검수 revert PR입니다. DB rollback은 자동 down migration/restore가 아니며 BE가 ledger/schema/변경 데이터/호환을 판단합니다. 불호환이면 roll-forward가 우선, 데이터 손실/backup restore는 정확한 대상·복구 검수·사용자 허가가 별도입니다. DB/볼륨 reset, tag/version 되감기는 금지합니다.
 
 원본110 이력/dirty303/private 보존본/PR1은 그대로 둡니다. historical49 task-ID/61미상/42mixed와 freeze58/owner미확인245는 후속 단위 선정 때 재확인합니다. main의 없는 API/domain/DB/tooling을 이미 있다고 가정하지 않고 작은 named foundation/dependency task로 이관합니다. 공통 C0 먼저→고유 BE/FE task→admission 후보로 진행하며 FE488/491 중첩은 최종491을 한 번만 소비합니다. 소유 불명/분리 불가 hunk만 HOLD하고 안전한 개별 WIP 저장을 전체 backlog 완료까지 막지 않습니다. actual head/CI/검수·역동기화·원본 불변을 확인한 뒤 이관 완료로 판정합니다.
+
+## 변경 이력
+
+- 2026-10-24 사용자 요청으로 별도 GitHub 계정 승인 조건 제거
