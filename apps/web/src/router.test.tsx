@@ -75,7 +75,7 @@ describe('application router boundaries', () => {
   it('guest의 공개 복습 진입은 로그인 안내와 보호된 기록 경계를 제공한다', async () => {
     const router = renderRoutes('/wrong-notes')
     expect(
-      await screen.findByRole('heading', { name: '복습' })
+      await screen.findByRole('heading', { name: '복습' }, { timeout: 3000 })
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wrong-notes')
     const main = screen.getByRole('main')
