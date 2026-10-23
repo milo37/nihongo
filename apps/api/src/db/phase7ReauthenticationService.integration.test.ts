@@ -1,13 +1,12 @@
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import {
   adminQuestionMutationResultSchema,
   approveQuestionVersionRequestSchema,
   archiveAdminQuestionRequestSchema,
   createAdminQuestionRequestSchema,
   publishQuestionVersionRequestSchema,
-  reauthenticateAdminErrorSchema,
-  reauthenticateAdminResponseSchema,
+  approveQuestionVersionErrorSchema,
   requestContentReviewRequestSchema,
   retireQuestionVersionRequestSchema,
   withdrawQuestionApprovalRequestSchema,
@@ -28,14 +27,24 @@ import {
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createApiApp } from '../app/createApp.js'
-import { createPhase7ReauthenticationAuthApi } from '../auth/createPhase7ReauthenticationAuth.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import {
   createPhase7PrincipalService,
   type PrincipalService
 } from '../auth/principalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
-import { createPhase7SessionCookie } from '../auth/phase7SessionCookie.js'
+import {
+  createPhase7SessionCookie,
+  createPhase7DontRememberCookie,
+  readPhase7SessionToken
+} from '../auth/phase7SessionCookie.js'
+import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
+import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
+import {
+  ADMIN_FRESH_COMPLETE_PATH,
+  createSsoAdminFreshRuntime
+} from '../auth/ssoAdminFreshRuntime.js'
+import { ssoTransactionDigest } from '../auth/ssoProtocol.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
@@ -97,11 +106,12 @@ const withRole = async <Result>(
   }
 }
 
-const insertCredentialAdmin = async (
+const insertFixtureAdmin = async (
   userId: string,
   accountId: string,
   email: string,
-  passwordHash: string
+  passwordHash: string,
+  provider: 'credential' | 'google'
 ): Promise<void> => {
   await adminClient.query('BEGIN')
   try {
@@ -120,10 +130,15 @@ const insertCredentialAdmin = async (
          "id", "accountId", "providerId", "userId", "password",
          "createdAt", "updatedAt"
        ) VALUES (
-         $1, $2::uuid::text, 'credential', $2, $3,
+         $1, $2::uuid::text, $4, $2, $3,
          clock_timestamp(), clock_timestamp()
        )`,
-      [accountId, userId, passwordHash]
+      [
+        accountId,
+        userId,
+        provider === 'credential' ? passwordHash : null,
+        provider
+      ]
     )
     await adminClient.query('COMMIT')
   } catch (error: unknown) {
@@ -151,15 +166,17 @@ const issueSession = async (
   return row
 }
 
-const createFixture = async () => {
+const createFixture = async (
+  provider: 'credential' | 'google' = 'credential'
+) => {
   const userId = randomUUID()
-  const sessionId = randomUUID()
+  const sessionId: string = randomUUID()
   const accountId = randomUUID()
   const requestId = randomUUID()
   const token = `phase7-real-old-${randomUUID()}`
   const email = `phase7-real-${randomUUID()}@example.test`
   const passwordHash = await hashPassword(password)
-  await insertCredentialAdmin(userId, accountId, email, passwordHash)
+  await insertFixtureAdmin(userId, accountId, email, passwordHash, provider)
   const session = await issueSession(userId, sessionId, token)
   const cookie = createPhase7SessionCookie({
     expiresAt: session.expiresAt,
@@ -185,6 +202,112 @@ const createFixture = async () => {
     userId
   }
 }
+
+const completeSsoFresh = async (
+  fixture: Awaited<ReturnType<typeof createFixture>>
+) => {
+  const port = createSsoAdminFreshRepository(gatewayRuntime.client)
+  const context = await port.prepare(fixture.token, 'google')
+  if (!context) throw new Error('SSO fresh fixture preparation failed.')
+  expect(context.userId).toBe(fixture.userId)
+  const rawProof = randomBytes(32).toString('base64url')
+  expect(
+    await port.stageProof(
+      context,
+      {
+        provider: 'google',
+        accountId: context.accountId,
+        email: fixture.email,
+        name: 'Phase 7 SSO fresh fixture'
+      },
+      ssoTransactionDigest(rawProof),
+      '/admin/questions'
+    )
+  ).toBe(true)
+  const secure = new URL(environment.BETTER_AUTH_URL).protocol === 'https:'
+  const proofName = secure ? '__Host-nihongo.sso_fresh' : 'nihongo.sso_fresh'
+  const headers = new Headers(fixture.headers)
+  const requestCookies = (headers.get('Cookie') ?? '')
+    .split(';')
+    .map((cookie) => cookie.trim())
+    .filter(
+      (cookie) => cookie.length > 0 && !cookie.startsWith(`${proofName}=`)
+    )
+  headers.set(
+    'Cookie',
+    [...requestCookies, `${proofName}=${rawProof}`].join('; ')
+  )
+  const runtime = createSsoAdminFreshRuntime({
+    environment,
+    providers: {},
+    port
+  })
+  const response = await runtime.complete(
+    new Request(
+      new URL(ADMIN_FRESH_COMPLETE_PATH, environment.BETTER_AUTH_URL),
+      { headers }
+    )
+  )
+  expect(response.status).toBe(303)
+  expect(
+    new URL(response.headers.get('Location')!).searchParams.get('ssoFresh')
+  ).toBe('REAUTHENTICATED')
+  const cookies = response.headers.getSetCookie()
+  expect(cookies).toHaveLength(3)
+  expect(cookies[0]).toContain(`${proofName}=;`)
+  expect(cookies[1]).toBe(
+    createPhase7DontRememberCookie({
+      isProduction: environment.NODE_ENV === 'production',
+      secret: environment.BETTER_AUTH_SECRET
+    })
+  )
+  const cookieHeader = toRequestCookieHeader(cookies)
+  const parsed = readPhase7SessionToken({
+    cookieHeader,
+    isProduction: environment.NODE_ENV === 'production',
+    secret: environment.BETTER_AUTH_SECRET
+  })
+  if (!parsed.token) throw new Error('SSO fresh fixture cookie is unavailable.')
+  const session = await adminClient.query<{
+    id: string
+    familyId: string
+    createdAt: Date
+    expiresAt: Date
+  }>(
+    `SELECT "id", "sessionFamilyId" AS "familyId", "createdAt", "expiresAt"
+     FROM "Session" WHERE "token" = $1 AND "userId" = $2`,
+    [parsed.token, fixture.userId]
+  )
+  expect(session.rowCount).toBe(1)
+  const current = session.rows[0]!
+  expect(cookies[2]).toBe(
+    createPhase7SessionCookie({
+      expiresAt: current.expiresAt,
+      isProduction: environment.NODE_ENV === 'production',
+      rememberMe: false,
+      secret: environment.BETTER_AUTH_SECRET,
+      token: parsed.token
+    })
+  )
+  const replacementHeaders = new Headers(fixture.headers)
+  replacementHeaders.set('Cookie', cookieHeader)
+  return {
+    response,
+    cookies,
+    context,
+    createdAt: current.createdAt,
+    fixture: {
+      ...fixture,
+      familyId: current.familyId,
+      sessionId: current.id,
+      token: parsed.token,
+      headers: replacementHeaders
+    }
+  }
+}
+
+const createSsoFixture = async () =>
+  (await completeSsoFresh(await createFixture('google'))).fixture
 
 const makeSessionStaleForTesting = async (sessionId: string) => {
   await adminClient.query('BEGIN')
@@ -792,29 +915,20 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
   }
 }
 
-const createService = (
-  observeBetterAuthCookies?: (cookies: readonly string[]) => void
-) => {
-  const context = createPhase7ReauthenticationContext()
-  const realAuthApi = createPhase7ReauthenticationAuthApi({
-    client: gatewayRuntime.client,
-    context,
-    environment
-  })
-  return createAdminReauthenticationService({
+const createService = () =>
+  createAdminReauthenticationService({
     auditEnvironment: 'TEST',
     authApi: {
-      verifyPassword: async (input) => await realAuthApi.verifyPassword(input),
-      signInEmail: async (input) => {
-        const result = await realAuthApi.signInEmail(input)
-        observeBetterAuthCookies?.(result.headers.getSetCookie())
-        return result
+      verifyPassword: async () => {
+        throw new Error('Retired password verification must not run.')
+      },
+      signInEmail: async () => {
+        throw new Error('Retired password sign-in must not run.')
       }
     },
     client: gatewayRuntime.client,
-    context
+    context: createPhase7ReauthenticationContext()
   })
-}
 
 const createTestHonoApp = ({
   commandService,
@@ -868,9 +982,13 @@ const createTestHonoApp = ({
     },
     auth: {
       environment,
-      gateway: {
-        handle: async () => new Response(null, { status: 404 })
-      },
+      gateway: createSsoAuthentication({
+        environment,
+        applicationClient: applicationRuntime.client,
+        gatewayClient: gatewayRuntime.client,
+        rateLimiter: { consume: async () => undefined },
+        providers: {}
+      }).gateway,
       guestPrincipalService: createGuestPrincipalService({
         client: applicationRuntime.client,
         secret: environment.GUEST_COOKIE_SECRET
@@ -976,41 +1094,46 @@ afterAll(async () => {
   await Promise.all([adminClient.end(), adminControlClient.end()])
 })
 
-describe('Phase 7 real Better Auth reauthentication service', () => {
-  it('real Hono가 Better Auth cookie bytes/order를 보존해 exact active replacement만 공개한다', async () => {
-    const fixture = await createFixture()
-    expect(await makeSessionStaleForTesting(fixture.sessionId)).toBe(1)
-    let betterAuthCookies: readonly string[] = []
-    const app = createTestHonoApp({
-      service: createService((cookies) => {
-        betterAuthCookies = cookies
-      })
-    })
-    const headers = new Headers(fixture.headers)
-    headers.set('Content-Type', 'application/json')
+describe('Phase 7 SSO fresh and retired password boundary with real SQL invariants', () => {
+  it('retired password 재인증 POST는404/no-cookie/no-auth-write로 종료한다', async () => {
+    const fixture = await createFixture('google')
+    const app = createTestHonoApp({ service: createService() })
+    const before = await readWriteSnapshot()
     const response = await app.request(
       'http://localhost:3001/api/v1/admin/reauthentication',
       {
         method: 'POST',
-        headers,
+        headers: new Headers({
+          ...Object.fromEntries(fixture.headers),
+          'Content-Type': 'application/json'
+        }),
         body: JSON.stringify({ password })
       }
     )
-    expect(response.status).toBe(200)
-    const output = reauthenticateAdminResponseSchema.parse(
-      await response.json()
-    )
-    const responseCookies = response.headers.getSetCookie()
-
+    expect(response.status).toBe(404)
+    expect(apiFailureSchema.parse(await response.json())).toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+      retryable: false
+    })
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(responseCookies).toEqual(betterAuthCookies)
-    expect(responseCookies).toHaveLength(2)
-    expect(responseCookies[0]).toContain('.session_token=')
-    expect(responseCookies[1]).toContain('.dont_remember=')
-    expect(new Date(output.assuranceExpiresAt).getTime()).toBe(
-      new Date(output.reauthenticatedAt).getTime() + 5 * 60_000
-    )
+    expect(response.headers.getSetCookie()).toHaveLength(0)
+    expect(await readWriteSnapshot()).toEqual(before)
+  })
 
+  it('real SSO complete는 canonical cookie 순서와 exact active replacement/audit/fence를 보존한다', async () => {
+    const fixture = await createFixture('google')
+    expect(await makeSessionStaleForTesting(fixture.sessionId)).toBe(1)
+    const completed = await completeSsoFresh(fixture)
+    expect(completed.response.headers.get('Cache-Control')).toBe(
+      'private, no-store'
+    )
+    const assurance = await adminClient.query<{ valid: boolean }>(
+      `SELECT "expiresAt" = "completedAt" + INTERVAL '5 minutes' AS valid
+       FROM "SsoAdminFreshProof"
+       WHERE "completedSessionId" = $1 AND "context"->>'intentId' = $2`,
+      [completed.fixture.sessionId, completed.context.intentId]
+    )
+    expect(assurance.rows).toEqual([{ valid: true }])
     const proof = await adminClient.query<{
       auditBeforeState: string
       auditCount: number
@@ -1025,23 +1148,23 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
          (SELECT COUNT(*)::int
           FROM "Phase7ReauthenticationIntent" AS intent
           JOIN "Session" AS session ON session."id" = intent."stagedSessionId"
-          WHERE intent."requestId" = $2
+          WHERE intent."id" = $2
             AND intent."state" = 'FINALIZED'
             AND session."authorizationState" = 'ACTIVE')
            AS "replacementCount",
          (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
-          WHERE "requestId" = $2) AS "intentState",
+          WHERE "id" = $2) AS "intentState",
          (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
           JOIN "Phase7ReauthenticationIntent" AS intent
             ON intent."operationId" = fence."operationId"
-          WHERE intent."requestId" = $2) AS "fenceCount",
+          WHERE intent."id" = $2) AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
-          WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
+          WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditCount",
          (SELECT "beforeState" FROM "AdminAuditLog"
-          WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
+          WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditBeforeState"`,
-      [fixture.sessionId, fixture.requestId]
+      [fixture.sessionId, completed.context.intentId]
     )
     expect(proof.rows).toEqual([
       {
@@ -1056,8 +1179,8 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
   })
 
   it('real createApiApp·production repository가 A2 재인증 명시 재시도, SoD, 동시성, 최종 fresh fence를 원자적으로 보장한다', async () => {
-    const author = await createFixture()
-    const reviewer = await createFixture()
+    const author = await createSsoFixture()
+    const reviewer = await createSsoFixture()
     const commandService = createCommandService()
     const target = await prepareA2InReviewVersion({
       author,
@@ -1109,22 +1232,9 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
     expect(await readA2IntentCount([staleApproval.requestId])).toBe(0)
 
-    const reauthenticationHeaders = new Headers(reviewer.headers)
-    reauthenticationHeaders.set('Content-Type', 'application/json')
-    const reauthenticationResponse = await app.request(
-      'http://localhost:3001/api/v1/admin/reauthentication',
-      {
-        body: JSON.stringify({ password }),
-        headers: reauthenticationHeaders,
-        method: 'POST'
-      }
-    )
-    expect(reauthenticationResponse.status).toBe(200)
-    reauthenticateAdminResponseSchema.parse(
-      await reauthenticationResponse.json()
-    )
-    const replacementCookies = reauthenticationResponse.headers.getSetCookie()
-    expect(replacementCookies).toHaveLength(2)
+    const reauthentication = await completeSsoFresh(reviewer)
+    const replacementCookies = reauthentication.cookies
+    expect(replacementCookies).toHaveLength(3)
     const replacementCookie = toRequestCookieHeader(replacementCookies)
 
     // Reauthentication rotates authority only. It must never replay the failed command.
@@ -1412,8 +1522,8 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
   }, 60_000)
 
   it('real createApiApp가 Slice 4 게시·퇴역·보관과 DB 증거를 하나의 canonical 경로로 commit한다', async () => {
-    const author = await createFixture()
-    const reviewer = await createFixture()
+    const author = await createSsoFixture()
+    const reviewer = await createSsoFixture()
     const commandService = createCommandService()
     const target = await prepareA2InReviewVersion({ author, commandService })
     const approved = await commandService.approveVersion(
@@ -1638,8 +1748,8 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
   }, 60_000)
 
   it('Slice 4 게시는 쓰기 후 fresh fence 만료 시 전체를 rollback한다', async () => {
-    const author = await createFixture()
-    const reviewer = await createFixture()
+    const author = await createSsoFixture()
+    const reviewer = await createSsoFixture()
     const commandService = createCommandService()
     const target = await prepareA2InReviewVersion({ author, commandService })
     const approved = await commandService.approveVersion(
@@ -1716,9 +1826,9 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
   }, 60_000)
 
   it('guard 통과 후 authority/fresh 상실은 A2 target 오류보다 먼저 선형화된다', async () => {
-    const missingAuthor = await createFixture()
-    const roleLossReviewer = await createFixture()
-    const authorityOperator = await createFixture()
+    const missingAuthor = await createSsoFixture()
+    const roleLossReviewer = await createSsoFixture()
+    const authorityOperator = await createSsoFixture()
     const setupService = createCommandService()
     const missingEvidenceTarget = await prepareA2InReviewVersion({
       author: missingAuthor,
@@ -1763,8 +1873,8 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     )
     expect(await readA2IntentCount([missingResult.requestId])).toBe(0)
 
-    const invalidStateAuthor = await createFixture()
-    const staleReviewer = await createFixture()
+    const invalidStateAuthor = await createSsoFixture()
+    const staleReviewer = await createSsoFixture()
     const invalidStateTarget = await prepareA2InReviewVersion({
       author: invalidStateAuthor,
       commandService: setupService
@@ -1808,27 +1918,33 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     expect(await readA2IntentCount([invalidStateResult.requestId])).toBe(0)
   }, 60_000)
 
-  it('real invalid password는 pending·audit·fence·cookie 없이 old ACTIVE만 보존한다', async () => {
+  it('retired password/error/change/reset HTTP는404이고 pending·audit·fence·cookie 없이 old ACTIVE를 보존한다', async () => {
     const fixture = await createFixture()
     const app = createTestHonoApp({ service: createService() })
     const headers = new Headers(fixture.headers)
     headers.set('Content-Type', 'application/json')
-    const response = await app.request(
-      'http://localhost:3001/api/v1/admin/reauthentication',
-      {
+    const before = await readWriteSnapshot()
+    for (const pathname of [
+      '/api/v1/admin/reauthentication',
+      '/api/auth/sign-in/email',
+      '/api/auth/change-password',
+      '/api/auth/request-password-reset',
+      '/api/auth/reset-password'
+    ]) {
+      const response = await app.request(`http://localhost:3001${pathname}`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ password: `${password}-wrong` })
-      }
-    )
-    expect(response.status).toBe(401)
-    expect(
-      reauthenticateAdminErrorSchema.parse(await response.json())
-    ).toMatchObject({
-      code: 'REAUTHENTICATION_FAILED',
-      retryable: false
-    })
-    expect(response.headers.getSetCookie()).toHaveLength(0)
+      })
+      expect(response.status).toBe(404)
+      expect(await response.json()).toMatchObject({
+        code: pathname.startsWith('/api/auth/')
+          ? 'AUTH_ROUTE_NOT_FOUND'
+          : 'RESOURCE_NOT_FOUND'
+      })
+      expect(response.headers.getSetCookie()).toHaveLength(0)
+      expect(await readWriteSnapshot()).toEqual(before)
+    }
 
     const proof = await adminClient.query<{
       auditCount: number
@@ -1870,17 +1986,18 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
       const reauthenticate = vi.spyOn(service, 'reauthenticate')
       const app = createTestHonoApp({
         ...(principalService ? { principalService } : {}),
-        service
+        service,
+        commandService: createCommandService()
       })
       const headers = new Headers(fixture.headers)
       headers.set('Content-Type', 'application/json')
       const before = await readWriteSnapshot()
       const response = await app.request(
-        'http://localhost:3001/api/v1/admin/reauthentication',
+        `http://localhost:3001/api/v1/admin/question-versions/${randomUUID()}/approval`,
         {
           method: 'POST',
           headers,
-          body: JSON.stringify({ password })
+          body: JSON.stringify({ expectedRowVersion: 1 })
         }
       )
       const after = await readWriteSnapshot()
@@ -1896,7 +2013,7 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     const logoutResponse = await post(logoutTarget)
     expect(logoutResponse.status).toBe(401)
     expect(
-      reauthenticateAdminErrorSchema.parse(await logoutResponse.json())
+      approveQuestionVersionErrorSchema.parse(await logoutResponse.json())
     ).toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       requestId: logoutTarget.requestId,
@@ -1920,7 +2037,7 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     const roleResponse = await post(roleTarget)
     expect(roleResponse.status).toBe(403)
     expect(
-      reauthenticateAdminErrorSchema.parse(await roleResponse.json())
+      approveQuestionVersionErrorSchema.parse(await roleResponse.json())
     ).toMatchObject({
       code: 'ADMIN_REQUIRED',
       requestId: roleTarget.requestId,
@@ -1963,11 +2080,11 @@ describe('Phase 7 real Better Auth reauthentication service', () => {
     )
     expect(classifierResponse.status).toBe(503)
     expect(
-      reauthenticateAdminErrorSchema.parse(await classifierResponse.json())
+      approveQuestionVersionErrorSchema.parse(await classifierResponse.json())
     ).toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       requestId: classifierTarget.requestId,
-      retryable: false
+      retryable: true
     })
     expect(classifierResponse.headers.get('Retry-After')).toBe('5')
     expect(classifierResponse.headers.getSetCookie()).toHaveLength(0)
