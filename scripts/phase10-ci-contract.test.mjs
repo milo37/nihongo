@@ -71,7 +71,7 @@ test('package scripts preserve the Phase 10 static, performance, and browser gra
 })
 
 test('quality job executes final gates and run-unique performance evidence lifecycle', () => {
-  assert.match(workflow, /- codex\/phase-10-test-security-performance/u)
+  assert.match(workflow, /- phase-11-deployment-operations/u)
   assert.match(
     workflow,
     /build:[\s\S]*runs-on: ubuntu-latest\n {4}timeout-minutes: 45/u

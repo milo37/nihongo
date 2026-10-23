@@ -105,7 +105,7 @@ test('Docker context excludes generated and operational scratch state', () => {
 })
 
 test('CI triggers Phase 11 and verifies a safe manifest without deploying', () => {
-  assert.match(workflow, /- codex\/phase-11-deployment-operations/u)
+  assert.match(workflow, /- phase-11-deployment-operations/u)
   const buildJob = workflow.slice(
     workflow.indexOf('\n  build:'),
     workflow.indexOf('\n  e2e:')

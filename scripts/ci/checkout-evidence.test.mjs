@@ -231,7 +231,7 @@ test('a real temporary Git merge checkout is captured and written privately once
   assert.equal(JSON.parse(readFileSync(eventPath, 'utf8')).number, 11)
 })
 
-test('the existing build alone captures its evaluated checkout before work', () => {
+test('each required producer captures its evaluated checkout before work', () => {
   const workflow = readFileSync(
     new URL('../../.github/workflows/ci.yml', import.meta.url),
     'utf8'
@@ -241,22 +241,24 @@ test('the existing build alone captures its evaluated checkout before work', () 
     [...jobs.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):$/gmu)].map(
       (match) => match[1]
     ),
-    ['build']
+    ['build', 'e2e', 'phase11_release']
   )
-  assert.match(workflow, /ref: \$\{\{ github.sha \}\}/u)
-  assert.match(workflow, /fetch-depth: 0/u)
-  assert.match(workflow, /persist-credentials: false/u)
-  const record = workflow.indexOf('name: Record actual checkout evidence')
-  assert.ok(record > workflow.indexOf('name: Setup Node.js'))
-  assert.ok(record < workflow.indexOf('name: Install dependencies'))
-  assert.match(workflow, /node scripts\/ci\/checkout-evidence\.mjs --output/u)
-  assert.match(workflow, /actions\/upload-artifact@v4/u)
-  assert.match(workflow, /if-no-files-found: error/u)
+  for (const job of jobs.split(/^ {2}[A-Za-z_][A-Za-z0-9_-]*:$/mu).slice(1)) {
+    assert.match(job, /ref: \$\{\{ github.sha \}\}/u)
+    assert.match(job, /fetch-depth: 0/u)
+    assert.match(job, /persist-credentials: false/u)
+    const record = job.indexOf('name: Record actual checkout evidence')
+    assert.ok(record > job.indexOf('name: Setup Node.js'))
+    assert.ok(record < job.indexOf('name: Install dependencies'))
+    assert.match(job, /node scripts\/ci\/checkout-evidence\.mjs --output/u)
+    assert.match(job, /actions\/upload-artifact@v4/u)
+    assert.match(job, /if-no-files-found: error/u)
+  }
   assert.match(workflow, /name: Quality and production build/u)
   assert.match(workflow, /run: pnpm run test\n/u)
   assert.match(workflow, /run: pnpm run build\n/u)
   assert.doesNotMatch(
     workflow,
-    /continue-on-error:|phase11_release:|admission_binding:|required_gate:/u
+    /continue-on-error:|admission_binding:|required_gate:/u
   )
 })
