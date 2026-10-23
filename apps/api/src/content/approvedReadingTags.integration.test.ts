@@ -1,10 +1,13 @@
-import { Client } from 'pg'
+import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
+import { getPostgresSchema } from '../db/databaseOptions.js'
 import {
-  createPostgresStartupOptions,
-  getPostgresSchema
-} from '../db/databaseOptions.js'
+  createPhase7HistoricalSchemaFixture,
+  LEGACY_APP_LOGIN,
+  quoteIdentifier
+} from '../db/fixtures/phase7HistoricalSchema.js'
+import type { IsolatedUpgradeSchema } from '../db/fixtures/phase7HistoricalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 
 const environment = parseApiEnvironment(process.env)
@@ -18,12 +21,29 @@ const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (!adminUrl) throw new Error('Explicit isolated admin database URL required')
 const schema = getPostgresSchema(environment.DATABASE_URL)
 if (getPostgresSchema(adminUrl) !== schema) throw new Error('Schema mismatch')
-const connectionUrl = new URL(adminUrl)
-connectionUrl.searchParams.delete('schema')
-const client = new Client({
-  connectionString: connectionUrl.toString(),
-  options: createPostgresStartupOptions(schema)
+const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
+if (!legacyDatabaseUrl)
+  throw new Error('Phase 7 legacy compatibility database URL is required.')
+const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+if (!migrationDatabaseUrl)
+  throw new Error('Phase 7 migration wrapper database URL is required.')
+const {
+  copyMigration,
+  createIsolatedUpgradeSchema,
+  deploy,
+  dispose,
+  readHistoricalMigrationProfile,
+  readLedger,
+  seedPhase6Catalog,
+  transferPhase6TargetOwnership
+} = createPhase7HistoricalSchemaFixture({
+  adminDatabaseUrl: adminUrl,
+  legacyDatabaseUrl,
+  migrationDatabaseUrl,
+  expect
 })
+let historicalContext: IsolatedUpgradeSchema | undefined
+let client: Client
 const expectRejected = async (sql: string, code: string) => {
   await client.query('SAVEPOINT rejection')
   await expect(client.query(sql)).rejects.toMatchObject({ code })
@@ -43,14 +63,54 @@ const counts = async () =>
     )
   ).rows[0]
 
-// DevOps runs on a fresh, seeded disposable profile, BEFORE actual application.
+// Reconstruct the historical 65-question bootstrap before the approved registration.
 // All mutations, including injected failure fixtures, roll back.
 describe('approved tag registration database contract', () => {
   beforeAll(async () => {
-    await client.connect()
-  })
+    const context = await createIsolatedUpgradeSchema()
+    historicalContext = context
+    client = context.adminClient
+    const { phase6MigrationNames, historicalMigrationNames } =
+      readHistoricalMigrationProfile()
+    for (const name of phase6MigrationNames)
+      copyMigration(name, context.migrationsPath)
+    await deploy(context, context.legacyOwnerDatabaseUrl)
+    expect(await readLedger(context)).toHaveLength(27)
+    await client.query(`SET search_path TO ${context.quotedSchemaName}`)
+    await expect(seedPhase6Catalog(client)).resolves.toEqual({
+      insertedCount: 65,
+      verifiedCount: 0
+    })
+    await context.serverClient.query(
+      `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)} TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+    )
+    await transferPhase6TargetOwnership(context)
+    for (const name of historicalMigrationNames.slice(27))
+      copyMigration(name, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(31)
+    // Install only the registration under test, before reviewed catalog revisions replace its historical input.
+    copyMigration(
+      '20261007060000_phase7_approved_reading_tags',
+      context.migrationsPath
+    )
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(32)
+  }, 180_000)
   afterAll(async () => {
-    await client.end()
+    if (!historicalContext) return
+    try {
+      await historicalContext.adminClient
+        .query('ROLLBACK')
+        .catch(() => undefined)
+      await historicalContext.serverClient
+        .query(
+          `REVOKE CONNECT ON DATABASE ${quoteIdentifier(historicalContext.databaseName)} FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+        )
+        .catch(() => undefined)
+    } finally {
+      await dispose(historicalContext)
+    }
   })
   it('enforces exact tuples, authority, atomic failure, immutable evidence and one-shot application', async () => {
     await client.query('BEGIN')
