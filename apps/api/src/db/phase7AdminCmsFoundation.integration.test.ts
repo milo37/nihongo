@@ -6,6 +6,7 @@ import { Client } from 'pg'
 import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { parseApiEnvironment } from '../config/env.js'
+import { adminFreshContextSchema } from '../auth/ssoAdminFreshRepository.js'
 import { createRoleDatabaseRuntime } from './database.js'
 import {
   createPostgresStartupOptions,
@@ -19,11 +20,11 @@ import {
 import { attestPhase7RuntimeRoles } from './phase7RuntimeRoleAttestation.js'
 
 const PHASE7_MIGRATIONS = [
-  '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation',
-  '20260909120000_phase7_archive_empty_manifest_verifier',
-  '20260916120000_phase7_reauthentication_foundation',
-  '20261005120000_phase7_reviewed_seed_revision2'
+  '20261019100000_sso_identity_mapping',
+  '20261019103000_sso_admin_fresh',
+  '20261019110000_sso_admin_fresh_erasure_ownership',
+  '20261019113000_sso_admin_fresh_column_qualification',
+  '20261020230000_sso_account_lifecycle'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -273,6 +274,60 @@ const insertCredentialUser = async (input: {
   }
 }
 
+const insertGoogleFixtureAccount = async (userId: string): Promise<void> => {
+  await client.query(
+    `INSERT INTO "Account" (
+      "id", "accountId", "providerId", "userId", "createdAt", "updatedAt"
+    ) VALUES ($1, $2, 'google', $3, clock_timestamp(), clock_timestamp())`,
+    [randomUUID(), `phase7-foundation-${randomUUID()}`, userId]
+  )
+}
+
+const completeAdminSsoFresh = async (
+  userId: string,
+  oldToken: string
+): Promise<string> => {
+  const token = `phase7-foundation-fresh-${randomUUID()}`
+  await withExecutionRole('nihongo_auth_gateway', async () => {
+    const prepared = await client.query<{ context: unknown }>(
+      `SELECT "phase7_prepare_sso_admin_fresh"($1, 'google') AS context`,
+      [oldToken]
+    )
+    const context = adminFreshContextSchema.parse(prepared.rows[0]?.context)
+    expect(context.userId).toBe(userId)
+    const proof = createHash('sha256').update(randomUUID()).digest('hex')
+    const staged = await client.query<{ accepted: boolean }>(
+      `SELECT "phase7_stage_sso_admin_fresh_proof"(
+        $1::jsonb, 'google', $2, $3, '/admin/questions'
+      ) AS accepted`,
+      [JSON.stringify(context), context.accountId, proof]
+    )
+    expect(staged.rows).toEqual([{ accepted: true }])
+    const sessionId = randomUUID()
+    const completed = await client.query<{ id: string; userId: string }>(
+      `SELECT * FROM "phase7_complete_sso_admin_fresh"($1, $2, $3, $4, $5, $6)`,
+      [
+        proof,
+        oldToken,
+        sessionId,
+        token,
+        '127.0.0.1',
+        'phase7-foundation-fresh'
+      ]
+    )
+    expect(completed.rowCount).toBe(1)
+    expect(completed.rows[0]).toMatchObject({ id: sessionId, userId })
+  })
+  await withExecutionRole('nihongo_app', async () => {
+    const fresh = await client.query<{ fresh: boolean }>(
+      `SELECT "phase7_sso_admin_session_is_fresh"($1) AS fresh`,
+      [token]
+    )
+    expect(fresh.rows).toEqual([{ fresh: true }])
+  })
+  return token
+}
+
 const insertIncompleteSystemQuestion = async (): Promise<void> => {
   const questionId = randomUUID()
   const versionId = randomUUID()
@@ -381,14 +436,14 @@ afterAll(async () => {
 })
 
 describe('Phase 7 Slice 1 persistence foundation', () => {
-  it('32 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('46 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(32)
+    expect(ledger.rows).toHaveLength(46)
     expect(
       ledger.rows.slice(-5).map(({ migrationName }) => migrationName)
     ).toEqual(PHASE7_MIGRATIONS)
@@ -484,7 +539,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 32 }])
+      ).toEqual([{ migrationCount: 46 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1294,7 +1349,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     )
     expect(counts.rows).toEqual([
       {
-        applicabilityCount: 127,
+        applicabilityCount: 126,
         auditCount: 0,
         fingerprintMismatchCount: 0,
         fingerprintNullCount: 0,
@@ -1303,7 +1358,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         reportCount: 0,
         reviewCount: 0,
         snapshotMismatchCount: 0,
-        tagCount: 108,
+        tagCount: 107,
         versionCount: 65,
         versionTagCount: 130
       }
@@ -1408,8 +1463,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const reviewerId = randomUUID()
     const authorSessionId = randomUUID()
     const reviewerSessionId = randomUUID()
-    const authorSessionToken = `phase7-seed-v2-author-${randomUUID()}`
-    const reviewerSessionToken = `phase7-seed-v2-reviewer-${randomUUID()}`
+    let authorSessionToken = `phase7-seed-v2-author-${randomUUID()}`
+    let reviewerSessionToken = `phase7-seed-v2-reviewer-${randomUUID()}`
     const versionId = randomUUID()
     const optionIds = Array.from({ length: 4 }, () => randomUUID())
     if (!optionIds[0]) {
@@ -1417,6 +1472,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     }
     await insertCredentialUser({ id: authorId, role: 'ADMIN' })
     await insertCredentialUser({ id: reviewerId, role: 'ADMIN' })
+    await insertGoogleFixtureAccount(authorId)
+    await insertGoogleFixtureAccount(reviewerId)
     await withExecutionRole('nihongo_auth_gateway', () =>
       client.query(
         `SELECT * FROM "phase7_issue_v1_session"(
@@ -1720,6 +1777,10 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       sessionToken: authorSessionToken,
       toState: 'IN_REVIEW'
     })
+    reviewerSessionToken = await completeAdminSsoFresh(
+      reviewerId,
+      reviewerSessionToken
+    )
     await transition({
       action: 'APPROVED',
       actorId: reviewerId,
@@ -1731,6 +1792,10 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       toState: 'APPROVED'
     })
 
+    authorSessionToken = await completeAdminSsoFresh(
+      authorId,
+      authorSessionToken
+    )
     const publicationRequestId = randomUUID()
     await client.query('BEGIN')
     try {
@@ -1934,10 +1999,12 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const secondActorId = randomUUID()
     const firstSessionId = randomUUID()
     const secondSessionId = randomUUID()
-    const firstSessionToken = `phase7-tag-first-${randomUUID()}`
-    const secondSessionToken = `phase7-tag-second-${randomUUID()}`
+    let firstSessionToken = `phase7-tag-first-${randomUUID()}`
+    let secondSessionToken = `phase7-tag-second-${randomUUID()}`
     await insertCredentialUser({ id: firstActorId, role: 'ADMIN' })
     await insertCredentialUser({ id: secondActorId, role: 'ADMIN' })
+    await insertGoogleFixtureAccount(firstActorId)
+    await insertGoogleFixtureAccount(secondActorId)
     await withExecutionRole('nihongo_auth_gateway', () =>
       client.query(
         `SELECT * FROM "phase7_issue_v1_session"(
@@ -2929,6 +2996,14 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       1
     )
 
+    firstSessionToken = await completeAdminSsoFresh(
+      firstActorId,
+      firstSessionToken
+    )
+    secondSessionToken = await completeAdminSsoFresh(
+      secondActorId,
+      secondSessionToken
+    )
     const reciprocalClient = new Client({
       connectionString: connectionUrl.toString(),
       options: createPostgresStartupOptions(schema)
@@ -3169,7 +3244,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       throw error
     }
 
-    const freshFirstSessionToken = `phase7-tag-authority-${randomUUID()}`
+    let freshFirstSessionToken = `phase7-tag-authority-${randomUUID()}`
     await withExecutionRole('nihongo_auth_gateway', () =>
       client.query(
         `SELECT * FROM "phase7_issue_v1_session"(
@@ -3178,6 +3253,10 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         )`,
         [firstActorId, randomUUID(), freshFirstSessionToken]
       )
+    )
+    freshFirstSessionToken = await completeAdminSsoFresh(
+      firstActorId,
+      freshFirstSessionToken
     )
     const authorityClient = new Client({
       connectionString: connectionUrl.toString(),
@@ -3427,9 +3506,10 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
 
   it('admin command별 isolation matrix와 실패 write 0을 고정한다', async () => {
     const sessionId = randomUUID()
-    const sessionToken = `phase7-repeatable-read-${randomUUID()}`
+    let sessionToken = `phase7-repeatable-read-${randomUUID()}`
     const requestIds: string[] = []
     await insertCredentialUser({ id: repeatableReadActorId, role: 'ADMIN' })
+    await insertGoogleFixtureAccount(repeatableReadActorId)
     await expect(
       withExecutionRole('nihongo_auth_gateway', () =>
         client.query(
@@ -3441,6 +3521,11 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         )
       )
     ).resolves.toMatchObject({ rows: [{ id: sessionId }] })
+
+    sessionToken = await completeAdminSsoFresh(
+      repeatableReadActorId,
+      sessionToken
+    )
 
     const attemptBegin = async (
       isolation: 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE',
@@ -3811,8 +3896,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const optionIds = Array.from({ length: 4 }, () => randomUUID())
     const sessionId = randomUUID()
     const sessionToken = `phase7-session-${randomUUID()}`
-    const operationSessionId = randomUUID()
-    const operationSessionToken = `phase7-operation-${randomUUID()}`
+    let operationSessionId: string = randomUUID()
+    let operationSessionToken = `phase7-operation-${randomUUID()}`
     const wrongAuthorId = randomUUID()
     const wrongAuthorSessionId = randomUUID()
     const wrongAuthorSessionToken = `phase7-wrong-author-${randomUUID()}`
@@ -3823,6 +3908,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const wrongRoleSessionId = randomUUID()
     const wrongRoleSessionToken = `phase7-wrong-role-${randomUUID()}`
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
+    await insertGoogleFixtureAccount(actorId)
     await insertCredentialUser({ id: wrongAuthorId, role: 'ADMIN' })
 
     await expectFailedTransaction(async () => {
@@ -4206,6 +4292,19 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       sessionToken: operationSessionToken,
       timestampOffsetSeconds: 1
     })
+
+    const previousOperationSessionId = operationSessionId
+    operationSessionToken = await completeAdminSsoFresh(
+      actorId,
+      operationSessionToken
+    )
+    const replacementSession = await client.query<{ id: string }>(
+      `SELECT "id" FROM "Session" WHERE "token" = $1 AND "userId" = $2`,
+      [operationSessionToken, actorId]
+    )
+    expect(replacementSession.rows).toHaveLength(1)
+    operationSessionId = replacementSession.rows[0]!.id
+    expect(operationSessionId).not.toBe(previousOperationSessionId)
 
     const legacySeed = buildAllQuestionSeeds()[0]
     if (!legacySeed)
@@ -4651,11 +4750,12 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const actorId = randomUUID()
     const injectedAssigneeId = randomUUID()
     const sessionId = randomUUID()
-    const sessionToken = `phase7-report-triage-${randomUUID()}`
+    let sessionToken = `phase7-report-triage-${randomUUID()}`
     const reportId = randomUUID()
     const seed = buildAllQuestionSeeds()[0]
     if (!seed) throw new Error('Phase 7 report triage target is unavailable.')
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
+    await insertGoogleFixtureAccount(actorId)
     await insertCredentialUser({ id: injectedAssigneeId, role: 'ADMIN' })
     await withExecutionRole('nihongo_auth_gateway', () =>
       client.query(
@@ -4864,6 +4964,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         status: 'TRIAGED'
       }
     ])
+    sessionToken = await completeAdminSsoFresh(actorId, sessionToken)
     const resolutionRequestId = randomUUID()
     await client.query('BEGIN')
     try {
@@ -5263,7 +5364,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
   it('QUESTION_ARCHIVE는 모든 open candidate 상태를 exact abandonment evidence로 종료한다', async () => {
     const actorId = randomUUID()
     const sessionId = randomUUID()
-    const sessionToken = `phase7-archive-${randomUUID()}`
+    let sessionToken = `phase7-archive-${randomUUID()}`
     const tag = await client.query<{
       id: string
       label: string
@@ -5281,6 +5382,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const selectedTag = tag.rows[0]
     if (!selectedTag) throw new Error('Phase 7 archive tag is unavailable.')
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
+    await insertGoogleFixtureAccount(actorId)
     await withExecutionRole('nihongo_auth_gateway', () =>
       client.query(
         `SELECT * FROM "phase7_issue_v1_session"(
@@ -5455,6 +5557,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     } finally {
       await client.query(`SET session_replication_role = origin`)
     }
+
+    sessionToken = await completeAdminSsoFresh(actorId, sessionToken)
 
     const archiveCandidates = candidates.slice(0, -1)
     const concurrentCandidate = candidates.at(-1)
