@@ -14,7 +14,10 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import type { ExpectStatic } from 'vitest'
-import type { SeedQuestionCatalogResult } from '../../../prisma/seedQuestionCatalog.js'
+import {
+  buildAllQuestionSeeds,
+  type SeedQuestionCatalogResult
+} from '../../../prisma/seedQuestionCatalog.js'
 import {
   buildQuestionAggregateSeed,
   type QuestionAggregateSeed
@@ -897,6 +900,11 @@ export const createPhase7HistoricalSchemaFixture = ({
       )
     )
   }
+  const seedCurrentCatalog = (
+    client: Client
+  ): Promise<SeedQuestionCatalogResult> =>
+    seedCatalog(client, buildAllQuestionSeeds())
+
   return {
     copyMigration,
     createIsolatedUpgradeSchema,
@@ -907,6 +915,7 @@ export const createPhase7HistoricalSchemaFixture = ({
     readNonCanonicalTargetOwnerCount,
     seedPhase6Catalog,
     seedReviewedRevision2Catalog,
+    seedCurrentCatalog,
     transferPhase6TargetOwnership
   }
 }

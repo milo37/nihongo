@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { Client } from 'pg'
+import type { Client } from 'pg'
 import {
   afterAll,
   afterEach,
@@ -15,10 +15,13 @@ import { normalizePhase7TagKey } from '@nihongo/contracts/admin/phase7'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
 import { parseApiEnvironment } from '../config/env.js'
+import { getPostgresSchema } from '../db/databaseOptions.js'
 import {
-  createPostgresStartupOptions,
-  getPostgresSchema
-} from '../db/databaseOptions.js'
+  createPhase7HistoricalSchemaFixture,
+  LEGACY_APP_LOGIN,
+  quoteIdentifier
+} from '../db/fixtures/phase7HistoricalSchema.js'
+import type { IsolatedUpgradeSchema } from '../db/fixtures/phase7HistoricalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import {
@@ -28,8 +31,8 @@ import {
   createApproved308TagRequirements
 } from './approved308Supply.js'
 
-// Authoring this test does not authorize a target. The caller must provision the
-// explicit disposable current38 fixture, with immutable65/107/126 and no imports.
+// Require an explicit TEST/current38 selection, then prepare an owned current38
+// fixture with immutable65/107/126 and no approved308 objects or imports.
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
   adminCmsMode: environment.ADMIN_CMS_MODE,
@@ -49,7 +52,7 @@ if (
     'Explicit isolated TEST/current38 approved308 fixture required.'
   )
 }
-const schema = getPostgresSchema(testUrl)
+let schema = getPostgresSchema(testUrl)
 if (
   !schema ||
   !/^phase7_[a-z0-9_]+_test$/u.test(schema) ||
@@ -69,10 +72,27 @@ for (const value of [testUrl, environment.DATABASE_URL]) {
     throw new Error('Approved308 TEST endpoint mismatch.')
 }
 connection.searchParams.delete('schema')
-const client = new Client({
-  connectionString: connection.toString(),
-  options: createPostgresStartupOptions(schema)
+const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
+if (!legacyDatabaseUrl)
+  throw new Error('Phase 7 legacy compatibility database URL is required.')
+const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+if (!migrationDatabaseUrl)
+  throw new Error('Phase 7 migration wrapper database URL is required.')
+const {
+  copyMigration,
+  createIsolatedUpgradeSchema,
+  deploy,
+  dispose,
+  readLedger,
+  seedCurrentCatalog
+} = createPhase7HistoricalSchemaFixture({
+  adminDatabaseUrl: adminUrl,
+  legacyDatabaseUrl,
+  migrationDatabaseUrl,
+  expect
 })
+let historicalContext: IsolatedUpgradeSchema | undefined
+let client: Client
 const migrationSql = readFileSync(
   new URL(
     `../../prisma/migrations/${approved308TagMigration}/migration.sql`,
@@ -200,10 +220,53 @@ const repository = createPrismaAdminQuestionSlice5Repository({
 
 describe('Approved308 closed current38 successor registration', () => {
   beforeAll(async () => {
-    await client.connect()
-  })
+    const context = await createIsolatedUpgradeSchema()
+    historicalContext = context
+    client = context.adminClient
+    schema = context.schemaName
+    const prefix = loadExpectedMigrationManifest().slice(0, 38)
+    expect(prefix).toHaveLength(38)
+    expect(prefix.at(-1)?.name).toBe(
+      '20261009120000_phase7_approved_n4_reading_batch7_tags'
+    )
+    await context.serverClient.query(
+      `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)} TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+    )
+    for (const { name } of prefix.slice(0, 37))
+      copyMigration(name, context.migrationsPath)
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(37)
+    await client.query(`SET search_path TO ${context.quotedSchemaName}`)
+    await client.query('SET ROLE nihongo_phase7_owner')
+    try {
+      await expect(seedCurrentCatalog(client)).resolves.toEqual({
+        insertedCount: 65,
+        verifiedCount: 0
+      })
+    } finally {
+      await client.query('RESET ROLE')
+    }
+    copyMigration(
+      '20261009120000_phase7_approved_n4_reading_batch7_tags',
+      context.migrationsPath
+    )
+    await deploy(context)
+    expect(await readLedger(context)).toHaveLength(38)
+  }, 180_000)
   afterAll(async () => {
-    await client.end()
+    if (!historicalContext) return
+    try {
+      await historicalContext.adminClient
+        .query('ROLLBACK')
+        .catch(() => undefined)
+      await historicalContext.serverClient
+        .query(
+          `REVOKE CONNECT ON DATABASE ${quoteIdentifier(historicalContext.databaseName)} FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+        )
+        .catch(() => undefined)
+    } finally {
+      await dispose(historicalContext)
+    }
   })
   beforeEach(async () => {
     await client.query('BEGIN')
@@ -306,7 +369,13 @@ describe('Approved308 closed current38 successor registration', () => {
       (x) => x.proname === 'register_phase7_approved308_tag_rows'
     )
     expect(register?.prosecdef).toBe(true)
-    expect(register?.proconfig).toContain('TimeZone=UTC')
+    expect(
+      register?.proconfig
+        ?.map((setting) =>
+          setting.replace(/[A-Z]/gu, (letter) => letter.toLowerCase())
+        )
+        .filter((setting) => setting.split('=')[0] === 'timezone')
+    ).toEqual(['timezone=utc'])
     expect(register?.prosrc).not.toContain(
       'JLP478_APPROVED308_PREDECESSOR_UNSET'
     )

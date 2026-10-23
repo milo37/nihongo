@@ -80,11 +80,15 @@ export const createPhase7SsoTestEnvironment = (
 export const createPhase7DbFileEnvironment = (
   testFile: string,
   base: NodeJS.ProcessEnv
-): NodeJS.ProcessEnv =>
-  testFile === phase7SsoTestFile ||
-  testFile === phase7SsoAccountLifecycleTestFile
+): NodeJS.ProcessEnv => {
+  if (testFile === 'src/content/approved308Tags.integration.test.ts') {
+    return { ...base, PHASE7_APPROVED308_FIXTURE_PROFILE: 'current38' }
+  }
+  return testFile === phase7SsoTestFile ||
+    testFile === phase7SsoAccountLifecycleTestFile
     ? createPhase7SsoTestEnvironment(base)
     : base
+}
 
 const phase7SingleTestFiles: readonly string[] = [
   phase7DbFoundationTestFile,
