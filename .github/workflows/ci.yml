@@ -291,6 +291,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Initialize unique safe Playwright evidence
+        id: phase10_playwright_initialize
         shell: bash
         run: |
           set -euo pipefail
@@ -298,13 +299,18 @@ jobs:
           install -d -m 700 "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
 
       - name: Phase 10 real browser acceptance
+        id: phase10_browser_real
         run: pnpm run test:phase10:browser:real
 
+      # Later groups are diagnostic; earlier step failures still fail this job.
       - name: Phase 10 canonical mock browser acceptance
+        id: phase10_browser_mock
+        if: ${{ !cancelled() && steps.phase10_playwright_initialize.outcome == 'success' }}
         run: pnpm run test:phase10:browser:mock
 
       - name: Verify safe Playwright evidence
         id: phase10_playwright_evidence
+        if: ${{ !cancelled() && steps.phase10_playwright_initialize.outcome == 'success' }}
         run: >-
           node scripts/security/security-evidence.mjs verify
           --directory "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
@@ -312,7 +318,7 @@ jobs:
           --required phase8-real,phase8-mock,phase9-real,phase9-mock,phase10-real,phase10-mock
 
       - name: Upload safe Playwright evidence
-        if: ${{ steps.phase10_playwright_evidence.outcome == 'success' }}
+        if: ${{ steps.phase10_playwright_evidence.outcome == 'success' && steps.phase10_browser_real.outcome == 'success' && steps.phase10_browser_mock.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
@@ -350,6 +356,8 @@ jobs:
   phase11_release:
     name: Phase 11 portable release and production-mode smoke
     needs: [build, e2e]
+    # This isolated diagnostic does not clear a failed browser required check.
+    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

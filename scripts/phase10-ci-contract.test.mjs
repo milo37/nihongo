@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import process from 'node:process'
 import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -48,14 +51,17 @@ test('package scripts preserve the Phase 10 static, performance, and browser gra
     rootPackage.scripts['test:phase10:performance:database-api'],
     'pnpm --filter @nihongo/api run test:phase10:performance'
   )
-  assert.equal(
-    rootPackage.scripts['test:phase10:browser:real'],
-    'pnpm run test:phase8:browser:real && pnpm run test:phase9:browser:real && pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts real'
-  )
-  assert.equal(
-    rootPackage.scripts['test:phase10:browser:mock'],
-    'pnpm run test:phase8:browser:mock && pnpm run test:phase9:browser:mock && pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts mock'
-  )
+
+  for (const mode of ['real', 'mock']) {
+    const command = rootPackage.scripts[`test:phase10:browser:${mode}`]
+    assertInOrder(command, [
+      `run pnpm run test:phase8:browser:${mode};`,
+      `run pnpm run test:phase9:browser:${mode};`,
+      `run pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts ${mode};`
+    ])
+    assert.match(command, /phase10_status=0;/u)
+    assert.match(command, /exit "\$phase10_status"/u)
+  }
   assert.equal(
     webPackage.scripts['test:phase10:bundle'],
     'node scripts/phase10-production-bundle-clean.mjs && node --test scripts/phase10-production-bundle-contract.test.mjs && node scripts/phase10-production-bundle-check.mjs && node --test scripts/phase10-production-bundle-evidence.test.mjs'
@@ -179,10 +185,41 @@ test('browser job preserves six-label acceptance and run-unique safe evidence', 
   )
   assert.match(workflow, /expected="test-results\/phase10-raw"/u)
   assert.match(workflow, /expected="test-results\/playwright-phase9-real"/u)
+
+  const browserCondition =
+    "${{ !cancelled() && steps.phase10_playwright_initialize.outcome == 'success' }}"
+  for (const name of [
+    'Phase 10 canonical mock browser acceptance',
+    'Verify safe Playwright evidence'
+  ]) {
+    const start = workflow.indexOf(`- name: ${name}`)
+    const end = workflow.indexOf('\n      - name:', start + 1)
+    assert.ok(workflow.slice(start, end).includes(`if: ${browserCondition}`))
+  }
+  assert.match(workflow, /id: phase10_playwright_initialize/u)
+  const uploadStart = workflow.indexOf(
+    '- name: Upload safe Playwright evidence'
+  )
+  const uploadEnd = workflow.indexOf('\n      - name:', uploadStart + 1)
+  const upload = workflow.slice(uploadStart, uploadEnd)
+  for (const id of [
+    'phase10_playwright_evidence',
+    'phase10_browser_real',
+    'phase10_browser_mock'
+  ]) {
+    assert.ok(upload.includes(`steps.${id}.outcome == 'success'`))
+  }
+  const portable = workflow.slice(workflow.indexOf('\n  phase11_release:'))
+  assert.ok(portable.includes('needs: [build, e2e]'))
+  assert.ok(
+    portable.includes(
+      "if: ${{ !cancelled() && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}"
+    )
+  )
   assert.doesNotThrow(() => assertWorkflowArtifactPolicy(workflow))
 })
 
-test('browser failure policy cannot be weakened', () => {
+test('browser failure policy cannot be weakened', async () => {
   assert.match(playwrightConfig, /forbidOnly:\s*true/u)
   assert.match(playwrightConfig, /fullyParallel:\s*false/u)
   assert.match(playwrightConfig, /retries:\s*0/u)
@@ -193,5 +230,79 @@ test('browser failure policy cannot be weakened', () => {
     rootPackage.scripts['test:phase10:browser:mock']
   ]) {
     assert.doesNotMatch(command, /--(?:pass-with-no-tests|retries|timeout)\b/u)
+  }
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'phase10-browser-sequence-')
+  )
+  const log = path.join(directory, 'calls')
+  try {
+    await writeFile(
+      path.join(directory, 'pnpm'),
+      `#!/bin/sh
+case "$*" in
+  "run test:phase8:browser:$BROWSER_STUB_MODE") group=8 ;;
+  "run test:phase9:browser:$BROWSER_STUB_MODE") group=9 ;;
+  "--filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts $BROWSER_STUB_MODE") group=10 ;;
+  *) exit 127 ;;
+esac
+printf '%s\\n' "$group" >> "$BROWSER_STUB_LOG"
+if [ "$group" = 8 ] && [ -n "\${BROWSER_STUB_SIGNAL:-}" ]; then
+  kill -"$BROWSER_STUB_SIGNAL" "$PPID"
+fi
+case "$group" in
+  8) exit "$BROWSER_STUB_EXIT_8" ;;
+  9) exit "$BROWSER_STUB_EXIT_9" ;;
+  10) exit "$BROWSER_STUB_EXIT_10" ;;
+esac
+`,
+      { mode: 0o755 }
+    )
+    for (const mode of ['real', 'mock']) {
+      for (const scenario of [
+        { exits: [0, 0, 0], status: 0 },
+        { exits: [7, 0, 0], status: 1 },
+        { exits: [0, 7, 0], status: 1 },
+        { exits: [0, 0, 7], status: 1 },
+        { exits: [7, 9, 42], status: 1 },
+        { exits: [0, 127, 0], status: 1 },
+        { exits: [130, 0, 0], status: 130, calls: ['8'] },
+        { exits: [143, 0, 0], status: 143, calls: ['8'] },
+        { exits: [0, 0, 0], status: 130, signal: 'INT', calls: ['8'] },
+        { exits: [0, 0, 0], status: 143, signal: 'TERM', calls: ['8'] }
+      ]) {
+        await writeFile(log, '')
+        const result = spawnSync(
+          '/bin/sh',
+          ['-c', rootPackage.scripts[`test:phase10:browser:${mode}`]],
+          {
+            encoding: 'utf8',
+            timeout: 5_000,
+            env: {
+              ...process.env,
+              PATH: `${directory}${path.delimiter}${process.env.PATH}`,
+              BROWSER_STUB_MODE: mode,
+              BROWSER_STUB_LOG: log,
+              BROWSER_STUB_EXIT_8: String(scenario.exits[0]),
+              BROWSER_STUB_EXIT_9: String(scenario.exits[1]),
+              BROWSER_STUB_EXIT_10: String(scenario.exits[2]),
+              BROWSER_STUB_SIGNAL: scenario.signal ?? ''
+            }
+          }
+        )
+        assert.ifError(result.error)
+        assert.equal(result.signal, null)
+        assert.equal(result.status, scenario.status, result.stderr)
+        assert.deepEqual(
+          (await readFile(log, 'utf8')).trim().split('\n'),
+          scenario.calls ?? ['8', '9', '10']
+        )
+        if (scenario.status === 1) {
+          assert.match(result.stderr, /subsequent groups are diagnostic/u)
+          assert.match(result.stderr, /do not prove independent cleanup/u)
+        }
+      }
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
   }
 })
