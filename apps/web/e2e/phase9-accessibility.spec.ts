@@ -1347,14 +1347,14 @@ const login = async (
       await Promise.all([
         resumableResponse,
         insightsResponse,
-        page.waitForURL(
-          (url) =>
-            url.origin === origin &&
-            url.pathname === '/dashboard' &&
-            url.search === '?view=learning'
-        ),
         page.goto(callback.href)
       ])
+      await expect(page).toHaveURL(
+        (url) =>
+          url.origin === origin &&
+          url.pathname === '/dashboard' &&
+          url.search === '?view=learning'
+      )
     } finally {
       await page.unroute(providerURL)
     }
