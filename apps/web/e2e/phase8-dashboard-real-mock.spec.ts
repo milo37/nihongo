@@ -264,8 +264,10 @@ const assertCanonicalDashboardAggregate = (
 }
 
 const openDashboardSections = async (
-  page: Page
+  page: Page,
+  ledger: RequestLedger
 ): Promise<z.infer<typeof getDashboardInsightsResponseSchema>> => {
+  const wrongNotesStartIndex = ledger.entries.length
   await page.goto('/wrong-notes')
   const recentResults = page
     .locator('summary')
@@ -290,6 +292,9 @@ const openDashboardSections = async (
   await expect(
     page.getByText('아직 마친 학습이 없어요.', { exact: true })
   ).toBeVisible()
+
+  // Empty review queues also load history independently of the stats response.
+  await waitForLedgerToQuiesce(ledger, wrongNotesStartIndex)
 
   // Insights mount on the learning route before its native disclosure is opened.
   const insightsResponsePromise = waitForResponse(
@@ -332,7 +337,7 @@ const measureDashboardNavigation = async (
 ): Promise<number> => {
   const startIndex = ledger.entries.length
   const startedAt = performance.now()
-  await openDashboardSections(page)
+  await openDashboardSections(page, ledger)
   await expect
     .poll(
       () => selectCanonicalDashboardLedger(ledger, startIndex).entries.length
@@ -368,7 +373,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   await login(page)
 
   const initialDashboardStartIndex = ledger.entries.length
-  const insights = await openDashboardSections(page)
+  const insights = await openDashboardSections(page, ledger)
 
   await expect
     .poll(

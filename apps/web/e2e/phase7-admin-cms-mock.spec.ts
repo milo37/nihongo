@@ -338,11 +338,14 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     await canonicalJson(loaded, 200)
   )
   const seed = catalog.items.find(
-    (item) => item.level === 'N3' && item.subject === 'GRAMMAR'
+    (item) =>
+      item.level === 'N3' &&
+      item.subject === 'GRAMMAR' &&
+      item.questionType === 'GRAMMAR_SELECT'
   )
   if (!seed)
     throw new Error(
-      'The canonical N3 grammar catalog must supply an existing applicable tag.'
+      'The canonical N3 grammar-select catalog must supply an existing applicable tag.'
     )
   const tag = seed.tags[0]
   if (!tag)
@@ -389,6 +392,11 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
   const createInput = createAdminQuestionRequestSchema.parse(
     createdResponse.request().postDataJSON() as unknown
   )
+  expect(createInput).toMatchObject({
+    level: seed.level,
+    subject: seed.subject,
+    questionType: seed.questionType
+  })
   expect(createInput.tagNames).toEqual([tag.label])
   expect(createInput.options).toHaveLength(4)
   const created = createAdminQuestionResponseSchema.parse(
