@@ -755,9 +755,13 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
 
   it('new SSO deferred operation guard rechecks expired assurance after successful admission', async () => {
     await h.rollback(async () => {
+      await h.owner.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
       const f = await h.fixture()
       const { proof } = await staged(f)
       const next = await h.rotate(f, proof)
+      await h.owner.query(
+        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
+      )
       const begin = `SELECT * FROM "phase7_begin_admin_operation"('EXPORT',$1,$2,'TEST',ARRAY[$3]::uuid[])`
       await h.rejects(
         'nihongo_app',
@@ -1111,7 +1115,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       await h.rollback(async () => {
         const f = await h.fixture(provider)
         await h.owner.query(
-          `INSERT INTO "Account" (id,"accountId","providerId","userId",password,"createdAt","updatedAt") VALUES ($1,$2,'credential',$2,'unused-retained-fixture-hash',clock_timestamp(),clock_timestamp())`,
+          `INSERT INTO "Account" (id,"accountId","providerId","userId",password,"createdAt","updatedAt") VALUES ($1,$2::uuid::text,'credential',$2,'unused-retained-fixture-hash',clock_timestamp(),clock_timestamp())`,
           [randomUUID(), f.userId]
         )
         const before = await h.snapshot()
@@ -1187,8 +1191,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     const f = await committedFixture()
     const { proof } = await staged(f)
     const next = await h.rotate(f, proof)
+    // Set the expiry before REPEATABLE READ captures its snapshot. Another
+    // connection's later UPDATE is invisible to the admitted transaction.
+    await h.owner.query(
+      `UPDATE "SsoAdminFreshProof" SET "expiresAt"=clock_timestamp()+interval '3 seconds' WHERE "proofDigest"=$1`,
+      [proof]
+    )
     const before = await h.snapshot()
-    await h.app.query('BEGIN')
+    await h.app.query('BEGIN ISOLATION LEVEL REPEATABLE READ')
     try {
       const operation = await h.app.query<{ operationId: string }>(
         `SELECT * FROM "phase7_begin_admin_operation"('EXPORT',$1,$2,'TEST',ARRAY[$3]::uuid[])`,
@@ -1196,10 +1206,15 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       )
       const operationId = operation.rows[0]?.operationId
       expect(operationId).toBeDefined()
-      await h.owner.query(
-        'UPDATE "SsoAdminFreshProof" SET "expiresAt"=clock_timestamp() WHERE "proofDigest"=$1',
+      expect(operation.rowCount).toBe(1)
+      // The database clock advances beyond the recorded deadline; the wait is
+      // bounded at 3.05 seconds and does not depend on a JavaScript fake clock.
+      await h.owner.query('SELECT pg_sleep(3.05)')
+      const expiry = await h.owner.query<{ expired: boolean }>(
+        'SELECT "expiresAt"<=clock_timestamp() AS expired FROM "SsoAdminFreshProof" WHERE "proofDigest"=$1',
         [proof]
       )
+      expect(expiry.rows).toEqual([{ expired: true }])
       await expect(
         h.app.query(
           'SET CONSTRAINTS "Phase7OperationIntent_sso_fresh_commit" IMMEDIATE'
@@ -1220,7 +1235,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     } finally {
       await h.app.query('ROLLBACK')
     }
-  })
+  }, 10_000)
   it('ERASURE cascades pending transaction context and denies its callback authority', async () => {
     await h.rollback(async () => {
       const f = await h.fixture()
@@ -1326,7 +1341,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const absent = randomUUID()
       await expect(
         h.owner.query(
-          `INSERT INTO "SsoAdminFreshProof" ("userId","proofDigest",context,"callbackURL","createdAt","expiresAt") SELECT $1,$2,context||jsonb_build_object('userId',$1::text),"callbackURL","createdAt","expiresAt" FROM "SsoAdminFreshProof" WHERE "proofDigest"=$3`,
+          `INSERT INTO "SsoAdminFreshProof" ("userId","proofDigest",context,"callbackURL","createdAt","expiresAt") SELECT $1::uuid,$2,context||jsonb_build_object('userId',$1::text),"callbackURL","createdAt","expiresAt" FROM "SsoAdminFreshProof" WHERE "proofDigest"=$3`,
           [absent, digest(), proof]
         )
       ).rejects.toMatchObject({ code: '23503' })
@@ -1342,6 +1357,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const targetProof = await staged(target)
       const otherProof = await staged(other),
         current = await h.rotate(other, otherProof.proof)
+      await h.owner.query(
+        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
+      )
       const currentOther = {
         ...other,
         token: current.token,

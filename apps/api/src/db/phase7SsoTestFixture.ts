@@ -377,10 +377,24 @@ export const createSsoDbHarness = () => {
         `SELECT "phase7_register_database_capability"($1,$2::inet,$3,'TEST')`,
         [endpoint.name, endpoint.address, endpoint.port]
       )
-      await roleQuery(
-        'nihongo_phase7_migration',
-        `SELECT "phase7_activate_v1_issuer"('TEST')`
-      )
+      const activation = await owner.query<{
+        id: number
+        legacyIssuerDisabled: boolean
+      }>(`SELECT "id", "legacyIssuerDisabled" FROM "AuthIssuerActivation"`)
+      const issuer = activation.rows[0]
+      if (
+        activation.rows.length !== 1 ||
+        issuer?.id !== 1 ||
+        typeof issuer.legacyIssuerDisabled !== 'boolean'
+      ) {
+        throw new Error('Phase 7 issuer activation singleton is invalid.')
+      }
+      if (!issuer.legacyIssuerDisabled) {
+        await roleQuery(
+          'nihongo_phase7_migration',
+          `SELECT "phase7_activate_v1_issuer"('TEST')`
+        )
+      }
     },
     close: async () => {
       await Promise.allSettled([
