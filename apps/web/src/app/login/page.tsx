@@ -1,144 +1,252 @@
-import { useSearchParams, useNavigate } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import { Button } from '@common/components/Button'
-import { useLoginDemoAdmin } from '@app/login/hooks/useLoginDemoAdmin'
-import { useLoginDemoUser } from '@app/login/hooks/useLoginDemoUser'
+import {
+  safeSsoReturnPath,
+  ssoCallbackOutcomeSchema
+} from '@nihongo/contracts/auth/sign-in-social'
+import type {
+  SsoCallbackOutcome,
+  SsoProviderId
+} from '@nihongo/contracts/auth/sign-in-social'
+import { SsoAccountManagement } from '@app/login/components/SsoAccountManagement'
+import {
+  accountFreshOutcomeSchema,
+  accountLinkOutcomeSchema
+} from '@nihongo/contracts/auth/sso-account-management'
+import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
+import { AuthFlowError } from '@app/login/authFlowErrors'
+import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
-import { useDemoAuth } from '@provider/ProtectedRouteProvider'
+import { useStartSocialSignIn } from '@app/login/hooks/useStartSocialSignIn'
+import { Button } from '@common/components/Button'
+import { Dialog } from '@common/components/Dialog'
+import { useAuth } from '@provider/ProtectedRouteProvider'
 
-const getSafeRedirect = (redirect: string | null): string => {
-  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) {
-    return '/'
-  }
-  return redirect
-}
+type Notice = SsoCallbackOutcome | 'LEGACY' | 'EXPIRED'
 
-const getGuestRedirect = (redirect: string): string => {
-  if (redirect === '/' || redirect === '/practice') {
-    return redirect
-  }
-
-  if (redirect.startsWith('/practice/')) {
-    return '/practice'
-  }
-
-  return '/'
-}
+const hasStateFlag = (state: unknown, flag: string): boolean =>
+  state !== null &&
+  typeof state === 'object' &&
+  flag in state &&
+  Reflect.get(state, flag) === true
 
 export const LoginPage = (): ReactElement => {
+  const { t } = useTranslation('auth')
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { user, role } = useDemoAuth()
-  const loginUser = useLoginDemoUser()
-  const loginAdmin = useLoginDemoAdmin()
+  const location = useLocation()
+  const [search] = useSearchParams()
+  const { isReady, user } = useAuth()
+  const start = useStartSocialSignIn()
   const logout = useLogoutUser()
-  const redirect = getSafeRedirect(searchParams.get('redirect'))
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const logoutButton = useRef<HTMLButtonElement>(null)
+  const cancelButton = useRef<HTMLButtonElement>(null)
+  const appleButton = useRef<HTMLButtonElement>(null)
+  const googleButton = useRef<HTMLButtonElement>(null)
+  const redirect = safeSsoReturnPath(search.get('redirect'))
+  const [notice, setNotice] = useState<Notice | null>(() => {
+    if (search.has('sso')) {
+      const outcome = ssoCallbackOutcomeSchema.safeParse(search.get('sso'))
+      return outcome.success ? outcome.data : 'INVALID_CALLBACK'
+    }
+    if (search.has('mode') || hasStateFlag(location.state, 'legacyAuthMethod'))
+      return 'LEGACY'
+    if (hasStateFlag(location.state, 'sessionExpired')) return 'EXPIRED'
+    return null
+  })
+  const busy = start.isPending || start.isRedirecting
+  const provider = start.variables?.provider
+  const providerName = provider === 'apple' ? 'Apple' : 'Google'
 
-  const completeLogin = (): void => {
-    void navigate(redirect, { replace: true })
-  }
+  useEffect(() => {
+    const canonical = new URLSearchParams()
+    if (redirect !== '/') canonical.set('redirect', redirect)
+    for (const [key, schema] of [
+      ['ssoAccountFresh', accountFreshOutcomeSchema],
+      ['ssoAccountLink', accountLinkOutcomeSchema]
+    ] as const) {
+      const values = search.getAll(key)
+      const parsed = schema.safeParse(values[0])
+      if (values.length === 1 && parsed.success) canonical.set(key, parsed.data)
+    }
+    const desired = canonical.toString()
+    if (
+      location.search !== (desired ? '?' + desired : '') ||
+      location.hash ||
+      location.state
+    ) {
+      void navigate(
+        { pathname: '/login', search: desired, hash: '' },
+        { replace: true, state: null }
+      )
+    }
+  }, [
+    location.hash,
+    location.search,
+    location.state,
+    navigate,
+    redirect,
+    search
+  ])
 
-  const handleGuest = (): void => {
-    logout.mutate(undefined, {
-      onSuccess: () => {
-        void navigate(getGuestRedirect(redirect), { replace: true })
-      }
-    })
-  }
+  useEffect(() => {
+    if (notice) heading.current?.focus()
+  }, [notice])
 
-  const handleLogout = (): void => {
-    logout.mutate()
+  useEffect(() => {
+    if (start.isError) {
+      ;(provider === 'apple' ? appleButton : googleButton).current?.focus()
+    }
+  }, [provider, start.isError])
+
+  const begin = (selected: SsoProviderId): void => {
+    if (busy) return
+    setNotice(null)
+    start.mutate({ provider: selected, callbackURL: redirect })
   }
+  const noticeKey =
+    notice === 'CANCELLED'
+      ? 'cancelled'
+      : notice === 'FAILED'
+        ? 'failed'
+        : notice === 'INVALID_CALLBACK'
+          ? 'expired'
+          : notice === 'EXPIRED'
+            ? 'sessionExpired'
+            : 'legacyMethod'
+  const failed = notice === 'FAILED' || notice === 'INVALID_CALLBACK'
+  const errorKey =
+    start.error instanceof AuthFlowError && start.error.unavailable
+      ? 'unavailableProvider'
+      : 'failedProvider'
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
-      <div className="max-w-2xl">
-        <p className="text-sm font-black tracking-[0.16em] text-brand">
-          DEMO ACCESS
-        </p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight">
-          학습 역할을 선택하세요
-        </h1>
-        <p className="mt-4 leading-7 text-muted">
-          실제 회원가입 없이 역할별 기능을 확인할 수 있습니다. 선택한 상태는 이
-          브라우저에만 저장됩니다.
-        </p>
+    <section className="auth-page">
+      <div className="auth-panel">
+        <header className="auth-heading">
+          <h1 ref={heading} tabIndex={notice ? -1 : undefined}>
+            {!isReady
+              ? t('sso.checkingSession')
+              : user
+                ? t('sso.alreadySignedIn')
+                : t('sso.title')}
+          </h1>
+          {isReady ? (
+            <p>{user ? t('currentDescription') : t('sso.description')}</p>
+          ) : null}
+        </header>
+        {!isReady ? (
+          <p className="auth-notice" role="status">
+            {t('sso.checkingSession')}
+          </p>
+        ) : user ? (
+          <>
+            <div className="auth-account">
+              <span>{t('currentAccount')}</span>
+              <strong>{user.name}</strong>
+            </div>
+            {user.role === 'ADMIN' ? (
+              <AdminFreshEntry
+                returnPath={redirect === '/' ? '/login' : redirect}
+                disabled={logoutOpen || logout.isPending}
+              />
+            ) : null}
+            <div className="auth-actions">
+              <Button
+                fullWidth
+                onClick={() => void navigate(redirect, { replace: true })}
+              >
+                {t('sso.backToLearning')}
+              </Button>
+              <Button
+                ref={logoutButton}
+                fullWidth
+                variant="outline"
+                onClick={() => setLogoutOpen(true)}
+              >
+                {t('sso.logoutAction')}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="auth-actions" aria-busy={busy || undefined}>
+              <SsoProviderButton
+                provider="google"
+                label={t('sso.continueGoogle')}
+                disabled={busy}
+                buttonRef={googleButton}
+                onClick={() => begin('google')}
+              />
+            </div>
+            {busy ? (
+              <p className="auth-notice" role="status">
+                {t('sso.redirecting', { provider: providerName })}
+              </p>
+            ) : null}
+            {start.isError ? (
+              <p className="auth-notice auth-error" role="alert">
+                {t('sso.' + errorKey, { provider: providerName })}
+              </p>
+            ) : notice ? (
+              <p
+                className={'auth-notice' + (failed ? ' auth-error' : '')}
+                role={failed ? 'alert' : 'status'}
+              >
+                {t('sso.' + noticeKey)}
+              </p>
+            ) : null}
+            <div className="auth-guest">
+              <Link
+                to={
+                  redirect === '/' || redirect.startsWith('/practice')
+                    ? redirect
+                    : '/practice'
+                }
+              >
+                {t('sso.guest')}
+              </Link>
+            </div>
+          </>
+        )}
+        <SsoAccountManagement />
       </div>
-
-      {user ? (
-        <div className="mt-8 flex flex-col gap-4 rounded-xl border border-line bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-muted">현재 데모 계정</p>
-            <p className="mt-1 font-black">
-              {user.name} · {role}
-            </p>
-          </div>
-          <Button
-            variant="secondary"
-            isLoading={logout.isPending}
-            onClick={handleLogout}
-          >
-            로그아웃
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="mt-10 grid gap-4 lg:grid-cols-3">
-        <article className="flex flex-col border-t-4 border-brand bg-white p-6 shadow-soft">
-          <p className="text-sm font-black text-brand">USER</p>
-          <h2 className="mt-3 text-2xl font-black">데모 학습자</h2>
-          <p className="mt-3 flex-1 leading-7 text-muted">
-            문제풀이, 오답노트, 즐겨찾기, 대시보드를 모두 사용할 수 있습니다.
-            목표 급수는 N2입니다.
-          </p>
-          <Button
-            className="mt-7 w-full"
-            isLoading={loginUser.isPending}
-            onClick={() => {
-              loginUser.mutate(undefined, { onSuccess: completeLogin })
-            }}
-          >
-            데모 학습자로 로그인
-          </Button>
-        </article>
-
-        <article className="flex flex-col border-t-4 border-slate-950 bg-white p-6 shadow-soft">
-          <p className="text-sm font-black text-slate-700">ADMIN</p>
-          <h2 className="mt-3 text-2xl font-black">데모 관리자</h2>
-          <p className="mt-3 flex-1 leading-7 text-muted">
-            학습자 기능과 함께 문제 등록, 수정, 삭제를 포함한 관리자 CMS를
-            확인할 수 있습니다.
-          </p>
-          <Button
-            className="mt-7 w-full"
-            variant="dark"
-            isLoading={loginAdmin.isPending}
-            onClick={() => {
-              loginAdmin.mutate(undefined, { onSuccess: completeLogin })
-            }}
-          >
-            데모 관리자로 로그인
-          </Button>
-        </article>
-
-        <article className="flex flex-col border-t-4 border-slate-300 bg-white p-6 shadow-soft">
-          <p className="text-sm font-black text-muted">GUEST</p>
-          <h2 className="mt-3 text-2xl font-black">게스트 체험</h2>
-          <p className="mt-3 flex-1 leading-7 text-muted">
-            가입 없이 랜덤 문제풀이와 결과 확인이 가능합니다. 오답과 즐겨찾기는
-            영구 저장되지 않습니다.
-          </p>
-          <Button
-            className="mt-7 w-full"
-            variant="secondary"
-            isLoading={logout.isPending}
-            loadingLabel="게스트로 전환 중…"
-            onClick={handleGuest}
-          >
-            게스트로 계속
-          </Button>
-        </article>
-      </div>
+      <Dialog
+        open={logoutOpen && user !== null}
+        onOpenChange={setLogoutOpen}
+        title={t('sso.logoutTitle')}
+        description={t('sso.logoutDescription')}
+        preventClose={logout.isPending}
+        initialFocusRef={cancelButton}
+        returnFocusRef={logoutButton}
+        fallbackFocusRef={heading}
+        footer={
+          <>
+            <Button
+              ref={cancelButton}
+              variant="outline"
+              disabled={logout.isPending}
+              onClick={() => setLogoutOpen(false)}
+            >
+              {t('sso.cancel')}
+            </Button>
+            <Button
+              disabled={logout.isPending}
+              onClick={() =>
+                logout.isError ? logout.recheck() : logout.mutate()
+              }
+            >
+              {t(logout.isError ? 'sso.recheck' : 'sso.logoutAction')}
+            </Button>
+          </>
+        }
+      >
+        {logout.isPending ? <p role="status">{t('sso.loggingOut')}</p> : null}
+        {logout.isError ? <p role="alert">{t('sso.logoutUnknown')}</p> : null}
+      </Dialog>
     </section>
   )
 }

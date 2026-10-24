@@ -4,7 +4,11 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
 import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
-import type { QuestionRecord } from '@common/types/domain'
+import type {
+  PreviewQuestionVersionResponse,
+  UpdateQuestionVersionRequest
+} from '@nihongo/contracts/admin/phase7'
+import { preview as initialQuestion } from '@app/admin-question/test/questionFixture'
 import {
   QuestionForm,
   questionFormSchema,
@@ -27,30 +31,7 @@ const validFormValues: QuestionFormValues = {
   explanationKo: '이유를 나타내는 「ので」가 문맥에 맞습니다.',
   explanationJa: '',
   difficulty: 'NORMAL',
-  tagsText: '이유, 접속 표현',
-  status: 'DRAFT'
-}
-
-const initialQuestion: QuestionRecord = {
-  id: 'question-admin-test',
-  level: 'N3',
-  subject: 'GRAMMAR',
-  questionType: 'GRAMMAR_SELECT',
-  passage: null,
-  questionText: validFormValues.questionText,
-  options: validFormValues.options.map((option) => ({
-    ...option,
-    id: `question-admin-test-option-${option.label}`,
-    isCorrect: option.label === '1'
-  })),
-  explanationKo: validFormValues.explanationKo,
-  explanationJa: null,
-  difficulty: 'NORMAL',
-  tags: ['이유', '접속 표현'],
-  status: 'DRAFT',
-  sourceType: 'ORIGINAL',
-  createdAt: '2026-08-09T00:00:00.000Z',
-  updatedAt: '2026-08-09T00:00:00.000Z'
+  tagsText: '이유, 접속 표현'
 }
 
 const getIssueMessages = (values: unknown): string[] => {
@@ -59,8 +40,10 @@ const getIssueMessages = (values: unknown): string[] => {
 }
 
 const renderQuestionForm = (
-  onSubmit: (input: CreateAdminQuestionRequest) => Promise<void>,
-  question?: QuestionRecord
+  onSubmit: (
+    input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+  ) => Promise<void>,
+  question?: PreviewQuestionVersionResponse
 ): ReactElement => {
   const router = createMemoryRouter(
     [
@@ -69,6 +52,7 @@ const renderQuestionForm = (
         element: (
           <QuestionForm
             initialQuestion={question}
+            expectedRowVersion={question ? 1 : undefined}
             isSubmitting={false}
             submitLabel="문제 등록"
             submittingLabel="등록 중…"
@@ -144,7 +128,9 @@ describe('QuestionForm', () => {
   it('보기 입력 4개를 제공하고 잘못된 제출을 막는다', async () => {
     const user = userEvent.setup()
     const handleSubmit = vi.fn(
-      async (_input: CreateAdminQuestionRequest) => undefined
+      async (
+        _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+      ) => undefined
     )
     render(renderQuestionForm(handleSubmit))
 
@@ -164,7 +150,9 @@ describe('QuestionForm', () => {
   it('수정 값을 API 입력 구조로 변환해 제출한다', async () => {
     const user = userEvent.setup()
     const handleSubmit = vi.fn(
-      async (_input: CreateAdminQuestionRequest) => undefined
+      async (
+        _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+      ) => undefined
     )
     render(renderQuestionForm(handleSubmit, initialQuestion))
 
@@ -176,8 +164,9 @@ describe('QuestionForm', () => {
         level: 'N3',
         subject: 'GRAMMAR',
         passage: null,
-        correctOptionId: '1',
-        tags: ['이유', '접속 표현'],
+        correctOptionId: initialQuestion.adminAnswer.correctOptionId,
+        expectedRowVersion: 1,
+        tagNames: ['문법'],
         explanationJa: null
       })
     )
@@ -187,7 +176,9 @@ describe('QuestionForm', () => {
   it('중복 보기를 인라인 오류로 안내한다', async () => {
     const user = userEvent.setup()
     const handleSubmit = vi.fn(
-      async (_input: CreateAdminQuestionRequest) => undefined
+      async (
+        _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+      ) => undefined
     )
     render(renderQuestionForm(handleSubmit, initialQuestion))
 
@@ -205,7 +196,9 @@ describe('QuestionForm', () => {
   it('독해 과목으로 바꾸면 지문 오류를 연결해 표시한다', async () => {
     const user = userEvent.setup()
     const handleSubmit = vi.fn(
-      async (_input: CreateAdminQuestionRequest) => undefined
+      async (
+        _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+      ) => undefined
     )
     render(renderQuestionForm(handleSubmit, initialQuestion))
 

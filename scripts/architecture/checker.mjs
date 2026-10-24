@@ -16,6 +16,39 @@ const normalizePath = (value) => value.split(path.sep).join('/')
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const defaultRootDir = path.resolve(scriptDirectory, '../..')
+const METADATA_SAFE_WRAPPER_BY_ENDPOINT = new Map([
+  ['api/auth/deleteSsoAccount/index.ts', 'safePostWithMetadata'],
+  ['api/bookmark/createBookmark/index.ts', 'safePutWithMetadata'],
+  ['api/bookmark/deleteBookmark/index.ts', 'safeDelWithMetadata'],
+  ['api/study/cancelStudySession/index.ts', 'safePostWithMetadata'],
+  ['api/study/createResultRetrySession/index.ts', 'safePostWithMetadata'],
+  ['api/study/createStudySessionV2/index.ts', 'safePostWithMetadata'],
+  [
+    'api/wrong-note/createTargetedReviewSession/index.ts',
+    'safePostWithMetadata'
+  ],
+  ['api/study/getStudyDraftAnswers/index.ts', 'safeGetWithMetadata'],
+  ['api/study/getStudySessionV2/index.ts', 'safeGetWithMetadata'],
+  ['api/study/listResumableStudySessions/index.ts', 'safeGetWithMetadata'],
+  ['api/study/saveStudyDraftAnswers/index.ts', 'safePutWithMetadata'],
+  ['api/study/submitStudySessionV2/index.ts', 'safePostWithMetadata']
+])
+const METADATA_SAFE_WRAPPER_NAMES = new Set([
+  'safeGetWithMetadata',
+  'safePostWithMetadata',
+  'safePutWithMetadata',
+  'safeDelWithMetadata'
+])
+const METADATA_RAW_WRAPPER_NAMES = new Set([
+  'getWithMetadata',
+  'postWithMetadata',
+  'putWithMetadata',
+  'delWithMetadata'
+])
+const LEGACY_WRONG_NOTE_MUTATION_PATHS = new Set([
+  'api/wrong-note/reviewWrongNote/index.ts',
+  'api/wrong-note/updateWrongNoteMemo/index.ts'
+])
 
 const isPathInside = (parent, candidate) => {
   const relative = path.relative(parent, candidate)
@@ -196,7 +229,10 @@ const isAllowedQueryFile = (fileName, sourceRoot) => {
 
 const isAllowedMockRepositoryFile = (fileName, sourceRoot) => {
   const relative = normalizePath(path.relative(sourceRoot, fileName))
-  return relative.startsWith('mocks/handlers/')
+  return (
+    relative.startsWith('mocks/handlers/') ||
+    relative.startsWith('mocks/repository/')
+  )
 }
 
 const canonicalCycleKey = (cycle, sourceRoot) => {
@@ -276,6 +312,46 @@ const isDeclaredInFile = (symbol, fileName) => {
         path.resolve(fileName)
     )
   )
+}
+
+const symbolResolvesToDeclaration = (
+  checker,
+  symbol,
+  predicate,
+  seen = new Set()
+) => {
+  if (!symbol || seen.has(symbol)) return null
+  seen.add(symbol)
+  if (predicate(symbol)) return symbol
+
+  for (const declaration of symbol.declarations ?? []) {
+    if (
+      ts.isVariableDeclaration(declaration) &&
+      declaration.initializer &&
+      (ts.isIdentifier(declaration.initializer) ||
+        ts.isPropertyAccessExpression(declaration.initializer))
+    ) {
+      const resolved = symbolResolvesToDeclaration(
+        checker,
+        getResolvedSymbol(checker, declaration.initializer),
+        predicate,
+        seen
+      )
+      if (resolved) return resolved
+    }
+
+    if (ts.isExportSpecifier(declaration)) {
+      const resolved = symbolResolvesToDeclaration(
+        checker,
+        checker.getExportSpecifierLocalTargetSymbol(declaration),
+        predicate,
+        seen
+      )
+      if (resolved) return resolved
+    }
+  }
+
+  return null
 }
 
 const getSymbolDeclarationFiles = (symbol) => {
@@ -479,12 +555,150 @@ const hasGlobalFetchCall = (sourceFile, checker) => {
   return fetchNode
 }
 
+const checkMetadataTransportBoundary = (
+  sourceFile,
+  sourceRoot,
+  rootDir,
+  checker
+) => {
+  const relative = normalizePath(path.relative(sourceRoot, sourceFile.fileName))
+  if (relative === 'api/http.ts') return []
+
+  const httpPath = path.resolve(sourceRoot, 'api/http.ts')
+  const diagnostics = []
+  const getCallReference = (expression) => {
+    if (ts.isIdentifier(expression)) return expression
+    if (ts.isPropertyAccessExpression(expression)) return expression.name
+    return null
+  }
+
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callReference = getCallReference(node.expression)
+      const callSymbol = callReference
+        ? getResolvedSymbol(checker, callReference)
+        : null
+      const httpWrapper = symbolResolvesToDeclaration(
+        checker,
+        callSymbol,
+        (candidate) =>
+          isDeclaredInFile(candidate, httpPath) &&
+          (METADATA_SAFE_WRAPPER_NAMES.has(candidate.getName()) ||
+            METADATA_RAW_WRAPPER_NAMES.has(candidate.getName()))
+      )
+
+      if (httpWrapper) {
+        const wrapperName = httpWrapper.getName()
+        const expectedWrapper = METADATA_SAFE_WRAPPER_BY_ENDPOINT.get(relative)
+        const isAllowedSafeWrapper =
+          METADATA_SAFE_WRAPPER_NAMES.has(wrapperName) &&
+          expectedWrapper === wrapperName
+
+        if (!isAllowedSafeWrapper) {
+          diagnostics.push(
+            createDiagnostic(
+              sourceFile,
+              callReference ?? node.expression,
+              RULES.endpointValidation,
+              'metadata HTTP wrappers are restricted to the exact sanctioned endpoint and verb',
+              rootDir
+            )
+          )
+        }
+      }
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+  return diagnostics
+}
+
+const readExportedInitializer = (fileName, name) => {
+  if (!fs.existsSync(fileName)) return null
+  const source = ts.createSourceFile(
+    fileName,
+    fs.readFileSync(fileName, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true
+  )
+  for (const statement of source.statements) {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !statement.modifiers?.some(
+        ({ kind }) => kind === ts.SyntaxKind.ExportKeyword
+      )
+    )
+      continue
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name)
+        continue
+      let value = declaration.initializer
+      while (
+        value &&
+        (ts.isAsExpression(value) || ts.isSatisfiesExpression(value))
+      ) {
+        value = value.expression
+      }
+      return value ?? null
+    }
+  }
+  return null
+}
+
+const getObjectProperty = (object, name) =>
+  object?.properties.find(
+    (property) =>
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+      property.name.text === name
+  )?.initializer
+
+const getPhase7SchemaNames = (rootDir, operation) => {
+  const contractRoot = path.join(rootDir, 'packages/contracts/src/admin')
+  const manifest = readExportedInitializer(
+    path.join(contractRoot, 'phase7-manifest.ts'),
+    'phase7OperationManifest'
+  )
+  if (
+    !manifest ||
+    !ts.isArrayLiteralExpression(manifest) ||
+    !manifest.elements.some((entry) => {
+      if (!ts.isObjectLiteralExpression(entry)) return false
+      const value = getObjectProperty(entry, 'operation')
+      return value && ts.isStringLiteral(value) && value.text === operation
+    })
+  )
+    return null
+  const schemas = readExportedInitializer(
+    path.join(contractRoot, 'phase7-operation-schemas.ts'),
+    'phase7OperationSchemas'
+  )
+  if (!schemas || !ts.isObjectLiteralExpression(schemas)) return null
+  const descriptor = getObjectProperty(schemas, operation)
+  if (!descriptor || !ts.isObjectLiteralExpression(descriptor)) return null
+  const body = getObjectProperty(descriptor, 'body')
+  const params = getObjectProperty(descriptor, 'params')
+  const query = getObjectProperty(descriptor, 'query')
+  const response = getObjectProperty(descriptor, 'success')
+  if (
+    ![body, params, query, response].every(
+      (value) => value && ts.isIdentifier(value)
+    )
+  )
+    return null
+  const request =
+    body.text !== 'noBody' ? body : params.text !== 'noParams' ? params : query
+  return { request: request.text, response: response.text }
+}
+
 const checkEndpoint = (
   sourceFile,
   references,
   sourceRoot,
   rootDir,
-  _options,
+  program,
   checker
 ) => {
   const relative = normalizePath(path.relative(sourceRoot, sourceFile.fileName))
@@ -529,11 +743,143 @@ const checkEndpoint = (
 
     return Boolean(
       symbol &&
-        /^safe(Get|Post|Put|Del)$/.test(symbol.getName()) &&
+        /^safe(Get|Post|Put|Del)(WithMetadata)?$/.test(symbol.getName()) &&
         isDeclaredInFile(symbol, httpPath) &&
         isDeclaredInFile(schemaSymbol, schemaResolvedPath) &&
         isZodSchemaExpression(checker, schemaArgument)
     )
+  }
+
+  const isPhase7RequestCall = (node) => {
+    if (
+      !relative.startsWith('api/admin-question/') ||
+      !ts.isCallExpression(node) ||
+      !ts.isIdentifier(node.expression) ||
+      node.expression.text !== 'requestPhase7Operation' ||
+      node.arguments.length !== 1 ||
+      !ts.isObjectLiteralExpression(node.arguments[0])
+    )
+      return false
+    const helperPath = path.resolve(
+      sourceRoot,
+      'api/phase7/requestPhase7Operation.ts'
+    )
+    const local = checker.getSymbolAtLocation(node.expression)
+    const binding = local?.declarations?.find((declaration) =>
+      ts.isImportSpecifier(declaration)
+    )
+    const declaration = binding?.parent.parent.parent
+    if (
+      !binding ||
+      binding.propertyName ||
+      !declaration ||
+      !ts.isImportDeclaration(declaration) ||
+      !ts.isStringLiteral(declaration.moduleSpecifier) ||
+      resolveImport(
+        declaration.moduleSpecifier.text,
+        sourceFile,
+        program.getCompilerOptions()
+      ) !== helperPath
+    )
+      return false
+    const helper = getResolvedSymbol(checker, node.expression)
+    if (
+      !helper ||
+      helper.getName() !== 'requestPhase7Operation' ||
+      !isDeclaredInFile(helper, helperPath)
+    )
+      return false
+
+    const properties = new Map()
+    for (const property of node.arguments[0].properties) {
+      if (
+        (!ts.isPropertyAssignment(property) &&
+          !ts.isShorthandPropertyAssignment(property)) ||
+        (!ts.isIdentifier(property.name) &&
+          !ts.isStringLiteral(property.name)) ||
+        properties.has(property.name.text)
+      )
+        return false
+      properties.set(
+        property.name.text,
+        ts.isPropertyAssignment(property) ? property.initializer : property.name
+      )
+    }
+    if (
+      !['operation', 'params', 'query', 'body'].every((name) =>
+        properties.has(name)
+      ) ||
+      [...properties.keys()].some(
+        (name) =>
+          !['operation', 'params', 'query', 'body', 'config'].includes(name)
+      )
+    )
+      return false
+    const operation = properties.get('operation')
+    if (!operation || !ts.isStringLiteral(operation)) return false
+    const names = getPhase7SchemaNames(rootDir, operation.text)
+    if (!names) return false
+
+    const helperSource = program.getSourceFile(helperPath)
+    const contractImport = helperSource?.statements.find(
+      (statement) =>
+        ts.isImportDeclaration(statement) &&
+        ts.isStringLiteral(statement.moduleSpecifier) &&
+        statement.moduleSpecifier.text === '@nihongo/contracts/admin/phase7'
+    )
+    const contractModule =
+      contractImport &&
+      checker.getSymbolAtLocation(contractImport.moduleSpecifier)
+    if (!contractModule) return false
+    const resolveAlias = (symbol) =>
+      symbol.flags & ts.SymbolFlags.Alias
+        ? checker.getAliasedSymbol(symbol)
+        : symbol
+    const exports = new Map(
+      checker
+        .getExportsOfModule(contractModule)
+        .map((symbol) => [symbol.getName(), resolveAlias(symbol)])
+    )
+    // The canonical module may resolve to source or emitted declarations; compare symbols in this program.
+    for (const [name, file] of [
+      ['phase7OperationManifest', 'phase7-manifest'],
+      ['phase7OperationSchemas', 'phase7-operation-schemas']
+    ]) {
+      if (
+        !['src', 'dist'].some((directory) =>
+          isDeclaredInFile(
+            exports.get(name),
+            path.join(
+              rootDir,
+              `packages/contracts/${directory}/admin/${file}${directory === 'src' ? '.ts' : '.d.ts'}`
+            )
+          )
+        )
+      )
+        return false
+    }
+    const schemaSource = program.getSourceFile(schemaResolvedPath)
+    const schemaModule =
+      schemaSource && checker.getSymbolAtLocation(schemaSource)
+    if (!schemaModule) return false
+    const schemaExports = checker.getExportsOfModule(schemaModule)
+    return ['request', 'response'].every((kind) => {
+      const expected = exports.get(names[kind])
+      const expectedDeclaration = expected?.valueDeclaration
+      return (
+        expectedDeclaration &&
+        ts.isVariableDeclaration(expectedDeclaration) &&
+        isZodSchemaExpression(checker, expectedDeclaration.name) &&
+        schemaExports.some(
+          (symbol) =>
+            symbol
+              .getName()
+              .endsWith(
+                kind === 'request' ? 'RequestSchema' : 'ResponseSchema'
+              ) && resolveAlias(symbol) === expected
+        )
+      )
+    })
   }
 
   const isAxiosFile = (fileName) =>
@@ -645,8 +991,16 @@ const checkEndpoint = (
       symbolResolvesTo(
         callSymbol,
         (symbol) =>
-          ['get', 'post', 'put', 'del'].includes(symbol.getName()) &&
-          isDeclaredInFile(symbol, httpPath)
+          [
+            'get',
+            'post',
+            'put',
+            'del',
+            'getWithMetadata',
+            'postWithMetadata',
+            'putWithMetadata',
+            'delWithMetadata'
+          ].includes(symbol.getName()) && isDeclaredInFile(symbol, httpPath)
       )
     ) {
       return true
@@ -724,7 +1078,10 @@ const checkEndpoint = (
     const symbol = callReference
       ? getResolvedSymbol(checker, callReference)
       : null
-    return Boolean(symbol && validatedRequestSymbols.has(symbol))
+    return (
+      isPhase7RequestCall(unwrapped) ||
+      Boolean(symbol && validatedRequestSymbols.has(symbol))
+    )
   }
 
   const allOwnReturnsUseValidation = (functionLike) => {
@@ -821,7 +1178,7 @@ const checkEndpoint = (
       sourceFile,
       rawTransportNode ?? sourceFile,
       RULES.endpointValidation,
-      'endpoint must use safeGet/safePost/safePut/safeDel with a sibling Zod schema and no raw transport',
+      'endpoint must use a sanctioned safe HTTP wrapper with a sibling Zod schema and no raw transport',
       rootDir
     )
   ]
@@ -900,6 +1257,12 @@ export const checkArchitecture = ({
           normalizePath(fileName)
         )
       )
+      const hasLegacyWrongNoteMutationProvenance = hasReferenceProvenance(
+        (fileName) =>
+          LEGACY_WRONG_NOTE_MUTATION_PATHS.has(
+            normalizePath(path.relative(absoluteSourceRoot, fileName))
+          )
+      )
 
       if (
         (reference.specifier === '@tanstack/react-query' ||
@@ -937,6 +1300,27 @@ export const checkArchitecture = ({
 
       if (!resolved) continue
       const normalizedResolved = normalizePath(resolved)
+      const relativeImporter = normalizePath(
+        path.relative(absoluteSourceRoot, absoluteFile)
+      )
+      const relativeResolved = normalizePath(
+        path.relative(absoluteSourceRoot, resolved)
+      )
+      if (
+        relativeImporter.startsWith('app/') &&
+        (LEGACY_WRONG_NOTE_MUTATION_PATHS.has(relativeResolved) ||
+          hasLegacyWrongNoteMutationProvenance)
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            sourceFile,
+            reference.node,
+            RULES.queryBoundary,
+            'legacy wrong-note memo/isCorrect mutations are mock regression only',
+            absoluteRoot
+          )
+        )
+      }
       const hasApiProvenance = hasReferenceProvenance((fileName) =>
         isPathInside(
           path.resolve(absoluteSourceRoot, 'api'),
@@ -1009,12 +1393,20 @@ export const checkArchitecture = ({
     if (!isTestFile(absoluteFile)) {
       if (!graph.has(absoluteFile)) graph.set(absoluteFile, new Set())
       diagnostics.push(
+        ...checkMetadataTransportBoundary(
+          sourceFile,
+          absoluteSourceRoot,
+          absoluteRoot,
+          checker
+        )
+      )
+      diagnostics.push(
         ...checkEndpoint(
           sourceFile,
           references,
           absoluteSourceRoot,
           absoluteRoot,
-          parsed.options,
+          program,
           checker
         )
       )

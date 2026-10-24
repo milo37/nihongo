@@ -11,9 +11,7 @@ describe('validated API and central error bus', () => {
     const unsubscribe = subscribeApiError((error) => errors.push(error))
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     mockServer.use(
-      http.get('*/api/auth/current-user', () =>
-        HttpResponse.json({ id: 'invalid-user' })
-      )
+      http.get('*/api/v1/me', () => HttpResponse.json({ id: 'invalid-user' }))
     )
 
     let caught: unknown
