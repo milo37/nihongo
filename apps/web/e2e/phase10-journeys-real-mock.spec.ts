@@ -8,6 +8,11 @@ import {
   type SubmitStudySessionV2Response
 } from '@nihongo/contracts/study/submit-study-session'
 import { getStudyResultResponseSchema } from '@nihongo/contracts/study/get-study-result'
+import { getStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/get-study-draft-answers'
+import {
+  saveStudyDraftAnswersBodySchema,
+  saveStudyDraftAnswersResponseSchema
+} from '@nihongo/contracts/study/save-study-draft-answers'
 import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import {
@@ -241,7 +246,11 @@ const ssoRequestContract = [
 
 const userJourneyRequestContract = [
   ...ssoRequestContract,
-  { method: 'GET', path: '/api/v1/me', statuses: successfulStatuses(4) },
+  {
+    method: 'GET',
+    path: '/api/v1/me',
+    statuses: successfulStatuses(mode === 'mock' ? 5 : 4)
+  },
   {
     method: 'GET',
     path: '/api/v1/study-sessions',
@@ -288,7 +297,11 @@ const userJourneyRequestContract = [
 
 const resilienceRequestContract = [
   ...ssoRequestContract,
-  { method: 'GET', path: '/api/v1/me', statuses: [200, 200] },
+  {
+    method: 'GET',
+    path: '/api/v1/me',
+    statuses: successfulStatuses(mode === 'mock' ? 3 : 2)
+  },
   { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
   {
     method: 'GET',
@@ -338,8 +351,7 @@ const openPracticeModes = async (page: Page) => {
   const disclosure = page.locator('details.practice-mode-options')
   const summary = disclosure.locator('summary')
   await expect(summary).toBeVisible()
-  if ((await disclosure.getAttribute('open')) === null)
-    await summary.press('Enter')
+  if ((await disclosure.getAttribute('open')) === null) await summary.click()
   await expect(disclosure).toHaveAttribute('open', '')
   const modeSelect = disclosure.locator('select[name="practice-mode"]')
   await expect(modeSelect).toHaveCount(1)
@@ -374,6 +386,18 @@ const prepareJourney = async (page: Page, address: string): Promise<void> => {
 
 const loginThroughUi = async (page: Page): Promise<void> => {
   const origin = new URL(page.url()).origin
+  const principalResponses: Response[] = []
+  const collectPrincipal = (response: Response): void => {
+    const url = new URL(response.url())
+    if (
+      response.request().method() === 'GET' &&
+      url.origin === origin &&
+      url.pathname === '/api/v1/me'
+    ) {
+      principalResponses.push(response)
+    }
+  }
+  page.on('response', collectPrincipal)
   const google = page.locator('main button[data-provider="google"]')
   await expect(google).toBeEnabled()
   await expect(page.locator('input[name="password"]')).toHaveCount(0)
@@ -492,7 +516,21 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         url.search === '?view=learning'
     )
     await settleJourneyPage(page)
+    expect(principalResponses).toHaveLength(mode === 'mock' ? 2 : 1)
+    const identities: string[] = []
+    for (const response of principalResponses) {
+      const principal = getCurrentPrincipalResponseSchema.parse(
+        await readCanonicalResponse(response)
+      )
+      expect(principal.kind).toBe('USER')
+      if (principal.kind !== 'USER')
+        throw new Error('Canonical USER revalidation failed.')
+      expect(principal.user.role).toBe('USER')
+      identities.push(principal.user.id)
+    }
+    expect(new Set(identities).size).toBe(1)
   } finally {
+    page.off('response', collectPrincipal)
     if (mode === 'real') await page.unroute(providerURL)
   }
 }
@@ -623,26 +661,74 @@ const restorePracticeClock = async (page: Page): Promise<void> => {
 
 const answerEveryQuestionWithFirstOption = async (
   page: Page,
-  count: number
+  created: CreateStudySessionV2Response,
+  ledger: RequestLedger
 ): Promise<void> => {
-  for (let ordinal = 1; ordinal <= count; ordinal += 1) {
-    if (ordinal > 1) {
-      await page
-        .getByRole('button', { name: new RegExp(`^${ordinal}번 문제`, 'u') })
-        .click()
-    }
-    const saveResponse = page.waitForResponse((response) => {
-      const request = response.request()
-      return (
-        request.method() === 'PUT' &&
-        /^\/api\/v1\/study-sessions\/[0-9a-f-]+\/draft-answers$/u.test(
-          new URL(response.url()).pathname
-        )
-      )
+  await expect(page.locator('[data-save-state]')).toHaveAttribute(
+    'data-save-state',
+    'idle'
+  )
+  for (const [index, item] of created.questions.entries()) {
+    const ordinal = index + 1
+    const jump = page.getByRole('button', {
+      name: new RegExp(`^${ordinal}번 문제`, 'u')
     })
-    await page.getByRole('radio').first().click()
-    expect((await saveResponse).status()).toBe(200)
-    await waitForSavedDraft(page)
+    if (ordinal > 1) await jump.click()
+    await expect(jump).toHaveAttribute('data-current', 'true')
+    const options = page.locator(
+      `input[type="radio"][name="question-${item.question.id}"]`
+    )
+    await expect(options).toHaveCount(4)
+    await expect(page.locator('main h1')).toBeFocused()
+    const firstAnswer = options.first()
+    await expect(firstAnswer).toBeEnabled()
+    await expect(firstAnswer).not.toBeChecked()
+    expect(item.question.options[0]).toBeDefined()
+    await expect(firstAnswer).toHaveValue(item.question.options[0]!.id)
+    const saveResponse = waitForApiResponse(
+      page,
+      'PUT',
+      `/api/v1/study-sessions/${created.session.id}/draft-answers`
+    )
+    await firstAnswer.press('Space')
+    await expect(firstAnswer).toBeChecked()
+    await expect(page.locator('[data-save-state]')).toHaveAttribute(
+      'data-save-state',
+      /^(dirty|saving|saved)$/u
+    )
+    const [response] = await Promise.all([
+      saveResponse,
+      waitForSavedDraft(page)
+    ])
+    expect(response.status()).toBe(200)
+    expect(response.fromServiceWorker()).toBe(mode === 'mock')
+    expect(response.headers()['x-nihongo-practice-contract']).toBe('2')
+    const body = saveStudyDraftAnswersBodySchema.parse(
+      response.request().postDataJSON()
+    )
+    expect(body).toMatchObject({
+      expectedRevision: index,
+      currentOrdinal: ordinal
+    })
+    expect(
+      body.answers.filter(({ selectedOptionId }) => selectedOptionId !== null)
+    ).toHaveLength(ordinal)
+    expect(
+      body.answers.some(
+        ({ selectedOptionId }) =>
+          selectedOptionId === item.question.options[0]!.id
+      )
+    ).toBe(true)
+    const saved = saveStudyDraftAnswersResponseSchema.parse(
+      await readCanonicalResponse(response)
+    )
+    expect(saved).toMatchObject({
+      studySessionId: created.session.id,
+      revision: ordinal,
+      currentOrdinal: ordinal
+    })
+    await expect(firstAnswer).toBeChecked()
+    await waitForLedgerToQuiesce(ledger)
   }
 }
 
@@ -756,6 +842,19 @@ const startVocabularySessionThroughUi = async (
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
   await freezePracticeClock(page)
+  const initialDraft = page
+    .waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        /^\/api\/v1\/study-sessions\/[^/]+\/draft-answers$/u.test(
+          new URL(response.url()).pathname
+        )
+    )
+    .then(async (response) =>
+      getStudyDraftAnswersResponseSchema.parse(
+        await readCanonicalResponse(response)
+      )
+    )
   const createdResponse = waitForApiResponse(
     page,
     'POST',
@@ -785,6 +884,16 @@ const startVocabularySessionThroughUi = async (
   await expect(page).toHaveURL(
     new RegExp(`/practice/session/${created.session.id}$`, 'u')
   )
+  const draft = await initialDraft
+  expect(draft).toMatchObject({
+    studySessionId: created.session.id,
+    revision: 0,
+    currentOrdinal: 1
+  })
+  expect(draft.answers).toHaveLength(5)
+  expect(
+    draft.answers.every(({ selectedOptionId }) => selectedOptionId === null)
+  ).toBe(true)
   return created
 }
 
@@ -874,6 +983,8 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await loginThroughUi(page)
   await page.locator('#primary-navigation a[href="/practice"]').click()
   await expect(page).toHaveURL(/\/practice$/u)
+  await expect(page.locator('details.practice-recommendations')).toHaveCount(0)
+  await settleJourneyPage(page)
   const memberStudyMode = await openPracticeModes(page)
   for (const value of ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
     await expect(
@@ -892,7 +1003,11 @@ test('guest SSO boundary and authenticated practice transition match the active 
   )
   assertExactRequestMultiset(ledger, [
     ...ssoRequestContract,
-    { method: 'GET', path: '/api/v1/me', statuses: successfulStatuses(5) },
+    {
+      method: 'GET',
+      path: '/api/v1/me',
+      statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
+    },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
     { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] }
   ])
@@ -909,7 +1024,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await settleJourneyPage(page)
   await loginThroughUi(page)
   const created = await startVocabularySessionThroughUi(page)
-  await answerEveryQuestionWithFirstOption(page, created.session.actualCount)
+  await answerEveryQuestionWithFirstOption(page, created, ledger)
   const primarySubmission = await submitCurrentSessionThroughUi(
     page,
     created.session.id
@@ -982,6 +1097,19 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     page.getByText(incorrect.question.questionText, { exact: true })
   ).toBeVisible()
 
+  const targetedInitialDraft = page
+    .waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        /^\/api\/v1\/study-sessions\/[^/]+\/draft-answers$/u.test(
+          new URL(response.url()).pathname
+        )
+    )
+    .then(async (response) =>
+      getStudyDraftAnswersResponseSchema.parse(
+        await readCanonicalResponse(response)
+      )
+    )
   const targetedResponsePromise = waitForApiResponse(
     page,
     'POST',
@@ -1007,8 +1135,16 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await expect(page).toHaveURL(
     new RegExp(`/practice/session/${targeted.session.id}$`, 'u')
   )
+  const targetedDraft = await targetedInitialDraft
+  expect(targetedDraft).toMatchObject({
+    studySessionId: targeted.session.id,
+    revision: 0,
+    currentOrdinal: 1
+  })
+  expect(targetedDraft.answers).toHaveLength(1)
+  expect(targetedDraft.answers[0]?.selectedOptionId).toBeNull()
   await freezePracticeClock(page)
-  await answerEveryQuestionWithFirstOption(page, 1)
+  await answerEveryQuestionWithFirstOption(page, targeted, ledger)
   const completionState = waitForApiResponse(
     page,
     'GET',
