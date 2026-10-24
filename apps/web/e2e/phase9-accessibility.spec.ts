@@ -9,6 +9,11 @@ import {
 import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/phase7'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
+import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
+import {
+  listResumableStudySessionsQuerySchema,
+  listResumableStudySessionsResponseSchema
+} from '@nihongo/contracts/study/list-resumable-study-sessions'
 import {
   createStudySessionV2BodySchema,
   createStudySessionV2ResponseSchema
@@ -1291,10 +1296,65 @@ const login = async (
         state,
         code: actor.callbackCode
       }).toString()
-      await page.goto(callback.href)
-      await expect(page).toHaveURL(
-        (url) => url.origin === origin && url.pathname === '/'
-      )
+      // Validate each existing landing query as it arrives, including failures.
+      const resumableResponse = page
+        .waitForResponse((response) => {
+          const url = new URL(response.url())
+          return (
+            response.request().method() === 'GET' &&
+            url.origin === origin &&
+            url.pathname === '/api/v1/study-sessions'
+          )
+        })
+        .then(async (response) => {
+          expect(response.status()).toBe(200)
+          expect(response.fromServiceWorker()).toBe(false)
+          expect(response.headers()['cache-control']).toBe('private, no-store')
+          expect(
+            listResumableStudySessionsQuerySchema.parse(
+              Object.fromEntries(new URL(response.url()).searchParams)
+            )
+          ).toEqual({ page: 1, pageSize: 5, status: 'IN_PROGRESS' })
+          expect(
+            await response.request().headerValue('X-Nihongo-Practice-Contract')
+          ).toBe('2')
+          expect(response.headers()['x-nihongo-practice-contract']).toBe('2')
+          const sessions = listResumableStudySessionsResponseSchema.parse(
+            await response.json()
+          )
+          expect(sessions).toEqual({
+            items: [],
+            total: 0,
+            page: 1,
+            pageSize: 5
+          })
+        })
+      const insightsResponse = page
+        .waitForResponse((response) => {
+          const url = new URL(response.url())
+          return (
+            response.request().method() === 'GET' &&
+            url.origin === origin &&
+            url.pathname === '/api/v1/dashboard/insights'
+          )
+        })
+        .then(async (response) => {
+          expect(response.status()).toBe(200)
+          expect(response.fromServiceWorker()).toBe(false)
+          expect(response.headers()['cache-control']).toBe('private, no-store')
+          getDashboardInsightsResponseSchema.parse(await response.json())
+        })
+      await Promise.all([
+        resumableResponse,
+        insightsResponse,
+        page.waitForURL(
+          (url) =>
+            url.origin === origin &&
+            url.pathname === '/dashboard' &&
+            url.search === '?view=learning'
+        ),
+        page.goto(callback.href)
+      ])
     } finally {
       await page.unroute(providerURL)
     }
@@ -1961,16 +2021,32 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     path: sessionPath
   })
 
+  // Mock adds three approved readings; request enough to retain partial supply.
+  const readingFixture = isMockBrowser
+    ? { requestedCount: 10, actualCount: 6 }
+    : { requestedCount: 5, actualCount: 3 }
   const readingSession = await createSession(page, {
-    count: 5,
+    count: readingFixture.requestedCount,
     subject: 'READING'
   })
   expect(readingSession.session).toMatchObject({
-    actualCount: 3,
+    actualCount: readingFixture.actualCount,
     fallbackReason: null,
-    requestedCount: 5,
+    level: 'N5',
+    mode: 'RANDOM',
+    requestedCount: readingFixture.requestedCount,
+    subject: 'READING',
     usedFallback: false
   })
+  expect(readingSession.questions).toHaveLength(readingFixture.actualCount)
+  expect(
+    readingSession.questions.every(
+      ({ question }) =>
+        question.level === 'N5' &&
+        question.subject === 'READING' &&
+        Boolean(question.passage?.trim())
+    )
+  ).toBe(true)
   const readingSessionPath = `/practice/session/${readingSession.session.id}`
   await installPracticeMonotonicClockFreeze(page, readingSessionPath)
   await verifyViewport(
@@ -1986,18 +2062,21 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await setLocale(page, 'ko')
   await expect(
     page.getByText(
-      '요청한 5문제 중 일반 연습 모드로 출제 가능한 3문제만 제공합니다. 다른 모드로 대체하지 않았습니다.',
+      `요청한 ${readingFixture.requestedCount}문제 중 일반 연습 모드로 출제 가능한 ${readingFixture.actualCount}문제만 제공합니다. 다른 모드로 대체하지 않았습니다.`,
       { exact: true }
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ja')
   await expect(
     page.getByText(
-      '指定した5問のうち、通常練習モードで出題可能な3問だけを提供します。別のモードには変更していません。',
+      `指定した${readingFixture.requestedCount}問のうち、通常練習モードで出題可能な${readingFixture.actualCount}問だけを提供します。別のモードには変更していません。`,
       { exact: true }
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ko')
+  await expect(page.locator('button.ui-question-jump')).toHaveCount(
+    readingFixture.actualCount
+  )
   const readingPassage = page.getByRole('article', { name: '독해 지문' })
   const firstAnswer = page.getByRole('radio').first()
   await expect(readingPassage).toBeVisible()
@@ -2393,7 +2472,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       subject: 'VOCABULARY'
     },
     {
-      count: 5,
+      count: readingFixture.requestedCount,
       level: 'N5',
       mode: 'RANDOM',
       subject: 'READING'
@@ -2440,13 +2519,13 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
           explanation: {
             availableInSession: availableExplanations.length,
             repositoryAvailable: 2,
-            repositoryUnavailable: 63,
+            repositoryUnavailable: isMockBrowser ? 66 : 63,
             unavailableInSession: unavailableExplanations.length
           },
           localeState: 'answered reading selection preserved',
           offline:
             'recent results retained; recommendation query paused without requests',
-          partial: 'requested 5 reading questions, received 3 without fallback',
+          partial: `requested ${readingFixture.requestedCount} reading questions, received ${readingFixture.actualCount} without fallback`,
           retry: 'dashboard insights 503x2 then explicit retry 200',
           submit: 'UI dialog and result navigation passed'
         },
