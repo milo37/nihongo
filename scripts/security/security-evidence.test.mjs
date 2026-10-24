@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -116,6 +116,27 @@ const createRequestLedgerEntries = (name, pathName) => {
       })
     )
   }
+
+  if (/^phase10-(?:real|mock)-(?:ko|ja)-handoff$/u.test(name)) {
+    const mock = name.startsWith('phase10-mock-')
+    const operations = [
+      ['GET', '/api/v1/me', 200],
+      ['POST', '/api/auth/sign-in/social', 200],
+      mock
+        ? ['POST', '/api/_mock/auth/social/callback', 200]
+        : ['GET', '/api/auth/callback/google', 303],
+      ['GET', '/api/v1/me', 200],
+      ['GET', '/api/v1/questions', 200]
+    ]
+    return operations.map(([method, operationPath, status], index) => ({
+      finishSequence: index * 2 + 2,
+      method,
+      path: operationPath,
+      provenance,
+      startSequence: index * 2 + 1,
+      status
+    }))
+  }
   if (name.startsWith('phase10-user-journey-')) {
     const operations = [
       ...Array.from({ length: 6 }, () => [
@@ -159,6 +180,18 @@ const createRequestLedgerAttachment = (name, pathName = '/api/v1/me') => ({
     'utf8'
   )
 })
+
+const createPhase10AttachmentNames = (mode) => [
+  'phase10-' + mode + '-ko-handoff',
+  'phase10-' + mode + '-ja-handoff',
+  'phase10-guest-auth-' + mode + '-request-ledger',
+  'phase10-user-journey-' + mode + '-request-ledger',
+  'phase10-resilience-' + mode + '-request-ledger'
+]
+const createPhase10Attachments = (mode) =>
+  createPhase10AttachmentNames(mode).map((name) =>
+    createRequestLedgerAttachment(name)
+  )
 
 const createCurrentPhase8Attachments = (mode, index) => {
   if (mode === 'real' && index === 0)
@@ -271,15 +304,9 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
     outputDirectory: directory,
     label: 'phase10-real'
   })
-  const requestLedgerAttachments = [
-    'guest-auth',
-    'resilience',
-    'user-journey'
-  ].map((journey) =>
-    createRequestLedgerAttachment(`phase10-${journey}-real-request-ledger`)
-  )
+  const requestLedgerAttachments = createPhase10Attachments('real')
   reporter.onBegin()
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 5; index += 1) {
     reporter.onTestEnd(
       {
         location: {
@@ -313,19 +340,15 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   assert.match(value.tests[0].testId, /^[0-9a-f]{64}$/u)
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
-    [
-      'phase10-guest-auth-real-request-ledger',
-      'phase10-resilience-real-request-ledger',
-      'phase10-user-journey-real-request-ledger'
-    ]
+    createPhase10AttachmentNames('real').toSorted()
   )
   assert.deepEqual(value.counts, {
-    passed: 3,
+    passed: 5,
     failed: 0,
     skipped: 0,
     timedOut: 0,
     interrupted: 0,
-    total: 3
+    total: 5
   })
   const manifest = await verifyArtifactDirectory({
     directory,
@@ -435,7 +458,7 @@ test('all six safe suites retain exact current counts and approved attachments',
     for (const [phase, count] of [
       [8, mode === 'real' ? 3 : 1],
       [9, 4],
-      [10, 3]
+      [10, 5]
     ]) {
       const label = `phase${phase}-${mode}`
       labels.push(label)
@@ -443,14 +466,7 @@ test('all six safe suites retain exact current counts and approved attachments',
         outputDirectory: directory,
         label
       })
-      const attachments =
-        phase === 10
-          ? ['guest-auth', 'resilience', 'user-journey'].map((journey) =>
-              createRequestLedgerAttachment(
-                `phase10-${journey}-${mode}-request-ledger`
-              )
-            )
-          : []
+      const attachments = phase === 10 ? createPhase10Attachments(mode) : []
       reporter.onBegin()
       for (let index = 0; index < count; index += 1) {
         reporter.onTestEnd(
@@ -1159,4 +1175,200 @@ test('workflow artifact policy rejects raw/broad Playwright paths and permits ex
       'path: test-results/phase10-evidence/playwright/'
     )
   )
+})
+
+for (const mode of ['real', 'mock']) {
+  test(
+    'Phase 10 ' +
+      mode +
+      ' requires all five tests and exact five source ledgers',
+    async () => {
+      const directory = await mkdtemp(path.join(tmpdir(), 'phase10-five-'))
+      const label = 'phase10-' + mode
+      const makeSummary = (count = 5) => ({
+        schemaVersion: 2,
+        kind: 'nihongo.playwright-safe-summary',
+        label,
+        status: 'passed',
+        durationMs: 1,
+        counts: {
+          passed: count,
+          failed: 0,
+          skipped: 0,
+          timedOut: 0,
+          interrupted: 0,
+          total: count
+        },
+        performanceMeasurements: [],
+        requestLedgers: createPhase10Attachments(mode).map(
+          ({ name, body }) => ({
+            label: name,
+            ...JSON.parse(body.toString('utf8'))
+          })
+        ),
+        tests: Array.from({ length: count }, (_, index) => ({
+          testId: String(index + 1).repeat(64),
+          status: 'passed',
+          durationMs: 1,
+          retry: 0
+        }))
+      })
+      const verify = async (value) => {
+        await writeCanonicalEvidence({
+          filePath: path.join(directory, label + '.json'),
+          value
+        })
+        return await verifyArtifactDirectory({
+          directory,
+          profile: 'playwright',
+          requiredLabels: [label]
+        })
+      }
+      try {
+        await assert.doesNotReject(() => verify(makeSummary()))
+        for (const count of [0, 2, 3, 4, 6]) {
+          await assert.rejects(
+            () => verify(makeSummary(count)),
+            /SECURITY_EVIDENCE_SCHEMA_INVALID/u
+          )
+        }
+        for (const status of ['failed', 'skipped', 'timedOut', 'interrupted']) {
+          const value = makeSummary()
+          value.tests[0].status = status
+          value.counts.passed -= 1
+          value.counts[status] += 1
+          await assert.rejects(
+            () => verify(value),
+            /SECURITY_EVIDENCE_SCHEMA_INVALID/u
+          )
+        }
+        for (const mutate of [
+          (value) => {
+            value.status = 'failed'
+          },
+          (value) => {
+            value.tests[0].retry = 1
+          },
+          (value) => {
+            value.tests[0].testId = value.tests[1].testId
+          },
+          (value) => {
+            value.requestLedgers.push(structuredClone(value.requestLedgers[0]))
+          },
+          (value) => {
+            value.requestLedgers[0].label = 'phase10-' + mode + '-other-handoff'
+          },
+          (value) => {
+            value.requestLedgers[0].label =
+              'phase10-' + (mode === 'real' ? 'mock' : 'real') + '-ko-handoff'
+          },
+          (value) => {
+            value.requestLedgers[0].entries[0].bodyDigest = 'a'.repeat(64)
+          },
+          (value) => {
+            value.requestLedgers[0].entries[0].idempotencyKeyDigest =
+              'a'.repeat(64)
+          },
+          (value) => {
+            value.requestLedgers[0].entries[0].requestBody = 'private-token'
+          },
+          (value) => {
+            value.extra = 'private-token'
+          }
+        ]) {
+          const value = makeSummary()
+          mutate(value)
+          await assert.rejects(() => verify(value), /SECURITY_EVIDENCE_/u)
+        }
+        for (let index = 0; index < 5; index += 1) {
+          const value = makeSummary()
+          value.requestLedgers.splice(index, 1)
+          await assert.rejects(
+            () => verify(value),
+            /SECURITY_EVIDENCE_SCHEMA_INVALID/u
+          )
+        }
+      } finally {
+        await rm(directory, { recursive: true, force: true })
+      }
+    }
+  )
+}
+
+test('both handoff sources reject missing, duplicated, forged and noncanonical requests', () => {
+  for (const mode of ['real', 'mock']) {
+    for (const locale of ['ko', 'ja']) {
+      const label = 'phase10-' + mode + '-' + locale + '-handoff'
+      const valid = { label, entries: createRequestLedgerEntries(label) }
+      assert.doesNotThrow(() =>
+        assertPlaywrightRequestLedger(valid, 'phase10-' + mode)
+      )
+      for (const mutate of [
+        (entries) => entries.splice(1, 1),
+        (entries) => entries.splice(2, 1),
+        (entries) => entries.splice(3, 1),
+        (entries) => entries.splice(4, 1),
+        (entries) => {
+          entries[2].status = 500
+        },
+        (entries) => {
+          entries[0].provenance = 'injected-test-fault'
+        },
+        (entries) => {
+          entries[0].status = 'NETWORK_ERROR'
+          entries[0].provenance = 'network-failure'
+        },
+        (entries) => {
+          entries[2].method = mode === 'real' ? 'POST' : 'GET'
+        },
+        (entries) => {
+          entries[4].path = '/api/v1/study-sessions'
+        },
+        (entries) => {
+          entries[0].path =
+            '/api/v1/study-sessions/018f6b7a-1f4b-7d5e-8a9b-123456789abc'
+        },
+        (entries) =>
+          entries.push({ ...entries[1], startSequence: 11, finishSequence: 12 })
+      ]) {
+        const candidate = structuredClone(valid)
+        mutate(candidate.entries)
+        assert.throws(
+          () => assertPlaywrightRequestLedger(candidate, 'phase10-' + mode),
+          /SECURITY_EVIDENCE_/u
+        )
+      }
+    }
+  }
+})
+
+test('handoff attachment payload cannot override its source label', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'phase10-source-label-'))
+  try {
+    const reporter = new Phase10PlaywrightSummaryReporter({
+      outputDirectory: directory,
+      label: 'phase10-real'
+    })
+    const source = createRequestLedgerAttachment('phase10-real-ko-handoff')
+    source.body = Buffer.from(
+      JSON.stringify({
+        label: 'phase10-real-ja-handoff',
+        ...JSON.parse(source.body.toString('utf8'))
+      })
+    )
+    reporter.onBegin()
+    reporter.onTestEnd(
+      {
+        location: { file: '/private/spec.ts', line: 1 },
+        titlePath: () => ['source']
+      },
+      { status: 'passed', duration: 1, retry: 0, attachments: [source] }
+    )
+    await assert.rejects(
+      () => reporter.onEnd({ status: 'passed' }),
+      /PHASE10_PLAYWRIGHT_SAFE_ATTACHMENT_INVALID/u
+    )
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })

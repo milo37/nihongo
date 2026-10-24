@@ -15,7 +15,7 @@ const VALID_STATUS = new Set([
   'interrupted'
 ])
 const REQUEST_LEDGER_ATTACHMENT =
-  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger)$/u
+  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const PERFORMANCE_ATTACHMENT = /^phase8-dashboard-(?:real|mock)-performance$/u
 
 const normalizeStatus = (status) =>
@@ -78,6 +78,9 @@ export default class Phase10PlaywrightSummaryReporter {
           throw new Error('invalid attachment transport')
         }
         const payload = JSON.parse(attachment.body.toString('utf8'))
+        if (isRequestLedger && Object.hasOwn(payload, 'label')) {
+          throw new Error('SECURITY_EVIDENCE_LEDGER_SOURCE_INVALID')
+        }
         const ledger = { label: attachment.name, ...payload }
         if (isRequestLedger) {
           assertPlaywrightRequestLedger(ledger, this.label)

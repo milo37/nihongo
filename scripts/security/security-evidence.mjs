@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const SAFE_LABEL_PATTERN = /^phase(?:8|9|10)-(?:real|mock)$/u
 const SAFE_LEDGER_LABEL_PATTERN =
-  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger)$/u
+  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const SAFE_PERFORMANCE_LABEL_PATTERN =
   /^phase8-dashboard-(?:real|mock)-performance$/u
 const SAFE_LEDGER_PATH_PATTERN = /^\/api\/[a-z0-9._~:/-]+$/iu
@@ -48,8 +48,8 @@ const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'phase8-real': 3,
   'phase9-mock': 4,
   'phase9-real': 4,
-  'phase10-mock': 3,
-  'phase10-real': 3
+  'phase10-mock': 5,
+  'phase10-real': 5
 }
 const PHASE8_ADMIN_LEDGER_CONTRACT = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
@@ -374,6 +374,39 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
   const mode = summaryLabel.split('-').at(-1)
   const canonicalProvenance =
     mode === 'mock' ? 'canonical-mock-service-worker' : 'canonical-real-network'
+
+  if (/^phase10-(?:real|mock)-(?:ko|ja)-handoff$/u.test(ledger.label)) {
+    const callbackKey =
+      mode === 'mock'
+        ? 'POST /api/_mock/auth/social/callback'
+        : 'GET /api/auth/callback/google'
+    const expectedStatuses = new Map([
+      ['GET /api/v1/me', 200],
+      ['GET /api/v1/questions', 200],
+      ['POST /api/auth/sign-in/social', 200],
+      [callbackKey, mode === 'mock' ? 200 : 303]
+    ])
+    const counts = new Map([...expectedStatuses.keys()].map((key) => [key, 0]))
+    for (const entry of ledger.entries) {
+      const key = entry.method + ' ' + entry.path
+      if (
+        entry.provenance !== canonicalProvenance ||
+        expectedStatuses.get(key) !== entry.status
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE10_HANDOFF_CONTRACT_INVALID')
+      }
+      counts.set(key, counts.get(key) + 1)
+    }
+    if (
+      !summaryLabel.startsWith('phase10-') ||
+      counts.get('GET /api/v1/me') < 2 ||
+      counts.get('GET /api/v1/questions') !== 1 ||
+      counts.get('POST /api/auth/sign-in/social') !== 1 ||
+      counts.get(callbackKey) !== 1
+    ) {
+      throw new Error('SECURITY_EVIDENCE_PHASE10_HANDOFF_CONTRACT_INVALID')
+    }
+  }
   if (ledger.label.startsWith('phase7-')) {
     if (
       ledger.entries.some(
@@ -775,6 +808,8 @@ const assertPlaywrightEvidence = (value) => {
       ]
     : value.label.startsWith('phase10-')
       ? [
+          `phase10-${mode}-ko-handoff`,
+          `phase10-${mode}-ja-handoff`,
           `phase10-guest-auth-${mode}-request-ledger`,
           `phase10-resilience-${mode}-request-ledger`,
           `phase10-user-journey-${mode}-request-ledger`
