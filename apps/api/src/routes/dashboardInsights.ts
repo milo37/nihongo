@@ -5,6 +5,7 @@ import {
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono, type Context } from 'hono'
 import { createClientIpAuthority } from '../auth/clientIp.js'
+import { createAuthRuntimePlan } from '../config/authRuntimePlan.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { DashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
@@ -103,24 +104,23 @@ export const createDashboardInsightsRoutes = ({
       })
     }
 
-    const principal =
-      environment.ADMIN_CMS_MODE === 'technical'
-        ? (() => {
-            if (!resolution.phase7Session) {
-              appendExpiredSessionCookies(context, environment)
-              throw new ApplicationError({
-                code: 'AUTH_SESSION_EXPIRED',
-                message: '로그인 세션이 만료됐습니다.',
-                retryable: false
-              })
-            }
-            return {
-              kind: 'PHASE7' as const,
-              sessionToken: resolution.phase7Session.token,
-              userId: resolution.user.id
-            }
-          })()
-        : { kind: 'LEGACY' as const, userId: resolution.user.id }
+    const principal = createAuthRuntimePlan(environment).ownedAuth
+      ? (() => {
+          if (!resolution.phase7Session) {
+            appendExpiredSessionCookies(context, environment)
+            throw new ApplicationError({
+              code: 'AUTH_SESSION_EXPIRED',
+              message: '로그인 세션이 만료됐습니다.',
+              retryable: false
+            })
+          }
+          return {
+            kind: 'PHASE7' as const,
+            sessionToken: resolution.phase7Session.token,
+            userId: resolution.user.id
+          }
+        })()
+      : { kind: 'LEGACY' as const, userId: resolution.user.id }
     let response: unknown
     try {
       response = await dashboardInsightsService.getDashboardInsights(principal)
