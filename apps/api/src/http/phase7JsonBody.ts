@@ -4,6 +4,8 @@ import {
 } from '@nihongo/contracts/admin/phase7'
 import { ApplicationError } from '../errors/applicationError.js'
 
+const BODY_TIMEOUT_MS = 5_000
+
 const requestTooLarge = (): ApplicationError =>
   new ApplicationError({
     code: 'REQUEST_TOO_LARGE',
@@ -29,7 +31,8 @@ export const readPhase7JsonBody = async (
   let byteLength = 0
 
   if (reader) {
-    try {
+    let timeout: NodeJS.Timeout | undefined
+    const readBody = async (): Promise<void> => {
       while (true) {
         const chunk = await reader.read()
         if (chunk.done) break
@@ -40,9 +43,23 @@ export const readPhase7JsonBody = async (
         }
         chunks.push(chunk.value)
       }
+    }
+    try {
+      await Promise.race([
+        readBody(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => {
+            void reader.cancel().catch(() => undefined)
+            reject(invalidJson())
+          }, BODY_TIMEOUT_MS)
+        })
+      ])
     } catch (error: unknown) {
       if (error instanceof ApplicationError) throw error
       throw invalidJson()
+    } finally {
+      if (timeout) clearTimeout(timeout)
+      reader.releaseLock()
     }
   }
 
