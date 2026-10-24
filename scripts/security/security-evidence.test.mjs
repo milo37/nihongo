@@ -34,10 +34,53 @@ const phase8AdminLedgerOperations = [
   ['PATCH', '/api/v1/admin/question-versions/:id', 409]
 ]
 
+const createCurrentCmsEntries = () =>
+  [
+    ['POST', '/api/auth/sign-in/social', 200],
+    ['GET', '/api/auth/callback/google', 303],
+    ['GET', '/api/v1/me', 200],
+    ['GET', '/api/v1/admin/questions', 200],
+    ['POST', '/api/v1/admin/questions', 201],
+    ['GET', '/api/v1/admin/questions/:id', 200],
+    ['GET', '/api/v1/admin/question-versions/:id/preview', 200],
+    ['PATCH', '/api/v1/admin/question-versions/:id', 200],
+    ['PATCH', '/api/v1/admin/question-versions/:id', 409],
+    ['GET', '/api/v1/admin/questions/:id', 200],
+    ['POST', '/api/v1/admin/questions/:id/archive', 401],
+    ['GET', '/api/v1/me', 200],
+    ['POST', '/api/auth/sign-in/social', 200],
+    ['GET', '/api/auth/callback/google', 303],
+    ['GET', '/api/auth/sso/admin-fresh/complete', 303],
+    ['GET', '/api/v1/me', 200],
+    ['GET', '/api/v1/admin/questions', 200],
+    ['POST', '/api/v1/admin/questions/:id/archive', 200],
+    ['GET', '/api/v1/admin/questions/:id', 200]
+  ].map(([method, path, status], index) => ({
+    method,
+    path,
+    status,
+    provenance: 'canonical-real-network',
+    startSequence: index === 8 ? 16 : index * 2 + 1,
+    finishSequence: index === 7 ? 17 : index === 8 ? 18 : index * 2 + 2
+  }))
+
 const createRequestLedgerEntries = (name, pathName) => {
   const provenance = name.includes('-mock-')
     ? 'canonical-mock-service-worker'
     : 'canonical-real-network'
+  if (name === 'phase7-a1-a8-real-request-ledger')
+    return createCurrentCmsEntries()
+  if (name === 'phase7-guest-denial' || name === 'phase7-user-denial')
+    return [
+      {
+        method: 'GET',
+        path: '/api/v1/admin/questions',
+        status: name === 'phase7-guest-denial' ? 401 : 403,
+        provenance: 'canonical-real-network',
+        startSequence: 1,
+        finishSequence: 2
+      }
+    ]
   if (name.startsWith('phase8-dashboard-')) {
     return Array.from({ length: 21 }, (_, triggerIndex) => {
       const sequence = triggerIndex * 4
@@ -116,6 +159,20 @@ const createRequestLedgerAttachment = (name, pathName = '/api/v1/me') => ({
     'utf8'
   )
 })
+
+const createCurrentPhase8Attachments = (mode, index) => {
+  if (mode === 'real' && index === 0)
+    return [
+      createRequestLedgerAttachment('phase7-guest-denial'),
+      createRequestLedgerAttachment('phase7-user-denial')
+    ]
+  if (mode === 'real' && index === 1)
+    return [createRequestLedgerAttachment('phase7-a1-a8-real-request-ledger')]
+  return [
+    createRequestLedgerAttachment(`phase8-dashboard-${mode}-request-ledger`),
+    createPerformanceAttachment(mode)
+  ]
+}
 
 const createPerformanceMeasurement = (mode) => {
   const baselineP95Milliseconds = mode === 'mock' ? 952.266 : 875.085
@@ -371,12 +428,12 @@ for (const mode of ['real', 'mock']) {
   })
 }
 
-test('all six safe suites retain exact 5/4/3 counts and approved attachments', async () => {
+test('all six safe suites retain exact current counts and approved attachments', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'six-safe-suites-'))
   const labels = []
   for (const mode of ['real', 'mock']) {
     for (const [phase, count] of [
-      [8, 5],
+      [8, mode === 'real' ? 3 : 1],
       [9, 4],
       [10, 3]
     ]) {
@@ -387,23 +444,13 @@ test('all six safe suites retain exact 5/4/3 counts and approved attachments', a
         label
       })
       const attachments =
-        phase === 8
-          ? [
+        phase === 10
+          ? ['guest-auth', 'resilience', 'user-journey'].map((journey) =>
               createRequestLedgerAttachment(
-                `phase8-admin-lifecycle-${mode}-request-ledger`
-              ),
-              createRequestLedgerAttachment(
-                `phase8-dashboard-${mode}-request-ledger`
-              ),
-              createPerformanceAttachment(mode)
-            ]
-          : phase === 10
-            ? ['guest-auth', 'resilience', 'user-journey'].map((journey) =>
-                createRequestLedgerAttachment(
-                  `phase10-${journey}-${mode}-request-ledger`
-                )
+                `phase10-${journey}-${mode}-request-ledger`
               )
-            : []
+            )
+          : []
       reporter.onBegin()
       for (let index = 0; index < count; index += 1) {
         reporter.onTestEnd(
@@ -415,7 +462,12 @@ test('all six safe suites retain exact 5/4/3 counts and approved attachments', a
             status: 'passed',
             duration: 1,
             retry: 0,
-            attachments: index === 0 ? attachments : []
+            attachments:
+              phase === 8
+                ? createCurrentPhase8Attachments(mode, index)
+                : index === 0
+                  ? attachments
+                  : []
           }
         )
       }
@@ -437,7 +489,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     label: 'phase8-real'
   })
   reporter.onBegin()
-  for (let index = 0; index < 5; index += 1) {
+  for (let index = 0; index < 3; index += 1) {
     reporter.onTestEnd(
       {
         location: { file: `/private/spec-${index}.ts`, line: index + 1 },
@@ -447,18 +499,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
         status: 'passed',
         duration: 10,
         retry: 0,
-        attachments:
-          index === 0
-            ? [
-                createRequestLedgerAttachment(
-                  'phase8-admin-lifecycle-real-request-ledger'
-                ),
-                createRequestLedgerAttachment(
-                  'phase8-dashboard-real-request-ledger'
-                ),
-                createPerformanceAttachment('real')
-              ]
-            : []
+        attachments: createCurrentPhase8Attachments('real', index)
       }
     )
   }
@@ -468,11 +509,13 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     await readFile(path.join(directory, 'phase8-real.json'), 'utf8')
   )
   assert.equal(value.schemaVersion, 2)
-  assert.equal(value.tests.length, 5)
+  assert.equal(value.tests.length, 3)
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
     [
-      'phase8-admin-lifecycle-real-request-ledger',
+      'phase7-a1-a8-real-request-ledger',
+      'phase7-guest-denial',
+      'phase7-user-denial',
       'phase8-dashboard-real-request-ledger'
     ]
   )
@@ -486,6 +529,246 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     requiredLabels: ['phase8-real']
   })
   assert.equal(manifest.files.length, 1)
+})
+
+test('current A1-A8 evidence rejects forged commands, denials, provenance and races', () => {
+  const valid = {
+    label: 'phase7-a1-a8-real-request-ledger',
+    entries: createCurrentCmsEntries()
+  }
+  assert.doesNotThrow(() => assertPlaywrightRequestLedger(valid, 'phase8-real'))
+  const otherWinner = structuredClone(valid)
+  otherWinner.entries[7].status = 409
+  otherWinner.entries[8].status = 200
+  assert.doesNotThrow(() =>
+    assertPlaywrightRequestLedger(otherWinner, 'phase8-real')
+  )
+  assert.throws(() => assertPlaywrightRequestLedger(valid, 'phase8-mock'))
+  for (const [name, mutate] of [
+    ['missing creation', (entries) => entries.splice(4, 1)],
+    [
+      'duplicated archive',
+      (entries) =>
+        entries.push({ ...entries[17], startSequence: 39, finishSequence: 40 })
+    ],
+    [
+      'wrong provenance',
+      (entries) => {
+        entries[4].provenance = 'canonical-mock-service-worker'
+      }
+    ],
+    [
+      'failed read',
+      (entries) => {
+        entries[5].status = 503
+      }
+    ],
+    [
+      'forged creation',
+      (entries) => {
+        entries[4].status = 200
+      }
+    ],
+    [
+      'no PATCH loser',
+      (entries) => {
+        entries[8].status = 200
+      }
+    ],
+    [
+      'unasserted PATCH 412',
+      (entries) => {
+        entries[8].status = 412
+      }
+    ],
+    [
+      'unasserted archive 412',
+      (entries) => {
+        entries[17].status = 412
+      }
+    ],
+    [
+      'archive without fresh denial',
+      (entries) => {
+        entries[10].status = 200
+      }
+    ],
+    [
+      'serialized PATCH race',
+      (entries) => {
+        entries[7].finishSequence = 16
+        entries[8].startSequence = 17
+      }
+    ],
+    ['missing fresh completion', (entries) => entries.splice(14, 1)],
+    [
+      'fresh completion after archive',
+      (entries) => {
+        entries[14].startSequence = 35
+        entries[14].finishSequence = 36
+        entries[17].startSequence = 29
+        entries[17].finishSequence = 30
+      }
+    ],
+    [
+      'duplicate sign-in',
+      (entries) =>
+        entries.push({ ...entries[0], startSequence: 39, finishSequence: 40 })
+    ],
+    ['missing preview', (entries) => entries.splice(6, 1)]
+  ]) {
+    const candidate = structuredClone(valid)
+    mutate(candidate.entries)
+    assert.throws(
+      () => assertPlaywrightRequestLedger(candidate, 'phase8-real'),
+      /SECURITY_EVIDENCE_/u,
+      name
+    )
+  }
+  for (const [label, status] of [
+    ['phase7-guest-denial', 401],
+    ['phase7-user-denial', 403]
+  ]) {
+    const denied = {
+      label,
+      entries: [
+        {
+          method: 'GET',
+          path: '/api/v1/admin/questions',
+          status,
+          provenance: 'canonical-real-network',
+          startSequence: 1,
+          finishSequence: 2
+        }
+      ]
+    }
+    assert.doesNotThrow(() =>
+      assertPlaywrightRequestLedger(denied, 'phase8-real')
+    )
+    for (const mutate of [
+      (entry) => {
+        entry.status = 200
+      },
+      (entry) => {
+        entry.provenance = 'canonical-mock-service-worker'
+      },
+      (entry) => {
+        entry.method = 'POST'
+      },
+      (entry) => {
+        entry.path = '/api/v1/me'
+      }
+    ]) {
+      const candidate = structuredClone(denied)
+      mutate(candidate.entries[0])
+      assert.throws(() =>
+        assertPlaywrightRequestLedger(candidate, 'phase8-real')
+      )
+    }
+  }
+})
+
+test('current Phase 8 summaries reject missing, duplicate, forged and obsolete evidence', async () => {
+  for (const mode of ['real', 'mock']) {
+    const label = `phase8-${mode}`
+    const directory = await mkdtemp(
+      path.join(tmpdir(), 'phase8-current-summary-')
+    )
+    const reporter = new Phase10PlaywrightSummaryReporter({
+      outputDirectory: directory,
+      label
+    })
+    const count = mode === 'real' ? 3 : 1
+    reporter.onBegin()
+    for (let index = 0; index < count; index += 1) {
+      reporter.onTestEnd(
+        {
+          location: { file: '/private/current-spec.ts', line: index + 1 },
+          titlePath: () => [label, String(index)]
+        },
+        {
+          status: 'passed',
+          duration: 1,
+          retry: 0,
+          attachments: createCurrentPhase8Attachments(mode, index)
+        }
+      )
+    }
+    await reporter.onEnd({ status: 'passed' })
+    const filePath = path.join(directory, `${label}.json`)
+    const valid = JSON.parse(await readFile(filePath, 'utf8'))
+    await assert.doesNotReject(() =>
+      verifyArtifactDirectory({
+        directory,
+        profile: 'playwright',
+        requiredLabels: [label]
+      })
+    )
+    const verify = async (value) => {
+      await writeCanonicalEvidence({ filePath, value })
+      return verifyArtifactDirectory({
+        directory,
+        profile: 'playwright',
+        requiredLabels: [label]
+      })
+    }
+    for (const [name, mutate] of [
+      ['missing ledger', (candidate) => candidate.requestLedgers.pop()],
+      [
+        'duplicate ledger',
+        (candidate) =>
+          candidate.requestLedgers.push(
+            structuredClone(candidate.requestLedgers[0])
+          )
+      ],
+      [
+        'forged provenance',
+        (candidate) => {
+          candidate.requestLedgers[0].entries[0].provenance =
+            'injected-test-fault'
+        }
+      ],
+      [
+        'forged status',
+        (candidate) => {
+          candidate.requestLedgers[0].entries[0].status = 500
+        }
+      ],
+      [
+        'old test count',
+        (candidate) => {
+          candidate.tests = Array.from({ length: 5 }, (_, index) => ({
+            ...candidate.tests[0],
+            testId: index.toString(16).padStart(64, '0')
+          }))
+          candidate.counts.passed = 5
+          candidate.counts.total = 5
+        }
+      ],
+      [
+        'missing test',
+        (candidate) => {
+          candidate.tests.pop()
+          candidate.counts.passed -= 1
+          candidate.counts.total -= 1
+        }
+      ],
+      [
+        'retry',
+        (candidate) => {
+          candidate.tests[0].retry = 1
+        }
+      ]
+    ]) {
+      const candidate = structuredClone(valid)
+      mutate(candidate)
+      await assert.rejects(
+        () => verify(candidate),
+        /SECURITY_EVIDENCE_/u,
+        `${mode}: ${name}`
+      )
+    }
+  }
 })
 
 test('Phase 8 dashboard ledgers require ordered sequential user journeys', () => {

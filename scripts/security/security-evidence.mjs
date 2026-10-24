@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const SAFE_LABEL_PATTERN = /^phase(?:8|9|10)-(?:real|mock)$/u
 const SAFE_LEDGER_LABEL_PATTERN =
-  /^(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger$/u
+  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger)$/u
 const SAFE_PERFORMANCE_LABEL_PATTERN =
   /^phase8-dashboard-(?:real|mock)-performance$/u
 const SAFE_LEDGER_PATH_PATTERN = /^\/api\/[a-z0-9._~:/-]+$/iu
@@ -44,8 +44,8 @@ const PLAYWRIGHT_BROWSER_PERFORMANCE_BUDGETS = {
   }
 }
 const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
-  'phase8-mock': 5,
-  'phase8-real': 5,
+  'phase8-mock': 1,
+  'phase8-real': 3,
   'phase9-mock': 4,
   'phase9-real': 4,
   'phase10-mock': 3,
@@ -301,7 +301,9 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
     !exactKeys(ledger, ['label', 'entries']) ||
     typeof ledger.label !== 'string' ||
     !SAFE_LEDGER_LABEL_PATTERN.test(ledger.label) ||
-    !ledger.label.includes(`-${summaryLabel.split('-').at(-1)}-`) ||
+    (ledger.label.startsWith('phase7-')
+      ? !['phase7-real', 'phase8-real'].includes(summaryLabel)
+      : !ledger.label.includes(`-${summaryLabel.split('-').at(-1)}-`)) ||
     !Array.isArray(ledger.entries) ||
     ledger.entries.length === 0
   ) {
@@ -372,6 +374,133 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
   const mode = summaryLabel.split('-').at(-1)
   const canonicalProvenance =
     mode === 'mock' ? 'canonical-mock-service-worker' : 'canonical-real-network'
+  if (ledger.label.startsWith('phase7-')) {
+    if (
+      ledger.entries.some(
+        (entry, index) =>
+          entry.provenance !== 'canonical-real-network' ||
+          (index > 0 &&
+            ledger.entries[index - 1].startSequence >= entry.startSequence)
+      )
+    ) {
+      throw new Error('SECURITY_EVIDENCE_PHASE7_PROVENANCE_OR_ORDER_INVALID')
+    }
+    if (ledger.label !== 'phase7-a1-a8-real-request-ledger') {
+      const deniedStatus = ledger.label === 'phase7-guest-denial' ? 401 : 403
+      if (
+        !ledger.entries.some(
+          ({ path }) => path === '/api/v1/admin/questions'
+        ) ||
+        ledger.entries.some(
+          ({ method, path, status }) =>
+            method !== 'GET' ||
+            !path.startsWith('/api/v1/admin/') ||
+            status !== deniedStatus
+        )
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE7_DENIAL_INVALID')
+      }
+    } else {
+      const commands = ledger.entries.filter(
+        ({ method, path }) =>
+          method !== 'GET' && path.startsWith('/api/v1/admin/')
+      )
+      const expectedCommands = [
+        ['POST', '/api/v1/admin/questions', 201],
+        ['PATCH', '/api/v1/admin/question-versions/:id', null],
+        ['PATCH', '/api/v1/admin/question-versions/:id', null],
+        ['POST', '/api/v1/admin/questions/:id/archive', 401],
+        ['POST', '/api/v1/admin/questions/:id/archive', 200]
+      ]
+      if (
+        commands.length !== expectedCommands.length ||
+        commands.some(
+          (entry, index) =>
+            entry.method !== expectedCommands[index][0] ||
+            entry.path !== expectedCommands[index][1] ||
+            (expectedCommands[index][2] !== null &&
+              entry.status !== expectedCommands[index][2])
+        )
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE7_COMMAND_INVALID')
+      }
+      const race = commands.slice(1, 3)
+      if (
+        JSON.stringify(race.map(({ status }) => status).toSorted()) !==
+        JSON.stringify([200, 409])
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE7_RACE_STATUS_INVALID')
+      }
+      if (
+        Math.max(...race.map(({ startSequence }) => startSequence)) >=
+          Math.min(...race.map(({ finishSequence }) => finishSequence)) ||
+        commands[0].finishSequence >=
+          Math.min(...race.map(({ startSequence }) => startSequence)) ||
+        Math.max(...race.map(({ finishSequence }) => finishSequence)) >=
+          commands[3].startSequence
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE7_RACE_OVERLAP_INVALID')
+      }
+      for (const path of [
+        '/api/v1/admin/questions',
+        '/api/v1/admin/questions/:id',
+        '/api/v1/admin/question-versions/:id/preview'
+      ]) {
+        if (
+          !ledger.entries.some(
+            (entry) => entry.method === 'GET' && entry.path === path
+          )
+        ) {
+          throw new Error('SECURITY_EVIDENCE_PHASE7_READ_MISSING')
+        }
+      }
+      const starts = ledger.entries.filter(
+        ({ method, path }) =>
+          method === 'POST' && path === '/api/auth/sign-in/social'
+      )
+      const callbacks = ledger.entries.filter(
+        ({ method, path }) =>
+          method === 'GET' && path === '/api/auth/callback/google'
+      )
+      const completions = ledger.entries.filter(
+        ({ method, path }) =>
+          method === 'GET' && path === '/api/auth/sso/admin-fresh/complete'
+      )
+      if (
+        starts.length !== 2 ||
+        callbacks.length !== 2 ||
+        completions.length !== 1 ||
+        ledger.entries.some(({ method, path, status }) => {
+          if (path.startsWith('/api/v1/admin/')) {
+            return method === 'GET' && status !== 200
+          }
+          if (method === 'POST') {
+            return path !== '/api/auth/sign-in/social' || status !== 200
+          }
+          return (
+            method !== 'GET' ||
+            status !==
+              (path === '/api/auth/callback/google' ||
+              path === '/api/auth/sso/admin-fresh/complete'
+                ? 303
+                : 200)
+          )
+        })
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE7_AUTH_OR_STATUS_INVALID')
+      }
+      if (
+        starts[0].finishSequence >= callbacks[0].startSequence ||
+        callbacks[0].finishSequence >= commands[0].startSequence ||
+        commands[3].finishSequence >= starts[1].startSequence ||
+        starts[1].finishSequence >= callbacks[1].startSequence ||
+        callbacks[1].startSequence >= completions[0].startSequence ||
+        completions[0].finishSequence >= commands[4].startSequence
+      ) {
+        throw new Error('SECURITY_EVIDENCE_PHASE7_FRESH_ORDER_INVALID')
+      }
+    }
+  }
   if (ledger.label === `phase8-admin-lifecycle-${mode}-request-ledger`) {
     if (ledger.entries.length !== PHASE8_ADMIN_LEDGER_CONTRACT.length) {
       throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
@@ -635,7 +764,13 @@ const assertPlaywrightEvidence = (value) => {
   const mode = value.label.split('-').at(-1)
   const expectedLedgerLabels = value.label.startsWith('phase8-')
     ? [
-        `phase8-admin-lifecycle-${mode}-request-ledger`,
+        ...(mode === 'real'
+          ? [
+              'phase7-a1-a8-real-request-ledger',
+              'phase7-guest-denial',
+              'phase7-user-denial'
+            ]
+          : []),
         `phase8-dashboard-${mode}-request-ledger`
       ]
     : value.label.startsWith('phase10-')

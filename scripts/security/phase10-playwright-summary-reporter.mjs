@@ -15,7 +15,7 @@ const VALID_STATUS = new Set([
   'interrupted'
 ])
 const REQUEST_LEDGER_ATTACHMENT =
-  /^(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger$/u
+  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger)$/u
 const PERFORMANCE_ATTACHMENT = /^phase8-dashboard-(?:real|mock)-performance$/u
 
 const normalizeStatus = (status) =>
