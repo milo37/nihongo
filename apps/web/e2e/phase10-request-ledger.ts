@@ -128,17 +128,47 @@ export const assertExactRequestMultiset = (
     readonly method: string
     readonly path: string
   }) => `${method} ${path}`
-  expect([...new Set(ledger.entries.map(keyOf))].toSorted()).toEqual(
-    contract.map(keyOf).toSorted()
-  )
-  expect(ledger.entries).toHaveLength(
+  const keys = [
+    ...new Set([...contract.map(keyOf), ...ledger.entries.map(keyOf)])
+  ]
+  const differences = keys.flatMap((key) => {
+    const expected = contract.find((entry) => keyOf(entry) === key)
+    const actual = ledger.entries.filter((entry) => keyOf(entry) === key)
+    const expectedStatuses = expected?.statuses ?? []
+    const actualStatuses = actual.map(({ status }) => status)
+    if (
+      expectedStatuses.length === actualStatuses.length &&
+      expectedStatuses.every(
+        (status, index) => status === actualStatuses[index]
+      )
+    ) {
+      return []
+    }
+    return [
+      {
+        method: expected?.method ?? actual[0]?.method,
+        path: expected?.path ?? '<unexpected-path>',
+        expectedCount: expectedStatuses.length,
+        actualCount: actualStatuses.length,
+        expectedStatuses,
+        actualStatuses
+      }
+    ]
+  })
+  const mismatchMessage = `Request ledger differences: ${JSON.stringify(differences)}`
+  expect(
+    [...new Set(ledger.entries.map(keyOf))].toSorted(),
+    mismatchMessage
+  ).toEqual(contract.map(keyOf).toSorted())
+  expect(ledger.entries, mismatchMessage).toHaveLength(
     contract.reduce((total, entry) => total + entry.statuses.length, 0)
   )
   for (const expected of contract) {
     expect(
       ledgerEntriesFor(ledger, expected.method, expected.path).map(
         ({ status }) => status
-      )
+      ),
+      mismatchMessage
     ).toEqual(expected.statuses)
   }
 }
