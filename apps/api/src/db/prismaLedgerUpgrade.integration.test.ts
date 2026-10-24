@@ -221,7 +221,21 @@ describe('Prisma migration ledger upgrade', () => {
          FROM ${quotedSchemaName}."_prisma_migrations"
          ORDER BY started_at`
       )
-      const expected = loadExpectedMigrationManifest(sourceMigrationsDirectory)
+      const currentManifest = loadExpectedMigrationManifest(
+        sourceMigrationsDirectory
+      )
+      const historicalNames: readonly string[] = [
+        ...LEGACY_MIGRATIONS,
+        ...FORWARD_MIGRATIONS
+      ]
+      const expected = currentManifest.filter(({ name }) =>
+        historicalNames.includes(name)
+      )
+      expect(expected).toHaveLength(31)
+      expect(ledger.rows).toHaveLength(31)
+      expect(() =>
+        assertMigrationCompatibility(currentManifest, ledger.rows)
+      ).toThrow('Database migration count does not match the repository.')
 
       expect(() =>
         assertMigrationCompatibility(expected, ledger.rows)

@@ -11,7 +11,6 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync
@@ -21,7 +20,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
-import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
+import { buildPhase6CanonicalSeeds } from './fixtures/phase6CanonicalSeeds.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
@@ -108,49 +107,62 @@ const approvedPriorMigrationSha256 = {
   '20260814144000_phase3_study_session_existing_selection_guard':
     '07662a88c6f31893c25a288c16d172f8cee635e8acc186b4c6a1c5d7088fc336'
 } as const
-const repositoryMigrationNames = readdirSync(sourceMigrationsDirectory, {
-  withFileTypes: true
-})
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .toSorted()
-const migrationNames = repositoryMigrationNames.filter(
-  (name) =>
-    !phase5Slice1Migrations.includes(
-      name as (typeof phase5Slice1Migrations)[number]
-    ) &&
-    !phase7Slice1Migrations.includes(
-      name as (typeof phase7Slice1Migrations)[number]
-    )
+// Freeze historical profiles by their reviewed names, never by excluding
+// selected later migrations from the moving current repository manifest.
+const priorMigrationNames = Object.keys(approvedPriorMigrationSha256).toSorted()
+const migrationNames = [
+  ...priorMigrationNames,
+  ...slice4Migrations,
+  ...slice5Migrations,
+  ...phase4Slice1Migrations,
+  ...phase4Slice3Migrations,
+  ...phase4Slice4Migrations,
+  ...phase4Slice5Migrations
+].toSorted()
+const phase5MigrationNames = [
+  ...migrationNames,
+  ...phase5Slice1Migrations
+].toSorted()
+const historical31Names = [
+  ...phase5MigrationNames,
+  ...phase7Slice1Migrations
+].toSorted()
+const currentManifest = loadExpectedMigrationManifest(sourceMigrationsDirectory)
+const phase4ExpectedMigrationManifest = currentManifest.filter(({ name }) =>
+  migrationNames.includes(name)
 )
-const phase4ExpectedMigrationManifest = loadExpectedMigrationManifest(
-  sourceMigrationsDirectory
-).filter(({ name }) => migrationNames.includes(name))
-const phase5ExpectedMigrationManifest = loadExpectedMigrationManifest(
-  sourceMigrationsDirectory
-).filter(
-  ({ name }) =>
-    !phase7Slice1Migrations.includes(
-      name as (typeof phase7Slice1Migrations)[number]
-    )
+const phase5ExpectedMigrationManifest = currentManifest.filter(({ name }) =>
+  phase5MigrationNames.includes(name)
 )
-const priorMigrationNames = migrationNames.filter(
-  (name) =>
-    !slice4Migrations.includes(name as (typeof slice4Migrations)[number]) &&
-    !slice5Migrations.includes(name as (typeof slice5Migrations)[number]) &&
-    !phase4Slice1Migrations.includes(
-      name as (typeof phase4Slice1Migrations)[number]
-    ) &&
-    !phase4Slice3Migrations.includes(
-      name as (typeof phase4Slice3Migrations)[number]
-    ) &&
-    !phase4Slice4Migrations.includes(
-      name as (typeof phase4Slice4Migrations)[number]
-    ) &&
-    !phase4Slice5Migrations.includes(
-      name as (typeof phase4Slice5Migrations)[number]
-    )
+const historical31Manifest = currentManifest.filter(({ name }) =>
+  historical31Names.includes(name)
 )
+
+const createHistorical31Runtime = async (
+  context: Parameters<typeof readLedger>[0]
+) => {
+  assertMigrationCompatibility(historical31Manifest, await readLedger(context))
+  const currentReadiness = createDatabaseRuntime(
+    context.applicationDatabaseUrl,
+    {
+      migrationProfile: 'current',
+      startupRole: 'nihongo_app'
+    }
+  )
+  try {
+    await expect(currentReadiness.checkReadiness()).rejects.toThrow(
+      'Database migration count does not match the repository.'
+    )
+  } finally {
+    await currentReadiness.disconnect()
+  }
+  // Historical business-path probes use the pinned31 schema. A production
+  // current runtime is still required to reject that old schema above.
+  return createRoleDatabaseRuntime(
+    context.applicationDatabaseUrl,
+    'nihongo_app'
+  )
+}
 
 const isPhase10CurrentSource =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
@@ -460,7 +472,7 @@ const insertPhase6Question = async (
 }
 
 const seedPhase6Catalog = async (client: Client): Promise<void> => {
-  const seeds = buildAllQuestionSeeds()
+  const seeds = buildPhase6CanonicalSeeds()
   const tags = new Map(
     seeds.flatMap(({ tags: questionTags }) =>
       questionTags.map((tag) => [tag.id, tag] as const)
@@ -1824,7 +1836,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       expect(await readLedger(context)).toHaveLength(25)
 
       await seedPhase6Catalog(context.adminClient)
-      const oldBinarySeed = buildAllQuestionSeeds().find(
+      const oldBinarySeed = buildPhase6CanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
           subject === 'VOCABULARY' &&
@@ -1887,19 +1899,12 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      expect(await readLedger(context)).toHaveLength(31)
-
-      const currentRuntimeWithPhase4Path = createDatabaseRuntime(
-        context.applicationDatabaseUrl,
-        isPhase10CurrentSource
-          ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-          : { migrationProfile: 'current' }
-      )
+      const currentRuntimeWithPhase4Path =
+        await createHistorical31Runtime(context)
       try {
-        await currentRuntimeWithPhase4Path.checkReadiness()
         // The repository and service are unchanged from 6116b9d. The raw
         // 25-manifest binary is intentionally fenced above; this probes the
-        // reviewed Phase 4 business path under the 31-manifest readiness.
+        // reviewed Phase 4 business path under an explicitly checked historical31 contract.
         const phase4SubmissionService = createStudySubmissionService(
           createPrismaStudySubmissionRepository(
             currentRuntimeWithPhase4Path.client
@@ -2919,12 +2924,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
-      for (const migrationName of repositoryMigrationNames.filter(
-        (name) =>
-          !phase7Slice1Migrations.includes(
-            name as (typeof phase7Slice1Migrations)[number]
-          )
-      )) {
+      for (const migrationName of phase5MigrationNames) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
@@ -2945,7 +2945,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
       ).toMatchObject({ rows: [{ count: 127 }] })
       await registerPhase7CapabilityAndActivate(context)
 
-      const historicalSeed = buildAllQuestionSeeds().find(
+      const historicalSeed = buildPhase6CanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
           subject === 'VOCABULARY' &&
@@ -3016,14 +3016,8 @@ describe('Phase 4 Slice 3 historical review pins', () => {
       await issueAdminSession(authorId, authorToken)
       await issueAdminSession(reviewerId, reviewerToken)
 
-      const runtime = createDatabaseRuntime(
-        context.applicationDatabaseUrl,
-        isPhase10CurrentSource
-          ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-          : { migrationProfile: 'current' }
-      )
+      const runtime = await createHistorical31Runtime(context)
       try {
-        await runtime.checkReadiness()
         const client = runtime.client
         const sessionRepository = createPrismaStudySessionRepository(client)
         const submissionRepository =

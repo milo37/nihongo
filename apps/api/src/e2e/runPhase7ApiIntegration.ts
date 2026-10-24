@@ -951,15 +951,15 @@ export const preparePhase7IsolatedDatabase = async ({
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
   const phase7ApiEntries = getPhase10ApiIntegrationEntriesByOwner('phase7-api')
-  const [apiGateEntry, repositoryEntry, commandRepositoryEntry] =
+  const [repositoryEntry, apiGateEntry, commandRepositoryEntry] =
     phase7ApiEntries
   if (
     phase7ApiEntries.length !== 3 ||
     !apiGateEntry ||
     !repositoryEntry ||
     !commandRepositoryEntry ||
-    apiGateEntry.shard !== 'phase7-api-pre-seed' ||
-    apiGateEntry.seedPolicy !== 'none' ||
+    apiGateEntry.shard !== 'phase7-api-post-seed' ||
+    apiGateEntry.seedPolicy !== 'canonical-once' ||
     repositoryEntry.shard !== 'phase7-api-pre-seed' ||
     repositoryEntry.seedPolicy !== 'none' ||
     commandRepositoryEntry.shard !== 'phase7-api-post-seed' ||
@@ -967,11 +967,6 @@ const run = async (): Promise<void> => {
   ) {
     throw new Error('Phase 7 API integration manifest is incomplete.')
   }
-  await runPhase10ManifestVitestFile({
-    runCommand,
-    testFile: apiGateEntry.path,
-    environment: sharedEnvironment
-  })
   await runPhase10ManifestVitestFile({
     runCommand,
     testFile: repositoryEntry.path,
@@ -982,6 +977,24 @@ const run = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
     sharedEnvironment
   )
+  // Batch7 installs current only from the unchanged canonical65 bootstrap.
+  // Historical prepare(seedRuns:0) callers keep their prefix37 profile.
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    {
+      ...sharedEnvironment,
+      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+        repositoryRoot,
+        'apps/api/prisma/migrations'
+      )
+    }
+  )
+  await runPhase10ManifestVitestFile({
+    runCommand,
+    testFile: apiGateEntry.path,
+    environment: sharedEnvironment
+  })
   await runPhase10ManifestVitestFile({
     runCommand,
     testFile: commandRepositoryEntry.path,

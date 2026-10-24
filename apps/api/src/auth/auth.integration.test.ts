@@ -3,6 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
+import { createPhase7SsoSessionFixture } from '../db/fixtures/phase7SsoSession.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -280,198 +281,69 @@ describe(
     ? 'Phase 7 V1 auth gateway PostgreSQL vertical slice'
     : 'Better Auth PostgreSQL vertical slice',
   () => {
-    it('USER 가입·이메일 인증·cookie 로그인·logout을 서버 권위로 처리한다', async () => {
-      const email = `slice2-${randomUUID()}@example.test`
-      const password = 'Slice2-password-2026!'
-      if (isPhase10CurrentSource) {
-        const rejectedEscalation = await postAuth('/api/auth/sign-up/email', {
-          email,
-          name: '슬라이스 사용자',
-          password,
-          role: 'ADMIN',
-          targetLevel: 'N2'
-        })
-        expect(rejectedEscalation.status).toBe(400)
-      }
-      const signUpResponse = await postAuth('/api/auth/sign-up/email', {
-        email,
-        name: '슬라이스 사용자',
-        password,
-        ...(!isPhase10CurrentSource ? { role: 'ADMIN' } : {}),
+    it('SSO USER principal, retired credential rejection and logout retain server authority', async () => {
+      if (!authGatewayDatabase)
+        throw new Error('Current SSO gateway fixture is required.')
+      const before = await Promise.all([
+        fixtureDatabase.client.user.count(),
+        fixtureDatabase.client.account.count(),
+        fixtureDatabase.client.session.count(),
+        fixtureDatabase.client.verification.count()
+      ])
+      const rejected = await postAuth('/api/auth/sign-up/email', {
+        email: 'retired-escalation@example.test',
+        name: 'Retired signup',
+        password: 'retired-password',
+        role: 'ADMIN',
         targetLevel: 'N2'
       })
-      await expectCookieOnlySuccess(signUpResponse)
-
-      const createdUser = await fixtureDatabase.client.user.findUniqueOrThrow({
-        where: { email },
-        select: { id: true, role: true, emailVerified: true }
+      expect(rejected.status).toBe(404)
+      expect(await rejected.json()).toMatchObject({
+        code: 'AUTH_ROUTE_NOT_FOUND'
       })
-      createdUserIds.add(createdUser.id)
-      expect(createdUser).toMatchObject({ role: 'USER', emailVerified: false })
-
-      const rejectedLogin = await postAuth('/api/auth/sign-in/email', {
-        email,
-        password
+      expect(rejected.headers.get('Set-Cookie')).toBeNull()
+      expect(
+        await Promise.all([
+          fixtureDatabase.client.user.count(),
+          fixtureDatabase.client.account.count(),
+          fixtureDatabase.client.session.count(),
+          fixtureDatabase.client.verification.count()
+        ])
+      ).toEqual(before)
+      const session = await createPhase7SsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: authGatewayDatabase.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'USER'
       })
-      expect(rejectedLogin.ok).toBe(false)
-      expect(
-        await fixtureDatabase.client.session.count({
-          where: { userId: createdUser.id }
-        })
-      ).toBe(0)
-
-      const verificationMessage = emailPort.messages.find(
-        (message) =>
-          message.recipient === email &&
-          message.purpose === 'EMAIL_VERIFICATION'
-      )
-      expect(verificationMessage).toBeDefined()
-      if (!verificationMessage) {
-        return
-      }
-
-      const verificationUrl = new URL(verificationMessage.url)
-      const verificationToken = new URLSearchParams(
-        verificationUrl.hash.slice(1)
-      ).get('token')
-      expect(verificationUrl.pathname).toBe('/verify-email')
-      expect(verificationToken).toBeTruthy()
-      if (!verificationToken) return
-
-      const scannerResponse = await app.request(
-        `/api/auth/verify-email?token=${encodeURIComponent(verificationToken)}`
-      )
-      expect(scannerResponse.status).toBe(404)
-      expect(
-        await fixtureDatabase.client.user.findUniqueOrThrow({
-          where: { id: createdUser.id },
-          select: { emailVerified: true }
-        })
-      ).toEqual({ emailVerified: false })
-
-      const verificationResponse = await postAuth('/api/auth/verify-email', {
-        token: verificationToken
-      })
-      await expectCookieOnlySuccess(verificationResponse)
-      expect(
-        await fixtureDatabase.client.user.findUniqueOrThrow({
-          where: { id: createdUser.id },
-          select: { emailVerified: true }
-        })
-      ).toEqual({ emailVerified: true })
-
-      const signInResponse = await postAuth('/api/auth/sign-in/email', {
-        email,
-        password
-      })
-      const sessionCookie = getCookieHeader(signInResponse)
-      await expectCookieOnlySuccess(signInResponse)
-      expect(signInResponse.headers.get('Set-Cookie')).toContain('HttpOnly')
-      expect(signInResponse.headers.get('Set-Cookie')).toContain('SameSite=Lax')
-      expect(sessionCookie).not.toBe('')
-      expect(
-        await fixtureDatabase.client.session.count({
-          where: { userId: createdUser.id }
-        })
-      ).toBe(1)
-
+      createdUserIds.add(session.userId)
       const principalResponse = await app.request('/api/v1/me', {
-        headers: { Cookie: sessionCookie }
+        headers: { Cookie: session.cookie }
       })
       const principal = await principalResponse.json()
-      expect(principal).toEqual({
+      expect(principalResponse.status).toBe(200)
+      expect(principal).toMatchObject({
         kind: 'USER',
-        user: {
-          id: createdUser.id,
-          name: '슬라이스 사용자',
-          role: 'USER',
-          targetLevel: 'N2'
-        }
+        user: { id: session.userId, role: 'USER', targetLevel: null }
       })
       expect(JSON.stringify(principal)).not.toMatch(/email|token|password/iu)
-
-      const resetRequestResponse = await postAuth(
-        '/api/auth/request-password-reset',
-        { email }
-      )
-      await expectCookieOnlySuccess(resetRequestResponse)
-
-      const resetMessage = emailPort.messages
-        .toReversed()
-        .find(
-          (message) =>
-            message.recipient === email && message.purpose === 'PASSWORD_RESET'
-        )
-      expect(resetMessage).toBeDefined()
-      if (!resetMessage) {
-        return
-      }
-
-      const resetUrl = new URL(resetMessage.url)
-      const resetToken = new URLSearchParams(resetUrl.hash.slice(1)).get(
-        'token'
-      )
-      expect(resetUrl.pathname).toBe('/reset-password')
-      expect(resetUrl.searchParams.has('token')).toBe(false)
-      expect(resetToken).toBeTruthy()
-      if (!resetToken) {
-        return
-      }
-
-      const resetVerification =
-        await fixtureDatabase.client.verification.findFirst({
-          where: isPhase10CurrentSource
-            ? {
-                purpose: 'PASSWORD_RESET_V1',
-                resetUserId: createdUser.id
-              }
-            : { value: createdUser.id },
-          orderBy: { createdAt: 'desc' },
-          select: { expiresAt: true }
-        })
-      expect(resetVerification).not.toBeNull()
-      expect(resetVerification?.expiresAt.getTime()).toBeGreaterThan(Date.now())
-      expect(resetVerification?.expiresAt.getTime()).toBeLessThanOrEqual(
-        Date.now() + 60 * 60 * 1_000
-      )
-
-      const nextPassword = 'Slice2-password-reset-2026!'
-      const resetResponse = await postAuth('/api/auth/reset-password', {
-        newPassword: nextPassword,
-        token: resetToken
-      })
-      await expectCookieOnlySuccess(resetResponse)
       expect(
         await fixtureDatabase.client.session.count({
-          where: { userId: createdUser.id }
+          where: { userId: session.userId }
         })
-      ).toBe(0)
-
-      const oldPasswordResponse = await postAuth('/api/auth/sign-in/email', {
-        email,
-        password
-      })
-      expect(oldPasswordResponse.ok).toBe(false)
-
-      const newPasswordResponse = await postAuth('/api/auth/sign-in/email', {
-        email,
-        password: nextPassword
-      })
-      const resetSessionCookie = getCookieHeader(newPasswordResponse)
-      await expectCookieOnlySuccess(newPasswordResponse)
-      expect(resetSessionCookie).not.toBe('')
-
-      const signOutResponse = await postAuth(
-        '/api/auth/sign-out',
-        {},
-        resetSessionCookie
-      )
-      await expectCookieOnlySuccess(signOutResponse)
+      ).toBe(1)
+      expect(emailPort.messages).toHaveLength(0)
+      const signOut = await postAuth('/api/auth/sign-out', {}, session.cookie)
+      await expectCookieOnlySuccess(signOut)
       expect(
         await fixtureDatabase.client.session.count({
-          where: { userId: createdUser.id }
+          where: { userId: session.userId }
         })
       ).toBe(0)
+      const guest = await app.request('/api/v1/me', {
+        headers: { Cookie: session.cookie }
+      })
+      expect(await guest.json()).toEqual({ kind: 'GUEST' })
     })
 
     it('/me는 guest row를 만들지 않고 명시적 guest credential만 digest·clear한다', async () => {
@@ -579,6 +451,11 @@ describe(
         targetLevel: 'N1'
       })
 
+      const originalCredential =
+        await fixtureDatabase.client.account.findFirstOrThrow({
+          where: { userId: created.userId, providerId: 'credential' },
+          select: { password: true }
+        })
       const repeated = await provisioner.provision({
         email,
         name: '변경 시도',
@@ -590,22 +467,28 @@ describe(
         userId: created.userId
       })
 
-      const originalPasswordResponse = await postAuth(
-        '/api/auth/sign-in/email',
-        {
-          email,
-          password
-        }
-      )
-      await expectCookieOnlySuccess(originalPasswordResponse)
-      const overwrittenPasswordResponse = await postAuth(
-        '/api/auth/sign-in/email',
-        {
-          email,
-          password: 'Different-admin-password-2026!'
-        }
-      )
-      expect(overwrittenPasswordResponse.ok).toBe(false)
+      expect(
+        await fixtureDatabase.client.account.findFirstOrThrow({
+          where: { userId: created.userId, providerId: 'credential' },
+          select: { password: true }
+        })
+      ).toEqual(originalCredential)
+      if (!authGatewayDatabase)
+        throw new Error('Current SSO gateway fixture is required.')
+      const adminSession = await createPhase7SsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: authGatewayDatabase.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'ADMIN',
+        existingUser: { id: created.userId, email, name: 'Admin SSO fixture' }
+      })
+      const adminPrincipal = await app.request('/api/v1/me', {
+        headers: { Cookie: adminSession.cookie }
+      })
+      expect(await adminPrincipal.json()).toMatchObject({
+        kind: 'USER',
+        user: { id: created.userId, role: 'ADMIN', targetLevel: 'N1' }
+      })
 
       const existingUser = await createFixtureUser({
         email: `slice2-existing-${randomUUID()}@example.test`,
@@ -717,12 +600,12 @@ describe(
         await Promise.all([
           postAuth('/api/auth/delete-user', {}),
           postAuth('/api/auth/login/admin', {}),
-          app.request('/api/auth/sign-in/email', {
+          app.request('/api/auth/sign-out', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: '{}'
           }),
-          app.request('/api/auth/sign-in/email', {
+          app.request('/api/auth/sign-out', {
             method: 'POST',
             headers: { Origin: origin, 'Content-Type': 'text/plain' },
             body: 'email=user'
@@ -780,13 +663,16 @@ describe(
         })
 
         if (isPhase10CurrentSource) {
-          const signInResponse = await postAuth('/api/auth/sign-in/email', {
-            email,
-            password
+          if (!authGatewayDatabase)
+            throw new Error('Current SSO gateway fixture is required.')
+          const session = await createPhase7SsoSessionFixture({
+            owner: fixtureDatabase.client,
+            gateway: authGatewayDatabase.client,
+            secret: environment.BETTER_AUTH_SECRET,
+            role: 'USER',
+            existingUser: { id: user.id, email, name: 'Erasure SSO fixture' }
           })
-          const cookie = getCookieHeader(signInResponse)
-          await expectCookieOnlySuccess(signInResponse)
-          expect(cookie).not.toBe('')
+          const cookie = session.cookie
           const principalResponse = await app.request('/api/v1/me', {
             headers: { Cookie: cookie }
           })

@@ -1,8 +1,16 @@
-import { randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createApiApp } from './createApp.js'
+import {
+  createPhase7SsoIdentityFixture,
+  createPhase7SsoSessionFixture
+} from '../db/fixtures/phase7SsoSession.js'
 import { createAuthGateway } from '../auth/authGateway.js'
+import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
+import { createSsoPublicRuntime } from '../auth/ssoPublicRuntime.js'
+import { createSsoTransactionStore } from '../auth/ssoTransactionRepository.js'
+import type { SsoVerifiedIdentity } from '../auth/ssoProtocol.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
@@ -54,6 +62,8 @@ const emailDispatcher = createAuthEmailDispatcher({
 let applicationRuntime: DatabaseRuntime
 let authGatewayRuntime: RoleDatabaseRuntime
 let app: ReturnType<typeof createApiApp>
+let verifiedProviderIdentity: SsoVerifiedIdentity | null = null
+let beforeSsoIssue: (() => Promise<void>) | undefined
 let practiceAuthorityCalls = 0
 const apiLogLines: string[] = []
 
@@ -74,76 +84,17 @@ const postAuth = async (
     body: JSON.stringify(body)
   })
 
-const resetAuthRateLimits = async (): Promise<void> => {
-  await adminClient.query(
-    `DELETE FROM "RateLimit" WHERE "key" LIKE 'application:auth:%'`
-  )
+const ssoOwner: Parameters<typeof createPhase7SsoSessionFixture>[0]['owner'] = {
+  $queryRawUnsafe: async <T>(sql: string, ...values: unknown[]) =>
+    (await adminClient.query(sql, values)).rows as T
 }
-
-const readLatestEmailToken = ({
-  email,
-  pathname,
-  purpose
-}: {
-  email: string
-  pathname: '/reset-password' | '/verify-email'
-  purpose: 'EMAIL_VERIFICATION' | 'PASSWORD_RESET'
-}): string => {
-  const message = emailPort.messages.findLast(
-    (candidate) =>
-      candidate.purpose === purpose && candidate.recipient === email
-  )
-  if (!message) throw new Error(`${purpose} email fixture is unavailable.`)
-  const url = new URL(message.url)
-  expect(url.origin).toBe(environment.TRUSTED_ORIGINS[0])
-  expect(url.pathname).toBe(pathname)
-  expect(url.search).toBe('')
-  const token = new URLSearchParams(url.hash.slice(1)).get('token')
-  if (!token) throw new Error(`${purpose} fragment token is unavailable.`)
-  expect(url.hash).toBe(`#${new URLSearchParams({ token }).toString()}`)
-  return token
-}
-
-const registerVerifiedUser = async ({
-  email,
-  password
-}: {
-  email: string
-  password: string
-}): Promise<string> => {
-  const signUp = await postAuth('/api/auth/sign-up/email', {
-    email,
-    name: 'Phase 7 Auth Gate',
-    password,
-    targetLevel: 'N3'
+const createSsoSession = async () =>
+  await createPhase7SsoSessionFixture({
+    owner: ssoOwner,
+    gateway: authGatewayRuntime.client,
+    secret: environment.BETTER_AUTH_SECRET,
+    role: 'USER'
   })
-  expect(signUp.status).toBe(200)
-  expect(signUp.headers.get('Set-Cookie')).toBeNull()
-  const token = readLatestEmailToken({
-    email,
-    pathname: '/verify-email',
-    purpose: 'EMAIL_VERIFICATION'
-  })
-  const verification = await postAuth('/api/auth/verify-email', { token })
-  expect(verification.status).toBe(200)
-  const user = await adminClient.query<{ id: string }>(
-    `SELECT "id" FROM "User" WHERE "email" = $1 AND "emailVerified"`,
-    [email]
-  )
-  const userId = user.rows[0]?.id
-  if (!userId) throw new Error('Verified auth subject is unavailable.')
-  return userId
-}
-
-const requireSessionCookie = (response: Response): string => {
-  const sessionCookie = response.headers
-    .getSetCookie()
-    .find((cookie) => cookie.startsWith('nihongo.session_token='))
-  if (!sessionCookie) throw new Error('Issued session cookie is unavailable.')
-  expect(sessionCookie).toContain('HttpOnly')
-  expect(sessionCookie).toContain('SameSite=Lax')
-  return sessionCookie.split(';', 1)[0]!
-}
 
 const expectExpiredSessionCookies = (response: Response): void => {
   const cookies = response.headers.getSetCookie()
@@ -158,6 +109,9 @@ const expectExpiredSessionCookies = (response: Response): void => {
 }
 
 const readWriteCounts = async (): Promise<{
+  account: number
+  user: number
+  verification: number
   audit: number
   family: number
   question: number
@@ -167,6 +121,9 @@ const readWriteCounts = async (): Promise<{
   session: number
 }> => {
   const result = await adminClient.query<{
+    account: number
+    user: number
+    verification: number
     audit: number
     family: number
     question: number
@@ -176,6 +133,9 @@ const readWriteCounts = async (): Promise<{
     session: number
   }>(
     `SELECT
+       (SELECT COUNT(*)::int FROM "Account") AS account,
+       (SELECT COUNT(*)::int FROM "User") AS "user",
+       (SELECT COUNT(*)::int FROM "Verification") AS verification,
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS audit,
        (SELECT COUNT(*)::int FROM "AuthSessionFamily") AS family,
        (SELECT COUNT(*)::int FROM "Question") AS question,
@@ -213,12 +173,10 @@ const updateAuthorityGenerationWithoutCleanup = async (
 }
 
 const exercisePostIssuerAuthorityDrift = async ({
-  email,
-  password,
+  callback,
   userId
 }: {
-  email: string
-  password: string
+  callback: () => Promise<Response>
   userId: string
 }): Promise<Response> => {
   const driftClient = createAdminConnection()
@@ -258,7 +216,7 @@ const exercisePostIssuerAuthorityDrift = async ({
       [barrierKey]
     )
     advisoryLockHeld = true
-    signIn = postAuth('/api/auth/sign-in/email', { email, password })
+    signIn = callback()
     void signIn.catch(() => undefined)
 
     let issuerBlocked = false
@@ -392,6 +350,46 @@ beforeAll(async () => {
       gateway: createAuthGateway({
         environment,
         phase7Facade,
+        ssoRuntime: createSsoPublicRuntime({
+          environment,
+          providers: {
+            google: {
+              authorizationURL: async ({ state, nonce, codeVerifier }) => {
+                const url = new URL(
+                  'https://accounts.google.com/o/oauth2/v2/auth'
+                )
+                url.search = new URLSearchParams({
+                  state,
+                  nonce,
+                  code_challenge_method: 'S256',
+                  code_challenge: createHash('sha256')
+                    .update(codeVerifier)
+                    .digest('base64url')
+                }).toString()
+                return url.href
+              },
+              exchange: async () => verifiedProviderIdentity
+            }
+          },
+          store: createSsoTransactionStore(authGatewayRuntime.client),
+          identities: createSsoIdentityRepository(
+            new Proxy(authGatewayRuntime.client, {
+              get(target, key) {
+                if (key === '$queryRawUnsafe')
+                  return async (sql: string, ...values: unknown[]) => {
+                    const rows = await target.$queryRawUnsafe(sql, ...values)
+                    if (
+                      sql.includes('"phase7_resolve_sso_identity"') &&
+                      beforeSsoIssue
+                    )
+                      await beforeSsoIssue()
+                    return rows
+                  }
+                return Reflect.get(target, key)
+              }
+            })
+          )
+        }),
         technicalRateLimiter: rateLimiter
       }),
       guestPrincipalService: createGuestPrincipalService({
@@ -578,726 +576,272 @@ describe('Phase 7 Slice 1 technical API gate', () => {
     }
   )
 
-  it('stale issuance와 stale session을 cookie/write 0으로 닫는다', async () => {
-    const email = `phase7-api-${randomUUID()}@example.test`
-    const password = 'phase7-api-password-fixture'
-    const signUp = await postAuth('/api/auth/sign-up/email', {
-      email,
-      name: 'Phase 7 API Gate',
-      password,
-      targetLevel: 'N3'
-    })
-    expect(signUp.status).toBe(200)
-    expect(signUp.headers.get('Set-Cookie')).toBeNull()
-    const verificationMessage = emailPort.messages.find(
-      (message) =>
-        message.purpose === 'EMAIL_VERIFICATION' && message.recipient === email
-    )
-    if (!verificationMessage) {
-      throw new Error('Verification email fixture was not captured.')
-    }
-    const verificationToken = new URLSearchParams(
-      new URL(verificationMessage.url).hash.slice(1)
-    ).get('token')
-    if (!verificationToken) {
-      throw new Error('Verification token fixture is unavailable.')
-    }
-    const verification = await postAuth('/api/auth/verify-email', {
-      token: verificationToken
-    })
-    expect(verification.status).toBe(200)
-
-    const user = await adminClient.query<{
-      authorityGeneration: number
-      id: string
-    }>(
-      `SELECT "id", "authorityGeneration"
-       FROM "User" WHERE "email" = $1`,
-      [email]
-    )
-    const subject = user.rows[0]
-    if (!subject) throw new Error('Auth subject fixture is unavailable.')
-    expect(subject.authorityGeneration).toBe(1)
-
-    await adminClient.query('BEGIN')
-    let lockOpen = true
-    let staleSignIn: Promise<Response> | undefined
-    let earlyResponse: Response | undefined
-    try {
-      await adminClient.query(
-        `SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`,
-        [subject.id]
-      )
-      staleSignIn = postAuth('/api/auth/sign-in/email', {
-        email,
-        password
-      }).then((response) => {
-        earlyResponse = response
-        return response
-      })
-      void staleSignIn.catch(() => undefined)
-      let lockObserved = false
-      for (let attempt = 0; attempt < 200; attempt += 1) {
-        const activity = await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM pg_stat_activity
-           WHERE datname = current_database()
-             AND usename = 'nihongo_test_auth_gateway_login'
-             AND wait_event_type = 'Lock'`
-        )
-        if ((activity.rows[0]?.count ?? 0) > 0) {
-          lockObserved = true
-          break
+  it.each([
+    '/api/auth/sign-up/email',
+    '/api/auth/sign-in/email',
+    '/api/auth/verify-email',
+    '/api/auth/send-verification-email',
+    '/api/auth/change-password',
+    '/api/auth/request-password-reset',
+    '/api/auth/reset-password',
+    '/api/auth/set-password'
+  ])(
+    'retired credential route %s rejects without cookies, mail or writes',
+    async (path) => {
+      const before = await readWriteCounts()
+      const mailCount = emailPort.messages.length
+      for (const [pathname, body, cookie] of [
+        [
+          path,
+          { email: 'retired@example.test', password: 'retired-password' },
+          undefined
+        ],
+        [
+          `${path}?callbackURL=%2Fadmin`,
+          { token: 'retired-token', newPassword: 'retired-password' },
+          undefined
+        ],
+        [
+          path,
+          { unexpected: true },
+          'nihongo.session_token=retired-cookie; nihongo.session_token=duplicate'
+        ]
+      ] as const) {
+        const response = await postAuth(pathname, body, cookie)
+        expect(response.status).toBe(404)
+        expect(await response.json()).toMatchObject({
+          code: 'AUTH_ROUTE_NOT_FOUND'
+        })
+        expect(response.headers.get('Set-Cookie')).toBeNull()
+        expect(await readWriteCounts()).toEqual(before)
+        expect(emailPort.messages).toHaveLength(mailCount)
+        const logs = apiLogLines.join('\n')
+        for (const value of [
+          'retired@example.test',
+          'retired-password',
+          'retired-token',
+          'retired-cookie'
+        ]) {
+          expect(logs).not.toContain(value)
         }
-        await new Promise((resolve) => setTimeout(resolve, 25))
       }
-      if (!lockObserved) {
-        throw new Error(
-          `Stale issuance lock was not observed (response=${earlyResponse?.status ?? 'pending'}).`
-        )
-      }
-      await adminClient.query('SET LOCAL session_replication_role = replica')
-      await adminClient.query(
-        `UPDATE "User"
-         SET "authorityGeneration" = "authorityGeneration" + 1
-         WHERE "id" = $1`,
-        [subject.id]
-      )
-      await adminClient.query('SET LOCAL session_replication_role = origin')
-      await adminClient.query('COMMIT')
-      lockOpen = false
-      const rejected = await staleSignIn
-      staleSignIn = undefined
-      expect(rejected.status).toBe(401)
-      expect(await rejected.json()).toMatchObject({
-        code: 'INVALID_EMAIL_OR_PASSWORD'
-      })
-      expect(rejected.headers.get('Set-Cookie')).toBeNull()
-    } finally {
-      if (lockOpen) await adminClient.query('ROLLBACK')
-      await staleSignIn?.catch(() => undefined)
     }
+  )
 
-    const afterStaleIssue = await readWriteCounts()
-    expect(afterStaleIssue.session).toBe(0)
-    expect(afterStaleIssue.family).toBe(0)
-    expect(afterStaleIssue.audit).toBe(0)
-    expect(afterStaleIssue.review).toBe(0)
-    expect(afterStaleIssue.report).toBe(0)
-    expect(afterStaleIssue.question).toBe(0)
-
-    const postIssuerRejected = await exercisePostIssuerAuthorityDrift({
-      email,
-      password,
-      userId: subject.id
+  it('SSO authority captured before issuance cannot create a session after drift', async () => {
+    const actor = await createPhase7SsoIdentityFixture({
+      owner: ssoOwner,
+      role: 'USER'
     })
-    expect(postIssuerRejected.status).toBe(401)
-    expect(await postIssuerRejected.json()).toMatchObject({
-      code: 'INVALID_EMAIL_OR_PASSWORD'
+    verifiedProviderIdentity = actor.identity
+    let entered: () => void = () => undefined
+    let release: () => void = () => undefined
+    const observed = new Promise<void>((resolve) => {
+      entered = resolve
     })
-    expect(postIssuerRejected.headers.get('Set-Cookie')).toBeNull()
-    const afterPostIssuerDrift = await adminClient.query<{
-      activeFamilyCount: number
-      auditCount: number
-      revokedFamilyCount: number
-      sessionCount: number
-    }>(
-      `SELECT
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = $1 AND "status" = 'ACTIVE')
-           AS "activeFamilyCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = $1 AND "status" = 'REVOKED')
-           AS "revokedFamilyCount",
-         (SELECT COUNT(*)::int FROM "Session" WHERE "userId" = $1)
-           AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount"`,
-      [subject.id]
-    )
-    expect(afterPostIssuerDrift.rows).toEqual([
-      {
-        activeFamilyCount: 0,
-        auditCount: 0,
-        revokedFamilyCount: 1,
-        sessionCount: 0
-      }
-    ])
-
-    const successful = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password
+    const held = new Promise<void>((resolve) => {
+      release = resolve
     })
-    expect(successful.status).toBe(200)
-    const issuedCookies = successful.headers.getSetCookie()
-    const sessionCookie = issuedCookies.find((cookie) =>
-      cookie.startsWith('nihongo.session_token=')
-    )
-    if (!sessionCookie) throw new Error('Issued session cookie is unavailable.')
-    expect(sessionCookie).toContain('HttpOnly')
-    expect(sessionCookie).toContain('SameSite=Lax')
-    const cookieHeader = sessionCookie.split(';', 1)[0]!
-
-    const issuedState = await adminClient.query<{
-      authorityGeneration: number
-      familyCount: number
-      issuerProtocolVersion: string
-      sessionCount: number
-    }>(
-      `SELECT target_user."authorityGeneration",
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = target_user."id" AND "status" = 'ACTIVE')
-           AS "familyCount",
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "userId" = target_user."id") AS "sessionCount",
-         (SELECT "issuerProtocolVersion"::text FROM "Session"
-          WHERE "userId" = target_user."id" LIMIT 1)
-           AS "issuerProtocolVersion"
-       FROM "User" AS target_user WHERE target_user."id" = $1`,
-      [subject.id]
-    )
-    expect(issuedState.rows).toEqual([
-      {
-        authorityGeneration: 3,
-        familyCount: 1,
-        issuerProtocolVersion: 'PHASE7_V1',
-        sessionCount: 1
-      }
-    ])
-
-    await updateAuthorityGenerationWithoutCleanup(subject.id)
-    const beforeStalePrincipal = await readWriteCounts()
-    const stalePrincipal = await app.request('/api/v1/me', {
-      headers: { Cookie: cookieHeader }
-    })
-    expect(stalePrincipal.status).toBe(200)
-    expect(await stalePrincipal.json()).toEqual({ kind: 'GUEST' })
-    expect(stalePrincipal.headers.getSetCookie()).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('nihongo.session_token='),
-        expect.stringContaining('__Secure-nihongo.session_token=')
-      ])
-    )
-    expect(await readWriteCounts()).toEqual(beforeStalePrincipal)
-  }, 60_000)
-
-  it('send-verification을 strict body와 fragment-only mail로 닫는다', async () => {
-    await resetAuthRateLimits()
-    const email = `phase7-verification-${randomUUID()}@example.test`
-    const password = 'phase7-verification-password'
-    const signUp = await postAuth('/api/auth/sign-up/email', {
-      email,
-      name: 'Phase 7 Verification Gate',
-      password,
-      targetLevel: 'N4'
-    })
-    expect(signUp.status).toBe(200)
-    const initialMessageCount = emailPort.messages.filter(
-      (message) =>
-        message.purpose === 'EMAIL_VERIFICATION' && message.recipient === email
-    ).length
-    expect(initialMessageCount).toBe(1)
-
-    const invalid = await postAuth('/api/auth/send-verification-email', {
-      callbackURL: 'http://localhost:5173/forbidden',
-      email
-    })
-    expect(invalid.status).toBe(400)
-    expect(
-      emailPort.messages.filter((message) => message.recipient === email)
-    ).toHaveLength(initialMessageCount)
-
-    const sent = await postAuth('/api/auth/send-verification-email', { email })
-    expect(sent.status).toBe(200)
-    expect(sent.headers.get('Set-Cookie')).toBeNull()
-    expect(
-      emailPort.messages.filter(
-        (message) =>
-          message.purpose === 'EMAIL_VERIFICATION' &&
-          message.recipient === email
+    let callback: Promise<Response> | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    beforeSsoIssue = async () => {
+      entered()
+      await held
+    }
+    try {
+      const start = await postAuth('/api/auth/sign-in/social', {
+        provider: 'google',
+        callbackURL: '/'
+      })
+      expect(start.status).toBe(200)
+      const body = (await start.json()) as { url: string }
+      const state = new URL(body.url).searchParams.get('state')
+      const binding = start.headers
+        .getSetCookie()
+        .find((cookie) => cookie.startsWith('nihongo.sso_binding='))
+        ?.split(';', 1)[0]
+      if (!state || !binding)
+        throw new Error('SSO callback binding fixture is unavailable.')
+      callback = Promise.resolve(
+        app.request(
+          `/api/auth/callback/google?state=${encodeURIComponent(state)}&code=api-gate-code`,
+          { headers: { Cookie: binding } }
+        )
       )
-    ).toHaveLength(initialMessageCount + 1)
-    readLatestEmailToken({
-      email,
-      pathname: '/verify-email',
-      purpose: 'EMAIL_VERIFICATION'
-    })
+      void callback.catch(() => undefined)
+      await Promise.race([
+        observed,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(new Error('SSO pre-issuance barrier was not observed.')),
+            5000
+          )
+        })
+      ])
+      await updateAuthorityGenerationWithoutCleanup(actor.userId)
+      beforeSsoIssue = undefined
+      release()
+      const response = await callback
+      expect(response.status).toBe(303)
+      expect(
+        new URL(response.headers.get('Location')!).searchParams.get('sso')
+      ).toBe('FAILED')
+      expect(
+        response.headers
+          .getSetCookie()
+          .some(
+            (cookie) =>
+              cookie.startsWith('nihongo.session_token=') ||
+              cookie.startsWith('__Secure-nihongo.session_token=')
+          )
+      ).toBe(false)
+      const facts = await adminClient.query<{
+        sessions: number
+        families: number
+      }>(
+        `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1) AS families`,
+        [actor.userId]
+      )
+      expect(facts.rows).toEqual([{ sessions: 0, families: 0 }])
+    } finally {
+      beforeSsoIssue = undefined
+      release()
+      if (timer) clearTimeout(timer)
+      await callback?.catch(() => undefined)
+      verifiedProviderIdentity = null
+    }
+  }, 15_000)
 
-    const messageCountBeforeAlias = emailPort.messages.length
-    const alias = await postAuth(
-      '/api/auth/send-verification-email?callbackURL=%2Fadmin',
-      { email }
-    )
-    expect(alias.status).toBe(400)
-    expect(emailPort.messages).toHaveLength(messageCountBeforeAlias)
-    const state = await adminClient.query<{
-      emailVerified: boolean
-      sessionCount: number
-    }>(
-      `SELECT target_user."emailVerified",
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "userId" = target_user."id") AS "sessionCount"
-       FROM "User" AS target_user WHERE target_user."email" = $1`,
-      [email]
-    )
-    expect(state.rows).toEqual([{ emailVerified: false, sessionCount: 0 }])
+  it('SSO authority drift during issuance refuses a cookie and compensates the inserted session', async () => {
+    const actor = await createPhase7SsoIdentityFixture({
+      owner: ssoOwner,
+      role: 'USER'
+    })
+    verifiedProviderIdentity = actor.identity
+    try {
+      const start = await postAuth('/api/auth/sign-in/social', {
+        provider: 'google',
+        callbackURL: '/'
+      })
+      expect(start.status).toBe(200)
+      const body = (await start.json()) as { url: string }
+      const state = new URL(body.url).searchParams.get('state')
+      const binding = start.headers
+        .getSetCookie()
+        .find((cookie) => cookie.startsWith('nihongo.sso_binding='))
+        ?.split(';', 1)[0]
+      if (!state || !binding)
+        throw new Error('SSO callback binding fixture is unavailable.')
+      const response = await exercisePostIssuerAuthorityDrift({
+        userId: actor.userId,
+        callback: async () =>
+          await app.request(
+            `/api/auth/callback/google?state=${encodeURIComponent(state)}&code=api-gate-code`,
+            { headers: { Cookie: binding } }
+          )
+      })
+      expect(response.status).toBe(303)
+      const destination = new URL(response.headers.get('Location')!)
+      expect(destination.pathname).toBe('/login')
+      expect(destination.searchParams.get('sso')).toBe('FAILED')
+      expect(
+        response.headers
+          .getSetCookie()
+          .some(
+            (cookie) =>
+              cookie.startsWith('nihongo.session_token=') ||
+              cookie.startsWith('__Secure-nihongo.session_token=')
+          )
+      ).toBe(false)
+      const facts = await adminClient.query<{
+        sessions: number
+        active: number
+        revoked: number
+      }>(
+        `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE') AS active,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='REVOKED') AS revoked`,
+        [actor.userId]
+      )
+      expect(facts.rows).toEqual([{ sessions: 0, active: 0, revoked: 1 }])
+    } finally {
+      verifiedProviderIdentity = null
+    }
   }, 30_000)
 
-  it('change-password와 sign-out을 old/duplicate cookie까지 fail closed한다', async () => {
-    await resetAuthRateLimits()
-    const email = `phase7-change-${randomUUID()}@example.test`
-    const oldPassword = 'phase7-change-old-password'
-    const newPassword = 'phase7-change-new-password'
-    const userId = await registerVerifiedUser({ email, password: oldPassword })
-    const initialSignIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password: oldPassword
+  it('SSO principal is valid and stale authority clears cookies with write0', async () => {
+    const session = await createSsoSession()
+    const principal = await app.request('/api/v1/me', {
+      headers: { Cookie: session.cookie }
     })
-    expect(initialSignIn.status).toBe(200)
-    const oldCookie = requireSessionCookie(initialSignIn)
+    expect(principal.status).toBe(200)
+    expect(await principal.json()).toMatchObject({
+      kind: 'USER',
+      user: { id: session.userId, role: 'USER' }
+    })
+    await updateAuthorityGenerationWithoutCleanup(session.userId)
+    const before = await readWriteCounts()
+    const stale = await app.request('/api/v1/me', {
+      headers: { Cookie: session.cookie }
+    })
+    expect(stale.status).toBe(200)
+    expect(await stale.json()).toEqual({ kind: 'GUEST' })
+    expectExpiredSessionCookies(stale)
+    expect(await readWriteCounts()).toEqual(before)
+  })
 
-    const wrongPassword = await postAuth(
-      '/api/auth/change-password',
-      {
-        currentPassword: 'phase7-wrong-current-password',
-        newPassword
-      },
-      oldCookie
-    )
-    expect(wrongPassword.status).toBe(401)
-    expect(wrongPassword.headers.get('Set-Cookie')).toBeNull()
-
-    const duplicateCookie = await postAuth(
-      '/api/auth/change-password',
-      { currentPassword: oldPassword, newPassword },
-      `${oldCookie}; ${oldCookie}`
-    )
-    expect(duplicateCookie.status).toBe(401)
-    expect(duplicateCookie.headers.get('Set-Cookie')).toBeNull()
-
+  it('SSO sign-out preserves strict body, duplicate-cookie rejection and revocation', async () => {
+    const session = await createSsoSession()
     const alias = await postAuth(
-      '/api/auth/change-password?callbackURL=%2Fadmin',
-      { currentPassword: oldPassword, newPassword },
-      oldCookie
-    )
-    expect(alias.status).toBe(400)
-    expect(
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "Session"
-           WHERE "userId" = $1`,
-          [userId]
-        )
-      ).rows
-    ).toEqual([{ count: 1 }])
-
-    const changed = await postAuth(
-      '/api/auth/change-password',
-      { currentPassword: oldPassword, newPassword },
-      oldCookie
-    )
-    expect(changed.status).toBe(200)
-    expectExpiredSessionCookies(changed)
-    const changedState = await adminClient.query<{
-      activeFamilyCount: number
-      authorityGeneration: number
-      sessionCount: number
-    }>(
-      `SELECT target_user."authorityGeneration",
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "userId" = target_user."id") AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = target_user."id" AND "status" = 'ACTIVE')
-           AS "activeFamilyCount"
-       FROM "User" AS target_user WHERE target_user."id" = $1`,
-      [userId]
-    )
-    expect(changedState.rows).toEqual([
-      { activeFamilyCount: 0, authorityGeneration: 2, sessionCount: 0 }
-    ])
-    const oldPrincipal = await app.request('/api/v1/me', {
-      headers: { Cookie: oldCookie }
-    })
-    expect(await oldPrincipal.json()).toEqual({ kind: 'GUEST' })
-
-    const oldPasswordSignIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password: oldPassword
-    })
-    expect(oldPasswordSignIn.status).toBe(401)
-    expect(oldPasswordSignIn.headers.get('Set-Cookie')).toBeNull()
-    const newPasswordSignIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password: newPassword
-    })
-    expect(newPasswordSignIn.status).toBe(200)
-    const newCookie = requireSessionCookie(newPasswordSignIn)
-
-    const signOutAlias = await postAuth(
       '/api/auth/sign-out?callbackURL=%2F',
       {},
-      newCookie
-    )
-    expect(signOutAlias.status).toBe(400)
-    const signOutUnknownBody = await postAuth(
-      '/api/auth/sign-out',
-      { callbackURL: '/' },
-      newCookie
-    )
-    expect(signOutUnknownBody.status).toBe(400)
-    expect(
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "Session"
-           WHERE "userId" = $1`,
-          [userId]
-        )
-      ).rows
-    ).toEqual([{ count: 1 }])
-
-    const signedOut = await postAuth('/api/auth/sign-out', {}, newCookie)
-    expect(signedOut.status).toBe(200)
-    expectExpiredSessionCookies(signedOut)
-    const signedOutState = await adminClient.query<{
-      activeFamilyCount: number
-      sessionCount: number
-    }>(
-      `SELECT
-         (SELECT COUNT(*)::int FROM "Session" WHERE "userId" = $1)
-           AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = $1 AND "status" = 'ACTIVE')
-           AS "activeFamilyCount"`,
-      [userId]
-    )
-    expect(signedOutState.rows).toEqual([
-      { activeFamilyCount: 0, sessionCount: 0 }
-    ])
-  }, 60_000)
-
-  it('password-reset eligibility race loser를 same wire/write0으로 닫는다', async () => {
-    await resetAuthRateLimits()
-    const email = `phase7-reset-race-${randomUUID()}@example.test`
-    const password = 'phase7-reset-race-password'
-    const userId = await registerVerifiedUser({ email, password })
-    const messageCountBefore = emailPort.messages.length
-
-    const missingResponse = await postAuth('/api/auth/request-password-reset', {
-      email: `missing-${randomUUID()}@example.test`
-    })
-    expect(missingResponse.status).toBe(200)
-    expect(missingResponse.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(missingResponse.headers.getSetCookie()).toEqual([])
-    const missingBody = await missingResponse.json()
-    expect(missingBody).toEqual({ success: true })
-    expect(emailPort.messages).toHaveLength(messageCountBefore)
-    const domainCountsBefore = await readWriteCounts()
-
-    const readRaceState = async (): Promise<{
-      accountVersion: string
-      activeFamilyCount: number
-      sessionCount: number
-      trustedExecutionCount: number
-      verificationCount: number
-    }> => {
-      const state = await adminClient.query<{
-        accountVersion: string
-        activeFamilyCount: number
-        sessionCount: number
-        trustedExecutionCount: number
-        verificationCount: number
-      }>(
-        `SELECT credential.xmin::text AS "accountVersion",
-           (SELECT COUNT(*)::int FROM "Verification"
-            WHERE "resetUserId" = $1) AS "verificationCount",
-           (SELECT COUNT(*)::int FROM "Phase7TrustedExecution"
-            WHERE "targetUserId" = $1) AS "trustedExecutionCount",
-           (SELECT COUNT(*)::int FROM "Session"
-            WHERE "userId" = $1) AS "sessionCount",
-           (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-            WHERE "userId" = $1 AND "status" = 'ACTIVE')
-             AS "activeFamilyCount"
-         FROM "Account" AS credential
-         WHERE credential."userId" = $1
-           AND credential."providerId" = 'credential'`,
-        [userId]
-      )
-      const row = state.rows[0]
-      if (!row) throw new Error('Reset race credential state is unavailable.')
-      return row
-    }
-
-    let transactionOpen = false
-    let raceRequest: Promise<Response> | undefined
-    let raceResponse: Response | undefined
-    let stateBefore: Awaited<ReturnType<typeof readRaceState>> | undefined
-    let lockWaitObserved = false
-    const logStart = apiLogLines.length
-    await adminClient.query('BEGIN')
-    transactionOpen = true
-    try {
-      await adminClient.query(`SET LOCAL session_replication_role = replica`)
-      await adminClient.query(
-        `SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`,
-        [userId]
-      )
-      await adminClient.query(
-        `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
-         WHERE "id" = $1`,
-        [userId]
-      )
-      stateBefore = await readRaceState()
-
-      raceRequest = postAuth('/api/auth/request-password-reset', { email })
-      void raceRequest.catch(() => undefined)
-      for (let attempt = 0; attempt < 500; attempt += 1) {
-        const activity = await adminClient.query<{ waiting: boolean }>(
-          `SELECT EXISTS (
-             SELECT 1 FROM pg_stat_activity
-             WHERE pid <> pg_backend_pid()
-               AND query LIKE '%phase7_request_password_reset%'
-               AND wait_event_type = 'Lock'
-           ) AS waiting`
-        )
-        if (activity.rows[0]?.waiting) {
-          lockWaitObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-
-      await adminClient.query('COMMIT')
-      transactionOpen = false
-      raceResponse = await raceRequest
-      raceRequest = undefined
-    } finally {
-      if (transactionOpen) {
-        await adminClient.query(raceRequest ? 'COMMIT' : 'ROLLBACK')
-        transactionOpen = false
-      }
-      await raceRequest?.catch(() => undefined)
-    }
-
-    expect(lockWaitObserved).toBe(true)
-    expect(raceResponse).toBeDefined()
-    expect(raceResponse!.status).toBe(200)
-    expect(raceResponse!.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(raceResponse!.headers.getSetCookie()).toEqual([])
-    const responseText = await raceResponse!.text()
-    expect(JSON.parse(responseText)).toEqual(missingBody)
-    expect(responseText).not.toContain(email)
-    expect(responseText).not.toContain(userId)
-    expect(emailPort.messages).toHaveLength(messageCountBefore)
-    expect(await readRaceState()).toEqual(stateBefore)
-    const domainCountsAfter = await readWriteCounts()
-    expect({
-      audit: domainCountsAfter.audit,
-      question: domainCountsAfter.question,
-      report: domainCountsAfter.report,
-      review: domainCountsAfter.review
-    }).toEqual({
-      audit: domainCountsBefore.audit,
-      question: domainCountsBefore.question,
-      report: domainCountsBefore.report,
-      review: domainCountsBefore.review
-    })
-
-    const requestLogs = apiLogLines.slice(logStart).join('\n')
-    expect(requestLogs).not.toContain(email)
-    expect(requestLogs).not.toContain(userId)
-    expect(requestLogs).not.toContain(password)
-  }, 60_000)
-
-  it('password-reset request/consume을 fragment token과 session0으로 닫는다', async () => {
-    await resetAuthRateLimits()
-    const email = `phase7-reset-${randomUUID()}@example.test`
-    const oldPassword = 'phase7-reset-old-password'
-    const newPassword = 'phase7-reset-new-password'
-    const userId = await registerVerifiedUser({ email, password: oldPassword })
-    const initialSignIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password: oldPassword
-    })
-    expect(initialSignIn.status).toBe(200)
-    const oldCookie = requireSessionCookie(initialSignIn)
-
-    const noneligibleEmail = `phase7-reset-ineligible-${randomUUID()}@example.test`
-    const noneligibleUserId = await registerVerifiedUser({
-      email: noneligibleEmail,
-      password: 'phase7-reset-ineligible-password'
-    })
-    await adminClient.query('BEGIN')
-    try {
-      await adminClient.query(`SET LOCAL session_replication_role = replica`)
-      await adminClient.query(
-        `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
-         WHERE "id" = $1`,
-        [noneligibleUserId]
-      )
-      await adminClient.query('COMMIT')
-    } catch (error: unknown) {
-      await adminClient.query('ROLLBACK')
-      throw error
-    }
-
-    const messageCountBeforeInvalid = emailPort.messages.length
-    const invalidRequest = await postAuth('/api/auth/request-password-reset', {
-      callbackURL: 'http://localhost:5173/reset-password',
-      email
-    })
-    expect(invalidRequest.status).toBe(400)
-    expect(invalidRequest.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(emailPort.messages).toHaveLength(messageCountBeforeInvalid)
-
-    const intentsBeforeMissing = await adminClient.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM "Verification"
-       WHERE "purpose" = 'PASSWORD_RESET_V1'`
-    )
-    const missingRequest = await postAuth('/api/auth/request-password-reset', {
-      email: `missing-${randomUUID()}@example.test`
-    })
-    expect(missingRequest.status).toBe(200)
-    expect(missingRequest.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(emailPort.messages).toHaveLength(messageCountBeforeInvalid)
-    expect(
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "Verification"
-           WHERE "purpose" = 'PASSWORD_RESET_V1'`
-        )
-      ).rows
-    ).toEqual(intentsBeforeMissing.rows)
-
-    const noneligibleRequest = await postAuth(
-      '/api/auth/request-password-reset',
-      { email: noneligibleEmail }
-    )
-    expect(noneligibleRequest.status).toBe(200)
-    expect(noneligibleRequest.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(noneligibleRequest.headers.get('Set-Cookie')).toBeNull()
-    expect(await noneligibleRequest.clone().json()).toEqual(
-      await missingRequest.clone().json()
-    )
-    expect(emailPort.messages).toHaveLength(messageCountBeforeInvalid)
-    expect(
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "Verification"
-           WHERE "purpose" = 'PASSWORD_RESET_V1'
-             AND "resetUserId" = $1`,
-          [noneligibleUserId]
-        )
-      ).rows
-    ).toEqual([{ count: 0 }])
-
-    await resetAuthRateLimits()
-    const resetRequest = await postAuth('/api/auth/request-password-reset', {
-      email
-    })
-    expect(resetRequest.status).toBe(200)
-    expect(resetRequest.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(resetRequest.headers.get('Set-Cookie')).toBeNull()
-    expect(await resetRequest.clone().json()).toEqual(
-      await missingRequest.clone().json()
-    )
-    const resetToken = readLatestEmailToken({
-      email,
-      pathname: '/reset-password',
-      purpose: 'PASSWORD_RESET'
-    })
-    const resetIntent = await adminClient.query<{
-      intentCount: number
-      rawTokenStored: boolean
-      selectorIsHex: boolean
-    }>(
-      `SELECT COUNT(*)::int AS "intentCount",
-         COALESCE(bool_or("value" = $2 OR "tokenSelector" = $2), false)
-           AS "rawTokenStored",
-         COALESCE(bool_and("tokenSelector" ~ '^[0-9a-f]{64}$'), false)
-           AS "selectorIsHex"
-       FROM "Verification"
-       WHERE "purpose" = 'PASSWORD_RESET_V1' AND "resetUserId" = $1`,
-      [userId, resetToken]
-    )
-    expect(resetIntent.rows).toEqual([
-      { intentCount: 1, rawTokenStored: false, selectorIsHex: true }
-    ])
-
-    const alias = await postAuth(
-      `/api/auth/reset-password?token=${encodeURIComponent(resetToken)}`,
-      { newPassword, token: resetToken }
+      session.cookie
     )
     expect(alias.status).toBe(400)
-    const invalidToken = await postAuth('/api/auth/reset-password', {
-      newPassword,
-      token: `${resetToken}invalid`
-    })
-    expect(invalidToken.status).toBe(400)
+    const unknownBody = await postAuth(
+      '/api/auth/sign-out',
+      { callbackURL: '/' },
+      session.cookie
+    )
+    expect(unknownBody.status).toBe(400)
+    const duplicate = await postAuth(
+      '/api/auth/sign-out',
+      {},
+      `${session.cookie}; ${session.cookie}`
+    )
+    // Sign-out is idempotent for an invalid cookie: clear the client cookie
+    // without using either ambiguous credential to revoke a server session.
+    expect(duplicate.status).toBe(200)
+    expect(await duplicate.json()).toEqual({ success: true })
+    expectExpiredSessionCookies(duplicate)
+    const before = await adminClient.query<{ count: number }>(
+      'SELECT count(*)::int AS count FROM "Session" WHERE "userId"=$1',
+      [session.userId]
+    )
+    expect(before.rows).toEqual([{ count: 1 }])
     expect(
       (
         await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "Session"
-           WHERE "userId" = $1`,
-          [userId]
+          `SELECT count(*)::int AS count FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE'`,
+          [session.userId]
         )
       ).rows
     ).toEqual([{ count: 1 }])
-
-    const reset = await postAuth('/api/auth/reset-password', {
-      newPassword,
-      token: resetToken
-    })
-    expect(reset.status).toBe(200)
-    expectExpiredSessionCookies(reset)
-    const resetState = await adminClient.query<{
-      activeFamilyCount: number
-      authorityGeneration: number
-      resetIntentCount: number
-      sessionCount: number
-    }>(
-      `SELECT target_user."authorityGeneration",
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "userId" = target_user."id") AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = target_user."id" AND "status" = 'ACTIVE')
-           AS "activeFamilyCount",
-         (SELECT COUNT(*)::int FROM "Verification"
-          WHERE "resetUserId" = target_user."id"
-            AND "purpose" = 'PASSWORD_RESET_V1') AS "resetIntentCount"
-       FROM "User" AS target_user WHERE target_user."id" = $1`,
-      [userId]
-    )
-    expect(resetState.rows).toEqual([
-      {
-        activeFamilyCount: 0,
-        authorityGeneration: 2,
-        resetIntentCount: 0,
-        sessionCount: 0
-      }
-    ])
-    const oldPrincipal = await app.request('/api/v1/me', {
-      headers: { Cookie: oldCookie }
-    })
-    expect(await oldPrincipal.json()).toEqual({ kind: 'GUEST' })
-    const oldPasswordSignIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password: oldPassword
-    })
-    expect(oldPasswordSignIn.status).toBe(401)
-    const newPasswordSignIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password: newPassword
-    })
-    expect(newPasswordSignIn.status).toBe(200)
-    const newCookie = requireSessionCookie(newPasswordSignIn)
-    const signedOut = await postAuth('/api/auth/sign-out', {}, newCookie)
+    const signedOut = await postAuth('/api/auth/sign-out', {}, session.cookie)
     expect(signedOut.status).toBe(200)
     expectExpiredSessionCookies(signedOut)
-  }, 60_000)
+    const rows = await adminClient.query<{
+      sessions: number
+      families: number
+    }>(
+      `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE') AS families`,
+      [session.userId]
+    )
+    expect(rows.rows).toEqual([{ sessions: 0, families: 0 }])
+    const beforeGuest = await readWriteCounts()
+    const principal = await app.request('/api/v1/me', {
+      headers: { Cookie: session.cookie }
+    })
+    expect(await principal.json()).toEqual({ kind: 'GUEST' })
+    expect(await readWriteCounts()).toEqual(beforeGuest)
+  })
 })

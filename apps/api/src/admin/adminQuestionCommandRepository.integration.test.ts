@@ -42,6 +42,8 @@ import {
 } from '@nihongo/contracts/admin/phase7'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
+import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
+import { createPhase7SsoSessionFixture } from '../db/fixtures/phase7SsoSession.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import {
   createDatabaseRuntime,
@@ -116,8 +118,8 @@ const actorIds = [
   revocationLearnerId,
   erasureLearnerId
 ]
-const authorToken = `phase7-command-author-${randomUUID()}`
-const reviewerToken = `phase7-command-reviewer-${randomUUID()}`
+let authorToken = ''
+let reviewerToken = ''
 const learnerToken = `phase7-command-learner-${randomUUID()}`
 const adminClient = new Client({
   connectionString: adminDatabaseUrl,
@@ -240,6 +242,46 @@ const issueSession = async (
   if (rows.length !== 1) {
     throw new Error('Phase 7 command integration session was not issued.')
   }
+}
+
+const issueFreshAdminSession = async (userId: string): Promise<string> => {
+  if (!authGatewayRuntime) {
+    throw new Error('Phase 7 auth gateway runtime is unavailable.')
+  }
+  const user = (
+    await adminClient.query<{ id: string; email: string; name: string }>(
+      'SELECT id,email,name FROM "User" WHERE id=$1',
+      [userId]
+    )
+  ).rows[0]
+  if (!user) throw new Error('Phase 7 command ADMIN fixture is unavailable.')
+  const session = await createPhase7SsoSessionFixture({
+    owner: {
+      $queryRawUnsafe: async <T = unknown>(sql: string, ...values: unknown[]) =>
+        (await adminClient.query(sql, values)).rows as T
+    },
+    gateway: authGatewayRuntime.client,
+    role: 'ADMIN',
+    existingUser: user,
+    secret: 'phase7-command-test-session-secret-with-32-characters'
+  })
+  const fresh = createSsoAdminFreshRepository(authGatewayRuntime.client)
+  const context = await fresh.prepare(session.token, session.identity.provider)
+  const proof = createHash('sha256').update(randomUUID()).digest('hex')
+  if (
+    !context ||
+    !(await fresh.stageProof(context, session.identity, proof, '/login'))
+  ) {
+    throw new Error('Phase 7 command ADMIN SSO proof was not staged.')
+  }
+  const confirmed = await fresh.complete(proof, session.token, {
+    ipAddress: '127.0.0.1',
+    userAgent: 'phase7-command-integration'
+  })
+  if (!confirmed || confirmed.userId !== userId) {
+    throw new Error('Phase 7 command ADMIN SSO proof was not confirmed.')
+  }
+  return confirmed.token
 }
 
 const authority = (actorId: string, rawSessionToken: string) =>
@@ -926,8 +968,8 @@ beforeAll(async () => {
   await insertCredentialUser(reviewerId)
   await insertCredentialUser(learnerId, 'USER')
   await loadCanonicalContentFixture()
-  await issueSession(authorId, authorToken)
-  await issueSession(reviewerId, reviewerToken)
+  authorToken = await issueFreshAdminSession(authorId)
+  reviewerToken = await issueFreshAdminSession(reviewerId)
   await issueSession(learnerId, learnerToken, 'USER')
   const preparedRepository = createPreparedAdminQuestionCommandRepository({
     auditEnvironment: 'TEST',

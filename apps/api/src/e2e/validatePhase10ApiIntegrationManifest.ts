@@ -91,14 +91,14 @@ export const validatePhase10ApiIntegrationManifest = async (): Promise<{
     JSON.stringify(phase7ApiRunnerContract) !==
     JSON.stringify([
       {
-        path: 'src/app/phase7ApiGate.integration.test.ts',
+        path: 'src/admin/adminQuestionRepository.integration.test.ts',
         seedPolicy: 'none',
         shard: 'phase7-api-pre-seed'
       },
       {
-        path: 'src/admin/adminQuestionRepository.integration.test.ts',
-        seedPolicy: 'none',
-        shard: 'phase7-api-pre-seed'
+        path: 'src/app/phase7ApiGate.integration.test.ts',
+        seedPolicy: 'canonical-once',
+        shard: 'phase7-api-post-seed'
       },
       {
         path: 'src/admin/adminQuestionCommandRepository.integration.test.ts',

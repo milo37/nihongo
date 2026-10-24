@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { createStudySessionResponseSchema } from '@nihongo/contracts/study/create-study-session'
 import { getStudySessionResponseSchema } from '@nihongo/contracts/study/get-study-session'
-import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
+import { createPhase7SsoSessionFixture } from '../db/fixtures/phase7SsoSession.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
@@ -326,107 +326,19 @@ const postStudySession = async (
     body: JSON.stringify(body)
   })
 
-const postAuth = async (
-  path: string,
-  body: Record<string, unknown>
-): Promise<Response> =>
-  await app.request(path, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Origin: origin
-    },
-    body: JSON.stringify(body)
-  })
-
-const getAllCookieHeader = (response: Response): string => {
-  const setCookies =
-    response.headers.getSetCookie?.() ??
-    [response.headers.get('Set-Cookie')].filter(
-      (cookie): cookie is string => cookie !== null
-    )
-  return setCookies
-    .map((cookie) => cookie.split(';', 1)[0])
-    .filter((cookie): cookie is string => Boolean(cookie))
-    .join('; ')
-}
-
 const createAuthenticatedActor = async (
   role: 'USER' | 'ADMIN'
 ): Promise<{ cookie: string; userId: string }> => {
-  const email = `slice3-${role.toLowerCase()}-${randomUUID()}@example.test`
-  const password = 'Slice3-password-2026!'
-  if (isPhase10CurrentSource) {
-    const userId = randomUUID()
-    const passwordHash = await hashPassword(password)
-    await fixtureDatabase.client.$transaction(async (fixture) => {
-      await fixture.user.create({
-        data: {
-          email,
-          emailVerified: true,
-          id: userId,
-          name: `Slice3 ${role}`,
-          role
-        }
-      })
-      await fixture.account.create({
-        data: {
-          accountId: userId,
-          password: passwordHash,
-          providerId: 'credential',
-          userId
-        }
-      })
-    })
-    createdUserIds.add(userId)
-    const signIn = await postAuth('/api/auth/sign-in/email', {
-      email,
-      password
-    })
-    expect(signIn.status).toBe(200)
-    const cookie = getAllCookieHeader(signIn)
-    expect(cookie).not.toBe('')
-    return { cookie, userId }
-  }
-  const signUp = await postAuth('/api/auth/sign-up/email', {
-    email,
-    name: `Slice3 ${role}`,
-    password
+  if (!authGatewayDatabase)
+    throw new Error('Current SSO gateway fixture is required.')
+  const actor = await createPhase7SsoSessionFixture({
+    owner: fixtureDatabase.client,
+    gateway: authGatewayDatabase.client,
+    secret: environment.BETTER_AUTH_SECRET,
+    role
   })
-  expect(signUp.status).toBe(200)
-
-  const user = await fixtureDatabase.client.user.findUniqueOrThrow({
-    where: { email },
-    select: { id: true }
-  })
-  createdUserIds.add(user.id)
-  const verification = emailPort.messages.find(
-    (message) =>
-      message.recipient === email && message.purpose === 'EMAIL_VERIFICATION'
-  )
-  if (!verification) {
-    throw new Error('Email verification fixture가 필요합니다.')
-  }
-  const token = new URLSearchParams(
-    new URL(verification.url).hash.slice(1)
-  ).get('token')
-  if (!token) {
-    throw new Error('Email verification token이 필요합니다.')
-  }
-  const verified = await postAuth('/api/auth/verify-email', { token })
-  expect(verified.status).toBe(200)
-
-  if (role === 'ADMIN') {
-    await fixtureDatabase.client.user.update({
-      where: { id: user.id },
-      data: { role: 'ADMIN' }
-    })
-  }
-  const signIn = await postAuth('/api/auth/sign-in/email', { email, password })
-  expect(signIn.status).toBe(200)
-  const cookie = getAllCookieHeader(signIn)
-  expect(cookie).not.toBe('')
-  return { cookie, userId: user.id }
+  createdUserIds.add(actor.userId)
+  return { cookie: actor.cookie, userId: actor.userId }
 }
 
 const rememberSessionOwner = async (sessionId: string): Promise<void> => {
