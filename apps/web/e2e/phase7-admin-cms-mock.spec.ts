@@ -122,15 +122,22 @@ const confirmActor = async (page: Page, actor: Actor): Promise<void> => {
     targetLevel: actor.targetLevel
   })
 }
-const callbackPath = (authorizationBody: unknown, actor: Actor): string => {
-  const authorization = signInSocialResponseSchema.parse(authorizationBody)
-  expect(isSsoAuthorizationURLForProvider('google', authorization.url)).toBe(
+const callbackPathFromProviderURL = (
+  authorizationURL: string,
+  actor: Actor
+): string => {
+  expect(isSsoAuthorizationURLForProvider('google', authorizationURL)).toBe(
     true
   )
-  const state = new URL(authorization.url).searchParams.get('state')
+  const state = new URL(authorizationURL).searchParams.get('state')
   if (!state) throw new Error('Google TEST authorization omitted state.')
   return `/api/auth/callback/google?${new URLSearchParams({ state, code: actor.callbackCode })}`
 }
+const callbackPath = (authorizationBody: unknown, actor: Actor): string =>
+  callbackPathFromProviderURL(
+    signInSocialResponseSchema.parse(authorizationBody).url,
+    actor
+  )
 const login = async (page: Page, actor: Actor): Promise<void> => {
   await page.goto('/login')
   await expect(page.getByRole('button', { name: /Google/u })).toBeVisible()
@@ -573,36 +580,24 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     }
     context.on('response', observeReturn)
     const providerPattern = /^https:\/\/accounts\.google\.com\//u
-    let releaseProviderNavigation = (): void => undefined
-    const authorizationBodyRead = new Promise<void>((resolve) => {
-      releaseProviderNavigation = resolve
-    })
-    await context.route(providerPattern, async (route) => {
-      // Keep the current document alive until its authorization body is captured.
-      await authorizationBodyRead
-      await route.abort()
-    })
+    await context.route(providerPattern, (route) => route.abort())
     try {
       const startResponse = waitForResponse(
         winner,
         'POST',
         '/api/auth/sign-in/social'
-      ).then(async (response) => ({
-        response,
-        body: (await response.json()) as unknown
-      }))
-      const providerRequest = winner.waitForRequest((request) =>
-        providerPattern.test(request.url())
       )
-      const [{ response: started, body: authorizationBody }] =
-        await Promise.all([
-          startResponse.then((result) => {
-            releaseProviderNavigation()
-            return result
-          }),
-          winner.getByRole('button', { name: /Google/u }).click()
-        ])
-      await providerRequest
+      const providerRequest = winner.waitForRequest(
+        (request) =>
+          request.isNavigationRequest() &&
+          request.frame() === winner.mainFrame() &&
+          providerPattern.test(request.url())
+      )
+      const [started, authorizationRequest] = await Promise.all([
+        startResponse,
+        providerRequest,
+        winner.getByRole('button', { name: /Google/u }).click()
+      ])
       expect(
         adminFreshSsoRequestSchema.parse(
           started.request().postDataJSON() as unknown
@@ -619,7 +614,9 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/auth/sso/admin-fresh/complete'
       )
       // Only enter the TEST provider callback. The actual server 303 must load the returned admin document.
-      await winner.goto(callbackPath(authorizationBody, author))
+      await winner.goto(
+        callbackPathFromProviderURL(authorizationRequest.url(), author)
+      )
       const completed = await completeResponse
       expect(completed.status()).toBe(303)
       const destination = new URL(completed.headers()['location']!)
@@ -733,7 +730,6 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         'phase7-a1-a8-real-request-ledger'
       )
     } finally {
-      releaseProviderNavigation()
       context.off('response', observeReturn)
       await context.unroute(providerPattern)
     }

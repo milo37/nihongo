@@ -1246,34 +1246,25 @@ const login = async (
     )
   } else {
     const providerURL = /^https:\/\/accounts\.google\.com\//u
-    let releaseProviderNavigation = (): void => undefined
-    const authorizationBodyRead = new Promise<void>((resolve) => {
-      releaseProviderNavigation = resolve
-    })
-    await page.route(providerURL, async (route) => {
-      // Keep the current document alive until its authorization body is captured.
-      await authorizationBodyRead
-      await route.abort()
-    })
+    await page.route(providerURL, (route) => route.abort())
     try {
-      const authorizationResponse = socialResponse.then(async (response) => ({
-        response,
-        body: (await response.json()) as unknown
-      }))
-      const [{ response: started, body: authorizationBody }] =
-        await Promise.all([
-          authorizationResponse.then((result) => {
-            releaseProviderNavigation()
-            return result
-          }),
-          page.keyboard.press('Enter')
-        ])
+      const providerRequest = page.waitForRequest(
+        (request) =>
+          request.isNavigationRequest() &&
+          request.frame() === page.mainFrame() &&
+          providerURL.test(request.url())
+      )
+      const [started, authorizationRequest] = await Promise.all([
+        socialResponse,
+        providerRequest,
+        page.keyboard.press('Enter')
+      ])
       expect(started.status()).toBe(200)
-      const authorization = signInSocialResponseSchema.parse(authorizationBody)
-      expect(
-        isSsoAuthorizationURLForProvider('google', authorization.url)
-      ).toBe(true)
-      const state = new URL(authorization.url).searchParams.get('state')
+      const authorizationURL = authorizationRequest.url()
+      expect(isSsoAuthorizationURLForProvider('google', authorizationURL)).toBe(
+        true
+      )
+      const state = new URL(authorizationURL).searchParams.get('state')
       if (!state || !actor.callbackCode || !actor.userId) {
         throw new Error(
           'Real Phase 9 Google TEST callback identity is required.'
@@ -1289,7 +1280,6 @@ const login = async (
         (url) => url.origin === origin && url.pathname === '/'
       )
     } finally {
-      releaseProviderNavigation()
       await page.unroute(providerURL)
     }
   }
