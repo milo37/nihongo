@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { installStaticWeb } from '../app/staticWeb.js'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { createServer as createHttpServer, type Server } from 'node:http'
@@ -6,6 +9,7 @@ import nodePath from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import type { AddressInfo } from 'node:net'
+import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { cleanupPhase10BrowserResources } from './phase10BrowserCleanup.js'
 import type { OwnedProcess } from './ownedProcessGroup.js'
 import type { Phase7BrowserFixtureDatabase } from './phase7BrowserFixture.js'
@@ -37,7 +41,9 @@ const playwrightArguments = rawPlaywrightArguments.filter(
   (argument, index) => !(index === 0 && argument === '--')
 )
 const ownedProcesses: ManagedProcess[] = []
+let webAssetsDirectory: string | undefined
 let controlServer: Server | undefined
+let apiServer: Server | undefined
 let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
 let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
@@ -106,16 +112,17 @@ const runCommand = async (
 
 const waitForHttp = async (
   url: string,
-  ownedProcess: ManagedProcess
+  ownedProcess?: ManagedProcess
 ): Promise<void> => {
   const deadline = Date.now() + 45_000
   let lastStatus: number | undefined
 
   while (Date.now() < deadline) {
-    if (ownedProcess.spawnError) throw ownedProcess.spawnError
+    if (ownedProcess?.spawnError) throw ownedProcess.spawnError
     if (
-      ownedProcess.child.exitCode !== null ||
-      ownedProcess.child.signalCode !== null
+      ownedProcess &&
+      (ownedProcess.child.exitCode !== null ||
+        ownedProcess.child.signalCode !== null)
     ) {
       throw new Error(`${ownedProcess.label} exited before becoming ready.`)
     }
@@ -131,7 +138,7 @@ const waitForHttp = async (
   }
 
   throw new Error(
-    `${ownedProcess.label} did not become ready${
+    `${ownedProcess?.label ?? url} did not become ready${
       lastStatus ? ` (last status ${lastStatus})` : ''
     }.`
   )
@@ -166,6 +173,28 @@ const closeControlServer = async (): Promise<void> => {
   })
 }
 
+export const closePhase7BrowserApi = async (
+  server: Server | undefined
+): Promise<void> => {
+  if (!server) return
+  try {
+    // DB cleanup remains owned by the outer guard, after listener shutdown.
+    await stopServerGracefully({
+      server,
+      disconnectDatabase: async () => undefined
+    })
+  } catch (error: unknown) {
+    if (
+      !(
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ERR_SERVER_NOT_RUNNING'
+      )
+    )
+      throw error
+  }
+}
+
 export const cleanupPhase7BrowserResources = async (
   processes: OwnedProcess[],
   actions: Parameters<typeof cleanupPhase10BrowserResources>[0]
@@ -179,7 +208,7 @@ export const cleanupPhase7BrowserResources = async (
   })
 }
 
-const cleanup = (): Promise<void> => {
+export const cleanup = (): Promise<void> => {
   cleanupPromise ??= cleanupPhase7BrowserResources(ownedProcesses, {
     stopOwnedProcesses: async () => {
       await stopOwnedProcesses(ownedProcesses, {
@@ -189,6 +218,8 @@ const cleanup = (): Promise<void> => {
           )
         }
       })
+      await closePhase7BrowserApi(apiServer)
+      apiServer = undefined
     },
     closeControlServer,
     cleanupDatabase: async () => {
@@ -208,6 +239,14 @@ const cleanup = (): Promise<void> => {
           firstError ??= error
         }
         cleanupDatabaseHarness = undefined
+      }
+      if (webAssetsDirectory) {
+        try {
+          await rm(webAssetsDirectory, { recursive: true, force: true })
+          webAssetsDirectory = undefined
+        } catch (error: unknown) {
+          firstError ??= error
+        }
       }
       if (firstError) throw firstError
     }
@@ -268,17 +307,43 @@ const startControlServer = async ({
   return `http://127.0.0.1:${port}`
 }
 
+export const createPhase7BrowserPlaywrightEnvironment = (
+  browserMode: BrowserMode,
+  webOrigin: string,
+  extraEnvironment: NodeJS.ProcessEnv = {}
+): NodeJS.ProcessEnv => ({
+  ...process.env,
+  ...extraEnvironment,
+  PHASE7_BROWSER_MODE: browserMode,
+  PHASE8_BROWSER_MODE: browserMode,
+  PHASE7_BROWSER_ADMIN_ORIGIN: webOrigin,
+  PLAYWRIGHT_BASE_URL: webOrigin,
+  PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
+})
+
+export const selectPhase7BrowserSpecs = (
+  browserMode: BrowserMode,
+  phase8: boolean
+): string[] => {
+  const specs = [
+    ...(browserMode === 'real'
+      ? ['apps/web/e2e/phase7-admin-cms-mock.spec.ts']
+      : []),
+    ...(phase8 ? ['apps/web/e2e/phase8-dashboard-real-mock.spec.ts'] : [])
+  ]
+  if (specs.length === 0)
+    throw new Error(
+      'Phase 7 administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
+    )
+  return specs
+}
+
 const runPlaywright = async (
   browserMode: BrowserMode,
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): Promise<void> => {
-  const browserSpecs = [
-    'apps/web/e2e/phase7-admin-cms-mock.spec.ts',
-    ...(isPhase8Acceptance
-      ? ['apps/web/e2e/phase8-dashboard-real-mock.spec.ts']
-      : [])
-  ]
+  const browserSpecs = selectPhase7BrowserSpecs(browserMode, isPhase8Acceptance)
   await runCommand(
     'pnpm',
     [
@@ -290,18 +355,17 @@ const runPlaywright = async (
       ...browserSpecs,
       ...playwrightArguments
     ],
-    {
-      ...process.env,
-      ...extraEnvironment,
-      PHASE7_BROWSER_MODE: browserMode,
-      PHASE8_BROWSER_MODE: browserMode,
-      PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
-    }
+    createPhase7BrowserPlaywrightEnvironment(
+      browserMode,
+      webOrigin,
+      extraEnvironment
+    )
   )
 }
 
-const runMock = async (): Promise<void> => {
+export const runMock = async (): Promise<void> => {
+  // Reject an empty selection before starting resources or running all e2e files.
+  selectPhase7BrowserSpecs('mock', isPhase8Acceptance)
   await runCommand('pnpm', ['run', 'build:contracts'])
   await runCommand('pnpm', ['run', 'build:domain'])
 
@@ -326,6 +390,7 @@ const runMock = async (): Promise<void> => {
     ],
     {
       ...process.env,
+      NIHONGO_ADMIN_PROXY_TARGET: undefined,
       VITE_API_BASE_URL: '/api',
       VITE_API_MODE: 'mock'
     }
@@ -334,82 +399,100 @@ const runMock = async (): Promise<void> => {
   await runPlaywright('mock', webOrigin)
 }
 
-const runReal = async (): Promise<void> => {
+export const runReal = async (): Promise<void> => {
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
     await import('./runPhase7ApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
   const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
-  const { createPhase7BrowserFixture } = await import(
-    './phase7BrowserFixture.js'
-  )
-  const created = await createPhase7BrowserFixture(harness.adminDatabaseUrl)
-  fixtureDatabase = created.database
-  const baseline = await created.database.snapshot()
-
-  const [apiPort, webPort] = await Promise.all([
-    reserveLoopbackPort(),
-    reserveLoopbackPort()
-  ])
-  const apiOrigin = `http://127.0.0.1:${apiPort}`
-  const webOrigin = `http://127.0.0.1:${webPort}`
+  const apiPort = await reserveLoopbackPort()
+  const publicOrigin = `http://127.0.0.1:${apiPort}`
+  const releaseId = '0'.repeat(40)
   const controlSecret = randomBytes(32).toString('base64url')
   const apiEnvironment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
     ADMIN_CMS_MODE: 'technical',
-    AUTH_EMAIL_DELIVERY_MODE: 'test-sink',
-    AUTH_EMAIL_FROM: 'auth@example.test',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
-    BETTER_AUTH_URL: apiOrigin,
+    BETTER_AUTH_URL: publicOrigin,
     GUEST_COOKIE_SECRET: randomBytes(32).toString('base64url'),
     HOST: '127.0.0.1',
     LOG_LEVEL: 'silent',
     NODE_ENV: 'test',
     PORT: String(apiPort),
     PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
-    TRUSTED_ORIGINS: webOrigin
+    TRUSTED_ORIGINS: publicOrigin,
+    RELEASE_ID: releaseId
   }
   delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
-  const api = spawnOwned(
-    `${acceptancePhase}-real-api`,
-    'pnpm',
-    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/server.ts'],
-    apiEnvironment
+  for (const key of [
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'APPLE_CLIENT_ID',
+    'APPLE_CLIENT_SECRET'
+  ])
+    delete apiEnvironment[key]
+  const [
+    { createPhase7SsoAdminBrowserApiFixture },
+    { parseApiEnvironment },
+    { getRequestListener }
+  ] = await Promise.all([
+    import('./phase7BrowserFixture.js'),
+    import('../config/env.js'),
+    import('@hono/node-server')
+  ])
+  const created = await createPhase7SsoAdminBrowserApiFixture(
+    {
+      databaseUrl: harness.applicationDatabaseUrl,
+      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      adminDatabaseUrl: harness.adminDatabaseUrl,
+      environment: parseApiEnvironment(apiEnvironment)
+    },
+    'admin-a1-a8'
   )
-  await waitForHttp(`${apiOrigin}/health/ready`, api)
-
-  const web = spawnOwned(
-    `${acceptancePhase}-real-web`,
+  fixtureDatabase = created.database
+  const baseline = await created.database.snapshot()
+  webAssetsDirectory = await mkdtemp(
+    nodePath.join(tmpdir(), `${acceptancePhase}-browser-web-`)
+  )
+  await runCommand(
     'pnpm',
     [
       '--filter',
       '@nihongo/web',
       'exec',
       'vite',
-      '--mode',
-      'test',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(webPort),
-      '--strictPort'
+      'build',
+      '--outDir',
+      webAssetsDirectory,
+      '--emptyOutDir'
     ],
     {
       ...process.env,
-      NIHONGO_API_PROXY_TARGET: apiOrigin,
+      NODE_ENV: 'production',
+      VITE_API_MODE: 'real',
       VITE_API_BASE_URL: '/api',
-      VITE_API_MODE: 'real'
+      VITE_RELEASE_ID: releaseId
     }
   )
-  await waitForHttp(webOrigin, web)
-
+  // Use the current production static serving on the API origin, never a private Vite document origin.
+  installStaticWeb({ app: created.app, releaseId, webAssetsDirectory })
+  await created.checkReadiness()
+  const server = createHttpServer(getRequestListener(created.app.fetch))
+  apiServer = server
+  server.headersTimeout = 10_000
+  server.requestTimeout = 15_000
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(apiPort, '127.0.0.1', resolve)
+  })
+  await waitForHttp(`${publicOrigin}/health/ready`)
+  await waitForHttp(publicOrigin)
   const controlOrigin = await startControlServer({
     authorUserId: created.fixture.author.userId,
     database: created.database,
     secret: controlSecret
   })
-
-  await runPlaywright('real', webOrigin, {
+  await runPlaywright('real', publicOrigin, {
     PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
     PHASE7_BROWSER_CONTROL_URL: controlOrigin,
     PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),

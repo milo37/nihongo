@@ -30,6 +30,38 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 
+import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
+import { createStudySubmissionService } from '../study/studySubmissionService.js'
+import { createPrismaWrongNoteRepository } from '../wrong-note/wrongNoteRepository.js'
+import { createWrongNoteService } from '../wrong-note/wrongNoteService.js'
+import { createPrismaWrongNoteReviewCenterRepository } from '../wrong-note/wrongNoteReviewCenterRepository.js'
+import { createWrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
+import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
+import { createDashboardService } from '../dashboard/dashboardService.js'
+import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
+import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
+import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
+import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
+import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
+import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
+import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
+import { createAdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
+import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepository.js'
+import { createAdminQuestionService } from '../admin/adminQuestionService.js'
+import { createAdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
+import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
+import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
+import {
+  createAdminQuestionCommandService,
+  createAdminQuestionPublicationCommandService,
+  createAdminQuestionSlice5CommandService
+} from '../admin/adminQuestionCommandService.js'
+import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
+import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
+import { createQuestionReportService } from '../admin/questionReportService.js'
+import { runPhase7ReauthenticationStartupMaintenance } from '../auth/phase7ReauthenticationStartupMaintenance.js'
+
 export interface Phase7BrowserCredentials {
   readonly email: string
   readonly name: string
@@ -235,6 +267,19 @@ export const createPhase7BrowserFixture = async (
     await client.end()
   }
 
+  return { fixture, database: createPhase7BrowserFixtureDatabase(databaseUrl) }
+}
+
+type Phase7SsoAdminLifecycleProfile = 'full-lifecycle' | 'admin-a1-a8'
+
+const createPhase7BrowserFixtureDatabase = (
+  databaseUrl: string,
+  ssoAdmins?: {
+    readonly author: Phase7SsoBrowserActor
+    readonly reviewer: Phase7SsoBrowserActor
+  },
+  lifecycleProfile: Phase7SsoAdminLifecycleProfile = 'full-lifecycle'
+): Phase7BrowserFixtureDatabase => {
   let disconnected = false
   const runWithFixtureClient = async <Result>(
     operation: (operationClient: Client) => Promise<Result>
@@ -246,49 +291,47 @@ export const createPhase7BrowserFixture = async (
   }
 
   return {
-    fixture,
-    database: {
-      ageFreshAssurance: async (userId): Promise<void> => {
-        await runWithFixtureClient(async (operationClient) => {
-          await operationClient.query('BEGIN')
-          try {
-            await operationClient.query(
-              'SET LOCAL session_replication_role = replica'
-            )
-            const updated = await operationClient.query(
-              `UPDATE "Session"
+    ageFreshAssurance: async (userId): Promise<void> => {
+      await runWithFixtureClient(async (operationClient) => {
+        await operationClient.query('BEGIN')
+        try {
+          await operationClient.query(
+            'SET LOCAL session_replication_role = replica'
+          )
+          const updated = await operationClient.query(
+            `UPDATE "Session"
                SET "createdAt" = clock_timestamp() - INTERVAL '6 minutes'
                WHERE "userId" = $1::uuid
                  AND "issuerProtocolVersion" = 'PHASE7_V1'
                  AND "authorizationState" = 'ACTIVE'`,
-              [userId]
+            [userId]
+          )
+          if (updated.rowCount !== 1) {
+            throw new Error(
+              `Phase 7 fresh-assurance fixture expected one active session, received ${updated.rowCount ?? 0}.`
             )
-            if (updated.rowCount !== 1) {
-              throw new Error(
-                `Phase 7 fresh-assurance fixture expected one active session, received ${updated.rowCount ?? 0}.`
-              )
-            }
-            await operationClient.query(
-              'SET LOCAL session_replication_role = origin'
-            )
-            await operationClient.query('COMMIT')
-          } catch (error: unknown) {
-            await operationClient.query('ROLLBACK')
-            throw error
           }
-        })
-      },
-      assertRegisteredUser: async ({ email, targetLevel }): Promise<void> => {
-        const result = await runWithFixtureClient(
-          async (operationClient) =>
-            await operationClient.query<{
-              accountCount: number
-              activeSessionCount: number
-              emailVerified: boolean
-              role: string
-              targetLevel: string | null
-            }>(
-              `SELECT
+          await operationClient.query(
+            'SET LOCAL session_replication_role = origin'
+          )
+          await operationClient.query('COMMIT')
+        } catch (error: unknown) {
+          await operationClient.query('ROLLBACK')
+          throw error
+        }
+      })
+    },
+    assertRegisteredUser: async ({ email, targetLevel }): Promise<void> => {
+      const result = await runWithFixtureClient(
+        async (operationClient) =>
+          await operationClient.query<{
+            accountCount: number
+            activeSessionCount: number
+            emailVerified: boolean
+            role: string
+            targetLevel: string | null
+          }>(
+            `SELECT
                target_user."emailVerified",
                target_user."role"::text AS "role",
                target_user."targetLevel"::text AS "targetLevel",
@@ -301,64 +344,241 @@ export const createPhase7BrowserFixture = async (
                   AND "expiresAt" > clock_timestamp()) AS "activeSessionCount"
              FROM "User" AS target_user
              WHERE lower(target_user."email") = lower($1)`,
-              [email]
+            [email]
+          )
+      )
+      if (
+        result.rowCount !== 1 ||
+        result.rows[0]?.emailVerified !== true ||
+        result.rows[0]?.role !== 'USER' ||
+        result.rows[0]?.targetLevel !== targetLevel ||
+        result.rows[0]?.accountCount !== 1 ||
+        result.rows[0]?.activeSessionCount !== 1
+      ) {
+        throw new Error(
+          'Phase 10 browser registration persistence contract failed.'
+        )
+      }
+    },
+    assertExpectedLifecycleDelta: async (before): Promise<void> => {
+      const after = await runWithFixtureClient(readSnapshot)
+      const a1a8 = lifecycleProfile === 'admin-a1-a8'
+      assertDelta(before, after, 'user', 0)
+      assertDelta(before, after, 'account', 0)
+      assertDelta(before, after, 'question', a1a8 ? 1 : 2)
+      assertDelta(before, after, 'version', a1a8 ? 1 : 3)
+      assertDelta(before, after, 'option', a1a8 ? 4 : 12)
+      assertDelta(before, after, 'versionTag', a1a8 ? 1 : 3)
+      assertDelta(before, after, 'review', a1a8 ? 1 : 12)
+      // A1-A8: four options, one retained tag; archive adds ARCHIVE_ABANDONED.
+      // Canonical: author apply + stale recovery, reviewer approval (3).
+      // Direct lifecycle: author batch/publication, reviewer approval/archive (2).
+      // Report: author resolution (1). Keep actor contexts within each case.
+      const reauthentications = ssoAdmins && !a1a8 ? 3 + 2 + 1 : 1
+      // CMS audits: canonical 10 + direct lifecycle 12 + report 2.
+      assertDelta(
+        before,
+        after,
+        'audit',
+        (a1a8 ? 3 : 10 + 12 + 2) + reauthentications
+      )
+      assertDelta(before, after, 'rotationFence', reauthentications)
+      assertDelta(before, after, 'reauthenticationIntent', reauthentications)
+      assertDelta(before, after, 'reauthenticationFinalized', reauthentications)
+      assertDelta(before, after, 'operationIntent', 0)
+      assertDelta(before, after, 'report', a1a8 ? 0 : 1)
+      if (ssoAdmins) {
+        const result = await runWithFixtureClient(
+          async (client) =>
+            await client.query<{
+              userId: string
+              finalized: boolean
+              proof: boolean
+              fence: boolean
+              audit: boolean
+              proofCount: number
+            }>(
+              `SELECT intent."userId" AS "userId",
+               (intent."state" = 'FINALIZED' AND intent."finalizedAt" IS NOT NULL
+                 AND intent."capturedRole" = 'ADMIN'
+                 AND intent."capturedAccountStatus" = 'ACTIVE') AS "finalized",
+               (SELECT COUNT(*) = 1 FROM "SsoAdminFreshProof" AS proof
+                 JOIN "Account" AS account
+                   ON account."userId" = intent."userId"
+                   AND account."providerId" = 'google'
+                   AND account."accountId" = proof."context"->>'accountId'
+                 WHERE proof."context"->>'intentId' = intent."id"::text
+                   AND proof."context"->>'userId' = intent."userId"::text
+                   AND proof."context"->>'sessionId' = intent."oldSessionId"::text
+                   AND proof."context"->>'authorityGeneration' =
+                     intent."capturedAuthorityGeneration"::text
+                   AND proof."context"->>'provider' = 'google'
+                   AND proof."completedSessionId" = intent."stagedSessionId"
+                   AND proof."completedAt" IS NOT NULL) AS "proof",
+               (SELECT COUNT(*) = 1 FROM "AuthSessionRotationFence" AS fence
+                 WHERE fence."operationId" = intent."operationId"
+                   AND fence."userId" = intent."userId"
+                   AND fence."oldSessionId" = intent."oldSessionId"
+                   AND fence."oldTokenDigest" = intent."oldFenceTokenDigest"
+                   AND fence."replacementSessionId" = intent."stagedSessionId"
+                   AND fence."oldFamilyId" = intent."sessionFamilyId"
+                   AND fence."replacementFamilyId" = intent."sessionFamilyId") AS "fence",
+               (SELECT COUNT(*) = 1 FROM "AdminAuditLog" AS audit
+                 WHERE audit."operationId" = intent."operationId"
+                   AND audit."command" = 'REAUTHENTICATION'
+                   AND audit."targetType" = 'ADMIN_SESSION'
+                   AND audit."targetId" = intent."operationId"
+                   AND audit."actorKind" = 'ACCOUNT'
+                   AND audit."actorUserId" = intent."userId"
+                   AND audit."actorId" = intent."userId"
+                   AND audit."actorRole" = 'ADMIN'
+                   AND audit."actorLabel" = 'ACTIVE_ADMIN'
+                   AND audit."actorSystemLabel" IS NULL
+                   AND audit."beforeState" IN ('SESSION_FRESH', 'SESSION_STALE')
+                   AND audit."afterState" = 'SESSION_FRESH'
+                   AND audit."changedFields" = '["SESSION_ROTATION"]'::jsonb
+                   AND audit."requestId" = intent."requestId"
+                   AND audit."environment" = intent."environment") AS "audit",
+               (SELECT COUNT(*)::int FROM "SsoAdminFreshProof") AS "proofCount"
+             FROM "Phase7ReauthenticationIntent" AS intent
+             WHERE intent."userId" IN ($1::uuid, $2::uuid)`,
+              [ssoAdmins.author.userId, ssoAdmins.reviewer.userId]
             )
         )
         if (
-          result.rowCount !== 1 ||
-          result.rows[0]?.emailVerified !== true ||
-          result.rows[0]?.role !== 'USER' ||
-          result.rows[0]?.targetLevel !== targetLevel ||
-          result.rows[0]?.accountCount !== 1 ||
-          result.rows[0]?.activeSessionCount !== 1
-        ) {
-          throw new Error(
-            'Phase 10 browser registration persistence contract failed.'
+          ssoAdmins.author.userId === ssoAdmins.reviewer.userId ||
+          result.rows.length !== reauthentications ||
+          result.rows.filter((row) => row.userId === ssoAdmins.author.userId)
+            .length !== (a1a8 ? 1 : 2 + 1 + 1) ||
+          result.rows.filter((row) => row.userId === ssoAdmins.reviewer.userId)
+            .length !== (a1a8 ? 0 : 1 + 1) ||
+          result.rows.some(
+            (row) =>
+              row.finalized !== true ||
+              row.proof !== true ||
+              row.fence !== true ||
+              row.audit !== true ||
+              row.proofCount !== reauthentications
           )
+        )
+          throw new Error(
+            'Phase 7 SSO actor-bound reauthentication lifecycle failed.'
+          )
+        if (a1a8) {
+          const commands = await runWithFixtureClient(
+            async (client) =>
+              await client.query<{
+                state: boolean
+                create: boolean
+                update: boolean
+                archive: boolean
+                review: boolean
+              }>(
+                `SELECT
+                 (question."lifecycleStatus" = 'ARCHIVED'
+                   AND question."currentPublishedVersionId" IS NULL
+                   AND question."rowVersion" = 2
+                   AND version."status" = 'RETIRED'
+                   AND version."retirementKind" = 'QUESTION_ARCHIVE_ABANDONED'
+                   AND version."rowVersion" = 3
+                   AND (SELECT COUNT(*) FROM "QuestionVersion"
+                     WHERE "questionId" = question."id") = 1) AS "state",
+                 (SELECT COUNT(*) = 1 FROM "AdminAuditLog" AS audit
+                   WHERE audit."command" = 'QUESTION_CREATE'
+                     AND audit."targetType" = 'QUESTION' AND audit."targetId" = question."id"
+                     AND audit."actorKind" = 'ACCOUNT' AND audit."actorRole" = 'ADMIN'
+                     AND audit."actorUserId" = $1::uuid AND audit."actorId" = $1::uuid
+                     AND audit."environment" = 'TEST'
+                     AND audit."beforeState" IS NULL AND audit."afterState" = 'ACTIVE'
+                     AND audit."beforeRowVersion" IS NULL AND audit."afterRowVersion" = 1) AS "create",
+                 (SELECT COUNT(*) = 1 FROM "AdminAuditLog" AS audit
+                   WHERE audit."command" = 'QUESTION_VERSION_UPDATE'
+                     AND audit."targetType" = 'QUESTION_VERSION' AND audit."targetId" = version."id"
+                     AND audit."actorKind" = 'ACCOUNT' AND audit."actorRole" = 'ADMIN'
+                     AND audit."actorUserId" = $1::uuid AND audit."actorId" = $1::uuid
+                     AND audit."environment" = 'TEST'
+                     AND audit."beforeState" = 'DRAFT' AND audit."afterState" = 'DRAFT'
+                     AND audit."beforeRowVersion" = 1 AND audit."afterRowVersion" = 2) AS "update",
+                 (SELECT COUNT(*) = 1 FROM "AdminAuditLog" AS audit
+                   WHERE audit."command" = 'QUESTION_ARCHIVE'
+                     AND audit."targetType" = 'QUESTION' AND audit."targetId" = question."id"
+                     AND audit."actorKind" = 'ACCOUNT' AND audit."actorRole" = 'ADMIN'
+                     AND audit."actorUserId" = $1::uuid AND audit."actorId" = $1::uuid
+                     AND audit."environment" = 'TEST'
+                     AND audit."beforeState" = 'ACTIVE' AND audit."afterState" = 'ARCHIVED'
+                     AND audit."beforeRowVersion" = 1 AND audit."afterRowVersion" = 2) AS "archive",
+                 (SELECT COUNT(*) = 1 FROM "ContentReview" AS review
+                   JOIN "AdminAuditLog" AS audit
+                     ON audit."operationId" = review."operationId"
+                     AND audit."requestId" = review."requestId"
+                     AND audit."command" = 'QUESTION_ARCHIVE'
+                     AND audit."targetId" = question."id"
+                   WHERE review."questionId" = question."id"
+                     AND review."questionVersionId" = version."id"
+                     AND review."actorUserId" = $1::uuid AND review."actorId" = $1::uuid
+                     AND review."counterpartUserId" = $1::uuid
+                     AND review."action" = 'ARCHIVE_ABANDONED'
+                     AND review."fromState" = 'DRAFT' AND review."toState" = 'RETIRED'
+                     AND review."reason" = 'QUESTION_ARCHIVE') AS "review"
+               FROM "Question" AS question
+               JOIN "QuestionVersion" AS version ON version."questionId" = question."id"
+               WHERE question."createdByUserId" = $1::uuid
+                 AND version."createdByUserId" = $1::uuid`,
+                [ssoAdmins.author.userId]
+              )
+          )
+          const row = commands.rows[0]
+          if (
+            commands.rows.length !== 1 ||
+            row?.state !== true ||
+            row.create !== true ||
+            row.update !== true ||
+            row.archive !== true ||
+            row.review !== true
+          )
+            throw new Error('Phase 7 A1-A8 owned command lifecycle failed.')
         }
-      },
-      assertExpectedLifecycleDelta: async (before): Promise<void> => {
-        const after = await runWithFixtureClient(readSnapshot)
-        assertDelta(before, after, 'user', 0)
-        assertDelta(before, after, 'account', 0)
-        assertDelta(before, after, 'question', 2)
-        assertDelta(before, after, 'version', 3)
-        assertDelta(before, after, 'option', 12)
-        assertDelta(before, after, 'versionTag', 3)
-        assertDelta(before, after, 'review', 12)
-        assertDelta(before, after, 'audit', 25)
-        assertDelta(before, after, 'rotationFence', 1)
-        assertDelta(before, after, 'reauthenticationIntent', 1)
-        assertDelta(before, after, 'reauthenticationFinalized', 1)
-        assertDelta(before, after, 'operationIntent', 0)
-        assertDelta(before, after, 'report', 1)
-      },
-      disconnect: async (): Promise<void> => {
-        disconnected = true
-      },
-      snapshot: async (): Promise<Phase7BrowserDatabaseSnapshot> =>
-        await runWithFixtureClient(readSnapshot)
-    }
+      }
+    },
+    disconnect: async (): Promise<void> => {
+      disconnected = true
+    },
+    snapshot: async (): Promise<Phase7BrowserDatabaseSnapshot> =>
+      await runWithFixtureClient(readSnapshot)
   }
 }
 
-/** TEST-only DI; the caller owns provisioning, readiness, listener and browser. */
-export const createPhase7SsoBrowserApiFixture = async ({
-  databaseUrl,
-  authGatewayDatabaseUrl,
-  environment,
-  adminDatabaseUrl
-}: {
+interface SsoBrowserFixtureOptions {
   databaseUrl: string
   authGatewayDatabaseUrl: string
   environment: ApiEnvironment
-  /** TEST admin-only/private harness URL; never delivered to the app or browser. */
+  /** Private TEST owner URL; never delivered to a browser. */
   adminDatabaseUrl?: string
-}) => {
+}
+
+export interface Phase7SsoBrowserActor {
+  readonly userId: string
+  readonly role: 'ADMIN' | 'USER'
+  readonly targetLevel: 'N1' | 'N2' | 'N3' | 'N4' | 'N5'
+  /** Public synthetic provider code, valid only inside the guarded TEST app. */
+  readonly callbackCode: string
+}
+
+/** TEST-only DI; the caller owns provisioning, readiness, listener and browser. */
+const createSsoBrowserApiFixture = async (
+  {
+    databaseUrl,
+    authGatewayDatabaseUrl,
+    environment,
+    adminDatabaseUrl
+  }: SsoBrowserFixtureOptions,
+  cms: boolean
+) => {
   if (
     environment.NODE_ENV !== 'test' ||
     environment.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
-    environment.ADMIN_CMS_MODE !== 'disabled' ||
+    environment.ADMIN_CMS_MODE !== (cms ? 'technical' : 'disabled') ||
+    (cms && adminDatabaseUrl === undefined) ||
     environment.DATABASE_URL !== databaseUrl ||
     environment.AUTH_GATEWAY_DATABASE_URL !== authGatewayDatabaseUrl ||
     environment.GOOGLE_CLIENT_ID !== undefined ||
@@ -448,6 +668,40 @@ export const createPhase7SsoBrowserApiFixture = async ({
     }
   }
 
+  const identities = new Map<
+    string,
+    { provider: 'google'; accountId: string; email: string; name: string }
+  >()
+  const fixture = {} as Record<
+    keyof Phase7BrowserFixture,
+    Phase7SsoBrowserActor
+  >
+  if (cms) {
+    for (const [actor, role, targetLevel] of [
+      ['author', 'ADMIN', 'N3'],
+      ['reviewer', 'ADMIN', 'N3'],
+      ['learner', 'USER', 'N3'],
+      ['insightsLearner', 'USER', 'N2'],
+      ['journeyLearner', 'USER', 'N5']
+    ] as const) {
+      const userId = randomUUID()
+      const callbackCode = `phase7-test-google-${actor}`
+      const name = `Phase 7 SSO ${actor}`
+      fixture[actor] = Object.freeze({
+        userId,
+        role,
+        targetLevel,
+        callbackCode
+      })
+      identities.set(callbackCode, {
+        provider: 'google',
+        accountId: `phase7-${actor}-${userId}`,
+        email: `phase7-${userId}@example.test`,
+        name
+      })
+    }
+    Object.freeze(fixture)
+  }
   const expectedIdentity = Object.freeze({
     provider: 'google' as const,
     accountId: 'phase7-sso-browser-google-subject',
@@ -465,7 +719,8 @@ export const createPhase7SsoBrowserApiFixture = async ({
   const fakeProvider: SsoProvider = {
     // Keep the installed Google URL/state/nonce/PKCE implementation intact.
     authorizationURL: authorizationProvider.authorizationURL,
-    exchange: async () => ({ ...expectedIdentity })
+    exchange: async ({ code }) =>
+      cms ? (identities.get(code) ?? null) : { ...expectedIdentity }
   }
   const database = createDatabaseRuntime(databaseUrl, {
     migrationProfile: 'current',
@@ -1048,6 +1303,39 @@ export const createPhase7SsoBrowserApiFixture = async ({
     return reconciliationOperation
   }
   try {
+    if (cms) {
+      await withFixtureClient(adminDatabaseUrl!, async (owner) => {
+        await owner.query('BEGIN')
+        try {
+          for (const actor of Object.values(fixture)) {
+            const identity = identities.get(actor.callbackCode)!
+            await owner.query(
+              `INSERT INTO "User" (
+              "id", "name", "email", "emailVerified", "role", "targetLevel",
+              "accountStatus", "authorityGeneration", "createdAt", "updatedAt"
+            ) VALUES ($1::uuid, $2, $3, TRUE, $4::"UserRole", $5::"JlptLevel", 'ACTIVE', 1, clock_timestamp(), clock_timestamp())`,
+              [
+                actor.userId,
+                identity.name,
+                identity.email,
+                actor.role,
+                actor.targetLevel
+              ]
+            )
+            await owner.query(
+              `INSERT INTO "Account" (
+              "id", "accountId", "providerId", "userId", "createdAt", "updatedAt"
+            ) VALUES ($1::uuid, $2, 'google', $3::uuid, clock_timestamp(), clock_timestamp())`,
+              [randomUUID(), identity.accountId, actor.userId]
+            )
+          }
+          await owner.query('COMMIT')
+        } catch (error: unknown) {
+          await owner.query('ROLLBACK')
+          throw error
+        }
+      })
+    }
     const gateway = createRoleDatabaseRuntime(
       authGatewayDatabaseUrl,
       'nihongo_auth_gateway'
@@ -1114,7 +1402,137 @@ export const createPhase7SsoBrowserApiFixture = async ({
               return resolution
             }
           }
+    const studySubmissionService = createStudySubmissionService(
+      createPrismaStudySubmissionRepository(database.client)
+    )
+    const studyResultRetryService = createStudyResultRetryService(
+      createPrismaStudyResultRetryRepository(database.client)
+    )
+    const wrongNoteService = createWrongNoteService(
+      createPrismaWrongNoteRepository(database.client)
+    )
+    const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
+      createPrismaWrongNoteReviewCenterRepository(database.client)
+    )
+    const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
+      createPrismaWrongNoteReviewQueueRepository(database.client)
+    )
+    const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
+      createPrismaWrongNoteTargetedReviewRepository(database.client)
+    )
+    const dashboardService = createDashboardService(
+      createPrismaDashboardRepository(database.client)
+    )
+    const dashboardInsightsService = createDashboardInsightsService(
+      createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+    )
+    const bookmarkService = createBookmarkService(
+      createPrismaBookmarkRepository(database.client, {
+        migrationProfile: 'current'
+      })
+    )
+    const adminQuestionReader = cms
+      ? createAdminQuestionService(
+          createPrismaAdminQuestionRepository(database.client)
+        )
+      : undefined
+    const adminReadRateLimiter = cms
+      ? createAdminReadRateLimiter({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET
+        })
+      : undefined
+    const adminQuestionCommandRepository = cms
+      ? createPrismaAdminQuestionCommandRepository({
+          auditEnvironment:
+            environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
+          client: database.client
+        })
+      : undefined
+    const adminQuestionSlice5Repository = cms
+      ? createPrismaAdminQuestionSlice5Repository({
+          auditEnvironment:
+            environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
+          client: database.client
+        })
+      : undefined
+    const adminQuestionCommandService =
+      adminQuestionCommandRepository && adminQuestionSlice5Repository
+        ? {
+            ...createAdminQuestionCommandService(
+              adminQuestionCommandRepository
+            ),
+            ...createAdminQuestionPublicationCommandService(
+              adminQuestionCommandRepository
+            ),
+            ...createAdminQuestionSlice5CommandService(
+              adminQuestionSlice5Repository
+            )
+          }
+        : undefined
+    const adminCommandRateLimiter = cms
+      ? createAdminCommandRateLimiter({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET
+        })
+      : undefined
+    const questionReportRateLimiter = cms
+      ? createQuestionReportRateLimiter({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET
+        })
+      : undefined
+    const questionReportService =
+      cms && questionReportRateLimiter
+        ? createQuestionReportService({
+            rateLimiter: questionReportRateLimiter,
+            repository: createPrismaQuestionReportRepository(database.client)
+          })
+        : undefined
     const app = createApiApp({
+      ...(adminQuestionReader &&
+      adminReadRateLimiter &&
+      adminQuestionCommandService &&
+      adminCommandRateLimiter &&
+      questionReportRateLimiter &&
+      questionReportService &&
+      adminQuestionSlice5Repository
+        ? {
+            admin: {
+              assertCapability: async () => {
+                await database.client.$queryRawUnsafe(
+                  'SELECT "phase7_require_runtime_ready"()'
+                )
+              },
+              commands: {
+                rateLimiter: adminCommandRateLimiter,
+                service: adminQuestionCommandService,
+                slice5Service: adminQuestionCommandService
+              },
+              reports: {
+                rateLimiter: questionReportRateLimiter,
+                service: questionReportService
+              },
+              rateLimiter: adminReadRateLimiter,
+              reader: adminQuestionReader
+            }
+          }
+        : {}),
+      ...(cms
+        ? {
+            learning: {
+              bookmarkService,
+              dashboardInsightsService,
+              dashboardService,
+              rateLimiter,
+              reviewCenterEnabled: practice.practiceContractV2Enabled,
+              reviewCenterService: wrongNoteReviewCenterService,
+              reviewQueueService: wrongNoteReviewQueueService,
+              targetedReviewService: wrongNoteTargetedReviewService,
+              wrongNoteService
+            }
+          }
+        : {}),
       auth: {
         environment,
         ...auth,
@@ -1141,26 +1559,39 @@ export const createPhase7SsoBrowserApiFixture = async ({
           createPrismaStudyDraftRepository(database.client)
         ),
         practiceContractV2Enabled: practice.practiceContractV2Enabled,
+        ...(cms
+          ? {
+              retryService: studyResultRetryService,
+              submissionService: studySubmissionService
+            }
+          : {}),
         rateLimiter,
         service: createStudySessionService(
           createPrismaStudySessionRepository(database.client)
         )
       }
     })
-    app.route(
-      '/api/v1/bookmarks',
-      createBookmarkRoutes({
-        bookmarkService: createBookmarkService(
-          createPrismaBookmarkRepository(database.client)
-        ),
-        environment,
-        principalService,
-        rateLimiter
-      })
-    )
+    if (!cms) {
+      app.route(
+        '/api/v1/bookmarks',
+        createBookmarkRoutes({
+          bookmarkService: createBookmarkService(
+            createPrismaBookmarkRepository(database.client)
+          ),
+          environment,
+          principalService,
+          rateLimiter
+        })
+      )
+    }
     return {
       app,
-      checkReadiness: practice.checkReadiness,
+      checkReadiness: async () => {
+        await practice.checkReadiness()
+        if (cms)
+          await runPhase7ReauthenticationStartupMaintenance(gateway.client)
+      },
+      fixture,
       expectedIdentity,
       disconnect,
       armOwnedSessionExpiry,
@@ -1169,5 +1600,41 @@ export const createPhase7SsoBrowserApiFixture = async ({
   } catch (error: unknown) {
     await disconnect().catch(() => undefined)
     throw error
+  }
+}
+
+/** Existing USER fixture retains its fixed CMS-disabled TEST contract. */
+export const createPhase7SsoBrowserApiFixture = (
+  options: SsoBrowserFixtureOptions
+) => createSsoBrowserApiFixture(options, false)
+
+/** Callbacks select prelinked TEST actors; public codes never assign a server role. */
+export const createPhase7SsoAdminBrowserApiFixture = async (
+  options: SsoBrowserFixtureOptions & { adminDatabaseUrl: string },
+  lifecycleProfile: Phase7SsoAdminLifecycleProfile = 'full-lifecycle'
+) => {
+  if (
+    lifecycleProfile !== 'full-lifecycle' &&
+    lifecycleProfile !== 'admin-a1-a8'
+  )
+    throw new Error('Unknown Phase 7 SSO admin lifecycle profile.')
+  const created = await createSsoBrowserApiFixture(options, true)
+  const database = createPhase7BrowserFixtureDatabase(
+    options.adminDatabaseUrl,
+    created.fixture,
+    lifecycleProfile
+  )
+  return {
+    ...created,
+    database: {
+      ...database,
+      disconnect: async () => {
+        try {
+          await database.disconnect()
+        } finally {
+          await created.disconnect()
+        }
+      }
+    }
   }
 }
