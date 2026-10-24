@@ -683,7 +683,8 @@ const answerEveryQuestionWithFirstOption = async (
   for (const [index, item] of created.questions.entries()) {
     const ordinal = index + 1
     const jump = page.getByRole('button', {
-      name: new RegExp(`^${ordinal}번 문제`, 'u')
+      name: `${ordinal}번 문제, 미응답`,
+      exact: true
     })
     const options = page.locator(
       `input[type="radio"][name="question-${item.question.id}"]`
@@ -701,6 +702,7 @@ const answerEveryQuestionWithFirstOption = async (
     await page.clock.setFixedTime(clockTime)
     await page.clock.pauseAt(clockTime)
     try {
+      await expect(jump).toHaveCount(1)
       if (ordinal > 1) await jump.click()
       await expect(jump).toHaveAttribute('data-current', 'true')
       await expect(options).toHaveCount(4)
