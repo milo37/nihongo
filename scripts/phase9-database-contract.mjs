@@ -18,6 +18,11 @@ export const phase9DatabaseTables = [
   'ContentReview',
   'GuestPrincipal',
   'IdempotencyRecord',
+  'Phase7Approved308TagRegistration',
+  'Phase7ApprovedN3ReadingTagRegistration',
+  'Phase7ApprovedN4N2ReadingTagRegistration',
+  'Phase7ApprovedN4ReadingBatch7TagRegistration',
+  'Phase7ApprovedReadingTagRegistration',
   'Phase7AuthorityRevocationEvidence',
   'Phase7DatabaseCapability',
   'Phase7OperationDelta',
@@ -33,6 +38,12 @@ export const phase9DatabaseTables = [
   'ReviewEvent',
   'ReviewSchedule',
   'Session',
+  'SsoAccountErasureRequest',
+  'SsoAccountFreshProof',
+  'SsoAccountFreshTransaction',
+  'SsoAdminFreshProof',
+  'SsoAdminFreshTransaction',
+  'SsoLoginTransaction',
   'StudyAnswer',
   'StudyDraft',
   'StudyDraftAnswer',
@@ -58,6 +69,11 @@ export const phase9ExpectedTableDeltas = {
   ContentReview: 0,
   GuestPrincipal: 0,
   IdempotencyRecord: 4,
+  Phase7Approved308TagRegistration: 0,
+  Phase7ApprovedN3ReadingTagRegistration: 0,
+  Phase7ApprovedN4N2ReadingTagRegistration: 0,
+  Phase7ApprovedN4ReadingBatch7TagRegistration: 0,
+  Phase7ApprovedReadingTagRegistration: 0,
   Phase7AuthorityRevocationEvidence: 0,
   Phase7DatabaseCapability: 0,
   Phase7OperationDelta: 0,
@@ -69,10 +85,16 @@ export const phase9ExpectedTableDeltas = {
   QuestionReport: 1,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 22,
+  RateLimit: 24,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
+  SsoAccountErasureRequest: 0,
+  SsoAccountFreshProof: 0,
+  SsoAccountFreshTransaction: 0,
+  SsoAdminFreshProof: 0,
+  SsoAdminFreshTransaction: 0,
+  SsoLoginTransaction: 0,
   StudyAnswer: 10,
   StudyDraft: 1,
   StudyDraftAnswer: 3,
@@ -88,7 +110,7 @@ export const phase9ExpectedTableDeltas = {
   _prisma_migrations: 0
 }
 
-const expectedRateLimitCategories = {
+export const phase9ExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
   'application:dashboard-insights-read': 1,
@@ -107,7 +129,9 @@ const expectedRateLimitCategories = {
   'application:wrong-note-list': 1,
   'application:wrong-note-memo-read': 1,
   'application:wrong-note-review-queue': 1,
-  'application:auth:/api/auth/sign-in/email': 2
+  // Two isolated actor IPs each start Google and consume one callback.
+  'application:auth:/api/auth/sign-in/social': 2,
+  'application:auth:/api/auth/callback/google': 2
 }
 
 const sorted = (values) =>
@@ -414,12 +438,19 @@ const rateLimitCategory = (key) => {
   return digestMatch[1]
 }
 
-const assertRateLimitContract = (before, after) => {
+export const assertPhase9RateLimitContract = (before, after) => {
   const beforeKeys = new Set(before.rateLimitRows.map(({ key }) => key))
   const newRows = after.rateLimitRows.filter(({ key }) => !beforeKeys.has(key))
-  assertEqual(newRows.length, 22, 'new rate-limit key count')
+  assertEqual(
+    newRows.length,
+    phase9ExpectedTableDeltas.RateLimit,
+    'new rate-limit key count'
+  )
   const categories = Object.fromEntries(
-    Object.keys(expectedRateLimitCategories).map((category) => [category, 0])
+    Object.keys(phase9ExpectedRateLimitCategories).map((category) => [
+      category,
+      0
+    ])
   )
   for (const row of newRows) {
     const category = rateLimitCategory(row.key)
@@ -428,11 +459,16 @@ const assertRateLimitContract = (before, after) => {
     if (!Number.isSafeInteger(row.count) || row.count < 1) {
       fail(`invalid rate-limit count for ${category}`)
     }
+    if (
+      category === 'application:auth:/api/auth/sign-in/social' ||
+      category === 'application:auth:/api/auth/callback/google'
+    )
+      assertEqual(row.count, 1, `${category} request count`)
     categories[category] += 1
   }
   assertJsonEqual(
     categories,
-    expectedRateLimitCategories,
+    phase9ExpectedRateLimitCategories,
     'rate-limit categories'
   )
   return categories
@@ -638,7 +674,7 @@ export const assertPhase9DatabaseContract = async ({
       assertPhase9SnapshotContract(before, after)
       const facts = await readIdentityFacts(client, fixture)
       assertIdentityContract(facts, fixture)
-      const rateLimitCategories = assertRateLimitContract(before, after)
+      const rateLimitCategories = assertPhase9RateLimitContract(before, after)
       return {
         actorState: {
           authSessions: facts.authSessions.length,

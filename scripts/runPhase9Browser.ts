@@ -6,7 +6,6 @@ import nodePath from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import type { AddressInfo } from 'node:net'
-import type { Phase7BrowserFixtureDatabase } from '../apps/api/src/e2e/phase7BrowserFixture.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -62,7 +61,6 @@ const playwrightArguments = rawPlaywrightArguments.filter(
   (argument, index) => !(index === 0 && argument === '--')
 )
 const ownedProcesses: ManagedProcess[] = []
-let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
 let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
 
@@ -207,15 +205,6 @@ const cleanup = (): Promise<void> => {
         )
       )
     } else {
-      if (fixtureDatabase) {
-        try {
-          await fixtureDatabase.disconnect()
-        } catch (error: unknown) {
-          errors.push(error)
-        }
-        fixtureDatabase = undefined
-      }
-
       if (cleanupDatabaseHarness) {
         try {
           await cleanupDatabaseHarness()
@@ -297,18 +286,6 @@ const runReal = async (): Promise<void> => {
     await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
   const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
-  const { createPhase7BrowserFixture } = await import(
-    '../apps/api/src/e2e/phase7BrowserFixture.js'
-  )
-  const created = await createPhase7BrowserFixture(harness.adminDatabaseUrl)
-  fixtureDatabase = created.database
-  const databaseContract = (await import(
-    './phase9-database-contract.mjs'
-  )) as Phase9DatabaseContractModule
-  const baseline = await databaseContract.capturePhase9DatabaseSnapshot(
-    harness.adminDatabaseUrl
-  )
-
   const [apiPort, webPort] = await Promise.all([
     reserveLoopbackPort(),
     reserveLoopbackPort()
@@ -327,16 +304,40 @@ const runReal = async (): Promise<void> => {
     HOST: '127.0.0.1',
     LOG_LEVEL: 'silent',
     NODE_ENV: 'test',
+    DEPLOYMENT_ENVIRONMENT: 'TEST',
     PORT: String(apiPort),
     PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     TRUSTED_ORIGINS: webOrigin
   }
   delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
+  for (const key of [
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'APPLE_CLIENT_ID',
+    'APPLE_CLIENT_SECRET'
+  ])
+    delete apiEnvironment[key]
+  const { preparePhase9BrowserActors } = await import(
+    '../apps/api/src/e2e/phase9BrowserApi.js'
+  )
+  const created = await preparePhase9BrowserActors({
+    adminDatabaseUrl: harness.adminDatabaseUrl,
+    environment: apiEnvironment
+  })
+  const databaseContract = (await import(
+    './phase9-database-contract.mjs'
+  )) as Phase9DatabaseContractModule
+  const baseline = await databaseContract.capturePhase9DatabaseSnapshot(
+    harness.adminDatabaseUrl
+  )
   const api = spawnOwned(
     'phase9-real-api',
     'pnpm',
-    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/server.ts'],
-    apiEnvironment
+    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/phase9BrowserApi.ts'],
+    {
+      ...apiEnvironment,
+      PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
+    }
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
 
