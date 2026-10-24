@@ -29,6 +29,7 @@ import {
   trackRequestLedger,
   waitForLedgerToQuiesce
 } from './phase10-request-ledger'
+import type { RequestLedger } from './phase10-request-ledger'
 
 if (process.env.PHASE7_BROWSER_MODE !== 'real') {
   throw new Error('Phase 7 administrator UI requires real mode.')
@@ -138,7 +139,11 @@ const callbackPath = (authorizationBody: unknown, actor: Actor): string =>
     signInSocialResponseSchema.parse(authorizationBody).url,
     actor
   )
-const login = async (page: Page, actor: Actor): Promise<void> => {
+const login = async (
+  page: Page,
+  actor: Actor,
+  ledger: RequestLedger
+): Promise<void> => {
   await page.goto('/login')
   await expect(page.getByRole('button', { name: /Google/u })).toBeVisible()
   await expect(page.locator('input[name="password"]')).toHaveCount(0)
@@ -147,12 +152,15 @@ const login = async (page: Page, actor: Actor): Promise<void> => {
     callbackURL: '/practice'
   })
   expect(started.status).toBe(200)
+  // Keep bootstrap requests in their document until all ledger events complete.
+  await waitForLedgerToQuiesce(ledger)
   // Enter the installed TEST provider callback; no credentials, cookies or session state are injected.
   await page.goto(callbackPath(started.body, actor))
   await expect(page).toHaveURL(
     (url) => url.origin === publicOrigin && url.pathname === '/practice'
   )
   await confirmActor(page, actor)
+  await waitForLedgerToQuiesce(ledger)
 }
 const waitForResponse = (
   page: Page,
@@ -248,7 +256,7 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
     const ledger = trackRequestLedger(context)
     try {
       const page = await context.newPage()
-      if (actor) await login(page, actor)
+      if (actor) await login(page, actor, ledger)
       else {
         await page.goto('/login')
         const response = await browserJson(page, '/api/v1/me')
@@ -265,6 +273,7 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
       expect(listAdminQuestionsErrorSchema.parse(denied.body).code).toBe(
         actor ? 'ADMIN_REQUIRED' : 'AUTHENTICATION_REQUIRED'
       )
+      await waitForLedgerToQuiesce(ledger)
       await page.goto('/admin/questions')
       await expect(
         page.getByRole('link', { name: '새 문제 등록', exact: true })
@@ -309,7 +318,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       socialStarts.push(request.postDataJSON() as unknown)
     }
   })
-  await login(page, author)
+  await login(page, author, ledger)
   const query = '?level=N3&subject=GRAMMAR&sort=LEVEL_ASC'
   for (const [legacySort, expectedSort] of [
     ['STATUS', 'UPDATED_DESC'],
@@ -330,6 +339,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
           { exact: true }
         )
       ).toBeVisible()
+    await waitForLedgerToQuiesce(ledger)
   }
   const catalogResponse = waitForResponse(
     page,
@@ -559,6 +569,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         url.searchParams.get('redirect') === '/admin/questions' + query
     )
     await confirmActor(winner, author)
+    await waitForLedgerToQuiesce(ledger)
     const returnedDocuments: Array<{
       origin: string
       path: string
@@ -608,6 +619,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         callbackURL: '/admin/questions' + query
       })
       expect(started.status()).toBe(200)
+      await waitForLedgerToQuiesce(ledger)
       const completeResponse = waitForResponse(
         winner,
         'GET',
