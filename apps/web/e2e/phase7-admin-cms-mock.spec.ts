@@ -365,16 +365,16 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     .getByRole('textbox', { name: '질문', exact: true })
     .fill('週末は図書館（　）勉強します。')
   for (const [label, text] of [
-    ['A', 'で'],
-    ['B', 'を'],
-    ['C', 'へ'],
-    ['D', 'が']
+    ['1', 'で'],
+    ['2', 'を'],
+    ['3', 'へ'],
+    ['4', 'が']
   ]) {
     await page
       .getByRole('textbox', { name: `보기 ${label}`, exact: true })
       .fill(text)
   }
-  await page.getByRole('radio', { name: '보기 A', exact: true }).check()
+  await page.getByRole('radio', { name: '보기 1', exact: true }).check()
   await page
     .getByLabel('한국어 해설', { exact: true })
     .fill('행동이 이루어지는 장소에는 조사 で를 씁니다.')
