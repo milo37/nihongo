@@ -1137,6 +1137,7 @@ const attachViewportEvidence = async (
   minimumTarget?: Locator
 ): Promise<void> => {
   const geometry = await assertNoDocumentOverflow(page, label, viewport)
+  if (minimumTarget) await expect(minimumTarget).toBeVisible()
   const minimumTargetBox = minimumTarget
     ? await minimumTarget.boundingBox()
     : undefined
@@ -1710,12 +1711,21 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
       width: 320
     },
     {
-      minimumTarget: page.getByRole('button', { name: '학습 시작' })
+      minimumTarget: page.getByRole('button', {
+        name: 'N3 문법 · 10문제 시작',
+        exact: true
+      })
     }
   )
-  const practiceLogin = page
-    .getByRole('link', { name: '로그인하기', exact: true })
-    .last()
+  const modeOptions = page.locator('.practice-mode-options')
+  await expect(modeOptions).toHaveJSProperty('open', false)
+  await focusByTab(page, modeOptions.locator('summary'))
+  await page.keyboard.press('Enter')
+  await expect(modeOptions).toHaveJSProperty('open', true)
+  const practiceLogin = modeOptions.getByRole('link', {
+    name: '로그인하기',
+    exact: true
+  })
   await focusByTab(page, practiceLogin)
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/login\?redirect=/u)
@@ -1938,7 +1948,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
-      .filter({ hasText: '오답 복습 센터 화면으로 이동했습니다.' })
+      .filter({ hasText: '복습 화면으로 이동했습니다.' })
   ).toBeAttached()
   await waitForApiTransportQuiet(transport)
 
@@ -2156,35 +2166,96 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   )
   expect(availableExplanations).toHaveLength(1)
   expect(unavailableExplanations).toHaveLength(4)
-  await expect(page.getByRole('tablist', { name: '해설 언어' })).toHaveCount(
-    availableExplanations.length
+  const resultNavigation = page.getByRole('navigation', {
+    name: '해설 문항',
+    exact: true
+  })
+  const selectedArticle = page.locator('#selected-result-question')
+  const explanationRequestsBefore = transport.requests.length
+  const reviewedQuestionIds: string[] = []
+  for (const [
+    index,
+    { available, item }
+  ] of explanationAvailability.entries()) {
+    const questionControl = resultNavigation.getByRole('button', {
+      name: `문제 ${index + 1} · 미응답`,
+      exact: true
+    })
+    await focusByTab(page, questionControl)
+    await page.keyboard.press('Enter')
+    await expect(questionControl).toHaveAttribute('aria-pressed', 'true')
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get('question') === item.question.id
+    )
+    await expect(selectedArticle).toHaveCount(1)
+    await expect(
+      selectedArticle.getByRole('heading', {
+        name: item.question.questionText,
+        exact: true
+      })
+    ).toBeVisible()
+    if (!item.question.explanationKo) {
+      throw new Error('Phase 9 Korean explanation fixture is missing.')
+    }
+    await expect(
+      selectedArticle.getByText(item.question.explanationKo, { exact: true })
+    ).toHaveAttribute('lang', 'ko')
+    const explanationTabs = selectedArticle.getByRole('tablist', {
+      name: '해설 언어',
+      exact: true
+    })
+    const fallbackNotice = selectedArticle.getByText(
+      '일본어 해설이 없어 한국어 해설을 표시합니다.',
+      { exact: true }
+    )
+    if (available) {
+      if (!item.question.explanationJa) {
+        throw new Error('Phase 9 Japanese explanation fixture is missing.')
+      }
+      await expect(explanationTabs).toHaveCount(1)
+      await expect(fallbackNotice).toHaveCount(0)
+      const koreanTab = explanationTabs.getByRole('tab', {
+        name: '한국어',
+        exact: true
+      })
+      await expect(koreanTab).toHaveAttribute('aria-selected', 'true')
+      const japaneseTab = explanationTabs.getByRole('tab', {
+        name: '日本語',
+        exact: true
+      })
+      await focusByTab(page, koreanTab)
+      await page.keyboard.press('ArrowRight')
+      await expect(japaneseTab).toBeFocused()
+      await page.keyboard.press('Enter')
+      await expect(japaneseTab).toHaveAttribute('aria-selected', 'true')
+      await expect(
+        selectedArticle.getByText(item.question.explanationJa, { exact: true })
+      ).toHaveAttribute('lang', 'ja')
+    } else {
+      await expect(explanationTabs).toHaveCount(0)
+      await expect(fallbackNotice).toBeVisible()
+    }
+    reviewedQuestionIds.push(item.question.id)
+  }
+  expect(reviewedQuestionIds).toEqual(
+    submitted.result.items.map((item) => item.question.id)
+  )
+  const firstResultQuestion = resultNavigation.getByRole('button', {
+    name: '문제 1 · 미응답',
+    exact: true
+  })
+  await focusByTab(page, firstResultQuestion)
+  await page.keyboard.press('Enter')
+  await expect(firstResultQuestion).toHaveAttribute('aria-pressed', 'true')
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get('question') === targetQuestion.question.id
   )
   await expect(
-    page.getByText('일본어 해설이 없어 한국어 해설을 표시합니다.', {
+    selectedArticle.getByRole('heading', {
+      name: targetQuestion.question.questionText,
       exact: true
     })
-  ).toHaveCount(unavailableExplanations.length)
-
-  const availableExplanation = availableExplanations[0]?.item
-  if (!availableExplanation?.question.explanationJa) {
-    throw new Error('Phase 9 Japanese explanation fixture is missing.')
-  }
-  const availableArticle = page.locator('article').filter({
-    has: page.getByRole('heading', {
-      exact: true,
-      name: availableExplanation.question.questionText
-    })
-  })
-  const explanationRequestsBefore = transport.requests.length
-  await expect(
-    availableArticle.getByRole('tab', { name: '한국어' })
-  ).toHaveAttribute('aria-selected', 'true')
-  await availableArticle.getByRole('tab', { name: '日本語' }).click()
-  await expect(
-    availableArticle.getByText(availableExplanation.question.explanationJa, {
-      exact: true
-    })
-  ).toHaveAttribute('lang', 'ja')
+  ).toBeVisible()
   await flushTransportEvidence(transport)
   expect(transport.requests).toHaveLength(explanationRequestsBefore)
 
@@ -2197,7 +2268,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
   })
   const bookmarkTrigger = page.getByRole('button', {
-    name: '1번 문제 즐겨찾기 추가'
+    name: '1번 문제 책갈피 추가',
+    exact: true
   })
   await focusByTab(page, bookmarkTrigger)
   await page.keyboard.press('Enter')
@@ -2211,15 +2283,36 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(createdBookmark.questionId).toBe(targetQuestion.question.id)
   expect(createBookmarkResponse.headers().location).toBe(bookmarkPath)
   await expect(
-    page.getByRole('button', { name: '1번 문제 즐겨찾기 해제' })
+    page.getByRole('button', { name: '1번 문제 책갈피 해제', exact: true })
   ).toHaveAttribute('aria-pressed', 'true')
   await waitForApiTransportQuiet(transport)
 
   await page.goto('/bookmarks')
   await settlePage(page)
-  await expect(
-    page.getByRole('heading', { name: targetQuestion.question.questionText })
-  ).toBeVisible()
+  await flushTransportEvidence(transport)
+  const bookmarkedPage = listBookmarksResponseSchema.parse(
+    getApiExchanges(transport, 'GET', bookmarkListPath).responses.at(-1)
+      ?.payload
+  )
+  const savedQuestion = bookmarkedPage.items.find(
+    (item) => item.questionId === targetQuestion.question.id
+  )
+  if (!savedQuestion) {
+    throw new Error('Phase 9 saved bookmark fixture is missing.')
+  }
+  expect(savedQuestion.question.questionTextPreview.trim()).not.toBe('')
+  const removeBookmarkTrigger = page.locator(
+    `[id="bookmark-remove-${targetQuestion.question.id}"]`
+  )
+  await expect(removeBookmarkTrigger).toHaveAccessibleName('책갈피 해제')
+  const bookmarkedArticle = page.locator('article').filter({
+    has: removeBookmarkTrigger
+  })
+  await expect(bookmarkedArticle).toHaveCount(1)
+  await expect(bookmarkedArticle.locator('summary')).toBeVisible()
+  await expect(bookmarkedArticle.locator('summary')).toContainText(
+    savedQuestion.question.questionTextPreview
+  )
   const deleteBookmarkResponsePromise = page.waitForResponse((response) => {
     const request = response.request()
     return (
@@ -2227,9 +2320,11 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       new URL(response.url()).pathname === bookmarkPath
     )
   })
-  await page.getByRole('button', { name: '즐겨찾기 해제' }).click()
+  await focusByTab(page, removeBookmarkTrigger)
+  await page.keyboard.press('Enter')
   const removeDialog = page.getByRole('dialog', {
-    name: '즐겨찾기를 해제할까요?'
+    name: '책갈피를 해제할까요?',
+    exact: true
   })
   await expect(removeDialog).toBeVisible()
   await removeDialog.getByRole('button', { name: '해제 확인' }).click()
