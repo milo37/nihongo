@@ -6,12 +6,16 @@ import { z } from 'zod'
 import type { FieldErrors } from 'react-hook-form'
 import type { ReactElement } from 'react'
 import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
-import type { QuestionRecord } from '@common/types/domain'
+import {
+  createAdminQuestionRequestSchema,
+  updateQuestionVersionRequestSchema,
+  type PreviewQuestionVersionResponse,
+  type UpdateQuestionVersionRequest
+} from '@nihongo/contracts/admin/phase7'
 import {
   LEVELS,
   OPTION_LABELS,
   QUESTION_DIFFICULTIES,
-  QUESTION_STATUSES,
   QUESTION_TYPES,
   SUBJECTS
 } from '@common/types/domain'
@@ -52,11 +56,6 @@ const difficultyLabels = {
   HARD: '어려움'
 } as const
 
-const statusLabels = {
-  DRAFT: '초안',
-  PUBLISHED: '게시'
-} as const
-
 const formOptionSchema = z
   .object({
     id: z.string().optional(),
@@ -92,10 +91,7 @@ export const questionFormSchema = z
       return value
         .split(TAG_SEPARATOR_REGEX)
         .some((tag) => tag.trim().length > 0)
-    }, '태그를 1개 이상 입력해 주세요.'),
-    status: z.enum(QUESTION_STATUSES, {
-      error: '게시 상태를 선택해 주세요.'
-    })
+    }, '태그를 1개 이상 입력해 주세요.')
   })
   .strict()
   .superRefine((value, context) => {
@@ -105,6 +101,30 @@ export const questionFormSchema = z
         path: ['passage'],
         message: '독해 문제는 지문을 입력해 주세요.'
       })
+    }
+
+    const canonical = createAdminQuestionRequestSchema.safeParse(
+      toCreateContent(value)
+    )
+    if (!canonical.success) {
+      for (const issue of canonical.error.issues) {
+        const field =
+          issue.path[0] === 'tagNames'
+            ? 'tagsText'
+            : issue.path[0] === 'correctOptionKey'
+              ? 'correctOptionId'
+              : issue.path[0]
+        context.addIssue({
+          code: 'custom',
+          path:
+            field === undefined
+              ? []
+              : field === 'tagsText'
+                ? ['tagsText']
+                : [field, ...issue.path.slice(1)],
+          message: issue.message
+        })
+      }
     }
 
     const normalizedOptions = value.options
@@ -123,9 +143,13 @@ export const questionFormSchema = z
 export type QuestionFormValues = z.infer<typeof questionFormSchema>
 
 type QuestionFormProps = {
-  initialQuestion?: QuestionRecord
+  initialQuestion?: PreviewQuestionVersionResponse
+  expectedRowVersion?: number
+  readOnly?: boolean
   isSubmitting: boolean
-  onSubmit: (input: CreateAdminQuestionRequest) => Promise<void>
+  onSubmit: (
+    input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+  ) => Promise<void>
   submitLabel: string
   submittingLabel: string
   cancelHref?: string
@@ -150,7 +174,10 @@ const parseTags = (value: string): string[] => {
   return tags
 }
 
-const createDefaultValues = (question?: QuestionRecord): QuestionFormValues => {
+const createDefaultValues = (
+  preview?: PreviewQuestionVersionResponse
+): QuestionFormValues => {
+  const question = preview?.question
   if (!question) {
     return {
       level: 'N3',
@@ -166,15 +193,16 @@ const createDefaultValues = (question?: QuestionRecord): QuestionFormValues => {
       explanationKo: '',
       explanationJa: '',
       difficulty: 'NORMAL',
-      tagsText: '',
-      status: 'DRAFT'
+      tagsText: ''
     }
   }
 
   const optionByLabel = new Map(
     question.options.map((option) => [option.label, option])
   )
-  const correctOption = question.options.find((option) => option.isCorrect)
+  const correctOption = question.options.find(
+    (option) => option.id === preview?.adminAnswer.correctOptionId
+  )
 
   return {
     level: question.level,
@@ -192,53 +220,44 @@ const createDefaultValues = (question?: QuestionRecord): QuestionFormValues => {
       }
     }),
     correctOptionId: correctOption?.label ?? '',
-    explanationKo: question.explanationKo,
-    explanationJa: question.explanationJa ?? '',
+    explanationKo: preview?.adminAnswer.explanationKo ?? '',
+    explanationJa: preview?.adminAnswer.explanationJa ?? '',
     difficulty: question.difficulty,
-    tagsText: question.tags.join(', '),
-    status: question.status
+    tagsText: question.tags.map((tag) => tag.label).join(', ')
   }
 }
 
-const toAdminQuestionInput = (
+const toCreateContent = (
   values: QuestionFormValues
-): CreateAdminQuestionRequest => {
-  const passage = values.passage.trim()
-  const explanationJa = values.explanationJa.trim()
-
-  return {
-    level: values.level,
-    subject: values.subject,
-    questionType: values.questionType,
-    passage: passage.length > 0 ? passage : null,
-    questionText: values.questionText.trim(),
-    options: values.options.map((option) => {
-      const optionId = option.id?.trim()
-
-      return {
-        ...(optionId ? { id: optionId } : {}),
-        label: option.label,
-        text: option.text.trim()
-      }
-    }),
-    correctOptionId: values.correctOptionId,
-    explanationKo: values.explanationKo.trim(),
-    explanationJa: explanationJa.length > 0 ? explanationJa : null,
-    difficulty: values.difficulty,
-    tags: parseTags(values.tagsText),
-    status: values.status
-  }
-}
+): CreateAdminQuestionRequest => ({
+  level: values.level,
+  subject: values.subject,
+  questionType: values.questionType,
+  passage: values.passage.trim() || null,
+  questionText: values.questionText,
+  options: values.options.map((option) => ({
+    clientOptionKey: option.label,
+    text: option.text
+  })),
+  correctOptionKey: values.correctOptionId,
+  explanationKo: values.explanationKo,
+  explanationJa: values.explanationJa.trim() || null,
+  difficulty: values.difficulty,
+  tagNames: parseTags(values.tagsText)
+})
 
 export const QuestionForm = ({
   cancelHref = '/admin/questions',
   initialQuestion,
+  expectedRowVersion,
+  readOnly = false,
   isSubmitting,
   onSubmit,
   serverError,
   submitLabel,
   submittingLabel
 }: QuestionFormProps): ReactElement => {
+  const [revision] = useState(expectedRowVersion)
   const [defaultValues] = useState(() => createDefaultValues(initialQuestion))
   const {
     control,
@@ -288,7 +307,26 @@ export const QuestionForm = ({
   }
 
   const submitForm = handleSubmit(async (values) => {
-    await onSubmit(toAdminQuestionInput(values))
+    if (readOnly) return
+    const content = toCreateContent(values)
+    if (initialQuestion) {
+      const { options: _options, correctOptionKey: _correct, ...rest } = content
+      const request = updateQuestionVersionRequestSchema.parse({
+        ...rest,
+        expectedRowVersion: revision,
+        options: values.options.map((option, index) => ({
+          id: option.id,
+          ordinal: index + 1,
+          text: option.text
+        })),
+        correctOptionId: values.options.find(
+          (option) => option.label === values.correctOptionId
+        )?.id
+      })
+      await onSubmit(request)
+    } else {
+      await onSubmit(createAdminQuestionRequestSchema.parse(content))
+    }
   }, handleInvalidSubmit)
 
   return (
@@ -310,7 +348,7 @@ export const QuestionForm = ({
 
         <fieldset
           className="grid gap-8"
-          disabled={isSubmitting || isFormSubmitting}
+          disabled={readOnly || isSubmitting || isFormSubmitting}
         >
           <legend className="sr-only">관리자 문제 정보 입력</legend>
           <section
@@ -325,7 +363,8 @@ export const QuestionForm = ({
                 기본 정보
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                급수, 과목, 문제 유형과 공개 상태를 설정합니다.
+                급수, 과목과 문제 유형을 설정합니다. 생성은 초안으로 저장되며
+                게시 상태는 여기서 변경하지 않습니다.
               </p>
             </div>
 
@@ -366,19 +405,10 @@ export const QuestionForm = ({
                 }))}
                 {...register('difficulty')}
               />
-              <Select
-                label="게시 상태"
-                error={errors.status?.message}
-                options={QUESTION_STATUSES.map((value) => ({
-                  value,
-                  label: statusLabels[value]
-                }))}
-                {...register('status')}
-              />
               <div className="rounded-lg border border-line bg-slate-50 px-4 py-3">
                 <p className="text-sm font-semibold text-ink">문제 출처</p>
                 <p className="mt-1 text-sm text-muted">
-                  자체 제작 문제(ORIGINAL)로 저장됩니다.
+                  자체 제작한 문제만 등록할 수 있습니다.
                 </p>
               </div>
             </div>
@@ -528,6 +558,7 @@ export const QuestionForm = ({
           </Link>
           <Button
             type="submit"
+            disabled={readOnly}
             isLoading={isSubmitting || isFormSubmitting}
             loadingLabel={submittingLabel}
           >

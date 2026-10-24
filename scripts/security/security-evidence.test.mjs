@@ -43,7 +43,7 @@ const createRequestLedgerEntries = (name, pathName) => {
       const sequence = triggerIndex * 4
       return [
         {
-          finishSequence: sequence + 3,
+          finishSequence: sequence + 2,
           method: 'GET',
           path: '/api/v1/dashboard',
           provenance,
@@ -55,7 +55,7 @@ const createRequestLedgerEntries = (name, pathName) => {
           method: 'GET',
           path: '/api/v1/dashboard/insights',
           provenance,
-          startSequence: sequence + 2,
+          startSequence: sequence + 3,
           status: 200
         }
       ]
@@ -486,6 +486,84 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     requiredLabels: ['phase8-real']
   })
   assert.equal(manifest.files.length, 1)
+})
+
+test('Phase 8 dashboard ledgers require ordered sequential user journeys', () => {
+  for (const mode of ['real', 'mock']) {
+    const label = `phase8-dashboard-${mode}-request-ledger`
+    const valid = {
+      label,
+      entries: createRequestLedgerEntries(label, '/api/v1/dashboard')
+    }
+    assert.doesNotThrow(() =>
+      assertPlaywrightRequestLedger(valid, `phase8-${mode}`)
+    )
+    for (const [name, mutate] of [
+      [
+        'reversed reads',
+        (entries) => entries.splice(0, 2, entries[1], entries[0])
+      ],
+      ['missing read', (entries) => entries.pop()],
+      [
+        'extra read',
+        (entries) =>
+          entries.push({
+            ...entries.at(-1),
+            startSequence: 85,
+            finishSequence: 86
+          })
+      ],
+      [
+        'duplicated read kind',
+        (entries) => {
+          entries[1].path = '/api/v1/dashboard'
+        }
+      ],
+      [
+        'wrong provenance',
+        (entries) => {
+          entries[0].provenance =
+            mode === 'real'
+              ? 'canonical-mock-service-worker'
+              : 'canonical-real-network'
+        }
+      ],
+      [
+        'unsuccessful read',
+        (entries) => {
+          entries[0].status = 503
+        }
+      ],
+      [
+        'unexpected method',
+        (entries) => {
+          entries[0].method = 'POST'
+        }
+      ],
+      [
+        'overlapping reads',
+        (entries) => {
+          entries[0].finishSequence = 3
+          entries[1].startSequence = 2
+        }
+      ],
+      [
+        'overlapping journeys',
+        (entries) => {
+          entries[1].finishSequence = 5
+          entries[2].startSequence = 4
+        }
+      ]
+    ]) {
+      const candidate = structuredClone(valid)
+      mutate(candidate.entries)
+      assert.throws(
+        () => assertPlaywrightRequestLedger(candidate, `phase8-${mode}`),
+        /SECURITY_EVIDENCE_/u,
+        `${mode}: ${name}`
+      )
+    }
+  }
 })
 
 test('browser performance and request ledger evidence fail closed on forgery', () => {

@@ -1506,25 +1506,36 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
   })
 }
 
-const invalidateDashboardWhileOffline = async (page: Page): Promise<void> => {
-  await page.evaluate(async () => {
+const invalidateDashboardWhileOffline = async (
+  page: Page,
+  query: 'stats' | 'insights'
+): Promise<void> => {
+  await page.evaluate(async (kind) => {
     const modulePath = '/src/libs/queryClient.ts'
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
         invalidateQueries: (options: {
+          exact: boolean
           queryKey: readonly string[]
         }) => Promise<void>
       }
     }
-    void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-  })
+    void queryClient.invalidateQueries({
+      exact: true,
+      queryKey: ['dashboard', `get-${kind}`]
+    })
+  }, query)
 }
 
-const waitForDashboardQueriesToSettle = async (page: Page): Promise<void> => {
+const waitForDashboardQueryState = async (
+  page: Page,
+  query: 'stats' | 'insights',
+  fetchStatus: 'idle' | 'paused'
+): Promise<void> => {
   await expect
     .poll(
       async () =>
-        await page.evaluate(async () => {
+        await page.evaluate(async (kind) => {
           const modulePath = '/src/libs/queryClient.ts'
           const { queryClient } = (await import(
             /* @vite-ignore */ modulePath
@@ -1532,29 +1543,25 @@ const waitForDashboardQueriesToSettle = async (page: Page): Promise<void> => {
             queryClient: {
               getQueryState: (queryKey: readonly string[]) =>
                 | {
+                    data: unknown
                     fetchStatus: string
                     status: string
                   }
                 | undefined
             }
           }
-          const project = (queryKey: readonly string[]) => {
-            const state = queryClient.getQueryState(queryKey)
-            return state
-              ? { fetchStatus: state.fetchStatus, status: state.status }
-              : null
-          }
-          return {
-            insights: project(['dashboard', 'get-insights']),
-            stats: project(['dashboard', 'get-stats'])
-          }
-        }),
+          const state = queryClient.getQueryState(['dashboard', `get-${kind}`])
+          return state
+            ? {
+                fetchStatus: state.fetchStatus,
+                hasData: state.data !== undefined,
+                status: state.status
+              }
+            : null
+        }, query),
       { timeout: 20_000 }
     )
-    .toEqual({
-      insights: { fetchStatus: 'idle', status: 'success' },
-      stats: { fetchStatus: 'idle', status: 'success' }
-    })
+    .toEqual({ fetchStatus, hasData: true, status: 'success' })
 }
 
 const createReportFixture = async (page: Page) => {
@@ -1758,6 +1765,143 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     page.getByRole('heading', { name: '学習結果が見つかりません' })
   ).toBeVisible()
 
+  // Exercise recommendations before this learner creates an unfinished session.
+  await page.setViewportSize({ height: 900, width: 1280 })
+  await page.goto('/wrong-notes')
+  await settlePage(page)
+  await setLocale(page, 'ko')
+  const recentResults = page
+    .locator('summary')
+    .filter({ hasText: /^최근 결과 다시 보기$/u })
+  const recentPanel = recentResults.locator('..')
+  await expect(recentPanel).toHaveJSProperty('open', false)
+  const recentResponse = page.waitForResponse(
+    (response) =>
+      response.status() === 200 &&
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/dashboard'
+  )
+  await focusByTab(page, recentResults)
+  await page.keyboard.press('Enter')
+  expect((await recentResponse).headers()['cache-control']).toBe(
+    'private, no-store'
+  )
+  await expect(recentPanel).toHaveJSProperty('open', true)
+  await expect(recentPanel).toContainText(
+    /결과·해설|아직 마친 학습이 없어요\./u
+  )
+  for (const locale of locales) {
+    await setLocale(page, locale)
+    await scanCurrentPage(page, testInfo, 'learner-recent-results-open', locale)
+  }
+  await setLocale(page, 'ko')
+  const cachedRecentResults = await recentPanel.innerText()
+  await flushTransportEvidence(transport)
+  const requestsBeforeStatsOffline = transport.requests.length
+  await context.setOffline(true)
+  await invalidateDashboardWhileOffline(page, 'stats')
+  await waitForDashboardQueryState(page, 'stats', 'paused')
+  await expect(recentPanel).toHaveText(cachedRecentResults)
+  await flushTransportEvidence(transport)
+  expect(transport.requests).toHaveLength(requestsBeforeStatsOffline)
+  await context.setOffline(false)
+  await waitForDashboardQueryState(page, 'stats', 'idle')
+  await focusByTab(page, recentResults)
+  await page.keyboard.press('Space')
+  await expect(recentPanel).toHaveJSProperty('open', false)
+  await waitForApiTransportQuiet(transport)
+
+  await page.goto('/dashboard?view=learning')
+  await settlePage(page)
+  await waitForDashboardQueryState(page, 'insights', 'idle')
+  const recommendations = page
+    .locator('summary')
+    .filter({ hasText: /^학습 추천 더 보기$/u })
+  const recommendationPanel = recommendations.locator('..')
+  const recommendationHeading = recommendationPanel.locator('h2')
+  await expect(recommendationPanel).toHaveJSProperty('open', false)
+  await flushTransportEvidence(transport)
+  const requestsBeforeDisclosure = transport.requests.length
+  await focusByTab(page, recommendations)
+  await page.keyboard.press('Enter')
+  await expect(recommendationHeading).toBeVisible()
+  await page.keyboard.press('Space')
+  await expect(recommendationPanel).toHaveJSProperty('open', false)
+  await expect(recommendationHeading).toBeHidden()
+  await page.keyboard.press('Enter')
+  await expect(recommendationPanel).toHaveJSProperty('open', true)
+  await expect(recommendationHeading).toBeVisible()
+  await flushTransportEvidence(transport)
+  expect(transport.requests).toHaveLength(requestsBeforeDisclosure)
+  for (const locale of locales) {
+    await setLocale(page, locale)
+    await scanCurrentPage(
+      page,
+      testInfo,
+      'learner-recommendations-open',
+      locale
+    )
+  }
+  await setLocale(page, 'ko')
+  await focusByTab(page, recommendations)
+  await flushTransportEvidence(transport)
+  const requestsBeforeInsightsOffline = transport.requests.length
+  await context.setOffline(true)
+  await invalidateDashboardWhileOffline(page, 'insights')
+  await waitForDashboardQueryState(page, 'insights', 'paused')
+  const recommendationError = recommendationPanel.getByText(
+    '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
+    { exact: true }
+  )
+  await expect(recommendationError).toBeVisible()
+  await expect(recommendationHeading).toHaveCount(0)
+  await flushTransportEvidence(transport)
+  expect(transport.requests).toHaveLength(requestsBeforeInsightsOffline)
+  expect(
+    getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
+  ).toHaveLength(0)
+  await context.setOffline(false)
+  await waitForDashboardQueryState(page, 'insights', 'idle')
+  await expect(recommendationError).toBeHidden()
+  await expect(recommendationHeading).toBeVisible()
+  await expect(recommendations).toBeFocused()
+  await waitForApiTransportQuiet(transport)
+
+  const removeDashboardFault = await armDashboardInsightsFailure(page)
+  await invalidateDashboardInsights(page)
+  await expect(recommendationError).toBeVisible()
+  await removeDashboardFault()
+  const successfulRetryResponse = page.waitForResponse(
+    (response) =>
+      response.status() === 200 &&
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/dashboard/insights'
+  )
+  const retryRecommendation = recommendationPanel.getByRole('button', {
+    exact: true,
+    name: '다시 확인'
+  })
+  await focusByTab(page, retryRecommendation)
+  await page.keyboard.press('Enter')
+  await successfulRetryResponse
+  await expect(recommendationError).toBeHidden()
+  await expect(recommendationHeading).toBeFocused()
+  expect(
+    getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
+  ).toHaveLength(0)
+
+  const wrongNoteCenterLink = page.locator('a[href="/wrong-notes"]').first()
+  await focusByTab(page, wrongNoteCenterLink)
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/wrong-notes$/u)
+  await expect(page.locator('main')).toBeFocused()
+  await expect(
+    page
+      .locator('p[aria-live="polite"][aria-atomic="true"]')
+      .filter({ hasText: '오답 복습 센터 화면으로 이동했습니다.' })
+  ).toBeAttached()
+  await waitForApiTransportQuiet(transport)
+
   const session = await createSession(page)
   const sessionPath = `/practice/session/${session.session.id}`
   await installPracticeMonotonicClockFreeze(page, sessionPath)
@@ -1903,7 +2047,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   const wrongNotePath = `/wrong-notes/${targetQuestion.question.id}`
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
-    { label: 'dashboard', path: '/dashboard' },
+    { label: 'dashboard', path: '/dashboard?view=learning' },
     { label: 'wrong-note-center', path: '/wrong-notes' },
     { label: 'wrong-note-history', path: '/wrong-notes/history' },
     { label: 'wrong-note-detail', path: wrongNotePath },
@@ -1911,10 +2055,16 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { label: 'practice-result', path: resultPath }
   ])
 
-  await verifyViewport(page, testInfo, '/dashboard', 'dashboard-375', {
-    height: 812,
-    width: 375
-  })
+  await verifyViewport(
+    page,
+    testInfo,
+    '/dashboard?view=learning',
+    'dashboard-375',
+    {
+      height: 812,
+      width: 375
+    }
+  )
   await verifyViewport(page, testInfo, resultPath, 'practice-result-1440', {
     height: 900,
     width: 1440
@@ -1926,7 +2076,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await verifyViewport(
     page,
     testInfo,
-    '/dashboard',
+    '/dashboard?view=learning',
     'dashboard-200-percent-reflow',
     {
       height: 900,
@@ -1936,7 +2086,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await verifyViewport(
     page,
     testInfo,
-    '/dashboard',
+    '/dashboard?view=learning',
     'dashboard-text-spacing-375',
     {
       height: 812,
@@ -2086,79 +2236,6 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(reportDialog).toBeHidden()
   await expect(reportTrigger).toBeFocused()
 
-  await page.setViewportSize({ height: 900, width: 1280 })
-  await page.goto('/dashboard')
-  await settlePage(page)
-  const wrongNoteCenterLink = page.locator('a[href="/wrong-notes"]').first()
-  await focusByTab(page, wrongNoteCenterLink)
-  await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/wrong-notes$/u)
-  await expect(page.locator('main')).toBeFocused()
-  await expect(
-    page
-      .locator('p[aria-live="polite"][aria-atomic="true"]')
-      .filter({ hasText: '오답 복습 센터 화면으로 이동했습니다.' })
-  ).toBeAttached()
-  await waitForApiTransportQuiet(transport)
-
-  await page.goto('/dashboard')
-  await settlePage(page)
-  await setLocale(page, 'ko')
-  await flushTransportEvidence(transport)
-  const requestsBeforeOffline = transport.requests.length
-  await context.setOffline(true)
-  await invalidateDashboardWhileOffline(page)
-  await expect(
-    page.getByText(
-      '오프라인이라 마지막으로 확인한 누적 통계를 표시합니다. 연결되면 자동으로 다시 확인합니다.',
-      { exact: true }
-    )
-  ).toBeVisible()
-  await expect(
-    page.getByText(
-      '오프라인이라 마지막으로 확인한 추천을 표시합니다. 연결될 때까지 추천 실행은 잠깁니다.',
-      { exact: true }
-    )
-  ).toBeVisible()
-  await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeOffline)
-  await context.setOffline(false)
-  await expect(
-    page.getByText(
-      '오프라인이라 마지막으로 확인한 누적 통계를 표시합니다. 연결되면 자동으로 다시 확인합니다.',
-      { exact: true }
-    )
-  ).toBeHidden()
-  await expect(
-    page.getByText(
-      '오프라인이라 마지막으로 확인한 추천을 표시합니다. 연결될 때까지 추천 실행은 잠깁니다.',
-      { exact: true }
-    )
-  ).toBeHidden()
-  await waitForDashboardQueriesToSettle(page)
-
-  const removeDashboardFault = await armDashboardInsightsFailure(page)
-  await invalidateDashboardInsights(page)
-  await expect(
-    page.getByRole('heading', { name: '최신 인사이트로 갱신하지 못했습니다' })
-  ).toBeVisible()
-  await expect(page.getByText('전체 풀이', { exact: true })).toBeVisible()
-  await removeDashboardFault()
-  const successfulRetryResponse = page.waitForResponse(
-    (response) =>
-      response.status() === 200 &&
-      response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === '/api/v1/dashboard/insights'
-  )
-  await page.getByRole('button', { name: '최근 인사이트 다시 시도' }).click()
-  await successfulRetryResponse
-  await expect(
-    page.getByRole('heading', { name: '최신 인사이트로 갱신하지 못했습니다' })
-  ).toBeHidden()
-  await expect(
-    page.getByRole('heading', { name: '약점과 다음 학습 추천' })
-  ).toBeFocused()
-
   await flushTransportEvidence(transport)
   const createSessionExchange = getApiExchanges(
     transport,
@@ -2232,7 +2309,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
             unavailableInSession: unavailableExplanations.length
           },
           localeState: 'answered reading selection preserved',
-          offline: 'cached dashboard requests remained paused',
+          offline:
+            'recent results retained; recommendation query paused without requests',
           partial: 'requested 5 reading questions, received 3 without fallback',
           retry: 'dashboard insights 503x2 then explicit retry 200',
           submit: 'UI dialog and result navigation passed'

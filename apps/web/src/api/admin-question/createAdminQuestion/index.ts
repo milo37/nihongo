@@ -1,19 +1,9 @@
-import {
-  createAdminQuestionRequestSchema,
-  createAdminQuestionResponseSchema
-} from '@api/admin-question/createAdminQuestion/schema'
-import type {
-  CreateAdminQuestionRequest,
-  CreateAdminQuestionResponse
-} from '@api/admin-question/createAdminQuestion/schema'
-import { safePost } from '@api/http'
-
-const requestAdminQuestionCreation = safePost(createAdminQuestionResponseSchema)
-
-export const createAdminQuestion = (
-  input: CreateAdminQuestionRequest
-): Promise<CreateAdminQuestionResponse> =>
-  requestAdminQuestionCreation(
-    '/admin/question',
-    createAdminQuestionRequestSchema.parse(input)
-  )
+import { requestPhase7Operation } from '@api/phase7/requestPhase7Operation'
+import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
+export const createAdminQuestion = (body: CreateAdminQuestionRequest) =>
+  requestPhase7Operation({
+    operation: 'createAdminQuestion',
+    params: {},
+    query: {},
+    body: body
+  })

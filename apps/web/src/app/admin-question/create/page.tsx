@@ -1,26 +1,42 @@
-import { Link, useNavigate } from 'react-router'
+import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
+import {
+  createAdminQuestionRequestSchema,
+  type CreateAdminQuestionRequest,
+  type UpdateQuestionVersionRequest
+} from '@nihongo/contracts/admin/phase7'
 import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import { useCreateAdminQuestion } from '@app/admin-question/hooks/useCreateAdminQuestion'
 import { useToast } from '@common/components/Toast'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const safeReturn = safeSsoReturnPath(searchParams.get('returnTo'))
+  const returnPath =
+    safeReturn.split('?')[0] === '/admin/questions'
+      ? safeReturn
+      : '/admin/questions'
   const createQuestion = useCreateAdminQuestion()
   const { addToast } = useToast()
 
   const handleCreateQuestion = async (
-    input: CreateAdminQuestionRequest
+    input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
   ): Promise<void> => {
     try {
-      const createdQuestion = await createQuestion.mutateAsync(input)
+      const createdQuestion = await createQuestion.mutateAsync(
+        createAdminQuestionRequestSchema.parse(input)
+      )
       addToast({
-        title: '문제를 등록했습니다',
-        description: `${createdQuestion.id} 문제가 저장되었습니다.`,
+        title: '초안을 등록했습니다',
+        description: '아직 학습자에게 공개되지 않았습니다.',
         variant: 'success'
       })
-      navigate('/admin/questions', { replace: true })
+      navigate(
+        `/admin/questions/${createdQuestion.questionId}/edit?returnTo=${encodeURIComponent(returnPath)}`,
+        { replace: true }
+      )
     } catch {
       // 전역 API 에러 프로바이더와 폼의 인라인 오류가 안내합니다.
     }
@@ -33,7 +49,7 @@ export const CreateAdminQuestionPage = (): ReactElement => {
           <li>
             <Link
               className="rounded-md font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              to="/admin/questions"
+              to={returnPath}
             >
               문제 관리
             </Link>
@@ -51,14 +67,15 @@ export const CreateAdminQuestionPage = (): ReactElement => {
           새 문제 등록
         </h1>
         <p className="mt-4 max-w-3xl text-pretty leading-7 text-muted">
-          자체 제작한 JLPT 문제와 해설을 입력합니다. 게시 전에는 초안으로 저장해
-          내용을 검토할 수 있습니다.
+          자체 제작한 JLPT 문제와 해설을 입력합니다. 초안으로 저장됩니다. 이
+          화면에서 즉시 게시하지 않습니다.
         </p>
       </header>
 
       <QuestionForm
+        cancelHref={returnPath}
         isSubmitting={createQuestion.isPending}
-        submitLabel="문제 등록"
+        submitLabel="초안 등록"
         submittingLabel="등록 중…"
         serverError={
           createQuestion.isError

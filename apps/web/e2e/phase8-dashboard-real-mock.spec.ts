@@ -141,7 +141,7 @@ const login = async (page: Page): Promise<void> => {
   expect(principal.user.role).toBe('USER')
   expect(principal.user.targetLevel).toBe('N2')
   if (actor) expect(principal.user.id).toBe(actor.userId)
-  await page.goto('/')
+  await page.goto('/practice')
 }
 
 const waitForResponse = (
@@ -232,13 +232,12 @@ const assertCanonicalDashboardLedger = (ledger: RequestLedger): void => {
     expectedProvenance,
     expectedProvenance
   ])
-  const startSequences = ledger.entries.map(({ startSequence }) =>
-    Number(startSequence)
+  expect(ledger.entries.map(({ path }) => path)).toEqual(
+    canonicalDashboardPaths
   )
-  const finishSequences = ledger.entries.map(({ finishSequence }) =>
-    Number(finishSequence)
-  )
-  expect(Math.max(...startSequences)).toBeLessThan(Math.min(...finishSequences))
+  const [stats, insights] = ledger.entries
+  expect(stats!.finishSequence).not.toBeNull()
+  expect(stats!.finishSequence!).toBeLessThan(insights!.startSequence)
 }
 
 const assertCanonicalDashboardAggregate = (
@@ -264,22 +263,76 @@ const assertCanonicalDashboardAggregate = (
   }
 }
 
+const openDashboardSections = async (
+  page: Page
+): Promise<z.infer<typeof getDashboardInsightsResponseSchema>> => {
+  await page.goto('/wrong-notes')
+  const recentResults = page
+    .locator('summary')
+    .filter({ hasText: /^최근 결과 다시 보기$/u })
+  await expect(recentResults).toBeVisible()
+  await expect(recentResults.locator('..')).toHaveJSProperty('open', false)
+  const dashboardResponsePromise = waitForResponse(
+    page,
+    'GET',
+    '/api/v1/dashboard'
+  )
+  await recentResults.click()
+  const dashboardResponse = await dashboardResponsePromise
+  expect(dashboardResponse.status()).toBe(200)
+  expect(dashboardResponse.headers()['cache-control']).toBe('private, no-store')
+  expectExpectedApiTransport(dashboardResponse)
+  const stats = getDashboardStatsResponseSchema.parse(
+    JSON.parse(await dashboardResponse.text()) as unknown
+  )
+  expect(stats.recentStudySessions).toEqual([])
+  await expect(recentResults.locator('..')).toHaveJSProperty('open', true)
+  await expect(
+    page.getByText('아직 마친 학습이 없어요.', { exact: true })
+  ).toBeVisible()
+
+  // Insights mount on the learning route before its native disclosure is opened.
+  const insightsResponsePromise = waitForResponse(
+    page,
+    'GET',
+    '/api/v1/dashboard/insights'
+  )
+  await page.goto('/dashboard?view=learning')
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/dashboard' &&
+      url.searchParams.get('view') === 'learning'
+  )
+  const insightsResponse = await insightsResponsePromise
+  expect(insightsResponse.status()).toBe(200)
+  expect(insightsResponse.headers()['cache-control']).toBe('private, no-store')
+  expectExpectedApiTransport(insightsResponse)
+  const insights = getDashboardInsightsResponseSchema.parse(
+    JSON.parse(await insightsResponse.text()) as unknown
+  )
+  const recommendations = page
+    .locator('summary')
+    .filter({ hasText: /^학습 추천 더 보기$/u })
+  await expect(recommendations).toBeVisible()
+  await expect(recommendations.locator('..')).toHaveJSProperty('open', false)
+  await recommendations.click()
+  await expect(recommendations.locator('..')).toHaveJSProperty('open', true)
+  await expect(
+    page.getByRole('heading', {
+      exact: true,
+      name: '목표 급수의 다음 문제를 풀어보세요'
+    })
+  ).toBeVisible()
+  return insights
+}
+
 const measureDashboardNavigation = async (
   page: Page,
   ledger: RequestLedger
 ): Promise<number> => {
   const startIndex = ledger.entries.length
   const startedAt = performance.now()
-  await page.goto('/dashboard')
-  await expect(
-    page.getByRole('heading', {
-      exact: true,
-      name: '학습 흐름을 확인하세요'
-    })
-  ).toBeVisible()
-  await expect(
-    page.getByRole('heading', { exact: true, name: '약점과 다음 학습 추천' })
-  ).toBeVisible()
+  await openDashboardSections(page)
   await expect
     .poll(
       () => selectCanonicalDashboardLedger(ledger, startIndex).entries.length
@@ -291,14 +344,13 @@ const measureDashboardNavigation = async (
   return roundMilliseconds(performance.now() - startedAt)
 }
 
-test('dashboard reads overlap in real and mock mode before an explicit recommendation action', async ({
+test('current stats and learning routes preserve contracts before an explicit recommendation action', async ({
   context,
   page
 }, testInfo) => {
   test.setTimeout(90_000)
   const transport = trackApiTransport(context)
   const ledger = trackRequestLedger(context)
-  await login(page)
 
   const sessionPostRequests: Request[] = []
   let legacyDashboardRequestCount = 0
@@ -313,36 +365,10 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
     }
   })
 
+  await login(page)
+
   const initialDashboardStartIndex = ledger.entries.length
-  const dashboardResponsePromise = waitForResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard'
-  )
-  const insightsResponsePromise = waitForResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard/insights'
-  )
-  await page.goto('/dashboard')
-  const [dashboardResponse, insightsResponse] = await Promise.all([
-    dashboardResponsePromise,
-    insightsResponsePromise
-  ])
-
-  expect(dashboardResponse.status()).toBe(200)
-  expect(insightsResponse.status()).toBe(200)
-  expect(dashboardResponse.headers()['cache-control']).toBe('private, no-store')
-  expect(insightsResponse.headers()['cache-control']).toBe('private, no-store')
-  expectExpectedApiTransport(dashboardResponse)
-  expectExpectedApiTransport(insightsResponse)
-
-  getDashboardStatsResponseSchema.parse(
-    JSON.parse(await dashboardResponse.text()) as unknown
-  )
-  const insights = getDashboardInsightsResponseSchema.parse(
-    JSON.parse(await insightsResponse.text()) as unknown
-  )
+  const insights = await openDashboardSections(page)
 
   await expect
     .poll(
@@ -401,7 +427,10 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
   }
 
   await expect(
-    page.getByRole('heading', { exact: true, name: '약점과 다음 학습 추천' })
+    page.getByRole('heading', {
+      exact: true,
+      name: '목표 급수의 다음 문제를 풀어보세요'
+    })
   ).toBeVisible()
   await expect(
     page.getByText(
@@ -481,9 +510,11 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
   const actionSummary = `일반 연습 · ${action.level} ${subjectLabels[action.subject]} · ${action.count}문제`
   const actionButton = page.getByRole('button', {
     exact: true,
-    name: `일반 연습 시작하기: ${actionSummary}`
+    name: '일반 연습 시작하기'
   })
+  await expect(page.getByText(actionSummary, { exact: true })).toBeVisible()
   await expect(actionButton).toBeVisible()
+  expect(sessionPostRequests).toHaveLength(0)
 
   const sessionResponsePromise = waitForResponse(
     page,
@@ -534,6 +565,7 @@ test('dashboard reads overlap in real and mock mode before an explicit recommend
   })
 
   expect(legacyDashboardRequestCount).toBe(0)
+  expect(sessionPostRequests).toHaveLength(1)
   expect(transport.unexpectedResponses).toEqual([])
   expect(transport.failedRequests).toEqual([])
 })

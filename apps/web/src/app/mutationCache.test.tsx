@@ -19,6 +19,10 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { useAppStore } from '@store/index'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
+import { createAdminQuestion } from '@api/admin-question/createAdminQuestion'
+import { getAdminQuestion } from '@api/admin-question/getAdminQuestion'
+import { previewQuestionVersion } from '@api/admin-question/previewQuestionVersion'
+import { createInput } from '@app/admin-question/test/questionFixture'
 import { adminQuestionHandlers } from '@mocks/handlers/adminQuestionHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
@@ -50,34 +54,45 @@ const expectInvalidated = (
   expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true)
 }
 
-const toUpdateInput = (
-  questionId: string,
-  questionText: string
-): UpdateAdminQuestionRequest => {
-  const question = mockDatabase.getAdminQuestion(questionId)
-  const correctOption = question.options.find((option) => option.isCorrect)
-
-  if (!correctOption) {
-    throw new Error('테스트 문제에 정답이 없습니다.')
+const prepareAdminQuestion = async (questionText: string) => {
+  const created = await createAdminQuestion({
+    ...createInput,
+    tagNames: ['규칙']
+  })
+  const { questionVersionId: versionId, versionRowVersion: rowVersion } =
+    created
+  if (
+    created.versionStatus !== 'DRAFT' ||
+    versionId === null ||
+    rowVersion === null
+  ) {
+    throw new Error('Expected a created draft with a version and row version')
   }
-
-  return {
-    level: question.level,
-    subject: question.subject,
-    questionType: question.questionType,
-    passage: question.passage,
+  const detail = await getAdminQuestion(created.questionId)
+  const preview = await previewQuestionVersion(versionId)
+  const input: UpdateAdminQuestionRequest = {
+    level: preview.question.level,
+    subject: preview.question.subject,
+    questionType: preview.question.questionType,
+    passage: preview.question.passage,
     questionText,
-    options: question.options.map(({ id, label, text }) => ({
+    difficulty: preview.question.difficulty,
+    explanationKo: preview.adminAnswer.explanationKo,
+    explanationJa: preview.adminAnswer.explanationJa,
+    tagNames: preview.question.tags.map(({ label }) => label),
+    expectedRowVersion: rowVersion,
+    options: preview.question.options.map(({ id, text }, index) => ({
       id,
-      label,
-      text
+      text,
+      ordinal: index + 1
     })),
-    correctOptionId: correctOption.id,
-    explanationKo: question.explanationKo,
-    explanationJa: question.explanationJa,
-    difficulty: question.difficulty,
-    tags: question.tags,
-    status: question.status
+    correctOptionId: preview.adminAnswer.correctOptionId
+  }
+  return {
+    questionId: created.questionId,
+    versionId,
+    detail,
+    input
   }
 }
 
@@ -322,15 +337,16 @@ describe('mutation cache contracts', () => {
   it('관리자 수정은 상세 데이터를 갱신하고 교차 도메인 캐시를 무효화한다', async () => {
     mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-01'
     const questionText = '수정된 관리자 문제 문장'
+    const { questionId, versionId, detail, input } =
+      await prepareAdminQuestion(questionText)
     const client = createTestClient()
     const detailKey = adminQuestionQueries.detail(questionId).queryKey
     const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
     const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
     const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
 
-    seedCache(client, detailKey)
+    client.setQueryData(detailKey, detail)
     seedCache(client, bookmarkKey)
     seedCache(client, wrongKey)
     seedCache(client, dashboardKey)
@@ -342,27 +358,39 @@ describe('mutation cache contracts', () => {
     await act(async () => {
       await result.current.mutateAsync({
         questionId,
-        input: toUpdateInput(questionId, questionText)
+        versionId,
+        input
       })
     })
 
-    expect(client.getQueryData(detailKey)).toMatchObject({ questionText })
+    expect(client.getQueryData(detailKey)).toEqual(detail)
     expectInvalidated(client, detailKey)
     expectInvalidated(client, bookmarkKey)
     expectInvalidated(client, wrongKey)
     expectInvalidated(client, dashboardKey)
+    const refreshed = await client.fetchQuery(
+      adminQuestionQueries.detail(questionId)
+    )
+    expect(refreshed.versions.items[0]).toMatchObject({
+      questionVersionId: versionId,
+      rowVersion: input.expectedRowVersion + 1
+    })
+    expect(
+      (await previewQuestionVersion(versionId)).question.questionText
+    ).toBe(questionText)
   })
 
   it('관리자 삭제는 상세 캐시를 제거하고 모든 관련 목록을 무효화한다', async () => {
     mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-02'
+    const { questionId, versionId, detail } =
+      await prepareAdminQuestion('보관할 문제')
     const client = createTestClient()
     const detailKey = adminQuestionQueries.detail(questionId).queryKey
     const listKey = adminQuestionQueries.list({
       page: 1,
       pageSize: 20,
-      sort: 'RECENT'
+      sort: 'UPDATED_DESC'
     }).queryKey
     const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
     const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
@@ -379,7 +407,14 @@ describe('mutation cache contracts', () => {
     })
 
     await act(async () => {
-      await result.current.mutateAsync(questionId)
+      await result.current.mutateAsync({
+        questionId,
+        input: {
+          expectedQuestionRowVersion: detail.question.rowVersion,
+          expectedOpenCandidateVersionId: versionId,
+          expectedOpenCandidateRowVersion: detail.versions.items[0].rowVersion
+        }
+      })
     })
 
     expect(client.getQueryState(detailKey)).toBeUndefined()
@@ -393,12 +428,12 @@ describe('mutation cache contracts', () => {
     mockServer.use(...adminQuestionHandlers)
     mockDatabase.loginAs('ADMIN')
     const client = createTestClient()
-    const missingQuestionId = 'missing-question'
+    const missingQuestionId = '00000000-0000-4000-8000-ffffffffffff'
     const detailKey = adminQuestionQueries.detail(missingQuestionId).queryKey
     const listKey = adminQuestionQueries.list({
       page: 1,
       pageSize: 20,
-      sort: 'RECENT'
+      sort: 'UPDATED_DESC'
     }).queryKey
     const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
     const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
@@ -415,22 +450,28 @@ describe('mutation cache contracts', () => {
     const deleteHook = renderHook(() => useDeleteAdminQuestion(), {
       wrapper: createWrapper(client)
     })
-    const validInput = toUpdateInput(
-      'n5-vocabulary-01',
-      '실패 테스트용 문제 문장'
-    )
+    const { input: validInput } =
+      await prepareAdminQuestion('실패 테스트용 문제 문장')
 
     await expect(
       act(async () => {
         await updateHook.result.current.mutateAsync({
           questionId: missingQuestionId,
+          versionId: missingQuestionId,
           input: validInput
         })
       })
     ).rejects.toMatchObject({ status: 404 })
     await expect(
       act(async () => {
-        await deleteHook.result.current.mutateAsync(missingQuestionId)
+        await deleteHook.result.current.mutateAsync({
+          questionId: missingQuestionId,
+          input: {
+            expectedQuestionRowVersion: 1,
+            expectedOpenCandidateVersionId: null,
+            expectedOpenCandidateRowVersion: null
+          }
+        })
       })
     ).rejects.toMatchObject({ status: 404 })
 

@@ -12,7 +12,9 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { EditAdminQuestionPage } from '@app/admin-question/edit/page'
-import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
+import { createAdminQuestion } from '@api/admin-question/createAdminQuestion'
+import { getAdminQuestion } from '@api/admin-question/getAdminQuestion'
+import { createInput } from '@app/admin-question/test/questionFixture'
 import { PracticeResultPage } from '@app/practice/result/page'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
@@ -126,27 +128,40 @@ describe('detail page error semantics', () => {
   it('관리자 수정은 서버 오류를 구분하고 retry 후 폼을 복구한다', async () => {
     const user = userEvent.setup()
     mockDatabase.loginAs('ADMIN')
-    const questionId = 'n5-vocabulary-01'
+    const created = await createAdminQuestion({
+      ...createInput,
+      tagNames: ['규칙']
+    })
+    const questionId = created.questionId
+    const detail = await getAdminQuestion(questionId)
+    const requestId = crypto.randomUUID()
+    const headers = {
+      'cache-control': 'private, no-store',
+      'x-request-id': requestId
+    }
     let requestCount = 0
     mockServer.use(
-      http.get(`*/api/admin/question/${questionId}`, () => {
+      http.get(`*/api/v1/admin/questions/${questionId}`, () => {
         requestCount += 1
         if (requestCount === 1) {
-          return HttpResponse.json({ message: 'server error' }, { status: 500 })
+          return HttpResponse.json(
+            {
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'server error',
+              requestId,
+              retryable: true
+            },
+            { status: 500, headers }
+          )
         }
-        return HttpResponse.json(mockDatabase.getAdminQuestion(questionId))
+        return HttpResponse.json(detail, { headers })
       })
     )
 
     await renderPage(
       `/admin/questions/${questionId}/edit`,
       '/admin/questions/:questionId/edit',
-      <EditAdminQuestionPage />,
-      (client) => {
-        const queryKey = adminQuestionQueries.detail(questionId).queryKey
-        client.setQueryData(queryKey, mockDatabase.getAdminQuestion(questionId))
-        void client.invalidateQueries({ queryKey, exact: true })
-      }
+      <EditAdminQuestionPage />
     )
 
     expect(
@@ -243,14 +258,10 @@ describe('detail page error semantics', () => {
 
   it('관리자 수정은 실제 404만 Not Found로 표시한다', async () => {
     mockDatabase.loginAs('ADMIN')
-    mockServer.use(
-      http.get('*/api/admin/question/missing', () =>
-        HttpResponse.json({ message: 'not found' }, { status: 404 })
-      )
-    )
+    const missingId = '00000000-0000-4000-8000-ffffffffffff'
 
     await renderPage(
-      '/admin/questions/missing/edit',
+      `/admin/questions/${missingId}/edit`,
       '/admin/questions/:questionId/edit',
       <EditAdminQuestionPage />
     )

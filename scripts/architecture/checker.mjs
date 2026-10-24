@@ -615,12 +615,90 @@ const checkMetadataTransportBoundary = (
   return diagnostics
 }
 
+const readExportedInitializer = (fileName, name) => {
+  if (!fs.existsSync(fileName)) return null
+  const source = ts.createSourceFile(
+    fileName,
+    fs.readFileSync(fileName, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true
+  )
+  for (const statement of source.statements) {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !statement.modifiers?.some(
+        ({ kind }) => kind === ts.SyntaxKind.ExportKeyword
+      )
+    )
+      continue
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name)
+        continue
+      let value = declaration.initializer
+      while (
+        value &&
+        (ts.isAsExpression(value) || ts.isSatisfiesExpression(value))
+      ) {
+        value = value.expression
+      }
+      return value ?? null
+    }
+  }
+  return null
+}
+
+const getObjectProperty = (object, name) =>
+  object?.properties.find(
+    (property) =>
+      ts.isPropertyAssignment(property) &&
+      (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+      property.name.text === name
+  )?.initializer
+
+const getPhase7SchemaNames = (rootDir, operation) => {
+  const contractRoot = path.join(rootDir, 'packages/contracts/src/admin')
+  const manifest = readExportedInitializer(
+    path.join(contractRoot, 'phase7-manifest.ts'),
+    'phase7OperationManifest'
+  )
+  if (
+    !manifest ||
+    !ts.isArrayLiteralExpression(manifest) ||
+    !manifest.elements.some((entry) => {
+      if (!ts.isObjectLiteralExpression(entry)) return false
+      const value = getObjectProperty(entry, 'operation')
+      return value && ts.isStringLiteral(value) && value.text === operation
+    })
+  )
+    return null
+  const schemas = readExportedInitializer(
+    path.join(contractRoot, 'phase7-operation-schemas.ts'),
+    'phase7OperationSchemas'
+  )
+  if (!schemas || !ts.isObjectLiteralExpression(schemas)) return null
+  const descriptor = getObjectProperty(schemas, operation)
+  if (!descriptor || !ts.isObjectLiteralExpression(descriptor)) return null
+  const body = getObjectProperty(descriptor, 'body')
+  const params = getObjectProperty(descriptor, 'params')
+  const query = getObjectProperty(descriptor, 'query')
+  const response = getObjectProperty(descriptor, 'success')
+  if (
+    ![body, params, query, response].every(
+      (value) => value && ts.isIdentifier(value)
+    )
+  )
+    return null
+  const request =
+    body.text !== 'noBody' ? body : params.text !== 'noParams' ? params : query
+  return { request: request.text, response: response.text }
+}
+
 const checkEndpoint = (
   sourceFile,
   references,
   sourceRoot,
   rootDir,
-  _options,
+  program,
   checker
 ) => {
   const relative = normalizePath(path.relative(sourceRoot, sourceFile.fileName))
@@ -670,6 +748,138 @@ const checkEndpoint = (
         isDeclaredInFile(schemaSymbol, schemaResolvedPath) &&
         isZodSchemaExpression(checker, schemaArgument)
     )
+  }
+
+  const isPhase7RequestCall = (node) => {
+    if (
+      !relative.startsWith('api/admin-question/') ||
+      !ts.isCallExpression(node) ||
+      !ts.isIdentifier(node.expression) ||
+      node.expression.text !== 'requestPhase7Operation' ||
+      node.arguments.length !== 1 ||
+      !ts.isObjectLiteralExpression(node.arguments[0])
+    )
+      return false
+    const helperPath = path.resolve(
+      sourceRoot,
+      'api/phase7/requestPhase7Operation.ts'
+    )
+    const local = checker.getSymbolAtLocation(node.expression)
+    const binding = local?.declarations?.find((declaration) =>
+      ts.isImportSpecifier(declaration)
+    )
+    const declaration = binding?.parent.parent.parent
+    if (
+      !binding ||
+      binding.propertyName ||
+      !declaration ||
+      !ts.isImportDeclaration(declaration) ||
+      !ts.isStringLiteral(declaration.moduleSpecifier) ||
+      resolveImport(
+        declaration.moduleSpecifier.text,
+        sourceFile,
+        program.getCompilerOptions()
+      ) !== helperPath
+    )
+      return false
+    const helper = getResolvedSymbol(checker, node.expression)
+    if (
+      !helper ||
+      helper.getName() !== 'requestPhase7Operation' ||
+      !isDeclaredInFile(helper, helperPath)
+    )
+      return false
+
+    const properties = new Map()
+    for (const property of node.arguments[0].properties) {
+      if (
+        (!ts.isPropertyAssignment(property) &&
+          !ts.isShorthandPropertyAssignment(property)) ||
+        (!ts.isIdentifier(property.name) &&
+          !ts.isStringLiteral(property.name)) ||
+        properties.has(property.name.text)
+      )
+        return false
+      properties.set(
+        property.name.text,
+        ts.isPropertyAssignment(property) ? property.initializer : property.name
+      )
+    }
+    if (
+      !['operation', 'params', 'query', 'body'].every((name) =>
+        properties.has(name)
+      ) ||
+      [...properties.keys()].some(
+        (name) =>
+          !['operation', 'params', 'query', 'body', 'config'].includes(name)
+      )
+    )
+      return false
+    const operation = properties.get('operation')
+    if (!operation || !ts.isStringLiteral(operation)) return false
+    const names = getPhase7SchemaNames(rootDir, operation.text)
+    if (!names) return false
+
+    const helperSource = program.getSourceFile(helperPath)
+    const contractImport = helperSource?.statements.find(
+      (statement) =>
+        ts.isImportDeclaration(statement) &&
+        ts.isStringLiteral(statement.moduleSpecifier) &&
+        statement.moduleSpecifier.text === '@nihongo/contracts/admin/phase7'
+    )
+    const contractModule =
+      contractImport &&
+      checker.getSymbolAtLocation(contractImport.moduleSpecifier)
+    if (!contractModule) return false
+    const resolveAlias = (symbol) =>
+      symbol.flags & ts.SymbolFlags.Alias
+        ? checker.getAliasedSymbol(symbol)
+        : symbol
+    const exports = new Map(
+      checker
+        .getExportsOfModule(contractModule)
+        .map((symbol) => [symbol.getName(), resolveAlias(symbol)])
+    )
+    // The canonical module may resolve to source or emitted declarations; compare symbols in this program.
+    for (const [name, file] of [
+      ['phase7OperationManifest', 'phase7-manifest'],
+      ['phase7OperationSchemas', 'phase7-operation-schemas']
+    ]) {
+      if (
+        !['src', 'dist'].some((directory) =>
+          isDeclaredInFile(
+            exports.get(name),
+            path.join(
+              rootDir,
+              `packages/contracts/${directory}/admin/${file}${directory === 'src' ? '.ts' : '.d.ts'}`
+            )
+          )
+        )
+      )
+        return false
+    }
+    const schemaSource = program.getSourceFile(schemaResolvedPath)
+    const schemaModule =
+      schemaSource && checker.getSymbolAtLocation(schemaSource)
+    if (!schemaModule) return false
+    const schemaExports = checker.getExportsOfModule(schemaModule)
+    return ['request', 'response'].every((kind) => {
+      const expected = exports.get(names[kind])
+      const expectedDeclaration = expected?.valueDeclaration
+      return (
+        expectedDeclaration &&
+        ts.isVariableDeclaration(expectedDeclaration) &&
+        isZodSchemaExpression(checker, expectedDeclaration.name) &&
+        schemaExports.some(
+          (symbol) =>
+            symbol
+              .getName()
+              .endsWith(
+                kind === 'request' ? 'RequestSchema' : 'ResponseSchema'
+              ) && resolveAlias(symbol) === expected
+        )
+      )
+    })
   }
 
   const isAxiosFile = (fileName) =>
@@ -868,7 +1078,10 @@ const checkEndpoint = (
     const symbol = callReference
       ? getResolvedSymbol(checker, callReference)
       : null
-    return Boolean(symbol && validatedRequestSymbols.has(symbol))
+    return (
+      isPhase7RequestCall(unwrapped) ||
+      Boolean(symbol && validatedRequestSymbols.has(symbol))
+    )
   }
 
   const allOwnReturnsUseValidation = (functionLike) => {
@@ -1193,7 +1406,7 @@ export const checkArchitecture = ({
           references,
           absoluteSourceRoot,
           absoluteRoot,
-          parsed.options,
+          program,
           checker
         )
       )

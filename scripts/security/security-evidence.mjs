@@ -415,23 +415,19 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
     }
     for (let index = 0; index < ledger.entries.length; index += 2) {
       const pair = ledger.entries.slice(index, index + 2)
-      const paths = pair.map(({ path: pathName }) => pathName).toSorted()
-      const startSequences = pair.map(({ startSequence }) => startSequence)
-      const finishSequences = pair.map(({ finishSequence }) => finishSequence)
+      const paths = pair.map(({ path: pathName }) => pathName)
       if (
         JSON.stringify(paths) !==
-          JSON.stringify(
-            ['/api/v1/dashboard', '/api/v1/dashboard/insights'].toSorted()
-          ) ||
+          JSON.stringify(['/api/v1/dashboard', '/api/v1/dashboard/insights']) ||
         pair.some(
           ({ method, provenance, status }) =>
             method !== 'GET' ||
             provenance !== canonicalProvenance ||
             status !== 200
         ) ||
-        Math.max(...startSequences) >= Math.min(...finishSequences) ||
+        pair[0].finishSequence >= pair[1].startSequence ||
         (index > 0 &&
-          ledger.entries[index - 1].startSequence >= pair[0].startSequence)
+          ledger.entries[index - 1].finishSequence >= pair[0].startSequence)
       ) {
         throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
       }
