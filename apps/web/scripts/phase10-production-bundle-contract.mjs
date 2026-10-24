@@ -972,7 +972,7 @@ export const assertPhase10BundleEvidence = (value) => {
     !exactKeys(value.metadata.versions, ['node', 'pnpm', 'vite']) ||
     value.metadata.versions.node !== 'v22.23.0' ||
     value.metadata.versions.pnpm !== '10.2.1' ||
-    value.metadata.versions.vite !== '8.2.1' ||
+    value.metadata.versions.vite !== '8.2.4' ||
     !Array.isArray(value.graph) ||
     value.graph.length === 0 ||
     !exactKeys(value.inventory, [

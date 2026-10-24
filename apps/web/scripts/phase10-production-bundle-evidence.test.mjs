@@ -184,6 +184,14 @@ test('accepts the freshly generated closed-schema bundle evidence', async () => 
   )
 })
 
+test('rejects stale and different Vite toolchain versions', () => {
+  for (const version of ['8.2.1', '8.2.3', '8.2.5', '9.0.0']) {
+    expectRejected((candidate) => {
+      candidate.metadata.versions.vite = version
+    })
+  }
+})
+
 test('rejects inaccurate build command and environment provenance', () => {
   expectRejected((candidate) => {
     candidate.metadata.command = candidate.metadata.command.replace(
