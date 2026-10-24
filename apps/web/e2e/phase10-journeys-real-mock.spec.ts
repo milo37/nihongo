@@ -27,7 +27,7 @@ import type {
 
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
-import type { Page, Response, Route } from '@playwright/test'
+import type { JSHandle, Page, Response, Route } from '@playwright/test'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { ssoAccountCapabilitiesSchema } from '@nihongo/contracts/auth/sso-account-management'
 import { getWrongNoteResponseSchema } from '@nihongo/contracts/wrong-note/get-wrong-note'
@@ -641,22 +641,30 @@ const waitForSavedDraft = async (page: Page): Promise<void> => {
   )
 }
 
-const freezePracticeClock = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
+const freezePracticeClock = async (
+  page: Page
+): Promise<JSHandle<() => number>> =>
+  page.evaluateHandle(() => {
+    const originalNow = performance.now
     const fixedNow = performance.now()
     Object.defineProperty(performance, 'now', {
       configurable: true,
       value: () => fixedNow
     })
+    return originalNow
   })
-}
 
-const restorePracticeClock = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
-    if (!Reflect.deleteProperty(performance, 'now')) {
-      throw new Error('Failed to restore the Phase 10 practice clock.')
-    }
-  })
+const restorePracticeClock = async (
+  page: Page,
+  originalNow: JSHandle<() => number>
+): Promise<void> => {
+  await page.evaluate((originalNow) => {
+    Object.defineProperty(performance, 'now', {
+      configurable: true,
+      value: originalNow
+    })
+  }, originalNow)
+  await originalNow.dispose()
 }
 
 const answerEveryQuestionWithFirstOption = async (
@@ -668,34 +676,54 @@ const answerEveryQuestionWithFirstOption = async (
     'data-save-state',
     'idle'
   )
+  await expect(page.locator('main h1')).toBeFocused()
+  const draftPath = `/api/v1/study-sessions/${created.session.id}/draft-answers`
   for (const [index, item] of created.questions.entries()) {
     const ordinal = index + 1
     const jump = page.getByRole('button', {
       name: new RegExp(`^${ordinal}번 문제`, 'u')
     })
-    if (ordinal > 1) await jump.click()
-    await expect(jump).toHaveAttribute('data-current', 'true')
     const options = page.locator(
       `input[type="radio"][name="question-${item.question.id}"]`
     )
-    await expect(options).toHaveCount(4)
-    await expect(page.locator('main h1')).toBeFocused()
     const firstAnswer = options.first()
-    await expect(firstAnswer).toBeEnabled()
-    await expect(firstAnswer).not.toBeChecked()
-    expect(item.question.options[0]).toBeDefined()
-    await expect(firstAnswer).toHaveValue(item.question.options[0]!.id)
-    const saveResponse = waitForApiResponse(
-      page,
-      'PUT',
-      `/api/v1/study-sessions/${created.session.id}/draft-answers`
-    )
-    await firstAnswer.press('Space')
-    await expect(firstAnswer).toBeChecked()
-    await expect(page.locator('[data-save-state]')).toHaveAttribute(
-      'data-save-state',
-      /^(dirty|saving|saved)$/u
-    )
+    const savesBefore = ledgerEntriesFor(ledger, 'PUT', draftPath).length
+    expect(savesBefore).toBe(index)
+    const saveResponse = waitForApiResponse(page, 'PUT', draftPath)
+    const clockTime = Date.now()
+    await page.clock.setFixedTime(clockTime)
+    await page.clock.pauseAt(clockTime)
+    try {
+      if (ordinal > 1) await jump.click()
+      await expect(jump).toHaveAttribute('data-current', 'true')
+      await expect(options).toHaveCount(4)
+      await expect(page.locator('main h1')).toBeFocused()
+      await expect(firstAnswer).toBeEnabled()
+      await expect(firstAnswer).not.toBeChecked()
+      expect(item.question.options[0]).toBeDefined()
+      await expect(firstAnswer).toHaveValue(item.question.options[0]!.id)
+      await firstAnswer.press('Space')
+      await expect(firstAnswer).toBeChecked()
+      await expect(page.locator('[data-save-state]')).toHaveAttribute(
+        'data-save-state',
+        /^(dirty|saving|saved)$/u
+      )
+      await page.clock.runFor(749)
+      expect(ledgerEntriesFor(ledger, 'PUT', draftPath)).toHaveLength(
+        savesBefore
+      )
+      await expect(page.locator('[data-save-state]')).toHaveAttribute(
+        'data-save-state',
+        'dirty'
+      )
+      await page.clock.runFor(1)
+      await expect
+        .poll(() => ledgerEntriesFor(ledger, 'PUT', draftPath).length)
+        .toBe(savesBefore + 1)
+    } finally {
+      await page.clock.resume()
+      await page.clock.setSystemTime(Date.now())
+    }
     const [response] = await Promise.all([
       saveResponse,
       waitForSavedDraft(page)
@@ -804,7 +832,10 @@ const assertFaultRecovery = async (
 
 const startVocabularySessionThroughUi = async (
   page: Page
-): Promise<CreateStudySessionV2Response> => {
+): Promise<{
+  created: CreateStudySessionV2Response
+  originalNow: JSHandle<() => number>
+}> => {
   const bootstrap = waitForApiResponse(page, 'GET', '/api/v1/me')
   const resumable = waitForApiResponse(page, 'GET', '/api/v1/study-sessions')
   await page.goto('/practice')
@@ -841,7 +872,7 @@ const startVocabularySessionThroughUi = async (
   ).toBeChecked()
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
-  await freezePracticeClock(page)
+  const originalNow = await freezePracticeClock(page)
   const initialDraft = page
     .waitForResponse(
       (response) =>
@@ -894,12 +925,13 @@ const startVocabularySessionThroughUi = async (
   expect(
     draft.answers.every(({ selectedOptionId }) => selectedOptionId === null)
   ).toBe(true)
-  return created
+  return { created, originalNow }
 }
 
 const submitCurrentSessionThroughUi = async (
   page: Page,
   sessionId: string,
+  originalNow: JSHandle<() => number>,
   heading: '학습 결과' | '복습 완료' = '학습 결과'
 ): Promise<SubmitStudySessionV2Response> => {
   const submittedResponse = waitForApiResponse(
@@ -926,7 +958,7 @@ const submitCurrentSessionThroughUi = async (
   await expect(
     page.getByRole('heading', { name: heading, exact: true })
   ).toBeVisible()
-  await restorePracticeClock(page)
+  await restorePracticeClock(page, originalNow)
   return submitted
 }
 
@@ -1018,16 +1050,18 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   page
 }, testInfo) => {
   test.setTimeout(150_000)
+  await page.clock.install()
   await prepareJourney(page, '203.0.113.245')
   const ledger = trackRequestLedger(context)
   await page.goto('/login')
   await settleJourneyPage(page)
   await loginThroughUi(page)
-  const created = await startVocabularySessionThroughUi(page)
+  const { created, originalNow } = await startVocabularySessionThroughUi(page)
   await answerEveryQuestionWithFirstOption(page, created, ledger)
   const primarySubmission = await submitCurrentSessionThroughUi(
     page,
-    created.session.id
+    created.session.id,
+    originalNow
   )
   expect(primarySubmission).toMatchObject({
     correctCount: 2,
@@ -1143,7 +1177,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   })
   expect(targetedDraft.answers).toHaveLength(1)
   expect(targetedDraft.answers[0]?.selectedOptionId).toBeNull()
-  await freezePracticeClock(page)
+  const targetedOriginalNow = await freezePracticeClock(page)
   await answerEveryQuestionWithFirstOption(page, targeted, ledger)
   const completionState = waitForApiResponse(
     page,
@@ -1155,6 +1189,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   const targetedSubmission = await submitCurrentSessionThroughUi(
     page,
     targeted.session.id,
+    targetedOriginalNow,
     '복습 완료'
   )
   expect(targetedSubmission).toMatchObject({
