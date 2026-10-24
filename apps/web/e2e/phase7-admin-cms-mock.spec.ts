@@ -145,7 +145,9 @@ const login = async (
   ledger: RequestLedger
 ): Promise<void> => {
   await page.goto('/login')
-  await expect(page.getByRole('button', { name: /Google/u })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Google로 계속하기', exact: true })
+  ).toBeVisible()
   await expect(page.locator('input[name="password"]')).toHaveCount(0)
   const started = await browserJson(page, '/api/auth/sign-in/social', {
     provider: 'google',
@@ -607,7 +609,9 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const [started, authorizationRequest] = await Promise.all([
         startResponse,
         providerRequest,
-        winner.getByRole('button', { name: /Google/u }).click()
+        winner
+          .getByRole('button', { name: 'Google로 계속하기', exact: true })
+          .click()
       ])
       expect(
         adminFreshSsoRequestSchema.parse(
