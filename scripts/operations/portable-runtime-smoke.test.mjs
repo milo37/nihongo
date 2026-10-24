@@ -18,6 +18,9 @@ import {
   cleanupDockerResource,
   combineRuntimeSmokeErrors,
   createPostgresReadinessArguments,
+  createPostgresCertificateArguments,
+  createRuntimePublicCertificateArguments,
+  seedLearnerCompatibilityFixture,
   createRuntimeEnvironment,
   isCanonicalRuntimeAssetPath,
   readBoundedAuthResponse,
@@ -372,14 +375,45 @@ test('portable runtime environment is production-shaped without migration creden
   })
 
   assert.equal(environment.NODE_ENV, 'production')
+  assert.equal(environment.AUTH_TRUSTED_PROXY_CIDRS, '127.0.0.1/32,::1/128')
+  assert.equal(environment.NODE_EXTRA_CA_CERTS, '/certs/server.crt')
+  const validation = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      '--input-type=module',
+      '--eval',
+      `
+        import assert from 'node:assert/strict';
+        import { readFileSync } from 'node:fs';
+        import { parseApiEnvironment } from './src/config/env.ts';
+        const environment = JSON.parse(readFileSync(0, 'utf8'));
+        assert.deepEqual(parseApiEnvironment(environment).AUTH_TRUSTED_PROXY_CIDRS,
+          ['127.0.0.1/32', '::1/128']);
+        for (const value of [undefined, '', 'invalid']) {
+          assert.throws(() => parseApiEnvironment({ ...environment, AUTH_TRUSTED_PROXY_CIDRS: value }),
+            (error) => error.name === 'EnvironmentValidationError' &&
+              error.invalidFields.includes('AUTH_TRUSTED_PROXY_CIDRS'));
+        }
+      `
+    ],
+    {
+      cwd: fileURLToPath(new URL('../../apps/api', import.meta.url)),
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH ?? '' },
+      input: JSON.stringify(environment)
+    }
+  )
+  assert.ifError(validation.error)
+  assert.equal(validation.status, 0)
+  assert.equal(validation.stdout, '')
+  assert.equal(validation.stderr, '')
   assert.equal(environment.DEPLOYMENT_ENVIRONMENT, 'TEST')
   assert.equal(environment.ADMIN_CMS_MODE, 'disabled')
   assert.equal(environment.PRACTICE_CONTRACT_RUNTIME, 'v1-v2')
   assert.equal(environment.RELEASE_ID, releaseId)
-  assert.match(
-    environment.DATABASE_URL,
-    /sslmode=require&uselibpqcompat=true$/u
-  )
+  assert.match(environment.DATABASE_URL, /sslmode=verify-full$/u)
   const app = new URL(environment.DATABASE_URL)
   const gateway = new URL(environment.AUTH_GATEWAY_DATABASE_URL)
   assert.equal(app.username, 'nihongo_test_app_login')
@@ -389,6 +423,10 @@ test('portable runtime environment is production-shaped without migration creden
     gateway.searchParams.get('schema')
   )
   assert.notEqual(app.password, gateway.password)
+  for (const url of [app, gateway]) {
+    assert.deepEqual([...url.searchParams.keys()].sort(), ['schema', 'sslmode'])
+    assert.equal(url.searchParams.get('sslmode'), 'verify-full')
+  }
   assert.equal('AUTH_EMAIL_DELIVERY_MODE' in environment, false)
   assert.equal('PHASE7_MIGRATION_DATABASE_URL' in environment, false)
   assert.equal('PRODUCTION_DATABASE_URL' in environment, false)
@@ -985,4 +1023,96 @@ test('canonical seed child preserves native failure with safe stage and code onl
         assert.ok(diagnostic.includes('databaseCode=42501'))
     } else assert.equal(result.stderr, '')
   }
+})
+
+test('portable TLS command arguments bind owned DNS and loopback names and expose only the public certificate', () => {
+  const host = 'nihongo-p11-db-abc123'
+  const directory = '/owned-test-cert'
+  const argv = createPostgresCertificateArguments(host, directory)
+  assert.deepEqual(argv, [
+    'req',
+    '-x509',
+    '-newkey',
+    'rsa:2048',
+    '-sha256',
+    '-days',
+    '1',
+    '-nodes',
+    '-subj',
+    '/CN=postgres',
+    '-addext',
+    'subjectAltName=DNS:nihongo-p11-db-abc123,DNS:localhost,IP:127.0.0.1',
+    '-keyout',
+    join(directory, 'server.key'),
+    '-out',
+    join(directory, 'server.crt')
+  ])
+  assert.deepEqual(createRuntimePublicCertificateArguments(directory), [
+    '--volume',
+    join(directory, 'server.crt') + ':/certs/server.crt:ro'
+  ])
+  assert.equal(
+    createRuntimePublicCertificateArguments(directory)
+      .join(' ')
+      .includes('server.key'),
+    false
+  )
+})
+
+test('canonical seed child receives its owned public certificate before Node startup and retains the narrow environment', () => {
+  let prerequisiteChecks = 0
+  let captured
+  const source = `return (${seedLearnerCompatibilityFixture.toString()});`
+  const makeSeed = new Function(
+    'assertHostPrismaClient',
+    'run',
+    'process',
+    'join',
+    'repositoryRoot',
+    'testSetupEnvironment',
+    'canonicalSeedProgram',
+    source
+  )
+  const seed = makeSeed(
+    () => {
+      prerequisiteChecks += 1
+    },
+    (command, argv, options) => {
+      captured = { command, argv, options }
+      return { status: 0 }
+    },
+    process,
+    join,
+    '/repository',
+    () => ({ PATH: '/pinned-node' }),
+    canonicalSeedProgram
+  )
+  const migration =
+    'postgresql://migration@127.0.0.1:5432/nihongo_test?schema=phase7_test&sslmode=verify-full'
+  const application =
+    'postgresql://application@127.0.0.1:5432/nihongo_test?schema=phase7_test&sslmode=verify-full'
+  assert.deepEqual(
+    seed(migration, application, '/owned-test-cert/server.crt'),
+    { status: 0 }
+  )
+  assert.equal(prerequisiteChecks, 1)
+  assert.equal(captured.command, process.execPath)
+  assert.deepEqual(captured.argv, [
+    '--import',
+    'tsx',
+    '--input-type=module',
+    '--eval',
+    canonicalSeedProgram
+  ])
+  assert.equal(captured.options.cwd, join('/repository', 'apps/api'))
+  assert.deepEqual(captured.options.env, {
+    PATH: '/pinned-node',
+    NODE_ENV: 'test',
+    NODE_EXTRA_CA_CERTS: '/owned-test-cert/server.crt'
+  })
+  assert.deepEqual(JSON.parse(captured.options.input), {
+    databaseUrl: migration,
+    runtimeDatabaseUrl: application
+  })
+  assert.equal(captured.options.safeCanonicalSeedFailure, true)
 })

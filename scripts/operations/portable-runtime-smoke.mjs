@@ -307,10 +307,11 @@ export const createRuntimeEnvironment = ({
     throw new Error('Isolated owned-auth TEST database inputs are invalid.')
   }
   const databaseUrl = (login, password) =>
-    `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=require&uselibpqcompat=true`
+    `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=verify-full`
   return {
     ADMIN_CMS_MODE: 'disabled',
     AUTH_GATEWAY_DATABASE_URL: databaseUrl(gatewayLogin, gatewayPassword),
+    AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     BETTER_AUTH_URL: 'https://smoke.invalid',
     DATABASE_URL: databaseUrl(applicationLogin, databasePassword),
@@ -319,12 +320,42 @@ export const createRuntimeEnvironment = ({
     HOST: '0.0.0.0',
     LOG_LEVEL: 'silent',
     NODE_ENV: 'production',
+    NODE_EXTRA_CA_CERTS: '/certs/server.crt',
     PORT: '3001',
     PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     RELEASE_ID: assertReleaseId(releaseId),
     TRUSTED_ORIGINS: 'https://smoke.invalid'
   }
 }
+
+export const createPostgresCertificateArguments = (
+  databaseHost,
+  certificateDirectory
+) => [
+  'req',
+  '-x509',
+  '-newkey',
+  'rsa:2048',
+  '-sha256',
+  '-days',
+  '1',
+  '-nodes',
+  '-subj',
+  '/CN=postgres',
+  '-addext',
+  `subjectAltName=DNS:${databaseHost},DNS:localhost,IP:127.0.0.1`,
+  '-keyout',
+  join(certificateDirectory, 'server.key'),
+  '-out',
+  join(certificateDirectory, 'server.crt')
+]
+
+export const createRuntimePublicCertificateArguments = (
+  certificateDirectory
+) => [
+  '--volume',
+  `${join(certificateDirectory, 'server.crt')}:/certs/server.crt:ro`
+]
 
 export const createPostgresReadinessArguments = (
   containerName,
@@ -539,14 +570,22 @@ try {
 }
 `
 
-const seedLearnerCompatibilityFixture = (databaseUrl, runtimeDatabaseUrl) => {
+export const seedLearnerCompatibilityFixture = (
+  databaseUrl,
+  runtimeDatabaseUrl,
+  caCertificatePath
+) => {
   assertHostPrismaClient()
   return run(
     process.execPath,
     ['--import', 'tsx', '--input-type=module', '--eval', canonicalSeedProgram],
     {
       cwd: join(repositoryRoot, 'apps/api'),
-      env: { ...testSetupEnvironment(), NODE_ENV: 'test' },
+      env: {
+        ...testSetupEnvironment(),
+        NODE_ENV: 'test',
+        NODE_EXTRA_CA_CERTS: caCertificatePath
+      },
       input: JSON.stringify({ databaseUrl, runtimeDatabaseUrl }),
       failureLabel: 'Reviewed canonical65 TEST setup',
       safeCanonicalSeedFailure: true
@@ -1292,24 +1331,13 @@ export const runPortableRuntimeSmoke = async ({
 
   try {
     chmodSync(certificateDirectory, 0o711)
-    run('openssl', [
-      'req',
-      '-x509',
-      '-newkey',
-      'rsa:2048',
-      '-sha256',
-      '-days',
-      '1',
-      '-nodes',
-      '-subj',
-      '/CN=postgres',
-      '-addext',
-      'subjectAltName=DNS:postgres',
-      '-keyout',
-      join(certificateDirectory, 'server.key'),
-      '-out',
-      join(certificateDirectory, 'server.crt')
-    ])
+    run(
+      'openssl',
+      createPostgresCertificateArguments(
+        databaseContainer,
+        certificateDirectory
+      )
+    )
     chmodSync(join(certificateDirectory, 'server.key'), 0o600)
     run('docker', ['network', 'create', networkName])
     run('docker', [
@@ -1383,8 +1411,9 @@ export const runPortableRuntimeSmoke = async ({
     if (!databasePort)
       throw new Error('Unable to resolve isolated TEST database port.')
     seedLearnerCompatibilityFixture(
-      `postgresql://${migrationLogin}:${migrationPassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=require&uselibpqcompat=true`,
-      `postgresql://${applicationLogin}:${runtimePassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=require&uselibpqcompat=true`
+      `postgresql://${migrationLogin}:${migrationPassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=verify-full`,
+      `postgresql://${applicationLogin}:${runtimePassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=verify-full`,
+      join(certificateDirectory, 'server.crt')
     )
     applyCurrentMigrations(
       migrationDatabase,
@@ -1422,6 +1451,7 @@ export const runPortableRuntimeSmoke = async ({
       networkName,
       '--publish',
       '127.0.0.1::3001',
+      ...createRuntimePublicCertificateArguments(certificateDirectory),
       '--read-only',
       '--tmpfs',
       '/tmp:rw,noexec,nosuid,size=64m',
