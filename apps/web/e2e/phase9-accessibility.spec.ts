@@ -2595,7 +2595,6 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await focusByTab(page, levelSort)
   await expect(levelSort).toHaveValue('UPDATED_DESC')
   await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('Enter')
   await expect(levelSort).toHaveValue('LEVEL_ASC')
   await expect(page).toHaveURL(/(?:\?|&)sort=LEVEL_ASC(?:&|$)/u)
   await expect(
@@ -2605,12 +2604,36 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     })
   ).toHaveAttribute('aria-sort', 'ascending')
 
-  await page
-    .getByRole('combobox', { name: '급수', exact: true })
-    .selectOption('N5')
-  await page
-    .getByRole('combobox', { name: '과목', exact: true })
-    .selectOption('VOCABULARY')
+  const levelFilter = page.getByRole('combobox', {
+    name: '급수',
+    exact: true
+  })
+  await levelFilter.selectOption('N5')
+  await expect(levelFilter).toHaveValue('N5')
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/questions' &&
+      url.searchParams.get('level') === 'N5' &&
+      url.searchParams.get('sort') === 'LEVEL_ASC'
+  )
+  const subjectFilter = page.getByRole('combobox', {
+    name: '과목',
+    exact: true
+  })
+  await subjectFilter.selectOption('VOCABULARY')
+  await expect(subjectFilter).toHaveValue('VOCABULARY')
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/admin/questions' &&
+      url.searchParams.get('level') === 'N5' &&
+      url.searchParams.get('subject') === 'VOCABULARY' &&
+      url.searchParams.get('sort') === 'LEVEL_ASC'
+  )
+  await settlePage(page)
+  await waitForApiTransportQuiet(transport)
+  await expect(levelSort).toHaveValue('LEVEL_ASC')
+  await expect(levelFilter).toHaveValue('N5')
+  await expect(subjectFilter).toHaveValue('VOCABULARY')
   const fixtureRow = tableRegion.getByRole('row').filter({
     has: page.getByRole('rowheader', { name: fixture.questionId, exact: true })
   })
@@ -2625,6 +2648,21 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     questionEditPath + '?returnTo=' + encodeURIComponent(returnTo)
   )
   await focusByTab(page, detailLink)
+  await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
+  await expect(detailLink).toHaveAttribute(
+    'href',
+    questionEditPath + '?returnTo=' + encodeURIComponent(returnTo)
+  )
+  await testInfo.attach('admin-list-return-context', {
+    body: JSON.stringify({
+      returnTo,
+      href: await detailLink.getAttribute('href'),
+      level: await levelFilter.inputValue(),
+      subject: await subjectFilter.inputValue(),
+      sort: await levelSort.inputValue()
+    }),
+    contentType: 'application/json'
+  })
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(
     (url) =>
