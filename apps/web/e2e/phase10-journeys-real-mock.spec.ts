@@ -672,6 +672,8 @@ const answerEveryQuestionWithFirstOption = async (
   created: CreateStudySessionV2Response,
   ledger: RequestLedger
 ): Promise<void> => {
+  const helperStartIndex = ledger.entries.length
+  const draftLedgerPath = '/api/v1/study-sessions/:id/draft-answers'
   await expect(page.locator('[data-save-state]')).toHaveAttribute(
     'data-save-state',
     'idle'
@@ -687,7 +689,12 @@ const answerEveryQuestionWithFirstOption = async (
       `input[type="radio"][name="question-${item.question.id}"]`
     )
     const firstAnswer = options.first()
-    const savesBefore = ledgerEntriesFor(ledger, 'PUT', draftPath).length
+    const savesBefore = ledgerEntriesFor(
+      ledger,
+      'PUT',
+      draftLedgerPath,
+      helperStartIndex
+    ).length
     expect(savesBefore).toBe(index)
     const saveResponse = waitForApiResponse(page, 'PUT', draftPath)
     const clockTime = Date.now()
@@ -709,16 +716,20 @@ const answerEveryQuestionWithFirstOption = async (
         /^(dirty|saving|saved)$/u
       )
       await page.clock.runFor(749)
-      expect(ledgerEntriesFor(ledger, 'PUT', draftPath)).toHaveLength(
-        savesBefore
-      )
+      expect(
+        ledgerEntriesFor(ledger, 'PUT', draftLedgerPath, helperStartIndex)
+      ).toHaveLength(savesBefore)
       await expect(page.locator('[data-save-state]')).toHaveAttribute(
         'data-save-state',
         'dirty'
       )
       await page.clock.runFor(1)
       await expect
-        .poll(() => ledgerEntriesFor(ledger, 'PUT', draftPath).length)
+        .poll(
+          () =>
+            ledgerEntriesFor(ledger, 'PUT', draftLedgerPath, helperStartIndex)
+              .length
+        )
         .toBe(savesBefore + 1)
     } finally {
       await page.clock.resume()
@@ -738,6 +749,11 @@ const answerEveryQuestionWithFirstOption = async (
       expectedRevision: index,
       currentOrdinal: ordinal
     })
+    expect(
+      body.answers.map(({ studySessionQuestionId }) => studySessionQuestionId)
+    ).toEqual(
+      created.questions.map(({ sessionQuestionId }) => sessionQuestionId)
+    )
     expect(
       body.answers.filter(({ selectedOptionId }) => selectedOptionId !== null)
     ).toHaveLength(ordinal)
