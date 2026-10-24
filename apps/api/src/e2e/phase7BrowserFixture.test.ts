@@ -231,6 +231,66 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     await created.disconnect()
   })
 
+  it('composes the existing USER learning contract without CMS routes or fixture writes', async () => {
+    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const expectedRoutes = [
+      ['GET', '/api/v1/study-sessions'],
+      ['POST', '/api/v1/study-sessions'],
+      ['GET', '/api/v1/study-sessions/:sessionId'],
+      ['GET', '/api/v1/study-sessions/:sessionId/draft-answers'],
+      ['PUT', '/api/v1/study-sessions/:sessionId/draft-answers'],
+      ['POST', '/api/v1/study-sessions/:sessionId/submission'],
+      ['GET', '/api/v1/study-sessions/:sessionId/result'],
+      ['POST', '/api/v1/study-sessions/:sessionId/retry'],
+      ['GET', '/api/v1/dashboard'],
+      ['GET', '/api/v1/dashboard/insights'],
+      ['GET', '/api/v1/bookmarks'],
+      ['PUT', '/api/v1/bookmarks/:questionId'],
+      ['DELETE', '/api/v1/bookmarks/:questionId'],
+      ['GET', '/api/v1/wrong-notes'],
+      ['GET', '/api/v1/review-queue'],
+      ['GET', '/api/v1/wrong-notes/:questionId'],
+      ['GET', '/api/v1/wrong-notes/:questionId/review-events'],
+      ['GET', '/api/v1/wrong-notes/:questionId/memo'],
+      ['PUT', '/api/v1/wrong-notes/:questionId/memo'],
+      ['POST', '/api/v1/wrong-notes/:questionId/review-session']
+    ] as const
+    for (const [method, path] of expectedRoutes) {
+      expect(
+        created.app.routes.filter(
+          (route) => route.method === method && route.path === path
+        ),
+        method + ' ' + path
+      ).toHaveLength(1)
+    }
+    expect(
+      created.app.routes.some((route) => route.path.startsWith('/api/v1/admin'))
+    ).toBe(false)
+    expect(f.ownerQuery).not.toHaveBeenCalled()
+    expect(f.query).not.toHaveBeenCalled()
+    await created.disconnect()
+    expect(f.disconnect).toHaveBeenCalledOnce()
+    expect(f.gatewayDisconnect).toHaveBeenCalledOnce()
+  })
+
+  it.each(['/api/v1/dashboard', '/api/v1/dashboard/insights'])(
+    'keeps the USER learning route %s authenticated',
+    async (path) => {
+      const created = await createPhase7SsoBrowserApiFixture(
+        options('disabled')
+      )
+      const response = await created.app.request(path)
+      expect(response.status).toBe(401)
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+      expect(await response.json()).toMatchObject({
+        code: 'AUTHENTICATION_REQUIRED'
+      })
+      expect(f.ownerQuery).not.toHaveBeenCalled()
+      expect(f.query).not.toHaveBeenCalled()
+      await created.disconnect()
+    }
+  )
+
   it('retains the original CMS-disabled single-USER fixture without seeding or changing its provider', async () => {
     const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
     expect(f.ownerQuery).not.toHaveBeenCalled()

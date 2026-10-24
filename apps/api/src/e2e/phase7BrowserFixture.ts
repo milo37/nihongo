@@ -18,7 +18,6 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -1518,21 +1517,17 @@ const createSsoBrowserApiFixture = async (
             }
           }
         : {}),
-      ...(cms
-        ? {
-            learning: {
-              bookmarkService,
-              dashboardInsightsService,
-              dashboardService,
-              rateLimiter,
-              reviewCenterEnabled: practice.practiceContractV2Enabled,
-              reviewCenterService: wrongNoteReviewCenterService,
-              reviewQueueService: wrongNoteReviewQueueService,
-              targetedReviewService: wrongNoteTargetedReviewService,
-              wrongNoteService
-            }
-          }
-        : {}),
+      learning: {
+        bookmarkService,
+        dashboardInsightsService,
+        dashboardService,
+        rateLimiter,
+        reviewCenterEnabled: practice.practiceContractV2Enabled,
+        reviewCenterService: wrongNoteReviewCenterService,
+        reviewQueueService: wrongNoteReviewQueueService,
+        targetedReviewService: wrongNoteTargetedReviewService,
+        wrongNoteService
+      },
       auth: {
         environment,
         ...auth,
@@ -1559,31 +1554,14 @@ const createSsoBrowserApiFixture = async (
           createPrismaStudyDraftRepository(database.client)
         ),
         practiceContractV2Enabled: practice.practiceContractV2Enabled,
-        ...(cms
-          ? {
-              retryService: studyResultRetryService,
-              submissionService: studySubmissionService
-            }
-          : {}),
+        retryService: studyResultRetryService,
+        submissionService: studySubmissionService,
         rateLimiter,
         service: createStudySessionService(
           createPrismaStudySessionRepository(database.client)
         )
       }
     })
-    if (!cms) {
-      app.route(
-        '/api/v1/bookmarks',
-        createBookmarkRoutes({
-          bookmarkService: createBookmarkService(
-            createPrismaBookmarkRepository(database.client)
-          ),
-          environment,
-          principalService,
-          rateLimiter
-        })
-      )
-    }
     return {
       app,
       checkReadiness: async () => {
