@@ -221,14 +221,14 @@ export const BookmarkPage = (): ReactElement => {
             >
               {t('title')}
             </h1>
-            <span
+            <output
               className="bookmark-count"
               aria-label={t('count', {
                 formattedCount: formatCount(bookmarksQuery.data.total)
               })}
             >
               {formatCount(bookmarksQuery.data.total)}
-            </span>
+            </output>
           </div>
           <p className="bookmark-description">{t('description')}</p>
         </div>

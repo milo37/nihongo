@@ -216,7 +216,9 @@ describe('BookmarkPage pagination settlement', () => {
     const summary = (await screen.findByText(preview)).closest('summary')
     if (!summary) throw new Error('미리보기 summary가 필요합니다.')
     const details = summary.closest('details')
-    expect(screen.getByLabelText('전체 21개')).toHaveTextContent('21')
+    expect(screen.getByRole('status', { name: '전체 21개' })).toHaveTextContent(
+      '21'
+    )
     expect(screen.getByText(preview)).toBeInTheDocument()
     expect(details).not.toHaveAttribute('open')
     await interaction.click(summary)
