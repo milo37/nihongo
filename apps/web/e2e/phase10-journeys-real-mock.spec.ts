@@ -679,6 +679,24 @@ const answerEveryQuestionWithFirstOption = async (
     'idle'
   )
   await expect(page.locator('main h1')).toBeFocused()
+  const isSingleReview =
+    created.session.mode === 'WRONG_NOTE' && created.session.actualCount === 1
+  const questionMap = page.locator('.study-question-map')
+  await expect(questionMap).toHaveCount(1)
+  if (isSingleReview) {
+    expect(created.questions).toHaveLength(1)
+    await expect(page.locator('.study-review-session')).toBeVisible()
+    await expect(questionMap).toBeHidden()
+    await expect(
+      page.getByRole('link', { name: '해설로 돌아가기', exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: '답안 제출', exact: true })
+    ).toBeVisible()
+  } else {
+    await expect(page.locator('.study-review-session')).toHaveCount(0)
+    await expect(questionMap).toBeVisible()
+  }
   const draftPath = `/api/v1/study-sessions/${created.session.id}/draft-answers`
   for (const [index, item] of created.questions.entries()) {
     const ordinal = index + 1
@@ -702,9 +720,13 @@ const answerEveryQuestionWithFirstOption = async (
     await page.clock.setFixedTime(clockTime)
     await page.clock.pauseAt(clockTime)
     try {
-      await expect(jump).toHaveCount(1)
-      if (ordinal > 1) await jump.click()
-      await expect(jump).toHaveAttribute('data-current', 'true')
+      if (isSingleReview) {
+        await expect(jump).toHaveCount(0)
+      } else {
+        await expect(jump).toHaveCount(1)
+        if (ordinal > 1) await jump.click()
+        await expect(jump).toHaveAttribute('data-current', 'true')
+      }
       await expect(options).toHaveCount(4)
       await expect(page.locator('main h1')).toBeFocused()
       await expect(firstAnswer).toBeEnabled()
