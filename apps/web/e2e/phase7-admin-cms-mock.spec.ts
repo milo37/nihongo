@@ -573,18 +573,35 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     }
     context.on('response', observeReturn)
     const providerPattern = /^https:\/\/accounts\.google\.com\//u
-    await context.route(providerPattern, (route) => route.abort())
+    let releaseProviderNavigation = (): void => undefined
+    const authorizationBodyRead = new Promise<void>((resolve) => {
+      releaseProviderNavigation = resolve
+    })
+    await context.route(providerPattern, async (route) => {
+      // Keep the current document alive until its authorization body is captured.
+      await authorizationBodyRead
+      await route.abort()
+    })
     try {
       const startResponse = waitForResponse(
         winner,
         'POST',
         '/api/auth/sign-in/social'
-      )
+      ).then(async (response) => ({
+        response,
+        body: (await response.json()) as unknown
+      }))
       const providerRequest = winner.waitForRequest((request) =>
         providerPattern.test(request.url())
       )
-      await winner.getByRole('button', { name: /Google/u }).click()
-      const started = await startResponse
+      const [{ response: started, body: authorizationBody }] =
+        await Promise.all([
+          startResponse.then((result) => {
+            releaseProviderNavigation()
+            return result
+          }),
+          winner.getByRole('button', { name: /Google/u }).click()
+        ])
       await providerRequest
       expect(
         adminFreshSsoRequestSchema.parse(
@@ -602,7 +619,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/auth/sso/admin-fresh/complete'
       )
       // Only enter the TEST provider callback. The actual server 303 must load the returned admin document.
-      await winner.goto(callbackPath((await started.json()) as unknown, author))
+      await winner.goto(callbackPath(authorizationBody, author))
       const completed = await completeResponse
       expect(completed.status()).toBe(303)
       const destination = new URL(completed.headers()['location']!)
@@ -716,6 +733,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         'phase7-a1-a8-real-request-ledger'
       )
     } finally {
+      releaseProviderNavigation()
       context.off('response', observeReturn)
       await context.unroute(providerPattern)
     }

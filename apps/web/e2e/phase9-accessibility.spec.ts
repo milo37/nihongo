@@ -1246,16 +1246,30 @@ const login = async (
     )
   } else {
     const providerURL = /^https:\/\/accounts\.google\.com\//u
-    await page.route(providerURL, (route) => route.abort())
+    let releaseProviderNavigation = (): void => undefined
+    const authorizationBodyRead = new Promise<void>((resolve) => {
+      releaseProviderNavigation = resolve
+    })
+    await page.route(providerURL, async (route) => {
+      // Keep the current document alive until its authorization body is captured.
+      await authorizationBodyRead
+      await route.abort()
+    })
     try {
-      const [started] = await Promise.all([
-        socialResponse,
-        page.keyboard.press('Enter')
-      ])
+      const authorizationResponse = socialResponse.then(async (response) => ({
+        response,
+        body: (await response.json()) as unknown
+      }))
+      const [{ response: started, body: authorizationBody }] =
+        await Promise.all([
+          authorizationResponse.then((result) => {
+            releaseProviderNavigation()
+            return result
+          }),
+          page.keyboard.press('Enter')
+        ])
       expect(started.status()).toBe(200)
-      const authorization = signInSocialResponseSchema.parse(
-        await started.json()
-      )
+      const authorization = signInSocialResponseSchema.parse(authorizationBody)
       expect(
         isSsoAuthorizationURLForProvider('google', authorization.url)
       ).toBe(true)
@@ -1275,6 +1289,7 @@ const login = async (
         (url) => url.origin === origin && url.pathname === '/'
       )
     } finally {
+      releaseProviderNavigation()
       await page.unroute(providerURL)
     }
   }
