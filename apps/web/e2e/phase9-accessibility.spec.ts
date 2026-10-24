@@ -678,18 +678,33 @@ const settlePage = async (page: Page): Promise<void> => {
   await expect(page.locator('main [aria-busy="true"]')).toHaveCount(0)
 }
 
+const localeSettingsPages = new WeakMap<Page, Page>()
+
 const setLocale = async (page: Page, locale: UiLocale): Promise<void> => {
-  const localeSelect = page.locator('select[name="ui-locale"]:visible').first()
+  let settingsPage = page
+  if (new URL(page.url()).pathname.startsWith('/practice/session/')) {
+    const existingSettingsPage = localeSettingsPages.get(page)
+    if (existingSettingsPage) {
+      settingsPage = existingSettingsPage
+    } else {
+      settingsPage = await page.context().newPage()
+      await settingsPage.goto('/forbidden')
+      await settlePage(settingsPage)
+      localeSettingsPages.set(page, settingsPage)
+    }
+  }
+  const localeSelect = settingsPage.locator('select[name="ui-locale"]:visible')
   if (!(await localeSelect.isVisible())) {
-    const menuButton = page.locator(
-      'button[aria-controls="primary-navigation"]'
+    const menuButton = settingsPage.locator(
+      'button[aria-controls="account-navigation"]'
     )
     await menuButton.click()
     await expect(localeSelect).toBeVisible()
   }
   await localeSelect.selectOption(locale)
+  await expect(settingsPage.locator('html')).toHaveAttribute('lang', locale)
   await expect(page.locator('html')).toHaveAttribute('lang', locale)
-  await expect(page.locator('main h1').first()).toBeVisible()
+  await expect(page.locator('main h1')).toBeVisible()
 }
 
 const focusByTab = async (
@@ -1584,6 +1599,7 @@ const createReportFixture = async (page: Page) => {
 
   return {
     questionId: target.question.id,
+    questionText: target.question.questionText,
     report: createQuestionReportResponseSchema.parse(
       JSON.parse(response.bodyText) as unknown
     )
@@ -1608,19 +1624,36 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
 
   await page.goto('/')
   await settlePage(page)
-  const menuButton = page.locator('button[aria-controls="primary-navigation"]')
+  const menuButton = page.locator('button[aria-controls="account-navigation"]')
   await focusByTab(page, menuButton)
   await attachFocusedElementEvidence(
     page,
     testInfo,
-    'guest-mobile-menu-trigger',
+    'guest-mobile-account-trigger',
     44
   )
   await page.keyboard.press('Enter')
   await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('#account-navigation')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(menuButton).toBeFocused()
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.locator('#account-navigation')).toHaveCount(0)
+  const mobileNavigation = page.locator('#mobile-navigation')
+  await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
+  await expect(mobileNavigation.getByRole('link')).toHaveCount(3)
+  const mobilePracticeLink = mobileNavigation.locator('a[href="/practice"]')
+  await focusByTab(page, mobilePracticeLink)
+  await attachFocusedElementEvidence(
+    page,
+    testInfo,
+    'guest-mobile-primary-navigation',
+    44
+  )
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(/\/practice$/u)
+  await expect(mobilePracticeLink).toHaveAttribute('aria-current', 'page')
+  await expect(page.locator('main')).toBeFocused()
 
   await page.goto('/login?redirect=%2Fdashboard#credentials')
   await settlePage(page)
@@ -1806,7 +1839,9 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await context.setOffline(true)
   await invalidateDashboardWhileOffline(page, 'stats')
   await waitForDashboardQueryState(page, 'stats', 'paused')
-  await expect(recentPanel).toHaveText(cachedRecentResults)
+  await expect(recentPanel).toHaveText(cachedRecentResults, {
+    useInnerText: true
+  })
   await flushTransportEvidence(transport)
   expect(transport.requests).toHaveLength(requestsBeforeStatsOffline)
   await context.setOffline(false)
@@ -2342,6 +2377,12 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(missingSessionExchange.responses[0]?.status).toBe(404)
   expect(missingResultExchange.responses).toHaveLength(1)
   expect(missingResultExchange.responses[0]?.status).toBe(404)
+  const localeSettingsPage = localeSettingsPages.get(page)
+  if (localeSettingsPage) {
+    await waitForApiTransportQuiet(transport)
+    await localeSettingsPage.close()
+    localeSettingsPages.delete(page)
+  }
   await attachAndAssertTransportEvidence(
     transport,
     testInfo,
@@ -2374,16 +2415,24 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await login(page, admin, '203.0.113.242')
   const fixture = await createReportFixture(page)
 
-  const questionDetailPath = `/admin/questions/${fixture.questionId}`
+  const questionEditPath = `/admin/questions/${fixture.questionId}/edit`
+  const questionDetailPath =
+    questionEditPath + '?returnTo=' + encodeURIComponent('/admin/questions')
   const reportDetailPath = `/admin/reports/${fixture.report.id}`
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
     { label: 'admin-question-list', path: '/admin/questions' },
     { label: 'admin-question-create', path: '/admin/questions/new' },
-    { label: 'admin-question-import', path: '/admin/questions/import' },
+    {
+      label: 'admin-question-import',
+      path: '/admin/questions/import'
+    },
     { label: 'admin-question-detail', path: questionDetailPath },
-    { label: 'admin-question-edit', path: `${questionDetailPath}/edit` },
-    { label: 'admin-audit-log', path: '/admin/audit-log' },
+    { label: 'admin-question-edit', path: questionEditPath },
+    {
+      label: 'admin-audit-log',
+      path: '/admin/audit-log'
+    },
     { label: 'admin-report-list', path: '/admin/reports' },
     { label: 'admin-report-detail', path: reportDetailPath }
   ])
@@ -2408,16 +2457,10 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
       width: 320
     }
   )
-  await verifyViewport(
-    page,
-    testInfo,
-    `${questionDetailPath}/edit`,
-    'admin-edit-375',
-    {
-      height: 812,
-      width: 375
-    }
-  )
+  await verifyViewport(page, testInfo, questionEditPath, 'admin-edit-375', {
+    height: 812,
+    width: 375
+  })
   await verifyViewport(
     page,
     testInfo,
@@ -2444,28 +2487,65 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await settlePage(page)
   await setLocale(page, 'ko')
   const tableRegion = page.getByRole('region', {
-    name: '관리자 문제 목록 가로 스크롤 영역'
+    name: '관리자 문제 목록',
+    exact: true
   })
   await focusByTab(page, tableRegion)
   await expect(tableRegion).toBeFocused()
   await attachFocusedElementEvidence(page, testInfo, 'admin-question-table')
-  const levelSort = page.getByRole('button', {
-    name: '분류, 급수 오름차순으로 정렬'
+  const levelSort = page.getByRole('combobox', {
+    name: '정렬',
+    exact: true
   })
   await focusByTab(page, levelSort)
+  await expect(levelSort).toHaveValue('UPDATED_DESC')
+  await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
+  await expect(levelSort).toHaveValue('LEVEL_ASC')
   await expect(page).toHaveURL(/(?:\?|&)sort=LEVEL_ASC(?:&|$)/u)
   await expect(
     tableRegion.getByRole('columnheader', {
-      name: /^분류, 급수 오름차순 정렬됨/u
+      name: '급수',
+      exact: true
     })
   ).toHaveAttribute('aria-sort', 'ascending')
 
-  const detailLink = tableRegion.locator('a[href^="/admin/questions/"]').first()
+  await page
+    .getByRole('combobox', { name: '급수', exact: true })
+    .selectOption('N5')
+  await page
+    .getByRole('combobox', { name: '과목', exact: true })
+    .selectOption('VOCABULARY')
+  const fixtureRow = tableRegion.getByRole('row').filter({
+    has: page.getByRole('rowheader', { name: fixture.questionId, exact: true })
+  })
+  await expect(fixtureRow).toHaveCount(1)
+  const returnTo = new URL(page.url()).pathname + new URL(page.url()).search
+  const detailLink = fixtureRow.getByRole('link', {
+    name: `${fixture.questionId} 문제 상세`,
+    exact: true
+  })
+  await expect(detailLink).toHaveAttribute(
+    'href',
+    questionEditPath + '?returnTo=' + encodeURIComponent(returnTo)
+  )
   await focusByTab(page, detailLink)
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/admin\/questions\/[0-9a-f-]+$/u)
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === questionEditPath &&
+      url.searchParams.get('returnTo') === returnTo
+  )
   await expect(page.locator('main')).toBeFocused()
+  await expect(
+    page.getByRole('heading', { name: '문제 상세', exact: true })
+  ).toBeVisible()
+  const questionText = page.getByRole('textbox', { name: '질문', exact: true })
+  await expect(questionText).toHaveValue(fixture.questionText)
+  await expect(questionText).toBeDisabled()
+  await expect(
+    page.getByRole('button', { name: '변경사항 저장', exact: true })
+  ).toBeDisabled()
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
@@ -2474,23 +2554,40 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await settlePage(page)
   await waitForApiTransportQuiet(transport)
 
-  await page.goto(questionDetailPath)
+  const returnLink = page
+    .getByRole('navigation', { name: '현재 위치', exact: true })
+    .getByRole('link', { name: '문제 관리', exact: true })
+  await expect(returnLink).toHaveAttribute('href', returnTo)
+  await focusByTab(page, returnLink)
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
   await settlePage(page)
-  await setLocale(page, 'ko')
-  const retireTrigger = page.getByRole('button', {
-    name: '공개 중단',
+  const archiveTrigger = fixtureRow.getByRole('button', {
+    name: `${fixture.questionId} 문제 보관`,
     exact: true
   })
-  await focusByTab(page, retireTrigger)
+  await focusByTab(page, archiveTrigger)
   await page.keyboard.press('Enter')
-  const commandDialog = page.getByRole('dialog', { name: '공개 중단 확인' })
+  const commandDialog = page.getByRole('dialog', {
+    name: '문제를 보관하시겠습니까?',
+    exact: true
+  })
   await expect(commandDialog).toBeVisible()
   await expect(
-    commandDialog.getByRole('button', { name: '명시적으로 실행' })
+    commandDialog.getByRole('heading', {
+      name: '문제를 보관하시겠습니까?',
+      exact: true
+    })
   ).toBeFocused()
+  await expect(commandDialog).toContainText(
+    `${fixture.questionId} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.`
+  )
+  await expect(
+    commandDialog.getByRole('button', { name: '문제 보관', exact: true })
+  ).toBeEnabled()
   await page.keyboard.press('Escape')
   await expect(commandDialog).toBeHidden()
-  await expect(retireTrigger).toBeFocused()
+  await expect(archiveTrigger).toBeFocused()
 
   await flushTransportEvidence(transport)
   const adminCreateSessionExchange = getApiExchanges(
