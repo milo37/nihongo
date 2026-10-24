@@ -10,5 +10,10 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.integration.test.ts", "src/e2e/**"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.integration.test.ts",
+    "src/e2e/**",
+    "src/db/fixtures/**"
+  ]
 }
