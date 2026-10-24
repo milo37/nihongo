@@ -415,6 +415,8 @@ jobs:
           pnpm run release:manifest --mode verify --input "$PHASE11_RELEASE_EVIDENCE_DIR/release-manifest.json"
           pnpm run release:evidence --mode create --release-id "$GITHUB_SHA" --image-id "$image_id" --manifest "$PHASE11_RELEASE_EVIDENCE_DIR/release-manifest.json" --output "$PHASE11_RELEASE_EVIDENCE_DIR/oci-evidence.json"
           pnpm run release:evidence --mode verify --input "$PHASE11_RELEASE_EVIDENCE_DIR/oci-evidence.json"
+          # Generate only the host TEST seed client after the image is frozen.
+          pnpm run db:generate
           pnpm run release:runtime-smoke --image "$image_id" --expected-image-id "$image_id" --release-id "$GITHUB_SHA" --output "$PHASE11_RELEASE_EVIDENCE_DIR/runtime-smoke.json"
           pnpm run release:runtime-smoke --mode verify --expected-image-id "$image_id" --input "$PHASE11_RELEASE_EVIDENCE_DIR/runtime-smoke.json"
           for name in release-manifest.json oci-evidence.json runtime-smoke.json; do

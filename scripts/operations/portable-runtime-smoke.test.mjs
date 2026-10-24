@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import process from 'node:process'
 import {
   cpSync,
   mkdtempSync,
+  mkdirSync,
   rmSync,
   symlinkSync,
   writeFileSync
@@ -28,6 +31,8 @@ import {
   runStatefulAuthCompatibilityProbe,
   controlledSessionProgram,
   canonicalSeedProgram,
+  assertHostPrismaClient,
+  readSafeCanonicalSeedFailure,
   validateLearnerBookmark,
   validateLearnerQuestionSummary,
   validateStatefulPrincipal,
@@ -862,5 +867,122 @@ test('portable runtime evidence CLI rejects ambiguous and linked input', async (
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
+  }
+})
+
+test('host seed prerequisite and diagnostics never include arbitrary child output', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'nihongo-host-prisma-'))
+  const sentinel =
+    'postgresql://private:private-token@203.0.113.9/private?password=secret'
+  try {
+    assert.throws(
+      () => assertHostPrismaClient(directory),
+      /HOST_PRISMA_CLIENT_UNAVAILABLE/u
+    )
+    mkdirSync(join(directory, 'src/generated/prisma'), { recursive: true })
+    writeFileSync(
+      join(directory, 'src/generated/prisma/client.ts'),
+      '// TEST placeholder'
+    )
+    assert.doesNotThrow(() => assertHostPrismaClient(directory))
+    assert.equal(
+      readSafeCanonicalSeedFailure(sentinel),
+      'phase=host-seed code=UNCLASSIFIED'
+    )
+    for (const record of [
+      { phase: sentinel, code: 'P2010' },
+      { phase: 'canonical-seed', code: sentinel },
+      { phase: 'canonical-seed', code: 'P2010', databaseCode: sentinel },
+      { phase: 'canonical-seed', code: 'P2010', message: sentinel }
+    ]) {
+      const result = readSafeCanonicalSeedFailure(
+        'PORTABLE_TEST_SETUP ' + JSON.stringify(record)
+      )
+      assert.equal(result, 'phase=host-seed code=UNCLASSIFIED')
+      assert.equal(result.includes(sentinel), false)
+    }
+    assert.equal(
+      readSafeCanonicalSeedFailure(
+        'PORTABLE_TEST_SETUP ' +
+          JSON.stringify({
+            phase: 'canonical-seed',
+            code: 'P2010',
+            databaseCode: '42501'
+          })
+      ),
+      'phase=canonical-seed code=P2010 databaseCode=42501'
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
+})
+
+test('canonical seed child preserves native failure with safe stage and code only', () => {
+  const sentinel =
+    'postgresql://private:private-token@127.0.0.1:1/private?password=secret'
+  const prelude =
+    "\nconst scenario = JSON.parse(process.env.PORTABLE_SEED_STUB_SCENARIO);\nconst secretError = (code, databaseCode) => Object.assign(new Error('private-token postgresql://private:password@127.0.0.1/secret SQL parameter'), { code, meta: { code: databaseCode } });\nclass PrismaClient {\n  async $transaction(callback) {\n    return await callback({\n      $executeRawUnsafe: async () => 0,\n      $queryRawUnsafe: async () => [{ role: 'nihongo_phase7_owner', login: 'nihongo_test_phase7_migration_login' }]\n    });\n  }\n  async $queryRawUnsafe() { return [{ role: 'nihongo_phase7_migration' }]; }\n  async $disconnect() { if (scenario.disconnectCode) throw secretError(scenario.disconnectCode); }\n}\nconst loadModule = async (name) => {\n  if (scenario.importCode) throw secretError(scenario.importCode);\n  if (name === '@prisma/adapter-pg') return { PrismaPg: class {} };\n  if (name === './src/generated/prisma/client.ts') return { PrismaClient };\n  if (name === './prisma/seedQuestionCatalog.ts') return {\n    seedQuestionCatalog: async () => {\n      if (scenario.seedCode) throw secretError(scenario.seedCode, scenario.databaseCode);\n      return { insertedCount: scenario.insertedCount ?? 65, verifiedCount: 0 };\n    }\n  };\n  if (name === './src/db/databaseTargetGuard.ts') return { assertSafePhase7MigrationDatabase: () => {} };\n  if (name === './src/db/databaseOptions.ts') return {\n    createPostgresStartupOptions: () => '',\n    getPostgresSchema: (value) => new URL(value).searchParams.get('schema')\n  };\n  throw new Error('Unexpected stub module.');\n};\n"
+  const body = canonicalSeedProgram.replaceAll(
+    'await import(',
+    'await loadModule('
+  )
+  assert.equal(body.includes('await import('), false)
+  for (const scenario of [
+    {
+      importCode: 'ERR_MODULE_NOT_FOUND',
+      phase: 'host-prisma-adapter',
+      code: 'ERR_MODULE_NOT_FOUND'
+    },
+    {
+      seedCode: 'P2010',
+      databaseCode: '42501',
+      phase: 'canonical-seed',
+      code: 'P2010'
+    },
+    {
+      seedCode: 'private-token',
+      phase: 'canonical-seed',
+      code: 'UNCLASSIFIED'
+    },
+    { insertedCount: 64, phase: 'seed-count', code: 'UNCLASSIFIED' },
+    { disconnectCode: 'P1017', phase: 'disconnect', code: 'P1017' },
+    {
+      seedCode: 'P2010',
+      disconnectCode: 'P1017',
+      phase: 'canonical-seed',
+      code: 'P2010'
+    },
+    { success: true }
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      ['--input-type=module', '--eval', prelude + body],
+      {
+        encoding: 'utf8',
+        input: JSON.stringify({
+          databaseUrl:
+            'postgresql://test:private-token@127.0.0.1:1/nihongo_test?schema=phase7_' +
+            'a'.repeat(32) +
+            '_test',
+          runtimeDatabaseUrl: sentinel
+        }),
+        env: {
+          ...process.env,
+          PORTABLE_SEED_STUB_SCENARIO: JSON.stringify(scenario)
+        }
+      }
+    )
+    assert.ifError(result.error)
+    assert.equal(result.status, scenario.success ? 0 : 1)
+    assert.equal(result.stdout, '')
+    assert.equal(result.stderr.includes('private-token'), false)
+    assert.equal(result.stderr.includes('postgresql://'), false)
+    if (!scenario.success) {
+      const diagnostic = readSafeCanonicalSeedFailure(result.stderr)
+      assert.ok(diagnostic.includes('phase=' + scenario.phase), diagnostic)
+      assert.ok(diagnostic.includes('code=' + scenario.code), diagnostic)
+      if (scenario.databaseCode)
+        assert.ok(diagnostic.includes('databaseCode=42501'))
+    } else assert.equal(result.stderr, '')
   }
 })

@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   assertPhase9SnapshotContract,
   assertPhase9RateLimitContract,
+  readPhase9RateLimitDiagnostic,
   phase9DatabaseTables,
   phase9ExpectedTableDeltas,
   phase9ExpectedRateLimitCategories
@@ -143,7 +144,7 @@ test('rejects a retired email sign-in rate-limit key', () => {
   row.key = row.key.replace('/social:', '/email:')
   assert.throws(
     () => assertPhase9RateLimitContract(before, after),
-    /unexpected rate-limit category application:auth:\/api\/auth\/sign-in\/email/u
+    /unexpected rate-limit category/u
   )
 })
 
@@ -170,5 +171,126 @@ test('rejects a repeated Google callback consumption', () => {
   assert.throws(
     () => assertPhase9RateLimitContract(before, after),
     /callback\/google request count/u
+  )
+})
+
+test('current two-actor rate-limit model is exact and rejects cardinality drift', () => {
+  assert.equal(Object.keys(phase9ExpectedRateLimitCategories).length, 20)
+  assert.equal(phase9ExpectedRateLimitCategories['application:study-read'], 2)
+  assert.equal(
+    phase9ExpectedRateLimitCategories['application:dashboard-insights-read'],
+    2
+  )
+  assert.equal(
+    phase9ExpectedRateLimitCategories['application:wrong-note-memo-read'],
+    0
+  )
+  assert.equal(
+    Object.values(phase9ExpectedRateLimitCategories).reduce(
+      (sum, count) => sum + count,
+      0
+    ),
+    25
+  )
+  assert.equal(phase9ExpectedTableDeltas.RateLimit, 25)
+  for (const category of [
+    'application:study-read',
+    'application:dashboard-insights-read'
+  ]) {
+    for (const count of [1, 3]) {
+      const { before, after } = createRateLimitSnapshots()
+      after.rateLimitRows = after.rateLimitRows.filter(
+        ({ key }) => !key.startsWith(category + ':')
+      )
+      after.rateLimitRows.push(
+        ...Array.from({ length: count }, (_, index) => ({
+          key: category + ':' + fingerprint((index + 1).toString(16)),
+          count: 1
+        }))
+      )
+      assert.throws(
+        () => assertPhase9RateLimitContract(before, after),
+        /new rate-limit key count/u
+      )
+    }
+  }
+  const { before, after } = createRateLimitSnapshots()
+  after.rateLimitRows[0] = {
+    key: 'application:wrong-note-memo-read:' + fingerprint('f'),
+    count: 1
+  }
+  assert.throws(
+    () => assertPhase9RateLimitContract(before, after),
+    /rate-limit categories/u
+  )
+})
+
+test('rate-limit failure diagnostics expose allowed category counts without row identities', () => {
+  const sentinel =
+    'postgresql://private:password@203.0.113.9/secret?token=private-token'
+  const { before, after } = createRateLimitSnapshots()
+  before.rateLimitRows.push({
+    key: 'application:study-read:' + fingerprint('a'),
+    count: 42
+  })
+  after.rateLimitRows.push(
+    ...before.rateLimitRows,
+    { key: 'application:' + sentinel + ':' + fingerprint('b'), count: 43 },
+    { key: sentinel, count: 44 }
+  )
+  const diagnostic = readPhase9RateLimitDiagnostic(before, after)
+  assert.equal(diagnostic.expectedTotal, 25)
+  assert.equal(diagnostic.before.total, 1)
+  assert.equal(diagnostic.after.total, 28)
+  assert.equal(diagnostic.newKeys.total, 27)
+  assert.equal(diagnostic.newKeys.categories['application:study-read'], 2)
+  assert.equal(diagnostic.newKeys.unknown, 1)
+  assert.equal(diagnostic.newKeys.invalidShape, 1)
+  assert.equal(JSON.stringify(diagnostic).includes(sentinel), false)
+  assert.equal(JSON.stringify(diagnostic).includes(fingerprint('a')), false)
+  assert.throws(
+    () => assertPhase9RateLimitContract(before, after),
+    (error) => {
+      assert.match(
+        error.message,
+        /new rate-limit key count: expected 25, received 27/u
+      )
+      assert.ok(error.message.includes('rate-limit-diagnostic='))
+      assert.equal(error.message.includes(sentinel), false)
+      return true
+    }
+  )
+  for (const badKey of [
+    sentinel,
+    'application:' + sentinel + ':' + fingerprint('b')
+  ]) {
+    const sample = createRateLimitSnapshots()
+    sample.after.rateLimitRows[0] = { key: badKey, count: 1 }
+    assert.throws(
+      () => assertPhase9RateLimitContract(sample.before, sample.after),
+      (error) => {
+        assert.match(
+          error.message,
+          /unexpected rate-limit (?:key shape|category)/u
+        )
+        assert.equal(error.message.includes(sentinel), false)
+        return true
+      }
+    )
+  }
+  const snapshot = createSnapshots()
+  snapshot.after.rateLimitRows = after.rateLimitRows
+  snapshot.after.tables.RateLimit.count += 1
+  assert.throws(
+    () => assertPhase9SnapshotContract(snapshot.before, snapshot.after),
+    (error) => {
+      assert.match(
+        error.message,
+        /RateLimit count delta: expected 25, received 26/u
+      )
+      assert.ok(error.message.includes('rate-limit-diagnostic='))
+      assert.equal(error.message.includes(sentinel), false)
+      return true
+    }
   )
 })

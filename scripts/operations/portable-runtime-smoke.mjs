@@ -6,7 +6,8 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
-  rmSync
+  rmSync,
+  statSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -53,6 +54,102 @@ const assertExactKeys = (value, expectedKeys, label) => {
 export const isCanonicalRuntimeAssetPath = (path) =>
   isCanonicalViteAssetPath(path)
 
+const canonicalSeedPhases = new Set([
+  'host-input',
+  'host-prisma-adapter',
+  'host-prisma-client',
+  'host-seed-module',
+  'host-guard-module',
+  'host-options-module',
+  'test-target',
+  'client-setup',
+  'seed-transaction',
+  'seed-owner-role',
+  'canonical-seed',
+  'seed-count',
+  'seed-role-boundary',
+  'disconnect',
+  'host-seed'
+])
+const canonicalSeedErrorCodes = new Set([
+  'ERR_MODULE_NOT_FOUND',
+  'ERR_PACKAGE_PATH_NOT_EXPORTED',
+  'ERR_UNKNOWN_FILE_EXTENSION',
+  'ERR_DLOPEN_FAILED',
+  'P1000',
+  'P1001',
+  'P1002',
+  'P1003',
+  'P1010',
+  'P1012',
+  'P1014',
+  'P1017',
+  'P2002',
+  'P2003',
+  'P2010',
+  'P2021',
+  'P2022',
+  'P2024',
+  'P2034',
+  '42501',
+  '42P01',
+  '42703',
+  '40001',
+  '40P01',
+  '28P01',
+  '08006',
+  'UNCLASSIFIED'
+])
+
+export const readSafeCanonicalSeedFailure = (stderr) => {
+  for (const line of (typeof stderr === 'string' ? stderr : '').split('\n')) {
+    if (!line.startsWith('PORTABLE_TEST_SETUP ')) continue
+    try {
+      const value = JSON.parse(line.slice('PORTABLE_TEST_SETUP '.length))
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+      const keys = Object.keys(value).sort().join(',')
+      if (keys !== 'code,phase' && keys !== 'code,databaseCode,phase') continue
+      if (
+        !canonicalSeedPhases.has(value.phase) ||
+        !canonicalSeedErrorCodes.has(value.code)
+      )
+        continue
+      if (
+        value.databaseCode !== undefined &&
+        !canonicalSeedErrorCodes.has(value.databaseCode)
+      )
+        continue
+      return (
+        'phase=' +
+        value.phase +
+        ' code=' +
+        value.code +
+        (value.databaseCode ? ' databaseCode=' + value.databaseCode : '')
+      )
+    } catch {
+      // Unframed or malformed child output is never included in diagnostics.
+    }
+  }
+  return 'phase=host-seed code=UNCLASSIFIED'
+}
+
+export const assertHostPrismaClient = (
+  apiDirectory = join(repositoryRoot, 'apps/api')
+) => {
+  let ready = false
+  try {
+    ready = statSync(
+      join(apiDirectory, 'src/generated/prisma/client.ts')
+    ).isFile()
+  } catch {
+    // Report only the fixed prerequisite path, never a filesystem error payload.
+  }
+  if (!ready)
+    throw new Error(
+      'Reviewed canonical65 TEST setup failed: phase=host-prisma-client code=HOST_PRISMA_CLIENT_UNAVAILABLE path=apps/api/src/generated/prisma/client.ts; run pnpm run db:generate on the host.'
+    )
+}
+
 const run = (command, argumentsList, options = {}) => {
   const result = spawnSync(command, argumentsList, {
     cwd: options.cwd ?? repositoryRoot,
@@ -64,9 +161,11 @@ const run = (command, argumentsList, options = {}) => {
   })
   if (result.error) throw result.error
   if (result.status !== 0 && !options.allowFailure) {
-    const stderrTail = options.includeStderr
-      ? (result.stderr ?? '').trim().slice(-2_000)
-      : ''
+    const stderrTail = options.safeCanonicalSeedFailure
+      ? readSafeCanonicalSeedFailure(result.stderr)
+      : options.includeStderr
+        ? (result.stderr ?? '').trim().slice(-2_000)
+        : ''
     throw new Error(
       `${options.failureLabel ?? command} failed with exit code ${result.status ?? 'unknown'}.` +
         (stderrTail ? `\n${stderrTail}` : '')
@@ -373,26 +472,46 @@ const applyCurrentMigrations = (
 // TEST setup stays on the host; the production image and server are unchanged.
 export const canonicalSeedProgram = `
 import { readFileSync } from 'node:fs';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from './src/generated/prisma/client.ts';
-import { seedQuestionCatalog } from './prisma/seedQuestionCatalog.ts';
-import { assertSafePhase7MigrationDatabase } from './src/db/databaseTargetGuard.ts';
-import { createPostgresStartupOptions, getPostgresSchema } from './src/db/databaseOptions.ts';
-const { databaseUrl, runtimeDatabaseUrl } = JSON.parse(readFileSync(0, 'utf8'));
-const migrationUrl = new URL(databaseUrl);
-migrationUrl.searchParams.set('options', '-c role=nihongo_phase7_migration');
-const productionSentinel = new URL(databaseUrl);
-productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
-productionSentinel.search = '';
-assertSafePhase7MigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
-  runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
-const schema = getPostgresSchema(databaseUrl);
-if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
-  throw new Error('Controlled TEST seed target is invalid.');
-const client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
-  options: createPostgresStartupOptions(schema, 'nihongo_phase7_migration') }, { schema }) });
+let phase = 'host-input';
+let client;
+const allowedCodes = new Set(${JSON.stringify([...canonicalSeedErrorCodes])});
+const reportFailure = (error) => {
+  const code = allowedCodes.has(error?.code) ? error.code : 'UNCLASSIFIED';
+  const databaseCode = allowedCodes.has(error?.meta?.code) ? error.meta.code : undefined;
+  process.stderr.write('PORTABLE_TEST_SETUP ' + JSON.stringify({
+    phase, code, ...(databaseCode ? { databaseCode } : {})
+  }) + '\\n');
+  process.exitCode = 1;
+};
 try {
+  const { databaseUrl, runtimeDatabaseUrl } = JSON.parse(readFileSync(0, 'utf8'));
+  phase = 'host-prisma-adapter';
+  const { PrismaPg } = await import('@prisma/adapter-pg');
+  phase = 'host-prisma-client';
+  const { PrismaClient } = await import('./src/generated/prisma/client.ts');
+  phase = 'host-seed-module';
+  const { seedQuestionCatalog } = await import('./prisma/seedQuestionCatalog.ts');
+  phase = 'host-guard-module';
+  const { assertSafePhase7MigrationDatabase } = await import('./src/db/databaseTargetGuard.ts');
+  phase = 'host-options-module';
+  const { createPostgresStartupOptions, getPostgresSchema } = await import('./src/db/databaseOptions.ts');
+  phase = 'test-target';
+  const migrationUrl = new URL(databaseUrl);
+  migrationUrl.searchParams.set('options', '-c role=nihongo_phase7_migration');
+  const productionSentinel = new URL(databaseUrl);
+  productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
+  productionSentinel.search = '';
+  assertSafePhase7MigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
+    runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
+  const schema = getPostgresSchema(databaseUrl);
+  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
+    throw new Error('Controlled TEST seed target is invalid.');
+  phase = 'client-setup';
+  client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
+    options: createPostgresStartupOptions(schema, 'nihongo_phase7_migration') }, { schema }) });
+  phase = 'seed-transaction';
   const result = await client.$transaction(async (transaction) => {
+    phase = 'seed-owner-role';
     await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_phase7_owner');
     const roles = await transaction.$queryRawUnsafe('SELECT current_user AS role, session_user AS login');
     if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_owner' || roles[0].login !== 'nihongo_test_phase7_migration_login')
@@ -400,27 +519,40 @@ try {
     const scoped = new Proxy(transaction, { get(target, property, receiver) {
       return property === '$transaction' ? async (callback) => await callback(transaction) : Reflect.get(target, property, receiver);
     } });
+    phase = 'canonical-seed';
     return await seedQuestionCatalog(scoped);
   }, { isolationLevel: 'Serializable', maxWait: 10000, timeout: 60000 });
+  phase = 'seed-count';
   if (result.insertedCount !== 65 || result.verifiedCount !== 0)
     throw new Error('Controlled TEST canonical seed count is invalid.');
+  phase = 'seed-role-boundary';
   const roles = await client.$queryRawUnsafe('SELECT current_user AS role');
   if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_migration')
     throw new Error('Controlled TEST seed role boundary did not close.');
-} finally { await client.$disconnect(); }
+} catch (error) {
+  reportFailure(error);
+} finally {
+  if (client) {
+    phase = 'disconnect';
+    try { await client.$disconnect(); } catch (error) { reportFailure(error); }
+  }
+}
 `
 
-const seedLearnerCompatibilityFixture = (databaseUrl, runtimeDatabaseUrl) =>
-  run(
+const seedLearnerCompatibilityFixture = (databaseUrl, runtimeDatabaseUrl) => {
+  assertHostPrismaClient()
+  return run(
     process.execPath,
     ['--import', 'tsx', '--input-type=module', '--eval', canonicalSeedProgram],
     {
       cwd: join(repositoryRoot, 'apps/api'),
       env: { ...testSetupEnvironment(), NODE_ENV: 'test' },
       input: JSON.stringify({ databaseUrl, runtimeDatabaseUrl }),
-      failureLabel: 'Reviewed canonical65 TEST setup'
+      failureLabel: 'Reviewed canonical65 TEST setup',
+      safeCanonicalSeedFailure: true
     }
   )
+}
 
 export const controlledSessionProgram = `
 import { createRoleDatabaseRuntime } from '/app/api/dist/db/database.js';

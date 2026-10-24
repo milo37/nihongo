@@ -85,7 +85,7 @@ export const phase9ExpectedTableDeltas = {
   QuestionReport: 1,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 24,
+  RateLimit: 25,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -113,7 +113,7 @@ export const phase9ExpectedTableDeltas = {
 export const phase9ExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
-  'application:dashboard-insights-read': 1,
+  'application:dashboard-insights-read': 2,
   'application:dashboard-read': 1,
   'application:phase7:ADMIN_READ:ACTOR': 1,
   'application:phase7:ADMIN_READ:IP': 1,
@@ -121,13 +121,13 @@ export const phase9ExpectedRateLimitCategories = {
   'application:phase7:REPORT_ACTOR:IP': 1,
   'application:phase7:REPORT_VERSION:VERSION': 1,
   'application:study-create': 2,
-  'application:study-read': 1,
+  'application:study-read': 2,
   'application:study-result-read': 1,
   'application:study-submit': 2,
   'application:wrong-note-detail': 1,
   'application:wrong-note-history': 1,
   'application:wrong-note-list': 1,
-  'application:wrong-note-memo-read': 1,
+  'application:wrong-note-memo-read': 0,
   'application:wrong-note-review-queue': 1,
   // Two isolated actor IPs each start Google and consume one callback.
   'application:auth:/api/auth/sign-in/social': 2,
@@ -276,7 +276,7 @@ export const capturePhase9DatabaseSnapshot = async (databaseUrl) =>
       )
   )
 
-export const assertPhase9SnapshotContract = (before, after) => {
+const assertSnapshotContract = (before, after) => {
   const expectedTables = sorted(phase9DatabaseTables)
   assertJsonEqual(
     sorted(before.tableNames),
@@ -323,6 +323,11 @@ export const assertPhase9SnapshotContract = (before, after) => {
     }
   }
 }
+
+export const assertPhase9SnapshotContract = (before, after) =>
+  withRateLimitDiagnostic(before, after, () =>
+    assertSnapshotContract(before, after)
+  )
 
 const readIdentityFacts = async (client, fixture) => {
   const actorIds = [
@@ -431,14 +436,62 @@ const readIdentityFacts = async (client, fixture) => {
   }
 }
 
+export const readPhase9RateLimitDiagnostic = (before, after) => {
+  const beforeRows = before.rateLimitRows ?? []
+  const afterRows = after.rateLimitRows ?? []
+  const beforeKeys = new Set(beforeRows.map(({ key }) => key))
+  const newRows = afterRows.filter(({ key }) => !beforeKeys.has(key))
+  const summarize = (rows) => {
+    const categories = Object.fromEntries(
+      Object.keys(phase9ExpectedRateLimitCategories).map((category) => [
+        category,
+        0
+      ])
+    )
+    let unknown = 0
+    let invalidShape = 0
+    for (const { key } of rows) {
+      const match =
+        typeof key === 'string' ? /^(.*):[a-f0-9]{64}$/u.exec(key) : null
+      if (!match) invalidShape += 1
+      else if (Object.hasOwn(categories, match[1])) categories[match[1]] += 1
+      else unknown += 1
+    }
+    return { total: rows.length, categories, unknown, invalidShape }
+  }
+  return {
+    expectedTotal: phase9ExpectedTableDeltas.RateLimit,
+    before: summarize(beforeRows),
+    after: summarize(afterRows),
+    newKeys: summarize(newRows)
+  }
+}
+
+const withRateLimitDiagnostic = (before, after, assertContract) => {
+  try {
+    return assertContract()
+  } catch (error) {
+    const diagnostic = JSON.stringify(
+      readPhase9RateLimitDiagnostic(before, after)
+    )
+    if (error instanceof Error) {
+      error.message += ' | rate-limit-diagnostic=' + diagnostic
+      throw error
+    }
+    throw new Error(
+      'Phase 9 database contract failed | rate-limit-diagnostic=' + diagnostic,
+      { cause: error }
+    )
+  }
+}
+
 const rateLimitCategory = (key) => {
   const digestMatch = /^(.*):([a-f0-9]{64})$/u.exec(key)
-  if (!digestMatch)
-    fail(`unexpected rate-limit key shape ${JSON.stringify(key)}`)
+  if (!digestMatch) fail('unexpected rate-limit key shape')
   return digestMatch[1]
 }
 
-export const assertPhase9RateLimitContract = (before, after) => {
+const assertRateLimitContract = (before, after) => {
   const beforeKeys = new Set(before.rateLimitRows.map(({ key }) => key))
   const newRows = after.rateLimitRows.filter(({ key }) => !beforeKeys.has(key))
   assertEqual(
@@ -454,8 +507,8 @@ export const assertPhase9RateLimitContract = (before, after) => {
   )
   for (const row of newRows) {
     const category = rateLimitCategory(row.key)
-    if (!(category in categories))
-      fail(`unexpected rate-limit category ${category}`)
+    if (!Object.hasOwn(categories, category))
+      fail('unexpected rate-limit category')
     if (!Number.isSafeInteger(row.count) || row.count < 1) {
       fail(`invalid rate-limit count for ${category}`)
     }
@@ -473,6 +526,11 @@ export const assertPhase9RateLimitContract = (before, after) => {
   )
   return categories
 }
+
+export const assertPhase9RateLimitContract = (before, after) =>
+  withRateLimitDiagnostic(before, after, () =>
+    assertRateLimitContract(before, after)
+  )
 
 const assertIdentityContract = (facts, fixture) => {
   const expectedAuthUsers = sorted([

@@ -117,6 +117,15 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     /Build and verify portable Phase 11 OCI release/u
   )
   assert.match(releaseJob, /needs: \[build, e2e\]/u)
+  assertInOrder(releaseJob, [
+    'test -z "$(git status --porcelain --untracked-files=all)"',
+    'docker build --build-arg',
+    'pnpm run release:evidence --mode verify',
+    'pnpm run db:generate',
+    'pnpm run release:runtime-smoke --image'
+  ])
+  assert.equal(releaseJob.split('pnpm run db:generate').length - 1, 1)
+
   assertInOrder(workflow, [
     'run: pnpm run test:phase10:static',
     'run: pnpm run test:phase11:static',
