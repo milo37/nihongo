@@ -1006,7 +1006,7 @@ export const runStatefulAuthCompatibilityProbe = async ({
         JOIN "AuthSessionFamily" f ON f."userId" = u."id" AND f."id" = s."sessionFamilyId"
         WHERE a."providerId" = 'google' AND a."accountId" = 'phase11-${suffix}' AND a."password" IS NULL
           AND u."accountStatus" = 'ACTIVE' AND u."targetLevel" = 'N5' AND u."role" = 'USER'
-          AND s."issuerProtocolVersion" = 'V1' AND s."authorizationState" = 'ACTIVE'
+          AND s."issuerProtocolVersion" = 'PHASE7_V1' AND s."authorizationState" = 'ACTIVE'
           AND s."authorityGeneration" = u."authorityGeneration" AND s."expiresAt" > clock_timestamp()
           AND f."status" = 'ACTIVE' AND (SELECT count(*) FROM "User") = 1
           AND (SELECT count(*) FROM "Account") = 1 AND (SELECT count(*) FROM "Session") = 1;`,

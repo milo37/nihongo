@@ -590,6 +590,14 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
   assert.match(nativeCalls[0].options.input, /createSsoIdentityRepository/u)
   assert.match(
     nativeCalls[1].options.input,
+    /s\."issuerProtocolVersion" = 'PHASE7_V1'/u
+  )
+  assert.doesNotMatch(
+    nativeCalls[1].options.input,
+    /s\."issuerProtocolVersion" = '(?:V1|LEGACY)'/u
+  )
+  assert.match(
+    nativeCalls[1].options.input,
     /s\."authorityGeneration" = u\."authorityGeneration"/u
   )
   assert.deepEqual(result.statefulAuth, {
