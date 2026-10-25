@@ -135,6 +135,69 @@ describe('application limiter denial cost without changing admission budgets', (
     expect(f.read).not.toHaveBeenCalled()
   })
 
+  it.each([1_001, 61_001])(
+    'admits an earlier request when a later window completes at %d',
+    async (completionTime) => {
+      const f = fixture()
+      const input = { ...f.input, max: 20 }
+      let completeFirst!: (rows: Row[]) => void
+      f.query
+        .mockImplementationOnce(
+          () =>
+            new Promise<Row[]>((resolve) => {
+              completeFirst = resolve
+            })
+        )
+        .mockResolvedValueOnce([{ count: 1, lastRequest: 1_001n }])
+
+      const first = f.limiter.consume(input)
+      f.at(1_001)
+      await expect(f.limiter.consume(input)).resolves.toBeUndefined()
+      f.at(completionTime)
+      completeFirst([{ count: 2, lastRequest: 1_001n }])
+      await expect(first).resolves.toBeUndefined()
+
+      expect(f.query.mock.calls[0]![0].values).toContain(1_000n)
+      expect(f.query.mock.calls[1]![0].values).toContain(1_001n)
+      expect(f.query).toHaveBeenCalledTimes(2)
+      expect(f.read).not.toHaveBeenCalled()
+    }
+  )
+
+  it('uses the cold read completion time when another worker resets an exhausted window', async () => {
+    const f = fixture()
+    const peer = fixture()
+    const input = { ...f.input, max: 1 }
+    let completeRead!: (row: Row) => void
+    f.query.mockResolvedValueOnce([])
+    f.read.mockImplementationOnce(
+      () =>
+        new Promise<Row>((resolve) => {
+          completeRead = resolve
+        })
+    )
+    f.at(60_000)
+    const first = f.limiter.consume(input)
+    await Promise.resolve()
+    expect(f.read).toHaveBeenCalledTimes(1)
+
+    peer.at(60_001)
+    await expect(peer.limiter.consume(input)).resolves.toBeUndefined()
+    f.at(60_001)
+    completeRead({ count: 1, lastRequest: 60_001n })
+    await expect(first).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: 60
+    })
+    await expect(f.limiter.consume(input)).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: 60
+    })
+    expect(f.query).toHaveBeenCalledTimes(1)
+    expect(f.read).toHaveBeenCalledTimes(1)
+    expect(peer.query).toHaveBeenCalledTimes(1)
+  })
+
   it.each([
     { label: 'missing', row: null },
     { label: 'not exhausted', row: { count: 1, lastRequest: 1_000n } },

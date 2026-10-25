@@ -85,7 +85,7 @@ export const createApplicationRateLimiter = ({
         .digest('hex')
       const key = `application:${operation}:${keyDigest}`
       const cacheKey = `${key}:${max}:${windowMs}`
-      const nowMilliseconds = BigInt(now())
+      let nowMilliseconds = BigInt(now())
       const windowMilliseconds = BigInt(windowMs)
       const resetBefore = nowMilliseconds - windowMilliseconds
       const cachedReset = deniedUntil.get(cacheKey)
@@ -114,6 +114,8 @@ export const createApplicationRateLimiter = ({
             OR "RateLimit"."count" < ${max}
           RETURNING "count", "lastRequest"`)
 
+        // Observe concurrent windows now; expiry still follows the SQL snapshot.
+        nowMilliseconds = BigInt(now())
         if (rows.length === 0) {
           const concurrentReset = deniedUntil.get(cacheKey)
           if (
@@ -126,10 +128,11 @@ export const createApplicationRateLimiter = ({
             where: { key },
             select: { count: true, lastRequest: true }
           })
+          nowMilliseconds = BigInt(now())
           if (
             !validRow(row, nowMilliseconds) ||
             row.count < max ||
-            row.lastRequest + windowMilliseconds <= nowMilliseconds
+            row.lastRequest <= resetBefore
           ) {
             throw unavailable()
           }
@@ -143,7 +146,7 @@ export const createApplicationRateLimiter = ({
           rows.length !== 1 ||
           !validRow(row, nowMilliseconds) ||
           row.count > max ||
-          row.lastRequest + windowMilliseconds <= nowMilliseconds
+          row.lastRequest <= resetBefore
         ) {
           throw unavailable()
         }
