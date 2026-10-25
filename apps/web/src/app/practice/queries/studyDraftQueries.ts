@@ -29,8 +29,10 @@ const saveDraftActionFence =
 const cancelSessionActionFence =
   createObjectAuthBoundActionFence<CancelStudySessionMutationInput>()
 
-export const fetchStudyDraftSnapshot = async (sessionId: string) =>
-  (await getStudyDraftAnswers(sessionId)).data
+export const fetchStudyDraftSnapshot = async (
+  sessionId: string,
+  signal?: AbortSignal
+) => (await getStudyDraftAnswers(sessionId, signal)).data
 
 export const assertCurrentSaveStudyDraftAction = (
   input: SaveStudyDraftMutationInput
@@ -44,7 +46,7 @@ export const studyDraftQueries = {
   draft: (sessionId: string, enabled = true) =>
     queryOptions({
       queryKey: serverStateQueryKeys.study.draft(sessionId),
-      queryFn: () => fetchStudyDraftSnapshot(sessionId),
+      queryFn: ({ signal }) => fetchStudyDraftSnapshot(sessionId, signal),
       enabled: enabled && sessionId.length > 0,
       staleTime: 0,
       retry: false

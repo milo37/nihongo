@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   cleanupPhase7IsolatedDatabase,
+  preparePhase7IntegrationArtifacts,
   preparePhase7IsolatedDatabase
 } from './runPhase7ApiIntegration.js'
 import {
@@ -24,6 +25,7 @@ const repositoryRoot = path.resolve(
 const commandProcesses: Array<{ child: ChildProcess; label: string }> = []
 let cleanupPromise: Promise<void> | undefined
 let harnessPrepared = false
+const preparationAbortController = new AbortController()
 const PG_CONCURRENT_QUERY_DEPRECATION =
   'Calling client.query() when the client is already executing a query is deprecated'
 
@@ -129,7 +131,8 @@ const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
       'exec',
       'tsx',
       'src/e2e/runPhase10ApiIntegration.ts',
-      `--shard=${shard}`
+      `--shard=${shard}`,
+      '--artifacts-prepared'
     ]
     let spawnError: Error | undefined
     let stdoutOutput = ''
@@ -187,6 +190,7 @@ const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
   })
 
 const cleanup = (): Promise<void> => {
+  preparationAbortController.abort()
   cleanupPromise ??= (async () => {
     const errors: unknown[] = []
     try {
@@ -279,7 +283,10 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
   }
   const harness = isProcessOnly
     ? undefined
-    : await preparePhase7IsolatedDatabase({ seedRuns })
+    : await preparePhase7IsolatedDatabase({
+        seedRuns,
+        artifactsPrepared: process.argv.includes('--artifacts-prepared')
+      })
   harnessPrepared = harness !== undefined
   let passedTestCount = 0
 
@@ -329,6 +336,10 @@ const runAllShards = async (): Promise<{
   await validatePhase10ApiIntegrationManifest()
   const entries = getPhase10ApiIntegrationEntriesByOwner('phase10')
   const shards = [...new Set(entries.map(({ shard }) => shard))]
+  await preparePhase7IntegrationArtifacts({
+    abortSignal: preparationAbortController.signal,
+    run: runCommand
+  })
   let executedFileCount = 0
   let passedTestCount = 0
   for (const shard of shards) {

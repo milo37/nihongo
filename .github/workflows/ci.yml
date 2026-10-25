@@ -88,7 +88,7 @@ jobs:
       - name: TypeScript check
         run: pnpm run typecheck
 
-      - name: Phase 9 static UI and accessibility gate
+      - name: Phase 9 database static contract
         run: pnpm run test:phase9:static
 
       - name: Phase 10 static contract
@@ -150,7 +150,7 @@ jobs:
         run: pnpm run build
 
       - name: Contributor-free content foundation
-        run: pnpm run content:foundation-check
+        run: pnpm run content:foundation-check:static
 
       - name: Production artifact excludes the mock worker
         run: test ! -e apps/web/dist/mockServiceWorker.js
@@ -222,7 +222,6 @@ jobs:
 
   e2e:
     name: Phase 10 real/mock browser and regression acceptance
-    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -353,9 +352,6 @@ jobs:
 
   phase11_release:
     name: Phase 11 portable release and production-mode smoke
-    needs: [build, e2e]
-    # This isolated diagnostic does not clear a failed browser required check.
-    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

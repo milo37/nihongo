@@ -222,6 +222,7 @@ interface PreparePhase7IsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
   readonly issuerActivationOwner?: 'runner' | 'fixture'
+  readonly artifactsPrepared?: boolean
 }
 
 const adminClient = new Client({
@@ -794,10 +795,35 @@ export const registerCapabilityAndActivate = async (
   }
 }
 
+export const preparePhase7IntegrationArtifacts = async ({
+  abortSignal,
+  environment = process.env,
+  prepared = false,
+  run = runCommand
+}: {
+  abortSignal?: AbortSignal
+  environment?: NodeJS.ProcessEnv
+  prepared?: boolean
+  run?: typeof runCommand
+} = {}): Promise<void> => {
+  abortSignal?.throwIfAborted()
+  if (prepared) return
+  for (const args of [
+    ['run', 'build:contracts'],
+    ['run', 'build:domain'],
+    ['--filter', '@nihongo/api', 'run', 'db:generate']
+  ]) {
+    abortSignal?.throwIfAborted()
+    await run('pnpm', args, environment, abortSignal)
+  }
+  abortSignal?.throwIfAborted()
+}
+
 export const preparePhase7IsolatedDatabase = async ({
   abortSignal,
   seedRuns = 0,
-  issuerActivationOwner = 'runner'
+  issuerActivationOwner = 'runner',
+  artifactsPrepared = false
 }: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
   if (databasePrepared) {
     throw new Error('Phase 7 isolated database harness is already prepared.')
@@ -845,24 +871,11 @@ export const preparePhase7IsolatedDatabase = async ({
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
 
-  await runCommand(
-    'pnpm',
-    ['run', 'build:contracts'],
-    sharedEnvironment,
-    abortSignal
-  )
-  await runCommand(
-    'pnpm',
-    ['run', 'build:domain'],
-    sharedEnvironment,
-    abortSignal
-  )
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:generate'],
-    sharedEnvironment,
-    abortSignal
-  )
+  await preparePhase7IntegrationArtifacts({
+    ...(abortSignal === undefined ? {} : { abortSignal }),
+    environment: sharedEnvironment,
+    prepared: artifactsPrepared
+  })
   const canonicalMigrationsPath = nodePath.join(
     repositoryRoot,
     'apps/api/prisma/migrations'
@@ -1257,7 +1270,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,
-      environment
+      environment,
+      isolateSignIns: true
     })
     await fixture.checkReadiness()
     controller.signal.throwIfAborted()

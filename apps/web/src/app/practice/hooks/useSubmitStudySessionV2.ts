@@ -82,10 +82,13 @@ export const useSubmitStudySessionV2 = (
         })
       ])
       assertCurrentStudySubmissionV2Action(input)
-      queryClient.removeQueries({
+      // Keep the mounted observer's cache until result navigation unmounts it.
+      // Removing it here recreates a draft GET for the now-submitted session.
+      await queryClient.cancelQueries({
         queryKey: serverStateQueryKeys.study.draft(sessionId),
         exact: true
       })
+      assertCurrentStudySubmissionV2Action(input)
       queryClient.setQueryData<StudyResultView>(
         serverStateQueryKeys.study.result(sessionId),
         result

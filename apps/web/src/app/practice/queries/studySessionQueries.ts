@@ -19,10 +19,10 @@ const createSession = async (input: CreateStudySessionV2Request) => {
   return toCanonicalStudySessionView((await createStudySessionV2(input)).data)
 }
 
-const getSession = async (sessionId: string) => {
+const getSession = async (sessionId: string, signal: AbortSignal) => {
   try {
     const session = toCanonicalStudySessionView(
-      (await getStudySessionV2(sessionId)).data
+      (await getStudySessionV2(sessionId, signal)).data
     )
     if (session.session.status !== 'IN_PROGRESS') {
       clearSubmissionAttempt(sessionId)
@@ -40,7 +40,7 @@ export const studySessionQueries = {
   session: (sessionId: string) =>
     queryOptions({
       queryKey: serverStateQueryKeys.study.session(sessionId),
-      queryFn: () => getSession(sessionId),
+      queryFn: ({ signal }) => getSession(sessionId, signal),
       enabled: sessionId.length > 0,
       staleTime: Number.POSITIVE_INFINITY
     })
