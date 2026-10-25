@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   cleanupPhase7IsolatedDatabase,
+  preparePhase7IntegrationArtifacts,
   preparePhase7IsolatedDatabase
 } from './runPhase7ApiIntegration.js'
 import {
@@ -129,7 +130,8 @@ const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
       'exec',
       'tsx',
       'src/e2e/runPhase10ApiIntegration.ts',
-      `--shard=${shard}`
+      `--shard=${shard}`,
+      '--artifacts-prepared'
     ]
     let spawnError: Error | undefined
     let stdoutOutput = ''
@@ -279,7 +281,10 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
   }
   const harness = isProcessOnly
     ? undefined
-    : await preparePhase7IsolatedDatabase({ seedRuns })
+    : await preparePhase7IsolatedDatabase({
+        seedRuns,
+        artifactsPrepared: process.argv.includes('--artifacts-prepared')
+      })
   harnessPrepared = harness !== undefined
   let passedTestCount = 0
 
@@ -329,6 +334,7 @@ const runAllShards = async (): Promise<{
   await validatePhase10ApiIntegrationManifest()
   const entries = getPhase10ApiIntegrationEntriesByOwner('phase10')
   const shards = [...new Set(entries.map(({ shard }) => shard))]
+  await preparePhase7IntegrationArtifacts()
   let executedFileCount = 0
   let passedTestCount = 0
   for (const shard of shards) {

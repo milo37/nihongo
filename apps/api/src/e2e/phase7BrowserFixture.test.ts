@@ -231,6 +231,51 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     await created.disconnect()
   })
 
+  it('keeps the existing stable actor when sign-in isolation is not selected', async () => {
+    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const input = {
+      code: 'phase7-sso-browser-test-code',
+      nonce: 'n'.repeat(43),
+      codeVerifier: 'v'.repeat(86)
+    }
+    expect(await provider().exchange(input)).toEqual(
+      await provider().exchange({ ...input, nonce: 'm'.repeat(43) })
+    )
+    await created.disconnect()
+  })
+
+  it('isolates Real journey identities across sign-ins while preserving a repeated callback identity', async () => {
+    const created = await createPhase7SsoBrowserApiFixture({
+      ...options('disabled'),
+      isolateSignIns: true
+    })
+    const input = {
+      code: 'phase7-sso-browser-test-code',
+      nonce: 'n'.repeat(43),
+      codeVerifier: 'v'.repeat(86)
+    }
+    const first = await provider().exchange(input)
+    const repeated = await provider().exchange(input)
+    const next = await provider().exchange({ ...input, nonce: 'm'.repeat(43) })
+    expect(first).toEqual(repeated)
+    expect(first?.accountId).not.toBe(next?.accountId)
+    expect(first?.email).not.toBe(next?.email)
+    const caseChanged = await provider().exchange({
+      ...input,
+      nonce: 'N'.repeat(43)
+    })
+    expect(first?.email.toLowerCase()).not.toBe(
+      caseChanged?.email.toLowerCase()
+    )
+    expect(first?.provider).toBe('google')
+    expect(first).not.toHaveProperty('role')
+    expect(first).not.toHaveProperty('token')
+    expect(await provider().exchange({ ...input, code: 'unknown' })).toBeNull()
+    expect(await provider().exchange({ ...input, nonce: '' })).toBeNull()
+    expect(f.ownerQuery).not.toHaveBeenCalled()
+    await created.disconnect()
+  })
+
   it('composes the existing USER learning contract without CMS routes or fixture writes', async () => {
     const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
     const expectedRoutes = [

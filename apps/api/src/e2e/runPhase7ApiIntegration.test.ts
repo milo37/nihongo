@@ -23,6 +23,7 @@ vi.mock('pg', () => ({
 }))
 
 let register: typeof import('./runPhase7ApiIntegration.js').registerCapabilityAndActivate
+let prepareArtifacts: typeof import('./runPhase7ApiIntegration.js').preparePhase7IntegrationArtifacts
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
   vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
@@ -32,6 +33,8 @@ beforeAll(async () => {
   )
   register = (await import('./runPhase7ApiIntegration.js'))
     .registerCapabilityAndActivate
+  prepareArtifacts = (await import('./runPhase7ApiIntegration.js'))
+    .preparePhase7IntegrationArtifacts
 })
 afterAll(() => vi.unstubAllEnvs())
 beforeEach(() => {
@@ -129,5 +132,53 @@ describe('Phase 7 API issuer activation ownership without a database', () => {
     expect(database.connect).not.toHaveBeenCalled()
     expect(database.query).not.toHaveBeenCalled()
     expect(database.end).not.toHaveBeenCalled()
+  })
+})
+
+describe('shared API integration artifacts without a database', () => {
+  it('prepares all required artifacts in dependency order for standalone execution', async () => {
+    const run = vi.fn().mockResolvedValue(undefined)
+    const environment = { NODE_ENV: 'test' }
+    await prepareArtifacts({ environment, run })
+    expect(run.mock.calls.map(([command, args]) => [command, args])).toEqual([
+      ['pnpm', ['run', 'build:contracts']],
+      ['pnpm', ['run', 'build:domain']],
+      ['pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate']]
+    ])
+    expect(run.mock.calls.every(([, , env]) => env === environment)).toBe(true)
+    expect(database.connect).not.toHaveBeenCalled()
+  })
+
+  it('reuses artifacts explicitly prepared by the parent without database preparation', async () => {
+    const run = vi.fn()
+    await prepareArtifacts({ prepared: true, run })
+    expect(run).not.toHaveBeenCalled()
+    expect(database.connect).not.toHaveBeenCalled()
+    expect(database.query).not.toHaveBeenCalled()
+  })
+
+  it('propagates preparation failure before starting the next command', async () => {
+    const failure = new Error('synthetic compilation failure')
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(failure)
+    await expect(prepareArtifacts({ run })).rejects.toBe(failure)
+    expect(run).toHaveBeenCalledTimes(2)
+  })
+
+  it('honors cancellation before starting another preparation command', async () => {
+    const controller = new AbortController()
+    const run = vi.fn(async () => {
+      controller.abort()
+    })
+    await expect(
+      prepareArtifacts({ run, abortSignal: controller.signal })
+    ).rejects.toBeDefined()
+    expect(run).toHaveBeenCalledTimes(1)
+    await expect(
+      prepareArtifacts({ run, prepared: true, abortSignal: controller.signal })
+    ).rejects.toBeDefined()
+    expect(run).toHaveBeenCalledTimes(1)
   })
 })

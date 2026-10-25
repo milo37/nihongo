@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { createApiApp } from '../app/createApp.js'
@@ -553,6 +553,7 @@ interface SsoBrowserFixtureOptions {
   environment: ApiEnvironment
   /** Private TEST owner URL; never delivered to a browser. */
   adminDatabaseUrl?: string
+  isolateSignIns?: boolean
 }
 
 export interface Phase7SsoBrowserActor {
@@ -569,7 +570,8 @@ const createSsoBrowserApiFixture = async (
     databaseUrl,
     authGatewayDatabaseUrl,
     environment,
-    adminDatabaseUrl
+    adminDatabaseUrl,
+    isolateSignIns = false
   }: SsoBrowserFixtureOptions,
   cms: boolean
 ) => {
@@ -718,8 +720,22 @@ const createSsoBrowserApiFixture = async (
   const fakeProvider: SsoProvider = {
     // Keep the installed Google URL/state/nonce/PKCE implementation intact.
     authorizationURL: authorizationProvider.authorizationURL,
-    exchange: async ({ code }) =>
-      cms ? (identities.get(code) ?? null) : { ...expectedIdentity }
+    exchange: async ({ code, nonce }) => {
+      if (cms) return identities.get(code) ?? null
+      if (!isolateSignIns) return { ...expectedIdentity }
+      if (
+        code !== 'phase7-sso-browser-test-code' ||
+        !/^[A-Za-z0-9_-]{43}$/u.test(nonce)
+      )
+        return null
+      // A new sign-in owns a new TEST actor; retries of its nonce keep that actor.
+      const actorId = createHash('sha256').update(nonce).digest('hex')
+      return {
+        ...expectedIdentity,
+        accountId: `${expectedIdentity.accountId}-${actorId}`,
+        email: `${actorId}@example.test`
+      }
+    }
   }
   const database = createDatabaseRuntime(databaseUrl, {
     migrationProfile: 'current',
