@@ -162,11 +162,14 @@ const waitForHttp = async (
   )
 }
 
-const reserveLoopbackPort = async (): Promise<number> =>
+const reserveLoopbackPort = async (
+  port = 0,
+  host = '127.0.0.1'
+): Promise<number> =>
   await new Promise<number>((resolve, reject) => {
     const server = createNetServer()
     server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(port, host, () => {
       const address = server.address() as AddressInfo | null
       if (!address) {
         server.close(() => reject(new Error('Dynamic port lookup failed.')))
@@ -282,6 +285,7 @@ const runMock = async (): Promise<void> => {
 }
 
 const runReal = async (): Promise<void> => {
+  await reserveLoopbackPort(5175, 'localhost')
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
     await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
@@ -340,6 +344,31 @@ const runReal = async (): Promise<void> => {
     }
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
+
+  const admin = spawnOwned(
+    'phase9-real-admin',
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/admin',
+      'exec',
+      'vite',
+      '--mode',
+      'test',
+      '--host',
+      'localhost',
+      '--port',
+      '5175',
+      '--strictPort'
+    ],
+    {
+      ...process.env,
+      NIHONGO_API_PROXY_TARGET: apiOrigin,
+      VITE_API_BASE_URL: '/api',
+      VITE_API_MODE: 'real'
+    }
+  )
+  await waitForHttp('http://localhost:5175/admin/', admin)
 
   const web = spawnOwned(
     'phase9-real-web',
@@ -432,23 +461,31 @@ const describeFailure = (
   message: error instanceof Error ? error.message : 'Unknown failure'
 })
 
-void execute()
-  .then(() => {
-    process.stdout.write(
-      `${JSON.stringify({ event: `phase9.browser.${mode}.passed` })}\n`
-    )
-  })
-  .catch((error: unknown) => {
-    const causes =
-      error instanceof AggregateError
-        ? error.errors.map((cause) => describeFailure(cause))
-        : undefined
-    process.stderr.write(
-      `${JSON.stringify({
-        event: `phase9.browser.${mode ?? 'unknown'}.failed`,
-        ...describeFailure(error),
-        ...(causes ? { causes } : {})
-      })}\n`
-    )
-    process.exitCode = 1
-  })
+export const main = (): Promise<void> =>
+  execute()
+    .then(() => {
+      process.stdout.write(
+        `${JSON.stringify({ event: `phase9.browser.${mode}.passed` })}\n`
+      )
+    })
+    .catch((error: unknown) => {
+      const causes =
+        error instanceof AggregateError
+          ? error.errors.map((cause) => describeFailure(cause))
+          : undefined
+      process.stderr.write(
+        `${JSON.stringify({
+          event: `phase9.browser.${mode ?? 'unknown'}.failed`,
+          ...describeFailure(error),
+          ...(causes ? { causes } : {})
+        })}\n`
+      )
+      process.exitCode = 1
+    })
+
+if (
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
+) {
+  void main()
+}

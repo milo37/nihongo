@@ -6,7 +6,14 @@ const mocks = vi.hoisted(() => ({
   spawn: vi.fn(),
   createServer: vi.fn(),
   stopOwnedProcesses: vi.fn(),
-  retireOwnedProcess: vi.fn()
+  retireOwnedProcess: vi.fn(),
+  prepareDatabase: vi.fn(),
+  cleanupDatabase: vi.fn(),
+  prepareActors: vi.fn(),
+  captureSnapshot: vi.fn(),
+  assertDatabaseContract: vi.fn(),
+  mkdir: vi.fn(),
+  writeFile: vi.fn()
 }))
 
 vi.mock('node:child_process', () => ({ spawn: mocks.spawn }))
@@ -15,6 +22,23 @@ vi.mock('../../../apps/api/src/e2e/ownedProcessGroup.js', () => ({
   shouldDetachOwnedProcess: false,
   stopOwnedProcesses: mocks.stopOwnedProcesses,
   retireOwnedProcess: mocks.retireOwnedProcess
+}))
+
+vi.mock('../../../apps/api/src/e2e/runPhase7ApiIntegration.js', () => ({
+  preparePhase7IsolatedDatabase: mocks.prepareDatabase,
+  cleanupPhase7IsolatedDatabase: mocks.cleanupDatabase
+}))
+vi.mock('../../../apps/api/src/e2e/phase9BrowserApi.js', () => ({
+  preparePhase9BrowserActors: mocks.prepareActors
+}))
+vi.mock('../../../scripts/phase9-database-contract.mjs', () => ({
+  capturePhase9DatabaseSnapshot: mocks.captureSnapshot,
+  assertPhase9DatabaseContract: mocks.assertDatabaseContract
+}))
+vi.mock('node:fs/promises', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs/promises')>()),
+  mkdir: mocks.mkdir,
+  writeFile: mocks.writeFile
 }))
 
 type ChildOutcome = {
@@ -52,7 +76,7 @@ const finish = (child: ChildProcess, outcome: ChildOutcome): void => {
   child.emit('close', outcome.code, outcome.signal)
 }
 
-describe('Phase10 real parent cleanup result', () => {
+describe('Phase9/10 browser runner lifecycle', () => {
   const originalArgv = process.argv
   const originalExitCode = process.exitCode
   let originalSignalListeners: Map<
@@ -175,4 +199,154 @@ describe('Phase10 real parent cleanup result', () => {
     expect(mocks.retireOwnedProcess).toHaveBeenCalledOnce()
     expect(mocks.stopOwnedProcesses).toHaveBeenCalledOnce()
   })
+  it.each([
+    'ready',
+    'admin exit',
+    'Playwright failure',
+    'stop failure',
+    'occupied port'
+  ])(
+    'Phase9 real owns a ready admin before Playwright and preserves cleanup: %s',
+    async (scenario) => {
+      const api = makeChild()
+      const admin = makeChild()
+      const web = makeChild()
+      const playwright = makeChild()
+      const stopped: string[][] = []
+      let adminReady = false
+      if (scenario === 'occupied port') {
+        mocks.createServer.mockImplementation(() => {
+          let onError: ((error: Error) => void) | undefined
+          return {
+            once: (_event: string, listener: (error: Error) => void) => {
+              onError = listener
+            },
+            address: () => ({ port: 32123 }),
+            listen: (port: number, _host: string, ready: () => void) => {
+              if (port === 5175)
+                onError?.(
+                  Object.assign(new Error('listen EADDRINUSE localhost:5175'), {
+                    code: 'EADDRINUSE'
+                  })
+                )
+              else ready()
+            },
+            close: (closed: () => void) => closed()
+          }
+        })
+      }
+      mocks.prepareDatabase.mockResolvedValue({
+        sharedEnvironment: { DEPLOYMENT_ENVIRONMENT: 'TEST' },
+        adminDatabaseUrl: 'unit-test-owner'
+      })
+      mocks.cleanupDatabase.mockResolvedValue(undefined)
+      mocks.prepareActors.mockResolvedValue({ identities: [], fixture: {} })
+      mocks.captureSnapshot.mockResolvedValue({})
+      mocks.assertDatabaseContract.mockResolvedValue({})
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          if (url === 'http://localhost:5175/admin/') {
+            adminReady = true
+            if (scenario === 'occupied port')
+              setImmediate(() => finish(admin, { code: 1, signal: null }))
+          }
+          return new Response(null, { status: 200 })
+        })
+      )
+      mocks.spawn.mockImplementation((_command: string, args: string[]) => {
+        if (args.includes('src/e2e/phase9BrowserApi.ts')) return api
+        if (args.includes('@nihongo/admin')) {
+          if (scenario === 'admin exit')
+            finish(admin, { code: 1, signal: null })
+          return admin
+        }
+        if (args.includes('@nihongo/web')) return web
+        if (!args.includes('playwright')) throw new Error('Unexpected child.')
+        expect(adminReady, 'Playwright must wait for the owned admin').toBe(
+          true
+        )
+        queueMicrotask(() =>
+          finish(playwright, {
+            code: scenario === 'Playwright failure' ? 7 : 0,
+            signal: null
+          })
+        )
+        return playwright
+      })
+      mocks.stopOwnedProcesses.mockImplementation(
+        async (processes: readonly { label: string }[]) => {
+          stopped.push(processes.map(({ label }) => label))
+          if (scenario === 'stop failure')
+            throw new Error('Owned process remains')
+        }
+      )
+      const stdout = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(() => true)
+      const stderr = vi
+        .spyOn(process.stderr, 'write')
+        .mockImplementation(() => true)
+      const { main } = await import('../../../scripts/runPhase9Browser.js')
+      await main()
+      if (scenario === 'occupied port') {
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        expect(process.exitCode).toBe(1)
+        expect(mocks.spawn).not.toHaveBeenCalled()
+        expect(fetch).not.toHaveBeenCalled()
+        expect(mocks.prepareDatabase).not.toHaveBeenCalled()
+        expect(mocks.cleanupDatabase).not.toHaveBeenCalled()
+        expect(
+          stderr.mock.calls.map(([value]) => String(value)).join('')
+        ).toContain('EADDRINUSE')
+        return
+      }
+      const success = scenario === 'ready'
+      expect(process.exitCode ?? 0).toBe(success ? 0 : 1)
+      const adminCall = mocks.spawn.mock.calls.find(([, args]) =>
+        args.includes('@nihongo/admin')
+      )
+      expect(adminCall?.[1]).toEqual([
+        '--filter',
+        '@nihongo/admin',
+        'exec',
+        'vite',
+        '--mode',
+        'test',
+        '--host',
+        'localhost',
+        '--port',
+        '5175',
+        '--strictPort'
+      ])
+      expect(adminCall?.[2].env).toMatchObject({
+        NIHONGO_API_PROXY_TARGET: 'http://127.0.0.1:32123',
+        VITE_API_BASE_URL: '/api',
+        VITE_API_MODE: 'real'
+      })
+      expect(stopped).toEqual([
+        scenario === 'admin exit'
+          ? ['phase9-real-api', 'phase9-real-admin']
+          : ['phase9-real-api', 'phase9-real-admin', 'phase9-real-web']
+      ])
+      expect(mocks.cleanupDatabase).toHaveBeenCalledTimes(
+        scenario === 'stop failure' ? 0 : 1
+      )
+      if (success) {
+        expect(
+          stdout.mock.calls.map(([value]) => String(value)).join('')
+        ).toContain('phase9.browser.real.passed')
+        expect(
+          stderr.mock.calls.map(([value]) => String(value)).join('')
+        ).not.toContain('phase9.browser.real.failed')
+      } else {
+        expect(
+          stdout.mock.calls.map(([value]) => String(value)).join('')
+        ).not.toContain('phase9.browser.real.passed')
+        expect(
+          stderr.mock.calls.map(([value]) => String(value)).join('')
+        ).toContain('phase9.browser.real.failed')
+      }
+    }
+  )
 })
