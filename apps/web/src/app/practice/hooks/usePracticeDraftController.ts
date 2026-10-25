@@ -42,7 +42,21 @@ import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { isNotFoundApiError } from '@libs/apiError'
 
-export const STUDY_DRAFT_AUTOSAVE_DELAY_MS = 750
+export const STUDY_DRAFT_AUTOSAVE_DELAY_MS = 2_000
+const STUDY_DRAFT_AUTOSAVE_MAX_WAIT_MS = 10_000
+const STUDY_DRAFT_SAVE_MIN_GAP_MS = 5_000
+
+interface StudyDraftSaveTiming {
+  scopeKey: string
+  active: boolean
+  firstUnsentAt: number | null
+  lastEditAt: number
+  lastPutStartedAt: number
+  unsentSignature: string
+  cooldownUntil: number
+  rateLimitFailure: unknown
+  resumeDelay: (() => void) | null
+}
 
 interface UsePracticeDraftControllerOptions {
   enabled: boolean
@@ -308,6 +322,19 @@ export const usePracticeDraftController = ({
   const interactionPausedRef = useLatest(isInteractionPaused)
   const isDrainActiveRef = useRef(false)
   const savePromiseRef = useRef<Promise<StudyDraftSnapshot> | null>(null)
+  const flushPromiseRef = useRef<Promise<StudyDraftSnapshot> | null>(null)
+  const bypassPacingRef = useRef(false)
+  const saveTimingRef = useRef<StudyDraftSaveTiming>({
+    scopeKey: controllerScopeKey,
+    active: enabled,
+    firstUnsentAt: null,
+    lastEditAt: 0,
+    lastPutStartedAt: Number.NEGATIVE_INFINITY,
+    unsentSignature: '',
+    cooldownUntil: 0,
+    rateLimitFailure: null,
+    resumeDelay: null
+  })
   const lastPersistenceFailedRef = useRef(false)
   const pendingRemoteRevisionRef = useRef<{
     revision: number
@@ -329,11 +356,49 @@ export const usePracticeDraftController = ({
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   useEffect(() => {
+    const timing: StudyDraftSaveTiming = {
+      scopeKey: controllerScopeKey,
+      active: enabled,
+      firstUnsentAt: null,
+      lastEditAt: 0,
+      lastPutStartedAt: Number.NEGATIVE_INFINITY,
+      unsentSignature: '',
+      cooldownUntil: 0,
+      rateLimitFailure: null,
+      resumeDelay: null
+    }
+    saveTimingRef.current = timing
+    savePromiseRef.current = null
+    flushPromiseRef.current = null
+    bypassPacingRef.current = false
+    isDrainActiveRef.current = false
     integrityBlockScopeRef.current = null
-  }, [controllerScopeKey])
+    return () => {
+      timing.active = false
+      timing.resumeDelay?.()
+    }
+  }, [controllerScopeKey, enabled])
 
   const setMemoryAndDurableRecord = useCallback(
     (record: StudyDraftWorkingCopy, state: typeof draftSaveState): boolean => {
+      const timing = saveTimingRef.current
+      if (timing.scopeKey === record.principalScope + ':' + record.sessionId) {
+        const diff = record.frozenAttempt
+          ? record.postFlightLocalDiff
+          : record.localDiff
+        if (isStudyDraftDiffEmpty(diff)) {
+          timing.firstUnsentAt = null
+          timing.unsentSignature = ''
+        } else {
+          const signature = JSON.stringify(diff)
+          if (signature !== timing.unsentSignature) {
+            const now = Date.now()
+            timing.firstUnsentAt ??= now
+            timing.lastEditAt = now
+            timing.unsentSignature = signature
+          }
+        }
+      }
       setDraftWorkingCopy(record)
       try {
         writeStudyDraftWorkingCopy(record)
@@ -351,6 +416,11 @@ export const usePracticeDraftController = ({
 
   const clearDurableRecordWhenClean = useCallback(
     (record: StudyDraftWorkingCopy, state: typeof draftSaveState): void => {
+      const timing = saveTimingRef.current
+      if (timing.scopeKey === record.principalScope + ':' + record.sessionId) {
+        timing.firstUnsentAt = null
+        timing.unsentSignature = ''
+      }
       setDraftWorkingCopy(record)
       clearStudyDraftWorkingCopy(record.principalScope, record.sessionId)
       lastPersistenceFailedRef.current = false
@@ -1031,7 +1101,30 @@ export const usePracticeDraftController = ({
       return savePromiseRef.current
     }
 
+    const timing = saveTimingRef.current
+    const actionEpoch = captureAuthTransitionEpoch()
     const task = (async (): Promise<StudyDraftSnapshot> => {
+      if (timing.cooldownUntil > Date.now()) {
+        setDraftSaveState('error')
+        throw timing.rateLimitFailure
+      }
+      const delay =
+        timing.lastPutStartedAt + STUDY_DRAFT_SAVE_MIN_GAP_MS - Date.now()
+      if (!bypassPacingRef.current && delay > 0) {
+        await new Promise<void>((resolve) => {
+          const finish = (): void => {
+            window.clearTimeout(timerId)
+            if (timing.resumeDelay === finish) timing.resumeDelay = null
+            resolve()
+          }
+          const timerId = window.setTimeout(finish, delay)
+          timing.resumeDelay = finish
+        })
+      }
+      assertCurrentAuthTransitionEpoch(actionEpoch)
+      if (!timing.active || saveTimingRef.current !== timing || !enabled) {
+        throw new Error('저장 대기 중 작업본 경계가 바뀌었습니다.')
+      }
       let record = flushClockToWorkingCopy()
       if (!record) {
         throw new Error('저장할 작업본이 없습니다.')
@@ -1057,19 +1150,20 @@ export const usePracticeDraftController = ({
         throw new Error('충돌을 해결한 뒤 저장해 주세요.')
       }
 
-      const actionEpoch = captureAuthTransitionEpoch()
       assertCurrentAuthTransitionEpoch(actionEpoch)
+      if (!timing.active || saveTimingRef.current !== timing) {
+        throw new Error('저장 대기 중 작업본 경계가 바뀌었습니다.')
+      }
+      if (navigator.onLine === false) {
+        setMemoryAndDurableRecord(record, 'offline')
+        throw new Error(
+          '오프라인에서는 서버 작업본을 저장할 수 없습니다. 연결 후 다시 시도해 주세요.'
+        )
+      }
 
       if (!record.frozenAttempt) {
         if (isStudyDraftDiffEmpty(record.localDiff)) {
           return record.confirmedBase
-        }
-
-        if (navigator.onLine === false) {
-          setMemoryAndDurableRecord(record, 'offline')
-          throw new Error(
-            '오프라인에서는 서버 작업본을 저장할 수 없습니다. 연결 후 다시 시도해 주세요.'
-          )
         }
 
         const body = toSaveStudyDraftBody(
@@ -1108,10 +1202,16 @@ export const usePracticeDraftController = ({
       }
 
       try {
+        timing.lastPutStartedAt = Date.now()
         return await completeSave(record, actionEpoch)
       } catch (error: unknown) {
         if (isAuthTransitionSupersededError(error)) {
           throw error
+        }
+        if (isApiError(error) && error.status === 429) {
+          timing.cooldownUntil =
+            Date.now() + (error.retryAfterMs ?? STUDY_DRAFT_SAVE_MIN_GAP_MS)
+          timing.rateLimitFailure = error
         }
         let failure = error
         if (isApiError(error) && error.code === 'DRAFT_VERSION_CONFLICT') {
@@ -1189,10 +1289,11 @@ export const usePracticeDraftController = ({
     try {
       return await task
     } finally {
-      savePromiseRef.current = null
+      if (savePromiseRef.current === task) savePromiseRef.current = null
     }
   }, [
     completeSave,
+    enabled,
     controllerScopeKey,
     drainPendingRemoteRevision,
     fetchCanonicalDraft,
@@ -1431,9 +1532,22 @@ export const usePracticeDraftController = ({
       return
     }
 
-    const timerId = window.setTimeout(() => {
-      void saveNowRef.current().catch(() => undefined)
-    }, STUDY_DRAFT_AUTOSAVE_DELAY_MS)
+    const timing = saveTimingRef.current
+    if (!timing.active || timing.firstUnsentAt === null) return
+    const dueAt = Math.max(
+      Math.min(
+        timing.lastEditAt + STUDY_DRAFT_AUTOSAVE_DELAY_MS,
+        timing.firstUnsentAt + STUDY_DRAFT_AUTOSAVE_MAX_WAIT_MS
+      ),
+      timing.lastPutStartedAt + STUDY_DRAFT_SAVE_MIN_GAP_MS,
+      timing.cooldownUntil
+    )
+    const timerId = window.setTimeout(
+      () => {
+        void saveNowRef.current().catch(() => undefined)
+      },
+      Math.max(0, dueAt - Date.now())
+    )
     return () => window.clearTimeout(timerId)
   }, [
     controllerScopeKey,
@@ -1668,10 +1782,15 @@ export const usePracticeDraftController = ({
     resetClock(conflict.localPreferred)
   }
 
-  const flush = async (): Promise<StudyDraftSnapshot> => {
+  const flush = (bypassPacing = true): Promise<StudyDraftSnapshot> => {
+    if (bypassPacing) {
+      bypassPacingRef.current = true
+      saveTimingRef.current.resumeDelay?.()
+    }
+    if (flushPromiseRef.current) return flushPromiseRef.current
     isDrainActiveRef.current = true
     clockRef.current?.pause()
-    try {
+    const task = (async (): Promise<StudyDraftSnapshot> => {
       for (let attempt = 0; attempt < 4; attempt += 1) {
         const record = flushClockToWorkingCopy()
         if (!record) {
@@ -1719,10 +1838,15 @@ export const usePracticeDraftController = ({
       throw new Error(
         '연속 편집 저장을 완료하지 못했습니다. 다시 시도해 주세요.'
       )
-    } finally {
+    })().finally(() => {
+      if (flushPromiseRef.current !== task) return
+      flushPromiseRef.current = null
       isDrainActiveRef.current = false
+      bypassPacingRef.current = false
       resumeClockForCurrentRecord()
-    }
+    })
+    flushPromiseRef.current = task
+    return task
   }
 
   const prepareSubmission = async (): Promise<PreparedStudyDraftSubmission> => {
@@ -1815,7 +1939,7 @@ export const usePracticeDraftController = ({
         }
         return
       }
-      await flush()
+      await flush(false)
     },
     resolveConflictWithLocal,
     resolveConflictWithServer,

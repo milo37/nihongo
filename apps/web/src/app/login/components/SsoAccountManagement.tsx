@@ -198,7 +198,9 @@ export const SsoAccountManagement = (): ReactElement | null => {
           </p>
         </>
       )}
-      {flow.busy ? <p role="status">{t('sso.processing')}</p> : null}
+      {flow.busy && flow.dialog === null ? (
+        <p role="status">{t('sso.processing')}</p>
+      ) : null}
       {flow.feedback ? (
         <p role={flow.feedback === 'actionFailed' ? 'alert' : 'status'}>
           {t('sso.' + flow.feedback)}
@@ -291,6 +293,16 @@ export const SsoAccountManagement = (): ReactElement | null => {
                   buttonRef={google}
                   label={t('sso.continueGoogle')}
                   disabled={flow.busy}
+                  isLoading={
+                    flow.busy &&
+                    !flow.unlink.isPending &&
+                    !flow.deletion.isPending &&
+                    flow.start.variables?.purpose === 'ACCOUNT_FRESH' &&
+                    flow.start.variables.provider === p.provider
+                  }
+                  loadingLabel={t('sso.redirecting', {
+                    provider: providerName(p.provider)
+                  })}
                   onClick={() => flow.begin('ACCOUNT_FRESH', p.provider)}
                 />
               ))}
@@ -316,7 +328,9 @@ export const SsoAccountManagement = (): ReactElement | null => {
             {t('sso.recheck')}
           </Button>
         ) : null}
-        {flow.busy ? <p role="status">{t('sso.processing')}</p> : null}
+        {flow.busy && flow.dialog?.kind !== 'fresh' ? (
+          <p role="status">{t('sso.processing')}</p>
+        ) : null}
       </Dialog>
     </section>
   )

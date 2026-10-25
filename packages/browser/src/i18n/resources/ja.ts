@@ -628,6 +628,14 @@ export const jaCoreResources = {
         elapsedTime: '経過時間'
       },
       draft: {
+        retryShort: '再試行',
+        inline: {
+          saved: '学習記録を自動保存しました',
+          saving: '学習記録を保存しています…',
+          error: '学習記録を保存できませんでした',
+          dirty: '学習記録の保存待ちです',
+          offline: 'オフライン・この端末に一時保存中'
+        },
         status: {
           remoteDeferred:
             '別のタブの最新保存を検知しました。現在の保存応答を確認してから安全に統合します。',

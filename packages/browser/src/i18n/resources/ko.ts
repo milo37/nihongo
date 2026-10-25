@@ -612,7 +612,7 @@ export const koResources = {
         saveAndLeave: '저장하고 이동'
       },
       header: {
-        backToSetup: '학습으로',
+        backToSetup: '학습으로 돌아가기',
         backToExplanation: '해설로 돌아가기',
 
         progressSummary:
@@ -620,6 +620,14 @@ export const koResources = {
         elapsedTime: '경과 시간'
       },
       draft: {
+        retryShort: '다시 시도',
+        inline: {
+          saved: '학습 기록이 자동으로 저장됐어요',
+          saving: '학습 기록을 저장하고 있어요…',
+          error: '학습 기록을 저장하지 못했어요',
+          dirty: '학습 기록을 저장할 준비 중이에요',
+          offline: '오프라인 · 이 기기에 임시 보관 중'
+        },
         status: {
           remoteDeferred:
             '다른 탭의 최신 저장을 감지했습니다. 현재 저장 응답을 확인한 뒤 안전하게 병합합니다.',

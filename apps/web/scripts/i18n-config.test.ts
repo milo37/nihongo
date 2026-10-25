@@ -46,11 +46,11 @@ it.each(['ko', 'ja'] as const)(
   }
 )
 
-it('preserves every Japanese catalog and admin key, value and order', () => {
+it('matches approved Japanese additions and preserves admin keys, values and order', () => {
   expect(Object.keys(jaResources)).toEqual(Object.keys(koResources))
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('60aa392c17e932e14e760a90922fd7bd8c1cab0d427200f2cc24aa4e03b0d9bb')
+  ).toBe('da0a2f7f3be9cd14f26dca4bd42e2f24124e9e619b1bf9be47f5a8ea6822024e')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
   ).toBe('d17b06416b7cd34d285cbe4f21b46d1cc10aa2c14ebaafc790d903c4e4233885')

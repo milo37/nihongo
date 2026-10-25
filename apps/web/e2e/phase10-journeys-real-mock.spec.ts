@@ -636,7 +636,7 @@ const armDashboardFault = async (
 const waitForSavedDraft = async (page: Page): Promise<void> => {
   await expect(page.locator('[data-save-state]')).toHaveAttribute(
     'data-save-state',
-    'saved',
+    /^(saved|savedAt)$/u,
     { timeout: 15_000 }
   )
 }
@@ -674,9 +674,10 @@ const answerEveryQuestionWithFirstOption = async (
 ): Promise<void> => {
   const helperStartIndex = ledger.entries.length
   const draftLedgerPath = '/api/v1/study-sessions/:id/draft-answers'
+  let lastPutStartedAt: number | null = null
   await expect(page.locator('[data-save-state]')).toHaveAttribute(
     'data-save-state',
-    'idle'
+    'synced'
   )
   await expect(page.locator('main h1')).toBeFocused()
   const isSingleReview =
@@ -716,8 +717,15 @@ const answerEveryQuestionWithFirstOption = async (
     ).length
     expect(savesBefore).toBe(index)
     const saveResponse = waitForApiResponse(page, 'PUT', draftPath)
-    const clockTime = Date.now()
-    await page.clock.setFixedTime(clockTime)
+    const clockTime = Math.max(
+      Date.now(),
+      lastPutStartedAt ?? Number.NEGATIVE_INFINITY
+    )
+    const saveDelayMs = Math.max(
+      2_000,
+      (lastPutStartedAt ?? Number.NEGATIVE_INFINITY) + 5_000 - clockTime
+    )
+    await page.clock.setSystemTime(clockTime)
     await page.clock.pauseAt(clockTime)
     try {
       if (isSingleReview) {
@@ -737,9 +745,9 @@ const answerEveryQuestionWithFirstOption = async (
       await expect(firstAnswer).toBeChecked()
       await expect(page.locator('[data-save-state]')).toHaveAttribute(
         'data-save-state',
-        /^(dirty|saving|saved)$/u
+        /^(dirty|saving|savedAt)$/u
       )
-      await page.clock.runFor(749)
+      await page.clock.runFor(saveDelayMs - 1)
       expect(
         ledgerEntriesFor(ledger, 'PUT', draftLedgerPath, helperStartIndex)
       ).toHaveLength(savesBefore)
@@ -755,6 +763,11 @@ const answerEveryQuestionWithFirstOption = async (
               .length
         )
         .toBe(savesBefore + 1)
+      const putStartedAt = await page.evaluate(() => Date.now())
+      expect(putStartedAt - clockTime).toBe(saveDelayMs)
+      if (lastPutStartedAt !== null)
+        expect(putStartedAt - lastPutStartedAt).toBeGreaterThanOrEqual(5_000)
+      lastPutStartedAt = putStartedAt
     } finally {
       await page.clock.resume()
       await page.clock.setSystemTime(Date.now())
