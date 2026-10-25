@@ -28,7 +28,11 @@ const pr = (files, extra = {}) =>
   })
 
 test('docs PR formats only; code chooses dependent packages without unrelated DB/OCI work', () => {
-  const docs = pr(['README.md', 'team/design.md'])
+  const docs = pr([
+    'README.md',
+    'team/design.md',
+    'apps/web/src/provider/README.md'
+  ])
   assert.equal(docs.code, false)
   assert.equal(docs.database, false)
   assert.equal(docs.browser, false)
@@ -63,6 +67,29 @@ test('docs PR formats only; code chooses dependent packages without unrelated DB
     !qualityCommands(api, 'unit').some((args) => args.includes('test:web'))
   )
 })
+
+for (const file of [
+  'apps/web/src/libs/authTransitionFence.ts',
+  'apps/web/src/provider/AuthErrorHandlerProvider.tsx'
+]) {
+  test(`shared authentication infrastructure selects conservative coverage: ${file}`, () => {
+    assert.ok(
+      readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8').length > 0
+    )
+    const selection = pr([file])
+    assert.equal(selection.database, true, `${file} must retain DB integration`)
+    assert.equal(selection.mode, 'conservative')
+    for (const flag of [
+      'web',
+      'api',
+      'browser',
+      'security',
+      'performance',
+      'portable'
+    ])
+      assert.equal(selection[flag], true, `${file}/${flag}`)
+  })
+}
 
 test('auth/storage, shared contracts/domain and content retain DB and both browser transports', () => {
   for (const file of [

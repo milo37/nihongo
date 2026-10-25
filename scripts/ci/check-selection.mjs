@@ -82,7 +82,7 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
       /(?:^|\/)(?:package\.json|tsconfig[^/]*\.json|vite\.config\.[cm]?[jt]s|vitest[^/]*config\.[cm]?[jt]s)$/u.test(
         file
       ) ||
-      /^(?:packages\/|apps\/web\/scripts\/|apps\/api\/(?:prisma\/|src\/(?:auth|db|e2e|config)\/))/u.test(
+      /^(?:packages\/|apps\/web\/(?:scripts\/|src\/(?:libs|provider)\/)|apps\/api\/(?:prisma\/|src\/(?:auth|db|e2e|config)\/))/u.test(
         file
       )
     )
