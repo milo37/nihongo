@@ -11,6 +11,7 @@ export const AdminNavigation = (): ReactElement => {
     >
       {[
         { to: '/questions', label: t('common.questions') },
+        { to: '/reports', label: t('common.reports') },
         { to: '/audit-log', label: t('common.auditLog') }
       ].map(({ to, label }) => (
         <NavLink

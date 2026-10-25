@@ -10,6 +10,7 @@ import {
 } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import { adminQuestionRoutes } from '@app/admin-question/router'
+import { adminReportRoutes } from '@app/admin-report/router'
 import { adminAuditRoutes } from '@app/admin-audit/router'
 
 export const adminRoutes: RouteObject[] = [
@@ -34,7 +35,8 @@ export const adminRoutes: RouteObject[] = [
         children: [
           { index: true, element: <Navigate replace to="questions" /> },
           ...adminQuestionRoutes,
-          ...adminAuditRoutes
+          ...adminAuditRoutes,
+          ...adminReportRoutes
         ]
       },
       { path: 'forbidden', element: <ForbiddenPage /> },

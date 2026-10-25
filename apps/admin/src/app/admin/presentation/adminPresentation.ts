@@ -3,6 +3,9 @@ const adminErrorKeys = {
   AUTH_SESSION_EXPIRED: 'errors.sessionExpired',
   ADMIN_REQUIRED: 'errors.adminRequired',
   FORBIDDEN: 'errors.forbidden',
+  FRESH_ASSURANCE_REQUIRED: 'errors.freshAssuranceRequired',
+  VERSION_CONFLICT: 'errors.versionConflict',
+  INVALID_STATE_TRANSITION: 'errors.invalidState',
   INVALID_ID: 'errors.invalidId',
   INVALID_REQUEST: 'errors.invalidRequest',
   VALIDATION_ERROR: 'errors.validation',
@@ -32,3 +35,8 @@ export const getAdminRetryAfterSeconds = (error: unknown): number | null => {
     ? Math.max(1, Math.ceil(value / 1000))
     : null
 }
+
+export const adminReportOutcomeKey = {
+  RESOLVED: 'enums.reportOutcomes.RESOLVED',
+  DISMISSED: 'enums.reportOutcomes.DISMISSED'
+} as const

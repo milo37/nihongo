@@ -594,6 +594,27 @@ export const jaAdminResources = {
     sortUpdatedActive: '更新日時が新しい順です'
   },
   reportDetail: {
+    advancedFilters: '詳細条件',
+    dateHint: 'タイムゾーン付きISO日時（例: 2026-10-01T00:00:00Z）',
+    applyFilters: 'フィルターを適用',
+    previous: '前の一覧',
+    next: '次の一覧',
+    first: '最初の一覧へ',
+    total: '全{{count}}件',
+    rowInfo: '報告情報',
+    back: '報告一覧へ',
+    reasonHint: '最大1,000文字（Unicode文字単位）',
+    restored:
+      '同じ管理者と報告の版を確認し、処理理由の下書きを復元しました。内容を確認してから実行してください。',
+    storageFailed:
+      '下書きを保存できなかったため、本人確認へ移動しませんでした。入力をコピーして保管するか、再試行してください。',
+    discard: '下書きを破棄',
+    fresh: 'Googleで管理者本人確認',
+    leaveTitle: '編集中の処理理由があります',
+    stay: '編集を続ける',
+    leave: '破棄して移動',
+    pending: '処理が完了するまでお待ちください。',
+    listDescription: '報告理由と状態を確認し、詳細から対応してください。',
     title: '問題報告の詳細',
     loading: '報告詳細を読み込んでいます…',
     error: '報告詳細を読み込めませんでした。',
