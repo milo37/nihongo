@@ -369,7 +369,7 @@ describe('question catalog PostgreSQL integration', () => {
       expect(denial).toMatchObject({ code: 'RATE_LIMITED', retryable: true })
       expect(listQuestions).not.toHaveBeenCalled()
       expect(getQuestion).not.toHaveBeenCalled()
-      expect(afterDenial.count).toBe(beforeDenial.count + 1)
+      expect(afterDenial.count).toBe(beforeDenial.count)
       expect(afterDenial.lastRequest).toBe(beforeDenial.lastRequest)
       await expect(
         database.client.rateLimit.count({
