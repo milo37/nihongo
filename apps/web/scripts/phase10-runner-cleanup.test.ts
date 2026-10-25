@@ -68,11 +68,13 @@ const makeChild = (): ChildProcess =>
   Object.assign(new EventEmitter(), {
     exitCode: null,
     signalCode: null,
+    stdout: new EventEmitter(),
     pid: undefined
   }) as unknown as ChildProcess
 
 const finish = (child: ChildProcess, outcome: ChildOutcome): void => {
   Object.assign(child, { exitCode: outcome.code, signalCode: outcome.signal })
+  child.emit('exit', outcome.code, outcome.signal)
   child.emit('close', outcome.code, outcome.signal)
 }
 
@@ -204,7 +206,12 @@ describe('Phase9/10 browser runner lifecycle', () => {
     'admin exit',
     'Playwright failure',
     'stop failure',
-    'occupied port'
+    'occupied port',
+    'late collision',
+    'admin exits during Playwright',
+    'admin errors during Playwright',
+    'admin exits during evidence',
+    'split ready'
   ])(
     'Phase9 real owns a ready admin before Playwright and preserves cleanup: %s',
     async (scenario) => {
@@ -214,6 +221,15 @@ describe('Phase9/10 browser runner lifecycle', () => {
       const playwright = makeChild()
       const stopped: string[][] = []
       let adminReady = false
+      let commandRetired = false
+      mocks.retireOwnedProcess.mockImplementation(
+        async (processes: unknown[], owned: unknown) => {
+          if (scenario === 'admin exits during Playwright')
+            await new Promise<void>((resolve) => setImmediate(resolve))
+          processes.splice(processes.indexOf(owned), 1)
+          commandRetired = true
+        }
+      )
       if (scenario === 'occupied port') {
         mocks.createServer.mockImplementation(() => {
           let onError: ((error: Error) => void) | undefined
@@ -235,20 +251,28 @@ describe('Phase9/10 browser runner lifecycle', () => {
           }
         })
       }
-      mocks.prepareDatabase.mockResolvedValue({
-        sharedEnvironment: { DEPLOYMENT_ENVIRONMENT: 'TEST' },
-        adminDatabaseUrl: 'unit-test-owner'
+      let foreignListener = false
+      mocks.prepareDatabase.mockImplementation(async () => {
+        if (scenario === 'late collision') foreignListener = true
+        return {
+          sharedEnvironment: { DEPLOYMENT_ENVIRONMENT: 'TEST' },
+          adminDatabaseUrl: 'unit-test-owner'
+        }
       })
       mocks.cleanupDatabase.mockResolvedValue(undefined)
       mocks.prepareActors.mockResolvedValue({ identities: [], fixture: {} })
       mocks.captureSnapshot.mockResolvedValue({})
-      mocks.assertDatabaseContract.mockResolvedValue({})
+      mocks.assertDatabaseContract.mockImplementation(async () => {
+        if (scenario === 'admin exits during evidence')
+          finish(admin, { code: 0, signal: null })
+        return {}
+      })
       vi.stubGlobal(
         'fetch',
         vi.fn(async (url: string) => {
           if (url === 'http://localhost:5175/admin/') {
             adminReady = true
-            if (scenario === 'occupied port')
+            if (scenario === 'occupied port' || foreignListener)
               setImmediate(() => finish(admin, { code: 1, signal: null }))
           }
           return new Response(null, { status: 200 })
@@ -259,6 +283,25 @@ describe('Phase9/10 browser runner lifecycle', () => {
         if (args.includes('@nihongo/admin')) {
           if (scenario === 'admin exit')
             finish(admin, { code: 1, signal: null })
+          else if (scenario !== 'late collision') {
+            queueMicrotask(() => {
+              const output = admin.stdout
+              if (scenario === 'split ready') {
+                const prefix = Buffer.from('  \u001b[32m\u279c\u001b[0m  Lo')
+                output?.emit('data', prefix.subarray(0, 8))
+                output?.emit('data', prefix.subarray(8))
+                output?.emit('data', Buffer.from('cal:   http://local'))
+                output?.emit('data', Buffer.from('host:5175/admin/\n'))
+              } else {
+                output?.emit(
+                  'data',
+                  Buffer.from(
+                    '  \u279c  Local:   http://localhost:5175/admin/\n'
+                  )
+                )
+              }
+            })
+          }
           return admin
         }
         if (args.includes('@nihongo/web')) return web
@@ -266,17 +309,30 @@ describe('Phase9/10 browser runner lifecycle', () => {
         expect(adminReady, 'Playwright must wait for the owned admin').toBe(
           true
         )
-        queueMicrotask(() =>
+        const completePlaywright = () => {
+          if (scenario === 'admin exits during Playwright')
+            finish(admin, { code: 1, signal: null })
+          if (scenario === 'admin errors during Playwright')
+            admin.emit(
+              'error',
+              new Error('Owned admin failed during Playwright')
+            )
           finish(playwright, {
             code: scenario === 'Playwright failure' ? 7 : 0,
             signal: null
           })
-        )
+        }
+        if (scenario === 'late collision') setImmediate(completePlaywright)
+        else queueMicrotask(completePlaywright)
         return playwright
       })
       mocks.stopOwnedProcesses.mockImplementation(
         async (processes: readonly { label: string }[]) => {
           stopped.push(processes.map(({ label }) => label))
+          if (scenario === 'admin exits during Playwright')
+            expect(commandRetired).toBe(true)
+          if (scenario === 'ready' || scenario === 'split ready')
+            finish(admin, { code: null, signal: 'SIGTERM' })
           if (scenario === 'stop failure')
             throw new Error('Owned process remains')
         }
@@ -289,6 +345,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
         .mockImplementation(() => true)
       const { main } = await import('../../../scripts/runPhase9Browser.js')
       await main()
+      expect(admin.listenerCount('exit')).toBe(0)
       if (scenario === 'occupied port') {
         await new Promise<void>((resolve) => setImmediate(resolve))
         expect(process.exitCode).toBe(1)
@@ -301,7 +358,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
         ).toContain('EADDRINUSE')
         return
       }
-      const success = scenario === 'ready'
+      const success = scenario === 'ready' || scenario === 'split ready'
       expect(process.exitCode ?? 0).toBe(success ? 0 : 1)
       const adminCall = mocks.spawn.mock.calls.find(([, args]) =>
         args.includes('@nihongo/admin')
@@ -325,10 +382,23 @@ describe('Phase9/10 browser runner lifecycle', () => {
         VITE_API_MODE: 'real'
       })
       expect(stopped).toEqual([
-        scenario === 'admin exit'
+        scenario === 'admin exit' || scenario === 'late collision'
           ? ['phase9-real-api', 'phase9-real-admin']
           : ['phase9-real-api', 'phase9-real-admin', 'phase9-real-web']
       ])
+      if (scenario === 'late collision') {
+        expect(foreignListener).toBe(true)
+        expect(fetch).toHaveBeenCalledWith(
+          'http://localhost:5175/admin/',
+          expect.any(Object)
+        )
+        expect(
+          mocks.spawn.mock.calls.some(
+            ([, args]) =>
+              args.includes('@nihongo/web') || args.includes('playwright')
+          )
+        ).toBe(false)
+      }
       expect(mocks.cleanupDatabase).toHaveBeenCalledTimes(
         scenario === 'stop failure' ? 0 : 1
       )
