@@ -276,12 +276,23 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
         actor ? 'ADMIN_REQUIRED' : 'AUTHENTICATION_REQUIRED'
       )
       await waitForLedgerToQuiesce(ledger)
-      await page.goto('/admin/questions')
+      const deniedDocument = await page.goto('/admin/questions')
+      if (!deniedDocument)
+        throw new Error('A direct administrator document response is required.')
+      expect(deniedDocument.request().isNavigationRequest()).toBe(true)
+      expect(
+        listAdminQuestionsErrorSchema.parse(
+          await canonicalJson(deniedDocument, actor ? 403 : 401)
+        ).code
+      ).toBe(actor ? 'ADMIN_REQUIRED' : 'AUTHENTICATION_REQUIRED')
+      await expect(page).toHaveURL(
+        (url) =>
+          url.origin === publicOrigin && url.pathname === '/admin/questions'
+      )
+      await expect(page.locator('#root')).toHaveCount(0)
       await expect(
         page.getByRole('link', { name: '새 문제 등록', exact: true })
       ).toHaveCount(0)
-      if (!actor)
-        await expect(page).toHaveURL((url) => url.pathname === '/login')
       await waitForLedgerToQuiesce(ledger)
       const cms = selectRequestLedger(ledger, ({ path }) =>
         path.startsWith('/api/v1/admin/')
