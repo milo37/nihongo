@@ -71,6 +71,32 @@ test('docs PR formats only; code chooses dependent packages without unrelated DB
 })
 
 for (const file of [
+  'apps/web/src/api/README.md',
+  'apps/web/src/stores/storage.TXT',
+  'apps/web/src/app/auth/README.md',
+  'apps/web/src/app/practice/README.md',
+  'apps/web/src/app/admin/notes.txt',
+  'apps/web/src/mocks/README.MD',
+  'apps/web/src/provider/README.md',
+  'apps/api/src/auth/README.md',
+  'apps/api/src/db/notes.txt',
+  'packages/browser/README.md'
+]) {
+  test(`sensitive-path documentation adds no runtime checks alone or beside ordinary web code: ${file}`, () => {
+    assert.deepEqual({ ...pr([file]), files: [] }, pr([]))
+    const code = 'apps/web/src/components/Button.tsx'
+    for (const files of [
+      [file, code],
+      [code, file]
+    ])
+      assert.deepEqual(
+        { ...pr(files), files: [] },
+        { ...pr([code]), files: [] }
+      )
+  })
+}
+
+for (const file of [
   'apps/web/src/libs/authTransitionFence.ts',
   'apps/web/src/provider/AuthErrorHandlerProvider.tsx'
 ]) {
@@ -104,6 +130,9 @@ test('auth/storage, shared contracts/domain and content retain DB and both brows
     'apps/web/src/api/study/save.ts',
     'apps/web/src/app/practice/hooks/useSubmit.ts',
     'apps/web/src/stores/auth.ts',
+    'apps/web/src/app/auth/useAuth.ts',
+    'apps/web/src/app/admin/useAdmin.ts',
+    'apps/web/src/mocks/handlers/question.ts',
     'apps/api/prisma/schema.prisma',
     'packages/contracts/src/study.ts',
     'packages/domain/src/result.ts',
@@ -126,6 +155,8 @@ test('operations PR, CI/common changes, unknown paths or comparison fail conserv
     'compose.yaml',
     'operations/environment-contract.v1.json',
     '.github/workflows/ci.yml',
+    '.github/workflows/README.md',
+    '.github/workflows/notes.txt',
     'scripts/ci/check-selection.mjs',
     'pnpm-lock.yaml',
     'package.json',

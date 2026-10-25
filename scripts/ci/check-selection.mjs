@@ -102,10 +102,12 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
   result.browser = result.code
   result.database =
     result.api ||
-    result.files.some((file) =>
-      /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
-        file
-      )
+    result.files.some(
+      (file) =>
+        !/\.(?:md|txt)$/iu.test(file) &&
+        /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
+          file
+        )
     )
   result.security = result.code
   return result
