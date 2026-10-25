@@ -144,3 +144,70 @@ describe('agreed SSO transport', () => {
     expect(safeSsoReturnPath('/dashboard?returnTo=%2Fwrong-notes')).toBe('/')
   })
 })
+
+describe('report-owned SSO return paths', () => {
+  const id = '11111111-1111-4111-8111-111111111111'
+  it.each([
+    '/admin/reports',
+    `/admin/reports/${id}`,
+    '/admin/reports?status=OPEN&reason=OTHER&page=2&pageSize=50&sort=CREATED_DESC'
+  ])('preserves the agreed report destination %s', (path) => {
+    expect(safeSsoReturnPath(path)).toBe(path)
+  })
+  it('accepts exactly the existing strict report list filters and date ranges', () => {
+    const path =
+      '/admin/reports?' +
+      new URLSearchParams({
+        status: 'TRIAGED',
+        reason: 'AMBIGUOUS',
+        questionId: id,
+        assigneeActorId: '22222222-2222-4222-8222-222222222222',
+        createdFrom: '2026-01-01T00:00:00Z',
+        createdTo: '2026-01-02T00:00:00Z',
+        updatedFrom: '2026-01-03T00:00:00Z',
+        updatedTo: '2026-01-04T00:00:00Z',
+        sort: 'CREATED_DESC',
+        page: '2',
+        pageSize: '50'
+      }).toString()
+    expect(safeSsoReturnPath(path)).toBe(path)
+  })
+  it.each([
+    `/admin/reports/${id}?page=2`,
+    `/admin/reports/${id}?returnTo=%2Fadmin%2Freports`,
+    `/admin/reports/${id}/resolve`,
+    '/admin/reports/not-an-id',
+    '/admin/reports/',
+    '/admin/reports?returnTo=%2Fadmin%2Freports',
+    '/admin/reports?redirect=https%3A%2F%2Fevil.test',
+    '/admin/reports?status=OPEN&status=TRIAGED',
+    '/admin/reports?page=1&page=2',
+    '/admin/reports?status=DRAFT',
+    '/admin/reports?reason=WRONG',
+    '/admin/reports?questionId=not-an-id',
+    '/admin/reports?assigneeActorId=not-an-id',
+    '/admin/reports?sort=RANDOM',
+    '/admin/reports?page=0',
+    '/admin/reports?pageSize=101',
+    '/admin/reports?level=N5',
+    '/admin/reports?search=anything',
+    '/admin/reports?createdFrom=invalid',
+    '/admin/reports?createdFrom=2026-01-02T00%3A00%3A00Z&createdTo=2026-01-01T00%3A00%3A00Z',
+    '/admin/reports?updatedFrom=2024-01-01T00%3A00%3A00Z&updatedTo=2026-01-01T00%3A00%3A00Z',
+    '/admin/reports/%2e%2e/questions',
+    `/admin/reports/%2F${id}`,
+    '/reports',
+    `/reports/${id}`,
+    '/admin/admin/reports',
+    'https://evil.test/admin/reports',
+    '//evil.test/admin/reports',
+    '/admin/reports#token',
+    '/admin/reports?status=OPEN\n',
+    '/admin/reports?' + 'x'.repeat(2048),
+    '/bookmarks?reason=OTHER',
+    `/admin/questions?assigneeActorId=${id}`,
+    '/wrong-notes/question-id?returnTo=%2Fadmin%2Freports'
+  ])('keeps report and generic navigation boundaries closed: %s', (path) => {
+    expect(safeSsoReturnPath(path)).toBe('/')
+  })
+})

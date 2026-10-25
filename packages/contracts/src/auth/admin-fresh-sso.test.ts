@@ -43,3 +43,46 @@ describe('ADMIN_FRESH distinct transport', () => {
     expect(adminFreshSsoOutcomeSchema.safeParse('LINKED').success).toBe(false)
   })
 })
+
+describe('Google fresh report callback agreement', () => {
+  it.each([
+    '/admin/reports/11111111-1111-4111-8111-111111111111',
+    '/admin/reports?status=OPEN&reason=OTHER&page=2'
+  ])(
+    'keeps the same safe report path through login and fresh parsing: %s',
+    (path) => {
+      const loginPath = safeSsoReturnPath(path)
+      expect(loginPath).toBe(path)
+      expect(safeAdminFreshReturnPath(loginPath)).toBe(path)
+      expect(
+        adminFreshSsoRequestSchema.parse({
+          purpose: 'ADMIN_FRESH',
+          provider: 'google',
+          callbackURL: loginPath
+        })
+      ).toEqual({
+        purpose: 'ADMIN_FRESH',
+        provider: 'google',
+        callbackURL: path
+      })
+    }
+  )
+  it.each([
+    '/admin/reports/11111111-1111-4111-8111-111111111111?returnTo=%2Fadmin%2Freports',
+    '/admin/reports?returnTo=%2F%2Fevil.test',
+    '/admin/reports?reason=OTHER&reason=ANSWER_ERROR',
+    '/admin/reports?role=ADMIN'
+  ])(
+    'does not bypass report callback validation for fresh entry: %s',
+    (path) => {
+      expect(safeAdminFreshReturnPath(path)).toBe('/')
+      expect(
+        adminFreshSsoRequestSchema.parse({
+          purpose: 'ADMIN_FRESH',
+          provider: 'google',
+          callbackURL: path
+        }).callbackURL
+      ).toBe('/')
+    }
+  )
+})
