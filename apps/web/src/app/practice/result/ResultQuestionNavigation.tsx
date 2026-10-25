@@ -2,10 +2,10 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
-import { Button } from '@common/components/Button'
-import { Icon } from '@common/components/Icon'
-import { formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 type ResultQuestionNavigationProps = {
   readonly items: readonly StudyResultItemView[]

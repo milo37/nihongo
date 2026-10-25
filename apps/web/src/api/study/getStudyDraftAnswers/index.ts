@@ -1,4 +1,4 @@
-import { safeGetWithMetadata } from '@api/http'
+import { safeGetWithMetadata } from '@nihongo/browser/api/http'
 import {
   getStudyDraftAnswersRequestSchema,
   getStudyDraftAnswersTransportResponseSchema

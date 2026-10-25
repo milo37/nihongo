@@ -4,7 +4,7 @@ import {
   questionDifficultySchema,
   questionSubjectSchema,
   questionTypeSchema
-} from '@api/schema'
+} from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const listQuestionRequestSchema = z

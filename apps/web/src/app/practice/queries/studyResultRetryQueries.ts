@@ -1,14 +1,14 @@
 import { mutationOptions } from '@tanstack/react-query'
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 import { createResultRetrySession } from '@api/study/createResultRetrySession'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import {
   clearResultRetryAttempt,
   getOrCreateResultRetryAttempt,
   type ResultRetryAttempt
-} from '@app/practice/resultRetryAttemptStorage'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+} from '@nihongo/browser/app/practice/resultRetryAttemptStorage'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
 export interface CreateResultRetryActionInput {
   readonly principalScope: string

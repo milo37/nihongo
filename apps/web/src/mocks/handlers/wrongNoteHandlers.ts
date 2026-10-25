@@ -1,4 +1,4 @@
-import type { User } from '@common/types/domain'
+import type { User } from '@nihongo/browser/common/types/domain'
 import { http, HttpResponse } from 'msw'
 import { listWrongNoteRequestSchema } from '@api/wrong-note/listWrongNote/schema'
 import { reviewWrongNoteRequestSchema } from '@api/wrong-note/reviewWrongNote/schema'

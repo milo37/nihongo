@@ -25,7 +25,8 @@ const [
   recoveryRunbook,
   dockerignore,
   serverSource,
-  webViteConfig
+  webViteConfig,
+  sharedBrowserViteConfig
 ] = await Promise.all([
   readJson('package.json'),
   readJson('apps/api/package.json'),
@@ -38,7 +39,8 @@ const [
   readText('operations/runbooks/recovery.v1.md'),
   readText('.dockerignore'),
   readText('apps/api/src/server.ts'),
-  readText('apps/web/vite.config.ts')
+  readText('apps/web/vite.config.ts'),
+  readText('packages/browser/vite.config.ts')
 ])
 
 const assertInOrder = (text, fragments) => {
@@ -197,7 +199,16 @@ test('one immutable runtime binds the same release to API and Web', () => {
     serverSource,
     /new URL\('\.\.\/\.\.\/web\/', import\.meta\.url\)/u
   )
-  assert.match(webViteConfig, /VITE_API_BASE_URL !== '\/api'/u)
+  assert.match(
+    webViteConfig,
+    /createBrowserViteConfig\(import\.meta\.dirname\)/u
+  )
+  assert.match(webViteConfig, /packages\/browser\/vite\.config\.ts/u)
+  assert.match(sharedBrowserViteConfig, /VITE_API_BASE_URL !== '\/api'/u)
+  assert.match(dockerfile, /COPY apps\/admin\/package\.json/u)
+  assert.match(dockerfile, /COPY packages\/browser\/package\.json/u)
+  assert.match(dockerfile, /--admin-directory \/release\/admin/u)
+  assert.match(dockerfile, /COPY --from=builder \/release\/admin \/app\/admin/u)
 })
 
 test('environment contract is secret-name-only and external activation stays closed', () => {

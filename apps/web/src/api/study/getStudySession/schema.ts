@@ -1,4 +1,7 @@
-import { practiceQuestionSchema, studySessionSchema } from '@api/schema'
+import {
+  practiceQuestionSchema,
+  studySessionSchema
+} from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const getStudySessionRequestSchema = z

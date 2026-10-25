@@ -1,4 +1,4 @@
-import { wrongNoteSchema } from '@api/schema'
+import { wrongNoteSchema } from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const reviewWrongNoteParamsSchema = z

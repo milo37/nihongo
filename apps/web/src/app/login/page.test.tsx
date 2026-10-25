@@ -1,28 +1,30 @@
+import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
-import { getCurrentUser } from '@api/auth/getCurrentUser'
+import { getCurrentUser } from '@nihongo/browser/api/auth/getCurrentUser/index'
 import { signInSocial } from '@api/auth/signInSocial'
 import { completeMockSocialSignIn } from '@api/auth/completeMockSocialSignIn'
 import { loginRoutes } from '@app/login/router'
-import { AdminFreshReturnNotice } from '@app/login/components/AdminFreshReturnNotice'
-import { invalidateCanonicalAuthTransitions } from '@app/login/authSession'
-import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
-import { queryClient } from '@libs/queryClient'
-import { emitApiError } from '@libs/errorBus'
+import { AdminFreshReturnNotice } from '@nihongo/browser/app/login/components/AdminFreshReturnNotice'
+import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
+import { LocaleSwitcher } from '@nihongo/browser/common/components/LocaleSwitcher'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
+import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
-import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
-import { I18nProvider } from '@provider/I18nProvider'
-import { useAppStore } from '@store/index'
+import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
+import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { mockServer } from '@/test/server'
 
 const renderLogin = (entry = '/login', gateOutlet = false) => {
+  const adminApp = entry.startsWith('/admin/')
   const Shell = () => {
     const content = (
       <>
@@ -62,12 +64,15 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
             element: <p>학습 풀이 도착</p>
           },
           { path: '/dashboard', element: <p>대시보드 도착</p> },
-          { path: '/admin/questions', element: <p>관리자 작업 화면</p> },
+          {
+            path: adminApp ? '/questions' : '/admin/questions',
+            element: <p>관리자 작업 화면</p>
+          },
           { path: '/', element: <p>홈 도착</p> }
         ]
       }
     ],
-    { initialEntries: [entry] }
+    { initialEntries: [entry], basename: adminApp ? '/admin' : '/' }
   )
   render(
     <QueryClientProvider client={queryClient}>
@@ -80,7 +85,7 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
   )
   return router
 }
-import { useAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 describe('현재 Google SSO 로그인', () => {
   beforeAll(async () => {
@@ -450,6 +455,9 @@ describe('관리자 ADMIN_FRESH 소비', () => {
   it.each(['google'] as const)(
     '%s에서 목적·업무 경로를 보내고 돌아와도 명령·fresh 권한을 만들지 않는다',
     async (provider) => {
+      const replaceDocument = vi
+        .spyOn(appDocumentNavigation, 'replace')
+        .mockImplementation(() => undefined)
       const actor = mockDatabase.loginAs('ADMIN')
       const requests: unknown[] = []
       mockServer.use(
@@ -478,10 +486,10 @@ describe('관리자 ADMIN_FRESH 소비', () => {
           name: 'Google로 계속하기'
         })
       )
-      expect(await screen.findByText('관리자 작업 화면')).toBeInTheDocument()
       await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(
-          '작업 권한은 서버에서 다시 확인합니다.'
+        expect(replaceDocument).toHaveBeenCalledWith(
+          '/admin/questions?level=N5&page=2&ssoFresh=REAUTHENTICATED',
+          undefined
         )
       )
       expect(requests).toEqual([
@@ -491,7 +499,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
           callbackURL: '/admin/questions?level=N5&page=2'
         }
       ])
-      expect(router.state.location.search).toBe('?level=N5&page=2')
+      expect(router.state.location.pathname).toBe('/login')
       expect(useAppStore.getState().currentUser).toMatchObject({
         id: actor.id,
         role: 'ADMIN'

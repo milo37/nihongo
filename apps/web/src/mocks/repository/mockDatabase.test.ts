@@ -3,7 +3,7 @@ import { originalQuestions } from '@mocks/data/questions'
 import {
   MOCK_DATABASE_STORAGE_KEY,
   PHASE7_ADMIN_CMS_STORAGE_KEY
-} from '@libs/storage'
+} from '@nihongo/browser/libs/storage'
 import {
   MockDatabase,
   MockDatabaseError,

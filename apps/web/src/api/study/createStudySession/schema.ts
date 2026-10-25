@@ -4,7 +4,7 @@ import {
   questionSubjectSchema,
   studyModeSchema,
   studySessionSchema
-} from '@api/schema'
+} from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const createStudySessionRequestSchema = z

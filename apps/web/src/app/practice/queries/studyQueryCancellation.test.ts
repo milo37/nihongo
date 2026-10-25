@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { apiClient } from '@api/config'
+import { apiClient } from '@nihongo/browser/api/config'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { studyDraftQueries } from '@app/practice/queries/studyDraftQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'

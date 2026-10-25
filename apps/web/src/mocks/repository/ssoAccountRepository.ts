@@ -5,7 +5,7 @@ import type {
   SsoAccountErrorCode
 } from '@nihongo/contracts/auth/sso-account-management'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
-import type { User } from '@common/types/domain'
+import type { User } from '@nihongo/browser/common/types/domain'
 
 export class MockSsoAccountError extends Error {
   constructor(

@@ -1,4 +1,4 @@
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 import type { SubmitStudySessionRequest } from '@api/study/submitStudySession/schema'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
@@ -10,7 +10,7 @@ import {
   SubmissionOutcomeAmbiguousError
 } from '@app/practice/studySubmissionRetry'
 import { getOrCreateCanonicalSubmissionAttempt } from '@app/practice/submissionAttempt'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
 interface SubmitStudySessionCommandOptions {
   getCachedSession: () => StudySessionView | undefined

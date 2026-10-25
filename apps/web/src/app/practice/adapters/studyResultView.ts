@@ -7,7 +7,7 @@ import type {
   QuestionSubject,
   QuestionType,
   WrongNoteStatus
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 
 interface StudyResultQuestionView {
   id: string

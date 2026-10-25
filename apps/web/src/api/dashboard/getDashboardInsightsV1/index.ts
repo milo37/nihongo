@@ -1,4 +1,4 @@
-import { safeGet } from '@api/http'
+import { safeGet } from '@nihongo/browser/api/http'
 import {
   getDashboardInsightsV1RequestSchema,
   getDashboardInsightsV1ResponseSchema

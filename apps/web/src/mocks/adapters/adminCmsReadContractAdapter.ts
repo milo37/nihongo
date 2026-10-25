@@ -43,7 +43,7 @@ import {
   type QuestionReportDetail,
   type QuestionReportSummary
 } from '@nihongo/contracts/admin/phase7'
-import { phase7Sha256TextPort } from '@libs/phase7Sha256'
+import { phase7Sha256TextPort } from '@nihongo/browser/libs/phase7Sha256'
 import {
   getContractQuestionId,
   getQuestionVersionFingerprint,

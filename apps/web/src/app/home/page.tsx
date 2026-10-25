@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { PracticePage } from '@app/practice/page'
-import { useAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 export const HomePage = (): ReactElement => {
   const { isReady, role } = useAuth()

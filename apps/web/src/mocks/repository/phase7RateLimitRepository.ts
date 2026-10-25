@@ -3,7 +3,7 @@ import {
   cachedStorage,
   PHASE7_RATE_LIMIT_STORAGE_KEY,
   readFreshLocalStorageItem
-} from '@libs/storage'
+} from '@nihongo/browser/libs/storage'
 import {
   Phase7MutationCoordinatorUnavailableError,
   runWithPhase7BrowserMutationLease

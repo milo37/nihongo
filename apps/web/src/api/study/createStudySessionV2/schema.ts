@@ -6,7 +6,7 @@ import { z } from 'zod'
 import {
   createPracticeTransportResponseSchema,
   refinePracticeJsonTransportHeaders
-} from '@api/study/practiceTransportSchema'
+} from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const createStudySessionV2RequestSchema = createStudySessionV2BodySchema
 export const createStudySessionV2TransportResponseSchema =

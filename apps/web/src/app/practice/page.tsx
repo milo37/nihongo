@@ -6,21 +6,24 @@ import type {
   JlptLevel,
   QuestionSubject,
   StudyMode
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
-import { Button, getButtonClassName } from '@common/components/Button'
-import { ErrorState } from '@common/components/ErrorState'
-import { Icon } from '@common/components/Icon'
-import { Dialog } from '@common/components/Dialog'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { useAppStore } from '@store/index'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 
 const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']

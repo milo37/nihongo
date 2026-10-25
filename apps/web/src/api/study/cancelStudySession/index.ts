@@ -1,4 +1,4 @@
-import { safePostWithMetadata } from '@api/http'
+import { safePostWithMetadata } from '@nihongo/browser/api/http'
 import {
   cancelStudySessionRequestBodySchema,
   cancelStudySessionRequestParamsSchema,

@@ -7,8 +7,11 @@ import type {
   DashboardWeakness,
   GetDashboardInsightsResponse
 } from '@nihongo/contracts/dashboard/get-dashboard-insights'
-import type { UiLocale } from '@/i18n/types'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
+import type { UiLocale } from '@nihongo/browser/i18n/types'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
 
 export interface DashboardViewLocalization {
   readonly locale: UiLocale

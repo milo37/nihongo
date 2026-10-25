@@ -9,17 +9,17 @@ import {
   useParams
 } from 'react-router'
 import type { ReactElement } from 'react'
-import { Button } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Progress } from '@common/components/Progress'
-import { RadioGroup } from '@common/components/RadioGroup'
+import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
-import { Icon } from '@common/components/Icon'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
@@ -39,22 +39,25 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import {
   clearGuestStudyDraftWorkingCopies,
   clearStudyDraftWorkingCopy
-} from '@app/practice/draft/studyDraftWorkingCopyStorage'
+} from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
 import { readStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
 import {
   clearSubmissionAttempt,
   hasStoredSubmissionAttempt,
   readStoredSubmissionLogicalRequest
-} from '@app/practice/submissionAttemptStorage'
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionErrorCode,
   isDefinitiveStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { useAppStore } from '@store/index'
-import { resolveUiLocale } from '@/i18n/types'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { useAppStore } from '@nihongo/browser/store/index'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import {
   isAuthenticationBoundaryApiError,
   isOfflineApiError,

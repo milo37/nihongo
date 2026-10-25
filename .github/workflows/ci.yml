@@ -85,6 +85,9 @@ jobs:
       - name: Architecture check
         run: pnpm run check:architecture
 
+      - name: Admin build boundary
+        run: pnpm run test:admin-build-boundary
+
       - name: TypeScript check
         run: pnpm run typecheck
 

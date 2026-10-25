@@ -4,7 +4,7 @@ import {
   clearSubmissionAttempt,
   readStoredSubmissionAttempt,
   writeStoredSubmissionAttempt
-} from '@app/practice/submissionAttemptStorage'
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 
 const storedStudyDraftSubmissionBodySchema = z
   .object({

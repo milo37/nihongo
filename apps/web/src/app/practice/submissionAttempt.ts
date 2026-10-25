@@ -8,7 +8,7 @@ import {
   clearSubmissionAttempt,
   readStoredSubmissionAttempt,
   writeStoredSubmissionAttempt
-} from '@app/practice/submissionAttemptStorage'
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 
 const submissionAttemptSchema = z
   .object({
@@ -165,4 +165,4 @@ export {
   clearSubmissionAttempt,
   clearSubmissionAttemptMemoryCache,
   getSubmissionAttemptStorageKey
-} from '@app/practice/submissionAttemptStorage'
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'

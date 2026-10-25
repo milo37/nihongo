@@ -2,14 +2,20 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
-import { Button, getButtonClassName } from '@common/components/Button'
-import { Icon } from '@common/components/Icon'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
-import { Pagination } from '@common/components/Pagination'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { Pagination } from '@nihongo/browser/common/components/Pagination'
 import type { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 type ResumableQuery = ReturnType<typeof useListResumableStudySessions>
 type ResumableSession = NonNullable<ResumableQuery['data']>['items'][number]

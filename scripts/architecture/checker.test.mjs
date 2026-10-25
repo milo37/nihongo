@@ -97,7 +97,7 @@ const withPhase7Fixture = (run) => {
   const repository = path.resolve(directory, '../..')
   try {
     for (const relative of [
-      'apps/web/src',
+      'packages/browser/src',
       'packages/contracts/src',
       'packages/contracts/dist'
     ]) {
@@ -105,7 +105,7 @@ const withPhase7Fixture = (run) => {
         recursive: true
       })
     }
-    const sourceRoot = path.join(root, 'apps/web/src')
+    const sourceRoot = path.join(root, 'packages/browser/src')
     const files = []
     const add = (
       name,
@@ -137,14 +137,14 @@ const withPhase7Fixture = (run) => {
             types: [],
             skipLibCheck: true,
             paths: {
-              '@/*': ['apps/web/src/*'],
-              '@api/*': ['apps/web/src/api/*'],
-              '@libs/*': ['apps/web/src/libs/*'],
+              '@nihongo/browser/*': ['packages/browser/src/*'],
               '@nihongo/contracts/*': [
                 `packages/contracts/${contractDirectory}/*`
               ],
-              zod: [path.join(repository, 'apps/web/node_modules/zod')],
-              axios: [path.join(repository, 'apps/web/node_modules/axios')]
+              zod: [path.join(repository, 'packages/browser/node_modules/zod')],
+              axios: [
+                path.join(repository, 'packages/browser/node_modules/axios')
+              ]
             }
           },
           files
@@ -153,10 +153,12 @@ const withPhase7Fixture = (run) => {
       return checkArchitecture({
         rootDir: root,
         tsconfigPath,
-        sourceRoot
+        sourceRoot,
+        allowRelativeImports: true
       })
     }
-    const actualHelper = 'apps/web/src/api/phase7/requestPhase7Operation.ts'
+    const actualHelper =
+      'packages/browser/src/api/phase7/requestPhase7Operation.ts'
     assert.equal(
       fs.readFileSync(path.join(root, actualHelper), 'utf8'),
       fs.readFileSync(path.join(repository, actualHelper), 'utf8')
@@ -168,7 +170,7 @@ const withPhase7Fixture = (run) => {
 }
 
 const phase7Import =
-  "import { requestPhase7Operation } from '@api/phase7/requestPhase7Operation'\n"
+  "import { requestPhase7Operation } from '../../phase7/requestPhase7Operation'\n"
 const phase7Input =
   "{ operation: 'listAdminQuestions', params: {}, query: {}, body: undefined }"
 const phase7Return = `requestPhase7Operation(${phase7Input})`
@@ -207,28 +209,28 @@ describe('canonical Phase7 endpoint validation', () => {
       )
       fs.writeFileSync(
         path.join(sourceRoot, 'api/phase7/facade.ts'),
-        "export { requestPhase7Operation } from '@api/phase7/requestPhase7Operation'"
+        "export { requestPhase7Operation } from './requestPhase7Operation'"
       )
       fs.writeFileSync(
         path.join(sourceRoot, 'api/phase7/fakeFacade.ts'),
-        "export { requestPhase7Operation } from '@api/phase7/fakeHelper'"
+        "export { requestPhase7Operation } from './fakeHelper'"
       )
       const cases = new Map([
         [
           'getFakePhase7',
-          `import { requestPhase7Operation } from '@api/phase7/fakeHelper'; export const endpoint = () => ${phase7Return}`
+          `import { requestPhase7Operation } from '../../phase7/fakeHelper'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getReexportedPhase7',
-          `import { requestPhase7Operation } from '@api/phase7/facade'; export const endpoint = () => ${phase7Return}`
+          `import { requestPhase7Operation } from '../../phase7/facade'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getFakeReexportPhase7',
-          `import { requestPhase7Operation } from '@api/phase7/fakeFacade'; export const endpoint = () => ${phase7Return}`
+          `import { requestPhase7Operation } from '../../phase7/fakeFacade'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getRenamedPhase7',
-          `import { requestPhase7Operation as renamed } from '@api/phase7/requestPhase7Operation'; export const endpoint = () => renamed(${phase7Input})`
+          `import { requestPhase7Operation as renamed } from '../../phase7/requestPhase7Operation'; export const endpoint = () => renamed(${phase7Input})`
         ],
         [
           'getVariableAliasPhase7',
@@ -236,7 +238,7 @@ describe('canonical Phase7 endpoint validation', () => {
         ],
         [
           'getRawRenamedPhase7',
-          `import { get as requestPhase7Operation } from '@api/http'; export const endpoint = () => ${phase7Return}`
+          `import { get as requestPhase7Operation } from '../../http'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getLocalFakePhase7',
@@ -288,19 +290,19 @@ describe('canonical Phase7 endpoint validation', () => {
         ],
         [
           'getHttpAliasPhase7',
-          `${phase7Import}import { get } from '@api/http'; const raw = get; export const endpoint = () => { void raw('/api'); return ${phase7Return} }`
+          `${phase7Import}import { get } from '../../http'; const raw = get; export const endpoint = () => { void raw('/api'); return ${phase7Return} }`
         ],
         [
           'getClientAliasPhase7',
-          `${phase7Import}import { apiClient } from '@api/config'; const client = apiClient; export const endpoint = () => { void client.get('/api'); return ${phase7Return} }`
+          `${phase7Import}import { apiClient } from '../../config'; const client = apiClient; export const endpoint = () => { void client.get('/api'); return ${phase7Return} }`
         ],
         [
           'getClientMethodPhase7',
-          `${phase7Import}import { apiClient } from '@api/config'; const raw = apiClient.get; export const endpoint = () => { void raw('/api'); return ${phase7Return} }`
+          `${phase7Import}import { apiClient } from '../../config'; const raw = apiClient.get; export const endpoint = () => { void raw('/api'); return ${phase7Return} }`
         ],
         [
           'getClientDestructurePhase7',
-          `${phase7Import}import { apiClient } from '@api/config'; const { get: raw } = apiClient; export const endpoint = () => { void raw('/api'); return ${phase7Return} }`
+          `${phase7Import}import { apiClient } from '../../config'; const { get: raw } = apiClient; export const endpoint = () => { void raw('/api'); return ${phase7Return} }`
         ],
         [
           'getAxiosPhase7',

@@ -1,5 +1,5 @@
 import type { ComponentPropsWithoutRef, ReactElement } from 'react'
-import { classNames } from '@common/components/classNames'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 
 type SkeletonProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'> & {
   label?: string

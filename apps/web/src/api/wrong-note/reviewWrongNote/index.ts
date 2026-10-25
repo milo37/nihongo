@@ -1,4 +1,4 @@
-import { safePost } from '@api/http'
+import { safePost } from '@nihongo/browser/api/http'
 import {
   reviewWrongNoteParamsSchema,
   reviewWrongNoteRequestSchema,
