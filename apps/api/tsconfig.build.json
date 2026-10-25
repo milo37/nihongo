@@ -14,6 +14,8 @@
     "src/**/*.test.ts",
     "src/**/*.integration.test.ts",
     "src/e2e/**",
-    "src/db/fixtures/**"
+    "src/db/fixtures/**",
+    "src/db/phase7SsoTestFixture.ts",
+    "src/db/phase7FoundationDiagnostics.ts"
   ]
 }
