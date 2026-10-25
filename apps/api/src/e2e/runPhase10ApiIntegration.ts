@@ -281,13 +281,14 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
       `Phase 10 process-only shard metadata is invalid: ${shard}.`
     )
   }
+  // Preparation can fail after acquiring owned resources.
+  harnessPrepared = !isProcessOnly
   const harness = isProcessOnly
     ? undefined
     : await preparePhase7IsolatedDatabase({
         seedRuns,
         artifactsPrepared: process.argv.includes('--artifacts-prepared')
       })
-  harnessPrepared = harness !== undefined
   let passedTestCount = 0
 
   for (const entry of entries) {
