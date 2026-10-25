@@ -1047,8 +1047,8 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
   )
   if (
-    names.length !== 46 ||
-    names.at(-1) !== '20261020230000_sso_account_lifecycle' ||
+    names.length !== 47 ||
+    names.at(-1) !== '20261020233000_sso_first_admin_bootstrap' ||
     applied.rows.length !== names.length ||
     applied.rows.some(
       (row, index) =>
@@ -1068,12 +1068,12 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     )
   )
     throw new Error(
-      'SSO account lifecycle canonical46 migration history mismatch.'
+      'First Google ADMIN bootstrap canonical47 migration history mismatch.'
     )
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.api.sso_account_lifecycle.migrations_verified',
-      canonicalCount: 46,
+      event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
+      canonicalCount: 47,
       checksumMatch: true,
       reentry: true
     }) + '\n'
