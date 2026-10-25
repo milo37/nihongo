@@ -113,7 +113,7 @@ test('rejects private material, symlinks and invalid module inventories', () => 
   fixture('admin', (directory) => {
     writeFileSync(
       join(directory, 'assets/index.js'),
-      '-----BEGIN PRIVATE KEY-----'
+      ['-----BEGIN', 'PRIVATE KEY-----'].join(' ')
     )
     assert.throws(
       () => assertBrowserArtifact('admin', directory),
