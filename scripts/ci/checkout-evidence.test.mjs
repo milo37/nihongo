@@ -241,12 +241,13 @@ test('each required producer captures its evaluated checkout before work', () =>
     [...jobs.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):$/gmu)].map(
       (match) => match[1]
     ),
-    ['build', 'e2e', 'phase11_release']
+    ['plan', 'build', 'e2e', 'phase11_release']
   )
   for (const job of jobs.split(/^ {2}[A-Za-z_][A-Za-z0-9_-]*:$/mu).slice(1)) {
     assert.match(job, /ref: \$\{\{ github.sha \}\}/u)
     assert.match(job, /fetch-depth: 0/u)
     assert.match(job, /persist-credentials: false/u)
+    if (job.includes('name: Select affected checks')) continue
     const record = job.indexOf('name: Record actual checkout evidence')
     assert.ok(record > job.indexOf('name: Setup Node.js'))
     assert.ok(record < job.indexOf('name: Install dependencies'))
@@ -255,10 +256,62 @@ test('each required producer captures its evaluated checkout before work', () =>
     assert.match(job, /if-no-files-found: error/u)
   }
   assert.match(workflow, /name: Quality and production build/u)
-  assert.match(workflow, /run: pnpm run test\n/u)
-  assert.match(workflow, /run: pnpm run build\n/u)
+  assert.match(
+    workflow,
+    /run: node scripts\/ci\/check-selection\.mjs quality unit\n/u
+  )
+  assert.match(
+    workflow,
+    /run: node scripts\/ci\/check-selection\.mjs quality build\n/u
+  )
   assert.doesNotMatch(
     workflow,
     /continue-on-error:|admission_binding:|required_gate:/u
   )
+})
+
+test('manual and tag candidates bind the evaluated commit without inventing a comparison base', () => {
+  for (const ref of ['refs/heads/dev', 'refs/tags/v0.2.0']) {
+    const actual = createCheckoutEvidence({
+      environment: {
+        ...environment,
+        GITHUB_EVENT_NAME: 'workflow_dispatch',
+        GITHUB_REF: ref,
+        GITHUB_SHA: head
+      },
+      event: { repository: event.repository },
+      observed: { ...observed, checkoutSha: head, parents: [base] }
+    })
+    assert.equal(actual.source.headSha, head)
+    assert.equal(actual.source.baseSha, '0'.repeat(40))
+    assert.equal(actual.evaluation.ref, ref)
+    assert.throws(() =>
+      createCheckoutEvidence({
+        environment: {
+          ...environment,
+          GITHUB_EVENT_NAME: 'workflow_dispatch',
+          GITHUB_REF: ref,
+          GITHUB_SHA: head
+        },
+        event: { repository: event.repository },
+        observed
+      })
+    )
+  }
+  const actual = createCheckoutEvidence({
+    environment: {
+      ...environment,
+      GITHUB_EVENT_NAME: 'push',
+      GITHUB_REF: 'refs/tags/v0.2.0',
+      GITHUB_SHA: head
+    },
+    event: {
+      repository: event.repository,
+      ref: 'refs/tags/v0.2.0',
+      after: head,
+      before: '0'.repeat(40)
+    },
+    observed: { ...observed, checkoutSha: head, parents: [base] }
+  })
+  assert.equal(actual.source.headSha, head)
 })

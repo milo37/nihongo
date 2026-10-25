@@ -121,8 +121,19 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     buildJob,
     /Build and verify portable Phase 11 OCI release/u
   )
-  assert.doesNotMatch(releaseJob, /^ {4}needs:/mu)
-  assert.doesNotMatch(releaseJob, /\bneeds\./u)
+  assert.match(releaseJob, /^ {4}needs: plan$/mu)
+  assert.doesNotMatch(releaseJob, /needs\.(?:build|e2e)\./u)
+  for (const [name, id] of [
+    ['Admin build boundary', 'admin_boundary'],
+    ['TypeScript check', 'typecheck']
+  ]) {
+    assert.ok(
+      buildJob.includes(
+        `      - name: ${name}\n        if: \${{ needs.plan.outputs.code == 'true' }}\n        id: ${id}\n`
+      ),
+      `${name} must retain code selection and a required outcome id`
+    )
+  }
   assertInOrder(releaseJob, [
     'test -z "$(git status --porcelain --untracked-files=all)"',
     'docker build --build-arg',
@@ -136,10 +147,10 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     'run: pnpm run test:phase10:static',
     'run: pnpm run test:phase11:static',
     'run: pnpm run test:phase10:security',
-    'run: pnpm run test\n',
-    'run: pnpm run build',
-    'run: pnpm run content:foundation-check:static',
-    'run: pnpm run test:phase10:performance',
+    'run: node scripts/ci/check-selection.mjs quality unit\n',
+    'run: node scripts/ci/check-selection.mjs quality build',
+    'pnpm --filter @nihongo/api run content:foundation-check',
+    'pnpm run test:phase10:performance:database-api',
     'name: Phase 10 canonical mock browser acceptance',
     'phase11_release:',
     'name: Build and verify portable Phase 11 OCI release',
