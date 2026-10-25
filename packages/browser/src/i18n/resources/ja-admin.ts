@@ -437,6 +437,10 @@ export const jaAdminResources = {
     }
   },
   questionDetail: {
+    editDraft: '下書きを編集',
+    noPreviousVersion: '比較する前のバージョンはありません。',
+    actions: '現在のバージョンの操作',
+
     title: '問題バージョンワークフロー',
     description:
       '行バージョンが競合した場合もローカル編集内容は保持され、再読み込み後に差分を確認できます。',

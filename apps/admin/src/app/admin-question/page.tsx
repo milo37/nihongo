@@ -560,9 +560,13 @@ export const AdminQuestionPage = (): ReactElement => {
                       className="max-w-40 px-4 py-4 font-mono text-xs font-semibold text-ink"
                       scope="row"
                     >
-                      <span className="block break-all" translate="no">
+                      <Link
+                        className="block break-all rounded-sm text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+                        translate="no"
+                        to={`/questions/${question.questionId}?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
+                      >
                         {question.questionId}
-                      </span>
+                      </Link>
                     </th>
                     <td className="px-4 py-4 font-bold">{question.level}</td>
                     <td className="px-4 py-4">
@@ -611,7 +615,7 @@ export const AdminQuestionPage = (): ReactElement => {
                       <div className="flex justify-end gap-2">
                         <Link
                           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-3 font-semibold text-ink hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                          to={`/questions/${question.questionId}/edit?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
+                          to={`/questions/${question.questionId}${canEdit(question) ? '/edit' : ''}?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
                           aria-label={`${question.questionId} 문제 ${canEdit(question) ? '수정' : '상세'}`}
                         >
                           {canEdit(question) ? '수정' : '상세'}

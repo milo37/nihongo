@@ -1907,6 +1907,10 @@ export const koResources = {
       }
     },
     questionDetail: {
+      editDraft: '초안 편집',
+      noPreviousVersion: '비교할 이전 버전이 없습니다.',
+      actions: '현재 버전 작업',
+
       title: '문제 버전 워크플로',
       description:
         '행 버전 충돌 시 로컬 편집 내용은 유지되며, 새로고침 후 차이를 확인할 수 있습니다.',
