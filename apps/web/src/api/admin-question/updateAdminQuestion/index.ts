@@ -1,25 +1,12 @@
-import {
-  updateAdminQuestionParamsSchema,
-  updateAdminQuestionRequestSchema,
-  updateAdminQuestionResponseSchema
-} from '@api/admin-question/updateAdminQuestion/schema'
-import type {
-  UpdateAdminQuestionRequest,
-  UpdateAdminQuestionResponse
-} from '@api/admin-question/updateAdminQuestion/schema'
-import { safePut } from '@api/http'
-
-const requestAdminQuestionUpdate = safePut(updateAdminQuestionResponseSchema)
-
+import { requestPhase7Operation } from '@api/phase7/requestPhase7Operation'
+import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
 export const updateAdminQuestion = (
-  questionId: string,
-  input: UpdateAdminQuestionRequest
-): Promise<UpdateAdminQuestionResponse> => {
-  const params = updateAdminQuestionParamsSchema.parse({ questionId })
-  const request = updateAdminQuestionRequestSchema.parse(input)
-
-  return requestAdminQuestionUpdate(
-    `/admin/question/${params.questionId}`,
-    request
-  )
-}
+  versionId: string,
+  body: UpdateAdminQuestionRequest
+) =>
+  requestPhase7Operation({
+    operation: 'updateQuestionVersion',
+    params: { versionId },
+    query: {},
+    body: body
+  })

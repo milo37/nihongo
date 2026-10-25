@@ -1,19 +1,9 @@
-import {
-  listAdminQuestionRequestSchema,
-  listAdminQuestionResponseSchema
-} from '@api/admin-question/listAdminQuestion/schema'
-import type {
-  ListAdminQuestionRequest,
-  ListAdminQuestionResponse
-} from '@api/admin-question/listAdminQuestion/schema'
-import { safeGet } from '@api/http'
-
-const requestAdminQuestionList = safeGet(listAdminQuestionResponseSchema)
-
-export const listAdminQuestion = (
-  params: ListAdminQuestionRequest = {}
-): Promise<ListAdminQuestionResponse> =>
-  requestAdminQuestionList(
-    '/admin/question',
-    listAdminQuestionRequestSchema.parse(params)
-  )
+import { requestPhase7Operation } from '@api/phase7/requestPhase7Operation'
+import type { ListAdminQuestionRequest } from '@api/admin-question/listAdminQuestion/schema'
+export const listAdminQuestion = (query: ListAdminQuestionRequest = {}) =>
+  requestPhase7Operation({
+    operation: 'listAdminQuestions',
+    params: {},
+    query: query,
+    body: undefined
+  })

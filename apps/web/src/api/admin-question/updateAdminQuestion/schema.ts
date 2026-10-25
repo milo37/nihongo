@@ -1,18 +1,13 @@
-import { questionEditorInputSchema, questionRecordSchema } from '@api/schema'
-import { z } from 'zod'
-
-export const updateAdminQuestionParamsSchema = z
-  .object({
-    questionId: z.string().min(1)
-  })
-  .strict()
-
-export const updateAdminQuestionRequestSchema = questionEditorInputSchema
-export const updateAdminQuestionResponseSchema = questionRecordSchema
-
-export type UpdateAdminQuestionRequest = z.infer<
+import {
+  updateQuestionVersionRequestSchema as updateAdminQuestionRequestSchema,
+  updateQuestionVersionResponseSchema as updateAdminQuestionResponseSchema
+} from '@nihongo/contracts/admin/phase7'
+import type { z } from 'zod'
+export { updateAdminQuestionRequestSchema, updateAdminQuestionResponseSchema }
+export type UpdateAdminQuestionRequest = z.input<
   typeof updateAdminQuestionRequestSchema
 >
-export type UpdateAdminQuestionResponse = z.infer<
+export type UpdateAdminQuestionResponse = z.output<
   typeof updateAdminQuestionResponseSchema
 >
+export { updateQuestionVersionParamsSchema as updateAdminQuestionParamsSchema } from '@nihongo/contracts/admin/phase7'

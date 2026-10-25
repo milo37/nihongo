@@ -1,55 +1,84 @@
-import { mutationOptions, queryOptions } from '@tanstack/react-query'
-import { getWrongNote } from '@api/wrong-note/getWrongNote'
-import { listWrongNote } from '@api/wrong-note/listWrongNote'
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  queryOptions
+} from '@tanstack/react-query'
+import { listReviewQueueQuerySchema } from '@nihongo/contracts/wrong-note/list-review-queue'
+import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
+import { getWrongNoteMemo } from '@api/wrong-note/getWrongNoteMemo'
+import { listReviewEvents } from '@api/wrong-note/listReviewEvents'
+import { listReviewQueue } from '@api/wrong-note/listReviewQueue'
 import type { ListWrongNoteRequest } from '@api/wrong-note/listWrongNote/schema'
-import { reviewWrongNote } from '@api/wrong-note/reviewWrongNote'
-import type { ReviewWrongNoteRequest } from '@api/wrong-note/reviewWrongNote/schema'
-import { updateWrongNoteMemo } from '@api/wrong-note/updateWrongNoteMemo'
-import type { UpdateWrongNoteMemoRequest } from '@api/wrong-note/updateWrongNoteMemo/schema'
+import { listWrongNotesV1 } from '@api/wrong-note/listWrongNotesV1'
+import type { ListReviewQueueRequest } from '@api/wrong-note/listReviewQueue/schema'
+import {
+  toCanonicalWrongNoteDetailView,
+  toCanonicalWrongNoteListView
+} from '@app/wrong-note/adapters/wrongNoteView'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+
+const listWrongNotes = async (params: ListWrongNoteRequest) => {
+  return toCanonicalWrongNoteListView(await listWrongNotesV1(params))
+}
+
+const getWrongNoteDetail = async (questionId: string) => {
+  return toCanonicalWrongNoteDetailView(await getWrongNoteV1(questionId))
+}
 
 export const wrongNoteQueries = {
-  allKey: () => ['wrong-note'] as const,
-  list: (params: ListWrongNoteRequest) =>
+  allKey: serverStateQueryKeys.wrongNote.all,
+  historicalListsKey: serverStateQueryKeys.wrongNote.historicalLists,
+  historicalList: (params: ListWrongNoteRequest) =>
     queryOptions({
       queryKey: [
-        ...wrongNoteQueries.allKey(),
-        'list-wrong-notes',
+        ...serverStateQueryKeys.wrongNote.historicalLists(),
         params
       ] as const,
-      queryFn: () => listWrongNote(params),
+      queryFn: () => listWrongNotes(params),
+      placeholderData: keepPreviousData,
       staleTime: 15_000
     }),
+  list: (params: ListWrongNoteRequest) =>
+    wrongNoteQueries.historicalList(params),
   detail: (questionId: string) =>
     queryOptions({
-      queryKey: [
-        ...wrongNoteQueries.allKey(),
-        'get-wrong-note',
-        questionId
-      ] as const,
-      queryFn: () => getWrongNote(questionId),
+      queryKey: serverStateQueryKeys.wrongNote.detail(questionId),
+      queryFn: () => getWrongNoteDetail(questionId),
       enabled: questionId.length > 0
-    })
-} as const
-
-export const wrongNoteMutations = {
-  updateMemo: (questionId: string) =>
-    mutationOptions({
-      mutationKey: [
-        ...wrongNoteQueries.allKey(),
-        'update-wrong-note-memo',
-        questionId
-      ] as const,
-      mutationFn: (input: UpdateWrongNoteMemoRequest) =>
-        updateWrongNoteMemo(questionId, input)
     }),
-  review: (questionId: string) =>
-    mutationOptions({
-      mutationKey: [
-        ...wrongNoteQueries.allKey(),
-        'review-wrong-note',
-        questionId
+  reviewQueue: (input: ListReviewQueueRequest) => {
+    const query = listReviewQueueQuerySchema.parse(input)
+    return queryOptions({
+      queryKey: [
+        ...serverStateQueryKeys.wrongNote.reviewQueues(),
+        query
       ] as const,
-      mutationFn: (input: ReviewWrongNoteRequest) =>
-        reviewWrongNote(questionId, input)
+      queryFn: () => listReviewQueue(query),
+      placeholderData: keepPreviousData,
+      staleTime: 15_000
+    })
+  },
+  memo: (questionId: string) =>
+    queryOptions({
+      queryKey: serverStateQueryKeys.wrongNote.memo(questionId),
+      queryFn: () => getWrongNoteMemo(questionId),
+      enabled: questionId.length > 0,
+      staleTime: 15_000
+    }),
+  reviewEvents: (questionId: string, pageSize = 20) =>
+    infiniteQueryOptions({
+      queryKey: serverStateQueryKeys.wrongNote.reviewEventConnection(
+        questionId,
+        pageSize
+      ),
+      queryFn: ({ pageParam }) =>
+        listReviewEvents(questionId, {
+          pageSize,
+          ...(pageParam === null ? {} : { cursor: pageParam })
+        }),
+      initialPageParam: null as string | null,
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      enabled: questionId.length > 0,
+      staleTime: 15_000
     })
 } as const

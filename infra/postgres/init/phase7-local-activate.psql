@@ -1,0 +1,17 @@
+\set ON_ERROR_STOP on
+
+-- This file is never run by docker-entrypoint-initdb.d because `.psql` is not
+-- an init suffix. The explicit README runbook invokes it only after migrate and
+-- seed, using the canonical migration wrapper and startup role.
+BEGIN;
+SET LOCAL search_path = public, pg_catalog;
+SELECT "phase7_register_database_capability"(
+  current_database(),
+  inet_server_addr(),
+  inet_server_port(),
+  :'phase7_environment'::"AdminAuditEnvironment"
+);
+SELECT "phase7_activate_v1_issuer"(
+  :'phase7_environment'::"AdminAuditEnvironment"
+);
+COMMIT;

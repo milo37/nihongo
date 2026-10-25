@@ -1,17 +1,23 @@
+import { createResponseValidationError } from '@api/config'
 import { mutationOptions, queryOptions } from '@tanstack/react-query'
-import { createAdminQuestion } from '@api/admin-question/createAdminQuestion'
-import { deleteAdminQuestion } from '@api/admin-question/deleteAdminQuestion'
-import { getAdminQuestion } from '@api/admin-question/getAdminQuestion'
-import { listAdminQuestion } from '@api/admin-question/listAdminQuestion'
+import { createAdminQuestion } from '@api/admin-question/createAdminQuestion/index'
+import { deleteAdminQuestion } from '@api/admin-question/deleteAdminQuestion/index'
+import { getAdminQuestion } from '@api/admin-question/getAdminQuestion/index'
+import { listAdminQuestion } from '@api/admin-question/listAdminQuestion/index'
+import { previewQuestionVersion } from '@api/admin-question/previewQuestionVersion/index'
 import type { ListAdminQuestionRequest } from '@api/admin-question/listAdminQuestion/schema'
-import { updateAdminQuestion } from '@api/admin-question/updateAdminQuestion'
+import type { DeleteAdminQuestionRequest } from '@api/admin-question/deleteAdminQuestion/schema'
+import { updateAdminQuestion } from '@api/admin-question/updateAdminQuestion/index'
 import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
-
 export interface UpdateAdminQuestionVariables {
   questionId: string
+  versionId: string
   input: UpdateAdminQuestionRequest
 }
-
+export interface ArchiveAdminQuestionVariables {
+  questionId: string
+  input: DeleteAdminQuestionRequest
+}
 export const adminQuestionQueries = {
   allKey: () => ['admin-question'] as const,
   list: (params: ListAdminQuestionRequest) =>
@@ -33,9 +39,29 @@ export const adminQuestionQueries = {
       ] as const,
       queryFn: () => getAdminQuestion(questionId),
       enabled: questionId.length > 0
+    }),
+  preview: (questionId: string, versionId: string, rowVersion: number) =>
+    queryOptions({
+      queryKey: [
+        ...adminQuestionQueries.allKey(),
+        'preview',
+        questionId,
+        versionId,
+        rowVersion
+      ] as const,
+      queryFn: async () => {
+        const response = await previewQuestionVersion(versionId)
+        if (response.question.id !== questionId)
+          throw createResponseValidationError(
+            new Error(
+              'Preview question ID does not match the selected question.'
+            )
+          )
+        return response
+      },
+      enabled: versionId.length > 0
     })
 } as const
-
 export const adminQuestionMutations = {
   create: () =>
     mutationOptions({
@@ -51,15 +77,16 @@ export const adminQuestionMutations = {
         ...adminQuestionQueries.allKey(),
         'update-admin-question'
       ] as const,
-      mutationFn: ({ questionId, input }: UpdateAdminQuestionVariables) =>
-        updateAdminQuestion(questionId, input)
+      mutationFn: ({ versionId, input }: UpdateAdminQuestionVariables) =>
+        updateAdminQuestion(versionId, input)
     }),
   delete: () =>
     mutationOptions({
       mutationKey: [
         ...adminQuestionQueries.allKey(),
-        'delete-admin-question'
+        'archive-admin-question'
       ] as const,
-      mutationFn: deleteAdminQuestion
+      mutationFn: ({ questionId, input }: ArchiveAdminQuestionVariables) =>
+        deleteAdminQuestion(questionId, input)
     })
 } as const

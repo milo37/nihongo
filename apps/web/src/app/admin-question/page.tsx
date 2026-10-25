@@ -1,19 +1,18 @@
+import {
+  questionVersionStatusSchema,
+  type QuestionVersionStatus
+} from '@nihongo/contracts/admin/phase7'
+import { useAppStore } from '@store/index'
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useSearchParams, useLocation } from 'react-router'
 import type { FormEvent, ReactElement } from 'react'
 import type { ListAdminQuestionResponse } from '@api/admin-question/listAdminQuestion/schema'
 import type {
   JlptLevel,
   QuestionDifficulty,
-  QuestionStatus,
   QuestionSubject
 } from '@common/types/domain'
-import {
-  LEVELS,
-  QUESTION_DIFFICULTIES,
-  QUESTION_STATUSES,
-  SUBJECTS
-} from '@common/types/domain'
+import { LEVELS, QUESTION_DIFFICULTIES, SUBJECTS } from '@common/types/domain'
 import { useDeleteAdminQuestion } from '@app/admin-question/hooks/useDeleteAdminQuestion'
 import { useListAdminQuestions } from '@app/admin-question/hooks/useListAdminQuestions'
 import { Badge } from '@common/components/Badge'
@@ -28,13 +27,15 @@ import { Select } from '@common/components/Select'
 import { useToast } from '@common/components/Toast'
 
 type AdminQuestionSummary = ListAdminQuestionResponse['items'][number]
-type AdminQuestionSort = 'RECENT' | 'LEVEL' | 'STATUS'
+type AdminQuestionSort = 'UPDATED_DESC' | 'LEVEL_ASC'
 
 const LEVEL_SET: ReadonlySet<string> = new Set(LEVELS)
 const SUBJECT_SET: ReadonlySet<string> = new Set(SUBJECTS)
-const STATUS_SET: ReadonlySet<string> = new Set(QUESTION_STATUSES)
+const STATUS_SET: ReadonlySet<string> = new Set(
+  questionVersionStatusSchema.options
+)
 const DIFFICULTY_SET: ReadonlySet<string> = new Set(QUESTION_DIFFICULTIES)
-const SORT_SET: ReadonlySet<string> = new Set(['RECENT', 'LEVEL', 'STATUS'])
+const SORT_SET: ReadonlySet<string> = new Set(['UPDATED_DESC', 'LEVEL_ASC'])
 
 const subjectLabels = {
   VOCABULARY: '문자·어휘',
@@ -65,13 +66,16 @@ const difficultyLabels = {
 
 const statusLabels = {
   DRAFT: '초안',
-  PUBLISHED: '게시'
+  PUBLISHED: '공개',
+  IN_REVIEW: '검토 중',
+  CHANGES_REQUESTED: '수정 요청',
+  APPROVED: '검토 승인·미공개',
+  RETIRED: '사용 종료'
 } as const
 
 const sortLabels: Record<AdminQuestionSort, string> = {
-  RECENT: '최근 수정순',
-  LEVEL: '급수순',
-  STATUS: '상태순'
+  UPDATED_DESC: '최근 수정순',
+  LEVEL_ASC: '급수순'
 }
 
 const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
@@ -89,7 +93,9 @@ const isQuestionSubject = (value: string | null): value is QuestionSubject => {
   return value !== null && SUBJECT_SET.has(value)
 }
 
-const isQuestionStatus = (value: string | null): value is QuestionStatus => {
+const isQuestionStatus = (
+  value: string | null
+): value is QuestionVersionStatus => {
   return value !== null && STATUS_SET.has(value)
 }
 
@@ -122,6 +128,12 @@ const formatUpdatedAt = (value: string): string => {
 
 export const AdminQuestionPage = (): ReactElement => {
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const actorId = useAppStore((state) => state.currentUser?.id)
+  const [unsupportedSort] = useState(
+    () => searchParams.get('sort') === 'STATUS'
+  )
+  const [archiveRefreshFailed, setArchiveRefreshFailed] = useState(false)
   const [questionToDelete, setQuestionToDelete] =
     useState<AdminQuestionSummary | null>(null)
   const deleteQuestion = useDeleteAdminQuestion()
@@ -138,26 +150,53 @@ export const AdminQuestionPage = (): ReactElement => {
   const difficulty = isQuestionDifficulty(rawDifficulty)
     ? rawDifficulty
     : undefined
-  const sort = isAdminQuestionSort(rawSort) ? rawSort : 'RECENT'
+  const sort = isAdminQuestionSort(rawSort)
+    ? rawSort
+    : rawSort === 'LEVEL'
+      ? 'LEVEL_ASC'
+      : 'UPDATED_DESC'
   const page = parsePositiveInteger(searchParams.get('page'))
   const questionList = useListAdminQuestions({
-    search: search || undefined,
+    q: search || undefined,
     level,
     subject,
-    status,
+    versionStatus: status,
+    lifecycleStatus: 'ACTIVE',
     difficulty,
     sort,
     page,
     pageSize: 20
   })
   const hasActiveFilters = Boolean(
-    search || level || subject || status || difficulty || sort !== 'RECENT'
+    search ||
+      level ||
+      subject ||
+      status ||
+      difficulty ||
+      sort !== 'UPDATED_DESC'
   )
+
+  useEffect(() => {
+    if (!rawSort || isAdminQuestionSort(rawSort)) return
+    const next = new URLSearchParams(searchParams)
+    if (rawSort === 'LEVEL') next.set('sort', 'LEVEL_ASC')
+    else next.delete('sort')
+    if (rawSort !== 'LEVEL' && rawSort !== 'RECENT') next.delete('page')
+    setSearchParams(next, { replace: true })
+  }, [rawSort, searchParams, setSearchParams])
+  const archiveError = deleteQuestion.apiError
+  const needsFresh = archiveError?.code === 'FRESH_ASSURANCE_REQUIRED'
+  const archiveConflict = archiveError?.code === 'VERSION_CONFLICT'
+  const canEdit = (question: AdminQuestionSummary): boolean =>
+    Boolean(actorId) &&
+    question.lifecycleStatus === 'ACTIVE' &&
+    question.author?.actorId === actorId &&
+    ['DRAFT', 'CHANGES_REQUESTED'].includes(question.versionStatus)
 
   const setFilter = (key: string, value: string): void => {
     const nextParams = new URLSearchParams(searchParams)
 
-    if (value.length === 0 || (key === 'sort' && value === 'RECENT')) {
+    if (value.length === 0 || (key === 'sort' && value === 'UPDATED_DESC')) {
       nextParams.delete(key)
     } else {
       nextParams.set(key, value)
@@ -179,6 +218,7 @@ export const AdminQuestionPage = (): ReactElement => {
 
   const openDeleteDialog = (question: AdminQuestionSummary): void => {
     deleteQuestion.reset()
+    setArchiveRefreshFailed(false)
     setQuestionToDelete(question)
   }
 
@@ -188,10 +228,21 @@ export const AdminQuestionPage = (): ReactElement => {
     }
 
     try {
-      await deleteQuestion.mutateAsync(questionToDelete.id)
+      await deleteQuestion.mutateAsync({
+        questionId: questionToDelete.questionId,
+        input: {
+          expectedQuestionRowVersion: questionToDelete.questionRowVersion,
+          expectedOpenCandidateVersionId:
+            questionToDelete.openCandidateVersionId,
+          expectedOpenCandidateRowVersion:
+            questionToDelete.openCandidateVersionId
+              ? questionToDelete.versionRowVersion
+              : null
+        }
+      })
       addToast({
-        title: '문제를 삭제했습니다',
-        description: `${questionToDelete.id} 문제가 목록에서 삭제되었습니다.`,
+        title: '문제를 보관했습니다',
+        description: `${questionToDelete.questionId} 문제가 활성 목록에서 제외되었습니다.`,
         variant: 'success'
       })
       setQuestionToDelete(null)
@@ -237,18 +288,24 @@ export const AdminQuestionPage = (): ReactElement => {
             문제 관리
           </h1>
           <p className="mt-4 text-pretty leading-7 text-muted">
-            자체 제작 JLPT 문제의 게시 상태와 내용을 관리합니다. 목록에는 정답과
+            활성 문제의 대표 버전을 관리합니다. 작성·검토 중인 버전이 있으면
+            먼저 표시하며, 공개본 유무는 별도로 표시합니다. 목록에는 정답과
             해설을 노출하지 않습니다.
           </p>
         </div>
         <Link
           className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-lg bg-brand px-5 py-3 font-semibold text-white shadow-sm hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          to="/admin/questions/new"
+          to={`/admin/questions/new?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
         >
           새 문제 등록
         </Link>
       </div>
 
+      {unsupportedSort ? (
+        <p role="status" className="mt-5 text-sm text-muted">
+          상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.
+        </p>
+      ) : null}
       <div className="mt-8 rounded-2xl border border-line bg-white p-4 shadow-sm sm:p-6">
         <form
           key={search}
@@ -261,7 +318,7 @@ export const AdminQuestionPage = (): ReactElement => {
               name="search"
               label="문제 검색"
               defaultValue={search}
-              placeholder="문제 ID, 질문 또는 태그를 검색하세요…"
+              placeholder="질문이 시작하는 내용을 입력하세요…"
               autoComplete="off"
             />
           </div>
@@ -311,8 +368,8 @@ export const AdminQuestionPage = (): ReactElement => {
                 setFilter('status', event.currentTarget.value)
               }
             >
-              <option value="">전체 상태</option>
-              {QUESTION_STATUSES.map((value) => (
+              <option value="">모든 표시 버전 상태</option>
+              {questionVersionStatusSchema.options.map((value) => (
                 <option key={value} value={value}>
                   {statusLabels[value]}
                 </option>
@@ -407,7 +464,7 @@ export const AdminQuestionPage = (): ReactElement => {
             ) : (
               <Link
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2.5 font-semibold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                to="/admin/questions/new"
+                to={`/admin/questions/new?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
               >
                 첫 문제 등록
               </Link>
@@ -433,7 +490,7 @@ export const AdminQuestionPage = (): ReactElement => {
           >
             <table className="w-full min-w-[76rem] border-collapse text-left text-sm">
               <caption className="sr-only">
-                JLPT 관리자 문제 목록. 수정 및 삭제 작업을 포함합니다.
+                JLPT 관리자 문제 목록. 수정 및 보관 작업을 포함합니다.
               </caption>
               <thead className="bg-slate-50 text-slate-700">
                 <tr>
@@ -443,7 +500,7 @@ export const AdminQuestionPage = (): ReactElement => {
                   <th
                     className="px-4 py-3 font-semibold"
                     scope="col"
-                    aria-sort={sort === 'LEVEL' ? 'ascending' : undefined}
+                    aria-sort={sort === 'LEVEL_ASC' ? 'ascending' : undefined}
                   >
                     급수
                   </th>
@@ -462,7 +519,7 @@ export const AdminQuestionPage = (): ReactElement => {
                   <th
                     className="px-4 py-3 font-semibold"
                     scope="col"
-                    aria-sort={sort === 'STATUS' ? 'ascending' : undefined}
+                    aria-sort={undefined}
                   >
                     상태
                   </th>
@@ -472,7 +529,9 @@ export const AdminQuestionPage = (): ReactElement => {
                   <th
                     className="px-4 py-3 font-semibold"
                     scope="col"
-                    aria-sort={sort === 'RECENT' ? 'descending' : undefined}
+                    aria-sort={
+                      sort === 'UPDATED_DESC' ? 'descending' : undefined
+                    }
                   >
                     수정일
                   </th>
@@ -487,7 +546,7 @@ export const AdminQuestionPage = (): ReactElement => {
               <tbody className="divide-y divide-line">
                 {questionList.data.items.map((question) => (
                   <tr
-                    key={question.id}
+                    key={question.questionId}
                     className="align-top hover:bg-slate-50/80"
                   >
                     <th
@@ -495,7 +554,7 @@ export const AdminQuestionPage = (): ReactElement => {
                       scope="row"
                     >
                       <span className="block break-all" translate="no">
-                        {question.id}
+                        {question.questionId}
                       </span>
                     </th>
                     <td className="px-4 py-4 font-bold">{question.level}</td>
@@ -507,7 +566,7 @@ export const AdminQuestionPage = (): ReactElement => {
                     </td>
                     <td className="px-4 py-4">
                       <span className="line-clamp-2 leading-6">
-                        {question.questionText}
+                        {question.questionTextPreview}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -516,18 +575,25 @@ export const AdminQuestionPage = (): ReactElement => {
                     <td className="px-4 py-4">
                       <Badge
                         variant={
-                          question.status === 'PUBLISHED'
+                          question.versionStatus === 'PUBLISHED'
                             ? 'success'
                             : 'neutral'
                         }
                       >
-                        {statusLabels[question.status]}
+                        {statusLabels[question.versionStatus]} ·{' '}
+                        {question.lifecycleStatus === 'ACTIVE'
+                          ? '활성'
+                          : '보관'}{' '}
+                        ·{' '}
+                        {question.currentPublishedVersionId
+                          ? '공개본 있음'
+                          : '공개본 없음'}
                       </Badge>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex max-w-48 flex-wrap gap-1.5">
                         {question.tags.map((tag) => (
-                          <Badge key={tag}>{tag}</Badge>
+                          <Badge key={tag.id}>{tag.label}</Badge>
                         ))}
                       </div>
                     </td>
@@ -538,18 +604,18 @@ export const AdminQuestionPage = (): ReactElement => {
                       <div className="flex justify-end gap-2">
                         <Link
                           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-3 font-semibold text-ink hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                          to={`/admin/questions/${question.id}/edit`}
-                          aria-label={`${question.id} 문제 수정`}
+                          to={`/admin/questions/${question.questionId}/edit?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
+                          aria-label={`${question.questionId} 문제 ${canEdit(question) ? '수정' : '상세'}`}
                         >
-                          수정
+                          {canEdit(question) ? '수정' : '상세'}
                         </Link>
                         <button
                           className="min-h-11 rounded-lg border border-red-200 bg-white px-3 font-semibold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
                           type="button"
-                          aria-label={`${question.id} 문제 삭제`}
+                          aria-label={`${question.questionId} 문제 보관`}
                           onClick={() => openDeleteDialog(question)}
                         >
-                          삭제
+                          보관
                         </button>
                       </div>
                     </td>
@@ -570,10 +636,10 @@ export const AdminQuestionPage = (): ReactElement => {
 
       <Dialog
         open={questionToDelete !== null}
-        title="문제를 삭제하시겠습니까?"
+        title="문제를 보관하시겠습니까?"
         description={
           questionToDelete
-            ? `${questionToDelete.id} 문제와 연결된 오답·즐겨찾기가 함께 정리됩니다. 기존 학습 결과는 유지됩니다.`
+            ? `${questionToDelete.questionId} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.`
             : undefined
         }
         footer={
@@ -588,10 +654,11 @@ export const AdminQuestionPage = (): ReactElement => {
             <Button
               variant="danger"
               isLoading={deleteQuestion.isPending}
-              loadingLabel="삭제 중…"
+              disabled={needsFresh || archiveConflict}
+              loadingLabel="보관 중…"
               onClick={() => void handleDeleteQuestion()}
             >
-              문제 삭제
+              문제 보관
             </Button>
           </>
         }
@@ -602,12 +669,51 @@ export const AdminQuestionPage = (): ReactElement => {
         }}
       >
         <p className="leading-7 text-muted">
-          삭제한 문제는 복구할 수 없습니다. 이미 생성된 학습 세션과 결과는 생성
-          당시 문제 스냅샷으로 계속 확인할 수 있습니다.
+          활성 목록과 새 출제 대상에서 제외하고 현재 공개본과 열린 후보의 사용을
+          종료합니다. 기존 학습 기록은 삭제하지 않습니다.
         </p>
+        {needsFresh ? (
+          <Link
+            to={`/login?redirect=${encodeURIComponent('/admin/questions' + location.search)}`}
+            className="mt-4 inline-flex min-h-11 items-center font-semibold underline"
+          >
+            관리자 재인증
+          </Link>
+        ) : null}
+        {archiveConflict ? (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void questionList.refetch().then((result) => {
+                if (result.isError || !result.data) {
+                  setArchiveRefreshFailed(true)
+                  return
+                }
+                const next = result.data.items.find(
+                  (item) => item.questionId === questionToDelete?.questionId
+                )
+                setQuestionToDelete(next ?? null)
+                deleteQuestion.reset()
+                setArchiveRefreshFailed(false)
+              })
+            }}
+          >
+            최신 상태 확인
+          </Button>
+        ) : null}
+        {archiveRefreshFailed ? (
+          <p role="alert">
+            최신 상태를 확인하지 못했습니다. 보관은 실행하지 않았습니다.
+          </p>
+        ) : null}
         {deleteQuestion.isError ? (
           <p className="mt-4 text-sm font-semibold text-red-700" role="alert">
-            문제를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.
+            {needsFresh
+              ? '관리자 재인증이 필요합니다. 재인증 후 목록에서 다시 확인해 보관해 주세요.'
+              : archiveConflict
+                ? '다른 변경이 먼저 저장되었습니다. 최신 상태를 확인한 뒤 다시 보관해 주세요.'
+                : (archiveError?.serverMessage ??
+                  '문제를 보관하지 못했습니다. 잠시 후 다시 시도해 주세요.')}
           </p>
         ) : null}
       </Dialog>

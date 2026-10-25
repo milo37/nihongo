@@ -1,207 +1,276 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { delay, http, HttpResponse } from 'msw'
-import { createMemoryRouter, RouterProvider } from 'react-router'
-import { WrongNoteDetailContent } from '@app/wrong-note/detail/page'
-import { originalQuestions } from '@mocks/data/questions'
-import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { encodeReviewEventCursor } from '@nihongo/contracts/wrong-note/list-review-events'
+import { listReviewEvents } from '@api/wrong-note/listReviewEvents'
+import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { getStudySessionV2 } from '@api/study/getStudySessionV2'
+import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
+import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
+import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
+import { WrongNoteDetailPage } from '@app/wrong-note/detail/page'
+import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
+import { commitCanonicalAuth } from '@app/login/authSession'
+import { authQueries } from '@app/login/queries/authQueries'
 import { ToastProvider } from '@common/components/Toast'
-import { useAppStore } from '@store/index'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { I18nProvider } from '@provider/I18nProvider'
+import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
+import { appI18n } from '@/i18n/config'
 import { mockServer } from '@/test/server'
 
-describe('wrong-note memo workflow', () => {
-  it('dirty 이탈을 막고 저장 성공 후 확정값으로 reset한다', async () => {
-    const user = userEvent.setup()
-    const currentUser = mockDatabase.loginAs('USER')
-    useAppStore.getState().setCurrentUser(currentUser)
-    const question = originalQuestions.find(
-      ({ id }) => id === 'n5-vocabulary-01'
-    )
-    const wrongOption = question?.options.find(({ isCorrect }) => !isCorrect)
-    expect(question).toBeDefined()
-    expect(wrongOption).toBeDefined()
-    if (!question || !wrongOption) {
-      return
-    }
+const returnTo = '/wrong-notes?view=UNREVIEWED&level=N5&subject=VOCABULARY'
 
-    const { session } = mockDatabase.createStudySession({
-      level: question.level,
-      subject: question.subject,
-      mode: 'RANDOM',
-      count: 1,
-      questionIds: [question.id]
-    })
-    mockDatabase.submitStudySession({
-      sessionId: session.id,
+const renderReadonlyDetail = async (
+  historyMode: 'default' | 'selected' | 'missing' | 'error' = 'default'
+) => {
+  mockDatabase.loginAs('USER')
+  const created = await createStudySessionV1({
+    level: 'N5',
+    subject: 'VOCABULARY',
+    mode: 'RANDOM',
+    count: 1
+  })
+  const question = toCanonicalStudySessionView(created).questions[0]
+  if (!question?.sessionQuestionId)
+    throw new Error('Canonical question fixture required')
+  await submitStudySessionV1(
+    created.session.id,
+    {
       answers: [
         {
-          questionId: question.id,
-          selectedOptionId: wrongOption.id,
-          elapsedSec: 4
+          studySessionQuestionId: question.sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
         }
       ],
-      durationSec: 4
-    })
-    const data = mockDatabase.getWrongNote(currentUser.id, question.id)
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false }
-      }
-    })
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/wrong-notes/:questionId',
-          element: <WrongNoteDetailContent data={data} />
-        },
-        {
-          path: '/next',
-          element: <h1>다음 화면</h1>
-        }
-      ],
-      { initialEntries: ['/wrong-notes/' + question.id] }
+      durationSec: 0
+    },
+    crypto.randomUUID()
+  )
+  const detail = await getWrongNoteV1(question.id)
+  const historyRequests: Array<string | null> = []
+  if (historyMode !== 'default') {
+    const history = await listReviewEvents(question.id, { pageSize: 20 })
+    const initial = history.items[0]
+    const wrongOption = detail.question.options.find(
+      ({ id }) => id !== detail.question.correctOptionId
     )
-
-    render(
-      <QueryClientProvider client={client}>
+    if (!initial || !wrongOption)
+      throw new Error('Owned wrong-answer history required')
+    const previous = { ...initial, selectedOptionId: wrongOption.id }
+    const recent = {
+      ...initial,
+      id: crypto.randomUUID(),
+      source: 'WRONG_NOTE_REVIEW' as const,
+      selectedOptionId: detail.question.correctOptionId,
+      isCorrect: true,
+      elapsedSec: 1,
+      previousStatus: initial.nextStatus,
+      nextStatus: 'REVIEWING' as const,
+      previousCorrectStreak: 0,
+      nextCorrectStreak: 1,
+      previousWrongCount: initial.wrongCountAfter,
+      occurredAt: new Date(Date.parse(initial.occurredAt) + 1000).toISOString()
+    }
+    const cursor = encodeReviewEventCursor({
+      v: 1,
+      occurredAt: recent.occurredAt,
+      id: recent.id
+    })
+    mockServer.use(
+      http.get(
+        `*/api/v1/wrong-notes/${question.id}/review-events`,
+        ({ request }) => {
+          const requestedCursor = new URL(request.url).searchParams.get(
+            'cursor'
+          )
+          historyRequests.push(requestedCursor)
+          if (historyMode === 'error')
+            return HttpResponse.json(
+              { message: 'history unavailable' },
+              { status: 500 }
+            )
+          if (historyMode === 'missing')
+            return HttpResponse.json({ items: [], nextCursor: null })
+          return HttpResponse.json(
+            requestedCursor === cursor
+              ? { items: [previous], nextCursor: null }
+              : { items: [recent], nextCursor: cursor }
+          )
+        }
+      )
+    )
+  }
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  })
+  const principal = await client.fetchQuery(authQueries.currentUser())
+  await commitCanonicalAuth(client, principal)
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/',
+        element: (
+          <ProtectedRouteProvider>
+            <Outlet />
+          </ProtectedRouteProvider>
+        ),
+        children: [
+          { path: 'wrong-notes/:questionId', element: <WrongNoteDetailPage /> },
+          { path: 'wrong-notes', element: <h1>복습 목록 도착</h1> },
+          {
+            path: 'practice/session/:sessionId',
+            element: <h1>단일 복습 도착</h1>
+          }
+        ]
+      }
+    ],
+    {
+      initialEntries: [
+        `/wrong-notes/${question.id}?returnTo=${encodeURIComponent(returnTo)}`
+      ]
+    }
+  )
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
         <ToastProvider>
           <RouterProvider router={router} />
         </ToastProvider>
-      </QueryClientProvider>
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+  await screen.findByRole('heading', {
+    name: appI18n.t('wrongNote:integration.detail')
+  })
+  return { question, detail, router, principal, historyRequests }
+}
+
+describe('wrong-note approved R9 readonly workflow', () => {
+  // The old editor's save/error intent is retained in useUpdateWrongNoteMemo.test.tsx.
+  it('읽기 전용 문제·해설을 표시하고 목록 조건과 복귀 초점 정보를 유지한다', async () => {
+    const user = userEvent.setup()
+    const { question, detail, router } = await renderReadonlyDetail()
+    expect(
+      screen.getByRole('heading', { name: question.questionText })
+    ).toBeInTheDocument()
+    for (const option of question.options) {
+      expect(
+        screen.getByText(`${option.label}. ${option.text}`)
+      ).toBeInTheDocument()
+    }
+    expect(screen.getByText(detail.question.explanationKo)).toBeInTheDocument()
+    expect(await screen.findByText('내 이전 답: 미응답')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('textbox', { name: '나의 메모' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '메모 저장' })
+    ).not.toBeInTheDocument()
+    const beforeUnload = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(beforeUnload)
+    expect(beforeUnload.defaultPrevented).toBe(false)
+    const back = screen.getByRole('link', {
+      name: appI18n.t('wrongNote:integration.back')
+    })
+    expect(back).toHaveAttribute('href', returnTo)
+    await user.click(back)
+    expect(
+      await screen.findByRole('heading', { name: '복습 목록 도착' })
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname + router.state.location.search).toBe(
+      returnTo
     )
-
-    const textarea = screen.getByRole('textbox', { name: '나의 메모' })
-    const saveButton = screen.getByRole('button', { name: '메모 저장' })
-    const retryButton = screen.getByRole('button', {
-      name: '이 문제 다시 풀기'
+    expect(router.state.location.state).toMatchObject({
+      reviewFocus: question.id
     })
-    expect(saveButton).toBeDisabled()
-
-    await user.type(textarea, '동사 활용을 다시 확인')
-    expect(saveButton).toBeEnabled()
-    expect(retryButton).toBeDisabled()
-    expect(
-      screen.getByText('저장하지 않은 변경사항이 있습니다.')
-    ).toBeInTheDocument()
-
-    const beforeUnloadEvent = new Event('beforeunload', {
-      cancelable: true
-    })
-    window.dispatchEvent(beforeUnloadEvent)
-    expect(beforeUnloadEvent.defaultPrevented).toBe(true)
-
-    act(() => {
-      void router.navigate('/next')
-    })
-    expect(
-      await screen.findByRole('heading', {
-        name: '저장하지 않은 메모를 버리시겠습니까?'
-      })
-    ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '계속 작성' }))
-    expect(router.state.location.pathname).toContain('/wrong-notes/')
-
-    await user.click(saveButton)
-    expect(await screen.findByText('메모를 저장했습니다.')).toBeInTheDocument()
-    expect(saveButton).toBeDisabled()
-    expect(retryButton).toBeEnabled()
-    expect(
-      mockDatabase.getWrongNote(currentUser.id, question.id).wrongNote.memo
-    ).toBe('동사 활용을 다시 확인')
-
-    await act(async () => {
-      await router.navigate('/next')
-    })
-    expect(
-      await screen.findByRole('heading', { name: '다음 화면' })
-    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('저장 중 중복 제출을 막고 실패 후 입력과 dirty 상태를 유지한다', async () => {
+  it('메모 쓰기 없이 해당 문제만 복습하고 목록 복귀 문맥을 저장한다', async () => {
     const user = userEvent.setup()
-    const currentUser = mockDatabase.loginAs('USER')
-    useAppStore.getState().setCurrentUser(currentUser)
-    const question = originalQuestions.find(
-      ({ id }) => id === 'n5-vocabulary-01'
-    )
-    const wrongOption = question?.options.find(({ isCorrect }) => !isCorrect)
-    expect(question).toBeDefined()
-    expect(wrongOption).toBeDefined()
-    if (!question || !wrongOption) {
-      return
-    }
-
-    const { session } = mockDatabase.createStudySession({
-      level: question.level,
-      subject: question.subject,
-      mode: 'RANDOM',
-      count: 1,
-      questionIds: [question.id]
-    })
-    mockDatabase.submitStudySession({
-      sessionId: session.id,
-      answers: [
-        {
-          questionId: question.id,
-          selectedOptionId: wrongOption.id,
-          elapsedSec: 4
-        }
-      ],
-      durationSec: 4
-    })
-    const data = mockDatabase.getWrongNote(currentUser.id, question.id)
-    const client = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false }
-      }
-    })
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/wrong-notes/:questionId',
-          element: <WrongNoteDetailContent data={data} />
-        }
-      ],
-      { initialEntries: ['/wrong-notes/' + question.id] }
-    )
-    let requestCount = 0
+    const { question, router, principal } = await renderReadonlyDetail()
+    let memoWrites = 0
     mockServer.use(
-      http.put(`*/api/wrong-note/${question.id}/memo`, async () => {
-        requestCount += 1
-        await delay(50)
+      http.put(`*/api/v1/wrong-notes/${question.id}/memo`, () => {
+        memoWrites += 1
         return HttpResponse.json(
-          { message: 'temporary memo error' },
+          {
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'temporary memo error',
+            requestId: crypto.randomUUID(),
+            retryable: true
+          },
           { status: 500 }
         )
       })
     )
-
-    render(
-      <QueryClientProvider client={client}>
-        <ToastProvider>
-          <RouterProvider router={router} />
-        </ToastProvider>
-      </QueryClientProvider>
-    )
-
-    const textarea = screen.getByRole('textbox', { name: '나의 메모' })
-    const saveButton = screen.getByRole('button', { name: '메모 저장' })
-    await user.type(textarea, '실패해도 남아야 하는 메모')
-    await user.click(saveButton)
-
-    expect(screen.getByText('메모를 저장하고 있습니다…')).toBeInTheDocument()
-    expect(textarea).toBeDisabled()
-    expect(saveButton).toBeDisabled()
-    await user.click(saveButton)
-
-    await waitFor(() => expect(requestCount).toBe(1))
-    await waitFor(() => expect(saveButton).toBeEnabled())
-    expect(textarea).toHaveValue('실패해도 남아야 하는 메모')
+    const retry = screen.getByRole('button', {
+      name: appI18n.t('wrongNote:detail.targeted.start')
+    })
+    await waitFor(() => expect(retry).toBeEnabled())
+    await user.click(retry)
     expect(
-      screen.getByText('저장하지 않은 변경사항이 있습니다.')
+      await screen.findByRole('heading', { name: '단일 복습 도착' })
     ).toBeInTheDocument()
+    const sessionId = router.state.location.pathname.split('/').at(-1)
+    if (!sessionId) throw new Error('Targeted destination required')
+    const snapshot = (await getStudySessionV2(sessionId)).data
+    expect(snapshot.questions.map((item) => item.question.id)).toEqual([
+      question.id
+    ])
+    expect(
+      readReviewReturnContext(getStudyDraftPrincipalScope(principal), sessionId)
+    ).toMatchObject({ questionId: question.id, returnTo })
+    expect(memoWrites).toBe(0)
+  })
+
+  it('follows only the needed history cursor and labels the previous answer as readonly text', async () => {
+    const { detail, historyRequests } = await renderReadonlyDetail('selected')
+    const marker = await screen.findByText('내 이전 답')
+    const row = marker.closest('li')
+    const wrongOption = detail.question.options.find(
+      ({ id }) => id !== detail.question.correctOptionId
+    )
+    if (!row || !wrongOption)
+      throw new Error('Historical wrong option row required')
+    expect(
+      within(row).getByText(`${wrongOption.label}. ${wrongOption.text}`)
+    ).toBeInTheDocument()
+    expect(screen.getByText('정답')).toBeInTheDocument()
+    expect(row).not.toHaveAttribute('aria-selected')
+    expect(row).not.toHaveAttribute('aria-pressed')
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument()
+    expect(historyRequests).toHaveLength(2)
+    expect(historyRequests[0]).toBeNull()
+    expect(historyRequests[1]).not.toBeNull()
+    expect(screen.queryByText('내 이전 답: 미응답')).not.toBeInTheDocument()
+  })
+
+  it('keeps missing history distinct from an unanswered attempt', async () => {
+    await renderReadonlyDetail('missing')
+    expect(
+      await screen.findByText('내 이전 답: 기록 확인 불가')
+    ).toBeInTheDocument()
+    expect(screen.queryByText('내 이전 답: 미응답')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: '이 문제만 다시 풀기' })
+    ).toBeInTheDocument()
+  })
+
+  it('reports a history read error while preserving the question and explanation', async () => {
+    const { question, detail } = await renderReadonlyDetail('error')
+    expect(
+      await screen.findByText('내 이전 답을 불러오지 못했습니다.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: question.questionText })
+    ).toBeInTheDocument()
+    expect(screen.getByText(detail.question.explanationKo)).toBeInTheDocument()
+    expect(screen.queryByText('내 이전 답: 미응답')).not.toBeInTheDocument()
   })
 })

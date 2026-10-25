@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "qualityRulesVersion": "quality-rules-v1",
+  "canonicalizationVersion": "rfc8785-nihongo-v1",
+  "duplicateNormalizationVersion": "duplicate-normalization-v1",
+  "exactDuplicateDecision": "HARD_FAIL",
+  "nearDuplicatePairDirection": "SYMMETRIC_DIRECTED",
+  "thresholdsBasisPoints": {
+    "questionPassageTrigram": 8200,
+    "questionTextEdit": 9000,
+    "readingPassageTrigram": 9000
+  },
+  "itemLimits": {
+    "bundleItemsMax": 25,
+    "tagKeysMin": 1,
+    "tagKeysMax": 10,
+    "nearDuplicateDispositionsMax": 100
+  }
+}
