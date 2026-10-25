@@ -83,6 +83,10 @@ const normalizeEdges = (edges) =>
 
 test('Compose isolates persistent local roles from disposable runners', async () => {
   const compose = await readRepositoryFile('compose.yaml')
+  const createTestDatabase = await readRepositoryFile(
+    'infra/postgres/init/01-create-test-database.sql'
+  )
+  assert.equal(createTestDatabase.trim(), 'CREATE DATABASE nihongo_test;')
 
   assert.match(compose, /postgres:\n[\s\S]*PHASE7_LOCAL_PROVISIONING: '0'/u)
   assert.match(
