@@ -30,6 +30,14 @@ flowchart TD
   MAIN -.->|"별도 배포 승인"| TAG["배포할 main 커밋 · vX.Y.Z tag"]
 ```
 
+## GitHub Issue와 문서 연결
+
+- 작업을 시작하기 전에 기존 GitHub Issue를 확인하고, 없으면 **문제·완료 조건·근거**만 간결하게 등록합니다. 이미 완료된 과거 작업을 일괄 복제하지 않으며 같은 작업의 Issue는 재사용합니다.
+- Issue에는 Munder JLP ID와 필요한 설계·운영 문서 링크를, Munder에는 Issue와 PR 링크를 기록합니다. Munder의 담당·실행 상태와 Issue의 진행·검수 결과를 인계와 완료 시 함께 맞춥니다. 자동 양방향 동기화나 새 승인 단계를 추가하지 않습니다.
+- 브랜치 전략 같은 상시 운영 문서는 Notion의 별도 문서로 관리하고 작업보드 카드 본문에는 문서 링크만 남깁니다. 카드의 원본 키·담당·상태·기존 이력은 보존합니다.
+- 모든 PR 본문 첫 줄에 `관련 이슈: #번호`를 적습니다. 부분 해결이나 보존 PR의 잔여 검토도 해당 Issue에 범위와 남은 일을 연결합니다.
+- 현재 기본 브랜치는 `main`입니다. GitHub의 `Closes #번호`는 기본 브랜치를 대상으로 하는 PR에서만 작동하므로, `dev` 대상 PR에서는 관련 번호로 추적하고 팀장이 완료 조건·검수·해당 통합을 확인한 뒤 Issue 상태를 갱신합니다. `main` PR도 전체 완료 조건을 충족할 때만 `Closes`를 사용합니다. 배포가 완료 조건인 Issue는 코드 병합만으로 닫지 않습니다. [GitHub 공식 연결 규칙](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)
+
 ## 작업 시작과 소유권
 
 1. 팀장이 JLP ID, 목적, 허용 파일·의존, 담당과 Git 실행자를 정합니다. FE는 `apps/web`, BE는 `apps/api`·domain과 합의된 contracts, DevOps는 배정된 CI·운영을 맡습니다. root runtime·의존성·lockfile·버전·콘텐츠는 담당을 명시합니다.
@@ -41,9 +49,10 @@ flowchart TD
 
 ## PR 작성·검수·병합
 
-1. PR target은 일반 작업이면 `dev`, 긴급 수정이면 `main`입니다. 제목은 `[영역] 변경 내용` 형태의 한국어로 현재 base→head 전체 변경을 대표합니다. 본문은 다음 세 항목으로 씁니다.
+1. PR target은 일반 작업이면 `dev`, 긴급 수정이면 `main`입니다. 제목은 `[영역] 변경 내용` 형태의 한국어로 현재 base→head 전체 변경을 대표합니다. 관련 Issue를 연결하고 본문은 다음 네 항목으로 씁니다.
 
    ```text
+   - 관련 이슈: #번호
    - 변경: 문제와 변경 후 동작
    - 검증: 실제 통과·실패·미실행과 필요한 근거 링크
    - 남은 문제: 미해결 사항과 다음 담당, 없으면 없음
