@@ -15,23 +15,26 @@ export const AdminAuditLogPage = (): ReactElement => {
   const items = audit.data?.pages.flatMap((page) => page.items) ?? []
   const paused = audit.fetchStatus === 'paused'
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const retryFocus = useRef(false)
-  const newItemRef = useRef<HTMLLIElement>(null)
-  const [newItemsStart, setNewItemsStart] = useState<number | null>(null)
+  const listRef = useRef<HTMLOListElement>(null)
+  const appendFocusIndex = useRef<number | null>(null)
+  const [retryCompletion, setRetryCompletion] = useState(0)
 
   useEffect(() => {
-    if (newItemsStart !== null && items.length > newItemsStart)
-      newItemRef.current?.focus()
-  }, [items.length, newItemsStart])
-  useEffect(() => {
-    if (audit.isSuccess && retryFocus.current) {
-      retryFocus.current = false
-      headingRef.current?.focus()
+    const index = appendFocusIndex.current
+    if (index !== null && items.length > index) {
+      appendFocusIndex.current = null
+      const item = listRef.current?.children.item(index)
+      if (item instanceof HTMLElement) item.focus()
     }
-  }, [audit.isSuccess])
+  }, [items.length])
+  useEffect(() => {
+    if (retryCompletion > 0) headingRef.current?.focus()
+  }, [retryCompletion])
   const retry = (): void => {
-    retryFocus.current = true
-    void audit.refetch()
+    void audit.refetch().then((result) => {
+      if (result.isSuccess && result.fetchStatus === 'idle')
+        setRetryCompletion((completion) => completion + 1)
+    })
   }
 
   return (
@@ -85,11 +88,14 @@ export const AdminAuditLogPage = (): ReactElement => {
           description={t('audit.emptyDescription')}
         />
       ) : (
-        <ol className="mt-8 grid gap-3" aria-label={t('audit.title')}>
-          {items.map((item, index) => (
+        <ol
+          ref={listRef}
+          className="mt-8 grid gap-3"
+          aria-label={t('audit.title')}
+        >
+          {items.map((item) => (
             <li
               key={item.id}
-              ref={index === newItemsStart ? newItemRef : undefined}
               tabIndex={-1}
               className="min-w-0 rounded-xl border border-line bg-surface p-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
@@ -170,8 +176,17 @@ export const AdminAuditLogPage = (): ReactElement => {
           disabled={audit.isFetchingNextPage || paused || audit.isError}
           aria-busy={audit.isFetchingNextPage}
           onClick={() => {
-            setNewItemsStart(items.length)
-            void audit.fetchNextPage()
+            const index = items.length
+            appendFocusIndex.current = index
+            void audit.fetchNextPage().then((result) => {
+              if (
+                result.isError ||
+                (result.data?.pages.flatMap((page) => page.items).length ??
+                  0) <= index
+              ) {
+                appendFocusIndex.current = null
+              }
+            })
           }}
         >
           {t(audit.isFetchingNextPage ? 'audit.moreLoading' : 'audit.more')}

@@ -359,3 +359,92 @@ it('connects existing question navigation to audit and preserves filters on Back
     '/admin/questions?level=N3&page=1'
   )
 })
+
+it('focus lifecycle: reconnect growth after More does not steal focus from navigation', async () => {
+  authAdmin()
+  const user = userEvent.setup()
+  const newer = {
+    ...auditItem('10000000-0000-4000-8000-000000000023'),
+    occurredAt: '2026-10-26T00:00:00.000Z'
+  }
+  const read = vi
+    .spyOn(phase7Api, 'requestPhase7Operation')
+    .mockResolvedValueOnce(firstPage)
+    .mockResolvedValueOnce(lastPage)
+    .mockResolvedValueOnce({ items: [newer, firstItem], nextCursor: cursor })
+    .mockResolvedValueOnce(lastPage)
+  renderRoute()
+  await screen.findByRole('list', { name: '관리자 감사 기록' })
+  const more = screen.getByRole('button', { name: '이전 감사 기록 더 보기' })
+  more.focus()
+  await user.keyboard('{Enter}')
+  await waitFor(() =>
+    expect(within(auditList()).getAllByRole('listitem')).toHaveLength(2)
+  )
+  expect(within(auditList()).getAllByRole('listitem')[1]).toHaveFocus()
+  const navigation = screen.getByRole('navigation', { name: '현재 위치' })
+  const questions = within(navigation).getByRole('link', { name: '문제 관리' })
+  questions.focus()
+  expect(questions).toHaveFocus()
+  await act(async () => {
+    onlineManager.setOnline(false)
+    await client.invalidateQueries({
+      queryKey: ['phase7-admin', 'audit-log'],
+      refetchType: 'none'
+    })
+    onlineManager.setOnline(true)
+  })
+  await waitFor(() => expect(read).toHaveBeenCalledTimes(4))
+  await waitFor(() =>
+    expect(within(auditList()).getAllByRole('listitem')).toHaveLength(3)
+  )
+  expect(questions).toHaveFocus()
+})
+
+it('focus lifecycle: paused cached-success retry restores the heading when reconnect completes', async () => {
+  authAdmin()
+  const user = userEvent.setup()
+  const read = vi
+    .spyOn(phase7Api, 'requestPhase7Operation')
+    .mockResolvedValue(firstPage)
+  renderRoute()
+  await screen.findByRole('list', { name: '관리자 감사 기록' })
+  const statuses: string[] = []
+  const unsubscribe = client.getQueryCache().subscribe((event) => {
+    if (
+      event.query.queryKey[0] === 'phase7-admin' &&
+      event.query.queryKey[1] === 'audit-log'
+    )
+      statuses.push(event.query.state.status)
+  })
+  try {
+    await act(async () => {
+      onlineManager.setOnline(false)
+      void client.invalidateQueries({ queryKey: ['phase7-admin', 'audit-log'] })
+    })
+    expect(
+      await screen.findByText(/오프라인이라 최신 상태를 확인하지 못했습니다/)
+    ).toBeVisible()
+    expect(within(auditList()).getAllByRole('listitem')).toHaveLength(1)
+    const retry = screen.getByRole('button', { name: '감사 기록 다시 확인' })
+    retry.focus()
+    await user.keyboard('{Enter}')
+    expect(retry).toHaveFocus()
+    await act(async () => onlineManager.setOnline(true))
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: '감사 기록 다시 확인' })
+      ).not.toBeInTheDocument()
+    )
+    expect(statuses.length).toBeGreaterThan(0)
+    expect(statuses.every((status) => status === 'success')).toBe(true)
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { level: 1, name: '관리자 감사 기록' })
+      ).toHaveFocus()
+    )
+  } finally {
+    unsubscribe()
+  }
+})
