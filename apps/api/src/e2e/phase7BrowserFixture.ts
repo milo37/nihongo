@@ -45,6 +45,7 @@ import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongN
 import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
+import { createAdminReadGuard } from '../admin/adminReadGuard.js'
 import { createAdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepository.js'
 import { createAdminQuestionService } from '../admin/adminQuestionService.js'
@@ -1504,6 +1505,11 @@ const createSsoBrowserApiFixture = async (
             repository: createPrismaQuestionReportRepository(database.client)
           })
         : undefined
+    const assertAdminCapability = async () => {
+      await database.client.$queryRawUnsafe(
+        'SELECT "phase7_require_runtime_ready"()'
+      )
+    }
     const app = createApiApp({
       ...(adminQuestionReader &&
       adminReadRateLimiter &&
@@ -1514,11 +1520,7 @@ const createSsoBrowserApiFixture = async (
       adminQuestionSlice5Repository
         ? {
             admin: {
-              assertCapability: async () => {
-                await database.client.$queryRawUnsafe(
-                  'SELECT "phase7_require_runtime_ready"()'
-                )
-              },
+              assertCapability: assertAdminCapability,
               commands: {
                 rateLimiter: adminCommandRateLimiter,
                 service: adminQuestionCommandService,
@@ -1580,6 +1582,14 @@ const createSsoBrowserApiFixture = async (
     })
     return {
       app,
+      adminGuard: adminReadRateLimiter
+        ? createAdminReadGuard({
+            assertCapability: assertAdminCapability,
+            environment,
+            principalService,
+            rateLimiter: adminReadRateLimiter
+          })
+        : undefined,
       checkReadiness: async () => {
         await practice.checkReadiness()
         if (cms)
