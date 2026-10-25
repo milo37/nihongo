@@ -18,6 +18,7 @@ import {
   QUESTION_DIFFICULTIES,
   SUBJECTS
 } from '@nihongo/browser/common/types/domain'
+import { AdminNavigation } from '@app/admin/components/AdminNavigation'
 import { useDeleteAdminQuestion } from '@app/admin-question/hooks/useDeleteAdminQuestion'
 import { useListAdminQuestions } from '@app/admin-question/hooks/useListAdminQuestions'
 import { Badge } from '@nihongo/browser/common/components/Badge'
@@ -284,6 +285,7 @@ export const AdminQuestionPage = (): ReactElement => {
 
   return (
     <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
+      <AdminNavigation />
       <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-3xl">
           <p className="text-sm font-bold tracking-[0.14em] text-brand">
