@@ -8,7 +8,11 @@ const ports = vi.hoisted(() => ({
   retire: vi.fn(),
   connect: vi.fn(),
   query: vi.fn(),
-  end: vi.fn()
+  end: vi.fn(),
+  prepareDatabase: vi.fn(),
+  cleanupDatabase: vi.fn(),
+  executeEntry: vi.fn(),
+  databaseShard: false
 }))
 vi.mock('dotenv', () => ({ default: { config: vi.fn() } }))
 vi.mock('pg', () => ({
@@ -19,6 +23,19 @@ vi.mock('pg', () => ({
   }
 }))
 vi.mock('node:child_process', () => ({ spawn: ports.spawn }))
+vi.mock('./runPhase7ApiIntegration.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./runPhase7ApiIntegration.js')>()
+  return {
+    ...actual,
+    preparePhase7IsolatedDatabase: ports.prepareDatabase,
+    cleanupPhase7IsolatedDatabase: ports.cleanupDatabase
+  }
+})
+vi.mock('./phase10ApiIntegrationExecution.js', () => ({
+  runPhase10ManifestVitestFile: ports.executeEntry
+}))
+
 vi.mock('./ownedProcessGroup.js', () => ({
   shouldDetachOwnedProcess: true,
   stopOwnedProcesses: ports.stop,
@@ -29,7 +46,17 @@ vi.mock('./validatePhase10ApiIntegrationManifest.js', () => ({
 }))
 vi.mock('./phase10ApiIntegrationManifest.js', () => ({
   getPhase10ApiIntegrationEntriesByOwner: () => [
-    { shard: 'process-only', connectionRole: 'none' }
+    {
+      path: 'src/question/questionCatalog.integration.test.ts',
+      executionOwner: 'phase10',
+      shard: ports.databaseShard ? 'db-preparation' : 'process-only',
+      order: 1,
+      databaseState: ports.databaseShard ? 'test-current' : 'none',
+      connectionRole: ports.databaseShard ? 'application' : 'none',
+      requiredEnvironment: [],
+      seedPolicy: 'none',
+      isolation: 'test-process'
+    }
   ]
 }))
 
@@ -67,6 +94,10 @@ const signalParent = (signal: (typeof signals)[number]): void => {
 beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
+  ports.databaseShard = false
+  ports.prepareDatabase.mockReset()
+  ports.cleanupDatabase.mockReset().mockResolvedValue(undefined)
+  ports.executeEntry.mockReset().mockResolvedValue(1)
   vi.stubEnv('NODE_ENV', 'test')
   vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
   vi.stubEnv(
@@ -208,6 +239,53 @@ describe('Phase10 parent common preparation ownership without a database', () =>
         '--artifacts-prepared'
       ]
     ])
+    expect(ports.connect).not.toHaveBeenCalled()
+  })
+})
+
+describe('Phase10 partial database preparation cleanup without a database', () => {
+  it.each([false, true])(
+    'cleans a failed preparation and preserves nonzero failure (cleanupFails=%s)',
+    async (cleanupFails) => {
+      ports.databaseShard = true
+      process.argv.push('--shard=db-preparation', '--artifacts-prepared')
+      ports.prepareDatabase.mockRejectedValue(
+        new Error('synthetic partial DB preparation failure')
+      )
+      if (cleanupFails)
+        ports.cleanupDatabase.mockRejectedValue(
+          new Error('synthetic partial cleanup failure')
+        )
+      await import('./runPhase10ApiIntegration.js')
+      await vi.waitFor(() => expect(process.exitCode).toBe(1))
+      expect(ports.prepareDatabase).toHaveBeenCalledOnce()
+      expect(ports.prepareDatabase).toHaveBeenCalledWith(
+        expect.objectContaining({ seedRuns: 0, artifactsPrepared: true })
+      )
+      expect(ports.cleanupDatabase).toHaveBeenCalledOnce()
+      expect(ports.executeEntry).not.toHaveBeenCalled()
+      expect(ports.connect).not.toHaveBeenCalled()
+      expect(process.stderr.write).toHaveBeenCalledWith(
+        expect.stringContaining('synthetic partial DB preparation failure')
+      )
+      if (cleanupFails)
+        expect(process.stderr.write).toHaveBeenCalledWith(
+          expect.stringContaining('phase10.api_integration.cleanup_failed')
+        )
+    }
+  )
+
+  it('does not arm database cleanup for a process-only shard', async () => {
+    process.argv.push('--shard=process-only')
+    await import('./runPhase10ApiIntegration.js')
+    await vi.waitFor(() =>
+      expect(process.stdout.write).toHaveBeenCalledWith(
+        expect.stringContaining('phase10.api_integration.shard.passed')
+      )
+    )
+    expect(ports.prepareDatabase).not.toHaveBeenCalled()
+    expect(ports.cleanupDatabase).not.toHaveBeenCalled()
+    expect(ports.executeEntry).toHaveBeenCalledOnce()
     expect(ports.connect).not.toHaveBeenCalled()
   })
 })
