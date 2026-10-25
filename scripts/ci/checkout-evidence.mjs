@@ -52,9 +52,13 @@ export const createCheckoutEvidence = ({ environment, event, observed }) => {
       [baseSha, headSha],
       'PR checkout parents differ from the event base/head.'
     )
+  } else if (environment.GITHUB_EVENT_NAME === 'workflow_dispatch') {
+    assert.match(environment.GITHUB_REF ?? '', /^refs\/(?:heads|tags)\/\S+$/u)
+    headSha = evaluatedSha
+    baseSha = zeroSha
   } else {
     assert.equal(environment.GITHUB_EVENT_NAME, 'push', 'Unsupported CI event.')
-    assert.match(environment.GITHUB_REF ?? '', /^refs\/heads\/\S+$/u)
+    assert.match(environment.GITHUB_REF ?? '', /^refs\/(?:heads|tags)\/\S+$/u)
     assert.equal(event.ref, environment.GITHUB_REF)
     headSha = requireSha(event.after)
     assert.equal(headSha, evaluatedSha, 'Push head differs from evaluated SHA.')
