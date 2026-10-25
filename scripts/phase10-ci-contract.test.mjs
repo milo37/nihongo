@@ -78,7 +78,7 @@ test('package scripts preserve the Phase 10 static, performance, and browser gra
 
 test('quality job executes final gates and run-unique performance evidence lifecycle', () => {
   assert.equal(
-    workflow.match(/^  push:\n    branches:\n((?:      - [^\n]+\n)+)/mu)?.[1],
+    workflow.match(/^ {2}push:\n {4}branches:\n((?: {6}- [^\n]+\n)+)/mu)?.[1],
     '      - main\n      - dev\n'
   )
   assert.match(
