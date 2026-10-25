@@ -119,7 +119,8 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     buildJob,
     /Build and verify portable Phase 11 OCI release/u
   )
-  assert.match(releaseJob, /needs: \[build, e2e\]/u)
+  assert.doesNotMatch(releaseJob, /^ {4}needs:/mu)
+  assert.doesNotMatch(releaseJob, /\bneeds\./u)
   assertInOrder(releaseJob, [
     'test -z "$(git status --porcelain --untracked-files=all)"',
     'docker build --build-arg',
@@ -135,7 +136,7 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     'run: pnpm run test:phase10:security',
     'run: pnpm run test\n',
     'run: pnpm run build',
-    'run: pnpm run content:foundation-check',
+    'run: pnpm run content:foundation-check:static',
     'run: pnpm run test:phase10:performance',
     'name: Phase 10 canonical mock browser acceptance',
     'phase11_release:',
