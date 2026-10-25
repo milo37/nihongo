@@ -12,7 +12,7 @@ import { useUpdateAdminQuestion } from '@app/admin-question/hooks/useUpdateAdmin
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
-import { studyQueries } from '@app/practice/queries/studyQueries'
+import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
@@ -142,7 +142,7 @@ describe('mutation cache contracts', () => {
     })
 
     expect(
-      client.getQueryData(studyQueries.result(sessionId).queryKey)
+      client.getQueryData(serverStateQueryKeys.study.result(sessionId))
     ).toMatchObject({ sessionId })
     expectInvalidated(client, studySessionQueries.session(sessionId).queryKey)
     expectInvalidated(client, [...wrongNoteQueries.allKey(), 'seed'])
@@ -243,7 +243,7 @@ describe('mutation cache contracts', () => {
       false
     )
     expect(
-      client.getQueryData(studyQueries.result('missing-session').queryKey)
+      client.getQueryData(serverStateQueryKeys.study.result('missing-session'))
     ).toBeUndefined()
   })
 
