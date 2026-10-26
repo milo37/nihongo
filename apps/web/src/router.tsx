@@ -16,7 +16,12 @@ import {
   RequireRole
 } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
+const developmentRoutes: RouteObject[] = import.meta.env.DEV
+  ? (await import('@app/development/router')).developmentRoutes
+  : []
+
 export const appRoutes: RouteObject[] = [
+  ...developmentRoutes,
   {
     path: '/',
     element: (
