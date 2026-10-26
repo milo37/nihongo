@@ -1,3 +1,18 @@
+const questionTypeLabels = {
+  KANJI_READING: '한자 읽기',
+  ORTHOGRAPHY: '표기',
+  CONTEXT_VOCABULARY: '문맥 어휘',
+  PARAPHRASE: '유의 표현',
+  WORD_USAGE: '용법',
+  GRAMMAR_SELECT: '문법 선택',
+  SENTENCE_ORDER: '문장 배열',
+  TEXT_GRAMMAR: '글의 문법',
+  SHORT_READING: '단문 독해',
+  MEDIUM_READING: '중문 독해',
+  LONG_READING: '장문 독해',
+  INFO_RETRIEVAL: '정보 검색'
+} as const
+
 export const koResources = {
   common: {
     appName: '하루마루',
@@ -46,20 +61,7 @@ export const koResources = {
         BOOKMARK: '책갈피',
         DAILY_REVIEW: '오늘 복습'
       },
-      questionTypes: {
-        KANJI_READING: '한자 읽기',
-        ORTHOGRAPHY: '표기',
-        CONTEXT_VOCABULARY: '문맥 어휘',
-        PARAPHRASE: '유의 표현',
-        WORD_USAGE: '용법',
-        GRAMMAR_SELECT: '문법 선택',
-        SENTENCE_ORDER: '문장 배열',
-        TEXT_GRAMMAR: '글의 문법',
-        SHORT_READING: '단문 독해',
-        MEDIUM_READING: '중문 독해',
-        LONG_READING: '장문 독해',
-        INFO_RETRIEVAL: '정보 검색'
-      },
+      questionTypes: { ...questionTypeLabels },
       wrongNoteStatuses: {
         NEW: '새 오답',
         REVIEWING: '복습 중',
@@ -612,7 +614,7 @@ export const koResources = {
         saveAndLeave: '저장하고 이동'
       },
       header: {
-        backToSetup: '학습으로',
+        backToSetup: '학습으로 돌아가기',
         backToExplanation: '해설로 돌아가기',
 
         progressSummary:
@@ -620,6 +622,14 @@ export const koResources = {
         elapsedTime: '경과 시간'
       },
       draft: {
+        retryShort: '다시 시도',
+        inline: {
+          saved: '학습 기록이 자동으로 저장됐어요',
+          saving: '학습 기록을 저장하고 있어요…',
+          error: '학습 기록을 저장하지 못했어요',
+          dirty: '학습 기록을 저장할 준비 중이에요',
+          offline: '오프라인 · 이 기기에 임시 보관 중'
+        },
         status: {
           remoteDeferred:
             '다른 탭의 최신 저장을 감지했습니다. 현재 저장 응답을 확인한 뒤 안전하게 병합합니다.',
@@ -1512,20 +1522,7 @@ export const koResources = {
         GRAMMAR: '문법',
         READING: '독해'
       },
-      questionTypes: {
-        KANJI_READING: '한자 읽기',
-        ORTHOGRAPHY: '표기',
-        CONTEXT_VOCABULARY: '문맥 어휘',
-        PARAPHRASE: '유의 표현',
-        WORD_USAGE: '용법',
-        GRAMMAR_SELECT: '문법 선택',
-        SENTENCE_ORDER: '문장 배열',
-        TEXT_GRAMMAR: '글의 문법',
-        SHORT_READING: '단문 독해',
-        MEDIUM_READING: '중문 독해',
-        LONG_READING: '장문 독해',
-        INFO_RETRIEVAL: '정보 검색'
-      },
+      questionTypes: { ...questionTypeLabels },
       difficulties: {
         EASY: '쉬움',
         NORMAL: '보통',

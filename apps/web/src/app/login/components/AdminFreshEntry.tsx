@@ -35,22 +35,19 @@ export const AdminFreshEntry = ({
         {t('adminFresh.title')}
       </h2>
       <p>{t('adminFresh.description')}</p>
-      <div className="auth-actions" aria-busy={busy || undefined}>
+      <div className="auth-actions">
         <SsoProviderButton
           provider="google"
           label={t('sso.continueGoogle')}
           buttonRef={google}
           disabled={disabled || busy}
+          isLoading={busy}
+          loadingLabel={t('sso.redirecting', {
+            provider: provider === 'apple' ? 'Apple' : 'Google'
+          })}
           onClick={() => begin('google')}
         />
       </div>
-      {busy ? (
-        <p className="auth-notice" role="status">
-          {t('sso.redirecting', {
-            provider: provider === 'apple' ? 'Apple' : 'Google'
-          })}
-        </p>
-      ) : null}
       {start.isError ? (
         <p className="auth-notice auth-error" role="alert">
           {t(

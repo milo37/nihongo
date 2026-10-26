@@ -464,6 +464,13 @@ describe('BookmarkPage pagination settlement', () => {
 
   it('마지막 페이지 delete 실패 중에는 page를 유지하고 rollback 항목을 복원한다', async () => {
     const fixture = await renderLastPageDelete()
+    expect(
+      screen.queryByText('책갈피 해제를 처리하고 있습니다…')
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled()
+    expect(
+      screen.getByRole('dialog').querySelectorAll('.ui-spinner')
+    ).toHaveLength(1)
 
     await act(async () => fixture.settlement.resolve('FAILURE'))
 
@@ -571,5 +578,57 @@ it('displays one real bookmark page without adding unsupported filters', async (
       'true'
     )
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  dispose(fixture.client, fixture.unmount)
+})
+
+it('학습 그룹 두 개 중 실행 버튼만 진행을 표시하고 다른 그룹도 중복 시작을 막는다', async () => {
+  const first = createBookmark(1)
+  const second = createBookmark(2)
+  second.question.level = 'N4'
+  const settlement = createDeferred<void>()
+  let requests = 0
+  mockServer.use(
+    http.get('*/api/v1/bookmarks', () =>
+      HttpResponse.json({
+        items: [first, second],
+        page: 1,
+        pageSize: 20,
+        total: 2
+      })
+    ),
+    http.post('*/api/v1/study-sessions', async () => {
+      requests += 1
+      await settlement.promise
+      return HttpResponse.json(
+        {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: '학습 시작 실패',
+          requestId: crypto.randomUUID(),
+          retryable: true
+        },
+        { status: 500 }
+      )
+    })
+  )
+  const fixture = renderBookmarkPage()
+  const user = userEvent.setup()
+  await screen.findByText(first.question.questionTextPreview)
+  await user.click(screen.getByText('다시 풀기'))
+  const firstGroup = screen.getByRole('button', { name: /N5.*어휘/ })
+  const secondGroup = screen.getByRole('button', { name: /N4.*어휘/ })
+  const secondLabel = secondGroup.textContent
+  await user.click(firstGroup)
+  await waitFor(() => expect(requests).toBe(1))
+  expect(firstGroup.querySelectorAll('.ui-spinner')).toHaveLength(1)
+  expect(firstGroup).toHaveAttribute('aria-busy', 'true')
+  expect(firstGroup).toBeDisabled()
+  expect(secondGroup).toBeDisabled()
+  expect(secondGroup.querySelector('.ui-spinner')).toBeNull()
+  expect(secondGroup).toHaveTextContent(secondLabel!)
+  expect(secondGroup).not.toHaveAttribute('aria-busy')
+  await user.click(secondGroup)
+  expect(requests).toBe(1)
+  await act(async () => settlement.resolve())
+  await waitFor(() => expect(secondGroup).toBeEnabled())
   dispose(fixture.client, fixture.unmount)
 })

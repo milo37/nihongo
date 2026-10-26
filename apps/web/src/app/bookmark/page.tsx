@@ -256,8 +256,11 @@ export const BookmarkPage = (): ReactElement => {
                   <Button
                     key={`${group.level}:${group.subject}`}
                     variant="outline"
+                    disabled={createSession.isPending || createSession.isPaused}
                     isLoading={
-                      createSession.isPending || createSession.isPaused
+                      (createSession.isPending || createSession.isPaused) &&
+                      createSession.variables?.level === group.level &&
+                      createSession.variables.subject === group.subject
                     }
                     onClick={() => startBookmarkPractice(group)}
                   >
@@ -337,7 +340,12 @@ export const BookmarkPage = (): ReactElement => {
         ) : null}
       </div>
 
-      {mutationStatus ? (
+      {mutationStatus &&
+      !(
+        pendingRemovalQuestionId !== null &&
+        statusMessage === 'removing' &&
+        !bookmarkMutationActivity.isPaused
+      ) ? (
         <p
           className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
           role="status"

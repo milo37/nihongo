@@ -408,17 +408,19 @@ describe('approved general result navigation', () => {
         exact: true
       })
     })
-    expect(
-      screen.getByRole('heading', { name: second.question.questionText })
-    ).toBeVisible()
-    expect(
-      screen.getByText(
-        '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
-      )
-    ).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: '오답만 다시 풀기' })
-    ).toBeDisabled()
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: second.question.questionText })
+      ).toBeVisible()
+      expect(
+        screen.getByText(
+          '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
+        )
+      ).toBeVisible()
+      expect(
+        screen.getByRole('button', { name: '오답만 다시 풀기' })
+      ).toBeDisabled()
+    })
     view.unmount()
     fixture.client.clear()
   })

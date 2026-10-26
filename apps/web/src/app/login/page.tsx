@@ -140,7 +140,7 @@ export const LoginPage = (): ReactElement => {
           ) : null}
         </header>
         {!isReady ? (
-          <p className="auth-notice" role="status">
+          <p className="sr-only" role="status">
             {t('sso.checkingSession')}
           </p>
         ) : user ? (
@@ -174,20 +174,17 @@ export const LoginPage = (): ReactElement => {
           </>
         ) : (
           <>
-            <div className="auth-actions" aria-busy={busy || undefined}>
+            <div className="auth-actions">
               <SsoProviderButton
                 provider="google"
                 label={t('sso.continueGoogle')}
                 disabled={busy}
+                isLoading={busy}
+                loadingLabel={t('sso.redirecting', { provider: providerName })}
                 buttonRef={googleButton}
                 onClick={() => begin('google')}
               />
             </div>
-            {busy ? (
-              <p className="auth-notice" role="status">
-                {t('sso.redirecting', { provider: providerName })}
-              </p>
-            ) : null}
             {start.isError ? (
               <p className="auth-notice auth-error" role="alert">
                 {t('sso.' + errorKey, { provider: providerName })}
