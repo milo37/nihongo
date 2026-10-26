@@ -14,11 +14,25 @@ const contextSchema = z
     versionId: opaqueIdSchema,
     questionRowVersion: z.number().int().positive().safe(),
     versionRowVersion: z.number().int().positive().safe(),
+    openCandidateVersionId: opaqueIdSchema.nullable().optional().default(null),
+    openCandidateRowVersion: z
+      .number()
+      .int()
+      .positive()
+      .safe()
+      .nullable()
+      .optional()
+      .default(null),
     returnTo: z.string(),
     command: z.enum(questionCommands),
     note: z.string().max(2000)
   })
   .strict()
+  .refine(
+    (context) =>
+      (context.openCandidateVersionId === null) ===
+      (context.openCandidateRowVersion === null)
+  )
 export type QuestionFreshContext = z.infer<typeof contextSchema>
 const key = (actorId: string, questionId: string): string =>
   `nihongo:admin-question:fresh:v1:${actorId}:${questionId}`

@@ -481,6 +481,8 @@ it('rejects stale fresh recovery when either viewed rowVersion changed', async (
     versionId,
     questionRowVersion: 7,
     versionRowVersion: 1,
+    openCandidateVersionId: null,
+    openCandidateRowVersion: null,
     returnTo: '/admin/questions',
     command: 'REQUEST_REVIEW',
     note: 'stale'
@@ -663,3 +665,119 @@ it('keeps an open command on its viewed CAS until explicit refresh after a passi
     body: { expectedRowVersion: 2, comment: 'Keep viewed note' }
   })
 })
+
+it('regression: pins ARCHIVE to the open candidate rowVersion even when an older published version is selected', async () => {
+  route('?version=' + oldVersionId)
+  const archive = await screen.findByRole('button', {
+    name: t('enums.commands.ARCHIVE')
+  })
+  await waitFor(() => expect(archive).toBeEnabled())
+  const dialog = await open(t('enums.commands.ARCHIVE'))
+  snapshot = {
+    ...snapshot,
+    versions: {
+      ...snapshot.versions,
+      items: [{ ...newer, rowVersion: 2 }, older]
+    }
+  }
+  await act(async () => {
+    await client.invalidateQueries({
+      queryKey: ['phase7-admin', 'questions', 'versions']
+    })
+  })
+  await waitFor(() =>
+    expect(
+      within(dialog).queryByRole('button', {
+        name: t('questionDetail.execute')
+      })
+    ).not.toBeInTheDocument()
+  )
+  expect(writes()).toHaveLength(0)
+  await userEvent.click(
+    within(dialog).getByRole('button', {
+      name: t('questionDetail.retryConflict')
+    })
+  )
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole('button', { name: t('questionDetail.execute') })
+    ).toBeEnabled()
+  )
+  await execute(dialog)
+  await waitFor(() => expect(writes()).toHaveLength(1))
+  expect(writes()[0]![0]).toMatchObject({
+    operation: 'archiveAdminQuestion',
+    body: {
+      expectedQuestionRowVersion: 1,
+      expectedOpenCandidateVersionId: versionId,
+      expectedOpenCandidateRowVersion: 2
+    }
+  })
+})
+it.each([false, true])(
+  'regression: restores ARCHIVE after Google fresh only while the pinned candidate is unchanged (candidate moved=%s)',
+  async (moved) => {
+    write = async () => {
+      throw { code: 'FRESH_ASSURANCE_REQUIRED' }
+    }
+    const assign = vi
+      .spyOn(appDocumentNavigation, 'assign')
+      .mockImplementation(() => undefined)
+    const first = route('?version=' + oldVersionId)
+    const archive = await screen.findByRole('button', {
+      name: t('enums.commands.ARCHIVE')
+    })
+    await waitFor(() => expect(archive).toBeEnabled())
+    const dialog = await open(t('enums.commands.ARCHIVE'))
+    await execute(dialog)
+    const fresh = await within(dialog).findByRole('button', {
+      name: t('reportDetail.fresh')
+    })
+    await userEvent.click(fresh)
+    expect(assign).toHaveBeenCalledExactlyOnceWith(
+      '/login?redirect=' + encodeURIComponent('/admin/questions/' + questionId)
+    )
+    if (!moved)
+      expect(readQuestionFreshContext(actorId, questionId)).toMatchObject({
+        versionId: oldVersionId,
+        questionRowVersion: 1,
+        versionRowVersion: 1,
+        openCandidateVersionId: versionId,
+        openCandidateRowVersion: 1
+      })
+    first.unmount()
+    client.clear()
+    invalidateCanonicalAuthTransitions()
+    useAppStore.getState().setCurrentUser(null)
+    if (moved)
+      snapshot = {
+        ...snapshot,
+        versions: {
+          ...snapshot.versions,
+          items: [{ ...newer, rowVersion: 2 }, older]
+        }
+      }
+    route()
+    await screen.findByRole('heading', {
+      name: t('questionDetail.previewTitle')
+    })
+    await waitFor(() =>
+      expect(readQuestionFreshContext(actorId, questionId)).toBeNull()
+    )
+    if (moved) {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(
+        screen.getByText(t('questionDetail.versionConflictDescription'))
+      ).toBeVisible()
+    } else {
+      expect(
+        screen.getByRole('dialog', {
+          name: t('questionDetail.commandDialogTitle', {
+            command: t('enums.commands.ARCHIVE')
+          })
+        })
+      ).toBeVisible()
+    }
+    expect(writes()).toHaveLength(1)
+  }
+)

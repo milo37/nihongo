@@ -104,6 +104,8 @@ const QuestionDetail = ({
     questionRowVersion: number
     versionRowVersion: number
     versionId: string
+    openCandidateVersionId: string | null
+    openCandidateRowVersion: number | null
   } | null>(null)
   const [note, setNote] = useState('')
   const [announcement, setAnnouncement] = useState('')
@@ -153,13 +155,22 @@ const QuestionDetail = ({
     'FORBIDDEN',
     'SEPARATION_OF_DUTIES_VIOLATION'
   ].includes(code ?? '')
+  const candidate = versions.find(
+    (version) =>
+      version.questionVersionId === detail.data?.question.openCandidateVersionId
+  )
   const commandStale = Boolean(
     pending &&
       commandSnapshot &&
       (detail.data?.question.rowVersion !==
         commandSnapshot.questionRowVersion ||
         selected?.questionVersionId !== commandSnapshot.versionId ||
-        selected?.rowVersion !== commandSnapshot.versionRowVersion)
+        selected?.rowVersion !== commandSnapshot.versionRowVersion ||
+        (pending === 'ARCHIVE' &&
+          (detail.data?.question.openCandidateVersionId !==
+            commandSnapshot.openCandidateVersionId ||
+            (candidate?.rowVersion ?? null) !==
+              commandSnapshot.openCandidateRowVersion)))
   )
   const locked =
     workflow.locked ||
@@ -167,10 +178,6 @@ const QuestionDetail = ({
     mutation.isPending ||
     conflict ||
     commandStale
-  const candidate = versions.find(
-    (version) =>
-      version.questionVersionId === detail.data?.question.openCandidateVersionId
-  )
   const commands = useMemo(
     () =>
       detail.data && selected
@@ -229,6 +236,11 @@ const QuestionDetail = ({
       freshContext.versionId !== selected.questionVersionId ||
       freshContext.questionRowVersion !== detail.data.question.rowVersion ||
       freshContext.versionRowVersion !== selected.rowVersion ||
+      (freshContext.command === 'ARCHIVE' &&
+        (freshContext.openCandidateVersionId !==
+          detail.data.question.openCandidateVersionId ||
+          freshContext.openCandidateRowVersion !==
+            (candidate?.rowVersion ?? null))) ||
       !commands.includes(freshContext.command)
     ) {
       setFreshRecovery('stale')
@@ -238,7 +250,9 @@ const QuestionDetail = ({
       setCommandSnapshot({
         questionRowVersion: freshContext.questionRowVersion,
         versionRowVersion: freshContext.versionRowVersion,
-        versionId: freshContext.versionId
+        versionId: freshContext.versionId,
+        openCandidateVersionId: freshContext.openCandidateVersionId,
+        openCandidateRowVersion: freshContext.openCandidateRowVersion
       })
       setPending(freshContext.command)
       setNote(freshContext.note)
@@ -289,16 +303,27 @@ const QuestionDetail = ({
         ].some((result) => !result.isSuccess || result.fetchStatus !== 'idle')
       )
         throw new Error('Snapshot unavailable')
-      const latestSelected = latestHistory.data?.pages
-        .flatMap((page) => page.items)
-        .find(
-          (version) => version.questionVersionId === selected?.questionVersionId
-        )
+      const latestVersions =
+        latestHistory.data?.pages.flatMap((page) => page.items) ?? []
+      const latestCandidate = latestVersions.find(
+        (version) =>
+          version.questionVersionId ===
+          latestDetail.data?.question.openCandidateVersionId
+      )
+      const latestSelected = latestVersions.find(
+        (version) => version.questionVersionId === selected?.questionVersionId
+      )
       if (pending && latestDetail.data && latestSelected)
         setCommandSnapshot({
           questionRowVersion: latestDetail.data.question.rowVersion,
           versionRowVersion: latestSelected.rowVersion,
-          versionId: latestSelected.questionVersionId
+          versionId: latestSelected.questionVersionId,
+          openCandidateVersionId:
+            pending === 'ARCHIVE'
+              ? latestDetail.data.question.openCandidateVersionId
+              : null,
+          openCandidateRowVersion:
+            pending === 'ARCHIVE' ? (latestCandidate?.rowVersion ?? null) : null
         })
       setConflictRevision((value) => value + 1)
       mutation.reset()
@@ -352,6 +377,14 @@ const QuestionDetail = ({
         versionId: selected.questionVersionId,
         questionRowVersion: detail.data.question.rowVersion,
         versionRowVersion: selected.rowVersion,
+        openCandidateVersionId:
+          pending === 'ARCHIVE'
+            ? (commandSnapshot?.openCandidateVersionId ?? null)
+            : null,
+        openCandidateRowVersion:
+          pending === 'ARCHIVE'
+            ? (commandSnapshot?.openCandidateRowVersion ?? null)
+            : null,
         returnTo,
         command: pending,
         note
@@ -626,7 +659,15 @@ const QuestionDetail = ({
                             questionRowVersion:
                               detail.data!.question.rowVersion,
                             versionRowVersion: selected.rowVersion,
-                            versionId: selected.questionVersionId
+                            versionId: selected.questionVersionId,
+                            openCandidateVersionId:
+                              command === 'ARCHIVE'
+                                ? detail.data!.question.openCandidateVersionId
+                                : null,
+                            openCandidateRowVersion:
+                              command === 'ARCHIVE'
+                                ? (candidate?.rowVersion ?? null)
+                                : null
                           })
                           setPending(command)
                         }}

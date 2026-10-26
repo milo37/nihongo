@@ -173,3 +173,63 @@ it('allows multiple comma-separated tags without consuming the separator while t
     )
   )
 })
+
+it.each([
+  ['questionText', 'editor.questionText', undefined],
+  ['tagNames.0', 'editor.selectedTags', undefined],
+  ['options.2.text', 'editor.optionLabel', 3]
+] as const)(
+  'regression: focuses the first server field error %s once while keeping dirty input',
+  async (path, label, number) => {
+    const { props, rerender } = view({
+      onSubmit: vi.fn().mockResolvedValue(false)
+    })
+    const local = screen.getByRole('textbox', {
+      name: t('editor.questionText')
+    })
+    fireEvent.change(local, {
+      target: { value: 'Kept original local question' }
+    })
+    await userEvent.click(
+      screen.getByRole('button', { name: t('questionDetail.saveDraft') })
+    )
+    await waitFor(() => expect(props.onSubmit).toHaveBeenCalledTimes(1))
+    const next = () =>
+      rerender(
+        <I18nProvider>
+          <QuestionVersionEditor
+            {...props}
+            serverFieldErrors={{ [path]: ['private wording'] }}
+          />
+        </I18nProvider>
+      )
+    next()
+    const target = screen.getByRole('textbox', {
+      name: number ? t(label, { number }) : t(label)
+    })
+    await waitFor(() => expect(target).toHaveFocus())
+    expect(target).toHaveAttribute('aria-invalid', 'true')
+    expect(local).toHaveValue('Kept original local question')
+    expect(screen.queryByText('private wording')).not.toBeInTheDocument()
+    const other = screen.getByRole('textbox', {
+      name: t('editor.explanationKo')
+    })
+    other.focus()
+    next()
+    expect(other).toHaveFocus()
+  }
+)
+it('regression: focuses locally invalid tags and preserves other dirty fields', async () => {
+  const { props } = view()
+  const local = screen.getByRole('textbox', { name: t('editor.questionText') })
+  fireEvent.change(local, { target: { value: 'Kept original local question' } })
+  const tags = screen.getByRole('textbox', { name: t('editor.selectedTags') })
+  await userEvent.clear(tags)
+  await userEvent.click(
+    screen.getByRole('button', { name: t('questionDetail.saveDraft') })
+  )
+  await waitFor(() => expect(tags).toHaveFocus())
+  expect(tags).toHaveAttribute('aria-invalid', 'true')
+  expect(local).toHaveValue('Kept original local question')
+  expect(props.onSubmit).not.toHaveBeenCalled()
+})

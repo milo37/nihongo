@@ -18,6 +18,8 @@ const context = {
   versionId,
   questionRowVersion: 3,
   versionRowVersion: 2,
+  openCandidateVersionId: null,
+  openCandidateRowVersion: null,
   returnTo: '/admin/questions?level=N3&page=2',
   command: 'WITHDRAW' as const,
   note: 'check <script>plain</script>'
@@ -31,9 +33,9 @@ it('preserves only scoped selection/CAS/note/list context for explicit fresh, wi
   expect(readQuestionFreshContext(actorId, questionId)).toEqual(context)
   expect(readQuestionFreshContext(reviewerId, questionId)).toBeNull()
   expect(readQuestionFreshContext(actorId, versionId)).toBeNull()
-  expect(Object.keys(readQuestionFreshContext(actorId, questionId)!)).toEqual(
-    Object.keys(context)
-  )
+  expect(
+    Object.keys(readQuestionFreshContext(actorId, questionId)!).sort()
+  ).toEqual(Object.keys(context).sort())
   expect(safeSsoReturnPath('/admin/questions/' + questionId)).toBe(
     '/admin/questions/' + questionId
   )
@@ -55,4 +57,40 @@ it('refuses fresh navigation handoff if local storage cannot preserve valid cont
   expect(saveQuestionFreshContext({ ...context, actorId: 'invalid' })).toBe(
     false
   )
+})
+
+it('regression: round-trips the actual candidate identity and rowVersion for ARCHIVE fresh confirmation', () => {
+  const archive = {
+    ...context,
+    command: 'ARCHIVE' as const,
+    openCandidateVersionId: versionId,
+    openCandidateRowVersion: 4
+  }
+  expect(saveQuestionFreshContext(archive)).toBe(true)
+  expect(readQuestionFreshContext(actorId, questionId)).toEqual(archive)
+})
+it('regression: rejects an incomplete candidate CAS pair', () => {
+  const incomplete = {
+    ...context,
+    openCandidateVersionId: versionId,
+    openCandidateRowVersion: null
+  }
+  expect(saveQuestionFreshContext(incomplete)).toBe(false)
+  expect(readQuestionFreshContext(actorId, questionId)).toBeNull()
+})
+it('regression: reads legacy non-ARCHIVE context with an explicit null candidate pair', () => {
+  const stored = vi.spyOn(cachedSessionStorage, 'setItem')
+  expect(saveQuestionFreshContext(context)).toBe(true)
+  const storageKey = stored.mock.calls[0]![0]
+  const {
+    openCandidateVersionId: _candidate,
+    openCandidateRowVersion: _row,
+    ...legacy
+  } = context
+  cachedSessionStorage.setItem(storageKey, JSON.stringify(legacy))
+  expect(readQuestionFreshContext(actorId, questionId)).toEqual({
+    ...context,
+    openCandidateVersionId: null,
+    openCandidateRowVersion: null
+  })
 })

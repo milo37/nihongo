@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
+import type { FieldPath } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   updateQuestionVersionRequestSchema,
@@ -82,6 +83,7 @@ export const QuestionVersionEditor = ({
     getValues,
     setValue,
     setFocus,
+    setError,
     formState: { isDirty, errors }
   } = useForm<UpdateQuestionVersionRequest>({
     defaultValues: editorInput(preview, rowVersion),
@@ -105,6 +107,40 @@ export const QuestionVersionEditor = ({
       reset(editorInput(preview, rowVersion))
     }
   }, [acceptedRow, isDirty, preview, reset, rowVersion])
+  const focusedServerErrors = useRef('')
+  useEffect(() => {
+    const signature = JSON.stringify(serverFieldErrors)
+    if (!Object.keys(serverFieldErrors).length) {
+      focusedServerErrors.current = ''
+      return
+    }
+    if (disabled || isSubmitting || signature === focusedServerErrors.current)
+      return
+    focusedServerErrors.current = signature
+    for (const field of fields) {
+      const path = Object.keys(serverFieldErrors).find(
+        (path) =>
+          (path === field || path.startsWith(field + '.')) &&
+          serverFieldErrors[path]?.length
+      )
+      if (!path) continue
+      const optionIndex = Number(path.split('.')[1])
+      const target: FieldPath<UpdateQuestionVersionRequest> =
+        field === 'options'
+          ? `options.${Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex < options.length ? optionIndex : 0}.text`
+          : field
+      setError(target, { type: 'server' })
+      setFocus(target)
+      break
+    }
+  }, [
+    disabled,
+    isSubmitting,
+    options.length,
+    serverFieldErrors,
+    setError,
+    setFocus
+  ])
   const invalid = (
     name: keyof UpdateQuestionVersionRequest
   ): string | undefined =>
@@ -281,21 +317,19 @@ export const QuestionVersionEditor = ({
           })}
         />
         <Input
-          name="tagNames"
           label={t('editor.selectedTags')}
           key={acceptedRow}
           defaultValue={(values.tagNames ?? []).join(', ')}
           error={invalid('tagNames')}
-          onChange={(event) =>
-            setValue(
-              'tagNames',
-              event.target.value
-                .split(',')
-                .map((value) => value.trim())
-                .filter(Boolean),
-              { shouldDirty: true }
-            )
-          }
+          {...register('tagNames', {
+            setValueAs: (value: unknown) =>
+              typeof value === 'string'
+                ? value
+                    .split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean)
+                : value
+          })}
         />
       </fieldset>
       {rebasePending ? (
