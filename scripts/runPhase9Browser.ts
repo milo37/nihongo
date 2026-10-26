@@ -271,101 +271,12 @@ const runPlaywright = async (
   )
 }
 
-const runMock = async (): Promise<void> => {
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
-
-  const webPort = await reserveLoopbackPort()
-  const webOrigin = `http://127.0.0.1:${webPort}`
-  const web = spawnOwned(
-    'phase9-mock-web',
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/web',
-      'exec',
-      'vite',
-      '--mode',
-      'test',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(webPort),
-      '--strictPort'
-    ],
-    {
-      ...process.env,
-      VITE_API_BASE_URL: '/api',
-      VITE_API_MODE: 'mock'
-    }
-  )
-  await waitForHttp(webOrigin, web)
-  await runPlaywright('mock', webOrigin)
-}
-
-const runReal = async (): Promise<void> => {
-  await reserveLoopbackPort(5175, 'localhost')
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
-  const [apiPort, webPort] = await Promise.all([
-    reserveLoopbackPort(),
-    reserveLoopbackPort()
-  ])
-  const apiOrigin = `http://127.0.0.1:${apiPort}`
-  const webOrigin = `http://127.0.0.1:${webPort}`
-  const apiEnvironment: NodeJS.ProcessEnv = {
-    ...harness.sharedEnvironment,
-    ADMIN_CMS_MODE: 'technical',
-    AUTH_EMAIL_DELIVERY_MODE: 'test-sink',
-    AUTH_EMAIL_FROM: 'auth@example.test',
-    AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
-    BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
-    BETTER_AUTH_URL: apiOrigin,
-    GUEST_COOKIE_SECRET: randomBytes(32).toString('base64url'),
-    HOST: '127.0.0.1',
-    LOG_LEVEL: 'silent',
-    NODE_ENV: 'test',
-    DEPLOYMENT_ENVIRONMENT: 'TEST',
-    PORT: String(apiPort),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
-    TRUSTED_ORIGINS: webOrigin
-  }
-  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
-  for (const key of [
-    'GOOGLE_CLIENT_ID',
-    'GOOGLE_CLIENT_SECRET',
-    'APPLE_CLIENT_ID',
-    'APPLE_CLIENT_SECRET'
-  ])
-    delete apiEnvironment[key]
-  const { preparePhase9BrowserActors } = await import(
-    '../apps/api/src/e2e/phase9BrowserApi.js'
-  )
-  const created = await preparePhase9BrowserActors({
-    adminDatabaseUrl: harness.adminDatabaseUrl,
-    environment: apiEnvironment
-  })
-  const databaseContract = (await import(
-    './phase9-database-contract.mjs'
-  )) as Phase9DatabaseContractModule
-  const baseline = await databaseContract.capturePhase9DatabaseSnapshot(
-    harness.adminDatabaseUrl
-  )
-  const api = spawnOwned(
-    'phase9-real-api',
-    'pnpm',
-    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/phase9BrowserApi.ts'],
-    {
-      ...apiEnvironment,
-      PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
-    }
-  )
-  await waitForHttp(`${apiOrigin}/health/ready`, api)
-
+const startOwnedAdmin = async (
+  browserMode: BrowserMode,
+  apiOrigin: string
+): Promise<AbortSignal> => {
   const admin = spawnOwned(
-    'phase9-real-admin',
+    `phase9-${browserMode}-admin`,
     'pnpm',
     [
       '--filter',
@@ -429,6 +340,122 @@ const runReal = async (): Promise<void> => {
     adminSignal,
     () => adminReady
   )
+  return adminLifecycle.signal
+}
+
+const runMock = async (): Promise<void> => {
+  const apiOrigin = process.env.NIHONGO_API_PROXY_TARGET
+  const target = apiOrigin ? new URL(apiOrigin) : undefined
+  if (
+    !target ||
+    !['127.0.0.1', 'localhost'].includes(target.hostname) ||
+    !target.port ||
+    target.username ||
+    target.password ||
+    target.pathname !== '/' ||
+    target.search ||
+    target.hash ||
+    target.protocol !== 'http:'
+  ) {
+    throw new Error(
+      'Phase 9 mock admin requires an explicit isolated TEST API proxy target.'
+    )
+  }
+  await reserveLoopbackPort(5175, 'localhost')
+  await runCommand('pnpm', ['run', 'build:contracts'])
+  await runCommand('pnpm', ['run', 'build:domain'])
+  await startOwnedAdmin('mock', target.origin)
+
+  const webPort = await reserveLoopbackPort()
+  const webOrigin = `http://127.0.0.1:${webPort}`
+  const web = spawnOwned(
+    'phase9-mock-web',
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/web',
+      'exec',
+      'vite',
+      '--mode',
+      'test',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(webPort),
+      '--strictPort'
+    ],
+    {
+      ...process.env,
+      VITE_API_BASE_URL: '/api',
+      VITE_API_MODE: 'mock'
+    }
+  )
+  await waitForHttp(webOrigin, web, adminSignal)
+  await runPlaywright('mock', webOrigin, {}, adminSignal)
+}
+
+const runReal = async (): Promise<void> => {
+  await reserveLoopbackPort(5175, 'localhost')
+  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
+    await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
+  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
+  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
+  const [apiPort, webPort] = await Promise.all([
+    reserveLoopbackPort(),
+    reserveLoopbackPort()
+  ])
+  const apiOrigin = `http://127.0.0.1:${apiPort}`
+  const webOrigin = `http://127.0.0.1:${webPort}`
+  const apiEnvironment: NodeJS.ProcessEnv = {
+    ...harness.sharedEnvironment,
+    ADMIN_CMS_MODE: 'technical',
+    AUTH_EMAIL_DELIVERY_MODE: 'test-sink',
+    AUTH_EMAIL_FROM: 'auth@example.test',
+    AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
+    BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
+    BETTER_AUTH_URL: apiOrigin,
+    GUEST_COOKIE_SECRET: randomBytes(32).toString('base64url'),
+    HOST: '127.0.0.1',
+    LOG_LEVEL: 'silent',
+    NODE_ENV: 'test',
+    DEPLOYMENT_ENVIRONMENT: 'TEST',
+    PORT: String(apiPort),
+    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
+    TRUSTED_ORIGINS: webOrigin
+  }
+  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
+  for (const key of [
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'APPLE_CLIENT_ID',
+    'APPLE_CLIENT_SECRET'
+  ])
+    delete apiEnvironment[key]
+  const { preparePhase9BrowserActors } = await import(
+    '../apps/api/src/e2e/phase9BrowserApi.js'
+  )
+  const created = await preparePhase9BrowserActors({
+    adminDatabaseUrl: harness.adminDatabaseUrl,
+    environment: apiEnvironment
+  })
+  const databaseContract = (await import(
+    './phase9-database-contract.mjs'
+  )) as Phase9DatabaseContractModule
+  const baseline = await databaseContract.capturePhase9DatabaseSnapshot(
+    harness.adminDatabaseUrl
+  )
+  const api = spawnOwned(
+    'phase9-real-api',
+    'pnpm',
+    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/phase9BrowserApi.ts'],
+    {
+      ...apiEnvironment,
+      PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
+    }
+  )
+  await waitForHttp(`${apiOrigin}/health/ready`, api)
+
+  const adminSignal = await startOwnedAdmin('real', apiOrigin)
 
   const web = spawnOwned(
     'phase9-real-web',

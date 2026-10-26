@@ -8,6 +8,7 @@ import type {
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
@@ -230,7 +231,9 @@ const ImportPage = ({
         aria-label={t('common.import')}
       >
         <li className="font-semibold">{t('import.validate')}</li>
-        <li aria-hidden="true">→</li>
+        <li aria-hidden="true">
+          <Icon name="arrow-right" className="size-4" />
+        </li>
         <li>{t('import.apply')}</li>
       </ol>
       <section

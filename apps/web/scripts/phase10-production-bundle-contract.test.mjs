@@ -66,7 +66,7 @@ test('pins the accepted Phase 9 production baseline and Phase 10 ceilings', () =
   )
 })
 
-test('pins the exact 9a ADMIN/dashboard lazy routes and mock-only source inventory', () => {
+test('pins separated ADMIN/dashboard lazy routes and mock-only source inventory', () => {
   const readLazySources = (router) =>
     [
       ...readFileSync(new URL(router, import.meta.url), 'utf8').matchAll(
@@ -76,8 +76,12 @@ test('pins the exact 9a ADMIN/dashboard lazy routes and mock-only source invento
       .map((match) => `src/app/${match[1]}.tsx`)
       .toSorted()
   assert.deepEqual(
-    phase10AdminLazySources,
-    readLazySources('../src/app/admin-question/router.tsx')
+    [
+      ...phase10AdminLazySources,
+      'src/app/admin-import/page.tsx',
+      'src/app/admin-question/detail/page.tsx'
+    ].toSorted(),
+    readLazySources('../../admin/src/app/admin-question/router.tsx')
   )
   assert.deepEqual(
     [phase10DashboardLazySource],
@@ -145,7 +149,7 @@ test('fails closed on incomplete bundle evidence', () => {
 
 test('separates only the exact unchanged Vite approved static asset list', () => {
   const config = readFileSync(
-    new URL('../vite.config.ts', import.meta.url),
+    new URL('../../../packages/browser/vite.config.ts', import.meta.url),
     'utf8'
   )
   const approvedPaths = [

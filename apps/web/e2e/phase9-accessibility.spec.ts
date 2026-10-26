@@ -236,12 +236,9 @@ const isBlockingAxeFinding = (finding: {
   finding.impact === 'serious' ||
   finding.tags.some((tag) => wcagLevelTags.has(tag))
 
-const demoAdmin = { role: 'ADMIN' } as const satisfies BrowserActor
 const demoUser = { role: 'USER' } as const satisfies BrowserActor
 
-const readRealFixture = (): RealBrowserFixture | undefined => {
-  if (isMockBrowser) return undefined
-
+const readRealFixture = (): RealBrowserFixture => {
   const serialized =
     process.env.PHASE9_BROWSER_FIXTURE ?? process.env.PHASE7_BROWSER_FIXTURE
   if (!serialized) {
@@ -269,8 +266,7 @@ const readRealFixture = (): RealBrowserFixture | undefined => {
   }
 }
 
-const realFixture = readRealFixture()
-const admin = realFixture?.author ?? demoAdmin
+const realFixture = isMockBrowser ? undefined : readRealFixture()
 const learner = realFixture?.learner ?? demoUser
 
 const toArtifactSlug = (value: string): string =>
@@ -592,12 +588,14 @@ const attachAndAssertTransportEvidence = async (
     readonly pathname: string
     readonly provenance?: ApiResponseEvidence['provenance']
     readonly status: number
-  }> = []
+  }> = [],
+  canonicalProvenance: 'network' | 'service-worker' = isMockBrowser
+    ? 'service-worker'
+    : 'network'
 ): Promise<void> => {
   await waitForApiTransportQuiet(evidence)
   await flushTransportEvidence(evidence)
   const remainingAllowedErrors = [...allowedErrorResponses]
-  const canonicalProvenance = isMockBrowser ? 'service-worker' : 'network'
   const unexpectedProvenance = evidence.responses.filter(
     (response) =>
       response.provenance !== canonicalProvenance &&
@@ -1370,6 +1368,52 @@ const login = async (
   if (principal.kind !== 'USER')
     throw new Error('Canonical actor was not confirmed.')
   expect(principal.user).toMatchObject(expected)
+}
+
+// The public mock login uses MSW; authenticate this real-only admin case through the TEST provider.
+const loginTestAdmin = async (
+  page: Page,
+  actor: BrowserActor,
+  forwardedFor: string
+): Promise<void> => {
+  const origin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? '').origin
+  const headers = { Origin: origin, 'X-Forwarded-For': forwardedFor }
+  await page.context().setExtraHTTPHeaders({ 'X-Forwarded-For': forwardedFor })
+  const started = await page.request.post('/api/auth/sign-in/social', {
+    data: { provider: 'google', callbackURL: '/admin/questions' },
+    headers
+  })
+  expect(started.status()).toBe(200)
+  const authorization = signInSocialResponseSchema.parse(await started.json())
+  expect(isSsoAuthorizationURLForProvider('google', authorization.url)).toBe(
+    true
+  )
+  const state = new URL(authorization.url).searchParams.get('state')
+  if (!state || !actor.callbackCode || !actor.userId) {
+    throw new Error('Real Phase 9 Google TEST callback identity is required.')
+  }
+  const callback = new URL('/api/auth/callback/google', origin)
+  callback.search = new URLSearchParams({
+    state,
+    code: actor.callbackCode
+  }).toString()
+  const completed = await page.request.get(callback.href, {
+    headers,
+    maxRedirects: 0
+  })
+  expect(completed.status()).toBe(303)
+  expect(completed.headers()['cache-control']).toBe('private, no-store')
+  expect(completed.headers()['referrer-policy']).toBe('no-referrer')
+  expect(completed.headers().location).toBe(
+    new URL('/admin/questions', origin).href
+  )
+  const confirmed = await page.request.get('/api/v1/me', { headers })
+  expect(confirmed.status()).toBe(200)
+  expect(
+    getCurrentPrincipalResponseSchema.parse(await confirmed.json())
+  ).toMatchObject({ kind: 'USER', user: { id: actor.userId, role: 'ADMIN' } })
+  await page.goto('/admin/questions')
+  await settlePage(page)
 }
 
 const requestBrowserJson = async (
@@ -2596,12 +2640,15 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
 }, testInfo) => {
   test.setTimeout(300_000)
   const transport = trackApiTransport(context)
-  await login(page, admin, '203.0.113.242')
+  const admin = readRealFixture().author
+  if (isMockBrowser) await loginTestAdmin(page, admin, '203.0.113.242')
+  else await login(page, admin, '203.0.113.242')
   const fixture = await createReportFixture(page)
 
-  const questionEditPath = `/admin/questions/${fixture.questionId}/edit`
+  const questionPath = `/admin/questions/${fixture.questionId}`
+  const questionEditPath = `${questionPath}/edit`
   const questionDetailPath =
-    questionEditPath + '?returnTo=' + encodeURIComponent('/admin/questions')
+    questionPath + '?returnTo=' + encodeURIComponent('/admin/questions')
   const reportDetailPath = `/admin/reports/${fixture.report.id}`
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
@@ -2734,13 +2781,13 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   })
   await expect(detailLink).toHaveAttribute(
     'href',
-    questionEditPath + '?returnTo=' + encodeURIComponent(returnTo)
+    questionPath + '?returnTo=' + encodeURIComponent(returnTo)
   )
   await focusByTab(page, detailLink)
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
   await expect(detailLink).toHaveAttribute(
     'href',
-    questionEditPath + '?returnTo=' + encodeURIComponent(returnTo)
+    questionPath + '?returnTo=' + encodeURIComponent(returnTo)
   )
   await testInfo.attach('admin-list-return-context', {
     body: JSON.stringify({
@@ -2755,7 +2802,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(
     (url) =>
-      url.pathname === questionEditPath &&
+      url.pathname === questionPath &&
       url.searchParams.get('returnTo') === returnTo
   )
   await expect(page.locator('main')).toBeFocused()
@@ -2883,7 +2930,9 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await attachAndAssertTransportEvidence(
     transport,
     testInfo,
-    'admin-cms-read-dialog-matrix'
+    'admin-cms-read-dialog-matrix',
+    [],
+    'network'
   )
 })
 

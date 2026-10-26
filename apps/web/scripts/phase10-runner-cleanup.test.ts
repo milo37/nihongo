@@ -127,6 +127,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
     process.exitCode = originalExitCode
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it.each(scenarios)('%s', async (_name, scenario, expectedExitCode) => {
@@ -201,20 +202,33 @@ describe('Phase9/10 browser runner lifecycle', () => {
     expect(mocks.retireOwnedProcess).toHaveBeenCalledOnce()
     expect(mocks.stopOwnedProcesses).toHaveBeenCalledOnce()
   })
-  it.each([
-    'ready',
-    'admin exit',
-    'Playwright failure',
-    'stop failure',
-    'occupied port',
-    'late collision',
-    'admin exits during Playwright',
-    'admin errors during Playwright',
-    'admin exits during evidence',
-    'split ready'
-  ])(
-    'Phase9 real owns a ready admin before Playwright and preserves cleanup: %s',
-    async (scenario) => {
+  it.each(
+    (
+      [
+        'ready',
+        'admin exit',
+        'Playwright failure',
+        'stop failure',
+        'occupied port',
+        'late collision',
+        'admin exits during Playwright',
+        'admin errors during Playwright',
+        'admin exits during evidence',
+        'split ready'
+      ] as const
+    ).flatMap((scenario) =>
+      (['real', 'mock'] as const)
+        .filter(
+          (mode) =>
+            !(mode === 'mock' && scenario === 'admin exits during evidence')
+        )
+        .map((mode) => [mode, scenario] as const)
+    )
+  )(
+    'Phase9 %s owns a ready admin before Playwright and preserves cleanup: %s',
+    async (mode, scenario) => {
+      process.argv = [...originalArgv.slice(0, 2), mode]
+      vi.stubEnv('NIHONGO_API_PROXY_TARGET', 'http://127.0.0.1:32123')
       const api = makeChild()
       const admin = makeChild()
       const web = makeChild()
@@ -280,7 +294,14 @@ describe('Phase9/10 browser runner lifecycle', () => {
       )
       mocks.spawn.mockImplementation((_command: string, args: string[]) => {
         if (args.includes('src/e2e/phase9BrowserApi.ts')) return api
+        if (args.includes('build:contracts') || args.includes('build:domain')) {
+          const build = makeChild()
+          queueMicrotask(() => finish(build, { code: 0, signal: null }))
+          return build
+        }
         if (args.includes('@nihongo/admin')) {
+          if (mode === 'mock' && scenario === 'late collision')
+            foreignListener = true
           if (scenario === 'admin exit')
             finish(admin, { code: 1, signal: null })
           else if (scenario !== 'late collision') {
@@ -383,8 +404,15 @@ describe('Phase9/10 browser runner lifecycle', () => {
       })
       expect(stopped).toEqual([
         scenario === 'admin exit' || scenario === 'late collision'
-          ? ['phase9-real-api', 'phase9-real-admin']
-          : ['phase9-real-api', 'phase9-real-admin', 'phase9-real-web']
+          ? [
+              ...(mode === 'real' ? ['phase9-real-api'] : []),
+              `phase9-${mode}-admin`
+            ]
+          : [
+              ...(mode === 'real' ? ['phase9-real-api'] : []),
+              `phase9-${mode}-admin`,
+              `phase9-${mode}-web`
+            ]
       ])
       if (scenario === 'late collision') {
         expect(foreignListener).toBe(true)
@@ -400,22 +428,22 @@ describe('Phase9/10 browser runner lifecycle', () => {
         ).toBe(false)
       }
       expect(mocks.cleanupDatabase).toHaveBeenCalledTimes(
-        scenario === 'stop failure' ? 0 : 1
+        mode === 'mock' || scenario === 'stop failure' ? 0 : 1
       )
       if (success) {
         expect(
           stdout.mock.calls.map(([value]) => String(value)).join('')
-        ).toContain('phase9.browser.real.passed')
+        ).toContain(`phase9.browser.${mode}.passed`)
         expect(
           stderr.mock.calls.map(([value]) => String(value)).join('')
-        ).not.toContain('phase9.browser.real.failed')
+        ).not.toContain(`phase9.browser.${mode}.failed`)
       } else {
         expect(
           stdout.mock.calls.map(([value]) => String(value)).join('')
-        ).not.toContain('phase9.browser.real.passed')
+        ).not.toContain(`phase9.browser.${mode}.passed`)
         expect(
           stderr.mock.calls.map(([value]) => String(value)).join('')
-        ).toContain('phase9.browser.real.failed')
+        ).toContain(`phase9.browser.${mode}.failed`)
       }
     }
   )
