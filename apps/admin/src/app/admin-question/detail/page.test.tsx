@@ -54,6 +54,11 @@ import {
   saveQuestionFreshContext
 } from '@app/admin-question/navigation/questionWorkflowContext'
 import type { QuestionWrite } from '@app/admin-question/detail/questionWorkflow'
+// Compile the existing lazy detail route before timed DOM assertions.
+beforeAll(async () => {
+  await import('@app/admin-question/detail/page')
+})
+
 const t = appI18n.getFixedT('ko', 'admin')
 let client: QueryClient
 let snapshot: AdminQuestionDetail
