@@ -2878,6 +2878,16 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .auth-sso-button[data-provider='apple'] {
   border-color: #000;
 }
+.auth-sso-button .ui-spinner {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+.auth-sso-button > span:not(.ui-spinner) {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .auth-sso-button img {
   flex: 0 0 20px;
   object-fit: contain;
@@ -2914,5 +2924,92 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 @media (max-width: 760px) {
   .auth-sso-button {
     min-height: 50px;
+  }
+}
+
+/* A-right: one quiet state after the choices. All states reserve the same flow height. */
+.study-inline-save {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+  line-height: 18px;
+}
+.study-inline-save-measures {
+  display: grid;
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
+}
+.study-inline-save-item {
+  display: flex;
+  grid-area: 1 / 1;
+  align-self: start;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.study-inline-save-message {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.study-inline-save-message > span:last-child {
+  min-width: 0;
+}
+.study-inline-save-icon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+.study-inline-save-measures [data-copy]::after {
+  content: attr(data-copy);
+}
+.study-inline-save-current[data-tone='danger'] {
+  color: rgb(var(--color-danger));
+}
+.study-inline-save-retry {
+  display: inline-flex;
+  flex: 0 0 76px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 76px;
+  min-height: 44px;
+  color: rgb(var(--color-brand));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .study-inline-save {
+    min-height: 68px;
+  }
+}
+@media (max-width: 359px) {
+  .study-inline-save-item[data-has-retry] {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    min-height: 68px;
+  }
+  .study-inline-save-item[data-has-retry] .study-inline-save-retry {
+    flex-basis: auto;
+  }
+}
+
+@media (max-width: 359px) {
+  html[lang='ja']
+    .study-inline-save-item[data-tone='danger']
+    .study-inline-save-message {
+    gap: 12px;
   }
 }

@@ -25,6 +25,7 @@ import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
 import { useClearGuestPracticeQueryCache } from '@app/practice/hooks/useClearGuestPracticeQueryCache'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
+import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
 import { usePracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
 import {
@@ -1040,6 +1041,18 @@ export const PracticeSessionPage = (): ReactElement => {
       draftController.status.code
     ) && !(isDraftConflictPending && !hasResolvedDraftConflict)
 
+  const isInlineDraftStatus =
+    [
+      'synced',
+      'saved',
+      'savedAt',
+      'dirty',
+      'saving',
+      'error',
+      'offline'
+    ].includes(draftController.status.code) &&
+    !(isDraftConflictPending && !hasResolvedDraftConflict)
+
   return (
     <section
       className={`learning-note study-page study-session ${reviewContext ? 'study-review-session' : ''} mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
@@ -1051,7 +1064,12 @@ export const PracticeSessionPage = (): ReactElement => {
       >
         <div className="study-focus-header-inner">
           <Link
-            className="note-link"
+            className="note-link size-11 justify-center"
+            aria-label={t(
+              reviewContext
+                ? 'session.header.backToExplanation'
+                : 'session.header.backToSetup'
+            )}
             aria-disabled={
               mustReplayFrozenSubmission ||
               isNavigationPromptBlocked ||
@@ -1072,12 +1090,7 @@ export const PracticeSessionPage = (): ReactElement => {
                 : '/practice'
             }
           >
-            <Icon name="arrow-left" />
-            {t(
-              reviewContext
-                ? 'session.header.backToExplanation'
-                : 'session.header.backToSetup'
-            )}
+            <Icon name="chevron-left" />
           </Link>
           <div>
             <p className="study-session-title">
@@ -1131,7 +1144,7 @@ export const PracticeSessionPage = (): ReactElement => {
             </div>
           ) : null}
 
-          {isV2Session ? (
+          {isV2Session && !isInlineDraftStatus ? (
             <div
               className={
                 isCompactDraftStatus
@@ -1348,6 +1361,19 @@ export const PracticeSessionPage = (): ReactElement => {
                   onValueChange={handleSelectOption}
                 />
               </div>
+              {isV2Session ? (
+                <StudyDraftSaveStatus
+                  status={
+                    isInlineDraftStatus ? draftController.status.code : null
+                  }
+                  onRetry={() => {
+                    setDraftActionMessage(null)
+                    void draftController.retrySave().catch(() => {
+                      setDraftActionMessage('retrySaveFailed')
+                    })
+                  }}
+                />
+              ) : null}
               <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
                 <summary className="note-link cursor-pointer">
                   {t('session.keyboardHelp')}
