@@ -302,14 +302,15 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   ])
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
-    46
+    47
   )
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test']
       .expectedDigestSha256,
-    '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+    '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891'
   )
   for (const distinctDigest of [
+    '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa',
     'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9',
     '6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd',
     '0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b',
@@ -369,7 +370,7 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   assert.match(recoveryRunbook, /unverified activation\s+candidate/u)
   assert.match(
     recoveryRunbook,
-    /current-46 controlled Google-linked TEST session/u
+    /current-47 controlled Google-linked TEST session/u
   )
   assert.match(recoveryRunbook, /external Google exchange remains unverified/u)
   assert.doesNotMatch(recoveryRunbook, /stateful sign-up, sign-in/u)
@@ -381,14 +382,14 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
     recoveryRunbook,
     /neither this technical\s+recovery profile nor a runtime profile/u
   )
-  assert.match(recoveryRunbook, /exact 46 ordered physical/u)
+  assert.match(recoveryRunbook, /exact 47 ordered physical/u)
   assert.match(
     recoveryRunbook,
-    /No current physical46, historical39 or catalog-excluded38 DB execution is verified here/u
+    /No current physical47, historical39 or catalog-excluded38 recovery DB drill is verified here/u
   )
   assert.ok(
     recoveryRunbook.includes(
-      '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+      '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891'
     )
   )
   assert.ok(

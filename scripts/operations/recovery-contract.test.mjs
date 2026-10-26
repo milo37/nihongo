@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 46 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 47 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -48,12 +48,16 @@ test('migration profiles separate exact physical 46 TEST entries from the exact 
     name: '20261010071000_phase7_approved308_tags',
     sha256: '600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401'
   })
+  assert.deepEqual(releaseManifest.migrations.entries[46], {
+    name: '20261020233000_sso_first_admin_bootstrap',
+    sha256: '680ce338ea94f47d1da21c4945270d36b7c39ae60dabf0040da4310c576e90f5'
+  })
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 46,
+      count: 47,
       digestSha256:
-        '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa',
+        '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891',
       name: 'technical-current-test'
     }
   )
@@ -127,6 +131,16 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
     'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9'
   )
   for (const staleProfile of [
+    { expectedCount: 46 },
+    {
+      expectedDigestSha256:
+        '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+    },
+    {
+      expectedCount: 46,
+      expectedDigestSha256:
+        '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+    },
     {
       expectedCount: 38,
       expectedDigestSha256:
@@ -237,6 +251,11 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
   }
 
   for (const [count, entries, digestSha256] of [
+    [
+      46,
+      releaseManifest.migrations.entries.slice(0, 46),
+      '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+    ],
     [
       39,
       releaseManifest.migrations.entries.slice(0, 39),
@@ -381,12 +400,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261020230001_unreviewed_migration',
+        name: '20261020233001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261020230001_unreviewed_migration'
+        '20261020233001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags

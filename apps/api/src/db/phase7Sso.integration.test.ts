@@ -1,7 +1,10 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { Client } from 'pg'
+import { assertSafePhase7MigrationDatabase } from './databaseTargetGuard.js'
+import { createPostgresStartupOptions } from './databaseOptions.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
@@ -62,7 +65,7 @@ const unchangedSession = {
 }
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly46 completed names/checksums preserving the old45 prefix', async () => {
+  it('deploy and re-entry leave exactly47 completed names/checksums preserving the old46 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -73,7 +76,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(46)
+    expect(expected).toHaveLength(47)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -95,9 +98,15 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       actual.rows.slice(0, 45).map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected.slice(0, 45))
     expect(actual.rows[45]?.name).toBe('20261020230000_sso_account_lifecycle')
+    expect(
+      actual.rows.slice(0, 46).map(({ name, checksum }) => ({ name, checksum }))
+    ).toEqual(expected.slice(0, 46))
+    expect(actual.rows[46]?.name).toBe(
+      '20261020233000_sso_first_admin_bootstrap'
+    )
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(46)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(47)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
@@ -1529,4 +1538,301 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(await h.snapshot()).toEqual(before)
     })
   })
+})
+
+describe('JLP-527 first Google ADMIN operator bootstrap', () => {
+  const bootstrapSql =
+    'SELECT "phase7_bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS generation'
+  const operatorClient = () => {
+    const migrationUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+    assertSafePhase7MigrationDatabase({
+      nodeEnvironment: h.environment.NODE_ENV,
+      migrationDatabaseUrl: migrationUrl,
+      runtimeDatabaseUrl: h.environment.DATABASE_URL,
+      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+    })
+    if (!migrationUrl) throw new Error('Canonical migration URL required.')
+    const url = new URL(migrationUrl)
+    const allowed = new Set([
+      'schema',
+      'options',
+      'sslmode',
+      'sslrootcert',
+      'sslcert',
+      'sslkey'
+    ])
+    if ([...url.searchParams.keys()].some((key) => !allowed.has(key)))
+      throw new Error('Connection override refused.')
+    url.searchParams.delete('schema')
+    url.searchParams.delete('options')
+    return new Client({
+      connectionString: url.toString(),
+      options: createPostgresStartupOptions(
+        h.schema,
+        'nihongo_phase7_migration'
+      ),
+      connectionTimeoutMillis: 5000,
+      query_timeout: 15000,
+      statement_timeout: 10000
+    })
+  }
+  // Executed only by the registered disposable TEST database suite.
+  it('enforces the canonical operator, existing identity, session invalidation and serialized first-admin decision', async () => {
+    const previous = (
+      await h.owner.query<{ id: string }>(
+        'SELECT id FROM "User" WHERE role=\'ADMIN\' AND "accountStatus"=\'ACTIVE\' ORDER BY id'
+      )
+    ).rows.map(({ id }) => id)
+    const targets: SsoFixture[] = []
+    const erased = new Set<string>()
+    const operators: Client[] = []
+    const activeAdmins = async () =>
+      (
+        await h.owner.query<{ id: string }>(
+          'SELECT id FROM "User" WHERE role=\'ADMIN\' AND "accountStatus"=\'ACTIVE\' ORDER BY id'
+        )
+      ).rows.map(({ id }) => id)
+    const restorePreviousAdmins = async () => {
+      await h.owner.query('BEGIN')
+      try {
+        await h.fixtureMutation(
+          'UPDATE "User" SET role=\'ADMIN\' WHERE id=ANY($1::uuid[])',
+          [previous]
+        )
+        await h.owner.query('COMMIT')
+      } catch (error: unknown) {
+        await h.owner.query('ROLLBACK')
+        throw error
+      }
+    }
+    const values = (f: SsoFixture) => [f.userId, f.subject, 1, h.schema, 'TEST']
+    const erase = async (f: SsoFixture) => {
+      if (erased.has(f.userId)) return
+      await h.roleQuery(
+        'nihongo_erasure_worker',
+        'SELECT "phase7_erase_user"($1,\'TEST\')',
+        [f.userId]
+      )
+      erased.add(f.userId)
+    }
+    try {
+      await h.owner.query('BEGIN')
+      await h.fixtureMutation(
+        'UPDATE "User" SET role=\'USER\' WHERE id=ANY($1::uuid[])',
+        [previous]
+      )
+      for (const provider of [
+        'google',
+        'google',
+        'google',
+        'apple',
+        'google'
+      ] as const)
+        targets.push(await h.fixture(provider, 'USER'))
+      const [first, second, third, apple, inactive] = targets
+      if (!first || !second || !third || !apple || !inactive)
+        throw new Error('Missing bootstrap fixtures.')
+      await h.fixtureMutation(
+        'UPDATE "User" SET "accountStatus"=\'DELETION_PENDING\' WHERE id=$1',
+        [inactive.userId]
+      )
+      await h.owner.query('COMMIT')
+      expect(await activeAdmins()).toEqual([])
+      const counts = async () =>
+        (
+          await h.owner.query<{ users: number; accounts: number }>(
+            'SELECT (SELECT count(*)::int FROM "User") AS users,(SELECT count(*)::int FROM "Account") AS accounts'
+          )
+        ).rows[0]
+      const beforeCounts = await counts()
+      const acl = (
+        await h.owner.query<{
+          owner: string
+          config: string[]
+          migration: boolean
+          app: boolean
+          gateway: boolean
+          erasure: boolean
+          public: boolean
+        }>(
+          `SELECT r.rolname AS owner,p.proconfig AS config,
+        has_function_privilege('nihongo_phase7_migration',p.oid,'EXECUTE') AS migration,
+        has_function_privilege('nihongo_app',p.oid,'EXECUTE') AS app,
+        has_function_privilege('nihongo_auth_gateway',p.oid,'EXECUTE') AS gateway,
+        has_function_privilege('nihongo_erasure_worker',p.oid,'EXECUTE') AS erasure,
+        EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+          WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public
+        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        JOIN pg_roles r ON r.oid=p.proowner
+        WHERE p.proname='phase7_bootstrap_first_google_admin' AND n.nspname=$1`,
+          [h.schema]
+        )
+      ).rows
+      expect(acl).toEqual([
+        {
+          owner: 'nihongo_phase7_owner',
+          config: ['search_path=pg_catalog, ' + h.schema + ', pg_temp'],
+          migration: true,
+          app: false,
+          gateway: false,
+          erasure: false,
+          public: false
+        }
+      ])
+      const a = operatorClient(),
+        b = operatorClient()
+      operators.push(a, b)
+      await Promise.all([a.connect(), b.connect()])
+      for (const client of operators) {
+        const principal = (
+          await client.query(`SELECT session_user AS login,current_user AS role,
+          current_setting('role') AS effective,current_schema() AS schema,
+          current_setting('session_replication_role') AS replication,
+          current_setting('transaction_isolation') AS isolation`)
+        ).rows
+        expect(principal).toEqual([
+          {
+            login: 'nihongo_test_phase7_migration_login',
+            role: 'nihongo_phase7_migration',
+            effective: 'nihongo_phase7_migration',
+            schema: h.schema,
+            replication: 'origin',
+            isolation: 'read committed'
+          }
+        ])
+      }
+      for (const client of [h.app, h.gatewayA]) {
+        await expect(
+          client.query(bootstrapSql, values(first))
+        ).rejects.toMatchObject({ code: '42501' })
+      }
+      await expect(
+        h.roleQuery('nihongo_phase7_migration', bootstrapSql, values(first))
+      ).rejects.toMatchObject({ code: '42501' })
+      await a.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+      const rejected: [unknown[], string][] = [
+        [[first.userId, second.subject, 1, h.schema, 'TEST'], '23514'],
+        [[randomUUID(), first.subject, 1, h.schema, 'TEST'], '23514'],
+        [[first.userId, first.subject, 2, h.schema, 'TEST'], '23514'],
+        [[apple.userId, apple.subject, 1, h.schema, 'TEST'], '23514'],
+        [values(inactive), '23514'],
+        [
+          [first.userId, first.subject, 1, h.schema + '_other', 'TEST'],
+          '42501'
+        ],
+        [[first.userId, first.subject, 1, h.schema, 'DEVELOPMENT'], '42501'],
+        [[first.userId, '', 1, h.schema, 'TEST'], '22023']
+      ]
+      for (const [args, code] of rejected) {
+        await a.query('SAVEPOINT refused_bootstrap')
+        await expect(a.query(bootstrapSql, args)).rejects.toMatchObject({
+          code
+        })
+        await a.query('ROLLBACK TO SAVEPOINT refused_bootstrap')
+        await a.query('RELEASE SAVEPOINT refused_bootstrap')
+      }
+      await b.query('BEGIN ISOLATION LEVEL REPEATABLE READ')
+      await expect(b.query(bootstrapSql, values(first))).rejects.toMatchObject({
+        code: '42501'
+      })
+      await b.query('ROLLBACK')
+      expect((await a.query(bootstrapSql, values(first))).rows).toEqual([
+        { generation: 2 }
+      ])
+      await a.query('COMMIT')
+      expect(await counts()).toEqual(beforeCounts)
+      expect(
+        (
+          await h.owner.query(
+            'SELECT role,"authorityGeneration" AS generation FROM "User" WHERE id=$1',
+            [first.userId]
+          )
+        ).rows
+      ).toEqual([{ role: 'ADMIN', generation: 2 }])
+      expect(
+        (
+          await h.owner.query(
+            'SELECT "providerId","accountId" FROM "Account" WHERE "userId"=$1',
+            [first.userId]
+          )
+        ).rows
+      ).toEqual([{ providerId: 'google', accountId: first.subject }])
+      expect(
+        (
+          await h.owner.query('SELECT id FROM "Session" WHERE "userId"=$1', [
+            first.userId
+          ])
+        ).rows
+      ).toEqual([])
+      expect(
+        (
+          await h.owner.query(
+            'SELECT status FROM "AuthSessionFamily" WHERE id=$1',
+            [first.familyId]
+          )
+        ).rows
+      ).toEqual([{ status: 'REVOKED' }])
+      await expect(b.query(bootstrapSql, values(second))).rejects.toMatchObject(
+        { code: '42501' }
+      )
+      await erase(first)
+      expect(await activeAdmins()).toEqual([])
+
+      // Observe the loser waiting while the first transition holds its table lock.
+      await a.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+      await b.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+      const aPid = (
+        await a.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+      ).rows[0]!.pid
+      const bPid = (
+        await b.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+      ).rows[0]!.pid
+      expect((await a.query(bootstrapSql, values(second))).rows).toEqual([
+        { generation: 2 }
+      ])
+      const competing = b.query(bootstrapSql, values(third)).then(
+        () => ({ code: 'UNEXPECTED_SUCCESS' }),
+        (error: unknown) => error
+      )
+      await vi.waitFor(async () => {
+        const row = (
+          await h.owner.query<{ blockers: number[] }>(
+            'SELECT pg_blocking_pids($1) AS blockers',
+            [bPid]
+          )
+        ).rows[0]
+        expect(row?.blockers).toContain(aPid)
+      })
+      await a.query('COMMIT')
+      expect(await competing).toMatchObject({ code: '42501' })
+      await b.query('ROLLBACK')
+      expect(await activeAdmins()).toEqual([second.userId])
+      expect(
+        (
+          await h.owner.query(
+            'SELECT role,"authorityGeneration" AS generation FROM "User" WHERE id=$1',
+            [third.userId]
+          )
+        ).rows
+      ).toEqual([{ role: 'USER', generation: 1 }])
+    } finally {
+      // Close operator sessions before owner fixture cleanup, including on assertion failure.
+      await Promise.allSettled(
+        operators.map(async (client) => {
+          try {
+            await client.query('ROLLBACK')
+          } finally {
+            await client.end()
+          }
+        })
+      )
+      await h.owner.query('ROLLBACK')
+      try {
+        for (const target of targets) await erase(target)
+      } finally {
+        await restorePreviousAdmins()
+      }
+      expect(await activeAdmins()).toEqual(previous)
+    }
+  }, 30_000)
 })

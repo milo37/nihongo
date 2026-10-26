@@ -12,10 +12,10 @@ digest, source target fingerprint, three separated database identity
 fingerprints, backup evidence, deployment approver, incident owner, and a
 maintenance or generation lease. Never infer an environment from a hostname.
 
-`technical-current-test` is TEST-only and selects the exact 46 ordered physical
+`technical-current-test` is TEST-only and selects the exact 47 ordered physical
 release migrations, including the current catalog migration. Both the count and
 the reviewed SHA256 digest
-`5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa`
+`006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891`
 are fixed; an internally consistent count or digest alone is not sufficient.
 The current source pin for
 `20261009120000_phase7_approved_n4_reading_batch7_tags` is
@@ -30,12 +30,16 @@ physical 39 inventory have respective ordered file digests
 `89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad`,
 `6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd` and
 `611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1`. These predecessor profiles are rejected as the current technical recovery
-profile. The physical46 source adds seven SSO migrations after approved308, ending
+profile. The historical physical46 source adds seven SSO migrations after approved308, ending
 at `20261020230000_sso_account_lifecycle`; its file digest is
-`d0a81eff438c516b761ed8c4b3eeba72276f9a539d81baad2799fa455cda8b2a`. A current catalog-excluded 38-entry inventory has file digest
+`d0a81eff438c516b761ed8c4b3eeba72276f9a539d81baad2799fa455cda8b2a`. Its ordered inventory digest
+`5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa` is also rejected. The current physical47 source adds
+`20261020233000_sso_first_admin_bootstrap`, with reviewed file SHA256
+`680ce338ea94f47d1da21c4945270d36b7c39ae60dabf0040da4310c576e90f5`.
+A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical46, historical39 or catalog-excluded38 DB execution is verified here.
+No current physical47, historical39 or catalog-excluded38 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
 `fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9`
@@ -51,7 +55,7 @@ That historical disposable-fixture plan was to first complete canonical36 with t
 original 65 questions, 108 tags and 127 applicability cells; its prior unchanged
 20-name/24-cell command was to reach 128/151, followed by the then-new append,
 completed canonical37 and the closed 15-name/15-cell command. These historical
-counts and commands are not preparation instructions for the current SQL46.
+counts and commands are not preparation instructions for the current SQL47.
 All predecessor, historical and catalog-excluded inventories remain rejected
 as the current technical profile, even when their own digests are consistent.
 No fixture preparation, SQL execution, activation or deployment is performed by
@@ -90,7 +94,7 @@ current technical recovery profile or as a fallback.
 `20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
 candidate rather than current-artifact compatibility or deployability proof.
 The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
-The replacement candidate uses a current-46 controlled Google-linked TEST session:
+The replacement candidate uses a current-47 controlled Google-linked TEST session:
 task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
 reviewed canonical65 seed helper, and remaining immutable migrations. An existing
 unique canonical tag must return exactly one matching question/version. The same
@@ -157,4 +161,4 @@ provider attestation. They cannot be promoted to an external recovery claim.
 
 Historical Slice 4A completion meant only: provider-neutral recovery contracts
 and TEST-only verifiers were green. It is not Staging or Production recovery proof.
-This correction candidate has not rerun those verifiers or executed a DB drill.
+This metadata correction reruns static verifiers only; no recovery DB drill is executed.

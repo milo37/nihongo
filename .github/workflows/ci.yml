@@ -12,15 +12,21 @@ on:
       - 'v*'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Metadata edits must not cancel running or replace pending code checks.
+  group: ci-${{ github.ref }}${{ github.event_name == 'pull_request' && github.event.action == 'edited' && !github.event.changes.base && format('-edit-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
   plan:
     name: Select checks for event and changed dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     outputs:
       selection: ${{ steps.selection.outputs.selection }}
+      metadata_only: ${{ steps.selection.outputs.metadata_only }}
+      metadata_build: ${{ steps.previous.outputs.build }}
+      metadata_e2e: ${{ steps.previous.outputs.e2e }}
+      metadata_portable: ${{ steps.previous.outputs.phase11_release }}
       code: ${{ steps.selection.outputs.code }}
       web: ${{ steps.selection.outputs.web }}
       api: ${{ steps.selection.outputs.api }}
@@ -46,6 +52,15 @@ jobs:
       - name: Select affected checks
         id: selection
         run: node scripts/ci/check-selection.mjs plan
+      - name: CI source ${{ steps.selection.outputs.metadata_only == 'true' && 'metadata' || 'code' }} repo ${{ github.repository }} PR ${{ github.event.number }} head ${{ github.event.pull_request.head.sha }} base ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.base.sha }}
+        if: ${{ github.event_name == 'pull_request' && success() }}
+        run: ':'
+      - name: Read current code-check results without rerunning checks
+        id: previous
+        if: ${{ steps.selection.outputs.metadata_only == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/check-selection.mjs previous-results
 
   build:
     name: Quality and production build
@@ -55,7 +70,7 @@ jobs:
     timeout-minutes: 45
     services:
       postgres:
-        image: ${{ needs.plan.outputs.database == 'true' && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
+        image: ${{ needs.plan.outputs.database == 'true' && needs.plan.outputs.metadata_only != 'true' && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
         env:
           POSTGRES_DB: nihongo_test
           POSTGRES_USER: nihongo
@@ -82,7 +97,15 @@ jobs:
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
       PHASE10_SECURITY_EVIDENCE_DIR: test-results/phase10-evidence/security-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      # Required names must report the actual prior code result, never a skipped success.
+      - name: Preserve current code-check result
+        if: ${{ needs.plan.outputs.metadata_only == 'true' }}
+        env:
+          PREVIOUS_CODE_RESULT: ${{ needs.plan.outputs.metadata_build }}
+        run: test "$CI_PLAN_RESULT" = success && test "$PREVIOUS_CODE_RESULT" = success
+
       - name: Checkout
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -90,22 +113,26 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
 
       - name: Setup Node.js
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
           cache: pnpm
 
       - name: Record actual checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: >-
           node scripts/ci/checkout-evidence.mjs --output
           "$RUNNER_TEMP/checkout-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.json"
 
       - name: Upload checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -113,13 +140,16 @@ jobs:
           path: ${{ runner.temp }}/checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}.json
 
       - name: Install dependencies
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Formatting check
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         id: format
         run: node scripts/ci/check-selection.mjs format
 
       - name: CI selection contract
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         id: selection_contracts
         run: node --test scripts/ci/*.test.mjs
 
@@ -293,6 +323,7 @@ jobs:
           test ! -e "$expected"
 
       - name: Git whitespace check
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
@@ -303,7 +334,7 @@ jobs:
           fi
 
       - name: Verify selected checks completed
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.metadata_only != 'true' }}
         env:
           CI_STEPS: ${{ toJSON(steps) }}
         run: node scripts/ci/check-selection.mjs verify build
@@ -316,7 +347,7 @@ jobs:
     timeout-minutes: 45
     services:
       postgres:
-        image: ${{ needs.plan.outputs.browser == 'true' && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
+        image: ${{ needs.plan.outputs.browser == 'true' && needs.plan.outputs.metadata_only != 'true' && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
         env:
           POSTGRES_DB: nihongo_test
           POSTGRES_USER: nihongo
@@ -343,7 +374,15 @@ jobs:
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
       PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      # Required names must report the actual prior code result, never a skipped success.
+      - name: Preserve current code-check result
+        if: ${{ needs.plan.outputs.metadata_only == 'true' }}
+        env:
+          PREVIOUS_CODE_RESULT: ${{ needs.plan.outputs.metadata_e2e }}
+        run: test "$CI_PLAN_RESULT" = success && test "$PREVIOUS_CODE_RESULT" = success
+
       - name: Checkout
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -357,17 +396,20 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
           cache: ${{ needs.plan.outputs.browser == 'true' && 'pnpm' || '' }}
 
       - name: Record actual checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: >-
           node scripts/ci/checkout-evidence.mjs --output
           "$RUNNER_TEMP/checkout-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.json"
 
       - name: Upload checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -448,7 +490,7 @@ jobs:
           test ! -e "$expected"
 
       - name: Verify selected checks completed
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.metadata_only != 'true' }}
         env:
           CI_STEPS: ${{ toJSON(steps) }}
         run: node scripts/ci/check-selection.mjs verify e2e
@@ -463,7 +505,15 @@ jobs:
       CI_SELECTION: ${{ needs.plan.outputs.selection }}
       CI_PLAN_RESULT: ${{ needs.plan.result }}
     steps:
+      # Required names must report the actual prior code result, never a skipped success.
+      - name: Preserve current code-check result
+        if: ${{ needs.plan.outputs.metadata_only == 'true' }}
+        env:
+          PREVIOUS_CODE_RESULT: ${{ needs.plan.outputs.metadata_portable }}
+        run: test "$CI_PLAN_RESULT" = success && test "$PREVIOUS_CODE_RESULT" = success
+
       - name: Checkout
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -477,17 +527,20 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
           cache: ${{ needs.plan.outputs.portable == 'true' && 'pnpm' || '' }}
 
       - name: Record actual checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: >-
           node scripts/ci/checkout-evidence.mjs --output
           "$RUNNER_TEMP/checkout-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.json"
 
       - name: Upload checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -561,7 +614,7 @@ jobs:
           test ! -e "$expected_evidence"
 
       - name: Verify selected checks completed
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.metadata_only != 'true' }}
         env:
           CI_STEPS: ${{ toJSON(steps) }}
         run: node scripts/ci/check-selection.mjs verify phase11_release
