@@ -110,19 +110,25 @@ export const createAdminReadGuard = ({
       })
     }
 
-    let peerAddress: string | undefined
-    try {
-      peerAddress = getConnInfo(context).remote.address
-    } catch {
-      peerAddress = undefined
+    const isStaticAssetRequest =
+      (context.req.method === 'GET' || context.req.method === 'HEAD') &&
+      context.req.path.startsWith('/admin/assets/')
+    // Module loads must not spend the data-read API quota.
+    if (!isStaticAssetRequest) {
+      let peerAddress: string | undefined
+      try {
+        peerAddress = getConnInfo(context).remote.address
+      } catch {
+        peerAddress = undefined
+      }
+      await rateLimiter.consume({
+        actorId: resolution.user.id,
+        clientIp: clientIpAuthority.resolve(
+          peerAddress,
+          context.req.header('X-Forwarded-For') ?? null
+        )
+      })
     }
-    await rateLimiter.consume({
-      actorId: resolution.user.id,
-      clientIp: clientIpAuthority.resolve(
-        peerAddress,
-        context.req.header('X-Forwarded-For') ?? null
-      )
-    })
 
     context.set('adminActorId', resolution.user.id)
     await next()

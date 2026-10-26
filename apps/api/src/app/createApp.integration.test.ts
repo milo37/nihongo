@@ -742,7 +742,7 @@ describe('protected admin artifact and API composition', () => {
       total: 0
     })
     expect(f.capability).toHaveBeenCalledTimes(4)
-    expect(f.readLimit).toHaveBeenCalledTimes(4)
+    expect(f.readLimit).toHaveBeenCalledTimes(3)
     expect(f.readLimit).toHaveBeenCalledWith({
       actorId: '11111111-1111-4111-8111-111111111111',
       clientIp: 'unresolved'
@@ -812,16 +812,57 @@ describe('protected admin artifact and API composition', () => {
     expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
     expect(denied.headers.get('Set-Cookie')).toContain('Max-Age=0')
     expect(await denied.text()).not.toContain('ADMIN_ASSET_ONLY')
-    expect(f.readLimit).toHaveBeenCalledOnce()
+    expect(f.readLimit).not.toHaveBeenCalled()
   })
+
+  it.each(['GET', 'HEAD'])(
+    'serves authenticated static assets with an exhausted API read budget for %s',
+    async (method) => {
+      const f = fixture()
+      f.readLimit.mockRejectedValue(
+        new ApplicationError({
+          code: 'RATE_LIMITED',
+          message: 'fixture limit',
+          retryable: true,
+          retryAfterSeconds: 7
+        })
+      )
+      const asset = await f.app.request('/admin/assets/admin.js', { method })
+      const transport = {
+        status: asset.status,
+        contentType: asset.headers.get('Content-Type'),
+        retryAfter: asset.headers.get('Retry-After'),
+        body: await asset.text()
+      }
+      expect(transport, JSON.stringify(transport)).toMatchObject({
+        status: 200,
+        contentType: expect.stringMatching(/(?:application|text)\/javascript/u),
+        retryAfter: null,
+        body: method === 'HEAD' ? '' : 'ADMIN_ASSET_ONLY'
+      })
+      expect(f.resolve).toHaveBeenCalledOnce()
+      expect(f.capability).toHaveBeenCalledOnce()
+      expect(f.readLimit).not.toHaveBeenCalled()
+
+      const api = await f.app.request('/api/v1/admin/questions')
+      expect(api.status).toBe(429)
+      expect(apiFailureSchema.parse(await api.json()).code).toBe('RATE_LIMITED')
+      expect(f.readLimit).toHaveBeenCalledOnce()
+      expect(f.listQuestions).not.toHaveBeenCalled()
+
+      const html = await f.app.request('/admin')
+      expect(html.status).toBe(429)
+      expect(f.readLimit).toHaveBeenCalledTimes(2)
+    }
+  )
 
   it('keeps capability failures and read rate limits closed before reading admin files', async () => {
     const f = fixture()
     f.capability.mockRejectedValueOnce(new Error('unavailable fixture'))
-    const unavailable = await f.app.request('/admin')
+    const unavailable = await f.app.request('/admin/assets/admin.js')
     expect(unavailable.status).toBe(503)
     expect(unavailable.headers.get('Retry-After')).toBe('5')
-    expect(await unavailable.text()).not.toContain('ADMIN_HTML_ONLY')
+    expect(await unavailable.text()).not.toContain('ADMIN_ASSET_ONLY')
     expect(f.readLimit).not.toHaveBeenCalled()
     f.readLimit.mockRejectedValueOnce(
       new ApplicationError({
@@ -831,11 +872,11 @@ describe('protected admin artifact and API composition', () => {
         retryAfterSeconds: 7
       })
     )
-    const limited = await f.app.request('/admin/assets/admin.js')
+    const limited = await f.app.request('/admin')
     expect(limited.status).toBe(429)
     expect(limited.headers.get('Retry-After')).toBe('7')
     expect(limited.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(await limited.text()).not.toContain('ADMIN_ASSET_ONLY')
+    expect(await limited.text()).not.toContain('ADMIN_HTML_ONLY')
   })
 
   const commandPath =
