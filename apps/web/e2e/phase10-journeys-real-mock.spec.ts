@@ -728,8 +728,10 @@ const answerEveryQuestionWithFirstOption = async (
       2_000,
       (lastPutStartedAt ?? Number.NEGATIVE_INFINITY) + 5_000 - clockTime
     )
-    await page.clock.setSystemTime(clockTime)
+    // Freeze wall time until paused; runFor must advance it after setup.
+    await page.clock.setFixedTime(clockTime)
     await page.clock.pauseAt(clockTime)
+    await page.clock.setSystemTime(clockTime)
     try {
       if (isSingleReview) {
         await expect(jump).toHaveCount(0)
