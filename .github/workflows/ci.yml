@@ -12,7 +12,8 @@ on:
       - 'v*'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Metadata edits must not cancel running or replace pending code checks.
+  group: ci-${{ github.ref }}${{ github.event_name == 'pull_request' && github.event.action == 'edited' && !github.event.changes.base && format('-edit-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -21,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       selection: ${{ steps.selection.outputs.selection }}
+      metadata_only: ${{ steps.selection.outputs.metadata_only }}
       code: ${{ steps.selection.outputs.code }}
       web: ${{ steps.selection.outputs.web }}
       api: ${{ steps.selection.outputs.api }}
@@ -48,9 +50,10 @@ jobs:
         run: node scripts/ci/check-selection.mjs plan
 
   build:
-    name: Quality and production build
+    # A skipped job reports success; use a different name to retain required results.
+    name: ${{ needs.plan.result == 'success' && needs.plan.outputs.metadata_only == 'true' && 'PR metadata only (quality unchanged)' || 'Quality and production build' }}
     needs: plan
-    if: ${{ always() }}
+    if: ${{ always() && (needs.plan.result != 'success' || needs.plan.outputs.metadata_only != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -309,9 +312,10 @@ jobs:
         run: node scripts/ci/check-selection.mjs verify build
 
   e2e:
-    name: Phase 10 real/mock browser and regression acceptance
+    # A skipped job reports success; use a different name to retain required results.
+    name: ${{ needs.plan.result == 'success' && needs.plan.outputs.metadata_only == 'true' && 'PR metadata only (browser unchanged)' || 'Phase 10 real/mock browser and regression acceptance' }}
     needs: plan
-    if: ${{ always() }}
+    if: ${{ always() && (needs.plan.result != 'success' || needs.plan.outputs.metadata_only != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -454,9 +458,10 @@ jobs:
         run: node scripts/ci/check-selection.mjs verify e2e
 
   phase11_release:
-    name: Phase 11 portable release and production-mode smoke
+    # A skipped job reports success; use a different name to retain required results.
+    name: ${{ needs.plan.result == 'success' && needs.plan.outputs.metadata_only == 'true' && 'PR metadata only (portable unchanged)' || 'Phase 11 portable release and production-mode smoke' }}
     needs: plan
-    if: ${{ always() }}
+    if: ${{ always() && (needs.plan.result != 'success' || needs.plan.outputs.metadata_only != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
+import { runInNewContext } from 'node:vm'
 import {
   selectChecks,
   readSelection,
@@ -26,6 +27,77 @@ const pr = (files, extra = {}) =>
     changedFiles: files,
     ...extra
   })
+
+test('only well-formed title/body edits skip existing PR code scopes on dev or main', () => {
+  for (const ref of ['dev', 'main']) {
+    for (const changes of [
+      { title: { from: 'old title' } },
+      { body: { from: '' } },
+      { title: { from: 'old title' }, body: { from: 'old body' } }
+    ]) {
+      const selection = pr(['.github/workflows/ci.yml'], {
+        event: {
+          action: 'edited',
+          changes,
+          pull_request: {
+            ...event.pull_request,
+            base: { ...event.pull_request.base, ref }
+          }
+        }
+      })
+      assert.equal(selection.mode, 'metadata')
+      assert.deepEqual(selection.files, [])
+      assert.ok(
+        Object.values(selection)
+          .filter((v) => typeof v === 'boolean')
+          .every((v) => !v)
+      )
+    }
+  }
+  for (const changes of [
+    undefined,
+    null,
+    [],
+    {},
+    { base: { ref: { from: 'main' }, sha: { from: 'c'.repeat(40) } } },
+    { title: { from: 'old' }, base: { ref: { from: 'main' } } },
+    { title: { from: 'old' }, unknown: {} },
+    { title: {} },
+    { title: { from: 1 } },
+    { body: { from: null } },
+    { title: { from: 'old', unknown: true } }
+  ]) {
+    assert.notEqual(
+      pr(['apps/api/src/routes/questions.ts'], {
+        event: { ...event, action: 'edited', changes }
+      }).mode,
+      'metadata'
+    )
+  }
+  for (const action of ['opened', 'synchronize', 'reopened', undefined]) {
+    assert.equal(
+      pr(['apps/api/src/routes/questions.ts'], {
+        event: { ...event, action, changes: { title: { from: 'old' } } }
+      }).api,
+      true
+    )
+  }
+  for (const base of [
+    { ...event.pull_request.base, ref: 'other' },
+    { ...event.pull_request.base, sha: '' }
+  ]) {
+    assert.equal(
+      pr(['apps/api/src/routes/questions.ts'], {
+        event: {
+          action: 'edited',
+          changes: { title: { from: 'old' } },
+          pull_request: { ...event.pull_request, base }
+        }
+      }).mode,
+      'conservative'
+    )
+  }
+})
 
 test('docs PR formats only; code chooses dependent packages without unrelated DB/OCI work', () => {
   const docs = pr([
@@ -233,6 +305,21 @@ test('event/Git resolution binds PR head to actual checkout and compares base...
       }).portable,
       true
     )
+    writeFileSync(
+      file,
+      JSON.stringify({
+        ...event,
+        action: 'edited',
+        changes: { title: { from: 'old' } }
+      })
+    )
+    assert.equal(readSelection(env, git).mode, 'metadata')
+    assert.equal(
+      readSelection(env, () => {
+        throw new Error('missing commit')
+      }).mode,
+      'conservative'
+    )
     writeFileSync(file, '{')
     assert.equal(readSelection(env, git).portable, true)
   } finally {
@@ -410,8 +497,12 @@ test('workflow keeps required checks present, conditional resources, final outco
     const start = workflow.indexOf(`\n  ${id}:`)
     const end = workflow.slice(start + 1).search(/\n {2}[a-z0-9_]+:/u)
     const job = workflow.slice(start, end < 0 ? undefined : start + 1 + end)
-    assert.ok(job.includes(`name: ${name}`))
-    assert.match(job, /needs: plan\n {4}if: \$\{\{ always\(\) \}\}/u)
+    assert.ok(job.includes(`|| '${name}' }}`))
+    assert.ok(
+      job.includes(
+        "if: ${{ always() && (needs.plan.result != 'success' || needs.plan.outputs.metadata_only != 'true') }}"
+      )
+    )
     assert.ok(
       job.includes(`run: node scripts/ci/check-selection.mjs verify ${id}`)
     )
@@ -430,4 +521,156 @@ test('workflow keeps required checks present, conditional resources, final outco
     /image: \$\{\{ needs\.plan\.outputs\.browser == 'true' && 'postgres:/u
   )
   assert.doesNotMatch(workflow, /continue-on-error:/u)
+})
+
+test('metadata workflow cannot replace required results or cancel running/pending code CI', () => {
+  const workflow = readFileSync(
+    new URL('../../.github/workflows/ci.yml', import.meta.url),
+    'utf8'
+  )
+  assert.ok(
+    workflow.includes(
+      'metadata_only: ${{ steps.selection.outputs.metadata_only }}'
+    )
+  )
+  assert.match(workflow, /cancel-in-progress: true/u)
+  const group = workflow.match(/^ {2}group: (.+)$/mu)[1]
+  // These expressions use operators shared by Actions and JavaScript, plus format/always.
+  const evaluate = (expression, context) =>
+    runInNewContext(expression, {
+      ...context,
+      always: () => true,
+      format: (template, value) => template.replace('{0}', value)
+    })
+  const interpolate = (template, context) =>
+    template.replace(/\$\{\{(.*?)\}\}/gu, (_match, expression) =>
+      String(evaluate(expression, context))
+    )
+  const github = {
+    ref: 'refs/pull/1/merge',
+    run_id: 7,
+    event_name: 'pull_request',
+    event: { action: 'synchronize', changes: {} }
+  }
+  const codeGroup = interpolate(group, { github })
+  for (const action of ['opened', 'synchronize', 'reopened']) {
+    assert.equal(
+      interpolate(group, {
+        github: { ...github, event: { action, changes: {} } }
+      }),
+      codeGroup
+    )
+  }
+  for (const event_name of ['push', 'workflow_dispatch', 'release']) {
+    assert.equal(
+      interpolate(group, {
+        github: {
+          ...github,
+          event_name,
+          event: { action: 'edited', changes: {} }
+        }
+      }),
+      codeGroup
+    )
+  }
+  const edited = {
+    ...github,
+    event: { action: 'edited', changes: { title: { from: 'old' } } }
+  }
+  const metadataGroup = interpolate(group, { github: edited })
+  assert.notEqual(metadataGroup, codeGroup)
+  assert.notEqual(
+    interpolate(group, { github: { ...edited, run_id: 8 } }),
+    metadataGroup
+  )
+  assert.equal(
+    interpolate(group, {
+      github: {
+        ...edited,
+        event: {
+          ...edited.event,
+          changes: { ...edited.event.changes, base: { ref: { from: 'main' } } }
+        }
+      }
+    }),
+    codeGroup
+  )
+  for (const [id, requiredName] of [
+    ['build', 'Quality and production build'],
+    ['e2e', 'Phase 10 real/mock browser and regression acceptance'],
+    ['phase11_release', 'Phase 11 portable release and production-mode smoke']
+  ]) {
+    const job = workflow.split(`\n  ${id}:`)[1]
+    const name = job.match(/^ {4}name: (.+)$/mu)[1]
+    const condition = job.match(/^ {4}if: \$\{\{(.*?)\}\}$/mu)[1]
+    for (const result of ['success', 'failure', 'cancelled', 'skipped', '']) {
+      for (const metadata_only of ['true', 'false', '', 'unknown']) {
+        const context = {
+          needs: { plan: { result, outputs: { metadata_only } } }
+        }
+        const skip = result === 'success' && metadata_only === 'true'
+        assert.equal(evaluate(condition, context), !skip)
+        const actualName = interpolate(name, context)
+        if (skip) assert.notEqual(actualName, requiredName)
+        else assert.equal(actualName, requiredName)
+      }
+    }
+  }
+})
+
+test('plan CLI emits metadata_only only for confirmed edits and keeps selection JSON', () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'ci-metadata-plan-'))
+  try {
+    const headResult = spawnSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8'
+    })
+    assert.equal(headResult.status, 0, headResult.stderr)
+    const sha = headResult.stdout.trim()
+    for (const action of ['edited', 'synchronize']) {
+      const eventPath = path.join(directory, 'event.json')
+      const output = path.join(directory, 'output')
+      writeFileSync(
+        eventPath,
+        JSON.stringify({
+          action,
+          changes: { body: { from: 'old body' } },
+          pull_request: { base: { ref: 'dev', sha }, head: { sha } }
+        })
+      )
+      writeFileSync(output, '')
+      const result = spawnSync(
+        process.execPath,
+        [path.join(import.meta.dirname, 'check-selection.mjs'), 'plan'],
+        {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            GITHUB_EVENT_PATH: eventPath,
+            GITHUB_OUTPUT: output,
+            GITHUB_STEP_SUMMARY: '',
+            GITHUB_EVENT_NAME: 'pull_request',
+            GITHUB_REF: 'refs/pull/1/merge',
+            GITHUB_SHA: sha
+          }
+        }
+      )
+      assert.equal(result.status, 0, result.stderr)
+      const entries = Object.fromEntries(
+        readFileSync(output, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => {
+            const index = line.indexOf('=')
+            return [line.slice(0, index), line.slice(index + 1)]
+          })
+      )
+      assert.equal(entries.metadata_only, String(action === 'edited'))
+      assert.equal(
+        JSON.parse(entries.selection).mode,
+        action === 'edited' ? 'metadata' : 'pull_request'
+      )
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

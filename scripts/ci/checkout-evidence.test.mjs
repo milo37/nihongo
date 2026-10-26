@@ -255,7 +255,7 @@ test('each required producer captures its evaluated checkout before work', () =>
     assert.match(job, /actions\/upload-artifact@v4/u)
     assert.match(job, /if-no-files-found: error/u)
   }
-  assert.match(workflow, /name: Quality and production build/u)
+  assert.match(workflow, /'Quality and production build'/u)
   assert.match(
     workflow,
     /run: node scripts\/ci\/check-selection\.mjs quality unit\n/u

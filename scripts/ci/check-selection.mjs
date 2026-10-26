@@ -41,6 +41,30 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
   if (eventName !== 'pull_request')
     return full('conservative', 'unrecognized event/ref')
   const pr = event?.pull_request
+  const changes = event?.changes
+  const fields =
+    changes && typeof changes === 'object' && !Array.isArray(changes)
+      ? Object.keys(changes)
+      : []
+  if (
+    event?.action === 'edited' &&
+    ['dev', 'main'].includes(pr?.base?.ref) &&
+    shaPattern.test(pr?.base?.sha ?? '') &&
+    shaPattern.test(pr?.head?.sha ?? '') &&
+    fields.length > 0 &&
+    fields.every(
+      (field) =>
+        ['title', 'body'].includes(field) &&
+        typeof changes[field]?.from === 'string' &&
+        Object.keys(changes[field]).length === 1
+    )
+  )
+    return {
+      mode: 'metadata',
+      reason: 'title/body-only pull request edit',
+      files: [],
+      ...Object.fromEntries(flags.map((key) => [key, false]))
+    }
   if (pr?.base?.ref === 'main')
     return full('candidate', 'main integration candidate')
   if (
@@ -290,7 +314,7 @@ if (
     const selection = readSelection()
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `${flags.map((key) => `${key}=${selection[key]}`).join('\n')}\nselection=${JSON.stringify(selection)}\n`
+      `metadata_only=${selection.mode === 'metadata'}\n${flags.map((key) => `${key}=${selection[key]}`).join('\n')}\nselection=${JSON.stringify(selection)}\n`
     )
     if (process.env.GITHUB_STEP_SUMMARY)
       appendFileSync(
