@@ -1,5 +1,5 @@
-import { safePut } from '@api/http'
-import { parseApiResponse } from '@api/config'
+import { safePut } from '@nihongo/browser/api/http'
+import { parseApiResponse } from '@nihongo/browser/api/config'
 import {
   createUpdateWrongNoteMemoResponseSchema,
   updateWrongNoteMemoRequestBodySchema,

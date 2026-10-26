@@ -1,4 +1,4 @@
-import { safePutWithMetadata } from '@api/http'
+import { safePutWithMetadata } from '@nihongo/browser/api/http'
 import {
   createBookmarkRequestBodySchema,
   createBookmarkRequestSchema,

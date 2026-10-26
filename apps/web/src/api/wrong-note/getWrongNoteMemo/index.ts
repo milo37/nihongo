@@ -1,5 +1,5 @@
-import { safeGet } from '@api/http'
-import { parseApiResponse } from '@api/config'
+import { safeGet } from '@nihongo/browser/api/http'
+import { parseApiResponse } from '@nihongo/browser/api/config'
 import {
   createGetWrongNoteMemoResponseSchema,
   getWrongNoteMemoRequestParamsSchema,

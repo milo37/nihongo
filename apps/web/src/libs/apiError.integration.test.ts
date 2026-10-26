@@ -1,8 +1,8 @@
 import { http, HttpResponse } from 'msw'
-import { getCurrentUser } from '@api/auth/getCurrentUser'
-import { isApiError } from '@api/config'
-import { subscribeApiError } from '@libs/errorBus'
-import { queryClient } from '@libs/queryClient'
+import { getCurrentUser } from '@nihongo/browser/api/auth/getCurrentUser/index'
+import { isApiError } from '@nihongo/browser/api/config'
+import { subscribeApiError } from '@nihongo/browser/libs/errorBus'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { mockServer } from '@/test/server'
 
 describe('validated API and central error bus', () => {

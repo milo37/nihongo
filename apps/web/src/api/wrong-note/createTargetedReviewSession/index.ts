@@ -1,5 +1,5 @@
-import { safePostWithMetadata } from '@api/http'
-import { parseApiResponse } from '@api/config'
+import { safePostWithMetadata } from '@nihongo/browser/api/http'
+import { parseApiResponse } from '@nihongo/browser/api/config'
 import {
   createTargetedReviewSessionLocationSchema,
   createTargetedReviewSessionResponseForQuestionSchema,

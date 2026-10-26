@@ -15,7 +15,7 @@ import {
   toCanonicalWrongNoteDetailView,
   toCanonicalWrongNoteListView
 } from '@app/wrong-note/adapters/wrongNoteView'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 
 const listWrongNotes = async (params: ListWrongNoteRequest) => {
   return toCanonicalWrongNoteListView(await listWrongNotesV1(params))

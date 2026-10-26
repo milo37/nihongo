@@ -14,14 +14,14 @@ import {
   apiClient,
   createResponseValidationError,
   withErrorFlags
-} from '@api/config'
+} from '@nihongo/browser/api/config'
 import {
   AuthTransitionSupersededError,
   assertCurrentAuthActorTransitionFence,
   captureAuthActorTransitionFence
-} from '@libs/authTransitionFence'
-import { phase7Sha256TextPort } from '@libs/phase7Sha256'
-import { useAppStore } from '@store/index'
+} from '@nihongo/browser/libs/authTransitionFence'
+import { phase7Sha256TextPort } from '@nihongo/browser/libs/phase7Sha256'
+import { useAppStore } from '@nihongo/browser/store/index'
 
 const MAX_EXPORT_BYTES = 8 * 1024 * 1024
 const RETRY_AFTER_SECONDS = /^[1-9][0-9]*$/u

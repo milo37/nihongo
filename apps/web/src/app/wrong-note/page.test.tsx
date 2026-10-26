@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { render, screen } from '@testing-library/react'
 import { WrongNotePage } from '@app/wrong-note/page'
-import { queryClient } from '@libs/queryClient'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 
 describe('WrongNotePage', () => {

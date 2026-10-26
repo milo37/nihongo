@@ -3,13 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import type { ParsedListReviewQueueQuery } from '@nihongo/contracts/wrong-note/list-review-queue'
-import { LEVELS, QUESTION_TYPES, SUBJECTS } from '@common/types/domain'
-import { Button, getButtonClassName } from '@common/components/Button'
-import { EmptyState } from '@common/components/EmptyState'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
-import { Pagination } from '@common/components/Pagination'
-import { Select } from '@common/components/Select'
+import {
+  LEVELS,
+  QUESTION_TYPES,
+  SUBJECTS
+} from '@nihongo/browser/common/types/domain'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
+import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { Pagination } from '@nihongo/browser/common/components/Pagination'
+import { Select } from '@nihongo/browser/common/components/Select'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
@@ -22,10 +29,13 @@ import {
   createReviewQueueSearch,
   parseReviewQueueSearch
 } from '@app/wrong-note/reviewQueueSearch'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { useAppStore } from '@store/index'
-import { resolveUiLocale } from '@/i18n/types'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { useAppStore } from '@nihongo/browser/store/index'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 const views = ['DUE', 'UNREVIEWED', 'REPEATED', 'SOLVED'] as const

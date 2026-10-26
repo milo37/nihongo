@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 import type { StudyDraftSnapshot } from '@nihongo/contracts/study/study-draft'
-import { isApiError } from '@api/config'
-import { useLatest } from '@common/hooks/useLatest'
+import { isApiError } from '@nihongo/browser/api/config'
+import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import {
   applySaveStudyDraftBody,
   applyStudyDraftDiff,
@@ -13,7 +13,7 @@ import {
   mergeStudyDraftSnapshots,
   toSaveStudyDraftBody,
   type StudyDraftLocalDiff
-} from '@app/practice/draft/studyDraftMerge'
+} from '@nihongo/browser/app/practice/draft/studyDraftMerge'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { StudyQuestionClock } from '@app/practice/draft/studyQuestionClock'
 import {
@@ -21,25 +21,25 @@ import {
   createStudyDraftBaseDigest,
   createStudyDraftWorkingCopy,
   type StudyDraftWorkingCopy
-} from '@app/practice/draft/studyDraftWorkingCopy'
+} from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopy'
 import {
   clearStudyDraftWorkingCopy,
   readStudyDraftWorkingCopy,
   writeStudyDraftWorkingCopy
-} from '@app/practice/draft/studyDraftWorkingCopyStorage'
-import { useStudyDraftRevisionSync } from '@app/practice/draft/useStudyDraftRevisionSync'
+} from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import { useStudyDraftRevisionSync } from '@nihongo/browser/app/practice/draft/useStudyDraftRevisionSync'
 import { useGetStudyDraft } from '@app/practice/hooks/useGetStudyDraft'
 import { useSaveStudyDraft } from '@app/practice/hooks/useSaveStudyDraft'
 import { fetchStudyDraftSnapshot } from '@app/practice/queries/studyDraftQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch,
   isAuthTransitionSupersededError
-} from '@libs/authTransitionFence'
-import { emitApiError } from '@libs/errorBus'
-import { useAppStore } from '@store/index'
+} from '@nihongo/browser/libs/authTransitionFence'
+import { emitApiError } from '@nihongo/browser/libs/errorBus'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { isNotFoundApiError } from '@libs/apiError'
 
 export const STUDY_DRAFT_AUTOSAVE_DELAY_MS = 750

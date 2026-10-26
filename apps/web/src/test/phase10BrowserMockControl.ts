@@ -11,7 +11,7 @@ import {
   DEMO_USER_ID
 } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { queryClient } from '@libs/queryClient'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
 
 const assertMockTestMode = (): void => {
   if (__NIHONGO_API_MODE__ !== 'mock' || import.meta.env.MODE !== 'test') {

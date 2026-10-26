@@ -4,7 +4,10 @@ import {
   type GetQuestionResponse
 } from '@nihongo/contracts/question/get-question'
 import type { PublicQuestionSummary } from '@nihongo/contracts/question/list-questions'
-import type { PracticeQuestion, QuestionRecord } from '@common/types/domain'
+import type {
+  PracticeQuestion,
+  QuestionRecord
+} from '@nihongo/browser/common/types/domain'
 
 const PHASE_7_CONTRACT_IDENTITY = '__phase7ContractIdentity' as const
 

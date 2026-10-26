@@ -1,14 +1,14 @@
 import { ssoAccountErrorCodeSchema } from '@nihongo/contracts/auth/sso-account-management'
-import { isApiError } from '@api/config'
-import { AuthFlowError } from '@app/login/authFlowErrors'
+import { isApiError } from '@nihongo/browser/api/config'
+import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 import {
   captureAuthActorTransitionFence,
   assertCurrentAuthActorTransitionFence,
   captureAuthTransitionEpoch,
   assertCurrentAuthTransitionEpoch,
   isAuthTransitionSupersededError
-} from '@libs/authTransitionFence'
-import { useAppStore } from '@store/index'
+} from '@nihongo/browser/libs/authTransitionFence'
+import { useAppStore } from '@nihongo/browser/store/index'
 export class AccountFlowError extends AuthFlowError {
   readonly code
   readonly authenticationRequired: boolean

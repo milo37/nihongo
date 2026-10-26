@@ -127,10 +127,12 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
   result.browser = result.code
   result.database =
     result.api ||
-    result.files.some((file) =>
-      /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
-        file
-      )
+    result.files.some(
+      (file) =>
+        !/\.(?:md|txt)$/iu.test(file) &&
+        /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
+          file
+        )
     )
   result.security = result.code
   return result
@@ -182,7 +184,7 @@ const canonicalChecks = {
   phase11_release: 'Phase 11 portable release and production-mode smoke'
 }
 const sourceMarker =
-  /^CI source (code|metadata) repo ([\w.-]+\/[\w.-]+) PR ([1-9][0-9]*) head ([a-f0-9]{40}) base (dev|main) ([a-f0-9]{40})$/u
+  /^CI source (code|metadata) repo ([\w.-]+\/[\w.-]+) PR ([1-9][0-9]*) head ([a-f0-9]{40}) base (dev|main) ([a-f0-9]{40}) merge ([a-f0-9]{40})$/u
 const readActions = async (endpoint) => {
   const response = await fetch(`https://api.github.com/${endpoint}`, {
     headers: {
@@ -196,7 +198,7 @@ const readActions = async (endpoint) => {
 }
 
 export const readPreviousCodeResults = async (
-  { repository, number, headSha, baseRef, baseSha, runId },
+  { repository, number, headSha, baseRef, baseSha, mergeSha, runId },
   api = readActions,
   wait = setTimeout
 ) => {
@@ -210,6 +212,7 @@ export const readPreviousCodeResults = async (
     assert.match(repository, /^[\w.-]+\/[\w.-]+$/u)
     assert.ok(Number.isSafeInteger(number) && number > 0)
     assert.ok(shaPattern.test(headSha) && shaPattern.test(baseSha))
+    assert.ok(shaPattern.test(mergeSha) && mergeSha !== '0'.repeat(40))
     assert.ok(['dev', 'main'].includes(baseRef))
     assert.match(runId, /^[1-9][0-9]*$/u)
     const metadataRuns = new Set()
@@ -277,7 +280,8 @@ export const readPreviousCodeResults = async (
           Number(marker[3]) !== number ||
           marker[4] !== headSha ||
           marker[5] !== baseRef ||
-          marker[6] !== baseSha
+          marker[6] !== baseSha ||
+          marker[7] !== mergeSha
         )
           continue
         assert.equal(run.head_repository?.full_name, repository)
@@ -341,6 +345,7 @@ export const readPreviousCodeResults = async (
           return {
             sourceRunId: code.run.id,
             sourceAttempt: code.run.run_attempt,
+            sourceMergeSha: mergeSha,
             reason: 'Observed current code-check outcomes',
             results
           }
@@ -379,7 +384,8 @@ export const qualityCommands = (selection, group) => {
       '0'
     )
   } else if (group === 'typecheck') {
-    // Web build already runs exactly the same tsc --noEmit; API test types need their own check.
+    // App builds cover their own types; the shared browser workspace needs its complete check.
+    if (web) add('--filter', '@nihongo/browser', 'run', 'typecheck')
     if (api) {
       add('run', 'db:generate')
       add('--filter', '@nihongo/api', 'exec', 'tsc', '--noEmit')
@@ -402,7 +408,10 @@ export const qualityCommands = (selection, group) => {
         '--exclude',
         '**/*.integration.test.ts'
       )
-    if (web) add('run', 'test:web')
+    if (web) {
+      add('run', 'test:web')
+      add('--filter', '@nihongo/admin', 'run', 'test')
+    }
   } else if (group === 'build') {
     if (api)
       add(
@@ -413,7 +422,10 @@ export const qualityCommands = (selection, group) => {
         '-p',
         'tsconfig.build.json'
       )
-    if (web) add('--filter', '@nihongo/web', 'run', 'build')
+    if (web) {
+      add('--filter', '@nihongo/web', 'run', 'build')
+      add('--filter', '@nihongo/admin', 'run', 'build')
+    }
   } else throw new Error('CI_QUALITY_GROUP_INVALID')
   return commands
 }
@@ -425,13 +437,14 @@ const requiredSteps = {
       'prepare',
       'lint',
       'architecture',
+      'admin_boundary',
+      'typecheck',
       'static_contracts',
       'static_phase10',
       'static_phase11',
       'unit',
       'build'
     ],
-    api: ['typecheck'],
     web: ['production_mock', 'worker_exclusion'],
     database: ['integration'],
     content: ['foundation'],
@@ -515,6 +528,7 @@ if (
       headSha: event.pull_request.head.sha,
       baseRef: event.pull_request.base.ref,
       baseSha: event.pull_request.base.sha,
+      mergeSha: process.env.GITHUB_SHA,
       runId: process.env.GITHUB_RUN_ID
     })
     appendFileSync(

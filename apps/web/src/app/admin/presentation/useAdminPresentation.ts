@@ -7,8 +7,11 @@ import {
   type AdminApiErrorPresentation,
   type AdminErrorKey
 } from '@app/admin/presentation/adminPresentation'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 const toAdminApiErrorPresentation = (
   error: unknown

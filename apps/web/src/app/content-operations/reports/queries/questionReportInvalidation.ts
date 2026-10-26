@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
-import { adminQuestionKeys } from '@app/admin-question/queries/phase7AdminQueries'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { uniqueKeys } from '@app/content-operations/queries/uniqueInvalidationKeys'
 import { adminQuestionReportKeys } from '@app/content-operations/reports/queries/questionReportKeys'
 
@@ -13,10 +13,10 @@ export const invalidateCreatedQuestionReportCaches = async (
   target: CreatedQuestionReportInvalidationTarget
 ): Promise<void> => {
   const questionIds = target.questionIds ?? []
-  const keys: QueryKey[] = [adminQuestionKeys.allLists()]
+  const keys: QueryKey[] = [serverStateQueryKeys.phase7AdminQuestion.lists()]
 
   questionIds.forEach((questionId) => {
-    keys.push(adminQuestionKeys.detail(questionId))
+    keys.push(serverStateQueryKeys.phase7AdminQuestion.detail(questionId))
   })
   keys.push(adminQuestionReportKeys.allLists())
   if (target.reportId) {

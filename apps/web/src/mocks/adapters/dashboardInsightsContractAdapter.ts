@@ -19,7 +19,7 @@ import {
   type JlptLevel,
   type QuestionSubject,
   type QuestionType
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 import type {
   MockCanonicalDashboardInsightAnswerRecord,
   MockCanonicalDashboardInsightsRecord

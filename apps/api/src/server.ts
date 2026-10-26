@@ -71,6 +71,9 @@ const environment = parseApiEnvironment(process.env)
 const packagedWebAssetsDirectory = fileURLToPath(
   new URL('../../web/', import.meta.url)
 )
+const packagedAdminAssetsDirectory = fileURLToPath(
+  new URL('../../admin/', import.meta.url)
+)
 const authRuntimePlan = createAuthRuntimePlan(environment)
 if (!authRuntimePlan.ownedAuth || authRuntimePlan.cmsEnabled)
   assertSafeAdminCmsDatabase({
@@ -298,7 +301,10 @@ const app = createApiApp({
   assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID,
   ...(environment.NODE_ENV === 'production'
-    ? { webAssetsDirectory: packagedWebAssetsDirectory }
+    ? {
+        webAssetsDirectory: packagedWebAssetsDirectory,
+        adminAssetsDirectory: packagedAdminAssetsDirectory
+      }
     : {}),
   auth: {
     environment,

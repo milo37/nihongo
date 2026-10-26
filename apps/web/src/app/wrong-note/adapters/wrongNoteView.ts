@@ -9,7 +9,7 @@ import type {
   QuestionSubject,
   QuestionType,
   WrongNoteStatus
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 
 export interface WrongNoteListItemView {
   questionId: string

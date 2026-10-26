@@ -2,23 +2,32 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import type { JlptLevel, QuestionSubject } from '@common/types/domain'
-import { Icon } from '@common/components/Icon'
-import { Button, getButtonClassName } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { EmptyState } from '@common/components/EmptyState'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
-import { Pagination } from '@common/components/Pagination'
+import type {
+  JlptLevel,
+  QuestionSubject
+} from '@nihongo/browser/common/types/domain'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { Pagination } from '@nihongo/browser/common/components/Pagination'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { useAppStore } from '@store/index'
-import { resolveUiLocale } from '@/i18n/types'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { useAppStore } from '@nihongo/browser/store/index'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 
 const PAGE_SIZE = 20

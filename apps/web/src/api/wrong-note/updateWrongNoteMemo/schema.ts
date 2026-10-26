@@ -1,4 +1,7 @@
-import { questionRecordSchema, wrongNoteSchema } from '@api/schema'
+import {
+  questionRecordSchema,
+  wrongNoteSchema
+} from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const updateWrongNoteMemoParamsSchema = z

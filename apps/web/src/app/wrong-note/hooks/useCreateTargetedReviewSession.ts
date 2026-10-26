@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 import { studyDraftQueries } from '@app/practice/queries/studyDraftQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import {
@@ -10,8 +10,8 @@ import {
   type CreateTargetedReviewActionInput
 } from '@app/wrong-note/queries/wrongNoteMutations'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { analyticsClient } from '@/analytics/client'
 
 class TargetedReviewReconciliationError extends Error {

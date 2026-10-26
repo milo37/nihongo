@@ -7,7 +7,7 @@ import {
   createTargetedReviewSessionResponseForQuestionSchema
 } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { z } from 'zod'
-import { createPracticeTransportResponseSchema } from '@api/study/practiceTransportSchema'
+import { createPracticeTransportResponseSchema } from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const targetedReviewSessionParamsSchema =
   createTargetedReviewSessionParamsSchema

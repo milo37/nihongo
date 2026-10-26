@@ -2,7 +2,10 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { useSsoAccountDeletion } from '@app/login/hooks/useSsoAccountDeletion'
-import { Button, getButtonClassName } from '@common/components/Button'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
 export const AccountDataPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const { isReady, user, receipt } = useSsoAccountDeletion()

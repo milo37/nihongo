@@ -4,7 +4,7 @@ import {
   SUBJECTS,
   type JlptLevel,
   type QuestionSubject
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 import { originalQuestions } from '@mocks/data/questions'
 
 const expectedCountBySubject: Record<QuestionSubject, number> = {

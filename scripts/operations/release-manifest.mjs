@@ -17,6 +17,7 @@ import {
   createReleaseManifest,
   verifyReleaseManifest
 } from './release-contract.mjs'
+import { assertBrowserArtifact } from './browser-artifact-check.mjs'
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const defaultWorkspace = resolve(scriptDirectory, '../..')
@@ -116,7 +117,25 @@ export const runReleaseManifestCli = (argumentsList) => {
       'OCI component mode is available only inside the image build.'
     )
   }
+  const webDirectory = resolve(
+    requiredArgument(argumentsMap, '--web-directory')
+  )
+  const adminDirectory = argumentsMap.has('--admin-directory')
+    ? resolve(requiredArgument(argumentsMap, '--admin-directory'))
+    : undefined
+  if (adminDirectory !== undefined) {
+    for (const [app, directory] of [
+      ['web', webDirectory],
+      ['admin', adminDirectory]
+    ]) {
+      const artifact = assertBrowserArtifact(app, directory)
+      if (artifact.releaseId !== releaseId) {
+        throw new Error(`${app} artifact release ID mismatch.`)
+      }
+    }
+  }
   const manifest = createReleaseManifest({
+    adminDirectory,
     apiDirectory: resolve(requiredArgument(argumentsMap, '--api-directory')),
     environmentContractPath: resolve(
       workspace,
@@ -126,7 +145,7 @@ export const runReleaseManifestCli = (argumentsList) => {
     nodeVersion: process.versions.node,
     pnpmVersion: readPnpmVersion(workspace),
     releaseId,
-    webDirectory: resolve(requiredArgument(argumentsMap, '--web-directory'))
+    webDirectory
   })
   verifyReleaseManifest(manifest)
   writeManifestAtomically(

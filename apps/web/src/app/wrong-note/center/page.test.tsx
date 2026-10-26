@@ -16,7 +16,7 @@ const auth = vi.hoisted(() => ({
   role: 'USER',
   user: { id: 'member', role: 'USER' }
 }))
-vi.mock('@provider/ProtectedRouteProvider', () => ({
+vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ ...auth, isReady: true })
 }))
 // The approved baseline has no contracts/testing export; validate a local fixture.

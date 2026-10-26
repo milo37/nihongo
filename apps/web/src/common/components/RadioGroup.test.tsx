@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
-import { RadioGroup } from '@common/components/RadioGroup'
+import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 
 const options = [
   { value: 'first', label: '1. 첫 번째 보기' },

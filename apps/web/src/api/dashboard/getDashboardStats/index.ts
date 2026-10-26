@@ -1,6 +1,6 @@
 import { getDashboardStatsResponseSchema } from '@api/dashboard/getDashboardStats/schema'
 import type { GetDashboardStatsResponse } from '@api/dashboard/getDashboardStats/schema'
-import { safeGet } from '@api/http'
+import { safeGet } from '@nihongo/browser/api/http'
 
 const requestDashboardStats = safeGet(getDashboardStatsResponseSchema)
 

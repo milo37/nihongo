@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+import fs from 'node:fs'
+import path from 'node:path'
 import { checkArchitecture, formatArchitectureDiagnostic } from './checker.mjs'
 import {
   checkWorkspaceArchitecture,
@@ -6,6 +7,17 @@ import {
 } from './workspace-checker.mjs'
 
 const diagnostics = checkArchitecture()
+for (const directory of ['apps/admin', 'packages/browser']) {
+  const root = path.resolve(import.meta.dirname, '../..', directory)
+  if (!fs.existsSync(path.join(root, 'src'))) continue
+  diagnostics.push(
+    ...checkArchitecture({
+      tsconfigPath: path.join(root, 'tsconfig.json'),
+      sourceRoot: path.join(root, 'src'),
+      allowRelativeImports: directory === 'packages/browser'
+    })
+  )
+}
 const workspaceDiagnostics = checkWorkspaceArchitecture()
 
 if (diagnostics.length === 0 && workspaceDiagnostics.length === 0) {

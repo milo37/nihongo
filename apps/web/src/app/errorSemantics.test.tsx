@@ -1,9 +1,9 @@
-import { commitCanonicalAuth } from '@app/login/authSession'
-import { appI18n } from '@/i18n/config'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { appI18n } from '@nihongo/browser/i18n/config'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
-import { I18nProvider } from '@provider/I18nProvider'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
 import { toCanonicalWrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -11,10 +11,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { EditAdminQuestionPage } from '@app/admin-question/edit/page'
-import { createAdminQuestion } from '@api/admin-question/createAdminQuestion'
-import { getAdminQuestion } from '@api/admin-question/getAdminQuestion'
-import { createInput } from '@app/admin-question/test/questionFixture'
 import { PracticeResultPage } from '@app/practice/result/page'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
@@ -23,12 +19,12 @@ import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
 import { WrongNoteDetailPage } from '@app/wrong-note/detail/page'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
-import { authQueries } from '@app/login/queries/authQueries'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { Layout } from '@app/layout'
-import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
-import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
+import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
+import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { ToastProvider } from '@common/components/Toast'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { mockServer } from '@/test/server'
 
 const renderPage = async (
@@ -125,64 +121,6 @@ describe('detail page error semantics', () => {
     expect(requestCount).toBe(2)
   })
 
-  it('관리자 수정은 서버 오류를 구분하고 retry 후 폼을 복구한다', async () => {
-    const user = userEvent.setup()
-    mockDatabase.loginAs('ADMIN')
-    const created = await createAdminQuestion({
-      ...createInput,
-      tagNames: ['규칙']
-    })
-    const questionId = created.questionId
-    const detail = await getAdminQuestion(questionId)
-    const requestId = crypto.randomUUID()
-    const headers = {
-      'cache-control': 'private, no-store',
-      'x-request-id': requestId
-    }
-    let requestCount = 0
-    mockServer.use(
-      http.get(`*/api/v1/admin/questions/${questionId}`, () => {
-        requestCount += 1
-        if (requestCount === 1) {
-          return HttpResponse.json(
-            {
-              code: 'INTERNAL_SERVER_ERROR',
-              message: 'server error',
-              requestId,
-              retryable: true
-            },
-            { status: 500, headers }
-          )
-        }
-        return HttpResponse.json(detail, { headers })
-      })
-    )
-
-    await renderPage(
-      `/admin/questions/${questionId}/edit`,
-      '/admin/questions/:questionId/edit',
-      <EditAdminQuestionPage />
-    )
-
-    expect(
-      await screen.findByRole('heading', {
-        name: '문제 정보를 불러오지 못했습니다'
-      })
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', {
-        name: '수정할 문제를 찾을 수 없습니다'
-      })
-    ).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '다시 시도' }))
-    const editHeading = await screen.findByRole('heading', {
-      name: '문제 수정'
-    })
-    await vi.waitFor(() => expect(editHeading).toHaveFocus())
-    expect(requestCount).toBe(2)
-  })
-
   it('오답 상세 retry 성공 후 복구된 제목으로 포커스를 이동한다', async () => {
     const user = userEvent.setup()
     mockDatabase.loginAs('USER')
@@ -254,26 +192,6 @@ describe('detail page error semantics', () => {
     })
     await vi.waitFor(() => expect(detailHeading).toHaveFocus())
     expect(requestCount).toBe(2)
-  })
-
-  it('관리자 수정은 실제 404만 Not Found로 표시한다', async () => {
-    mockDatabase.loginAs('ADMIN')
-    const missingId = '00000000-0000-4000-8000-ffffffffffff'
-
-    await renderPage(
-      `/admin/questions/${missingId}/edit`,
-      '/admin/questions/:questionId/edit',
-      <EditAdminQuestionPage />
-    )
-
-    expect(
-      await screen.findByRole('heading', {
-        name: '수정할 문제를 찾을 수 없습니다'
-      })
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: '다시 시도' })
-    ).not.toBeInTheDocument()
   })
 
   it('결과는 실제 404만 Not Found로 표시한다', async () => {

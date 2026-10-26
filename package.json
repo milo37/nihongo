@@ -12,13 +12,13 @@
   },
   "scripts": {
     "postinstall": "node scripts/msw/patch-worker.mjs",
-    "dev": "pnpm run build:contracts && pnpm run build:domain && pnpm --parallel --filter @nihongo/web --filter @nihongo/api run dev",
+    "dev": "pnpm run build:contracts && pnpm run build:domain && pnpm --parallel --filter @nihongo/web --filter @nihongo/admin --filter @nihongo/api run dev",
     "dev:web": "pnpm run build:contracts && pnpm run build:domain && pnpm --filter @nihongo/web run dev",
     "dev:api": "pnpm run build:contracts && pnpm run build:domain && pnpm --filter @nihongo/api run dev",
     "build:contracts": "pnpm --filter @nihongo/contracts run build",
     "build:domain": "pnpm --filter @nihongo/domain run build",
     "build": "pnpm -r --if-present run build",
-    "preview": "pnpm --filter @nihongo/web run preview",
+    "preview": "pnpm --parallel --filter @nihongo/web --filter @nihongo/admin run preview",
     "check:architecture": "pnpm run build:contracts && node scripts/architecture/cli.mjs",
     "typecheck": "pnpm run build:contracts && pnpm run build:domain && pnpm -r --if-present run typecheck",
     "lint": "eslint .",
@@ -88,7 +88,7 @@
     "study:cleanup-expired-drafts": "pnpm --filter @nihongo/api run study:cleanup-expired-drafts",
     "test:web": "pnpm --filter @nihongo/web run test",
     "test:e2e": "node scripts/assert-historical-pre-phase7-runner.mjs && pnpm run build:contracts && pnpm run build:domain && pnpm run db:generate && pnpm --filter @nihongo/api exec tsx src/e2e/runSlice2E2e.ts",
-    "test": "pnpm run test:phase7:static && pnpm run build:contracts && pnpm run build:domain && pnpm run test:architecture && pnpm run test:content-runtime && pnpm run test:contracts && pnpm run test:domain && pnpm run test:api && pnpm run test:web",
+    "test": "pnpm run test:phase7:static && pnpm run build:contracts && pnpm run build:domain && pnpm run test:architecture && pnpm run test:content-runtime && pnpm run test:contracts && pnpm run test:domain && pnpm run test:api && pnpm run test:web && pnpm --filter @nihongo/admin run test",
     "test:watch": "pnpm -r --parallel --if-present run test:watch",
     "db:generate": "pnpm --filter @nihongo/api run db:generate",
     "db:migrate:dev": "pnpm --filter @nihongo/api run db:migrate:dev",
@@ -97,7 +97,10 @@
     "db:migrate:phase7": "pnpm --filter @nihongo/api run db:migrate:phase7",
     "db:migrate:test": "pnpm --filter @nihongo/api run db:migrate:test",
     "db:seed:dev": "pnpm --filter @nihongo/api run db:seed:dev",
-    "db:seed:test": "pnpm --filter @nihongo/api run db:seed:test"
+    "db:seed:test": "pnpm --filter @nihongo/api run db:seed:test",
+    "dev:admin": "pnpm run build:contracts && pnpm --filter @nihongo/admin run dev",
+    "build:browser": "pnpm run build:contracts && pnpm --filter @nihongo/web run build && pnpm --filter @nihongo/admin run build",
+    "test:admin-build-boundary": "node --test scripts/operations/browser-artifact-check.test.mjs scripts/operations/release-contract.test.mjs scripts/architecture/admin-boundary.test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

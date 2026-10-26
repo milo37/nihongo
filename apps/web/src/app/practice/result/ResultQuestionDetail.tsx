@@ -2,11 +2,11 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
-import { Button } from '@common/components/Button'
+import { Button } from '@nihongo/browser/common/components/Button'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
-import { Icon } from '@common/components/Icon'
-import { formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 type ResultQuestionDetailProps = {
   readonly item: StudyResultItemView

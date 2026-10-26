@@ -4,7 +4,7 @@ import {
   studyDraftMutations,
   type SaveStudyDraftMutationInput
 } from '@app/practice/queries/studyDraftQueries'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 
 export const useSaveStudyDraft = (sessionId: string) => {
   const queryClient = useQueryClient()

@@ -1,0 +1,285 @@
+import { useEffect, useId, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactElement,
+  ReactNode,
+  RefObject
+} from 'react'
+import { IconButton } from './IconButton'
+import { classNames } from './classNames'
+
+type DialogSize = 'sm' | 'md' | 'lg'
+
+type DialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description?: string
+  children?: ReactNode
+  footer?: ReactNode
+  closeLabel?: string
+  size?: DialogSize
+  initialFocusRef?: RefObject<HTMLElement | null>
+  returnFocusRef?: RefObject<HTMLElement | null>
+  fallbackFocusRef?: RefObject<HTMLElement | null>
+  className?: string
+  preventClose?: boolean
+}
+
+const openDialogs = new Set<HTMLDialogElement>()
+
+const syncPageScrollLock = (): void => {
+  document.documentElement.classList.toggle('has-modal', openDialogs.size > 0)
+}
+
+const restoreFocus = (
+  previousFocus: HTMLElement | null,
+  fallbackFocus: HTMLElement | null
+): void => {
+  if (!previousFocus) {
+    fallbackFocus?.focus()
+    return
+  }
+  if (previousFocus.isConnected) {
+    previousFocus.focus()
+    if (document.activeElement === previousFocus) {
+      return
+    }
+  }
+  const replacement = previousFocus.id
+    ? document.getElementById(previousFocus.id)
+    : null
+  if (replacement instanceof HTMLElement) {
+    replacement.focus()
+    if (document.activeElement === replacement) {
+      return
+    }
+  }
+  fallbackFocus?.focus()
+}
+
+const sizeClassNames: Record<DialogSize, string> = {
+  sm: 'max-w-md',
+  md: 'max-w-xl',
+  lg: 'max-w-3xl'
+}
+
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(',')
+
+const closeIcon = (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="m6 6 12 12M18 6 6 18"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeWidth="2"
+    />
+  </svg>
+)
+
+export const Dialog = ({
+  children,
+  className,
+  closeLabel,
+  description,
+  fallbackFocusRef,
+  footer,
+  initialFocusRef,
+  onOpenChange,
+  open,
+  preventClose = false,
+  returnFocusRef,
+  size = 'md',
+  title
+}: DialogProps): ReactElement => {
+  const { t } = useTranslation('common')
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+
+    if (!dialog) {
+      return
+    }
+
+    if (open && !dialog.open) {
+      const explicitReturnFocus = returnFocusRef?.current
+      previousFocusRef.current =
+        (explicitReturnFocus?.isConnected ? explicitReturnFocus : null) ??
+        (document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null)
+
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal()
+      } else {
+        dialog.setAttribute('open', '')
+      }
+
+      openDialogs.add(dialog)
+      syncPageScrollLock()
+
+      const focusTarget = initialFocusRef?.current ?? titleRef.current
+      focusTarget?.focus()
+    }
+
+    if (!open && dialog.open) {
+      if (typeof dialog.close === 'function') {
+        dialog.close()
+      } else {
+        dialog.removeAttribute('open')
+      }
+      openDialogs.delete(dialog)
+      syncPageScrollLock()
+      restoreFocus(previousFocusRef.current, fallbackFocusRef?.current ?? null)
+    }
+  }, [fallbackFocusRef, initialFocusRef, open, returnFocusRef])
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+
+    return () => {
+      if (dialog) {
+        openDialogs.delete(dialog)
+        syncPageScrollLock()
+      }
+    }
+  }, [])
+
+  const requestClose = (): void => {
+    if (preventClose) {
+      return
+    }
+
+    onOpenChange(false)
+  }
+
+  const handleKeyDown = (
+    event: ReactKeyboardEvent<HTMLDialogElement>
+  ): void => {
+    if (event.key !== 'Tab') {
+      return
+    }
+    const dialog = dialogRef.current
+    if (!dialog) {
+      return
+    }
+    const focusableElements = Array.from(
+      dialog.querySelectorAll<HTMLElement>(focusableSelector)
+    ).filter(
+      (element) =>
+        element.getAttribute('aria-hidden') !== 'true' &&
+        !element.hasAttribute('hidden')
+    )
+    const firstElement = focusableElements[0]
+    const lastElement = focusableElements.at(-1)
+
+    if (!firstElement || !lastElement) {
+      event.preventDefault()
+      titleRef.current?.focus()
+      return
+    }
+
+    const activeElement = document.activeElement
+    if (!focusableElements.includes(activeElement as HTMLElement)) {
+      event.preventDefault()
+      const focusTarget = event.shiftKey ? lastElement : firstElement
+      focusTarget.focus()
+      return
+    }
+    if (event.shiftKey && activeElement === firstElement) {
+      event.preventDefault()
+      lastElement.focus()
+      return
+    }
+    if (!event.shiftKey && activeElement === lastElement) {
+      event.preventDefault()
+      firstElement.focus()
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className={classNames(
+        'ui-dialog m-auto max-h-[min(90dvh,56rem)] w-[calc(100%-2rem)] overflow-hidden rounded-panel border border-line bg-surface p-0 text-ink shadow-elevated',
+        sizeClassNames[size],
+        className
+      )}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
+      aria-modal="true"
+      onCancel={(event) => {
+        event.preventDefault()
+        requestClose()
+      }}
+      onClose={() => {
+        const dialog = dialogRef.current
+
+        if (dialog && !dialog.open) {
+          openDialogs.delete(dialog)
+        }
+        syncPageScrollLock()
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          requestClose()
+        }
+      }}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="ui-dialog-layout flex max-h-[min(90dvh,56rem)] flex-col overscroll-contain">
+        <div className="ui-dialog-header flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            <h2
+              ref={titleRef}
+              className="ui-dialog-title scroll-mt-24 text-balance text-xl font-bold"
+              id={titleId}
+              tabIndex={-1}
+            >
+              {title}
+            </h2>
+            {description ? (
+              <p
+                className="mt-2 break-words text-sm leading-6 text-muted"
+                id={descriptionId}
+              >
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <IconButton
+            className="-mr-2 -mt-1"
+            disabled={preventClose}
+            label={closeLabel ?? t('actions.closeDialog')}
+            icon={closeIcon}
+            variant="ghost"
+            onClick={requestClose}
+          />
+        </div>
+        {children ? (
+          <div className="ui-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            {children}
+          </div>
+        ) : null}
+        {footer ? (
+          <div className="ui-dialog-footer flex flex-col-reverse gap-2 border-t border-line bg-surface-muted px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            {footer}
+          </div>
+        ) : null}
+      </div>
+    </dialog>
+  )
+}

@@ -8,8 +8,8 @@ import {
   createSplitAppStateStorage,
   PRACTICE_STORE_KEY,
   subscribeStorageChanges
-} from '@libs/storage'
-import { useAppStore } from '@store/index'
+} from '@nihongo/browser/libs/storage'
+import { useAppStore } from '@nihongo/browser/store/index'
 
 interface MemoryStorage {
   getItem: (key: string) => string | null

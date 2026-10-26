@@ -5,7 +5,7 @@ import { safeAdminFreshReturnPath } from '@nihongo/contracts/auth/admin-fresh-ss
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useStartAdminFresh } from '@app/login/hooks/useStartAdminFresh'
-import { AuthFlowError } from '@app/login/authFlowErrors'
+import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 
 type AdminFreshEntryProps = { returnPath: string; disabled?: boolean }
 export const AdminFreshEntry = ({

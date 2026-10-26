@@ -5,8 +5,8 @@ import type { ReactElement } from 'react'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import { useSsoAccountManagement } from '@app/login/hooks/useSsoAccountManagement'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
-import { Button } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
 const providerName = (provider: SsoProviderId) =>
   provider === 'apple' ? 'Apple' : 'Google'
 

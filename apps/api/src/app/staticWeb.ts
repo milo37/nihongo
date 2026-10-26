@@ -1,8 +1,9 @@
-import { readFileSync, realpathSync } from 'node:fs'
-import { basename, isAbsolute, join } from 'node:path'
+import { readFileSync, realpathSync, statSync } from 'node:fs'
+import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { serveStatic } from '@hono/node-server/serve-static'
-import type { Hono } from 'hono'
+import type { Hono, MiddlewareHandler } from 'hono'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { getRawRequestPathname } from './phase7PrefixExclusion.js'
 
 const reservedPathPrefixes = ['/api', '/health', '/__test'] as const
 
@@ -26,9 +27,7 @@ const isReservedPath = (path: string): boolean => {
     decodedPath === null ||
     decodedPath.includes('\\') ||
     decodedPath.includes('//') ||
-    decodedPath
-      .split('/')
-      .some((segment) => segment === '.' || segment === '..')
+    decodedPath.split('/').some((segment) => segment.startsWith('.'))
   ) {
     return true
   }
@@ -112,54 +111,136 @@ const hasExactReleaseMarker = (html: string, releaseId: string): boolean => {
   )
 }
 
+type StaticEnvironment = { Variables: ApiVariables }
+
+const isWithinRoot = (root: string, file: string): boolean => {
+  const name = relative(root, file)
+  return (
+    name === '' ||
+    (!isAbsolute(name) && name !== '..' && !name.startsWith(`..${sep}`))
+  )
+}
+
+const resolveStaticFile = (
+  root: string,
+  path: string
+): string | null | undefined => {
+  try {
+    let file = realpathSync(join(root, path))
+    if (!isWithinRoot(root, file)) return null
+    if (statSync(file).isDirectory())
+      file = realpathSync(join(file, 'index.html'))
+    return isWithinRoot(root, file) && statSync(file).isFile() ? file : null
+  } catch {
+    return undefined
+  }
+}
+
+const readAssetRoot = (directory: string, releaseId: string) => {
+  if (!isAbsolute(directory))
+    throw new Error('Web assets directory must be absolute.')
+  const root = realpathSync(directory)
+  const index = resolveStaticFile(root, '/index.html')
+  if (
+    !index ||
+    !hasExactReleaseMarker(readFileSync(index, 'utf8'), releaseId)
+  ) {
+    throw new Error('Web assets do not match the API release ID.')
+  }
+  return { root, index }
+}
+
+const isAdminPath = (path: string | null): boolean => {
+  const value = path?.toLowerCase()
+  return value === '/admin' || value?.startsWith('/admin/') === true
+}
+
 export const installStaticWeb = ({
   app,
   releaseId,
-  webAssetsDirectory
+  webAssetsDirectory,
+  adminAssetsDirectory,
+  adminGuard
 }: {
-  app: Hono<{ Variables: ApiVariables }>
+  app: Hono<StaticEnvironment>
   releaseId: string
   webAssetsDirectory: string
+  adminAssetsDirectory?: string
+  adminGuard?: MiddlewareHandler<StaticEnvironment>
 }): void => {
-  if (!isAbsolute(webAssetsDirectory)) {
-    throw new Error('Web assets directory must be absolute.')
+  const web = readAssetRoot(webAssetsDirectory, releaseId)
+  const admin = adminAssetsDirectory
+    ? readAssetRoot(adminAssetsDirectory, releaseId)
+    : undefined
+  if (
+    admin &&
+    (isWithinRoot(web.root, admin.root) || isWithinRoot(admin.root, web.root))
+  ) {
+    throw new Error('Web and admin asset directories must be separate.')
   }
-  const root = realpathSync(webAssetsDirectory)
-  const indexHtml = readFileSync(join(root, 'index.html'), 'utf8')
-  if (!hasExactReleaseMarker(indexHtml, releaseId)) {
-    throw new Error('Web assets do not match the API release ID.')
-  }
-
-  const serveFile = serveStatic<{ Variables: ApiVariables }>({ root })
-  const serveIndex = serveStatic<{ Variables: ApiVariables }>({
-    path: join(root, 'index.html')
-  })
 
   app.use('*', async (context, next) => {
+    const rawTarget = context.get('rawRequestTarget') ?? context.req.raw.url
+    const rawPath = getRawRequestPathname(rawTarget)
+    const decodedPath = rawPath === null ? null : decodePath(rawPath)
+    const adminRequest =
+      isAdminPath(decodedPath) || isAdminPath(decodePath(context.req.path))
+    const canonicalAdminPrefix =
+      rawPath === '/admin' || rawPath?.startsWith('/admin/') === true
+    if (adminRequest) {
+      context.header('Cache-Control', 'private, no-store')
+      context.header('Vary', 'Cookie, Authorization')
+      if (
+        !admin ||
+        !adminGuard ||
+        !canonicalAdminPrefix ||
+        rawPath !== context.req.path ||
+        rawTarget.includes('#')
+      ) {
+        return context.notFound()
+      }
+    }
+    const path = adminRequest
+      ? decodedPath?.slice('/admin'.length) || '/'
+      : decodedPath
     if (
       (context.req.method !== 'GET' && context.req.method !== 'HEAD') ||
-      isReservedPath(context.req.path)
+      path === null ||
+      isReservedPath(path)
     ) {
+      if (adminRequest) return context.notFound()
       await next()
       return
     }
 
-    const fileResponse = await serveFile(context, async () => undefined)
-    if (fileResponse) {
-      return withCacheControl(
-        fileResponse,
-        context.req.path.startsWith('/assets/')
-          ? 'public, max-age=31536000, immutable'
-          : 'no-store'
+    const respond = async (assets: {
+      root: string
+      index: string
+    }): Promise<Response> => {
+      const file = resolveStaticFile(assets.root, path)
+      if (file === null || (file === undefined && isAssetLikePath(path)))
+        return context.notFound()
+      const response = await serveStatic<StaticEnvironment>({
+        path: file ?? assets.index
+      })(context, async () => undefined)
+      if (!response) return context.notFound()
+      const cached = withCacheControl(
+        response,
+        adminRequest
+          ? 'private, no-store'
+          : path.startsWith('/assets/')
+            ? 'public, max-age=31536000, immutable'
+            : 'no-store'
       )
+      if (adminRequest) cached.headers.delete('Last-Modified')
+      return cached
     }
-    if (isAssetLikePath(context.req.path)) {
-      await next()
-      return
+    if (adminRequest && admin && adminGuard) {
+      const response = await adminGuard(context, async () => {
+        context.res = await respond(admin)
+      })
+      return response ?? context.res
     }
-
-    const indexResponse = await serveIndex(context, async () => undefined)
-    if (indexResponse) return withCacheControl(indexResponse, 'no-store')
-    await next()
+    return respond(web)
   })
 }

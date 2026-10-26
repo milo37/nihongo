@@ -3,9 +3,9 @@ import type { CreateStudySessionV2Request } from '@api/study/createStudySessionV
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
-import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
+import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 import { isNotFoundApiError } from '@libs/apiError'
 
 const createSessionActionFence =

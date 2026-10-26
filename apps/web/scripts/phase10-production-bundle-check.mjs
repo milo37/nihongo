@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { assertBrowserArtifact } from '../../../scripts/operations/browser-artifact-check.mjs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import {
   assertPhase10BundleEvidenceProvenance,
   collectPhase10BundleEvidence,
+  phase10SplitBundleCommand,
   readPhase10BundleRepositoryState
 } from './phase10-production-bundle-contract.mjs'
 import {
@@ -199,24 +201,31 @@ const run = async () => {
     apiMode: 'real',
     nodeEnvironment: 'production'
   }
-  const normalizedBuildCommand = [
-    buildCommand,
-    ...buildArgs.map((argument) =>
-      argument === temporaryRoot ? '<temporary-out-dir>' : argument
-    )
-  ].join(' ')
   try {
     const sourceTreeBeforeBuild =
       await readPhase10BundleRepositoryState(repositoryRoot)
-    await runCommand(buildCommand, buildArgs, {
-      cwd: webRoot,
-      environment: {
-        ...process.env,
-        NODE_ENV: buildMetadataEnvironment.nodeEnvironment,
-        VITE_API_BASE_URL: buildMetadataEnvironment.apiBaseUrl,
-        VITE_API_MODE: buildMetadataEnvironment.apiMode
-      }
-    })
+    const distDirectories = {}
+    for (const artifact of ['web', 'admin']) {
+      const directory = path.join(temporaryRoot, artifact)
+      distDirectories[artifact] = directory
+      await runCommand(
+        buildCommand,
+        buildArgs.map((argument) =>
+          argument === temporaryRoot ? directory : argument
+        ),
+        {
+          cwd: path.join(repositoryRoot, 'apps', artifact),
+          environment: {
+            ...process.env,
+            NODE_ENV: buildMetadataEnvironment.nodeEnvironment,
+            VITE_API_BASE_URL: buildMetadataEnvironment.apiBaseUrl,
+            VITE_API_MODE: buildMetadataEnvironment.apiMode,
+            VITE_RELEASE_ID: sourceTreeBeforeBuild.commit
+          }
+        }
+      )
+      assertBrowserArtifact(artifact, directory)
+    }
     executionAbortController.signal.throwIfAborted()
     const [sourceTreeAfterBuild, versions] = await Promise.all([
       readPhase10BundleRepositoryState(repositoryRoot),
@@ -229,9 +238,9 @@ const run = async () => {
       throw new Error('PHASE10_BUNDLE_SOURCE_CHANGED_DURING_BUILD')
     }
     const evidence = await collectPhase10BundleEvidence({
-      distDirectory: temporaryRoot,
+      distDirectories,
       metadata: {
-        command: normalizedBuildCommand,
+        command: phase10SplitBundleCommand,
         commit: sourceTreeAfterBuild.commit,
         environment: buildMetadataEnvironment,
         generatedAt: new Date().toISOString(),
@@ -253,12 +262,41 @@ const run = async () => {
     executionAbortController.signal.throwIfAborted()
     process.stdout.write(
       `${JSON.stringify({
-        event: 'phase10.bundle_performance.passed',
+        event: `phase10.bundle_performance.${evidence.status}`,
+        artifacts: Object.fromEntries(
+          Object.entries(evidence.artifacts).map(([artifact, profile]) => [
+            artifact,
+            {
+              status: profile.evidence.status,
+              measurements: profile.evidence.measurements
+            }
+          ])
+        ),
+        combined: {
+          evaluation: evidence.combined.evaluation,
+          measurements: evidence.combined.measurements
+        },
         evidenceFile: path.relative(repositoryRoot, evidenceFile),
-        inventorySha256: evidence.inventory.sha256,
-        matchesAcceptedBaseline: evidence.inventory.matchesAcceptedBaseline
+        inventorySha256: evidence.combined.inventory.sha256,
+        matchesAcceptedBaseline:
+          evidence.combined.inventory.matchesAcceptedBaseline
       })}\n`
     )
+    if (evidence.status === 'failed') {
+      process.stderr.write(
+        `PHASE10_BUNDLE_BUDGET_EXCEEDED:${JSON.stringify(
+          Object.fromEntries(
+            Object.entries(evidence.artifacts)
+              .filter(([, profile]) => profile.evidence.status === 'failed')
+              .map(([artifact, profile]) => [
+                artifact,
+                profile.evidence.budgets
+              ])
+          )
+        )}\n`
+      )
+      process.exitCode = 1
+    }
   } catch (error) {
     await cleanupPhase10BundleEvidence(evidenceFile)
     throw error

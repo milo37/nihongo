@@ -5,7 +5,7 @@ import {
   createResultRetrySessionResponseSchema
 } from '@nihongo/contracts/study/create-result-retry-session'
 import { z } from 'zod'
-import { createPracticeTransportResponseSchema } from '@api/study/practiceTransportSchema'
+import { createPracticeTransportResponseSchema } from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const createResultRetrySessionRequestParamsSchema =
   createResultRetrySessionParamsSchema

@@ -5,10 +5,13 @@ import type { ReactElement } from 'react'
 import { useGetDashboardInsights } from '@app/dashboard/hooks/useGetDashboardInsights'
 import { useDashboardRecommendationAction } from '@app/dashboard/hooks/useDashboardRecommendationAction'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
-import { Button } from '@common/components/Button'
-import { useAppStore } from '@store/index'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { useAppStore } from '@nihongo/browser/store/index'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 interface RetryFocusIntent {
   origin: Element | null

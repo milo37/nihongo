@@ -1,23 +1,27 @@
 import { createBrowserRouter } from 'react-router'
 import type { RouteObject } from 'react-router'
-import { adminQuestionRoutes } from '@app/admin-question/router'
 import { bookmarkRoutes } from '@app/bookmark/router'
 import { dashboardRoutes } from '@app/dashboard/router'
-import { ForbiddenPage } from '@app/forbidden/page'
+import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
 import { homeRoutes } from '@app/home/router'
 import { Layout } from '@app/layout'
 import { loginRoutes } from '@app/login/router'
-import { NotFoundPage } from '@app/not-found/page'
-import { RouteErrorPage } from '@app/not-found/route-error'
+import { NotFoundPage } from '@nihongo/browser/app/not-found/page'
+import { RouteErrorPage } from '@nihongo/browser/app/not-found/route-error'
 import { practiceRoutes } from '@app/practice/router'
 import { wrongNoteRoutes } from '@app/wrong-note/router'
-import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
+import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import {
   ProtectedRouteProvider,
   RequireRole
-} from '@provider/ProtectedRouteProvider'
+} from '@nihongo/browser/provider/ProtectedRouteProvider'
+
+const developmentRoutes: RouteObject[] = import.meta.env.DEV
+  ? (await import('@app/development/router')).developmentRoutes
+  : []
 
 export const appRoutes: RouteObject[] = [
+  ...developmentRoutes,
   {
     path: '/',
     element: (
@@ -41,10 +45,6 @@ export const appRoutes: RouteObject[] = [
           ...wrongNoteRoutes.filter((route) => route.path !== 'wrong-notes'),
           ...bookmarkRoutes
         ]
-      },
-      {
-        element: <RequireRole allowedRoles={['ADMIN']} />,
-        children: adminQuestionRoutes
       },
       {
         path: 'forbidden',

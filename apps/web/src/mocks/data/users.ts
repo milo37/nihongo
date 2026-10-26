@@ -1,4 +1,4 @@
-import type { User } from '@common/types/domain'
+import type { User } from '@nihongo/browser/common/types/domain'
 
 const CREATED_AT = '2026-01-01T00:00:00.000Z'
 export const DEMO_USER_ID = '018f6b7a-1f4b-7d5e-8a91-4c27df9c1001'

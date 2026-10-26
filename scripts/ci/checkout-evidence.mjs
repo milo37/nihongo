@@ -18,7 +18,12 @@ const requireSha = (value) => {
   return value
 }
 
-export const createCheckoutEvidence = ({ environment, event, observed }) => {
+export const createCheckoutEvidence = ({
+  environment,
+  event,
+  observed,
+  isAncestor = () => false
+}) => {
   assert.match(environment.GITHUB_REPOSITORY ?? '', /^[\w.-]+\/[\w.-]+$/u)
   assert.equal(event.repository?.full_name, environment.GITHUB_REPOSITORY)
   assert.match(environment.GITHUB_JOB ?? '', /^[A-Za-z_][A-Za-z0-9_-]*$/u)
@@ -47,10 +52,17 @@ export const createCheckoutEvidence = ({ environment, event, observed }) => {
     )
     headSha = requireSha(event.pull_request?.head?.sha)
     baseSha = requireSha(event.pull_request?.base?.sha)
-    assert.deepEqual(
-      observed.parents,
-      [baseSha, headSha],
-      'PR checkout parents differ from the event base/head.'
+    assert.equal(observed.parents.length, 2, 'Expected a two-parent PR merge.')
+    assert.equal(
+      observed.parents[1],
+      headSha,
+      'PR checkout head parent differs from the event head.'
+    )
+    // GitHub may advance the merge base while the event retains its older base.
+    assert.ok(
+      observed.parents[0] === baseSha ||
+        isAncestor(baseSha, observed.parents[0]) === true,
+      'PR checkout base is unrelated to or behind the event base.'
     )
   } else if (environment.GITHUB_EVENT_NAME === 'workflow_dispatch') {
     assert.match(environment.GITHUB_REF ?? '', /^refs\/(?:heads|tags)\/\S+$/u)
@@ -93,11 +105,21 @@ export const captureCheckoutEvidence = (environment, workspace) => {
   const git = (...args) =>
     execFileSync('git', ['-C', workspace, ...args], {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }
     }).trim()
   return createCheckoutEvidence({
     environment,
     event: JSON.parse(readFileSync(environment.GITHUB_EVENT_PATH, 'utf8')),
+    isAncestor: (ancestor, descendant) => {
+      try {
+        git('merge-base', '--is-ancestor', ancestor, descendant)
+        return true
+      } catch (error) {
+        if (error.status === 1) return false
+        throw error
+      }
+    },
     observed: {
       checkoutSha: git('rev-parse', 'HEAD'),
       treeSha: git('rev-parse', 'HEAD^{tree}'),
