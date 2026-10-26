@@ -18,7 +18,7 @@ import {
   ssoProviderIdSchema,
   type SsoProviderId
 } from '@nihongo/contracts/auth/sign-in-social'
-import type { User } from '@common/types/domain'
+import type { User } from '@nihongo/browser/common/types/domain'
 import {
   expireMockGuestPrincipalCookie,
   inspectMockGuestProof

@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { ReactElement, ReactNode } from 'react'
-import { classNames } from '@common/components/classNames'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 
 export interface ChoiceRadioOption<Value extends string> {
   value: Value

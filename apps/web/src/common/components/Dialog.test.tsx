@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Dialog } from '@common/components/Dialog'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
 
 describe('Dialog', () => {
   it('Tab과 Shift+Tab 포커스를 활성 대화상자 안에서 순환시킨다', async () => {

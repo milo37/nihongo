@@ -73,8 +73,13 @@ const parseMetaAttributes = (tag) => {
   return attributes
 }
 
-export const assertExactReleaseMarker = (html, releaseId, label) => {
-  assertReleaseId(releaseId)
+export const assertExactReleaseMarker = (
+  html,
+  releaseId,
+  label,
+  options = {}
+) => {
+  assertReleaseId(releaseId, options)
   const markupOnly = html
     .replace(/<!--[\s\S]*?-->/gu, '')
     .replace(
@@ -237,6 +242,7 @@ const collectMigrationInventory = (migrationsDirectory) => {
 }
 
 export const createReleaseManifest = ({
+  adminDirectory,
   apiDirectory,
   environmentContractPath,
   lockfilePath,
@@ -248,6 +254,25 @@ export const createReleaseManifest = ({
   assertReleaseId(releaseId)
   const webIndex = readFileSync(join(webDirectory, 'index.html'), 'utf8')
   assertExactReleaseMarker(webIndex, releaseId, 'Web artifact')
+
+  if (adminDirectory !== undefined) {
+    const roots = [apiDirectory, webDirectory, adminDirectory].map(
+      (directory) => realpathSync(directory)
+    )
+    for (const left of roots) {
+      for (const right of roots) {
+        if (left !== right && isWithin(left, right))
+          throw new Error('Release artifact roots must not overlap.')
+      }
+    }
+    if (new Set(roots).size !== 3)
+      throw new Error('Release artifact roots must be distinct.')
+    assertExactReleaseMarker(
+      readFileSync(join(adminDirectory, 'index.html'), 'utf8'),
+      releaseId,
+      'Admin artifact'
+    )
+  }
 
   const apiTopLevel = readdirSync(apiDirectory).sort()
   const unexpectedApiEntry = apiTopLevel.find(
@@ -277,7 +302,7 @@ export const createReleaseManifest = ({
   JSON.parse(environmentContract.toString('utf8'))
 
   return {
-    schemaVersion: 1,
+    schemaVersion: adminDirectory === undefined ? 1 : 2,
     releaseId,
     source: {
       commit: releaseId,
@@ -289,7 +314,14 @@ export const createReleaseManifest = ({
     },
     artifacts: {
       api: summarizeInventory(apiInventory),
-      web: summarizeInventory(webInventory)
+      web: summarizeInventory(webInventory),
+      ...(adminDirectory === undefined
+        ? {}
+        : {
+            admin: summarizeInventory(
+              collectTreeInventory(adminDirectory, { enforceSafeNames: true })
+            )
+          })
     },
     migrations: collectMigrationInventory(
       join(apiDirectory, 'prisma', 'migrations')
@@ -315,7 +347,7 @@ export const verifyReleaseManifest = (manifest) => {
     ],
     'Release manifest'
   )
-  if (manifest.schemaVersion !== 1) {
+  if (![1, 2].includes(manifest.schemaVersion)) {
     throw new Error('Unsupported release manifest schema.')
   }
   assertReleaseId(manifest.releaseId)
@@ -333,8 +365,10 @@ export const verifyReleaseManifest = (manifest) => {
   ) {
     throw new Error('Invalid runtime versions.')
   }
-  assertExactKeys(manifest.artifacts, ['api', 'web'], 'Artifacts')
-  for (const key of ['api', 'web']) {
+  const artifactNames =
+    manifest.schemaVersion === 2 ? ['api', 'web', 'admin'] : ['api', 'web']
+  assertExactKeys(manifest.artifacts, artifactNames, 'Artifacts')
+  for (const key of artifactNames) {
     const artifact = manifest.artifacts?.[key]
     assertExactKeys(
       artifact,

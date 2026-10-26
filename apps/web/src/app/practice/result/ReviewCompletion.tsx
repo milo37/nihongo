@@ -5,14 +5,20 @@ import type { ReactElement } from 'react'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
-import { Button, getButtonClassName } from '@common/components/Button'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import { ReviewStatus } from '@app/wrong-note/components/ReviewStatus'
 import { useGetWrongNote } from '@app/wrong-note/hooks/useGetWrongNote'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { resolveUiLocale } from '@/i18n/types'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
 
 export const ReviewCompletion = ({
   item,

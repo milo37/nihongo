@@ -1,17 +1,17 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
-import { Button } from '@common/components/Button'
+import { Button } from '@nihongo/browser/common/components/Button'
 import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
-import { Select } from '@common/components/Select'
-import { Icon } from '@common/components/Icon'
+import { Select } from '@nihongo/browser/common/components/Select'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import type {
   JlptLevel,
   QuestionSubject,
   StudyMode
-} from '@common/types/domain'
-import { formatNumber } from '@libs/localeFormatters'
-import { resolveUiLocale } from '@/i18n/types'
+} from '@nihongo/browser/common/types/domain'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 type PracticeSetupFormProps = {
   level: JlptLevel

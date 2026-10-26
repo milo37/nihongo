@@ -1,4 +1,4 @@
-import { safeDelWithMetadata } from '@api/http'
+import { safeDelWithMetadata } from '@nihongo/browser/api/http'
 import {
   deleteBookmarkRequestSchema,
   deleteBookmarkTransportResponseSchema

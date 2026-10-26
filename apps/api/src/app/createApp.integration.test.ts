@@ -1,6 +1,15 @@
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type {
+  AdminQuestionCommandService,
+  AdminQuestionPublicationCommandService
+} from '../admin/adminQuestionCommandService.js'
+import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
+import { ApplicationError } from '../errors/applicationError.js'
 import type { AuthGateway } from '../auth/authGateway.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
@@ -568,5 +577,334 @@ describe('Hono operational boundary', () => {
       'Retry-After, X-Request-Id'
     )
     expect(response.headers.get('X-Request-Id')).toBe(payload.requestId)
+  })
+})
+
+describe('protected admin artifact and API composition', () => {
+  const directories: string[] = []
+  afterEach(() => {
+    for (const root of directories)
+      rmSync(root, { recursive: true, force: true })
+    directories.length = 0
+  })
+  const fixture = ({
+    role = 'ADMIN',
+    fresh = true,
+    cms = true,
+    production = false
+  }: {
+    role?: 'ADMIN' | 'USER' | null
+    fresh?: boolean
+    cms?: boolean
+    production?: boolean
+  } = {}) => {
+    const directory = mkdtempSync(join(tmpdir(), 'nihongo-admin-composition-'))
+    directories.push(directory)
+    const web = join(directory, 'web')
+    const adminRoot = join(directory, 'admin')
+    const releaseId = '2'.repeat(40)
+    for (const root of [web, adminRoot])
+      mkdirSync(join(root, 'assets'), { recursive: true })
+    const html = (label: string) =>
+      `<html><head><meta name="nihongo-release-id" content="${releaseId}"></head><body>${label}</body></html>`
+    writeFileSync(join(web, 'index.html'), html('LEARNER_ONLY'))
+    writeFileSync(join(adminRoot, 'index.html'), html('ADMIN_HTML_ONLY'))
+    writeFileSync(join(adminRoot, 'assets/admin.js'), 'ADMIN_ASSET_ONLY')
+    const user = role
+      ? {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'Fixture',
+          role,
+          targetLevel: null
+        }
+      : null
+    const resolve = vi.fn<PrincipalService['resolveAuthenticatedUser']>(
+      async () => ({
+        clearSessionCookie: false,
+        headers: new Headers(),
+        user,
+        ...(user
+          ? {
+              phase7Session: {
+                id: '22222222-2222-4222-8222-222222222222',
+                token: 'test-session-only',
+                createdAt: new Date(0),
+                expiresAt: new Date(60_000),
+                isFresh: fresh
+              }
+            }
+          : {})
+      })
+    )
+    const capability = vi.fn(async () => undefined)
+    const readLimit = vi.fn(async () => undefined)
+    const commandLimit = vi.fn(async () => undefined)
+    const approve = vi.fn()
+    const listQuestions = vi.fn(async () => ({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    }))
+    const app = createApiApp({
+      webAssetsDirectory: web,
+      adminAssetsDirectory: adminRoot,
+      releaseId,
+      checkReadiness: async () => undefined,
+      logger: createJsonLogger('silent'),
+      questionReader,
+      auth: {
+        environment: {
+          ...(cms ? technicalAuthEnvironment : authEnvironment),
+          ...(production ? { NODE_ENV: 'production' as const } : {})
+        },
+        gateway: { handle: vi.fn() },
+        guestPrincipalService,
+        principalService: {
+          resolveAuthenticatedUser: resolve,
+          getAuthenticatedUser: async () => user
+        }
+      },
+      admin: {
+        assertCapability: capability,
+        rateLimiter: { consume: readLimit },
+        reader: { listQuestions } as unknown as AdminQuestionReader,
+        commands: {
+          rateLimiter: { consume: commandLimit },
+          service: {
+            approveVersion: approve
+          } as unknown as AdminQuestionCommandService &
+            AdminQuestionPublicationCommandService
+        }
+      }
+    })
+    return {
+      app,
+      resolve,
+      capability,
+      readLimit,
+      commandLimit,
+      approve,
+      listQuestions
+    }
+  }
+
+  it.each([
+    { role: null, status: 401, code: 'AUTHENTICATION_REQUIRED' },
+    { role: 'USER' as const, status: 403, code: 'ADMIN_REQUIRED' }
+  ])(
+    'denies $role direct HTML, assets, fallback and API access without private bytes',
+    async ({ role, status, code }) => {
+      const f = fixture({ role })
+      for (const path of [
+        '/admin',
+        '/admin/questions/123/edit',
+        '/admin/assets/admin.js',
+        '/api/v1/admin/questions'
+      ]) {
+        const response = await f.app.request(path)
+        expect(response.status).toBe(status)
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+        const body = await response.text()
+        expect(body).not.toContain('ADMIN_HTML_ONLY')
+        expect(body).not.toContain('ADMIN_ASSET_ONLY')
+        expect(JSON.parse(body).code).toBe(code)
+      }
+      expect(f.capability).not.toHaveBeenCalled()
+      expect(f.readLimit).not.toHaveBeenCalled()
+      expect(f.listQuestions).not.toHaveBeenCalled()
+    }
+  )
+
+  it('allows current ADMIN static paths and the unchanged read API with existing read guards', async () => {
+    const f = fixture()
+    for (const path of [
+      '/admin',
+      '/admin/questions/123/edit',
+      '/admin/assets/admin.js'
+    ]) {
+      const response = await f.app.request(path, {
+        headers: { 'X-Forwarded-For': '192.0.2.99' }
+      })
+      expect(response.status).toBe(200)
+      expect(await response.text()).toContain(
+        path.endsWith('.js') ? 'ADMIN_ASSET_ONLY' : 'ADMIN_HTML_ONLY'
+      )
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+      expect(response.headers.get('Vary')).toBe('Cookie, Authorization')
+    }
+    const read = await f.app.request('/api/v1/admin/questions')
+    expect(read.status).toBe(200)
+    expect(await read.json()).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    })
+    expect(f.capability).toHaveBeenCalledTimes(4)
+    expect(f.readLimit).toHaveBeenCalledTimes(4)
+    expect(f.readLimit).toHaveBeenCalledWith({
+      actorId: '11111111-1111-4111-8111-111111111111',
+      clientIp: 'unresolved'
+    })
+    expect(f.listQuestions).toHaveBeenCalledOnce()
+  })
+
+  it('keeps CMS disabled for static HTML/assets and direct API even for an authenticated ADMIN', async () => {
+    const f = fixture({ cms: false })
+    for (const path of [
+      '/admin',
+      '/admin/questions',
+      '/admin/assets/admin.js',
+      '/api/v1/admin/questions'
+    ]) {
+      const response = await f.app.request(path)
+      expect(response.status).toBe(404)
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+      expect(await response.text()).not.toContain('ADMIN_')
+    }
+    expect(f.resolve).not.toHaveBeenCalled()
+    expect(f.capability).not.toHaveBeenCalled()
+    expect(f.readLimit).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])(
+    'keeps production admin HTML/assets and API closed even with CMS=%s',
+    async (cms) => {
+      const f = fixture({ cms, production: true })
+      for (const path of [
+        '/admin',
+        '/admin/questions/123/edit',
+        '/admin/assets/admin.js',
+        '/api/v1/admin/questions'
+      ]) {
+        const response = await f.app.request(path)
+        expect(response.status).toBe(404)
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+        const body = await response.text()
+        expect(body).not.toContain('ADMIN_')
+        expect(body).not.toContain('LEARNER_ONLY')
+      }
+      expect(f.resolve).not.toHaveBeenCalled()
+      expect(f.capability).not.toHaveBeenCalled()
+      expect(f.readLimit).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rechecks a revoked session on a conditional asset request instead of using cached ADMIN bytes', async () => {
+    const f = fixture()
+    const allowed = await f.app.request('/admin/assets/admin.js')
+    expect(allowed.status).toBe(200)
+    await allowed.text()
+    f.resolve.mockResolvedValueOnce({
+      clearSessionCookie: true,
+      headers: new Headers(),
+      user: null
+    })
+    const denied = await f.app.request('/admin/assets/admin.js', {
+      headers: {
+        'If-None-Match': 'old-admin',
+        'If-Modified-Since': new Date().toUTCString(),
+        Range: 'bytes=0-4'
+      }
+    })
+    expect(denied.status).toBe(401)
+    expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(denied.headers.get('Set-Cookie')).toContain('Max-Age=0')
+    expect(await denied.text()).not.toContain('ADMIN_ASSET_ONLY')
+    expect(f.readLimit).toHaveBeenCalledOnce()
+  })
+
+  it('keeps capability failures and read rate limits closed before reading admin files', async () => {
+    const f = fixture()
+    f.capability.mockRejectedValueOnce(new Error('unavailable fixture'))
+    const unavailable = await f.app.request('/admin')
+    expect(unavailable.status).toBe(503)
+    expect(unavailable.headers.get('Retry-After')).toBe('5')
+    expect(await unavailable.text()).not.toContain('ADMIN_HTML_ONLY')
+    expect(f.readLimit).not.toHaveBeenCalled()
+    f.readLimit.mockRejectedValueOnce(
+      new ApplicationError({
+        code: 'RATE_LIMITED',
+        message: 'fixture limit',
+        retryable: true,
+        retryAfterSeconds: 7
+      })
+    )
+    const limited = await f.app.request('/admin/assets/admin.js')
+    expect(limited.status).toBe(429)
+    expect(limited.headers.get('Retry-After')).toBe('7')
+    expect(limited.headers.get('Cache-Control')).toBe('private, no-store')
+    expect(await limited.text()).not.toContain('ADMIN_ASSET_ONLY')
+  })
+
+  const commandPath =
+    '/api/v1/admin/question-versions/33333333-3333-4333-8333-333333333333/approval'
+  it('does not let a successful admin HTML read replace fresh SSO for sensitive direct commands', async () => {
+    const f = fixture({ fresh: false })
+    const html = await f.app.request('/admin')
+    expect(html.status).toBe(200)
+    await html.text()
+    const response = await f.app.request(commandPath, {
+      method: 'POST',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Content-Type': 'application/json'
+      },
+      body: '{}'
+    })
+    expect(response.status).toBe(401)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'FRESH_ASSURANCE_REQUIRED'
+    )
+    expect(f.commandLimit).not.toHaveBeenCalled()
+    expect(f.approve).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Content-Type': 'text/plain'
+      },
+      code: 'INVALID_REQUEST'
+    },
+    {
+      headers: {
+        Origin: 'https://foreign.example.test',
+        'Content-Type': 'application/json'
+      },
+      code: 'UNTRUSTED_ORIGIN'
+    }
+  ])(
+    'preserves $code validation on fresh ADMIN direct commands',
+    async ({ headers, code }) => {
+      const f = fixture()
+      const response = await f.app.request(commandPath, {
+        method: 'POST',
+        headers,
+        body: '{}'
+      })
+      expect(apiFailureSchema.parse(await response.json()).code).toBe(code)
+      expect(f.commandLimit).not.toHaveBeenCalled()
+      expect(f.approve).not.toHaveBeenCalled()
+    }
+  )
+
+  it('retains the command limiter before downstream payload validation with fresh trusted JSON', async () => {
+    const f = fixture()
+    const response = await f.app.request(commandPath, {
+      method: 'POST',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Content-Type': 'application/json'
+      },
+      body: '{}'
+    })
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'VALIDATION_ERROR'
+    )
+    expect(f.commandLimit).toHaveBeenCalledOnce()
+    expect(f.approve).not.toHaveBeenCalled()
   })
 })

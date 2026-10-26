@@ -9,6 +9,8 @@ RUN corepack enable && corepack prepare pnpm@10.2.1 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
+COPY apps/admin/package.json apps/admin/package.json
+COPY packages/browser/package.json packages/browser/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/domain/package.json packages/domain/package.json
 COPY scripts/msw/patch-worker.mjs scripts/msw/patch-worker.mjs
@@ -31,7 +33,8 @@ RUN pnpm run build
 RUN pnpm --filter @nihongo/api deploy --prod --legacy /release/api
 RUN node scripts/operations/normalize-api-deploy.mjs --api-directory /release/api --workspace-api-directory /workspace/apps/api
 RUN cp -R apps/web/dist /release/web
-RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --workspace /workspace --release-id "$RELEASE_ID" --api-directory /release/api --web-directory /release/web --output /release/release-manifest.json
+RUN cp -R apps/admin/dist /release/admin
+RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --workspace /workspace --release-id "$RELEASE_ID" --api-directory /release/api --web-directory /release/web --admin-directory /release/admin --output /release/release-manifest.json
 
 FROM node:22.23.0-alpine@sha256:ab07539e0988b63558ff621f5fbe1077054c39d9809112974fb79993949d41cd AS runtime
 
@@ -47,6 +50,7 @@ WORKDIR /app
 
 COPY --from=builder /release/api /app/api
 COPY --from=builder /release/web /app/web
+COPY --from=builder /release/admin /app/admin
 COPY --from=builder /release/release-manifest.json /app/release-manifest.json
 
 USER node

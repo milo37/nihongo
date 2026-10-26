@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
-import { AuthFlowError } from '@app/login/authFlowErrors'
+import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 import {
   commitCanonicalAuth,
   refreshCanonicalAuthAfterMutation
-} from '@app/login/authSession'
-import { authQueries } from '@app/login/queries/authQueries'
+} from '@nihongo/browser/app/login/authSession'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { authMutations } from '@app/login/queries/authMutations'
 
 export const useLogoutUser = () => {

@@ -6,17 +6,17 @@ import {
   accountLinkOutcomeSchema
 } from '@nihongo/contracts/auth/sso-account-management'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import {
   AccountFlowError,
   accountMutationRequest
 } from '@app/login/accountFlowErrors'
-import { commitCanonicalAuth } from '@app/login/authSession'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
 import { accountQueries } from '@app/login/queries/accountQueries'
 import { accountMutations } from '@app/login/queries/accountMutations'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isMockApiMode } from '@libs/apiMode'
-import { socialAuthNavigation } from '@libs/socialAuthNavigation'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { isMockApiMode } from '@nihongo/browser/libs/apiMode'
+import { socialAuthNavigation } from '@nihongo/browser/libs/socialAuthNavigation'
 
 export type AccountDialog =
   | { kind: 'fresh' | 'delete' }

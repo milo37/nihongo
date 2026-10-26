@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { expect, it, vi } from 'vitest'
-import { SideNavigation } from '@common/components/SideNavigation'
+import { SideNavigation } from '@nihongo/browser/common/components/SideNavigation'
 
 it('renders only supplied destinations with one accessible current context', async () => {
   const navigate = vi.fn()

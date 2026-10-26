@@ -3,10 +3,10 @@ import { startAdminFresh } from '@api/auth/startAdminFresh'
 import { logoutUser } from '@api/auth/logoutUser'
 import { signInSocial } from '@api/auth/signInSocial'
 import type { SignInSocialRequest } from '@api/auth/signInSocial/schema'
-import { AuthFlowError } from '@app/login/authFlowErrors'
-import { authQueries } from '@app/login/queries/authQueries'
-import { advanceAuthTransitionEpoch } from '@libs/authTransitionFence'
-import { isMockApiMode } from '@libs/apiMode'
+import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
+import { advanceAuthTransitionEpoch } from '@nihongo/browser/libs/authTransitionFence'
+import { isMockApiMode } from '@nihongo/browser/libs/apiMode'
 
 export const authMutations = {
   startAdminFresh: () =>

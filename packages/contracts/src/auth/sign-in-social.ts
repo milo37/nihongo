@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  getAdminQuestionReportParamsSchema,
+  listAdminQuestionReportsQuerySchema
+} from '../admin/phase7-future.js'
 import { listReviewQueueQuerySchema } from '../wrong-note/list-review-queue.js'
 
 // Contracts intentionally compile with ES-only libs. These local structural
@@ -140,6 +144,22 @@ const reviewReturnPath = (value: string): string | null => {
 
 export const safeSsoReturnPath = (value: unknown): string => {
   const url = relativeURL(value)
+  if (url?.pathname === '/admin/reports') {
+    return listAdminQuestionReportsQuerySchema.safeParse(
+      Object.fromEntries(url.searchParams)
+    ).success
+      ? url.pathname + url.search
+      : '/'
+  }
+  if (url?.pathname.startsWith('/admin/reports/')) {
+    // Report-owned drafts/list context stay out of the fresh detail callback.
+    return url.search === '' &&
+      getAdminQuestionReportParamsSchema.safeParse({
+        reportId: url.pathname.slice('/admin/reports/'.length)
+      }).success
+      ? url.pathname
+      : '/'
+  }
   if (
     !url ||
     !BUSINESS_PATH.test(url.pathname) ||

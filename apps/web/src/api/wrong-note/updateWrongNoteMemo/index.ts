@@ -1,4 +1,4 @@
-import { safePut } from '@api/http'
+import { safePut } from '@nihongo/browser/api/http'
 import {
   updateWrongNoteMemoParamsSchema,
   updateWrongNoteMemoRequestSchema,

@@ -1,14 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
-import { apiClient } from '@api/config'
-import { appI18n } from '@/i18n/config'
-import { queryClient } from '@libs/queryClient'
-import { clearAllSubmissionAttempts } from '@app/practice/submissionAttemptStorage'
-import { clearAllResultRetryAttempts } from '@app/practice/resultRetryAttemptStorage'
-import { clearAllStudyDraftWorkingCopies } from '@app/practice/draft/studyDraftWorkingCopyStorage'
-import { closeAllStudyDraftRevisionChannels } from '@app/practice/draft/useStudyDraftRevisionSync'
-import { clearAllTargetedReviewAttempts } from '@app/wrong-note/targetedReviewAttemptStorage'
+import { apiClient } from '@nihongo/browser/api/config'
+import { appI18n } from '@nihongo/browser/i18n/config'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
+import { clearAllSubmissionAttempts } from '@nihongo/browser/app/practice/submissionAttemptStorage'
+import { clearAllResultRetryAttempts } from '@nihongo/browser/app/practice/resultRetryAttemptStorage'
+import { clearAllStudyDraftWorkingCopies } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import { closeAllStudyDraftRevisionChannels } from '@nihongo/browser/app/practice/draft/useStudyDraftRevisionSync'
+import { clearAllTargetedReviewAttempts } from '@nihongo/browser/app/wrong-note/targetedReviewAttemptStorage'
 import {
   APP_STORE_KEY,
   cachedSessionStorage,
@@ -18,15 +18,15 @@ import {
   PHASE7_ADMIN_CMS_STORAGE_KEY,
   PHASE7_RATE_LIMIT_STORAGE_KEY,
   PRACTICE_STORE_KEY
-} from '@libs/storage'
-import { UI_LOCALE_STORAGE_KEY } from '@libs/localeStorage'
+} from '@nihongo/browser/libs/storage'
+import { UI_LOCALE_STORAGE_KEY } from '@nihongo/browser/libs/localeStorage'
 import { resetMockSocialSignInForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { resetAdminCmsCommandRateLimitForTesting } from '@mocks/handlers/adminCmsCommandHandlers'
 import { resetAdminCmsReadRateLimitForTesting } from '@mocks/handlers/adminCmsReadHandlers'
 import { resetDashboardInsightsRateLimitForTesting } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { resetQuestionReadRateLimitForTesting } from '@mocks/handlers/questionHandlers'
-import { useAppStore } from '@store/index'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 
 const resetTestState = async (): Promise<void> => {

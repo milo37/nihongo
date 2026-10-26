@@ -127,10 +127,12 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
   result.browser = result.code
   result.database =
     result.api ||
-    result.files.some((file) =>
-      /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
-        file
-      )
+    result.files.some(
+      (file) =>
+        !/\.(?:md|txt)$/iu.test(file) &&
+        /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
+          file
+        )
     )
   result.security = result.code
   return result
@@ -379,7 +381,8 @@ export const qualityCommands = (selection, group) => {
       '0'
     )
   } else if (group === 'typecheck') {
-    // Web build already runs exactly the same tsc --noEmit; API test types need their own check.
+    // App builds cover their own types; the shared browser workspace needs its complete check.
+    if (web) add('--filter', '@nihongo/browser', 'run', 'typecheck')
     if (api) {
       add('run', 'db:generate')
       add('--filter', '@nihongo/api', 'exec', 'tsc', '--noEmit')
@@ -402,7 +405,10 @@ export const qualityCommands = (selection, group) => {
         '--exclude',
         '**/*.integration.test.ts'
       )
-    if (web) add('run', 'test:web')
+    if (web) {
+      add('run', 'test:web')
+      add('--filter', '@nihongo/admin', 'run', 'test')
+    }
   } else if (group === 'build') {
     if (api)
       add(
@@ -413,7 +419,10 @@ export const qualityCommands = (selection, group) => {
         '-p',
         'tsconfig.build.json'
       )
-    if (web) add('--filter', '@nihongo/web', 'run', 'build')
+    if (web) {
+      add('--filter', '@nihongo/web', 'run', 'build')
+      add('--filter', '@nihongo/admin', 'run', 'build')
+    }
   } else throw new Error('CI_QUALITY_GROUP_INVALID')
   return commands
 }
@@ -425,13 +434,14 @@ const requiredSteps = {
       'prepare',
       'lint',
       'architecture',
+      'admin_boundary',
+      'typecheck',
       'static_contracts',
       'static_phase10',
       'static_phase11',
       'unit',
       'build'
     ],
-    api: ['typecheck'],
     web: ['production_mock', 'worker_exclusion'],
     database: ['integration'],
     content: ['foundation'],

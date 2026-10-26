@@ -1,4 +1,4 @@
-import { safePost } from '@api/http'
+import { safePost } from '@nihongo/browser/api/http'
 import type { AccountSsoRequest } from '@nihongo/contracts/auth/sso-account-management'
 import {
   completeMockAccountSsoRequestSchema,

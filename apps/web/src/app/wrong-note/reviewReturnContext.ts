@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { cachedSessionStorage } from '@libs/storage'
+import { cachedSessionStorage } from '@nihongo/browser/libs/storage'
 import { getSafeWrongNoteReturnTo } from '@app/wrong-note/reviewQueueSearch'
 
 const contextSchema = z

@@ -2,7 +2,7 @@ import type {
   PracticeQuestion,
   QuestionOptionRecord,
   QuestionRecord
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 
 export const toPracticeQuestion = (
   question: QuestionRecord

@@ -10,10 +10,10 @@ import {
   listResumableStudySessionsRequestSchema,
   type ListResumableStudySessionsRequest
 } from '@api/study/listResumableStudySessions/schema'
-import { saveStudyDraftAnswers } from '@api/study/saveStudyDraftAnswers'
-import type { ParsedSaveStudyDraftAnswersRequest } from '@api/study/saveStudyDraftAnswers/schema'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+import { saveStudyDraftAnswers } from '@nihongo/browser/api/study/saveStudyDraftAnswers/index'
+import type { ParsedSaveStudyDraftAnswersRequest } from '@nihongo/browser/api/study/saveStudyDraftAnswers/schema'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
 export interface SaveStudyDraftMutationInput {
   body: ParsedSaveStudyDraftAnswersRequest

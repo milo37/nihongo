@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { vi } from 'vitest'
-import { ForbiddenPage } from '@app/forbidden/page'
-import { NotFoundPage } from '@app/not-found/page'
-import { RouteErrorPage } from '@app/not-found/route-error'
-import { I18nProvider } from '@provider/I18nProvider'
+import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
+import { NotFoundPage } from '@nihongo/browser/app/not-found/page'
+import { RouteErrorPage } from '@nihongo/browser/app/not-found/route-error'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 
 const auth = vi.hoisted(() => ({ user: null as { name: string } | null }))
-vi.mock('@provider/ProtectedRouteProvider', () => ({
+vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ user: auth.user })
 }))
 beforeEach(() => {

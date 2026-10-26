@@ -1,0 +1,14 @@
+import { queryOptions } from '@tanstack/react-query'
+import { getCurrentUser } from '../../../api/auth/getCurrentUser/index'
+
+export const authQueries = {
+  allKey: () => ['auth'] as const,
+  currentUser: () =>
+    queryOptions({
+      queryKey: [...authQueries.allKey(), 'get-current-user'] as const,
+      queryFn: getCurrentUser,
+      refetchOnReconnect: false,
+      refetchOnWindowFocus: 'always',
+      staleTime: 0
+    })
+} as const

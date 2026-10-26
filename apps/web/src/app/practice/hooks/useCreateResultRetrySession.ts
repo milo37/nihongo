@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 import {
   assertCurrentResultRetryAction,
   clearCompletedResultRetryAction,
@@ -9,8 +9,8 @@ import {
   type CreateResultRetryActionInput
 } from '@app/practice/queries/studyResultRetryQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { analyticsClient } from '@/analytics/client'
 
 class ResultRetryReconciliationError extends Error {

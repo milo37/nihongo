@@ -5,7 +5,7 @@ import {
   type QuestionRecord,
   type QuestionSubject,
   type QuestionType
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 
 const SEED_CREATED_AT = '2026-01-01T00:00:00.000Z'
 

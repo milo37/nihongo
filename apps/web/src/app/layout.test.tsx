@@ -3,22 +3,22 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { vi } from 'vitest'
 import { Layout } from '@app/layout'
-import { appI18n } from '@/i18n/config'
-import { useAppStore } from '@store/index'
+import { appI18n } from '@nihongo/browser/i18n/config'
+import { useAppStore } from '@nihongo/browser/store/index'
 
 const mocks = vi.hoisted(() => ({
   setLocale: vi.fn(),
   role: 'GUEST' as 'GUEST' | 'USER' | 'ADMIN',
   review: false
 }))
-vi.mock('@provider/ProtectedRouteProvider', () => ({
+vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ isReady: true, role: mocks.role, user: null })
 }))
 vi.mock('@app/wrong-note/reviewReturnContext', () => ({
   readReviewReturnContext: () =>
     mocks.review ? { questionId: 'question', returnTo: '/wrong-notes' } : null
 }))
-vi.mock('@provider/I18nProvider', () => ({
+vi.mock('@nihongo/browser/provider/I18nProvider', () => ({
   useUiLocale: () => ({
     locale: appI18n.resolvedLanguage,
     setLocale: mocks.setLocale
@@ -145,7 +145,7 @@ it.each(['ko', 'ja'] as const)(
       within(account).getByRole('link', {
         name: appI18n.t('navigation:adminQuestions')
       })
-    ).toHaveAttribute('href', '/admin/questions')
+    ).toHaveAttribute('href', window.location.origin + '/admin/questions')
   }
 )
 

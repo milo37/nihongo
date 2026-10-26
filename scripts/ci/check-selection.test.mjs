@@ -124,7 +124,9 @@ test('docs PR formats only; code chooses dependent packages without unrelated DB
   assert.ok(
     qualityCommands(web, 'build').some((args) => args.includes('@nihongo/web'))
   )
-  assert.equal(qualityCommands(web, 'typecheck').length, 0)
+  assert.deepEqual(qualityCommands(web, 'typecheck'), [
+    ['--filter', '@nihongo/browser', 'run', 'typecheck']
+  ])
   assert.ok(!qualityCommands(web, 'prepare').flat().includes('db:generate'))
   const api = pr(['apps/api/src/routes/questions.ts'])
   assert.equal(
@@ -142,12 +144,44 @@ test('docs PR formats only; code chooses dependent packages without unrelated DB
 })
 
 for (const file of [
+  'apps/web/src/api/README.md',
+  'apps/web/src/stores/storage.TXT',
+  'apps/web/src/app/auth/README.md',
+  'apps/web/src/app/practice/README.md',
+  'apps/web/src/app/admin/notes.txt',
+  'apps/web/src/mocks/README.MD',
+  'apps/web/src/provider/README.md',
+  'apps/api/src/auth/README.md',
+  'apps/api/src/db/notes.txt',
+  'packages/browser/README.md'
+]) {
+  test(`sensitive-path documentation adds no runtime checks alone or beside ordinary web code: ${file}`, () => {
+    assert.deepEqual({ ...pr([file]), files: [] }, pr([]))
+    const code = 'apps/web/src/components/Button.tsx'
+    for (const files of [
+      [file, code],
+      [code, file]
+    ])
+      assert.deepEqual(
+        { ...pr(files), files: [] },
+        { ...pr([code]), files: [] }
+      )
+  })
+}
+
+for (const file of [
   'apps/web/src/libs/authTransitionFence.ts',
   'apps/web/src/provider/AuthErrorHandlerProvider.tsx'
 ]) {
   test(`shared authentication infrastructure selects conservative coverage: ${file}`, () => {
     assert.ok(
-      readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8').length > 0
+      readFileSync(
+        new URL(
+          `../../${file.replace('apps/web/src/', 'packages/browser/src/')}`,
+          import.meta.url
+        ),
+        'utf8'
+      ).length > 0
     )
     const selection = pr([file])
     assert.equal(selection.database, true, `${file} must retain DB integration`)
@@ -169,6 +203,9 @@ test('auth/storage, shared contracts/domain and content retain DB and both brows
     'apps/web/src/api/study/save.ts',
     'apps/web/src/app/practice/hooks/useSubmit.ts',
     'apps/web/src/stores/auth.ts',
+    'apps/web/src/app/auth/useAuth.ts',
+    'apps/web/src/app/admin/useAdmin.ts',
+    'apps/web/src/mocks/handlers/question.ts',
     'apps/api/prisma/schema.prisma',
     'packages/contracts/src/study.ts',
     'packages/domain/src/result.ts',
@@ -191,6 +228,8 @@ test('operations PR, CI/common changes, unknown paths or comparison fail conserv
     'compose.yaml',
     'operations/environment-contract.v1.json',
     '.github/workflows/ci.yml',
+    '.github/workflows/README.md',
+    '.github/workflows/notes.txt',
     'scripts/ci/check-selection.mjs',
     'pnpm-lock.yaml',
     'package.json',
@@ -200,7 +239,9 @@ test('operations PR, CI/common changes, unknown paths or comparison fail conserv
     'packages/contracts/src/study.ts',
     'apps/api/src/db/databaseTargetGuard.ts',
     'apps/api/prisma/seedQuestionCatalog.ts',
-    'apps/api/src/auth/authorize.ts'
+    'apps/api/src/auth/authorize.ts',
+    'apps/admin/src/router.tsx',
+    'packages/browser/src/libs/authTransitionFence.ts'
   ]) {
     const selection = pr([file])
     assert.ok(
@@ -436,6 +477,7 @@ test('selected integration succeeds only with every required group completed', (
       'prepare',
       'lint',
       'architecture',
+      'admin_boundary',
       'typecheck',
       'static_contracts',
       'static_phase10',
@@ -1089,4 +1131,81 @@ test('unrelated fork PRs do not block the matching internal PR, while its own fo
   assert.ok(
     Object.values(rejected.results).every((value) => value === 'unavailable')
   )
+})
+
+test('selected web/admin/shared work includes admin tests/build and complete browser types', () => {
+  for (const file of [
+    'apps/web/src/components/Button.tsx',
+    'apps/admin/src/router.tsx',
+    'packages/browser/src/provider/AuthErrorHandlerProvider.tsx'
+  ]) {
+    const selection = pr([file])
+    assert.ok(selection.web, file)
+    assert.ok(
+      qualityCommands(selection, 'unit').some(
+        (args) => args.join(' ') === '--filter @nihongo/admin run test'
+      ),
+      file
+    )
+    assert.ok(
+      qualityCommands(selection, 'build').some(
+        (args) => args.join(' ') === '--filter @nihongo/admin run build'
+      ),
+      file
+    )
+    assert.ok(
+      qualityCommands(selection, 'typecheck').some(
+        (args) => args.join(' ') === '--filter @nihongo/browser run typecheck'
+      ),
+      file
+    )
+  }
+})
+
+test('admin/browser quality child failures fail the selected required group', () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'ci-admin-quality-'))
+  try {
+    const bin = path.join(directory, 'pnpm')
+    const log = path.join(directory, 'calls')
+    writeFileSync(
+      bin,
+      '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CI_TEST_CALLS"\n[ "$*" != "$CI_TEST_FAIL_ARGS" ] || exit 7\n',
+      { mode: 0o700 }
+    )
+    for (const [group, failedCommand] of [
+      ['unit', '--filter @nihongo/admin run test'],
+      ['build', '--filter @nihongo/admin run build'],
+      ['typecheck', '--filter @nihongo/browser run typecheck']
+    ]) {
+      writeFileSync(log, '')
+      const result = spawnSync(
+        process.execPath,
+        [
+          path.join(import.meta.dirname, 'check-selection.mjs'),
+          'quality',
+          group
+        ],
+        {
+          env: {
+            ...process.env,
+            PATH: `${directory}:${process.env.PATH}`,
+            CI_SELECTION: JSON.stringify(
+              pr(['apps/web/src/components/Button.tsx'])
+            ),
+            CI_PLAN_RESULT: 'success',
+            CI_TEST_CALLS: log,
+            CI_TEST_FAIL_ARGS: failedCommand
+          },
+          encoding: 'utf8'
+        }
+      )
+      assert.equal(result.status, 7, result.stderr)
+      assert.equal(
+        readFileSync(log, 'utf8').trim().split('\n').at(-1),
+        failedCommand
+      )
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })

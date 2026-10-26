@@ -168,8 +168,13 @@ jobs:
         id: architecture
         run: node scripts/architecture/cli.mjs
 
+      - name: Admin build boundary
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: admin_boundary
+        run: pnpm run test:admin-build-boundary
+
       - name: TypeScript check
-        if: ${{ needs.plan.outputs.api == 'true' }}
+        if: ${{ needs.plan.outputs.code == 'true' }}
         id: typecheck
         run: node scripts/ci/check-selection.mjs quality typecheck
 

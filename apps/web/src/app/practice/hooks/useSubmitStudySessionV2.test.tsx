@@ -12,8 +12,8 @@ import { mockServer } from '@/test/server'
 import {
   advanceAuthTransitionEpoch,
   AuthTransitionSupersededError
-} from '@libs/authTransitionFence'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+} from '@nihongo/browser/libs/authTransitionFence'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 
 describe('v2 submission while the practice observer is still mounted', () => {
   it.each([false, true])(

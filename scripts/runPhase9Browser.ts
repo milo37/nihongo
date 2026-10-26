@@ -3,8 +3,10 @@ import { randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { createServer as createNetServer } from 'node:net'
 import nodePath from 'node:path'
+import { StringDecoder } from 'node:string_decoder'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import type { AddressInfo } from 'node:net'
 import {
   retireOwnedProcess,
@@ -63,6 +65,8 @@ const playwrightArguments = rawPlaywrightArguments.filter(
 const ownedProcesses: ManagedProcess[] = []
 let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
+let adminSignal: AbortSignal | undefined
+let stopWatchingAdmin: (() => void) | undefined
 
 const formatCommand = (command: string, args: readonly string[]): string =>
   [command, ...args].join(' ')
@@ -71,13 +75,14 @@ const spawnOwned = (
   label: string,
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv
+  environment: NodeJS.ProcessEnv,
+  captureStdout = false
 ): ManagedProcess => {
   const child = spawn(command, args, {
     cwd: repositoryRoot,
     detached: shouldDetachOwnedProcess,
     env: environment,
-    stdio: ['ignore', 'inherit', 'inherit']
+    stdio: ['ignore', captureStdout ? 'pipe' : 'inherit', 'inherit']
   })
   const ownedProcess: ManagedProcess = {
     child,
@@ -94,8 +99,10 @@ const spawnOwned = (
 const runCommand = async (
   command: string,
   args: readonly string[],
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  signal?: AbortSignal
 ): Promise<void> => {
+  signal?.throwIfAborted()
   await new Promise<void>((resolve, reject) => {
     const ownedProcess = spawnOwned(
       formatCommand(command, args),
@@ -103,37 +110,43 @@ const runCommand = async (
       args,
       environment
     )
-    ownedProcess.child.once('close', (code, signal) => {
-      void retireOwnedProcess(ownedProcesses, ownedProcess).then(
-        () => {
-          if (ownedProcess.spawnError) {
-            reject(ownedProcess.spawnError)
-            return
-          }
-          if (code === 0) {
-            resolve()
-            return
-          }
-          reject(
-            new Error(
-              `${ownedProcess.label} failed (${signal ?? `exit ${code ?? 'unknown'}`}).`
-            )
-          )
-        },
-        (error: unknown) => reject(error)
+    let settled = false
+    const complete = (error?: unknown): void => {
+      if (settled) return
+      settled = true
+      signal?.removeEventListener('abort', onAbort)
+      void retireOwnedProcess(ownedProcesses, ownedProcess).then(() => {
+        if (error) reject(error)
+        else resolve()
+      }, reject)
+    }
+    const onAbort = (): void => complete(signal?.reason)
+    ownedProcess.child.once('close', (code, childSignal) => {
+      complete(
+        ownedProcess.spawnError ??
+          (code === 0
+            ? undefined
+            : new Error(
+                `${ownedProcess.label} failed (${childSignal ?? `exit ${code ?? 'unknown'}`}).`
+              ))
       )
     })
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) onAbort()
   })
 }
 
 const waitForHttp = async (
   url: string,
-  ownedProcess: ManagedProcess
+  ownedProcess: ManagedProcess,
+  signal?: AbortSignal,
+  isReady = (): boolean => true
 ): Promise<void> => {
   const deadline = Date.now() + 45_000
   let lastStatus: number | undefined
 
   while (Date.now() < deadline) {
+    signal?.throwIfAborted()
     if (ownedProcess.spawnError) throw ownedProcess.spawnError
     if (
       ownedProcess.child.exitCode !== null ||
@@ -144,15 +157,18 @@ const waitForHttp = async (
     try {
       const response = await fetch(url, {
         redirect: 'manual',
-        signal: AbortSignal.timeout(2_000)
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(2_000)])
+          : AbortSignal.timeout(2_000)
       })
       lastStatus = response.status
       await response.arrayBuffer()
-      if (response.ok) return
+      signal?.throwIfAborted()
+      if (response.ok && isReady()) return
     } catch {
       // The owned listener has not opened yet.
     }
-    await delay(250)
+    await delay(250, undefined, { signal })
   }
 
   throw new Error(
@@ -162,11 +178,14 @@ const waitForHttp = async (
   )
 }
 
-const reserveLoopbackPort = async (): Promise<number> =>
+const reserveLoopbackPort = async (
+  port = 0,
+  host = '127.0.0.1'
+): Promise<number> =>
   await new Promise<number>((resolve, reject) => {
     const server = createNetServer()
     server.once('error', reject)
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(port, host, () => {
       const address = server.address() as AddressInfo | null
       if (!address) {
         server.close(() => reject(new Error('Dynamic port lookup failed.')))
@@ -181,6 +200,7 @@ const reserveLoopbackPort = async (): Promise<number> =>
 
 const cleanup = (): Promise<void> => {
   cleanupPromise ??= (async () => {
+    stopWatchingAdmin?.()
     const errors: unknown[] = []
     let processesStopped = false
 
@@ -226,7 +246,8 @@ const cleanup = (): Promise<void> => {
 const runPlaywright = async (
   browserMode: BrowserMode,
   webOrigin: string,
-  extraEnvironment: NodeJS.ProcessEnv = {}
+  extraEnvironment: NodeJS.ProcessEnv = {},
+  signal?: AbortSignal
 ): Promise<void> => {
   await runCommand(
     'pnpm',
@@ -245,7 +266,8 @@ const runPlaywright = async (
       PHASE9_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_OUTPUT_LABEL: `phase9-${browserMode}`
-    }
+    },
+    signal
   )
 }
 
@@ -282,6 +304,7 @@ const runMock = async (): Promise<void> => {
 }
 
 const runReal = async (): Promise<void> => {
+  await reserveLoopbackPort(5175, 'localhost')
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
     await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
@@ -341,6 +364,72 @@ const runReal = async (): Promise<void> => {
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
 
+  const admin = spawnOwned(
+    'phase9-real-admin',
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/admin',
+      'exec',
+      'vite',
+      '--mode',
+      'test',
+      '--host',
+      'localhost',
+      '--port',
+      '5175',
+      '--strictPort'
+    ],
+    {
+      ...process.env,
+      NIHONGO_API_PROXY_TARGET: apiOrigin,
+      VITE_API_BASE_URL: '/api',
+      VITE_API_MODE: 'real'
+    },
+    true
+  )
+  const adminLifecycle = new AbortController()
+  adminSignal = adminLifecycle.signal
+  const onAdminError = (error: Error): void => adminLifecycle.abort(error)
+  const onAdminExit = (
+    code: number | null,
+    signal: NodeJS.Signals | null
+  ): void =>
+    onAdminError(
+      new Error(
+        `${admin.label} exited before cleanup (${signal ?? `exit ${code ?? 'unknown'}`}).`
+      )
+    )
+  admin.child.once('error', onAdminError)
+  admin.child.once('exit', onAdminExit)
+  stopWatchingAdmin = () => {
+    admin.child.removeListener('error', onAdminError)
+    admin.child.removeListener('exit', onAdminExit)
+  }
+  let adminReady = false
+  let adminOutput = ''
+  const adminDecoder = new StringDecoder('utf8')
+  admin.child.stdout?.on('data', (chunk: Buffer) => {
+    process.stdout.write(chunk)
+    if (!adminReady) {
+      adminOutput += adminDecoder.write(chunk)
+      // shortcut: pinned Vite prints Local after listen(); use IPC if that CLI changes.
+      adminReady = stripVTControlCharacters(adminOutput)
+        .split('\n')
+        .some((line) =>
+          /^\s*\u279c\s+Local:\s+http:\/\/localhost:5175\/admin\/\s*$/u.test(
+            line
+          )
+        )
+    }
+  })
+  await waitForHttp(
+    'http://localhost:5175/admin/',
+    admin,
+    adminSignal,
+    () => adminReady
+  )
+
   const web = spawnOwned(
     'phase9-real-web',
     'pnpm',
@@ -364,16 +453,20 @@ const runReal = async (): Promise<void> => {
       VITE_API_MODE: 'real'
     }
   )
-  await waitForHttp(webOrigin, web)
+  await waitForHttp(webOrigin, web, adminSignal)
 
-  await runPlaywright('real', webOrigin, {
-    PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture)
-  })
+  await runPlaywright(
+    'real',
+    webOrigin,
+    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    adminSignal
+  )
   const databaseEvidence = await databaseContract.assertPhase9DatabaseContract({
     before: baseline,
     databaseUrl: harness.adminDatabaseUrl,
     fixture: created.fixture
   })
+  adminSignal.throwIfAborted()
   const evidenceDirectory = nodePath.resolve(
     repositoryRoot,
     'test-results/playwright-phase9-real'
@@ -406,6 +499,7 @@ const execute = async (): Promise<void> => {
   let failure: unknown
   try {
     await run()
+    adminSignal?.throwIfAborted()
   } catch (error: unknown) {
     failure = error
   }
@@ -432,23 +526,31 @@ const describeFailure = (
   message: error instanceof Error ? error.message : 'Unknown failure'
 })
 
-void execute()
-  .then(() => {
-    process.stdout.write(
-      `${JSON.stringify({ event: `phase9.browser.${mode}.passed` })}\n`
-    )
-  })
-  .catch((error: unknown) => {
-    const causes =
-      error instanceof AggregateError
-        ? error.errors.map((cause) => describeFailure(cause))
-        : undefined
-    process.stderr.write(
-      `${JSON.stringify({
-        event: `phase9.browser.${mode ?? 'unknown'}.failed`,
-        ...describeFailure(error),
-        ...(causes ? { causes } : {})
-      })}\n`
-    )
-    process.exitCode = 1
-  })
+export const main = (): Promise<void> =>
+  execute()
+    .then(() => {
+      process.stdout.write(
+        `${JSON.stringify({ event: `phase9.browser.${mode}.passed` })}\n`
+      )
+    })
+    .catch((error: unknown) => {
+      const causes =
+        error instanceof AggregateError
+          ? error.errors.map((cause) => describeFailure(cause))
+          : undefined
+      process.stderr.write(
+        `${JSON.stringify({
+          event: `phase9.browser.${mode ?? 'unknown'}.failed`,
+          ...describeFailure(error),
+          ...(causes ? { causes } : {})
+        })}\n`
+      )
+      process.exitCode = 1
+    })
+
+if (
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
+) {
+  void main()
+}

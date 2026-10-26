@@ -4,7 +4,7 @@ import type {
   ReactElement,
   ReactNode
 } from 'react'
-import { classNames } from '@common/components/classNames'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 
 export interface TabItem {
   id: string

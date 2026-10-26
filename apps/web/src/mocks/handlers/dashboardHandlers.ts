@@ -1,4 +1,4 @@
-import type { User } from '@common/types/domain'
+import type { User } from '@nihongo/browser/common/types/domain'
 import { http, HttpResponse } from 'msw'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { MockHttpError, toErrorResponse } from '@mocks/handlers/shared'

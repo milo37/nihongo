@@ -1,4 +1,4 @@
-import type { QuestionRecord } from '@common/types/domain'
+import type { QuestionRecord } from '@nihongo/browser/common/types/domain'
 import { n1Questions } from '@mocks/data/questions/n1'
 import { n2Questions } from '@mocks/data/questions/n2'
 import { n3Questions } from '@mocks/data/questions/n3'

@@ -25,7 +25,7 @@ import type {
   WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/phase7'
 import { requestPhase7Export } from '@api/phase7/requestPhase7Export'
-import { requestPhase7Operation } from '@api/phase7/requestPhase7Operation'
+import { requestPhase7Operation } from '@nihongo/browser/api/phase7/requestPhase7Operation'
 
 export const listPhase7AdminQuestions = (query: ListAdminQuestionsQuery) =>
   requestPhase7Operation({

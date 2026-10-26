@@ -564,7 +564,13 @@ const checkMetadataTransportBoundary = (
   const relative = normalizePath(path.relative(sourceRoot, sourceFile.fileName))
   if (relative === 'api/http.ts') return []
 
-  const httpPath = path.resolve(sourceRoot, 'api/http.ts')
+  const sharedHttpPath = path.resolve(
+    rootDir,
+    'packages/browser/src/api/http.ts'
+  )
+  const httpPath = fs.existsSync(path.resolve(sourceRoot, 'api/http.ts'))
+    ? path.resolve(sourceRoot, 'api/http.ts')
+    : sharedHttpPath
   const diagnostics = []
   const getCallReference = (expression) => {
     if (ts.isIdentifier(expression)) return expression
@@ -718,8 +724,20 @@ const checkEndpoint = (
     ]
   }
 
-  const httpPath = path.resolve(sourceRoot, 'api/http.ts')
-  const configPath = path.resolve(sourceRoot, 'api/config.ts')
+  const sharedHttpPath = path.resolve(
+    rootDir,
+    'packages/browser/src/api/http.ts'
+  )
+  const httpPath = fs.existsSync(path.resolve(sourceRoot, 'api/http.ts'))
+    ? path.resolve(sourceRoot, 'api/http.ts')
+    : sharedHttpPath
+  const sharedConfigPath = path.resolve(
+    rootDir,
+    'packages/browser/src/api/config.ts'
+  )
+  const configPath = fs.existsSync(path.resolve(sourceRoot, 'api/config.ts'))
+    ? path.resolve(sourceRoot, 'api/config.ts')
+    : sharedConfigPath
   const validatedRequestSymbols = new Set()
   const importsAxios = references.some(
     ({ runtime, specifier }) =>
@@ -752,7 +770,6 @@ const checkEndpoint = (
 
   const isPhase7RequestCall = (node) => {
     if (
-      !relative.startsWith('api/admin-question/') ||
       !ts.isCallExpression(node) ||
       !ts.isIdentifier(node.expression) ||
       node.expression.text !== 'requestPhase7Operation' ||
@@ -760,10 +777,16 @@ const checkEndpoint = (
       !ts.isObjectLiteralExpression(node.arguments[0])
     )
       return false
-    const helperPath = path.resolve(
+    const localHelperPath = path.resolve(
       sourceRoot,
       'api/phase7/requestPhase7Operation.ts'
     )
+    const helperPath = fs.existsSync(localHelperPath)
+      ? localHelperPath
+      : path.join(
+          rootDir,
+          'packages/browser/src/api/phase7/requestPhase7Operation.ts'
+        )
     const local = checker.getSymbolAtLocation(node.expression)
     const binding = local?.declarations?.find((declaration) =>
       ts.isImportSpecifier(declaration)
@@ -1187,7 +1210,8 @@ const checkEndpoint = (
 export const checkArchitecture = ({
   rootDir = defaultRootDir,
   tsconfigPath = path.join(rootDir, 'apps/web/tsconfig.json'),
-  sourceRoot = path.join(rootDir, 'apps/web/src')
+  sourceRoot = path.join(rootDir, 'apps/web/src'),
+  allowRelativeImports = false
 } = {}) => {
   const absoluteRoot = path.resolve(rootDir)
   const absoluteSourceRoot = path.resolve(sourceRoot)
@@ -1211,7 +1235,7 @@ export const checkArchitecture = ({
     sourceFiles.set(absoluteFile, sourceFile)
 
     for (const reference of references) {
-      if (reference.specifier.startsWith('.')) {
+      if (!allowRelativeImports && reference.specifier.startsWith('.')) {
         diagnostics.push(
           createDiagnostic(
             sourceFile,
