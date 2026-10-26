@@ -37,6 +37,12 @@ import {
   saveReportContext
 } from '@app/admin-report/navigation/reportDraftRecovery'
 import { adminRoutes } from '@/router'
+
+// Compile the existing lazy detail route before timed DOM assertions.
+beforeAll(async () => {
+  await import('@app/admin-report/detail/page')
+})
+
 const actorId = '10000000-0000-4000-8000-000000000001'
 const id = '10000000-0000-4000-8000-000000000002'
 const otherId = '10000000-0000-4000-8000-000000000003'

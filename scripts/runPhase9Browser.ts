@@ -343,9 +343,18 @@ const startOwnedAdmin = async (
   return adminLifecycle.signal
 }
 
-const runMock = async (): Promise<void> => {
-  const apiOrigin = process.env.NIHONGO_API_PROXY_TARGET
-  const target = apiOrigin ? new URL(apiOrigin) : undefined
+const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
+  await reserveLoopbackPort(5175, 'localhost')
+  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
+    await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
+  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
+  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
+  const [apiPort, webPort] = await Promise.all([
+    reserveLoopbackPort(),
+    reserveLoopbackPort()
+  ])
+  const apiOrigin = `http://127.0.0.1:${apiPort}`
+  const target = new URL(apiOrigin)
   if (
     !target ||
     !['127.0.0.1', 'localhost'].includes(target.hostname) ||
@@ -361,50 +370,6 @@ const runMock = async (): Promise<void> => {
       'Phase 9 mock admin requires an explicit isolated TEST API proxy target.'
     )
   }
-  await reserveLoopbackPort(5175, 'localhost')
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
-  await startOwnedAdmin('mock', target.origin)
-
-  const webPort = await reserveLoopbackPort()
-  const webOrigin = `http://127.0.0.1:${webPort}`
-  const web = spawnOwned(
-    'phase9-mock-web',
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/web',
-      'exec',
-      'vite',
-      '--mode',
-      'test',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(webPort),
-      '--strictPort'
-    ],
-    {
-      ...process.env,
-      VITE_API_BASE_URL: '/api',
-      VITE_API_MODE: 'mock'
-    }
-  )
-  await waitForHttp(webOrigin, web, adminSignal)
-  await runPlaywright('mock', webOrigin, {}, adminSignal)
-}
-
-const runReal = async (): Promise<void> => {
-  await reserveLoopbackPort(5175, 'localhost')
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
-  const [apiPort, webPort] = await Promise.all([
-    reserveLoopbackPort(),
-    reserveLoopbackPort()
-  ])
-  const apiOrigin = `http://127.0.0.1:${apiPort}`
   const webOrigin = `http://127.0.0.1:${webPort}`
   const apiEnvironment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
@@ -438,14 +403,17 @@ const runReal = async (): Promise<void> => {
     adminDatabaseUrl: harness.adminDatabaseUrl,
     environment: apiEnvironment
   })
-  const databaseContract = (await import(
-    './phase9-database-contract.mjs'
-  )) as Phase9DatabaseContractModule
-  const baseline = await databaseContract.capturePhase9DatabaseSnapshot(
+  const databaseContract =
+    browserMode === 'real'
+      ? ((await import(
+          './phase9-database-contract.mjs'
+        )) as Phase9DatabaseContractModule)
+      : undefined
+  const baseline = await databaseContract?.capturePhase9DatabaseSnapshot(
     harness.adminDatabaseUrl
   )
   const api = spawnOwned(
-    'phase9-real-api',
+    `phase9-${browserMode}-api`,
     'pnpm',
     ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/phase9BrowserApi.ts'],
     {
@@ -455,10 +423,10 @@ const runReal = async (): Promise<void> => {
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
 
-  const adminSignal = await startOwnedAdmin('real', apiOrigin)
+  const adminSignal = await startOwnedAdmin(browserMode, target.origin)
 
   const web = spawnOwned(
-    'phase9-real-web',
+    `phase9-${browserMode}-web`,
     'pnpm',
     [
       '--filter',
@@ -475,19 +443,20 @@ const runReal = async (): Promise<void> => {
     ],
     {
       ...process.env,
-      NIHONGO_API_PROXY_TARGET: apiOrigin,
+      NIHONGO_API_PROXY_TARGET: target.origin,
       VITE_API_BASE_URL: '/api',
-      VITE_API_MODE: 'real'
+      VITE_API_MODE: browserMode
     }
   )
   await waitForHttp(webOrigin, web, adminSignal)
 
   await runPlaywright(
-    'real',
+    browserMode,
     webOrigin,
     { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
+  if (!databaseContract || !baseline) return
   const databaseEvidence = await databaseContract.assertPhase9DatabaseContract({
     before: baseline,
     databaseUrl: harness.adminDatabaseUrl,
@@ -518,8 +487,7 @@ const run = async (): Promise<void> => {
   if (!mode) {
     throw new Error('Phase 9 browser runner accepts mock or real mode.')
   }
-  if (mode === 'mock') await runMock()
-  else await runReal()
+  await runBrowser(mode)
 }
 
 const execute = async (): Promise<void> => {

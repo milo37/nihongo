@@ -2807,14 +2807,24 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   )
   await expect(page.locator('main')).toBeFocused()
   await expect(
-    page.getByRole('heading', { name: '문제 상세', exact: true })
+    page.getByRole('heading', { name: '문제 버전 워크플로', exact: true })
   ).toBeVisible()
-  const questionText = page.getByRole('textbox', { name: '질문', exact: true })
-  await expect(questionText).toHaveValue(fixture.questionText)
-  await expect(questionText).toBeDisabled()
+  const preview = page.getByRole('region', {
+    name: '학습자 공개 화면 미리보기',
+    exact: true
+  })
+  await expect(
+    preview.getByText(fixture.questionText, { exact: true })
+  ).toBeVisible()
+  await expect(
+    page.getByRole('textbox', { name: '질문', exact: true })
+  ).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: '변경사항 저장', exact: true })
-  ).toBeDisabled()
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: '초안 편집', exact: true })
+  ).toHaveCount(0)
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
