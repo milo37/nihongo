@@ -1569,9 +1569,12 @@ const armDashboardInsightsFailure = async (
   return async () => page.unroute(routePattern, failTwice)
 }
 
+const queryClientModulePath =
+  '/@fs' +
+  new URL(import.meta.resolve('@nihongo/browser/libs/queryClient')).pathname
+
 const invalidateDashboardInsights = async (page: Page): Promise<void> => {
-  await page.evaluate(async () => {
-    const modulePath = '/src/libs/queryClient.ts'
+  await page.evaluate(async (modulePath) => {
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
         invalidateQueries: (options: {
@@ -1584,28 +1587,30 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
       exact: true,
       queryKey: ['dashboard', 'get-insights']
     })
-  })
+  }, queryClientModulePath)
 }
 
 const invalidateDashboardWhileOffline = async (
   page: Page,
   query: 'stats' | 'insights'
 ): Promise<void> => {
-  await page.evaluate(async (kind) => {
-    const modulePath = '/src/libs/queryClient.ts'
-    const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
-      queryClient: {
-        invalidateQueries: (options: {
-          exact: boolean
-          queryKey: readonly string[]
-        }) => Promise<void>
+  await page.evaluate(
+    async ({ kind, modulePath }) => {
+      const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
+        queryClient: {
+          invalidateQueries: (options: {
+            exact: boolean
+            queryKey: readonly string[]
+          }) => Promise<void>
+        }
       }
-    }
-    void queryClient.invalidateQueries({
-      exact: true,
-      queryKey: ['dashboard', `get-${kind}`]
-    })
-  }, query)
+      void queryClient.invalidateQueries({
+        exact: true,
+        queryKey: ['dashboard', `get-${kind}`]
+      })
+    },
+    { kind: query, modulePath: queryClientModulePath }
+  )
 }
 
 const waitForDashboardQueryState = async (
@@ -1616,30 +1621,35 @@ const waitForDashboardQueryState = async (
   await expect
     .poll(
       async () =>
-        await page.evaluate(async (kind) => {
-          const modulePath = '/src/libs/queryClient.ts'
-          const { queryClient } = (await import(
-            /* @vite-ignore */ modulePath
-          )) as {
-            queryClient: {
-              getQueryState: (queryKey: readonly string[]) =>
-                | {
-                    data: unknown
-                    fetchStatus: string
-                    status: string
-                  }
-                | undefined
-            }
-          }
-          const state = queryClient.getQueryState(['dashboard', `get-${kind}`])
-          return state
-            ? {
-                fetchStatus: state.fetchStatus,
-                hasData: state.data !== undefined,
-                status: state.status
+        await page.evaluate(
+          async ({ kind, modulePath }) => {
+            const { queryClient } = (await import(
+              /* @vite-ignore */ modulePath
+            )) as {
+              queryClient: {
+                getQueryState: (queryKey: readonly string[]) =>
+                  | {
+                      data: unknown
+                      fetchStatus: string
+                      status: string
+                    }
+                  | undefined
               }
-            : null
-        }, query),
+            }
+            const state = queryClient.getQueryState([
+              'dashboard',
+              `get-${kind}`
+            ])
+            return state
+              ? {
+                  fetchStatus: state.fetchStatus,
+                  hasData: state.data !== undefined,
+                  status: state.status
+                }
+              : null
+          },
+          { kind: query, modulePath: queryClientModulePath }
+        ),
       { timeout: 20_000 }
     )
     .toEqual({ fetchStatus, hasData: true, status: 'success' })

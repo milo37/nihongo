@@ -535,9 +535,12 @@ const loginThroughUi = async (page: Page): Promise<void> => {
   }
 }
 
+const queryClientModulePath =
+  '/@fs' +
+  new URL(import.meta.resolve('@nihongo/browser/libs/queryClient')).pathname
+
 const invalidateDashboardInsights = async (page: Page): Promise<void> => {
-  await page.evaluate(async () => {
-    const modulePath = '/src/libs/queryClient.ts'
+  await page.evaluate(async (modulePath) => {
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
         invalidateQueries: (options: {
@@ -550,7 +553,7 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
       exact: true,
       queryKey: ['dashboard', 'get-insights']
     })
-  })
+  }, queryClientModulePath)
 }
 
 const assertCanonicalLedger = (ledger: RequestLedger): void => {
