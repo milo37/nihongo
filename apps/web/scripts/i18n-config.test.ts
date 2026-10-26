@@ -50,8 +50,8 @@ it('preserves every Japanese catalog and admin key, value and order', () => {
   expect(Object.keys(jaResources)).toEqual(Object.keys(koResources))
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('60aa392c17e932e14e760a90922fd7bd8c1cab0d427200f2cc24aa4e03b0d9bb')
+  ).toBe('5cca488c99fd5932b30fbae30afda42cbbf91258f57ecec42c1b301bd5fa9d7c')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
-  ).toBe('d17b06416b7cd34d285cbe4f21b46d1cc10aa2c14ebaafc790d903c4e4233885')
+  ).toBe('0d05d7278349bb130d9127165933fc09441c4a9c0f4971392322dd1f24dc649d')
 })

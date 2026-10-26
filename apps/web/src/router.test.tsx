@@ -157,7 +157,7 @@ describe('application router boundaries', () => {
     })
 
     try {
-      const rootRoute = appRoutes[0]
+      const rootRoute = appRoutes.find((route) => route.path === '/')
       if (!rootRoute) throw new Error('Application root route required')
       const router = renderRoutes('/hash', [
         {
@@ -192,7 +192,7 @@ describe('application router boundaries', () => {
   })
 
   it('lazy route의 hash target이 늦게 나타나도 해당 대상을 포커스한다', async () => {
-    const rootRoute = appRoutes[0]
+    const rootRoute = appRoutes.find((route) => route.path === '/')
     expect(rootRoute).toBeDefined()
     if (!rootRoute) {
       return
@@ -408,7 +408,7 @@ describe('application router boundaries', () => {
     const BrokenPage = (): never => {
       throw new Error('route-render-failure')
     }
-    const rootRoute = appRoutes[0]
+    const rootRoute = appRoutes.find((route) => route.path === '/')
     expect(rootRoute).toBeDefined()
     if (!rootRoute) {
       return
