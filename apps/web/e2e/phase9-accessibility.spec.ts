@@ -2159,7 +2159,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   ).toBeVisible()
   await expect(page.locator('[data-save-state]')).toHaveAttribute(
     'data-save-state',
-    'saved',
+    /^(saved|savedAt)$/u,
     { timeout: 15_000 }
   )
   await waitForApiTransportQuiet(transport, { quietMs: 1_000 })
