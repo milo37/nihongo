@@ -52,7 +52,7 @@ jobs:
       - name: Select affected checks
         id: selection
         run: node scripts/ci/check-selection.mjs plan
-      - name: CI source ${{ steps.selection.outputs.metadata_only == 'true' && 'metadata' || 'code' }} repo ${{ github.repository }} PR ${{ github.event.number }} head ${{ github.event.pull_request.head.sha }} base ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.base.sha }}
+      - name: CI source ${{ steps.selection.outputs.metadata_only == 'true' && 'metadata' || 'code' }} repo ${{ github.repository }} PR ${{ github.event.number }} head ${{ github.event.pull_request.head.sha }} base ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.base.sha }} merge ${{ github.sha }}
         if: ${{ github.event_name == 'pull_request' && success() }}
         run: ':'
       - name: Read current code-check results without rerunning checks

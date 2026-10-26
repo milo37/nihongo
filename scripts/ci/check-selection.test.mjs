@@ -531,6 +531,7 @@ test('workflow keeps required checks present, conditional resources, final outco
   assert.doesNotMatch(workflow, /^\s+paths(?:-ignore)?:/mu)
   assert.match(workflow, /workflow_dispatch:/u)
   assert.match(workflow, /types: \[opened, synchronize, reopened, edited\]/u)
+  assert.ok(workflow.includes('merge ${{ github.sha }}'))
   assert.match(workflow, /tags:\n\s+- 'v\*'/u)
   for (const [id, name] of [
     ['build', 'Quality and production build'],
@@ -792,10 +793,11 @@ test('plan CLI emits metadata_only only for confirmed edits and keeps selection 
 
 const sourceOptions = {
   repository: 'milo37/nihongo',
-  number: 48,
-  headSha: 'b'.repeat(40),
+  number: 44,
+  headSha: 'e156a4c0878936722a7bda550c15efb3874c7d9b',
   baseRef: 'dev',
-  baseSha: 'a'.repeat(40),
+  baseSha: '374954286f22cdaadbfb897ec1c21b0664e006d3',
+  mergeSha: '4d5acbaa949eba6ea68e652235c24c65f8481d6c',
   runId: '10'
 }
 const requiredNames = [
@@ -824,7 +826,7 @@ const codeFixture = (id = 9, attempt = 1, mode = 'code') => {
       steps: [
         { name: 'Select affected checks', conclusion: 'success' },
         {
-          name: `CI source ${mode} repo ${sourceOptions.repository} PR 48 head ${sourceOptions.headSha} base dev ${sourceOptions.baseSha}`,
+          name: `CI source ${mode} repo ${sourceOptions.repository} PR ${sourceOptions.number} head ${sourceOptions.headSha} base dev ${sourceOptions.baseSha} merge ${sourceOptions.mergeSha}`,
           conclusion: 'success'
         }
       ]
@@ -867,6 +869,7 @@ test('metadata faithfully reuses exact latest code checks and excludes current/m
     noWait
   )
   assert.equal(result.sourceRunId, 9)
+  assert.equal(result.sourceMergeSha, sourceOptions.mergeSha)
   assert.deepEqual(Object.values(result.results), [
     'success',
     'success',
@@ -877,6 +880,24 @@ test('metadata faithfully reuses exact latest code checks and excludes current/m
     'Recheck newest code before success'
   )
   assert.ok(!calls.some((call) => call.includes('/runs/10/')))
+})
+
+test('metadata rejects a missing or different evaluated merge despite the same exact head', async () => {
+  for (const marker of [
+    (name) => name.replace(` merge ${sourceOptions.mergeSha}`, ''),
+    (name) => name.replace(sourceOptions.mergeSha, 'f'.repeat(40))
+  ]) {
+    const code = codeFixture()
+    code.jobs[0].steps[1].name = marker(code.jobs[0].steps[1].name)
+    const result = await readPreviousCodeResults(
+      sourceOptions,
+      fixtureApi([code]),
+      noWait
+    )
+    assert.ok(
+      Object.values(result.results).every((value) => value === 'unavailable')
+    )
+  }
 })
 
 test('metadata waits for current code once and never falls back to an older pass', async () => {
@@ -916,8 +937,8 @@ test('metadata rejects wrong source tuples, forks, failed plans, unknown markers
     },
     (f) => {
       f.jobs[0].steps[1].name = f.jobs[0].steps[1].name.replace(
-        'PR 48',
-        'PR 49'
+        'PR 44',
+        'PR 45'
       )
     },
     (f) => {
@@ -1110,8 +1131,8 @@ test('unrelated fork PRs do not block the matching internal PR, while its own fo
   const unrelated = codeFixture(11)
   unrelated.run.head_repository.full_name = 'other/fork'
   unrelated.jobs[0].steps[1].name = unrelated.jobs[0].steps[1].name.replace(
-    'PR 48 ',
-    'PR 49 '
+    'PR 44 ',
+    'PR 45 '
   )
   const code = codeFixture(9)
   const result = await readPreviousCodeResults(

@@ -184,7 +184,7 @@ const canonicalChecks = {
   phase11_release: 'Phase 11 portable release and production-mode smoke'
 }
 const sourceMarker =
-  /^CI source (code|metadata) repo ([\w.-]+\/[\w.-]+) PR ([1-9][0-9]*) head ([a-f0-9]{40}) base (dev|main) ([a-f0-9]{40})$/u
+  /^CI source (code|metadata) repo ([\w.-]+\/[\w.-]+) PR ([1-9][0-9]*) head ([a-f0-9]{40}) base (dev|main) ([a-f0-9]{40}) merge ([a-f0-9]{40})$/u
 const readActions = async (endpoint) => {
   const response = await fetch(`https://api.github.com/${endpoint}`, {
     headers: {
@@ -198,7 +198,7 @@ const readActions = async (endpoint) => {
 }
 
 export const readPreviousCodeResults = async (
-  { repository, number, headSha, baseRef, baseSha, runId },
+  { repository, number, headSha, baseRef, baseSha, mergeSha, runId },
   api = readActions,
   wait = setTimeout
 ) => {
@@ -212,6 +212,7 @@ export const readPreviousCodeResults = async (
     assert.match(repository, /^[\w.-]+\/[\w.-]+$/u)
     assert.ok(Number.isSafeInteger(number) && number > 0)
     assert.ok(shaPattern.test(headSha) && shaPattern.test(baseSha))
+    assert.ok(shaPattern.test(mergeSha) && mergeSha !== '0'.repeat(40))
     assert.ok(['dev', 'main'].includes(baseRef))
     assert.match(runId, /^[1-9][0-9]*$/u)
     const metadataRuns = new Set()
@@ -279,7 +280,8 @@ export const readPreviousCodeResults = async (
           Number(marker[3]) !== number ||
           marker[4] !== headSha ||
           marker[5] !== baseRef ||
-          marker[6] !== baseSha
+          marker[6] !== baseSha ||
+          marker[7] !== mergeSha
         )
           continue
         assert.equal(run.head_repository?.full_name, repository)
@@ -343,6 +345,7 @@ export const readPreviousCodeResults = async (
           return {
             sourceRunId: code.run.id,
             sourceAttempt: code.run.run_attempt,
+            sourceMergeSha: mergeSha,
             reason: 'Observed current code-check outcomes',
             results
           }
@@ -525,6 +528,7 @@ if (
       headSha: event.pull_request.head.sha,
       baseRef: event.pull_request.base.ref,
       baseSha: event.pull_request.base.sha,
+      mergeSha: process.env.GITHUB_SHA,
       runId: process.env.GITHUB_RUN_ID
     })
     appendFileSync(
