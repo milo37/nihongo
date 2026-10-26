@@ -1981,6 +1981,8 @@ export const koResources = {
       commandComplete: '{{command}} 작업이 완료됐습니다.'
     },
     import: {
+      freshRevalidateHint:
+        'Google 재확인 화면으로 이동하면 파일 선택과 검증 결과가 초기화됩니다. 돌아온 뒤 같은 JSON 파일을 다시 선택해 검증하고 직접 적용해 주세요.',
       eyebrow: 'ATOMIC IMPORT',
       title: '문제 초안 가져오기',
       description:

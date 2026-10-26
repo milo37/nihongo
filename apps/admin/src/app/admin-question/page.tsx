@@ -1,3 +1,4 @@
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
   questionVersionStatusSchema,
   type QuestionVersionStatus
@@ -133,6 +134,7 @@ const formatUpdatedAt = (value: string): string => {
 }
 
 export const AdminQuestionPage = (): ReactElement => {
+  const { t } = useAdminPresentation()
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   const actorId = useAppStore((state) => state.currentUser?.id)
@@ -300,12 +302,20 @@ export const AdminQuestionPage = (): ReactElement => {
             해설을 노출하지 않습니다.
           </p>
         </div>
-        <Link
-          className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-lg bg-brand px-5 py-3 font-semibold text-white shadow-sm hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-          to={`/questions/new?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
-        >
-          새 문제 등록
-        </Link>
+        <div className="flex shrink-0 flex-wrap gap-3">
+          <Link
+            className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-surface px-5 py-3 font-semibold text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+            to="/questions/import"
+          >
+            {t('common.import')}
+          </Link>
+          <Link
+            className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-lg bg-brand px-5 py-3 font-semibold text-white shadow-sm hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            to={`/questions/new?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
+          >
+            새 문제 등록
+          </Link>
+        </div>
       </div>
 
       {unsupportedSort ? (

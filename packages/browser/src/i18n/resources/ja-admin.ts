@@ -511,6 +511,8 @@ export const jaAdminResources = {
     commandComplete: '{{command}}を完了しました。'
   },
   import: {
+    freshRevalidateHint:
+      'Googleでの本人確認へ移動すると、ファイル選択と検証結果はリセットされます。戻ったら同じJSONファイルを選び直し、検証してから手動で適用してください。',
     eyebrow: 'ATOMIC IMPORT',
     title: '問題の下書きをインポート',
     description:
