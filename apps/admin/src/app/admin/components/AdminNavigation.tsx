@@ -2,7 +2,13 @@ import { NavLink } from 'react-router'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { ReactElement } from 'react'
 
-export const AdminNavigation = (): ReactElement => {
+type AdminNavigationProps = {
+  readonly questionListTo?: string
+}
+
+export const AdminNavigation = ({
+  questionListTo = '/questions'
+}: AdminNavigationProps): ReactElement => {
   const { t } = useAdminPresentation()
   return (
     <nav
@@ -10,7 +16,7 @@ export const AdminNavigation = (): ReactElement => {
       aria-label={t('common.breadcrumbLabel')}
     >
       {[
-        { to: '/questions', label: t('common.questions') },
+        { to: questionListTo, label: t('common.questions') },
         { to: '/reports', label: t('common.reports') },
         { to: '/audit-log', label: t('common.auditLog') }
       ].map(({ to, label }) => (

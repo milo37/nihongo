@@ -230,14 +230,14 @@ it('selects by URL, reads the selected preview/diff/reviews, and preserves list 
     expect(router.state.location.search).toContain('version=' + oldVersionId)
   )
   expect(await screen.findByText('Older question')).toBeVisible()
+  const breadcrumbs = screen.getByRole('navigation', {
+    name: t('common.breadcrumbLabel')
+  })
   expect(
-    screen
-      .getAllByRole('link', { name: t('common.questions') })
-      .some(
-        (link) =>
-          link.getAttribute('href') === '/admin/questions?level=N3&page=2'
-      )
-  ).toBe(true)
+    within(breadcrumbs).getByRole('link', {
+      name: t('common.questions')
+    })
+  ).toHaveAttribute('href', '/admin/questions?level=N3&page=2')
   expect(endpoint).toHaveBeenCalledWith(
     expect.objectContaining({
       operation: 'listQuestionVersionReviews',

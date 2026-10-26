@@ -414,7 +414,7 @@ const QuestionDetail = ({
     )
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <AdminNavigation />
+      <AdminNavigation questionListTo={returnTo.slice('/admin'.length)} />
       <Link
         to={returnTo.slice('/admin'.length)}
         className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
