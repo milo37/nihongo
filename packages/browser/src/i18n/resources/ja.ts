@@ -450,9 +450,10 @@ export const jaCoreResources = {
         'リクエストを完了できませんでした。もう一度ご確認ください。',
       deletionAccepted: '退会のリクエストを受け付けました。',
       deletionComplete: '退会が完了しました。',
+      appDataDeletionComplete: 'アプリデータの削除が完了しました。',
       unlinked: '連携を解除しました。',
       providerCleanupPending:
-        '退会は完了しました。{{provider}}との連携の解除はまだ完了していません。',
+        'アプリデータの削除は完了しましたが、{{provider}}との連携の解除はまだ完了していません。',
       legacyMethod:
         'ログイン方法が変更されました。連携したアカウントで続けてください。',
       continueApple: 'Appleで続ける',

@@ -12,6 +12,11 @@ const body = (name: string) => {
   expect(start).toBeGreaterThan(-1)
   return sql.slice(start, sql.indexOf('$function$;', start) + 11)
 }
+const migrationBody = (source: string, declaration: string) => {
+  const start = source.indexOf(declaration)
+  expect(start).toBeGreaterThan(-1)
+  return source.slice(start, source.indexOf('$function$;', start) + 11)
+}
 describe('SSO account lifecycle migration source contract (no DB)', () => {
   it('keeps forward-only canonical deployment and no runtime table grants', () => {
     expect(sql).toContain("CURRENT_USER <> 'nihongo_phase7_migration'")
@@ -105,5 +110,69 @@ describe('SSO account lifecycle migration source contract (no DB)', () => {
       "'status','PENDING'"
     )
     expect(b).not.toContain('providerCleanup')
+  })
+  it('forward queue is worker-only, environment-bound and omits user identity', () => {
+    const queue = readFileSync(
+      new URL(
+        '../../prisma/migrations/20261028090000_sso_account_erasure_worker_queue/migration.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+    expect(queue).toContain("CURRENT_USER <> 'nihongo_phase7_migration'")
+    expect(queue).toContain(
+      "phase7_require_caller_role\"('nihongo_erasure_worker')"
+    )
+    expect(queue).toContain(
+      'GRANT EXECUTE ON FUNCTION "phase7_list_sso_account_erasures"(INTEGER,"AdminAuditEnvironment") TO "nihongo_erasure_worker";'
+    )
+    expect(queue).toContain(
+      `ALTER TYPE "AdminAuditEnvironment" ADD VALUE IF NOT EXISTS 'PRODUCTION'`
+    )
+    const list = migrationBody(
+      queue,
+      'CREATE FUNCTION "phase7_list_sso_account_erasures"('
+    )
+    expect(list).toContain(
+      'phase7_require_database_capability"(environment_value)'
+    )
+    expect(list).not.toMatch(/'userId'|"receiptDigest"/u)
+    expect(queue).not.toMatch(/GRANT\s+(?:ALL|SELECT|INSERT|UPDATE|DELETE)/u)
+    expect(queue).not.toContain('ALTER TABLE')
+  })
+  it('forward completion refuses provider-incomplete erasure and hardens cleanup recording', () => {
+    const queue = readFileSync(
+      new URL(
+        '../../prisma/migrations/20261028090000_sso_account_erasure_worker_queue/migration.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+    const completion = migrationBody(
+      queue,
+      'CREATE OR REPLACE FUNCTION "phase7_complete_sso_account_erasure"('
+    )
+    expect(completion).toContain('jsonb_array_length(r."providerCleanup")=0')
+    expect(completion).toContain("x->>'status' IS DISTINCT FROM 'COMPLETED'")
+    expect(completion.indexOf('providerCleanup')).toBeLessThan(
+      completion.indexOf('phase7_erase_user')
+    )
+    const recorder = migrationBody(
+      queue,
+      'CREATE FUNCTION "phase7_record_sso_provider_cleanup"('
+    )
+    expect(recorder).toContain(
+      'phase7_require_database_capability"(environment_value)'
+    )
+    expect(recorder).toContain(
+      'r."appStatus" IS DISTINCT FROM \'DELETION_PENDING\''
+    )
+    expect(recorder).toContain(
+      "IF current_status='COMPLETED' THEN RETURN status_value='COMPLETED'"
+    )
+    expect(recorder).toContain('FOR UPDATE')
+    expect(queue).toContain(
+      'REVOKE ALL ON FUNCTION "phase7_record_sso_provider_cleanup"(UUID,TEXT,TEXT)'
+    )
   })
 })

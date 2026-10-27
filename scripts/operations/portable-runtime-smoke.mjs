@@ -27,9 +27,9 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const currentMigrationCount = 47
+const currentMigrationCount = 48
 const currentMigrationDigest =
-  '6091743d937facaa31f4a41cf0e4a80899471c64932e1a8aca61299962e79147'
+  '1fb4dfe08954a0200eb0d11073b7128c6f1658658afb7a73881b766dc30db9c2'
 const lastBootstrapMigration =
   '20261009092000_phase7_n4_n2_revision2_digest_fix'
 const migrationLogin = 'nihongo_test_phase7_migration_login'
@@ -218,9 +218,9 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
     manifest[36]?.name !== lastBootstrapMigration ||
-    manifest.at(-1)?.name !== '20261020233000_sso_first_admin_bootstrap'
+    manifest.at(-1)?.name !== '20261028090000_sso_account_erasure_worker_queue'
   ) {
-    throw new Error('Repository current-47 migration inventory is invalid.')
+    throw new Error('Repository current-48 migration inventory is invalid.')
   }
   return manifest.map(({ name }) => name)
 }
@@ -1101,6 +1101,45 @@ export const assertExpectedRuntimeImageId = (
   return actualImageId
 }
 
+export const verifyPackagedAccountErasureCommand = (
+  imageId,
+  runCommand = run
+) => {
+  if (!imageIdPattern.test(imageId)) {
+    throw new Error('Account erasure command image identity is invalid.')
+  }
+  const result = runCommand(
+    'docker',
+    [
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--read-only',
+      '--tmpfs',
+      '/tmp:rw,noexec,nosuid,size=16m',
+      '--cap-drop',
+      'ALL',
+      '--security-opt',
+      'no-new-privileges',
+      '--entrypoint',
+      'node',
+      imageId,
+      '/app/api/dist/auth/ssoAccountErasureCommand.js'
+    ],
+    { allowFailure: true }
+  )
+  if (
+    result.status !== 1 ||
+    result.stdout !== '' ||
+    result.stderr !== '{"event":"auth.account_erasure.failed"}\n'
+  ) {
+    throw new Error(
+      'Packaged account erasure command did not fail closed without configuration.'
+    )
+  }
+}
+
 export const combineRuntimeSmokeErrors = (operationError, cleanupError) => {
   if (operationError && cleanupError) {
     const operationMessage =
@@ -1467,6 +1506,7 @@ export const runPortableRuntimeSmoke = async ({
       readRuntimeContainerImageId(runtimeContainer),
       expectedImageId
     )
+    verifyPackagedAccountErasureCommand(imageId)
     const portOutput = run('docker', [
       'port',
       runtimeContainer,

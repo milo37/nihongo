@@ -94,6 +94,7 @@ enum AdminAuditTargetType {
 enum AdminAuditEnvironment {
   TEST
   DEVELOPMENT
+  PRODUCTION
 }
 
 enum QuestionReportReason {

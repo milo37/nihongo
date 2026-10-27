@@ -233,32 +233,104 @@ export const createSsoAccountRepository = (
     }
   }
 }
+export const ssoAccountErasureEnvironmentSchema = z.enum([
+  'TEST',
+  'DEVELOPMENT',
+  'PRODUCTION'
+])
+export type SsoAccountErasureEnvironment = z.output<
+  typeof ssoAccountErasureEnvironmentSchema
+>
+const erasureQueueSchema = z
+  .array(
+    z
+      .object({
+        id: z.uuid(),
+        ...ssoAccountDeletionSchema.shape
+      })
+      .strict()
+  )
+  .max(100)
 /** Internal erasure-worker port only. No provider calls or credentials. */
 export const createSsoAccountErasureWorker = (
   client: Pick<PrismaClient, '$queryRawUnsafe'>
 ) => ({
+  list: async (
+    batchSize: number,
+    environment: SsoAccountErasureEnvironment
+  ) => {
+    const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
+      'SELECT "phase7_list_sso_account_erasures"($1::integer,$2::"AdminAuditEnvironment") AS result',
+      z.number().int().min(1).max(100).parse(batchSize),
+      ssoAccountErasureEnvironmentSchema.parse(environment)
+    )
+    if (rows.length !== 1) throw new Error('SSO erasure queue unavailable.')
+    return erasureQueueSchema.parse(rows[0]?.result)
+  },
   complete: async (
     requestId: string,
-    environment: 'TEST' | 'DEVELOPMENT'
+    environment: SsoAccountErasureEnvironment
   ): Promise<boolean> => {
     const rows = await client.$queryRawUnsafe<Array<{ completed: boolean }>>(
       'SELECT "phase7_complete_sso_account_erasure"($1::uuid,$2::"AdminAuditEnvironment") AS completed',
       z.uuid().parse(requestId),
-      environment
+      ssoAccountErasureEnvironmentSchema.parse(environment)
     )
     return rows.length === 1 && rows[0]?.completed === true
   },
   recordProviderCleanup: async (
     requestId: string,
     provider: SsoProviderId,
-    status: 'COMPLETED' | 'FAILED'
+    status: 'COMPLETED' | 'FAILED',
+    environment: SsoAccountErasureEnvironment
   ): Promise<boolean> => {
     const rows = await client.$queryRawUnsafe<Array<{ completed: boolean }>>(
-      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3) AS completed',
+      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::"AdminAuditEnvironment") AS completed',
       z.uuid().parse(requestId),
       ssoProviderIdSchema.parse(provider),
-      z.enum(['COMPLETED', 'FAILED']).parse(status)
+      z.enum(['COMPLETED', 'FAILED']).parse(status),
+      ssoAccountErasureEnvironmentSchema.parse(environment)
     )
     return rows.length === 1 && rows[0]?.completed === true
   }
 })
+export type SsoAccountErasureWorker = ReturnType<
+  typeof createSsoAccountErasureWorker
+>
+export interface SsoAccountErasureRunResult {
+  completedIds: string[]
+  providerCleanupPendingIds: string[]
+  failedIds: string[]
+  batchLimitReached: boolean
+}
+/** One-shot batch: each request commits alone so one failure never blocks the rest. */
+export const runSsoAccountErasureBatch = async (
+  worker: Pick<SsoAccountErasureWorker, 'list' | 'complete'>,
+  environment: SsoAccountErasureEnvironment,
+  batchSize: number
+): Promise<SsoAccountErasureRunResult> => {
+  const result: SsoAccountErasureRunResult = {
+    completedIds: [],
+    providerCleanupPendingIds: [],
+    failedIds: [],
+    batchLimitReached: false
+  }
+  const requests = await worker.list(batchSize, environment)
+  result.batchLimitReached = requests.length >= batchSize
+  for (const request of requests) {
+    // Provider cleanup proof is required before destructive app erasure.
+    if (
+      request.providerCleanup.length === 0 ||
+      !request.providerCleanup.every((p) => p.status === 'COMPLETED')
+    ) {
+      result.providerCleanupPendingIds.push(request.id)
+      continue
+    }
+    const deleted =
+      request.appStatus === 'DELETED' ||
+      (await worker.complete(request.id, environment).catch(() => false))
+    if (deleted) result.completedIds.push(request.id)
+    else result.failedIds.push(request.id)
+  }
+  return result
+}
