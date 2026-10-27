@@ -111,6 +111,7 @@ const MemberReview = (): ReactElement => {
   )
   const query = parsed.query
   const queue = useListReviewQueue(query, true)
+  const isEmptyPlaceholder = queue.isPlaceholderData && queue.data?.total === 0
   const hasFilters = Boolean(
     query.level || query.subject || query.questionType || query.tag
   )
@@ -346,7 +347,9 @@ const MemberReview = (): ReactElement => {
           {t('center.states.offline')}
         </p>
       ) : null}
-      {(queue.isPending && queue.fetchStatus !== 'paused') || correcting ? (
+      {((queue.isPending || isEmptyPlaceholder) &&
+        queue.fetchStatus !== 'paused') ||
+      correcting ? (
         <LoadingState
           message={t(
             correcting
@@ -364,7 +367,7 @@ const MemberReview = (): ReactElement => {
           action={<Button onClick={retry}>{commonT('actions.retry')}</Button>}
         />
       ) : null}
-      {queue.data && !correcting ? (
+      {queue.data && !isEmptyPlaceholder && !correcting ? (
         <>
           <div className="review-results-heading">
             <h2 ref={resultHeading} tabIndex={-1}>
