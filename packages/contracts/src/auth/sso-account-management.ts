@@ -78,7 +78,7 @@ export const ssoProviderCleanupSchema = z
     status: z.enum(['PENDING', 'COMPLETED', 'FAILED'])
   })
   .strict()
-/** HTTP202 means access revoked and erasure accepted; only DELETED is completion. */
+/** HTTP202 accepts erasure; DELETED covers app data only, while provider cleanup remains independent. */
 export const ssoAccountDeletionSchema = z
   .object({
     appStatus: z.enum(['DELETION_PENDING', 'DELETED']),

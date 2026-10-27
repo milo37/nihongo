@@ -28,7 +28,10 @@ export interface RoleDatabaseRuntime {
 
 interface CreateDatabaseRuntimeOptions {
   readonly migrationProfile?: MigrationCompatibilityProfile
-  readonly startupRole?: 'nihongo_app' | 'nihongo_auth_gateway'
+  readonly startupRole?:
+    | 'nihongo_app'
+    | 'nihongo_auth_gateway'
+    | 'nihongo_erasure_worker'
 }
 
 export const selectDatabaseGlobalOmit = (
@@ -88,7 +91,7 @@ const createPrismaClient = (
 
 export const createRoleDatabaseRuntime = (
   connectionString: string,
-  startupRole: 'nihongo_app' | 'nihongo_auth_gateway'
+  startupRole: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_erasure_worker'
 ): RoleDatabaseRuntime => {
   const client = createPrismaClient(connectionString, { startupRole })
   return {

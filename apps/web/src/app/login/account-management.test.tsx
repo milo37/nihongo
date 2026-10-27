@@ -468,43 +468,59 @@ describe('계정 연결·해제·탈퇴 소비', () => {
     expect(posts).not.toHaveBeenCalled()
   })
   it.each([
-    ['PENDING', '연결 정리가 아직 완료되지 않았어요.'],
+    [
+      'PENDING',
+      '앱 데이터 삭제가 완료됐어요.',
+      '연결 정리가 아직 완료되지 않았어요.'
+    ],
     [
       'FAILED',
+      '앱 데이터 삭제가 완료됐어요.',
       '연결 정리를 완료하지 못했어요. 앱 탈퇴 상태와 별도로 확인해 주세요.'
     ],
-    ['COMPLETED', '이 로그인 방법의 연결 정리가 완료됐어요.']
-  ])('앱 완료와 공급자 %s를 분리한다', async (status, label) => {
-    mockServer.use(
-      http.get('*/api/auth/sso/deletion', () =>
-        HttpResponse.json({
-          appStatus: 'DELETED',
-          providerCleanup: [{ provider: 'google', status }]
-        })
+    [
+      'COMPLETED',
+      '회원 탈퇴가 완료됐어요.',
+      '이 로그인 방법의 연결 정리가 완료됐어요.'
+    ]
+  ])(
+    '앱 삭제와 공급자 %s 정리를 분리한다',
+    async (status, appLabel, cleanupLabel) => {
+      mockServer.use(
+        http.get('*/api/auth/sso/deletion', () =>
+          HttpResponse.json({
+            appStatus: 'DELETED',
+            providerCleanup: [{ provider: 'google', status }]
+          })
+        )
       )
-    )
-    renderAccount('/account/data')
-    await screen.findByText('회원 탈퇴가 완료됐어요.')
-    expect(screen.getByText(label)).toBeInTheDocument()
-  })
-  it('Apple 표시를 숨겨도 혼합 receipt의 앱 완료와 Google 정리 상태를 바꾸지 않는다', async () => {
+      renderAccount('/account/data')
+      await screen.findByText(appLabel)
+      expect(screen.getByText(cleanupLabel)).toBeInTheDocument()
+      if (status !== 'COMPLETED')
+        expect(
+          screen.queryByText('회원 탈퇴가 완료됐어요.')
+        ).not.toBeInTheDocument()
+    }
+  )
+  it('Apple 표시를 숨겨도 혼합 receipt의 앱 삭제와 Google 정리 상태를 바꾸지 않는다', async () => {
     mockServer.use(
       http.get('*/api/auth/sso/deletion', () =>
         HttpResponse.json({
           appStatus: 'DELETED',
           providerCleanup: [
             { provider: 'apple', status: 'FAILED' },
-            { provider: 'google', status: 'PENDING' }
+            { provider: 'google', status: 'COMPLETED' }
           ]
         })
       )
     )
     const posts = vi.spyOn(apiClient, 'post')
     renderAccount('/account/data')
-    await screen.findByText('회원 탈퇴가 완료됐어요.')
+    await screen.findByText('앱 데이터 삭제가 완료됐어요.')
     expect(screen.getByText('Google')).toBeInTheDocument()
     expect(
-      screen.getByText('연결 정리가 아직 완료되지 않았어요.')
+      screen.getByText('이 로그인 방법의 연결 정리가 완료됐어요.')
     ).toBeInTheDocument()
     expect(document.body).not.toHaveTextContent('Apple')
     expect(

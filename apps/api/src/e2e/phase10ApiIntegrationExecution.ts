@@ -522,10 +522,10 @@ export const assertPhase10VitestFileResult = ({
   }
   if (
     expectedPath === phase7SsoAccountLifecycleTestFile &&
-    result.numTotalTests !== 3
+    result.numTotalTests !== 4
   ) {
     throw new Error(
-      'SSO account lifecycle requires exactly three passing tests.'
+      'SSO account lifecycle requires exactly four passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])

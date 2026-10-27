@@ -111,7 +111,10 @@ const auditItem = (id: string): AdminAuditLogItem => ({
   environment: 'TEST',
   occurredAt: '2026-10-25T00:00:00.000Z'
 })
-const firstItem = auditItem('10000000-0000-4000-8000-000000000021')
+const firstItem: AdminAuditLogItem = {
+  ...auditItem('10000000-0000-4000-8000-000000000021'),
+  environment: 'PRODUCTION'
+}
 const secondItem: AdminAuditLogItem = {
   ...auditItem('10000000-0000-4000-8000-000000000022'),
   occurredAt: '2026-10-24T00:00:00.000Z'
@@ -218,6 +221,9 @@ it('loads the exact cursor by keyboard and focuses the first appended safe recor
     'dateTime',
     firstItem.occurredAt
   )
+  expect(
+    screen.getByText('요청 fixture-request · 환경 운영')
+  ).toBeInTheDocument()
   expect(screen.queryByText(firstItem.contentDigest)).not.toBeInTheDocument()
   expect(screen.queryByText('NONE_V1')).not.toBeInTheDocument()
 })

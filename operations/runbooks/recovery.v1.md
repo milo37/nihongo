@@ -12,10 +12,10 @@ digest, source target fingerprint, three separated database identity
 fingerprints, backup evidence, deployment approver, incident owner, and a
 maintenance or generation lease. Never infer an environment from a hostname.
 
-`technical-current-test` is TEST-only and selects the exact 47 ordered physical
+`technical-current-test` is TEST-only and selects the exact 48 ordered physical
 release migrations, including the current catalog migration. Both the count and
 the reviewed SHA256 digest
-`006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891`
+`a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630`
 are fixed; an internally consistent count or digest alone is not sufficient.
 The current source pin for
 `20261009120000_phase7_approved_n4_reading_batch7_tags` is
@@ -33,13 +33,20 @@ physical 39 inventory have respective ordered file digests
 profile. The historical physical46 source adds seven SSO migrations after approved308, ending
 at `20261020230000_sso_account_lifecycle`; its file digest is
 `d0a81eff438c516b761ed8c4b3eeba72276f9a539d81baad2799fa455cda8b2a`. Its ordered inventory digest
-`5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa` is also rejected. The current physical47 source adds
+`5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa` is also rejected. The historical physical47 source adds
 `20261020233000_sso_first_admin_bootstrap`, with reviewed file SHA256
 `680ce338ea94f47d1da21c4945270d36b7c39ae60dabf0040da4310c576e90f5`.
+Its ordered inventory digest
+`006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891`
+is also rejected.
+The current physical48 source adds
+`20261028090000_sso_account_erasure_worker_queue`, with reviewed file SHA256
+`cc91bd854924b2261ac4dcb2e8036ad62c69ec0af8d5afe756d4ce7f9ed5d8d7`.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical47, historical39 or catalog-excluded38 recovery DB drill is verified here.
+No current physical48, historical47, historical39 or catalog-excluded38
+recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
 `fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9`
@@ -55,7 +62,7 @@ That historical disposable-fixture plan was to first complete canonical36 with t
 original 65 questions, 108 tags and 127 applicability cells; its prior unchanged
 20-name/24-cell command was to reach 128/151, followed by the then-new append,
 completed canonical37 and the closed 15-name/15-cell command. These historical
-counts and commands are not preparation instructions for the current SQL47.
+counts and commands are not preparation instructions for the current SQL48.
 All predecessor, historical and catalog-excluded inventories remain rejected
 as the current technical profile, even when their own digests are consistent.
 No fixture preparation, SQL execution, activation or deployment is performed by
@@ -94,7 +101,7 @@ current technical recovery profile or as a fallback.
 `20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
 candidate rather than current-artifact compatibility or deployability proof.
 The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
-The replacement candidate uses a current-47 controlled Google-linked TEST session:
+The replacement candidate uses a current-48 controlled Google-linked TEST session:
 task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
 reviewed canonical65 seed helper, and remaining immutable migrations. An existing
 unique canonical tag must return exactly one matching question/version. The same

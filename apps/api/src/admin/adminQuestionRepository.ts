@@ -204,7 +204,7 @@ export interface AdminAuditRecord {
   contentDigest: string
   operationId: string
   requestId: string
-  environment: 'TEST' | 'DEVELOPMENT'
+  environment: 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
   occurredAt: Date
 }
 

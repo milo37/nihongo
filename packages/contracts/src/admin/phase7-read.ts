@@ -577,7 +577,11 @@ export const adminAuditTargetTypeSchema = z.enum([
   'ADMIN_SESSION',
   'USER_ERASURE'
 ])
-export const adminAuditEnvironmentSchema = z.enum(['TEST', 'DEVELOPMENT'])
+export const adminAuditEnvironmentSchema = z.enum([
+  'TEST',
+  'DEVELOPMENT',
+  'PRODUCTION'
+])
 export const adminAuditStateSchema = z.union([
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,

@@ -442,9 +442,10 @@ export const koResources = {
       actionFailed: '요청을 완료하지 못했어요. 다시 확인해 주세요.',
       deletionAccepted: '회원 탈퇴 요청을 접수했어요.',
       deletionComplete: '회원 탈퇴가 완료됐어요.',
+      appDataDeletionComplete: '앱 데이터 삭제가 완료됐어요.',
       unlinked: '연결을 해제했어요.',
       providerCleanupPending:
-        '회원 탈퇴는 완료됐어요. {{provider}} 연결 정리는 아직 완료되지 않았어요.',
+        '앱 데이터 삭제는 완료됐지만 {{provider}} 연결 정리는 아직 완료되지 않았어요.',
       legacyMethod:
         '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
       continueApple: 'Apple로 계속하기',
@@ -1652,7 +1653,8 @@ export const koResources = {
       },
       auditEnvironments: {
         TEST: '테스트',
-        DEVELOPMENT: '개발'
+        DEVELOPMENT: '개발',
+        PRODUCTION: '운영'
       },
       actorLabels: {
         ACTIVE_USER: '활성 학습자',
