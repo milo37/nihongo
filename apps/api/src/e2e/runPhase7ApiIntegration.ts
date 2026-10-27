@@ -1047,8 +1047,8 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
   )
   if (
-    names.length !== 48 ||
-    names.at(-1) !== '20261028090000_sso_account_erasure_worker_queue' ||
+    names.length !== 49 ||
+    names.at(-1) !== '20261028120000_sso_account_erasure_claim_lease' ||
     applied.rows.length !== names.length ||
     applied.rows.some(
       (row, index) =>
@@ -1068,7 +1068,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     )
   )
     throw new Error(
-      'First Google ADMIN bootstrap canonical48 migration history mismatch.'
+      'First Google ADMIN bootstrap canonical49 migration history mismatch.'
     )
   process.stdout.write(
     JSON.stringify({

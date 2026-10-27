@@ -251,6 +251,26 @@ const erasureQueueSchema = z
       .strict()
   )
   .max(100)
+const providerCleanupClaimSchema = z
+  .array(
+    z
+      .object({
+        id: z.uuid(),
+        providers: z.array(
+          z
+            .object({
+              provider: ssoProviderIdSchema,
+              subject: z.string().min(1).nullable()
+            })
+            .strict()
+        )
+      })
+      .strict()
+  )
+  .max(100)
+export type SsoProviderCleanupClaim = z.output<
+  typeof providerCleanupClaimSchema
+>[number]
 /** Internal erasure-worker port only. No provider calls or credentials. */
 export const createSsoAccountErasureWorker = (
   client: Pick<PrismaClient, '$queryRawUnsafe'>
@@ -266,6 +286,20 @@ export const createSsoAccountErasureWorker = (
     )
     if (rows.length !== 1) throw new Error('SSO erasure queue unavailable.')
     return erasureQueueSchema.parse(rows[0]?.result)
+  },
+  claimProviderCleanups: async (
+    batchSize: number,
+    leaseSeconds: number,
+    environment: SsoAccountErasureEnvironment
+  ) => {
+    const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
+      'SELECT "phase7_claim_sso_provider_cleanups"($1::integer,$2::integer,$3::"AdminAuditEnvironment") AS result',
+      z.number().int().min(1).max(100).parse(batchSize),
+      z.number().int().min(30).max(3600).parse(leaseSeconds),
+      ssoAccountErasureEnvironmentSchema.parse(environment)
+    )
+    if (rows.length !== 1) throw new Error('SSO provider claim unavailable.')
+    return providerCleanupClaimSchema.parse(rows[0]?.result)
   },
   complete: async (
     requestId: string,

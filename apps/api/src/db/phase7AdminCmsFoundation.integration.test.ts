@@ -25,7 +25,8 @@ const PHASE7_MIGRATIONS = [
   '20261019113000_sso_admin_fresh_column_qualification',
   '20261020230000_sso_account_lifecycle',
   '20261020233000_sso_first_admin_bootstrap',
-  '20261028090000_sso_account_erasure_worker_queue'
+  '20261028090000_sso_account_erasure_worker_queue',
+  '20261028120000_sso_account_erasure_claim_lease'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -437,16 +438,16 @@ afterAll(async () => {
 })
 
 describe('Phase 7 Slice 1 persistence foundation', () => {
-  it('48 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('49 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(48)
+    expect(ledger.rows).toHaveLength(49)
     expect(
-      ledger.rows.slice(-6).map(({ migrationName }) => migrationName)
+      ledger.rows.slice(-7).map(({ migrationName }) => migrationName)
     ).toEqual(PHASE7_MIGRATIONS)
     expect(
       (
@@ -540,7 +541,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 48 }])
+      ).toEqual([{ migrationCount: 49 }])
     } finally {
       await client.query('ROLLBACK')
     }

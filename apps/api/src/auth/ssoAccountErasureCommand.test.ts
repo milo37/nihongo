@@ -7,8 +7,15 @@ const database = vi.hoisted(() => ({
 }))
 const erasure = vi.hoisted(() => ({
   createWorker: vi.fn(),
-  runBatch: vi.fn()
+  runBatch: vi.fn(),
+  runRevoke: vi.fn()
 }))
+const noProviderWork = {
+  revoked: 0,
+  failed: 0,
+  unavailable: 0,
+  claimLimitReached: false
+}
 
 vi.mock('../db/database.js', () => ({
   createRoleDatabaseRuntime: database.create
@@ -21,6 +28,11 @@ vi.mock('./ssoAccountRepository.js', async (importOriginal) => {
     createSsoAccountErasureWorker: erasure.createWorker,
     runSsoAccountErasureBatch: erasure.runBatch
   }
+})
+vi.mock('./ssoProviderRevoke.js', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('./ssoProviderRevoke.js')>()
+  return { ...original, runSsoProviderRevokeBatch: erasure.runRevoke }
 })
 
 import {
@@ -62,6 +74,7 @@ beforeEach(() => {
     disconnect: database.disconnect
   })
   erasure.createWorker.mockReturnValue({})
+  erasure.runRevoke.mockResolvedValue(noProviderWork)
   stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
 })
@@ -137,7 +150,18 @@ describe('SSO account erasure one-shot command', () => {
     expect(database.create).not.toHaveBeenCalled()
   })
 
-  it('passes PRODUCTION to the worker and returns zero only with no unfinished request', async () => {
+  it('refuses PRODUCTION before connecting without a provider revoke capability', async () => {
+    await expect(
+      runSsoAccountErasureCommand(input('PRODUCTION'))
+    ).resolves.toBe(1)
+    expect(database.create).not.toHaveBeenCalled()
+    expect(stderr).toHaveBeenCalledExactlyOnceWith(
+      '{"event":"auth.account_erasure.failed"}\n'
+    )
+  })
+
+  it('passes PRODUCTION and the injected adapter to the worker and returns zero only with no unfinished request', async () => {
+    const revoke = vi.fn()
     erasure.runBatch.mockResolvedValueOnce({
       completedIds: [id],
       providerCleanupPendingIds: [],
@@ -145,11 +169,18 @@ describe('SSO account erasure one-shot command', () => {
       batchLimitReached: false
     })
     await expect(
-      runSsoAccountErasureCommand(input('PRODUCTION'))
+      runSsoAccountErasureCommand(input('PRODUCTION'), revoke)
     ).resolves.toBe(0)
     expect(database.create).toHaveBeenCalledWith(
       input('PRODUCTION').ERASURE_WORKER_DATABASE_URL,
       'nihongo_erasure_worker'
+    )
+    expect(erasure.runRevoke).toHaveBeenCalledWith(
+      {},
+      revoke,
+      'PRODUCTION',
+      20,
+      300
     )
     expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
     expect(database.disconnect).toHaveBeenCalledOnce()
@@ -185,6 +216,22 @@ describe('SSO account erasure one-shot command', () => {
       expect(stderr).not.toHaveBeenCalled()
     }
   )
+
+  it.each([
+    { ...noProviderWork, failed: 1 },
+    { ...noProviderWork, unavailable: 1 },
+    { ...noProviderWork, claimLimitReached: true }
+  ])('returns one for unfinished provider revoke work', async (providers) => {
+    erasure.runRevoke.mockResolvedValueOnce(providers)
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
+    await expect(runSsoAccountErasureCommand(input())).resolves.toBe(1)
+    expect(stdout).toHaveBeenCalledOnce()
+  })
 
   it('fails closed without exposing connection details', async () => {
     erasure.runBatch.mockRejectedValueOnce(new Error('secret connection'))

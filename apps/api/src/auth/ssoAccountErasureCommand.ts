@@ -14,6 +14,14 @@ import {
   ssoAccountErasureEnvironmentSchema,
   type SsoAccountErasureRunResult
 } from './ssoAccountRepository.js'
+import {
+  runSsoProviderRevokeBatch,
+  unavailableSsoProviderRevokeAdapter,
+  type SsoProviderRevokeAdapter,
+  type SsoProviderRevokeRunResult
+} from './ssoProviderRevoke.js'
+
+const PROVIDER_LEASE_SECONDS = 300
 
 export const parseSsoAccountErasureCommandInput = (
   source: NodeJS.ProcessEnv
@@ -50,19 +58,32 @@ export const parseSsoAccountErasureCommandInput = (
 }
 
 export const runSsoAccountErasureCommand = async (
-  source: NodeJS.ProcessEnv
+  source: NodeJS.ProcessEnv,
+  // Production has no credentialed adapter yet, so it fails before any DB access.
+  revoke?: SsoProviderRevokeAdapter
 ): Promise<0 | 1> => {
   try {
     // SET ROLE and the DB capability are checked again before queue access.
     const input = parseSsoAccountErasureCommandInput(source)
+    if (input.environment === 'PRODUCTION' && revoke === undefined)
+      throw new Error('Production provider revoke capability is absent.')
     const database = createRoleDatabaseRuntime(
       input.databaseUrl,
       'nihongo_erasure_worker'
     )
+    let providers: SsoProviderRevokeRunResult
     let result: SsoAccountErasureRunResult
     try {
+      const worker = createSsoAccountErasureWorker(database.client)
+      providers = await runSsoProviderRevokeBatch(
+        worker,
+        revoke ?? unavailableSsoProviderRevokeAdapter,
+        input.environment,
+        input.batchSize,
+        PROVIDER_LEASE_SECONDS
+      )
       result = await runSsoAccountErasureBatch(
-        createSsoAccountErasureWorker(database.client),
+        worker,
         input.environment,
         input.batchSize
       )
@@ -70,9 +91,12 @@ export const runSsoAccountErasureCommand = async (
       await database.disconnect()
     }
     process.stdout.write(
-      `${JSON.stringify({ event: 'auth.account_erasure.ran', batchSize: input.batchSize, ...result })}\n`
+      `${JSON.stringify({ event: 'auth.account_erasure.ran', batchSize: input.batchSize, providers, ...result })}\n`
     )
-    return result.failedIds.length > 0 ||
+    return providers.failed > 0 ||
+      providers.unavailable > 0 ||
+      providers.claimLimitReached ||
+      result.failedIds.length > 0 ||
       result.providerCleanupPendingIds.length > 0 ||
       result.batchLimitReached
       ? 1

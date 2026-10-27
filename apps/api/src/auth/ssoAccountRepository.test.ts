@@ -164,6 +164,30 @@ describe('SSO account repository boundaries', () => {
     await expect(worker.list(20, 'TEST')).rejects.toThrow()
     expect(query).toHaveBeenCalledTimes(2)
   })
+  it('provider claim uses the leased worker definer and rejects leaked fields', async () => {
+    const claims = [
+      { id: user, providers: [{ provider: 'google', subject: 'sub-1' }] }
+    ]
+    const query = vi.fn(async () => [{ result: claims }]),
+      worker = createSsoAccountErasureWorker(client(query))
+    expect(await worker.claimProviderCleanups(20, 300, 'TEST')).toEqual(claims)
+    expect(query).toHaveBeenCalledWith(
+      'SELECT "phase7_claim_sso_provider_cleanups"($1::integer,$2::integer,$3::"AdminAuditEnvironment") AS result',
+      20,
+      300,
+      'TEST'
+    )
+    await expect(worker.claimProviderCleanups(20, 29, 'TEST')).rejects.toThrow()
+    query.mockResolvedValueOnce([
+      {
+        result: [{ ...claims[0], userId: user }] as unknown as typeof claims
+      }
+    ])
+    await expect(
+      worker.claimProviderCleanups(20, 300, 'TEST')
+    ).rejects.toThrow()
+    expect(query).toHaveBeenCalledTimes(2)
+  })
   it.each([
     ['empty', []],
     [

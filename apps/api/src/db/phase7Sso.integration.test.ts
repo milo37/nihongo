@@ -107,9 +107,12 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     expect(actual.rows[47]?.name).toBe(
       '20261028090000_sso_account_erasure_worker_queue'
     )
+    expect(actual.rows[48]?.name).toBe(
+      '20261028120000_sso_account_erasure_claim_lease'
+    )
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(48)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(49)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {

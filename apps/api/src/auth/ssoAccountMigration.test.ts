@@ -175,4 +175,44 @@ describe('SSO account lifecycle migration source contract (no DB)', () => {
       'REVOKE ALL ON FUNCTION "phase7_record_sso_provider_cleanup"(UUID,TEXT,TEXT)'
     )
   })
+  it('lease migration fences direct erasure and claims provider cleanup with SKIP LOCKED', () => {
+    const lease = readFileSync(
+      new URL(
+        '../../prisma/migrations/20261028120000_sso_account_erasure_claim_lease/migration.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+    expect(lease).toContain("CURRENT_USER <> 'nihongo_phase7_migration'")
+    expect(lease).toContain('RENAME TO "phase7_erase_user_unchecked"')
+    expect(lease).toMatch(
+      /REVOKE ALL ON FUNCTION "phase7_erase_user_unchecked"\(UUID,"AdminAuditEnvironment"\)\s+FROM PUBLIC,"nihongo_app","nihongo_auth_gateway","nihongo_erasure_worker";/u
+    )
+    expect(lease).not.toMatch(/GRANT[^;]*phase7_erase_user_unchecked/u)
+    const direct = migrationBody(lease, 'CREATE FUNCTION "phase7_erase_user"(')
+    expect(direct).toContain("IF environment_value IS DISTINCT FROM 'TEST'")
+    expect(direct.indexOf("'TEST'")).toBeLessThan(
+      direct.indexOf('phase7_erase_user_unchecked')
+    )
+    const completion = migrationBody(
+      lease,
+      'CREATE OR REPLACE FUNCTION "phase7_complete_sso_account_erasure"('
+    )
+    expect(completion).toContain('"phase7_erase_user_unchecked"(r."userId"')
+    expect(completion.indexOf('providerCleanup')).toBeLessThan(
+      completion.indexOf('phase7_erase_user_unchecked')
+    )
+    const claim = migrationBody(
+      lease,
+      'CREATE FUNCTION "phase7_claim_sso_provider_cleanups"('
+    )
+    expect(claim).toContain(
+      'phase7_require_database_capability"(environment_value)'
+    )
+    expect(claim).toContain('FOR UPDATE SKIP LOCKED')
+    expect(claim).toContain('"leaseExpiresAt"<=clock_timestamp()')
+    expect(claim).toContain('lease_seconds NOT BETWEEN 30 AND 3600')
+    expect(claim).not.toMatch(/'userId'|"receiptDigest"|Token"/u)
+    expect(lease).not.toMatch(/GRANT\s+(?:ALL|SELECT|INSERT|UPDATE|DELETE)/u)
+  })
 })

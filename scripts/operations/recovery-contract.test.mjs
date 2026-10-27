@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 48 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 49 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -56,12 +56,16 @@ test('migration profiles separate exact physical 48 TEST entries from the exact 
     name: '20261028090000_sso_account_erasure_worker_queue',
     sha256: 'cc91bd854924b2261ac4dcb2e8036ad62c69ec0af8d5afe756d4ce7f9ed5d8d7'
   })
+  assert.deepEqual(releaseManifest.migrations.entries[48], {
+    name: '20261028120000_sso_account_erasure_claim_lease',
+    sha256: 'bb1075457d171fe0ddc4643e63b8646a27a7cf4087b4aeebe2d151beb3633846'
+  })
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 48,
+      count: 49,
       digestSha256:
-        'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630',
+        '53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392',
       name: 'technical-current-test'
     }
   )
@@ -135,15 +139,15 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
     'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9'
   )
   for (const staleProfile of [
-    { expectedCount: 47 },
+    { expectedCount: 48 },
     {
       expectedDigestSha256:
-        '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891'
+        'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630'
     },
     {
-      expectedCount: 47,
+      expectedCount: 48,
       expectedDigestSha256:
-        '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891'
+        'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630'
     },
     {
       expectedCount: 38,
@@ -404,12 +408,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261028090001_unreviewed_migration',
+        name: '20261028120001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261028090001_unreviewed_migration'
+        '20261028120001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags
