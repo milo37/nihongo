@@ -1,13 +1,14 @@
 import { google } from 'better-auth/social-providers'
+import { verifyProviderIdToken } from 'better-auth/oauth2'
 import { z } from 'zod'
 import type { SsoProvider, SsoVerifiedIdentity } from './ssoProtocol.js'
 
 const profileSchema = z.object({
-  id: z.string().min(1).max(255),
   email: z.email().max(320),
   emailVerified: z.literal(true),
   name: z.string().trim().min(1).max(80).catch('학습자')
 })
+const subjectSchema = z.string().min(1).max(255)
 
 /** The Google-first implementation baseline is not a user-selected provider. */
 export const createGoogleSsoProvider = (input: {
@@ -60,16 +61,17 @@ export const createGoogleSsoProvider = (input: {
       // issuer, audience, expiry/age and our nonce before using that profile.
       if (
         !tokens.idToken ||
-        !(await provider.verifyIdToken(tokens.idToken, nonce))
+        !(await verifyProviderIdToken(provider, tokens.idToken, nonce))
       ) {
         return null
       }
       const info = await provider.getUserInfo(tokens)
       const parsed = profileSchema.safeParse(info?.user)
-      if (!parsed.success) return null
+      const subject = subjectSchema.safeParse(info?.data?.sub)
+      if (!parsed.success || !subject.success) return null
       return {
         provider: 'google',
-        accountId: parsed.data.id,
+        accountId: subject.data,
         email: parsed.data.email.toLowerCase(),
         name: parsed.data.name
       }
