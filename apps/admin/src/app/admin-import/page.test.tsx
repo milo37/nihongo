@@ -164,7 +164,11 @@ it('validates exact items then explicitly applies the same digest and blocks dup
     query: {},
     body: request
   })
-  expect(screen.getByRole('heading', { name: t('import.valid') })).toHaveFocus()
+  await waitFor(() =>
+    expect(
+      screen.getByRole('heading', { name: t('import.valid') })
+    ).toHaveFocus()
+  )
   await userEvent.click(applyButton())
   expect(
     await screen.findByText(t('import.applied', { formattedCount: '1' }))
