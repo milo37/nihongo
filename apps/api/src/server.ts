@@ -256,19 +256,19 @@ const adminCommandRateLimiter = technicalMode
       keySecret: environment.GUEST_COOKIE_SECRET
     })
   : undefined
-const questionReportRateLimiter = technicalMode
+// Learner reports need Phase 7 sessions and schema, not the technical CMS.
+const questionReportRateLimiter = ownedAuth
   ? createQuestionReportRateLimiter({
       client: database.client,
       keySecret: environment.GUEST_COOKIE_SECRET
     })
   : undefined
-const questionReportService =
-  technicalMode && questionReportRateLimiter
-    ? createQuestionReportService({
-        rateLimiter: questionReportRateLimiter,
-        repository: createPrismaQuestionReportRepository(database.client)
-      })
-    : undefined
+const questionReportService = questionReportRateLimiter
+  ? createQuestionReportService({
+      rateLimiter: questionReportRateLimiter,
+      repository: createPrismaQuestionReportRepository(database.client)
+    })
+  : undefined
 const app = createApiApp({
   ...(adminQuestionReader &&
   adminReadRateLimiter &&
@@ -295,6 +295,14 @@ const app = createApiApp({
           },
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader
+        }
+      }
+    : {}),
+  ...(questionReportRateLimiter && questionReportService
+    ? {
+        questionReports: {
+          rateLimiter: questionReportRateLimiter,
+          service: questionReportService
         }
       }
     : {}),

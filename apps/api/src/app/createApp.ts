@@ -157,6 +157,10 @@ interface CreateApiAppDependencies {
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
   }
+  questionReports?: {
+    rateLimiter: QuestionReportRateLimiter
+    service: QuestionReportService
+  }
   study?: {
     draftService?: StudyDraftService
     practiceContractV2Enabled: boolean
@@ -386,6 +390,7 @@ export const createApiApp = ({
   learning,
   questionReader,
   questionReadSecurity,
+  questionReports,
   releaseId = '0000000000000000000000000000000000000000',
   study,
   webAssetsDirectory,
@@ -398,6 +403,11 @@ export const createApiApp = ({
     admin !== undefined &&
     auth?.environment.ADMIN_CMS_MODE === 'technical' &&
     auth.environment.NODE_ENV !== 'production'
+  // Learner reports stay available when the technical CMS is disabled.
+  const learnerReports =
+    auth === undefined
+      ? undefined
+      : (questionReports ?? (technicalAdminEnabled ? admin.reports : undefined))
 
   app.use('*', requestContext)
   app.use('*', secureHeaders())
@@ -413,6 +423,17 @@ export const createApiApp = ({
       isPhase7ExcludedRequest(requestTarget) ||
       isPhase7ExcludedRequest(context.req.path)
     if (!isPhase7Request) {
+      await next()
+      return
+    }
+
+    if (
+      learnerReports !== undefined &&
+      isCanonicalPhase7LearnerReportRequest({
+        method: context.req.method,
+        requestTarget
+      })
+    ) {
       await next()
       return
     }
@@ -442,14 +463,10 @@ export const createApiApp = ({
             requestTarget
           })) ||
         (admin?.reports !== undefined &&
-          (isCanonicalPhase7Slice5AdminReadRequest({
+          isCanonicalPhase7Slice5AdminReadRequest({
             method: context.req.method,
             requestTarget
-          }) ||
-            isCanonicalPhase7LearnerReportRequest({
-              method: context.req.method,
-              requestTarget
-            }))))
+          })))
     ) {
       await next()
       return
@@ -551,6 +568,19 @@ export const createApiApp = ({
           : technicalBaseCors(context, next)
       })
     }
+    if (learnerReports) {
+      app.route(
+        '/api/v1/question-reports',
+        createQuestionReportRoutes({
+          guard: createQuestionReportGuard({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learnerReports.rateLimiter
+          }),
+          service: learnerReports.service
+        })
+      )
+    }
     if (
       admin &&
       auth.environment.ADMIN_CMS_MODE === 'technical' &&
@@ -577,17 +607,6 @@ export const createApiApp = ({
               environment: auth.environment,
               principalService: auth.principalService,
               rateLimiter: admin.rateLimiter
-            }),
-            service: admin.reports.service
-          })
-        )
-        app.route(
-          '/api/v1/question-reports',
-          createQuestionReportRoutes({
-            guard: createQuestionReportGuard({
-              environment: auth.environment,
-              principalService: auth.principalService,
-              rateLimiter: admin.reports.rateLimiter
             }),
             service: admin.reports.service
           })
