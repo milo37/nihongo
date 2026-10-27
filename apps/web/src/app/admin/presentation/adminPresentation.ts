@@ -210,7 +210,8 @@ export const adminAuditChangedFieldKey = {
 
 export const adminAuditEnvironmentKey = {
   TEST: 'enums.auditEnvironments.TEST',
-  DEVELOPMENT: 'enums.auditEnvironments.DEVELOPMENT'
+  DEVELOPMENT: 'enums.auditEnvironments.DEVELOPMENT',
+  PRODUCTION: 'enums.auditEnvironments.PRODUCTION'
 } as const satisfies Record<AdminAuditLogItem['environment'], string>
 
 export const adminActorLabelKey = {

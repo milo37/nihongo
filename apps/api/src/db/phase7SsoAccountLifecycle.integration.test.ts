@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  createSsoAccountErasureWorker,
+  runSsoAccountErasureBatch
+} from '../auth/ssoAccountRepository.js'
 import { createSsoDbHarness, digest } from './phase7SsoTestFixture.js'
 import type { SsoFixture } from './phase7SsoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -139,7 +144,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       ).rows[0]?.count
     ).toBe(1)
   })
-  it('fresh account deletion revokes every app session before worker-only erasure and keeps provider cleanup independent', async () => {
+  it('fresh account deletion revokes every app session and requires provider cleanup proof before erasure', async () => {
     await h.rollback(async () => {
       const f = await h.fixture('google', 'USER')
       await h.learningFixture(f.userId)
@@ -188,6 +193,60 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
             [job.id]
           )
         ).rows[0]?.ok
+      ).toBe(false)
+      expect(
+        await gateway(
+          'SELECT "phase7_sso_account_erasure_status"($1) AS result',
+          [receipt]
+        )
+      ).toEqual({
+        appStatus: 'DELETION_PENDING',
+        providerCleanup: [{ provider: 'google', status: 'PENDING' }]
+      })
+      expect(
+        (
+          await h.owner.query(
+            'SELECT count(*)::int AS count FROM "User" WHERE id=$1',
+            [f.userId]
+          )
+        ).rows[0]?.count
+      ).toBe(1)
+      const recordCleanup = async (status: 'COMPLETED' | 'FAILED') =>
+        (
+          await h.roleQuery<{ ok: boolean }>(
+            'nihongo_erasure_worker',
+            "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
+            [job.id, status]
+          )
+        ).rows[0]?.ok
+      expect(await recordCleanup('FAILED')).toBe(true)
+      expect(
+        (
+          await h.roleQuery<{ ok: boolean }>(
+            'nihongo_erasure_worker',
+            'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
+            [job.id]
+          )
+        ).rows[0]?.ok
+      ).toBe(false)
+      expect(
+        await gateway(
+          'SELECT "phase7_sso_account_erasure_status"($1) AS result',
+          [receipt]
+        )
+      ).toEqual({
+        appStatus: 'DELETION_PENDING',
+        providerCleanup: [{ provider: 'google', status: 'FAILED' }]
+      })
+      expect(await recordCleanup('COMPLETED')).toBe(true)
+      expect(
+        (
+          await h.roleQuery<{ ok: boolean }>(
+            'nihongo_erasure_worker',
+            'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
+            [job.id]
+          )
+        ).rows[0]?.ok
       ).toBe(true)
       expect(
         await gateway(
@@ -196,21 +255,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         )
       ).toEqual({
         appStatus: 'DELETED',
-        providerCleanup: [{ provider: 'google', status: 'PENDING' }]
-      })
-      await h.roleQuery(
-        'nihongo_erasure_worker',
-        "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','FAILED')",
-        [job.id]
-      )
-      expect(
-        await gateway(
-          'SELECT "phase7_sso_account_erasure_status"($1) AS result',
-          [receipt]
-        )
-      ).toEqual({
-        appStatus: 'DELETED',
-        providerCleanup: [{ provider: 'google', status: 'FAILED' }]
+        providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
       })
       expect(
         (
@@ -220,6 +265,116 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows
       ).toEqual([{ users: 0, proofs: 0, bookmarks: 0 }])
+      await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
+  it('one-shot worker completes requests idempotently, retries partial failure and waits for provider cleanup', async () => {
+    await h.rollback(async () => {
+      const worker = createSsoAccountErasureWorker({
+        $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
+          (await h.roleQuery('nihongo_erasure_worker', sql, args)).rows
+      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const request = async () => {
+        const f = await h.fixture('google', 'USER')
+        const receipt = digest()
+        await gateway(
+          'SELECT "phase7_request_sso_account_erasure"($1,$2,$3) AS result',
+          [f.token, await verifyFresh(f), receipt]
+        )
+        const { id } = (
+          await h.owner.query<{ id: string }>(
+            'SELECT id FROM "SsoAccountErasureRequest" WHERE "receiptDigest"=$1',
+            [receipt]
+          )
+        ).rows[0]!
+        return { ...f, id }
+      }
+      const a = await request(),
+        b = await request(),
+        bystander = await h.fixture('google', 'USER')
+      const mine = (ids: string[]) =>
+        ids.filter((id) => id === a.id || id === b.id)
+      const run = async () => {
+        const r = await runSsoAccountErasureBatch(worker, 'TEST', 100)
+        return {
+          completedIds: mine(r.completedIds),
+          providerCleanupPendingIds: mine(r.providerCleanupPendingIds),
+          failedIds: mine(r.failedIds)
+        }
+      }
+      for (const role of ['nihongo_auth_gateway', 'nihongo_app'] as const)
+        await h.rejects(
+          role,
+          'SELECT "phase7_list_sso_account_erasures"(10,\'TEST\')',
+          [],
+          '42501'
+        )
+      const users = async (ids: string[]) =>
+        (
+          await h.owner.query<{ id: string; sessions: number }>(
+            'SELECT u.id,(SELECT count(*)::int FROM "Session" s WHERE s."userId"=u.id) AS sessions FROM "User" u WHERE u.id=ANY($1::uuid[]) ORDER BY u.id',
+            [ids]
+          )
+        ).rows
+      expect(await run()).toEqual({
+        completedIds: [],
+        providerCleanupPendingIds: [a.id, b.id],
+        failedIds: []
+      })
+      expect(await users([a.userId, b.userId])).toHaveLength(2)
+      // Simulates evidence supplied by a future credentialed provider adapter.
+      expect(
+        await worker.recordProviderCleanup(a.id, 'google', 'COMPLETED', 'TEST')
+      ).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(b.id, 'google', 'FAILED', 'TEST')
+      ).toBe(true)
+      expect(await run()).toEqual({
+        completedIds: [a.id],
+        providerCleanupPendingIds: [b.id],
+        failedIds: []
+      })
+      expect(await users([a.userId])).toEqual([])
+      expect(await users([b.userId])).toEqual([{ id: b.userId, sessions: 0 }])
+      expect(await users([bystander.userId])).toEqual([
+        { id: bystander.userId, sessions: 1 }
+      ])
+      expect(
+        await worker.recordProviderCleanup(b.id, 'google', 'COMPLETED', 'TEST')
+      ).toBe(true)
+      // Simulated partial app failure after provider cleanup is complete.
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "userId"=NULL WHERE id=$1',
+        [b.id]
+      )
+      expect(await run()).toEqual({
+        completedIds: [],
+        providerCleanupPendingIds: [],
+        failedIds: [b.id]
+      })
+      expect(await users([b.userId])).toEqual([{ id: b.userId, sessions: 0 }])
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "userId"=$2 WHERE id=$1',
+        [b.id, b.userId]
+      )
+      expect(await run()).toEqual({
+        completedIds: [b.id],
+        providerCleanupPendingIds: [],
+        failedIds: []
+      })
+      expect(await users([b.userId])).toEqual([])
+      expect(await worker.complete(b.id, 'TEST')).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(b.id, 'google', 'FAILED', 'TEST')
+      ).toBe(false)
+      expect(await run()).toEqual({
+        completedIds: [],
+        providerCleanupPendingIds: [],
+        failedIds: []
+      })
+      expect(await users([bystander.userId])).toEqual([
+        { id: bystander.userId, sessions: 1 }
+      ])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })

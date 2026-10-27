@@ -190,7 +190,8 @@ export const jaAdminResources = {
     },
     auditEnvironments: {
       TEST: 'テスト',
-      DEVELOPMENT: '開発'
+      DEVELOPMENT: '開発',
+      PRODUCTION: '本番'
     },
     actorLabels: {
       ACTIVE_USER: '有効な学習者',

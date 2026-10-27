@@ -9,6 +9,9 @@ import {
 export const AccountDataPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const { isReady, user, receipt } = useSsoAccountDeletion()
+  const isDeletionComplete =
+    receipt.data?.appStatus === 'DELETED' &&
+    receipt.data.providerCleanup.every((item) => item.status === 'COMPLETED')
   return (
     <section className="auth-page">
       <div className="auth-panel">
@@ -23,9 +26,11 @@ export const AccountDataPage = (): ReactElement => {
           <>
             <p role="status">
               {t(
-                receipt.data.appStatus === 'DELETED'
-                  ? 'sso.deletionComplete'
-                  : 'sso.deletionAccepted'
+                receipt.data.appStatus !== 'DELETED'
+                  ? 'sso.deletionAccepted'
+                  : isDeletionComplete
+                    ? 'sso.deletionComplete'
+                    : 'sso.appDataDeletionComplete'
               )}
             </p>
             <ul className="grid gap-3">

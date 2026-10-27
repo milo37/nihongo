@@ -39,6 +39,7 @@ import {
   validateLearnerBookmark,
   validateLearnerQuestionSummary,
   validateStatefulPrincipal,
+  verifyPackagedAccountErasureCommand,
   verifyPortableRuntimeSmokeEvidence
 } from './portable-runtime-smoke.mjs'
 
@@ -457,35 +458,87 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current47 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned current48 inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 47)
+  assert.equal(names.length, 48)
   assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
-  assert.equal(names.at(-1), '20261020233000_sso_first_admin_bootstrap')
+  assert.equal(names.at(-1), '20261028090000_sso_account_erasure_worker_queue')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-47 migration inventory/u
+      /current-48 migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-47 migration inventory/u
+      /current-48 migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-47 migration inventory/u
+      /current-48 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
+  }
+})
+
+test('portable runtime executes the packaged account erasure command fail-closed', () => {
+  const imageId = `sha256:${'a'.repeat(64)}`
+  let invocation
+  assert.doesNotThrow(() =>
+    verifyPackagedAccountErasureCommand(
+      imageId,
+      (command, argumentsList, options) => {
+        invocation = { argumentsList, command, options }
+        return {
+          status: 1,
+          stderr: '{"event":"auth.account_erasure.failed"}\n',
+          stdout: ''
+        }
+      }
+    )
+  )
+  assert.deepEqual(invocation, {
+    command: 'docker',
+    argumentsList: [
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--read-only',
+      '--tmpfs',
+      '/tmp:rw,noexec,nosuid,size=16m',
+      '--cap-drop',
+      'ALL',
+      '--security-opt',
+      'no-new-privileges',
+      '--entrypoint',
+      'node',
+      imageId,
+      '/app/api/dist/auth/ssoAccountErasureCommand.js'
+    ],
+    options: { allowFailure: true }
+  })
+  for (const result of [
+    { status: 0, stderr: '', stdout: '' },
+    {
+      status: 1,
+      stderr: 'private child diagnostics',
+      stdout: ''
+    }
+  ]) {
+    assert.throws(
+      () => verifyPackagedAccountErasureCommand(imageId, () => result),
+      /did not fail closed/u
+    )
   }
 })
 
@@ -775,7 +828,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 47,
+    migrationCount: 48,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

@@ -22,6 +22,11 @@ interface Phase7MigrationDatabaseGuardInput {
   productionDatabaseUrl: string | undefined
 }
 
+interface ExactProductionDatabaseGuardInput {
+  databaseUrl: string | undefined
+  productionDatabaseUrl: string | undefined
+}
+
 interface DatabaseIdentity {
   hostname: string
   port: string
@@ -31,6 +36,13 @@ interface DatabaseIdentity {
 
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
 const PHASE7_MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_phase7_migration'
+const EXACT_TARGET_PARAMETERS = new Set([
+  'schema',
+  'sslmode',
+  'sslrootcert',
+  'sslcert',
+  'sslkey'
+])
 
 const parseDatabaseUrl = (value: string): URL => {
   try {
@@ -117,6 +129,35 @@ const isSameDatabase = (
   left.hostname === right.hostname &&
   left.port === right.port &&
   left.databaseName === right.databaseName
+
+export const assertExactProductionDatabaseTarget = ({
+  databaseUrl,
+  productionDatabaseUrl
+}: ExactProductionDatabaseGuardInput): void => {
+  if (!databaseUrl || !productionDatabaseUrl) {
+    throw new Error(
+      'Production database operation requires exact production target proof.'
+    )
+  }
+  const targetUrl = parseDatabaseUrl(databaseUrl)
+  const productionUrl = parseDatabaseUrl(productionDatabaseUrl)
+  const target = getIdentity(targetUrl)
+  const production = getIdentity(productionUrl)
+  if (
+    target.databaseName.length === 0 ||
+    production.databaseName.length === 0 ||
+    [...targetUrl.searchParams.keys()].some(
+      (key) => !EXACT_TARGET_PARAMETERS.has(key)
+    ) ||
+    [...productionUrl.searchParams.keys()].some(
+      (key) => !EXACT_TARGET_PARAMETERS.has(key)
+    ) ||
+    !isSameDatabase(target, production) ||
+    getExactSchema(targetUrl) !== getExactSchema(productionUrl)
+  ) {
+    throw new Error('Production database operation target is not exact.')
+  }
+}
 
 const assertNotProductionTarget = (
   target: DatabaseIdentity,
