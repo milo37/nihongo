@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   createAuthorizationURL: vi.fn(),
   validateAuthorizationCode: vi.fn(),
-  verifyIdToken: vi.fn(),
+  verifyProviderIdToken: vi.fn(),
   getUserInfo: vi.fn()
 }))
 vi.mock('better-auth/social-providers', () => ({ google: () => mocks }))
+vi.mock('better-auth/oauth2', () => ({
+  verifyProviderIdToken: mocks.verifyProviderIdToken
+}))
 import { createGoogleSsoProvider } from './ssoGoogleProvider.js'
 
 const create = () =>
@@ -21,15 +24,15 @@ describe('Google SSO token verification boundary', () => {
     mocks.validateAuthorizationCode.mockResolvedValue({
       idToken: 'test-id-token'
     })
-    mocks.verifyIdToken.mockResolvedValue(true)
+    mocks.verifyProviderIdToken.mockResolvedValue(true)
     mocks.getUserInfo.mockResolvedValue({
       user: {
-        id: 'google-sub',
         email: 'CONTACT@example.test',
         emailVerified: true,
         name: '학습자',
         role: 'ADMIN'
-      }
+      },
+      data: { sub: 'google-sub' }
     })
     expect(
       await create().exchange({
@@ -43,20 +46,21 @@ describe('Google SSO token verification boundary', () => {
       email: 'contact@example.test',
       name: '학습자'
     })
-    expect(mocks.verifyIdToken).toHaveBeenCalledWith(
+    expect(mocks.verifyProviderIdToken).toHaveBeenCalledWith(
+      mocks,
       'test-id-token',
       'expected-nonce'
     )
-    expect(mocks.verifyIdToken.mock.invocationCallOrder[0]!).toBeLessThan(
-      mocks.getUserInfo.mock.invocationCallOrder[0]!
-    )
+    expect(
+      mocks.verifyProviderIdToken.mock.invocationCallOrder[0]!
+    ).toBeLessThan(mocks.getUserInfo.mock.invocationCallOrder[0]!)
   })
   it('rejects wrong nonce/signature without decoding a profile', async () => {
     vi.clearAllMocks()
     mocks.validateAuthorizationCode.mockResolvedValue({
       idToken: 'test-id-token'
     })
-    mocks.verifyIdToken.mockResolvedValue(false)
+    mocks.verifyProviderIdToken.mockResolvedValue(false)
     expect(
       await create().exchange({
         code: 'test-code',
@@ -76,16 +80,36 @@ describe('Google SSO token verification boundary', () => {
         codeVerifier: 'pkce'
       })
     ).toBeNull()
-    expect(mocks.verifyIdToken).not.toHaveBeenCalled()
+    expect(mocks.verifyProviderIdToken).not.toHaveBeenCalled()
     mocks.validateAuthorizationCode.mockResolvedValue({ idToken: 'token' })
-    mocks.verifyIdToken.mockResolvedValue(true)
+    mocks.verifyProviderIdToken.mockResolvedValue(true)
     mocks.getUserInfo.mockResolvedValue({
       user: {
-        id: 'sub',
         email: 'contact@example.test',
         emailVerified: false,
         name: 'name'
-      }
+      },
+      data: { sub: 'sub' }
+    })
+    expect(
+      await create().exchange({
+        code: 'code',
+        nonce: 'nonce',
+        codeVerifier: 'pkce'
+      })
+    ).toBeNull()
+  })
+  it('rejects a profile without a verified raw provider subject', async () => {
+    vi.clearAllMocks()
+    mocks.validateAuthorizationCode.mockResolvedValue({ idToken: 'token' })
+    mocks.verifyProviderIdToken.mockResolvedValue(true)
+    mocks.getUserInfo.mockResolvedValue({
+      user: {
+        email: 'contact@example.test',
+        emailVerified: true,
+        name: 'name'
+      },
+      data: {}
     })
     expect(
       await create().exchange({
