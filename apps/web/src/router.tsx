@@ -8,6 +8,7 @@ import { Layout } from '@app/layout'
 import { loginRoutes } from '@app/login/router'
 import { NotFoundPage } from '@nihongo/browser/app/not-found/page'
 import { RouteErrorPage } from '@nihongo/browser/app/not-found/route-error'
+import { operationsRoutes } from '@app/operations/router'
 import { practiceRoutes } from '@app/practice/router'
 import { wrongNoteRoutes } from '@app/wrong-note/router'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
@@ -36,6 +37,7 @@ export const appRoutes: RouteObject[] = [
     children: [
       ...homeRoutes,
       ...loginRoutes,
+      ...operationsRoutes,
       ...practiceRoutes,
       ...wrongNoteRoutes.filter((route) => route.path === 'wrong-notes'),
       {
