@@ -7,11 +7,15 @@ The one-shot `auth:erase-deletion-pending:compiled` runs two phases with the
 `nihongo_erasure_worker` role:
 
 1. Provider revoke: `phase7_claim_sso_provider_cleanups` leases up to the batch
-   size of requests (300 seconds, `FOR UPDATE SKIP LOCKED`) and returns only the
-   request id, provider and provider subject. Only a leased claim reaches a
-   provider. A revoke success records `COMPLETED`; a provider or network error
-   records `FAILED`; a missing subject, token or credential records nothing and
-   the request stays pending.
+   size of requests (300 seconds, `FOR UPDATE SKIP LOCKED`) and returns the
+   request id, lease token, provider and provider subject. Before a provider
+   call, `phase7_begin_sso_provider_cleanup` validates the live token and stores
+   a durable provider-dispatch marker. A revoke success records `COMPLETED` and
+   clears the marker; Google `400 invalid_token` is treated as already revoked.
+   `UNAVAILABLE` proves no provider call was sent, clears the marker and leaves
+   cleanup pending. A failed or unknown remote outcome retains the marker, so
+   lease expiry cannot authorize a duplicate call. A missing subject stays
+   pending without setting a marker.
 2. App erasure: `phase7_complete_sso_account_erasure` deletes app data only
    after every provider cleanup is `COMPLETED`.
 

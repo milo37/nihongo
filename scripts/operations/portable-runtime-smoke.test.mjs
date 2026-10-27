@@ -458,32 +458,32 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current49 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned current50 inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 49)
+  assert.equal(names.length, 50)
   assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
-  assert.equal(names.at(-1), '20261028120000_sso_account_erasure_claim_lease')
+  assert.equal(names.at(-1), '20261028150000_sso_provider_cleanup_fencing')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-49 migration inventory/u
+      /current-50 migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-49 migration inventory/u
+      /current-50 migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-49 migration inventory/u
+      /current-50 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
@@ -828,7 +828,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 49,
+    migrationCount: 50,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

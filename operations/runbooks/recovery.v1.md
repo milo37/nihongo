@@ -12,10 +12,10 @@ digest, source target fingerprint, three separated database identity
 fingerprints, backup evidence, deployment approver, incident owner, and a
 maintenance or generation lease. Never infer an environment from a hostname.
 
-`technical-current-test` is TEST-only and selects the exact 49 ordered physical
+`technical-current-test` is TEST-only and selects the exact 50 ordered physical
 release migrations, including the current catalog migration. Both the count and
 the reviewed SHA256 digest
-`53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392`
+`299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083`
 are fixed; an internally consistent count or digest alone is not sufficient.
 The current source pin for
 `20261009120000_phase7_approved_n4_reading_batch7_tags` is
@@ -45,13 +45,19 @@ The historical physical48 source adds
 Its ordered inventory digest
 `a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630`
 is also rejected.
-The current physical49 source adds
+The historical physical49 source adds
 `20261028120000_sso_account_erasure_claim_lease`, with reviewed file SHA256
 `bb1075457d171fe0ddc4643e63b8646a27a7cf4087b4aeebe2d151beb3633846`.
+Its ordered inventory digest
+`53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392`
+is also rejected.
+The current physical50 source adds
+`20261028150000_sso_provider_cleanup_fencing`, with reviewed file SHA256
+`394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e`.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical49, historical48, historical47, historical39 or catalog-excluded38
+No current physical50, historical49, historical48, historical47, historical39 or catalog-excluded38
 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
@@ -68,7 +74,7 @@ That historical disposable-fixture plan was to first complete canonical36 with t
 original 65 questions, 108 tags and 127 applicability cells; its prior unchanged
 20-name/24-cell command was to reach 128/151, followed by the then-new append,
 completed canonical37 and the closed 15-name/15-cell command. These historical
-counts and commands are not preparation instructions for the current SQL49.
+counts and commands are not preparation instructions for the current SQL50.
 All predecessor, historical and catalog-excluded inventories remain rejected
 as the current technical profile, even when their own digests are consistent.
 No fixture preparation, SQL execution, activation or deployment is performed by
@@ -107,7 +113,7 @@ current technical recovery profile or as a fallback.
 `20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
 candidate rather than current-artifact compatibility or deployability proof.
 The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
-The replacement candidate uses a current-49 controlled Google-linked TEST session:
+The replacement candidate uses a current-50 controlled Google-linked TEST session:
 task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
 reviewed canonical65 seed helper, and remaining immutable migrations. An existing
 unique canonical tag must return exactly one matching question/version. The same

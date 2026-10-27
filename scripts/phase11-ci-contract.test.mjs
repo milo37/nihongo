@@ -328,12 +328,12 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   ])
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
-    49
+    50
   )
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test']
       .expectedDigestSha256,
-    '53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392'
+    '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
   )
   for (const distinctDigest of [
     'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630',
@@ -398,7 +398,7 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   assert.match(recoveryRunbook, /unverified activation\s+candidate/u)
   assert.match(
     recoveryRunbook,
-    /current-49 controlled Google-linked TEST session/u
+    /current-50 controlled Google-linked TEST session/u
   )
   assert.match(recoveryRunbook, /external Google exchange remains unverified/u)
   assert.doesNotMatch(recoveryRunbook, /stateful sign-up, sign-in/u)
@@ -410,14 +410,14 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
     recoveryRunbook,
     /neither this technical\s+recovery profile nor a runtime profile/u
   )
-  assert.match(recoveryRunbook, /exact 49 ordered physical/u)
+  assert.match(recoveryRunbook, /exact 50 ordered physical/u)
   assert.match(
     recoveryRunbook,
-    /No current physical49, historical48, historical47, historical39 or catalog-excluded38\s+recovery DB drill is verified here/u
+    /No current physical50, historical49, historical48, historical47, historical39 or catalog-excluded38\s+recovery DB drill is verified here/u
   )
   assert.ok(
     recoveryRunbook.includes(
-      '53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392'
+      '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
     )
   )
   assert.ok(

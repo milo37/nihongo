@@ -130,16 +130,49 @@ describe('SSO account repository boundaries', () => {
       'TEST'
     )
     expect(
-      await worker.recordProviderCleanup(user, 'apple', 'FAILED', 'TEST')
+      await worker.recordProviderCleanup(
+        user,
+        'apple',
+        'FAILED',
+        session,
+        'TEST'
+      )
     ).toBe(true)
     expect(query).toHaveBeenLastCalledWith(
-      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::"AdminAuditEnvironment") AS completed',
+      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::uuid,$5::"AdminAuditEnvironment") AS completed',
       user,
       'apple',
       'FAILED',
+      session,
       'TEST'
     )
     expect(query).toHaveBeenCalledTimes(2)
+  })
+  it('requires a UUID lease token before dispatch or record SQL', async () => {
+    const query = vi.fn(async () => [{ started: true }])
+    const worker = createSsoAccountErasureWorker(client(query))
+    expect(
+      await worker.beginProviderCleanup(user, 'google', session, 'TEST')
+    ).toBe(true)
+    expect(query).toHaveBeenCalledWith(
+      'SELECT "phase7_begin_sso_provider_cleanup"($1::uuid,$2,$3::uuid,$4::"AdminAuditEnvironment") AS started',
+      user,
+      'google',
+      session,
+      'TEST'
+    )
+    await expect(
+      worker.beginProviderCleanup(user, 'google', '', 'TEST')
+    ).rejects.toThrow()
+    await expect(
+      worker.recordProviderCleanup(user, 'google', 'COMPLETED', '', 'TEST')
+    ).rejects.toThrow()
+    expect(query).toHaveBeenCalledTimes(1)
+  })
+  it('rejects a claim without a fencing token', async () => {
+    const query = vi.fn(async () => [{ result: [{ id: user, providers: [] }] }])
+    const worker = createSsoAccountErasureWorker(client(query))
+    await expect(worker.claimProviderCleanups(1, 300, 'TEST')).rejects.toThrow()
   })
   it('worker queue uses the fixed worker definer and rejects leaked fields', async () => {
     const queue = [
@@ -166,7 +199,11 @@ describe('SSO account repository boundaries', () => {
   })
   it('provider claim uses the leased worker definer and rejects leaked fields', async () => {
     const claims = [
-      { id: user, providers: [{ provider: 'google', subject: 'sub-1' }] }
+      {
+        id: user,
+        leaseToken: session,
+        providers: [{ provider: 'google', subject: 'sub-1' }]
+      }
     ]
     const query = vi.fn(async () => [{ result: claims }]),
       worker = createSsoAccountErasureWorker(client(query))
