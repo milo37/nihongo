@@ -2,10 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   createAuthorizationURL: vi.fn(),
   validateAuthorizationCode: vi.fn(),
-  verifyIdToken: vi.fn(),
+  verifyProviderIdToken: vi.fn(),
   getUserInfo: vi.fn()
 }))
 vi.mock('better-auth/social-providers', () => ({ apple: () => mocks }))
+vi.mock('better-auth/oauth2', () => ({
+  verifyProviderIdToken: mocks.verifyProviderIdToken
+}))
 import { createAppleSsoProvider } from './ssoAppleProvider.js'
 import { createSsoBindingCookie, createSsoLoginService } from './ssoProtocol.js'
 import type { SsoTransaction } from './ssoProtocol.js'
@@ -43,15 +46,15 @@ describe('Apple SSO boundary', () => {
     mocks.validateAuthorizationCode.mockResolvedValue({
       idToken: 'signed-test-token'
     })
-    mocks.verifyIdToken.mockResolvedValue(true)
+    mocks.verifyProviderIdToken.mockResolvedValue(true)
     mocks.getUserInfo.mockResolvedValue({
       user: {
-        id: 'same-sub-across-providers',
         email: 'relay@privaterelay.appleid.com',
         emailVerified: true,
         name: '',
         role: 'ADMIN'
-      }
+      },
+      data: { sub: 'same-sub-across-providers' }
     })
     expect(
       await create().exchange({
@@ -65,18 +68,19 @@ describe('Apple SSO boundary', () => {
       email: 'relay@privaterelay.appleid.com',
       name: '학습자'
     })
-    expect(mocks.verifyIdToken).toHaveBeenCalledWith(
+    expect(mocks.verifyProviderIdToken).toHaveBeenCalledWith(
+      mocks,
       'signed-test-token',
       'nonce'
     )
-    expect(mocks.verifyIdToken.mock.invocationCallOrder[0]!).toBeLessThan(
-      mocks.getUserInfo.mock.invocationCallOrder[0]!
-    )
+    expect(
+      mocks.verifyProviderIdToken.mock.invocationCallOrder[0]!
+    ).toBeLessThan(mocks.getUserInfo.mock.invocationCallOrder[0]!)
   })
   it('rejects wrong nonce/signature without a profile read', async () => {
     vi.clearAllMocks()
     mocks.validateAuthorizationCode.mockResolvedValue({ idToken: 'token' })
-    mocks.verifyIdToken.mockResolvedValue(false)
+    mocks.verifyProviderIdToken.mockResolvedValue(false)
     expect(
       await create().exchange({
         code: 'code',
@@ -85,6 +89,26 @@ describe('Apple SSO boundary', () => {
       })
     ).toBeNull()
     expect(mocks.getUserInfo).not.toHaveBeenCalled()
+  })
+  it('rejects a profile without a verified raw provider subject', async () => {
+    vi.clearAllMocks()
+    mocks.validateAuthorizationCode.mockResolvedValue({ idToken: 'token' })
+    mocks.verifyProviderIdToken.mockResolvedValue(true)
+    mocks.getUserInfo.mockResolvedValue({
+      user: {
+        email: 'relay@privaterelay.appleid.com',
+        emailVerified: true,
+        name: 'name'
+      },
+      data: {}
+    })
+    expect(
+      await create().exchange({
+        code: 'code',
+        nonce: 'nonce',
+        codeVerifier: 'verifier'
+      })
+    ).toBeNull()
   })
   it('rejects a verified identity from another provider even when email/sub match', async () => {
     const transaction: Omit<SsoTransaction, 'stateDigest' | 'bindingDigest'> = {

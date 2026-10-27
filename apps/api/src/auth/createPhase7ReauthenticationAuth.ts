@@ -51,7 +51,6 @@ export const createPhase7ReauthenticationAuthApi = ({
       client,
       getIntentId: context.getIntentId
     }),
-    experimental: { joins: true },
     emailAndPassword: {
       enabled: true,
       autoSignIn: false,
@@ -97,7 +96,7 @@ export const createPhase7ReauthenticationAuthApi = ({
     account: { accountLinking: { enabled: false } },
     rateLimit: { enabled: false },
     advanced: {
-      database: { generateId: 'uuid' },
+      database: { generateId: 'uuid', joins: true },
       ipAddress: { ipAddressHeaders: [INTERNAL_CLIENT_IP_HEADER] },
       trustedProxyHeaders: false,
       cookiePrefix: 'nihongo',
