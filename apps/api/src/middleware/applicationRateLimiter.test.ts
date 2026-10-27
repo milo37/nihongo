@@ -292,3 +292,32 @@ describe('application limiter denial cost without changing admission budgets', (
     expect(f.query).toHaveBeenCalledTimes(4_098)
   })
 })
+
+describe('principal budgets', () => {
+  it('shares an actor budget across IPs but separates other actors and kinds', async () => {
+    const f = fixture()
+    const principal = { kind: 'USER' as const, id: 'actor-a' }
+    const input = { ...f.input, max: 1, principal }
+    await f.limiter.consume(input)
+    await expect(
+      f.limiter.consume({ ...input, clientIp: '192.0.2.2' })
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED' })
+    await f.limiter.consume({
+      ...input,
+      principal: { kind: 'USER', id: 'actor-b' }
+    })
+    await f.limiter.consume({
+      ...input,
+      principal: { kind: 'GUEST', id: 'actor-a' }
+    })
+    await f.limiter.consume({ ...input, operation: 'study-cancel' })
+    expect(f.query).toHaveBeenCalledTimes(4)
+    const values = f.query.mock.calls.map(([query]) => query.values[1])
+    expect(
+      values.every(
+        (value) => typeof value === 'string' && !value.includes('actor-')
+      )
+    ).toBe(true)
+    expect(new Set(values).size).toBe(4)
+  })
+})
