@@ -328,14 +328,15 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   ])
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
-    48
+    50
   )
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test']
       .expectedDigestSha256,
-    'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630'
+    '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
   )
   for (const distinctDigest of [
+    'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630',
     '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891',
     '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa',
     'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9',
@@ -397,7 +398,7 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   assert.match(recoveryRunbook, /unverified activation\s+candidate/u)
   assert.match(
     recoveryRunbook,
-    /current-48 controlled Google-linked TEST session/u
+    /current-50 controlled Google-linked TEST session/u
   )
   assert.match(recoveryRunbook, /external Google exchange remains unverified/u)
   assert.doesNotMatch(recoveryRunbook, /stateful sign-up, sign-in/u)
@@ -409,10 +410,15 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
     recoveryRunbook,
     /neither this technical\s+recovery profile nor a runtime profile/u
   )
-  assert.match(recoveryRunbook, /exact 48 ordered physical/u)
+  assert.match(recoveryRunbook, /exact 50 ordered physical/u)
   assert.match(
     recoveryRunbook,
-    /No current physical48, historical47, historical39 or catalog-excluded38\s+recovery DB drill is verified here/u
+    /No current physical50, historical49, historical48, historical47, historical39 or catalog-excluded38\s+recovery DB drill is verified here/u
+  )
+  assert.ok(
+    recoveryRunbook.includes(
+      '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
+    )
   )
   assert.ok(
     recoveryRunbook.includes(

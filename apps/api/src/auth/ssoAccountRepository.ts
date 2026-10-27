@@ -251,6 +251,27 @@ const erasureQueueSchema = z
       .strict()
   )
   .max(100)
+const providerCleanupClaimSchema = z
+  .array(
+    z
+      .object({
+        id: z.uuid(),
+        leaseToken: z.uuid(),
+        providers: z.array(
+          z
+            .object({
+              provider: ssoProviderIdSchema,
+              subject: z.string().min(1).nullable()
+            })
+            .strict()
+        )
+      })
+      .strict()
+  )
+  .max(100)
+export type SsoProviderCleanupClaim = z.output<
+  typeof providerCleanupClaimSchema
+>[number]
 /** Internal erasure-worker port only. No provider calls or credentials. */
 export const createSsoAccountErasureWorker = (
   client: Pick<PrismaClient, '$queryRawUnsafe'>
@@ -267,6 +288,20 @@ export const createSsoAccountErasureWorker = (
     if (rows.length !== 1) throw new Error('SSO erasure queue unavailable.')
     return erasureQueueSchema.parse(rows[0]?.result)
   },
+  claimProviderCleanups: async (
+    batchSize: number,
+    leaseSeconds: number,
+    environment: SsoAccountErasureEnvironment
+  ) => {
+    const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
+      'SELECT "phase7_claim_sso_provider_cleanups"($1::integer,$2::integer,$3::"AdminAuditEnvironment") AS result',
+      z.number().int().min(1).max(100).parse(batchSize),
+      z.number().int().min(30).max(3600).parse(leaseSeconds),
+      ssoAccountErasureEnvironmentSchema.parse(environment)
+    )
+    if (rows.length !== 1) throw new Error('SSO provider claim unavailable.')
+    return providerCleanupClaimSchema.parse(rows[0]?.result)
+  },
   complete: async (
     requestId: string,
     environment: SsoAccountErasureEnvironment
@@ -278,17 +313,34 @@ export const createSsoAccountErasureWorker = (
     )
     return rows.length === 1 && rows[0]?.completed === true
   },
+  beginProviderCleanup: async (
+    requestId: string,
+    provider: SsoProviderId,
+    leaseToken: string,
+    environment: SsoAccountErasureEnvironment
+  ): Promise<boolean> => {
+    const rows = await client.$queryRawUnsafe<Array<{ started: boolean }>>(
+      'SELECT "phase7_begin_sso_provider_cleanup"($1::uuid,$2,$3::uuid,$4::"AdminAuditEnvironment") AS started',
+      z.uuid().parse(requestId),
+      ssoProviderIdSchema.parse(provider),
+      z.uuid().parse(leaseToken),
+      ssoAccountErasureEnvironmentSchema.parse(environment)
+    )
+    return rows.length === 1 && rows[0]?.started === true
+  },
   recordProviderCleanup: async (
     requestId: string,
     provider: SsoProviderId,
-    status: 'COMPLETED' | 'FAILED',
+    status: 'COMPLETED' | 'FAILED' | 'UNAVAILABLE',
+    leaseToken: string,
     environment: SsoAccountErasureEnvironment
   ): Promise<boolean> => {
     const rows = await client.$queryRawUnsafe<Array<{ completed: boolean }>>(
-      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::"AdminAuditEnvironment") AS completed',
+      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::uuid,$5::"AdminAuditEnvironment") AS completed',
       z.uuid().parse(requestId),
       ssoProviderIdSchema.parse(provider),
-      z.enum(['COMPLETED', 'FAILED']).parse(status),
+      z.enum(['COMPLETED', 'FAILED', 'UNAVAILABLE']).parse(status),
+      z.uuid().parse(leaseToken),
       ssoAccountErasureEnvironmentSchema.parse(environment)
     )
     return rows.length === 1 && rows[0]?.completed === true
