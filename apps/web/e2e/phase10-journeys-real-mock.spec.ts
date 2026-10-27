@@ -1132,6 +1132,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   if (!incorrect)
     throw new Error('The original three-incorrect fixture was not produced.')
 
+  await waitForLedgerToQuiesce(ledger)
   const reloadedResult = waitForApiResponse(
     page,
     'GET',
