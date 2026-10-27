@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { createRequire } from 'node:module'
 
 const requireFromApi = createRequire(
@@ -85,7 +86,7 @@ export const phase9ExpectedTableDeltas = {
   QuestionReport: 1,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 25,
+  RateLimit: 28,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -120,7 +121,10 @@ export const phase9ExpectedRateLimitCategories = {
   'application:phase7:REPORT_ACTOR:ACTOR': 1,
   'application:phase7:REPORT_ACTOR:IP': 1,
   'application:phase7:REPORT_VERSION:VERSION': 1,
+  'application:study-cancel': 0,
   'application:study-create': 2,
+  'application:study-draft-save': 1,
+  'application:study-mutation-ip': 2,
   'application:study-read': 2,
   'application:study-result-read': 1,
   'application:study-submit': 2,
@@ -491,7 +495,7 @@ const rateLimitCategory = (key) => {
   return digestMatch[1]
 }
 
-const assertRateLimitContract = (before, after) => {
+const assertRateLimitContract = (before, after, fixture, keySecret) => {
   const beforeKeys = new Set(before.rateLimitRows.map(({ key }) => key))
   const newRows = after.rateLimitRows.filter(({ key }) => !beforeKeys.has(key))
   assertEqual(
@@ -524,20 +528,57 @@ const assertRateLimitContract = (before, after) => {
     phase9ExpectedRateLimitCategories,
     'rate-limit categories'
   )
+  for (const [operation, actors] of [
+    ['study-draft-save', [fixture.learner]],
+    ['study-submit', [fixture.learner, fixture.author]],
+    ['study-cancel', []]
+  ]) {
+    const expectedKeys = actors.map(({ userId }) => {
+      const digest = createHmac('sha256', keySecret)
+        .update(JSON.stringify([operation, 'USER', userId]))
+        .digest('hex')
+      return `application:${operation}:${digest}`
+    })
+    const actualKeys = newRows
+      .filter(
+        ({ key }) => rateLimitCategory(key) === `application:${operation}`
+      )
+      .map(({ key }) => key)
+    if (
+      JSON.stringify(sorted(actualKeys)) !==
+      JSON.stringify(sorted(expectedKeys))
+    ) {
+      fail(`unexpected rate-limit principal for ${operation}`)
+    }
+  }
   return categories
 }
 
-export const assertPhase9RateLimitContract = (before, after) =>
+export const assertPhase9RateLimitContract = (
+  before,
+  after,
+  fixture,
+  keySecret
+) =>
   withRateLimitDiagnostic(before, after, () =>
-    assertRateLimitContract(before, after)
+    assertRateLimitContract(before, after, fixture, keySecret)
   )
+
+const assertPrivateJsonEqual = (actual, expected, label) => {
+  if (
+    JSON.stringify(canonicalizeJson(actual)) !==
+    JSON.stringify(canonicalizeJson(expected))
+  ) {
+    fail(`${label}: mismatch`)
+  }
+}
 
 const assertIdentityContract = (facts, fixture) => {
   const expectedAuthUsers = sorted([
     fixture.author.userId,
     fixture.learner.userId
   ])
-  assertJsonEqual(
+  assertPrivateJsonEqual(
     sorted(facts.authSessions.map(({ userId }) => userId)),
     expectedAuthUsers,
     'authenticated actor identities'
@@ -585,7 +626,7 @@ const assertIdentityContract = (facts, fixture) => {
       usedFallback: session.usedFallback,
       wrongNoteCount: session.wrongNoteCount
     }
-    assertJsonEqual(
+    assertPrivateJsonEqual(
       projection,
       {
         actualCount: 5,
@@ -604,7 +645,7 @@ const assertIdentityContract = (facts, fixture) => {
     )
   }
   if (!learnerReading) fail('missing learner reading session')
-  assertJsonEqual(
+  assertPrivateJsonEqual(
     {
       actualCount: learnerReading.actualCount,
       answerCount: learnerReading.answerCount,
@@ -633,7 +674,7 @@ const assertIdentityContract = (facts, fixture) => {
     },
     'learner reading state'
   )
-  assertJsonEqual(
+  assertPrivateJsonEqual(
     facts.drafts,
     [
       {
@@ -647,7 +688,7 @@ const assertIdentityContract = (facts, fixture) => {
     'reading draft state'
   )
   assertEqual(facts.bookmarkCount, 0, 'final bookmark count')
-  assertJsonEqual(
+  assertPrivateJsonEqual(
     facts.reports,
     [
       {
@@ -714,7 +755,7 @@ const assertIdentityContract = (facts, fixture) => {
       userId: fixture.learner.userId
     }
   ].sort(compareIdempotency)
-  assertJsonEqual(
+  assertPrivateJsonEqual(
     idempotencyProjection,
     expectedIdempotency,
     'idempotency identities'
@@ -724,7 +765,8 @@ const assertIdentityContract = (facts, fixture) => {
 export const assertPhase9DatabaseContract = async ({
   before,
   databaseUrl,
-  fixture
+  fixture,
+  keySecret
 }) =>
   await withClient(databaseUrl, async (client, schemaName) => {
     return await inReadOnlySnapshot(client, async () => {
@@ -732,7 +774,12 @@ export const assertPhase9DatabaseContract = async ({
       assertPhase9SnapshotContract(before, after)
       const facts = await readIdentityFacts(client, fixture)
       assertIdentityContract(facts, fixture)
-      const rateLimitCategories = assertPhase9RateLimitContract(before, after)
+      const rateLimitCategories = assertPhase9RateLimitContract(
+        before,
+        after,
+        fixture,
+        keySecret
+      )
       return {
         actorState: {
           authSessions: facts.authSessions.length,
@@ -746,8 +793,7 @@ export const assertPhase9DatabaseContract = async ({
             actualCount: session.actualCount,
             requestedCount: session.requestedCount,
             status: session.status,
-            subject: session.subject,
-            userId: session.userId
+            subject: session.subject
           }))
         },
         rateLimitCategories,

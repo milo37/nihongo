@@ -152,11 +152,12 @@ export const createStudySubmissionRoutes = ({
   }
 
   routes.post('/:sessionId/submission', async (context) => {
+    const clientIp = resolveClientIp(context)
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
-      operation: 'study-submit',
+      clientIp,
+      operation: 'study-mutation-ip',
       windowMs: 60_000,
-      max: 20
+      max: 120
     })
 
     const practiceContractVersion = resolvePracticeContractVersion(
@@ -251,6 +252,17 @@ export const createStudySubmissionRoutes = ({
         tokenDigest: inspected.tokenDigest
       }
     }
+
+    await rateLimiter.consume({
+      clientIp,
+      operation: 'study-submit',
+      principal: {
+        kind: owner.kind,
+        id: owner.kind === 'USER' ? owner.userId : owner.guestPrincipalId
+      },
+      windowMs: 60_000,
+      max: 20
+    })
 
     const submitted =
       practiceContractVersion === 2
