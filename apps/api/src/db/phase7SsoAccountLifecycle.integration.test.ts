@@ -211,12 +211,30 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows[0]?.count
       ).toBe(1)
+      const claims = (
+        await h.roleQuery<{
+          result: Array<{ id: string; leaseToken: string }>
+        }>(
+          'nihongo_erasure_worker',
+          'SELECT "phase7_claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
+        )
+      ).rows[0]!.result
+      const leaseToken = claims.find((claim) => claim.id === job.id)!.leaseToken
+      expect(
+        (
+          await h.roleQuery<{ ok: boolean }>(
+            'nihongo_erasure_worker',
+            "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
+            [job.id, leaseToken]
+          )
+        ).rows[0]?.ok
+      ).toBe(true)
       const recordCleanup = async (status: 'COMPLETED' | 'FAILED') =>
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_erasure_worker',
-            "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
-            [job.id, status]
+            "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google',$2,$3,'TEST') AS ok",
+            [job.id, status, leaseToken]
           )
         ).rows[0]?.ok
       expect(await recordCleanup('FAILED')).toBe(true)
@@ -322,12 +340,33 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         failedIds: []
       })
       expect(await users([a.userId, b.userId])).toHaveLength(2)
-      // Simulates evidence supplied by a future credentialed provider adapter.
+      // Simulates a claimed dispatch and evidence from a future provider adapter.
+      const claims = await worker.claimProviderCleanups(100, 300, 'TEST')
+      const aToken = claims.find((claim) => claim.id === a.id)!.leaseToken
+      const bToken = claims.find((claim) => claim.id === b.id)!.leaseToken
       expect(
-        await worker.recordProviderCleanup(a.id, 'google', 'COMPLETED', 'TEST')
+        await worker.beginProviderCleanup(a.id, 'google', aToken, 'TEST')
       ).toBe(true)
       expect(
-        await worker.recordProviderCleanup(b.id, 'google', 'FAILED', 'TEST')
+        await worker.beginProviderCleanup(b.id, 'google', bToken, 'TEST')
+      ).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(
+          a.id,
+          'google',
+          'COMPLETED',
+          aToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(
+          b.id,
+          'google',
+          'FAILED',
+          bToken,
+          'TEST'
+        )
       ).toBe(true)
       expect(await run()).toEqual({
         completedIds: [a.id],
@@ -343,7 +382,13 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         { id: bystander.userId, sessions: 1 }
       ])
       expect(
-        await worker.recordProviderCleanup(b.id, 'google', 'COMPLETED', 'TEST')
+        await worker.recordProviderCleanup(
+          b.id,
+          'google',
+          'COMPLETED',
+          bToken,
+          'TEST'
+        )
       ).toBe(true)
       // Simulated partial app failure after provider cleanup is complete.
       await h.owner.query(
@@ -368,7 +413,13 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(await users([b.userId])).toEqual([])
       expect(await worker.complete(b.id, 'TEST')).toBe(true)
       expect(
-        await worker.recordProviderCleanup(b.id, 'google', 'FAILED', 'TEST')
+        await worker.recordProviderCleanup(
+          b.id,
+          'google',
+          'FAILED',
+          bToken,
+          'TEST'
+        )
       ).toBe(false)
       expect(await run()).toEqual({
         completedIds: [],
@@ -380,5 +431,243 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       ])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
+  })
+  it('fences stale claims, denies legacy recorders and retains uncertain dispatches after expiry', async () => {
+    await h.rollback(async () => {
+      const id = randomUUID()
+      await h.owner.query(
+        `INSERT INTO "SsoAccountErasureRequest" (id,"receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
+         VALUES ($1,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
+        [id, digest()]
+      )
+      const worker = createSsoAccountErasureWorker({
+        $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
+          (await h.roleQuery('nihongo_erasure_worker', sql, args)).rows
+      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const claim = async () =>
+        (await worker.claimProviderCleanups(100, 300, 'TEST')).find(
+          (row) => row.id === id
+        )
+      // A pre-fencing worker may still be dispatching after its lease expired.
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',
+        [id]
+      )
+      expect(await claim()).toBeUndefined()
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=NULL WHERE id=$1',
+        [id]
+      )
+      const first = (await claim())!
+      expect(first.leaseToken).toBeTruthy()
+      expect(await claim()).toBeUndefined()
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',
+        [id]
+      )
+      const second = (await claim())!
+      expect(second.leaseToken).not.toBe(first.leaseToken)
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          first.leaseToken,
+          'TEST'
+        )
+      ).toBe(false)
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(false)
+      expect(
+        await worker.recordProviderCleanup(
+          id,
+          'google',
+          'COMPLETED',
+          first.leaseToken,
+          'TEST'
+        )
+      ).toBe(false)
+      expect(
+        await worker.recordProviderCleanup(
+          id,
+          'google',
+          'UNAVAILABLE',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(
+          id,
+          'google',
+          'FAILED',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(false)
+      for (const sql of [
+        "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED')",
+        "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED','TEST')"
+      ])
+        await h.rejects('nihongo_erasure_worker', sql, [id], '42501')
+      for (const role of ['nihongo_app', 'nihongo_auth_gateway'] as const) {
+        await h.rejects(
+          role,
+          "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST')",
+          [id, second.leaseToken],
+          '42501'
+        )
+        await h.rejects(
+          role,
+          "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED',$2,'TEST')",
+          [id, second.leaseToken],
+          '42501'
+        )
+      }
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',
+        [id]
+      )
+      expect(await claim()).toBeUndefined()
+      expect(
+        await worker.recordProviderCleanup(
+          id,
+          'google',
+          'COMPLETED',
+          second.leaseToken,
+          'TEST'
+        )
+      ).toBe(false)
+      expect(
+        (
+          await h.owner.query(
+            'SELECT "activeProvider","providerCleanup" FROM "SsoAccountErasureRequest" WHERE id=$1',
+            [id]
+          )
+        ).rows
+      ).toEqual([
+        {
+          activeProvider: 'google',
+          providerCleanup: [{ provider: 'google', status: 'FAILED' }]
+        }
+      ])
+    })
+  })
+
+  it('serializes independent claims/dispatches and rejects a record whose row-lock wait outlives its lease', async () => {
+    const id = randomUUID()
+    const peers = [h.createOwnerPeer(), h.createOwnerPeer()]
+    await Promise.all(peers.map((peer) => peer.connect()))
+    try {
+      await h.owner.query(
+        `INSERT INTO "SsoAccountErasureRequest" (id,"receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
+         VALUES ($1,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
+        [id, digest()]
+      )
+      await Promise.all(
+        peers.map((peer) => peer.query('SET ROLE "nihongo_erasure_worker"'))
+      )
+      const claims = await Promise.all(
+        peers.map((peer) =>
+          peer.query<{ result: Array<{ id: string; leaseToken: string }> }>(
+            'SELECT "phase7_claim_sso_provider_cleanups"(1,300,\'TEST\') AS result'
+          )
+        )
+      )
+      const mine = claims
+        .flatMap((result) => result.rows[0]!.result)
+        .filter((claim) => claim.id === id)
+      expect(mine).toHaveLength(1)
+      const token = mine[0]!.leaseToken
+      const starts = await Promise.all(
+        peers.map((peer) =>
+          peer.query<{ ok: boolean }>(
+            "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
+            [id, token]
+          )
+        )
+      )
+      expect(starts.map((result) => result.rows[0]!.ok).sort()).toEqual([
+        false,
+        true
+      ])
+      const peer = peers[0]!
+      const pid = (
+        await peer.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+      ).rows[0]!.pid
+      await h.owner.query('BEGIN')
+      try {
+        await h.owner.query(
+          'SELECT id FROM "SsoAccountErasureRequest" WHERE id=$1 FOR UPDATE',
+          [id]
+        )
+        const pending = peer.query<{ ok: boolean }>(
+          "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED',$2,'TEST') AS ok",
+          [id, token]
+        )
+        // Observe an actual independent-session lock wait before expiring the lease.
+        let blocked = false
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          blocked = (
+            await h.owner.query<{ blocked: boolean }>(
+              'SELECT cardinality(pg_blocking_pids($1))>0 AS blocked',
+              [pid]
+            )
+          ).rows[0]!.blocked
+          if (blocked) break
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+        await h.owner.query(
+          'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',
+          [id]
+        )
+        await h.owner.query('COMMIT')
+        expect((await pending).rows[0]!.ok).toBe(false)
+        expect(blocked).toBe(true)
+      } finally {
+        await h.owner.query('ROLLBACK')
+      }
+      const retried = await peer.query<{ result: Array<{ id: string }> }>(
+        'SELECT "phase7_claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
+      )
+      expect(retried.rows[0]!.result.some((claim) => claim.id === id)).toBe(
+        false
+      )
+    } finally {
+      await Promise.all(peers.map((peer) => peer.end()))
+      await h.owner.query(
+        'DELETE FROM "SsoAccountErasureRequest" WHERE id=$1',
+        [id]
+      )
+    }
   })
 })

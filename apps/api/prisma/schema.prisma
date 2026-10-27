@@ -1116,6 +1116,9 @@ model SsoAccountErasureRequest {
   createdAt        DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
   receiptExpiresAt DateTime  @db.Timestamptz(3)
   completedAt      DateTime? @db.Timestamptz(3)
+  leaseExpiresAt   DateTime? @db.Timestamptz(3)
+  leaseToken       String?   @db.Uuid
+  activeProvider   String?
   user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([appStatus, createdAt])

@@ -130,10 +130,10 @@ const approvedPhase7Checksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존47 migration의 순서와 모든 역사 prefix checksum을 보존하고 migration48을 pin한다', () => {
+  it('기존49 migration의 순서와 모든 역사 prefix checksum을 보존하고 migration50를 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(48)
+    expect(manifest).toHaveLength(50)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedPrePhase7MigrationNames
     )
@@ -285,8 +285,22 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
     expect(manifest[47]?.name).toBe(
       '20261028090000_sso_account_erasure_worker_queue'
     )
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 48))).toBe(
       'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630'
+    )
+    expect(manifest[48]?.name).toBe(
+      '20261028120000_sso_account_erasure_claim_lease'
+    )
+    expect(digest(manifest.slice(0, 49))).toBe(
+      '53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392'
+    )
+    expect(manifest[49]).toEqual({
+      name: '20261028150000_sso_provider_cleanup_fencing',
+      checksum:
+        '394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e'
+    })
+    expect(digest(manifest)).toBe(
+      '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
     )
   })
 

@@ -1070,7 +1070,7 @@ describe('fixed account lifecycle TEST slice', () => {
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
-  const report = (count = 4) => ({
+  const report = (count = 6) => ({
     numTotalTests: count,
     numPassedTests: count,
     numFailedTests: 0,
@@ -1079,7 +1079,7 @@ describe('fixed account lifecycle TEST slice', () => {
     testResults: [{ name: phase7SsoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
-    for (const count of [1, 2, 3, 5])
+    for (const count of [1, 2, 3, 4, 5, 7])
       expect(() =>
         assertPhase10VitestFileResult({
           result: report(count),
@@ -1116,7 +1116,7 @@ describe('fixed account lifecycle TEST slice', () => {
         await writeFile(rawPath, JSON.stringify(report()))
       }
     })
-    expect(count).toBe(4)
+    expect(count).toBe(6)
     await expect(stat(rawPath)).rejects.toThrow()
   })
   it('retains only a wholly safe original first error line', () => {
