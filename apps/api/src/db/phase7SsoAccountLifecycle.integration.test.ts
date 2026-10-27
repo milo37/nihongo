@@ -334,6 +334,9 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         providerCleanupPendingIds: [b.id],
         failedIds: []
       })
+      await h.owner.query(
+        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
+      )
       expect(await users([a.userId])).toEqual([])
       expect(await users([b.userId])).toEqual([{ id: b.userId, sessions: 0 }])
       expect(await users([bystander.userId])).toEqual([

@@ -1100,12 +1100,12 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
       LEFT JOIN ${quoteSchema(schemaName)}."User" u ON u.id=f."userId" WHERE f."userId" IS NOT NULL AND u.id IS NULL
     ) orphan_rows`
   )
-  if (count !== 3 || orphanResult.rows[0]?.count !== 0)
-    throw new Error('SSO account lifecycle exact3/orphan verification failed.')
+  if (count !== 4 || orphanResult.rows[0]?.count !== 0)
+    throw new Error('SSO account lifecycle exact4/orphan verification failed.')
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_account_lifecycle.tests_verified',
-      selected: 3,
+      selected: 4,
       passed: count,
       orphanCount: 0
     }) + '\n'
