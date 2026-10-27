@@ -8,7 +8,7 @@ import {
 } from '@nihongo/browser/observability/frontendErrorReporter'
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
-import '@nihongo/browser/styles.css'
+import '@/styles.css'
 
 const rootElement = document.getElementById('root')
 
