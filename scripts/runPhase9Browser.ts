@@ -48,6 +48,7 @@ interface Phase9DatabaseContractModule {
     readonly before: Phase9DatabaseSnapshot
     readonly databaseUrl: string
     readonly fixture: unknown
+    readonly keySecret: string
   }) => Promise<Phase9DatabaseEvidence>
   readonly capturePhase9DatabaseSnapshot: (
     databaseUrl: string
@@ -371,6 +372,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     )
   }
   const webOrigin = `http://127.0.0.1:${webPort}`
+  const rateLimitKeySecret = randomBytes(32).toString('base64url')
   const apiEnvironment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
     ADMIN_CMS_MODE: 'technical',
@@ -379,7 +381,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
     BETTER_AUTH_URL: apiOrigin,
-    GUEST_COOKIE_SECRET: randomBytes(32).toString('base64url'),
+    GUEST_COOKIE_SECRET: rateLimitKeySecret,
     HOST: '127.0.0.1',
     LOG_LEVEL: 'silent',
     NODE_ENV: 'test',
@@ -460,7 +462,8 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   const databaseEvidence = await databaseContract.assertPhase9DatabaseContract({
     before: baseline,
     databaseUrl: harness.adminDatabaseUrl,
-    fixture: created.fixture
+    fixture: created.fixture,
+    keySecret: rateLimitKeySecret
   })
   adminSignal.throwIfAborted()
   const evidenceDirectory = nodePath.resolve(

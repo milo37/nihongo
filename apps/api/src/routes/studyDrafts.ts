@@ -265,11 +265,12 @@ export const createStudyDraftRoutes = ({
   })
 
   routes.put('/:sessionId/draft-answers', async (context) => {
+    const clientIp = resolveClientIp(context)
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
-      operation: 'study-submit',
+      clientIp,
+      operation: 'study-mutation-ip',
       windowMs: 60_000,
-      max: 20
+      max: 120
     })
     parseRequiredPracticeHeader(
       context.req.header('X-Nihongo-Practice-Contract')
@@ -319,6 +320,16 @@ export const createStudyDraftRoutes = ({
       guestPrincipalService,
       principalService
     )
+    await rateLimiter.consume({
+      clientIp,
+      operation: 'study-draft-save',
+      principal: {
+        kind: owner.kind,
+        id: owner.kind === 'USER' ? owner.userId : owner.guestPrincipalId
+      },
+      windowMs: 60_000,
+      max: 20
+    })
     const saved = await studyDraftService.save(
       params.sessionId,
       headers['idempotency-key'],
@@ -335,11 +346,12 @@ export const createStudyDraftRoutes = ({
   })
 
   routes.post('/:sessionId/cancellation', async (context) => {
+    const clientIp = resolveClientIp(context)
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
-      operation: 'study-submit',
+      clientIp,
+      operation: 'study-mutation-ip',
       windowMs: 60_000,
-      max: 20
+      max: 120
     })
     parseRequiredPracticeHeader(
       context.req.header('X-Nihongo-Practice-Contract')
@@ -374,6 +386,16 @@ export const createStudyDraftRoutes = ({
       guestPrincipalService,
       principalService
     )
+    await rateLimiter.consume({
+      clientIp,
+      operation: 'study-cancel',
+      principal: {
+        kind: owner.kind,
+        id: owner.kind === 'USER' ? owner.userId : owner.guestPrincipalId
+      },
+      windowMs: 60_000,
+      max: 20
+    })
     await studyDraftService.cancel(params.sessionId, owner)
     context.header('Cache-Control', 'private, no-store')
     context.header('X-Nihongo-Practice-Contract', '2')

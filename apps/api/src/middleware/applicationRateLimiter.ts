@@ -6,6 +6,7 @@ export interface ApplicationRateLimitInput {
   clientIp: string
   max: number
   operation: string
+  principal?: { kind: 'USER' | 'GUEST'; id: string }
   windowMs: number
 }
 
@@ -79,9 +80,12 @@ export const createApplicationRateLimiter = ({
   }
 
   return {
-    consume: async ({ clientIp, max, operation, windowMs }) => {
+    consume: async ({ clientIp, max, operation, principal, windowMs }) => {
+      const keyInput = principal
+        ? JSON.stringify([operation, principal.kind, principal.id])
+        : `${operation}:${clientIp}`
       const keyDigest = createHmac('sha256', keySecret)
-        .update(`${operation}:${clientIp}`)
+        .update(keyInput)
         .digest('hex')
       const key = `application:${operation}:${keyDigest}`
       const cacheKey = `${key}:${max}:${windowMs}`
