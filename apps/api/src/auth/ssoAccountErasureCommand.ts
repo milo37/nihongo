@@ -95,6 +95,7 @@ export const runSsoAccountErasureCommand = async (
     )
     return providers.failed > 0 ||
       providers.unavailable > 0 ||
+      providers.deferred > 0 ||
       providers.claimLimitReached ||
       result.failedIds.length > 0 ||
       result.providerCleanupPendingIds.length > 0 ||

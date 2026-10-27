@@ -14,6 +14,7 @@ const noProviderWork = {
   revoked: 0,
   failed: 0,
   unavailable: 0,
+  deferred: 0,
   claimLimitReached: false
 }
 
@@ -220,6 +221,7 @@ describe('SSO account erasure one-shot command', () => {
   it.each([
     { ...noProviderWork, failed: 1 },
     { ...noProviderWork, unavailable: 1 },
+    { ...noProviderWork, deferred: 1 },
     { ...noProviderWork, claimLimitReached: true }
   ])('returns one for unfinished provider revoke work', async (providers) => {
     erasure.runRevoke.mockResolvedValueOnce(providers)

@@ -9,6 +9,9 @@ export interface SsoProviderRevokeTarget {
   provider: SsoProviderId
   subject: string
 }
+/** Upper bound for one adapter call, vault lookup included. */
+export const SSO_PROVIDER_REVOKE_TIMEOUT_MS = 10_000
+/** An adapter must settle within SSO_PROVIDER_REVOKE_TIMEOUT_MS of being called. */
 export type SsoProviderRevokeAdapter = (
   target: SsoProviderRevokeTarget
 ) => Promise<SsoProviderRevokeOutcome>
@@ -28,6 +31,8 @@ export const createHttpSsoProviderRevokeAdapter =
     fetch?: typeof fetch
   }): SsoProviderRevokeAdapter =>
   async (target) => {
+    // Started before the vault lookup so no request is sent after the bound.
+    const signal = AbortSignal.timeout(SSO_PROVIDER_REVOKE_TIMEOUT_MS)
     const token = await input.tokens.refreshToken(target)
     if (token === null || token.length === 0) return 'UNAVAILABLE'
     let url: string
@@ -49,18 +54,37 @@ export const createHttpSsoProviderRevokeAdapter =
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(body),
-      signal: AbortSignal.timeout(10_000)
+      signal
     }).catch(() => null)
-    return response?.ok === true ? 'REVOKED' : 'FAILED'
+    if (response === null) return 'FAILED'
+    if (response.ok) return 'REVOKED'
+    // Google answers 400 invalid_token for an already revoked or expired token.
+    if (target.provider !== 'google' || response.status !== 400) return 'FAILED'
+    const error = await response
+      .json()
+      .then((json: unknown) =>
+        typeof json === 'object' && json !== null && 'error' in json
+          ? json.error
+          : null
+      )
+      .catch(() => null)
+    return error === 'invalid_token' ? 'REVOKED' : 'FAILED'
   }
 
 export interface SsoProviderRevokeRunResult {
   revoked: number
   failed: number
   unavailable: number
+  /** Not called because the lease could expire mid-call; re-claimed later. */
+  deferred: number
   claimLimitReached: boolean
 }
-/** Only leased claims reach a provider, so concurrent one-shots never double-call. */
+// One adapter call plus its record must finish before the lease can expire.
+const LEASE_RESERVE_MS = 2 * SSO_PROVIDER_REVOKE_TIMEOUT_MS
+/**
+ * A provider is called only while the claim's lease cannot expire before the
+ * call and its record finish, so a re-claim by another one-shot never overlaps.
+ */
 export const runSsoProviderRevokeBatch = async (
   worker: Pick<
     SsoAccountErasureWorker,
@@ -69,14 +93,20 @@ export const runSsoProviderRevokeBatch = async (
   revoke: SsoProviderRevokeAdapter,
   environment: SsoAccountErasureEnvironment,
   batchSize: number,
-  leaseSeconds: number
+  leaseSeconds: number,
+  now: () => number = () => performance.now()
 ): Promise<SsoProviderRevokeRunResult> => {
+  if (!Number.isFinite(leaseSeconds) || leaseSeconds * 1000 <= LEASE_RESERVE_MS)
+    throw new Error('Provider lease is shorter than one revoke call.')
   const result: SsoProviderRevokeRunResult = {
     revoked: 0,
     failed: 0,
     unavailable: 0,
+    deferred: 0,
     claimLimitReached: false
   }
+  // Measured before the claim, so the database lease ends no earlier than this.
+  const callDeadline = now() + leaseSeconds * 1000 - LEASE_RESERVE_MS
   const claims = await worker.claimProviderCleanups(
     batchSize,
     leaseSeconds,
@@ -85,6 +115,10 @@ export const runSsoProviderRevokeBatch = async (
   result.claimLimitReached = claims.length >= batchSize
   for (const claim of claims) {
     for (const { provider, subject } of claim.providers) {
+      if (subject !== null && now() > callDeadline) {
+        result.deferred += 1
+        continue
+      }
       const outcome =
         subject === null
           ? 'UNAVAILABLE'
