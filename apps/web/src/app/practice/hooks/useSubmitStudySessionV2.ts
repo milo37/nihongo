@@ -3,18 +3,18 @@ import type { ParsedSubmitStudySessionV2Request } from '@api/study/submitStudySe
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { trackStudySubmission } from '@/analytics/studyEvents'
-import { clearStudyDraftWorkingCopy } from '@app/practice/draft/studyDraftWorkingCopyStorage'
-import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
+import { clearStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionRetryDelay,
   isDefinitiveStudySubmissionError,
   isRetryableStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch
-} from '@libs/authTransitionFence'
+} from '@nihongo/browser/libs/authTransitionFence'
 
 const submissionActionEpochs = new WeakMap<
   ParsedSubmitStudySessionV2Request,
@@ -82,10 +82,13 @@ export const useSubmitStudySessionV2 = (
         })
       ])
       assertCurrentStudySubmissionV2Action(input)
-      queryClient.removeQueries({
+      // Keep the mounted observer's cache until result navigation unmounts it.
+      // Removing it here recreates a draft GET for the now-submitted session.
+      await queryClient.cancelQueries({
         queryKey: serverStateQueryKeys.study.draft(sessionId),
         exact: true
       })
+      assertCurrentStudySubmissionV2Action(input)
       queryClient.setQueryData<StudyResultView>(
         serverStateQueryKeys.study.result(sessionId),
         result

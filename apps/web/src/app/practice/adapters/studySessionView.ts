@@ -9,7 +9,7 @@ import type {
   QuestionDifficulty,
   QuestionSubject,
   QuestionType
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 
 export interface StudyQuestionView {
   id: string

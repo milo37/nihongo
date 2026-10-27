@@ -15,12 +15,15 @@ import { toCanonicalStudySessionView } from '@app/practice/adapters/studySession
 import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { studyResultQueries } from '@app/practice/queries/studyResultQueries'
-import { I18nProvider } from '@provider/I18nProvider'
-import { ToastProvider } from '@common/components/Toast'
-import { queryClient } from '@libs/queryClient'
-import { adminQuestionHandlers } from '@mocks/handlers/adminQuestionHandlers'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { mockServer } from '@/test/server'
+
+// Compile the existing lazy result route before the focus-only assertions.
+beforeAll(async () => {
+  await import('@app/practice/result/page')
+})
 
 const DelayedHashTarget = (): ReactElement => {
   const [isReady, setReady] = useState(false)
@@ -86,37 +89,20 @@ describe('application router boundaries', () => {
     expect(within(main).queryByRole('combobox')).not.toBeInTheDocument()
   })
 
-  it('USER의 관리자 경로는 forbidden으로 이동한다', async () => {
-    mockDatabase.loginAs('USER')
-    const router = renderRoutes('/admin/questions')
-
-    expect(
-      await screen.findByRole('heading', {
-        name: '이 페이지를 볼 권한이 없습니다'
-      })
-    ).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/forbidden')
-  })
-
-  it('ADMIN은 목록 fixture가 준비된 관리자 경로에 접근한다', async () => {
-    mockServer.use(...adminQuestionHandlers)
-    mockDatabase.loginAs('ADMIN')
-    const router = renderRoutes('/admin/questions')
-
-    expect(
-      await screen.findByRole('heading', { name: '문제 관리' })
-    ).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/admin/questions')
-    const tableRegion = await screen.findByRole('region', {
-      name: '관리자 문제 목록'
-    })
-    expect(tableRegion).toHaveAttribute('tabindex', '0')
-    expect(
-      within(tableRegion).getByRole('table', {
-        name: /JLPT 관리자 문제 목록/
-      })
-    ).toBeInTheDocument()
-  })
+  it.each(['USER', 'ADMIN'] as const)(
+    '%s도 학습자 router에서는 관리자 화면을 로드하지 않는다',
+    async (role) => {
+      mockDatabase.loginAs(role)
+      const router = renderRoutes('/admin/questions')
+      expect(
+        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+      ).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/admin/questions')
+      expect(
+        screen.queryByRole('heading', { name: '문제 관리' })
+      ).not.toBeInTheDocument()
+    }
+  )
 
   it('등록되지 않은 경로는 Not Found를 표시한다', async () => {
     renderRoutes('/not-registered')
@@ -171,7 +157,7 @@ describe('application router boundaries', () => {
     })
 
     try {
-      const rootRoute = appRoutes[0]
+      const rootRoute = appRoutes.find((route) => route.path === '/')
       if (!rootRoute) throw new Error('Application root route required')
       const router = renderRoutes('/hash', [
         {
@@ -206,7 +192,7 @@ describe('application router boundaries', () => {
   })
 
   it('lazy route의 hash target이 늦게 나타나도 해당 대상을 포커스한다', async () => {
-    const rootRoute = appRoutes[0]
+    const rootRoute = appRoutes.find((route) => route.path === '/')
     expect(rootRoute).toBeDefined()
     if (!rootRoute) {
       return
@@ -422,7 +408,7 @@ describe('application router boundaries', () => {
     const BrokenPage = (): never => {
       throw new Error('route-render-failure')
     }
-    const rootRoute = appRoutes[0]
+    const rootRoute = appRoutes.find((route) => route.path === '/')
     expect(rootRoute).toBeDefined()
     if (!rootRoute) {
       return

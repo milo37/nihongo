@@ -231,6 +231,8 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
   const dashboardSpec = 'apps/web/e2e/phase8-dashboard-real-mock.spec.ts'
   const shutdown: string[] = []
   const stoppedLabels: string[][] = []
+  let buildRetireCountAtInstall = 0
+  const adminGuard = vi.fn()
   const checkReadiness = vi.fn(async () => undefined)
   const snapshot = vi.fn(async () => ({ audit: 0 }))
   const assertExpectedLifecycleDelta = vi.fn(async () => undefined)
@@ -245,8 +247,16 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    ports.assets.mockResolvedValue('/tmp/phase7-browser-web-unit')
+    ports.assets.mockImplementation(async (prefix: string) =>
+      prefix.includes('-admin-')
+        ? '/tmp/phase7-browser-admin-unit'
+        : '/tmp/phase7-browser-web-unit'
+    )
     ports.removeAssets.mockResolvedValue(undefined)
+    buildRetireCountAtInstall = 0
+    ports.staticWeb.mockImplementation(() => {
+      buildRetireCountAtInstall = ports.retire.mock.calls.length
+    })
     shutdown.length = 0
     stoppedLabels.length = 0
     let nextPort = 4100
@@ -309,6 +319,7 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
     )
     ports.fixture.mockResolvedValue({
       app: { fetch: vi.fn() },
+      adminGuard,
       checkReadiness,
       fixture: { author: { userId: 'test-author' } },
       database: { snapshot, assertExpectedLifecycleDelta, disconnect }
@@ -380,25 +391,39 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
         calls.some(
           ([, args]) =>
             args.includes('src/server.ts') ||
-            args.includes('@nihongo/admin') ||
+            (args.includes('@nihongo/admin') && !args.includes('build')) ||
             (args.includes('vite') && !args.includes('build'))
         )
       ).toBe(false)
-      const build = calls.find(
+      const builds = calls.filter(
         ([, args]) => args.includes('vite') && args.includes('build')
       )
-      expect(build?.[1]).toContain('@nihongo/web')
-      expect(build?.[1]).toContain('/tmp/phase7-browser-web-unit')
-      expect(build?.[2].env).toMatchObject({
-        NODE_ENV: 'production',
-        VITE_API_MODE: 'real',
-        VITE_API_BASE_URL: '/api',
-        VITE_RELEASE_ID: '0'.repeat(40)
-      })
+      expect(builds).toHaveLength(2)
+      expect(buildRetireCountAtInstall).toBe(2)
+      for (const [index, artifact] of ['web', 'admin'].entries()) {
+        expect(builds[index]?.[1]).toEqual([
+          '--filter',
+          `@nihongo/${artifact}`,
+          'exec',
+          'vite',
+          'build',
+          '--outDir',
+          `/tmp/phase7-browser-${artifact}-unit`,
+          '--emptyOutDir'
+        ])
+        expect(builds[index]?.[2].env).toMatchObject({
+          NODE_ENV: 'production',
+          VITE_API_MODE: 'real',
+          VITE_API_BASE_URL: '/api',
+          VITE_RELEASE_ID: '0'.repeat(40)
+        })
+      }
       expect(ports.staticWeb).toHaveBeenCalledWith({
         app: expect.anything(),
         releaseId: '0'.repeat(40),
-        webAssetsDirectory: '/tmp/phase7-browser-web-unit'
+        webAssetsDirectory: '/tmp/phase7-browser-web-unit',
+        adminAssetsDirectory: '/tmp/phase7-browser-admin-unit',
+        adminGuard
       })
       const playwright = calls.find(([, args]) => args.includes('playwright'))
       expect(playwright?.[2].env).toMatchObject({
@@ -422,10 +447,86 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
         'harness'
       ])
       expect(disconnect).toHaveBeenCalledOnce()
-      expect(ports.removeAssets).toHaveBeenCalledWith(
-        '/tmp/phase7-browser-web-unit',
-        { recursive: true, force: true }
-      )
+      expect(ports.removeAssets.mock.calls).toEqual([
+        ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
+        ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+      ])
+    }
+  )
+  it('fails closed before building or listening if the fixture has no admin guard', async () => {
+    vi.resetModules()
+    ports.fixture.mockResolvedValueOnce({
+      app: { fetch: vi.fn() },
+      adminGuard: undefined,
+      checkReadiness,
+      fixture: { author: { userId: 'test-author' } },
+      database: { snapshot, assertExpectedLifecycleDelta, disconnect }
+    })
+    const runner = await import('./runPhase7Browser.js')
+    await expect(runner.runReal()).rejects.toThrow(
+      'requires an administrator static guard'
+    )
+    expect(ports.spawn).not.toHaveBeenCalled()
+    expect(ports.staticWeb).not.toHaveBeenCalled()
+    expect(ports.createHttpServer).not.toHaveBeenCalled()
+    await runner.cleanup()
+    expect(disconnect).toHaveBeenCalledOnce()
+    expect(ports.cleanupHarness).toHaveBeenCalledOnce()
+  })
+
+  it('propagates admin build failure before static installation and cleans both roots', async () => {
+    vi.resetModules()
+    ports.spawn.mockImplementation(
+      (_command: string, args: readonly string[]) => {
+        const child = Object.assign(new EventEmitter(), {
+          pid: 100_001,
+          exitCode: null,
+          signalCode: null
+        })
+        queueMicrotask(() =>
+          child.emit('close', args.includes('@nihongo/admin') ? 1 : 0, null)
+        )
+        return child
+      }
+    )
+    const runner = await import('./runPhase7Browser.js')
+    await expect(runner.runReal()).rejects.toThrow('exit 1')
+    expect(ports.staticWeb).not.toHaveBeenCalled()
+    expect(ports.createHttpServer).not.toHaveBeenCalled()
+    expect(
+      ports.spawn.mock.calls.some(([, args]) => args.includes('playwright'))
+    ).toBe(false)
+    await runner.cleanup()
+    expect(ports.removeAssets.mock.calls).toEqual([
+      ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
+      ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+    ])
+    expect(disconnect).toHaveBeenCalledOnce()
+    expect(ports.cleanupHarness).toHaveBeenCalledOnce()
+  })
+
+  it.each(['web', 'admin'])(
+    'attempts both root removals and propagates %s removal failure',
+    async (artifact) => {
+      vi.resetModules()
+      const failure = new Error(`${artifact} removal failed`)
+      ports.removeAssets.mockImplementation(async (directory: string) => {
+        if (directory === `/tmp/phase7-browser-${artifact}-unit`) throw failure
+      })
+      const runner = await import('./runPhase7Browser.js')
+      await runner.runReal()
+      await expect(runner.cleanup()).rejects.toBe(failure)
+      expect(ports.removeAssets.mock.calls).toEqual([
+        ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
+        ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+      ])
+      expect(shutdown).toEqual([
+        'children',
+        'api',
+        'control',
+        'fixture',
+        'harness'
+      ])
     }
   )
 })

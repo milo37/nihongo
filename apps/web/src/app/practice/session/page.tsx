@@ -9,22 +9,23 @@ import {
   useParams
 } from 'react-router'
 import type { ReactElement } from 'react'
-import { Button } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Progress } from '@common/components/Progress'
-import { RadioGroup } from '@common/components/RadioGroup'
+import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
-import { Icon } from '@common/components/Icon'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
 import { useClearGuestPracticeQueryCache } from '@app/practice/hooks/useClearGuestPracticeQueryCache'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
+import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
 import { usePracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
 import {
@@ -39,22 +40,25 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import {
   clearGuestStudyDraftWorkingCopies,
   clearStudyDraftWorkingCopy
-} from '@app/practice/draft/studyDraftWorkingCopyStorage'
+} from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
 import { readStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
 import {
   clearSubmissionAttempt,
   hasStoredSubmissionAttempt,
   readStoredSubmissionLogicalRequest
-} from '@app/practice/submissionAttemptStorage'
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionErrorCode,
   isDefinitiveStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { useAppStore } from '@store/index'
-import { resolveUiLocale } from '@/i18n/types'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { useAppStore } from '@nihongo/browser/store/index'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import {
   isAuthenticationBoundaryApiError,
   isOfflineApiError,
@@ -1037,6 +1041,18 @@ export const PracticeSessionPage = (): ReactElement => {
       draftController.status.code
     ) && !(isDraftConflictPending && !hasResolvedDraftConflict)
 
+  const isInlineDraftStatus =
+    [
+      'synced',
+      'saved',
+      'savedAt',
+      'dirty',
+      'saving',
+      'error',
+      'offline'
+    ].includes(draftController.status.code) &&
+    !(isDraftConflictPending && !hasResolvedDraftConflict)
+
   return (
     <section
       className={`learning-note study-page study-session ${reviewContext ? 'study-review-session' : ''} mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
@@ -1048,7 +1064,12 @@ export const PracticeSessionPage = (): ReactElement => {
       >
         <div className="study-focus-header-inner">
           <Link
-            className="note-link"
+            className="note-link size-11 justify-center"
+            aria-label={t(
+              reviewContext
+                ? 'session.header.backToExplanation'
+                : 'session.header.backToSetup'
+            )}
             aria-disabled={
               mustReplayFrozenSubmission ||
               isNavigationPromptBlocked ||
@@ -1069,12 +1090,7 @@ export const PracticeSessionPage = (): ReactElement => {
                 : '/practice'
             }
           >
-            <Icon name="arrow-left" />
-            {t(
-              reviewContext
-                ? 'session.header.backToExplanation'
-                : 'session.header.backToSetup'
-            )}
+            <Icon name="chevron-left" />
           </Link>
           <div>
             <p className="study-session-title">
@@ -1128,7 +1144,7 @@ export const PracticeSessionPage = (): ReactElement => {
             </div>
           ) : null}
 
-          {isV2Session ? (
+          {isV2Session && !isInlineDraftStatus ? (
             <div
               className={
                 isCompactDraftStatus
@@ -1345,6 +1361,19 @@ export const PracticeSessionPage = (): ReactElement => {
                   onValueChange={handleSelectOption}
                 />
               </div>
+              {isV2Session ? (
+                <StudyDraftSaveStatus
+                  status={
+                    isInlineDraftStatus ? draftController.status.code : null
+                  }
+                  onRetry={() => {
+                    setDraftActionMessage(null)
+                    void draftController.retrySave().catch(() => {
+                      setDraftActionMessage('retrySaveFailed')
+                    })
+                  }}
+                />
+              ) : null}
               <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
                 <summary className="note-link cursor-pointer">
                   {t('session.keyboardHelp')}

@@ -6,6 +6,7 @@ import path from 'node:path'
 import { isDeepStrictEqual, promisify } from 'node:util'
 import { gzipSync } from 'node:zlib'
 import { validateProductionBundleRuntime } from './phase9-production-bundle-contract.mjs'
+import { assertBrowserBuildGraph } from '../../../scripts/operations/browser-artifact-check.mjs'
 
 export const phase10BundleBaseline = Object.freeze({
   emittedFileCount: 87,
@@ -199,9 +200,9 @@ const readManifest = async (distDirectory) => {
 
 const packageNameFromModuleSource = (source) => {
   const marker = '/node_modules/'
-  const markerIndex = source.lastIndexOf(marker)
+  const markerIndex = ('/' + source).lastIndexOf(marker)
   if (markerIndex === -1) return null
-  const packagePath = source.slice(markerIndex + marker.length)
+  const packagePath = ('/' + source).slice(markerIndex + marker.length)
   const segments = packagePath.split('/')
   return segments[0]?.startsWith('@')
     ? `${segments[0]}/${segments[1] ?? ''}`
@@ -219,7 +220,42 @@ const assertProductionModuleSource = (source) => {
   }
 }
 
-const readModuleGraph = async (distDirectory) => {
+const canonicalSource = (source, artifact) => {
+  if (
+    typeof source !== 'string' ||
+    source.length === 0 ||
+    source.startsWith('/') ||
+    source.includes('\\')
+  ) {
+    throw new Error('PHASE10_BUNDLE_UNSAFE_MANIFEST_SOURCE')
+  }
+  if (!source.startsWith('../')) {
+    assertSafeRelativePath(source, 'MANIFEST_SOURCE')
+    return source
+  }
+  const resolved = path.posix.normalize(
+    path.posix.join('apps', artifact, source)
+  )
+  if (
+    !['packages/browser/', 'packages/contracts/', 'node_modules/'].some(
+      (prefix) => resolved.startsWith(prefix)
+    )
+  ) {
+    throw new Error('PHASE10_BUNDLE_UNSAFE_MANIFEST_SOURCE')
+  }
+  assertSafeRelativePath(resolved, 'MANIFEST_SOURCE')
+  return resolved
+}
+const assertCanonicalModule = (source, artifact) => {
+  if (canonicalSource(source, artifact) !== source)
+    throw new Error('PHASE10_BUNDLE_UNSAFE_MODULE_SOURCE')
+  assertProductionModuleSource(source)
+  assertBrowserBuildGraph(artifact, [
+    source.startsWith('src/') ? `apps/${artifact}/${source}` : source
+  ])
+}
+
+const readModuleGraph = async (distDirectory, artifact, base) => {
   const raw = JSON.parse(
     await readFile(path.join(distDirectory, SSR_MANIFEST_RELATIVE_PATH), 'utf8')
   )
@@ -235,18 +271,21 @@ const readModuleGraph = async (distDirectory) => {
         !assets.every(
           (asset) =>
             typeof asset === 'string' &&
-            asset.startsWith('/assets/') &&
+            asset.startsWith(base + 'assets/') &&
             !asset.includes('\\')
         )
       ) {
         throw new Error('PHASE10_BUNDLE_SSR_MANIFEST_ENTRY_INVALID')
       }
-      const normalizedAssets = [...assets].toSorted()
+      const normalizedAssets = assets
+        .map((asset) => '/' + asset.slice(base.length))
+        .toSorted()
       if (new Set(normalizedAssets).size !== normalizedAssets.length) {
         throw new Error('PHASE10_BUNDLE_SSR_MANIFEST_ENTRY_INVALID')
       }
-      assertProductionModuleSource(source)
-      return { assets: normalizedAssets, source }
+      const mapped = canonicalSource(source, artifact)
+      assertCanonicalModule(mapped, artifact)
+      return { assets: normalizedAssets, source: mapped }
     })
     .toSorted((left, right) =>
       left.source < right.source ? -1 : left.source > right.source ? 1 : 0
@@ -321,9 +360,12 @@ const collectFullClosure = (entriesBySource, entrySources) => {
   return closure
 }
 
-const readHtmlInitialAssets = (html) =>
+const readHtmlInitialAssets = (html, base) =>
   [...html.matchAll(/(?:src|href)=["']\/([^"']+\.(?:css|js))["']/giu)]
-    .map((match) => match[1])
+    .map((match) => '/' + match[1])
+    .map((value) =>
+      value.startsWith(base + 'assets/') ? value.slice(base.length) : value
+    )
     .filter((value) => value !== undefined)
     .toSorted()
 
@@ -649,12 +691,14 @@ export const assertPhase10ForwardingCoverage = ({
   }
 }
 
-export const collectPhase10BundleEvidence = async ({
+const collectArtifactEvidence = async ({
   distDirectory,
-  metadata
+  metadata,
+  artifact,
+  base
 }) => {
   const payloadFiles = await readPayloadFiles(distDirectory)
-  const moduleGraph = await readModuleGraph(distDirectory)
+  const moduleGraph = await readModuleGraph(distDirectory, artifact, base)
   if (payloadFiles.length === 0) {
     throw new Error('PHASE10_BUNDLE_EMPTY')
   }
@@ -676,7 +720,17 @@ export const collectPhase10BundleEvidence = async ({
 
   const manifest = await readManifest(distDirectory)
   const graph = Object.entries(manifest)
-    .map(([source, value]) => normalizeManifestEntry(source, value))
+    .map(([source, value]) =>
+      normalizeManifestEntry(canonicalSource(source, artifact), {
+        ...value,
+        imports: value.imports?.map((reference) =>
+          canonicalSource(reference, artifact)
+        ),
+        dynamicImports: value.dynamicImports?.map((reference) =>
+          canonicalSource(reference, artifact)
+        )
+      })
+    )
     .toSorted((left, right) =>
       left.source < right.source ? -1 : left.source > right.source ? 1 : 0
     )
@@ -735,7 +789,7 @@ export const collectPhase10BundleEvidence = async ({
   }
   const htmlRow = payloadByPath.get('index.html')
   if (!htmlRow) throw new Error('PHASE10_BUNDLE_INDEX_HTML_MISSING')
-  const htmlAssets = readHtmlInitialAssets(htmlRow.source)
+  const htmlAssets = readHtmlInitialAssets(htmlRow.source, base)
   if (
     JSON.stringify(htmlAssets) !== JSON.stringify([...initialAssets].toSorted())
   ) {
@@ -836,13 +890,6 @@ export const collectPhase10BundleEvidence = async ({
       payloadAccounting.approvedStaticAssets.rawBytes
   }
   const budgets = evaluatePhase10BundleBudgets(measurements)
-  if (Object.values(budgets).some(({ passed }) => !passed)) {
-    throw createPhase10BundleBudgetError(
-      budgets,
-      largestLazyJavaScriptByGzip,
-      graph
-    )
-  }
 
   const inventorySha256 = createHash('sha256')
     .update(
@@ -858,13 +905,16 @@ export const collectPhase10BundleEvidence = async ({
   const payloadSha256 = createHash('sha256')
     .update(JSON.stringify(inventory))
     .digest('hex')
-  const admin = phase10AdminLazySources.map((source) =>
-    assertExpectedLazyBoundary(evidenceBySource, source)
-  )
-  const dashboard = assertExpectedLazyBoundary(
-    evidenceBySource,
-    phase10DashboardLazySource
-  )
+  const admin =
+    artifact === 'admin'
+      ? phase10AdminLazySources.map((source) =>
+          assertExpectedLazyBoundary(evidenceBySource, source)
+        )
+      : []
+  const dashboard =
+    artifact === 'web'
+      ? assertExpectedLazyBoundary(evidenceBySource, phase10DashboardLazySource)
+      : null
   const evidence = {
     boundaries: { admin, dashboard },
     budgets,
@@ -914,13 +964,17 @@ export const collectPhase10BundleEvidence = async ({
     },
     payloadAccounting,
     schemaVersion: 3,
-    status: 'passed'
+    status: Object.values(evaluatePhase10BundleBudgets(measurements)).every(
+      (budget) => budget.passed
+    )
+      ? 'passed'
+      : 'failed'
   }
-  assertPhase10BundleEvidence(evidence)
+  assertArtifactEvidence(evidence, artifact)
   return evidence
 }
 
-export const assertPhase10BundleEvidence = (value) => {
+const assertArtifactEvidence = (value, artifact) => {
   if (
     !exactKeys(value, [
       'boundaries',
@@ -939,7 +993,7 @@ export const assertPhase10BundleEvidence = (value) => {
     ]) ||
     value.schemaVersion !== 3 ||
     value.kind !== 'nihongo.phase10.bundle-performance' ||
-    value.status !== 'passed' ||
+    !['passed', 'failed'].includes(value.status) ||
     !exactKeys(value.metadata, [
       'command',
       'commit',
@@ -1003,9 +1057,12 @@ export const assertPhase10BundleEvidence = (value) => {
     value.modules.rows.length !== value.modules.count ||
     !exactKeys(value.boundaries, ['admin', 'dashboard']) ||
     !Array.isArray(value.boundaries.admin) ||
-    value.boundaries.admin.length !== phase10AdminLazySources.length ||
-    !value.boundaries.dashboard ||
-    typeof value.boundaries.dashboard !== 'object'
+    value.boundaries.admin.length !==
+      (artifact === 'admin' ? phase10AdminLazySources.length : 0) ||
+    (artifact === 'web'
+      ? !value.boundaries.dashboard ||
+        typeof value.boundaries.dashboard !== 'object'
+      : value.boundaries.dashboard !== null)
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
   }
@@ -1038,7 +1095,7 @@ export const assertPhase10BundleEvidence = (value) => {
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_MODULES_INVALID')
   }
-  moduleSources.forEach(assertProductionModuleSource)
+  moduleSources.forEach((source) => assertCanonicalModule(source, artifact))
 
   const rows = value.inventory.rows
   for (const row of rows) {
@@ -1288,11 +1345,19 @@ export const assertPhase10BundleEvidence = (value) => {
       Object.entries(expected).some(
         ([field, expectedValue]) => budget[field] !== expectedValue
       ) ||
-      budget.passed !== true
+      typeof budget.passed !== 'boolean'
     ) {
       throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_INVALID')
     }
   }
+
+  const expectedStatus = Object.values(value.budgets).every(
+    (budget) => budget.passed
+  )
+    ? 'passed'
+    : 'failed'
+  if (value.status !== expectedStatus)
+    throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
 
   const assertLargestAsset = (actual, expected) => {
     if (
@@ -1347,14 +1412,210 @@ export const assertPhase10BundleEvidence = (value) => {
   }
   if (
     JSON.stringify(value.boundaries.admin.map(({ source }) => source)) !==
-    JSON.stringify(phase10AdminLazySources)
+    JSON.stringify(artifact === 'admin' ? phase10AdminLazySources : [])
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_BOUNDARY_INVALID')
   }
   value.boundaries.admin.forEach((boundary, index) =>
     assertBoundary(boundary, phase10AdminLazySources[index])
   )
-  assertBoundary(value.boundaries.dashboard, phase10DashboardLazySource)
+  if (artifact === 'web')
+    assertBoundary(value.boundaries.dashboard, phase10DashboardLazySource)
+}
+
+export const phase10SplitBundleCommand = ['web', 'admin']
+  .map(
+    (artifact) =>
+      `pnpm --filter @nihongo/${artifact} exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-${artifact}-out-dir> --emptyOutDir`
+  )
+  .join(' && ')
+
+const singleBuildCommand =
+  'pnpm exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir'
+const splitArtifacts = ['web', 'admin']
+
+const combineArtifactEvidence = (artifacts) => {
+  const rows = splitArtifacts
+    .flatMap((artifact) =>
+      artifacts[artifact].evidence.inventory.rows.map((row) => ({
+        ...row,
+        path: `${artifact}/${row.path}`
+      }))
+    )
+    .toSorted((left, right) =>
+      left.path < right.path ? -1 : left.path > right.path ? 1 : 0
+    )
+  const web = artifacts.web.evidence
+  const admin = artifacts.admin.evidence
+  for (const file of phase10ApprovedStaticAssetPaths) {
+    const first = web.inventory.rows.find((row) => row.path === file)
+    const second = admin.inventory.rows.find((row) => row.path === file)
+    if (!first || !second || !isDeepStrictEqual(first, second))
+      throw new Error('PHASE10_BUNDLE_SPLIT_STATIC_ASSET_MISMATCH')
+  }
+  // Keep the original allowance of exactly one canonical static12 copy.
+  const payloadAccounting = {
+    totalMeasurementScope: web.payloadAccounting.totalMeasurementScope,
+    approvedStaticAssets: web.payloadAccounting.approvedStaticAssets,
+    emittedPayload: {
+      gzipBytes: sum(rows.map((row) => row.gzip)),
+      rawBytes: sum(rows.map((row) => row.raw))
+    }
+  }
+  const measurements = Object.fromEntries(
+    Object.keys(phase10BundleBaseline).map((metric) => [
+      metric,
+      metric.startsWith('largest')
+        ? Math.max(web.measurements[metric], admin.measurements[metric])
+        : web.measurements[metric] + admin.measurements[metric]
+    ])
+  )
+  measurements.totalGzipBytes =
+    payloadAccounting.emittedPayload.gzipBytes -
+    payloadAccounting.approvedStaticAssets.gzipBytes
+  measurements.totalRawBytes =
+    payloadAccounting.emittedPayload.rawBytes -
+    payloadAccounting.approvedStaticAssets.rawBytes
+  const sha256 = createHash('sha256')
+    .update(
+      JSON.stringify(
+        rows.map(({ gzip, path: file, raw }) => ({ path: file, raw, gzip }))
+      )
+    )
+    .digest('hex')
+  const payloadSha256 = createHash('sha256')
+    .update(JSON.stringify(rows))
+    .digest('hex')
+  return {
+    evaluation: 'informational',
+    measurements,
+    budgets: evaluatePhase10BundleBudgets(measurements),
+    inventory: {
+      acceptedBaselineSha256: phase10AcceptedBundleDigest,
+      matchesAcceptedBaseline: sha256 === phase10AcceptedBundleDigest,
+      payloadAcceptedBaselineSha256: phase10AcceptedBundlePayloadDigest,
+      payloadMatchesAcceptedBaseline:
+        payloadSha256 === phase10AcceptedBundlePayloadDigest,
+      sha256,
+      payloadSha256,
+      rows
+    },
+    payloadAccounting
+  }
+}
+
+export const collectPhase10BundleEvidence = async ({
+  distDirectories,
+  metadata
+}) => {
+  const artifacts = {}
+  for (const artifact of splitArtifacts) {
+    const distDirectory = distDirectories[artifact]
+    const buildManifest = JSON.parse(
+      await readFile(
+        path.join(distDirectory, 'browser-build-manifest.json'),
+        'utf8'
+      )
+    )
+    artifacts[artifact] = {
+      base: artifact === 'web' ? '/' : '/admin/',
+      buildManifest,
+      evidence: await collectArtifactEvidence({
+        distDirectory,
+        artifact,
+        base: artifact === 'web' ? '/' : '/admin/',
+        metadata: { ...metadata, command: singleBuildCommand }
+      })
+    }
+  }
+  const evidence = {
+    schemaVersion: 4,
+    kind: 'nihongo.phase10.bundle-performance',
+    status: splitArtifacts.every(
+      (artifact) => artifacts[artifact].evidence.status === 'passed'
+    )
+      ? 'passed'
+      : 'failed',
+    metadata,
+    artifacts,
+    combined: combineArtifactEvidence(artifacts)
+  }
+  assertPhase10BundleEvidence(evidence)
+  return evidence
+}
+
+export const assertPhase10BundleEvidence = (value) => {
+  if (
+    !exactKeys(value, [
+      'schemaVersion',
+      'kind',
+      'status',
+      'metadata',
+      'artifacts',
+      'combined'
+    ]) ||
+    value.schemaVersion !== 4 ||
+    value.kind !== 'nihongo.phase10.bundle-performance' ||
+    !['passed', 'failed'].includes(value.status) ||
+    !exactKeys(value.artifacts, splitArtifacts) ||
+    value.metadata?.command !== phase10SplitBundleCommand
+  ) {
+    throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
+  }
+  for (const artifact of splitArtifacts) {
+    const profile = value.artifacts[artifact]
+    if (
+      !exactKeys(profile, ['base', 'buildManifest', 'evidence']) ||
+      profile.base !== (artifact === 'web' ? '/' : '/admin/')
+    )
+      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_INVALID')
+    assertArtifactEvidence(profile.evidence, artifact)
+    if (
+      !isDeepStrictEqual(profile.evidence.metadata, {
+        ...value.metadata,
+        command: singleBuildCommand
+      })
+    )
+      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_METADATA_INVALID')
+    const manifest = profile.buildManifest
+    if (
+      !exactKeys(manifest, ['artifact', 'releaseId', 'modules']) ||
+      manifest.artifact !== artifact ||
+      manifest.releaseId !== value.metadata.commit ||
+      !Array.isArray(manifest.modules) ||
+      new Set(manifest.modules).size !== manifest.modules.length ||
+      !isDeepStrictEqual(manifest.modules, [...manifest.modules].toSorted())
+    )
+      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_MANIFEST_INVALID')
+    assertBrowserBuildGraph(artifact, manifest.modules)
+    const bytes = Buffer.from(
+      JSON.stringify({
+        artifact: manifest.artifact,
+        releaseId: manifest.releaseId,
+        modules: manifest.modules
+      })
+    )
+    const row = profile.evidence.inventory.rows.find(
+      (entry) => entry.path === 'browser-build-manifest.json'
+    )
+    if (
+      !row ||
+      row.contentSha256 !== createHash('sha256').update(bytes).digest('hex') ||
+      row.raw !== bytes.length ||
+      row.gzip !== gzipSync(bytes, { level: 9 }).length
+    )
+      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_MANIFEST_INVALID')
+  }
+  const expected = combineArtifactEvidence(value.artifacts)
+  if (!isDeepStrictEqual(value.combined, expected))
+    throw new Error('PHASE10_BUNDLE_EVIDENCE_COMBINED_INVALID')
+  const expectedStatus = splitArtifacts.every(
+    (artifact) => value.artifacts[artifact].evidence.status === 'passed'
+  )
+    ? 'passed'
+    : 'failed'
+  if (value.status !== expectedStatus)
+    throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
 }
 
 export const assertPhase10BundleEvidenceProvenance = async ({

@@ -21,12 +21,15 @@ import {
   readReviewReturnContext,
   rememberCurrentResult
 } from '@app/wrong-note/reviewReturnContext'
-import { Badge } from '@common/components/Badge'
-import { Button, getButtonClassName } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { EmptyState } from '@common/components/EmptyState'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
+import { Badge } from '@nihongo/browser/common/components/Badge'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
@@ -35,13 +38,13 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { useCreateResultRetrySession } from '@app/practice/hooks/useCreateResultRetrySession'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
-import { readResultRetryAttempt } from '@app/practice/resultRetryAttemptStorage'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { readResultRetryAttempt } from '@nihongo/browser/app/practice/resultRetryAttemptStorage'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { ResultQuestionNavigation } from '@app/practice/result/ResultQuestionNavigation'
 import { ResultQuestionDetail } from '@app/practice/result/ResultQuestionDetail'
-import { resolveUiLocale } from '@/i18n/types'
-import { formatNumber } from '@libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 
 type BookmarkStatusCode =
   | 'unavailable'

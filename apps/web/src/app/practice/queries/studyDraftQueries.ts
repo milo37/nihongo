@@ -10,10 +10,10 @@ import {
   listResumableStudySessionsRequestSchema,
   type ListResumableStudySessionsRequest
 } from '@api/study/listResumableStudySessions/schema'
-import { saveStudyDraftAnswers } from '@api/study/saveStudyDraftAnswers'
-import type { ParsedSaveStudyDraftAnswersRequest } from '@api/study/saveStudyDraftAnswers/schema'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+import { saveStudyDraftAnswers } from '@nihongo/browser/api/study/saveStudyDraftAnswers/index'
+import type { ParsedSaveStudyDraftAnswersRequest } from '@nihongo/browser/api/study/saveStudyDraftAnswers/schema'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
 export interface SaveStudyDraftMutationInput {
   body: ParsedSaveStudyDraftAnswersRequest
@@ -29,8 +29,10 @@ const saveDraftActionFence =
 const cancelSessionActionFence =
   createObjectAuthBoundActionFence<CancelStudySessionMutationInput>()
 
-export const fetchStudyDraftSnapshot = async (sessionId: string) =>
-  (await getStudyDraftAnswers(sessionId)).data
+export const fetchStudyDraftSnapshot = async (
+  sessionId: string,
+  signal?: AbortSignal
+) => (await getStudyDraftAnswers(sessionId, signal)).data
 
 export const assertCurrentSaveStudyDraftAction = (
   input: SaveStudyDraftMutationInput
@@ -44,7 +46,7 @@ export const studyDraftQueries = {
   draft: (sessionId: string, enabled = true) =>
     queryOptions({
       queryKey: serverStateQueryKeys.study.draft(sessionId),
-      queryFn: () => fetchStudyDraftSnapshot(sessionId),
+      queryFn: ({ signal }) => fetchStudyDraftSnapshot(sessionId, signal),
       enabled: enabled && sessionId.length > 0,
       staleTime: 0,
       retry: false

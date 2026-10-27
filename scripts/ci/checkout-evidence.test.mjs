@@ -69,6 +69,48 @@ test('PR evidence retains only its actual source/run allowlist', () => {
   )
 })
 
+test('the observed PR44 stale-base tuple needs Git proof while retaining the exact merge and head', () => {
+  const staleBase = '374954286f22cdaadbfb897ec1c21b0664e006d3'
+  const currentBase = '3c0520e5b68ffbe8e11cd816195fcc8eb89ab565'
+  const currentHead = 'e156a4c0878936722a7bda550c15efb3874c7d9b'
+  const evaluatedMerge = '4d5acbaa949eba6ea68e652235c24c65f8481d6c'
+  const frozenTree = '24e31246f9a51377e1ca48e94051717c5a546151'
+  const fixture = {
+    environment: {
+      ...environment,
+      GITHUB_REF: 'refs/pull/44/merge',
+      GITHUB_SHA: evaluatedMerge
+    },
+    event: {
+      ...event,
+      number: 44,
+      pull_request: { base: { sha: staleBase }, head: { sha: currentHead } }
+    },
+    observed: {
+      ...observed,
+      checkoutSha: evaluatedMerge,
+      treeSha: frozenTree,
+      parents: [currentBase, currentHead]
+    }
+  }
+  assert.throws(() => createCheckoutEvidence(fixture))
+  const actual = createCheckoutEvidence({
+    ...fixture,
+    isAncestor: (ancestor, descendant) => {
+      assert.equal(ancestor, staleBase)
+      assert.equal(descendant, currentBase)
+      return true
+    }
+  })
+  assert.deepEqual(actual.source, {
+    headSha: currentHead,
+    baseSha: staleBase,
+    checkoutSha: evaluatedMerge,
+    treeSha: frozenTree,
+    parents: [currentBase, currentHead]
+  })
+})
+
 test('push evidence accepts an initial zero before without mistaking it for the head', () => {
   const actual = createCheckoutEvidence({
     environment: {
@@ -205,6 +247,64 @@ test('a real temporary Git merge checkout is captured and written privately once
   assert.deepEqual(actual.source.parents, [actualBase, actualHead])
   assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), actual)
   assert.equal(statSync(output).mode & 0o777, 0o600)
+  const baseTree = git('-C', repository, 'rev-parse', actualBase + '^{tree}')
+  const advancedBase = git(
+    '-C',
+    repository,
+    'commit-tree',
+    baseTree,
+    '-p',
+    actualBase,
+    '-m',
+    'forward base fixture'
+  )
+  const unrelatedBase = git(
+    '-C',
+    repository,
+    'commit-tree',
+    baseTree,
+    '-m',
+    'unrelated fixture'
+  )
+  const advancedMerge = git(
+    '-C',
+    repository,
+    'commit-tree',
+    actualTree,
+    '-p',
+    advancedBase,
+    '-p',
+    actualHead,
+    '-m',
+    'forward merge fixture'
+  )
+  const captureAt = (eventBase, checkout, expectedHead = actualHead) => {
+    git('-C', repository, 'checkout', '--detach', checkout)
+    writeFileSync(
+      eventPath,
+      JSON.stringify({
+        ...event,
+        pull_request: { head: { sha: expectedHead }, base: { sha: eventBase } }
+      })
+    )
+    return captureCheckoutEvidence(
+      { ...fixtureEnvironment, GITHUB_SHA: checkout },
+      repository
+    )
+  }
+  const forward = captureAt(actualBase, advancedMerge)
+  assert.equal(forward.source.baseSha, actualBase)
+  assert.deepEqual(forward.source.parents, [advancedBase, actualHead])
+  for (const [eventBase, checkout, expectedHead] of [
+    [advancedBase, actualMerge, actualHead],
+    [unrelatedBase, advancedMerge, actualHead],
+    [actualBase, advancedMerge, advancedBase],
+    [actualBase, actualHead, actualHead],
+    ['f'.repeat(40), advancedMerge, actualHead]
+  ]) {
+    assert.throws(() => captureAt(eventBase, checkout, expectedHead))
+  }
+  captureAt(actualBase, actualMerge)
   assert.throws(
     () =>
       runCheckoutEvidence(['--output', output], fixtureEnvironment, repository),
@@ -241,12 +341,13 @@ test('each required producer captures its evaluated checkout before work', () =>
     [...jobs.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):$/gmu)].map(
       (match) => match[1]
     ),
-    ['build', 'e2e', 'phase11_release']
+    ['plan', 'build', 'e2e', 'phase11_release']
   )
   for (const job of jobs.split(/^ {2}[A-Za-z_][A-Za-z0-9_-]*:$/mu).slice(1)) {
     assert.match(job, /ref: \$\{\{ github.sha \}\}/u)
     assert.match(job, /fetch-depth: 0/u)
     assert.match(job, /persist-credentials: false/u)
+    if (job.includes('name: Select affected checks')) continue
     const record = job.indexOf('name: Record actual checkout evidence')
     assert.ok(record > job.indexOf('name: Setup Node.js'))
     assert.ok(record < job.indexOf('name: Install dependencies'))
@@ -255,10 +356,62 @@ test('each required producer captures its evaluated checkout before work', () =>
     assert.match(job, /if-no-files-found: error/u)
   }
   assert.match(workflow, /name: Quality and production build/u)
-  assert.match(workflow, /run: pnpm run test\n/u)
-  assert.match(workflow, /run: pnpm run build\n/u)
+  assert.match(
+    workflow,
+    /run: node scripts\/ci\/check-selection\.mjs quality unit\n/u
+  )
+  assert.match(
+    workflow,
+    /run: node scripts\/ci\/check-selection\.mjs quality build\n/u
+  )
   assert.doesNotMatch(
     workflow,
     /continue-on-error:|admission_binding:|required_gate:/u
   )
+})
+
+test('manual and tag candidates bind the evaluated commit without inventing a comparison base', () => {
+  for (const ref of ['refs/heads/dev', 'refs/tags/v0.2.0']) {
+    const actual = createCheckoutEvidence({
+      environment: {
+        ...environment,
+        GITHUB_EVENT_NAME: 'workflow_dispatch',
+        GITHUB_REF: ref,
+        GITHUB_SHA: head
+      },
+      event: { repository: event.repository },
+      observed: { ...observed, checkoutSha: head, parents: [base] }
+    })
+    assert.equal(actual.source.headSha, head)
+    assert.equal(actual.source.baseSha, '0'.repeat(40))
+    assert.equal(actual.evaluation.ref, ref)
+    assert.throws(() =>
+      createCheckoutEvidence({
+        environment: {
+          ...environment,
+          GITHUB_EVENT_NAME: 'workflow_dispatch',
+          GITHUB_REF: ref,
+          GITHUB_SHA: head
+        },
+        event: { repository: event.repository },
+        observed
+      })
+    )
+  }
+  const actual = createCheckoutEvidence({
+    environment: {
+      ...environment,
+      GITHUB_EVENT_NAME: 'push',
+      GITHUB_REF: 'refs/tags/v0.2.0',
+      GITHUB_SHA: head
+    },
+    event: {
+      repository: event.repository,
+      ref: 'refs/tags/v0.2.0',
+      after: head,
+      before: '0'.repeat(40)
+    },
+    observed: { ...observed, checkoutSha: head, parents: [base] }
+  })
+  assert.equal(actual.source.headSha, head)
 })

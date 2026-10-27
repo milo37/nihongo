@@ -1,125 +1,107 @@
-# main·영역 통합·작업 PR·버전 운영
+# main·dev 브랜치와 버전 운영
 
-2026-10-12 사용자 승인 revision2 정본의 SHA-256은 279b0cffc515d6baff6da3320633f4e78508896b8161d015c53331d8f7dbf6cf입니다. God는 통합 책임자입니다. JLP-496 전환의 Git 실행자는 DevOps 한 명이며 다른 직원은 원본 checkout에서 Git 쓰기를 하지 않습니다. 이후 owner의 Git 쓰기는 god가 실제 cwd/branch/파일 범위를 배정한 턴에만 허용됩니다.
+2026-10-25 사용자가 승인한 운영 정책의 정본입니다. 작업 범위·담당·검수 결과·다음 행동은 Munder에 기록하고, 이 문서는 반복해서 사용하는 절차를 설명합니다. 팀장(god)이 통합을 책임지고 작업마다 공통 Git 실행자 한 명을 지정합니다.
 
-브랜치 이름은 2026-10-23 사용자 승인에 따라 선두 접두사를 제거한 표기를 사용합니다. 기존 PR #1~12는 닫힌 이력으로 보존하고 같은 순서의 Draft PR #13~24로 이어집니다. 현재 통합 후보는 `integration/jlp-496-phase10-local`의 [PR #24](https://github.com/milo37/nihongo/pull/24)입니다. 원본 commit과 기존 검수·릴리스 정책은 그대로입니다.
+## 한 페이지 요약
 
-PR 생성·갱신 즉시 기존 QA와 팀장은 changed delta 검토를 시작합니다. Draft 여부와 CI 상태는 코드 리뷰 시작을 막지 않으며, 수정 head도 우선 재검토합니다. CI와 merge gate는 별도로 유지하고 미검증 강제 승인이나 보호 완화는 허용하지 않습니다.
+| 항목           | 운영 기준                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 상시 브랜치    | `main`: 검수된 릴리스 기준, `dev`: 다음 변경의 통합 기준                                                           |
+| 일반 작업 시작 | 최신 원격 `dev`에서 단기 작업 브랜치 생성                                                                          |
+| 작업 이름      | `feature/fe-jlp-ID-topic`, `feature/be-jlp-ID-topic`, `feature/devops-jlp-ID-topic` 또는 `fix/<role>-jlp-ID-topic` |
+| 작업 통합      | 작업 PR → `dev`, **squash merge**                                                                                  |
+| 릴리스 통합    | `dev` PR → `main`, **merge commit**                                                                                |
+| main 별도 변경 | hotfix 등 실제 변경이 생긴 경우에만 `main` → `dev` PR을 **merge commit**으로 동기화                                |
+| 긴급 수정      | 최신 `main`에서 단기 `fix/...` → `main` PR → 즉시 `dev` 동기화                                                     |
+| 리뷰           | PR 생성·갱신 즉시 독립 QA와 팀장이 변경 검토 시작; 병합은 관련 검수와 현재 required CI 성공 후                     |
+| WIP            | 작업 브랜치 checkpoint·normal push·Draft PR 허용; 실패·미실행·남은 문제 명시                                       |
+| 보호           | `main`·`dev` 직접 push와 force push 금지; 실제 GitHub 설정은 원격 확인 기록으로 구분                               |
+| 버전·배포      | root `package.json.version` 하나의 SemVer; 배포할 `main` 커밋에 버전 tag, main 병합과 배포는 별도                  |
+| 정리           | 수용·미병합 작업·사용 중 worktree·의존을 확인한 단기 브랜치만 삭제                                                 |
 
-PR 제목과 본문은 한국어로 작성합니다. PR 제목은 `[영역] 무엇을 변경했는지`로 실제 base→head 전체 변경을 대표하고, 본문은 `- 변경:`, `- 검증:`, `- 남은 문제:` 세 줄로 작성합니다. 실제 검사 결과·필요한 링크와 migration·stack 의존·미검증을 남기며 작업일지·대화 경과는 생략합니다.
+```mermaid
+flowchart TD
+  DEV["dev · 다음 변경 통합"] --> TASK["feature 또는 fix · 최신 dev 기준"]
+  TASK -->|"작업 PR · squash"| DEV
+  DEV -->|"릴리스 PR · merge commit"| MAIN["main · 검수된 릴리스 기준"]
+  MAIN -->|"hotfix 등 main 별도 변경 · merge PR"| DEV
+  MAIN --> HOTFIX["긴급 fix · 최신 main 기준"]
+  HOTFIX -->|"PR · merge commit"| MAIN
+  MAIN -.->|"별도 배포 승인"| TAG["배포할 main 커밋 · vX.Y.Z tag"]
+```
 
-## 브랜치와 수용 대상
+## GitHub Issue와 문서 연결
 
-| branch/변경                                         | base·수명                       | PR target / owner·검수                                                    |
-| --------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------- |
-| main                                                | 영구 최종 기준                  | 검수된 release/hotfix PR만; god 책임 G3→G4                                |
-| frontend                                            | 승인 main M, FE 통합 유지       | FE task·공통 PR 수용; 승인 F→release / FE·BE·QA·해당 디자인·god           |
-| backend                                             | FE와 같은 M, BE 통합 유지       | BE task·공통 PR 수용; 승인 B→release / BE·FE·QA·god·해당 디자인           |
-| feature/jlp-ID-fe-topic 또는 fix/jlp-ID-fe-topic    | 고정 FE head, task 종료까지     | frontend / FE writer; G1 후 수용, G2 actual head                          |
-| feature/jlp-ID-be-topic 또는 fix/jlp-ID-be-topic    | 고정 BE head, task 종료까지     | backend / BE writer; G1/G2                                                |
-| 공통 contracts task                                 | main M+승인 의존, 양쪽 소비까지 | 동결된 같은 source head로 FE/BE 각각 PR / BE 단일 writer·양쪽 합의·QA·god |
-| CI/Docker/운영·root runtime/deps/lockfile 공통 task | main M+의존, 양쪽 소비까지      | 양쪽 영역 PR / named DevOps·FE/BE 영향 검수; provisioning은 BE 합의       |
-| BE 전용 provisioning/DB task                        | BE 승인 head                    | backend / DevOps provisioning, BE schema/migration; 범위 분리             |
-| 제품 version/CHANGELOG/release-record task          | 통합 후보 R, 해당 배치까지      | release 후보 / god 지정 DevOps release owner·FE/BE/QA                     |
-| 콘텐츠 데이터·seed·게시 계약                        | BE 승인 head                    | backend / BE repository writer·named 콘텐츠/기획 검수·FE·QA               |
-| UI 콘텐츠·번역                                      | FE 승인 head                    | frontend / FE writer·기획·디자인·BE·QA                                    |
-| release/<target-semver>                             | 최신 승인 M, 한 배치            | main / named integration writer·양쪽 owner·QA·디자인·god                  |
-| fix/jlp-ID-role-hotfix-topic                        | 현재 main, 긴급 수정 종료까지   | main, 이후 FE/BE/열린 후보 sync / 영향 owner·전체 gate                    |
-| legacy phase11/PR1                                  | 이관 판정까지 보존              | 기존 상태 유지; 전체 main 반영·force·삭제 금지                            |
+- 작업을 시작하기 전에 기존 GitHub Issue를 확인하고, 없으면 **문제·완료 조건·근거**만 간결하게 등록합니다. 이미 완료된 과거 작업을 일괄 복제하지 않으며 같은 작업의 Issue는 재사용합니다.
+- Issue에는 Munder JLP ID와 필요한 설계·운영 문서 링크를, Munder에는 Issue와 PR 링크를 기록합니다. Munder의 담당·실행 상태와 Issue의 진행·검수 결과를 인계와 완료 시 함께 맞춥니다. 자동 양방향 동기화나 새 승인 단계를 추가하지 않습니다.
+- 브랜치 전략 같은 상시 운영 문서는 Notion의 별도 문서로 관리하고 작업보드 카드 본문에는 문서 링크만 남깁니다. 카드의 원본 키·담당·상태·기존 이력은 보존합니다.
+- 모든 PR 본문 첫 줄에 `관련 이슈: #번호`를 적습니다. 부분 해결이나 보존 PR의 잔여 검토도 해당 Issue에 범위와 남은 일을 연결합니다.
+- 현재 기본 브랜치는 `main`입니다. GitHub의 `Closes #번호`는 기본 브랜치를 대상으로 하는 PR에서만 작동하므로, `dev` 대상 PR에서는 관련 번호로 추적하고 팀장이 완료 조건·검수·해당 통합을 확인한 뒤 Issue 상태를 갱신합니다. `main` PR도 전체 완료 조건을 충족할 때만 `Closes`를 사용합니다. 배포가 완료 조건인 Issue는 코드 병합만으로 닫지 않습니다. [GitHub 공식 연결 규칙](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)
 
-task ref에는 fe/be/devops 등 실제 role과 topic을 넣어 같은 JLP의 FE/BE 이름 충돌을 막습니다. <target-semver>는 목표 버전 자리표시자이며 다음 버전이 확정됐다는 뜻이 아닙니다. 영구 develop이나 구버전 maintenance line은 만들지 않습니다. 사용/미병합/소유 불명·의존 중 branch는 삭제하지 않습니다. 적격 삭제는 god가 소유/병합/검수/비사용/의존 종료를 확인한 task 범위만이며 현재 JLP-496 조사에서는0입니다.
+## 작업 시작과 소유권
 
-## worktree·writer·checkpoint
+1. 팀장이 JLP ID, 목적, 허용 파일·의존, 담당과 Git 실행자를 정합니다. FE는 `apps/web`, BE는 `apps/api`·domain과 합의된 contracts, DevOps는 배정된 CI·운영을 맡습니다. root runtime·의존성·lockfile·버전·콘텐츠는 담당을 명시합니다.
+2. Git 실행자가 최신 원격 `dev`와 사용 중 브랜치·worktree를 확인하고 단기 브랜치와 작업 경로를 준비합니다. 일반 작업은 최신 `dev`를 기준으로 하며, 긴급 수정만 아래 절차에 따라 `main`을 기준으로 합니다.
+3. 지정 worktree의 `team/writer-state.md` Current를 취득합니다. 같은 worktree에는 source writer 한 명, 공통 Git metadata에는 지정 실행자 한 명을 유지합니다. 원본 dirty checkout, 다른 담당의 변경·index·worktree, 사용 중 서비스와 DB·볼륨·`.env`를 보존합니다.
+4. 공유 계약이나 여러 영역을 건드리는 작업도 **하나의 task·작업 브랜치·PR**로 관리합니다. FE·BE가 계약과 파일 소유권을 합의하고 BE가 contracts를 작성하며 FE가 소비합니다. writer 차례를 나누고 관련 담당이 함께 검수합니다.
 
-- actual remote main SHA, PR/CI/protection과 기존 worktrees를 조회한 뒤 중복 없는 격리 cwd를 준비합니다. refs/config/공통 metadata는 단일 실행자, 각 worktree에는 writer1명입니다.
-- 원본 dirty checkout의 source/index/branch/history/5173은 그대로입니다. 원 writer 파일도 보존 대상이면 Munder/evidence lease를 먼저 기록하고 격리 worktree에 acquired→released를 기록합니다.
-- .env/DB/port/node_modules/build outputs를 다른 작업으로 복사하거나 임의 공유하지 않습니다. 포맷 도구를 기존 설치에서 읽기 실행하는 것과 종속 파일을 worktree에 복사하는 것은 구분합니다.
-- God가 owner/files/hunks/의존/검수·미실행을 분류한 뒤 지정 파일만 stage합니다. cached diff와 비밀/무관 변경을 확인하고 실제 JLP ID로 commit합니다. git add . / add -A, stash/reset/clean/force, 원본 switch는 금지합니다.
-- owner의 normal non-force task push와 Draft PR은 WIP 저장입니다. 최종 QA/UI/real API/all CI/보호 확인 완료가 선행 조건은 아니며 실패·미실행을 남깁니다. 작성자는 merge하지 않습니다.
-- 실제 cwd/branch/base/head/commit/PR/check-target와 writer 반납을 god에게 인계합니다. hive 자동 commit은 제품 Git commit이 아닙니다.
+작업이 길어지면 작은 checkpoint를 저장하고 Draft PR로 공유합니다. 최종 QA·화면 검수·real API·모든 CI 완료를 WIP 저장의 선행 조건으로 추가하지 않습니다. 현재 실패와 미실행 범위를 PR에 남기고, WIP를 제품 완료로 표시하지 않습니다.
 
-## 공통 변경과 merge 방식
+## PR 작성·검수·병합
 
-C0를 main M에서 단일 owner가 한 번 작성하고 source SHA·정규 변경 ID·content hash·patch-id·파일/hunk·의존·migration checksum을 동결합니다. contracts는 FE/BE 합의 뒤 BE가 작성합니다. 첫 수용 후 source를 바꾸지 않고 후속 task로 수정합니다.
+1. PR target은 일반 작업이면 `dev`, 긴급 수정이면 `main`입니다. 제목은 `[영역] 변경 내용` 형태의 한국어로 현재 base→head 전체 변경을 대표합니다. 관련 Issue를 연결하고 본문은 다음 네 항목으로 씁니다.
 
-- 실제 보호에 linear history가 없고 merge commit이 허용되면 단일 영역 task는 squash 가능, 공통 C0·영역→후보→main·main sync는 merge commit을 사용합니다. 두 영역에 같은 C0 ancestry가 있고 후보에서 정규 ID는 한 번만 계수합니다.
-- 어느 관련 branch든 linear history가 필수면 전체 배치를 linear 방식으로 고정합니다. PR squash를 기본으로 허용된 task rebase-merge만 사용합니다. 정규 ID/source/content SHA→FE·BE·후보 actual 수용 SHA 매핑으로 동등성을 확인하며 같은 ancestry를 유지했다고 주장하지 않습니다.
-- linear/오염 후보는 최신 M에서 새 비공유 branch로 승인 전체 단위를 재현합니다. 공통1회→FE 고유→BE 고유를 수용하고 전면 G2를 다시 받습니다. 공유 branch force-rebase나 두 common 복제 SHA의 이중 반영은 하지 않습니다. patch-id만으로 동등성을 판정하지 않습니다.
-- 보호 상세/허용 방식 미확인·서명/기타 조건 충돌이면 해당 적용을 HOLD합니다. 보호를 낮추거나 credential을 바꿔 우회하지 않습니다. 실제 수정은 해당 파일 owner가 맡습니다.
+   ```text
+   - 관련 이슈: #번호
+   - 변경: 문제와 변경 후 동작
+   - 검증: 실제 통과·실패·미실행과 필요한 근거 링크
+   - 남은 문제: 미해결 사항과 다음 담당, 없으면 없음
+   ```
 
-## admission freeze와 동기화
+2. PR 생성·갱신 즉시 독립 QA와 팀장이 changed delta를 검토합니다. Draft나 CI 대기 상태에서도 리뷰를 시작합니다. 구현 담당은 관련 unit·lint·type·build와 영향에 맞는 검사를 수행하고, UI 변경은 실제 화면 검수, API·DB 변경은 해당 검증을 추가합니다. 문서 수정에 전체 DB·브라우저 검사를 요구하지 않습니다.
+3. 병합 전 현재 PR head와 최신 target을 기준으로 검토 범위와 required CI 성공을 확인합니다. head·target 또는 충돌 해결이 바뀌면 영향받는 검토와 CI를 다시 확인합니다. 실패·취소·skip·누락을 성공으로 취급하지 않습니다.
+4. 같은 계정 AI팀 PR은 작성자와 다른 담당의 독립 QA와 팀장 검토를 받습니다. native 자기 PR `APPROVE`는 요구하지 않습니다. 외부 계정 PR은 여기에 **작성자와 다른 write/admin 권한 계정의 실제 승인 1건**을 더합니다.
+5. 지정 Git 실행자가 검토된 작업 PR을 `dev`에 squash merge합니다. 관련 담당에게 수용 커밋과 결과를 남기고, 완료된 PR은 검토·CI가 충족되는 대로 병합 또는 사유를 명시해 종료합니다. 완료 PR을 정기 배치까지 쌓아두지 않습니다.
+6. `dev`의 전체 변경을 `main`으로 올릴 때는 `dev` → `main` PR을 열고 전체 릴리스 범위·호환성·버전을 검토한 뒤 merge commit으로 수용합니다. 이 방식으로 `dev`의 변경 이력을 `main`에 보존합니다. `main`에서 hotfix 등 별도 실제 변경이 생긴 경우에만 `dev`로 merge 동기화합니다.
 
-1. 기본은 배치별 수용 허용 목록 동결입니다. M/배치 ID/merge 방식/task source SHA·PR·정규 ID·전체 hunk·의존 closure·순서를 god가 고정합니다. exact-head G1 완료 단위만 영역에 넣고 미승인 task는 feature/fix에 남깁니다.
-2. 영역 actual SHA를 기록하고 G2에서 M→F/B 전체 diff/추가 ancestry/의존·공통 중복을 검사합니다. merge 방식에서 통과한 고정 F/B만 후보에 merge합니다. 동결 후 새 영역 작업은 다음 배치입니다.
-3. 오염 영역/linear 방식은 원본을 보존하고 M에서 승인 task-SHA 전체 단위+필수 의존만 재구성합니다. 옛 F/B merge와 선택 hunk 재구성을 혼합하지 않습니다. 바뀐 범위는 새 G1, 재구성 head는 god·양쪽 owner·독립 QA·해당 디자인의 전면 G2 대상입니다.
-4. M/허용목록 hash/F·B 또는 재구성 SHA/actual R·tree/common map/review·CI tuple을 동결합니다. 미승인 ancestry/diff·누락·중복·checksum 불일치·미검수 충돌이 있으면 G3로 가지 않습니다.
-5. main M′ 또는 후보 수정은 새 sync PR·head·CI·QA/UI·새 rc로 검수합니다. merge 방식은 일반 merge, linear는 새 branch 재현과 SHA map으로 수용합니다. 공유 reset/force는 금지합니다.
-6. actual main C의 G4 뒤 FE/BE와 열린 후보로 sync해 실제 수용 SHA를 인계합니다. 같은 파일 내용만으로 옛 head 승인을 자동 재사용하지 않습니다.
+기존 required CI 세 개를 유지합니다.
 
-## G1–G4와 실제 CI 결속
+- `Quality and production build`
+- `Phase 10 real/mock browser and regression acceptance`
+- `Phase 11 portable release and production-mode smoke`
 
-검수 tuple은 H(task/PR head), T(최신 target base), E(GitHub가 평가한 head/merge-ref), S(actual checkout), merge tree, run ID/attempt, 검수 manifest hash입니다. H/T/E/S/범위가 바뀌면 이전 승인·CI는 무효입니다.
+위 검수·승인 기준은 운영 정책입니다. GitHub가 실제 강제하는 보호·승인 수·required checks·merge 방식은 root의 원격 조회와 설정 결과를 Munder에 따로 기록합니다. 문서 채택만으로 서버 enforcement가 완료됐다고 주장하거나, 필요한 검사가 실패한다고 보호를 낮추지 않습니다. `main`·`dev` push CI와 작업 PR의 `pull_request` CI를 유지합니다.
 
-| gate                            | 필수 조건                                                                                                                                                                                                                                |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| G1 task→영역/후보               | exact H/T/E/S god 승인·독립 QA·해당 UI 디자인, owner scope·관련 unit/lint/type/build·계약/DB 영향·필수 CI actual success                                                                                                                 |
-| G2 actual 영역/공통/재구성 head | exact head/M god·독립 QA·해당 디자인, 전체 diff/ancestry/closure/common map·양쪽 build·migration/호환·real 권한/소비·CI actual success; 재구성은 전면 검수                                                                               |
-| G3 후보→main PR                 | 승인 목록/M/F/B 또는 재구성/R/E/S, real API·인증·학습 저장/재개·제출/복습·DB migration·회귀·KO/JA/PC/mobile·보안/운영, 아래 내부/외부 PR 승인 기준·독립 QA·팀장(god) 최종 승인·해당 디자인·최신 merge tree·current-head required CI 성공 |
-| G4 actual main C                | C의 CI/build/manifest·버전/artifact/DB 호환, tree 변화 영향 재검수 또는 god/QA의 C 재사용 범위 확인; 완결 전 final tag/Release 금지                                                                                                      |
+## 긴급 수정과 역동기화
 
-기존 필수 main contexts는 Quality and production build, Phase 10 real/mock browser and regression acceptance, Phase 11 portable release and production-mode smoke입니다. 단일 JLPT required gate와 admission_binding은 승인 전략의 **향후 named CI 구현 범위**이며 이 문서9 commit에 구현하지 않습니다. 기존 검사를 제거/약화하지 않습니다.
+1. Git 실행자가 최신 원격 `main`에서 `fix/<role>-jlp-ID-topic`을 준비하고 수정·관련 검사 후 `main` 대상 PR을 엽니다. QA·팀장 검토와 현재 required CI를 거쳐 merge commit으로 수용합니다.
+2. 해당 `main` 커밋을 즉시 `main` → `dev` 동기화 PR로 merge합니다. 이미 열린 작업 브랜치에는 최신 `dev`를 일반 merge로 반영하고 충돌·검사 영향을 확인합니다. 공유 이력을 force로 다시 쓰지 않습니다.
+3. 배포 버전은 마지막 배포 tag부터 배포할 `main`까지의 **포함된 전체 변경**으로 판단합니다. `main`에 아직 배포하지 않은 기능이 있으면 작은 버그 수정만 근거로 구버전 patch라고 표시하지 않습니다.
 
-향후 aggregator는 if: always(), needs: [build, e2e, phase11_release, admission_binding]로 실행하고 모든 필수 producer/matrix/step가 actual success인지 검사해야 합니다. binding은 같은 run/attempt의 실제 E/S/tree/artifact source/허용 목록·버전/common map을 검증한 뒤에만 true를 냅니다. boolean 입력이나 continue-on-error/skip를 성공으로 포장하지 않습니다. gate 자체 completed/success도 병합 직전에 확인하며 skipped/neutral/cancelled/failure/pending/누락은 HOLD입니다. path/branch filter로 필수 workflow를 생략하지 않고 새 branch push/PR·필요 시 merge_group 지원을 실제 구현·시험·등록해야 합니다. workflow_dispatch를 PR 필수 check의 대체로 추정하지 않습니다.
+## 단일 제품 버전과 배포
 
-## 실제 원격 관찰과 남은 서버 gate
+root `package.json.version`이 제품 SemVer의 단일 원본입니다. 버전 담당은 포함된 변경과 공개 계약 영향을 검토해 값을 정하고, 다른 산출물의 제품 버전은 이 값에서 파생합니다. API 경로의 `v1`, DB migration 번호와 manifest schemaVersion은 별도 식별자입니다.
 
-JLP-496 실제 gh GET/ls-remote 관찰: 원격 main a0c6dd47d44193ed4f09d2c2581f7a536aabfc31, phase11 d9c01fec34b2b25fc9a020e0b9a2bfd40f2b831f, 기존 PR1 Draft/unmerged, 원격 tag0. main exact SHA의 과거 run31585409571은 success(2026-08-12), phase11 해당 head의 PR/push runs는 failure입니다. 과거 CI를 fresh product/DB/Phase11 PASS로 표시하지 않습니다.
+| 포함된 변경                          | 버전 판단                          |
+| ------------------------------------ | ---------------------------------- |
+| 0.x 호환 버그 수정                   | PATCH: 가상 예 `0.4.2` → `0.4.3`   |
+| 0.x 기능 추가·계약 전환              | MINOR: 가상 예 `0.4.2` → `0.5.0`   |
+| 1.x 호환 버그 수정                   | PATCH                              |
+| 1.x 호환 기능 추가                   | MINOR                              |
+| 1.x 공개 계약의 호환성 파괴          | MAJOR                              |
+| 제품 동작에 영향 없는 문서·정책 정리 | 변경 자체만으로 버전을 올리지 않음 |
 
-기존 gh 인증으로 main 보호 GET는 성공했습니다. strict checks3·enforce_admins true·force/deletion false·linear false·native approval count0입니다. repo merge/squash/rebase 허용, rulesets0입니다. 앞선 connector403과 이번 CLI 읽기 권한은 구분합니다. credentials/보호 설정은 바꾸지 않았습니다.
+실제 배포할 `main` 커밋에 `vX.Y.Z` tag를 연결합니다. 기존 tag를 이동·재사용하거나 다른 커밋을 같은 배포 버전으로 표시하지 않습니다. `main` 병합, CI 성공, tag 생성, 실제 배포는 각각 구분하며 배포는 승인된 환경·담당·입력과 별도 실행 기록을 필요로 합니다. 이 정책 도입 작업에서는 현재 버전·tag·배포를 변경하지 않습니다.
 
-현재 main source workflow는 Quality job 하나이며 Phase10/11, 새 area push, required aggregator/binding은 없습니다. 누락 필수 context를 임의 제거하지 않고 named foundation/CI task에서 보완해야 합니다. 새 영역이 자동으로 main 보호를 상속한다고 주장하지 않습니다. 영역 보호가 설정되지 않았으면 운영 규칙과 서버 enforcement를 구분하고 완료로 표시하지 않습니다.
+## 브랜치 정리와 이번 전환
 
-PR 승인 기준은 다음 두 경우로 구분합니다.
+- 작업 PR이 수용되면 PR의 최종 head와 수용 커밋, 미반영 변경, 다른 PR·작업의 의존, 사용 중 worktree와 dirty 상태를 확인합니다. squash 후에는 단순한 ancestry 비교만으로 수용 여부를 판단하지 않습니다.
+- Git 실행자는 안전하게 수용되고 사용이 끝난 단기 브랜치만 정리하고 결과를 Munder에 남깁니다. 진행 중·미병합·소유 불명·다른 PR이 참조하는 작업과 미공개 커밋을 보존합니다. dirty checkout의 reset·clean·stash나 강제 삭제로 정리하지 않습니다.
+- `main`·`dev`는 상시 보존합니다. 완료한 단기 브랜치의 로컬·원격 정리는 담당 Git 실행자가 맡고, 다른 사람의 worktree는 소유자와 조정합니다.
+- 이번 전환의 `dev` 생성·보호, sync PR #25/#26 종료와 `frontend`·`backend` 정리는 root의 실행 범위입니다. PR #13/#16의 미병합 작업은 보존합니다. 실제 원격 확인과 결과 기록으로 완료 여부를 판단하며, 이 문서는 그 실행이 완료됐다는 증거가 아닙니다.
 
-- `milo37` 명의 기존 AI팀 PR: writer와 다른 담당 AI의 독립 QA·팀장(god) 최종 승인·current-head required CI 성공이 필요합니다. Native 자기 PR `APPROVE`는 불필요하며 성공했다고 주장하지 않습니다. 현재 내부 PR24에 외부 계정 승인 조건을 적용하지 않습니다.
-- 그 외 GitHub 계정 PR: 작성자와 다른 write/admin 권한 계정의 실제 `APPROVED` 리뷰 1건 이상·독립 QA·팀장(god) 최종 승인·current-head required CI 성공이 필요합니다. 팀장은 사용자 계정으로 외부 작성자 PR을 승인할 수 있습니다.
+## 적용 예시
 
-GitHub required approvals는 관찰된 0을 유지하며 위 기준은 운영 정책입니다. 서버가 이 승인 기준을 강제한다고 주장하지 않으며 보호 설정·계정·workflow는 변경하지 않습니다. actual CI/영역 보호/immutable Release 확인은 남은 gate입니다.
-
-## 제품 버전·공개 계약·Release
-
-root package.json.version을 제품 SemVer 단일 원본으로 관리하고 현재 private package mirror는 release owner가 파생 갱신합니다. /api/v1, contract version/hash, manifest schemaVersion, DB migration 번호는 독립 식별자입니다. 이 bootstrap은 버전/CHANGELOG/manifest를 생성·변경하지 않습니다.
-
-공개 계약 표면은 사용자 보장 로그인·학습 저장/복원·제출/복습/책갈피·route·저장 데이터 의미, /api/v1 요청/응답/오류/권한, contracts DTO/Zod/enum/export, 문서로 약속한 upgrade/DB↔artifact 지원 범위입니다. FE/BE가 영향과 version/hash·지원 목록을 합의하고 QA·기획/디자인·DevOps 호환 근거로 god가 bump를 확정합니다. 내부 SQL 변경만으로 무조건 MAJOR라 하지 않지만 공개 데이터/지원 보장을 깨면 breaking입니다. 실제 공개 계약 원본·호환 profile은 선행 named task에서 동결합니다.
-
-| 효과                            | 증가                                       |
-| ------------------------------- | ------------------------------------------ |
-| 0.x 호환 오류 수정              | PATCH                                      |
-| 0.x 기능/deprecation/breaking   | MINOR, 전환 안내                           |
-| 1.x 호환 오류 수정              | PATCH                                      |
-| 1.x 호환 기능/deprecation       | MINOR                                      |
-| 1.x 공개 계약/지원 범위 파괴    | MAJOR                                      |
-| 후보 수정                       | 같은 목표의 다음 rc, 새 SHA/build/검수     |
-| 공개 계약/산출물 영향 없는 기록 | task별 bump 없음; 발표 버전 내용 변경 금지 |
-
-0.x 증가와 1.0 진입은 프로젝트 로컬 정책입니다. 1.0은 공개 안정 계약/핵심 흐름/콘텐츠/real 연동/독립 검수·현재 CI를 충족한 뒤 사용자에게 제안하며 production 허가는 별개입니다. deprecation은 대체·전환 기간·종료 대상과 호환 릴리스에서 알립니다. 발표 기능을 없애는 breaking revert는 1.x MAJOR/0.x MINOR이며 자동 PATCH가 아닙니다. 발표 전 되돌림은 새 rc입니다.
-
-RC/final 모두 published immutable GitHub Release로 보존하는 정책입니다. v는 tag 관례이며 productVersion에는 없습니다. 단순 tag/pre-release flag만으로 불변 보호를 얻지 않습니다. 실제 활성화 확인→source/build/검수 동결→Draft→전체 검증 assets/manifest/동반 기록→publish→tag SHA/asset digest/Immutable readback 순서이며 미확인 시 HOLD입니다. RC는 G3, final은 actual C의 G4가 선행합니다. title/notes/flag가 편집 가능해도 정규 CHANGELOG/release-record hash를 asset에 결속해 원문을 보존합니다. tag/asset 덮어쓰기·이동·삭제·재사용/floating tag는 하지 않습니다.
-
-기존 manifest v1의 releaseId40자리 SHA와 strict exact keys는 유지하고 SemVer는 별도 versioned release-record로 연결합니다. productVersion/tag→source SHA/tree·E/S→run/attempt/buildId→OCI digest/API·Web inventory→manifest/lock/runtime→공개/transport/contracts version/hash→ordered migration/checksum·DB profile·호환 artifact→environment ID·secret 없는 config hash→검수 근거/시각을 결속합니다. source SQL 개수만으로 설치 ledger/호환을 증명하지 않습니다. 환경 rebuild는 새 digest/build이며 같은 artifact 승격으로 표시하지 않습니다.
-
-가정 예시: 목표0.2.0 후보 R1에서0.2.0-rc.1 build/G3→immutable RC, 수정은rc.2입니다. 정식값으로 바꾼 R2는 새 SHA/build/G3, main merge actual C는 G4/build 후 v0.2.0 final에 결속합니다. 다음 버전0.2.0은 확정되지 않았으며 실제 tag/Release/배포는0입니다.
-
-## hotfix·rollback·기존 작업 이관
-
-지원선은 main 하나, 최신 검증 final입니다. 임시 release 후보는 구버전 유지 line이 아닙니다. main==stable S인 최소 오류 수정은 PATCH로 G1/G3→actual H G4→final 후 H를 양쪽 영역/열린 후보에 sync합니다. 미래 후보 version은 다운그레이드하지 않습니다.
-
-main이 stable보다 앞서면 current M′에서 fix를 작성하고 S→M′ 전체 승인 변경+fix를 전면 G3/G4로 검수하며 전체 효과로 version을 정합니다. 예컨대 기능이 포함돼 있으면 fix만 이유로 구버전 PATCH를 내지 않습니다. 불가 시 hotfix 발표도 HOLD이며 구버전 line/backport는 별도 사용자 정책 변경 없이 만들지 않습니다.
-
-코드 rollback은 exact DB 호환이 확인된 불변 artifact 또는 검수 revert PR입니다. DB rollback은 자동 down migration/restore가 아니며 BE가 ledger/schema/변경 데이터/호환을 판단합니다. 불호환이면 roll-forward가 우선, 데이터 손실/backup restore는 정확한 대상·복구 검수·사용자 허가가 별도입니다. DB/볼륨 reset, tag/version 되감기는 금지합니다.
-
-원본110 이력/dirty303/private 보존본/PR1은 그대로 둡니다. historical49 task-ID/61미상/42mixed와 freeze58/owner미확인245는 후속 단위 선정 때 재확인합니다. main의 없는 API/domain/DB/tooling을 이미 있다고 가정하지 않고 작은 named foundation/dependency task로 이관합니다. 공통 C0 먼저→고유 BE/FE task→admission 후보로 진행하며 FE488/491 중첩은 최종491을 한 번만 소비합니다. 소유 불명/분리 불가 hunk만 HOLD하고 안전한 개별 WIP 저장을 전체 backlog 완료까지 막지 않습니다. actual head/CI/검수·역동기화·원본 불변을 확인한 뒤 이관 완료로 판정합니다.
-
-## 변경 이력
-
-- 2026-10-24 사용자 요청으로 별도 GitHub 계정 승인 조건 제거
+1. **FE 필터 기능:** 최신 `dev` → `feature/fe-jlp-520-review-filter` → 관련 UI·계약·화면 검수 → PR을 `dev`에 squash → 사용 종료 확인 후 작업 브랜치 정리.
+2. **공유 결과 계약:** `feature/be-jlp-521-result-contract` 하나에서 BE contracts와 FE 소비 파일의 담당·writer 차례를 합의 → 양쪽 관련 검사와 QA·팀장 검토 → 단일 PR을 `dev`에 squash. 릴리스 때 `dev` 전체를 `main`에 merge commit으로 수용해 해당 이력을 보존.
+3. **긴급 오류 수정과 버전:** 최신 `main` → `fix/be-jlp-522-session-cookie` → `main` PR 검수·merge → 즉시 `dev` 동기화. 마지막 배포가 가상 버전 `0.4.2`이고 포함 변경이 버그뿐이면 `0.4.3`, 아직 배포하지 않은 기능도 포함하면 전체 변경 기준으로 `0.5.0`을 판단합니다. 예시 번호와 버전은 실제 작업·발표 약속이 아닙니다.

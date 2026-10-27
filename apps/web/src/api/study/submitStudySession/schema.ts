@@ -1,4 +1,7 @@
-import { studyAnswerInputSchema, studyResultSchema } from '@api/schema'
+import {
+  studyAnswerInputSchema,
+  studyResultSchema
+} from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const submitStudySessionParamsSchema = z

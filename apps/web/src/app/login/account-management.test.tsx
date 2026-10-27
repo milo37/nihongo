@@ -1,7 +1,7 @@
 import { act } from '@testing-library/react'
 import { accountMutationRequest } from '@app/login/accountFlowErrors'
-import { commitCanonicalAuth } from '@app/login/authSession'
-import { writeUiLocalePreference } from '@libs/localeStorage'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -14,15 +14,15 @@ import {
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { http, HttpResponse } from 'msw'
-import { apiClient } from '@api/config'
+import { apiClient } from '@nihongo/browser/api/config'
 import { startAccountSso } from '@api/auth/startAccountSso'
 import { loginRoutes } from '@app/login/router'
-import { queryClient } from '@libs/queryClient'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
-import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
-import { I18nProvider } from '@provider/I18nProvider'
-import { useAppStore } from '@store/index'
+import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
+import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { mockServer } from '@/test/server'
 
 const renderAccount = (entry = '/login') => {
@@ -260,6 +260,44 @@ describe('계정 연결·해제·탈퇴 소비', () => {
       expect(posts).not.toHaveBeenCalled()
     }
   )
+  it('본인 확인 진행은 버튼 한 곳에만 표시하고 실패 후 복구한다', async () => {
+    mockDatabase.loginAs('USER')
+    let finish: (() => void) | undefined
+    let requests = 0
+    mockServer.use(
+      http.post('*/api/auth/sign-in/social', async () => {
+        requests += 1
+        await new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        return HttpResponse.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
+      })
+    )
+    const user = userEvent.setup()
+    renderAccount()
+    await user.click(
+      await screen.findByRole('button', {
+        name: '계속하려면 다시 로그인해 주세요.'
+      })
+    )
+    const dialog = screen.getByRole('dialog')
+    const google = within(dialog).getByRole('button', {
+      name: 'Google로 계속하기'
+    })
+    await user.dblClick(google)
+    await waitFor(() => expect(requests).toBe(1))
+    expect(google).toBeDisabled()
+    expect(google).toHaveAccessibleName('Google로 이동하고 있어요.')
+    expect(google.querySelectorAll('.ui-spinner')).toHaveLength(1)
+    expect(within(dialog).getByRole('status')).toHaveClass('sr-only')
+    expect(screen.queryByText('처리하고 있어요.')).not.toBeInTheDocument()
+    await act(async () => finish?.())
+    await waitFor(() => expect(google).toBeEnabled())
+    expect(google).toHaveAccessibleName('Google로 계속하기')
+    expect(google).toHaveFocus()
+    expect(google.querySelector('.ui-spinner')).toBeNull()
+    expect(requests).toBe(1)
+  })
   it('Google 본인 확인은 계정과 cache를 보존하고 보류한 Apple을 자동 연결하지 않는다', async () => {
     const actor = mockDatabase.loginAs('USER')
     const user = userEvent.setup()
@@ -382,13 +420,17 @@ describe('계정 연결·해제·탈퇴 소비', () => {
   })
   it('503 결과 불명 후 다시 확인은 GET만 실행하고 탈퇴를 반복하지 않는다', async () => {
     freshActor()
+    let finish: (() => void) | undefined
     mockServer.use(
-      http.post('*/api/auth/sso/delete-account', () =>
-        HttpResponse.json(
+      http.post('*/api/auth/sso/delete-account', async () => {
+        await new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        return HttpResponse.json(
           { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
           { status: 503 }
         )
-      )
+      })
     )
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
@@ -399,6 +441,12 @@ describe('계정 연결·해제·탈퇴 소비', () => {
         name: '회원 탈퇴'
       })
     )
+    await waitFor(() => expect(finish).toBeDefined())
+    const processing = screen.getAllByText('처리하고 있어요.')
+    expect(processing).toHaveLength(1)
+    expect(screen.getByRole('dialog')).toContainElement(processing[0]!)
+    expect(document.querySelector('.auth-sso-button .ui-spinner')).toBeNull()
+    await act(async () => finish?.())
     await screen.findByRole('alert')
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', {

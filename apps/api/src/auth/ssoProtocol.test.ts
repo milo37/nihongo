@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { safeAdminFreshReturnPath } from '@nihongo/contracts/auth/admin-fresh-sso'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createSsoBindingCookie,
@@ -271,4 +272,52 @@ describe('browser-bound one-use SSO protocol', () => {
       )
     ).toBeNull()
   })
+})
+
+describe('Google fresh report transaction return policy', () => {
+  it.each([
+    {
+      path: '/admin/reports/11111111-1111-4111-8111-111111111111',
+      expected: '/admin/reports/11111111-1111-4111-8111-111111111111'
+    },
+    {
+      path: '/admin/reports?status=OPEN&reason=OTHER&page=2',
+      expected: '/admin/reports?status=OPEN&reason=OTHER&page=2'
+    },
+    { path: '/admin/reports?returnTo=%2F%2Fevil.test', expected: '/' }
+  ])(
+    'binds only the agreed report callback $path',
+    async ({ path, expected }) => {
+      const { provider, store } = fixture()
+      const service = createSsoLoginService({
+        provider,
+        store,
+        purpose: 'ADMIN_FRESH',
+        returnPathPolicy: safeAdminFreshReturnPath
+      })
+      const start = await service.start(path)
+      expect(new URL(start.url).searchParams.get('state')).toMatch(/^F/u)
+      expect(store.create.mock.calls[0]![0].callbackURL).toBe(expected)
+      const result = await service.finish({
+        query: callback(start.url),
+        binding: start.binding
+      })
+      expect(result).toMatchObject({
+        kind: 'IDENTITY_VERIFIED',
+        callbackURL: expected,
+        identity: { provider: 'google' }
+      })
+      expect(result).not.toHaveProperty('role')
+      expect(result).not.toHaveProperty('token')
+      expect(
+        (
+          await service.finish({
+            query: callback(start.url),
+            binding: start.binding
+          })
+        ).kind
+      ).toBe('INVALID_CALLBACK')
+      expect(provider.exchange).toHaveBeenCalledTimes(1)
+    }
+  )
 })

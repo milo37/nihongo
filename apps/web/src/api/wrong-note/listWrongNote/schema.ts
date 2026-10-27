@@ -5,7 +5,7 @@ import {
   questionTypeSchema,
   wrongNoteSchema,
   wrongNoteStatusSchema
-} from '@api/schema'
+} from '@nihongo/browser/api/schema'
 import { z } from 'zod'
 
 export const wrongNoteQuestionSummarySchema = z

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createAdminReadGuard } from '../admin/adminReadGuard.js'
+import { createAdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
+import { ApplicationError } from '../errors/applicationError.js'
 import {
   createPhase7BrowserFixture,
   createPhase7SsoAdminBrowserApiFixture,
@@ -12,11 +15,12 @@ const f = vi.hoisted(() => ({
   ownerQuery: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   connect: vi.fn(async () => undefined),
   end: vi.fn(async () => undefined),
-  query: vi.fn(async () => []),
+  query: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(async () => []),
   disconnect: vi.fn(async () => undefined),
   gatewayDisconnect: vi.fn(async () => undefined),
   ready: vi.fn(async () => undefined),
-  maintenance: vi.fn(async () => undefined)
+  maintenance: vi.fn(async () => undefined),
+  adminReadConsume: vi.fn(async () => undefined)
 }))
 vi.mock('pg', () => ({
   Client: class {
@@ -40,6 +44,14 @@ vi.mock('../db/database.js', () => ({
 vi.mock('../middleware/applicationRateLimiter.js', () => ({
   createApplicationRateLimiter: () => ({ consume: async () => undefined })
 }))
+vi.mock('../admin/adminReadRateLimiter.js', () => ({
+  createAdminReadRateLimiter: vi.fn(() => ({ consume: f.adminReadConsume }))
+}))
+vi.mock('../admin/adminReadGuard.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../admin/adminReadGuard.js')>()
+  return { ...actual, createAdminReadGuard: vi.fn(actual.createAdminReadGuard) }
+})
 vi.mock('../auth/phase7ReauthenticationStartupMaintenance.js', () => ({
   runPhase7ReauthenticationStartupMaintenance: f.maintenance
 }))
@@ -92,6 +104,160 @@ const exchange = (code: string) =>
 beforeEach(() => {
   vi.clearAllMocks()
   f.ownerQuery.mockReset().mockResolvedValue({ rows: [], rowCount: 1 })
+  f.adminReadConsume.mockReset().mockResolvedValue(undefined)
+})
+
+const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
+  const created = await createPhase7SsoAdminBrowserApiFixture(options())
+  const authentication = vi
+    .mocked(createSsoAuthentication)
+    .mock.results.at(-1)!.value
+  const resolve = vi
+    .spyOn(authentication.principalService, 'resolveAuthenticatedUser')
+    .mockResolvedValue({
+      clearSessionCookie: false,
+      headers: new Headers(),
+      user:
+        role === null
+          ? null
+          : {
+              id:
+                role === 'ADMIN'
+                  ? created.fixture.author.userId
+                  : created.fixture.learner.userId,
+              name: 'Guard fixture actor',
+              role,
+              targetLevel: null
+            },
+      phase7Session: {
+        id: '22222222-2222-4222-8222-222222222222',
+        token: 'guard-unit-session-only',
+        createdAt: new Date(0),
+        expiresAt: new Date(60_000),
+        isFresh: false
+      }
+    })
+  if (!created.adminGuard) throw new Error('Admin guard missing from fixture.')
+  const served = vi.fn(() => new Response('protected-admin'))
+  created.app.get('/__unit/admin-static', created.adminGuard, served)
+  return { created, resolve, served }
+}
+
+describe('Phase7/8 production admin static guard handoff', () => {
+  it('shares production guard dependencies with the existing CMS API guards', async () => {
+    const input = options()
+    const created = await createPhase7SsoAdminBrowserApiFixture(input)
+    expect(typeof created.adminGuard).toBe('function')
+    const guards = vi
+      .mocked(createAdminReadGuard)
+      .mock.calls.map(([dependencies]) => dependencies)
+    expect(guards.length).toBeGreaterThan(1)
+    for (const dependencies of guards) expect(dependencies).toEqual(guards[0])
+    expect(guards.at(-1)?.environment).toBe(input.environment)
+    expect(guards.at(-1)?.rateLimiter).toBe(
+      vi.mocked(createAdminReadRateLimiter).mock.results.at(-1)?.value
+    )
+    expect(vi.mocked(createAdminReadGuard).mock.results.at(-1)?.value).toBe(
+      created.adminGuard
+    )
+    await created.disconnect()
+  })
+
+  it('does not expose an admin guard from the CMS-disabled USER fixture', async () => {
+    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    expect(created.adminGuard).toBeUndefined()
+    expect(createAdminReadGuard).not.toHaveBeenCalled()
+    expect(createAdminReadRateLimiter).not.toHaveBeenCalled()
+    await created.disconnect()
+  })
+
+  it.each([
+    { role: null, status: 401 },
+    { role: 'USER' as const, status: 403 },
+    { role: 'ADMIN' as const, status: 200 }
+  ])(
+    'enforces principal role $role with status $status',
+    async ({ role, status }) => {
+      const { created, resolve, served } = await guardedAdminFixture(role)
+      const response = await created.app.request('/__unit/admin-static')
+      expect(response.status).toBe(status)
+      expect(resolve).toHaveBeenCalledWith(expect.any(Headers), {
+        classifyAdminAuthorityLoss: true
+      })
+      expect(served).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
+      expect(f.query).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
+      expect(f.adminReadConsume).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
+      if (role === 'ADMIN') {
+        expect(f.query).toHaveBeenCalledWith(
+          'SELECT "phase7_require_runtime_ready"()'
+        )
+        expect(f.adminReadConsume).toHaveBeenCalledWith({
+          actorId: created.fixture.author.userId,
+          clientIp: expect.any(String)
+        })
+      }
+      await created.disconnect()
+    }
+  )
+
+  it.each(['principal', 'capability', 'limiter'] as const)(
+    'fails closed at the %s boundary',
+    async (stage) => {
+      const { created, resolve, served } = await guardedAdminFixture('ADMIN')
+      if (stage === 'principal')
+        resolve.mockRejectedValueOnce(
+          new Error('fixture principal unavailable')
+        )
+      else if (stage === 'capability')
+        f.query.mockRejectedValueOnce(
+          new Error('fixture capability unavailable')
+        )
+      else
+        f.adminReadConsume.mockRejectedValueOnce(
+          new ApplicationError({
+            code: 'RATE_LIMITED',
+            message: 'fixture quota exhausted',
+            retryable: true,
+            retryAfterSeconds: 60
+          })
+        )
+      const response = await created.app.request('/__unit/admin-static')
+      expect(response.status).toBe(stage === 'limiter' ? 429 : 503)
+      expect(served).not.toHaveBeenCalled()
+      expect(f.query).toHaveBeenCalledTimes(stage === 'principal' ? 0 : 1)
+      expect(f.adminReadConsume).toHaveBeenCalledTimes(
+        stage === 'limiter' ? 1 : 0
+      )
+      await created.disconnect()
+    }
+  )
+
+  it('permits ADMIN reads while retaining FRESH assurance on sensitive commands', async () => {
+    const { created } = await guardedAdminFixture('ADMIN')
+    expect((await created.app.request('/__unit/admin-static')).status).toBe(200)
+    const command = await created.app.request(
+      `/api/v1/admin/questions/${created.fixture.author.userId}/archive`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'http://127.0.0.1:4200'
+        },
+        body: '{}'
+      }
+    )
+    expect(command.status).toBe(401)
+    expect(await command.json()).toMatchObject({
+      code: 'FRESH_ASSURANCE_REQUIRED'
+    })
+    expect(
+      f.query.mock.calls.every(
+        ([statement]) => statement === 'SELECT "phase7_require_runtime_ready"()'
+      )
+    ).toBe(true)
+    expect(f.adminReadConsume).toHaveBeenCalledTimes(1)
+    await created.disconnect()
+  })
 })
 
 describe('Phase7/8 Google CMS browser TEST handoff', () => {
@@ -228,6 +394,51 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     })
     expect(fresh.status).toBe(401)
     expect(f.query).not.toHaveBeenCalled()
+    await created.disconnect()
+  })
+
+  it('keeps the existing stable actor when sign-in isolation is not selected', async () => {
+    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const input = {
+      code: 'phase7-sso-browser-test-code',
+      nonce: 'n'.repeat(43),
+      codeVerifier: 'v'.repeat(86)
+    }
+    expect(await provider().exchange(input)).toEqual(
+      await provider().exchange({ ...input, nonce: 'm'.repeat(43) })
+    )
+    await created.disconnect()
+  })
+
+  it('isolates Real journey identities across sign-ins while preserving a repeated callback identity', async () => {
+    const created = await createPhase7SsoBrowserApiFixture({
+      ...options('disabled'),
+      isolateSignIns: true
+    })
+    const input = {
+      code: 'phase7-sso-browser-test-code',
+      nonce: 'n'.repeat(43),
+      codeVerifier: 'v'.repeat(86)
+    }
+    const first = await provider().exchange(input)
+    const repeated = await provider().exchange(input)
+    const next = await provider().exchange({ ...input, nonce: 'm'.repeat(43) })
+    expect(first).toEqual(repeated)
+    expect(first?.accountId).not.toBe(next?.accountId)
+    expect(first?.email).not.toBe(next?.email)
+    const caseChanged = await provider().exchange({
+      ...input,
+      nonce: 'N'.repeat(43)
+    })
+    expect(first?.email.toLowerCase()).not.toBe(
+      caseChanged?.email.toLowerCase()
+    )
+    expect(first?.provider).toBe('google')
+    expect(first).not.toHaveProperty('role')
+    expect(first).not.toHaveProperty('token')
+    expect(await provider().exchange({ ...input, code: 'unknown' })).toBeNull()
+    expect(await provider().exchange({ ...input, nonce: '' })).toBeNull()
+    expect(f.ownerQuery).not.toHaveBeenCalled()
     await created.disconnect()
   })
 

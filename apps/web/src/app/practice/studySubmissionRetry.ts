@@ -1,4 +1,4 @@
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 
 const RETRYABLE_CODES = new Set([
   'INTERNAL_SERVER_ERROR',

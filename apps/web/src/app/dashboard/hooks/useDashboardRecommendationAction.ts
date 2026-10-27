@@ -9,9 +9,9 @@ import {
   assertCurrentTargetedReviewAction,
   completeTargetedReviewAction
 } from '@app/wrong-note/queries/wrongNoteMutations'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { useAuth } from '@provider/ProtectedRouteProvider'
-import { useAppStore } from '@store/index'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { useAppStore } from '@nihongo/browser/store/index'
 import {
   isNotFoundApiError,
   isNoEligibleQuestionsApiError,

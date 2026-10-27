@@ -20,7 +20,7 @@ import {
   type UserRole,
   type WrongNote,
   type WrongNoteStatus
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
 import type { AdminAuditLogItem } from '@nihongo/contracts/admin/phase7'
 import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
@@ -30,7 +30,7 @@ import {
   PHASE7_ADMIN_CMS_STORAGE_KEY,
   readFreshLocalStorageItem,
   subscribeStorageChanges
-} from '@libs/storage'
+} from '@nihongo/browser/libs/storage'
 import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
 import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
 import type { ParsedSaveStudyDraftAnswersBody } from '@nihongo/contracts/study/save-study-draft-answers'

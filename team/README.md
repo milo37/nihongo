@@ -1,25 +1,23 @@
 # JLPT 개발·검수 운영
 
-사용자가 승인한 revision2는 main·FE/BE 영역·작업 PR·최종 통합 후보 순서입니다. God가 범위와 통합 책임을 맡고 Munder가 작업 원장입니다.
+상시 브랜치는 `main`과 `dev` 두 개입니다. 일반 작업은 최신 `dev`에서 시작하고 작업 PR을 `dev`에 squash merge합니다. 릴리스는 `dev` → `main` PR을 merge commit으로 수용해 변경 이력을 보존합니다. `main`에 hotfix 등 별도 실제 변경이 생긴 경우에만 `dev`로 merge 동기화합니다.
 
-| 역할    | 책임                                                                  |
-| ------- | --------------------------------------------------------------------- |
-| god     | task/base/dependency/cwd/owner/file 범위, 검수·PR·main 통합 판단      |
-| FE      | apps/web, API 소비/MSW/UI 검사                                        |
-| BE      | apps/api·packages/domain·DB schema/migration, FE 합의 후 contracts    |
-| DevOps  | 지정 CI/Docker/환경/운영, root/version 지정 범위, common Git metadata |
-| 기획    | 요구·수용 기준·콘텐츠 검수                                            |
-| 디자인  | 구현 전 명세, 구현 후 실제 화면                                       |
-| QA·리뷰 | 정확한 대상의 독립 검증, 소스/index/refs 편집 금지                    |
+정본 [브랜치·검수·버전 운영 절차](git-workflow.md)에 한 페이지 요약, 흐름도, 작업·PR·긴급 수정·버전·정리 절차와 예시가 있습니다.
 
-1. God가 branch/cwd/base와 파일 소유권을 배정합니다. [브랜치·버전 규칙](git-workflow.md)에서 PR target과 의존을 확인합니다.
-2. 지정 worktree의 [Current writer](writer-state.md)를 취득합니다. 원본 dirty checkout에는 이번 전환의 writer 기록도 쓰지 않습니다. 같은 Git metadata는 단독 실행자만 변경합니다.
-3. owner는 자기 범위만 구현·검사·scoped commit·normal push·Draft PR합니다. 담당이 배정됐다는 사실만으로 다른 영역/공통 파일 소유권을 얻지 않습니다.
-4. task→영역 G1, 고정 영역/공통·재구성 후보 G2, release→main G3, actual main G4에서 god·독립 QA·해당 UI 디자인·정확한 SHA CI를 확인합니다. checkpoint 저장은 먼저 가능하며 main 병합 가능과 구분합니다.
-5. 실제 SHA/PR/검수·실패·미실행·다음 담당을 Munder에 인계하고 writer를 반납합니다. 같은 계정의 역할 검토를 native 별도 APPROVE라 하지 않습니다.
+| 역할        | 책임                                                       |
+| ----------- | ---------------------------------------------------------- |
+| 팀장(god)   | 범위·담당·의존·검토·통합 판단, 작업별 단일 Git 실행자 지정 |
+| FE          | apps/web, API 소비·MSW·UI와 관련 검사                      |
+| BE          | apps/api·domain·DB, FE와 합의한 contracts                  |
+| DevOps      | 배정된 CI·운영·환경·root 공통 설정                         |
+| 기획·디자인 | 요구·콘텐츠와 UI 명세·실제 화면 검수                       |
+| 독립 QA     | 작성자와 분리된 검토·관련 검증과 미확인 사항 기록          |
 
-기존 원본303·index·phase11/PR1·5173과 기존 DB/볼륨/.env는 보존합니다. 취소된 JLP-487과 보관 JLP-1–8은 재개하지 않습니다. 기존110 이력은 작은 승인 task/dependency 단위로만 옮깁니다.
+1. 팀장이 JLP ID와 파일 소유권을 배정하고, 최신 `dev` 기준의 단기 `feature/<role>-jlp-ID-topic` 또는 `fix/...`를 준비합니다. 공유 계약과 여러 영역의 변경도 한 task·PR에서 담당을 합의합니다.
+2. 지정 worktree의 [Current writer](writer-state.md)를 취득합니다. source writer와 공통 Git 실행자를 구분하고 원본 dirty checkout과 다른 담당의 작업을 보존합니다.
+3. 작은 checkpoint와 Draft PR을 허용합니다. QA와 팀장은 PR 생성·갱신 즉시 검토를 시작하며, 병합은 관련 검수와 현재 required CI 성공 후 실행합니다. 완료 PR을 적체시키지 않습니다.
+4. 같은 계정 AI팀 PR은 독립 QA·팀장 검토를 받고 native 자기 PR 승인을 요구하지 않습니다. 외부 계정 PR은 작성자와 다른 write/admin 권한 계정의 실제 승인 1건이 추가로 필요합니다. 이 운영 정책과 실제 GitHub enforcement를 구분합니다.
+5. 긴급 수정은 최신 `main`에서 시작해 `main` PR로 수용하고 즉시 `dev`로 merge 동기화합니다. 포함된 전체 변경으로 root package의 단일 SemVer를 판단합니다. 실제 배포 tag는 배포할 `main` 커밋에 연결하며, main 병합은 배포와 별개입니다.
+6. 완료 시 실제 커밋·PR·검사·실패·미실행과 다음 담당을 Munder에 인계하고 writer를 반납합니다. 브랜치 정리는 미병합·dirty·사용 중 worktree·의존을 확인한 뒤 지정 Git 실행자가 수행합니다.
 
-문서9 첫 PR은 actual main a0c6dd47에서 출발한 공통 정책 변경입니다. 이 baseline의 오래된 CI 성공이 현재 real API/DB·Phase11 PASS를 의미하지 않습니다. 정책 채택, branch 생성, commit/push/Draft PR, 영역 병합, main 병합, Release/서비스 배포는 별도 상태로 기록합니다.
-
-Notion은 기존 god 예약이 Munder를 반영합니다. 역할 TOML은 재사용 지침이며 항상 실행 중인 채팅·native 로딩·office QA 복구를 증명하지 않습니다. 새 직원/temps/nested workers 없이 기존 역할과 동시 기여자 한도를 유지합니다.
+Munder가 현재 task·담당·다음 행동·근거의 원장입니다. Notion은 기존 god 담당의 단방향 mirror이며 이 작업에서 연동을 변경하지 않습니다. 이번 브랜치 생성·보호·정리의 실제 완료 여부는 root의 실행·원격 확인 기록을 따릅니다.

@@ -65,7 +65,7 @@ import {
   Phase7RateLimitRepositoryUnavailableError,
   type Phase7RateLimitInput
 } from '@mocks/repository/phase7RateLimitRepository'
-import { phase7Sha256TextPort } from '@libs/phase7Sha256'
+import { phase7Sha256TextPort } from '@nihongo/browser/libs/phase7Sha256'
 
 const LARGE_BODY_CAP = 256 * 1024
 const IMPORT_BODY_CAP = 2 * 1024 * 1024

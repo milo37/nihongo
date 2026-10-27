@@ -1434,7 +1434,7 @@ const bootstrapFreshCanonicalCatalog = async (
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 prefix37→canonical65→current46를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current47를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     try {
       // The preceding activation coverage intentionally removes the legacy
@@ -1450,7 +1450,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       const prefix = repositoryMigrationNames.filter(
         (name) => name <= lastBootstrapMigration
       )
-      expect(repositoryMigrationNames).toHaveLength(46)
+      expect(repositoryMigrationNames).toHaveLength(47)
       expect(prefix).toHaveLength(37)
       expect(prefix.at(-1)).toBe(lastBootstrapMigration)
       for (const migrationName of prefix) {
@@ -1467,7 +1467,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).not.toThrow()
       await bootstrapFreshCanonicalCatalog(context)
       const remainder = repositoryMigrationNames.slice(37)
-      expect(remainder).toHaveLength(9)
+      expect(remainder).toHaveLength(10)
       expect(remainder[0]).toBe(
         '20261009120000_phase7_approved_n4_reading_batch7_tags'
       )
@@ -1476,18 +1476,19 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       }
       await deploy(context)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(46)
+      expect(ledger).toHaveLength(47)
       expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
         repositoryMigrationNames
       )
       expect(
-        ledger.slice(-5).map(({ migrationName }) => migrationName)
+        ledger.slice(-6).map(({ migrationName }) => migrationName)
       ).toEqual([
         '20261019100000_sso_identity_mapping',
         '20261019103000_sso_admin_fresh',
         '20261019110000_sso_admin_fresh_erasure_ownership',
         '20261019113000_sso_admin_fresh_column_qualification',
-        '20261020230000_sso_account_lifecycle'
+        '20261020230000_sso_account_lifecycle',
+        '20261020233000_sso_first_admin_bootstrap'
       ])
       expect(
         ledger.every(
@@ -1497,7 +1498,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toBe(true)
       expect(
         ledger
-          .slice(-5)
+          .slice(-6)
           .every(
             ({ finishedAt, rolledBackAt }) =>
               finishedAt !== null && rolledBackAt === null
@@ -1509,7 +1510,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 46)
+      await verifyCanonicalMigrationLedgerAccess(context, 47)
       expect(
         (
           await context.adminClient.query<{

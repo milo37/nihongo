@@ -6,14 +6,14 @@ import type {
   JlptLevel,
   QuestionSubject,
   WrongNoteStatus
-} from '@common/types/domain'
-import { Badge } from '@common/components/Badge'
-import { Button } from '@common/components/Button'
-import { EmptyState } from '@common/components/EmptyState'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
-import { Pagination } from '@common/components/Pagination'
-import { Select } from '@common/components/Select'
+} from '@nihongo/browser/common/types/domain'
+import { Badge } from '@nihongo/browser/common/components/Badge'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { Pagination } from '@nihongo/browser/common/components/Pagination'
+import { Select } from '@nihongo/browser/common/components/Select'
 import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import {
@@ -21,7 +21,7 @@ import {
   completeTargetedReviewAction
 } from '@app/wrong-note/queries/wrongNoteMutations'
 import { useListWrongNotes } from '@app/wrong-note/hooks/useListWrongNotes'
-import { useAppStore } from '@store/index'
+import { useAppStore } from '@nihongo/browser/store/index'
 
 const levelValues: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 const subjectValues: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']

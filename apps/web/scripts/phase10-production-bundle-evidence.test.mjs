@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import {
   assertPhase10BundleEvidence,
+  phase10SplitBundleCommand,
   phase10ApprovedStaticAssetPaths,
   assertPhase10BundleEvidenceProvenance
 } from './phase10-production-bundle-contract.mjs'
@@ -30,13 +31,15 @@ const evidenceDirectory = path.resolve(
   process.env.PHASE10_PERFORMANCE_EVIDENCE_DIR ??
     path.join(repositoryRoot, 'test-results/phase10-evidence/performance')
 )
-const evidence = JSON.parse(
+const splitEvidence = JSON.parse(
   await readFile(path.join(evidenceDirectory, 'bundle.json'), 'utf8')
 )
 
-const expectRejected = (mutate) => {
-  const candidate = JSON.parse(JSON.stringify(evidence))
-  mutate(candidate)
+const evidence = splitEvidence.artifacts.web.evidence
+
+const expectRejected = (mutate, artifact = 'web') => {
+  const candidate = JSON.parse(JSON.stringify(splitEvidence))
+  mutate(candidate.artifacts[artifact].evidence)
   assert.throws(() => assertPhase10BundleEvidence(candidate), /PHASE10_/u)
 }
 
@@ -173,14 +176,17 @@ setInterval(() => {}, 1000)
 }
 
 test('accepts the freshly generated closed-schema bundle evidence', async () => {
-  assert.doesNotThrow(() => assertPhase10BundleEvidence(evidence))
+  assert.doesNotThrow(() => assertPhase10BundleEvidence(splitEvidence))
   assert.equal(
     evidence.metadata.command,
     'pnpm exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir'
   )
   assert.doesNotMatch(evidence.metadata.command, /nihongo-phase10-bundle-/u)
   await assert.doesNotReject(() =>
-    assertPhase10BundleEvidenceProvenance({ evidence, repositoryRoot })
+    assertPhase10BundleEvidenceProvenance({
+      evidence: splitEvidence,
+      repositoryRoot
+    })
   )
 })
 
@@ -347,10 +353,12 @@ test('rejects forged payload content, SSR assets, and orphan client nodes', () =
 })
 
 test('rejects stale and repository-mismatched provenance', async () => {
-  const stale = globalThis.structuredClone(evidence)
+  const stale = globalThis.structuredClone(splitEvidence)
   stale.metadata.generatedAt = new Date(
     Date.now() - 10 * 60 * 1_000
   ).toISOString()
+  for (const profile of Object.values(stale.artifacts))
+    profile.evidence.metadata.generatedAt = stale.metadata.generatedAt
   await assert.rejects(
     () =>
       assertPhase10BundleEvidenceProvenance({
@@ -359,12 +367,15 @@ test('rejects stale and repository-mismatched provenance', async () => {
       }),
     /PHASE10_BUNDLE_EVIDENCE_STALE/u
   )
-  const wrongCommit = globalThis.structuredClone(evidence)
-  wrongCommit.metadata.commit = '0'.repeat(40)
+  const wrongTree = globalThis.structuredClone(splitEvidence)
+  wrongTree.metadata.sourceTreeSha256 = '0'.repeat(64)
+  for (const profile of Object.values(wrongTree.artifacts))
+    profile.evidence.metadata.sourceTreeSha256 =
+      wrongTree.metadata.sourceTreeSha256
   await assert.rejects(
     () =>
       assertPhase10BundleEvidenceProvenance({
-        evidence: wrongCommit,
+        evidence: wrongTree,
         repositoryRoot
       }),
     /PHASE10_BUNDLE_EVIDENCE_PROVENANCE_MISMATCH/u
@@ -382,7 +393,7 @@ test('removes atomic temporary evidence after rename failure', async () => {
   try {
     await mkdir(evidencePath)
     await assert.rejects(() =>
-      writeCanonicalBundleEvidence(evidencePath, evidence)
+      writeCanonicalBundleEvidence(evidencePath, splitEvidence)
     )
     assert.deepEqual(
       (await readdir(directory)).filter(
@@ -526,7 +537,8 @@ test('retains approved static bytes and validates the separated totals against r
 test('keeps both complete locale resources in real dynamic chunks', () => {
   for (const locale of ['ko', 'ja']) {
     const entry = evidence.graph.find(
-      ({ source }) => source === `src/i18n/resources/${locale}.ts`
+      ({ source }) =>
+        source === `packages/browser/src/i18n/resources/${locale}.ts`
     )
     assert.ok(entry)
     assert.equal(entry.isDynamicEntry, true)
@@ -579,4 +591,84 @@ test('correlates real forwarding proof bytes, bindings, graph and SSR coverage',
     }
   ])
     expectRejected(mutate)
+})
+
+test('binds both original per-artifact budgets and informational combined totals without a second static allowance', () => {
+  assert.equal(splitEvidence.schemaVersion, 4)
+  assert.equal(splitEvidence.metadata.command, phase10SplitBundleCommand)
+  const profiles = splitEvidence.artifacts
+  assert.deepEqual(Object.keys(profiles).toSorted(), ['admin', 'web'])
+  for (const artifact of ['web', 'admin']) {
+    assert.equal(profiles[artifact].evidence.status, 'passed')
+    assert.ok(
+      Object.values(profiles[artifact].evidence.budgets).every(
+        (budget) => budget.passed
+      )
+    )
+    assert.equal(profiles[artifact].base, artifact === 'web' ? '/' : '/admin/')
+    assert.equal(profiles[artifact].buildManifest.artifact, artifact)
+    assert.equal(
+      profiles[artifact].buildManifest.releaseId,
+      splitEvidence.metadata.commit
+    )
+    for (const locale of ['ko', 'ja']) {
+      assert.ok(
+        profiles[artifact].evidence.graph.some(
+          (entry) =>
+            entry.source === `packages/browser/src/i18n/resources/${locale}.ts`
+        )
+      )
+    }
+  }
+  const combined = splitEvidence.combined
+  assert.equal(combined.evaluation, 'informational')
+  assert.equal(splitEvidence.status, 'passed')
+  assert.doesNotThrow(() => assertPhase10BundleEvidence(splitEvidence))
+  assert.equal(
+    combined.measurements.emittedFileCount,
+    profiles.web.evidence.inventory.rows.length +
+      profiles.admin.evidence.inventory.rows.length
+  )
+  assert.equal(
+    combined.measurements.totalRawBytes,
+    combined.payloadAccounting.emittedPayload.rawBytes -
+      profiles.web.evidence.payloadAccounting.approvedStaticAssets.rawBytes
+  )
+  for (const mutate of [
+    (candidate) => {
+      delete candidate.artifacts.admin
+    },
+    (candidate) => {
+      candidate.artifacts.admin.base = '/'
+    },
+    (candidate) => {
+      candidate.artifacts.admin.buildManifest.artifact = 'web'
+    },
+    (candidate) => {
+      candidate.artifacts.admin.evidence.metadata.versions.vite = '0.0.0'
+    },
+    (candidate) => {
+      candidate.status = 'failed'
+    },
+    (candidate) => {
+      candidate.artifacts.admin.evidence.status = 'failed'
+    },
+    (candidate) => {
+      candidate.combined.evaluation = 'enforced'
+    },
+    (candidate) => {
+      candidate.combined.inventory.rows.pop()
+    },
+    (candidate) => {
+      candidate.combined.measurements.totalRawBytes -=
+        candidate.artifacts.admin.evidence.payloadAccounting.approvedStaticAssets.rawBytes
+    },
+    (candidate) => {
+      candidate.combined.budgets.totalRawBytes.ceiling *= 2
+    }
+  ]) {
+    const candidate = globalThis.structuredClone(splitEvidence)
+    mutate(candidate)
+    assert.throws(() => assertPhase10BundleEvidence(candidate), /PHASE10_/u)
+  }
 })

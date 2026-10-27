@@ -1,7 +1,7 @@
 import { createRef } from 'react'
 import { render, screen } from '@testing-library/react'
 import { expect, it } from 'vitest'
-import { AppShell } from '@common/components/AppShell'
+import { AppShell } from '@nihongo/browser/common/components/AppShell'
 
 it('composes supplied slots and preserves the main ref/skip target without owning focus', () => {
   const main = createRef<HTMLElement>()

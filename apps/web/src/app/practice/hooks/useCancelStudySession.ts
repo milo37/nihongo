@@ -4,8 +4,8 @@ import {
   studyDraftMutations,
   type CancelStudySessionMutationInput
 } from '@app/practice/queries/studyDraftQueries'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { clearStudyDraftWorkingCopy } from '@app/practice/draft/studyDraftWorkingCopyStorage'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { clearStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
 
 export const useCancelStudySession = (principalScope: string) => {
   const queryClient = useQueryClient()

@@ -1,28 +1,39 @@
+import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
-import { getCurrentUser } from '@api/auth/getCurrentUser'
+import { getCurrentUser } from '@nihongo/browser/api/auth/getCurrentUser/index'
 import { signInSocial } from '@api/auth/signInSocial'
 import { completeMockSocialSignIn } from '@api/auth/completeMockSocialSignIn'
 import { loginRoutes } from '@app/login/router'
-import { AdminFreshReturnNotice } from '@app/login/components/AdminFreshReturnNotice'
-import { invalidateCanonicalAuthTransitions } from '@app/login/authSession'
-import { LocaleSwitcher } from '@common/components/LocaleSwitcher'
-import { queryClient } from '@libs/queryClient'
-import { emitApiError } from '@libs/errorBus'
+import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
+import { AdminFreshReturnNotice } from '@nihongo/browser/app/login/components/AdminFreshReturnNotice'
+import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
+import { LocaleSwitcher } from '@nihongo/browser/common/components/LocaleSwitcher'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
+import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
-import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
-import { I18nProvider } from '@provider/I18nProvider'
-import { useAppStore } from '@store/index'
+import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
+import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { mockServer } from '@/test/server'
 
+const getAnnouncedStatus = (): HTMLElement => {
+  const statuses = screen
+    .getAllByRole('status')
+    .filter((status) => status.textContent?.trim())
+  expect(statuses).toHaveLength(1)
+  return statuses[0]!
+}
+
 const renderLogin = (entry = '/login', gateOutlet = false) => {
+  const adminApp = entry.startsWith('/admin/')
   const Shell = () => {
     const content = (
       <>
@@ -62,12 +73,15 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
             element: <p>학습 풀이 도착</p>
           },
           { path: '/dashboard', element: <p>대시보드 도착</p> },
-          { path: '/admin/questions', element: <p>관리자 작업 화면</p> },
+          {
+            path: adminApp ? '/questions' : '/admin/questions',
+            element: <p>관리자 작업 화면</p>
+          },
           { path: '/', element: <p>홈 도착</p> }
         ]
       }
     ],
-    { initialEntries: [entry] }
+    { initialEntries: [entry], basename: adminApp ? '/admin' : '/' }
   )
   render(
     <QueryClientProvider client={queryClient}>
@@ -80,7 +94,7 @@ const renderLogin = (entry = '/login', gateOutlet = false) => {
   )
   return router
 }
-import { useAuth } from '@provider/ProtectedRouteProvider'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 describe('현재 Google SSO 로그인', () => {
   beforeAll(async () => {
@@ -244,12 +258,13 @@ describe('현재 Google SSO 로그인', () => {
     await user.dblClick(google)
     await waitFor(() => expect(starts).toBe(1))
     expect(google).toBeDisabled()
-    expect(
-      screen.getByRole('button', { name: 'Google로 계속하기' })
-    ).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Google로 이동하고 있어요.'
-    )
+    expect(google).toHaveAccessibleName('Google로 이동하고 있어요.')
+    expect(google).toHaveAttribute('aria-busy', 'true')
+    expect(google.querySelectorAll('.ui-spinner')).toHaveLength(1)
+    expect(google.querySelector('img')).toBeNull()
+    expect(getAnnouncedStatus()).toHaveTextContent('Google로 이동하고 있어요.')
+    expect(getAnnouncedStatus()).toHaveClass('sr-only')
+    expect(getAnnouncedStatus().closest('[aria-busy]')).toBeNull()
     await act(async () => {
       respond?.()
     })
@@ -257,9 +272,10 @@ describe('현재 Google SSO 로그인', () => {
       '지금은 Google 로그인을 이용할 수 없어요.'
     )
     expect(google).toBeEnabled()
-    expect(
-      screen.getByRole('button', { name: 'Google로 계속하기' })
-    ).toBeEnabled()
+    expect(google).toHaveAccessibleName('Google로 계속하기')
+    expect(google).not.toHaveAttribute('aria-busy')
+    expect(google.querySelector('.ui-spinner')).toBeNull()
+    expect(google.querySelector('img')).not.toBeNull()
     expect(router.state.location.pathname).toBe('/login')
     expect(
       new URLSearchParams(router.state.location.search).get('redirect')
@@ -401,6 +417,37 @@ describe('현재 Google SSO 로그인', () => {
     })
   })
 
+  it('외부 비활성은 진행 표시 없이 브랜드를 유지하고 실제 진행만 한 번 알린다', () => {
+    const view = (isLoading: boolean) => (
+      <I18nProvider>
+        <SsoProviderButton
+          provider="google"
+          label="Google로 계속하기"
+          disabled
+          isLoading={isLoading}
+          loadingLabel="Google로 이동하고 있어요."
+          onClick={() => undefined}
+        />
+      </I18nProvider>
+    )
+    const { rerender } = render(view(false))
+    const button = screen.getByRole('button', { name: 'Google로 계속하기' })
+    expect(button).toBeDisabled()
+    expect(button).not.toHaveAttribute('aria-busy')
+    expect(button.querySelector('.ui-spinner')).toBeNull()
+    expect(button.querySelector('img')).not.toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    rerender(view(true))
+    expect(button).toHaveAccessibleName('Google로 이동하고 있어요.')
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    expect(button.querySelectorAll('.ui-spinner')).toHaveLength(1)
+    expect(getAnnouncedStatus()).toHaveClass('sr-only')
+    rerender(view(false))
+    expect(button).toHaveAccessibleName('Google로 계속하기')
+    expect(button.querySelector('.ui-spinner')).toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+  })
+
   it('시작 요청만으로 로그인되지 않고 일치한 callback만 한 번 소비한다', async () => {
     await signInSocial({ provider: 'apple' })
     expect(await getCurrentUser()).toBeNull()
@@ -450,6 +497,9 @@ describe('관리자 ADMIN_FRESH 소비', () => {
   it.each(['google'] as const)(
     '%s에서 목적·업무 경로를 보내고 돌아와도 명령·fresh 권한을 만들지 않는다',
     async (provider) => {
+      const replaceDocument = vi
+        .spyOn(appDocumentNavigation, 'replace')
+        .mockImplementation(() => undefined)
       const actor = mockDatabase.loginAs('ADMIN')
       const requests: unknown[] = []
       mockServer.use(
@@ -478,10 +528,10 @@ describe('관리자 ADMIN_FRESH 소비', () => {
           name: 'Google로 계속하기'
         })
       )
-      expect(await screen.findByText('관리자 작업 화면')).toBeInTheDocument()
       await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(
-          '작업 권한은 서버에서 다시 확인합니다.'
+        expect(replaceDocument).toHaveBeenCalledWith(
+          '/admin/questions?level=N5&page=2&ssoFresh=REAUTHENTICATED',
+          undefined
         )
       )
       expect(requests).toEqual([
@@ -491,7 +541,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
           callbackURL: '/admin/questions?level=N5&page=2'
         }
       ])
-      expect(router.state.location.search).toBe('?level=N5&page=2')
+      expect(router.state.location.pathname).toBe('/login')
       expect(useAppStore.getState().currentUser).toMatchObject({
         id: actor.id,
         role: 'ADMIN'
@@ -517,15 +567,13 @@ describe('관리자 ADMIN_FRESH 소비', () => {
       const router = renderLogin(
         '/admin/questions?level=N2&page=2&ssoFresh=' + outcome
       )
-      await waitFor(() =>
-        expect(screen.getByRole('status')).toHaveTextContent(copy)
-      )
+      await waitFor(() => expect(getAnnouncedStatus()).toHaveTextContent(copy))
       expect(
         router.state.location.pathname + router.state.location.search
       ).toBe('/admin/questions?level=N2&page=2')
       expect(router.state.historyAction).toBe('REPLACE')
       // The notice text commits before its passive focus effect.
-      await waitFor(() => expect(screen.getByRole('status')).toHaveFocus())
+      await waitFor(() => expect(getAnnouncedStatus()).toHaveFocus())
       expect(mockDatabase.getCurrentUser()?.role).toBe('ADMIN')
     }
   )
@@ -536,7 +584,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
       '/login?ssoFresh=REAUTHENTICATED&ssoFresh=forged&code=private-code#private-fragment'
     )
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(
+      expect(getAnnouncedStatus()).toHaveTextContent(
         '본인 확인 요청이 만료되었거나 올바르지 않아요.'
       )
     )
@@ -558,7 +606,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     expect(
       screen.queryByRole('region', { name: '관리자 본인 확인' })
     ).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent(
+    expect(getAnnouncedStatus()).toHaveTextContent(
       '본인 확인 결과를 확인하지 못했어요.'
     )
   })
@@ -598,12 +646,12 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     invalidateCanonicalAuthTransitions()
     await act(async () => finish?.())
     await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(
+      expect(getAnnouncedStatus()).toHaveTextContent(
         '현재 로그인 상태를 확인하지 못했어요.'
       )
     )
-    expect(screen.getByRole('status')).toHaveFocus()
-    expect(screen.getByRole('status')).not.toHaveTextContent(
+    expect(getAnnouncedStatus()).toHaveFocus()
+    expect(getAnnouncedStatus()).not.toHaveTextContent(
       '작업 권한은 서버에서 다시 확인합니다.'
     )
     expect(useAppStore.getState().currentUser?.id).toBe(actor.id)

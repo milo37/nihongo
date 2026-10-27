@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
-import { useLatest } from '@common/hooks/useLatest'
+import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 
 export interface KeyboardShortcut {
   key: string

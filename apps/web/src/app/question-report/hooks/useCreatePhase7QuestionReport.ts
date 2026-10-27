@@ -5,8 +5,8 @@ import {
   AuthTransitionSupersededError,
   assertCurrentAuthActorTransitionFence,
   captureAuthActorTransitionFence
-} from '@libs/authTransitionFence'
-import { useAppStore } from '@store/index'
+} from '@nihongo/browser/libs/authTransitionFence'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { analyticsClient } from '@/analytics/client'
 
 export const useCreatePhase7QuestionReport = (onSuccess?: () => void) => {

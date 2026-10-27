@@ -3,12 +3,15 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Layout } from '@app/layout'
-import { RouteErrorPage } from '@app/not-found/route-error'
-import { useDocumentMetadata } from '@common/hooks/useDocumentMetadata'
-import { appI18n } from '@/i18n/config'
-import { I18nProvider, useUiLocale } from '@provider/I18nProvider'
+import { RouteErrorPage } from '@nihongo/browser/app/not-found/route-error'
+import { useDocumentMetadata } from '@nihongo/browser/common/hooks/useDocumentMetadata'
+import { appI18n } from '@nihongo/browser/i18n/config'
+import {
+  I18nProvider,
+  useUiLocale
+} from '@nihongo/browser/provider/I18nProvider'
 
-vi.mock('@provider/ProtectedRouteProvider', () => ({
+vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ isReady: true, role: 'GUEST', user: null })
 }))
 

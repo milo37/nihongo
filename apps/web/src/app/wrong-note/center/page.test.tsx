@@ -16,7 +16,7 @@ const auth = vi.hoisted(() => ({
   role: 'USER',
   user: { id: 'member', role: 'USER' }
 }))
-vi.mock('@provider/ProtectedRouteProvider', () => ({
+vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ ...auth, isReady: true })
 }))
 // The approved baseline has no contracts/testing export; validate a local fixture.
@@ -293,3 +293,125 @@ it('shows a single real queue page and hides the pager for filtered zero', async
     ).getByRole('button', { name: '조건 초기화' })
   ).toBeInTheDocument()
 })
+
+it.each(['success', 'error'] as const)(
+  'hides the previous due zero while unreviewed loads and preserves %s handling',
+  async (outcome) => {
+    const user = userEvent.setup()
+    const unreviewed = listReviewQueueResultSchema.parse({
+      ...queue,
+      items: Array.from({ length: 3 }, (_, index) => ({
+        ...queue.items[0]!,
+        questionId: crypto.randomUUID(),
+        currentQuestionVersionId: crypto.randomUUID(),
+        questionPreview: `필터 전환 테스트 문제 ${index + 1}`,
+        status: 'NEW',
+        wrongCount: 1,
+        lastReviewedAt: null,
+        nextReviewAt: '2026-08-23T03:00:00.000Z'
+      })),
+      total: 3,
+      counts: { due: 0, unreviewed: 3, repeated: 0, solved: 0 }
+    })
+    let releaseResponse!: () => void
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve
+    })
+    let recordRequest!: () => void
+    const requested = new Promise<void>((resolve) => {
+      recordRequest = resolve
+    })
+    const seen: Record<string, string>[] = []
+    let failResponse = outcome === 'error'
+    mockServer.use(
+      http.get('*/api/v1/review-queue', async ({ request }) => {
+        const params = Object.fromEntries(new URL(request.url).searchParams)
+        seen.push(params)
+        if (params.view === 'DUE') {
+          return HttpResponse.json({ ...empty, counts: unreviewed.counts })
+        }
+        recordRequest()
+        await responseGate
+        return failResponse
+          ? HttpResponse.json(
+              {
+                code: 'SERVICE_UNAVAILABLE',
+                message: 'synthetic queue failure',
+                retryable: true
+              },
+              { status: 503 }
+            )
+          : HttpResponse.json(unreviewed)
+      })
+    )
+    const view = mount('/wrong-notes?level=N5&subject=VOCABULARY')
+    try {
+      await screen.findByRole('heading', { name: '0문제' })
+      const range = screen.getByRole('combobox', { name: '복습 범위' })
+      range.focus()
+      await user.selectOptions(range, 'UNREVIEWED')
+      await requested
+      expect(range).toHaveValue('UNREVIEWED')
+      expect(range).toHaveFocus()
+      expect(view.router.state.location.search).toBe(
+        '?view=UNREVIEWED&level=N5&subject=VOCABULARY'
+      )
+      expect(seen.at(-1)).toEqual({
+        view: 'UNREVIEWED',
+        level: 'N5',
+        subject: 'VOCABULARY',
+        sort: 'NEXT_REVIEW',
+        page: '1',
+        pageSize: '20'
+      })
+      expect(
+        view.client.getQueryCache().findAll({
+          queryKey: ['wrong-note', 'review-queue']
+        })
+      ).toHaveLength(2)
+      expect(
+        screen.queryByRole('heading', { name: '0문제' })
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('region', {
+          name: '이 조건에 맞는 문제가 없어요.'
+        })
+      ).not.toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '복습 대기열을 불러오고 있습니다…'
+      )
+      await act(async () => releaseResponse())
+      if (outcome === 'error') {
+        const error = await screen.findByRole('alert')
+        expect(error).toHaveTextContent('복습 대기열을 불러오지 못했습니다')
+        expect(
+          screen.queryByRole('heading', { name: '0문제' })
+        ).not.toBeInTheDocument()
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+        failResponse = false
+        await user.click(within(error).getByRole('button'))
+      }
+      await screen.findByRole('heading', { name: '3문제' })
+      expect(screen.getAllByRole('link', { name: /해설 보기/u })).toHaveLength(
+        3
+      )
+      expect(
+        screen.queryByRole('heading', { name: '0문제' })
+      ).not.toBeInTheDocument()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      expect(range).toHaveValue('UNREVIEWED')
+      expect(view.router.state.location.search).toBe(
+        '?view=UNREVIEWED&level=N5&subject=VOCABULARY'
+      )
+      if (outcome === 'error') {
+        await waitFor(() =>
+          expect(screen.getByRole('heading', { level: 1 })).toHaveFocus()
+        )
+      } else expect(range).toHaveFocus()
+    } finally {
+      releaseResponse()
+      view.unmount()
+      view.client.clear()
+    }
+  }
+)

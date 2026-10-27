@@ -52,6 +52,29 @@ test('package scripts preserve the Phase 10 static, performance, and browser gra
     'pnpm --filter @nihongo/api run test:phase10:performance'
   )
 
+  assert.equal(
+    rootPackage.scripts['test:phase9:static'],
+    'node --test scripts/phase9-database-contract.test.mjs'
+  )
+  assert.match(
+    webPackage.scripts.build,
+    /node scripts\/phase9-built-css-check\.mjs/u
+  )
+  assert.ok(
+    rootPackage.scripts['test:phase10:api-integration']
+      .split(' && ')
+      .includes('pnpm run test:phase7:db')
+  )
+  assertInOrder(rootPackage.scripts['content:foundation-check'], [
+    'pnpm run content:foundation-check:static',
+    'pnpm --filter @nihongo/web run build',
+    'pnpm run content:foundation-check:seed'
+  ])
+  assert.equal(
+    rootPackage.scripts['content:foundation-check:seed'],
+    'pnpm run test:phase7:db'
+  )
+
   for (const mode of ['real', 'mock']) {
     const command = rootPackage.scripts[`test:phase10:browser:${mode}`]
     assertInOrder(command, [
@@ -77,7 +100,10 @@ test('package scripts preserve the Phase 10 static, performance, and browser gra
 })
 
 test('quality job executes final gates and run-unique performance evidence lifecycle', () => {
-  assert.match(workflow, /- phase-11-deployment-operations/u)
+  assert.equal(
+    workflow.match(/^ {2}push:\n {4}branches:\n((?: {6}- [^\n]+\n)+)/mu)?.[1],
+    '      - main\n      - dev\n'
+  )
   assert.match(
     workflow,
     /build:[\s\S]*runs-on: ubuntu-latest\n {4}timeout-minutes: 45/u
@@ -117,23 +143,20 @@ test('quality job executes final gates and run-unique performance evidence lifec
   }
   assertInOrder(workflow, [
     'run: pnpm install --frozen-lockfile\n',
-    'run: pnpm run format:check\n',
-    'run: pnpm run lint\n',
-    'run: pnpm run check:architecture\n',
-    'run: pnpm run typecheck\n',
+    'run: node scripts/ci/check-selection.mjs format\n',
+    'run: node scripts/ci/check-selection.mjs quality lint\n',
+    'run: node scripts/architecture/cli.mjs\n',
+    'run: node scripts/ci/check-selection.mjs quality typecheck\n',
     'run: pnpm run test:phase9:static\n',
     'run: pnpm run test:phase10:static\n',
     'run: pnpm run test:phase10:security\n',
-    'run: pnpm run test\n',
+    'run: node scripts/ci/check-selection.mjs quality unit\n',
     'run: pnpm run test:phase10:api-integration\n',
-    'run: pnpm run build\n',
-    'run: pnpm run content:foundation-check\n',
-    'run: pnpm run test:phase10:performance\n'
+    'run: node scripts/ci/check-selection.mjs quality build\n',
+    'pnpm --filter @nihongo/api run content:foundation-check\n',
+    'pnpm run test:phase10:performance:database-api\n'
   ])
-  assert.doesNotMatch(
-    workflow,
-    /run:\s*pnpm run content:foundation-check:static/u
-  )
+  assert.match(workflow, /- name: Phase 9 database static contract/u)
   assert.match(
     workflow,
     /test ! -e "\$PHASE10_PERFORMANCE_EVIDENCE_DIR"[\s\S]*install -d -m 700 "\$PHASE10_PERFORMANCE_EVIDENCE_DIR"/u
@@ -149,13 +172,18 @@ test('quality job executes final gates and run-unique performance evidence lifec
   )
   assert.match(
     workflow,
-    /name: Clean Phase 10 performance evidence[\s\S]*if: \$\{\{ always\(\) \}\}[\s\S]*expected="\$\{GITHUB_WORKSPACE\}\/test-results\/phase10-evidence\/performance-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"[\s\S]*test "\$PHASE10_PERFORMANCE_EVIDENCE_DIR" = "\$expected"/u
+    /name: Clean Phase 10 performance evidence[\s\S]*if: \$\{\{ always\(\) && needs\.plan\.outputs\.performance == 'true' \}\}[\s\S]*expected="\$\{GITHUB_WORKSPACE\}\/test-results\/phase10-evidence\/performance-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"[\s\S]*test "\$PHASE10_PERFORMANCE_EVIDENCE_DIR" = "\$expected"/u
   )
   assert.doesNotMatch(workflow, /continue-on-error:/u)
 })
 
 test('browser job preserves six-label acceptance and run-unique safe evidence', () => {
-  assert.match(workflow, /e2e:[\s\S]*needs: build/u)
+  const browserJob = workflow.slice(
+    workflow.indexOf('\n  e2e:'),
+    workflow.indexOf('\n  phase11_release:')
+  )
+  assert.match(browserJob, /^ {4}needs: plan$/mu)
+  assert.doesNotMatch(browserJob, /needs\.(?:build|phase11_release)\./u)
   assert.match(workflow, /e2e:[\s\S]*timeout-minutes: 45/u)
   assert.match(
     workflow,
@@ -210,12 +238,8 @@ test('browser job preserves six-label acceptance and run-unique safe evidence', 
     assert.ok(upload.includes(`steps.${id}.outcome == 'success'`))
   }
   const portable = workflow.slice(workflow.indexOf('\n  phase11_release:'))
-  assert.ok(portable.includes('needs: [build, e2e]'))
-  assert.ok(
-    portable.includes(
-      "if: ${{ !cancelled() && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}"
-    )
-  )
+  assert.match(portable, /^ {4}needs: plan$/mu)
+  assert.doesNotMatch(portable, /needs\.(?:build|e2e)\./u)
   assert.doesNotThrow(() => assertWorkflowArtifactPolicy(workflow))
 })
 

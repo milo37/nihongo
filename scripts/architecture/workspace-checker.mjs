@@ -269,16 +269,20 @@ const collectStringLiteralNodes = (sourceFile) => {
 }
 
 const workspaceFromSpecifier = (rootDir, importerFile, specifier) => {
-  const packageMatch = /^@nihongo\/(web|api|contracts|domain)(?:\/|$)/.exec(
-    specifier
-  )
+  const packageMatch =
+    /^@nihongo\/(web|admin|api|browser|contracts|domain)(?:\/|$)/.exec(
+      specifier
+    )
 
   if (packageMatch) {
     const name = packageMatch[1]
     return {
-      kind: name === 'web' || name === 'api' ? 'app' : 'package',
+      kind:
+        name === 'web' || name === 'admin' || name === 'api'
+          ? 'app'
+          : 'package',
       name,
-      id: `${name === 'web' || name === 'api' ? 'apps' : 'packages'}/${name}`
+      id: `${name === 'web' || name === 'admin' || name === 'api' ? 'apps' : 'packages'}/${name}`
     }
   }
 
@@ -389,7 +393,9 @@ const collectPhase6WebLeakDiagnostics = (rootDir) => {
   )
   const contentDigests = new Set(contentFiles.map(sha256File))
   const sensitiveCanaries = collectPhase6SensitiveContentCanaries(rootDir)
-  const webAssetRoots = [path.join(rootDir, 'apps/web')]
+  const webAssetRoots = ['apps/web', 'apps/admin', 'packages/browser'].map(
+    (directory) => path.join(rootDir, directory)
+  )
 
   for (const assetRoot of webAssetRoots) {
     const assetEntries = walkWebAssetEntries(assetRoot)
@@ -415,8 +421,9 @@ const collectPhase6WebLeakDiagnostics = (rootDir) => {
         (text.includes('correctOptionKey') || text.includes('explanationKo'))
       const relativeFileName = normalizePath(path.relative(rootDir, fileName))
       const isPublishedWebAsset =
-        relativeFileName.startsWith('apps/web/public/') ||
-        relativeFileName.startsWith('apps/web/dist/')
+        /^(?:apps\/(?:web|admin)|packages\/browser)\/(?:public|dist)\//u.test(
+          relativeFileName
+        )
       const containsSensitiveSeedContent =
         isPublishedWebAsset &&
         sensitiveCanaries.some((canary) => {
@@ -551,7 +558,9 @@ const checkManifestArchitecture = (rootDir) => {
       }
 
       if (
-        entry.workspace.id === 'apps/web' &&
+        ['apps/web', 'apps/admin', 'packages/browser'].includes(
+          entry.workspace.id
+        ) &&
         target?.workspace.id === 'packages/domain'
       ) {
         diagnostics.push(
@@ -1019,6 +1028,12 @@ const resolveWebModule = (rootDir, importerFile, specifier) => {
   let candidate
   if (specifier.startsWith('.')) {
     candidate = path.resolve(path.dirname(importerFile), specifier)
+  } else if (specifier.startsWith('@nihongo/browser/')) {
+    candidate = path.join(
+      rootDir,
+      'packages/browser/src',
+      specifier.slice('@nihongo/browser/'.length)
+    )
   } else {
     for (const [alias, target] of WEB_ALIAS_ROOTS) {
       if (specifier.startsWith(alias)) {
@@ -1044,8 +1059,10 @@ const resolveWebModule = (rootDir, importerFile, specifier) => {
 }
 
 const collectPublicWebContractDiagnostics = (rootDir, sourceFiles) => {
-  const webFiles = sourceFiles.filter(
-    (fileName) => classifyWorkspace(rootDir, fileName)?.id === 'apps/web'
+  const webFiles = sourceFiles.filter((fileName) =>
+    ['apps/web', 'packages/browser'].includes(
+      classifyWorkspace(rootDir, fileName)?.id
+    )
   )
   const edges = new Map()
   const sensitiveCategories = new Map()
@@ -1226,7 +1243,7 @@ export const checkWorkspaceArchitecture = ({
 
     diagnostics.push(...collectApiRouteDiagnostics(absoluteRoot, sourceFile))
 
-    if (importer.id === 'apps/web') {
+    if (['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id)) {
       for (const literal of collectStringLiteralNodes(sourceFile)) {
         if (!resolvesToPhase6Content(absoluteRoot, fileName, literal.text)) {
           continue
@@ -1299,7 +1316,7 @@ export const checkWorkspaceArchitecture = ({
       }
 
       if (
-        importer.id === 'apps/web' &&
+        ['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id) &&
         resolvesToPhase6Content(absoluteRoot, fileName, reference.specifier)
       ) {
         diagnostics.push(
@@ -1309,6 +1326,40 @@ export const checkWorkspaceArchitecture = ({
             reference.node,
             'ARCH116',
             'apps/web cannot import Phase 6 server-side content or validator source'
+          )
+        )
+      }
+
+      if (
+        ['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id) &&
+        normalizePath(path.relative(absoluteRoot, fileName)).startsWith(
+          `${importer.id}/src/`
+        ) &&
+        (target?.id === 'apps/api' ||
+          NODE_BUILTIN_IMPORTS.has(reference.specifier))
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            absoluteRoot,
+            sourceFile,
+            reference.node,
+            'ARCH118',
+            'Browser source cannot import API or Node runtime modules'
+          )
+        )
+      }
+      if (
+        importer.kind === 'app' &&
+        target?.kind === 'app' &&
+        importer.id !== target.id
+      ) {
+        diagnostics.push(
+          createDiagnostic(
+            absoluteRoot,
+            sourceFile,
+            reference.node,
+            'ARCH118',
+            'Apps cannot import another app'
           )
         )
       }
@@ -1325,7 +1376,10 @@ export const checkWorkspaceArchitecture = ({
         )
       }
 
-      if (importer.id === 'apps/web' && target?.id === 'packages/domain') {
+      if (
+        ['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id) &&
+        target?.id === 'packages/domain'
+      ) {
         diagnostics.push(
           createDiagnostic(
             absoluteRoot,
@@ -1371,7 +1425,7 @@ export const checkWorkspaceArchitecture = ({
       }
 
       if (
-        importer.id === 'apps/web' &&
+        ['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id) &&
         reference.specifier === '@nihongo/contracts'
       ) {
         diagnostics.push(

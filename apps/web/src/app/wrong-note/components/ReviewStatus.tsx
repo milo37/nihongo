@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import type { WrongNoteStatus } from '@common/types/domain'
+import type { WrongNoteStatus } from '@nihongo/browser/common/types/domain'
 
 export const ReviewStatus = ({
   status

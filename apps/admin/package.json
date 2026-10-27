@@ -1,0 +1,45 @@
+{
+  "name": "@nihongo/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node ../../scripts/operations/browser-artifact-check.mjs admin dist",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@nihongo/browser": "workspace:*",
+    "@nihongo/contracts": "workspace:*",
+    "@tanstack/react-query": "^5.0.0",
+    "@hookform/resolvers": "^5.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router": "^7.0.0",
+    "react-hook-form": "^7.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@rolldown/plugin-babel": "^0.2.0",
+    "@testing-library/dom": "^10.0.0",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "autoprefixer": "^10.4.0",
+    "babel-plugin-react-compiler": "1.0.0",
+    "jsdom": "^26.0.0",
+    "postcss": "^8.5.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.8.0",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.11",
+    "@tailwindcss/postcss": "4.3.3"
+  }
+}

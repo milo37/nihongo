@@ -1,12 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { unregisterMockServiceWorker } from '@api/mockServiceWorker'
-import { isMockApiMode } from '@libs/apiMode'
+import { unregisterMockServiceWorker } from '@nihongo/browser/api/mockServiceWorker'
+import { isMockApiMode } from '@nihongo/browser/libs/apiMode'
 import {
   frontendErrorReporter,
   installGlobalFrontendErrorReporting
-} from '@/observability/frontendErrorReporter'
-import { getRouteLabelKey } from '@/i18n/routePresentation'
+} from '@nihongo/browser/observability/frontendErrorReporter'
+import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
 import '@/styles.css'
 

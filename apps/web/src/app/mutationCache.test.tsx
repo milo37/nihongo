@@ -1,31 +1,20 @@
 import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
-import { authQueries } from '@app/login/queries/authQueries'
-import { commitCanonicalAuth } from '@app/login/authSession'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
 import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
-import { useDeleteAdminQuestion } from '@app/admin-question/hooks/useDeleteAdminQuestion'
-import { useUpdateAdminQuestion } from '@app/admin-question/hooks/useUpdateAdminQuestion'
-import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
-import { studyQueries } from '@app/practice/queries/studyQueries'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
-import { useAppStore } from '@store/index'
+import { useAppStore } from '@nihongo/browser/store/index'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
-import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
-import { createAdminQuestion } from '@api/admin-question/createAdminQuestion'
-import { getAdminQuestion } from '@api/admin-question/getAdminQuestion'
-import { previewQuestionVersion } from '@api/admin-question/previewQuestionVersion'
-import { createInput } from '@app/admin-question/test/questionFixture'
-import { adminQuestionHandlers } from '@mocks/handlers/adminQuestionHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { mockServer } from '@/test/server'
 
 const createTestClient = (): QueryClient =>
   new QueryClient({
@@ -52,48 +41,6 @@ const expectInvalidated = (
   queryKey: readonly unknown[]
 ): void => {
   expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true)
-}
-
-const prepareAdminQuestion = async (questionText: string) => {
-  const created = await createAdminQuestion({
-    ...createInput,
-    tagNames: ['규칙']
-  })
-  const { questionVersionId: versionId, versionRowVersion: rowVersion } =
-    created
-  if (
-    created.versionStatus !== 'DRAFT' ||
-    versionId === null ||
-    rowVersion === null
-  ) {
-    throw new Error('Expected a created draft with a version and row version')
-  }
-  const detail = await getAdminQuestion(created.questionId)
-  const preview = await previewQuestionVersion(versionId)
-  const input: UpdateAdminQuestionRequest = {
-    level: preview.question.level,
-    subject: preview.question.subject,
-    questionType: preview.question.questionType,
-    passage: preview.question.passage,
-    questionText,
-    difficulty: preview.question.difficulty,
-    explanationKo: preview.adminAnswer.explanationKo,
-    explanationJa: preview.adminAnswer.explanationJa,
-    tagNames: preview.question.tags.map(({ label }) => label),
-    expectedRowVersion: rowVersion,
-    options: preview.question.options.map(({ id, text }, index) => ({
-      id,
-      text,
-      ordinal: index + 1
-    })),
-    correctOptionId: preview.adminAnswer.correctOptionId
-  }
-  return {
-    questionId: created.questionId,
-    versionId,
-    detail,
-    input
-  }
 }
 
 describe('mutation cache contracts', () => {
@@ -142,7 +89,7 @@ describe('mutation cache contracts', () => {
     })
 
     expect(
-      client.getQueryData(studyQueries.result(sessionId).queryKey)
+      client.getQueryData(serverStateQueryKeys.study.result(sessionId))
     ).toMatchObject({ sessionId })
     expectInvalidated(client, studySessionQueries.session(sessionId).queryKey)
     expectInvalidated(client, [...wrongNoteQueries.allKey(), 'seed'])
@@ -243,7 +190,7 @@ describe('mutation cache contracts', () => {
       false
     )
     expect(
-      client.getQueryData(studyQueries.result('missing-session').queryKey)
+      client.getQueryData(serverStateQueryKeys.study.result('missing-session'))
     ).toBeUndefined()
   })
 
@@ -330,155 +277,6 @@ describe('mutation cache contracts', () => {
         })
       })
     ).rejects.toBeDefined()
-    expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
-  })
-
-  it('관리자 수정은 상세 데이터를 갱신하고 교차 도메인 캐시를 무효화한다', async () => {
-    mockServer.use(...adminQuestionHandlers)
-    mockDatabase.loginAs('ADMIN')
-    const questionText = '수정된 관리자 문제 문장'
-    const { questionId, versionId, detail, input } =
-      await prepareAdminQuestion(questionText)
-    const client = createTestClient()
-    const detailKey = adminQuestionQueries.detail(questionId).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-
-    client.setQueryData(detailKey, detail)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useUpdateAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-
-    await act(async () => {
-      await result.current.mutateAsync({
-        questionId,
-        versionId,
-        input
-      })
-    })
-
-    expect(client.getQueryData(detailKey)).toEqual(detail)
-    expectInvalidated(client, detailKey)
-    expectInvalidated(client, bookmarkKey)
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
-    const refreshed = await client.fetchQuery(
-      adminQuestionQueries.detail(questionId)
-    )
-    expect(refreshed.versions.items[0]).toMatchObject({
-      questionVersionId: versionId,
-      rowVersion: input.expectedRowVersion + 1
-    })
-    expect(
-      (await previewQuestionVersion(versionId)).question.questionText
-    ).toBe(questionText)
-  })
-
-  it('관리자 삭제는 상세 캐시를 제거하고 모든 관련 목록을 무효화한다', async () => {
-    mockServer.use(...adminQuestionHandlers)
-    mockDatabase.loginAs('ADMIN')
-    const { questionId, versionId, detail } =
-      await prepareAdminQuestion('보관할 문제')
-    const client = createTestClient()
-    const detailKey = adminQuestionQueries.detail(questionId).queryKey
-    const listKey = adminQuestionQueries.list({
-      page: 1,
-      pageSize: 20,
-      sort: 'UPDATED_DESC'
-    }).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-
-    seedCache(client, detailKey)
-    seedCache(client, listKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const { result } = renderHook(() => useDeleteAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-
-    await act(async () => {
-      await result.current.mutateAsync({
-        questionId,
-        input: {
-          expectedQuestionRowVersion: detail.question.rowVersion,
-          expectedOpenCandidateVersionId: versionId,
-          expectedOpenCandidateRowVersion: detail.versions.items[0].rowVersion
-        }
-      })
-    })
-
-    expect(client.getQueryState(detailKey)).toBeUndefined()
-    expectInvalidated(client, listKey)
-    expectInvalidated(client, bookmarkKey)
-    expectInvalidated(client, wrongKey)
-    expectInvalidated(client, dashboardKey)
-  })
-
-  it('관리자 수정·삭제 실패 시 상세 set/remove와 교차 무효화를 실행하지 않는다', async () => {
-    mockServer.use(...adminQuestionHandlers)
-    mockDatabase.loginAs('ADMIN')
-    const client = createTestClient()
-    const missingQuestionId = '00000000-0000-4000-8000-ffffffffffff'
-    const detailKey = adminQuestionQueries.detail(missingQuestionId).queryKey
-    const listKey = adminQuestionQueries.list({
-      page: 1,
-      pageSize: 20,
-      sort: 'UPDATED_DESC'
-    }).queryKey
-    const bookmarkKey = [...bookmarkQueries.allKey(), 'seed'] as const
-    const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
-    const dashboardKey = [...dashboardQueries.allKey(), 'seed'] as const
-    seedCache(client, detailKey)
-    seedCache(client, listKey)
-    seedCache(client, bookmarkKey)
-    seedCache(client, wrongKey)
-    seedCache(client, dashboardKey)
-
-    const updateHook = renderHook(() => useUpdateAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-    const deleteHook = renderHook(() => useDeleteAdminQuestion(), {
-      wrapper: createWrapper(client)
-    })
-    const { input: validInput } =
-      await prepareAdminQuestion('실패 테스트용 문제 문장')
-
-    await expect(
-      act(async () => {
-        await updateHook.result.current.mutateAsync({
-          questionId: missingQuestionId,
-          versionId: missingQuestionId,
-          input: validInput
-        })
-      })
-    ).rejects.toMatchObject({ status: 404 })
-    await expect(
-      act(async () => {
-        await deleteHook.result.current.mutateAsync({
-          questionId: missingQuestionId,
-          input: {
-            expectedQuestionRowVersion: 1,
-            expectedOpenCandidateVersionId: null,
-            expectedOpenCandidateRowVersion: null
-          }
-        })
-      })
-    ).rejects.toMatchObject({ status: 404 })
-
-    expect(client.getQueryData(detailKey)).toEqual({ cached: true })
-    expect(client.getQueryState(detailKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(listKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(bookmarkKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(dashboardKey)?.isInvalidated).toBe(false)
   })

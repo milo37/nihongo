@@ -6,7 +6,7 @@ import { z } from 'zod'
 import {
   createPracticeTransportResponseSchema,
   refinePracticeNoContentTransportHeaders
-} from '@api/study/practiceTransportSchema'
+} from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const cancelStudySessionRequestParamsSchema =
   cancelStudySessionParamsSchema

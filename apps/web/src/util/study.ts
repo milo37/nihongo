@@ -3,7 +3,7 @@ import type {
   StudyAnswerInput,
   StudyResult,
   StudyResultItem
-} from '@common/types/domain'
+} from '@nihongo/browser/common/types/domain'
 import { getCorrectOption, toPracticeQuestion } from '@util/question'
 
 export type StudyResultErrorCode =

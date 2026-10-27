@@ -13,16 +13,16 @@ import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
 import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
-import { commitCanonicalAuth } from '@app/login/authSession'
-import { authQueries } from '@app/login/queries/authQueries'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { studyResultQueries } from '@app/practice/queries/studyResultQueries'
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { PracticeResultPage } from '@app/practice/result/page'
 import { Layout } from '@app/layout'
-import { I18nProvider } from '@provider/I18nProvider'
-import { ProtectedRouteProvider } from '@provider/ProtectedRouteProvider'
-import { AuthErrorHandlerProvider } from '@provider/AuthErrorHandlerProvider'
-import { ToastProvider } from '@common/components/Toast'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
 
@@ -408,17 +408,19 @@ describe('approved general result navigation', () => {
         exact: true
       })
     })
-    expect(
-      screen.getByRole('heading', { name: second.question.questionText })
-    ).toBeVisible()
-    expect(
-      screen.getByText(
-        '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
-      )
-    ).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: '오답만 다시 풀기' })
-    ).toBeDisabled()
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: second.question.questionText })
+      ).toBeVisible()
+      expect(
+        screen.getByText(
+          '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
+        )
+      ).toBeVisible()
+      expect(
+        screen.getByRole('button', { name: '오답만 다시 풀기' })
+      ).toBeDisabled()
+    })
     view.unmount()
     fixture.client.clear()
   })

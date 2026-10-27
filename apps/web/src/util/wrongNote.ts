@@ -1,4 +1,7 @@
-import type { WrongNote, WrongNoteStatus } from '@common/types/domain'
+import type {
+  WrongNote,
+  WrongNoteStatus
+} from '@nihongo/browser/common/types/domain'
 import { addDaysToIso } from '@util/date'
 
 export interface WrongNoteTransition {

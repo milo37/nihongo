@@ -12,7 +12,7 @@ import {
 import { createBookmark } from '@api/bookmark/createBookmark'
 import { deleteBookmark } from '@api/bookmark/deleteBookmark'
 import { listBookmark } from '@api/bookmark/listBookmark'
-import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
 export interface CreateBookmarkActionInput {
   optimisticBookmark?: BookmarkSummary

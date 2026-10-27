@@ -2,23 +2,32 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import type { JlptLevel, QuestionSubject } from '@common/types/domain'
-import { Icon } from '@common/components/Icon'
-import { Button, getButtonClassName } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { EmptyState } from '@common/components/EmptyState'
-import { ErrorState } from '@common/components/ErrorState'
-import { LoadingState } from '@common/components/LoadingState'
-import { Pagination } from '@common/components/Pagination'
+import type {
+  JlptLevel,
+  QuestionSubject
+} from '@nihongo/browser/common/types/domain'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { Pagination } from '@nihongo/browser/common/components/Pagination'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
 import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
-import { formatDateTime, formatNumber } from '@libs/localeFormatters'
-import { useAppStore } from '@store/index'
-import { resolveUiLocale } from '@/i18n/types'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import {
+  formatDateTime,
+  formatNumber
+} from '@nihongo/browser/libs/localeFormatters'
+import { useAppStore } from '@nihongo/browser/store/index'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 
 const PAGE_SIZE = 20
@@ -247,8 +256,11 @@ export const BookmarkPage = (): ReactElement => {
                   <Button
                     key={`${group.level}:${group.subject}`}
                     variant="outline"
+                    disabled={createSession.isPending || createSession.isPaused}
                     isLoading={
-                      createSession.isPending || createSession.isPaused
+                      (createSession.isPending || createSession.isPaused) &&
+                      createSession.variables?.level === group.level &&
+                      createSession.variables.subject === group.subject
                     }
                     onClick={() => startBookmarkPractice(group)}
                   >
@@ -328,7 +340,12 @@ export const BookmarkPage = (): ReactElement => {
         ) : null}
       </div>
 
-      {mutationStatus ? (
+      {mutationStatus &&
+      !(
+        pendingRemovalQuestionId !== null &&
+        statusMessage === 'removing' &&
+        !bookmarkMutationActivity.isPaused
+      ) ? (
         <p
           className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
           role="status"

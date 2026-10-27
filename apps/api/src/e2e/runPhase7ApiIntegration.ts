@@ -222,6 +222,7 @@ interface PreparePhase7IsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
   readonly issuerActivationOwner?: 'runner' | 'fixture'
+  readonly artifactsPrepared?: boolean
 }
 
 const adminClient = new Client({
@@ -794,10 +795,35 @@ export const registerCapabilityAndActivate = async (
   }
 }
 
+export const preparePhase7IntegrationArtifacts = async ({
+  abortSignal,
+  environment = process.env,
+  prepared = false,
+  run = runCommand
+}: {
+  abortSignal?: AbortSignal
+  environment?: NodeJS.ProcessEnv
+  prepared?: boolean
+  run?: typeof runCommand
+} = {}): Promise<void> => {
+  abortSignal?.throwIfAborted()
+  if (prepared) return
+  for (const args of [
+    ['run', 'build:contracts'],
+    ['run', 'build:domain'],
+    ['--filter', '@nihongo/api', 'run', 'db:generate']
+  ]) {
+    abortSignal?.throwIfAborted()
+    await run('pnpm', args, environment, abortSignal)
+  }
+  abortSignal?.throwIfAborted()
+}
+
 export const preparePhase7IsolatedDatabase = async ({
   abortSignal,
   seedRuns = 0,
-  issuerActivationOwner = 'runner'
+  issuerActivationOwner = 'runner',
+  artifactsPrepared = false
 }: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
   if (databasePrepared) {
     throw new Error('Phase 7 isolated database harness is already prepared.')
@@ -845,24 +871,11 @@ export const preparePhase7IsolatedDatabase = async ({
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
 
-  await runCommand(
-    'pnpm',
-    ['run', 'build:contracts'],
-    sharedEnvironment,
-    abortSignal
-  )
-  await runCommand(
-    'pnpm',
-    ['run', 'build:domain'],
-    sharedEnvironment,
-    abortSignal
-  )
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:generate'],
-    sharedEnvironment,
-    abortSignal
-  )
+  await preparePhase7IntegrationArtifacts({
+    ...(abortSignal === undefined ? {} : { abortSignal }),
+    environment: sharedEnvironment,
+    prepared: artifactsPrepared
+  })
   const canonicalMigrationsPath = nodePath.join(
     repositoryRoot,
     'apps/api/prisma/migrations'
@@ -1034,8 +1047,8 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
   )
   if (
-    names.length !== 46 ||
-    names.at(-1) !== '20261020230000_sso_account_lifecycle' ||
+    names.length !== 47 ||
+    names.at(-1) !== '20261020233000_sso_first_admin_bootstrap' ||
     applied.rows.length !== names.length ||
     applied.rows.some(
       (row, index) =>
@@ -1055,12 +1068,12 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     )
   )
     throw new Error(
-      'SSO account lifecycle canonical46 migration history mismatch.'
+      'First Google ADMIN bootstrap canonical47 migration history mismatch.'
     )
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.api.sso_account_lifecycle.migrations_verified',
-      canonicalCount: 46,
+      event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
+      canonicalCount: 47,
       checksumMatch: true,
       reentry: true
     }) + '\n'
@@ -1257,7 +1270,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,
-      environment
+      environment,
+      isolateSignIns: true
     })
     await fixture.checkReadiness()
     controller.signal.throwIfAborted()

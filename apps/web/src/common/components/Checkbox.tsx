@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { ComponentPropsWithRef, ReactElement, ReactNode } from 'react'
-import { classNames } from '@common/components/classNames'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 
 type CheckboxProps = Omit<ComponentPropsWithRef<'input'>, 'name' | 'type'> & {
   name: string

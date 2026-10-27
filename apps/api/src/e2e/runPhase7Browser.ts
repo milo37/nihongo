@@ -42,6 +42,7 @@ const playwrightArguments = rawPlaywrightArguments.filter(
 )
 const ownedProcesses: ManagedProcess[] = []
 let webAssetsDirectory: string | undefined
+let adminAssetsDirectory: string | undefined
 let controlServer: Server | undefined
 let apiServer: Server | undefined
 let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
@@ -248,6 +249,14 @@ export const cleanup = (): Promise<void> => {
           firstError ??= error
         }
       }
+      if (adminAssetsDirectory) {
+        try {
+          await rm(adminAssetsDirectory, { recursive: true, force: true })
+          adminAssetsDirectory = undefined
+        } catch (error: unknown) {
+          firstError ??= error
+        }
+      }
       if (firstError) throw firstError
     }
   })
@@ -450,32 +459,50 @@ export const runReal = async (): Promise<void> => {
     'admin-a1-a8'
   )
   fixtureDatabase = created.database
+  if (!created.adminGuard)
+    throw new Error(
+      `${acceptancePhase} Real requires an administrator static guard.`
+    )
   const baseline = await created.database.snapshot()
   webAssetsDirectory = await mkdtemp(
     nodePath.join(tmpdir(), `${acceptancePhase}-browser-web-`)
   )
-  await runCommand(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/web',
-      'exec',
-      'vite',
-      'build',
-      '--outDir',
-      webAssetsDirectory,
-      '--emptyOutDir'
-    ],
-    {
-      ...process.env,
-      NODE_ENV: 'production',
-      VITE_API_MODE: 'real',
-      VITE_API_BASE_URL: '/api',
-      VITE_RELEASE_ID: releaseId
-    }
+  adminAssetsDirectory = await mkdtemp(
+    nodePath.join(tmpdir(), `${acceptancePhase}-browser-admin-`)
   )
-  // Use the current production static serving on the API origin, never a private Vite document origin.
-  installStaticWeb({ app: created.app, releaseId, webAssetsDirectory })
+  for (const [application, directory] of [
+    ['@nihongo/web', webAssetsDirectory],
+    ['@nihongo/admin', adminAssetsDirectory]
+  ] as const) {
+    await runCommand(
+      'pnpm',
+      [
+        '--filter',
+        application,
+        'exec',
+        'vite',
+        'build',
+        '--outDir',
+        directory,
+        '--emptyOutDir'
+      ],
+      {
+        ...process.env,
+        NODE_ENV: 'production',
+        VITE_API_MODE: 'real',
+        VITE_API_BASE_URL: '/api',
+        VITE_RELEASE_ID: releaseId
+      }
+    )
+  }
+  // Use production static serving for both apps on the API origin.
+  installStaticWeb({
+    app: created.app,
+    releaseId,
+    webAssetsDirectory,
+    adminAssetsDirectory,
+    adminGuard: created.adminGuard
+  })
   await created.checkReadiness()
   const server = createHttpServer(getRequestListener(created.app.fetch))
   apiServer = server

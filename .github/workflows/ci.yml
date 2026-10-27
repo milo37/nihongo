@@ -2,25 +2,75 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
   push:
     branches:
-      - phase-11-deployment-operations
       - main
-      - master
-      - work
+      - dev
+    tags:
+      - 'v*'
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Metadata edits must not cancel running or replace pending code checks.
+  group: ci-${{ github.ref }}${{ github.event_name == 'pull_request' && github.event.action == 'edited' && !github.event.changes.base && format('-edit-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    name: Select checks for event and changed dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    outputs:
+      selection: ${{ steps.selection.outputs.selection }}
+      metadata_only: ${{ steps.selection.outputs.metadata_only }}
+      metadata_build: ${{ steps.previous.outputs.build }}
+      metadata_e2e: ${{ steps.previous.outputs.e2e }}
+      metadata_portable: ${{ steps.previous.outputs.phase11_release }}
+      code: ${{ steps.selection.outputs.code }}
+      web: ${{ steps.selection.outputs.web }}
+      api: ${{ steps.selection.outputs.api }}
+      shared: ${{ steps.selection.outputs.shared }}
+      content: ${{ steps.selection.outputs.content }}
+      operations: ${{ steps.selection.outputs.operations }}
+      database: ${{ steps.selection.outputs.database }}
+      browser: ${{ steps.selection.outputs.browser }}
+      security: ${{ steps.selection.outputs.security }}
+      performance: ${{ steps.selection.outputs.performance }}
+      portable: ${{ steps.selection.outputs.portable }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.0
+      - name: Select affected checks
+        id: selection
+        run: node scripts/ci/check-selection.mjs plan
+      - name: CI source ${{ steps.selection.outputs.metadata_only == 'true' && 'metadata' || 'code' }} repo ${{ github.repository }} PR ${{ github.event.number }} head ${{ github.event.pull_request.head.sha }} base ${{ github.event.pull_request.base.ref }} ${{ github.event.pull_request.base.sha }} merge ${{ github.sha }}
+        if: ${{ github.event_name == 'pull_request' && success() }}
+        run: ':'
+      - name: Read current code-check results without rerunning checks
+        id: previous
+        if: ${{ steps.selection.outputs.metadata_only == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/check-selection.mjs previous-results
+
   build:
     name: Quality and production build
+    needs: plan
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
       postgres:
-        image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        image: ${{ needs.plan.outputs.database == 'true' && needs.plan.outputs.metadata_only != 'true' && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
         env:
           POSTGRES_DB: nihongo_test
           POSTGRES_USER: nihongo
@@ -33,6 +83,8 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     env:
+      CI_SELECTION: ${{ needs.plan.outputs.selection }}
+      CI_PLAN_RESULT: ${{ needs.plan.result }}
       DATABASE_URL: postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_test?schema=public
       NODE_ENV: test
       TRUSTED_ORIGINS: http://localhost:5173
@@ -45,7 +97,15 @@ jobs:
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
       PHASE10_SECURITY_EVIDENCE_DIR: test-results/phase10-evidence/security-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      # Required names must report the actual prior code result, never a skipped success.
+      - name: Preserve current code-check result
+        if: ${{ needs.plan.outputs.metadata_only == 'true' }}
+        env:
+          PREVIOUS_CODE_RESULT: ${{ needs.plan.outputs.metadata_build }}
+        run: test "$CI_PLAN_RESULT" = success && test "$PREVIOUS_CODE_RESULT" = success
+
       - name: Checkout
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -53,22 +113,26 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
 
       - name: Setup Node.js
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
           cache: pnpm
 
       - name: Record actual checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: >-
           node scripts/ci/checkout-evidence.mjs --output
           "$RUNNER_TEMP/checkout-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.json"
 
       - name: Upload checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -76,30 +140,61 @@ jobs:
           path: ${{ runner.temp }}/checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}.json
 
       - name: Install dependencies
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Formatting check
-        run: pnpm run format:check
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
+        id: format
+        run: node scripts/ci/check-selection.mjs format
+
+      - name: CI selection contract
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
+        id: selection_contracts
+        run: node --test scripts/ci/*.test.mjs
+
+      - name: Prepare selected package artifacts once
+        id: prepare
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        run: node scripts/ci/check-selection.mjs quality prepare
 
       - name: ESLint
-        run: pnpm run lint
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: lint
+        run: node scripts/ci/check-selection.mjs quality lint
 
       - name: Architecture check
-        run: pnpm run check:architecture
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: architecture
+        run: node scripts/architecture/cli.mjs
+
+      - name: Admin build boundary
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: admin_boundary
+        run: pnpm run test:admin-build-boundary
 
       - name: TypeScript check
-        run: pnpm run typecheck
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: typecheck
+        run: node scripts/ci/check-selection.mjs quality typecheck
 
-      - name: Phase 9 static UI and accessibility gate
+      - name: Phase 9 database static contract
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: static_contracts
         run: pnpm run test:phase9:static
 
       - name: Phase 10 static contract
+        id: static_phase10
+        if: ${{ needs.plan.outputs.code == 'true' }}
         run: pnpm run test:phase10:static
 
       - name: Phase 11 static operations contract
+        id: static_phase11
+        if: ${{ needs.plan.outputs.code == 'true' }}
         run: pnpm run test:phase11:static
 
       - name: Initialize unique Phase 10 security evidence
+        if: ${{ needs.plan.outputs.security == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -107,6 +202,7 @@ jobs:
           install -d -m 700 "$PHASE10_SECURITY_EVIDENCE_DIR"
 
       - name: Phase 10 security gate
+        if: ${{ needs.plan.outputs.security == 'true' }}
         id: phase10_security_evidence
         run: pnpm run test:phase10:security
 
@@ -119,7 +215,7 @@ jobs:
           path: ${{ env.PHASE10_SECURITY_EVIDENCE_DIR }}/
 
       - name: Clean Phase 10 security evidence
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.security == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -129,12 +225,18 @@ jobs:
           test ! -e "$expected"
 
       - name: Test
-        run: pnpm run test
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: unit
+        run: node scripts/ci/check-selection.mjs quality unit
 
       - name: Phase 10 complete API integration gate
+        if: ${{ needs.plan.outputs.database == 'true' }}
+        id: integration
         run: pnpm run test:phase10:api-integration
 
       - name: Production mock mode stays fail closed
+        if: ${{ needs.plan.outputs.web == 'true' }}
+        id: production_mock
         env:
           NODE_ENV: production
           VITE_API_MODE: mock
@@ -147,17 +249,27 @@ jobs:
           grep -Fq "VITE_API_MODE=mock is forbidden in production." "$RUNNER_TEMP/production-mock-build.log"
 
       - name: Build
+        if: ${{ needs.plan.outputs.code == 'true' }}
+        id: build
         env:
           NODE_ENV: production
-        run: pnpm run build
+        run: node scripts/ci/check-selection.mjs quality build
 
       - name: Contributor-free content foundation
-        run: pnpm run content:foundation-check
+        if: ${{ needs.plan.outputs.content == 'true' }}
+        id: foundation
+        run: |
+          pnpm --filter @nihongo/api run content:foundation-check
+          pnpm --filter @nihongo/api exec vitest run prisma/phase6Slice1FoundationCheck.test.ts
+          pnpm --filter @nihongo/web exec vitest run src/mocks/data/questions/questions.test.ts
 
       - name: Production artifact excludes the mock worker
+        if: ${{ needs.plan.outputs.web == 'true' }}
+        id: worker_exclusion
         run: test ! -e apps/web/dist/mockServiceWorker.js
 
       - name: Initialize unique Phase 10 performance evidence
+        if: ${{ needs.plan.outputs.performance == 'true' }}
         env:
           PHASE10_PERFORMANCE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
@@ -167,10 +279,13 @@ jobs:
           install -d -m 700 "$PHASE10_PERFORMANCE_EVIDENCE_DIR"
 
       - name: Phase 10 performance gate
+        if: ${{ needs.plan.outputs.performance == 'true' }}
         id: phase10_performance_evidence
         env:
           PHASE10_PERFORMANCE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
-        run: pnpm run test:phase10:performance
+        run: |
+          pnpm --filter @nihongo/web run test:phase10:bundle
+          pnpm run test:phase10:performance:database-api
 
       - name: Verify Phase 10 performance evidence
         if: ${{ steps.phase10_performance_evidence.outcome == 'success' }}
@@ -201,7 +316,7 @@ jobs:
             ${{ env.PHASE10_PERFORMANCE_EVIDENCE_DIR }}/database-api.json
 
       - name: Clean Phase 10 performance evidence
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.performance == 'true' }}
         env:
           PHASE10_PERFORMANCE_EVIDENCE_DIR: ${{ github.workspace }}/test-results/phase10-evidence/performance-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
@@ -213,6 +328,7 @@ jobs:
           test ! -e "$expected"
 
       - name: Git whitespace check
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
@@ -222,14 +338,21 @@ jobs:
             git show --check --format= HEAD
           fi
 
+      - name: Verify selected checks completed
+        if: ${{ always() && needs.plan.outputs.metadata_only != 'true' }}
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+        run: node scripts/ci/check-selection.mjs verify build
+
   e2e:
     name: Phase 10 real/mock browser and regression acceptance
-    needs: build
+    needs: plan
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
       postgres:
-        image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        image: ${{ needs.plan.outputs.browser == 'true' && needs.plan.outputs.metadata_only != 'true' && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
         env:
           POSTGRES_DB: nihongo_test
           POSTGRES_USER: nihongo
@@ -242,6 +365,8 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     env:
+      CI_SELECTION: ${{ needs.plan.outputs.selection }}
+      CI_PLAN_RESULT: ${{ needs.plan.result }}
       DATABASE_URL: postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_test?schema=public
       NODE_ENV: test
       TRUSTED_ORIGINS: http://localhost:5173
@@ -254,7 +379,15 @@ jobs:
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
       PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      # Required names must report the actual prior code result, never a skipped success.
+      - name: Preserve current code-check result
+        if: ${{ needs.plan.outputs.metadata_only == 'true' }}
+        env:
+          PREVIOUS_CODE_RESULT: ${{ needs.plan.outputs.metadata_e2e }}
+        run: test "$CI_PLAN_RESULT" = success && test "$PREVIOUS_CODE_RESULT" = success
+
       - name: Checkout
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -262,22 +395,26 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
+        if: ${{ needs.plan.outputs.browser == 'true' }}
         uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
 
       - name: Setup Node.js
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
-          cache: pnpm
+          cache: ${{ needs.plan.outputs.browser == 'true' && 'pnpm' || '' }}
 
       - name: Record actual checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: >-
           node scripts/ci/checkout-evidence.mjs --output
           "$RUNNER_TEMP/checkout-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.json"
 
       - name: Upload checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -285,12 +422,15 @@ jobs:
           path: ${{ runner.temp }}/checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}.json
 
       - name: Install dependencies
+        if: ${{ needs.plan.outputs.browser == 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
+        if: ${{ needs.plan.outputs.browser == 'true' }}
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Initialize unique safe Playwright evidence
+        if: ${{ needs.plan.outputs.browser == 'true' }}
         id: phase10_playwright_initialize
         shell: bash
         run: |
@@ -299,6 +439,7 @@ jobs:
           install -d -m 700 "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
 
       - name: Phase 10 real browser acceptance
+        if: ${{ needs.plan.outputs.browser == 'true' }}
         id: phase10_browser_real
         run: pnpm run test:phase10:browser:real
 
@@ -326,7 +467,7 @@ jobs:
           path: ${{ env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR }}/
 
       - name: Clean safe Playwright evidence
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.browser == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -336,7 +477,7 @@ jobs:
           test ! -e "$expected"
 
       - name: Clean raw Playwright output
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.browser == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -345,7 +486,7 @@ jobs:
           test ! -e "$expected"
 
       - name: Clean Phase 9 browser diagnostics
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.browser == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -353,15 +494,31 @@ jobs:
           rm -rf -- "$expected"
           test ! -e "$expected"
 
+      - name: Verify selected checks completed
+        if: ${{ always() && needs.plan.outputs.metadata_only != 'true' }}
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+        run: node scripts/ci/check-selection.mjs verify e2e
+
   phase11_release:
     name: Phase 11 portable release and production-mode smoke
-    needs: [build, e2e]
-    # This isolated diagnostic does not clear a failed browser required check.
-    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'failure') }}
+    needs: plan
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      CI_SELECTION: ${{ needs.plan.outputs.selection }}
+      CI_PLAN_RESULT: ${{ needs.plan.result }}
     steps:
+      # Required names must report the actual prior code result, never a skipped success.
+      - name: Preserve current code-check result
+        if: ${{ needs.plan.outputs.metadata_only == 'true' }}
+        env:
+          PREVIOUS_CODE_RESULT: ${{ needs.plan.outputs.metadata_portable }}
+        run: test "$CI_PLAN_RESULT" = success && test "$PREVIOUS_CODE_RESULT" = success
+
       - name: Checkout
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -369,22 +526,26 @@ jobs:
           persist-credentials: false
 
       - name: Setup pnpm
+        if: ${{ needs.plan.outputs.portable == 'true' }}
         uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
 
       - name: Setup Node.js
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
-          cache: pnpm
+          cache: ${{ needs.plan.outputs.portable == 'true' && 'pnpm' || '' }}
 
       - name: Record actual checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         run: >-
           node scripts/ci/checkout-evidence.mjs --output
           "$RUNNER_TEMP/checkout-source-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_JOB.json"
 
       - name: Upload checkout evidence
+        if: ${{ needs.plan.outputs.metadata_only != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
@@ -392,9 +553,11 @@ jobs:
           path: ${{ runner.temp }}/checkout-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}.json
 
       - name: Install dependencies
+        if: ${{ needs.plan.outputs.portable == 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Build and verify portable Phase 11 OCI release
+        if: ${{ needs.plan.outputs.portable == 'true' }}
         id: phase11_release
         env:
           PHASE11_IMAGE_TAG: nihongo-phase11:${{ github.run_id }}-${{ github.run_attempt }}
@@ -440,7 +603,7 @@ jobs:
             ${{ env.PHASE11_RELEASE_EVIDENCE_DIR }}/runtime-smoke.json
 
       - name: Clean Phase 11 release and evidence
-        if: ${{ always() }}
+        if: ${{ always() && needs.plan.outputs.portable == 'true' }}
         env:
           PHASE11_IMAGE_TAG: nihongo-phase11:${{ github.run_id }}-${{ github.run_attempt }}
           PHASE11_CONTAINER_NAME: nihongo-phase11-evidence-${{ github.run_id }}-${{ github.run_attempt }}
@@ -454,3 +617,9 @@ jobs:
           if docker image inspect "$PHASE11_IMAGE_TAG" >/dev/null 2>&1; then docker image rm -f "$PHASE11_IMAGE_TAG"; fi
           rm -rf -- "$expected_evidence"
           test ! -e "$expected_evidence"
+
+      - name: Verify selected checks completed
+        if: ${{ always() && needs.plan.outputs.metadata_only != 'true' }}
+        env:
+          CI_STEPS: ${{ toJSON(steps) }}
+        run: node scripts/ci/check-selection.mjs verify phase11_release

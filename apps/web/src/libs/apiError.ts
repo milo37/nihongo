@@ -1,4 +1,4 @@
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 
 export const isNotFoundApiError = (error: unknown): boolean => {
   return (

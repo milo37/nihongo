@@ -1,4 +1,4 @@
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
 import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import type { ParsedSubmitStudySessionV2Request } from '@api/study/submitStudySessionV2/schema'
@@ -9,7 +9,7 @@ import {
   SubmissionOutcomeAmbiguousError
 } from '@app/practice/studySubmissionRetry'
 import { getOrCreateStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
-import { isAuthTransitionSupersededError } from '@libs/authTransitionFence'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
 interface SubmitStudySessionV2CommandOptions {
   input: ParsedSubmitStudySessionV2Request

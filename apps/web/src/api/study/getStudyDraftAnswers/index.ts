@@ -1,4 +1,4 @@
-import { safeGetWithMetadata } from '@api/http'
+import { safeGetWithMetadata } from '@nihongo/browser/api/http'
 import {
   getStudyDraftAnswersRequestSchema,
   getStudyDraftAnswersTransportResponseSchema
@@ -10,13 +10,14 @@ const requestStudyDraft = safeGetWithMetadata(
 )
 
 export const getStudyDraftAnswers = (
-  sessionId: string
+  sessionId: string,
+  signal?: AbortSignal
 ): Promise<GetStudyDraftAnswersTransportResponse> => {
   const request = getStudyDraftAnswersRequestSchema.parse({ sessionId })
 
   return requestStudyDraft(
     `/v1/study-sessions/${request.sessionId}/draft-answers`,
     null,
-    { headers: { 'X-Nihongo-Practice-Contract': '2' } }
+    { headers: { 'X-Nihongo-Practice-Contract': '2' }, signal }
   )
 }

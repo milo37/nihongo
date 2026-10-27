@@ -127,6 +127,7 @@ interface CreateApiAppDependencies {
   questionReader: QuestionReader
   releaseId?: string
   webAssetsDirectory?: string
+  adminAssetsDirectory?: string
   questionReadSecurity?: {
     readonly environment: ApiEnvironment
     readonly rateLimiter: ApplicationRateLimiter
@@ -388,6 +389,7 @@ export const createApiApp = ({
   releaseId = '0000000000000000000000000000000000000000',
   study,
   webAssetsDirectory,
+  adminAssetsDirectory,
   enableTestRoutes = false
 }: CreateApiAppDependencies): Hono<{ Variables: ApiVariables }> => {
   const app = new Hono<{ Variables: ApiVariables }>()
@@ -775,8 +777,26 @@ export const createApiApp = ({
     })
   }
 
+  if (adminAssetsDirectory && !webAssetsDirectory) {
+    throw new Error('Admin assets require a separate learner assets directory.')
+  }
   if (webAssetsDirectory) {
-    installStaticWeb({ app, releaseId, webAssetsDirectory })
+    installStaticWeb({
+      app,
+      releaseId,
+      webAssetsDirectory,
+      ...(adminAssetsDirectory ? { adminAssetsDirectory } : {}),
+      ...(adminAssetsDirectory && technicalAdminEnabled && admin && auth
+        ? {
+            adminGuard: createAdminReadGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.rateLimiter
+            })
+          }
+        : {})
+    })
   }
 
   app.notFound((context) => {

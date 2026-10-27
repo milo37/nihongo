@@ -13,7 +13,7 @@ import { listResumableStudySessionsResponseSchema } from '@nihongo/contracts/stu
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { mockServer } from '@/test/server'
-import { appI18n } from '@/i18n/config'
+import { appI18n } from '@nihongo/browser/i18n/config'
 
 const clients: QueryClient[] = []
 afterEach(() => {

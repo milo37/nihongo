@@ -7,10 +7,10 @@ import {
 } from '@app/content-operations/reports/questionReportPublic'
 import { isPhase7UiApiError } from '@libs/apiError'
 import { useCreatePhase7QuestionReport } from '@app/question-report/hooks/useCreatePhase7QuestionReport'
-import { Button } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { Select } from '@common/components/Select'
-import { Textarea } from '@common/components/Textarea'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { Select } from '@nihongo/browser/common/components/Select'
+import { Textarea } from '@nihongo/browser/common/components/Textarea'
 
 const reasons = [
   'ANSWER_ERROR',

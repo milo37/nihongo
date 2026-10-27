@@ -25,7 +25,8 @@ const [
   recoveryRunbook,
   dockerignore,
   serverSource,
-  webViteConfig
+  webViteConfig,
+  sharedBrowserViteConfig
 ] = await Promise.all([
   readJson('package.json'),
   readJson('apps/api/package.json'),
@@ -38,7 +39,8 @@ const [
   readText('operations/runbooks/recovery.v1.md'),
   readText('.dockerignore'),
   readText('apps/api/src/server.ts'),
-  readText('apps/web/vite.config.ts')
+  readText('apps/web/vite.config.ts'),
+  readText('packages/browser/vite.config.ts')
 ])
 
 const assertInOrder = (text, fragments) => {
@@ -105,7 +107,10 @@ test('Docker context excludes generated and operational scratch state', () => {
 })
 
 test('CI triggers Phase 11 and verifies a safe manifest without deploying', () => {
-  assert.match(workflow, /- phase-11-deployment-operations/u)
+  assert.equal(
+    workflow.match(/^ {2}push:\n {4}branches:\n((?: {6}- [^\n]+\n)+)/mu)?.[1],
+    '      - main\n      - dev\n'
+  )
   const buildJob = workflow.slice(
     workflow.indexOf('\n  build:'),
     workflow.indexOf('\n  e2e:')
@@ -116,7 +121,19 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     buildJob,
     /Build and verify portable Phase 11 OCI release/u
   )
-  assert.match(releaseJob, /needs: \[build, e2e\]/u)
+  assert.match(releaseJob, /^ {4}needs: plan$/mu)
+  assert.doesNotMatch(releaseJob, /needs\.(?:build|e2e)\./u)
+  for (const [name, id] of [
+    ['Admin build boundary', 'admin_boundary'],
+    ['TypeScript check', 'typecheck']
+  ]) {
+    assert.ok(
+      buildJob.includes(
+        `      - name: ${name}\n        if: \${{ needs.plan.outputs.code == 'true' }}\n        id: ${id}\n`
+      ),
+      `${name} must retain code selection and a required outcome id`
+    )
+  }
   assertInOrder(releaseJob, [
     'test -z "$(git status --porcelain --untracked-files=all)"',
     'docker build --build-arg',
@@ -130,10 +147,10 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     'run: pnpm run test:phase10:static',
     'run: pnpm run test:phase11:static',
     'run: pnpm run test:phase10:security',
-    'run: pnpm run test\n',
-    'run: pnpm run build',
-    'run: pnpm run content:foundation-check',
-    'run: pnpm run test:phase10:performance',
+    'run: node scripts/ci/check-selection.mjs quality unit\n',
+    'run: node scripts/ci/check-selection.mjs quality build',
+    'pnpm --filter @nihongo/api run content:foundation-check',
+    'pnpm run test:phase10:performance:database-api',
     'name: Phase 10 canonical mock browser acceptance',
     'phase11_release:',
     'name: Build and verify portable Phase 11 OCI release',
@@ -193,7 +210,16 @@ test('one immutable runtime binds the same release to API and Web', () => {
     serverSource,
     /new URL\('\.\.\/\.\.\/web\/', import\.meta\.url\)/u
   )
-  assert.match(webViteConfig, /VITE_API_BASE_URL !== '\/api'/u)
+  assert.match(
+    webViteConfig,
+    /createBrowserViteConfig\(import\.meta\.dirname\)/u
+  )
+  assert.match(webViteConfig, /packages\/browser\/vite\.config\.ts/u)
+  assert.match(sharedBrowserViteConfig, /VITE_API_BASE_URL !== '\/api'/u)
+  assert.match(dockerfile, /COPY apps\/admin\/package\.json/u)
+  assert.match(dockerfile, /COPY packages\/browser\/package\.json/u)
+  assert.match(dockerfile, /--admin-directory \/release\/admin/u)
+  assert.match(dockerfile, /COPY --from=builder \/release\/admin \/app\/admin/u)
 })
 
 test('environment contract is secret-name-only and external activation stays closed', () => {
@@ -298,14 +324,15 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   ])
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test'].expectedCount,
-    46
+    47
   )
   assert.equal(
     recoveryContract.migrationProfiles['technical-current-test']
       .expectedDigestSha256,
-    '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+    '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891'
   )
   for (const distinctDigest of [
+    '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa',
     'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9',
     '6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd',
     '0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b',
@@ -365,7 +392,7 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
   assert.match(recoveryRunbook, /unverified activation\s+candidate/u)
   assert.match(
     recoveryRunbook,
-    /current-46 controlled Google-linked TEST session/u
+    /current-47 controlled Google-linked TEST session/u
   )
   assert.match(recoveryRunbook, /external Google exchange remains unverified/u)
   assert.doesNotMatch(recoveryRunbook, /stateful sign-up, sign-in/u)
@@ -377,14 +404,14 @@ test('recovery foundation stays provider-neutral and outside generic CI executio
     recoveryRunbook,
     /neither this technical\s+recovery profile nor a runtime profile/u
   )
-  assert.match(recoveryRunbook, /exact 46 ordered physical/u)
+  assert.match(recoveryRunbook, /exact 47 ordered physical/u)
   assert.match(
     recoveryRunbook,
-    /No current physical46, historical39 or catalog-excluded38 DB execution is verified here/u
+    /No current physical47, historical39 or catalog-excluded38 recovery DB drill is verified here/u
   )
   assert.ok(
     recoveryRunbook.includes(
-      '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
+      '006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891'
     )
   )
   assert.ok(

@@ -25,7 +25,7 @@ const render = (ui: ReactElement) =>
       {ui}
     </QueryClientProvider>
   )
-import { appI18n } from '@/i18n/config'
+import { appI18n } from '@nihongo/browser/i18n/config'
 import { HomePage } from '@app/home/page'
 
 const mocks = vi.hoisted(() => ({
@@ -35,7 +35,9 @@ const mocks = vi.hoisted(() => ({
   pending: false,
   failed: false
 }))
-vi.mock('@provider/ProtectedRouteProvider', () => ({ useAuth: mocks.auth }))
+vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
+  useAuth: mocks.auth
+}))
 vi.mock('@app/practice/hooks/useCreateStudySession', () => ({
   useCreateStudySession: () => ({
     isPending: mocks.pending,
@@ -46,8 +48,8 @@ vi.mock('@app/practice/hooks/useCreateStudySession', () => ({
     reset: vi.fn()
   })
 }))
-vi.mock('@libs/apiMode', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@libs/apiMode')>()),
+vi.mock('@nihongo/browser/libs/apiMode', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@nihongo/browser/libs/apiMode')>()),
   get isMockApiMode() {
     return mocks.mockMode
   }

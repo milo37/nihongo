@@ -1,6 +1,6 @@
 import { isSsoAuthorizationURLForProvider } from '@nihongo/contracts/auth/sign-in-social'
-import { createResponseValidationError } from '@api/config'
-import { safePost } from '@api/http'
+import { createResponseValidationError } from '@nihongo/browser/api/config'
+import { safePost } from '@nihongo/browser/api/http'
 import {
   startAdminFreshRequestSchema,
   startAdminFreshResponseSchema

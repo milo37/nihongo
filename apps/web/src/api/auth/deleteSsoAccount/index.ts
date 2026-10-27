@@ -1,5 +1,5 @@
 import type { DeleteSsoAccountRequest } from '@nihongo/contracts/auth/sso-account-management'
-import { safePostWithMetadata } from '@api/http'
+import { safePostWithMetadata } from '@nihongo/browser/api/http'
 import {
   deleteSsoAccountRequestSchema,
   deleteSsoAccountTransportResponseSchema

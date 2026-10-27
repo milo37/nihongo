@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { ComponentPropsWithRef, ReactElement } from 'react'
-import { classNames } from '@common/components/classNames'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 
 type ProgressProps = Omit<ComponentPropsWithRef<'progress'>, 'children'> & {
   label: string

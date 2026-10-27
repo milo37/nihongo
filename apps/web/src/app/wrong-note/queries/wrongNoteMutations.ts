@@ -1,5 +1,5 @@
 import { mutationOptions } from '@tanstack/react-query'
-import { isApiError } from '@api/config'
+import { isApiError } from '@nihongo/browser/api/config'
 import { createTargetedReviewSession } from '@api/wrong-note/createTargetedReviewSession'
 import { updateWrongNoteMemoV1 } from '@api/wrong-note/updateWrongNoteMemoV1'
 import type { ParsedUpdateWrongNoteMemoBody } from '@api/wrong-note/updateWrongNoteMemoV1/schema'
@@ -8,9 +8,9 @@ import {
   clearTargetedReviewAttempt,
   getOrCreateTargetedReviewAttempt,
   type TargetedReviewAttempt
-} from '@app/wrong-note/targetedReviewAttemptStorage'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { createObjectAuthBoundActionFence } from '@libs/authTransitionFence'
+} from '@nihongo/browser/app/wrong-note/targetedReviewAttemptStorage'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
 export type UpdateMemoActionInput = ParsedUpdateWrongNoteMemoBody
 

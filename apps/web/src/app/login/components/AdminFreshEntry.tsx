@@ -5,7 +5,7 @@ import { safeAdminFreshReturnPath } from '@nihongo/contracts/auth/admin-fresh-ss
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useStartAdminFresh } from '@app/login/hooks/useStartAdminFresh'
-import { AuthFlowError } from '@app/login/authFlowErrors'
+import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 
 type AdminFreshEntryProps = { returnPath: string; disabled?: boolean }
 export const AdminFreshEntry = ({
@@ -35,22 +35,19 @@ export const AdminFreshEntry = ({
         {t('adminFresh.title')}
       </h2>
       <p>{t('adminFresh.description')}</p>
-      <div className="auth-actions" aria-busy={busy || undefined}>
+      <div className="auth-actions">
         <SsoProviderButton
           provider="google"
           label={t('sso.continueGoogle')}
           buttonRef={google}
           disabled={disabled || busy}
+          isLoading={busy}
+          loadingLabel={t('sso.redirecting', {
+            provider: provider === 'apple' ? 'Apple' : 'Google'
+          })}
           onClick={() => begin('google')}
         />
       </div>
-      {busy ? (
-        <p className="auth-notice" role="status">
-          {t('sso.redirecting', {
-            provider: provider === 'apple' ? 'Apple' : 'Google'
-          })}
-        </p>
-      ) : null}
       {start.isError ? (
         <p className="auth-notice auth-error" role="alert">
           {t(

@@ -3,8 +3,8 @@ import type { SubmitStudySessionRequest } from '@api/study/submitStudySession/sc
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { trackStudySubmission } from '@/analytics/studyEvents'
-import { serverStateQueryKeys } from '@libs/serverStateQueryKeys'
-import { clearSubmissionAttempt } from '@app/practice/submissionAttemptStorage'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionRetryDelay,
   isDefinitiveStudySubmissionError,
@@ -13,7 +13,7 @@ import {
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch
-} from '@libs/authTransitionFence'
+} from '@nihongo/browser/libs/authTransitionFence'
 
 const submissionActionEpochs = new WeakMap<SubmitStudySessionRequest, number>()
 

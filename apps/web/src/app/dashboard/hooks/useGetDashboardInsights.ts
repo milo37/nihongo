@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { toDashboardInsightsView } from '@app/dashboard/adapters/dashboardInsightsView'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
-import { resolveUiLocale } from '@/i18n/types'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 export const useGetDashboardInsights = () => {
   const { i18n, t } = useTranslation('dashboard')

@@ -27,9 +27,9 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const currentMigrationCount = 46
+const currentMigrationCount = 47
 const currentMigrationDigest =
-  'f7305166f989353d2d0429f8ab7a5fada3f5f78a053c15f0e62ea77d55e77d16'
+  '6091743d937facaa31f4a41cf0e4a80899471c64932e1a8aca61299962e79147'
 const lastBootstrapMigration =
   '20261009092000_phase7_n4_n2_revision2_digest_fix'
 const migrationLogin = 'nihongo_test_phase7_migration_login'
@@ -217,9 +217,10 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     manifest.length !== currentMigrationCount ||
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
-    manifest[36]?.name !== lastBootstrapMigration
+    manifest[36]?.name !== lastBootstrapMigration ||
+    manifest.at(-1)?.name !== '20261020233000_sso_first_admin_bootstrap'
   ) {
-    throw new Error('Repository current-46 migration inventory is invalid.')
+    throw new Error('Repository current-47 migration inventory is invalid.')
   }
   return manifest.map(({ name }) => name)
 }

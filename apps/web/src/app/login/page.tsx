@@ -1,6 +1,7 @@
+import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import {
   safeSsoReturnPath,
@@ -16,13 +17,13 @@ import {
   accountLinkOutcomeSchema
 } from '@nihongo/contracts/auth/sso-account-management'
 import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
-import { AuthFlowError } from '@app/login/authFlowErrors'
+import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
 import { useStartSocialSignIn } from '@app/login/hooks/useStartSocialSignIn'
-import { Button } from '@common/components/Button'
-import { Dialog } from '@common/components/Dialog'
-import { useAuth } from '@provider/ProtectedRouteProvider'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 type Notice = SsoCallbackOutcome | 'LEGACY' | 'EXPIRED'
 
@@ -34,7 +35,7 @@ const hasStateFlag = (state: unknown, flag: string): boolean =>
 
 export const LoginPage = (): ReactElement => {
   const { t } = useTranslation('auth')
-  const navigate = useNavigate()
+  const navigate = useAppNavigate()
   const location = useLocation()
   const [search] = useSearchParams()
   const { isReady, user } = useAuth()
@@ -139,7 +140,7 @@ export const LoginPage = (): ReactElement => {
           ) : null}
         </header>
         {!isReady ? (
-          <p className="auth-notice" role="status">
+          <p className="sr-only" role="status">
             {t('sso.checkingSession')}
           </p>
         ) : user ? (
@@ -173,20 +174,17 @@ export const LoginPage = (): ReactElement => {
           </>
         ) : (
           <>
-            <div className="auth-actions" aria-busy={busy || undefined}>
+            <div className="auth-actions">
               <SsoProviderButton
                 provider="google"
                 label={t('sso.continueGoogle')}
                 disabled={busy}
+                isLoading={busy}
+                loadingLabel={t('sso.redirecting', { provider: providerName })}
                 buttonRef={googleButton}
                 onClick={() => begin('google')}
               />
             </div>
-            {busy ? (
-              <p className="auth-notice" role="status">
-                {t('sso.redirecting', { provider: providerName })}
-              </p>
-            ) : null}
             {start.isError ? (
               <p className="auth-notice auth-error" role="alert">
                 {t('sso.' + errorKey, { provider: providerName })}
