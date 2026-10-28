@@ -248,11 +248,10 @@ test('README documents both mutually exclusive local workflows', async () => {
   )
 
   assert.match(readme, /--profile phase7-local up -d --wait postgres-phase7/u)
-  assert.match(readme, /NODE_ENV=test pnpm run db:migrate:phase7/u)
+  assert.match(readme, /NODE_ENV=test pnpm run db:migrate:test/u)
   assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:test/u)
   assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:dev/u)
-  assert.match(readme, /pnpm run test:phase7:db/u)
-  assert.match(readme, /pnpm run test:phase7:api/u)
+  assert.match(readme, /pnpm run test:api-regression/u)
   assert.match(readme, /wrapper login이 하나라도 이미 존재하면 안전하게 중단/u)
   assert.match(readme, /production provisioning의\s+대체물이 아닙니다/u)
   assert.match(readme, /phase7_environment=TEST/u)

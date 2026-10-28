@@ -915,7 +915,7 @@ export const preparePhase7IsolatedDatabase = async ({
     }
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...sharedEnvironment,
         PHASE7_TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
@@ -936,7 +936,7 @@ export const preparePhase7IsolatedDatabase = async ({
     if (seedRuns > 0) {
       await runCommand(
         'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
         {
           ...sharedEnvironment,
           PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
@@ -994,7 +994,7 @@ const run = async (): Promise<void> => {
   // Historical prepare(seedRuns:0) callers keep their prefix37 profile.
   await runCommand(
     'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...sharedEnvironment,
       PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
@@ -1022,7 +1022,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   })
   await runCommand(
     'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...harness.sharedEnvironment,
       PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
@@ -1240,7 +1240,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     )
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...harness.sharedEnvironment,
         PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(

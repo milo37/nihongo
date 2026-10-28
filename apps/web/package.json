@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/phase9-built-css-check.mjs && node ../../scripts/architecture/cli.mjs && node ../../scripts/operations/browser-artifact-check.mjs web dist",
+    "build": "tsc --noEmit && vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json && node scripts/phase9-built-css-check.mjs && node ../../scripts/architecture/cli.mjs && node ../../scripts/operations/browser-artifact-check.mjs web dist",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:phase10:ledger": "vitest run --config scripts/phase10-request-ledger.vitest.config.mjs",
-    "test:phase10:bundle": "node scripts/phase10-production-bundle-clean.mjs && node --test scripts/phase10-production-bundle-contract.test.mjs && node scripts/phase10-production-bundle-check.mjs && node --test scripts/phase10-production-bundle-evidence.test.mjs",
+    "test:request-ledger": "vitest run --config scripts/phase10-request-ledger.vitest.config.mjs",
+    "test:bundle": "node scripts/phase10-production-bundle-check.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -8,7 +8,6 @@ import {
   assertEvidenceValueSafe,
   assertPlaywrightPerformanceMeasurement,
   assertPlaywrightRequestLedger,
-  assertWorkflowArtifactPolicy,
   canonicalizeEvidence,
   verifyArtifactDirectory,
   writeCanonicalEvidence
@@ -1127,53 +1126,14 @@ test('artifact verifier accepts only complete closed-schema security JSON', asyn
   )
 })
 
-test('workflow artifact policy rejects raw/broad Playwright paths and permits exact safe evidence', () => {
-  assert.throws(() =>
-    assertWorkflowArtifactPolicy('path: playwright-report/phase9-real/')
-  )
-  assert.throws(() => assertWorkflowArtifactPolicy('path: test-results/'))
-  assert.throws(() =>
-    assertWorkflowArtifactPolicy(`
-      - name: Upload raw Playwright output
-        uses: actions/upload-artifact@v4
-        with:
-          path: test-results/phase10-raw/
-
-      - name: Upload safe Playwright evidence
-        uses: actions/upload-artifact@v4
-        with:
-          path: test-results/phase10-evidence/playwright/
-    `)
-  )
-  assert.throws(() =>
-    assertWorkflowArtifactPolicy(`
-      - name: Upload Phase 9 diagnostics
-        uses: actions/upload-artifact@v4
-        with:
-          path: test-results/playwright-phase9-real/
-
-      - name: Upload safe Playwright evidence
-        uses: actions/upload-artifact@v4
-        with:
-          path: test-results/phase10-evidence/playwright/
-    `)
-  )
-  assert.doesNotThrow(() =>
-    assertWorkflowArtifactPolicy(`
-      - name: Clean Phase 9 diagnostics
-        if: \${{ always() }}
-        run: rm -rf -- test-results/playwright-phase9-real
-
-      - name: Upload safe Playwright evidence
-        uses: actions/upload-artifact@v4
-        with:
-          path: test-results/phase10-evidence/playwright/
-    `)
-  )
-  assert.doesNotThrow(() =>
-    assertWorkflowArtifactPolicy(
-      'path: test-results/phase10-evidence/playwright/'
-    )
+test('CI has no success-evidence artifact lifecycle', async () => {
+  const [normal, candidate] = await Promise.all([
+    readFile(path.resolve('.github/workflows/ci.yml'), 'utf8'),
+    readFile(path.resolve('.github/workflows/candidate.yml'), 'utf8')
+  ])
+  assert.doesNotMatch(
+    `${normal}\n${candidate}`,
+    /actions\/(?:upload|download)-artifact|test-results\/phase10-evidence/u
   )
 })
 
