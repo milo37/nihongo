@@ -68,6 +68,30 @@ describe('MSW 학습 API 흐름', () => {
     await expect(
       createPhase7QuestionReport(reportRequest)
     ).rejects.toMatchObject({ code: 'QUESTION_REPORT_DUPLICATE', status: 409 })
+    const concurrentRequest = {
+      ...reportRequest,
+      reason: 'ANSWER_ERROR' as const
+    }
+    const concurrentReports = await Promise.allSettled([
+      createPhase7QuestionReport(concurrentRequest),
+      createPhase7QuestionReport(concurrentRequest)
+    ])
+    expect(
+      concurrentReports.filter(({ status }) => status === 'fulfilled')
+    ).toHaveLength(1)
+    const duplicate = concurrentReports.find(
+      ({ status }) => status === 'rejected'
+    )
+    expect(duplicate).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'QUESTION_REPORT_DUPLICATE', status: 409 }
+    })
+    await expect(
+      createPhase7QuestionReport(reportRequest)
+    ).rejects.toMatchObject({ code: 'QUESTION_REPORT_DUPLICATE', status: 409 })
+    await expect(
+      createPhase7QuestionReport(reportRequest)
+    ).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 })
     const wrongNotes = await listWrongNotesV1({ pageSize: 100 })
     const savedQuestionIds = new Set(
       wrongNotes.items.map(({ questionId }) => questionId)
@@ -147,5 +171,79 @@ describe('MSW 학습 API 흐름', () => {
         expect(error.isServerError).toBe(false)
       }
     }
+  })
+
+  it('신고는 로그인과 알려진 문제 버전이 필요하다', async () => {
+    const reportRequest = {
+      questionVersionId: '019d0000-0000-7000-8000-000000000001',
+      reason: 'OTHER' as const,
+      description: '학습자 신고 상태를 확인합니다.'
+    }
+
+    await expect(
+      createPhase7QuestionReport(reportRequest)
+    ).rejects.toMatchObject({
+      code: 'AUTHENTICATION_REQUIRED',
+      status: 401
+    })
+    await signInMockAccount()
+    await expect(
+      createPhase7QuestionReport(reportRequest)
+    ).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+      status: 404
+    })
+    const untrusted = await fetch(
+      `${window.location.origin}/api/v1/question-reports`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://untrusted.example',
+          'Sec-Fetch-Site': 'cross-site'
+        },
+        body: JSON.stringify(reportRequest)
+      }
+    )
+    expect(untrusted.status).toBe(403)
+    expect(await untrusted.json()).toMatchObject({ code: 'UNTRUSTED_ORIGIN' })
+  })
+
+  it('제출 경계에서 중복 답안과 잘못된 시간을 거부한다', async () => {
+    await signInMockAccount()
+    const { data } = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const draft = (await getStudyDraftAnswers(data.session.id)).data
+    const answer = draft.answers[0]
+    if (!answer) throw new Error('Study answer fixture required')
+    const submit = (answers: typeof draft.answers, durationSec: number) =>
+      fetch(
+        `${window.location.origin}/api/v1/study-sessions/${data.session.id}/submission`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': crypto.randomUUID(),
+            'X-Nihongo-Practice-Contract': '2',
+            Origin: window.location.origin
+          },
+          body: JSON.stringify({
+            answers,
+            durationSec,
+            expectedDraftRevision: draft.revision
+          })
+        }
+      )
+
+    const duplicate = await submit([answer, answer], 0)
+    expect(duplicate.status).toBe(422)
+    expect(await duplicate.json()).toMatchObject({ code: 'DUPLICATE_ANSWER' })
+    const duration = await submit([answer], -1)
+    expect(duration.status).toBe(422)
+    expect(await duration.json()).toMatchObject({ code: 'INVALID_DURATION' })
   })
 })

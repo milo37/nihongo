@@ -47,8 +47,6 @@ import {
 import type { MockCanonicalAdminQuestionSource } from '@mocks/repository/mockDatabase'
 import { toPracticeQuestion } from '@mocks/logic/question'
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000
-
 const clone = <Value>(value: Value): Value => structuredClone(value)
 
 const isCanonicalOpaqueId = (value: unknown): value is string => {
@@ -454,14 +452,6 @@ export class MockPhase7AdminCmsState {
     this.sessionIssuedAtByActorId.delete(actorId)
   }
 
-  hasFreshAssurance(actorId: string, now?: number): boolean {
-    const issuedAt = this.sessionIssuedAtByActorId.get(actorId)
-    return (
-      issuedAt !== undefined &&
-      Date.parse(issuedAt) + FIVE_MINUTES_MS > (now ?? Date.parse(this.now()))
-    )
-  }
-
   snapshot(
     sources: readonly MockCanonicalAdminQuestionSource[]
   ): MockPhase7AdminCmsSnapshot {
@@ -651,17 +641,6 @@ export class MockPhase7AdminCmsState {
       throw new MockPhase7AdminCommandError({
         code: 'RESOURCE_NOT_FOUND',
         message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.'
-      })
-    }
-    const duplicateWasVisible = this.hasOpenQuestionReportDuplicate(
-      input.actorId,
-      input.request.questionVersionId,
-      input.request.reason
-    )
-    if (duplicateWasVisible) {
-      throw new MockPhase7AdminCommandError({
-        code: 'QUESTION_REPORT_DUPLICATE',
-        message: '같은 문제 버전과 사유의 처리 중 신고가 이미 있습니다.'
       })
     }
     return this.runExclusive(async ({ hasConcurrentPredecessor }) => {

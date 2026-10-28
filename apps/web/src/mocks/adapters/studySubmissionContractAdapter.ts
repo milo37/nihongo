@@ -24,8 +24,6 @@ const STUDY_SUBMISSION_V2_CANONICAL_PREFIX = 'submit-v2:'
 
 export type MockCanonicalSubmissionValidationCode =
   | 'ANSWER_NOT_IN_SESSION'
-  | 'DUPLICATE_ANSWER'
-  | 'INVALID_DURATION'
   | 'OPTION_NOT_IN_VERSION'
 
 export class MockCanonicalSubmissionValidationError extends Error {
@@ -144,23 +142,6 @@ export const canonicalizeMockStudySubmissionV2 = (
   })}`
 }
 
-const assertDuration = (input: ParsedSubmitStudySessionBody): void => {
-  if (
-    !Number.isInteger(input.durationSec) ||
-    input.durationSec < 0 ||
-    input.durationSec > 604_800 ||
-    input.answers.some(
-      ({ elapsedSec }) =>
-        !Number.isInteger(elapsedSec) || elapsedSec < 0 || elapsedSec > 86_400
-    )
-  ) {
-    throw new MockCanonicalSubmissionValidationError(
-      'INVALID_DURATION',
-      '답안 풀이 시간이 허용 범위를 벗어났습니다.'
-    )
-  }
-}
-
 const getCorrectOption = (
   question: MockStudySessionSnapshotRecord['questions'][number]
 ): MockStudySessionSnapshotRecord['questions'][number]['options'][number] => {
@@ -175,23 +156,14 @@ const getCorrectOption = (
   return correctOption
 }
 
-export const gradeMockCanonicalStudySubmission = (
+const gradeMockCanonicalStudySubmission = (
   record: MockStudySessionSnapshotRecord,
   input: ParsedSubmitStudySessionBody,
   submittedAt: string
 ): MockCanonicalGrading => {
-  assertDuration(input)
-
   const answerBySessionQuestionId = new Map(
     input.answers.map((answer) => [answer.studySessionQuestionId, answer])
   )
-  if (answerBySessionQuestionId.size !== input.answers.length) {
-    throw new MockCanonicalSubmissionValidationError(
-      'DUPLICATE_ANSWER',
-      '같은 세션 문제의 답안을 중복 제출할 수 없습니다.'
-    )
-  }
-
   const knownSessionQuestionIds = new Set(
     record.questions.map((_, index) =>
       getSessionQuestionId(record.session.id, index + 1)
