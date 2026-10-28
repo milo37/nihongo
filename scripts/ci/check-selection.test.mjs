@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -15,7 +16,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import { prepareBrowserArtifacts } from '../../apps/api/src/e2e/browserArtifactPreparation.ts'
-import { runBrowserMode, runBrowserSuites } from '../runPhaseBrowser.ts'
+import { runBrowserSuites } from '../runPhaseBrowser.ts'
 
 import {
   classifyChangedFiles,
@@ -1746,60 +1747,165 @@ test('a preparation failure never opens a fixture', async () => {
   assert.deepEqual(calls, ['prepare-failed'])
 })
 
-test('real shares artifact preparation but starts each fixture in a separate worker', async () => {
-  const calls = []
-  const adapter = {
-    runCommand: async (command, args, env) => {
-      calls.push({
-        command,
-        args,
-        prepared: env.JLP541_BROWSER_ARTIFACTS_PREPARED
-      })
-    },
-    runMockBrowser: async () => assert.fail('mock suite in real run'),
-    cleanup: async () => undefined
+const runIsolatedBrowserScenario = (scenario) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'nihongo-browser-job-'))
+  const repositoryRoot = path.resolve(import.meta.dirname, '../..')
+  const put = (name, content) => {
+    const target = path.join(root, name)
+    mkdirSync(path.dirname(target), { recursive: true })
+    writeFileSync(target, content)
   }
+  const inputs = [
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+    '.npmrc',
+    'package.json',
+    'packages/contracts/package.json',
+    'packages/contracts/tsconfig.json',
+    'packages/contracts/tsconfig.build.json',
+    'packages/contracts/src/index.ts',
+    'packages/domain/package.json',
+    'packages/domain/tsconfig.json',
+    'packages/domain/tsconfig.build.json',
+    'packages/domain/src/index.ts',
+    'apps/api/package.json',
+    'apps/api/prisma.config.ts',
+    'apps/api/prisma/schema.prisma'
+  ]
+  for (const input of inputs) {
+    put(
+      input,
+      input === 'apps/api/package.json'
+        ? '{"type":"module"}'
+        : input.endsWith('package.json')
+          ? '{"private":true}'
+          : input
+    )
+  }
+  for (const file of [
+    'scripts/runPhaseBrowser.ts',
+    'apps/api/src/e2e/browserArtifactPreparation.ts'
+  ]) {
+    const target = path.join(root, file)
+    mkdirSync(path.dirname(target), { recursive: true })
+    copyFileSync(path.join(repositoryRoot, file), target)
+  }
+  put(
+    'scenario.mjs',
+    `
+import { mkdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { runBrowserMode } from './scripts/runPhaseBrowser.ts'
+import { prepareBrowserArtifacts } from './apps/api/src/e2e/browserArtifactPreparation.ts'
+const root = process.cwd()
+const calls = []
+const runCommand = async (command, args, env) => {
+  calls.push({ command, args, prepared: env.JLP541_BROWSER_ARTIFACTS_PREPARED ?? null })
+  if (process.argv[2] === 'failure') throw new Error('build failed')
+  const output = args[1] === '@nihongo/contracts' ? 'packages/contracts/dist/index.js'
+    : args[1] === '@nihongo/domain' ? 'packages/domain/dist/index.js'
+    : args[1] === '@nihongo/api' ? 'apps/api/src/generated/prisma/client.js' : undefined
+  if (output) {
+    mkdirSync(path.dirname(path.join(root, output)), { recursive: true })
+    writeFileSync(path.join(root, output), output)
+  }
+}
+const adapter = { runCommand, runMockBrowser: async () => { throw Error('unexpected mock') }, cleanup: async () => {} }
+delete process.env.JLP541_BROWSER_ARTIFACTS_PREPARED
+let preparation = []
+if (process.argv[2] === 'preprepared') {
+  await prepareBrowserArtifacts('real', new AbortController().signal, runCommand, root, process.env)
+  preparation = calls.splice(0)
+}
+let error = null
+try {
   await runBrowserMode('real', new AbortController().signal, [], {
-    loadPhase9: async () => adapter,
-    resolveTsx: () => 'test-loader'
+    loadPhase9: async () => adapter, resolveTsx: () => 'test-loader'
   })
-  assert.equal(calls.length, 6)
-  assert.deepEqual(
-    calls.slice(0, 3).map(({ args }) => args.slice(-1)[0]),
-    ['build', 'build', 'db:generate']
+} catch (caught) {
+  error = caught instanceof Error ? caught.message : 'unknown failure'
+}
+process.stdout.write(JSON.stringify({ preparation, calls, error }))
+`
   )
+  try {
+    const result = spawnSync(process.execPath, ['scenario.mjs', scenario], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CI: 'true',
+        GITHUB_RUN_ID: '309',
+        GITHUB_RUN_ATTEMPT: '1',
+        GITHUB_JOB: 'quality',
+        GITHUB_SHA: 'a'.repeat(40),
+        RUNNER_TEMP: root
+      }
+    })
+    assert.equal(result.status, 0, result.stderr)
+    return JSON.parse(result.stdout)
+  } finally {
+    rmSync(root, { force: true, recursive: true })
+  }
+}
+
+const assertThreeWorkers = (calls) => {
   assert.deepEqual(
-    calls.slice(3).map(({ args }) => args[5]),
+    calls.map(({ args }) => args[5]),
     ['admin', 'accessibility', 'journey']
   )
   assert.equal(
-    calls.slice(0, 3).every(({ prepared }) => prepared === undefined),
+    calls.every(
+      ({ command, args }) =>
+        command === process.execPath && args[4] === '--suite'
+    ),
     true
   )
   assert.equal(
-    calls.slice(3).every(({ prepared }) => prepared === '1'),
+    calls.every(({ prepared }) => prepared === '1'),
     true
   )
+}
+
+test('standalone real prepares artifacts once and starts three separate workers', () => {
+  const { preparation, calls, error } = runIsolatedBrowserScenario('standalone')
+  assert.equal(error, null)
+  assert.deepEqual(preparation, [])
+  assert.equal(calls.length, 6)
+  assert.deepEqual(
+    calls.slice(0, 3).map(({ args }) => args.at(-1)),
+    ['build', 'build', 'db:generate']
+  )
+  assert.equal(
+    calls.slice(0, 3).every(({ prepared }) => prepared === null),
+    true
+  )
+  assertThreeWorkers(calls.slice(3))
 })
 
-test('a failed artifact build cannot start a fixture', async () => {
-  const calls = []
-  const adapter = {
-    runCommand: async (_command, args) => {
-      calls.push(args)
-      throw new Error('build failed')
-    },
-    runMockBrowser: async () => assert.fail('fixture started'),
-    cleanup: async () => undefined
-  }
-  await assert.rejects(
-    runBrowserMode('real', new AbortController().signal, [], {
-      loadPhase9: async () => adapter,
-      resolveTsx: () => 'unused'
-    }),
-    /build failed/u
+test('pre-prepared real job reuses manifest and starts three separate workers', () => {
+  const { preparation, calls, error } =
+    runIsolatedBrowserScenario('preprepared')
+  assert.equal(error, null)
+  assert.deepEqual(
+    preparation.map(({ args }) => args.at(-1)),
+    ['build', 'build', 'db:generate']
   )
+  assert.equal(calls.length, 3)
+  assertThreeWorkers(calls)
+})
+
+test('a failed artifact build cannot start a fixture', () => {
+  const { preparation, calls, error } = runIsolatedBrowserScenario('failure')
+  assert.deepEqual(preparation, [])
+  assert.equal(error, 'build failed')
   assert.equal(calls.length, 1)
+  assert.deepEqual(calls[0].args, [
+    '--filter',
+    '@nihongo/contracts',
+    'run',
+    'build'
+  ])
 })
 
 test('a cancelled mock build stops its owned child and returns SIGTERM status', async () => {
@@ -1835,6 +1941,7 @@ setInterval(() => {}, 1000)
         ...process.env,
         MOCK_READY_FILE: ready,
         MOCK_STOPPED_FILE: stopped,
+        RUNNER_TEMP: temp,
         PATH: `${temp}${path.delimiter}${process.env.PATH ?? ''}`
       },
       stdio: ['ignore', 'ignore', 'pipe']
