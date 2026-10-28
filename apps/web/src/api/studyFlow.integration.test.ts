@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { isApiError } from '@nihongo/browser/api/config'
 import { signInMockAccount } from '@/test/auth'
 import { createBookmark } from '@api/bookmark/createBookmark'
+import { createPhase7QuestionReport } from '@api/phase7/phase7AdminApi'
 import { listBookmark } from '@api/bookmark/listBookmark'
 import { DEMO_ADMIN_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
@@ -50,6 +51,23 @@ describe('MSW 학습 API 흐름', () => {
     )
     expect(result.correctCount).toBe(0)
     expect(result.incorrectCount).toBe(session.actualCount)
+    const reportedQuestion = result.items[0]?.question
+    if (!reportedQuestion?.questionVersionId)
+      throw new Error('Reportable question fixture required')
+    const reportRequest = {
+      questionVersionId: reportedQuestion.questionVersionId,
+      reason: 'OTHER' as const,
+      description: '학습자 문제 신고 화면 상태를 확인합니다.'
+    }
+    const report = await createPhase7QuestionReport(reportRequest)
+    expect(report).toMatchObject({
+      questionId: reportedQuestion.id,
+      questionVersionId: reportedQuestion.questionVersionId,
+      status: 'OPEN'
+    })
+    await expect(
+      createPhase7QuestionReport(reportRequest)
+    ).rejects.toMatchObject({ code: 'QUESTION_REPORT_DUPLICATE', status: 409 })
     const wrongNotes = await listWrongNotesV1({ pageSize: 100 })
     const savedQuestionIds = new Set(
       wrongNotes.items.map(({ questionId }) => questionId)

@@ -82,8 +82,7 @@ import {
   MockPhase7AdminCmsState,
   type MockPhase7MutationLease,
   type MockPhase7ActiveAdminCmsState,
-  type MockPhase7AdminCmsPersistedState,
-  type MockPhase7AdminCmsSnapshot
+  type MockPhase7AdminCmsPersistedState
 } from '@mocks/repository/phase7AdminCmsState'
 import {
   Phase7MutationCoordinatorUnavailableError,
@@ -978,18 +977,6 @@ const toWrongNoteSummary = (
   questionText: question.questionText,
   difficulty: question.difficulty,
   tags: [...question.tags]
-})
-
-const toAdminSummary = (question: QuestionRecord): AdminQuestionSummary => ({
-  id: question.id,
-  level: question.level,
-  subject: question.subject,
-  questionType: question.questionType,
-  questionText: question.questionText,
-  difficulty: question.difficulty,
-  tags: [...question.tags],
-  status: question.status,
-  updatedAt: question.updatedAt
 })
 
 export class MockDatabase {
@@ -3462,55 +3449,6 @@ export class MockDatabase {
     }
   }
 
-  listAdminQuestions(
-    filters: AdminQuestionListFilters = {}
-  ): AdminQuestionListResult {
-    const { page, pageSize } = normalizePagination(
-      filters.page,
-      filters.pageSize
-    )
-    const search = filters.search?.trim().toLocaleLowerCase()
-    const matches: QuestionRecord[] = []
-
-    for (const question of this.questionById.values()) {
-      if (filters.level && question.level !== filters.level) {
-        continue
-      }
-      if (filters.subject && question.subject !== filters.subject) {
-        continue
-      }
-      if (filters.status && question.status !== filters.status) {
-        continue
-      }
-      if (filters.difficulty && question.difficulty !== filters.difficulty) {
-        continue
-      }
-      if (
-        search &&
-        !`${question.id} ${question.questionText} ${question.tags.join(' ')}`
-          .toLocaleLowerCase()
-          .includes(search)
-      ) {
-        continue
-      }
-
-      matches.push(question)
-    }
-
-    const sorted = this.sortAdminQuestions(matches, filters.sort ?? 'RECENT')
-
-    return {
-      items: paginate(sorted, page, pageSize).map(toAdminSummary),
-      total: sorted.length,
-      page,
-      pageSize
-    }
-  }
-
-  getAdminQuestion(questionId: string): QuestionRecord {
-    return this.getQuestion(questionId)
-  }
-
   listCanonicalAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
     const answerStatsByVersionId = new Map<
       string,
@@ -3642,133 +3580,8 @@ export class MockDatabase {
     return clone(question)
   }
 
-  getCanonicalAdminCmsSnapshot(
-    sources = this.listPhase7AuthoritativeAdminQuestionSources()
-  ): MockPhase7AdminCmsSnapshot {
-    return this.phase7AdminCmsState.snapshot(sources)
-  }
-
   getPhase7AdminCmsStateForHandlers(): MockPhase7ActiveAdminCmsState {
     return this.phase7ActiveAdminCmsState
-  }
-
-  hasAuthoritativePhase7FreshAssurance(actorId: string): boolean {
-    const authoritative = this.readAuthoritativePersistedState()
-    const persisted = authoritative?.state ?? null
-    if (!persisted || persisted.currentUserId !== actorId) return false
-    if (
-      persisted.version === 8 &&
-      authoritative !== null &&
-      !this.hasValidEmbeddedPhase7Graph(
-        authoritative.serialized,
-        persisted.phase7AdminCms
-      )
-    ) {
-      throw new MockDatabaseError(
-        'SERVICE_UNAVAILABLE',
-        503,
-        '최신 인증 보증 상태를 확인하지 못했습니다.'
-      )
-    }
-
-    let hasFreshAssurance = this.phase7AdminCmsState.hasFreshAssurance(actorId)
-    const sources = this.listPhase7AuthoritativeTaxonomySources()
-    const inspectPersistedState = (
-      candidate: MockPhase7AdminCmsPersistedState
-    ): void => {
-      const verifier = new MockPhase7AdminCmsState(this.now)
-      try {
-        verifier.restore(candidate, sources)
-      } catch {
-        throw new MockDatabaseError(
-          'SERVICE_UNAVAILABLE',
-          503,
-          '최신 인증 보증 상태를 확인하지 못했습니다.'
-        )
-      }
-      hasFreshAssurance ||= verifier.hasFreshAssurance(actorId)
-    }
-
-    if (persisted.version === 8) {
-      inspectPersistedState(persisted.phase7AdminCms)
-    }
-
-    let dedicatedSerialized: string | null
-    try {
-      dedicatedSerialized = this.readLatestStorageItem(
-        PHASE7_ADMIN_CMS_STORAGE_KEY
-      )
-    } catch {
-      throw new MockDatabaseError(
-        'SERVICE_UNAVAILABLE',
-        503,
-        '최신 인증 보증 상태를 확인하지 못했습니다.'
-      )
-    }
-    if (dedicatedSerialized !== null) {
-      const dedicated = this.parsePhase7PersistedState(dedicatedSerialized)
-      if (!dedicated) {
-        throw new MockDatabaseError(
-          'SERVICE_UNAVAILABLE',
-          503,
-          '최신 인증 보증 상태를 확인하지 못했습니다.'
-        )
-      }
-      inspectPersistedState(dedicated)
-    }
-
-    return hasFreshAssurance
-  }
-
-  assertPhase7AdminCommandAuthority(input: {
-    actorId: string
-    requiresFresh: boolean
-  }): void {
-    let user: User | null
-    try {
-      user = this.getCurrentUser()
-    } catch {
-      throw new MockPhase7AdminCommandError({
-        code: 'SERVICE_UNAVAILABLE',
-        message: '최신 인증 세션을 확인하지 못했습니다.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
-    if (!user || user.id !== input.actorId) {
-      throw new MockPhase7AdminCommandError({
-        code: 'AUTH_SESSION_EXPIRED',
-        message: '로그인 세션이 만료됐습니다.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
-    if (user.role !== 'ADMIN') {
-      throw new MockPhase7AdminCommandError({
-        code: 'ADMIN_REQUIRED',
-        message: '관리자 권한이 필요합니다.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
-    let hasFreshAssurance = true
-    if (input.requiresFresh) {
-      try {
-        hasFreshAssurance = this.hasAuthoritativePhase7FreshAssurance(
-          input.actorId
-        )
-      } catch {
-        throw new MockPhase7AdminCommandError({
-          code: 'SERVICE_UNAVAILABLE',
-          message: '최신 인증 보증 상태를 확인하지 못했습니다.',
-          disposition: 'DEFINITE_ROLLBACK'
-        })
-      }
-    }
-    if (!hasFreshAssurance) {
-      throw new MockPhase7AdminCommandError({
-        code: 'FRESH_ASSURANCE_REQUIRED',
-        message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
   }
 
   assertPhase7QuestionReportAuthority(actorId: string): 'USER' | 'ADMIN' {

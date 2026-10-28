@@ -23,7 +23,6 @@ import { UI_LOCALE_STORAGE_KEY } from '@nihongo/browser/libs/localeStorage'
 import { resetMockSocialSignInForTesting } from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { resetAdminCmsCommandRateLimitForTesting } from '@mocks/handlers/adminCmsCommandHandlers'
-import { resetAdminCmsReadRateLimitForTesting } from '@mocks/handlers/adminCmsReadHandlers'
 import { resetDashboardInsightsRateLimitForTesting } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { resetQuestionReadRateLimitForTesting } from '@mocks/handlers/questionHandlers'
 import { useAppStore } from '@nihongo/browser/store/index'
@@ -38,7 +37,6 @@ const resetTestState = async (): Promise<void> => {
   closeAllStudyDraftRevisionChannels()
   queryClient.clear()
   resetAdminCmsCommandRateLimitForTesting()
-  resetAdminCmsReadRateLimitForTesting()
   resetDashboardInsightsRateLimitForTesting()
   resetQuestionReadRateLimitForTesting()
   resetMockSocialSignInForTesting()
