@@ -4,6 +4,7 @@ import {
   type PostSeedDiagnostic
 } from './phase7PostSeedDiagnostics.js'
 import { runPhase7SeedExecution } from './phase7SeedExecution.js'
+import { prepareBrowserArtifacts } from '../../../../scripts/runPhaseBrowser.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import {
@@ -1457,9 +1458,13 @@ const run = async (): Promise<void> => {
     SEED_TARGET: 'test'
   }
 
-  await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
-  await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
-  await runCommand('pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate'])
+  await prepareBrowserArtifacts(
+    'real',
+    new AbortController().signal,
+    async (command, args, environment) =>
+      await runCommand(command, args, environment),
+    repositoryRoot
+  )
   await runCommand(
     'pnpm',
     [
@@ -1608,8 +1613,9 @@ const run = async (): Promise<void> => {
   const seedCommand = [
     '--filter',
     '@nihongo/api',
-    'run',
-    'db:seed:test'
+    'exec',
+    'tsx',
+    'prisma/seed.ts'
   ] as const
   const withoutMigrationUrl: NodeJS.ProcessEnv = { ...seedEnvironment }
   delete withoutMigrationUrl.PHASE7_MIGRATION_DATABASE_URL
@@ -1669,6 +1675,22 @@ const run = async (): Promise<void> => {
 
   await runPhase7SeedExecution(
     'FIRST_NORMAL_SEED',
+    () => runCommand('pnpm', seedCommand, seedEnvironment),
+    (phase, state) => {
+      process.stdout.write(
+        JSON.stringify({
+          event: 'phase7.db.integration.seed_phase',
+          phase,
+          state
+        }) + '\n'
+      )
+    }
+  )
+  await assertSeedWriteCount('65')
+
+  // Check reseeding while still on the same prefix used by browser fixtures.
+  await runPhase7SeedExecution(
+    'PREFIX_RESEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
       process.stdout.write(

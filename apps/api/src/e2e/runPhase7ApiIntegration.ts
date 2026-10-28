@@ -1,4 +1,5 @@
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
+import { prepareBrowserArtifacts } from '../../../../scripts/runPhaseBrowser.js'
 import {
   copyFileSync,
   cpSync,
@@ -557,7 +558,8 @@ const runCommand = async (
   const isSeed =
     apiIntegrationCase !== 'sso-browser-google' &&
     command === 'pnpm' &&
-    args.join(' ') === '--filter @nihongo/api run db:seed:test'
+    (args.join(' ') === '--filter @nihongo/api run db:seed:test' ||
+      args.join(' ') === '--filter @nihongo/api exec tsx prisma/seed.ts')
   let seedStage = 'SEED_GENERATE'
   let seedDiagnosticId = 'UNKNOWN_REDACTED'
   if (isSeed)
@@ -808,16 +810,31 @@ export const preparePhase7IntegrationArtifacts = async ({
 } = {}): Promise<void> => {
   abortSignal?.throwIfAborted()
   if (prepared) return
-  for (const args of [
-    ['--filter', '@nihongo/contracts', 'run', 'build'],
-    ['--filter', '@nihongo/domain', 'run', 'build'],
-    ['--filter', '@nihongo/api', 'run', 'db:generate']
-  ]) {
-    abortSignal?.throwIfAborted()
-    await run('pnpm', args, environment, abortSignal)
-  }
+  await prepareBrowserArtifacts(
+    'real',
+    abortSignal ?? new AbortController().signal,
+    run,
+    repositoryRoot,
+    environment
+  )
   abortSignal?.throwIfAborted()
 }
+
+export const phase7SeedInvocation = (
+  artifactsPrepared: boolean
+): {
+  readonly args: readonly string[]
+  readonly environment: NodeJS.ProcessEnv
+} =>
+  artifactsPrepared
+    ? {
+        args: ['--filter', '@nihongo/api', 'exec', 'tsx', 'prisma/seed.ts'],
+        environment: { SEED_TARGET: 'test' }
+      }
+    : {
+        args: ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+        environment: {}
+      }
 
 export const preparePhase7IsolatedDatabase = async ({
   abortSignal,
@@ -924,11 +941,12 @@ export const preparePhase7IsolatedDatabase = async ({
     )
     await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
 
+    const seed = phase7SeedInvocation(true)
     for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
       await runCommand(
         'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-        sharedEnvironment,
+        seed.args,
+        { ...sharedEnvironment, ...seed.environment },
         abortSignal
       )
     }
@@ -985,11 +1003,10 @@ const run = async (): Promise<void> => {
     testFile: repositoryEntry.path,
     environment: sharedEnvironment
   })
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-    sharedEnvironment
-  )
+  await runCommand('pnpm', phase7SeedInvocation(true).args, {
+    ...sharedEnvironment,
+    ...phase7SeedInvocation(true).environment
+  })
   // Batch7 installs current only from the unchanged canonical65 bootstrap.
   // Historical prepare(seedRuns:0) callers keep their prefix37 profile.
   await runCommand(
@@ -1227,15 +1244,19 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     process.on(signal, onSignal)
   adminClient.on('error', onFailure)
   try {
+    const artifactsPrepared =
+      process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
     const harness = await preparePhase7IsolatedDatabase({
       seedRuns: 0,
-      abortSignal: controller.signal
+      abortSignal: controller.signal,
+      artifactsPrepared
     })
     // The full migration chain requires the canonical prefix content bootstrap.
+    const seed = phase7SeedInvocation(true)
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-      harness.sharedEnvironment,
+      seed.args,
+      { ...harness.sharedEnvironment, ...seed.environment },
       controller.signal
     )
     await runCommand(

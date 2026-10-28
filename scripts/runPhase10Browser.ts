@@ -158,7 +158,7 @@ const reserveLoopbackPort = async (): Promise<number> =>
     })
   })
 
-const cleanup = (): Promise<void> => {
+export const cleanup = (): Promise<void> => {
   cleanupPromise ??= cleanupPhase10BrowserResources({
     stopOwnedProcesses: async () => {
       const api = ownedProcesses.find(
@@ -321,14 +321,6 @@ const runReal = async (): Promise<void> => {
   await runPlaywright('real', webOrigin)
 }
 
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.once(signal, () => {
-    void cleanup()
-      .then(() => process.exit(signal === 'SIGINT' ? 130 : 143))
-      .catch(() => process.exit(1))
-  })
-}
-
 const run = async (): Promise<void> => {
   if (!mode) {
     throw new Error('Phase 10 browser runner accepts mock or real mode.')
@@ -337,7 +329,7 @@ const run = async (): Promise<void> => {
   else await runReal()
 }
 
-const execute = async (): Promise<void> => {
+export const execute = async (): Promise<void> => {
   let failure: unknown
   try {
     await run()
@@ -393,5 +385,12 @@ if (
   process.argv[1] !== undefined &&
   fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
 ) {
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      void cleanup()
+        .then(() => process.exit(signal === 'SIGINT' ? 130 : 143))
+        .catch(() => process.exit(1))
+    })
+  }
   void main()
 }

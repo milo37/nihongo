@@ -24,6 +24,7 @@ vi.mock('pg', () => ({
 
 let register: typeof import('./runPhase7ApiIntegration.js').registerCapabilityAndActivate
 let prepareArtifacts: typeof import('./runPhase7ApiIntegration.js').preparePhase7IntegrationArtifacts
+let seedInvocation: typeof import('./runPhase7ApiIntegration.js').phase7SeedInvocation
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
   vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
@@ -35,6 +36,8 @@ beforeAll(async () => {
     .registerCapabilityAndActivate
   prepareArtifacts = (await import('./runPhase7ApiIntegration.js'))
     .preparePhase7IntegrationArtifacts
+  seedInvocation = (await import('./runPhase7ApiIntegration.js'))
+    .phase7SeedInvocation
 })
 afterAll(() => vi.unstubAllEnvs())
 beforeEach(() => {
@@ -180,5 +183,20 @@ describe('shared API integration artifacts without a database', () => {
       prepareArtifacts({ run, prepared: true, abortSignal: controller.signal })
     ).rejects.toBeDefined()
     expect(run).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('browser-prepared seed invocation', () => {
+  it('keeps standalone seed generation and test-target defaults', () => {
+    expect(seedInvocation(false)).toEqual({
+      args: ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+      environment: {}
+    })
+  })
+  it('reuses generated artifacts while explicitly selecting the same test seed', () => {
+    expect(seedInvocation(true)).toEqual({
+      args: ['--filter', '@nihongo/api', 'exec', 'tsx', 'prisma/seed.ts'],
+      environment: { SEED_TARGET: 'test' }
+    })
   })
 })
