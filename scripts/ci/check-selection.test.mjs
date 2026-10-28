@@ -14,11 +14,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import {
-  prepareBrowserArtifacts,
-  runBrowserMode,
-  runBrowserSuites
-} from '../runPhaseBrowser.ts'
+import { prepareBrowserArtifacts } from '../../apps/api/src/e2e/browserArtifactPreparation.ts'
+import { runBrowserMode, runBrowserSuites } from '../runPhaseBrowser.ts'
 
 import {
   classifyChangedFiles,
@@ -274,7 +271,7 @@ test('standalone runners use supported workspace build commands', () => {
     }
   }
   const shared = readFileSync(
-    path.join(repositoryRoot, 'scripts/runPhaseBrowser.ts'),
+    path.join(repositoryRoot, 'apps/api/src/e2e/browserArtifactPreparation.ts'),
     'utf8'
   )
   assert.match(shared, directBuild('@nihongo/contracts'))

@@ -1,5 +1,5 @@
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
-import { prepareBrowserArtifacts } from '../../../../scripts/runPhaseBrowser.js'
+import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import {
   copyFileSync,
   cpSync,

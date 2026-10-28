@@ -4,7 +4,7 @@ import {
   type PostSeedDiagnostic
 } from './phase7PostSeedDiagnostics.js'
 import { runPhase7SeedExecution } from './phase7SeedExecution.js'
-import { prepareBrowserArtifacts } from '../../../../scripts/runPhaseBrowser.js'
+import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import {
