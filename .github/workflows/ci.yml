@@ -82,6 +82,7 @@ jobs:
         if: ${{ steps.selection.outputs.code == 'true' }}
         env:
           NODE_ENV: production
+          VITE_RELEASE_ID: ${{ github.sha }}
         run: node scripts/ci/check-selection.mjs quality build
 
       - name: Production bundle budget

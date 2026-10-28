@@ -74,6 +74,8 @@ jobs:
         run: pnpm run test:portable
 
       - name: Core regression and production bundle
+        env:
+          VITE_RELEASE_ID: ${{ github.sha }}
         run: |
           pnpm run typecheck
           pnpm run test

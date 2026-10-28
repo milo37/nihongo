@@ -290,6 +290,65 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.ok(rootScripts.length <= 60)
 })
 
+const namedWorkflowStep = (source, name) => {
+  const marker = `      - name: ${name}\n`
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, name)
+  const next = source.indexOf('\n      - name:', start + marker.length)
+  return source.slice(start, next === -1 ? source.length : next)
+}
+
+const workflowStepEnvironment = (step) => {
+  const lines = step.split('\n')
+  const start = lines.indexOf('        env:')
+  assert.notEqual(start, -1, 'step env')
+  const environment = new Map()
+  for (const line of lines.slice(start + 1)) {
+    const match = /^ {10}([A-Z][A-Z0-9_]*): (.+)$/u.exec(line)
+    if (!match) break
+    assert.equal(environment.has(match[1]), false, match[1])
+    environment.set(match[1], match[2])
+  }
+  return environment
+}
+
+test('production bundles validate the commit stamped by their reused build', () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, '../..')
+  const normal = readFileSync(
+    path.join(repositoryRoot, '.github/workflows/ci.yml'),
+    'utf8'
+  )
+  const candidate = readFileSync(
+    path.join(repositoryRoot, '.github/workflows/candidate.yml'),
+    'utf8'
+  )
+  const normalBuild = namedWorkflowStep(normal, 'Production build')
+  const normalBundle = namedWorkflowStep(normal, 'Production bundle budget')
+  const candidateBuild = namedWorkflowStep(
+    candidate,
+    'Core regression and production bundle'
+  )
+
+  for (const step of [normalBuild, candidateBuild]) {
+    assert.equal(
+      workflowStepEnvironment(step).get('VITE_RELEASE_ID'),
+      '${{ github.sha }}'
+    )
+  }
+  assert.match(normalBuild, /^ {8}run: .* quality build$/mu)
+  assert.match(normalBundle, /^ {8}run: .* quality bundle$/mu)
+  assert.doesNotMatch(normalBundle, /(?:quality|run) build/u)
+
+  const candidateProductionBuild = candidateBuild.indexOf(
+    'NODE_ENV=production pnpm run build'
+  )
+  const candidateBundleCheck = candidateBuild.indexOf(
+    'NODE_ENV=production pnpm --filter @nihongo/web run test:bundle'
+  )
+  assert.ok(candidateProductionBuild > -1)
+  assert.ok(candidateBundleCheck > candidateProductionBuild)
+})
+
 const expectedBrowserCalls = (mode) => [
   {
     args: [
