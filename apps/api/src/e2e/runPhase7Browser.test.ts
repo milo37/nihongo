@@ -433,7 +433,10 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
       })
       expect(playwright?.[1]).toContain(adminSpec)
       expect(playwright?.[1].includes(dashboardSpec)).toBe(phase8 === '1')
-      expect(ports.prepare).toHaveBeenCalledWith({ seedRuns: 2 })
+      expect(ports.prepare).toHaveBeenCalledWith({
+        seedRuns: 2,
+        artifactsPrepared: false
+      })
       expect(ports.fixture.mock.calls[0]?.[1]).toBe('admin-a1-a8')
       expect(checkReadiness).toHaveBeenCalledOnce()
       expect(assertExpectedLifecycleDelta).toHaveBeenCalledWith({ audit: 0 })
