@@ -153,7 +153,7 @@ const fixture = () => {
       body: JSON.stringify(body)
     })
   }
-  return { request, guestPrincipalService, reached, cancel, rows }
+  return { app, request, guestPrincipalService, reached, cancel, rows }
 }
 
 describe('study mutation request budgets', () => {
@@ -204,4 +204,48 @@ describe('study mutation request budgets', () => {
     expect(denied.status).toBe(429)
     expect(denied.headers.get('Retry-After')).toBe('60')
   })
+})
+
+describe('study submission HTTP validation', () => {
+  it.each([1, 2] as const)(
+    'returns stable 422 errors without calling submission for v%i',
+    async (version) => {
+      const cases = [
+        {
+          answers: [
+            answer,
+            { ...answer, studySessionQuestionId: questionId.toUpperCase() }
+          ],
+          durationSec: 0,
+          code: 'DUPLICATE_ANSWER'
+        },
+        { answers: [answer], durationSec: -1, code: 'INVALID_DURATION' },
+        {
+          answers: [{ ...answer, elapsedSec: -1 }],
+          durationSec: 0,
+          code: 'INVALID_DURATION'
+        }
+      ]
+      for (const { answers, durationSec, code } of cases) {
+        const f = fixture()
+        const response = await f.app.request(`/study/${sessionId}/submission`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': key,
+            Authorization: 'Bearer user-a',
+            ...(version === 2 ? { 'X-Nihongo-Practice-Contract': '2' } : {})
+          },
+          body: JSON.stringify({
+            answers,
+            durationSec,
+            ...(version === 2 ? { expectedDraftRevision: 0 } : {})
+          })
+        })
+        expect(response.status).toBe(422)
+        expect(await response.json()).toMatchObject({ code, retryable: false })
+        expect(f.reached).not.toHaveBeenCalled()
+      }
+    }
+  )
 })

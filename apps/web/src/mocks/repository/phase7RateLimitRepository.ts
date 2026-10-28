@@ -10,14 +10,7 @@ import {
 } from '@mocks/repository/phase7MutationCoordinator'
 import type { MockPhase7MutationLease } from '@mocks/repository/phase7AdminCmsState'
 
-export type Phase7RateLimitGroup =
-  | 'ADMIN_EDIT'
-  | 'ADMIN_READ'
-  | 'ADMIN_SENSITIVE'
-  | 'IMPORT_VALIDATION'
-  | 'REAUTHENTICATION'
-  | 'REPORT_ACTOR'
-  | 'REPORT_VERSION'
+export type Phase7RateLimitGroup = 'REPORT_ACTOR' | 'REPORT_VERSION'
 
 type ActorRateLimitGroup = Exclude<Phase7RateLimitGroup, 'REPORT_VERSION'>
 
@@ -58,18 +51,19 @@ const policyByGroup: Readonly<
     { readonly limit: number; readonly windowMs: number }
   >
 > = {
-  ADMIN_EDIT: { limit: 30, windowMs: 10 * 60 * 1000 },
-  ADMIN_READ: { limit: 120, windowMs: 60 * 1000 },
-  ADMIN_SENSITIVE: { limit: 10, windowMs: 15 * 60 * 1000 },
-  IMPORT_VALIDATION: { limit: 20, windowMs: 15 * 60 * 1000 },
-  REAUTHENTICATION: { limit: 5, windowMs: 15 * 60 * 1000 },
   REPORT_ACTOR: { limit: 5, windowMs: 10 * 60 * 1000 },
   REPORT_VERSION: { limit: 20, windowMs: 60 * 60 * 1000 }
 }
 
-const rateGroups = new Set<Phase7RateLimitGroup>(
-  Object.keys(policyByGroup) as Phase7RateLimitGroup[]
-)
+// Old browser storage may still contain buckets from removed admin handlers.
+const rateGroups = new Set<string>([
+  ...Object.keys(policyByGroup),
+  'ADMIN_EDIT',
+  'ADMIN_READ',
+  'ADMIN_SENSITIVE',
+  'IMPORT_VALIDATION',
+  'REAUTHENTICATION'
+])
 
 const defaultStorage: Phase7RateLimitStorage = {
   getItem: (key) => cachedStorage.getItem(key),
@@ -90,10 +84,7 @@ const isRateWindow = (value: unknown): value is RateWindow =>
 
 const isCanonicalBucketKey = (key: string): boolean => {
   const [group, keyKind, keyValue, trailing] = key.split(':')
-  if (
-    trailing !== undefined ||
-    !rateGroups.has(group as Phase7RateLimitGroup)
-  ) {
+  if (trailing !== undefined || !rateGroups.has(group ?? '')) {
     return false
   }
   if (keyKind === 'ip') {
@@ -229,30 +220,6 @@ export class Phase7RateLimitRepository {
       }
       throw new Phase7RateLimitRepositoryUnavailableError()
     }
-  }
-
-  async primeForTesting(
-    input: Phase7RateLimitInput,
-    count: number
-  ): Promise<void> {
-    await this.lease(async () => {
-      const serialized = this.storage.getLatestItem
-        ? this.storage.getLatestItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
-        : this.storage.getItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
-      const windows = parseState(serialized)
-      const windowStartedAt = this.now()
-      for (const key of this.keysFor(input)) {
-        windows.set(key, { count, windowStartedAt })
-      }
-      if (
-        this.storage.setItem(
-          PHASE7_RATE_LIMIT_STORAGE_KEY,
-          serializeState(windows)
-        ) === false
-      ) {
-        throw new Phase7RateLimitRepositoryUnavailableError()
-      }
-    })
   }
 
   resetForTesting(): void {
