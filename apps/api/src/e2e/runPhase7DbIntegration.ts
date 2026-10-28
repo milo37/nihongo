@@ -266,10 +266,8 @@ const runCommand = async (
   await new Promise<void>((resolve, reject) => {
     let spawnError: Error | undefined
     const script =
-      args.find(
-        (argument) =>
-          argument === 'db:migrate:phase7' || argument === 'db:migrate:deploy'
-      ) ?? 'UNKNOWN_REDACTED'
+      args.find((argument) => argument === 'db:migrate:deploy') ??
+      'UNKNOWN_REDACTED'
     const reportCommand = (
       state: 'BEGIN' | 'COMPLETE' | 'FAILED',
       exitCode: number | null
@@ -1459,8 +1457,8 @@ const run = async (): Promise<void> => {
     SEED_TARGET: 'test'
   }
 
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
+  await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
+  await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
   await runCommand('pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate'])
   await runCommand(
     'pnpm',
@@ -1481,7 +1479,7 @@ const run = async (): Promise<void> => {
     try {
       await runCommand(
         'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
         environment,
         'redacted'
       )

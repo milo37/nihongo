@@ -364,7 +364,10 @@ describe('Phase9/10 browser runner lifecycle', () => {
           if (scenario === 'API exit') finish(api, { code: 1, signal: null })
           return api
         }
-        if (args.includes('build:contracts') || args.includes('build:domain')) {
+        if (
+          args.includes('@nihongo/contracts') ||
+          args.includes('@nihongo/domain')
+        ) {
           const build = makeChild()
           queueMicrotask(() => finish(build, { code: 0, signal: null }))
           return build

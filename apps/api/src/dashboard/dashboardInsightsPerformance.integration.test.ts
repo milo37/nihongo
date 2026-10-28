@@ -890,7 +890,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
           },
           kind: 'nihongo.phase10.database-api-performance',
           metadata: {
-            command: 'pnpm run test:phase10:performance:database-api',
+            command: 'pnpm run test:database-performance',
             commit,
             generatedAt: new Date().toISOString(),
             mode: 'test',

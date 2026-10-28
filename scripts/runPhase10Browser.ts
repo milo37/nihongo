@@ -238,8 +238,8 @@ const runPlaywright = async (
 }
 
 const runMock = async (): Promise<void> => {
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
+  await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
+  await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`

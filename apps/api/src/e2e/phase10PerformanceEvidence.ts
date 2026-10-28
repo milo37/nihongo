@@ -93,7 +93,7 @@ export interface Phase10DatabaseApiPerformanceEvidence {
   }
   readonly kind: 'nihongo.phase10.database-api-performance'
   readonly metadata: {
-    readonly command: 'pnpm run test:phase10:performance:database-api'
+    readonly command: 'pnpm run test:database-performance'
     readonly commit: string
     readonly generatedAt: string
     readonly mode: 'test'
@@ -343,7 +343,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
   const fixture = evidence.fixture as Record<string, unknown>
   const writes = evidence.writes as Record<string, unknown>
   if (
-    metadata.command !== 'pnpm run test:phase10:performance:database-api' ||
+    metadata.command !== 'pnpm run test:database-performance' ||
     typeof metadata.commit !== 'string' ||
     !GIT_COMMIT_PATTERN.test(metadata.commit) ||
     typeof metadata.generatedAt !== 'string' ||

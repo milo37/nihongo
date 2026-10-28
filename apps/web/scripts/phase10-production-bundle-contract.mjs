@@ -55,12 +55,6 @@ export const phase10ApprovedStaticAssetPaths = Object.freeze([
   'icons/icon-512.png'
 ])
 
-export const phase10AcceptedBundleDigest =
-  '30905281018ac9428bbfb246dee0ec4a5f9ed40a09ea8460e3f87823f7c5f784'
-
-export const phase10AcceptedBundlePayloadDigest =
-  '4312053cfe11e247ad424fd137ba349d8311078c6d31a1fcedfe16799675127c'
-
 export const phase10AllowedProductionModulePackages = Object.freeze([
   '@hookform/resolvers',
   '@tanstack/query-core',
@@ -921,11 +915,6 @@ const collectArtifactEvidence = async ({
     graph: evidenceGraph,
     forwardingFacades,
     inventory: {
-      acceptedBaselineSha256: phase10AcceptedBundleDigest,
-      matchesAcceptedBaseline: inventorySha256 === phase10AcceptedBundleDigest,
-      payloadAcceptedBaselineSha256: phase10AcceptedBundlePayloadDigest,
-      payloadMatchesAcceptedBaseline:
-        payloadSha256 === phase10AcceptedBundlePayloadDigest,
       payloadSha256,
       rows: inventory,
       sha256: inventorySha256
@@ -1029,24 +1018,9 @@ const assertArtifactEvidence = (value, artifact) => {
     value.metadata.versions.vite !== '8.2.4' ||
     !Array.isArray(value.graph) ||
     value.graph.length === 0 ||
-    !exactKeys(value.inventory, [
-      'acceptedBaselineSha256',
-      'matchesAcceptedBaseline',
-      'payloadAcceptedBaselineSha256',
-      'payloadMatchesAcceptedBaseline',
-      'payloadSha256',
-      'rows',
-      'sha256'
-    ]) ||
+    !exactKeys(value.inventory, ['payloadSha256', 'rows', 'sha256']) ||
     !SHA256_PATTERN.test(value.inventory.sha256) ||
-    value.inventory.acceptedBaselineSha256 !== phase10AcceptedBundleDigest ||
-    value.inventory.matchesAcceptedBaseline !==
-      (value.inventory.sha256 === phase10AcceptedBundleDigest) ||
     !SHA256_PATTERN.test(value.inventory.payloadSha256) ||
-    value.inventory.payloadAcceptedBaselineSha256 !==
-      phase10AcceptedBundlePayloadDigest ||
-    value.inventory.payloadMatchesAcceptedBaseline !==
-      (value.inventory.payloadSha256 === phase10AcceptedBundlePayloadDigest) ||
     !Array.isArray(value.inventory.rows) ||
     value.inventory.rows.length === 0 ||
     !exactKeys(value.modules, ['count', 'rows', 'sha256']) ||
@@ -1423,12 +1397,8 @@ const assertArtifactEvidence = (value, artifact) => {
     assertBoundary(value.boundaries.dashboard, phase10DashboardLazySource)
 }
 
-export const phase10SplitBundleCommand = ['web', 'admin']
-  .map(
-    (artifact) =>
-      `pnpm --filter @nihongo/${artifact} exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-${artifact}-out-dir> --emptyOutDir`
-  )
-  .join(' && ')
+export const phase10SplitBundleCommand =
+  'pnpm --filter @nihongo/web run build && pnpm --filter @nihongo/admin run build'
 
 const singleBuildCommand =
   'pnpm exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir'
@@ -1491,11 +1461,6 @@ const combineArtifactEvidence = (artifacts) => {
     measurements,
     budgets: evaluatePhase10BundleBudgets(measurements),
     inventory: {
-      acceptedBaselineSha256: phase10AcceptedBundleDigest,
-      matchesAcceptedBaseline: sha256 === phase10AcceptedBundleDigest,
-      payloadAcceptedBaselineSha256: phase10AcceptedBundlePayloadDigest,
-      payloadMatchesAcceptedBaseline:
-        payloadSha256 === phase10AcceptedBundlePayloadDigest,
       sha256,
       payloadSha256,
       rows

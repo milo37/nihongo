@@ -226,8 +226,8 @@ describe('Phase10 parent common preparation ownership without a database', () =>
       )
     )
     expect(ports.spawn.mock.calls.map(([, args]) => args)).toEqual([
-      ['run', 'build:contracts'],
-      ['run', 'build:domain'],
+      ['--filter', '@nihongo/contracts', 'run', 'build'],
+      ['--filter', '@nihongo/domain', 'run', 'build'],
       ['--filter', '@nihongo/api', 'run', 'db:generate'],
       [
         '--filter',

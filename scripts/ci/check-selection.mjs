@@ -4,55 +4,64 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { setTimeout } from 'node:timers/promises'
 
-const flags = [
+export const selectionFlags = [
   'code',
   'web',
+  'admin',
   'api',
   'shared',
   'content',
-  'operations',
   'database',
   'browser',
   'security',
+  'audit',
   'performance',
-  'portable'
+  'portable',
+  'candidate'
 ]
-const full = (mode, reason) => ({
+
+const shaPattern = /^[a-f0-9]{40}$/u
+const zeroSha = '0'.repeat(40)
+const emptySelection = (mode, reason) => ({
   mode,
   reason,
   files: [],
-  ...Object.fromEntries(flags.map((key) => [key, true]))
+  ...Object.fromEntries(selectionFlags.map((flag) => [flag, false]))
 })
-const shaPattern = /^[a-f0-9]{40}$/u
+const fullSelection = (mode, reason, candidate = false) => ({
+  mode,
+  reason,
+  files: [],
+  ...Object.fromEntries(selectionFlags.map((flag) => [flag, true])),
+  candidate
+})
 
-export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
+const fail = (code) => {
+  throw new Error(code)
+}
+
+const assertChangedPath = (file) => {
   if (
-    eventName === 'workflow_dispatch' ||
-    eventName === 'release' ||
-    (eventName === 'push' && ref?.startsWith('refs/tags/'))
-  )
-    return full('candidate', 'release candidate')
-  if (
-    eventName === 'push' &&
-    ['refs/heads/dev', 'refs/heads/main'].includes(ref)
-  )
-    return full('integration', 'protected branch integration')
-  if (eventName !== 'pull_request')
-    return full('conservative', 'unrecognized event/ref')
-  const pr = event?.pull_request
-  const changes = event?.changes
-  const fields =
-    changes && typeof changes === 'object' && !Array.isArray(changes)
-      ? Object.keys(changes)
-      : []
-  if (
-    event?.action === 'edited' &&
-    ['dev', 'main'].includes(pr?.base?.ref) &&
-    shaPattern.test(pr?.base?.sha ?? '') &&
-    shaPattern.test(pr?.head?.sha ?? '') &&
-    fields.length > 0 &&
+    typeof file !== 'string' ||
+    file.length === 0 ||
+    file.startsWith('/') ||
+    file.split('/').includes('..')
+  ) {
+    fail('CI_CLASSIFICATION_INVALID_PATH')
+  }
+}
+
+const isMetadataOnlyEdit = (event) => {
+  if (event?.action !== 'edited') return false
+  const changes = event.changes
+  if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    return false
+  }
+  const fields = Object.keys(changes)
+  const canonicalShape = fields.join(',')
+  return (
+    ['title', 'body', 'title,body'].includes(canonicalShape) &&
     fields.every(
       (field) =>
         ['title', 'body'].includes(field) &&
@@ -60,438 +69,344 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
         Object.keys(changes[field]).length === 1
     )
   )
-    return {
-      mode: 'metadata',
-      reason: 'title/body-only pull request edit',
-      files: [],
-      ...Object.fromEntries(flags.map((key) => [key, false]))
-    }
-  if (pr?.base?.ref === 'main')
-    return full('candidate', 'main integration candidate')
-  if (
-    pr?.base?.ref !== 'dev' ||
-    !shaPattern.test(pr?.base?.sha ?? '') ||
-    !shaPattern.test(pr?.head?.sha ?? '') ||
-    !Array.isArray(changedFiles)
-  )
-    return full('conservative', 'comparison unavailable')
-  const result = {
-    mode: 'pull_request',
-    reason: 'changed and dependent areas',
-    files: changedFiles,
-    ...Object.fromEntries(flags.map((key) => [key, false]))
-  }
+}
+
+const markCore = (selection) => {
+  selection.code = true
+  selection.web = true
+  selection.admin = true
+  selection.api = true
+  selection.shared = true
+  selection.database = true
+  selection.browser = true
+  selection.security = true
+}
+
+export const classifyChangedFiles = (changedFiles) => {
+  if (!Array.isArray(changedFiles)) fail('CI_CLASSIFICATION_FILES_UNAVAILABLE')
+  const selection = emptySelection('pull_request', 'changed dependencies')
+  selection.files = [...changedFiles]
+
   for (const file of changedFiles) {
+    assertChangedPath(file)
+
+    if (/\.(?:md|txt)$/iu.test(file) && !file.startsWith('.github/')) continue
     if (
-      typeof file !== 'string' ||
-      !file ||
-      file.startsWith('/') ||
-      file.split('/').includes('..')
-    )
-      return full('conservative', 'invalid changed path')
-    if (/\.(?:md|txt)$/iu.test(file) && !file.startsWith('.github/workflows/'))
+      /^(?:LICENSE|\.editorconfig|\.gitignore|\.gitattributes)$/u.test(file) ||
+      file.startsWith('.github/ISSUE_TEMPLATE/')
+    ) {
       continue
+    }
+
+    if (file === 'pnpm-lock.yaml' || /(?:^|\/)package\.json$/u.test(file)) {
+      markCore(selection)
+      selection.audit = true
+      selection.portable = true
+      continue
+    }
     if (
-      /^(?:\.github\/|scripts\/|package\.json$|pnpm-|tsconfig|eslint|prettier|\.prettier|\.node|\.nvm|\.npm|\.env|vite|vitest|playwright)/u.test(
-        file
-      )
-    )
-      return full('conservative', 'CI or common configuration')
-    if (
-      /^(?:Dockerfile|compose\.|\.dockerignore$|operations\/|infra\/)/u.test(
-        file
-      )
-    )
-      return full('conservative', 'runtime/container operations impact')
-    if (
-      /(?:^|\/)(?:package\.json|tsconfig[^/]*\.json|vite\.config\.[cm]?[jt]s|vitest[^/]*config\.[cm]?[jt]s)$/u.test(
+      /^(?:Dockerfile|\.dockerignore|compose\.ya?ml|operations\/|infra\/)/u.test(
         file
       ) ||
-      /^(?:packages\/|apps\/web\/(?:scripts\/|src\/(?:libs|provider)\/)|apps\/api\/(?:prisma\/|src\/(?:auth|db|e2e|config)\/))/u.test(
+      file.startsWith('scripts/operations/')
+    ) {
+      markCore(selection)
+      selection.portable = true
+      continue
+    }
+    if (
+      /^(?:\.github\/workflows\/|scripts\/ci\/|pnpm-workspace\.yaml$|tsconfig|eslint|prettier|\.prettier|\.node|\.nvm|\.npm|\.env|vite|vitest|playwright)/u.test(
         file
       )
-    )
-      return full(
-        'conservative',
-        'shared, configuration or authentication/database foundation'
+    ) {
+      markCore(selection)
+      selection.portable = true
+      continue
+    }
+    if (file.startsWith('scripts/security/')) {
+      selection.code = true
+      selection.security = true
+      if (/dependency-audit|disposition/iu.test(file)) selection.audit = true
+      continue
+    }
+    if (
+      file.startsWith('scripts/') ||
+      /^(?:apps\/web\/scripts\/|apps\/api\/src\/e2e\/)/u.test(file)
+    ) {
+      markCore(selection)
+      if (/performance|bundle/iu.test(file)) selection.performance = true
+      continue
+    }
+    if (file.startsWith('packages/')) {
+      selection.code = true
+      selection.shared = true
+      selection.web = true
+      selection.admin = true
+      selection.api = true
+      selection.database = true
+      selection.browser = true
+      selection.security = true
+      continue
+    }
+    if (file.startsWith('apps/web/')) {
+      selection.code = true
+      selection.web = true
+      selection.browser = true
+      selection.security = true
+    } else if (file.startsWith('apps/admin/')) {
+      selection.code = true
+      selection.admin = true
+      selection.browser = true
+      selection.security = true
+    } else if (file.startsWith('apps/api/')) {
+      selection.code = true
+      selection.api = true
+      selection.database = true
+      selection.security = true
+    } else if (file.startsWith('content/')) {
+      selection.code = true
+      selection.content = true
+      selection.web = true
+      selection.api = true
+      selection.database = true
+      selection.security = true
+    } else {
+      fail('CI_CLASSIFICATION_UNCLASSIFIED_PATH')
+    }
+
+    if (
+      /(?:^|\/)(?:auth|storage|study|practice|submission)(?:\/|\.|-)/iu.test(
+        file
       )
-    if (file.startsWith('apps/web/')) result.web = true
-    else if (file.startsWith('apps/api/')) result.api = true
-    else if (file.startsWith('packages/')) result.shared = true
-    else if (file.startsWith('content/')) result.content = true
-    else return full('conservative', 'unclassified impact')
+    ) {
+      selection.web = true
+      selection.api = true
+      selection.database = true
+      selection.browser = true
+    }
+    if (
+      /^apps\/api\/(?:prisma\/|src\/(?:db|e2e)\/)/u.test(file) ||
+      /(?:database|migration|performance)/iu.test(file)
+    ) {
+      selection.performance = true
+    }
   }
-  if (result.shared || result.content) result.web = result.api = true
-  result.code = result.web || result.api
-  // Both transports exercise distinct auth/storage and MSW boundaries; keep all six labels.
-  result.browser = result.code
-  result.database =
-    result.api ||
-    result.files.some(
-      (file) =>
-        !/\.(?:md|txt)$/iu.test(file) &&
-        /^apps\/web\/src\/(?:api|stores|app\/(?:auth|practice|admin)|mocks)\//u.test(
-          file
-        )
+
+  return selection
+}
+
+export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
+  if (eventName === 'pull_request' && isMetadataOnlyEdit(event)) {
+    return emptySelection('metadata', 'title/body-only pull request edit')
+  }
+  if (
+    eventName === 'workflow_dispatch' ||
+    (eventName === 'push' && ref?.startsWith('refs/tags/'))
+  ) {
+    return fullSelection('candidate', 'release candidate', true)
+  }
+  if (eventName === 'pull_request') {
+    const pullRequest = event?.pull_request
+    if (
+      !['dev', 'main'].includes(pullRequest?.base?.ref) ||
+      !shaPattern.test(pullRequest?.base?.sha ?? '') ||
+      !shaPattern.test(pullRequest?.head?.sha ?? '')
+    ) {
+      fail('CI_CLASSIFICATION_EVENT_INVALID')
+    }
+    if (pullRequest.base.ref === 'main') {
+      return fullSelection('candidate', 'main integration candidate', true)
+    }
+    return classifyChangedFiles(changedFiles)
+  }
+  if (
+    eventName === 'push' &&
+    ['refs/heads/dev', 'refs/heads/main'].includes(ref)
+  ) {
+    const selection = classifyChangedFiles(changedFiles)
+    selection.mode = 'integration'
+    selection.reason = 'protected branch core regression'
+    markCore(selection)
+    return selection
+  }
+  fail('CI_CLASSIFICATION_EVENT_UNSUPPORTED')
+}
+
+const readChangedFiles = ({ eventName, event, env, git }) => {
+  if (eventName === 'pull_request') {
+    const baseSha = event?.pull_request?.base?.sha
+    const headSha = event?.pull_request?.head?.sha
+    if (
+      !shaPattern.test(baseSha ?? '') ||
+      !shaPattern.test(headSha ?? '') ||
+      !shaPattern.test(env.GITHUB_SHA ?? '')
+    ) {
+      fail('CI_CLASSIFICATION_EVENT_INVALID')
+    }
+    git('git', ['merge-base', '--is-ancestor', headSha, env.GITHUB_SHA], {
+      stdio: 'pipe'
+    })
+    git('git', ['diff', '--check', `${baseSha}...${headSha}`], {
+      stdio: 'pipe'
+    })
+    return git(
+      'git',
+      ['diff', '--no-renames', '--name-only', '-z', `${baseSha}...${headSha}`],
+      { encoding: 'utf8', stdio: 'pipe' }
     )
-  result.security = result.code
-  return result
+  }
+  if (
+    eventName === 'push' &&
+    ['refs/heads/dev', 'refs/heads/main'].includes(env.GITHUB_REF)
+  ) {
+    const before = event?.before
+    if (
+      !shaPattern.test(before ?? '') ||
+      before === zeroSha ||
+      !shaPattern.test(env.GITHUB_SHA ?? '')
+    ) {
+      fail('CI_CLASSIFICATION_COMPARISON_UNAVAILABLE')
+    }
+    git('git', ['diff', '--check', before, env.GITHUB_SHA], {
+      stdio: 'pipe'
+    })
+    return git(
+      'git',
+      ['diff', '--no-renames', '--name-only', '-z', before, env.GITHUB_SHA],
+      { encoding: 'utf8', stdio: 'pipe' }
+    )
+  }
+  return ''
 }
 
 export const readSelection = (env = process.env, git = execFileSync) => {
   let event
-  let files
+  let changedFiles
   try {
     event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'))
-    if (env.GITHUB_EVENT_NAME === 'pull_request') {
-      const { base, head } = event.pull_request
-      assert.ok(
-        shaPattern.test(base.sha) &&
-          shaPattern.test(head.sha) &&
-          shaPattern.test(env.GITHUB_SHA)
-      )
-      git('git', ['merge-base', '--is-ancestor', head.sha, env.GITHUB_SHA], {
-        stdio: 'pipe'
-      })
-      files = git(
-        'git',
-        [
-          'diff',
-          '--no-renames',
-          '--name-only',
-          '-z',
-          `${base.sha}...${head.sha}`
-        ],
-        { encoding: 'utf8', stdio: 'pipe' }
-      )
-        .split('\0')
-        .filter(Boolean)
-    }
-  } catch {
-    return full('conservative', 'event or Git comparison unavailable')
+    changedFiles = readChangedFiles({
+      eventName: env.GITHUB_EVENT_NAME,
+      event,
+      env,
+      git
+    })
+      .split('\0')
+      .filter(Boolean)
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('CI_')) throw error
+    fail('CI_CLASSIFICATION_COMPARISON_FAILED')
   }
   return selectChecks({
     eventName: env.GITHUB_EVENT_NAME,
     ref: env.GITHUB_REF,
     event,
-    changedFiles: files
+    changedFiles
   })
-}
-
-const canonicalChecks = {
-  build: 'Quality and production build',
-  e2e: 'Phase 10 real/mock browser and regression acceptance',
-  phase11_release: 'Phase 11 portable release and production-mode smoke'
-}
-const sourceMarker =
-  /^CI source (code|metadata) repo ([\w.-]+\/[\w.-]+) PR ([1-9][0-9]*) head ([a-f0-9]{40}) base (dev|main) ([a-f0-9]{40}) merge ([a-f0-9]{40})$/u
-const readActions = async (endpoint) => {
-  const response = await fetch(`https://api.github.com/${endpoint}`, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${process.env.GH_TOKEN}`
-    },
-    signal: AbortSignal.timeout(20000)
-  })
-  assert.ok(response.ok, 'Previous code-check API unavailable')
-  return response.json()
-}
-
-export const readPreviousCodeResults = async (
-  { repository, number, headSha, baseRef, baseSha, mergeSha, runId },
-  api = readActions,
-  wait = setTimeout
-) => {
-  const unavailable = (reason) => ({
-    reason,
-    results: Object.fromEntries(
-      Object.keys(canonicalChecks).map((key) => [key, 'unavailable'])
-    )
-  })
-  try {
-    assert.match(repository, /^[\w.-]+\/[\w.-]+$/u)
-    assert.ok(Number.isSafeInteger(number) && number > 0)
-    assert.ok(shaPattern.test(headSha) && shaPattern.test(baseSha))
-    assert.ok(shaPattern.test(mergeSha) && mergeSha !== '0'.repeat(40))
-    assert.ok(['dev', 'main'].includes(baseRef))
-    assert.match(runId, /^[1-9][0-9]*$/u)
-    const metadataRuns = new Set()
-    const latestCodeRun = async () => {
-      const { workflow_runs: runs } = await api(
-        `repos/${repository}/actions/workflows/ci.yml/runs?event=pull_request&head_sha=${headSha}&per_page=100`
-      )
-      assert.ok(Array.isArray(runs))
-      // A queued/rerun record without a start time must never sort behind an older pass.
-      if (
-        runs.some(
-          (run) =>
-            String(run.id) !== runId &&
-            !Number.isFinite(Date.parse(run.run_started_at))
-        )
-      )
-        return null
-      runs.sort(
-        (a, b) =>
-          Date.parse(b.run_started_at) - Date.parse(a.run_started_at) ||
-          b.id - a.id
-      )
-      for (const run of runs) {
-        if (String(run.id) === runId) continue
-        assert.ok(Number.isSafeInteger(run.id) && run.id > 0)
-        assert.ok(Number.isSafeInteger(run.run_attempt) && run.run_attempt > 0)
-        assert.equal(run.repository?.full_name, repository)
-        assert.equal(run.head_sha, headSha)
-        assert.equal(run.event, 'pull_request')
-        assert.equal(run.path, '.github/workflows/ci.yml')
-        const attempt = `${run.id}/attempts/${run.run_attempt}`
-        if (metadataRuns.has(attempt)) continue
-        const { jobs } = await api(
-          `repos/${repository}/actions/runs/${attempt}/jobs?per_page=100`
-        )
-        assert.ok(Array.isArray(jobs))
-        const plans = jobs.filter(
-          (job) =>
-            job.name === 'Select checks for event and changed dependencies'
-        )
-        if (plans.length === 0 && run.status !== 'completed') return null
-        assert.equal(plans.length, 1)
-        const plan = plans[0]
-        const markers = plan.steps.filter((step) =>
-          step.name.startsWith('CI source ')
-        )
-        if (markers.length === 0 && plan.status !== 'completed') return null
-        assert.equal(markers.length, 1)
-        const marker = sourceMarker.exec(markers[0].name)
-        assert.ok(marker && markers[0].conclusion === 'success')
-        assert.ok(
-          plan.steps.some(
-            (step) =>
-              step.name === 'Select affected checks' &&
-              step.conclusion === 'success'
-          )
-        )
-        if (marker[1] === 'metadata') {
-          metadataRuns.add(attempt)
-          continue
-        }
-        // The executed step name binds the event snapshot; API PR references can change later.
-        if (
-          marker[2] !== repository ||
-          Number(marker[3]) !== number ||
-          marker[4] !== headSha ||
-          marker[5] !== baseRef ||
-          marker[6] !== baseSha ||
-          marker[7] !== mergeSha
-        )
-          continue
-        assert.equal(run.head_repository?.full_name, repository)
-        if (plan.status !== 'completed') return null
-        assert.equal(plan.conclusion, 'success')
-        return { run, jobs }
-      }
-      throw new Error('No matching code evaluation')
-    }
-    for (let attempt = 0; attempt < 90; attempt += 1) {
-      const code = await latestCodeRun()
-      if (code) {
-        const selected = Object.fromEntries(
-          Object.entries(canonicalChecks).map(([key, name]) => {
-            const jobs = code.jobs.filter((job) => job.name === name)
-            assert.ok(jobs.length <= 1)
-            if (code.run.status === 'completed') assert.equal(jobs.length, 1)
-            if (jobs[0]) {
-              assert.equal(jobs[0].head_sha, headSha)
-              assert.equal(jobs[0].run_id, code.run.id)
-            }
-            return [key, jobs[0]]
-          })
-        )
-        if (
-          code.run.status === 'completed' &&
-          Object.values(selected).every((job) => job?.status === 'completed')
-        ) {
-          if (code.run.conclusion !== 'success')
-            return unavailable('Previous code workflow did not succeed')
-          const results = Object.fromEntries(
-            Object.entries(selected).map(([key, job]) => [
-              key,
-              job.conclusion === 'success' ? 'success' : 'unavailable'
-            ])
-          )
-          if (Object.values(results).every((result) => result === 'success')) {
-            const newest = await latestCodeRun()
-            if (
-              !newest ||
-              newest.run.id !== code.run.id ||
-              newest.run.run_attempt !== code.run.run_attempt ||
-              newest.run.status !== 'completed' ||
-              newest.run.conclusion !== 'success'
-            )
-              continue
-            if (
-              !Object.values(canonicalChecks).every((name) => {
-                const jobs = newest.jobs.filter((job) => job.name === name)
-                return (
-                  jobs.length === 1 &&
-                  jobs[0].head_sha === headSha &&
-                  jobs[0].run_id === newest.run.id &&
-                  jobs[0].status === 'completed' &&
-                  jobs[0].conclusion === 'success'
-                )
-              })
-            )
-              continue
-          }
-          return {
-            sourceRunId: code.run.id,
-            sourceAttempt: code.run.run_attempt,
-            sourceMergeSha: mergeSha,
-            reason: 'Observed current code-check outcomes',
-            results
-          }
-        }
-      }
-      if (attempt < 89) await wait(30000)
-    }
-    return unavailable(
-      'Previous code evaluation still pending after bounded wait'
-    )
-  } catch {
-    return unavailable(
-      'Previous code verification unavailable; no success assumed'
-    )
-  }
 }
 
 export const qualityCommands = (selection, group) => {
-  const { web, api, shared, content, mode } = selection
-  const all = mode !== 'pull_request' || selection.operations
   const commands = []
   const add = (...args) => commands.push(args)
-  if (group === 'prepare') {
-    add('run', 'build:contracts')
-    add('run', 'build:domain')
-  } else if (group === 'lint') {
+  const all = selection.mode !== 'pull_request'
+
+  if (group === 'static') {
     add(
       'exec',
       'eslint',
       ...(all
         ? ['.']
-        : [web && 'apps/web', api && 'apps/api', shared && 'packages'].filter(
-            Boolean
-          )),
+        : [
+            selection.web && 'apps/web',
+            selection.admin && 'apps/admin',
+            selection.api && 'apps/api',
+            selection.shared && 'packages',
+            (selection.content || selection.portable) && 'scripts'
+          ].filter(Boolean)),
       '--max-warnings',
       '0'
     )
+    add('run', 'check:architecture')
+    add('run', 'test:security')
   } else if (group === 'typecheck') {
-    // App builds cover their own types; the shared browser workspace needs its complete check.
-    if (web) add('--filter', '@nihongo/browser', 'run', 'typecheck')
-    if (api) {
-      add('run', 'db:generate')
-      add('--filter', '@nihongo/api', 'exec', 'tsc', '--noEmit')
+    add('--filter', '@nihongo/contracts', 'run', 'build')
+    add('--filter', '@nihongo/domain', 'run', 'build')
+    if (selection.shared || selection.web || selection.admin) {
+      add('--filter', '@nihongo/browser', 'run', 'typecheck')
     }
+    if (selection.web) add('--filter', '@nihongo/web', 'run', 'typecheck')
+    if (selection.admin) add('--filter', '@nihongo/admin', 'run', 'typecheck')
+    if (selection.api) add('--filter', '@nihongo/api', 'run', 'typecheck')
   } else if (group === 'unit') {
-    add('run', 'test:phase7:static')
-    add('run', 'test:architecture')
-    if (content || all) add('run', 'test:content-runtime')
-    if (shared || all) {
-      add('run', 'test:contracts')
-      add('run', 'test:domain')
+    if (all) {
+      add('run', 'test:static')
+    } else {
+      add('exec', 'node', '--test', 'scripts/ci/*.test.mjs')
+      if (
+        selection.shared ||
+        selection.web ||
+        selection.admin ||
+        selection.api
+      ) {
+        add('exec', 'node', '--test', 'scripts/architecture/*.test.mjs')
+      }
+      if (selection.content) {
+        add('exec', 'node', '--test', 'scripts/content/*.test.mjs')
+      }
+      if (selection.portable) {
+        add('exec', 'node', '--test', 'scripts/operations/*.test.mjs')
+      }
+      if (selection.security || selection.browser) {
+        add('exec', 'node', '--test', 'scripts/security/*.test.mjs')
+      }
+      if (selection.database) {
+        add(
+          'exec',
+          'node',
+          '--test',
+          'scripts/phase7-local-provisioning.test.mjs',
+          'scripts/phase9-database-contract.test.mjs'
+        )
+      }
+      if (selection.web || selection.admin) {
+        add(
+          'exec',
+          'node',
+          '--test',
+          'apps/web/scripts/phase10-production-bundle-contract.test.mjs'
+        )
+      }
     }
-    if (api)
-      add(
-        '--filter',
-        '@nihongo/api',
-        'exec',
-        'vitest',
-        'run',
-        '--exclude',
-        '**/*.integration.test.ts'
-      )
-    if (web) {
-      add('run', 'test:web')
-      add('--filter', '@nihongo/admin', 'run', 'test')
+    if (selection.shared || all) {
+      add('--filter', '@nihongo/contracts', 'run', 'test')
+      add('--filter', '@nihongo/domain', 'run', 'test')
     }
+    if (selection.api || all) add('--filter', '@nihongo/api', 'run', 'test')
+    if (selection.web || all) add('--filter', '@nihongo/web', 'run', 'test')
+    if (selection.web || selection.api || selection.shared || all) {
+      add('--filter', '@nihongo/web', 'run', 'test:request-ledger')
+    }
+    if (selection.admin || all) add('--filter', '@nihongo/admin', 'run', 'test')
+  } else if (group === 'audit') {
+    add('run', 'test:dependency-audit:production')
+    add('run', 'test:dependency-audit:development')
   } else if (group === 'build') {
-    if (api)
-      add(
-        '--filter',
-        '@nihongo/api',
-        'exec',
-        'tsc',
-        '-p',
-        'tsconfig.build.json'
-      )
-    if (web) {
+    add('--filter', '@nihongo/contracts', 'run', 'build')
+    add('--filter', '@nihongo/domain', 'run', 'build')
+    if (selection.api) add('--filter', '@nihongo/api', 'run', 'build')
+    if (selection.web || selection.admin) {
       add('--filter', '@nihongo/web', 'run', 'build')
       add('--filter', '@nihongo/admin', 'run', 'build')
     }
-  } else throw new Error('CI_QUALITY_GROUP_INVALID')
-  return commands
-}
-
-const requiredSteps = {
-  build: {
-    always: ['format', 'selection_contracts'],
-    code: [
-      'prepare',
-      'lint',
-      'architecture',
-      'admin_boundary',
-      'typecheck',
-      'static_contracts',
-      'static_phase10',
-      'static_phase11',
-      'unit',
-      'build'
-    ],
-    web: ['production_mock', 'worker_exclusion'],
-    database: ['integration'],
-    content: ['foundation'],
-    security: ['phase10_security_evidence'],
-    performance: ['phase10_performance_evidence']
-  },
-  e2e: {
-    browser: [
-      'phase10_playwright_initialize',
-      'phase10_browser_real',
-      'phase10_browser_mock',
-      'phase10_playwright_evidence'
-    ]
-  },
-  phase11_release: { portable: ['phase11_release'] }
-}
-
-export const assertSelectedResults = ({
-  job,
-  planResult,
-  selection,
-  steps
-}) => {
-  assert.equal(planResult, 'success', 'CI selection job did not succeed')
-  assert.ok(requiredSteps[job], 'unknown required check')
-  assert.ok(
-    selection && flags.every((key) => typeof selection[key] === 'boolean'),
-    'invalid CI selection'
-  )
-  assert.ok(steps && typeof steps === 'object', 'step outcomes missing')
-  for (const step of Object.values(steps))
-    assert.ok(
-      !['failure', 'cancelled'].includes(step.outcome),
-      'upstream step failed or was cancelled'
-    )
-  for (const [flag, ids] of Object.entries(requiredSteps[job])) {
-    if (flag === 'always' || selection[flag])
-      for (const id of ids)
-        assert.equal(
-          steps[id]?.outcome,
-          'success',
-          `selected step ${id} did not succeed`
-        )
+  } else if (group === 'bundle') {
+    add('--filter', '@nihongo/web', 'run', 'test:bundle')
+  } else if (group === 'integration') {
+    add('run', 'test:api-regression')
+  } else if (group === 'performance') {
+    add('run', 'test:database-performance')
+  } else {
+    fail('CI_QUALITY_GROUP_INVALID')
   }
-  return Object.entries(requiredSteps[job])
-    .filter(([flag]) => flag === 'always' || selection[flag])
-    .flatMap(([, ids]) => ids)
+  return commands
 }
 
 const run = (args) => {
@@ -501,75 +416,97 @@ const run = (args) => {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+const runProductionMockGuard = () => {
+  const result = spawnSync(
+    'pnpm',
+    ['--filter', '@nihongo/web', 'run', 'build'],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        VITE_API_MODE: 'mock'
+      }
+    }
+  )
+  if (result.error) throw result.error
+  if (result.signal) process.exit(result.signal === 'SIGINT' ? 130 : 143)
+  const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+  if (
+    result.status === 0 ||
+    !output.includes('VITE_API_MODE=mock is forbidden in production.')
+  ) {
+    fail('CI_PRODUCTION_MOCK_GUARD_FAILED')
+  }
+}
+
+const writeSelection = (selection) => {
+  assert.ok(process.env.GITHUB_OUTPUT, 'CI_GITHUB_OUTPUT_MISSING')
+  const serialized = JSON.stringify(selection)
+  appendFileSync(
+    process.env.GITHUB_OUTPUT,
+    `metadata_only=${selection.mode === 'metadata'}\n${selectionFlags
+      .map((flag) => `${flag}=${selection[flag]}`)
+      .join('\n')}\nselection=${serialized}\n`
+  )
+  if (process.env.GITHUB_ENV) {
+    appendFileSync(process.env.GITHUB_ENV, `CI_SELECTION=${serialized}\n`)
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(
+      process.env.GITHUB_STEP_SUMMARY,
+      `CI: ${selection.mode} / ${selection.reason}\n`
+    )
+  }
+}
+
+const runCli = () => {
+  const [command, argument] = process.argv.slice(2)
+  if (command === 'plan') {
+    writeSelection(readSelection())
+    return
+  }
+  const selection = JSON.parse(process.env.CI_SELECTION ?? 'null')
+  assert.ok(
+    selection &&
+      selectionFlags.every((flag) => typeof selection[flag] === 'boolean'),
+    'CI_SELECTION_INVALID'
+  )
+  if (command === 'format') {
+    if (selection.mode !== 'pull_request') run(['run', 'format:check'])
+    else {
+      const files = selection.files.filter(
+        (file) =>
+          existsSync(file) &&
+          /\.(?:[cm]?[jt]sx?|json|ya?ml|md|css|html)$/iu.test(file)
+      )
+      if (files.length) run(['exec', 'prettier', '--check', '--', ...files])
+      else process.stdout.write('No changed formatter-supported files.\n')
+    }
+    return
+  }
+  if (command === 'quality') {
+    if (argument === 'build' && (selection.web || selection.admin)) {
+      runProductionMockGuard()
+    }
+    for (const args of qualityCommands(selection, argument)) run(args)
+    return
+  }
+  fail('CI_SELECTION_COMMAND_INVALID')
+}
+
 if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const [command, argument] = process.argv.slice(2)
-  if (command === 'plan') {
-    const selection = readSelection()
-    appendFileSync(
-      process.env.GITHUB_OUTPUT,
-      `metadata_only=${selection.mode === 'metadata'}\n${flags.map((key) => `${key}=${selection[key]}`).join('\n')}\nselection=${JSON.stringify(selection)}\n`
-    )
-    if (process.env.GITHUB_STEP_SUMMARY)
-      appendFileSync(
-        process.env.GITHUB_STEP_SUMMARY,
-        `CI: ${selection.mode} / ${selection.reason}\n\n${flags.map((key) => `- ${key}: ${selection[key]}`).join('\n')}\n`
-      )
-  } else if (command === 'previous-results') {
-    assert.equal(readSelection().mode, 'metadata')
-    const event = JSON.parse(
-      readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')
-    )
-    const previous = await readPreviousCodeResults({
-      repository: process.env.GITHUB_REPOSITORY,
-      number: event.number,
-      headSha: event.pull_request.head.sha,
-      baseRef: event.pull_request.base.ref,
-      baseSha: event.pull_request.base.sha,
-      mergeSha: process.env.GITHUB_SHA,
-      runId: process.env.GITHUB_RUN_ID
-    })
-    appendFileSync(
-      process.env.GITHUB_OUTPUT,
-      `${Object.entries(previous.results)
-        .map(([key, value]) => `${key}=${value}`)
-        .join('\n')}\n`
-    )
-    process.stdout.write(`${JSON.stringify(previous)}\n`)
-  } else {
-    const selection = JSON.parse(process.env.CI_SELECTION ?? 'null')
-    assert.equal(
-      process.env.CI_PLAN_RESULT,
-      'success',
-      'CI selection did not succeed'
-    )
-    if (command === 'verify') {
-      const selected = assertSelectedResults({
-        job: argument,
-        planResult: process.env.CI_PLAN_RESULT,
-        selection,
-        steps: JSON.parse(process.env.CI_STEPS ?? 'null')
-      })
-      const message = `${argument}: ${selected.length ? selected.join(', ') : 'No runtime checks selected for this change'} (${selection.mode})`
-      process.stdout.write(`${message}\n`)
-      if (process.env.GITHUB_STEP_SUMMARY)
-        appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`)
-    } else if (command === 'format') {
-      if (selection.mode !== 'pull_request') run(['run', 'format:check'])
-      else {
-        const files = selection.files.filter(
-          (file) =>
-            existsSync(file) &&
-            /\.(?:[cm]?[jt]sx?|json|ya?ml|md|css|html|txt)$/iu.test(file) &&
-            !file.endsWith('.txt')
-        )
-        if (files.length) run(['exec', 'prettier', '--check', '--', ...files])
-        else process.stdout.write('No changed formatter-supported files.\n')
-      }
-    } else if (command === 'quality')
-      for (const args of qualityCommands(selection, argument)) run(args)
-    else throw new Error('CI_SELECTION_COMMAND_INVALID')
+  try {
+    runCli()
+  } catch (error) {
+    const code =
+      error instanceof Error && /^CI_[A-Z0-9_]+$/u.test(error.message)
+        ? error.message
+        : 'CI_CLASSIFICATION_FAILED'
+    process.stderr.write(`${JSON.stringify({ event: 'ci.failed', code })}\n`)
+    process.exitCode = 1
   }
 }

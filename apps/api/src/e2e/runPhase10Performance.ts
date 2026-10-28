@@ -243,6 +243,8 @@ const run = async (): Promise<PerformanceRunResult> => {
   if (evidenceMode !== 0o600) {
     throw new Error('Phase 10 performance evidence mode is not 0600.')
   }
+  await rm(evidenceFile, { force: true })
+  performanceEvidenceFile = undefined
   return {
     apiP95Milliseconds: evidence.api.statisticsMs.p95,
     databaseP95Milliseconds: evidence.database.statisticsMs.p95,
