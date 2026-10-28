@@ -156,7 +156,7 @@ const createSubmittedIncorrectSession = async (
 ) => {
   const session = await createSession({
     userId,
-    practiceContractVersion: 1,
+    practiceContractVersion: 2,
     startedAt: new Date(submittedAt.getTime() - HOUR_MS),
     expiresAt: new Date(submittedAt.getTime() + DAY_MS)
   })
@@ -172,9 +172,11 @@ const createSubmittedIncorrectSession = async (
         selectedOptionId: null,
         elapsedSec: 0
       })),
-      durationSec: 0
+      durationSec: 0,
+      expectedDraftRevision: 0
     },
-    { kind: 'USER', userId }
+    { kind: 'USER', userId },
+    2
   )
   return session
 }
@@ -373,7 +375,7 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
 
     const expiredSubmitSession = await createSession({
       userId,
-      practiceContractVersion: 1,
+      practiceContractVersion: 2,
       startedAt: new Date(NOW.getTime() - 48 * HOUR_MS),
       expiresAt: new Date(NOW.getTime() + DAY_MS)
     })
@@ -391,9 +393,11 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
             elapsedSec: 0
           })
         ),
-        durationSec: 0
+        durationSec: 0,
+        expectedDraftRevision: 0
       },
-      owner
+      owner,
+      2
     )
 
     const first = await cleanupService.cleanup({ batchSize: 1 })

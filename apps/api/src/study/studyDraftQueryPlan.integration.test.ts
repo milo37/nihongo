@@ -511,7 +511,7 @@ const createExpiredRetryFixture = async (
       requestedCount: 1,
       startedAt: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1_000),
       expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1_000),
-      practiceContractVersion: 1
+      practiceContractVersion: 2
     })
   ).session
   await createStudySubmissionService(
@@ -526,9 +526,11 @@ const createExpiredRetryFixture = async (
         selectedOptionId: null,
         elapsedSec: 0
       })),
-      durationSec: 0
+      durationSec: 0,
+      expectedDraftRevision: 0
     },
-    { kind: 'USER', userId }
+    { kind: 'USER', userId },
+    2
   )
   const retry = await createStudyResultRetryService(
     createPrismaStudyResultRetryRepository(database.client),
@@ -558,7 +560,7 @@ const createExpiredGuestRetryFixture = async (
       requestedCount: 1,
       startedAt,
       expiresAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1_000),
-      practiceContractVersion: 1
+      practiceContractVersion: 2
     })
   ).session
   await createStudySubmissionService(
@@ -573,9 +575,11 @@ const createExpiredGuestRetryFixture = async (
         selectedOptionId: null,
         elapsedSec: 0
       })),
-      durationSec: 0
+      durationSec: 0,
+      expectedDraftRevision: 0
     },
-    owner
+    owner,
+    2
   )
   const retry = await createStudyResultRetryService(
     createPrismaStudyResultRetryRepository(database.client),

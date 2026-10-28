@@ -254,11 +254,25 @@ const createSubmittedSource = async (
     level: 'N5',
     subject: 'VOCABULARY',
     requestedCount: Math.max(1, wrongOrdinals.size + 1),
-    practiceContractVersion: 1,
+    practiceContractVersion: 2,
     startedAt,
     expiresAt: new Date(startedAt.getTime() + DAY_MS)
   })
   const material = await loadAnswerMaterial(created.session.id)
+  const answers = material.map((item, index) => ({
+    studySessionQuestionId: item.studySessionQuestionId,
+    selectedOptionId: wrongOrdinals.has(index + 1)
+      ? null
+      : item.correctOptionId,
+    elapsedSec: index + 1
+  }))
+  const saved = await draftRepository.saveAtomic({
+    sessionId: created.session.id,
+    idempotencyKey: randomUUID(),
+    owner,
+    observedAt: new Date(startedAt.getTime() + 1_000),
+    body: { expectedRevision: 0, currentOrdinal: 1, answers }
+  })
   const submitted = await createStudySubmissionService(
     submissionRepository,
     () => new Date(startedAt.getTime() + 1_000)
@@ -266,17 +280,12 @@ const createSubmittedSource = async (
     created.session.id,
     randomUUID(),
     {
-      answers: material.map((item, index) => ({
-        studySessionQuestionId: item.studySessionQuestionId,
-        selectedOptionId: wrongOrdinals.has(index + 1)
-          ? null
-          : item.correctOptionId,
-        elapsedSec: index + 1
-      })),
-      durationSec: material.length * 10
+      answers,
+      durationSec: material.length * 10,
+      expectedDraftRevision: saved.response.revision
     },
     owner,
-    1
+    2
   )
   return { created, material, submitted }
 }
@@ -820,7 +829,7 @@ describe('study result retry integration', () => {
               requestedCount: 1,
               actualCount: 1,
               usedFallback: false,
-              practiceContractVersion: 1,
+              practiceContractVersion: 2,
               startedAt,
               expiresAt: new Date(startedAt.getTime() + DAY_MS)
             },
@@ -834,6 +843,24 @@ describe('study result retry integration', () => {
               questionVersionId: versionOneId,
               ordinal: 1,
               createdAt: startedAt
+            }
+          })
+          await transaction.studyDraft.create({
+            data: {
+              studySessionId: session.id,
+              revision: 0,
+              currentOrdinal: 1,
+              createdAt: startedAt,
+              updatedAt: startedAt,
+              answers: {
+                create: {
+                  studySessionQuestionId: sourceSessionQuestionId,
+                  questionVersionId: versionOneId,
+                  selectedOptionId: null,
+                  elapsedSec: 0,
+                  updatedAt: startedAt
+                }
+              }
             }
           })
           return session
@@ -850,13 +877,14 @@ describe('study result retry integration', () => {
             {
               studySessionQuestionId: sourceSessionQuestionId,
               selectedOptionId: null,
-              elapsedSec: 1
+              elapsedSec: 0
             }
           ],
-          durationSec: 1
+          durationSec: 0,
+          expectedDraftRevision: 0
         },
         owner,
-        1
+        2
       )
 
       const publishedAt = new Date(startedAt.getTime() + 2_000)

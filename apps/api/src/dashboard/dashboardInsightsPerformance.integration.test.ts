@@ -17,6 +17,7 @@ import {
   type PrismaClient,
   type QuestionSubject
 } from '../generated/prisma/client.js'
+import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import {
   createPrismaStudySessionRepository,
   type ExistingStudyOwner
@@ -286,6 +287,15 @@ const populateLearningHistory = async (
               : null,
           elapsedSec: 5 + index
         }))
+        const saved = await createPrismaStudyDraftRepository(
+          database.client
+        ).saveAtomic({
+          sessionId: created.session.id,
+          idempotencyKey: randomUUID(),
+          owner,
+          observedAt: submittedAt,
+          body: { expectedRevision: 0, currentOrdinal: 1, answers }
+        })
         await createStudySubmissionService(
           submissionRepository,
           () => submittedAt
@@ -297,9 +307,11 @@ const populateLearningHistory = async (
             durationSec: answers.reduce(
               (total, answer) => total + answer.elapsedSec,
               0
-            )
+            ),
+            expectedDraftRevision: saved.response.revision
           },
-          owner
+          owner,
+          2
         )
         answerCount += answers.length
         sessionCount += 1

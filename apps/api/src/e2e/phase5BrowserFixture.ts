@@ -6,6 +6,7 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { PrismaClient } from '../generated/prisma/client.js'
+import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
 
@@ -178,6 +179,7 @@ const submitQuestion = async (
         expiresAt: new Date(occurredAt.getTime() + DAY_MS),
         level: question.level,
         mode: 'RANDOM',
+        practiceContractVersion: 2,
         requestedCount: 1,
         startedAt: occurredAt,
         subject: 'GRAMMAR',
@@ -196,7 +198,44 @@ const submitQuestion = async (
         studySessionId: created.id
       }
     })
+    await transaction.studyDraft.create({
+      data: {
+        studySessionId: created.id,
+        revision: 0,
+        currentOrdinal: 1,
+        createdAt: occurredAt,
+        updatedAt: occurredAt,
+        answers: {
+          create: {
+            studySessionQuestionId,
+            questionVersionId: question.questionVersionId,
+            selectedOptionId: null,
+            elapsedSec: 0,
+            updatedAt: occurredAt
+          }
+        }
+      }
+    })
     return created
+  })
+  const owner = { kind: 'USER' as const, userId: ownerUserId }
+  const answers = [
+    {
+      elapsedSec: 1,
+      selectedOptionId: isCorrect
+        ? question.correctOptionId
+        : question.incorrectOptionId,
+      studySessionQuestionId
+    }
+  ]
+  const saved = await createPrismaStudyDraftRepository(
+    database.client
+  ).saveAtomic({
+    sessionId: session.id,
+    idempotencyKey: randomUUID(),
+    owner,
+    observedAt: new Date(occurredAt.getTime() + 100),
+    body: { expectedRevision: 0, currentOrdinal: 1, answers }
   })
   const submissionRepository = createPrismaStudySubmissionRepository(
     database.client
@@ -207,19 +246,9 @@ const submitQuestion = async (
   ).submit(
     session.id,
     randomUUID(),
-    {
-      answers: [
-        {
-          elapsedSec: 1,
-          selectedOptionId: isCorrect
-            ? question.correctOptionId
-            : question.incorrectOptionId,
-          studySessionQuestionId
-        }
-      ],
-      durationSec: 1
-    },
-    { kind: 'USER', userId: ownerUserId }
+    { answers, durationSec: 1, expectedDraftRevision: saved.response.revision },
+    owner,
+    2
   )
 }
 

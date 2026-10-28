@@ -12,6 +12,7 @@ import {
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
+import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import {
   createPrismaStudySessionRepository,
   type ExistingStudyOwner
@@ -258,26 +259,37 @@ const submitRandomSession = async (
   if (!material.questionVersion.correctOptionId) {
     throw new Error('Published question fixture has no correct option.')
   }
-  const service = createStudySubmissionService(
+  const answers = [
+    {
+      studySessionQuestionId: material.id,
+      selectedOptionId: correct
+        ? material.questionVersion.correctOptionId
+        : null,
+      elapsedSec: 10
+    }
+  ]
+  const saved = await createPrismaStudyDraftRepository(
+    database.client
+  ).saveAtomic({
+    sessionId: created.session.id,
+    idempotencyKey: randomUUID(),
+    owner,
+    observedAt: submittedAt,
+    body: { expectedRevision: 0, currentOrdinal: 1, answers }
+  })
+  await createStudySubmissionService(
     submissionRepository,
     () => new Date(submittedAt)
-  )
-  await service.submit(
+  ).submit(
     created.session.id,
     randomUUID(),
     {
-      answers: [
-        {
-          studySessionQuestionId: material.id,
-          selectedOptionId: correct
-            ? material.questionVersion.correctOptionId
-            : null,
-          elapsedSec: 10
-        }
-      ],
-      durationSec: 10
+      answers,
+      durationSec: 10,
+      expectedDraftRevision: saved.response.revision
     },
-    owner
+    owner,
+    2
   )
 
   const fixture = {
