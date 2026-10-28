@@ -7,6 +7,7 @@ import {
   createRoleDatabaseRuntime
 } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import {
   createPrismaStudySessionRepository,
   type ExistingStudyOwner
@@ -135,6 +136,23 @@ const submitRandomSession = async ({
   if (materials.length === 0) {
     throw new Error('Phase 8 random fixture requires selected questions.')
   }
+  const answers = materials.map((material, index) => ({
+    studySessionQuestionId: material.id,
+    selectedOptionId:
+      correctPattern[index] === true
+        ? material.questionVersion.correctOptionId
+        : null,
+    elapsedSec: 10 + index
+  }))
+  const saved = await createPrismaStudyDraftRepository(
+    database.client
+  ).saveAtomic({
+    sessionId: created.session.id,
+    idempotencyKey: randomUUID(),
+    owner,
+    observedAt: submittedAt,
+    body: { expectedRevision: 0, currentOrdinal: 1, answers }
+  })
   await createStudySubmissionService(
     submissionRepository,
     () => submittedAt
@@ -142,17 +160,12 @@ const submitRandomSession = async ({
     created.session.id,
     randomUUID(),
     {
-      answers: materials.map((material, index) => ({
-        studySessionQuestionId: material.id,
-        selectedOptionId:
-          correctPattern[index] === true
-            ? material.questionVersion.correctOptionId
-            : null,
-        elapsedSec: 10 + index
-      })),
-      durationSec: materials.reduce((total, _, index) => total + 10 + index, 0)
+      answers,
+      durationSec: materials.reduce((total, _, index) => total + 10 + index, 0),
+      expectedDraftRevision: saved.response.revision
     },
-    owner
+    owner,
+    2
   )
   return {
     sessionId: created.session.id,

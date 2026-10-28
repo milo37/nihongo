@@ -189,9 +189,16 @@ export const createStudySubmissionService = (
     idempotencyKey,
     input,
     owner,
-    requestedContractVersion = 1
+    requestedContractVersion = 2
   ) =>
     withRepositoryErrors(sessionId, async () => {
+      if (requestedContractVersion !== 2) {
+        throw new ApplicationError({
+          code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+          message: '이전 학습 세션은 더 이상 지원하지 않습니다.',
+          retryable: false
+        })
+      }
       const observedAt = now()
       const preload = await repository.preloadOwned(
         sessionId,
@@ -202,6 +209,13 @@ export const createStudySubmissionService = (
         throw new ApplicationError({
           code: 'RESOURCE_NOT_FOUND',
           message: '학습 세션을 찾을 수 없습니다.',
+          retryable: false
+        })
+      }
+      if (preload.practiceContractVersion !== 2) {
+        throw new ApplicationError({
+          code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+          message: '이전 학습 세션은 더 이상 지원하지 않습니다.',
           retryable: false
         })
       }

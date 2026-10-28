@@ -874,6 +874,11 @@ export const createPrismaStudySessionRepository = (
 ): StudySessionRepository => {
   const create = (input: CreateStudySessionInput) =>
     executeRepositoryOperation(async () => {
+      if (input.practiceContractVersion === 1) {
+        throw new StudySessionRepositoryIntegrityError(
+          'Practice contract version 1 cannot be created.'
+        )
+      }
       for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
         try {
           return await client.$transaction(
@@ -987,7 +992,7 @@ export const createPrismaStudySessionRepository = (
                   actualCount: selected.length,
                   usedFallback: false,
                   fallbackReason: null,
-                  practiceContractVersion: input.practiceContractVersion ?? 1,
+                  practiceContractVersion: input.practiceContractVersion ?? 2,
                   startedAt: input.startedAt,
                   expiresAt
                 },
@@ -1011,7 +1016,7 @@ export const createPrismaStudySessionRepository = (
                   createdAt: input.startedAt
                 }))
               })
-              if ((input.practiceContractVersion ?? 1) === 2) {
+              if ((input.practiceContractVersion ?? 2) === 2) {
                 await transaction.studyDraft.create({
                   data: {
                     studySessionId: session.id,
