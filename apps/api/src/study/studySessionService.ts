@@ -74,12 +74,11 @@ export const createStudySessionService = (
   repository: StudySessionRepository,
   now: () => Date = () => new Date()
 ): StudySessionService => ({
-  create: async (input, owner, requestedContractVersion = 1) => {
-    if (requestedContractVersion === 1 && input.mode !== 'RANDOM') {
+  create: async (input, owner, requestedContractVersion = 2) => {
+    if (requestedContractVersion !== 2) {
       throw new ApplicationError({
-        code: 'VALIDATION_ERROR',
-        message: 'v1 practice contract는 RANDOM 모드만 지원합니다.',
-        fieldErrors: { mode: ['v1에서는 RANDOM 모드만 지원합니다.'] },
+        code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+        message: '이전 학습 세션은 더 이상 지원하지 않습니다.',
         retryable: false
       })
     }
@@ -120,7 +119,7 @@ export const createStudySessionService = (
       }
     })
   },
-  get: (sessionId, owner, requestedContractVersion = 1) =>
+  get: (sessionId, owner, requestedContractVersion = 2) =>
     withRepositoryErrors(async () => {
       const record = await repository.findOwnedById(sessionId, owner, now())
       if (!record) {
@@ -131,8 +130,8 @@ export const createStudySessionService = (
         })
       }
       if (
-        requestedContractVersion === 1 &&
-        (record.practiceContractVersion ?? 1) !== 1
+        requestedContractVersion !== 2 ||
+        (record.practiceContractVersion ?? 1) !== 2
       ) {
         throw new ApplicationError({
           code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',

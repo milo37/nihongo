@@ -490,7 +490,7 @@ const reserveIdempotency = async (
             ${input.owner.userId}::uuid, NULL,
             'STUDY_SUBMIT'::"IdempotencyOperation",
             ${input.idempotencyKey}::uuid, ${input.sessionId}::uuid,
-            ${input.requestHash}, ${input.practiceContractVersion ?? 1},
+            ${input.requestHash}, ${input.practiceContractVersion ?? 2},
             'PROCESSING'::"IdempotencyState",
             ${input.observedAt}
           )
@@ -508,7 +508,7 @@ const reserveIdempotency = async (
             ${input.owner.guestPrincipalId}::uuid,
             'STUDY_SUBMIT'::"IdempotencyOperation",
             ${input.idempotencyKey}::uuid, ${input.sessionId}::uuid,
-            ${input.requestHash}, ${input.practiceContractVersion ?? 1},
+            ${input.requestHash}, ${input.practiceContractVersion ?? 2},
             'PROCESSING'::"IdempotencyState",
             ${input.observedAt}
           )
@@ -943,7 +943,7 @@ const runAtomicSubmission = async (
   input: SubmitStudySessionAtomicInput,
   options: StudySubmissionRepositoryOptions
 ): Promise<RunAtomicSubmissionOutcome> => {
-  const practiceContractVersion = input.practiceContractVersion ?? 1
+  const practiceContractVersion = input.practiceContractVersion ?? 2
   const expectedDraftRevision = input.expectedDraftRevision ?? null
   const guestProof =
     input.owner.kind === 'GUEST'
@@ -1346,6 +1346,9 @@ export const createPrismaStudySubmissionRepository = (
       }),
     submitAtomic: (input) =>
       withRepositoryErrors(async () => {
+        if (input.practiceContractVersion === 1) {
+          throw new StudySubmissionContractVersionMismatchError()
+        }
         for (
           let attempt = 1;
           attempt <= MAX_TRANSACTION_ATTEMPTS;
@@ -1398,7 +1401,11 @@ export const createPrismaStudySubmissionRepository = (
               await assertGuestProof(transaction, owner, observedAt)
             }
             const session = await transaction.studySession.findFirst({
-              where: { id: sessionId, ...ownerWhere(owner) },
+              where: {
+                id: sessionId,
+                practiceContractVersion: 2,
+                ...ownerWhere(owner)
+              },
               select: { status: true }
             })
             if (!session) {
