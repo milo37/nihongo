@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -139,6 +143,23 @@ describe('Phase 7 API issuer activation ownership without a database', () => {
 })
 
 describe('shared API integration artifacts without a database', () => {
+  let taskTemp: string
+  let previousRunId: string | undefined
+  let previousRunnerTemp: string | undefined
+  beforeEach(() => {
+    taskTemp = mkdtempSync(join(tmpdir(), 'nihongo-api-preparation-'))
+    previousRunId = process.env.GITHUB_RUN_ID
+    previousRunnerTemp = process.env.RUNNER_TEMP
+    delete process.env.GITHUB_RUN_ID
+    process.env.RUNNER_TEMP = taskTemp
+  })
+  afterEach(() => {
+    if (previousRunId === undefined) delete process.env.GITHUB_RUN_ID
+    else process.env.GITHUB_RUN_ID = previousRunId
+    if (previousRunnerTemp === undefined) delete process.env.RUNNER_TEMP
+    else process.env.RUNNER_TEMP = previousRunnerTemp
+    rmSync(taskTemp, { recursive: true, force: true })
+  })
   it('prepares all required artifacts in dependency order for standalone execution', async () => {
     const run = vi.fn().mockResolvedValue(undefined)
     const environment = { NODE_ENV: 'test' }
