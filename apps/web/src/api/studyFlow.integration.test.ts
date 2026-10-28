@@ -9,8 +9,11 @@ import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { getCurrentUser } from '@nihongo/browser/api/auth/getCurrentUser/index'
 import { logoutUser } from '@api/auth/logoutUser'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
+import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
 import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
+import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import type { SubmitStudySessionV1Request } from '@api/study/submitStudySessionV1/requestSchema'
 import { listWrongNotesV1 } from '@api/wrong-note/listWrongNotesV1'
 
 describe('MSW 학습 API 흐름', () => {
@@ -171,6 +174,57 @@ describe('MSW 학습 API 흐름', () => {
         expect(error.isServerError).toBe(false)
       }
     }
+  })
+
+  it('v1 제출은 누락·추가·다른 세션과 잘못된 보기를 거부하고 세션을 보존한다', async () => {
+    await signInMockAccount()
+    const input = {
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 2
+    } as const
+    const source = await createStudySessionV1(input)
+    const foreign = await createStudySessionV1(input)
+    const first = source.questions[0]
+    const second = source.questions[1]
+    const other = foreign.questions[0]
+    if (!first || !second || !other) throw new Error('Study fixture required')
+    const answer = (
+      studySessionQuestionId: string
+    ): SubmitStudySessionV1Request['answers'][number] => ({
+      studySessionQuestionId,
+      selectedOptionId: null,
+      elapsedSec: 0
+    })
+    const firstAnswer = answer(first.sessionQuestionId)
+    const secondAnswer = answer(second.sessionQuestionId)
+    const submit = (answers: SubmitStudySessionV1Request['answers']) =>
+      submitStudySessionV1(
+        source.session.id,
+        { answers, durationSec: 0 },
+        crypto.randomUUID()
+      )
+
+    for (const answers of [
+      [firstAnswer],
+      [firstAnswer, secondAnswer, answer(crypto.randomUUID())],
+      [firstAnswer, answer(other.sessionQuestionId)]
+    ]) {
+      await expect(submit(answers)).rejects.toMatchObject({
+        code: 'ANSWER_NOT_IN_SESSION',
+        status: 422
+      })
+    }
+    await expect(
+      submit([
+        { ...firstAnswer, selectedOptionId: crypto.randomUUID() },
+        secondAnswer
+      ])
+    ).rejects.toMatchObject({ code: 'OPTION_NOT_IN_VERSION', status: 422 })
+    const result = await submit([firstAnswer, secondAnswer])
+    expect(result.totalCount).toBe(2)
+    expect(result.incorrectCount).toBe(2)
   })
 
   it('신고는 로그인과 알려진 문제 버전이 필요하다', async () => {

@@ -164,18 +164,7 @@ const gradeMockCanonicalStudySubmission = (
   const answerBySessionQuestionId = new Map(
     input.answers.map((answer) => [answer.studySessionQuestionId, answer])
   )
-  const knownSessionQuestionIds = new Set(
-    record.questions.map((_, index) =>
-      getSessionQuestionId(record.session.id, index + 1)
-    )
-  )
-  if (
-    input.answers.length !== record.questions.length ||
-    input.answers.some(
-      ({ studySessionQuestionId }) =>
-        !knownSessionQuestionIds.has(studySessionQuestionId)
-    )
-  ) {
+  if (input.answers.length !== record.questions.length) {
     throw new MockCanonicalSubmissionValidationError(
       'ANSWER_NOT_IN_SESSION',
       '모든 세션 문제의 답안을 정확히 한 번씩 제출해야 합니다.'
