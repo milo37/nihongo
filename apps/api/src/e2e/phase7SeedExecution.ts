@@ -1,4 +1,4 @@
-export type Phase7SeedPhase = 'FIRST_NORMAL_SEED' | 'RESEED'
+export type Phase7SeedPhase = 'FIRST_NORMAL_SEED' | 'PREFIX_RESEED' | 'RESEED'
 export type Phase7SeedPhaseState = 'BEGIN' | 'COMPLETE' | 'FAILED'
 
 export const runPhase7SeedExecution = async (

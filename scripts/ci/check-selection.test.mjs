@@ -1,16 +1,22 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  copyFileSync,
+  existsSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
+import { prepareBrowserArtifacts } from '../../apps/api/src/e2e/browserArtifactPreparation.ts'
+import { runBrowserSuites } from '../runPhaseBrowser.ts'
 
 import {
   classifyChangedFiles,
@@ -255,9 +261,22 @@ test('standalone runners use supported workspace build commands', () => {
   ]) {
     const source = readFileSync(path.join(repositoryRoot, file), 'utf8')
     assert.doesNotMatch(source, /'build:(?:contracts|domain)'/u, file)
-    assert.match(source, directBuild('@nihongo/contracts'), file)
-    assert.match(source, directBuild('@nihongo/domain'), file)
+    if (
+      file.endsWith('runPhase7DbIntegration.ts') ||
+      file.endsWith('runPhase7ApiIntegration.ts')
+    ) {
+      assert.match(source, /await prepareBrowserArtifacts\(/u, file)
+    } else {
+      assert.match(source, directBuild('@nihongo/contracts'), file)
+      assert.match(source, directBuild('@nihongo/domain'), file)
+    }
   }
+  const shared = readFileSync(
+    path.join(repositoryRoot, 'apps/api/src/e2e/browserArtifactPreparation.ts'),
+    'utf8'
+  )
+  assert.match(shared, directBuild('@nihongo/contracts'))
+  assert.match(shared, directBuild('@nihongo/domain'))
 })
 
 test('workflow and command budgets preserve the three protected contexts', () => {
@@ -384,6 +403,73 @@ test('production bundles validate the commit stamped by their reused build', () 
   assert.ok(candidateBundleCheck > candidateProductionBuild)
 })
 
+test('browser preparation reuses only unchanged same-job inputs and outputs', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'nihongo-browser-prep-'))
+  const put = (name, value) => {
+    const target = path.join(root, name)
+    mkdirSync(path.dirname(target), { recursive: true })
+    writeFileSync(target, value)
+  }
+  const inputs = [
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+    '.npmrc',
+    'package.json',
+    'packages/contracts/package.json',
+    'packages/contracts/tsconfig.json',
+    'packages/contracts/tsconfig.build.json',
+    'packages/contracts/src/index.ts',
+    'packages/domain/package.json',
+    'packages/domain/tsconfig.json',
+    'packages/domain/tsconfig.build.json',
+    'packages/domain/src/index.ts',
+    'apps/api/package.json',
+    'apps/api/prisma.config.ts',
+    'apps/api/prisma/schema.prisma'
+  ]
+  for (const input of inputs) put(input, input)
+  const environment = {
+    CI: 'true',
+    GITHUB_RUN_ID: '1',
+    GITHUB_RUN_ATTEMPT: '1',
+    GITHUB_JOB: 'e2e',
+    GITHUB_SHA: 'a'.repeat(40),
+    RUNNER_TEMP: root
+  }
+  const calls = []
+  const run = async (_command, args) => {
+    calls.push(args)
+    const output =
+      args[1] === '@nihongo/contracts'
+        ? 'packages/contracts/dist/index.js'
+        : args[1] === '@nihongo/domain'
+          ? 'packages/domain/dist/index.js'
+          : 'apps/api/src/generated/prisma/client.js'
+    put(output, output)
+  }
+  try {
+    const signal = new AbortController().signal
+    await prepareBrowserArtifacts('real', signal, run, root, environment)
+    assert.equal(calls.length, 3)
+    await prepareBrowserArtifacts('real', signal, run, root, environment)
+    await prepareBrowserArtifacts('mock', signal, run, root, environment)
+    assert.equal(calls.length, 3)
+    put('packages/contracts/dist/index.js', 'tampered')
+    await prepareBrowserArtifacts('real', signal, run, root, environment)
+    assert.equal(calls.length, 6)
+    put('pnpm-lock.yaml', 'changed')
+    await prepareBrowserArtifacts('real', signal, run, root, environment)
+    assert.equal(calls.length, 9)
+    await prepareBrowserArtifacts('real', signal, run, root, {
+      ...environment,
+      GITHUB_RUN_ATTEMPT: '2'
+    })
+    assert.equal(calls.length, 12)
+  } finally {
+    rmSync(root, { force: true, recursive: true })
+  }
+})
+
 const expectedBrowserCalls = (mode) => [
   {
     args: [
@@ -391,29 +477,7 @@ const expectedBrowserCalls = (mode) => [
       '@nihongo/api',
       'exec',
       'tsx',
-      'src/e2e/runPhase7Browser.ts',
-      mode
-    ],
-    phase8: '1'
-  },
-  {
-    args: [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'tsx',
-      '../../scripts/runPhase9Browser.ts',
-      mode
-    ],
-    phase8: null
-  },
-  {
-    args: [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'tsx',
-      '../../scripts/runPhase10Browser.ts',
+      '../../scripts/runPhaseBrowser.ts',
       mode
     ],
     phase8: null
@@ -622,10 +686,112 @@ const assertPlaywrightSelection = async (source, mode, suite, modeVariable) => {
     'test',
     '--config',
     'playwright.config.ts',
-    suite
+    suite,
+    ...(modeVariable === 'PHASE9_BROWSER_MODE' && mode === 'mock'
+      ? [
+          '--grep',
+          'guest routes pass KO/JA axe|learner routes pass KO/JA axe|color normalization regression'
+        ]
+      : [])
   ])
   assert.equal(calls[0].environment[modeVariable], mode)
 }
+
+test('Phase 9 mock starts only a local mock web server', async () => {
+  const source = readFileSync(
+    path.resolve(import.meta.dirname, '../runPhase9Browser.ts'),
+    'utf8'
+  )
+  const body = extractArrowBody(source, 'export const runMockBrowser = async (')
+  const calls = []
+  const run = runInNewContext(
+    `(async (runCommand, reserveLoopbackPort, spawnOwned, waitForHttp, runPlaywright, signal) => {${body}})`,
+    { process: { env: {} }, playwrightArguments: [] }
+  )
+  await run(
+    async (command, args, environment) =>
+      calls.push({ type: 'command', command, args, environment }),
+    async () => 1234,
+    (label, command, args, environment) => {
+      calls.push({ type: 'server', label, command, args, environment })
+      return {}
+    },
+    async (url) => calls.push({ type: 'ready', url }),
+    async (mode, url) => calls.push({ type: 'playwright', mode, url }),
+    new AbortController().signal
+  )
+  const normalized = JSON.parse(JSON.stringify(calls))
+  assert.deepEqual(
+    normalized
+      .filter(({ type }) => type === 'server')
+      .map(({ label }) => label),
+    ['phase9-mock-web']
+  )
+  assert.equal(
+    normalized.find(({ type }) => type === 'server').environment
+      .NIHONGO_API_PROXY_TARGET,
+    'http://127.0.0.1:0'
+  )
+  assert.deepEqual(
+    normalized
+      .filter(({ type }) => type === 'playwright')
+      .map(({ mode }) => mode),
+    ['mock']
+  )
+  assert.equal(
+    normalized.some(
+      ({ command, args }) =>
+        command === 'pnpm' && args?.some((arg) => /api|prisma|seed/iu.test(arg))
+    ),
+    false
+  )
+  const faultRun = normalized.find(
+    ({ type, args }) =>
+      type === 'command' &&
+      args?.includes('apps/web/e2e/phase10-journeys-real-mock.spec.ts')
+  )
+  assert.ok(faultRun)
+  assert.equal(faultRun.environment.PHASE10_BROWSER_MODE, 'mock')
+  assert.equal(faultRun.args.includes('--grep'), false)
+  const dashboardRun = normalized.find(
+    ({ type, args }) =>
+      type === 'command' &&
+      args?.includes('apps/web/e2e/phase8-dashboard-real-mock.spec.ts')
+  )
+  assert.ok(dashboardRun)
+  assert.equal(dashboardRun.environment.PHASE8_BROWSER_MODE, 'mock')
+  assert.equal(dashboardRun.args.includes('--grep'), false)
+})
+
+test('API integration uses shared job preparation and seed avoids regeneration', async () => {
+  const root = path.resolve(import.meta.dirname, '../..')
+  const api = readFileSync(
+    path.join(root, 'apps/api/src/e2e/runPhase7ApiIntegration.ts'),
+    'utf8'
+  )
+  const database = readFileSync(
+    path.join(root, 'apps/api/src/e2e/runPhase7DbIntegration.ts'),
+    'utf8'
+  )
+  const invoke = runInNewContext(
+    `(async (abortSignal, environment, prepared, run, prepareBrowserArtifacts) => {${extractArrowBody(api, 'export const preparePhase7IntegrationArtifacts = async (')}})`,
+    { repositoryRoot: root }
+  )
+  const calls = []
+  await invoke(
+    new AbortController().signal,
+    {},
+    false,
+    () => calls.push('individual'),
+    async (mode) => calls.push(mode)
+  )
+  assert.deepEqual(calls, ['real'])
+  assert.match(database, /await prepareBrowserArtifacts\(/u)
+  assert.match(
+    database,
+    /const seedCommand = \[[\s\S]*?'exec',[\s\S]*?'tsx',[\s\S]*?'prisma\/seed\.ts'/u
+  )
+})
 
 const assertPhase7PlaywrightSelection = async (source, mode) => {
   const selectSpecs = runInNewContext(
@@ -1028,14 +1194,55 @@ const assertBrowserRunnerCallGraph = ({ phase7, phase9, phase10 }) => {
 }
 
 const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
-  const runnerPaths = calls.map(({ args }) =>
-    path.resolve(repositoryRoot, 'apps/api', args[4])
-  )
-  assert.deepEqual(runnerPaths, [
+  assert.deepEqual(calls, expectedBrowserCalls(mode))
+  const runnerPaths = [
     path.join(repositoryRoot, 'apps/api/src/e2e/runPhase7Browser.ts'),
     path.join(repositoryRoot, 'scripts/runPhase9Browser.ts'),
     path.join(repositoryRoot, 'scripts/runPhase10Browser.ts')
-  ])
+  ]
+  const common = readFileSync(
+    path.join(repositoryRoot, 'scripts/runPhaseBrowser.ts'),
+    'utf8'
+  )
+  const mappingMatch =
+    /const realWorkerModules = (\{[\s\S]*?\}) as const/u.exec(common)
+  assert.ok(mappingMatch, 'real worker mapping is missing')
+  const mapping = JSON.parse(
+    JSON.stringify(runInNewContext(`(${mappingMatch[1]})`))
+  )
+  assert.deepEqual(mapping, {
+    admin: '../apps/api/src/e2e/runPhase7Browser.js',
+    accessibility: './runPhase9Browser.js',
+    journey: './runPhase10Browser.js'
+  })
+  assertExecutableCall(
+    common,
+    'const runWorker = async (',
+    'await worker.execute()'
+  )
+  if (mode === 'real') {
+    const { runBrowserMode } = await import('../runPhaseBrowser.ts')
+    const events = []
+    const adapter = {
+      runCommand: async (_command, args) => {
+        if (args[4] === '--suite') {
+          events.push(args[5])
+          if (args[5] === 'accessibility') throw new Error('fixture failure')
+        }
+      },
+      runMockBrowser: async () =>
+        assert.fail('mock suite reached in real mode'),
+      cleanup: async () => undefined
+    }
+    await assert.rejects(
+      runBrowserMode('real', new AbortController().signal, [], {
+        loadPhase9: async () => adapter,
+        resolveTsx: () => 'test-loader'
+      }),
+      /fixture failure/u
+    )
+    assert.deepEqual(events, ['admin', 'accessibility'])
+  }
 
   const sources = {
     phase7: readFileSync(runnerPaths[0], 'utf8'),
@@ -1092,11 +1299,10 @@ test('protected browser aliases execute every retained acceptance suite', async 
 
   const failure = runBrowserScript(
     scripts['test:browser:real'],
-    'runPhase9Browser.ts'
+    'runPhaseBrowser.ts'
   )
-  assert.equal(failure.status, 1)
+  assert.equal(failure.status, 17)
   assert.deepEqual(failure.calls, expectedBrowserCalls('real'))
-  assert.match(failure.stderr, /Browser group failed \(exit 17\)/u)
 })
 
 test('browser reachability rejects quoted, commented and dead edges', async () => {
@@ -1126,28 +1332,15 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
   )
 
   const real = scripts['test:browser:real']
-  const phase9 =
-    'pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase9Browser.ts real'
-  const phase10 =
-    'pnpm --filter @nihongo/api exec tsx ../../scripts/runPhase10Browser.ts real'
+  const call =
+    'pnpm --filter @nihongo/api exec tsx ../../scripts/runPhaseBrowser.ts real'
   assert.throws(() =>
-    assertBrowserScript(
-      real.replace(`run ${phase9};`, `printf "%s" "${phase9}" >/dev/null;`),
-      'real'
-    )
+    assertBrowserScript(`printf "%s" "${call}" >/dev/null`, 'real')
   )
+  assert.throws(() => assertBrowserScript(`# ${call}\ntrue`, 'real'))
   assert.throws(() =>
     assertBrowserScript(
-      real.replace(`run ${phase10};`, `# run ${phase10};\n`),
-      'real'
-    )
-  )
-  assert.throws(() =>
-    assertBrowserScript(
-      real.replace(
-        `run ${phase9};`,
-        `run ${phase9.replace('runPhase9Browser', 'deadPhase9Browser')}; printf "%s" "${phase9}" >/dev/null;`
-      ),
+      real.replace('runPhaseBrowser.ts', 'deadBrowser.ts'),
       'real'
     )
   )
@@ -1430,4 +1623,355 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
       )
     })
   )
+})
+
+const createDriver = ({ fail, cleanupFail } = {}) => {
+  const calls = []
+  const driver = {
+    prepare: async (mode) => calls.push(`prepare:${mode}`),
+    openSuite: async (suite) => {
+      calls.push(`open:${suite}`)
+      return {
+        run: async () => {
+          calls.push(`run:${suite}`)
+          if (suite === fail) throw new Error('suite failed')
+        },
+        cleanup: async () => {
+          calls.push(`cleanup:${suite}`)
+          if (suite === cleanupFail) throw new Error('cleanup failed')
+        }
+      }
+    }
+  }
+  return { calls, driver }
+}
+
+test('real prepares once and cleans each isolated suite before opening the next', async () => {
+  const { calls, driver } = createDriver()
+  await runBrowserSuites('real', driver, new AbortController().signal)
+  assert.deepEqual(calls, [
+    'prepare:real',
+    'open:admin',
+    'run:admin',
+    'cleanup:admin',
+    'open:accessibility',
+    'run:accessibility',
+    'cleanup:accessibility',
+    'open:journey',
+    'run:journey',
+    'cleanup:journey'
+  ])
+})
+
+test('mock runs only the mock states suite', async () => {
+  const { calls, driver } = createDriver()
+  await runBrowserSuites('mock', driver, new AbortController().signal)
+  assert.deepEqual(calls, [
+    'prepare:mock',
+    'open:mock-states',
+    'run:mock-states',
+    'cleanup:mock-states'
+  ])
+})
+
+test('intermediate failure cleans its resources and prevents later suites', async () => {
+  const { calls, driver } = createDriver({ fail: 'accessibility' })
+  await assert.rejects(
+    runBrowserSuites('real', driver, new AbortController().signal),
+    /suite failed/u
+  )
+  assert.equal(calls.at(-1), 'cleanup:accessibility')
+  assert.equal(calls.includes('open:journey'), false)
+})
+
+test('retains both the suite and cleanup failures', async () => {
+  const { driver } = createDriver({ fail: 'admin', cleanupFail: 'admin' })
+  await assert.rejects(
+    runBrowserSuites('real', driver, new AbortController().signal),
+    (error) => error instanceof AggregateError && error.errors.length === 2
+  )
+})
+
+test('cancellation after suite start cleans resources and stops the chain', async () => {
+  const controller = new AbortController()
+  const { calls, driver } = createDriver()
+  const open = driver.openSuite
+  driver.openSuite = async (suite) => {
+    const resources = await open(suite)
+    return { ...resources, run: async () => controller.abort() }
+  }
+  await assert.rejects(runBrowserSuites('real', driver, controller.signal))
+  assert.equal(calls.at(-1), 'cleanup:admin')
+  assert.equal(calls.includes('open:accessibility'), false)
+})
+
+test('rejects an invalid mode before preparation', async () => {
+  const { calls, driver } = createDriver()
+  await assert.rejects(
+    runBrowserSuites('invalid', driver, new AbortController().signal),
+    /accepts real or mock/u
+  )
+  assert.deepEqual(calls, [])
+})
+
+test('propagates even an undefined thrown value after cleanup', async () => {
+  const { calls, driver } = createDriver()
+  const open = driver.openSuite
+  driver.openSuite = async (suite) => ({
+    ...(await open(suite)),
+    run: async () => {
+      throw undefined
+    }
+  })
+  let rejected = false
+  try {
+    await runBrowserSuites('real', driver, new AbortController().signal)
+  } catch {
+    rejected = true
+  }
+  assert.equal(rejected, true)
+  assert.equal(calls.at(-1), 'cleanup:admin')
+  assert.equal(calls.includes('open:accessibility'), false)
+})
+
+test('a preparation failure never opens a fixture', async () => {
+  const { calls, driver } = createDriver()
+  driver.prepare = async () => {
+    calls.push('prepare-failed')
+    throw new Error('prepare failed')
+  }
+  await assert.rejects(
+    runBrowserSuites('real', driver, new AbortController().signal),
+    /prepare failed/u
+  )
+  assert.deepEqual(calls, ['prepare-failed'])
+})
+
+const runIsolatedBrowserScenario = (scenario) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'nihongo-browser-job-'))
+  const repositoryRoot = path.resolve(import.meta.dirname, '../..')
+  const put = (name, content) => {
+    const target = path.join(root, name)
+    mkdirSync(path.dirname(target), { recursive: true })
+    writeFileSync(target, content)
+  }
+  const inputs = [
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+    '.npmrc',
+    'package.json',
+    'packages/contracts/package.json',
+    'packages/contracts/tsconfig.json',
+    'packages/contracts/tsconfig.build.json',
+    'packages/contracts/src/index.ts',
+    'packages/domain/package.json',
+    'packages/domain/tsconfig.json',
+    'packages/domain/tsconfig.build.json',
+    'packages/domain/src/index.ts',
+    'apps/api/package.json',
+    'apps/api/prisma.config.ts',
+    'apps/api/prisma/schema.prisma'
+  ]
+  for (const input of inputs) {
+    put(
+      input,
+      input === 'apps/api/package.json'
+        ? '{"type":"module"}'
+        : input.endsWith('package.json')
+          ? '{"private":true}'
+          : input
+    )
+  }
+  for (const file of [
+    'scripts/runPhaseBrowser.ts',
+    'apps/api/src/e2e/browserArtifactPreparation.ts'
+  ]) {
+    const target = path.join(root, file)
+    mkdirSync(path.dirname(target), { recursive: true })
+    copyFileSync(path.join(repositoryRoot, file), target)
+  }
+  put(
+    'scenario.mjs',
+    `
+import { mkdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { runBrowserMode } from './scripts/runPhaseBrowser.ts'
+import { prepareBrowserArtifacts } from './apps/api/src/e2e/browserArtifactPreparation.ts'
+const root = process.cwd()
+const calls = []
+const runCommand = async (command, args, env) => {
+  calls.push({ command, args, prepared: env.JLP541_BROWSER_ARTIFACTS_PREPARED ?? null })
+  if (process.argv[2] === 'failure') throw new Error('build failed')
+  const output = args[1] === '@nihongo/contracts' ? 'packages/contracts/dist/index.js'
+    : args[1] === '@nihongo/domain' ? 'packages/domain/dist/index.js'
+    : args[1] === '@nihongo/api' ? 'apps/api/src/generated/prisma/client.js' : undefined
+  if (output) {
+    mkdirSync(path.dirname(path.join(root, output)), { recursive: true })
+    writeFileSync(path.join(root, output), output)
+  }
+}
+const adapter = { runCommand, runMockBrowser: async () => { throw Error('unexpected mock') }, cleanup: async () => {} }
+delete process.env.JLP541_BROWSER_ARTIFACTS_PREPARED
+let preparation = []
+if (process.argv[2] === 'preprepared') {
+  await prepareBrowserArtifacts('real', new AbortController().signal, runCommand, root, process.env)
+  preparation = calls.splice(0)
+}
+let error = null
+try {
+  await runBrowserMode('real', new AbortController().signal, [], {
+    loadPhase9: async () => adapter, resolveTsx: () => 'test-loader'
+  })
+} catch (caught) {
+  error = caught instanceof Error ? caught.message : 'unknown failure'
+}
+process.stdout.write(JSON.stringify({ preparation, calls, error }))
+`
+  )
+  try {
+    const result = spawnSync(process.execPath, ['scenario.mjs', scenario], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        CI: 'true',
+        GITHUB_RUN_ID: '309',
+        GITHUB_RUN_ATTEMPT: '1',
+        GITHUB_JOB: 'quality',
+        GITHUB_SHA: 'a'.repeat(40),
+        RUNNER_TEMP: root
+      }
+    })
+    assert.equal(result.status, 0, result.stderr)
+    return JSON.parse(result.stdout)
+  } finally {
+    rmSync(root, { force: true, recursive: true })
+  }
+}
+
+const assertThreeWorkers = (calls) => {
+  assert.deepEqual(
+    calls.map(({ args }) => args[5]),
+    ['admin', 'accessibility', 'journey']
+  )
+  assert.equal(
+    calls.every(
+      ({ command, args }) =>
+        command === process.execPath && args[4] === '--suite'
+    ),
+    true
+  )
+  assert.equal(
+    calls.every(({ prepared }) => prepared === '1'),
+    true
+  )
+}
+
+test('standalone real prepares artifacts once and starts three separate workers', () => {
+  const { preparation, calls, error } = runIsolatedBrowserScenario('standalone')
+  assert.equal(error, null)
+  assert.deepEqual(preparation, [])
+  assert.equal(calls.length, 6)
+  assert.deepEqual(
+    calls.slice(0, 3).map(({ args }) => args.at(-1)),
+    ['build', 'build', 'db:generate']
+  )
+  assert.equal(
+    calls.slice(0, 3).every(({ prepared }) => prepared === null),
+    true
+  )
+  assertThreeWorkers(calls.slice(3))
+})
+
+test('pre-prepared real job reuses manifest and starts three separate workers', () => {
+  const { preparation, calls, error } =
+    runIsolatedBrowserScenario('preprepared')
+  assert.equal(error, null)
+  assert.deepEqual(
+    preparation.map(({ args }) => args.at(-1)),
+    ['build', 'build', 'db:generate']
+  )
+  assert.equal(calls.length, 3)
+  assertThreeWorkers(calls)
+})
+
+test('a failed artifact build cannot start a fixture', () => {
+  const { preparation, calls, error } = runIsolatedBrowserScenario('failure')
+  assert.deepEqual(preparation, [])
+  assert.equal(error, 'build failed')
+  assert.equal(calls.length, 1)
+  assert.deepEqual(calls[0].args, [
+    '--filter',
+    '@nihongo/contracts',
+    'run',
+    'build'
+  ])
+})
+
+test('a cancelled mock build stops its owned child and returns SIGTERM status', async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, '../..')
+  const temp = mkdtempSync(path.join(tmpdir(), 'nihongo-browser-cancel-'))
+  const ready = path.join(temp, 'ready')
+  const stopped = path.join(temp, 'stopped')
+  const fakePnpm = path.join(temp, 'pnpm')
+  writeFileSync(
+    fakePnpm,
+    `#!/usr/bin/env node
+const fs = require('node:fs')
+fs.writeFileSync(process.env.MOCK_READY_FILE, 'ready')
+process.once('SIGTERM', () => { fs.writeFileSync(process.env.MOCK_STOPPED_FILE, 'stopped'); process.exit(0) })
+setInterval(() => {}, 1000)
+`
+  )
+  chmodSync(fakePnpm, 0o755)
+  const loader = createRequire(
+    path.join(repositoryRoot, 'apps/api/package.json')
+  ).resolve('tsx')
+  const child = spawn(
+    process.execPath,
+    [
+      '--import',
+      loader,
+      path.join(repositoryRoot, 'scripts/runPhaseBrowser.ts'),
+      'mock'
+    ],
+    {
+      cwd: repositoryRoot,
+      env: {
+        ...process.env,
+        MOCK_READY_FILE: ready,
+        MOCK_STOPPED_FILE: stopped,
+        RUNNER_TEMP: temp,
+        PATH: `${temp}${path.delimiter}${process.env.PATH ?? ''}`
+      },
+      stdio: ['ignore', 'ignore', 'pipe']
+    }
+  )
+  let stderr = ''
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk.toString()
+  })
+  const closed = new Promise((resolve, reject) => {
+    child.once('error', reject)
+    child.once('close', (code, signal) => resolve({ code, signal }))
+  })
+  try {
+    const deadline = Date.now() + 10_000
+    while (
+      !existsSync(ready) &&
+      child.exitCode === null &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    assert.equal(existsSync(ready), true, stderr)
+    child.kill('SIGTERM')
+    assert.deepEqual(await closed, { code: 143, signal: null })
+    assert.equal(existsSync(stopped), true, stderr)
+    assert.doesNotMatch(stderr, /did not stop|cleanup failed/iu)
+  } finally {
+    if (child.exitCode === null && child.signalCode === null)
+      child.kill('SIGTERM')
+    rmSync(temp, { recursive: true, force: true })
+  }
 })

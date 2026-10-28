@@ -97,7 +97,7 @@ const spawnOwned = (
   return ownedProcess
 }
 
-const runCommand = async (
+export const runCommand = async (
   command: string,
   args: readonly string[],
   environment: NodeJS.ProcessEnv = process.env,
@@ -199,7 +199,7 @@ const reserveLoopbackPort = async (
     })
   })
 
-const cleanup = (): Promise<void> => {
+export const cleanup = (): Promise<void> => {
   cleanupPromise ??= (async () => {
     stopWatchingAdmin?.()
     const errors: unknown[] = []
@@ -259,6 +259,12 @@ const runPlaywright = async (
       '--config',
       'playwright.config.ts',
       'apps/web/e2e/phase9-accessibility.spec.ts',
+      ...(browserMode === 'mock'
+        ? [
+            '--grep',
+            'guest routes pass KO/JA axe|learner routes pass KO/JA axe|color normalization regression'
+          ]
+        : []),
       ...playwrightArguments
     ],
     {
@@ -344,12 +350,101 @@ const startOwnedAdmin = async (
   return adminLifecycle.signal
 }
 
+export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
+  if (process.env.JLP541_BROWSER_ARTIFACTS_PREPARED !== '1') {
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/contracts', 'run', 'build'],
+      process.env,
+      signal
+    )
+    await runCommand(
+      'pnpm',
+      ['--filter', '@nihongo/domain', 'run', 'build'],
+      process.env,
+      signal
+    )
+  }
+  const webPort = await reserveLoopbackPort()
+  const webOrigin = `http://127.0.0.1:${webPort}`
+  const web = spawnOwned(
+    'phase9-mock-web',
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/web',
+      'exec',
+      'vite',
+      '--mode',
+      'test',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(webPort),
+      '--strictPort'
+    ],
+    {
+      ...process.env,
+      NIHONGO_API_PROXY_TARGET: 'http://127.0.0.1:0',
+      VITE_API_BASE_URL: '/api',
+      VITE_API_MODE: 'mock'
+    }
+  )
+  await waitForHttp(webOrigin, web, signal)
+  await runCommand(
+    'pnpm',
+    [
+      'exec',
+      'playwright',
+      'test',
+      '--config',
+      'playwright.config.ts',
+      'apps/web/e2e/phase8-dashboard-real-mock.spec.ts',
+      ...playwrightArguments
+    ],
+    {
+      ...process.env,
+      PHASE8_BROWSER_MODE: 'mock',
+      PLAYWRIGHT_BASE_URL: webOrigin,
+      PLAYWRIGHT_OUTPUT_LABEL: 'phase8-mock'
+    },
+    signal
+  )
+  await runPlaywright('mock', webOrigin, {}, signal)
+  await runCommand(
+    'pnpm',
+    [
+      'exec',
+      'playwright',
+      'test',
+      '--config',
+      'playwright.config.ts',
+      'apps/web/e2e/phase10-journeys-real-mock.spec.ts',
+      ...playwrightArguments
+    ],
+    {
+      ...process.env,
+      PHASE10_BROWSER_MODE: 'mock',
+      PLAYWRIGHT_BASE_URL: webOrigin,
+      PLAYWRIGHT_OUTPUT_LABEL: 'phase10-mock'
+    },
+    signal
+  )
+}
+
 const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
+  if (browserMode === 'mock') {
+    await runMockBrowser()
+    return
+  }
   await reserveLoopbackPort(5175, 'localhost')
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
     await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
+  const harness = await preparePhase7IsolatedDatabase({
+    seedRuns: 2,
+    artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
+  })
   const [apiPort, webPort] = await Promise.all([
     reserveLoopbackPort(),
     reserveLoopbackPort()
@@ -478,14 +573,6 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   )
 }
 
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.once(signal, () => {
-    void cleanup()
-      .then(() => process.exit(signal === 'SIGINT' ? 130 : 143))
-      .catch(() => process.exit(1))
-  })
-}
-
 const run = async (): Promise<void> => {
   if (!mode) {
     throw new Error('Phase 9 browser runner accepts mock or real mode.')
@@ -493,7 +580,7 @@ const run = async (): Promise<void> => {
   await runBrowser(mode)
 }
 
-const execute = async (): Promise<void> => {
+export const execute = async (): Promise<void> => {
   let failure: unknown
   try {
     await run()
@@ -550,5 +637,12 @@ if (
   process.argv[1] !== undefined &&
   fileURLToPath(import.meta.url) === nodePath.resolve(process.argv[1])
 ) {
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      void cleanup()
+        .then(() => process.exit(signal === 'SIGINT' ? 130 : 143))
+        .catch(() => process.exit(1))
+    })
+  }
   void main()
 }
