@@ -675,7 +675,7 @@ const createBookmarkPractice = async () => {
     level: 'N5',
     mode: 'BOOKMARK',
     owner: { kind: 'USER', userId: learnerId },
-    practiceContractVersion: 1,
+    practiceContractVersion: 2,
     requestedCount: 1,
     startedAt,
     subject: 'VOCABULARY'
@@ -1417,18 +1417,23 @@ describe('Phase 7 ADMIN command TEST database integration', () => {
       learnerContractsBeforeReplacement.studySession.questions[0]?.question
         .questionVersionId
     ).toBe(initial.versionId)
-    expect(learnerContractsBeforeReplacement.studyResult).toMatchObject({
-      kind: 'READY',
-      response: {
-        items: [
-          {
-            sessionQuestionId: learnerSnapshot.sessionQuestionId,
-            question: { questionVersionId: initial.versionId }
-          }
-        ]
-      }
+    expect(learnerContractsBeforeReplacement.studyResult).toEqual({
+      kind: 'NOT_FOUND'
     })
     const initialPractice = await createBookmarkPractice()
+    expect(initialPractice.session.practiceContractVersion).toBe(2)
+    const initialDraft = await adminClient.query<{
+      revision: number
+      answerCount: number
+    }>(
+      `SELECT draft."revision", COUNT(answer."studySessionQuestionId")::int AS "answerCount"
+       FROM "StudyDraft" AS draft
+       LEFT JOIN "StudyDraftAnswer" AS answer ON answer."studySessionId" = draft."studySessionId"
+       WHERE draft."studySessionId" = $1
+       GROUP BY draft."studySessionId", draft."revision"`,
+      [initialPractice.session.id]
+    )
+    expect(initialDraft.rows).toEqual([{ revision: 0, answerCount: 1 }])
     expect(initialPractice.session.questions[0]?.question).toMatchObject({
       id: initial.questionId,
       questionVersionId: initial.versionId
