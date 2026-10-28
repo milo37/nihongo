@@ -375,8 +375,8 @@ const runPlaywright = async (
 export const runMock = async (): Promise<void> => {
   // Reject an empty selection before starting resources or running all e2e files.
   selectPhase7BrowserSpecs('mock', isPhase8Acceptance)
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
+  await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
+  await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
   // The mock branch intentionally starts no API or database harness.
   const webPort = await reserveLoopbackPort()

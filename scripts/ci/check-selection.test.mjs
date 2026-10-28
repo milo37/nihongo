@@ -225,6 +225,41 @@ test('quality groups call semantic commands without phase-number aliases', () =>
   )
 })
 
+test('standalone runners use supported workspace build commands', () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, '../..')
+  const rootScripts = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  ).scripts
+  assert.equal(rootScripts['build:contracts'], undefined)
+  assert.equal(rootScripts['build:domain'], undefined)
+  for (const packageName of ['contracts', 'domain']) {
+    const packageScripts = JSON.parse(
+      readFileSync(
+        path.join(repositoryRoot, `packages/${packageName}/package.json`),
+        'utf8'
+      )
+    ).scripts
+    assert.equal(typeof packageScripts.build, 'string', packageName)
+  }
+
+  const directBuild = (packageName) =>
+    new RegExp(
+      String.raw`\[\s*'--filter',\s*'${packageName}',\s*'run',\s*'build'\s*\]`,
+      'u'
+    )
+  for (const file of [
+    'apps/api/src/e2e/runPhase7DbIntegration.ts',
+    'apps/api/src/e2e/runPhase7ApiIntegration.ts',
+    'apps/api/src/e2e/runPhase7Browser.ts',
+    'scripts/runPhase10Browser.ts'
+  ]) {
+    const source = readFileSync(path.join(repositoryRoot, file), 'utf8')
+    assert.doesNotMatch(source, /'build:(?:contracts|domain)'/u, file)
+    assert.match(source, directBuild('@nihongo/contracts'), file)
+    assert.match(source, directBuild('@nihongo/domain'), file)
+  }
+})
+
 test('workflow and command budgets preserve the three protected contexts', () => {
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const normal = readFileSync(

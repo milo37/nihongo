@@ -809,8 +809,8 @@ export const preparePhase7IntegrationArtifacts = async ({
   abortSignal?.throwIfAborted()
   if (prepared) return
   for (const args of [
-    ['run', 'build:contracts'],
-    ['run', 'build:domain'],
+    ['--filter', '@nihongo/contracts', 'run', 'build'],
+    ['--filter', '@nihongo/domain', 'run', 'build'],
     ['--filter', '@nihongo/api', 'run', 'db:generate']
   ]) {
     abortSignal?.throwIfAborted()

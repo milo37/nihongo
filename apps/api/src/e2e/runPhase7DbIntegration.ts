@@ -1457,8 +1457,8 @@ const run = async (): Promise<void> => {
     SEED_TARGET: 'test'
   }
 
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
+  await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
+  await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
   await runCommand('pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate'])
   await runCommand(
     'pnpm',

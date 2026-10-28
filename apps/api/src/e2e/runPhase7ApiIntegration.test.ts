@@ -141,8 +141,8 @@ describe('shared API integration artifacts without a database', () => {
     const environment = { NODE_ENV: 'test' }
     await prepareArtifacts({ environment, run })
     expect(run.mock.calls.map(([command, args]) => [command, args])).toEqual([
-      ['pnpm', ['run', 'build:contracts']],
-      ['pnpm', ['run', 'build:domain']],
+      ['pnpm', ['--filter', '@nihongo/contracts', 'run', 'build']],
+      ['pnpm', ['--filter', '@nihongo/domain', 'run', 'build']],
       ['pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate']]
     ])
     expect(run.mock.calls.every(([, , env]) => env === environment)).toBe(true)
