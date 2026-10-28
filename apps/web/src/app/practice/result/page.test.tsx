@@ -23,8 +23,13 @@ import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockServer } from '@/test/server'
+import {
+  readStoredSubmissionAttempt,
+  writeStoredSubmissionAttempt
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -168,6 +173,73 @@ const createFixture = async ({
 }
 
 describe('approved general result navigation', () => {
+  it('preserves a stored attempt when the result and session have unknown 404 ownership', async () => {
+    const fixture = await createFixture({ count: 1, mixed: false })
+    const oldAttempt = {
+      logicalRequest: { answers: [], durationSec: 1 },
+      idempotencyKey: crypto.randomUUID()
+    }
+    writeStoredSubmissionAttempt(fixture.sessionId, oldAttempt)
+    let sessionReads = 0
+    let resultReads = 0
+    const missing = () =>
+      HttpResponse.json(
+        { code: 'RESOURCE_NOT_FOUND', message: 'synthetic' },
+        { status: 404 }
+      )
+    mockServer.use(
+      http.get(`*/api/v1/study-sessions/${fixture.sessionId}`, () => {
+        sessionReads += 1
+        return missing()
+      }),
+      http.get(`*/api/v1/study-sessions/${fixture.sessionId}/result`, () => {
+        resultReads += 1
+        return missing()
+      })
+    )
+    const { view } = fixture.mount()
+    expect(
+      await screen.findByRole('heading', {
+        name: '학습 결과를 찾을 수 없습니다'
+      })
+    ).toBeVisible()
+    await waitFor(() => {
+      expect(sessionReads).toBeGreaterThan(0)
+      expect(resultReads).toBeGreaterThan(0)
+    })
+    expect(readStoredSubmissionAttempt(fixture.sessionId)).toEqual(oldAttempt)
+    view.unmount()
+    fixture.client.clear()
+  })
+  it.each(['ko', 'ja'] as const)(
+    'explains an older result link ended without retrying the retired session (%s)',
+    async (locale) => {
+      writeUiLocalePreference(locale)
+      const fixture = await createFixture({ count: 1, mixed: false })
+      mockServer.use(
+        http.get(`*/api/v1/study-sessions/${fixture.sessionId}`, () =>
+          HttpResponse.json(
+            {
+              code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+              message: 'old session'
+            },
+            { status: 409 }
+          )
+        )
+      )
+      fixture.mount()
+      const title =
+        locale === 'ko'
+          ? '이전 학습 결과가 종료되었습니다'
+          : '以前の学習結果は終了しました'
+      expect(await screen.findByRole('heading', { name: title })).toBeVisible()
+      expect(
+        screen.getByRole('link', {
+          name: locale === 'ko' ? '새 문제 풀기' : '新しい問題を解く'
+        })
+      ).toHaveAttribute('href', '/practice')
+    }
+  )
   it('정답·오답·미응답 문항 중 선택한 해설만 표시하고 키보드 초점을 유지한다', async () => {
     const fixture = await createFixture()
     const { router, view } = fixture.mount('?keep=1#result-explanations')

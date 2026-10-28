@@ -12,6 +12,10 @@ import {
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
+import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
+import { createDashboardService } from '../dashboard/dashboardService.js'
+import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
+import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import { createPrismaStudySessionCleanupRepository } from './studySessionCleanupRepository.js'
 import { createStudySessionCleanupService } from './studySessionCleanupService.js'
 import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
@@ -1023,6 +1027,125 @@ describe('V1 retirement mixed review fixture', () => {
         where: { studySessionId: source.sessionId }
       })
     ).not.toBeNull()
+  })
+})
+
+describe('V1 retirement aggregate fixture', () => {
+  it('keeps mixed user aggregates while independent V1 counts disappear', async () => {
+    const mixedUserId = await createUser()
+    const independentUserId = await createUser()
+    const mixedOwner = { kind: 'USER' as const, id: mixedUserId }
+    const source = await createSession({
+      owner: mixedOwner,
+      expiresAt: new Date(NOW.getTime() + DAY_MS),
+      status: 'SUBMITTED',
+      submittedIsCorrect: false,
+      recordReview: true
+    })
+    const retry = await createSession({
+      owner: mixedOwner,
+      expiresAt: new Date(NOW.getTime() + 2 * DAY_MS),
+      retryOfStudySessionId: source.sessionId,
+      status: 'SUBMITTED',
+      submittedIsCorrect: false,
+      recordReview: true
+    })
+    const independent = await createSession({
+      owner: { kind: 'USER', id: independentUserId },
+      expiresAt: new Date(NOW.getTime() + DAY_MS),
+      status: 'SUBMITTED',
+      submittedIsCorrect: false,
+      recordReview: true
+    })
+    const observedAt = new Date(NOW.getTime() + 3 * DAY_MS)
+    const dashboard = createDashboardService(
+      createPrismaDashboardRepository(database.client),
+      () => observedAt
+    )
+    const review = createWrongNoteReviewQueueService(
+      createPrismaWrongNoteReviewQueueRepository(database.client),
+      () => observedAt
+    )
+    const readCounts = async (userId: string) => ({
+      dashboard: await dashboard.getDashboardStats(userId, {
+        from: '2000-01-01',
+        to: '2000-01-04'
+      }),
+      review: await review.listReviewQueue(userId, {
+        view: 'DUE',
+        sort: 'NEXT_REVIEW',
+        page: 1,
+        pageSize: 20
+      })
+    })
+    const mixedBefore = await readCounts(mixedUserId)
+    const independentBefore = await readCounts(independentUserId)
+    expect(mixedBefore.dashboard).toMatchObject({
+      totalAnsweredCount: 2,
+      correctCount: 0,
+      wrongNoteCount: 1,
+      solvedWrongNoteCount: 0,
+      subjectStats: expect.arrayContaining([
+        expect.objectContaining({
+          subject: 'VOCABULARY',
+          answeredCount: 2,
+          correctCount: 0
+        })
+      ])
+    })
+    expect(
+      mixedBefore.dashboard.dailyStudyCountLast7Days.map(({ count }) => count)
+    ).toEqual([0, 0, 0, 1, 1, 0, 0])
+    expect(mixedBefore.review).toMatchObject({
+      total: 1,
+      counts: { due: 1, unreviewed: 0, repeated: 1, solved: 0 },
+      items: [
+        { questionId: getPinnedQuestion().id, status: 'AGAIN', wrongCount: 2 }
+      ]
+    })
+    expect(independentBefore.dashboard).toMatchObject({
+      totalAnsweredCount: 1,
+      correctCount: 0,
+      wrongNoteCount: 1,
+      solvedWrongNoteCount: 0
+    })
+    expect(independentBefore.review).toMatchObject({
+      total: 1,
+      counts: { due: 1, unreviewed: 1, repeated: 0, solved: 0 },
+      items: [
+        { questionId: getPinnedQuestion().id, status: 'NEW', wrongCount: 1 }
+      ]
+    })
+
+    const retirement = createPrismaStudyV1RetirementRepository(retirementClient)
+    expect(await retirement.retire([independent.sessionId])).toMatchObject({
+      deletedSessionCount: 1,
+      deletedWrongNoteCount: 1,
+      preservedSessionCount: 0
+    })
+    const independentAfter = await readCounts(independentUserId)
+    expect(independentAfter.dashboard).toMatchObject({
+      totalAnsweredCount: 0,
+      correctCount: 0,
+      wrongNoteCount: 0,
+      solvedWrongNoteCount: 0
+    })
+    expect(independentAfter.review).toMatchObject({
+      total: 0,
+      counts: { due: 0, unreviewed: 0, repeated: 0, solved: 0 },
+      items: []
+    })
+    expect(await readCounts(mixedUserId)).toEqual(mixedBefore)
+
+    expect(
+      await retirement.retire([source.sessionId, retry.sessionId])
+    ).toMatchObject({
+      deletedSessionCount: 0,
+      deletedWrongNoteCount: 0,
+      preservedSessionCount: 1
+    })
+    expect(await readCounts(mixedUserId)).toEqual(mixedBefore)
+    expect(await readCounts(independentUserId)).toEqual(independentAfter)
   })
 })
 

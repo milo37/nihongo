@@ -14,6 +14,11 @@ export const isAuthenticationBoundaryApiError = (error: unknown): boolean =>
 export const isOfflineApiError = (error: unknown): boolean =>
   isApiError(error) && error.isOffline === true
 
+export const isRetiredPracticeApiError = (error: unknown): boolean =>
+  isApiError(error) &&
+  error.status === 409 &&
+  error.code === 'PRACTICE_CONTRACT_VERSION_MISMATCH'
+
 export const isNoEligibleQuestionsApiError = (error: unknown): boolean =>
   isApiError(error) && error.code === 'NO_ELIGIBLE_QUESTIONS'
 

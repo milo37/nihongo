@@ -228,7 +228,6 @@ export const PracticePage = ({
       <ResumablePractice
         query={resumableSessions}
         canLoad={canLoadResumableSessions}
-        storedSessionId={storedSessionId}
         requestedPage={resumablePage}
         pageCount={resumablePageCount}
         sourceUnavailable={isResumableSourceUnavailable}
