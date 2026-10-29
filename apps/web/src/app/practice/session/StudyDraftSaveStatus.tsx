@@ -7,7 +7,14 @@ type StudyDraftSaveStatusProps = {
   status: PracticeDraftStatusCode | null
   onRetry: () => void
 }
-const states = ['saved', 'dirty', 'saving', 'error', 'offline'] as const
+const states = [
+  'saved',
+  'reconciled',
+  'dirty',
+  'saving',
+  'error',
+  'offline'
+] as const
 
 export const StudyDraftSaveStatus = ({
   status,
@@ -19,6 +26,7 @@ export const StudyDraftSaveStatus = ({
       ? 'saved'
       : states.find((value) => value === status)
   const canRetry = state === 'error' || state === 'offline'
+  const shouldAnnounce = canRetry || state === 'reconciled'
   return (
     <div className="study-inline-save" data-save-state={status ?? 'detailed'}>
       {/* Measure every localized state in the same grid cell, including wrapped retry.
@@ -50,9 +58,9 @@ export const StudyDraftSaveStatus = ({
         className="study-inline-save-item study-inline-save-current"
         data-has-retry={canRetry ? '' : undefined}
         data-tone={state === 'error' ? 'danger' : undefined}
-        aria-live={canRetry ? 'polite' : 'off'}
-        role={canRetry ? 'status' : undefined}
-        aria-atomic={canRetry ? true : undefined}
+        aria-live={shouldAnnounce ? 'polite' : 'off'}
+        role={shouldAnnounce ? 'status' : undefined}
+        aria-atomic={shouldAnnounce ? true : undefined}
       >
         {state ? (
           <>

@@ -96,7 +96,6 @@ export const PracticeSessionPage = (): ReactElement => {
   const navigate = useNavigate()
   const { isReady: isAuthReady, role, user } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const draftConflictReturnFocusRef = useRef<HTMLElement | null>(null)
   const submitButtonRef = useRef<HTMLButtonElement>(null)
   const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
     useState(false)
@@ -397,10 +396,6 @@ export const PracticeSessionPage = (): ReactElement => {
     }
   }, [canFocusCurrentQuestion, currentQuestion?.id, isNavigationPromptBlocked])
 
-  useEffect(() => {
-    draftConflictReturnFocusRef.current = null
-  }, [currentQuestion?.id])
-
   const movePrevious = (): void => {
     if (isSessionRefreshUnavailable) return
     draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
@@ -423,9 +418,6 @@ export const PracticeSessionPage = (): ReactElement => {
       !isSessionRefreshUnavailable &&
       sessionQuery.data?.session.status === 'IN_PROGRESS'
     ) {
-      if (document.activeElement instanceof HTMLElement) {
-        draftConflictReturnFocusRef.current = document.activeElement
-      }
       const isFirstAnswer = !displayedSelectedAnswers[currentQuestion.id]
       if (currentQuestion.sessionQuestionId) {
         draftController.selectOption(
@@ -980,6 +972,7 @@ export const PracticeSessionPage = (): ReactElement => {
       'synced',
       'saved',
       'savedAt',
+      'reconciled',
       'dirty',
       'saving',
       'error',
@@ -1471,34 +1464,6 @@ export const PracticeSessionPage = (): ReactElement => {
             ) : null}
           </div>
         ) : null}
-      </Dialog>
-
-      <Dialog
-        open={hasResolvedDraftConflict}
-        title={t('session.conflict.title')}
-        description={t('session.conflict.description', {
-          conflicts: formatCount(draftController.conflictCount)
-        })}
-        returnFocusRef={draftConflictReturnFocusRef}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={draftController.resolveConflictWithServer}
-            >
-              {t('session.conflict.useServer')}
-            </Button>
-            <Button onClick={draftController.resolveConflictWithLocal}>
-              {t('session.conflict.keepLocal')}
-            </Button>
-          </>
-        }
-        preventClose
-        onOpenChange={() => undefined}
-      >
-        <p className="text-sm leading-6 text-muted">
-          {t('session.conflict.detail')}
-        </p>
       </Dialog>
 
       {navigationPrompt}

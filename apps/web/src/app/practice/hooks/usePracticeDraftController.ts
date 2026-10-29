@@ -10,6 +10,7 @@ import {
   createEmptyStudyDraftDiff,
   diffStudyDraftSnapshots,
   isStudyDraftDiffEmpty,
+  mergeStudyDraftDiffs,
   mergeStudyDraftSnapshots,
   toSaveStudyDraftBody,
   type StudyDraftLocalDiff
@@ -41,7 +42,6 @@ import {
 } from '@nihongo/browser/libs/authTransitionFence'
 import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { useAppStore } from '@nihongo/browser/store/index'
-import { isNotFoundApiError } from '@libs/apiError'
 
 export const STUDY_DRAFT_AUTOSAVE_DELAY_MS = 2_000
 const STUDY_DRAFT_AUTOSAVE_MAX_WAIT_MS = 10_000
@@ -91,8 +91,6 @@ export interface PracticeDraftController {
   moveToOrdinal: (ordinal: number) => void
   prepareSubmission: () => Promise<PreparedStudyDraftSubmission>
   retrySave: () => Promise<void>
-  resolveConflictWithLocal: () => void
-  resolveConflictWithServer: () => void
   saveState: ReturnType<typeof useAppStore.getState>['draftSaveState']
   selectOption: (sessionQuestionId: string, optionId: string) => void
   snapshot: StudyDraftSnapshot | null
@@ -101,6 +99,7 @@ export interface PracticeDraftController {
 
 export type PracticeDraftStatusCode =
   | 'remoteDeferred'
+  | 'reconciled'
   | 'conflictPending'
   | 'dirty'
   | 'saving'
@@ -230,8 +229,13 @@ const getStatus = (
   saveState: ReturnType<typeof useAppStore.getState>['draftSaveState'],
   savedAt: string | null,
   conflictPending: boolean,
-  deferredRemoteRevision: boolean
+  deferredRemoteRevision: boolean,
+  reconciled: boolean
 ): PracticeDraftStatus => {
+  if (saveState === 'offline' || saveState === 'error') {
+    return { code: saveState }
+  }
+
   if (deferredRemoteRevision) {
     return { code: 'remoteDeferred' }
   }
@@ -246,13 +250,10 @@ const getStatus = (
     case 'saving':
       return { code: 'saving' }
     case 'saved':
+      if (reconciled) return { code: 'reconciled' }
       return savedAt ? { code: 'savedAt', savedAt } : { code: 'saved' }
-    case 'offline':
-      return { code: 'offline' }
     case 'conflict':
       return { code: 'conflict' }
-    case 'error':
-      return { code: 'error' }
     default:
       return { code: 'synced' }
   }
@@ -290,6 +291,7 @@ export const usePracticeDraftController = ({
     : null
   const [recoveredBootstrapAttemptKey, setRecoveredBootstrapAttemptKey] =
     useState<string | null>(null)
+  const [reconciledScope, setReconciledScope] = useState<string | null>(null)
   const [deferredRemoteRevisionScope, setDeferredRemoteRevisionScope] =
     useState<string | null>(null)
   const mustReplayBeforeCanonicalGet = Boolean(
@@ -357,7 +359,9 @@ export const usePracticeDraftController = ({
     snapshot: StudyDraftSnapshot
   } | null>(null)
   const integrityBlockScopeRef = useRef<string | null>(null)
+  const terminalScopeRef = useRef<string | null>(null)
   const recoveryKeyRef = useRef<string | null>(null)
+  const legacyConflictRecoveryScopeRef = useRef<string | null>(null)
   const saveNowRef = useRef<() => Promise<StudyDraftSnapshot>>(async () => {
     throw new Error('draft controller가 아직 준비되지 않았습니다.')
   })
@@ -563,37 +567,43 @@ export const usePracticeDraftController = ({
       clockBaseline?: StudyDraftSnapshot
     ): StudyDraftWorkingCopy => {
       const merged = mergeStudyDraftSnapshots(base, local, remote)
-      const chosen =
-        merged.conflicts.length > 0 ? merged.localPreferred : merged.autoMerged
+      const chosen = merged.autoMerged
       const localDiff = diffStudyDraftSnapshots(remote, chosen)
       const next = withConfirmedBase(record, remote, localDiff)
 
       setDraftConflictPending(false)
-      if (merged.conflicts.length > 0) {
-        const pendingConflict = {
-          base,
-          conflicts: merged.conflicts,
-          local,
-          localPreferred: merged.localPreferred,
-          remote
-        }
-        const nextWithConflict: StudyDraftWorkingCopy = {
-          ...next,
-          pendingConflict
-        }
-        setDraftConflict(pendingConflict)
-        setMemoryAndDurableRecord(nextWithConflict, 'conflict')
-        resetClock(chosen, clockBaseline)
-        return nextWithConflict
+      setDraftConflict(null)
+      if (isStudyDraftDiffEmpty(localDiff)) {
+        clearDurableRecordWhenClean(next, 'saved')
       } else {
-        setDraftConflict(null)
-        if (isStudyDraftDiffEmpty(localDiff)) {
-          clearDurableRecordWhenClean(next, 'saved')
-        } else {
-          setMemoryAndDurableRecord(next, 'dirty')
-        }
+        setMemoryAndDurableRecord(next, 'dirty')
       }
       resetClock(chosen, clockBaseline)
+      return next
+    },
+    [
+      clearDurableRecordWhenClean,
+      resetClock,
+      setDraftConflict,
+      setDraftConflictPending,
+      setMemoryAndDurableRecord
+    ]
+  )
+
+  const reconcilePostFlight = useCallback(
+    (record: StudyDraftWorkingCopy, remote: StudyDraftSnapshot) => {
+      const previous = getVisibleSnapshot(record)
+      const desired = applyStudyDraftDiff(remote, record.postFlightLocalDiff)
+      const localDiff = diffStudyDraftSnapshots(remote, desired)
+      const next = withConfirmedBase(record, remote, localDiff)
+      setDraftConflict(null)
+      setDraftConflictPending(false)
+      if (isStudyDraftDiffEmpty(localDiff)) {
+        clearDurableRecordWhenClean(next, 'saved')
+      } else {
+        setMemoryAndDurableRecord(next, 'dirty')
+      }
+      resetClock(desired, previous)
       return next
     },
     [
@@ -631,13 +641,12 @@ export const usePracticeDraftController = ({
       }
 
       if (record.frozenAttempt) {
-        const frozen = applySaveStudyDraftBody(
-          record.confirmedBase,
-          record.frozenAttempt.exactParsedBody
-        )
         const next = {
           ...record,
-          postFlightLocalDiff: diffStudyDraftSnapshots(frozen, target)
+          postFlightLocalDiff: mergeStudyDraftDiffs(
+            record.postFlightLocalDiff,
+            diffStudyDraftSnapshots(visible, target)
+          )
         }
         setMemoryAndDurableRecord(
           next,
@@ -686,26 +695,6 @@ export const usePracticeDraftController = ({
       clockRef.current?.resume(active.studySessionQuestionId)
     }
   }, [enabled, interactionPausedRef, principalScope, sessionId])
-
-  const withObservedClockElapsed = useCallback(
-    (snapshot: StudyDraftSnapshot): StudyDraftSnapshot => {
-      const clock = clockRef.current
-      if (!clock) {
-        return snapshot
-      }
-      const elapsedById = clock.flush()
-      setElapsedSeconds(clock.totalSeconds())
-      return {
-        ...snapshot,
-        answers: snapshot.answers.map((answer) => ({
-          ...answer,
-          elapsedSec:
-            elapsedById[answer.studySessionQuestionId] ?? answer.elapsedSec
-        }))
-      }
-    },
-    []
-  )
 
   const fetchCanonicalDraft = useCallback(
     async (
@@ -804,16 +793,16 @@ export const usePracticeDraftController = ({
         return null
       }
       if (record.pendingConflict) {
-        const pending = pendingRemoteRevisionRef.current
-        pendingRemoteRevisionRef.current = {
-          revision:
-            pending?.scopeKey === controllerScopeKey
-              ? Math.max(pending.revision, remote.revision)
-              : remote.revision,
-          scopeKey: controllerScopeKey
-        }
-        setDeferredRemoteRevisionScope(controllerScopeKey)
-        return null
+        const next = withConfirmedBase(
+          record,
+          remote,
+          createEmptyStudyDraftDiff()
+        )
+        setDraftConflict(null)
+        setDraftConflictPending(false)
+        clearDurableRecordWhenClean(next, 'saved')
+        resetClock(remote)
+        return remote
       }
       if (integrityBlockScopeRef.current === controllerScopeKey) {
         integrityBlockScopeRef.current = null
@@ -827,12 +816,16 @@ export const usePracticeDraftController = ({
       return remote
     }, [
       controllerScopeKey,
+      clearDurableRecordWhenClean,
       fetchCanonicalDraft,
       flushClockToWorkingCopy,
       principalScope,
       reconcile,
+      resetClock,
       sessionId,
-      setDeferredRemoteRevisionScope
+      setDeferredRemoteRevisionScope,
+      setDraftConflict,
+      setDraftConflictPending
     ])
 
   const rememberRemoteRevision = useCallback(
@@ -915,6 +908,7 @@ export const usePracticeDraftController = ({
   ])
 
   const clearScopedWorkingCopy = useCallback((): void => {
+    terminalScopeRef.current = controllerScopeKey
     const current = useAppStore.getState().draftWorkingCopy
     if (!isWorkingCopyForScope(current, principalScope, sessionId)) {
       return
@@ -963,10 +957,6 @@ export const usePracticeDraftController = ({
         return true
       } catch (sessionError: unknown) {
         assertCurrentAuthTransitionEpoch(actionEpoch)
-        if (isNotFoundApiError(sessionError)) {
-          clearScopedWorkingCopy()
-          return true
-        }
         throw sessionError
       }
     },
@@ -1013,7 +1003,8 @@ export const usePracticeDraftController = ({
           integrityBlockScopeRef.current = controllerScopeKey
         }
         setDraftConflictPending(
-          error instanceof DraftIntegrityError ||
+          Boolean(current.pendingConflict) ||
+            error instanceof DraftIntegrityError ||
             integrityBlockScopeRef.current === controllerScopeKey
         )
         setDraftSaveState(
@@ -1111,6 +1102,45 @@ export const usePracticeDraftController = ({
     sessionId
   })
 
+  useEffect(() => {
+    const record = isWorkingCopyForScope(
+      draftWorkingCopy,
+      principalScope,
+      sessionId
+    )
+      ? draftWorkingCopy
+      : usableBootstrapRecord
+    if (
+      !enabled ||
+      !record?.pendingConflict ||
+      legacyConflictRecoveryScopeRef.current === controllerScopeKey
+    )
+      return
+    legacyConflictRecoveryScopeRef.current = controllerScopeKey
+    if (!isWorkingCopyForScope(draftWorkingCopy, principalScope, sessionId)) {
+      setDraftWorkingCopy(record)
+      resetClock(getVisibleSnapshot(record))
+    }
+    setDraftConflict(null)
+    setDraftConflictPending(true)
+    setDraftSaveState('conflict')
+    void reconcileFromServer().catch(handleRemoteReconcileFailure)
+  }, [
+    controllerScopeKey,
+    draftWorkingCopy,
+    enabled,
+    handleRemoteReconcileFailure,
+    principalScope,
+    reconcileFromServer,
+    resetClock,
+    sessionId,
+    setDraftConflict,
+    setDraftConflictPending,
+    setDraftSaveState,
+    setDraftWorkingCopy,
+    usableBootstrapRecord
+  ])
+
   const completeSave = useCallback(
     async (
       record: StudyDraftWorkingCopy,
@@ -1121,31 +1151,45 @@ export const usePracticeDraftController = ({
         return record.confirmedBase
       }
 
-      const acknowledgement = await saveMutation.mutateAsync({
-        body: frozen.exactParsedBody,
-        idempotencyKey: frozen.idempotencyKey
-      })
-      assertCurrentAuthTransitionEpoch(actionEpoch)
-      const expectedAcknowledgement = applySaveStudyDraftBody(
-        record.confirmedBase,
-        frozen.exactParsedBody
-      )
-      if (
-        acknowledgement.data.revision !==
-          frozen.exactParsedBody.expectedRevision + 1 ||
-        acknowledgement.data.currentOrdinal !==
-          frozen.exactParsedBody.currentOrdinal ||
-        JSON.stringify(acknowledgement.data.answers) !==
-          JSON.stringify(frozen.exactParsedBody.answers)
-      ) {
-        throw new DraftIntegrityError(
-          'draft 저장 acknowledgement가 frozen 요청과 다릅니다.'
+      let canonical: StudyDraftSnapshot
+      if (frozen.rejected) {
+        canonical = await fetchCanonicalDraft(record.confirmedBase)
+        if (canonical.revision <= record.confirmedBase.revision) {
+          throw new DraftIntegrityError(
+            '충돌 뒤 canonical draft revision이 앞으로 이동하지 않았습니다.'
+          )
+        }
+      } else {
+        const acknowledgement = await saveMutation.mutateAsync({
+          body: frozen.exactParsedBody,
+          idempotencyKey: frozen.idempotencyKey
+        })
+        assertCurrentAuthTransitionEpoch(actionEpoch)
+        const expectedAcknowledgement = applySaveStudyDraftBody(
+          record.confirmedBase,
+          frozen.exactParsedBody
         )
+        if (
+          acknowledgement.data.revision !==
+            frozen.exactParsedBody.expectedRevision + 1 ||
+          acknowledgement.data.currentOrdinal !==
+            frozen.exactParsedBody.currentOrdinal ||
+          JSON.stringify(acknowledgement.data.answers) !==
+            JSON.stringify(frozen.exactParsedBody.answers)
+        ) {
+          throw new DraftIntegrityError(
+            'draft 저장 acknowledgement가 frozen 요청과 다릅니다.'
+          )
+        }
+        assertSameQuestionBoundary(
+          expectedAcknowledgement,
+          acknowledgement.data
+        )
+        canonical = await fetchCanonicalDraft(acknowledgement.data)
       }
-      assertSameQuestionBoundary(expectedAcknowledgement, acknowledgement.data)
-      const canonical = await fetchCanonicalDraft(acknowledgement.data)
       assertCurrentAuthTransitionEpoch(actionEpoch)
 
+      flushClockToWorkingCopy()
       const latestRecord = useAppStore.getState().draftWorkingCopy
       if (
         !isWorkingCopyForScope(latestRecord, principalScope, sessionId) ||
@@ -1154,41 +1198,28 @@ export const usePracticeDraftController = ({
         throw new Error('저장 중 작업본 경계가 바뀌었습니다.')
       }
 
-      const explicitLocal = applyStudyDraftDiff(
-        acknowledgement.data,
-        latestRecord.postFlightLocalDiff
-      )
-      const observedLocal = withObservedClockElapsed(explicitLocal)
-      const observedMerge = mergeStudyDraftSnapshots(
-        acknowledgement.data,
-        observedLocal,
-        canonical
-      )
-      const local =
-        observedMerge.conflicts.length > 0 ? observedLocal : explicitLocal
-      const next = reconcile(
-        latestRecord,
-        acknowledgement.data,
-        local,
-        canonical,
-        local
-      )
+      const next = reconcilePostFlight(latestRecord, canonical)
+      if (frozen.rejected) setReconciledScope(controllerScopeKey)
       setRecoveredBootstrapAttemptKey(frozen.idempotencyKey)
       publishRevision(canonical.revision)
       return getVisibleSnapshot(next)
     },
     [
+      controllerScopeKey,
       fetchCanonicalDraft,
+      flushClockToWorkingCopy,
       principalScope,
       publishRevision,
-      reconcile,
+      reconcilePostFlight,
       saveMutation,
-      sessionId,
-      withObservedClockElapsed
+      sessionId
     ]
   )
 
   const performSave = useCallback(async (): Promise<StudyDraftSnapshot> => {
+    if (terminalScopeRef.current === controllerScopeKey) {
+      throw new Error('종료된 학습의 작업본은 저장할 수 없습니다.')
+    }
     if (savePromiseRef.current) {
       return savePromiseRef.current
     }
@@ -1315,43 +1346,31 @@ export const usePracticeDraftController = ({
           rememberSavePacing(timing, actionEpoch)
         }
         let failure = error
-        if (isApiError(error) && error.code === 'DRAFT_VERSION_CONFLICT') {
+        if (
+          isApiError(error) &&
+          error.code === 'DRAFT_VERSION_CONFLICT' &&
+          record.frozenAttempt &&
+          !record.frozenAttempt.rejected
+        ) {
           try {
-            flushClockToWorkingCopy()
-            const boundaryRecord = useAppStore.getState().draftWorkingCopy
-            if (
-              !isWorkingCopyForScope(boundaryRecord, principalScope, sessionId)
-            ) {
-              throw error
-            }
-            const remote = await fetchCanonicalDraft(
-              boundaryRecord.confirmedBase
-            )
-            if (remote.revision <= boundaryRecord.confirmedBase.revision) {
-              throw new DraftIntegrityError(
-                '충돌 뒤 canonical draft revision이 앞으로 이동하지 않았습니다.'
-              )
-            }
             assertCurrentAuthTransitionEpoch(actionEpoch)
             flushClockToWorkingCopy()
             const latest = useAppStore.getState().draftWorkingCopy
-            if (!isWorkingCopyForScope(latest, principalScope, sessionId)) {
+            if (
+              !isWorkingCopyForScope(latest, principalScope, sessionId) ||
+              latest.frozenAttempt?.idempotencyKey !==
+                record.frozenAttempt.idempotencyKey
+            ) {
               throw error
             }
-            const attemptedKey = latest.frozenAttempt?.idempotencyKey
-            if (!attemptedKey) {
-              throw error
+            const rejected = {
+              ...latest,
+              frozenAttempt: { ...latest.frozenAttempt, rejected: true }
             }
-            const local = getVisibleSnapshot(latest)
-            const reconciled = reconcile(
-              latest,
-              latest.confirmedBase,
-              local,
-              remote,
-              local
-            )
-            setRecoveredBootstrapAttemptKey(attemptedKey)
-            return getVisibleSnapshot(reconciled)
+            if (!setMemoryAndDurableRecord(rejected, 'saving')) {
+              throw new Error('거부된 저장의 상태를 보존하지 못했습니다.')
+            }
+            return await completeSave(rejected, actionEpoch)
           } catch (reconcileError: unknown) {
             failure = reconcileError
           }
@@ -1402,7 +1421,7 @@ export const usePracticeDraftController = ({
     fetchCanonicalDraft,
     flushClockToWorkingCopy,
     principalScope,
-    reconcile,
+    reconcilePostFlight,
     sessionId,
     settleTerminalSession,
     setDraftSaveState,
@@ -1476,7 +1495,12 @@ export const usePracticeDraftController = ({
   ])
 
   useEffect(() => {
-    if (!enabled || !draftQuery.data || mustReplayBeforeCanonicalGet) {
+    if (
+      !enabled ||
+      !draftQuery.data ||
+      mustReplayBeforeCanonicalGet ||
+      terminalScopeRef.current === controllerScopeKey
+    ) {
       return
     }
 
@@ -1506,10 +1530,6 @@ export const usePracticeDraftController = ({
         return
       }
       if (currentRecord.pendingConflict) {
-        setDraftConflict(currentRecord.pendingConflict)
-        setDraftConflictPending(false)
-        setDraftSaveState('conflict')
-        resetClock(getVisibleSnapshot(currentRecord))
         return
       }
       if (
@@ -1564,9 +1584,6 @@ export const usePracticeDraftController = ({
     }
     integrityBlockScopeRef.current = null
     if (stored.pendingConflict) {
-      setDraftConflict(stored.pendingConflict)
-      setDraftConflictPending(false)
-      setDraftSaveState('conflict')
       return
     }
     const local = applyStudyDraftDiff(stored.confirmedBase, stored.localDiff)
@@ -1810,15 +1827,17 @@ export const usePracticeDraftController = ({
 
     const visible = getVisibleSnapshot(record)
     const target = update(visible)
+    if (JSON.stringify(visible.answers) !== JSON.stringify(target.answers)) {
+      setReconciledScope(null)
+    }
     if (record.frozenAttempt) {
-      const frozen = applySaveStudyDraftBody(
-        record.confirmedBase,
-        record.frozenAttempt.exactParsedBody
-      )
       setMemoryAndDurableRecord(
         {
           ...record,
-          postFlightLocalDiff: diffStudyDraftSnapshots(frozen, target)
+          postFlightLocalDiff: mergeStudyDraftDiffs(
+            record.postFlightLocalDiff,
+            diffStudyDraftSnapshots(visible, target)
+          )
         },
         navigator.onLine === false
           ? 'offline'
@@ -1839,50 +1858,6 @@ export const usePracticeDraftController = ({
         navigator.onLine === false ? 'offline' : 'dirty'
       )
     }
-  }
-
-  const resolveConflictWithServer = (): void => {
-    const conflict = useAppStore.getState().draftConflict
-    const record = useAppStore.getState().draftWorkingCopy
-    if (
-      !conflict ||
-      !isWorkingCopyForScope(record, principalScope, sessionId)
-    ) {
-      return
-    }
-    const next = withConfirmedBase(
-      record,
-      conflict.remote,
-      createEmptyStudyDraftDiff()
-    )
-    setDraftConflict(null)
-    setDraftConflictPending(false)
-    clearDurableRecordWhenClean(next, 'saved')
-    resetClock(conflict.remote)
-  }
-
-  const resolveConflictWithLocal = (): void => {
-    const conflict = useAppStore.getState().draftConflict
-    const record = useAppStore.getState().draftWorkingCopy
-    if (
-      !conflict ||
-      !isWorkingCopyForScope(record, principalScope, sessionId)
-    ) {
-      return
-    }
-    const localDiff = diffStudyDraftSnapshots(
-      conflict.remote,
-      conflict.localPreferred
-    )
-    const next = withConfirmedBase(record, conflict.remote, localDiff)
-    setDraftConflict(null)
-    setDraftConflictPending(false)
-    if (isStudyDraftDiffEmpty(localDiff)) {
-      clearDurableRecordWhenClean(next, 'saved')
-    } else {
-      setMemoryAndDurableRecord(next, 'dirty')
-    }
-    resetClock(conflict.localPreferred)
   }
 
   const flush = (bypassPacing = true): Promise<StudyDraftSnapshot> => {
@@ -2025,6 +2000,16 @@ export const usePracticeDraftController = ({
         }
         return
       }
+      if (current.pendingConflict) {
+        setDraftConflictPending(true)
+        try {
+          await reconcileFromServer()
+        } catch (error: unknown) {
+          handleRemoteReconcileFailure(error)
+          throw error
+        }
+        return
+      }
       if (
         !current.frozenAttempt &&
         !current.pendingConflict &&
@@ -2044,8 +2029,6 @@ export const usePracticeDraftController = ({
       }
       await flush(false)
     },
-    resolveConflictWithLocal,
-    resolveConflictWithServer,
     saveState: draftSaveState,
     selectOption: (sessionQuestionId, optionId) => {
       updateVisibleSnapshot((current) => ({
@@ -2062,7 +2045,8 @@ export const usePracticeDraftController = ({
       draftSaveState,
       scopedWorkingCopy?.confirmedBase.savedAt ?? null,
       isDraftConflictPending,
-      deferredRemoteRevisionScope === controllerScopeKey
+      deferredRemoteRevisionScope === controllerScopeKey,
+      reconciledScope === controllerScopeKey
     )
   }
 }

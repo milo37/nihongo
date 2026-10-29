@@ -12,15 +12,22 @@ import type { SaveStudyDraftMutationInput } from '@app/practice/queries/studyDra
 import {
   clearAllStudyDraftWorkingCopies,
   clearStudyDraftWorkingCopyMemoryCache,
-  readStudyDraftWorkingCopy
+  readStudyDraftWorkingCopy,
+  writeStudyDraftWorkingCopy
 } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import { createStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopy'
+import {
+  diffStudyDraftSnapshots,
+  mergeStudyDraftSnapshots
+} from '@nihongo/browser/app/practice/draft/studyDraftMerge'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import { useAppStore } from '@nihongo/browser/store/index'
 
 const io = vi.hoisted(() => ({
   initial: vi.fn(),
   save: vi.fn(),
-  canonical: vi.fn()
+  canonical: vi.fn(),
+  session: vi.fn()
 }))
 vi.mock('@app/practice/hooks/useGetStudyDraft', () => ({
   useGetStudyDraft: () => ({ data: io.initial(), isError: false, error: null })
@@ -45,7 +52,7 @@ vi.mock('@app/practice/queries/studySessionQueries', async (importOriginal) => {
       ...original.studySessionQueries,
       session: (sessionId: string) => ({
         queryKey: ['controller-test-session', sessionId],
-        queryFn: async () => ({ session: { status: 'IN_PROGRESS' } })
+        queryFn: io.session
       })
     }
   }
@@ -132,6 +139,9 @@ beforeEach(() => {
   startedAt = []
   io.initial.mockReset().mockImplementation(() => server)
   io.canonical.mockReset().mockImplementation(async () => server)
+  io.session
+    .mockReset()
+    .mockResolvedValue({ session: { status: 'IN_PROGRESS' } })
   io.save
     .mockReset()
     .mockImplementation(async (input: SaveStudyDraftMutationInput) => {
@@ -236,6 +246,28 @@ describe('practice draft autosave pacing', () => {
     expect(io.save).toHaveBeenCalledTimes(2)
     expect(server.answers[0]?.selectedOptionId).toBe(optionB)
     expect(startedAt[1]! - startedAt[0]!).toBe(10_000)
+  })
+
+  it('retains an actual post-flight edit that returns to the frozen value', async () => {
+    const h = mount()
+    let finish!: () => void
+    io.save.mockImplementationOnce(
+      async (input: SaveStudyDraftMutationInput) => {
+        await new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        return accept(input)
+      }
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    act(() => h.result.current.selectOption(answer(), optionB))
+    act(() => h.result.current.selectOption(answer(), optionA))
+    expect(
+      readStudyDraftWorkingCopy('GUEST', server.studySessionId)
+        ?.postFlightLocalDiff.answers[answer()]?.selectedOptionId
+    ).toBe(optionA)
+    await act(async () => finish())
   })
 
   it('submit and concurrent leave drain share one flight and bypass pacing after its ACK', async () => {
@@ -400,7 +432,201 @@ describe('practice draft autosave pacing', () => {
     ).toBe(optionA)
   })
 
-  it('stale multi-tab 409 reconciles canonical conflicts without a second blind PUT', async () => {
+  it('replays an uncertain request with the same key, then trusts a newer GET', async () => {
+    const h = mount()
+    let oldAck!: { data: StudyDraftSnapshot }
+    io.save.mockImplementationOnce(
+      async (input: SaveStudyDraftMutationInput) => {
+        oldAck = accept(input)
+        throw withErrorFlags(new Error('unknown response'), {
+          isNetworkError: true
+        })
+      }
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    const first = io.save.mock.calls[0]![0]
+    server = {
+      ...server,
+      revision: 2,
+      savedAt: new Date(Date.now() + 1).toISOString(),
+      answers: server.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    io.save.mockResolvedValueOnce(oldAck)
+    await advance(5_000)
+    await act(async () => h.result.current.retrySave())
+    expect(io.save.mock.calls[1]![0]).toEqual(first)
+    expect(io.canonical).toHaveBeenCalled()
+    expect(h.result.current.snapshot?.revision).toBe(2)
+    expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
+      optionB
+    )
+    await advance(10_000)
+    expect(io.save).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not treat a replay ACK as an editable draft after submission', async () => {
+    const h = mount()
+    let oldAck!: { data: StudyDraftSnapshot }
+    io.save.mockImplementationOnce(
+      async (input: SaveStudyDraftMutationInput) => {
+        oldAck = accept(input)
+        throw withErrorFlags(new Error('unknown response'), {
+          isNetworkError: true
+        })
+      }
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    const first = io.save.mock.calls[0]![0]
+    io.save.mockResolvedValueOnce(oldAck)
+    io.canonical.mockRejectedValueOnce(
+      withErrorFlags(new Error('terminal'), {
+        code: 'RESOURCE_NOT_FOUND',
+        status: 404
+      })
+    )
+    io.session.mockResolvedValueOnce({ session: { status: 'SUBMITTED' } })
+    await advance(5_000)
+    await act(async () => {
+      await expect(h.result.current.retrySave()).rejects.toThrow()
+    })
+    expect(io.save.mock.calls[1]![0]).toEqual(first)
+    expect(io.save).toHaveBeenCalledTimes(2)
+    expect(useAppStore.getState().draftWorkingCopy).toBeNull()
+    expect(h.result.current.saveState).not.toBe('saved')
+  })
+
+  it('preserves the working copy when session ownership is unknown after a 404', async () => {
+    const h = mount()
+    io.save.mockRejectedValueOnce(
+      withErrorFlags(new Error('draft missing'), {
+        code: 'RESOURCE_NOT_FOUND',
+        status: 404
+      })
+    )
+    io.session.mockRejectedValueOnce(
+      withErrorFlags(new Error('session unknown'), {
+        code: 'RESOURCE_NOT_FOUND',
+        status: 404
+      })
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    expect(
+      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.frozenAttempt
+    ).not.toBeNull()
+    expect(h.result.current.saveState).not.toBe('saved')
+  })
+
+  it.each(['retry', 'reload'] as const)(
+    'uses GET, not the rejected PUT, after conflict recovery fails and %s',
+    async (mode) => {
+      const h = mount()
+      act(() => h.result.current.selectOption(answer(), optionA))
+      server = {
+        ...server,
+        revision: 1,
+        savedAt: new Date().toISOString(),
+        answers: server.answers.map((value, i) =>
+          i === 0 ? { ...value, selectedOptionId: optionB } : value
+        )
+      }
+      io.canonical.mockRejectedValueOnce(
+        withErrorFlags(new Error('synthetic network failure'), {
+          isNetworkError: true
+        })
+      )
+      await advance(2_000)
+      expect(io.save).toHaveBeenCalledTimes(1)
+      expect(io.canonical).toHaveBeenCalledTimes(1)
+      const rejected = io.save.mock.calls[0]![0]
+      expect(rejected.body.expectedRevision).toBe(0)
+      expect(rejected.idempotencyKey).toBeTruthy()
+      if (mode === 'reload') {
+        h.unmount()
+        clearStudyDraftWorkingCopyMemoryCache()
+        useAppStore.setState({ draftWorkingCopy: null, draftSaveState: 'idle' })
+        mount()
+        await advance(5_000)
+      } else {
+        await advance(5_000)
+        await act(async () => h.result.current.retrySave())
+      }
+      expect(io.save).toHaveBeenCalledTimes(1)
+      expect(io.canonical).toHaveBeenCalledTimes(2)
+      expect(useAppStore.getState().draftWorkingCopy?.confirmedBase).toEqual(
+        server
+      )
+    }
+  )
+
+  it('keeps post-flight edits through rejected PUT, offline retry and reload', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+    const h = mount()
+    let rejectPut!: () => void
+    io.save.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectPut = () =>
+            reject(
+              withErrorFlags(new Error('synthetic conflict'), {
+                code: 'DRAFT_VERSION_CONFLICT',
+                status: 409
+              })
+            )
+        })
+    )
+    io.canonical.mockRejectedValueOnce(
+      withErrorFlags(new Error('synthetic offline'), { isNetworkError: true })
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    const rejected = io.save.mock.calls[0]![0]
+    act(() => h.result.current.selectOption(questions()[1]!, optionB))
+    server = {
+      ...server,
+      revision: 1,
+      savedAt: new Date().toISOString(),
+      answers: server.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    await act(async () => rejectPut())
+    expect(io.canonical).toHaveBeenCalledTimes(1)
+    const saved = readStudyDraftWorkingCopy('GUEST', server.studySessionId)
+    expect(
+      saved?.postFlightLocalDiff.answers[questions()[1]!]?.selectedOptionId
+    ).toBe(optionB)
+    online.mockReturnValue(false)
+    let retry!: Promise<unknown>
+    act(() => {
+      retry = h.result.current.retrySave().catch((error: unknown) => error)
+    })
+    await advance(5_000)
+    expect(await retry).toBeInstanceOf(Error)
+    expect(io.save).toHaveBeenCalledTimes(1)
+    h.unmount()
+    clearStudyDraftWorkingCopyMemoryCache()
+    useAppStore.setState({ draftWorkingCopy: null, draftSaveState: 'idle' })
+    online.mockReturnValue(true)
+    mount()
+    await advance(0)
+    expect(io.canonical).toHaveBeenCalledTimes(2)
+    expect(io.save).toHaveBeenCalledTimes(1)
+    await advance(7_000)
+    expect(io.save).toHaveBeenCalledTimes(2)
+    expect(io.canonical).toHaveBeenCalledTimes(3)
+    const next = io.save.mock.calls[1]![0]
+    expect(next.idempotencyKey).not.toBe(rejected.idempotencyKey)
+    expect(next.body.expectedRevision).toBe(1)
+    expect(next.body.answers[0]?.selectedOptionId).toBe(optionB)
+    expect(next.body.answers[1]?.selectedOptionId).toBe(optionB)
+  })
+
+  it('stale multi-tab 409 keeps the committed server value without a second blind PUT', async () => {
     const h = mount()
     act(() => h.result.current.selectOption(answer(), optionA))
     server = {
@@ -414,11 +640,209 @@ describe('practice draft autosave pacing', () => {
     await advance(2_000)
     expect(io.save).toHaveBeenCalledTimes(1)
     expect(io.canonical).toHaveBeenCalledTimes(1)
-    expect(h.result.current.conflictCount).toBeGreaterThan(0)
+    expect(h.result.current.conflictCount).toBe(0)
+    expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
+      optionB
+    )
+    expect(h.result.current.status.code).toBe('reconciled')
+    act(() => useAppStore.getState().setDraftSaveState('offline'))
+    expect(h.result.current.status.code).toBe('offline')
+    act(() => useAppStore.getState().setDraftSaveState('saved'))
+    expect(h.result.current.status.code).toBe('reconciled')
+    act(() => h.result.current.selectOption(answer(), optionA))
+    expect(h.result.current.status.code).toBe('dirty')
     await act(async () => {
-      await expect(h.result.current.flush()).rejects.toThrow('충돌')
+      await h.result.current.flush()
     })
+    expect(h.result.current.status.code).toBe('savedAt')
     await advance(20_000)
+    expect(io.save).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps a legacy conflict on failed GET and adopts the server after explicit retry', async () => {
+    const base = server
+    const local = {
+      ...base,
+      answers: base.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionA } : value
+      )
+    }
+    server = {
+      ...base,
+      revision: 1,
+      savedAt: new Date().toISOString(),
+      answers: base.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    const merged = mergeStudyDraftSnapshots(base, local, server)
+    writeStudyDraftWorkingCopy({
+      ...createStudyDraftWorkingCopy({
+        confirmedBase: server,
+        principalScope: 'GUEST',
+        sessionId: server.studySessionId
+      }),
+      localDiff: diffStudyDraftSnapshots(server, merged.localPreferred),
+      pendingConflict: {
+        base,
+        local,
+        remote: server,
+        localPreferred: merged.localPreferred,
+        conflicts: merged.conflicts
+      }
+    })
+    io.canonical.mockRejectedValueOnce(new Error('offline synthetic'))
+    const h = mount()
+    await advance(0)
+    expect(
+      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.pendingConflict
+    ).not.toBeNull()
+    expect(useAppStore.getState().isDraftConflictPending).toBe(true)
+    expect(io.save).not.toHaveBeenCalled()
+    await act(async () => h.result.current.retrySave())
+    expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
+      optionB
+    )
+    expect(readStudyDraftWorkingCopy('GUEST', server.studySessionId)).toBeNull()
+    expect(io.save).not.toHaveBeenCalled()
+  })
+
+  it('saves only actual post-flight input after a 409, even when it returns to the frozen value', async () => {
+    const h = mount()
+    let finish!: () => void
+    io.save.mockImplementationOnce(
+      async (input: SaveStudyDraftMutationInput) => {
+        await new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        return accept(input)
+      }
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    const first = io.save.mock.calls[0]![0]
+    act(() => h.result.current.selectOption(answer(), optionB))
+    act(() => h.result.current.selectOption(answer(), optionA))
+    server = {
+      ...server,
+      revision: 1,
+      savedAt: new Date().toISOString(),
+      answers: server.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    await act(async () => finish())
+    await advance(5_000)
+    expect(io.save).toHaveBeenCalledTimes(2)
+    expect(io.save.mock.calls[1]![0].body.expectedRevision).toBe(1)
+    expect(io.save.mock.calls[1]![0].idempotencyKey).not.toBe(
+      first.idempotencyKey
+    )
+    expect(server.answers[0]?.selectedOptionId).toBe(optionA)
+    expect(h.result.current.conflictCount).toBe(0)
+  })
+
+  it('keeps input made while a 409 canonical GET is pending', async () => {
+    const h = mount()
+    let finishGet!: (snapshot: StudyDraftSnapshot) => void
+    io.canonical.mockImplementationOnce(
+      () =>
+        new Promise<StudyDraftSnapshot>((resolve) => {
+          finishGet = resolve
+        })
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    server = {
+      ...server,
+      revision: 1,
+      savedAt: new Date().toISOString(),
+      answers: server.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    await advance(2_000)
+    expect(io.canonical).toHaveBeenCalledTimes(1)
+    act(() => h.result.current.selectOption(questions()[1]!, optionA))
+    await act(async () => finishGet(server))
+    await advance(5_000)
+    expect(io.save).toHaveBeenCalledTimes(2)
+    expect(server.answers[0]?.selectedOptionId).toBe(optionB)
+    expect(server.answers[1]?.selectedOptionId).toBe(optionA)
+  })
+
+  it('does not resend an older post-flight edit after a second 409', async () => {
+    const h = mount()
+    let finish!: () => void
+    io.save.mockImplementationOnce(
+      async (input: SaveStudyDraftMutationInput) => {
+        await new Promise<void>((resolve) => {
+          finish = resolve
+        })
+        return accept(input)
+      }
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    await advance(2_000)
+    act(() => h.result.current.selectOption(answer(), optionB))
+    act(() => h.result.current.selectOption(answer(), optionA))
+    server = {
+      ...server,
+      revision: 1,
+      savedAt: new Date().toISOString(),
+      answers: server.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    await act(async () => finish())
+    server = {
+      ...server,
+      revision: 2,
+      savedAt: new Date(Date.now() + 1).toISOString()
+    }
+    await advance(5_000)
+    await advance(20_000)
+    expect(io.save).toHaveBeenCalledTimes(2)
+    expect(h.result.current.snapshot?.revision).toBe(2)
+    expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
+      optionB
+    )
+  })
+
+  it('does not apply a late 409 recovery GET after the auth epoch changes', async () => {
+    const h = mount()
+    let finishGet!: (snapshot: StudyDraftSnapshot) => void
+    io.canonical.mockImplementationOnce(
+      () =>
+        new Promise<StudyDraftSnapshot>((resolve) => {
+          finishGet = resolve
+        })
+    )
+    act(() => h.result.current.selectOption(answer(), optionA))
+    server = {
+      ...server,
+      revision: 1,
+      savedAt: new Date().toISOString(),
+      answers: server.answers.map((value, i) =>
+        i === 0 ? { ...value, selectedOptionId: optionB } : value
+      )
+    }
+    await advance(2_000)
+    expect(io.canonical).toHaveBeenCalledTimes(1)
+    const newActorRecord = createStudyDraftWorkingCopy({
+      confirmedBase: server,
+      principalScope: `USER:${crypto.randomUUID()}`,
+      sessionId: server.studySessionId
+    })
+    act(() => {
+      invalidateCanonicalAuthTransitions()
+      h.rerender({ enabled: false, sessionId: server.studySessionId })
+      useAppStore.setState({
+        draftWorkingCopy: newActorRecord,
+        draftSaveState: 'idle'
+      })
+    })
+    await act(async () => finishGet(server))
+    expect(useAppStore.getState().draftWorkingCopy).toEqual(newActorRecord)
     expect(io.save).toHaveBeenCalledTimes(1)
   })
 
@@ -492,7 +916,83 @@ describe('practice draft autosave pacing', () => {
     })
   })
 
-  it('a real revision-channel signal reconciles another tab without overwriting local work', async () => {
+  it.each(['offline', 'error'] as const)(
+    'shows %s when an actual remote revision signal overlaps an in-flight save',
+    async (failure) => {
+      const channels: EventTarget[] = []
+      vi.stubGlobal(
+        'BroadcastChannel',
+        class extends EventTarget {
+          constructor(_name: string) {
+            super()
+            channels.push(this)
+          }
+          postMessage() {}
+          close() {}
+        }
+      )
+      const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+      let rejectPut!: () => void
+      io.save.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectPut = () =>
+              reject(
+                failure === 'offline'
+                  ? withErrorFlags(new Error('network'), {
+                      isNetworkError: true
+                    })
+                  : withErrorFlags(new Error('server failure'), { status: 500 })
+              )
+          })
+      )
+      const h = mount()
+      act(() => h.result.current.selectOption(answer(), optionA))
+      await advance(2_000)
+      expect(io.save).toHaveBeenCalledTimes(1)
+      server = { ...server, revision: 1, savedAt: new Date().toISOString() }
+      act(() =>
+        channels[0]!.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              principalScope: 'GUEST',
+              sessionId: server.studySessionId,
+              revision: 1
+            }
+          })
+        )
+      )
+      expect(h.result.current.status.code).toBe('remoteDeferred')
+      if (failure === 'offline') {
+        online.mockReturnValue(false)
+        act(() => window.dispatchEvent(new Event('offline')))
+      } else {
+        await act(async () => rejectPut())
+      }
+      expect(h.result.current.saveState).toBe(failure)
+      expect(h.result.current.status.code).toBe(failure)
+      if (failure === 'offline') {
+        await act(async () => rejectPut())
+        online.mockReturnValue(true)
+        act(() => window.dispatchEvent(new Event('online')))
+        await advance(5_000)
+      } else {
+        let retry!: Promise<void>
+        act(() => {
+          retry = h.result.current.retrySave()
+        })
+        await advance(5_000)
+        await act(async () => retry)
+      }
+      expect(io.save).toHaveBeenCalledTimes(2)
+      expect(io.save.mock.calls[1]![0]).toEqual(io.save.mock.calls[0]![0])
+      expect(io.canonical).toHaveBeenCalled()
+      expect(h.result.current.snapshot?.revision).toBe(1)
+      expect(h.result.current.status.code).toBe('reconciled')
+    }
+  )
+
+  it('a real revision-channel signal keeps the committed server value for a conflicting field', async () => {
     const channels: EventTarget[] = []
     vi.stubGlobal(
       'BroadcastChannel',
@@ -540,11 +1040,11 @@ describe('practice draft autosave pacing', () => {
     )
     await advance(0)
     expect(io.canonical).toHaveBeenCalledTimes(1)
-    expect(h.result.current.conflictCount).toBeGreaterThan(0)
+    expect(h.result.current.conflictCount).toBe(0)
     await advance(20_000)
     expect(io.save).not.toHaveBeenCalled()
     expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
-      optionA
+      optionB
     )
   })
 
