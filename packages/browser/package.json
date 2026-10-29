@@ -98,7 +98,7 @@
     "./styles.css": "./src/styles.css",
     "./util/apiError": "./src/util/apiError.ts",
     "./api/phase7/requestPhase7Operation": "./src/api/phase7/requestPhase7Operation.ts",
-    "./libs/phase7Sha256": "./src/libs/phase7Sha256.ts",
+    "./libs/sha256Text": "./src/libs/sha256Text.ts",
     "./api/admin-question/previewQuestionVersion/index": "./src/api/admin-question/previewQuestionVersion/index.ts",
     "./api/admin-question/previewQuestionVersion/schema": "./src/api/admin-question/previewQuestionVersion/schema.ts",
     "./i18n/resources/ja-admin": "./src/i18n/resources/ja-admin.ts",
