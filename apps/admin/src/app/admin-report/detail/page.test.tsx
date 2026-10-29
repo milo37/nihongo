@@ -29,7 +29,7 @@ import { cachedSessionStorage } from '@nihongo/browser/libs/storage'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { useAppStore } from '@nihongo/browser/store/index'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import {
   discardReportDraft,
   restoreReportDraft,
@@ -109,7 +109,7 @@ const fill = async (text = '해설 확인') => {
   fireEvent.change(reason(), { target: { value: text } })
 }
 it('renders escaped detail text and target IDs without a non-existent question detail destination', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(initial)
+  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(initial)
   const { container } = route()
   expect(
     await screen.findByText('<script>ordinary text</script>')
@@ -121,7 +121,7 @@ it('renders escaped detail text and target IDs without a non-existent question d
 })
 it('blocks invalid IDs before GET and renders not-found failures with no command controls', async () => {
   const read = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockRejectedValue({ code: 'RESOURCE_NOT_FOUND' })
   const view = route('invalid')
   expect(
@@ -139,7 +139,7 @@ it('blocks invalid IDs before GET and renders not-found failures with no command
 })
 it('distinguishes loading from data and keeps failed cached detail and draft locked', async () => {
   let finish!: (value: QuestionReportDetail) => void
-  const read = vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  const read = vi.spyOn(api, 'requestContentOperation').mockImplementation(
     () =>
       new Promise<QuestionReportDetail>((resolve) => {
         finish = resolve
@@ -165,7 +165,7 @@ it('distinguishes loading from data and keeps failed cached detail and draft loc
 })
 it('focuses invalid reason, counts 1000 Unicode scalars, and sends DISMISSED remediation null', async () => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockResolvedValue(initial)
   route()
   await fill('')
@@ -215,7 +215,7 @@ it('triages OPEN using the viewed CAS version then reads TRIAGED before enabling
     assignee: null
   }
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockImplementation(async (request) => {
       if (request.operation === 'triageAdminQuestionReport') {
         current = initial
@@ -256,7 +256,7 @@ it.each(['VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'])(
     let failRead = false
     let attempts = 0
     const endpoint = vi
-      .spyOn(api, 'requestPhase7Operation')
+      .spyOn(api, 'requestContentOperation')
       .mockImplementation(async (request) => {
         if (request.operation === 'resolveAdminQuestionReport') {
           attempts += 1
@@ -316,7 +316,7 @@ it.each(['VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'])(
 )
 it('never navigates or replays on fresh failure; explicit Google entry saves only this report draft and bare callback', async () => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockImplementation(async (request) => {
       if (request.operation === 'resolveAdminQuestionReport')
         throw { code: 'FRESH_ASSURANCE_REQUIRED' }
@@ -368,7 +368,7 @@ it('restores after a fresh document/auth epoch only for the same canonical actor
   saveReportContext(actorId, id, '/admin/reports?status=TRIAGED&page=3')
   invalidateCanonicalAuthTransitions()
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockResolvedValue(initial)
   route()
   await waitFor(() => expect(reason()).toHaveValue('보관 초안'))
@@ -382,7 +382,7 @@ it('restores after a fresh document/auth epoch only for the same canonical actor
   expect(screen.getByRole('status')).toHaveTextContent(/처리 사유 초안을 복구/)
 })
 it('does not leave or lose input when draft storage fails before fresh navigation', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  vi.spyOn(api, 'requestContentOperation').mockImplementation(
     async (request) => {
       if (request.operation === 'resolveAdminQuestionReport')
         throw { code: 'FRESH_ASSURANCE_REQUIRED' }
@@ -406,7 +406,7 @@ it('does not leave or lose input when draft storage fails before fresh navigatio
   expect(reason()).toHaveValue('해설 확인')
 })
 it('requires a dirty leave decision and preserves draft on stay, then discards explicitly', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(initial)
+  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(initial)
   route()
   await fill()
   const user = userEvent.setup()
@@ -423,7 +423,7 @@ it('requires a dirty leave decision and preserves draft on stay, then discards e
 })
 it('locks offline commands and resets draft on canonical actor switch', async () => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockResolvedValue(initial)
   route()
   await fill()
@@ -442,7 +442,7 @@ it('locks offline commands and resets draft on canonical actor switch', async ()
   ).toBe(true)
 })
 it('renders terminal resolution as read-only without command controls', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue({
+  vi.spyOn(api, 'requestContentOperation').mockResolvedValue({
     ...initial,
     status: 'DISMISSED',
     rowVersion: 3,
@@ -464,7 +464,7 @@ it('renders terminal resolution as read-only without command controls', async ()
 })
 
 it('focuses canonical server field errors without rendering server text', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  vi.spyOn(api, 'requestContentOperation').mockImplementation(
     async (request) => {
       if (request.operation === 'resolveAdminQuestionReport')
         throw {
@@ -489,7 +489,7 @@ it('hands keyboard triage success to the stable heading once after canonical ref
     rowVersion: 1,
     assignee: null
   }
-  vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  vi.spyOn(api, 'requestContentOperation').mockImplementation(
     async (request) => {
       if (request.operation === 'triageAdminQuestionReport') {
         current = initial
@@ -532,7 +532,7 @@ it.each(['RESOLVED', 'DISMISSED'] as const)(
   async (outcome) => {
     let current = initial
     const endpoint = vi
-      .spyOn(api, 'requestPhase7Operation')
+      .spyOn(api, 'requestContentOperation')
       .mockImplementation(async (request) => {
         if (request.operation === 'resolveAdminQuestionReport') {
           current = questionReportDetailSchema.parse({

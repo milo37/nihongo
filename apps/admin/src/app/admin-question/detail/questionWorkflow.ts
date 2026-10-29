@@ -12,7 +12,7 @@ import {
   publishQuestionVersionRequestSchema,
   retireQuestionVersionRequestSchema
 } from '@nihongo/contracts/admin/phase7'
-import type { Phase7OperationRequest } from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import type { Phase7OperationRequest } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const questionCommands = [
   'REQUEST_REVIEW',

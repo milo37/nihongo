@@ -31,7 +31,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
 import {
   initial,
@@ -67,7 +67,7 @@ let reviews: ContentReviewConnection
 let reviewError: unknown
 let readError: unknown
 let write: (request: QuestionWrite) => Promise<AdminQuestionMutationResult>
-let endpoint: MockInstance<typeof api.requestPhase7Operation>
+let endpoint: MockInstance<typeof api.requestContentOperation>
 const writes = () =>
   endpoint.mock.calls.filter(([request]) => request.body !== undefined)
 beforeEach(() => {
@@ -110,43 +110,45 @@ beforeEach(() => {
       versionRowVersion: 2
     }
   }
-  endpoint = vi.spyOn(api, 'requestPhase7Operation').mockImplementation((async (
-    request
-  ) => {
-    switch (request.operation) {
-      case 'getAdminQuestion':
-        if (readError) throw readError
-        return snapshot
-      case 'listAdminQuestionVersions':
-        return history ?? snapshot.versions
-      case 'previewQuestionVersion':
-        return previewFor(
-          'versionId' in request.params ? request.params.versionId : versionId
-        )
-      case 'diffQuestionVersion':
-        return {
-          ...emptyDiff,
-          changedFields: ['QUESTION_TEXT'],
-          changes: [
-            {
-              field: 'QUESTION_TEXT',
-              kind: 'SCALAR',
-              before: 'Older question',
-              after: 'Current question'
-            }
-          ]
-        }
-      case 'listQuestionVersionReviews':
-        if (reviewError) throw reviewError
-        return {
-          ...reviews,
-          questionVersionId:
+  endpoint = vi
+    .spyOn(api, 'requestContentOperation')
+    .mockImplementation((async (request) => {
+      switch (request.operation) {
+        case 'getAdminQuestion':
+          if (readError) throw readError
+          return snapshot
+        case 'listAdminQuestionVersions':
+          return history ?? snapshot.versions
+        case 'previewQuestionVersion':
+          return previewFor(
             'versionId' in request.params ? request.params.versionId : versionId
-        }
-      default:
-        return write(request as QuestionWrite)
-    }
-  }) as typeof api.requestPhase7Operation)
+          )
+        case 'diffQuestionVersion':
+          return {
+            ...emptyDiff,
+            changedFields: ['QUESTION_TEXT'],
+            changes: [
+              {
+                field: 'QUESTION_TEXT',
+                kind: 'SCALAR',
+                before: 'Older question',
+                after: 'Current question'
+              }
+            ]
+          }
+        case 'listQuestionVersionReviews':
+          if (reviewError) throw reviewError
+          return {
+            ...reviews,
+            questionVersionId:
+              'versionId' in request.params
+                ? request.params.versionId
+                : versionId
+          }
+        default:
+          return write(request as QuestionWrite)
+      }
+    }) as typeof api.requestContentOperation)
 })
 afterEach(() => {
   cleanup()

@@ -158,7 +158,7 @@ const withPhase7Fixture = (run) => {
       })
     }
     const actualHelper =
-      'packages/browser/src/api/phase7/requestPhase7Operation.ts'
+      'packages/browser/src/api/content-operations/requestContentOperation.ts'
     assert.equal(
       fs.readFileSync(path.join(root, actualHelper), 'utf8'),
       fs.readFileSync(path.join(repository, actualHelper), 'utf8')
@@ -170,10 +170,10 @@ const withPhase7Fixture = (run) => {
 }
 
 const phase7Import =
-  "import { requestPhase7Operation } from '../../phase7/requestPhase7Operation'\n"
+  "import { requestContentOperation } from '../../content-operations/requestContentOperation'\n"
 const phase7Input =
   "{ operation: 'listAdminQuestions', params: {}, query: {}, body: undefined }"
-const phase7Return = `requestPhase7Operation(${phase7Input})`
+const phase7Return = `requestContentOperation(${phase7Input})`
 
 describe('canonical Phase7 endpoint validation', () => {
   it('allows all six actual endpoints and checked returns with source/dist contract identities', () =>
@@ -204,69 +204,69 @@ describe('canonical Phase7 endpoint validation', () => {
   it('rejects forged helpers, aliases, wrong schemas, dynamic operations, unchecked returns and raw transports', () =>
     withPhase7Fixture(({ sourceRoot, add, check }) => {
       fs.writeFileSync(
-        path.join(sourceRoot, 'api/phase7/fakeHelper.ts'),
-        'export const requestPhase7Operation = async (_input: unknown) => ({})'
+        path.join(sourceRoot, 'api/content-operations/fakeHelper.ts'),
+        'export const requestContentOperation = async (_input: unknown) => ({})'
       )
       fs.writeFileSync(
-        path.join(sourceRoot, 'api/phase7/facade.ts'),
-        "export { requestPhase7Operation } from './requestPhase7Operation'"
+        path.join(sourceRoot, 'api/content-operations/facade.ts'),
+        "export { requestContentOperation } from './requestContentOperation'"
       )
       fs.writeFileSync(
-        path.join(sourceRoot, 'api/phase7/fakeFacade.ts'),
-        "export { requestPhase7Operation } from './fakeHelper'"
+        path.join(sourceRoot, 'api/content-operations/fakeFacade.ts'),
+        "export { requestContentOperation } from './fakeHelper'"
       )
       const cases = new Map([
         [
           'getFakePhase7',
-          `import { requestPhase7Operation } from '../../phase7/fakeHelper'; export const endpoint = () => ${phase7Return}`
+          `import { requestContentOperation } from '../../content-operations/fakeHelper'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getReexportedPhase7',
-          `import { requestPhase7Operation } from '../../phase7/facade'; export const endpoint = () => ${phase7Return}`
+          `import { requestContentOperation } from '../../content-operations/facade'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getFakeReexportPhase7',
-          `import { requestPhase7Operation } from '../../phase7/fakeFacade'; export const endpoint = () => ${phase7Return}`
+          `import { requestContentOperation } from '../../content-operations/fakeFacade'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getRenamedPhase7',
-          `import { requestPhase7Operation as renamed } from '../../phase7/requestPhase7Operation'; export const endpoint = () => renamed(${phase7Input})`
+          `import { requestContentOperation as renamed } from '../../content-operations/requestContentOperation'; export const endpoint = () => renamed(${phase7Input})`
         ],
         [
           'getVariableAliasPhase7',
-          `${phase7Import}const renamed = requestPhase7Operation; export const endpoint = () => renamed(${phase7Input})`
+          `${phase7Import}const renamed = requestContentOperation; export const endpoint = () => renamed(${phase7Input})`
         ],
         [
           'getRawRenamedPhase7',
-          `import { get as requestPhase7Operation } from '../../http'; export const endpoint = () => ${phase7Return}`
+          `import { get as requestContentOperation } from '../../http'; export const endpoint = () => ${phase7Return}`
         ],
         [
           'getLocalFakePhase7',
-          `const requestPhase7Operation = async (_input: unknown) => ({}); export const endpoint = () => ${phase7Return}`
+          `const requestContentOperation = async (_input: unknown) => ({}); export const endpoint = () => ${phase7Return}`
         ],
         [
           'getUnknownPhase7',
-          `${phase7Import}export const endpoint = () => requestPhase7Operation({ operation: 'unknownOperation', params: {}, query: {}, body: undefined })`
+          `${phase7Import}export const endpoint = () => requestContentOperation({ operation: 'unknownOperation', params: {}, query: {}, body: undefined })`
         ],
         [
           'getDynamicPhase7',
-          `${phase7Import}const operation = 'listAdminQuestions'; export const endpoint = () => requestPhase7Operation({ operation, params: {}, query: {}, body: undefined })`
+          `${phase7Import}const operation = 'listAdminQuestions'; export const endpoint = () => requestContentOperation({ operation, params: {}, query: {}, body: undefined })`
         ],
         [
           'getSpreadPhase7',
-          `${phase7Import}export const endpoint = () => requestPhase7Operation({ operation: 'listAdminQuestions', ...{}, params: {}, query: {}, body: undefined })`
+          `${phase7Import}export const endpoint = () => requestContentOperation({ operation: 'listAdminQuestions', ...{}, params: {}, query: {}, body: undefined })`
         ],
         [
           'getDuplicatePhase7',
-          `${phase7Import}export const endpoint = () => requestPhase7Operation({ operation: 'listAdminQuestions', operation: 'getAdminQuestion', params: {}, query: {}, body: undefined })`
+          `${phase7Import}export const endpoint = () => requestContentOperation({ operation: 'listAdminQuestions', operation: 'getAdminQuestion', params: {}, query: {}, body: undefined })`
         ],
         [
           'getComputedPhase7',
-          `${phase7Import}export const endpoint = () => requestPhase7Operation({ ['operation']: 'listAdminQuestions', params: {}, query: {}, body: undefined })`
+          `${phase7Import}export const endpoint = () => requestContentOperation({ ['operation']: 'listAdminQuestions', params: {}, query: {}, body: undefined })`
         ],
         [
           'getInputAliasPhase7',
-          `${phase7Import}const input = ${phase7Input}; export const endpoint = () => requestPhase7Operation(input)`
+          `${phase7Import}const input = ${phase7Input}; export const endpoint = () => requestContentOperation(input)`
         ],
         [
           'getIgnoredPhase7',

@@ -1,4 +1,4 @@
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { describe, it, expect, vi } from 'vitest'
 import {
   allowedCommands,
@@ -194,7 +194,7 @@ describe('question workflow permission and CAS snapshot', () => {
 })
 
 it('rejects a valid selected-version preview belonging to another question', async () => {
-  const endpoint = vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue({
+  const endpoint = vi.spyOn(api, 'requestContentOperation').mockResolvedValue({
     ...previewFor(),
     question: { ...previewFor().question, id: reviewerId }
   })
