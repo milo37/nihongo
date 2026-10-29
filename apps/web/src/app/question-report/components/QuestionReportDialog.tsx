@@ -6,7 +6,7 @@ import {
   useQuestionReportPresentation as useAdminPresentation
 } from '@app/content-operations/reports/questionReportPublic'
 import { isPhase7UiApiError } from '@libs/apiError'
-import { useCreatePhase7QuestionReport } from '@app/question-report/hooks/useCreatePhase7QuestionReport'
+import { useCreateQuestionReport } from '@app/question-report/hooks/useCreateQuestionReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { Select } from '@nihongo/browser/common/components/Select'
@@ -41,7 +41,7 @@ export const QuestionReportDialog = ({
   const [description, setDescription] = useState('')
   const [descriptionRequired, setDescriptionRequired] = useState(false)
   const [wasSubmitted, setWasSubmitted] = useState(false)
-  const mutation = useCreatePhase7QuestionReport(() => {
+  const mutation = useCreateQuestionReport(() => {
     setOpen(false)
     setDescription('')
     setWasSubmitted(true)

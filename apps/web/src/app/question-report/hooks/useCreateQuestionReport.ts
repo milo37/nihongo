@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { invalidateCreatedQuestionReport as invalidatePhase7AdminMutation } from '@app/content-operations/reports/questionReportPublic'
+import { invalidateCreatedQuestionReport } from '@app/content-operations/reports/questionReportPublic'
 import { questionReportMutations } from '@app/question-report/queries/questionReportMutations'
 import {
   AuthTransitionSupersededError,
@@ -9,7 +9,7 @@ import {
 import { useAppStore } from '@nihongo/browser/store/index'
 import { analyticsClient } from '@/analytics/client'
 
-export const useCreatePhase7QuestionReport = (onSuccess?: () => void) => {
+export const useCreateQuestionReport = (onSuccess?: () => void) => {
   const queryClient = useQueryClient()
   return useMutation({
     ...questionReportMutations.create(),
@@ -25,7 +25,7 @@ export const useCreatePhase7QuestionReport = (onSuccess?: () => void) => {
         fence,
         useAppStore.getState().currentUser
       )
-      await invalidatePhase7AdminMutation(queryClient, {
+      await invalidateCreatedQuestionReport(queryClient, {
         kind: 'REPORT_CREATE',
         questionIds: [input.questionId],
         reportId: result.id
