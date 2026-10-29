@@ -498,6 +498,56 @@ test('all six safe suites retain exact current counts and approved attachments',
   assert.equal(manifest.files.length, 6)
 })
 
+test('real-only browser evidence requires all three exact phases', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'real-safe-suites-'))
+  const labels = ['phase8-real', 'phase9-real', 'phase10-real']
+  try {
+    for (const [phase, count] of [
+      [8, 3],
+      [9, 4],
+      [10, 5]
+    ]) {
+      const label = `phase${phase}-real`
+      const reporter = new Phase10PlaywrightSummaryReporter({
+        outputDirectory: directory,
+        label
+      })
+      reporter.onBegin()
+      for (let index = 0; index < count; index += 1) {
+        reporter.onTestEnd(
+          {
+            location: { file: '/private/safe-suite.ts', line: index + 1 },
+            titlePath: () => [label, `test-${index}`]
+          },
+          {
+            status: 'passed',
+            duration: 1,
+            retry: 0,
+            attachments:
+              phase === 8
+                ? createCurrentPhase8Attachments('real', index)
+                : phase === 10 && index === 0
+                  ? createPhase10Attachments('real')
+                  : []
+          }
+        )
+      }
+      await reporter.onEnd({ status: 'passed' })
+    }
+    const verify = () =>
+      verifyArtifactDirectory({
+        directory,
+        profile: 'playwright',
+        requiredLabels: labels
+      })
+    assert.equal((await verify()).files.length, 3)
+    await rm(path.join(directory, 'phase9-real.json'))
+    await assert.rejects(verify, /SECURITY_EVIDENCE_INCOMPLETE/u)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('Phase 8 reporter retains exact ledger and performance evidence', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase8-reporter-'))
   const reporter = new Phase10PlaywrightSummaryReporter({

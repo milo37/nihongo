@@ -514,7 +514,6 @@ test('selected integration succeeds only with every required group completed', (
     e2e: [
       'phase10_playwright_initialize',
       'phase10_browser_real',
-      'phase10_browser_mock',
       'phase10_playwright_evidence'
     ],
     phase11_release: ['phase11_release']
@@ -527,7 +526,7 @@ test('selected integration succeeds only with every required group completed', (
       assertSelectedResults({ job, planResult: 'success', selection, steps })
     )
     for (const id of ids) {
-      for (const outcome of ['skipped', 'failure', 'cancelled']) {
+      for (const outcome of ['skipped', 'failure', 'cancelled', undefined]) {
         assert.throws(
           () =>
             assertSelectedResults({
