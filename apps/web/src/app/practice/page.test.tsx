@@ -14,6 +14,8 @@ import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { mockServer } from '@/test/server'
 import { appI18n } from '@nihongo/browser/i18n/config'
+import { LearningEntry } from '@app/dashboard/components/LearningEntry'
+import { useAppStore } from '@nihongo/browser/store/index'
 
 const clients: QueryClient[] = []
 afterEach(() => {
@@ -35,7 +37,6 @@ const Harness = () => {
     <ResumablePractice
       query={query}
       canLoad
-      storedSessionId={null}
       requestedPage={page}
       pageCount={Math.max(1, Math.ceil((query.data?.total ?? 0) / 5))}
       sourceUnavailable={query.isError || query.fetchStatus === 'paused'}
@@ -49,7 +50,7 @@ const Harness = () => {
     />
   )
 }
-const mount = (total: number) => {
+const mount = (total: number, legacy = false, dashboard = false) => {
   const items = Array.from({ length: total }, () => ({
     id: crypto.randomUUID(),
     level: 'N5',
@@ -65,6 +66,15 @@ const mount = (total: number) => {
     currentOrdinal: 1,
     resumeAvailability: 'SERVER'
   }))
+  if (legacy && items[0]) {
+    Object.assign(items[0], {
+      practiceContractVersion: 1,
+      draftRevision: null,
+      currentOrdinal: null,
+      resumeAvailability: 'LEGACY_LOCAL_ONLY'
+    })
+    useAppStore.getState().beginPractice(items[0].id, items[0].startedAt)
+  }
   mockServer.use(
     http.get('*/api/v1/study-sessions', ({ request }) => {
       const page = Number(new URL(request.url).searchParams.get('page'))
@@ -87,7 +97,12 @@ const mount = (total: number) => {
   })
   clients.push(client)
   const router = createMemoryRouter(
-    [{ path: '/practice', element: <Harness /> }],
+    [
+      {
+        path: '/practice',
+        element: dashboard ? <LearningEntry isMember /> : <Harness />
+      }
+    ],
     { initialEntries: ['/practice?level=N5&mode=RANDOM'] }
   )
   const view = render(
@@ -97,6 +112,33 @@ const mount = (total: number) => {
   )
   return { router, ...view }
 }
+it('does not resume or cancel an older local-only session', async () => {
+  mount(1, true)
+  expect(
+    await screen.findByText(
+      appI18n.t('practice:setup.resume.legacyUnavailable')
+    )
+  ).toBeVisible()
+  expect(
+    screen.queryByRole('link', {
+      name: appI18n.t('practice:setup.resume.action')
+    })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', {
+      name: appI18n.t('practice:setup.resume.cancel')
+    })
+  ).not.toBeInTheDocument()
+})
+it('does not resume a retired dashboard session even when its local identifier matches', async () => {
+  mount(1, true, true)
+  expect(
+    await screen.findByText(appI18n.t('home:entry.legacyUnavailable'))
+  ).toBeVisible()
+  expect(
+    screen.queryByRole('link', { name: appI18n.t('home:entry.resume') })
+  ).not.toBeInTheDocument()
+})
 it('preserves a single resumable banner without adding a one-item list pager', async () => {
   mount(1)
   expect(

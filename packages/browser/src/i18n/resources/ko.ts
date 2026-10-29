@@ -290,7 +290,7 @@ export const koResources = {
       notSaved: '아직 저장된 답안이 없습니다.',
       resume: '이어서 풀기',
       legacyUnavailable:
-        '이 기기에서 이어갈 답안을 찾을 수 없습니다. 학습 설정에서 확인해 주세요.',
+        '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
       other: '다른 학습 고르기',
       records: '내 학습 기록'
     },
@@ -497,7 +497,7 @@ export const koResources = {
         lastSaved: '마지막 저장 {{date}}',
         notSaved: '아직 답안 저장 전',
         legacyUnavailable:
-          '이 세션은 다른 기기의 로컬 답안을 복원할 수 없습니다. 새 학습을 시작하거나 세션을 취소해 주세요.',
+          '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
         action: '이어서 풀기',
         cancel: '세션 취소',
         paginationLabel: '이어풀기 페이지'
@@ -595,6 +595,12 @@ export const koResources = {
         emptyDescription: '다른 급수, 과목 또는 출제 모드를 선택해 주세요.'
       },
       terminal: {
+        notFoundTitle: '학습 세션을 찾을 수 없습니다',
+        notFoundDescription:
+          '종료되었거나 접근할 수 없는 학습입니다. 새 학습을 시작해 주세요.',
+        retiredTitle: '이전 학습 세션이 종료되었습니다',
+        retiredDescription:
+          '이전 학습 기록은 더 이상 이어갈 수 없습니다. 새 학습을 시작해 주세요.',
         expiredTitle: '만료된 학습 세션입니다',
         cancelledTitle: '취소된 학습 세션입니다',
         description:
@@ -738,6 +744,11 @@ export const koResources = {
     }
   },
   result: {
+    retired: {
+      title: '이전 학습 결과가 종료되었습니다',
+      description:
+        '이전 학습 결과는 더 이상 확인할 수 없습니다. 새 학습을 시작해 주세요.'
+    },
     navigation: {
       label: '해설 문항',
       question: '문제 {{formattedOrdinal}}',

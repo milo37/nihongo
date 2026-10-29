@@ -293,7 +293,7 @@ export const jaCoreResources = {
       notSaved: '保存済みの回答はまだありません。',
       resume: '続きから解く',
       legacyUnavailable:
-        'この端末で再開できる回答が見つかりません。学習設定で確認してください。',
+        '以前の学習セッションは終了しました。新しい学習を始めてください。',
       other: '別の学習を選ぶ',
       records: '学習記録'
     },
@@ -505,7 +505,7 @@ export const jaCoreResources = {
         lastSaved: '最終保存 {{date}}',
         notSaved: 'まだサーバーに保存されていません',
         legacyUnavailable:
-          'このセッションは別の端末のローカル回答を復元できません。新しい学習を始めるか、セッションをキャンセルしてください。',
+          '以前の学習セッションは終了しました。新しい学習を始めてください。',
         action: '続きから解く',
         cancel: 'セッションをキャンセル',
         paginationLabel: '再開セッションのページ'
@@ -604,6 +604,12 @@ export const jaCoreResources = {
         emptyDescription: '別のレベル、科目、出題モードを選んでください。'
       },
       terminal: {
+        notFoundTitle: '学習セッションが見つかりません',
+        notFoundDescription:
+          '終了したか、アクセスできない学習です。新しい学習を始めてください。',
+        retiredTitle: '以前の学習セッションは終了しました',
+        retiredDescription:
+          '以前の学習記録は続けられません。新しい学習を始めてください。',
         expiredTitle: '期限切れの学習セッションです',
         cancelledTitle: 'キャンセルされた学習セッションです',
         description:
@@ -748,6 +754,11 @@ export const jaCoreResources = {
     }
   },
   result: {
+    retired: {
+      title: '以前の学習結果は終了しました',
+      description:
+        '以前の学習結果は確認できません。新しい学習を始めてください。'
+    },
     navigation: {
       label: '解説する問題',
       question: '問題 {{formattedOrdinal}}',

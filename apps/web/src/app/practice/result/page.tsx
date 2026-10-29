@@ -14,6 +14,7 @@ import {
   isAuthenticationBoundaryApiError,
   isNoEligibleQuestionsApiError,
   isNotFoundApiError,
+  isRetiredPracticeApiError,
   isStudyResultNotReadyApiError
 } from '@libs/apiError'
 import { ReviewCompletion } from '@app/practice/result/ReviewCompletion'
@@ -273,6 +274,29 @@ const PracticeResultPageContent = (): ReactElement => {
 
   if (!isAuthReady) {
     return <LoadingState message={t('loading')} />
+  }
+
+  if (
+    sessionQuery.isError
+      ? isRetiredPracticeApiError(sessionQuery.error)
+      : sessionQuery.data?.session.practiceContractVersion === 1
+  ) {
+    return (
+      <ErrorState
+        autoFocus
+        headingLevel={1}
+        title={t('retired.title')}
+        description={t('retired.description')}
+        action={
+          <Link
+            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+            to="/practice"
+          >
+            {t('newPractice')}
+          </Link>
+        }
+      />
+    )
   }
 
   const isUnverifiedGuestProbePaused =

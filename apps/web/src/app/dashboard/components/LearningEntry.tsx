@@ -241,7 +241,7 @@ export const LearningEntry = ({
   }
   if (item) {
     const canResume =
-      item.resumeAvailability === 'SERVER' || storedSessionId === item.id
+      item.practiceContractVersion === 2 && item.resumeAvailability === 'SERVER'
     return (
       <div ref={containerRef}>
         <p className="text-xs text-muted">{t('entry.resumeEyebrow')}</p>

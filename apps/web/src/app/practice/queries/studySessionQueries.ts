@@ -6,7 +6,6 @@ import { toCanonicalStudySessionView } from '@app/practice/adapters/studySession
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
-import { isNotFoundApiError } from '@libs/apiError'
 
 const createSessionActionFence =
   createObjectAuthBoundActionFence<CreateStudySessionV2Request>()
@@ -20,20 +19,16 @@ const createSession = async (input: CreateStudySessionV2Request) => {
 }
 
 const getSession = async (sessionId: string, signal: AbortSignal) => {
-  try {
-    const session = toCanonicalStudySessionView(
-      (await getStudySessionV2(sessionId, signal)).data
-    )
-    if (session.session.status !== 'IN_PROGRESS') {
-      clearSubmissionAttempt(sessionId)
-    }
-    return session
-  } catch (error: unknown) {
-    if (isNotFoundApiError(error)) {
-      clearSubmissionAttempt(sessionId)
-    }
-    throw error
+  const session = toCanonicalStudySessionView(
+    (await getStudySessionV2(sessionId, signal)).data
+  )
+  if (
+    session.session.practiceContractVersion === 2 &&
+    session.session.status !== 'IN_PROGRESS'
+  ) {
+    clearSubmissionAttempt(sessionId)
   }
+  return session
 }
 
 export const studySessionQueries = {
