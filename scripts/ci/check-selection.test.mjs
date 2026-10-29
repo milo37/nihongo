@@ -150,6 +150,90 @@ test('release candidates select audit, performance and portable verification', (
     assert.equal(selection.audit, true)
     assert.equal(selection.performance, true)
     assert.equal(selection.portable, true)
+    assert.equal(selection.browser, true)
+  }
+})
+
+test('browser workflow steps follow selection without dropping the protected job', () => {
+  const workflow = readFileSync(
+    path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
+    'utf8'
+  )
+  assert.ok(
+    workflow.includes('browser: ${{ steps.selection.outputs.browser }}')
+  )
+  for (const name of [
+    'Install Playwright Chromium',
+    'Real browser acceptance'
+  ]) {
+    const start = workflow.indexOf(`- name: ${name}`)
+    const end = workflow.indexOf('\n      - name:', start + 1)
+    assert.notEqual(start, -1, name)
+    assert.ok(
+      workflow
+        .slice(start, end)
+        .includes("if: ${{ needs.build.outputs.browser == 'true' }}"),
+      name
+    )
+  }
+  const regression = workflow.slice(
+    workflow.indexOf('  e2e:'),
+    workflow.indexOf('  phase11_release:')
+  )
+  assert.ok(regression.includes('    if: ${{ always()'))
+  assert.ok(
+    regression.includes(
+      'name: Require successful impact classification and build'
+    )
+  )
+})
+
+test('browser gate accepts only completed selected work and successful dependencies', () => {
+  const workflow = readFileSync(
+    path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
+    'utf8'
+  )
+  const section = workflow
+    .split('      - name: Verify selected browser acceptance')[1]
+    ?.split('\n  phase11_release:')[0]
+  assert.ok(section)
+  assert.ok(section.includes('if: ${{ always() }}'))
+  const script = section
+    .split('        run: |\n')[1]
+    ?.split('\n')
+    .filter((line) => line.startsWith('          '))
+    .map((line) => line.slice(10))
+    .join('\n')
+  assert.ok(script)
+  for (const [build, job, selected, outcome, expected] of [
+    ['success', 'success', 'true', 'success', 0],
+    ['success', 'success', 'false', 'skipped', 0],
+    ['success', 'success', 'true', 'failure', 1],
+    ['success', 'success', 'true', 'cancelled', 1],
+    ['success', 'success', 'true', 'skipped', 1],
+    ['success', 'success', 'true', '', 1],
+    ['success', 'success', 'false', '', 1],
+    ['success', 'failure', 'true', 'success', 1],
+    ['success', 'cancelled', 'true', 'success', 1],
+    ['failure', 'success', 'true', 'success', 1],
+    ['cancelled', 'success', 'true', 'success', 1],
+    ['success', 'success', '', 'success', 1]
+  ]) {
+    const result = spawnSync('bash', ['-e', '-c', script], {
+      env: {
+        ...process.env,
+        BUILD_RESULT: build,
+        JOB_RESULT: job,
+        BROWSER_SELECTED: selected,
+        REAL_OUTCOME: outcome
+      },
+      encoding: 'utf8'
+    })
+    assert.equal(
+      result.status,
+      expected,
+      JSON.stringify([build, job, selected, outcome])
+    )
   }
 })
 
@@ -167,6 +251,55 @@ test('protected branch pushes always run core regression but keep expensive extr
   assert.equal(selection.performance, false)
   assert.equal(selection.audit, false)
   assert.equal(selection.portable, false)
+})
+
+test('dev pull requests keep affected checks while omitting browser execution', () => {
+  for (const file of [
+    'apps/web/src/main.tsx',
+    'apps/api/src/study/submissionService.ts',
+    '.github/workflows/ci.yml',
+    'README.md'
+  ]) {
+    const expected = classifyChangedFiles([file])
+    expected.browser = false
+    const actual = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: [file]
+    })
+    assert.deepEqual(actual, expected, file)
+  }
+})
+
+test('dev push retains core checks but does not select browser execution', () => {
+  const input = {
+    eventName: 'push',
+    event: {},
+    changedFiles: ['apps/web/src/main.tsx']
+  }
+  const main = selectChecks({ ...input, ref: 'refs/heads/main' })
+  const dev = selectChecks({ ...input, ref: 'refs/heads/dev' })
+  assert.equal(main.browser, true)
+  assert.deepEqual(dev, { ...main, browser: false })
+})
+
+test('main pull requests require browser checks even for documentation changes', () => {
+  const actual = selectChecks({
+    eventName: 'pull_request',
+    ref: 'refs/pull/1/merge',
+    event: pullRequestEvent({
+      pull_request: {
+        base: { ref: 'main', sha: sha('a') },
+        head: { sha: sha('b') }
+      }
+    }),
+    changedFiles: ['README.md']
+  })
+  assert.equal(actual.browser, true)
+  assert.equal(actual.api, true)
+  assert.equal(actual.code, true)
+  assert.equal(actual.candidate, true)
 })
 
 test('comparison failures are errors, never successful fallback selections', () => {
@@ -544,13 +677,14 @@ const assertWorkflowBrowserAliases = (source) => {
     const match = /^\s+run:\s+(.+?)\s*$/u.exec(line)
     return match ? [match[1]] : []
   })
-  for (const mode of ['real', 'mock']) {
-    assert.equal(
-      runs.filter((run) => run === `pnpm run test:browser:${mode}`).length,
-      1,
-      mode
-    )
-  }
+  assert.equal(
+    runs.filter((run) => run === 'pnpm run test:browser:real').length,
+    1
+  )
+  assert.equal(
+    runs.filter((run) => run === 'pnpm run test:browser:mock').length,
+    0
+  )
 }
 
 const findExecutableDeclaration = (source, declaration) => {
@@ -1325,8 +1459,8 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
   assert.throws(() =>
     assertWorkflowBrowserAliases(
       workflow.replace(
-        'run: pnpm run test:browser:mock',
-        'run: printf "pnpm run test:browser:mock"'
+        'run: pnpm run test:browser:real',
+        'run: pnpm run test:browser:real\n      - name: Unexpected mock\n        run: pnpm run test:browser:mock'
       )
     )
   )

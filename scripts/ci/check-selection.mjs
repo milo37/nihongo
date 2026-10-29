@@ -217,7 +217,9 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
     if (pullRequest.base.ref === 'main') {
       return fullSelection('candidate', 'main integration candidate', true)
     }
-    return classifyChangedFiles(changedFiles)
+    const selection = classifyChangedFiles(changedFiles)
+    selection.browser = false
+    return selection
   }
   if (
     eventName === 'push' &&
@@ -227,6 +229,7 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
     selection.mode = 'integration'
     selection.reason = 'protected branch core regression'
     markCore(selection)
+    if (ref === 'refs/heads/dev') selection.browser = false
     return selection
   }
   fail('CI_CLASSIFICATION_EVENT_UNSUPPORTED')

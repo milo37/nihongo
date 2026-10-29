@@ -167,12 +167,26 @@ jobs:
         run: node scripts/ci/check-selection.mjs quality performance
 
       - name: Real browser acceptance
+        id: real_browser
         if: ${{ needs.build.outputs.browser == 'true' }}
         run: pnpm run test:browser:real
 
-      - name: Mock browser acceptance
-        if: ${{ needs.build.outputs.browser == 'true' }}
-        run: pnpm run test:browser:mock
+      - name: Verify selected browser acceptance
+        if: ${{ always() }}
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          JOB_RESULT: ${{ job.status }}
+          BROWSER_SELECTED: ${{ needs.build.outputs.browser }}
+          REAL_OUTCOME: ${{ steps.real_browser.outcome }}
+        run: |
+          set -euo pipefail
+          test "$BUILD_RESULT" = success
+          test "$JOB_RESULT" = success
+          case "$BROWSER_SELECTED" in
+            true) test "$REAL_OUTCOME" = success ;;
+            false) test "$REAL_OUTCOME" = skipped ;;
+            *) exit 1 ;;
+          esac
 
   phase11_release:
     name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / portable / {0}', github.run_id) || 'Phase 11 portable release and production-mode smoke' }}
