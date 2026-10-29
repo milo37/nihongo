@@ -11,7 +11,7 @@ import {
   AuthTransitionSupersededError
 } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import {
   useTriageAdminReport,
   useResolveAdminReport
@@ -66,7 +66,7 @@ afterEach(() => {
 })
 it('sends the exact viewed rowVersion and invalidates reports/detail plus audit only after triage commit', async () => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockResolvedValue(resultData)
   const invalidation = vi.spyOn(client, 'invalidateQueries')
   const success = vi.fn()
@@ -89,7 +89,7 @@ it('sends the exact viewed rowVersion and invalidates reports/detail plus audit 
   expect(success).toHaveBeenCalledWith('TRIAGED')
 })
 it('awaits all resolution publication invalidations before success', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(resolvedResult)
+  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(resolvedResult)
   let finish!: () => void
   const barrier = new Promise<void>((resolve) => {
     finish = resolve
@@ -126,7 +126,7 @@ it('awaits all resolution publication invalidations before success', async () =>
 it.each(['GUEST', 'USER', 'OFFLINE'])(
   'refuses %s commands before the endpoint',
   async (kind) => {
-    const endpoint = vi.spyOn(api, 'requestPhase7Operation')
+    const endpoint = vi.spyOn(api, 'requestContentOperation')
     if (kind === 'GUEST') useAppStore.getState().setCurrentUser(null)
     if (kind === 'USER')
       useAppStore.getState().setCurrentUser({
@@ -149,7 +149,7 @@ it.each(['GUEST', 'USER', 'OFFLINE'])(
 )
 it('rejects late same-ID logout/login settlement with no invalidation or callback', async () => {
   let finish!: (value: typeof resultData) => void
-  vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  vi.spyOn(api, 'requestContentOperation').mockImplementation(
     () =>
       new Promise<typeof resultData>((resolve) => {
         finish = resolve
@@ -184,7 +184,7 @@ it('rejects late same-ID logout/login settlement with no invalidation or callbac
 })
 it('keeps a queued command bound to its original actor before endpoint dispatch', async () => {
   let finish!: (value: typeof resultData) => void
-  const endpoint = vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  const endpoint = vi.spyOn(api, 'requestContentOperation').mockImplementation(
     () =>
       new Promise<typeof resultData>((resolve) => {
         finish = resolve
@@ -217,7 +217,7 @@ it('keeps a queued command bound to its original actor before endpoint dispatch'
   expect(endpoint).toHaveBeenCalledTimes(1)
 })
 it('does not invalidate or invoke success after a definitive 409 failure', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockRejectedValue({
+  vi.spyOn(api, 'requestContentOperation').mockRejectedValue({
     code: 'VERSION_CONFLICT'
   })
   const invalidation = vi.spyOn(client, 'invalidateQueries')

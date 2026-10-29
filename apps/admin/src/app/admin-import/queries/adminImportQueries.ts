@@ -3,14 +3,14 @@ import type {
   ValidateQuestionImportRequest,
   ApplyQuestionImportRequest
 } from '@nihongo/contracts/admin/phase7'
-import { requestPhase7Operation } from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 export const adminImportMutations = {
   allKey: () => ['phase7-admin', 'import'] as const,
   validate: () =>
     mutationOptions({
       mutationKey: [...adminImportMutations.allKey(), 'validate'],
       mutationFn: (body: ValidateQuestionImportRequest) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'validateQuestionImport',
           params: {},
           query: {},
@@ -21,7 +21,7 @@ export const adminImportMutations = {
     mutationOptions({
       mutationKey: [...adminImportMutations.allKey(), 'apply'],
       mutationFn: (body: ApplyQuestionImportRequest) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'applyQuestionImport',
           params: {},
           query: {},

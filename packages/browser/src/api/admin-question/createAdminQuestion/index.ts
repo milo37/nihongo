@@ -1,7 +1,7 @@
-import { requestPhase7Operation } from '../../phase7/requestPhase7Operation'
+import { requestContentOperation } from '../../content-operations/requestContentOperation'
 import type { CreateAdminQuestionRequest } from './schema'
 export const createAdminQuestion = (body: CreateAdminQuestionRequest) =>
-  requestPhase7Operation({
+  requestContentOperation({
     operation: 'createAdminQuestion',
     params: {},
     query: {},

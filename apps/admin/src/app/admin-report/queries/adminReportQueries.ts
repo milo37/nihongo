@@ -4,7 +4,7 @@ import type {
   ResolveAdminQuestionReportRequest,
   TriageAdminQuestionReportRequest
 } from '@nihongo/contracts/admin/phase7'
-import { requestPhase7Operation } from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const adminReportQueries = {
   allKey: () => ['phase7-admin', 'reports'] as const,
@@ -22,7 +22,7 @@ export const adminReportQueries = {
         query
       ] as const,
       queryFn: () =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'listAdminQuestionReports',
           params: {},
           query,
@@ -41,7 +41,7 @@ export const adminReportQueries = {
         reportId
       ] as const,
       queryFn: () =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'getAdminQuestionReport',
           params: { reportId },
           query: {},
@@ -60,7 +60,7 @@ export const adminReportMutations = {
         reportId
       ] as const,
       mutationFn: (body: TriageAdminQuestionReportRequest) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'triageAdminQuestionReport',
           params: { reportId },
           query: {},
@@ -75,7 +75,7 @@ export const adminReportMutations = {
         reportId
       ] as const,
       mutationFn: (body: ResolveAdminQuestionReportRequest) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'resolveAdminQuestionReport',
           params: { reportId },
           query: {},

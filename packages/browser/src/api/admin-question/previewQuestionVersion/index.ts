@@ -1,6 +1,6 @@
-import { requestPhase7Operation } from '../../phase7/requestPhase7Operation'
+import { requestContentOperation } from '../../content-operations/requestContentOperation'
 export const previewQuestionVersion = (versionId: string) =>
-  requestPhase7Operation({
+  requestContentOperation({
     operation: 'previewQuestionVersion',
     params: { versionId },
     query: {},

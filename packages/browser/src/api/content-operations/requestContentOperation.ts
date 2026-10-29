@@ -228,7 +228,7 @@ const assertCorrelatedResponse = async (
   }
 }
 
-export const requestPhase7Operation = async <
+export const requestContentOperation = async <
   Operation extends Exclude<
     Phase7Operation,
     'exportAdminQuestions' | 'reauthenticateAdmin'

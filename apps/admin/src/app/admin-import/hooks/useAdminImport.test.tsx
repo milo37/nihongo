@@ -13,7 +13,7 @@ import {
 } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { apiClient } from '@nihongo/browser/api/config'
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import {
   useValidateImport,
   useApplyImport
@@ -72,7 +72,7 @@ afterEach(() => {
 })
 it('validates the exact selected items once without invalidating content caches', async () => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockResolvedValue(validated)
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   const { result } = renderHook(useImportUnderTest, { wrapper })
@@ -91,7 +91,7 @@ it('validates the exact selected items once without invalidating content caches'
 })
 it('applies the exact bound items+digest and waits for current admin list/detail/audit invalidations', async () => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockResolvedValue(applied)
   let finish!: () => void
   const barrier = new Promise<void>((resolve) => {
@@ -133,7 +133,7 @@ it.each([
   'IMPORT_IDENTITY_CONFLICT'
 ])('does not retry/replay or invalidate a failed %s apply', async (code) => {
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockRejectedValue({ code })
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   const { result } = renderHook(useImportUnderTest, { wrapper })
@@ -148,7 +148,7 @@ it.each([
 it.each(['validate', 'apply'] as const)(
   'blocks offline %s before transport and never resumes it on reconnect',
   async (operation) => {
-    const endpoint = vi.spyOn(api, 'requestPhase7Operation')
+    const endpoint = vi.spyOn(api, 'requestContentOperation')
     const { result } = renderHook(useImportUnderTest, { wrapper })
     onlineManager.setOnline(false)
     await act(async () => {
@@ -170,7 +170,7 @@ it.each(['USER', 'GUEST'])(
     useAppStore
       .getState()
       .setCurrentUser(role === 'GUEST' ? null : { ...actor(), role: 'USER' })
-    const endpoint = vi.spyOn(api, 'requestPhase7Operation')
+    const endpoint = vi.spyOn(api, 'requestContentOperation')
     const { result } = renderHook(useImportUnderTest, { wrapper })
     await act(async () => {
       await expect(
@@ -185,7 +185,7 @@ it.each(['USER', 'GUEST'])(
 )
 it('rejects late validation and queued apply captured before actor transition', async () => {
   let finish!: (value: typeof validated) => void
-  const endpoint = vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  const endpoint = vi.spyOn(api, 'requestContentOperation').mockImplementation(
     () =>
       new Promise((resolve) => {
         finish = resolve
@@ -213,7 +213,7 @@ it('rejects late validation and queued apply captured before actor transition', 
   expect(invalidate).not.toHaveBeenCalled()
 })
 it('rechecks the actor after an awaited committed apply invalidation', async () => {
-  vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(applied)
+  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(applied)
   let finish!: () => void
   const barrier = new Promise<void>((resolve) => {
     finish = resolve

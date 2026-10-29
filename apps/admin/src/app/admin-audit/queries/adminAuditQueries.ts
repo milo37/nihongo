@@ -1,5 +1,5 @@
 import { infiniteQueryOptions } from '@tanstack/react-query'
-import { requestPhase7Operation } from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const adminAuditQueries = {
   allKey: () => ['phase7-admin', 'audit-log'] as const,
@@ -13,7 +13,7 @@ export const adminAuditQueries = {
       ] as const,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'listAdminAuditLog',
           params: {},
           query: {
