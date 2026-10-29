@@ -154,87 +154,265 @@ test('release candidates select audit, performance and portable verification', (
   }
 })
 
-test('browser workflow steps follow selection without dropping the protected job', () => {
-  const workflow = readFileSync(
-    path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
-    'utf8'
-  )
-  assert.ok(
-    workflow.includes('browser: ${{ steps.selection.outputs.browser }}')
-  )
-  for (const name of [
-    'Install Playwright Chromium',
-    'Real browser acceptance'
-  ]) {
-    const start = workflow.indexOf(`- name: ${name}`)
-    const end = workflow.indexOf('\n      - name:', start + 1)
-    assert.notEqual(start, -1, name)
-    assert.ok(
-      workflow
-        .slice(start, end)
-        .includes("if: ${{ needs.build.outputs.browser == 'true' }}"),
-      name
-    )
-  }
-  const regression = workflow.slice(
-    workflow.indexOf('  e2e:'),
-    workflow.indexOf('  phase11_release:')
-  )
-  assert.ok(regression.includes('    if: ${{ always()'))
-  assert.ok(
-    regression.includes(
-      'name: Require successful impact classification and build'
-    )
-  )
-})
+const namedWorkflowStep = (source, name) => {
+  const marker = `      - name: ${name}\n`
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, name)
+  const next = source.indexOf('\n      - name:', start + marker.length)
+  return source.slice(start, next === -1 ? source.length : next)
+}
 
-test('browser gate accepts only completed selected work and successful dependencies', () => {
-  const workflow = readFileSync(
+const workflowStepEnvironment = (step) => {
+  const lines = step.split('\n')
+  const start = lines.indexOf('        env:')
+  assert.notEqual(start, -1, 'step env')
+  const environment = new Map()
+  for (const line of lines.slice(start + 1)) {
+    const match = /^ {10}([A-Z][A-Z0-9_]*): (.+)$/u.exec(line)
+    if (!match) break
+    assert.equal(environment.has(match[1]), false, match[1])
+    environment.set(match[1], match[2])
+  }
+  return environment
+}
+
+const ciWorkflow = () =>
+  readFileSync(
     path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
     'utf8'
   )
-  const section = workflow
-    .split('      - name: Verify selected browser acceptance')[1]
-    ?.split('\n  phase11_release:')[0]
-  assert.ok(section)
-  assert.ok(section.includes('if: ${{ always() }}'))
-  const script = section
+
+const workflowJob = (workflow, name) => {
+  const source = workflow.split(`\n  ${name}:\n`)[1]
+  assert.ok(source, name)
+  return source.split(/\n {2}[a-z0-9_]+:\n/u)[0]
+}
+
+const stepScript = (job, name) => {
+  const step = namedWorkflowStep(job, name)
+  const script = step
     .split('        run: |\n')[1]
     ?.split('\n')
     .filter((line) => line.startsWith('          '))
     .map((line) => line.slice(10))
     .join('\n')
-  assert.ok(script)
-  for (const [build, job, selected, outcome, expected] of [
-    ['success', 'success', 'true', 'success', 0],
-    ['success', 'success', 'false', 'skipped', 0],
-    ['success', 'success', 'true', 'failure', 1],
-    ['success', 'success', 'true', 'cancelled', 1],
-    ['success', 'success', 'true', 'skipped', 1],
-    ['success', 'success', 'true', '', 1],
-    ['success', 'success', 'false', '', 1],
-    ['success', 'failure', 'true', 'success', 1],
-    ['success', 'cancelled', 'true', 'success', 1],
-    ['failure', 'success', 'true', 'success', 1],
-    ['cancelled', 'success', 'true', 'success', 1],
-    ['success', 'success', '', 'success', 1]
+  assert.ok(script, name)
+  return script
+}
+
+const assertGate = (script, env, expected) => {
+  const result = spawnSync('bash', ['-e', '-c', script], {
+    env: { ...process.env, ...env },
+    encoding: 'utf8'
+  })
+  assert.equal(result.status, expected, JSON.stringify(env))
+}
+
+test('quality and regression start from the same plan in isolated jobs', () => {
+  const workflow = ciWorkflow()
+  const plan = workflowJob(workflow, 'plan')
+  const build = workflowJob(workflow, 'build')
+  const regression = workflowJob(workflow, 'regression')
+  const gate = workflowJob(workflow, 'e2e')
+  const portable = workflowJob(workflow, 'phase11_release')
+  assert.equal(
+    workflow.split('run: node scripts/ci/check-selection.mjs plan').length - 1,
+    1
+  )
+  assert.match(plan, /fetch-depth: 0/u)
+  assert.doesNotMatch(plan, /pnpm install|cache:|services:|needs:/u)
+  for (const job of [build, regression]) {
+    assert.match(job, /^ {4}needs: plan$/mu)
+    assert.match(
+      job,
+      /CI_SELECTION: \$\{\{ needs\.plan\.outputs\.selection \}\}/u
+    )
+    assert.match(job, /uses: actions\/checkout@v4/u)
+    assert.match(job, /ref: \$\{\{ github\.sha \}\}/u)
+    assert.match(job, /persist-credentials: false/u)
+    assert.match(job, /run: pnpm install --frozen-lockfile/u)
+    assert.doesNotMatch(job, /needs\.build|continue-on-error/u)
+  }
+  assert.match(build, /if: \$\{\{ always\(\)/u)
+  assert.match(build, /run: test "\$PLAN_RESULT" = success/u)
+  assert.doesNotMatch(build + plan + gate + portable, /services:/u)
+  assert.match(regression, /postgres:18\.4-alpine@sha256:/u)
+  assert.match(
+    regression,
+    /needs\.plan\.outputs\.api == 'true' \|\| needs\.plan\.outputs\.browser == 'true' \|\| needs\.plan\.outputs\.performance == 'true'/u
+  )
+  assert.match(gate, /needs: \[plan, build, regression\]/u)
+  assert.match(portable, /needs: \[plan, build\]/u)
+  for (const job of [gate, portable]) {
+    assert.match(job, /if: \$\{\{ always\(\)/u)
+    assert.match(job, /PLAN_RESULT: \$\{\{ needs\.plan\.result \}\}/u)
+    assert.match(job, /BUILD_RESULT: \$\{\{ needs\.build\.result \}\}/u)
+    assert.match(job, /test "\$PLAN_RESULT" = success/u)
+    assert.match(job, /test "\$BUILD_RESULT" = success/u)
+  }
+  for (const group of [
+    'static',
+    'typecheck',
+    'unit',
+    'audit',
+    'build',
+    'bundle'
   ]) {
-    const result = spawnSync('bash', ['-e', '-c', script], {
-      env: {
-        ...process.env,
-        BUILD_RESULT: build,
-        JOB_RESULT: job,
-        BROWSER_SELECTED: selected,
-        REAL_OUTCOME: outcome
-      },
-      encoding: 'utf8'
-    })
     assert.equal(
-      result.status,
-      expected,
-      JSON.stringify([build, job, selected, outcome])
+      build.split(`run: node scripts/ci/check-selection.mjs quality ${group}\n`)
+        .length - 1,
+      1
     )
   }
+  for (const [name, id, flag, command] of [
+    [
+      'API and database integration',
+      'api_integration',
+      'api',
+      'node scripts/ci/check-selection.mjs quality integration'
+    ],
+    [
+      'Database and API performance',
+      'database_performance',
+      'performance',
+      'node scripts/ci/check-selection.mjs quality performance'
+    ],
+    [
+      'Real browser acceptance',
+      'real_browser',
+      'browser',
+      'pnpm run test:browser:real'
+    ]
+  ]) {
+    const step = namedWorkflowStep(regression, name)
+    assert.ok(step.includes(`id: ${id}`))
+    assert.ok(step.includes(`if: \${{ needs.plan.outputs.${flag} == 'true' }}`))
+    assert.equal(workflow.split(`run: ${command}\n`).length - 1, 1)
+  }
+  assert.doesNotMatch(workflow, /run: pnpm run test:browser:mock/u)
+  assert.ok(
+    namedWorkflowStep(regression, 'Install Playwright Chromium').includes(
+      "if: ${{ needs.plan.outputs.browser == 'true' }}"
+    )
+  )
+})
+
+test('regression gate rejects failure, cancellation and unexpected skips for every selected suite', () => {
+  const job = workflowJob(ciWorkflow(), 'regression')
+  const step = namedWorkflowStep(job, 'Verify selected regression acceptance')
+  assert.ok(step.includes('if: ${{ always() }}'))
+  const environment = workflowStepEnvironment(step)
+  for (const [key, expression] of Object.entries({
+    PLAN_RESULT: 'needs.plan.result',
+    JOB_RESULT: 'job.status',
+    API_SELECTED: 'needs.plan.outputs.api',
+    API_OUTCOME: 'steps.api_integration.outcome',
+    PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
+    PERFORMANCE_OUTCOME: 'steps.database_performance.outcome',
+    BROWSER_SELECTED: 'needs.plan.outputs.browser',
+    REAL_OUTCOME: 'steps.real_browser.outcome'
+  }))
+    assert.equal(environment.get(key), `\${{ ${expression} }}`)
+  const script = stepScript(job, 'Verify selected regression acceptance')
+  for (const api of [false, true])
+    for (const performance of [false, true])
+      for (const browser of [false, true]) {
+        const env = {
+          PLAN_RESULT: 'success',
+          JOB_RESULT: 'success',
+          API_SELECTED: String(api),
+          API_OUTCOME: api ? 'success' : 'skipped',
+          PERFORMANCE_SELECTED: String(performance),
+          PERFORMANCE_OUTCOME: performance ? 'success' : 'skipped',
+          BROWSER_SELECTED: String(browser),
+          REAL_OUTCOME: browser ? 'success' : 'skipped'
+        }
+        assertGate(script, env, 0)
+        for (const key of [
+          'PLAN_RESULT',
+          'JOB_RESULT',
+          'API_OUTCOME',
+          'PERFORMANCE_OUTCOME',
+          'REAL_OUTCOME'
+        ]) {
+          for (const result of [
+            'success',
+            'failure',
+            'cancelled',
+            'skipped',
+            ''
+          ]) {
+            if (result !== env[key])
+              assertGate(script, { ...env, [key]: result }, 1)
+          }
+        }
+        for (const key of [
+          'API_SELECTED',
+          'PERFORMANCE_SELECTED',
+          'BROWSER_SELECTED'
+        ]) {
+          assertGate(script, { ...env, [key]: '' }, 1)
+        }
+      }
+})
+
+test('protected aggregate accepts only successful dependencies and intentionally skipped regression', () => {
+  const job = workflowJob(ciWorkflow(), 'e2e')
+  const step = namedWorkflowStep(
+    job,
+    'Require successful selected regression and build'
+  )
+  const environment = workflowStepEnvironment(step)
+  for (const [key, expression] of Object.entries({
+    PLAN_RESULT: 'needs.plan.result',
+    BUILD_RESULT: 'needs.build.result',
+    REGRESSION_RESULT: 'needs.regression.result',
+    API_SELECTED: 'needs.plan.outputs.api',
+    PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
+    BROWSER_SELECTED: 'needs.plan.outputs.browser'
+  }))
+    assert.equal(environment.get(key), `\${{ ${expression} }}`)
+  const script = stepScript(
+    job,
+    'Require successful selected regression and build'
+  )
+  for (const api of [false, true])
+    for (const performance of [false, true])
+      for (const browser of [false, true]) {
+        const env = {
+          PLAN_RESULT: 'success',
+          BUILD_RESULT: 'success',
+          API_SELECTED: String(api),
+          PERFORMANCE_SELECTED: String(performance),
+          BROWSER_SELECTED: String(browser),
+          REGRESSION_RESULT:
+            api || performance || browser ? 'success' : 'skipped'
+        }
+        assertGate(script, env, 0)
+        for (const key of [
+          'PLAN_RESULT',
+          'BUILD_RESULT',
+          'REGRESSION_RESULT'
+        ]) {
+          for (const result of [
+            'success',
+            'failure',
+            'cancelled',
+            'skipped',
+            ''
+          ]) {
+            if (result !== env[key])
+              assertGate(script, { ...env, [key]: result }, 1)
+          }
+        }
+        for (const key of [
+          'API_SELECTED',
+          'PERFORMANCE_SELECTED',
+          'BROWSER_SELECTED'
+        ]) {
+          assertGate(script, { ...env, [key]: '' }, 1)
+        }
+      }
 })
 
 test('protected branch pushes always run core regression but keep expensive extras related', () => {
@@ -428,8 +606,14 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     )
   const steps = (source) => source.match(/^ {6}- name:/gmu) ?? []
 
-  assert.deepEqual(jobs(normal), ['build', 'e2e', 'phase11_release'])
-  assert.equal(steps(normal).length, 28)
+  assert.deepEqual(jobs(normal), [
+    'plan',
+    'build',
+    'regression',
+    'e2e',
+    'phase11_release'
+  ])
+  assert.equal(steps(normal).length, 31)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
@@ -443,7 +627,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
     normal.split('toJSON(github.event.changes) == toJSON(fromJSON').length - 1,
-    7
+    8
   )
   assert.doesNotMatch(
     normal,
@@ -476,28 +660,6 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   )
   assert.ok(rootScripts.length <= 60)
 })
-
-const namedWorkflowStep = (source, name) => {
-  const marker = `      - name: ${name}\n`
-  const start = source.indexOf(marker)
-  assert.notEqual(start, -1, name)
-  const next = source.indexOf('\n      - name:', start + marker.length)
-  return source.slice(start, next === -1 ? source.length : next)
-}
-
-const workflowStepEnvironment = (step) => {
-  const lines = step.split('\n')
-  const start = lines.indexOf('        env:')
-  assert.notEqual(start, -1, 'step env')
-  const environment = new Map()
-  for (const line of lines.slice(start + 1)) {
-    const match = /^ {10}([A-Z][A-Z0-9_]*): (.+)$/u.exec(line)
-    if (!match) break
-    assert.equal(environment.has(match[1]), false, match[1])
-    environment.set(match[1], match[2])
-  }
-  return environment
-}
 
 test('production bundles validate the commit stamped by their reused build', () => {
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
