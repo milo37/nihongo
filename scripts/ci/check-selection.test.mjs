@@ -114,7 +114,7 @@ test('docs PR formats only; code chooses dependent packages without unrelated DB
   assert.equal(web.web, true)
   assert.equal(web.api, false)
   assert.equal(web.database, false)
-  assert.equal(web.browser, true)
+  assert.equal(web.browser, false)
   assert.equal(web.portable, false)
   assert.ok(
     !qualityCommands(web, 'unit').some(
@@ -136,7 +136,7 @@ test('docs PR formats only; code chooses dependent packages without unrelated DB
     1
   )
   assert.equal(api.database, true)
-  assert.equal(api.browser, true)
+  assert.equal(api.browser, false)
   assert.equal(api.web, false)
   assert.ok(
     !qualityCommands(api, 'unit').some((args) => args.includes('test:web'))
@@ -186,19 +186,13 @@ for (const file of [
     const selection = pr([file])
     assert.equal(selection.database, true, `${file} must retain DB integration`)
     assert.equal(selection.mode, 'conservative')
-    for (const flag of [
-      'web',
-      'api',
-      'browser',
-      'security',
-      'performance',
-      'portable'
-    ])
+    assert.equal(selection.browser, false)
+    for (const flag of ['web', 'api', 'security', 'performance', 'portable'])
       assert.equal(selection[flag], true, `${file}/${flag}`)
   })
 }
 
-test('auth/storage, shared contracts/domain and content retain DB and both browser transports', () => {
+test('auth/storage, shared contracts/domain and content retain DB without dev browser', () => {
   for (const file of [
     'apps/web/src/api/study/save.ts',
     'apps/web/src/app/practice/hooks/useSubmit.ts',
@@ -213,7 +207,7 @@ test('auth/storage, shared contracts/domain and content retain DB and both brows
   ]) {
     const selection = pr([file])
     assert.equal(selection.database, true, file)
-    assert.equal(selection.browser, true, file)
+    assert.equal(selection.browser, false, file)
   }
   for (const folder of ['packages/contracts', 'packages/domain', 'content']) {
     const selection = pr([`${folder}/data.json`])
@@ -246,7 +240,7 @@ test('operations PR, CI/common changes, unknown paths or comparison fail conserv
     const selection = pr([file])
     assert.ok(
       selection.database &&
-        selection.browser &&
+        !selection.browser &&
         selection.portable &&
         selection.performance,
       file
@@ -270,7 +264,6 @@ test('operations PR, CI/common changes, unknown paths or comparison fail conserv
 
 test('dev/main pushes, main PR, tag, manual/release and unexpected events cover integration/final gates', () => {
   for (const [eventName, ref] of [
-    ['push', 'refs/heads/dev'],
     ['push', 'refs/heads/main'],
     ['push', 'refs/tags/v0.2.0'],
     ['workflow_dispatch', 'refs/heads/dev'],
@@ -287,6 +280,18 @@ test('dev/main pushes, main PR, tag, manual/release and unexpected events cover 
       `${eventName}/${ref}`
     )
   }
+  const devPush = selectChecks({
+    eventName: 'push',
+    ref: 'refs/heads/dev',
+    event: {}
+  })
+  const mainPush = selectChecks({
+    eventName: 'push',
+    ref: 'refs/heads/main',
+    event: {}
+  })
+  assert.equal(devPush.browser, false)
+  assert.deepEqual({ ...devPush, browser: true }, mainPush)
   assert.equal(
     pr(['README.md'], {
       event: {
@@ -297,6 +302,17 @@ test('dev/main pushes, main PR, tag, manual/release and unexpected events cover 
       }
     }).mode,
     'candidate'
+  )
+  assert.equal(
+    pr(['README.md'], {
+      event: {
+        pull_request: {
+          ...event.pull_request,
+          base: { ...event.pull_request.base, ref: 'main' }
+        }
+      }
+    }).browser,
+    true
   )
   assert.equal(
     pr(['README.md'], {
@@ -392,7 +408,11 @@ test('required checks accept intentional omissions but reject missing/failed/can
       assertSelectedResults({
         job: 'e2e',
         planResult: 'success',
-        selection: pr(['apps/web/a.ts']),
+        selection: selectChecks({
+          eventName: 'push',
+          ref: 'refs/heads/main',
+          event: {}
+        }),
         steps: { phase10_browser_real: { outcome } }
       })
     )
@@ -467,7 +487,7 @@ test('quality child failure and cancellation remain nonzero and stop later prepa
 test('selected integration succeeds only with every required group completed', () => {
   const selection = selectChecks({
     eventName: 'push',
-    ref: 'refs/heads/dev',
+    ref: 'refs/heads/main',
     event: {}
   })
   const groups = {

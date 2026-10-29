@@ -27,7 +27,7 @@ const full = (mode, reason) => ({
 })
 const shaPattern = /^[a-f0-9]{40}$/u
 
-export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
+const classifyChecks = ({ eventName, ref, event, changedFiles }) => {
   if (
     eventName === 'workflow_dispatch' ||
     eventName === 'release' ||
@@ -136,6 +136,21 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
     )
   result.security = result.code
   return result
+}
+
+export const selectChecks = (input) => {
+  const selection = classifyChecks(input)
+  const devPush = input.eventName === 'push' && input.ref === 'refs/heads/dev'
+  const pr = input.event?.pull_request
+  const devPullRequest =
+    input.eventName === 'pull_request' &&
+    pr?.base?.ref === 'dev' &&
+    shaPattern.test(pr?.base?.sha ?? '') &&
+    shaPattern.test(pr?.head?.sha ?? '') &&
+    Array.isArray(input.changedFiles)
+  return devPush || devPullRequest
+    ? { ...selection, browser: false }
+    : selection
 }
 
 export const readSelection = (env = process.env, git = execFileSync) => {
