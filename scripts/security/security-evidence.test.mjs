@@ -1126,15 +1126,84 @@ test('artifact verifier accepts only complete closed-schema security JSON', asyn
   )
 })
 
-test('CI has no success-evidence artifact lifecycle', async () => {
+test('real-only browser evidence requires all three exact phases', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'real-safe-suites-'))
+  const labels = ['phase8-real', 'phase9-real', 'phase10-real']
+  try {
+    for (const [phase, count] of [
+      [8, 3],
+      [9, 4],
+      [10, 5]
+    ]) {
+      const label = `phase${phase}-real`
+      const reporter = new Phase10PlaywrightSummaryReporter({
+        outputDirectory: directory,
+        label
+      })
+      reporter.onBegin()
+      for (let index = 0; index < count; index += 1) {
+        reporter.onTestEnd(
+          {
+            location: { file: '/private/safe-suite.ts', line: index + 1 },
+            titlePath: () => [label, `test-${index}`]
+          },
+          {
+            status: 'passed',
+            duration: 1,
+            retry: 0,
+            attachments:
+              phase === 8
+                ? createCurrentPhase8Attachments('real', index)
+                : phase === 10 && index === 0
+                  ? createPhase10Attachments('real')
+                  : []
+          }
+        )
+      }
+      await reporter.onEnd({ status: 'passed' })
+    }
+    const verify = () =>
+      verifyArtifactDirectory({
+        directory,
+        profile: 'playwright',
+        requiredLabels: labels
+      })
+    assert.equal((await verify()).files.length, 3)
+    await rm(path.join(directory, 'phase9-real.json'))
+    await assert.rejects(verify, /SECURITY_EVIDENCE_INCOMPLETE/u)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('CI uploads only verified real browser summaries', async () => {
   const [normal, candidate] = await Promise.all([
     readFile(path.resolve('.github/workflows/ci.yml'), 'utf8'),
     readFile(path.resolve('.github/workflows/candidate.yml'), 'utf8')
   ])
-  assert.doesNotMatch(
-    `${normal}\n${candidate}`,
-    /actions\/(?:upload|download)-artifact|test-results\/phase10-evidence/u
+  const uploads = normal
+    .split('\n      - name: ')
+    .filter((step) => /uses: actions\/upload-artifact@/u.test(step))
+  assert.equal(uploads.length, 1)
+  const upload = uploads[0]
+  assert.match(upload, /^Upload safe Playwright evidence\n/u)
+  assert.match(upload, /uses: actions\/upload-artifact@v4/u)
+  assert.ok(
+    upload.includes(
+      "if: ${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}"
+    )
   )
+  assert.match(upload, /if-no-files-found: error/u)
+  assert.match(
+    upload,
+    /path: \$\{\{ env\.PHASE10_PLAYWRIGHT_EVIDENCE_DIR \}\}\//u
+  )
+  assert.doesNotMatch(
+    upload,
+    /phase10-raw|playwright-phase9|trace|video|screenshot/u
+  )
+  assert.doesNotMatch(normal + candidate, /download-artifact/u)
+  assert.doesNotMatch(candidate, /upload-artifact/u)
 })
 
 for (const mode of ['real', 'mock']) {
