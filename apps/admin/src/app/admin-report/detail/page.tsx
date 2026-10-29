@@ -354,6 +354,29 @@ const ReportDetail = ({
                 ) : null}
               </div>
               <div className="grid min-w-0 gap-5">
+                {conflict && mutationError ? (
+                  <ErrorState
+                    density="inline"
+                    title={t('reportDetail.conflictTitle')}
+                    description={presentError(mutationError)}
+                  />
+                ) : null}
+                {conflict ? (
+                  <Button
+                    variant="outline"
+                    disabled={
+                      pending ||
+                      refreshingConflict ||
+                      report.fetchStatus === 'paused' ||
+                      report.isOffline
+                    }
+                    onClick={() => {
+                      void refresh()
+                    }}
+                  >
+                    {t('reportDetail.retryConflict')}
+                  </Button>
+                ) : null}
                 {data.status === 'OPEN' ? (
                   <section className="grid gap-4 rounded-xl border border-line bg-surface p-5 sm:p-6">
                     <h2 className="text-xl font-bold">
@@ -384,32 +407,12 @@ const ReportDetail = ({
                     onSubmit={(input) => resolve.mutate(input)}
                   />
                 ) : null}
-                {mutationError ? (
+                {mutationError && !conflict ? (
                   <ErrorState
                     density="inline"
-                    title={t(
-                      conflict
-                        ? 'reportDetail.conflictTitle'
-                        : 'reportDetail.mutationError'
-                    )}
+                    title={t('reportDetail.mutationError')}
                     description={presentError(mutationError)}
                   />
-                ) : null}
-                {conflict ? (
-                  <Button
-                    variant="outline"
-                    disabled={
-                      pending ||
-                      refreshingConflict ||
-                      report.fetchStatus === 'paused' ||
-                      report.isOffline
-                    }
-                    onClick={() => {
-                      void refresh()
-                    }}
-                  >
-                    {t('reportDetail.retryConflict')}
-                  </Button>
                 ) : null}
                 {fresh ? (
                   <Button disabled={pending} onClick={beginFresh}>
