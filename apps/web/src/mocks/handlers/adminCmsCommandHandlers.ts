@@ -14,12 +14,12 @@ import { requestIdSchema } from '@nihongo/contracts/common/id'
 import { http, HttpResponse, type JsonBodyType } from 'msw'
 import { z, type ZodError, type ZodType } from 'zod'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { MockPhase7AdminCommandError } from '@mocks/repository/phase7AdminCmsState'
+import { MockContentCommandError } from '@mocks/repository/mockContentState'
 import {
-  phase7RateLimitRepository,
-  Phase7RateLimitRepositoryUnavailableError,
-  type Phase7RateLimitInput
-} from '@mocks/repository/phase7RateLimitRepository'
+  questionReportRateLimitRepository,
+  QuestionReportRateLimitRepositoryUnavailableError,
+  type QuestionReportRateLimitInput
+} from '@mocks/repository/questionReportRateLimitRepository'
 
 const REPORT_BODY_CAP = 32 * 1024
 const CANONICAL_CONTENT_LENGTH = /^(?:0|[1-9][0-9]*)$/u
@@ -29,7 +29,7 @@ const MOCK_CLIENT_ORIGIN_HEADER = 'X-Nihongo-MSW-Client-Origin'
 const canonicalCommandPaths = [/^\/api\/v1\/question-reports$/] as const
 
 export const resetAdminCmsCommandRateLimitForTesting = (): void => {
-  phase7RateLimitRepository.resetForTesting()
+  questionReportRateLimitRepository.resetForTesting()
 }
 
 const toFieldErrors = (error: ZodError): Record<string, string[]> => {
@@ -95,9 +95,9 @@ const toFailureResponse = (
   error: unknown
 ): HttpResponse<ApiFailure> => {
   const failure =
-    error instanceof MockPhase7AdminCommandError
+    error instanceof MockContentCommandError
       ? error
-      : new MockPhase7AdminCommandError({
+      : new MockContentCommandError({
           code: 'SERVICE_UNAVAILABLE',
           message: '관리자 명령 결과를 확인할 수 없습니다.',
           disposition: 'COMMIT_UNKNOWN'
@@ -146,13 +146,13 @@ const assertDeclaredBodyBound = (
   const declared = request.headers.get('Content-Length')
   if (declared === null) return
   if (!CANONICAL_CONTENT_LENGTH.test(declared)) {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'INVALID_REQUEST',
       message: 'Content-Length가 올바르지 않습니다.'
     })
   }
   if (BigInt(declared) > BigInt(maximumBytes)) {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'REQUEST_TOO_LARGE',
       message: '요청 본문이 허용된 크기를 초과했습니다.'
     })
@@ -164,20 +164,20 @@ const requireReporter = (): { actorId: string; role: 'USER' | 'ADMIN' } => {
   try {
     user = mockDatabase.getCurrentUser()
   } catch {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'SERVICE_UNAVAILABLE',
       message: '최신 인증 세션을 확인하지 못했습니다.',
       disposition: 'NO_TX'
     })
   }
   if (!user) {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'AUTHENTICATION_REQUIRED',
       message: '문제를 신고하려면 로그인이 필요합니다.'
     })
   }
   if (user.role !== 'USER' && user.role !== 'ADMIN') {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'FORBIDDEN',
       message: '문제 신고 권한이 없습니다.'
     })
@@ -188,14 +188,14 @@ const requireReporter = (): { actorId: string; role: 'USER' | 'ADMIN' } => {
 const assertJsonTransport = (request: Request): void => {
   const encoding = request.headers.get('Content-Encoding')
   if (encoding !== null && encoding.toLowerCase() !== 'identity') {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'INVALID_REQUEST',
       message: '지원하지 않는 Content-Encoding입니다.'
     })
   }
   const contentType = request.headers.get('Content-Type')
   if (!contentType || !JSON_MEDIA_TYPE.test(contentType)) {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'INVALID_REQUEST',
       message: 'JSON Content-Type이 필요합니다.'
     })
@@ -245,21 +245,22 @@ const assertTrustedOrigin = (request: Request): void => {
   ) {
     return
   }
-  throw new MockPhase7AdminCommandError({
+  throw new MockContentCommandError({
     code: 'UNTRUSTED_ORIGIN',
     message: '신뢰할 수 있는 요청 출처가 필요합니다.'
   })
 }
 
 const consumeSharedRate = async (
-  input: Phase7RateLimitInput
+  input: QuestionReportRateLimitInput
 ): Promise<void> => {
   let retryAfterSeconds: number | null
   try {
-    ;({ retryAfterSeconds } = await phase7RateLimitRepository.consume(input))
+    ;({ retryAfterSeconds } =
+      await questionReportRateLimitRepository.consume(input))
   } catch (error: unknown) {
-    if (error instanceof Phase7RateLimitRepositoryUnavailableError) {
-      throw new MockPhase7AdminCommandError({
+    if (error instanceof QuestionReportRateLimitRepositoryUnavailableError) {
+      throw new MockContentCommandError({
         code: 'SERVICE_UNAVAILABLE',
         message: '요청 제한 상태를 확인할 수 없습니다.',
         disposition: 'NO_TX',
@@ -269,7 +270,7 @@ const consumeSharedRate = async (
     throw error
   }
   if (retryAfterSeconds !== null) {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'RATE_LIMITED',
       message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
       retryAfterSeconds
@@ -290,7 +291,7 @@ const consumeQuestionReportRate = async (
 
 const assertEmptyQuery = (request: Request): void => {
   if (new URL(request.url).search.length > 0) {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'VALIDATION_ERROR',
       message: '관리자 명령 쿼리 문자열이 올바르지 않습니다.',
       fieldErrors: { query: ['쿼리 파라미터를 사용할 수 없습니다.'] }
@@ -313,7 +314,7 @@ export const readPhase7MockJsonBody = async (
         byteLength += chunk.value.byteLength
         if (byteLength > maximumBytes) {
           void reader.cancel().catch(() => undefined)
-          throw new MockPhase7AdminCommandError({
+          throw new MockContentCommandError({
             code: 'REQUEST_TOO_LARGE',
             message: '요청 본문이 허용된 크기를 초과했습니다.'
           })
@@ -321,8 +322,8 @@ export const readPhase7MockJsonBody = async (
         chunks.push(chunk.value)
       }
     } catch (error: unknown) {
-      if (error instanceof MockPhase7AdminCommandError) throw error
-      throw new MockPhase7AdminCommandError({
+      if (error instanceof MockContentCommandError) throw error
+      throw new MockContentCommandError({
         code: 'INVALID_JSON',
         message: 'JSON 요청 본문이 올바르지 않습니다.'
       })
@@ -337,7 +338,7 @@ export const readPhase7MockJsonBody = async (
   try {
     const value = parsePhase7JsonBytes(bytes)
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'INVALID_JSON',
         message: 'JSON 요청 본문이 올바르지 않습니다.'
       })
@@ -348,12 +349,12 @@ export const readPhase7MockJsonBody = async (
       error instanceof Phase7JsonParseError &&
       error.kind === 'MAX_DEPTH_EXCEEDED'
     ) {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'VALIDATION_ERROR',
         message: 'JSON 요청 본문의 중첩 깊이가 너무 큽니다.'
       })
     }
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'INVALID_JSON',
       message: 'JSON 요청 본문이 올바르지 않습니다.'
     })
@@ -369,7 +370,7 @@ const parseBody = async <Schema extends ZodType>(
   const raw = await readPhase7MockJsonBody(request, bodyCap(operation))
   const result = schema.safeParse(raw)
   if (result.success) return result.data
-  throw new MockPhase7AdminCommandError({
+  throw new MockContentCommandError({
     code: 'VALIDATION_ERROR',
     message,
     fieldErrors: toFieldErrors(result.error)
@@ -383,7 +384,7 @@ const assertOperationResult = async <Result>(
   try {
     return await assertion()
   } catch {
-    throw new MockPhase7AdminCommandError({
+    throw new MockContentCommandError({
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       disposition
@@ -391,7 +392,7 @@ const assertOperationResult = async <Result>(
   }
 }
 
-const state = () => mockDatabase.getPhase7AdminCmsStateForHandlers()
+const state = () => mockDatabase.getMockContentStateForHandlers()
 
 const handleCreateQuestionReport = async (
   request: Request
@@ -418,7 +419,7 @@ const handleCreateQuestionReport = async (
         'NO_TX'
       )
     if (!entitledQuestionId) {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'RESOURCE_NOT_FOUND',
         message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.'
       })

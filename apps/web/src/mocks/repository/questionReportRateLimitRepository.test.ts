@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Phase7RateLimitRepository } from '@mocks/repository/phase7RateLimitRepository'
+import { QuestionReportRateLimitRepository } from '@mocks/repository/questionReportRateLimitRepository'
 
 const actorId = '019d0000-0000-7000-8000-000000000001'
 
@@ -11,7 +11,7 @@ describe('report rate limit fixture', () => {
         [`ADMIN_EDIT:actor:${actorId}`, { count: 1, windowStartedAt: 1000 }]
       ]
     })
-    const repository = new Phase7RateLimitRepository({
+    const repository = new QuestionReportRateLimitRepository({
       lease: async (operation) => await operation(),
       now: () => 1000,
       storage: {
