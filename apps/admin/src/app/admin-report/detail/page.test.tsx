@@ -269,10 +269,22 @@ it.each(['VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'])(
     await fill()
     const user = userEvent.setup()
     await user.click(submit())
-    await screen.findByRole('heading', {
+    const conflictHeading = await screen.findByRole('heading', {
       name: '다른 작업에서 신고 상태가 변경됐습니다'
     })
+    const reload = screen.getByRole('button', {
+      name: '최신 신고 상태 불러오기'
+    })
+    expect(
+      conflictHeading.compareDocumentPosition(reload) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(
+      reload.compareDocumentPosition(reason()) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
     expect(reason()).toHaveValue('해설 확인')
+    expect(reason()).toBeDisabled()
     expect(submit()).toBeDisabled()
     failRead = true
     await user.click(
@@ -287,6 +299,9 @@ it.each(['VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'])(
       screen.getByRole('button', { name: '최신 신고 상태 불러오기' })
     )
     await waitFor(() => expect(submit()).toBeEnabled())
+    expect(
+      screen.getByRole('heading', { name: '문제 신고 상세' })
+    ).toHaveFocus()
     expect(reason()).toHaveValue('해설 확인')
     expect(attempts).toBe(1)
     await user.click(submit())

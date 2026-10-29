@@ -1355,27 +1355,15 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
     'await worker.execute()'
   )
   if (mode === 'real') {
-    const { runBrowserMode } = await import('../runPhaseBrowser.ts')
-    const events = []
-    const adapter = {
-      runCommand: async (_command, args) => {
-        if (args[4] === '--suite') {
-          events.push(args[5])
-          if (args[5] === 'accessibility') throw new Error('fixture failure')
-        }
-      },
-      runMockBrowser: async () =>
-        assert.fail('mock suite reached in real mode'),
-      cleanup: async () => undefined
-    }
-    await assert.rejects(
-      runBrowserMode('real', new AbortController().signal, [], {
-        loadPhase9: async () => adapter,
-        resolveTsx: () => 'test-loader'
-      }),
-      /fixture failure/u
+    const { calls: runnerCalls, error } =
+      runIsolatedBrowserScenario('suite-failure')
+    assert.equal(error, 'fixture failure')
+    assert.deepEqual(
+      runnerCalls
+        .filter(({ args }) => args[4] === '--suite')
+        .map(({ args }) => args[5]),
+      ['admin', 'accessibility']
     )
-    assert.deepEqual(events, ['admin', 'accessibility'])
   }
 
   const sources = {
@@ -1936,6 +1924,7 @@ const calls = []
 const runCommand = async (command, args, env) => {
   calls.push({ command, args, prepared: env.JLP541_BROWSER_ARTIFACTS_PREPARED ?? null })
   if (process.argv[2] === 'failure') throw new Error('build failed')
+  if (process.argv[2] === 'suite-failure' && args[4] === '--suite' && args[5] === 'accessibility') throw new Error('fixture failure')
   const output = args[1] === '@nihongo/contracts' ? 'packages/contracts/dist/index.js'
     : args[1] === '@nihongo/domain' ? 'packages/domain/dist/index.js'
     : args[1] === '@nihongo/api' ? 'apps/api/src/generated/prisma/client.js' : undefined
