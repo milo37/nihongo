@@ -22,7 +22,7 @@ const invalidJson = (): ApplicationError =>
     phase7Disposition: 'NO_TX'
   })
 
-export const readPhase7JsonBody = async (
+export const readStrictJsonBody = async (
   request: Request,
   maximumBytes: number
 ): Promise<unknown> => {
