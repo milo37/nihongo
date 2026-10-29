@@ -297,6 +297,95 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   )
 })
 
+test('real browser summaries are isolated, verified before upload and cleaned on failure', () => {
+  const job = workflowJob(ciWorkflow(), 'regression')
+  const names = [
+    'Initialize unique safe Playwright evidence',
+    'Real browser acceptance',
+    'Verify safe Playwright evidence',
+    'Upload safe Playwright evidence',
+    'Clean browser evidence',
+    'Verify selected regression acceptance'
+  ]
+  const positions = names.map((name) => {
+    namedWorkflowStep(job, name)
+    return job.indexOf(`      - name: ${name}\n`)
+  })
+  assert.deepEqual(
+    positions,
+    positions.toSorted((left, right) => left - right)
+  )
+  assert.ok(
+    job.includes(
+      'PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}'
+    )
+  )
+  const initialize = namedWorkflowStep(job, names[0])
+  assert.match(initialize, /id: playwright_initialize/u)
+  assert.ok(
+    initialize.includes("if: ${{ needs.plan.outputs.browser == 'true' }}")
+  )
+  const verify = namedWorkflowStep(job, names[2])
+  assert.match(verify, /id: playwright_evidence/u)
+  assert.ok(
+    verify.includes(
+      "if: ${{ !cancelled() && steps.playwright_initialize.outcome == 'success' }}"
+    )
+  )
+  assert.match(verify, /node scripts\/security\/security-evidence\.mjs verify/u)
+  assert.match(verify, /--directory "\$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"/u)
+  assert.match(verify, /--profile playwright/u)
+  assert.match(verify, /--required phase8-real,phase9-real,phase10-real\s*$/u)
+  const cleanup = namedWorkflowStep(job, names[4])
+  assert.ok(
+    cleanup.includes(
+      "if: ${{ always() && needs.plan.outputs.browser == 'true' }}"
+    )
+  )
+
+  const root = mkdtempSync(path.join(tmpdir(), 'ci-browser-evidence-'))
+  const evidence = 'test-results/phase10-evidence/playwright-fixture-1'
+  const env = {
+    ...process.env,
+    GITHUB_RUN_ID: 'fixture',
+    GITHUB_RUN_ATTEMPT: '1',
+    PHASE10_PLAYWRIGHT_EVIDENCE_DIR: evidence
+  }
+  const run = (name, overrides = {}) =>
+    spawnSync('bash', ['-e', '-c', stepScript(job, name)], {
+      cwd: root,
+      env: { ...env, ...overrides },
+      encoding: 'utf8'
+    })
+  try {
+    assert.equal(run(names[0]).status, 0)
+    writeFileSync(path.join(root, evidence, 'owned.json'), '{}')
+    assert.equal(run(names[0]).status, 1, 'stale evidence must be rejected')
+    for (const directory of [
+      'test-results/phase10-raw',
+      'test-results/playwright-phase9-real'
+    ]) {
+      mkdirSync(path.join(root, directory), { recursive: true })
+      writeFileSync(path.join(root, directory, 'owned.txt'), 'fixture')
+    }
+    assert.equal(
+      run(names[4], { PHASE10_PLAYWRIGHT_EVIDENCE_DIR: 'unrelated' }).status,
+      1
+    )
+    assert.equal(existsSync(path.join(root, evidence, 'owned.json')), true)
+    assert.equal(run(names[4]).status, 0)
+    for (const directory of [
+      evidence,
+      'test-results/phase10-raw',
+      'test-results/playwright-phase9-real'
+    ]) {
+      assert.equal(existsSync(path.join(root, directory)), false)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('regression gate rejects failure, cancellation and unexpected skips for every selected suite', () => {
   const job = workflowJob(ciWorkflow(), 'regression')
   const step = namedWorkflowStep(job, 'Verify selected regression acceptance')
@@ -310,7 +399,9 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
     PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
     PERFORMANCE_OUTCOME: 'steps.database_performance.outcome',
     BROWSER_SELECTED: 'needs.plan.outputs.browser',
-    REAL_OUTCOME: 'steps.real_browser.outcome'
+    REAL_OUTCOME: 'steps.real_browser.outcome',
+    EVIDENCE_INITIALIZE_OUTCOME: 'steps.playwright_initialize.outcome',
+    EVIDENCE_OUTCOME: 'steps.playwright_evidence.outcome'
   }))
     assert.equal(environment.get(key), `\${{ ${expression} }}`)
   const script = stepScript(job, 'Verify selected regression acceptance')
@@ -325,7 +416,9 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
           PERFORMANCE_SELECTED: String(performance),
           PERFORMANCE_OUTCOME: performance ? 'success' : 'skipped',
           BROWSER_SELECTED: String(browser),
-          REAL_OUTCOME: browser ? 'success' : 'skipped'
+          REAL_OUTCOME: browser ? 'success' : 'skipped',
+          EVIDENCE_INITIALIZE_OUTCOME: browser ? 'success' : 'skipped',
+          EVIDENCE_OUTCOME: browser ? 'success' : 'skipped'
         }
         assertGate(script, env, 0)
         for (const key of [
@@ -333,7 +426,9 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
           'JOB_RESULT',
           'API_OUTCOME',
           'PERFORMANCE_OUTCOME',
-          'REAL_OUTCOME'
+          'REAL_OUTCOME',
+          'EVIDENCE_INITIALIZE_OUTCOME',
+          'EVIDENCE_OUTCOME'
         ]) {
           for (const result of [
             'success',
@@ -613,7 +708,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'e2e',
     'phase11_release'
   ])
-  assert.equal(steps(normal).length, 31)
+  assert.equal(steps(normal).length, 35)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
@@ -623,7 +718,9 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   ]) {
     assert.equal(normal.split(name).length - 1, 1)
   }
-  assert.doesNotMatch(normal + candidate, /previous-results|upload-artifact/u)
+  assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
+  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 1)
+  assert.doesNotMatch(candidate, /upload-artifact/u)
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
     normal.split('toJSON(github.event.changes) == toJSON(fromJSON').length - 1,
