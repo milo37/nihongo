@@ -46,7 +46,7 @@ import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch
 } from '../../libs/authTransitionFence'
-import { phase7Sha256TextPort } from '../../libs/phase7Sha256'
+import { sha256TextPort } from '../../libs/sha256Text'
 
 type OperationSchemas<Operation extends Phase7Operation> =
   (typeof phase7OperationSchemas)[Operation]
@@ -193,17 +193,13 @@ const assertCorrelatedResponse = async (
       return assertRequestContentReviewBatchResponse(body, response)
     case 'validateQuestionImport':
       return assertAdminImportValidationForRequest(
-        phase7Sha256TextPort,
+        sha256TextPort,
         body,
         response
       )
     case 'applyQuestionImport':
       return (
-        await assertAdminImportApplyForRequest(
-          phase7Sha256TextPort,
-          body,
-          response
-        )
+        await assertAdminImportApplyForRequest(sha256TextPort, body, response)
       ).response
     case 'exportAdminQuestions':
       return response
@@ -211,7 +207,7 @@ const assertCorrelatedResponse = async (
       const asserted = assertListAdminAuditLogForRequest(query, response)
       await Promise.all(
         asserted.items.map((item) =>
-          assertAdminAuditContentDigest(phase7Sha256TextPort, item)
+          assertAdminAuditContentDigest(sha256TextPort, item)
         )
       )
       return asserted
@@ -222,10 +218,7 @@ const assertCorrelatedResponse = async (
       return assertListAdminQuestionReportsForRequest(query, response)
     case 'getAdminQuestionReport': {
       const asserted = assertGetAdminQuestionReportForRequest(params, response)
-      await assertQuestionReportDescriptionDigest(
-        phase7Sha256TextPort,
-        asserted
-      )
+      await assertQuestionReportDescriptionDigest(sha256TextPort, asserted)
       return asserted
     }
     case 'triageAdminQuestionReport':

@@ -1,4 +1,4 @@
-import { phase7Sha256TextPort } from '@nihongo/browser/libs/phase7Sha256'
+import { sha256TextPort } from '@nihongo/browser/libs/sha256Text'
 import {
   QueryClient,
   QueryClientProvider,
@@ -233,7 +233,7 @@ it('rechecks the actor after an awaited committed apply invalidation', async () 
 })
 it('uses the real shared validation transport digest binding and canonical private response metadata', async () => {
   const correctDigest = 'a'.repeat(64)
-  vi.spyOn(phase7Sha256TextPort, 'digestUtf8').mockResolvedValue(correctDigest)
+  vi.spyOn(sha256TextPort, 'digestUtf8').mockResolvedValue(correctDigest)
   const transport = vi.spyOn(apiClient, 'request').mockResolvedValue({
     status: 200,
     headers: {
