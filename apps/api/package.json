@@ -20,7 +20,7 @@
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
     "auth:erase-deletion-pending": "pnpm run db:generate && tsx src/auth/ssoAccountErasureCommand.ts",
     "auth:erase-deletion-pending:compiled": "node dist/auth/ssoAccountErasureCommand.js",
-    "content:materialize-slice1": "tsx prisma/phase6Slice1ArtifactMaterializer.ts",
+    "content:materialize-slice1": "tsx prisma/materializeLegacySeedArtifacts.ts",
     "content:foundation-check": "tsx prisma/phase6Slice1FoundationCheck.ts",
     "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
