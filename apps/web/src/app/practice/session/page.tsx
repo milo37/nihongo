@@ -530,20 +530,22 @@ export const PracticeSessionPage = (): ReactElement => {
 
   if (isRetiredSession) {
     return (
-      <ErrorState
-        autoFocus
-        headingLevel={1}
-        title={t('session.terminal.retiredTitle')}
-        description={t('session.terminal.retiredDescription')}
-        action={
-          <Link
-            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-            to="/practice"
-          >
-            {t('session.terminal.openSetup')}
-          </Link>
-        }
-      />
+      <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.terminal.retiredTitle')}
+          description={t('session.terminal.retiredDescription')}
+          action={
+            <Link
+              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+              to="/practice"
+            >
+              {t('session.terminal.openSetup')}
+            </Link>
+          }
+        />
+      </section>
     )
   }
 
@@ -596,20 +598,22 @@ export const PracticeSessionPage = (): ReactElement => {
   if (!sessionQuery.data) {
     if (sessionQuery.isError && isNotFoundApiError(sessionQuery.error)) {
       return (
-        <ErrorState
-          autoFocus
-          headingLevel={1}
-          title={t('session.terminal.notFoundTitle')}
-          description={t('session.terminal.notFoundDescription')}
-          action={
-            <Link
-              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-              to="/practice"
-            >
-              {t('session.terminal.openSetup')}
-            </Link>
-          }
-        />
+        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+          <ErrorState
+            autoFocus
+            headingLevel={1}
+            title={t('session.terminal.notFoundTitle')}
+            description={t('session.terminal.notFoundDescription')}
+            action={
+              <Link
+                className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+                to="/practice"
+              >
+                {t('session.terminal.openSetup')}
+              </Link>
+            }
+          />
+        </section>
       )
     }
     if (hasFrozenSubmissionAttempt) {
