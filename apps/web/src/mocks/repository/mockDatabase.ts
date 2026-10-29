@@ -77,17 +77,17 @@ import type {
 import { mockSeedData } from '@mocks/data'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import {
-  createMockPhase7ActiveAdminCmsState,
-  MockPhase7AdminCommandError,
-  MockPhase7AdminCmsState,
-  type MockPhase7MutationLease,
-  type MockPhase7ActiveAdminCmsState,
-  type MockPhase7AdminCmsPersistedState
-} from '@mocks/repository/phase7AdminCmsState'
+  createMockActiveContentState,
+  MockContentCommandError,
+  MockContentState,
+  type MockMutationLease,
+  type MockActiveContentState,
+  type MockContentPersistedState
+} from '@mocks/repository/mockContentState'
 import {
-  Phase7MutationCoordinatorUnavailableError,
-  runWithPhase7BrowserMutationLease
-} from '@mocks/repository/phase7MutationCoordinator'
+  MockMutationCoordinatorUnavailableError,
+  runWithMockBrowserMutationLease
+} from '@mocks/repository/mockMutationCoordinator'
 import { addDaysToIso, toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@mocks/logic/question'
 import {
@@ -669,7 +669,7 @@ interface PersistedMockState extends PersistedMockStateBase {
   canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
   canonicalStudyResults: CanonicalStudyResult[]
   canonicalUserMemos: MockCanonicalUserMemoRecord[]
-  phase7AdminCms: MockPhase7AdminCmsPersistedState
+  phase7AdminCms: MockContentPersistedState
 }
 
 type HydratablePersistedMockState =
@@ -694,7 +694,7 @@ export interface MockDatabaseOptions {
   seed?: ShuffleSeed
   storage?: MockStorage
   listenToStorage?: boolean
-  mutationLease?: MockPhase7MutationLease
+  mutationLease?: MockMutationLease
 }
 
 const defaultStorage: MockStorage = {
@@ -983,16 +983,16 @@ export class MockDatabase {
     () => this.logout()
   )
   private readonly now: () => string
-  private readonly phase7AdminCmsState: MockPhase7AdminCmsState
-  private readonly phase7ActiveAdminCmsState: MockPhase7ActiveAdminCmsState
-  private readonly phase7MutationLease: MockPhase7MutationLease
+  private readonly mockContentState: MockContentState
+  private readonly mockActiveContentState: MockActiveContentState
+  private readonly mockMutationLease: MockMutationLease
   private readonly randomSeed: ShuffleSeed
   private readonly storage: MockStorage
   private authoritativePhase7GraphValidation:
     | { serialized: string; valid: boolean }
     | undefined
   private deferredExternalStorageChange = false
-  private phase7MutationStorageBaseline: string | null | undefined
+  private mockMutationStorageBaseline: string | null | undefined
   private useLegacyQuestionSourcesForLearnerProjection = true
   private unsubscribeStorage: (() => void) | undefined
   private readonly userById = new Map<string, User>()
@@ -1029,19 +1029,19 @@ export class MockDatabase {
   constructor(options: MockDatabaseOptions = {}) {
     this.now = options.now ?? (() => new Date().toISOString())
     this.storage = options.storage ?? defaultStorage
-    this.phase7MutationLease =
-      options.mutationLease ?? runWithPhase7BrowserMutationLease
-    this.phase7AdminCmsState = new MockPhase7AdminCmsState(
+    this.mockMutationLease =
+      options.mutationLease ?? runWithMockBrowserMutationLease
+    this.mockContentState = new MockContentState(
       this.now,
       options.auditEnvironment ??
         (import.meta.env.MODE === 'test' ? 'TEST' : 'DEVELOPMENT'),
-      () => this.persistPhase7AdminCmsState(),
-      () => this.rebaseFromLatestStorageForPhase7Mutation(),
-      async (operation) => await this.runPhase7CrossTabExclusive(operation),
-      () => this.completePhase7MutationQueue()
+      () => this.persistMockContentState(),
+      () => this.rebaseFromLatestStorageForMockMutation(),
+      async (operation) => await this.runMockCrossTabExclusive(operation),
+      () => this.completeMockMutationQueue()
     )
-    this.phase7ActiveAdminCmsState = createMockPhase7ActiveAdminCmsState(
-      this.phase7AdminCmsState
+    this.mockActiveContentState = createMockActiveContentState(
+      this.mockContentState
     )
     this.randomSeed = options.seed ?? 'jlpt-drill-note'
 
@@ -1105,7 +1105,7 @@ export class MockDatabase {
 
     this.ssoAccounts.newSession()
     this.currentUserId = user.id
-    this.phase7AdminCmsState.startSession(user.id)
+    this.mockContentState.startSession(user.id)
     this.persist({ currentUserId: user.id })
     return clone(user)
   }
@@ -1113,7 +1113,7 @@ export class MockDatabase {
   logout(): void {
     this.ssoAccounts.clearProof()
     if (this.currentUserId) {
-      this.phase7AdminCmsState.endSession(this.currentUserId)
+      this.mockContentState.endSession(this.currentUserId)
     }
     this.currentUserId = null
     this.persist({ currentUserId: null })
@@ -3516,8 +3516,8 @@ export class MockDatabase {
     return clone(question)
   }
 
-  getPhase7AdminCmsStateForHandlers(): MockPhase7ActiveAdminCmsState {
-    return this.phase7ActiveAdminCmsState
+  getMockContentStateForHandlers(): MockActiveContentState {
+    return this.mockActiveContentState
   }
 
   assertPhase7QuestionReportAuthority(actorId: string): 'USER' | 'ADMIN' {
@@ -3525,21 +3525,21 @@ export class MockDatabase {
     try {
       user = this.getCurrentUser()
     } catch {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'SERVICE_UNAVAILABLE',
         message: '최신 인증 세션을 확인하지 못했습니다.',
         disposition: 'DEFINITE_ROLLBACK'
       })
     }
     if (!user || user.id !== actorId) {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'AUTH_SESSION_EXPIRED',
         message: '로그인 세션이 만료됐습니다.',
         disposition: 'DEFINITE_ROLLBACK'
       })
     }
     if (user.role !== 'USER' && user.role !== 'ADMIN') {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'FORBIDDEN',
         message: '문제 신고 권한이 없습니다.',
         disposition: 'DEFINITE_ROLLBACK'
@@ -3569,7 +3569,7 @@ export class MockDatabase {
       }
 
       const sources = this.listPhase7AuthoritativeTaxonomySources()
-      const verifier = new MockPhase7AdminCmsState(this.now)
+      const verifier = new MockContentState(this.now)
       if (phase7State) {
         verifier.restore(
           phase7State,
@@ -3649,8 +3649,8 @@ export class MockDatabase {
       // reachable last-wrong/current-review entitlement proof.
       return hasOwnedSessionPin ? version.questionId : null
     } catch (error: unknown) {
-      if (error instanceof MockPhase7AdminCommandError) throw error
-      throw new MockPhase7AdminCommandError({
+      if (error instanceof MockContentCommandError) throw error
+      throw new MockContentCommandError({
         code: 'SERVICE_UNAVAILABLE',
         message: '최신 문제 신고 권한을 확인하지 못했습니다.',
         disposition
@@ -3726,7 +3726,7 @@ export class MockDatabase {
   }
 
   private resetMemoryToSeed(): void {
-    this.phase7AdminCmsState.reset()
+    this.mockContentState.reset()
     this.questionById = new Map(
       mockSeedData.questions.map((question) => [question.id, clone(question)])
     )
@@ -4200,7 +4200,7 @@ export class MockDatabase {
     const sources = this.useLegacyQuestionSourcesForLearnerProjection
       ? this.listCanonicalAdminQuestionSources()
       : this.listPhase7AuthoritativeAdminQuestionSources()
-    const snapshot = this.phase7AdminCmsState.snapshot(sources)
+    const snapshot = this.mockContentState.snapshot(sources)
     const sourceIdByQuestionId = new Map(
       sources.map(({ question }) => [
         getCanonicalQuestionId(question),
@@ -5645,7 +5645,7 @@ export class MockDatabase {
       results: [...this.resultBySessionId.values()],
       wrongNotes: [...this.wrongNoteByQuestionId.values()],
       bookmarks: [...this.bookmarkByQuestionId.values()],
-      phase7AdminCms: this.phase7AdminCmsState.persistedSnapshot(
+      phase7AdminCms: this.mockContentState.persistedSnapshot(
         this.listPhase7AuthoritativeAdminQuestionSources()
       )
     }
@@ -5708,7 +5708,7 @@ export class MockDatabase {
 
   private hasValidEmbeddedPhase7Graph(
     serialized: string,
-    persisted: MockPhase7AdminCmsPersistedState
+    persisted: MockContentPersistedState
   ): boolean {
     if (this.authoritativePhase7GraphValidation?.serialized === serialized) {
       return this.authoritativePhase7GraphValidation.valid
@@ -5716,7 +5716,7 @@ export class MockDatabase {
 
     let valid = false
     try {
-      new MockPhase7AdminCmsState(this.now).restore(
+      new MockContentState(this.now).restore(
         persisted,
         this.listPhase7AuthoritativeTaxonomySources()
       )
@@ -5741,7 +5741,7 @@ export class MockDatabase {
 
   private parsePhase7PersistedState(
     serialized: string
-  ): MockPhase7AdminCmsPersistedState | null {
+  ): MockContentPersistedState | null {
     try {
       const parsed: unknown = JSON.parse(serialized)
       if (
@@ -5756,7 +5756,7 @@ export class MockDatabase {
       ) {
         return null
       }
-      return parsed as unknown as MockPhase7AdminCmsPersistedState
+      return parsed as unknown as MockContentPersistedState
     } catch {
       return null
     }
@@ -5770,7 +5770,7 @@ export class MockDatabase {
     const parsed = this.parsePhase7PersistedState(serialized)
     if (!parsed) {
       if (forMutation) {
-        throw new MockPhase7AdminCommandError({
+        throw new MockContentCommandError({
           code: 'SERVICE_UNAVAILABLE',
           message: '최신 관리자 저장 상태를 확인하지 못했습니다.',
           disposition: 'NO_TX'
@@ -5780,24 +5780,24 @@ export class MockDatabase {
     }
     const sources = this.listPhase7AuthoritativeAdminQuestionSources()
     const taxonomySources = this.listPhase7AuthoritativeTaxonomySources()
-    const current = this.phase7AdminCmsState.persistedSnapshot(sources)
+    const current = this.mockContentState.persistedSnapshot(sources)
     const changed = JSON.stringify(current) !== JSON.stringify(parsed)
     if (changed) {
       if (forMutation)
-        this.phase7AdminCmsState.restoreForMutation(parsed, taxonomySources)
-      else this.phase7AdminCmsState.restoreGraph(parsed, taxonomySources)
+        this.mockContentState.restoreForMutation(parsed, taxonomySources)
+      else this.mockContentState.restoreGraph(parsed, taxonomySources)
     }
     return changed
   }
 
-  private async runPhase7CrossTabExclusive<Result>(
+  private async runMockCrossTabExclusive<Result>(
     operation: () => Promise<Result>
   ): Promise<Result> {
     try {
-      return await this.phase7MutationLease(operation)
+      return await this.mockMutationLease(operation)
     } catch (error: unknown) {
-      if (error instanceof Phase7MutationCoordinatorUnavailableError) {
-        throw new MockPhase7AdminCommandError({
+      if (error instanceof MockMutationCoordinatorUnavailableError) {
+        throw new MockContentCommandError({
           code: 'SERVICE_UNAVAILABLE',
           message: '탭 간 관리자 쓰기 잠금을 사용할 수 없습니다.',
           disposition: 'NO_TX'
@@ -5807,24 +5807,24 @@ export class MockDatabase {
     }
   }
 
-  private rebaseFromLatestStorageForPhase7Mutation(): boolean {
+  private rebaseFromLatestStorageForMockMutation(): boolean {
     const serialized = this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
-    this.phase7MutationStorageBaseline = serialized
+    this.mockMutationStorageBaseline = serialized
     return this.hydratePhase7State(serialized, true)
   }
 
-  private persistPhase7AdminCmsState(): void {
+  private persistMockContentState(): void {
     const previousState = this.readLatestStorageItem(
       PHASE7_ADMIN_CMS_STORAGE_KEY
     )
     try {
       if (
-        this.phase7MutationStorageBaseline !== undefined &&
-        previousState !== this.phase7MutationStorageBaseline
+        this.mockMutationStorageBaseline !== undefined &&
+        previousState !== this.mockMutationStorageBaseline
       ) {
         throw new Error('Mock storage changed outside the Phase 7 lease.')
       }
-      const phase7AdminCms = this.phase7AdminCmsState.persistedSnapshot(
+      const phase7AdminCms = this.mockContentState.persistedSnapshot(
         this.listPhase7AuthoritativeAdminQuestionSources()
       )
       const didPersist = this.storage.setItem(
@@ -5838,12 +5838,12 @@ export class MockDatabase {
       this.restorePersistedStorage(previousState, PHASE7_ADMIN_CMS_STORAGE_KEY)
       throw error
     } finally {
-      this.phase7MutationStorageBaseline = undefined
+      this.mockMutationStorageBaseline = undefined
     }
   }
 
-  private completePhase7MutationQueue(): void {
-    this.phase7MutationStorageBaseline = undefined
+  private completeMockMutationQueue(): void {
+    this.mockMutationStorageBaseline = undefined
     this.synchronizeDeferredStorageChange()
   }
 
@@ -6067,7 +6067,7 @@ export class MockDatabase {
         ])
       )
       if (parsed.version === 8) {
-        this.phase7AdminCmsState.restore(
+        this.mockContentState.restore(
           parsed.phase7AdminCms,
           this.listPhase7AuthoritativeTaxonomySources()
         )
@@ -6093,14 +6093,14 @@ export class MockDatabase {
         return
       }
 
-      if (this.phase7AdminCmsState.hasPendingMutations()) {
+      if (this.mockContentState.hasPendingMutations()) {
         this.deferredExternalStorageChange = true
         return
       }
 
       if (event.key === PHASE7_ADMIN_CMS_STORAGE_KEY) {
         if (event.newValue === null) {
-          this.phase7AdminCmsState.reset()
+          this.mockContentState.reset()
           return
         }
         this.hydratePhase7State(event.newValue, false)

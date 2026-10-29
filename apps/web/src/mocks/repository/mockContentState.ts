@@ -112,7 +112,7 @@ const hasCanonicalPersistedContent = (
   )
 }
 
-export class MockPhase7AdminCommandError extends Error {
+export class MockContentCommandError extends Error {
   readonly code: StableErrorCode
   readonly disposition: Phase7ExecutionDisposition
   readonly fieldErrors: Record<string, string[]> | undefined
@@ -137,13 +137,13 @@ export class MockPhase7AdminCommandError extends Error {
   }
 }
 
-export interface MockPhase7AdminOption {
+export interface MockContentOption {
   readonly id: string
   readonly ordinal: number
   readonly text: string
 }
 
-export interface MockPhase7AdminVersion {
+export interface MockContentVersion {
   readonly questionVersionId: string
   readonly questionId: string
   readonly versionNumber: number
@@ -159,7 +159,7 @@ export interface MockPhase7AdminVersion {
   readonly passage: string | null
   readonly explanationKo: string
   readonly explanationJa: string | null
-  readonly options: readonly MockPhase7AdminOption[]
+  readonly options: readonly MockContentOption[]
   readonly correctOptionId: string
   readonly tags: readonly AdminTagSummary[]
   readonly author: AccountActorSnapshot | null
@@ -170,7 +170,7 @@ export interface MockPhase7AdminVersion {
   readonly updatedAt: string
 }
 
-export interface MockPhase7AdminQuestion {
+export interface MockContentQuestion {
   readonly questionId: string
   readonly lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
   readonly rowVersion: number
@@ -181,26 +181,25 @@ export interface MockPhase7AdminQuestion {
   readonly updatedAt: string
 }
 
-export interface MockPhase7AdminCmsSnapshot {
+export interface MockContentSnapshot {
   readonly auditLogs: readonly AdminAuditLogItem[]
-  readonly questions: readonly MockPhase7AdminQuestion[]
+  readonly questions: readonly MockContentQuestion[]
   readonly reports: readonly QuestionReportDetail[]
   readonly reviews: readonly AdminContentReviewItem[]
-  readonly versions: readonly MockPhase7AdminVersion[]
+  readonly versions: readonly MockContentVersion[]
 }
 
-export interface MockPhase7AdminCmsPersistedState
-  extends MockPhase7AdminCmsSnapshot {
+export interface MockContentPersistedState extends MockContentSnapshot {
   readonly lifecycleControlledQuestionIds: readonly string[]
   readonly mutationRevision?: number
   readonly sessionIssuedAtByActorId: readonly (readonly [string, string])[]
 }
 
-export type MockPhase7MutationLease = <Result>(
+export type MockMutationLease = <Result>(
   operation: () => Promise<Result>
 ) => Promise<Result>
 
-export interface MockPhase7AdminExportResult {
+export interface MockContentExportResult {
   readonly auditEvidence: {
     readonly selectionDigest: string
     readonly responseBodyDigest: string
@@ -211,7 +210,7 @@ export interface MockPhase7AdminExportResult {
   readonly document: AdminQuestionExportDocumentV1
 }
 
-export interface MockPhase7LearnerPins {
+export interface MockLearnerPins {
   readonly bookmarkedQuestionIds: readonly string[]
   readonly studyResultQuestionVersionIds: readonly string[]
   readonly studySessionQuestionVersionIds: readonly string[]
@@ -222,14 +221,14 @@ export interface MockPhase7LearnerPins {
   }[]
 }
 
-export interface MockPhase7LearnerReviewedQuestion {
+export interface MockLearnerReviewedQuestion {
   readonly correctOptionId: string
   readonly explanationJa: string | null
   readonly explanationKo: string
   readonly question: GetQuestionResponse
 }
 
-export interface MockPhase7LearnerProjection {
+export interface MockLearnerProjection {
   readonly bookmarks: readonly {
     readonly availability: 'ARCHIVED' | 'AVAILABLE'
     readonly question: GetQuestionResponse
@@ -238,25 +237,25 @@ export interface MockPhase7LearnerProjection {
   }[]
   readonly practiceCandidates: readonly GetQuestionResponse[]
   readonly publicQuestions: readonly GetQuestionResponse[]
-  readonly studyResultQuestions: readonly MockPhase7LearnerReviewedQuestion[]
+  readonly studyResultQuestions: readonly MockLearnerReviewedQuestion[]
   readonly studySessionQuestions: readonly GetQuestionResponse[]
   readonly wrongNotes: readonly {
     readonly currentReviewQuestionVersionId: string | null
-    readonly lastWrongQuestion: MockPhase7LearnerReviewedQuestion
+    readonly lastWrongQuestion: MockLearnerReviewedQuestion
     readonly questionId: string
     readonly reviewAvailability: 'ARCHIVED' | 'AVAILABLE'
     readonly reviewCandidate: GetQuestionResponse | null
   }[]
 }
 
-export type MockPhase7ActiveAdminCmsState = Pick<
-  MockPhase7AdminCmsState,
+export type MockActiveContentState = Pick<
+  MockContentState,
   'createQuestionReport'
 >
 
-export const createMockPhase7ActiveAdminCmsState = (
-  state: MockPhase7AdminCmsState
-): MockPhase7ActiveAdminCmsState => ({
+export const createMockActiveContentState = (
+  state: MockContentState
+): MockActiveContentState => ({
   createQuestionReport: state.createQuestionReport.bind(state)
 })
 
@@ -282,7 +281,7 @@ const sha256Utf8 = async (value: string): Promise<string> =>
 
 const sha256Port: Sha256TextPort = { digestUtf8: sha256Utf8 }
 
-const toDuplicateIdentity = (version: MockPhase7AdminVersion): string => {
+const toDuplicateIdentity = (version: MockContentVersion): string => {
   const correctOption = version.options.find(
     (option) => option.id === version.correctOptionId
   )
@@ -314,9 +313,7 @@ const toQuestionReportMutation = (
     updatedAt: report.updatedAt
   })
 
-const toPublicQuestion = (
-  version: MockPhase7AdminVersion
-): GetQuestionResponse =>
+const toPublicQuestion = (version: MockContentVersion): GetQuestionResponse =>
   getQuestionResponseSchema.parse({
     id: version.questionId,
     questionVersionId: version.questionVersionId,
@@ -339,8 +336,8 @@ const toPublicQuestion = (
   })
 
 const toReviewedQuestion = (
-  version: MockPhase7AdminVersion
-): MockPhase7LearnerReviewedQuestion => ({
+  version: MockContentVersion
+): MockLearnerReviewedQuestion => ({
   correctOptionId: version.correctOptionId,
   explanationJa: version.explanationJa,
   explanationKo: version.explanationKo,
@@ -349,7 +346,7 @@ const toReviewedQuestion = (
 
 const createSeedVersion = (
   source: MockCanonicalAdminQuestionSource
-): MockPhase7AdminVersion => {
+): MockContentVersion => {
   const fingerprint = getQuestionVersionFingerprint(source.question)
   const publicQuestion = toContractPracticeQuestion(
     toPracticeQuestion(source.question),
@@ -408,26 +405,25 @@ const createSeedVersion = (
   }
 }
 
-export class MockPhase7AdminCmsState {
+export class MockContentState {
   private auditLogs: AdminAuditLogItem[] = []
   private lifecycleControlledQuestionIds = new Set<string>()
   private mutationTail: Promise<void> = Promise.resolve()
   private pendingMutationCount = 0
-  private questionById = new Map<string, MockPhase7AdminQuestion>()
+  private questionById = new Map<string, MockContentQuestion>()
   private reports: QuestionReportDetail[] = []
   private reviews: AdminContentReviewItem[] = []
   private sessionIssuedAtByActorId = new Map<string, string>()
   private successfulMutationRevision = 0
-  private versionById = new Map<string, MockPhase7AdminVersion>()
+  private versionById = new Map<string, MockContentVersion>()
 
   constructor(
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly auditEnvironment: AdminAuditLogItem['environment'] = 'TEST',
     private readonly persistState?: () => void,
     private readonly synchronizeBeforeMutation?: () => boolean,
-    private readonly withMutationLease: MockPhase7MutationLease = async (
-      operation
-    ) => await operation(),
+    private readonly withMutationLease: MockMutationLease = async (operation) =>
+      await operation(),
     private readonly onMutationQueueIdle?: () => void
   ) {}
 
@@ -454,7 +450,7 @@ export class MockPhase7AdminCmsState {
 
   snapshot(
     sources: readonly MockCanonicalAdminQuestionSource[]
-  ): MockPhase7AdminCmsSnapshot {
+  ): MockContentSnapshot {
     this.synchronizeSeeds(sources)
     return clone({
       auditLogs: this.auditLogs,
@@ -467,7 +463,7 @@ export class MockPhase7AdminCmsState {
 
   persistedSnapshot(
     sources: readonly MockCanonicalAdminQuestionSource[]
-  ): MockPhase7AdminCmsPersistedState {
+  ): MockContentPersistedState {
     const snapshot = this.snapshot(sources)
     return clone({
       ...snapshot,
@@ -482,14 +478,14 @@ export class MockPhase7AdminCmsState {
   }
 
   restore(
-    persisted: MockPhase7AdminCmsPersistedState,
+    persisted: MockContentPersistedState,
     sources: readonly MockCanonicalAdminQuestionSource[]
   ): void {
     this.restorePersistedState(persisted, true, sources)
   }
 
   restoreGraph(
-    persisted: MockPhase7AdminCmsPersistedState,
+    persisted: MockContentPersistedState,
     sources: readonly MockCanonicalAdminQuestionSource[]
   ): void {
     const localSessions = new Map(this.sessionIssuedAtByActorId)
@@ -498,7 +494,7 @@ export class MockPhase7AdminCmsState {
   }
 
   restoreForMutation(
-    persisted: MockPhase7AdminCmsPersistedState,
+    persisted: MockContentPersistedState,
     sources: readonly MockCanonicalAdminQuestionSource[]
   ): void {
     const localSessions = new Map(this.sessionIssuedAtByActorId)
@@ -527,7 +523,7 @@ export class MockPhase7AdminCmsState {
   }
 
   private restorePersistedState(
-    persisted: MockPhase7AdminCmsPersistedState,
+    persisted: MockContentPersistedState,
     resetQueue: boolean,
     sources: readonly MockCanonicalAdminQuestionSource[]
   ): void {
@@ -638,7 +634,7 @@ export class MockPhase7AdminCmsState {
   }): Promise<QuestionReportMutationResult> {
     const entitledQuestionId = input.resolveEntitledQuestionId('NO_TX')
     if (!entitledQuestionId) {
-      throw new MockPhase7AdminCommandError({
+      throw new MockContentCommandError({
         code: 'RESOURCE_NOT_FOUND',
         message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.'
       })
@@ -647,7 +643,7 @@ export class MockPhase7AdminCmsState {
       input.assertAuthority()
       const questionId = input.resolveEntitledQuestionId('DEFINITE_ROLLBACK')
       if (!questionId || questionId !== entitledQuestionId) {
-        throw new MockPhase7AdminCommandError({
+        throw new MockContentCommandError({
           code: 'RESOURCE_NOT_FOUND',
           message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.',
           disposition: 'DEFINITE_ROLLBACK'
@@ -660,7 +656,7 @@ export class MockPhase7AdminCmsState {
           input.request.reason
         )
       ) {
-        throw new MockPhase7AdminCommandError({
+        throw new MockContentCommandError({
           code: 'QUESTION_REPORT_DUPLICATE',
           message: '같은 문제 버전과 사유의 처리 중 신고가 이미 있습니다.',
           disposition: hasConcurrentPredecessor ? 'DEFINITE_ROLLBACK' : 'NO_TX'
@@ -687,7 +683,7 @@ export class MockPhase7AdminCmsState {
       })
       input.assertAuthority()
       if (input.resolveEntitledQuestionId('DEFINITE_ROLLBACK') !== questionId) {
-        throw new MockPhase7AdminCommandError({
+        throw new MockContentCommandError({
           code: 'RESOURCE_NOT_FOUND',
           message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.',
           disposition: 'DEFINITE_ROLLBACK'
@@ -700,8 +696,8 @@ export class MockPhase7AdminCmsState {
 
   getLearnerProjection(
     sources: readonly MockCanonicalAdminQuestionSource[],
-    pins: MockPhase7LearnerPins
-  ): MockPhase7LearnerProjection {
+    pins: MockLearnerPins
+  ): MockLearnerProjection {
     this.synchronizeSeeds(sources)
     const publicQuestions = [...this.questionById.values()]
       .flatMap((question) => {
@@ -709,7 +705,7 @@ export class MockPhase7AdminCmsState {
         return current ? [toPublicQuestion(current)] : []
       })
       .toSorted((left, right) => compareUnicodeScalars(left.id, right.id))
-    const resolveVersion = (versionId: string): MockPhase7AdminVersion => {
+    const resolveVersion = (versionId: string): MockContentVersion => {
       const version = this.versionById.get(versionId)
       if (!version) {
         throw new Error(`Retained learner version is unavailable: ${versionId}`)
@@ -835,7 +831,7 @@ export class MockPhase7AdminCmsState {
             this.persistState?.()
           } catch {
             this.restoreMutableState(before)
-            throw new MockPhase7AdminCommandError({
+            throw new MockContentCommandError({
               code: 'SERVICE_UNAVAILABLE',
               message: '관리자 명령을 브라우저 저장소에 저장하지 못했습니다.',
               disposition: 'DEFINITE_ROLLBACK'
@@ -860,7 +856,7 @@ export class MockPhase7AdminCmsState {
     return result
   }
 
-  private captureMutableState(): MockPhase7AdminCmsPersistedState {
+  private captureMutableState(): MockContentPersistedState {
     return clone({
       auditLogs: this.auditLogs,
       lifecycleControlledQuestionIds: [...this.lifecycleControlledQuestionIds],
@@ -873,7 +869,7 @@ export class MockPhase7AdminCmsState {
     })
   }
 
-  private restoreMutableState(state: MockPhase7AdminCmsPersistedState): void {
+  private restoreMutableState(state: MockContentPersistedState): void {
     this.auditLogs = clone([...state.auditLogs])
     this.lifecycleControlledQuestionIds = new Set(
       state.lifecycleControlledQuestionIds
@@ -899,8 +895,8 @@ export class MockPhase7AdminCmsState {
   }
 
   private getCurrentPublicVersion(
-    question: MockPhase7AdminQuestion
-  ): MockPhase7AdminVersion | null {
+    question: MockContentQuestion
+  ): MockContentVersion | null {
     if (
       question.lifecycleStatus !== 'ACTIVE' ||
       question.currentPublishedVersionId === null
@@ -920,7 +916,7 @@ export class MockPhase7AdminCmsState {
 
   private getLatestPublishedLineageVersion(
     questionId: string
-  ): MockPhase7AdminVersion | null {
+  ): MockContentVersion | null {
     return (
       [...this.versionById.values()]
         .filter(
@@ -1042,11 +1038,11 @@ export class MockPhase7AdminCmsState {
 
   private assertPersistedGraph(input: {
     readonly auditLogs: readonly AdminAuditLogItem[]
-    readonly questionById: ReadonlyMap<string, MockPhase7AdminQuestion>
+    readonly questionById: ReadonlyMap<string, MockContentQuestion>
     readonly reports: readonly QuestionReportDetail[]
     readonly reviews: readonly AdminContentReviewItem[]
     readonly sources: readonly MockCanonicalAdminQuestionSource[]
-    readonly versionById: ReadonlyMap<string, MockPhase7AdminVersion>
+    readonly versionById: ReadonlyMap<string, MockContentVersion>
   }): void {
     const fail = (): never => {
       throw new Error('Persisted Phase 7 CMS relation graph is malformed.')
@@ -1063,7 +1059,7 @@ export class MockPhase7AdminCmsState {
         authoritativeTagIdentities.set(key, identities)
       }
     }
-    const versionsByQuestionId = new Map<string, MockPhase7AdminVersion[]>()
+    const versionsByQuestionId = new Map<string, MockContentVersion[]>()
     for (const version of input.versionById.values()) {
       const versions = versionsByQuestionId.get(version.questionId) ?? []
       versions.push(version)
@@ -1240,9 +1236,7 @@ export class MockPhase7AdminCmsState {
     }
   }
 
-  private isPersistedQuestion(
-    value: unknown
-  ): value is MockPhase7AdminQuestion {
+  private isPersistedQuestion(value: unknown): value is MockContentQuestion {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return false
     }
@@ -1265,7 +1259,7 @@ export class MockPhase7AdminCmsState {
     )
   }
 
-  private isPersistedVersion(value: unknown): value is MockPhase7AdminVersion {
+  private isPersistedVersion(value: unknown): value is MockContentVersion {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return false
     }
