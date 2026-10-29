@@ -3,11 +3,38 @@ import {
   classifyCollectionReport,
   type CollectionDiagnostic
 } from './phase7CollectionDiagnostics.js'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { phase10ApiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
+
+export const assertSsoBootstrapMigrationHistory = (
+  expected: readonly { name: string; checksum: string }[],
+  applied: readonly { migration_name: string; checksum: string }[]
+): void => {
+  const orderedDigest = createHash('sha256')
+    .update(
+      expected.map(({ name, checksum }) => `${name}\0${checksum}\n`).join('')
+    )
+    .digest('hex')
+  if (
+    expected.length !== 52 ||
+    expected.at(-1)?.name !== '20261028170000_study_v1_retirement_authority' ||
+    orderedDigest !==
+      '454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6' ||
+    applied.length !== expected.length ||
+    applied.some(
+      (row, index) =>
+        row.migration_name !== expected[index]?.name ||
+        row.checksum !== expected[index]?.checksum
+    )
+  ) {
+    throw new Error(
+      'First Google ADMIN bootstrap canonical52 migration history mismatch.'
+    )
+  }
+}
 
 export const phase7DbFoundationTestFile =
   'src/db/phase7AdminCmsFoundation.integration.test.ts' as const
