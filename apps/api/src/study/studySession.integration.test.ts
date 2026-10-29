@@ -1364,6 +1364,88 @@ describe('StudySession PostgreSQL vertical slice', () => {
     ).toEqual({ status: 'EXPIRED' })
   })
 
+  it('admits the earlier timestamp after a later PostgreSQL upsert completes', async () => {
+    const operation = `slice3-integration:${randomUUID()}`
+    const input = {
+      clientIp: '127.0.0.42',
+      operation,
+      windowMs: 60_000,
+      max: 20
+    }
+    const where = { key: { startsWith: `application:${operation}:` } }
+    const readRows = () =>
+      database.client.rateLimit.findMany({
+        where,
+        select: { count: true, lastRequest: true }
+      })
+    let now = 1_000
+    let signalCaptured!: () => void
+    let releaseFirst!: () => void
+    const captured = new Promise<void>((resolve) => {
+      signalCaptured = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    let firstValues: readonly unknown[] = []
+    const delayedClient = new Proxy(database.client, {
+      get: (target, property, receiver) => {
+        if (property !== '$queryRaw')
+          return Reflect.get(target, property, receiver)
+        return async (query: Prisma.Sql) => {
+          firstValues = query.values
+          signalCaptured()
+          await gate
+          return target.$queryRaw(query)
+        }
+      }
+    })
+    const earlier = createApplicationRateLimiter({
+      client: delayedClient,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      now: () => now
+    })
+    const later = createApplicationRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      now: () => now
+    })
+    const first = earlier.consume(input).then(
+      () => ({ status: 'fulfilled' as const }),
+      (error: unknown) => ({ status: 'rejected' as const, error })
+    )
+    try {
+      await captured
+      expect(firstValues).toContain(1_000n)
+      now = 1_001
+      await expect(later.consume(input)).resolves.toBeUndefined()
+      expect(await readRows()).toEqual([{ count: 1, lastRequest: 1_001n }])
+    } finally {
+      releaseFirst()
+      await first
+    }
+    await expect(first).resolves.toEqual({ status: 'fulfilled' })
+
+    expect(await readRows()).toEqual([{ count: 2, lastRequest: 1_001n }])
+    for (let index = 0; index < 18; index += 1) {
+      await later.consume(input)
+    }
+    const cold = createApplicationRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      now: () => now
+    })
+    await expect(cold.consume(input)).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      retryable: true,
+      retryAfterSeconds: 60
+    })
+    expect(await readRows()).toEqual([{ count: 20, lastRequest: 1_001n }])
+    now = 61_001
+    await expect(cold.consume(input)).resolves.toBeUndefined()
+    expect(await readRows()).toEqual([{ count: 1, lastRequest: 61_001n }])
+  })
+
   it('shared PostgreSQL rate limiter가 초과 요청을 429로 닫는다', async () => {
     const operation = `slice3-integration:${randomUUID()}`
     const limiter = createApplicationRateLimiter({
