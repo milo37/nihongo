@@ -164,13 +164,17 @@ test('browser workflow steps follow selection without dropping the protected job
   )
   for (const name of [
     'Install Playwright Chromium',
-    'Real browser acceptance',
-    'Mock browser acceptance'
+    'Real browser acceptance'
   ]) {
-    const expected =
-      `- name: ${name}\n        if: ` +
-      "${{ needs.build.outputs.browser == 'true' }}"
-    assert.ok(workflow.includes(expected), name)
+    const start = workflow.indexOf(`- name: ${name}`)
+    const end = workflow.indexOf('\n      - name:', start + 1)
+    assert.notEqual(start, -1, name)
+    assert.ok(
+      workflow
+        .slice(start, end)
+        .includes("if: ${{ needs.build.outputs.browser == 'true' }}"),
+      name
+    )
   }
   const regression = workflow.slice(
     workflow.indexOf('  e2e:'),
@@ -182,6 +186,55 @@ test('browser workflow steps follow selection without dropping the protected job
       'name: Require successful impact classification and build'
     )
   )
+})
+
+test('browser gate accepts only completed selected work and successful dependencies', () => {
+  const workflow = readFileSync(
+    path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
+    'utf8'
+  )
+  const section = workflow
+    .split('      - name: Verify selected browser acceptance')[1]
+    ?.split('\n  phase11_release:')[0]
+  assert.ok(section)
+  assert.ok(section.includes('if: ${{ always() }}'))
+  const script = section
+    .split('        run: |\n')[1]
+    ?.split('\n')
+    .filter((line) => line.startsWith('          '))
+    .map((line) => line.slice(10))
+    .join('\n')
+  assert.ok(script)
+  for (const [build, job, selected, outcome, expected] of [
+    ['success', 'success', 'true', 'success', 0],
+    ['success', 'success', 'false', 'skipped', 0],
+    ['success', 'success', 'true', 'failure', 1],
+    ['success', 'success', 'true', 'cancelled', 1],
+    ['success', 'success', 'true', 'skipped', 1],
+    ['success', 'success', 'true', '', 1],
+    ['success', 'success', 'false', '', 1],
+    ['success', 'failure', 'true', 'success', 1],
+    ['success', 'cancelled', 'true', 'success', 1],
+    ['failure', 'success', 'true', 'success', 1],
+    ['cancelled', 'success', 'true', 'success', 1],
+    ['success', 'success', '', 'success', 1]
+  ]) {
+    const result = spawnSync('bash', ['-e', '-c', script], {
+      env: {
+        ...process.env,
+        BUILD_RESULT: build,
+        JOB_RESULT: job,
+        BROWSER_SELECTED: selected,
+        REAL_OUTCOME: outcome
+      },
+      encoding: 'utf8'
+    })
+    assert.equal(
+      result.status,
+      expected,
+      JSON.stringify([build, job, selected, outcome])
+    )
+  }
 })
 
 test('protected branch pushes always run core regression but keep expensive extras related', () => {
@@ -624,13 +677,14 @@ const assertWorkflowBrowserAliases = (source) => {
     const match = /^\s+run:\s+(.+?)\s*$/u.exec(line)
     return match ? [match[1]] : []
   })
-  for (const mode of ['real', 'mock']) {
-    assert.equal(
-      runs.filter((run) => run === `pnpm run test:browser:${mode}`).length,
-      1,
-      mode
-    )
-  }
+  assert.equal(
+    runs.filter((run) => run === 'pnpm run test:browser:real').length,
+    1
+  )
+  assert.equal(
+    runs.filter((run) => run === 'pnpm run test:browser:mock').length,
+    0
+  )
 }
 
 const findExecutableDeclaration = (source, declaration) => {
@@ -1405,8 +1459,8 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
   assert.throws(() =>
     assertWorkflowBrowserAliases(
       workflow.replace(
-        'run: pnpm run test:browser:mock',
-        'run: printf "pnpm run test:browser:mock"'
+        'run: pnpm run test:browser:real',
+        'run: pnpm run test:browser:real\n      - name: Unexpected mock\n        run: pnpm run test:browser:mock'
       )
     )
   )
