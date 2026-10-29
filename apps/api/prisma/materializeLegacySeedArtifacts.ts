@@ -251,7 +251,7 @@ const main = async (): Promise<void> => {
   )
 }
 
-if (process.argv[1]?.endsWith('phase6Slice1ArtifactMaterializer.ts')) {
+if (process.argv[1]?.endsWith('materializeLegacySeedArtifacts.ts')) {
   main().catch(() => {
     process.stdout.write(
       '{"schemaVersion":1,"command":"content:materialize-slice1","status":"ERROR","ruleCode":"CONTENT_MATERIALIZATION_FAILED"}\n'
