@@ -5,20 +5,23 @@ import {
   readFreshLocalStorageItem
 } from '@nihongo/browser/libs/storage'
 import {
-  Phase7MutationCoordinatorUnavailableError,
-  runWithPhase7BrowserMutationLease
-} from '@mocks/repository/phase7MutationCoordinator'
-import type { MockPhase7MutationLease } from '@mocks/repository/phase7AdminCmsState'
+  MockMutationCoordinatorUnavailableError,
+  runWithMockBrowserMutationLease
+} from '@mocks/repository/mockMutationCoordinator'
+import type { MockMutationLease } from '@mocks/repository/mockContentState'
 
-export type Phase7RateLimitGroup = 'REPORT_ACTOR' | 'REPORT_VERSION'
+export type QuestionReportRateLimitGroup = 'REPORT_ACTOR' | 'REPORT_VERSION'
 
-type ActorRateLimitGroup = Exclude<Phase7RateLimitGroup, 'REPORT_VERSION'>
+type ActorRateLimitGroup = Exclude<
+  QuestionReportRateLimitGroup,
+  'REPORT_VERSION'
+>
 
-export type Phase7RateLimitInput =
+export type QuestionReportRateLimitInput =
   | { readonly actorId: string; readonly group: ActorRateLimitGroup }
   | { readonly group: 'REPORT_VERSION'; readonly versionId: string }
 
-export interface Phase7RateLimitResult {
+export interface QuestionReportRateLimitResult {
   readonly retryAfterSeconds: number | null
 }
 
@@ -32,22 +35,22 @@ interface PersistedRateLimitState {
   readonly windows: readonly (readonly [string, RateWindow])[]
 }
 
-export interface Phase7RateLimitStorage {
+export interface QuestionReportRateLimitStorage {
   readonly getLatestItem?: (key: string) => string | null
   readonly getItem: (key: string) => string | null
   readonly removeItem: (key: string) => void
   readonly setItem: (key: string, value: string) => boolean | void
 }
 
-export interface Phase7RateLimitRepositoryOptions {
-  readonly lease?: MockPhase7MutationLease
+export interface QuestionReportRateLimitRepositoryOptions {
+  readonly lease?: MockMutationLease
   readonly now?: () => number
-  readonly storage?: Phase7RateLimitStorage
+  readonly storage?: QuestionReportRateLimitStorage
 }
 
 const policyByGroup: Readonly<
   Record<
-    Phase7RateLimitGroup,
+    QuestionReportRateLimitGroup,
     { readonly limit: number; readonly windowMs: number }
   >
 > = {
@@ -65,7 +68,7 @@ const rateGroups = new Set<string>([
   'REAUTHENTICATION'
 ])
 
-const defaultStorage: Phase7RateLimitStorage = {
+const defaultStorage: QuestionReportRateLimitStorage = {
   getItem: (key) => cachedStorage.getItem(key),
   getLatestItem: (key) => readFreshLocalStorageItem(key),
   removeItem: (key) => cachedStorage.removeItem(key),
@@ -108,7 +111,7 @@ const parseState = (serialized: string | null): Map<string, RateWindow> => {
   try {
     value = JSON.parse(serialized)
   } catch {
-    throw new Phase7RateLimitRepositoryUnavailableError()
+    throw new QuestionReportRateLimitRepositoryUnavailableError()
   }
   if (
     !isRecord(value) ||
@@ -123,13 +126,13 @@ const parseState = (serialized: string | null): Map<string, RateWindow> => {
         !isRateWindow(entry[1])
     )
   ) {
-    throw new Phase7RateLimitRepositoryUnavailableError()
+    throw new QuestionReportRateLimitRepositoryUnavailableError()
   }
   const windows = new Map<string, RateWindow>(
     value.windows as Array<[string, RateWindow]>
   )
   if (windows.size !== value.windows.length) {
-    throw new Phase7RateLimitRepositoryUnavailableError()
+    throw new QuestionReportRateLimitRepositoryUnavailableError()
   }
   return windows
 }
@@ -142,7 +145,7 @@ const serializeState = (windows: ReadonlyMap<string, RateWindow>): string =>
     )
   } satisfies PersistedRateLimitState)
 
-export class Phase7RateLimitRepositoryUnavailableError extends Error {
+export class QuestionReportRateLimitRepositoryUnavailableError extends Error {
   readonly retryAfterSeconds = 5
 
   constructor() {
@@ -151,18 +154,20 @@ export class Phase7RateLimitRepositoryUnavailableError extends Error {
   }
 }
 
-export class Phase7RateLimitRepository {
-  private readonly lease: MockPhase7MutationLease
+export class QuestionReportRateLimitRepository {
+  private readonly lease: MockMutationLease
   private readonly now: () => number
-  private readonly storage: Phase7RateLimitStorage
+  private readonly storage: QuestionReportRateLimitStorage
 
-  constructor(options: Phase7RateLimitRepositoryOptions = {}) {
-    this.lease = options.lease ?? runWithPhase7BrowserMutationLease
+  constructor(options: QuestionReportRateLimitRepositoryOptions = {}) {
+    this.lease = options.lease ?? runWithMockBrowserMutationLease
     this.now = options.now ?? Date.now
     this.storage = options.storage ?? defaultStorage
   }
 
-  async consume(input: Phase7RateLimitInput): Promise<Phase7RateLimitResult> {
+  async consume(
+    input: QuestionReportRateLimitInput
+  ): Promise<QuestionReportRateLimitResult> {
     try {
       return await this.lease(async () => {
         const serialized = this.storage.getLatestItem
@@ -171,7 +176,7 @@ export class Phase7RateLimitRepository {
         const windows = parseState(serialized)
         const now = this.now()
         if (!Number.isSafeInteger(now) || now < 0) {
-          throw new Phase7RateLimitRepositoryUnavailableError()
+          throw new QuestionReportRateLimitRepositoryUnavailableError()
         }
         const keys = this.keysFor(input)
         const policy = policyByGroup[input.group]
@@ -205,20 +210,20 @@ export class Phase7RateLimitRepository {
             serializeState(windows)
           ) === false
         ) {
-          throw new Phase7RateLimitRepositoryUnavailableError()
+          throw new QuestionReportRateLimitRepositoryUnavailableError()
         }
         return {
           retryAfterSeconds: retryAfterSeconds === 0 ? null : retryAfterSeconds
         }
       })
     } catch (error: unknown) {
-      if (error instanceof Phase7RateLimitRepositoryUnavailableError) {
+      if (error instanceof QuestionReportRateLimitRepositoryUnavailableError) {
         throw error
       }
-      if (error instanceof Phase7MutationCoordinatorUnavailableError) {
-        throw new Phase7RateLimitRepositoryUnavailableError()
+      if (error instanceof MockMutationCoordinatorUnavailableError) {
+        throw new QuestionReportRateLimitRepositoryUnavailableError()
       }
-      throw new Phase7RateLimitRepositoryUnavailableError()
+      throw new QuestionReportRateLimitRepositoryUnavailableError()
     }
   }
 
@@ -226,15 +231,15 @@ export class Phase7RateLimitRepository {
     this.storage.removeItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
   }
 
-  private keysFor(input: Phase7RateLimitInput): readonly string[] {
+  private keysFor(input: QuestionReportRateLimitInput): readonly string[] {
     if (input.group === 'REPORT_VERSION') {
       if (!opaqueIdSchema.safeParse(input.versionId).success) {
-        throw new Phase7RateLimitRepositoryUnavailableError()
+        throw new QuestionReportRateLimitRepositoryUnavailableError()
       }
       return [`REPORT_VERSION:version:${input.versionId}`]
     }
     if (!opaqueIdSchema.safeParse(input.actorId).success) {
-      throw new Phase7RateLimitRepositoryUnavailableError()
+      throw new QuestionReportRateLimitRepositoryUnavailableError()
     }
     return [
       `${input.group}:actor:${input.actorId}`,
@@ -243,4 +248,5 @@ export class Phase7RateLimitRepository {
   }
 }
 
-export const phase7RateLimitRepository = new Phase7RateLimitRepository()
+export const questionReportRateLimitRepository =
+  new QuestionReportRateLimitRepository()
