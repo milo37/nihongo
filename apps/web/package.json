@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:request-ledger": "vitest run --config scripts/phase10-request-ledger.vitest.config.mjs",
-    "test:bundle": "node scripts/phase10-production-bundle-check.mjs",
+    "test:bundle": "node scripts/production-bundle-check.mjs",
     "test:watch": "vitest"
   },
   "dependencies": {
