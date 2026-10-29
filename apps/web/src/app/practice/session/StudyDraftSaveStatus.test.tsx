@@ -20,7 +20,7 @@ it.each(['ko', 'ja'] as const)(
     const row = container.querySelector('.study-inline-save')
     const measures = container.querySelector('.study-inline-save-measures')
     expect(measures).toHaveAttribute('aria-hidden', 'true')
-    expect(measures?.children).toHaveLength(5)
+    expect(measures?.children).toHaveLength(6)
     const copy =
       locale === 'ko'
         ? [
@@ -90,3 +90,21 @@ it('reuses keyboard retry without another success announcement or focus movement
   expect(retry).toHaveBeenCalledOnce()
   expect(action).toHaveFocus()
 })
+
+it.each([
+  ['ko', '최신 저장 기록을 불러왔어요. 답을 확인해 주세요.'],
+  ['ja', '最新の保存記録を読み込みました。回答を確認してください。']
+] as const)(
+  'announces the server-applied record without claiming the last answer was saved (%s)',
+  (locale, message) => {
+    writeUiLocalePreference(locale)
+    render(
+      <I18nProvider>
+        <StudyDraftSaveStatus status="reconciled" onRetry={vi.fn()} />
+      </I18nProvider>
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(message)
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  }
+)

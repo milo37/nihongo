@@ -433,6 +433,70 @@ describe('PracticeSessionPage', () => {
     )
   })
 
+  it.each([
+    ['ko', '최신 저장 기록을 불러왔어요. 답을 확인해 주세요.'],
+    ['ja', '最新の保存記録を読み込みました。回答を確認してください。']
+  ] as const)(
+    'announces the applied server record after a 409 and clears it on the next answer (%s)',
+    async (locale, message) => {
+      writeUiLocalePreference(locale)
+      const user = userEvent.setup()
+      const response = await createStudySessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1
+      })
+      const payload = toCanonicalStudySessionView(response.data)
+      const option = payload.questions[0]?.options[0]
+      if (!option) throw new Error('Public option required')
+      const initial = (await getStudyDraftAnswers(payload.session.id)).data
+      const remote = {
+        ...initial,
+        revision: initial.revision + 1,
+        savedAt: new Date().toISOString()
+      }
+      useAppStore
+        .getState()
+        .beginPractice(payload.session.id, payload.session.startedAt)
+      renderSession(payload.session.id)
+      const radio = await screen.findByRole('radio', {
+        name: `1. ${option.text}`
+      })
+      await waitFor(() => expect(radio).toBeEnabled())
+      let puts = 0
+      mockServer.use(
+        http.put('*/api/v1/study-sessions/:sessionId/draft-answers', () => {
+          puts += 1
+          return HttpResponse.json(
+            { code: 'DRAFT_VERSION_CONFLICT', message: 'synthetic conflict' },
+            { status: 409 }
+          )
+        }),
+        http.get('*/api/v1/study-sessions/:sessionId/draft-answers', () =>
+          HttpResponse.json(remote, {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          })
+        )
+      )
+      await user.click(radio)
+      const notice = await screen.findByText(message, {}, { timeout: 6000 })
+      expect(notice.closest('[role=status]')).toHaveAttribute(
+        'aria-live',
+        'polite'
+      )
+      expect(puts).toBe(1)
+      expect(radio).not.toBeChecked()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await user.click(radio)
+      expect(screen.queryByText(message)).not.toBeInTheDocument()
+    },
+    10_000
+  )
+
   it('저장 중과 실패·재시도를 분리하며 답안과 서버 저장 완료 의미를 유지한다', async () => {
     const user = userEvent.setup()
     const response = await createStudySessionV2({
@@ -617,13 +681,20 @@ describe('PracticeSessionPage', () => {
       expect(
         document.querySelector('[role="status"][data-save-state]')
       ).toHaveAttribute('data-save-state', 'offline')
-      expect(
-        document.querySelector('[role="status"][data-save-state]')
-      ).toHaveTextContent(
-        locale === 'ko'
-          ? '로컬 작업을 보존한 채 충돌을 확인합니다.'
-          : 'ローカル作業を保持したまま競合を確認します。'
+      const detailedStatus = document.querySelector(
+        '[role="status"][data-save-state]'
       )
+      expect(detailedStatus).toHaveTextContent(
+        locale === 'ko'
+          ? '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.'
+          : 'オフラインです。変更内容はこの端末だけに一時保存し、接続後に再保存します。'
+      )
+      expect(
+        within(detailedStatus as HTMLElement).getByRole('button')
+      ).toHaveTextContent(
+        locale === 'ko' ? '작업본 저장 다시 시도' : '作業内容の保存を再試行'
+      )
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(
         within(statusRow as HTMLElement).queryByRole('button')
       ).not.toBeInTheDocument()
