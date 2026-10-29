@@ -97,7 +97,7 @@
     "./store/slices/uiSlice": "./src/store/slices/uiSlice.ts",
     "./styles.css": "./src/styles.css",
     "./util/apiError": "./src/util/apiError.ts",
-    "./api/phase7/requestPhase7Operation": "./src/api/phase7/requestPhase7Operation.ts",
+    "./api/content-operations/requestContentOperation": "./src/api/content-operations/requestContentOperation.ts",
     "./libs/sha256Text": "./src/libs/sha256Text.ts",
     "./api/admin-question/previewQuestionVersion/index": "./src/api/admin-question/previewQuestionVersion/index.ts",
     "./api/admin-question/previewQuestionVersion/schema": "./src/api/admin-question/previewQuestionVersion/schema.ts",

@@ -772,20 +772,20 @@ const checkEndpoint = (
     if (
       !ts.isCallExpression(node) ||
       !ts.isIdentifier(node.expression) ||
-      node.expression.text !== 'requestPhase7Operation' ||
+      node.expression.text !== 'requestContentOperation' ||
       node.arguments.length !== 1 ||
       !ts.isObjectLiteralExpression(node.arguments[0])
     )
       return false
     const localHelperPath = path.resolve(
       sourceRoot,
-      'api/phase7/requestPhase7Operation.ts'
+      'api/content-operations/requestContentOperation.ts'
     )
     const helperPath = fs.existsSync(localHelperPath)
       ? localHelperPath
       : path.join(
           rootDir,
-          'packages/browser/src/api/phase7/requestPhase7Operation.ts'
+          'packages/browser/src/api/content-operations/requestContentOperation.ts'
         )
     const local = checker.getSymbolAtLocation(node.expression)
     const binding = local?.declarations?.find((declaration) =>
@@ -808,7 +808,7 @@ const checkEndpoint = (
     const helper = getResolvedSymbol(checker, node.expression)
     if (
       !helper ||
-      helper.getName() !== 'requestPhase7Operation' ||
+      helper.getName() !== 'requestContentOperation' ||
       !isDeclaredInFile(helper, helperPath)
     )
       return false

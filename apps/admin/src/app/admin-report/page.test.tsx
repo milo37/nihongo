@@ -24,7 +24,7 @@ import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/a
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { adminRoutes } from '@/router'
 const actorId = '10000000-0000-4000-8000-000000000001'
@@ -92,7 +92,7 @@ const route = (entry = '/admin/reports') => {
 }
 it('registers the approved list, makes the canonical read, and never displays detail description', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
-  const read = vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(one)
+  const read = vi.spyOn(api, 'requestContentOperation').mockResolvedValue(one)
   route()
   expect(
     await screen.findByRole('heading', { level: 1, name: '문제 신고 큐' })
@@ -113,7 +113,7 @@ it('registers the approved list, makes the canonical read, and never displays de
 it('distinguishes loading, settled empty, and retry after a read failure', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
   let finish!: (value: typeof empty) => void
-  const read = vi.spyOn(api, 'requestPhase7Operation').mockImplementation(
+  const read = vi.spyOn(api, 'requestContentOperation').mockImplementation(
     () =>
       new Promise<typeof empty>((resolve) => {
         finish = resolve
@@ -151,7 +151,7 @@ it.each(['GUEST', 'USER'])(
     vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(
       role === 'GUEST' ? null : actor('USER')
     )
-    const read = vi.spyOn(api, 'requestPhase7Operation')
+    const read = vi.spyOn(api, 'requestContentOperation')
     const replace = vi
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
@@ -166,7 +166,7 @@ it.each(['GUEST', 'USER'])(
 it('normalizes URL filters, resets pagination on explicit structured filter submission, and keeps Back history', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
   const read = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockImplementation(async (request) => {
       const query = request.query as ListAdminQuestionReportsQuery
       return { items: [], page: query.page, pageSize: 20, total: 0 }
@@ -200,7 +200,7 @@ it('normalizes URL filters, resets pagination on explicit structured filter subm
 })
 it('falls back safely on unknown/duplicate URL filters without forwarding them', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
-  const read = vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(empty)
+  const read = vi.spyOn(api, 'requestContentOperation').mockResolvedValue(empty)
   route('/admin/reports?status=OPEN&status=TRIAGED&q=secret')
   expect(
     await screen.findByText(/URL 신고 검색 조건이 허용 범위/)
@@ -214,8 +214,9 @@ it('falls back safely on unknown/duplicate URL filters without forwarding them',
 })
 it('returns from actual detail and browser Back to the same filtered list and focuses the original row once', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
-  vi.spyOn(api, 'requestPhase7Operation').mockImplementation(async (request) =>
-    request.operation === 'getAdminQuestionReport' ? detail : one
+  vi.spyOn(api, 'requestContentOperation').mockImplementation(
+    async (request) =>
+      request.operation === 'getAdminQuestionReport' ? detail : one
   )
   const router = route('/admin/reports?reason=OTHER&page=1')
   const link = await screen.findByRole('link', { name: '상세 · ' + id })
@@ -261,7 +262,7 @@ it('disables stale-row targets and previous/next while a new page is only placeh
     })),
     total: 21
   }
-  vi.spyOn(api, 'requestPhase7Operation')
+  vi.spyOn(api, 'requestContentOperation')
     .mockResolvedValueOnce(first)
     .mockImplementation(
       () =>
@@ -289,7 +290,7 @@ it('disables stale-row targets and previous/next while a new page is only placeh
 })
 it('retains cached rows offline while locking targets and changing locale live', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
-  vi.spyOn(api, 'requestPhase7Operation').mockResolvedValue(one)
+  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(one)
   route()
   await screen.findByRole('link', { name: '상세 · ' + id })
   await act(async () => {
@@ -314,7 +315,7 @@ it('retains cached rows offline while locking targets and changing locale live',
 it('preserves returned row focus through passive refetch and offline while blocking activation', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
   const endpoint = vi
-    .spyOn(api, 'requestPhase7Operation')
+    .spyOn(api, 'requestContentOperation')
     .mockImplementation(async (request) =>
       request.operation === 'getAdminQuestionReport' ? detail : one
     )

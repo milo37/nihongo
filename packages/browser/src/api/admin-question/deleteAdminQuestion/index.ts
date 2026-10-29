@@ -1,10 +1,10 @@
-import { requestPhase7Operation } from '../../phase7/requestPhase7Operation'
+import { requestContentOperation } from '../../content-operations/requestContentOperation'
 import type { DeleteAdminQuestionRequest } from './schema'
 export const deleteAdminQuestion = (
   questionId: string,
   body: DeleteAdminQuestionRequest
 ) =>
-  requestPhase7Operation({
+  requestContentOperation({
     operation: 'archiveAdminQuestion',
     params: { questionId },
     query: {},

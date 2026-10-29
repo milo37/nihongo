@@ -26,7 +26,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
 import { adminRoutes } from '@/router'
 import {
@@ -62,7 +62,7 @@ const applied: AdminImportApplyResponse = {
 let client: QueryClient
 let validate: () => Promise<AdminImportValidationResponse>
 let apply: () => Promise<AdminImportApplyResponse>
-let endpoint: MockInstance<typeof api.requestPhase7Operation>
+let endpoint: MockInstance<typeof api.requestContentOperation>
 const jsonFile = (text = JSON.stringify(request), name = 'original.json') => {
   const file = new File([text], name, { type: 'application/json' })
   Object.defineProperty(file, 'arrayBuffer', {
@@ -86,13 +86,13 @@ beforeEach(() => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
   validate = async () => validated
   apply = async () => applied
-  endpoint = vi.spyOn(api, 'requestPhase7Operation').mockImplementation((async (
-    input
-  ) => {
-    if (input.operation === 'validateQuestionImport') return validate()
-    if (input.operation === 'applyQuestionImport') return apply()
-    throw new Error('Unexpected import operation')
-  }) as typeof api.requestPhase7Operation)
+  endpoint = vi
+    .spyOn(api, 'requestContentOperation')
+    .mockImplementation((async (input) => {
+      if (input.operation === 'validateQuestionImport') return validate()
+      if (input.operation === 'applyQuestionImport') return apply()
+      throw new Error('Unexpected import operation')
+    }) as typeof api.requestContentOperation)
 })
 afterEach(() => {
   cleanup()

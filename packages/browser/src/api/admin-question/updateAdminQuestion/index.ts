@@ -1,10 +1,10 @@
-import { requestPhase7Operation } from '../../phase7/requestPhase7Operation'
+import { requestContentOperation } from '../../content-operations/requestContentOperation'
 import type { UpdateAdminQuestionRequest } from './schema'
 export const updateAdminQuestion = (
   versionId: string,
   body: UpdateAdminQuestionRequest
 ) =>
-  requestPhase7Operation({
+  requestContentOperation({
     operation: 'updateQuestionVersion',
     params: { versionId },
     query: {},

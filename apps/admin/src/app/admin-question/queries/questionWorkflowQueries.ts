@@ -5,7 +5,7 @@ import {
   queryOptions,
   infiniteQueryOptions
 } from '@tanstack/react-query'
-import { requestPhase7Operation } from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 export const questionWorkflowQueries = {
   allKey: serverStateQueryKeys.phase7AdminQuestion.all,
@@ -19,7 +19,7 @@ export const questionWorkflowQueries = {
         questionId
       ] as const,
       queryFn: () =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'getAdminQuestion',
           params: { questionId },
           query: {},
@@ -45,7 +45,7 @@ export const questionWorkflowQueries = {
       ] as const,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'listAdminQuestionVersions',
           params: { questionId },
           query: { limit: 20, ...(pageParam ? { cursor: pageParam } : {}) },
@@ -73,7 +73,7 @@ export const questionWorkflowQueries = {
         rowVersion
       ] as const,
       queryFn: async () => {
-        const result = await requestPhase7Operation({
+        const result = await requestContentOperation({
           operation: 'previewQuestionVersion',
           params: { versionId },
           query: {},
@@ -106,7 +106,7 @@ export const questionWorkflowQueries = {
         baseVersionId
       ] as const,
       queryFn: () =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'diffQuestionVersion',
           params: { versionId },
           query: { baseVersionId },
@@ -132,7 +132,7 @@ export const questionWorkflowQueries = {
       ] as const,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }) =>
-        requestPhase7Operation({
+        requestContentOperation({
           operation: 'listQuestionVersionReviews',
           params: { versionId },
           query: { limit: 20, ...(pageParam ? { cursor: pageParam } : {}) },
@@ -151,23 +151,23 @@ export const questionWorkflowMutations = {
       mutationFn: (request: QuestionWrite) => {
         switch (request.operation) {
           case 'updateQuestionVersion':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'createAdminQuestionVersion':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'archiveAdminQuestion':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'requestContentReview':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'requestQuestionChanges':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'approveQuestionVersion':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'withdrawQuestionApproval':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'publishQuestionVersion':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
           case 'retireQuestionVersion':
-            return requestPhase7Operation(request)
+            return requestContentOperation(request)
         }
       }
     })

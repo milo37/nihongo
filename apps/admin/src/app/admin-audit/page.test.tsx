@@ -26,7 +26,7 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as phase7Api from '@nihongo/browser/api/phase7/requestPhase7Operation'
+import * as phase7Api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
 import { actorId } from '@app/admin-question/test/questionFixture'
 
@@ -73,10 +73,12 @@ const renderRoute = (entry = '/admin/audit-log') => {
 
 it('registers the audit route for ADMIN in the existing real-only shell', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor('ADMIN'))
-  const read = vi.spyOn(phase7Api, 'requestPhase7Operation').mockResolvedValue({
-    items: [],
-    nextCursor: null
-  })
+  const read = vi
+    .spyOn(phase7Api, 'requestContentOperation')
+    .mockResolvedValue({
+      items: [],
+      nextCursor: null
+    })
   const { router } = renderRoute()
   expect(
     await screen.findByRole('heading', { level: 1, name: '관리자 감사 기록' })
@@ -139,7 +141,7 @@ const auditList = () => screen.getByRole('list', { name: '관리자 감사 기�
 it('distinguishes loading from an empty response and focuses the empty result', async () => {
   authAdmin()
   let finish!: (response: ListAdminAuditLogResponse) => void
-  vi.spyOn(phase7Api, 'requestPhase7Operation').mockImplementation(
+  vi.spyOn(phase7Api, 'requestContentOperation').mockImplementation(
     () =>
       new Promise<ListAdminAuditLogResponse>((resolve) => {
         finish = resolve
@@ -162,7 +164,7 @@ it('presents a bounded error and supports keyboard retry with focus restoration'
   authAdmin()
   const user = userEvent.setup()
   const read = vi
-    .spyOn(phase7Api, 'requestPhase7Operation')
+    .spyOn(phase7Api, 'requestContentOperation')
     .mockRejectedValueOnce(
       Object.assign(new Error('PRIVATE_SERVER_DETAIL'), {
         code: 'SERVICE_UNAVAILABLE',
@@ -194,7 +196,7 @@ it('loads the exact cursor by keyboard and focuses the first appended safe recor
   authAdmin()
   const user = userEvent.setup()
   const read = vi
-    .spyOn(phase7Api, 'requestPhase7Operation')
+    .spyOn(phase7Api, 'requestContentOperation')
     .mockResolvedValueOnce(firstPage)
     .mockResolvedValueOnce(lastPage)
   const { container } = renderRoute()
@@ -231,7 +233,7 @@ it('loads the exact cursor by keyboard and focuses the first appended safe recor
 it('preserves cached records after a failed next page and lets recovery unlock more', async () => {
   authAdmin()
   const user = userEvent.setup()
-  vi.spyOn(phase7Api, 'requestPhase7Operation')
+  vi.spyOn(phase7Api, 'requestContentOperation')
     .mockResolvedValueOnce(firstPage)
     .mockRejectedValueOnce(
       Object.assign(new Error('not shown'), { code: 'SERVICE_UNAVAILABLE' })
@@ -272,7 +274,7 @@ it.each(['GUEST', 'USER'] as const)(
     vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(
       role === 'GUEST' ? null : actor('USER')
     )
-    const read = vi.spyOn(phase7Api, 'requestPhase7Operation')
+    const read = vi.spyOn(phase7Api, 'requestContentOperation')
     const replace = vi
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
@@ -295,7 +297,7 @@ it.each(['GUEST', 'USER'] as const)(
 it('uses the existing Japanese locale without changing the route', async () => {
   authAdmin()
   expect(writeUiLocalePreference('ja')).toBe(true)
-  vi.spyOn(phase7Api, 'requestPhase7Operation').mockResolvedValue(emptyPage)
+  vi.spyOn(phase7Api, 'requestContentOperation').mockResolvedValue(emptyPage)
   const { router } = renderRoute()
   expect(
     await screen.findByRole('heading', { level: 1, name: '管理者監査ログ' })
@@ -317,7 +319,7 @@ it('uses the existing Japanese locale without changing the route', async () => {
 it('retains cached audit content while offline and blocks fetching another page', async () => {
   authAdmin()
   const read = vi
-    .spyOn(phase7Api, 'requestPhase7Operation')
+    .spyOn(phase7Api, 'requestContentOperation')
     .mockResolvedValue(firstPage)
   renderRoute()
   await screen.findByRole('list', { name: '관리자 감사 기록' })
@@ -344,7 +346,7 @@ it('connects existing question navigation to audit and preserves filters on Back
     pageSize: 20,
     total: 0
   })
-  vi.spyOn(phase7Api, 'requestPhase7Operation').mockResolvedValue(emptyPage)
+  vi.spyOn(phase7Api, 'requestContentOperation').mockResolvedValue(emptyPage)
   const { router } = renderRoute('/admin/questions?level=N3&page=1')
   await screen.findByRole('heading', { level: 1, name: '문제 관리' })
   const nav = screen.getByRole('navigation', { name: '현재 위치' })
@@ -374,7 +376,7 @@ it('focus lifecycle: reconnect growth after More does not steal focus from navig
     occurredAt: '2026-10-26T00:00:00.000Z'
   }
   const read = vi
-    .spyOn(phase7Api, 'requestPhase7Operation')
+    .spyOn(phase7Api, 'requestContentOperation')
     .mockResolvedValueOnce(firstPage)
     .mockResolvedValueOnce(lastPage)
     .mockResolvedValueOnce({ items: [newer, firstItem], nextCursor: cursor })
@@ -411,7 +413,7 @@ it('focus lifecycle: paused cached-success retry restores the heading when recon
   authAdmin()
   const user = userEvent.setup()
   const read = vi
-    .spyOn(phase7Api, 'requestPhase7Operation')
+    .spyOn(phase7Api, 'requestContentOperation')
     .mockResolvedValue(firstPage)
   renderRoute()
   await screen.findByRole('list', { name: '관리자 감사 기록' })
