@@ -293,7 +293,7 @@ export const jaCoreResources = {
       notSaved: '保存済みの回答はまだありません。',
       resume: '続きから解く',
       legacyUnavailable:
-        'この端末で再開できる回答が見つかりません。学習設定で確認してください。',
+        '以前の学習セッションは終了しました。新しい学習を始めてください。',
       other: '別の学習を選ぶ',
       records: '学習記録'
     },
@@ -505,7 +505,7 @@ export const jaCoreResources = {
         lastSaved: '最終保存 {{date}}',
         notSaved: 'まだサーバーに保存されていません',
         legacyUnavailable:
-          'このセッションは別の端末のローカル回答を復元できません。新しい学習を始めるか、セッションをキャンセルしてください。',
+          '以前の学習セッションは終了しました。新しい学習を始めてください。',
         action: '続きから解く',
         cancel: 'セッションをキャンセル',
         paginationLabel: '再開セッションのページ'
@@ -604,6 +604,12 @@ export const jaCoreResources = {
         emptyDescription: '別のレベル、科目、出題モードを選んでください。'
       },
       terminal: {
+        notFoundTitle: '学習セッションが見つかりません',
+        notFoundDescription:
+          '終了したか、アクセスできない学習です。新しい学習を始めてください。',
+        retiredTitle: '以前の学習セッションは終了しました',
+        retiredDescription:
+          '以前の学習記録は続けられません。新しい学習を始めてください。',
         expiredTitle: '期限切れの学習セッションです',
         cancelledTitle: 'キャンセルされた学習セッションです',
         description:
@@ -628,6 +634,8 @@ export const jaCoreResources = {
       draft: {
         retryShort: '再試行',
         inline: {
+          reconciled:
+            '最新の保存記録を読み込みました。回答を確認してください。',
           saved: '学習記録を自動保存しました',
           saving: '学習記録を保存しています…',
           error: '学習記録を保存できませんでした',
@@ -635,18 +643,18 @@ export const jaCoreResources = {
           offline: 'オフライン・この端末に一時保存中'
         },
         status: {
+          reconciled:
+            '最新の保存記録を読み込みました。回答を確認してください。',
           remoteDeferred:
-            '別のタブの最新保存を検知しました。現在の保存応答を確認してから安全に統合します。',
-          conflictPending:
-            '別のタブの保存を検知しました。ローカル作業を保持したまま競合を確認します。',
+            '別のタブの保存を検知しました。現在の保存と最新のサーバー記録を確認しています。',
+          conflictPending: '最新のサーバー記録を確認しています。',
           dirty: '変更内容をこのタブに一時保存しました。',
           saving: '変更内容をサーバーに保存しています。',
           savedAt: 'サーバーに保存しました。最終保存 {{time}}',
           saved: '回答をサーバーに保存しました。',
           offline:
             'オフラインです。変更内容はこの端末だけに一時保存し、接続後に再保存します。',
-          conflict:
-            '別の端末の変更と競合しました。サーバーまたはローカルの記録を選んでください。',
+          conflict: '最新のサーバー記録を確認しています。',
           error: '保存できませんでした。選んだ回答は保持され、再試行できます。',
           synced: 'サーバーに保存した回答と一致しています。'
         },
@@ -657,7 +665,7 @@ export const jaCoreResources = {
           saveBeforeLeaveFailed:
             '作業内容を保存できなかったため、この画面にとどまります。',
           conflictRefreshComplete:
-            '最新のサーバー作業内容を確認しました。競合項目を確認してから再提出してください。',
+            '最新のサーバー作業内容を確認しました。内容を確認してから再提出してください。',
           sessionRefreshFailed: '最新のセッション状態を確認できませんでした。',
           submissionPreparationFailed:
             'サーバーの作業内容を保存できなかったため、提出しませんでした。',
@@ -748,6 +756,11 @@ export const jaCoreResources = {
     }
   },
   result: {
+    retired: {
+      title: '以前の学習結果は終了しました',
+      description:
+        '以前の学習結果は確認できません。新しい学習を始めてください。'
+    },
     navigation: {
       label: '解説する問題',
       question: '問題 {{formattedOrdinal}}',

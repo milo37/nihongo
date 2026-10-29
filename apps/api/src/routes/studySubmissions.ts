@@ -43,10 +43,7 @@ const resolvePracticeContractVersion = (
   value: string | undefined,
   practiceContractV2Enabled: boolean
 ): 1 | 2 => {
-  if (value === undefined) {
-    return 1
-  }
-  if (value === '2') {
+  if (value === undefined || value === '2') {
     if (!practiceContractV2Enabled) {
       throw new ApplicationError({
         code: 'INVALID_REQUEST',
@@ -188,9 +185,8 @@ export const createStudySubmissionRoutes = ({
         practiceContractVersion === 2
           ? submitStudySessionV2HeadersSchema.parse({
               'idempotency-key': context.req.header('Idempotency-Key'),
-              'x-nihongo-practice-contract': context.req.header(
-                'X-Nihongo-Practice-Contract'
-              )
+              'x-nihongo-practice-contract':
+                context.req.header('X-Nihongo-Practice-Contract') ?? '2'
             })
           : submitStudySessionHeadersSchema.parse({
               'idempotency-key': context.req.header('Idempotency-Key')

@@ -122,6 +122,7 @@ const createCompleteSession = async (
   userId: string,
   questions: Array<{ id: string; currentPublishedVersionId: string }>
 ): Promise<string> => {
+  const startedAt = new Date('2026-08-14T00:00:00.000Z')
   const sessionId = await database.client.$transaction(async (transaction) => {
     const session = await transaction.studySession.create({
       data: {
@@ -129,23 +130,45 @@ const createCompleteSession = async (
         level: 'N5',
         subject: 'VOCABULARY',
         mode: 'RANDOM',
+        practiceContractVersion: 2,
         status: 'IN_PROGRESS',
         requestedCount: questions.length,
         actualCount: questions.length,
         usedFallback: false,
-        startedAt: new Date('2026-08-14T00:00:00.000Z'),
+        startedAt,
         expiresAt: new Date('2026-08-15T00:00:00.000Z')
       },
       select: { id: true }
     })
+    const sessionQuestions = questions.map((question, index) => ({
+      id: randomUUID(),
+      studySessionId: session.id,
+      questionId: question.id,
+      questionVersionId: question.currentPublishedVersionId,
+      ordinal: index + 1
+    }))
     await transaction.studySessionQuestion.createMany({
-      data: questions.map((question, index) => ({
-        id: randomUUID(),
+      data: sessionQuestions
+    })
+    await transaction.studyDraft.create({
+      data: {
         studySessionId: session.id,
-        questionId: question.id,
-        questionVersionId: question.currentPublishedVersionId,
-        ordinal: index + 1
-      }))
+        revision: 0,
+        currentOrdinal: 1,
+        createdAt: startedAt,
+        updatedAt: startedAt,
+        answers: {
+          createMany: {
+            data: sessionQuestions.map((question) => ({
+              studySessionQuestionId: question.id,
+              questionVersionId: question.questionVersionId,
+              selectedOptionId: null,
+              elapsedSec: 0,
+              updatedAt: startedAt
+            }))
+          }
+        }
+      }
     })
     return session.id
   })
@@ -286,6 +309,7 @@ describe('StudySession migration invariants', () => {
           level: 'N5',
           subject: 'VOCABULARY',
           mode: 'RANDOM',
+          practiceContractVersion: 1,
           requestedCount: 1,
           actualCount: 1,
           startedAt: new Date('2026-08-14T00:00:00.000Z'),
@@ -302,6 +326,7 @@ describe('StudySession migration invariants', () => {
             level: 'N5',
             subject: 'VOCABULARY',
             mode: 'RANDOM',
+            practiceContractVersion: 1,
             requestedCount: 2,
             actualCount: 2,
             startedAt: new Date('2026-08-14T00:00:00.000Z'),
@@ -380,11 +405,11 @@ describe('StudySession migration invariants', () => {
       await client.query(
         `INSERT INTO "StudySession" (
           "id", "userId", "level", "subject", "mode", "status",
-          "requestedCount", "actualCount", "usedFallback",
+          "requestedCount", "actualCount", "usedFallback", "practiceContractVersion",
           "startedAt", "expiresAt", "createdAt", "updatedAt"
         ) VALUES (
           $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
-          1, 1, false, $3, $4, $3, $3
+          1, 1, false, 1, $3, $4, $3, $3
         )`,
         [
           sessionId,
@@ -400,7 +425,9 @@ describe('StudySession migration invariants', () => {
       await client.query('COMMIT')
 
       await expect(client.query(migrationSql)).rejects.toMatchObject({
-        code: '23514'
+        code: '23514',
+        message:
+          'Existing StudySession selection is incomplete or non-contiguous.'
       })
       await client.query('ROLLBACK')
     } finally {

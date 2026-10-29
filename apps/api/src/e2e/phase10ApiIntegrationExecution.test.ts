@@ -1,11 +1,13 @@
 import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
+import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import {
   EnvironmentValidationError,
   parseApiEnvironment
 } from '../config/env.js'
 import {
   assertPhase10VitestFileResult,
+  assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   createPhase7DbFileEnvironment,
   phase7DbFoundationTestFile,
@@ -19,6 +21,46 @@ import {
   sanitizePhase7VitestReport,
   selectPhase7DbIntegrationFiles
 } from './phase10ApiIntegrationExecution.js'
+
+describe('SSO bootstrap migration history', () => {
+  it('accepts the pinned current inventory and rejects ledger or source drift', () => {
+    const expected = loadExpectedMigrationManifest()
+    const applied = expected.map(({ name, checksum }) => ({
+      migration_name: name,
+      checksum
+    }))
+    expect(expected).toHaveLength(52)
+    expect(() =>
+      assertSsoBootstrapMigrationHistory(expected, applied)
+    ).not.toThrow()
+    expect(() =>
+      assertSsoBootstrapMigrationHistory(
+        expected.slice(0, 50),
+        applied.slice(0, 50)
+      )
+    ).toThrow(/canonical52/u)
+    expect(() =>
+      assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
+    ).toThrow(/canonical52/u)
+    expect(() =>
+      assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
+    ).toThrow(/canonical52/u)
+    const alteredLedger = structuredClone(applied)
+    alteredLedger[0]!.checksum = '0'.repeat(64)
+    expect(() =>
+      assertSsoBootstrapMigrationHistory(expected, alteredLedger)
+    ).toThrow(/canonical52/u)
+    const alteredSource = structuredClone(expected)
+    alteredSource[0]!.checksum = '0'.repeat(64)
+    const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
+      migration_name: name,
+      checksum
+    }))
+    expect(() =>
+      assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
+    ).toThrow(/canonical52/u)
+  })
+})
 
 describe('Phase 7 SSO deterministic TEST environment', () => {
   const schema = 'phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test'

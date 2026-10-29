@@ -385,10 +385,12 @@ export const runDependencyAuditGate = async ({
     findings: decision.findings,
     appliedDispositionCount: decision.appliedDispositionCount
   }
-  await writeCanonicalEvidence({
-    filePath: path.join(evidenceDirectory, `dependency-${scope}.json`),
-    value: evidence
-  })
+  if (evidenceDirectory) {
+    await writeCanonicalEvidence({
+      filePath: path.join(evidenceDirectory, `dependency-${scope}.json`),
+      value: evidence
+    })
+  }
   if (decision.status !== 'passed') {
     throw new Error('SECURITY_DEPENDENCY_AUDIT_BLOCKED')
   }
@@ -413,14 +415,11 @@ if (isDirectExecution) {
         dispositionPath: path.join(
           repositoryRoot,
           'scripts/security/dependency-audit-dispositions.v1.json'
-        ),
-        evidenceDirectory:
-          process.env.PHASE10_SECURITY_EVIDENCE_DIR ??
-          path.join(repositoryRoot, 'test-results/phase10-evidence/security')
+        )
       })
       process.stdout.write(
         `${JSON.stringify({
-          event: 'phase10.dependency_audit.passed',
+          event: 'security.dependency_audit.passed',
           scope,
           findingCount: evidence.findings.length
         })}\n`
@@ -429,7 +428,7 @@ if (isDirectExecution) {
     .catch((error) => {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase10.dependency_audit.failed',
+          event: 'security.dependency_audit.failed',
           errorCode:
             error instanceof Error ? error.message : 'SECURITY_UNKNOWN_FAILURE'
         })}\n`

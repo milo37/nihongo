@@ -1,4 +1,5 @@
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
+import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import {
   copyFileSync,
   cpSync,
@@ -26,6 +27,7 @@ import {
 } from './ownedProcessGroup.js'
 import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
 import {
+  assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   phase7SsoAccountLifecycleTestFile,
   runPhase10ManifestVitestFile
@@ -557,7 +559,8 @@ const runCommand = async (
   const isSeed =
     apiIntegrationCase !== 'sso-browser-google' &&
     command === 'pnpm' &&
-    args.join(' ') === '--filter @nihongo/api run db:seed:test'
+    (args.join(' ') === '--filter @nihongo/api run db:seed:test' ||
+      args.join(' ') === '--filter @nihongo/api exec tsx prisma/seed.ts')
   let seedStage = 'SEED_GENERATE'
   let seedDiagnosticId = 'UNKNOWN_REDACTED'
   if (isSeed)
@@ -808,16 +811,31 @@ export const preparePhase7IntegrationArtifacts = async ({
 } = {}): Promise<void> => {
   abortSignal?.throwIfAborted()
   if (prepared) return
-  for (const args of [
-    ['run', 'build:contracts'],
-    ['run', 'build:domain'],
-    ['--filter', '@nihongo/api', 'run', 'db:generate']
-  ]) {
-    abortSignal?.throwIfAborted()
-    await run('pnpm', args, environment, abortSignal)
-  }
+  await prepareBrowserArtifacts(
+    'real',
+    abortSignal ?? new AbortController().signal,
+    run,
+    repositoryRoot,
+    environment
+  )
   abortSignal?.throwIfAborted()
 }
+
+export const phase7SeedInvocation = (
+  artifactsPrepared: boolean
+): {
+  readonly args: readonly string[]
+  readonly environment: NodeJS.ProcessEnv
+} =>
+  artifactsPrepared
+    ? {
+        args: ['--filter', '@nihongo/api', 'exec', 'tsx', 'prisma/seed.ts'],
+        environment: { SEED_TARGET: 'test' }
+      }
+    : {
+        args: ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+        environment: {}
+      }
 
 export const preparePhase7IsolatedDatabase = async ({
   abortSignal,
@@ -915,7 +933,7 @@ export const preparePhase7IsolatedDatabase = async ({
     }
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...sharedEnvironment,
         PHASE7_TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
@@ -924,11 +942,12 @@ export const preparePhase7IsolatedDatabase = async ({
     )
     await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
 
+    const seed = phase7SeedInvocation(true)
     for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
       await runCommand(
         'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-        sharedEnvironment,
+        seed.args,
+        { ...sharedEnvironment, ...seed.environment },
         abortSignal
       )
     }
@@ -936,7 +955,7 @@ export const preparePhase7IsolatedDatabase = async ({
     if (seedRuns > 0) {
       await runCommand(
         'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
         {
           ...sharedEnvironment,
           PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
@@ -985,16 +1004,15 @@ const run = async (): Promise<void> => {
     testFile: repositoryEntry.path,
     environment: sharedEnvironment
   })
-  await runCommand(
-    'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-    sharedEnvironment
-  )
+  await runCommand('pnpm', phase7SeedInvocation(true).args, {
+    ...sharedEnvironment,
+    ...phase7SeedInvocation(true).environment
+  })
   // Batch7 installs current only from the unchanged canonical65 bootstrap.
   // Historical prepare(seedRuns:0) callers keep their prefix37 profile.
   await runCommand(
     'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...sharedEnvironment,
       PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
@@ -1022,7 +1040,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   })
   await runCommand(
     'pnpm',
-    ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...harness.sharedEnvironment,
       PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
@@ -1046,34 +1064,19 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     `SELECT migration_name, checksum FROM ${quoteSchema(schemaName)}."_prisma_migrations"
      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
   )
-  if (
-    names.length !== 50 ||
-    names.at(-1) !== '20261028150000_sso_provider_cleanup_fencing' ||
-    applied.rows.length !== names.length ||
-    applied.rows.some(
-      (row, index) =>
-        row.migration_name !== names[index] ||
-        row.checksum !==
-          createHash('sha256')
-            .update(
-              readFileSync(
-                nodePath.join(
-                  migrationsPath,
-                  row.migration_name,
-                  'migration.sql'
-                )
-              )
-            )
-            .digest('hex')
-    )
-  )
-    throw new Error(
-      'First Google ADMIN bootstrap canonical50 migration history mismatch.'
-    )
+  const expectedMigrations = names.map((name) => ({
+    name,
+    checksum: createHash('sha256')
+      .update(
+        readFileSync(nodePath.join(migrationsPath, name, 'migration.sql'))
+      )
+      .digest('hex')
+  }))
+  assertSsoBootstrapMigrationHistory(expectedMigrations, applied.rows)
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 50,
+      canonicalCount: 52,
       checksumMatch: true,
       reentry: true
     }) + '\n'
@@ -1227,20 +1230,24 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     process.on(signal, onSignal)
   adminClient.on('error', onFailure)
   try {
+    const artifactsPrepared =
+      process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
     const harness = await preparePhase7IsolatedDatabase({
       seedRuns: 0,
-      abortSignal: controller.signal
+      abortSignal: controller.signal,
+      artifactsPrepared
     })
     // The full migration chain requires the canonical prefix content bootstrap.
+    const seed = phase7SeedInvocation(true)
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
-      harness.sharedEnvironment,
+      seed.args,
+      { ...harness.sharedEnvironment, ...seed.environment },
       controller.signal
     )
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+      ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...harness.sharedEnvironment,
         PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(

@@ -22,30 +22,20 @@ import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
-import { useElapsedSeconds } from '@app/practice/hooks/useElapsedSeconds'
-import { useClearGuestPracticeQueryCache } from '@app/practice/hooks/useClearGuestPracticeQueryCache'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
 import { usePracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
 import {
-  assertCurrentStudySubmissionAction,
-  useSubmitStudySession
-} from '@app/practice/hooks/useSubmitStudySession'
-import {
   assertCurrentStudySubmissionV2Action,
   useSubmitStudySessionV2
 } from '@app/practice/hooks/useSubmitStudySessionV2'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
-import {
-  clearGuestStudyDraftWorkingCopies,
-  clearStudyDraftWorkingCopy
-} from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import { clearStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
 import { readStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
 import {
   clearSubmissionAttempt,
-  hasStoredSubmissionAttempt,
-  readStoredSubmissionLogicalRequest
+  hasStoredSubmissionAttempt
 } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionErrorCode,
@@ -62,13 +52,13 @@ import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import {
   isAuthenticationBoundaryApiError,
   isOfflineApiError,
-  isNotFoundApiError
+  isNotFoundApiError,
+  isRetiredPracticeApiError
 } from '@libs/apiError'
 import { analyticsClient } from '@/analytics/client'
 
 type BookmarkNoticeCode =
   | 'loginRequired'
-  | 'legacyReadOnly'
   | 'removed'
   | 'removeRollback'
   | 'saved'
@@ -104,10 +94,8 @@ export const PracticeSessionPage = (): ReactElement => {
   }
   const { sessionId = '' } = useParams()
   const navigate = useNavigate()
-  const clearGuestPracticeQueryCache = useClearGuestPracticeQueryCache()
   const { isReady: isAuthReady, role, user } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const draftConflictReturnFocusRef = useRef<HTMLElement | null>(null)
   const submitButtonRef = useRef<HTMLButtonElement>(null)
   const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
     useState(false)
@@ -137,7 +125,6 @@ export const PracticeSessionPage = (): ReactElement => {
   )
   const isSessionRefreshUnavailable =
     sessionQuery.isError || sessionQuery.fetchStatus === 'paused'
-  const submitSession = useSubmitStudySession(sessionId)
   const hasCurrentGuestOwnerProof =
     isAuthReady && (role !== 'GUEST' || verifiedGuestSessionId === sessionId)
   const isCanonicalSessionBoundaryTerminal =
@@ -145,6 +132,9 @@ export const PracticeSessionPage = (): ReactElement => {
       sessionQuery.data?.session.status !== 'IN_PROGRESS') ||
     (sessionQuery.isError && isNotFoundApiError(sessionQuery.error))
   const isV2Session = sessionQuery.data?.session.practiceContractVersion === 2
+  const isRetiredSession = sessionQuery.isError
+    ? isRetiredPracticeApiError(sessionQuery.error)
+    : sessionQuery.data?.session.practiceContractVersion === 1
   const isEditableV2Session =
     isV2Session &&
     sessionQuery.data?.session.status === 'IN_PROGRESS' &&
@@ -165,16 +155,10 @@ export const PracticeSessionPage = (): ReactElement => {
       state.draftWorkingCopy.sessionId === sessionId
   )
   const allowSubmissionNavigationRef = useRef(false)
-  const isSubmissionActive = isV2Session
-    ? submitSessionV2.isPending || submitSessionV2.isPaused
-    : submitSession.isPending || submitSession.isPaused
-  const submissionError = isV2Session
-    ? submitSessionV2.error
-    : submitSession.error
-  const isSubmissionError = isV2Session
-    ? submitSessionV2.isError
-    : submitSession.isError
-  const frozenLogicalRequest = readStoredSubmissionLogicalRequest(sessionId)
+  const isSubmissionActive =
+    submitSessionV2.isPending || submitSessionV2.isPaused
+  const submissionError = submitSessionV2.error
+  const isSubmissionError = submitSessionV2.isError
   const frozenV2Attempt = readStudyDraftSubmissionAttempt(sessionId)
   const hasRawFrozenSubmissionAttempt =
     hasStoredSubmissionAttempt(sessionId) ||
@@ -182,14 +166,15 @@ export const PracticeSessionPage = (): ReactElement => {
       !isAuthTransitionSupersededError(submissionError) &&
       !isDefinitiveStudySubmissionError(submissionError))
   const hasFrozenSubmissionAttempt =
-    hasRawFrozenSubmissionAttempt && !isCanonicalSessionBoundaryTerminal
+    hasRawFrozenSubmissionAttempt &&
+    !isCanonicalSessionBoundaryTerminal &&
+    !isRetiredSession
   const terminalSettlementKey =
-    sessionQuery.isError && isNotFoundApiError(sessionQuery.error)
-      ? `${sessionId}:NOT_FOUND`
-      : sessionQuery.data?.session.status &&
-          sessionQuery.data.session.status !== 'IN_PROGRESS'
-        ? `${sessionId}:${sessionQuery.data.session.status}`
-        : null
+    sessionQuery.isSuccess &&
+    isV2Session &&
+    sessionQuery.data.session.status !== 'IN_PROGRESS'
+      ? `${sessionId}:${sessionQuery.data.session.status}`
+      : null
   const terminalSettlementRef = useRef<string | null>(null)
   const isSubmitDialogOpen =
     isSubmitDialogRequestedOpen || hasFrozenSubmissionAttempt
@@ -197,7 +182,8 @@ export const PracticeSessionPage = (): ReactElement => {
     !isCanonicalSessionBoundaryTerminal &&
     (isSubmissionActive || hasRawFrozenSubmissionAttempt)
   const mustBlockNavigation =
-    mustReplayFrozenSubmission || (isEditableV2Session && isScopedDraftReady)
+    !isRetiredSession &&
+    (mustReplayFrozenSubmission || (isEditableV2Session && isScopedDraftReady))
   const submissionNavigationBlocker = useBlocker(
     () => mustBlockNavigation && !allowSubmissionNavigationRef.current
   )
@@ -236,19 +222,7 @@ export const PracticeSessionPage = (): ReactElement => {
     },
     role !== 'GUEST' && bookmarkQuestionIds.length > 0
   )
-  const storedSessionId = useAppStore((state) => state.sessionId)
-  const storedCurrentQuestionIndex = useAppStore(
-    (state) => state.currentQuestionIndex
-  )
-  const selectedAnswers = useAppStore((state) => state.selectedAnswers)
-  const startedAt = useAppStore((state) => state.startedAt)
-  const beginPractice = useAppStore((state) => state.beginPractice)
-  const setCurrentQuestionIndex = useAppStore(
-    (state) => state.setCurrentQuestionIndex
-  )
-  const selectAnswer = useAppStore((state) => state.selectAnswer)
   const resetPractice = useAppStore((state) => state.resetPractice)
-  const legacyElapsedSeconds = useElapsedSeconds(startedAt)
 
   useEffect(() => {
     let nextVerifiedSessionId: string | null | undefined
@@ -343,7 +317,12 @@ export const PracticeSessionPage = (): ReactElement => {
 
   useEffect(() => {
     if (!terminalSettlementKey) {
-      terminalSettlementRef.current = null
+      if (
+        sessionQuery.isSuccess &&
+        sessionQuery.data?.session.status === 'IN_PROGRESS'
+      ) {
+        terminalSettlementRef.current = null
+      }
       return
     }
     if (terminalSettlementRef.current === terminalSettlementKey) {
@@ -353,32 +332,22 @@ export const PracticeSessionPage = (): ReactElement => {
     allowSubmissionNavigationRef.current = true
     clearSubmissionAttempt(sessionId)
     clearStudyDraftWorkingCopy(principalScope, sessionId)
-    if (role === 'GUEST' && terminalSettlementKey.endsWith(':NOT_FOUND')) {
-      clearGuestStudyDraftWorkingCopies()
-      clearGuestPracticeQueryCache()
-    }
-    if (submitSession.isError || submitSession.isPending) {
-      submitSession.reset()
-    }
     if (submitSessionV2.isError || submitSessionV2.isPending) {
       submitSessionV2.reset()
     }
     resetPractice()
   }, [
     principalScope,
-    clearGuestPracticeQueryCache,
-    role,
     resetPractice,
     sessionId,
-    submitSession,
+    sessionQuery.data,
+    sessionQuery.isSuccess,
     submitSessionV2,
     terminalSettlementKey
   ])
 
   const questions = sessionQuery.data?.questions ?? []
-  const currentQuestionIndex = isV2Session
-    ? draftController.currentOrdinal - 1
-    : storedCurrentQuestionIndex
+  const currentQuestionIndex = draftController.currentOrdinal - 1
   const safeQuestionIndex =
     questions.length > 0
       ? Math.min(currentQuestionIndex, questions.length - 1)
@@ -392,7 +361,7 @@ export const PracticeSessionPage = (): ReactElement => {
     Boolean(sessionQuery.data) &&
     hasCurrentGuestOwnerProof &&
     sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-    (!isV2Session || draftController.isReady) &&
+    draftController.isReady &&
     Boolean(currentQuestion)
   const v2Answers =
     frozenV2Attempt?.canonicalBody.answers ??
@@ -404,27 +373,16 @@ export const PracticeSessionPage = (): ReactElement => {
       answer.selectedOptionId
     ])
   )
-  const displayedSelectedAnswers = isV2Session
-    ? Object.fromEntries(
-        questions.flatMap((question) => {
-          const selectedOptionId = question.sessionQuestionId
-            ? v2AnswersBySessionQuestionId.get(question.sessionQuestionId)
-            : null
-          return selectedOptionId ? [[question.id, selectedOptionId]] : []
-        })
-      )
-    : frozenLogicalRequest
-      ? Object.fromEntries(
-          frozenLogicalRequest.answers.map((answer) => [
-            answer.questionId,
-            answer.selectedOptionId
-          ])
-        )
-      : selectedAnswers
-  const elapsedSeconds = isV2Session
-    ? (frozenV2Attempt?.canonicalBody.durationSec ??
-      draftController.elapsedSeconds)
-    : legacyElapsedSeconds
+  const displayedSelectedAnswers = Object.fromEntries(
+    questions.flatMap((question) => {
+      const selectedOptionId = question.sessionQuestionId
+        ? v2AnswersBySessionQuestionId.get(question.sessionQuestionId)
+        : null
+      return selectedOptionId ? [[question.id, selectedOptionId]] : []
+    })
+  )
+  const elapsedSeconds =
+    frozenV2Attempt?.canonicalBody.durationSec ?? draftController.elapsedSeconds
   const answeredCount = questions.reduce(
     (count, question) =>
       displayedSelectedAnswers[question.id] ? count + 1 : count,
@@ -433,49 +391,21 @@ export const PracticeSessionPage = (): ReactElement => {
   const unansweredCount = Math.max(0, questions.length - answeredCount)
 
   useEffect(() => {
-    if (!sessionQuery.data || isV2Session || storedSessionId === sessionId) {
-      return
-    }
-
-    beginPractice(sessionId, sessionQuery.data.session.startedAt)
-  }, [
-    beginPractice,
-    isV2Session,
-    sessionId,
-    sessionQuery.data,
-    storedSessionId
-  ])
-
-  useEffect(() => {
     if (canFocusCurrentQuestion && !isNavigationPromptBlocked) {
       headingRef.current?.focus()
     }
   }, [canFocusCurrentQuestion, currentQuestion?.id, isNavigationPromptBlocked])
 
-  useEffect(() => {
-    draftConflictReturnFocusRef.current = null
-  }, [currentQuestion?.id])
-
   const movePrevious = (): void => {
     if (isSessionRefreshUnavailable) return
-    if (isV2Session) {
-      draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
-    } else {
-      setCurrentQuestionIndex(Math.max(0, safeQuestionIndex - 1))
-    }
+    draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
   }
 
   const moveNext = (): void => {
     if (isSessionRefreshUnavailable) return
-    if (isV2Session) {
-      draftController.moveToOrdinal(
-        Math.min(questions.length, safeQuestionIndex + 2)
-      )
-    } else {
-      setCurrentQuestionIndex(
-        Math.min(Math.max(questions.length - 1, 0), safeQuestionIndex + 1)
-      )
-    }
+    draftController.moveToOrdinal(
+      Math.min(questions.length, safeQuestionIndex + 2)
+    )
   }
 
   const handleSelectOption = (optionId: string): void => {
@@ -488,17 +418,12 @@ export const PracticeSessionPage = (): ReactElement => {
       !isSessionRefreshUnavailable &&
       sessionQuery.data?.session.status === 'IN_PROGRESS'
     ) {
-      if (document.activeElement instanceof HTMLElement) {
-        draftConflictReturnFocusRef.current = document.activeElement
-      }
       const isFirstAnswer = !displayedSelectedAnswers[currentQuestion.id]
-      if (isV2Session && currentQuestion.sessionQuestionId) {
+      if (currentQuestion.sessionQuestionId) {
         draftController.selectOption(
           currentQuestion.sessionQuestionId,
           optionId
         )
-      } else {
-        selectAnswer(currentQuestion.id, optionId)
       }
       if (isFirstAnswer) {
         analyticsClient.track({
@@ -520,7 +445,7 @@ export const PracticeSessionPage = (): ReactElement => {
     !isSessionRefreshUnavailable &&
     draftController.isReady &&
     sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-    (!isV2Session || draftController.saveState !== 'saving')
+    draftController.saveState !== 'saving'
 
   usePracticeKeyboard({
     enabled:
@@ -595,6 +520,27 @@ export const PracticeSessionPage = (): ReactElement => {
     />
   )
 
+  if (isRetiredSession) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+        <ErrorState
+          autoFocus
+          headingLevel={1}
+          title={t('session.terminal.retiredTitle')}
+          description={t('session.terminal.retiredDescription')}
+          action={
+            <Link
+              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+              to="/practice"
+            >
+              {t('session.terminal.openSetup')}
+            </Link>
+          }
+        />
+      </section>
+    )
+  }
+
   if (sessionQuery.isPending) {
     if (hasFrozenSubmissionAttempt) {
       return (
@@ -642,6 +588,26 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   if (!sessionQuery.data) {
+    if (sessionQuery.isError && isNotFoundApiError(sessionQuery.error)) {
+      return (
+        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+          <ErrorState
+            autoFocus
+            headingLevel={1}
+            title={t('session.terminal.notFoundTitle')}
+            description={t('session.terminal.notFoundDescription')}
+            action={
+              <Link
+                className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
+                to="/practice"
+              >
+                {t('session.terminal.openSetup')}
+              </Link>
+            }
+          />
+        </section>
+      )
+    }
     if (hasFrozenSubmissionAttempt) {
       return (
         <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
@@ -851,14 +817,6 @@ export const PracticeSessionPage = (): ReactElement => {
       })
       return
     }
-    if (session.practiceContractVersion !== 2) {
-      setBookmarkMessage({
-        code: 'legacyReadOnly',
-        questionId: currentQuestion.id
-      })
-      return
-    }
-
     setBookmarkMessage(null)
     if (isBookmarked) {
       deleteBookmark.mutate(currentQuestion.id, {
@@ -961,57 +919,25 @@ export const PracticeSessionPage = (): ReactElement => {
 
     setDraftActionMessage(null)
 
-    if (isV2Session) {
-      setPreparingSubmission(true)
-      try {
-        const prepared = frozenV2Attempt
-          ? frozenV2Attempt.canonicalBody
-          : await draftController.prepareSubmission()
-        submitSessionV2.mutate(prepared, {
-          onSuccess: (_result, input) => {
-            assertCurrentStudySubmissionV2Action(input)
-            completeSubmissionNavigation()
-          },
-          onError: handleSubmissionFailure
-        })
-      } catch (error: unknown) {
-        if (!isAuthTransitionSupersededError(error)) {
-          setDraftActionMessage('submissionPreparationFailed')
-        }
-      } finally {
-        setPreparingSubmission(false)
-      }
-      return
-    }
-
-    const elapsedPerQuestion = Math.floor(
-      elapsedSeconds / Math.max(questions.length, 1)
-    )
-    submitSession.mutate(
-      frozenLogicalRequest ?? {
-        durationSec: elapsedSeconds,
-        answers: questions.flatMap((question) => {
-          const selectedOptionId = displayedSelectedAnswers[question.id]
-
-          return selectedOptionId
-            ? [
-                {
-                  questionId: question.id,
-                  selectedOptionId,
-                  elapsedSec: elapsedPerQuestion
-                }
-              ]
-            : []
-        })
-      },
-      {
+    setPreparingSubmission(true)
+    try {
+      const prepared = frozenV2Attempt
+        ? frozenV2Attempt.canonicalBody
+        : await draftController.prepareSubmission()
+      submitSessionV2.mutate(prepared, {
         onSuccess: (_result, input) => {
-          assertCurrentStudySubmissionAction(input)
+          assertCurrentStudySubmissionV2Action(input)
           completeSubmissionNavigation()
         },
         onError: handleSubmissionFailure
+      })
+    } catch (error: unknown) {
+      if (!isAuthTransitionSupersededError(error)) {
+        setDraftActionMessage('submissionPreparationFailed')
       }
-    )
+    } finally {
+      setPreparingSubmission(false)
+    }
   }
 
   const handleSubmitDialogOpenChange = (open: boolean): void => {
@@ -1046,6 +972,7 @@ export const PracticeSessionPage = (): ReactElement => {
       'synced',
       'saved',
       'savedAt',
+      'reconciled',
       'dirty',
       'saving',
       'error',
@@ -1204,9 +1131,7 @@ export const PracticeSessionPage = (): ReactElement => {
                     mode: commonT(`taxonomy.studyModes.${session.mode}`),
                     requested: formatCount(requestedCount)
                   })
-                : session.practiceContractVersion === 1
-                  ? t('session.supply.legacyFallback')
-                  : t('session.supply.canonicalNoFallback')}
+                : t('session.supply.canonicalNoFallback')}
             </div>
           ) : null}
 
@@ -1256,8 +1181,7 @@ export const PracticeSessionPage = (): ReactElement => {
                     isPreparingSubmission ||
                     isSessionRefreshUnavailable ||
                     hasPendingBookmarkMutation ||
-                    isBookmarkQueryUnavailable ||
-                    session.practiceContractVersion !== 2
+                    isBookmarkQueryUnavailable
                   }
                   aria-label={t(
                     isBookmarked
@@ -1465,11 +1389,7 @@ export const PracticeSessionPage = (): ReactElement => {
                       displayedSelectedAnswers[question.id]
                     )}
                     onClick={() => {
-                      if (isV2Session) {
-                        draftController.moveToOrdinal(index + 1)
-                      } else {
-                        setCurrentQuestionIndex(index)
-                      }
+                      draftController.moveToOrdinal(index + 1)
                     }}
                   >
                     {formatCount(index + 1)}
@@ -1544,34 +1464,6 @@ export const PracticeSessionPage = (): ReactElement => {
             ) : null}
           </div>
         ) : null}
-      </Dialog>
-
-      <Dialog
-        open={hasResolvedDraftConflict}
-        title={t('session.conflict.title')}
-        description={t('session.conflict.description', {
-          conflicts: formatCount(draftController.conflictCount)
-        })}
-        returnFocusRef={draftConflictReturnFocusRef}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={draftController.resolveConflictWithServer}
-            >
-              {t('session.conflict.useServer')}
-            </Button>
-            <Button onClick={draftController.resolveConflictWithLocal}>
-              {t('session.conflict.keepLocal')}
-            </Button>
-          </>
-        }
-        preventClose
-        onOpenChange={() => undefined}
-      >
-        <p className="text-sm leading-6 text-muted">
-          {t('session.conflict.detail')}
-        </p>
       </Dialog>
 
       {navigationPrompt}

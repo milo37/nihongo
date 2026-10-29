@@ -73,6 +73,45 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllEnvs())
 
+describe('SSO learning fixture versions', () => {
+  it('pairs historical submitted V1 and its V1 record while retaining an editable V2 draft', async () => {
+    const normal = db.query.getMockImplementation()!
+    db.query.mockImplementation(async (sql: string, ...values: unknown[]) => {
+      if (sql.includes('SELECT q.id AS "questionId"')) {
+        return {
+          rows: [
+            {
+              questionId: 'question',
+              versionId: 'version',
+              level: 'N5',
+              subject: 'VOCABULARY'
+            }
+          ]
+        }
+      }
+      return normal(sql, ...values)
+    })
+    const harness = createSsoDbHarness()
+    await harness.learningFixture('user')
+    const sessions = calls('INSERT INTO "StudySession"')
+    expect(sessions).toHaveLength(2)
+    expect(sessions[0]?.[0]).toContain('"practiceContractVersion"')
+    expect(sessions[0]?.[0]).toContain(
+      "'IN_PROGRESS',1,1,false,1,transaction_timestamp()"
+    )
+    expect(sessions[1]?.[0]).toContain(
+      "'IN_PROGRESS',1,1,false,2,transaction_timestamp()"
+    )
+    const records = calls('INSERT INTO "IdempotencyRecord"')
+    expect(records).toHaveLength(1)
+    expect(records[0]?.[0]).toContain("repeat('a',64),1,'PROCESSING'")
+    expect(records[0]?.[1]?.[3]).toBe(sessions[0]?.[1]?.[0])
+    expect(calls('INSERT INTO "StudyDraft"')).toHaveLength(1)
+    expect(calls('INSERT INTO "StudyDraftAnswer"')).toHaveLength(1)
+    expect(calls('SET CONSTRAINTS ALL IMMEDIATE')).toHaveLength(1)
+  })
+})
+
 describe('SSO TEST fixture activation ownership', () => {
   it('activates fresh state once after registering the exact endpoint capability', async () => {
     await connected(async () => {

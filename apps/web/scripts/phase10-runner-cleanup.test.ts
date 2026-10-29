@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -81,6 +84,7 @@ const finish = (child: ChildProcess, outcome: ChildOutcome): void => {
 describe('Phase9/10 browser runner lifecycle', () => {
   const originalArgv = process.argv
   const originalExitCode = process.exitCode
+  let testTemp: string
   let originalSignalListeners: Map<
     NodeJS.Signals,
     ((signal: NodeJS.Signals) => void)[]
@@ -89,6 +93,13 @@ describe('Phase9/10 browser runner lifecycle', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    testTemp = mkdtempSync(join(tmpdir(), 'jlp541-web-runner-'))
+    vi.stubEnv('RUNNER_TEMP', testTemp)
+    vi.stubEnv('GITHUB_RUN_ID', undefined)
+    vi.stubEnv('JLP541_BROWSER_ARTIFACTS_PREPARED', undefined)
+    vi.stubEnv('PHASE8_BROWSER_MODE', undefined)
+    vi.stubEnv('PHASE9_BROWSER_MODE', undefined)
+    vi.stubEnv('PHASE10_BROWSER_MODE', undefined)
     process.argv = [...originalArgv.slice(0, 2), 'real']
     process.exitCode = undefined
     originalSignalListeners = new Map(
@@ -128,6 +139,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
+    rmSync(testTemp, { recursive: true, force: true })
   })
 
   it.each(scenarios)('%s', async (_name, scenario, expectedExitCode) => {
@@ -202,6 +214,174 @@ describe('Phase9/10 browser runner lifecycle', () => {
     expect(mocks.retireOwnedProcess).toHaveBeenCalledOnce()
     expect(mocks.stopOwnedProcesses).toHaveBeenCalledOnce()
   })
+  const assertMockLifecycle = async (
+    scenario: string,
+    artifactsPrepared: boolean
+  ): Promise<void> => {
+    const web = makeChild()
+    const calls: Array<{ args: string[]; env: NodeJS.ProcessEnv }> = []
+    const stopped: string[][] = []
+    const cancellation =
+      scenario === 'SIGINT during Playwright' ||
+      scenario === 'SIGTERM during Playwright'
+    let playwrightChild: ChildProcess | undefined
+    let resolveExit: () => void = () => {}
+    const exitObserved = new Promise<void>((done) => {
+      resolveExit = done
+    })
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      resolveExit()
+      return undefined as never
+    })
+    mocks.spawn.mockImplementation(
+      (_command: string, args: string[], options) => {
+        calls.push({ args, env: options.env })
+        if (args.includes('@nihongo/web')) {
+          if (scenario === 'web exit') finish(web, { code: 1, signal: null })
+          return web
+        }
+        const child = makeChild()
+        if (
+          args.includes('@nihongo/contracts') ||
+          args.includes('@nihongo/domain')
+        ) {
+          queueMicrotask(() => finish(child, { code: 0, signal: null }))
+        } else if (args.includes('playwright')) {
+          playwrightChild = child
+          queueMicrotask(() => {
+            if (cancellation) {
+              const signal =
+                scenario === 'SIGINT during Playwright' ? 'SIGINT' : 'SIGTERM'
+              process.emit(signal, signal)
+            } else {
+              finish(child, {
+                code:
+                  scenario === 'Playwright failure' ||
+                  scenario === 'Playwright and stop failure'
+                    ? 7
+                    : 0,
+                signal: null
+              })
+            }
+          })
+        } else {
+          throw new Error(
+            'Mock runner started an unexpected API or admin process.'
+          )
+        }
+        return child
+      }
+    )
+    mocks.stopOwnedProcesses.mockImplementation(
+      async (processes: readonly { label: string }[]) => {
+        stopped.push(processes.map(({ label }) => label))
+        if (cancellation && playwrightChild)
+          finish(playwrightChild, { code: 7, signal: null })
+        if (
+          scenario === 'stop failure' ||
+          scenario === 'Playwright and stop failure'
+        ) {
+          throw new Error('Owned process remains')
+        }
+        finish(web, { code: null, signal: 'SIGTERM' })
+      }
+    )
+    const stdout = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    const stderr = vi
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    if (cancellation)
+      process.argv[1] = resolve(
+        process.cwd(),
+        '../../scripts/runPhase9Browser.ts'
+      )
+    const runner = await import('../../../scripts/runPhase9Browser.js')
+    if (cancellation) {
+      await exitObserved
+      await new Promise<void>((done) => setImmediate(done))
+      expect(exit).toHaveBeenCalledWith(
+        scenario === 'SIGINT during Playwright' ? 130 : 143
+      )
+    } else {
+      await runner.main()
+      expect(exit).not.toHaveBeenCalled()
+    }
+
+    const failed =
+      [
+        'web exit',
+        'Playwright failure',
+        'stop failure',
+        'Playwright and stop failure'
+      ].includes(scenario) || cancellation
+    expect(process.exitCode ?? 0).toBe(failed ? 1 : 0)
+    expect(mocks.prepareDatabase).not.toHaveBeenCalled()
+    expect(mocks.prepareActors).not.toHaveBeenCalled()
+    expect(mocks.cleanupDatabase).not.toHaveBeenCalled()
+    expect(mocks.captureSnapshot).not.toHaveBeenCalled()
+    expect(
+      calls.some(
+        ({ args }) =>
+          args.includes('@nihongo/api') || args.includes('@nihongo/admin')
+      )
+    ).toBe(false)
+    const builds = calls.filter(
+      ({ args }) =>
+        args.includes('@nihongo/contracts') || args.includes('@nihongo/domain')
+    )
+    expect(builds.map(({ args }) => args[1])).toEqual(
+      artifactsPrepared ? [] : ['@nihongo/contracts', '@nihongo/domain']
+    )
+    const webCall = calls.find(({ args }) => args.includes('@nihongo/web'))
+    expect(webCall?.env).toMatchObject({
+      NIHONGO_API_PROXY_TARGET: 'http://127.0.0.1:0',
+      VITE_API_MODE: 'mock'
+    })
+    const playwright = calls.filter(({ args }) => args.includes('playwright'))
+    if (!failed || scenario === 'stop failure') {
+      expect(
+        playwright.map(({ args }) =>
+          args.find((arg) => arg.endsWith('.spec.ts'))
+        )
+      ).toEqual([
+        'apps/web/e2e/phase8-dashboard-real-mock.spec.ts',
+        'apps/web/e2e/phase9-accessibility.spec.ts',
+        'apps/web/e2e/phase10-journeys-real-mock.spec.ts'
+      ])
+      expect(
+        playwright.map(({ env }) => [
+          env.PHASE8_BROWSER_MODE,
+          env.PHASE9_BROWSER_MODE,
+          env.PHASE10_BROWSER_MODE
+        ])
+      ).toEqual([
+        ['mock', undefined, undefined],
+        [undefined, 'mock', undefined],
+        [undefined, undefined, 'mock']
+      ])
+    } else if (scenario === 'web exit') {
+      expect(playwright).toHaveLength(0)
+    } else {
+      expect(playwright).toHaveLength(1)
+    }
+    expect(stopped).toHaveLength(1)
+    expect(stopped[0]).toContain('phase9-mock-web')
+    if (cancellation)
+      expect(stopped[0]).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('pnpm exec playwright')
+        ])
+      )
+    const output = stdout.mock.calls.map(([value]) => String(value)).join('')
+    const errors = stderr.mock.calls.map(([value]) => String(value)).join('')
+    expect(output.includes('phase9.browser.mock.passed')).toBe(!failed)
+    expect(errors.includes('phase9.browser.mock.failed')).toBe(failed)
+    if (scenario === 'Playwright and stop failure')
+      expect(errors).toContain('cleanup both failed')
+  }
+
   it.each(
     (
       [
@@ -230,21 +410,49 @@ describe('Phase9/10 browser runner lifecycle', () => {
           (mode) =>
             !(mode === 'mock' && scenario === 'admin exits during evidence')
         )
-        .map((mode) => [mode, scenario] as const)
+        .flatMap((mode) =>
+          [
+            'ready',
+            'database preparation failure',
+            'Playwright failure',
+            'SIGTERM during Playwright'
+          ].includes(scenario)
+            ? [
+                [mode, scenario, false] as const,
+                [mode, scenario, true] as const
+              ]
+            : [[mode, scenario, false] as const]
+        )
     )
   )(
-    'Phase9 %s owns a ready admin before Playwright and preserves cleanup: %s',
-    async (mode, scenario) => {
+    'Phase9 %s lifecycle boundary: %s (prepared=%s)',
+    async (mode, scenario, artifactsPrepared) => {
       process.argv = [...originalArgv.slice(0, 2), mode]
+      vi.stubEnv(
+        'JLP541_BROWSER_ARTIFACTS_PREPARED',
+        artifactsPrepared ? '1' : undefined
+      )
+      if (mode === 'mock') {
+        await assertMockLifecycle(scenario, artifactsPrepared)
+        return
+      }
       vi.stubEnv('NIHONGO_API_PROXY_TARGET', undefined)
       vi.stubEnv('PHASE9_BROWSER_FIXTURE', undefined)
       vi.stubEnv('GOOGLE_CLIENT_SECRET', 'excluded-provider-test-value')
       const fixture = { owner: 'same-invocation-test-fixture' }
       const identities = [{ owner: 'same-invocation-test-actor' }]
       const lifecycle: string[] = []
-      const exit = vi
-        .spyOn(process, 'exit')
-        .mockImplementation(() => undefined as never)
+      const cancellation =
+        scenario === 'SIGINT during Playwright' ||
+        scenario === 'SIGTERM during Playwright'
+      let resolveExit: () => void = () => {}
+      const exitObserved = new Promise<void>((done) => {
+        resolveExit = done
+      })
+      const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        resolveExit()
+        return undefined as never
+      })
       const originalAggregateError = AggregateError
       const aggregates: unknown[][] = []
       vi.stubGlobal(
@@ -364,7 +572,10 @@ describe('Phase9/10 browser runner lifecycle', () => {
           if (scenario === 'API exit') finish(api, { code: 1, signal: null })
           return api
         }
-        if (args.includes('build:contracts') || args.includes('build:domain')) {
+        if (
+          args.includes('@nihongo/contracts') ||
+          args.includes('@nihongo/domain')
+        ) {
           const build = makeChild()
           queueMicrotask(() => finish(build, { code: 0, signal: null }))
           return build
@@ -412,10 +623,14 @@ describe('Phase9/10 browser runner lifecycle', () => {
               'error',
               new Error('Owned admin failed during Playwright')
             )
-          if (scenario === 'SIGINT during Playwright')
+          if (scenario === 'SIGINT during Playwright') {
             process.emit('SIGINT', 'SIGINT')
-          if (scenario === 'SIGTERM during Playwright')
+            return
+          }
+          if (scenario === 'SIGTERM during Playwright') {
             process.emit('SIGTERM', 'SIGTERM')
+            return
+          }
           finish(playwright, {
             code: [
               'Playwright failure',
@@ -436,6 +651,11 @@ describe('Phase9/10 browser runner lifecycle', () => {
         async (processes: readonly { label: string }[]) => {
           lifecycle.push('processes stopped')
           stopped.push(processes.map(({ label }) => label))
+          if (
+            scenario === 'SIGINT during Playwright' ||
+            scenario === 'SIGTERM during Playwright'
+          )
+            finish(playwright, { code: 7, signal: null })
           if (scenario === 'admin exits during Playwright')
             expect(commandRetired).toBe(true)
           if (scenario === 'ready' || scenario === 'split ready')
@@ -453,8 +673,18 @@ describe('Phase9/10 browser runner lifecycle', () => {
       const stderr = vi
         .spyOn(process.stderr, 'write')
         .mockImplementation(() => true)
+      if (cancellation)
+        process.argv[1] = resolve(
+          process.cwd(),
+          '../../scripts/runPhase9Browser.ts'
+        )
       const { main } = await import('../../../scripts/runPhase9Browser.js')
-      await main()
+      if (cancellation) {
+        await exitObserved
+        await new Promise<void>((done) => setImmediate(done))
+      } else {
+        await main()
+      }
       expect(admin.listenerCount('exit')).toBe(0)
       if (scenario === 'occupied port') {
         await new Promise<void>((resolve) => setImmediate(resolve))
@@ -470,7 +700,10 @@ describe('Phase9/10 browser runner lifecycle', () => {
       }
       const success = scenario === 'ready' || scenario === 'split ready'
       expect(process.exitCode ?? 0).toBe(success ? 0 : 1)
-      expect(mocks.prepareDatabase).toHaveBeenCalledWith({ seedRuns: 2 })
+      expect(mocks.prepareDatabase).toHaveBeenCalledWith({
+        seedRuns: 2,
+        artifactsPrepared
+      })
       if (
         [
           'database preparation failure',
@@ -611,12 +844,8 @@ describe('Phase9/10 browser runner lifecycle', () => {
           PHASE9_BROWSER_MODE: mode,
           PHASE9_BROWSER_FIXTURE: JSON.stringify(fixture)
         })
-        expect(mocks.captureSnapshot).toHaveBeenCalledTimes(
-          mode === 'real' ? 1 : 0
-        )
-        expect(mocks.assertDatabaseContract).toHaveBeenCalledTimes(
-          mode === 'real' ? 1 : 0
-        )
+        expect(mocks.captureSnapshot).toHaveBeenCalledTimes(1)
+        expect(mocks.assertDatabaseContract).toHaveBeenCalledTimes(1)
       }
       if (mocks.cleanupDatabase.mock.calls.length)
         expect(lifecycle.indexOf('database cleaned')).toBeGreaterThan(

@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OwnedProcess } from './ownedProcessGroup.js'
@@ -73,6 +76,7 @@ let failCommand: number | undefined
 let listenersBefore: Map<string, Set<unknown>>
 let initialExitCode: typeof process.exitCode
 let initialArgv: string[]
+let taskTemp: string
 
 const close = (child: CommandChild, code: number): void => {
   if (child.closed) return
@@ -94,6 +98,9 @@ const signalParent = (signal: (typeof signals)[number]): void => {
 beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
+  taskTemp = mkdtempSync(join(tmpdir(), 'nihongo-phase10-preparation-'))
+  vi.stubEnv('RUNNER_TEMP', taskTemp)
+  vi.stubEnv('GITHUB_RUN_ID', undefined)
   ports.databaseShard = false
   ports.prepareDatabase.mockReset()
   ports.cleanupDatabase.mockReset().mockResolvedValue(undefined)
@@ -174,6 +181,7 @@ afterEach(async () => {
   process.argv = initialArgv
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  rmSync(taskTemp, { recursive: true, force: true })
 })
 
 describe('Phase10 parent common preparation ownership without a database', () => {
@@ -226,8 +234,8 @@ describe('Phase10 parent common preparation ownership without a database', () =>
       )
     )
     expect(ports.spawn.mock.calls.map(([, args]) => args)).toEqual([
-      ['run', 'build:contracts'],
-      ['run', 'build:domain'],
+      ['--filter', '@nihongo/contracts', 'run', 'build'],
+      ['--filter', '@nihongo/domain', 'run', 'build'],
       ['--filter', '@nihongo/api', 'run', 'db:generate'],
       [
         '--filter',

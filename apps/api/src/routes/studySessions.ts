@@ -43,10 +43,7 @@ const resolvePracticeContractVersion = (
   value: string | undefined,
   practiceContractV2Enabled: boolean
 ): 1 | 2 => {
-  if (value === undefined) {
-    return 1
-  }
-  if (value === '2') {
+  if (value === undefined || value === '2') {
     if (!practiceContractV2Enabled) {
       throw new ApplicationError({
         code: 'INVALID_REQUEST',

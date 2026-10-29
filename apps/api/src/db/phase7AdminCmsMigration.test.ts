@@ -130,10 +130,10 @@ const approvedPhase7Checksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존49 migration의 순서와 모든 역사 prefix checksum을 보존하고 migration50를 pin한다', () => {
+  it('기존50 migration의 순서와 모든 역사 prefix checksum을 보존하고 migration51·52를 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(50)
+    expect(manifest).toHaveLength(52)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedPrePhase7MigrationNames
     )
@@ -299,8 +299,24 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       checksum:
         '394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e'
     })
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 50))).toBe(
       '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
+    )
+    expect(manifest[50]).toEqual({
+      name: '20261028160000_study_contract_v2_default',
+      checksum:
+        '3b2dd4b6186d0f3603942a3de324cea3041e6fb0cd395eb9fc49f57c9e86a858'
+    })
+    expect(digest(manifest.slice(0, 51))).toBe(
+      '824c34f5270b2db06fa256be4fea6ef0b9041757e89d5ebe149b14f713675766'
+    )
+    expect(manifest[51]).toEqual({
+      name: '20261028170000_study_v1_retirement_authority',
+      checksum:
+        '622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82'
+    })
+    expect(digest(manifest)).toBe(
+      '454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6'
     )
   })
 

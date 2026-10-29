@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 50 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 52 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -64,6 +64,23 @@ test('migration profiles separate exact physical 50 TEST entries from the exact 
     name: '20261028150000_sso_provider_cleanup_fencing',
     sha256: '394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e'
   })
+  assert.deepEqual(releaseManifest.migrations.entries[50], {
+    name: '20261028160000_study_contract_v2_default',
+    sha256: '3b2dd4b6186d0f3603942a3de324cea3041e6fb0cd395eb9fc49f57c9e86a858'
+  })
+  assert.deepEqual(releaseManifest.migrations.entries[51], {
+    name: '20261028170000_study_v1_retirement_authority',
+    sha256: '622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82'
+  })
+  const historical50 = structuredClone(releaseManifest)
+  historical50.migrations.count = 50
+  historical50.migrations.entries = historical50.migrations.entries.slice(0, 50)
+  historical50.migrations.digestSha256 =
+    '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
+  assert.throws(
+    () => deriveMigrationProfile(historical50, 'technical-current-test'),
+    /migration profile count mismatch/u
+  )
   const historical49 = structuredClone(releaseManifest)
   historical49.migrations.count = 49
   historical49.migrations.entries = historical49.migrations.entries.slice(0, 49)
@@ -76,9 +93,9 @@ test('migration profiles separate exact physical 50 TEST entries from the exact 
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 50,
+      count: 52,
       digestSha256:
-        '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083',
+        '454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6',
       name: 'technical-current-test'
     }
   )
@@ -421,12 +438,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261028150001_unreviewed_migration',
+        name: '20261028180001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261028150001_unreviewed_migration'
+        '20261028180001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags

@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -24,6 +28,7 @@ vi.mock('pg', () => ({
 
 let register: typeof import('./runPhase7ApiIntegration.js').registerCapabilityAndActivate
 let prepareArtifacts: typeof import('./runPhase7ApiIntegration.js').preparePhase7IntegrationArtifacts
+let seedInvocation: typeof import('./runPhase7ApiIntegration.js').phase7SeedInvocation
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
   vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
@@ -35,6 +40,8 @@ beforeAll(async () => {
     .registerCapabilityAndActivate
   prepareArtifacts = (await import('./runPhase7ApiIntegration.js'))
     .preparePhase7IntegrationArtifacts
+  seedInvocation = (await import('./runPhase7ApiIntegration.js'))
+    .phase7SeedInvocation
 })
 afterAll(() => vi.unstubAllEnvs())
 beforeEach(() => {
@@ -136,13 +143,30 @@ describe('Phase 7 API issuer activation ownership without a database', () => {
 })
 
 describe('shared API integration artifacts without a database', () => {
+  let taskTemp: string
+  let previousRunId: string | undefined
+  let previousRunnerTemp: string | undefined
+  beforeEach(() => {
+    taskTemp = mkdtempSync(join(tmpdir(), 'nihongo-api-preparation-'))
+    previousRunId = process.env.GITHUB_RUN_ID
+    previousRunnerTemp = process.env.RUNNER_TEMP
+    delete process.env.GITHUB_RUN_ID
+    process.env.RUNNER_TEMP = taskTemp
+  })
+  afterEach(() => {
+    if (previousRunId === undefined) delete process.env.GITHUB_RUN_ID
+    else process.env.GITHUB_RUN_ID = previousRunId
+    if (previousRunnerTemp === undefined) delete process.env.RUNNER_TEMP
+    else process.env.RUNNER_TEMP = previousRunnerTemp
+    rmSync(taskTemp, { recursive: true, force: true })
+  })
   it('prepares all required artifacts in dependency order for standalone execution', async () => {
     const run = vi.fn().mockResolvedValue(undefined)
     const environment = { NODE_ENV: 'test' }
     await prepareArtifacts({ environment, run })
     expect(run.mock.calls.map(([command, args]) => [command, args])).toEqual([
-      ['pnpm', ['run', 'build:contracts']],
-      ['pnpm', ['run', 'build:domain']],
+      ['pnpm', ['--filter', '@nihongo/contracts', 'run', 'build']],
+      ['pnpm', ['--filter', '@nihongo/domain', 'run', 'build']],
       ['pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate']]
     ])
     expect(run.mock.calls.every(([, , env]) => env === environment)).toBe(true)
@@ -180,5 +204,20 @@ describe('shared API integration artifacts without a database', () => {
       prepareArtifacts({ run, prepared: true, abortSignal: controller.signal })
     ).rejects.toBeDefined()
     expect(run).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('browser-prepared seed invocation', () => {
+  it('keeps standalone seed generation and test-target defaults', () => {
+    expect(seedInvocation(false)).toEqual({
+      args: ['--filter', '@nihongo/api', 'run', 'db:seed:test'],
+      environment: {}
+    })
+  })
+  it('reuses generated artifacts while explicitly selecting the same test seed', () => {
+    expect(seedInvocation(true)).toEqual({
+      args: ['--filter', '@nihongo/api', 'exec', 'tsx', 'prisma/seed.ts'],
+      environment: { SEED_TARGET: 'test' }
+    })
   })
 })

@@ -659,6 +659,7 @@ export const createPrismaStudyDraftRepository = (
             const where = {
               ...ownerWhere(owner),
               status: 'IN_PROGRESS' as const,
+              practiceContractVersion: 2,
               expiresAt: { gt: observedAt }
             }
             const total = await transaction.studySession.count({ where })
@@ -796,6 +797,9 @@ export const createPrismaStudyDraftRepository = (
                 return { kind: 'NOT_FOUND' } as const
               }
               await options.afterCancelSessionLocked?.()
+              if (session.practiceContractVersion !== 2) {
+                throw new PracticeContractVersionMismatchError()
+              }
               if (session.status === 'CANCELLED') {
                 return { kind: 'CANCELLED' } as const
               }

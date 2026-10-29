@@ -4,6 +4,7 @@ import {
   type PostSeedDiagnostic
 } from './phase7PostSeedDiagnostics.js'
 import { runPhase7SeedExecution } from './phase7SeedExecution.js'
+import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import {
@@ -266,10 +267,8 @@ const runCommand = async (
   await new Promise<void>((resolve, reject) => {
     let spawnError: Error | undefined
     const script =
-      args.find(
-        (argument) =>
-          argument === 'db:migrate:phase7' || argument === 'db:migrate:deploy'
-      ) ?? 'UNKNOWN_REDACTED'
+      args.find((argument) => argument === 'db:migrate:deploy') ??
+      'UNKNOWN_REDACTED'
     const reportCommand = (
       state: 'BEGIN' | 'COMPLETE' | 'FAILED',
       exitCode: number | null
@@ -1459,9 +1458,13 @@ const run = async (): Promise<void> => {
     SEED_TARGET: 'test'
   }
 
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
-  await runCommand('pnpm', ['--filter', '@nihongo/api', 'run', 'db:generate'])
+  await prepareBrowserArtifacts(
+    'real',
+    new AbortController().signal,
+    async (command, args, environment) =>
+      await runCommand(command, args, environment),
+    repositoryRoot
+  )
   await runCommand(
     'pnpm',
     [
@@ -1481,7 +1484,7 @@ const run = async (): Promise<void> => {
     try {
       await runCommand(
         'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:migrate:phase7'],
+        ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
         environment,
         'redacted'
       )
@@ -1610,8 +1613,9 @@ const run = async (): Promise<void> => {
   const seedCommand = [
     '--filter',
     '@nihongo/api',
-    'run',
-    'db:seed:test'
+    'exec',
+    'tsx',
+    'prisma/seed.ts'
   ] as const
   const withoutMigrationUrl: NodeJS.ProcessEnv = { ...seedEnvironment }
   delete withoutMigrationUrl.PHASE7_MIGRATION_DATABASE_URL
@@ -1671,6 +1675,22 @@ const run = async (): Promise<void> => {
 
   await runPhase7SeedExecution(
     'FIRST_NORMAL_SEED',
+    () => runCommand('pnpm', seedCommand, seedEnvironment),
+    (phase, state) => {
+      process.stdout.write(
+        JSON.stringify({
+          event: 'phase7.db.integration.seed_phase',
+          phase,
+          state
+        }) + '\n'
+      )
+    }
+  )
+  await assertSeedWriteCount('65')
+
+  // Check reseeding while still on the same prefix used by browser fixtures.
+  await runPhase7SeedExecution(
+    'PREFIX_RESEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
       process.stdout.write(

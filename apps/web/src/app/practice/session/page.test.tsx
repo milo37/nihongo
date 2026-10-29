@@ -23,6 +23,20 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useAppStore } from '@nihongo/browser/store/index'
+import {
+  clearSubmissionAttemptMemoryCache,
+  readStoredSubmissionAttempt,
+  writeStoredSubmissionAttempt
+} from '@nihongo/browser/app/practice/submissionAttemptStorage'
+import { createStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopy'
+import {
+  clearStudyDraftWorkingCopyMemoryCache,
+  readStudyDraftWorkingCopy,
+  writeStudyDraftWorkingCopy
+} from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 
 const renderSession = (sessionId: string) => {
   const router = createMemoryRouter(
@@ -35,7 +49,8 @@ const renderSession = (sessionId: string) => {
           </ProtectedRouteProvider>
         )
       },
-      { path: '/practice/result/:sessionId', element: <p>제출 결과 도착</p> }
+      { path: '/practice/result/:sessionId', element: <p>제출 결과 도착</p> },
+      { path: '/practice', element: <p>학습 설정 도착</p> }
     ],
     { initialEntries: [`/practice/session/${sessionId}`] }
   )
@@ -65,6 +80,249 @@ const readDraftSelection = (sessionQuestionId: string): string | null => {
 }
 
 describe('PracticeSessionPage', () => {
+  it.each(['GUEST', 'USER'] as const)(
+    'preserves attempts and other local work for an unknown 404 owner (%s)',
+    async (role) => {
+      if (role === 'USER') {
+        mockDatabase.loginAs('USER')
+        const principal = await queryClient.fetchQuery(
+          authQueries.currentUser()
+        )
+        await commitCanonicalAuth(queryClient, principal)
+      }
+      const created = await createStudySessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1
+      })
+      const sessionId = created.data.session.id
+      const snapshot = (await getStudyDraftAnswers(sessionId)).data
+      const otherSessionId = crypto.randomUUID()
+      const copies = [
+        createStudyDraftWorkingCopy({
+          confirmedBase: snapshot,
+          principalScope: 'GUEST',
+          sessionId
+        }),
+        createStudyDraftWorkingCopy({
+          confirmedBase: snapshot,
+          principalScope: 'USER:another-account',
+          sessionId
+        }),
+        createStudyDraftWorkingCopy({
+          confirmedBase: { ...snapshot, studySessionId: otherSessionId },
+          principalScope: 'GUEST',
+          sessionId: otherSessionId
+        })
+      ].map(writeStudyDraftWorkingCopy)
+      const oldAttempt = {
+        logicalRequest: { answers: [], durationSec: 1 },
+        idempotencyKey: crypto.randomUUID()
+      }
+      writeStoredSubmissionAttempt(sessionId, oldAttempt)
+      mockServer.use(
+        http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
+          HttpResponse.json(
+            { code: 'RESOURCE_NOT_FOUND', message: 'synthetic' },
+            { status: 404 }
+          )
+        )
+      )
+      const router = renderSession(sessionId)
+      expect(
+        await screen.findByRole('heading', {
+          name: '학습 세션을 찾을 수 없습니다'
+        })
+      ).toBeVisible()
+      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+      copies.forEach((copy) =>
+        expect(
+          readStudyDraftWorkingCopy(copy.principalScope, copy.sessionId)
+        ).toEqual(copy)
+      )
+      await userEvent.click(
+        screen.getByRole('link', { name: '학습 설정으로 이동' })
+      )
+      expect(router.state.location.pathname).toBe('/practice')
+      clearSubmissionAttemptMemoryCache()
+      clearStudyDraftWorkingCopyMemoryCache()
+      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+      copies.forEach((copy) =>
+        expect(
+          readStudyDraftWorkingCopy(copy.principalScope, copy.sessionId)
+        ).toEqual(copy)
+      )
+    }
+  )
+  it('clears a stored attempt after an owned V2 terminal response', async () => {
+    const created = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const sessionId = created.data.session.id
+    writeStoredSubmissionAttempt(sessionId, {
+      logicalRequest: { answers: [], durationSec: 1 },
+      idempotencyKey: crypto.randomUUID()
+    })
+    mockServer.use(
+      http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
+        HttpResponse.json(
+          {
+            ...created.data,
+            session: { ...created.data.session, status: 'EXPIRED' }
+          },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          }
+        )
+      )
+    )
+    renderSession(sessionId)
+    await waitFor(() =>
+      expect(readStoredSubmissionAttempt(sessionId)).toBeNull()
+    )
+  })
+  it.each([
+    [404, 'RESOURCE_NOT_FOUND'],
+    [500, 'INTERNAL_SERVER_ERROR']
+  ] as const)(
+    'keeps %s errors distinct from a retired-session notice',
+    async (status, code) => {
+      const sessionId = crypto.randomUUID()
+      let requestCount = 0
+      mockServer.use(
+        http.get(`*/api/v1/study-sessions/${sessionId}`, () => {
+          requestCount += 1
+          return HttpResponse.json({ code, message: 'synthetic' }, { status })
+        })
+      )
+      const router = renderSession(sessionId)
+      await waitFor(() =>
+        expect(
+          screen.getByRole('heading', {
+            name:
+              status === 404
+                ? '학습 세션을 찾을 수 없습니다'
+                : '학습 세션을 불러오지 못했습니다'
+          })
+        ).toBeVisible()
+      )
+      if (status === 404) {
+        const link = await screen.findByRole('link', {
+          name: '학습 설정으로 이동'
+        })
+        expect(link).toHaveAttribute('href', '/practice')
+        await userEvent.click(link)
+        expect(router.state.location.pathname).toBe('/practice')
+        expect(requestCount).toBeLessThanOrEqual(2)
+      }
+      expect(
+        screen.queryByRole('heading', {
+          name: '이전 학습 세션이 종료되었습니다'
+        })
+      ).not.toBeInTheDocument()
+    }
+  )
+  it.each(['ko', 'ja'] as const)(
+    'shows an ended-session notice for an older owned session and keeps its stored attempt (%s)',
+    async (locale) => {
+      writeUiLocalePreference(locale)
+      const sessionId = crypto.randomUUID()
+      const oldAttempt = {
+        logicalRequest: { answers: [], durationSec: 1 },
+        idempotencyKey: crypto.randomUUID()
+      }
+      writeStoredSubmissionAttempt(sessionId, oldAttempt)
+      let submissions = 0
+      mockServer.use(
+        http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
+          HttpResponse.json(
+            {
+              code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
+              message: 'old session'
+            },
+            { status: 409 }
+          )
+        ),
+        http.post(`*/api/v1/study-sessions/${sessionId}/submit`, () => {
+          submissions += 1
+          return HttpResponse.json({}, { status: 500 })
+        })
+      )
+      const router = renderSession(sessionId)
+      const title =
+        locale === 'ko'
+          ? '이전 학습 세션이 종료되었습니다'
+          : '以前の学習セッションは終了しました'
+      expect(await screen.findByRole('heading', { name: title })).toBeVisible()
+      expect(
+        screen.getByRole('link', {
+          name: locale === 'ko' ? '학습 설정으로 이동' : '学習設定へ移動'
+        })
+      ).toHaveAttribute('href', '/practice')
+      expect(
+        screen.queryByRole('button', {
+          name: locale === 'ko' ? '답안 제출' : '回答を提出'
+        })
+      ).not.toBeInTheDocument()
+      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+      expect(submissions).toBe(0)
+      await userEvent.click(
+        screen.getByRole('link', {
+          name: locale === 'ko' ? '학습 설정으로 이동' : '学習設定へ移動'
+        })
+      )
+      expect(router.state.location.pathname).toBe('/practice')
+      expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+    }
+  )
+  it('preserves an old stored attempt if a legacy expired payload is unexpectedly returned', async () => {
+    const created = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const sessionId = created.data.session.id
+    const oldAttempt = {
+      logicalRequest: { answers: [], durationSec: 1 },
+      idempotencyKey: crypto.randomUUID()
+    }
+    writeStoredSubmissionAttempt(sessionId, oldAttempt)
+    mockServer.use(
+      http.get(`*/api/v1/study-sessions/${sessionId}`, () =>
+        HttpResponse.json(
+          {
+            ...created.data,
+            session: {
+              ...created.data.session,
+              practiceContractVersion: 1,
+              status: 'EXPIRED'
+            }
+          },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '1'
+            }
+          }
+        )
+      )
+    )
+    renderSession(sessionId)
+    expect(
+      await screen.findByRole('heading', {
+        name: '이전 학습 세션이 종료되었습니다'
+      })
+    ).toBeVisible()
+    expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+  })
   it('숫자 키와 클릭 선택이 같은 답안 상태와 radio 상태를 갱신한다', async () => {
     const user = userEvent.setup()
     const response = await createStudySessionV2({
@@ -174,6 +432,70 @@ describe('PracticeSessionPage', () => {
       `/practice/result/${sessionPayload.session.id}`
     )
   })
+
+  it.each([
+    ['ko', '최신 저장 기록을 불러왔어요. 답을 확인해 주세요.'],
+    ['ja', '最新の保存記録を読み込みました。回答を確認してください。']
+  ] as const)(
+    'announces the applied server record after a 409 and clears it on the next answer (%s)',
+    async (locale, message) => {
+      writeUiLocalePreference(locale)
+      const user = userEvent.setup()
+      const response = await createStudySessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 1
+      })
+      const payload = toCanonicalStudySessionView(response.data)
+      const option = payload.questions[0]?.options[0]
+      if (!option) throw new Error('Public option required')
+      const initial = (await getStudyDraftAnswers(payload.session.id)).data
+      const remote = {
+        ...initial,
+        revision: initial.revision + 1,
+        savedAt: new Date().toISOString()
+      }
+      useAppStore
+        .getState()
+        .beginPractice(payload.session.id, payload.session.startedAt)
+      renderSession(payload.session.id)
+      const radio = await screen.findByRole('radio', {
+        name: `1. ${option.text}`
+      })
+      await waitFor(() => expect(radio).toBeEnabled())
+      let puts = 0
+      mockServer.use(
+        http.put('*/api/v1/study-sessions/:sessionId/draft-answers', () => {
+          puts += 1
+          return HttpResponse.json(
+            { code: 'DRAFT_VERSION_CONFLICT', message: 'synthetic conflict' },
+            { status: 409 }
+          )
+        }),
+        http.get('*/api/v1/study-sessions/:sessionId/draft-answers', () =>
+          HttpResponse.json(remote, {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          })
+        )
+      )
+      await user.click(radio)
+      const notice = await screen.findByText(message, {}, { timeout: 6000 })
+      expect(notice.closest('[role=status]')).toHaveAttribute(
+        'aria-live',
+        'polite'
+      )
+      expect(puts).toBe(1)
+      expect(radio).not.toBeChecked()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await user.click(radio)
+      expect(screen.queryByText(message)).not.toBeInTheDocument()
+    },
+    10_000
+  )
 
   it('저장 중과 실패·재시도를 분리하며 답안과 서버 저장 완료 의미를 유지한다', async () => {
     const user = userEvent.setup()
@@ -359,13 +681,20 @@ describe('PracticeSessionPage', () => {
       expect(
         document.querySelector('[role="status"][data-save-state]')
       ).toHaveAttribute('data-save-state', 'offline')
-      expect(
-        document.querySelector('[role="status"][data-save-state]')
-      ).toHaveTextContent(
-        locale === 'ko'
-          ? '로컬 작업을 보존한 채 충돌을 확인합니다.'
-          : 'ローカル作業を保持したまま競合を確認します。'
+      const detailedStatus = document.querySelector(
+        '[role="status"][data-save-state]'
       )
+      expect(detailedStatus).toHaveTextContent(
+        locale === 'ko'
+          ? '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.'
+          : 'オフラインです。変更内容はこの端末だけに一時保存し、接続後に再保存します。'
+      )
+      expect(
+        within(detailedStatus as HTMLElement).getByRole('button')
+      ).toHaveTextContent(
+        locale === 'ko' ? '작업본 저장 다시 시도' : '作業内容の保存を再試行'
+      )
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(
         within(statusRow as HTMLElement).queryByRole('button')
       ).not.toBeInTheDocument()

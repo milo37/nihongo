@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node ../../scripts/operations/browser-artifact-check.mjs admin dist",
+    "build": "tsc --noEmit && vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json && node ../../scripts/operations/browser-artifact-check.mjs admin dist",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

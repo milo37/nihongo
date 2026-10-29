@@ -297,18 +297,54 @@ const createOwnedV1Session = async (
     expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1_000),
     startedAt = new Date()
   }: { expiresAt?: Date; startedAt?: Date } = {}
-) =>
-  (
-    await studySessionRepository.createRandom({
-      owner: { kind: 'USER', userId },
-      level: 'N5',
-      subject: 'VOCABULARY',
-      requestedCount: 2,
-      startedAt,
-      expiresAt,
-      practiceContractVersion: 1
+) => {
+  const questions = await fixtureDatabase.client.question.findMany({
+    where: {
+      lifecycleStatus: 'ACTIVE',
+      currentPublishedVersionId: { not: null },
+      currentPublishedVersion: {
+        is: { level: 'N5', subject: 'VOCABULARY', status: 'PUBLISHED' }
+      }
+    },
+    select: { id: true, currentPublishedVersionId: true },
+    orderBy: { id: 'asc' },
+    take: 2
+  })
+  if (
+    questions.length !== 2 ||
+    questions.some((question) => !question.currentPublishedVersionId)
+  ) {
+    throw new Error('Legacy session fixture requires two published questions.')
+  }
+  return await fixtureDatabase.client.$transaction(async (transaction) => {
+    const session = await transaction.studySession.create({
+      data: {
+        userId,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        requestedCount: 2,
+        actualCount: 2,
+        usedFallback: false,
+        practiceContractVersion: 1,
+        startedAt,
+        expiresAt
+      },
+      select: { id: true }
     })
-  ).session
+    await transaction.studySessionQuestion.createMany({
+      data: questions.map((question, index) => ({
+        id: randomUUID(),
+        studySessionId: session.id,
+        questionId: question.id,
+        questionVersionId: question.currentPublishedVersionId!,
+        ordinal: index + 1,
+        createdAt: startedAt
+      }))
+    })
+    return session
+  })
+}
 
 const toEmptyDraftBody = (
   session: Awaited<ReturnType<typeof createOwnedV2Session>>,
@@ -382,7 +418,7 @@ afterAll(async () => {
 })
 
 describe('Phase 4 StudyDraft PostgreSQL integration', () => {
-  it('v1/v2 resumable을 stable pagination하고 v1은 LEGACY_LOCAL_ONLY로 투영한다', async () => {
+  it('기존 v1 기록은 보존하고 v2만 resumable로 stable pagination한다', async () => {
     const userId = await createUser()
     const now = new Date()
     const olderV2 = await createOwnedV2Session(userId, {
@@ -409,21 +445,26 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       now
     )
 
-    expect(firstPage).toMatchObject({
-      total: 2,
-      items: [
-        {
-          id: newerV1.id,
-          practiceContractVersion: 1,
-          draftRevision: null,
-          draftSavedAt: null,
-          currentOrdinal: null,
-          resumeAvailability: 'LEGACY_LOCAL_ONLY'
+    await expect(
+      fixtureDatabase.client.studySession.findUniqueOrThrow({
+        where: { id: newerV1.id },
+        select: {
+          userId: true,
+          status: true,
+          practiceContractVersion: true,
+          draft: { select: { revision: true } },
+          questions: { select: { id: true } }
         }
-      ]
+      })
+    ).resolves.toMatchObject({
+      userId,
+      status: 'IN_PROGRESS',
+      practiceContractVersion: 1,
+      draft: null,
+      questions: [expect.any(Object), expect.any(Object)]
     })
-    expect(secondPage).toMatchObject({
-      total: 2,
+    expect(firstPage).toMatchObject({
+      total: 1,
       items: [
         {
           id: olderV2.id,
@@ -435,11 +476,12 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
         }
       ]
     })
+    expect(secondPage).toEqual({ items: [], page: 2, pageSize: 1, total: 1 })
     expect(beyondLastPage).toEqual({
       items: [],
       page: 3,
       pageSize: 1,
-      total: 2
+      total: 1
     })
   })
 
@@ -676,40 +718,51 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       answers: submissionBody.answers,
       durationSec: submissionBody.durationSec
     }
-    const crossVersionReuse = await app.request(
-      `/api/v1/study-sessions/${submissionSession.payload.session.id}/submission`,
-      {
-        method: 'POST',
-        headers: {
-          Cookie: submissionSession.cookie,
-          'Content-Type': 'application/json',
-          Origin: origin,
-          'Idempotency-Key': submissionKey
-        },
-        body: JSON.stringify(v1SubmissionBody)
-      }
-    )
-    expect(crossVersionReuse.status).toBe(409)
-    expect(apiFailureSchema.parse(await crossVersionReuse.json()).code).toBe(
-      'IDEMPOTENCY_KEY_REUSED'
-    )
-    const crossVersionMismatch = await app.request(
-      `/api/v1/study-sessions/${submissionSession.payload.session.id}/submission`,
-      {
-        method: 'POST',
-        headers: {
-          Cookie: submissionSession.cookie,
-          'Content-Type': 'application/json',
-          Origin: origin,
-          'Idempotency-Key': randomUUID()
-        },
-        body: JSON.stringify(v1SubmissionBody)
-      }
-    )
-    expect(crossVersionMismatch.status).toBe(409)
-    expect(apiFailureSchema.parse(await crossVersionMismatch.json()).code).toBe(
-      'PRACTICE_CONTRACT_VERSION_MISMATCH'
-    )
+    for (const idempotencyKey of [submissionKey, randomUUID()]) {
+      const missingRevision = await app.request(
+        `/api/v1/study-sessions/${submissionSession.payload.session.id}/submission`,
+        {
+          method: 'POST',
+          headers: {
+            Cookie: submissionSession.cookie,
+            'Content-Type': 'application/json',
+            Origin: origin,
+            'Idempotency-Key': idempotencyKey
+          },
+          body: JSON.stringify(v1SubmissionBody)
+        }
+      )
+      expect(missingRevision.status).toBe(422)
+      expect(
+        apiFailureSchema.parse(await missingRevision.json())
+      ).toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fieldErrors: { expectedDraftRevision: expect.any(Array) }
+      })
+      const legacyHeader = await app.request(
+        `/api/v1/study-sessions/${submissionSession.payload.session.id}/submission`,
+        {
+          method: 'POST',
+          headers: {
+            Cookie: submissionSession.cookie,
+            'Content-Type': 'application/json',
+            Origin: origin,
+            'Idempotency-Key': idempotencyKey,
+            'X-Nihongo-Practice-Contract': '1'
+          },
+          body: JSON.stringify(v1SubmissionBody)
+        }
+      )
+      expect(legacyHeader.status).toBe(400)
+      expect(apiFailureSchema.parse(await legacyHeader.json()).code).toBe(
+        'INVALID_REQUEST'
+      )
+    }
+    const replayAfterRejectedRequests = await submitRequest()
+    expect(replayAfterRejectedRequests.status).toBe(201)
+    expect(
+      replayAfterRejectedRequests.headers.get('Idempotency-Replayed')
+    ).toBe('true')
 
     const cancellationSession = await createV2Session()
     const cancel = () =>
@@ -1247,12 +1300,13 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
         selectedOptionId: null,
         elapsedSec: 0
       })),
-      durationSec: 0
+      durationSec: 0,
+      expectedDraftRevision: 0
     }
     await createStudySubmissionService(
       studySubmissionRepository,
       () => new Date(now.getTime() - 25 * 60 * 60 * 1_000)
-    ).submit(submitSession.id, submitKey, submitBody, owner)
+    ).submit(submitSession.id, submitKey, submitBody, owner, 2)
     const submitRecord =
       await database.client.idempotencyRecord.findFirstOrThrow({
         where: { studySessionId: submitSession.id, operation: 'STUDY_SUBMIT' },
@@ -1266,13 +1320,13 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       createStudySubmissionService(
         studySubmissionRepository,
         () => new Date(submitExpiresAt.getTime() - 1)
-      ).submit(submitSession.id, submitKey, submitBody, owner)
+      ).submit(submitSession.id, submitKey, submitBody, owner, 2)
     ).resolves.toMatchObject({ replayed: true })
     await expect(
       createStudySubmissionService(
         studySubmissionRepository,
         () => submitExpiresAt
-      ).submit(submitSession.id, submitKey, submitBody, owner)
+      ).submit(submitSession.id, submitKey, submitBody, owner, 2)
     ).rejects.toMatchObject({ code: 'SESSION_ALREADY_SUBMITTED' })
   })
 

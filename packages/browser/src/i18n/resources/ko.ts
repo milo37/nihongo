@@ -290,7 +290,7 @@ export const koResources = {
       notSaved: '아직 저장된 답안이 없습니다.',
       resume: '이어서 풀기',
       legacyUnavailable:
-        '이 기기에서 이어갈 답안을 찾을 수 없습니다. 학습 설정에서 확인해 주세요.',
+        '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
       other: '다른 학습 고르기',
       records: '내 학습 기록'
     },
@@ -497,7 +497,7 @@ export const koResources = {
         lastSaved: '마지막 저장 {{date}}',
         notSaved: '아직 답안 저장 전',
         legacyUnavailable:
-          '이 세션은 다른 기기의 로컬 답안을 복원할 수 없습니다. 새 학습을 시작하거나 세션을 취소해 주세요.',
+          '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
         action: '이어서 풀기',
         cancel: '세션 취소',
         paginationLabel: '이어풀기 페이지'
@@ -595,6 +595,12 @@ export const koResources = {
         emptyDescription: '다른 급수, 과목 또는 출제 모드를 선택해 주세요.'
       },
       terminal: {
+        notFoundTitle: '학습 세션을 찾을 수 없습니다',
+        notFoundDescription:
+          '종료되었거나 접근할 수 없는 학습입니다. 새 학습을 시작해 주세요.',
+        retiredTitle: '이전 학습 세션이 종료되었습니다',
+        retiredDescription:
+          '이전 학습 기록은 더 이상 이어갈 수 없습니다. 새 학습을 시작해 주세요.',
         expiredTitle: '만료된 학습 세션입니다',
         cancelledTitle: '취소된 학습 세션입니다',
         description:
@@ -619,6 +625,7 @@ export const koResources = {
       draft: {
         retryShort: '다시 시도',
         inline: {
+          reconciled: '최신 저장 기록을 불러왔어요. 답을 확인해 주세요.',
           saved: '학습 기록이 자동으로 저장됐어요',
           saving: '학습 기록을 저장하고 있어요…',
           error: '학습 기록을 저장하지 못했어요',
@@ -626,18 +633,17 @@ export const koResources = {
           offline: '오프라인 · 이 기기에 임시 보관 중'
         },
         status: {
+          reconciled: '최신 저장 기록을 불러왔어요. 답을 확인해 주세요.',
           remoteDeferred:
-            '다른 탭의 최신 저장을 감지했습니다. 현재 저장 응답을 확인한 뒤 안전하게 병합합니다.',
-          conflictPending:
-            '다른 탭의 저장을 감지했습니다. 로컬 작업을 보존한 채 충돌을 확인합니다.',
+            '다른 탭의 저장을 감지했습니다. 현재 저장과 최신 서버 기록을 확인하고 있습니다.',
+          conflictPending: '최신 서버 기록을 확인하고 있습니다.',
           dirty: '변경 내용을 이 탭에 임시 보관했습니다.',
           saving: '변경 내용을 서버에 저장하고 있습니다.',
           savedAt: '서버에 저장했습니다. 마지막 저장 {{time}}',
           saved: '답안을 서버에 저장했습니다.',
           offline:
             '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.',
-          conflict:
-            '다른 기기의 변경과 충돌했습니다. 서버 또는 로컬 기록을 선택해 주세요.',
+          conflict: '최신 서버 기록을 확인하고 있습니다.',
           error:
             '저장하지 못했습니다. 선택한 답은 유지되며 다시 시도할 수 있습니다.',
           synced: '서버에 저장한 답안과 일치합니다.'
@@ -648,7 +654,7 @@ export const koResources = {
         notices: {
           saveBeforeLeaveFailed: '작업본을 저장하지 못해 현재 화면에 머뭅니다.',
           conflictRefreshComplete:
-            '최신 서버 작업본을 확인했습니다. 충돌 항목을 확인한 뒤 다시 제출해 주세요.',
+            '최신 서버 작업본을 확인했습니다. 내용을 확인한 뒤 다시 제출해 주세요.',
           sessionRefreshFailed: '최신 세션 상태를 확인하지 못했습니다.',
           submissionPreparationFailed:
             '서버 작업본을 저장하지 못해 제출하지 않았습니다.',
@@ -738,6 +744,11 @@ export const koResources = {
     }
   },
   result: {
+    retired: {
+      title: '이전 학습 결과가 종료되었습니다',
+      description:
+        '이전 학습 결과는 더 이상 확인할 수 없습니다. 새 학습을 시작해 주세요.'
+    },
     navigation: {
       label: '해설 문항',
       question: '문제 {{formattedOrdinal}}',

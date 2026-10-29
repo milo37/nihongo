@@ -13,8 +13,10 @@ import {
 import { createJsonLogger } from '../observability/logger.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
+import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudyDraftRoutes } from './studyDrafts.js'
 import { createStudySubmissionRoutes } from './studySubmissions.js'
+import { createStudySessionRoutes } from './studySessions.js'
 
 const sessionId = '0468c832-f5de-42b5-82be-6a9a511a3098'
 const questionId = '4ed52fae-8952-44df-9ec1-2298c893e061'
@@ -113,6 +115,20 @@ const fixture = () => {
       studyDraftService
     })
   )
+  const create = vi.fn(() => {
+    throw new Error('fixture service reached')
+  })
+  app.route(
+    '/sessions',
+    createStudySessionRoutes({
+      environment,
+      guestPrincipalService,
+      principalService,
+      rateLimiter,
+      practiceContractV2Enabled: true,
+      studySessionService: { create } as unknown as StudySessionService
+    })
+  )
   app.route(
     '/study',
     createStudySubmissionRoutes({
@@ -153,7 +169,7 @@ const fixture = () => {
       body: JSON.stringify(body)
     })
   }
-  return { request, guestPrincipalService, reached, cancel, rows }
+  return { app, request, guestPrincipalService, reached, cancel, create, rows }
 }
 
 describe('study mutation request budgets', () => {
@@ -203,5 +219,82 @@ describe('study mutation request budgets', () => {
     const denied = await f.request('submit', 'Bearer user-b')
     expect(denied.status).toBe(429)
     expect(denied.headers.get('Retry-After')).toBe('60')
+  })
+})
+
+describe('study submission HTTP validation', () => {
+  it.each(['default', 'explicit'] as const)(
+    'returns stable 422 errors without calling submission for %s v2',
+    async (version) => {
+      const cases = [
+        {
+          answers: [
+            answer,
+            { ...answer, studySessionQuestionId: questionId.toUpperCase() }
+          ],
+          durationSec: 0,
+          code: 'DUPLICATE_ANSWER'
+        },
+        { answers: [answer], durationSec: -1, code: 'INVALID_DURATION' },
+        {
+          answers: [{ ...answer, elapsedSec: -1 }],
+          durationSec: 0,
+          code: 'INVALID_DURATION'
+        }
+      ]
+      for (const { answers, durationSec, code } of cases) {
+        const f = fixture()
+        const response = await f.app.request(`/study/${sessionId}/submission`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': key,
+            Authorization: 'Bearer user-a',
+            ...(version === 'explicit'
+              ? { 'X-Nihongo-Practice-Contract': '2' }
+              : {})
+          },
+          body: JSON.stringify({
+            answers,
+            durationSec,
+            expectedDraftRevision: 0
+          })
+        })
+        expect(response.status).toBe(422)
+        expect(await response.json()).toMatchObject({ code, retryable: false })
+        expect(f.reached).not.toHaveBeenCalled()
+      }
+    }
+  )
+})
+
+describe('study creation contract default', () => {
+  it('uses v2 without a header and rejects an explicit v1 header', async () => {
+    const f = fixture()
+    const request = (headers: Record<string, string>) =>
+      f.app.request('/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer user-a',
+          ...headers
+        },
+        body: JSON.stringify({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'RANDOM',
+          count: 1
+        })
+      })
+    expect((await request({})).status).toBe(200)
+    expect(f.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      2
+    )
+    expect((await request({ 'X-Nihongo-Practice-Contract': '1' })).status).toBe(
+      400
+    )
+    expect(f.create).toHaveBeenCalledTimes(1)
   })
 })

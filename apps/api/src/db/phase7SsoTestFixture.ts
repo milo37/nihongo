@@ -268,7 +268,7 @@ export const createSsoDbHarness = () => {
     // Valid submitted v1 facts plus an independent editable v2 draft. Domain
     // triggers/FKs/deferred aggregates remain enabled during fixture creation.
     await owner.query(
-      `INSERT INTO "StudySession" (id,"userId",level,subject,mode,status,"requestedCount","actualCount","usedFallback","startedAt","expiresAt","submittedAt","durationSec","submissionHash","createdAt","updatedAt") VALUES ($1,$2,$3::"JlptLevel",$4::"QuestionSubject",'RANDOM','IN_PROGRESS',1,1,false,transaction_timestamp(),transaction_timestamp()+interval '1 day',NULL,NULL,NULL,transaction_timestamp(),transaction_timestamp())`,
+      `INSERT INTO "StudySession" (id,"userId",level,subject,mode,status,"requestedCount","actualCount","usedFallback","practiceContractVersion","startedAt","expiresAt","submittedAt","durationSec","submissionHash","createdAt","updatedAt") VALUES ($1,$2,$3::"JlptLevel",$4::"QuestionSubject",'RANDOM','IN_PROGRESS',1,1,false,1,transaction_timestamp(),transaction_timestamp()+interval '1 day',NULL,NULL,NULL,transaction_timestamp(),transaction_timestamp())`,
       [sessionId, userId, q.level, q.subject]
     )
     await owner.query(

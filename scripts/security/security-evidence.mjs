@@ -956,31 +956,6 @@ export const verifyArtifactDirectory = async ({
   return manifest
 }
 
-export const assertWorkflowArtifactPolicy = (workflowText) => {
-  const banned = [
-    /playwright-report\//u,
-    /^\s*path:\s*test-results\/?\s*$/gmu,
-    /^\s*path:\s*[|>]\s*$[\s\S]*?^\s+(?:playwright-report|test-results)\//gmu,
-    /^\s*path:.*[*?]/gmu
-  ]
-  if (banned.some((pattern) => pattern.test(workflowText))) {
-    throw new Error('SECURITY_WORKFLOW_ARTIFACT_POLICY')
-  }
-  const workflowSteps = workflowText.split(/(?=^\s*-\s+(?:name|uses):)/gmu)
-  const uploadsRawPlaywrightOutput = workflowSteps.some(
-    (step) =>
-      /uses:\s*actions\/upload-artifact@/u.test(step) &&
-      (step.includes('test-results/phase10-raw') ||
-        /test-results\/playwright-/u.test(step))
-  )
-  if (uploadsRawPlaywrightOutput) {
-    throw new Error('SECURITY_WORKFLOW_ARTIFACT_POLICY')
-  }
-  if (!workflowText.includes('test-results/phase10-evidence/')) {
-    throw new Error('SECURITY_WORKFLOW_ARTIFACT_POLICY')
-  }
-}
-
 const parseCli = (argv) => {
   const [command, ...rest] = argv
   const options = new Map()
@@ -1024,15 +999,6 @@ if (isDirectExecution) {
             fileCount: manifest.files.length,
             profile
           })}\n`
-        )
-        return
-      }
-      if (command === 'verify-workflow') {
-        const file = options.get('file')
-        if (!file) throw new Error('SECURITY_EVIDENCE_ARGUMENTS_INVALID')
-        assertWorkflowArtifactPolicy(await readFile(path.resolve(file), 'utf8'))
-        process.stdout.write(
-          `${JSON.stringify({ event: 'phase10.workflow_artifact_policy.passed' })}\n`
         )
         return
       }

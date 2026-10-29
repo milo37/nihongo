@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { createStudySessionResponseSchema } from '@nihongo/contracts/study/create-study-session'
-import { getStudySessionResponseSchema } from '@nihongo/contracts/study/get-study-session'
+import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/create-study-session'
+import { getStudySessionV2ResponseSchema } from '@nihongo/contracts/study/get-study-session'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
@@ -446,7 +446,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       mode: 'RANDOM',
       count: 5
     })
-    const payload = createStudySessionResponseSchema.parse(
+    const payload = createStudySessionV2ResponseSchema.parse(
       await response.json()
     )
     const cookie = getCookieHeader(response)
@@ -458,7 +458,9 @@ describe('StudySession PostgreSQL vertical slice', () => {
     expect(response.headers.get('Set-Cookie')).toContain('HttpOnly')
     expect(response.headers.get('Set-Cookie')).toContain('SameSite=Lax')
     expect(cookie).not.toBe('')
+    expect(response.headers.get('X-Nihongo-Practice-Contract')).toBe('2')
     expect(payload.session).toMatchObject({
+      practiceContractVersion: 2,
       requestedCount: 5,
       actualCount: 5,
       usedFallback: false,
@@ -482,7 +484,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       `/api/v1/study-sessions/${payload.session.id}`,
       { headers: { Cookie: cookie } }
     )
-    const reloaded = getStudySessionResponseSchema.parse(
+    const reloaded = getStudySessionV2ResponseSchema.parse(
       await getResponse.json()
     )
 
@@ -551,7 +553,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       },
       `${owner.cookie}; ${GUEST_COOKIE_NAME}=invalid-signed-shape`
     )
-    const payload = createStudySessionResponseSchema.parse(
+    const payload = createStudySessionV2ResponseSchema.parse(
       await response.json()
     )
     createdSessionIds.add(payload.session.id)
@@ -596,7 +598,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       },
       admin.cookie
     )
-    const adminPayload = createStudySessionResponseSchema.parse(
+    const adminPayload = createStudySessionV2ResponseSchema.parse(
       await adminCreate.json()
     )
     createdSessionIds.add(adminPayload.session.id)
@@ -615,7 +617,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       mode: 'RANDOM',
       count: 1
     })
-    const guestPayload = createStudySessionResponseSchema.parse(
+    const guestPayload = createStudySessionV2ResponseSchema.parse(
       await guestCreate.json()
     )
     const guestCookie = getCookieHeader(guestCreate)
@@ -660,7 +662,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       mode: 'RANDOM',
       count: 20
     })
-    const payload = createStudySessionResponseSchema.parse(
+    const payload = createStudySessionV2ResponseSchema.parse(
       await response.json()
     )
     await rememberSessionOwner(payload.session.id)
@@ -675,31 +677,38 @@ describe('StudySession PostgreSQL vertical slice', () => {
     expect(payload.questions).toHaveLength(5)
   })
 
-  it('미지원 모드·explicit IDs·owner 주입을 422로 막고 guest를 만들지 않는다', async () => {
+  it('미지원 모드·explicit IDs·owner 주입은 422, guest 오답 모드는 401로 막는다', async () => {
     const beforeGuests = await database.client.guestPrincipal.count()
     const beforeSessions = await database.client.studySession.count()
-    const [modeResponse, explicitResponse, ownerResponse] = await Promise.all([
-      postStudySession({
-        level: 'N5',
-        subject: 'VOCABULARY',
-        mode: 'WRONG_NOTE',
-        count: 1
-      }),
-      postStudySession({
-        level: 'N5',
-        subject: 'VOCABULARY',
-        mode: 'RANDOM',
-        count: 1,
-        explicitQuestionIds: [randomUUID()]
-      }),
-      postStudySession({
-        level: 'N5',
-        subject: 'VOCABULARY',
-        mode: 'RANDOM',
-        count: 1,
-        userId: randomUUID()
-      })
-    ])
+    const [modeResponse, guestReviewResponse, explicitResponse, ownerResponse] =
+      await Promise.all([
+        postStudySession({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'UNSUPPORTED',
+          count: 1
+        }),
+        postStudySession({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'WRONG_NOTE',
+          count: 1
+        }),
+        postStudySession({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'RANDOM',
+          count: 1,
+          explicitQuestionIds: [randomUUID()]
+        }),
+        postStudySession({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'RANDOM',
+          count: 1,
+          userId: randomUUID()
+        })
+      ])
 
     for (const response of [modeResponse, explicitResponse, ownerResponse]) {
       expect(response.status).toBe(422)
@@ -709,6 +718,12 @@ describe('StudySession PostgreSQL vertical slice', () => {
       })
       expect(response.headers.get('Set-Cookie')).toBeNull()
     }
+    expect(guestReviewResponse.status).toBe(401)
+    expect(await guestReviewResponse.json()).toMatchObject({
+      code: 'AUTHENTICATION_REQUIRED',
+      retryable: false
+    })
+    expect(guestReviewResponse.headers.get('Set-Cookie')).toBeNull()
     expect(await database.client.guestPrincipal.count()).toBe(beforeGuests)
     expect(await database.client.studySession.count()).toBe(beforeSessions)
   })
@@ -836,7 +851,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       mode: 'RANDOM',
       count: 1
     })
-    const firstPayload = createStudySessionResponseSchema.parse(
+    const firstPayload = createStudySessionV2ResponseSchema.parse(
       await first.json()
     )
     const firstCookie = getCookieHeader(first)
@@ -848,7 +863,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       mode: 'RANDOM',
       count: 1
     })
-    const secondPayload = createStudySessionResponseSchema.parse(
+    const secondPayload = createStudySessionV2ResponseSchema.parse(
       await second.json()
     )
     const secondCookie = getCookieHeader(second)
@@ -884,7 +899,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       mode: 'RANDOM',
       count: 1
     })
-    const firstPayload = createStudySessionResponseSchema.parse(
+    const firstPayload = createStudySessionV2ResponseSchema.parse(
       await first.json()
     )
     const staleCookie = getCookieHeader(first)
@@ -910,7 +925,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       },
       staleCookie
     )
-    const replacementPayload = createStudySessionResponseSchema.parse(
+    const replacementPayload = createStudySessionV2ResponseSchema.parse(
       await replacement.json()
     )
     const replacementCookie = getCookieHeader(replacement)
@@ -946,7 +961,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         mode: 'RANDOM',
         count: 1
       })
-      const payload = createStudySessionResponseSchema.parse(
+      const payload = createStudySessionV2ResponseSchema.parse(
         await response.json()
       )
       const cookie = getCookieHeader(response)
@@ -1005,7 +1020,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         )
         expect(reloadedResponse.status).toBe(200)
         expect(
-          getStudySessionResponseSchema.parse(await reloadedResponse.json())
+          getStudySessionV2ResponseSchema.parse(await reloadedResponse.json())
         ).toEqual(payload)
         return
       }
@@ -1023,7 +1038,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
           `/api/v1/study-sessions/${payload.session.id}`,
           { headers: { Cookie: cookie } }
         )
-        const reloaded = getStudySessionResponseSchema.parse(
+        const reloaded = getStudySessionV2ResponseSchema.parse(
           await reloadedResponse.json()
         )
         expect(reloaded).toEqual(payload)
@@ -1232,7 +1247,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         )
         expect(getResponse.status).toBe(200)
         expect(
-          getStudySessionResponseSchema.parse(await getResponse.json())
+          getStudySessionV2ResponseSchema.parse(await getResponse.json())
         ).toEqual(created.payload)
         if (isPhase10CurrentSource) {
           await expect(
@@ -1347,6 +1362,88 @@ describe('StudySession PostgreSQL vertical slice', () => {
         select: { status: true }
       })
     ).toEqual({ status: 'EXPIRED' })
+  })
+
+  it('admits the earlier timestamp after a later PostgreSQL upsert completes', async () => {
+    const operation = `slice3-integration:${randomUUID()}`
+    const input = {
+      clientIp: '127.0.0.42',
+      operation,
+      windowMs: 60_000,
+      max: 20
+    }
+    const where = { key: { startsWith: `application:${operation}:` } }
+    const readRows = () =>
+      database.client.rateLimit.findMany({
+        where,
+        select: { count: true, lastRequest: true }
+      })
+    let now = 1_000
+    let signalCaptured!: () => void
+    let releaseFirst!: () => void
+    const captured = new Promise<void>((resolve) => {
+      signalCaptured = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    let firstValues: readonly unknown[] = []
+    const delayedClient = new Proxy(database.client, {
+      get: (target, property, receiver) => {
+        if (property !== '$queryRaw')
+          return Reflect.get(target, property, receiver)
+        return async (query: Prisma.Sql) => {
+          firstValues = query.values
+          signalCaptured()
+          await gate
+          return target.$queryRaw(query)
+        }
+      }
+    })
+    const earlier = createApplicationRateLimiter({
+      client: delayedClient,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      now: () => now
+    })
+    const later = createApplicationRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      now: () => now
+    })
+    const first = earlier.consume(input).then(
+      () => ({ status: 'fulfilled' as const }),
+      (error: unknown) => ({ status: 'rejected' as const, error })
+    )
+    try {
+      await captured
+      expect(firstValues).toContain(1_000n)
+      now = 1_001
+      await expect(later.consume(input)).resolves.toBeUndefined()
+      expect(await readRows()).toEqual([{ count: 1, lastRequest: 1_001n }])
+    } finally {
+      releaseFirst()
+      await first
+    }
+    await expect(first).resolves.toEqual({ status: 'fulfilled' })
+
+    expect(await readRows()).toEqual([{ count: 2, lastRequest: 1_001n }])
+    for (let index = 0; index < 18; index += 1) {
+      await later.consume(input)
+    }
+    const cold = createApplicationRateLimiter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      now: () => now
+    })
+    await expect(cold.consume(input)).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      retryable: true,
+      retryAfterSeconds: 60
+    })
+    expect(await readRows()).toEqual([{ count: 20, lastRequest: 1_001n }])
+    now = 61_001
+    await expect(cold.consume(input)).resolves.toBeUndefined()
+    expect(await readRows()).toEqual([{ count: 1, lastRequest: 61_001n }])
   })
 
   it('shared PostgreSQL rate limiter가 초과 요청을 429로 닫는다', async () => {

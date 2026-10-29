@@ -206,6 +206,7 @@ const loadLockedSource = async (
       source."actualCount"
     FROM "StudySession" AS source
     WHERE source."id" = ${input.sourceSessionId}::uuid
+      AND source."practiceContractVersion" = 2
       AND ${ownerPredicate}
     FOR KEY SHARE OF source
   `)

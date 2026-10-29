@@ -174,11 +174,11 @@ const createSession = async (
     await client.query(
       `INSERT INTO "StudySession" (
         "id", "userId", "level", "subject", "mode", "status",
-        "requestedCount", "actualCount", "usedFallback", "startedAt",
-        "expiresAt", "createdAt", "updatedAt"
+        "requestedCount", "actualCount", "usedFallback", "practiceContractVersion",
+        "startedAt", "expiresAt", "createdAt", "updatedAt"
       ) VALUES (
         $1, $2, 'N5', 'VOCABULARY', $5, 'IN_PROGRESS',
-        1, 1, false, $3, $4, $3, $3
+        1, 1, false, 1, $3, $4, $3, $3
       )`,
       [id, userId, startedAt, addMilliseconds(startedAt, 7 * DAY_MS), mode]
     )
@@ -760,8 +760,8 @@ describe('Slice 4 submission integrity follow-up', () => {
     await expect(
       client.query('DELETE FROM "StudySession" WHERE "id" = $1', [session.id])
     ).rejects.toMatchObject({
-      code: '42501',
-      message: 'permission denied for table User'
+      code: '23514',
+      message: 'Submitted USER StudySession can only be deleted with its user.'
     })
     await eraseUser(userId)
     expect(
@@ -797,11 +797,11 @@ describe('Slice 4 submission integrity follow-up', () => {
       await client.query(
         `INSERT INTO "StudySession" (
           "id", "guestPrincipalId", "level", "subject", "mode", "status",
-          "requestedCount", "actualCount", "usedFallback", "startedAt",
-          "expiresAt", "createdAt", "updatedAt"
+          "requestedCount", "actualCount", "usedFallback", "practiceContractVersion",
+          "startedAt", "expiresAt", "createdAt", "updatedAt"
         ) VALUES (
           $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
-          1, 1, false, $3, $4, $3, $3
+          1, 1, false, 1, $3, $4, $3, $3
         )`,
         [sessionId, guestId, startedAt, addMilliseconds(startedAt, DAY_MS)]
       )

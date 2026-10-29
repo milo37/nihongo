@@ -1902,10 +1902,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       const currentRuntimeWithPhase4Path =
         await createHistorical31Runtime(context)
       try {
-        // The repository and service are unchanged from 6116b9d. The raw
-        // 25-manifest binary is intentionally fenced above; this probes the
-        // reviewed Phase 4 business path under an explicitly checked historical31 contract.
-        const phase4SubmissionService = createStudySubmissionService(
+        const currentSubmissionService = createStudySubmissionService(
           createPrismaStudySubmissionRepository(
             currentRuntimeWithPhase4Path.client
           ),
@@ -1921,44 +1918,71 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
           ],
           durationSec: 2
         }
-        const first = await phase4SubmissionService.submit(
-          oldBinarySessionId,
-          oldBinaryIdempotencyKey,
-          oldBinaryBody,
-          { kind: 'USER', userId }
-        )
-        expect(first).toMatchObject({ replayed: false })
-        const replay = await phase4SubmissionService.submit(
-          oldBinarySessionId,
-          oldBinaryIdempotencyKey,
-          oldBinaryBody,
-          { kind: 'USER', userId }
-        )
-        expect(replay).toMatchObject({
-          replayed: true,
-          response: first.response
-        })
+        await expect(
+          currentSubmissionService.submit(
+            oldBinarySessionId,
+            oldBinaryIdempotencyKey,
+            oldBinaryBody,
+            { kind: 'USER', userId },
+            1
+          )
+        ).rejects.toMatchObject({ code: 'PRACTICE_CONTRACT_VERSION_MISMATCH' })
+        await expect(
+          currentSubmissionService.submit(
+            oldBinarySessionId,
+            oldBinaryIdempotencyKey,
+            { ...oldBinaryBody, expectedDraftRevision: 0 },
+            { kind: 'USER', userId },
+            2
+          )
+        ).rejects.toMatchObject({ code: 'PRACTICE_CONTRACT_VERSION_MISMATCH' })
       } finally {
         await currentRuntimeWithPhase4Path.disconnect()
       }
       expect(
         (
           await context.adminClient.query<{
-            contractVersion: number
             practiceContractVersion: number
+            status: string
+            draftCount: number
+            submissionRecordCount: number
           }>(
-            `SELECT
-              session."practiceContractVersion" AS "practiceContractVersion",
-              record."contractVersion" AS "contractVersion"
-             FROM "StudySession" AS session
-             JOIN "IdempotencyRecord" AS record
-               ON record."studySessionId" = session."id"
-             WHERE session."id" = $1
-               AND record."operation" = 'STUDY_SUBMIT'`,
+            `SELECT session."practiceContractVersion" AS "practiceContractVersion",
+                  session."status" AS "status",
+                  (SELECT COUNT(*)::int FROM "StudyDraft" AS draft WHERE draft."studySessionId" = session."id") AS "draftCount",
+                  (SELECT COUNT(*)::int FROM "IdempotencyRecord" AS record WHERE record."studySessionId" = session."id" AND record."operation" = 'STUDY_SUBMIT') AS "submissionRecordCount"
+           FROM "StudySession" AS session WHERE session."id" = $1`,
             [oldBinarySessionId]
           )
         ).rows
-      ).toEqual([{ practiceContractVersion: 1, contractVersion: 1 }])
+      ).toEqual([
+        {
+          practiceContractVersion: 1,
+          status: 'IN_PROGRESS',
+          draftCount: 0,
+          submissionRecordCount: 0
+        }
+      ])
+
+      expect(
+        (
+          await context.adminClient.query<{
+            practiceContractVersion: number
+            contractVersion: number
+            draftCount: number
+          }>(
+            `SELECT session."practiceContractVersion" AS "practiceContractVersion",
+                  record."contractVersion" AS "contractVersion",
+                  (SELECT COUNT(*)::int FROM "StudyDraft" AS draft WHERE draft."studySessionId" = session."id") AS "draftCount"
+           FROM "StudySession" AS session
+           JOIN "IdempotencyRecord" AS record ON record."studySessionId" = session."id"
+           WHERE session."id" = $1 AND record."id" = $2`,
+            [sessionId, idempotencyId]
+          )
+        ).rows
+      ).toEqual([
+        { practiceContractVersion: 1, contractVersion: 1, draftCount: 0 }
+      ])
 
       const indexes = await context.adminClient.query<{
         indexDefinition: string
@@ -2920,7 +2944,7 @@ describe('Phase 4 Slice 5 result retry migration', () => {
 })
 
 describe('Phase 4 Slice 3 historical review pins', () => {
-  it('v1 session A와 v2 session B를 역순 제출해도 event pin과 v2 pointer를 보존한다', async () => {
+  it('v2 session A와 B를 역순 제출해도 historical event pin과 v2 pointer를 보존한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
     try {
@@ -3048,6 +3072,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
                 level: 'N5',
                 subject: 'VOCABULARY',
                 mode: 'RANDOM',
+                practiceContractVersion: 2,
                 requestedCount: 1,
                 actualCount: 1,
                 usedFallback: false,
@@ -3066,6 +3091,24 @@ describe('Phase 4 Slice 3 historical review pins', () => {
                 createdAt: startedAt
               }
             })
+            await transaction.studyDraft.create({
+              data: {
+                studySessionId: created.id,
+                revision: 0,
+                currentOrdinal: 1,
+                createdAt: startedAt,
+                updatedAt: startedAt,
+                answers: {
+                  create: {
+                    studySessionQuestionId,
+                    questionVersionId: versionOneId,
+                    selectedOptionId: null,
+                    elapsedSec: 0,
+                    updatedAt: startedAt
+                  }
+                }
+              }
+            })
             return created
           })
           await createStudySubmissionService(
@@ -3079,12 +3122,14 @@ describe('Phase 4 Slice 3 historical review pins', () => {
                 {
                   studySessionQuestionId,
                   selectedOptionId: null,
-                  elapsedSec: 1
+                  elapsedSec: 0
                 }
               ],
-              durationSec: 1
+              durationSec: 1,
+              expectedDraftRevision: 0
             },
-            owner
+            owner,
+            2
           )
         }
 

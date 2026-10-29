@@ -72,9 +72,9 @@ TEST·DEVELOPMENT의 API 환경에서 `ADMIN_CMS_MODE=technical`과 해당 wrapp
 
 ```bash
 docker compose --project-name nihongo-phase7-local --profile phase7-local up -d --wait postgres-phase7
-NODE_ENV=test pnpm run db:migrate:phase7
+NODE_ENV=test pnpm run db:migrate:test
 ADMIN_CMS_MODE=technical pnpm run db:seed:test
-pnpm run db:migrate:phase7
+pnpm run db:migrate:dev:deploy
 ADMIN_CMS_MODE=technical pnpm run db:seed:dev
 ```
 
@@ -87,8 +87,7 @@ API `.env.test`의 `PHASE7_INTEGRATION_DATABASE_URL`·`PHASE7_API_INTEGRATION_DA
 
 ```bash
 docker compose up -d --wait postgres
-pnpm run test:phase7:db
-pnpm run test:phase7:api
+pnpm run test:api-regression
 ```
 
 runner는 wrapper login이 하나라도 이미 존재하면 안전하게 중단합니다.
@@ -108,7 +107,7 @@ Web 테스트와 production bundle 계약 검사는 따로 실행할 수 있습�
 
 ```bash
 pnpm --filter @nihongo/web run test
-pnpm --filter @nihongo/web run test:phase10:bundle
+pnpm --filter @nihongo/web run test:bundle
 ```
 
 일반 Web 테스트는 Vitest, bundle 계약 검사는 별도 Node 테스트 경로를 사용합니다.

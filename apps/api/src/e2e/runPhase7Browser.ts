@@ -375,8 +375,8 @@ const runPlaywright = async (
 export const runMock = async (): Promise<void> => {
   // Reject an empty selection before starting resources or running all e2e files.
   selectPhase7BrowserSpecs('mock', isPhase8Acceptance)
-  await runCommand('pnpm', ['run', 'build:contracts'])
-  await runCommand('pnpm', ['run', 'build:domain'])
+  await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
+  await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
   // The mock branch intentionally starts no API or database harness.
   const webPort = await reserveLoopbackPort()
@@ -412,7 +412,10 @@ export const runReal = async (): Promise<void> => {
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
     await import('./runPhase7ApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({ seedRuns: 2 })
+  const harness = await preparePhase7IsolatedDatabase({
+    seedRuns: 2,
+    artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
+  })
   const apiPort = await reserveLoopbackPort()
   const publicOrigin = `http://127.0.0.1:${apiPort}`
   const releaseId = '0'.repeat(40)
@@ -538,7 +541,7 @@ const run = async (): Promise<void> => {
   else await runReal()
 }
 
-const execute = async (): Promise<void> => {
+export const execute = async (): Promise<void> => {
   let failure: unknown
   try {
     await run()

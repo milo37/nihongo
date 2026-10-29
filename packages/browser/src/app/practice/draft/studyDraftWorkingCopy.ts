@@ -76,7 +76,8 @@ export const frozenStudyDraftAttemptSchema = z
       .string()
       .startsWith(STUDY_DRAFT_SAVE_CANONICAL_PREFIX),
     exactParsedBody: saveStudyDraftAnswersRequestBodySchema,
-    idempotencyKey: z.uuid()
+    idempotencyKey: z.uuid(),
+    rejected: z.boolean().optional()
   })
   .strict()
 
@@ -224,6 +225,7 @@ export interface FrozenStudyDraftAttempt {
   canonicalHashInput: string
   exactParsedBody: z.output<typeof saveStudyDraftAnswersRequestBodySchema>
   idempotencyKey: string
+  rejected?: boolean
 }
 
 export interface StudyDraftWorkingCopy {

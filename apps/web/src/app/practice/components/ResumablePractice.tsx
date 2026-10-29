@@ -23,7 +23,6 @@ type ResumableSession = NonNullable<ResumableQuery['data']>['items'][number]
 type ResumablePracticeProps = {
   query: ResumableQuery
   canLoad: boolean
-  storedSessionId: string | null
   requestedPage: number
   pageCount: number
   sourceUnavailable: boolean
@@ -37,7 +36,6 @@ type ResumablePracticeProps = {
 type ResumableRecordProps = {
   item: ResumableSession
   recent?: boolean
-  storedSessionId: string | null
   interactionLocked: boolean
   onCancel: (sessionId: string) => void
 }
@@ -45,7 +43,6 @@ type ResumableRecordProps = {
 const ResumableRecord = ({
   item,
   recent = false,
-  storedSessionId,
   interactionLocked,
   onCancel
 }: ResumableRecordProps): ReactElement => {
@@ -53,7 +50,7 @@ const ResumableRecord = ({
   const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const canResume =
-    item.resumeAvailability === 'SERVER' || storedSessionId === item.id
+    item.practiceContractVersion === 2 && item.resumeAvailability === 'SERVER'
 
   return (
     <div
@@ -98,15 +95,17 @@ const ResumableRecord = ({
             <Icon name="arrow-right" />
           </Link>
         ) : null}
-        <Button
-          className="practice-resume-cancel"
-          size="sm"
-          variant="ghost"
-          disabled={interactionLocked}
-          onClick={() => onCancel(item.id)}
-        >
-          {t('setup.resume.cancel')}
-        </Button>
+        {canResume ? (
+          <Button
+            className="practice-resume-cancel"
+            size="sm"
+            variant="ghost"
+            disabled={interactionLocked}
+            onClick={() => onCancel(item.id)}
+          >
+            {t('setup.resume.cancel')}
+          </Button>
+        ) : null}
       </div>
     </div>
   )
@@ -115,7 +114,6 @@ const ResumableRecord = ({
 export const ResumablePractice = ({
   query,
   canLoad,
-  storedSessionId,
   requestedPage,
   pageCount,
   sourceUnavailable,
@@ -236,7 +234,6 @@ export const ResumablePractice = ({
               <ResumableRecord
                 item={recent}
                 recent
-                storedSessionId={storedSessionId}
                 interactionLocked={interactionLocked}
                 onCancel={onCancel}
               />
@@ -275,7 +272,6 @@ export const ResumablePractice = ({
                 <li key={item.id}>
                   <ResumableRecord
                     item={item}
-                    storedSessionId={storedSessionId}
                     interactionLocked={interactionLocked}
                     onCancel={onCancel}
                   />

@@ -1,0 +1,89 @@
+name: Release candidate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Release candidate audit and image verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        env:
+          POSTGRES_DB: nihongo_test
+          POSTGRES_USER: nihongo
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nihongo -d nihongo_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_test?schema=public
+      NODE_ENV: test
+      TRUSTED_ORIGINS: http://localhost:5173
+      LOG_LEVEL: silent
+      BETTER_AUTH_SECRET: ci_auth_secret_that_is_at_least_32_chars
+      BETTER_AUTH_URL: http://localhost:3001
+      GUEST_COOKIE_SECRET: ci_guest_secret_that_is_at_least_32_chars
+      AUTH_EMAIL_FROM: auth@example.test
+      AUTH_EMAIL_DELIVERY_MODE: test-sink
+      AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify candidate ref and checkout
+        run: node scripts/ci/candidate-source.mjs
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Formatting and lint
+        run: |
+          pnpm run format:check
+          pnpm run lint
+
+      - name: Candidate OCI image and runtime verification
+        run: pnpm run test:portable
+
+      - name: Core regression and production bundle
+        env:
+          VITE_RELEASE_ID: ${{ github.sha }}
+        run: |
+          pnpm run typecheck
+          pnpm run test
+          NODE_ENV=production pnpm run build
+          NODE_ENV=production pnpm --filter @nihongo/web run test:bundle
+
+      - name: Dependency audit
+        run: pnpm run test:dependency-audit
+
+      - name: Database and API performance
+        run: pnpm run test:database-performance

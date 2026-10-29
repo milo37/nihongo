@@ -518,10 +518,12 @@ export const runTrackedSourceSecurityGate = async ({
     unusedAllowlistEntryCount: reconciled.unusedEntries.length,
     unsafeHtmlFindings: unsafeHtmlFindings.toSorted(compareFindings)
   }
-  await writeCanonicalEvidence({
-    filePath: path.join(evidenceDirectory, 'tracked-source-security.json'),
-    value: evidence
-  })
+  if (evidenceDirectory) {
+    await writeCanonicalEvidence({
+      filePath: path.join(evidenceDirectory, 'tracked-source-security.json'),
+      value: evidence
+    })
+  }
   if (evidence.status !== 'passed') {
     throw new Error('SECURITY_TRACKED_SOURCE_GATE_FAILED')
   }
@@ -537,21 +539,17 @@ if (isDirectExecution) {
     path.dirname(fileURLToPath(import.meta.url)),
     '../..'
   )
-  const evidenceDirectory =
-    process.env.PHASE10_SECURITY_EVIDENCE_DIR ??
-    path.join(repositoryRoot, 'test-results/phase10-evidence/security')
   runTrackedSourceSecurityGate({
     repositoryRoot,
     allowlistPath: path.join(
       repositoryRoot,
       'scripts/security/tracked-secret-allowlist.v1.json'
-    ),
-    evidenceDirectory
+    )
   })
     .then((evidence) => {
       process.stdout.write(
         `${JSON.stringify({
-          event: 'phase10.tracked_source_security.passed',
+          event: 'security.tracked_source_security.passed',
           scannedFileCount: evidence.scannedFileCount
         })}\n`
       )
@@ -559,7 +557,7 @@ if (isDirectExecution) {
     .catch((error) => {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase10.tracked_source_security.failed',
+          event: 'security.tracked_source_security.failed',
           errorCode:
             error instanceof Error ? error.message : 'SECURITY_UNKNOWN_FAILURE'
         })}\n`
