@@ -27,6 +27,7 @@ import {
 } from './ownedProcessGroup.js'
 import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
 import {
+  assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   phase7SsoAccountLifecycleTestFile,
   runPhase10ManifestVitestFile
@@ -1063,34 +1064,19 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     `SELECT migration_name, checksum FROM ${quoteSchema(schemaName)}."_prisma_migrations"
      WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`
   )
-  if (
-    names.length !== 50 ||
-    names.at(-1) !== '20261028150000_sso_provider_cleanup_fencing' ||
-    applied.rows.length !== names.length ||
-    applied.rows.some(
-      (row, index) =>
-        row.migration_name !== names[index] ||
-        row.checksum !==
-          createHash('sha256')
-            .update(
-              readFileSync(
-                nodePath.join(
-                  migrationsPath,
-                  row.migration_name,
-                  'migration.sql'
-                )
-              )
-            )
-            .digest('hex')
-    )
-  )
-    throw new Error(
-      'First Google ADMIN bootstrap canonical50 migration history mismatch.'
-    )
+  const expectedMigrations = names.map((name) => ({
+    name,
+    checksum: createHash('sha256')
+      .update(
+        readFileSync(nodePath.join(migrationsPath, name, 'migration.sql'))
+      )
+      .digest('hex')
+  }))
+  assertSsoBootstrapMigrationHistory(expectedMigrations, applied.rows)
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 50,
+      canonicalCount: 52,
       checksumMatch: true,
       reentry: true
     }) + '\n'

@@ -150,7 +150,38 @@ test('release candidates select audit, performance and portable verification', (
     assert.equal(selection.audit, true)
     assert.equal(selection.performance, true)
     assert.equal(selection.portable, true)
+    assert.equal(selection.browser, true)
   }
+})
+
+test('browser workflow steps follow selection without dropping the protected job', () => {
+  const workflow = readFileSync(
+    path.resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
+    'utf8'
+  )
+  assert.ok(
+    workflow.includes('browser: ${{ steps.selection.outputs.browser }}')
+  )
+  for (const name of [
+    'Install Playwright Chromium',
+    'Real browser acceptance',
+    'Mock browser acceptance'
+  ]) {
+    const expected =
+      `- name: ${name}\n        if: ` +
+      "${{ needs.build.outputs.browser == 'true' }}"
+    assert.ok(workflow.includes(expected), name)
+  }
+  const regression = workflow.slice(
+    workflow.indexOf('  e2e:'),
+    workflow.indexOf('  phase11_release:')
+  )
+  assert.ok(regression.includes('    if: ${{ always()'))
+  assert.ok(
+    regression.includes(
+      'name: Require successful impact classification and build'
+    )
+  )
 })
 
 test('protected branch pushes always run core regression but keep expensive extras related', () => {
@@ -167,6 +198,55 @@ test('protected branch pushes always run core regression but keep expensive extr
   assert.equal(selection.performance, false)
   assert.equal(selection.audit, false)
   assert.equal(selection.portable, false)
+})
+
+test('dev pull requests keep affected checks while omitting browser execution', () => {
+  for (const file of [
+    'apps/web/src/main.tsx',
+    'apps/api/src/study/submissionService.ts',
+    '.github/workflows/ci.yml',
+    'README.md'
+  ]) {
+    const expected = classifyChangedFiles([file])
+    expected.browser = false
+    const actual = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: [file]
+    })
+    assert.deepEqual(actual, expected, file)
+  }
+})
+
+test('dev push retains core checks but does not select browser execution', () => {
+  const input = {
+    eventName: 'push',
+    event: {},
+    changedFiles: ['apps/web/src/main.tsx']
+  }
+  const main = selectChecks({ ...input, ref: 'refs/heads/main' })
+  const dev = selectChecks({ ...input, ref: 'refs/heads/dev' })
+  assert.equal(main.browser, true)
+  assert.deepEqual(dev, { ...main, browser: false })
+})
+
+test('main pull requests require browser checks even for documentation changes', () => {
+  const actual = selectChecks({
+    eventName: 'pull_request',
+    ref: 'refs/pull/1/merge',
+    event: pullRequestEvent({
+      pull_request: {
+        base: { ref: 'main', sha: sha('a') },
+        head: { sha: sha('b') }
+      }
+    }),
+    changedFiles: ['README.md']
+  })
+  assert.equal(actual.browser, true)
+  assert.equal(actual.api, true)
+  assert.equal(actual.code, true)
+  assert.equal(actual.candidate, true)
 })
 
 test('comparison failures are errors, never successful fallback selections', () => {

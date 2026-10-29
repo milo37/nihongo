@@ -458,32 +458,34 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current50 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned current52 inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 50)
+  assert.equal(names.length, 52)
   assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
-  assert.equal(names.at(-1), '20261028150000_sso_provider_cleanup_fencing')
+  assert.equal(names[49], '20261028150000_sso_provider_cleanup_fencing')
+  assert.equal(names[50], '20261028160000_study_contract_v2_default')
+  assert.equal(names.at(-1), '20261028170000_study_v1_retirement_authority')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-50 migration inventory/u
+      /current-52 migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-50 migration inventory/u
+      /current-52 migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-50 migration inventory/u
+      /current-52 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
@@ -828,7 +830,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 50,
+    migrationCount: 52,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,
