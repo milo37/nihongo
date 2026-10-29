@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { isApiError } from '@nihongo/browser/api/config'
 import { signInMockAccount } from '@/test/auth'
 import { createBookmark } from '@api/bookmark/createBookmark'
-import { createPhase7QuestionReport } from '@api/phase7/phase7AdminApi'
+import { createQuestionReport } from '@api/content-operations/contentOperationsApi'
 import { listBookmark } from '@api/bookmark/listBookmark'
 import { DEMO_ADMIN_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
@@ -62,22 +62,23 @@ describe('MSW 학습 API 흐름', () => {
       reason: 'OTHER' as const,
       description: '학습자 문제 신고 화면 상태를 확인합니다.'
     }
-    const report = await createPhase7QuestionReport(reportRequest)
+    const report = await createQuestionReport(reportRequest)
     expect(report).toMatchObject({
       questionId: reportedQuestion.id,
       questionVersionId: reportedQuestion.questionVersionId,
       status: 'OPEN'
     })
-    await expect(
-      createPhase7QuestionReport(reportRequest)
-    ).rejects.toMatchObject({ code: 'QUESTION_REPORT_DUPLICATE', status: 409 })
+    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
+      code: 'QUESTION_REPORT_DUPLICATE',
+      status: 409
+    })
     const concurrentRequest = {
       ...reportRequest,
       reason: 'ANSWER_ERROR' as const
     }
     const concurrentReports = await Promise.allSettled([
-      createPhase7QuestionReport(concurrentRequest),
-      createPhase7QuestionReport(concurrentRequest)
+      createQuestionReport(concurrentRequest),
+      createQuestionReport(concurrentRequest)
     ])
     expect(
       concurrentReports.filter(({ status }) => status === 'fulfilled')
@@ -89,12 +90,14 @@ describe('MSW 학습 API 흐름', () => {
       status: 'rejected',
       reason: { code: 'QUESTION_REPORT_DUPLICATE', status: 409 }
     })
-    await expect(
-      createPhase7QuestionReport(reportRequest)
-    ).rejects.toMatchObject({ code: 'QUESTION_REPORT_DUPLICATE', status: 409 })
-    await expect(
-      createPhase7QuestionReport(reportRequest)
-    ).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 })
+    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
+      code: 'QUESTION_REPORT_DUPLICATE',
+      status: 409
+    })
+    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      status: 429
+    })
     const wrongNotes = await listWrongNotesV1({ pageSize: 100 })
     const savedQuestionIds = new Set(
       wrongNotes.items.map(({ questionId }) => questionId)
@@ -234,16 +237,12 @@ describe('MSW 학습 API 흐름', () => {
       description: '학습자 신고 상태를 확인합니다.'
     }
 
-    await expect(
-      createPhase7QuestionReport(reportRequest)
-    ).rejects.toMatchObject({
+    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
       code: 'AUTHENTICATION_REQUIRED',
       status: 401
     })
     await signInMockAccount()
-    await expect(
-      createPhase7QuestionReport(reportRequest)
-    ).rejects.toMatchObject({
+    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
       status: 404
     })

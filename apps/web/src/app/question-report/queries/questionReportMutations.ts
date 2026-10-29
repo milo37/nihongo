@@ -1,6 +1,6 @@
 import { mutationOptions } from '@tanstack/react-query'
 import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/phase7'
-import { createPhase7QuestionReport } from '@api/phase7/phase7AdminApi'
+import { createQuestionReport } from '@api/content-operations/contentOperationsApi'
 
 interface CreatePhase7QuestionReportInput {
   readonly questionId: string
@@ -13,6 +13,6 @@ export const questionReportMutations = {
       mutationKey: ['phase7', 'question-report'] as const,
       networkMode: 'always',
       mutationFn: (input: CreatePhase7QuestionReportInput) =>
-        createPhase7QuestionReport(input.request)
+        createQuestionReport(input.request)
     })
 } as const
