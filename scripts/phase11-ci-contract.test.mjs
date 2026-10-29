@@ -155,7 +155,7 @@ test('CI triggers Phase 11 and verifies a safe manifest without deploying', () =
     'run: node scripts/ci/check-selection.mjs quality build',
     'pnpm --filter @nihongo/api run content:foundation-check',
     'pnpm run test:phase10:performance:database-api',
-    'name: Phase 10 canonical mock browser acceptance',
+    'name: Phase 10 real browser acceptance',
     'phase11_release:',
     'name: Build and verify portable Phase 11 OCI release',
     'pnpm run release:runtime-smoke',

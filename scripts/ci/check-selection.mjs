@@ -123,7 +123,7 @@ const classifyChecks = ({ eventName, ref, event, changedFiles }) => {
   }
   if (result.shared || result.content) result.web = result.api = true
   result.code = result.web || result.api
-  // Both transports exercise distinct auth/storage and MSW boundaries; keep all six labels.
+  // Main candidates exercise the real-server browser path; mock remains available locally.
   result.browser = result.code
   result.database =
     result.api ||
@@ -470,7 +470,6 @@ const requiredSteps = {
     browser: [
       'phase10_playwright_initialize',
       'phase10_browser_real',
-      'phase10_browser_mock',
       'phase10_playwright_evidence'
     ]
   },

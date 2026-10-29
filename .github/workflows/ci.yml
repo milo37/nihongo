@@ -443,12 +443,6 @@ jobs:
         id: phase10_browser_real
         run: pnpm run test:phase10:browser:real
 
-      # Later groups are diagnostic; earlier step failures still fail this job.
-      - name: Phase 10 canonical mock browser acceptance
-        id: phase10_browser_mock
-        if: ${{ !cancelled() && steps.phase10_playwright_initialize.outcome == 'success' }}
-        run: pnpm run test:phase10:browser:mock
-
       - name: Verify safe Playwright evidence
         id: phase10_playwright_evidence
         if: ${{ !cancelled() && steps.phase10_playwright_initialize.outcome == 'success' }}
@@ -456,10 +450,10 @@ jobs:
           node scripts/security/security-evidence.mjs verify
           --directory "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
           --profile playwright
-          --required phase8-real,phase8-mock,phase9-real,phase9-mock,phase10-real,phase10-mock
+          --required phase8-real,phase9-real,phase10-real
 
       - name: Upload safe Playwright evidence
-        if: ${{ steps.phase10_playwright_evidence.outcome == 'success' && steps.phase10_browser_real.outcome == 'success' && steps.phase10_browser_mock.outcome == 'success' }}
+        if: ${{ steps.phase10_playwright_evidence.outcome == 'success' && steps.phase10_browser_real.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}

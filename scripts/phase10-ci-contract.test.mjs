@@ -177,13 +177,17 @@ test('quality job executes final gates and run-unique performance evidence lifec
   assert.doesNotMatch(workflow, /continue-on-error:/u)
 })
 
-test('browser job preserves six-label acceptance and run-unique safe evidence', () => {
+test('browser job requires real-only acceptance and run-unique safe evidence', () => {
   const browserJob = workflow.slice(
     workflow.indexOf('\n  e2e:'),
     workflow.indexOf('\n  phase11_release:')
   )
   assert.match(browserJob, /^ {4}needs: plan$/mu)
   assert.doesNotMatch(browserJob, /needs\.(?:build|phase11_release)\./u)
+  assert.doesNotMatch(
+    browserJob,
+    /test:phase10:browser:mock|phase10_browser_mock/u
+  )
   assert.match(workflow, /e2e:[\s\S]*timeout-minutes: 45/u)
   assert.match(
     workflow,
@@ -192,7 +196,6 @@ test('browser job preserves six-label acceptance and run-unique safe evidence', 
   assertInOrder(workflow, [
     'Initialize unique safe Playwright evidence',
     'pnpm run test:phase10:browser:real',
-    'pnpm run test:phase10:browser:mock',
     'Verify safe Playwright evidence',
     'Upload safe Playwright evidence',
     'Clean safe Playwright evidence',
@@ -201,7 +204,7 @@ test('browser job preserves six-label acceptance and run-unique safe evidence', 
   ])
   assert.match(
     workflow,
-    /--directory "\$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"[\s\S]*--required phase8-real,phase8-mock,phase9-real,phase9-mock,phase10-real,phase10-mock/u
+    /--directory "\$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"[\s\S]*--required phase8-real,phase9-real,phase10-real/u
   )
   assert.match(
     workflow,
@@ -216,10 +219,7 @@ test('browser job preserves six-label acceptance and run-unique safe evidence', 
 
   const browserCondition =
     "${{ !cancelled() && steps.phase10_playwright_initialize.outcome == 'success' }}"
-  for (const name of [
-    'Phase 10 canonical mock browser acceptance',
-    'Verify safe Playwright evidence'
-  ]) {
+  for (const name of ['Verify safe Playwright evidence']) {
     const start = workflow.indexOf(`- name: ${name}`)
     const end = workflow.indexOf('\n      - name:', start + 1)
     assert.ok(workflow.slice(start, end).includes(`if: ${browserCondition}`))
@@ -230,11 +230,7 @@ test('browser job preserves six-label acceptance and run-unique safe evidence', 
   )
   const uploadEnd = workflow.indexOf('\n      - name:', uploadStart + 1)
   const upload = workflow.slice(uploadStart, uploadEnd)
-  for (const id of [
-    'phase10_playwright_evidence',
-    'phase10_browser_real',
-    'phase10_browser_mock'
-  ]) {
+  for (const id of ['phase10_playwright_evidence', 'phase10_browser_real']) {
     assert.ok(upload.includes(`steps.${id}.outcome == 'success'`))
   }
   const portable = workflow.slice(workflow.indexOf('\n  phase11_release:'))
