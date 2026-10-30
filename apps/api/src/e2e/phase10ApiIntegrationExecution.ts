@@ -491,6 +491,65 @@ const normalizeResultPath = (value: string): string => {
   return normalized.startsWith('src/') ? normalized : path.basename(normalized)
 }
 
+const queryPlanTestFile =
+  'src/review/reviewCenterFoundationQueryPlan.integration.test.ts'
+
+export const sanitizeQueryPlanFailure = (
+  result: VitestJsonResult,
+  source: string | undefined
+) => {
+  const unknown = { diagnosticId: 'UNKNOWN_REDACTED' } as const
+  const files = result?.testResults
+  if (!Array.isArray(files) || files.length !== 1) return unknown
+  const file = files[0]
+  if (
+    !file ||
+    typeof file.name !== 'string' ||
+    normalizeResultPath(file.name) !== queryPlanTestFile ||
+    file.status !== 'failed'
+  )
+    return unknown
+  const assertions = file.assertionResults
+  if (
+    result.numTotalTests !== 1 ||
+    result.numFailedTests !== 1 ||
+    !Array.isArray(assertions) ||
+    assertions.length !== 1 ||
+    assertions[0]?.status !== 'failed'
+  ) {
+    const error = [file.failureMessage, file.message].find(
+      (value): value is string => typeof value === 'string'
+    )
+    return error ? sanitizeCollectionError(error) : unknown
+  }
+  const messages = assertions[0].failureMessages
+  if (!Array.isArray(messages) || typeof messages[0] !== 'string')
+    return unknown
+  const lines = messages[0].slice(0, 8_192).split('\n')
+  const first = lines[0] ?? ''
+  const sourceLineCount = source
+    ? source.split('\n').length - Number(source.endsWith('\n'))
+    : 0
+  const diagnosticId = /^AssertionError(?::|$)/u.test(first)
+    ? 'ASSERTION_FAILED'
+    : /^Error: Test timed out in \d+ms\./u.test(first)
+      ? 'TEST_TIMEOUT'
+      : 'UNKNOWN_REDACTED'
+  const locations = lines
+    .slice(1)
+    .flatMap((line) => {
+      const match = line.match(
+        /^\s*(?:❯|at)\s+(?:\S+\s+\()?([^\s()]+):([1-9]\d{0,3}):[1-9]\d{0,3}\)?\s*$/u
+      )
+      if (!match || normalizeResultPath(match[1]!) !== queryPlanTestFile)
+        return []
+      const lineNumber = Number(match[2])
+      return lineNumber <= sourceLineCount ? [lineNumber] : []
+    })
+    .slice(0, 3)
+  return { diagnosticId, locations }
+}
+
 export const assertPhase10RequiredEnvironment = ({
   environment,
   testFile
@@ -660,6 +719,24 @@ export const runPhase10ManifestVitestFile = async ({
       }
       for (const diagnostic of classifyCollectionReport(result))
         emit(diagnostic)
+      if (testFile === queryPlanTestFile) {
+        let source: string | undefined
+        try {
+          source = await readFile(
+            new URL(
+              '../review/reviewCenterFoundationQueryPlan.integration.test.ts',
+              import.meta.url
+            ),
+            'utf8'
+          )
+        } catch {
+          // Without the source, omit locations and retain the failure.
+        }
+        throw new Error(
+          `Phase 10 integration process failed: ${queryPlanTestFile}; ` +
+            `diagnostic=${JSON.stringify(sanitizeQueryPlanFailure(result, source))}.`
+        )
+      }
       const failedTests = (result.testResults ?? []).flatMap(
         ({ assertionResults = [] }) =>
           assertionResults
