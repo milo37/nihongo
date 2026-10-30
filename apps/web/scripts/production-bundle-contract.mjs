@@ -5,7 +5,7 @@ import { lstat, readFile, readdir, readlink } from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual, promisify } from 'node:util'
 import { gzipSync } from 'node:zlib'
-import { validateProductionBundleRuntime } from './phase9-production-bundle-contract.mjs'
+import { validateProductionBundleRuntime } from './production-bundle-runtime-contract.mjs'
 import { assertBrowserBuildGraph } from '../../../scripts/operations/browser-artifact-check.mjs'
 
 export const phase10BundleBaseline = Object.freeze({
