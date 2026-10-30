@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth/minimal'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
-import { createPhase7ReauthenticationAdapter } from './phase7ReauthenticationAdapter.js'
+import { createPhase7ReauthenticationAdapter } from './reauthenticationAdapter.js'
 import type { Phase7ReauthenticationContext } from './phase7ReauthenticationContext.js'
 
 const ONE_DAY_SECONDS = 24 * 60 * 60
