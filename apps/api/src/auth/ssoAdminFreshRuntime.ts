@@ -21,7 +21,7 @@ import {
   createPhase7SessionCookie,
   createPhase7DontRememberCookie,
   readPhase7SessionToken
-} from './phase7SessionCookie.js'
+} from './sessionCookie.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
 
 export const ADMIN_FRESH_COMPLETE_PATH = '/api/auth/sso/admin-fresh/complete'

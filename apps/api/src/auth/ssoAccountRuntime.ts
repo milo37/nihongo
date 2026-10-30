@@ -28,7 +28,7 @@ import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
 import {
   createExpiredPhase7SessionCookies,
   readPhase7SessionToken
-} from './phase7SessionCookie.js'
+} from './sessionCookie.js'
 
 export const SSO_ACCOUNT_PATHS = {
   capabilities: '/api/auth/sso/accounts',

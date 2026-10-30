@@ -9,7 +9,7 @@ import { createAdminReauthenticationService } from '../admin/adminReauthenticati
 import { createSsoAuthentication } from './createSsoAuthentication.js'
 import { createApiApp } from '../app/createApp.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPhase7SessionCookie } from './phase7SessionCookie.js'
+import { createPhase7SessionCookie } from './sessionCookie.js'
 import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'

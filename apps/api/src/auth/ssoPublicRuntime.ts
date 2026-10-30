@@ -16,7 +16,7 @@ import {
   readSsoBindingCookie
 } from './ssoProtocol.js'
 import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
-import { createPhase7SessionCookie } from './phase7SessionCookie.js'
+import { createPhase7SessionCookie } from './sessionCookie.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
 import type { SsoAdminFreshRuntime } from './ssoAdminFreshRuntime.js'
 

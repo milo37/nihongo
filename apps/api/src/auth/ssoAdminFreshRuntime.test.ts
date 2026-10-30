@@ -11,7 +11,7 @@ import type {
   AdminFreshTransaction,
   SsoAdminFreshPort
 } from './ssoAdminFreshRepository.js'
-import { createPhase7SessionCookie } from './phase7SessionCookie.js'
+import { createPhase7SessionCookie } from './sessionCookie.js'
 import { ssoTransactionDigest } from './ssoProtocol.js'
 import type {
   SsoProvider,
