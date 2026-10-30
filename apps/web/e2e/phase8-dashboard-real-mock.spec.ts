@@ -19,8 +19,8 @@ import {
   trackRequestLedger,
   waitForLedgerToQuiesce,
   waitForLedgerToSettle
-} from './phase10-request-ledger'
-import type { RequestLedger } from './phase10-request-ledger'
+} from './request-ledger'
+import type { RequestLedger } from './request-ledger'
 
 type BrowserMode = 'mock' | 'real'
 

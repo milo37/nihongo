@@ -4,11 +4,8 @@ import {
   assertAndAttachLedger,
   selectRequestLedger,
   waitForLedgerSelectionToQuiesce
-} from '../e2e/phase10-request-ledger'
-import type {
-  RequestLedger,
-  RequestLedgerEntry
-} from '../e2e/phase10-request-ledger'
+} from '../e2e/request-ledger'
+import type { RequestLedger, RequestLedgerEntry } from '../e2e/request-ledger'
 
 const entry = (startSequence: number, path: string): RequestLedgerEntry => ({
   bodyDigest: null,

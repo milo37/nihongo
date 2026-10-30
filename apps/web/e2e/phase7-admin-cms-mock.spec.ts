@@ -28,8 +28,8 @@ import {
   selectRequestLedger,
   trackRequestLedger,
   waitForLedgerToQuiesce
-} from './phase10-request-ledger'
-import type { RequestLedger } from './phase10-request-ledger'
+} from './request-ledger'
+import type { RequestLedger } from './request-ledger'
 
 if (process.env.PHASE7_BROWSER_MODE !== 'real') {
   throw new Error('Phase 7 administrator UI requires real mode.')
