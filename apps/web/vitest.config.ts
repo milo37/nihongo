@@ -18,7 +18,7 @@ export default mergeConfig(
         ...configDefaults.exclude,
         'scripts/production-bundle-*.test.mjs',
         'e2e/**/*.spec.ts',
-        'scripts/phase10-runner-cleanup.test.ts'
+        'scripts/browser-runner-cleanup.test.ts'
       ],
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
@@ -30,7 +30,7 @@ export default mergeConfig(
           test: {
             name: 'phase10-runner',
             environment: 'node',
-            include: ['scripts/phase10-runner-cleanup.test.ts']
+            include: ['scripts/browser-runner-cleanup.test.ts']
           }
         }
       ]
