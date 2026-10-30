@@ -19,6 +19,7 @@ import {
   phase7SsoIdentityPattern,
   runPhase10ManifestVitestFile,
   sanitizePhase7VitestReport,
+  sanitizeQueryPlanFailure,
   selectPhase7DbIntegrationFiles
 } from './phase10ApiIntegrationExecution.js'
 
@@ -59,6 +60,122 @@ describe('SSO bootstrap migration history', () => {
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
     ).toThrow(/canonical52/u)
+  })
+})
+
+describe('query-plan failure diagnostics', () => {
+  const testFile =
+    'src/review/reviewCenterFoundationQueryPlan.integration.test.ts'
+  const secret = 'synthetic-secret https://example.test/token SELECT-private'
+  const report = (message: string) => ({
+    numTotalTests: 1,
+    numFailedTests: 1,
+    testResults: [
+      {
+        name: `/workspace/apps/api/${testFile}`,
+        status: 'failed',
+        assertionResults: [
+          { status: 'failed', fullName: secret, failureMessages: [message] }
+        ]
+      }
+    ]
+  })
+  const failedRun = async (data: unknown) => {
+    let rawPath = ''
+    let error: unknown
+    try {
+      await runPhase10ManifestVitestFile({
+        testFile,
+        environment: {
+          DATABASE_URL: 'synthetic',
+          PHASE10_FIXTURE_DATABASE_URL: 'synthetic',
+          PHASE7_API_ERASURE_DATABASE_URL: 'synthetic'
+        },
+        runCommand: async (_command, args) => {
+          rawPath = args
+            .find((arg) => arg.startsWith('--outputFile='))!
+            .slice('--outputFile='.length)
+          await writeFile(rawPath, JSON.stringify(data))
+          throw new Error(secret)
+        }
+      })
+    } catch (caught: unknown) {
+      error = caught
+    }
+    expect(error).toBeInstanceOf(Error)
+    await expect(stat(rawPath)).rejects.toThrow()
+    const text = (error as Error).message
+    expect(text).not.toContain(secret)
+    expect(text).not.toContain('SELECT-private')
+    expect(text).not.toContain('example.test')
+    return text
+  }
+
+  it('reports only a fixed assertion class and allowlisted source lines', async () => {
+    const text = await failedRun(
+      report(
+        `AssertionError: ${secret}\n ❯ ${testFile}:231:5\n ❯ /workspace/apps/api/${testFile}:1165:9\n ❯ src/private/${secret}:123:4`
+      )
+    )
+    expect(text).toContain('"diagnosticId":"ASSERTION_FAILED"')
+    expect(text).toContain('"locations":[231,1165]')
+    expect(text).not.toContain('src/private/')
+  })
+
+  it('rejects source lines beyond the current query-plan test', async () => {
+    const source = await readFile(testFile, 'utf8')
+    const lastLine = source.split('\n').length - Number(source.endsWith('\n'))
+    const text = await failedRun(
+      report(
+        `AssertionError: ${secret}\n ❯ ${testFile}:${lastLine}:1\n ❯ ${testFile}:${lastLine + 1}:1\n ❯ ${testFile}:1999:1`
+      )
+    )
+    expect(text).toContain(`"locations":[${lastLine}]`)
+  })
+
+  it('omits unverified locations if the test source is unavailable or shorter', () => {
+    const failed = report(
+      `AssertionError: ${secret}\n ❯ ${testFile}:2:1\n ❯ ${testFile}:3:1`
+    )
+    expect(sanitizeQueryPlanFailure(failed, undefined)).toEqual({
+      diagnosticId: 'ASSERTION_FAILED',
+      locations: []
+    })
+    expect(sanitizeQueryPlanFailure(failed, 'first\nsecond\n')).toEqual({
+      diagnosticId: 'ASSERTION_FAILED',
+      locations: [2]
+    })
+  })
+
+  it('classifies a timeout without retaining its message', async () => {
+    const text = await failedRun(
+      report(`Error: Test timed out in 5000ms. ${secret}`)
+    )
+    expect(text).toContain('"diagnosticId":"TEST_TIMEOUT"')
+    expect(text).toContain('"locations":[]')
+  })
+
+  it('fails closed for mismatched paths, malformed results and untrusted errors', async () => {
+    const wrong = report(`AssertionError: ${secret}`)
+    wrong.testResults[0]!.name = 'src/private/other.integration.test.ts'
+    for (const data of [null, {}, wrong, report(`Error: ${secret}`)]) {
+      const text = await failedRun(data)
+      expect(text).toContain('"diagnosticId":"UNKNOWN_REDACTED"')
+    }
+  })
+
+  it('reuses the fixed collection error allowlist for setup failures', async () => {
+    const text = await failedRun({
+      testResults: [
+        {
+          name: testFile,
+          status: 'failed',
+          message: `Cannot find module ${secret}`
+        }
+      ]
+    })
+    expect(text).toContain('"diagnosticId":"MODULE_DEPENDENCY_MISSING"')
+    expect(text).toContain('"location":"module"')
   })
 })
 
