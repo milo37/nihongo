@@ -23,7 +23,7 @@ import type {
   RequestLedger,
   RequestLedgerEntry,
   RequestLedgerContractEntry
-} from './phase10-request-ledger'
+} from './request-ledger'
 
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
@@ -43,7 +43,7 @@ import {
   selectRequestLedger,
   trackRequestLedger,
   waitForLedgerToQuiesce
-} from './phase10-request-ledger'
+} from './request-ledger'
 
 const mode = process.env.PHASE10_BROWSER_MODE
 if (mode !== 'real' && mode !== 'mock') {
