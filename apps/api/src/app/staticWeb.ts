@@ -3,7 +3,7 @@ import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { serveStatic } from '@hono/node-server/serve-static'
 import type { Hono, MiddlewareHandler } from 'hono'
 import type { ApiVariables } from '../middleware/requestContext.js'
-import { getRawRequestPathname } from './phase7PrefixExclusion.js'
+import { getRawRequestPathname } from './protectedRouteExclusion.js'
 
 const reservedPathPrefixes = ['/api', '/health', '/__test'] as const
 
