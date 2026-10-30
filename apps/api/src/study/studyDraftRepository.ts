@@ -317,15 +317,18 @@ const loadDraftSnapshot = async (
 const expireLockedSession = async (
   transaction: Prisma.TransactionClient,
   sessionId: string,
-  observedAt: Date
+  observedAt: Date,
+  preserveGuestDraft: boolean
 ): Promise<void> => {
   await transaction.studySession.update({
     where: { id: sessionId },
     data: { status: 'EXPIRED', updatedAt: observedAt }
   })
-  await transaction.studyDraft.deleteMany({
-    where: { studySessionId: sessionId }
-  })
+  if (!preserveGuestDraft) {
+    await transaction.studyDraft.deleteMany({
+      where: { studySessionId: sessionId }
+    })
+  }
 }
 
 const validateDraftBody = (
@@ -428,7 +431,12 @@ const runSave = async (
     session.status === 'IN_PROGRESS' &&
     session.expiresAt <= input.observedAt
   if (observedExpired) {
-    await expireLockedSession(transaction, input.sessionId, input.observedAt)
+    await expireLockedSession(
+      transaction,
+      input.sessionId,
+      input.observedAt,
+      input.owner.kind === 'GUEST'
+    )
   }
 
   const questions = await loadDraftQuestions(transaction, input.sessionId)
@@ -628,7 +636,12 @@ export const createPrismaStudyDraftRepository = (
               return { kind: 'NOT_EDITABLE' } as const
             }
             if (session.expiresAt <= observedAt) {
-              await expireLockedSession(transaction, sessionId, observedAt)
+              await expireLockedSession(
+                transaction,
+                sessionId,
+                observedAt,
+                owner.kind === 'GUEST'
+              )
               return { kind: 'NOT_EDITABLE' } as const
             }
             const draft = await loadDraftSnapshot(transaction, sessionId)
@@ -807,7 +820,12 @@ export const createPrismaStudyDraftRepository = (
                 return { kind: 'NOT_EDITABLE' } as const
               }
               if (session.expiresAt <= observedAt) {
-                await expireLockedSession(transaction, sessionId, observedAt)
+                await expireLockedSession(
+                  transaction,
+                  sessionId,
+                  observedAt,
+                  owner.kind === 'GUEST'
+                )
                 return { kind: 'NOT_EDITABLE' } as const
               }
               const cancelledAt = new Date(

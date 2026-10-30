@@ -33,14 +33,18 @@ import {
   runPhase10ManifestVitestFile
 } from './phase10ApiIntegrationExecution.js'
 
-const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
+const guestCleanupShard = process.argv.includes('--shard=current-guest-cleanup')
+const SCHEMA_PATTERN = guestCleanupShard
+  ? /^jlp534_[a-f0-9]{32}_test$/
+  : /^phase7_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const GROUP_ROLES = [
   'nihongo_phase7_owner',
   'nihongo_phase7_migration',
   'nihongo_app',
   'nihongo_auth_gateway',
-  'nihongo_erasure_worker'
+  'nihongo_erasure_worker',
+  'nihongo_guest_cleanup_worker'
 ] as const
 const WRAPPER_ROLES = [
   {
@@ -57,6 +61,10 @@ const WRAPPER_ROLES = [
     grantedRole: 'nihongo_erasure_worker'
   },
   {
+    name: 'nihongo_test_guest_cleanup_worker_login',
+    grantedRole: 'nihongo_guest_cleanup_worker'
+  },
+  {
     name: 'nihongo_development_phase7_migration_login',
     grantedRole: 'nihongo_phase7_migration'
   },
@@ -68,6 +76,10 @@ const WRAPPER_ROLES = [
   {
     name: 'nihongo_development_erasure_worker_login',
     grantedRole: 'nihongo_erasure_worker'
+  },
+  {
+    name: 'nihongo_development_guest_cleanup_worker_login',
+    grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
 const LEGACY_ROLES = [
@@ -78,6 +90,7 @@ const TEST_MIGRATION_LOGIN = 'nihongo_test_phase7_migration_login'
 const TEST_APPLICATION_LOGIN = 'nihongo_test_app_login'
 const TEST_AUTH_GATEWAY_LOGIN = 'nihongo_test_auth_gateway_login'
 const TEST_ERASURE_LOGIN = 'nihongo_test_erasure_worker_login'
+const TEST_GUEST_CLEANUP_LOGIN = 'nihongo_test_guest_cleanup_worker_login'
 const TEST_LEGACY_LOGIN = 'nihongo_test_legacy_app_login'
 const repositoryRoot = nodePath.resolve(
   nodePath.dirname(fileURLToPath(import.meta.url)),
@@ -132,7 +145,13 @@ assertSafeAdminCmsDatabase({
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 
-const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+if (
+  guestCleanupShard &&
+  new URL(baseDatabaseUrl).pathname !== '/nihongo_jlp534_test'
+) {
+  throw new Error('Guest cleanup requires its dedicated test database.')
+}
+const schemaName = `${guestCleanupShard ? 'jlp534' : 'phase7'}_${randomUUID().replaceAll('-', '')}_test`
 if (!SCHEMA_PATTERN.test(schemaName)) {
   throw new Error('Generated Phase 7 API schema is unsafe.')
 }
@@ -881,6 +900,12 @@ export const preparePhase7IsolatedDatabase = async ({
     AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     PHASE7_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
+    GUEST_CLEANUP_DATABASE_URL: buildWrapperDatabaseUrl(
+      TEST_GUEST_CLEANUP_LOGIN
+    ).toString(),
+    GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
+    GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
+    PHASE7_RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
     PHASE7_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     PHASE7_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
@@ -968,6 +993,11 @@ export const preparePhase7IsolatedDatabase = async ({
   }
 
   abortSignal?.throwIfAborted()
+  if (guestCleanupShard) {
+    await adminClient.query(
+      `GRANT CONNECT ON DATABASE ${quoteIdentifier(databaseName)} TO ${quoteIdentifier(TEST_GUEST_CLEANUP_LOGIN)}`
+    )
+  }
   databasePrepared = true
   return {
     adminDatabaseUrl: targetDatabaseUrl.toString(),
@@ -1076,7 +1106,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 52,
+      canonicalCount: 53,
       checksumMatch: true,
       reentry: true
     }) + '\n'

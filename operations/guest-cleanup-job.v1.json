@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "status": "definition-only",
+  "enabled": false,
+  "schedule": {
+    "expression": "0 3 * * *",
+    "timeZone": "Asia/Seoul",
+    "utcExpression": "0 18 * * *"
+  },
+  "command": ["node", "/app/api/dist/study/studyGuestCleanupRuntime.js"],
+  "environment": {
+    "GUEST_CLEANUP_DRY_RUN": "true",
+    "GUEST_CLEANUP_BATCH_SIZE": "100",
+    "GUEST_CLEANUP_MAX_BATCHES": "10",
+    "GUEST_CLEANUP_MAX_DURATION_MS": "30000"
+  },
+  "requiredBindings": [
+    "GUEST_CLEANUP_DATABASE_URL",
+    "GUEST_CLEANUP_ENVIRONMENT"
+  ],
+  "concurrency": 1,
+  "overlapPolicy": "forbid",
+  "missedRunPolicy": "skip",
+  "retryCount": 0,
+  "jobTimeoutSeconds": 35,
+  "terminationPolicy": "kill-container-at-deadline",
+  "failurePolicy": "alert-on-nonzero-or-missing-completion"
+}

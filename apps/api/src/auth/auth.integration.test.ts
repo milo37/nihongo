@@ -388,7 +388,9 @@ describe(
       ).toBeNull()
 
       const expiredCredential = guestPrincipalService.prepareCredential()
-      const expiredAt = new Date(Date.now() - 60 * 60 * 1_000)
+      const expiredAt = new Date(
+        Date.now() - 7 * 24 * 60 * 60 * 1_000 - 60 * 60 * 1_000
+      )
       const expiredCreatedAt = new Date(
         expiredAt.getTime() - 7 * 24 * 60 * 60 * 1_000
       )

@@ -14,6 +14,24 @@ export interface Phase10ApiIntegrationManifestEntry {
 
 export const phase10ApiIntegrationManifest = [
   {
+    path: 'src/study/studyGuestCleanupWorker.integration.test.ts',
+    executionOwner: 'phase10',
+    shard: 'current-guest-cleanup',
+    order: 24,
+    databaseState: 'phase7-current-canonical-65',
+    connectionRole: 'application',
+    requiredEnvironment: [
+      'GUEST_CLEANUP_DATABASE_URL',
+      'GUEST_CLEANUP_FIXTURE_DATABASE_URL',
+      'PHASE7_RUNTIME_DATABASE_URL',
+      'PHASE7_API_ERASURE_DATABASE_URL',
+      'GUEST_CLEANUP_TEST_ISOLATED'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation:
+      'dedicated nihongo_jlp534_test database and jlp534 schema; guest worker has function EXECUTE only'
+  },
+  {
     path: 'src/app/phase7ApiGate.integration.test.ts',
     executionOwner: 'phase7-api',
     shard: 'phase7-api-post-seed',
