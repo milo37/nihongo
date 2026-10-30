@@ -37,7 +37,7 @@ import {
   createPhase7SessionCookie,
   createPhase7DontRememberCookie,
   readPhase7SessionToken
-} from '../auth/phase7SessionCookie.js'
+} from '../auth/sessionCookie.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import {

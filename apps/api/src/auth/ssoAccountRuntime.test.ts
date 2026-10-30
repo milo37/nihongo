@@ -8,7 +8,7 @@ import type {
 } from '@nihongo/contracts/auth/sso-account-management'
 import { parseApiEnvironment } from '../config/env.js'
 import { createAuthGateway, AuthGatewayError } from './authGateway.js'
-import { createPhase7SessionCookie } from './phase7SessionCookie.js'
+import { createPhase7SessionCookie } from './sessionCookie.js'
 import { createSsoPublicRuntime } from './ssoPublicRuntime.js'
 import {
   createSsoAccountRuntime,

@@ -7,7 +7,7 @@ import type { PrismaClient } from '../generated/prisma/client.js'
 import {
   createPhase7SessionCookie,
   readPhase7SessionToken
-} from './phase7SessionCookie.js'
+} from './sessionCookie.js'
 
 const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
 const authSessionSchema = z
