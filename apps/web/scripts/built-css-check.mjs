@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { stdout } from 'node:process'
 import { fileURLToPath, URL } from 'node:url'
-import { validateBuiltCssContract } from './phase9-built-css-contract.mjs'
+import { validateBuiltCssContract } from './built-css-contract.mjs'
 import { validateProductionBundleRuntime } from './production-bundle-runtime-contract.mjs'
 
 const webRoot = fileURLToPath(new URL('..', import.meta.url))
