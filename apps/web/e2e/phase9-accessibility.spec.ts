@@ -1227,7 +1227,7 @@ const login = async (
   const origin = new URL(page.url()).origin
   const expected = isMockBrowser
     ? await page.evaluate(async (role) => {
-        const modulePath = '/src/test/phase9BrowserMockControl.ts'
+        const modulePath = '/src/test/accessibilityBrowserMockControl.ts'
         const control = (await import(/* @vite-ignore */ modulePath)) as {
           selectPhase9MockActor: (role: 'ADMIN' | 'USER') => {
             id: string
@@ -1575,7 +1575,7 @@ const armDashboardInsightsFailure = async (
 ): Promise<() => Promise<void>> => {
   if (isMockBrowser) {
     await page.evaluate(async () => {
-      const modulePath = '/src/test/phase9BrowserMockControl.ts'
+      const modulePath = '/src/test/accessibilityBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
         armPhase9DashboardInsightsFailure: () => void
       }
