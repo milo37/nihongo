@@ -93,7 +93,7 @@ for (const locale of ['ko', 'ja'] as const) {
     await expect(page.locator('html')).toHaveAttribute('lang', locale)
     if (mode === 'mock') {
       await page.evaluate(async () => {
-        const path = '/src/test/phase10BrowserMockControl.ts'
+        const path = '/src/test/journeyBrowserMockControl.ts'
         const control = (await import(/* @vite-ignore */ path)) as {
           resetPhase10MockState: () => Promise<void>
         }
@@ -117,7 +117,7 @@ for (const locale of ['ko', 'ja'] as const) {
       ).toBe(true)
       if (mode === 'mock') {
         await page.evaluate(async () => {
-          const path = '/src/test/phase10BrowserMockControl.ts'
+          const path = '/src/test/journeyBrowserMockControl.ts'
           const control = (await import(/* @vite-ignore */ path)) as {
             completePhase10MockGoogleCallback: () => Promise<void>
           }
@@ -205,7 +205,7 @@ for (const locale of ['ko', 'ja'] as const) {
     } finally {
       if (mode === 'mock') {
         await page.evaluate(async () => {
-          const path = '/src/test/phase10BrowserMockControl.ts'
+          const path = '/src/test/journeyBrowserMockControl.ts'
           const control = (await import(/* @vite-ignore */ path)) as {
             resetPhase10MockState: () => Promise<void>
           }
@@ -370,7 +370,7 @@ const prepareJourney = async (page: Page, address: string): Promise<void> => {
   await settleJourneyPage(page)
   if (mode === 'mock') {
     await page.evaluate(async () => {
-      const path = '/src/test/phase10BrowserMockControl.ts'
+      const path = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ path)) as {
         resetPhase10MockState: () => Promise<void>
       }
@@ -580,7 +580,7 @@ const armDashboardFault = async (
 ): Promise<() => Promise<void>> => {
   if (mode === 'mock') {
     await page.evaluate(async (faultKind) => {
-      const modulePath = '/src/test/phase10BrowserMockControl.ts'
+      const modulePath = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
         armPhase10DashboardInsightsFault: (value: DashboardFault) => void
       }
