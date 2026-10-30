@@ -3,6 +3,7 @@ const PHASE7_STARTUP_ROLES = new Set([
   'nihongo_app',
   'nihongo_auth_gateway',
   'nihongo_erasure_worker',
+  'nihongo_guest_cleanup_worker',
   'nihongo_phase7_migration'
 ])
 

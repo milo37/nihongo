@@ -29,7 +29,8 @@ const PHASE7_MIGRATIONS = [
   '20261028120000_sso_account_erasure_claim_lease',
   '20261028150000_sso_provider_cleanup_fencing',
   '20261028160000_study_contract_v2_default',
-  '20261028170000_study_v1_retirement_authority'
+  '20261028170000_study_v1_retirement_authority',
+  '20261030100000_guest_expired_draft_retention'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -441,16 +442,16 @@ afterAll(async () => {
 })
 
 describe('Phase 7 Slice 1 persistence foundation', () => {
-  it('52 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('53 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(52)
+    expect(ledger.rows).toHaveLength(53)
     expect(
-      ledger.rows.slice(-10).map(({ migrationName }) => migrationName)
+      ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(PHASE7_MIGRATIONS)
     expect(
       (
@@ -544,7 +545,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 52 }])
+      ).toEqual([{ migrationCount: 53 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -8604,6 +8605,41 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         ])
       ).resolves.toHaveLength(2)
 
+      const workerLogin = 'nihongo_test_guest_cleanup_worker_login'
+      const developmentWorkerLogin =
+        'nihongo_development_guest_cleanup_worker_login'
+      const database = quoteIdentifier(configuredDatabaseName)
+      const checkWorkerDatabaseAcl = async (
+        role: string,
+        privilege: string,
+        accepted: boolean,
+        grantOption = false
+      ): Promise<void> => {
+        await client.query(
+          `GRANT ${privilege} ON DATABASE ${database} TO ${quoteIdentifier(role)}${grantOption ? ' WITH GRANT OPTION' : ''}`
+        )
+        try {
+          const attestation = attestPhase7RuntimeRoles(endpoints)
+          if (accepted) {
+            await expect(attestation).resolves.toBeUndefined()
+          } else {
+            await expect(attestation).rejects.toThrow(
+              'Phase 7 runtime DB role attestation failed.'
+            )
+          }
+        } finally {
+          await client.query(
+            `REVOKE ALL PRIVILEGES ON DATABASE ${database} FROM ${quoteIdentifier(role)}`
+          )
+        }
+      }
+
+      await checkWorkerDatabaseAcl(workerLogin, 'CONNECT', true)
+      await checkWorkerDatabaseAcl(workerLogin, 'CONNECT', false, true)
+      await checkWorkerDatabaseAcl(workerLogin, 'CREATE', false)
+      await checkWorkerDatabaseAcl(workerLogin, 'TEMPORARY', false)
+      await checkWorkerDatabaseAcl(developmentWorkerLogin, 'CONNECT', false)
+
       const assertReplicaStartupFailsClosed = async ({
         resetSetting,
         setSetting,
@@ -8760,6 +8796,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          NOREPLICATION NOBYPASSRLS`
       )
       extraRoleCreated = true
+      await checkWorkerDatabaseAcl(extraRole, 'CONNECT', false)
       await client.query(
         `GRANT ${quoteIdentifier(extraRole)} TO ${quoteIdentifier(applicationLogin)}`
       )

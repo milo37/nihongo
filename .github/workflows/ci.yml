@@ -126,19 +126,19 @@ jobs:
       postgres:
         image: ${{ (needs.plan.outputs.api == 'true' || needs.plan.outputs.browser == 'true' || needs.plan.outputs.performance == 'true') && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
         env:
-          POSTGRES_DB: nihongo_test
+          POSTGRES_DB: nihongo_jlp534_test
           POSTGRES_USER: nihongo
           POSTGRES_PASSWORD: ci_only_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U nihongo -d nihongo_test"
+          --health-cmd "pg_isready -U nihongo -d nihongo_jlp534_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 20
     env:
       CI_SELECTION: ${{ needs.plan.outputs.selection }}
-      DATABASE_URL: postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_test?schema=public
+      DATABASE_URL: postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_jlp534_test?schema=public
       NODE_ENV: test
       TRUSTED_ORIGINS: http://localhost:5173
       LOG_LEVEL: silent

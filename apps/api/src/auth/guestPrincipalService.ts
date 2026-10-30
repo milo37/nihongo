@@ -9,6 +9,7 @@ import { z } from 'zod'
 import type { PrismaClient } from '../generated/prisma/client.js'
 
 const GUEST_TTL_MS = 7 * 24 * 60 * 60 * 1_000
+const GUEST_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000
 const guestCookieSchema = z.tuple([
   z.uuid(),
   z.string().min(32),
@@ -136,11 +137,6 @@ export const createGuestPrincipalService = ({
       guest.expiresAt <= now ||
       guest.tokenDigest !== digestToken(verified.rawToken)
     ) {
-      if (guest?.expiresAt && guest.expiresAt <= now) {
-        await client.guestPrincipal.deleteMany({
-          where: { id: guest.id, studySessions: { none: {} } }
-        })
-      }
       return null
     }
 
@@ -178,11 +174,11 @@ export const createGuestPrincipalService = ({
       }
     },
     deleteExpired: async (batchSize = 100) => {
-      const safeBatchSize = Math.max(1, Math.min(batchSize, 1_000))
-      const now = new Date()
+      const safeBatchSize = Math.max(1, Math.min(batchSize, 500))
+      const threshold = new Date(Date.now() - GUEST_RETENTION_MS)
       const expired = await client.guestPrincipal.findMany({
         where: {
-          expiresAt: { lte: now },
+          expiresAt: { lte: threshold },
           studySessions: { none: {} }
         },
         orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }],
@@ -194,7 +190,7 @@ export const createGuestPrincipalService = ({
       }
       const result = await client.guestPrincipal.deleteMany({
         where: {
-          expiresAt: { lte: now },
+          expiresAt: { lte: threshold },
           id: { in: expired.map(({ id }) => id) },
           studySessions: { none: {} }
         }

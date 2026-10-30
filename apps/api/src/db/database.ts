@@ -32,6 +32,7 @@ interface CreateDatabaseRuntimeOptions {
     | 'nihongo_app'
     | 'nihongo_auth_gateway'
     | 'nihongo_erasure_worker'
+    | 'nihongo_guest_cleanup_worker'
 }
 
 export const selectDatabaseGlobalOmit = (
@@ -91,7 +92,11 @@ const createPrismaClient = (
 
 export const createRoleDatabaseRuntime = (
   connectionString: string,
-  startupRole: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_erasure_worker'
+  startupRole:
+    | 'nihongo_app'
+    | 'nihongo_auth_gateway'
+    | 'nihongo_erasure_worker'
+    | 'nihongo_guest_cleanup_worker'
 ): RoleDatabaseRuntime => {
   const client = createPrismaClient(connectionString, { startupRole })
   return {

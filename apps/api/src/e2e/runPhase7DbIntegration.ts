@@ -43,7 +43,8 @@ const PHASE7_GROUP_ROLES = [
   'nihongo_phase7_migration',
   'nihongo_app',
   'nihongo_auth_gateway',
-  'nihongo_erasure_worker'
+  'nihongo_erasure_worker',
+  'nihongo_guest_cleanup_worker'
 ] as const
 const PHASE7_WRAPPER_ROLES = [
   {
@@ -60,6 +61,10 @@ const PHASE7_WRAPPER_ROLES = [
     grantedRole: 'nihongo_erasure_worker'
   },
   {
+    name: 'nihongo_test_guest_cleanup_worker_login',
+    grantedRole: 'nihongo_guest_cleanup_worker'
+  },
+  {
     name: 'nihongo_development_phase7_migration_login',
     grantedRole: 'nihongo_phase7_migration'
   },
@@ -71,6 +76,10 @@ const PHASE7_WRAPPER_ROLES = [
   {
     name: 'nihongo_development_erasure_worker_login',
     grantedRole: 'nihongo_erasure_worker'
+  },
+  {
+    name: 'nihongo_development_guest_cleanup_worker_login',
+    grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
 const PHASE7_LEGACY_ROLES = [
@@ -1247,6 +1256,7 @@ const cleanup = (): Promise<void> => {
               )
             }
             for (const name of [
+              'nihongo_guest_cleanup_worker',
               'nihongo_erasure_worker',
               'nihongo_auth_gateway',
               'nihongo_app',

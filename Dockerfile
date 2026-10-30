@@ -32,6 +32,7 @@ RUN node -e "const id=process.env.RELEASE_ID;if(!/^[0-9a-f]{40}$/.test(id)||/^0+
 RUN pnpm run build
 RUN pnpm --filter @nihongo/api deploy --prod --legacy /release/api
 RUN node scripts/operations/normalize-api-deploy.mjs --api-directory /release/api --workspace-api-directory /workspace/apps/api
+RUN test -f /release/api/dist/study/studyGuestCleanupRuntime.js && test -f /release/api/dist/study/studyGuestCleanupCommand.js
 RUN cp -R apps/web/dist /release/web
 RUN cp -R apps/admin/dist /release/admin
 RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --workspace /workspace --release-id "$RELEASE_ID" --api-directory /release/api --web-directory /release/web --admin-directory /release/admin --output /release/release-manifest.json

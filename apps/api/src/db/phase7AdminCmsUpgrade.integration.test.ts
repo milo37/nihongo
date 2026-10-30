@@ -1434,13 +1434,25 @@ const bootstrapFreshCanonicalCatalog = async (
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 prefix37→canonical65→current52를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current53를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
+    const legacyConnectInitiallyGranted =
+      (
+        await context.serverClient.query<{ granted: boolean }>(
+          `SELECT EXISTS (
+           SELECT 1 FROM pg_database AS db,
+             LATERAL aclexplode(COALESCE(db.datacl, acldefault('d', db.datdba))) AS acl
+           WHERE db.datname = $1 AND acl.grantee = to_regrole($2)
+             AND acl.privilege_type = 'CONNECT'
+         ) AS granted`,
+          [context.databaseName, LEGACY_APP_LOGIN]
+        )
+      ).rows[0]?.granted === true
     try {
       // The preceding activation coverage intentionally removes the legacy
       // wrapper's cluster-global CONNECT grant. A pristine pre-Phase-7 deploy
       // requires the canonical seven-entry migration ACL, so this isolated
-      // fixture restores that one entry and removes it again during cleanup.
+      // fixture adds that entry if missing, then restores the prior ACL state.
       await context.serverClient.query(
         `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)}
          TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
@@ -1450,7 +1462,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       const prefix = repositoryMigrationNames.filter(
         (name) => name <= lastBootstrapMigration
       )
-      expect(repositoryMigrationNames).toHaveLength(52)
+      expect(repositoryMigrationNames).toHaveLength(53)
       expect(prefix).toHaveLength(37)
       expect(prefix.at(-1)).toBe(lastBootstrapMigration)
       for (const migrationName of prefix) {
@@ -1467,7 +1479,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).not.toThrow()
       await bootstrapFreshCanonicalCatalog(context)
       const remainder = repositoryMigrationNames.slice(37)
-      expect(remainder).toHaveLength(15)
+      expect(remainder).toHaveLength(16)
       expect(remainder[0]).toBe(
         '20261009120000_phase7_approved_n4_reading_batch7_tags'
       )
@@ -1476,7 +1488,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       }
       await deploy(context)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(52)
+      expect(ledger).toHaveLength(53)
       expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
         repositoryMigrationNames
       )
@@ -1496,7 +1508,8 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         ledger.slice(50).map(({ migrationName }) => migrationName)
       ).toEqual([
         '20261028160000_study_contract_v2_default',
-        '20261028170000_study_v1_retirement_authority'
+        '20261028170000_study_v1_retirement_authority',
+        '20261030100000_guest_expired_draft_retention'
       ])
       expect(
         ledger.every(
@@ -1518,7 +1531,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 52)
+      await verifyCanonicalMigrationLedgerAccess(context, 53)
       expect(
         (
           await context.adminClient.query<{
@@ -1552,12 +1565,14 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         }
       ])
     } finally {
-      await context.serverClient
-        .query(
-          `REVOKE CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)}
-           FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
-        )
-        .catch(() => undefined)
+      if (!legacyConnectInitiallyGranted) {
+        await context.serverClient
+          .query(
+            `REVOKE CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)}
+             FROM ${quoteIdentifier(LEGACY_APP_LOGIN)}`
+          )
+          .catch(() => undefined)
+      }
       await dispose(context)
     }
   }, 180_000)

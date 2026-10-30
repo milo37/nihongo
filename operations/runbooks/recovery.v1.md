@@ -56,15 +56,17 @@ The historical physical50 source adds
 `394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e`.
 Its ordered inventory digest is
 `299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083`.
-The current physical52 inventory adds `20261028160000_study_contract_v2_default`
+The historical physical52 inventory added `20261028160000_study_contract_v2_default`
 (file SHA256 `3b2dd4b6186d0f3603942a3de324cea3041e6fb0cd395eb9fc49f57c9e86a858`)
 and `20261028170000_study_v1_retirement_authority`
 (file SHA256 `622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82`).
-Historical physical50 is rejected as the current technical profile.
+The current physical53 inventory adds `20261030100000_guest_expired_draft_retention`
+(file SHA256 `5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7`).
+Historical physical50 and physical52 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
+No current physical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
@@ -120,7 +122,7 @@ current technical recovery profile or as a fallback.
 `20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
 candidate rather than current-artifact compatibility or deployability proof.
 The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
-The replacement candidate uses a current-52 controlled Google-linked TEST session:
+The replacement candidate uses a current-53 controlled Google-linked TEST session:
 task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
 reviewed canonical65 seed helper, and remaining immutable migrations. An existing
 unique canonical tag must return exactly one matching question/version. The same

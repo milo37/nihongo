@@ -14,4 +14,16 @@ SELECT "phase7_register_database_capability"(
 SELECT "phase7_activate_v1_issuer"(
   :'phase7_environment'::"AdminAuditEnvironment"
 );
+-- Delay guest CONNECT until the immutable prefix ACL check and migration 53 finish.
+DO $guest_cleanup_connect$
+BEGIN
+  IF current_database() NOT IN ('nihongo_test', 'nihongo_dev')
+    OR to_regprocedure('phase7_guest_cleanup_batch("AdminAuditEnvironment",integer,boolean)') IS NULL THEN
+    RAISE EXCEPTION 'Guest cleanup activation requires the migrated local target.';
+  END IF;
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(),
+    CASE current_database() WHEN 'nihongo_test' THEN 'nihongo_test_guest_cleanup_worker_login'
+      ELSE 'nihongo_development_guest_cleanup_worker_login' END);
+END;
+$guest_cleanup_connect$;
 COMMIT;

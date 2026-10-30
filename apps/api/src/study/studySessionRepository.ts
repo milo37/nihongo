@@ -1116,9 +1116,11 @@ export const createPrismaStudySessionRepository = (
                 where: { id: sessionId },
                 data: { status: 'EXPIRED', updatedAt: now }
               })
-              await transaction.studyDraft.deleteMany({
-                where: { studySessionId: sessionId }
-              })
+              if (owner.kind !== 'GUEST') {
+                await transaction.studyDraft.deleteMany({
+                  where: { studySessionId: sessionId }
+                })
+              }
             }
             return await loadStudySessionRecord(transaction, sessionId, owner)
           },

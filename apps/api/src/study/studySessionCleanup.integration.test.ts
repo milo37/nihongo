@@ -3,7 +3,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { Client } from 'pg'
 import { applyWrongNoteReview } from '@nihongo/domain/review/apply-wrong-note-review'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import {
@@ -25,6 +25,8 @@ import { createStudyV1RetirementClient } from './studyV1RetirementClient.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
+import { createPrismaStudyDraftCleanupRepository } from './studyDraftCleanupRepository.js'
+import { createStudyDraftCleanupService } from './studyDraftCleanupService.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS
@@ -445,7 +447,7 @@ beforeAll(async () => {
   }
 })
 
-afterAll(async () => {
+const cleanupOwnedFixtures = async () => {
   if (createdUserIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of createdUserIds) {
@@ -470,6 +472,15 @@ afterAll(async () => {
       where: { id: { in: [...createdGuestPrincipalIds] } }
     })
   }
+  createdUserIds.clear()
+  createdSessionIds.clear()
+  createdGuestPrincipalIds.clear()
+}
+
+afterEach(cleanupOwnedFixtures)
+
+afterAll(async () => {
+  await cleanupOwnedFixtures()
   if (erasureWorkerClient) {
     await erasureWorkerClient.end()
   }
@@ -481,6 +492,128 @@ afterAll(async () => {
 })
 
 describe('StudySession bounded retention cleanup', () => {
+  it('빈 게스트 식별자는 만료 후 7일 정각부터 정리한다', async () => {
+    const threshold = NOW.getTime() - 7 * DAY_MS
+    const before = await createGuestPrincipal(new Date(threshold + 1))
+    const exact = await createGuestPrincipal(new Date(threshold))
+    const after = await createGuestPrincipal(new Date(threshold - 1))
+
+    await service.cleanup({ batchSize: 100 })
+    const remaining = await database.client.guestPrincipal.findMany({
+      where: { id: { in: [before, exact, after] } },
+      select: { id: true }
+    })
+    expect(remaining.map(({ id }) => id)).toEqual([before])
+  })
+
+  it('만료 후 7일 정각부터 게스트만 정리하고 회원과 직전 기록을 보존한다', async () => {
+    const guestId = await createGuestPrincipal(new Date(NOW.getTime() + DAY_MS))
+    const userId = await createUser()
+    const threshold = NOW.getTime() - 7 * DAY_MS
+    const before = await createSession({
+      owner: { kind: 'GUEST', id: guestId },
+      expiresAt: new Date(threshold + 1),
+      status: 'EXPIRED'
+    })
+    const exact = await createSession({
+      owner: { kind: 'GUEST', id: guestId },
+      expiresAt: new Date(threshold),
+      status: 'EXPIRED'
+    })
+    const after = await createSession({
+      owner: { kind: 'GUEST', id: guestId },
+      expiresAt: new Date(threshold - 1),
+      status: 'EXPIRED'
+    })
+    const member = await createSession({
+      owner: { kind: 'USER', id: userId },
+      expiresAt: new Date(threshold - 1)
+    })
+    const active = await createSession({
+      owner: { kind: 'GUEST', id: guestId },
+      expiresAt: new Date(NOW.getTime() + HOUR_MS)
+    })
+    const pendingGuestId = await createGuestPrincipal(
+      new Date(NOW.getTime() + DAY_MS)
+    )
+    const pending = await createSession({
+      owner: { kind: 'GUEST', id: pendingGuestId },
+      expiresAt: new Date(threshold - 1),
+      status: 'EXPIRED'
+    })
+    const pendingConnection = new Client({
+      connectionString: environment.DATABASE_URL,
+      options: createPostgresStartupOptions(
+        getPostgresSchema(environment.DATABASE_URL),
+        'nihongo_app'
+      )
+    })
+    const pendingRecordId = randomUUID()
+    await pendingConnection.connect()
+    try {
+      await pendingConnection.query('BEGIN')
+      await pendingConnection.query(
+        'SELECT "id" FROM "GuestPrincipal" WHERE "id" = $1 FOR NO KEY UPDATE',
+        [pendingGuestId]
+      )
+      await pendingConnection.query(
+        `INSERT INTO "IdempotencyRecord"
+          ("id", "principalType", "guestPrincipalId", "operation", "contractVersion", "idempotencyKey", "studySessionId", "requestHash", "state", "createdAt")
+         VALUES ($1, 'GUEST', $2, 'STUDY_SUBMIT', 1, $3, $4, $5, 'PROCESSING', clock_timestamp())`,
+        [
+          pendingRecordId,
+          pendingGuestId,
+          randomUUID(),
+          pending.sessionId,
+          createHash('sha256').update(randomUUID()).digest('hex')
+        ]
+      )
+      const processing = await pendingConnection.query<{
+        state: string
+        expiresAt: Date | null
+      }>(
+        'SELECT "state", "expiresAt" FROM "IdempotencyRecord" WHERE "id" = $1',
+        [pendingRecordId]
+      )
+      expect(processing.rows).toEqual([
+        { state: 'PROCESSING', expiresAt: null }
+      ])
+      await service.cleanup({ batchSize: 100 })
+      const remaining = await database.client.studySession.findMany({
+        where: {
+          id: {
+            in: [
+              before.sessionId,
+              exact.sessionId,
+              after.sessionId,
+              member.sessionId,
+              active.sessionId,
+              pending.sessionId
+            ]
+          }
+        },
+        select: { id: true }
+      })
+      expect(remaining.map(({ id }) => id).sort()).toEqual(
+        [
+          before.sessionId,
+          member.sessionId,
+          active.sessionId,
+          pending.sessionId
+        ].sort()
+      )
+    } finally {
+      await pendingConnection.query('ROLLBACK')
+      await pendingConnection.end()
+    }
+    await service.cleanup({ batchSize: 100 })
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: pending.sessionId }
+      })
+    ).toBeNull()
+  })
+
   it('기존 auth 만료 경로도 참조된 guest와 terminal session을 보존한다', async () => {
     const orphanGuestId = await createGuestPrincipal(
       new Date('1980-01-08T00:00:00.000Z')
@@ -567,11 +700,13 @@ describe('StudySession bounded retention cleanup', () => {
 
     const oldest = await createSession({
       owner: { kind: 'GUEST', id: oldestGuestId },
-      expiresAt: new Date(NOW.getTime() - 2 * HOUR_MS)
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 2 * HOUR_MS),
+      status: 'EXPIRED'
     })
     const newer = await createSession({
       owner: { kind: 'GUEST', id: newerGuestId },
-      expiresAt: new Date(NOW.getTime() - HOUR_MS)
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - HOUR_MS),
+      status: 'EXPIRED'
     })
     const future = await createSession({
       owner: { kind: 'GUEST', id: futureGuestId },
@@ -584,12 +719,12 @@ describe('StudySession bounded retention cleanup', () => {
     })
     await createSession({
       owner: { kind: 'GUEST', id: cancelledGuestId },
-      expiresAt: new Date(NOW.getTime() - 3 * HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 3 * HOUR_MS),
       status: 'CANCELLED'
     })
     await createSession({
       owner: { kind: 'GUEST', id: expiredStatusGuestId },
-      expiresAt: new Date(NOW.getTime() - 3 * HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 3 * HOUR_MS),
       status: 'EXPIRED'
     })
     const oldSubmitted = await createSession({
@@ -733,7 +868,19 @@ describe('StudySession bounded retention cleanup', () => {
       })
     ).toBe(2)
 
-    const expiredReplayCleanup = service
+    await expect(service.cleanup({ batchSize: 1 })).resolves.toMatchObject({
+      deletedStudySessionCount: 0,
+      deletedGuestPrincipalCount: 0
+    })
+    const retentionDeadline = new Date(NOW.getTime() + 7 * DAY_MS)
+    await createStudyDraftCleanupService(
+      createPrismaStudyDraftCleanupRepository(database.client),
+      () => retentionDeadline
+    ).cleanup({ batchSize: 10 })
+    const expiredReplayCleanup = createStudySessionCleanupService(
+      createPrismaStudySessionCleanupRepository(database.client),
+      () => retentionDeadline
+    )
     await expect(
       expiredReplayCleanup.cleanup({ batchSize: 1 })
     ).resolves.toMatchObject({
@@ -772,10 +919,10 @@ describe('StudySession bounded retention cleanup', () => {
 
   it('참조 없는 만료 GuestPrincipal만 bounded·idempotent하게 삭제한다', async () => {
     const oldestOrphanId = await createGuestPrincipal(
-      new Date(NOW.getTime() - 3 * HOUR_MS)
+      new Date(NOW.getTime() - 7 * DAY_MS - 3 * HOUR_MS)
     )
     const newerOrphanId = await createGuestPrincipal(
-      new Date(NOW.getTime() - 2 * HOUR_MS)
+      new Date(NOW.getTime() - 7 * DAY_MS - 2 * HOUR_MS)
     )
     const futureOrphanId = await createGuestPrincipal(
       new Date(NOW.getTime() + HOUR_MS)
@@ -838,11 +985,12 @@ describe('StudySession bounded retention cleanup', () => {
 
   it('eligible session 삭제 뒤 같은 transaction에서 orphan expired guest를 정리한다', async () => {
     const guestId = await createGuestPrincipal(
-      new Date(NOW.getTime() - HOUR_MS)
+      new Date(NOW.getTime() - 7 * DAY_MS - HOUR_MS)
     )
     const session = await createSession({
       owner: { kind: 'GUEST', id: guestId },
-      expiresAt: new Date(NOW.getTime() - 2 * HOUR_MS)
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 2 * HOUR_MS),
+      status: 'EXPIRED'
     })
 
     await expect(service.cleanup({ batchSize: 10 })).resolves.toMatchObject({

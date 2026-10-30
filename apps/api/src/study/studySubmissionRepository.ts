@@ -920,15 +920,18 @@ const assertEditable = (
 const expireLockedSubmissionSession = async (
   transaction: Prisma.TransactionClient,
   sessionId: string,
-  observedAt: Date
+  observedAt: Date,
+  preserveGuestDraft: boolean
 ): Promise<void> => {
   await transaction.studySession.update({
     where: { id: sessionId },
     data: { status: 'EXPIRED', updatedAt: observedAt }
   })
-  await transaction.studyDraft.deleteMany({
-    where: { studySessionId: sessionId }
-  })
+  if (!preserveGuestDraft) {
+    await transaction.studyDraft.deleteMany({
+      where: { studySessionId: sessionId }
+    })
+  }
 }
 
 type RunAtomicSubmissionOutcome =
@@ -1039,7 +1042,8 @@ const runAtomicSubmission = async (
       await expireLockedSubmissionSession(
         transaction,
         input.sessionId,
-        input.observedAt
+        input.observedAt,
+        input.owner.kind === 'GUEST'
       )
       return { kind: 'NOT_EDITABLE' }
     }
