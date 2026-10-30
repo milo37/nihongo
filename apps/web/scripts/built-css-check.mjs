@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { stdout } from 'node:process'
 import { fileURLToPath, URL } from 'node:url'
 import { validateBuiltCssContract } from './phase9-built-css-contract.mjs'
-import { validateProductionBundleRuntime } from './phase9-production-bundle-contract.mjs'
+import { validateProductionBundleRuntime } from './production-bundle-runtime-contract.mjs'
 
 const webRoot = fileURLToPath(new URL('..', import.meta.url))
 const distRoot = resolve(webRoot, 'dist')
