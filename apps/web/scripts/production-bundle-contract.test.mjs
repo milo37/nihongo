@@ -21,7 +21,7 @@ import {
   phase10DashboardLazySource,
   phase10ForbiddenMockMarkers,
   phase10ForbiddenMockSources
-} from './phase10-production-bundle-contract.mjs'
+} from './production-bundle-contract.mjs'
 
 test('keeps one explicit ceiling for every bundle measurement', () => {
   assert.deepEqual(

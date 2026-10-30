@@ -10,7 +10,7 @@ import {
   collectPhase10BundleEvidence,
   phase10SplitBundleCommand,
   readPhase10BundleRepositoryState
-} from './phase10-production-bundle-contract.mjs'
+} from './production-bundle-contract.mjs'
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(webRoot, '../..')
