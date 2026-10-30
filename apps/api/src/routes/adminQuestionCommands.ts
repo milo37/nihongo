@@ -74,7 +74,7 @@ import type {
 } from '../admin/adminQuestionCommandService.js'
 import { getPhase7OperationBodyCap } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
-import { readPhase7JsonBody } from '../http/phase7JsonBody.js'
+import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 
@@ -110,7 +110,7 @@ const parseBody = async <Schema extends ZodType>(
   schema: Schema,
   message: string
 ): Promise<z.output<Schema>> => {
-  const raw = await readPhase7JsonBody(
+  const raw = await readStrictJsonBody(
     request,
     getPhase7OperationBodyCap(operation)
   )

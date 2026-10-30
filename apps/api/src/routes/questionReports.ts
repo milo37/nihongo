@@ -9,7 +9,7 @@ import { z, type ZodError } from 'zod'
 import type { QuestionReportService } from '../admin/questionReportService.js'
 import { getPhase7OperationBodyCap } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
-import { readPhase7JsonBody } from '../http/phase7JsonBody.js'
+import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 
@@ -55,7 +55,7 @@ export const createQuestionReportRoutes = ({
       phase7EmptyQuerySchema,
       '문제 신고 쿼리 문자열이 올바르지 않습니다.'
     )
-    const raw = await readPhase7JsonBody(
+    const raw = await readStrictJsonBody(
       context.req.raw,
       getPhase7OperationBodyCap('createQuestionReport')
     )
