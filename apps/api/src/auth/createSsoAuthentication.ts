@@ -19,7 +19,7 @@ import type { SsoProvider } from './ssoProtocol.js'
 import {
   createExpiredPhase7SessionCookies,
   readPhase7SessionToken
-} from './phase7SessionCookie.js'
+} from './sessionCookie.js'
 import type { Phase7AuthFacade } from './phase7AuthFacade.js'
 
 /** Source-only composition: no mail/password adapter or CMS enablement. */

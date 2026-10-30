@@ -10,7 +10,7 @@ import {
   createExpiredPhase7SessionCookies,
   createPhase7SessionCookie,
   readPhase7SessionToken
-} from './phase7SessionCookie.js'
+} from './sessionCookie.js'
 
 const ONE_HOUR_SECONDS = 60 * 60
 const MAX_TOKEN_LENGTH = 4_096

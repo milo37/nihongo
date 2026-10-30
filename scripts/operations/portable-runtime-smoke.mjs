@@ -597,7 +597,7 @@ export const seedLearnerCompatibilityFixture = (
 export const controlledSessionProgram = `
 import { createRoleDatabaseRuntime } from '/app/api/dist/db/database.js';
 import { createSsoIdentityRepository } from '/app/api/dist/auth/ssoIdentityRepository.js';
-import { createPhase7SessionCookie } from '/app/api/dist/auth/phase7SessionCookie.js';
+import { createPhase7SessionCookie } from '/app/api/dist/auth/sessionCookie.js';
 import { readFileSync } from 'node:fs';
 const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
 const url = new URL(process.env.AUTH_GATEWAY_DATABASE_URL);

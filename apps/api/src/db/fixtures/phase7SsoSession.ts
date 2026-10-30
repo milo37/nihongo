@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { SsoVerifiedIdentity } from '../../auth/ssoProtocol.js'
 import type { PrismaClient } from '../../generated/prisma/client.js'
 import { createSsoIdentityRepository } from '../../auth/ssoIdentityRepository.js'
-import { createPhase7SessionCookie } from '../../auth/phase7SessionCookie.js'
+import { createPhase7SessionCookie } from '../../auth/sessionCookie.js'
 
 export const createPhase7SsoIdentityFixture = async ({
   owner,
