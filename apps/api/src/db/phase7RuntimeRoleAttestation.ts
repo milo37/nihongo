@@ -240,7 +240,10 @@ const ATTESTATION_QUERY = `
                   ELSE 'nihongo_development_auth_gateway_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_erasure_worker_login'
-                  ELSE 'nihongo_development_erasure_worker_login' END
+                  ELSE 'nihongo_development_erasure_worker_login' END,
+                CASE WHEN current_database() ~ '_test$'
+                  THEN 'nihongo_test_guest_cleanup_worker_login'
+                  ELSE 'nihongo_development_guest_cleanup_worker_login' END
               ]::name[])
               AND entry.privilege_type = 'CONNECT'
               AND NOT entry.is_grantable

@@ -39,29 +39,18 @@ export const createPrismaStudySessionCleanupRepository = (
               FROM "StudySession" AS session
               WHERE session."guestPrincipalId" = guest."id"
                 AND session."userId" IS NULL
-                AND (
-                  (
-                    session."status" = 'SUBMITTED'
-                    AND session."submittedAt" IS NOT NULL
-                    AND session."submittedAt" <=
-                      ${now}::timestamptz - INTERVAL '7 days'
-                  )
-                  OR (
-                    session."status" IN (
-                      'IN_PROGRESS',
-                      'CANCELLED',
-                      'EXPIRED'
-                    )
-                    AND session."expiresAt" <= ${now}
-                  )
-                )
+                AND session."status" <> 'IN_PROGRESS'
+                AND session."expiresAt" <=
+                  ${now}::timestamptz - INTERVAL '7 days'
                 AND NOT EXISTS (
                   SELECT 1
                   FROM "IdempotencyRecord" AS record
                   WHERE record."studySessionId" = session."id"
-                    AND record."state" = 'SUCCEEDED'
-                    AND record."expiresAt" IS NOT NULL
-                    AND record."expiresAt" > ${now}
+                    AND (
+                      record."state" <> 'SUCCEEDED'
+                      OR record."expiresAt" IS NULL
+                      OR record."expiresAt" > ${now}
+                    )
                 )
                 AND NOT EXISTS (
                   SELECT 1
@@ -80,29 +69,18 @@ export const createPrismaStudySessionCleanupRepository = (
               ON guest."id" = session."guestPrincipalId"
             WHERE session."userId" IS NULL
               AND session."guestPrincipalId" IS NOT NULL
-              AND (
-                (
-                  session."status" = 'SUBMITTED'
-                  AND session."submittedAt" IS NOT NULL
-                  AND session."submittedAt" <=
-                    ${now}::timestamptz - INTERVAL '7 days'
-                )
-                OR (
-                  session."status" IN (
-                    'IN_PROGRESS',
-                    'CANCELLED',
-                    'EXPIRED'
-                  )
-                  AND session."expiresAt" <= ${now}
-                )
-              )
+              AND session."status" <> 'IN_PROGRESS'
+              AND session."expiresAt" <=
+                ${now}::timestamptz - INTERVAL '7 days'
               AND NOT EXISTS (
                 SELECT 1
                 FROM "IdempotencyRecord" AS record
                 WHERE record."studySessionId" = session."id"
-                  AND record."state" = 'SUCCEEDED'
-                  AND record."expiresAt" IS NOT NULL
-                  AND record."expiresAt" > ${now}
+                  AND (
+                    record."state" <> 'SUCCEEDED'
+                    OR record."expiresAt" IS NULL
+                    OR record."expiresAt" > ${now}
+                  )
               )
               AND NOT EXISTS (
                 SELECT 1
@@ -121,29 +99,18 @@ export const createPrismaStudySessionCleanupRepository = (
           WHERE session."id" = candidates."id"
             AND session."userId" IS NULL
             AND session."guestPrincipalId" IS NOT NULL
-            AND (
-              (
-                session."status" = 'SUBMITTED'
-                AND session."submittedAt" IS NOT NULL
-                AND session."submittedAt" <=
-                  ${now}::timestamptz - INTERVAL '7 days'
-              )
-              OR (
-                session."status" IN (
-                  'IN_PROGRESS',
-                  'CANCELLED',
-                  'EXPIRED'
-                )
-                AND session."expiresAt" <= ${now}
-              )
-            )
+            AND session."status" <> 'IN_PROGRESS'
+            AND session."expiresAt" <=
+              ${now}::timestamptz - INTERVAL '7 days'
             AND NOT EXISTS (
               SELECT 1
               FROM "IdempotencyRecord" AS record
               WHERE record."studySessionId" = session."id"
-                AND record."state" = 'SUCCEEDED'
-                AND record."expiresAt" IS NOT NULL
-                AND record."expiresAt" > ${now}
+                AND (
+                  record."state" <> 'SUCCEEDED'
+                  OR record."expiresAt" IS NULL
+                  OR record."expiresAt" > ${now}
+                )
             )
             AND NOT EXISTS (
               SELECT 1
@@ -159,7 +126,7 @@ export const createPrismaStudySessionCleanupRepository = (
           WITH candidates AS MATERIALIZED (
             SELECT guest."id"
             FROM "GuestPrincipal" AS guest
-            WHERE guest."expiresAt" <= ${now}
+            WHERE guest."expiresAt" <= ${now}::timestamptz - INTERVAL '7 days'
               AND NOT EXISTS (
                 SELECT 1
                 FROM "StudySession" AS session
@@ -172,7 +139,7 @@ export const createPrismaStudySessionCleanupRepository = (
           DELETE FROM "GuestPrincipal" AS guest
           USING candidates
           WHERE guest."id" = candidates."id"
-            AND guest."expiresAt" <= ${now}
+            AND guest."expiresAt" <= ${now}::timestamptz - INTERVAL '7 days'
             AND NOT EXISTS (
               SELECT 1
               FROM "StudySession" AS session
@@ -201,6 +168,12 @@ export const createPrismaStudySessionCleanupRepository = (
               AND record."operation" = 'STUDY_SUBMIT'
               AND record."expiresAt" IS NOT NULL
               AND record."expiresAt" <= ${now}
+              AND NOT EXISTS (
+                SELECT 1 FROM "StudySession" AS retry
+                WHERE retry."retryOfStudySessionId" = record."studySessionId"
+                  AND retry."status" = 'IN_PROGRESS'
+                  AND retry."expiresAt" > ${now}
+              )
             ORDER BY record."expiresAt" ASC, record."id" ASC
             LIMIT ${batchSize}
             FOR UPDATE OF record SKIP LOCKED
@@ -212,6 +185,12 @@ export const createPrismaStudySessionCleanupRepository = (
             AND record."operation" = 'STUDY_SUBMIT'
             AND record."expiresAt" IS NOT NULL
             AND record."expiresAt" <= ${now}
+            AND NOT EXISTS (
+              SELECT 1 FROM "StudySession" AS retry
+              WHERE retry."retryOfStudySessionId" = record."studySessionId"
+                AND retry."status" = 'IN_PROGRESS'
+                AND retry."expiresAt" > ${now}
+            )
           RETURNING record."id"
         `)
     )

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
@@ -129,6 +129,49 @@ const createSession = async ({
     })
   ).session
 
+const createGuest = async (createdAt: Date) => {
+  const prepared = createGuestPrincipalService({
+    client: database.client,
+    secret: environment.GUEST_COOKIE_SECRET
+  }).prepareCredential()
+  await database.client.guestPrincipal.create({
+    data: {
+      id: prepared.id,
+      tokenDigest: prepared.tokenDigest,
+      createdAt,
+      lastSeenAt: createdAt,
+      expiresAt: new Date(createdAt.getTime() + 7 * DAY_MS)
+    }
+  })
+  createdGuestIds.add(prepared.id)
+  return prepared
+}
+
+const createGuestSession = async ({
+  expiresAt,
+  startedAt
+}: {
+  expiresAt: Date
+  startedAt: Date
+}) => {
+  const guest = await createGuest(startedAt)
+  return (
+    await sessionRepository.createRandom({
+      owner: {
+        kind: 'GUEST',
+        guestPrincipalId: guest.id,
+        tokenDigest: guest.tokenDigest
+      },
+      level: 'N5',
+      subject: 'VOCABULARY',
+      requestedCount: 1,
+      startedAt,
+      expiresAt,
+      practiceContractVersion: 2
+    })
+  ).session
+}
+
 const saveEmptyDraft = async (
   session: Awaited<ReturnType<typeof createSession>>,
   userId: string,
@@ -182,7 +225,7 @@ const createSubmittedIncorrectSession = async (
 }
 
 const createBulkOverdueSessions = async (
-  userId: string,
+  guestPrincipalId: string,
   count: number
 ): Promise<string[]> => {
   const question = await database.client.question.findFirstOrThrow({
@@ -218,19 +261,19 @@ const createBulkOverdueSessions = async (
       SELECT
         gen_random_uuid(),
         gen_random_uuid(),
-        ${NOW}::timestamptz - INTERVAL '27 hours'
+        ${NOW}::timestamptz - INTERVAL '7 days 3 hours'
           - series.value * INTERVAL '1 millisecond',
-        ${NOW}::timestamptz - INTERVAL '26 hours'
+        ${NOW}::timestamptz - INTERVAL '7 days 2 hours'
           - series.value * INTERVAL '1 millisecond'
       FROM generate_series(1, ${count}) AS series(value)`
     await transaction.$executeRaw`
       INSERT INTO "StudySession" (
-        "id", "userId", "level", "subject", "mode", "status",
+        "id", "guestPrincipalId", "level", "subject", "mode", "status",
         "requestedCount", "actualCount", "usedFallback", "startedAt",
         "expiresAt", "practiceContractVersion", "createdAt", "updatedAt"
       )
       SELECT
-        fixture."sessionId", ${userId}::uuid, 'N5', 'VOCABULARY', 'RANDOM',
+        fixture."sessionId", ${guestPrincipalId}::uuid, 'N5', 'VOCABULARY', 'RANDOM',
         'IN_PROGRESS', 1, 1, false, fixture."startedAt",
         fixture."expiresAt", 2, fixture."startedAt", fixture."startedAt"
       FROM "slice1_bulk_draft_cleanup" AS fixture`
@@ -298,7 +341,7 @@ beforeAll(async () => {
   }
 })
 
-afterAll(async () => {
+const cleanupOwnedFixtures = async () => {
   if (createdUserIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of createdUserIds) {
@@ -318,6 +361,14 @@ afterAll(async () => {
       where: { id: { in: [...createdGuestIds] } }
     })
   }
+  createdUserIds.clear()
+  createdGuestIds.clear()
+}
+
+afterEach(cleanupOwnedFixtures)
+
+afterAll(async () => {
+  await cleanupOwnedFixtures()
   if (erasureWorkerClient) {
     await erasureWorkerClient.end()
   }
@@ -328,26 +379,237 @@ afterAll(async () => {
 })
 
 describe('Phase 4 StudyDraft cold cleanup', () => {
-  it('24h 경계, bounded batch, parent 보존, operation 격리와 metric을 보장한다', async () => {
+  it.each(['session', 'draft', 'submit'] as const)(
+    '자연 만료 %s 경로는 즉시 거부하면서 guest draft와 replay를 보존한다',
+    async (path) => {
+      const startedAt = new Date(NOW.getTime() - 2 * DAY_MS)
+      const expiresAt = new Date(NOW.getTime() - HOUR_MS)
+      const guest = await createGuest(startedAt)
+      const owner = {
+        kind: 'GUEST' as const,
+        guestPrincipalId: guest.id,
+        tokenDigest: guest.tokenDigest
+      }
+      const session = (
+        await sessionRepository.createRandom({
+          owner,
+          level: 'N5',
+          subject: 'VOCABULARY',
+          requestedCount: 1,
+          startedAt,
+          expiresAt,
+          practiceContractVersion: 2
+        })
+      ).session
+      const idempotencyKey = randomUUID()
+      const body = {
+        expectedRevision: 0,
+        currentOrdinal: 1,
+        answers: session.questions.map(({ sessionQuestionId }) => ({
+          studySessionQuestionId: sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        }))
+      }
+      await draftRepository.saveAtomic({
+        sessionId: session.id,
+        idempotencyKey,
+        owner,
+        observedAt: new Date(expiresAt.getTime() - 1),
+        body
+      })
+
+      if (path === 'session') {
+        expect(
+          await sessionRepository.findOwnedById(session.id, owner, NOW)
+        ).toMatchObject({ status: 'EXPIRED' })
+      } else if (path === 'draft') {
+        await expect(
+          draftRepository.findOwned(session.id, owner, NOW)
+        ).rejects.toThrow()
+      } else {
+        const submission = createStudySubmissionService(
+          createPrismaStudySubmissionRepository(database.client),
+          () => NOW
+        )
+        await expect(
+          submission.submit(
+            session.id,
+            randomUUID(),
+            { answers: body.answers, durationSec: 0, expectedDraftRevision: 1 },
+            owner,
+            2
+          )
+        ).rejects.toThrow()
+      }
+
+      expect(
+        await database.client.studySession.findUnique({
+          where: { id: session.id },
+          select: { status: true }
+        })
+      ).toEqual({ status: 'EXPIRED' })
+      expect(
+        await database.client.studyDraft.findUnique({
+          where: { studySessionId: session.id }
+        })
+      ).not.toBeNull()
+      await expect(
+        database.client.studyDraft.delete({
+          where: { studySessionId: session.id }
+        })
+      ).rejects.toThrow()
+      expect(
+        await draftRepository.saveAtomic({
+          sessionId: session.id,
+          idempotencyKey,
+          owner,
+          observedAt: NOW,
+          body
+        })
+      ).toMatchObject({ replayed: true })
+    }
+  )
+
+  it('명시적 게스트 삭제는 보존 중인 만료 draft도 함께 삭제한다', async () => {
+    const service = createGuestPrincipalService({
+      client: database.client,
+      secret: 'guest-cleanup-test-secret-at-least-32-characters'
+    })
+    const expiresAt = new Date(NOW.getTime() - HOUR_MS)
+    const createdAt = new Date(expiresAt.getTime() - 2 * HOUR_MS)
+    const guest = service.prepareCredential()
+    await fixtureDatabase.client.guestPrincipal.create({
+      data: {
+        id: guest.id,
+        tokenDigest: guest.tokenDigest,
+        createdAt,
+        lastSeenAt: createdAt,
+        expiresAt: new Date(NOW.getTime() + DAY_MS)
+      }
+    })
+    createdGuestIds.add(guest.id)
+    const session = (
+      await sessionRepository.createRandom({
+        owner: {
+          kind: 'GUEST',
+          guestPrincipalId: guest.id,
+          tokenDigest: guest.tokenDigest
+        },
+        level: 'N5',
+        subject: 'VOCABULARY',
+        requestedCount: 1,
+        startedAt: new Date(expiresAt.getTime() - HOUR_MS),
+        expiresAt,
+        practiceContractVersion: 2
+      })
+    ).session
+    await sessionRepository.findOwnedById(
+      session.id,
+      {
+        kind: 'GUEST',
+        guestPrincipalId: guest.id,
+        tokenDigest: guest.tokenDigest
+      },
+      NOW
+    )
+    expect(
+      await database.client.studyDraft.findUnique({
+        where: { studySessionId: session.id }
+      })
+    ).not.toBeNull()
+    await service.clear(guest.cookieValue)
+    expect(
+      await database.client.guestPrincipal.findUnique({
+        where: { id: guest.id }
+      })
+    ).toBeNull()
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: session.id }
+      })
+    ).toBeNull()
+  })
+
+  it('자연 만료 guest draft를 7일 보존하고 변경은 거부한 뒤 정리한다', async () => {
+    const expiresAt = new Date(NOW.getTime() - 7 * DAY_MS)
+    const session = await createGuestSession({
+      startedAt: new Date(expiresAt.getTime() - HOUR_MS),
+      expiresAt
+    })
+    await database.client.studySession.update({
+      where: { id: session.id },
+      data: { status: 'EXPIRED', updatedAt: expiresAt }
+    })
+    expect(
+      await database.client.studyDraft.findUnique({
+        where: { studySessionId: session.id }
+      })
+    ).not.toBeNull()
+    await expect(
+      database.client.studyDraft.update({
+        where: { studySessionId: session.id },
+        data: { currentOrdinal: 1 }
+      })
+    ).rejects.toThrow()
+
+    await cleanupService.cleanup({ batchSize: 100 })
+    expect(
+      await database.client.studyDraft.findUnique({
+        where: { studySessionId: session.id }
+      })
+    ).toBeNull()
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: session.id },
+        select: { status: true }
+      })
+    ).toEqual({ status: 'EXPIRED' })
+  })
+
+  it('7일이 지난 회원 draft와 진행 중 상태를 보존한다', async () => {
+    const userId = await createUser()
+    const session = await createSession({
+      userId,
+      practiceContractVersion: 2,
+      startedAt: new Date(NOW.getTime() - 9 * DAY_MS),
+      expiresAt: new Date(NOW.getTime() - 8 * DAY_MS)
+    })
+    expect(
+      await database.client.studyDraft.findUnique({
+        where: { studySessionId: session.id }
+      })
+    ).not.toBeNull()
+
+    await cleanupService.cleanup({ batchSize: 100 })
+
+    expect(
+      await database.client.studyDraft.findUnique({
+        where: { studySessionId: session.id }
+      })
+    ).not.toBeNull()
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: session.id },
+        select: { userId: true, status: true }
+      })
+    ).toEqual({ userId, status: 'IN_PROGRESS' })
+  })
+
+  it('7일 경계, bounded batch, parent 보존, operation 격리와 metric을 보장한다', async () => {
     const userId = await createUser()
     const owner = { kind: 'USER' as const, userId }
-    const oldest = await createSession({
-      userId,
-      practiceContractVersion: 2,
-      startedAt: new Date(NOW.getTime() - 27 * HOUR_MS),
-      expiresAt: new Date(NOW.getTime() - 26 * HOUR_MS)
+    const oldest = await createGuestSession({
+      startedAt: new Date(NOW.getTime() - 7 * DAY_MS - 3 * HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 2 * HOUR_MS)
     })
-    const atBoundary = await createSession({
-      userId,
-      practiceContractVersion: 2,
-      startedAt: new Date(NOW.getTime() - 25 * HOUR_MS),
-      expiresAt: new Date(NOW.getTime() - DAY_MS)
+    const atBoundary = await createGuestSession({
+      startedAt: new Date(NOW.getTime() - 7 * DAY_MS - HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS)
     })
-    const beforeBoundary = await createSession({
-      userId,
-      practiceContractVersion: 2,
-      startedAt: new Date(NOW.getTime() - 25 * HOUR_MS),
-      expiresAt: new Date(NOW.getTime() - DAY_MS + 1)
+    const beforeBoundary = await createGuestSession({
+      startedAt: new Date(NOW.getTime() - 7 * DAY_MS - HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS + 1)
     })
 
     const expiredDraftRecordSession = await createSession({
@@ -660,8 +922,8 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
   })
 
   it('실제 501개 후보를 500+1 batch로 제한한다', async () => {
-    const userId = await createUser()
-    const sessionIds = await createBulkOverdueSessions(userId, 501)
+    const guest = await createGuest(new Date(NOW.getTime() - 8 * DAY_MS))
+    const sessionIds = await createBulkOverdueSessions(guest.id, 501)
 
     const first = await cleanupService.cleanup({ batchSize: 500 })
     expect(first).toMatchObject({
@@ -689,18 +951,13 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
   }, 30_000)
 
   it('잠긴 후보를 기다리지 않고 SKIP LOCKED로 다음 session을 정리한다', async () => {
-    const userId = await createUser()
-    const lockedSession = await createSession({
-      userId,
-      practiceContractVersion: 2,
-      startedAt: new Date(NOW.getTime() - 28 * HOUR_MS),
-      expiresAt: new Date(NOW.getTime() - 27 * HOUR_MS)
+    const lockedSession = await createGuestSession({
+      startedAt: new Date(NOW.getTime() - 7 * DAY_MS - 4 * HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 3 * HOUR_MS)
     })
-    const availableSession = await createSession({
-      userId,
-      practiceContractVersion: 2,
-      startedAt: new Date(NOW.getTime() - 27 * HOUR_MS),
-      expiresAt: new Date(NOW.getTime() - 26 * HOUR_MS)
+    const availableSession = await createGuestSession({
+      startedAt: new Date(NOW.getTime() - 7 * DAY_MS - 3 * HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - 2 * HOUR_MS)
     })
     const barrier = createBarrier()
     const lock = database.client.$transaction(async (transaction) => {
@@ -741,7 +998,8 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
       client: database.client,
       secret: environment.GUEST_COOKIE_SECRET
     }).prepareCredential()
-    const startedAt = new Date(NOW.getTime() - 48 * HOUR_MS)
+    const replayNow = new Date(NOW.getTime() - 7 * DAY_MS)
+    const startedAt = new Date(replayNow.getTime() - 48 * HOUR_MS)
     const credential = {
       ...preparedCredential,
       createdAt: startedAt,
@@ -755,11 +1013,13 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
         subject: 'VOCABULARY',
         requestedCount: 1,
         startedAt,
-        expiresAt: new Date(NOW.getTime() - 25 * HOUR_MS),
+        expiresAt: new Date(replayNow.getTime() - 25 * HOUR_MS),
         practiceContractVersion: 2
       })
     ).session
-    const savedAt = new Date(NOW.getTime() - 47 * HOUR_MS - 30 * 60 * 1_000)
+    const savedAt = new Date(
+      replayNow.getTime() - 47 * HOUR_MS - 30 * 60 * 1_000
+    )
     await draftRepository.saveAtomic({
       sessionId: session.id,
       idempotencyKey: randomUUID(),
@@ -780,10 +1040,13 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
       }
     })
 
-    await cleanupService.cleanup({ batchSize: 10 })
+    await createStudyDraftCleanupService(
+      createPrismaStudyDraftCleanupRepository(database.client),
+      () => replayNow
+    ).cleanup({ batchSize: 10 })
     const guestCleanupNow = createStudySessionCleanupService(
       createPrismaStudySessionCleanupRepository(database.client),
-      () => NOW
+      () => replayNow
     )
     expect(
       (await guestCleanupNow.cleanup({ batchSize: 10 }))
@@ -799,10 +1062,19 @@ describe('Phase 4 StudyDraft cold cleanup', () => {
       () => afterReplayTtl
     ).cleanup({ batchSize: 10 })
     expect(
+      await database.client.studySession.count({ where: { id: session.id } })
+    ).toBe(1)
+
+    const retentionDeadline = new Date(session.expiresAt.getTime() + 7 * DAY_MS)
+    await createStudyDraftCleanupService(
+      createPrismaStudyDraftCleanupRepository(database.client),
+      () => retentionDeadline
+    ).cleanup({ batchSize: 10 })
+    expect(
       (
         await createStudySessionCleanupService(
           createPrismaStudySessionCleanupRepository(database.client),
-          () => afterReplayTtl
+          () => retentionDeadline
         ).cleanup({ batchSize: 10 })
       ).deletedStudySessionCount
     ).toBe(1)

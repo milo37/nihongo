@@ -22,14 +22,16 @@ fi
 
 case "${POSTGRES_USER:-}" in
   nihongo_phase7_owner | nihongo_phase7_migration | nihongo_app | \
-    nihongo_auth_gateway | nihongo_erasure_worker | \
+    nihongo_auth_gateway | nihongo_erasure_worker | nihongo_guest_cleanup_worker | \
     nihongo_test_phase7_migration_login | nihongo_test_app_login | \
     nihongo_test_auth_gateway_login | nihongo_test_erasure_worker_login | \
+    nihongo_test_guest_cleanup_worker_login | \
     nihongo_test_legacy_app_login | \
     nihongo_development_phase7_migration_login | \
     nihongo_development_app_login | \
     nihongo_development_auth_gateway_login | \
     nihongo_development_erasure_worker_login | \
+    nihongo_development_guest_cleanup_worker_login | \
     nihongo_development_legacy_app_login)
     phase7_fail 'POSTGRES_USER overlaps the protected Phase 7 role graph.'
     ;;
@@ -41,11 +43,13 @@ phase7_secret_names=(
   PHASE7_TEST_APP_PASSWORD
   PHASE7_TEST_AUTH_GATEWAY_PASSWORD
   PHASE7_TEST_ERASURE_WORKER_PASSWORD
+  PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD
   PHASE7_TEST_LEGACY_APP_PASSWORD
   PHASE7_DEVELOPMENT_MIGRATION_PASSWORD
   PHASE7_DEVELOPMENT_APP_PASSWORD
   PHASE7_DEVELOPMENT_AUTH_GATEWAY_PASSWORD
   PHASE7_DEVELOPMENT_ERASURE_WORKER_PASSWORD
+  PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD
   PHASE7_DEVELOPMENT_LEGACY_APP_PASSWORD
 )
 phase7_secret_values=()
@@ -76,11 +80,13 @@ psql --set=ON_ERROR_STOP=1 \
   --set=test_app_password="$PHASE7_TEST_APP_PASSWORD" \
   --set=test_auth_gateway_password="$PHASE7_TEST_AUTH_GATEWAY_PASSWORD" \
   --set=test_erasure_worker_password="$PHASE7_TEST_ERASURE_WORKER_PASSWORD" \
+  --set=test_guest_cleanup_worker_password="$PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD" \
   --set=test_legacy_app_password="$PHASE7_TEST_LEGACY_APP_PASSWORD" \
   --set=development_migration_password="$PHASE7_DEVELOPMENT_MIGRATION_PASSWORD" \
   --set=development_app_password="$PHASE7_DEVELOPMENT_APP_PASSWORD" \
   --set=development_auth_gateway_password="$PHASE7_DEVELOPMENT_AUTH_GATEWAY_PASSWORD" \
   --set=development_erasure_worker_password="$PHASE7_DEVELOPMENT_ERASURE_WORKER_PASSWORD" \
+  --set=development_guest_cleanup_worker_password="$PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD" \
   --set=development_legacy_app_password="$PHASE7_DEVELOPMENT_LEGACY_APP_PASSWORD" <<'PHASE7_ROLES_SQL'
 BEGIN;
 
@@ -99,6 +105,9 @@ CREATE ROLE "nihongo_auth_gateway"
 CREATE ROLE "nihongo_erasure_worker"
   NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS;
+CREATE ROLE "nihongo_guest_cleanup_worker"
+  NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS;
 
 GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration"
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
@@ -115,6 +124,9 @@ CREATE ROLE "nihongo_test_auth_gateway_login"
 CREATE ROLE "nihongo_test_erasure_worker_login"
   LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'test_erasure_worker_password';
+CREATE ROLE "nihongo_test_guest_cleanup_worker_login"
+  LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS PASSWORD :'test_guest_cleanup_worker_password';
 CREATE ROLE "nihongo_test_legacy_app_login"
   LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'test_legacy_app_password';
@@ -131,6 +143,9 @@ CREATE ROLE "nihongo_development_auth_gateway_login"
 CREATE ROLE "nihongo_development_erasure_worker_login"
   LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'development_erasure_worker_password';
+CREATE ROLE "nihongo_development_guest_cleanup_worker_login"
+  LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+  NOREPLICATION NOBYPASSRLS PASSWORD :'development_guest_cleanup_worker_password';
 CREATE ROLE "nihongo_development_legacy_app_login"
   LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
   NOREPLICATION NOBYPASSRLS PASSWORD :'development_legacy_app_password';
@@ -143,6 +158,8 @@ GRANT "nihongo_auth_gateway" TO "nihongo_test_auth_gateway_login"
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 GRANT "nihongo_erasure_worker" TO "nihongo_test_erasure_worker_login"
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+GRANT "nihongo_guest_cleanup_worker" TO "nihongo_test_guest_cleanup_worker_login"
+  WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 GRANT "nihongo_phase7_migration" TO "nihongo_development_phase7_migration_login"
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 GRANT "nihongo_app" TO "nihongo_development_app_login"
@@ -150,6 +167,8 @@ GRANT "nihongo_app" TO "nihongo_development_app_login"
 GRANT "nihongo_auth_gateway" TO "nihongo_development_auth_gateway_login"
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 GRANT "nihongo_erasure_worker" TO "nihongo_development_erasure_worker_login"
+  WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+GRANT "nihongo_guest_cleanup_worker" TO "nihongo_development_guest_cleanup_worker_login"
   WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 
 DO $phase7_role_attestation$
@@ -163,7 +182,7 @@ BEGIN
   FROM pg_catalog.pg_roles AS role_row
   WHERE role_row.rolname IN (
     'nihongo_phase7_owner', 'nihongo_phase7_migration', 'nihongo_app',
-    'nihongo_auth_gateway', 'nihongo_erasure_worker'
+    'nihongo_auth_gateway', 'nihongo_erasure_worker', 'nihongo_guest_cleanup_worker'
   )
     AND NOT role_row.rolcanlogin
     AND NOT role_row.rolinherit
@@ -179,11 +198,13 @@ BEGIN
   WHERE role_row.rolname IN (
     'nihongo_test_phase7_migration_login', 'nihongo_test_app_login',
     'nihongo_test_auth_gateway_login', 'nihongo_test_erasure_worker_login',
+    'nihongo_test_guest_cleanup_worker_login',
     'nihongo_test_legacy_app_login',
     'nihongo_development_phase7_migration_login',
     'nihongo_development_app_login',
     'nihongo_development_auth_gateway_login',
     'nihongo_development_erasure_worker_login',
+    'nihongo_development_guest_cleanup_worker_login',
     'nihongo_development_legacy_app_login'
   )
     AND role_row.rolcanlogin
@@ -202,10 +223,12 @@ BEGIN
     ('nihongo_test_app_login', 'nihongo_app'),
     ('nihongo_test_auth_gateway_login', 'nihongo_auth_gateway'),
     ('nihongo_test_erasure_worker_login', 'nihongo_erasure_worker'),
+    ('nihongo_test_guest_cleanup_worker_login', 'nihongo_guest_cleanup_worker'),
     ('nihongo_development_phase7_migration_login', 'nihongo_phase7_migration'),
     ('nihongo_development_app_login', 'nihongo_app'),
     ('nihongo_development_auth_gateway_login', 'nihongo_auth_gateway'),
-    ('nihongo_development_erasure_worker_login', 'nihongo_erasure_worker')
+    ('nihongo_development_erasure_worker_login', 'nihongo_erasure_worker'),
+    ('nihongo_development_guest_cleanup_worker_login', 'nihongo_guest_cleanup_worker')
   ) AS expected(member_name, granted_name)
   WHERE EXISTS (
     SELECT 1
@@ -228,19 +251,21 @@ BEGIN
   WHERE (
     member_role.rolname IN (
       'nihongo_phase7_owner', 'nihongo_phase7_migration', 'nihongo_app',
-      'nihongo_auth_gateway', 'nihongo_erasure_worker',
+      'nihongo_auth_gateway', 'nihongo_erasure_worker', 'nihongo_guest_cleanup_worker',
       'nihongo_test_phase7_migration_login', 'nihongo_test_app_login',
       'nihongo_test_auth_gateway_login', 'nihongo_test_erasure_worker_login',
+      'nihongo_test_guest_cleanup_worker_login',
       'nihongo_test_legacy_app_login',
       'nihongo_development_phase7_migration_login',
       'nihongo_development_app_login',
       'nihongo_development_auth_gateway_login',
       'nihongo_development_erasure_worker_login',
+      'nihongo_development_guest_cleanup_worker_login',
       'nihongo_development_legacy_app_login'
     )
     OR granted_role.rolname IN (
       'nihongo_phase7_owner', 'nihongo_phase7_migration', 'nihongo_app',
-      'nihongo_auth_gateway', 'nihongo_erasure_worker'
+      'nihongo_auth_gateway', 'nihongo_erasure_worker', 'nihongo_guest_cleanup_worker'
     )
   )
     AND NOT EXISTS (
@@ -251,10 +276,12 @@ BEGIN
         ('nihongo_test_app_login', 'nihongo_app'),
         ('nihongo_test_auth_gateway_login', 'nihongo_auth_gateway'),
         ('nihongo_test_erasure_worker_login', 'nihongo_erasure_worker'),
+        ('nihongo_test_guest_cleanup_worker_login', 'nihongo_guest_cleanup_worker'),
         ('nihongo_development_phase7_migration_login', 'nihongo_phase7_migration'),
         ('nihongo_development_app_login', 'nihongo_app'),
         ('nihongo_development_auth_gateway_login', 'nihongo_auth_gateway'),
-        ('nihongo_development_erasure_worker_login', 'nihongo_erasure_worker')
+        ('nihongo_development_erasure_worker_login', 'nihongo_erasure_worker'),
+        ('nihongo_development_guest_cleanup_worker_login', 'nihongo_guest_cleanup_worker')
       ) AS allowed(member_name, granted_name)
       WHERE allowed.member_name = member_role.rolname
         AND allowed.granted_name = granted_role.rolname
@@ -263,9 +290,9 @@ BEGIN
         AND membership.set_option
     );
 
-  IF exact_group_count <> 5
-    OR exact_wrapper_count <> 10
-    OR expected_membership_count <> 9
+  IF exact_group_count <> 6
+    OR exact_wrapper_count <> 12
+    OR expected_membership_count <> 11
     OR unexpected_membership_count <> 0 THEN
     RAISE EXCEPTION 'Phase 7 local role graph attestation failed.';
   END IF;

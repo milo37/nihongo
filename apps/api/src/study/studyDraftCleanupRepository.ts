@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
-const STUDY_DRAFT_EXPIRY_GRACE_MS = 24 * 60 * 60 * 1_000
+const STUDY_DRAFT_EXPIRY_GRACE_MS = 7 * 24 * 60 * 60 * 1_000
 
 export interface StudyDraftCleanupInput {
   readonly batchSize: number
@@ -50,6 +50,11 @@ interface DeletedRow {
   operation?: IdempotencyOperationMetric['operation']
 }
 
+interface DraftCandidate {
+  id: string
+  status: 'IN_PROGRESS' | 'EXPIRED'
+}
+
 interface IdempotencyMetricRow {
   activeRecordCount: bigint
   expiredRecordCount: bigint
@@ -73,8 +78,23 @@ export const createPrismaStudyDraftCleanupRepository = (
       JOIN "StudyDraft" AS draft
         ON draft."studySessionId" = session."id"
       WHERE session."practiceContractVersion" = 2
-        AND session."status" = 'IN_PROGRESS'
+        AND session."userId" IS NULL
+        AND session."guestPrincipalId" IS NOT NULL
+        AND session."status" IN ('IN_PROGRESS', 'EXPIRED')
         AND session."expiresAt" <= ${draftExpirationThreshold}
+        AND NOT EXISTS (
+          SELECT 1 FROM "IdempotencyRecord" AS record
+          WHERE record."studySessionId" = session."id"
+            AND (
+              record."state" <> 'SUCCEEDED'
+              OR record."expiresAt" IS NULL
+              OR record."expiresAt" > ${now}
+            )
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "StudySession" AS retry
+          WHERE retry."retryOfStudySessionId" = session."id"
+        )
     `)
     const idempotencyMetrics = await client.$queryRaw<IdempotencyMetricRow[]>(
       Prisma.sql`
@@ -122,14 +142,31 @@ export const createPrismaStudyDraftCleanupRepository = (
 
     const expiredDrafts = await client.$transaction(
       async (transaction) => {
-        const candidates = await transaction.$queryRaw<DeletedRow[]>(Prisma.sql`
-          SELECT session."id"
+        const candidates = await transaction.$queryRaw<
+          DraftCandidate[]
+        >(Prisma.sql`
+          SELECT session."id", session."status"::text AS "status"
           FROM "StudySession" AS session
           JOIN "StudyDraft" AS draft
             ON draft."studySessionId" = session."id"
           WHERE session."practiceContractVersion" = 2
-            AND session."status" = 'IN_PROGRESS'
+            AND session."userId" IS NULL
+            AND session."guestPrincipalId" IS NOT NULL
+            AND session."status" IN ('IN_PROGRESS', 'EXPIRED')
             AND session."expiresAt" <= ${draftExpirationThreshold}
+            AND NOT EXISTS (
+              SELECT 1 FROM "IdempotencyRecord" AS record
+              WHERE record."studySessionId" = session."id"
+                AND (
+                  record."state" <> 'SUCCEEDED'
+                  OR record."expiresAt" IS NULL
+                  OR record."expiresAt" > ${now}
+                )
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM "StudySession" AS retry
+              WHERE retry."retryOfStudySessionId" = session."id"
+            )
           ORDER BY session."expiresAt" ASC, session."id" ASC
           LIMIT ${batchSize}
           FOR UPDATE OF session SKIP LOCKED
@@ -138,10 +175,15 @@ export const createPrismaStudyDraftCleanupRepository = (
           return candidates
         }
         const ids = candidates.map(({ id }) => id)
+        const inProgressIds = candidates
+          .filter(({ status }) => status === 'IN_PROGRESS')
+          .map(({ id }) => id)
         const expired = await transaction.studySession.updateMany({
           where: {
-            id: { in: ids },
+            id: { in: inProgressIds },
             practiceContractVersion: 2,
+            userId: null,
+            guestPrincipalId: { not: null },
             status: 'IN_PROGRESS',
             expiresAt: { lte: draftExpirationThreshold }
           },
@@ -151,7 +193,7 @@ export const createPrismaStudyDraftCleanupRepository = (
           where: { studySessionId: { in: ids } }
         })
         if (
-          expired.count !== candidates.length ||
+          expired.count !== inProgressIds.length ||
           deleted.count !== candidates.length
         ) {
           throw new Error('Expired StudyDraft cleanup lost a locked candidate.')
@@ -178,6 +220,12 @@ export const createPrismaStudyDraftCleanupRepository = (
               AND record."state" = 'SUCCEEDED'
               AND record."expiresAt" IS NOT NULL
               AND record."expiresAt" <= ${now}
+              AND NOT EXISTS (
+                SELECT 1 FROM "StudySession" AS retry
+                WHERE retry."retryOfStudySessionId" = record."studySessionId"
+                  AND retry."status" = 'IN_PROGRESS'
+                  AND retry."expiresAt" > ${now}
+              )
             ORDER BY record."expiresAt" ASC, record."id" ASC
             LIMIT ${batchSize}
             FOR UPDATE OF record SKIP LOCKED
@@ -190,6 +238,12 @@ export const createPrismaStudyDraftCleanupRepository = (
             AND record."state" = 'SUCCEEDED'
             AND record."expiresAt" IS NOT NULL
             AND record."expiresAt" <= ${now}
+            AND NOT EXISTS (
+              SELECT 1 FROM "StudySession" AS retry
+              WHERE retry."retryOfStudySessionId" = record."studySessionId"
+                AND retry."status" = 'IN_PROGRESS'
+                AND retry."expiresAt" > ${now}
+            )
           RETURNING record."id", record."operation"::text AS "operation"
         `)
       )

@@ -6,6 +6,7 @@ import {
   parseApiEnvironment
 } from '../config/env.js'
 import {
+  assertPhase10RequiredEnvironment,
   assertPhase10VitestFileResult,
   assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
@@ -30,7 +31,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(52)
+    expect(expected).toHaveLength(53)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
@@ -39,18 +40,18 @@ describe('SSO bootstrap migration history', () => {
         expected.slice(0, 50),
         applied.slice(0, 50)
       )
-    ).toThrow(/canonical52/u)
+    ).toThrow(/canonical53/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
-    ).toThrow(/canonical52/u)
+    ).toThrow(/canonical53/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
-    ).toThrow(/canonical52/u)
+    ).toThrow(/canonical53/u)
     const alteredLedger = structuredClone(applied)
     alteredLedger[0]!.checksum = '0'.repeat(64)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, alteredLedger)
-    ).toThrow(/canonical52/u)
+    ).toThrow(/canonical53/u)
     const alteredSource = structuredClone(expected)
     alteredSource[0]!.checksum = '0'.repeat(64)
     const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
@@ -59,7 +60,7 @@ describe('SSO bootstrap migration history', () => {
     }))
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
-    ).toThrow(/canonical52/u)
+    ).toThrow(/canonical53/u)
   })
 })
 
@@ -1308,5 +1309,29 @@ describe('fixed account lifecycle TEST slice', () => {
     )
     expect(result.lifecycleFailure?.originalFirstLineRetained).toBe(false)
     expect(JSON.stringify(result)).not.toContain(privateMessage)
+  })
+})
+
+describe('guest cleanup required environment', () => {
+  const testFile = 'src/study/studyGuestCleanupWorker.integration.test.ts'
+  const environment = {
+    GUEST_CLEANUP_DATABASE_URL: 'worker',
+    GUEST_CLEANUP_FIXTURE_DATABASE_URL: 'fixture',
+    PHASE7_RUNTIME_DATABASE_URL: 'application',
+    PHASE7_API_ERASURE_DATABASE_URL: 'erasure',
+    GUEST_CLEANUP_TEST_ISOLATED: 'yes'
+  }
+
+  it('requires every connection and the isolation flag before the suite starts', () => {
+    expect(() =>
+      assertPhase10RequiredEnvironment({ environment, testFile })
+    ).not.toThrow()
+    for (const key of Object.keys(environment)) {
+      const incomplete: NodeJS.ProcessEnv = { ...environment }
+      delete incomplete[key]
+      expect(() =>
+        assertPhase10RequiredEnvironment({ environment: incomplete, testFile })
+      ).toThrow(key)
+    }
   })
 })

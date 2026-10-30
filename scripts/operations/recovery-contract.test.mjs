@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 52 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 53 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -72,6 +72,19 @@ test('migration profiles separate exact physical 52 TEST entries from the exact 
     name: '20261028170000_study_v1_retirement_authority',
     sha256: '622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82'
   })
+  assert.deepEqual(releaseManifest.migrations.entries[52], {
+    name: '20261030100000_guest_expired_draft_retention',
+    sha256: '5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7'
+  })
+  const historical52 = structuredClone(releaseManifest)
+  historical52.migrations.count = 52
+  historical52.migrations.digestSha256 =
+    '454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6'
+  historical52.migrations.entries = historical52.migrations.entries.slice(0, 52)
+  assert.throws(
+    () => deriveMigrationProfile(historical52, 'technical-current-test'),
+    /count mismatch/u
+  )
   const historical50 = structuredClone(releaseManifest)
   historical50.migrations.count = 50
   historical50.migrations.entries = historical50.migrations.entries.slice(0, 50)
@@ -93,9 +106,9 @@ test('migration profiles separate exact physical 52 TEST entries from the exact 
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 52,
+      count: 53,
       digestSha256:
-        '454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6',
+        '39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08',
       name: 'technical-current-test'
     }
   )
@@ -438,12 +451,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261028180001_unreviewed_migration',
+        name: '20261030110001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261028180001_unreviewed_migration'
+        '20261030110001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags

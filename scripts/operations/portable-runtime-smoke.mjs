@@ -27,9 +27,9 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const currentMigrationCount = 52
+const currentMigrationCount = 53
 const currentMigrationDigest =
-  '63f2443e79fa58574b3059b41695948bdd5bdbcb0c6eac46abee61d0bdf60c77'
+  '40a3146515048b2d7ee280aea0e427fcfc90e307f25346e8c5e20c63959c5d3b'
 const lastBootstrapMigration =
   '20261009092000_phase7_n4_n2_revision2_digest_fix'
 const migrationLogin = 'nihongo_test_phase7_migration_login'
@@ -218,9 +218,9 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
     manifest[36]?.name !== lastBootstrapMigration ||
-    manifest.at(-1)?.name !== '20261028170000_study_v1_retirement_authority'
+    manifest.at(-1)?.name !== '20261030100000_guest_expired_draft_retention'
   ) {
-    throw new Error('Repository current-52 migration inventory is invalid.')
+    throw new Error('Repository current-53 migration inventory is invalid.')
   }
   return manifest.map(({ name }) => name)
 }
@@ -436,7 +436,8 @@ const provisionRuntimeIdentity = (database, schemaName, passwords) => {
     'nihongo_phase7_migration',
     'nihongo_app',
     'nihongo_auth_gateway',
-    'nihongo_erasure_worker'
+    'nihongo_erasure_worker',
+    'nihongo_guest_cleanup_worker'
   ]
   const sql = groups.map(
     (role) =>
@@ -451,6 +452,7 @@ const provisionRuntimeIdentity = (database, schemaName, passwords) => {
       ['app', 'nihongo_app'],
       ['auth_gateway', 'nihongo_auth_gateway'],
       ['erasure_worker', 'nihongo_erasure_worker'],
+      ['guest_cleanup_worker', 'nihongo_guest_cleanup_worker'],
       ['legacy_app', null]
     ]) {
       const role = `${prefix}_${suffix}_login`
@@ -497,6 +499,12 @@ const applyCurrentMigrations = (
       `INSERT INTO "_prisma_migrations"
       ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
       VALUES ('${randomUUID()}', '${checksum}', now(), '${name}', now(), 1);`
+    )
+  }
+  if (names.includes('20261030100000_guest_expired_draft_retention')) {
+    databaseCommand(
+      database,
+      `GRANT CONNECT ON DATABASE "${database.databaseName}" TO "nihongo_test_guest_cleanup_worker_login";`
     )
   }
 }
@@ -1140,6 +1148,45 @@ export const verifyPackagedAccountErasureCommand = (
   }
 }
 
+export const verifyPackagedGuestCleanupCommand = (
+  imageId,
+  runCommand = run
+) => {
+  if (!imageIdPattern.test(imageId)) {
+    throw new Error('Guest cleanup command image identity is invalid.')
+  }
+  const result = runCommand(
+    'docker',
+    [
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--read-only',
+      '--tmpfs',
+      '/tmp:rw,noexec,nosuid,size=16m',
+      '--cap-drop',
+      'ALL',
+      '--security-opt',
+      'no-new-privileges',
+      '--entrypoint',
+      'node',
+      imageId,
+      '/app/api/dist/study/studyGuestCleanupRuntime.js'
+    ],
+    { allowFailure: true }
+  )
+  if (
+    result.status !== 1 ||
+    result.stdout !== '' ||
+    result.stderr !== '{"event":"study.guest_cleanup.failed"}\n'
+  ) {
+    throw new Error(
+      'Packaged guest cleanup command did not fail closed without configuration.'
+    )
+  }
+}
+
 export const combineRuntimeSmokeErrors = (operationError, cleanupError) => {
   if (operationError && cleanupError) {
     const operationMessage =
@@ -1507,6 +1554,7 @@ export const runPortableRuntimeSmoke = async ({
       expectedImageId
     )
     verifyPackagedAccountErasureCommand(imageId)
+    verifyPackagedGuestCleanupCommand(imageId)
     const portOutput = run('docker', [
       'port',
       runtimeContainer,

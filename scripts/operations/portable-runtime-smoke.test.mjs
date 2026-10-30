@@ -40,6 +40,7 @@ import {
   validateLearnerQuestionSummary,
   validateStatefulPrincipal,
   verifyPackagedAccountErasureCommand,
+  verifyPackagedGuestCleanupCommand,
   verifyPortableRuntimeSmokeEvidence
 } from './portable-runtime-smoke.mjs'
 
@@ -458,34 +459,35 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current52 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned current53 inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 52)
+  assert.equal(names.length, 53)
   assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
   assert.equal(names[49], '20261028150000_sso_provider_cleanup_fencing')
   assert.equal(names[50], '20261028160000_study_contract_v2_default')
-  assert.equal(names.at(-1), '20261028170000_study_v1_retirement_authority')
+  assert.equal(names[51], '20261028170000_study_v1_retirement_authority')
+  assert.equal(names.at(-1), '20261030100000_guest_expired_draft_retention')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-52 migration inventory/u
+      /current-53 migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-52 migration inventory/u
+      /current-53 migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-52 migration inventory/u
+      /current-53 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
@@ -539,6 +541,58 @@ test('portable runtime executes the packaged account erasure command fail-closed
   ]) {
     assert.throws(
       () => verifyPackagedAccountErasureCommand(imageId, () => result),
+      /did not fail closed/u
+    )
+  }
+})
+
+test('portable runtime executes the packaged guest cleanup command fail-closed', () => {
+  const imageId = `sha256:${'a'.repeat(64)}`
+  let invocation
+  assert.doesNotThrow(() =>
+    verifyPackagedGuestCleanupCommand(
+      imageId,
+      (command, argumentsList, options) => {
+        invocation = { argumentsList, command, options }
+        return {
+          status: 1,
+          stderr: '{"event":"study.guest_cleanup.failed"}\n',
+          stdout: ''
+        }
+      }
+    )
+  )
+  assert.deepEqual(invocation, {
+    command: 'docker',
+    argumentsList: [
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--read-only',
+      '--tmpfs',
+      '/tmp:rw,noexec,nosuid,size=16m',
+      '--cap-drop',
+      'ALL',
+      '--security-opt',
+      'no-new-privileges',
+      '--entrypoint',
+      'node',
+      imageId,
+      '/app/api/dist/study/studyGuestCleanupRuntime.js'
+    ],
+    options: { allowFailure: true }
+  })
+  for (const result of [
+    { status: 0, stderr: '', stdout: '' },
+    {
+      status: 1,
+      stderr: 'private child diagnostics',
+      stdout: ''
+    }
+  ]) {
+    assert.throws(
+      () => verifyPackagedGuestCleanupCommand(imageId, () => result),
       /did not fail closed/u
     )
   }
@@ -830,7 +884,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 52,
+    migrationCount: 53,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

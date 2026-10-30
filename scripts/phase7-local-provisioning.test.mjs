@@ -14,7 +14,8 @@ const groupRoles = [
   'nihongo_phase7_migration',
   'nihongo_app',
   'nihongo_auth_gateway',
-  'nihongo_erasure_worker'
+  'nihongo_erasure_worker',
+  'nihongo_guest_cleanup_worker'
 ]
 
 const wrapperRoles = [
@@ -31,6 +32,10 @@ const wrapperRoles = [
     name: 'nihongo_test_erasure_worker_login',
     grantedRole: 'nihongo_erasure_worker'
   },
+  {
+    name: 'nihongo_test_guest_cleanup_worker_login',
+    grantedRole: 'nihongo_guest_cleanup_worker'
+  },
   { name: 'nihongo_test_legacy_app_login', grantedRole: null },
   {
     name: 'nihongo_development_phase7_migration_login',
@@ -45,6 +50,10 @@ const wrapperRoles = [
     name: 'nihongo_development_erasure_worker_login',
     grantedRole: 'nihongo_erasure_worker'
   },
+  {
+    name: 'nihongo_development_guest_cleanup_worker_login',
+    grantedRole: 'nihongo_guest_cleanup_worker'
+  },
   { name: 'nihongo_development_legacy_app_login', grantedRole: null }
 ]
 
@@ -53,11 +62,13 @@ const secretNames = [
   'PHASE7_TEST_APP_PASSWORD',
   'PHASE7_TEST_AUTH_GATEWAY_PASSWORD',
   'PHASE7_TEST_ERASURE_WORKER_PASSWORD',
+  'PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD',
   'PHASE7_TEST_LEGACY_APP_PASSWORD',
   'PHASE7_DEVELOPMENT_MIGRATION_PASSWORD',
   'PHASE7_DEVELOPMENT_APP_PASSWORD',
   'PHASE7_DEVELOPMENT_AUTH_GATEWAY_PASSWORD',
   'PHASE7_DEVELOPMENT_ERASURE_WORKER_PASSWORD',
+  'PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD',
   'PHASE7_DEVELOPMENT_LEGACY_APP_PASSWORD'
 ]
 
@@ -120,9 +131,9 @@ test('fresh init matches the canonical Phase 7 role graph', async () => {
   assert.match(init, /POSTGRES_DB must be the canonical nihongo_dev/u)
   assert.match(init, /bootstrap and wrapper secrets must all be distinct/u)
   assert.match(init, /\$phase7_role_attestation\$/u)
-  assert.match(init, /exact_group_count <> 5/u)
-  assert.match(init, /exact_wrapper_count <> 10/u)
-  assert.match(init, /expected_membership_count <> 9/u)
+  assert.match(init, /exact_group_count <> 6/u)
+  assert.match(init, /exact_wrapper_count <> 12/u)
+  assert.match(init, /expected_membership_count <> 11/u)
   assert.match(init, /unexpected_membership_count <> 0/u)
 
   for (const role of groupRoles) {
@@ -134,7 +145,13 @@ test('fresh init matches the canonical Phase 7 role graph', async () => {
           'NOREPLICATION NOBYPASSRLS;'
       )
     )
-    assert.match(enumMigration, new RegExp(`'${role}'`))
+    const roleMigration =
+      role === 'nihongo_guest_cleanup_worker'
+        ? await readRepositoryFile(
+            'apps/api/prisma/migrations/20261030100000_guest_expired_draft_retention/migration.sql'
+          )
+        : enumMigration
+    assert.match(roleMigration, new RegExp(`'${role}'`))
   }
 
   for (const { name } of wrapperRoles) {
@@ -146,7 +163,11 @@ test('fresh init matches the canonical Phase 7 role graph', async () => {
           "NOREPLICATION NOBYPASSRLS PASSWORD :'[^']+';"
       )
     )
-    assert.match(enumMigration, new RegExp(`'${name}'`))
+    if (name.includes('guest_cleanup_worker')) {
+      assert.match(init, new RegExp(`'${name}'`))
+    } else {
+      assert.match(enumMigration, new RegExp(`'${name}'`))
+    }
   }
 
   const actualEdges = [
@@ -162,7 +183,7 @@ test('fresh init matches the canonical Phase 7 role graph', async () => {
   ]
 
   assert.deepEqual(normalizeEdges(actualEdges), normalizeEdges(expectedEdges))
-  assert.equal(actualEdges.length, 9)
+  assert.equal(actualEdges.length, 11)
 })
 
 test('fresh init owns and attests both canonical local databases', async () => {
