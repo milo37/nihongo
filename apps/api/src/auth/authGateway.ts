@@ -7,7 +7,7 @@ import type { PrismaClient } from '../generated/prisma/client.js'
 import { createClientIpAuthority } from './clientIp.js'
 import type { Phase7AuthFacade } from './phase7AuthFacade.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
-import { getRawRequestPathname } from '../app/phase7PrefixExclusion.js'
+import { getRawRequestPathname } from '../app/protectedRouteExclusion.js'
 
 const AUTH_BODY_TIMEOUT_MS = 5_000
 const MAX_LEGACY_AUTH_BODY_BYTES = 32 * 1_024

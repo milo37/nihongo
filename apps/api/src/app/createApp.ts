@@ -84,7 +84,7 @@ import {
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
   isPhase7ExcludedRequest
-} from './phase7PrefixExclusion.js'
+} from './protectedRouteExclusion.js'
 import { installStaticWeb } from './staticWeb.js'
 
 const TECHNICAL_CORS_METHODS = [
