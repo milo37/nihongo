@@ -89,7 +89,7 @@ const login = async (page: Page): Promise<void> => {
   await expect(page.locator('input[name="password"]')).toHaveCount(0)
   if (isMockBrowser) {
     await page.evaluate(async () => {
-      const path = '/src/test/phase10BrowserMockControl.ts'
+      const path = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ path)) as {
         selectPhase78MockGoogleActor: (actor: 'insightsLearner') => void
       }
@@ -112,7 +112,7 @@ const login = async (page: Page): Promise<void> => {
   )
   if (isMockBrowser) {
     await page.evaluate(async () => {
-      const path = '/src/test/phase10BrowserMockControl.ts'
+      const path = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ path)) as {
         completePhase78MockGoogleCallback: (
           actor: 'insightsLearner'
