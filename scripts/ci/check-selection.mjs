@@ -375,7 +375,7 @@ export const qualityCommands = (selection, group) => {
           'exec',
           'node',
           '--test',
-          'apps/web/scripts/phase10-production-bundle-contract.test.mjs'
+          'apps/web/scripts/production-bundle-contract.test.mjs'
         )
       }
     }

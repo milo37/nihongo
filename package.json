@@ -23,7 +23,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:static": "node scripts/msw/patch-worker.mjs --check && node --test scripts/architecture/*.test.mjs scripts/content/*.test.mjs scripts/operations/*.test.mjs scripts/security/*.test.mjs scripts/ci/*.test.mjs scripts/phase7-local-provisioning.test.mjs scripts/phase9-database-contract.test.mjs apps/web/scripts/phase10-production-bundle-contract.test.mjs",
+    "test:static": "node scripts/msw/patch-worker.mjs --check && node --test scripts/architecture/*.test.mjs scripts/content/*.test.mjs scripts/operations/*.test.mjs scripts/security/*.test.mjs scripts/ci/*.test.mjs scripts/phase7-local-provisioning.test.mjs scripts/phase9-database-contract.test.mjs apps/web/scripts/production-bundle-contract.test.mjs",
     "test:database": "pnpm --filter @nihongo/api exec tsx src/e2e/runPhase7DbIntegration.ts",
     "test:security": "node scripts/security/tracked-source-security.mjs",
     "test:dependency-audit:production": "node scripts/security/dependency-audit.mjs --scope production",
