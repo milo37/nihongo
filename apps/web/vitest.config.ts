@@ -16,7 +16,7 @@ export default mergeConfig(
       environment: 'jsdom',
       exclude: [
         ...configDefaults.exclude,
-        'scripts/phase10-production-bundle-*.test.mjs',
+        'scripts/production-bundle-*.test.mjs',
         'e2e/**/*.spec.ts',
         'scripts/phase10-runner-cleanup.test.ts'
       ],
