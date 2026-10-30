@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readPhase7JsonBody } from './phase7JsonBody.js'
+import { readStrictJsonBody } from './strictJsonBody.js'
 
 const requestWithStream = (stream: ReadableStream<Uint8Array>): Request =>
   new Request('http://localhost/body-test', {
@@ -26,7 +26,7 @@ const failure = (code: string) => ({
 
 afterEach(() => vi.useRealTimers())
 
-describe('readPhase7JsonBody', () => {
+describe('readStrictJsonBody', () => {
   it('accepts a complete object at the byte cap across UTF-8 chunks', async () => {
     vi.useFakeTimers()
     const bytes = new TextEncoder().encode('{"text":"한국어"}')
@@ -35,7 +35,7 @@ describe('readPhase7JsonBody', () => {
       bytes.slice(10, 12),
       bytes.slice(12)
     ])
-    await expect(readPhase7JsonBody(request, bytes.length)).resolves.toEqual({
+    await expect(readStrictJsonBody(request, bytes.length)).resolves.toEqual({
       text: '한국어'
     })
     expect(request.body?.locked).toBe(false)
@@ -49,7 +49,7 @@ describe('readPhase7JsonBody', () => {
         method: 'POST',
         body
       })
-      await expect(readPhase7JsonBody(request, 1024)).rejects.toMatchObject(
+      await expect(readStrictJsonBody(request, 1024)).rejects.toMatchObject(
         failure('INVALID_JSON')
       )
       expect(request.body?.locked).toBe(false)
@@ -58,7 +58,7 @@ describe('readPhase7JsonBody', () => {
 
   it('rejects malformed UTF-8 and releases the reader', async () => {
     const request = requestWithChunks([Uint8Array.of(0xff)])
-    await expect(readPhase7JsonBody(request, 1024)).rejects.toMatchObject(
+    await expect(readStrictJsonBody(request, 1024)).rejects.toMatchObject(
       failure('INVALID_JSON')
     )
     expect(request.body?.locked).toBe(false)
@@ -69,7 +69,7 @@ describe('readPhase7JsonBody', () => {
       method: 'POST',
       body: '{"value":'.repeat(13) + '0' + '}'.repeat(13)
     })
-    await expect(readPhase7JsonBody(request, 1024)).rejects.toMatchObject(
+    await expect(readStrictJsonBody(request, 1024)).rejects.toMatchObject(
       failure('VALIDATION_ERROR')
     )
     expect(request.body?.locked).toBe(false)
@@ -86,7 +86,7 @@ describe('readPhase7JsonBody', () => {
         cancel
       })
     )
-    await expect(readPhase7JsonBody(request, 2)).rejects.toMatchObject(
+    await expect(readStrictJsonBody(request, 2)).rejects.toMatchObject(
       failure('REQUEST_TOO_LARGE')
     )
     expect(cancel).toHaveBeenCalledOnce()
@@ -102,7 +102,7 @@ describe('readPhase7JsonBody', () => {
         stallCancellation ? new Promise<void>(() => undefined) : undefined
       )
       const request = requestWithStream(new ReadableStream({ cancel }))
-      const observed = readPhase7JsonBody(request, 1024).then(
+      const observed = readStrictJsonBody(request, 1024).then(
         () => ({ kind: 'SUCCESS' }) as const,
         (error: unknown) => ({ kind: 'ERROR', error }) as const
       )
@@ -136,7 +136,7 @@ describe('readPhase7JsonBody', () => {
         cancel
       })
     )
-    const observed = readPhase7JsonBody(request, 1024).catch(
+    const observed = readStrictJsonBody(request, 1024).catch(
       (error: unknown) => error
     )
     await vi.advanceTimersByTimeAsync(4000)
@@ -157,7 +157,7 @@ describe('readPhase7JsonBody', () => {
         }
       })
     )
-    await expect(readPhase7JsonBody(request, 1024)).rejects.toMatchObject(
+    await expect(readStrictJsonBody(request, 1024)).rejects.toMatchObject(
       failure('INVALID_JSON')
     )
     expect(request.body?.locked).toBe(false)
