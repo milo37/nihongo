@@ -1042,6 +1042,42 @@ describe.each([
     expect(json).not.toContain('sqlstate')
   })
 
+  it('maps only the old and new fixture stack paths to one stable diagnostic label', () => {
+    const oldPath = 'src/db/phase7SsoTestFixture.ts'
+    const newPath = 'src/db/ssoTestFixture.ts'
+    for (const paths of [[oldPath], [newPath], [oldPath, newPath]]) {
+      const value = report('failed')
+      value.testResults[0]!.assertionResults[
+        fixedCase.sourceOrdinal - 1
+      ]!.failureMessages = [
+        `TypeError: private-value\n${paths
+          .map((path) => `    at privateFunction (/private/${path}:99:1)`)
+          .join('\n')}`
+      ]
+      const sanitized = sanitizePhase7VitestReport(
+        value,
+        phase7SsoTestFile,
+        environment
+      )
+      expect(sanitized.selectedCase).toMatchObject({
+        failure: { recognizedSourcePaths: [oldPath] }
+      })
+      expect(JSON.stringify(sanitized)).not.toContain('private-value')
+      expect(JSON.stringify(sanitized)).not.toContain('/private/')
+    }
+
+    const forged = report('failed')
+    forged.testResults[0]!.assertionResults[
+      fixedCase.sourceOrdinal - 1
+    ]!.failureMessages = [
+      `TypeError: private-value\n    at /private/src/db/ssoTestFixtureXts:1:2\n    at /private/src/db/evil-ssoTestFixture.ts:1:2\nnot a stack frame /private/${newPath}:1:2`
+    ]
+    expect(
+      sanitizePhase7VitestReport(forged, phase7SsoTestFile, environment)
+        .selectedCase
+    ).toMatchObject({ failure: { recognizedSourcePaths: [] } })
+  })
+
   it('bounds messages and ignores unrecognized codes/classes/paths and unrelated selected shapes', () => {
     const value = report('failed')
     value.testResults[0]!.assertionResults[
