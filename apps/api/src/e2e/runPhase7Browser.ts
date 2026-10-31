@@ -12,7 +12,7 @@ import type { AddressInfo } from 'node:net'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { cleanupBrowserResources } from './browserCleanup.js'
 import type { OwnedProcess } from './ownedProcessGroup.js'
-import type { Phase7BrowserFixtureDatabase } from './phase7BrowserFixture.js'
+import type { Phase7BrowserFixtureDatabase } from './browserFixture.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -446,7 +446,7 @@ export const runReal = async (): Promise<void> => {
     { parseApiEnvironment },
     { getRequestListener }
   ] = await Promise.all([
-    import('./phase7BrowserFixture.js'),
+    import('./browserFixture.js'),
     import('../config/env.js'),
     import('@hono/node-server')
   ])
