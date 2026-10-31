@@ -18,12 +18,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -42,7 +42,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -549,7 +549,7 @@ describe('StudySession migration invariants', () => {
 
     const userId = await createUser('user-cascade')
     const sessionId = await createCompleteSession(userId, question)
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       await expect(
         database.client.user.delete({ where: { id: userId } })
       ).rejects.toThrow()
