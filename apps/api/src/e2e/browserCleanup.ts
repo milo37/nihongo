@@ -1,11 +1,11 @@
-interface Phase10BrowserCleanupActions {
+interface BrowserCleanupActions {
   readonly closeControlServer: () => Promise<void>
   readonly cleanupDatabase: () => Promise<void>
   readonly stopOwnedProcesses: () => Promise<void>
 }
 
-export const cleanupPhase10BrowserResources = async (
-  actions: Phase10BrowserCleanupActions
+export const cleanupBrowserResources = async (
+  actions: BrowserCleanupActions
 ): Promise<void> => {
   const errors: unknown[] = []
   let processesStopped = false
