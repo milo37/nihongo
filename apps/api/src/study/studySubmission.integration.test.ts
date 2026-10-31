@@ -31,12 +31,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -55,7 +55,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -1158,7 +1158,7 @@ describe('Study submission PostgreSQL transaction', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? '비인가 Question archive를 42501로 거부하고 pinned version으로 채점·조회한다'
       : 'Question pointer 제거와 archive 뒤에도 pinned version으로 채점·조회한다',
     async () => {
@@ -1179,7 +1179,7 @@ describe('Study submission PostgreSQL transaction', () => {
           }
         }
       )
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const archiveTime = new Date(startedAt.getTime() + 500)
         await expectRawDatabaseError({
           expectedMessage:
@@ -1256,7 +1256,7 @@ describe('Study submission PostgreSQL transaction', () => {
           submitted.response
         )
       } finally {
-        if (!isPhase10CurrentSource) {
+        if (!isCurrentSourceIntegration) {
           await database.client.question.update({
             where: { id: pinned.questionId },
             data: originalQuestion

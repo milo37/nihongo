@@ -26,12 +26,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -50,7 +50,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -567,7 +567,7 @@ describe('study result retry integration', () => {
         updatedAt: true
       }
     })
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const archiveTime = new Date()
       await expectRawDatabaseError({
         expectedMessage:
@@ -647,13 +647,13 @@ describe('study result retry integration', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'direct retirement 거부 뒤에도 retry와 ReviewEvent가 historical pin을 보존한다'
       : 'source v1을 retire하고 v2를 publish해도 retry와 ReviewEvent는 v1 pin을 보존한다',
     async () => {
       const userId = await createUser('historical-pin')
       const owner = { kind: 'USER' as const, userId }
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const startedAt = new Date()
         const source = await createSubmittedSource(
           owner,
