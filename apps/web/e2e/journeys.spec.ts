@@ -582,9 +582,9 @@ const armDashboardFault = async (
     await page.evaluate(async (faultKind) => {
       const modulePath = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
-        armPhase10DashboardInsightsFault: (value: DashboardFault) => void
+        armDashboardInsightsFault: (value: DashboardFault) => void
       }
-      control.armPhase10DashboardInsightsFault(faultKind)
+      control.armDashboardInsightsFault(faultKind)
     }, fault)
     return async () => undefined
   }
