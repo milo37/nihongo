@@ -1229,12 +1229,12 @@ const login = async (
     ? await page.evaluate(async (role) => {
         const modulePath = '/src/test/accessibilityBrowserMockControl.ts'
         const control = (await import(/* @vite-ignore */ modulePath)) as {
-          selectPhase9MockActor: (role: 'ADMIN' | 'USER') => {
+          selectAccessibilityMockActor: (role: 'ADMIN' | 'USER') => {
             id: string
             role: 'ADMIN' | 'USER'
           }
         }
-        return control.selectPhase9MockActor(role)
+        return control.selectAccessibilityMockActor(role)
       }, actor.role)
     : { id: actor.userId, role: actor.role }
   const google = page.locator('main button[data-provider="google"]')
@@ -1577,9 +1577,9 @@ const armDashboardInsightsFailure = async (
     await page.evaluate(async () => {
       const modulePath = '/src/test/accessibilityBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
-        armPhase9DashboardInsightsFailure: () => void
+        armAccessibilityDashboardInsightsFailure: () => void
       }
-      control.armPhase9DashboardInsightsFailure()
+      control.armAccessibilityDashboardInsightsFailure()
     })
     return async () => undefined
   }
