@@ -327,7 +327,7 @@ it('retains cached audit content while offline and blocks fetching another page'
   await screen.findByRole('list', { name: '관리자 감사 기록' })
   await act(async () => {
     onlineManager.setOnline(false)
-    void client.invalidateQueries({ queryKey: ['phase7-admin', 'audit-log'] })
+    void client.invalidateQueries({ queryKey: ['admin-content', 'audit-log'] })
   })
   expect(
     await screen.findByText(/오프라인이라 최신 상태를 확인하지 못했습니다/)
@@ -401,7 +401,7 @@ it('focus lifecycle: reconnect growth after More does not steal focus from navig
   await act(async () => {
     onlineManager.setOnline(false)
     await client.invalidateQueries({
-      queryKey: ['phase7-admin', 'audit-log'],
+      queryKey: ['admin-content', 'audit-log'],
       refetchType: 'none'
     })
     onlineManager.setOnline(true)
@@ -424,7 +424,7 @@ it('focus lifecycle: paused cached-success retry restores the heading when recon
   const statuses: string[] = []
   const unsubscribe = client.getQueryCache().subscribe((event) => {
     if (
-      event.query.queryKey[0] === 'phase7-admin' &&
+      event.query.queryKey[0] === 'admin-content' &&
       event.query.queryKey[1] === 'audit-log'
     )
       statuses.push(event.query.state.status)
@@ -432,7 +432,9 @@ it('focus lifecycle: paused cached-success retry restores the heading when recon
   try {
     await act(async () => {
       onlineManager.setOnline(false)
-      void client.invalidateQueries({ queryKey: ['phase7-admin', 'audit-log'] })
+      void client.invalidateQueries({
+        queryKey: ['admin-content', 'audit-log']
+      })
     })
     expect(
       await screen.findByText(/오프라인이라 최신 상태를 확인하지 못했습니다/)

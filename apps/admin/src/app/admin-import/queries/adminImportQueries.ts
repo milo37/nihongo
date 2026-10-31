@@ -5,7 +5,7 @@ import type {
 } from '@nihongo/contracts/admin/phase7'
 import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 export const adminImportMutations = {
-  allKey: () => ['phase7-admin', 'import'] as const,
+  allKey: () => ['admin-content', 'import'] as const,
   validate: () =>
     mutationOptions({
       mutationKey: [...adminImportMutations.allKey(), 'validate'],

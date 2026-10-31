@@ -155,7 +155,7 @@ it('distinguishes loading from data and keeps failed cached detail and draft loc
   await fill()
   read.mockRejectedValue({ code: 'SERVICE_UNAVAILABLE' })
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['phase7-admin', 'reports'] })
+    await client.invalidateQueries({ queryKey: ['admin-content', 'reports'] })
   })
   expect(
     await screen.findByText(/최신 신고 상세를 확인하지 못했습니다/)
@@ -522,7 +522,7 @@ it('hands keyboard triage success to the stable heading once after canonical ref
   const back = screen.getByRole('link', { name: '신고 목록으로' })
   back.focus()
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['phase7-admin', 'reports'] })
+    await client.invalidateQueries({ queryKey: ['admin-content', 'reports'] })
   })
   expect(back).toHaveFocus()
 })
