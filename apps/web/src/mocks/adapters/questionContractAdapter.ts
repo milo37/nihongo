@@ -9,25 +9,25 @@ import type {
   QuestionRecord
 } from '@nihongo/browser/common/types/domain'
 
-const PHASE_7_CONTRACT_IDENTITY = '__phase7ContractIdentity' as const
+const QUESTION_CONTRACT_IDENTITY = '__phase7ContractIdentity' as const
 
-export interface Phase7QuestionContractIdentity {
+export interface QuestionContractIdentity {
   readonly optionIdBySourceId: Readonly<Record<string, string>>
   readonly questionId: string
   readonly questionVersionId: string
   readonly tagIdByNormalizedLabel: Readonly<Record<string, string>>
 }
 
-export type Phase7ProjectedQuestionRecord = QuestionRecord & {
-  readonly [PHASE_7_CONTRACT_IDENTITY]: Phase7QuestionContractIdentity
+export type ProjectedQuestionRecord = QuestionRecord & {
+  readonly [QUESTION_CONTRACT_IDENTITY]: QuestionContractIdentity
 }
 
-export const getPhase7QuestionContractIdentity = (
+export const getQuestionContractIdentity = (
   question: unknown
-): Phase7QuestionContractIdentity | null => {
+): QuestionContractIdentity | null => {
   if (typeof question !== 'object' || question === null) return null
   const identity = (question as Record<string, unknown>)[
-    PHASE_7_CONTRACT_IDENTITY
+    QUESTION_CONTRACT_IDENTITY
   ]
   if (typeof identity !== 'object' || identity === null) return null
   const candidate = identity as Record<string, unknown>
@@ -41,15 +41,15 @@ export const getPhase7QuestionContractIdentity = (
   ) {
     return null
   }
-  return identity as Phase7QuestionContractIdentity
+  return identity as QuestionContractIdentity
 }
 
-export const withPhase7QuestionContractIdentity = (
+export const withQuestionContractIdentity = (
   question: QuestionRecord,
-  identity: Phase7QuestionContractIdentity
-): Phase7ProjectedQuestionRecord => ({
+  identity: QuestionContractIdentity
+): ProjectedQuestionRecord => ({
   ...question,
-  [PHASE_7_CONTRACT_IDENTITY]: identity
+  [QUESTION_CONTRACT_IDENTITY]: identity
 })
 
 const FNV_OFFSET_BASIS = 0xcbf29ce484222325n
@@ -87,7 +87,7 @@ export const getContractQuestionId = (sourceQuestionId: string): string =>
 export const getCanonicalQuestionId = (
   question: Pick<QuestionRecord, 'id'>
 ): string =>
-  getPhase7QuestionContractIdentity(question)?.questionId ??
+  getQuestionContractIdentity(question)?.questionId ??
   getContractQuestionId(question.id)
 
 export const getSourceQuestionId = (
@@ -119,7 +119,7 @@ export const getQuestionVersionFingerprint = (
 export const toContractPracticeQuestion = (
   question: PracticeQuestion,
   versionFingerprint = '1',
-  identity = getPhase7QuestionContractIdentity(question)
+  identity = getQuestionContractIdentity(question)
 ): GetQuestionResponse => ({
   id: identity?.questionId ?? getContractQuestionId(question.id),
   questionVersionId:
@@ -153,7 +153,7 @@ export const toContractPracticeQuestion = (
 export const toContractQuestionSummary = (
   question: QuestionRecord
 ): PublicQuestionSummary => {
-  const identity = getPhase7QuestionContractIdentity(question)
+  const identity = getQuestionContractIdentity(question)
   const detail = toContractPracticeQuestion(
     question,
     getQuestionVersionFingerprint(question),

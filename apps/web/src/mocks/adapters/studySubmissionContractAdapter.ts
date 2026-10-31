@@ -8,7 +8,7 @@ import {
   type StudyResultItem
 } from '@nihongo/contracts/study/study-result'
 import {
-  getPhase7QuestionContractIdentity,
+  getQuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
   toStableMockUuid
@@ -186,7 +186,7 @@ const gradeMockCanonicalStudySubmission = (
     }
 
     const versionFingerprint = getQuestionVersionFingerprint(question)
-    const questionContractIdentity = getPhase7QuestionContractIdentity(question)
+    const questionContractIdentity = getQuestionContractIdentity(question)
     const publicQuestion = toContractPracticeQuestion(
       toPracticeQuestion(question),
       versionFingerprint,
