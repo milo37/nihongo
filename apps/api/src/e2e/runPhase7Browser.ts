@@ -335,9 +335,7 @@ export const selectPhase7BrowserSpecs = (
   phase8: boolean
 ): string[] => {
   const specs = [
-    ...(browserMode === 'real'
-      ? ['apps/web/e2e/phase7-admin-cms-mock.spec.ts']
-      : []),
+    ...(browserMode === 'real' ? ['apps/web/e2e/admin-cms.spec.ts'] : []),
     ...(phase8 ? ['apps/web/e2e/phase8-dashboard-real-mock.spec.ts'] : [])
   ]
   if (specs.length === 0)

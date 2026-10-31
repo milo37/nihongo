@@ -1232,7 +1232,7 @@ const assertPhase7PlaywrightSelection = async (source, mode) => {
   const suites =
     mode === 'real'
       ? [
-          'apps/web/e2e/phase7-admin-cms-mock.spec.ts',
+          'apps/web/e2e/admin-cms.spec.ts',
           'apps/web/e2e/phase8-dashboard-real-mock.spec.ts'
         ]
       : ['apps/web/e2e/phase8-dashboard-real-mock.spec.ts']
