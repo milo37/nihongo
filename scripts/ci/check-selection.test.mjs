@@ -1635,7 +1635,7 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
   await assertPlaywrightSelection(
     sources.phase9,
     mode,
-    'apps/web/e2e/phase9-accessibility.spec.ts',
+    'apps/web/e2e/accessibility.spec.ts',
     'PHASE9_BROWSER_MODE'
   )
   await assertPlaywrightSelection(
@@ -1733,11 +1733,11 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
   await assert.rejects(() =>
     assertPlaywrightSelection(
       phase9Source.replace(
-        "'apps/web/e2e/phase9-accessibility.spec.ts'",
-        "'apps/web/e2e/dead.spec.ts' /* apps/web/e2e/phase9-accessibility.spec.ts */"
+        "'apps/web/e2e/accessibility.spec.ts'",
+        "'apps/web/e2e/dead.spec.ts' /* apps/web/e2e/accessibility.spec.ts */"
       ),
       'real',
-      'apps/web/e2e/phase9-accessibility.spec.ts',
+      'apps/web/e2e/accessibility.spec.ts',
       'PHASE9_BROWSER_MODE'
     )
   )

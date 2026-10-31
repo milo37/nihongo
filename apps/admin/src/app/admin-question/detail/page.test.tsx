@@ -381,6 +381,129 @@ it('keeps draft input after conflict, requires manual refresh+rebase, then saves
     body: { expectedRowVersion: 2, questionText: 'Local kept question' }
   })
 })
+it('keeps a conflict locked while delayed history disagrees with the same detail version', async () => {
+  route()
+  await ready()
+  await userEvent.click(
+    screen.getByRole('button', { name: t('questionDetail.editDraft') })
+  )
+  const input = screen.getByRole('textbox', { name: t('editor.questionText') })
+  fireEvent.change(input, { target: { value: 'Local kept question' } })
+  const form = input.closest('form')!
+  write = async () => {
+    throw { code: 'VERSION_CONFLICT' }
+  }
+  await userEvent.click(
+    within(form).getByRole('button', { name: t('questionDetail.saveDraft') })
+  )
+  await screen.findAllByText(t('errors.versionConflict'))
+
+  const originalRead = endpoint.getMockImplementation()!
+  let releaseHistory: ((value: AdminQuestionVersionConnection) => void) | null =
+    null
+  endpoint.mockImplementation((async (request) => {
+    if (request.operation === 'listAdminQuestionVersions') {
+      return new Promise<AdminQuestionVersionConnection>((resolve) => {
+        releaseHistory = resolve
+      })
+    }
+    return originalRead(request)
+  }) as typeof api.requestContentOperation)
+  await userEvent.click(
+    screen.getByRole('button', { name: t('questionDetail.retryConflict') })
+  )
+  await waitFor(() => expect(releaseHistory).not.toBeNull())
+  expect(input).toHaveValue('Local kept question')
+  expect(input).toBeDisabled()
+  expect(writes()).toHaveLength(1)
+  expect(snapshot.versions.items[0]).toMatchObject({
+    questionVersionId: versionId,
+    rowVersion: 1
+  })
+
+  await act(async () => {
+    releaseHistory!({
+      ...snapshot.versions,
+      items: [{ ...newer, rowVersion: 2 }, older]
+    })
+  })
+  const rebase = await screen.findByRole('button', {
+    name: t('editor.rebaseAction')
+  })
+  expect(input).toHaveValue('Local kept question')
+  expect(writes()).toHaveLength(1)
+  expect.soft(input).toBeDisabled()
+  expect.soft(rebase).toBeDisabled()
+  const retry = screen.queryByRole('button', {
+    name: t('questionDetail.retryConflict')
+  })
+  expect.soft(retry).toBeEnabled()
+  if (!retry || retry.hasAttribute('disabled')) return
+
+  endpoint.mockImplementation(originalRead)
+  snapshot = {
+    ...snapshot,
+    versions: {
+      ...snapshot.versions,
+      items: [{ ...newer, rowVersion: 2 }, older]
+    }
+  }
+  await userEvent.click(retry)
+  await waitFor(() => expect(rebase).toBeEnabled())
+  expect(writes()).toHaveLength(1)
+  await userEvent.click(rebase)
+  write = async () => ({ ...createReceipt, versionRowVersion: 3 })
+  await userEvent.click(
+    within(form).getByRole('button', { name: t('questionDetail.saveDraft') })
+  )
+  await waitFor(() => expect(writes()).toHaveLength(2))
+  expect(writes()[1]![0]).toMatchObject({
+    operation: 'updateQuestionVersion',
+    body: { expectedRowVersion: 2, questionText: 'Local kept question' }
+  })
+})
+it('allows conflict refresh when the selected version is absent from the detail page', async () => {
+  snapshot = {
+    ...snapshot,
+    versions: { ...snapshot.versions, items: [] }
+  }
+  history = { ...initial.versions, items: [newer, older] }
+  route()
+  await ready()
+  await userEvent.click(
+    screen.getByRole('button', { name: t('questionDetail.editDraft') })
+  )
+  const input = screen.getByRole('textbox', { name: t('editor.questionText') })
+  fireEvent.change(input, { target: { value: 'Paged local question' } })
+  const form = input.closest('form')!
+  write = async () => {
+    throw { code: 'VERSION_CONFLICT' }
+  }
+  await userEvent.click(
+    within(form).getByRole('button', { name: t('questionDetail.saveDraft') })
+  )
+  await screen.findAllByText(t('errors.versionConflict'))
+  history = { ...initial.versions, items: [{ ...newer, rowVersion: 2 }, older] }
+  await userEvent.click(
+    screen.getByRole('button', { name: t('questionDetail.retryConflict') })
+  )
+  const rebase = await screen.findByRole('button', {
+    name: t('editor.rebaseAction')
+  })
+  await waitFor(() => expect(rebase).toBeEnabled())
+  expect(input).toHaveValue('Paged local question')
+  expect(writes()).toHaveLength(1)
+  await userEvent.click(rebase)
+  write = async () => ({ ...createReceipt, versionRowVersion: 3 })
+  await userEvent.click(
+    within(form).getByRole('button', { name: t('questionDetail.saveDraft') })
+  )
+  await waitFor(() => expect(writes()).toHaveLength(2))
+  expect(writes()[1]![0]).toMatchObject({
+    operation: 'updateQuestionVersion',
+    body: { expectedRowVersion: 2, questionText: 'Paged local question' }
+  })
+})
 it('blocks version changes and leaving while dirty and retains input when the user stays', async () => {
   const { router } = route()
   await ready()
