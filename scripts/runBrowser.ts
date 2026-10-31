@@ -71,13 +71,13 @@ type RealSuite = keyof typeof realWorkerModules
 const isRealSuite = (value: string): value is RealSuite =>
   Object.hasOwn(realWorkerModules, value)
 
-type Phase9Adapter = Pick<
+type BrowserAdapter = Pick<
   typeof import('./runPhase9Browser.js'),
   'runCommand' | 'runMockBrowser' | 'cleanup'
 >
 
 interface BrowserRunnerDependencies {
-  readonly loadPhase9: () => Promise<Phase9Adapter>
+  readonly loadBrowserAdapter: () => Promise<BrowserAdapter>
   readonly resolveTsx: () => string
 }
 
@@ -86,14 +86,14 @@ export const runBrowserMode = async (
   signal: AbortSignal,
   playwrightArguments: readonly string[] = [],
   dependencies: BrowserRunnerDependencies = {
-    loadPhase9: async () => await import('./runPhase9Browser.js'),
+    loadBrowserAdapter: async () => await import('./runPhase9Browser.js'),
     resolveTsx: () =>
       createRequire(
         new URL('../apps/api/package.json', import.meta.url)
       ).resolve('tsx')
   }
 ): Promise<void> => {
-  const phase9 = await dependencies.loadPhase9()
+  const browserAdapter = await dependencies.loadBrowserAdapter()
   const previousPrepared = process.env.JLP541_BROWSER_ARTIFACTS_PREPARED
   delete process.env.JLP541_BROWSER_ARTIFACTS_PREPARED
   try {
@@ -104,18 +104,21 @@ export const runBrowserMode = async (
           await prepareBrowserArtifacts(
             currentMode,
             currentSignal,
-            phase9.runCommand
+            browserAdapter.runCommand
           )
           process.env.JLP541_BROWSER_ARTIFACTS_PREPARED = '1'
         },
         openSuite: async (suite) => {
           if (suite === 'mock-states') {
-            return { run: phase9.runMockBrowser, cleanup: phase9.cleanup }
+            return {
+              run: browserAdapter.runMockBrowser,
+              cleanup: browserAdapter.cleanup
+            }
           }
           const tsx = dependencies.resolveTsx()
           return {
             run: async (currentSignal) => {
-              await phase9.runCommand(
+              await browserAdapter.runCommand(
                 process.execPath,
                 [
                   '--import',
