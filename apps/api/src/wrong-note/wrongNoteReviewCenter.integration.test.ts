@@ -48,12 +48,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -72,7 +72,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -196,7 +196,7 @@ const createApplicationClient = (): Client =>
     connectionString: environment.DATABASE_URL,
     options: createPostgresStartupOptions(
       getPostgresSchema(environment.DATABASE_URL),
-      isPhase10CurrentSource ? 'nihongo_app' : undefined
+      isCurrentSourceIntegration ? 'nihongo_app' : undefined
     )
   })
 
@@ -805,7 +805,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       expect(solved).toMatchObject({ total: 1, items: [{ status: 'SOLVED' }] })
 
       const archiveTime = new Date(dueAt.getTime() + 1_000)
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
           expectedMessage:
             'An armed trusted Phase 7 operation intent is required.',
@@ -848,7 +848,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
         await solvedQueueService.listReviewQueue(fixture.userId, queueQuery)
       )
       expect(archived).toMatchObject(
-        isPhase10CurrentSource
+        isCurrentSourceIntegration
           ? {
               total: 1,
               counts: { due: 1, unreviewed: 0, repeated: 1, solved: 1 },
@@ -861,7 +861,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
             }
       )
     } finally {
-      if (!isPhase10CurrentSource) {
+      if (!isCurrentSourceIntegration) {
         await fixtureDatabase.client.question.update({
           where: { id: fixture.questionId },
           data: {
@@ -875,7 +875,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       await setQueueFixtureState(fixture, { kind: 'NEW' })
     }
 
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const currentVersion =
         await database.client.questionVersion.findUniqueOrThrow({
           where: { id: fixture.questionVersionId },
@@ -1266,7 +1266,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
     })
     const secondDatabase = createDatabaseRuntime(
       environment.DATABASE_URL,
-      isPhase10CurrentSource
+      isCurrentSourceIntegration
         ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
         : {}
     )
@@ -1354,7 +1354,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? '205-event keyset은 concurrent append와 비인가 archive 거부 뒤에도 duplicate/skip 없이 유지된다'
       : '205-event keyset은 concurrent newest append 뒤에도 duplicate/skip 없이 archive에서 유지된다',
     async () => {
@@ -1449,7 +1449,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
         }
       )
       const archiveTime = new Date('2026-08-22T01:00:00.000Z')
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
           expectedMessage:
             'An armed trusted Phase 7 operation intent is required.',
@@ -1618,7 +1618,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
     const outcomes = await (async () => {
       const contenderDatabase = createDatabaseRuntime(
         environment.DATABASE_URL,
-        isPhase10CurrentSource
+        isCurrentSourceIntegration
           ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
           : {}
       )
@@ -1754,7 +1754,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
         }
       })
     const archiveTime = new Date(TARGETED_AT.getTime() + 2_000)
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       await expectRawDatabaseError({
         expectedMessage:
           'An armed trusted Phase 7 operation intent is required.',
@@ -1829,7 +1829,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
   }, 15_000)
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'current-version share lock 뒤 비인가 archive를 거부하고 pinned replay를 보존한다'
       : 'current-version share lock 뒤 archive를 직렬화하고 pinned historical replay를 보존한다',
     async () => {
@@ -1896,7 +1896,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           })
         ])
         let processId: number | undefined
-        if (!isPhase10CurrentSource) {
+        if (!isCurrentSourceIntegration) {
           const backend = await archiveClient.query<{ processId: number }>(
             'SELECT pg_backend_pid() AS "processId"'
           )
@@ -1911,7 +1911,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
         const archiveTime = new Date(TARGETED_AT.getTime() + 1_000)
         archiveUpdate = archiveClient
           .query(
-            isPhase10CurrentSource
+            isCurrentSourceIntegration
               ? `UPDATE "Question"
                  SET "lifecycleStatus" = 'ARCHIVED',
                      "archivedAt" = $2,
@@ -1933,7 +1933,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           .finally(() => {
             archiveSettled = true
           })
-        if (!isPhase10CurrentSource && processId !== undefined) {
+        if (!isCurrentSourceIntegration && processId !== undefined) {
           await waitForBackendLock(lockObserverClient, processId)
           expect(archiveSettled).toBe(false)
         }
@@ -1945,7 +1945,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           id: targetFixture.questionId,
           questionVersionId: targetFixture.questionVersionId
         })
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           expect(archiveError).toMatchObject({
             code: '42501',
             message: 'An armed trusted Phase 7 operation intent is required.'
@@ -1986,7 +1986,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
             idempotencyKey
           )
         ).resolves.toEqual({ replayed: true, response: created.response })
-        if (!isPhase10CurrentSource) {
+        if (!isCurrentSourceIntegration) {
           await expect(
             targetService.createTargetedReviewSession(
               userId,
