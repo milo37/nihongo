@@ -16,7 +16,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import { prepareBrowserArtifacts } from '../../apps/api/src/e2e/browserArtifactPreparation.ts'
-import { runBrowserSuites } from '../runPhaseBrowser.ts'
+import { runBrowserSuites } from '../runBrowser.ts'
 
 import {
   classifyChangedFiles,
@@ -869,7 +869,7 @@ const expectedBrowserCalls = (mode) => [
       '@nihongo/api',
       'exec',
       'tsx',
-      '../../scripts/runPhaseBrowser.ts',
+      '../../scripts/runBrowser.ts',
       mode
     ],
     phase8: null
@@ -1589,7 +1589,7 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
     path.join(repositoryRoot, 'scripts/runPhase10Browser.ts')
   ]
   const common = readFileSync(
-    path.join(repositoryRoot, 'scripts/runPhaseBrowser.ts'),
+    path.join(repositoryRoot, 'scripts/runBrowser.ts'),
     'utf8'
   )
   const mappingMatch =
@@ -1675,7 +1675,7 @@ test('protected browser aliases execute every retained acceptance suite', async 
 
   const failure = runBrowserScript(
     scripts['test:browser:real'],
-    'runPhaseBrowser.ts'
+    'runBrowser.ts'
   )
   assert.equal(failure.status, 17)
   assert.deepEqual(failure.calls, expectedBrowserCalls('real'))
@@ -1709,16 +1709,13 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
 
   const real = scripts['test:browser:real']
   const call =
-    'pnpm --filter @nihongo/api exec tsx ../../scripts/runPhaseBrowser.ts real'
+    'pnpm --filter @nihongo/api exec tsx ../../scripts/runBrowser.ts real'
   assert.throws(() =>
     assertBrowserScript(`printf "%s" "${call}" >/dev/null`, 'real')
   )
   assert.throws(() => assertBrowserScript(`# ${call}\ntrue`, 'real'))
   assert.throws(() =>
-    assertBrowserScript(
-      real.replace('runPhaseBrowser.ts', 'deadBrowser.ts'),
-      'real'
-    )
+    assertBrowserScript(real.replace('runBrowser.ts', 'deadBrowser.ts'), 'real')
   )
 
   const phase9Source = readFileSync(
@@ -2159,7 +2156,7 @@ const runIsolatedBrowserScenario = (scenario) => {
     )
   }
   for (const file of [
-    'scripts/runPhaseBrowser.ts',
+    'scripts/runBrowser.ts',
     'apps/api/src/e2e/browserArtifactPreparation.ts'
   ]) {
     const target = path.join(root, file)
@@ -2171,7 +2168,7 @@ const runIsolatedBrowserScenario = (scenario) => {
     `
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { runBrowserMode } from './scripts/runPhaseBrowser.ts'
+import { runBrowserMode } from './scripts/runBrowser.ts'
 import { prepareBrowserArtifacts } from './apps/api/src/e2e/browserArtifactPreparation.ts'
 const root = process.cwd()
 const calls = []
@@ -2197,7 +2194,7 @@ if (process.argv[2] === 'preprepared') {
 let error = null
 try {
   await runBrowserMode('real', new AbortController().signal, [], {
-    loadPhase9: async () => adapter, resolveTsx: () => 'test-loader'
+    loadBrowserAdapter: async () => adapter, resolveTsx: () => 'test-loader'
   })
 } catch (caught) {
   error = caught instanceof Error ? caught.message : 'unknown failure'
@@ -2309,7 +2306,7 @@ setInterval(() => {}, 1000)
     [
       '--import',
       loader,
-      path.join(repositoryRoot, 'scripts/runPhaseBrowser.ts'),
+      path.join(repositoryRoot, 'scripts/runBrowser.ts'),
       'mock'
     ],
     {
