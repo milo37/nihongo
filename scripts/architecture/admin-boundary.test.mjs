@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -67,4 +73,33 @@ test('workspace graph resolves browser package and rejects app-to-app imports', 
         JSON.stringify(diagnostic).includes('ARCH118')
       )
     )
+  }))
+
+test('admin public rejects nested valid and broken symlinks and recovers after removal', () =>
+  fixture((root) => {
+    const directory = 'apps/admin/public/nested'
+    mkdirSync(join(root, directory), { recursive: true })
+    writeFileSync(join(root, directory, 'target.txt'), 'synthetic fixture\n')
+
+    const publicSymlinks = () =>
+      checkWorkspaceArchitecture({ rootDir: root })
+        .filter(
+          (diagnostic) =>
+            diagnostic.code === 'ARCH116' &&
+            diagnostic.file.startsWith('apps/admin/public/')
+        )
+        .map((diagnostic) => diagnostic.file)
+
+    assert.deepEqual(publicSymlinks(), [])
+    for (const [name, target] of [
+      ['valid-link', 'target.txt'],
+      ['broken-link', 'missing.txt']
+    ]) {
+      const relativeLink = `${directory}/${name}`
+      const link = join(root, relativeLink)
+      symlinkSync(target, link, 'file')
+      assert.deepEqual(publicSymlinks(), [relativeLink])
+      rmSync(link)
+      assert.deepEqual(publicSymlinks(), [])
+    }
   }))
