@@ -95,9 +95,9 @@ for (const locale of ['ko', 'ja'] as const) {
       await page.evaluate(async () => {
         const path = '/src/test/journeyBrowserMockControl.ts'
         const control = (await import(/* @vite-ignore */ path)) as {
-          resetPhase10MockState: () => Promise<void>
+          resetJourneyMockState: () => Promise<void>
         }
-        await control.resetPhase10MockState()
+        await control.resetJourneyMockState()
       })
     }
     try {
@@ -207,9 +207,9 @@ for (const locale of ['ko', 'ja'] as const) {
         await page.evaluate(async () => {
           const path = '/src/test/journeyBrowserMockControl.ts'
           const control = (await import(/* @vite-ignore */ path)) as {
-            resetPhase10MockState: () => Promise<void>
+            resetJourneyMockState: () => Promise<void>
           }
-          await control.resetPhase10MockState()
+          await control.resetJourneyMockState()
         })
       }
     }
@@ -372,9 +372,9 @@ const prepareJourney = async (page: Page, address: string): Promise<void> => {
     await page.evaluate(async () => {
       const path = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ path)) as {
-        resetPhase10MockState: () => Promise<void>
+        resetJourneyMockState: () => Promise<void>
       }
-      await control.resetPhase10MockState()
+      await control.resetJourneyMockState()
     })
     await page.goto('/login')
     await settleJourneyPage(page)

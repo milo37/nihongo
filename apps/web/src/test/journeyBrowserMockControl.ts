@@ -19,7 +19,7 @@ const assertMockTestMode = (): void => {
   }
 }
 
-export const resetPhase10MockState = async (): Promise<void> => {
+export const resetJourneyMockState = async (): Promise<void> => {
   assertMockTestMode()
   await queryClient.cancelQueries()
   worker.resetHandlers()
