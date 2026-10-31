@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { runPhase7SeedExecution } from './phase7SeedExecution.js'
+import { runPhase7SeedExecution } from './seedExecution.js'
 
 describe('prefix seed repetition', () => {
   it('reports completion only after the prefix reseed command succeeds', async () => {
