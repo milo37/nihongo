@@ -2166,7 +2166,7 @@ export class MockDatabase {
       )
     }
 
-    const learnerQuestionReadModel = this.buildPhase7LearnerQuestionReadModel()
+    const learnerQuestionReadModel = this.buildLearnerQuestionReadModel()
     const selectedQuestions = source.questions.flatMap((question, index) => {
       const resultItem = result.items[index]
       const expectedSessionQuestionId = getCanonicalSessionQuestionId(
@@ -2446,7 +2446,7 @@ export class MockDatabase {
       input.questionId
     )
     const currentQuestion =
-      this.buildPhase7LearnerQuestionReadModel().currentBySourceId.get(
+      this.buildLearnerQuestionReadModel().currentBySourceId.get(
         wrongNote.sourceQuestionId
       )
     if (
@@ -2570,7 +2570,7 @@ export class MockDatabase {
     const observedAt = this.now()
     const observedAtMs = Date.parse(observedAt)
     const currentQuestions =
-      this.buildPhase7LearnerQuestionReadModel().currentBySourceId
+      this.buildLearnerQuestionReadModel().currentBySourceId
     const allCandidates = this.reconstructCanonicalWrongNotes(userId).flatMap(
       (note): ReviewQueueItem[] => {
         const question = currentQuestions.get(note.sourceQuestionId)
@@ -2839,7 +2839,7 @@ export class MockDatabase {
 
     const observedAt = this.now()
     const submissions = this.getCanonicalUserSubmissionEvidence(userId)
-    const learnerReadModel = this.buildPhase7LearnerQuestionReadModel()
+    const learnerReadModel = this.buildLearnerQuestionReadModel()
     const currentCatalog = [...learnerReadModel.currentBySourceId.values()].map(
       (question) => {
         const contract = toContractPracticeQuestion(
@@ -3170,7 +3170,7 @@ export class MockDatabase {
   }
 
   resolveCanonicalQuestionId(contractQuestionId: string): string | null {
-    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    const readModel = this.buildLearnerQuestionReadModel()
     for (const question of readModel.retainedPublishedBySourceId.values()) {
       if (
         getPhase7QuestionContractIdentity(question)?.questionId ===
@@ -3198,7 +3198,7 @@ export class MockDatabase {
   ): CanonicalBookmarkSourceRecord[] {
     this.assertUser(userId)
     const sources: CanonicalBookmarkSourceRecord[] = []
-    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    const readModel = this.buildLearnerQuestionReadModel()
     for (const bookmark of this.bookmarkByQuestionId.values()) {
       if (bookmark.userId !== userId) continue
       const source = this.resolveCanonicalBookmarkSource(
@@ -3232,7 +3232,7 @@ export class MockDatabase {
     this.assertUser(userId)
     const key = makeUserQuestionKey(userId, questionId)
     const existing = this.bookmarkByQuestionId.get(key)
-    const readModel = this.buildPhase7LearnerQuestionReadModel()
+    const readModel = this.buildLearnerQuestionReadModel()
     const source = this.resolveCanonicalBookmarkSource(questionId, readModel)
     if (existing) {
       if (!source) {
@@ -3475,7 +3475,7 @@ export class MockDatabase {
       ? normalizeQuestionTagText(filters.tag)
       : undefined
     return clone(
-      [...this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()]
+      [...this.buildLearnerQuestionReadModel().currentBySourceId.values()]
         .filter(
           (question) =>
             (filters.level === undefined || question.level === filters.level) &&
@@ -3504,7 +3504,7 @@ export class MockDatabase {
 
   getCanonicalPublicQuestionRecord(contractQuestionId: string): QuestionRecord {
     const question = [
-      ...this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()
+      ...this.buildLearnerQuestionReadModel().currentBySourceId.values()
     ].find(
       (candidate) =>
         getPhase7QuestionContractIdentity(candidate)?.questionId ===
@@ -4196,7 +4196,7 @@ export class MockDatabase {
     return weakestType
   }
 
-  private buildPhase7LearnerQuestionReadModel(): LearnerQuestionReadModel {
+  private buildLearnerQuestionReadModel(): LearnerQuestionReadModel {
     const sources = this.useLegacyQuestionSourcesForLearnerProjection
       ? this.listCanonicalAdminQuestionSources()
       : this.listPhase7AuthoritativeAdminQuestionSources()
@@ -4356,7 +4356,7 @@ export class MockDatabase {
   ): QuestionRecord[] {
     const eligible: QuestionRecord[] = []
     const questions = canonical
-      ? this.buildPhase7LearnerQuestionReadModel().currentBySourceId.values()
+      ? this.buildLearnerQuestionReadModel().currentBySourceId.values()
       : this.questionById.values()
     for (const question of questions) {
       if (
@@ -4897,7 +4897,7 @@ export class MockDatabase {
     const recordsByQuestionId = new Map<string, MockCanonicalWrongNoteRecord>()
     const consumedEventAnswerIds = new Set<string>()
     const currentQuestions =
-      this.buildPhase7LearnerQuestionReadModel().currentBySourceId
+      this.buildLearnerQuestionReadModel().currentBySourceId
     const evidence = submissions
       .flatMap(({ answers }) => answers)
       .toSorted(
