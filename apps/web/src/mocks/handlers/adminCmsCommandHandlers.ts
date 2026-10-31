@@ -299,7 +299,7 @@ const assertEmptyQuery = (request: Request): void => {
   }
 }
 
-export const readPhase7MockJsonBody = async (
+export const readMockJsonBody = async (
   request: Request,
   maximumBytes: number
 ): Promise<unknown> => {
@@ -367,7 +367,7 @@ const parseBody = async <Schema extends ZodType>(
   schema: Schema,
   message: string
 ): Promise<z.output<Schema>> => {
-  const raw = await readPhase7MockJsonBody(request, bodyCap(operation))
+  const raw = await readMockJsonBody(request, bodyCap(operation))
   const result = schema.safeParse(raw)
   if (result.success) return result.data
   throw new MockContentCommandError({
