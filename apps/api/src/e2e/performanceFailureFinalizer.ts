@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises'
-import { runPhase10CleanupWithTimeout } from './phase10RunTimeout.js'
+import { runCleanupWithTimeout } from './runTimeout.js'
 
 interface PerformanceFailureFinalizerOptions {
   readonly cleanup: () => Promise<void>
@@ -19,7 +19,7 @@ export const createPerformanceFailureFinalizer = ({
     finalizationPromise ??= (async () => {
       const errors: unknown[] = []
       try {
-        await runPhase10CleanupWithTimeout({
+        await runCleanupWithTimeout({
           cleanup,
           label,
           timeoutMs: cleanupTimeoutMs
