@@ -281,7 +281,7 @@ describe('AuthErrorHandlerProvider', () => {
   it('ADMIN object-level FORBIDDEN은 현재 화면과 로컬 오류 소비 경계를 유지한다', async () => {
     const currentUser = mockDatabase.loginAs('ADMIN')
     useAppStore.getState().setCurrentUser(currentUser)
-    queryClient.setQueryData(['phase7-admin', 'draft'], {
+    queryClient.setQueryData(['admin-content', 'draft'], {
       questionText: '저장하지 않은 로컬 초안'
     })
     const { router } = renderProvider('/admin/questions/question-1')
@@ -299,7 +299,7 @@ describe('AuthErrorHandlerProvider', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/admin/questions/question-1')
     )
-    expect(queryClient.getQueryData(['phase7-admin', 'draft'])).toEqual({
+    expect(queryClient.getQueryData(['admin-content', 'draft'])).toEqual({
       questionText: '저장하지 않은 로컬 초안'
     })
     expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)

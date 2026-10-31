@@ -18,8 +18,8 @@ import {
   createPhase7HistoricalSchemaFixture,
   LEGACY_APP_LOGIN,
   quoteIdentifier
-} from '../db/fixtures/phase7HistoricalSchema.js'
-import type { IsolatedUpgradeSchema } from '../db/fixtures/phase7HistoricalSchema.js'
+} from '../db/fixtures/historicalSchema.js'
+import type { IsolatedUpgradeSchema } from '../db/fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import { toStableSeedUuid } from '../../prisma/seed-data/id.js'
