@@ -5,7 +5,7 @@ import {
   createPhase9GoogleTestProvider,
   parsePhase9BrowserEnvironment,
   preparePhase9BrowserActors
-} from './phase9BrowserApi.js'
+} from './browserApi.js'
 
 const pg = vi.hoisted(() => ({
   connect: vi.fn(),

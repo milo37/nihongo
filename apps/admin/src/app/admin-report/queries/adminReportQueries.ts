@@ -7,7 +7,7 @@ import type {
 import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const adminReportQueries = {
-  allKey: () => ['phase7-admin', 'reports'] as const,
+  allKey: () => ['admin-content', 'reports'] as const,
   list: (
     actorId: string | null,
     epoch: number,

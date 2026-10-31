@@ -28,7 +28,7 @@ export const resetJourneyMockState = async (): Promise<void> => {
   queryClient.clear()
 }
 
-export const completePhase10MockGoogleCallback = async (): Promise<void> => {
+export const completeMockGoogleCallback = async (): Promise<void> => {
   assertMockTestMode()
   const response = await fetch('/api/_mock/auth/social/callback', {
     method: 'POST',
