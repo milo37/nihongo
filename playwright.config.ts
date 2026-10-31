@@ -20,7 +20,7 @@ export default defineConfig({
   reporter: [
     ['list'],
     [
-      './scripts/security/phase10-playwright-summary-reporter.mjs',
+      './scripts/security/browser-evidence-reporter.mjs',
       { label: outputLabel, outputDirectory: safeEvidenceDirectory }
     ]
   ],
