@@ -32,7 +32,7 @@ import {
   createPhase7PrincipalService,
   type PrincipalService
 } from '../auth/principalService.js'
-import { createPhase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
+import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import {
   createPhase7SessionCookie,
   createPhase7DontRememberCookie,
