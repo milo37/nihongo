@@ -660,7 +660,7 @@ test('standalone runners use supported workspace build commands', () => {
       'u'
     )
   for (const file of [
-    'apps/api/src/e2e/runPhase7DbIntegration.ts',
+    'apps/api/src/e2e/runDatabaseIntegration.ts',
     'apps/api/src/e2e/runPhase7ApiIntegration.ts',
     'apps/api/src/e2e/runPhase7Browser.ts',
     'scripts/runPhase10Browser.ts'
@@ -668,7 +668,7 @@ test('standalone runners use supported workspace build commands', () => {
     const source = readFileSync(path.join(repositoryRoot, file), 'utf8')
     assert.doesNotMatch(source, /'build:(?:contracts|domain)'/u, file)
     if (
-      file.endsWith('runPhase7DbIntegration.ts') ||
+      file.endsWith('runDatabaseIntegration.ts') ||
       file.endsWith('runPhase7ApiIntegration.ts')
     ) {
       assert.match(source, /await prepareBrowserArtifacts\(/u, file)
@@ -1161,7 +1161,7 @@ test('API integration uses shared job preparation and seed avoids regeneration',
     'utf8'
   )
   const database = readFileSync(
-    path.join(root, 'apps/api/src/e2e/runPhase7DbIntegration.ts'),
+    path.join(root, 'apps/api/src/e2e/runDatabaseIntegration.ts'),
     'utf8'
   )
   const invoke = runInNewContext(
@@ -2292,8 +2292,8 @@ test('a cancelled mock build stops its owned child and returns SIGTERM status', 
     fakePnpm,
     `#!/usr/bin/env node
 const fs = require('node:fs')
-fs.writeFileSync(process.env.MOCK_READY_FILE, 'ready')
 process.once('SIGTERM', () => { fs.writeFileSync(process.env.MOCK_STOPPED_FILE, 'stopped'); process.exit(0) })
+fs.writeFileSync(process.env.MOCK_READY_FILE, 'ready')
 setInterval(() => {}, 1000)
 `
   )
