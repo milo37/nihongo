@@ -305,6 +305,18 @@ const QuestionDetail = ({
         throw new Error('Snapshot unavailable')
       const latestVersions =
         latestHistory.data?.pages.flatMap((page) => page.items) ?? []
+      const detailVersions = latestDetail.data?.versions.items ?? []
+      if (
+        latestVersions.some((version) => {
+          const detailVersion = detailVersions.find(
+            (item) => item.questionVersionId === version.questionVersionId
+          )
+          return (
+            detailVersion && detailVersion.rowVersion !== version.rowVersion
+          )
+        })
+      )
+        throw new Error('Snapshot versions disagree')
       const latestCandidate = latestVersions.find(
         (version) =>
           version.questionVersionId ===
