@@ -17,11 +17,13 @@ import {
   onlineManager
 } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { diffQuestionVersionResponseSchema } from '@nihongo/contracts/admin/phase7'
 import type {
   AdminQuestionDetail,
   AdminQuestionMutationResult,
   AdminQuestionVersionConnection,
-  ContentReviewConnection
+  ContentReviewConnection,
+  DiffQuestionVersionResponse
 } from '@nihongo/contracts/admin/phase7'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
@@ -66,6 +68,7 @@ let history: AdminQuestionVersionConnection | undefined
 let reviews: ContentReviewConnection
 let reviewError: unknown
 let readError: unknown
+let versionDiff: DiffQuestionVersionResponse
 let write: (request: QuestionWrite) => Promise<AdminQuestionMutationResult>
 let endpoint: MockInstance<typeof api.requestContentOperation>
 const writes = () =>
@@ -86,6 +89,18 @@ beforeEach(() => {
   reviews = { questionVersionId: versionId, items: [], nextCursor: null }
   reviewError = null
   readError = null
+  versionDiff = diffQuestionVersionResponseSchema.parse({
+    ...emptyDiff,
+    changedFields: ['QUESTION_TEXT'],
+    changes: [
+      {
+        field: 'QUESTION_TEXT',
+        kind: 'SCALAR',
+        before: 'Older question',
+        after: 'Current question'
+      }
+    ]
+  })
   write = async (request) => {
     if (request.operation === 'requestContentReview')
       snapshot = {
@@ -124,18 +139,7 @@ beforeEach(() => {
             'versionId' in request.params ? request.params.versionId : versionId
           )
         case 'diffQuestionVersion':
-          return {
-            ...emptyDiff,
-            changedFields: ['QUESTION_TEXT'],
-            changes: [
-              {
-                field: 'QUESTION_TEXT',
-                kind: 'SCALAR',
-                before: 'Older question',
-                after: 'Current question'
-              }
-            ]
-          }
+          return versionDiff
         case 'listQuestionVersionReviews':
           if (reviewError) throw reviewError
           return {
@@ -220,6 +224,140 @@ it('restores the independently approved bare detail route and all four read pane
   )
   expect(writes()).toHaveLength(0)
 })
+it('shows the selected version diff in its before and after fields without writing', async () => {
+  versionDiff = diffQuestionVersionResponseSchema.parse({
+    ...emptyDiff,
+    changedFields: ['QUESTION_TEXT', 'OPTIONS', 'TAGS'],
+    changes: [
+      {
+        field: 'QUESTION_TEXT',
+        kind: 'SCALAR',
+        before: 'Previous prompt',
+        after: 'Updated prompt'
+      },
+      {
+        field: 'OPTIONS',
+        kind: 'OPTIONS',
+        before: [
+          { ordinal: 1, text: 'Previous first', isCorrect: true },
+          { ordinal: 2, text: 'Previous second', isCorrect: false },
+          { ordinal: 3, text: 'Previous third', isCorrect: false },
+          { ordinal: 4, text: 'Previous fourth', isCorrect: false }
+        ],
+        after: [
+          { ordinal: 1, text: 'Updated first', isCorrect: false },
+          { ordinal: 2, text: 'Updated second', isCorrect: true },
+          { ordinal: 3, text: 'Updated third', isCorrect: false },
+          { ordinal: 4, text: 'Updated fourth', isCorrect: false }
+        ]
+      },
+      {
+        field: 'TAGS',
+        kind: 'TAGS',
+        before: [
+          {
+            id: '10000000-0000-4000-8000-000000000011',
+            label: 'OldTag',
+            normalizedName: 'oldtag'
+          }
+        ],
+        after: [
+          {
+            id: '10000000-0000-4000-8000-000000000012',
+            label: 'NewTag',
+            normalizedName: 'newtag'
+          }
+        ]
+      }
+    ]
+  })
+  route('?version=' + versionId)
+  await ready()
+  const list = await screen.findByRole('list', {
+    name: t('questionDetail.diffListLabel')
+  })
+  const sides = (field: 'QUESTION_TEXT' | 'OPTIONS' | 'TAGS') => {
+    const heading = within(list).getByRole('heading', {
+      name: t(`enums.diffFields.${field}`)
+    })
+    const row = heading.closest('li')!
+    return {
+      before: within(row).getByText(t('questionDetail.diffBefore'))
+        .nextElementSibling!,
+      after: within(row).getByText(t('questionDetail.diffAfter'))
+        .nextElementSibling!
+    }
+  }
+  const scalar = sides('QUESTION_TEXT')
+  expect(scalar.before).toHaveTextContent('Previous prompt')
+  expect(scalar.before).not.toHaveTextContent('Updated prompt')
+  expect(scalar.after).toHaveTextContent('Updated prompt')
+  expect(scalar.after).not.toHaveTextContent('Previous prompt')
+
+  const options = sides('OPTIONS')
+  const oldOptions = within(options.before as HTMLElement).getAllByRole(
+    'listitem'
+  )
+  const newOptions = within(options.after as HTMLElement).getAllByRole(
+    'listitem'
+  )
+  expect(oldOptions.map((item) => item.textContent)).toEqual([
+    '1. Previous first (정답)',
+    '2. Previous second',
+    '3. Previous third',
+    '4. Previous fourth'
+  ])
+  expect(newOptions.map((item) => item.textContent)).toEqual([
+    '1. Updated first',
+    '2. Updated second (정답)',
+    '3. Updated third',
+    '4. Updated fourth'
+  ])
+
+  const tags = sides('TAGS')
+  expect(tags.before).toHaveTextContent('OldTag')
+  expect(tags.before).not.toHaveTextContent('NewTag')
+  expect(tags.before).not.toHaveTextContent('oldtag')
+  expect(tags.after).toHaveTextContent('NewTag')
+  expect(tags.after).not.toHaveTextContent('OldTag')
+  expect(tags.after).not.toHaveTextContent('newtag')
+  expect(list).not.toHaveTextContent('10000000-0000-4000-8000-000000000011')
+  expect(list).not.toHaveTextContent('10000000-0000-4000-8000-000000000012')
+  expect(endpoint).toHaveBeenCalledWith(
+    expect.objectContaining({
+      operation: 'diffQuestionVersion',
+      params: { versionId },
+      query: { baseVersionId: oldVersionId }
+    })
+  )
+  expect(writes()).toHaveLength(0)
+})
+
+it('shows an empty diff when the prior version exists but no field changed', async () => {
+  versionDiff = diffQuestionVersionResponseSchema.parse(emptyDiff)
+  route('?version=' + versionId)
+  await ready()
+  const heading = screen.getByRole('heading', {
+    name: t('questionDetail.diffTitle')
+  })
+  const section = heading.closest('section')!
+  expect(
+    await within(section).findByText(t('questionDetail.diffEmpty'))
+  ).toBeVisible()
+  expect(within(section).queryByText('Older question')).not.toBeInTheDocument()
+  expect(
+    within(section).queryByText('Current question')
+  ).not.toBeInTheDocument()
+  expect(endpoint).toHaveBeenCalledWith(
+    expect.objectContaining({
+      operation: 'diffQuestionVersion',
+      params: { versionId },
+      query: { baseVersionId: oldVersionId }
+    })
+  )
+  expect(writes()).toHaveLength(0)
+})
+
 it('selects by URL, reads the selected preview/diff/reviews, and preserves list filters on return', async () => {
   const { router } = route(
     '?returnTo=' + encodeURIComponent('/admin/questions?level=N3&page=2')
