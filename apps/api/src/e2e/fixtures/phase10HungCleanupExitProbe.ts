@@ -1,5 +1,5 @@
 import { access, writeFile } from 'node:fs/promises'
-import { createPhase10PerformanceFailureFinalizer } from '../phase10PerformanceFailureFinalizer.js'
+import { createPerformanceFailureFinalizer } from '../performanceFailureFinalizer.js'
 import { exitPhase10PerformanceProcess } from '../phase10PerformanceProcessExit.js'
 import { Phase10CleanupTimeoutError } from '../phase10RunTimeout.js'
 
@@ -15,7 +15,7 @@ await writeFile(evidenceFile, '{"status":"passed"}\n', {
 
 setInterval(() => undefined, 1_000)
 
-const finalizeFailure = createPhase10PerformanceFailureFinalizer({
+const finalizeFailure = createPerformanceFailureFinalizer({
   cleanup: async () => await new Promise<never>(() => undefined),
   cleanupTimeoutMs: 30,
   getEvidenceFile: () => evidenceFile,

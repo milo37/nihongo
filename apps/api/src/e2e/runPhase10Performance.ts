@@ -8,7 +8,7 @@ import {
   preparePhase7IsolatedDatabase
 } from './runPhase7ApiIntegration.js'
 import { readPhase10DatabaseApiPerformanceEvidence } from './phase10PerformanceEvidence.js'
-import { createPhase10PerformanceFailureFinalizer } from './phase10PerformanceFailureFinalizer.js'
+import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import {
   exitPhase10PerformanceProcess,
   type Phase10PerformanceTerminalRecord
@@ -140,7 +140,7 @@ const cleanupWithinDeadline = (): Promise<void> => {
   return cleanupWithinDeadlinePromise
 }
 
-const finalizeFailure = createPhase10PerformanceFailureFinalizer({
+const finalizeFailure = createPerformanceFailureFinalizer({
   cleanup: cleanupWithinDeadline,
   cleanupTimeoutMs: PERFORMANCE_FINALIZER_TIMEOUT_MS,
   getEvidenceFile: () => performanceEvidenceFile,
