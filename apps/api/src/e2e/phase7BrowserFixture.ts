@@ -60,7 +60,7 @@ import {
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
 import { createQuestionReportService } from '../admin/questionReportService.js'
-import { runPhase7ReauthenticationStartupMaintenance } from '../auth/phase7ReauthenticationStartupMaintenance.js'
+import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 
 export interface Phase7BrowserCredentials {
   readonly email: string
