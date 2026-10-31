@@ -418,9 +418,7 @@ test('current stats and learning routes preserve contracts before an explicit re
     ({ kind }) => kind === 'TARGET_LEVEL_PRACTICE'
   )
   if (!recommendation) {
-    throw new Error(
-      'Fresh Phase 8 learner target-level recommendation is missing.'
-    )
+    throw new Error('Fresh learner target-level recommendation is missing.')
   }
   if (recommendation.reason.code !== 'TARGET_LEVEL_RECENT_GAP') {
     throw new Error('Target-level recommendation must explain the recent gap.')
@@ -460,7 +458,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   await assertAndAttachLedger(
     dashboardAggregateLedger,
     testInfo,
-    `phase8-dashboard-${browserMode}-request-ledger`
+    `dashboard-${browserMode}-request-ledger`
   )
   const statisticsMs = calculateTimingStatistics(performanceSamples)
   const baselineP95Milliseconds =
@@ -478,7 +476,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   const passed =
     statisticsMs.p95 <= ratioCeilingMilliseconds &&
     statisticsMs.p95 <= browserPerformanceAbsoluteCeilingMilliseconds
-  await testInfo.attach(`phase8-dashboard-${browserMode}-performance`, {
+  await testInfo.attach(`dashboard-${browserMode}-performance`, {
     body: JSON.stringify(
       {
         schemaVersion: 1,

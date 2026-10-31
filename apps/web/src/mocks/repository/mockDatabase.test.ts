@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { originalQuestions } from '@mocks/data/questions'
 import {
   MOCK_DATABASE_STORAGE_KEY,
-  PHASE7_ADMIN_CMS_STORAGE_KEY
+  ADMIN_CMS_STORAGE_KEY
 } from '@nihongo/browser/libs/storage'
 import {
   MockDatabase,
@@ -107,10 +107,7 @@ describe('MockDatabase', () => {
       storage,
       listenToStorage: false
     })
-    expect(reads).toEqual([
-      MOCK_DATABASE_STORAGE_KEY,
-      PHASE7_ADMIN_CMS_STORAGE_KEY
-    ])
+    expect(reads).toEqual([MOCK_DATABASE_STORAGE_KEY, ADMIN_CMS_STORAGE_KEY])
     database.loginAs('ADMIN')
     expect(values.has(MOCK_DATABASE_STORAGE_KEY)).toBe(true)
     // Auth transitions persist the embedded CMS snapshot in the database key.
