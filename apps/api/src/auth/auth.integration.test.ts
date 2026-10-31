@@ -23,7 +23,7 @@ import { createAuthRuntime } from './createAuth.js'
 import { createAuthEmailDispatcher } from './emailDispatcher.js'
 import { InMemoryAuthEmailPort } from './emailPort.js'
 import { createGuestPrincipalService } from './guestPrincipalService.js'
-import { createPhase7AuthFacade } from './phase7AuthFacade.js'
+import { createPhase7AuthFacade } from './authFacade.js'
 import {
   createPhase7PrincipalService,
   createPrincipalService

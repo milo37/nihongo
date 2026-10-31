@@ -20,7 +20,7 @@ import {
   createExpiredPhase7SessionCookies,
   readPhase7SessionToken
 } from './sessionCookie.js'
-import type { Phase7AuthFacade } from './phase7AuthFacade.js'
+import type { Phase7AuthFacade } from './authFacade.js'
 
 /** Source-only composition: no mail/password adapter or CMS enablement. */
 export const createSsoAuthentication = ({
