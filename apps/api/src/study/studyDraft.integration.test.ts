@@ -55,13 +55,13 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
@@ -84,14 +84,14 @@ for (const databaseUrl of [
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const authGatewayDatabase = isPhase10CurrentSource
+const authGatewayDatabase = isCurrentSourceIntegration
   ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
   : undefined
 const erasureWorkerClient = erasureWorkerDatabaseUrl
@@ -105,7 +105,7 @@ const erasureWorkerClient = erasureWorkerDatabaseUrl
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort: new InMemoryAuthEmailPort()
 })
-const auth = isPhase10CurrentSource
+const auth = isCurrentSourceIntegration
   ? undefined
   : createAuthRuntime({
       client: database.client,
@@ -116,7 +116,7 @@ const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = isPhase10CurrentSource
+const principalService = isCurrentSourceIntegration
   ? createPhase7PrincipalService({
       client: database.client,
       isProduction: false,
@@ -144,7 +144,7 @@ const studySubmissionRepository = createPrismaStudySubmissionRepository(
 const app = createApiApp({
   auth: {
     environment,
-    gateway: isPhase10CurrentSource
+    gateway: isCurrentSourceIntegration
       ? createAuthGateway({
           environment,
           phase7Facade: createPhase7AuthFacade({

@@ -68,9 +68,9 @@ it('dispatches the exact viewed CAS once and awaits private/public invalidations
   expect(endpoint).toHaveBeenCalledExactlyOnceWith(input)
   expect(success).not.toHaveBeenCalled()
   expect(invalidate.mock.calls.map(([value]) => value?.queryKey)).toEqual([
-    ['phase7-admin', 'questions'],
+    ['admin-content', 'questions'],
     ['admin-question'],
-    ['phase7-admin', 'audit-log'],
+    ['admin-content', 'audit-log'],
     ['bookmark'],
     ['wrong-note'],
     ['dashboard']
