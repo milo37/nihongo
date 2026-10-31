@@ -1,3 +1,5 @@
+import { koAdminFormResources } from './ko-admin-form'
+
 const questionTypeLabels = {
   KANJI_READING: '한자 읽기',
   ORTHOGRAPHY: '표기',
@@ -1846,6 +1848,7 @@ export const koResources = {
       reportCount: '{{formattedCount}}건'
     },
     create: {
+      page: koAdminFormResources.createPage,
       eyebrow: 'CREATE DRAFT',
       title: '새 문제 초안 만들기',
       description:
@@ -1854,6 +1857,8 @@ export const koResources = {
       error: '문제를 만들지 못했습니다.'
     },
     editor: {
+      page: koAdminFormResources.editorPage,
+      form: koAdminFormResources.editorForm,
       classificationLegend: '분류와 본문',
       level: 'JLPT 급수',
       subject: '과목',
