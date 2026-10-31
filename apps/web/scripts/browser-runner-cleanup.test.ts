@@ -346,7 +346,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
           args.find((arg) => arg.endsWith('.spec.ts'))
         )
       ).toEqual([
-        'apps/web/e2e/phase8-dashboard-real-mock.spec.ts',
+        'apps/web/e2e/dashboard.spec.ts',
         'apps/web/e2e/accessibility.spec.ts',
         'apps/web/e2e/phase10-journeys-real-mock.spec.ts'
       ])

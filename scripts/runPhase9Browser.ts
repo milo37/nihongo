@@ -399,7 +399,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
       'test',
       '--config',
       'playwright.config.ts',
-      'apps/web/e2e/phase8-dashboard-real-mock.spec.ts',
+      'apps/web/e2e/dashboard.spec.ts',
       ...playwrightArguments
     ],
     {
