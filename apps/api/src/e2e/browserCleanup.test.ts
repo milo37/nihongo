@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { cleanupPhase10BrowserResources } from './phase10BrowserCleanup.js'
+import { cleanupBrowserResources } from './browserCleanup.js'
 
-describe('cleanupPhase10BrowserResources', () => {
+describe('cleanupBrowserResources', () => {
   it('closes the control listener and withholds database cleanup after process-stop failure', async () => {
     const stopFailure = new Error('owned process stop failed')
     const closeControlServer = vi.fn(async () => undefined)
     const cleanupDatabase = vi.fn(async () => undefined)
 
-    const failure = await cleanupPhase10BrowserResources({
+    const failure = await cleanupBrowserResources({
       closeControlServer,
       cleanupDatabase,
       stopOwnedProcesses: async () => {
@@ -32,7 +32,7 @@ describe('cleanupPhase10BrowserResources', () => {
     const cleanupDatabase = vi.fn(async () => undefined)
 
     await expect(
-      cleanupPhase10BrowserResources({
+      cleanupBrowserResources({
         closeControlServer: async () => {
           throw closeFailure
         },
