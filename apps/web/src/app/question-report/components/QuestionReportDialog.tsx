@@ -5,7 +5,7 @@ import {
   questionReportReasonKey as adminReportReasonKey,
   useQuestionReportPresentation as useAdminPresentation
 } from '@app/content-operations/reports/questionReportPublic'
-import { isPhase7UiApiError } from '@libs/apiError'
+import { isUiApiError } from '@libs/apiError'
 import { useCreateQuestionReport } from '@app/question-report/hooks/useCreateQuestionReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -48,14 +48,14 @@ export const QuestionReportDialog = ({
   })
 
   const errorMessage = mutation.error
-    ? isPhase7UiApiError(mutation.error)
+    ? isUiApiError(mutation.error)
       ? mutation.error.isOffline
         ? t('questionReportDialog.offline')
         : presentError(mutation.error)
       : t('questionReportDialog.error')
     : null
   const fieldErrors =
-    mutation.error && isPhase7UiApiError(mutation.error)
+    mutation.error && isUiApiError(mutation.error)
       ? mutation.error.fieldErrors
       : undefined
 
