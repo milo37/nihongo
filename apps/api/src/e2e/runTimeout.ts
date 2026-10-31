@@ -1,4 +1,4 @@
-interface RunWithPhase10TimeoutOptions<Result> {
+interface RunWithOperationTimeoutOptions<Result> {
   readonly abortSettleTimeoutMs?: number
   readonly cleanup: () => Promise<void>
   readonly cleanupTimeoutMs?: number
@@ -26,17 +26,17 @@ export class Phase10CleanupTimeoutError extends Error {
   }
 }
 
-interface RunPhase10CleanupWithTimeoutOptions {
+interface RunCleanupWithTimeoutOptions {
   readonly cleanup: () => Promise<void>
   readonly label: string
   readonly timeoutMs: number
 }
 
-export const runPhase10CleanupWithTimeout = async ({
+export const runCleanupWithTimeout = async ({
   cleanup,
   label,
   timeoutMs
-}: RunPhase10CleanupWithTimeoutOptions): Promise<void> => {
+}: RunCleanupWithTimeoutOptions): Promise<void> => {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
     throw new Error('Phase 10 cleanup timeout must be a positive integer.')
   }
@@ -56,7 +56,7 @@ export const runPhase10CleanupWithTimeout = async ({
   }
 }
 
-export const runWithPhase10Timeout = async <Result>({
+export const runWithOperationTimeout = async <Result>({
   abortSettleTimeoutMs = 5_000,
   cleanup,
   cleanupTimeoutMs = 10_000,
@@ -64,7 +64,7 @@ export const runWithPhase10Timeout = async <Result>({
   onTimeout,
   operation,
   timeoutMs
-}: RunWithPhase10TimeoutOptions<Result>): Promise<Result> => {
+}: RunWithOperationTimeoutOptions<Result>): Promise<Result> => {
   if (
     !Number.isSafeInteger(timeoutMs) ||
     timeoutMs <= 0 ||
@@ -107,7 +107,7 @@ export const runWithPhase10Timeout = async <Result>({
       })
     ])
     try {
-      await runPhase10CleanupWithTimeout({
+      await runCleanupWithTimeout({
         cleanup,
         label,
         timeoutMs: cleanupTimeoutMs
