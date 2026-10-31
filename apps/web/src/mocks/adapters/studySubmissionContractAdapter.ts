@@ -186,11 +186,11 @@ const gradeMockCanonicalStudySubmission = (
     }
 
     const versionFingerprint = getQuestionVersionFingerprint(question)
-    const phase7Identity = getPhase7QuestionContractIdentity(question)
+    const questionContractIdentity = getPhase7QuestionContractIdentity(question)
     const publicQuestion = toContractPracticeQuestion(
       toPracticeQuestion(question),
       versionFingerprint,
-      phase7Identity
+      questionContractIdentity
     )
     const optionIds = new Set(publicQuestion.options.map(({ id }) => id))
     if (
@@ -205,7 +205,7 @@ const gradeMockCanonicalStudySubmission = (
 
     const correctOption = getCorrectOption(question)
     const correctOptionId =
-      phase7Identity?.optionIdBySourceId[correctOption.id] ??
+      questionContractIdentity?.optionIdBySourceId[correctOption.id] ??
       toStableMockUuid(
         'question-option',
         `${correctOption.id}:${versionFingerprint}`
