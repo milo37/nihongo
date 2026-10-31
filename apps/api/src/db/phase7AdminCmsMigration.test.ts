@@ -63,7 +63,7 @@ const reauthenticationTopLevelSql = removeDollarQuotedBodies(
   reauthenticationMigrationSql
 )
 
-const approvedPrePhase7MigrationNames = [
+const approvedBeforeAdminCmsMigrationNames = [
   '20260812130000_phase3_operational_baseline',
   '20260814113000_phase3_question_catalog',
   '20260814120000_phase3_question_catalog_integrity',
@@ -93,7 +93,7 @@ const approvedPrePhase7MigrationNames = [
   '20260821152000_phase5_review_center_foundation'
 ] as const
 
-const approvedPrePhase7Checksums = [
+const approvedBeforeAdminCmsChecksums = [
   '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
   '843b172300782f4cb06891b9058c3ba945ac9d10aa0c0073b9bc5c49badcbbe1',
   'fbf91a5d8f9fa86182e5cfe827cc37a1341a571f640dca433d44a950c804b831',
@@ -122,7 +122,7 @@ const approvedPrePhase7Checksums = [
   'c5bbdd22cb1bc070f5037b9e8f5d332836690e108aff149152250eb411408275',
   '9223bbfa478b420fbd957e29c60ba71868f815fe7e39003635efeea65619c629'
 ] as const
-const approvedPhase7Checksums = [
+const approvedInitialAdminCmsChecksums = [
   'ceca4c83981de1e21c528952157fb8c0452583889c4374cba70e3875acbd2298',
   '6e34969b93b6b07c7be9e5fb13a1d2a4612a2825fe6e08871e8d1ea15e9355d7',
   'afa59638fa9ff3662fb00abe28fe8fb3a14777b98ecf3b2b8e8226493794adfe',
@@ -135,10 +135,10 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
 
     expect(manifest).toHaveLength(53)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
-      approvedPrePhase7MigrationNames
+      approvedBeforeAdminCmsMigrationNames
     )
     expect(manifest.slice(0, 27).map(({ checksum }) => checksum)).toEqual(
-      approvedPrePhase7Checksums
+      approvedBeforeAdminCmsChecksums
     )
     expect(manifest.slice(27, 38).map(({ name }) => name)).toEqual([
       enumMigrationName,
@@ -154,7 +154,7 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       '20261009120000_phase7_approved_n4_reading_batch7_tags'
     ])
     expect(manifest.slice(27, 38).map(({ checksum }) => checksum)).toEqual([
-      ...approvedPhase7Checksums,
+      ...approvedInitialAdminCmsChecksums,
       'ca4d9e9bcc158f524038a63fe3158347e0f811a3f481e700c3aa22f3036af848',
       'c04b27c1ee7610c8648da58a05596c2d9573a48cfad20c1a1b8b9f818dc3554d',
       '366e534d1abda5668a5de4d3c5c3cf6c74ccf4f9b3bba646ef90a5efa32b630c',
