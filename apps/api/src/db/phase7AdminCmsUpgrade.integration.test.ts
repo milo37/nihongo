@@ -15,7 +15,7 @@ import { createAdminReauthenticationService } from '../admin/adminReauthenticati
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createApiApp } from '../app/createApp.js'
-import { createPhase7ReauthenticationAuthApi } from '../auth/createPhase7ReauthenticationAuth.js'
+import { createPhase7ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
 import { createPhase7SessionCookie } from '../auth/sessionCookie.js'

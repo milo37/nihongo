@@ -258,7 +258,7 @@ const runPlaywright = async (
       'test',
       '--config',
       'playwright.config.ts',
-      'apps/web/e2e/phase9-accessibility.spec.ts',
+      'apps/web/e2e/accessibility.spec.ts',
       ...(browserMode === 'mock'
         ? [
             '--grep',
