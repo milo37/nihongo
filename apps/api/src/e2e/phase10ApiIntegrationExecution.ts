@@ -2,7 +2,7 @@ import {
   classifyCollectionDiagnostic,
   classifyCollectionReport,
   type CollectionDiagnostic
-} from './phase7CollectionDiagnostics.js'
+} from './collectionDiagnostics.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'

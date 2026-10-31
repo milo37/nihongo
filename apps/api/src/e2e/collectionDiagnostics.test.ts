@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyCollectionDiagnostic,
   classifyCollectionReport
-} from './phase7CollectionDiagnostics.js'
+} from './collectionDiagnostics.js'
 import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 
 describe('safe collection diagnostics', () => {

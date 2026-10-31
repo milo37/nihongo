@@ -36,7 +36,7 @@ const captureAttachment = () => {
   }
 }
 
-describe('Phase 10 request ledger quiescence', () => {
+describe('Request ledger quiescence', () => {
   it('includes a delayed request that starts before the quiet window closes', async () => {
     const ledger: RequestLedger = {
       entries: [entry(1, '/api/v1/me')]
