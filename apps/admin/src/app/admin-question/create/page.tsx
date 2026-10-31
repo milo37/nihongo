@@ -9,8 +9,10 @@ import {
 import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import { useCreateAdminQuestion } from '@app/admin-question/hooks/useCreateAdminQuestion'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
+  const { t } = useAdminPresentation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const safeReturn = safeSsoReturnPath(searchParams.get('returnTo'))
@@ -29,8 +31,8 @@ export const CreateAdminQuestionPage = (): ReactElement => {
         createAdminQuestionRequestSchema.parse(input)
       )
       addToast({
-        title: '초안을 등록했습니다',
-        description: '아직 학습자에게 공개되지 않았습니다.',
+        title: t('create.page.successTitle'),
+        description: t('create.page.successDescription'),
         variant: 'success'
       })
       navigate(
@@ -44,18 +46,18 @@ export const CreateAdminQuestionPage = (): ReactElement => {
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      <nav aria-label="현재 위치">
+      <nav aria-label={t('common.breadcrumbLabel')}>
         <ol className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <li>
             <Link
               className="rounded-md font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
               to={returnPath}
             >
-              문제 관리
+              {t('common.questions')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li aria-current="page">새 문제 등록</li>
+          <li aria-current="page">{t('create.page.title')}</li>
         </ol>
       </nav>
 
@@ -64,23 +66,20 @@ export const CreateAdminQuestionPage = (): ReactElement => {
           CREATE QUESTION
         </p>
         <h1 className="mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl">
-          새 문제 등록
+          {t('create.page.title')}
         </h1>
         <p className="mt-4 max-w-3xl text-pretty leading-7 text-muted">
-          자체 제작한 JLPT 문제와 해설을 입력합니다. 초안으로 저장됩니다. 이
-          화면에서 즉시 게시하지 않습니다.
+          {t('create.page.description')}
         </p>
       </header>
 
       <QuestionForm
         cancelHref={returnPath}
         isSubmitting={createQuestion.isPending}
-        submitLabel="초안 등록"
-        submittingLabel="등록 중…"
+        submitLabel={t('create.page.submit')}
+        submittingLabel={t('create.page.submitting')}
         serverError={
-          createQuestion.isError
-            ? '문제를 등록하지 못했습니다. 입력 내용을 확인한 뒤 다시 시도해 주세요.'
-            : undefined
+          createQuestion.isError ? t('create.page.error') : undefined
         }
         onSubmit={handleCreateQuestion}
       />

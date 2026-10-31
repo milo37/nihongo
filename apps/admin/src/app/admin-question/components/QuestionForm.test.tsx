@@ -1,8 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import {
+  I18nProvider,
+  useUiLocale
+} from '@nihongo/browser/provider/I18nProvider'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import type { ReactElement } from 'react'
@@ -42,25 +45,43 @@ const getIssueMessages = (values: unknown): string[] => {
   return result.success ? [] : result.error.issues.map((issue) => issue.message)
 }
 
+const LocaleTestControls = (): ReactElement => {
+  const { setLocale } = useUiLocale()
+  return (
+    <div>
+      <button type="button" onClick={() => setLocale('ja')}>
+        日本語
+      </button>
+      <button type="button" onClick={() => setLocale('ko')}>
+        한국어
+      </button>
+    </div>
+  )
+}
+
 const renderQuestionForm = (
   onSubmit: (
     input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
   ) => Promise<void>,
-  question?: PreviewQuestionVersionResponse
+  question?: PreviewQuestionVersionResponse,
+  withLocaleControls = false
 ): ReactElement => {
   const router = createMemoryRouter(
     [
       {
         path: '/',
         element: (
-          <QuestionForm
-            initialQuestion={question}
-            expectedRowVersion={question ? 1 : undefined}
-            isSubmitting={false}
-            submitLabel="문제 등록"
-            submittingLabel="등록 중…"
-            onSubmit={onSubmit}
-          />
+          <>
+            {withLocaleControls ? <LocaleTestControls /> : null}
+            <QuestionForm
+              initialQuestion={question}
+              expectedRowVersion={question ? 1 : undefined}
+              isSubmitting={false}
+              submitLabel="문제 등록"
+              submittingLabel="등록 중…"
+              onSubmit={onSubmit}
+            />
+          </>
         )
       },
       {
@@ -142,7 +163,7 @@ describe('QuestionForm', () => {
     render(renderQuestionForm(handleSubmit))
 
     expect(
-      screen.getAllByRole('textbox', { name: /^보기 [1-4]$/ })
+      screen.getAllByRole('textbox', { name: /^[1-4]번 보기$/ })
     ).toHaveLength(4)
 
     await user.click(screen.getByRole('button', { name: '문제 등록' }))
@@ -264,7 +285,7 @@ describe('QuestionForm', () => {
     )
     render(renderQuestionForm(handleSubmit, initialQuestion))
 
-    const secondOption = screen.getByRole('textbox', { name: '보기 2' })
+    const secondOption = screen.getByRole('textbox', { name: '2번 보기' })
     await user.clear(secondOption)
     await user.type(secondOption, validFormValues.options[0].text)
     await user.click(screen.getByRole('button', { name: '문제 등록' }))
@@ -331,6 +352,136 @@ describe('question tag locale', () => {
       screen.getByRole('textbox', { name: 'タグ' })
     ).toHaveAccessibleDescription(
       'カンマまたは改行で区切ってください。1つ以上必要です。'
+    )
+  })
+})
+
+describe('question form locale and preserved state', () => {
+  afterEach(async () => {
+    writeUiLocalePreference('ko')
+    await appI18n.changeLanguage('ko')
+    document.documentElement.lang = 'ko'
+  })
+
+  it.each([
+    {
+      locale: 'ko' as const,
+      heading: '기본 정보',
+      question: '문제 문장',
+      questionError: '질문을 입력해 주세요.',
+      tag: '태그',
+      tagError: '태그를 1개 이상 입력해 주세요.'
+    },
+    {
+      locale: 'ja' as const,
+      heading: '基本情報',
+      question: '問題文',
+      questionError: '問題文を入力してください。',
+      tag: 'タグ',
+      tagError: 'タグを1つ以上入力してください。'
+    }
+  ])(
+    'shows normal and required errors in $locale',
+    async ({ locale, heading, question, questionError, tag, tagError }) => {
+      expect(writeUiLocalePreference(locale)).toBe(true)
+      const user = userEvent.setup()
+      const handleSubmit = vi.fn()
+      render(renderQuestionForm(handleSubmit))
+      await waitFor(() => expect(appI18n.resolvedLanguage).toBe(locale))
+      expect(screen.getByRole('heading', { name: heading })).toBeVisible()
+      const questionInput = screen.getByRole('textbox', { name: question })
+      const tagInput = screen.getByRole('textbox', { name: tag })
+      await user.click(screen.getByRole('button', { name: '문제 등록' }))
+      expect(await screen.findByText(questionError)).toBeVisible()
+      expect(screen.getByText(tagError)).toBeVisible()
+      expect(questionInput).toHaveAttribute('aria-invalid', 'true')
+      expect(questionInput).toHaveAccessibleDescription(questionError)
+      expect(tagInput).toHaveAttribute('aria-invalid', 'true')
+      expect(tagInput).toHaveAccessibleDescription(new RegExp(tagError))
+      expect(handleSubmit).not.toHaveBeenCalled()
+    }
+  )
+
+  it('localizes a well-formed overlength question without hiding other contract errors', async () => {
+    expect(writeUiLocalePreference('ja')).toBe(true)
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn()
+    render(renderQuestionForm(handleSubmit, undefined, true))
+    await waitFor(() => expect(appI18n.resolvedLanguage).toBe('ja'))
+    const input = screen.getByRole('textbox', { name: '問題文' })
+    fireEvent.change(input, { target: { value: 'あ'.repeat(2001) } })
+    await user.click(screen.getByRole('button', { name: '문제 등록' }))
+    expect(
+      await screen.findByText(
+        '正規化後のUnicode文字を1〜2000個で入力してください。'
+      )
+    ).toBeVisible()
+    expect(handleSubmit).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '한국어' }))
+    expect(
+      await screen.findByText(
+        '정규화 후 Unicode 문자 1~2000개로 입력해 주세요.'
+      )
+    ).toBeVisible()
+    expect(screen.getByRole('textbox', { name: '문제 문장' })).toHaveValue(
+      'あ'.repeat(2001)
+    )
+    const invalidMessages = getIssueMessages({
+      ...validFormValues,
+      questionText: 'あ'.repeat(2001) + '\u0001'
+    })
+    expect(invalidMessages).not.toContain(
+      'editor.form.validation.questionLength'
+    )
+    expect(invalidMessages).toContain('제어 문자는 허용하지 않습니다.')
+  })
+
+  it('updates existing errors when switching locale without losing edit content or revision', async () => {
+    expect(writeUiLocalePreference('ko')).toBe(true)
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn(
+      async (
+        _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+      ) => undefined
+    )
+    render(renderQuestionForm(handleSubmit, initialQuestion, true))
+    const question = screen.getByRole('textbox', { name: '문제 문장' })
+    await user.clear(question)
+    await user.click(screen.getByRole('button', { name: '문제 등록' }))
+    expect(await screen.findByText('질문을 입력해 주세요.')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: '日本語' }))
+    expect(await screen.findByText('問題文を入力してください。')).toBeVisible()
+    expect(screen.queryByText('질문을 입력해 주세요.')).not.toBeInTheDocument()
+    const japaneseQuestion = screen.getByRole('textbox', { name: '問題文' })
+    expect(japaneseQuestion).toHaveValue('')
+    expect(japaneseQuestion).toHaveAccessibleDescription(
+      '問題文を入力してください。'
+    )
+    expect(screen.getByRole('textbox', { name: '選択肢1' })).toHaveValue(
+      initialQuestion.question.options[0].text
+    )
+    expect(screen.getByRole('textbox', { name: 'タグ' })).toHaveValue('문법')
+    expect(handleSubmit).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '한국어' }))
+    expect(await screen.findByText('질문을 입력해 주세요.')).toBeVisible()
+    await user.type(
+      screen.getByRole('textbox', { name: '문제 문장' }),
+      '保存前の原文'
+    )
+    await user.click(screen.getByRole('button', { name: '문제 등록' }))
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1))
+    expect(handleSubmit.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        questionText: '保存前の原文',
+        expectedRowVersion: 1,
+        correctOptionId: initialQuestion.adminAnswer.correctOptionId,
+        options: initialQuestion.question.options.map((option, index) => ({
+          id: option.id,
+          ordinal: index + 1,
+          text: option.text
+        })),
+        tagNames: ['문법']
+      })
     )
   })
 })

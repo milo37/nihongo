@@ -373,6 +373,17 @@ export const jaAdminResources = {
     reportCount: '{{formattedCount}}件'
   },
   create: {
+    page: {
+      title: '新しい問題を登録',
+      description:
+        '自作のJLPT問題と解説を入力します。下書きとして保存され、この画面からすぐに公開されることはありません。',
+      submit: '下書きを登録',
+      submitting: '登録中…',
+      successTitle: '下書きを登録しました',
+      successDescription: '学習者にはまだ公開されていません。',
+      error:
+        '問題を登録できませんでした。入力内容を確認して、もう一度お試しください。'
+    },
     eyebrow: 'CREATE DRAFT',
     title: '新しい問題の下書きを作成',
     description:
@@ -381,6 +392,90 @@ export const jaAdminResources = {
     error: '問題を作成できませんでした。'
   },
   editor: {
+    page: {
+      breadcrumb: '{{questionId}}を編集',
+      title: '問題の編集',
+      details: '問題の詳細',
+      description:
+        '問題{{questionId}}の編集可能な候補バージョンの内容と解説を保存します。',
+      submit: '変更を保存',
+      submitting: '保存中…',
+      successTitle: '問題を編集しました',
+      successDescription: '問題{{questionId}}の変更を保存しました。',
+      readOnly:
+        '現在のバージョンは編集できません。有効な問題の作成者が所有する下書き・修正依頼バージョンのみ編集できます。この画面では公開・レビュー・新規バージョン作成はできません。',
+      loading: '問題情報を読み込んでいます…',
+      notFound: '編集する問題が見つかりません',
+      notFoundDescription:
+        '問題IDを確認するか、管理者一覧から選び直してください。',
+      goToList: '問題一覧へ移動',
+      loadError: '問題情報を読み込めませんでした',
+      networkError: 'ネットワークを確認して、もう一度お試しください。',
+      missingVersion:
+        '現在のバージョン情報を確認できないため、編集を停止しました。一覧から選び直すか、最新状態を確認してください。',
+      conflict:
+        '別の変更が先に保存されました。現在の入力は保持されています。必要な内容をコピーしてから、最新状態を再読み込みしてください。',
+      reload: '最新状態を再読み込み',
+      immutable:
+        '学習またはレビューに使用されたバージョンは編集できません。入力は保持されます。',
+      forbidden: 'このバージョンの作成者のみ編集できます。入力は保持されます。',
+      saveError:
+        '変更を保存できませんでした。入力は保持されます。内容を確認して、もう一度お試しください。',
+      reloadTitle: '入力を最新状態に置き換えますか？',
+      reloadDescription:
+        '再読み込みすると、現在の入力はサーバーの最新内容に置き換わります。必要な内容を先にコピーしてください。',
+      keepInput: '入力を保持',
+      replaceInput: '入力を置き換えて読み込む',
+      reloadError:
+        '最新状態を読み込めませんでした。現在の入力は保持されています。'
+    },
+    form: {
+      screenReaderLegend: '管理者用の問題情報入力',
+      basicTitle: '基本情報',
+      basicDescription:
+        'レベル、科目、問題形式を設定します。作成時は下書きとして保存され、ここでは公開状態を変更できません。',
+      sourceTitle: '問題の出典',
+      sourceDescription: '自作の問題のみ登録できます。',
+      contentTitle: '問題と選択肢',
+      contentDescription:
+        '実際のJLPT過去問ではなく、自作の問題を入力してください。',
+      passageRequired: '本文（必須）',
+      passageOptional: '本文（任意）',
+      passageHint: '読解問題には、問題文とは別に日本語の本文が必要です。',
+      passagePlaceholder: '例：案内文や短い説明文を入力してください…',
+      questionPlaceholder: '例：文章の内容に合うものを選んでください…',
+      optionsTitle: '選択肢4つ',
+      optionsHint: '空の選択肢や同じ選択肢は保存できません。',
+      optionPlaceholder: '内容を入力してください…',
+      correctAnswer: '正解',
+      explanationDescription:
+        '正解の根拠と他の選択肢が誤りである理由を、学習者が理解できるように説明します。',
+      explanationKoPlaceholder:
+        '正解の根拠と他の選択肢が誤りである理由を入力してください…',
+      explanationJaOptional: '日本語解説（任意）',
+      explanationJaPlaceholder: '必要な場合、日本語の解説を入力してください…',
+      tagPlaceholder: '例：助詞、文脈、接続表現…',
+      returnToList: '一覧に戻る',
+      leaveTitle: '編集中の画面を離れますか？',
+      leaveDescription: '保存していない変更は復元できません。',
+      keepEditing: '編集を続ける',
+      discard: '変更を破棄する',
+      validation: {
+        level: 'レベルを選択してください。',
+        subject: '科目を選択してください。',
+        questionType: '問題形式を選択してください。',
+        difficulty: '難易度を選択してください。',
+        question: '問題文を入力してください。',
+        questionLength: '正規化後のUnicode文字を1〜2000個で入力してください。',
+        passage: '読解問題には本文を入力してください。',
+        option: '選択肢の内容を入力してください。',
+        optionCount: '選択肢は4つ必要です。',
+        optionDuplicate: '同じ選択肢を重複して入力できません。',
+        correct: '正解は選択肢から1つ選んでください。',
+        explanationKo: '韓国語解説を入力してください。',
+        tags: 'タグを1つ以上入力してください。'
+      }
+    },
     classificationLegend: '分類と本文',
     level: 'JLPTレベル',
     subject: '科目',

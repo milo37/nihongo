@@ -8,6 +8,9 @@ import type { ReactElement } from 'react'
 import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-question/createAdminQuestion/schema'
 import {
   createAdminQuestionRequestSchema,
+  countUnicodeScalars,
+  isWellFormedPhase7Text,
+  normalizePhase7Text,
   updateQuestionVersionRequestSchema,
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
@@ -30,32 +33,30 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 const TAG_SEPARATOR_REGEX = /[,，\n]/
 const OPTION_LABEL_SET: ReadonlySet<string> = new Set(OPTION_LABELS)
 
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
-
-const questionTypeLabels = {
-  KANJI_READING: '한자 읽기',
-  ORTHOGRAPHY: '표기',
-  CONTEXT_VOCABULARY: '문맥 어휘',
-  PARAPHRASE: '바꿔 말하기',
-  WORD_USAGE: '단어 용법',
-  GRAMMAR_SELECT: '문법 선택',
-  SENTENCE_ORDER: '문장 배열',
-  TEXT_GRAMMAR: '지문 문법',
-  SHORT_READING: '단문 독해',
-  MEDIUM_READING: '중문 독해',
-  LONG_READING: '장문 독해',
-  INFO_RETRIEVAL: '정보 검색'
-} as const
-
-const difficultyLabels = {
-  EASY: '쉬움',
-  NORMAL: '보통',
-  HARD: '어려움'
-} as const
+const localValidationKeys = new Map<string, string>([
+  ['급수를 선택해 주세요.', 'editor.form.validation.level'],
+  ['과목을 선택해 주세요.', 'editor.form.validation.subject'],
+  ['문제 유형을 선택해 주세요.', 'editor.form.validation.questionType'],
+  ['난이도를 선택해 주세요.', 'editor.form.validation.difficulty'],
+  ['질문을 입력해 주세요.', 'editor.form.validation.question'],
+  [
+    'editor.form.validation.questionLength',
+    'editor.form.validation.questionLength'
+  ],
+  ['독해 문제는 지문을 입력해 주세요.', 'editor.form.validation.passage'],
+  ['보기 내용을 입력해 주세요.', 'editor.form.validation.option'],
+  ['보기는 정확히 4개여야 합니다.', 'editor.form.validation.optionCount'],
+  [
+    '동일한 보기를 중복해서 입력할 수 없습니다.',
+    'editor.form.validation.optionDuplicate'
+  ],
+  [
+    '정답은 보기 중 정확히 하나를 선택해 주세요.',
+    'editor.form.validation.correct'
+  ],
+  ['한국어 해설을 입력해 주세요.', 'editor.form.validation.explanationKo'],
+  ['태그를 1개 이상 입력해 주세요.', 'editor.form.validation.tags']
+])
 
 const formOptionSchema = z
   .object({
@@ -123,7 +124,19 @@ export const questionFormSchema = z
               : field === 'tagsText'
                 ? ['tagsText']
                 : [field, ...issue.path.slice(1)],
-          message: issue.message
+          message:
+            issue.code === 'custom' &&
+            issue.path.length === 1 &&
+            issue.path[0] === 'questionText' &&
+            canonical.error.issues.filter(
+              (candidate) =>
+                candidate.path.length === 1 &&
+                candidate.path[0] === 'questionText'
+            ).length === 1 &&
+            isWellFormedPhase7Text(value.questionText) &&
+            countUnicodeScalars(normalizePhase7Text(value.questionText)) > 2000
+              ? 'editor.form.validation.questionLength'
+              : issue.message
         })
       }
     }
@@ -259,6 +272,11 @@ export const QuestionForm = ({
   submittingLabel
 }: QuestionFormProps): ReactElement => {
   const { t } = useAdminPresentation()
+  const localError = (message: string | undefined): string | undefined => {
+    if (!message) return message
+    const key = localValidationKeys.get(message)
+    return key ? t(key) : message
+  }
   const [revision] = useState(expectedRowVersion)
   const [defaultValues] = useState(() => createDefaultValues(initialQuestion))
   const {
@@ -352,7 +370,9 @@ export const QuestionForm = ({
           className="grid gap-8"
           disabled={readOnly || isSubmitting || isFormSubmitting}
         >
-          <legend className="sr-only">관리자 문제 정보 입력</legend>
+          <legend className="sr-only">
+            {t('editor.form.screenReaderLegend')}
+          </legend>
           <section
             className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
             aria-labelledby="question-basic-information"
@@ -362,18 +382,17 @@ export const QuestionForm = ({
                 className="text-balance text-xl font-bold"
                 id="question-basic-information"
               >
-                기본 정보
+                {t('editor.form.basicTitle')}
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                급수, 과목과 문제 유형을 설정합니다. 생성은 초안으로 저장되며
-                게시 상태는 여기서 변경하지 않습니다.
+                {t('editor.form.basicDescription')}
               </p>
             </div>
 
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <Select
-                label="JLPT 급수"
-                error={errors.level?.message}
+                label={t('editor.level')}
+                error={localError(errors.level?.message)}
                 options={LEVELS.map((level) => ({
                   value: level,
                   label: level
@@ -381,36 +400,38 @@ export const QuestionForm = ({
                 {...register('level')}
               />
               <Select
-                label="과목"
-                error={errors.subject?.message}
+                label={t('editor.subject')}
+                error={localError(errors.subject?.message)}
                 options={SUBJECTS.map((value) => ({
                   value,
-                  label: subjectLabels[value]
+                  label: t(`enums.subjects.${value}`)
                 }))}
                 {...register('subject')}
               />
               <Select
-                label="문제 유형"
-                error={errors.questionType?.message}
+                label={t('editor.questionType')}
+                error={localError(errors.questionType?.message)}
                 options={QUESTION_TYPES.map((value) => ({
                   value,
-                  label: questionTypeLabels[value]
+                  label: t(`enums.questionTypes.${value}`)
                 }))}
                 {...register('questionType')}
               />
               <Select
-                label="난이도"
-                error={errors.difficulty?.message}
+                label={t('editor.difficulty')}
+                error={localError(errors.difficulty?.message)}
                 options={QUESTION_DIFFICULTIES.map((value) => ({
                   value,
-                  label: difficultyLabels[value]
+                  label: t(`enums.difficulties.${value}`)
                 }))}
                 {...register('difficulty')}
               />
               <div className="rounded-lg border border-line bg-slate-50 px-4 py-3">
-                <p className="text-sm font-semibold text-ink">문제 출처</p>
+                <p className="text-sm font-semibold text-ink">
+                  {t('editor.form.sourceTitle')}
+                </p>
                 <p className="mt-1 text-sm text-muted">
-                  자체 제작한 문제만 등록할 수 있습니다.
+                  {t('editor.form.sourceDescription')}
                 </p>
               </div>
             </div>
@@ -425,34 +446,40 @@ export const QuestionForm = ({
                 className="text-balance text-xl font-bold"
                 id="question-content"
               >
-                문제와 보기
+                {t('editor.form.contentTitle')}
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                실제 JLPT 기출이 아닌 자체 제작 문항을 입력해 주세요.
+                {t('editor.form.contentDescription')}
               </p>
             </div>
 
             <div className="mt-6 grid gap-6">
               <Textarea
-                label={subject === 'READING' ? '지문 (필수)' : '지문 (선택)'}
-                hint="독해 문제는 질문과 분리된 일본어 지문이 필요합니다."
-                error={errors.passage?.message}
+                label={t(
+                  subject === 'READING'
+                    ? 'editor.form.passageRequired'
+                    : 'editor.form.passageOptional'
+                )}
+                hint={t('editor.form.passageHint')}
+                error={localError(errors.passage?.message)}
                 rows={7}
-                placeholder="예: 안내문이나 짧은 설명문을 입력해 주세요…"
+                placeholder={t('editor.form.passagePlaceholder')}
                 {...register('passage')}
               />
               <Textarea
-                label="질문"
-                error={errors.questionText?.message}
+                label={t('editor.questionText')}
+                error={localError(errors.questionText?.message)}
                 rows={4}
-                placeholder="예: 글의 내용과 맞는 것을 고르세요…"
+                placeholder={t('editor.form.questionPlaceholder')}
                 {...register('questionText')}
               />
 
               <div>
-                <h3 className="text-base font-bold">보기 4개</h3>
+                <h3 className="text-base font-bold">
+                  {t('editor.form.optionsTitle')}
+                </h3>
                 <p className="mt-1 text-sm leading-6 text-muted">
-                  빈 보기와 동일한 보기는 저장할 수 없습니다.
+                  {t('editor.form.optionsHint')}
                 </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   {OPTION_LABELS.map((label, index) => (
@@ -467,9 +494,13 @@ export const QuestionForm = ({
                         {...register(`options.${index}.label`)}
                       />
                       <Input
-                        label={`보기 ${label}`}
-                        error={errors.options?.[index]?.text?.message}
-                        placeholder={`보기 ${label} 내용을 입력해 주세요…`}
+                        label={t('editor.optionLabel', { number: label })}
+                        error={localError(
+                          errors.options?.[index]?.text?.message
+                        )}
+                        placeholder={t('editor.form.optionPlaceholder', {
+                          number: label
+                        })}
                         {...register(`options.${index}.text`)}
                       />
                     </div>
@@ -480,7 +511,7 @@ export const QuestionForm = ({
                     className="mt-3 text-sm font-medium text-red-700"
                     role="alert"
                   >
-                    {errors.options.root.message}
+                    {localError(errors.options.root.message)}
                   </p>
                 ) : null}
               </div>
@@ -489,13 +520,13 @@ export const QuestionForm = ({
                 <input type="hidden" {...register('correctOptionId')} />
                 <RadioGroup
                   name="correct-answer"
-                  legend="정답"
+                  legend={t('editor.form.correctAnswer')}
                   value={correctOptionId}
-                  error={errors.correctOptionId?.message}
+                  error={localError(errors.correctOptionId?.message)}
                   orientation="horizontal"
                   options={OPTION_LABELS.map((label) => ({
                     value: label,
-                    label: `보기 ${label}`
+                    label: t('editor.optionLabel', { number: label })
                   }))}
                   onValueChange={(value) => {
                     setValue('correctOptionId', value, {
@@ -518,33 +549,33 @@ export const QuestionForm = ({
                 className="text-balance text-xl font-bold"
                 id="question-explanation"
               >
-                해설과 태그
+                {t('editor.explanationLegend')}
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted">
-                정답 근거와 오답 이유를 학습자가 이해할 수 있게 설명합니다.
+                {t('editor.form.explanationDescription')}
               </p>
             </div>
 
             <div className="mt-6 grid gap-6">
               <Textarea
-                label="한국어 해설"
-                error={errors.explanationKo?.message}
+                label={t('editor.explanationKo')}
+                error={localError(errors.explanationKo?.message)}
                 rows={6}
-                placeholder="정답 근거와 다른 보기가 오답인 이유를 입력해 주세요…"
+                placeholder={t('editor.form.explanationKoPlaceholder')}
                 {...register('explanationKo')}
               />
               <Textarea
-                label="일본어 해설 (선택)"
-                error={errors.explanationJa?.message}
+                label={t('editor.form.explanationJaOptional')}
+                error={localError(errors.explanationJa?.message)}
                 rows={5}
-                placeholder="必要な場合、日本語の解説を入力してください…"
+                placeholder={t('editor.form.explanationJaPlaceholder')}
                 {...register('explanationJa')}
               />
               <Textarea
                 label={t('editor.fields.tagNames')}
                 hint={t('editor.tagTextHint')}
-                error={errors.tagsText?.message}
-                placeholder="예: 조사, 문맥, 접속 표현…"
+                error={localError(errors.tagsText?.message)}
+                placeholder={t('editor.form.tagPlaceholder')}
                 {...register('tagsText')}
               />
             </div>
@@ -556,7 +587,7 @@ export const QuestionForm = ({
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             to={cancelHref}
           >
-            목록으로 돌아가기
+            {t('editor.form.returnToList')}
           </Link>
           <Button
             type="submit"
@@ -571,8 +602,8 @@ export const QuestionForm = ({
 
       <Dialog
         open={blocker.state === 'blocked'}
-        title="작성 중인 내용을 나가시겠습니까?"
-        description="저장하지 않은 변경사항은 복구할 수 없습니다."
+        title={t('editor.form.leaveTitle')}
+        description={t('editor.form.leaveDescription')}
         footer={
           <>
             <Button
@@ -583,7 +614,7 @@ export const QuestionForm = ({
                 }
               }}
             >
-              계속 작성
+              {t('editor.form.keepEditing')}
             </Button>
             <Button
               variant="danger"
@@ -593,7 +624,7 @@ export const QuestionForm = ({
                 }
               }}
             >
-              변경사항 버리기
+              {t('editor.form.discard')}
             </Button>
           </>
         }
