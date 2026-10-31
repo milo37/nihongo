@@ -2,6 +2,9 @@ import '@testing-library/jest-dom/vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
+import { appI18n } from '@nihongo/browser/i18n/config'
 import type { ReactElement } from 'react'
 import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-question/createAdminQuestion/schema'
 import type {
@@ -68,7 +71,11 @@ const renderQuestionForm = (
     { initialEntries: ['/'] }
   )
 
-  return <RouterProvider router={router} />
+  return (
+    <I18nProvider>
+      <RouterProvider router={router} />
+    </I18nProvider>
+  )
 }
 
 describe('questionFormSchema', () => {
@@ -215,5 +222,40 @@ describe('QuestionForm', () => {
       screen.getByRole('textbox', { name: '지문 (필수)' })
     ).toHaveAttribute('aria-invalid', 'true')
     expect(handleSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe('question tag locale', () => {
+  afterEach(async () => {
+    writeUiLocalePreference('ko')
+    await appI18n.changeLanguage('ko')
+    document.documentElement.lang = 'ko'
+  })
+
+  it('keeps the Korean tag label and accessible hint', async () => {
+    expect(writeUiLocalePreference('ko')).toBe(true)
+    render(renderQuestionForm(vi.fn()))
+
+    await waitFor(() => expect(appI18n.resolvedLanguage).toBe('ko'))
+    expect(document.documentElement.lang).toBe('ko')
+    expect(
+      screen.getByRole('textbox', { name: '태그' })
+    ).toHaveAccessibleDescription(
+      '쉼표 또는 줄바꿈으로 구분합니다. 최소 1개가 필요합니다.'
+    )
+  })
+
+  it('uses the Japanese tag label when the provider is set to Japanese', async () => {
+    expect(writeUiLocalePreference('ja')).toBe(true)
+    render(renderQuestionForm(vi.fn()))
+
+    await waitFor(() => expect(appI18n.resolvedLanguage).toBe('ja'))
+    expect(document.documentElement.lang).toBe('ja')
+    expect(screen.getByRole('textbox', { name: 'タグ' })).toBeVisible()
+    expect(
+      screen.getByRole('textbox', { name: 'タグ' })
+    ).toHaveAccessibleDescription(
+      'カンマまたは改行で区切ってください。1つ以上必要です。'
+    )
   })
 })
