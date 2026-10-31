@@ -1,19 +1,19 @@
 import { writeSync } from 'node:fs'
 
-export interface Phase10PerformanceTerminalRecord {
+export interface PerformanceTerminalRecord {
   readonly destination: 'stderr' | 'stdout'
   readonly value: Readonly<Record<string, unknown>>
 }
 
-interface ExitPhase10PerformanceProcessOptions {
+interface ExitPerformanceProcessOptions {
   readonly exitCode: number
-  readonly records: readonly Phase10PerformanceTerminalRecord[]
+  readonly records: readonly PerformanceTerminalRecord[]
 }
 
-export const exitPhase10PerformanceProcess = ({
+export const exitPerformanceProcess = ({
   exitCode,
   records
-}: ExitPhase10PerformanceProcessOptions): never => {
+}: ExitPerformanceProcessOptions): never => {
   let terminalExitCode = exitCode
   try {
     for (const record of records) {

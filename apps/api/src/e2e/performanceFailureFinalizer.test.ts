@@ -6,13 +6,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
-import { Phase10CleanupTimeoutError } from './phase10RunTimeout.js'
+import { Phase10CleanupTimeoutError } from './runTimeout.js'
 
 const temporaryDirectories: string[] = []
 const require = createRequire(import.meta.url)
 const tsxCli = require.resolve('tsx/cli')
 const hungCleanupProbe = fileURLToPath(
-  new URL('./fixtures/phase10HungCleanupExitProbe.ts', import.meta.url)
+  new URL('./fixtures/hungCleanupExitProbe.ts', import.meta.url)
 )
 
 afterEach(async () => {

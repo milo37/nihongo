@@ -11,8 +11,8 @@ import {
 import {
   Phase10CleanupTimeoutError,
   Phase10RunTimeoutError,
-  runWithPhase10Timeout
-} from './phase10RunTimeout.js'
+  runWithOperationTimeout
+} from './runTimeout.js'
 
 const temporaryDirectories: string[] = []
 const ownedProcesses: Array<{ child: ChildProcess; label: string }> = []
@@ -71,7 +71,7 @@ describe('Phase 10 runner timeout', () => {
     const startedAt = Date.now()
     let cleanupStarted = false
 
-    const rejection = runWithPhase10Timeout({
+    const rejection = runWithOperationTimeout({
       abortSettleTimeoutMs: 20,
       cleanup: async () => {
         cleanupStarted = true
@@ -126,7 +126,7 @@ describe('Phase 10 runner timeout', () => {
       let lateStageStarted = false
 
       await expect(
-        runWithPhase10Timeout({
+        runWithOperationTimeout({
           abortSettleTimeoutMs: 100,
           cleanup: async () =>
             await stopOwnedProcesses([ownedProcess], {
