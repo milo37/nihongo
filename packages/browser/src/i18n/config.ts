@@ -9,7 +9,9 @@ const [{ koResources }, { jaCoreResources }, { jaAdminResources }] =
   await Promise.all([
     import('./resources/ko'),
     import('./resources/ja'),
-    import('./resources/ja-admin')
+    import('./resources/ja-admin'),
+    // Keep the Korean form copy in its own chunk while preloading every locale.
+    import('./resources/ko-admin-form')
   ])
 const { errors, a11y, ...jaNamespaces } = jaCoreResources
 const jaResources = {

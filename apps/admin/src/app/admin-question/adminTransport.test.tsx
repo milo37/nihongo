@@ -15,6 +15,8 @@ import {
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { apiClient } from '@nihongo/browser/api/config'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
+import { appI18n } from '@nihongo/browser/i18n/config'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import { emitApiError } from '@nihongo/browser/libs/errorBus'
@@ -183,6 +185,33 @@ const renderPage = (
   )
   return router
 }
+
+it.each([
+  {
+    mode: 'create' as const,
+    title: '新しい問題を登録',
+    button: '下書きを登録'
+  },
+  { mode: 'edit' as const, title: '問題の編集', button: '変更を保存' }
+])(
+  'shows the $mode page and submit action in Japanese',
+  async ({ mode, title, button }) => {
+    expect(writeUiLocalePreference('ja')).toBe(true)
+    try {
+      renderPage(mode)
+      expect(await screen.findByRole('heading', { name: title })).toBeVisible()
+      expect(screen.getByRole('button', { name: button })).toBeVisible()
+      expect(
+        calls.filter(({ method }) => method === 'post' || method === 'patch')
+      ).toHaveLength(0)
+    } finally {
+      cleanup()
+      writeUiLocalePreference('ko')
+      await appI18n.changeLanguage('ko')
+    }
+  }
+)
+
 it('passes populated list/detail/preview and all three commands through the real query-to-transport boundary', async () => {
   expect(
     (await client.fetchQuery(adminQuestionQueries.list({ level: 'N3' })))
@@ -344,7 +373,7 @@ it('keeps dirty inputs and old rowVersion after409 and does not issue a second P
     method === 'patch' ? failure('VERSION_CONFLICT', 409) : normal(url, method)
   const user = userEvent.setup()
   renderPage('edit')
-  const field = await screen.findByRole('textbox', { name: '질문' })
+  const field = await screen.findByRole('textbox', { name: '문제 문장' })
   await user.type(field, ' 로컬 입력')
   await user.click(screen.getByRole('button', { name: '변경사항 저장' }))
   await screen.findByRole('button', { name: '최신 상태 다시 불러오기' })
@@ -365,15 +394,15 @@ it('registers a draft, enters the returned question editor, and saves back to th
   const user = userEvent.setup()
   const router = renderPage('create')
   await user.type(
-    screen.getByRole('textbox', { name: '질문' }),
+    screen.getByRole('textbox', { name: '문제 문장' }),
     preview.question.questionText
   )
   for (const option of preview.question.options)
     await user.type(
-      screen.getByRole('textbox', { name: `보기 ${option.label}` }),
+      screen.getByRole('textbox', { name: `${option.label}번 보기` }),
       option.text
     )
-  await user.click(screen.getByRole('radio', { name: '보기 1' }))
+  await user.click(screen.getByRole('radio', { name: '1번 보기' }))
   await user.type(
     screen.getByRole('textbox', { name: '한국어 해설' }),
     preview.adminAnswer.explanationKo
@@ -388,7 +417,7 @@ it('registers a draft, enters the returned question editor, and saves back to th
   expect(
     calls.find(({ method }) => method === 'post')?.body
   ).not.toHaveProperty('status')
-  await user.type(screen.getByRole('textbox', { name: '질문' }), ' 수정')
+  await user.type(screen.getByRole('textbox', { name: '문제 문장' }), ' 수정')
   await user.click(screen.getByRole('button', { name: '변경사항 저장' }))
   await screen.findByRole('heading', { name: '문제 관리' })
   expect(router.state.location.pathname + router.state.location.search).toBe(
@@ -429,7 +458,7 @@ it('retains local input when the explicitly confirmed post-conflict reload fails
     method === 'patch' ? failure('VERSION_CONFLICT', 409) : normal(url, method)
   const user = userEvent.setup()
   renderPage('edit')
-  const field = await screen.findByRole('textbox', { name: '질문' })
+  const field = await screen.findByRole('textbox', { name: '문제 문장' })
   await user.type(field, ' 보존')
   await user.click(screen.getByRole('button', { name: '변경사항 저장' }))
   await user.click(
