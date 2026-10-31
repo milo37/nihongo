@@ -25,6 +25,7 @@ import { Input } from '@nihongo/browser/common/components/Input'
 import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import { Select } from '@nihongo/browser/common/components/Select'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
+import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 const TAG_SEPARATOR_REGEX = /[,，\n]/
 const OPTION_LABEL_SET: ReadonlySet<string> = new Set(OPTION_LABELS)
@@ -257,6 +258,7 @@ export const QuestionForm = ({
   submitLabel,
   submittingLabel
 }: QuestionFormProps): ReactElement => {
+  const { t } = useAdminPresentation()
   const [revision] = useState(expectedRowVersion)
   const [defaultValues] = useState(() => createDefaultValues(initialQuestion))
   const {
@@ -539,8 +541,8 @@ export const QuestionForm = ({
                 {...register('explanationJa')}
               />
               <Input
-                label="태그"
-                hint="쉼표 또는 줄바꿈으로 구분합니다. 최소 1개가 필요합니다."
+                label={t('editor.fields.tagNames')}
+                hint={t('editor.tagTextHint')}
                 error={errors.tagsText?.message}
                 placeholder="예: 조사, 문맥, 접속 표현…"
                 {...register('tagsText')}
