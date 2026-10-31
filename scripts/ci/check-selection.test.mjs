@@ -1140,8 +1140,7 @@ test('Phase 9 mock starts only a local mock web server', async () => {
   )
   const faultRun = normalized.find(
     ({ type, args }) =>
-      type === 'command' &&
-      args?.includes('apps/web/e2e/phase10-journeys-real-mock.spec.ts')
+      type === 'command' && args?.includes('apps/web/e2e/journeys.spec.ts')
   )
   assert.ok(faultRun)
   assert.equal(faultRun.environment.PHASE10_BROWSER_MODE, 'mock')
@@ -1637,7 +1636,7 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
   await assertPlaywrightSelection(
     sources.phase10,
     mode,
-    'apps/web/e2e/phase10-journeys-real-mock.spec.ts',
+    'apps/web/e2e/journeys.spec.ts',
     'PHASE10_BROWSER_MODE'
   )
 }
