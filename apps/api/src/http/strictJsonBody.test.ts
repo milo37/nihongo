@@ -1,3 +1,9 @@
+import {
+  JsonParseError,
+  parseJsonBytes,
+  parsePhase7JsonBytes,
+  Phase7JsonParseError
+} from '@nihongo/contracts/admin/phase7'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readStrictJsonBody } from './strictJsonBody.js'
 
@@ -25,6 +31,28 @@ const failure = (code: string) => ({
 })
 
 afterEach(() => vi.useRealTimers())
+
+describe('JSON parser export compatibility', () => {
+  it('preserves function and constructor identity and error metadata', () => {
+    expect(parseJsonBytes).toBe(parsePhase7JsonBytes)
+    expect(parseJsonBytes.name).toBe('parsePhase7JsonBytes')
+    expect(JsonParseError).toBe(Phase7JsonParseError)
+
+    const error = new JsonParseError('MAX_DEPTH_EXCEEDED')
+    expect(error).toBeInstanceOf(JsonParseError)
+    expect(error).toBeInstanceOf(Phase7JsonParseError)
+    expect(error.name).toBe('Phase7JsonParseError')
+    expect(error.constructor.name).toBe('Phase7JsonParseError')
+    expect(error.kind).toBe('MAX_DEPTH_EXCEEDED')
+    expect(error.message).toBe(
+      'Phase 7 JSON exceeds the maximum container depth.'
+    )
+
+    const duplicate = new TextEncoder().encode('{"key":1,"key":2}')
+    expect(() => parseJsonBytes(duplicate)).toThrow(Phase7JsonParseError)
+    expect(() => parsePhase7JsonBytes(duplicate)).toThrow(JsonParseError)
+  })
+})
 
 describe('readStrictJsonBody', () => {
   it('accepts a complete object at the byte cap across UTF-8 chunks', async () => {

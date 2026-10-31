@@ -36,8 +36,8 @@ import {
   quoteIdentifier,
   withUpgradeSchema,
   createPhase7HistoricalSchemaFixture
-} from './fixtures/phase7HistoricalSchema.js'
-import type { IsolatedUpgradeSchema } from './fixtures/phase7HistoricalSchema.js'
+} from './fixtures/historicalSchema.js'
+import type { IsolatedUpgradeSchema } from './fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createJsonLogger } from '../observability/logger.js'

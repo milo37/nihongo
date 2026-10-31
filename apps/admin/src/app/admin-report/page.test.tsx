@@ -239,7 +239,7 @@ it('returns from actual detail and browser Back to the same filtered list and fo
   const filter = screen.getByRole('combobox', { name: '처리 상태' })
   await user.click(filter)
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['phase7-admin', 'reports'] })
+    await client.invalidateQueries({ queryKey: ['admin-content', 'reports'] })
   })
   await waitFor(() => expect(filter).toHaveFocus())
   await user.click(screen.getByRole('link', { name: '상세 · ' + id }))
@@ -337,7 +337,7 @@ it('preserves returned row focus through passive refetch and offline while block
   let refresh!: Promise<void>
   await act(async () => {
     refresh = client.invalidateQueries({
-      queryKey: ['phase7-admin', 'reports']
+      queryKey: ['admin-content', 'reports']
     })
   })
   await waitFor(() =>
@@ -380,7 +380,7 @@ it('preserves returned row focus through passive refetch and offline while block
   const filter = screen.getByRole('combobox', { name: '처리 상태' })
   await user.click(filter)
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['phase7-admin', 'reports'] })
+    await client.invalidateQueries({ queryKey: ['admin-content', 'reports'] })
   })
   expect(filter).toHaveFocus()
 })
