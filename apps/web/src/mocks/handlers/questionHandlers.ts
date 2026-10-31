@@ -13,7 +13,7 @@ import {
   type ParsedListQuestionsQuery
 } from '@nihongo/contracts/question/list-questions'
 import {
-  getPhase7QuestionContractIdentity,
+  getQuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
   toContractQuestionSummary
@@ -247,7 +247,7 @@ export const questionHandlers = [
         toContractPracticeQuestion(
           sourceQuestion,
           getQuestionVersionFingerprint(sourceQuestion),
-          getPhase7QuestionContractIdentity(sourceQuestion)
+          getQuestionContractIdentity(sourceQuestion)
         )
       )
 

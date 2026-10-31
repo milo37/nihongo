@@ -40,7 +40,7 @@ import {
 } from '@nihongo/contracts/question/get-question'
 import {
   getCanonicalQuestionId,
-  getPhase7QuestionContractIdentity,
+  getQuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion
 } from '@mocks/adapters/questionContractAdapter'
@@ -351,7 +351,7 @@ const createSeedVersion = (
   const publicQuestion = toContractPracticeQuestion(
     toPracticeQuestion(source.question),
     fingerprint,
-    getPhase7QuestionContractIdentity(source.question)
+    getQuestionContractIdentity(source.question)
   )
   const correctIndex = source.question.options.findIndex(
     (option) => option.isCorrect
