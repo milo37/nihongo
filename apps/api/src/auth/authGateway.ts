@@ -5,7 +5,7 @@ import type { SsoPublicRuntime } from './ssoPublicRuntime.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createClientIpAuthority } from './clientIp.js'
-import type { Phase7AuthFacade } from './phase7AuthFacade.js'
+import type { Phase7AuthFacade } from './authFacade.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { getRawRequestPathname } from '../app/protectedRouteExclusion.js'
 
