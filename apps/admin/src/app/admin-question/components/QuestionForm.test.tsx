@@ -180,6 +180,81 @@ describe('QuestionForm', () => {
     expect(handleSubmit.mock.calls[0][0].options).toHaveLength(4)
   })
 
+  it.each([
+    { separator: '쉼표', pasted: '  문법, 표현  ' },
+    { separator: '전각 쉼표', pasted: '  문법，표현  ' },
+    { separator: 'LF 줄바꿈', pasted: '  문법\n표현  ' },
+    { separator: 'CRLF 줄바꿈', pasted: '  문법\r\n표현  ' }
+  ])(
+    '$separator로 붙여넣은 태그를 두 항목으로 제출한다',
+    async ({ pasted }) => {
+      const user = userEvent.setup()
+      const handleSubmit = vi.fn(
+        async (
+          _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+        ) => undefined
+      )
+      render(renderQuestionForm(handleSubmit, initialQuestion))
+
+      const tags = screen.getByRole('textbox', { name: '태그' })
+      await user.clear(tags)
+      await user.click(tags)
+      await user.paste(pasted)
+      const fieldValue = (tags as HTMLTextAreaElement).value
+      expect(handleSubmit).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('button', { name: '문제 등록' }))
+      await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1))
+      const request = handleSubmit.mock.calls[0][0]
+      expect(request).toEqual(
+        expect.objectContaining({
+          expectedRowVersion: 1,
+          correctOptionId: initialQuestion.adminAnswer.correctOptionId,
+          options: initialQuestion.question.options.map((option, index) => ({
+            id: option.id,
+            ordinal: index + 1,
+            text: option.text
+          }))
+        })
+      )
+      expect({ fieldValue, tagNames: request.tagNames }).toEqual({
+        fieldValue: pasted.replace(/\r\n/g, '\n'),
+        tagNames: ['문법', '표현']
+      })
+    }
+  )
+
+  it('태그 입력 중 Enter는 줄을 바꾸고 명시 제출 전 저장하지 않는다', async () => {
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn(
+      async (
+        _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
+      ) => undefined
+    )
+    render(renderQuestionForm(handleSubmit, initialQuestion))
+
+    const tags = screen.getByRole('textbox', { name: '태그' })
+    await user.clear(tags)
+    await user.type(tags, '문법{Enter}표현')
+    expect(tags).toHaveValue('문법\n표현')
+    expect(handleSubmit).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '문제 등록' }))
+    await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1))
+    expect(handleSubmit.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        tagNames: ['문법', '표현'],
+        expectedRowVersion: 1,
+        correctOptionId: initialQuestion.adminAnswer.correctOptionId,
+        options: initialQuestion.question.options.map((option, index) => ({
+          id: option.id,
+          ordinal: index + 1,
+          text: option.text
+        }))
+      })
+    )
+  })
+
   it('중복 보기를 인라인 오류로 안내한다', async () => {
     const user = userEvent.setup()
     const handleSubmit = vi.fn(
