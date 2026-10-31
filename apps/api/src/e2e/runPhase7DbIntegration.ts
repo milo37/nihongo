@@ -3,7 +3,7 @@ import {
   runPostSeedDiagnostic,
   type PostSeedDiagnostic
 } from './phase7PostSeedDiagnostics.js'
-import { runPhase7SeedExecution } from './phase7SeedExecution.js'
+import { runPhase7SeedExecution } from './seedExecution.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
