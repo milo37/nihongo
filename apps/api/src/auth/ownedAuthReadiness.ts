@@ -1,5 +1,5 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
-import { attestPhase7RuntimeRoles } from '../db/phase7RuntimeRoleAttestation.js'
+import { attestPhase7RuntimeRoles } from '../db/runtimeRoleAttestation.js'
 /** Uses the same database/role proof in CMS-enabled and CMS-disabled runtimes. */
 export const createOwnedAuthReadiness =
   ({

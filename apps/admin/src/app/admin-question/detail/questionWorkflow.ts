@@ -12,7 +12,7 @@ import {
   publishQuestionVersionRequestSchema,
   retireQuestionVersionRequestSchema
 } from '@nihongo/contracts/admin/phase7'
-import type { Phase7OperationRequest } from '@nihongo/browser/api/content-operations/requestContentOperation'
+import type { ContentOperationRequest } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const questionCommands = [
   'REQUEST_REVIEW',
@@ -35,7 +35,7 @@ export type QuestionWrite = {
     | 'approveQuestionVersion'
     | 'withdrawQuestionApproval'
     | 'publishQuestionVersion'
-    | 'retireQuestionVersion']: Phase7OperationRequest<K>
+    | 'retireQuestionVersion']: ContentOperationRequest<K>
 }[
   | 'updateQuestionVersion'
   | 'createAdminQuestionVersion'
