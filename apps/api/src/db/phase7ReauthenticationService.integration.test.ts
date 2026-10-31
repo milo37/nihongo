@@ -847,7 +847,7 @@ const spawnStagedCrashWorker = async (
 const runStartupMaintenanceWorker = async (): Promise<void> => {
   const script = `
     import { createRoleDatabaseRuntime } from './src/db/database.ts'
-    import { runPhase7ReauthenticationStartupMaintenance } from './src/auth/phase7ReauthenticationStartupMaintenance.ts'
+    import { runPhase7ReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
     const databaseUrl = process.env.PHASE7_RESTART_DATABASE_URL
     if (!databaseUrl) throw new Error('Missing restart database URL.')
     const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_auth_gateway')

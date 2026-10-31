@@ -10,7 +10,7 @@ import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
 import type { SsoProvider } from '../auth/ssoProtocol.js'
 import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { runPhase7ReauthenticationStartupMaintenance } from '../auth/phase7ReauthenticationStartupMaintenance.js'
+import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
