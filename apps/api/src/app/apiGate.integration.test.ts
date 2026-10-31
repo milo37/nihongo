@@ -14,7 +14,7 @@ import type { SsoVerifiedIdentity } from '../auth/ssoProtocol.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { createPhase7AuthFacade } from '../auth/phase7AuthFacade.js'
+import { createPhase7AuthFacade } from '../auth/authFacade.js'
 import { createPhase7PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
