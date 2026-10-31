@@ -2292,8 +2292,8 @@ test('a cancelled mock build stops its owned child and returns SIGTERM status', 
     fakePnpm,
     `#!/usr/bin/env node
 const fs = require('node:fs')
-fs.writeFileSync(process.env.MOCK_READY_FILE, 'ready')
 process.once('SIGTERM', () => { fs.writeFileSync(process.env.MOCK_STOPPED_FILE, 'stopped'); process.exit(0) })
+fs.writeFileSync(process.env.MOCK_READY_FILE, 'ready')
 setInterval(() => {}, 1000)
 `
   )
