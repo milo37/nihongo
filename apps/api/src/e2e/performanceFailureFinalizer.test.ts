@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createPhase10PerformanceFailureFinalizer } from './phase10PerformanceFailureFinalizer.js'
+import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import { Phase10CleanupTimeoutError } from './phase10RunTimeout.js'
 
 const temporaryDirectories: string[] = []
@@ -101,7 +101,7 @@ describe('Phase 10 performance failure finalizer', () => {
       mode: 0o600
     })
     const cleanup = vi.fn(async () => undefined)
-    const finalizeFailure = createPhase10PerformanceFailureFinalizer({
+    const finalizeFailure = createPerformanceFailureFinalizer({
       cleanup,
       cleanupTimeoutMs: 100,
       getEvidenceFile: () => evidenceFile,
@@ -127,7 +127,7 @@ describe('Phase 10 performance failure finalizer', () => {
       mode: 0o600
     })
     const startedAt = Date.now()
-    const finalizeFailure = createPhase10PerformanceFailureFinalizer({
+    const finalizeFailure = createPerformanceFailureFinalizer({
       cleanup: async () => await new Promise<never>(() => undefined),
       cleanupTimeoutMs: 30,
       getEvidenceFile: () => evidenceFile,
