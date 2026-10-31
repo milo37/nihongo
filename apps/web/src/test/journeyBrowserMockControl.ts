@@ -45,21 +45,21 @@ export const completePhase10MockGoogleCallback = async (): Promise<void> => {
   }
 }
 
-const phase78ActorIds = {
+const mockGoogleActorIds = {
   author: DEMO_ADMIN_ID,
   reviewer: DEMO_REVIEWER_ADMIN_ID,
   learner: DEMO_USER_ID,
   insightsLearner: DEMO_USER_ID
 } as const
-export type Phase78MockActor = keyof typeof phase78ActorIds
+export type MockGoogleActor = keyof typeof mockGoogleActorIds
 
-export const selectPhase78MockGoogleActor = (actor: Phase78MockActor): void => {
+export const selectMockGoogleActor = (actor: MockGoogleActor): void => {
   assertMockTestMode()
-  setMockSsoAccountForTesting('google', phase78ActorIds[actor])
+  setMockSsoAccountForTesting('google', mockGoogleActorIds[actor])
 }
 
-export const completePhase78MockGoogleCallback = async (
-  actor: Phase78MockActor
+export const completeMockGoogleActorCallback = async (
+  actor: MockGoogleActor
 ): Promise<void> => {
   assertMockTestMode()
   const response = await fetch('/api/_mock/auth/social/callback', {
@@ -76,7 +76,7 @@ export const completePhase78MockGoogleCallback = async (
   if (
     principal.kind !== 'USER' ||
     principal.user.role !== role ||
-    principal.user.id !== phase78ActorIds[actor]
+    principal.user.id !== mockGoogleActorIds[actor]
   ) {
     throw new Error('Mock callback did not confirm the selected actor.')
   }
