@@ -227,7 +227,7 @@ describe('Phase7 owned API bounded shutdown', () => {
 })
 
 describe('Phase7/8 real administrator origin and Mock selection', () => {
-  const adminSpec = 'apps/web/e2e/phase7-admin-cms-mock.spec.ts'
+  const adminSpec = 'apps/web/e2e/admin-cms.spec.ts'
   const dashboardSpec = 'apps/web/e2e/phase8-dashboard-real-mock.spec.ts'
   const shutdown: string[] = []
   const stoppedLabels: string[][] = []
