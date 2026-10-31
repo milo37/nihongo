@@ -128,7 +128,7 @@ export class MockContentCommandError extends Error {
     retryAfterSeconds?: number
   }) {
     super(input.message)
-    this.name = 'MockPhase7AdminCommandError'
+    this.name = 'MockContentCommandError'
     this.code = input.code
     this.disposition = input.disposition ?? 'NO_TX'
     this.fieldErrors = input.fieldErrors
