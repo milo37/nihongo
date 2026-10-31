@@ -577,7 +577,7 @@ export interface MockCanonicalAdminQuestionSource {
   readonly question: QuestionRecord
 }
 
-interface Phase7LearnerQuestionReadModel {
+interface LearnerQuestionReadModel {
   readonly currentBySourceId: ReadonlyMap<string, Phase7ProjectedQuestionRecord>
   readonly lifecycleBySourceId: ReadonlyMap<string, 'ACTIVE' | 'ARCHIVED'>
   readonly retainedPublishedBySourceId: ReadonlyMap<
@@ -4196,7 +4196,7 @@ export class MockDatabase {
     return weakestType
   }
 
-  private buildPhase7LearnerQuestionReadModel(): Phase7LearnerQuestionReadModel {
+  private buildPhase7LearnerQuestionReadModel(): LearnerQuestionReadModel {
     const sources = this.useLegacyQuestionSourcesForLearnerProjection
       ? this.listCanonicalAdminQuestionSources()
       : this.listPhase7AuthoritativeAdminQuestionSources()
@@ -4329,7 +4329,7 @@ export class MockDatabase {
 
   private resolveCanonicalBookmarkSource(
     sourceQuestionId: string,
-    readModel: Phase7LearnerQuestionReadModel
+    readModel: LearnerQuestionReadModel
   ): Pick<CanonicalBookmarkSourceRecord, 'availability' | 'question'> | null {
     const current = readModel.currentBySourceId.get(sourceQuestionId)
     if (current) {
