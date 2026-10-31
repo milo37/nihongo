@@ -1,6 +1,6 @@
 import type { AdminReauthenticationResult } from '@nihongo/contracts/admin/phase7'
 import type { PrismaClient } from '../generated/prisma/client.js'
-import type { Phase7ReauthenticationAuthApi } from '../auth/createPhase7ReauthenticationAuth.js'
+import type { Phase7ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
 import type { Phase7ReauthenticationContext } from '../auth/phase7ReauthenticationContext.js'
 import { ApplicationError } from '../errors/applicationError.js'
 export interface AdminReauthenticationInput {
