@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   writeFileSync,
@@ -103,3 +104,30 @@ test('admin public rejects nested valid and broken symlinks and recovers after r
       assert.deepEqual(publicSymlinks(), [])
     }
   }))
+
+test('ARCH117 permits operational commands only through the CLI', () => {
+  let fixtureRoot
+  fixture((root) => {
+    fixtureRoot = root
+    const directory = 'apps/api/src/content'
+    const runtimeFile = `${directory}/runtime-entry.ts`
+    const commandImport = "import './commands/fixture.js'\n"
+    mkdirSync(join(root, directory, 'commands'), { recursive: true })
+    writeFileSync(
+      join(root, directory, 'commands/fixture.ts'),
+      'export const fixture = true\n'
+    )
+    writeFileSync(join(root, directory, 'cli.ts'), commandImport)
+    const diagnostics = () =>
+      checkWorkspaceArchitecture({ rootDir: root })
+        .filter(({ code }) => code === 'ARCH117')
+        .map(({ code, file }) => ({ code, file }))
+
+    assert.deepEqual(diagnostics(), [])
+    writeFileSync(join(root, runtimeFile), commandImport)
+    assert.deepEqual(diagnostics(), [{ code: 'ARCH117', file: runtimeFile }])
+    writeFileSync(join(root, runtimeFile), 'export const ready = true\n')
+    assert.deepEqual(diagnostics(), [])
+  })
+  assert.equal(existsSync(fixtureRoot), false)
+})
