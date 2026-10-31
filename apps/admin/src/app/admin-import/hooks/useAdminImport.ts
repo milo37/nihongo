@@ -73,7 +73,7 @@ export const useApplyImport = () => {
       await Promise.all(
         [
           adminQuestionQueries.allKey(),
-          serverStateQueryKeys.phase7AdminQuestion.all(),
+          serverStateQueryKeys.adminQuestion.all(),
           adminAuditQueries.allKey()
         ].map((queryKey) => client.invalidateQueries({ queryKey }))
       )
