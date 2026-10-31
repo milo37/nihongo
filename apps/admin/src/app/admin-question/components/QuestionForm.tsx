@@ -540,7 +540,7 @@ export const QuestionForm = ({
                 placeholder="必要な場合、日本語の解説を入力してください…"
                 {...register('explanationJa')}
               />
-              <Input
+              <Textarea
                 label={t('editor.fields.tagNames')}
                 hint={t('editor.tagTextHint')}
                 error={errors.tagsText?.message}
