@@ -402,6 +402,7 @@ export const jaAdminResources = {
     explanationLegend: '解説とタグ',
     explanationKo: '韓国語解説',
     explanationJa: '日本語解説',
+    tagTextHint: 'カンマまたは改行で区切ってください。1つ以上必要です。',
     tagSearch: '登録済みタグを検索',
     tagSuggestions: '登録済みタグの検索結果',
     tagQueryError: 'タグ検索語は正規化後100文字以下にしてください。',
