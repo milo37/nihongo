@@ -52,7 +52,7 @@ vi.mock('../admin/adminReadGuard.js', async (importOriginal) => {
     await importOriginal<typeof import('../admin/adminReadGuard.js')>()
   return { ...actual, createAdminReadGuard: vi.fn(actual.createAdminReadGuard) }
 })
-vi.mock('../auth/phase7ReauthenticationStartupMaintenance.js', () => ({
+vi.mock('../auth/reauthenticationStartupMaintenance.js', () => ({
   runPhase7ReauthenticationStartupMaintenance: f.maintenance
 }))
 vi.mock('../auth/createSsoAuthentication.js', async (importOriginal) => {

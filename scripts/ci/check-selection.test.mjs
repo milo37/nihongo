@@ -1148,8 +1148,7 @@ test('Phase 9 mock starts only a local mock web server', async () => {
   assert.equal(faultRun.args.includes('--grep'), false)
   const dashboardRun = normalized.find(
     ({ type, args }) =>
-      type === 'command' &&
-      args?.includes('apps/web/e2e/phase8-dashboard-real-mock.spec.ts')
+      type === 'command' && args?.includes('apps/web/e2e/dashboard.spec.ts')
   )
   assert.ok(dashboardRun)
   assert.equal(dashboardRun.environment.PHASE8_BROWSER_MODE, 'mock')
@@ -1231,11 +1230,8 @@ const assertPhase7PlaywrightSelection = async (source, mode) => {
   )
   const suites =
     mode === 'real'
-      ? [
-          'apps/web/e2e/admin-cms.spec.ts',
-          'apps/web/e2e/phase8-dashboard-real-mock.spec.ts'
-        ]
-      : ['apps/web/e2e/phase8-dashboard-real-mock.spec.ts']
+      ? ['apps/web/e2e/admin-cms.spec.ts', 'apps/web/e2e/dashboard.spec.ts']
+      : ['apps/web/e2e/dashboard.spec.ts']
   assert.deepEqual(selectionCalls, [[mode, true]])
   assert.deepEqual(commandCalls, [
     {
