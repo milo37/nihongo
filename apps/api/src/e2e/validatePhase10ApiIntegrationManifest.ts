@@ -96,7 +96,7 @@ export const validatePhase10ApiIntegrationManifest = async (): Promise<{
         shard: 'phase7-api-pre-seed'
       },
       {
-        path: 'src/app/phase7ApiGate.integration.test.ts',
+        path: 'src/app/apiGate.integration.test.ts',
         seedPolicy: 'canonical-once',
         shard: 'phase7-api-post-seed'
       },
