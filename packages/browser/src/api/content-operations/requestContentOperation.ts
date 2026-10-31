@@ -51,27 +51,26 @@ import { sha256TextPort } from '../../libs/sha256Text'
 type OperationSchemas<Operation extends Phase7Operation> =
   (typeof phase7OperationSchemas)[Operation]
 
-export type Phase7OperationParams<Operation extends Phase7Operation> = z.input<
+export type ContentOperationParams<Operation extends Phase7Operation> = z.input<
   OperationSchemas<Operation>['params']
 >
 
-export type Phase7OperationQuery<Operation extends Phase7Operation> = z.input<
+export type ContentOperationQuery<Operation extends Phase7Operation> = z.input<
   OperationSchemas<Operation>['query']
 >
 
-export type Phase7OperationBody<Operation extends Phase7Operation> = z.input<
+export type ContentOperationBody<Operation extends Phase7Operation> = z.input<
   OperationSchemas<Operation>['body']
 >
 
-export type Phase7OperationResult<Operation extends Phase7Operation> = z.output<
-  OperationSchemas<Operation>['success']
->
+export type ContentOperationResult<Operation extends Phase7Operation> =
+  z.output<OperationSchemas<Operation>['success']>
 
-export interface Phase7OperationRequest<Operation extends Phase7Operation> {
+export interface ContentOperationRequest<Operation extends Phase7Operation> {
   readonly operation: Operation
-  readonly params: Phase7OperationParams<Operation>
-  readonly query: Phase7OperationQuery<Operation>
-  readonly body: Phase7OperationBody<Operation>
+  readonly params: ContentOperationParams<Operation>
+  readonly query: ContentOperationQuery<Operation>
+  readonly body: ContentOperationBody<Operation>
   readonly config?: AxiosRequestConfig
 }
 
@@ -234,8 +233,8 @@ export const requestContentOperation = async <
     'exportAdminQuestions' | 'reauthenticateAdmin'
   >
 >(
-  input: Phase7OperationRequest<Operation>
-): Promise<Phase7OperationResult<Operation>> => {
+  input: ContentOperationRequest<Operation>
+): Promise<ContentOperationResult<Operation>> => {
   const entry = manifestByOperation.get(input.operation)
   if (!entry) {
     throw new Error(`Unknown Phase 7 operation: ${input.operation}`)
@@ -268,7 +267,7 @@ export const requestContentOperation = async <
         query,
         body,
         parsed
-      )) as Phase7OperationResult<Operation>
+      )) as ContentOperationResult<Operation>
       assertCurrentAuthTransitionEpoch(requestEpoch)
       return correlated
     } catch (error: unknown) {

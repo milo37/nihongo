@@ -13,10 +13,10 @@ export const invalidateCreatedQuestionReportCaches = async (
   target: CreatedQuestionReportInvalidationTarget
 ): Promise<void> => {
   const questionIds = target.questionIds ?? []
-  const keys: QueryKey[] = [serverStateQueryKeys.phase7AdminQuestion.lists()]
+  const keys: QueryKey[] = [serverStateQueryKeys.adminQuestion.lists()]
 
   questionIds.forEach((questionId) => {
-    keys.push(serverStateQueryKeys.phase7AdminQuestion.detail(questionId))
+    keys.push(serverStateQueryKeys.adminQuestion.detail(questionId))
   })
   keys.push(adminQuestionReportKeys.allLists())
   if (target.reportId) {

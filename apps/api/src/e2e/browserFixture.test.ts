@@ -9,7 +9,7 @@ import {
   createPhase7BrowserFixture,
   createPhase7SsoAdminBrowserApiFixture,
   createPhase7SsoBrowserApiFixture
-} from './phase7BrowserFixture.js'
+} from './browserFixture.js'
 
 const f = vi.hoisted(() => ({
   ownerQuery: vi.fn<(...args: unknown[]) => Promise<unknown>>(),

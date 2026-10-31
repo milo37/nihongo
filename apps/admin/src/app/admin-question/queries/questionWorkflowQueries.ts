@@ -8,7 +8,7 @@ import {
 import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 export const questionWorkflowQueries = {
-  allKey: serverStateQueryKeys.phase7AdminQuestion.all,
+  allKey: serverStateQueryKeys.adminQuestion.all,
   detail: (actor: string | null, epoch: number, questionId: string) =>
     queryOptions({
       queryKey: [
