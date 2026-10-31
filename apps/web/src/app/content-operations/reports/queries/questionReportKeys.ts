@@ -1,6 +1,6 @@
 import type { ListAdminQuestionReportsQuery } from '@nihongo/contracts/admin/phase7'
 
-const rootKey = ['phase7-admin'] as const
+const rootKey = ['admin-content'] as const
 
 export const adminQuestionReportKeys = {
   all: () => [...rootKey, 'question-reports'] as const,

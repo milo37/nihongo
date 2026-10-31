@@ -26,7 +26,7 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as phase7Api from '@nihongo/browser/api/content-operations/requestContentOperation'
+import * as contentOperationsApi from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
 import { actorId } from '@app/admin-question/test/questionFixture'
 
@@ -74,7 +74,7 @@ const renderRoute = (entry = '/admin/audit-log') => {
 it('registers the audit route for ADMIN in the existing real-only shell', async () => {
   vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor('ADMIN'))
   const read = vi
-    .spyOn(phase7Api, 'requestContentOperation')
+    .spyOn(contentOperationsApi, 'requestContentOperation')
     .mockResolvedValue({
       items: [],
       nextCursor: null
@@ -141,7 +141,7 @@ const auditList = () => screen.getByRole('list', { name: '관리자 감사 기�
 it('distinguishes loading from an empty response and focuses the empty result', async () => {
   authAdmin()
   let finish!: (response: ListAdminAuditLogResponse) => void
-  vi.spyOn(phase7Api, 'requestContentOperation').mockImplementation(
+  vi.spyOn(contentOperationsApi, 'requestContentOperation').mockImplementation(
     () =>
       new Promise<ListAdminAuditLogResponse>((resolve) => {
         finish = resolve
@@ -164,7 +164,7 @@ it('presents a bounded error and supports keyboard retry with focus restoration'
   authAdmin()
   const user = userEvent.setup()
   const read = vi
-    .spyOn(phase7Api, 'requestContentOperation')
+    .spyOn(contentOperationsApi, 'requestContentOperation')
     .mockRejectedValueOnce(
       Object.assign(new Error('PRIVATE_SERVER_DETAIL'), {
         code: 'SERVICE_UNAVAILABLE',
@@ -196,7 +196,7 @@ it('loads the exact cursor by keyboard and focuses the first appended safe recor
   authAdmin()
   const user = userEvent.setup()
   const read = vi
-    .spyOn(phase7Api, 'requestContentOperation')
+    .spyOn(contentOperationsApi, 'requestContentOperation')
     .mockResolvedValueOnce(firstPage)
     .mockResolvedValueOnce(lastPage)
   const { container } = renderRoute()
@@ -233,7 +233,7 @@ it('loads the exact cursor by keyboard and focuses the first appended safe recor
 it('preserves cached records after a failed next page and lets recovery unlock more', async () => {
   authAdmin()
   const user = userEvent.setup()
-  vi.spyOn(phase7Api, 'requestContentOperation')
+  vi.spyOn(contentOperationsApi, 'requestContentOperation')
     .mockResolvedValueOnce(firstPage)
     .mockRejectedValueOnce(
       Object.assign(new Error('not shown'), { code: 'SERVICE_UNAVAILABLE' })
@@ -274,7 +274,7 @@ it.each(['GUEST', 'USER'] as const)(
     vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(
       role === 'GUEST' ? null : actor('USER')
     )
-    const read = vi.spyOn(phase7Api, 'requestContentOperation')
+    const read = vi.spyOn(contentOperationsApi, 'requestContentOperation')
     const replace = vi
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
@@ -297,7 +297,9 @@ it.each(['GUEST', 'USER'] as const)(
 it('uses the existing Japanese locale without changing the route', async () => {
   authAdmin()
   expect(writeUiLocalePreference('ja')).toBe(true)
-  vi.spyOn(phase7Api, 'requestContentOperation').mockResolvedValue(emptyPage)
+  vi.spyOn(contentOperationsApi, 'requestContentOperation').mockResolvedValue(
+    emptyPage
+  )
   const { router } = renderRoute()
   expect(
     await screen.findByRole('heading', { level: 1, name: '管理者監査ログ' })
@@ -319,13 +321,13 @@ it('uses the existing Japanese locale without changing the route', async () => {
 it('retains cached audit content while offline and blocks fetching another page', async () => {
   authAdmin()
   const read = vi
-    .spyOn(phase7Api, 'requestContentOperation')
+    .spyOn(contentOperationsApi, 'requestContentOperation')
     .mockResolvedValue(firstPage)
   renderRoute()
   await screen.findByRole('list', { name: '관리자 감사 기록' })
   await act(async () => {
     onlineManager.setOnline(false)
-    void client.invalidateQueries({ queryKey: ['phase7-admin', 'audit-log'] })
+    void client.invalidateQueries({ queryKey: ['admin-content', 'audit-log'] })
   })
   expect(
     await screen.findByText(/오프라인이라 최신 상태를 확인하지 못했습니다/)
@@ -346,7 +348,9 @@ it('connects existing question navigation to audit and preserves filters on Back
     pageSize: 20,
     total: 0
   })
-  vi.spyOn(phase7Api, 'requestContentOperation').mockResolvedValue(emptyPage)
+  vi.spyOn(contentOperationsApi, 'requestContentOperation').mockResolvedValue(
+    emptyPage
+  )
   const { router } = renderRoute('/admin/questions?level=N3&page=1')
   await screen.findByRole('heading', { level: 1, name: '문제 관리' })
   const nav = screen.getByRole('navigation', { name: '현재 위치' })
@@ -376,7 +380,7 @@ it('focus lifecycle: reconnect growth after More does not steal focus from navig
     occurredAt: '2026-10-26T00:00:00.000Z'
   }
   const read = vi
-    .spyOn(phase7Api, 'requestContentOperation')
+    .spyOn(contentOperationsApi, 'requestContentOperation')
     .mockResolvedValueOnce(firstPage)
     .mockResolvedValueOnce(lastPage)
     .mockResolvedValueOnce({ items: [newer, firstItem], nextCursor: cursor })
@@ -397,7 +401,7 @@ it('focus lifecycle: reconnect growth after More does not steal focus from navig
   await act(async () => {
     onlineManager.setOnline(false)
     await client.invalidateQueries({
-      queryKey: ['phase7-admin', 'audit-log'],
+      queryKey: ['admin-content', 'audit-log'],
       refetchType: 'none'
     })
     onlineManager.setOnline(true)
@@ -413,14 +417,14 @@ it('focus lifecycle: paused cached-success retry restores the heading when recon
   authAdmin()
   const user = userEvent.setup()
   const read = vi
-    .spyOn(phase7Api, 'requestContentOperation')
+    .spyOn(contentOperationsApi, 'requestContentOperation')
     .mockResolvedValue(firstPage)
   renderRoute()
   await screen.findByRole('list', { name: '관리자 감사 기록' })
   const statuses: string[] = []
   const unsubscribe = client.getQueryCache().subscribe((event) => {
     if (
-      event.query.queryKey[0] === 'phase7-admin' &&
+      event.query.queryKey[0] === 'admin-content' &&
       event.query.queryKey[1] === 'audit-log'
     )
       statuses.push(event.query.state.status)
@@ -428,7 +432,9 @@ it('focus lifecycle: paused cached-success retry restores the heading when recon
   try {
     await act(async () => {
       onlineManager.setOnline(false)
-      void client.invalidateQueries({ queryKey: ['phase7-admin', 'audit-log'] })
+      void client.invalidateQueries({
+        queryKey: ['admin-content', 'audit-log']
+      })
     })
     expect(
       await screen.findByText(/오프라인이라 최신 상태를 확인하지 못했습니다/)

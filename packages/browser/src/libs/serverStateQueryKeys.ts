@@ -1,10 +1,10 @@
 export const serverStateQueryKeys = {
   adminQuestion: {
-    all: () => ['phase7-admin', 'questions'] as const,
-    lists: () => ['phase7-admin', 'questions', 'list'] as const,
-    details: () => ['phase7-admin', 'questions', 'detail'] as const,
+    all: () => ['admin-content', 'questions'] as const,
+    lists: () => ['admin-content', 'questions', 'list'] as const,
+    details: () => ['admin-content', 'questions', 'detail'] as const,
     detail: (questionId: string) =>
-      ['phase7-admin', 'questions', 'detail', questionId] as const
+      ['admin-content', 'questions', 'detail', questionId] as const
   },
   bookmark: { all: () => ['bookmark'] as const },
   study: {
