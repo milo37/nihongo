@@ -2,7 +2,7 @@ import {
   getPostSeedErrorCode,
   runPostSeedDiagnostic,
   type PostSeedDiagnostic
-} from './phase7PostSeedDiagnostics.js'
+} from './postSeedDiagnostics.js'
 import { runPhase7SeedExecution } from './seedExecution.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'

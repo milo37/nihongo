@@ -5,7 +5,7 @@ import {
   runPostSeedDiagnostic,
   type PostSeedDiagnostic,
   type PostSeedOperation
-} from './phase7PostSeedDiagnostics.js'
+} from './postSeedDiagnostics.js'
 
 const file = getPhase10ApiIntegrationPathsByOwner('phase7-db')[0]!
 
