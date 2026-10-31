@@ -1,7 +1,7 @@
 import { access, writeFile } from 'node:fs/promises'
 import { createPerformanceFailureFinalizer } from '../performanceFailureFinalizer.js'
-import { exitPhase10PerformanceProcess } from '../phase10PerformanceProcessExit.js'
-import { Phase10CleanupTimeoutError } from '../phase10RunTimeout.js'
+import { exitPerformanceProcess } from '../performanceProcessExit.js'
+import { Phase10CleanupTimeoutError } from '../runTimeout.js'
 
 const evidenceFile = process.env.PHASE10_HUNG_CLEANUP_EVIDENCE_FILE
 if (!evidenceFile) {
@@ -33,7 +33,7 @@ try {
   }
 }
 
-exitPhase10PerformanceProcess({
+exitPerformanceProcess({
   exitCode: 1,
   records: [
     {

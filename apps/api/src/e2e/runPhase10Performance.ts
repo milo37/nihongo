@@ -10,13 +10,10 @@ import {
 import { readPhase10DatabaseApiPerformanceEvidence } from './phase10PerformanceEvidence.js'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import {
-  exitPhase10PerformanceProcess,
-  type Phase10PerformanceTerminalRecord
-} from './phase10PerformanceProcessExit.js'
-import {
-  runPhase10CleanupWithTimeout,
-  runWithPhase10Timeout
-} from './phase10RunTimeout.js'
+  exitPerformanceProcess,
+  type PerformanceTerminalRecord
+} from './performanceProcessExit.js'
+import { runCleanupWithTimeout, runWithOperationTimeout } from './runTimeout.js'
 import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 import {
   retireOwnedProcess,
@@ -132,7 +129,7 @@ const cleanup = (): Promise<void> => {
 }
 
 const cleanupWithinDeadline = (): Promise<void> => {
-  cleanupWithinDeadlinePromise ??= runPhase10CleanupWithTimeout({
+  cleanupWithinDeadlinePromise ??= runCleanupWithTimeout({
     cleanup,
     label: PERFORMANCE_RUNNER_LABEL,
     timeoutMs: PERFORMANCE_CLEANUP_TIMEOUT_MS
@@ -150,7 +147,7 @@ const finalizeFailure = createPerformanceFailureFinalizer({
 const completeFailure = (error: unknown): Promise<never> => {
   failureCompletionPromise ??= (async () => {
     const cleanupErrors = [...(await finalizeFailure())]
-    const records: Phase10PerformanceTerminalRecord[] = cleanupErrors.map(
+    const records: PerformanceTerminalRecord[] = cleanupErrors.map(
       (cleanupError) => ({
         destination: 'stderr',
         value: {
@@ -175,7 +172,7 @@ const completeFailure = (error: unknown): Promise<never> => {
           ? 130
           : 143
         : 1
-    return exitPhase10PerformanceProcess({ exitCode, records })
+    return exitPerformanceProcess({ exitCode, records })
   })()
   return failureCompletionPromise
 }
@@ -269,7 +266,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   })
 }
 
-void runWithPhase10Timeout({
+void runWithOperationTimeout({
   abortSettleTimeoutMs: 5_000,
   cleanup: cleanupWithinDeadline,
   cleanupTimeoutMs: PERFORMANCE_FINALIZER_TIMEOUT_MS,
@@ -296,7 +293,7 @@ void runWithPhase10Timeout({
           new Error(`Phase 10 performance runner received ${receivedSignal}.`)
       )
     }
-    return exitPhase10PerformanceProcess({
+    return exitPerformanceProcess({
       exitCode: 0,
       records: [
         {
