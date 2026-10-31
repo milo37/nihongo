@@ -91,9 +91,9 @@ const login = async (page: Page): Promise<void> => {
     await page.evaluate(async () => {
       const path = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ path)) as {
-        selectPhase78MockGoogleActor: (actor: 'insightsLearner') => void
+        selectMockGoogleActor: (actor: 'insightsLearner') => void
       }
-      control.selectPhase78MockGoogleActor('insightsLearner')
+      control.selectMockGoogleActor('insightsLearner')
     })
   }
   const started = await page.evaluate(async () => {
@@ -114,11 +114,11 @@ const login = async (page: Page): Promise<void> => {
     await page.evaluate(async () => {
       const path = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ path)) as {
-        completePhase78MockGoogleCallback: (
+        completeMockGoogleActorCallback: (
           actor: 'insightsLearner'
         ) => Promise<void>
       }
-      await control.completePhase78MockGoogleCallback('insightsLearner')
+      await control.completeMockGoogleActorCallback('insightsLearner')
     })
   } else {
     if (!actor) throw new Error('Real insights actor is required.')
