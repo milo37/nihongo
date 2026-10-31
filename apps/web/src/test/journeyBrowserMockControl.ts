@@ -82,7 +82,7 @@ export const completeMockGoogleActorCallback = async (
   }
 }
 
-export type Phase10DashboardFault = 'malformed' | 'network' | 'rate-limit'
+export type DashboardInsightsFault = 'malformed' | 'network' | 'rate-limit'
 
 const dashboardInsightsPath = '*/api/v1/dashboard/insights'
 
@@ -112,8 +112,8 @@ const createRateLimitFailure = () =>
     { once: true }
   )
 
-export const armPhase10DashboardInsightsFault = (
-  fault: Phase10DashboardFault
+export const armDashboardInsightsFault = (
+  fault: DashboardInsightsFault
 ): void => {
   assertMockTestMode()
   if (fault === 'network') {
