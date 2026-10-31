@@ -32,7 +32,7 @@ import {
 import type { RequestLedger } from './request-ledger'
 
 if (process.env.PHASE7_BROWSER_MODE !== 'real') {
-  throw new Error('Phase 7 administrator UI requires real mode.')
+  throw new Error('Administrator acceptance requires real mode.')
 }
 const requireOrigin = (value: string | undefined): string => {
   if (!value) throw new Error('The public administrator origin is required.')
