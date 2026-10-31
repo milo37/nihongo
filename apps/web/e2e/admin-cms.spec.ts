@@ -395,7 +395,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     .getByLabel('문제 유형', { exact: true })
     .selectOption('GRAMMAR_SELECT')
   await page
-    .getByRole('textbox', { name: '질문', exact: true })
+    .getByRole('textbox', { name: '문제 문장', exact: true })
     .fill('週末は図書館（　）勉強します。')
   for (const [label, text] of [
     ['1', 'で'],
@@ -404,10 +404,10 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     ['4', 'が']
   ]) {
     await page
-      .getByRole('textbox', { name: `보기 ${label}`, exact: true })
+      .getByRole('textbox', { name: `${label}번 보기`, exact: true })
       .fill(text)
   }
-  await page.getByRole('radio', { name: '보기 1', exact: true }).check()
+  await page.getByRole('radio', { name: '1번 보기', exact: true }).check()
   await page
     .getByLabel('한국어 해설', { exact: true })
     .fill('행동이 이루어지는 장소에는 조사 で를 씁니다.')
@@ -480,10 +480,10 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       '日曜日は図書館（　）勉強します。'
     ]
     await page
-      .getByRole('textbox', { name: '질문', exact: true })
+      .getByRole('textbox', { name: '문제 문장', exact: true })
       .fill(texts[0])
     await peer
-      .getByRole('textbox', { name: '질문', exact: true })
+      .getByRole('textbox', { name: '문제 문장', exact: true })
       .fill(texts[1])
     const responses = await raceUpdates(context, [page, peer], versionId)
     for (const response of responses) {
@@ -523,7 +523,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       loser.getByRole('alert').filter({ hasText: '현재 입력은 유지됩니다' })
     ).toBeVisible()
     await expect(
-      loser.getByRole('textbox', { name: '질문', exact: true })
+      loser.getByRole('textbox', { name: '문제 문장', exact: true })
     ).toHaveValue(texts[loserIndex])
     await expect(winner).toHaveURL(
       (url) =>
