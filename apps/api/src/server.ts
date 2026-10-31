@@ -9,7 +9,7 @@ import { createSsoAuthentication } from './auth/createSsoAuthentication.js'
 import {
   runPhase7ReauthenticationStartupMaintenance,
   startPhase7ReauthenticationMaintenance
-} from './auth/phase7ReauthenticationStartupMaintenance.js'
+} from './auth/reauthenticationStartupMaintenance.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
 import { createPrincipalService } from './auth/principalService.js'
 import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
