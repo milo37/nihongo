@@ -1875,6 +1875,7 @@ export const koResources = {
       explanationLegend: '해설과 태그',
       explanationKo: '한국어 해설',
       explanationJa: '일본어 해설',
+      tagTextHint: '쉼표 또는 줄바꿈으로 구분합니다. 최소 1개가 필요합니다.',
       tagSearch: '등록된 태그 검색',
       tagSuggestions: '등록된 태그 검색 결과',
       tagQueryError: '태그 검색어는 정규화 후 100자 이하여야 합니다.',
