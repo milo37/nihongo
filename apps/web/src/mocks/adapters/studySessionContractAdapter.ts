@@ -3,7 +3,7 @@ import type {
   VersionedStudySessionPayload
 } from '@nihongo/contracts/study/study-session'
 import {
-  getPhase7QuestionContractIdentity,
+  getQuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
   toStableMockUuid
@@ -55,7 +55,7 @@ export const toContractStudySessionPayload = (
         question: toContractPracticeQuestion(
           toPracticeQuestion(question),
           versionFingerprint,
-          getPhase7QuestionContractIdentity(question)
+          getQuestionContractIdentity(question)
         )
       }
     })

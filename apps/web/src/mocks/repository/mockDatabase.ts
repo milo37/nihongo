@@ -63,12 +63,12 @@ import {
 import {
   getCanonicalQuestionId,
   getContractQuestionId,
-  getPhase7QuestionContractIdentity,
+  getQuestionContractIdentity,
   getQuestionVersionFingerprint,
   toContractPracticeQuestion,
   toStableMockUuid,
-  withPhase7QuestionContractIdentity,
-  type Phase7ProjectedQuestionRecord
+  withQuestionContractIdentity,
+  type ProjectedQuestionRecord
 } from '@mocks/adapters/questionContractAdapter'
 import type {
   MockCanonicalGradedItem,
@@ -578,11 +578,11 @@ export interface MockCanonicalAdminQuestionSource {
 }
 
 interface LearnerQuestionReadModel {
-  readonly currentBySourceId: ReadonlyMap<string, Phase7ProjectedQuestionRecord>
+  readonly currentBySourceId: ReadonlyMap<string, ProjectedQuestionRecord>
   readonly lifecycleBySourceId: ReadonlyMap<string, 'ACTIVE' | 'ARCHIVED'>
   readonly retainedPublishedBySourceId: ReadonlyMap<
     string,
-    Phase7ProjectedQuestionRecord
+    ProjectedQuestionRecord
   >
 }
 
@@ -736,7 +736,7 @@ const getCanonicalSessionQuestionId = (
   toStableMockUuid('study-session-question', `${sessionId}:${ordinal}`)
 
 const getCanonicalQuestionVersionId = (question: QuestionRecord): string =>
-  getPhase7QuestionContractIdentity(question)?.questionVersionId ??
+  getQuestionContractIdentity(question)?.questionVersionId ??
   toStableMockUuid(
     'question-version',
     `${question.id}:${getQuestionVersionFingerprint(question)}`
@@ -746,7 +746,7 @@ const getCanonicalOptionId = (
   question: QuestionRecord,
   optionId: string
 ): string =>
-  getPhase7QuestionContractIdentity(question)?.optionIdBySourceId[optionId] ??
+  getQuestionContractIdentity(question)?.optionIdBySourceId[optionId] ??
   toStableMockUuid(
     'question-option',
     `${optionId}:${getQuestionVersionFingerprint(question)}`
@@ -768,7 +768,7 @@ const toCanonicalReviewedQuestion = (
     ...toContractPracticeQuestion(
       toPracticeQuestion(question),
       fingerprint,
-      getPhase7QuestionContractIdentity(question)
+      getQuestionContractIdentity(question)
     ),
     correctOptionId: getCanonicalOptionId(question, correctOption.id),
     explanationKo: question.explanationKo,
@@ -1654,7 +1654,7 @@ export class MockDatabase {
         toContractPracticeQuestion(
           toPracticeQuestion(question),
           getQuestionVersionFingerprint(question),
-          getPhase7QuestionContractIdentity(question)
+          getQuestionContractIdentity(question)
         ).options.map(({ id }) => id)
       )
       if (
@@ -2845,7 +2845,7 @@ export class MockDatabase {
         const contract = toContractPracticeQuestion(
           question,
           getQuestionVersionFingerprint(question),
-          getPhase7QuestionContractIdentity(question)
+          getQuestionContractIdentity(question)
         )
         return {
           level: contract.level,
@@ -2864,7 +2864,7 @@ export class MockDatabase {
           const contract = toContractPracticeQuestion(
             question,
             getQuestionVersionFingerprint(question),
-            getPhase7QuestionContractIdentity(question)
+            getQuestionContractIdentity(question)
           )
           if (contract.questionVersionId !== answer.questionVersionId) {
             throwCanonicalIntegrityError(
@@ -3173,8 +3173,7 @@ export class MockDatabase {
     const readModel = this.buildLearnerQuestionReadModel()
     for (const question of readModel.retainedPublishedBySourceId.values()) {
       if (
-        getPhase7QuestionContractIdentity(question)?.questionId ===
-        contractQuestionId
+        getQuestionContractIdentity(question)?.questionId === contractQuestionId
       ) {
         return question.id
       }
@@ -3495,8 +3494,8 @@ export class MockDatabase {
                 .includes(normalizedSearch))
         )
         .toSorted((left, right) => {
-          const leftId = getPhase7QuestionContractIdentity(left)?.questionId
-          const rightId = getPhase7QuestionContractIdentity(right)?.questionId
+          const leftId = getQuestionContractIdentity(left)?.questionId
+          const rightId = getQuestionContractIdentity(right)?.questionId
           return (leftId ?? left.id).localeCompare(rightId ?? right.id)
         })
     )
@@ -3507,7 +3506,7 @@ export class MockDatabase {
       ...this.buildLearnerQuestionReadModel().currentBySourceId.values()
     ].find(
       (candidate) =>
-        getPhase7QuestionContractIdentity(candidate)?.questionId ===
+        getQuestionContractIdentity(candidate)?.questionId ===
         contractQuestionId
     )
     if (!question) {
@@ -3634,7 +3633,7 @@ export class MockDatabase {
       const hasOwnedSessionPin = [...sessionById.values()].some((session) => {
         if (session.userId !== actorId) return false
         return snapshotsBySessionId.get(session.id)?.some((candidate) => {
-          const identity = getPhase7QuestionContractIdentity(candidate)
+          const identity = getQuestionContractIdentity(candidate)
           return (
             (identity?.questionId ?? getContractQuestionId(candidate.id)) ===
               version.questionId &&
@@ -4219,7 +4218,7 @@ export class MockDatabase {
     const toProjectedRecord = (
       question: (typeof snapshot.questions)[number],
       version: (typeof snapshot.versions)[number]
-    ): Phase7ProjectedQuestionRecord => {
+    ): ProjectedQuestionRecord => {
       const sourceQuestionId =
         sourceIdByQuestionId.get(question.questionId) ??
         `phase7-question:${question.questionId}`
@@ -4231,7 +4230,7 @@ export class MockDatabase {
           text: option.text,
           isCorrect: option.id === version.correctOptionId
         }))
-      return withPhase7QuestionContractIdentity(
+      return withQuestionContractIdentity(
         {
           id: sourceQuestionId,
           level: version.level,
@@ -4261,11 +4260,11 @@ export class MockDatabase {
         }
       )
     }
-    const currentBySourceId = new Map<string, Phase7ProjectedQuestionRecord>()
+    const currentBySourceId = new Map<string, ProjectedQuestionRecord>()
     const lifecycleBySourceId = new Map<string, 'ACTIVE' | 'ARCHIVED'>()
     const retainedPublishedBySourceId = new Map<
       string,
-      Phase7ProjectedQuestionRecord
+      ProjectedQuestionRecord
     >()
     for (const question of snapshot.questions) {
       const sourceQuestionId =
@@ -5471,7 +5470,7 @@ export class MockDatabase {
         toContractPracticeQuestion(
           toPracticeQuestion(question),
           getQuestionVersionFingerprint(question),
-          getPhase7QuestionContractIdentity(question)
+          getQuestionContractIdentity(question)
         ).options.map(({ id }) => id)
       )
       return (

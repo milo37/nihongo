@@ -9,7 +9,7 @@ import {
 } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import {
   getCanonicalQuestionId,
-  getPhase7QuestionContractIdentity,
+  getQuestionContractIdentity,
   getQuestionVersionFingerprint,
   toStableMockUuid
 } from '@mocks/adapters/questionContractAdapter'
@@ -51,7 +51,7 @@ const toValidatedSortedTagLabels = (tags: readonly string[]): string[] => {
 }
 
 const toHistoricalTags = (record: MockCanonicalWrongNoteRecord) => {
-  const identity = getPhase7QuestionContractIdentity(record.lastWrongQuestion)
+  const identity = getQuestionContractIdentity(record.lastWrongQuestion)
   const tags = toValidatedSortedTagLabels(record.lastWrongQuestion.tags).map(
     (label) => ({
       id:
@@ -91,7 +91,7 @@ export const toContractWrongNoteSummary = (
 })
 
 const toContractReviewedQuestion = (record: MockCanonicalWrongNoteRecord) => {
-  const identity = getPhase7QuestionContractIdentity(record.lastWrongQuestion)
+  const identity = getQuestionContractIdentity(record.lastWrongQuestion)
   const correctOptions = record.lastWrongQuestion.options.filter(
     ({ isCorrect }) => isCorrect
   )

@@ -1,6 +1,6 @@
 import {
-  withPhase7QuestionContractIdentity,
-  type Phase7QuestionContractIdentity
+  withQuestionContractIdentity,
+  type QuestionContractIdentity
 } from '@mocks/adapters/questionContractAdapter'
 import {
   createOriginalQuestion,
@@ -11,7 +11,7 @@ interface ApprovedN5ReadingSeed {
   readonly draftId: string
   readonly approvedSourceSha256: string
   readonly seed: OriginalQuestionSeed
-  readonly contractIdentity: Phase7QuestionContractIdentity
+  readonly contractIdentity: QuestionContractIdentity
 }
 
 // JLP-210: approved original content and the disposable JLP-238 TEST UUID mapping.
@@ -125,8 +125,5 @@ export const approvedN5ReadingSeeds: readonly ApprovedN5ReadingSeed[] = [
 
 export const approvedN5ReadingQuestions = approvedN5ReadingSeeds.map(
   ({ seed, contractIdentity }) =>
-    withPhase7QuestionContractIdentity(
-      createOriginalQuestion(seed),
-      contractIdentity
-    )
+    withQuestionContractIdentity(createOriginalQuestion(seed), contractIdentity)
 )
