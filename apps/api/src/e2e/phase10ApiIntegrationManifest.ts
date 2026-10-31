@@ -32,7 +32,7 @@ export const phase10ApiIntegrationManifest = [
       'dedicated nihongo_jlp534_test database and jlp534 schema; guest worker has function EXECUTE only'
   },
   {
-    path: 'src/app/phase7ApiGate.integration.test.ts',
+    path: 'src/app/apiGate.integration.test.ts',
     executionOwner: 'phase7-api',
     shard: 'phase7-api-post-seed',
     order: 2,
