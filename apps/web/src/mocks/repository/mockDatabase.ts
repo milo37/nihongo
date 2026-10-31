@@ -27,7 +27,7 @@ import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
 import {
   cachedStorage,
   MOCK_DATABASE_STORAGE_KEY,
-  PHASE7_ADMIN_CMS_STORAGE_KEY,
+  ADMIN_CMS_STORAGE_KEY,
   readFreshLocalStorageItem,
   subscribeStorageChanges
 } from '@nihongo/browser/libs/storage'
@@ -1051,10 +1051,7 @@ export class MockDatabase {
 
     this.resetMemoryToSeed()
     this.hydrateFromStorage(this.storage.getItem(MOCK_DATABASE_STORAGE_KEY))
-    this.hydratePhase7State(
-      this.storage.getItem(PHASE7_ADMIN_CMS_STORAGE_KEY),
-      false
-    )
+    this.hydratePhase7State(this.storage.getItem(ADMIN_CMS_STORAGE_KEY), false)
 
     if (options.listenToStorage !== false) {
       this.listenForExternalStorageChanges()
@@ -3559,7 +3556,7 @@ export class MockDatabase {
       let phase7State =
         persisted.version === 8 ? persisted.phase7AdminCms : undefined
       const dedicatedSerialized = this.readLatestStorageItem(
-        PHASE7_ADMIN_CMS_STORAGE_KEY
+        ADMIN_CMS_STORAGE_KEY
       )
       if (dedicatedSerialized !== null) {
         const dedicated = this.parsePhase7PersistedState(dedicatedSerialized)
@@ -3718,7 +3715,7 @@ export class MockDatabase {
   reset(): void {
     this.ssoAccounts.reset()
     this.storage.removeItem(MOCK_DATABASE_STORAGE_KEY)
-    this.storage.removeItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
+    this.storage.removeItem(ADMIN_CMS_STORAGE_KEY)
     this.currentUserId = null
     this.useLegacyQuestionSourcesForLearnerProjection = true
     this.resetMemoryToSeed()
@@ -5807,15 +5804,13 @@ export class MockDatabase {
   }
 
   private rebaseFromLatestStorageForMockMutation(): boolean {
-    const serialized = this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
+    const serialized = this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY)
     this.mockMutationStorageBaseline = serialized
     return this.hydratePhase7State(serialized, true)
   }
 
   private persistMockContentState(): void {
-    const previousState = this.readLatestStorageItem(
-      PHASE7_ADMIN_CMS_STORAGE_KEY
-    )
+    const previousState = this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY)
     try {
       if (
         this.mockMutationStorageBaseline !== undefined &&
@@ -5827,14 +5822,14 @@ export class MockDatabase {
         this.listPhase7AuthoritativeAdminQuestionSources()
       )
       const didPersist = this.storage.setItem(
-        PHASE7_ADMIN_CMS_STORAGE_KEY,
+        ADMIN_CMS_STORAGE_KEY,
         JSON.stringify(phase7AdminCms)
       )
       if (didPersist === false) {
         throw new Error('Mock storage rejected the write.')
       }
     } catch (error: unknown) {
-      this.restorePersistedStorage(previousState, PHASE7_ADMIN_CMS_STORAGE_KEY)
+      this.restorePersistedStorage(previousState, ADMIN_CMS_STORAGE_KEY)
       throw error
     } finally {
       this.mockMutationStorageBaseline = undefined
@@ -6086,7 +6081,7 @@ export class MockDatabase {
     this.unsubscribeStorage = subscribeStorageChanges((event) => {
       if (
         event.key !== MOCK_DATABASE_STORAGE_KEY &&
-        event.key !== PHASE7_ADMIN_CMS_STORAGE_KEY &&
+        event.key !== ADMIN_CMS_STORAGE_KEY &&
         event.key !== null
       ) {
         return
@@ -6097,7 +6092,7 @@ export class MockDatabase {
         return
       }
 
-      if (event.key === PHASE7_ADMIN_CMS_STORAGE_KEY) {
+      if (event.key === ADMIN_CMS_STORAGE_KEY) {
         if (event.newValue === null) {
           this.mockContentState.reset()
           return
@@ -6114,7 +6109,7 @@ export class MockDatabase {
           : this.storage.getItem(MOCK_DATABASE_STORAGE_KEY)
       this.hydrateFromStorage(serialized)
       this.hydratePhase7State(
-        this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY),
+        this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY),
         false
       )
     })
@@ -6129,7 +6124,7 @@ export class MockDatabase {
       this.readLatestStorageItem(MOCK_DATABASE_STORAGE_KEY)
     )
     this.hydratePhase7State(
-      this.readLatestStorageItem(PHASE7_ADMIN_CMS_STORAGE_KEY),
+      this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY),
       false
     )
   }
