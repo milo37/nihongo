@@ -12,7 +12,7 @@ import { useAppStore } from '../../../store/index'
 import {
   APP_STORE_KEY,
   MOCK_DATABASE_STORAGE_KEY,
-  PHASE7_ADMIN_CMS_STORAGE_KEY,
+  ADMIN_CMS_STORAGE_KEY,
   subscribeStorageChanges
 } from '../../../libs/storage'
 
@@ -159,7 +159,7 @@ export const useAuthSynchronization = (): AuthSynchronizationResult => {
         return
       }
 
-      if (event.key === PHASE7_ADMIN_CMS_STORAGE_KEY) {
+      if (event.key === ADMIN_CMS_STORAGE_KEY) {
         queryClient.removeQueries({
           predicate: (query) =>
             query.queryKey[0] !== authQueries.allKey()[0] &&
