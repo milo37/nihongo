@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import type { AddressInfo } from 'node:net'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
-import { cleanupPhase10BrowserResources } from './phase10BrowserCleanup.js'
+import { cleanupBrowserResources } from './browserCleanup.js'
 import type { OwnedProcess } from './ownedProcessGroup.js'
 import type { Phase7BrowserFixtureDatabase } from './phase7BrowserFixture.js'
 import {
@@ -198,9 +198,9 @@ export const closePhase7BrowserApi = async (
 
 export const cleanupPhase7BrowserResources = async (
   processes: OwnedProcess[],
-  actions: Parameters<typeof cleanupPhase10BrowserResources>[0]
+  actions: Parameters<typeof cleanupBrowserResources>[0]
 ): Promise<void> => {
-  await cleanupPhase10BrowserResources({
+  await cleanupBrowserResources({
     ...actions,
     stopOwnedProcesses: async () => {
       await actions.stopOwnedProcesses()

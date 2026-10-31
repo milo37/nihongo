@@ -6,7 +6,7 @@ import nodePath from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import type { AddressInfo } from 'node:net'
-import { cleanupPhase10BrowserResources } from '../apps/api/src/e2e/phase10BrowserCleanup.js'
+import { cleanupBrowserResources } from '../apps/api/src/e2e/browserCleanup.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -159,7 +159,7 @@ const reserveLoopbackPort = async (): Promise<number> =>
   })
 
 export const cleanup = (): Promise<void> => {
-  cleanupPromise ??= cleanupPhase10BrowserResources({
+  cleanupPromise ??= cleanupBrowserResources({
     stopOwnedProcesses: async () => {
       const api = ownedProcesses.find(
         ({ label }) => label === 'phase10-real-sso-api'
