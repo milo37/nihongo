@@ -1,5 +1,5 @@
 export const serverStateQueryKeys = {
-  phase7AdminQuestion: {
+  adminQuestion: {
     all: () => ['phase7-admin', 'questions'] as const,
     lists: () => ['phase7-admin', 'questions', 'list'] as const,
     details: () => ['phase7-admin', 'questions', 'detail'] as const,

@@ -418,9 +418,7 @@ test('current stats and learning routes preserve contracts before an explicit re
     ({ kind }) => kind === 'TARGET_LEVEL_PRACTICE'
   )
   if (!recommendation) {
-    throw new Error(
-      'Fresh Phase 8 learner target-level recommendation is missing.'
-    )
+    throw new Error('Fresh learner target-level recommendation is missing.')
   }
   if (recommendation.reason.code !== 'TARGET_LEVEL_RECENT_GAP') {
     throw new Error('Target-level recommendation must explain the recent gap.')

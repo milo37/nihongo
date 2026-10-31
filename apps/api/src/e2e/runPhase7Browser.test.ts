@@ -31,7 +31,7 @@ vi.mock('./runPhase7ApiIntegration.js', () => ({
   preparePhase7IsolatedDatabase: ports.prepare,
   cleanupPhase7IsolatedDatabase: ports.cleanupHarness
 }))
-vi.mock('./phase7BrowserFixture.js', () => ({
+vi.mock('./browserFixture.js', () => ({
   createPhase7SsoAdminBrowserApiFixture: ports.fixture
 }))
 vi.mock('../config/env.js', () => ({

@@ -25,7 +25,7 @@ import {
 } from '../db/database.js'
 import { createPostgresStartupOptions } from '../db/databaseOptions.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
-import { attestPhase7RuntimeRoles } from '../db/phase7RuntimeRoleAttestation.js'
+import { attestPhase7RuntimeRoles } from '../db/runtimeRoleAttestation.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
