@@ -45,10 +45,10 @@ vi.mock('./ownedProcessGroup.js', () => ({
   retireOwnedProcess: ports.retire
 }))
 vi.mock('./validatePhase10ApiIntegrationManifest.js', () => ({
-  validatePhase10ApiIntegrationManifest: async () => undefined
+  validateApiIntegrationManifest: async () => undefined
 }))
 vi.mock('./phase10ApiIntegrationManifest.js', () => ({
-  getPhase10ApiIntegrationEntriesByOwner: () => [
+  getApiIntegrationEntriesByOwner: () => [
     {
       path: 'src/question/questionCatalog.integration.test.ts',
       executionOwner: 'phase10',

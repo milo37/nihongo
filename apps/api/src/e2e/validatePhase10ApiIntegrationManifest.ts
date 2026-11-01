@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { phase10ApiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
+import { apiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
 
 const apiRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -26,12 +26,12 @@ const discoverIntegrationTests = async (
   return discovered.toSorted()
 }
 
-export const validatePhase10ApiIntegrationManifest = async (): Promise<{
+export const validateApiIntegrationManifest = async (): Promise<{
   readonly discoveredCount: number
   readonly manifestCount: number
 }> => {
   const discovered = await discoverIntegrationTests(path.join(apiRoot, 'src'))
-  const manifestPaths = phase10ApiIntegrationManifest
+  const manifestPaths = apiIntegrationManifest
     .map(({ path: testPath }) => testPath)
     .toSorted()
   if (new Set(manifestPaths).size !== manifestPaths.length) {
@@ -43,7 +43,7 @@ export const validatePhase10ApiIntegrationManifest = async (): Promise<{
     )
   }
 
-  for (const entry of phase10ApiIntegrationManifest) {
+  for (const entry of apiIntegrationManifest) {
     if (
       entry.shard.length === 0 ||
       entry.databaseState.length === 0 ||
@@ -68,7 +68,7 @@ export const validatePhase10ApiIntegrationManifest = async (): Promise<{
   }
 
   for (const owner of ['phase7-api', 'phase7-db', 'phase10'] as const) {
-    const entries = phase10ApiIntegrationManifest.filter(
+    const entries = apiIntegrationManifest.filter(
       (entry) => entry.executionOwner === owner
     )
     const orderKeys = entries.map((entry) => entry.order)
@@ -79,7 +79,7 @@ export const validatePhase10ApiIntegrationManifest = async (): Promise<{
     }
   }
 
-  const phase7ApiRunnerContract = phase10ApiIntegrationManifest
+  const phase7ApiRunnerContract = apiIntegrationManifest
     .filter(({ executionOwner }) => executionOwner === 'phase7-api')
     .toSorted((left, right) => left.order - right.order)
     .map(({ path: testPath, seedPolicy, shard }) => ({
@@ -123,7 +123,7 @@ const isDirectExecution =
   fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 
 if (isDirectExecution) {
-  validatePhase10ApiIntegrationManifest()
+  validateApiIntegrationManifest()
     .then((result) => {
       process.stdout.write(
         `${JSON.stringify({

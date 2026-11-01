@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 import {
   getPostSeedErrorCode,
   runPostSeedDiagnostic,
@@ -7,7 +7,7 @@ import {
   type PostSeedOperation
 } from './postSeedDiagnostics.js'
 
-const file = getPhase10ApiIntegrationPathsByOwner('phase7-db')[0]!
+const file = getApiIntegrationPathsByOwner('phase7-db')[0]!
 
 describe('post-reseed finite diagnostics', () => {
   for (const operation of [

@@ -1,4 +1,4 @@
-import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 
 export type PostSeedOperation =
   | 'COUNT'
@@ -39,9 +39,7 @@ export const runPostSeedDiagnostic = async <T>(
   const approvedFile =
     operation === 'FILE' &&
     file !== undefined &&
-    getPhase10ApiIntegrationPathsByOwner('phase7-db').some(
-      (path) => path === file
-    )
+    getApiIntegrationPathsByOwner('phase7-db').some((path) => path === file)
       ? file
       : undefined
   const emit = (state: PostSeedState, error?: unknown): void => {

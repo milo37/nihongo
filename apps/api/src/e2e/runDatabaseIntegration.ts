@@ -29,7 +29,7 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 import {
   createPhase7DbFileEnvironment,
   runPhase10ManifestVitestFile,
@@ -1397,7 +1397,7 @@ const reportMigrationFailure = (
 
 const run = async (): Promise<void> => {
   const selectedTestFiles = selectPhase7DbIntegrationFiles(
-    getPhase10ApiIntegrationPathsByOwner('phase7-db'),
+    getApiIntegrationPathsByOwner('phase7-db'),
     process.env
   )
   const preserveSanitizedReport = process.env.PHASE7_DB_PRESERVE_REPORT === '1'
