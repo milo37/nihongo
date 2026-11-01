@@ -1368,7 +1368,7 @@ test('real-only browser evidence requires all three exact phases', async () => {
   }
 })
 
-test('CI uploads only verified real browser summaries', async () => {
+test('CI uploads only verified real and Mock browser summaries', async () => {
   const [normal, candidate] = await Promise.all([
     readFile(path.resolve('.github/workflows/ci.yml'), 'utf8'),
     readFile(path.resolve('.github/workflows/candidate.yml'), 'utf8')
@@ -1376,24 +1376,29 @@ test('CI uploads only verified real browser summaries', async () => {
   const uploads = normal
     .split('\n      - name: ')
     .filter((step) => /uses: actions\/upload-artifact@/u.test(step))
-  assert.equal(uploads.length, 1)
-  const upload = uploads[0]
-  assert.match(upload, /^Upload safe Playwright evidence\n/u)
-  assert.match(upload, /uses: actions\/upload-artifact@v4/u)
-  assert.ok(
-    upload.includes(
-      "if: ${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}"
+    .map((step) => step.trimEnd())
+  assert.deepEqual(uploads, [
+    `Upload safe Playwright evidence
+        if: \${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-safe-phase10-\${{ github.run_id }}-\${{ github.run_attempt }}
+          if-no-files-found: error
+          path: \${{ env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR }}/`,
+    `Upload safe Mock Playwright evidence
+        if: \${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-safe-phase10-mock-\${{ github.run_id }}-\${{ github.run_attempt }}
+          if-no-files-found: error
+          path: \${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`
+  ])
+  for (const upload of uploads) {
+    assert.doesNotMatch(
+      upload,
+      /phase10-raw|playwright-phase9|trace|video|screenshot/u
     )
-  )
-  assert.match(upload, /if-no-files-found: error/u)
-  assert.match(
-    upload,
-    /path: \$\{\{ env\.PHASE10_PLAYWRIGHT_EVIDENCE_DIR \}\}\//u
-  )
-  assert.doesNotMatch(
-    upload,
-    /phase10-raw|playwright-phase9|trace|video|screenshot/u
-  )
+  }
   assert.doesNotMatch(normal + candidate, /download-artifact/u)
   assert.doesNotMatch(candidate, /upload-artifact/u)
 })

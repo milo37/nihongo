@@ -14,6 +14,7 @@ export const selectionFlags = [
   'content',
   'database',
   'browser',
+  'browser_mock',
   'security',
   'audit',
   'performance',
@@ -34,6 +35,7 @@ const fullSelection = (mode, reason, candidate = false) => ({
   reason,
   files: [],
   ...Object.fromEntries(selectionFlags.map((flag) => [flag, true])),
+  browser_mock: false,
   candidate
 })
 
@@ -76,6 +78,12 @@ const browserRuntimePaths = new Set([
   'playwright.config.ts',
   'scripts/security/browser-evidence-reporter.mjs',
   'scripts/security/phase10-playwright-summary-reporter.mjs'
+])
+
+// Injected test faults need real and Mock provenance proof on dev PRs.
+const browserFaultProvenancePaths = new Set([
+  'apps/web/e2e/accessibility.spec.ts',
+  'apps/web/src/test/accessibilityBrowserMockControl.ts'
 ])
 
 const markCore = (selection) => {
@@ -225,9 +233,12 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
       return fullSelection('candidate', 'main integration candidate', true)
     }
     const selection = classifyChangedFiles(changedFiles)
-    selection.browser = selection.files.some((file) =>
-      browserRuntimePaths.has(file)
+    selection.browser_mock = selection.files.some((file) =>
+      browserFaultProvenancePaths.has(file)
     )
+    selection.browser =
+      selection.browser_mock ||
+      selection.files.some((file) => browserRuntimePaths.has(file))
     return selection
   }
   if (
