@@ -82,7 +82,7 @@ export const withUpgradeSchema = (
   return url.toString()
 }
 
-export const createPhase7HistoricalSchemaFixture = ({
+export const createHistoricalSchemaFixture = ({
   adminDatabaseUrl,
   legacyDatabaseUrl,
   migrationDatabaseUrl,

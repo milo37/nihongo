@@ -1,10 +1,10 @@
-export type Phase7SeedPhase = 'FIRST_NORMAL_SEED' | 'PREFIX_RESEED' | 'RESEED'
-export type Phase7SeedPhaseState = 'BEGIN' | 'COMPLETE' | 'FAILED'
+export type SeedPhase = 'FIRST_NORMAL_SEED' | 'PREFIX_RESEED' | 'RESEED'
+export type SeedPhaseState = 'BEGIN' | 'COMPLETE' | 'FAILED'
 
-export const runPhase7SeedExecution = async (
-  phase: Phase7SeedPhase,
+export const runSeedExecution = async (
+  phase: SeedPhase,
   command: () => Promise<void>,
-  report: (phase: Phase7SeedPhase, state: Phase7SeedPhaseState) => void
+  report: (phase: SeedPhase, state: SeedPhaseState) => void
 ): Promise<void> => {
   report(phase, 'BEGIN')
   try {
