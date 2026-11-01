@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/phase7'
+import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/content-operations'
 import {
   advanceAuthTransitionEpoch,
   AuthTransitionSupersededError

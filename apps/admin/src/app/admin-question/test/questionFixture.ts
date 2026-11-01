@@ -5,7 +5,7 @@ import {
   createAdminQuestionRequestSchema,
   updateQuestionVersionRequestSchema,
   archiveAdminQuestionRequestSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 export const actorId = '10000000-0000-4000-8000-000000000003'
 const questionId = '10000000-0000-4000-8000-000000000001'
 export const versionId = '10000000-0000-4000-8000-000000000002'

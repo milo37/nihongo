@@ -7,7 +7,7 @@ import {
   updateQuestionVersionRequestSchema,
   type CreateAdminQuestionRequest,
   type UpdateQuestionVersionRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'

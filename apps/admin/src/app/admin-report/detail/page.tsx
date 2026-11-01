@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import { Link, useBlocker, useParams } from 'react-router'
-import { getAdminQuestionReportParamsSchema } from '@nihongo/contracts/admin/phase7'
+import { getAdminQuestionReportParamsSchema } from '@nihongo/contracts/admin/content-operations'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'

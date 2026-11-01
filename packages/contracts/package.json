@@ -15,6 +15,10 @@
       "types": "./dist/admin/phase7.d.ts",
       "import": "./dist/admin/phase7.js"
     },
+    "./admin/content-operations": {
+      "types": "./dist/admin/phase7.d.ts",
+      "import": "./dist/admin/phase7.js"
+    },
     "./bookmark/bookmark": {
       "types": "./dist/bookmark/bookmark.d.ts",
       "import": "./dist/bookmark/bookmark.js"
@@ -172,6 +176,10 @@
       "import": "./dist/testing/practice-flow-conformance.js"
     },
     "./testing/phase7-admin-conformance": {
+      "types": "./dist/testing/phase7-admin-conformance.d.ts",
+      "import": "./dist/testing/phase7-admin-conformance.js"
+    },
+    "./testing/admin-content-conformance": {
       "types": "./dist/testing/phase7-admin-conformance.d.ts",
       "import": "./dist/testing/phase7-admin-conformance.js"
     },

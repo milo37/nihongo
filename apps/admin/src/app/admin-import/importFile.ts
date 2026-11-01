@@ -2,7 +2,7 @@ import {
   parseJsonBytes,
   validateQuestionImportRequestSchema,
   type ValidateQuestionImportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024
 export class ImportFileError extends Error {
   constructor(readonly kind: 'SIZE' | 'FORMAT') {

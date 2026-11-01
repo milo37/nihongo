@@ -5,7 +5,7 @@ import {
   createAdminQuestionRequestSchema,
   type CreateAdminQuestionRequest,
   type UpdateQuestionVersionRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import { useCreateAdminQuestion } from '@app/admin-question/hooks/useCreateAdminQuestion'
 import { useToast } from '@nihongo/browser/common/components/Toast'

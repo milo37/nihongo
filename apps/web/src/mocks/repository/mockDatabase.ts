@@ -22,7 +22,7 @@ import {
   type WrongNoteStatus
 } from '@nihongo/browser/common/types/domain'
 import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-question'
-import type { AdminAuditLogItem } from '@nihongo/contracts/admin/phase7'
+import type { AdminAuditLogItem } from '@nihongo/contracts/admin/content-operations'
 import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
 import {
   cachedStorage,

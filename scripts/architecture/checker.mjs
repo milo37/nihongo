@@ -848,7 +848,10 @@ const checkEndpoint = (
       (statement) =>
         ts.isImportDeclaration(statement) &&
         ts.isStringLiteral(statement.moduleSpecifier) &&
-        statement.moduleSpecifier.text === '@nihongo/contracts/admin/phase7'
+        [
+          '@nihongo/contracts/admin/phase7',
+          '@nihongo/contracts/admin/content-operations'
+        ].includes(statement.moduleSpecifier.text)
     )
     const contractModule =
       contractImport &&
@@ -864,9 +867,17 @@ const checkEndpoint = (
         .map((symbol) => [symbol.getName(), resolveAlias(symbol)])
     )
     // The canonical module may resolve to source or emitted declarations; compare symbols in this program.
-    for (const [name, file] of [
-      ['phase7OperationManifest', 'phase7-manifest'],
-      ['phase7OperationSchemas', 'phase7-operation-schemas']
+    for (const [name, alias, file] of [
+      [
+        'phase7OperationManifest',
+        'contentOperationManifest',
+        'phase7-manifest'
+      ],
+      [
+        'phase7OperationSchemas',
+        'contentOperationSchemas',
+        'phase7-operation-schemas'
+      ]
     ]) {
       if (
         !['src', 'dist'].some((directory) =>
@@ -879,6 +890,15 @@ const checkEndpoint = (
           )
         )
       )
+        return false
+      const bindings = contractImport.importClause?.namedBindings
+      if (!bindings || !ts.isNamedImports(bindings)) return false
+      const imported = bindings.elements.find((element) =>
+        [name, alias].includes((element.propertyName ?? element.name).text)
+      )
+      const importedSymbol =
+        imported && checker.getSymbolAtLocation(imported.name)
+      if (!importedSymbol || resolveAlias(importedSymbol) !== exports.get(name))
         return false
     }
     const schemaSource = program.getSourceFile(schemaResolvedPath)

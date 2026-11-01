@@ -11,7 +11,7 @@ import type {
   QuestionReportSummary,
   QuestionVersionStatus,
   SafeActorSnapshot
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 
 export type AdminQuestionCommand =
   | 'APPROVE'
