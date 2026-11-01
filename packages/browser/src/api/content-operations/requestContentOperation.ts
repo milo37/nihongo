@@ -103,7 +103,9 @@ const assertSuccessTransport = (
     !requestIdSchema.safeParse(requestId).success ||
     readHeader(headers, 'retry-after') !== null
   ) {
-    throw new Error('Phase 7 success transport metadata is not canonical.')
+    throw new Error(
+      'Content operation success transport metadata is not canonical.'
+    )
   }
 }
 
@@ -124,7 +126,9 @@ const assertFailureTransport = (input: {
       input.code !== 'SERVICE_UNAVAILABLE') ||
     (retryAfter !== null && !RETRY_AFTER_SECONDS.test(retryAfter))
   ) {
-    throw new Error('Phase 7 failure transport metadata is not canonical.')
+    throw new Error(
+      'Content operation failure transport metadata is not canonical.'
+    )
   }
 }
 
@@ -135,7 +139,9 @@ const toClientPath = (manifestPath: string, params: unknown): string => {
     (_match, key: string) => {
       const value = values[key]
       if (typeof value !== 'string') {
-        throw new Error(`Phase 7 path parameter ${key} is unavailable.`)
+        throw new Error(
+          `Content operation path parameter ${key} is unavailable.`
+        )
       }
       return encodeURIComponent(value)
     }
@@ -237,7 +243,7 @@ export const requestContentOperation = async <
 ): Promise<ContentOperationResult<Operation>> => {
   const entry = manifestByOperation.get(input.operation)
   if (!entry) {
-    throw new Error(`Unknown Phase 7 operation: ${input.operation}`)
+    throw new Error(`Unknown content operation: ${input.operation}`)
   }
   const schemas = phase7OperationSchemas[input.operation]
   const params = schemas.params.parse(input.params)

@@ -7,7 +7,7 @@ import {
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError } from 'zod'
 import type { QuestionReportService } from '../admin/questionReportService.js'
-import { getPhase7OperationBodyCap } from '../admin/adminCommandGuard.js'
+import { getOperationBodySizeLimit } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
@@ -57,7 +57,7 @@ export const createQuestionReportRoutes = ({
     )
     const raw = await readStrictJsonBody(
       context.req.raw,
-      getPhase7OperationBodyCap('createQuestionReport')
+      getOperationBodySizeLimit('createQuestionReport')
     )
     const request = (() => {
       try {

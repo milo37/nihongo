@@ -2476,10 +2476,10 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           )
         ).rows
       ).toEqual(sequentialMigrationBackend)
-      const phase7FoundationLedger = await readLedger(context)
-      expect(phase7FoundationLedger).toHaveLength(29)
+      const adminCmsFoundationLedger = await readLedger(context)
+      expect(adminCmsFoundationLedger).toHaveLength(29)
       expect(
-        phase7FoundationLedger
+        adminCmsFoundationLedger
           .slice(-2)
           .every(
             ({ finishedAt, rolledBackAt }) =>
@@ -2519,7 +2519,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         expectedLedgerCount: 29,
         migrationSql: archiveVerifierSql
       })
-      expect(await readLedger(context)).toEqual(phase7FoundationLedger)
+      expect(await readLedger(context)).toEqual(adminCmsFoundationLedger)
 
       copyMigration(PHASE7_MIGRATIONS[2], context.migrationsPath)
       await applyMigrationOnCurrentBackend({
@@ -2541,7 +2541,9 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toEqual(sequentialMigrationBackend)
       const archiveVerifierLedger = await readLedger(context)
       expect(archiveVerifierLedger).toHaveLength(30)
-      expect(archiveVerifierLedger.slice(0, 29)).toEqual(phase7FoundationLedger)
+      expect(archiveVerifierLedger.slice(0, 29)).toEqual(
+        adminCmsFoundationLedger
+      )
       expect(archiveVerifierLedger.at(-1)).toMatchObject({
         finishedAt: expect.any(Date),
         migrationName: PHASE7_MIGRATIONS[2],

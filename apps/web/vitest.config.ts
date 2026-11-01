@@ -28,7 +28,7 @@ export default mergeConfig(
         { extends: true, test: { name: 'web' } },
         {
           test: {
-            name: 'phase10-runner',
+            name: 'browser-runner',
             environment: 'node',
             include: ['scripts/browser-runner-cleanup.test.ts']
           }
