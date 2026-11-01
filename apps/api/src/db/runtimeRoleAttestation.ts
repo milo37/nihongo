@@ -1,7 +1,7 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { getPostgresSchema } from './databaseOptions.js'
 
-type Phase7RuntimeRole = 'nihongo_app' | 'nihongo_auth_gateway'
+type RuntimeRole = 'nihongo_app' | 'nihongo_auth_gateway'
 
 interface RuntimeRoleEvidence {
   currentDatabase: string
@@ -48,7 +48,7 @@ interface RuntimeRoleEvidence {
 interface RuntimeRoleEndpoint {
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   connectionString: string
-  expectedRole: Phase7RuntimeRole
+  expectedRole: RuntimeRole
 }
 
 const ATTESTATION_QUERY = `
@@ -299,7 +299,7 @@ const arraysEqual = (
 
 const expectedWrapperRole = (
   database: string,
-  runtimeRole: Phase7RuntimeRole
+  runtimeRole: RuntimeRole
 ): string | null => {
   const environmentPrefix = database.endsWith('_test')
     ? 'nihongo_test'

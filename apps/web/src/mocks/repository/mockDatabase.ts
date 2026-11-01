@@ -3555,7 +3555,7 @@ export class MockDatabase {
       const persisted = this.readAuthoritativePersistedState()?.state ?? null
       if (!persisted) return null
 
-      let phase7State =
+      let persistedContentState =
         persisted.version === 8 ? persisted.phase7AdminCms : undefined
       const dedicatedSerialized = this.readLatestStorageItem(
         ADMIN_CMS_STORAGE_KEY
@@ -3564,13 +3564,16 @@ export class MockDatabase {
         const dedicated =
           this.parseMockContentPersistedState(dedicatedSerialized)
         if (!dedicated) throw new Error('Invalid dedicated Phase 7 state.')
-        phase7State = dedicated
+        persistedContentState = dedicated
       }
 
       const sources = this.listAuthoritativeTaxonomySources()
       const verifier = new MockContentState(this.now)
-      if (phase7State) {
-        verifier.restore(phase7State, this.listAuthoritativeTaxonomySources())
+      if (persistedContentState) {
+        verifier.restore(
+          persistedContentState,
+          this.listAuthoritativeTaxonomySources()
+        )
       }
       const snapshot = verifier.snapshot(sources)
       const version = snapshot.versions.find(
@@ -5818,12 +5821,12 @@ export class MockDatabase {
       ) {
         throw new Error('Mock storage changed outside the Phase 7 lease.')
       }
-      const phase7AdminCms = this.mockContentState.persistedSnapshot(
+      const contentSnapshot = this.mockContentState.persistedSnapshot(
         this.listAuthoritativeAdminQuestionSources()
       )
       const didPersist = this.storage.setItem(
         ADMIN_CMS_STORAGE_KEY,
-        JSON.stringify(phase7AdminCms)
+        JSON.stringify(contentSnapshot)
       )
       if (didPersist === false) {
         throw new Error('Mock storage rejected the write.')
