@@ -3,7 +3,7 @@ import {
   runPostSeedDiagnostic,
   type PostSeedDiagnostic
 } from './postSeedDiagnostics.js'
-import { runPhase7SeedExecution } from './seedExecution.js'
+import { runSeedExecution } from './seedExecution.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -1683,7 +1683,7 @@ const run = async (): Promise<void> => {
     )
   }
 
-  await runPhase7SeedExecution(
+  await runSeedExecution(
     'FIRST_NORMAL_SEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
@@ -1699,7 +1699,7 @@ const run = async (): Promise<void> => {
   await assertSeedWriteCount('65')
 
   // Check reseeding while still on the same prefix used by browser fixtures.
-  await runPhase7SeedExecution(
+  await runSeedExecution(
     'PREFIX_RESEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
@@ -1791,7 +1791,7 @@ const run = async (): Promise<void> => {
   } finally {
     await migrationCatalogClient.end()
   }
-  await runPhase7SeedExecution(
+  await runSeedExecution(
     'RESEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {

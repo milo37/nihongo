@@ -13,7 +13,7 @@ import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestio
 import { parseApiEnvironment } from '../config/env.js'
 import { getPostgresSchema } from '../db/databaseOptions.js'
 import {
-  createPhase7HistoricalSchemaFixture,
+  createHistoricalSchemaFixture,
   LEGACY_APP_LOGIN,
   quoteIdentifier
 } from '../db/fixtures/historicalSchema.js'
@@ -70,7 +70,7 @@ const {
   readLedger,
   seedPhase6Catalog,
   transferPhase6TargetOwnership
-} = createPhase7HistoricalSchemaFixture({
+} = createHistoricalSchemaFixture({
   adminDatabaseUrl: adminUrl,
   legacyDatabaseUrl,
   migrationDatabaseUrl,
