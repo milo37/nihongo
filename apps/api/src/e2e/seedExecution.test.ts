@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { runPhase7SeedExecution } from './seedExecution.js'
+import { runSeedExecution } from './seedExecution.js'
 
 describe('prefix seed repetition', () => {
   it('reports completion only after the prefix reseed command succeeds', async () => {
     const report = vi.fn()
     const command = vi.fn().mockResolvedValue(undefined)
-    await runPhase7SeedExecution('PREFIX_RESEED', command, report)
+    await runSeedExecution('PREFIX_RESEED', command, report)
     expect(command).toHaveBeenCalledOnce()
     expect(report.mock.calls).toEqual([
       ['PREFIX_RESEED', 'BEGIN'],
@@ -16,7 +16,7 @@ describe('prefix seed repetition', () => {
     const report = vi.fn()
     const failure = new Error('prefix seed failed')
     await expect(
-      runPhase7SeedExecution(
+      runSeedExecution(
         'PREFIX_RESEED',
         async () => {
           throw failure

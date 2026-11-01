@@ -36,7 +36,7 @@ vi.mock('./runPhase7ApiIntegration.js', async (importOriginal) => {
   }
 })
 vi.mock('./phase10ApiIntegrationExecution.js', () => ({
-  runPhase10ManifestVitestFile: ports.executeEntry
+  runApiIntegrationManifestVitestFile: ports.executeEntry
 }))
 
 vi.mock('./ownedProcessGroup.js', () => ({
@@ -45,10 +45,10 @@ vi.mock('./ownedProcessGroup.js', () => ({
   retireOwnedProcess: ports.retire
 }))
 vi.mock('./validatePhase10ApiIntegrationManifest.js', () => ({
-  validatePhase10ApiIntegrationManifest: async () => undefined
+  validateApiIntegrationManifest: async () => undefined
 }))
 vi.mock('./phase10ApiIntegrationManifest.js', () => ({
-  getPhase10ApiIntegrationEntriesByOwner: () => [
+  getApiIntegrationEntriesByOwner: () => [
     {
       path: 'src/question/questionCatalog.integration.test.ts',
       executionOwner: 'phase10',

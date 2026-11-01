@@ -2,8 +2,8 @@ import {
   assertCreateQuestionReportForRequest,
   buildPhase7OperationFailureResponse,
   createQuestionReportRequestSchema,
-  parsePhase7JsonBytes,
-  Phase7JsonParseError,
+  parseJsonBytes,
+  JsonParseError,
   type Phase7Operation
 } from '@nihongo/contracts/admin/phase7'
 import {
@@ -336,7 +336,7 @@ export const readMockJsonBody = async (
     offset += chunk.byteLength
   }
   try {
-    const value = parsePhase7JsonBytes(bytes)
+    const value = parseJsonBytes(bytes)
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       throw new MockContentCommandError({
         code: 'INVALID_JSON',
@@ -346,7 +346,7 @@ export const readMockJsonBody = async (
     return value
   } catch (error: unknown) {
     if (
-      error instanceof Phase7JsonParseError &&
+      error instanceof JsonParseError &&
       error.kind === 'MAX_DEPTH_EXCEEDED'
     ) {
       throw new MockContentCommandError({
@@ -412,12 +412,11 @@ const handleCreateQuestionReport = async (
       createQuestionReportRequestSchema,
       '문제 신고 요청이 올바르지 않습니다.'
     )
-    const entitledQuestionId =
-      mockDatabase.resolvePhase7QuestionReportEntitlement(
-        reporter.actorId,
-        body.questionVersionId,
-        'NO_TX'
-      )
+    const entitledQuestionId = mockDatabase.resolveQuestionReportEntitlement(
+      reporter.actorId,
+      body.questionVersionId,
+      'NO_TX'
+    )
     if (!entitledQuestionId) {
       throw new MockContentCommandError({
         code: 'RESOURCE_NOT_FOUND',
@@ -429,10 +428,10 @@ const handleCreateQuestionReport = async (
       actorId: reporter.actorId,
       actorRole: reporter.role,
       assertAuthority: () => {
-        mockDatabase.assertPhase7QuestionReportAuthority(reporter.actorId)
+        mockDatabase.assertQuestionReportAuthority(reporter.actorId)
       },
       resolveEntitledQuestionId: (disposition) =>
-        mockDatabase.resolvePhase7QuestionReportEntitlement(
+        mockDatabase.resolveQuestionReportEntitlement(
           reporter.actorId,
           body.questionVersionId,
           disposition

@@ -20,7 +20,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
-import { buildPhase6CanonicalSeeds } from './fixtures/phase6CanonicalSeeds.js'
+import { buildHistoricalCanonicalSeeds } from './fixtures/historicalCanonicalSeeds.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
@@ -164,7 +164,7 @@ const createHistorical31Runtime = async (
   )
 }
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]?.trim()
@@ -173,10 +173,10 @@ const requireEnvironmentValue = (name: string): string => {
   }
   return value
 }
-const environment = isPhase10CurrentSource
+const environment = isCurrentSourceIntegration
   ? undefined
   : parseApiEnvironment(process.env)
-const fixtureDatabaseUrl = isPhase10CurrentSource
+const fixtureDatabaseUrl = isCurrentSourceIntegration
   ? requireEnvironmentValue('PHASE10_FIXTURE_DATABASE_URL')
   : environment!.DATABASE_URL
 assertSafeTestDatabase({
@@ -216,19 +216,19 @@ const createIsolatedMigrationSchema =
     const configPath = join(temporaryDirectory, 'prisma.config.ts')
     const adminDatabaseUrl = withSchema(fixtureDatabaseUrl, schemaName)
     const applicationDatabaseUrl = withSchema(
-      isPhase10CurrentSource
+      isCurrentSourceIntegration
         ? requireEnvironmentValue('PHASE10_APPLICATION_DATABASE_URL')
         : environment!.DATABASE_URL,
       schemaName
     )
     const authGatewayDatabaseUrl = withSchema(
-      isPhase10CurrentSource
+      isCurrentSourceIntegration
         ? requireEnvironmentValue('AUTH_GATEWAY_DATABASE_URL')
         : environment!.DATABASE_URL,
       schemaName
     )
     const databaseUrl = withSchema(
-      isPhase10CurrentSource
+      isCurrentSourceIntegration
         ? requireEnvironmentValue('PHASE7_MIGRATION_DATABASE_URL')
         : environment!.DATABASE_URL,
       schemaName
@@ -256,7 +256,7 @@ const createIsolatedMigrationSchema =
     await adminClient.connect()
     let databaseName: string | undefined
     let originalLegacyDirectConnect: boolean | undefined
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const database = await adminClient.query<{ databaseName: string }>(
         `SELECT current_database() AS "databaseName"`
       )
@@ -292,7 +292,7 @@ const createIsolatedMigrationSchema =
       }
     }
     await adminClient.query(
-      isPhase10CurrentSource
+      isCurrentSourceIntegration
         ? `CREATE SCHEMA ${quotedSchemaName} AUTHORIZATION "nihongo_phase7_migration"`
         : `CREATE SCHEMA ${quotedSchemaName}`
     )
@@ -357,7 +357,7 @@ const dispose = async ({
       cleanupErrors.push(error)
     }
     if (
-      isPhase10CurrentSource &&
+      isCurrentSourceIntegration &&
       databaseName &&
       originalLegacyDirectConnect !== undefined
     ) {
@@ -472,7 +472,7 @@ const insertPhase6Question = async (
 }
 
 const seedPhase6Catalog = async (client: Client): Promise<void> => {
-  const seeds = buildPhase6CanonicalSeeds()
+  const seeds = buildHistoricalCanonicalSeeds()
   const tags = new Map(
     seeds.flatMap(({ tags: questionTags }) =>
       questionTags.map((tag) => [tag.id, tag] as const)
@@ -1836,7 +1836,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       expect(await readLedger(context)).toHaveLength(25)
 
       await seedPhase6Catalog(context.adminClient)
-      const oldBinarySeed = buildPhase6CanonicalSeeds().find(
+      const oldBinarySeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
           subject === 'VOCABULARY' &&
@@ -2969,7 +2969,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
       ).toMatchObject({ rows: [{ count: 127 }] })
       await registerPhase7CapabilityAndActivate(context)
 
-      const historicalSeed = buildPhase6CanonicalSeeds().find(
+      const historicalSeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
           subject === 'VOCABULARY' &&

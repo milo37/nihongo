@@ -19,18 +19,18 @@ import {
   assertSafeAdminCmsDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
-import { assertPhase7ApiDatabaseBoundaryPreflight } from './phase7ApiDatabaseBoundary.js'
+import { assertPhase7ApiDatabaseBoundaryPreflight } from './apiDatabaseBoundary.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
 import {
   assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   phase7SsoAccountLifecycleTestFile,
-  runPhase10ManifestVitestFile
+  runApiIntegrationManifestVitestFile
 } from './phase10ApiIntegrationExecution.js'
 
 const guestCleanupShard = process.argv.includes('--shard=current-guest-cleanup')
@@ -1012,7 +1012,7 @@ export const preparePhase7IsolatedDatabase = async ({
 
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
-  const phase7ApiEntries = getPhase10ApiIntegrationEntriesByOwner('phase7-api')
+  const phase7ApiEntries = getApiIntegrationEntriesByOwner('phase7-api')
   const [repositoryEntry, apiGateEntry, commandRepositoryEntry] =
     phase7ApiEntries
   if (
@@ -1029,7 +1029,7 @@ const run = async (): Promise<void> => {
   ) {
     throw new Error('Phase 7 API integration manifest is incomplete.')
   }
-  await runPhase10ManifestVitestFile({
+  await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: repositoryEntry.path,
     environment: sharedEnvironment
@@ -1051,12 +1051,12 @@ const run = async (): Promise<void> => {
       )
     }
   )
-  await runPhase10ManifestVitestFile({
+  await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: apiGateEntry.path,
     environment: sharedEnvironment
   })
-  await runPhase10ManifestVitestFile({
+  await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: commandRepositoryEntry.path,
     environment: sharedEnvironment
@@ -1115,7 +1115,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     ...harness.sharedEnvironment,
     PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
   })
-  const count = await runPhase10ManifestVitestFile({
+  const count = await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: phase7SsoAccountLifecycleTestFile,
     environment,

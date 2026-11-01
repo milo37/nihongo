@@ -3,7 +3,7 @@ import {
   runPostSeedDiagnostic,
   type PostSeedDiagnostic
 } from './postSeedDiagnostics.js'
-import { runPhase7SeedExecution } from './seedExecution.js'
+import { runSeedExecution } from './seedExecution.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -29,10 +29,10 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { getPhase10ApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 import {
   createPhase7DbFileEnvironment,
-  runPhase10ManifestVitestFile,
+  runApiIntegrationManifestVitestFile,
   selectPhase7DbIntegrationFiles
 } from './phase10ApiIntegrationExecution.js'
 
@@ -1397,7 +1397,7 @@ const reportMigrationFailure = (
 
 const run = async (): Promise<void> => {
   const selectedTestFiles = selectPhase7DbIntegrationFiles(
-    getPhase10ApiIntegrationPathsByOwner('phase7-db'),
+    getApiIntegrationPathsByOwner('phase7-db'),
     process.env
   )
   const preserveSanitizedReport = process.env.PHASE7_DB_PRESERVE_REPORT === '1'
@@ -1683,7 +1683,7 @@ const run = async (): Promise<void> => {
     )
   }
 
-  await runPhase7SeedExecution(
+  await runSeedExecution(
     'FIRST_NORMAL_SEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
@@ -1699,7 +1699,7 @@ const run = async (): Promise<void> => {
   await assertSeedWriteCount('65')
 
   // Check reseeding while still on the same prefix used by browser fixtures.
-  await runPhase7SeedExecution(
+  await runSeedExecution(
     'PREFIX_RESEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
@@ -1791,7 +1791,7 @@ const run = async (): Promise<void> => {
   } finally {
     await migrationCatalogClient.end()
   }
-  await runPhase7SeedExecution(
+  await runSeedExecution(
     'RESEED',
     () => runCommand('pnpm', seedCommand, seedEnvironment),
     (phase, state) => {
@@ -1818,7 +1818,7 @@ const run = async (): Promise<void> => {
     await runPostSeedDiagnostic(
       'FILE',
       () =>
-        runPhase10ManifestVitestFile({
+        runApiIntegrationManifestVitestFile({
           runCommand,
           testFile,
           environment: fileEnvironment,

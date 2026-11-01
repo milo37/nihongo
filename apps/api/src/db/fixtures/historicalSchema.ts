@@ -24,7 +24,7 @@ import {
 } from '../../../prisma/seed-data/buildQuestionSeed.js'
 import { toStableSeedUuid } from '../../../prisma/seed-data/id.js'
 import { n5Questions } from '../../../prisma/seed-data/questions/n5.js'
-import { buildPhase6CanonicalSeeds } from './phase6CanonicalSeeds.js'
+import { buildHistoricalCanonicalSeeds } from './historicalCanonicalSeeds.js'
 import {
   loadExpectedMigrationManifest,
   selectExpectedMigrationManifest
@@ -82,7 +82,7 @@ export const withUpgradeSchema = (
   return url.toString()
 }
 
-export const createPhase7HistoricalSchemaFixture = ({
+export const createHistoricalSchemaFixture = ({
   adminDatabaseUrl,
   legacyDatabaseUrl,
   migrationDatabaseUrl,
@@ -881,7 +881,7 @@ export const createPhase7HistoricalSchemaFixture = ({
   const seedPhase6Catalog = (
     client: Client
   ): Promise<SeedQuestionCatalogResult> =>
-    seedCatalog(client, buildPhase6CanonicalSeeds())
+    seedCatalog(client, buildHistoricalCanonicalSeeds())
 
   const seedReviewedRevision2Catalog = (
     client: Client
@@ -895,7 +895,7 @@ export const createPhase7HistoricalSchemaFixture = ({
     }
     return seedCatalog(
       client,
-      buildPhase6CanonicalSeeds().map((seed) =>
+      buildHistoricalCanonicalSeeds().map((seed) =>
         seed.legacyId === revision2.legacyId ? revision2 : seed
       )
     )

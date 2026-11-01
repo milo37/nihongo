@@ -24,7 +24,7 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createRoleDatabaseRuntime } from './database.js'
-import { buildPhase6CanonicalSeeds } from './fixtures/phase6CanonicalSeeds.js'
+import { buildHistoricalCanonicalSeeds } from './fixtures/historicalCanonicalSeeds.js'
 import {
   apiRoot,
   sourceMigrationsDirectory,
@@ -35,7 +35,7 @@ import {
   IDENTIFIER_PATTERN,
   quoteIdentifier,
   withUpgradeSchema,
-  createPhase7HistoricalSchemaFixture
+  createHistoricalSchemaFixture
 } from './fixtures/historicalSchema.js'
 import type { IsolatedUpgradeSchema } from './fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
@@ -497,7 +497,7 @@ const {
   readNonCanonicalTargetOwnerCount,
   seedPhase6Catalog,
   transferPhase6TargetOwnership
-} = createPhase7HistoricalSchemaFixture({
+} = createHistoricalSchemaFixture({
   adminDatabaseUrl,
   legacyDatabaseUrl,
   migrationDatabaseUrl,
@@ -2397,7 +2397,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           .catch(() => undefined)
       }
 
-      const firstTag = buildPhase6CanonicalSeeds()[0]?.tags[0]
+      const firstTag = buildHistoricalCanonicalSeeds()[0]?.tags[0]
       if (!firstTag) {
         throw new Error('Phase 7 upgrade drift fixture is unavailable.')
       }
@@ -2476,10 +2476,10 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           )
         ).rows
       ).toEqual(sequentialMigrationBackend)
-      const phase7FoundationLedger = await readLedger(context)
-      expect(phase7FoundationLedger).toHaveLength(29)
+      const adminCmsFoundationLedger = await readLedger(context)
+      expect(adminCmsFoundationLedger).toHaveLength(29)
       expect(
-        phase7FoundationLedger
+        adminCmsFoundationLedger
           .slice(-2)
           .every(
             ({ finishedAt, rolledBackAt }) =>
@@ -2519,7 +2519,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         expectedLedgerCount: 29,
         migrationSql: archiveVerifierSql
       })
-      expect(await readLedger(context)).toEqual(phase7FoundationLedger)
+      expect(await readLedger(context)).toEqual(adminCmsFoundationLedger)
 
       copyMigration(PHASE7_MIGRATIONS[2], context.migrationsPath)
       await applyMigrationOnCurrentBackend({
@@ -2541,7 +2541,9 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toEqual(sequentialMigrationBackend)
       const archiveVerifierLedger = await readLedger(context)
       expect(archiveVerifierLedger).toHaveLength(30)
-      expect(archiveVerifierLedger.slice(0, 29)).toEqual(phase7FoundationLedger)
+      expect(archiveVerifierLedger.slice(0, 29)).toEqual(
+        adminCmsFoundationLedger
+      )
       expect(archiveVerifierLedger.at(-1)).toMatchObject({
         finishedAt: expect.any(Date),
         migrationName: PHASE7_MIGRATIONS[2],
@@ -2847,7 +2849,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toEqual([{ id: legacySessionId }])
       const retainedBookmarkId = randomUUID()
       const rejectedUserId = randomUUID()
-      const retainedQuestionId = buildPhase6CanonicalSeeds()[0]?.questionId
+      const retainedQuestionId = buildHistoricalCanonicalSeeds()[0]?.questionId
       if (!retainedQuestionId) {
         throw new Error('Phase 7 FK update fixture question is unavailable.')
       }
@@ -2953,7 +2955,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           versionTagCount: 130
         }
       ])
-      const expectedFingerprints = buildPhase6CanonicalSeeds()
+      const expectedFingerprints = buildHistoricalCanonicalSeeds()
         .map((seed) => ({
           contentFingerprint: createExpectedFingerprint(seed),
           id: seed.versionId

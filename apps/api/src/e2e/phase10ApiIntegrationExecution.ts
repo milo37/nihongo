@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { phase10ApiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
+import { apiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
 
 export const assertSsoBootstrapMigrationHistory = (
   expected: readonly { name: string; checksum: string }[],
@@ -365,20 +365,26 @@ export const sanitizePhase7VitestReport = (
         'src/auth/ssoAdminFreshRepository.ts',
         'src/db/phase7SsoTestFixture.ts',
         phase7SsoTestFile
-      ].filter((source) =>
-        messages.some((message) =>
+      ].filter((source) => {
+        const sourcePaths =
+          source === 'src/db/phase7SsoTestFixture.ts'
+            ? [source, 'src/db/ssoTestFixture.ts']
+            : [source]
+        return messages.some((message) =>
           message
             .split('\n')
             .some(
               (line) =>
                 /^\s+at /u.test(line) &&
-                new RegExp(
-                  `(?:^|[ /])${source.replaceAll('.', '\\.')}:[0-9]+:[0-9]+[)]?$`,
-                  'u'
-                ).test(line)
+                sourcePaths.some((path) =>
+                  new RegExp(
+                    `(?:^|[ /])${path.replaceAll('.', '\\.')}:[0-9]+:[0-9]+[)]?$`,
+                    'u'
+                  ).test(line)
+                )
             )
         )
-      )
+      })
       selectedCase = {
         id: selectedSsoCase.id,
         sourceOrdinal: selectedSsoCase.sourceOrdinal,
@@ -550,14 +556,14 @@ export const sanitizeQueryPlanFailure = (
   return { diagnosticId, locations }
 }
 
-export const assertPhase10RequiredEnvironment = ({
+export const assertApiIntegrationRequiredEnvironment = ({
   environment,
   testFile
 }: {
   readonly environment: NodeJS.ProcessEnv
   readonly testFile: string
 }): void => {
-  const entry = phase10ApiIntegrationManifest.find(
+  const entry = apiIntegrationManifest.find(
     ({ path: manifestPath }) => manifestPath === testFile
   )
   if (!entry) {
@@ -576,7 +582,7 @@ export const assertPhase10RequiredEnvironment = ({
   }
 }
 
-export const assertPhase10VitestFileResult = ({
+export const assertApiIntegrationVitestFileResult = ({
   result,
   expectedPath,
   selectedSsoCase
@@ -623,7 +629,7 @@ export const assertPhase10VitestFileResult = ({
   }
 }
 
-export const runPhase10ManifestVitestFile = async ({
+export const runApiIntegrationManifestVitestFile = async ({
   runCommand,
   testFile,
   environment,
@@ -665,7 +671,7 @@ export const runPhase10ManifestVitestFile = async ({
         throw new Error(`Phase 7 wrapper environment missing: ${name}.`)
     }
   }
-  assertPhase10RequiredEnvironment({ environment, testFile })
+  assertApiIntegrationRequiredEnvironment({ environment, testFile })
   const outputFile = path.join(
     os.tmpdir(),
     `nihongo-phase10-vitest-${randomUUID()}.json`
@@ -752,7 +758,7 @@ export const runPhase10ManifestVitestFile = async ({
     const result = JSON.parse(
       await readFile(outputFile, 'utf8')
     ) as VitestJsonResult
-    assertPhase10VitestFileResult({
+    assertApiIntegrationVitestFileResult({
       result,
       expectedPath: testFile,
       ...(selectedSsoCase === undefined ? {} : { selectedSsoCase })
