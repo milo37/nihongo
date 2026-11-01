@@ -13,7 +13,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  encodePhase7OccurredAtCursor,
+  encodeOccurredAtCursor,
   type AdminAuditLogItem,
   type ListAdminAuditLogResponse
 } from '@nihongo/contracts/admin/content-operations'
@@ -121,7 +121,7 @@ const secondItem: AdminAuditLogItem = {
   ...auditItem('10000000-0000-4000-8000-000000000022'),
   occurredAt: '2026-10-24T00:00:00.000Z'
 }
-const cursor = encodePhase7OccurredAtCursor({
+const cursor = encodeOccurredAtCursor({
   occurredAt: firstItem.occurredAt,
   id: firstItem.id
 })

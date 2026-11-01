@@ -20,13 +20,19 @@ import {
   createQuestionReportErrorCodeSchema,
   createQuestionReportErrorSchema,
   decodeAdminQuestionVersionCursor,
+  decodeOccurredAtCursor,
+  decodePhase7OccurredAtCursor,
   diffQuestionVersionResponseSchema,
   encodeAdminQuestionVersionCursor,
+  encodeOccurredAtCursor,
+  encodePhase7OccurredAtCursor,
   getAdminQuestionReportErrorCodeSchema,
   listAdminQuestionReportsErrorCodeSchema,
   listAdminQuestionsQuerySchema,
   normalizePhase7OptionComparison,
   normalizePhase7TagKey,
+  occurredAtCursorSchema,
+  phase7OccurredAtCursorSchema,
   phase7QuestionSearchSchema,
   previewQuestionVersionResponseSchema,
   questionReportDetailSchema,
@@ -225,6 +231,23 @@ describe('Phase 7 common and read contracts', () => {
       id: IDS.version
     })
     expect(() => decodeAdminQuestionVersionCursor(`${cursor}=`)).toThrow()
+  })
+
+  it('preserves occurredAt cursor exports and canonical tokens', () => {
+    const token =
+      'eyJ2IjoxLCJvY2N1cnJlZEF0IjoiMjAyNi0wOC0yOVQwMDowMDowMC4wMDBaIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDkifQ'
+    const value = { occurredAt: iso, id: IDS.audit }
+
+    expect(encodeOccurredAtCursor).toBe(encodePhase7OccurredAtCursor)
+    expect(decodeOccurredAtCursor).toBe(decodePhase7OccurredAtCursor)
+    expect(occurredAtCursorSchema).toBe(phase7OccurredAtCursorSchema)
+    expect(encodeOccurredAtCursor.name).toBe('encodePhase7OccurredAtCursor')
+    expect(decodeOccurredAtCursor.name).toBe('decodePhase7OccurredAtCursor')
+    expect(encodeOccurredAtCursor(value)).toBe(token)
+    expect(decodeOccurredAtCursor(token)).toEqual({ v: 1, ...value })
+    expect(occurredAtCursorSchema.parse(token)).toBe(token)
+    expect(occurredAtCursorSchema.safeParse(`${token}=`).success).toBe(false)
+    expect(() => decodeOccurredAtCursor(`${token}=`)).toThrow()
   })
 
   it('enforces persisted retirement timestamp/provenance semantics', () => {

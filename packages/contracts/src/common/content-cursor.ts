@@ -199,3 +199,9 @@ export const phase7OccurredAtCursorSchema = rawPhase7CursorSchema.superRefine(
 
 export type VersionCursorValue = z.output<typeof versionCursorValueSchema>
 export type OccurredAtCursorValue = z.output<typeof occurredAtCursorValueSchema>
+
+export {
+  encodePhase7OccurredAtCursor as encodeOccurredAtCursor,
+  decodePhase7OccurredAtCursor as decodeOccurredAtCursor,
+  phase7OccurredAtCursorSchema as occurredAtCursorSchema
+}
