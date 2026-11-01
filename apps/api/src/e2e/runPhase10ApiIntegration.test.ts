@@ -36,7 +36,7 @@ vi.mock('./runPhase7ApiIntegration.js', async (importOriginal) => {
   }
 })
 vi.mock('./phase10ApiIntegrationExecution.js', () => ({
-  runPhase10ManifestVitestFile: ports.executeEntry
+  runApiIntegrationManifestVitestFile: ports.executeEntry
 }))
 
 vi.mock('./ownedProcessGroup.js', () => ({
