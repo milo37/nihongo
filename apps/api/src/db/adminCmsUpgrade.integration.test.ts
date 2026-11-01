@@ -28,7 +28,7 @@ import { buildHistoricalCanonicalSeeds } from './fixtures/historicalCanonicalSee
 import {
   apiRoot,
   sourceMigrationsDirectory,
-  PHASE7_MIGRATIONS,
+  ADMIN_FOUNDATION_MIGRATIONS,
   CANONICAL_MIGRATION_LOGIN,
   LEGACY_APP_LOGIN,
   MIGRATION_ROLE,
@@ -495,8 +495,8 @@ const {
   readHistoricalMigrationProfile,
   readLedger,
   readNonCanonicalTargetOwnerCount,
-  seedPhase6Catalog,
-  transferPhase6TargetOwnership
+  seedPreAdminCatalog,
+  transferPreAdminTargetOwnership
 } = createHistoricalSchemaFixture({
   adminDatabaseUrl,
   legacyDatabaseUrl,
@@ -1600,7 +1600,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       await context.adminClient.query(
         `SET search_path TO ${context.quotedSchemaName}`
       )
-      await expect(seedPhase6Catalog(context.adminClient)).resolves.toEqual({
+      await expect(seedPreAdminCatalog(context.adminClient)).resolves.toEqual({
         insertedCount: 65,
         verifiedCount: 0
       })
@@ -1616,7 +1616,11 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       )
 
       const enumSql = readFileSync(
-        join(sourceMigrationsDirectory, PHASE7_MIGRATIONS[0], 'migration.sql'),
+        join(
+          sourceMigrationsDirectory,
+          ADMIN_FOUNDATION_MIGRATIONS[0],
+          'migration.sql'
+        ),
         'utf8'
       )
       const dirtyShapeUrl = new URL(context.databaseUrl)
@@ -1654,7 +1658,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ).rows
         ).toEqual([{ labels: ['DRAFT', 'PUBLISHED', 'RETIRED'] }])
 
-        await transferPhase6TargetOwnership(context)
+        await transferPreAdminTargetOwnership(context)
 
         const expectEnumPrewriteRejected = async (
           expectedCodes: readonly string[] = ['42501']
@@ -1894,7 +1898,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         ).rows
       ).toEqual([{ labels: ['DRAFT', 'PUBLISHED', 'RETIRED'] }])
 
-      copyMigration(PHASE7_MIGRATIONS[0], context.migrationsPath)
+      copyMigration(ADMIN_FOUNDATION_MIGRATIONS[0], context.migrationsPath)
       const sequentialMigrationUrl = new URL(context.databaseUrl)
       sequentialMigrationUrl.searchParams.delete('schema')
       sequentialMigrationUrl.searchParams.delete('options')
@@ -1925,14 +1929,14 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ])
       await applyMigrationOnCurrentBackend({
         client: connectedSequentialMigrationClient,
-        migrationName: PHASE7_MIGRATIONS[0],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[0],
         migrationSql: enumSql
       })
       const enumLedger = await readLedger(context)
       expect(enumLedger).toHaveLength(28)
       expect(enumLedger.at(-1)).toMatchObject({
         finishedAt: expect.any(Date),
-        migrationName: PHASE7_MIGRATIONS[0],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[0],
         rolledBackAt: null
       })
       expect(
@@ -1962,7 +1966,11 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ])
 
       const foundationSql = readFileSync(
-        join(sourceMigrationsDirectory, PHASE7_MIGRATIONS[1], 'migration.sql'),
+        join(
+          sourceMigrationsDirectory,
+          ADMIN_FOUNDATION_MIGRATIONS[1],
+          'migration.sql'
+        ),
         'utf8'
       )
       await expectTempSearchPathMigrationRejected({
@@ -2440,10 +2448,10 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         beforeDigest
       )
 
-      copyMigration(PHASE7_MIGRATIONS[1], context.migrationsPath)
+      copyMigration(ADMIN_FOUNDATION_MIGRATIONS[1], context.migrationsPath)
       await applyMigrationOnCurrentBackend({
         client: connectedSequentialMigrationClient,
-        migrationName: PHASE7_MIGRATIONS[1],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[1],
         migrationSql: foundationSql
       })
       await connectedSequentialMigrationClient.query('BEGIN')
@@ -2511,7 +2519,11 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         context.adminClient
       )
       const archiveVerifierSql = readFileSync(
-        join(sourceMigrationsDirectory, PHASE7_MIGRATIONS[2], 'migration.sql'),
+        join(
+          sourceMigrationsDirectory,
+          ADMIN_FOUNDATION_MIGRATIONS[2],
+          'migration.sql'
+        ),
         'utf8'
       )
       await expectTempSearchPathMigrationRejected({
@@ -2521,10 +2533,10 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       })
       expect(await readLedger(context)).toEqual(adminCmsFoundationLedger)
 
-      copyMigration(PHASE7_MIGRATIONS[2], context.migrationsPath)
+      copyMigration(ADMIN_FOUNDATION_MIGRATIONS[2], context.migrationsPath)
       await applyMigrationOnCurrentBackend({
         client: connectedSequentialMigrationClient,
-        migrationName: PHASE7_MIGRATIONS[2],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[2],
         migrationSql: archiveVerifierSql
       })
       expect(
@@ -2546,7 +2558,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       )
       expect(archiveVerifierLedger.at(-1)).toMatchObject({
         finishedAt: expect.any(Date),
-        migrationName: PHASE7_MIGRATIONS[2],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[2],
         rolledBackAt: null
       })
       expect(
@@ -2559,7 +2571,11 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toBe(true)
 
       const reauthenticationSql = readFileSync(
-        join(sourceMigrationsDirectory, PHASE7_MIGRATIONS[3], 'migration.sql'),
+        join(
+          sourceMigrationsDirectory,
+          ADMIN_FOUNDATION_MIGRATIONS[3],
+          'migration.sql'
+        ),
         'utf8'
       )
       await expectTempSearchPathMigrationRejected({
@@ -2604,10 +2620,10 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         )
       }
 
-      copyMigration(PHASE7_MIGRATIONS[3], context.migrationsPath)
+      copyMigration(ADMIN_FOUNDATION_MIGRATIONS[3], context.migrationsPath)
       await applyMigrationOnCurrentBackend({
         client: connectedSequentialMigrationClient,
-        migrationName: PHASE7_MIGRATIONS[3],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[3],
         migrationSql: reauthenticationSql
       })
       expect(
@@ -2627,7 +2643,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       expect(finalLedger.slice(0, 30)).toEqual(archiveVerifierLedger)
       expect(finalLedger.at(-1)).toMatchObject({
         finishedAt: expect.any(Date),
-        migrationName: PHASE7_MIGRATIONS[3],
+        migrationName: ADMIN_FOUNDATION_MIGRATIONS[3],
         rolledBackAt: null
       })
       expect(

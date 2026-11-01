@@ -6,12 +6,12 @@ import { URL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import {
-  assertPhase10BundleEvidence,
-  assertPhase10ForwardingCoverage,
+  assertBundleEvidence,
+  assertBundleForwardingCoverage,
   createBundleBudgetError,
-  createPhase10ForwardingProof,
-  createPhase10SsrAssetClosureError,
-  describePhase10PayloadIdentity,
+  createBundleForwardingProof,
+  createBundleSsrAssetClosureError,
+  describeBundlePayloadIdentity,
   evaluateBundleBudgets,
   allowedProductionModulePackages,
   adminLazySources,
@@ -22,6 +22,53 @@ import {
   forbiddenMockMarkers,
   forbiddenMockSources
 } from './production-bundle-contract.mjs'
+
+test('keeps the previous bundle exports compatible', async () => {
+  const bundle = await import('./production-bundle-contract.mjs')
+  assert.equal(typeof bundle.splitBundleCommand, 'string')
+  for (const name of [
+    'describeBundlePayloadIdentity',
+    'createBundleSsrAssetClosureError',
+    'createBundleForwardingProof',
+    'assertBundleForwardingCoverage',
+    'collectBundleEvidence',
+    'assertBundleEvidence',
+    'assertBundleEvidenceProvenance',
+    'readBundleRepositoryState'
+  ]) {
+    assert.equal(typeof bundle[name], 'function', name)
+  }
+  assert.equal(
+    bundle.describePhase10PayloadIdentity,
+    bundle.describeBundlePayloadIdentity
+  )
+  assert.equal(
+    bundle.createPhase10SsrAssetClosureError,
+    bundle.createBundleSsrAssetClosureError
+  )
+  assert.equal(
+    bundle.createPhase10ForwardingProof,
+    bundle.createBundleForwardingProof
+  )
+  assert.equal(
+    bundle.assertPhase10ForwardingCoverage,
+    bundle.assertBundleForwardingCoverage
+  )
+  assert.equal(bundle.phase10SplitBundleCommand, bundle.splitBundleCommand)
+  assert.equal(
+    bundle.collectPhase10BundleEvidence,
+    bundle.collectBundleEvidence
+  )
+  assert.equal(bundle.assertPhase10BundleEvidence, bundle.assertBundleEvidence)
+  assert.equal(
+    bundle.assertPhase10BundleEvidenceProvenance,
+    bundle.assertBundleEvidenceProvenance
+  )
+  assert.equal(
+    bundle.readPhase10BundleRepositoryState,
+    bundle.readBundleRepositoryState
+  )
+})
 
 test('keeps one explicit ceiling for every bundle measurement', () => {
   assert.deepEqual(
@@ -106,7 +153,7 @@ test('accepts the measured baseline and rejects every exceeded ceiling', () => {
 test('fails closed on incomplete bundle evidence', () => {
   assert.throws(
     () =>
-      assertPhase10BundleEvidence({
+      assertBundleEvidence({
         kind: 'nihongo.phase10.bundle-performance',
         schemaVersion: 1,
         status: 'passed'
@@ -131,7 +178,7 @@ test('separates only the exact unchanged Vite approved static asset list', () =>
 })
 
 test('reports exact sorted missing and extra SSR asset paths', () => {
-  const error = createPhase10SsrAssetClosureError(
+  const error = createBundleSsrAssetClosureError(
     new Set(['assets/shared.js', 'assets/extra-z.js', 'assets/extra-a.js']),
     ['assets/missing-z.js', 'assets/shared.js', 'assets/missing-a.js']
   )
@@ -147,7 +194,7 @@ test('reports exact sorted missing and extra SSR asset paths', () => {
 
 test('recognizes only forwarding local imports and named exports', () => {
   assert.deepEqual(
-    describePhase10PayloadIdentity(
+    describeBundlePayloadIdentity(
       'import{t as e}from"./page-CNAv-V64.js";export{e as PracticePage};\n'
     ),
     {
@@ -159,7 +206,7 @@ test('recognizes only forwarding local imports and named exports', () => {
     }
   )
   assert.deepEqual(
-    describePhase10PayloadIdentity(
+    describeBundlePayloadIdentity(
       'export{a as default}from"./implementation-A1.js";\n'
     ),
     {
@@ -181,7 +228,7 @@ test('recognizes only forwarding local imports and named exports', () => {
     'import{a,b}from"./a.js";export{a};',
     "export const value = 'private test text';"
   ]) {
-    assert.deepEqual(describePhase10PayloadIdentity(source), {
+    assert.deepEqual(describeBundlePayloadIdentity(source), {
       kind: 'body-omitted',
       body: null,
       relativeTargets: []
@@ -230,7 +277,7 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
     gzipBytes: gzipSync(bytes, { level: 9 }).length,
     contentSha256: createHash('sha256').update(bytes).digest('hex')
   }
-  const proof = createPhase10ForwardingProof(payload, entry)
+  const proof = createBundleForwardingProof(payload, entry)
   const input = {
     graph,
     moduleRows: [
@@ -246,7 +293,7 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
     ],
     forwardingFacades: [proof]
   }
-  assert.doesNotThrow(() => assertPhase10ForwardingCoverage(input))
+  assert.doesNotThrow(() => assertBundleForwardingCoverage(input))
   for (const mutate of [
     (value) => {
       value.forwardingFacades[0].target = 'assets/other.js'
@@ -278,7 +325,7 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
   ]) {
     const candidate = JSON.parse(JSON.stringify(input))
     mutate(candidate)
-    assert.throws(() => assertPhase10ForwardingCoverage(candidate), /PHASE10_/u)
+    assert.throws(() => assertBundleForwardingCoverage(candidate), /PHASE10_/u)
   }
 })
 
