@@ -6,7 +6,7 @@ import {
 import {
   buildPhase7OperationFailureResponse,
   phase7ErrorSurfaceByOperation,
-  type Phase7Operation,
+  type ContentOperation,
   type Phase7OperationFailureResponse
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type ErrorHandler } from 'hono'
@@ -234,7 +234,7 @@ const buildCanonicalPhase7Failure = ({
 }: {
   error: unknown
   failure: ApiFailure
-  operation: Phase7Operation
+  operation: ContentOperation
 }): {
   response: Phase7OperationFailureResponse
   contractViolation: boolean
