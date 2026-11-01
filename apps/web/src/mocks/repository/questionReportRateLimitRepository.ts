@@ -1,7 +1,7 @@
 import { opaqueIdSchema } from '@nihongo/contracts/common/id'
 import {
   cachedStorage,
-  PHASE7_RATE_LIMIT_STORAGE_KEY,
+  QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY,
   readFreshLocalStorageItem
 } from '@nihongo/browser/libs/storage'
 import {
@@ -171,8 +171,8 @@ export class QuestionReportRateLimitRepository {
     try {
       return await this.lease(async () => {
         const serialized = this.storage.getLatestItem
-          ? this.storage.getLatestItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
-          : this.storage.getItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
+          ? this.storage.getLatestItem(QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY)
+          : this.storage.getItem(QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY)
         const windows = parseState(serialized)
         const now = this.now()
         if (!Number.isSafeInteger(now) || now < 0) {
@@ -206,7 +206,7 @@ export class QuestionReportRateLimitRepository {
         }
         if (
           this.storage.setItem(
-            PHASE7_RATE_LIMIT_STORAGE_KEY,
+            QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY,
             serializeState(windows)
           ) === false
         ) {
@@ -228,7 +228,7 @@ export class QuestionReportRateLimitRepository {
   }
 
   resetForTesting(): void {
-    this.storage.removeItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
+    this.storage.removeItem(QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY)
   }
 
   private keysFor(input: QuestionReportRateLimitInput): readonly string[] {

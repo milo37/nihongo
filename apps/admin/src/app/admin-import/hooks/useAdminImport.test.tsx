@@ -118,8 +118,8 @@ it('applies the exact bound items+digest and waits for current admin list/detail
   expect(complete).toBe(false)
   expect(invalidate.mock.calls.map(([value]) => value?.queryKey)).toEqual([
     ['admin-question'],
-    ['phase7-admin', 'questions'],
-    ['phase7-admin', 'audit-log']
+    ['admin-content', 'questions'],
+    ['admin-content', 'audit-log']
   ])
   await act(async () => {
     finish()

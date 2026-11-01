@@ -15,8 +15,8 @@ import {
   cachedStorage,
   clearStorageCache,
   MOCK_DATABASE_STORAGE_KEY,
-  PHASE7_ADMIN_CMS_STORAGE_KEY,
-  PHASE7_RATE_LIMIT_STORAGE_KEY,
+  ADMIN_CMS_STORAGE_KEY,
+  QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY,
   PRACTICE_STORE_KEY
 } from '@nihongo/browser/libs/storage'
 import { UI_LOCALE_STORAGE_KEY } from '@nihongo/browser/libs/localeStorage'
@@ -55,8 +55,8 @@ const resetTestState = async (): Promise<void> => {
   })
   cachedStorage.removeItem(APP_STORE_KEY)
   cachedStorage.removeItem(MOCK_DATABASE_STORAGE_KEY)
-  cachedStorage.removeItem(PHASE7_ADMIN_CMS_STORAGE_KEY)
-  cachedStorage.removeItem(PHASE7_RATE_LIMIT_STORAGE_KEY)
+  cachedStorage.removeItem(ADMIN_CMS_STORAGE_KEY)
+  cachedStorage.removeItem(QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY)
   cachedStorage.removeItem(UI_LOCALE_STORAGE_KEY)
   cachedSessionStorage.removeItem(PRACTICE_STORE_KEY)
   clearStorageCache()

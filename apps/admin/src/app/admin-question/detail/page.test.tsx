@@ -447,7 +447,7 @@ it('retains cached preview offline, locks commands, and restores explicit retry 
   )
   readError = { code: 'SERVICE_UNAVAILABLE' }
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['phase7-admin', 'questions'] })
+    await client.invalidateQueries({ queryKey: ['admin-content', 'questions'] })
   })
   const retry = await screen.findByRole('button', { name: t('common.retry') })
   retry.focus()
@@ -906,7 +906,7 @@ it('keeps an open command on its viewed CAS until explicit refresh after a passi
     }
   }
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['phase7-admin', 'questions'] })
+    await client.invalidateQueries({ queryKey: ['admin-content', 'questions'] })
   })
   await waitFor(() =>
     expect(
@@ -950,7 +950,7 @@ it('regression: pins ARCHIVE to the open candidate rowVersion even when an older
   }
   await act(async () => {
     await client.invalidateQueries({
-      queryKey: ['phase7-admin', 'questions', 'versions']
+      queryKey: ['admin-content', 'questions', 'versions']
     })
   })
   await waitFor(() =>

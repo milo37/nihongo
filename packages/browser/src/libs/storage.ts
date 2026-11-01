@@ -5,9 +5,8 @@ import { LEVELS } from '../common/types/domain'
 export const APP_STORE_KEY = 'jlpt-drill-note-store'
 export const PRACTICE_STORE_KEY = 'jlpt-drill-note-practice:v2'
 export const MOCK_DATABASE_STORAGE_KEY = 'jlpt-drill-note:mock-database:v2'
-export const PHASE7_ADMIN_CMS_STORAGE_KEY =
-  'jlpt-drill-note:phase7-admin-cms:v1'
-export const PHASE7_RATE_LIMIT_STORAGE_KEY =
+export const ADMIN_CMS_STORAGE_KEY = 'jlpt-drill-note:phase7-admin-cms:v1'
+export const QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY =
   'jlpt-drill-note:phase7-rate-limit:v1'
 
 type StorageChangeListener = (event: StorageEvent) => void
