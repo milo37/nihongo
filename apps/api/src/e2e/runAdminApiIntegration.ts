@@ -28,8 +28,8 @@ import {
 import { getApiIntegrationEntriesByOwner } from './apiIntegrationManifest.js'
 import {
   assertSsoBootstrapMigrationHistory,
-  createPhase7SsoTestEnvironment,
-  phase7SsoAccountLifecycleTestFile,
+  createSsoTestEnvironment,
+  ssoAccountLifecycleTestFile,
   runApiIntegrationManifestVitestFile
 } from './apiIntegrationExecution.js'
 
@@ -1110,13 +1110,13 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
       reentry: true
     }) + '\n'
   )
-  const environment = createPhase7SsoTestEnvironment({
+  const environment = createSsoTestEnvironment({
     ...harness.sharedEnvironment,
     PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
   })
   const count = await runApiIntegrationManifestVitestFile({
     runCommand,
-    testFile: phase7SsoAccountLifecycleTestFile,
+    testFile: ssoAccountLifecycleTestFile,
     environment,
     preserveSanitizedReport: true
   })
