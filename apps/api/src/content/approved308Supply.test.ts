@@ -5,7 +5,7 @@ import {
   createAdminImportValidationDigest,
   createPhase7QuestionDuplicateIdentity,
   normalizePhase7TagKey
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
 import {
   approved308InventoryRawJson,

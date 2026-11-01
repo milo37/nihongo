@@ -9,7 +9,7 @@ import {
   phase9DatabaseTables,
   phase9ExpectedTableDeltas,
   phase9ExpectedRateLimitCategories
-} from './phase9-database-contract.mjs'
+} from './accessibility-database-contract.mjs'
 
 const fingerprint = (suffix) => suffix.padStart(64, '0')
 
@@ -45,7 +45,7 @@ const createSnapshots = () => {
   }
 }
 
-test('accepts the exhaustive Phase 9 browser database delta', () => {
+test('accepts the exhaustive accessibility browser database delta', () => {
   const { after, before } = createSnapshots()
   assert.doesNotThrow(() => assertPhase9SnapshotContract(before, after))
 })

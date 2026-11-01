@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { apiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
+import { apiIntegrationManifest } from './apiIntegrationManifest.js'
 
 export const assertSsoBootstrapMigrationHistory = (
   expected: readonly { name: string; checksum: string }[],
@@ -37,11 +37,11 @@ export const assertSsoBootstrapMigrationHistory = (
 }
 
 export const phase7DbFoundationTestFile =
-  'src/db/phase7AdminCmsFoundation.integration.test.ts' as const
+  'src/db/adminCmsFoundation.integration.test.ts' as const
 
-export const phase7SsoTestFile = 'src/db/phase7Sso.integration.test.ts' as const
+export const phase7SsoTestFile = 'src/db/sso.integration.test.ts' as const
 export const phase7SsoAccountLifecycleTestFile =
-  'src/db/phase7SsoAccountLifecycle.integration.test.ts' as const
+  'src/db/ssoAccountLifecycle.integration.test.ts' as const
 export const phase7SsoOrdinal6Title =
   'apple ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts' as const
 export const phase7SsoOrdinal6Pattern = `${phase7SsoOrdinal6Title}$`

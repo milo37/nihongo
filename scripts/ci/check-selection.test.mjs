@@ -849,15 +849,15 @@ test('standalone runners use supported workspace build commands', () => {
     )
   for (const file of [
     'apps/api/src/e2e/runDatabaseIntegration.ts',
-    'apps/api/src/e2e/runPhase7ApiIntegration.ts',
-    'apps/api/src/e2e/runPhase7Browser.ts',
-    'scripts/runPhase10Browser.ts'
+    'apps/api/src/e2e/runAdminApiIntegration.ts',
+    'apps/api/src/e2e/runAdminBrowser.ts',
+    'scripts/runJourneyBrowser.ts'
   ]) {
     const source = readFileSync(path.join(repositoryRoot, file), 'utf8')
     assert.doesNotMatch(source, /'build:(?:contracts|domain)'/u, file)
     if (
       file.endsWith('runDatabaseIntegration.ts') ||
-      file.endsWith('runPhase7ApiIntegration.ts')
+      file.endsWith('runAdminApiIntegration.ts')
     ) {
       assert.match(source, /await prepareBrowserArtifacts\(/u, file)
     } else {
@@ -1278,9 +1278,9 @@ const assertPlaywrightSelection = async (source, mode, suite, modeVariable) => {
   assert.equal(calls[0].environment[modeVariable], mode)
 }
 
-test('Phase 9 mock starts only a local mock web server', async () => {
+test('accessibility mock starts only a local mock web server', async () => {
   const source = readFileSync(
-    path.resolve(import.meta.dirname, '../runPhase9Browser.ts'),
+    path.resolve(import.meta.dirname, '../runAccessibilityBrowser.ts'),
     'utf8'
   )
   const body = extractArrowBody(source, 'export const runMockBrowser = async (')
@@ -1345,7 +1345,7 @@ test('Phase 9 mock starts only a local mock web server', async () => {
 test('API integration uses shared job preparation and seed avoids regeneration', async () => {
   const root = path.resolve(import.meta.dirname, '../..')
   const api = readFileSync(
-    path.join(root, 'apps/api/src/e2e/runPhase7ApiIntegration.ts'),
+    path.join(root, 'apps/api/src/e2e/runAdminApiIntegration.ts'),
     'utf8'
   )
   const database = readFileSync(
@@ -1772,9 +1772,9 @@ const assertBrowserRunnerCallGraph = ({ phase7, phase9, phase10 }) => {
 const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
   assert.deepEqual(calls, expectedBrowserCalls(mode))
   const runnerPaths = [
-    path.join(repositoryRoot, 'apps/api/src/e2e/runPhase7Browser.ts'),
-    path.join(repositoryRoot, 'scripts/runPhase9Browser.ts'),
-    path.join(repositoryRoot, 'scripts/runPhase10Browser.ts')
+    path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
+    path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
+    path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts')
   ]
   const common = readFileSync(
     path.join(repositoryRoot, 'scripts/runBrowser.ts'),
@@ -1787,9 +1787,9 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
     JSON.stringify(runInNewContext(`(${mappingMatch[1]})`))
   )
   assert.deepEqual(mapping, {
-    admin: '../apps/api/src/e2e/runPhase7Browser.js',
-    accessibility: './runPhase9Browser.js',
-    journey: './runPhase10Browser.js'
+    admin: '../apps/api/src/e2e/runAdminBrowser.js',
+    accessibility: './runAccessibilityBrowser.js',
+    journey: './runJourneyBrowser.js'
   })
   assertExecutableCall(
     common,
@@ -1915,7 +1915,7 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
   )
 
   const phase9Source = readFileSync(
-    path.join(repositoryRoot, 'scripts/runPhase9Browser.ts'),
+    path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
     'utf8'
   )
   await assert.rejects(() =>
@@ -1935,15 +1935,15 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const sources = {
     phase7: readFileSync(
-      path.join(repositoryRoot, 'apps/api/src/e2e/runPhase7Browser.ts'),
+      path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
       'utf8'
     ),
     phase9: readFileSync(
-      path.join(repositoryRoot, 'scripts/runPhase9Browser.ts'),
+      path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
       'utf8'
     ),
     phase10: readFileSync(
-      path.join(repositoryRoot, 'scripts/runPhase10Browser.ts'),
+      path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts'),
       'utf8'
     )
   }
@@ -2061,15 +2061,15 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const sources = {
     phase7: readFileSync(
-      path.join(repositoryRoot, 'apps/api/src/e2e/runPhase7Browser.ts'),
+      path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
       'utf8'
     ),
     phase9: readFileSync(
-      path.join(repositoryRoot, 'scripts/runPhase9Browser.ts'),
+      path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
       'utf8'
     ),
     phase10: readFileSync(
-      path.join(repositoryRoot, 'scripts/runPhase10Browser.ts'),
+      path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts'),
       'utf8'
     )
   }

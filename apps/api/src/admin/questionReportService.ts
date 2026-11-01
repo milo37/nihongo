@@ -4,7 +4,7 @@ import type {
   ListAdminQuestionReportsResponse,
   QuestionReportDetail,
   QuestionReportMutationResult
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { QuestionReportRateLimiter } from './questionReportRateLimiter.js'
 import {

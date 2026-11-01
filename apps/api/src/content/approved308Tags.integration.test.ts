@@ -11,7 +11,7 @@ import {
   it
 } from 'vitest'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
-import { normalizePhase7TagKey } from '@nihongo/contracts/admin/phase7'
+import { normalizePhase7TagKey } from '@nihongo/contracts/admin/content-operations'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
 import { parseApiEnvironment } from '../config/env.js'

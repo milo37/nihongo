@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import {
   cleanupPhase7IsolatedDatabase,
   preparePhase7IsolatedDatabase
-} from './runPhase7ApiIntegration.js'
+} from './runAdminApiIntegration.js'
 import { readPhase10DatabaseApiPerformanceEvidence } from './performanceEvidence.js'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import {
@@ -14,7 +14,7 @@ import {
   type PerformanceTerminalRecord
 } from './performanceProcessExit.js'
 import { runCleanupWithTimeout, runWithOperationTimeout } from './runTimeout.js'
-import { runApiIntegrationManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import { runApiIntegrationManifestVitestFile } from './apiIntegrationExecution.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,

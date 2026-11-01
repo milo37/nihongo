@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './apiIntegrationManifest.js'
 import {
   getPostSeedErrorCode,
   runPostSeedDiagnostic,

@@ -114,9 +114,9 @@ test('Compose isolates persistent local roles from disposable runners', async ()
   }
 })
 
-test('fresh init matches the canonical Phase 7 role graph', async () => {
+test('fresh init matches the canonical local database role graph', async () => {
   const init = await readRepositoryFile(
-    'infra/postgres/init/02-provision-phase7-local.sh'
+    'infra/postgres/init/02-provision-local-database.sh'
   )
   const enumMigration = await readRepositoryFile(
     'apps/api/prisma/migrations/20260827100000_phase7_admin_cms_enums/migration.sql'
@@ -188,7 +188,7 @@ test('fresh init matches the canonical Phase 7 role graph', async () => {
 
 test('fresh init owns and attests both canonical local databases', async () => {
   const init = await readRepositoryFile(
-    'infra/postgres/init/02-provision-phase7-local.sh'
+    'infra/postgres/init/02-provision-local-database.sh'
   )
 
   assert.match(init, /for phase7_database_name in nihongo_dev nihongo_test/u)
@@ -265,7 +265,7 @@ test('dotenv examples keep technical and runner targets separate', async () => {
 test('README documents both mutually exclusive local workflows', async () => {
   const readme = await readRepositoryFile('README.md')
   const activation = await readRepositoryFile(
-    'infra/postgres/init/phase7-local-activate.psql'
+    'infra/postgres/init/local-database-activate.psql'
   )
 
   assert.match(readme, /--profile phase7-local up -d --wait postgres-phase7/u)

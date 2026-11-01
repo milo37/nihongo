@@ -23,7 +23,7 @@ import {
   type PreviewQuestionVersionResponse,
   decodeAdminQuestionVersionCursor,
   decodePhase7OccurredAtCursor
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { toPublicPracticeQuestion } from '../question/questionMapper.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import {

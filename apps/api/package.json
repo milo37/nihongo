@@ -15,7 +15,7 @@
     "test": "pnpm run db:generate && vitest run --exclude '**/*.integration.test.ts'",
     "test:watch": "pnpm run db:generate && vitest",
     "test:integration": "pnpm run db:generate && vitest run --config vitest.integration.config.ts",
-    "test:api-regression": "tsx src/e2e/runPhase7ApiIntegration.ts",
+    "test:api-regression": "tsx src/e2e/runAdminApiIntegration.ts",
     "test:performance": "tsx src/e2e/runDatabaseApiPerformance.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
     "auth:erase-deletion-pending": "pnpm run db:generate && tsx src/auth/ssoAccountErasureCommand.ts",

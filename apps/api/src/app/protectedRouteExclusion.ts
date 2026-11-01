@@ -1,4 +1,4 @@
-import type { Phase7Operation } from '@nihongo/contracts/admin/phase7'
+import type { Phase7Operation } from '@nihongo/contracts/admin/content-operations'
 
 const PROTECTED_API_PREFIXES = [
   '/api/v1/admin',

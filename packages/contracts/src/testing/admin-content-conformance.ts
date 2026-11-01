@@ -3,18 +3,18 @@ import {
   phase7ErrorSurfaceByOperation,
   type Phase7ErrorSurface,
   type Phase7ExecutionDisposition
-} from '../admin/phase7-error-policy.js'
+} from '../admin/content-error-policy.js'
 import {
   assertPhase7OperationSchemaManifest,
   phase7OperationSchemaManifest
-} from '../admin/phase7-operation-schemas.js'
+} from '../admin/content-operation-schemas.js'
 import {
   assertPhase7OperationManifest,
   phase7OperationManifest,
   phase7Slice2ReadOperationManifest,
   type Phase7Operation,
   type Phase7OperationManifestEntry
-} from '../admin/phase7-manifest.js'
+} from '../admin/content-manifest.js'
 
 export const phase7Slice2ExpectedOperations = [
   'listAdminQuestions',

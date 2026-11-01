@@ -61,9 +61,9 @@ export const runBrowserSuites = async (
 }
 
 const realWorkerModules = {
-  admin: '../apps/api/src/e2e/runPhase7Browser.js',
-  accessibility: './runPhase9Browser.js',
-  journey: './runPhase10Browser.js'
+  admin: '../apps/api/src/e2e/runAdminBrowser.js',
+  accessibility: './runAccessibilityBrowser.js',
+  journey: './runJourneyBrowser.js'
 } as const
 
 type RealSuite = keyof typeof realWorkerModules
@@ -72,7 +72,7 @@ const isRealSuite = (value: string): value is RealSuite =>
   Object.hasOwn(realWorkerModules, value)
 
 type BrowserAdapter = Pick<
-  typeof import('./runPhase9Browser.js'),
+  typeof import('./runAccessibilityBrowser.js'),
   'runCommand' | 'runMockBrowser' | 'cleanup'
 >
 
@@ -86,7 +86,8 @@ export const runBrowserMode = async (
   signal: AbortSignal,
   playwrightArguments: readonly string[] = [],
   dependencies: BrowserRunnerDependencies = {
-    loadBrowserAdapter: async () => await import('./runPhase9Browser.js'),
+    loadBrowserAdapter: async () =>
+      await import('./runAccessibilityBrowser.js'),
     resolveTsx: () =>
       createRequire(
         new URL('../apps/api/package.json', import.meta.url)

@@ -7,7 +7,7 @@ import type {
   QuestionReportDetail,
   QuestionReportMutationResult,
   QuestionReportSummary
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 

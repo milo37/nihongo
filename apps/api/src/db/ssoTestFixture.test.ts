@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPhase7SsoTestEnvironment } from '../e2e/phase10ApiIntegrationExecution.js'
+import { createPhase7SsoTestEnvironment } from '../e2e/apiIntegrationExecution.js'
 import { createSsoDbHarness } from './ssoTestFixture.js'
 
 const db = vi.hoisted(() => ({

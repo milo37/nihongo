@@ -65,7 +65,7 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated Phase 7 API schema'
   },
   {
-    path: 'src/db/phase7Sso.integration.test.ts',
+    path: 'src/db/sso.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-sso',
     order: 12,
@@ -80,7 +80,7 @@ export const apiIntegrationManifest = [
       'existing runner-owned disposable Phase 7 schema; SQL-only provider proofs; no external OAuth'
   },
   {
-    path: 'src/db/phase7SsoAccountLifecycle.integration.test.ts',
+    path: 'src/db/ssoAccountLifecycle.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-sso-account-lifecycle',
     order: 13,
@@ -97,7 +97,7 @@ export const apiIntegrationManifest = [
       'existing runner-owned disposable TEST schema; exact3; SQL-only proofs; no external OAuth'
   },
   {
-    path: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
+    path: 'src/db/adminCmsFoundation.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-current',
     order: 1,
@@ -108,7 +108,7 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated Phase 7 DB schema and canonical roles'
   },
   {
-    path: 'src/db/phase7ReauthenticationFoundation.integration.test.ts',
+    path: 'src/db/reauthenticationFoundation.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-current',
     order: 2,
@@ -119,7 +119,7 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated Phase 7 DB schema and canonical roles'
   },
   {
-    path: 'src/db/phase7ReauthenticationService.integration.test.ts',
+    path: 'src/db/reauthenticationService.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-current',
     order: 3,
@@ -152,7 +152,7 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated Phase 7 DB schema and canonical roles'
   },
   {
-    path: 'src/db/phase7AdminCmsUpgrade.integration.test.ts',
+    path: 'src/db/adminCmsUpgrade.integration.test.ts',
     executionOwner: 'phase7-db',
     shard: 'phase7-db-upgrade',
     order: 6,

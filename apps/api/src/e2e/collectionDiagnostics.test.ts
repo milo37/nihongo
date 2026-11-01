@@ -4,7 +4,7 @@ import {
   classifyCollectionDiagnostic,
   classifyCollectionReport
 } from './collectionDiagnostics.js'
-import { runApiIntegrationManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import { runApiIntegrationManifestVitestFile } from './apiIntegrationExecution.js'
 
 describe('safe collection diagnostics', () => {
   it.each([
@@ -57,7 +57,7 @@ describe('safe collection diagnostics', () => {
     let output = ''
     await expect(
       runApiIntegrationManifestVitestFile({
-        testFile: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
+        testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
           PHASE7_ADMIN_DATABASE_URL: 'fixture',
@@ -94,7 +94,7 @@ describe('safe collection diagnostics', () => {
     const diagnostics: unknown[] = []
     await expect(
       runApiIntegrationManifestVitestFile({
-        testFile: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
+        testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
           PHASE7_ADMIN_DATABASE_URL: 'fixture',
@@ -130,7 +130,7 @@ describe('safe collection diagnostics', () => {
     const diagnostics: unknown[] = []
     await expect(
       runApiIntegrationManifestVitestFile({
-        testFile: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
+        testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
           PHASE7_ADMIN_DATABASE_URL: 'fixture',

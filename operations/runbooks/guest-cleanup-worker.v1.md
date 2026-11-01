@@ -19,7 +19,7 @@ permission has been provisioned or verified by this document.
    the worker; it grants no direct table writes. Applied migrations stay intact.
 3. Grant the guest login CONNECT to its target only after the migration chain.
    The guest TEST shard and portable harness do this after migrations; the
-   persistent local profile does this in `infra/postgres/init/phase7-local-activate.psql`.
+   persistent local profile does this in `infra/postgres/init/local-database-activate.psql`.
    Persistent local provisioning uses separate
    `PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
    `PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs, like the existing
@@ -44,8 +44,8 @@ fixture, guest and application URLs with `GUEST_CLEANUP_TEST_ISOLATED=yes`.
 The manifest runner rejects missing environment, zero tests and skipped tests.
 
 ```sh
-pnpm --filter @nihongo/api exec tsx src/e2e/validatePhase10ApiIntegrationManifest.ts
-pnpm --filter @nihongo/api exec tsx src/e2e/runPhase10ApiIntegration.ts --shard=current-guest-cleanup
+pnpm --filter @nihongo/api exec tsx src/e2e/validateApiIntegrationManifest.ts
+pnpm --filter @nihongo/api exec tsx src/e2e/runApiIntegration.ts --shard=current-guest-cleanup
 pnpm run test:api-regression
 ```
 

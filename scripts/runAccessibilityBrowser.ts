@@ -439,7 +439,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   }
   await reserveLoopbackPort(5175, 'localhost')
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runPhase7ApiIntegration.js')
+    await import('../apps/api/src/e2e/runAdminApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
   const harness = await preparePhase7IsolatedDatabase({
     seedRuns: 2,
@@ -503,7 +503,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   const databaseContract =
     browserMode === 'real'
       ? ((await import(
-          './phase9-database-contract.mjs'
+          './accessibility-database-contract.mjs'
         )) as Phase9DatabaseContractModule)
       : undefined
   const baseline = await databaseContract?.capturePhase9DatabaseSnapshot(

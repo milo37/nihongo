@@ -33,14 +33,14 @@ import {
   phase7Slice4OperationManifest,
   phase7Slice5OperationManifest,
   phase7Slice2ReadOperationManifest
-} from '../src/admin/phase7.js'
+} from '../src/admin/content-operations.js'
 import {
   assertPhase7Slice2ConformanceManifest,
   phase7DeferredOperationManifest,
   phase7OperationErrorConformanceManifest,
   phase7Slice2ExpectedOperations,
   phase7Slice2ReadConformanceManifest
-} from '../src/testing/phase7-admin-conformance.js'
+} from '../src/testing/admin-content-conformance.js'
 
 const requestId = '019a1234-5678-7abc-8def-0123456789ab'
 
@@ -443,7 +443,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('exports one named ErrorCodeSchema for every manifest operation', async () => {
-    const phase7Exports = await import('../src/admin/phase7.js')
+    const phase7Exports = await import('../src/admin/content-operations.js')
     const actual = Object.keys(phase7Exports)
       .filter((name) => name.endsWith('ErrorCodeSchema'))
       .sort()

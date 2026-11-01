@@ -138,8 +138,11 @@ const withPhase7Fixture = (run) => {
             skipLibCheck: true,
             paths: {
               '@nihongo/browser/*': ['packages/browser/src/*'],
+              '@nihongo/contracts/admin/phase7': [
+                `packages/contracts/${contractDirectory}/admin/content-operations`
+              ],
               '@nihongo/contracts/admin/content-operations': [
-                `packages/contracts/${contractDirectory}/admin/phase7`
+                `packages/contracts/${contractDirectory}/admin/content-operations`
               ],
               '@nihongo/contracts/*': [
                 `packages/contracts/${contractDirectory}/*`

@@ -27,7 +27,7 @@ vi.mock('./ownedProcessGroup.js', () => ({
   stopOwnedProcesses: ports.stop,
   retireOwnedProcess: ports.retire
 }))
-vi.mock('./runPhase7ApiIntegration.js', () => ({
+vi.mock('./runAdminApiIntegration.js', () => ({
   preparePhase7IsolatedDatabase: ports.prepare,
   cleanupPhase7IsolatedDatabase: ports.cleanupHarness
 }))
@@ -47,9 +47,9 @@ import {
   cleanupPhase7BrowserResources,
   closePhase7BrowserApi,
   selectPhase7BrowserSpecs
-} from './runPhase7Browser.js'
+} from './runAdminBrowser.js'
 
-describe('Phase 7 and 8 browser cleanup caller', () => {
+describe('admin and dashboard browser cleanup caller', () => {
   it('preserves owned processes and withholds fixture and DB cleanup after stop failure', async () => {
     const owned = {
       child: { pid: 424_242 } as ChildProcess,
@@ -136,7 +136,7 @@ describe('Phase 7 and 8 browser cleanup caller', () => {
   })
 })
 
-describe('Phase7 TEST API listener shutdown', () => {
+describe('admin browser TEST API listener shutdown', () => {
   it('closes the owned API listener before allowing fixture and harness cleanup', async () => {
     const calls: string[] = []
     const server = {
@@ -189,7 +189,7 @@ describe('Phase7 TEST API listener shutdown', () => {
   })
 })
 
-describe('Phase7 owned API bounded shutdown', () => {
+describe('admin browser owned API bounded shutdown', () => {
   it('forces connection close at the existing deadline and still withholds DB cleanup', async () => {
     vi.useFakeTimers()
     try {
@@ -226,7 +226,7 @@ describe('Phase7 owned API bounded shutdown', () => {
   })
 })
 
-describe('Phase7/8 real administrator origin and Mock selection', () => {
+describe('admin and dashboard real origin and Mock selection', () => {
   const adminSpec = 'apps/web/e2e/admin-cms.spec.ts'
   const dashboardSpec = 'apps/web/e2e/dashboard.spec.ts'
   const shutdown: string[] = []
@@ -343,10 +343,10 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
     )
   })
 
-  it('rejects standalone Phase7 Mock before creating any owned resources', async () => {
+  it('rejects standalone admin Mock before creating any owned resources', async () => {
     vi.resetModules()
     vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', '0')
-    const runner = await import('./runPhase7Browser.js')
+    const runner = await import('./runAdminBrowser.js')
     await expect(runner.runMock()).rejects.toThrow('requires real mode')
     expect(ports.spawn).not.toHaveBeenCalled()
     expect(ports.prepare).not.toHaveBeenCalled()
@@ -354,11 +354,11 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
     expect(ports.createHttpServer).not.toHaveBeenCalled()
   })
 
-  it('serves only web and selects only the dashboard in Phase8 Mock', async () => {
+  it('serves only web and selects only the dashboard with dashboard acceptance Mock', async () => {
     vi.resetModules()
     vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', '1')
     vi.stubEnv('NIHONGO_ADMIN_PROXY_TARGET', 'http://parent.invalid')
-    const runner = await import('./runPhase7Browser.js')
+    const runner = await import('./runAdminBrowser.js')
     await runner.runMock()
     const calls = ports.spawn.mock.calls
     const vite = calls.filter(([, args]) => args.includes('vite'))
@@ -380,11 +380,11 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
   })
 
   it.each(['0', '1'])(
-    'serves production static assets and API on one public origin (Phase8=%s)',
+    'serves production static assets and API on one public origin (dashboard=%s)',
     async (phase8) => {
       vi.resetModules()
       vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', phase8)
-      const runner = await import('./runPhase7Browser.js')
+      const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       const calls = ports.spawn.mock.calls
       expect(
@@ -465,7 +465,7 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
       fixture: { author: { userId: 'test-author' } },
       database: { snapshot, assertExpectedLifecycleDelta, disconnect }
     })
-    const runner = await import('./runPhase7Browser.js')
+    const runner = await import('./runAdminBrowser.js')
     await expect(runner.runReal()).rejects.toThrow(
       'requires an administrator static guard'
     )
@@ -492,7 +492,7 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
         return child
       }
     )
-    const runner = await import('./runPhase7Browser.js')
+    const runner = await import('./runAdminBrowser.js')
     await expect(runner.runReal()).rejects.toThrow('exit 1')
     expect(ports.staticWeb).not.toHaveBeenCalled()
     expect(ports.createHttpServer).not.toHaveBeenCalled()
@@ -516,7 +516,7 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
       ports.removeAssets.mockImplementation(async (directory: string) => {
         if (directory === `/tmp/phase7-browser-${artifact}-unit`) throw failure
       })
-      const runner = await import('./runPhase7Browser.js')
+      const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       await expect(runner.cleanup()).rejects.toBe(failure)
       expect(ports.removeAssets.mock.calls).toEqual([
@@ -534,11 +534,11 @@ describe('Phase7/8 real administrator origin and Mock selection', () => {
   )
 })
 
-describe('Phase7 mandatory public origin environment', () => {
+describe('admin browser mandatory public origin environment', () => {
   it.each(['real', 'mock'] as const)(
     'overrides stale origin/mode env with the actual %s boundary',
     async (mode) => {
-      const runner = await import('./runPhase7Browser.js')
+      const runner = await import('./runAdminBrowser.js')
       const result = runner.createPhase7BrowserPlaywrightEnvironment(
         mode,
         'http://127.0.0.1:33493',

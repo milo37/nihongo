@@ -64,7 +64,7 @@ import {
   withdrawQuestionApprovalRequestSchema,
   withdrawQuestionApprovalResponseSchema,
   type Phase7Operation
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError, type ZodType } from 'zod'
 import type {

@@ -8,7 +8,7 @@ import {
   phase7ErrorSurfaceByOperation,
   type Phase7Operation,
   type Phase7OperationFailureResponse
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Hono, type ErrorHandler } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { cors } from 'hono/cors'

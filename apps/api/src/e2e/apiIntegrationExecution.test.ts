@@ -22,7 +22,7 @@ import {
   sanitizePhase7VitestReport,
   sanitizeQueryPlanFailure,
   selectPhase7DbIntegrationFiles
-} from './phase10ApiIntegrationExecution.js'
+} from './apiIntegrationExecution.js'
 
 describe('SSO bootstrap migration history', () => {
   it('accepts the pinned current inventory and rejects ledger or source drift', () => {

@@ -25,7 +25,7 @@ import {
   type Sha256TextPort,
   type TriageAdminQuestionReportRequest,
   type ValidateQuestionImportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1/unicode'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'

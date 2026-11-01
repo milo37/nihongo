@@ -26,16 +26,16 @@ vi.mock('pg', () => ({
   }
 }))
 vi.mock('node:child_process', () => ({ spawn: ports.spawn }))
-vi.mock('./runPhase7ApiIntegration.js', async (importOriginal) => {
+vi.mock('./runAdminApiIntegration.js', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('./runPhase7ApiIntegration.js')>()
+    await importOriginal<typeof import('./runAdminApiIntegration.js')>()
   return {
     ...actual,
     preparePhase7IsolatedDatabase: ports.prepareDatabase,
     cleanupPhase7IsolatedDatabase: ports.cleanupDatabase
   }
 })
-vi.mock('./phase10ApiIntegrationExecution.js', () => ({
+vi.mock('./apiIntegrationExecution.js', () => ({
   runApiIntegrationManifestVitestFile: ports.executeEntry
 }))
 
@@ -44,10 +44,10 @@ vi.mock('./ownedProcessGroup.js', () => ({
   stopOwnedProcesses: ports.stop,
   retireOwnedProcess: ports.retire
 }))
-vi.mock('./validatePhase10ApiIntegrationManifest.js', () => ({
+vi.mock('./validateApiIntegrationManifest.js', () => ({
   validateApiIntegrationManifest: async () => undefined
 }))
-vi.mock('./phase10ApiIntegrationManifest.js', () => ({
+vi.mock('./apiIntegrationManifest.js', () => ({
   getApiIntegrationEntriesByOwner: () => [
     {
       path: 'src/question/questionCatalog.integration.test.ts',
@@ -84,7 +84,7 @@ const close = (child: CommandChild, code: number): void => {
   child.emit('close', code, null)
 }
 const start = async (): Promise<void> => {
-  await import('./runPhase10ApiIntegration.js')
+  await import('./runApiIntegration.js')
   await vi.waitFor(() => expect(ports.spawn).toHaveBeenCalled())
 }
 const signalParent = (signal: (typeof signals)[number]): void => {
@@ -242,7 +242,7 @@ describe('Phase10 parent common preparation ownership without a database', () =>
         '@nihongo/api',
         'exec',
         'tsx',
-        'src/e2e/runPhase10ApiIntegration.ts',
+        'src/e2e/runApiIntegration.ts',
         '--shard=process-only',
         '--artifacts-prepared'
       ]
@@ -264,7 +264,7 @@ describe('Phase10 partial database preparation cleanup without a database', () =
         ports.cleanupDatabase.mockRejectedValue(
           new Error('synthetic partial cleanup failure')
         )
-      await import('./runPhase10ApiIntegration.js')
+      await import('./runApiIntegration.js')
       await vi.waitFor(() => expect(process.exitCode).toBe(1))
       expect(ports.prepareDatabase).toHaveBeenCalledOnce()
       expect(ports.prepareDatabase).toHaveBeenCalledWith(
@@ -285,7 +285,7 @@ describe('Phase10 partial database preparation cleanup without a database', () =
 
   it('does not arm database cleanup for a process-only shard', async () => {
     process.argv.push('--shard=process-only')
-    await import('./runPhase10ApiIntegration.js')
+    await import('./runApiIntegration.js')
     await vi.waitFor(() =>
       expect(process.stdout.write).toHaveBeenCalledWith(
         expect.stringContaining('phase10.api_integration.shard.passed')

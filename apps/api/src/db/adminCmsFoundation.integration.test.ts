@@ -16,7 +16,7 @@ import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import {
   runFoundationStage,
   type FoundationStage
-} from './phase7FoundationDiagnostics.js'
+} from './foundationDiagnostics.js'
 import { attestPhase7RuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [

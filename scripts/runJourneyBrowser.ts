@@ -282,7 +282,7 @@ const runReal = async (): Promise<void> => {
       createRequire(
         new URL('../apps/api/package.json', import.meta.url)
       ).resolve('tsx'),
-      'src/e2e/runPhase7ApiIntegration.ts'
+      'src/e2e/runAdminApiIntegration.ts'
     ],
     {
       ...process.env,
