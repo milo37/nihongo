@@ -1,6 +1,9 @@
 import type { Phase7Operation } from '@nihongo/contracts/admin/phase7'
 
-const PHASE_7_PREFIXES = ['/api/v1/admin', '/api/v1/question-reports'] as const
+const PROTECTED_API_PREFIXES = [
+  '/api/v1/admin',
+  '/api/v1/question-reports'
+] as const
 const MAX_PERCENT_DECODING_PASSES = 16
 const HTTP_SCHEME_PATTERN = /^https?:/iu
 const CANONICAL_UUID_PATTERN =
@@ -264,7 +267,7 @@ const getPathnameFromRequestTarget = (requestTarget: string): string | null => {
 }
 
 const hasPrefix = (pathname: string): boolean =>
-  PHASE_7_PREFIXES.some(
+  PROTECTED_API_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
 
@@ -289,7 +292,7 @@ const getSlashNormalizedPathnames = (pathname: string): readonly string[] => {
   return [`/${unresolvedSegments.join('/')}`, `/${resolvedSegments.join('/')}`]
 }
 
-const hasPhase7Alias = (rawPathname: string): boolean => {
+const hasProtectedPrefixAlias = (rawPathname: string): boolean => {
   let candidate = rawPathname
 
   for (let pass = 0; pass < MAX_PERCENT_DECODING_PASSES; pass += 1) {
@@ -324,7 +327,7 @@ export const getRawRequestPathname = (requestTarget: string): string | null =>
 
 export const isPhase7ExcludedRequest = (requestTarget: string): boolean => {
   const pathname = getPathnameFromRequestTarget(requestTarget)
-  return pathname !== null && hasPhase7Alias(pathname)
+  return pathname !== null && hasProtectedPrefixAlias(pathname)
 }
 
 export const isCanonicalPhase7Slice2ReadRequest = ({
