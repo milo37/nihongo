@@ -2,8 +2,8 @@ import {
   assertCreateQuestionReportForRequest,
   buildPhase7OperationFailureResponse,
   createQuestionReportRequestSchema,
-  parsePhase7JsonBytes,
-  Phase7JsonParseError,
+  parseJsonBytes,
+  JsonParseError,
   type Phase7Operation
 } from '@nihongo/contracts/admin/phase7'
 import {
@@ -299,7 +299,7 @@ const assertEmptyQuery = (request: Request): void => {
   }
 }
 
-export const readPhase7MockJsonBody = async (
+export const readMockJsonBody = async (
   request: Request,
   maximumBytes: number
 ): Promise<unknown> => {
@@ -336,7 +336,7 @@ export const readPhase7MockJsonBody = async (
     offset += chunk.byteLength
   }
   try {
-    const value = parsePhase7JsonBytes(bytes)
+    const value = parseJsonBytes(bytes)
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       throw new MockContentCommandError({
         code: 'INVALID_JSON',
@@ -346,7 +346,7 @@ export const readPhase7MockJsonBody = async (
     return value
   } catch (error: unknown) {
     if (
-      error instanceof Phase7JsonParseError &&
+      error instanceof JsonParseError &&
       error.kind === 'MAX_DEPTH_EXCEEDED'
     ) {
       throw new MockContentCommandError({
@@ -367,7 +367,7 @@ const parseBody = async <Schema extends ZodType>(
   schema: Schema,
   message: string
 ): Promise<z.output<Schema>> => {
-  const raw = await readPhase7MockJsonBody(request, bodyCap(operation))
+  const raw = await readMockJsonBody(request, bodyCap(operation))
   const result = schema.safeParse(raw)
   if (result.success) return result.data
   throw new MockContentCommandError({

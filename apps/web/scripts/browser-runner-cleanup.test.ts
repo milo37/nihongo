@@ -31,7 +31,7 @@ vi.mock('../../../apps/api/src/e2e/runPhase7ApiIntegration.js', () => ({
   preparePhase7IsolatedDatabase: mocks.prepareDatabase,
   cleanupPhase7IsolatedDatabase: mocks.cleanupDatabase
 }))
-vi.mock('../../../apps/api/src/e2e/phase9BrowserApi.js', () => ({
+vi.mock('../../../apps/api/src/e2e/browserApi.js', () => ({
   preparePhase9BrowserActors: mocks.prepareActors
 }))
 vi.mock('../../../scripts/phase9-database-contract.mjs', () => ({
@@ -567,7 +567,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
         })
       )
       mocks.spawn.mockImplementation((_command: string, args: string[]) => {
-        if (args.includes('src/e2e/phase9BrowserApi.ts')) {
+        if (args.includes('src/e2e/browserApi.ts')) {
           lifecycle.push('API spawned')
           if (scenario === 'API exit') finish(api, { code: 1, signal: null })
           return api
@@ -725,7 +725,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
         return
       }
       const apiCall = mocks.spawn.mock.calls.find(([, args]) =>
-        args.includes('src/e2e/phase9BrowserApi.ts')
+        args.includes('src/e2e/browserApi.ts')
       )
       expect(apiCall?.[2].env).toMatchObject({
         TRUSTED_ORIGINS: 'http://127.0.0.1:32124',

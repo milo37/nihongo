@@ -17,7 +17,7 @@ import {
   runFoundationStage,
   type FoundationStage
 } from './phase7FoundationDiagnostics.js'
-import { attestPhase7RuntimeRoles } from './phase7RuntimeRoleAttestation.js'
+import { attestPhase7RuntimeRoles } from './runtimeRoleAttestation.js'
 
 const PHASE7_MIGRATIONS = [
   '20261019103000_sso_admin_fresh',
