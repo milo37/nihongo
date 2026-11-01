@@ -1,7 +1,4 @@
-import {
-  parsePhase7JsonBytes,
-  Phase7JsonParseError
-} from '@nihongo/contracts/admin/phase7'
+import { parseJsonBytes, JsonParseError } from '@nihongo/contracts/admin/phase7'
 import { ApplicationError } from '../errors/applicationError.js'
 
 const BODY_TIMEOUT_MS = 5_000
@@ -71,14 +68,14 @@ export const readStrictJsonBody = async (
   }
 
   try {
-    const value = parsePhase7JsonBytes(bytes)
+    const value = parseJsonBytes(bytes)
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       throw invalidJson()
     }
     return value
   } catch (error: unknown) {
     if (
-      error instanceof Phase7JsonParseError &&
+      error instanceof JsonParseError &&
       error.kind === 'MAX_DEPTH_EXCEEDED'
     ) {
       throw new ApplicationError({
