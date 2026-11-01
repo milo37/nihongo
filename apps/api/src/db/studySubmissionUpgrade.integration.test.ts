@@ -20,7 +20,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { describe, expect, it } from 'vitest'
-import { buildPhase6CanonicalSeeds } from './fixtures/phase6CanonicalSeeds.js'
+import { buildHistoricalCanonicalSeeds } from './fixtures/historicalCanonicalSeeds.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
@@ -472,7 +472,7 @@ const insertPhase6Question = async (
 }
 
 const seedPhase6Catalog = async (client: Client): Promise<void> => {
-  const seeds = buildPhase6CanonicalSeeds()
+  const seeds = buildHistoricalCanonicalSeeds()
   const tags = new Map(
     seeds.flatMap(({ tags: questionTags }) =>
       questionTags.map((tag) => [tag.id, tag] as const)
@@ -1836,7 +1836,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       expect(await readLedger(context)).toHaveLength(25)
 
       await seedPhase6Catalog(context.adminClient)
-      const oldBinarySeed = buildPhase6CanonicalSeeds().find(
+      const oldBinarySeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
           subject === 'VOCABULARY' &&
@@ -2969,7 +2969,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
       ).toMatchObject({ rows: [{ count: 127 }] })
       await registerPhase7CapabilityAndActivate(context)
 
-      const historicalSeed = buildPhase6CanonicalSeeds().find(
+      const historicalSeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
           subject === 'VOCABULARY' &&
