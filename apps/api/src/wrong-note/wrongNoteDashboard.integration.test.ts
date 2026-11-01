@@ -35,12 +35,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -59,7 +59,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -442,7 +442,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? '비인가 Tag rename을 42501로 거부하고 exact historical tag filter와 owner isolation을 유지한다'
       : 'exact historical tag filter는 mutable Tag rename과 owner isolation에 영향받지 않는다',
     async () => {
@@ -471,7 +471,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
         throw new Error('Historical tag fixture is required.')
       }
       const renamedLabel = `renamed-${randomUUID()}`
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
           expectedMessage: 'permission denied for table Tag',
           operation: async () =>
@@ -531,7 +531,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
   )
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'list pagination/sorts와 archive 거부 뒤 historical detail은 lastWrong version을 유지한다'
       : 'list pagination/sorts와 archived historical detail은 lastWrong version을 유지한다',
     async () => {
@@ -611,7 +611,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       })
 
       let expectedReviewAvailability: 'ARCHIVED' | 'AVAILABLE'
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const originalQuestion =
           await database.client.question.findUniqueOrThrow({
             where: { id: target.questionId },
@@ -850,7 +850,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
   })
 
   it('migration trim CHECK가 draft historical snapshot edge space를 거부한다', async () => {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const version =
         await fixtureDatabase.client.questionVersion.findFirstOrThrow({
           orderBy: { id: 'asc' },

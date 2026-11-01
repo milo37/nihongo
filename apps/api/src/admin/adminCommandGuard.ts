@@ -115,7 +115,7 @@ const getOperation = (
   return operation
 }
 
-export const assertPhase7DeclaredBodyBound = (
+export const assertDeclaredBodyBound = (
   context: Context<AdminRouteEnvironment>,
   bodyCap: number
 ): void => {
@@ -127,7 +127,7 @@ export const assertPhase7DeclaredBodyBound = (
   if (BigInt(declared) > BigInt(bodyCap)) throw requestTooLarge()
 }
 
-export const assertPhase7JsonTransport = (
+export const assertJsonTransport = (
   context: Context<AdminRouteEnvironment>
 ): void => {
   const contentEncoding = context.req.header('Content-Encoding')
@@ -143,7 +143,7 @@ export const assertPhase7JsonTransport = (
   }
 }
 
-export const assertPhase7TrustedOrigin = (
+export const assertTrustedOrigin = (
   context: Context<AdminRouteEnvironment>,
   environment: ApiEnvironment
 ): void => {
@@ -170,7 +170,7 @@ export const assertPhase7TrustedOrigin = (
   })
 }
 
-export const getPhase7OperationBodyCap = (operation: Phase7Operation): number =>
+export const getOperationBodySizeLimit = (operation: Phase7Operation): number =>
   bodyCapByOperation[operation] ?? SMALL_BODY_CAP
 
 export const createAdminCommandGuard = ({
@@ -192,7 +192,7 @@ export const createAdminCommandGuard = ({
 
   return createMiddleware<AdminRouteEnvironment>(async (context, next) => {
     const operation = getOperation(context, operationResolver)
-    assertPhase7DeclaredBodyBound(context, getPhase7OperationBodyCap(operation))
+    assertDeclaredBodyBound(context, getOperationBodySizeLimit(operation))
 
     let resolution: Awaited<
       ReturnType<PrincipalService['resolveAuthenticatedUser']>
@@ -218,7 +218,7 @@ export const createAdminCommandGuard = ({
     if (!resolution.user || !resolution.phase7Session) {
       if (resolution.clearSessionCookie) {
         try {
-          assertPhase7TrustedOrigin(context, environment)
+          assertTrustedOrigin(context, environment)
           appendAdminAuthHeaders(context, resolution, environment)
         } catch {
           // Never attach credential-changing headers to an untrusted origin.
@@ -281,8 +281,8 @@ export const createAdminCommandGuard = ({
       })
     }
 
-    assertPhase7JsonTransport(context)
-    assertPhase7TrustedOrigin(context, environment)
+    assertJsonTransport(context)
+    assertTrustedOrigin(context, environment)
     appendAdminAuthHeaders(context, resolution, environment)
 
     let peerAddress: string | undefined

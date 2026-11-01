@@ -63,7 +63,7 @@ const FORWARD_MIGRATIONS = [
   '20260916120000_phase7_reauthentication_foundation'
 ] as const
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]?.trim()
@@ -72,10 +72,10 @@ const requireEnvironmentValue = (name: string): string => {
   }
   return value
 }
-const environment = isPhase10CurrentSource
+const environment = isCurrentSourceIntegration
   ? undefined
   : parseApiEnvironment(process.env)
-const migrationDatabaseUrl = isPhase10CurrentSource
+const migrationDatabaseUrl = isCurrentSourceIntegration
   ? requireEnvironmentValue('PHASE7_MIGRATION_DATABASE_URL')
   : environment!.DATABASE_URL
 assertSafeTestDatabase({
@@ -144,7 +144,7 @@ describe('Prisma migration ledger upgrade', () => {
     try {
       await adminClient.connect()
       isConnected = true
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const database = await adminClient.query<{ databaseName: string }>(
           `SELECT current_database() AS "databaseName"`
         )
@@ -180,7 +180,7 @@ describe('Prisma migration ledger upgrade', () => {
         }
       }
       await adminClient.query(
-        isPhase10CurrentSource
+        isCurrentSourceIntegration
           ? `CREATE SCHEMA ${quotedSchemaName} AUTHORIZATION "nihongo_phase7_migration"`
           : `CREATE SCHEMA ${quotedSchemaName}`
       )
@@ -417,7 +417,7 @@ describe('Prisma migration ledger upgrade', () => {
       ])
 
       await adminClient.query(`SET search_path TO ${quotedSchemaName}`)
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         await adminClient.query(`SET ROLE "nihongo_phase7_owner"`)
       }
       const userId = randomUUID()
@@ -461,7 +461,7 @@ describe('Prisma migration ledger upgrade', () => {
     if (isConnected) {
       try {
         await adminClient.query('ROLLBACK').catch(() => undefined)
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           await adminClient.query(`SET ROLE "nihongo_phase7_migration"`)
           const owner = await adminClient.query<{ ownerName: string }>(
             `SELECT pg_get_userbyid(namespace.nspowner) AS "ownerName"
@@ -479,7 +479,7 @@ describe('Prisma migration ledger upgrade', () => {
       } catch (error: unknown) {
         cleanupErrors.push(error)
       }
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         try {
           await adminClient.query(`SET ROLE "nihongo_phase7_migration"`)
           if (databaseName && originalLegacyDirectConnect !== undefined) {
