@@ -9,8 +9,8 @@ import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-ques
 import {
   createAdminQuestionRequestSchema,
   countUnicodeScalars,
-  isWellFormedPhase7Text,
-  normalizePhase7Text,
+  isWellFormedPhase7Text as isWellFormedContentText,
+  normalizePhase7Text as normalizeContentText,
   updateQuestionVersionRequestSchema,
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
@@ -133,8 +133,8 @@ export const questionFormSchema = z
                 candidate.path.length === 1 &&
                 candidate.path[0] === 'questionText'
             ).length === 1 &&
-            isWellFormedPhase7Text(value.questionText) &&
-            countUnicodeScalars(normalizePhase7Text(value.questionText)) > 2000
+            isWellFormedContentText(value.questionText) &&
+            countUnicodeScalars(normalizeContentText(value.questionText)) > 2000
               ? 'editor.form.validation.questionLength'
               : issue.message
         })

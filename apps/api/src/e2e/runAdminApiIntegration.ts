@@ -239,7 +239,7 @@ export interface Phase7IsolatedDatabaseHarness {
   readonly sharedEnvironment: NodeJS.ProcessEnv
 }
 
-interface PreparePhase7IsolatedDatabaseOptions {
+interface PrepareIsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
   readonly issuerActivationOwner?: 'runner' | 'fixture'
@@ -861,7 +861,7 @@ export const preparePhase7IsolatedDatabase = async ({
   seedRuns = 0,
   issuerActivationOwner = 'runner',
   artifactsPrepared = false
-}: PreparePhase7IsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
+}: PrepareIsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
   if (databasePrepared) {
     throw new Error('Phase 7 isolated database harness is already prepared.')
   }
@@ -1012,11 +1012,10 @@ export const preparePhase7IsolatedDatabase = async ({
 
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
-  const phase7ApiEntries = getApiIntegrationEntriesByOwner('phase7-api')
-  const [repositoryEntry, apiGateEntry, commandRepositoryEntry] =
-    phase7ApiEntries
+  const apiEntries = getApiIntegrationEntriesByOwner('phase7-api')
+  const [repositoryEntry, apiGateEntry, commandRepositoryEntry] = apiEntries
   if (
-    phase7ApiEntries.length !== 3 ||
+    apiEntries.length !== 3 ||
     !apiGateEntry ||
     !repositoryEntry ||
     !commandRepositoryEntry ||
