@@ -43,7 +43,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
-import { createPhase7SsoSessionFixture } from '../db/fixtures/phase7SsoSession.js'
+import { createPhase7SsoSessionFixture } from '../db/fixtures/ssoSession.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import {
   createDatabaseRuntime,

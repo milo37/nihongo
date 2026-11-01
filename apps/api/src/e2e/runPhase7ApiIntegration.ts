@@ -1194,7 +1194,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     import('node:http'),
     import('@hono/node-server'),
     import('../config/env.js'),
-    import('./phase7BrowserFixture.js')
+    import('./browserFixture.js')
   ])
   const controller = new AbortController()
   const shutdownReason = new Error('SSO browser shutdown requested.')

@@ -8,32 +8,29 @@ import { gzipSync } from 'node:zlib'
 import {
   assertPhase10BundleEvidence,
   assertPhase10ForwardingCoverage,
-  createPhase10BundleBudgetError,
+  createBundleBudgetError,
   createPhase10ForwardingProof,
   createPhase10SsrAssetClosureError,
   describePhase10PayloadIdentity,
-  evaluatePhase10BundleBudgets,
+  evaluateBundleBudgets,
   phase10AllowedProductionModulePackages,
   phase10AdminLazySources,
   phase10ApprovedStaticAssetPaths,
-  phase10BundleBaseline,
-  phase10BundleCeilings,
+  bundleBaseline,
+  bundleCeilings,
   phase10DashboardLazySource,
-  phase10ForbiddenMockMarkers,
-  phase10ForbiddenMockSources
+  forbiddenMockMarkers,
+  forbiddenMockSources
 } from './production-bundle-contract.mjs'
 
 test('keeps one explicit ceiling for every bundle measurement', () => {
   assert.deepEqual(
-    Object.keys(phase10BundleBaseline).toSorted(),
-    Object.keys(phase10BundleCeilings).toSorted()
+    Object.keys(bundleBaseline).toSorted(),
+    Object.keys(bundleCeilings).toSorted()
   )
-  for (const metric of Object.keys(phase10BundleBaseline)) {
-    assert.ok(Number.isSafeInteger(phase10BundleBaseline[metric]), metric)
-    assert.ok(
-      phase10BundleCeilings[metric] >= phase10BundleBaseline[metric],
-      metric
-    )
+  for (const metric of Object.keys(bundleBaseline)) {
+    assert.ok(Number.isSafeInteger(bundleBaseline[metric]), metric)
+    assert.ok(bundleCeilings[metric] >= bundleBaseline[metric], metric)
   }
 })
 
@@ -58,12 +55,12 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
     [phase10DashboardLazySource],
     readLazySources('../src/app/dashboard/router.tsx')
   )
-  assert.deepEqual(phase10ForbiddenMockSources, [
+  assert.deepEqual(forbiddenMockSources, [
     'src/mocks/browser.ts',
     'src/mocks/components/MockAuthenticationNotice.tsx',
     'src/mocks/service.ts'
   ])
-  assert.deepEqual(phase10ForbiddenMockMarkers, [
+  assert.deepEqual(forbiddenMockMarkers, [
     'MockAuthenticationNotice',
     'msw/browser',
     'setupWorker'
@@ -87,19 +84,19 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
 })
 
 test('accepts the measured baseline and rejects every exceeded ceiling', () => {
-  const baselineBudgets = evaluatePhase10BundleBudgets(phase10BundleBaseline)
+  const baselineBudgets = evaluateBundleBudgets(bundleBaseline)
   assert.equal(
     Object.values(baselineBudgets).every(({ passed }) => passed),
     true
   )
 
-  for (const metric of Object.keys(phase10BundleCeilings)) {
+  for (const metric of Object.keys(bundleCeilings)) {
     const measurements = {
-      ...phase10BundleBaseline,
-      [metric]: phase10BundleCeilings[metric] + 1
+      ...bundleBaseline,
+      [metric]: bundleCeilings[metric] + 1
     }
     assert.equal(
-      evaluatePhase10BundleBudgets(measurements)[metric].passed,
+      evaluateBundleBudgets(measurements)[metric].passed,
       false,
       metric
     )
@@ -286,8 +283,8 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
 })
 
 test('reports sorted budget metrics and exact lazy asset context without body', () => {
-  const budgets = evaluatePhase10BundleBudgets({
-    ...phase10BundleBaseline,
+  const budgets = evaluateBundleBudgets({
+    ...bundleBaseline,
     largestLazyJavaScriptGzipBytes: 24_058
   })
   const asset = {
@@ -317,7 +314,7 @@ test('reports sorted budget metrics and exact lazy asset context without body', 
       css: []
     }
   ]
-  const error = createPhase10BundleBudgetError(budgets, asset, graph)
+  const error = createBundleBudgetError(budgets, asset, graph)
   assert.equal(
     error.message.startsWith('PHASE10_BUNDLE_BUDGET_EXCEEDED:'),
     true
@@ -350,7 +347,7 @@ test('reports sorted budget metrics and exact lazy asset context without body', 
     ]
   })
   assert.equal(
-    createPhase10BundleBudgetError(
+    createBundleBudgetError(
       Object.fromEntries(Object.entries(budgets).reverse()),
       asset,
       graph.toReversed().map((entry) => ({

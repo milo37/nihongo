@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import {
+  copyFile,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -80,7 +89,7 @@ const createRequestLedgerEntries = (name, pathName) => {
         finishSequence: 2
       }
     ]
-  if (name.startsWith('phase8-dashboard-')) {
+  if (name.startsWith('dashboard-')) {
     return Array.from({ length: 21 }, (_, triggerIndex) => {
       const sequence = triggerIndex * 4
       return [
@@ -201,7 +210,7 @@ const createCurrentPhase8Attachments = (mode, index) => {
   if (mode === 'real' && index === 1)
     return [createRequestLedgerAttachment('phase7-a1-a8-real-request-ledger')]
   return [
-    createRequestLedgerAttachment(`phase8-dashboard-${mode}-request-ledger`),
+    createRequestLedgerAttachment(`dashboard-${mode}-request-ledger`),
     createPerformanceAttachment(mode)
   ]
 }
@@ -211,7 +220,7 @@ const createPerformanceMeasurement = (mode) => {
   const samplesMs = Array.from({ length: 20 }, () => baselineP95Milliseconds)
   const ratioCeilingMilliseconds = mode === 'mock' ? 7_618.128 : 7_000.68
   return {
-    label: `phase8-dashboard-${mode}-performance`,
+    label: `dashboard-${mode}-performance`,
     schemaVersion: 1,
     kind: 'nihongo.phase10.browser-performance',
     surface: 'dashboard-navigation',
@@ -528,15 +537,15 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
     [
+      'dashboard-real-request-ledger',
       'phase7-a1-a8-real-request-ledger',
       'phase7-guest-denial',
-      'phase7-user-denial',
-      'phase8-dashboard-real-request-ledger'
+      'phase7-user-denial'
     ]
   )
   assert.deepEqual(
     value.performanceMeasurements.map(({ label }) => label),
-    ['phase8-dashboard-real-performance']
+    ['dashboard-real-performance']
   )
   const manifest = await verifyArtifactDirectory({
     directory,
@@ -544,6 +553,189 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     requiredLabels: ['phase8-real']
   })
   assert.equal(manifest.files.length, 1)
+
+  const original = await mkdtemp(
+    path.join(tmpdir(), 'dashboard-archive-original-')
+  )
+  const copy = await mkdtemp(path.join(tmpdir(), 'dashboard-archive-copy-'))
+  try {
+    const archived = structuredClone(value)
+    archived.requestLedgers.find(
+      ({ label }) => label === 'dashboard-real-request-ledger'
+    ).label = 'phase8-dashboard-real-request-ledger'
+    archived.performanceMeasurements[0].label =
+      'phase8-dashboard-real-performance'
+    const originalFile = path.join(original, 'phase8-real.json')
+    const copyFilePath = path.join(copy, 'phase8-real.json')
+    await writeCanonicalEvidence({ filePath: originalFile, value: archived })
+    const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
+    const originalHash = sha256(await readFile(originalFile))
+    await copyFile(originalFile, copyFilePath)
+    const verify = (dashboardLabelPolicy = 'current') =>
+      verifyArtifactDirectory({
+        directory: copy,
+        profile: 'playwright',
+        requiredLabels: ['phase8-real'],
+        dashboardLabelPolicy
+      })
+    await assert.rejects(() => verify(), /SECURITY_EVIDENCE_/u)
+    await assert.doesNotReject(() => verify('legacy'))
+    const cliArgs = [
+      path.join(import.meta.dirname, 'security-evidence.mjs'),
+      'verify',
+      '--directory',
+      copy,
+      '--profile',
+      'playwright',
+      '--required',
+      'phase8-real'
+    ]
+    assert.throws(() =>
+      execFileSync(process.execPath, cliArgs, { stdio: 'pipe' })
+    )
+    assert.doesNotThrow(() =>
+      execFileSync(
+        process.execPath,
+        [...cliArgs, '--dashboard-label-policy', 'legacy'],
+        { stdio: 'pipe' }
+      )
+    )
+    assert.equal(sha256(await readFile(originalFile)), originalHash)
+    await assert.rejects(
+      () => verify('unknown'),
+      /SECURITY_EVIDENCE_ARGUMENTS_INVALID/u
+    )
+    for (const [name, mutate] of [
+      [
+        'mixed labels',
+        (v) => {
+          v.performanceMeasurements[0].label = 'dashboard-real-performance'
+        }
+      ],
+      [
+        'duplicate ledger',
+        (v) => {
+          v.requestLedgers.push(
+            structuredClone(
+              v.requestLedgers.find(
+                ({ label }) => label === 'phase8-dashboard-real-request-ledger'
+              )
+            )
+          )
+        }
+      ],
+      [
+        'missing performance',
+        (v) => {
+          v.performanceMeasurements = []
+        }
+      ],
+      [
+        'mode mismatch',
+        (v) => {
+          v.performanceMeasurements[0].mode = 'mock'
+        }
+      ],
+      [
+        'missing request',
+        (v) => {
+          v.requestLedgers
+            .find(
+              ({ label }) => label === 'phase8-dashboard-real-request-ledger'
+            )
+            .entries.pop()
+        }
+      ],
+      [
+        'missing sample',
+        (v) => {
+          v.performanceMeasurements[0].samplesMs.pop()
+        }
+      ],
+      [
+        'forged budget',
+        (v) => {
+          v.performanceMeasurements[0].budget.passed = false
+        }
+      ]
+    ]) {
+      const candidate = structuredClone(archived)
+      mutate(candidate)
+      await writeCanonicalEvidence({ filePath: copyFilePath, value: candidate })
+      await assert.rejects(() => verify('legacy'), /SECURITY_EVIDENCE_/u, name)
+    }
+    for (const mutate of [
+      (v) => {
+        v.performanceMeasurements[0].label = 'phase8-dashboard-real-performance'
+      },
+      (v) => {
+        v.requestLedgers.push(
+          structuredClone(
+            v.requestLedgers.find(
+              ({ label }) => label === 'dashboard-real-request-ledger'
+            )
+          )
+        )
+      },
+      (v) => {
+        v.performanceMeasurements = []
+      },
+      (v) => {
+        v.performanceMeasurements[0].mode = 'mock'
+      }
+    ]) {
+      const candidate = structuredClone(value)
+      mutate(candidate)
+      await writeCanonicalEvidence({ filePath: copyFilePath, value: candidate })
+      await assert.rejects(() => verify(), /SECURITY_EVIDENCE_/u)
+    }
+    await writeCanonicalEvidence({ filePath: copyFilePath, value })
+    await assert.rejects(() => verify('legacy'), /SECURITY_EVIDENCE_/u)
+    assert.equal(sha256(await readFile(originalFile)), originalHash)
+  } finally {
+    await rm(original, { recursive: true, force: true })
+    await rm(copy, { recursive: true, force: true })
+  }
+})
+
+test('fresh reporter rejects legacy dashboard attachments even when current evidence exists', async () => {
+  const directory = await mkdtemp(
+    path.join(tmpdir(), 'dashboard-reporter-legacy-')
+  )
+  try {
+    for (const currentIncluded of [false, true]) {
+      const reporter = new Phase10PlaywrightSummaryReporter({
+        outputDirectory: directory,
+        label: 'phase8-real'
+      })
+      reporter.onBegin()
+      reporter.onTestEnd(
+        {
+          location: { file: '/private/spec.ts', line: 1 },
+          titlePath: () => ['dashboard']
+        },
+        {
+          status: 'passed',
+          duration: 1,
+          retry: 0,
+          attachments: [
+            ...(currentIncluded
+              ? [createRequestLedgerAttachment('dashboard-real-request-ledger')]
+              : []),
+            createRequestLedgerAttachment(
+              'phase8-dashboard-real-request-ledger'
+            )
+          ]
+        }
+      )
+      await assert.rejects(
+        () => reporter.onEnd({ status: 'passed' }),
+        /SECURITY_EVIDENCE_LEGACY_ATTACHMENT_FORBIDDEN/u
+      )
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })
 
 test('current A1-A8 evidence rejects forged commands, denials, provenance and races', () => {
@@ -788,7 +980,7 @@ test('current Phase 8 summaries reject missing, duplicate, forged and obsolete e
 
 test('Phase 8 dashboard ledgers require ordered sequential user journeys', () => {
   for (const mode of ['real', 'mock']) {
-    const label = `phase8-dashboard-${mode}-request-ledger`
+    const label = `dashboard-${mode}-request-ledger`
     const valid = {
       label,
       entries: createRequestLedgerEntries(label, '/api/v1/dashboard')
@@ -896,7 +1088,7 @@ test('browser performance and request ledger evidence fail closed on forgery', (
   assert.throws(() =>
     assertPlaywrightRequestLedger(
       {
-        label: 'phase8-dashboard-real-request-ledger',
+        label: 'dashboard-real-request-ledger',
         entries: [
           {
             finishSequence: 2,
@@ -913,9 +1105,9 @@ test('browser performance and request ledger evidence fail closed on forgery', (
   )
 
   const dashboardLedger = {
-    label: 'phase8-dashboard-real-request-ledger',
+    label: 'dashboard-real-request-ledger',
     entries: createRequestLedgerEntries(
-      'phase8-dashboard-real-request-ledger',
+      'dashboard-real-request-ledger',
       '/api/v1/dashboard'
     )
   }
