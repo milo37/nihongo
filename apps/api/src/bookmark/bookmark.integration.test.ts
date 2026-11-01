@@ -20,12 +20,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -44,7 +44,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -71,7 +71,7 @@ const createApplicationClient = (): Client =>
     connectionString: environment.DATABASE_URL,
     options: createPostgresStartupOptions(
       getPostgresSchema(environment.DATABASE_URL),
-      isPhase10CurrentSource ? 'nihongo_app' : undefined
+      isCurrentSourceIntegration ? 'nihongo_app' : undefined
     )
   })
 
@@ -320,7 +320,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? '기존 Bookmark snapshot을 보존하고 비인가 archive를 원자 거부한다'
       : '기존 Bookmark의 public snapshot은 archive 뒤에도 보존하고 신규 추가는 막는다',
     async () => {
@@ -340,7 +340,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
       )
       const initial = await bookmarkService.create(ownerId, question.id)
 
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const currentQuestion =
           await database.client.question.findUniqueOrThrow({
             where: { id: question.id },
@@ -575,7 +575,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'BOOKMARK selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
       : 'BOOKMARK selection과 archive를 직렬화하고 이미 선택한 version pin을 보존한다',
     async () => {
@@ -660,7 +660,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
            "archivedAt",
            "currentPublishedVersionId",
            "lifecycleStatus",
-           ${isPhase10CurrentSource ? '"rowVersion",' : ''}
+           ${isCurrentSourceIntegration ? '"rowVersion",' : ''}
            "updatedAt"
          FROM "Question"
          WHERE "id" = $1`,
@@ -683,7 +683,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         let archiveSettled = false
         archiveUpdate = archiveClient
           .query(
-            isPhase10CurrentSource
+            isCurrentSourceIntegration
               ? `UPDATE "Question"
                SET
                  "lifecycleStatus" = 'ARCHIVED',
@@ -708,7 +708,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
             archiveSettled = true
           })
 
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           releaseSelection()
         } else {
           await waitForPostgresLockWait(observerClient, processId)
@@ -725,7 +725,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
           questionVersionId: question.questionVersionId
         })
 
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           expect(archiveError).toMatchObject({
             code: '42501',
             message: 'An armed trusted Phase 7 operation intent is required.'

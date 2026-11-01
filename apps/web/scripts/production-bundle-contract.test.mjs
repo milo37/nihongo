@@ -19,8 +19,8 @@ import {
   bundleBaseline,
   bundleCeilings,
   phase10DashboardLazySource,
-  phase10ForbiddenMockMarkers,
-  phase10ForbiddenMockSources
+  forbiddenMockMarkers,
+  forbiddenMockSources
 } from './production-bundle-contract.mjs'
 
 test('keeps one explicit ceiling for every bundle measurement', () => {
@@ -55,12 +55,12 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
     [phase10DashboardLazySource],
     readLazySources('../src/app/dashboard/router.tsx')
   )
-  assert.deepEqual(phase10ForbiddenMockSources, [
+  assert.deepEqual(forbiddenMockSources, [
     'src/mocks/browser.ts',
     'src/mocks/components/MockAuthenticationNotice.tsx',
     'src/mocks/service.ts'
   ])
-  assert.deepEqual(phase10ForbiddenMockMarkers, [
+  assert.deepEqual(forbiddenMockMarkers, [
     'MockAuthenticationNotice',
     'msw/browser',
     'setupWorker'

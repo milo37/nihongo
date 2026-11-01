@@ -72,7 +72,7 @@ import type {
   AdminQuestionPublicationCommandService,
   AdminQuestionSlice5CommandService
 } from '../admin/adminQuestionCommandService.js'
-import { getPhase7OperationBodyCap } from '../admin/adminCommandGuard.js'
+import { getOperationBodySizeLimit } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
@@ -112,7 +112,7 @@ const parseBody = async <Schema extends ZodType>(
 ): Promise<z.output<Schema>> => {
   const raw = await readStrictJsonBody(
     request,
-    getPhase7OperationBodyCap(operation)
+    getOperationBodySizeLimit(operation)
   )
   const parsed = schema.safeParse(raw)
   if (parsed.success) return parsed.data

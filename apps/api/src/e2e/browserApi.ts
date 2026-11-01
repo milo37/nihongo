@@ -24,7 +24,7 @@ import {
   createPostgresStartupOptions,
   getPostgresSchema
 } from '../db/databaseOptions.js'
-import { createPhase7SsoIdentityFixture } from '../db/fixtures/phase7SsoSession.js'
+import { createPhase7SsoIdentityFixture } from '../db/fixtures/ssoSession.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
