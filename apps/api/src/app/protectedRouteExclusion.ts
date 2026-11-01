@@ -1,4 +1,4 @@
-import type { Phase7Operation } from '@nihongo/contracts/admin/content-operations'
+import type { ContentOperation } from '@nihongo/contracts/admin/content-operations'
 
 const PROTECTED_API_PREFIXES = [
   '/api/v1/admin',
@@ -355,7 +355,7 @@ export const getCanonicalPhase7Slice2ReadOperation = ({
 }: {
   method: string
   requestTarget: string
-}): Phase7Operation | null => {
+}): ContentOperation | null => {
   if (hasRequestTargetFragment(requestTarget) || method !== 'GET') {
     return null
   }
@@ -375,7 +375,7 @@ export const getCanonicalPhase7Slice3Operation = ({
 }: {
   method: string
   requestTarget: string
-}): Phase7Operation | null => {
+}): ContentOperation | null => {
   if (hasRequestTargetFragment(requestTarget)) return null
   const pathname = getPathnameFromRequestTarget(requestTarget)
   if (pathname === null) return null
@@ -393,7 +393,7 @@ export const getCanonicalPhase7AdminReadOperation = ({
 }: {
   method: string
   requestTarget: string
-}): Phase7Operation | null => {
+}): ContentOperation | null => {
   if (hasRequestTargetFragment(requestTarget) || method !== 'GET') return null
   const pathname = getPathnameFromRequestTarget(requestTarget)
   if (pathname === null) return null
@@ -409,7 +409,7 @@ export const getCanonicalPhase7LearnerReportOperation = ({
 }: {
   method: string
   requestTarget: string
-}): Phase7Operation | null => {
+}): ContentOperation | null => {
   if (hasRequestTargetFragment(requestTarget)) return null
   const pathname = getPathnameFromRequestTarget(requestTarget)
   if (pathname === null) return null
@@ -487,7 +487,7 @@ export const isCanonicalPhase7LearnerReportRequest = (input: {
 export const getCanonicalPhase7ActiveOperation = (input: {
   method: string
   requestTarget: string
-}): Phase7Operation | null =>
+}): ContentOperation | null =>
   getCanonicalPhase7AdminReadOperation(input) ??
   getCanonicalPhase7Slice3Operation(input) ??
   getCanonicalPhase7LearnerReportOperation(input)

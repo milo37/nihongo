@@ -63,7 +63,7 @@ import {
   withdrawQuestionApprovalParamsSchema,
   withdrawQuestionApprovalRequestSchema,
   withdrawQuestionApprovalResponseSchema,
-  type Phase7Operation
+  type ContentOperation
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError, type ZodType } from 'zod'
@@ -106,7 +106,7 @@ const parsePath = <Output>(parse: () => Output, message: string): Output => {
 
 const parseBody = async <Schema extends ZodType>(
   request: Request,
-  operation: Phase7Operation,
+  operation: ContentOperation,
   schema: Schema,
   message: string
 ): Promise<z.output<Schema>> => {
