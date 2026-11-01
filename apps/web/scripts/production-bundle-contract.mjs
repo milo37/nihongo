@@ -40,7 +40,7 @@ export const bundleCeilings = Object.freeze({
   totalRawBytes: 1_476_000
 })
 
-export const phase10ApprovedStaticAssetPaths = Object.freeze([
+export const approvedStaticAssetPaths = Object.freeze([
   'auth/apple-mark.svg',
   'auth/google-mark.svg',
   'brand/harumaru-lockup-160.png',
@@ -55,7 +55,7 @@ export const phase10ApprovedStaticAssetPaths = Object.freeze([
   'icons/icon-512.png'
 ])
 
-export const phase10AllowedProductionModulePackages = Object.freeze([
+export const allowedProductionModulePackages = Object.freeze([
   '@hookform/resolvers',
   '@tanstack/query-core',
   '@tanstack/react-query',
@@ -72,13 +72,13 @@ export const phase10AllowedProductionModulePackages = Object.freeze([
   'zustand'
 ])
 
-export const phase10AdminLazySources = Object.freeze([
+export const adminLazySources = Object.freeze([
   'src/app/admin-question/create/page.tsx',
   'src/app/admin-question/edit/page.tsx',
   'src/app/admin-question/page.tsx'
 ])
 
-export const phase10DashboardLazySource = 'src/app/dashboard/page.tsx'
+export const dashboardLazySource = 'src/app/dashboard/page.tsx'
 
 export const forbiddenMockSources = Object.freeze([
   'src/mocks/browser.ts',
@@ -106,7 +106,7 @@ const FORBIDDEN_MODULE_PATTERNS = [
   /(?:^|\/)node_modules\/(?:@playwright\/test|playwright(?:-core)?)\//u
 ]
 const ALLOWED_PRODUCTION_MODULE_PACKAGES = new Set(
-  phase10AllowedProductionModulePackages
+  allowedProductionModulePackages
 )
 const execFileAsync = promisify(execFile)
 
@@ -120,15 +120,15 @@ const exactKeys = (value, expected) =>
 // Keep every emitted byte in the inventory; only these approved assets have a separate total.
 const summarizePayloadAccounting = (rows) => {
   const staticRows = rows.filter(({ path: file }) =>
-    phase10ApprovedStaticAssetPaths.includes(file)
+    approvedStaticAssetPaths.includes(file)
   )
-  if (staticRows.length !== phase10ApprovedStaticAssetPaths.length) {
+  if (staticRows.length !== approvedStaticAssetPaths.length) {
     throw new Error('PHASE10_BUNDLE_APPROVED_STATIC_ASSET_MISSING')
   }
   return {
     totalMeasurementScope: 'payload-excluding-exact-approved-static-assets',
     approvedStaticAssets: {
-      paths: phase10ApprovedStaticAssetPaths,
+      paths: approvedStaticAssetPaths,
       gzipBytes: sum(staticRows.map(({ gzip }) => gzip)),
       rawBytes: sum(staticRows.map(({ raw }) => raw))
     },
@@ -901,13 +901,13 @@ const collectArtifactEvidence = async ({
     .digest('hex')
   const admin =
     artifact === 'admin'
-      ? phase10AdminLazySources.map((source) =>
+      ? adminLazySources.map((source) =>
           assertExpectedLazyBoundary(evidenceBySource, source)
         )
       : []
   const dashboard =
     artifact === 'web'
-      ? assertExpectedLazyBoundary(evidenceBySource, phase10DashboardLazySource)
+      ? assertExpectedLazyBoundary(evidenceBySource, dashboardLazySource)
       : null
   const evidence = {
     boundaries: { admin, dashboard },
@@ -1032,7 +1032,7 @@ const assertArtifactEvidence = (value, artifact) => {
     !exactKeys(value.boundaries, ['admin', 'dashboard']) ||
     !Array.isArray(value.boundaries.admin) ||
     value.boundaries.admin.length !==
-      (artifact === 'admin' ? phase10AdminLazySources.length : 0) ||
+      (artifact === 'admin' ? adminLazySources.length : 0) ||
     (artifact === 'web'
       ? !value.boundaries.dashboard ||
         typeof value.boundaries.dashboard !== 'object'
@@ -1262,7 +1262,7 @@ const assertArtifactEvidence = (value, artifact) => {
       'rawBytes'
     ]) ||
     JSON.stringify(accounting.approvedStaticAssets.paths) !==
-      JSON.stringify(phase10ApprovedStaticAssetPaths) ||
+      JSON.stringify(approvedStaticAssetPaths) ||
     !exactKeys(accounting.emittedPayload, ['gzipBytes', 'rawBytes']) ||
     ['gzipBytes', 'rawBytes'].some(
       (key) =>
@@ -1386,15 +1386,15 @@ const assertArtifactEvidence = (value, artifact) => {
   }
   if (
     JSON.stringify(value.boundaries.admin.map(({ source }) => source)) !==
-    JSON.stringify(artifact === 'admin' ? phase10AdminLazySources : [])
+    JSON.stringify(artifact === 'admin' ? adminLazySources : [])
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_BOUNDARY_INVALID')
   }
   value.boundaries.admin.forEach((boundary, index) =>
-    assertBoundary(boundary, phase10AdminLazySources[index])
+    assertBoundary(boundary, adminLazySources[index])
   )
   if (artifact === 'web')
-    assertBoundary(value.boundaries.dashboard, phase10DashboardLazySource)
+    assertBoundary(value.boundaries.dashboard, dashboardLazySource)
 }
 
 export const phase10SplitBundleCommand =
@@ -1417,7 +1417,7 @@ const combineArtifactEvidence = (artifacts) => {
     )
   const web = artifacts.web.evidence
   const admin = artifacts.admin.evidence
-  for (const file of phase10ApprovedStaticAssetPaths) {
+  for (const file of approvedStaticAssetPaths) {
     const first = web.inventory.rows.find((row) => row.path === file)
     const second = admin.inventory.rows.find((row) => row.path === file)
     if (!first || !second || !isDeepStrictEqual(first, second))
