@@ -71,6 +71,13 @@ const isMetadataOnlyEdit = (event) => {
   )
 }
 
+// Changes to the Playwright runtime or its evidence reporter need real browser proof on dev PRs too.
+const browserRuntimePaths = new Set([
+  'playwright.config.ts',
+  'scripts/security/browser-evidence-reporter.mjs',
+  'scripts/security/phase10-playwright-summary-reporter.mjs'
+])
+
 const markCore = (selection) => {
   selection.code = true
   selection.web = true
@@ -218,7 +225,9 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
       return fullSelection('candidate', 'main integration candidate', true)
     }
     const selection = classifyChangedFiles(changedFiles)
-    selection.browser = false
+    selection.browser = selection.files.some((file) =>
+      browserRuntimePaths.has(file)
+    )
     return selection
   }
   if (
