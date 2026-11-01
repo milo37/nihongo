@@ -1,7 +1,7 @@
 import {
   adminQuestionContentInputSchema,
   validateQuestionImportRequestSchema
-} from '@nihongo/contracts/admin/content-operations'
+} from '@nihongo/contracts/admin/phase7'
 
 // JLP-219 internal review; this batch is separate from the immutable 65-question bootstrap.
 export const approvedReadingBatch4 = {
