@@ -11,7 +11,7 @@ const createDashboardInsightsFailure = () =>
       return HttpResponse.json(
         {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'Phase 9 browser fault injection',
+          message: 'Dashboard insights browser fault injection',
           requestId,
           retryable: true
         },
@@ -37,7 +37,7 @@ export const armAccessibilityDashboardInsightsFailure = (): void => {
 
 export const selectAccessibilityMockActor = (role: 'ADMIN' | 'USER') => {
   if (__NIHONGO_API_MODE__ !== 'mock' || import.meta.env.MODE !== 'test') {
-    throw new Error('Phase 9 actor selection requires Mock test mode.')
+    throw new Error('Accessibility actor selection requires Mock test mode.')
   }
   const id = role === 'ADMIN' ? DEMO_ADMIN_ID : DEMO_USER_ID
   setMockSsoAccountForTesting('google', id)

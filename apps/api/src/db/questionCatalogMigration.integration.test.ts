@@ -23,9 +23,9 @@ const readMigration = (name: (typeof MIGRATION_NAMES)[number]): string =>
     'utf8'
   )
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const databaseUrl = isPhase10CurrentSource
+const databaseUrl = isCurrentSourceIntegration
   ? process.env.PHASE10_FIXTURE_DATABASE_URL
   : parseApiEnvironment(process.env).DATABASE_URL
 if (!databaseUrl) {

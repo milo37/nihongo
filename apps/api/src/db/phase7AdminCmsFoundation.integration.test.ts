@@ -19,7 +19,7 @@ import {
 } from './phase7FoundationDiagnostics.js'
 import { attestPhase7RuntimeRoles } from './runtimeRoleAttestation.js'
 
-const PHASE7_MIGRATIONS = [
+const EXPECTED_RECENT_MIGRATIONS = [
   '20261019103000_sso_admin_fresh',
   '20261019110000_sso_admin_fresh_erasure_ownership',
   '20261019113000_sso_admin_fresh_column_qualification',
@@ -46,13 +46,13 @@ const EXPECTED_CHANGED_FIELDS = [
   'CORRECT_OPTION',
   'TAGS'
 ] as const
-const PHASE7_EXECUTION_ROLES = [
+const ALLOWED_EXECUTION_ROLES = [
   'nihongo_app',
   'nihongo_auth_gateway',
   'nihongo_erasure_worker',
   'nihongo_phase7_migration'
 ] as const
-type Phase7ExecutionRole = (typeof PHASE7_EXECUTION_ROLES)[number]
+type ExecutionRole = (typeof ALLOWED_EXECUTION_ROLES)[number]
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -150,11 +150,11 @@ const observeInitialization = <Result>(
   })
 
 const withExecutionRole = async <Result>(
-  role: Phase7ExecutionRole,
+  role: ExecutionRole,
   action: () => Promise<Result>,
   diagnoseInitialization = false
 ): Promise<Result> => {
-  if (!PHASE7_EXECUTION_ROLES.includes(role)) {
+  if (!ALLOWED_EXECUTION_ROLES.includes(role)) {
     throw new Error(`Unexpected Phase 7 execution role: ${role}`)
   }
   const observe = <Value>(
@@ -452,7 +452,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     expect(ledger.rows).toHaveLength(53)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
-    ).toEqual(PHASE7_MIGRATIONS)
+    ).toEqual(EXPECTED_RECENT_MIGRATIONS)
     expect(
       (
         await client.query<{
