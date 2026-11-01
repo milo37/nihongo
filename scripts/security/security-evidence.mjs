@@ -26,7 +26,7 @@ const SAFE_LEDGER_PROVENANCE = new Set([
   'injected-test-fault',
   'network-failure'
 ])
-const PHASE10_IDEMPOTENT_REQUESTS = new Set([
+const JOURNEY_IDEMPOTENT_REQUESTS = new Set([
   'POST /api/v1/study-sessions/:id/submission',
   'POST /api/v1/wrong-notes/:id/review-session',
   'PUT /api/v1/study-sessions/:id/draft-answers'
@@ -51,7 +51,7 @@ const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'phase10-mock': 5,
   'phase10-real': 5
 }
-const PHASE8_ADMIN_LEDGER_CONTRACT = [
+const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
   ['POST', '/api/v1/admin/questions/import-application', 201],
   ['POST', '/api/v1/admin/questions/export', 200],
@@ -550,12 +550,12 @@ export const assertPlaywrightRequestLedger = (
     }
   }
   if (ledger.label === `phase8-admin-lifecycle-${mode}-request-ledger`) {
-    if (ledger.entries.length !== PHASE8_ADMIN_LEDGER_CONTRACT.length) {
+    if (ledger.entries.length !== ADMIN_LIFECYCLE_LEDGER_CONTRACT.length) {
       throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
     }
     for (const [index, entry] of ledger.entries.entries()) {
       const [expectedMethod, expectedPath, expectedStatus] =
-        PHASE8_ADMIN_LEDGER_CONTRACT[index]
+        ADMIN_LIFECYCLE_LEDGER_CONTRACT[index]
       if (entry.method !== expectedMethod || entry.path !== expectedPath) {
         throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_COMMAND_INVALID')
       }
@@ -612,7 +612,7 @@ export const assertPlaywrightRequestLedger = (
   }
   if (ledger.label === `phase10-user-journey-${mode}-request-ledger`) {
     const idempotentEntries = ledger.entries.filter(({ method, path }) =>
-      PHASE10_IDEMPOTENT_REQUESTS.has(`${method} ${path}`)
+      JOURNEY_IDEMPOTENT_REQUESTS.has(`${method} ${path}`)
     )
     const expectedCounts = new Map([
       ['POST /api/v1/study-sessions/:id/submission', 2],

@@ -31,9 +31,9 @@ import {
 } from './ownedProcessGroup.js'
 import { getApiIntegrationPathsByOwner } from './apiIntegrationManifest.js'
 import {
-  createPhase7DbFileEnvironment,
+  createDbFileEnvironment,
   runApiIntegrationManifestVitestFile,
-  selectPhase7DbIntegrationFiles
+  selectDbIntegrationFiles
 } from './apiIntegrationExecution.js'
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
@@ -1398,7 +1398,7 @@ const reportMigrationFailure = (
 }
 
 const run = async (): Promise<void> => {
-  const selectedTestFiles = selectPhase7DbIntegrationFiles(
+  const selectedTestFiles = selectDbIntegrationFiles(
     getApiIntegrationPathsByOwner('phase7-db'),
     process.env
   )
@@ -1813,7 +1813,7 @@ const run = async (): Promise<void> => {
   )
 
   for (const testFile of selectedTestFiles) {
-    const fileEnvironment = createPhase7DbFileEnvironment(
+    const fileEnvironment = createDbFileEnvironment(
       testFile,
       integrationEnvironment
     )

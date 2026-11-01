@@ -64,7 +64,7 @@ const ssoCases = {
   }
 } as const
 
-type Phase7SsoCase = keyof typeof ssoCases
+type SsoCase = keyof typeof ssoCases
 
 // Public deterministic fixtures for this TEST runner, never provider credentials.
 const ssoTestProfile = {
@@ -280,8 +280,8 @@ export const sanitizePhase7VitestReport = (
       : undefined
   let selectedCase:
     | {
-        id: (typeof ssoCases)[Phase7SsoCase]['id']
-        sourceOrdinal: (typeof ssoCases)[Phase7SsoCase]['sourceOrdinal']
+        id: (typeof ssoCases)[SsoCase]['id']
+        sourceOrdinal: (typeof ssoCases)[SsoCase]['sourceOrdinal']
         matched: 1
         status: 'passed' | 'failed'
         failure?: {
@@ -584,7 +584,7 @@ export const assertApiIntegrationVitestFileResult = ({
 }: {
   readonly result: VitestJsonResult
   readonly expectedPath: string
-  readonly selectedSsoCase?: Phase7SsoCase
+  readonly selectedSsoCase?: SsoCase
 }): void => {
   if (selectedSsoCase !== undefined) {
     const report = sanitizePhase7VitestReport(result, expectedPath, {
@@ -789,4 +789,18 @@ export const runApiIntegrationManifestVitestFile = async ({
       await rm(outputFile, { force: true })
     }
   }
+}
+
+export {
+  createPhase7SsoTestEnvironment as createSsoTestEnvironment,
+  createPhase7DbFileEnvironment as createDbFileEnvironment,
+  selectPhase7DbIntegrationFiles as selectDbIntegrationFiles,
+  sanitizePhase7VitestReport as sanitizeVitestReport,
+  phase7DbFoundationTestFile as dbFoundationTestFile,
+  phase7SsoTestFile as ssoTestFile,
+  phase7SsoAccountLifecycleTestFile as ssoAccountLifecycleTestFile,
+  phase7SsoOrdinal6Title as ssoOrdinal6Title,
+  phase7SsoOrdinal6Pattern as ssoOrdinal6Pattern,
+  phase7SsoIdentityTitle as ssoIdentityTitle,
+  phase7SsoIdentityPattern as ssoIdentityPattern
 }

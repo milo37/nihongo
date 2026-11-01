@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPhase7SsoTestEnvironment } from '../e2e/apiIntegrationExecution.js'
+import { createSsoTestEnvironment } from '../e2e/apiIntegrationExecution.js'
 import { createSsoDbHarness } from './ssoTestFixture.js'
 
 const db = vi.hoisted(() => ({
@@ -55,7 +55,7 @@ const connected = async (assertions: () => Promise<void>) => {
 beforeEach(() => {
   vi.resetAllMocks()
   db.options.length = 0
-  const environment = createPhase7SsoTestEnvironment({
+  const environment = createSsoTestEnvironment({
     DATABASE_URL: url('nihongo_test_app_login'),
     AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login'),
     PHASE7_ADMIN_DATABASE_URL: url('fixture_owner')
