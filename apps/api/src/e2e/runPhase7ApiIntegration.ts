@@ -25,7 +25,7 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { getPhase10ApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
 import {
   assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
@@ -1012,7 +1012,7 @@ export const preparePhase7IsolatedDatabase = async ({
 
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
-  const phase7ApiEntries = getPhase10ApiIntegrationEntriesByOwner('phase7-api')
+  const phase7ApiEntries = getApiIntegrationEntriesByOwner('phase7-api')
   const [repositoryEntry, apiGateEntry, commandRepositoryEntry] =
     phase7ApiEntries
   if (

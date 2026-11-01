@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { phase10ApiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
+import { apiIntegrationManifest } from './phase10ApiIntegrationManifest.js'
 
 export const assertSsoBootstrapMigrationHistory = (
   expected: readonly { name: string; checksum: string }[],
@@ -563,7 +563,7 @@ export const assertPhase10RequiredEnvironment = ({
   readonly environment: NodeJS.ProcessEnv
   readonly testFile: string
 }): void => {
-  const entry = phase10ApiIntegrationManifest.find(
+  const entry = apiIntegrationManifest.find(
     ({ path: manifestPath }) => manifestPath === testFile
   )
   if (!entry) {

@@ -1,8 +1,8 @@
-export type Phase10IntegrationOwner = 'phase7-api' | 'phase7-db' | 'phase10'
+export type ApiIntegrationOwner = 'phase7-api' | 'phase7-db' | 'phase10'
 
-export interface Phase10ApiIntegrationManifestEntry {
+export interface ApiIntegrationManifestEntry {
   readonly path: `src/${string}.integration.test.ts`
-  readonly executionOwner: Phase10IntegrationOwner
+  readonly executionOwner: ApiIntegrationOwner
   readonly shard: string
   readonly order: number
   readonly databaseState: string
@@ -12,7 +12,7 @@ export interface Phase10ApiIntegrationManifestEntry {
   readonly isolation: string
 }
 
-export const phase10ApiIntegrationManifest = [
+export const apiIntegrationManifest = [
   {
     path: 'src/study/studyGuestCleanupWorker.integration.test.ts',
     executionOwner: 'phase10',
@@ -414,18 +414,18 @@ export const phase10ApiIntegrationManifest = [
     seedPolicy: 'none',
     isolation: 'last; suite-owned ledger replay schema'
   }
-] satisfies readonly Phase10ApiIntegrationManifestEntry[]
+] satisfies readonly ApiIntegrationManifestEntry[]
 
-export const getPhase10ApiIntegrationEntriesByOwner = (
-  executionOwner: Phase10IntegrationOwner
-): readonly Phase10ApiIntegrationManifestEntry[] =>
-  phase10ApiIntegrationManifest
+export const getApiIntegrationEntriesByOwner = (
+  executionOwner: ApiIntegrationOwner
+): readonly ApiIntegrationManifestEntry[] =>
+  apiIntegrationManifest
     .filter((entry) => entry.executionOwner === executionOwner)
     .toSorted((left, right) => left.order - right.order)
 
-export const getPhase10ApiIntegrationPathsByOwner = (
-  executionOwner: Phase10IntegrationOwner
+export const getApiIntegrationPathsByOwner = (
+  executionOwner: ApiIntegrationOwner
 ): readonly `src/${string}.integration.test.ts`[] =>
-  getPhase10ApiIntegrationEntriesByOwner(executionOwner).map(
+  getApiIntegrationEntriesByOwner(executionOwner).map(
     ({ path: testPath }) => testPath
   )
