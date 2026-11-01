@@ -412,12 +412,11 @@ const handleCreateQuestionReport = async (
       createQuestionReportRequestSchema,
       '문제 신고 요청이 올바르지 않습니다.'
     )
-    const entitledQuestionId =
-      mockDatabase.resolvePhase7QuestionReportEntitlement(
-        reporter.actorId,
-        body.questionVersionId,
-        'NO_TX'
-      )
+    const entitledQuestionId = mockDatabase.resolveQuestionReportEntitlement(
+      reporter.actorId,
+      body.questionVersionId,
+      'NO_TX'
+    )
     if (!entitledQuestionId) {
       throw new MockContentCommandError({
         code: 'RESOURCE_NOT_FOUND',
@@ -429,10 +428,10 @@ const handleCreateQuestionReport = async (
       actorId: reporter.actorId,
       actorRole: reporter.role,
       assertAuthority: () => {
-        mockDatabase.assertPhase7QuestionReportAuthority(reporter.actorId)
+        mockDatabase.assertQuestionReportAuthority(reporter.actorId)
       },
       resolveEntitledQuestionId: (disposition) =>
-        mockDatabase.resolvePhase7QuestionReportEntitlement(
+        mockDatabase.resolveQuestionReportEntitlement(
           reporter.actorId,
           body.questionVersionId,
           disposition

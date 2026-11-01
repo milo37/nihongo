@@ -988,7 +988,7 @@ export class MockDatabase {
   private readonly mockMutationLease: MockMutationLease
   private readonly randomSeed: ShuffleSeed
   private readonly storage: MockStorage
-  private authoritativePhase7GraphValidation:
+  private authoritativeContentGraphValidation:
     | { serialized: string; valid: boolean }
     | undefined
   private deferredExternalStorageChange = false
@@ -1051,7 +1051,10 @@ export class MockDatabase {
 
     this.resetMemoryToSeed()
     this.hydrateFromStorage(this.storage.getItem(MOCK_DATABASE_STORAGE_KEY))
-    this.hydratePhase7State(this.storage.getItem(ADMIN_CMS_STORAGE_KEY), false)
+    this.hydrateMockContentState(
+      this.storage.getItem(ADMIN_CMS_STORAGE_KEY),
+      false
+    )
 
     if (options.listenToStorage !== false) {
       this.listenForExternalStorageChanges()
@@ -1063,7 +1066,7 @@ export class MockDatabase {
     const persisted = authoritative?.state ?? null
     if (
       authoritative?.state.version === 8 &&
-      !this.hasValidEmbeddedPhase7Graph(
+      !this.hasValidEmbeddedContentGraph(
         authoritative.serialized,
         authoritative.state.phase7AdminCms
       )
@@ -3450,11 +3453,11 @@ export class MockDatabase {
     )
   }
 
-  listPhase7AuthoritativeAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
-    return this.listPhase7AuthoritativeTaxonomySources()
+  listAuthoritativeAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
+    return this.listAuthoritativeTaxonomySources()
   }
 
-  private listPhase7AuthoritativeTaxonomySources(): MockCanonicalAdminQuestionSource[] {
+  private listAuthoritativeTaxonomySources(): MockCanonicalAdminQuestionSource[] {
     return clone(
       mockSeedData.questions
         .filter((question) => question.status === 'PUBLISHED')
@@ -3515,7 +3518,7 @@ export class MockDatabase {
     return this.mockActiveContentState
   }
 
-  assertPhase7QuestionReportAuthority(actorId: string): 'USER' | 'ADMIN' {
+  assertQuestionReportAuthority(actorId: string): 'USER' | 'ADMIN' {
     let user: User | null
     try {
       user = this.getCurrentUser()
@@ -3543,7 +3546,7 @@ export class MockDatabase {
     return user.role
   }
 
-  resolvePhase7QuestionReportEntitlement(
+  resolveQuestionReportEntitlement(
     actorId: string,
     questionVersionId: string,
     disposition: 'DEFINITE_ROLLBACK' | 'NO_TX' = 'NO_TX'
@@ -3558,18 +3561,16 @@ export class MockDatabase {
         ADMIN_CMS_STORAGE_KEY
       )
       if (dedicatedSerialized !== null) {
-        const dedicated = this.parsePhase7PersistedState(dedicatedSerialized)
+        const dedicated =
+          this.parseMockContentPersistedState(dedicatedSerialized)
         if (!dedicated) throw new Error('Invalid dedicated Phase 7 state.')
         phase7State = dedicated
       }
 
-      const sources = this.listPhase7AuthoritativeTaxonomySources()
+      const sources = this.listAuthoritativeTaxonomySources()
       const verifier = new MockContentState(this.now)
       if (phase7State) {
-        verifier.restore(
-          phase7State,
-          this.listPhase7AuthoritativeTaxonomySources()
-        )
+        verifier.restore(phase7State, this.listAuthoritativeTaxonomySources())
       }
       const snapshot = verifier.snapshot(sources)
       const version = snapshot.versions.find(
@@ -4194,7 +4195,7 @@ export class MockDatabase {
   private buildLearnerQuestionReadModel(): LearnerQuestionReadModel {
     const sources = this.useLegacyQuestionSourcesForLearnerProjection
       ? this.listCanonicalAdminQuestionSources()
-      : this.listPhase7AuthoritativeAdminQuestionSources()
+      : this.listAuthoritativeAdminQuestionSources()
     const snapshot = this.mockContentState.snapshot(sources)
     const sourceIdByQuestionId = new Map(
       sources.map(({ question }) => [
@@ -5641,7 +5642,7 @@ export class MockDatabase {
       wrongNotes: [...this.wrongNoteByQuestionId.values()],
       bookmarks: [...this.bookmarkByQuestionId.values()],
       phase7AdminCms: this.mockContentState.persistedSnapshot(
-        this.listPhase7AuthoritativeAdminQuestionSources()
+        this.listAuthoritativeAdminQuestionSources()
       )
     }
   }
@@ -5701,25 +5702,25 @@ export class MockDatabase {
     }
   }
 
-  private hasValidEmbeddedPhase7Graph(
+  private hasValidEmbeddedContentGraph(
     serialized: string,
     persisted: MockContentPersistedState
   ): boolean {
-    if (this.authoritativePhase7GraphValidation?.serialized === serialized) {
-      return this.authoritativePhase7GraphValidation.valid
+    if (this.authoritativeContentGraphValidation?.serialized === serialized) {
+      return this.authoritativeContentGraphValidation.valid
     }
 
     let valid = false
     try {
       new MockContentState(this.now).restore(
         persisted,
-        this.listPhase7AuthoritativeTaxonomySources()
+        this.listAuthoritativeTaxonomySources()
       )
       valid = true
     } catch {
       valid = false
     }
-    this.authoritativePhase7GraphValidation = { serialized, valid }
+    this.authoritativeContentGraphValidation = { serialized, valid }
     return valid
   }
 
@@ -5727,14 +5728,14 @@ export class MockDatabase {
     const persisted = this.parseAuthoritativePersistedState(serialized)
     if (
       persisted.version === 8 &&
-      !this.hasValidEmbeddedPhase7Graph(serialized, persisted.phase7AdminCms)
+      !this.hasValidEmbeddedContentGraph(serialized, persisted.phase7AdminCms)
     ) {
       return null
     }
     return persisted.currentUserId
   }
 
-  private parsePhase7PersistedState(
+  private parseMockContentPersistedState(
     serialized: string
   ): MockContentPersistedState | null {
     try {
@@ -5757,12 +5758,12 @@ export class MockDatabase {
     }
   }
 
-  private hydratePhase7State(
+  private hydrateMockContentState(
     serialized: string | null,
     forMutation: boolean
   ): boolean {
     if (serialized === null) return false
-    const parsed = this.parsePhase7PersistedState(serialized)
+    const parsed = this.parseMockContentPersistedState(serialized)
     if (!parsed) {
       if (forMutation) {
         throw new MockContentCommandError({
@@ -5773,8 +5774,8 @@ export class MockDatabase {
       }
       return false
     }
-    const sources = this.listPhase7AuthoritativeAdminQuestionSources()
-    const taxonomySources = this.listPhase7AuthoritativeTaxonomySources()
+    const sources = this.listAuthoritativeAdminQuestionSources()
+    const taxonomySources = this.listAuthoritativeTaxonomySources()
     const current = this.mockContentState.persistedSnapshot(sources)
     const changed = JSON.stringify(current) !== JSON.stringify(parsed)
     if (changed) {
@@ -5805,7 +5806,7 @@ export class MockDatabase {
   private rebaseFromLatestStorageForMockMutation(): boolean {
     const serialized = this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY)
     this.mockMutationStorageBaseline = serialized
-    return this.hydratePhase7State(serialized, true)
+    return this.hydrateMockContentState(serialized, true)
   }
 
   private persistMockContentState(): void {
@@ -5818,7 +5819,7 @@ export class MockDatabase {
         throw new Error('Mock storage changed outside the Phase 7 lease.')
       }
       const phase7AdminCms = this.mockContentState.persistedSnapshot(
-        this.listPhase7AuthoritativeAdminQuestionSources()
+        this.listAuthoritativeAdminQuestionSources()
       )
       const didPersist = this.storage.setItem(
         ADMIN_CMS_STORAGE_KEY,
@@ -6062,7 +6063,7 @@ export class MockDatabase {
       if (parsed.version === 8) {
         this.mockContentState.restore(
           parsed.phase7AdminCms,
-          this.listPhase7AuthoritativeTaxonomySources()
+          this.listAuthoritativeTaxonomySources()
         )
       }
     } catch {
@@ -6096,7 +6097,7 @@ export class MockDatabase {
           this.mockContentState.reset()
           return
         }
-        this.hydratePhase7State(event.newValue, false)
+        this.hydrateMockContentState(event.newValue, false)
         return
       }
 
@@ -6107,7 +6108,7 @@ export class MockDatabase {
           ? event.newValue
           : this.storage.getItem(MOCK_DATABASE_STORAGE_KEY)
       this.hydrateFromStorage(serialized)
-      this.hydratePhase7State(
+      this.hydrateMockContentState(
         this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY),
         false
       )
@@ -6122,7 +6123,7 @@ export class MockDatabase {
     this.hydrateFromStorage(
       this.readLatestStorageItem(MOCK_DATABASE_STORAGE_KEY)
     )
-    this.hydratePhase7State(
+    this.hydrateMockContentState(
       this.readLatestStorageItem(ADMIN_CMS_STORAGE_KEY),
       false
     )
