@@ -25,7 +25,7 @@ interface ManagedProcess {
   spawnError: Error | undefined
 }
 
-interface Phase9DatabaseSnapshot {
+interface AccessibilityDatabaseSnapshot {
   readonly rateLimitRows: ReadonlyArray<{
     readonly count: number
     readonly key: string
@@ -36,23 +36,23 @@ interface Phase9DatabaseSnapshot {
   >
 }
 
-interface Phase9DatabaseEvidence {
+interface AccessibilityDatabaseEvidence {
   readonly actorState: unknown
   readonly rateLimitCategories: Readonly<Record<string, number>>
   readonly tableDeltas: Readonly<Record<string, number>>
   readonly zeroDeltaFingerprintsVerified: number
 }
 
-interface Phase9DatabaseContractModule {
+interface AccessibilityDatabaseContractModule {
   readonly assertPhase9DatabaseContract: (input: {
-    readonly before: Phase9DatabaseSnapshot
+    readonly before: AccessibilityDatabaseSnapshot
     readonly databaseUrl: string
     readonly fixture: unknown
     readonly keySecret: string
-  }) => Promise<Phase9DatabaseEvidence>
+  }) => Promise<AccessibilityDatabaseEvidence>
   readonly capturePhase9DatabaseSnapshot: (
     databaseUrl: string
-  ) => Promise<Phase9DatabaseSnapshot>
+  ) => Promise<AccessibilityDatabaseSnapshot>
 }
 
 type BrowserMode = 'mock' | 'real'
@@ -504,7 +504,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     browserMode === 'real'
       ? ((await import(
           './accessibility-database-contract.mjs'
-        )) as Phase9DatabaseContractModule)
+        )) as AccessibilityDatabaseContractModule)
       : undefined
   const baseline = await databaseContract?.capturePhase9DatabaseSnapshot(
     harness.adminDatabaseUrl
