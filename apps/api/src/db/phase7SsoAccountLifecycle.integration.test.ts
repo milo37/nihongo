@@ -5,8 +5,8 @@ import {
   createSsoAccountErasureWorker,
   runSsoAccountErasureBatch
 } from '../auth/ssoAccountRepository.js'
-import { createSsoDbHarness, digest } from './phase7SsoTestFixture.js'
-import type { SsoFixture } from './phase7SsoTestFixture.js'
+import { createSsoDbHarness, digest } from './ssoTestFixture.js'
+import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
 beforeAll(async () => {
   h = createSsoDbHarness()

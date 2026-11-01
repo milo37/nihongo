@@ -8,7 +8,7 @@ import { gzipSync } from 'node:zlib'
 import { validateProductionBundleRuntime } from './production-bundle-runtime-contract.mjs'
 import { assertBrowserBuildGraph } from '../../../scripts/operations/browser-artifact-check.mjs'
 
-export const phase10BundleBaseline = Object.freeze({
+export const bundleBaseline = Object.freeze({
   emittedFileCount: 87,
   initialAssetCount: 25,
   initialGzipBytes: 236_021,
@@ -24,7 +24,7 @@ export const phase10BundleBaseline = Object.freeze({
   totalRawBytes: 1_405_403
 })
 
-export const phase10BundleCeilings = Object.freeze({
+export const bundleCeilings = Object.freeze({
   emittedFileCount: 90,
   initialAssetCount: 25,
   initialGzipBytes: 248_000,
@@ -80,13 +80,13 @@ export const phase10AdminLazySources = Object.freeze([
 
 export const phase10DashboardLazySource = 'src/app/dashboard/page.tsx'
 
-export const phase10ForbiddenMockSources = Object.freeze([
+export const forbiddenMockSources = Object.freeze([
   'src/mocks/browser.ts',
   'src/mocks/components/MockAuthenticationNotice.tsx',
   'src/mocks/service.ts'
 ])
 
-export const phase10ForbiddenMockMarkers = Object.freeze([
+export const forbiddenMockMarkers = Object.freeze([
   'MockAuthenticationNotice',
   'msw/browser',
   'setupWorker'
@@ -372,13 +372,13 @@ const largestBy = (rows, field) =>
       (left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
   )[0]
 
-export const evaluatePhase10BundleBudgets = (actual) =>
+export const evaluateBundleBudgets = (actual) =>
   Object.fromEntries(
-    Object.keys(phase10BundleBaseline)
+    Object.keys(bundleBaseline)
       .toSorted()
       .map((metric) => {
-        const baseline = phase10BundleBaseline[metric]
-        const ceiling = phase10BundleCeilings[metric]
+        const baseline = bundleBaseline[metric]
+        const ceiling = bundleCeilings[metric]
         const measured = actual[metric]
         if (
           !Number.isSafeInteger(baseline) ||
@@ -404,7 +404,7 @@ export const evaluatePhase10BundleBudgets = (actual) =>
       })
   )
 
-export const createPhase10BundleBudgetError = (
+export const createBundleBudgetError = (
   budgets,
   largestLazyJavaScriptByGzip,
   graph
@@ -702,7 +702,7 @@ const collectArtifactEvidence = async ({
   }
 
   validateProductionBundleRuntime(payloadFiles)
-  for (const marker of phase10ForbiddenMockMarkers) {
+  for (const marker of forbiddenMockMarkers) {
     if (
       payloadFiles.some(
         (asset) => asset.path.includes(marker) || asset.source.includes(marker)
@@ -837,7 +837,7 @@ const collectArtifactEvidence = async ({
     inventoryRows: inventory,
     forwardingFacades
   })
-  for (const source of phase10ForbiddenMockSources) {
+  for (const source of forbiddenMockSources) {
     if (evidenceBySource.has(source)) {
       throw new Error(`PHASE10_BUNDLE_FORBIDDEN_MOCK_SOURCE:${source}`)
     }
@@ -883,7 +883,7 @@ const collectArtifactEvidence = async ({
       payloadAccounting.emittedPayload.rawBytes -
       payloadAccounting.approvedStaticAssets.rawBytes
   }
-  const budgets = evaluatePhase10BundleBudgets(measurements)
+  const budgets = evaluateBundleBudgets(measurements)
 
   const inventorySha256 = createHash('sha256')
     .update(
@@ -953,7 +953,7 @@ const collectArtifactEvidence = async ({
     },
     payloadAccounting,
     schemaVersion: 3,
-    status: Object.values(evaluatePhase10BundleBudgets(measurements)).every(
+    status: Object.values(evaluateBundleBudgets(measurements)).every(
       (budget) => budget.passed
     )
       ? 'passed'
@@ -1294,17 +1294,17 @@ const assertArtifactEvidence = (value, artifact) => {
       expectedAccounting.approvedStaticAssets.rawBytes
   }
   if (
-    !exactKeys(value.measurements, Object.keys(phase10BundleBaseline)) ||
-    !exactKeys(value.budgets, Object.keys(phase10BundleBaseline)) ||
+    !exactKeys(value.measurements, Object.keys(bundleBaseline)) ||
+    !exactKeys(value.budgets, Object.keys(bundleBaseline)) ||
     Object.entries(expectedMeasurements).some(
       ([metric, measured]) => value.measurements[metric] !== measured
     )
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
   }
-  for (const metric of Object.keys(phase10BundleBaseline)) {
+  for (const metric of Object.keys(bundleBaseline)) {
     const budget = value.budgets[metric]
-    const expected = evaluatePhase10BundleBudgets(value.measurements)[metric]
+    const expected = evaluateBundleBudgets(value.measurements)[metric]
     if (
       !Number.isSafeInteger(value.measurements[metric]) ||
       value.measurements[metric] < 0 ||
@@ -1433,7 +1433,7 @@ const combineArtifactEvidence = (artifacts) => {
     }
   }
   const measurements = Object.fromEntries(
-    Object.keys(phase10BundleBaseline).map((metric) => [
+    Object.keys(bundleBaseline).map((metric) => [
       metric,
       metric.startsWith('largest')
         ? Math.max(web.measurements[metric], admin.measurements[metric])
@@ -1459,7 +1459,7 @@ const combineArtifactEvidence = (artifacts) => {
   return {
     evaluation: 'informational',
     measurements,
-    budgets: evaluatePhase10BundleBudgets(measurements),
+    budgets: evaluateBundleBudgets(measurements),
     inventory: {
       sha256,
       payloadSha256,

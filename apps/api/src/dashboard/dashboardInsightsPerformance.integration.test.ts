@@ -29,7 +29,7 @@ import {
   phase10ApiPerformanceBudget,
   phase10DatabasePerformanceBudget,
   writePhase10DatabaseApiPerformanceEvidence
-} from '../e2e/phase10PerformanceEvidence.js'
+} from '../e2e/performanceEvidence.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import { createDashboardInsightsRoutes } from '../routes/dashboardInsights.js'
