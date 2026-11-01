@@ -6,8 +6,8 @@ import {
   parseApiEnvironment
 } from '../config/env.js'
 import {
-  assertPhase10RequiredEnvironment,
-  assertPhase10VitestFileResult,
+  assertApiIntegrationRequiredEnvironment,
+  assertApiIntegrationVitestFileResult,
   assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   createPhase7DbFileEnvironment,
@@ -18,7 +18,7 @@ import {
   phase7SsoOrdinal6Pattern,
   phase7SsoIdentityTitle,
   phase7SsoIdentityPattern,
-  runPhase10ManifestVitestFile,
+  runApiIntegrationManifestVitestFile,
   sanitizePhase7VitestReport,
   sanitizeQueryPlanFailure,
   selectPhase7DbIntegrationFiles
@@ -85,7 +85,7 @@ describe('query-plan failure diagnostics', () => {
     let rawPath = ''
     let error: unknown
     try {
-      await runPhase10ManifestVitestFile({
+      await runApiIntegrationManifestVitestFile({
         testFile,
         environment: {
           DATABASE_URL: 'synthetic',
@@ -314,7 +314,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
   it('passes the completed profile and unchanged wrappers to the SSO manifest child', async () => {
     const environment = createPhase7SsoTestEnvironment(wrappers)
     let rawPath = ''
-    const count = await runPhase10ManifestVitestFile({
+    const count = await runApiIntegrationManifestVitestFile({
       testFile: phase7SsoTestFile,
       environment,
       runCommand: async (_command, args, childEnvironment) => {
@@ -524,7 +524,7 @@ describe('Phase 7 opt-in foundation execution', () => {
       }
       try {
         await expect(
-          runPhase10ManifestVitestFile({
+          runApiIntegrationManifestVitestFile({
             testFile,
             environment,
             preserveSanitizedReport: preserve,
@@ -890,7 +890,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     let safePath = ''
     try {
       await expect(
-        runPhase10ManifestVitestFile({
+        runApiIntegrationManifestVitestFile({
           testFile: phase7SsoTestFile,
           preserveSanitizedReport: true,
           onCollectionDiagnostic,
@@ -1142,7 +1142,7 @@ describe.each([
         sanitizePhase7VitestReport(changed, phase7SsoTestFile, environment)
       ).not.toHaveProperty('selectedCase')
       expect(() =>
-        assertPhase10VitestFileResult({
+        assertApiIntegrationVitestFileResult({
           result: changed,
           expectedPath: phase7SsoTestFile,
           selectedSsoCase: fixedCase.mode
@@ -1164,7 +1164,7 @@ describe.each([
           return true
         })
       try {
-        const run = runPhase10ManifestVitestFile({
+        const run = runApiIntegrationManifestVitestFile({
           testFile: phase7SsoTestFile,
           environment,
           preserveSanitizedReport: true,
@@ -1212,7 +1212,7 @@ describe.each([
     for (const mode of ['sso-unknown', '', fixedCase.pattern]) {
       const runCommand = vi.fn()
       await expect(
-        runPhase10ManifestVitestFile({
+        runApiIntegrationManifestVitestFile({
           testFile: phase7SsoTestFile,
           environment: { ...environment, PHASE7_DB_CASE: mode },
           preserveSanitizedReport: true,
@@ -1226,7 +1226,7 @@ describe.each([
   it('rejects inconsistent direct helper options before starting a child', async () => {
     const runCommand = vi.fn()
     await expect(
-      runPhase10ManifestVitestFile({
+      runApiIntegrationManifestVitestFile({
         testFile: phase7SsoTestFile,
         environment,
         runCommand
@@ -1277,13 +1277,13 @@ describe('fixed account lifecycle TEST slice', () => {
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
     for (const count of [1, 2, 3, 4, 5, 7])
       expect(() =>
-        assertPhase10VitestFileResult({
+        assertApiIntegrationVitestFileResult({
           result: report(count),
           expectedPath: phase7SsoAccountLifecycleTestFile
         })
       ).toThrow()
     expect(() =>
-      assertPhase10VitestFileResult({
+      assertApiIntegrationVitestFileResult({
         result: report(),
         expectedPath: phase7SsoAccountLifecycleTestFile
       })
@@ -1291,7 +1291,7 @@ describe('fixed account lifecycle TEST slice', () => {
   })
   it('runs exactly the lifecycle file with bounded workers, bail and no retry', async () => {
     let rawPath = ''
-    const count = await runPhase10ManifestVitestFile({
+    const count = await runApiIntegrationManifestVitestFile({
       testFile: phase7SsoAccountLifecycleTestFile,
       environment: {
         DATABASE_URL: 'synthetic',
@@ -1360,13 +1360,16 @@ describe('guest cleanup required environment', () => {
 
   it('requires every connection and the isolation flag before the suite starts', () => {
     expect(() =>
-      assertPhase10RequiredEnvironment({ environment, testFile })
+      assertApiIntegrationRequiredEnvironment({ environment, testFile })
     ).not.toThrow()
     for (const key of Object.keys(environment)) {
       const incomplete: NodeJS.ProcessEnv = { ...environment }
       delete incomplete[key]
       expect(() =>
-        assertPhase10RequiredEnvironment({ environment: incomplete, testFile })
+        assertApiIntegrationRequiredEnvironment({
+          environment: incomplete,
+          testFile
+        })
       ).toThrow(key)
     }
   })

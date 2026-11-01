@@ -4,7 +4,7 @@ import {
   classifyCollectionDiagnostic,
   classifyCollectionReport
 } from './collectionDiagnostics.js'
-import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import { runApiIntegrationManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 
 describe('safe collection diagnostics', () => {
   it.each([
@@ -56,7 +56,7 @@ describe('safe collection diagnostics', () => {
   it('keeps the existing runner failure and removes raw report even when observer throws', async () => {
     let output = ''
     await expect(
-      runPhase10ManifestVitestFile({
+      runApiIntegrationManifestVitestFile({
         testFile: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
@@ -93,7 +93,7 @@ describe('safe collection diagnostics', () => {
   it('emits safe setup classification before preserving the process failure', async () => {
     const diagnostics: unknown[] = []
     await expect(
-      runPhase10ManifestVitestFile({
+      runApiIntegrationManifestVitestFile({
         testFile: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
@@ -129,7 +129,7 @@ describe('safe collection diagnostics', () => {
   it('keeps missing reporter failure and safe loader diagnostic', async () => {
     const diagnostics: unknown[] = []
     await expect(
-      runPhase10ManifestVitestFile({
+      runApiIntegrationManifestVitestFile({
         testFile: 'src/db/phase7AdminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',

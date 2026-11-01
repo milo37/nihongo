@@ -14,7 +14,7 @@ import {
   type PerformanceTerminalRecord
 } from './performanceProcessExit.js'
 import { runCleanupWithTimeout, runWithOperationTimeout } from './runTimeout.js'
-import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import { runApiIntegrationManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -222,7 +222,7 @@ const run = async (): Promise<PerformanceRunResult> => {
     PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY: String(dirtyStatus.length > 0),
     PRISMA_TEST_DATABASE_URL: harness.applicationDatabaseUrl
   }
-  const passedTestCount = await runPhase10ManifestVitestFile({
+  const passedTestCount = await runApiIntegrationManifestVitestFile({
     environment,
     runCommand: async (command, args, commandEnvironment) => {
       await runCommand(command, args, commandEnvironment)

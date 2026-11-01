@@ -30,7 +30,7 @@ import {
   assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   phase7SsoAccountLifecycleTestFile,
-  runPhase10ManifestVitestFile
+  runApiIntegrationManifestVitestFile
 } from './phase10ApiIntegrationExecution.js'
 
 const guestCleanupShard = process.argv.includes('--shard=current-guest-cleanup')
@@ -1029,7 +1029,7 @@ const run = async (): Promise<void> => {
   ) {
     throw new Error('Phase 7 API integration manifest is incomplete.')
   }
-  await runPhase10ManifestVitestFile({
+  await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: repositoryEntry.path,
     environment: sharedEnvironment
@@ -1051,12 +1051,12 @@ const run = async (): Promise<void> => {
       )
     }
   )
-  await runPhase10ManifestVitestFile({
+  await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: apiGateEntry.path,
     environment: sharedEnvironment
   })
-  await runPhase10ManifestVitestFile({
+  await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: commandRepositoryEntry.path,
     environment: sharedEnvironment
@@ -1115,7 +1115,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     ...harness.sharedEnvironment,
     PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
   })
-  const count = await runPhase10ManifestVitestFile({
+  const count = await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: phase7SsoAccountLifecycleTestFile,
     environment,
