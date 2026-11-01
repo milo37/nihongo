@@ -3,7 +3,7 @@ import {
   assertAdminAuditContentDigest,
   adminQuestionVersionChangeSchema,
   encodeAdminQuestionVersionCursor,
-  encodePhase7OccurredAtCursor,
+  encodeOccurredAtCursor,
   type AdminQuestionSummary,
   type AdminQuestionVersionSummary,
   type DiffQuestionVersionQuery,
@@ -22,7 +22,7 @@ import {
   type ListQuestionVersionReviewsResponse,
   type PreviewQuestionVersionResponse,
   decodeAdminQuestionVersionCursor,
-  decodePhase7OccurredAtCursor
+  decodeOccurredAtCursor
 } from '@nihongo/contracts/admin/content-operations'
 import { toPublicPracticeQuestion } from '../question/questionMapper.js'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -427,7 +427,7 @@ export const createAdminQuestionService = (
   listReviews: (versionId, query) =>
     withRepositoryErrors(async () => {
       const cursor = query.cursor
-        ? decodePhase7OccurredAtCursor(query.cursor)
+        ? decodeOccurredAtCursor(query.cursor)
         : undefined
       const result = await repository.listReviews({
         versionId,
@@ -449,7 +449,7 @@ export const createAdminQuestionService = (
         items,
         nextCursor:
           hasMore && items.length > 0
-            ? encodePhase7OccurredAtCursor({
+            ? encodeOccurredAtCursor({
                 id: items.at(-1)!.id,
                 occurredAt: items.at(-1)!.occurredAt
               })
@@ -459,7 +459,7 @@ export const createAdminQuestionService = (
   listAuditLog: (query) =>
     withRepositoryErrors(async () => {
       const cursor = query.cursor
-        ? decodePhase7OccurredAtCursor(query.cursor)
+        ? decodeOccurredAtCursor(query.cursor)
         : undefined
       const records = await repository.listAuditLog({
         ...(query.command ? { command: query.command } : {}),
@@ -487,7 +487,7 @@ export const createAdminQuestionService = (
         items,
         nextCursor:
           hasMore && items.length > 0
-            ? encodePhase7OccurredAtCursor({
+            ? encodeOccurredAtCursor({
                 id: items.at(-1)!.id,
                 occurredAt: items.at(-1)!.occurredAt
               })
