@@ -10,7 +10,7 @@ interface CreateQuestionReportInput {
 export const questionReportMutations = {
   create: () =>
     mutationOptions({
-      mutationKey: ['phase7', 'question-report'] as const,
+      mutationKey: ['question-report', 'create'] as const,
       networkMode: 'always',
       mutationFn: (input: CreateQuestionReportInput) =>
         createQuestionReport(input.request)

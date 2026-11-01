@@ -80,13 +80,13 @@ export const phase10AdminLazySources = Object.freeze([
 
 export const phase10DashboardLazySource = 'src/app/dashboard/page.tsx'
 
-export const phase10ForbiddenMockSources = Object.freeze([
+export const forbiddenMockSources = Object.freeze([
   'src/mocks/browser.ts',
   'src/mocks/components/MockAuthenticationNotice.tsx',
   'src/mocks/service.ts'
 ])
 
-export const phase10ForbiddenMockMarkers = Object.freeze([
+export const forbiddenMockMarkers = Object.freeze([
   'MockAuthenticationNotice',
   'msw/browser',
   'setupWorker'
@@ -702,7 +702,7 @@ const collectArtifactEvidence = async ({
   }
 
   validateProductionBundleRuntime(payloadFiles)
-  for (const marker of phase10ForbiddenMockMarkers) {
+  for (const marker of forbiddenMockMarkers) {
     if (
       payloadFiles.some(
         (asset) => asset.path.includes(marker) || asset.source.includes(marker)
@@ -837,7 +837,7 @@ const collectArtifactEvidence = async ({
     inventoryRows: inventory,
     forwardingFacades
   })
-  for (const source of phase10ForbiddenMockSources) {
+  for (const source of forbiddenMockSources) {
     if (evidenceBySource.has(source)) {
       throw new Error(`PHASE10_BUNDLE_FORBIDDEN_MOCK_SOURCE:${source}`)
     }

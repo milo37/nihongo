@@ -17,7 +17,7 @@
     "src/content/cli.ts",
     "src/content/commands/**",
     "src/db/fixtures/**",
-    "src/db/phase7SsoTestFixture.ts",
+    "src/db/ssoTestFixture.ts",
     "src/db/phase7FoundationDiagnostics.ts"
   ]
 }
