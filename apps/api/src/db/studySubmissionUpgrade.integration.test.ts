@@ -403,7 +403,7 @@ const readLedger = async (
   return result.rows
 }
 
-const insertPhase6Question = async (
+const insertPreAdminQuestion = async (
   client: Client,
   seed: QuestionAggregateSeed
 ): Promise<void> => {
@@ -471,7 +471,7 @@ const insertPhase6Question = async (
   )
 }
 
-const seedPhase6Catalog = async (client: Client): Promise<void> => {
+const seedPreAdminCatalog = async (client: Client): Promise<void> => {
   const seeds = buildHistoricalCanonicalSeeds()
   const tags = new Map(
     seeds.flatMap(({ tags: questionTags }) =>
@@ -493,7 +493,7 @@ const seedPhase6Catalog = async (client: Client): Promise<void> => {
       )
     }
     for (const seed of seeds) {
-      await insertPhase6Question(client, seed)
+      await insertPreAdminQuestion(client, seed)
     }
     await client.query('COMMIT')
   } catch (error: unknown) {
@@ -1835,7 +1835,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(25)
 
-      await seedPhase6Catalog(context.adminClient)
+      await seedPreAdminCatalog(context.adminClient)
       const oldBinarySeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>
           level === 'N5' &&
@@ -2956,7 +2956,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
       await context.adminClient.query(
         `SET search_path TO ${context.quotedSchemaName}`
       )
-      await seedPhase6Catalog(context.adminClient)
+      await seedPreAdminCatalog(context.adminClient)
       for (const migrationName of phase7Slice1Migrations) {
         copyMigration(migrationName, context.migrationsPath)
       }

@@ -68,8 +68,8 @@ const {
   dispose,
   readHistoricalMigrationProfile,
   readLedger,
-  seedPhase6Catalog,
-  transferPhase6TargetOwnership
+  seedPreAdminCatalog,
+  transferPreAdminTargetOwnership
 } = createHistoricalSchemaFixture({
   adminDatabaseUrl: adminUrl,
   legacyDatabaseUrl,
@@ -184,14 +184,14 @@ describe('approved N3 reading04 dictionary database contract', () => {
     await deploy(context, context.legacyOwnerDatabaseUrl)
     expect(await readLedger(context)).toHaveLength(27)
     await client.query(`SET search_path TO ${context.quotedSchemaName}`)
-    await expect(seedPhase6Catalog(client)).resolves.toEqual({
+    await expect(seedPreAdminCatalog(client)).resolves.toEqual({
       insertedCount: 65,
       verifiedCount: 0
     })
     await context.serverClient.query(
       `GRANT CONNECT ON DATABASE ${quoteIdentifier(context.databaseName)} TO ${quoteIdentifier(LEGACY_APP_LOGIN)}`
     )
-    await transferPhase6TargetOwnership(context)
+    await transferPreAdminTargetOwnership(context)
     for (const name of historicalMigrationNames.slice(27))
       copyMigration(name, context.migrationsPath)
     await deploy(context)

@@ -6,10 +6,10 @@ import { fileURLToPath } from 'node:url'
 
 import { assertBrowserArtifact } from '../../../scripts/operations/browser-artifact-check.mjs'
 import {
-  assertPhase10BundleEvidenceProvenance,
-  collectPhase10BundleEvidence,
-  phase10SplitBundleCommand,
-  readPhase10BundleRepositoryState
+  assertBundleEvidenceProvenance,
+  collectBundleEvidence,
+  splitBundleCommand,
+  readBundleRepositoryState
 } from './production-bundle-contract.mjs'
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -25,15 +25,15 @@ const run = async () => {
   }
 
   const [repositoryState, vitePackage] = await Promise.all([
-    readPhase10BundleRepositoryState(repositoryRoot),
+    readBundleRepositoryState(repositoryRoot),
     readFile(path.join(webRoot, 'node_modules/vite/package.json'), 'utf8').then(
       JSON.parse
     )
   ])
-  const evidence = await collectPhase10BundleEvidence({
+  const evidence = await collectBundleEvidence({
     distDirectories,
     metadata: {
-      command: phase10SplitBundleCommand,
+      command: splitBundleCommand,
       commit: repositoryState.commit,
       environment: {
         apiBaseUrl: '/api',
@@ -54,7 +54,7 @@ const run = async () => {
       }
     }
   })
-  await assertPhase10BundleEvidenceProvenance({ evidence, repositoryRoot })
+  await assertBundleEvidenceProvenance({ evidence, repositoryRoot })
 
   process.stdout.write(
     `${JSON.stringify({
