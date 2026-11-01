@@ -1490,7 +1490,7 @@ const run = async (): Promise<void> => {
     ],
     migrationEnvironment
   )
-  const deployPhase7Migrations = async (
+  const deployMigrations = async (
     environment: NodeJS.ProcessEnv
   ): Promise<void> => {
     try {
@@ -1600,7 +1600,7 @@ const run = async (): Promise<void> => {
         { recursive: true }
       )
     }
-    await deployPhase7Migrations({
+    await deployMigrations({
       ...migrationEnvironment,
       PHASE7_TEST_MIGRATIONS_PATH: prefixMigrationsPath
     })
@@ -1716,7 +1716,7 @@ const run = async (): Promise<void> => {
   )
   await assertSeedWriteCount('65')
 
-  await deployPhase7Migrations(canonicalMigrationEnvironment)
+  await deployMigrations(canonicalMigrationEnvironment)
   await runCommand(
     'pnpm',
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],

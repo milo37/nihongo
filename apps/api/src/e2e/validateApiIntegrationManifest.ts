@@ -79,7 +79,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
     }
   }
 
-  const phase7ApiRunnerContract = apiIntegrationManifest
+  const apiRunnerContract = apiIntegrationManifest
     .filter(({ executionOwner }) => executionOwner === 'phase7-api')
     .toSorted((left, right) => left.order - right.order)
     .map(({ path: testPath, seedPolicy, shard }) => ({
@@ -88,7 +88,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
       shard
     }))
   if (
-    JSON.stringify(phase7ApiRunnerContract) !==
+    JSON.stringify(apiRunnerContract) !==
     JSON.stringify([
       {
         path: 'src/admin/adminQuestionRepository.integration.test.ts',
