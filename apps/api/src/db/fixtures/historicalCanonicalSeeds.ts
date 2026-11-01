@@ -1041,11 +1041,12 @@ const n1Questions = [
   })
 ]
 
-export const buildPhase6CanonicalSeeds = (): readonly QuestionAggregateSeed[] =>
-  [
-    ...n5Questions,
-    ...n4Questions,
-    ...n3Questions,
-    ...n2Questions,
-    ...n1Questions
-  ].map((seed) => buildQuestionAggregateSeed(seed, toStableSeedUuid))
+export const buildHistoricalCanonicalSeeds =
+  (): readonly QuestionAggregateSeed[] =>
+    [
+      ...n5Questions,
+      ...n4Questions,
+      ...n3Questions,
+      ...n2Questions,
+      ...n1Questions
+    ].map((seed) => buildQuestionAggregateSeed(seed, toStableSeedUuid))

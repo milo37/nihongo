@@ -24,7 +24,7 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createRoleDatabaseRuntime } from './database.js'
-import { buildPhase6CanonicalSeeds } from './fixtures/phase6CanonicalSeeds.js'
+import { buildHistoricalCanonicalSeeds } from './fixtures/historicalCanonicalSeeds.js'
 import {
   apiRoot,
   sourceMigrationsDirectory,
@@ -2397,7 +2397,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           .catch(() => undefined)
       }
 
-      const firstTag = buildPhase6CanonicalSeeds()[0]?.tags[0]
+      const firstTag = buildHistoricalCanonicalSeeds()[0]?.tags[0]
       if (!firstTag) {
         throw new Error('Phase 7 upgrade drift fixture is unavailable.')
       }
@@ -2849,7 +2849,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).toEqual([{ id: legacySessionId }])
       const retainedBookmarkId = randomUUID()
       const rejectedUserId = randomUUID()
-      const retainedQuestionId = buildPhase6CanonicalSeeds()[0]?.questionId
+      const retainedQuestionId = buildHistoricalCanonicalSeeds()[0]?.questionId
       if (!retainedQuestionId) {
         throw new Error('Phase 7 FK update fixture question is unavailable.')
       }
@@ -2955,7 +2955,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           versionTagCount: 130
         }
       ])
-      const expectedFingerprints = buildPhase6CanonicalSeeds()
+      const expectedFingerprints = buildHistoricalCanonicalSeeds()
         .map((seed) => ({
           contentFingerprint: createExpectedFingerprint(seed),
           id: seed.versionId
