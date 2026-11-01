@@ -4,7 +4,7 @@ import {
   useQuery,
   useInfiniteQuery
 } from '@tanstack/react-query'
-import { getAdminQuestionParamsSchema } from '@nihongo/contracts/admin/phase7'
+import { getAdminQuestionParamsSchema } from '@nihongo/contracts/admin/content-operations'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { captureAuthTransitionEpoch } from '@nihongo/browser/libs/authTransitionFence'
 import { questionWorkflowQueries } from '@app/admin-question/queries/questionWorkflowQueries'

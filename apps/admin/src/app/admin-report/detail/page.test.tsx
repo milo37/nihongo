@@ -17,7 +17,7 @@ import {
   questionReportDetailSchema,
   questionReportMutationResultSchema,
   type QuestionReportDetail
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import {

@@ -13,12 +13,12 @@ import {
   createPhase10SsrAssetClosureError,
   describePhase10PayloadIdentity,
   evaluateBundleBudgets,
-  phase10AllowedProductionModulePackages,
-  phase10AdminLazySources,
-  phase10ApprovedStaticAssetPaths,
+  allowedProductionModulePackages,
+  adminLazySources,
+  approvedStaticAssetPaths,
   bundleBaseline,
   bundleCeilings,
-  phase10DashboardLazySource,
+  dashboardLazySource,
   forbiddenMockMarkers,
   forbiddenMockSources
 } from './production-bundle-contract.mjs'
@@ -45,14 +45,14 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
       .toSorted()
   assert.deepEqual(
     [
-      ...phase10AdminLazySources,
+      ...adminLazySources,
       'src/app/admin-import/page.tsx',
       'src/app/admin-question/detail/page.tsx'
     ].toSorted(),
     readLazySources('../../admin/src/app/admin-question/router.tsx')
   )
   assert.deepEqual(
-    [phase10DashboardLazySource],
+    [dashboardLazySource],
     readLazySources('../src/app/dashboard/router.tsx')
   )
   assert.deepEqual(forbiddenMockSources, [
@@ -65,7 +65,7 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
     'msw/browser',
     'setupWorker'
   ])
-  assert.deepEqual(phase10AllowedProductionModulePackages, [
+  assert.deepEqual(allowedProductionModulePackages, [
     '@hookform/resolvers',
     '@tanstack/query-core',
     '@tanstack/react-query',
@@ -126,7 +126,7 @@ test('separates only the exact unchanged Vite approved static asset list', () =>
       .split('] as const')[0]
       .matchAll(/'([^']+)'/gu)
   ].map((match) => match[1])
-  assert.deepEqual(phase10ApprovedStaticAssetPaths, approvedPaths)
+  assert.deepEqual(approvedStaticAssetPaths, approvedPaths)
   assert.equal(approvedPaths.length, 12)
 })
 

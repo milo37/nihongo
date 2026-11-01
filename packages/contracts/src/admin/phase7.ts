@@ -12,3 +12,8 @@ export * from './phase7-commands.js'
 export * from './phase7-error-policy.js'
 export * from './phase7-operation-schemas.js'
 export * from './phase7-manifest.js'
+export { phase7OperationSchemas as contentOperationSchemas } from './phase7-operation-schemas.js'
+export {
+  phase7OperationManifest as contentOperationManifest,
+  type Phase7Operation as ContentOperation
+} from './phase7-manifest.js'
