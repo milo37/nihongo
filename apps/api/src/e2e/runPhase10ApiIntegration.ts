@@ -11,7 +11,7 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import { runApiIntegrationManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 import {
   getApiIntegrationEntriesByOwner,
   type ApiIntegrationManifestEntry
@@ -310,7 +310,7 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
           PRISMA_TEST_DATABASE_URL: databaseUrl
         }
       : { ...process.env, PHASE10_INTEGRATION_SHARD: shard }
-    passedTestCount += await runPhase10ManifestVitestFile({
+    passedTestCount += await runApiIntegrationManifestVitestFile({
       runCommand,
       testFile: entry.path,
       environment

@@ -32,7 +32,7 @@ import {
 import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
 import {
   createPhase7DbFileEnvironment,
-  runPhase10ManifestVitestFile,
+  runApiIntegrationManifestVitestFile,
   selectPhase7DbIntegrationFiles
 } from './phase10ApiIntegrationExecution.js'
 
@@ -1818,7 +1818,7 @@ const run = async (): Promise<void> => {
     await runPostSeedDiagnostic(
       'FILE',
       () =>
-        runPhase10ManifestVitestFile({
+        runApiIntegrationManifestVitestFile({
           runCommand,
           testFile,
           environment: fileEnvironment,
