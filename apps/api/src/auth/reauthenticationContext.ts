@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-interface Phase7ReauthenticationInvocation {
+interface ReauthenticationInvocation {
   readonly intentId: string
 }
 
@@ -14,7 +14,7 @@ export interface Phase7ReauthenticationContext {
 
 export const createPhase7ReauthenticationContext =
   (): Phase7ReauthenticationContext => {
-    const storage = new AsyncLocalStorage<Phase7ReauthenticationInvocation>()
+    const storage = new AsyncLocalStorage<ReauthenticationInvocation>()
 
     return {
       getIntentId: () => {
