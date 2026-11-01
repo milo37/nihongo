@@ -13,7 +13,7 @@ import {
   listQuestionVersionReviewsResponseSchema,
   previewQuestionVersionResponseSchema,
   type ListAdminQuestionsResponse
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {

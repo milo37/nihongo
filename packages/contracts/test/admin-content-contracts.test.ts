@@ -37,7 +37,7 @@ import {
   validateQuestionImportErrorSchema,
   type AdminImportItem,
   type Sha256TextPort
-} from '../src/admin/phase7.js'
+} from '../src/admin/content-operations.js'
 
 const IDS = {
   admin: '00000000-0000-4000-8000-000000000001',

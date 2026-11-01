@@ -1,4 +1,4 @@
-import { compareUnicodeScalars } from '@nihongo/contracts/admin/phase7'
+import { compareUnicodeScalars } from '@nihongo/contracts/admin/content-operations'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
 export type AdminAccountActorRecord = {

@@ -1,5 +1,5 @@
 import { getConnInfo } from '@hono/node-server/conninfo'
-import type { Phase7Operation } from '@nihongo/contracts/admin/phase7'
+import type { Phase7Operation } from '@nihongo/contracts/admin/content-operations'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { getCanonicalPhase7Slice3Operation } from '../app/protectedRouteExclusion.js'

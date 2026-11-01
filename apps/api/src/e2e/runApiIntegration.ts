@@ -5,18 +5,18 @@ import {
   cleanupPhase7IsolatedDatabase,
   preparePhase7IntegrationArtifacts,
   preparePhase7IsolatedDatabase
-} from './runPhase7ApiIntegration.js'
+} from './runAdminApiIntegration.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { runApiIntegrationManifestVitestFile } from './phase10ApiIntegrationExecution.js'
+import { runApiIntegrationManifestVitestFile } from './apiIntegrationExecution.js'
 import {
   getApiIntegrationEntriesByOwner,
   type ApiIntegrationManifestEntry
-} from './phase10ApiIntegrationManifest.js'
-import { validateApiIntegrationManifest } from './validatePhase10ApiIntegrationManifest.js'
+} from './apiIntegrationManifest.js'
+import { validateApiIntegrationManifest } from './validateApiIntegrationManifest.js'
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -130,7 +130,7 @@ const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
       '@nihongo/api',
       'exec',
       'tsx',
-      'src/e2e/runPhase10ApiIntegration.ts',
+      'src/e2e/runApiIntegration.ts',
       `--shard=${shard}`,
       '--artifacts-prepared'
     ]

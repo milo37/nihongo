@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { questionReportReasonSchema } from '../admin/phase7-future.js'
+import { questionReportReasonSchema } from '../admin/content-future.js'
 import { isoDateTimeSchema } from '../common/date.js'
 import {
   jlptLevelSchema,

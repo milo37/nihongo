@@ -9,7 +9,7 @@ import {
 import {
   phase7OperationManifest,
   type Phase7Operation
-} from './phase7-manifest.js'
+} from './content-manifest.js'
 
 export const phase7ExecutionDispositionSchema = z.enum([
   'NO_TX',

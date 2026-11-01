@@ -664,7 +664,7 @@ const getObjectProperty = (object, name) =>
 const getPhase7SchemaNames = (rootDir, operation) => {
   const contractRoot = path.join(rootDir, 'packages/contracts/src/admin')
   const manifest = readExportedInitializer(
-    path.join(contractRoot, 'phase7-manifest.ts'),
+    path.join(contractRoot, 'content-manifest.ts'),
     'phase7OperationManifest'
   )
   if (
@@ -678,7 +678,7 @@ const getPhase7SchemaNames = (rootDir, operation) => {
   )
     return null
   const schemas = readExportedInitializer(
-    path.join(contractRoot, 'phase7-operation-schemas.ts'),
+    path.join(contractRoot, 'content-operation-schemas.ts'),
     'phase7OperationSchemas'
   )
   if (!schemas || !ts.isObjectLiteralExpression(schemas)) return null
@@ -871,12 +871,12 @@ const checkEndpoint = (
       [
         'phase7OperationManifest',
         'contentOperationManifest',
-        'phase7-manifest'
+        'content-manifest'
       ],
       [
         'phase7OperationSchemas',
         'contentOperationSchemas',
-        'phase7-operation-schemas'
+        'content-operation-schemas'
       ]
     ]) {
       if (

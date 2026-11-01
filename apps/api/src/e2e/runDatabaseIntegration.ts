@@ -29,12 +29,12 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './apiIntegrationManifest.js'
 import {
   createPhase7DbFileEnvironment,
   runApiIntegrationManifestVitestFile,
   selectPhase7DbIntegrationFiles
-} from './phase10ApiIntegrationExecution.js'
+} from './apiIntegrationExecution.js'
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const DATABASE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
@@ -1483,8 +1483,8 @@ const run = async (): Promise<void> => {
       'exec',
       'vitest',
       'run',
-      'src/db/phase7AdminCmsMigration.test.ts',
-      'src/db/phase7ReauthenticationMigration.test.ts'
+      'src/db/adminCmsMigration.test.ts',
+      'src/db/reauthenticationMigration.test.ts'
     ],
     migrationEnvironment
   )

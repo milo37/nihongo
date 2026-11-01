@@ -11,7 +11,7 @@ import { opaqueIdSchema, requestIdSchema } from '../common/id.js'
 import {
   adminQuestionVersionCursorSchema,
   phase7OccurredAtCursorSchema
-} from '../common/phase7-cursor.js'
+} from '../common/content-cursor.js'
 import {
   accountActorSnapshotSchema,
   adminActorSnapshotSchema,
@@ -25,7 +25,7 @@ import {
   questionVersionStatusSchema,
   retirementKindSchema,
   safeActorSnapshotSchema
-} from '../common/phase7.js'
+} from '../common/content-validation.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,

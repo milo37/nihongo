@@ -11,7 +11,7 @@ import {
   retireQuestionVersionRequestSchema,
   withdrawQuestionApprovalRequestSchema,
   type CreateAdminQuestionRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'

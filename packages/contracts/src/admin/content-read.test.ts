@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   adminAuditEnvironmentSchema,
   listAdminAuditLogQuerySchema
-} from './phase7-read.js'
+} from './content-read.js'
 
 describe('Phase 7 admin read transport', () => {
   it('accepts the canonical production audit environment', () => {

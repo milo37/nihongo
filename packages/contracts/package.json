@@ -12,12 +12,12 @@
       "import": "./dist/analytics/events.js"
     },
     "./admin/phase7": {
-      "types": "./dist/admin/phase7.d.ts",
-      "import": "./dist/admin/phase7.js"
+      "types": "./dist/admin/content-operations.d.ts",
+      "import": "./dist/admin/content-operations.js"
     },
     "./admin/content-operations": {
-      "types": "./dist/admin/phase7.d.ts",
-      "import": "./dist/admin/phase7.js"
+      "types": "./dist/admin/content-operations.d.ts",
+      "import": "./dist/admin/content-operations.js"
     },
     "./bookmark/bookmark": {
       "types": "./dist/bookmark/bookmark.d.ts",
@@ -176,12 +176,12 @@
       "import": "./dist/testing/practice-flow-conformance.js"
     },
     "./testing/phase7-admin-conformance": {
-      "types": "./dist/testing/phase7-admin-conformance.d.ts",
-      "import": "./dist/testing/phase7-admin-conformance.js"
+      "types": "./dist/testing/admin-content-conformance.d.ts",
+      "import": "./dist/testing/admin-content-conformance.js"
     },
     "./testing/admin-content-conformance": {
-      "types": "./dist/testing/phase7-admin-conformance.d.ts",
-      "import": "./dist/testing/phase7-admin-conformance.js"
+      "types": "./dist/testing/admin-content-conformance.d.ts",
+      "import": "./dist/testing/admin-content-conformance.js"
     },
     "./testing/review-center-conformance": {
       "types": "./dist/testing/review-center-conformance.d.ts",

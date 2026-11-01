@@ -14,14 +14,14 @@ import {
   sha256Text,
   type CanonicalJsonValue,
   type Sha256TextPort
-} from '../common/phase7.js'
-import { adminTagSummarySchema, assertAdminTagList } from './phase7-model.js'
+} from '../common/content-validation.js'
+import { adminTagSummarySchema, assertAdminTagList } from './content-model.js'
 import {
   adminQuestionContentInputSchema,
   adminQuestionContentStructureInputSchema
-} from './phase7-future.js'
-import { isApplicablePhase7ContentType } from './phase7-read.js'
-import { createPhase7OperationErrorSchema } from './phase7-error-policy.js'
+} from './content-future.js'
+import { isApplicablePhase7ContentType } from './content-read.js'
+import { createPhase7OperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,

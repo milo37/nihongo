@@ -61,7 +61,7 @@ const createBody = {
   count: 20
 } as const
 
-describe('Phase 5 review center contracts', () => {
+describe('Review center contracts', () => {
   it('headerless v1 body를 보존하고 reviewFilter를 v2 review mode에만 허용한다', () => {
     expect(createStudySessionBodySchema.parse(createBody)).toEqual(createBody)
     expect(

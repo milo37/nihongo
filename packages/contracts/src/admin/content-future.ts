@@ -23,9 +23,9 @@ import {
   sha256HexSchema,
   type CanonicalJsonValue,
   type Sha256TextPort
-} from '../common/phase7.js'
-import { isApplicablePhase7ContentType } from './phase7-read.js'
-import { createPhase7OperationErrorSchema } from './phase7-error-policy.js'
+} from '../common/content-validation.js'
+import { isApplicablePhase7ContentType } from './content-read.js'
+import { createPhase7OperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,

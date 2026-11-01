@@ -386,8 +386,8 @@ export const qualityCommands = (selection, group) => {
           'exec',
           'node',
           '--test',
-          'scripts/phase7-local-provisioning.test.mjs',
-          'scripts/phase9-database-contract.test.mjs'
+          'scripts/local-database-provisioning.test.mjs',
+          'scripts/accessibility-database-contract.test.mjs'
         )
       }
       if (selection.web || selection.admin) {

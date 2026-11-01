@@ -27,14 +27,14 @@ vi.mock('../../../apps/api/src/e2e/ownedProcessGroup.js', () => ({
   retireOwnedProcess: mocks.retireOwnedProcess
 }))
 
-vi.mock('../../../apps/api/src/e2e/runPhase7ApiIntegration.js', () => ({
+vi.mock('../../../apps/api/src/e2e/runAdminApiIntegration.js', () => ({
   preparePhase7IsolatedDatabase: mocks.prepareDatabase,
   cleanupPhase7IsolatedDatabase: mocks.cleanupDatabase
 }))
 vi.mock('../../../apps/api/src/e2e/browserApi.js', () => ({
   preparePhase9BrowserActors: mocks.prepareActors
 }))
-vi.mock('../../../scripts/phase9-database-contract.mjs', () => ({
+vi.mock('../../../scripts/accessibility-database-contract.mjs', () => ({
   capturePhase9DatabaseSnapshot: mocks.captureSnapshot,
   assertPhase9DatabaseContract: mocks.assertDatabaseContract
 }))
@@ -81,7 +81,7 @@ const finish = (child: ChildProcess, outcome: ChildOutcome): void => {
   child.emit('close', outcome.code, outcome.signal)
 }
 
-describe('Phase9/10 browser runner lifecycle', () => {
+describe('accessibility and journey browser runner lifecycle', () => {
   const originalArgv = process.argv
   const originalExitCode = process.exitCode
   let testTemp: string
@@ -184,7 +184,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
     const stderr = vi
       .spyOn(process.stderr, 'write')
       .mockImplementation(() => true)
-    const { main } = await import('../../../scripts/runPhase10Browser.js')
+    const { main } = await import('../../../scripts/runJourneyBrowser.js')
 
     await main()
 
@@ -206,7 +206,7 @@ describe('Phase9/10 browser runner lifecycle', () => {
     expect(mocks.spawn.mock.calls[0]?.[1]).toEqual([
       '--import',
       expect.stringContaining('/tsx/'),
-      'src/e2e/runPhase7ApiIntegration.ts'
+      'src/e2e/runAdminApiIntegration.ts'
     ])
     expect(mocks.spawn.mock.calls[0]?.[2]).toEqual(
       expect.objectContaining({ cwd: expect.stringContaining('/apps/api') })
@@ -295,9 +295,9 @@ describe('Phase9/10 browser runner lifecycle', () => {
     if (cancellation)
       process.argv[1] = resolve(
         process.cwd(),
-        '../../scripts/runPhase9Browser.ts'
+        '../../scripts/runAccessibilityBrowser.ts'
       )
-    const runner = await import('../../../scripts/runPhase9Browser.js')
+    const runner = await import('../../../scripts/runAccessibilityBrowser.js')
     if (cancellation) {
       await exitObserved
       await new Promise<void>((done) => setImmediate(done))
@@ -676,9 +676,11 @@ describe('Phase9/10 browser runner lifecycle', () => {
       if (cancellation)
         process.argv[1] = resolve(
           process.cwd(),
-          '../../scripts/runPhase9Browser.ts'
+          '../../scripts/runAccessibilityBrowser.ts'
         )
-      const { main } = await import('../../../scripts/runPhase9Browser.js')
+      const { main } = await import(
+        '../../../scripts/runAccessibilityBrowser.js'
+      )
       if (cancellation) {
         await exitObserved
         await new Promise<void>((done) => setImmediate(done))

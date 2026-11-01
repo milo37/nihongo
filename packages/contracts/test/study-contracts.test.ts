@@ -181,7 +181,7 @@ const failureCodes = {
   ]
 } as const
 
-describe('Phase 4 study contracts', () => {
+describe('Study contracts', () => {
   it('practice header negotiation과 response header를 strict lower-case로 닫는다', () => {
     expect(createStudySessionHeadersSchema.parse({})).toEqual({})
     expect(getStudySessionHeadersSchema.parse({})).toEqual({})

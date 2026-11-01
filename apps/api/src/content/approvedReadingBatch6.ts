@@ -1,7 +1,7 @@
 import {
   adminQuestionContentInputSchema,
   validateQuestionImportRequestSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 
 // JLP-262 internal QA; registration and release remain unverified.
 export const approvedReadingBatch6 = {
