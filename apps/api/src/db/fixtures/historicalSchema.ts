@@ -36,12 +36,13 @@ export const sourceMigrationsDirectory = join(apiRoot, 'prisma', 'migrations')
 const prismaBinary = join(apiRoot, 'node_modules', '.bin', 'prisma')
 const execFileAsync = promisify(execFile)
 
-export const PHASE7_MIGRATIONS = [
+export const ADMIN_FOUNDATION_MIGRATIONS = [
   '20260827100000_phase7_admin_cms_enums',
   '20260827101000_phase7_admin_cms_foundation',
   '20260909120000_phase7_archive_empty_manifest_verifier',
   '20260916120000_phase7_reauthentication_foundation'
 ] as const
+export const PHASE7_MIGRATIONS = ADMIN_FOUNDATION_MIGRATIONS
 export interface IsolatedUpgradeSchema {
   readonly adminClient: Client
   readonly configPath: string
@@ -125,7 +126,9 @@ export const createHistoricalSchemaFixture = ({
     expect(phase6MigrationNames.at(-1)).toBe(
       '20260821152000_phase5_review_center_foundation'
     )
-    expect(historicalMigrationNames.slice(27)).toEqual(PHASE7_MIGRATIONS)
+    expect(historicalMigrationNames.slice(27)).toEqual(
+      ADMIN_FOUNDATION_MIGRATIONS
+    )
     expect(
       createHash('sha256')
         .update(
@@ -428,7 +431,7 @@ export const createHistoricalSchemaFixture = ({
           })}\n`
         )
         if (
-          PHASE7_MIGRATIONS.some(
+          ADMIN_FOUNDATION_MIGRATIONS.some(
             (migrationName) => migrationName === failedRow.migrationName
           )
         ) {
@@ -577,7 +580,7 @@ export const createHistoricalSchemaFixture = ({
     return result.rows[0]?.count ?? -1
   }
 
-  const transferPhase6TargetOwnership = async (
+  const transferPreAdminTargetOwnership = async (
     context: IsolatedUpgradeSchema
   ): Promise<void> => {
     await context.adminClient.query(
@@ -768,7 +771,7 @@ export const createHistoricalSchemaFixture = ({
     return result.rows
   }
 
-  const insertPhase6Question = async (
+  const insertPreAdminQuestion = async (
     client: Client,
     seed: QuestionAggregateSeed
   ): Promise<void> => {
@@ -868,7 +871,7 @@ export const createHistoricalSchemaFixture = ({
         )
       }
       for (const seed of seeds) {
-        await insertPhase6Question(client, seed)
+        await insertPreAdminQuestion(client, seed)
       }
       await client.query('COMMIT')
     } catch (error: unknown) {
@@ -878,7 +881,7 @@ export const createHistoricalSchemaFixture = ({
 
     return { insertedCount: seeds.length, verifiedCount: 0 }
   }
-  const seedPhase6Catalog = (
+  const seedPreAdminCatalog = (
     client: Client
   ): Promise<SeedQuestionCatalogResult> =>
     seedCatalog(client, buildHistoricalCanonicalSeeds())
@@ -913,9 +916,11 @@ export const createHistoricalSchemaFixture = ({
     readHistoricalMigrationProfile,
     readLedger,
     readNonCanonicalTargetOwnerCount,
-    seedPhase6Catalog,
+    seedPreAdminCatalog,
+    seedPhase6Catalog: seedPreAdminCatalog,
     seedReviewedRevision2Catalog,
     seedCurrentCatalog,
-    transferPhase6TargetOwnership
+    transferPreAdminTargetOwnership,
+    transferPhase6TargetOwnership: transferPreAdminTargetOwnership
   }
 }

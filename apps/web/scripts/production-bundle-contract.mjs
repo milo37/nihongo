@@ -474,7 +474,7 @@ const assertExpectedLazyBoundary = (entriesBySource, source) => {
   }
 }
 
-export const describePhase10PayloadIdentity = (source) => {
+export const describeBundlePayloadIdentity = (source) => {
   const omitted = { kind: 'body-omitted', body: null, relativeTargets: [] }
   if (source.length > 1024) return omitted
   const parseNames = (list) => {
@@ -541,7 +541,7 @@ export const describePhase10PayloadIdentity = (source) => {
   }
 }
 
-export const createPhase10SsrAssetClosureError = (
+export const createBundleSsrAssetClosureError = (
   actualPaths,
   expectedPaths,
   missingAssets = []
@@ -558,8 +558,8 @@ export const createPhase10SsrAssetClosureError = (
 }
 
 // Only already-recognized, safe import/export tokens enter the evidence proof.
-export const createPhase10ForwardingProof = (payload, entry) => {
-  const identity = describePhase10PayloadIdentity(payload.source)
+export const createBundleForwardingProof = (payload, entry) => {
+  const identity = describeBundlePayloadIdentity(payload.source)
   if (identity.kind === 'body-omitted') return null
   const syntaxTokens =
     payload.source.match(
@@ -581,7 +581,7 @@ export const createPhase10ForwardingProof = (payload, entry) => {
   }
 }
 
-export const assertPhase10ForwardingCoverage = ({
+export const assertBundleForwardingCoverage = ({
   graph,
   moduleRows,
   inventoryRows,
@@ -625,7 +625,7 @@ export const assertPhase10ForwardingCoverage = ({
       throw new Error('PHASE10_BUNDLE_FORWARDING_PROOF_INVALID')
     }
     const source = proof.syntaxTokens.join('')
-    const identity = describePhase10PayloadIdentity(source)
+    const identity = describeBundlePayloadIdentity(source)
     const bytes = Buffer.from(source, 'utf8')
     const row = rowsByPath.get(proof.path)
     const entry = graphBySource.get(proof.source)
@@ -681,7 +681,7 @@ export const assertPhase10ForwardingCoverage = ({
     JSON.stringify([...covered].toSorted()) !==
     JSON.stringify([...expected].toSorted())
   ) {
-    throw createPhase10SsrAssetClosureError(covered, expected)
+    throw createBundleSsrAssetClosureError(covered, expected)
   }
 }
 
@@ -825,13 +825,13 @@ const collectArtifactEvidence = async ({
   const forwardingFacades = expectedSsrAssetPaths
     .filter((file) => !ssrAssetPaths.has(file))
     .map((file) =>
-      createPhase10ForwardingProof(
+      createBundleForwardingProof(
         payloadByPath.get(file),
         graph.find((entry) => entry.file === file)
       )
     )
     .filter((proof) => proof !== null)
-  assertPhase10ForwardingCoverage({
+  assertBundleForwardingCoverage({
     graph,
     moduleRows: moduleGraph,
     inventoryRows: inventory,
@@ -1180,7 +1180,7 @@ const assertArtifactEvidence = (value, artifact) => {
       }
     }
   }
-  assertPhase10ForwardingCoverage({
+  assertBundleForwardingCoverage({
     graph,
     moduleRows,
     inventoryRows: rows,
@@ -1397,7 +1397,7 @@ const assertArtifactEvidence = (value, artifact) => {
     assertBoundary(value.boundaries.dashboard, dashboardLazySource)
 }
 
-export const phase10SplitBundleCommand =
+export const splitBundleCommand =
   'pnpm --filter @nihongo/web run build && pnpm --filter @nihongo/admin run build'
 
 const singleBuildCommand =
@@ -1469,10 +1469,7 @@ const combineArtifactEvidence = (artifacts) => {
   }
 }
 
-export const collectPhase10BundleEvidence = async ({
-  distDirectories,
-  metadata
-}) => {
+export const collectBundleEvidence = async ({ distDirectories, metadata }) => {
   const artifacts = {}
   for (const artifact of splitArtifacts) {
     const distDirectory = distDirectories[artifact]
@@ -1505,11 +1502,11 @@ export const collectPhase10BundleEvidence = async ({
     artifacts,
     combined: combineArtifactEvidence(artifacts)
   }
-  assertPhase10BundleEvidence(evidence)
+  assertBundleEvidence(evidence)
   return evidence
 }
 
-export const assertPhase10BundleEvidence = (value) => {
+export const assertBundleEvidence = (value) => {
   if (
     !exactKeys(value, [
       'schemaVersion',
@@ -1523,7 +1520,7 @@ export const assertPhase10BundleEvidence = (value) => {
     value.kind !== 'nihongo.phase10.bundle-performance' ||
     !['passed', 'failed'].includes(value.status) ||
     !exactKeys(value.artifacts, splitArtifacts) ||
-    value.metadata?.command !== phase10SplitBundleCommand
+    value.metadata?.command !== splitBundleCommand
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
   }
@@ -1583,13 +1580,13 @@ export const assertPhase10BundleEvidence = (value) => {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
 }
 
-export const assertPhase10BundleEvidenceProvenance = async ({
+export const assertBundleEvidenceProvenance = async ({
   evidence,
   repositoryRoot,
   currentTime = Date.now(),
   maximumAgeMilliseconds = 5 * 60 * 1_000
 }) => {
-  assertPhase10BundleEvidence(evidence)
+  assertBundleEvidence(evidence)
   if (
     typeof repositoryRoot !== 'string' ||
     !path.isAbsolute(repositoryRoot) ||
@@ -1606,7 +1603,7 @@ export const assertPhase10BundleEvidenceProvenance = async ({
   ) {
     throw new Error('PHASE10_BUNDLE_EVIDENCE_STALE')
   }
-  const repositoryState = await readPhase10BundleRepositoryState(repositoryRoot)
+  const repositoryState = await readBundleRepositoryState(repositoryRoot)
   if (
     repositoryState.commit !== evidence.metadata.commit ||
     repositoryState.sourceTreeDirty !== evidence.metadata.sourceTreeDirty ||
@@ -1616,7 +1613,7 @@ export const assertPhase10BundleEvidenceProvenance = async ({
   }
 }
 
-export const readPhase10BundleRepositoryState = async (repositoryRoot) => {
+export const readBundleRepositoryState = async (repositoryRoot) => {
   if (typeof repositoryRoot !== 'string' || !path.isAbsolute(repositoryRoot)) {
     throw new Error('PHASE10_BUNDLE_REPOSITORY_ROOT_INVALID')
   }
@@ -1675,4 +1672,16 @@ export const readPhase10BundleRepositoryState = async (repositoryRoot) => {
     sourceTreeDirty: statusResult.stdout.trim().length > 0,
     sourceTreeSha256: sourceTreeHash.digest('hex')
   }
+}
+
+export {
+  describeBundlePayloadIdentity as describePhase10PayloadIdentity,
+  createBundleSsrAssetClosureError as createPhase10SsrAssetClosureError,
+  createBundleForwardingProof as createPhase10ForwardingProof,
+  assertBundleForwardingCoverage as assertPhase10ForwardingCoverage,
+  splitBundleCommand as phase10SplitBundleCommand,
+  collectBundleEvidence as collectPhase10BundleEvidence,
+  assertBundleEvidence as assertPhase10BundleEvidence,
+  assertBundleEvidenceProvenance as assertPhase10BundleEvidenceProvenance,
+  readBundleRepositoryState as readPhase10BundleRepositoryState
 }
