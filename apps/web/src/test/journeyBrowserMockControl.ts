@@ -15,7 +15,7 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 
 const assertMockTestMode = (): void => {
   if (__NIHONGO_API_MODE__ !== 'mock' || import.meta.env.MODE !== 'test') {
-    throw new Error('Phase 10 Mock control requires Mock test mode.')
+    throw new Error('Journey Mock control requires Mock test mode.')
   }
 }
 
