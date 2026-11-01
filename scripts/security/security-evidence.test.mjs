@@ -382,9 +382,10 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
 })
 
 for (const mode of ['real', 'mock']) {
-  test(`Phase 9 ${mode} evidence accepts four tests and rejects unsafe suites`, async () => {
+  test(`Phase 9 ${mode} evidence enforces its exact test count and rejects unsafe suites`, async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'phase9-count-'))
     const label = `phase9-${mode}`
+    const expectedCount = mode === 'mock' ? 3 : 4
     const filePath = path.join(directory, `${label}.json`)
     const makeSummary = (count) => ({
       schemaVersion: 2,
@@ -417,28 +418,34 @@ for (const mode of ['real', 'mock']) {
         requiredLabels: [label]
       })
     }
-    await assert.doesNotReject(() => verify(makeSummary(4)))
-    for (const count of [3, 5]) {
+    await assert.doesNotReject(() => verify(makeSummary(expectedCount)))
+    for (const count of [0, expectedCount - 1, expectedCount + 1]) {
       await assert.rejects(
         () => verify(makeSummary(count)),
         /SECURITY_EVIDENCE_SCHEMA_INVALID/
       )
     }
-    const skipped = makeSummary(4)
+    const skipped = makeSummary(expectedCount)
     skipped.tests[0].status = 'skipped'
-    skipped.counts.passed = 3
+    skipped.counts.passed = expectedCount - 1
     skipped.counts.skipped = 1
     await assert.rejects(
       () => verify(skipped),
       /SECURITY_EVIDENCE_SCHEMA_INVALID/
     )
-    const retried = makeSummary(4)
+    const retried = makeSummary(expectedCount)
     retried.tests[0].retry = 1
     await assert.rejects(
       () => verify(retried),
       /SECURITY_EVIDENCE_SCHEMA_INVALID/
     )
-    const extra = makeSummary(4)
+    const duplicate = makeSummary(expectedCount)
+    duplicate.tests[0].testId = duplicate.tests[1].testId
+    await assert.rejects(
+      () => verify(duplicate),
+      /SECURITY_EVIDENCE_SCHEMA_INVALID/
+    )
+    const extra = makeSummary(expectedCount)
     extra.rawColor = 'black'
     await assert.rejects(
       () => verify(extra),
@@ -446,12 +453,12 @@ for (const mode of ['real', 'mock']) {
     )
     await assert.rejects(
       () =>
-        verify(makeSummary(4)).then(() =>
+        verify(makeSummary(expectedCount)).then(() =>
           verifyArtifactDirectory({
             directory,
             profile: 'playwright',
             requiredLabels: [label],
-            additionalSecrets: [makeSummary(4).tests[0].testId]
+            additionalSecrets: [makeSummary(expectedCount).tests[0].testId]
           })
         ),
       /SECURITY_EVIDENCE_ENVIRONMENT_SECRET/
@@ -465,7 +472,7 @@ test('all six safe suites retain exact current counts and approved attachments',
   for (const mode of ['real', 'mock']) {
     for (const [phase, count] of [
       [8, mode === 'real' ? 3 : 1],
-      [9, 4],
+      [9, mode === 'real' ? 4 : 3],
       [10, 5]
     ]) {
       const label = `phase${phase}-${mode}`
@@ -1368,7 +1375,7 @@ test('real-only browser evidence requires all three exact phases', async () => {
   }
 })
 
-test('CI uploads only verified real browser summaries', async () => {
+test('CI uploads only verified real and Mock browser summaries', async () => {
   const [normal, candidate] = await Promise.all([
     readFile(path.resolve('.github/workflows/ci.yml'), 'utf8'),
     readFile(path.resolve('.github/workflows/candidate.yml'), 'utf8')
@@ -1376,24 +1383,29 @@ test('CI uploads only verified real browser summaries', async () => {
   const uploads = normal
     .split('\n      - name: ')
     .filter((step) => /uses: actions\/upload-artifact@/u.test(step))
-  assert.equal(uploads.length, 1)
-  const upload = uploads[0]
-  assert.match(upload, /^Upload safe Playwright evidence\n/u)
-  assert.match(upload, /uses: actions\/upload-artifact@v4/u)
-  assert.ok(
-    upload.includes(
-      "if: ${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}"
+    .map((step) => step.trimEnd())
+  assert.deepEqual(uploads, [
+    `Upload safe Playwright evidence
+        if: \${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-safe-phase10-\${{ github.run_id }}-\${{ github.run_attempt }}
+          if-no-files-found: error
+          path: \${{ env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR }}/`,
+    `Upload safe Mock Playwright evidence
+        if: \${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-safe-phase10-mock-\${{ github.run_id }}-\${{ github.run_attempt }}
+          if-no-files-found: error
+          path: \${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`
+  ])
+  for (const upload of uploads) {
+    assert.doesNotMatch(
+      upload,
+      /phase10-raw|playwright-phase9|trace|video|screenshot/u
     )
-  )
-  assert.match(upload, /if-no-files-found: error/u)
-  assert.match(
-    upload,
-    /path: \$\{\{ env\.PHASE10_PLAYWRIGHT_EVIDENCE_DIR \}\}\//u
-  )
-  assert.doesNotMatch(
-    upload,
-    /phase10-raw|playwright-phase9|trace|video|screenshot/u
-  )
+  }
   assert.doesNotMatch(normal + candidate, /download-artifact/u)
   assert.doesNotMatch(candidate, /upload-artifact/u)
 })
