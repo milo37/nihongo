@@ -6,10 +6,10 @@ import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import {
-  assertPhase7DeclaredBodyBound,
-  assertPhase7JsonTransport,
-  assertPhase7TrustedOrigin,
-  getPhase7OperationBodyCap
+  assertDeclaredBodyBound,
+  assertJsonTransport,
+  assertTrustedOrigin,
+  getOperationBodySizeLimit
 } from './adminCommandGuard.js'
 import { appendAdminAuthHeaders } from './adminReadGuard.js'
 import type { QuestionReportRateLimiter } from './questionReportRateLimiter.js'
@@ -31,9 +31,9 @@ export const createQuestionReportGuard = ({
 
   return createMiddleware<QuestionReportRouteEnvironment>(
     async (context, next) => {
-      assertPhase7DeclaredBodyBound(
+      assertDeclaredBodyBound(
         context,
-        getPhase7OperationBodyCap('createQuestionReport')
+        getOperationBodySizeLimit('createQuestionReport')
       )
 
       let resolution: Awaited<
@@ -57,7 +57,7 @@ export const createQuestionReportGuard = ({
       if (!resolution.user || !resolution.phase7Session) {
         if (resolution.clearSessionCookie) {
           try {
-            assertPhase7TrustedOrigin(context, environment)
+            assertTrustedOrigin(context, environment)
             appendAdminAuthHeaders(context, resolution, environment)
           } catch {
             // Credential-changing headers never accompany an untrusted request.
@@ -75,8 +75,8 @@ export const createQuestionReportGuard = ({
         })
       }
 
-      assertPhase7JsonTransport(context)
-      assertPhase7TrustedOrigin(context, environment)
+      assertJsonTransport(context)
+      assertTrustedOrigin(context, environment)
       appendAdminAuthHeaders(context, resolution, environment)
       let peerAddress: string | undefined
       try {

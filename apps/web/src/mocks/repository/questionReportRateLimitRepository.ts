@@ -149,8 +149,8 @@ export class QuestionReportRateLimitRepositoryUnavailableError extends Error {
   readonly retryAfterSeconds = 5
 
   constructor() {
-    super('Phase 7 rate-limit authority is unavailable.')
-    this.name = 'Phase7RateLimitRepositoryUnavailableError'
+    super('Mock question report rate-limit authority is unavailable.')
+    this.name = 'QuestionReportRateLimitRepositoryUnavailableError'
   }
 }
 
