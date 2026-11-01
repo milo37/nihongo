@@ -119,9 +119,9 @@ for (const locale of ['ko', 'ja'] as const) {
         await page.evaluate(async () => {
           const path = '/src/test/journeyBrowserMockControl.ts'
           const control = (await import(/* @vite-ignore */ path)) as {
-            completePhase10MockGoogleCallback: () => Promise<void>
+            completeMockGoogleCallback: () => Promise<void>
           }
-          await control.completePhase10MockGoogleCallback()
+          await control.completeMockGoogleCallback()
         })
       } else {
         const state = new URL(authorization.url).searchParams.get('state')

@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url'
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const SAFE_LABEL_PATTERN = /^phase(?:8|9|10)-(?:real|mock)$/u
 const SAFE_LEDGER_LABEL_PATTERN =
-  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
+  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-admin-lifecycle|(?:phase8-)?dashboard|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const SAFE_PERFORMANCE_LABEL_PATTERN =
-  /^phase8-dashboard-(?:real|mock)-performance$/u
+  /^(?:phase8-)?dashboard-(?:real|mock)-performance$/u
 const SAFE_LEDGER_PATH_PATTERN = /^\/api\/[a-z0-9._~:/-]+$/iu
 const RAW_UUID_PATH_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/iu
@@ -296,11 +296,26 @@ const assertDependencyEvidence = (value) => {
   value.findings.forEach(assertDependencyFinding)
 }
 
-export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
+const dashboardLabelPrefix = (policy) => {
+  if (policy !== 'current' && policy !== 'legacy') {
+    throw new Error('SECURITY_EVIDENCE_ARGUMENTS_INVALID')
+  }
+  return policy === 'legacy' ? 'phase8-dashboard' : 'dashboard'
+}
+
+export const assertPlaywrightRequestLedger = (
+  ledger,
+  summaryLabel,
+  dashboardLabelPolicy = 'current'
+) => {
+  const dashboardPrefix = dashboardLabelPrefix(dashboardLabelPolicy)
   if (
     !exactKeys(ledger, ['label', 'entries']) ||
     typeof ledger.label !== 'string' ||
     !SAFE_LEDGER_LABEL_PATTERN.test(ledger.label) ||
+    (/^(?:phase8-)?dashboard-/u.test(ledger.label) &&
+      ledger.label !==
+        `${dashboardPrefix}-${summaryLabel.split('-').at(-1)}-request-ledger`) ||
     (ledger.label.startsWith('phase7-')
       ? !['phase7-real', 'phase8-real'].includes(summaryLabel)
       : !ledger.label.includes(`-${summaryLabel.split('-').at(-1)}-`)) ||
@@ -571,7 +586,7 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
       throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_RACE_OVERLAP_INVALID')
     }
   }
-  if (ledger.label === `phase8-dashboard-${mode}-request-ledger`) {
+  if (ledger.label === `${dashboardPrefix}-${mode}-request-ledger`) {
     if (ledger.entries.length !== 42) {
       throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
     }
@@ -638,8 +653,10 @@ const calculateTimingStatistics = (samples) => {
 
 export const assertPlaywrightPerformanceMeasurement = (
   measurement,
-  summaryLabel
+  summaryLabel,
+  dashboardLabelPolicy = 'current'
 ) => {
+  const dashboardPrefix = dashboardLabelPrefix(dashboardLabelPolicy)
   if (
     !exactKeys(measurement, [
       'label',
@@ -659,7 +676,8 @@ export const assertPlaywrightPerformanceMeasurement = (
     measurement.kind !== 'nihongo.phase10.browser-performance' ||
     measurement.surface !== 'dashboard-navigation' ||
     !['mock', 'real'].includes(measurement.mode) ||
-    measurement.label !== `phase8-dashboard-${measurement.mode}-performance` ||
+    measurement.label !==
+      `${dashboardPrefix}-${measurement.mode}-performance` ||
     measurement.mode !== summaryLabel.split('-').at(-1) ||
     measurement.warmupCount !== 1 ||
     measurement.sampleCount !== 20 ||
@@ -716,7 +734,8 @@ export const assertPlaywrightPerformanceMeasurement = (
   }
 }
 
-const assertPlaywrightEvidence = (value) => {
+const assertPlaywrightEvidence = (value, dashboardLabelPolicy) => {
+  const dashboardPrefix = dashboardLabelPrefix(dashboardLabelPolicy)
   if (
     !exactKeys(value, [
       'schemaVersion',
@@ -804,7 +823,7 @@ const assertPlaywrightEvidence = (value) => {
               'phase7-user-denial'
             ]
           : []),
-        `phase8-dashboard-${mode}-request-ledger`
+        `${dashboardPrefix}-${mode}-request-ledger`
       ]
     : value.label.startsWith('phase10-')
       ? [
@@ -816,13 +835,17 @@ const assertPlaywrightEvidence = (value) => {
         ]
       : []
   const expectedPerformanceLabels = value.label.startsWith('phase8-')
-    ? [`phase8-dashboard-${mode}-performance`]
+    ? [`${dashboardPrefix}-${mode}-performance`]
     : []
   value.requestLedgers.forEach((ledger) =>
-    assertPlaywrightRequestLedger(ledger, value.label)
+    assertPlaywrightRequestLedger(ledger, value.label, dashboardLabelPolicy)
   )
   value.performanceMeasurements.forEach((measurement) =>
-    assertPlaywrightPerformanceMeasurement(measurement, value.label)
+    assertPlaywrightPerformanceMeasurement(
+      measurement,
+      value.label,
+      dashboardLabelPolicy
+    )
   )
   if (
     JSON.stringify(
@@ -836,7 +859,7 @@ const assertPlaywrightEvidence = (value) => {
   }
 }
 
-const assertKnownEvidenceSchema = (value) => {
+const assertKnownEvidenceSchema = (value, dashboardLabelPolicy) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
   }
@@ -845,7 +868,7 @@ const assertKnownEvidenceSchema = (value) => {
   } else if (value.kind === 'nihongo.dependency-audit') {
     assertDependencyEvidence(value)
   } else if (value.kind === 'nihongo.playwright-safe-summary') {
-    assertPlaywrightEvidence(value)
+    assertPlaywrightEvidence(value, dashboardLabelPolicy)
   } else {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_UNKNOWN')
   }
@@ -855,8 +878,10 @@ export const verifyArtifactDirectory = async ({
   directory,
   profile,
   additionalSecrets = [],
-  requiredLabels = []
+  requiredLabels = [],
+  dashboardLabelPolicy = 'current'
 }) => {
+  dashboardLabelPrefix(dashboardLabelPolicy)
   const entries = await readdir(directory, { withFileTypes: true })
   const inputEntries = entries.filter(
     (entry) => entry.name !== 'artifact-manifest.json'
@@ -892,7 +917,7 @@ export const verifyArtifactDirectory = async ({
     } catch {
       throw new Error('SECURITY_EVIDENCE_JSON_INVALID')
     }
-    assertKnownEvidenceSchema(value)
+    assertKnownEvidenceSchema(value, dashboardLabelPolicy)
     assertEvidenceValueSafe({ value, additionalSecrets })
     if (value.kind === 'nihongo.playwright-safe-summary') {
       if (entry.name !== `${value.label}.json`) {
@@ -991,6 +1016,8 @@ if (isDirectExecution) {
           directory: path.resolve(directory),
           profile,
           requiredLabels,
+          dashboardLabelPolicy:
+            options.get('dashboard-label-policy') ?? 'current',
           additionalSecrets: collectSensitiveEnvironmentValues(process.env)
         })
         process.stdout.write(
