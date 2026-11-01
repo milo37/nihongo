@@ -34,10 +34,10 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-if (isPhase10CurrentSource && !fixtureDatabaseUrl) {
+if (isCurrentSourceIntegration && !fixtureDatabaseUrl) {
   throw new Error('Phase 10 question catalog requires a fixture database.')
 }
 if (fixtureDatabaseUrl) {
@@ -50,7 +50,7 @@ if (fixtureDatabaseUrl) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -438,7 +438,7 @@ describe('question catalog PostgreSQL integration', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'application role은 published version 직접 변경을 막고 option/tag immutability를 유지한다'
       : 'published version과 option/tag snapshot 수정을 DB에서 거부한다',
     async () => {
@@ -448,7 +448,7 @@ describe('question catalog PostgreSQL integration', () => {
         throw new Error('Question seed fixture가 필요합니다.')
       }
 
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
           expectedMessage:
             'An armed trusted Phase 7 operation intent is required.',
@@ -523,7 +523,7 @@ describe('question catalog PostgreSQL integration', () => {
       throw new Error('정답이 아닌 option fixture가 필요합니다.')
     }
 
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       await expectRawDatabaseError({
         expectedMessage:
           'QuestionVersion children require an editable unpinned parent.',
@@ -619,11 +619,11 @@ describe('question catalog PostgreSQL integration', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'Phase 7 application role은 catalog aggregate를 hard delete할 수 없다'
       : '참조되지 않은 draft aggregate를 cascade 삭제할 수 있다',
     async () => {
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const seed = buildAllQuestionSeeds()[0]
         const tag = seed?.tags[0]
         if (!seed || !tag) {
@@ -727,7 +727,7 @@ describe('question catalog PostgreSQL integration', () => {
   )
 
   it('다른 version option을 correctOptionId로 연결하지 못한다', async () => {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const [firstSeed, secondSeed] = buildAllQuestionSeeds()
       const foreignOption = secondSeed?.options[0]
       if (!firstSeed || !secondSeed || !foreignOption) {
@@ -830,7 +830,7 @@ describe('question catalog PostgreSQL integration', () => {
   })
 
   it('보기 3개인 version은 publish할 수 없다', async () => {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const seed = buildAllQuestionSeeds()[0]
       const removableOption = seed?.options.find(
         ({ id }) => id !== seed.correctOptionId
@@ -905,7 +905,7 @@ describe('question catalog PostgreSQL integration', () => {
   })
 
   it('독해 passage가 없으면 DB가 거부한다', async () => {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const seed = buildAllQuestionSeeds().find(
         ({ subject }) => subject === 'VOCABULARY'
       )
@@ -964,7 +964,7 @@ describe('question catalog PostgreSQL integration', () => {
   })
 
   it('보기 4개여도 tag가 없으면 publish할 수 없다', async () => {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const seed = buildAllQuestionSeeds()[0]
       if (!seed) {
         throw new Error('Published question tag fixture가 필요합니다.')
@@ -1041,7 +1041,7 @@ describe('question catalog PostgreSQL integration', () => {
       throw new Error('Question seed fixture가 필요합니다.')
     }
 
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const versionBefore =
         await database.client.questionVersion.findUniqueOrThrow({
           where: { id: seed.versionId },
@@ -1150,7 +1150,7 @@ describe('question catalog PostgreSQL integration', () => {
       where: { questionId: seed.questionId }
     })
 
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const [questionBefore, v1Before] = await Promise.all([
         database.client.question.findUniqueOrThrow({
           where: { id: seed.questionId }

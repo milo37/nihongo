@@ -5,7 +5,7 @@ import { getStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/get
 import { listResumableStudySessionsResponseSchema } from '@nihongo/contracts/study/list-resumable-study-sessions'
 import { saveStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/save-study-draft-answers'
 import { Client } from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
@@ -55,13 +55,13 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
@@ -84,14 +84,14 @@ for (const databaseUrl of [
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const authGatewayDatabase = isPhase10CurrentSource
+const authGatewayDatabase = isCurrentSourceIntegration
   ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
   : undefined
 const erasureWorkerClient = erasureWorkerDatabaseUrl
@@ -105,7 +105,7 @@ const erasureWorkerClient = erasureWorkerDatabaseUrl
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort: new InMemoryAuthEmailPort()
 })
-const auth = isPhase10CurrentSource
+const auth = isCurrentSourceIntegration
   ? undefined
   : createAuthRuntime({
       client: database.client,
@@ -116,7 +116,7 @@ const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = isPhase10CurrentSource
+const principalService = isCurrentSourceIntegration
   ? createPhase7PrincipalService({
       client: database.client,
       isProduction: false,
@@ -144,7 +144,7 @@ const studySubmissionRepository = createPrismaStudySubmissionRepository(
 const app = createApiApp({
   auth: {
     environment,
-    gateway: isPhase10CurrentSource
+    gateway: isCurrentSourceIntegration
       ? createAuthGateway({
           environment,
           phase7Facade: createPhase7AuthFacade({
@@ -1331,9 +1331,58 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
   })
 
   it('save/cancel·submit/cancel·save/submit lock winner를 양방향으로 직렬화한다', async () => {
+    let lockRaceStage:
+      | 'SETUP'
+      | 'SAVE_BEFORE_CANCEL'
+      | 'CANCEL_BEFORE_SAVE'
+      | 'SUBMIT_BEFORE_CANCEL'
+      | 'CANCEL_BEFORE_SUBMIT'
+      | 'SAVE_BEFORE_SUBMIT'
+      | 'SUBMIT_BEFORE_SAVE'
+      | 'FINAL_STATES' = 'SETUP'
+    onTestFailed(({ task, signal }) => {
+      try {
+        const error: unknown = task.result?.errors?.[0]
+        const nameDescriptor =
+          error && typeof error === 'object'
+            ? Object.getOwnPropertyDescriptor(error, 'name')
+            : undefined
+        const codeDescriptor =
+          error && typeof error === 'object'
+            ? Object.getOwnPropertyDescriptor(error, 'code')
+            : undefined
+        const name: unknown =
+          nameDescriptor && 'value' in nameDescriptor
+            ? nameDescriptor.value
+            : undefined
+        const code: unknown =
+          codeDescriptor && 'value' in codeDescriptor
+            ? codeDescriptor.value
+            : undefined
+        const category = signal.aborted
+          ? 'TIMEOUT_OR_CANCELLED'
+          : name === 'AssertionError'
+            ? 'ASSERTION'
+            : name === 'PrismaClientKnownRequestError' && code === 'P2034'
+              ? 'SERIALIZATION_CONFLICT'
+              : name === 'PrismaClientKnownRequestError' && code === 'P2028'
+                ? 'TRANSACTION_CLOSED'
+                : name === 'PrismaClientKnownRequestError'
+                  ? 'PRISMA_OTHER'
+                  : name === 'Error'
+                    ? 'ERROR'
+                    : 'UNKNOWN'
+        process.stdout.write(
+          `${JSON.stringify({ event: 'study_draft_lock_race_failure', stage: lockRaceStage, category })}\n`
+        )
+      } catch {
+        // Diagnostic output must not change the failure.
+      }
+    })
     const userId = await createUser()
     const owner = { kind: 'USER' as const, userId }
 
+    lockRaceStage = 'SAVE_BEFORE_CANCEL'
     const saveFirstSession = await createOwnedV2Session(userId)
     const saveBarrier = createBarrier()
     const saveFirstRepository = createPrismaStudyDraftRepository(
@@ -1357,6 +1406,7 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
     await expect(savePromise).resolves.toMatchObject({ replayed: false })
     await expect(cancelAfterSave).resolves.toEqual({ kind: 'CANCELLED' })
 
+    lockRaceStage = 'CANCEL_BEFORE_SAVE'
     const cancelFirstSession = await createOwnedV2Session(userId)
     const cancelBarrier = createBarrier()
     const cancelFirstRepository = createPrismaStudyDraftRepository(
@@ -1382,6 +1432,7 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       StudyDraftNotEditableError
     )
 
+    lockRaceStage = 'SUBMIT_BEFORE_CANCEL'
     const submitFirstSession = await createOwnedV2Session(userId)
     const submitBarrier = createBarrier()
     const submitFirstService = createStudySubmissionService(
@@ -1410,6 +1461,7 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
     await expect(submitPromise).resolves.toMatchObject({ replayed: false })
     await expect(cancelAfterSubmit).resolves.toEqual({ kind: 'NOT_EDITABLE' })
 
+    lockRaceStage = 'CANCEL_BEFORE_SUBMIT'
     const cancelBeforeSubmitSession = await createOwnedV2Session(userId)
     const cancelBeforeSubmitBarrier = createBarrier()
     const cancelBeforeSubmitRepository = createPrismaStudyDraftRepository(
@@ -1441,6 +1493,7 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       code: 'STUDY_SESSION_NOT_EDITABLE'
     })
 
+    lockRaceStage = 'SAVE_BEFORE_SUBMIT'
     const saveBeforeSubmitSession = await createOwnedV2Session(userId)
     const saveBeforeSubmitBarrier = createBarrier()
     const saveBeforeSubmitRepository = createPrismaStudyDraftRepository(
@@ -1474,6 +1527,7 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       code: 'DRAFT_VERSION_CONFLICT'
     })
 
+    lockRaceStage = 'SUBMIT_BEFORE_SAVE'
     const submitBeforeSaveSession = await createOwnedV2Session(userId)
     const submitBeforeSaveBarrier = createBarrier()
     const submitBeforeSaveService = createStudySubmissionService(
@@ -1506,6 +1560,7 @@ describe('Phase 4 StudyDraft PostgreSQL integration', () => {
       StudyDraftNotEditableError
     )
 
+    lockRaceStage = 'FINAL_STATES'
     const finalStates = await database.client.studySession.findMany({
       where: {
         id: {

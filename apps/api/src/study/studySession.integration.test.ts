@@ -5,7 +5,7 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
-import { createPhase7SsoSessionFixture } from '../db/fixtures/phase7SsoSession.js'
+import { createPhase7SsoSessionFixture } from '../db/fixtures/ssoSession.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
@@ -42,13 +42,13 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
@@ -71,14 +71,14 @@ for (const databaseUrl of [
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const authGatewayDatabase = isPhase10CurrentSource
+const authGatewayDatabase = isCurrentSourceIntegration
   ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
   : undefined
 const erasureWorkerClient = erasureWorkerDatabaseUrl
@@ -93,7 +93,7 @@ const emailPort = new InMemoryAuthEmailPort()
 const emailDispatcher = createAuthEmailDispatcher({
   emailPort
 })
-const auth = isPhase10CurrentSource
+const auth = isCurrentSourceIntegration
   ? undefined
   : createAuthRuntime({
       client: database.client,
@@ -104,7 +104,7 @@ const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService = isPhase10CurrentSource
+const principalService = isCurrentSourceIntegration
   ? createPhase7PrincipalService({
       client: database.client,
       isProduction: false,
@@ -126,7 +126,7 @@ const technicalAuthRateLimiter = createApplicationRateLimiter({
 const app = createApiApp({
   auth: {
     environment,
-    gateway: isPhase10CurrentSource
+    gateway: isCurrentSourceIntegration
       ? createAuthGateway({
           delay: async () => undefined,
           environment,
@@ -171,7 +171,7 @@ const createApplicationClient = (): Client =>
     connectionString: environment.DATABASE_URL,
     options: createPostgresStartupOptions(
       getPostgresSchema(environment.DATABASE_URL),
-      isPhase10CurrentSource ? 'nihongo_app' : undefined
+      isCurrentSourceIntegration ? 'nihongo_app' : undefined
     )
   })
 
@@ -402,7 +402,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  if (!isPhase10CurrentSource) return
+  if (!isCurrentSourceIntegration) return
   await database.client.rateLimit.deleteMany({
     where: { key: { startsWith: 'application:auth:' } }
   })
@@ -767,7 +767,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
   })
 
   it('후보 0건이면 guest/session을 쓰지 않고 404를 반환한다', async () => {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       const owner = await createAuthenticatedActor('USER')
       const beforeGuests = await database.client.guestPrincipal.count()
       const beforeSessions = await database.client.studySession.count()
@@ -951,7 +951,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
   })
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? '비인가 Question archive를 42501로 거부하고 pinned payload를 보존한다'
       : 'Question을 archive해도 pinned version payload를 그대로 조회한다',
     async () => {
@@ -984,7 +984,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
           }
         }
       )
-      if (isPhase10CurrentSource) {
+      if (isCurrentSourceIntegration) {
         const archiveTime = new Date()
         await expectRawDatabaseError({
           expectedMessage:
@@ -1059,7 +1059,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
   )
 
   it(
-    isPhase10CurrentSource
+    isCurrentSourceIntegration
       ? 'selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
       : '동시 archive를 selection lock 뒤로 직렬화하고 pinned payload를 보존한다',
     async () => {
@@ -1149,7 +1149,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
            "archivedAt",
            "currentPublishedVersionId",
            "lifecycleStatus",
-           ${isPhase10CurrentSource ? '"rowVersion",' : ''}
+           ${isCurrentSourceIntegration ? '"rowVersion",' : ''}
            "updatedAt"
          FROM "Question"
          WHERE "id" = $1`,
@@ -1174,7 +1174,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         let archiveSettled = false
         archiveUpdate = archiveClient
           .query(
-            isPhase10CurrentSource
+            isCurrentSourceIntegration
               ? `UPDATE "Question"
                SET
                  "lifecycleStatus" = 'ARCHIVED',
@@ -1199,7 +1199,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
             archiveSettled = true
           })
 
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           releaseSelection()
         } else {
           await waitForPostgresLockWait(observerClient, processId)
@@ -1211,7 +1211,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         await archiveUpdate
         expect(archiveSettled).toBe(true)
 
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           expect(archiveError).toMatchObject({
             code: '42501',
             message: 'An armed trusted Phase 7 operation intent is required.'
@@ -1249,7 +1249,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         expect(
           getStudySessionV2ResponseSchema.parse(await getResponse.json())
         ).toEqual(created.payload)
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           await expect(
             observerClient.query<{
               archivedAt: Date | null
