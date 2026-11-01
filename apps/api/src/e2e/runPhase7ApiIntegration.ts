@@ -19,7 +19,7 @@ import {
   assertSafeAdminCmsDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
-import { assertPhase7ApiDatabaseBoundaryPreflight } from './phase7ApiDatabaseBoundary.js'
+import { assertPhase7ApiDatabaseBoundaryPreflight } from './apiDatabaseBoundary.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
