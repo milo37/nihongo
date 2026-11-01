@@ -136,7 +136,7 @@ export const createPrincipalService = ({
   }
 }
 
-interface Phase7PrincipalRow {
+interface PrincipalDatabaseRow {
   userId: string
   name: string
   role: 'USER' | 'ADMIN'
@@ -147,14 +147,14 @@ interface Phase7PrincipalRow {
   isFresh: boolean
 }
 
-interface Phase7RememberedSessionRefreshRow {
+interface RememberedSessionRefreshRow {
   id: string
   updatedAt: Date
   expiresAt: Date
   refreshed: boolean
 }
 
-interface Phase7AdminAuthorityFailureRow {
+interface AdminAuthorityFailureRow {
   outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
 }
 
@@ -187,9 +187,7 @@ export const createPhase7PrincipalService = ({
       const refreshRows =
         options.refreshRememberedSession === false
           ? []
-          : await refreshClient.$queryRawUnsafe<
-              Phase7RememberedSessionRefreshRow[]
-            >(
+          : await refreshClient.$queryRawUnsafe<RememberedSessionRefreshRow[]>(
               'SELECT * FROM "phase7_refresh_current_remembered_session"($1)',
               credential.token
             )
@@ -201,7 +199,7 @@ export const createPhase7PrincipalService = ({
         }
       }
 
-      const rows = await client.$queryRawUnsafe<Phase7PrincipalRow[]>(
+      const rows = await client.$queryRawUnsafe<PrincipalDatabaseRow[]>(
         `SELECT principal.*,
            "phase7_sso_admin_session_is_fresh"($1) AS "isFresh"
          FROM "phase7_resolve_v1_principal"($1) AS principal`,
@@ -209,11 +207,11 @@ export const createPhase7PrincipalService = ({
       )
       if (rows.length !== 1) {
         let adminAuthorityFailure:
-          | Phase7AdminAuthorityFailureRow['outcome']
+          | AdminAuthorityFailureRow['outcome']
           | undefined
         if (options.classifyAdminAuthorityLoss) {
           const authorityRows = await client.$queryRawUnsafe<
-            Phase7AdminAuthorityFailureRow[]
+            AdminAuthorityFailureRow[]
           >(
             'SELECT * FROM "phase7_classify_admin_authority"($1)',
             credential.token

@@ -7,12 +7,12 @@ import {
   assertAdminTagList,
   compareAdminTags,
   compareUnicodeScalars,
-  createPhase7QuestionDuplicateIdentity,
+  createPhase7QuestionDuplicateIdentity as createQuestionDuplicateIdentity,
   createQuestionReportDescriptionDigest,
-  isApplicablePhase7ContentType,
-  normalizePhase7OptionComparison,
-  normalizePhase7TagKey,
-  normalizePhase7Text,
+  isApplicablePhase7ContentType as isApplicableContentType,
+  normalizePhase7OptionComparison as normalizeOptionComparison,
+  normalizePhase7TagKey as normalizeTagKey,
+  normalizePhase7Text as normalizeContentText,
   questionReportDetailSchema,
   questionReportMutationResultSchema,
   type AccountActorSnapshot,
@@ -22,8 +22,8 @@ import {
   type AdminTagSummary,
   type CreateAdminQuestionRequest,
   type CreateQuestionReportRequest,
-  type Phase7ExecutionDisposition,
-  type Phase7InternalFailureReason,
+  type Phase7ExecutionDisposition as ExecutionDisposition,
+  type Phase7InternalFailureReason as InternalFailureReason,
   type QuestionReportDetail,
   type QuestionReportMutationResult,
   type QuestionVersionStatus,
@@ -114,17 +114,17 @@ const hasCanonicalPersistedContent = (
 
 export class MockContentCommandError extends Error {
   readonly code: StableErrorCode
-  readonly disposition: Phase7ExecutionDisposition
+  readonly disposition: ExecutionDisposition
   readonly fieldErrors: Record<string, string[]> | undefined
-  readonly internalReason: Phase7InternalFailureReason | undefined
+  readonly internalReason: InternalFailureReason | undefined
   readonly retryAfterSeconds: number | undefined
 
   constructor(input: {
     code: StableErrorCode
     message: string
-    disposition?: Phase7ExecutionDisposition
+    disposition?: ExecutionDisposition
     fieldErrors?: Record<string, string[]>
-    internalReason?: Phase7InternalFailureReason
+    internalReason?: InternalFailureReason
     retryAfterSeconds?: number
   }) {
     super(input.message)
@@ -288,7 +288,7 @@ const toDuplicateIdentity = (version: MockContentVersion): string => {
   if (!correctOption) {
     throw new Error('Canonical mock version correct option is unavailable.')
   }
-  return createPhase7QuestionDuplicateIdentity({
+  return createQuestionDuplicateIdentity({
     correctOptionText: correctOption.text,
     optionTexts: version.options.map((option) => option.text),
     passage: version.passage,
@@ -388,11 +388,11 @@ const createSeedVersion = (
     correctOptionId: correctOption.id,
     tags: publicQuestion.tags
       .map((tag) => {
-        const label = normalizePhase7Text(tag.label)
+        const label = normalizeContentText(tag.label)
         return {
           ...tag,
           label,
-          normalizedName: normalizePhase7TagKey(label)
+          normalizedName: normalizeTagKey(label)
         }
       })
       .toSorted(compareAdminTags),
@@ -1107,14 +1107,12 @@ export class MockContentState {
           this.tagApplicabilityKey(tag.normalizedName, version)
         )
         return (
-          normalizePhase7TagKey(tag.label) === tag.normalizedName &&
+          normalizeTagKey(tag.label) === tag.normalizedName &&
           identities?.has(tagIdentity(tag)) === true
         )
       })
       const normalizedOptionTexts = new Set(
-        version.options.map((option) =>
-          normalizePhase7OptionComparison(option.text)
-        )
+        version.options.map((option) => normalizeOptionComparison(option.text))
       )
       const passageIsValid =
         version.subject === 'READING'
@@ -1123,7 +1121,7 @@ export class MockContentState {
       if (
         !statusTimesAreValid ||
         !lifecycleIsValid ||
-        !isApplicablePhase7ContentType(
+        !isApplicableContentType(
           version.level,
           version.subject,
           version.questionType

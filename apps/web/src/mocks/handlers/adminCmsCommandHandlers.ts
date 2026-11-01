@@ -1,6 +1,6 @@
 import {
   assertCreateQuestionReportForRequest,
-  buildPhase7OperationFailureResponse,
+  buildPhase7OperationFailureResponse as buildOperationFailureResponse,
   createQuestionReportRequestSchema,
   parseJsonBytes,
   JsonParseError,
@@ -102,7 +102,7 @@ const toFailureResponse = (
           message: '관리자 명령 결과를 확인할 수 없습니다.',
           disposition: 'COMMIT_UNKNOWN'
         })
-  const response = buildPhase7OperationFailureResponse({
+  const response = buildOperationFailureResponse({
     operation,
     failure: {
       code: failure.code,
