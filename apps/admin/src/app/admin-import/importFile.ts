@@ -1,5 +1,5 @@
 import {
-  parsePhase7JsonBytes,
+  parseJsonBytes,
   validateQuestionImportRequestSchema,
   type ValidateQuestionImportRequest
 } from '@nihongo/contracts/admin/phase7'
@@ -24,9 +24,7 @@ export const readImportFile = async (
     if (bytes.byteLength === 0 || bytes.byteLength > MAX_IMPORT_BYTES)
       throw new ImportFileError('SIZE')
     if (bytes.byteLength !== file.size) throw new ImportFileError('FORMAT')
-    return validateQuestionImportRequestSchema.parse(
-      parsePhase7JsonBytes(bytes)
-    )
+    return validateQuestionImportRequestSchema.parse(parseJsonBytes(bytes))
   } catch (error) {
     if (error instanceof ImportFileError) throw error
     throw new ImportFileError('FORMAT')

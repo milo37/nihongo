@@ -2,7 +2,7 @@ import { infiniteQueryOptions } from '@tanstack/react-query'
 import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const adminAuditQueries = {
-  allKey: () => ['phase7-admin', 'audit-log'] as const,
+  allKey: () => ['admin-content', 'audit-log'] as const,
   connection: (actorId: string | null) =>
     infiniteQueryOptions({
       queryKey: [

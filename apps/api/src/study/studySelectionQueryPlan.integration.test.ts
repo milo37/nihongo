@@ -41,10 +41,10 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-if (isPhase10CurrentSource && !fixtureDatabaseUrl) {
+if (isCurrentSourceIntegration && !fixtureDatabaseUrl) {
   throw new Error(
     'Phase 10 study-selection query-plan tests require a fixture database.'
   )
@@ -59,7 +59,7 @@ if (fixtureDatabaseUrl) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -612,7 +612,7 @@ describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
         await transaction.$executeRaw`ANALYZE "ReviewSchedule"`
         await transaction.$executeRaw`ANALYZE "Bookmark"`
 
-        if (isPhase10CurrentSource) {
+        if (isCurrentSourceIntegration) {
           await transaction.$executeRaw`SET LOCAL ROLE "nihongo_app"`
         }
 
