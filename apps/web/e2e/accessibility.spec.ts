@@ -1596,7 +1596,7 @@ const armDashboardInsightsFailure = async (
     await route.fulfill({
       body: JSON.stringify({
         code: 'SERVICE_UNAVAILABLE',
-        message: 'Phase 9 browser fault injection',
+        message: 'Dashboard insights browser fault injection',
         requestId,
         retryable: true
       }),
