@@ -92,12 +92,12 @@ assertSafeTestDatabase({
   productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
 })
 
-const isPhase10CurrentSource =
+const isCurrentSourceIntegration =
   process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
 const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
 const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
 if (
-  isPhase10CurrentSource &&
+  isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
@@ -116,7 +116,7 @@ for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  isPhase10CurrentSource
+  isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
@@ -473,7 +473,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
   if (!tag) {
     throw new Error('Review queue query-plan fixture tag가 필요합니다.')
   }
-  if (!isPhase10CurrentSource) {
+  if (!isCurrentSourceIntegration) {
     const tagPrefix = `phase5-plan-${randomUUID()}`
     const draftVersionId = randomUUID()
     createdDraftVersionIds.add(draftVersionId)
@@ -768,7 +768,7 @@ afterAll(async () => {
     })
   }
   if (createdUserIds.size > 0) {
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       for (const userId of [...createdUserIds]) await eraseUser(userId)
     } else {
       for (const tableName of [
@@ -934,7 +934,7 @@ describe('Phase 5 review-center populated query plans', () => {
               reconciliationNoteRows.map(({ id }) => id)
             )}
           `)
-        if (!isPhase10CurrentSource) {
+        if (!isCurrentSourceIntegration) {
           await transaction.$executeRaw`
             CREATE TEMP TABLE "phase5_targeted_plan_catalog" (
               "questionId" UUID PRIMARY KEY,
@@ -1057,7 +1057,7 @@ describe('Phase 5 review-center populated query plans', () => {
       plans.memoOwnerLock,
       plans.historyOwnerRead
     ]) {
-      if (!isPhase10CurrentSource) {
+      if (!isCurrentSourceIntegration) {
         expect(readIndexNames(plan)).toContain(
           'WrongNote_userId_questionId_key'
         )
@@ -1094,7 +1094,7 @@ describe('Phase 5 review-center populated query plans', () => {
       expectNoSequentialScan(plan, 'StudyAnswer')
       expectBoundedRelationRows(plan, 'ReviewEvent', HISTORY_LIMIT)
       expectBoundedRelationRows(plan, 'StudyAnswer', HISTORY_LIMIT)
-      if (!isPhase10CurrentSource) {
+      if (!isCurrentSourceIntegration) {
         expect(readIndexNames(plan)).toContain(
           'StudyAnswer_id_questionVersionId_key'
         )
@@ -1118,12 +1118,12 @@ describe('Phase 5 review-center populated query plans', () => {
     expect(
       readRootPlan(plans.reviewQueueItems)['Actual Rows']
     ).toBeLessThanOrEqual(100)
-    if (!isPhase10CurrentSource) {
+    if (!isCurrentSourceIntegration) {
       expect(readIndexNames(plans.reviewQueueItems)).toContain(
         'WrongNote_userId_questionId_key'
       )
     }
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       expectRelationExecuted(plans.reviewQueueItems, 'QuestionVersionTag')
     } else {
       expect(readIndexNames(plans.reviewQueueItems)).toContain(
@@ -1193,7 +1193,7 @@ describe('Phase 5 review-center populated query plans', () => {
       1
     )
 
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       expectRelationExecuted(plans.targetedQuestionLock, 'Question')
       expectRelationExecuted(plans.targetedQuestionLock, 'QuestionVersion')
       expectBoundedRelationRows(
@@ -1231,14 +1231,14 @@ describe('Phase 5 review-center populated query plans', () => {
       }
     }
 
-    if (!isPhase10CurrentSource) {
+    if (!isCurrentSourceIntegration) {
       expect(readIndexNames(plans.targetedWrongNoteLock)).toContain(
         'WrongNote_userId_questionId_key'
       )
     }
     expectNoSequentialScan(plans.targetedWrongNoteLock, 'WrongNote')
     expectBoundedRelationRows(plans.targetedWrongNoteLock, 'WrongNote', 1)
-    if (isPhase10CurrentSource) {
+    if (isCurrentSourceIntegration) {
       expectRelationExecuted(plans.targetedWrongNoteLock, 'QuestionVersion')
       expectBoundedRelationRows(
         plans.targetedWrongNoteLock,
