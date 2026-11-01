@@ -15,8 +15,10 @@ const VALID_STATUS = new Set([
   'interrupted'
 ])
 const REQUEST_LEDGER_ATTACHMENT =
-  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-(?:admin-lifecycle|dashboard)|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
-const PERFORMANCE_ATTACHMENT = /^phase8-dashboard-(?:real|mock)-performance$/u
+  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-admin-lifecycle|dashboard|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
+const PERFORMANCE_ATTACHMENT = /^dashboard-(?:real|mock)-performance$/u
+const LEGACY_DASHBOARD_ATTACHMENT =
+  /^phase8-dashboard-(?:real|mock)-(?:request-ledger|performance)$/u
 
 const normalizeStatus = (status) =>
   VALID_STATUS.has(status) ? status : 'failed'
@@ -67,6 +69,13 @@ export default class Phase10PlaywrightSummaryReporter {
     })
     for (const attachment of result.attachments ?? []) {
       const attachmentName = attachment.name ?? ''
+      if (LEGACY_DASHBOARD_ATTACHMENT.test(attachmentName)) {
+        this.invalidSafeAttachments.set(
+          attachmentName,
+          'SECURITY_EVIDENCE_LEGACY_ATTACHMENT_FORBIDDEN'
+        )
+        continue
+      }
       const isRequestLedger = REQUEST_LEDGER_ATTACHMENT.test(attachmentName)
       const isPerformance = PERFORMANCE_ATTACHMENT.test(attachmentName)
       if (!isRequestLedger && !isPerformance) continue

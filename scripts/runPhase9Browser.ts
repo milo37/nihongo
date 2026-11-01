@@ -494,7 +494,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   ])
     delete apiEnvironment[key]
   const { preparePhase9BrowserActors } = await import(
-    '../apps/api/src/e2e/phase9BrowserApi.js'
+    '../apps/api/src/e2e/browserApi.js'
   )
   const created = await preparePhase9BrowserActors({
     adminDatabaseUrl: harness.adminDatabaseUrl,
@@ -512,7 +512,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   const api = spawnOwned(
     `phase9-${browserMode}-api`,
     'pnpm',
-    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/phase9BrowserApi.ts'],
+    ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/browserApi.ts'],
     {
       ...apiEnvironment,
       PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
