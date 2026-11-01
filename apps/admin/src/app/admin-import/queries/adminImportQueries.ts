@@ -2,7 +2,7 @@ import { mutationOptions } from '@tanstack/react-query'
 import type {
   ValidateQuestionImportRequest,
   ApplyQuestionImportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 export const adminImportMutations = {
   allKey: () => ['admin-content', 'import'] as const,

@@ -5,7 +5,7 @@ import {
 } from '@tanstack/react-query'
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { questionReportMutationResultSchema } from '@nihongo/contracts/admin/phase7'
+import { questionReportMutationResultSchema } from '@nihongo/contracts/admin/content-operations'
 import {
   advanceAuthTransitionEpoch,
   AuthTransitionSupersededError

@@ -1,4 +1,4 @@
-import type { QuestionReportSummary } from '@nihongo/contracts/admin/phase7'
+import type { QuestionReportSummary } from '@nihongo/contracts/admin/content-operations'
 
 export const adminReportReasonKey = {
   ANSWER_ERROR: 'enums.reportReasons.ANSWER_ERROR',

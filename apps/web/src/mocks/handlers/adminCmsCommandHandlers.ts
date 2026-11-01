@@ -4,8 +4,8 @@ import {
   createQuestionReportRequestSchema,
   parseJsonBytes,
   JsonParseError,
-  type Phase7Operation
-} from '@nihongo/contracts/admin/phase7'
+  type ContentOperation
+} from '@nihongo/contracts/admin/content-operations'
 import {
   apiFailureSchema,
   type ApiFailure
@@ -89,7 +89,7 @@ const genericNotFound = (request: Request): HttpResponse<ApiFailure> => {
 }
 
 const toFailureResponse = (
-  operation: Phase7Operation,
+  operation: ContentOperation,
   request: Request,
   requestId: string,
   error: unknown
@@ -137,7 +137,7 @@ const hasCanonicalCommandPath = (request: Request): boolean => {
   )
 }
 
-const bodyCap = (_operation: Phase7Operation): number => REPORT_BODY_CAP
+const bodyCap = (_operation: ContentOperation): number => REPORT_BODY_CAP
 
 const assertDeclaredBodyBound = (
   request: Request,
@@ -363,7 +363,7 @@ export const readMockJsonBody = async (
 
 const parseBody = async <Schema extends ZodType>(
   request: Request,
-  operation: Phase7Operation,
+  operation: ContentOperation,
   schema: Schema,
   message: string
 ): Promise<z.output<Schema>> => {

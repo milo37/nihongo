@@ -19,7 +19,7 @@ const createDashboardInsightsFailure = () =>
           status: 503,
           headers: {
             'Cache-Control': 'private, no-store',
-            'X-Phase9-Test-Fault': 'dashboard-insights-503',
+            'X-Nihongo-Test-Fault': 'dashboard-insights-503',
             'X-Request-Id': requestId
           }
         }

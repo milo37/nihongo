@@ -13,7 +13,7 @@ import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-ques
 import type {
   PreviewQuestionVersionResponse,
   UpdateQuestionVersionRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { preview as initialQuestion } from '@app/admin-question/test/questionFixture'
 import {
   QuestionForm,

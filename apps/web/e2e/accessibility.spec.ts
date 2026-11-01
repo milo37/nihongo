@@ -6,7 +6,7 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
-import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/phase7'
+import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/content-operations'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
@@ -456,7 +456,7 @@ const trackApiTransport = (context: BrowserContext): TransportEvidence => {
     const exchangeId = evidence.requestExchangeIds.get(request) ?? 0
     const sequence = ++evidence.sequence
     const responseHeaders = response.headers()
-    const testFault = responseHeaders['x-phase9-test-fault'] ?? null
+    const testFault = responseHeaders['x-nihongo-test-fault'] ?? null
     const pendingRead = (async (): Promise<void> => {
       const { payload, terminalState } =
         await readResponseWithDeadline(response)
@@ -1603,7 +1603,7 @@ const armDashboardInsightsFailure = async (
       contentType: 'application/json',
       headers: {
         'Cache-Control': 'private, no-store',
-        'X-Phase9-Test-Fault': 'dashboard-insights-503',
+        'X-Nihongo-Test-Fault': 'dashboard-insights-503',
         'X-Request-Id': requestId
       },
       status: 503

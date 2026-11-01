@@ -1,7 +1,7 @@
 import {
   updateQuestionVersionRequestSchema as updateAdminQuestionRequestSchema,
   updateQuestionVersionResponseSchema as updateAdminQuestionResponseSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import type { z } from 'zod'
 export { updateAdminQuestionRequestSchema, updateAdminQuestionResponseSchema }
 export type UpdateAdminQuestionRequest = z.input<
@@ -10,4 +10,4 @@ export type UpdateAdminQuestionRequest = z.input<
 export type UpdateAdminQuestionResponse = z.output<
   typeof updateAdminQuestionResponseSchema
 >
-export { updateQuestionVersionParamsSchema as updateAdminQuestionParamsSchema } from '@nihongo/contracts/admin/phase7'
+export { updateQuestionVersionParamsSchema as updateAdminQuestionParamsSchema } from '@nihongo/contracts/admin/content-operations'

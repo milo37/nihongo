@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import type { ReactElement, ReactNode } from 'react'
-import type { DiffQuestionVersionResponse } from '@nihongo/contracts/admin/phase7'
+import type { DiffQuestionVersionResponse } from '@nihongo/contracts/admin/content-operations'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'

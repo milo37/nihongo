@@ -1,7 +1,7 @@
 import {
   getAdminQuestionReportParamsSchema,
   resolveAdminQuestionReportRequestSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { cachedSessionStorage } from '@nihongo/browser/libs/storage'
 import {
   reportListPath,

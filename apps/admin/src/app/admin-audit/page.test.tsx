@@ -16,7 +16,7 @@ import {
   encodePhase7OccurredAtCursor,
   type AdminAuditLogItem,
   type ListAdminAuditLogResponse
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'

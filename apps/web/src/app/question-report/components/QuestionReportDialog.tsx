@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
-import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/phase7'
+import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/content-operations'
 import {
   questionReportReasonKey as adminReportReasonKey,
   useQuestionReportPresentation as useAdminPresentation
