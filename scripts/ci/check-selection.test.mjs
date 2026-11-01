@@ -545,6 +545,25 @@ test('dev pull requests keep affected checks while omitting browser execution', 
   }
 })
 
+test('dev pull requests select browser execution for the browser runtime paths', () => {
+  for (const file of [
+    'playwright.config.ts',
+    'scripts/security/browser-evidence-reporter.mjs',
+    'scripts/security/phase10-playwright-summary-reporter.mjs'
+  ]) {
+    const selection = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: ['apps/web/src/main.tsx', file]
+    })
+    assert.deepEqual(selection, {
+      ...classifyChangedFiles(['apps/web/src/main.tsx', file]),
+      browser: true
+    })
+  }
+})
+
 test('dev push retains core checks but does not select browser execution', () => {
   const input = {
     eventName: 'push',

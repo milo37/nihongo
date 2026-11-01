@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import Phase10PlaywrightSummaryReporter from './phase10-playwright-summary-reporter.mjs'
+import Phase10PlaywrightSummaryReporter from './browser-evidence-reporter.mjs'
 import {
   assertEvidenceValueSafe,
   assertPlaywrightPerformanceMeasurement,
