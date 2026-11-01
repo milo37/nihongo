@@ -282,6 +282,12 @@ test('quality and regression start from the same plan in isolated jobs', () => {
       'real_browser',
       'browser',
       'pnpm run test:browser:real'
+    ],
+    [
+      'Mock browser acceptance',
+      'mock_browser',
+      'browser_mock',
+      'pnpm run test:browser:mock'
     ]
   ]) {
     const step = namedWorkflowStep(regression, name)
@@ -289,7 +295,6 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.ok(step.includes(`if: \${{ needs.plan.outputs.${flag} == 'true' }}`))
     assert.equal(workflow.split(`run: ${command}\n`).length - 1, 1)
   }
-  assert.doesNotMatch(workflow, /run: pnpm run test:browser:mock/u)
   assert.ok(
     namedWorkflowStep(regression, 'Install Playwright Chromium').includes(
       "if: ${{ needs.plan.outputs.browser == 'true' }}"
@@ -386,6 +391,90 @@ test('real browser summaries are isolated, verified before upload and cleaned on
   }
 })
 
+test('Mock browser summaries use their own verified directory, upload and cleanup', () => {
+  const job = workflowJob(ciWorkflow(), 'regression')
+  const names = [
+    'Clean browser evidence',
+    'Initialize unique safe Mock Playwright evidence',
+    'Mock browser acceptance',
+    'Verify safe Mock Playwright evidence',
+    'Upload safe Mock Playwright evidence',
+    'Clean Mock browser evidence',
+    'Verify selected regression acceptance'
+  ]
+  const positions = names.map((name) => {
+    namedWorkflowStep(job, name)
+    return job.indexOf(`      - name: ${name}\n`)
+  })
+  assert.deepEqual(
+    positions,
+    positions.toSorted((left, right) => left - right)
+  )
+  assert.ok(
+    job.includes(
+      'PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/phase10-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}'
+    )
+  )
+  assert.ok(
+    namedWorkflowStep(job, names[2]).includes(
+      'PHASE10_PLAYWRIGHT_EVIDENCE_DIR: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}'
+    )
+  )
+  const verify = namedWorkflowStep(job, names[3])
+  assert.ok(
+    verify.includes(
+      "if: ${{ !cancelled() && steps.mock_playwright_initialize.outcome == 'success' }}"
+    )
+  )
+  assert.match(verify, /--directory "\$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"/u)
+  assert.match(verify, /--required phase8-mock,phase9-mock,phase10-mock\s*$/u)
+  const upload = namedWorkflowStep(job, names[4])
+  assert.ok(
+    upload.includes(
+      "if: ${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}"
+    )
+  )
+  assert.ok(
+    upload.includes('path: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/')
+  )
+  assert.ok(
+    namedWorkflowStep(job, names[5]).includes(
+      "if: ${{ always() && needs.plan.outputs.browser_mock == 'true' }}"
+    )
+  )
+
+  const root = mkdtempSync(path.join(tmpdir(), 'ci-mock-browser-evidence-'))
+  const evidence = 'test-results/phase10-evidence/playwright-mock-fixture-1'
+  const env = {
+    ...process.env,
+    GITHUB_RUN_ID: 'fixture',
+    GITHUB_RUN_ATTEMPT: '1',
+    PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: evidence
+  }
+  const run = (name, overrides = {}) =>
+    spawnSync('bash', ['-e', '-c', stepScript(job, name)], {
+      cwd: root,
+      env: { ...env, ...overrides },
+      encoding: 'utf8'
+    })
+  try {
+    assert.equal(run(names[1]).status, 0)
+    assert.equal(run(names[1]).status, 1, 'stale evidence must be rejected')
+    mkdirSync(path.join(root, 'test-results/phase10-raw'), { recursive: true })
+    assert.equal(
+      run(names[5], { PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: 'unrelated' })
+        .status,
+      1
+    )
+    assert.equal(existsSync(path.join(root, evidence)), true)
+    assert.equal(run(names[5]).status, 0)
+    assert.equal(existsSync(path.join(root, evidence)), false)
+    assert.equal(existsSync(path.join(root, 'test-results/phase10-raw')), false)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('regression gate rejects failure, cancellation and unexpected skips for every selected suite', () => {
   const job = workflowJob(ciWorkflow(), 'regression')
   const step = namedWorkflowStep(job, 'Verify selected regression acceptance')
@@ -401,13 +490,22 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
     BROWSER_SELECTED: 'needs.plan.outputs.browser',
     REAL_OUTCOME: 'steps.real_browser.outcome',
     EVIDENCE_INITIALIZE_OUTCOME: 'steps.playwright_initialize.outcome',
-    EVIDENCE_OUTCOME: 'steps.playwright_evidence.outcome'
+    EVIDENCE_OUTCOME: 'steps.playwright_evidence.outcome',
+    MOCK_SELECTED: 'needs.plan.outputs.browser_mock',
+    MOCK_OUTCOME: 'steps.mock_browser.outcome',
+    MOCK_EVIDENCE_INITIALIZE_OUTCOME:
+      'steps.mock_playwright_initialize.outcome',
+    MOCK_EVIDENCE_OUTCOME: 'steps.mock_playwright_evidence.outcome'
   }))
     assert.equal(environment.get(key), `\${{ ${expression} }}`)
   const script = stepScript(job, 'Verify selected regression acceptance')
   for (const api of [false, true])
     for (const performance of [false, true])
-      for (const browser of [false, true]) {
+      for (const [browser, mock] of [
+        [false, false],
+        [true, false],
+        [true, true]
+      ]) {
         const env = {
           PLAN_RESULT: 'success',
           JOB_RESULT: 'success',
@@ -418,7 +516,11 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
           BROWSER_SELECTED: String(browser),
           REAL_OUTCOME: browser ? 'success' : 'skipped',
           EVIDENCE_INITIALIZE_OUTCOME: browser ? 'success' : 'skipped',
-          EVIDENCE_OUTCOME: browser ? 'success' : 'skipped'
+          EVIDENCE_OUTCOME: browser ? 'success' : 'skipped',
+          MOCK_SELECTED: String(mock),
+          MOCK_OUTCOME: mock ? 'success' : 'skipped',
+          MOCK_EVIDENCE_INITIALIZE_OUTCOME: mock ? 'success' : 'skipped',
+          MOCK_EVIDENCE_OUTCOME: mock ? 'success' : 'skipped'
         }
         assertGate(script, env, 0)
         for (const key of [
@@ -428,7 +530,10 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
           'PERFORMANCE_OUTCOME',
           'REAL_OUTCOME',
           'EVIDENCE_INITIALIZE_OUTCOME',
-          'EVIDENCE_OUTCOME'
+          'EVIDENCE_OUTCOME',
+          'MOCK_OUTCOME',
+          'MOCK_EVIDENCE_INITIALIZE_OUTCOME',
+          'MOCK_EVIDENCE_OUTCOME'
         ]) {
           for (const result of [
             'success',
@@ -444,7 +549,8 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
         for (const key of [
           'API_SELECTED',
           'PERFORMANCE_SELECTED',
-          'BROWSER_SELECTED'
+          'BROWSER_SELECTED',
+          'MOCK_SELECTED'
         ]) {
           assertGate(script, { ...env, [key]: '' }, 1)
         }
@@ -562,6 +668,69 @@ test('dev pull requests select browser execution for the browser runtime paths',
       browser: true
     })
   }
+})
+
+test('dev pull requests add Mock browser execution only for injected fault paths', () => {
+  for (const file of [
+    'apps/web/e2e/accessibility.spec.ts',
+    'apps/web/src/test/accessibilityBrowserMockControl.ts'
+  ]) {
+    const selection = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: [file]
+    })
+    assert.equal(selection.browser, true, file)
+    assert.equal(selection.browser_mock, true, file)
+  }
+  for (const file of [
+    'apps/web/src/main.tsx',
+    'apps/web/e2e/dashboard.spec.ts',
+    'playwright.config.ts'
+  ]) {
+    const selection = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: [file]
+    })
+    assert.equal(selection.browser_mock, false, file)
+  }
+})
+
+test('main and dev pushes and main pull requests never add Mock browser execution', () => {
+  const changedFiles = ['apps/web/e2e/accessibility.spec.ts']
+  const mainPullRequest = selectChecks({
+    eventName: 'pull_request',
+    ref: 'refs/pull/1/merge',
+    event: pullRequestEvent({
+      pull_request: {
+        base: { ref: 'main', sha: sha('a') },
+        head: { sha: sha('b') }
+      }
+    }),
+    changedFiles
+  })
+  assert.equal(mainPullRequest.browser, true)
+  assert.equal(mainPullRequest.browser_mock, false)
+  for (const [ref, browser] of [
+    ['refs/heads/main', true],
+    ['refs/heads/dev', false]
+  ]) {
+    const selection = selectChecks({
+      eventName: 'push',
+      ref,
+      event: {},
+      changedFiles
+    })
+    assert.equal(selection.browser, browser, ref)
+    assert.equal(selection.browser_mock, false, ref)
+  }
+  assert.equal(
+    selectChecks({ eventName: 'workflow_dispatch', changedFiles }).browser_mock,
+    false
+  )
 })
 
 test('dev push retains core checks but does not select browser execution', () => {
@@ -727,7 +896,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'e2e',
     'phase11_release'
   ])
-  assert.equal(steps(normal).length, 35)
+  assert.equal(steps(normal).length, 40)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
@@ -738,7 +907,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     assert.equal(normal.split(name).length - 1, 1)
   }
   assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
-  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 1)
+  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 2)
   assert.doesNotMatch(candidate, /upload-artifact/u)
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
@@ -961,7 +1130,7 @@ const assertWorkflowBrowserAliases = (source) => {
   )
   assert.equal(
     runs.filter((run) => run === 'pnpm run test:browser:mock').length,
-    0
+    1
   )
 }
 
@@ -1722,6 +1891,14 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
       workflow.replace(
         'run: pnpm run test:browser:real',
         'run: pnpm run test:browser:real\n      - name: Unexpected mock\n        run: pnpm run test:browser:mock'
+      )
+    )
+  )
+  assert.throws(() =>
+    assertWorkflowBrowserAliases(
+      workflow.replace(
+        'run: pnpm run test:browser:mock',
+        '# run: pnpm run test:browser:mock'
       )
     )
   )

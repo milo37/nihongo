@@ -26,6 +26,7 @@ jobs:
       api: ${{ steps.selection.outputs.api }}
       database: ${{ steps.selection.outputs.database }}
       browser: ${{ steps.selection.outputs.browser }}
+      browser_mock: ${{ steps.selection.outputs.browser_mock }}
       audit: ${{ steps.selection.outputs.audit }}
       performance: ${{ steps.selection.outputs.performance }}
       portable: ${{ steps.selection.outputs.portable }}
@@ -149,6 +150,7 @@ jobs:
       AUTH_EMAIL_DELIVERY_MODE: test-sink
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
       PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
+      PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/phase10-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -228,6 +230,50 @@ jobs:
           test ! -e test-results/phase10-raw
           test ! -e test-results/playwright-phase9-real
 
+      - name: Initialize unique safe Mock Playwright evidence
+        id: mock_playwright_initialize
+        if: ${{ needs.plan.outputs.browser_mock == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"
+          install -d -m 700 "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"
+
+      - name: Mock browser acceptance
+        id: mock_browser
+        if: ${{ needs.plan.outputs.browser_mock == 'true' }}
+        env:
+          PHASE10_PLAYWRIGHT_EVIDENCE_DIR: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}
+        run: pnpm run test:browser:mock
+
+      - name: Verify safe Mock Playwright evidence
+        id: mock_playwright_evidence
+        if: ${{ !cancelled() && steps.mock_playwright_initialize.outcome == 'success' }}
+        run: >-
+          node scripts/security/security-evidence.mjs verify
+          --directory "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"
+          --profile playwright
+          --required phase8-mock,phase9-mock,phase10-mock
+
+      - name: Upload safe Mock Playwright evidence
+        if: ${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-safe-phase10-mock-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          path: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/
+
+      - name: Clean Mock browser evidence
+        if: ${{ always() && needs.plan.outputs.browser_mock == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/phase10-evidence/playwright-mock-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR" = "$expected"
+          rm -rf -- "$expected" test-results/phase10-raw
+          test ! -e "$expected"
+          test ! -e test-results/phase10-raw
+
       - name: Verify selected regression acceptance
         if: ${{ always() }}
         env:
@@ -241,6 +287,10 @@ jobs:
           REAL_OUTCOME: ${{ steps.real_browser.outcome }}
           EVIDENCE_INITIALIZE_OUTCOME: ${{ steps.playwright_initialize.outcome }}
           EVIDENCE_OUTCOME: ${{ steps.playwright_evidence.outcome }}
+          MOCK_SELECTED: ${{ needs.plan.outputs.browser_mock }}
+          MOCK_OUTCOME: ${{ steps.mock_browser.outcome }}
+          MOCK_EVIDENCE_INITIALIZE_OUTCOME: ${{ steps.mock_playwright_initialize.outcome }}
+          MOCK_EVIDENCE_OUTCOME: ${{ steps.mock_playwright_evidence.outcome }}
         run: |
           set -euo pipefail
           test "$PLAN_RESULT" = success
@@ -257,6 +307,9 @@ jobs:
           require_selected_step "$BROWSER_SELECTED" "$REAL_OUTCOME"
           require_selected_step "$BROWSER_SELECTED" "$EVIDENCE_INITIALIZE_OUTCOME"
           require_selected_step "$BROWSER_SELECTED" "$EVIDENCE_OUTCOME"
+          require_selected_step "$MOCK_SELECTED" "$MOCK_OUTCOME"
+          require_selected_step "$MOCK_SELECTED" "$MOCK_EVIDENCE_INITIALIZE_OUTCOME"
+          require_selected_step "$MOCK_SELECTED" "$MOCK_EVIDENCE_OUTCOME"
 
   e2e:
     name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / regression / {0}', github.run_id) || 'Phase 10 real/mock browser and regression acceptance' }}
