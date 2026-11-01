@@ -9,20 +9,69 @@ import {
   assertApiIntegrationRequiredEnvironment,
   assertApiIntegrationVitestFileResult,
   assertSsoBootstrapMigrationHistory,
-  createPhase7SsoTestEnvironment,
-  createPhase7DbFileEnvironment,
-  phase7DbFoundationTestFile,
-  phase7SsoTestFile,
-  phase7SsoAccountLifecycleTestFile,
-  phase7SsoOrdinal6Title,
-  phase7SsoOrdinal6Pattern,
-  phase7SsoIdentityTitle,
-  phase7SsoIdentityPattern,
+  createSsoTestEnvironment,
+  createDbFileEnvironment,
+  dbFoundationTestFile,
+  ssoTestFile,
+  ssoAccountLifecycleTestFile,
+  ssoOrdinal6Title,
+  ssoOrdinal6Pattern,
+  ssoIdentityTitle,
+  ssoIdentityPattern,
   runApiIntegrationManifestVitestFile,
-  sanitizePhase7VitestReport,
+  sanitizeVitestReport,
   sanitizeQueryPlanFailure,
-  selectPhase7DbIntegrationFiles
+  selectDbIntegrationFiles
 } from './apiIntegrationExecution.js'
+import * as execution from './apiIntegrationExecution.js'
+
+describe('test execution compatibility exports', () => {
+  it('keeps the old function objects, names and fixed constants', () => {
+    const functions = [
+      [
+        createSsoTestEnvironment,
+        execution.createPhase7SsoTestEnvironment,
+        'createPhase7SsoTestEnvironment'
+      ],
+      [
+        createDbFileEnvironment,
+        execution.createPhase7DbFileEnvironment,
+        'createPhase7DbFileEnvironment'
+      ],
+      [
+        selectDbIntegrationFiles,
+        execution.selectPhase7DbIntegrationFiles,
+        'selectPhase7DbIntegrationFiles'
+      ],
+      [
+        sanitizeVitestReport,
+        execution.sanitizePhase7VitestReport,
+        'sanitizePhase7VitestReport'
+      ]
+    ] as const
+    for (const [current, previous, name] of functions) {
+      expect(current).toBe(previous)
+      expect(current.name).toBe(name)
+    }
+    expect([
+      dbFoundationTestFile,
+      ssoTestFile,
+      ssoAccountLifecycleTestFile,
+      ssoOrdinal6Title,
+      ssoOrdinal6Pattern,
+      ssoIdentityTitle,
+      ssoIdentityPattern
+    ]).toEqual([
+      execution.phase7DbFoundationTestFile,
+      execution.phase7SsoTestFile,
+      execution.phase7SsoAccountLifecycleTestFile,
+      execution.phase7SsoOrdinal6Title,
+      execution.phase7SsoOrdinal6Pattern,
+      execution.phase7SsoIdentityTitle,
+      execution.phase7SsoIdentityPattern
+    ])
+  })
+})
 
 describe('SSO bootstrap migration history', () => {
   it('accepts the pinned current inventory and rejects ledger or source drift', () => {
@@ -207,7 +256,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
         invalidFields = error.invalidFields
     }
     expect(invalidFields).toEqual(['BETTER_AUTH_SECRET', 'GUEST_COOKIE_SECRET'])
-    const environment = createPhase7SsoTestEnvironment(wrappers)
+    const environment = createSsoTestEnvironment(wrappers)
     const parsed = parseApiEnvironment(environment)
     expect(parsed).toMatchObject({
       NODE_ENV: 'test',
@@ -227,13 +276,13 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
     for (const [key, value] of Object.entries(wrappers)) {
       expect(environment[key]).toBe(value)
     }
-    expect(environment).toEqual(createPhase7SsoTestEnvironment(wrappers))
+    expect(environment).toEqual(createSsoTestEnvironment(wrappers))
     expect(environment).not.toBe(wrappers)
   })
 
   it('preserves invalid database wrappers so the real authority guard still rejects them', () => {
     const base = { ...wrappers, DATABASE_URL: database('nihongo_phase7_owner') }
-    const environment = createPhase7SsoTestEnvironment(base)
+    const environment = createSsoTestEnvironment(base)
     expect(environment.DATABASE_URL).toBe(base.DATABASE_URL)
     expect(() => parseApiEnvironment(environment)).toThrow(
       EnvironmentValidationError
@@ -264,7 +313,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
       AUTH_EMAIL_WEBHOOK_SECRET: 'real-parent-webhook-secret'
     })
     const snapshot = { ...parent }
-    const environment = createPhase7SsoTestEnvironment(parent)
+    const environment = createSsoTestEnvironment(parent)
     expect(parent).toEqual(snapshot)
     expect(JSON.stringify(environment)).not.toContain('real-parent')
     expect(parseApiEnvironment(environment).NODE_ENV).toBe('test')
@@ -301,9 +350,9 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
         }
       })
     }
-    expect(
-      parseApiEnvironment(createPhase7SsoTestEnvironment(base)).NODE_ENV
-    ).toBe('test')
+    expect(parseApiEnvironment(createSsoTestEnvironment(base)).NODE_ENV).toBe(
+      'test'
+    )
     expect(reads).toBe(0)
     for (const key of keys)
       expect(Object.getOwnPropertyDescriptor(base, key)?.get).toBeTypeOf(
@@ -312,10 +361,10 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
   })
 
   it('passes the completed profile and unchanged wrappers to the SSO manifest child', async () => {
-    const environment = createPhase7SsoTestEnvironment(wrappers)
+    const environment = createSsoTestEnvironment(wrappers)
     let rawPath = ''
     const count = await runApiIntegrationManifestVitestFile({
-      testFile: phase7SsoTestFile,
+      testFile: ssoTestFile,
       environment,
       runCommand: async (_command, args, childEnvironment) => {
         expect(childEnvironment).toBe(environment)
@@ -335,7 +384,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
             numPendingTests: 0,
             numTodoTests: 0,
             numTotalTests: 1,
-            testResults: [{ name: phase7SsoTestFile }]
+            testResults: [{ name: ssoTestFile }]
           })
         )
       }
@@ -347,49 +396,49 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
 
 describe('Phase 7 opt-in foundation execution', () => {
   it('preserves the default list and refuses arbitrary paths', () => {
-    const files = [phase7DbFoundationTestFile, 'other.ts']
-    expect(selectPhase7DbIntegrationFiles(files, {})).toBe(files)
+    const files = [dbFoundationTestFile, 'other.ts']
+    expect(selectDbIntegrationFiles(files, {})).toBe(files)
     expect(
-      selectPhase7DbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: phase7DbFoundationTestFile
+      selectDbIntegrationFiles(files, {
+        PHASE7_DB_SINGLE_TEST: dbFoundationTestFile
       })
-    ).toEqual([phase7DbFoundationTestFile])
+    ).toEqual([dbFoundationTestFile])
     expect(() =>
-      selectPhase7DbIntegrationFiles(files, {
+      selectDbIntegrationFiles(files, {
         PHASE7_DB_SINGLE_TEST: '../secret'
       })
     ).toThrow('allowlist')
   })
 
   it('selects only the registered SSO file and rejects absent or expanded selectors', () => {
-    const files = [phase7DbFoundationTestFile, phase7SsoTestFile]
+    const files = [dbFoundationTestFile, ssoTestFile]
     expect(
-      selectPhase7DbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: phase7SsoTestFile
+      selectDbIntegrationFiles(files, {
+        PHASE7_DB_SINGLE_TEST: ssoTestFile
       })
-    ).toEqual([phase7SsoTestFile])
+    ).toEqual([ssoTestFile])
     for (const selector of [
-      phase7SsoTestFile + ' other.ts',
+      ssoTestFile + ' other.ts',
       'src/db/*.integration.test.ts',
-      '../' + phase7SsoTestFile
+      '../' + ssoTestFile
     ]) {
       expect(() =>
-        selectPhase7DbIntegrationFiles(files, {
+        selectDbIntegrationFiles(files, {
           PHASE7_DB_SINGLE_TEST: selector
         })
       ).toThrow('allowlist')
     }
     expect(() =>
-      selectPhase7DbIntegrationFiles([phase7DbFoundationTestFile], {
-        PHASE7_DB_SINGLE_TEST: phase7SsoTestFile
+      selectDbIntegrationFiles([dbFoundationTestFile], {
+        PHASE7_DB_SINGLE_TEST: ssoTestFile
       })
     ).toThrow('allowlist')
   })
 
   it('labels both fixed selectors accurately and redacts arbitrary report paths', () => {
-    for (const file of [phase7DbFoundationTestFile, phase7SsoTestFile])
-      expect(sanitizePhase7VitestReport({}, file).testFile).toBe(file)
-    expect(sanitizePhase7VitestReport({}, '../private-password').testFile).toBe(
+    for (const file of [dbFoundationTestFile, ssoTestFile])
+      expect(sanitizeVitestReport({}, file).testFile).toBe(file)
+    expect(sanitizeVitestReport({}, '../private-password').testFile).toBe(
       'not-allowlisted'
     )
   })
@@ -400,9 +449,9 @@ describe('Phase 7 opt-in foundation execution', () => {
   ])(
     'classifies environment setup failures without retaining invalid fields or values: %s',
     (message) => {
-      const report = sanitizePhase7VitestReport(
+      const report = sanitizeVitestReport(
         { testResults: [{ message }] },
-        phase7SsoTestFile
+        ssoTestFile
       )
       expect(report.errors).toEqual([
         { diagnosticId: 'CONFIG_ENVIRONMENT_INVALID', location: 'setup' }
@@ -414,7 +463,7 @@ describe('Phase 7 opt-in foundation execution', () => {
   )
 
   it('excludes failure messages, names, URLs, and unknown fields', () => {
-    const report = sanitizePhase7VitestReport(
+    const report = sanitizeVitestReport(
       {
         numFailedTests: 1,
         numTotalTests: 1,
@@ -428,14 +477,14 @@ describe('Phase 7 opt-in foundation execution', () => {
           }
         ]
       },
-      phase7DbFoundationTestFile
+      dbFoundationTestFile
     )
     expect(JSON.stringify(report)).not.toMatch(/postgres|password|token|secret/)
     expect(report.failed).toBe(1)
   })
 
   it('preserves bounded collection diagnostics without raw messages or stacks', () => {
-    const report = sanitizePhase7VitestReport(
+    const report = sanitizeVitestReport(
       {
         numTotalTests: 0,
         numFailedTests: 0,
@@ -453,7 +502,7 @@ describe('Phase 7 opt-in foundation execution', () => {
           { message: 'extra' }
         ]
       },
-      phase7DbFoundationTestFile
+      dbFoundationTestFile
     )
     expect(report.total).toBe(0)
     expect(report.errors).toEqual([
@@ -482,9 +531,9 @@ describe('Phase 7 opt-in foundation execution', () => {
   ])(
     'classifies fixed diagnostics and only records wrapper presence: %s',
     (message, diagnosticId, location) => {
-      const report = sanitizePhase7VitestReport(
+      const report = sanitizeVitestReport(
         { testResults: [{ message }] },
-        phase7DbFoundationTestFile,
+        dbFoundationTestFile,
         {
           PHASE7_ADMIN_DATABASE_URL: 'private-url',
           PHASE7_LEGACY_DATABASE_URL: '  ',
@@ -504,10 +553,10 @@ describe('Phase 7 opt-in foundation execution', () => {
   )
 
   it.each([
-    [phase7DbFoundationTestFile, false],
-    [phase7DbFoundationTestFile, true],
-    [phase7SsoTestFile, false],
-    [phase7SsoTestFile, true]
+    [dbFoundationTestFile, false],
+    [dbFoundationTestFile, true],
+    [ssoTestFile, false],
+    [ssoTestFile, true]
   ] as const)(
     'deletes raw JSON and preserves only opt-in sanitized failure evidence: %s / %s',
     async (testFile, preserve) => {
@@ -530,7 +579,7 @@ describe('Phase 7 opt-in foundation execution', () => {
             preserveSanitizedReport: preserve,
             runCommand: async (_command, args, actualEnvironment) => {
               expect(actualEnvironment).toBe(environment)
-              if (testFile === phase7SsoTestFile)
+              if (testFile === ssoTestFile)
                 expect(args).toEqual(
                   expect.arrayContaining([
                     '--maxWorkers=1',
@@ -592,7 +641,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     : T extends object
       ? { -readonly [P in keyof T]: Mutable<T[P]> }
       : T
-  type Report = Mutable<Parameters<typeof sanitizePhase7VitestReport>[0]>
+  type Report = Mutable<Parameters<typeof sanitizeVitestReport>[0]>
   const canonical = (): Report => ({
     numTotalTests: 36,
     numPassedTests: 5,
@@ -601,7 +650,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     numTodoTests: 0,
     testResults: [
       {
-        name: '/synthetic/apps/api/' + phase7SsoTestFile,
+        name: '/synthetic/apps/api/' + ssoTestFile,
         status: 'failed',
         message: '',
         assertionResults: Array.from({ length: 36 }, (_, index) => ({
@@ -631,10 +680,10 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
         'postgres://private:private-password@private/db?token=private-secret'
       ]
     })
-    const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
+    const report = sanitizeVitestReport(input, ssoTestFile)
     expect(report).toEqual({
       schemaVersion: 1,
-      testFile: phase7SsoTestFile,
+      testFile: ssoTestFile,
       total: 36,
       passed: 5,
       failed: 1,
@@ -673,7 +722,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     [
       'parent path',
       (r: Report) => {
-        file(r).name = '../' + phase7SsoTestFile
+        file(r).name = '../' + ssoTestFile
       }
     ],
     [
@@ -754,7 +803,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
   ])('omits metadata for noncanonical %s', (_label, mutate) => {
     const input = canonical()
     mutate(input)
-    const report = sanitizePhase7VitestReport(input, phase7SsoTestFile)
+    const report = sanitizeVitestReport(input, ssoTestFile)
     expect(report).not.toHaveProperty('firstFailedAssertion')
     if (_label === 'collection failure') {
       expect(report.errors).toEqual([
@@ -773,11 +822,11 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
       failureMessages: null
     }))
     for (const [input, selected] of [
-      [success, phase7SsoTestFile],
-      [canonical(), phase7DbFoundationTestFile],
+      [success, ssoTestFile],
+      [canonical(), dbFoundationTestFile],
       [canonical(), '../private-file']
     ] as const) {
-      expect(sanitizePhase7VitestReport(input, selected)).not.toHaveProperty(
+      expect(sanitizeVitestReport(input, selected)).not.toHaveProperty(
         'firstFailedAssertion'
       )
     }
@@ -799,8 +848,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
       const input = canonical()
       Object.assign(assertion(input), { failureMessages })
       expect(
-        sanitizePhase7VitestReport(input, phase7SsoTestFile)
-          .firstFailedAssertion
+        sanitizeVitestReport(input, ssoTestFile).firstFailedAssertion
       ).toEqual({ caseOrdinal: 6 })
     }
   )
@@ -813,8 +861,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
         failureMessages: [`${name}: private-secret`]
       })
       expect(
-        sanitizePhase7VitestReport(input, phase7SsoTestFile)
-          .firstFailedAssertion
+        sanitizeVitestReport(input, ssoTestFile).firstFailedAssertion
       ).toEqual({ caseOrdinal: 6, errorClass: name })
     }
   )
@@ -833,7 +880,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     })
     Object.assign(assertion(input), { failureMessages: messages })
     expect(
-      sanitizePhase7VitestReport(input, phase7SsoTestFile).firstFailedAssertion
+      sanitizeVitestReport(input, ssoTestFile).firstFailedAssertion
     ).toEqual({ caseOrdinal: 6 })
   })
 
@@ -843,14 +890,13 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     Object.assign(file(malformed), {
       assertionResults: [null, ...file(input).assertionResults!.slice(1)]
     })
-    expect(
-      sanitizePhase7VitestReport(malformed, phase7SsoTestFile)
-    ).not.toHaveProperty('firstFailedAssertion')
+    expect(sanitizeVitestReport(malformed, ssoTestFile)).not.toHaveProperty(
+      'firstFailedAssertion'
+    )
     for (const failureMessages of [42, {}, [null, 42, {}]]) {
       Object.assign(assertion(input), { failureMessages })
       expect(
-        sanitizePhase7VitestReport(input, phase7SsoTestFile)
-          .firstFailedAssertion
+        sanitizeVitestReport(input, ssoTestFile).firstFailedAssertion
       ).toEqual({ caseOrdinal: 6 })
     }
   })
@@ -865,8 +911,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
         failureMessages: null
       })
       expect(
-        sanitizePhase7VitestReport(input, phase7SsoTestFile)
-          .firstFailedAssertion
+        sanitizeVitestReport(input, ssoTestFile).firstFailedAssertion
       ).toEqual({ caseOrdinal: ordinal })
     }
   )
@@ -877,7 +922,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
       failureMessages: ['PrivateDatabaseError: private-secret 23514']
     })
     expect(
-      sanitizePhase7VitestReport(input, phase7SsoTestFile).firstFailedAssertion
+      sanitizeVitestReport(input, ssoTestFile).firstFailedAssertion
     ).toEqual({ caseOrdinal: 6, recognizedSqlstates: ['23514'] })
   })
 
@@ -891,7 +936,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
     try {
       await expect(
         runApiIntegrationManifestVitestFile({
-          testFile: phase7SsoTestFile,
+          testFile: ssoTestFile,
           preserveSanitizedReport: true,
           onCollectionDiagnostic,
           environment: {
@@ -937,22 +982,22 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
 describe.each([
   {
     mode: 'sso-ordinal6',
-    title: phase7SsoOrdinal6Title,
-    pattern: phase7SsoOrdinal6Pattern,
+    title: ssoOrdinal6Title,
+    pattern: ssoOrdinal6Pattern,
     id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
     sourceOrdinal: 6
   },
   {
     mode: 'sso-identity',
-    title: phase7SsoIdentityTitle,
-    pattern: phase7SsoIdentityPattern,
+    title: ssoIdentityTitle,
+    pattern: ssoIdentityPattern,
     id: 'SSO_PROVIDER_SUB_IDENTITY_ORDINAL5',
     sourceOrdinal: 5
   }
 ] as const)('Phase 7 fixed SSO $mode diagnosis', (fixedCase) => {
   const environment = {
     PHASE7_DB_CASE: fixedCase.mode,
-    PHASE7_DB_SINGLE_TEST: phase7SsoTestFile,
+    PHASE7_DB_SINGLE_TEST: ssoTestFile,
     PHASE7_DB_PRESERVE_REPORT: '1',
     PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
     AUTH_GATEWAY_DATABASE_URL: 'synthetic-auth',
@@ -968,7 +1013,7 @@ describe.each([
     numTodoTests: 0,
     testResults: [
       {
-        name: phase7SsoTestFile as string,
+        name: ssoTestFile as string,
         status,
         assertionResults: Array.from({ length: 36 }, (_, index) => ({
           fullName:
@@ -988,19 +1033,19 @@ describe.each([
   })
 
   it('accepts only the fixed mode with SSO file and sanitized report preservation', () => {
-    expect(
-      selectPhase7DbIntegrationFiles([phase7SsoTestFile], environment)
-    ).toEqual([phase7SsoTestFile])
+    expect(selectDbIntegrationFiles([ssoTestFile], environment)).toEqual([
+      ssoTestFile
+    ])
     for (const invalid of [
       { PHASE7_DB_CASE: fixedCase.pattern },
       { PHASE7_DB_CASE: '' },
       { PHASE7_DB_CASE: 'sso-unknown' },
       { PHASE7_DB_SINGLE_TEST: undefined },
-      { PHASE7_DB_SINGLE_TEST: phase7DbFoundationTestFile },
+      { PHASE7_DB_SINGLE_TEST: dbFoundationTestFile },
       { PHASE7_DB_PRESERVE_REPORT: undefined }
     ]) {
       expect(() =>
-        selectPhase7DbIntegrationFiles([phase7SsoTestFile], {
+        selectDbIntegrationFiles([ssoTestFile], {
           ...environment,
           ...invalid
         })
@@ -1009,9 +1054,9 @@ describe.each([
   })
 
   it('projects only finite error labels and source paths, never text SQLSTATE or private values', () => {
-    const sanitized = sanitizePhase7VitestReport(
+    const sanitized = sanitizeVitestReport(
       report('failed'),
-      phase7SsoTestFile,
+      ssoTestFile,
       environment
     )
     expect(sanitized.selectedCase).toEqual({
@@ -1054,11 +1099,7 @@ describe.each([
           .map((path) => `    at privateFunction (/private/${path}:99:1)`)
           .join('\n')}`
       ]
-      const sanitized = sanitizePhase7VitestReport(
-        value,
-        phase7SsoTestFile,
-        environment
-      )
+      const sanitized = sanitizeVitestReport(value, ssoTestFile, environment)
       expect(sanitized.selectedCase).toMatchObject({
         failure: { recognizedSourcePaths: [oldPath] }
       })
@@ -1073,8 +1114,7 @@ describe.each([
       `TypeError: private-value\n    at /private/src/db/ssoTestFixtureXts:1:2\n    at /private/src/db/evil-ssoTestFixture.ts:1:2\nnot a stack frame /private/${newPath}:1:2`
     ]
     expect(
-      sanitizePhase7VitestReport(forged, phase7SsoTestFile, environment)
-        .selectedCase
+      sanitizeVitestReport(forged, ssoTestFile, environment).selectedCase
     ).toMatchObject({ failure: { recognizedSourcePaths: [] } })
   })
 
@@ -1090,8 +1130,8 @@ describe.each([
       "TypeError: private code: 'P2034'"
     ]
     expect(
-      sanitizePhase7VitestReport(value, phase7SsoTestFile, environment)
-        .selectedCase?.failure
+      sanitizeVitestReport(value, ssoTestFile, environment).selectedCase
+        ?.failure
     ).toEqual({ recognizedTextCodes: [], recognizedSourcePaths: [] })
     for (const mutation of [
       (data: ReturnType<typeof report>) => {
@@ -1106,7 +1146,7 @@ describe.each([
         data.numPendingTests = 34
       },
       (data: ReturnType<typeof report>) => {
-        data.testResults[0]!.name = phase7DbFoundationTestFile
+        data.testResults[0]!.name = dbFoundationTestFile
       },
       (data: ReturnType<typeof report>) => {
         data.testResults[0]!.assertionResults[0]!.fullName = `JLP-508 SSO task-owned PostgreSQL contract ${fixedCase.title}`
@@ -1115,7 +1155,7 @@ describe.each([
         data.testResults[0]!.assertionResults[
           fixedCase.sourceOrdinal - 1
         ]!.fullName =
-          `JLP-508 SSO task-owned PostgreSQL contract ${fixedCase.mode === 'sso-identity' ? phase7SsoOrdinal6Title : phase7SsoIdentityTitle}`
+          `JLP-508 SSO task-owned PostgreSQL contract ${fixedCase.mode === 'sso-identity' ? ssoOrdinal6Title : ssoIdentityTitle}`
       },
       (data: ReturnType<typeof report>) => {
         data.numPassedTests = 2
@@ -1139,12 +1179,12 @@ describe.each([
       const changed = report('passed')
       mutation(changed)
       expect(
-        sanitizePhase7VitestReport(changed, phase7SsoTestFile, environment)
+        sanitizeVitestReport(changed, ssoTestFile, environment)
       ).not.toHaveProperty('selectedCase')
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: changed,
-          expectedPath: phase7SsoTestFile,
+          expectedPath: ssoTestFile,
           selectedSsoCase: fixedCase.mode
         })
       ).toThrow('incomplete')
@@ -1165,7 +1205,7 @@ describe.each([
         })
       try {
         const run = runApiIntegrationManifestVitestFile({
-          testFile: phase7SsoTestFile,
+          testFile: ssoTestFile,
           environment,
           preserveSanitizedReport: true,
           runCommand: async (_command, args) => {
@@ -1213,7 +1253,7 @@ describe.each([
       const runCommand = vi.fn()
       await expect(
         runApiIntegrationManifestVitestFile({
-          testFile: phase7SsoTestFile,
+          testFile: ssoTestFile,
           environment: { ...environment, PHASE7_DB_CASE: mode },
           preserveSanitizedReport: true,
           runCommand
@@ -1227,7 +1267,7 @@ describe.each([
     const runCommand = vi.fn()
     await expect(
       runApiIntegrationManifestVitestFile({
-        testFile: phase7SsoTestFile,
+        testFile: ssoTestFile,
         environment,
         runCommand
       })
@@ -1238,7 +1278,7 @@ describe.each([
 
 describe('fixed account lifecycle TEST slice', () => {
   it('gives default and single lifecycle selection a deterministic clean-parent TEST profile', () => {
-    const files = [phase7SsoTestFile, phase7SsoAccountLifecycleTestFile]
+    const files = [ssoTestFile, ssoAccountLifecycleTestFile]
     const clean = {
       DATABASE_URL:
         'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
@@ -1248,21 +1288,19 @@ describe('fixed account lifecycle TEST slice', () => {
       ADMIN_CMS_MODE: 'technical'
     }
     for (const selected of [
-      selectPhase7DbIntegrationFiles(files, {}),
-      selectPhase7DbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: phase7SsoAccountLifecycleTestFile
+      selectDbIntegrationFiles(files, {}),
+      selectDbIntegrationFiles(files, {
+        PHASE7_DB_SINGLE_TEST: ssoAccountLifecycleTestFile
       })
     ])
       for (const file of selected) {
-        const environment = createPhase7DbFileEnvironment(file, clean)
+        const environment = createDbFileEnvironment(file, clean)
         expect(parseApiEnvironment(environment).NODE_ENV).toBe('test')
         expect(environment.DATABASE_URL).toBe(clean.DATABASE_URL)
         expect(environment.BETTER_AUTH_SECRET).toBeTruthy()
         expect(environment.GUEST_COOKIE_SECRET).toBeTruthy()
       }
-    expect(
-      createPhase7DbFileEnvironment(phase7DbFoundationTestFile, clean)
-    ).toBe(clean)
+    expect(createDbFileEnvironment(dbFoundationTestFile, clean)).toBe(clean)
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
@@ -1272,27 +1310,27 @@ describe('fixed account lifecycle TEST slice', () => {
     numFailedTests: 0,
     numPendingTests: 0,
     numTodoTests: 0,
-    testResults: [{ name: phase7SsoAccountLifecycleTestFile }]
+    testResults: [{ name: ssoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
     for (const count of [1, 2, 3, 4, 5, 7])
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: report(count),
-          expectedPath: phase7SsoAccountLifecycleTestFile
+          expectedPath: ssoAccountLifecycleTestFile
         })
       ).toThrow()
     expect(() =>
       assertApiIntegrationVitestFileResult({
         result: report(),
-        expectedPath: phase7SsoAccountLifecycleTestFile
+        expectedPath: ssoAccountLifecycleTestFile
       })
     ).not.toThrow()
   })
   it('runs exactly the lifecycle file with bounded workers, bail and no retry', async () => {
     let rawPath = ''
     const count = await runApiIntegrationManifestVitestFile({
-      testFile: phase7SsoAccountLifecycleTestFile,
+      testFile: ssoAccountLifecycleTestFile,
       environment: {
         DATABASE_URL: 'synthetic',
         AUTH_GATEWAY_DATABASE_URL: 'synthetic',
@@ -1305,7 +1343,7 @@ describe('fixed account lifecycle TEST slice', () => {
         expect(args).toContain('--retry=0')
         expect(
           args.filter((arg) => arg.endsWith('.integration.test.ts'))
-        ).toEqual([phase7SsoAccountLifecycleTestFile])
+        ).toEqual([ssoAccountLifecycleTestFile])
         rawPath = args
           .find((arg) => arg.startsWith('--outputFile='))!
           .slice('--outputFile='.length)
@@ -1324,24 +1362,24 @@ describe('fixed account lifecycle TEST slice', () => {
       numFailedTests: 1,
       testResults: [
         {
-          name: phase7SsoAccountLifecycleTestFile,
+          name: ssoAccountLifecycleTestFile,
           assertionResults: [{ status: 'failed', failureMessages: [message] }]
         }
       ]
     })
     expect(
-      sanitizePhase7VitestReport(make(safe), phase7SsoAccountLifecycleTestFile)
+      sanitizeVitestReport(make(safe), ssoAccountLifecycleTestFile)
         .lifecycleFailure
     ).toEqual({
       caseOrdinal: 1,
       originalFirstLineRetained: true,
       originalFirstLine: safe,
-      sourcePath: phase7SsoAccountLifecycleTestFile
+      sourcePath: ssoAccountLifecycleTestFile
     })
     const privateMessage = 'Error: private-user token secret@example.test'
-    const result = sanitizePhase7VitestReport(
+    const result = sanitizeVitestReport(
       make(privateMessage),
-      phase7SsoAccountLifecycleTestFile
+      ssoAccountLifecycleTestFile
     )
     expect(result.lifecycleFailure?.originalFirstLineRetained).toBe(false)
     expect(JSON.stringify(result)).not.toContain(privateMessage)
