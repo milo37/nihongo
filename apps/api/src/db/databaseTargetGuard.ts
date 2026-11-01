@@ -15,7 +15,7 @@ interface AdminCmsDatabaseGuardInput extends DatabaseGuardInput {
   adminCmsMode?: 'disabled' | 'technical' | undefined
 }
 
-interface Phase7MigrationDatabaseGuardInput {
+interface MigrationDatabaseGuardInput {
   nodeEnvironment: string | undefined
   migrationDatabaseUrl: string | undefined
   runtimeDatabaseUrl: string | undefined
@@ -35,7 +35,7 @@ interface DatabaseIdentity {
 }
 
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
-const PHASE7_MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_phase7_migration'
+const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_phase7_migration'
 const EXACT_TARGET_PARAMETERS = new Set([
   'schema',
   'sslmode',
@@ -298,7 +298,7 @@ export const assertSafePhase7MigrationDatabase = ({
   migrationDatabaseUrl,
   runtimeDatabaseUrl,
   productionDatabaseUrl
-}: Phase7MigrationDatabaseGuardInput): void => {
+}: MigrationDatabaseGuardInput): void => {
   if (!migrationDatabaseUrl) {
     throw new Error('PHASE7_MIGRATION_DATABASE_URL is required.')
   }
@@ -345,7 +345,7 @@ export const assertSafePhase7MigrationDatabase = ({
   const startupOptions = migration.searchParams.getAll('options')
   if (
     startupOptions.length !== 1 ||
-    startupOptions[0] !== PHASE7_MIGRATION_STARTUP_OPTIONS
+    startupOptions[0] !== MIGRATION_STARTUP_OPTIONS
   ) {
     throw new Error(
       'Phase 7 migration requires one exact migration startup role option.'
