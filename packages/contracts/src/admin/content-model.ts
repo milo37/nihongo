@@ -10,7 +10,7 @@ import {
 import { opaqueIdSchema, requestIdSchema } from '../common/id.js'
 import {
   adminQuestionVersionCursorSchema,
-  phase7OccurredAtCursorSchema
+  occurredAtCursorSchema
 } from '../common/content-cursor.js'
 import {
   accountActorSnapshotSchema,
@@ -494,7 +494,7 @@ export const contentReviewConnectionSchema = z
   .object({
     questionVersionId: opaqueIdSchema,
     items: z.array(adminContentReviewItemSchema).max(100),
-    nextCursor: phase7OccurredAtCursorSchema.nullable()
+    nextCursor: occurredAtCursorSchema.nullable()
   })
   .strict()
 

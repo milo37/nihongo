@@ -11,10 +11,10 @@ import { opaqueIdSchema, requestIdSchema } from '../common/id.js'
 import {
   adminQuestionVersionCursorSchema,
   decodeAdminQuestionVersionCursor,
-  decodePhase7OccurredAtCursor,
+  decodeOccurredAtCursor,
   encodeAdminQuestionVersionCursor,
-  encodePhase7OccurredAtCursor,
-  phase7OccurredAtCursorSchema
+  encodeOccurredAtCursor,
+  occurredAtCursorSchema
 } from '../common/content-cursor.js'
 import {
   accountActorSnapshotSchema,
@@ -531,7 +531,7 @@ const cursorLimitQueryFields = {
   limit: z.coerce.number().int().min(1).max(100).default(20)
 }
 const occurredCursorLimitQueryFields = {
-  cursor: phase7OccurredAtCursorSchema.optional(),
+  cursor: occurredAtCursorSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20)
 }
 
@@ -1001,7 +1001,7 @@ export const adminAuditLogItemSchema = z
 export const adminAuditLogConnectionSchema = z
   .object({
     items: z.array(adminAuditLogItemSchema).max(100),
-    nextCursor: phase7OccurredAtCursorSchema.nullable()
+    nextCursor: occurredAtCursorSchema.nullable()
   })
   .strict()
 
@@ -1328,7 +1328,7 @@ const assertOccurredConnection = (
   if (items.length > limit)
     throw new Error('connection count가 limit을 초과했습니다.')
   const supplied =
-    cursor === undefined ? undefined : decodePhase7OccurredAtCursor(cursor)
+    cursor === undefined ? undefined : decodeOccurredAtCursor(cursor)
   const ids = new Set<string>()
   items.forEach((item, index) => {
     if (ids.has(item.id)) throw new Error('connection IDs는 고유해야 합니다.')
@@ -1356,7 +1356,7 @@ const assertOccurredConnection = (
     last !== undefined &&
     nextCursor !== null &&
     nextCursor !==
-      encodePhase7OccurredAtCursor({
+      encodeOccurredAtCursor({
         id: last.id,
         occurredAt: last.occurredAt
       })
