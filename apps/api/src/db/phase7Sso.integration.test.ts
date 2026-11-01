@@ -9,8 +9,8 @@ import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.j
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { loadExpectedMigrationManifest } from './readiness.js'
-import { createSsoDbHarness, digest } from './phase7SsoTestFixture.js'
-import type { SsoFixture } from './phase7SsoTestFixture.js'
+import { createSsoDbHarness, digest } from './ssoTestFixture.js'
+import type { SsoFixture } from './ssoTestFixture.js'
 
 // Imported only by the registered task-owned runner, never ordinary unit tests.
 // All provider/sub proofs are synthetic SQL inputs; no OAuth network or browser.

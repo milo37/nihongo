@@ -7,7 +7,7 @@ import {
   cleanupPhase7IsolatedDatabase,
   preparePhase7IsolatedDatabase
 } from './runPhase7ApiIntegration.js'
-import { readPhase10DatabaseApiPerformanceEvidence } from './phase10PerformanceEvidence.js'
+import { readPhase10DatabaseApiPerformanceEvidence } from './performanceEvidence.js'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import {
   exitPerformanceProcess,
