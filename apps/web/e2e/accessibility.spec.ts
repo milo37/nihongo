@@ -242,7 +242,7 @@ const readRealFixture = (): RealBrowserFixture => {
   const serialized =
     process.env.PHASE9_BROWSER_FIXTURE ?? process.env.PHASE7_BROWSER_FIXTURE
   if (!serialized) {
-    throw new Error('Real Phase 9 browser fixture is missing.')
+    throw new Error('Real accessibility browser fixture is missing.')
   }
 
   const fixture = JSON.parse(serialized) as Partial<RealBrowserFixture>
@@ -255,7 +255,7 @@ const readRealFixture = (): RealBrowserFixture => {
       actor.callbackCode.length === 0
     ) {
       throw new Error(
-        'Real Phase 9 requires Google TEST actor userId and callbackCode fixtures.'
+        'Real accessibility checks require Google TEST actor userId and callbackCode fixtures.'
       )
     }
   }
@@ -1286,7 +1286,7 @@ const login = async (
       const state = new URL(authorizationURL).searchParams.get('state')
       if (!state || !actor.callbackCode || !actor.userId) {
         throw new Error(
-          'Real Phase 9 Google TEST callback identity is required.'
+          'Real accessibility checks require a Google TEST callback identity.'
         )
       }
       const callback = new URL('/api/auth/callback/google', origin)
@@ -1390,7 +1390,9 @@ const loginTestAdmin = async (
   )
   const state = new URL(authorization.url).searchParams.get('state')
   if (!state || !actor.callbackCode || !actor.userId) {
-    throw new Error('Real Phase 9 Google TEST callback identity is required.')
+    throw new Error(
+      'Real accessibility checks require a Google TEST callback identity.'
+    )
   }
   const callback = new URL('/api/auth/callback/google', origin)
   callback.search = new URLSearchParams({
@@ -1703,7 +1705,8 @@ const createReportFixture = async (page: Page) => {
   const session = await createSession(page)
   await submitAllWrong(page, session)
   const target = session.questions[0]
-  if (!target) throw new Error('Phase 9 report question fixture is missing.')
+  if (!target)
+    throw new Error('Accessibility report question fixture is missing.')
 
   const response = await requestBrowserJson(page, '/api/v1/question-reports', {
     description: 'Phase 9 accessibility route audit fixture',
@@ -2223,7 +2226,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await waitForApiTransportQuiet(transport)
   const targetQuestion = session.questions[0]
   if (!targetQuestion) {
-    throw new Error('Phase 9 learner question fixture is missing.')
+    throw new Error('Accessibility learner question fixture is missing.')
   }
 
   const resultPath = `/practice/result/${session.session.id}`
@@ -2328,7 +2331,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       })
     ).toBeVisible()
     if (!item.question.explanationKo) {
-      throw new Error('Phase 9 Korean explanation fixture is missing.')
+      throw new Error('Accessibility Korean explanation fixture is missing.')
     }
     await expect(
       selectedArticle.getByText(item.question.explanationKo, { exact: true })
@@ -2343,7 +2346,9 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
     if (available) {
       if (!item.question.explanationJa) {
-        throw new Error('Phase 9 Japanese explanation fixture is missing.')
+        throw new Error(
+          'Accessibility Japanese explanation fixture is missing.'
+        )
       }
       await expect(explanationTabs).toHaveCount(1)
       await expect(fallbackNotice).toHaveCount(0)
@@ -2431,7 +2436,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     (item) => item.questionId === targetQuestion.question.id
   )
   if (!savedQuestion) {
-    throw new Error('Phase 9 saved bookmark fixture is missing.')
+    throw new Error('Accessibility saved bookmark fixture is missing.')
   }
   expect(savedQuestion.question.questionTextPreview.trim()).not.toBe('')
   const removeBookmarkTrigger = page.locator(

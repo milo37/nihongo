@@ -227,7 +227,7 @@ const toFailure = (error: unknown, requestId: string): ApiFailure => {
   })
 }
 
-const buildCanonicalPhase7Failure = ({
+const buildCanonicalOperationFailure = ({
   error,
   failure,
   operation
@@ -308,13 +308,13 @@ export const createApiErrorHandler =
       method: context.req.method,
       requestTarget: context.get('rawRequestTarget')
     })
-    const phase7Failure =
+    const operationFailure =
       operation === null
         ? null
-        : buildCanonicalPhase7Failure({ error, failure, operation })
-    if (phase7Failure !== null) {
-      failure = phase7Failure.response.body
-      status = phase7Failure.response.status
+        : buildCanonicalOperationFailure({ error, failure, operation })
+    if (operationFailure !== null) {
+      failure = operationFailure.response.body
+      status = operationFailure.response.status
     }
     const pathname = new URL(context.req.url).pathname
 
@@ -324,16 +324,16 @@ export const createApiErrorHandler =
       statusClass: toHttpStatusClass(status),
       durationMs: toBoundedDurationMs(context.get('requestStartedAt')),
       errorCode:
-        phase7Failure?.contractViolation === true
+        operationFailure?.contractViolation === true
           ? 'PHASE7_CONTRACT_VIOLATION'
           : failure.code
     })
-    if (phase7Failure === null) {
+    if (operationFailure === null) {
       context.header('Cache-Control', 'private, no-store')
       context.header('X-Request-Id', requestId)
     } else {
-      Object.entries(phase7Failure.response.headers).forEach(([name, value]) =>
-        context.header(name, value)
+      Object.entries(operationFailure.response.headers).forEach(
+        ([name, value]) => context.header(name, value)
       )
     }
 
@@ -355,7 +355,7 @@ export const createApiErrorHandler =
     }
 
     if (
-      phase7Failure === null &&
+      operationFailure === null &&
       (failure.code === 'RATE_LIMITED' ||
         failure.code === 'SERVICE_UNAVAILABLE')
     ) {
@@ -419,10 +419,10 @@ export const createApiApp = ({
       context.req.raw.url
     )
     context.set('rawRequestTarget', requestTarget)
-    const isPhase7Request =
+    const isExcludedRequest =
       isPhase7ExcludedRequest(requestTarget) ||
       isPhase7ExcludedRequest(context.req.path)
-    if (!isPhase7Request) {
+    if (!isExcludedRequest) {
       await next()
       return
     }
