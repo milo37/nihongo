@@ -22,7 +22,7 @@ import {
   writeCanonicalEvidence
 } from './security-evidence.mjs'
 
-const phase8AdminLedgerOperations = [
+const adminLedgerOperations = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
   ['POST', '/api/v1/admin/questions/import-application', 201],
   ['POST', '/api/v1/admin/questions/export', 200],
@@ -113,7 +113,7 @@ const createRequestLedgerEntries = (name, pathName) => {
     }).flat()
   }
   if (name.startsWith('phase8-admin-lifecycle-')) {
-    return phase8AdminLedgerOperations.map(
+    return adminLedgerOperations.map(
       ([method, operationPath, status], index) => ({
         finishSequence: index < 15 ? index * 2 + 2 : index + 18,
         method,
@@ -189,19 +189,19 @@ const createRequestLedgerAttachment = (name, pathName = '/api/v1/me') => ({
   )
 })
 
-const createPhase10AttachmentNames = (mode) => [
+const createJourneyAttachmentNames = (mode) => [
   'phase10-' + mode + '-ko-handoff',
   'phase10-' + mode + '-ja-handoff',
   'phase10-guest-auth-' + mode + '-request-ledger',
   'phase10-user-journey-' + mode + '-request-ledger',
   'phase10-resilience-' + mode + '-request-ledger'
 ]
-const createPhase10Attachments = (mode) =>
-  createPhase10AttachmentNames(mode).map((name) =>
+const createJourneyAttachments = (mode) =>
+  createJourneyAttachmentNames(mode).map((name) =>
     createRequestLedgerAttachment(name)
   )
 
-const createCurrentPhase8Attachments = (mode, index) => {
+const createCurrentAcceptanceAttachments = (mode, index) => {
   if (mode === 'real' && index === 0)
     return [
       createRequestLedgerAttachment('phase7-guest-denial'),
@@ -312,7 +312,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
     outputDirectory: directory,
     label: 'phase10-real'
   })
-  const requestLedgerAttachments = createPhase10Attachments('real')
+  const requestLedgerAttachments = createJourneyAttachments('real')
   reporter.onBegin()
   for (let index = 0; index < 5; index += 1) {
     reporter.onTestEnd(
@@ -348,7 +348,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   assert.match(value.tests[0].testId, /^[0-9a-f]{64}$/u)
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
-    createPhase10AttachmentNames('real').toSorted()
+    createJourneyAttachmentNames('real').toSorted()
   )
   assert.deepEqual(value.counts, {
     passed: 5,
@@ -481,7 +481,7 @@ test('all six safe suites retain exact current counts and approved attachments',
         outputDirectory: directory,
         label
       })
-      const attachments = phase === 10 ? createPhase10Attachments(mode) : []
+      const attachments = phase === 10 ? createJourneyAttachments(mode) : []
       reporter.onBegin()
       for (let index = 0; index < count; index += 1) {
         reporter.onTestEnd(
@@ -495,7 +495,7 @@ test('all six safe suites retain exact current counts and approved attachments',
             retry: 0,
             attachments:
               phase === 8
-                ? createCurrentPhase8Attachments(mode, index)
+                ? createCurrentAcceptanceAttachments(mode, index)
                 : index === 0
                   ? attachments
                   : []
@@ -530,7 +530,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
         status: 'passed',
         duration: 10,
         retry: 0,
-        attachments: createCurrentPhase8Attachments('real', index)
+        attachments: createCurrentAcceptanceAttachments('real', index)
       }
     )
   }
@@ -904,7 +904,7 @@ test('current Phase 8 summaries reject missing, duplicate, forged and obsolete e
           status: 'passed',
           duration: 1,
           retry: 0,
-          attachments: createCurrentPhase8Attachments(mode, index)
+          attachments: createCurrentAcceptanceAttachments(mode, index)
         }
       )
     }
@@ -1352,9 +1352,9 @@ test('real-only browser evidence requires all three exact phases', async () => {
             retry: 0,
             attachments:
               phase === 8
-                ? createCurrentPhase8Attachments('real', index)
+                ? createCurrentAcceptanceAttachments('real', index)
                 : phase === 10 && index === 0
-                  ? createPhase10Attachments('real')
+                  ? createJourneyAttachments('real')
                   : []
           }
         )
@@ -1433,7 +1433,7 @@ for (const mode of ['real', 'mock']) {
           total: count
         },
         performanceMeasurements: [],
-        requestLedgers: createPhase10Attachments(mode).map(
+        requestLedgers: createJourneyAttachments(mode).map(
           ({ name, body }) => ({
             label: name,
             ...JSON.parse(body.toString('utf8'))

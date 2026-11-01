@@ -38,7 +38,7 @@ import {
 
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const DATABASE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
-const PHASE7_GROUP_ROLES = [
+const TEST_DATABASE_GROUP_ROLES = [
   'nihongo_phase7_owner',
   'nihongo_phase7_migration',
   'nihongo_app',
@@ -46,7 +46,7 @@ const PHASE7_GROUP_ROLES = [
   'nihongo_erasure_worker',
   'nihongo_guest_cleanup_worker'
 ] as const
-const PHASE7_WRAPPER_ROLES = [
+const TEST_DATABASE_WRAPPER_ROLES = [
   {
     name: 'nihongo_test_phase7_migration_login',
     grantedRole: 'nihongo_phase7_migration'
@@ -82,7 +82,7 @@ const PHASE7_WRAPPER_ROLES = [
     grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
-const PHASE7_LEGACY_ROLES = [
+const TEST_DATABASE_LEGACY_ROLES = [
   'nihongo_test_legacy_app_login',
   'nihongo_development_legacy_app_login'
 ] as const
@@ -141,10 +141,12 @@ if (!DATABASE_IDENTIFIER_PATTERN.test(databaseName)) {
   throw new Error('Phase 7 integration database name is unsafe.')
 }
 const wrapperPasswords = new Map<string, string>(
-  [...PHASE7_WRAPPER_ROLES, ...PHASE7_LEGACY_ROLES].map((role) => [
-    typeof role === 'string' ? role : role.name,
-    randomUUID().replaceAll('-', '')
-  ])
+  [...TEST_DATABASE_WRAPPER_ROLES, ...TEST_DATABASE_LEGACY_ROLES].map(
+    (role) => [
+      typeof role === 'string' ? role : role.name,
+      randomUUID().replaceAll('-', '')
+    ]
+  )
 )
 
 const buildWrapperDatabaseUrl = (role: string): URL => {
@@ -215,7 +217,7 @@ const EXPECTED_PRISMA_REPRESENTATION_DIFF = [
   'CREATE INDEX "QuestionVersion_questionText_prefix_idx" ON "QuestionVersion"("questionText" text_pattern_ops);'
 ].join('\n')
 
-interface Phase7DatabaseDefault {
+interface TestDatabaseDefault {
   readonly columnName: string
   readonly defaultExpression: string
   readonly tableName: string
@@ -223,8 +225,8 @@ interface Phase7DatabaseDefault {
 
 class Phase7DatabaseDefaultAttestationError extends Error {
   public constructor(
-    actual: readonly Phase7DatabaseDefault[],
-    expected: readonly Phase7DatabaseDefault[]
+    actual: readonly TestDatabaseDefault[],
+    expected: readonly TestDatabaseDefault[]
   ) {
     super(
       'Phase 7 database default attestation failed. ' +
@@ -234,7 +236,7 @@ class Phase7DatabaseDefaultAttestationError extends Error {
   }
 }
 
-const EXPECTED_PHASE7_DATABASE_DEFAULTS: readonly Phase7DatabaseDefault[] = [
+const EXPECTED_TEST_DATABASE_DEFAULTS: readonly TestDatabaseDefault[] = [
   {
     columnName: 'rowVersion',
     defaultExpression: '1',
@@ -448,8 +450,8 @@ const adminClient = new Client({
   connectionString: adminDatabaseUrl.toString()
 })
 
-const assertPhase7DatabaseDefaults = async (): Promise<void> => {
-  const result = await adminClient.query<Phase7DatabaseDefault>(
+const assertTestDatabaseDefaults = async (): Promise<void> => {
+  const result = await adminClient.query<TestDatabaseDefault>(
     `SELECT relation.relname AS "tableName",
             attribute.attname AS "columnName",
             pg_get_expr(default_value.adbin, default_value.adrelid)
@@ -487,16 +489,16 @@ const assertPhase7DatabaseDefaults = async (): Promise<void> => {
     })
   )
   if (
-    JSON.stringify(actual) !== JSON.stringify(EXPECTED_PHASE7_DATABASE_DEFAULTS)
+    JSON.stringify(actual) !== JSON.stringify(EXPECTED_TEST_DATABASE_DEFAULTS)
   ) {
     throw new Phase7DatabaseDefaultAttestationError(
       actual,
-      EXPECTED_PHASE7_DATABASE_DEFAULTS
+      EXPECTED_TEST_DATABASE_DEFAULTS
     )
   }
 }
 
-const assertPhase7DatabaseDefaultDriftRejected = async (
+const assertTestDatabaseDefaultDriftRejected = async (
   mutationSql: string
 ): Promise<void> => {
   await adminClient.query('BEGIN')
@@ -504,7 +506,7 @@ const assertPhase7DatabaseDefaultDriftRejected = async (
     await adminClient.query(mutationSql)
     let rejected = false
     try {
-      await assertPhase7DatabaseDefaults()
+      await assertTestDatabaseDefaults()
     } catch (error: unknown) {
       if (error instanceof Phase7DatabaseDefaultAttestationError) {
         rejected = true
@@ -802,8 +804,8 @@ const attestBootstrapDatabase = async (): Promise<void> => {
     !snapshot.allowConnections ||
     snapshot.isTemplate ||
     snapshot.acl.some(({ grantor }) => grantor !== snapshot.ownerName) ||
-    PHASE7_GROUP_ROLES.includes(
-      snapshot.ownerName as (typeof PHASE7_GROUP_ROLES)[number]
+    TEST_DATABASE_GROUP_ROLES.includes(
+      snapshot.ownerName as (typeof TEST_DATABASE_GROUP_ROLES)[number]
     )
   ) {
     throw new Error('Phase 7 integration bootstrap database is not attested.')
@@ -838,7 +840,7 @@ const transitionDatabaseOwnerToMigration = async (): Promise<void> => {
   }
 }
 
-const applyPhase7DatabaseAcl = async (
+const applyTestDatabaseAcl = async (
   trackPersistentMutation = false
 ): Promise<void> => {
   if (trackPersistentMutation) databaseAclChanged = true
@@ -865,7 +867,7 @@ const applyPhase7DatabaseAcl = async (
   )
 }
 
-const attestPhase7DatabaseAcl = async (): Promise<void> => {
+const attestTestDatabaseAcl = async (): Promise<void> => {
   const result = await adminClient.query<{
     aclEntryCount: number
     migrationPrivilegeAclCount: number
@@ -927,7 +929,7 @@ const exerciseDatabaseAclRestore = async (
   if (!databaseStateSnapshot) {
     throw new Error('Phase 7 database snapshot is unavailable.')
   }
-  await applyPhase7DatabaseAcl()
+  await applyTestDatabaseAcl()
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
      OWNER TO "nihongo_phase7_migration"`
@@ -1051,8 +1053,8 @@ const restorePgcrypto = async (): Promise<void> => {
 
 const provisionGlobalRoles = async (): Promise<void> => {
   const wrapperNames = [
-    ...PHASE7_WRAPPER_ROLES.map(({ name }) => name),
-    ...PHASE7_LEGACY_ROLES
+    ...TEST_DATABASE_WRAPPER_ROLES.map(({ name }) => name),
+    ...TEST_DATABASE_LEGACY_ROLES
   ]
   const collisions = await adminClient.query<{ name: string }>(
     `SELECT rolname AS name FROM pg_roles
@@ -1082,11 +1084,11 @@ const provisionGlobalRoles = async (): Promise<void> => {
        rolcreatedb AS "canCreateDatabase", rolcreaterole AS "canCreateRole",
        rolreplication AS "isReplication", rolbypassrls AS "canBypassRls"
      FROM pg_roles WHERE rolname = ANY($1::text[]) ORDER BY rolname`,
-    [[...PHASE7_GROUP_ROLES]]
+    [[...TEST_DATABASE_GROUP_ROLES]]
   )
   if (
     existingGroups.rowCount !== 0 &&
-    existingGroups.rowCount !== PHASE7_GROUP_ROLES.length
+    existingGroups.rowCount !== TEST_DATABASE_GROUP_ROLES.length
   ) {
     throw new Error('Phase 7 reusable NOLOGIN role bootstrap is partial.')
   }
@@ -1105,7 +1107,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
   }
 
   if (existingGroups.rowCount === 0) {
-    for (const role of PHASE7_GROUP_ROLES) {
+    for (const role of TEST_DATABASE_GROUP_ROLES) {
       await adminClient.query(
         `CREATE ROLE ${quoteIdentifier(role)}
          NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
@@ -1136,7 +1138,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
        WHERE member_role.rolname = ANY($1::text[])
           OR granted_role.rolname = ANY($1::text[])
        ORDER BY member_role.rolname, granted_role.rolname`,
-      [[...PHASE7_GROUP_ROLES]]
+      [[...TEST_DATABASE_GROUP_ROLES]]
     )
     if (
       protectedMemberships.rows.length !== 1 ||
@@ -1150,7 +1152,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
     }
   }
 
-  for (const { grantedRole, name } of PHASE7_WRAPPER_ROLES) {
+  for (const { grantedRole, name } of TEST_DATABASE_WRAPPER_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
       throw new Error('Phase 7 wrapper password fixture is unsafe.')
@@ -1166,7 +1168,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   }
-  for (const name of PHASE7_LEGACY_ROLES) {
+  for (const name of TEST_DATABASE_LEGACY_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
       throw new Error('Phase 7 legacy password fixture is unsafe.')
@@ -1237,7 +1239,7 @@ const cleanup = (): Promise<void> => {
             for (const {
               grantedRole,
               name
-            } of PHASE7_WRAPPER_ROLES.toReversed()) {
+            } of TEST_DATABASE_WRAPPER_ROLES.toReversed()) {
               if (!createdWrapperRoles.has(name)) continue
               await adminClient.query(
                 `REVOKE ${quoteIdentifier(grantedRole)} FROM ${quoteIdentifier(name)}`
@@ -1245,7 +1247,7 @@ const cleanup = (): Promise<void> => {
               await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
               createdWrapperRoles.delete(name)
             }
-            for (const name of PHASE7_LEGACY_ROLES.toReversed()) {
+            for (const name of TEST_DATABASE_LEGACY_ROLES.toReversed()) {
               if (!createdWrapperRoles.has(name)) continue
               await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
               createdWrapperRoles.delete(name)
@@ -1420,8 +1422,8 @@ const run = async (): Promise<void> => {
   await transitionDatabaseOwnerToMigration()
   // ALTER DATABASE OWNER can rewrite owner-derived ACL entries. Apply the
   // canonical wrapper grants only after the final migration owner is active.
-  await applyPhase7DatabaseAcl(true)
-  await attestPhase7DatabaseAcl()
+  await applyTestDatabaseAcl(true)
+  await attestTestDatabaseAcl()
   await adminClient.query(
     `CREATE SCHEMA ${quoteSchema(schemaName)}
      AUTHORIZATION "nihongo_phase7_migration"`
@@ -1721,19 +1723,19 @@ const run = async (): Promise<void> => {
     canonicalMigrationEnvironment,
     'redacted'
   )
-  await assertPhase7DatabaseDefaultDriftRejected(
+  await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
        ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
   )
-  await assertPhase7DatabaseDefaultDriftRejected(
+  await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
        ALTER COLUMN "authorizationState" DROP DEFAULT`
   )
-  await assertPhase7DatabaseDefaults()
+  await assertTestDatabaseDefaults()
   process.stdout.write(
     `${JSON.stringify({
       event: 'phase7.db.integration.database_defaults_attested',
-      defaultCount: EXPECTED_PHASE7_DATABASE_DEFAULTS.length,
+      defaultCount: EXPECTED_TEST_DATABASE_DEFAULTS.length,
       driftRejections: 2
     })}\n`
   )

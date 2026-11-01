@@ -49,7 +49,7 @@ export const phase7SsoIdentityTitle =
   'provider/sub alone resolves stable IDs; contact conflicts never merge or promote; new identities are USER' as const
 export const phase7SsoIdentityPattern = `${phase7SsoIdentityTitle}$`
 
-const phase7SsoCases = {
+const ssoCases = {
   'sso-ordinal6': {
     title: phase7SsoOrdinal6Title,
     pattern: phase7SsoOrdinal6Pattern,
@@ -64,10 +64,10 @@ const phase7SsoCases = {
   }
 } as const
 
-type Phase7SsoCase = keyof typeof phase7SsoCases
+type Phase7SsoCase = keyof typeof ssoCases
 
 // Public deterministic fixtures for this TEST runner, never provider credentials.
-const phase7SsoTestProfile = {
+const ssoTestProfile = {
   NODE_ENV: 'test',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: '0'.repeat(40),
@@ -83,8 +83,8 @@ const phase7SsoTestProfile = {
   AUTH_EMAIL_FROM: 'sso-db@example.test',
   AUTH_EMAIL_DELIVERY_MODE: 'test-sink'
 } as const
-const phase7SsoExcludedParentKeys = new Set([
-  ...Object.keys(phase7SsoTestProfile),
+const ssoExcludedParentKeys = new Set([
+  ...Object.keys(ssoTestProfile),
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'APPLE_CLIENT_ID',
@@ -96,10 +96,10 @@ const phase7SsoExcludedParentKeys = new Set([
 export const createPhase7SsoTestEnvironment = (
   base: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv => {
-  const environment: NodeJS.ProcessEnv = { ...phase7SsoTestProfile }
+  const environment: NodeJS.ProcessEnv = { ...ssoTestProfile }
   // Do not read even shadowed parent credential/accessor values.
   for (const key of Object.keys(base)) {
-    if (!phase7SsoExcludedParentKeys.has(key)) environment[key] = base[key]
+    if (!ssoExcludedParentKeys.has(key)) environment[key] = base[key]
   }
   return environment
 }
@@ -117,7 +117,7 @@ export const createPhase7DbFileEnvironment = (
     : base
 }
 
-const phase7SingleTestFiles: readonly string[] = [
+const singleTestFiles: readonly string[] = [
   phase7DbFoundationTestFile,
   phase7SsoTestFile,
   phase7SsoAccountLifecycleTestFile
@@ -140,10 +140,7 @@ export const selectPhase7DbIntegrationFiles = (
     )
   }
   if (selected === undefined) return defaultFiles
-  if (
-    !phase7SingleTestFiles.includes(selected) ||
-    !defaultFiles.includes(selected)
-  ) {
+  if (!singleTestFiles.includes(selected) || !defaultFiles.includes(selected)) {
     throw new Error('Phase 7 single test is outside the fixed allowlist.')
   }
   return [selected]
@@ -279,12 +276,12 @@ export const sanitizePhase7VitestReport = (
   const selectedSsoCase =
     selectedSsoCaseName === 'sso-ordinal6' ||
     selectedSsoCaseName === 'sso-identity'
-      ? phase7SsoCases[selectedSsoCaseName]
+      ? ssoCases[selectedSsoCaseName]
       : undefined
   let selectedCase:
     | {
-        id: (typeof phase7SsoCases)[Phase7SsoCase]['id']
-        sourceOrdinal: (typeof phase7SsoCases)[Phase7SsoCase]['sourceOrdinal']
+        id: (typeof ssoCases)[Phase7SsoCase]['id']
+        sourceOrdinal: (typeof ssoCases)[Phase7SsoCase]['sourceOrdinal']
         matched: 1
         status: 'passed' | 'failed'
         failure?: {
@@ -424,9 +421,7 @@ export const sanitizePhase7VitestReport = (
       : undefined
   return {
     schemaVersion: 1,
-    testFile: phase7SingleTestFiles.includes(testFile)
-      ? testFile
-      : 'not-allowlisted',
+    testFile: singleTestFiles.includes(testFile) ? testFile : 'not-allowlisted',
     total: safeCount(result.numTotalTests),
     passed: safeCount(result.numPassedTests),
     failed: safeCount(result.numFailedTests),
@@ -654,7 +649,7 @@ export const runApiIntegrationManifestVitestFile = async ({
       throw new Error('Phase 7 fixed SSO case requires sanitized reporting.')
     }
   }
-  if (preserveSanitizedReport && !phase7SingleTestFiles.includes(testFile)) {
+  if (preserveSanitizedReport && !singleTestFiles.includes(testFile)) {
     throw new Error(
       'Phase 7 report preservation requires a fixed allowlisted file.'
     )
@@ -699,7 +694,7 @@ export const runApiIntegrationManifestVitestFile = async ({
               ]
             : []),
           ...(selectedSsoCase
-            ? ['--testNamePattern', phase7SsoCases[selectedSsoCase].pattern]
+            ? ['--testNamePattern', ssoCases[selectedSsoCase].pattern]
             : []),
           '--reporter=json',
           `--outputFile=${outputFile}`
