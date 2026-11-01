@@ -1,5 +1,5 @@
 import { getConnInfo } from '@hono/node-server/conninfo'
-import type { Phase7Operation } from '@nihongo/contracts/admin/content-operations'
+import type { ContentOperation } from '@nihongo/contracts/admin/content-operations'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { getCanonicalPhase7Slice3Operation } from '../app/protectedRouteExclusion.js'
@@ -25,29 +25,30 @@ const CANONICAL_CONTENT_LENGTH = /^(?:0|[1-9][0-9]*)$/u
 const JSON_MEDIA_TYPE =
   /^application\/json(?:[ \t]*;[ \t]*charset[ \t]*=[ \t]*(?:utf-8|"utf-8"))?$/iu
 
-const bodyCapByOperation: Readonly<Partial<Record<Phase7Operation, number>>> = {
-  createAdminQuestion: LARGE_BODY_CAP,
-  createAdminQuestionVersion: LARGE_BODY_CAP,
-  updateQuestionVersion: LARGE_BODY_CAP,
-  requestContentReview: SMALL_BODY_CAP,
-  requestQuestionChanges: SMALL_BODY_CAP,
-  approveQuestionVersion: SMALL_BODY_CAP,
-  withdrawQuestionApproval: SMALL_BODY_CAP,
-  publishQuestionVersion: SMALL_BODY_CAP,
-  retireQuestionVersion: SMALL_BODY_CAP,
-  archiveAdminQuestion: SMALL_BODY_CAP,
-  requestContentReviewBatch: LARGE_BODY_CAP,
-  validateQuestionImport: IMPORT_BODY_CAP,
-  applyQuestionImport: IMPORT_BODY_CAP,
-  exportAdminQuestions: SMALL_BODY_CAP,
-  createQuestionReport: REPORT_BODY_CAP,
-  triageAdminQuestionReport: SMALL_BODY_CAP,
-  resolveAdminQuestionReport: SMALL_BODY_CAP,
-  reauthenticateAdmin: REAUTHENTICATION_BODY_CAP
-}
+const bodyCapByOperation: Readonly<Partial<Record<ContentOperation, number>>> =
+  {
+    createAdminQuestion: LARGE_BODY_CAP,
+    createAdminQuestionVersion: LARGE_BODY_CAP,
+    updateQuestionVersion: LARGE_BODY_CAP,
+    requestContentReview: SMALL_BODY_CAP,
+    requestQuestionChanges: SMALL_BODY_CAP,
+    approveQuestionVersion: SMALL_BODY_CAP,
+    withdrawQuestionApproval: SMALL_BODY_CAP,
+    publishQuestionVersion: SMALL_BODY_CAP,
+    retireQuestionVersion: SMALL_BODY_CAP,
+    archiveAdminQuestion: SMALL_BODY_CAP,
+    requestContentReviewBatch: LARGE_BODY_CAP,
+    validateQuestionImport: IMPORT_BODY_CAP,
+    applyQuestionImport: IMPORT_BODY_CAP,
+    exportAdminQuestions: SMALL_BODY_CAP,
+    createQuestionReport: REPORT_BODY_CAP,
+    triageAdminQuestionReport: SMALL_BODY_CAP,
+    resolveAdminQuestionReport: SMALL_BODY_CAP,
+    reauthenticateAdmin: REAUTHENTICATION_BODY_CAP
+  }
 
 const groupByOperation: Readonly<
-  Partial<Record<Phase7Operation, AdminCommandRateLimitGroup>>
+  Partial<Record<ContentOperation, AdminCommandRateLimitGroup>>
 > = {
   createAdminQuestion: 'ADMIN_EDIT',
   createAdminQuestionVersion: 'ADMIN_EDIT',
@@ -68,7 +69,7 @@ const groupByOperation: Readonly<
   reauthenticateAdmin: 'REAUTHENTICATION'
 }
 
-const freshOperations = new Set<Phase7Operation>([
+const freshOperations = new Set<ContentOperation>([
   'approveQuestionVersion',
   'withdrawQuestionApproval',
   'publishQuestionVersion',
@@ -99,7 +100,7 @@ const requestTooLarge = (): ApplicationError =>
 const getOperation = (
   context: Context<AdminRouteEnvironment>,
   operationResolver: typeof getCanonicalPhase7Slice3Operation
-): Phase7Operation => {
+): ContentOperation => {
   const operation = operationResolver({
     method: context.req.method,
     requestTarget: context.get('rawRequestTarget')
@@ -170,8 +171,9 @@ export const assertTrustedOrigin = (
   })
 }
 
-export const getOperationBodySizeLimit = (operation: Phase7Operation): number =>
-  bodyCapByOperation[operation] ?? SMALL_BODY_CAP
+export const getOperationBodySizeLimit = (
+  operation: ContentOperation
+): number => bodyCapByOperation[operation] ?? SMALL_BODY_CAP
 
 export const createAdminCommandGuard = ({
   assertCapability,
