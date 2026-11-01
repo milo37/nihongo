@@ -5,7 +5,7 @@ import {
   getAdminQuestionParamsSchema,
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'

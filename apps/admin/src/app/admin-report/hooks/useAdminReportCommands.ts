@@ -7,7 +7,7 @@ import type {
   QuestionReportMutationResult,
   ResolveAdminQuestionReportRequest,
   TriageAdminQuestionReportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import {
   AuthTransitionSupersededError,
   assertCurrentAuthActorTransitionFence,

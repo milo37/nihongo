@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import {
   questionReportReasonSchema,
   questionReportStatusSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Input } from '@nihongo/browser/common/components/Input'
 import { Select } from '@nihongo/browser/common/components/Select'

@@ -17,14 +17,14 @@ import {
   onlineManager
 } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { diffQuestionVersionResponseSchema } from '@nihongo/contracts/admin/phase7'
+import { diffQuestionVersionResponseSchema } from '@nihongo/contracts/admin/content-operations'
 import type {
   AdminQuestionDetail,
   AdminQuestionMutationResult,
   AdminQuestionVersionConnection,
   ContentReviewConnection,
   DiffQuestionVersionResponse
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'

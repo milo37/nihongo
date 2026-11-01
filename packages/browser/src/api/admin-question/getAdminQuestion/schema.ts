@@ -1,7 +1,7 @@
 import {
   getAdminQuestionParamsSchema as getAdminQuestionRequestSchema,
   getAdminQuestionResponseSchema as getAdminQuestionResponseSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import type { z } from 'zod'
 export { getAdminQuestionRequestSchema, getAdminQuestionResponseSchema }
 export type GetAdminQuestionRequest = z.input<

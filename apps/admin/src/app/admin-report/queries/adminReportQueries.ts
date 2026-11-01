@@ -3,7 +3,7 @@ import type {
   ListAdminQuestionReportsQuery,
   ResolveAdminQuestionReportRequest,
   TriageAdminQuestionReportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const adminReportQueries = {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import * as contentOperations from '@nihongo/contracts/admin/content-operations'
+import * as legacyOperations from '@nihongo/contracts/admin/phase7'
+import * as contentConformance from '@nihongo/contracts/testing/admin-content-conformance'
+import * as legacyConformance from '@nihongo/contracts/testing/phase7-admin-conformance'
+
 import {
   assertPhase7OperationFailureResponse,
   assertPhase7ErrorPolicyManifest,
@@ -47,6 +52,47 @@ const failure = (code: string, retryable: boolean) => ({
 })
 
 describe('Phase 7 operation and Slice 2 conformance manifests', () => {
+  it('keeps the additive contract paths and aliases identical', () => {
+    const oldOperation: legacyOperations.Phase7Operation =
+      'createQuestionReport'
+    const newOperation: contentOperations.ContentOperation = oldOperation
+    const roundTrip: legacyOperations.Phase7Operation = newOperation
+
+    expect(roundTrip).toBe(oldOperation)
+    expect(contentOperations.contentOperationManifest).toBe(
+      legacyOperations.phase7OperationManifest
+    )
+    expect(contentOperations.contentOperationSchemas).toBe(
+      legacyOperations.phase7OperationSchemas
+    )
+    expect(contentOperations.parseJsonBytes).toBe(
+      legacyOperations.parseJsonBytes
+    )
+    expect(contentOperations.parsePhase7JsonBytes).toBe(
+      legacyOperations.parsePhase7JsonBytes
+    )
+    expect(contentOperations.JsonParseError).toBe(
+      legacyOperations.JsonParseError
+    )
+    expect(contentOperations.Phase7JsonParseError).toBe(
+      legacyOperations.Phase7JsonParseError
+    )
+    expect(contentConformance.assertPhase7Slice2ConformanceManifest).toBe(
+      legacyConformance.assertPhase7Slice2ConformanceManifest
+    )
+
+    try {
+      contentOperations.parseJsonBytes(new Uint8Array([123]))
+      throw new Error('expected malformed JSON to fail')
+    } catch (error) {
+      expect(error).toBeInstanceOf(legacyOperations.JsonParseError)
+      expect(error).toBeInstanceOf(contentOperations.Phase7JsonParseError)
+      if (!(error instanceof legacyOperations.JsonParseError)) throw error
+      expect(error.name).toBe('Phase7JsonParseError')
+      expect(error.kind).toBe('INVALID_JSON')
+    }
+  })
+
   it('closes exactly 28 operations with exactly eight active GET reads', () => {
     expect(() => assertPhase7OperationManifest()).not.toThrow()
     expect(phase7OperationManifest).toHaveLength(28)

@@ -2,7 +2,7 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 import {
   questionVersionStatusSchema,
   type QuestionVersionStatus
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { AppLink } from '@nihongo/browser/common/components/AppLink'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { useEffect, useState } from 'react'

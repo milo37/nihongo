@@ -1,4 +1,4 @@
-import type { AdminQuestionMutationResult } from '@nihongo/contracts/admin/phase7'
+import type { AdminQuestionMutationResult } from '@nihongo/contracts/admin/content-operations'
 import {
   onlineManager,
   useMutation,

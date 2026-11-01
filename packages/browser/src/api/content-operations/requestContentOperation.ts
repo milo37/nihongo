@@ -28,10 +28,10 @@ import {
   assertTriageAdminQuestionReportResponse,
   assertUpdateQuestionVersionResponse,
   assertWithdrawQuestionApprovalResponse,
-  phase7OperationManifest,
-  phase7OperationSchemas,
-  type Phase7Operation
-} from '@nihongo/contracts/admin/phase7'
+  contentOperationManifest,
+  contentOperationSchemas,
+  type ContentOperation
+} from '@nihongo/contracts/admin/content-operations'
 import type { z } from 'zod'
 import { errorStatusByCode } from '@nihongo/contracts/common/error'
 import { requestIdSchema } from '@nihongo/contracts/common/id'
@@ -48,25 +48,24 @@ import {
 } from '../../libs/authTransitionFence'
 import { sha256TextPort } from '../../libs/sha256Text'
 
-type OperationSchemas<Operation extends Phase7Operation> =
-  (typeof phase7OperationSchemas)[Operation]
+type OperationSchemas<Operation extends ContentOperation> =
+  (typeof contentOperationSchemas)[Operation]
 
-export type ContentOperationParams<Operation extends Phase7Operation> = z.input<
-  OperationSchemas<Operation>['params']
->
+export type ContentOperationParams<Operation extends ContentOperation> =
+  z.input<OperationSchemas<Operation>['params']>
 
-export type ContentOperationQuery<Operation extends Phase7Operation> = z.input<
+export type ContentOperationQuery<Operation extends ContentOperation> = z.input<
   OperationSchemas<Operation>['query']
 >
 
-export type ContentOperationBody<Operation extends Phase7Operation> = z.input<
+export type ContentOperationBody<Operation extends ContentOperation> = z.input<
   OperationSchemas<Operation>['body']
 >
 
-export type ContentOperationResult<Operation extends Phase7Operation> =
+export type ContentOperationResult<Operation extends ContentOperation> =
   z.output<OperationSchemas<Operation>['success']>
 
-export interface ContentOperationRequest<Operation extends Phase7Operation> {
+export interface ContentOperationRequest<Operation extends ContentOperation> {
   readonly operation: Operation
   readonly params: ContentOperationParams<Operation>
   readonly query: ContentOperationQuery<Operation>
@@ -75,7 +74,7 @@ export interface ContentOperationRequest<Operation extends Phase7Operation> {
 }
 
 const manifestByOperation = new Map(
-  phase7OperationManifest.map((entry) => [entry.operation, entry])
+  contentOperationManifest.map((entry) => [entry.operation, entry])
 )
 
 const RETRY_AFTER_SECONDS = /^[1-9][0-9]*$/u
@@ -153,7 +152,7 @@ const toClientPath = (manifestPath: string, params: unknown): string => {
 }
 
 const assertCorrelatedResponse = async (
-  operation: Exclude<Phase7Operation, 'reauthenticateAdmin'>,
+  operation: Exclude<ContentOperation, 'reauthenticateAdmin'>,
   params: unknown,
   query: unknown,
   body: unknown,
@@ -235,7 +234,7 @@ const assertCorrelatedResponse = async (
 
 export const requestContentOperation = async <
   Operation extends Exclude<
-    Phase7Operation,
+    ContentOperation,
     'exportAdminQuestions' | 'reauthenticateAdmin'
   >
 >(
@@ -245,7 +244,7 @@ export const requestContentOperation = async <
   if (!entry) {
     throw new Error(`Unknown content operation: ${input.operation}`)
   }
-  const schemas = phase7OperationSchemas[input.operation]
+  const schemas = contentOperationSchemas[input.operation]
   const params = schemas.params.parse(input.params)
   const query = schemas.query.parse(input.query)
   const body = schemas.body.parse(input.body)

@@ -1,4 +1,4 @@
-import type { ListAdminQuestionReportsQuery } from '@nihongo/contracts/admin/phase7'
+import type { ListAdminQuestionReportsQuery } from '@nihongo/contracts/admin/content-operations'
 
 const rootKey = ['admin-content'] as const
 

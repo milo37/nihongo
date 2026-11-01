@@ -3,7 +3,7 @@ import type { FormEvent, ReactElement } from 'react'
 import {
   resolveAdminQuestionReportRequestSchema,
   type ResolveAdminQuestionReportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { adminReportOutcomeKey } from '@app/admin/presentation/adminPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { Button } from '@nihongo/browser/common/components/Button'

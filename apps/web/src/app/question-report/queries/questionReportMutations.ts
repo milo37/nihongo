@@ -1,5 +1,5 @@
 import { mutationOptions } from '@tanstack/react-query'
-import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/phase7'
+import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/content-operations'
 import { createQuestionReport } from '@api/content-operations/contentOperationsApi'
 
 interface CreateQuestionReportInput {
