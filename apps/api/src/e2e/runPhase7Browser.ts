@@ -32,8 +32,8 @@ interface ManagedProcess {
 
 type BrowserMode = 'mock' | 'real'
 
-const isPhase8Acceptance = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
-const acceptancePhase = isPhase8Acceptance ? 'phase8' : 'phase7'
+const includeDashboard = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
+const acceptancePhase = includeDashboard ? 'phase8' : 'phase7'
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
 const mode: BrowserMode | undefined =
   rawMode === 'mock' || rawMode === 'real' ? rawMode : undefined
@@ -350,7 +350,7 @@ const runPlaywright = async (
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): Promise<void> => {
-  const browserSpecs = selectPhase7BrowserSpecs(browserMode, isPhase8Acceptance)
+  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)
   await runCommand(
     'pnpm',
     [
@@ -372,7 +372,7 @@ const runPlaywright = async (
 
 export const runMock = async (): Promise<void> => {
   // Reject an empty selection before starting resources or running all e2e files.
-  selectPhase7BrowserSpecs('mock', isPhase8Acceptance)
+  selectPhase7BrowserSpecs('mock', includeDashboard)
   await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
   await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
