@@ -4,8 +4,8 @@ const MOCK_MUTATION_LOCK_NAME = 'nihongo:mock-database:phase7-admin-cms:v1'
 
 export class MockMutationCoordinatorUnavailableError extends Error {
   constructor() {
-    super('Origin-wide Phase 7 mutation locking is unavailable.')
-    this.name = 'Phase7MutationCoordinatorUnavailableError'
+    super('Origin-wide mock mutation locking is unavailable.')
+    this.name = 'MockMutationCoordinatorUnavailableError'
   }
 }
 

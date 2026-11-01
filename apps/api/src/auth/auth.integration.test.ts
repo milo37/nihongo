@@ -3,7 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
-import { createPhase7SsoSessionFixture } from '../db/fixtures/phase7SsoSession.js'
+import { createPhase7SsoSessionFixture } from '../db/fixtures/ssoSession.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
