@@ -35,7 +35,7 @@ import {
   IDENTIFIER_PATTERN,
   quoteIdentifier,
   withUpgradeSchema,
-  createPhase7HistoricalSchemaFixture
+  createHistoricalSchemaFixture
 } from './fixtures/historicalSchema.js'
 import type { IsolatedUpgradeSchema } from './fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
@@ -497,7 +497,7 @@ const {
   readNonCanonicalTargetOwnerCount,
   seedPhase6Catalog,
   transferPhase6TargetOwnership
-} = createPhase7HistoricalSchemaFixture({
+} = createHistoricalSchemaFixture({
   adminDatabaseUrl,
   legacyDatabaseUrl,
   migrationDatabaseUrl,

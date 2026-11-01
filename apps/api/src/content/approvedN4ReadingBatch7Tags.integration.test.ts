@@ -19,7 +19,7 @@ import {
 } from '../db/databaseOptions.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 import {
-  createPhase7HistoricalSchemaFixture,
+  createHistoricalSchemaFixture,
   LEGACY_APP_LOGIN,
   quoteIdentifier
 } from '../db/fixtures/historicalSchema.js'
@@ -397,7 +397,7 @@ const defineLegacyFixtureTests = () => {
     dispose,
     readLedger,
     seedReviewedRevision2Catalog
-  } = createPhase7HistoricalSchemaFixture({
+  } = createHistoricalSchemaFixture({
     adminDatabaseUrl: adminUrl,
     legacyDatabaseUrl,
     migrationDatabaseUrl,
