@@ -2206,12 +2206,11 @@ export class MockDatabase {
       if (resultItem.isCorrect) {
         return []
       }
-      const phase7Lifecycle = learnerQuestionReadModel.lifecycleBySourceId.get(
-        question.id
-      )
+      const questionLifecycle =
+        learnerQuestionReadModel.lifecycleBySourceId.get(question.id)
       const isLogicalQuestionActive =
-        phase7Lifecycle === 'ACTIVE' ||
-        (phase7Lifecycle === undefined && this.questionById.has(question.id))
+        questionLifecycle === 'ACTIVE' ||
+        (questionLifecycle === undefined && this.questionById.has(question.id))
       return isLogicalQuestionActive ? [clone(question)] : []
     })
     if (selectedQuestions.length === 0) {

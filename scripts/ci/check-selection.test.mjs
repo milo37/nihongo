@@ -1200,7 +1200,7 @@ const assertPhase7PlaywrightSelection = async (source, mode) => {
       webOrigin,
       extraEnvironment,
       playwrightArguments,
-      isPhase8Acceptance
+      includeDashboard
     ) => {${extractArrowBody(source, 'const runPlaywright = async (')}})`,
     { process: { env: {} } }
   )
@@ -1756,7 +1756,7 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
     assertPhase7PlaywrightSelection(
       withoutOnce(
         sources.phase7,
-        '  const browserSpecs = selectPhase7BrowserSpecs(browserMode, isPhase8Acceptance)\n'
+        '  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)\n'
       ),
       'real'
     )
