@@ -1,4 +1,4 @@
-const PHASE7_GROUP_ROLES = new Set([
+const TEST_DATABASE_GROUP_ROLES = new Set([
   'nihongo_phase7_owner',
   'nihongo_phase7_migration',
   'nihongo_app',
@@ -34,7 +34,7 @@ export const assertPhase7ApiDatabaseBoundaryPreflight = ({
     !bootstrap.canCreateDatabase ||
     !bootstrap.canCreateRole ||
     !bootstrap.canSetOwner ||
-    PHASE7_GROUP_ROLES.has(snapshot.ownerName) ||
+    TEST_DATABASE_GROUP_ROLES.has(snapshot.ownerName) ||
     snapshot.acl.some(({ grantor }) => grantor !== snapshot.ownerName)
   ) {
     throw new Error('Phase 7 API bootstrap database is not attested.')
