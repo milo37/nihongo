@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
   getAdminQuestionReportParamsSchema,
   listAdminQuestionReportsQuerySchema
-} from '../admin/phase7-future.js'
+} from '../admin/content-future.js'
 import { listReviewQueueQuerySchema } from '../wrong-note/list-review-queue.js'
 
 // Contracts intentionally compile with ES-only libs. These local structural

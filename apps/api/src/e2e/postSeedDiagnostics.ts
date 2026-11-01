@@ -1,4 +1,4 @@
-import { getApiIntegrationPathsByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationPathsByOwner } from './apiIntegrationManifest.js'
 
 export type PostSeedOperation =
   | 'COUNT'

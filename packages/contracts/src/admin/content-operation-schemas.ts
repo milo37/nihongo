@@ -31,7 +31,7 @@ import {
   triageAdminQuestionReportResponseSchema,
   validateQuestionImportErrorSchema,
   validateQuestionImportRequestSchema
-} from './phase7-future.js'
+} from './content-future.js'
 import {
   approveQuestionVersionErrorSchema,
   approveQuestionVersionParamsSchema,
@@ -81,7 +81,7 @@ import {
   withdrawQuestionApprovalParamsSchema,
   withdrawQuestionApprovalRequestSchema,
   withdrawQuestionApprovalResponseSchema
-} from './phase7-commands.js'
+} from './content-commands.js'
 import {
   diffQuestionVersionErrorSchema,
   diffQuestionVersionParamsSchema,
@@ -112,17 +112,17 @@ import {
   previewQuestionVersionParamsSchema,
   previewQuestionVersionQuerySchema,
   previewQuestionVersionResponseSchema
-} from './phase7-read.js'
+} from './content-read.js'
 import {
   computePhase7Retryability,
   type Phase7ExecutionDisposition,
   type Phase7InternalFailureReason
-} from './phase7-error-policy.js'
+} from './content-error-policy.js'
 import {
   phase7OperationManifest,
   type Phase7Operation,
   type Phase7OperationManifestEntry
-} from './phase7-manifest.js'
+} from './content-manifest.js'
 
 export const phase7EmptyParamsSchema = z.object({}).strict()
 export const phase7EmptyQuerySchema = z.object({}).strict()

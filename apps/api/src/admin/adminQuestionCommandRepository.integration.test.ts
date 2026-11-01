@@ -39,7 +39,7 @@ import {
   type CreateAdminQuestionRequest,
   type Sha256TextPort,
   type UpdateQuestionVersionRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'

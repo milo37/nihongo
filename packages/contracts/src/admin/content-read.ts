@@ -15,7 +15,7 @@ import {
   encodeAdminQuestionVersionCursor,
   encodePhase7OccurredAtCursor,
   phase7OccurredAtCursorSchema
-} from '../common/phase7-cursor.js'
+} from '../common/content-cursor.js'
 import {
   accountActorSnapshotSchema,
   assertPhase7DateRange,
@@ -36,7 +36,7 @@ import {
   sha256HexSchema,
   type CanonicalJsonValue,
   type Sha256TextPort
-} from '../common/phase7.js'
+} from '../common/content-validation.js'
 import { publicPracticeQuestionSchema } from '../question/get-question.js'
 import {
   adminAuditCommandSchema,
@@ -54,8 +54,8 @@ import {
   type AdminQuestionDetail,
   type AdminQuestionSummary,
   type AdminQuestionVersionSummary
-} from './phase7-model.js'
-import { createPhase7OperationErrorSchema } from './phase7-error-policy.js'
+} from './content-model.js'
+import { createPhase7OperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,

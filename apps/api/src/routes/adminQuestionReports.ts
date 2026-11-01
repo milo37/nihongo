@@ -7,7 +7,7 @@ import {
   getAdminQuestionReportResponseSchema,
   listAdminQuestionReportsQuerySchema,
   listAdminQuestionReportsResponseSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError } from 'zod'
 import type { QuestionReportService } from '../admin/questionReportService.js'

@@ -1,4 +1,7 @@
-import { parseJsonBytes, JsonParseError } from '@nihongo/contracts/admin/phase7'
+import {
+  parseJsonBytes,
+  JsonParseError
+} from '@nihongo/contracts/admin/content-operations'
 import { ApplicationError } from '../errors/applicationError.js'
 
 const BODY_TIMEOUT_MS = 5_000

@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { isoDateTimeSchema } from './date.js'
 import { opaqueIdSchema } from './id.js'
-import { positiveSafeIntegerSchema } from './phase7.js'
+import { positiveSafeIntegerSchema } from './content-validation.js'
 
 const BASE64URL_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'

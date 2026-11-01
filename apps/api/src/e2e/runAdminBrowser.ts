@@ -408,7 +408,7 @@ export const runMock = async (): Promise<void> => {
 
 export const runReal = async (): Promise<void> => {
   const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('./runPhase7ApiIntegration.js')
+    await import('./runAdminApiIntegration.js')
   cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
   const harness = await preparePhase7IsolatedDatabase({
     seedRuns: 2,

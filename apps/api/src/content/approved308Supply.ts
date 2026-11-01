@@ -4,7 +4,7 @@ import {
   adminQuestionContentInputSchema,
   normalizePhase7TagKey,
   validateQuestionImportRequestSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import {
   approved308InventoryRawJson,
   approved308RawSources

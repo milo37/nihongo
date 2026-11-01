@@ -18,6 +18,6 @@
     "src/content/commands/**",
     "src/db/fixtures/**",
     "src/db/ssoTestFixture.ts",
-    "src/db/phase7FoundationDiagnostics.ts"
+    "src/db/foundationDiagnostics.ts"
   ]
 }

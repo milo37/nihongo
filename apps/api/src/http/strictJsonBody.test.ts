@@ -3,7 +3,7 @@ import {
   parseJsonBytes,
   parsePhase7JsonBytes,
   Phase7JsonParseError
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readStrictJsonBody } from './strictJsonBody.js'
 

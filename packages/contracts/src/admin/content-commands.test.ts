@@ -47,7 +47,7 @@ import {
   withdrawQuestionApprovalErrorCodeSchema,
   type AdminQuestionExportDocumentV1,
   type AdminQuestionMutationResult
-} from './phase7-commands.js'
+} from './content-commands.js'
 
 const id = (index: number): string =>
   `018f6b7a-1f4b-7d5e-8a91-${index.toString(16).padStart(12, '0')}`

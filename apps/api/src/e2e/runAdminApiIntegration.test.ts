@@ -26,9 +26,9 @@ vi.mock('pg', () => ({
   }
 }))
 
-let register: typeof import('./runPhase7ApiIntegration.js').registerCapabilityAndActivate
-let prepareArtifacts: typeof import('./runPhase7ApiIntegration.js').preparePhase7IntegrationArtifacts
-let seedInvocation: typeof import('./runPhase7ApiIntegration.js').phase7SeedInvocation
+let register: typeof import('./runAdminApiIntegration.js').registerCapabilityAndActivate
+let prepareArtifacts: typeof import('./runAdminApiIntegration.js').preparePhase7IntegrationArtifacts
+let seedInvocation: typeof import('./runAdminApiIntegration.js').phase7SeedInvocation
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
   vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
@@ -36,11 +36,11 @@ beforeAll(async () => {
     'PHASE7_API_INTEGRATION_DATABASE_URL',
     'postgresql://synthetic:synthetic@127.0.0.1:5432/nihongo_test'
   )
-  register = (await import('./runPhase7ApiIntegration.js'))
+  register = (await import('./runAdminApiIntegration.js'))
     .registerCapabilityAndActivate
-  prepareArtifacts = (await import('./runPhase7ApiIntegration.js'))
+  prepareArtifacts = (await import('./runAdminApiIntegration.js'))
     .preparePhase7IntegrationArtifacts
-  seedInvocation = (await import('./runPhase7ApiIntegration.js'))
+  seedInvocation = (await import('./runAdminApiIntegration.js'))
     .phase7SeedInvocation
 })
 afterAll(() => vi.unstubAllEnvs())

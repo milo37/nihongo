@@ -25,13 +25,13 @@ import {
   shouldDetachOwnedProcess,
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
-import { getApiIntegrationEntriesByOwner } from './phase10ApiIntegrationManifest.js'
+import { getApiIntegrationEntriesByOwner } from './apiIntegrationManifest.js'
 import {
   assertSsoBootstrapMigrationHistory,
   createPhase7SsoTestEnvironment,
   phase7SsoAccountLifecycleTestFile,
   runApiIntegrationManifestVitestFile
-} from './phase10ApiIntegrationExecution.js'
+} from './apiIntegrationExecution.js'
 
 const guestCleanupShard = process.argv.includes('--shard=current-guest-cleanup')
 const SCHEMA_PATTERN = guestCleanupShard
