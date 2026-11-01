@@ -13,10 +13,10 @@ import {
 } from './ownedProcessGroup.js'
 import { runPhase10ManifestVitestFile } from './phase10ApiIntegrationExecution.js'
 import {
-  getPhase10ApiIntegrationEntriesByOwner,
-  type Phase10ApiIntegrationManifestEntry
+  getApiIntegrationEntriesByOwner,
+  type ApiIntegrationManifestEntry
 } from './phase10ApiIntegrationManifest.js'
-import { validatePhase10ApiIntegrationManifest } from './validatePhase10ApiIntegrationManifest.js'
+import { validateApiIntegrationManifest } from './validatePhase10ApiIntegrationManifest.js'
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -225,7 +225,7 @@ const cleanup = (): Promise<void> => {
 }
 
 const assertUniformShardMetadata = (
-  entries: readonly Phase10ApiIntegrationManifestEntry[]
+  entries: readonly ApiIntegrationManifestEntry[]
 ): { readonly databaseState: string; readonly isolation: string } => {
   const databaseStates = new Set(
     entries.map(({ databaseState }) => databaseState)
@@ -245,7 +245,7 @@ const assertUniformShardMetadata = (
 }
 
 const getShardSeedRuns = (
-  entries: readonly Phase10ApiIntegrationManifestEntry[]
+  entries: readonly ApiIntegrationManifestEntry[]
 ): number => {
   const policies = new Set(entries.map(({ seedPolicy }) => seedPolicy))
   if (policies.size !== 1) {
@@ -261,8 +261,8 @@ const getShardSeedRuns = (
 }
 
 const runShard = async (shard: string): Promise<Phase10ShardResult> => {
-  await validatePhase10ApiIntegrationManifest()
-  const entries = getPhase10ApiIntegrationEntriesByOwner('phase10').filter(
+  await validateApiIntegrationManifest()
+  const entries = getApiIntegrationEntriesByOwner('phase10').filter(
     (entry) => entry.shard === shard
   )
   if (entries.length === 0) {
@@ -334,8 +334,8 @@ const runAllShards = async (): Promise<{
   readonly executedShardCount: number
   readonly passedTestCount: number
 }> => {
-  await validatePhase10ApiIntegrationManifest()
-  const entries = getPhase10ApiIntegrationEntriesByOwner('phase10')
+  await validateApiIntegrationManifest()
+  const entries = getApiIntegrationEntriesByOwner('phase10')
   const shards = [...new Set(entries.map(({ shard }) => shard))]
   await preparePhase7IntegrationArtifacts({
     abortSignal: preparationAbortController.signal,
