@@ -2,7 +2,7 @@ import {
   getAdminQuestionReportParamsSchema,
   listAdminQuestionReportsQuerySchema,
   type ListAdminQuestionReportsQuery
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 
 export const reportListPath = '/admin/reports'
 export const reportFilterKeys = [

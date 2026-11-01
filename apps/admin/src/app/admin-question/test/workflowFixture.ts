@@ -2,7 +2,7 @@ import {
   getAdminQuestionResponseSchema,
   adminQuestionVersionSummarySchema,
   previewQuestionVersionResponseSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import {
   detail,
   preview,

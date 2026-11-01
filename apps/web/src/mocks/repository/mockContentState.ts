@@ -29,7 +29,7 @@ import {
   type QuestionVersionStatus,
   type RetirementKind,
   type Sha256TextPort
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { isoDateTimeSchema } from '@nihongo/contracts/common/date'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { opaqueIdSchema } from '@nihongo/contracts/common/id'

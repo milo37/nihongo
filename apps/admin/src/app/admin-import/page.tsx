@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import type {
   AdminImportValidationResponse,
   ValidateQuestionImportRequest
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'

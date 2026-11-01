@@ -138,6 +138,9 @@ const withPhase7Fixture = (run) => {
             skipLibCheck: true,
             paths: {
               '@nihongo/browser/*': ['packages/browser/src/*'],
+              '@nihongo/contracts/admin/content-operations': [
+                `packages/contracts/${contractDirectory}/admin/phase7`
+              ],
               '@nihongo/contracts/*': [
                 `packages/contracts/${contractDirectory}/*`
               ],
@@ -199,6 +202,53 @@ describe('canonical Phase7 endpoint validation', () => {
       )
       assert.deepEqual(check('src'), [])
       assert.deepEqual(check('dist'), [])
+    }))
+
+  it('accepts the legacy import and rejects forged manifest or schema aliases', () =>
+    withPhase7Fixture(({ root, add, check }) => {
+      const helperPath = path.join(
+        root,
+        'packages/browser/src/api/content-operations/requestContentOperation.ts'
+      )
+      const helper = fs.readFileSync(helperPath, 'utf8')
+      const endpoint = 'getAliasIdentityPhase7'
+      add(
+        endpoint,
+        `${phase7Import}export const endpoint = () => ${phase7Return}`
+      )
+      const legacy = helper
+        .replaceAll('contentOperationManifest', 'phase7OperationManifest')
+        .replaceAll('contentOperationSchemas', 'phase7OperationSchemas')
+        .replace(
+          '@nihongo/contracts/admin/content-operations',
+          '@nihongo/contracts/admin/phase7'
+        )
+      fs.writeFileSync(helperPath, legacy)
+      assert.deepEqual(check('src'), [])
+      assert.deepEqual(check('dist'), [])
+
+      for (const [name, replacement] of [
+        [
+          'contentOperationManifest,',
+          'phase7Slice2ReadOperationManifest as contentOperationManifest,'
+        ],
+        [
+          'contentOperationSchemas,',
+          'createAdminQuestionRequestSchema as contentOperationSchemas,'
+        ]
+      ]) {
+        assert.ok(helper.includes(name))
+        fs.writeFileSync(helperPath, helper.replace(name, replacement))
+        for (const directory of ['src', 'dist']) {
+          assert.deepEqual(
+            check(directory)
+              .filter(({ file }) => file.endsWith(`/${endpoint}/index.ts`))
+              .map(({ code }) => code),
+            ['ARCH005'],
+            `${name} (${directory})`
+          )
+        }
+      }
     }))
 
   it('rejects forged helpers, aliases, wrong schemas, dynamic operations, unchecked returns and raw transports', () =>

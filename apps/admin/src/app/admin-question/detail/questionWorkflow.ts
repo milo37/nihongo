@@ -11,7 +11,7 @@ import {
   withdrawQuestionApprovalRequestSchema,
   publishQuestionVersionRequestSchema,
   retireQuestionVersionRequestSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
 import type { ContentOperationRequest } from '@nihongo/browser/api/content-operations/requestContentOperation'
 
 export const questionCommands = [

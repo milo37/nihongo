@@ -6,7 +6,7 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
-import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/phase7'
+import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/content-operations'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
