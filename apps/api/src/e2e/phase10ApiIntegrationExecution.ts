@@ -365,20 +365,26 @@ export const sanitizePhase7VitestReport = (
         'src/auth/ssoAdminFreshRepository.ts',
         'src/db/phase7SsoTestFixture.ts',
         phase7SsoTestFile
-      ].filter((source) =>
-        messages.some((message) =>
+      ].filter((source) => {
+        const sourcePaths =
+          source === 'src/db/phase7SsoTestFixture.ts'
+            ? [source, 'src/db/ssoTestFixture.ts']
+            : [source]
+        return messages.some((message) =>
           message
             .split('\n')
             .some(
               (line) =>
                 /^\s+at /u.test(line) &&
-                new RegExp(
-                  `(?:^|[ /])${source.replaceAll('.', '\\.')}:[0-9]+:[0-9]+[)]?$`,
-                  'u'
-                ).test(line)
+                sourcePaths.some((path) =>
+                  new RegExp(
+                    `(?:^|[ /])${path.replaceAll('.', '\\.')}:[0-9]+:[0-9]+[)]?$`,
+                    'u'
+                  ).test(line)
+                )
             )
         )
-      )
+      })
       selectedCase = {
         id: selectedSsoCase.id,
         sourceOrdinal: selectedSsoCase.sourceOrdinal,
