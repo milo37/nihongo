@@ -6,7 +6,7 @@ import {
   legacySeedMappingManifestSchema,
   legacySeedSourceManifestSchema
 } from '../src/content/validators/v1/legacySchemas.js'
-import { projectCanonicalLegacySeedArtifacts } from './phase6Slice1LegacyProjection.js'
+import { projectCanonicalLegacySeedArtifacts } from './legacySeedProjection.js'
 
 export interface CanonicalLegacyArtifactCheckResultV1 {
   readonly schemaVersion: 1
@@ -70,7 +70,7 @@ const main = async (): Promise<void> => {
   process.stdout.write(`${canonicalizeJson(result)}\n`)
 }
 
-if (process.argv[1]?.endsWith('phase6Slice1ArtifactCheck.ts')) {
+if (process.argv[1]?.endsWith('contentArtifactCheck.ts')) {
   main().catch(() => {
     process.stdout.write(
       '{"schemaVersion":1,"command":"content:check-legacy-projection","status":"ERROR","ruleCode":"LEGACY_CANONICAL_PROJECTION_DRIFT"}\n'

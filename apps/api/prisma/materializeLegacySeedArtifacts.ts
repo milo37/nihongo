@@ -32,7 +32,7 @@ import {
 import { writeTrackedArtifact } from '../src/content/validators/v1/trackedArtifactWriter.js'
 import { parseStrictJsonBytes } from '../src/content/validators/v1/strictJson.js'
 import { buildAllQuestionSeeds } from './seedQuestionCatalog.js'
-import { projectCanonicalLegacySeedArtifacts } from './phase6Slice1LegacyProjection.js'
+import { projectCanonicalLegacySeedArtifacts } from './legacySeedProjection.js'
 
 const REPOSITORY_ROOT_URL = new URL('../../../', import.meta.url)
 

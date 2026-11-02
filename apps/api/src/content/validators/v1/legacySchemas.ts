@@ -249,7 +249,7 @@ export const LEGACY_VALIDATOR_SOURCE_KEYS = [
 export const LEGACY_LOGICAL_VALIDATOR_SOURCES = [
   {
     key: 'legacy-content-key-mapping',
-    repositoryPath: 'apps/api/prisma/phase6Slice1LegacyProjection.ts'
+    repositoryPath: 'apps/api/prisma/legacySeedProjection.ts'
   },
   {
     key: 'legacy-jcs-hash',

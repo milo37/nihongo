@@ -1,6 +1,6 @@
 export const VALIDATOR_SOURCE_PATHS_V1 = [
-  'apps/api/prisma/phase6Slice1ArtifactCheck.ts',
-  'apps/api/prisma/phase6Slice1LegacyProjection.ts',
+  'apps/api/prisma/contentArtifactCheck.ts',
+  'apps/api/prisma/legacySeedProjection.ts',
   'apps/api/prisma/seed-data/buildQuestionSeed.ts',
   'apps/api/prisma/seed-data/contentReview.ts',
   'apps/api/prisma/seed-data/id.ts',
