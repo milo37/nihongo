@@ -6,7 +6,7 @@ import { createAuthRuntimePlan } from '../config/authRuntimePlan.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createAuthGateway } from './authGateway.js'
-import { createPhase7PrincipalService } from './principalService.js'
+import { createOwnedPrincipalService } from './principalService.js'
 import {
   createConfiguredSsoProviders,
   createSsoPublicRuntime
@@ -20,7 +20,7 @@ import {
   createExpiredSessionCookies,
   readSessionToken
 } from './sessionCookie.js'
-import type { Phase7AuthFacade } from './authFacade.js'
+import type { AuthFacade } from './authFacade.js'
 
 /** Source-only composition: no mail/password adapter or CMS enablement. */
 export const createSsoAuthentication = ({
@@ -38,7 +38,7 @@ export const createSsoAuthentication = ({
 }) => {
   if (!createAuthRuntimePlan(environment).ownedAuth)
     throw new Error('SSO requires its dedicated database authority.')
-  const principalService = createPhase7PrincipalService({
+  const principalService = createOwnedPrincipalService({
     client: applicationClient,
     refreshClient: gatewayClient,
     secret: environment.BETTER_AUTH_SECRET,
@@ -62,7 +62,7 @@ export const createSsoAuthentication = ({
     adminFresh,
     accountRuntime
   })
-  const facade: Phase7AuthFacade = {
+  const facade: AuthFacade = {
     handle: async (request, pathname, payload) => {
       if (pathname !== '/api/auth/sign-out')
         return Response.json({ code: 'AUTH_ROUTE_NOT_FOUND' }, { status: 404 })

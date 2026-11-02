@@ -5,7 +5,7 @@ import type { SsoPublicRuntime } from './ssoPublicRuntime.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createClientIpAuthority } from './clientIp.js'
-import type { Phase7AuthFacade } from './authFacade.js'
+import type { AuthFacade } from './authFacade.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { getRawRequestPathname } from '../app/protectedRouteExclusion.js'
 
@@ -52,7 +52,7 @@ interface CreateAuthGatewayDependencies {
   auth?: AuthGatewayRuntime
   client?: PrismaClient
   environment: ApiEnvironment
-  phase7Facade?: Phase7AuthFacade
+  phase7Facade?: AuthFacade
   technicalRateLimiter?: ApplicationRateLimiter
   ssoRuntime?: SsoPublicRuntime
   ssoAccountRuntime?: SsoAccountRuntime

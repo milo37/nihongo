@@ -180,6 +180,8 @@ export interface Phase7AuthFacade {
   ) => Promise<Response>
 }
 
+export type AuthFacade = Phase7AuthFacade
+
 const response = (status: number, payload: Record<string, unknown>): Response =>
   Response.json(payload, { status })
 
@@ -218,7 +220,7 @@ export const createPhase7AuthFacade = ({
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   emailDispatcher: AuthEmailDispatcher
   environment: ApiEnvironment
-}): Phase7AuthFacade => {
+}): AuthFacade => {
   const isProduction = environment.NODE_ENV === 'production'
   const spaOrigin =
     environment.TRUSTED_ORIGINS[0] ?? environment.BETTER_AUTH_URL
@@ -563,3 +565,5 @@ export const createPhase7AuthFacade = ({
     }
   }
 }
+
+export { createPhase7AuthFacade as createOwnedAuthFacade }
