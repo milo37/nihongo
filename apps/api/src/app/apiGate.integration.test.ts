@@ -3,8 +3,8 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createApiApp } from './createApp.js'
 import {
-  createPhase7SsoIdentityFixture,
-  createPhase7SsoSessionFixture
+  createSsoIdentityFixture,
+  createSsoSessionFixture
 } from '../db/fixtures/ssoSession.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
@@ -14,8 +14,8 @@ import type { SsoVerifiedIdentity } from '../auth/ssoProtocol.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { createOwnedAuthFacade } from '../auth/authFacade.js'
-import { createOwnedPrincipalService } from '../auth/principalService.js'
+import { createPhase7AuthFacade } from '../auth/authFacade.js'
+import { createPhase7PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -84,12 +84,12 @@ const postAuth = async (
     body: JSON.stringify(body)
   })
 
-const ssoOwner: Parameters<typeof createPhase7SsoSessionFixture>[0]['owner'] = {
+const ssoOwner: Parameters<typeof createSsoSessionFixture>[0]['owner'] = {
   $queryRawUnsafe: async <T>(sql: string, ...values: unknown[]) =>
     (await adminClient.query(sql, values)).rows as T
 }
 const createSsoSession = async () =>
-  await createPhase7SsoSessionFixture({
+  await createSsoSessionFixture({
     owner: ssoOwner,
     gateway: authGatewayRuntime.client,
     secret: environment.BETTER_AUTH_SECRET,
@@ -332,7 +332,7 @@ beforeAll(async () => {
     'nihongo_auth_gateway'
   )
 
-  const phase7Facade = createOwnedAuthFacade({
+  const phase7Facade = createPhase7AuthFacade({
     client: authGatewayRuntime.client,
     emailDispatcher,
     environment
@@ -396,7 +396,7 @@ beforeAll(async () => {
         client: applicationRuntime.client,
         secret: environment.GUEST_COOKIE_SECRET
       }),
-      principalService: createOwnedPrincipalService({
+      principalService: createPhase7PrincipalService({
         client: applicationRuntime.client,
         isProduction: false,
         refreshClient: authGatewayRuntime.client,
@@ -629,7 +629,7 @@ describe('Phase 7 Slice 1 technical API gate', () => {
   )
 
   it('SSO authority captured before issuance cannot create a session after drift', async () => {
-    const actor = await createPhase7SsoIdentityFixture({
+    const actor = await createSsoIdentityFixture({
       owner: ssoOwner,
       role: 'USER'
     })
@@ -714,7 +714,7 @@ describe('Phase 7 Slice 1 technical API gate', () => {
   }, 15_000)
 
   it('SSO authority drift during issuance refuses a cookie and compensates the inserted session', async () => {
-    const actor = await createPhase7SsoIdentityFixture({
+    const actor = await createSsoIdentityFixture({
       owner: ssoOwner,
       role: 'USER'
     })

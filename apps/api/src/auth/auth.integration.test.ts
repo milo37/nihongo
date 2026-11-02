@@ -3,7 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
-import { createPhase7SsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -23,9 +23,9 @@ import { createAuthRuntime } from './createAuth.js'
 import { createAuthEmailDispatcher } from './emailDispatcher.js'
 import { InMemoryAuthEmailPort } from './emailPort.js'
 import { createGuestPrincipalService } from './guestPrincipalService.js'
-import { createOwnedAuthFacade } from './authFacade.js'
+import { createPhase7AuthFacade } from './authFacade.js'
 import {
-  createOwnedPrincipalService,
+  createPhase7PrincipalService,
   createPrincipalService
 } from './principalService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
@@ -98,7 +98,7 @@ const guestPrincipalService = createGuestPrincipalService({
   secret: environment.GUEST_COOKIE_SECRET
 })
 const principalService = isCurrentSourceIntegration
-  ? createOwnedPrincipalService({
+  ? createPhase7PrincipalService({
       client: database.client,
       isProduction: false,
       refreshClient: authGatewayDatabase!.client,
@@ -123,7 +123,7 @@ const app = createApiApp({
       ? createAuthGateway({
           delay: async () => undefined,
           environment,
-          phase7Facade: createOwnedAuthFacade({
+          phase7Facade: createPhase7AuthFacade({
             client: authGatewayDatabase!.client,
             emailDispatcher,
             environment
@@ -310,7 +310,7 @@ describe(
           fixtureDatabase.client.verification.count()
         ])
       ).toEqual(before)
-      const session = await createPhase7SsoSessionFixture({
+      const session = await createSsoSessionFixture({
         owner: fixtureDatabase.client,
         gateway: authGatewayDatabase.client,
         secret: environment.BETTER_AUTH_SECRET,
@@ -477,7 +477,7 @@ describe(
       ).toEqual(originalCredential)
       if (!authGatewayDatabase)
         throw new Error('Current SSO gateway fixture is required.')
-      const adminSession = await createPhase7SsoSessionFixture({
+      const adminSession = await createSsoSessionFixture({
         owner: fixtureDatabase.client,
         gateway: authGatewayDatabase.client,
         secret: environment.BETTER_AUTH_SECRET,
@@ -667,7 +667,7 @@ describe(
         if (isCurrentSourceIntegration) {
           if (!authGatewayDatabase)
             throw new Error('Current SSO gateway fixture is required.')
-          const session = await createPhase7SsoSessionFixture({
+          const session = await createSsoSessionFixture({
             owner: fixtureDatabase.client,
             gateway: authGatewayDatabase.client,
             secret: environment.BETTER_AUTH_SECRET,
