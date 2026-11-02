@@ -117,15 +117,75 @@ jobs:
           NODE_ENV: production
         run: node scripts/ci/check-selection.mjs quality bundle
 
-  regression:
-    name: API, database and selected browser regression
+  integration:
+    name: API and database integration (${{ matrix.part }})
     needs: plan
-    if: ${{ needs.plan.outputs.api == 'true' || needs.plan.outputs.browser == 'true' || needs.plan.outputs.performance == 'true' }}
+    if: ${{ needs.plan.outputs.api == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [database, api]
+    services:
+      postgres:
+        image: ${{ (needs.plan.outputs.api == 'true') && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
+        env:
+          POSTGRES_DB: nihongo_jlp534_test
+          POSTGRES_USER: nihongo
+          POSTGRES_PASSWORD: ci_only_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nihongo -d nihongo_jlp534_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      CI_SELECTION: ${{ needs.plan.outputs.selection }}
+      DATABASE_URL: postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_jlp534_test?schema=public
+      NODE_ENV: test
+      TRUSTED_ORIGINS: http://localhost:5173
+      LOG_LEVEL: silent
+      BETTER_AUTH_SECRET: ci_auth_secret_that_is_at_least_32_chars
+      BETTER_AUTH_URL: http://localhost:3001
+      GUEST_COOKIE_SECRET: ci_guest_secret_that_is_at_least_32_chars
+      AUTH_EMAIL_FROM: auth@example.test
+      AUTH_EMAIL_DELIVERY_MODE: test-sink
+      AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: API and database integration
+        run: node scripts/ci/check-selection.mjs quality integration-${{ matrix.part }}
+
+  regression:
+    name: Database performance and selected browser regression
+    needs: plan
+    if: ${{ needs.plan.outputs.browser == 'true' || needs.plan.outputs.performance == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
       postgres:
-        image: ${{ (needs.plan.outputs.api == 'true' || needs.plan.outputs.browser == 'true' || needs.plan.outputs.performance == 'true') && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
+        image: ${{ (needs.plan.outputs.browser == 'true' || needs.plan.outputs.performance == 'true') && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
         env:
           POSTGRES_DB: nihongo_jlp534_test
           POSTGRES_USER: nihongo
@@ -176,11 +236,6 @@ jobs:
       - name: Install Playwright Chromium
         if: ${{ needs.plan.outputs.browser == 'true' }}
         run: pnpm exec playwright install --with-deps chromium
-
-      - name: API and database integration
-        id: api_integration
-        if: ${{ needs.plan.outputs.api == 'true' }}
-        run: node scripts/ci/check-selection.mjs quality integration
 
       - name: Database and API performance
         id: database_performance
@@ -279,8 +334,6 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.plan.result }}
           JOB_RESULT: ${{ job.status }}
-          API_SELECTED: ${{ needs.plan.outputs.api }}
-          API_OUTCOME: ${{ steps.api_integration.outcome }}
           PERFORMANCE_SELECTED: ${{ needs.plan.outputs.performance }}
           PERFORMANCE_OUTCOME: ${{ steps.database_performance.outcome }}
           BROWSER_SELECTED: ${{ needs.plan.outputs.browser }}
@@ -302,7 +355,6 @@ jobs:
               *) return 1 ;;
             esac
           }
-          require_selected_step "$API_SELECTED" "$API_OUTCOME"
           require_selected_step "$PERFORMANCE_SELECTED" "$PERFORMANCE_OUTCOME"
           require_selected_step "$BROWSER_SELECTED" "$REAL_OUTCOME"
           require_selected_step "$BROWSER_SELECTED" "$EVIDENCE_INITIALIZE_OUTCOME"
@@ -314,7 +366,7 @@ jobs:
   e2e:
     name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / regression / {0}', github.run_id) || 'Phase 10 real/mock browser and regression acceptance' }}
     if: ${{ always() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}'))) }}
-    needs: [plan, build, regression]
+    needs: [plan, build, integration, regression]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -322,6 +374,7 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.plan.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
           REGRESSION_RESULT: ${{ needs.regression.result }}
           API_SELECTED: ${{ needs.plan.outputs.api }}
           PERFORMANCE_SELECTED: ${{ needs.plan.outputs.performance }}
@@ -333,56 +386,68 @@ jobs:
           for selected in "$API_SELECTED" "$PERFORMANCE_SELECTED" "$BROWSER_SELECTED"; do
             case "$selected" in true|false) ;; *) exit 1 ;; esac
           done
-          if [ "$API_SELECTED" = true ] || [ "$PERFORMANCE_SELECTED" = true ] || [ "$BROWSER_SELECTED" = true ]; then
+          if [ "$API_SELECTED" = true ]; then
+            test "$INTEGRATION_RESULT" = success
+          else
+            test "$INTEGRATION_RESULT" = skipped
+          fi
+          if [ "$PERFORMANCE_SELECTED" = true ] || [ "$BROWSER_SELECTED" = true ]; then
             test "$REGRESSION_RESULT" = success
           else
             test "$REGRESSION_RESULT" = skipped
           fi
 
-  phase11_release:
-    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / portable / {0}', github.run_id) || 'Phase 11 portable release and production-mode smoke' }}
-    if: ${{ always() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}'))) }}
-    needs: [plan, build]
+  portable:
+    name: Portable image and runtime smoke
+    needs: plan
+    if: ${{ needs.plan.outputs.portable == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      CI_SELECTION: ${{ needs.plan.outputs.selection }}
     steps:
-      - name: Require successful impact classification and build
-        env:
-          PLAN_RESULT: ${{ needs.plan.result }}
-          BUILD_RESULT: ${{ needs.build.result }}
-        run: |
-          test "$PLAN_RESULT" = success
-          test "$BUILD_RESULT" = success
-
       - name: Checkout
-        if: ${{ needs.build.result == 'success' && needs.plan.outputs.portable == 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup pnpm
-        if: ${{ needs.build.result == 'success' && needs.plan.outputs.portable == 'true' }}
         uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
 
       - name: Setup Node.js
-        if: ${{ needs.build.result == 'success' && needs.plan.outputs.portable == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22.23.0
           cache: pnpm
 
       - name: Install dependencies
-        if: ${{ needs.build.result == 'success' && needs.plan.outputs.portable == 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Portable image and runtime smoke
-        if: ${{ needs.build.result == 'success' && needs.plan.outputs.portable == 'true' }}
         env:
           RELEASE_ID: ${{ github.sha }}
         run: pnpm run test:portable
+
+  phase11_release:
+    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / portable / {0}', github.run_id) || 'Phase 11 portable release and production-mode smoke' }}
+    if: ${{ always() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}'))) }}
+    needs: [plan, build, portable]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require successful build and selected portable smoke
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          PORTABLE_RESULT: ${{ needs.portable.result }}
+          PORTABLE_SELECTED: ${{ needs.plan.outputs.portable }}
+        run: |
+          set -euo pipefail
+          test "$PLAN_RESULT" = success
+          test "$BUILD_RESULT" = success
+          case "$PORTABLE_SELECTED" in
+            true) test "$PORTABLE_RESULT" = success ;;
+            false) test "$PORTABLE_RESULT" = skipped ;;
+            *) exit 1 ;;
+          esac
