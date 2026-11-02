@@ -11,7 +11,7 @@ import type {
   AdminFreshTransaction,
   SsoAdminFreshPort
 } from './ssoAdminFreshRepository.js'
-import { createPhase7SessionCookie } from './sessionCookie.js'
+import { createSessionCookie } from './sessionCookie.js'
 import { ssoTransactionDigest } from './ssoProtocol.js'
 import type {
   SsoProvider,
@@ -150,7 +150,7 @@ const fixture = (provider: SsoProviderId = 'google') => {
     port
   })
   const sessionCookie = (token = activeToken) =>
-    createPhase7SessionCookie({
+    createSessionCookie({
       token,
       secret: environment.BETTER_AUTH_SECRET,
       isProduction: true,

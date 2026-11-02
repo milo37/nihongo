@@ -6,8 +6,11 @@ export const APP_STORE_KEY = 'jlpt-drill-note-store'
 export const PRACTICE_STORE_KEY = 'jlpt-drill-note-practice:v2'
 export const MOCK_DATABASE_STORAGE_KEY = 'jlpt-drill-note:mock-database:v2'
 export const ADMIN_CMS_STORAGE_KEY = 'jlpt-drill-note:phase7-admin-cms:v1'
+export const ADMIN_CMS_MIRROR_STORAGE_KEY = 'jlpt-drill-note:admin-cms:v1'
 export const QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY =
   'jlpt-drill-note:phase7-rate-limit:v1'
+export const QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY =
+  'jlpt-drill-note:question-report-rate-limit:v1'
 
 type StorageChangeListener = (event: StorageEvent) => void
 
@@ -161,6 +164,31 @@ export const readFreshLocalStorageItem = (key: string): string | null => {
     localStorageCache.delete(key)
     return null
   }
+}
+
+export const readFreshLocalStorageItemOrThrow = (
+  key: string
+): string | null => {
+  const storage = getLocalStorage()
+  if (!storage) {
+    localStorageCache.delete(key)
+    throw new Error('Local storage is unavailable.')
+  }
+  try {
+    const value = storage.getItem(key)
+    localStorageCache.set(key, value)
+    return value
+  } catch (error: unknown) {
+    localStorageCache.delete(key)
+    throw error
+  }
+}
+
+export const removeFreshLocalStorageItemOrThrow = (key: string): void => {
+  const storage = getLocalStorage()
+  localStorageCache.delete(key)
+  if (!storage) throw new Error('Local storage is unavailable.')
+  storage.removeItem(key)
 }
 
 const getSessionStorage = (): Storage | undefined => {

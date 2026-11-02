@@ -125,3 +125,10 @@ export const readPhase7SessionToken = ({
 
   return { present: true, token }
 }
+
+export {
+  createPhase7SessionCookie as createSessionCookie,
+  createPhase7DontRememberCookie as createDontRememberCookie,
+  createExpiredPhase7SessionCookies as createExpiredSessionCookies,
+  readPhase7SessionToken as readSessionToken
+}

@@ -8,7 +8,7 @@ import type {
 } from '@nihongo/contracts/auth/sso-account-management'
 import { parseApiEnvironment } from '../config/env.js'
 import { createAuthGateway, AuthGatewayError } from './authGateway.js'
-import { createPhase7SessionCookie } from './sessionCookie.js'
+import { createSessionCookie } from './sessionCookie.js'
 import { createSsoPublicRuntime } from './ssoPublicRuntime.js'
 import {
   createSsoAccountRuntime,
@@ -29,7 +29,7 @@ const environment = parseApiEnvironment({
 const uid = '11111111-1111-4111-8111-111111111111',
   sid = '22222222-2222-4222-8222-222222222222',
   privateToken = 'synthetic-private-session-token'
-const sessionCookie = createPhase7SessionCookie({
+const sessionCookie = createSessionCookie({
   isProduction: false,
   secret: environment.BETTER_AUTH_SECRET,
   token: privateToken,

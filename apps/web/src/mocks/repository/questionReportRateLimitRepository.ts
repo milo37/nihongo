@@ -2,11 +2,14 @@ import { opaqueIdSchema } from '@nihongo/contracts/common/id'
 import {
   cachedStorage,
   QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY,
-  readFreshLocalStorageItem
+  QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY,
+  readFreshLocalStorageItemOrThrow,
+  removeFreshLocalStorageItemOrThrow
 } from '@nihongo/browser/libs/storage'
 import {
   MockMutationCoordinatorUnavailableError,
-  runWithMockBrowserMutationLease
+  runWithMockBrowserMutationLease,
+  writeMockStorageWithMirror
 } from '@mocks/repository/mockMutationCoordinator'
 import type { MockMutationLease } from '@mocks/repository/mockContentState'
 
@@ -37,6 +40,7 @@ interface PersistedRateLimitState {
 
 export interface QuestionReportRateLimitStorage {
   readonly getLatestItem?: (key: string) => string | null
+  readonly removeItemForRecovery?: (key: string) => boolean | void
   readonly getItem: (key: string) => string | null
   readonly removeItem: (key: string) => void
   readonly setItem: (key: string, value: string) => boolean | void
@@ -70,7 +74,8 @@ const rateGroups = new Set<string>([
 
 const defaultStorage: QuestionReportRateLimitStorage = {
   getItem: (key) => cachedStorage.getItem(key),
-  getLatestItem: (key) => readFreshLocalStorageItem(key),
+  getLatestItem: (key) => readFreshLocalStorageItemOrThrow(key),
+  removeItemForRecovery: (key) => removeFreshLocalStorageItemOrThrow(key),
   removeItem: (key) => cachedStorage.removeItem(key),
   setItem: (key, value) => cachedStorage.setItem(key, value)
 }
@@ -204,14 +209,12 @@ export class QuestionReportRateLimitRepository {
             )
           }
         }
-        if (
-          this.storage.setItem(
-            QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY,
-            serializeState(windows)
-          ) === false
-        ) {
-          throw new QuestionReportRateLimitRepositoryUnavailableError()
-        }
+        writeMockStorageWithMirror(
+          this.storage,
+          QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY,
+          QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY,
+          serializeState(windows)
+        )
         return {
           retryAfterSeconds: retryAfterSeconds === 0 ? null : retryAfterSeconds
         }
@@ -229,6 +232,7 @@ export class QuestionReportRateLimitRepository {
 
   resetForTesting(): void {
     this.storage.removeItem(QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY)
+    this.storage.removeItem(QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY)
   }
 
   private keysFor(input: QuestionReportRateLimitInput): readonly string[] {
