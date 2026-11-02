@@ -23,9 +23,9 @@ import { createAuthRuntime } from './createAuth.js'
 import { createAuthEmailDispatcher } from './emailDispatcher.js'
 import { InMemoryAuthEmailPort } from './emailPort.js'
 import { createGuestPrincipalService } from './guestPrincipalService.js'
-import { createPhase7AuthFacade } from './authFacade.js'
+import { createOwnedAuthFacade } from './authFacade.js'
 import {
-  createPhase7PrincipalService,
+  createOwnedPrincipalService,
   createPrincipalService
 } from './principalService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
@@ -98,7 +98,7 @@ const guestPrincipalService = createGuestPrincipalService({
   secret: environment.GUEST_COOKIE_SECRET
 })
 const principalService = isCurrentSourceIntegration
-  ? createPhase7PrincipalService({
+  ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
       refreshClient: authGatewayDatabase!.client,
@@ -123,7 +123,7 @@ const app = createApiApp({
       ? createAuthGateway({
           delay: async () => undefined,
           environment,
-          phase7Facade: createPhase7AuthFacade({
+          phase7Facade: createOwnedAuthFacade({
             client: authGatewayDatabase!.client,
             emailDispatcher,
             environment

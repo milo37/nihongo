@@ -7,6 +7,11 @@ import { createOwnedAuthReadiness } from './ownedAuthReadiness.js'
 import { AuthGatewayError } from './authGateway.js'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createSsoAuthentication } from './createSsoAuthentication.js'
+import { createOwnedAuthFacade, createPhase7AuthFacade } from './authFacade.js'
+import {
+  createOwnedPrincipalService,
+  createPhase7PrincipalService
+} from './principalService.js'
 import { createApiApp } from '../app/createApp.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createSessionCookie } from './sessionCookie.js'
@@ -165,6 +170,17 @@ const fixture = (overrides: Record<string, string> = {}) => {
     }
   }
 }
+
+describe('owned authentication exports', () => {
+  it('preserves factory identity and existing function names', () => {
+    expect(createOwnedAuthFacade).toBe(createPhase7AuthFacade)
+    expect(createOwnedPrincipalService).toBe(createPhase7PrincipalService)
+    expect(createOwnedAuthFacade.name).toBe('createPhase7AuthFacade')
+    expect(createOwnedPrincipalService.name).toBe(
+      'createPhase7PrincipalService'
+    )
+  })
+})
 
 describe('production-shaped SSO composition with CMS disabled (fake DB ports)', () => {
   it('selects current roles/profile and provides public login/callback/Phase7 sign-out/rate limit', async () => {

@@ -14,8 +14,8 @@ import type { SsoVerifiedIdentity } from '../auth/ssoProtocol.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { createPhase7AuthFacade } from '../auth/authFacade.js'
-import { createPhase7PrincipalService } from '../auth/principalService.js'
+import { createOwnedAuthFacade } from '../auth/authFacade.js'
+import { createOwnedPrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -332,7 +332,7 @@ beforeAll(async () => {
     'nihongo_auth_gateway'
   )
 
-  const phase7Facade = createPhase7AuthFacade({
+  const phase7Facade = createOwnedAuthFacade({
     client: authGatewayRuntime.client,
     emailDispatcher,
     environment
@@ -396,7 +396,7 @@ beforeAll(async () => {
         client: applicationRuntime.client,
         secret: environment.GUEST_COOKIE_SECRET
       }),
-      principalService: createPhase7PrincipalService({
+      principalService: createOwnedPrincipalService({
         client: applicationRuntime.client,
         isProduction: false,
         refreshClient: authGatewayRuntime.client,

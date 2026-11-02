@@ -29,7 +29,7 @@ import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createApiApp } from '../app/createApp.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import {
-  createPhase7PrincipalService,
+  createOwnedPrincipalService,
   type PrincipalService
 } from '../auth/principalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
@@ -932,7 +932,7 @@ const createService = () =>
 
 const createTestHonoApp = ({
   commandService,
-  principalService = createPhase7PrincipalService({
+  principalService = createOwnedPrincipalService({
     client: applicationRuntime.client,
     isProduction: environment.NODE_ENV === 'production',
     refreshClient: gatewayRuntime.client,
@@ -2066,7 +2066,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         ...values
       )
     }
-    const classifierFailurePrincipal = createPhase7PrincipalService({
+    const classifierFailurePrincipal = createOwnedPrincipalService({
       client: {
         $queryRawUnsafe: classifierFailureQuery
       } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>,
