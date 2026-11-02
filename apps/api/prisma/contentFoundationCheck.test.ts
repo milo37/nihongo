@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { tagTaxonomySchema } from '../src/content/validators/v1/contentSchemas.js'
 import { readArtifactJson } from '../src/content/validators/v1/artifactReader.js'
-import { projectCanonicalLegacySeedArtifacts } from './phase6Slice1LegacyProjection.js'
+import { projectCanonicalLegacySeedArtifacts } from './legacySeedProjection.js'
 import { buildAllQuestionSeeds } from './seedQuestionCatalog.js'
 import {
   assertFoundationSourceManifestSha256,
@@ -11,8 +11,8 @@ import {
   FOUNDATION_INPUT_PATHS_V1,
   FOUNDATION_PUBLIC_PROJECTION_SHA256,
   inspectFoundationCatalog,
-  runPhase6Slice1FoundationCheck
-} from './phase6Slice1FoundationCheck.js'
+  runContentFoundationCheck
+} from './contentFoundationCheck.js'
 import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
@@ -57,7 +57,7 @@ const loadCatalog = async () => {
 describe('Phase 6 Slice 1 contributor-free foundation check', () => {
   it('validates the current 65-item foundation without writing artifacts', async () => {
     const before = await snapshotContentTree()
-    const result = await runPhase6Slice1FoundationCheck(repositoryRoot)
+    const result = await runContentFoundationCheck(repositoryRoot)
     const after = await snapshotContentTree()
 
     expect(result).toMatchObject({
