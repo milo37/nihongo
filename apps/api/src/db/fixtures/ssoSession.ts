@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import type { SsoVerifiedIdentity } from '../../auth/ssoProtocol.js'
 import type { PrismaClient } from '../../generated/prisma/client.js'
 import { createSsoIdentityRepository } from '../../auth/ssoIdentityRepository.js'
-import { createSessionCookie } from '../../auth/sessionCookie.js'
+import { createPhase7SessionCookie } from '../../auth/sessionCookie.js'
 
-export const createPhase7SsoIdentityFixture = async ({
+export const createSsoIdentityFixture = async ({
   owner,
   role = 'USER',
   existingUser
@@ -50,7 +50,7 @@ export const createPhase7SsoIdentityFixture = async ({
   return { userId, identity }
 }
 
-export const createPhase7SsoSessionFixture = async ({
+export const createSsoSessionFixture = async ({
   owner,
   gateway,
   secret,
@@ -68,7 +68,7 @@ export const createPhase7SsoSessionFixture = async ({
   role?: 'USER' | 'ADMIN'
   existingUser?: { id: string; email: string; name: string }
 }) => {
-  const { userId, identity } = await createPhase7SsoIdentityFixture({
+  const { userId, identity } = await createSsoIdentityFixture({
     owner,
     role,
     ...(existingUser ? { existingUser } : {})
@@ -80,7 +80,7 @@ export const createPhase7SsoSessionFixture = async ({
   if (session.kind !== 'SESSION_CONFIRMED') {
     throw new Error('SSO session fixture was not confirmed.')
   }
-  const serialized = createSessionCookie({
+  const serialized = createPhase7SessionCookie({
     token: session.token,
     expiresAt: session.expiresAt,
     isProduction: false,

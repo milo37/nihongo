@@ -24,7 +24,7 @@ import {
   createPostgresStartupOptions,
   getPostgresSchema
 } from '../db/databaseOptions.js'
-import { createPhase7SsoIdentityFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoIdentityFixture } from '../db/fixtures/ssoSession.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
@@ -286,7 +286,7 @@ export const preparePhase9BrowserActors = async ({
     const entries = []
     for (const key of actorKeys) {
       const definition = actors[key]
-      const { userId, identity } = await createPhase7SsoIdentityFixture({
+      const { userId, identity } = await createSsoIdentityFixture({
         owner: {
           $queryRawUnsafe: async <T = unknown>(
             sql: string,
