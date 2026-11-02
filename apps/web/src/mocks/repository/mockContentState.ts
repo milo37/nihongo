@@ -45,6 +45,7 @@ import {
   toContractPracticeQuestion
 } from '@mocks/adapters/questionContractAdapter'
 import type { MockCanonicalAdminQuestionSource } from '@mocks/repository/mockDatabase'
+import { MockStorageRecoveryError } from '@mocks/repository/mockMutationCoordinator'
 import { toPracticeQuestion } from '@mocks/logic/question'
 
 const clone = <Value>(value: Value): Value => structuredClone(value)
@@ -829,12 +830,16 @@ export class MockContentState {
           this.successfulMutationRevision += 1
           try {
             this.persistState?.()
-          } catch {
+          } catch (error: unknown) {
             this.restoreMutableState(before)
             throw new MockContentCommandError({
               code: 'SERVICE_UNAVAILABLE',
               message: '관리자 명령을 브라우저 저장소에 저장하지 못했습니다.',
-              disposition: 'DEFINITE_ROLLBACK'
+              disposition:
+                error instanceof MockStorageRecoveryError &&
+                error.authorityRecoveryFailed
+                  ? 'COMMIT_UNKNOWN'
+                  : 'DEFINITE_ROLLBACK'
             })
           }
           return result

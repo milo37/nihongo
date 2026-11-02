@@ -28,7 +28,9 @@ import {
   cachedStorage,
   MOCK_DATABASE_STORAGE_KEY,
   ADMIN_CMS_STORAGE_KEY,
-  readFreshLocalStorageItem,
+  ADMIN_CMS_MIRROR_STORAGE_KEY,
+  readFreshLocalStorageItemOrThrow,
+  removeFreshLocalStorageItemOrThrow,
   subscribeStorageChanges
 } from '@nihongo/browser/libs/storage'
 import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
@@ -86,7 +88,8 @@ import {
 } from '@mocks/repository/mockContentState'
 import {
   MockMutationCoordinatorUnavailableError,
-  runWithMockBrowserMutationLease
+  runWithMockBrowserMutationLease,
+  writeMockStorageWithMirror
 } from '@mocks/repository/mockMutationCoordinator'
 import { addDaysToIso, toDateKey } from '@util/date'
 import { toPracticeQuestion } from '@mocks/logic/question'
@@ -684,6 +687,7 @@ type HydratablePersistedMockState =
 export interface MockStorage {
   getItem: (key: string) => string | null
   getLatestItem?: (key: string) => string | null
+  removeItemForRecovery?: (key: string) => boolean | void
   setItem: (key: string, value: string) => boolean | void
   removeItem: (key: string) => void
 }
@@ -702,7 +706,8 @@ const defaultStorage: MockStorage = {
     const value = cachedStorage.getItem(key)
     return typeof value === 'string' ? value : null
   },
-  getLatestItem: (key): string | null => readFreshLocalStorageItem(key),
+  getLatestItem: (key): string | null => readFreshLocalStorageItemOrThrow(key),
+  removeItemForRecovery: (key): void => removeFreshLocalStorageItemOrThrow(key),
   setItem: (key, value): boolean => {
     return cachedStorage.setItem(key, value)
   },
@@ -3719,6 +3724,7 @@ export class MockDatabase {
     this.ssoAccounts.reset()
     this.storage.removeItem(MOCK_DATABASE_STORAGE_KEY)
     this.storage.removeItem(ADMIN_CMS_STORAGE_KEY)
+    this.storage.removeItem(ADMIN_CMS_MIRROR_STORAGE_KEY)
     this.currentUserId = null
     this.useLegacyQuestionSourcesForLearnerProjection = true
     this.resetMemoryToSeed()
@@ -5824,16 +5830,12 @@ export class MockDatabase {
       const contentSnapshot = this.mockContentState.persistedSnapshot(
         this.listAuthoritativeAdminQuestionSources()
       )
-      const didPersist = this.storage.setItem(
+      writeMockStorageWithMirror(
+        this.storage,
         ADMIN_CMS_STORAGE_KEY,
+        ADMIN_CMS_MIRROR_STORAGE_KEY,
         JSON.stringify(contentSnapshot)
       )
-      if (didPersist === false) {
-        throw new Error('Mock storage rejected the write.')
-      }
-    } catch (error: unknown) {
-      this.restorePersistedStorage(previousState, ADMIN_CMS_STORAGE_KEY)
-      throw error
     } finally {
       this.mockMutationStorageBaseline = undefined
     }

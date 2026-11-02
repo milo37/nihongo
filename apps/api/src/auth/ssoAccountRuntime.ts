@@ -26,8 +26,8 @@ import {
 } from './ssoProtocol.js'
 import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
 import {
-  createExpiredPhase7SessionCookies,
-  readPhase7SessionToken
+  createExpiredSessionCookies,
+  readSessionToken
 } from './sessionCookie.js'
 
 export const SSO_ACCOUNT_PATHS = {
@@ -92,7 +92,7 @@ export const createSsoAccountRuntime = ({
     return value && TOKEN.test(value) ? value : null
   }
   const token = (request: Request) =>
-    readPhase7SessionToken({
+    readSessionToken({
       cookieHeader: request.headers.get('Cookie'),
       isProduction: production,
       secret: environment.BETTER_AUTH_SECRET
@@ -150,7 +150,7 @@ export const createSsoAccountRuntime = ({
     return new Response(null, { status: 303, headers })
   }
   const clearSession = () => [
-    ...createExpiredPhase7SessionCookies(production),
+    ...createExpiredSessionCookies(production),
     cookie('fresh', null),
     cookie('link', null)
   ]

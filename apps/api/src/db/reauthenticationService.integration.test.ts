@@ -34,9 +34,9 @@ import {
 } from '../auth/principalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import {
-  createPhase7SessionCookie,
-  createPhase7DontRememberCookie,
-  readPhase7SessionToken
+  createSessionCookie,
+  createDontRememberCookie,
+  readSessionToken
 } from '../auth/sessionCookie.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
@@ -178,7 +178,7 @@ const createFixture = async (
   const passwordHash = await hashPassword(password)
   await insertFixtureAdmin(userId, accountId, email, passwordHash, provider)
   const session = await issueSession(userId, sessionId, token)
-  const cookie = createPhase7SessionCookie({
+  const cookie = createSessionCookie({
     expiresAt: session.expiresAt,
     isProduction: false,
     rememberMe: false,
@@ -256,13 +256,13 @@ const completeSsoFresh = async (
   expect(cookies).toHaveLength(3)
   expect(cookies[0]).toContain(`${proofName}=;`)
   expect(cookies[1]).toBe(
-    createPhase7DontRememberCookie({
+    createDontRememberCookie({
       isProduction: environment.NODE_ENV === 'production',
       secret: environment.BETTER_AUTH_SECRET
     })
   )
   const cookieHeader = toRequestCookieHeader(cookies)
-  const parsed = readPhase7SessionToken({
+  const parsed = readSessionToken({
     cookieHeader,
     isProduction: environment.NODE_ENV === 'production',
     secret: environment.BETTER_AUTH_SECRET
@@ -281,7 +281,7 @@ const completeSsoFresh = async (
   expect(session.rowCount).toBe(1)
   const current = session.rows[0]!
   expect(cookies[2]).toBe(
-    createPhase7SessionCookie({
+    createSessionCookie({
       expiresAt: current.expiresAt,
       isProduction: environment.NODE_ENV === 'production',
       rememberMe: false,

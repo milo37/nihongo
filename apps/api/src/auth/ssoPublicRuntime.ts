@@ -16,7 +16,7 @@ import {
   readSsoBindingCookie
 } from './ssoProtocol.js'
 import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
-import { createPhase7SessionCookie } from './sessionCookie.js'
+import { createSessionCookie } from './sessionCookie.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
 import type { SsoAdminFreshRuntime } from './ssoAdminFreshRuntime.js'
 
@@ -225,7 +225,7 @@ export const createSsoPublicRuntime = ({
         return redirect(
           provider,
           safeSsoReturnPath(verified.callbackURL),
-          createPhase7SessionCookie({
+          createSessionCookie({
             expiresAt: resolved.expiresAt,
             isProduction: production,
             rememberMe: true,

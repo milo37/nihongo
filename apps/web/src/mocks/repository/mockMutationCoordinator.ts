@@ -40,3 +40,76 @@ export const runWithMockBrowserMutationLease: MockMutationLease = async <
   }
   throw new MockMutationCoordinatorUnavailableError()
 }
+
+interface MirrorStorage {
+  getItem: (key: string) => string | null
+  getLatestItem?: (key: string) => string | null
+  setItem: (key: string, value: string) => boolean | void
+  removeItem: (key: string) => boolean | void
+  removeItemForRecovery?: (key: string) => boolean | void
+}
+
+export class MockStorageRecoveryError extends Error {
+  constructor(
+    readonly authorityRecoveryFailed: boolean,
+    readonly mirrorRecoveryFailed: boolean,
+    cause: unknown
+  ) {
+    super('Mock storage recovery could not be confirmed.', { cause })
+    this.name = 'MockStorageRecoveryError'
+  }
+}
+
+export const writeMockStorageWithMirror = (
+  storage: MirrorStorage,
+  authorityKey: string,
+  mirrorKey: string,
+  serialized: string
+): void => {
+  const read = (key: string): string | null =>
+    storage.getLatestItem ? storage.getLatestItem(key) : storage.getItem(key)
+  const previousAuthority = read(authorityKey)
+  const previousMirror = read(mirrorKey)
+  let attemptedAuthority = false
+  const restore = (key: string, value: string | null): boolean => {
+    try {
+      const result =
+        value === null
+          ? (storage.removeItemForRecovery ?? storage.removeItem)(key)
+          : storage.setItem(key, value)
+      return result !== false && read(key) === value
+    } catch {
+      return false
+    }
+  }
+
+  try {
+    if (storage.setItem(mirrorKey, serialized) === false) {
+      throw new Error('Mock storage rejected the mirror write.')
+    }
+    attemptedAuthority = true
+    if (storage.setItem(authorityKey, serialized) === false) {
+      throw new Error('Mock storage rejected the authority write.')
+    }
+  } catch (error: unknown) {
+    let authorityRecoveryFailed = false
+    if (attemptedAuthority) {
+      try {
+        if (read(authorityKey) !== previousAuthority) {
+          authorityRecoveryFailed = !restore(authorityKey, previousAuthority)
+        }
+      } catch {
+        authorityRecoveryFailed = !restore(authorityKey, previousAuthority)
+      }
+    }
+    const mirrorRecoveryFailed = !restore(mirrorKey, previousMirror)
+    if (authorityRecoveryFailed || mirrorRecoveryFailed) {
+      throw new MockStorageRecoveryError(
+        authorityRecoveryFailed,
+        mirrorRecoveryFailed,
+        error
+      )
+    }
+    throw error
+  }
+}

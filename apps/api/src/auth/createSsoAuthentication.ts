@@ -17,8 +17,8 @@ import { createSsoIdentityRepository } from './ssoIdentityRepository.js'
 import { createSsoTransactionStore } from './ssoTransactionRepository.js'
 import type { SsoProvider } from './ssoProtocol.js'
 import {
-  createExpiredPhase7SessionCookies,
-  readPhase7SessionToken
+  createExpiredSessionCookies,
+  readSessionToken
 } from './sessionCookie.js'
 import type { Phase7AuthFacade } from './authFacade.js'
 
@@ -68,7 +68,7 @@ export const createSsoAuthentication = ({
         return Response.json({ code: 'AUTH_ROUTE_NOT_FOUND' }, { status: 404 })
       if (Object.keys(payload).length !== 0)
         return Response.json({ code: 'INVALID_AUTH_PAYLOAD' }, { status: 400 })
-      const token = readPhase7SessionToken({
+      const token = readSessionToken({
         cookieHeader: request.headers.get('Cookie'),
         isProduction: environment.NODE_ENV === 'production',
         secret: environment.BETTER_AUTH_SECRET
@@ -88,7 +88,7 @@ export const createSsoAuthentication = ({
         'Content-Type': 'application/json',
         'Cache-Control': 'private, no-store'
       })
-      for (const cookie of createExpiredPhase7SessionCookies(
+      for (const cookie of createExpiredSessionCookies(
         environment.NODE_ENV === 'production'
       ))
         headers.append('Set-Cookie', cookie)
