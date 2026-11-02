@@ -1389,16 +1389,16 @@ test('CI uploads only verified real and Mock browser summaries', async () => {
         if: \${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-safe-phase10-\${{ github.run_id }}-\${{ github.run_attempt }}
+          name: playwright-safe-evidence-\${{ github.run_id }}-\${{ github.run_attempt }}
           if-no-files-found: error
-          path: \${{ env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR }}/`,
+          path: \${{ env.PLAYWRIGHT_EVIDENCE_DIR }}/`,
     `Upload safe Mock Playwright evidence
         if: \${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-safe-phase10-mock-\${{ github.run_id }}-\${{ github.run_attempt }}
+          name: playwright-safe-evidence-mock-\${{ github.run_id }}-\${{ github.run_attempt }}
           if-no-files-found: error
-          path: \${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`
+          path: \${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`
   ])
   for (const upload of uploads) {
     assert.doesNotMatch(

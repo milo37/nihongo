@@ -322,7 +322,7 @@ test('real browser summaries are isolated, verified before upload and cleaned on
   )
   assert.ok(
     job.includes(
-      'PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}'
+      'PLAYWRIGHT_EVIDENCE_DIR: test-results/browser-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}'
     )
   )
   const initialize = namedWorkflowStep(job, names[0])
@@ -338,7 +338,7 @@ test('real browser summaries are isolated, verified before upload and cleaned on
     )
   )
   assert.match(verify, /node scripts\/security\/security-evidence\.mjs verify/u)
-  assert.match(verify, /--directory "\$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"/u)
+  assert.match(verify, /--directory "\$PLAYWRIGHT_EVIDENCE_DIR"/u)
   assert.match(verify, /--profile playwright/u)
   assert.match(verify, /--required phase8-real,phase9-real,phase10-real\s*$/u)
   const cleanup = namedWorkflowStep(job, names[4])
@@ -349,12 +349,12 @@ test('real browser summaries are isolated, verified before upload and cleaned on
   )
 
   const root = mkdtempSync(path.join(tmpdir(), 'ci-browser-evidence-'))
-  const evidence = 'test-results/phase10-evidence/playwright-fixture-1'
+  const evidence = 'test-results/browser-evidence/playwright-fixture-1'
   const env = {
     ...process.env,
     GITHUB_RUN_ID: 'fixture',
     GITHUB_RUN_ATTEMPT: '1',
-    PHASE10_PLAYWRIGHT_EVIDENCE_DIR: evidence
+    PLAYWRIGHT_EVIDENCE_DIR: evidence
   }
   const run = (name, overrides = {}) =>
     spawnSync('bash', ['-e', '-c', stepScript(job, name)], {
@@ -374,7 +374,7 @@ test('real browser summaries are isolated, verified before upload and cleaned on
       writeFileSync(path.join(root, directory, 'owned.txt'), 'fixture')
     }
     assert.equal(
-      run(names[4], { PHASE10_PLAYWRIGHT_EVIDENCE_DIR: 'unrelated' }).status,
+      run(names[4], { PLAYWRIGHT_EVIDENCE_DIR: 'unrelated' }).status,
       1
     )
     assert.equal(existsSync(path.join(root, evidence, 'owned.json')), true)
@@ -412,12 +412,12 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
   )
   assert.ok(
     job.includes(
-      'PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/phase10-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}'
+      'PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/browser-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}'
     )
   )
   assert.ok(
     namedWorkflowStep(job, names[2]).includes(
-      'PHASE10_PLAYWRIGHT_EVIDENCE_DIR: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}'
+      'PLAYWRIGHT_EVIDENCE_DIR: ${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}'
     )
   )
   const verify = namedWorkflowStep(job, names[3])
@@ -426,7 +426,7 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
       "if: ${{ !cancelled() && steps.mock_playwright_initialize.outcome == 'success' }}"
     )
   )
-  assert.match(verify, /--directory "\$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"/u)
+  assert.match(verify, /--directory "\$PLAYWRIGHT_MOCK_EVIDENCE_DIR"/u)
   assert.match(verify, /--required phase8-mock,phase9-mock,phase10-mock\s*$/u)
   const upload = namedWorkflowStep(job, names[4])
   assert.ok(
@@ -434,9 +434,7 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
       "if: ${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}"
     )
   )
-  assert.ok(
-    upload.includes('path: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/')
-  )
+  assert.ok(upload.includes('path: ${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/'))
   assert.ok(
     namedWorkflowStep(job, names[5]).includes(
       "if: ${{ always() && needs.plan.outputs.browser_mock == 'true' }}"
@@ -444,12 +442,12 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
   )
 
   const root = mkdtempSync(path.join(tmpdir(), 'ci-mock-browser-evidence-'))
-  const evidence = 'test-results/phase10-evidence/playwright-mock-fixture-1'
+  const evidence = 'test-results/browser-evidence/playwright-mock-fixture-1'
   const env = {
     ...process.env,
     GITHUB_RUN_ID: 'fixture',
     GITHUB_RUN_ATTEMPT: '1',
-    PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: evidence
+    PLAYWRIGHT_MOCK_EVIDENCE_DIR: evidence
   }
   const run = (name, overrides = {}) =>
     spawnSync('bash', ['-e', '-c', stepScript(job, name)], {
@@ -462,8 +460,7 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
     assert.equal(run(names[1]).status, 1, 'stale evidence must be rejected')
     mkdirSync(path.join(root, 'test-results/phase10-raw'), { recursive: true })
     assert.equal(
-      run(names[5], { PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: 'unrelated' })
-        .status,
+      run(names[5], { PLAYWRIGHT_MOCK_EVIDENCE_DIR: 'unrelated' }).status,
       1
     )
     assert.equal(existsSync(path.join(root, evidence)), true)
