@@ -5,7 +5,7 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
-import { createPhase7SsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
@@ -331,7 +331,7 @@ const createAuthenticatedActor = async (
 ): Promise<{ cookie: string; userId: string }> => {
   if (!authGatewayDatabase)
     throw new Error('Current SSO gateway fixture is required.')
-  const actor = await createPhase7SsoSessionFixture({
+  const actor = await createSsoSessionFixture({
     owner: fixtureDatabase.client,
     gateway: authGatewayDatabase.client,
     secret: environment.BETTER_AUTH_SECRET,

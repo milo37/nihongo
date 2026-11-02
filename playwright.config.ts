@@ -3,8 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 const baseURL = process.env.PLAYWRIGHT_BASE_URL
 const outputLabel = process.env.PLAYWRIGHT_OUTPUT_LABEL ?? 'real'
 const safeEvidenceDirectory =
-  process.env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR ??
-  'test-results/phase10-evidence/playwright'
+  process.env.PLAYWRIGHT_EVIDENCE_DIR ??
+  'test-results/browser-evidence/playwright'
 
 if (!baseURL) {
   throw new Error(

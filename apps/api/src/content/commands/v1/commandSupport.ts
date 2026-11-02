@@ -6,8 +6,8 @@ import {
   containsForbiddenControlCharacter,
   normalizeTagKey
 } from '@nihongo/domain/content/validators/v1/unicode'
-import { verifyCanonicalLegacyArtifacts } from '../../../../prisma/phase6Slice1ArtifactCheck.js'
-import { projectCanonicalLegacySeedArtifacts } from '../../../../prisma/phase6Slice1LegacyProjection.js'
+import { verifyCanonicalLegacyArtifacts } from '../../../../prisma/contentArtifactCheck.js'
+import { projectCanonicalLegacySeedArtifacts } from '../../../../prisma/legacySeedProjection.js'
 import {
   approved308InventorySha256,
   createApproved308TagRequirements,

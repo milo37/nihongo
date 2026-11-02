@@ -43,7 +43,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
-import { createPhase7SsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import {
   createDatabaseRuntime,
@@ -255,7 +255,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
     )
   ).rows[0]
   if (!user) throw new Error('Phase 7 command ADMIN fixture is unavailable.')
-  const session = await createPhase7SsoSessionFixture({
+  const session = await createSsoSessionFixture({
     owner: {
       $queryRawUnsafe: async <T = unknown>(sql: string, ...values: unknown[]) =>
         (await adminClient.query(sql, values)).rows as T

@@ -149,8 +149,8 @@ jobs:
       AUTH_EMAIL_FROM: auth@example.test
       AUTH_EMAIL_DELIVERY_MODE: test-sink
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
-      PHASE10_PLAYWRIGHT_EVIDENCE_DIR: test-results/phase10-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
-      PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/phase10-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}
+      PLAYWRIGHT_EVIDENCE_DIR: test-results/browser-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
+      PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/browser-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -193,8 +193,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test ! -e "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
-          install -d -m 700 "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
+          test ! -e "$PLAYWRIGHT_EVIDENCE_DIR"
+          install -d -m 700 "$PLAYWRIGHT_EVIDENCE_DIR"
 
       - name: Real browser acceptance
         id: real_browser
@@ -206,7 +206,7 @@ jobs:
         if: ${{ !cancelled() && steps.playwright_initialize.outcome == 'success' }}
         run: >-
           node scripts/security/security-evidence.mjs verify
-          --directory "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR"
+          --directory "$PLAYWRIGHT_EVIDENCE_DIR"
           --profile playwright
           --required phase8-real,phase9-real,phase10-real
 
@@ -214,17 +214,17 @@ jobs:
         if: ${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-safe-phase10-${{ github.run_id }}-${{ github.run_attempt }}
+          name: playwright-safe-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
-          path: ${{ env.PHASE10_PLAYWRIGHT_EVIDENCE_DIR }}/
+          path: ${{ env.PLAYWRIGHT_EVIDENCE_DIR }}/
 
       - name: Clean browser evidence
         if: ${{ always() && needs.plan.outputs.browser == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          expected="test-results/phase10-evidence/playwright-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          test "$PHASE10_PLAYWRIGHT_EVIDENCE_DIR" = "$expected"
+          expected="test-results/browser-evidence/playwright-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PLAYWRIGHT_EVIDENCE_DIR" = "$expected"
           rm -rf -- "$expected" test-results/phase10-raw test-results/playwright-phase9-real
           test ! -e "$expected"
           test ! -e test-results/phase10-raw
@@ -236,14 +236,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test ! -e "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"
-          install -d -m 700 "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"
+          test ! -e "$PLAYWRIGHT_MOCK_EVIDENCE_DIR"
+          install -d -m 700 "$PLAYWRIGHT_MOCK_EVIDENCE_DIR"
 
       - name: Mock browser acceptance
         id: mock_browser
         if: ${{ needs.plan.outputs.browser_mock == 'true' }}
         env:
-          PHASE10_PLAYWRIGHT_EVIDENCE_DIR: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}
+          PLAYWRIGHT_EVIDENCE_DIR: ${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}
         run: pnpm run test:browser:mock
 
       - name: Verify safe Mock Playwright evidence
@@ -251,7 +251,7 @@ jobs:
         if: ${{ !cancelled() && steps.mock_playwright_initialize.outcome == 'success' }}
         run: >-
           node scripts/security/security-evidence.mjs verify
-          --directory "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR"
+          --directory "$PLAYWRIGHT_MOCK_EVIDENCE_DIR"
           --profile playwright
           --required phase8-mock,phase9-mock,phase10-mock
 
@@ -259,17 +259,17 @@ jobs:
         if: ${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-safe-phase10-mock-${{ github.run_id }}-${{ github.run_attempt }}
+          name: playwright-safe-evidence-mock-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
-          path: ${{ env.PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/
+          path: ${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/
 
       - name: Clean Mock browser evidence
         if: ${{ always() && needs.plan.outputs.browser_mock == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          expected="test-results/phase10-evidence/playwright-mock-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          test "$PHASE10_PLAYWRIGHT_MOCK_EVIDENCE_DIR" = "$expected"
+          expected="test-results/browser-evidence/playwright-mock-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PLAYWRIGHT_MOCK_EVIDENCE_DIR" = "$expected"
           rm -rf -- "$expected" test-results/phase10-raw
           test ! -e "$expected"
           test ! -e test-results/phase10-raw
