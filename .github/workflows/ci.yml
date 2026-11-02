@@ -96,10 +96,6 @@ jobs:
         if: ${{ needs.plan.outputs.code == 'true' }}
         run: node scripts/ci/check-selection.mjs quality typecheck
 
-      - name: Unit and static regression
-        if: ${{ needs.plan.outputs.code == 'true' }}
-        run: node scripts/ci/check-selection.mjs quality unit
-
       - name: Dependency audit
         if: ${{ needs.plan.outputs.audit == 'true' }}
         run: node scripts/ci/check-selection.mjs quality audit
@@ -116,6 +112,43 @@ jobs:
         env:
           NODE_ENV: production
         run: node scripts/ci/check-selection.mjs quality bundle
+
+  unit:
+    name: Unit and static regression
+    needs: plan
+    if: ${{ needs.plan.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI_SELECTION: ${{ needs.plan.outputs.selection }}
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: node scripts/ci/check-selection.mjs quality packages
+
+      - name: Unit and static regression
+        run: node scripts/ci/check-selection.mjs quality unit
 
   integration:
     name: API and database integration (${{ matrix.part }})
@@ -366,7 +399,7 @@ jobs:
   e2e:
     name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / regression / {0}', github.run_id) || 'Phase 10 real/mock browser and regression acceptance' }}
     if: ${{ always() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}'))) }}
-    needs: [plan, build, integration, regression]
+    needs: [plan, build, unit, integration, regression]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -374,6 +407,8 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.plan.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+          CODE_SELECTED: ${{ needs.plan.outputs.code }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           REGRESSION_RESULT: ${{ needs.regression.result }}
           API_SELECTED: ${{ needs.plan.outputs.api }}
@@ -386,6 +421,11 @@ jobs:
           for selected in "$API_SELECTED" "$PERFORMANCE_SELECTED" "$BROWSER_SELECTED"; do
             case "$selected" in true|false) ;; *) exit 1 ;; esac
           done
+          case "$CODE_SELECTED" in
+            true) test "$UNIT_RESULT" = success ;;
+            false) test "$UNIT_RESULT" = skipped ;;
+            *) exit 1 ;;
+          esac
           if [ "$API_SELECTED" = true ]; then
             test "$INTEGRATION_RESULT" = success
           else

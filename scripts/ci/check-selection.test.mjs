@@ -212,6 +212,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   const workflow = ciWorkflow()
   const plan = workflowJob(workflow, 'plan')
   const build = workflowJob(workflow, 'build')
+  const unit = workflowJob(workflow, 'unit')
   const integration = workflowJob(workflow, 'integration')
   const regression = workflowJob(workflow, 'regression')
   const gate = workflowJob(workflow, 'e2e')
@@ -223,7 +224,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   )
   assert.match(plan, /fetch-depth: 0/u)
   assert.doesNotMatch(plan, /pnpm install|cache:|services:|needs:/u)
-  for (const job of [build, integration, regression, portableRun]) {
+  for (const job of [build, unit, integration, regression, portableRun]) {
     assert.match(job, /^ {4}needs: plan$/mu)
     assert.match(job, /uses: actions\/checkout@v4/u)
     assert.match(job, /ref: \$\{\{ github\.sha \}\}/u)
@@ -231,13 +232,15 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.match(job, /run: pnpm install --frozen-lockfile/u)
     assert.doesNotMatch(job, /needs\.build|continue-on-error/u)
   }
-  for (const job of [build, integration, regression]) {
+  for (const job of [build, unit, integration, regression]) {
     assert.match(
       job,
       /CI_SELECTION: \$\{\{ needs\.plan\.outputs\.selection \}\}/u
     )
   }
-  for (const job of [build, regression]) assert.match(job, /fetch-depth: 0/u)
+  for (const job of [build, unit, regression]) {
+    assert.match(job, /fetch-depth: 0/u)
+  }
   for (const job of [integration, portableRun]) {
     assert.doesNotMatch(job, /fetch-depth/u)
   }
@@ -269,7 +272,22 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     /^ {4}if: \$\{\{ needs\.plan\.outputs\.portable == 'true' \}\}$/mu
   )
   assert.equal(workflow.split('run: pnpm run test:portable\n').length - 1, 1)
-  assert.match(gate, /needs: \[plan, build, integration, regression\]/u)
+  assert.match(gate, /needs: \[plan, build, unit, integration, regression\]/u)
+  assert.match(
+    unit,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.code == 'true' \}\}$/mu
+  )
+  assert.ok(
+    unit.indexOf('quality packages\n') < unit.indexOf('quality unit\n') &&
+      unit.includes(
+        'run: node scripts/ci/check-selection.mjs quality packages\n'
+      )
+  )
+  assert.equal(
+    unit.split('run: node scripts/ci/check-selection.mjs quality unit\n')
+      .length - 1,
+    1
+  )
   assert.match(portable, /needs: \[plan, build, portable\]/u)
   for (const job of [gate, portable]) {
     assert.match(job, /if: \$\{\{ always\(\)/u)
@@ -278,14 +296,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.match(job, /test "\$PLAN_RESULT" = success/u)
     assert.match(job, /test "\$BUILD_RESULT" = success/u)
   }
-  for (const group of [
-    'static',
-    'typecheck',
-    'unit',
-    'audit',
-    'build',
-    'bundle'
-  ]) {
+  for (const group of ['static', 'typecheck', 'audit', 'build', 'bundle']) {
     assert.equal(
       build.split(`run: node scripts/ci/check-selection.mjs quality ${group}\n`)
         .length - 1,
@@ -579,6 +590,8 @@ test('protected aggregate accepts only successful dependencies and intentionally
   for (const [key, expression] of Object.entries({
     PLAN_RESULT: 'needs.plan.result',
     BUILD_RESULT: 'needs.build.result',
+    UNIT_RESULT: 'needs.unit.result',
+    CODE_SELECTED: 'needs.plan.outputs.code',
     INTEGRATION_RESULT: 'needs.integration.result',
     REGRESSION_RESULT: 'needs.regression.result',
     API_SELECTED: 'needs.plan.outputs.api',
@@ -599,6 +612,8 @@ test('protected aggregate accepts only successful dependencies and intentionally
           API_SELECTED: String(api),
           PERFORMANCE_SELECTED: String(performance),
           BROWSER_SELECTED: String(browser),
+          CODE_SELECTED: 'true',
+          UNIT_RESULT: 'success',
           INTEGRATION_RESULT: api ? 'success' : 'skipped',
           REGRESSION_RESULT: performance || browser ? 'success' : 'skipped'
         }
@@ -606,6 +621,7 @@ test('protected aggregate accepts only successful dependencies and intentionally
         for (const key of [
           'PLAN_RESULT',
           'BUILD_RESULT',
+          'UNIT_RESULT',
           'INTEGRATION_RESULT',
           'REGRESSION_RESULT'
         ]) {
@@ -621,12 +637,20 @@ test('protected aggregate accepts only successful dependencies and intentionally
           }
         }
         for (const key of [
+          'CODE_SELECTED',
           'API_SELECTED',
           'PERFORMANCE_SELECTED',
           'BROWSER_SELECTED'
         ]) {
           assertGate(script, { ...env, [key]: '' }, 1)
         }
+        const docsOnly = {
+          ...env,
+          CODE_SELECTED: 'false',
+          UNIT_RESULT: 'skipped'
+        }
+        assertGate(script, docsOnly, 0)
+        assertGate(script, { ...docsOnly, UNIT_RESULT: 'success' }, 1)
       }
 })
 
@@ -929,13 +953,14 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.deepEqual(jobs(normal), [
     'plan',
     'build',
+    'unit',
     'integration',
     'regression',
     'e2e',
     'portable',
     'phase11_release'
   ])
-  assert.equal(steps(normal).length, 44)
+  assert.equal(steps(normal).length, 49)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [

@@ -350,6 +350,9 @@ export const qualityCommands = (selection, group) => {
     )
     add('run', 'check:architecture')
     add('run', 'test:security')
+  } else if (group === 'packages') {
+    add('--filter', '@nihongo/contracts', 'run', 'build')
+    add('--filter', '@nihongo/domain', 'run', 'build')
   } else if (group === 'typecheck') {
     add('--filter', '@nihongo/contracts', 'run', 'build')
     add('--filter', '@nihongo/domain', 'run', 'build')
