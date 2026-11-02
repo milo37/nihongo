@@ -65,14 +65,14 @@ const NODE_BUILTIN_IMPORTS = new Set([
   ...builtinModules,
   ...builtinModules.map((moduleName) => `node:${moduleName}`)
 ])
-const PHASE6_SERVER_RELATIVE_ROOTS = [
+const SERVER_CONTENT_RELATIVE_ROOTS = [
   'content',
   'apps/api/prisma/seed-data',
   'apps/api/prisma/seedQuestionCatalog.ts',
   'apps/api/src/content',
   'packages/domain/src/content'
 ]
-const PHASE6_SENSITIVE_SEED_RELATIVE_ROOT =
+const SERVER_SENSITIVE_SEED_RELATIVE_ROOT =
   'apps/api/prisma/seed-data/questions'
 const OPERATIONAL_CONTENT_COMMANDS_RELATIVE_ROOT =
   'apps/api/src/content/commands'
@@ -294,7 +294,7 @@ const workspaceFromSpecifier = (rootDir, importerFile, specifier) => {
   )
 }
 
-const resolvesToPhase6Content = (rootDir, importerFile, specifier) => {
+const resolvesToServerContent = (rootDir, importerFile, specifier) => {
   if (/^@nihongo\/(?:api|domain)(?:\/src)?\/content(?:\/|$)/.test(specifier)) {
     return true
   }
@@ -302,7 +302,7 @@ const resolvesToPhase6Content = (rootDir, importerFile, specifier) => {
   const resolved = normalizePath(
     path.resolve(path.dirname(importerFile), specifier)
   )
-  return PHASE6_SERVER_RELATIVE_ROOTS.map((relativeRoot) =>
+  return SERVER_CONTENT_RELATIVE_ROOTS.map((relativeRoot) =>
     normalizePath(path.join(rootDir, relativeRoot))
   ).some(
     (forbiddenRoot) =>
@@ -358,10 +358,10 @@ const canImportOperationalContentCommands = (rootDir, importerFile) => {
 const sha256File = (fileName) =>
   createHash('sha256').update(fs.readFileSync(fileName)).digest('hex')
 
-const collectPhase6SensitiveContentCanaries = (rootDir) => {
+const collectSensitiveContentCanaries = (rootDir) => {
   const canaries = new Set()
   for (const fileName of walkFiles(
-    path.join(rootDir, PHASE6_SENSITIVE_SEED_RELATIVE_ROOT)
+    path.join(rootDir, SERVER_SENSITIVE_SEED_RELATIVE_ROOT)
   )) {
     const sourceText = fs.readFileSync(fileName, 'utf8')
     const sourceFile = ts.createSourceFile(
@@ -385,14 +385,14 @@ const collectPhase6SensitiveContentCanaries = (rootDir) => {
   return [...canaries]
 }
 
-const collectPhase6WebLeakDiagnostics = (rootDir) => {
+const collectWebLeakDiagnostics = (rootDir) => {
   const diagnostics = []
-  const contentFiles = PHASE6_SERVER_RELATIVE_ROOTS.flatMap(
+  const contentFiles = SERVER_CONTENT_RELATIVE_ROOTS.flatMap(
     (relativeRoot) =>
       walkWebAssetEntries(path.join(rootDir, relativeRoot)).files
   )
   const contentDigests = new Set(contentFiles.map(sha256File))
-  const sensitiveCanaries = collectPhase6SensitiveContentCanaries(rootDir)
+  const sensitiveCanaries = collectSensitiveContentCanaries(rootDir)
   const webAssetRoots = ['apps/web', 'apps/admin', 'packages/browser'].map(
     (directory) => path.join(rootDir, directory)
   )
@@ -415,7 +415,7 @@ const collectPhase6WebLeakDiagnostics = (rootDir) => {
       const copiedContent = contentDigests.has(
         createHash('sha256').update(bytes).digest('hex')
       )
-      const answerBearingPhase6Artifact =
+      const answerBearingServerArtifact =
         text.includes('ORIGINAL_NO_COPY') &&
         text.includes('policySnapshotSha256') &&
         (text.includes('correctOptionKey') || text.includes('explanationKo'))
@@ -432,7 +432,7 @@ const collectPhase6WebLeakDiagnostics = (rootDir) => {
         })
       if (
         !copiedContent &&
-        !answerBearingPhase6Artifact &&
+        !answerBearingServerArtifact &&
         !containsSensitiveSeedContent
       ) {
         continue
@@ -1245,7 +1245,7 @@ export const checkWorkspaceArchitecture = ({
 
     if (['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id)) {
       for (const literal of collectStringLiteralNodes(sourceFile)) {
-        if (!resolvesToPhase6Content(absoluteRoot, fileName, literal.text)) {
+        if (!resolvesToServerContent(absoluteRoot, fileName, literal.text)) {
           continue
         }
         diagnostics.push(
@@ -1317,7 +1317,7 @@ export const checkWorkspaceArchitecture = ({
 
       if (
         ['apps/web', 'apps/admin', 'packages/browser'].includes(importer.id) &&
-        resolvesToPhase6Content(absoluteRoot, fileName, reference.specifier)
+        resolvesToServerContent(absoluteRoot, fileName, reference.specifier)
       ) {
         diagnostics.push(
           createDiagnostic(
@@ -1469,7 +1469,7 @@ export const checkWorkspaceArchitecture = ({
   diagnostics.push(
     ...collectPublicWebContractDiagnostics(absoluteRoot, sourceFiles)
   )
-  diagnostics.push(...collectPhase6WebLeakDiagnostics(absoluteRoot))
+  diagnostics.push(...collectWebLeakDiagnostics(absoluteRoot))
 
   for (const cycle of collectPackageCycles(runtimeGraph)) {
     const [from, to] = cycle

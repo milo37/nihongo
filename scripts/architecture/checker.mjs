@@ -661,7 +661,7 @@ const getObjectProperty = (object, name) =>
       property.name.text === name
   )?.initializer
 
-const getPhase7SchemaNames = (rootDir, operation) => {
+const getContentOperationSchemaNames = (rootDir, operation) => {
   const contractRoot = path.join(rootDir, 'packages/contracts/src/admin')
   const manifest = readExportedInitializer(
     path.join(contractRoot, 'content-manifest.ts'),
@@ -768,7 +768,7 @@ const checkEndpoint = (
     )
   }
 
-  const isPhase7RequestCall = (node) => {
+  const isContentOperationRequestCall = (node) => {
     if (
       !ts.isCallExpression(node) ||
       !ts.isIdentifier(node.expression) ||
@@ -840,7 +840,7 @@ const checkEndpoint = (
       return false
     const operation = properties.get('operation')
     if (!operation || !ts.isStringLiteral(operation)) return false
-    const names = getPhase7SchemaNames(rootDir, operation.text)
+    const names = getContentOperationSchemaNames(rootDir, operation.text)
     if (!names) return false
 
     const helperSource = program.getSourceFile(helperPath)
@@ -1122,7 +1122,7 @@ const checkEndpoint = (
       ? getResolvedSymbol(checker, callReference)
       : null
     return (
-      isPhase7RequestCall(unwrapped) ||
+      isContentOperationRequestCall(unwrapped) ||
       Boolean(symbol && validatedRequestSymbols.has(symbol))
     )
   }
