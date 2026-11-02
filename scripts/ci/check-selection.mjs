@@ -350,6 +350,9 @@ export const qualityCommands = (selection, group) => {
     )
     add('run', 'check:architecture')
     add('run', 'test:security')
+  } else if (group === 'packages') {
+    add('--filter', '@nihongo/contracts', 'run', 'build')
+    add('--filter', '@nihongo/domain', 'run', 'build')
   } else if (group === 'typecheck') {
     add('--filter', '@nihongo/contracts', 'run', 'build')
     add('--filter', '@nihongo/domain', 'run', 'build')
@@ -424,6 +427,25 @@ export const qualityCommands = (selection, group) => {
     add('--filter', '@nihongo/web', 'run', 'test:bundle')
   } else if (group === 'integration') {
     add('run', 'test:api-regression')
+  } else if (group === 'integration-database') {
+    // Split of the root test:api-regression chain; parity is pinned by the selector test.
+    add('run', 'test:database')
+  } else if (group === 'integration-api') {
+    add(
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'tsx',
+      'src/e2e/validateApiIntegrationManifest.ts'
+    )
+    add('--filter', '@nihongo/api', 'run', 'test:api-regression')
+    add(
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'tsx',
+      'src/e2e/runApiIntegration.ts'
+    )
   } else if (group === 'performance') {
     add('run', 'test:database-performance')
   } else {
