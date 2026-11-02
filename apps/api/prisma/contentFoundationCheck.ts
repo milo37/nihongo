@@ -33,8 +33,8 @@ import {
   qualityRulesSchema,
   tagTaxonomySchema
 } from '../src/content/validators/v1/contentSchemas.js'
-import { verifyCanonicalLegacyArtifacts } from './phase6Slice1ArtifactCheck.js'
-import { projectCanonicalLegacySeedArtifacts } from './phase6Slice1LegacyProjection.js'
+import { verifyCanonicalLegacyArtifacts } from './contentArtifactCheck.js'
+import { projectCanonicalLegacySeedArtifacts } from './legacySeedProjection.js'
 import { buildAllQuestionSeeds } from './seedQuestionCatalog.js'
 
 const REPOSITORY_ROOT_URL = new URL('../../../', import.meta.url)
@@ -53,9 +53,9 @@ export const FOUNDATION_INPUT_PATHS_V1 = [
 ] as const
 
 export const FOUNDATION_SOURCE_PATHS_V1 = [
-  'apps/api/prisma/phase6Slice1ArtifactCheck.ts',
-  'apps/api/prisma/phase6Slice1FoundationCheck.ts',
-  'apps/api/prisma/phase6Slice1LegacyProjection.ts',
+  'apps/api/prisma/contentArtifactCheck.ts',
+  'apps/api/prisma/contentFoundationCheck.ts',
+  'apps/api/prisma/legacySeedProjection.ts',
   'apps/api/prisma/seed-data/buildQuestionSeed.ts',
   'apps/api/prisma/seed-data/contentReview.ts',
   'apps/api/prisma/seed-data/id.ts',
@@ -120,7 +120,7 @@ export interface FoundationCatalogDiagnosticsV1 {
   readonly taxonomyTagCount: number
 }
 
-export interface Phase6Slice1FoundationCheckResultV1 {
+export interface ContentFoundationCheckResultV1 {
   readonly schemaVersion: 1
   readonly command: 'content:foundation-check'
   readonly status: 'PASS'
@@ -362,7 +362,7 @@ export const assertFoundationSourceManifestSha256 = (
   }
 }
 
-const assertRuntime = (): Phase6Slice1FoundationCheckResultV1['runtime'] => {
+const assertRuntime = (): ContentFoundationCheckResultV1['runtime'] => {
   const runtime = {
     nodeVersion: process.versions.node,
     icuVersion: process.versions.icu ?? '',
@@ -374,9 +374,9 @@ const assertRuntime = (): Phase6Slice1FoundationCheckResultV1['runtime'] => {
   return runtime
 }
 
-export const runPhase6Slice1FoundationCheck = async (
+export const runContentFoundationCheck = async (
   repositoryRoot: string
-): Promise<Phase6Slice1FoundationCheckResultV1> => {
+): Promise<ContentFoundationCheckResultV1> => {
   const canonicalRoot = await realpath(repositoryRoot)
   const [
     legacy,
@@ -458,11 +458,11 @@ export const runPhase6Slice1FoundationCheck = async (
 
 const main = async (): Promise<void> => {
   const repositoryRoot = await realpath(fileURLToPath(REPOSITORY_ROOT_URL))
-  const result = await runPhase6Slice1FoundationCheck(repositoryRoot)
+  const result = await runContentFoundationCheck(repositoryRoot)
   process.stdout.write(`${canonicalizeJson(result)}\n`)
 }
 
-if (process.argv[1]?.endsWith('phase6Slice1FoundationCheck.ts')) {
+if (process.argv[1]?.endsWith('contentFoundationCheck.ts')) {
   main().catch(() => {
     process.stderr.write(
       '{"code":"CONTENT_FOUNDATION_INVALID","message":"CONTENT_FOUNDATION_INVALID","schemaVersion":1}\n'
