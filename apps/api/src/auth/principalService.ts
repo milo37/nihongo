@@ -41,7 +41,7 @@ export interface PrincipalService {
     adminAuthorityFailure?: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
     clearSessionCookie: boolean
     headers: Headers
-    phase7Session?: Phase7AdminSessionProof
+    phase7Session?: AdminSessionProof
     user: AuthenticatedUser | null
   }>
   getAuthenticatedUser: (headers: Headers) => Promise<AuthenticatedUser | null>
@@ -54,6 +54,8 @@ export interface Phase7AdminSessionProof {
   readonly expiresAt: Date
   readonly isFresh: boolean
 }
+
+export type AdminSessionProof = Phase7AdminSessionProof
 
 export const createPrincipalService = ({
   authApi,
@@ -280,3 +282,5 @@ export const createPhase7PrincipalService = ({
       (await resolveAuthenticatedUser(headers)).user
   }
 }
+
+export { createPhase7PrincipalService as createOwnedPrincipalService }

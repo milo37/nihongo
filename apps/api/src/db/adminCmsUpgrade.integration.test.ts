@@ -19,7 +19,7 @@ import { createPhase7ReauthenticationAuthApi } from '../auth/createReauthenticat
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import { createSessionCookie } from '../auth/sessionCookie.js'
-import { createPhase7PrincipalService } from '../auth/principalService.js'
+import { createOwnedPrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
@@ -330,7 +330,7 @@ const exerciseUpgradedRetiredPasswordBoundary = async (
       client: observedClient,
       context: reauthenticationContext
     })
-    const principalService = createPhase7PrincipalService({
+    const principalService = createOwnedPrincipalService({
       client: applicationRuntime.client,
       isProduction: false,
       refreshClient: authGatewayRuntime.client,
