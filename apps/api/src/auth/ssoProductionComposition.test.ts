@@ -9,7 +9,7 @@ import { createAdminReauthenticationService } from '../admin/adminReauthenticati
 import { createSsoAuthentication } from './createSsoAuthentication.js'
 import { createApiApp } from '../app/createApp.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPhase7SessionCookie } from './sessionCookie.js'
+import { createSessionCookie } from './sessionCookie.js'
 import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
@@ -143,7 +143,7 @@ const fixture = (overrides: Record<string, string> = {}) => {
     rateLimiter,
     providers: { google: provider }
   })
-  const cookie = createPhase7SessionCookie({
+  const cookie = createSessionCookie({
     token: 'private-current-session',
     secret: environment.BETTER_AUTH_SECRET,
     isProduction: environment.NODE_ENV === 'production',

@@ -7,9 +7,9 @@ import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
 import type { AuthEmailDispatcher } from './emailDispatcher.js'
 import {
-  createExpiredPhase7SessionCookies,
-  createPhase7SessionCookie,
-  readPhase7SessionToken
+  createExpiredSessionCookies,
+  createSessionCookie,
+  readSessionToken
 } from './sessionCookie.js'
 
 const ONE_HOUR_SECONDS = 60 * 60
@@ -220,8 +220,6 @@ export const createPhase7AuthFacade = ({
   environment: ApiEnvironment
 }): Phase7AuthFacade => {
   const isProduction = environment.NODE_ENV === 'production'
-  const expiredCookies = (): readonly string[] =>
-    createExpiredPhase7SessionCookies(isProduction)
   const spaOrigin =
     environment.TRUSTED_ORIGINS[0] ?? environment.BETTER_AUTH_URL
 
@@ -356,7 +354,7 @@ export const createPhase7AuthFacade = ({
       }
 
       return success([
-        createPhase7SessionCookie({
+        createSessionCookie({
           expiresAt: issued[0]!.expiresAt,
           isProduction,
           rememberMe: true,
@@ -369,7 +367,7 @@ export const createPhase7AuthFacade = ({
 
     '/api/auth/sign-out': async (_request, payload) => {
       if (!emptySchema.safeParse(payload).success) return invalidPayload()
-      const credential = readPhase7SessionToken({
+      const credential = readSessionToken({
         cookieHeader: _request.headers.get('Cookie'),
         isProduction,
         secret: environment.BETTER_AUTH_SECRET
@@ -381,13 +379,13 @@ export const createPhase7AuthFacade = ({
         if (rows.length !== 1 || rows[0]?.signedOut !== true)
           return unavailable()
       }
-      return success(expiredCookies())
+      return success(createExpiredSessionCookies(isProduction))
     },
 
     '/api/auth/change-password': async (request, payload) => {
       const parsed = changePasswordSchema.safeParse(payload)
       if (!parsed.success) return invalidPayload()
-      const session = readPhase7SessionToken({
+      const session = readSessionToken({
         cookieHeader: request.headers.get('Cookie'),
         isProduction,
         secret: environment.BETTER_AUTH_SECRET
@@ -421,7 +419,7 @@ export const createPhase7AuthFacade = ({
       if (changed.length !== 1 || changed[0]?.changed !== true) {
         return invalidCredential()
       }
-      return success(expiredCookies())
+      return success(createExpiredSessionCookies(isProduction))
     },
 
     '/api/auth/request-password-reset': async (_request, payload) => {
@@ -485,7 +483,7 @@ export const createPhase7AuthFacade = ({
       if (reset.length !== 1 || reset[0]?.userId !== credential.userId) {
         return response(400, { code: 'INVALID_TOKEN' })
       }
-      return success(expiredCookies())
+      return success(createExpiredSessionCookies(isProduction))
     },
 
     '/api/auth/sign-up/email': async (_request, payload) => {

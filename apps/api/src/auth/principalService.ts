@@ -4,10 +4,7 @@ import {
 } from '@nihongo/contracts/auth/get-current-principal'
 import { z } from 'zod'
 import type { PrismaClient } from '../generated/prisma/client.js'
-import {
-  createPhase7SessionCookie,
-  readPhase7SessionToken
-} from './sessionCookie.js'
+import { createSessionCookie, readSessionToken } from './sessionCookie.js'
 
 const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
 const authSessionSchema = z
@@ -171,7 +168,7 @@ export const createPhase7PrincipalService = ({
 }): PrincipalService => {
   const resolveAuthenticatedUser: PrincipalService['resolveAuthenticatedUser'] =
     async (headers, options = {}) => {
-      const credential = readPhase7SessionToken({
+      const credential = readSessionToken({
         cookieHeader: headers.get('Cookie'),
         isProduction,
         secret
@@ -248,7 +245,7 @@ export const createPhase7PrincipalService = ({
       if (refresh?.refreshed) {
         responseHeaders.append(
           'Set-Cookie',
-          createPhase7SessionCookie({
+          createSessionCookie({
             expiresAt: refresh.expiresAt,
             isProduction,
             rememberMe: true,

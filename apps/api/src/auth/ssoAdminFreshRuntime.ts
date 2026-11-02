@@ -18,9 +18,9 @@ import {
 } from './ssoProtocol.js'
 import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
 import {
-  createPhase7SessionCookie,
-  createPhase7DontRememberCookie,
-  readPhase7SessionToken
+  createSessionCookie,
+  createDontRememberCookie,
+  readSessionToken
 } from './sessionCookie.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
 
@@ -51,7 +51,7 @@ export const createSsoAdminFreshRuntime = ({
   const proofCookie = (value: string | null): string =>
     `${proofName}=${value ?? ''}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${value ? 120 : 0}${secure ? '; Secure' : ''}`
   const oldToken = (request: Request): string | null =>
-    readPhase7SessionToken({
+    readSessionToken({
       cookieHeader: request.headers.get('Cookie'),
       isProduction: production,
       secret: environment.BETTER_AUTH_SECRET
@@ -229,11 +229,11 @@ export const createSsoAdminFreshRuntime = ({
         if (!session) return outcome('FAILED', '/login', [proofCookie(null)])
         return outcome('REAUTHENTICATED', session.callbackURL, [
           proofCookie(null),
-          createPhase7DontRememberCookie({
+          createDontRememberCookie({
             isProduction: production,
             secret: environment.BETTER_AUTH_SECRET
           }),
-          createPhase7SessionCookie({
+          createSessionCookie({
             isProduction: production,
             secret: environment.BETTER_AUTH_SECRET,
             token: session.token,

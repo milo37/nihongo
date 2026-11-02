@@ -18,7 +18,7 @@ import { createApiApp } from '../app/createApp.js'
 import { createPhase7ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
-import { createPhase7SessionCookie } from '../auth/sessionCookie.js'
+import { createSessionCookie } from '../auth/sessionCookie.js'
 import { createPhase7PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
@@ -290,7 +290,7 @@ const exerciseUpgradedRetiredPasswordBoundary = async (
     if (!issuedSession || issued.length !== 1) {
       throw new Error('Upgrade DB V1 Session was not issued.')
     }
-    const oldSessionCookie = createPhase7SessionCookie({
+    const oldSessionCookie = createSessionCookie({
       expiresAt: issuedSession.expiresAt,
       isProduction: false,
       rememberMe: false,
