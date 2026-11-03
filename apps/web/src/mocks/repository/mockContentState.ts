@@ -9,9 +9,9 @@ import {
   compareUnicodeScalars,
   createQuestionDuplicateIdentityKey as createQuestionDuplicateIdentity,
   createQuestionReportDescriptionDigest,
-  isApplicablePhase7ContentType as isApplicablePhase7ContentType,
-  normalizePhase7OptionComparison as normalizePhase7OptionComparison,
-  normalizePhase7TagKey as normalizePhase7TagKey,
+  isApplicablePhase7ContentType as isApplicableContentType,
+  normalizePhase7OptionComparison as normalizeOptionComparison,
+  normalizePhase7TagKey as normalizeTagKey,
   normalizePhase7Text as normalizeContentText,
   questionReportDetailSchema,
   questionReportMutationResultSchema,
@@ -393,7 +393,7 @@ const createSeedVersion = (
         return {
           ...tag,
           label,
-          normalizedName: normalizePhase7TagKey(label)
+          normalizedName: normalizeTagKey(label)
         }
       })
       .toSorted(compareAdminTags),
@@ -560,7 +560,7 @@ export class MockContentState {
           !isCanonicalIsoInstant(entry[1])
       )
     ) {
-      throw new Error('Persisted Phase 7 CMS state is malformed.')
+      throw new Error('Persisted admin CMS state is malformed.')
     }
     const questionById = new Map(
       persisted.questions.map((question) => [
@@ -600,7 +600,7 @@ export class MockContentState {
         (version) => !questionById.has(version.questionId)
       )
     ) {
-      throw new Error('Persisted Phase 7 CMS identity graph is malformed.')
+      throw new Error('Persisted admin CMS identity graph is malformed.')
     }
     this.assertPersistedGraph({
       auditLogs,
@@ -1050,7 +1050,7 @@ export class MockContentState {
     readonly versionById: ReadonlyMap<string, MockContentVersion>
   }): void {
     const fail = (): never => {
-      throw new Error('Persisted Phase 7 CMS relation graph is malformed.')
+      throw new Error('Persisted admin CMS relation graph is malformed.')
     }
     const tagIdentity = (tag: AdminTagSummary): string =>
       JSON.stringify([tag.id, tag.label, tag.normalizedName])
@@ -1112,14 +1112,12 @@ export class MockContentState {
           this.tagApplicabilityKey(tag.normalizedName, version)
         )
         return (
-          normalizePhase7TagKey(tag.label) === tag.normalizedName &&
+          normalizeTagKey(tag.label) === tag.normalizedName &&
           identities?.has(tagIdentity(tag)) === true
         )
       })
       const normalizedOptionTexts = new Set(
-        version.options.map((option) =>
-          normalizePhase7OptionComparison(option.text)
-        )
+        version.options.map((option) => normalizeOptionComparison(option.text))
       )
       const passageIsValid =
         version.subject === 'READING'
@@ -1128,7 +1126,7 @@ export class MockContentState {
       if (
         !statusTimesAreValid ||
         !lifecycleIsValid ||
-        !isApplicablePhase7ContentType(
+        !isApplicableContentType(
           version.level,
           version.subject,
           version.questionType
