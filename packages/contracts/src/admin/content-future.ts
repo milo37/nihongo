@@ -916,6 +916,7 @@ export const getAdminQuestionReportErrorSchema =
 export const createQuestionReportErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
+  'ACCOUNT_RESTRICTED',
   'INVALID_JSON',
   'INVALID_REQUEST',
   'REQUEST_TOO_LARGE',

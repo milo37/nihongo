@@ -618,6 +618,7 @@ describe('Phase 7 future import and report contracts', () => {
     expect(createQuestionReportErrorCodeSchema.options).toEqual([
       'AUTHENTICATION_REQUIRED',
       'AUTH_SESSION_EXPIRED',
+      'ACCOUNT_RESTRICTED',
       'INVALID_JSON',
       'INVALID_REQUEST',
       'REQUEST_TOO_LARGE',
