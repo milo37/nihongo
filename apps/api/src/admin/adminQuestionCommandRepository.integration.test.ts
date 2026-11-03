@@ -2435,10 +2435,10 @@ describe('ADMIN command TEST database integration', () => {
         authority(authorId, authorToken),
         concurrentApplyRequest
       ),
-      concurrentServices[1]!.applyImport(
-        authority(reviewerId, reviewerToken),
-        { ...concurrentApplyRequest, importId: randomUUID() }
-      )
+      concurrentServices[1]!.applyImport(authority(reviewerId, reviewerToken), {
+        ...concurrentApplyRequest,
+        importId: randomUUID()
+      })
     ])
     expect(
       concurrentOutcomes.filter(({ status }) => status === 'fulfilled')
