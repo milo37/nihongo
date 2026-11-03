@@ -211,7 +211,8 @@
   z-index: var(--z-dropdown);
 }
 
-.app-account-menu > a {
+.app-account-menu > a,
+.app-account-menu > button {
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -220,7 +221,13 @@
   overflow-wrap: anywhere;
 }
 
-.app-account-menu > a:hover {
+.app-account-menu > button {
+  width: 100%;
+  text-align: left;
+}
+
+.app-account-menu > a:hover,
+.app-account-menu > button:hover {
   background: rgb(var(--color-hover-surface));
 }
 

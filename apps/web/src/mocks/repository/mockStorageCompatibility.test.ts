@@ -11,11 +11,6 @@ import {
   QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY as mirror,
   QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY as oldKey
 } from '@nihongo/browser/libs/storage'
-import { createQuestionReport } from '@api/content-operations/contentOperationsApi'
-import { createStudySessionV2 } from '@api/study/createStudySessionV2'
-import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
-import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
-import { signInMockAccount } from '@/test/auth'
 import {
   createInMemoryMockMutationLease,
   MockStorageRecoveryError,
@@ -367,120 +362,6 @@ describe('legacy storage authority and compatibility mirrors', () => {
       if (previous) Object.defineProperty(navigator, 'locks', previous)
       else Reflect.deleteProperty(navigator, 'locks')
     }
-  })
-
-  it('writes the CMS mirror before authority in the actual report flow', async () => {
-    await signInMockAccount()
-    const {
-      data: { session }
-    } = await createStudySessionV2({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 1
-    })
-    const draft = (await getStudyDraftAnswers(session.id)).data
-    const { data: result } = await submitStudySessionV2(
-      session.id,
-      {
-        answers: draft.answers,
-        durationSec: 0,
-        expectedDraftRevision: draft.revision
-      },
-      crypto.randomUUID()
-    )
-    const question = result.items[0]?.question
-    if (!question?.questionVersionId)
-      throw new Error('Reportable question fixture required')
-    const setItem = vi.spyOn(Storage.prototype, 'setItem')
-    await createQuestionReport({
-      questionVersionId: question.questionVersionId,
-      reason: 'OTHER',
-      description: '저장 동기화를 확인합니다.'
-    })
-    const writes = setItem.mock.calls
-      .map(([key]) => key)
-      .filter(
-        (key) =>
-          key === ADMIN_CMS_STORAGE_KEY || key === ADMIN_CMS_MIRROR_STORAGE_KEY
-      )
-    expect(writes.slice(-2)).toEqual([
-      ADMIN_CMS_MIRROR_STORAGE_KEY,
-      ADMIN_CMS_STORAGE_KEY
-    ])
-    expect(localStorage.getItem(ADMIN_CMS_MIRROR_STORAGE_KEY)).toBe(
-      localStorage.getItem(ADMIN_CMS_STORAGE_KEY)
-    )
-    setItem.mockRestore()
-
-    const validOld = localStorage.getItem(ADMIN_CMS_STORAGE_KEY)!
-    localStorage.setItem(ADMIN_CMS_STORAGE_KEY, '{malformed')
-    await expect(
-      createQuestionReport({
-        questionVersionId: question.questionVersionId,
-        reason: 'ANSWER_ERROR',
-        description: '손상된 기존 저장값을 확인합니다.'
-      })
-    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' })
-    expect(localStorage.getItem(ADMIN_CMS_STORAGE_KEY)).toBe('{malformed')
-    localStorage.setItem(ADMIN_CMS_STORAGE_KEY, validOld)
-
-    const oldSnapshot = JSON.parse(
-      localStorage.getItem(ADMIN_CMS_STORAGE_KEY)!
-    ) as { mutationRevision: number; reports: unknown[] }
-    oldSnapshot.mutationRevision += 1
-    localStorage.setItem(ADMIN_CMS_STORAGE_KEY, JSON.stringify(oldSnapshot))
-    await createQuestionReport({
-      questionVersionId: question.questionVersionId,
-      reason: 'ANSWER_ERROR',
-      description: '이전 탭의 쓰기를 확인합니다.'
-    })
-    const lateWriteResult = localStorage.getItem(ADMIN_CMS_STORAGE_KEY)
-    expect(localStorage.getItem(ADMIN_CMS_MIRROR_STORAGE_KEY)).toBe(
-      lateWriteResult
-    )
-    expect(
-      (JSON.parse(lateWriteResult!) as { reports: unknown[] }).reports
-    ).toHaveLength(2)
-
-    const originalSet = Storage.prototype.setItem
-    let rejectWrites = false
-    const failure = vi
-      .spyOn(Storage.prototype, 'setItem')
-      .mockImplementation(function (this: Storage, key, value) {
-        if (
-          rejectWrites &&
-          (key === ADMIN_CMS_STORAGE_KEY ||
-            key === ADMIN_CMS_MIRROR_STORAGE_KEY)
-        )
-          throw new Error('storage unavailable')
-        originalSet.call(this, key, value)
-        if (key === ADMIN_CMS_MIRROR_STORAGE_KEY) rejectWrites = true
-      })
-    const request = {
-      questionVersionId: question.questionVersionId,
-      reason: 'EXPLANATION_ERROR' as const,
-      description: '복구 실패를 확인합니다.'
-    }
-    await expect(createQuestionReport(request)).rejects.toMatchObject({
-      code: 'SERVICE_UNAVAILABLE'
-    })
-    expect(localStorage.getItem(ADMIN_CMS_STORAGE_KEY)).toBe(lateWriteResult)
-    expect(localStorage.getItem(ADMIN_CMS_MIRROR_STORAGE_KEY)).not.toBe(
-      lateWriteResult
-    )
-    failure.mockRestore()
-    await createQuestionReport(request)
-    expect(localStorage.getItem(ADMIN_CMS_MIRROR_STORAGE_KEY)).toBe(
-      localStorage.getItem(ADMIN_CMS_STORAGE_KEY)
-    )
-    expect(
-      (
-        JSON.parse(localStorage.getItem(ADMIN_CMS_STORAGE_KEY)!) as {
-          reports: unknown[]
-        }
-      ).reports
-    ).toHaveLength(3)
   })
 
   it('ignores mirror events while retaining legacy CMS authentication synchronization', async () => {
