@@ -8,21 +8,21 @@ interface RunWithOperationTimeoutOptions<Result> {
   readonly timeoutMs: number
 }
 
-export class Phase10RunTimeoutError extends Error {
-  readonly code = 'PHASE10_RUN_TIMEOUT'
+export class RunTimeoutError extends Error {
+  readonly code = 'RUNNER_RUN_TIMEOUT'
 
   constructor(label: string, timeoutMs: number) {
     super(`${label} timed out after ${timeoutMs}ms.`)
-    this.name = 'Phase10RunTimeoutError'
+    this.name = 'RunTimeoutError'
   }
 }
 
-export class Phase10CleanupTimeoutError extends Error {
-  readonly code = 'PHASE10_CLEANUP_TIMEOUT'
+export class CleanupTimeoutError extends Error {
+  readonly code = 'RUNNER_CLEANUP_TIMEOUT'
 
   constructor(label: string, timeoutMs: number) {
     super(`${label} cleanup timed out after ${timeoutMs}ms.`)
-    this.name = 'Phase10CleanupTimeoutError'
+    this.name = 'CleanupTimeoutError'
   }
 }
 
@@ -38,7 +38,7 @@ export const runCleanupWithTimeout = async ({
   timeoutMs
 }: RunCleanupWithTimeoutOptions): Promise<void> => {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new Error('Phase 10 cleanup timeout must be a positive integer.')
+    throw new Error('Cleanup timeout must be a positive integer.')
   }
   let timeoutHandle: NodeJS.Timeout | undefined
   try {
@@ -46,7 +46,7 @@ export const runCleanupWithTimeout = async ({
       cleanup(),
       new Promise<never>((_resolve, reject) => {
         timeoutHandle = globalThis.setTimeout(
-          () => reject(new Phase10CleanupTimeoutError(label, timeoutMs)),
+          () => reject(new CleanupTimeoutError(label, timeoutMs)),
           timeoutMs
         )
       })
@@ -73,7 +73,7 @@ export const runWithOperationTimeout = async <Result>({
     !Number.isSafeInteger(cleanupTimeoutMs) ||
     cleanupTimeoutMs <= 0
   ) {
-    throw new Error('Phase 10 runner timeout must be a positive integer.')
+    throw new Error('Runner timeout must be a positive integer.')
   }
   let timeoutHandle: NodeJS.Timeout | undefined
   let settleTimeoutHandle: NodeJS.Timeout | undefined
@@ -91,7 +91,7 @@ export const runWithOperationTimeout = async <Result>({
       timeoutOutcome
     ])
     if (!outcome.timedOut) return outcome.value
-    const timeoutError = new Phase10RunTimeoutError(label, timeoutMs)
+    const timeoutError = new RunTimeoutError(label, timeoutMs)
     onTimeout()
     await Promise.race([
       operationPromise.then(

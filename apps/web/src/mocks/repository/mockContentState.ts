@@ -7,7 +7,7 @@ import {
   assertAdminTagList,
   compareAdminTags,
   compareUnicodeScalars,
-  createPhase7QuestionDuplicateIdentity as createQuestionDuplicateIdentity,
+  createQuestionDuplicateIdentityKey as createQuestionDuplicateIdentity,
   createQuestionReportDescriptionDigest,
   isApplicablePhase7ContentType as isApplicableContentType,
   normalizePhase7OptionComparison as normalizeOptionComparison,
@@ -22,8 +22,8 @@ import {
   type AdminTagSummary,
   type CreateAdminQuestionRequest,
   type CreateQuestionReportRequest,
-  type Phase7ExecutionDisposition as ExecutionDisposition,
-  type Phase7InternalFailureReason as InternalFailureReason,
+  type AdminExecutionDisposition as ExecutionDisposition,
+  type AdminInternalFailureReason as InternalFailureReason,
   type QuestionReportDetail,
   type QuestionReportMutationResult,
   type QuestionVersionStatus,
@@ -560,7 +560,7 @@ export class MockContentState {
           !isCanonicalIsoInstant(entry[1])
       )
     ) {
-      throw new Error('Persisted Phase 7 CMS state is malformed.')
+      throw new Error('Persisted admin CMS state is malformed.')
     }
     const questionById = new Map(
       persisted.questions.map((question) => [
@@ -600,7 +600,7 @@ export class MockContentState {
         (version) => !questionById.has(version.questionId)
       )
     ) {
-      throw new Error('Persisted Phase 7 CMS identity graph is malformed.')
+      throw new Error('Persisted admin CMS identity graph is malformed.')
     }
     this.assertPersistedGraph({
       auditLogs,
@@ -1050,7 +1050,7 @@ export class MockContentState {
     readonly versionById: ReadonlyMap<string, MockContentVersion>
   }): void {
     const fail = (): never => {
-      throw new Error('Persisted Phase 7 CMS relation graph is malformed.')
+      throw new Error('Persisted admin CMS relation graph is malformed.')
     }
     const tagIdentity = (tag: AdminTagSummary): string =>
       JSON.stringify([tag.id, tag.label, tag.normalizedName])

@@ -20,7 +20,17 @@ export const queryClient = new QueryClient({
     onError: emitApiError
   }),
   mutationCache: new MutationCache({
-    onError: emitApiError
+    onError: (error, _variables, _context, mutation) => {
+      // A screen that renders its own failure message opts out of the shared
+      // banner/toast; authentication failures still reach the global handler.
+      if (
+        mutation.meta?.localErrorUi === true &&
+        !(isApiError(error) && error.isAuthError)
+      ) {
+        return
+      }
+      emitApiError(error)
+    }
   }),
   defaultOptions: {
     queries: {

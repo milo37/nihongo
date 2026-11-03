@@ -1,3 +1,4 @@
+import { canonicalizeStudyDraftSave } from '@nihongo/contracts/study/canonicalize-study-draft-save'
 import { MockSsoAccountRepository } from '@mocks/repository/ssoAccountRepository'
 import {
   LEVELS,
@@ -672,7 +673,7 @@ interface PersistedMockState extends PersistedMockStateBase {
   canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
   canonicalStudyResults: CanonicalStudyResult[]
   canonicalUserMemos: MockCanonicalUserMemoRecord[]
-  phase7AdminCms: MockContentPersistedState
+  adminCms: MockContentPersistedState
 }
 
 type HydratablePersistedMockState =
@@ -843,16 +844,14 @@ const isPersistedMockState = (
         (value.version < 5 || Array.isArray(value.archivedQuestions)) &&
         (value.version < 7 || Array.isArray(value.canonicalUserMemos)) &&
         (value.version < 8 ||
-          (isRecord(value.phase7AdminCms) &&
-            Array.isArray(value.phase7AdminCms.auditLogs) &&
-            Array.isArray(value.phase7AdminCms.questions) &&
-            Array.isArray(value.phase7AdminCms.reports) &&
-            Array.isArray(value.phase7AdminCms.reviews) &&
-            Array.isArray(value.phase7AdminCms.versions) &&
-            Array.isArray(
-              value.phase7AdminCms.lifecycleControlledQuestionIds
-            ) &&
-            Array.isArray(value.phase7AdminCms.sessionIssuedAtByActorId)))))
+          (isRecord(value.adminCms) &&
+            Array.isArray(value.adminCms.auditLogs) &&
+            Array.isArray(value.adminCms.questions) &&
+            Array.isArray(value.adminCms.reports) &&
+            Array.isArray(value.adminCms.reviews) &&
+            Array.isArray(value.adminCms.versions) &&
+            Array.isArray(value.adminCms.lifecycleControlledQuestionIds) &&
+            Array.isArray(value.adminCms.sessionIssuedAtByActorId)))))
   )
 }
 
@@ -903,39 +902,6 @@ const isCanonicalIdempotencyRecordActive = (
     )
   }
   return expiresAtMs > observedAtMs
-}
-
-const canonicalizeMockStudyDraftSave = (
-  sessionId: string,
-  orderedSessionQuestionIds: readonly string[],
-  body: ParsedSaveStudyDraftAnswersBody
-): string => {
-  const ordinalById = new Map(
-    orderedSessionQuestionIds.map((id, index) => [id, index + 1])
-  )
-  const answers = body.answers
-    .map((answer) => ({
-      studySessionQuestionId: answer.studySessionQuestionId,
-      selectedOptionId: answer.selectedOptionId,
-      elapsedSec: answer.elapsedSec
-    }))
-    .toSorted((left, right) => {
-      const leftOrdinal =
-        ordinalById.get(left.studySessionQuestionId) ?? Number.MAX_SAFE_INTEGER
-      const rightOrdinal =
-        ordinalById.get(right.studySessionQuestionId) ?? Number.MAX_SAFE_INTEGER
-      return (
-        leftOrdinal - rightOrdinal ||
-        left.studySessionQuestionId.localeCompare(right.studySessionQuestionId)
-      )
-    })
-
-  return `draft-save-v2:${JSON.stringify({
-    sessionId,
-    expectedRevision: body.expectedRevision,
-    currentOrdinal: body.currentOrdinal,
-    answers
-  })}`
 }
 
 const toDuplicatePreservingKey = (
@@ -1048,7 +1014,7 @@ export class MockDatabase {
     this.mockActiveContentState = createMockActiveContentState(
       this.mockContentState
     )
-    this.randomSeed = options.seed ?? 'jlpt-drill-note'
+    this.randomSeed = options.seed ?? 'harumaru'
 
     for (const user of mockSeedData.users) {
       this.userById.set(user.id, clone(user))
@@ -1073,7 +1039,7 @@ export class MockDatabase {
       authoritative?.state.version === 8 &&
       !this.hasValidEmbeddedContentGraph(
         authoritative.serialized,
-        authoritative.state.phase7AdminCms
+        authoritative.state.adminCms
       )
     ) {
       this.currentUserId = null
@@ -1566,9 +1532,12 @@ export class MockDatabase {
     const orderedSessionQuestionIds = snapshot.questions.map((_, index) =>
       getCanonicalSessionQuestionId(session.id, index + 1)
     )
-    const requestMaterial = canonicalizeMockStudyDraftSave(
+    const requestMaterial = canonicalizeStudyDraftSave(
       session.id,
-      orderedSessionQuestionIds,
+      orderedSessionQuestionIds.map((studySessionQuestionId, index) => ({
+        ordinal: index + 1,
+        studySessionQuestionId
+      })),
       input.body
     )
     const recordKey = makeCanonicalIdempotencyKey(
@@ -3101,31 +3070,6 @@ export class MockDatabase {
     }
   }
 
-  updateWrongNoteMemo(
-    userId: string,
-    questionId: string,
-    memo: string | null
-  ): WrongNoteDetail {
-    const detail = this.getWrongNote(userId, questionId)
-    const normalizedMemo = memo?.trim() || null
-    const updated: WrongNote = {
-      ...detail.wrongNote,
-      memo: normalizedMemo,
-      updatedAt: this.now()
-    }
-
-    this.wrongNoteByQuestionId.set(
-      makeUserQuestionKey(userId, questionId),
-      updated
-    )
-    this.persist()
-
-    return {
-      wrongNote: clone(updated),
-      question: detail.question
-    }
-  }
-
   reviewWrongNote(
     userId: string,
     questionId: string,
@@ -3561,14 +3505,14 @@ export class MockDatabase {
       if (!persisted) return null
 
       let persistedContentState =
-        persisted.version === 8 ? persisted.phase7AdminCms : undefined
+        persisted.version === 8 ? persisted.adminCms : undefined
       const dedicatedSerialized = this.readLatestStorageItem(
         ADMIN_CMS_STORAGE_KEY
       )
       if (dedicatedSerialized !== null) {
         const dedicated =
           this.parseMockContentPersistedState(dedicatedSerialized)
-        if (!dedicated) throw new Error('Invalid dedicated Phase 7 state.')
+        if (!dedicated) throw new Error('Invalid dedicated admin CMS state.')
         persistedContentState = dedicated
       }
 
@@ -4227,7 +4171,7 @@ export class MockDatabase {
     ): ProjectedQuestionRecord => {
       const sourceQuestionId =
         sourceIdByQuestionId.get(question.questionId) ??
-        `phase7-question:${question.questionId}`
+        `cms-question:${question.questionId}`
       const options = version.options
         .toSorted((left, right) => left.ordinal - right.ordinal)
         .map((option) => ({
@@ -4275,7 +4219,7 @@ export class MockDatabase {
     for (const question of snapshot.questions) {
       const sourceQuestionId =
         sourceIdByQuestionId.get(question.questionId) ??
-        `phase7-question:${question.questionId}`
+        `cms-question:${question.questionId}`
       lifecycleBySourceId.set(sourceQuestionId, question.lifecycleStatus)
       const versions = versionsByQuestionId.get(question.questionId) ?? []
       const retained = versions
@@ -4308,7 +4252,7 @@ export class MockDatabase {
       )
       if (!current) {
         throwCanonicalIntegrityError(
-          'Phase 7 공개 문제 포인터가 learner read model과 일치하지 않습니다.'
+          '관리 CMS 공개 문제 포인터가 learner read model과 일치하지 않습니다.'
         )
       }
       const record = toProjectedRecord(question, current)
@@ -5650,7 +5594,7 @@ export class MockDatabase {
       results: [...this.resultBySessionId.values()],
       wrongNotes: [...this.wrongNoteByQuestionId.values()],
       bookmarks: [...this.bookmarkByQuestionId.values()],
-      phase7AdminCms: this.mockContentState.persistedSnapshot(
+      adminCms: this.mockContentState.persistedSnapshot(
         this.listAuthoritativeAdminQuestionSources()
       )
     }
@@ -5737,7 +5681,7 @@ export class MockDatabase {
     const persisted = this.parseAuthoritativePersistedState(serialized)
     if (
       persisted.version === 8 &&
-      !this.hasValidEmbeddedContentGraph(serialized, persisted.phase7AdminCms)
+      !this.hasValidEmbeddedContentGraph(serialized, persisted.adminCms)
     ) {
       return null
     }
@@ -5825,7 +5769,7 @@ export class MockDatabase {
         this.mockMutationStorageBaseline !== undefined &&
         previousState !== this.mockMutationStorageBaseline
       ) {
-        throw new Error('Mock storage changed outside the Phase 7 lease.')
+        throw new Error('Mock storage changed outside the admin CMS lease.')
       }
       const contentSnapshot = this.mockContentState.persistedSnapshot(
         this.listAuthoritativeAdminQuestionSources()
@@ -6067,7 +6011,7 @@ export class MockDatabase {
       )
       if (parsed.version === 8) {
         this.mockContentState.restore(
-          parsed.phase7AdminCms,
+          parsed.adminCms,
           this.listAuthoritativeTaxonomySources()
         )
       }

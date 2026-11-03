@@ -1,5 +1,5 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
-import { attestPhase7RuntimeRoles } from '../db/runtimeRoleAttestation.js'
+import { attestRuntimeRoles } from '../db/runtimeRoleAttestation.js'
 /** Uses the same database/role proof in CMS-enabled and CMS-disabled runtimes. */
 export const createOwnedAuthReadiness =
   ({
@@ -8,14 +8,14 @@ export const createOwnedAuthReadiness =
     gatewayClient,
     applicationUrl,
     gatewayUrl,
-    attest = attestPhase7RuntimeRoles
+    attest = attestRuntimeRoles
   }: {
     checkDatabaseReadiness: () => Promise<void>
     applicationClient: Pick<PrismaClient, '$queryRawUnsafe'>
     gatewayClient: Pick<PrismaClient, '$queryRawUnsafe'>
     applicationUrl: string
     gatewayUrl: string
-    attest?: typeof attestPhase7RuntimeRoles
+    attest?: typeof attestRuntimeRoles
   }) =>
   async (): Promise<void> => {
     await checkDatabaseReadiness()

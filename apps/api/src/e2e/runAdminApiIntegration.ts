@@ -19,7 +19,7 @@ import {
   assertSafeAdminCmsDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
-import { assertPhase7ApiDatabaseBoundaryPreflight } from './apiDatabaseBoundary.js'
+import { assertApiDatabaseBoundaryPreflight } from './apiDatabaseBoundary.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -103,21 +103,19 @@ dotenv.config({
   quiet: true
 })
 
-const apiIntegrationCase = process.env.PHASE7_API_INTEGRATION_CASE
+const apiIntegrationCase = process.env.API_INTEGRATION_CASE
 if (
   apiIntegrationCase !== undefined &&
   apiIntegrationCase !== 'sso-browser-google' &&
   apiIntegrationCase !== 'sso-account-lifecycle'
 ) {
-  throw new Error(
-    'Phase 7 API integration case is outside the fixed allowlist.'
-  )
+  throw new Error('API integration case is outside the fixed allowlist.')
 }
 
 const baseDatabaseUrl =
-  process.env.PHASE7_API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
+  process.env.API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 if (!baseDatabaseUrl) {
-  throw new Error('Phase 7 API integration requires a test PostgreSQL URL.')
+  throw new Error('API integration requires a test PostgreSQL URL.')
 }
 
 if (apiIntegrationCase === 'sso-browser-google') {
@@ -160,7 +158,7 @@ const adminDatabaseUrl = new URL(baseDatabaseUrl)
 adminDatabaseUrl.search = ''
 const databaseName = decodeURIComponent(adminDatabaseUrl.pathname.slice(1))
 if (!IDENTIFIER_PATTERN.test(databaseName)) {
-  throw new Error('Phase 7 API database name is unsafe.')
+  throw new Error('API database name is unsafe.')
 }
 const targetDatabaseUrl = new URL(adminDatabaseUrl)
 targetDatabaseUrl.searchParams.set('schema', schemaName)
@@ -175,7 +173,7 @@ const wrapperPasswords = new Map<string, string>(
 const buildWrapperDatabaseUrl = (role: string): URL => {
   const password = wrapperPasswords.get(role)
   if (!password || !IDENTIFIER_PATTERN.test(role)) {
-    throw new Error('Phase 7 API wrapper credential is unavailable.')
+    throw new Error('API wrapper credential is unavailable.')
   }
   const url = new URL(targetDatabaseUrl)
   url.username = role
@@ -229,7 +227,7 @@ interface PgcryptoSnapshot {
   readonly version: string | null
 }
 
-export interface Phase7IsolatedDatabaseHarness {
+export interface IsolatedDatabaseHarness {
   readonly adminDatabaseUrl: string
   readonly applicationDatabaseUrl: string
   readonly authGatewayDatabaseUrl: string
@@ -296,7 +294,7 @@ const readDatabaseSnapshot = async (): Promise<DatabaseSnapshot> => {
     [databaseName]
   )
   const row = owner.rows[0]
-  if (!row) throw new Error('Phase 7 API database owner is unavailable.')
+  if (!row) throw new Error('API database owner is unavailable.')
   return { ...row, acl: await readDatabaseAcl() }
 }
 
@@ -339,7 +337,7 @@ const verifySchemaAbsent = async (): Promise<void> => {
     [schemaName]
   )
   if (result.rows[0]?.count !== 0) {
-    throw new Error('Phase 7 API schema cleanup verification failed.')
+    throw new Error('API schema cleanup verification failed.')
   }
 }
 
@@ -380,7 +378,7 @@ const restoreDatabase = async (): Promise<void> => {
 
 const assertDatabaseRestored = async (): Promise<void> => {
   if (!databaseSnapshot) {
-    throw new Error('Phase 7 API database snapshot is unavailable.')
+    throw new Error('API database snapshot is unavailable.')
   }
   const current = await readDatabaseSnapshot()
   if (
@@ -388,7 +386,7 @@ const assertDatabaseRestored = async (): Promise<void> => {
     current.ownerName !== databaseSnapshot.ownerName ||
     canonicalAcl(current.acl) !== canonicalAcl(databaseSnapshot.acl)
   ) {
-    throw new Error('Phase 7 API database owner/ACL cleanup was not exact.')
+    throw new Error('API database owner/ACL cleanup was not exact.')
   }
 }
 
@@ -412,7 +410,7 @@ const restorePgcrypto = async (): Promise<void> => {
   if (
     JSON.stringify(await readPgcrypto()) !== JSON.stringify(pgcryptoSnapshot)
   ) {
-    throw new Error('Phase 7 API pgcrypto cleanup was not exact.')
+    throw new Error('API pgcrypto cleanup was not exact.')
   }
 }
 
@@ -430,7 +428,7 @@ const acquireProvisioningLock = async (): Promise<void> => {
 
 const attestBootstrap = async (): Promise<void> => {
   if (!databaseSnapshot) {
-    throw new Error('Phase 7 API database snapshot is unavailable.')
+    throw new Error('API database snapshot is unavailable.')
   }
   const result = await adminClient.query<{
     canSetOwner: boolean
@@ -448,7 +446,7 @@ const attestBootstrap = async (): Promise<void> => {
      FROM pg_roles AS role WHERE role.rolname = current_user`,
     [databaseSnapshot.ownerName]
   )
-  assertPhase7ApiDatabaseBoundaryPreflight({
+  assertApiDatabaseBoundaryPreflight({
     bootstrap: result.rows[0],
     snapshot: databaseSnapshot
   })
@@ -465,7 +463,7 @@ const provisionRoles = async (): Promise<void> => {
     [wrapperNames]
   )
   if (wrapperCollisions.rowCount !== 0) {
-    throw new Error('Phase 7 API canonical wrapper role collision.')
+    throw new Error('API canonical wrapper role collision.')
   }
 
   const groups = await adminClient.query<{
@@ -482,11 +480,11 @@ const provisionRoles = async (): Promise<void> => {
     [[...GROUP_ROLES]]
   )
   if (groups.rowCount !== 0 && groups.rowCount !== GROUP_ROLES.length) {
-    throw new Error('Phase 7 API reusable role bootstrap is partial.')
+    throw new Error('API reusable role bootstrap is partial.')
   }
   for (const group of groups.rows) {
     if (group.canLogin || group.inherits || group.unsafe) {
-      throw new Error(`Phase 7 API reusable role is unsafe: ${group.name}`)
+      throw new Error(`API reusable role is unsafe: ${group.name}`)
     }
   }
   if (groups.rowCount === 0) {
@@ -507,7 +505,7 @@ const provisionRoles = async (): Promise<void> => {
   for (const { grantedRole, name } of WRAPPER_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Phase 7 API wrapper password is unsafe.')
+      throw new Error('API wrapper password is unsafe.')
     }
     await adminClient.query(
       `CREATE ROLE ${quoteIdentifier(name)}
@@ -523,7 +521,7 @@ const provisionRoles = async (): Promise<void> => {
   for (const name of LEGACY_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Phase 7 API legacy wrapper password is unsafe.')
+      throw new Error('API legacy wrapper password is unsafe.')
     }
     await adminClient.query(
       `CREATE ROLE ${quoteIdentifier(name)}
@@ -536,7 +534,7 @@ const provisionRoles = async (): Promise<void> => {
 
 const applyMigrationDatabaseBoundary = async (): Promise<void> => {
   if (!databaseSnapshot) {
-    throw new Error('Phase 7 API database snapshot is unavailable.')
+    throw new Error('API database snapshot is unavailable.')
   }
   databaseChanged = true
   await adminClient.query(
@@ -654,7 +652,7 @@ const runCommand = async (
     abortSignal?.throwIfAborted()
     if (spawnError) throw spawnError
     if ('aborted' in outcome) {
-      throw new Error('Phase 7 command aborted without an abort reason.')
+      throw new Error('Command aborted without an abort reason.')
     }
     if (outcome.code === 0) return
     if (isSeed)
@@ -769,7 +767,7 @@ const cleanup = (): Promise<void> => {
   return cleanupPromise
 }
 
-export const cleanupPhase7IsolatedDatabase = async (): Promise<void> => {
+export const cleanupIsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
@@ -797,7 +795,7 @@ export const registerCapabilityAndActivate = async (
     )
     const target = endpoint.rows[0]
     if (!target) {
-      throw new Error('Phase 7 API endpoint identity is unavailable.')
+      throw new Error('API endpoint identity is unavailable.')
     }
     abortSignal?.throwIfAborted()
     await migrationClient.query(
@@ -817,7 +815,7 @@ export const registerCapabilityAndActivate = async (
   }
 }
 
-export const preparePhase7IntegrationArtifacts = async ({
+export const prepareIntegrationArtifacts = async ({
   abortSignal,
   environment = process.env,
   prepared = false,
@@ -840,7 +838,7 @@ export const preparePhase7IntegrationArtifacts = async ({
   abortSignal?.throwIfAborted()
 }
 
-export const phase7SeedInvocation = (
+export const adminSeedInvocation = (
   artifactsPrepared: boolean
 ): {
   readonly args: readonly string[]
@@ -856,17 +854,17 @@ export const phase7SeedInvocation = (
         environment: {}
       }
 
-export const preparePhase7IsolatedDatabase = async ({
+export const prepareIsolatedDatabase = async ({
   abortSignal,
   seedRuns = 0,
   issuerActivationOwner = 'runner',
   artifactsPrepared = false
-}: PrepareIsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
+}: PrepareIsolatedDatabaseOptions = {}): Promise<IsolatedDatabaseHarness> => {
   if (databasePrepared) {
-    throw new Error('Phase 7 isolated database harness is already prepared.')
+    throw new Error('Isolated database harness is already prepared.')
   }
   if (!Number.isInteger(seedRuns) || seedRuns < 0 || seedRuns > 2) {
-    throw new Error('Phase 7 isolated database seed run count is invalid.')
+    throw new Error('Isolated database seed run count is invalid.')
   }
 
   abortSignal?.throwIfAborted()
@@ -899,22 +897,22 @@ export const preparePhase7IsolatedDatabase = async ({
     ADMIN_CMS_MODE: 'technical',
     AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
-    PHASE7_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
+    TEST_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
     GUEST_CLEANUP_DATABASE_URL: buildWrapperDatabaseUrl(
       TEST_GUEST_CLEANUP_LOGIN
     ).toString(),
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
     GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
-    PHASE7_RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
+    RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
-    PHASE7_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
-    PHASE7_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    TEST_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
+    TEST_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString(),
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
 
-  await preparePhase7IntegrationArtifacts({
+  await prepareIntegrationArtifacts({
     ...(abortSignal === undefined ? {} : { abortSignal }),
     environment: sharedEnvironment,
     prepared: artifactsPrepared
@@ -937,9 +935,7 @@ export const preparePhase7IsolatedDatabase = async ({
     migrationNames.length !== 37 ||
     migrationNames.at(-1) !== lastBootstrapMigration
   ) {
-    throw new Error(
-      'Phase 7 canonical content migration prefix is inconsistent.'
-    )
+    throw new Error('Canonical content migration prefix is inconsistent.')
   }
   const bootstrapMigrationsPath = mkdtempSync(
     nodePath.join(tmpdir(), 'nihongo-phase7-content-')
@@ -961,13 +957,13 @@ export const preparePhase7IsolatedDatabase = async ({
       ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...sharedEnvironment,
-        PHASE7_TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
+        TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
       },
       abortSignal
     )
     await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
 
-    const seed = phase7SeedInvocation(true)
+    const seed = adminSeedInvocation(true)
     for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
       await runCommand(
         'pnpm',
@@ -983,7 +979,7 @@ export const preparePhase7IsolatedDatabase = async ({
         ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
         {
           ...sharedEnvironment,
-          PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+          TEST_MIGRATIONS_PATH: canonicalMigrationsPath
         },
         abortSignal
       )
@@ -1011,7 +1007,7 @@ export const preparePhase7IsolatedDatabase = async ({
 }
 
 const run = async (): Promise<void> => {
-  const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
+  const { sharedEnvironment } = await prepareIsolatedDatabase()
   const apiEntries = getApiIntegrationEntriesByOwner('phase7-api')
   const [repositoryEntry, apiGateEntry, commandRepositoryEntry] = apiEntries
   if (
@@ -1026,16 +1022,16 @@ const run = async (): Promise<void> => {
     commandRepositoryEntry.shard !== 'phase7-api-post-seed' ||
     commandRepositoryEntry.seedPolicy !== 'canonical-once'
   ) {
-    throw new Error('Phase 7 API integration manifest is incomplete.')
+    throw new Error('API integration manifest is incomplete.')
   }
   await runApiIntegrationManifestVitestFile({
     runCommand,
     testFile: repositoryEntry.path,
     environment: sharedEnvironment
   })
-  await runCommand('pnpm', phase7SeedInvocation(true).args, {
+  await runCommand('pnpm', adminSeedInvocation(true).args, {
     ...sharedEnvironment,
-    ...phase7SeedInvocation(true).environment
+    ...adminSeedInvocation(true).environment
   })
   // Batch7 installs current only from the unchanged canonical65 bootstrap.
   // Historical prepare(seedRuns:0) callers keep their prefix37 profile.
@@ -1044,7 +1040,7 @@ const run = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...sharedEnvironment,
-      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+      TEST_MIGRATIONS_PATH: nodePath.join(
         repositoryRoot,
         'apps/api/prisma/migrations'
       )
@@ -1063,7 +1059,7 @@ const run = async (): Promise<void> => {
 }
 
 const runSsoAccountLifecycle = async (): Promise<void> => {
-  const harness = await preparePhase7IsolatedDatabase({
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 1,
     issuerActivationOwner: 'fixture'
   })
@@ -1072,7 +1068,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...harness.sharedEnvironment,
-      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+      TEST_MIGRATIONS_PATH: nodePath.join(
         repositoryRoot,
         'apps/api/prisma/migrations'
       )
@@ -1145,9 +1141,9 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
 }
 
 const readSsoBrowserLoopbackInputs = (source: NodeJS.ProcessEnv) => {
-  const host = source.PHASE7_SSO_BROWSER_API_HOST
-  const portText = source.PHASE7_SSO_BROWSER_API_PORT
-  const webOrigin = source.PHASE7_SSO_BROWSER_WEB_ORIGIN
+  const host = source.SSO_BROWSER_API_HOST
+  const portText = source.SSO_BROWSER_API_PORT
+  const webOrigin = source.SSO_BROWSER_WEB_ORIGIN
   if (
     host !== '127.0.0.1' ||
     !portText ||
@@ -1188,7 +1184,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     { createServer },
     { getRequestListener },
     { parseApiEnvironment },
-    { createPhase7SsoBrowserApiFixture }
+    { createSsoBrowserApiTestFixture }
   ] = await Promise.all([
     import('node:http'),
     import('@hono/node-server'),
@@ -1199,7 +1195,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   const shutdownReason = new Error('SSO browser shutdown requested.')
   let server: import('node:http').Server | undefined
   let fixture:
-    | Awaited<ReturnType<typeof createPhase7SsoBrowserApiFixture>>
+    | Awaited<ReturnType<typeof createSsoBrowserApiTestFixture>>
     | undefined
   let stop: (() => void) | undefined
   let firstFailure: unknown
@@ -1247,7 +1243,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       }
       if (ownedSessionExpiryArmed && !ownedSessionExpiryReconciled) onFailure()
       try {
-        await cleanupPhase7IsolatedDatabase()
+        await cleanupIsolatedDatabase()
       } catch (error: unknown) {
         record(error)
       }
@@ -1261,13 +1257,13 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   try {
     const artifactsPrepared =
       process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
-    const harness = await preparePhase7IsolatedDatabase({
+    const harness = await prepareIsolatedDatabase({
       seedRuns: 0,
       abortSignal: controller.signal,
       artifactsPrepared
     })
     // The full migration chain requires the canonical prefix content bootstrap.
-    const seed = phase7SeedInvocation(true)
+    const seed = adminSeedInvocation(true)
     await runCommand(
       'pnpm',
       seed.args,
@@ -1279,7 +1275,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...harness.sharedEnvironment,
-        PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+        TEST_MIGRATIONS_PATH: nodePath.join(
           repositoryRoot,
           'apps/api/prisma/migrations'
         )
@@ -1297,12 +1293,12 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
       TRUSTED_ORIGINS: webOrigin,
       BETTER_AUTH_URL: apiOrigin,
-      BETTER_AUTH_SECRET: 'phase7-sso-browser-auth-test-only-secret-v1',
-      GUEST_COOKIE_SECRET: 'phase7-sso-browser-guest-test-only-secret-v1',
+      BETTER_AUTH_SECRET: 'a'.repeat(32),
+      GUEST_COOKIE_SECRET: 'b'.repeat(32),
       LOG_LEVEL: 'silent'
     })
     controller.signal.throwIfAborted()
-    fixture = await createPhase7SsoBrowserApiFixture({
+    fixture = await createSsoBrowserApiTestFixture({
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,

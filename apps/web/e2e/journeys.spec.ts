@@ -45,9 +45,9 @@ import {
   waitForLedgerToQuiesce
 } from './request-ledger'
 
-const mode = process.env.PHASE10_BROWSER_MODE
+const mode = process.env.JOURNEY_BROWSER_MODE
 if (mode !== 'real' && mode !== 'mock') {
-  throw new Error('PHASE10_BROWSER_MODE must be real or mock.')
+  throw new Error('JOURNEY_BROWSER_MODE must be real or mock.')
 }
 
 const browserJson = async (page: Page, path: string, body?: unknown) =>
@@ -82,7 +82,7 @@ for (const locale of ['ko', 'ja'] as const) {
     )
     await page.addInitScript((locale) => {
       localStorage.setItem(
-        'jlpt-drill-note:ui-locale:v1',
+        'harumaru:ui-locale:v1',
         JSON.stringify({ version: 1, locale })
       )
     }, locale)
@@ -128,7 +128,7 @@ for (const locale of ['ko', 'ja'] as const) {
         if (!state) throw new Error('Google TEST authorization omitted state.')
         const callback = `/api/auth/callback/google?${new URLSearchParams({
           state,
-          code: 'phase7-sso-browser-test-code'
+          code: 'sso-browser-test-code'
         })}`
         const accepted = await page.evaluate(async (path) => {
           try {
@@ -200,7 +200,7 @@ for (const locale of ['ko', 'ja'] as const) {
       await assertAndAttachLedger(
         ledger,
         testInfo,
-        `phase10-${mode}-${locale}-handoff`
+        `journey-${mode}-${locale}-handoff`
       )
     } finally {
       if (mode === 'mock') {
@@ -271,6 +271,7 @@ const userJourneyRequestContract = [
   { method: 'GET', path: '/api/v1/study-sessions/:id/result', statuses: [200] },
   { method: 'GET', path: '/api/v1/review-queue', statuses: [200, 200] },
   { method: 'GET', path: '/api/v1/wrong-notes/:id', statuses: [200, 200] },
+  { method: 'GET', path: '/api/v1/wrong-notes/:id/memo', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/wrong-notes/:id/review-events',
@@ -498,7 +499,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         const state = new URL(redirected.url()).searchParams.get('state')
         if (!state) throw new Error('Google TEST authorization omitted state.')
         await page.goto(
-          `/api/auth/callback/google?${new URLSearchParams({ state, code: 'phase7-sso-browser-test-code' })}`
+          `/api/auth/callback/google?${new URLSearchParams({ state, code: 'sso-browser-test-code' })}`
         )
       }
     }
@@ -608,7 +609,7 @@ const armDashboardFault = async (
         contentType: 'application/json',
         headers: {
           'Cache-Control': 'private, no-store',
-          'X-Phase10-Test-Fault': 'dashboard-insights-malformed'
+          'X-Nihongo-Test-Fault': 'dashboard-insights-malformed'
         },
         status: 200
       })
@@ -618,7 +619,7 @@ const armDashboardFault = async (
     await route.fulfill({
       body: JSON.stringify({
         code: 'RATE_LIMITED',
-        message: 'Phase 10 browser rate-limit fault injection',
+        message: 'Browser rate-limit fault injection',
         requestId,
         retryable: true
       }),
@@ -626,7 +627,7 @@ const armDashboardFault = async (
       headers: {
         'Cache-Control': 'private, no-store',
         'Retry-After': '0',
-        'X-Phase10-Test-Fault': 'dashboard-insights-429',
+        'X-Nihongo-Test-Fault': 'dashboard-insights-429',
         'X-Request-Id': requestId
       },
       status: 429
@@ -863,7 +864,7 @@ const assertFaultRecovery = async (
 
   const recovered = waitForApiResponse(page, 'GET', path).then(
     async (response) => {
-      expect(response.headers()['x-phase10-test-fault']).toBeUndefined()
+      expect(response.headers()['x-nihongo-test-fault']).toBeUndefined()
       getDashboardInsightsResponseSchema.parse(
         await readCanonicalResponse(response)
       )
@@ -1089,7 +1090,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await assertAndAttachLedger(
     ledger,
     testInfo,
-    `phase10-guest-auth-${mode}-request-ledger`
+    `guest-auth-${mode}-request-ledger`
   )
   assertExactRequestMultiset(ledger, [
     ...ssoRequestContract,
@@ -1428,7 +1429,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await assertAndAttachLedger(
     ledger,
     testInfo,
-    `phase10-user-journey-${mode}-request-ledger`
+    `user-journey-${mode}-request-ledger`
   )
   assertExactRequestMultiset(ledger, userJourneyRequestContract)
 })
@@ -1473,7 +1474,7 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   await assertAndAttachLedger(
     ledger,
     testInfo,
-    `phase10-resilience-${mode}-request-ledger`
+    `resilience-${mode}-request-ledger`
   )
   assertExactRequestMultiset(ledger, resilienceRequestContract)
 })

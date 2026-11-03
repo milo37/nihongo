@@ -5,7 +5,7 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import {
-  assertSafePhase7MigrationDatabase,
+  assertSafeMigrationDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
 
@@ -24,7 +24,7 @@ export const createStudyV1RetirementClient = (
     databaseUrl: input.runtimeDatabaseUrl,
     productionDatabaseUrl: input.productionDatabaseUrl
   })
-  assertSafePhase7MigrationDatabase(input)
+  assertSafeMigrationDatabase(input)
   if (!input.migrationDatabaseUrl)
     throw new Error('Retirement migration URL is required.')
   const schema = getPostgresSchema(input.migrationDatabaseUrl)

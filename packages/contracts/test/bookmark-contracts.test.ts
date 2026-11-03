@@ -37,7 +37,7 @@ const bookmark = {
   createdAt: '2026-08-17T01:00:00.000Z'
 }
 
-describe('Phase 4 Bookmark contracts', () => {
+describe('Bookmark contracts', () => {
   it('safe public summary와 archived preservation을 허용한다', () => {
     expect(bookmarkSummarySchema.parse(bookmark)).toEqual(bookmark)
     expect(

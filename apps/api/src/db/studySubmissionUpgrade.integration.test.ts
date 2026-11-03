@@ -60,12 +60,12 @@ const phase4Slice1Migrations = [
   '20260817130000_phase4_practice_idempotency_operations',
   '20260817131000_phase4_study_draft_core'
 ] as const
-const phase4Slice3Migrations = [
+const slice3Migrations = [
   '20260818130000_phase4_study_selection_modes'
 ] as const
 const phase4Slice4Migrations = ['20260821130000_phase4_bookmarks'] as const
 const phase4Slice5Migrations = ['20260821150000_phase4_result_retry'] as const
-const phase5Slice1Migrations = [
+const slice1Migrations = [
   '20260821151000_phase5_targeted_review_operation',
   '20260821152000_phase5_review_center_foundation'
 ] as const
@@ -115,20 +115,17 @@ const migrationNames = [
   ...slice4Migrations,
   ...slice5Migrations,
   ...phase4Slice1Migrations,
-  ...phase4Slice3Migrations,
+  ...slice3Migrations,
   ...phase4Slice4Migrations,
   ...phase4Slice5Migrations
 ].toSorted()
-const phase5MigrationNames = [
-  ...migrationNames,
-  ...phase5Slice1Migrations
-].toSorted()
+const phase5MigrationNames = [...migrationNames, ...slice1Migrations].toSorted()
 const historical31Names = [
   ...phase5MigrationNames,
   ...phase7Slice1Migrations
 ].toSorted()
 const currentManifest = loadExpectedMigrationManifest(sourceMigrationsDirectory)
-const phase4ExpectedMigrationManifest = currentManifest.filter(({ name }) =>
+const expectedMigrationManifest = currentManifest.filter(({ name }) =>
   migrationNames.includes(name)
 )
 const phase5ExpectedMigrationManifest = currentManifest.filter(({ name }) =>
@@ -165,7 +162,7 @@ const createHistorical31Runtime = async (
 }
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]?.trim()
   if (!value) {
@@ -177,7 +174,7 @@ const environment = isCurrentSourceIntegration
   ? undefined
   : parseApiEnvironment(process.env)
 const fixtureDatabaseUrl = isCurrentSourceIntegration
-  ? requireEnvironmentValue('PHASE10_FIXTURE_DATABASE_URL')
+  ? requireEnvironmentValue('API_INTEGRATION_FIXTURE_DATABASE_URL')
   : environment!.DATABASE_URL
 assertSafeTestDatabase({
   nodeEnvironment: process.env.NODE_ENV,
@@ -217,7 +214,7 @@ const createIsolatedMigrationSchema =
     const adminDatabaseUrl = withSchema(fixtureDatabaseUrl, schemaName)
     const applicationDatabaseUrl = withSchema(
       isCurrentSourceIntegration
-        ? requireEnvironmentValue('PHASE10_APPLICATION_DATABASE_URL')
+        ? requireEnvironmentValue('API_INTEGRATION_APPLICATION_DATABASE_URL')
         : environment!.DATABASE_URL,
       schemaName
     )
@@ -526,7 +523,7 @@ const seedPreAdminCatalog = async (client: Client): Promise<void> => {
   ])
 }
 
-const registerPhase7CapabilityAndActivate = async (
+const registerDatabaseCapabilityAndActivate = async (
   context: IsolatedMigrationSchema
 ): Promise<void> => {
   const migrationClient = new Client({ connectionString: context.databaseUrl })
@@ -546,7 +543,7 @@ const registerPhase7CapabilityAndActivate = async (
     )
     const target = endpoint.rows[0]
     if (!target) {
-      throw new Error('Phase 7 upgrade endpoint identity is unavailable.')
+      throw new Error('Upgrade endpoint identity is unavailable.')
     }
     await migrationClient.query(
       `SELECT "phase7_register_database_capability"(
@@ -594,14 +591,12 @@ const insertCredentialUser = async (
   )
 }
 
-const deployThroughPhase4Slice1 = async (
+const deployThroughSlice1 = async (
   context: IsolatedMigrationSchema
 ): Promise<void> => {
   for (const migrationName of migrationNames.filter(
     (name) =>
-      !phase4Slice3Migrations.includes(
-        name as (typeof phase4Slice3Migrations)[number]
-      ) &&
+      !slice3Migrations.includes(name as (typeof slice3Migrations)[number]) &&
       !phase4Slice4Migrations.includes(
         name as (typeof phase4Slice4Migrations)[number]
       ) &&
@@ -618,7 +613,7 @@ const deployThroughPhase4Slice1 = async (
   )
 }
 
-const deployThroughPhase4Slice4 = async (
+const deployThroughSlice4 = async (
   context: IsolatedMigrationSchema
 ): Promise<void> => {
   for (const migrationName of migrationNames.filter(
@@ -830,7 +825,7 @@ const createLegacySubmissionFixture = async (
   return { noteId, questionId, sessionId, versionId }
 }
 
-describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
+describe('Submission through Phase 4 Slice 5 migration upgrade', () => {
   it('깨끗한 15 migration schema를 16~25번째 schema로 forward deploy한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
@@ -877,7 +872,7 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(22)
 
-      copyMigration(phase4Slice3Migrations[0], context.migrationsPath)
+      copyMigration(slice3Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(23)
 
@@ -891,7 +886,7 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
 
       const ledger = await readLedger(context)
       expect(() =>
-        assertMigrationCompatibility(phase4ExpectedMigrationManifest, ledger)
+        assertMigrationCompatibility(expectedMigrationManifest, ledger)
       ).not.toThrow()
 
       const catalog = await context.adminClient.query<{
@@ -1051,8 +1046,8 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
           !phase4Slice1Migrations.includes(
             name as (typeof phase4Slice1Migrations)[number]
           ) &&
-          !phase4Slice3Migrations.includes(
-            name as (typeof phase4Slice3Migrations)[number]
+          !slice3Migrations.includes(
+            name as (typeof slice3Migrations)[number]
           ) &&
           !phase4Slice4Migrations.includes(
             name as (typeof phase4Slice4Migrations)[number]
@@ -1172,7 +1167,7 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
   }, 40_000)
 })
 
-describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
+describe('Review-center foundation upgrade', () => {
   it('비활성 committed-state trigger를 enum migration 전에 fail-closed한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
@@ -1191,11 +1186,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
          DISABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
       )
       const enumSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase5Slice1Migrations[0],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice1Migrations[0], 'migration.sql'),
         'utf8'
       )
       await expect(context.adminClient.query(enumSql)).rejects.toMatchObject({
@@ -1225,7 +1216,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
         `ALTER TABLE "IdempotencyRecord"
          ENABLE TRIGGER "IdempotencyRecord_validate_committed_state"`
       )
-      copyMigration(phase5Slice1Migrations[0], context.migrationsPath)
+      copyMigration(slice1Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(26)
     } finally {
@@ -1258,11 +1249,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       )
 
       const enumSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase5Slice1Migrations[0],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice1Migrations[0], 'migration.sql'),
         'utf8'
       )
       await expect(context.adminClient.query(enumSql)).rejects.toMatchObject({
@@ -1316,11 +1303,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       )
 
       const enumSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase5Slice1Migrations[0],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice1Migrations[0], 'migration.sql'),
         'utf8'
       )
       await expect(context.adminClient.query(enumSql)).rejects.toMatchObject({
@@ -1372,7 +1355,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
         startedAt
       })
 
-      copyMigration(phase5Slice1Migrations[0], context.migrationsPath)
+      copyMigration(slice1Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(26)
       await context.adminClient.query(
@@ -1389,11 +1372,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       )
 
       const foundationSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase5Slice1Migrations[1],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice1Migrations[1], 'migration.sql'),
         'utf8'
       )
       await expect(
@@ -1434,7 +1413,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       await context.adminClient.query(
         `ALTER TABLE "ReviewSchedule" ENABLE TRIGGER USER`
       )
-      copyMigration(phase5Slice1Migrations[1], context.migrationsPath)
+      copyMigration(slice1Migrations[1], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(27)
       expect(
@@ -1467,7 +1446,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
         `SET search_path TO ${context.quotedSchemaName}`
       )
 
-      copyMigration(phase5Slice1Migrations[0], context.migrationsPath)
+      copyMigration(slice1Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(26)
 
@@ -1494,7 +1473,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
         `INSERT INTO "User" (
           "id", "name", "email", "emailVerified", "role",
           "accountStatus", "createdAt", "updatedAt"
-        ) VALUES ($1, 'Phase 5 reserved row user', $2, true, 'USER',
+        ) VALUES ($1, 'Reserved row user', $2, true, 'USER',
           'ACTIVE', $3, $3)`,
         [userId, `phase5-reserved-${randomUUID()}@example.test`, now]
       )
@@ -1538,11 +1517,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       )
 
       const foundationSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase5Slice1Migrations[1],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice1Migrations[1], 'migration.sql'),
         'utf8'
       )
       await expect(
@@ -1574,7 +1549,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
       await context.adminClient.query('DELETE FROM "User" WHERE "id" = $1', [
         userId
       ])
-      copyMigration(phase5Slice1Migrations[1], context.migrationsPath)
+      copyMigration(slice1Migrations[1], context.migrationsPath)
       await deploy(context)
 
       const ledger = await readLedger(context)
@@ -1701,7 +1676,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
   }, 50_000)
 })
 
-describe('Phase 4 Slice 1 migration upgrade', () => {
+describe('Migration upgrade', () => {
   it('populated v1 rows를 version 1/no-draft로 보존하고 omitted-column default를 고정한다', async () => {
     const context = await createIsolatedMigrationSchema()
     const userId = randomUUID()
@@ -1726,7 +1701,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         `INSERT INTO "User" (
           "id", "name", "email", "emailVerified", "role",
           "accountStatus", "createdAt", "updatedAt"
-        ) VALUES ($1, 'Phase 4 legacy user', $2, true, 'USER',
+        ) VALUES ($1, 'Legacy user', $2, true, 'USER',
           'ACTIVE', $3, $3)`,
         [userId, `phase4-legacy-${randomUUID()}@example.test`, startedAt]
       )
@@ -1823,7 +1798,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         { columnName: 'practiceContractVersion', columnDefault: '1' }
       ])
 
-      copyMigration(phase4Slice3Migrations[0], context.migrationsPath)
+      copyMigration(slice3Migrations[0], context.migrationsPath)
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(23)
 
@@ -1882,30 +1857,24 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         throw error
       }
 
-      for (const migrationName of phase5Slice1Migrations) {
+      for (const migrationName of slice1Migrations) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
       const phase5Ledger = await readLedger(context)
       expect(phase5Ledger).toHaveLength(27)
       expect(() =>
-        assertMigrationCompatibility(
-          phase4ExpectedMigrationManifest,
-          phase5Ledger
-        )
+        assertMigrationCompatibility(expectedMigrationManifest, phase5Ledger)
       ).toThrow('Database migration count does not match the repository.')
 
       for (const migrationName of phase7Slice1Migrations) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
-      const currentRuntimeWithPhase4Path =
-        await createHistorical31Runtime(context)
+      const currentRuntimeWithPath = await createHistorical31Runtime(context)
       try {
         const currentSubmissionService = createStudySubmissionService(
-          createPrismaStudySubmissionRepository(
-            currentRuntimeWithPhase4Path.client
-          ),
+          createPrismaStudySubmissionRepository(currentRuntimeWithPath.client),
           () => new Date(oldBinaryStartedAt.getTime() + 1_000)
         )
         const oldBinaryBody = {
@@ -1937,7 +1906,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
           )
         ).rejects.toMatchObject({ code: 'PRACTICE_CONTRACT_VERSION_MISMATCH' })
       } finally {
-        await currentRuntimeWithPhase4Path.disconnect()
+        await currentRuntimeWithPath.disconnect()
       }
       expect(
         (
@@ -2266,14 +2235,14 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
   }, 40_000)
 })
 
-describe('Phase 4 Slice 3 migration preflight', () => {
+describe('Migration preflight', () => {
   it('dirty current review pointer를 발견하면 migration 전체를 rollback한다', async () => {
     const context = await createIsolatedMigrationSchema()
     const startedAt = new Date('2026-08-18T00:59:50.000Z')
     const occurredAt = new Date('2026-08-18T01:00:00.000Z')
 
     try {
-      await deployThroughPhase4Slice1(context)
+      await deployThroughSlice1(context)
       const fixture = await createLegacySubmissionFixture(context, {
         mode: 'RANDOM',
         occurredAt,
@@ -2297,11 +2266,7 @@ describe('Phase 4 Slice 3 migration preflight', () => {
       )
 
       const migrationSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase4Slice3Migrations[0],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice3Migrations[0], 'migration.sql'),
         'utf8'
       )
       await expect(
@@ -2365,7 +2330,7 @@ describe('Phase 4 Slice 3 migration preflight', () => {
     const occurredAt = new Date('2026-08-18T02:00:10.000Z')
 
     try {
-      await deployThroughPhase4Slice1(context)
+      await deployThroughSlice1(context)
       const fixture = await createLegacySubmissionFixture(context, {
         mode: 'DAILY_REVIEW',
         occurredAt,
@@ -2374,11 +2339,7 @@ describe('Phase 4 Slice 3 migration preflight', () => {
       })
 
       const migrationSql = readFileSync(
-        join(
-          sourceMigrationsDirectory,
-          phase4Slice3Migrations[0],
-          'migration.sql'
-        ),
+        join(sourceMigrationsDirectory, slice3Migrations[0], 'migration.sql'),
         'utf8'
       )
       await expect(
@@ -2425,7 +2386,7 @@ describe('Phase 4 Slice 3 migration preflight', () => {
   }, 40_000)
 })
 
-describe('Phase 4 Slice 5 result retry migration', () => {
+describe('Result retry migration', () => {
   it('reserved row preflight를 원자 rollback하고 clean deploy catalog를 고정한다', async () => {
     const context = await createIsolatedMigrationSchema()
     const now = new Date('2026-08-21T08:00:00.000Z')
@@ -2434,7 +2395,7 @@ describe('Phase 4 Slice 5 result retry migration', () => {
     const retryRecordId = randomUUID()
 
     try {
-      await deployThroughPhase4Slice4(context)
+      await deployThroughSlice4(context)
       await context.adminClient.query(
         `INSERT INTO "User" (
           "id", "name", "email", "emailVerified", "role",
@@ -2943,7 +2904,7 @@ describe('Phase 4 Slice 5 result retry migration', () => {
   }, 40_000)
 })
 
-describe('Phase 4 Slice 3 historical review pins', () => {
+describe('Historical review pins', () => {
   it('v2 session A와 B를 역순 제출해도 historical event pin과 v2 pointer를 보존한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
@@ -2967,7 +2928,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
           `SELECT COUNT(*)::int AS count FROM "TagApplicability"`
         )
       ).toMatchObject({ rows: [{ count: 127 }] })
-      await registerPhase7CapabilityAndActivate(context)
+      await registerDatabaseCapabilityAndActivate(context)
 
       const historicalSeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>
@@ -3034,7 +2995,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
           rawSessionToken
         )
         if (rows.length !== 1) {
-          throw new Error('Phase 10 upgrade admin session was not issued.')
+          throw new Error('Upgrade admin session was not issued.')
         }
       }
       await issueAdminSession(authorId, authorToken)
@@ -3419,8 +3380,8 @@ describe('Slice 5 migration upgrade', () => {
           !phase4Slice1Migrations.includes(
             name as (typeof phase4Slice1Migrations)[number]
           ) &&
-          !phase4Slice3Migrations.includes(
-            name as (typeof phase4Slice3Migrations)[number]
+          !slice3Migrations.includes(
+            name as (typeof slice3Migrations)[number]
           ) &&
           !phase4Slice4Migrations.includes(
             name as (typeof phase4Slice4Migrations)[number]

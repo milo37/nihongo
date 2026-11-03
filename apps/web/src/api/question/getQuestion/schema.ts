@@ -1,4 +1,4 @@
-import { practiceQuestionSchema } from '@nihongo/browser/api/schema'
+import { practiceQuestionSchema } from '@nihongo/contracts/legacy/browser-schema'
 import { z } from 'zod'
 
 export const getQuestionRequestSchema = z

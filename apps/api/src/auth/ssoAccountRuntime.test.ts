@@ -228,7 +228,7 @@ const fixture = () => {
   })
   const gateway = createAuthGateway({
     environment,
-    phase7Facade: { handle: async () => Response.json({ success: true }) },
+    ownedAuthFacade: { handle: async () => Response.json({ success: true }) },
     technicalRateLimiter: { consume: vi.fn(async () => undefined) },
     ssoRuntime: social,
     ssoAccountRuntime: runtime

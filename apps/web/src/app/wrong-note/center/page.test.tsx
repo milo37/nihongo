@@ -180,6 +180,15 @@ describe('approved integrated review', () => {
       expect(screen.getByRole('link', { name: /해설 보기/u })).toHaveFocus()
     )
   })
+  it('marks a queue row that has a memo with a text badge', async () => {
+    serve()
+    mount()
+    const row = (
+      await screen.findByRole('link', { name: /해설 보기/u })
+    ).closest('li')
+    if (!row) throw new Error('Queue row required')
+    expect(within(row).getByText('메모')).toBeInTheDocument()
+  })
   it('falls back to result count when the originating row leaves the view', async () => {
     serve()
     mount('/wrong-notes', { reviewFocus: 'absent-question' })

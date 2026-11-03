@@ -26,11 +26,11 @@ import { toStableSeedUuid } from '../../prisma/seed-data/id.js'
 import {
   approvedReadingBatch2,
   createApprovedReadingBatch2Import
-} from './approvedReadingBatch2.js'
+} from '../content-fixtures/approvedReadingBatch2.js'
 import {
   approvedReadingBatch4,
   createApprovedReadingBatch4Import
-} from './approvedReadingBatch4.js'
+} from '../content-fixtures/approvedReadingBatch4.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -68,10 +68,10 @@ if (
 }
 const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
 if (!legacyDatabaseUrl)
-  throw new Error('Phase 7 legacy compatibility database URL is required.')
+  throw new Error('Legacy compatibility database URL is required.')
 const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
 if (!migrationDatabaseUrl)
-  throw new Error('Phase 7 migration wrapper database URL is required.')
+  throw new Error('Migration wrapper database URL is required.')
 const {
   copyMigration,
   createIsolatedUpgradeSchema,
@@ -459,19 +459,19 @@ const approvedItems = [
 ]
 const sourceFiles = [
   [
-    'approvedReadingBatch2.ts',
+    '../content-fixtures/approvedReadingBatch2.ts',
     '5125f9718e9e98d752ea52f9b110d69d2681c96bf5e9611898a587a9b4adbb2f'
   ],
   [
-    'approvedReadingBatch4.ts',
+    '../content-fixtures/approvedReadingBatch4.ts',
     '6547f7a5a9adb61d4a194d17e27403c00ff849776c39e6fcdbfef07a2bc00871'
   ],
   [
-    'approvedReadingBatch2.test.ts',
+    '../content-fixtures/approvedReadingBatch2.test.ts',
     '89886531ea3f3911b55085cc71c334442361a2db3ebbf5956e8d5ed083fc38fc'
   ],
   [
-    'approvedReadingBatch4.test.ts',
+    '../content-fixtures/approvedReadingBatch4.test.ts',
     'd3ec444d0758ee11dded4760a430513a83b89b8c0776b77a8c267b789e5d5c92'
   ]
 ] as const

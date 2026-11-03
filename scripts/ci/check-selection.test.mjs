@@ -19,6 +19,7 @@ import { prepareBrowserArtifacts } from '../../apps/api/src/e2e/browserArtifactP
 import { runBrowserSuites } from '../runBrowser.ts'
 
 import {
+  apiIntegrationShardGroups,
   classifyChangedFiles,
   qualityCommands,
   readSelection,
@@ -81,6 +82,21 @@ test('base edits still classify changed files', () => {
   })
   assert.equal(selection.mode, 'pull_request')
   assert.equal(selection.web, true)
+})
+
+test('agent tooling and PR templates select no checks', () => {
+  const selection = classifyChangedFiles([
+    '.claude/agents/devops-engineer.md',
+    '.claude/hooks/check-gh-format.mjs',
+    '.claude/settings.json',
+    '.claude/skills/graph',
+    '.github/pull_request_template.md',
+    '.github/ISSUE_TEMPLATE/1-task.yml'
+  ])
+  assert.equal(selection.code, false)
+  assert.equal(selection.browser, false)
+  assert.equal(selection.portable, false)
+  assert.equal(classifyChangedFiles(['.github/workflows/ci.yml']).code, true)
 })
 
 test('unclassified and unsafe paths fail closed', () => {
@@ -212,37 +228,83 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   const workflow = ciWorkflow()
   const plan = workflowJob(workflow, 'plan')
   const build = workflowJob(workflow, 'build')
+  const unit = workflowJob(workflow, 'unit')
+  const integration = workflowJob(workflow, 'integration')
   const regression = workflowJob(workflow, 'regression')
-  const gate = workflowJob(workflow, 'e2e')
-  const portable = workflowJob(workflow, 'phase11_release')
+  const gate = workflowJob(workflow, 'acceptance')
+  const portableRun = workflowJob(workflow, 'portable')
+  const portable = workflowJob(workflow, 'release_smoke')
   assert.equal(
     workflow.split('run: node scripts/ci/check-selection.mjs plan').length - 1,
     1
   )
   assert.match(plan, /fetch-depth: 0/u)
   assert.doesNotMatch(plan, /pnpm install|cache:|services:|needs:/u)
-  for (const job of [build, regression]) {
+  for (const job of [build, unit, integration, regression, portableRun]) {
     assert.match(job, /^ {4}needs: plan$/mu)
-    assert.match(
-      job,
-      /CI_SELECTION: \$\{\{ needs\.plan\.outputs\.selection \}\}/u
-    )
     assert.match(job, /uses: actions\/checkout@v4/u)
     assert.match(job, /ref: \$\{\{ github\.sha \}\}/u)
     assert.match(job, /persist-credentials: false/u)
     assert.match(job, /run: pnpm install --frozen-lockfile/u)
     assert.doesNotMatch(job, /needs\.build|continue-on-error/u)
   }
+  for (const job of [build, unit, integration, regression]) {
+    assert.match(
+      job,
+      /CI_SELECTION: \$\{\{ needs\.plan\.outputs\.selection \}\}/u
+    )
+  }
+  for (const job of [build, unit, regression]) {
+    assert.match(job, /fetch-depth: 0/u)
+  }
+  for (const job of [integration, portableRun]) {
+    assert.doesNotMatch(job, /fetch-depth/u)
+  }
   assert.match(build, /if: \$\{\{ always\(\)/u)
   assert.match(build, /run: test "\$PLAN_RESULT" = success/u)
-  assert.doesNotMatch(build + plan + gate + portable, /services:/u)
-  assert.match(regression, /postgres:18\.4-alpine@sha256:/u)
+  assert.doesNotMatch(
+    build + plan + gate + portable + portableRun,
+    /services:/u
+  )
+  for (const job of [integration, regression]) {
+    assert.match(job, /postgres:18\.4-alpine@sha256:/u)
+  }
+  assert.match(
+    integration,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.api == 'true' \}\}$/mu
+  )
+  assert.match(integration, /part: \[database, api-1, api-2, api-3\]/u)
+  assert.match(integration, /fail-fast: false/u)
+  assert.match(
+    namedWorkflowStep(integration, 'API and database integration'),
+    /run: node scripts\/ci\/check-selection\.mjs quality integration-\$\{\{ matrix\.part \}\}/u
+  )
   assert.match(
     regression,
-    /needs\.plan\.outputs\.api == 'true' \|\| needs\.plan\.outputs\.browser == 'true' \|\| needs\.plan\.outputs\.performance == 'true'/u
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.browser == 'true' \|\| needs\.plan\.outputs\.performance == 'true' \}\}$/mu
   )
-  assert.match(gate, /needs: \[plan, build, regression\]/u)
-  assert.match(portable, /needs: \[plan, build\]/u)
+  assert.match(
+    portableRun,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.portable == 'true' \}\}$/mu
+  )
+  assert.equal(workflow.split('run: pnpm run test:portable\n').length - 1, 1)
+  assert.match(gate, /needs: \[plan, build, unit, integration, regression\]/u)
+  assert.match(
+    unit,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.code == 'true' \}\}$/mu
+  )
+  assert.ok(
+    unit.indexOf('quality packages\n') < unit.indexOf('quality unit\n') &&
+      unit.includes(
+        'run: node scripts/ci/check-selection.mjs quality packages\n'
+      )
+  )
+  assert.equal(
+    unit.split('run: node scripts/ci/check-selection.mjs quality unit\n')
+      .length - 1,
+    1
+  )
+  assert.match(portable, /needs: \[plan, build, portable\]/u)
   for (const job of [gate, portable]) {
     assert.match(job, /if: \$\{\{ always\(\)/u)
     assert.match(job, /PLAN_RESULT: \$\{\{ needs\.plan\.result \}\}/u)
@@ -250,14 +312,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.match(job, /test "\$PLAN_RESULT" = success/u)
     assert.match(job, /test "\$BUILD_RESULT" = success/u)
   }
-  for (const group of [
-    'static',
-    'typecheck',
-    'unit',
-    'audit',
-    'build',
-    'bundle'
-  ]) {
+  for (const group of ['static', 'typecheck', 'audit', 'build', 'bundle']) {
     assert.equal(
       build.split(`run: node scripts/ci/check-selection.mjs quality ${group}\n`)
         .length - 1,
@@ -265,12 +320,6 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     )
   }
   for (const [name, id, flag, command] of [
-    [
-      'API and database integration',
-      'api_integration',
-      'api',
-      'node scripts/ci/check-selection.mjs quality integration'
-    ],
     [
       'Database and API performance',
       'database_performance',
@@ -340,7 +389,10 @@ test('real browser summaries are isolated, verified before upload and cleaned on
   assert.match(verify, /node scripts\/security\/security-evidence\.mjs verify/u)
   assert.match(verify, /--directory "\$PLAYWRIGHT_EVIDENCE_DIR"/u)
   assert.match(verify, /--profile playwright/u)
-  assert.match(verify, /--required phase8-real,phase9-real,phase10-real\s*$/u)
+  assert.match(
+    verify,
+    /--required admin-dashboard-real,accessibility-real,journey-real\s*$/u
+  )
   const cleanup = namedWorkflowStep(job, names[4])
   assert.ok(
     cleanup.includes(
@@ -367,8 +419,8 @@ test('real browser summaries are isolated, verified before upload and cleaned on
     writeFileSync(path.join(root, evidence, 'owned.json'), '{}')
     assert.equal(run(names[0]).status, 1, 'stale evidence must be rejected')
     for (const directory of [
-      'test-results/phase10-raw',
-      'test-results/playwright-phase9-real'
+      'test-results/playwright-raw',
+      'test-results/playwright-accessibility-real'
     ]) {
       mkdirSync(path.join(root, directory), { recursive: true })
       writeFileSync(path.join(root, directory, 'owned.txt'), 'fixture')
@@ -381,8 +433,8 @@ test('real browser summaries are isolated, verified before upload and cleaned on
     assert.equal(run(names[4]).status, 0)
     for (const directory of [
       evidence,
-      'test-results/phase10-raw',
-      'test-results/playwright-phase9-real'
+      'test-results/playwright-raw',
+      'test-results/playwright-accessibility-real'
     ]) {
       assert.equal(existsSync(path.join(root, directory)), false)
     }
@@ -427,7 +479,10 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
     )
   )
   assert.match(verify, /--directory "\$PLAYWRIGHT_MOCK_EVIDENCE_DIR"/u)
-  assert.match(verify, /--required phase8-mock,phase9-mock,phase10-mock\s*$/u)
+  assert.match(
+    verify,
+    /--required admin-dashboard-mock,accessibility-mock,journey-mock\s*$/u
+  )
   const upload = namedWorkflowStep(job, names[4])
   assert.ok(
     upload.includes(
@@ -458,7 +513,9 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
   try {
     assert.equal(run(names[1]).status, 0)
     assert.equal(run(names[1]).status, 1, 'stale evidence must be rejected')
-    mkdirSync(path.join(root, 'test-results/phase10-raw'), { recursive: true })
+    mkdirSync(path.join(root, 'test-results/playwright-raw'), {
+      recursive: true
+    })
     assert.equal(
       run(names[5], { PLAYWRIGHT_MOCK_EVIDENCE_DIR: 'unrelated' }).status,
       1
@@ -466,7 +523,10 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
     assert.equal(existsSync(path.join(root, evidence)), true)
     assert.equal(run(names[5]).status, 0)
     assert.equal(existsSync(path.join(root, evidence)), false)
-    assert.equal(existsSync(path.join(root, 'test-results/phase10-raw')), false)
+    assert.equal(
+      existsSync(path.join(root, 'test-results/playwright-raw')),
+      false
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -480,8 +540,6 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
   for (const [key, expression] of Object.entries({
     PLAN_RESULT: 'needs.plan.result',
     JOB_RESULT: 'job.status',
-    API_SELECTED: 'needs.plan.outputs.api',
-    API_OUTCOME: 'steps.api_integration.outcome',
     PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
     PERFORMANCE_OUTCOME: 'steps.database_performance.outcome',
     BROWSER_SELECTED: 'needs.plan.outputs.browser',
@@ -496,66 +554,61 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
   }))
     assert.equal(environment.get(key), `\${{ ${expression} }}`)
   const script = stepScript(job, 'Verify selected regression acceptance')
-  for (const api of [false, true])
-    for (const performance of [false, true])
-      for (const [browser, mock] of [
-        [false, false],
-        [true, false],
-        [true, true]
+  for (const performance of [false, true])
+    for (const [browser, mock] of [
+      [false, false],
+      [true, false],
+      [true, true]
+    ]) {
+      const env = {
+        PLAN_RESULT: 'success',
+        JOB_RESULT: 'success',
+        PERFORMANCE_SELECTED: String(performance),
+        PERFORMANCE_OUTCOME: performance ? 'success' : 'skipped',
+        BROWSER_SELECTED: String(browser),
+        REAL_OUTCOME: browser ? 'success' : 'skipped',
+        EVIDENCE_INITIALIZE_OUTCOME: browser ? 'success' : 'skipped',
+        EVIDENCE_OUTCOME: browser ? 'success' : 'skipped',
+        MOCK_SELECTED: String(mock),
+        MOCK_OUTCOME: mock ? 'success' : 'skipped',
+        MOCK_EVIDENCE_INITIALIZE_OUTCOME: mock ? 'success' : 'skipped',
+        MOCK_EVIDENCE_OUTCOME: mock ? 'success' : 'skipped'
+      }
+      assertGate(script, env, 0)
+      for (const key of [
+        'PLAN_RESULT',
+        'JOB_RESULT',
+        'PERFORMANCE_OUTCOME',
+        'REAL_OUTCOME',
+        'EVIDENCE_INITIALIZE_OUTCOME',
+        'EVIDENCE_OUTCOME',
+        'MOCK_OUTCOME',
+        'MOCK_EVIDENCE_INITIALIZE_OUTCOME',
+        'MOCK_EVIDENCE_OUTCOME'
       ]) {
-        const env = {
-          PLAN_RESULT: 'success',
-          JOB_RESULT: 'success',
-          API_SELECTED: String(api),
-          API_OUTCOME: api ? 'success' : 'skipped',
-          PERFORMANCE_SELECTED: String(performance),
-          PERFORMANCE_OUTCOME: performance ? 'success' : 'skipped',
-          BROWSER_SELECTED: String(browser),
-          REAL_OUTCOME: browser ? 'success' : 'skipped',
-          EVIDENCE_INITIALIZE_OUTCOME: browser ? 'success' : 'skipped',
-          EVIDENCE_OUTCOME: browser ? 'success' : 'skipped',
-          MOCK_SELECTED: String(mock),
-          MOCK_OUTCOME: mock ? 'success' : 'skipped',
-          MOCK_EVIDENCE_INITIALIZE_OUTCOME: mock ? 'success' : 'skipped',
-          MOCK_EVIDENCE_OUTCOME: mock ? 'success' : 'skipped'
-        }
-        assertGate(script, env, 0)
-        for (const key of [
-          'PLAN_RESULT',
-          'JOB_RESULT',
-          'API_OUTCOME',
-          'PERFORMANCE_OUTCOME',
-          'REAL_OUTCOME',
-          'EVIDENCE_INITIALIZE_OUTCOME',
-          'EVIDENCE_OUTCOME',
-          'MOCK_OUTCOME',
-          'MOCK_EVIDENCE_INITIALIZE_OUTCOME',
-          'MOCK_EVIDENCE_OUTCOME'
+        for (const result of [
+          'success',
+          'failure',
+          'cancelled',
+          'skipped',
+          ''
         ]) {
-          for (const result of [
-            'success',
-            'failure',
-            'cancelled',
-            'skipped',
-            ''
-          ]) {
-            if (result !== env[key])
-              assertGate(script, { ...env, [key]: result }, 1)
-          }
-        }
-        for (const key of [
-          'API_SELECTED',
-          'PERFORMANCE_SELECTED',
-          'BROWSER_SELECTED',
-          'MOCK_SELECTED'
-        ]) {
-          assertGate(script, { ...env, [key]: '' }, 1)
+          if (result !== env[key])
+            assertGate(script, { ...env, [key]: result }, 1)
         }
       }
+      for (const key of [
+        'PERFORMANCE_SELECTED',
+        'BROWSER_SELECTED',
+        'MOCK_SELECTED'
+      ]) {
+        assertGate(script, { ...env, [key]: '' }, 1)
+      }
+    }
 })
 
 test('protected aggregate accepts only successful dependencies and intentionally skipped regression', () => {
-  const job = workflowJob(ciWorkflow(), 'e2e')
+  const job = workflowJob(ciWorkflow(), 'acceptance')
   const step = namedWorkflowStep(
     job,
     'Require successful selected regression and build'
@@ -564,6 +617,9 @@ test('protected aggregate accepts only successful dependencies and intentionally
   for (const [key, expression] of Object.entries({
     PLAN_RESULT: 'needs.plan.result',
     BUILD_RESULT: 'needs.build.result',
+    UNIT_RESULT: 'needs.unit.result',
+    CODE_SELECTED: 'needs.plan.outputs.code',
+    INTEGRATION_RESULT: 'needs.integration.result',
     REGRESSION_RESULT: 'needs.regression.result',
     API_SELECTED: 'needs.plan.outputs.api',
     PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
@@ -583,13 +639,17 @@ test('protected aggregate accepts only successful dependencies and intentionally
           API_SELECTED: String(api),
           PERFORMANCE_SELECTED: String(performance),
           BROWSER_SELECTED: String(browser),
-          REGRESSION_RESULT:
-            api || performance || browser ? 'success' : 'skipped'
+          CODE_SELECTED: 'true',
+          UNIT_RESULT: 'success',
+          INTEGRATION_RESULT: api ? 'success' : 'skipped',
+          REGRESSION_RESULT: performance || browser ? 'success' : 'skipped'
         }
         assertGate(script, env, 0)
         for (const key of [
           'PLAN_RESULT',
           'BUILD_RESULT',
+          'UNIT_RESULT',
+          'INTEGRATION_RESULT',
           'REGRESSION_RESULT'
         ]) {
           for (const result of [
@@ -604,12 +664,20 @@ test('protected aggregate accepts only successful dependencies and intentionally
           }
         }
         for (const key of [
+          'CODE_SELECTED',
           'API_SELECTED',
           'PERFORMANCE_SELECTED',
           'BROWSER_SELECTED'
         ]) {
           assertGate(script, { ...env, [key]: '' }, 1)
         }
+        const docsOnly = {
+          ...env,
+          CODE_SELECTED: 'false',
+          UNIT_RESULT: 'skipped'
+        }
+        assertGate(script, docsOnly, 0)
+        assertGate(script, { ...docsOnly, UNIT_RESULT: 'success' }, 1)
       }
 })
 
@@ -651,8 +719,7 @@ test('dev pull requests keep affected checks while omitting browser execution', 
 test('dev pull requests select browser execution for the browser runtime paths', () => {
   for (const file of [
     'playwright.config.ts',
-    'scripts/security/browser-evidence-reporter.mjs',
-    'scripts/security/phase10-playwright-summary-reporter.mjs'
+    'scripts/security/browser-evidence-reporter.mjs'
   ]) {
     const selection = selectChecks({
       eventName: 'pull_request',
@@ -664,6 +731,22 @@ test('dev pull requests select browser execution for the browser runtime paths',
       ...classifyChangedFiles(['apps/web/src/main.tsx', file]),
       browser: true
     })
+  }
+})
+
+test('dev pull requests select real browser execution for the accessibility database contract', () => {
+  for (const file of [
+    'scripts/accessibility-database-contract.mjs',
+    'scripts/accessibility-database-contract.test.mjs'
+  ]) {
+    const selection = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: [file]
+    })
+    assert.equal(selection.browser, true, file)
+    assert.equal(selection.browser_mock, false, file)
   }
 })
 
@@ -781,6 +864,161 @@ test('comparison failures are errors, never successful fallback selections', () 
   )
 })
 
+test('parallel integration parts run exactly the root API regression chain', () => {
+  const selection = classifyChangedFiles(['apps/api/src/auth/session.ts'])
+  const chain = JSON.parse(
+    readFileSync(
+      path.resolve(import.meta.dirname, '../../package.json'),
+      'utf8'
+    )
+  )
+    .scripts['test:api-regression'].split(' && ')
+    .map((command) => command.replace(/^pnpm /u, '').split(' '))
+  const apiParts = Object.keys(apiIntegrationShardGroups).map((part) =>
+    qualityCommands(selection, `integration-${part}`)
+  )
+  const partition = [
+    '--filter',
+    '@nihongo/api',
+    'exec',
+    'tsx',
+    '../../scripts/ci/api-shard-partition.mjs'
+  ]
+  const shardRuns = []
+  const rest = [...qualityCommands(selection, 'integration-database')]
+  for (const commands of apiParts) {
+    assert.deepEqual(commands[0], partition)
+    for (const command of commands.slice(1)) {
+      const last = command.at(-1)
+      if (last.startsWith('--shards=')) {
+        shardRuns.push(last.slice('--shards='.length).split(','))
+        rest.push(command.slice(0, -1))
+      } else rest.push(command)
+    }
+  }
+  const sorted = (commands) =>
+    [...commands]
+      .map((command) => command.join(' '))
+      .filter((command, index, all) => all.indexOf(command) === index)
+      .sort()
+  assert.deepEqual(sorted(rest), sorted(chain))
+  assert.deepEqual(shardRuns, Object.values(apiIntegrationShardGroups))
+  assert.equal(new Set(shardRuns.flat()).size, shardRuns.flat().length)
+  assert.deepEqual(qualityCommands(selection, 'integration-database'), [
+    ['run', 'test:database']
+  ])
+  assert.throws(
+    () => qualityCommands(selection, 'integration-api'),
+    /CI_QUALITY_GROUP_INVALID/u
+  )
+})
+
+test('API shard partition script rejects drifted matrix groups', () => {
+  const root = path.resolve(import.meta.dirname, '../..')
+  const run = (source) =>
+    spawnSync(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'exec', 'tsx', '--eval', source],
+      { cwd: root, encoding: 'utf8' }
+    )
+  const check = (groups) => `
+    import { getApiIntegrationEntriesByOwner } from './src/e2e/apiIntegrationManifest.ts'
+    import { assertApiIntegrationShardPartition } from './src/e2e/apiIntegrationShardSelection.ts'
+    const all = [...new Set(getApiIntegrationEntriesByOwner('phase10').map(({ shard }) => shard))]
+    assertApiIntegrationShardPartition(all, ${JSON.stringify(groups)})
+  `
+  const groups = Object.values(apiIntegrationShardGroups)
+  assert.equal(run(check(groups)).status, 0)
+  assert.notEqual(run(check(groups.slice(1))).status, 0)
+  assert.notEqual(run(check([...groups, [groups[0][0]]])).status, 0)
+  const script = spawnSync(
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'tsx',
+      '../../scripts/ci/api-shard-partition.mjs'
+    ],
+    { cwd: root, encoding: 'utf8' }
+  )
+  assert.equal(script.status, 0, script.stderr)
+})
+
+test('release smoke gate requires the build and a selected portable smoke', () => {
+  const job = workflowJob(ciWorkflow(), 'release_smoke')
+  const name = 'Require successful build and selected portable smoke'
+  const environment = workflowStepEnvironment(namedWorkflowStep(job, name))
+  for (const [key, expression] of Object.entries({
+    PLAN_RESULT: 'needs.plan.result',
+    BUILD_RESULT: 'needs.build.result',
+    PORTABLE_RESULT: 'needs.portable.result',
+    PORTABLE_SELECTED: 'needs.plan.outputs.portable'
+  }))
+    assert.equal(environment.get(key), `\${{ ${expression} }}`)
+  const script = stepScript(job, name)
+  for (const selected of [true, false]) {
+    const env = {
+      PLAN_RESULT: 'success',
+      BUILD_RESULT: 'success',
+      PORTABLE_SELECTED: String(selected),
+      PORTABLE_RESULT: selected ? 'success' : 'skipped'
+    }
+    assertGate(script, env, 0)
+    for (const key of ['PLAN_RESULT', 'BUILD_RESULT', 'PORTABLE_RESULT']) {
+      for (const result of ['success', 'failure', 'cancelled', 'skipped', '']) {
+        if (result !== env[key])
+          assertGate(script, { ...env, [key]: result }, 1)
+      }
+    }
+    assertGate(script, { ...env, PORTABLE_SELECTED: '' }, 1)
+  }
+})
+
+test('legacy required check names stay as thin aliases of the renamed gates', () => {
+  const workflow = ciWorkflow()
+  for (const [alias, gate, legacyName, metadataLabel] of [
+    [
+      'acceptance_alias',
+      'acceptance',
+      'Phase 10 real/mock browser and regression acceptance',
+      'regression alias'
+    ],
+    [
+      'release_smoke_alias',
+      'release_smoke',
+      'Phase 11 portable release and production-mode smoke',
+      'portable alias'
+    ]
+  ]) {
+    const job = workflowJob(workflow, alias)
+    const gateJob = workflowJob(workflow, gate)
+    assert.match(
+      job,
+      new RegExp(`\\|\\| '${legacyName.replace('/', '\\/')}' \\}\\}`, 'u')
+    )
+    assert.match(
+      job,
+      new RegExp(`'Metadata edit \\/ ${metadataLabel} \\/ \\{0\\}'`, 'u')
+    )
+    assert.match(job, new RegExp(`^ {4}needs: \\[${gate}\\]$`, 'mu'))
+    assert.equal(
+      job.match(/^ {4}if: .*$/mu)?.[0],
+      gateJob.match(/^ {4}if: .*$/mu)?.[0]
+    )
+    const name =
+      alias === 'acceptance_alias'
+        ? 'Require successful acceptance gate'
+        : 'Require successful release smoke gate'
+    const environment = workflowStepEnvironment(namedWorkflowStep(job, name))
+    assert.equal(environment.get('GATE_RESULT'), `\${{ needs.${gate}.result }}`)
+    const script = stepScript(job, name)
+    assertGate(script, { GATE_RESULT: 'success' }, 0)
+    for (const result of ['failure', 'cancelled', 'skipped', ''])
+      assertGate(script, { GATE_RESULT: result }, 1)
+  }
+})
+
 test('quality groups call semantic commands without phase-number aliases', () => {
   const selection = classifyChangedFiles(['apps/api/src/auth/session.ts'])
   const commands = [
@@ -889,15 +1127,22 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.deepEqual(jobs(normal), [
     'plan',
     'build',
+    'unit',
+    'integration',
     'regression',
-    'e2e',
-    'phase11_release'
+    'acceptance',
+    'portable',
+    'release_smoke',
+    'acceptance_alias',
+    'release_smoke_alias'
   ])
-  assert.equal(steps(normal).length, 40)
+  assert.equal(steps(normal).length, 51)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
     'Quality and production build',
+    'Browser and regression acceptance',
+    'Portable release smoke',
     'Phase 10 real/mock browser and regression acceptance',
     'Phase 11 portable release and production-mode smoke'
   ]) {
@@ -909,7 +1154,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
     normal.split('toJSON(github.event.changes) == toJSON(fromJSON').length - 1,
-    8
+    12
   )
   assert.doesNotMatch(
     normal,
@@ -1075,7 +1320,7 @@ appendFileSync(
   process.env.BROWSER_STUB_LOG,
   JSON.stringify({
     args,
-    phase8: process.env.PHASE8_BROWSER_ACCEPTANCE ?? null
+    phase8: process.env.DASHBOARD_BROWSER_ACCEPTANCE ?? null
   }) + '\\n'
 )
 if (
@@ -1265,7 +1510,7 @@ const assertPlaywrightSelection = async (source, mode, suite, modeVariable) => {
     '--config',
     'playwright.config.ts',
     suite,
-    ...(modeVariable === 'PHASE9_BROWSER_MODE' && mode === 'mock'
+    ...(modeVariable === 'ACCESSIBILITY_BROWSER_MODE' && mode === 'mock'
       ? [
           '--grep',
           'guest routes pass KO/JA axe|learner routes pass KO/JA axe|color normalization regression'
@@ -1303,7 +1548,7 @@ test('accessibility mock starts only a local mock web server', async () => {
     normalized
       .filter(({ type }) => type === 'server')
       .map(({ label }) => label),
-    ['phase9-mock-web']
+    ['accessibility-mock-web']
   )
   assert.equal(
     normalized.find(({ type }) => type === 'server').environment
@@ -1328,14 +1573,14 @@ test('accessibility mock starts only a local mock web server', async () => {
       type === 'command' && args?.includes('apps/web/e2e/journeys.spec.ts')
   )
   assert.ok(faultRun)
-  assert.equal(faultRun.environment.PHASE10_BROWSER_MODE, 'mock')
+  assert.equal(faultRun.environment.JOURNEY_BROWSER_MODE, 'mock')
   assert.equal(faultRun.args.includes('--grep'), false)
   const dashboardRun = normalized.find(
     ({ type, args }) =>
       type === 'command' && args?.includes('apps/web/e2e/dashboard.spec.ts')
   )
   assert.ok(dashboardRun)
-  assert.equal(dashboardRun.environment.PHASE8_BROWSER_MODE, 'mock')
+  assert.equal(dashboardRun.environment.DASHBOARD_BROWSER_MODE, 'mock')
   assert.equal(dashboardRun.args.includes('--grep'), false)
 })
 
@@ -1350,7 +1595,7 @@ test('API integration uses shared job preparation and seed avoids regeneration',
     'utf8'
   )
   const invoke = runInNewContext(
-    `(async (abortSignal, environment, prepared, run, prepareBrowserArtifacts) => {${extractArrowBody(api, 'export const preparePhase7IntegrationArtifacts = async (')}})`,
+    `(async (abortSignal, environment, prepared, run, prepareBrowserArtifacts) => {${extractArrowBody(api, 'export const prepareIntegrationArtifacts = async (')}})`,
     { repositoryRoot: root }
   )
   const calls = []
@@ -1369,18 +1614,18 @@ test('API integration uses shared job preparation and seed avoids regeneration',
   )
 })
 
-const assertPhase7PlaywrightSelection = async (source, mode) => {
+const assertAdminPlaywrightSelection = async (source, mode) => {
   const selectSpecs = runInNewContext(
     `(browserMode, phase8) => {${extractArrowBody(
       source,
-      'export const selectPhase7BrowserSpecs = ('
+      'export const selectBrowserSpecs = ('
     )}}`
   )
   const invoke = runInNewContext(
     `(async (
       runCommand,
-      selectPhase7BrowserSpecs,
-      createPhase7BrowserPlaywrightEnvironment,
+      selectBrowserSpecs,
+      createBrowserPlaywrightEnvironment,
       browserMode,
       webOrigin,
       extraEnvironment,
@@ -1741,28 +1986,32 @@ const assertExecutableCall = (source, declaration, call) => {
   )
 }
 
-const assertBrowserRunnerCallGraph = ({ phase7, phase9, phase10 }) => {
+const assertBrowserRunnerCallGraph = ({ admin, accessibility, journey }) => {
   for (const [declaration, call] of [
     ['export const runMock = async (', "await runPlaywright('mock',"],
     ['export const runReal = async (', "await runPlaywright('real',"],
     ['const run = async (', 'await runMock()'],
     ['const run = async (', 'await runReal()']
   ]) {
-    assertExecutableCall(phase7, declaration, call)
+    assertExecutableCall(admin, declaration, call)
   }
   assertExecutableCall(
-    phase9,
+    accessibility,
     'const runBrowser = async (',
     'await runPlaywright('
   )
-  assertExecutableCall(phase9, 'const run = async (', 'await runBrowser(mode)')
+  assertExecutableCall(
+    accessibility,
+    'const run = async (',
+    'await runBrowser(mode)'
+  )
   for (const [declaration, call] of [
     ['const runMock = async (', "await runPlaywright('mock',"],
     ['const runReal = async (', "await runPlaywright('real',"],
     ['const run = async (', 'await runMock()'],
     ['const run = async (', 'await runReal()']
   ]) {
-    assertExecutableCall(phase10, declaration, call)
+    assertExecutableCall(journey, declaration, call)
   }
 }
 
@@ -1806,23 +2055,23 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
   }
 
   const sources = {
-    phase7: readFileSync(runnerPaths[0], 'utf8'),
-    phase9: readFileSync(runnerPaths[1], 'utf8'),
-    phase10: readFileSync(runnerPaths[2], 'utf8')
+    admin: readFileSync(runnerPaths[0], 'utf8'),
+    accessibility: readFileSync(runnerPaths[1], 'utf8'),
+    journey: readFileSync(runnerPaths[2], 'utf8')
   }
   assertBrowserRunnerCallGraph(sources)
-  await assertPhase7PlaywrightSelection(sources.phase7, mode)
+  await assertAdminPlaywrightSelection(sources.admin, mode)
   await assertPlaywrightSelection(
-    sources.phase9,
+    sources.accessibility,
     mode,
     'apps/web/e2e/accessibility.spec.ts',
-    'PHASE9_BROWSER_MODE'
+    'ACCESSIBILITY_BROWSER_MODE'
   )
   await assertPlaywrightSelection(
-    sources.phase10,
+    sources.journey,
     mode,
     'apps/web/e2e/journeys.spec.ts',
-    'PHASE10_BROWSER_MODE'
+    'JOURNEY_BROWSER_MODE'
   )
 }
 
@@ -1923,7 +2172,7 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
       ),
       'real',
       'apps/web/e2e/accessibility.spec.ts',
-      'PHASE9_BROWSER_MODE'
+      'ACCESSIBILITY_BROWSER_MODE'
     )
   )
 })
@@ -1931,54 +2180,54 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
 test('browser reachability rejects deleted or unreachable live calls', async () => {
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const sources = {
-    phase7: readFileSync(
+    admin: readFileSync(
       path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
       'utf8'
     ),
-    phase9: readFileSync(
+    accessibility: readFileSync(
       path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
       'utf8'
     ),
-    phase10: readFileSync(
+    journey: readFileSync(
       path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts'),
       'utf8'
     )
   }
 
   await assert.rejects(() =>
-    assertPhase7PlaywrightSelection(
+    assertAdminPlaywrightSelection(
       withoutOnce(
-        sources.phase7,
-        '  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)\n'
+        sources.admin,
+        '  const browserSpecs = selectBrowserSpecs(browserMode, includeDashboard)\n'
       ),
       'real'
     )
   )
 
   for (const [sourceName, fragment] of [
-    ['phase7', "  await runPlaywright('mock', webOrigin)\n"],
+    ['admin', "  await runPlaywright('mock', webOrigin)\n"],
     [
-      'phase7',
+      'admin',
       `  await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
 `
     ],
     [
-      'phase9',
+      'accessibility',
       `  await runPlaywright(
     browserMode,
     webOrigin,
-    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
 `
     ],
-    ['phase10', "  await runPlaywright('mock', webOrigin)\n"],
-    ['phase10', "  await runPlaywright('real', webOrigin)\n"]
+    ['journey', "  await runPlaywright('mock', webOrigin)\n"],
+    ['journey', "  await runPlaywright('real', webOrigin)\n"]
   ]) {
     assert.throws(
       () =>
@@ -1991,11 +2240,11 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
   }
 
   for (const [sourceName, fragment] of [
-    ['phase7', 'await runMock()'],
-    ['phase7', 'await runReal()'],
-    ['phase9', 'await runBrowser(mode)'],
-    ['phase10', 'await runMock()'],
-    ['phase10', 'await runReal()']
+    ['admin', 'await runMock()'],
+    ['admin', 'await runReal()'],
+    ['accessibility', 'await runBrowser(mode)'],
+    ['journey', 'await runMock()'],
+    ['journey', 'await runReal()']
   ]) {
     assert.throws(
       () =>
@@ -2012,33 +2261,33 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
 `
   for (const [sourceName, fragment, replacement] of [
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('mock', webOrigin)\n",
       "  return\n  await runPlaywright('mock', webOrigin)\n"
     ],
     [
-      'phase9',
+      'accessibility',
       '  await runPlaywright(\n',
       "  throw new Error('unreachable')\n  await runPlaywright(\n"
     ],
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('real', webOrigin)\n",
       "  object.if()\n  return\n  await runPlaywright('real', webOrigin)\n"
     ],
     [
-      'phase7',
+      'admin',
       "  await runPlaywright('mock', webOrigin)\n",
       "  object.else\n  throw new Error('unreachable')\n  await runPlaywright('mock', webOrigin)\n"
     ],
     [
-      'phase7',
+      'admin',
       dispatcher,
       `  return
 ${dispatcher}`
     ],
     [
-      'phase9',
+      'accessibility',
       '  await runBrowser(mode)\n',
       "  throw new Error('unreachable')\n  await runBrowser(mode)\n"
     ]
@@ -2057,15 +2306,15 @@ ${dispatcher}`
 test('browser reachability rejects expression-bodied dead runner closures', () => {
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const sources = {
-    phase7: readFileSync(
+    admin: readFileSync(
       path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
       'utf8'
     ),
-    phase9: readFileSync(
+    accessibility: readFileSync(
       path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
       'utf8'
     ),
-    phase10: readFileSync(
+    journey: readFileSync(
       path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts'),
       'utf8'
     )
@@ -2073,7 +2322,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 
   for (const [sourceName, fragment, replacement] of [
     [
-      'phase7',
+      'admin',
       "  await runPlaywright('mock', webOrigin)\n",
       `  let target: unknown
   const dead = async () =>
@@ -2082,12 +2331,12 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 `
     ],
     [
-      'phase7',
+      'admin',
       `  await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
 `,
       `  let target: unknown
@@ -2096,19 +2345,19 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
     keyof
     typeof globalThis &&
     await runPlaywright('real', publicOrigin, {
-      PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-      PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-      PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-      PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+      ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+      ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+      ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+      DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
     })
 `
     ],
     [
-      'phase9',
+      'accessibility',
       `  await runPlaywright(
     browserMode,
     webOrigin,
-    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
 `,
@@ -2116,13 +2365,13 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
     await runPlaywright(
       browserMode,
       webOrigin,
-      { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+      { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
       adminSignal
     )
 `
     ],
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('mock', webOrigin)\n",
       `  const dead = async () =>
     true &&
@@ -2130,7 +2379,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 `
     ],
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('real', webOrigin)\n",
       `  const dead = async () =>
     !
@@ -2151,7 +2400,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
   const conditional = `  if (mode === 'mock') await runMock()
   else await runReal()
 `
-  for (const sourceName of ['phase7', 'phase10']) {
+  for (const sourceName of ['admin', 'journey']) {
     for (const replacement of [
       `  const deadMock = async () => await runMock()
   if (mode === 'mock') await Promise.resolve()
@@ -2178,8 +2427,8 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
   assert.throws(() =>
     assertBrowserRunnerCallGraph({
       ...sources,
-      phase9: replaceOnce(
-        sources.phase9,
+      accessibility: replaceOnce(
+        sources.accessibility,
         '  await runBrowser(mode)\n',
         `  const dead = async () =>
     true

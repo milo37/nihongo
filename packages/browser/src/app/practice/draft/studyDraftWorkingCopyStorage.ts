@@ -5,7 +5,7 @@ import {
   type StudyDraftWorkingCopy
 } from './studyDraftWorkingCopy'
 
-const STORAGE_KEY_PREFIX = 'jlpt-drill-note:study-draft-working-copy:v1:'
+const STORAGE_KEY_PREFIX = 'harumaru:study-draft-working-copy:v1:'
 const memoryRecords = new Map<string, StudyDraftWorkingCopy>()
 
 export class StudyDraftWorkingCopyPersistenceError extends Error {

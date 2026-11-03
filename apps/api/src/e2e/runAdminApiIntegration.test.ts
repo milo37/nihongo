@@ -27,21 +27,21 @@ vi.mock('pg', () => ({
 }))
 
 let register: typeof import('./runAdminApiIntegration.js').registerCapabilityAndActivate
-let prepareArtifacts: typeof import('./runAdminApiIntegration.js').preparePhase7IntegrationArtifacts
-let seedInvocation: typeof import('./runAdminApiIntegration.js').phase7SeedInvocation
+let prepareArtifacts: typeof import('./runAdminApiIntegration.js').prepareIntegrationArtifacts
+let seedInvocation: typeof import('./runAdminApiIntegration.js').adminSeedInvocation
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
-  vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
+  vi.stubEnv('API_INTEGRATION_CASE', undefined)
   vi.stubEnv(
-    'PHASE7_API_INTEGRATION_DATABASE_URL',
+    'API_INTEGRATION_DATABASE_URL',
     'postgresql://synthetic:synthetic@127.0.0.1:5432/nihongo_test'
   )
   register = (await import('./runAdminApiIntegration.js'))
     .registerCapabilityAndActivate
   prepareArtifacts = (await import('./runAdminApiIntegration.js'))
-    .preparePhase7IntegrationArtifacts
+    .prepareIntegrationArtifacts
   seedInvocation = (await import('./runAdminApiIntegration.js'))
-    .phase7SeedInvocation
+    .adminSeedInvocation
 })
 afterAll(() => vi.unstubAllEnvs())
 beforeEach(() => {
@@ -62,7 +62,7 @@ const callsContaining = (name: string) =>
     ([sql]) => typeof sql === 'string' && sql.includes(name)
   )
 
-describe('Phase 7 API issuer activation ownership without a database', () => {
+describe('API issuer activation ownership without a database', () => {
   it('keeps default API/browser preparation registration and activation', async () => {
     await register()
     expect(callsContaining('phase7_register_database_capability')).toHaveLength(
@@ -89,7 +89,7 @@ describe('Phase 7 API issuer activation ownership without a database', () => {
   it('fails closed on absent endpoint identity and closes the connection', async () => {
     database.query.mockResolvedValue({ rows: [] })
     await expect(register(undefined, 'fixture')).rejects.toThrow(
-      'Phase 7 API endpoint identity is unavailable.'
+      'API endpoint identity is unavailable.'
     )
     expect(callsContaining('phase7_register_database_capability')).toHaveLength(
       0

@@ -4,7 +4,7 @@ interface ReauthenticationInvocation {
   readonly intentId: string
 }
 
-export interface Phase7ReauthenticationContext {
+export interface ReauthenticationContext {
   readonly getIntentId: () => string
   readonly run: <Result>(
     intentId: string,
@@ -13,7 +13,7 @@ export interface Phase7ReauthenticationContext {
 }
 
 export const createPhase7ReauthenticationContext =
-  (): Phase7ReauthenticationContext => {
+  (): ReauthenticationContext => {
     const storage = new AsyncLocalStorage<ReauthenticationInvocation>()
 
     return {

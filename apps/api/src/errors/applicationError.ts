@@ -1,7 +1,7 @@
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import type {
-  Phase7ExecutionDisposition,
-  Phase7InternalFailureReason
+  AdminExecutionDisposition,
+  AdminInternalFailureReason
 } from '@nihongo/contracts/admin/content-operations'
 
 interface ApplicationErrorOptions {
@@ -11,8 +11,8 @@ interface ApplicationErrorOptions {
   fieldErrors?: Record<string, string[]>
   location?: `/api/v1/study-sessions/${string}/result`
   retryAfterSeconds?: number
-  phase7Disposition?: Phase7ExecutionDisposition
-  phase7InternalReason?: Phase7InternalFailureReason
+  phase7Disposition?: AdminExecutionDisposition
+  phase7InternalReason?: AdminInternalFailureReason
   cause?: unknown
 }
 
@@ -22,8 +22,8 @@ export class ApplicationError extends Error {
   readonly fieldErrors?: Record<string, string[]>
   readonly location?: `/api/v1/study-sessions/${string}/result`
   readonly retryAfterSeconds?: number
-  readonly phase7Disposition?: Phase7ExecutionDisposition
-  readonly phase7InternalReason?: Phase7InternalFailureReason
+  readonly phase7Disposition?: AdminExecutionDisposition
+  readonly phase7InternalReason?: AdminInternalFailureReason
 
   constructor(options: ApplicationErrorOptions) {
     super(options.message, { cause: options.cause })

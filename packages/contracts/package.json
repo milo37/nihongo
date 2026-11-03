@@ -47,6 +47,10 @@
       "types": "./dist/common/date.d.ts",
       "import": "./dist/common/date.js"
     },
+    "./legacy/browser-schema": {
+      "types": "./dist/legacy/browser-schema.d.ts",
+      "import": "./dist/legacy/browser-schema.js"
+    },
     "./common/enum": {
       "types": "./dist/common/enum.d.ts",
       "import": "./dist/common/enum.js"
@@ -106,6 +110,10 @@
     "./study/practice-contract": {
       "types": "./dist/study/practice-contract.d.ts",
       "import": "./dist/study/practice-contract.js"
+    },
+    "./study/canonicalize-study-draft-save": {
+      "types": "./dist/study/canonicalize-study-draft-save.d.ts",
+      "import": "./dist/study/canonicalize-study-draft-save.js"
     },
     "./study/save-study-draft-answers": {
       "types": "./dist/study/save-study-draft-answers.d.ts",

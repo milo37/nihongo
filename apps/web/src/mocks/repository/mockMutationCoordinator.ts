@@ -1,6 +1,6 @@
 import type { MockMutationLease } from '@mocks/repository/mockContentState'
 
-const MOCK_MUTATION_LOCK_NAME = 'nihongo:mock-database:phase7-admin-cms:v1'
+const MOCK_MUTATION_LOCK_NAME = 'nihongo:mock-database:admin-cms:v1'
 
 export class MockMutationCoordinatorUnavailableError extends Error {
   constructor() {

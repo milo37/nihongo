@@ -4,11 +4,18 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
-const SAFE_LABEL_PATTERN = /^phase(?:8|9|10)-(?:real|mock)$/u
+const SAFE_LABEL_PATTERN =
+  /^(?:admin-dashboard|accessibility|journey)-(?:real|mock)$/u
 const SAFE_LEDGER_LABEL_PATTERN =
-  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-admin-lifecycle|(?:phase8-)?dashboard|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
+  /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|(?:phase8-)?dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const SAFE_PERFORMANCE_LABEL_PATTERN =
   /^(?:phase8-)?dashboard-(?:real|mock)-performance$/u
+// Admin authority ledgers come only from the admin-only or admin-dashboard real run.
+const ADMIN_AUTHORITY_LEDGER_LABELS = new Set([
+  'admin-cms-real-request-ledger',
+  'admin-guest-denial',
+  'admin-user-denial'
+])
 const SAFE_LEDGER_PATH_PATTERN = /^\/api\/[a-z0-9._~:/-]+$/iu
 const RAW_UUID_PATH_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/iu
@@ -44,12 +51,12 @@ const PLAYWRIGHT_BROWSER_PERFORMANCE_BUDGETS = {
   }
 }
 const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
-  'phase8-mock': 1,
-  'phase8-real': 3,
-  'phase9-mock': 3,
-  'phase9-real': 4,
-  'phase10-mock': 5,
-  'phase10-real': 5
+  'admin-dashboard-mock': 1,
+  'admin-dashboard-real': 3,
+  'accessibility-mock': 3,
+  'accessibility-real': 4,
+  'journey-mock': 5,
+  'journey-real': 5
 }
 const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
@@ -316,8 +323,8 @@ export const assertPlaywrightRequestLedger = (
     (/^(?:phase8-)?dashboard-/u.test(ledger.label) &&
       ledger.label !==
         `${dashboardPrefix}-${summaryLabel.split('-').at(-1)}-request-ledger`) ||
-    (ledger.label.startsWith('phase7-')
-      ? !['phase7-real', 'phase8-real'].includes(summaryLabel)
+    (ADMIN_AUTHORITY_LEDGER_LABELS.has(ledger.label)
+      ? !['admin-real', 'admin-dashboard-real'].includes(summaryLabel)
       : !ledger.label.includes(`-${summaryLabel.split('-').at(-1)}-`)) ||
     !Array.isArray(ledger.entries) ||
     ledger.entries.length === 0
@@ -390,7 +397,7 @@ export const assertPlaywrightRequestLedger = (
   const canonicalProvenance =
     mode === 'mock' ? 'canonical-mock-service-worker' : 'canonical-real-network'
 
-  if (/^phase10-(?:real|mock)-(?:ko|ja)-handoff$/u.test(ledger.label)) {
+  if (/^journey-(?:real|mock)-(?:ko|ja)-handoff$/u.test(ledger.label)) {
     const callbackKey =
       mode === 'mock'
         ? 'POST /api/_mock/auth/social/callback'
@@ -408,21 +415,21 @@ export const assertPlaywrightRequestLedger = (
         entry.provenance !== canonicalProvenance ||
         expectedStatuses.get(key) !== entry.status
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE10_HANDOFF_CONTRACT_INVALID')
+        throw new Error('SECURITY_EVIDENCE_JOURNEY_HANDOFF_CONTRACT_INVALID')
       }
       counts.set(key, counts.get(key) + 1)
     }
     if (
-      !summaryLabel.startsWith('phase10-') ||
+      !summaryLabel.startsWith('journey-') ||
       counts.get('GET /api/v1/me') < 2 ||
       counts.get('GET /api/v1/questions') !== 1 ||
       counts.get('POST /api/auth/sign-in/social') !== 1 ||
       counts.get(callbackKey) !== 1
     ) {
-      throw new Error('SECURITY_EVIDENCE_PHASE10_HANDOFF_CONTRACT_INVALID')
+      throw new Error('SECURITY_EVIDENCE_JOURNEY_HANDOFF_CONTRACT_INVALID')
     }
   }
-  if (ledger.label.startsWith('phase7-')) {
+  if (ADMIN_AUTHORITY_LEDGER_LABELS.has(ledger.label)) {
     if (
       ledger.entries.some(
         (entry, index) =>
@@ -431,10 +438,12 @@ export const assertPlaywrightRequestLedger = (
             ledger.entries[index - 1].startSequence >= entry.startSequence)
       )
     ) {
-      throw new Error('SECURITY_EVIDENCE_PHASE7_PROVENANCE_OR_ORDER_INVALID')
+      throw new Error(
+        'SECURITY_EVIDENCE_ADMIN_AUTHORITY_PROVENANCE_OR_ORDER_INVALID'
+      )
     }
-    if (ledger.label !== 'phase7-a1-a8-real-request-ledger') {
-      const deniedStatus = ledger.label === 'phase7-guest-denial' ? 401 : 403
+    if (ledger.label !== 'admin-cms-real-request-ledger') {
+      const deniedStatus = ledger.label === 'admin-guest-denial' ? 401 : 403
       if (
         !ledger.entries.some(
           ({ path }) => path === '/api/v1/admin/questions'
@@ -446,7 +455,7 @@ export const assertPlaywrightRequestLedger = (
             status !== deniedStatus
         )
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE7_DENIAL_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_AUTHORITY_DENIAL_INVALID')
       }
     } else {
       const commands = ledger.entries.filter(
@@ -470,14 +479,14 @@ export const assertPlaywrightRequestLedger = (
               entry.status !== expectedCommands[index][2])
         )
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE7_COMMAND_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_AUTHORITY_COMMAND_INVALID')
       }
       const race = commands.slice(1, 3)
       if (
         JSON.stringify(race.map(({ status }) => status).toSorted()) !==
         JSON.stringify([200, 409])
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE7_RACE_STATUS_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_AUTHORITY_RACE_STATUS_INVALID')
       }
       if (
         Math.max(...race.map(({ startSequence }) => startSequence)) >=
@@ -487,7 +496,9 @@ export const assertPlaywrightRequestLedger = (
         Math.max(...race.map(({ finishSequence }) => finishSequence)) >=
           commands[3].startSequence
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE7_RACE_OVERLAP_INVALID')
+        throw new Error(
+          'SECURITY_EVIDENCE_ADMIN_AUTHORITY_RACE_OVERLAP_INVALID'
+        )
       }
       for (const path of [
         '/api/v1/admin/questions',
@@ -499,7 +510,7 @@ export const assertPlaywrightRequestLedger = (
             (entry) => entry.method === 'GET' && entry.path === path
           )
         ) {
-          throw new Error('SECURITY_EVIDENCE_PHASE7_READ_MISSING')
+          throw new Error('SECURITY_EVIDENCE_ADMIN_AUTHORITY_READ_MISSING')
         }
       }
       const starts = ledger.entries.filter(
@@ -535,7 +546,9 @@ export const assertPlaywrightRequestLedger = (
           )
         })
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE7_AUTH_OR_STATUS_INVALID')
+        throw new Error(
+          'SECURITY_EVIDENCE_ADMIN_AUTHORITY_AUTH_OR_STATUS_INVALID'
+        )
       }
       if (
         starts[0].finishSequence >= callbacks[0].startSequence ||
@@ -545,11 +558,11 @@ export const assertPlaywrightRequestLedger = (
         callbacks[1].startSequence >= completions[0].startSequence ||
         completions[0].finishSequence >= commands[4].startSequence
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE7_FRESH_ORDER_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_AUTHORITY_FRESH_ORDER_INVALID')
       }
     }
   }
-  if (ledger.label === `phase8-admin-lifecycle-${mode}-request-ledger`) {
+  if (ledger.label === `admin-lifecycle-${mode}-request-ledger`) {
     if (ledger.entries.length !== ADMIN_LIFECYCLE_LEDGER_CONTRACT.length) {
       throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
     }
@@ -557,19 +570,19 @@ export const assertPlaywrightRequestLedger = (
       const [expectedMethod, expectedPath, expectedStatus] =
         ADMIN_LIFECYCLE_LEDGER_CONTRACT[index]
       if (entry.method !== expectedMethod || entry.path !== expectedPath) {
-        throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_COMMAND_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_LIFECYCLE_COMMAND_INVALID')
       }
       if (entry.provenance !== canonicalProvenance) {
-        throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_PROVENANCE_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_LIFECYCLE_PROVENANCE_INVALID')
       }
       if (expectedStatus !== null && entry.status !== expectedStatus) {
-        throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_STATUS_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_LIFECYCLE_STATUS_INVALID')
       }
       if (
         index > 0 &&
         ledger.entries[index - 1].startSequence >= entry.startSequence
       ) {
-        throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_ORDER_INVALID')
+        throw new Error('SECURITY_EVIDENCE_ADMIN_LIFECYCLE_ORDER_INVALID')
       }
     }
     const concurrentRace = ledger.entries.slice(-2)
@@ -577,13 +590,13 @@ export const assertPlaywrightRequestLedger = (
       JSON.stringify(concurrentRace.map(({ status }) => status).toSorted()) !==
       JSON.stringify([200, 409])
     ) {
-      throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_RACE_STATUS_INVALID')
+      throw new Error('SECURITY_EVIDENCE_ADMIN_LIFECYCLE_RACE_STATUS_INVALID')
     }
     if (
       Math.max(...concurrentRace.map(({ startSequence }) => startSequence)) >=
       Math.min(...concurrentRace.map(({ finishSequence }) => finishSequence))
     ) {
-      throw new Error('SECURITY_EVIDENCE_PHASE8_ADMIN_RACE_OVERLAP_INVALID')
+      throw new Error('SECURITY_EVIDENCE_ADMIN_LIFECYCLE_RACE_OVERLAP_INVALID')
     }
   }
   if (ledger.label === `${dashboardPrefix}-${mode}-request-ledger`) {
@@ -610,7 +623,7 @@ export const assertPlaywrightRequestLedger = (
       }
     }
   }
-  if (ledger.label === `phase10-user-journey-${mode}-request-ledger`) {
+  if (ledger.label === `user-journey-${mode}-request-ledger`) {
     const idempotentEntries = ledger.entries.filter(({ method, path }) =>
       JOURNEY_IDEMPOTENT_REQUESTS.has(`${method} ${path}`)
     )
@@ -628,7 +641,7 @@ export const assertPlaywrightRequestLedger = (
           ).length !== expectedCount
       )
     ) {
-      throw new Error('SECURITY_EVIDENCE_PHASE10_MUTATION_CONTRACT_INVALID')
+      throw new Error('SECURITY_EVIDENCE_JOURNEY_MUTATION_CONTRACT_INVALID')
     }
   }
 }
@@ -673,7 +686,7 @@ export const assertPlaywrightPerformanceMeasurement = (
     typeof measurement.label !== 'string' ||
     !SAFE_PERFORMANCE_LABEL_PATTERN.test(measurement.label) ||
     measurement.schemaVersion !== 1 ||
-    measurement.kind !== 'nihongo.phase10.browser-performance' ||
+    measurement.kind !== 'nihongo.browser-performance' ||
     measurement.surface !== 'dashboard-navigation' ||
     !['mock', 'real'].includes(measurement.mode) ||
     measurement.label !==
@@ -814,27 +827,27 @@ const assertPlaywrightEvidence = (value, dashboardLabelPolicy) => {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
   }
   const mode = value.label.split('-').at(-1)
-  const expectedLedgerLabels = value.label.startsWith('phase8-')
+  const expectedLedgerLabels = value.label.startsWith('admin-dashboard-')
     ? [
         ...(mode === 'real'
           ? [
-              'phase7-a1-a8-real-request-ledger',
-              'phase7-guest-denial',
-              'phase7-user-denial'
+              'admin-cms-real-request-ledger',
+              'admin-guest-denial',
+              'admin-user-denial'
             ]
           : []),
         `${dashboardPrefix}-${mode}-request-ledger`
       ]
-    : value.label.startsWith('phase10-')
+    : value.label.startsWith('journey-')
       ? [
-          `phase10-${mode}-ko-handoff`,
-          `phase10-${mode}-ja-handoff`,
-          `phase10-guest-auth-${mode}-request-ledger`,
-          `phase10-resilience-${mode}-request-ledger`,
-          `phase10-user-journey-${mode}-request-ledger`
+          `journey-${mode}-ko-handoff`,
+          `journey-${mode}-ja-handoff`,
+          `guest-auth-${mode}-request-ledger`,
+          `resilience-${mode}-request-ledger`,
+          `user-journey-${mode}-request-ledger`
         ]
       : []
-  const expectedPerformanceLabels = value.label.startsWith('phase8-')
+  const expectedPerformanceLabels = value.label.startsWith('admin-dashboard-')
     ? [`${dashboardPrefix}-${mode}-performance`]
     : []
   value.requestLedgers.forEach((ledger) =>
@@ -1022,7 +1035,7 @@ if (isDirectExecution) {
         })
         process.stdout.write(
           `${JSON.stringify({
-            event: 'phase10.security_evidence.verified',
+            event: 'security_evidence.verified',
             fileCount: manifest.files.length,
             profile
           })}\n`
@@ -1034,7 +1047,7 @@ if (isDirectExecution) {
     .catch((error) => {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase10.security_evidence.failed',
+          event: 'security_evidence.failed',
           errorCode:
             error instanceof Error ? error.message : 'SECURITY_UNKNOWN_FAILURE'
         })}\n`
