@@ -25,9 +25,9 @@ const conditions: Readonly<Record<string, (typeof ids)[number]>> = {
   'Question content changed without an updated editorial review record.':
     'REVIEW_HASH',
   'Question seed identity invariant failed.': 'IDENTITY',
-  'Phase 7 seed migration role attestation failed.': 'MIGRATION_ROLE',
-  'Phase 7 seed owner role attestation failed.': 'OWNER_ROLE',
-  'Phase 7 seed role boundary did not close.': 'RESTORE_ROLE'
+  'Seed migration role attestation failed.': 'MIGRATION_ROLE',
+  'Seed owner role attestation failed.': 'OWNER_ROLE',
+  'Seed role boundary did not close.': 'RESTORE_ROLE'
 }
 // adapter-pg convertDriverError emits originalCode/originalMessage;
 // DriverAdapterError stores that payload on cause. Inspect data properties only.

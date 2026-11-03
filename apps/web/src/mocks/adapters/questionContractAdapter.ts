@@ -9,7 +9,7 @@ import type {
   QuestionRecord
 } from '@nihongo/browser/common/types/domain'
 
-const QUESTION_CONTRACT_IDENTITY = '__phase7ContractIdentity' as const
+const QUESTION_CONTRACT_IDENTITY = '__contractIdentity' as const
 
 export interface QuestionContractIdentity {
   readonly optionIdBySourceId: Readonly<Record<string, string>>

@@ -17,7 +17,7 @@ import {
   runFoundationStage,
   type FoundationStage
 } from './foundationDiagnostics.js'
-import { attestPhase7RuntimeRoles } from './runtimeRoleAttestation.js'
+import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
   '20261019103000_sso_admin_fresh',
@@ -65,10 +65,10 @@ assertSafeAdminCmsDatabase({
 const schema = getPostgresSchema(environment.DATABASE_URL)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
-  throw new Error('Phase 7 admin integration database URL is required.')
+  throw new Error('Admin integration database URL is required.')
 }
 if (getPostgresSchema(adminDatabaseUrl) !== schema) {
-  throw new Error('Phase 7 admin and runtime schemas must match exactly.')
+  throw new Error('Admin and runtime schemas must match exactly.')
 }
 const connectionUrl = new URL(adminDatabaseUrl)
 connectionUrl.searchParams.delete('schema')
@@ -78,15 +78,15 @@ const client = new Client({
 })
 const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
 if (!legacyDatabaseUrl) {
-  throw new Error('Phase 7 legacy compatibility database URL is required.')
+  throw new Error('Legacy compatibility database URL is required.')
 }
 if (getPostgresSchema(legacyDatabaseUrl) !== schema) {
-  throw new Error('Phase 7 legacy and runtime schemas must match exactly.')
+  throw new Error('Legacy and runtime schemas must match exactly.')
 }
 const developmentApplicationDatabaseUrl =
-  process.env.PHASE7_DEVELOPMENT_APP_DATABASE_URL
+  process.env.TEST_DEVELOPMENT_APP_DATABASE_URL
 if (!developmentApplicationDatabaseUrl) {
-  throw new Error('Phase 7 development app wrapper URL is required.')
+  throw new Error('Development app wrapper URL is required.')
 }
 const legacyConnectionUrl = new URL(legacyDatabaseUrl)
 const legacySchema = getPostgresSchema(legacyDatabaseUrl)
@@ -187,14 +187,14 @@ const withExecutionRole = async <Result>(
   return result as Result
 }
 
-interface Phase7AdminTargetManifest {
-  readonly questions: readonly Phase7AdminTargetManifestItem[]
-  readonly reports: readonly Phase7AdminTargetManifestItem[]
+interface AdminTargetManifest {
+  readonly questions: readonly AdminTargetManifestItem[]
+  readonly reports: readonly AdminTargetManifestItem[]
   readonly tags: readonly string[]
-  readonly versions: readonly Phase7AdminTargetManifestItem[]
+  readonly versions: readonly AdminTargetManifestItem[]
 }
 
-interface Phase7AdminTargetManifestItem {
+interface AdminTargetManifestItem {
   readonly id: string
   readonly rowVersion: number
   readonly state: string
@@ -207,7 +207,7 @@ const beginAdminOperation = async (
     referencedUserIds: readonly string[]
     requestId: string
     sessionToken: string
-    targetManifest: Phase7AdminTargetManifest
+    targetManifest: AdminTargetManifest
   }
 ): Promise<{ actorUserId: string; occurredAt: Date; operationId: string }> => {
   const isolationLevel = [
@@ -260,7 +260,7 @@ const insertCredentialUser = async (input: {
       `INSERT INTO "User" (
         "id", "name", "email", "emailVerified", "role",
         "accountStatus", "createdAt", "updatedAt"
-      ) VALUES ($1, 'Phase 7 DB integration', $2, true, $3, 'ACTIVE', $4, $4)`,
+      ) VALUES ($1, 'DB integration', $2, true, $3, 'ACTIVE', $4, $4)`,
       [input.id, `phase7-${randomUUID()}@example.test`, input.role, now]
     )
     await client.query(
@@ -355,7 +355,7 @@ const insertIncompleteSystemQuestion = async (): Promise<void> => {
   )
   const selectedTag = tag.rows[0]
   if (!selectedTag || !optionIds[0]) {
-    throw new Error('Phase 7 incomplete-content fixture is unavailable.')
+    throw new Error('Incomplete-content fixture is unavailable.')
   }
 
   await client.query(
@@ -422,7 +422,7 @@ beforeAll(async () => {
     )
   )
   const target = endpoint.rows[0]
-  if (!target) throw new Error('Phase 7 DB endpoint identity is unavailable.')
+  if (!target) throw new Error('DB endpoint identity is unavailable.')
   await withExecutionRole(
     'nihongo_phase7_migration',
     () =>
@@ -441,7 +441,7 @@ afterAll(async () => {
   await client.end()
 })
 
-describe('Phase 7 Slice 1 persistence foundation', () => {
+describe('Persistence foundation', () => {
   it('53 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
@@ -1207,7 +1207,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
 
   it('questionText prefix index의 COLLATE C·text_pattern_ops 계약과 planner 사용을 고정한다', async () => {
     if (!schema) {
-      throw new Error('Phase 7 integration schema is unavailable.')
+      throw new Error('Integration schema is unavailable.')
     }
     const index = await client.query<{
       accessMethod: string
@@ -1288,7 +1288,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         .slice(0, 2)
         .join('')
       if (!prefix) {
-        throw new Error('Phase 7 prefix planner fixture is unavailable.')
+        throw new Error('Prefix planner fixture is unavailable.')
       }
       const pattern =
         prefix
@@ -1460,10 +1460,10 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
 
   it('SYSTEM_SEED aggregate에 정상 v2 create→review→approval→publication을 허용한다', async () => {
     const seed = buildAllQuestionSeeds().at(-1)
-    if (!seed) throw new Error('Phase 7 SYSTEM_SEED v2 target is unavailable.')
+    if (!seed) throw new Error('SYSTEM_SEED v2 target is unavailable.')
     const selectedTag = seed.tags[0]
     if (!selectedTag) {
-      throw new Error('Phase 7 SYSTEM_SEED v2 Tag is unavailable.')
+      throw new Error('SYSTEM_SEED v2 Tag is unavailable.')
     }
     const authorId = randomUUID()
     const reviewerId = randomUUID()
@@ -1474,7 +1474,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const versionId = randomUUID()
     const optionIds = Array.from({ length: 4 }, () => randomUUID())
     if (!optionIds[0]) {
-      throw new Error('Phase 7 SYSTEM_SEED v2 options are unavailable.')
+      throw new Error('SYSTEM_SEED v2 options are unavailable.')
     }
     await insertCredentialUser({ id: authorId, role: 'ADMIN' })
     await insertCredentialUser({ id: reviewerId, role: 'ADMIN' })
@@ -1630,7 +1630,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           seed.subject,
           seed.questionType,
           seed.passage,
-          `Phase 7 SYSTEM_SEED v2 ${versionId}`,
+          `SYSTEM_SEED v2 ${versionId}`,
           optionIds[0],
           seed.difficulty,
           authorId,
@@ -2047,7 +2047,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     )
     const [tagA, tagB, tagC] = tags.rows
     if (!tagA || !tagB || !tagC) {
-      throw new Error('Phase 7 Tag mutex fixtures are unavailable.')
+      throw new Error('Tag mutex fixtures are unavailable.')
     }
 
     type OperationFixture = {
@@ -2082,7 +2082,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         }
       })
       if (!operationRow || !optionIds[0]) {
-        throw new Error('Phase 7 Tag mutex operation is unavailable.')
+        throw new Error('Tag mutex operation is unavailable.')
       }
       await targetClient.query(
         `INSERT INTO "Question" (
@@ -2107,7 +2107,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         [
           versionId,
           questionId,
-          `Phase 7 Tag mutex ${discriminator} ${versionId}`,
+          `Tag mutex ${discriminator} ${versionId}`,
           optionIds[0],
           operationRow.actorUserId,
           operationRow.occurredAt
@@ -2209,7 +2209,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const concurrentBackendPid = concurrentBackend.rows[0]?.pid
       if (!concurrentBackendPid) {
-        throw new Error('Phase 7 Tag mutex backend PID is unavailable.')
+        throw new Error('Tag mutex backend PID is unavailable.')
       }
 
       await client.query('BEGIN')
@@ -2288,7 +2288,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         secondTransactionOpen = false
       }
       if (!secondFixture) {
-        throw new Error('Phase 7 second Tag mutex fixture is unavailable.')
+        throw new Error('Second Tag mutex fixture is unavailable.')
       }
 
       const insertedSnapshots = await client.query<{
@@ -2321,7 +2321,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const primaryBackendPid = primaryBackend.rows[0]?.pid
       if (!primaryBackendPid) {
-        throw new Error('Phase 7 primary Tag mutex backend PID is unavailable.')
+        throw new Error('Primary Tag mutex backend PID is unavailable.')
       }
       const qvtProbePrimaryRequestId = randomUUID()
       const qvtProbeSecondaryRequestId = randomUUID()
@@ -2564,7 +2564,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         changedFields: ['TAGS']
       })
       if (!updateDeltaRow) {
-        throw new Error('Phase 7 Tag update delta is unavailable.')
+        throw new Error('Tag update delta is unavailable.')
       }
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       const updateChangedFields = JSON.stringify(updateDeltaRow.changedFields)
@@ -2655,7 +2655,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     }
 
     if (!firstFixture) {
-      throw new Error('Phase 7 Tag manifest mismatch fixture is unavailable.')
+      throw new Error('Tag manifest mismatch fixture is unavailable.')
     }
     const nonManifestTagRequestId = randomUUID()
     let nonManifestTagOperationId = ''
@@ -2763,7 +2763,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const deltaRow = delta.rows[0]
       if (!deltaRow) {
-        throw new Error('Phase 7 Tag mismatch delta is unavailable.')
+        throw new Error('Tag mismatch delta is unavailable.')
       }
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       expect(deltaRow).toMatchObject({
@@ -2849,7 +2849,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     ])
 
     if (!secondFixture) {
-      throw new Error('Phase 7 reciprocal review fixture is unavailable.')
+      throw new Error('Reciprocal review fixture is unavailable.')
     }
     type LifecycleTransition = {
       action: 'APPROVED' | 'REQUESTED'
@@ -3586,7 +3586,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const [firstSeed, secondSeed] = buildAllQuestionSeeds()
     const manifestTag = firstSeed?.tags[0]
     if (!firstSeed || !secondSeed || !manifestTag) {
-      throw new Error('Phase 7 target manifest fixtures are unavailable.')
+      throw new Error('Target manifest fixtures are unavailable.')
     }
     const expectArmRejected = async (input: {
       code: string
@@ -3606,7 +3606,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         )
         const operationId = begun.rows[0]?.operationId
         if (!operationId) {
-          throw new Error('Phase 7 manifest-negative operation is unavailable.')
+          throw new Error('Manifest-negative operation is unavailable.')
         }
         await expect(
           client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
@@ -3623,7 +3623,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       reports: [],
       tags: [],
       versions: []
-    } satisfies Phase7AdminTargetManifest
+    } satisfies AdminTargetManifest
     const emptyReferenceRequestId = randomUUID()
     requestIds.push(emptyReferenceRequestId)
     await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE')
@@ -3802,7 +3802,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           rowVersion: 1,
           state: 'RETIRED'
         }))
-      } satisfies Phase7AdminTargetManifest
+      } satisfies AdminTargetManifest
       await expect(
         client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
           operationId,
@@ -3843,7 +3843,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           "id", "label", "normalizedName", "createdAt", "updatedAt"
         )
         SELECT fixture.id,
-          'Phase 7 import Tag ' || fixture.ordinality,
+          'Import Tag ' || fixture.ordinality,
           'phase7-import-' || replace(fixture.id::text, '-', ''),
           clock_timestamp(), clock_timestamp()
         FROM unnest($1::uuid[]) WITH ORDINALITY AS fixture(id, ordinality)`,
@@ -3868,7 +3868,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             reports: [],
             tags: importTagIds.toSorted(),
             versions: []
-          } satisfies Phase7AdminTargetManifest)
+          } satisfies AdminTargetManifest)
         ])
       ).resolves.toMatchObject({ rowCount: 1 })
     } finally {
@@ -4077,7 +4077,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     )
     const selectedTag = tag.rows[0]
     if (!selectedTag || optionIds.some((id) => !id)) {
-      throw new Error('Phase 7 authored question fixture is unavailable.')
+      throw new Error('Authored question fixture is unavailable.')
     }
 
     await client.query('BEGIN')
@@ -4122,7 +4122,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         [
           versionId,
           questionId,
-          `Phase 7 authored ${questionId}`,
+          `Authored ${questionId}`,
           optionIds[0],
           actorId,
           operationRow.occurredAt
@@ -4137,7 +4137,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             optionId,
             versionId,
             String(index + 1),
-            `Phase 7 authored option ${index + 1} ${questionId}`,
+            `Authored option ${index + 1} ${questionId}`,
             index + 1
           ]
         )
@@ -4454,7 +4454,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           missingCapabilityReportId,
           legacySeed.questionId,
           legacySeed.versionId,
-          'Phase 7 capability-negative report'
+          'Capability-negative report'
         ]
       )
     }, '42501')
@@ -4480,7 +4480,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             reportId,
             legacySeed.questionId,
             legacySeed.versionId,
-            'Phase 7 owned report'
+            'Owned report'
           ]
         )
       )
@@ -4542,7 +4542,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           delayedReportId,
           legacySeed.questionId,
           legacySeed.versionId,
-          'Phase 7 delayed-lock report'
+          'Delayed-lock report'
         ]
       )
       let lockObserved = false
@@ -4759,7 +4759,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     let sessionToken = `phase7-report-triage-${randomUUID()}`
     const reportId = randomUUID()
     const seed = buildAllQuestionSeeds()[0]
-    if (!seed) throw new Error('Phase 7 report triage target is unavailable.')
+    if (!seed) throw new Error('Report triage target is unavailable.')
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
     await insertGoogleFixtureAccount(actorId)
     await insertCredentialUser({ id: injectedAssigneeId, role: 'ADMIN' })
@@ -4782,7 +4782,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           reportId,
           seed.questionId,
           seed.versionId,
-          'Phase 7 self-triage integration report'
+          'Self-triage integration report'
         ]
       )
     )
@@ -4800,7 +4800,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const erasureBackendPid = erasureBackend.rows[0]?.pid
       if (!erasureBackendPid) {
-        throw new Error('Phase 7 report erasure backend is unavailable.')
+        throw new Error('Report erasure backend is unavailable.')
       }
       await erasureClient.query(`SET ROLE "nihongo_erasure_worker"`)
 
@@ -4816,7 +4816,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const operationId = begun.rows[0]?.operationId
       if (!operationId) {
-        throw new Error('Phase 7 injected-assignee operation is unavailable.')
+        throw new Error('Injected-assignee operation is unavailable.')
       }
       erasurePromise = erasureClient.query(
         `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
@@ -4851,7 +4851,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             versions: [
               { id: seed.versionId, rowVersion: 1, state: 'PUBLISHED' }
             ]
-          } satisfies Phase7AdminTargetManifest)
+          } satisfies AdminTargetManifest)
         ])
       ).rejects.toMatchObject({ code: '42501' })
       await client.query('ROLLBACK')
@@ -5079,7 +5079,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const seed = buildAllQuestionSeeds()[0]
     const remediationTag = seed?.tags[0]
     if (!seed || !remediationTag || !remediationOptionIds[0])
-      throw new Error('Phase 7 report redaction target is unavailable.')
+      throw new Error('Report redaction target is unavailable.')
     await client.query(`SET session_replication_role = replica`)
     try {
       await client.query(
@@ -5104,7 +5104,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           seed.level,
           seed.subject,
           seed.questionType,
-          `Phase 7 remediation v2 ${remediationVersionId}`,
+          `Remediation v2 ${remediationVersionId}`,
           remediationOptionIds[0],
           seed.difficulty
         ]
@@ -5118,7 +5118,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             optionId,
             remediationVersionId,
             String(index + 1),
-            `Phase 7 remediation option ${index + 1}`,
+            `Remediation option ${index + 1}`,
             index + 1
           ]
         )
@@ -5156,13 +5156,9 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
     )
     for (const [reportId, reason, description] of [
-      [matureReportId, 'ANSWER_ERROR', 'Phase 7 mature report description'],
-      [
-        prematureReportId,
-        'EXPLANATION_ERROR',
-        'Phase 7 premature report description'
-      ],
-      [openReportId, 'TYPO_OR_GRAMMAR', 'Phase 7 open report description']
+      [matureReportId, 'ANSWER_ERROR', 'Mature report description'],
+      [prematureReportId, 'EXPLANATION_ERROR', 'Premature report description'],
+      [openReportId, 'TYPO_OR_GRAMMAR', 'Open report description']
     ] as const) {
       await withExecutionRole('nihongo_app', () =>
         client.query(
@@ -5240,7 +5236,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const prematureBefore = beforeById.get(prematureReportId)
     const openBefore = beforeById.get(openReportId)
     if (!matureBefore || !prematureBefore || !openBefore) {
-      throw new Error('Phase 7 report redaction snapshots are unavailable.')
+      throw new Error('Report redaction snapshots are unavailable.')
     }
 
     await expect(
@@ -5276,7 +5272,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const executionId = execution.rows[0]?.id
       if (!executionId) {
-        throw new Error('Phase 7 report redaction execution is unavailable.')
+        throw new Error('Report redaction execution is unavailable.')
       }
       const event = await client.query<{ createdAt: Date }>(
         `SELECT "createdAt" FROM "Phase7TrustedExecution" WHERE "id" = $1`,
@@ -5284,7 +5280,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       )
       const eventTime = event.rows[0]?.createdAt
       if (!eventTime) {
-        throw new Error('Phase 7 report redaction event time is unavailable.')
+        throw new Error('Report redaction event time is unavailable.')
       }
       await client.query(
         `UPDATE "QuestionReport"
@@ -5386,7 +5382,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
        ORDER BY tag."id" LIMIT 1`
     )
     const selectedTag = tag.rows[0]
-    if (!selectedTag) throw new Error('Phase 7 archive tag is unavailable.')
+    if (!selectedTag) throw new Error('Archive tag is unavailable.')
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
     await insertGoogleFixtureAccount(actorId)
     await withExecutionRole('nihongo_auth_gateway', () =>
@@ -5464,7 +5460,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           [
             versionId,
             questionId,
-            `Phase 7 archive ${state} ${questionId}`,
+            `Archive ${state} ${questionId}`,
             optionIds[0],
             actorId,
             operation.occurredAt
@@ -5479,7 +5475,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
               optionId,
               versionId,
               String(index + 1),
-              `Phase 7 archive ${state} option ${index + 1}`,
+              `Archive ${state} option ${index + 1}`,
               index + 1
             ]
           )
@@ -5538,7 +5534,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     }
 
     if (!emptyManifestTarget) {
-      throw new Error('Phase 7 archive 0/0 fixture is missing.')
+      throw new Error('Archive 0/0 fixture is missing.')
     }
 
     await client.query(`SET session_replication_role = replica`)
@@ -5571,7 +5567,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const firstCandidate = archiveCandidates[0]
     const secondCandidate = archiveCandidates[1]
     if (!firstCandidate || !secondCandidate || !concurrentCandidate) {
-      throw new Error('Phase 7 archive guard fixtures are missing.')
+      throw new Error('Archive guard fixtures are missing.')
     }
 
     const readArchiveGuardState = async () =>
@@ -5610,7 +5606,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const archiveGuardStateBefore = await readArchiveGuardState()
     const rejectedArmRequestIds: string[] = []
     const expectArchiveArmRejected = async (
-      targetManifest: Phase7AdminTargetManifest,
+      targetManifest: AdminTargetManifest,
       code: '23514' | '40001'
     ): Promise<void> => {
       const requestId = randomUUID()
@@ -5629,14 +5625,14 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const questionManifest = (
       questionId: string,
       rowVersion = 1
-    ): Phase7AdminTargetManifestItem => ({
+    ): AdminTargetManifestItem => ({
       id: questionId,
       rowVersion,
       state: 'ACTIVE'
     })
     const versionManifest = (
       candidate: ArchiveCandidate
-    ): Phase7AdminTargetManifestItem => ({
+    ): AdminTargetManifestItem => ({
       id: candidate.versionId,
       rowVersion: 1,
       state: candidate.state
@@ -5740,7 +5736,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const expectArchiveVerifier = async (input: {
       accepted: boolean
       deltas: readonly ArchiveVerifierDelta[]
-      targetManifest: Phase7AdminTargetManifest
+      targetManifest: AdminTargetManifest
     }): Promise<void> => {
       const operationId = randomUUID()
       await client.query('BEGIN')
@@ -5808,13 +5804,13 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       ).toBe(0)
     }
 
-    const emptyManifest: Phase7AdminTargetManifest = {
+    const emptyManifest: AdminTargetManifest = {
       questions: [questionManifest(emptyManifestTarget.questionId)],
       reports: [],
       tags: [],
       versions: []
     }
-    const candidateManifest: Phase7AdminTargetManifest = {
+    const candidateManifest: AdminTargetManifest = {
       questions: [questionManifest(firstCandidate.questionId)],
       reports: [],
       tags: [],
@@ -5888,7 +5884,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       auditCount: 0 | 1 | 2
       deltas: readonly ArchiveVerifierDelta[]
       review: ArchiveCandidate | null
-      targetManifest: Phase7AdminTargetManifest
+      targetManifest: AdminTargetManifest
     }): Promise<void> => {
       const operationId = randomUUID()
       const requestId = randomUUID()
@@ -6115,7 +6111,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       throw error
     }
     if (!emptyArchiveOperationId) {
-      throw new Error('Phase 7 archive 0/0 operation is missing.')
+      throw new Error('Archive 0/0 operation is missing.')
     }
     expect(
       (
@@ -6502,11 +6498,11 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       concurrentOutcomes.filter(({ status }) => status === 'rejected')
     ).toHaveLength(1)
     if (concurrentWinnerIndex < 0 || concurrentLoserIndex < 0) {
-      throw new Error('Phase 7 archive concurrency outcome is unavailable.')
+      throw new Error('Archive concurrency outcome is unavailable.')
     }
     const concurrentLoser = concurrentOutcomes[concurrentLoserIndex]
     if (concurrentLoser?.status !== 'rejected') {
-      throw new Error('Phase 7 archive concurrency loser is malformed.')
+      throw new Error('Archive concurrency loser is malformed.')
     }
     expect(concurrentLoser.reason).toMatchObject({ code: '40001' })
     expect(
@@ -6714,7 +6710,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           "createdByLabelSnapshot", "createdAt", "updatedAt"
         ) VALUES (
           $1, $2, 1, 'N5', 'VOCABULARY', 'KANJI_READING',
-          'Phase 7 concurrent duplicate content', $3,
+          'Concurrent duplicate content', $3,
           '동시 중복 fingerprint 검증', 'EASY', repeat('0', 64),
           $4, $4, 'ADMIN', 'ACTIVE_ADMIN', $5, $5
         )`,
@@ -6735,7 +6731,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             optionId,
             versionId,
             String(index + 1),
-            `Phase 7 concurrent option ${index + 1}`,
+            `Concurrent option ${index + 1}`,
             index + 1
           ]
         )
@@ -7140,7 +7136,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           "id", "name", "email", "emailVerified", "role",
           "targetLevel", "accountStatus", "createdAt", "updatedAt"
         ) VALUES (
-          $1, 'Phase 7 legacy learner', $2, true, 'USER',
+          $1, 'Legacy learner', $2, true, 'USER',
           'N5', 'ACTIVE', clock_timestamp(), clock_timestamp()
         )`,
         [
@@ -7590,7 +7586,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       withExecutionRole('nihongo_auth_gateway', () =>
         client.query(
           `SELECT * FROM "phase7_sign_up_credential"(
-            $1, $2, $3, 'Phase 7 Signup', 'N4', $4
+            $1, $2, $3, 'Signup', 'N4', $4
           )`,
           [signupUserId, signupAccountId, signupEmail, 'phase7-signup-hash']
         )
@@ -7610,7 +7606,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         {
           email: signupEmail,
           emailVerified: false,
-          name: 'Phase 7 Signup',
+          name: 'Signup',
           userId: signupUserId
         }
       ]
@@ -8488,7 +8484,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
 
   it('서로 분리된 LOGIN wrapper를 실제 startup role로 attestation한다', async () => {
     if (!schema) {
-      throw new Error('Phase 7 integration schema is unavailable.')
+      throw new Error('Integration schema is unavailable.')
     }
     const suffix = randomUUID().replaceAll('-', '').slice(0, 20)
     const applicationLogin = 'nihongo_test_app_login'
@@ -8507,7 +8503,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const applicationUrl = environment.DATABASE_URL
     const authGatewayUrl = environment.AUTH_GATEWAY_DATABASE_URL
     if (!authGatewayUrl) {
-      throw new Error('Phase 7 auth gateway wrapper URL is required.')
+      throw new Error('Auth gateway wrapper URL is required.')
     }
     if (
       decodeURIComponent(new URL(applicationUrl).username) !==
@@ -8518,7 +8514,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         new URL(developmentApplicationDatabaseUrl).username
       ) !== developmentApplicationLogin
     ) {
-      throw new Error('Phase 7 runtime wrapper URL identities are not exact.')
+      throw new Error('Runtime wrapper URL identities are not exact.')
     }
     const retargetWrapperUrl = (
       {
@@ -8593,7 +8589,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           expectedRole: 'nihongo_auth_gateway' as const
         }
       }
-      await expect(attestPhase7RuntimeRoles(endpoints)).resolves.toBeUndefined()
+      await expect(attestRuntimeRoles(endpoints)).resolves.toBeUndefined()
       await expect(
         Promise.all([
           applicationRuntime.client.$queryRawUnsafe(
@@ -8619,12 +8615,12 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           `GRANT ${privilege} ON DATABASE ${database} TO ${quoteIdentifier(role)}${grantOption ? ' WITH GRANT OPTION' : ''}`
         )
         try {
-          const attestation = attestPhase7RuntimeRoles(endpoints)
+          const attestation = attestRuntimeRoles(endpoints)
           if (accepted) {
             await expect(attestation).resolves.toBeUndefined()
           } else {
             await expect(attestation).rejects.toThrow(
-              'Phase 7 runtime DB role attestation failed.'
+              'Runtime DB role attestation failed.'
             )
           }
         } finally {
@@ -8658,7 +8654,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         )
         const target = before.rows[0]
         if (!target) {
-          throw new Error('Phase 7 runtime write-zero fixture is unavailable.')
+          throw new Error('Runtime write-zero fixture is unavailable.')
         }
 
         await client.query(setSetting)
@@ -8679,7 +8675,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         try {
           const guardedServiceMutation = async (): Promise<number> => {
             try {
-              await attestPhase7RuntimeRoles({
+              await attestRuntimeRoles({
                 application: {
                   client: replicaApplicationRuntime.client,
                   connectionString: applicationUrl,
@@ -8747,8 +8743,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO PUBLIC`
       )
       publicConnectRestored = false
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
       await client.query(
         `REVOKE CONNECT ON DATABASE ${quoteIdentifier(configuredDatabaseName)}
@@ -8765,8 +8761,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         `GRANT CONNECT ON DATABASE ${quoteIdentifier(configuredDatabaseName)}
          TO ${quoteIdentifier(applicationLogin)} WITH GRANT OPTION`
       )
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
       await client.query(
         `REVOKE CONNECT ON DATABASE ${quoteIdentifier(configuredDatabaseName)}
@@ -8782,8 +8778,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         `ALTER ROLE ${quoteIdentifier(applicationLogin)} SUPERUSER`
       )
       applicationSuperuser = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
       await client.query(
         `ALTER ROLE ${quoteIdentifier(applicationLogin)} NOSUPERUSER`
@@ -8801,8 +8797,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         `GRANT ${quoteIdentifier(extraRole)} TO ${quoteIdentifier(applicationLogin)}`
       )
       applicationHasExtraMembership = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
       await client.query(
         `REVOKE ${quoteIdentifier(extraRole)} FROM ${quoteIdentifier(applicationLogin)}`
@@ -8814,8 +8810,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO ${quoteIdentifier(applicationLogin)}`
       )
       applicationHasDirectQuestionAcl = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
       await client.query(
         `REVOKE ALL PRIVILEGES ON TABLE ${quoteIdentifier(schema)}."Question"
@@ -8828,8 +8824,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO ${quoteIdentifier(applicationLogin)}`
       )
       applicationHasDirectUserEmailAcl = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
       await client.query(
         `REVOKE SELECT ("email") ON TABLE ${quoteIdentifier(schema)}."User"
@@ -8854,7 +8850,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         'nihongo_app'
       )
       await expect(
-        attestPhase7RuntimeRoles({
+        attestRuntimeRoles({
           application: {
             client: wrongSchemaRuntime.client,
             connectionString: wrongSchemaApplicationUrl,
@@ -8862,9 +8858,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           },
           authGateway: endpoints.authGateway
         })
-      ).rejects.toThrow(
-        'Phase 7 runtime DB endpoints do not share one safe target.'
-      )
+      ).rejects.toThrow('Runtime DB endpoints do not share one safe target.')
 
       await client.query(
         `CREATE DATABASE ${quoteIdentifier(ownedDatabase)}
@@ -8879,8 +8873,8 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO ${quoteIdentifier(applicationLogin)},
             ${quoteIdentifier(authGatewayLogin)}`
       )
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
-        'Phase 7 runtime DB role attestation failed.'
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
       )
 
       developmentToTestClient = new Client({
@@ -8931,7 +8925,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         'nihongo_auth_gateway'
       )
       await expect(
-        attestPhase7RuntimeRoles({
+        attestRuntimeRoles({
           application: {
             client: ownedDatabaseApplicationRuntime.client,
             connectionString: ownedDatabaseApplicationUrl,
@@ -8943,7 +8937,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             expectedRole: 'nihongo_auth_gateway'
           }
         })
-      ).rejects.toThrow('Phase 7 runtime DB role attestation failed.')
+      ).rejects.toThrow('Runtime DB role attestation failed.')
     } finally {
       await Promise.allSettled(
         [

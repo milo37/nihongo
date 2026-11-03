@@ -11,7 +11,7 @@ const contextSchema = z
   })
   .strict()
 const key = (principalScope: string, sessionId: string): string =>
-  `jlpt-drill-note:review-return:v1:${encodeURIComponent(principalScope)}:${encodeURIComponent(sessionId)}`
+  `harumaru:review-return:v1:${encodeURIComponent(principalScope)}:${encodeURIComponent(sessionId)}`
 
 export const saveReviewReturnContext = (
   input: z.input<typeof contextSchema>
@@ -46,7 +46,7 @@ export const readReviewReturnContext = (
 }
 
 const lastResultKey = (principalScope: string): string =>
-  `jlpt-drill-note:last-result:v1:${encodeURIComponent(principalScope)}`
+  `harumaru:last-result:v1:${encodeURIComponent(principalScope)}`
 
 export const rememberCurrentResult = (
   principalScope: string,

@@ -52,7 +52,7 @@ interface CreateAuthGatewayDependencies {
   auth?: AuthGatewayRuntime
   client?: PrismaClient
   environment: ApiEnvironment
-  phase7Facade?: AuthFacade
+  ownedAuthFacade?: AuthFacade
   technicalRateLimiter?: ApplicationRateLimiter
   ssoRuntime?: SsoPublicRuntime
   ssoAccountRuntime?: SsoAccountRuntime
@@ -608,16 +608,16 @@ export const createAuthGateway = ({
   auth,
   client,
   environment,
-  phase7Facade,
+  ownedAuthFacade,
   technicalRateLimiter,
   ssoRuntime,
   ssoAccountRuntime,
   delay = sleep,
   now = Date.now
 }: CreateAuthGatewayDependencies): AuthGateway => {
-  const technicalMode = phase7Facade !== undefined
+  const technicalMode = ownedAuthFacade !== undefined
   if (
-    technicalMode ? !phase7Facade || !technicalRateLimiter : !auth || !client
+    technicalMode ? !ownedAuthFacade || !technicalRateLimiter : !auth || !client
   ) {
     throw new Error('Auth gateway runtime dependencies do not match its mode.')
   }
@@ -791,7 +791,11 @@ export const createAuthGateway = ({
       }
 
       let response = technicalMode
-        ? await phase7Facade!.handle(request, pathname, technicalPayload ?? {})
+        ? await ownedAuthFacade!.handle(
+            request,
+            pathname,
+            technicalPayload ?? {}
+          )
         : await auth!.handler(forwardedRequest)
 
       if (

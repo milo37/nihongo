@@ -2,18 +2,32 @@ import { z } from 'zod'
 
 type PracticeTransportHeaders = z.output<typeof practiceTransportHeadersSchema>
 
+const JSON_CONTENT_TYPE_PATTERN = /^application\/json(?:\s*;|$)/iu
+
+export const refinePracticeJsonContentType = (
+  headers: PracticeTransportHeaders,
+  context: z.RefinementCtx,
+  message: string
+): void => {
+  if (!JSON_CONTENT_TYPE_PATTERN.test(headers['content-type'] ?? '')) {
+    context.addIssue({
+      code: 'custom',
+      path: ['headers', 'content-type'],
+      message
+    })
+  }
+}
+
 export const refinePracticeJsonTransportHeaders = (
   headers: PracticeTransportHeaders,
   context: z.RefinementCtx,
   allowReplay: boolean
 ): void => {
-  if (!headers['content-type']?.toLowerCase().startsWith('application/json')) {
-    context.addIssue({
-      code: 'custom',
-      path: ['headers', 'content-type'],
-      message: 'JSON 응답에는 application/json Content-Type이 필요합니다.'
-    })
-  }
+  refinePracticeJsonContentType(
+    headers,
+    context,
+    'JSON 응답에는 application/json Content-Type이 필요합니다.'
+  )
   if (!allowReplay && headers['idempotency-replayed'] !== null) {
     context.addIssue({
       code: 'custom',
@@ -26,6 +40,20 @@ export const refinePracticeJsonTransportHeaders = (
       code: 'custom',
       path: ['headers', 'location'],
       message: '성공 응답에는 Location header가 없어야 합니다.'
+    })
+  }
+}
+
+export const refinePracticeContractV2Header = (
+  headers: PracticeTransportHeaders,
+  context: z.RefinementCtx,
+  message: string
+): void => {
+  if (headers['x-nihongo-practice-contract'] !== '2') {
+    context.addIssue({
+      code: 'custom',
+      path: ['headers', 'x-nihongo-practice-contract'],
+      message
     })
   }
 }

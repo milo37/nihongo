@@ -12,7 +12,7 @@ import type { AddressInfo } from 'node:net'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { cleanupBrowserResources } from './browserCleanup.js'
 import type { OwnedProcess } from './ownedProcessGroup.js'
-import type { Phase7BrowserFixtureDatabase } from './browserFixture.js'
+import type { BrowserFixtureDatabase } from './browserFixture.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -32,8 +32,8 @@ interface ManagedProcess {
 
 type BrowserMode = 'mock' | 'real'
 
-const includeDashboard = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
-const acceptancePhase = includeDashboard ? 'phase8' : 'phase7'
+const includeDashboard = process.env.DASHBOARD_BROWSER_ACCEPTANCE === '1'
+const acceptanceSuite = includeDashboard ? 'admin-dashboard' : 'admin'
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
 const mode: BrowserMode | undefined =
   rawMode === 'mock' || rawMode === 'real' ? rawMode : undefined
@@ -45,7 +45,7 @@ let webAssetsDirectory: string | undefined
 let adminAssetsDirectory: string | undefined
 let controlServer: Server | undefined
 let apiServer: Server | undefined
-let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
+let fixtureDatabase: BrowserFixtureDatabase | undefined
 let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
 
@@ -174,7 +174,7 @@ const closeControlServer = async (): Promise<void> => {
   })
 }
 
-export const closePhase7BrowserApi = async (
+export const closeBrowserApi = async (
   server: Server | undefined
 ): Promise<void> => {
   if (!server) return
@@ -196,7 +196,7 @@ export const closePhase7BrowserApi = async (
   }
 }
 
-export const cleanupPhase7BrowserResources = async (
+export const cleanupAdminBrowserResources = async (
   processes: OwnedProcess[],
   actions: Parameters<typeof cleanupBrowserResources>[0]
 ): Promise<void> => {
@@ -210,7 +210,7 @@ export const cleanupPhase7BrowserResources = async (
 }
 
 export const cleanup = (): Promise<void> => {
-  cleanupPromise ??= cleanupPhase7BrowserResources(ownedProcesses, {
+  cleanupPromise ??= cleanupAdminBrowserResources(ownedProcesses, {
     stopOwnedProcesses: async () => {
       await stopOwnedProcesses(ownedProcesses, {
         onForceKill: ({ label }) => {
@@ -219,7 +219,7 @@ export const cleanup = (): Promise<void> => {
           )
         }
       })
-      await closePhase7BrowserApi(apiServer)
+      await closeBrowserApi(apiServer)
       apiServer = undefined
     },
     closeControlServer,
@@ -269,7 +269,7 @@ const startControlServer = async ({
   secret
 }: {
   readonly authorUserId: string
-  readonly database: Phase7BrowserFixtureDatabase
+  readonly database: BrowserFixtureDatabase
   readonly secret: string
 }): Promise<string> => {
   const port = await reserveLoopbackPort()
@@ -303,7 +303,7 @@ const startControlServer = async ({
     })().catch((error: unknown) => {
       const message =
         error instanceof Error ? error.message : 'unknown control failure'
-      process.stderr.write(`[phase7-browser-control] ${message}\n`)
+      process.stderr.write(`[admin-browser-control] ${message}\n`)
       if (!response.headersSent) response.writeHead(500)
       response.end()
     })
@@ -316,21 +316,21 @@ const startControlServer = async ({
   return `http://127.0.0.1:${port}`
 }
 
-export const createPhase7BrowserPlaywrightEnvironment = (
+export const createBrowserPlaywrightEnvironment = (
   browserMode: BrowserMode,
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): NodeJS.ProcessEnv => ({
   ...process.env,
   ...extraEnvironment,
-  PHASE7_BROWSER_MODE: browserMode,
-  PHASE8_BROWSER_MODE: browserMode,
-  PHASE7_BROWSER_ADMIN_ORIGIN: webOrigin,
+  ADMIN_BROWSER_MODE: browserMode,
+  DASHBOARD_BROWSER_MODE: browserMode,
+  ADMIN_BROWSER_ADMIN_ORIGIN: webOrigin,
   PLAYWRIGHT_BASE_URL: webOrigin,
-  PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
+  PLAYWRIGHT_OUTPUT_LABEL: `${acceptanceSuite}-${browserMode}`
 })
 
-export const selectPhase7BrowserSpecs = (
+export const selectBrowserSpecs = (
   browserMode: BrowserMode,
   phase8: boolean
 ): string[] => {
@@ -340,7 +340,7 @@ export const selectPhase7BrowserSpecs = (
   ]
   if (specs.length === 0)
     throw new Error(
-      'Phase 7 administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
+      'Administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
     )
   return specs
 }
@@ -350,7 +350,7 @@ const runPlaywright = async (
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): Promise<void> => {
-  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)
+  const browserSpecs = selectBrowserSpecs(browserMode, includeDashboard)
   await runCommand(
     'pnpm',
     [
@@ -362,17 +362,13 @@ const runPlaywright = async (
       ...browserSpecs,
       ...playwrightArguments
     ],
-    createPhase7BrowserPlaywrightEnvironment(
-      browserMode,
-      webOrigin,
-      extraEnvironment
-    )
+    createBrowserPlaywrightEnvironment(browserMode, webOrigin, extraEnvironment)
   )
 }
 
 export const runMock = async (): Promise<void> => {
   // Reject an empty selection before starting resources or running all e2e files.
-  selectPhase7BrowserSpecs('mock', includeDashboard)
+  selectBrowserSpecs('mock', includeDashboard)
   await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
   await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
@@ -380,7 +376,7 @@ export const runMock = async (): Promise<void> => {
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
   const web = spawnOwned(
-    `${acceptancePhase}-mock-web`,
+    `${acceptanceSuite}-mock-web`,
     'pnpm',
     [
       '--filter',
@@ -407,10 +403,11 @@ export const runMock = async (): Promise<void> => {
 }
 
 export const runReal = async (): Promise<void> => {
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('./runAdminApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
+    './runAdminApiIntegration.js'
+  )
+  cleanupDatabaseHarness = cleanupIsolatedDatabase
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })
@@ -442,7 +439,7 @@ export const runReal = async (): Promise<void> => {
   ])
     delete apiEnvironment[key]
   const [
-    { createPhase7SsoAdminBrowserApiFixture },
+    { createSsoAdminBrowserApiFixture },
     { parseApiEnvironment },
     { getRequestListener }
   ] = await Promise.all([
@@ -450,7 +447,7 @@ export const runReal = async (): Promise<void> => {
     import('../config/env.js'),
     import('@hono/node-server')
   ])
-  const created = await createPhase7SsoAdminBrowserApiFixture(
+  const created = await createSsoAdminBrowserApiFixture(
     {
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
@@ -462,14 +459,14 @@ export const runReal = async (): Promise<void> => {
   fixtureDatabase = created.database
   if (!created.adminGuard)
     throw new Error(
-      `${acceptancePhase} Real requires an administrator static guard.`
+      `${acceptanceSuite} Real requires an administrator static guard.`
     )
   const baseline = await created.database.snapshot()
   webAssetsDirectory = await mkdtemp(
-    nodePath.join(tmpdir(), `${acceptancePhase}-browser-web-`)
+    nodePath.join(tmpdir(), `${acceptanceSuite}-browser-web-`)
   )
   adminAssetsDirectory = await mkdtemp(
-    nodePath.join(tmpdir(), `${acceptancePhase}-browser-admin-`)
+    nodePath.join(tmpdir(), `${acceptanceSuite}-browser-admin-`)
   )
   for (const [application, directory] of [
     ['@nihongo/web', webAssetsDirectory],
@@ -521,10 +518,10 @@ export const runReal = async (): Promise<void> => {
     secret: controlSecret
   })
   await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
   await created.database.assertExpectedLifecycleDelta(baseline)
 }
@@ -532,7 +529,7 @@ export const runReal = async (): Promise<void> => {
 const run = async (): Promise<void> => {
   if (!mode) {
     throw new Error(
-      `${acceptancePhase} browser runner accepts mock or real mode.`
+      `${acceptanceSuite} browser runner accepts mock or real mode.`
     )
   }
   if (mode === 'mock') await runMock()
@@ -553,7 +550,7 @@ export const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `${acceptancePhase} ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `${acceptanceSuite} ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -584,7 +581,7 @@ if (
   void execute()
     .then(() => {
       process.stdout.write(
-        `${JSON.stringify({ event: `${acceptancePhase}.browser.${mode}.passed` })}\n`
+        `${JSON.stringify({ event: `${acceptanceSuite}.browser.${mode}.passed` })}\n`
       )
     })
     .catch((error: unknown) => {
@@ -594,7 +591,7 @@ if (
           : undefined
       process.stderr.write(
         `${JSON.stringify({
-          event: `${acceptancePhase}.browser.${mode ?? 'unknown'}.failed`,
+          event: `${acceptanceSuite}.browser.${mode ?? 'unknown'}.failed`,
           ...describeFailure(error),
           ...(causes ? { causes } : {})
         })}\n`

@@ -2,7 +2,6 @@ import type { User } from '@nihongo/browser/common/types/domain'
 import { http, HttpResponse } from 'msw'
 import { listWrongNoteRequestSchema } from '@api/wrong-note/listWrongNote/schema'
 import { reviewWrongNoteRequestSchema } from '@api/wrong-note/reviewWrongNote/schema'
-import { updateWrongNoteMemoRequestSchema } from '@api/wrong-note/updateWrongNoteMemo/schema'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import {
   MockHttpError,
@@ -41,21 +40,6 @@ export const wrongNoteHandlers = [
       const questionId = String(params.questionId ?? '')
 
       return HttpResponse.json(mockDatabase.getWrongNote(user.id, questionId))
-    } catch (error: unknown) {
-      return toErrorResponse(error)
-    }
-  }),
-  http.put('*/api/wrong-note/:questionId/memo', async ({ params, request }) => {
-    try {
-      const user = requireAuthenticatedUser()
-      const questionId = String(params.questionId ?? '')
-      const input = await parseJsonBody(
-        request,
-        updateWrongNoteMemoRequestSchema
-      )
-      return HttpResponse.json(
-        mockDatabase.updateWrongNoteMemo(user.id, questionId, input.memo)
-      )
     } catch (error: unknown) {
       return toErrorResponse(error)
     }

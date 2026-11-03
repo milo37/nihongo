@@ -1,8 +1,8 @@
 import {
   JsonParseError,
   parseJsonBytes,
-  parsePhase7JsonBytes,
-  Phase7JsonParseError
+  parseContentJsonBytes,
+  ContentJsonParseError
 } from '@nihongo/contracts/admin/content-operations'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readStrictJsonBody } from './strictJsonBody.js'
@@ -34,23 +34,21 @@ afterEach(() => vi.useRealTimers())
 
 describe('JSON parser export compatibility', () => {
   it('preserves function and constructor identity and error metadata', () => {
-    expect(parseJsonBytes).toBe(parsePhase7JsonBytes)
-    expect(parseJsonBytes.name).toBe('parsePhase7JsonBytes')
-    expect(JsonParseError).toBe(Phase7JsonParseError)
+    expect(parseJsonBytes).toBe(parseContentJsonBytes)
+    expect(parseJsonBytes.name).toBe('parseContentJsonBytes')
+    expect(JsonParseError).toBe(ContentJsonParseError)
 
     const error = new JsonParseError('MAX_DEPTH_EXCEEDED')
     expect(error).toBeInstanceOf(JsonParseError)
-    expect(error).toBeInstanceOf(Phase7JsonParseError)
-    expect(error.name).toBe('Phase7JsonParseError')
-    expect(error.constructor.name).toBe('Phase7JsonParseError')
+    expect(error).toBeInstanceOf(ContentJsonParseError)
+    expect(error.name).toBe('ContentJsonParseError')
+    expect(error.constructor.name).toBe('ContentJsonParseError')
     expect(error.kind).toBe('MAX_DEPTH_EXCEEDED')
-    expect(error.message).toBe(
-      'Phase 7 JSON exceeds the maximum container depth.'
-    )
+    expect(error.message).toBe('JSON exceeds the maximum container depth.')
 
     const duplicate = new TextEncoder().encode('{"key":1,"key":2}')
-    expect(() => parseJsonBytes(duplicate)).toThrow(Phase7JsonParseError)
-    expect(() => parsePhase7JsonBytes(duplicate)).toThrow(JsonParseError)
+    expect(() => parseJsonBytes(duplicate)).toThrow(ContentJsonParseError)
+    expect(() => parseContentJsonBytes(duplicate)).toThrow(JsonParseError)
   })
 })
 

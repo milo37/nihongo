@@ -38,36 +38,6 @@ test('keeps the previous bundle exports compatible', async () => {
   ]) {
     assert.equal(typeof bundle[name], 'function', name)
   }
-  assert.equal(
-    bundle.describePhase10PayloadIdentity,
-    bundle.describeBundlePayloadIdentity
-  )
-  assert.equal(
-    bundle.createPhase10SsrAssetClosureError,
-    bundle.createBundleSsrAssetClosureError
-  )
-  assert.equal(
-    bundle.createPhase10ForwardingProof,
-    bundle.createBundleForwardingProof
-  )
-  assert.equal(
-    bundle.assertPhase10ForwardingCoverage,
-    bundle.assertBundleForwardingCoverage
-  )
-  assert.equal(bundle.phase10SplitBundleCommand, bundle.splitBundleCommand)
-  assert.equal(
-    bundle.collectPhase10BundleEvidence,
-    bundle.collectBundleEvidence
-  )
-  assert.equal(bundle.assertPhase10BundleEvidence, bundle.assertBundleEvidence)
-  assert.equal(
-    bundle.assertPhase10BundleEvidenceProvenance,
-    bundle.assertBundleEvidenceProvenance
-  )
-  assert.equal(
-    bundle.readPhase10BundleRepositoryState,
-    bundle.readBundleRepositoryState
-  )
 })
 
 test('keeps one explicit ceiling for every bundle measurement', () => {
@@ -154,11 +124,11 @@ test('fails closed on incomplete bundle evidence', () => {
   assert.throws(
     () =>
       assertBundleEvidence({
-        kind: 'nihongo.phase10.bundle-performance',
+        kind: 'nihongo.web.bundle-performance',
         schemaVersion: 1,
         status: 'passed'
       }),
-    /PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID/u
+    /WEB_BUNDLE_EVIDENCE_SCHEMA_INVALID/u
   )
 })
 
@@ -184,7 +154,7 @@ test('reports exact sorted missing and extra SSR asset paths', () => {
   )
   assert.equal(
     error.message,
-    'PHASE10_BUNDLE_SSR_ASSET_CLOSURE_MISMATCH:' +
+    'WEB_BUNDLE_SSR_ASSET_CLOSURE_MISMATCH:' +
       JSON.stringify({
         missing: ['assets/missing-a.js', 'assets/missing-z.js'],
         extra: ['assets/extra-a.js', 'assets/extra-z.js']
@@ -325,19 +295,22 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
   ]) {
     const candidate = JSON.parse(JSON.stringify(input))
     mutate(candidate)
-    assert.throws(() => assertBundleForwardingCoverage(candidate), /PHASE10_/u)
+    assert.throws(
+      () => assertBundleForwardingCoverage(candidate),
+      /WEB_BUNDLE_/u
+    )
   }
 })
 
 test('reports sorted budget metrics and exact lazy asset context without body', () => {
   const budgets = evaluateBundleBudgets({
     ...bundleBaseline,
-    largestLazyJavaScriptGzipBytes: 24_058
+    largestLazyJavaScriptGzipBytes: 25_058
   })
   const asset = {
     path: 'assets/locale.js',
     rawBytes: 92_000,
-    gzipBytes: 24_058,
+    gzipBytes: 25_058,
     contentSha256: 'a'.repeat(64),
     source: 'RAW_ASSET_BODY_MUST_NOT_BE_LOGGED'
   }
@@ -362,10 +335,7 @@ test('reports sorted budget metrics and exact lazy asset context without body', 
     }
   ]
   const error = createBundleBudgetError(budgets, asset, graph)
-  assert.equal(
-    error.message.startsWith('PHASE10_BUNDLE_BUDGET_EXCEEDED:'),
-    true
-  )
+  assert.equal(error.message.startsWith('WEB_BUNDLE_BUDGET_EXCEEDED:'), true)
   assert.equal(error.message.includes(asset.source), false)
   const context = JSON.parse(error.message.split('EXCEEDED:')[1])
   assert.deepEqual(context.budgets, budgets)
@@ -374,12 +344,12 @@ test('reports sorted budget metrics and exact lazy asset context without body', 
     Object.keys(budgets).toSorted()
   )
   assert.deepEqual(context.budgets.largestLazyJavaScriptGzipBytes, {
-    actual: 24_058,
-    baseline: 22_581,
-    ceiling: 24_000,
-    delta: 1_477,
+    actual: 25_058,
+    baseline: 24_463,
+    ceiling: 25_000,
+    delta: 595,
     passed: false,
-    ratio: 1.065409
+    ratio: 1.024322
   })
   assert.deepEqual(context.largestLazyJavaScriptByGzip, {
     path: asset.path,

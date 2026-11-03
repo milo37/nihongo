@@ -769,7 +769,7 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
 })
 
 test('TEST preparation programs keep canonical seed/owned issuance boundaries and reject production fixture use', async () => {
-  assert.match(canonicalSeedProgram, /assertSafePhase7MigrationDatabase/u)
+  assert.match(canonicalSeedProgram, /assertSafeMigrationDatabase/u)
   assert.match(canonicalSeedProgram, /seedQuestionCatalog\(scoped\)/u)
   assert.doesNotMatch(
     canonicalSeedProgram + controlledSessionProgram,
@@ -790,7 +790,7 @@ test('TEST preparation programs keep canonical seed/owned issuance boundaries an
       new execute(
         'createRoleDatabaseRuntime',
         'createSsoIdentityRepository',
-        'createPhase7SessionCookie',
+        'createOwnedSessionCookie',
         'readFileSync',
         'process',
         body
@@ -828,7 +828,7 @@ test('TEST preparation programs keep canonical seed/owned issuance boundaries an
     await new execute(
       'createRoleDatabaseRuntime',
       'createSsoIdentityRepository',
-      'createPhase7SessionCookie',
+      'createOwnedSessionCookie',
       'readFileSync',
       'process',
       body
@@ -1083,7 +1083,7 @@ test('canonical seed child preserves native failure with safe stage and code onl
   const sentinel =
     'postgresql://private:private-token@127.0.0.1:1/private?password=secret'
   const prelude =
-    "\nconst scenario = JSON.parse(process.env.PORTABLE_SEED_STUB_SCENARIO);\nconst secretError = (code, databaseCode) => Object.assign(new Error('private-token postgresql://private:password@127.0.0.1/secret SQL parameter'), { code, meta: { code: databaseCode } });\nclass PrismaClient {\n  async $transaction(callback) {\n    return await callback({\n      $executeRawUnsafe: async () => 0,\n      $queryRawUnsafe: async () => [{ role: 'nihongo_phase7_owner', login: 'nihongo_test_phase7_migration_login' }]\n    });\n  }\n  async $queryRawUnsafe() { return [{ role: 'nihongo_phase7_migration' }]; }\n  async $disconnect() { if (scenario.disconnectCode) throw secretError(scenario.disconnectCode); }\n}\nconst loadModule = async (name) => {\n  if (scenario.importCode) throw secretError(scenario.importCode);\n  if (name === '@prisma/adapter-pg') return { PrismaPg: class {} };\n  if (name === './src/generated/prisma/client.ts') return { PrismaClient };\n  if (name === './prisma/seedQuestionCatalog.ts') return {\n    seedQuestionCatalog: async () => {\n      if (scenario.seedCode) throw secretError(scenario.seedCode, scenario.databaseCode);\n      return { insertedCount: scenario.insertedCount ?? 65, verifiedCount: 0 };\n    }\n  };\n  if (name === './src/db/databaseTargetGuard.ts') return { assertSafePhase7MigrationDatabase: () => {} };\n  if (name === './src/db/databaseOptions.ts') return {\n    createPostgresStartupOptions: () => '',\n    getPostgresSchema: (value) => new URL(value).searchParams.get('schema')\n  };\n  throw new Error('Unexpected stub module.');\n};\n"
+    "\nconst scenario = JSON.parse(process.env.PORTABLE_SEED_STUB_SCENARIO);\nconst secretError = (code, databaseCode) => Object.assign(new Error('private-token postgresql://private:password@127.0.0.1/secret SQL parameter'), { code, meta: { code: databaseCode } });\nclass PrismaClient {\n  async $transaction(callback) {\n    return await callback({\n      $executeRawUnsafe: async () => 0,\n      $queryRawUnsafe: async () => [{ role: 'nihongo_phase7_owner', login: 'nihongo_test_phase7_migration_login' }]\n    });\n  }\n  async $queryRawUnsafe() { return [{ role: 'nihongo_phase7_migration' }]; }\n  async $disconnect() { if (scenario.disconnectCode) throw secretError(scenario.disconnectCode); }\n}\nconst loadModule = async (name) => {\n  if (scenario.importCode) throw secretError(scenario.importCode);\n  if (name === '@prisma/adapter-pg') return { PrismaPg: class {} };\n  if (name === './src/generated/prisma/client.ts') return { PrismaClient };\n  if (name === './prisma/seedQuestionCatalog.ts') return {\n    seedQuestionCatalog: async () => {\n      if (scenario.seedCode) throw secretError(scenario.seedCode, scenario.databaseCode);\n      return { insertedCount: scenario.insertedCount ?? 65, verifiedCount: 0 };\n    }\n  };\n  if (name === './src/db/databaseTargetGuard.ts') return { assertSafeMigrationDatabase: () => {} };\n  if (name === './src/db/databaseOptions.ts') return {\n    createPostgresStartupOptions: () => '',\n    getPostgresSchema: (value) => new URL(value).searchParams.get('schema')\n  };\n  throw new Error('Unexpected stub module.');\n};\n"
   const body = canonicalSeedProgram.replaceAll(
     'await import(',
     'await loadModule('

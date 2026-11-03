@@ -21,8 +21,8 @@ import { createStudySubmissionService } from './studySubmissionService.js'
 
 const fixtureUrl = process.env.GUEST_CLEANUP_FIXTURE_DATABASE_URL
 const workerUrl = process.env.GUEST_CLEANUP_DATABASE_URL
-const applicationUrl = process.env.PHASE7_RUNTIME_DATABASE_URL
-const erasureUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+const applicationUrl = process.env.RUNTIME_DATABASE_URL
+const erasureUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 if (
   !fixtureUrl ||
   !workerUrl ||

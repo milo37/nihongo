@@ -159,7 +159,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [database, api]
+        part: [database, api-1, api-2, api-3]
     services:
       postgres:
         image: ${{ (needs.plan.outputs.api == 'true') && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
@@ -296,7 +296,7 @@ jobs:
           node scripts/security/security-evidence.mjs verify
           --directory "$PLAYWRIGHT_EVIDENCE_DIR"
           --profile playwright
-          --required phase8-real,phase9-real,phase10-real
+          --required admin-dashboard-real,accessibility-real,journey-real
 
       - name: Upload safe Playwright evidence
         if: ${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
@@ -313,10 +313,10 @@ jobs:
           set -euo pipefail
           expected="test-results/browser-evidence/playwright-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           test "$PLAYWRIGHT_EVIDENCE_DIR" = "$expected"
-          rm -rf -- "$expected" test-results/phase10-raw test-results/playwright-phase9-real
+          rm -rf -- "$expected" test-results/playwright-raw test-results/playwright-accessibility-real
           test ! -e "$expected"
-          test ! -e test-results/phase10-raw
-          test ! -e test-results/playwright-phase9-real
+          test ! -e test-results/playwright-raw
+          test ! -e test-results/playwright-accessibility-real
 
       - name: Initialize unique safe Mock Playwright evidence
         id: mock_playwright_initialize
@@ -341,7 +341,7 @@ jobs:
           node scripts/security/security-evidence.mjs verify
           --directory "$PLAYWRIGHT_MOCK_EVIDENCE_DIR"
           --profile playwright
-          --required phase8-mock,phase9-mock,phase10-mock
+          --required admin-dashboard-mock,accessibility-mock,journey-mock
 
       - name: Upload safe Mock Playwright evidence
         if: ${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
@@ -358,9 +358,9 @@ jobs:
           set -euo pipefail
           expected="test-results/browser-evidence/playwright-mock-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           test "$PLAYWRIGHT_MOCK_EVIDENCE_DIR" = "$expected"
-          rm -rf -- "$expected" test-results/phase10-raw
+          rm -rf -- "$expected" test-results/playwright-raw
           test ! -e "$expected"
-          test ! -e test-results/phase10-raw
+          test ! -e test-results/playwright-raw
 
       - name: Verify selected regression acceptance
         if: ${{ always() }}
@@ -396,8 +396,8 @@ jobs:
           require_selected_step "$MOCK_SELECTED" "$MOCK_EVIDENCE_INITIALIZE_OUTCOME"
           require_selected_step "$MOCK_SELECTED" "$MOCK_EVIDENCE_OUTCOME"
 
-  e2e:
-    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / regression / {0}', github.run_id) || 'Phase 10 real/mock browser and regression acceptance' }}
+  acceptance:
+    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / regression / {0}', github.run_id) || 'Browser and regression acceptance' }}
     if: ${{ always() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}'))) }}
     needs: [plan, build, unit, integration, regression]
     runs-on: ubuntu-latest
@@ -469,8 +469,8 @@ jobs:
           RELEASE_ID: ${{ github.sha }}
         run: pnpm run test:portable
 
-  phase11_release:
-    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / portable / {0}', github.run_id) || 'Phase 11 portable release and production-mode smoke' }}
+  release_smoke:
+    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}')) && format('Metadata edit / portable / {0}', github.run_id) || 'Portable release smoke' }}
     if: ${{ always() && !(github.event_name == 'pull_request' && github.event.action == 'edited' && (startsWith(toJSON(github.event.changes.title.from), '"') || startsWith(toJSON(github.event.changes.body.from), '"')) && toJSON(github.event.changes) == toJSON(fromJSON(startsWith(toJSON(github.event.changes.title.from), '"') && startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"title":{{"from":{0}}},"body":{{"from":{1}}}}}', toJSON(github.event.changes.title.from), toJSON(github.event.changes.body.from)) || startsWith(toJSON(github.event.changes.title.from), '"') && format('{{"title":{{"from":{0}}}}}', toJSON(github.event.changes.title.from)) || startsWith(toJSON(github.event.changes.body.from), '"') && format('{{"body":{{"from":{0}}}}}', toJSON(github.event.changes.body.from)) || '{}'))) }}
     needs: [plan, build, portable]
     runs-on: ubuntu-latest

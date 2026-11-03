@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { skipToken, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 import type { StudyDraftSnapshot } from '@nihongo/contracts/study/study-draft'
 import { isApiError } from '@nihongo/browser/api/config'
@@ -12,14 +12,12 @@ import {
   isStudyDraftDiffEmpty,
   mergeStudyDraftDiffs,
   mergeStudyDraftSnapshots,
-  toSaveStudyDraftBody,
-  type StudyDraftLocalDiff
+  toSaveStudyDraftBody
 } from '@nihongo/browser/app/practice/draft/studyDraftMerge'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { StudyQuestionClock } from '@app/practice/draft/studyQuestionClock'
 import {
   createFrozenStudyDraftAttempt,
-  createStudyDraftBaseDigest,
   createStudyDraftWorkingCopy,
   type StudyDraftWorkingCopy
 } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopy'
@@ -28,6 +26,27 @@ import {
   readStudyDraftWorkingCopy,
   writeStudyDraftWorkingCopy
 } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
+import {
+  DraftIntegrityError,
+  STUDY_DRAFT_SAVE_MIN_GAP_MS,
+  assertCanonicalProgression,
+  assertSameQuestionBoundary,
+  areStudyDraftSnapshotsEqual,
+  getStatus,
+  getVisibleSnapshot,
+  hasExpectedSessionQuestionBoundary,
+  hasValidCanonicalProgression,
+  isWorkingCopyForScope,
+  snapshotElapsedById,
+  withConfirmedBase,
+  type PracticeDraftStatus,
+  type PreparedStudyDraftSubmission,
+  type StudyDraftSaveTiming
+} from '@app/practice/draft/practiceDraftModel'
+import { useStudyDraftAutosaveTimer } from '@app/practice/hooks/useStudyDraftAutosaveTimer'
+import { useStudyDraftClockLifecycle } from '@app/practice/hooks/useStudyDraftClockLifecycle'
+import { useStudyDraftSavePacing } from '@app/practice/hooks/useStudyDraftSavePacing'
+import { useStudyDraftWindowEvents } from '@app/practice/hooks/useStudyDraftWindowEvents'
 import { useStudyDraftRevisionSync } from '@nihongo/browser/app/practice/draft/useStudyDraftRevisionSync'
 import { useGetStudyDraft } from '@app/practice/hooks/useGetStudyDraft'
 import { useSaveStudyDraft } from '@app/practice/hooks/useSaveStudyDraft'
@@ -37,34 +56,10 @@ import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys
 import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch,
-  isAuthTransitionSupersededError,
-  isCurrentAuthTransitionEpoch
+  isAuthTransitionSupersededError
 } from '@nihongo/browser/libs/authTransitionFence'
 import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { useAppStore } from '@nihongo/browser/store/index'
-
-export const STUDY_DRAFT_AUTOSAVE_DELAY_MS = 2_000
-const STUDY_DRAFT_AUTOSAVE_MAX_WAIT_MS = 10_000
-const STUDY_DRAFT_SAVE_MIN_GAP_MS = 5_000
-
-interface StudyDraftSaveTiming {
-  scopeKey: string
-  active: boolean
-  firstUnsentAt: number | null
-  lastEditAt: number
-  lastPutStartedAt: number
-  unsentSignature: string
-  cooldownUntil: number
-  rateLimitFailure: unknown
-  resumeDelay: (() => void) | null
-}
-
-type StudyDraftSavePacing = Pick<
-  StudyDraftSaveTiming,
-  'scopeKey' | 'lastPutStartedAt' | 'cooldownUntil' | 'rateLimitFailure'
-> & { authEpoch: number }
-
-const savePacingQueryKey = ['study', 'draft-save-pacing'] as const
 
 interface UsePracticeDraftControllerOptions {
   enabled: boolean
@@ -72,12 +67,6 @@ interface UsePracticeDraftControllerOptions {
   isInteractionPaused: boolean
   sessionId: string
   user: AuthenticatedUser | null
-}
-
-export interface PreparedStudyDraftSubmission {
-  answers: StudyDraftSnapshot['answers']
-  durationSec: number
-  expectedDraftRevision: number
 }
 
 export interface PracticeDraftController {
@@ -95,168 +84,6 @@ export interface PracticeDraftController {
   selectOption: (sessionQuestionId: string, optionId: string) => void
   snapshot: StudyDraftSnapshot | null
   status: PracticeDraftStatus
-}
-
-export type PracticeDraftStatusCode =
-  | 'remoteDeferred'
-  | 'reconciled'
-  | 'conflictPending'
-  | 'dirty'
-  | 'saving'
-  | 'savedAt'
-  | 'saved'
-  | 'offline'
-  | 'conflict'
-  | 'error'
-  | 'synced'
-
-export interface PracticeDraftStatus {
-  readonly code: PracticeDraftStatusCode
-  readonly savedAt?: string
-}
-
-const snapshotElapsedById = (
-  snapshot: StudyDraftSnapshot
-): Record<string, number> =>
-  Object.fromEntries(
-    snapshot.answers.map(({ studySessionQuestionId, elapsedSec }) => [
-      studySessionQuestionId,
-      elapsedSec
-    ])
-  )
-
-const orderedQuestionIds = (snapshot: StudyDraftSnapshot): string[] =>
-  snapshot.answers.map(({ studySessionQuestionId }) => studySessionQuestionId)
-
-const hasExpectedSessionQuestionBoundary = (
-  snapshot: StudyDraftSnapshot,
-  sessionId: string,
-  expectedQuestionBoundary: string | null
-): boolean =>
-  snapshot.studySessionId === sessionId &&
-  expectedQuestionBoundary !== null &&
-  JSON.stringify(orderedQuestionIds(snapshot)) === expectedQuestionBoundary
-
-class DraftIntegrityError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'DraftIntegrityError'
-  }
-}
-
-const hasSameQuestionBoundary = (
-  expected: StudyDraftSnapshot,
-  actual: StudyDraftSnapshot
-): boolean =>
-  expected.studySessionId === actual.studySessionId &&
-  JSON.stringify(orderedQuestionIds(expected)) ===
-    JSON.stringify(orderedQuestionIds(actual))
-
-const assertSameQuestionBoundary = (
-  expected: StudyDraftSnapshot,
-  actual: StudyDraftSnapshot
-): void => {
-  if (!hasSameQuestionBoundary(expected, actual)) {
-    throw new DraftIntegrityError(
-      'draft 응답의 세션 문제 경계가 일치하지 않습니다.'
-    )
-  }
-}
-
-const areStudyDraftSnapshotsEqual = (
-  first: StudyDraftSnapshot,
-  second: StudyDraftSnapshot
-): boolean => JSON.stringify(first) === JSON.stringify(second)
-
-const hasValidCanonicalProgression = (
-  confirmed: StudyDraftSnapshot,
-  canonical: StudyDraftSnapshot
-): boolean =>
-  hasSameQuestionBoundary(confirmed, canonical) &&
-  canonical.revision >= confirmed.revision &&
-  (canonical.revision !== confirmed.revision ||
-    areStudyDraftSnapshotsEqual(confirmed, canonical))
-
-const assertCanonicalProgression = (
-  confirmed: StudyDraftSnapshot,
-  canonical: StudyDraftSnapshot
-): void => {
-  if (!hasValidCanonicalProgression(confirmed, canonical)) {
-    throw new DraftIntegrityError(
-      'canonical draft의 revision 또는 내용이 일치하지 않습니다.'
-    )
-  }
-}
-
-const getVisibleSnapshot = (
-  workingCopy: StudyDraftWorkingCopy
-): StudyDraftSnapshot => {
-  if (!workingCopy.frozenAttempt) {
-    return applyStudyDraftDiff(workingCopy.confirmedBase, workingCopy.localDiff)
-  }
-
-  const frozen = applySaveStudyDraftBody(
-    workingCopy.confirmedBase,
-    workingCopy.frozenAttempt.exactParsedBody
-  )
-  return applyStudyDraftDiff(frozen, workingCopy.postFlightLocalDiff)
-}
-
-const isWorkingCopyForScope = (
-  record: StudyDraftWorkingCopy | null,
-  principalScope: string,
-  sessionId: string
-): record is StudyDraftWorkingCopy =>
-  Boolean(
-    record?.principalScope === principalScope && record.sessionId === sessionId
-  )
-
-const withConfirmedBase = (
-  record: StudyDraftWorkingCopy,
-  confirmedBase: StudyDraftSnapshot,
-  localDiff: StudyDraftLocalDiff
-): StudyDraftWorkingCopy => ({
-  ...record,
-  confirmedBase,
-  confirmedBaseDigest: createStudyDraftBaseDigest(confirmedBase),
-  frozenAttempt: null,
-  localDiff,
-  pendingConflict: null,
-  postFlightLocalDiff: createEmptyStudyDraftDiff()
-})
-
-const getStatus = (
-  saveState: ReturnType<typeof useAppStore.getState>['draftSaveState'],
-  savedAt: string | null,
-  conflictPending: boolean,
-  deferredRemoteRevision: boolean,
-  reconciled: boolean
-): PracticeDraftStatus => {
-  if (saveState === 'offline' || saveState === 'error') {
-    return { code: saveState }
-  }
-
-  if (deferredRemoteRevision) {
-    return { code: 'remoteDeferred' }
-  }
-
-  if (conflictPending) {
-    return { code: 'conflictPending' }
-  }
-
-  switch (saveState) {
-    case 'dirty':
-      return { code: 'dirty' }
-    case 'saving':
-      return { code: 'saving' }
-    case 'saved':
-      if (reconciled) return { code: 'reconciled' }
-      return savedAt ? { code: 'savedAt', savedAt } : { code: 'saved' }
-    case 'conflict':
-      return { code: 'conflict' }
-    default:
-      return { code: 'synced' }
-  }
 }
 
 export const usePracticeDraftController = ({
@@ -367,63 +194,11 @@ export const usePracticeDraftController = ({
   })
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
-  const restoreSavePacing = useCallback(
-    (timing: StudyDraftSaveTiming, authEpoch: number): void => {
-      const cached =
-        queryClient.getQueryData<StudyDraftSavePacing>(savePacingQueryKey)
-      if (
-        cached?.scopeKey !== timing.scopeKey ||
-        cached.authEpoch !== authEpoch
-      )
-        return
-      timing.lastPutStartedAt = Math.max(
-        timing.lastPutStartedAt,
-        cached.lastPutStartedAt
-      )
-      if (cached.cooldownUntil > timing.cooldownUntil) {
-        timing.cooldownUntil = cached.cooldownUntil
-        timing.rateLimitFailure = cached.rateLimitFailure
-      }
-    },
-    [queryClient]
-  )
-
-  const rememberSavePacing = useCallback(
-    (timing: StudyDraftSaveTiming, authEpoch: number): void => {
-      if (
-        !isCurrentAuthTransitionEpoch(authEpoch) ||
-        !isWorkingCopyForScope(
-          useAppStore.getState().draftWorkingCopy,
-          principalScope,
-          sessionId
-        )
-      )
-        return
-      const gcTime =
-        Math.max(
-          timing.lastPutStartedAt + STUDY_DRAFT_SAVE_MIN_GAP_MS,
-          timing.cooldownUntil
-        ) - Date.now()
-      if (gcTime <= 0) return
-      // Retain one scoped gate only until its last server pacing deadline.
-      queryClient.removeQueries({ queryKey: savePacingQueryKey, exact: true })
-      queryClient
-        .getQueryCache()
-        .build<StudyDraftSavePacing>(queryClient, {
-          queryKey: savePacingQueryKey,
-          queryFn: skipToken,
-          gcTime
-        })
-        .setData({
-          scopeKey: timing.scopeKey,
-          authEpoch,
-          lastPutStartedAt: timing.lastPutStartedAt,
-          cooldownUntil: timing.cooldownUntil,
-          rateLimitFailure: timing.rateLimitFailure
-        })
-    },
-    [principalScope, queryClient, sessionId]
-  )
+  const { rememberSavePacing, restoreSavePacing } = useStudyDraftSavePacing({
+    principalScope,
+    queryClient,
+    sessionId
+  })
 
   useEffect(() => {
     const previousTiming = saveTimingRef.current
@@ -1639,176 +1414,48 @@ export const usePracticeDraftController = ({
     settleTerminalSession
   ])
 
-  useEffect(() => {
-    if (
-      !enabled ||
-      draftSaveState !== 'dirty' ||
-      draftConflict ||
-      deferredRemoteRevisionScope === controllerScopeKey ||
-      navigator.onLine === false
-    ) {
-      return
-    }
-
-    const timing = saveTimingRef.current
-    if (!timing.active || timing.firstUnsentAt === null) return
-    const dueAt = Math.max(
-      Math.min(
-        timing.lastEditAt + STUDY_DRAFT_AUTOSAVE_DELAY_MS,
-        timing.firstUnsentAt + STUDY_DRAFT_AUTOSAVE_MAX_WAIT_MS
-      ),
-      timing.lastPutStartedAt + STUDY_DRAFT_SAVE_MIN_GAP_MS,
-      timing.cooldownUntil
-    )
-    const timerId = window.setTimeout(
-      () => {
-        void saveNowRef.current().catch(() => undefined)
-      },
-      Math.max(0, dueAt - Date.now())
-    )
-    return () => window.clearTimeout(timerId)
-  }, [
+  useStudyDraftAutosaveTimer({
     controllerScopeKey,
     deferredRemoteRevisionScope,
     draftConflict,
     draftSaveState,
     draftWorkingCopy,
-    enabled
-  ])
+    enabled,
+    saveNowRef,
+    saveTimingRef
+  })
 
-  useEffect(() => {
-    if (!enabled) {
-      return
-    }
-
-    const handleVisibility = (): void => {
-      if (document.visibilityState === 'hidden') {
-        flushClockToWorkingCopy()
-        clockRef.current?.pause()
-      } else {
-        const actionEpoch = captureAuthTransitionEpoch()
-        void refreshSessionBoundary(actionEpoch).catch(() => undefined)
-        resumeClockForCurrentRecord()
-      }
-    }
-    const handleOffline = (): void => {
-      flushClockToWorkingCopy()
-      if (lastPersistenceFailedRef.current) {
-        return
-      }
-      setDraftSaveState('offline')
-    }
-    const handleOnline = (): void => {
-      const record = useAppStore.getState().draftWorkingCopy
-      if (!isWorkingCopyForScope(record, principalScope, sessionId)) {
-        return
-      }
-      if (record.frozenAttempt) {
-        void saveNowRef.current().catch(() => undefined)
-      } else if (
-        !isStudyDraftDiffEmpty(record.localDiff) ||
-        !isStudyDraftDiffEmpty(record.postFlightLocalDiff)
-      ) {
-        setDraftConflictPending(true)
-        setDraftSaveState('conflict')
-        void reconcileFromServer().catch(handleRemoteReconcileFailure)
-      } else if (
-        pendingRemoteRevisionRef.current?.scopeKey === controllerScopeKey
-      ) {
-        void drainPendingRemoteRevision().catch(handleRemoteReconcileFailure)
-      } else {
-        void reconcileFromServer().catch(handleRemoteReconcileFailure)
-      }
-      const actionEpoch = captureAuthTransitionEpoch()
-      void refreshSessionBoundary(actionEpoch).catch(() => undefined)
-      resumeClockForCurrentRecord()
-    }
-    const handleFocus = (): void => {
-      const actionEpoch = captureAuthTransitionEpoch()
-      void refreshSessionBoundary(actionEpoch).catch(() => undefined)
-    }
-    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
-      const record = flushClockToWorkingCopy() ?? usableBootstrapRecord
-      if (
-        !record ||
-        (!record.frozenAttempt &&
-          isStudyDraftDiffEmpty(record.localDiff) &&
-          isStudyDraftDiffEmpty(record.postFlightLocalDiff) &&
-          !record.pendingConflict &&
-          !useAppStore.getState().isDraftConflictPending)
-      ) {
-        return
-      }
-      event.preventDefault()
-      event.returnValue = ''
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-    }
-  }, [
+  useStudyDraftWindowEvents({
+    clockRef,
     controllerScopeKey,
     drainPendingRemoteRevision,
     enabled,
     flushClockToWorkingCopy,
     handleRemoteReconcileFailure,
     isInteractionPaused,
+    lastPersistenceFailedRef,
+    pendingRemoteRevisionRef,
     principalScope,
     reconcileFromServer,
     refreshSessionBoundary,
     resumeClockForCurrentRecord,
+    saveNowRef,
     sessionId,
     setDraftConflictPending,
     setDraftSaveState,
     usableBootstrapRecord
-  ])
+  })
 
-  useEffect(() => {
-    const clock = clockRef.current
-    const record = useAppStore.getState().draftWorkingCopy
-    if (
-      !enabled ||
-      !clock ||
-      !isWorkingCopyForScope(record, principalScope, sessionId)
-    ) {
-      return
-    }
-
-    if (isInteractionPaused || document.visibilityState !== 'visible') {
-      flushClockToWorkingCopy()
-      clock.pause()
-      return
-    }
-
-    resumeClockForCurrentRecord()
-  }, [
+  useStudyDraftClockLifecycle({
+    clockRef,
     enabled,
     flushClockToWorkingCopy,
     isInteractionPaused,
     principalScope,
     resumeClockForCurrentRecord,
-    sessionId
-  ])
-
-  useEffect(() => {
-    if (!enabled) {
-      return
-    }
-
-    const timerId = window.setInterval(() => {
-      clockRef.current?.flush()
-      setElapsedSeconds(clockRef.current?.totalSeconds() ?? 0)
-    }, 1_000)
-    return () => window.clearInterval(timerId)
-  }, [enabled])
+    sessionId,
+    setElapsedSeconds
+  })
 
   const updateVisibleSnapshot = (
     update: (snapshot: StudyDraftSnapshot) => StudyDraftSnapshot

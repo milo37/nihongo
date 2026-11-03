@@ -6,40 +6,40 @@ import * as contentConformance from '@nihongo/contracts/testing/admin-content-co
 import * as legacyConformance from '@nihongo/contracts/testing/phase7-admin-conformance'
 
 import {
-  assertPhase7OperationFailureResponse,
-  assertPhase7ErrorPolicyManifest,
-  assertPhase7OperationManifest,
-  assertPhase7OperationSchemaManifest,
+  assertOperationFailureResponse,
+  assertErrorPolicyManifest,
+  assertOperationManifest,
+  assertOperationSchemaManifest,
   buildPhase7OperationFailureResponse,
-  computePhase7Retryability,
+  computeRetryability,
   phase7ErrorSurfaceByOperation,
-  phase7DormantAfterSlice3AOperationManifest,
-  phase7DormantAfterSlice3RA1OperationManifest,
-  phase7DormantAfterSlice3RA2OperationManifest,
-  phase7DormantAfterSlice4OperationManifest,
-  phase7DormantAfterSlice5OperationManifest,
-  phase7OperationManifest,
-  phase7OperationSchemaManifest,
-  phase7OperationSchemas,
-  phase7ActiveThroughSlice3AOperationManifest,
-  phase7ActiveThroughSlice3RA1OperationManifest,
-  phase7ActiveThroughSlice3RA2OperationManifest,
-  phase7ActiveThroughSlice4OperationManifest,
-  phase7ActiveThroughSlice5OperationManifest,
-  phase7Slice3ACommandOperationManifest,
-  phase7Slice3RRemediationOperationManifest,
-  phase7Slice4CacheInvalidationContractByOperation,
-  phase7Slice4CacheInvalidationTargets,
-  phase7Slice4OperationManifest,
-  phase7Slice5OperationManifest,
-  phase7Slice2ReadOperationManifest
+  dormantAfterSlice3AOperationManifest,
+  dormantAfterSlice3RA1OperationManifest,
+  dormantAfterSlice3RA2OperationManifest,
+  dormantAfterSlice4OperationManifest,
+  dormantAfterSlice5OperationManifest,
+  operationManifest,
+  operationSchemaManifest,
+  operationSchemas,
+  activeThroughSlice3AOperationManifest,
+  activeThroughSlice3RA1OperationManifest,
+  activeThroughSlice3RA2OperationManifest,
+  activeThroughSlice4OperationManifest,
+  activeThroughSlice5OperationManifest,
+  slice3ACommandOperationManifest,
+  slice3RRemediationOperationManifest,
+  slice4CacheInvalidationContractByOperation,
+  slice4CacheInvalidationTargets,
+  slice4OperationManifest,
+  slice5OperationManifest,
+  slice2ReadOperationManifest
 } from '../src/admin/content-operations.js'
 import {
-  assertPhase7Slice2ConformanceManifest,
-  phase7DeferredOperationManifest,
-  phase7OperationErrorConformanceManifest,
-  phase7Slice2ExpectedOperations,
-  phase7Slice2ReadConformanceManifest
+  assertSlice2ConformanceManifest,
+  deferredOperationManifest,
+  operationErrorConformanceManifest,
+  slice2ExpectedOperations,
+  slice2ReadConformanceManifest
 } from '../src/testing/admin-content-conformance.js'
 
 const requestId = '019a1234-5678-7abc-8def-0123456789ab'
@@ -53,32 +53,31 @@ const failure = (code: string, retryable: boolean) => ({
 
 describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   it('keeps the additive contract paths and aliases identical', () => {
-    const oldOperation: legacyOperations.Phase7Operation =
-      'createQuestionReport'
+    const oldOperation: legacyOperations.AdminOperation = 'createQuestionReport'
     const newOperation: contentOperations.ContentOperation = oldOperation
-    const roundTrip: legacyOperations.Phase7Operation = newOperation
+    const roundTrip: legacyOperations.AdminOperation = newOperation
 
     expect(roundTrip).toBe(oldOperation)
     expect(contentOperations.contentOperationManifest).toBe(
-      legacyOperations.phase7OperationManifest
+      legacyOperations.operationManifest
     )
     expect(contentOperations.contentOperationSchemas).toBe(
-      legacyOperations.phase7OperationSchemas
+      legacyOperations.operationSchemas
     )
     expect(contentOperations.parseJsonBytes).toBe(
       legacyOperations.parseJsonBytes
     )
-    expect(contentOperations.parsePhase7JsonBytes).toBe(
-      legacyOperations.parsePhase7JsonBytes
+    expect(contentOperations.parseContentJsonBytes).toBe(
+      legacyOperations.parseContentJsonBytes
     )
     expect(contentOperations.JsonParseError).toBe(
       legacyOperations.JsonParseError
     )
-    expect(contentOperations.Phase7JsonParseError).toBe(
-      legacyOperations.Phase7JsonParseError
+    expect(contentOperations.ContentJsonParseError).toBe(
+      legacyOperations.ContentJsonParseError
     )
-    expect(contentConformance.assertPhase7Slice2ConformanceManifest).toBe(
-      legacyConformance.assertPhase7Slice2ConformanceManifest
+    expect(contentConformance.assertSlice2ConformanceManifest).toBe(
+      legacyConformance.assertSlice2ConformanceManifest
     )
 
     try {
@@ -86,24 +85,24 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       throw new Error('expected malformed JSON to fail')
     } catch (error) {
       expect(error).toBeInstanceOf(legacyOperations.JsonParseError)
-      expect(error).toBeInstanceOf(contentOperations.Phase7JsonParseError)
+      expect(error).toBeInstanceOf(contentOperations.ContentJsonParseError)
       if (!(error instanceof legacyOperations.JsonParseError)) throw error
-      expect(error.name).toBe('Phase7JsonParseError')
+      expect(error.name).toBe('ContentJsonParseError')
       expect(error.kind).toBe('INVALID_JSON')
     }
   })
 
   it('closes exactly 28 operations with exactly eight active GET reads', () => {
-    expect(() => assertPhase7OperationManifest()).not.toThrow()
-    expect(phase7OperationManifest).toHaveLength(28)
-    expect(phase7Slice2ReadOperationManifest).toHaveLength(8)
+    expect(() => assertOperationManifest()).not.toThrow()
+    expect(operationManifest).toHaveLength(28)
+    expect(slice2ReadOperationManifest).toHaveLength(8)
     expect(
-      phase7Slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
+      slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
     ).toBe(true)
   })
 
   it('fixes the exact ordered Slice 3A, Slice 3R, and Slice 4 activation tuples', () => {
-    const tuple = (entry: (typeof phase7OperationManifest)[number]) => [
+    const tuple = (entry: (typeof operationManifest)[number]) => [
       entry.operation,
       entry.operationId,
       entry.method,
@@ -111,7 +110,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       entry.successStatus,
       entry.requiresFreshAssurance
     ]
-    expect(phase7Slice3ACommandOperationManifest.map(tuple)).toEqual([
+    expect(slice3ACommandOperationManifest.map(tuple)).toEqual([
       [
         'createAdminQuestion',
         'admin.createAdminQuestion',
@@ -153,7 +152,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         false
       ]
     ])
-    expect(phase7Slice3RRemediationOperationManifest.map(tuple)).toEqual([
+    expect(slice3RRemediationOperationManifest.map(tuple)).toEqual([
       [
         'approveQuestionVersion',
         'admin.approveQuestionVersion',
@@ -180,98 +179,79 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       ]
     ])
     expect(
-      phase7ActiveThroughSlice3AOperationManifest.map(
-        (entry) => entry.operation
-      )
+      activeThroughSlice3AOperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             entry.slice2Route ||
-            phase7Slice3ACommandOperationManifest.includes(entry as never)
+            slice3ACommandOperationManifest.includes(entry as never)
         )
         .map((entry) => entry.operation)
     )
-    expect(phase7ActiveThroughSlice3AOperationManifest).toHaveLength(13)
-    expect(phase7DormantAfterSlice3AOperationManifest).toHaveLength(15)
+    expect(activeThroughSlice3AOperationManifest).toHaveLength(13)
+    expect(dormantAfterSlice3AOperationManifest).toHaveLength(15)
     expect(
-      phase7DormantAfterSlice3AOperationManifest.map((entry) => entry.operation)
+      dormantAfterSlice3AOperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
-            !phase7ActiveThroughSlice3AOperationManifest.includes(
-              entry as never
-            )
-        )
-        .map((entry) => entry.operation)
-    )
-
-    expect(phase7ActiveThroughSlice3RA1OperationManifest).toHaveLength(14)
-    expect(phase7DormantAfterSlice3RA1OperationManifest).toHaveLength(14)
-    expect(
-      phase7ActiveThroughSlice3RA1OperationManifest.map(
-        (entry) => entry.operation
-      )
-    ).toEqual(
-      phase7OperationManifest
-        .filter(
-          (entry) =>
-            phase7ActiveThroughSlice3AOperationManifest.includes(
-              entry as never
-            ) || entry.operation === 'reauthenticateAdmin'
-        )
-        .map((entry) => entry.operation)
-    )
-    expect(
-      phase7DormantAfterSlice3RA1OperationManifest.map(
-        (entry) => entry.operation
-      )
-    ).toEqual(
-      phase7OperationManifest
-        .filter(
-          (entry) =>
-            !phase7ActiveThroughSlice3RA1OperationManifest.includes(
-              entry as never
-            )
+            !activeThroughSlice3AOperationManifest.includes(entry as never)
         )
         .map((entry) => entry.operation)
     )
 
-    expect(phase7ActiveThroughSlice3RA2OperationManifest).toHaveLength(16)
-    expect(phase7DormantAfterSlice3RA2OperationManifest).toHaveLength(12)
+    expect(activeThroughSlice3RA1OperationManifest).toHaveLength(14)
+    expect(dormantAfterSlice3RA1OperationManifest).toHaveLength(14)
     expect(
-      phase7ActiveThroughSlice3RA2OperationManifest.map(
-        (entry) => entry.operation
-      )
+      activeThroughSlice3RA1OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
-            phase7ActiveThroughSlice3RA1OperationManifest.includes(
-              entry as never
-            ) ||
+            activeThroughSlice3AOperationManifest.includes(entry as never) ||
+            entry.operation === 'reauthenticateAdmin'
+        )
+        .map((entry) => entry.operation)
+    )
+    expect(
+      dormantAfterSlice3RA1OperationManifest.map((entry) => entry.operation)
+    ).toEqual(
+      operationManifest
+        .filter(
+          (entry) =>
+            !activeThroughSlice3RA1OperationManifest.includes(entry as never)
+        )
+        .map((entry) => entry.operation)
+    )
+
+    expect(activeThroughSlice3RA2OperationManifest).toHaveLength(16)
+    expect(dormantAfterSlice3RA2OperationManifest).toHaveLength(12)
+    expect(
+      activeThroughSlice3RA2OperationManifest.map((entry) => entry.operation)
+    ).toEqual(
+      operationManifest
+        .filter(
+          (entry) =>
+            activeThroughSlice3RA1OperationManifest.includes(entry as never) ||
             entry.operation === 'approveQuestionVersion' ||
             entry.operation === 'withdrawQuestionApproval'
         )
         .map((entry) => entry.operation)
     )
     expect(
-      phase7DormantAfterSlice3RA2OperationManifest.map(
-        (entry) => entry.operation
-      )
+      dormantAfterSlice3RA2OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
-            !phase7ActiveThroughSlice3RA2OperationManifest.includes(
-              entry as never
-            )
+            !activeThroughSlice3RA2OperationManifest.includes(entry as never)
         )
         .map((entry) => entry.operation)
     )
 
-    expect(phase7Slice4OperationManifest.map(tuple)).toEqual([
+    expect(slice4OperationManifest.map(tuple)).toEqual([
       [
         'archiveAdminQuestion',
         'admin.archiveAdminQuestion',
@@ -297,32 +277,31 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         true
       ]
     ])
-    expect(phase7ActiveThroughSlice4OperationManifest).toHaveLength(19)
-    expect(phase7DormantAfterSlice4OperationManifest).toHaveLength(9)
+    expect(activeThroughSlice4OperationManifest).toHaveLength(19)
+    expect(dormantAfterSlice4OperationManifest).toHaveLength(9)
     expect(
-      phase7ActiveThroughSlice4OperationManifest.map((entry) => entry.operation)
+      activeThroughSlice4OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
-            phase7ActiveThroughSlice3RA2OperationManifest.includes(
-              entry as never
-            ) || phase7Slice4OperationManifest.includes(entry as never)
+            activeThroughSlice3RA2OperationManifest.includes(entry as never) ||
+            slice4OperationManifest.includes(entry as never)
         )
         .map((entry) => entry.operation)
     )
     expect(
-      phase7DormantAfterSlice4OperationManifest.map((entry) => entry.operation)
+      dormantAfterSlice4OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
-            !phase7ActiveThroughSlice4OperationManifest.includes(entry as never)
+            !activeThroughSlice4OperationManifest.includes(entry as never)
         )
         .map((entry) => entry.operation)
     )
 
-    expect(phase7Slice5OperationManifest.map(tuple)).toEqual([
+    expect(slice5OperationManifest.map(tuple)).toEqual([
       [
         'requestContentReviewBatch',
         'admin.requestContentReviewBatch',
@@ -396,15 +375,15 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         true
       ]
     ])
-    expect(phase7ActiveThroughSlice5OperationManifest).toHaveLength(28)
-    expect(phase7DormantAfterSlice5OperationManifest).toHaveLength(0)
+    expect(activeThroughSlice5OperationManifest).toHaveLength(28)
+    expect(dormantAfterSlice5OperationManifest).toHaveLength(0)
     expect(
-      phase7ActiveThroughSlice5OperationManifest.map((entry) => entry.operation)
-    ).toEqual(phase7OperationManifest.map((entry) => entry.operation))
+      activeThroughSlice5OperationManifest.map((entry) => entry.operation)
+    ).toEqual(operationManifest.map((entry) => entry.operation))
   })
 
   it('closes the exact post-commit Slice 4 cache invalidation contract', () => {
-    expect(phase7Slice4CacheInvalidationTargets).toEqual([
+    expect(slice4CacheInvalidationTargets).toEqual([
       'adminQuestions.allLists',
       'adminQuestions.detail',
       'adminQuestionVersions.history',
@@ -420,15 +399,13 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       'wrongNotes.reviewQueue',
       'dashboard'
     ])
-    expect(phase7Slice4CacheInvalidationTargets).toHaveLength(14)
-    expect(
-      Object.keys(phase7Slice4CacheInvalidationContractByOperation)
-    ).toEqual([
+    expect(slice4CacheInvalidationTargets).toHaveLength(14)
+    expect(Object.keys(slice4CacheInvalidationContractByOperation)).toEqual([
       'publishQuestionVersion',
       'retireQuestionVersion',
       'archiveAdminQuestion'
     ])
-    Object.values(phase7Slice4CacheInvalidationContractByOperation).forEach(
+    Object.values(slice4CacheInvalidationContractByOperation).forEach(
       (contract) => {
         expect(contract).toEqual({
           timing: 'POST_COMMIT',
@@ -436,31 +413,33 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
           settlement: 'AWAIT_ALL',
           failureAction: 'NONE',
           staleActorAction: 'NONE',
-          targets: phase7Slice4CacheInvalidationTargets
+          targets: slice4CacheInvalidationTargets
         })
       }
     )
   })
 
   it('exports one named ErrorCodeSchema for every manifest operation', async () => {
-    const phase7Exports = await import('../src/admin/content-operations.js')
-    const actual = Object.keys(phase7Exports)
+    const adminContentExports = await import(
+      '../src/admin/content-operations.js'
+    )
+    const actual = Object.keys(adminContentExports)
       .filter((name) => name.endsWith('ErrorCodeSchema'))
       .sort()
-    const expected = phase7OperationManifest
+    const expected = operationManifest
       .map((entry) => entry.operation + 'ErrorCodeSchema')
       .sort()
     expect(actual).toEqual(expected)
   })
 
   it('binds every operation to exact closed request and response schemas', () => {
-    expect(() => assertPhase7OperationSchemaManifest()).not.toThrow()
-    expect(Object.keys(phase7OperationSchemas)).toEqual(
-      phase7OperationManifest.map((entry) => entry.operation)
+    expect(() => assertOperationSchemaManifest()).not.toThrow()
+    expect(Object.keys(operationSchemas)).toEqual(
+      operationManifest.map((entry) => entry.operation)
     )
-    expect(phase7OperationSchemaManifest).toHaveLength(28)
-    phase7OperationSchemaManifest.forEach((entry) => {
-      expect(entry.schemas).toBe(phase7OperationSchemas[entry.operation])
+    expect(operationSchemaManifest).toHaveLength(28)
+    operationSchemaManifest.forEach((entry) => {
+      expect(entry.schemas).toBe(operationSchemas[entry.operation])
       expect(
         [
           entry.schemas.params,
@@ -474,13 +453,13 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('fixes the canonical Slice 2 route order and 20 deferred operations', () => {
-    expect(() => assertPhase7Slice2ConformanceManifest()).not.toThrow()
+    expect(() => assertSlice2ConformanceManifest()).not.toThrow()
     expect(
-      phase7Slice2ReadConformanceManifest.map((entry) => entry.operation)
-    ).toEqual(phase7Slice2ExpectedOperations)
-    expect(phase7DeferredOperationManifest).toHaveLength(20)
+      slice2ReadConformanceManifest.map((entry) => entry.operation)
+    ).toEqual(slice2ExpectedOperations)
+    expect(deferredOperationManifest).toHaveLength(20)
     expect(
-      phase7Slice2ReadConformanceManifest.every(
+      slice2ReadConformanceManifest.every(
         (entry) =>
           entry.cacheControl === 'private, no-store' &&
           entry.requestIdHeader === 'X-Request-Id' &&
@@ -490,10 +469,10 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('classifies every operation into the exact retryability surface matrix', () => {
-    expect(() => assertPhase7ErrorPolicyManifest()).not.toThrow()
-    expect(phase7OperationErrorConformanceManifest).toHaveLength(28)
+    expect(() => assertErrorPolicyManifest()).not.toThrow()
+    expect(operationErrorConformanceManifest).toHaveLength(28)
     expect(
-      phase7OperationErrorConformanceManifest.reduce<Record<string, number>>(
+      operationErrorConformanceManifest.reduce<Record<string, number>>(
         (counts, entry) => ({
           ...counts,
           [entry.errorSurface]: (counts[entry.errorSurface] ?? 0) + 1
@@ -508,7 +487,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       EXPORT: 1,
       REAUTHENTICATION: 1
     })
-    phase7OperationErrorConformanceManifest.forEach((entry) => {
+    operationErrorConformanceManifest.forEach((entry) => {
       expect(entry.errorSurface).toBe(
         phase7ErrorSurfaceByOperation[entry.operation]
       )
@@ -519,8 +498,8 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('enforces wire retryability for all 28 named operation error schemas', () => {
-    phase7OperationErrorConformanceManifest.forEach((entry) => {
-      const schema = phase7OperationSchemas[entry.operation].error
+    operationErrorConformanceManifest.forEach((entry) => {
+      const schema = operationSchemas[entry.operation].error
       expect(
         schema.safeParse(failure('AUTHENTICATION_REQUIRED', false)).success
       ).toBe(true)
@@ -559,16 +538,16 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('computes transient retryability from operation and disposition', () => {
-    phase7OperationErrorConformanceManifest.forEach((entry) => {
+    operationErrorConformanceManifest.forEach((entry) => {
       expect(
-        computePhase7Retryability({
+        computeRetryability({
           operation: entry.operation,
           code: 'AUTHENTICATION_REQUIRED',
           disposition: 'NO_TX'
         })
       ).toBe(false)
       expect(
-        computePhase7Retryability({
+        computeRetryability({
           operation: entry.operation,
           code: 'RATE_LIMITED',
           disposition: 'NO_TX'
@@ -583,7 +562,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       ] as const) {
         const expected = entry.transientRetryabilityByDisposition[disposition]
         const compute = () =>
-          computePhase7Retryability({
+          computeRetryability({
             operation: entry.operation,
             code: 'SERVICE_UNAVAILABLE',
             disposition
@@ -596,7 +575,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       }
     })
     expect(() =>
-      computePhase7Retryability({
+      computeRetryability({
         operation: 'createAdminQuestion',
         code: 'RATE_LIMITED',
         disposition: 'DEFINITE_ROLLBACK'
@@ -605,7 +584,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('closes the five duplicate-race exceptions without widening them', () => {
-    const duplicateRaceOperations = phase7OperationErrorConformanceManifest
+    const duplicateRaceOperations = operationErrorConformanceManifest
       .filter((entry) => entry.duplicateRaceRetryable === false)
       .map((entry) => entry.operation)
     expect(duplicateRaceOperations).toEqual([
@@ -617,7 +596,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     ])
     duplicateRaceOperations.forEach((operation) => {
       expect(
-        computePhase7Retryability({
+        computeRetryability({
           operation,
           code: 'SERVICE_UNAVAILABLE',
           disposition: 'DEFINITE_ROLLBACK',
@@ -626,7 +605,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       ).toBe(false)
     })
     expect(() =>
-      computePhase7Retryability({
+      computeRetryability({
         operation: 'archiveAdminQuestion',
         code: 'SERVICE_UNAVAILABLE',
         disposition: 'DEFINITE_ROLLBACK',
@@ -659,7 +638,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       }
     })
     expect(() =>
-      assertPhase7OperationFailureResponse({
+      assertOperationFailureResponse({
         operation: 'listAdminQuestions',
         response: deterministic,
         disposition: 'NO_TX'
@@ -730,8 +709,8 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     })
     const assertResponse = (
       response: typeof limited
-    ): ReturnType<typeof assertPhase7OperationFailureResponse> =>
-      assertPhase7OperationFailureResponse({
+    ): ReturnType<typeof assertOperationFailureResponse> =>
+      assertOperationFailureResponse({
         operation: 'listAdminQuestions',
         response,
         disposition: 'NO_TX'

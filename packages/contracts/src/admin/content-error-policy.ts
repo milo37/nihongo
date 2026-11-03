@@ -6,31 +6,28 @@ import {
   stableErrorCodeSchema,
   type StableErrorCode
 } from '../common/error.js'
-import {
-  phase7OperationManifest,
-  type Phase7Operation
-} from './content-manifest.js'
+import { operationManifest, type AdminOperation } from './content-manifest.js'
 
-export const phase7ExecutionDispositionSchema = z.enum([
+export const executionDispositionSchema = z.enum([
   'NO_TX',
   'DEFINITE_ROLLBACK',
   'COMMIT_CONFIRMED',
   'COMMIT_UNKNOWN'
 ])
 
-export type Phase7ExecutionDisposition = z.output<
-  typeof phase7ExecutionDispositionSchema
+export type AdminExecutionDisposition = z.output<
+  typeof executionDispositionSchema
 >
 
-export const phase7InternalFailureReasonSchema = z.enum([
+export const internalFailureReasonSchema = z.enum([
   'CONTENT_DUPLICATE_CONCURRENT_RACE'
 ])
 
-export type Phase7InternalFailureReason = z.output<
-  typeof phase7InternalFailureReasonSchema
+export type AdminInternalFailureReason = z.output<
+  typeof internalFailureReasonSchema
 >
 
-export const phase7ErrorSurfaceSchema = z.enum([
+export const errorSurfaceSchema = z.enum([
   'GET_READ',
   'VALIDATION_WRITE_ZERO',
   'APPLY_IMPORT',
@@ -39,7 +36,7 @@ export const phase7ErrorSurfaceSchema = z.enum([
   'REAUTHENTICATION'
 ])
 
-export type Phase7ErrorSurface = z.output<typeof phase7ErrorSurfaceSchema>
+export type ErrorSurface = z.output<typeof errorSurfaceSchema>
 
 export const phase7ErrorSurfaceByOperation = {
   listAdminQuestions: 'GET_READ',
@@ -70,9 +67,9 @@ export const phase7ErrorSurfaceByOperation = {
   getAdminQuestionReport: 'GET_READ',
   triageAdminQuestionReport: 'KEYLESS_MUTATION',
   resolveAdminQuestionReport: 'KEYLESS_MUTATION'
-} as const satisfies Readonly<Record<Phase7Operation, Phase7ErrorSurface>>
+} as const satisfies Readonly<Record<AdminOperation, ErrorSurface>>
 
-const duplicateRaceOperations = new Set<Phase7Operation>([
+const duplicateRaceOperations = new Set<AdminOperation>([
   'createAdminQuestion',
   'createAdminQuestionVersion',
   'updateQuestionVersion',
@@ -80,23 +77,23 @@ const duplicateRaceOperations = new Set<Phase7Operation>([
   'applyQuestionImport'
 ])
 
-export interface Phase7RetryabilityInput {
-  readonly operation: Phase7Operation
+export interface RetryabilityInput {
+  readonly operation: AdminOperation
   readonly code: StableErrorCode
-  readonly disposition: Phase7ExecutionDisposition
-  readonly internalReason?: Phase7InternalFailureReason | undefined
+  readonly disposition: AdminExecutionDisposition
+  readonly internalReason?: AdminInternalFailureReason | undefined
 }
 
 const isPreCommitDisposition = (
-  disposition: Phase7ExecutionDisposition
+  disposition: AdminExecutionDisposition
 ): boolean => disposition === 'NO_TX' || disposition === 'DEFINITE_ROLLBACK'
 
-export const computePhase7Retryability = ({
+export const computeRetryability = ({
   code,
   disposition,
   internalReason,
   operation
-}: Phase7RetryabilityInput): boolean => {
+}: RetryabilityInput): boolean => {
   const status = errorStatusByCode[code]
 
   if (internalReason !== undefined) {
@@ -118,15 +115,13 @@ export const computePhase7Retryability = ({
       return false
     }
     if (disposition !== 'NO_TX') {
-      throw new Error('Phase 7 RATE_LIMITED는 transaction 전 NO_TX여야 합니다.')
+      throw new Error('RATE_LIMITED는 transaction 전 NO_TX여야 합니다.')
     }
     return true
   }
 
   if (code !== 'INTERNAL_SERVER_ERROR' && code !== 'SERVICE_UNAVAILABLE') {
-    throw new Error(
-      'Phase 7 failure status를 retry policy로 분류할 수 없습니다.'
-    )
+    throw new Error('Failure status를 retry policy로 분류할 수 없습니다.')
   }
 
   const surface = phase7ErrorSurfaceByOperation[operation]
@@ -145,7 +140,7 @@ export const computePhase7Retryability = ({
 }
 
 const getWireRetryabilityExpectation = (
-  operation: Phase7Operation,
+  operation: AdminOperation,
   code: StableErrorCode
 ): boolean | null => {
   const status = errorStatusByCode[code]
@@ -165,7 +160,7 @@ const getWireRetryabilityExpectation = (
 export const createPhase7OperationErrorSchema = <
   CodeSchema extends ZodType<string>
 >(
-  operation: Phase7Operation,
+  operation: AdminOperation,
   codeSchema: CodeSchema
 ) =>
   createApiFailureSchema(codeSchema).superRefine((failure, context) => {
@@ -178,7 +173,7 @@ export const createPhase7OperationErrorSchema = <
       context.addIssue({
         code: 'custom',
         path: ['code'],
-        message: 'Phase 7 stable error code가 아닙니다.'
+        message: 'Stable error code가 아닙니다.'
       })
       return
     }
@@ -193,19 +188,17 @@ export const createPhase7OperationErrorSchema = <
     }
   })
 
-export const assertPhase7ErrorPolicyManifest = (): void => {
-  const manifestOperations = phase7OperationManifest.map(
-    (entry) => entry.operation
-  )
+export const assertErrorPolicyManifest = (): void => {
+  const manifestOperations = operationManifest.map((entry) => entry.operation)
   const policyOperations = Object.keys(phase7ErrorSurfaceByOperation)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(policyOperations)) {
     throw new Error(
-      'Phase 7 error policy operation 순서는 canonical 28-operation manifest와 같아야 합니다.'
+      'Error policy operation 순서는 canonical 28-operation manifest와 같아야 합니다.'
     )
   }
 
   const counts = Object.values(phase7ErrorSurfaceByOperation).reduce<
-    Record<Phase7ErrorSurface, number>
+    Record<ErrorSurface, number>
   >(
     (result, surface) => ({
       ...result,
@@ -228,8 +221,6 @@ export const assertPhase7ErrorPolicyManifest = (): void => {
     counts.EXPORT !== 1 ||
     counts.REAUTHENTICATION !== 1
   ) {
-    throw new Error(
-      'Phase 7 error surface 분류 수가 canonical matrix와 다릅니다.'
-    )
+    throw new Error('Error surface 분류 수가 canonical matrix와 다릅니다.')
   }
 }

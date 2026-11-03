@@ -44,13 +44,13 @@ interface AccessibilityDatabaseEvidence {
 }
 
 interface AccessibilityDatabaseContractModule {
-  readonly assertPhase9DatabaseContract: (input: {
+  readonly assertAccessibilityDatabaseContract: (input: {
     readonly before: AccessibilityDatabaseSnapshot
     readonly databaseUrl: string
     readonly fixture: unknown
     readonly keySecret: string
   }) => Promise<AccessibilityDatabaseEvidence>
-  readonly capturePhase9DatabaseSnapshot: (
+  readonly captureAccessibilityDatabaseSnapshot: (
     databaseUrl: string
   ) => Promise<AccessibilityDatabaseSnapshot>
 }
@@ -222,7 +222,7 @@ export const cleanup = (): Promise<void> => {
     if (!processesStopped) {
       errors.push(
         new Error(
-          'Phase 9 database cleanup was withheld because an owned process may still be running.'
+          'Accessibility database cleanup was withheld because an owned process may still be running.'
         )
       )
     } else {
@@ -238,7 +238,7 @@ export const cleanup = (): Promise<void> => {
 
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) {
-      throw new AggregateError(errors, 'Phase 9 browser cleanup failed.')
+      throw new AggregateError(errors, 'Accessibility browser cleanup failed.')
     }
   })()
   return cleanupPromise
@@ -270,9 +270,9 @@ const runPlaywright = async (
     {
       ...process.env,
       ...extraEnvironment,
-      PHASE9_BROWSER_MODE: browserMode,
+      ACCESSIBILITY_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: `phase9-${browserMode}`
+      PLAYWRIGHT_OUTPUT_LABEL: `accessibility-${browserMode}`
     },
     signal
   )
@@ -283,7 +283,7 @@ const startOwnedAdmin = async (
   apiOrigin: string
 ): Promise<AbortSignal> => {
   const admin = spawnOwned(
-    `phase9-${browserMode}-admin`,
+    `accessibility-${browserMode}-admin`,
     'pnpm',
     [
       '--filter',
@@ -368,7 +368,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
   const web = spawnOwned(
-    'phase9-mock-web',
+    'accessibility-mock-web',
     'pnpm',
     [
       '--filter',
@@ -404,9 +404,9 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE8_BROWSER_MODE: 'mock',
+      DASHBOARD_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: 'phase8-mock'
+      PLAYWRIGHT_OUTPUT_LABEL: 'admin-dashboard-mock'
     },
     signal
   )
@@ -424,9 +424,9 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE10_BROWSER_MODE: 'mock',
+      JOURNEY_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: 'phase10-mock'
+      PLAYWRIGHT_OUTPUT_LABEL: 'journey-mock'
     },
     signal
   )
@@ -438,10 +438,11 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     return
   }
   await reserveLoopbackPort(5175, 'localhost')
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runAdminApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
+    '../apps/api/src/e2e/runAdminApiIntegration.js'
+  )
+  cleanupDatabaseHarness = cleanupIsolatedDatabase
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })
@@ -463,7 +464,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     target.protocol !== 'http:'
   ) {
     throw new Error(
-      'Phase 9 mock admin requires an explicit isolated TEST API proxy target.'
+      'Accessibility mock admin requires an explicit isolated TEST API proxy target.'
     )
   }
   const webOrigin = `http://127.0.0.1:${webPort}`
@@ -493,10 +494,10 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     'APPLE_CLIENT_SECRET'
   ])
     delete apiEnvironment[key]
-  const { preparePhase9BrowserActors } = await import(
+  const { prepareBrowserActors } = await import(
     '../apps/api/src/e2e/browserApi.js'
   )
-  const created = await preparePhase9BrowserActors({
+  const created = await prepareBrowserActors({
     adminDatabaseUrl: harness.adminDatabaseUrl,
     environment: apiEnvironment
   })
@@ -506,16 +507,16 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
           './accessibility-database-contract.mjs'
         )) as AccessibilityDatabaseContractModule)
       : undefined
-  const baseline = await databaseContract?.capturePhase9DatabaseSnapshot(
+  const baseline = await databaseContract?.captureAccessibilityDatabaseSnapshot(
     harness.adminDatabaseUrl
   )
   const api = spawnOwned(
-    `phase9-${browserMode}-api`,
+    `accessibility-${browserMode}-api`,
     'pnpm',
     ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/browserApi.ts'],
     {
       ...apiEnvironment,
-      PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
+      BROWSER_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
     }
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
@@ -523,7 +524,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   const adminSignal = await startOwnedAdmin(browserMode, target.origin)
 
   const web = spawnOwned(
-    `phase9-${browserMode}-web`,
+    `accessibility-${browserMode}-web`,
     'pnpm',
     [
       '--filter',
@@ -550,24 +551,25 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   await runPlaywright(
     browserMode,
     webOrigin,
-    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
   if (!databaseContract || !baseline) return
-  const databaseEvidence = await databaseContract.assertPhase9DatabaseContract({
-    before: baseline,
-    databaseUrl: harness.adminDatabaseUrl,
-    fixture: created.fixture,
-    keySecret: rateLimitKeySecret
-  })
+  const databaseEvidence =
+    await databaseContract.assertAccessibilityDatabaseContract({
+      before: baseline,
+      databaseUrl: harness.adminDatabaseUrl,
+      fixture: created.fixture,
+      keySecret: rateLimitKeySecret
+    })
   adminSignal.throwIfAborted()
   const evidenceDirectory = nodePath.resolve(
     repositoryRoot,
-    'test-results/playwright-phase9-real'
+    'test-results/playwright-accessibility-real'
   )
   await mkdir(evidenceDirectory, { recursive: true })
   await writeFile(
-    nodePath.resolve(evidenceDirectory, 'phase9-database-contract.json'),
+    nodePath.resolve(evidenceDirectory, 'accessibility-database-contract.json'),
     `${JSON.stringify(databaseEvidence, null, 2)}\n`,
     'utf8'
   )
@@ -575,7 +577,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
 
 const run = async (): Promise<void> => {
   if (!mode) {
-    throw new Error('Phase 9 browser runner accepts mock or real mode.')
+    throw new Error('Accessibility browser runner accepts mock or real mode.')
   }
   await runBrowser(mode)
 }
@@ -595,7 +597,7 @@ export const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `Phase 9 ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `Accessibility ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -615,7 +617,7 @@ export const main = (): Promise<void> =>
   execute()
     .then(() => {
       process.stdout.write(
-        `${JSON.stringify({ event: `phase9.browser.${mode}.passed` })}\n`
+        `${JSON.stringify({ event: `accessibility.browser.${mode}.passed` })}\n`
       )
     })
     .catch((error: unknown) => {
@@ -625,7 +627,7 @@ export const main = (): Promise<void> =>
           : undefined
       process.stderr.write(
         `${JSON.stringify({
-          event: `phase9.browser.${mode ?? 'unknown'}.failed`,
+          event: `accessibility.browser.${mode ?? 'unknown'}.failed`,
           ...describeFailure(error),
           ...(causes ? { causes } : {})
         })}\n`

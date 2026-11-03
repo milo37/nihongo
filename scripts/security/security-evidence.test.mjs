@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import Phase10PlaywrightSummaryReporter from './browser-evidence-reporter.mjs'
+import PlaywrightEvidenceReporter from './browser-evidence-reporter.mjs'
 import {
   assertEvidenceValueSafe,
   assertPlaywrightPerformanceMeasurement,
@@ -22,6 +22,8 @@ import {
   writeCanonicalEvidence
 } from './security-evidence.mjs'
 
+// Former phase numbers stay as test-table keys; the evidence labels use suite names.
+const suiteLabels = { 8: 'admin-dashboard', 9: 'accessibility', 10: 'journey' }
 const adminLedgerOperations = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
   ['POST', '/api/v1/admin/questions/import-application', 201],
@@ -76,14 +78,13 @@ const createRequestLedgerEntries = (name, pathName) => {
   const provenance = name.includes('-mock-')
     ? 'canonical-mock-service-worker'
     : 'canonical-real-network'
-  if (name === 'phase7-a1-a8-real-request-ledger')
-    return createCurrentCmsEntries()
-  if (name === 'phase7-guest-denial' || name === 'phase7-user-denial')
+  if (name === 'admin-cms-real-request-ledger') return createCurrentCmsEntries()
+  if (name === 'admin-guest-denial' || name === 'admin-user-denial')
     return [
       {
         method: 'GET',
         path: '/api/v1/admin/questions',
-        status: name === 'phase7-guest-denial' ? 401 : 403,
+        status: name === 'admin-guest-denial' ? 401 : 403,
         provenance: 'canonical-real-network',
         startSequence: 1,
         finishSequence: 2
@@ -112,7 +113,7 @@ const createRequestLedgerEntries = (name, pathName) => {
       ]
     }).flat()
   }
-  if (name.startsWith('phase8-admin-lifecycle-')) {
+  if (name.startsWith('admin-lifecycle-')) {
     return adminLedgerOperations.map(
       ([method, operationPath, status], index) => ({
         finishSequence: index < 15 ? index * 2 + 2 : index + 18,
@@ -125,8 +126,8 @@ const createRequestLedgerEntries = (name, pathName) => {
     )
   }
 
-  if (/^phase10-(?:real|mock)-(?:ko|ja)-handoff$/u.test(name)) {
-    const mock = name.startsWith('phase10-mock-')
+  if (/^journey-(?:real|mock)-(?:ko|ja)-handoff$/u.test(name)) {
+    const mock = name.startsWith('journey-mock-')
     const operations = [
       ['GET', '/api/v1/me', 200],
       ['POST', '/api/auth/sign-in/social', 200],
@@ -145,7 +146,7 @@ const createRequestLedgerEntries = (name, pathName) => {
       status
     }))
   }
-  if (name.startsWith('phase10-user-journey-')) {
+  if (name.startsWith('user-journey-')) {
     const operations = [
       ...Array.from({ length: 6 }, () => [
         'PUT',
@@ -190,11 +191,11 @@ const createRequestLedgerAttachment = (name, pathName = '/api/v1/me') => ({
 })
 
 const createJourneyAttachmentNames = (mode) => [
-  'phase10-' + mode + '-ko-handoff',
-  'phase10-' + mode + '-ja-handoff',
-  'phase10-guest-auth-' + mode + '-request-ledger',
-  'phase10-user-journey-' + mode + '-request-ledger',
-  'phase10-resilience-' + mode + '-request-ledger'
+  'journey-' + mode + '-ko-handoff',
+  'journey-' + mode + '-ja-handoff',
+  'guest-auth-' + mode + '-request-ledger',
+  'user-journey-' + mode + '-request-ledger',
+  'resilience-' + mode + '-request-ledger'
 ]
 const createJourneyAttachments = (mode) =>
   createJourneyAttachmentNames(mode).map((name) =>
@@ -204,11 +205,11 @@ const createJourneyAttachments = (mode) =>
 const createCurrentAcceptanceAttachments = (mode, index) => {
   if (mode === 'real' && index === 0)
     return [
-      createRequestLedgerAttachment('phase7-guest-denial'),
-      createRequestLedgerAttachment('phase7-user-denial')
+      createRequestLedgerAttachment('admin-guest-denial'),
+      createRequestLedgerAttachment('admin-user-denial')
     ]
   if (mode === 'real' && index === 1)
-    return [createRequestLedgerAttachment('phase7-a1-a8-real-request-ledger')]
+    return [createRequestLedgerAttachment('admin-cms-real-request-ledger')]
   return [
     createRequestLedgerAttachment(`dashboard-${mode}-request-ledger`),
     createPerformanceAttachment(mode)
@@ -222,7 +223,7 @@ const createPerformanceMeasurement = (mode) => {
   return {
     label: `dashboard-${mode}-performance`,
     schemaVersion: 1,
-    kind: 'nihongo.phase10.browser-performance',
+    kind: 'nihongo.browser-performance',
     surface: 'dashboard-navigation',
     mode,
     warmupCount: 1,
@@ -280,8 +281,8 @@ test('environment values and strong credential shapes are rejected without echoi
 test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labels', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase7-reporter-'))
   for (const mode of ['real', 'mock']) {
-    const label = `phase7-${mode}`
-    const reporter = new Phase10PlaywrightSummaryReporter({
+    const label = `admin-${mode}`
+    const reporter = new PlaywrightEvidenceReporter({
       outputDirectory: directory,
       label
     })
@@ -293,14 +294,14 @@ test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labe
     assert.equal(summary.label, label)
     assert.equal(summary.status, 'passed')
   }
-  for (const label of ['phase6-real', 'phase7-live', '../phase7-real']) {
+  for (const label of ['phase6-real', 'phase7-live', '../admin-real']) {
     assert.throws(
       () =>
-        new Phase10PlaywrightSummaryReporter({
+        new PlaywrightEvidenceReporter({
           outputDirectory: directory,
           label
         }),
-      /PHASE10_PLAYWRIGHT_REPORTER_OPTIONS_INVALID/
+      /PLAYWRIGHT_EVIDENCE_REPORTER_OPTIONS_INVALID/
     )
   }
 })
@@ -308,9 +309,9 @@ test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labe
 test('safe Playwright reporter hashes identity and ignores title, errors, output and attachments', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase10-reporter-'))
   const sentinel = 'phase10-verification-token-sentinel'
-  const reporter = new Phase10PlaywrightSummaryReporter({
+  const reporter = new PlaywrightEvidenceReporter({
     outputDirectory: directory,
-    label: 'phase10-real'
+    label: 'journey-real'
   })
   const requestLedgerAttachments = createJourneyAttachments('real')
   reporter.onBegin()
@@ -340,7 +341,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
     )
   }
   await reporter.onEnd({ status: 'passed' })
-  const raw = await readFile(path.join(directory, 'phase10-real.json'), 'utf8')
+  const raw = await readFile(path.join(directory, 'journey-real.json'), 'utf8')
   const value = JSON.parse(raw)
 
   assert.equal(raw.includes(sentinel), false)
@@ -361,7 +362,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   const manifest = await verifyArtifactDirectory({
     directory,
     profile: 'playwright',
-    requiredLabels: ['phase10-real']
+    requiredLabels: ['journey-real']
   })
   assert.equal(manifest.files.length, 1)
 
@@ -369,14 +370,14 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   value.counts.passed -= 1
   value.counts.total -= 1
   await writeCanonicalEvidence({
-    filePath: path.join(directory, 'phase10-real.json'),
+    filePath: path.join(directory, 'journey-real.json'),
     value
   })
   await assert.rejects(() =>
     verifyArtifactDirectory({
       directory,
       profile: 'playwright',
-      requiredLabels: ['phase10-real']
+      requiredLabels: ['journey-real']
     })
   )
 })
@@ -384,7 +385,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
 for (const mode of ['real', 'mock']) {
   test(`Phase 9 ${mode} evidence enforces its exact test count and rejects unsafe suites`, async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'phase9-count-'))
-    const label = `phase9-${mode}`
+    const label = `accessibility-${mode}`
     const expectedCount = mode === 'mock' ? 3 : 4
     const filePath = path.join(directory, `${label}.json`)
     const makeSummary = (count) => ({
@@ -475,9 +476,9 @@ test('all six safe suites retain exact current counts and approved attachments',
       [9, mode === 'real' ? 4 : 3],
       [10, 5]
     ]) {
-      const label = `phase${phase}-${mode}`
+      const label = `${suiteLabels[phase]}-${mode}`
       labels.push(label)
-      const reporter = new Phase10PlaywrightSummaryReporter({
+      const reporter = new PlaywrightEvidenceReporter({
         outputDirectory: directory,
         label
       })
@@ -515,9 +516,9 @@ test('all six safe suites retain exact current counts and approved attachments',
 
 test('Phase 8 reporter retains exact ledger and performance evidence', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase8-reporter-'))
-  const reporter = new Phase10PlaywrightSummaryReporter({
+  const reporter = new PlaywrightEvidenceReporter({
     outputDirectory: directory,
-    label: 'phase8-real'
+    label: 'admin-dashboard-real'
   })
   reporter.onBegin()
   for (let index = 0; index < 3; index += 1) {
@@ -537,17 +538,17 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
   await reporter.onEnd({ status: 'passed' })
 
   const value = JSON.parse(
-    await readFile(path.join(directory, 'phase8-real.json'), 'utf8')
+    await readFile(path.join(directory, 'admin-dashboard-real.json'), 'utf8')
   )
   assert.equal(value.schemaVersion, 2)
   assert.equal(value.tests.length, 3)
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
     [
-      'dashboard-real-request-ledger',
-      'phase7-a1-a8-real-request-ledger',
-      'phase7-guest-denial',
-      'phase7-user-denial'
+      'admin-cms-real-request-ledger',
+      'admin-guest-denial',
+      'admin-user-denial',
+      'dashboard-real-request-ledger'
     ]
   )
   assert.deepEqual(
@@ -557,7 +558,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
   const manifest = await verifyArtifactDirectory({
     directory,
     profile: 'playwright',
-    requiredLabels: ['phase8-real']
+    requiredLabels: ['admin-dashboard-real']
   })
   assert.equal(manifest.files.length, 1)
 
@@ -572,21 +573,19 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     ).label = 'phase8-dashboard-real-request-ledger'
     archived.performanceMeasurements[0].label =
       'phase8-dashboard-real-performance'
-    const originalFile = path.join(original, 'phase8-real.json')
-    const copyFilePath = path.join(copy, 'phase8-real.json')
+    const originalFile = path.join(original, 'admin-dashboard-real.json')
+    const copyFilePath = path.join(copy, 'admin-dashboard-real.json')
     await writeCanonicalEvidence({ filePath: originalFile, value: archived })
     const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
     const originalHash = sha256(await readFile(originalFile))
     await copyFile(originalFile, copyFilePath)
-    const verify = (dashboardLabelPolicy = 'current') =>
+    const verify = () =>
       verifyArtifactDirectory({
         directory: copy,
         profile: 'playwright',
-        requiredLabels: ['phase8-real'],
-        dashboardLabelPolicy
+        requiredLabels: ['admin-dashboard-real']
       })
     await assert.rejects(() => verify(), /SECURITY_EVIDENCE_/u)
-    await assert.doesNotReject(() => verify('legacy'))
     const cliArgs = [
       path.join(import.meta.dirname, 'security-evidence.mjs'),
       'verify',
@@ -595,12 +594,12 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
       '--profile',
       'playwright',
       '--required',
-      'phase8-real'
+      'admin-dashboard-real'
     ]
     assert.throws(() =>
       execFileSync(process.execPath, cliArgs, { stdio: 'pipe' })
     )
-    assert.doesNotThrow(() =>
+    assert.throws(() =>
       execFileSync(
         process.execPath,
         [...cliArgs, '--dashboard-label-policy', 'legacy'],
@@ -608,69 +607,6 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
       )
     )
     assert.equal(sha256(await readFile(originalFile)), originalHash)
-    await assert.rejects(
-      () => verify('unknown'),
-      /SECURITY_EVIDENCE_ARGUMENTS_INVALID/u
-    )
-    for (const [name, mutate] of [
-      [
-        'mixed labels',
-        (v) => {
-          v.performanceMeasurements[0].label = 'dashboard-real-performance'
-        }
-      ],
-      [
-        'duplicate ledger',
-        (v) => {
-          v.requestLedgers.push(
-            structuredClone(
-              v.requestLedgers.find(
-                ({ label }) => label === 'phase8-dashboard-real-request-ledger'
-              )
-            )
-          )
-        }
-      ],
-      [
-        'missing performance',
-        (v) => {
-          v.performanceMeasurements = []
-        }
-      ],
-      [
-        'mode mismatch',
-        (v) => {
-          v.performanceMeasurements[0].mode = 'mock'
-        }
-      ],
-      [
-        'missing request',
-        (v) => {
-          v.requestLedgers
-            .find(
-              ({ label }) => label === 'phase8-dashboard-real-request-ledger'
-            )
-            .entries.pop()
-        }
-      ],
-      [
-        'missing sample',
-        (v) => {
-          v.performanceMeasurements[0].samplesMs.pop()
-        }
-      ],
-      [
-        'forged budget',
-        (v) => {
-          v.performanceMeasurements[0].budget.passed = false
-        }
-      ]
-    ]) {
-      const candidate = structuredClone(archived)
-      mutate(candidate)
-      await writeCanonicalEvidence({ filePath: copyFilePath, value: candidate })
-      await assert.rejects(() => verify('legacy'), /SECURITY_EVIDENCE_/u, name)
-    }
     for (const mutate of [
       (v) => {
         v.performanceMeasurements[0].label = 'phase8-dashboard-real-performance'
@@ -697,7 +633,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
       await assert.rejects(() => verify(), /SECURITY_EVIDENCE_/u)
     }
     await writeCanonicalEvidence({ filePath: copyFilePath, value })
-    await assert.rejects(() => verify('legacy'), /SECURITY_EVIDENCE_/u)
+    await assert.doesNotReject(() => verify())
     assert.equal(sha256(await readFile(originalFile)), originalHash)
   } finally {
     await rm(original, { recursive: true, force: true })
@@ -711,9 +647,9 @@ test('fresh reporter rejects legacy dashboard attachments even when current evid
   )
   try {
     for (const currentIncluded of [false, true]) {
-      const reporter = new Phase10PlaywrightSummaryReporter({
+      const reporter = new PlaywrightEvidenceReporter({
         outputDirectory: directory,
-        label: 'phase8-real'
+        label: 'admin-dashboard-real'
       })
       reporter.onBegin()
       reporter.onTestEnd(
@@ -747,17 +683,21 @@ test('fresh reporter rejects legacy dashboard attachments even when current evid
 
 test('current A1-A8 evidence rejects forged commands, denials, provenance and races', () => {
   const valid = {
-    label: 'phase7-a1-a8-real-request-ledger',
+    label: 'admin-cms-real-request-ledger',
     entries: createCurrentCmsEntries()
   }
-  assert.doesNotThrow(() => assertPlaywrightRequestLedger(valid, 'phase8-real'))
+  assert.doesNotThrow(() =>
+    assertPlaywrightRequestLedger(valid, 'admin-dashboard-real')
+  )
   const otherWinner = structuredClone(valid)
   otherWinner.entries[7].status = 409
   otherWinner.entries[8].status = 200
   assert.doesNotThrow(() =>
-    assertPlaywrightRequestLedger(otherWinner, 'phase8-real')
+    assertPlaywrightRequestLedger(otherWinner, 'admin-dashboard-real')
   )
-  assert.throws(() => assertPlaywrightRequestLedger(valid, 'phase8-mock'))
+  assert.throws(() =>
+    assertPlaywrightRequestLedger(valid, 'admin-dashboard-mock')
+  )
   for (const [name, mutate] of [
     ['missing creation', (entries) => entries.splice(4, 1)],
     [
@@ -834,14 +774,14 @@ test('current A1-A8 evidence rejects forged commands, denials, provenance and ra
     const candidate = structuredClone(valid)
     mutate(candidate.entries)
     assert.throws(
-      () => assertPlaywrightRequestLedger(candidate, 'phase8-real'),
+      () => assertPlaywrightRequestLedger(candidate, 'admin-dashboard-real'),
       /SECURITY_EVIDENCE_/u,
       name
     )
   }
   for (const [label, status] of [
-    ['phase7-guest-denial', 401],
-    ['phase7-user-denial', 403]
+    ['admin-guest-denial', 401],
+    ['admin-user-denial', 403]
   ]) {
     const denied = {
       label,
@@ -857,7 +797,7 @@ test('current A1-A8 evidence rejects forged commands, denials, provenance and ra
       ]
     }
     assert.doesNotThrow(() =>
-      assertPlaywrightRequestLedger(denied, 'phase8-real')
+      assertPlaywrightRequestLedger(denied, 'admin-dashboard-real')
     )
     for (const mutate of [
       (entry) => {
@@ -876,7 +816,7 @@ test('current A1-A8 evidence rejects forged commands, denials, provenance and ra
       const candidate = structuredClone(denied)
       mutate(candidate.entries[0])
       assert.throws(() =>
-        assertPlaywrightRequestLedger(candidate, 'phase8-real')
+        assertPlaywrightRequestLedger(candidate, 'admin-dashboard-real')
       )
     }
   }
@@ -884,11 +824,11 @@ test('current A1-A8 evidence rejects forged commands, denials, provenance and ra
 
 test('current Phase 8 summaries reject missing, duplicate, forged and obsolete evidence', async () => {
   for (const mode of ['real', 'mock']) {
-    const label = `phase8-${mode}`
+    const label = `admin-dashboard-${mode}`
     const directory = await mkdtemp(
       path.join(tmpdir(), 'phase8-current-summary-')
     )
-    const reporter = new Phase10PlaywrightSummaryReporter({
+    const reporter = new PlaywrightEvidenceReporter({
       outputDirectory: directory,
       label
     })
@@ -993,7 +933,7 @@ test('Phase 8 dashboard ledgers require ordered sequential user journeys', () =>
       entries: createRequestLedgerEntries(label, '/api/v1/dashboard')
     }
     assert.doesNotThrow(() =>
-      assertPlaywrightRequestLedger(valid, `phase8-${mode}`)
+      assertPlaywrightRequestLedger(valid, `admin-dashboard-${mode}`)
     )
     for (const [name, mutate] of [
       [
@@ -1055,7 +995,8 @@ test('Phase 8 dashboard ledgers require ordered sequential user journeys', () =>
       const candidate = structuredClone(valid)
       mutate(candidate.entries)
       assert.throws(
-        () => assertPlaywrightRequestLedger(candidate, `phase8-${mode}`),
+        () =>
+          assertPlaywrightRequestLedger(candidate, `admin-dashboard-${mode}`),
         /SECURITY_EVIDENCE_/u,
         `${mode}: ${name}`
       )
@@ -1067,7 +1008,10 @@ test('browser performance and request ledger evidence fail closed on forgery', (
   for (const mode of ['mock', 'real']) {
     const measurement = createPerformanceMeasurement(mode)
     assert.doesNotThrow(() =>
-      assertPlaywrightPerformanceMeasurement(measurement, `phase8-${mode}`)
+      assertPlaywrightPerformanceMeasurement(
+        measurement,
+        `admin-dashboard-${mode}`
+      )
     )
     for (const mutate of [
       (candidate) => candidate.samplesMs.pop(),
@@ -1087,7 +1031,10 @@ test('browser performance and request ledger evidence fail closed on forgery', (
       const candidate = structuredClone(measurement)
       mutate(candidate)
       assert.throws(() =>
-        assertPlaywrightPerformanceMeasurement(candidate, `phase8-${mode}`)
+        assertPlaywrightPerformanceMeasurement(
+          candidate,
+          `admin-dashboard-${mode}`
+        )
       )
     }
   }
@@ -1107,7 +1054,7 @@ test('browser performance and request ledger evidence fail closed on forgery', (
           }
         ]
       },
-      'phase8-real'
+      'admin-dashboard-real'
     )
   )
 
@@ -1119,7 +1066,7 @@ test('browser performance and request ledger evidence fail closed on forgery', (
     )
   }
   assert.doesNotThrow(() =>
-    assertPlaywrightRequestLedger(dashboardLedger, 'phase8-real')
+    assertPlaywrightRequestLedger(dashboardLedger, 'admin-dashboard-real')
   )
   const duplicateDashboardLedger = structuredClone(dashboardLedger)
   duplicateDashboardLedger.entries.push({
@@ -1129,13 +1076,16 @@ test('browser performance and request ledger evidence fail closed on forgery', (
     startSequence: 85
   })
   assert.throws(() =>
-    assertPlaywrightRequestLedger(duplicateDashboardLedger, 'phase8-real')
+    assertPlaywrightRequestLedger(
+      duplicateDashboardLedger,
+      'admin-dashboard-real'
+    )
   )
 
   assert.throws(() =>
     assertPlaywrightRequestLedger(
       {
-        label: 'phase10-user-journey-real-request-ledger',
+        label: 'user-journey-real-request-ledger',
         entries: [
           {
             finishSequence: 2,
@@ -1147,47 +1097,47 @@ test('browser performance and request ledger evidence fail closed on forgery', (
           }
         ]
       },
-      'phase10-real'
+      'journey-real'
     )
   )
 
   const adminLedger = {
-    label: 'phase8-admin-lifecycle-real-request-ledger',
+    label: 'admin-lifecycle-real-request-ledger',
     entries: createRequestLedgerEntries(
-      'phase8-admin-lifecycle-real-request-ledger',
+      'admin-lifecycle-real-request-ledger',
       '/api/v1/me'
     )
   }
   assert.doesNotThrow(() =>
-    assertPlaywrightRequestLedger(adminLedger, 'phase8-real')
+    assertPlaywrightRequestLedger(adminLedger, 'admin-dashboard-real')
   )
   const forgedAdminStatus = structuredClone(adminLedger)
   forgedAdminStatus.entries[0].status = 500
   assert.throws(() =>
-    assertPlaywrightRequestLedger(forgedAdminStatus, 'phase8-real')
+    assertPlaywrightRequestLedger(forgedAdminStatus, 'admin-dashboard-real')
   )
   const forgedAdminOrder = structuredClone(adminLedger)
   const firstEntry = forgedAdminOrder.entries[0]
   forgedAdminOrder.entries[0] = forgedAdminOrder.entries[1]
   forgedAdminOrder.entries[1] = firstEntry
   assert.throws(() =>
-    assertPlaywrightRequestLedger(forgedAdminOrder, 'phase8-real')
+    assertPlaywrightRequestLedger(forgedAdminOrder, 'admin-dashboard-real')
   )
   const userJourneyLedger = {
-    label: 'phase10-user-journey-real-request-ledger',
+    label: 'user-journey-real-request-ledger',
     entries: createRequestLedgerEntries(
-      'phase10-user-journey-real-request-ledger',
+      'user-journey-real-request-ledger',
       '/api/v1/me'
     )
   }
   assert.doesNotThrow(() =>
-    assertPlaywrightRequestLedger(userJourneyLedger, 'phase10-real')
+    assertPlaywrightRequestLedger(userJourneyLedger, 'journey-real')
   )
   for (const forbiddenField of ['bodyDigest', 'idempotencyKeyDigest']) {
     const forgedDigest = structuredClone(userJourneyLedger)
     forgedDigest.entries[0][forbiddenField] = 'a'.repeat(64)
     assert.throws(
-      () => assertPlaywrightRequestLedger(forgedDigest, 'phase10-real'),
+      () => assertPlaywrightRequestLedger(forgedDigest, 'journey-real'),
       /SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID/u
     )
   }
@@ -1228,14 +1178,14 @@ test('Playwright evidence rejects empty and skipped-only summaries', async () =>
     ]
   ]) {
     const directory = await mkdtemp(
-      path.join(tmpdir(), `phase10-${name}-evidence-`)
+      path.join(tmpdir(), `journey-${name}-evidence-`)
     )
     await writeCanonicalEvidence({
-      filePath: path.join(directory, 'phase8-real.json'),
+      filePath: path.join(directory, 'admin-dashboard-real.json'),
       value: {
         schemaVersion: 2,
         kind: 'nihongo.playwright-safe-summary',
-        label: 'phase8-real',
+        label: 'admin-dashboard-real',
         status: 'passed',
         durationMs: 0,
         counts,
@@ -1248,7 +1198,7 @@ test('Playwright evidence rejects empty and skipped-only summaries', async () =>
       verifyArtifactDirectory({
         directory,
         profile: 'playwright',
-        requiredLabels: ['phase8-real']
+        requiredLabels: ['admin-dashboard-real']
       })
     )
   }
@@ -1327,15 +1277,15 @@ test('artifact verifier accepts only complete closed-schema security JSON', asyn
 
 test('real-only browser evidence requires all three exact phases', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'real-safe-suites-'))
-  const labels = ['phase8-real', 'phase9-real', 'phase10-real']
+  const labels = ['admin-dashboard-real', 'accessibility-real', 'journey-real']
   try {
     for (const [phase, count] of [
       [8, 3],
       [9, 4],
       [10, 5]
     ]) {
-      const label = `phase${phase}-real`
-      const reporter = new Phase10PlaywrightSummaryReporter({
+      const label = `${suiteLabels[phase]}-real`
+      const reporter = new PlaywrightEvidenceReporter({
         outputDirectory: directory,
         label
       })
@@ -1368,7 +1318,7 @@ test('real-only browser evidence requires all three exact phases', async () => {
         requiredLabels: labels
       })
     assert.equal((await verify()).files.length, 3)
-    await rm(path.join(directory, 'phase9-real.json'))
+    await rm(path.join(directory, 'accessibility-real.json'))
     await assert.rejects(verify, /SECURITY_EVIDENCE_INCOMPLETE/u)
   } finally {
     await rm(directory, { recursive: true, force: true })
@@ -1403,7 +1353,7 @@ test('CI uploads only verified real and Mock browser summaries', async () => {
   for (const upload of uploads) {
     assert.doesNotMatch(
       upload,
-      /phase10-raw|playwright-phase9|trace|video|screenshot/u
+      /playwright-raw|playwright-accessibility|trace|video|screenshot/u
     )
   }
   assert.doesNotMatch(normal + candidate, /download-artifact/u)
@@ -1417,7 +1367,7 @@ for (const mode of ['real', 'mock']) {
       ' requires all five tests and exact five source ledgers',
     async () => {
       const directory = await mkdtemp(path.join(tmpdir(), 'phase10-five-'))
-      const label = 'phase10-' + mode
+      const label = 'journey-' + mode
       const makeSummary = (count = 5) => ({
         schemaVersion: 2,
         kind: 'nihongo.playwright-safe-summary',
@@ -1489,11 +1439,11 @@ for (const mode of ['real', 'mock']) {
             value.requestLedgers.push(structuredClone(value.requestLedgers[0]))
           },
           (value) => {
-            value.requestLedgers[0].label = 'phase10-' + mode + '-other-handoff'
+            value.requestLedgers[0].label = 'journey-' + mode + '-other-handoff'
           },
           (value) => {
             value.requestLedgers[0].label =
-              'phase10-' + (mode === 'real' ? 'mock' : 'real') + '-ko-handoff'
+              'journey-' + (mode === 'real' ? 'mock' : 'real') + '-ko-handoff'
           },
           (value) => {
             value.requestLedgers[0].entries[0].bodyDigest = 'a'.repeat(64)
@@ -1531,10 +1481,10 @@ for (const mode of ['real', 'mock']) {
 test('both handoff sources reject missing, duplicated, forged and noncanonical requests', () => {
   for (const mode of ['real', 'mock']) {
     for (const locale of ['ko', 'ja']) {
-      const label = 'phase10-' + mode + '-' + locale + '-handoff'
+      const label = 'journey-' + mode + '-' + locale + '-handoff'
       const valid = { label, entries: createRequestLedgerEntries(label) }
       assert.doesNotThrow(() =>
-        assertPlaywrightRequestLedger(valid, 'phase10-' + mode)
+        assertPlaywrightRequestLedger(valid, 'journey-' + mode)
       )
       for (const mutate of [
         (entries) => entries.splice(1, 1),
@@ -1567,7 +1517,7 @@ test('both handoff sources reject missing, duplicated, forged and noncanonical r
         const candidate = structuredClone(valid)
         mutate(candidate.entries)
         assert.throws(
-          () => assertPlaywrightRequestLedger(candidate, 'phase10-' + mode),
+          () => assertPlaywrightRequestLedger(candidate, 'journey-' + mode),
           /SECURITY_EVIDENCE_/u
         )
       }
@@ -1578,14 +1528,14 @@ test('both handoff sources reject missing, duplicated, forged and noncanonical r
 test('handoff attachment payload cannot override its source label', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'phase10-source-label-'))
   try {
-    const reporter = new Phase10PlaywrightSummaryReporter({
+    const reporter = new PlaywrightEvidenceReporter({
       outputDirectory: directory,
-      label: 'phase10-real'
+      label: 'journey-real'
     })
-    const source = createRequestLedgerAttachment('phase10-real-ko-handoff')
+    const source = createRequestLedgerAttachment('journey-real-ko-handoff')
     source.body = Buffer.from(
       JSON.stringify({
-        label: 'phase10-real-ja-handoff',
+        label: 'journey-real-ja-handoff',
         ...JSON.parse(source.body.toString('utf8'))
       })
     )
@@ -1599,7 +1549,7 @@ test('handoff attachment payload cannot override its source label', async () => 
     )
     await assert.rejects(
       () => reporter.onEnd({ status: 'passed' }),
-      /PHASE10_PLAYWRIGHT_SAFE_ATTACHMENT_INVALID/u
+      /PLAYWRIGHT_EVIDENCE_SAFE_ATTACHMENT_INVALID/u
     )
   } finally {
     await rm(directory, { recursive: true, force: true })

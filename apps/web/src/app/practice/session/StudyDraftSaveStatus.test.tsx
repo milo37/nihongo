@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
-import type { PracticeDraftStatusCode } from '@app/practice/hooks/usePracticeDraftController'
+import type { PracticeDraftStatusCode } from '@app/practice/draft/practiceDraftModel'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 

@@ -1,6 +1,6 @@
 import { cachedSessionStorage } from '../../libs/storage'
 
-const STORAGE_KEY_PREFIX = 'jlpt-drill-note:study-submission-attempt:v1:'
+const STORAGE_KEY_PREFIX = 'harumaru:study-submission-attempt:v1:'
 const memoryAttempts = new Map<string, unknown>()
 
 export interface StoredSubmissionLogicalRequest {

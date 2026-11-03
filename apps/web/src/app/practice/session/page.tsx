@@ -1,746 +1,168 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  Link,
-  Navigate,
-  useBlocker,
-  useOutletContext,
-  useNavigate,
-  useParams
-} from 'react-router'
+import { Navigate, useOutletContext, useParams } from 'react-router'
 import type { ReactElement } from 'react'
-import { Button } from '@nihongo/browser/common/components/Button'
-import { Dialog } from '@nihongo/browser/common/components/Dialog'
-import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
-import { Progress } from '@common/components/Progress'
-import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
-import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
-import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
-import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
-import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
-import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
-import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
+import { usePracticeSessionController } from '@app/practice/hooks/usePracticeSessionController'
 import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
-import { usePracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
-import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
 import {
-  assertCurrentStudySubmissionV2Action,
-  useSubmitStudySessionV2
-} from '@app/practice/hooks/useSubmitStudySessionV2'
-import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
-import { clearStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
-import { readStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
+  PracticeQuestionBookmarkButton,
+  PracticeQuestionBookmarkStatus
+} from '@app/practice/session/components/PracticeQuestionBookmark'
+import { PracticeQuestionActions } from '@app/practice/session/components/PracticeQuestionActions'
+import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
+import { PracticeQuestionNavigator } from '@app/practice/session/components/PracticeQuestionNavigator'
 import {
-  clearSubmissionAttempt,
-  hasStoredSubmissionAttempt
-} from '@nihongo/browser/app/practice/submissionAttemptStorage'
+  PracticeNavigationGuardDialog,
+  PracticeSubmitDialog
+} from '@app/practice/session/components/PracticeSessionDialogs'
+import { PracticeSessionHeader } from '@app/practice/session/components/PracticeSessionHeader'
+import { PracticeSessionNotices } from '@app/practice/session/components/PracticeSessionNotices'
 import {
-  getStudySubmissionErrorCode,
-  isDefinitiveStudySubmissionError
-} from '@app/practice/studySubmissionRetry'
-import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
-import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
-import {
-  formatDateTime,
-  formatNumber
-} from '@nihongo/browser/libs/localeFormatters'
-import { useAppStore } from '@nihongo/browser/store/index'
-import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import {
-  isAuthenticationBoundaryApiError,
-  isOfflineApiError,
-  isNotFoundApiError,
-  isRetiredPracticeApiError
-} from '@libs/apiError'
-import { analyticsClient } from '@/analytics/client'
-
-type BookmarkNoticeCode =
-  | 'loginRequired'
-  | 'removed'
-  | 'removeRollback'
-  | 'saved'
-  | 'saveRollback'
-
-type DraftActionNoticeCode =
-  | 'saveBeforeLeaveFailed'
-  | 'conflictRefreshComplete'
-  | 'sessionRefreshFailed'
-  | 'submissionPreparationFailed'
-  | 'retrySaveFailed'
-
-type SubmissionConnectivityCode = 'offline' | 'restored'
+  SessionLoadError,
+  SessionRecoveryState,
+  SessionSetupLinkError
+} from '@app/practice/session/components/PracticeSessionStateScreens'
 
 export const PracticeSessionPage = (): ReactElement => {
   const reviewContext =
     useOutletContext<PracticeNavigationContext | undefined>()
       ?.reviewReturnContext ?? null
-  const { i18n, t } = useTranslation('practice')
-  const { t: commonT } = useTranslation('common')
-  const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const formatCount = (value: number): string => formatNumber(value, locale)
-  const formatDuration = (seconds: number): string => {
-    const options: Intl.NumberFormatOptions = {
-      minimumIntegerDigits: 2,
-      useGrouping: false
-    }
-    return `${formatNumber(Math.floor(seconds / 60), locale, options)}:${formatNumber(
-      seconds % 60,
-      locale,
-      options
-    )}`
-  }
+  const { t } = useTranslation('practice')
   const { sessionId = '' } = useParams()
-  const navigate = useNavigate()
-  const { isReady: isAuthReady, role, user } = useAuth()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const submitButtonRef = useRef<HTMLButtonElement>(null)
-  const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
-    useState(false)
-  const [bookmarkMessage, setBookmarkMessage] = useState<{
-    code: BookmarkNoticeCode
-    questionId: string
-  } | null>(null)
-  const [draftActionMessage, setDraftActionMessage] =
-    useState<DraftActionNoticeCode | null>(null)
-  const [isPreparingSubmission, setPreparingSubmission] = useState(false)
-  const [isSubmissionNavigationStarted, setSubmissionNavigationStarted] =
-    useState(false)
-  const [isSavingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
-  const [verifiedGuestSessionId, setVerifiedGuestSessionId] = useState<
-    string | null
-  >(null)
-  const [submissionConnectivityMessage, setSubmissionConnectivityMessage] =
-    useState<SubmissionConnectivityCode | null>(() =>
-      typeof navigator !== 'undefined' && navigator.onLine === false
-        ? 'offline'
-        : null
-    )
-  const sessionQuery = useGetStudySession(
-    sessionId,
-    isAuthReady && role === 'GUEST',
-    isAuthReady
-  )
-  const isSessionRefreshUnavailable =
-    sessionQuery.isError || sessionQuery.fetchStatus === 'paused'
-  const hasCurrentGuestOwnerProof =
-    isAuthReady && (role !== 'GUEST' || verifiedGuestSessionId === sessionId)
-  const isCanonicalSessionBoundaryTerminal =
-    (Boolean(sessionQuery.data) &&
-      sessionQuery.data?.session.status !== 'IN_PROGRESS') ||
-    (sessionQuery.isError && isNotFoundApiError(sessionQuery.error))
-  const isV2Session = sessionQuery.data?.session.practiceContractVersion === 2
-  const isRetiredSession = sessionQuery.isError
-    ? isRetiredPracticeApiError(sessionQuery.error)
-    : sessionQuery.data?.session.practiceContractVersion === 1
-  const isEditableV2Session =
-    isV2Session &&
-    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-    hasCurrentGuestOwnerProof &&
-    !isCanonicalSessionBoundaryTerminal
-  const principalScope = getStudyDraftPrincipalScope(user)
-  const submitSessionV2 = useSubmitStudySessionV2(sessionId, principalScope)
-  const hasResolvedDraftConflict = useAppStore((state) =>
-    Boolean(state.draftConflict)
-  )
-  const isDraftConflictPending = useAppStore(
-    (state) => state.isDraftConflictPending
-  )
-  const hasDraftConflict = hasResolvedDraftConflict || isDraftConflictPending
-  const isScopedDraftReady = useAppStore(
-    (state) =>
-      state.draftWorkingCopy?.principalScope === principalScope &&
-      state.draftWorkingCopy.sessionId === sessionId
-  )
-  const allowSubmissionNavigationRef = useRef(false)
-  const isSubmissionActive =
-    submitSessionV2.isPending || submitSessionV2.isPaused
-  const submissionError = submitSessionV2.error
-  const isSubmissionError = submitSessionV2.isError
-  const frozenV2Attempt = readStudyDraftSubmissionAttempt(sessionId)
-  const hasRawFrozenSubmissionAttempt =
-    hasStoredSubmissionAttempt(sessionId) ||
-    (isSubmissionError &&
-      !isAuthTransitionSupersededError(submissionError) &&
-      !isDefinitiveStudySubmissionError(submissionError))
-  const hasFrozenSubmissionAttempt =
-    hasRawFrozenSubmissionAttempt &&
-    !isCanonicalSessionBoundaryTerminal &&
-    !isRetiredSession
-  const terminalSettlementKey =
-    sessionQuery.isSuccess &&
-    isV2Session &&
-    sessionQuery.data.session.status !== 'IN_PROGRESS'
-      ? `${sessionId}:${sessionQuery.data.session.status}`
-      : null
-  const terminalSettlementRef = useRef<string | null>(null)
-  const isSubmitDialogOpen =
-    isSubmitDialogRequestedOpen || hasFrozenSubmissionAttempt
-  const mustReplayFrozenSubmission =
-    !isCanonicalSessionBoundaryTerminal &&
-    (isSubmissionActive || hasRawFrozenSubmissionAttempt)
-  const mustBlockNavigation =
-    !isRetiredSession &&
-    (mustReplayFrozenSubmission || (isEditableV2Session && isScopedDraftReady))
-  const submissionNavigationBlocker = useBlocker(
-    () => mustBlockNavigation && !allowSubmissionNavigationRef.current
-  )
-  const isNavigationPromptBlocked =
-    submissionNavigationBlocker.state === 'blocked'
-  const expectedSessionQuestionIds =
-    sessionQuery.data?.questions.flatMap((question) =>
-      question.sessionQuestionId ? [question.sessionQuestionId] : []
-    ) ?? []
-  const draftController = usePracticeDraftController({
-    enabled: isEditableV2Session && !isSubmissionNavigationStarted,
-    expectedSessionQuestionIds,
-    isInteractionPaused:
-      isSubmitDialogOpen ||
-      hasDraftConflict ||
-      isNavigationPromptBlocked ||
-      isPreparingSubmission ||
-      isSessionRefreshUnavailable,
-    sessionId,
-    user
-  })
-  const createBookmark = useCreateBookmark('PRACTICE')
-  const deleteBookmark = useDeleteBookmark()
-  const bookmarkMutationActivity = useBookmarkMutationActivity()
-  const bookmarkQuestionIds =
-    sessionQuery.data?.session.practiceContractVersion === 2
-      ? sessionQuery.data.questions.map((question) => question.id).toSorted()
-      : []
-  const bookmarksQuery = useListBookmarks(
-    {
-      page: 1,
-      pageSize: 20,
-      ...(bookmarkQuestionIds.length > 0
-        ? { questionIds: bookmarkQuestionIds }
-        : {})
-    },
-    role !== 'GUEST' && bookmarkQuestionIds.length > 0
-  )
-  const resetPractice = useAppStore((state) => state.resetPractice)
-
-  useEffect(() => {
-    let nextVerifiedSessionId: string | null | undefined
-    if (!isAuthReady || role !== 'GUEST') {
-      nextVerifiedSessionId = null
-    }
-    if (
-      nextVerifiedSessionId === undefined &&
-      sessionQuery.isSuccess &&
-      sessionQuery.isFetchedAfterMount &&
-      sessionQuery.data.session.id === sessionId
-    ) {
-      nextVerifiedSessionId = sessionId
-    }
-    if (
-      nextVerifiedSessionId === undefined &&
-      sessionQuery.isError &&
-      isAuthenticationBoundaryApiError(sessionQuery.error)
-    ) {
-      nextVerifiedSessionId = null
-    }
-    if (nextVerifiedSessionId === undefined) {
-      return
-    }
-
-    let active = true
-    queueMicrotask(() => {
-      if (active) {
-        setVerifiedGuestSessionId((current) =>
-          current === nextVerifiedSessionId ? current : nextVerifiedSessionId
-        )
-      }
-    })
-    return () => {
-      active = false
-    }
-  }, [
-    isAuthReady,
-    role,
-    sessionId,
-    sessionQuery.data,
-    sessionQuery.error,
-    sessionQuery.isError,
-    sessionQuery.isFetchedAfterMount,
-    sessionQuery.isSuccess
-  ])
-
-  useEffect(() => {
-    if (!mustBlockNavigation) {
-      allowSubmissionNavigationRef.current = isCanonicalSessionBoundaryTerminal
-      if (submissionNavigationBlocker.state === 'blocked') {
-        if (isCanonicalSessionBoundaryTerminal) {
-          submissionNavigationBlocker.reset()
-        } else {
-          submissionNavigationBlocker.reset()
-        }
-      }
-    }
-  }, [
-    isCanonicalSessionBoundaryTerminal,
-    mustBlockNavigation,
-    submissionNavigationBlocker
-  ])
-
-  useEffect(() => {
-    if (!mustReplayFrozenSubmission) {
-      return
-    }
-    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
-      event.preventDefault()
-      event.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [mustReplayFrozenSubmission])
-
-  useEffect(() => {
-    const handleOffline = (): void => {
-      setSubmissionConnectivityMessage('offline')
-    }
-    const handleOnline = (): void => {
-      setSubmissionConnectivityMessage('restored')
-    }
-
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', handleOnline)
-    return () => {
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', handleOnline)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!terminalSettlementKey) {
-      if (
-        sessionQuery.isSuccess &&
-        sessionQuery.data?.session.status === 'IN_PROGRESS'
-      ) {
-        terminalSettlementRef.current = null
-      }
-      return
-    }
-    if (terminalSettlementRef.current === terminalSettlementKey) {
-      return
-    }
-    terminalSettlementRef.current = terminalSettlementKey
-    allowSubmissionNavigationRef.current = true
-    clearSubmissionAttempt(sessionId)
-    clearStudyDraftWorkingCopy(principalScope, sessionId)
-    if (submitSessionV2.isError || submitSessionV2.isPending) {
-      submitSessionV2.reset()
-    }
-    resetPractice()
-  }, [
-    principalScope,
-    resetPractice,
-    sessionId,
-    sessionQuery.data,
-    sessionQuery.isSuccess,
-    submitSessionV2,
-    terminalSettlementKey
-  ])
-
-  const questions = sessionQuery.data?.questions ?? []
-  const currentQuestionIndex = draftController.currentOrdinal - 1
-  const safeQuestionIndex =
-    questions.length > 0
-      ? Math.min(currentQuestionIndex, questions.length - 1)
-      : 0
-  const isLastQuestion =
-    questions.length > 0 && safeQuestionIndex === questions.length - 1
-  const currentQuestion = questions[safeQuestionIndex]
-  const canFocusCurrentQuestion =
-    !sessionQuery.isPending &&
-    !sessionQuery.isError &&
-    Boolean(sessionQuery.data) &&
-    hasCurrentGuestOwnerProof &&
-    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-    draftController.isReady &&
-    Boolean(currentQuestion)
-  const v2Answers =
-    frozenV2Attempt?.canonicalBody.answers ??
-    draftController.snapshot?.answers ??
-    []
-  const v2AnswersBySessionQuestionId = new Map(
-    v2Answers.map((answer) => [
-      answer.studySessionQuestionId,
-      answer.selectedOptionId
-    ])
-  )
-  const displayedSelectedAnswers = Object.fromEntries(
-    questions.flatMap((question) => {
-      const selectedOptionId = question.sessionQuestionId
-        ? v2AnswersBySessionQuestionId.get(question.sessionQuestionId)
-        : null
-      return selectedOptionId ? [[question.id, selectedOptionId]] : []
-    })
-  )
-  const elapsedSeconds =
-    frozenV2Attempt?.canonicalBody.durationSec ?? draftController.elapsedSeconds
-  const answeredCount = questions.reduce(
-    (count, question) =>
-      displayedSelectedAnswers[question.id] ? count + 1 : count,
-    0
-  )
-  const unansweredCount = Math.max(0, questions.length - answeredCount)
-
-  useEffect(() => {
-    if (canFocusCurrentQuestion && !isNavigationPromptBlocked) {
-      headingRef.current?.focus()
-    }
-  }, [canFocusCurrentQuestion, currentQuestion?.id, isNavigationPromptBlocked])
-
-  const movePrevious = (): void => {
-    if (isSessionRefreshUnavailable) return
-    draftController.moveToOrdinal(Math.max(1, safeQuestionIndex))
-  }
-
-  const moveNext = (): void => {
-    if (isSessionRefreshUnavailable) return
-    draftController.moveToOrdinal(
-      Math.min(questions.length, safeQuestionIndex + 2)
-    )
-  }
-
-  const handleSelectOption = (optionId: string): void => {
-    if (
-      currentQuestion &&
-      !isSubmitDialogOpen &&
-      !mustReplayFrozenSubmission &&
-      !isNavigationPromptBlocked &&
-      !isPreparingSubmission &&
-      !isSessionRefreshUnavailable &&
-      sessionQuery.data?.session.status === 'IN_PROGRESS'
-    ) {
-      const isFirstAnswer = !displayedSelectedAnswers[currentQuestion.id]
-      if (currentQuestion.sessionQuestionId) {
-        draftController.selectOption(
-          currentQuestion.sessionQuestionId,
-          optionId
-        )
-      }
-      if (isFirstAnswer) {
-        analyticsClient.track({
-          event: 'question_answered',
-          payload: { ordinal: currentQuestion.ordinal }
-        })
-      }
-    }
-  }
-
-  const canRequestSubmission =
-    isLastQuestion &&
-    !isSubmitDialogOpen &&
-    !mustReplayFrozenSubmission &&
-    !hasDraftConflict &&
-    !isNavigationPromptBlocked &&
-    !isPreparingSubmission &&
-    !isSubmissionActive &&
-    !isSessionRefreshUnavailable &&
-    draftController.isReady &&
-    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-    draftController.saveState !== 'saving'
-
-  usePracticeKeyboard({
-    enabled:
-      !isSubmitDialogOpen &&
-      !mustReplayFrozenSubmission &&
-      !hasDraftConflict &&
-      !isNavigationPromptBlocked &&
-      !isPreparingSubmission &&
-      !isSubmissionActive &&
-      !isSessionRefreshUnavailable &&
-      draftController.isReady &&
-      sessionQuery.data?.session.status === 'IN_PROGRESS',
-    optionIds: currentQuestion?.options.map((option) => option.id) ?? [],
-    onSelectOption: handleSelectOption,
-    onPrevious: movePrevious,
-    onNext: moveNext,
-    onSubmit: () => setSubmitDialogRequestedOpen(true),
-    submitEnabled: canRequestSubmission
-  })
-
-  const handleSaveAndLeave = async (): Promise<void> => {
-    if (submissionNavigationBlocker.state !== 'blocked') {
-      return
-    }
-    setSavingBeforeNavigation(true)
-    setDraftActionMessage(null)
-    try {
-      await draftController.flush()
-      allowSubmissionNavigationRef.current = true
-      submissionNavigationBlocker.proceed()
-    } catch (error: unknown) {
-      if (!isAuthTransitionSupersededError(error)) {
-        setDraftActionMessage('saveBeforeLeaveFailed')
-      }
-    } finally {
-      setSavingBeforeNavigation(false)
-    }
-  }
+  const session = usePracticeSessionController({ headingRef, sessionId })
+  const refetchSession = (): void => void session.sessionQuery.refetch()
 
   const navigationPrompt = (
-    <Dialog
-      open={
-        submissionNavigationBlocker.state === 'blocked' &&
-        isV2Session &&
-        !mustReplayFrozenSubmission
-      }
-      title={t('session.navigationGuard.title')}
-      description={t('session.navigationGuard.description')}
-      footer={
-        <>
-          <Button
-            variant="secondary"
-            disabled={isSavingBeforeNavigation}
-            onClick={() => submissionNavigationBlocker.reset?.()}
-          >
-            {t('session.navigationGuard.continue')}
-          </Button>
-          <Button
-            isLoading={isSavingBeforeNavigation}
-            onClick={() => void handleSaveAndLeave()}
-          >
-            {t('session.navigationGuard.saveAndLeave')}
-          </Button>
-        </>
-      }
-      preventClose={isSavingBeforeNavigation}
-      onOpenChange={(open) => {
-        if (!open && !isSavingBeforeNavigation) {
-          submissionNavigationBlocker.reset?.()
-        }
-      }}
+    <PracticeNavigationGuardDialog
+      open={session.isNavigationGuardOpen}
+      isSaving={session.isSavingBeforeNavigation}
+      onContinue={session.cancelNavigation}
+      onSaveAndLeave={() => void session.handleSaveAndLeave()}
     />
   )
 
-  if (isRetiredSession) {
+  if (session.isRetiredSession) {
     return (
-      <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-        <ErrorState
-          autoFocus
-          headingLevel={1}
-          title={t('session.terminal.retiredTitle')}
-          description={t('session.terminal.retiredDescription')}
-          action={
-            <Link
-              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-              to="/practice"
-            >
-              {t('session.terminal.openSetup')}
-            </Link>
-          }
-        />
-      </section>
+      <SessionSetupLinkError
+        framed
+        title={t('session.terminal.retiredTitle')}
+        description={t('session.terminal.retiredDescription')}
+      />
     )
   }
 
-  if (sessionQuery.isPending) {
-    if (hasFrozenSubmissionAttempt) {
+  if (session.sessionQuery.isPending) {
+    if (session.hasFrozenSubmissionAttempt) {
       return (
-        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-          <ErrorState
-            autoFocus
-            headingLevel={1}
-            title={t('session.recovery.title')}
-            description={t('session.recovery.pendingDescription')}
-            action={
-              <div className="space-y-3">
-                <Button onClick={() => void sessionQuery.refetch()}>
-                  {t('session.recovery.retry')}
-                </Button>
-                <p
-                  className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm leading-6 text-warning-strong"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {submissionConnectivityMessage
-                    ? t(
-                        `session.submit.connectivity.${submissionConnectivityMessage}`
-                      )
-                    : t('session.recovery.checkingStatus')}
-                </p>
-              </div>
-            }
-          />
-        </section>
+        <SessionRecoveryState
+          connectivityMessage={session.submissionConnectivityMessage}
+          description={t('session.recovery.pendingDescription')}
+          idleStatus={t('session.recovery.checkingStatus')}
+          onRetry={refetchSession}
+        />
       )
     }
-
-    if (sessionQuery.fetchStatus === 'paused') {
+    if (session.sessionQuery.fetchStatus === 'paused') {
       return (
-        <ErrorState
-          autoFocus
-          headingLevel={1}
-          title={t('session.errors.sessionLoadTitle')}
+        <SessionLoadError
           description={t('session.errors.offlineSessionDescription')}
         />
       )
     }
-
     return <LoadingState message={t('session.loading.questions')} />
   }
 
-  if (!sessionQuery.data) {
-    if (sessionQuery.isError && isNotFoundApiError(sessionQuery.error)) {
+  if (!session.sessionQuery.data) {
+    if (session.isSessionNotFound) {
       return (
-        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-          <ErrorState
-            autoFocus
-            headingLevel={1}
-            title={t('session.terminal.notFoundTitle')}
-            description={t('session.terminal.notFoundDescription')}
-            action={
-              <Link
-                className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-                to="/practice"
-              >
-                {t('session.terminal.openSetup')}
-              </Link>
-            }
-          />
-        </section>
+        <SessionSetupLinkError
+          framed
+          title={t('session.terminal.notFoundTitle')}
+          description={t('session.terminal.notFoundDescription')}
+        />
       )
     }
-    if (hasFrozenSubmissionAttempt) {
+    if (session.hasFrozenSubmissionAttempt) {
       return (
-        <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-          <ErrorState
-            autoFocus
-            headingLevel={1}
-            title={t('session.recovery.title')}
-            description={t('session.recovery.failedDescription')}
-            action={
-              <div className="space-y-3">
-                <Button onClick={() => void sessionQuery.refetch()}>
-                  {t('session.recovery.retry')}
-                </Button>
-                <p
-                  className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm leading-6 text-warning-strong"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {submissionConnectivityMessage
-                    ? t(
-                        `session.submit.connectivity.${submissionConnectivityMessage}`
-                      )
-                    : t('session.recovery.connectedStatus')}
-                </p>
-              </div>
-            }
-          />
-        </section>
+        <SessionRecoveryState
+          connectivityMessage={session.submissionConnectivityMessage}
+          description={t('session.recovery.failedDescription')}
+          idleStatus={t('session.recovery.connectedStatus')}
+          onRetry={refetchSession}
+        />
       )
     }
-
     return (
       <>
-        <ErrorState
-          autoFocus
-          headingLevel={1}
-          title={t('session.errors.sessionLoadTitle')}
+        <SessionLoadError
           description={
-            sessionQuery.isError && isOfflineApiError(sessionQuery.error)
+            session.isSessionOffline
               ? t('session.errors.offlineSessionDescription')
               : t('session.errors.sessionLoadDescription')
           }
-          action={
-            <Button onClick={() => void sessionQuery.refetch()}>
-              {commonT('actions.retry')}
-            </Button>
-          }
+          onRetry={refetchSession}
         />
         {navigationPrompt}
       </>
     )
   }
 
-  if (!hasCurrentGuestOwnerProof) {
-    if (sessionQuery.fetchStatus === 'paused') {
+  if (!session.hasCurrentGuestOwnerProof) {
+    if (session.sessionQuery.fetchStatus === 'paused') {
       return (
-        <ErrorState
-          autoFocus
-          headingLevel={1}
-          title={t('session.errors.sessionLoadTitle')}
+        <SessionLoadError
           description={t('session.errors.offlineSessionDescription')}
         />
       )
     }
-
-    if (sessionQuery.isError) {
+    if (session.sessionQuery.isError) {
       return (
-        <ErrorState
-          autoFocus
-          headingLevel={1}
-          title={t('session.errors.sessionLoadTitle')}
+        <SessionLoadError
           description={t('session.errors.sessionLoadDescription')}
-          action={
-            <Button onClick={() => void sessionQuery.refetch()}>
-              {commonT('actions.retry')}
-            </Button>
-          }
+          onRetry={refetchSession}
         />
       )
     }
-
     return <LoadingState message={t('session.loading.guestOwnership')} />
   }
 
-  if (sessionQuery.data.session.status === 'SUBMITTED') {
-    if (isNavigationPromptBlocked) {
+  const { status } = session.sessionQuery.data.session
+  if (status === 'SUBMITTED') {
+    if (session.isNavigationPromptBlocked) {
       return <LoadingState message={t('session.loading.resultRedirect')} />
     }
     return <Navigate replace to={`/practice/result/${sessionId}`} />
   }
 
-  if (sessionQuery.data.session.status !== 'IN_PROGRESS') {
+  if (status !== 'IN_PROGRESS') {
     return (
-      <ErrorState
-        autoFocus
-        headingLevel={1}
+      <SessionSetupLinkError
         title={
-          sessionQuery.data.session.status === 'EXPIRED'
+          status === 'EXPIRED'
             ? t('session.terminal.expiredTitle')
             : t('session.terminal.cancelledTitle')
         }
         description={t('session.terminal.description')}
-        action={
-          <Link
-            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-            to="/practice"
-          >
-            {t('session.terminal.openSetup')}
-          </Link>
-        }
       />
     )
   }
 
-  if (isV2Session && !draftController.isReady) {
+  if (session.isV2Session && !session.draftController.isReady) {
     if (
-      draftController.draftQuery.isError ||
-      draftController.saveState === 'error'
+      session.draftController.draftQuery.isError ||
+      session.draftController.saveState === 'error'
     ) {
       return (
-        <ErrorState
-          autoFocus
-          headingLevel={1}
+        <SessionLoadError
           title={t('session.errors.draftLoadTitle')}
           description={t('session.errors.draftLoadDescription')}
-          action={
-            <Button
-              onClick={() =>
-                void draftController.retrySave().catch(() => undefined)
-              }
-            >
-              {t('session.recovery.retry')}
-            </Button>
+          retryLabel={t('session.recovery.retry')}
+          onRetry={() =>
+            void session.draftController.retrySave().catch(() => undefined)
           }
         />
       )
@@ -748,723 +170,123 @@ export const PracticeSessionPage = (): ReactElement => {
     return <LoadingState message={t('session.loading.draft')} />
   }
 
-  if (!currentQuestion) {
+  if (!session.currentQuestion) {
     return (
-      <ErrorState
-        autoFocus
-        headingLevel={1}
+      <SessionSetupLinkError
         title={t('session.errors.emptyTitle')}
         description={t('session.errors.emptyDescription')}
-        action={
-          <Link
-            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-            to="/practice"
-          >
-            {t('session.terminal.openSetup')}
-          </Link>
-        }
       />
     )
   }
 
-  const { session, requestedCount, actualCount, usedFallback } =
-    sessionQuery.data
-  const progressValue = Math.round((answeredCount / questions.length) * 100)
-  const isBookmarked = Boolean(
-    bookmarksQuery.data?.items.some(
-      (bookmark) => bookmark.questionId === currentQuestion.id
-    )
-  )
-  const hasPendingBookmarkMutation =
-    bookmarkMutationActivity.pendingQuestionIds.size > 0
-  const isBookmarkQueryUnavailable =
-    role !== 'GUEST' &&
-    (bookmarksQuery.isPending ||
-      bookmarksQuery.isError ||
-      bookmarksQuery.fetchStatus === 'paused')
-
-  const toOptimisticBookmark = (): BookmarkSummary | undefined => {
-    if (!currentQuestion.questionVersionId || !currentQuestion.tagSummaries) {
-      return undefined
-    }
-    const characters = [...currentQuestion.questionText]
-    return {
-      questionId: currentQuestion.id,
-      question: {
-        id: currentQuestion.id,
-        questionVersionId: currentQuestion.questionVersionId,
-        level: currentQuestion.level,
-        subject: currentQuestion.subject,
-        questionType: currentQuestion.questionType,
-        difficulty: currentQuestion.difficulty,
-        questionTextPreview:
-          characters.length <= 160
-            ? currentQuestion.questionText
-            : `${characters.slice(0, 157).join('')}...`,
-        tags: currentQuestion.tagSummaries
-      },
-      availability: 'AVAILABLE',
-      createdAt: new Date().toISOString()
-    }
-  }
-
-  const handleBookmark = (): void => {
-    if (isSessionRefreshUnavailable) return
-    if (role === 'GUEST') {
-      setBookmarkMessage({
-        code: 'loginRequired',
-        questionId: currentQuestion.id
-      })
-      return
-    }
-    setBookmarkMessage(null)
-    if (isBookmarked) {
-      deleteBookmark.mutate(currentQuestion.id, {
-        onSuccess: () =>
-          setBookmarkMessage({
-            code: 'removed',
-            questionId: currentQuestion.id
-          }),
-        onError: (error) => {
-          if (!isAuthTransitionSupersededError(error)) {
-            setBookmarkMessage({
-              code: 'removeRollback',
-              questionId: currentQuestion.id
-            })
-          }
-        }
-      })
-      return
-    }
-
-    createBookmark.mutate(
-      {
-        questionId: currentQuestion.id,
-        optimisticBookmark: toOptimisticBookmark()
-      },
-      {
-        onSuccess: () =>
-          setBookmarkMessage({
-            code: 'saved',
-            questionId: currentQuestion.id
-          }),
-        onError: (error) => {
-          if (!isAuthTransitionSupersededError(error)) {
-            setBookmarkMessage({
-              code: 'saveRollback',
-              questionId: currentQuestion.id
-            })
-          }
-        }
-      }
-    )
-  }
-
-  const completeSubmissionNavigation = (): void => {
-    allowSubmissionNavigationRef.current = true
-    setSubmissionNavigationStarted(true)
-    if (submissionNavigationBlocker.state === 'blocked') {
-      submissionNavigationBlocker.reset()
-    }
-    setSubmitDialogRequestedOpen(false)
-    resetPractice()
-    void navigate(`/practice/result/${sessionId}`)
-  }
-
-  const handleSubmissionFailure = (error: unknown): void => {
-    if (isAuthTransitionSupersededError(error)) {
-      return
-    }
-    const errorCode = getStudySubmissionErrorCode(error)
-    if (
-      errorCode !== 'RESOURCE_NOT_FOUND' &&
-      errorCode !== 'STUDY_SESSION_NOT_EDITABLE' &&
-      errorCode !== 'DRAFT_VERSION_CONFLICT' &&
-      errorCode !== 'DRAFT_SUBMIT_MISMATCH'
-    ) {
-      return
-    }
-
-    setPreparingSubmission(true)
-    void (async (): Promise<void> => {
-      try {
-        if (
-          errorCode === 'DRAFT_VERSION_CONFLICT' ||
-          errorCode === 'DRAFT_SUBMIT_MISMATCH'
-        ) {
-          await draftController.retrySave()
-          setDraftActionMessage('conflictRefreshComplete')
-          return
-        }
-        await sessionQuery.refetch()
-      } catch (reconciliationError: unknown) {
-        if (!isAuthTransitionSupersededError(reconciliationError)) {
-          setDraftActionMessage('sessionRefreshFailed')
-        }
-      } finally {
-        setPreparingSubmission(false)
-      }
-    })()
-  }
-
-  const handleSubmit = async (): Promise<void> => {
-    if (
-      isSubmissionActive ||
-      isPreparingSubmission ||
-      hasDraftConflict ||
-      isSessionRefreshUnavailable
-    ) {
-      return
-    }
-
-    setDraftActionMessage(null)
-
-    setPreparingSubmission(true)
-    try {
-      const prepared = frozenV2Attempt
-        ? frozenV2Attempt.canonicalBody
-        : await draftController.prepareSubmission()
-      submitSessionV2.mutate(prepared, {
-        onSuccess: (_result, input) => {
-          assertCurrentStudySubmissionV2Action(input)
-          completeSubmissionNavigation()
-        },
-        onError: handleSubmissionFailure
-      })
-    } catch (error: unknown) {
-      if (!isAuthTransitionSupersededError(error)) {
-        setDraftActionMessage('submissionPreparationFailed')
-      }
-    } finally {
-      setPreparingSubmission(false)
-    }
-  }
-
-  const handleSubmitDialogOpenChange = (open: boolean): void => {
-    if (!open && mustReplayFrozenSubmission) {
-      return
-    }
-
-    setSubmitDialogRequestedOpen(open)
-  }
-
-  const draftStatusMessage = t(
-    `session.draft.status.${draftController.status.code}`,
-    draftController.status.savedAt
-      ? {
-          time: formatDateTime(draftController.status.savedAt, locale, {
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        }
-      : undefined
-  )
-  const isDraftActionInformational =
-    draftActionMessage === 'conflictRefreshComplete'
-
-  const isCompactDraftStatus =
-    ['synced', 'saved', 'savedAt', 'dirty', 'saving'].includes(
-      draftController.status.code
-    ) && !(isDraftConflictPending && !hasResolvedDraftConflict)
-
-  const isInlineDraftStatus =
-    [
-      'synced',
-      'saved',
-      'savedAt',
-      'reconciled',
-      'dirty',
-      'saving',
-      'error',
-      'offline'
-    ].includes(draftController.status.code) &&
-    !(isDraftConflictPending && !hasResolvedDraftConflict)
+  const isBookmarked = session.bookmark.isBookmarked(session.currentQuestion.id)
+  const inlineSaveStatus = session.isInlineDraftStatus
+    ? session.draftController.status.code
+    : null
 
   return (
     <section
-      className={`learning-note study-page study-session ${reviewContext ? 'study-review-session' : ''} mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
+      className={`learning-note study-page study-session ${reviewContext ? 'study-review-session' : ''} mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${session.currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
     >
-      <header
-        className={
-          reviewContext ? 'study-session-context' : 'study-focus-header'
-        }
-      >
-        <div className="study-focus-header-inner">
-          <Link
-            className="note-link size-11 justify-center"
-            aria-label={t(
-              reviewContext
-                ? 'session.header.backToExplanation'
-                : 'session.header.backToSetup'
-            )}
-            aria-disabled={
-              mustReplayFrozenSubmission ||
-              isNavigationPromptBlocked ||
-              isPreparingSubmission
-            }
-            onClick={(event) => {
-              if (
-                mustReplayFrozenSubmission ||
-                isNavigationPromptBlocked ||
-                isPreparingSubmission
-              ) {
-                event.preventDefault()
-              }
-            }}
-            to={
-              reviewContext
-                ? `/wrong-notes/${reviewContext.questionId}?returnTo=${encodeURIComponent(reviewContext.returnTo)}`
-                : '/practice'
-            }
-          >
-            <Icon name="chevron-left" />
-          </Link>
-          <div>
-            <p className="study-session-title">
-              {session.level} {commonT(`taxonomy.subjects.${session.subject}`)}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span className="text-sm text-muted">
-                {commonT(`taxonomy.studyModes.${session.mode}`)}
-              </span>
-            </div>
-            <div className="mt-3">
-              <Progress
-                label={t('session.header.progressSummary', {
-                  answered: formatCount(answeredCount),
-                  current: formatCount(safeQuestionIndex + 1),
-                  total: formatCount(questions.length)
-                })}
-                value={progressValue}
-                showValue={false}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+      <PracticeSessionHeader
+        answeredCount={session.answeredCount}
+        currentNumber={session.safeQuestionIndex + 1}
+        isBackDisabled={session.isBackNavigationDisabled}
+        reviewContext={reviewContext}
+        session={session.sessionQuery.data.session}
+        total={session.questions.length}
+      />
 
       <div className="study-session-layout">
         <div className="study-session-main">
-          {sessionQuery.fetchStatus === 'paused' ? (
-            <p
-              className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold leading-6 text-warning-strong"
-              role="status"
-            >
-              {t('session.errors.cachedOfflineDescription')}
-            </p>
-          ) : sessionQuery.isError ? (
-            <div
-              className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
-              role="alert"
-            >
-              <p className="font-semibold">
-                {t('session.errors.staleSessionDescription')}
-              </p>
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="outline"
-                onClick={() => void sessionQuery.refetch()}
-              >
-                {t('session.errors.retrySession')}
-              </Button>
-            </div>
-          ) : null}
+          <PracticeSessionNotices
+            draftActionMessage={session.draftActionMessage}
+            draftController={session.draftController}
+            hasUnresolvedConflictCheck={session.hasUnresolvedConflictCheck}
+            isCompactDraftStatus={session.isCompactDraftStatus}
+            isInlineDraftStatus={session.isInlineDraftStatus}
+            isSessionError={session.sessionQuery.isError}
+            isSessionPaused={session.sessionQuery.fetchStatus === 'paused'}
+            isV2Session={session.isV2Session}
+            onRetryDraftSave={session.retryDraftSave}
+            onRetrySession={refetchSession}
+            sessionData={session.sessionQuery.data}
+          />
 
-          {isV2Session && !isInlineDraftStatus ? (
-            <div
-              className={
-                isCompactDraftStatus
-                  ? 'mt-2 text-xs leading-5 text-muted'
-                  : 'mt-4 rounded-lg border border-info-line bg-info-soft px-4 py-3 text-sm font-semibold leading-6 text-info-strong'
-              }
-              role="status"
-              aria-live="polite"
-              data-save-state={draftController.saveState}
-            >
-              <p>{draftStatusMessage}</p>
-              {isDraftConflictPending && !hasResolvedDraftConflict ? (
-                <p className="mt-2 font-medium">
-                  {t('session.draft.conflictCheckPending')}
-                </p>
-              ) : null}
-              {draftController.saveState === 'error' ||
-              draftController.saveState === 'offline' ? (
-                <Button
-                  className="mt-3"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setDraftActionMessage(null)
-                    void draftController.retrySave().catch(() => {
-                      setDraftActionMessage('retrySaveFailed')
-                    })
-                  }}
-                >
-                  {t('session.draft.retry')}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {draftActionMessage ? (
-            <p
-              className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold leading-6 ${
-                isDraftActionInformational
-                  ? 'border-info-line bg-info-soft text-info-strong'
-                  : 'border-danger-line bg-danger-soft text-danger-strong'
-              }`}
-              role={isDraftActionInformational ? 'status' : 'alert'}
-            >
-              {t(`session.draft.notices.${draftActionMessage}`)}
-            </p>
-          ) : null}
-
-          {actualCount < requestedCount || usedFallback ? (
-            <div
-              className="mt-5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-strong"
-              role="status"
-            >
-              {actualCount < requestedCount
-                ? t('session.supply.canonicalPartial', {
-                    actual: formatCount(actualCount),
-                    mode: commonT(`taxonomy.studyModes.${session.mode}`),
-                    requested: formatCount(requestedCount)
-                  })
-                : t('session.supply.canonicalNoFallback')}
-            </div>
-          ) : null}
-
-          <div
-            className={[
-              'study-question mt-4 border-line',
-              currentQuestion.subject === 'READING'
-                ? 'lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
-                : ''
-            ].join(' ')}
-          >
-            {currentQuestion.passage ? (
-              <article
-                aria-label={t('session.question.passageLabel')}
-                className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
-                tabIndex={0}
-              >
-                <p className="text-xs font-black tracking-[0.14em] text-brand">
-                  {t('session.question.passageEyebrow')}
-                </p>
-                <p className="sr-only">{t('session.question.passageLabel')}</p>
-                <p
-                  className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
-                  lang="ja"
-                >
-                  {currentQuestion.passage}
-                </p>
-              </article>
-            ) : null}
-
-            <article className="study-question-content min-w-0 py-4 sm:py-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex flex-wrap gap-2">
-                  {currentQuestion.tags.map((tag) => (
-                    <span key={tag} className="text-sm text-muted">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <Button
-                  className="shrink-0"
-                  variant="outline"
-                  type="button"
-                  disabled={
-                    mustReplayFrozenSubmission ||
-                    isNavigationPromptBlocked ||
-                    isPreparingSubmission ||
-                    isSessionRefreshUnavailable ||
-                    hasPendingBookmarkMutation ||
-                    isBookmarkQueryUnavailable
-                  }
-                  aria-label={t(
-                    isBookmarked
-                      ? 'session.bookmark.removeLabel'
-                      : 'session.bookmark.addLabel',
-                    { ordinal: formatCount(safeQuestionIndex + 1) }
-                  )}
-                  aria-pressed={isBookmarked}
-                  data-selected={isBookmarked}
-                  onClick={handleBookmark}
-                >
-                  {isBookmarked
-                    ? t('session.bookmark.remove')
-                    : t('session.bookmark.add')}
-                </Button>
-              </div>
-              {bookmarkMessage?.questionId === currentQuestion.id ||
-              bookmarkMutationActivity.isPaused ? (
-                <p
-                  className="mt-3 text-sm font-semibold text-warning"
-                  role="status"
-                >
-                  {bookmarkMutationActivity.isPaused
-                    ? t('session.bookmark.offlineQueued')
-                    : bookmarkMessage
-                      ? t(`session.bookmark.${bookmarkMessage.code}`)
-                      : null}{' '}
-                  {role === 'GUEST' ? (
-                    <Link
-                      className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
-                      to="/login?redirect=%2Fpractice"
-                    >
-                      {t('session.bookmark.chooseLogin')}
-                    </Link>
-                  ) : null}
-                </p>
-              ) : null}
-              {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
-                <p
-                  className="mt-3 text-sm font-semibold text-warning"
-                  role="status"
-                >
-                  {t('session.bookmark.statusLoadOffline')}
-                </p>
-              ) : role !== 'GUEST' && bookmarksQuery.isError ? (
-                <div
-                  className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-danger"
-                  role="alert"
-                >
-                  <span>{t('session.bookmark.statusLoadFailed')}</span>
-                  <Button
-                    variant="outline"
-                    onClick={() => void bookmarksQuery.refetch()}
-                  >
-                    {t('session.bookmark.retryStatus')}
-                  </Button>
-                </div>
-              ) : null}
-
-              <h1
-                ref={headingRef}
-                className="mt-4 rounded-sm text-2xl font-semibold leading-[1.7]"
-                tabIndex={-1}
-              >
-                <span className="mb-2 block text-sm font-medium text-muted">
-                  {t('session.question.numberLabel', {
-                    ordinal: formatCount(safeQuestionIndex + 1)
-                  })}{' '}
-                </span>
-                <span lang="ja">{currentQuestion.questionText}</span>
-              </h1>
-
-              <div className="mt-4">
-                <RadioGroup
-                  className="learning-options study-answer-options"
-                  disabled={
-                    isSubmitDialogOpen ||
-                    mustReplayFrozenSubmission ||
-                    hasDraftConflict ||
-                    isNavigationPromptBlocked ||
-                    isPreparingSubmission ||
-                    isSessionRefreshUnavailable
-                  }
-                  name={`question-${currentQuestion.id}`}
-                  legend={t('session.question.answerLegend')}
-                  value={displayedSelectedAnswers[currentQuestion.id] ?? ''}
-                  options={currentQuestion.options.map((option) => ({
-                    value: option.id,
-                    label: (
-                      <span className="study-answer-label">
-                        <span lang="ja">
-                          {option.label}. {option.text}
-                        </span>
-                        {displayedSelectedAnswers[currentQuestion.id] ===
-                        option.id ? (
-                          <Icon className="size-5 shrink-0" name="check" />
-                        ) : null}
-                      </span>
-                    )
-                  }))}
-                  onValueChange={handleSelectOption}
-                />
-              </div>
-              {isV2Session ? (
+          <PracticeQuestionCard
+            bookmarkButton={
+              <PracticeQuestionBookmarkButton
+                isBookmarked={isBookmarked}
+                isDisabled={session.isBookmarkDisabled}
+                onToggle={session.handleBookmark}
+                questionNumber={session.safeQuestionIndex + 1}
+              />
+            }
+            bookmarkStatus={
+              <PracticeQuestionBookmarkStatus
+                bookmark={session.bookmark}
+                questionId={session.currentQuestion.id}
+                role={session.role}
+              />
+            }
+            elapsedSeconds={session.elapsedSeconds}
+            headingRef={headingRef}
+            isOptionsDisabled={
+              session.isSubmitDialogOpen || session.isQuestionNavigationLocked
+            }
+            onSelectOption={session.handleSelectOption}
+            question={session.currentQuestion}
+            questionNumber={session.safeQuestionIndex + 1}
+            saveStatus={
+              session.isV2Session ? (
                 <StudyDraftSaveStatus
-                  status={
-                    isInlineDraftStatus ? draftController.status.code : null
-                  }
-                  onRetry={() => {
-                    setDraftActionMessage(null)
-                    void draftController.retrySave().catch(() => {
-                      setDraftActionMessage('retrySaveFailed')
-                    })
-                  }}
+                  status={inlineSaveStatus}
+                  onRetry={session.retryDraftSave}
                 />
-              ) : null}
-              <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
-                <summary className="note-link cursor-pointer">
-                  {t('session.keyboardHelp')}
-                </summary>
-                <p className="mb-2">
-                  {t('session.header.elapsedTime')}{' '}
-                  <span className="font-mono tabular-nums">
-                    {formatDuration(elapsedSeconds)}
-                  </span>
-                </p>
-                <p>{t('session.question.keyboardHint')}</p>
-              </details>
-            </article>
-          </div>
+              ) : null
+            }
+            selectedOptionId={
+              session.displayedSelectedAnswers[session.currentQuestion.id]
+            }
+          />
 
-          <div className="study-question-actions mt-5 grid grid-cols-[1fr_2fr] gap-3 sm:flex sm:items-center sm:justify-between">
-            <Button
-              variant="outline"
-              disabled={
-                safeQuestionIndex === 0 ||
-                mustReplayFrozenSubmission ||
-                hasDraftConflict ||
-                isNavigationPromptBlocked ||
-                isPreparingSubmission ||
-                isSessionRefreshUnavailable
-              }
-              onClick={movePrevious}
-            >
-              {t('session.navigation.previous')}
-            </Button>
-
-            {isLastQuestion ? (
-              <Button
-                ref={submitButtonRef}
-                aria-keyshortcuts="Control+Enter Meta+Enter"
-                disabled={!canRequestSubmission}
-                onClick={() => setSubmitDialogRequestedOpen(true)}
-              >
-                {t('session.navigation.submit')}
-              </Button>
-            ) : (
-              <Button
-                disabled={
-                  mustReplayFrozenSubmission ||
-                  hasDraftConflict ||
-                  isNavigationPromptBlocked ||
-                  isPreparingSubmission ||
-                  isSessionRefreshUnavailable
-                }
-                onClick={moveNext}
-              >
-                {t('session.navigation.next')}
-              </Button>
-            )}
-          </div>
+          <PracticeQuestionActions
+            canSubmit={session.canRequestSubmission}
+            isFirstQuestion={session.safeQuestionIndex === 0}
+            isLastQuestion={session.isLastQuestion}
+            isLocked={session.isQuestionNavigationLocked}
+            onNext={session.moveNext}
+            onPrevious={session.movePrevious}
+            onSubmit={session.openSubmitDialog}
+            submitButtonRef={submitButtonRef}
+          />
         </div>
-        <aside className="study-question-guide study-question-map text-sm leading-7 text-muted">
-          <h2 className="font-semibold text-ink">
-            {t('session.navigation.jumpLabel')}
-          </h2>
-          <nav
-            className="study-question-jump mt-8"
-            aria-label={t('session.navigation.jumpLabel')}
-          >
-            <ol className="flex flex-wrap justify-center gap-2">
-              {questions.map((question, index) => (
-                <li key={question.id}>
-                  <button
-                    className="ui-question-jump min-h-11 min-w-11 rounded-lg border border-line bg-surface text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[current=true]:border-brand data-[current=true]:bg-brand data-[current=true]:text-on-accent data-[answered=true]:ring-2 data-[answered=true]:ring-line-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    type="button"
-                    disabled={
-                      mustReplayFrozenSubmission ||
-                      hasDraftConflict ||
-                      isNavigationPromptBlocked ||
-                      isPreparingSubmission ||
-                      isSessionRefreshUnavailable
-                    }
-                    aria-label={t(
-                      displayedSelectedAnswers[question.id]
-                        ? 'session.navigation.jumpQuestionAnswered'
-                        : 'session.navigation.jumpQuestionUnanswered',
-                      { ordinal: formatCount(index + 1) }
-                    )}
-                    aria-current={
-                      index === safeQuestionIndex ? 'step' : undefined
-                    }
-                    data-current={index === safeQuestionIndex}
-                    data-answered={Boolean(
-                      displayedSelectedAnswers[question.id]
-                    )}
-                    onClick={() => {
-                      draftController.moveToOrdinal(index + 1)
-                    }}
-                  >
-                    {formatCount(index + 1)}
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
-          <h2 className="font-semibold text-ink">{t('session.guide.title')}</h2>
-          <p className="mt-3">{t('session.guide.beforeSubmit')}</p>
-          <p>{t('session.guide.afterSubmit')}</p>
-        </aside>
+        <PracticeQuestionNavigator
+          currentIndex={session.safeQuestionIndex}
+          isDisabled={session.isQuestionNavigationLocked}
+          onJump={session.moveToOrdinal}
+          questions={session.questions}
+          selectedAnswers={session.displayedSelectedAnswers}
+        />
       </div>
 
-      <Dialog
-        open={isSubmitDialogOpen && !hasDraftConflict}
-        title={t('session.submit.title')}
+      <PracticeSubmitDialog
+        open={session.isSubmitDialogOpen && !session.hasDraftConflict}
+        connectivityMessage={session.submissionConnectivityMessage}
+        hasFrozenAttempt={session.hasFrozenSubmissionAttempt}
+        isConfirmDisabled={
+          session.hasDraftConflict || session.isSessionRefreshUnavailable
+        }
+        isConfirmLoading={
+          session.isSubmissionActive || session.isPreparingSubmission
+        }
+        isContinueDisabled={session.mustReplayFrozenSubmission}
+        isSubmissionError={session.isSubmissionError}
+        onConfirm={() => void session.handleSubmit()}
+        onOpenChange={session.handleSubmitDialogOpenChange}
         returnFocusRef={submitButtonRef}
-        description={
-          hasFrozenSubmissionAttempt
-            ? t('session.submit.frozenDescription')
-            : unansweredCount > 0
-              ? t('session.submit.unansweredDescription', {
-                  unanswered: formatCount(unansweredCount)
-                })
-              : t('session.submit.completeDescription')
-        }
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              disabled={mustReplayFrozenSubmission}
-              onClick={() => handleSubmitDialogOpenChange(false)}
-            >
-              {t('session.submit.continue')}
-            </Button>
-            <Button
-              disabled={hasDraftConflict || isSessionRefreshUnavailable}
-              isLoading={isSubmissionActive || isPreparingSubmission}
-              onClick={() => void handleSubmit()}
-            >
-              {t('session.submit.confirm')}
-            </Button>
-          </>
-        }
-        preventClose={mustReplayFrozenSubmission}
-        onOpenChange={handleSubmitDialogOpenChange}
-      >
-        {isSubmissionError ||
-        (hasFrozenSubmissionAttempt && submissionConnectivityMessage) ? (
-          <div className="space-y-3">
-            {isSubmissionError ? (
-              <div
-                className="rounded-lg border border-danger-line bg-danger-soft p-4 text-sm leading-6 text-danger-strong"
-                role="alert"
-              >
-                {hasFrozenSubmissionAttempt
-                  ? t('session.submit.frozenFailure')
-                  : t('session.submit.requestFailure')}
-              </div>
-            ) : null}
-            {hasFrozenSubmissionAttempt && submissionConnectivityMessage ? (
-              <p
-                className="rounded-lg border border-warning-line bg-warning-soft p-4 text-sm leading-6 text-warning-strong"
-                role="status"
-                aria-live="polite"
-              >
-                {t(
-                  `session.submit.connectivity.${submissionConnectivityMessage}`
-                )}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </Dialog>
+        unansweredCount={session.unansweredCount}
+      />
 
       {navigationPrompt}
     </section>

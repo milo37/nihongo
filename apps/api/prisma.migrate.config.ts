@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 import { defineConfig } from 'prisma/config'
-import { assertSafePhase7MigrationDatabase } from './src/db/databaseTargetGuard.js'
+import { assertSafeMigrationDatabase } from './src/db/databaseTargetGuard.js'
 
 dotenv.config({
   path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
@@ -10,7 +10,7 @@ dotenv.config({
 
 const databaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
 
-assertSafePhase7MigrationDatabase({
+assertSafeMigrationDatabase({
   nodeEnvironment: process.env.NODE_ENV,
   migrationDatabaseUrl: databaseUrl,
   runtimeDatabaseUrl: process.env.DATABASE_URL,
@@ -26,7 +26,7 @@ export default defineConfig({
   migrations: {
     path:
       process.env.NODE_ENV === 'test'
-        ? (process.env.PHASE7_TEST_MIGRATIONS_PATH ?? 'prisma/migrations')
+        ? (process.env.TEST_MIGRATIONS_PATH ?? 'prisma/migrations')
         : 'prisma/migrations'
   },
   datasource: {
