@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
+import { toOptimisticBookmark } from '@app/bookmark/toOptimisticBookmark'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
@@ -82,25 +82,7 @@ export const usePracticeResultBookmark = ({
       })
       return
     }
-    const characters = [...question.questionText]
-    const optimisticBookmark: BookmarkSummary = {
-      questionId: question.id,
-      question: {
-        id: question.id,
-        questionVersionId: question.questionVersionId,
-        level: question.level,
-        subject: question.subject,
-        questionType: question.questionType,
-        difficulty: question.difficulty,
-        questionTextPreview:
-          characters.length <= 160
-            ? question.questionText
-            : `${characters.slice(0, 157).join('')}...`,
-        tags: question.tagSummaries
-      },
-      availability: 'AVAILABLE',
-      createdAt: new Date().toISOString()
-    }
+    const optimisticBookmark = toOptimisticBookmark(question)
     createBookmark.mutate(
       { questionId: question.id, optimisticBookmark },
       {
