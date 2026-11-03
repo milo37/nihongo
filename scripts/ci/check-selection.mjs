@@ -108,7 +108,10 @@ export const classifyChangedFiles = (changedFiles) => {
     if (/\.(?:md|txt)$/iu.test(file) && !file.startsWith('.github/')) continue
     if (
       /^(?:LICENSE|\.editorconfig|\.gitignore|\.gitattributes)$/u.test(file) ||
-      file.startsWith('.github/ISSUE_TEMPLATE/')
+      file.startsWith('.github/ISSUE_TEMPLATE/') ||
+      file === '.github/pull_request_template.md' ||
+      // Claude Code agent tooling; never imported or run by apps, builds, tests or CI.
+      file.startsWith('.claude/')
     ) {
       continue
     }
