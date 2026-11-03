@@ -1,20 +1,14 @@
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
-import { lazy, Suspense, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { AppLayout } from '@nihongo/browser/common/components/AppLayout'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
+import { AppErrorReportMenuDialog } from '@app/question-report/components/AppErrorReportDialog'
 export type { PracticeNavigationContext } from '@nihongo/browser/common/components/AppLayout'
-
-// Loaded on first use so the report form stays out of the initial bundle.
-const AppErrorReportMenuDialog = lazy(async () => ({
-  default: (
-    await import('@app/question-report/components/AppErrorReportDialog')
-  ).AppErrorReportMenuDialog
-}))
 
 export const Layout = ({
   children
@@ -53,13 +47,11 @@ export const Layout = ({
         {children}
       </AppLayout>
       {hasErrorReport ? (
-        <Suspense fallback={null}>
-          <AppErrorReportMenuDialog
-            open={isErrorReportOpen}
-            onOpenChange={setErrorReportOpen}
-            fallbackFocusRef={accountMenuButtonRef}
-          />
-        </Suspense>
+        <AppErrorReportMenuDialog
+          open={isErrorReportOpen}
+          onOpenChange={setErrorReportOpen}
+          fallbackFocusRef={accountMenuButtonRef}
+        />
       ) : null}
     </>
   )
