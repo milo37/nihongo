@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { BookmarkPage } from '@app/bookmark/page'
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { mockServer } from '@/test/server'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
 
 interface Deferred<T> {
   promise: Promise<T>
@@ -630,5 +631,32 @@ it('학습 그룹 두 개 중 실행 버튼만 진행을 표시하고 다른 그
   expect(requests).toBe(1)
   await act(async () => settlement.resolve())
   await waitFor(() => expect(secondGroup).toBeEnabled())
+  dispose(fixture.client, fixture.unmount)
+})
+
+it('이용이 제한된 계정이면 BOOKMARK 학습 시작 오류 대신 제한 안내를 보여 준다', async () => {
+  const restricted = mockDatabase.loginAs('USER')
+  mockDatabase.setAccountRestricted(restricted.id, true)
+  const first = createBookmark(1)
+  mockServer.use(
+    http.get('*/api/v1/bookmarks', () =>
+      HttpResponse.json({ items: [first], page: 1, pageSize: 20, total: 1 })
+    )
+  )
+  const fixture = renderBookmarkPage()
+  const user = userEvent.setup()
+  await screen.findByText(first.question.questionTextPreview)
+  await user.click(screen.getByText('다시 풀기'))
+  await user.click(screen.getByRole('button', { name: /N5.*어휘/ }))
+  expect(
+    await screen.findByText(
+      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+    )
+  ).toHaveAttribute('role', 'alert')
+  expect(
+    screen.queryByText(
+      'BOOKMARK 학습을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    )
+  ).toBeNull()
   dispose(fixture.client, fixture.unmount)
 })

@@ -275,6 +275,51 @@ describe('wrong-note approved R9 readonly workflow', () => {
   })
 })
 
+describe('wrong-note restricted account', () => {
+  const restrictedMessage =
+    '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+
+  it('제한된 계정이 단일 복습을 시작하면 제한 안내를 보여 주고 머문다', async () => {
+    const user = userEvent.setup()
+    const { router, principal } = await renderReadonlyDetail()
+    if (!principal) throw new Error('Signed-in principal required')
+    mockDatabase.setAccountRestricted(principal.id, true)
+    const start = screen.getByRole('button', {
+      name: appI18n.t('wrongNote:detail.targeted.start')
+    })
+    await waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+    const notice = await screen.findByText(restrictedMessage)
+    expect(notice).toHaveAttribute('role', 'alert')
+    await waitFor(() => expect(notice).toHaveFocus())
+    expect(
+      screen.queryByText(appI18n.t('wrongNote:detail.targeted.error'))
+    ).toBeNull()
+    expect(router.state.location.pathname).toMatch(/^\/wrong-notes\//u)
+  })
+
+  it('제한된 계정이 문제를 신고하면 제한 안내를 보여 준다', async () => {
+    const user = userEvent.setup()
+    const { principal } = await renderReadonlyDetail()
+    if (!principal) throw new Error('Signed-in principal required')
+    mockDatabase.setAccountRestricted(principal.id, true)
+    await user.click(screen.getByRole('button', { name: '문제 신고' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /설명/u }),
+      '보기 문구를 확인해 주세요.'
+    )
+    await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
+    const notice = await within(dialog).findByText(restrictedMessage)
+    expect(notice).toBeVisible()
+    expect(notice).toHaveClass('bg-amber-50')
+    expect(notice).not.toHaveClass('text-red-700')
+    expect(
+      within(dialog).queryByText('문제 신고를 접수하지 못했습니다.')
+    ).toBeNull()
+  })
+})
+
 describe('wrong-note memo section', () => {
   const memoUrl = (questionId: string): string =>
     `*/api/v1/wrong-notes/${questionId}/memo`

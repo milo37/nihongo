@@ -17,7 +17,10 @@ import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/stu
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
-import { isNoEligibleQuestionsApiError } from '@libs/apiError'
+import {
+  isAccountRestrictedApiError,
+  isNoEligibleQuestionsApiError
+} from '@libs/apiError'
 
 type SetupSearchKey = 'count' | 'level' | 'mode' | 'resumePage' | 'subject'
 
@@ -85,6 +88,8 @@ export const usePracticeSetupController = (
   const isCreatingSession = createSession.isPending || createSession.isPaused
   const noEligibleQuestions =
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
+  const accountRestricted =
+    createSession.isError && isAccountRestrictedApiError(createSession.error)
   const hasCreateError =
     createSession.isError &&
     !isAuthTransitionSupersededError(createSession.error)
@@ -159,6 +164,7 @@ export const usePracticeSetupController = (
   }
 
   return {
+    accountRestricted,
     cancelSessionId,
     canLoadResumableSessions,
     changeSetting,

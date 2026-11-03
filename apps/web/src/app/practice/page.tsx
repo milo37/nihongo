@@ -85,6 +85,7 @@ export const PracticePage = ({
         onStart={setup.handleStart}
         feedback={
           <PracticeSetupFeedback
+            accountRestricted={setup.accountRestricted}
             hasCreateError={setup.hasCreateError}
             isProtectedGuestMode={setup.isProtectedGuestMode}
             loginHref={setup.loginHref}

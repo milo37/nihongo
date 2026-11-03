@@ -89,6 +89,7 @@ export const BookmarkPage = (): ReactElement => {
           <BookmarkPracticePanel
             formatCount={formatCount}
             groups={bookmarks.bookmarkGroups}
+            accountRestricted={bookmarks.accountRestricted}
             hasStartError={bookmarks.hasCreateSessionError}
             isOffline={bookmarks.isPracticeSessionPaused}
             isStarting={bookmarks.isPracticeStarting}
