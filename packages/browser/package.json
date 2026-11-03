@@ -34,7 +34,6 @@
     "./app/login/queries/authQueries": "./src/app/login/queries/authQueries.ts",
     "./app/not-found/page": "./src/app/not-found/page.tsx",
     "./app/not-found/route-error": "./src/app/not-found/route-error.tsx",
-    "./app/practice/draft/studyDraftCanonicalizer": "./src/app/practice/draft/studyDraftCanonicalizer.ts",
     "./app/practice/draft/studyDraftMerge": "./src/app/practice/draft/studyDraftMerge.ts",
     "./app/practice/draft/studyDraftWorkingCopy": "./src/app/practice/draft/studyDraftWorkingCopy.ts",
     "./app/practice/draft/studyDraftWorkingCopyStorage": "./src/app/practice/draft/studyDraftWorkingCopyStorage.ts",
