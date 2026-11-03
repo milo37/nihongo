@@ -28,6 +28,11 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1/unicode'
+import {
+  insertStoredImportResult,
+  readStoredImportResult,
+  type StoredImportResult
+} from './questionImportResultStore.js'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import {
   AdminQuestionCommandRepositoryError,
@@ -1968,6 +1973,29 @@ export const createPrismaAdminQuestionSlice5Repository = ({
         'import 검증 digest와 적용 요청이 일치하지 않습니다.'
       )
     }
+    let stored: StoredImportResult | null
+    try {
+      stored = await readStoredImportResult(client, request.importId)
+    } catch (error: unknown) {
+      throw new AdminQuestionCommandRepositoryError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'import 적용 결과를 확인할 수 없습니다.',
+        disposition: 'NO_TX',
+        cause: error
+      })
+    }
+    if (stored) {
+      if (
+        stored.actorUserId !== authority.actorId ||
+        stored.requestDigest !== request.validationDigest
+      ) {
+        throw repositoryFailure(
+          'IMPORT_IDENTITY_CONFLICT',
+          '같은 importId로 다른 가져오기가 이미 적용됐습니다.'
+        )
+      }
+      return { response: stored.response, mappingDigest: stored.mappingDigest }
+    }
     let preflight: ImportValidationResult
     try {
       preflight = await collectImportValidation(client, request.items)
@@ -2097,7 +2125,6 @@ export const createPrismaAdminQuestionSlice5Repository = ({
               itemCount: mappings.length
             }
           })
-          await finishOperation(transaction, operation.operationId)
           const result = {
             response: {
               createdCount: mappings.length,
@@ -2106,6 +2133,13 @@ export const createPrismaAdminQuestionSlice5Repository = ({
             },
             mappingDigest
           }
+          await insertStoredImportResult(transaction, {
+            importId: request.importId,
+            actorUserId: authority.actorId,
+            requestDigest: request.validationDigest,
+            ...result
+          })
+          await finishOperation(transaction, operation.operationId)
           callbackCompleted = true
           return result
         },
