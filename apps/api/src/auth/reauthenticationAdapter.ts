@@ -357,7 +357,7 @@ export const createReauthenticationAdapter = ({
   createAdapterFactory({
     config: {
       adapterId: 'phase7-reauthentication',
-      adapterName: 'Phase 7 owned reauthentication adapter',
+      adapterName: 'Owned reauthentication adapter',
       // The restricted facade accepts an explicit Better Auth UUID. It never
       // delegates identity generation to PostgreSQL.
       supportsUUIDs: false,

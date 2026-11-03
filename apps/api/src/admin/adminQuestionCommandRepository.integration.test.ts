@@ -84,7 +84,7 @@ import {
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
   if (!value) {
-    throw new Error(`Phase 7 admin command integration requires ${name}.`)
+    throw new Error(`Admin command integration requires ${name}.`)
   }
   return value
 }
@@ -99,9 +99,7 @@ const erasureWorkerDatabaseUrl = requireEnvironmentValue(
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
 if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
-  throw new Error(
-    'Phase 7 admin command integration received an unsafe schema.'
-  )
+  throw new Error('Admin command integration received an unsafe schema.')
 }
 
 const authorId = randomUUID()
@@ -154,7 +152,7 @@ const insertCredentialUser = async (
          "id", "name", "email", "emailVerified", "role",
          "accountStatus", "createdAt", "updatedAt"
        ) VALUES (
-         $1, 'Phase 7 command integration', $2, true, $4::"UserRole",
+         $1, 'Command integration', $2, true, $4::"UserRole",
          'ACTIVE', $3, $3
        )`,
       [id, `phase7-command-${randomUUID()}@example.test`, now, role]
@@ -223,7 +221,7 @@ const issueSession = async (
   role: 'ADMIN' | 'USER' = 'ADMIN'
 ): Promise<void> => {
   if (!authGatewayRuntime) {
-    throw new Error('Phase 7 auth gateway runtime is unavailable.')
+    throw new Error('Auth gateway runtime is unavailable.')
   }
   const rows = await authGatewayRuntime.client.$queryRawUnsafe<
     Array<{ id: string }>
@@ -238,13 +236,13 @@ const issueSession = async (
     role
   )
   if (rows.length !== 1) {
-    throw new Error('Phase 7 command integration session was not issued.')
+    throw new Error('Command integration session was not issued.')
   }
 }
 
 const issueFreshAdminSession = async (userId: string): Promise<string> => {
   if (!authGatewayRuntime) {
-    throw new Error('Phase 7 auth gateway runtime is unavailable.')
+    throw new Error('Auth gateway runtime is unavailable.')
   }
   const user = (
     await adminClient.query<{ id: string; email: string; name: string }>(
@@ -252,7 +250,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
       [userId]
     )
   ).rows[0]
-  if (!user) throw new Error('Phase 7 command ADMIN fixture is unavailable.')
+  if (!user) throw new Error('Command ADMIN fixture is unavailable.')
   const session = await createSsoSessionFixture({
     owner: {
       $queryRawUnsafe: async <T = unknown>(sql: string, ...values: unknown[]) =>
@@ -270,14 +268,14 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
     !context ||
     !(await fresh.stageProof(context, session.identity, proof, '/login'))
   ) {
-    throw new Error('Phase 7 command ADMIN SSO proof was not staged.')
+    throw new Error('Command ADMIN SSO proof was not staged.')
   }
   const confirmed = await fresh.complete(proof, session.token, {
     ipAddress: '127.0.0.1',
     userAgent: 'phase7-command-integration'
   })
   if (!confirmed || confirmed.userId !== userId) {
-    throw new Error('Phase 7 command ADMIN SSO proof was not confirmed.')
+    throw new Error('Command ADMIN SSO proof was not confirmed.')
   }
   return confirmed.token
 }
@@ -749,7 +747,7 @@ const loadUpdateRequest = async ({
   )
   const first = result.rows[0]
   if (!first || result.rows.length !== 4) {
-    throw new Error('Phase 7 command integration options are unavailable.')
+    throw new Error('Command integration options are unavailable.')
   }
   return updateQuestionVersionRequestSchema.parse({
     level: 'N5',
@@ -784,7 +782,7 @@ const readVersionWriteCounts = async (
     [versionId]
   )
   const row = result.rows[0]
-  if (!row) throw new Error('Phase 7 version write counts are unavailable.')
+  if (!row) throw new Error('Version write counts are unavailable.')
   return row
 }
 
@@ -807,7 +805,7 @@ const readGlobalWriteCounts = async (): Promise<{
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS audit`
   )
   const row = result.rows[0]
-  if (!row) throw new Error('Phase 7 global write counts are unavailable.')
+  if (!row) throw new Error('Global write counts are unavailable.')
   return row
 }
 
@@ -1003,7 +1001,7 @@ afterAll(async () => {
   if (cleanupError !== undefined) throw cleanupError
 }, 30_000)
 
-describe('Phase 7 ADMIN command TEST database integration', () => {
+describe('ADMIN command TEST database integration', () => {
   it('executes the five Slice 3A command types with concurrency, SoD and atomic evidence', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
     const suffix = randomUUID()
@@ -3493,7 +3491,7 @@ describe('Phase 7 ADMIN command TEST database integration', () => {
     const revokedToken = `phase7-command-revoked-${randomUUID()}`
     await issueSession(authorId, revokedToken)
     if (!authGatewayRuntime) {
-      throw new Error('Phase 7 auth gateway runtime is unavailable.')
+      throw new Error('Auth gateway runtime is unavailable.')
     }
     await authGatewayRuntime.client.$queryRawUnsafe(
       'SELECT "phase7_owned_sign_out"($1)',

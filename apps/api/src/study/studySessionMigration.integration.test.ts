@@ -27,7 +27,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 StudySession migration tests require fixture and erasure databases.'
+    'StudySession migration tests require fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {

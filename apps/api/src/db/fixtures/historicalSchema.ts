@@ -96,14 +96,14 @@ export const createHistoricalSchemaFixture = ({
 }) => {
   const legacyCredentials = new URL(legacyDatabaseUrl)
   if (decodeURIComponent(legacyCredentials.username) !== LEGACY_APP_LOGIN) {
-    throw new Error('Phase 7 legacy compatibility login is not canonical.')
+    throw new Error('Legacy compatibility login is not canonical.')
   }
   const migrationCredentials = new URL(migrationDatabaseUrl)
   if (
     decodeURIComponent(migrationCredentials.username) !==
     CANONICAL_MIGRATION_LOGIN
   ) {
-    throw new Error('Phase 7 migration wrapper login is not canonical.')
+    throw new Error('Migration wrapper login is not canonical.')
   }
 
   const readHistoricalMigrationProfile = () => {
@@ -192,7 +192,7 @@ export const createHistoricalSchemaFixture = ({
         !databaseName.endsWith('_test') ||
         decodeURIComponent(databaseUrl.pathname.slice(1)) !== databaseName
       ) {
-        throw new Error('Phase 7 upgrade URLs must share one approved test DB.')
+        throw new Error('Upgrade URLs must share one approved test DB.')
       }
 
       mkdirSync(migrationsPath)
@@ -354,9 +354,7 @@ export const createHistoricalSchemaFixture = ({
           !databaseStateRow ||
           databaseStateRow.databaseOwner !== MIGRATION_ROLE
         ) {
-          throw new Error(
-            'Phase 7 upgrade DB owner is not externally provisioned.'
-          )
+          throw new Error('Upgrade DB owner is not externally provisioned.')
         }
         await adminClient.connect()
         expect(

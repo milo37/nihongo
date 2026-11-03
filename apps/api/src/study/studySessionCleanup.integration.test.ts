@@ -47,9 +47,7 @@ if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 session cleanup requires fixture and erasure databases.'
-  )
+  throw new Error('Session cleanup requires fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {

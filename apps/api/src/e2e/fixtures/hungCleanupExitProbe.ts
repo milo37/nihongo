@@ -19,7 +19,7 @@ const finalizeFailure = createPerformanceFailureFinalizer({
   cleanup: async () => await new Promise<never>(() => undefined),
   cleanupTimeoutMs: 30,
   getEvidenceFile: () => evidenceFile,
-  label: 'Phase 10 hung cleanup probe'
+  label: 'Hung cleanup probe'
 })
 const cleanupErrors = await finalizeFailure()
 let evidenceRemoved = false

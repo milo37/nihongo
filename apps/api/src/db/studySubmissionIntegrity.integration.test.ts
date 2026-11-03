@@ -45,7 +45,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 submission integrity requires fixture and erasure databases.'
+    'Submission integrity requires fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {

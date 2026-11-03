@@ -386,10 +386,10 @@ const approvedSources = [
 const defineLegacyFixtureTests = () => {
   const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
   if (!legacyDatabaseUrl)
-    throw new Error('Phase 7 legacy compatibility database URL is required.')
+    throw new Error('Legacy compatibility database URL is required.')
   const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
   if (!migrationDatabaseUrl)
-    throw new Error('Phase 7 migration wrapper database URL is required.')
+    throw new Error('Migration wrapper database URL is required.')
   const {
     copyMigration,
     createIsolatedUpgradeSchema,

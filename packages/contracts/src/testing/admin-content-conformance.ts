@@ -151,9 +151,7 @@ export const assertSlice2ConformanceManifest = (): void => {
     throw new Error('Slice 2에서 deferred operation은 정확히 20개여야 합니다.')
   }
   if (operationSchemaManifest.length !== 28) {
-    throw new Error(
-      'Phase 7 schema conformance는 28 operations를 모두 덮어야 합니다.'
-    )
+    throw new Error('Schema conformance는 28 operations를 모두 덮어야 합니다.')
   }
   if (
     operationErrorConformanceManifest.length !== 28 ||
@@ -165,7 +163,7 @@ export const assertSlice2ConformanceManifest = (): void => {
         entry.rateLimitedRetryAfterRequired !== true
     )
   ) {
-    throw new Error('Phase 7 all-operation error conformance가 닫혀야 합니다.')
+    throw new Error('All-operation error conformance가 닫혀야 합니다.')
   }
   if (
     slice2ReadConformanceManifest.some(

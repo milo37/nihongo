@@ -30,7 +30,7 @@ const databaseUrl = isCurrentSourceIntegration
   : parseApiEnvironment(process.env).DATABASE_URL
 if (!databaseUrl) {
   throw new Error(
-    'Phase 10 question catalog migration tests require an owner fixture database.'
+    'Question catalog migration tests require an owner fixture database.'
   )
 }
 assertSafeTestDatabase({

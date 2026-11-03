@@ -65,7 +65,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 StudyDraft requires fixture, erasure, and auth-gateway databases.'
+    'StudyDraft requires fixture, erasure, and auth-gateway databases.'
   )
 }
 for (const databaseUrl of [
@@ -417,7 +417,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 4 StudyDraft PostgreSQL integration', () => {
+describe('StudyDraft PostgreSQL integration', () => {
   it('기존 v1 기록은 보존하고 v2만 resumable로 stable pagination한다', async () => {
     const userId = await createUser()
     const now = new Date()

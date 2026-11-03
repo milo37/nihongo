@@ -44,7 +44,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 wrong-note dashboard requires fixture and erasure databases.'
+    'Wrong-note dashboard requires fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
@@ -574,7 +574,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       await database.client.userMemo.create({
         data: {
           wrongNoteId: targetWrongNote.id,
-          text: 'Phase 5 retained memo',
+          text: 'Retained memo',
           createdAt: memoObservedAt,
           updatedAt: memoObservedAt
         }
@@ -698,7 +698,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           where: { wrongNoteId: targetWrongNote.id },
           select: { text: true }
         })
-      ).toEqual({ text: 'Phase 5 retained memo' })
+      ).toEqual({ text: 'Retained memo' })
       expect(detail.currentReviewQuestionVersionId).toBe(
         detail.lastWrongQuestionVersionId
       )

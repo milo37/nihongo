@@ -38,7 +38,7 @@ export const runCleanupWithTimeout = async ({
   timeoutMs
 }: RunCleanupWithTimeoutOptions): Promise<void> => {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new Error('Phase 10 cleanup timeout must be a positive integer.')
+    throw new Error('Cleanup timeout must be a positive integer.')
   }
   let timeoutHandle: NodeJS.Timeout | undefined
   try {
@@ -73,7 +73,7 @@ export const runWithOperationTimeout = async <Result>({
     !Number.isSafeInteger(cleanupTimeoutMs) ||
     cleanupTimeoutMs <= 0
   ) {
-    throw new Error('Phase 10 runner timeout must be a positive integer.')
+    throw new Error('Runner timeout must be a positive integer.')
   }
   let timeoutHandle: NodeJS.Timeout | undefined
   let settleTimeoutHandle: NodeJS.Timeout | undefined

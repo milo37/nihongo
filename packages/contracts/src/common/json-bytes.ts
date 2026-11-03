@@ -14,8 +14,8 @@ export class ContentJsonParseError extends Error {
   constructor(kind: JsonFailureKind) {
     super(
       kind === 'MAX_DEPTH_EXCEEDED'
-        ? 'Phase 7 JSON exceeds the maximum container depth.'
-        : 'Phase 7 JSON is malformed or contains a duplicate object member.'
+        ? 'JSON exceeds the maximum container depth.'
+        : 'JSON is malformed or contains a duplicate object member.'
     )
     this.name = 'ContentJsonParseError'
     this.kind = kind

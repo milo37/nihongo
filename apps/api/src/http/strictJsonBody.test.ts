@@ -44,9 +44,7 @@ describe('JSON parser export compatibility', () => {
     expect(error.name).toBe('ContentJsonParseError')
     expect(error.constructor.name).toBe('ContentJsonParseError')
     expect(error.kind).toBe('MAX_DEPTH_EXCEEDED')
-    expect(error.message).toBe(
-      'Phase 7 JSON exceeds the maximum container depth.'
-    )
+    expect(error.message).toBe('JSON exceeds the maximum container depth.')
 
     const duplicate = new TextEncoder().encode('{"key":1,"key":2}')
     expect(() => parseJsonBytes(duplicate)).toThrow(ContentJsonParseError)

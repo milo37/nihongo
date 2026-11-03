@@ -47,7 +47,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 auth tests require fixture, erasure, and auth-gateway databases.'
+    'Auth tests require fixture, erasure, and auth-gateway databases.'
   )
 }
 for (const databaseUrl of [
@@ -278,7 +278,7 @@ afterAll(async () => {
 
 describe(
   isCurrentSourceIntegration
-    ? 'Phase 7 V1 auth gateway PostgreSQL vertical slice'
+    ? 'V1 auth gateway PostgreSQL vertical slice'
     : 'Better Auth PostgreSQL vertical slice',
   () => {
     it('SSO USER principal, retired credential rejection and logout retain server authority', async () => {

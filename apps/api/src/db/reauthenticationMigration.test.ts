@@ -30,7 +30,7 @@ const extractFunction = (name: string): string => {
   return migrationSql.slice(start, end + endMarker.length)
 }
 
-describe('Phase 7 Slice 3R reauthentication migration', () => {
+describe('Reauthentication migration', () => {
   it('Prisma drift model은 SQL UUID defaults와 full indexes를 exact 반영한다', () => {
     const modelStart = schema.indexOf('model Phase7ReauthenticationIntent {')
     const modelEnd = schema.indexOf('\n}', modelStart)

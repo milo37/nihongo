@@ -28,9 +28,7 @@ if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 bookmark tests require fixture and erasure databases.'
-  )
+  throw new Error('Bookmark tests require fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {

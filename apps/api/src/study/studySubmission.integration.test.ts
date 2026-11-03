@@ -39,9 +39,7 @@ if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 study submission requires fixture and erasure databases.'
-  )
+  throw new Error('Study submission requires fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {

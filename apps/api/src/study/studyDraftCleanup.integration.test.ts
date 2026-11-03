@@ -42,9 +42,7 @@ if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 StudyDraft cleanup requires fixture and erasure databases.'
-  )
+  throw new Error('StudyDraft cleanup requires fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {
@@ -378,7 +376,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 4 StudyDraft cold cleanup', () => {
+describe('StudyDraft cold cleanup', () => {
   it.each(['session', 'draft', 'submit'] as const)(
     '자연 만료 %s 경로는 즉시 거부하면서 guest draft와 replay를 보존한다',
     async (path) => {

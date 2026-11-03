@@ -62,7 +62,7 @@ const callsContaining = (name: string) =>
     ([sql]) => typeof sql === 'string' && sql.includes(name)
   )
 
-describe('Phase 7 API issuer activation ownership without a database', () => {
+describe('API issuer activation ownership without a database', () => {
   it('keeps default API/browser preparation registration and activation', async () => {
     await register()
     expect(callsContaining('phase7_register_database_capability')).toHaveLength(
@@ -89,7 +89,7 @@ describe('Phase 7 API issuer activation ownership without a database', () => {
   it('fails closed on absent endpoint identity and closes the connection', async () => {
     database.query.mockResolvedValue({ rows: [] })
     await expect(register(undefined, 'fixture')).rejects.toThrow(
-      'Phase 7 API endpoint identity is unavailable.'
+      'API endpoint identity is unavailable.'
     )
     expect(callsContaining('phase7_register_database_capability')).toHaveLength(
       0

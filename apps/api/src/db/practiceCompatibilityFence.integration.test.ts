@@ -36,7 +36,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 current-source compatibility tests require fixture and erasure databases.'
+    'Current-source compatibility tests require fixture and erasure databases.'
   )
 }
 if (fixtureDatabaseUrl) {

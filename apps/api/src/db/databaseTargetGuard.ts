@@ -82,7 +82,7 @@ const getExactSchema = (url: URL): string => {
     schema === undefined ||
     !POSTGRES_SCHEMA_PATTERN.test(schema)
   ) {
-    throw new Error('Phase 7 migration requires one safe schema target.')
+    throw new Error('Migration requires one safe schema target.')
   }
 
   return schema
@@ -303,11 +303,11 @@ export const assertSafePhase7MigrationDatabase = ({
     throw new Error('PHASE7_MIGRATION_DATABASE_URL is required.')
   }
   if (!runtimeDatabaseUrl) {
-    throw new Error('Phase 7 migration requires the runtime DATABASE_URL.')
+    throw new Error('Migration requires the runtime DATABASE_URL.')
   }
   if (!productionDatabaseUrl) {
     throw new Error(
-      'Phase 7 migration requires PRODUCTION_DATABASE_URL mismatch proof.'
+      'Migration requires PRODUCTION_DATABASE_URL mismatch proof.'
     )
   }
 
@@ -324,7 +324,7 @@ export const assertSafePhase7MigrationDatabase = ({
       productionDatabaseUrl
     })
   } else {
-    throw new Error('Phase 7 migration requires NODE_ENV=test or development.')
+    throw new Error('Migration requires NODE_ENV=test or development.')
   }
 
   const migration = parseDatabaseUrl(migrationDatabaseUrl)
@@ -337,9 +337,7 @@ export const assertSafePhase7MigrationDatabase = ({
       : 'nihongo_development_phase7_migration_login'
 
   if (migrationIdentity.loginName !== expectedLogin) {
-    throw new Error(
-      'Phase 7 migration requires its exact canonical migration login.'
-    )
+    throw new Error('Migration requires its exact canonical migration login.')
   }
 
   const startupOptions = migration.searchParams.getAll('options')
@@ -348,7 +346,7 @@ export const assertSafePhase7MigrationDatabase = ({
     startupOptions[0] !== MIGRATION_STARTUP_OPTIONS
   ) {
     throw new Error(
-      'Phase 7 migration requires one exact migration startup role option.'
+      'Migration requires one exact migration startup role option.'
     )
   }
 
@@ -357,7 +355,7 @@ export const assertSafePhase7MigrationDatabase = ({
     getExactSchema(migration) !== getExactSchema(runtime)
   ) {
     throw new Error(
-      'Phase 7 migration and runtime URLs must target one exact database schema.'
+      'Migration and runtime URLs must target one exact database schema.'
     )
   }
 }

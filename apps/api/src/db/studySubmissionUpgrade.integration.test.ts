@@ -543,7 +543,7 @@ const registerDatabaseCapabilityAndActivate = async (
     )
     const target = endpoint.rows[0]
     if (!target) {
-      throw new Error('Phase 7 upgrade endpoint identity is unavailable.')
+      throw new Error('Upgrade endpoint identity is unavailable.')
     }
     await migrationClient.query(
       `SELECT "phase7_register_database_capability"(
@@ -825,7 +825,7 @@ const createLegacySubmissionFixture = async (
   return { noteId, questionId, sessionId, versionId }
 }
 
-describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
+describe('Submission through Phase 4 Slice 5 migration upgrade', () => {
   it('깨끗한 15 migration schema를 16~25번째 schema로 forward deploy한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
@@ -1167,7 +1167,7 @@ describe('Phase 3 submission through Phase 4 Slice 5 migration upgrade', () => {
   }, 40_000)
 })
 
-describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
+describe('Review-center foundation upgrade', () => {
   it('비활성 committed-state trigger를 enum migration 전에 fail-closed한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
@@ -1473,7 +1473,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
         `INSERT INTO "User" (
           "id", "name", "email", "emailVerified", "role",
           "accountStatus", "createdAt", "updatedAt"
-        ) VALUES ($1, 'Phase 5 reserved row user', $2, true, 'USER',
+        ) VALUES ($1, 'Reserved row user', $2, true, 'USER',
           'ACTIVE', $3, $3)`,
         [userId, `phase5-reserved-${randomUUID()}@example.test`, now]
       )
@@ -1676,7 +1676,7 @@ describe('Phase 5 Slice 1 review-center foundation upgrade', () => {
   }, 50_000)
 })
 
-describe('Phase 4 Slice 1 migration upgrade', () => {
+describe('Migration upgrade', () => {
   it('populated v1 rows를 version 1/no-draft로 보존하고 omitted-column default를 고정한다', async () => {
     const context = await createIsolatedMigrationSchema()
     const userId = randomUUID()
@@ -1701,7 +1701,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
         `INSERT INTO "User" (
           "id", "name", "email", "emailVerified", "role",
           "accountStatus", "createdAt", "updatedAt"
-        ) VALUES ($1, 'Phase 4 legacy user', $2, true, 'USER',
+        ) VALUES ($1, 'Legacy user', $2, true, 'USER',
           'ACTIVE', $3, $3)`,
         [userId, `phase4-legacy-${randomUUID()}@example.test`, startedAt]
       )
@@ -2235,7 +2235,7 @@ describe('Phase 4 Slice 1 migration upgrade', () => {
   }, 40_000)
 })
 
-describe('Phase 4 Slice 3 migration preflight', () => {
+describe('Migration preflight', () => {
   it('dirty current review pointer를 발견하면 migration 전체를 rollback한다', async () => {
     const context = await createIsolatedMigrationSchema()
     const startedAt = new Date('2026-08-18T00:59:50.000Z')
@@ -2386,7 +2386,7 @@ describe('Phase 4 Slice 3 migration preflight', () => {
   }, 40_000)
 })
 
-describe('Phase 4 Slice 5 result retry migration', () => {
+describe('Result retry migration', () => {
   it('reserved row preflight를 원자 rollback하고 clean deploy catalog를 고정한다', async () => {
     const context = await createIsolatedMigrationSchema()
     const now = new Date('2026-08-21T08:00:00.000Z')
@@ -2904,7 +2904,7 @@ describe('Phase 4 Slice 5 result retry migration', () => {
   }, 40_000)
 })
 
-describe('Phase 4 Slice 3 historical review pins', () => {
+describe('Historical review pins', () => {
   it('v2 session A와 B를 역순 제출해도 historical event pin과 v2 pointer를 보존한다', async () => {
     const context = await createIsolatedMigrationSchema()
 
@@ -2995,7 +2995,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
           rawSessionToken
         )
         if (rows.length !== 1) {
-          throw new Error('Phase 10 upgrade admin session was not issued.')
+          throw new Error('Upgrade admin session was not issued.')
         }
       }
       await issueAdminSession(authorId, authorToken)

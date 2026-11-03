@@ -57,7 +57,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 wrong-note review center requires fixture and erasure databases.'
+    'Wrong-note review center requires fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {

@@ -135,13 +135,11 @@ export const selectDbIntegrationTestFiles = (
       selected !== ssoDbTestFile ||
       environment.DB_INTEGRATION_PRESERVE_REPORT !== '1')
   ) {
-    throw new Error(
-      'Phase 7 case selection requires the fixed SSO report mode.'
-    )
+    throw new Error('Case selection requires the fixed SSO report mode.')
   }
   if (selected === undefined) return defaultFiles
   if (!singleTestFiles.includes(selected) || !defaultFiles.includes(selected)) {
-    throw new Error('Phase 7 single test is outside the fixed allowlist.')
+    throw new Error('Single test is outside the fixed allowlist.')
   }
   return [selected]
 }
@@ -163,7 +161,7 @@ const sanitizeCollectionError = (value: string) => {
       'module'
     ],
     [
-      /Phase 7 (?:admin integration|legacy compatibility|development app wrapper) database URL is required/u,
+      /(?:Phase 7 )?(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u,
       'CONFIG_WRAPPER_MISSING',
       'config'
     ],
@@ -174,7 +172,7 @@ const sanitizeCollectionError = (value: string) => {
       'config'
     ],
     [
-      /Phase 7 DB endpoint identity is unavailable/u,
+      /DB endpoint identity is unavailable/u,
       'SETUP_ENDPOINT_UNAVAILABLE',
       'setup'
     ],
@@ -562,16 +560,14 @@ export const assertApiIntegrationRequiredEnvironment = ({
     ({ path: manifestPath }) => manifestPath === testFile
   )
   if (!entry) {
-    throw new Error(
-      `Phase 10 integration manifest entry is missing: ${testFile}.`
-    )
+    throw new Error(`Integration manifest entry is missing: ${testFile}.`)
   }
   const missingNames = entry.requiredEnvironment.filter(
     (name) => !environment[name]?.trim()
   )
   if (missingNames.length > 0) {
     throw new Error(
-      `Phase 10 integration environment is incomplete: ${testFile}; ` +
+      `Integration environment is incomplete: ${testFile}; ` +
         `missing=${missingNames.join(',')}.`
     )
   }
@@ -591,7 +587,7 @@ export const assertApiIntegrationVitestFileResult = ({
       DB_INTEGRATION_CASE: selectedSsoCase
     })
     if (report.selectedCase?.status !== 'passed') {
-      throw new Error('Phase 7 fixed SSO case result is incomplete.')
+      throw new Error('Fixed SSO case result is incomplete.')
     }
     return
   }
@@ -603,9 +599,7 @@ export const assertApiIntegrationVitestFileResult = ({
     (result.numTotalTests ?? 0) < 1 ||
     result.numPassedTests !== result.numTotalTests
   ) {
-    throw new Error(
-      `Phase 10 integration result is incomplete: ${expectedPath}.`
-    )
+    throw new Error(`Integration result is incomplete: ${expectedPath}.`)
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
@@ -618,9 +612,7 @@ export const assertApiIntegrationVitestFileResult = ({
     .filter(Boolean)
     .toSorted()
   if (JSON.stringify(resultPaths) !== JSON.stringify([expectedPath])) {
-    throw new Error(
-      `Phase 10 integration result path mismatch: ${expectedPath}.`
-    )
+    throw new Error(`Integration result path mismatch: ${expectedPath}.`)
   }
 }
 
@@ -646,13 +638,11 @@ export const runApiIntegrationManifestVitestFile = async ({
   if (selectedSsoCaseName !== undefined) {
     selectDbIntegrationTestFiles([testFile], environment)
     if (!preserveSanitizedReport) {
-      throw new Error('Phase 7 fixed SSO case requires sanitized reporting.')
+      throw new Error('Fixed SSO case requires sanitized reporting.')
     }
   }
   if (preserveSanitizedReport && !singleTestFiles.includes(testFile)) {
-    throw new Error(
-      'Phase 7 report preservation requires a fixed allowlisted file.'
-    )
+    throw new Error('Report preservation requires a fixed allowlisted file.')
   }
   if (preserveSanitizedReport && testFile !== ssoAccountLifecycleDbTestFile) {
     for (const name of [
@@ -660,7 +650,7 @@ export const runApiIntegrationManifestVitestFile = async ({
       'TEST_DEVELOPMENT_APP_DATABASE_URL'
     ]) {
       if (!environment[name]?.trim())
-        throw new Error(`Phase 7 wrapper environment missing: ${name}.`)
+        throw new Error(`Wrapper environment missing: ${name}.`)
     }
   }
   assertApiIntegrationRequiredEnvironment({ environment, testFile })
@@ -713,7 +703,7 @@ export const runApiIntegrationManifestVitestFile = async ({
           await readFile(outputFile, 'utf8')
         ) as VitestJsonResult
       } catch {
-        throw new Error(`Phase 10 integration process failed: ${testFile}.`)
+        throw new Error(`Integration process failed: ${testFile}.`)
       }
       for (const diagnostic of classifyCollectionReport(result))
         emit(diagnostic)
@@ -731,7 +721,7 @@ export const runApiIntegrationManifestVitestFile = async ({
           // Without the source, omit locations and retain the failure.
         }
         throw new Error(
-          `Phase 10 integration process failed: ${queryPlanTestFile}; ` +
+          `Integration process failed: ${queryPlanTestFile}; ` +
             `diagnostic=${JSON.stringify(sanitizeQueryPlanFailure(result, source))}.`
         )
       }
@@ -742,7 +732,7 @@ export const runApiIntegrationManifestVitestFile = async ({
             .map(({ fullName }) => fullName ?? 'unnamed test')
       )
       throw new Error(
-        `Phase 10 integration process failed: ${testFile}; ` +
+        `Integration process failed: ${testFile}; ` +
           `failed=${result.numFailedTests ?? 'unknown'}; ` +
           `tests=${preserveSanitizedReport ? 'redacted' : failedTests.join(' | ') || 'unavailable'}.`
       )

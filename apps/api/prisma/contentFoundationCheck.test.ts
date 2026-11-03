@@ -54,7 +54,7 @@ const loadCatalog = async () => {
   }
 }
 
-describe('Phase 6 Slice 1 contributor-free foundation check', () => {
+describe('Contributor-free foundation check', () => {
   it('validates the current 65-item foundation without writing artifacts', async () => {
     const before = await snapshotContentTree()
     const result = await runContentFoundationCheck(repositoryRoot)

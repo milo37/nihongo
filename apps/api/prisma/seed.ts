@@ -105,7 +105,7 @@ try {
         roleEvidence[0]?.sessionUser !== expectedSessionUser ||
         roleEvidence[0]?.currentRole !== 'nihongo_phase7_migration'
       ) {
-        throw new Error('Phase 7 seed migration role attestation failed.')
+        throw new Error('Seed migration role attestation failed.')
       }
     }
 
@@ -131,7 +131,7 @@ try {
               ownerEvidence[0]?.sessionUser !== expectedSessionUser ||
               ownerEvidence[0]?.currentRole !== 'nihongo_phase7_owner'
             ) {
-              throw new Error('Phase 7 seed owner role attestation failed.')
+              throw new Error('Seed owner role attestation failed.')
             }
 
             mark('OWNER_READY')
@@ -170,7 +170,7 @@ try {
         restoredRole.length !== 1 ||
         restoredRole[0]?.currentRole !== 'nihongo_phase7_migration'
       ) {
-        throw new Error('Phase 7 seed role boundary did not close.')
+        throw new Error('Seed role boundary did not close.')
       }
     }
     process.stdout.write(

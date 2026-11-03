@@ -71,7 +71,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 StudyDraft query-plan tests require fixture and erasure databases.'
+    'StudyDraft query-plan tests require fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
@@ -629,7 +629,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 4 representative PostgreSQL query plans', () => {
+describe('Representative PostgreSQL query plans', () => {
   it('기본 planner가 resumable·cleanup·child FK index와 bounded sort를 선택한다', async () => {
     const now = new Date()
     const [targetUser, ownerScanUser, decoyUser] = await Promise.all(

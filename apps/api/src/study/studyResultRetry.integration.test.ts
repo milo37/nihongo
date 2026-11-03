@@ -34,9 +34,7 @@ if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 result retry requires fixture and erasure databases.'
-  )
+  throw new Error('Result retry requires fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {
@@ -664,7 +662,7 @@ describe('study result retry integration', () => {
           ({ isCorrect }) => !isCorrect
         )
         if (!sourceItem) {
-          throw new Error('Phase 10 historical pin source가 필요합니다.')
+          throw new Error('Historical pin source가 필요합니다.')
         }
         const sourceVersionId = sourceItem.question.questionVersionId
         const sourceQuestionId = sourceItem.question.id

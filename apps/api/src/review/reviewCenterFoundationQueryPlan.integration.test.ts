@@ -100,9 +100,7 @@ if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 review query plans require fixture and erasure databases.'
-  )
+  throw new Error('Review query plans require fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {
@@ -294,9 +292,7 @@ const createTargetWrongNote = async (userId: string) => {
     select: { id: true, currentPublishedVersionId: true }
   })
   if (question.currentPublishedVersionId === null) {
-    throw new Error(
-      'Phase 5 query-plan fixture에 published version이 필요합니다.'
-    )
+    throw new Error('Query-plan fixture에 published version이 필요합니다.')
   }
   const sessionId = randomUUID()
   const sessionQuestionId = randomUUID()
@@ -441,7 +437,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     await fixture.user.createMany({
       data: userIds.map((id, index) => ({
         id,
-        name: `Phase 5 query-plan user ${index}`,
+        name: `Query-plan user ${index}`,
         email: `phase5-query-plan-${id}@example.test`,
         emailVerified: true
       }))
@@ -822,7 +818,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 5 review-center populated query plans', () => {
+describe('Review-center populated query plans', () => {
   it('memo/history/reconciliation/targeted cleanup이 bounded index plan을 선택한다', async () => {
     const fixture = await createPlanFixture()
     const rollbackSentinel = new Error('ROLLBACK_REVIEW_CENTER_PLANS')

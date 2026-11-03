@@ -100,7 +100,7 @@ const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (!adminDatabaseUrl || !authGatewayDatabaseUrl) {
-  throw new Error('Phase 8 performance integration DB URLs are required.')
+  throw new Error('Performance integration DB URLs are required.')
 }
 assertSafeTestDatabase({
   nodeEnvironment: environment.NODE_ENV,
@@ -201,7 +201,7 @@ const createAuthenticatedUser = async (): Promise<
         "id", "name", "email", "emailVerified", "role", "targetLevel",
         "accountStatus", "createdAt", "updatedAt"
       ) VALUES (
-        ${userId}::uuid, 'Phase 8 performance',
+        ${userId}::uuid, 'Performance',
         ${`phase8-performance-${randomUUID()}@example.test`}, true,
         'USER', 'N5', 'ACTIVE', ${now}, ${now}
       )
@@ -229,7 +229,7 @@ const createAuthenticatedUser = async (): Promise<
     sessionToken
   )
   if (issued.length !== 1 || !issued[0]) {
-    throw new Error('Phase 8 performance Session was not issued.')
+    throw new Error('Performance Session was not issued.')
   }
   return { kind: 'PHASE7', sessionToken, userId }
 }
@@ -277,7 +277,7 @@ const populateLearningHistory = async (
           }
         })
         if (materials.length === 0) {
-          throw new Error('Phase 8 performance fixture requires questions.')
+          throw new Error('Performance fixture requires questions.')
         }
         const answers = materials.map((material, index) => ({
           studySessionQuestionId: material.id,
@@ -459,7 +459,7 @@ const readProjectionCardinality = async (
           AND version."level" = ${targetLevel}::"JlptLevel"
       )::bigint AS "targetCatalogCount"
   `
-  if (!row) throw new Error('Phase 8 performance cardinality is unavailable.')
+  if (!row) throw new Error('Performance cardinality is unavailable.')
   return {
     answerFactCount: Number(row.answerFactCount),
     broadMaximumRows: Number(row.broadMaximumRows),
@@ -566,7 +566,7 @@ afterAll(async () => {
   await adminDatabase.disconnect()
 })
 
-describe.sequential('Phase 8 dashboard insights performance gate', () => {
+describe.sequential('Dashboard insights performance gate', () => {
   it('populated direct projection이 fixed statement·bounded plan·warm p95 evidence를 남긴다', async () => {
     const principal = await createAuthenticatedUser()
     const population = await populateLearningHistory(principal)
@@ -737,7 +737,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
     const p95Index = Math.ceil(PERFORMANCE_SAMPLE_COUNT * 0.95) - 1
     const p95Milliseconds = sortedDurations[p95Index]
     if (p95Milliseconds === undefined) {
-      throw new Error('Phase 8 p95 performance sample is unavailable.')
+      throw new Error('P95 performance sample is unavailable.')
     }
     const databaseTiming = createTimingMeasurement({
       ...databasePerformanceBudget,
@@ -762,7 +762,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
     const principalService = {
       getAuthenticatedUser: async () => ({
         id: principal.userId,
-        name: 'Phase 10 performance',
+        name: 'Performance',
         role: 'USER' as const,
         targetLevel: 'N5' as const
       }),
@@ -780,7 +780,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
           },
           user: {
             id: principal.userId,
-            name: 'Phase 10 performance',
+            name: 'Performance',
             role: 'USER' as const,
             targetLevel: 'N5' as const
           }
@@ -872,7 +872,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
         !pnpmVersion ||
         (sourceTreeDirty !== 'true' && sourceTreeDirty !== 'false')
       ) {
-        throw new Error('Phase 10 performance evidence metadata is missing.')
+        throw new Error('Performance evidence metadata is missing.')
       }
       await writeDatabaseApiPerformanceEvidence({
         evidence: {

@@ -442,7 +442,7 @@ export const assertOperationFailureResponse = ({
   )
   const expectedStatus = errorStatusByCode[body.code]
   if (response.status !== expectedStatus) {
-    throw new Error('Phase 7 error status가 stable code mapping과 다릅니다.')
+    throw new Error('Error status가 stable code mapping과 다릅니다.')
   }
   const expectedRetryable = computeRetryability({
     code: body.code,
@@ -451,15 +451,13 @@ export const assertOperationFailureResponse = ({
     operation
   })
   if (body.retryable !== expectedRetryable) {
-    throw new Error('Phase 7 retryable이 execution disposition과 다릅니다.')
+    throw new Error('Retryable이 execution disposition과 다릅니다.')
   }
   if (
     response.headers['Cache-Control'] !== 'private, no-store' ||
     response.headers['X-Request-Id'] !== body.requestId
   ) {
-    throw new Error(
-      'Phase 7 failure response의 no-store/request ID가 다릅니다.'
-    )
+    throw new Error('Failure response의 no-store/request ID가 다릅니다.')
   }
 
   const retryAfter = response.headers['Retry-After']

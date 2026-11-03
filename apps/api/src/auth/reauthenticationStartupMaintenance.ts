@@ -28,7 +28,7 @@ export const runPhase7ReauthenticationStartupMaintenance = async (
       !isCount(row.intentsDeleted) ||
       !isCount(row.evidenceDeleted)
     ) {
-      throw new Error('Phase 7 reauthentication startup cleanup failed.')
+      throw new Error('Reauthentication startup cleanup failed.')
     }
     if (
       row.intentsDeleted < CLEANUP_BATCH_SIZE &&
@@ -37,7 +37,7 @@ export const runPhase7ReauthenticationStartupMaintenance = async (
       return
     }
   }
-  throw new Error('Phase 7 reauthentication startup cleanup failed.')
+  throw new Error('Reauthentication startup cleanup failed.')
 }
 
 export interface ReauthenticationMaintenance {
@@ -54,7 +54,7 @@ export const startReauthenticationMaintenance = ({
   onFailure: (error: unknown) => void
 }): ReauthenticationMaintenance => {
   if (!Number.isSafeInteger(intervalMs) || intervalMs <= 0) {
-    throw new Error('Phase 7 reauthentication maintenance interval is invalid.')
+    throw new Error('Reauthentication maintenance interval is invalid.')
   }
 
   let stopped = false

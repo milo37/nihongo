@@ -46,7 +46,7 @@ const isCurrentSourceIntegration =
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
 if (isCurrentSourceIntegration && !fixtureDatabaseUrl) {
   throw new Error(
-    'Phase 10 study-selection query-plan tests require a fixture database.'
+    'Study-selection query-plan tests require a fixture database.'
   )
 }
 if (fixtureDatabaseUrl) {
@@ -189,7 +189,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 4 Slice 3 representative PostgreSQL query plans', () => {
+describe('Representative PostgreSQL query plans', () => {
   it('기본 planner가 owner-bounded selection과 all-mode dashboard index를 선택한다', async () => {
     const now = new Date()
     const targetUserId = randomUUID()

@@ -34,8 +34,7 @@ import type { QuestionReader } from '../question/questionService.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
-  if (!value)
-    throw new Error(`Phase 7 admin read integration requires ${name}.`)
+  if (!value) throw new Error(`Admin read integration requires ${name}.`)
   return value
 }
 
@@ -46,7 +45,7 @@ const authGatewayDatabaseUrl = requireEnvironmentValue(
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
 if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
-  throw new Error('Phase 7 admin read integration received an unsafe schema.')
+  throw new Error('Admin read integration received an unsafe schema.')
 }
 
 const QUESTION_IDS = {
@@ -113,7 +112,7 @@ const optionIdFor = (versionId: string, ordinal: number): string => {
     (candidate) => candidate === versionId
   )
   if (versionIndex < 0 || ordinal < 1 || ordinal > 4) {
-    throw new Error('Phase 7 option fixture identity is invalid.')
+    throw new Error('Option fixture identity is invalid.')
   }
   return `019d7100-${String(versionIndex + 1).padStart(4, '0')}-7000-8${ordinal}00-000000000001`
 }
@@ -645,7 +644,7 @@ const readDomainTableCounts = async (): Promise<DomainTableCounts> => {
        (SELECT count(*)::int FROM "AdminAuditLog") AS "adminAuditLogs"`
   )
   const counts = result.rows[0]
-  if (!counts) throw new Error('Phase 7 domain table counts are unavailable.')
+  if (!counts) throw new Error('Domain table counts are unavailable.')
   return counts
 }
 
@@ -877,7 +876,7 @@ afterAll(async () => {
   await Promise.all([databaseRuntime.disconnect(), adminClient.end()])
 })
 
-describe('Phase 7 admin read TEST database integration', () => {
+describe('Admin read TEST database integration', () => {
   it('produces canonical cursor-backed review and audit service DTOs', async () => {
     const reviews = await service.listReviews(VERSION_IDS.candidateOpen, {
       limit: 1

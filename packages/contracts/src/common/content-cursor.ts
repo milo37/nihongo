@@ -35,7 +35,7 @@ const encodeAsciiBase64Url = (value: string): string => {
   const bytes = [...value].map((character) => {
     const byte = character.charCodeAt(0)
     if (byte > 0x7f) {
-      throw new Error('Phase 7 cursor canonical JSON은 ASCII여야 합니다.')
+      throw new Error('Cursor canonical JSON은 ASCII여야 합니다.')
     }
     return byte
   })
@@ -65,7 +65,7 @@ const encodeAsciiBase64Url = (value: string): string => {
 
 const decodeAsciiBase64Url = (value: string): string => {
   if (value.length % 4 === 1) {
-    throw new Error('Phase 7 cursor base64url 길이가 올바르지 않습니다.')
+    throw new Error('Cursor base64url 길이가 올바르지 않습니다.')
   }
 
   const bytes: number[] = []
@@ -89,7 +89,7 @@ const decodeAsciiBase64Url = (value: string): string => {
       (third !== undefined && third < 0) ||
       (fourth !== undefined && fourth < 0)
     ) {
-      throw new Error('Phase 7 cursor가 유효한 base64url이 아닙니다.')
+      throw new Error('Cursor가 유효한 base64url이 아닙니다.')
     }
 
     bytes.push((first << 2) | (second >> 4))
@@ -102,7 +102,7 @@ const decodeAsciiBase64Url = (value: string): string => {
   }
 
   if (bytes.some((byte) => byte > 0x7f)) {
-    throw new Error('Phase 7 cursor canonical JSON은 ASCII여야 합니다.')
+    throw new Error('Cursor canonical JSON은 ASCII여야 합니다.')
   }
 
   return String.fromCharCode(...bytes)
@@ -111,7 +111,7 @@ const decodeAsciiBase64Url = (value: string): string => {
 const encodeCursorJson = (value: object): string => {
   const token = encodeAsciiBase64Url(JSON.stringify(value))
   if (token.length > cursorMaximumLength) {
-    throw new Error('Phase 7 cursor가 최대 길이를 초과했습니다.')
+    throw new Error('Cursor가 최대 길이를 초과했습니다.')
   }
   return token
 }
@@ -122,7 +122,7 @@ const parseCursorJson = (token: string): unknown => {
     return JSON.parse(decodeAsciiBase64Url(rawToken))
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error('Phase 7 cursor JSON이 올바르지 않습니다.')
+      throw new Error('Cursor JSON이 올바르지 않습니다.')
     }
     throw error
   }

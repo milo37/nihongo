@@ -109,15 +109,13 @@ if (
   apiIntegrationCase !== 'sso-browser-google' &&
   apiIntegrationCase !== 'sso-account-lifecycle'
 ) {
-  throw new Error(
-    'Phase 7 API integration case is outside the fixed allowlist.'
-  )
+  throw new Error('API integration case is outside the fixed allowlist.')
 }
 
 const baseDatabaseUrl =
   process.env.API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 if (!baseDatabaseUrl) {
-  throw new Error('Phase 7 API integration requires a test PostgreSQL URL.')
+  throw new Error('API integration requires a test PostgreSQL URL.')
 }
 
 if (apiIntegrationCase === 'sso-browser-google') {
@@ -160,7 +158,7 @@ const adminDatabaseUrl = new URL(baseDatabaseUrl)
 adminDatabaseUrl.search = ''
 const databaseName = decodeURIComponent(adminDatabaseUrl.pathname.slice(1))
 if (!IDENTIFIER_PATTERN.test(databaseName)) {
-  throw new Error('Phase 7 API database name is unsafe.')
+  throw new Error('API database name is unsafe.')
 }
 const targetDatabaseUrl = new URL(adminDatabaseUrl)
 targetDatabaseUrl.searchParams.set('schema', schemaName)
@@ -175,7 +173,7 @@ const wrapperPasswords = new Map<string, string>(
 const buildWrapperDatabaseUrl = (role: string): URL => {
   const password = wrapperPasswords.get(role)
   if (!password || !IDENTIFIER_PATTERN.test(role)) {
-    throw new Error('Phase 7 API wrapper credential is unavailable.')
+    throw new Error('API wrapper credential is unavailable.')
   }
   const url = new URL(targetDatabaseUrl)
   url.username = role
@@ -296,7 +294,7 @@ const readDatabaseSnapshot = async (): Promise<DatabaseSnapshot> => {
     [databaseName]
   )
   const row = owner.rows[0]
-  if (!row) throw new Error('Phase 7 API database owner is unavailable.')
+  if (!row) throw new Error('API database owner is unavailable.')
   return { ...row, acl: await readDatabaseAcl() }
 }
 
@@ -339,7 +337,7 @@ const verifySchemaAbsent = async (): Promise<void> => {
     [schemaName]
   )
   if (result.rows[0]?.count !== 0) {
-    throw new Error('Phase 7 API schema cleanup verification failed.')
+    throw new Error('API schema cleanup verification failed.')
   }
 }
 
@@ -380,7 +378,7 @@ const restoreDatabase = async (): Promise<void> => {
 
 const assertDatabaseRestored = async (): Promise<void> => {
   if (!databaseSnapshot) {
-    throw new Error('Phase 7 API database snapshot is unavailable.')
+    throw new Error('API database snapshot is unavailable.')
   }
   const current = await readDatabaseSnapshot()
   if (
@@ -388,7 +386,7 @@ const assertDatabaseRestored = async (): Promise<void> => {
     current.ownerName !== databaseSnapshot.ownerName ||
     canonicalAcl(current.acl) !== canonicalAcl(databaseSnapshot.acl)
   ) {
-    throw new Error('Phase 7 API database owner/ACL cleanup was not exact.')
+    throw new Error('API database owner/ACL cleanup was not exact.')
   }
 }
 
@@ -412,7 +410,7 @@ const restorePgcrypto = async (): Promise<void> => {
   if (
     JSON.stringify(await readPgcrypto()) !== JSON.stringify(pgcryptoSnapshot)
   ) {
-    throw new Error('Phase 7 API pgcrypto cleanup was not exact.')
+    throw new Error('API pgcrypto cleanup was not exact.')
   }
 }
 
@@ -430,7 +428,7 @@ const acquireProvisioningLock = async (): Promise<void> => {
 
 const attestBootstrap = async (): Promise<void> => {
   if (!databaseSnapshot) {
-    throw new Error('Phase 7 API database snapshot is unavailable.')
+    throw new Error('API database snapshot is unavailable.')
   }
   const result = await adminClient.query<{
     canSetOwner: boolean
@@ -465,7 +463,7 @@ const provisionRoles = async (): Promise<void> => {
     [wrapperNames]
   )
   if (wrapperCollisions.rowCount !== 0) {
-    throw new Error('Phase 7 API canonical wrapper role collision.')
+    throw new Error('API canonical wrapper role collision.')
   }
 
   const groups = await adminClient.query<{
@@ -482,11 +480,11 @@ const provisionRoles = async (): Promise<void> => {
     [[...GROUP_ROLES]]
   )
   if (groups.rowCount !== 0 && groups.rowCount !== GROUP_ROLES.length) {
-    throw new Error('Phase 7 API reusable role bootstrap is partial.')
+    throw new Error('API reusable role bootstrap is partial.')
   }
   for (const group of groups.rows) {
     if (group.canLogin || group.inherits || group.unsafe) {
-      throw new Error(`Phase 7 API reusable role is unsafe: ${group.name}`)
+      throw new Error(`API reusable role is unsafe: ${group.name}`)
     }
   }
   if (groups.rowCount === 0) {
@@ -507,7 +505,7 @@ const provisionRoles = async (): Promise<void> => {
   for (const { grantedRole, name } of WRAPPER_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Phase 7 API wrapper password is unsafe.')
+      throw new Error('API wrapper password is unsafe.')
     }
     await adminClient.query(
       `CREATE ROLE ${quoteIdentifier(name)}
@@ -523,7 +521,7 @@ const provisionRoles = async (): Promise<void> => {
   for (const name of LEGACY_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Phase 7 API legacy wrapper password is unsafe.')
+      throw new Error('API legacy wrapper password is unsafe.')
     }
     await adminClient.query(
       `CREATE ROLE ${quoteIdentifier(name)}
@@ -536,7 +534,7 @@ const provisionRoles = async (): Promise<void> => {
 
 const applyMigrationDatabaseBoundary = async (): Promise<void> => {
   if (!databaseSnapshot) {
-    throw new Error('Phase 7 API database snapshot is unavailable.')
+    throw new Error('API database snapshot is unavailable.')
   }
   databaseChanged = true
   await adminClient.query(
@@ -654,7 +652,7 @@ const runCommand = async (
     abortSignal?.throwIfAborted()
     if (spawnError) throw spawnError
     if ('aborted' in outcome) {
-      throw new Error('Phase 7 command aborted without an abort reason.')
+      throw new Error('Command aborted without an abort reason.')
     }
     if (outcome.code === 0) return
     if (isSeed)
@@ -797,7 +795,7 @@ export const registerCapabilityAndActivate = async (
     )
     const target = endpoint.rows[0]
     if (!target) {
-      throw new Error('Phase 7 API endpoint identity is unavailable.')
+      throw new Error('API endpoint identity is unavailable.')
     }
     abortSignal?.throwIfAborted()
     await migrationClient.query(
@@ -863,10 +861,10 @@ export const preparePhase7IsolatedDatabase = async ({
   artifactsPrepared = false
 }: PrepareIsolatedDatabaseOptions = {}): Promise<IsolatedDatabaseHarness> => {
   if (databasePrepared) {
-    throw new Error('Phase 7 isolated database harness is already prepared.')
+    throw new Error('Isolated database harness is already prepared.')
   }
   if (!Number.isInteger(seedRuns) || seedRuns < 0 || seedRuns > 2) {
-    throw new Error('Phase 7 isolated database seed run count is invalid.')
+    throw new Error('Isolated database seed run count is invalid.')
   }
 
   abortSignal?.throwIfAborted()
@@ -937,9 +935,7 @@ export const preparePhase7IsolatedDatabase = async ({
     migrationNames.length !== 37 ||
     migrationNames.at(-1) !== lastBootstrapMigration
   ) {
-    throw new Error(
-      'Phase 7 canonical content migration prefix is inconsistent.'
-    )
+    throw new Error('Canonical content migration prefix is inconsistent.')
   }
   const bootstrapMigrationsPath = mkdtempSync(
     nodePath.join(tmpdir(), 'nihongo-phase7-content-')
@@ -1026,7 +1022,7 @@ const run = async (): Promise<void> => {
     commandRepositoryEntry.shard !== 'phase7-api-post-seed' ||
     commandRepositoryEntry.seedPolicy !== 'canonical-once'
   ) {
-    throw new Error('Phase 7 API integration manifest is incomplete.')
+    throw new Error('API integration manifest is incomplete.')
   }
   await runApiIntegrationManifestVitestFile({
     runCommand,

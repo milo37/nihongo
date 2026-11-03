@@ -118,15 +118,13 @@ export const computeRetryability = ({
       return false
     }
     if (disposition !== 'NO_TX') {
-      throw new Error('Phase 7 RATE_LIMITED는 transaction 전 NO_TX여야 합니다.')
+      throw new Error('RATE_LIMITED는 transaction 전 NO_TX여야 합니다.')
     }
     return true
   }
 
   if (code !== 'INTERNAL_SERVER_ERROR' && code !== 'SERVICE_UNAVAILABLE') {
-    throw new Error(
-      'Phase 7 failure status를 retry policy로 분류할 수 없습니다.'
-    )
+    throw new Error('Failure status를 retry policy로 분류할 수 없습니다.')
   }
 
   const surface = phase7ErrorSurfaceByOperation[operation]
@@ -178,7 +176,7 @@ export const createPhase7OperationErrorSchema = <
       context.addIssue({
         code: 'custom',
         path: ['code'],
-        message: 'Phase 7 stable error code가 아닙니다.'
+        message: 'Stable error code가 아닙니다.'
       })
       return
     }
@@ -200,7 +198,7 @@ export const assertErrorPolicyManifest = (): void => {
   const policyOperations = Object.keys(phase7ErrorSurfaceByOperation)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(policyOperations)) {
     throw new Error(
-      'Phase 7 error policy operation 순서는 canonical 28-operation manifest와 같아야 합니다.'
+      'Error policy operation 순서는 canonical 28-operation manifest와 같아야 합니다.'
     )
   }
 
@@ -228,8 +226,6 @@ export const assertErrorPolicyManifest = (): void => {
     counts.EXPORT !== 1 ||
     counts.REAUTHENTICATION !== 1
   ) {
-    throw new Error(
-      'Phase 7 error surface 분류 수가 canonical matrix와 다릅니다.'
-    )
+    throw new Error('Error surface 분류 수가 canonical matrix와 다릅니다.')
   }
 }

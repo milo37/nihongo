@@ -123,7 +123,7 @@ const createCredentials = (
 const createFixtureClient = (databaseUrl: string): Client => {
   const schemaName = getPostgresSchema(databaseUrl)
   if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
-    throw new Error('Phase 7 browser fixture schema is unsafe.')
+    throw new Error('Browser fixture schema is unsafe.')
   }
   const connectionUrl = new URL(databaseUrl)
   connectionUrl.searchParams.delete('schema')
@@ -157,7 +157,7 @@ const readSnapshot = async (
   )
   const snapshot = result.rows[0]
   if (!snapshot) {
-    throw new Error('Phase 7 browser database snapshot is unavailable.')
+    throw new Error('Browser database snapshot is unavailable.')
   }
   return snapshot
 }
@@ -184,7 +184,7 @@ const assertDelta = (
   const actual = after[key] - before[key]
   if (actual !== expected) {
     throw new Error(
-      `Phase 7 browser database delta mismatch for ${key}: expected ${expected}, received ${actual}.`
+      `Browser database delta mismatch for ${key}: expected ${expected}, received ${actual}.`
     )
   }
 }
@@ -197,7 +197,7 @@ export const createBrowserFixture = async (
 }> => {
   const schemaName = getPostgresSchema(databaseUrl)
   if (!schemaName) {
-    throw new Error('Phase 7 browser fixture schema is missing.')
+    throw new Error('Browser fixture schema is missing.')
   }
   const client = createFixtureClient(databaseUrl)
   await client.connect()
@@ -285,7 +285,7 @@ const createBrowserFixtureDatabase = (
     operation: (operationClient: Client) => Promise<Result>
   ): Promise<Result> => {
     if (disconnected) {
-      throw new Error('Phase 7 browser fixture database is disconnected.')
+      throw new Error('Browser fixture database is disconnected.')
     }
     return await withFixtureClient(databaseUrl, operation)
   }
@@ -308,7 +308,7 @@ const createBrowserFixtureDatabase = (
           )
           if (updated.rowCount !== 1) {
             throw new Error(
-              `Phase 7 fresh-assurance fixture expected one active session, received ${updated.rowCount ?? 0}.`
+              `Fresh-assurance fixture expected one active session, received ${updated.rowCount ?? 0}.`
             )
           }
           await operationClient.query(
@@ -355,9 +355,7 @@ const createBrowserFixtureDatabase = (
         result.rows[0]?.accountCount !== 1 ||
         result.rows[0]?.activeSessionCount !== 1
       ) {
-        throw new Error(
-          'Phase 10 browser registration persistence contract failed.'
-        )
+        throw new Error('Browser registration persistence contract failed.')
       }
     },
     assertExpectedLifecycleDelta: async (before): Promise<void> => {
@@ -461,9 +459,7 @@ const createBrowserFixtureDatabase = (
               row.proofCount !== reauthentications
           )
         )
-          throw new Error(
-            'Phase 7 SSO actor-bound reauthentication lifecycle failed.'
-          )
+          throw new Error('SSO actor-bound reauthentication lifecycle failed.')
         if (a1a8) {
           const commands = await runWithFixtureClient(
             async (client) =>
@@ -536,7 +532,7 @@ const createBrowserFixtureDatabase = (
             row.archive !== true ||
             row.review !== true
           )
-            throw new Error('Phase 7 A1-A8 owned command lifecycle failed.')
+            throw new Error('A1-A8 owned command lifecycle failed.')
         }
       }
     },
@@ -685,7 +681,7 @@ const createSsoBrowserApiFixture = async (
     ] as const) {
       const userId = randomUUID()
       const callbackCode = `phase7-test-google-${actor}`
-      const name = `Phase 7 SSO ${actor}`
+      const name = `SSO ${actor}`
       fixture[actor] = Object.freeze({
         userId,
         role,
@@ -705,7 +701,7 @@ const createSsoBrowserApiFixture = async (
     provider: 'google' as const,
     accountId: 'phase7-sso-browser-google-subject',
     email: 'phase7-sso-browser@example.test',
-    name: 'Phase 7 SSO browser learner'
+    name: 'SSO browser learner'
   })
   const authorizationProvider = createGoogleSsoProvider({
     clientId: 'phase7-sso-browser-test-client',

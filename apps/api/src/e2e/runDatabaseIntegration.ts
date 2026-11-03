@@ -106,7 +106,7 @@ const baseDatabaseUrl =
   process.env.DB_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 
 if (!baseDatabaseUrl) {
-  throw new Error('Phase 7 DB integration requires a test PostgreSQL URL.')
+  throw new Error('DB integration requires a test PostgreSQL URL.')
 }
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
@@ -138,7 +138,7 @@ const targetDatabaseUrl = new URL(adminDatabaseUrl)
 targetDatabaseUrl.searchParams.set('schema', schemaName)
 const databaseName = decodeURIComponent(adminDatabaseUrl.pathname.slice(1))
 if (!DATABASE_IDENTIFIER_PATTERN.test(databaseName)) {
-  throw new Error('Phase 7 integration database name is unsafe.')
+  throw new Error('Integration database name is unsafe.')
 }
 const wrapperPasswords = new Map<string, string>(
   [...TEST_DATABASE_WRAPPER_ROLES, ...TEST_DATABASE_LEGACY_ROLES].map(
@@ -152,7 +152,7 @@ const wrapperPasswords = new Map<string, string>(
 const buildWrapperDatabaseUrl = (role: string): URL => {
   const password = wrapperPasswords.get(role)
   if (!password || !DATABASE_IDENTIFIER_PATTERN.test(role)) {
-    throw new Error('Phase 7 wrapper credential fixture is unavailable.')
+    throw new Error('Wrapper credential fixture is unavailable.')
   }
   const url = new URL(targetDatabaseUrl)
   url.username = role
@@ -229,7 +229,7 @@ class DatabaseDefaultAttestationError extends Error {
     expected: readonly TestDatabaseDefault[]
   ) {
     super(
-      'Phase 7 database default attestation failed. ' +
+      'Database default attestation failed. ' +
         JSON.stringify({ actual, expected })
     )
     this.name = 'DatabaseDefaultAttestationError'
@@ -433,9 +433,7 @@ const normalizePrismaDiff = (value: string): string =>
 const assertExpectedPrismaRepresentationDiff = (value: string): void => {
   const normalized = normalizePrismaDiff(value)
   if (normalized !== EXPECTED_PRISMA_REPRESENTATION_DIFF) {
-    throw new Error(
-      'Phase 7 Prisma drift exceeded the exact representation allowlist.'
-    )
+    throw new Error('Prisma drift exceeded the exact representation allowlist.')
   }
   process.stdout.write(
     `${JSON.stringify({
@@ -515,7 +513,7 @@ const assertTestDatabaseDefaultDriftRejected = async (
       }
     }
     if (!rejected) {
-      throw new Error('Phase 7 database default drift was not rejected.')
+      throw new Error('Database default drift was not rejected.')
     }
   } finally {
     await adminClient.query('ROLLBACK')
@@ -568,7 +566,7 @@ const verifySchemaAbsent = async (): Promise<void> => {
     [schemaName]
   )
   if (result.rows[0]?.count !== '0') {
-    throw new Error('Phase 7 integration schema cleanup verification failed.')
+    throw new Error('Integration schema cleanup verification failed.')
   }
 }
 
@@ -628,7 +626,7 @@ const readDatabaseState = async (): Promise<DatabaseStateSnapshot> => {
     [databaseName]
   )
   const row = result.rows[0]
-  if (!row) throw new Error('Phase 7 target database state is unavailable.')
+  if (!row) throw new Error('Target database state is unavailable.')
   return { ...row, acl: await readDatabaseAcl() }
 }
 
@@ -728,7 +726,7 @@ const canonicalDatabaseAcl = (entries: readonly DatabaseAclEntry[]): string =>
 
 const assertDatabaseStateRestored = async (): Promise<void> => {
   if (!databaseStateSnapshot) {
-    throw new Error('Phase 7 database snapshot is unavailable.')
+    throw new Error('Database snapshot is unavailable.')
   }
   const snapshot = databaseStateSnapshot
   const current = await readDatabaseState()
@@ -743,18 +741,18 @@ const assertDatabaseStateRestored = async (): Promise<void> => {
     canonicalDatabaseAcl(current.acl) !== canonicalDatabaseAcl(snapshot.acl)
   ) {
     throw new Error(
-      'Phase 7 database owner/effective ACL cleanup did not restore the snapshot.'
+      'Database owner/effective ACL cleanup did not restore the snapshot.'
     )
   }
 }
 
 const assertPgcryptoStateRestored = async (): Promise<void> => {
   if (!pgcryptoStateSnapshot) {
-    throw new Error('Phase 7 pgcrypto snapshot is unavailable.')
+    throw new Error('Pgcrypto snapshot is unavailable.')
   }
   const current = await readPgcryptoState()
   if (JSON.stringify(current) !== JSON.stringify(pgcryptoStateSnapshot)) {
-    throw new Error('Phase 7 pgcrypto cleanup did not restore exact state.')
+    throw new Error('Pgcrypto cleanup did not restore exact state.')
   }
 }
 
@@ -772,7 +770,7 @@ const acquireGlobalRoleProvisioningLock = async (): Promise<void> => {
 
 const attestBootstrapDatabase = async (): Promise<void> => {
   if (!databaseStateSnapshot) {
-    throw new Error('Phase 7 database snapshot is unavailable.')
+    throw new Error('Database snapshot is unavailable.')
   }
   const snapshot = databaseStateSnapshot
   const result = await adminClient.query<{
@@ -808,7 +806,7 @@ const attestBootstrapDatabase = async (): Promise<void> => {
       snapshot.ownerName as (typeof TEST_DATABASE_GROUP_ROLES)[number]
     )
   ) {
-    throw new Error('Phase 7 integration bootstrap database is not attested.')
+    throw new Error('Integration bootstrap database is not attested.')
   }
 }
 
@@ -824,7 +822,7 @@ const ensurePgcrypto = async (): Promise<void> => {
   pgcryptoCreatedByHarness = true
   const installed = await readPgcryptoState()
   if (!installed.exists || installed.schemaName !== 'public') {
-    throw new Error('Phase 7 pgcrypto preinstall attestation failed.')
+    throw new Error('Pgcrypto preinstall attestation failed.')
   }
 }
 
@@ -836,7 +834,7 @@ const transitionDatabaseOwnerToMigration = async (): Promise<void> => {
   )
   const current = await readDatabaseState()
   if (current.ownerName !== 'nihongo_phase7_migration') {
-    throw new Error('Phase 7 database owner transition failed.')
+    throw new Error('Database owner transition failed.')
   }
 }
 
@@ -919,7 +917,7 @@ const attestTestDatabaseAcl = async (): Promise<void> => {
     row.migrationPrivilegeAclCount !== 2 ||
     row.wrapperConnectAclCount !== 5
   ) {
-    throw new Error('Phase 7 migration database ACL attestation failed.')
+    throw new Error('Migration database ACL attestation failed.')
   }
 }
 
@@ -927,7 +925,7 @@ const exerciseDatabaseAclRestore = async (
   failAfterGrant?: number
 ): Promise<void> => {
   if (!databaseStateSnapshot) {
-    throw new Error('Phase 7 database snapshot is unavailable.')
+    throw new Error('Database snapshot is unavailable.')
   }
   await applyTestDatabaseAcl()
   await adminClient.query(
@@ -943,7 +941,7 @@ const exerciseDatabaseAclRestore = async (
 
 const verifyTransactionalDatabaseRestoreFixtures = async (): Promise<void> => {
   if (!databaseStateSnapshot) {
-    throw new Error('Phase 7 database snapshot is unavailable.')
+    throw new Error('Database snapshot is unavailable.')
   }
 
   await adminClient.query('BEGIN')
@@ -976,7 +974,7 @@ const verifyTransactionalDatabaseRestoreFixtures = async (): Promise<void> => {
     }
     if (faultCode !== '22012') {
       await adminClient.query('ROLLBACK')
-      throw new Error('Phase 7 database ACL fault injection did not fire.')
+      throw new Error('Database ACL fault injection did not fire.')
     }
     await adminClient.query('ROLLBACK')
     await assertDatabaseStateRestored()
@@ -1063,7 +1061,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
   )
   if (collisions.rowCount !== 0) {
     throw new Error(
-      `Phase 7 integration wrapper role collision: ${collisions.rows
+      `Integration wrapper role collision: ${collisions.rows
         .map(({ name }) => name)
         .join(', ')}`
     )
@@ -1090,7 +1088,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
     existingGroups.rowCount !== 0 &&
     existingGroups.rowCount !== TEST_DATABASE_GROUP_ROLES.length
   ) {
-    throw new Error('Phase 7 reusable NOLOGIN role bootstrap is partial.')
+    throw new Error('Reusable NOLOGIN role bootstrap is partial.')
   }
   for (const role of existingGroups.rows) {
     if (
@@ -1102,7 +1100,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
       role.isReplication ||
       role.canBypassRls
     ) {
-      throw new Error(`Phase 7 reusable role is unsafe: ${role.name}`)
+      throw new Error(`Reusable role is unsafe: ${role.name}`)
     }
   }
 
@@ -1148,14 +1146,14 @@ const provisionGlobalRoles = async (): Promise<void> => {
       protectedMemberships.rows[0]?.inheritOption !== false ||
       protectedMemberships.rows[0]?.setOption !== true
     ) {
-      throw new Error('Phase 7 reusable NOLOGIN role graph is not exact.')
+      throw new Error('Reusable NOLOGIN role graph is not exact.')
     }
   }
 
   for (const { grantedRole, name } of TEST_DATABASE_WRAPPER_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Phase 7 wrapper password fixture is unsafe.')
+      throw new Error('Wrapper password fixture is unsafe.')
     }
     await adminClient.query(
       `CREATE ROLE ${quoteIdentifier(name)}
@@ -1171,7 +1169,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
   for (const name of TEST_DATABASE_LEGACY_ROLES) {
     const password = wrapperPasswords.get(name)
     if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Phase 7 legacy password fixture is unsafe.')
+      throw new Error('Legacy password fixture is unsafe.')
     }
     await adminClient.query(
       `CREATE ROLE ${quoteIdentifier(name)}
@@ -1408,7 +1406,7 @@ const run = async (): Promise<void> => {
     preserveSanitizedReport &&
     process.env.DB_INTEGRATION_SINGLE_TEST === undefined
   ) {
-    throw new Error('Phase 7 report preservation requires single-test opt-in.')
+    throw new Error('Report preservation requires single-test opt-in.')
   }
   await adminClient.connect()
   adminConnected = true
@@ -1551,7 +1549,7 @@ const run = async (): Promise<void> => {
           }
         }
         throw new Error(
-          `Phase 7 migration ${row.migrationName} failed: ` +
+          `Migration ${row.migrationName} failed: ` +
             (row.logs?.trim().slice(-4000) ?? 'migration log unavailable') +
             replayDetail,
           { cause: error }
@@ -1582,9 +1580,7 @@ const run = async (): Promise<void> => {
     migrationNames.length !== 37 ||
     migrationNames.at(-1) !== lastBootstrapMigration
   ) {
-    throw new Error(
-      'Phase 7 canonical content migration prefix is inconsistent.'
-    )
+    throw new Error('Canonical content migration prefix is inconsistent.')
   }
   const prefixMigrationsPath = mkdtempSync(
     path.join(tmpdir(), 'nihongo-phase7-current37-')
@@ -1619,7 +1615,7 @@ const run = async (): Promise<void> => {
     const actual = await readQuestionCount()
     if (actual !== expected) {
       throw new Error(
-        `Phase 7 seed write-count check expected ${expected}, received ${actual}.`
+        `Seed write-count check expected ${expected}, received ${actual}.`
       )
     }
   }
@@ -1786,9 +1782,7 @@ const run = async (): Promise<void> => {
         errorCode = (error as { code?: unknown }).code
       }
       if (errorCode !== '42501') {
-        throw new Error(
-          'Phase 7 migration role retained raw catalog table authority.'
-        )
+        throw new Error('Migration role retained raw catalog table authority.')
       }
     }
   } finally {

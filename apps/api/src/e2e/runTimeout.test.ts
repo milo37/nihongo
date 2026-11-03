@@ -66,7 +66,7 @@ afterEach(async () => {
   )
 })
 
-describe('Phase 10 runner timeout', () => {
+describe('Runner timeout', () => {
   it('rejects within the cleanup deadline when cleanup never settles', async () => {
     const startedAt = Date.now()
     let cleanupStarted = false
@@ -78,7 +78,7 @@ describe('Phase 10 runner timeout', () => {
         await new Promise<never>(() => undefined)
       },
       cleanupTimeoutMs: 30,
-      label: 'Phase 10 performance runner',
+      label: 'Performance runner',
       onTimeout: () => undefined,
       operation: async () => await new Promise<never>(() => undefined),
       timeoutMs: 20
@@ -130,7 +130,7 @@ describe('Phase 10 runner timeout', () => {
               forceKillTimeoutMs: 1_000,
               gracefulTimeoutMs: 50
             }),
-          label: 'Phase 10 performance runner',
+          label: 'Performance runner',
           onTimeout: () => abortController.abort(),
           operation: async () =>
             await new Promise<never>((_resolve, reject) => {

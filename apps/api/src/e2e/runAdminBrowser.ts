@@ -340,7 +340,7 @@ export const selectPhase7BrowserSpecs = (
   ]
   if (specs.length === 0)
     throw new Error(
-      'Phase 7 administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
+      'Administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
     )
   return specs
 }

@@ -489,7 +489,7 @@ export const assertOperationManifest = (): void => {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
   }
   if (phase7Slice2ReadOperationManifest.length !== 8) {
-    throw new Error('Phase 7 Slice 2 route manifest는 정확히 8개여야 합니다.')
+    throw new Error('Route manifest는 정확히 8개여야 합니다.')
   }
   if (
     slice3ACommandOperationManifest.length !== 5 ||
@@ -508,7 +508,7 @@ export const assertOperationManifest = (): void => {
     dormantAfterSlice5OperationManifest.length !== 0
   ) {
     throw new Error(
-      'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9, Slice 5 28/0 경계를 유지해야 합니다.'
+      'Manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9, Slice 5 28/0 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(

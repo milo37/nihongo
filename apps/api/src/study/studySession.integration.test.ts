@@ -52,7 +52,7 @@ if (
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 study-session tests require fixture, erasure, and auth-gateway databases.'
+    'Study-session tests require fixture, erasure, and auth-gateway databases.'
   )
 }
 for (const databaseUrl of [

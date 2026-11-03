@@ -37,6 +37,6 @@ export const assertApiDatabaseBoundaryPreflight = ({
     TEST_DATABASE_GROUP_ROLES.has(snapshot.ownerName) ||
     snapshot.acl.some(({ grantor }) => grantor !== snapshot.ownerName)
   ) {
-    throw new Error('Phase 7 API bootstrap database is not attested.')
+    throw new Error('API bootstrap database is not attested.')
   }
 }

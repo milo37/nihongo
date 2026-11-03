@@ -71,7 +71,7 @@ const runCommand = async (
           ) {
             reject(
               new Error(
-                'Phase 10 integration emitted the forbidden pg concurrent-query deprecation.'
+                'Integration emitted the forbidden pg concurrent-query deprecation.'
               )
             )
           } else if (code === 0) {
@@ -120,9 +120,7 @@ const readShardResult = (output: string): ShardResult => {
     )
   const [result] = candidates
   if (!result || candidates.length !== 1) {
-    throw new Error(
-      'Phase 10 integration shard result is missing or ambiguous.'
-    )
+    throw new Error('Integration shard result is missing or ambiguous.')
   }
   return result
 }
@@ -170,7 +168,7 @@ const runShardProcess = async (shard: string): Promise<ShardResult> =>
           } else if (stderrOutput.includes(PG_CONCURRENT_QUERY_DEPRECATION)) {
             reject(
               new Error(
-                `Phase 10 shard ${shard} emitted the forbidden pg concurrent-query deprecation.`
+                `Shard ${shard} emitted the forbidden pg concurrent-query deprecation.`
               )
             )
           } else if (code === 0) {
@@ -219,10 +217,7 @@ const cleanup = (): Promise<void> => {
     }
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) {
-      throw new AggregateError(
-        errors,
-        'Phase 10 API integration cleanup failed.'
-      )
+      throw new AggregateError(errors, 'API integration cleanup failed.')
     }
   })()
   return cleanupPromise
@@ -236,14 +231,12 @@ const assertUniformShardMetadata = (
   )
   const isolations = new Set(entries.map(({ isolation }) => isolation))
   if (databaseStates.size !== 1 || isolations.size !== 1) {
-    throw new Error(
-      `Phase 10 shard metadata is inconsistent: ${entries[0]?.shard}.`
-    )
+    throw new Error(`Shard metadata is inconsistent: ${entries[0]?.shard}.`)
   }
   const databaseState = entries[0]?.databaseState
   const isolation = entries[0]?.isolation
   if (!databaseState || !isolation) {
-    throw new Error('Phase 10 integration shard is empty.')
+    throw new Error('Integration shard is empty.')
   }
   return { databaseState, isolation }
 }
@@ -253,15 +246,13 @@ const getShardSeedRuns = (
 ): number => {
   const policies = new Set(entries.map(({ seedPolicy }) => seedPolicy))
   if (policies.size !== 1) {
-    throw new Error(
-      `Phase 10 shard seed policy is inconsistent: ${entries[0]?.shard}.`
-    )
+    throw new Error(`Shard seed policy is inconsistent: ${entries[0]?.shard}.`)
   }
   const policy = entries[0]?.seedPolicy
   if (policy === 'canonical-twice') return 2
   if (policy === 'canonical-once') return 1
   if (policy === 'none') return 0
-  throw new Error('Phase 10 integration shard seed policy is unavailable.')
+  throw new Error('Integration shard seed policy is unavailable.')
 }
 
 const runShard = async (shard: string): Promise<ShardResult> => {
@@ -281,9 +272,7 @@ const runShard = async (shard: string): Promise<ShardResult> => {
     isProcessOnly &&
     (databaseState !== 'none' || seedRuns !== 0 || entries.length !== 1)
   ) {
-    throw new Error(
-      `Phase 10 process-only shard metadata is invalid: ${shard}.`
-    )
+    throw new Error(`Process-only shard metadata is invalid: ${shard}.`)
   }
   // Preparation can fail after acquiring owned resources.
   harnessPrepared = !isProcessOnly
@@ -365,15 +354,13 @@ const runAllShards = async (
       result.executedFileCount !== expectedFileCount ||
       result.schemaRemoved !== (result.schemaName !== null)
     ) {
-      throw new Error(
-        `Phase 10 integration shard evidence is invalid: ${shard}.`
-      )
+      throw new Error(`Integration shard evidence is invalid: ${shard}.`)
     }
     executedFileCount += result.executedFileCount
     passedTestCount += result.passedTestCount
   }
   if (executedFileCount !== entries.length) {
-    throw new Error('Phase 10 integration shard execution count is incomplete.')
+    throw new Error('Integration shard execution count is incomplete.')
   }
   return {
     executedFileCount,

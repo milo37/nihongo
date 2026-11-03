@@ -229,7 +229,7 @@ describe('query-plan failure diagnostics', () => {
   })
 })
 
-describe('Phase 7 SSO deterministic TEST environment', () => {
+describe('SSO deterministic TEST environment', () => {
   const schema = 'phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test'
   const database = (role: string) =>
     `postgresql://${role}:synthetic@127.0.0.1:5432/nihongo_test?schema=${schema}`
@@ -394,7 +394,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
   })
 })
 
-describe('Phase 7 opt-in foundation execution', () => {
+describe('Opt-in foundation execution', () => {
   it('preserves the default list and refuses arbitrary paths', () => {
     const files = [dbFoundationTestFile, 'other.ts']
     expect(selectDbIntegrationFiles(files, {})).toBe(files)
@@ -518,12 +518,12 @@ describe('Phase 7 opt-in foundation execution', () => {
   it.each([
     ['Cannot find module private', 'MODULE_DEPENDENCY_MISSING', 'module'],
     [
-      'Phase 7 admin integration database URL is required.',
+      'Admin integration database URL is required.',
       'CONFIG_WRAPPER_MISSING',
       'config'
     ],
     [
-      'Phase 7 DB endpoint identity is unavailable.',
+      'DB endpoint identity is unavailable.',
       'SETUP_ENDPOINT_UNAVAILABLE',
       'setup'
     ],
@@ -635,7 +635,7 @@ describe('Phase 7 opt-in foundation execution', () => {
   )
 })
 
-describe('Phase 7 bounded SSO first failed assertion', () => {
+describe('Bounded SSO first failed assertion', () => {
   type Mutable<T> = T extends readonly (infer U)[]
     ? Mutable<U>[]
     : T extends object
@@ -994,7 +994,7 @@ describe.each([
     id: 'SSO_PROVIDER_SUB_IDENTITY_ORDINAL5',
     sourceOrdinal: 5
   }
-] as const)('Phase 7 fixed SSO $mode diagnosis', (fixedCase) => {
+] as const)('Fixed SSO $mode diagnosis', (fixedCase) => {
   const environment = {
     DB_INTEGRATION_CASE: fixedCase.mode,
     DB_INTEGRATION_SINGLE_TEST: ssoTestFile,
