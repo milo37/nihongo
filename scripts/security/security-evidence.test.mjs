@@ -579,15 +579,13 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
     const originalHash = sha256(await readFile(originalFile))
     await copyFile(originalFile, copyFilePath)
-    const verify = (dashboardLabelPolicy = 'current') =>
+    const verify = () =>
       verifyArtifactDirectory({
         directory: copy,
         profile: 'playwright',
-        requiredLabels: ['admin-dashboard-real'],
-        dashboardLabelPolicy
+        requiredLabels: ['admin-dashboard-real']
       })
     await assert.rejects(() => verify(), /SECURITY_EVIDENCE_/u)
-    await assert.doesNotReject(() => verify('legacy'))
     const cliArgs = [
       path.join(import.meta.dirname, 'security-evidence.mjs'),
       'verify',
@@ -601,7 +599,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     assert.throws(() =>
       execFileSync(process.execPath, cliArgs, { stdio: 'pipe' })
     )
-    assert.doesNotThrow(() =>
+    assert.throws(() =>
       execFileSync(
         process.execPath,
         [...cliArgs, '--dashboard-label-policy', 'legacy'],
@@ -609,69 +607,6 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
       )
     )
     assert.equal(sha256(await readFile(originalFile)), originalHash)
-    await assert.rejects(
-      () => verify('unknown'),
-      /SECURITY_EVIDENCE_ARGUMENTS_INVALID/u
-    )
-    for (const [name, mutate] of [
-      [
-        'mixed labels',
-        (v) => {
-          v.performanceMeasurements[0].label = 'dashboard-real-performance'
-        }
-      ],
-      [
-        'duplicate ledger',
-        (v) => {
-          v.requestLedgers.push(
-            structuredClone(
-              v.requestLedgers.find(
-                ({ label }) => label === 'phase8-dashboard-real-request-ledger'
-              )
-            )
-          )
-        }
-      ],
-      [
-        'missing performance',
-        (v) => {
-          v.performanceMeasurements = []
-        }
-      ],
-      [
-        'mode mismatch',
-        (v) => {
-          v.performanceMeasurements[0].mode = 'mock'
-        }
-      ],
-      [
-        'missing request',
-        (v) => {
-          v.requestLedgers
-            .find(
-              ({ label }) => label === 'phase8-dashboard-real-request-ledger'
-            )
-            .entries.pop()
-        }
-      ],
-      [
-        'missing sample',
-        (v) => {
-          v.performanceMeasurements[0].samplesMs.pop()
-        }
-      ],
-      [
-        'forged budget',
-        (v) => {
-          v.performanceMeasurements[0].budget.passed = false
-        }
-      ]
-    ]) {
-      const candidate = structuredClone(archived)
-      mutate(candidate)
-      await writeCanonicalEvidence({ filePath: copyFilePath, value: candidate })
-      await assert.rejects(() => verify('legacy'), /SECURITY_EVIDENCE_/u, name)
-    }
     for (const mutate of [
       (v) => {
         v.performanceMeasurements[0].label = 'phase8-dashboard-real-performance'
@@ -698,7 +633,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
       await assert.rejects(() => verify(), /SECURITY_EVIDENCE_/u)
     }
     await writeCanonicalEvidence({ filePath: copyFilePath, value })
-    await assert.rejects(() => verify('legacy'), /SECURITY_EVIDENCE_/u)
+    await assert.doesNotReject(() => verify())
     assert.equal(sha256(await readFile(originalFile)), originalHash)
   } finally {
     await rm(original, { recursive: true, force: true })

@@ -238,7 +238,10 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
       fail('CI_CLASSIFICATION_EVENT_INVALID')
     }
     if (pullRequest.base.ref === 'main') {
-      return fullSelection('candidate', 'main integration candidate', true)
+      return {
+        ...fullSelection('candidate', 'main integration candidate', true),
+        browser_mock: true
+      }
     }
     const selection = classifyChangedFiles(changedFiles)
     selection.browser_mock = selection.files.some((file) =>
