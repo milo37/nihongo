@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/content-operations'
@@ -7,6 +6,7 @@ import {
   useQuestionReportPresentation as useAdminPresentation
 } from '@app/content-operations/reports/questionReportPublic'
 import { isAccountRestrictedApiError, isUiApiError } from '@libs/apiError'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { useCreateQuestionReport } from '@app/question-report/hooks/useCreateQuestionReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -32,7 +32,6 @@ export const QuestionReportDialog = ({
   questionVersionId
 }: QuestionReportDialogProps): ReactElement => {
   const { presentError, presentFieldError, t } = useAdminPresentation()
-  const { t: commonT } = useTranslation('common')
   const triggerRef = useRef<HTMLButtonElement>(null)
   const reasonRef = useRef<HTMLSelectElement>(null)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
@@ -49,14 +48,13 @@ export const QuestionReportDialog = ({
     setWasSubmitted(true)
   })
 
+  const isRestricted = isAccountRestrictedApiError(mutation.error)
   const errorMessage = mutation.error
-    ? isAccountRestrictedApiError(mutation.error)
-      ? commonT('state.accountRestricted')
-      : isUiApiError(mutation.error)
-        ? mutation.error.isOffline
-          ? t('questionReportDialog.offline')
-          : presentError(mutation.error)
-        : t('questionReportDialog.error')
+    ? isUiApiError(mutation.error)
+      ? mutation.error.isOffline
+        ? t('questionReportDialog.offline')
+        : presentError(mutation.error)
+      : t('questionReportDialog.error')
     : null
   const fieldErrors =
     mutation.error && isUiApiError(mutation.error)
@@ -154,7 +152,9 @@ export const QuestionReportDialog = ({
               }
             }}
           />
-          {errorMessage && !fieldErrors?.description?.length ? (
+          {isRestricted ? (
+            <AccountRestrictedNotice />
+          ) : errorMessage && !fieldErrors?.description?.length ? (
             <p className="font-semibold text-red-700" role="alert">
               {errorMessage}
             </p>

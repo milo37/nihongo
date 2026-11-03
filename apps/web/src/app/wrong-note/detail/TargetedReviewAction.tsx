@@ -61,7 +61,7 @@ export const TargetedReviewAction = ({
             </p>
           ) : null}
           {targeted.isError && targeted.isAccountRestricted ? (
-            <AccountRestrictedNotice className="mt-3" />
+            <AccountRestrictedNotice className="mt-3" focusOnMount />
           ) : targeted.isError ? (
             <p className="mt-3 text-sm font-semibold text-red-800" role="alert">
               {targeted.isUnavailableError
