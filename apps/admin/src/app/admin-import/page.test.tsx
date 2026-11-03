@@ -141,8 +141,13 @@ const applies = () =>
   )
 it('restores the approved static route before dynamic question detail and waits for explicit validation', async () => {
   route()
+  // First test in the file pays the cold lazy-route import.
   expect(
-    await screen.findByRole('heading', { name: t('import.title') })
+    await screen.findByRole(
+      'heading',
+      { name: t('import.title') },
+      { timeout: 5_000 }
+    )
   ).toBeVisible()
   expect(validateButton()).toBeDisabled()
   expect(endpoint).not.toHaveBeenCalled()
