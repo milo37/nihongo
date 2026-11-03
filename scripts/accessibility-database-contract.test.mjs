@@ -3,12 +3,12 @@ import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import {
-  assertPhase9SnapshotContract,
-  assertPhase9RateLimitContract,
-  readPhase9RateLimitDiagnostic,
-  phase9DatabaseTables,
-  phase9ExpectedTableDeltas,
-  phase9ExpectedRateLimitCategories
+  assertAccessibilitySnapshotContract,
+  assertAccessibilityRateLimitContract,
+  readAccessibilityRateLimitDiagnostic,
+  accessibilityDatabaseTables,
+  accessibilityExpectedTableDeltas,
+  accessibilityExpectedRateLimitCategories
 } from './accessibility-database-contract.mjs'
 
 const fingerprint = (suffix) => suffix.padStart(64, '0')
@@ -16,9 +16,9 @@ const fingerprint = (suffix) => suffix.padStart(64, '0')
 const createSnapshots = () => {
   const beforeTables = {}
   const afterTables = {}
-  for (const [index, tableName] of phase9DatabaseTables.entries()) {
+  for (const [index, tableName] of accessibilityDatabaseTables.entries()) {
     const baselineFingerprint = fingerprint((index + 1).toString(16))
-    const delta = phase9ExpectedTableDeltas[tableName]
+    const delta = accessibilityExpectedTableDeltas[tableName]
     beforeTables[tableName] = {
       count: 100,
       fingerprint: baselineFingerprint
@@ -34,12 +34,12 @@ const createSnapshots = () => {
   return {
     after: {
       rateLimitRows: [],
-      tableNames: [...phase9DatabaseTables],
+      tableNames: [...accessibilityDatabaseTables],
       tables: afterTables
     },
     before: {
       rateLimitRows: [],
-      tableNames: [...phase9DatabaseTables],
+      tableNames: [...accessibilityDatabaseTables],
       tables: beforeTables
     }
   }
@@ -47,14 +47,14 @@ const createSnapshots = () => {
 
 test('accepts the exhaustive accessibility browser database delta', () => {
   const { after, before } = createSnapshots()
-  assert.doesNotThrow(() => assertPhase9SnapshotContract(before, after))
+  assert.doesNotThrow(() => assertAccessibilitySnapshotContract(before, after))
 })
 
 test('rejects an unaccounted StudySessionQuestion write', () => {
   const { after, before } = createSnapshots()
   after.tables.StudySessionQuestion.count += 1
   assert.throws(
-    () => assertPhase9SnapshotContract(before, after),
+    () => assertAccessibilitySnapshotContract(before, after),
     /StudySessionQuestion count delta/u
   )
 })
@@ -63,16 +63,16 @@ test('rejects a zero-delta content mutation by fingerprint', () => {
   const { after, before } = createSnapshots()
   after.tables.Question.fingerprint = fingerprint('ffff')
   assert.throws(
-    () => assertPhase9SnapshotContract(before, after),
+    () => assertAccessibilitySnapshotContract(before, after),
     /Question zero-delta fingerprint/u
   )
 })
 
 test('rejects an unknown database table', () => {
   const { after, before } = createSnapshots()
-  after.tableNames.push('UnexpectedPhase9Write')
+  after.tableNames.push('UnexpectedAccessibilityWrite')
   assert.throws(
-    () => assertPhase9SnapshotContract(before, after),
+    () => assertAccessibilitySnapshotContract(before, after),
     /final table inventory/u
   )
 })
@@ -81,7 +81,7 @@ test('rejects an omitted allowlisted table snapshot', () => {
   const { after, before } = createSnapshots()
   delete after.tables.Bookmark
   assert.throws(
-    () => assertPhase9SnapshotContract(before, after),
+    () => assertAccessibilitySnapshotContract(before, after),
     /final snapshot inventory/u
   )
 })
@@ -95,7 +95,7 @@ test('accounts for every current schema table explicitly', () => {
     (match) => match[1]
   )
   assert.deepEqual(
-    [...phase9DatabaseTables].sort(),
+    [...accessibilityDatabaseTables].sort(),
     [...tables, '_prisma_migrations'].sort()
   )
 })
@@ -104,7 +104,7 @@ test('rejects an unconsumed SSO login transaction', () => {
   const { after, before } = createSnapshots()
   after.tables.SsoLoginTransaction.count += 1
   assert.throws(
-    () => assertPhase9SnapshotContract(before, after),
+    () => assertAccessibilitySnapshotContract(before, after),
     /SsoLoginTransaction count delta/u
   )
 })
@@ -113,7 +113,7 @@ test('rejects a same-count SSO proof mutation by fingerprint', () => {
   const { after, before } = createSnapshots()
   after.tables.SsoAccountFreshProof.fingerprint = fingerprint('ffff')
   assert.throws(
-    () => assertPhase9SnapshotContract(before, after),
+    () => assertAccessibilitySnapshotContract(before, after),
     /SsoAccountFreshProof zero-delta fingerprint/u
   )
 })
@@ -131,20 +131,21 @@ const principalKey = (operation, userId) =>
 const createRateLimitSnapshots = () => ({
   before: { rateLimitRows: [] },
   after: {
-    rateLimitRows: Object.entries(phase9ExpectedRateLimitCategories).flatMap(
-      ([category, count]) =>
-        Array.from({ length: count }, (_, index) => ({
-          key:
-            category === 'application:study-draft-save'
-              ? principalKey('study-draft-save', fixture.learner.userId)
-              : category === 'application:study-submit'
-                ? principalKey(
-                    'study-submit',
-                    [fixture.learner, fixture.author][index].userId
-                  )
-                : `${category}:${fingerprint((index + 1).toString(16))}`,
-          count: 1
-        }))
+    rateLimitRows: Object.entries(
+      accessibilityExpectedRateLimitCategories
+    ).flatMap(([category, count]) =>
+      Array.from({ length: count }, (_, index) => ({
+        key:
+          category === 'application:study-draft-save'
+            ? principalKey('study-draft-save', fixture.learner.userId)
+            : category === 'application:study-submit'
+              ? principalKey(
+                  'study-submit',
+                  [fixture.learner, fixture.author][index].userId
+                )
+              : `${category}:${fingerprint((index + 1).toString(16))}`,
+        count: 1
+      }))
     )
   }
 })
@@ -152,7 +153,7 @@ const createRateLimitSnapshots = () => ({
 test('accepts the exact Google start and callback rate-limit profile', () => {
   const { after, before } = createRateLimitSnapshots()
   assert.doesNotThrow(() =>
-    assertPhase9RateLimitContract(before, after, fixture, keySecret)
+    assertAccessibilityRateLimitContract(before, after, fixture, keySecret)
   )
 })
 
@@ -164,7 +165,8 @@ test('rejects a retired email sign-in rate-limit key', () => {
   assert.ok(row)
   row.key = row.key.replace('/social:', '/email:')
   assert.throws(
-    () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+    () =>
+      assertAccessibilityRateLimitContract(before, after, fixture, keySecret),
     /unexpected rate-limit category/u
   )
 })
@@ -177,7 +179,8 @@ test('rejects a missing Google callback rate-limit key', () => {
   assert.notEqual(index, -1)
   after.rateLimitRows.splice(index, 1)
   assert.throws(
-    () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+    () =>
+      assertAccessibilityRateLimitContract(before, after, fixture, keySecret),
     /new rate-limit key count/u
   )
 })
@@ -190,30 +193,38 @@ test('rejects a repeated Google callback consumption', () => {
   assert.ok(row)
   row.count = 2
   assert.throws(
-    () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+    () =>
+      assertAccessibilityRateLimitContract(before, after, fixture, keySecret),
     /callback\/google request count/u
   )
 })
 
 test('current two-actor rate-limit model is exact and rejects cardinality drift', () => {
-  assert.equal(Object.keys(phase9ExpectedRateLimitCategories).length, 23)
-  assert.equal(phase9ExpectedRateLimitCategories['application:study-read'], 2)
+  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 23)
   assert.equal(
-    phase9ExpectedRateLimitCategories['application:dashboard-insights-read'],
+    accessibilityExpectedRateLimitCategories['application:study-read'],
     2
   )
   assert.equal(
-    phase9ExpectedRateLimitCategories['application:wrong-note-memo-read'],
+    accessibilityExpectedRateLimitCategories[
+      'application:dashboard-insights-read'
+    ],
+    2
+  )
+  assert.equal(
+    accessibilityExpectedRateLimitCategories[
+      'application:wrong-note-memo-read'
+    ],
     1
   )
   assert.equal(
-    Object.values(phase9ExpectedRateLimitCategories).reduce(
+    Object.values(accessibilityExpectedRateLimitCategories).reduce(
       (sum, count) => sum + count,
       0
     ),
     29
   )
-  assert.equal(phase9ExpectedTableDeltas.RateLimit, 29)
+  assert.equal(accessibilityExpectedTableDeltas.RateLimit, 29)
   for (const category of [
     'application:study-read',
     'application:dashboard-insights-read'
@@ -230,7 +241,13 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
         }))
       )
       assert.throws(
-        () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+        () =>
+          assertAccessibilityRateLimitContract(
+            before,
+            after,
+            fixture,
+            keySecret
+          ),
         /new rate-limit key count/u
       )
     }
@@ -241,7 +258,8 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
     count: 1
   }
   assert.throws(
-    () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+    () =>
+      assertAccessibilityRateLimitContract(before, after, fixture, keySecret),
     /rate-limit categories/u
   )
 })
@@ -259,7 +277,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     { key: 'application:' + sentinel + ':' + fingerprint('b'), count: 43 },
     { key: sentinel, count: 44 }
   )
-  const diagnostic = readPhase9RateLimitDiagnostic(before, after)
+  const diagnostic = readAccessibilityRateLimitDiagnostic(before, after)
   assert.equal(diagnostic.expectedTotal, 29)
   assert.equal(diagnostic.before.total, 1)
   assert.equal(diagnostic.after.total, 32)
@@ -270,7 +288,8 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
   assert.equal(JSON.stringify(diagnostic).includes(sentinel), false)
   assert.equal(JSON.stringify(diagnostic).includes(fingerprint('a')), false)
   assert.throws(
-    () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+    () =>
+      assertAccessibilityRateLimitContract(before, after, fixture, keySecret),
     (error) => {
       assert.match(
         error.message,
@@ -289,7 +308,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     sample.after.rateLimitRows[0] = { key: badKey, count: 1 }
     assert.throws(
       () =>
-        assertPhase9RateLimitContract(
+        assertAccessibilityRateLimitContract(
           sample.before,
           sample.after,
           fixture,
@@ -309,7 +328,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
   snapshot.after.rateLimitRows = after.rateLimitRows
   snapshot.after.tables.RateLimit.count += 1
   assert.throws(
-    () => assertPhase9SnapshotContract(snapshot.before, snapshot.after),
+    () => assertAccessibilitySnapshotContract(snapshot.before, snapshot.after),
     (error) => {
       assert.match(
         error.message,
@@ -330,7 +349,8 @@ test('rejects another principal with identical operation cardinality without exp
   assert.ok(row)
   row.key = principalKey('study-draft-save', fixture.author.userId)
   assert.throws(
-    () => assertPhase9RateLimitContract(before, after, fixture, keySecret),
+    () =>
+      assertAccessibilityRateLimitContract(before, after, fixture, keySecret),
     (error) => {
       assert.match(
         error.message,

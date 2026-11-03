@@ -1484,7 +1484,7 @@ const assertPlaywrightSelection = async (source, mode, suite, modeVariable) => {
     '--config',
     'playwright.config.ts',
     suite,
-    ...(modeVariable === 'PHASE9_BROWSER_MODE' && mode === 'mock'
+    ...(modeVariable === 'ACCESSIBILITY_BROWSER_MODE' && mode === 'mock'
       ? [
           '--grep',
           'guest routes pass KO/JA axe|learner routes pass KO/JA axe|color normalization regression'
@@ -1547,7 +1547,7 @@ test('accessibility mock starts only a local mock web server', async () => {
       type === 'command' && args?.includes('apps/web/e2e/journeys.spec.ts')
   )
   assert.ok(faultRun)
-  assert.equal(faultRun.environment.PHASE10_BROWSER_MODE, 'mock')
+  assert.equal(faultRun.environment.JOURNEY_BROWSER_MODE, 'mock')
   assert.equal(faultRun.args.includes('--grep'), false)
   const dashboardRun = normalized.find(
     ({ type, args }) =>
@@ -2035,13 +2035,13 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
     sources.phase9,
     mode,
     'apps/web/e2e/accessibility.spec.ts',
-    'PHASE9_BROWSER_MODE'
+    'ACCESSIBILITY_BROWSER_MODE'
   )
   await assertPlaywrightSelection(
     sources.phase10,
     mode,
     'apps/web/e2e/journeys.spec.ts',
-    'PHASE10_BROWSER_MODE'
+    'JOURNEY_BROWSER_MODE'
   )
 }
 
@@ -2142,7 +2142,7 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
       ),
       'real',
       'apps/web/e2e/accessibility.spec.ts',
-      'PHASE9_BROWSER_MODE'
+      'ACCESSIBILITY_BROWSER_MODE'
     )
   )
 })
@@ -2191,7 +2191,7 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
       `  await runPlaywright(
     browserMode,
     webOrigin,
-    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
 `
@@ -2327,7 +2327,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
       `  await runPlaywright(
     browserMode,
     webOrigin,
-    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
 `,
@@ -2335,7 +2335,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
     await runPlaywright(
       browserMode,
       webOrigin,
-      { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+      { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
       adminSignal
     )
 `

@@ -230,7 +230,7 @@ const runPlaywright = async (
     {
       ...process.env,
       ...extraEnvironment,
-      PHASE10_BROWSER_MODE: browserMode,
+      JOURNEY_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_OUTPUT_LABEL: `phase10-${browserMode}`
     }
@@ -323,7 +323,7 @@ const runReal = async (): Promise<void> => {
 
 const run = async (): Promise<void> => {
   if (!mode) {
-    throw new Error('Phase 10 browser runner accepts mock or real mode.')
+    throw new Error('Journey browser runner accepts mock or real mode.')
   }
   if (mode === 'mock') await runMock()
   else await runReal()
@@ -343,7 +343,7 @@ export const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `Phase 10 ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `Journey ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -363,7 +363,7 @@ export const main = (): Promise<void> =>
   execute()
     .then(() => {
       process.stdout.write(
-        `${JSON.stringify({ event: `phase10.browser.${mode}.passed` })}\n`
+        `${JSON.stringify({ event: `journey.browser.${mode}.passed` })}\n`
       )
     })
     .catch((error: unknown) => {
@@ -373,7 +373,7 @@ export const main = (): Promise<void> =>
           : undefined
       process.stderr.write(
         `${JSON.stringify({
-          event: `phase10.browser.${mode ?? 'unknown'}.failed`,
+          event: `journey.browser.${mode ?? 'unknown'}.failed`,
           ...describeFailure(error),
           ...(causes ? { causes } : {})
         })}\n`

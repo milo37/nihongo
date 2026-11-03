@@ -9,7 +9,7 @@ const { Client } = requireFromApi('pg')
 const SAFE_SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/u
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u
 
-export const phase9DatabaseTables = [
+export const accessibilityDatabaseTables = [
   'Account',
   'AdminAuditLog',
   'AuthIssuerActivation',
@@ -60,7 +60,7 @@ export const phase9DatabaseTables = [
   '_prisma_migrations'
 ]
 
-export const phase9ExpectedTableDeltas = {
+export const accessibilityExpectedTableDeltas = {
   Account: 0,
   AdminAuditLog: 0,
   AuthIssuerActivation: 0,
@@ -111,7 +111,7 @@ export const phase9ExpectedTableDeltas = {
   _prisma_migrations: 0
 }
 
-export const phase9ExpectedRateLimitCategories = {
+export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
   'application:dashboard-insights-read': 2,
@@ -142,7 +142,7 @@ const sorted = (values) =>
   [...values].sort((left, right) => left.localeCompare(right))
 
 const fail = (message) => {
-  throw new Error(`Phase 9 database contract: ${message}`)
+  throw new Error(`Accessibility database contract: ${message}`)
 }
 
 const assertEqual = (actual, expected, label) => {
@@ -245,7 +245,7 @@ const readSnapshot = async (client, schemaName) => {
   )
   const tableNames = actualTablesResult.rows.map(({ tableName }) => tableName)
   const tables = {}
-  for (const tableName of phase9DatabaseTables) {
+  for (const tableName of accessibilityDatabaseTables) {
     tables[tableName] = await readTableSnapshot(client, schemaName, tableName)
   }
   const rateLimitResult = await client.query(
@@ -270,7 +270,7 @@ const inReadOnlySnapshot = async (client, operation) => {
   }
 }
 
-export const capturePhase9DatabaseSnapshot = async (databaseUrl) =>
+export const captureAccessibilityDatabaseSnapshot = async (databaseUrl) =>
   await withClient(
     databaseUrl,
     async (client, schemaName) =>
@@ -281,7 +281,7 @@ export const capturePhase9DatabaseSnapshot = async (databaseUrl) =>
   )
 
 const assertSnapshotContract = (before, after) => {
-  const expectedTables = sorted(phase9DatabaseTables)
+  const expectedTables = sorted(accessibilityDatabaseTables)
   assertJsonEqual(
     sorted(before.tableNames),
     expectedTables,
@@ -303,16 +303,16 @@ const assertSnapshotContract = (before, after) => {
     'final snapshot inventory'
   )
   assertJsonEqual(
-    sorted(Object.keys(phase9ExpectedTableDeltas)),
+    sorted(Object.keys(accessibilityExpectedTableDeltas)),
     expectedTables,
     'expected delta inventory'
   )
 
-  for (const tableName of phase9DatabaseTables) {
+  for (const tableName of accessibilityDatabaseTables) {
     const baseline = before.tables[tableName]
     const final = after.tables[tableName]
     if (!baseline || !final) fail(`missing ${tableName} snapshot`)
-    const expectedDelta = phase9ExpectedTableDeltas[tableName]
+    const expectedDelta = accessibilityExpectedTableDeltas[tableName]
     assertEqual(
       final.count - baseline.count,
       expectedDelta,
@@ -328,7 +328,7 @@ const assertSnapshotContract = (before, after) => {
   }
 }
 
-export const assertPhase9SnapshotContract = (before, after) =>
+export const assertAccessibilitySnapshotContract = (before, after) =>
   withRateLimitDiagnostic(before, after, () =>
     assertSnapshotContract(before, after)
   )
@@ -440,14 +440,14 @@ const readIdentityFacts = async (client, fixture) => {
   }
 }
 
-export const readPhase9RateLimitDiagnostic = (before, after) => {
+export const readAccessibilityRateLimitDiagnostic = (before, after) => {
   const beforeRows = before.rateLimitRows ?? []
   const afterRows = after.rateLimitRows ?? []
   const beforeKeys = new Set(beforeRows.map(({ key }) => key))
   const newRows = afterRows.filter(({ key }) => !beforeKeys.has(key))
   const summarize = (rows) => {
     const categories = Object.fromEntries(
-      Object.keys(phase9ExpectedRateLimitCategories).map((category) => [
+      Object.keys(accessibilityExpectedRateLimitCategories).map((category) => [
         category,
         0
       ])
@@ -464,7 +464,7 @@ export const readPhase9RateLimitDiagnostic = (before, after) => {
     return { total: rows.length, categories, unknown, invalidShape }
   }
   return {
-    expectedTotal: phase9ExpectedTableDeltas.RateLimit,
+    expectedTotal: accessibilityExpectedTableDeltas.RateLimit,
     before: summarize(beforeRows),
     after: summarize(afterRows),
     newKeys: summarize(newRows)
@@ -476,14 +476,15 @@ const withRateLimitDiagnostic = (before, after, assertContract) => {
     return assertContract()
   } catch (error) {
     const diagnostic = JSON.stringify(
-      readPhase9RateLimitDiagnostic(before, after)
+      readAccessibilityRateLimitDiagnostic(before, after)
     )
     if (error instanceof Error) {
       error.message += ' | rate-limit-diagnostic=' + diagnostic
       throw error
     }
     throw new Error(
-      'Phase 9 database contract failed | rate-limit-diagnostic=' + diagnostic,
+      'Accessibility database contract failed | rate-limit-diagnostic=' +
+        diagnostic,
       { cause: error }
     )
   }
@@ -500,11 +501,11 @@ const assertRateLimitContract = (before, after, fixture, keySecret) => {
   const newRows = after.rateLimitRows.filter(({ key }) => !beforeKeys.has(key))
   assertEqual(
     newRows.length,
-    phase9ExpectedTableDeltas.RateLimit,
+    accessibilityExpectedTableDeltas.RateLimit,
     'new rate-limit key count'
   )
   const categories = Object.fromEntries(
-    Object.keys(phase9ExpectedRateLimitCategories).map((category) => [
+    Object.keys(accessibilityExpectedRateLimitCategories).map((category) => [
       category,
       0
     ])
@@ -525,7 +526,7 @@ const assertRateLimitContract = (before, after, fixture, keySecret) => {
   }
   assertJsonEqual(
     categories,
-    phase9ExpectedRateLimitCategories,
+    accessibilityExpectedRateLimitCategories,
     'rate-limit categories'
   )
   for (const [operation, actors] of [
@@ -554,7 +555,7 @@ const assertRateLimitContract = (before, after, fixture, keySecret) => {
   return categories
 }
 
-export const assertPhase9RateLimitContract = (
+export const assertAccessibilityRateLimitContract = (
   before,
   after,
   fixture,
@@ -762,7 +763,7 @@ const assertIdentityContract = (facts, fixture) => {
   )
 }
 
-export const assertPhase9DatabaseContract = async ({
+export const assertAccessibilityDatabaseContract = async ({
   before,
   databaseUrl,
   fixture,
@@ -771,10 +772,10 @@ export const assertPhase9DatabaseContract = async ({
   await withClient(databaseUrl, async (client, schemaName) => {
     return await inReadOnlySnapshot(client, async () => {
       const after = await readSnapshot(client, schemaName)
-      assertPhase9SnapshotContract(before, after)
+      assertAccessibilitySnapshotContract(before, after)
       const facts = await readIdentityFacts(client, fixture)
       assertIdentityContract(facts, fixture)
-      const rateLimitCategories = assertPhase9RateLimitContract(
+      const rateLimitCategories = assertAccessibilityRateLimitContract(
         before,
         after,
         fixture,
@@ -798,13 +799,13 @@ export const assertPhase9DatabaseContract = async ({
         },
         rateLimitCategories,
         tableDeltas: Object.fromEntries(
-          phase9DatabaseTables.map((tableName) => [
+          accessibilityDatabaseTables.map((tableName) => [
             tableName,
             after.tables[tableName].count - before.tables[tableName].count
           ])
         ),
-        zeroDeltaFingerprintsVerified: phase9DatabaseTables.filter(
-          (tableName) => phase9ExpectedTableDeltas[tableName] === 0
+        zeroDeltaFingerprintsVerified: accessibilityDatabaseTables.filter(
+          (tableName) => accessibilityExpectedTableDeltas[tableName] === 0
         ).length
       }
     })
