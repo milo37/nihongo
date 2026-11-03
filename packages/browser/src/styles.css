@@ -646,7 +646,7 @@
       var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 1rem
     );
   }
-  .app-shell:not(.app-shell-focus) {
+  .app-shell:not(.app-shell-focus, .app-shell-no-rail) {
     padding-bottom: calc(
       var(--mobile-navigation-height) + env(safe-area-inset-bottom)
     );
@@ -2459,6 +2459,20 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 .app-shell-focus .app-shell-body {
   margin-left: 0;
+}
+/* Admin keeps its own menu: no learner rail column, brand moves to the header. */
+.app-shell-no-rail .app-shell-body {
+  margin-left: 0;
+}
+.app-shell-no-rail .app-shell-body > main {
+  width: 100%;
+  max-width: none;
+}
+.app-shell-no-rail .app-shell-header-inner {
+  justify-content: space-between;
+}
+.app-shell-no-rail .app-mobile-brand {
+  display: inline-flex;
 }
 .app-shell-focus .app-shell-body > main {
   width: 100%;

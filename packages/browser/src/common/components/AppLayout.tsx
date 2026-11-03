@@ -243,7 +243,13 @@ export const AppLayout = ({
 
   return (
     <AppShell
-      className={isFocusSession ? 'app-shell-focus' : undefined}
+      className={
+        isFocusSession
+          ? 'app-shell-focus'
+          : learnerNavigation
+            ? undefined
+            : 'app-shell-no-rail'
+      }
       surface={
         isReviewSurface ? 'review' : isLearningActive ? 'learning' : 'general'
       }
