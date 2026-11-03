@@ -19,6 +19,7 @@ import { prepareBrowserArtifacts } from '../../apps/api/src/e2e/browserArtifactP
 import { runBrowserSuites } from '../runBrowser.ts'
 
 import {
+  apiIntegrationShardGroups,
   classifyChangedFiles,
   qualityCommands,
   readSelection,
@@ -272,7 +273,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     integration,
     /^ {4}if: \$\{\{ needs\.plan\.outputs\.api == 'true' \}\}$/mu
   )
-  assert.match(integration, /part: \[database, api\]/u)
+  assert.match(integration, /part: \[database, api-1, api-2, api-3\]/u)
   assert.match(integration, /fail-fast: false/u)
   assert.match(
     namedWorkflowStep(integration, 'API and database integration'),
@@ -847,17 +848,105 @@ test('parallel integration parts run exactly the root API regression chain', () 
   )
     .scripts['test:api-regression'].split(' && ')
     .map((command) => command.replace(/^pnpm /u, '').split(' '))
-  const parts = [
-    ...qualityCommands(selection, 'integration-database'),
-    ...qualityCommands(selection, 'integration-api')
-  ]
-  assert.deepEqual(
-    [...parts].sort((a, b) => a.join(' ').localeCompare(b.join(' '))),
-    [...chain].sort((a, b) => a.join(' ').localeCompare(b.join(' ')))
+  const apiParts = Object.keys(apiIntegrationShardGroups).map((part) =>
+    qualityCommands(selection, `integration-${part}`)
   )
+  const partition = [
+    '--filter',
+    '@nihongo/api',
+    'exec',
+    'tsx',
+    '../../scripts/ci/api-shard-partition.mjs'
+  ]
+  const shardRuns = []
+  const rest = [...qualityCommands(selection, 'integration-database')]
+  for (const commands of apiParts) {
+    assert.deepEqual(commands[0], partition)
+    for (const command of commands.slice(1)) {
+      const last = command.at(-1)
+      if (last.startsWith('--shards=')) {
+        shardRuns.push(last.slice('--shards='.length).split(','))
+        rest.push(command.slice(0, -1))
+      } else rest.push(command)
+    }
+  }
+  const sorted = (commands) =>
+    [...commands]
+      .map((command) => command.join(' '))
+      .filter((command, index, all) => all.indexOf(command) === index)
+      .sort()
+  assert.deepEqual(sorted(rest), sorted(chain))
+  assert.deepEqual(shardRuns, Object.values(apiIntegrationShardGroups))
+  assert.equal(new Set(shardRuns.flat()).size, shardRuns.flat().length)
   assert.deepEqual(qualityCommands(selection, 'integration-database'), [
     ['run', 'test:database']
   ])
+  assert.throws(
+    () => qualityCommands(selection, 'integration-api'),
+    /CI_QUALITY_GROUP_INVALID/u
+  )
+})
+
+test('API shard partition script rejects drifted matrix groups', () => {
+  const root = path.resolve(import.meta.dirname, '../..')
+  const run = (source) =>
+    spawnSync(
+      'pnpm',
+      ['--filter', '@nihongo/api', 'exec', 'tsx', '--eval', source],
+      { cwd: root, encoding: 'utf8' }
+    )
+  const check = (groups) => `
+    import { getApiIntegrationEntriesByOwner } from './src/e2e/apiIntegrationManifest.ts'
+    import { assertApiIntegrationShardPartition } from './src/e2e/apiIntegrationShardSelection.ts'
+    const all = [...new Set(getApiIntegrationEntriesByOwner('phase10').map(({ shard }) => shard))]
+    assertApiIntegrationShardPartition(all, ${JSON.stringify(groups)})
+  `
+  const groups = Object.values(apiIntegrationShardGroups)
+  assert.equal(run(check(groups)).status, 0)
+  assert.notEqual(run(check(groups.slice(1))).status, 0)
+  assert.notEqual(run(check([...groups, [groups[0][0]]])).status, 0)
+  const script = spawnSync(
+    'pnpm',
+    [
+      '--filter',
+      '@nihongo/api',
+      'exec',
+      'tsx',
+      '../../scripts/ci/api-shard-partition.mjs'
+    ],
+    { cwd: root, encoding: 'utf8' }
+  )
+  assert.equal(script.status, 0, script.stderr)
+})
+
+test('Phase 11 gate requires the build and a selected portable smoke', () => {
+  const job = workflowJob(ciWorkflow(), 'phase11_release')
+  const name = 'Require successful build and selected portable smoke'
+  const environment = workflowStepEnvironment(namedWorkflowStep(job, name))
+  for (const [key, expression] of Object.entries({
+    PLAN_RESULT: 'needs.plan.result',
+    BUILD_RESULT: 'needs.build.result',
+    PORTABLE_RESULT: 'needs.portable.result',
+    PORTABLE_SELECTED: 'needs.plan.outputs.portable'
+  }))
+    assert.equal(environment.get(key), `\${{ ${expression} }}`)
+  const script = stepScript(job, name)
+  for (const selected of [true, false]) {
+    const env = {
+      PLAN_RESULT: 'success',
+      BUILD_RESULT: 'success',
+      PORTABLE_SELECTED: String(selected),
+      PORTABLE_RESULT: selected ? 'success' : 'skipped'
+    }
+    assertGate(script, env, 0)
+    for (const key of ['PLAN_RESULT', 'BUILD_RESULT', 'PORTABLE_RESULT']) {
+      for (const result of ['success', 'failure', 'cancelled', 'skipped', '']) {
+        if (result !== env[key])
+          assertGate(script, { ...env, [key]: result }, 1)
+      }
+    }
+    assertGate(script, { ...env, PORTABLE_SELECTED: '' }, 1)
+  }
 })
 
 test('quality groups call semantic commands without phase-number aliases', () => {

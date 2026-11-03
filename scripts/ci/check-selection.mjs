@@ -330,6 +330,23 @@ export const readSelection = (env = process.env, git = execFileSync) => {
   })
 }
 
+// API integration shards split across CI matrix jobs, balanced by measured run time.
+// api-shard-partition.mjs asserts in CI that together they run every shard exactly once.
+export const apiIntegrationShardGroups = Object.freeze({
+  'api-1': [
+    'pure',
+    'current-zero-facts',
+    'migration-submission-history',
+    'migration-ledger-last'
+  ],
+  'api-2': [
+    'current-app-role-with-owner-fixtures',
+    'current-rebased-service',
+    'migration-question-catalog'
+  ],
+  'api-3': ['catalog-baseline', 'current-app-role', 'current-guest-cleanup']
+})
+
 export const qualityCommands = (selection, group) => {
   const commands = []
   const add = (...args) => commands.push(args)
@@ -433,21 +450,32 @@ export const qualityCommands = (selection, group) => {
   } else if (group === 'integration-database') {
     // Split of the root test:api-regression chain; parity is pinned by the selector test.
     add('run', 'test:database')
-  } else if (group === 'integration-api') {
+  } else if (apiIntegrationShardGroups[group.replace(/^integration-/u, '')]) {
+    const part = group.replace(/^integration-/u, '')
     add(
       '--filter',
       '@nihongo/api',
       'exec',
       'tsx',
-      'src/e2e/validateApiIntegrationManifest.ts'
+      '../../scripts/ci/api-shard-partition.mjs'
     )
-    add('--filter', '@nihongo/api', 'run', 'test:api-regression')
+    if (part === 'api-3') {
+      add(
+        '--filter',
+        '@nihongo/api',
+        'exec',
+        'tsx',
+        'src/e2e/validateApiIntegrationManifest.ts'
+      )
+      add('--filter', '@nihongo/api', 'run', 'test:api-regression')
+    }
     add(
       '--filter',
       '@nihongo/api',
       'exec',
       'tsx',
-      'src/e2e/runApiIntegration.ts'
+      'src/e2e/runApiIntegration.ts',
+      `--shards=${apiIntegrationShardGroups[part].join(',')}`
     )
   } else if (group === 'performance') {
     add('run', 'test:database-performance')
