@@ -271,6 +271,7 @@ const userJourneyRequestContract = [
   { method: 'GET', path: '/api/v1/study-sessions/:id/result', statuses: [200] },
   { method: 'GET', path: '/api/v1/review-queue', statuses: [200, 200] },
   { method: 'GET', path: '/api/v1/wrong-notes/:id', statuses: [200, 200] },
+  { method: 'GET', path: '/api/v1/wrong-notes/:id/memo', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/wrong-notes/:id/review-events',
