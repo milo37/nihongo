@@ -14,7 +14,10 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
 import { adminAuditQueries } from '@app/admin-audit/queries/adminAuditQueries'
-import { adminImportMutations } from '@app/admin-import/queries/adminImportQueries'
+import {
+  adminImportMutations,
+  adminImportQueries
+} from '@app/admin-import/queries/adminImportQueries'
 const fences = new WeakMap<object, AuthActorTransitionFence>()
 const assertOnline = (): void => {
   if (!onlineManager.isOnline())
@@ -54,6 +57,30 @@ export const useValidateImport = () => {
     onSuccess: (_result, _body, fence) => assertAdmin(fence)
   })
 }
+const invalidateImportedContent = (
+  client: ReturnType<typeof useQueryClient>
+): Promise<unknown> =>
+  Promise.all(
+    [
+      adminQuestionQueries.allKey(),
+      serverStateQueryKeys.adminQuestion.all(),
+      adminAuditQueries.allKey()
+    ].map((queryKey) => client.invalidateQueries({ queryKey }))
+  )
+
+/** Re-reads a stored apply result by importId after an unknown apply outcome. */
+export const useRecoverImportResult = () => {
+  const client = useQueryClient()
+  return async (importId: string) => {
+    const fence = bind({})
+    const result = await client.fetchQuery(adminImportQueries.result(importId))
+    assertAdmin(fence)
+    await invalidateImportedContent(client)
+    assertAdmin(fence)
+    return result
+  }
+}
+
 export const useApplyImport = () => {
   const client = useQueryClient()
   const options = adminImportMutations.apply()
@@ -70,13 +97,7 @@ export const useApplyImport = () => {
     },
     onSuccess: async (_result, _body, fence) => {
       assertAdmin(fence)
-      await Promise.all(
-        [
-          adminQuestionQueries.allKey(),
-          serverStateQueryKeys.adminQuestion.all(),
-          adminAuditQueries.allKey()
-        ].map((queryKey) => client.invalidateQueries({ queryKey }))
-      )
+      await invalidateImportedContent(client)
       assertAdmin(fence)
     }
   })
