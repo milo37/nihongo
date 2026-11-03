@@ -210,9 +210,9 @@ interface ViewportEvidenceOptions {
 }
 
 const browserMode = (() => {
-  const value = process.env.PHASE9_BROWSER_MODE
+  const value = process.env.ACCESSIBILITY_BROWSER_MODE
   if (value !== 'mock' && value !== 'real') {
-    throw new Error('PHASE9_BROWSER_MODE must be mock or real.')
+    throw new Error('ACCESSIBILITY_BROWSER_MODE must be mock or real.')
   }
   return value satisfies BrowserMode
 })()
@@ -240,7 +240,8 @@ const demoUser = { role: 'USER' } as const satisfies BrowserActor
 
 const readRealFixture = (): RealBrowserFixture => {
   const serialized =
-    process.env.PHASE9_BROWSER_FIXTURE ?? process.env.ADMIN_BROWSER_FIXTURE
+    process.env.ACCESSIBILITY_BROWSER_FIXTURE ??
+    process.env.ADMIN_BROWSER_FIXTURE
   if (!serialized) {
     throw new Error('Real accessibility browser fixture is missing.')
   }
@@ -1709,7 +1710,7 @@ const createReportFixture = async (page: Page) => {
     throw new Error('Accessibility report question fixture is missing.')
 
   const response = await requestBrowserJson(page, '/api/v1/question-reports', {
-    description: 'Phase 9 accessibility route audit fixture',
+    description: 'Accessibility route audit fixture',
     questionVersionId: target.question.questionVersionId,
     reason: 'OTHER'
   })
@@ -2937,7 +2938,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   expect(reportExchange.requests).toHaveLength(1)
   expect(reportExchange.responses).toHaveLength(1)
   expect(reportExchange.requests[0]?.payload).toEqual({
-    description: 'Phase 9 accessibility route audit fixture',
+    description: 'Accessibility route audit fixture',
     questionVersionId: expect.any(String),
     reason: 'OTHER'
   })

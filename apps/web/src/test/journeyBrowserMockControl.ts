@@ -94,7 +94,7 @@ const createRateLimitFailure = () =>
       return HttpResponse.json(
         {
           code: 'RATE_LIMITED',
-          message: 'Phase 10 browser rate-limit fault injection',
+          message: 'Browser rate-limit fault injection',
           requestId,
           retryable: true
         },

@@ -45,9 +45,9 @@ import {
   waitForLedgerToQuiesce
 } from './request-ledger'
 
-const mode = process.env.PHASE10_BROWSER_MODE
+const mode = process.env.JOURNEY_BROWSER_MODE
 if (mode !== 'real' && mode !== 'mock') {
-  throw new Error('PHASE10_BROWSER_MODE must be real or mock.')
+  throw new Error('JOURNEY_BROWSER_MODE must be real or mock.')
 }
 
 const browserJson = async (page: Page, path: string, body?: unknown) =>
@@ -128,7 +128,7 @@ for (const locale of ['ko', 'ja'] as const) {
         if (!state) throw new Error('Google TEST authorization omitted state.')
         const callback = `/api/auth/callback/google?${new URLSearchParams({
           state,
-          code: 'phase7-sso-browser-test-code'
+          code: 'sso-browser-test-code'
         })}`
         const accepted = await page.evaluate(async (path) => {
           try {
@@ -499,7 +499,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         const state = new URL(redirected.url()).searchParams.get('state')
         if (!state) throw new Error('Google TEST authorization omitted state.')
         await page.goto(
-          `/api/auth/callback/google?${new URLSearchParams({ state, code: 'phase7-sso-browser-test-code' })}`
+          `/api/auth/callback/google?${new URLSearchParams({ state, code: 'sso-browser-test-code' })}`
         )
       }
     }
@@ -619,7 +619,7 @@ const armDashboardFault = async (
     await route.fulfill({
       body: JSON.stringify({
         code: 'RATE_LIMITED',
-        message: 'Phase 10 browser rate-limit fault injection',
+        message: 'Browser rate-limit fault injection',
         requestId,
         retryable: true
       }),

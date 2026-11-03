@@ -44,13 +44,13 @@ interface AccessibilityDatabaseEvidence {
 }
 
 interface AccessibilityDatabaseContractModule {
-  readonly assertPhase9DatabaseContract: (input: {
+  readonly assertAccessibilityDatabaseContract: (input: {
     readonly before: AccessibilityDatabaseSnapshot
     readonly databaseUrl: string
     readonly fixture: unknown
     readonly keySecret: string
   }) => Promise<AccessibilityDatabaseEvidence>
-  readonly capturePhase9DatabaseSnapshot: (
+  readonly captureAccessibilityDatabaseSnapshot: (
     databaseUrl: string
   ) => Promise<AccessibilityDatabaseSnapshot>
 }
@@ -222,7 +222,7 @@ export const cleanup = (): Promise<void> => {
     if (!processesStopped) {
       errors.push(
         new Error(
-          'Phase 9 database cleanup was withheld because an owned process may still be running.'
+          'Accessibility database cleanup was withheld because an owned process may still be running.'
         )
       )
     } else {
@@ -238,7 +238,7 @@ export const cleanup = (): Promise<void> => {
 
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) {
-      throw new AggregateError(errors, 'Phase 9 browser cleanup failed.')
+      throw new AggregateError(errors, 'Accessibility browser cleanup failed.')
     }
   })()
   return cleanupPromise
@@ -270,7 +270,7 @@ const runPlaywright = async (
     {
       ...process.env,
       ...extraEnvironment,
-      PHASE9_BROWSER_MODE: browserMode,
+      ACCESSIBILITY_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_OUTPUT_LABEL: `phase9-${browserMode}`
     },
@@ -424,7 +424,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE10_BROWSER_MODE: 'mock',
+      JOURNEY_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_OUTPUT_LABEL: 'phase10-mock'
     },
@@ -464,7 +464,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     target.protocol !== 'http:'
   ) {
     throw new Error(
-      'Phase 9 mock admin requires an explicit isolated TEST API proxy target.'
+      'Accessibility mock admin requires an explicit isolated TEST API proxy target.'
     )
   }
   const webOrigin = `http://127.0.0.1:${webPort}`
@@ -507,7 +507,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
           './accessibility-database-contract.mjs'
         )) as AccessibilityDatabaseContractModule)
       : undefined
-  const baseline = await databaseContract?.capturePhase9DatabaseSnapshot(
+  const baseline = await databaseContract?.captureAccessibilityDatabaseSnapshot(
     harness.adminDatabaseUrl
   )
   const api = spawnOwned(
@@ -551,16 +551,17 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   await runPlaywright(
     browserMode,
     webOrigin,
-    { PHASE9_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
+    { ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(created.fixture) },
     adminSignal
   )
   if (!databaseContract || !baseline) return
-  const databaseEvidence = await databaseContract.assertPhase9DatabaseContract({
-    before: baseline,
-    databaseUrl: harness.adminDatabaseUrl,
-    fixture: created.fixture,
-    keySecret: rateLimitKeySecret
-  })
+  const databaseEvidence =
+    await databaseContract.assertAccessibilityDatabaseContract({
+      before: baseline,
+      databaseUrl: harness.adminDatabaseUrl,
+      fixture: created.fixture,
+      keySecret: rateLimitKeySecret
+    })
   adminSignal.throwIfAborted()
   const evidenceDirectory = nodePath.resolve(
     repositoryRoot,
@@ -576,7 +577,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
 
 const run = async (): Promise<void> => {
   if (!mode) {
-    throw new Error('Phase 9 browser runner accepts mock or real mode.')
+    throw new Error('Accessibility browser runner accepts mock or real mode.')
   }
   await runBrowser(mode)
 }
@@ -596,7 +597,7 @@ export const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `Phase 9 ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `Accessibility ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -616,7 +617,7 @@ export const main = (): Promise<void> =>
   execute()
     .then(() => {
       process.stdout.write(
-        `${JSON.stringify({ event: `phase9.browser.${mode}.passed` })}\n`
+        `${JSON.stringify({ event: `accessibility.browser.${mode}.passed` })}\n`
       )
     })
     .catch((error: unknown) => {
@@ -626,7 +627,7 @@ export const main = (): Promise<void> =>
           : undefined
       process.stderr.write(
         `${JSON.stringify({
-          event: `phase9.browser.${mode ?? 'unknown'}.failed`,
+          event: `accessibility.browser.${mode ?? 'unknown'}.failed`,
           ...describeFailure(error),
           ...(causes ? { causes } : {})
         })}\n`

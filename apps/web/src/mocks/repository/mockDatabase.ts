@@ -3541,7 +3541,7 @@ export class MockDatabase {
       if (dedicatedSerialized !== null) {
         const dedicated =
           this.parseMockContentPersistedState(dedicatedSerialized)
-        if (!dedicated) throw new Error('Invalid dedicated Phase 7 state.')
+        if (!dedicated) throw new Error('Invalid dedicated admin CMS state.')
         persistedContentState = dedicated
       }
 
@@ -4200,7 +4200,7 @@ export class MockDatabase {
     ): ProjectedQuestionRecord => {
       const sourceQuestionId =
         sourceIdByQuestionId.get(question.questionId) ??
-        `phase7-question:${question.questionId}`
+        `cms-question:${question.questionId}`
       const options = version.options
         .toSorted((left, right) => left.ordinal - right.ordinal)
         .map((option) => ({
@@ -4248,7 +4248,7 @@ export class MockDatabase {
     for (const question of snapshot.questions) {
       const sourceQuestionId =
         sourceIdByQuestionId.get(question.questionId) ??
-        `phase7-question:${question.questionId}`
+        `cms-question:${question.questionId}`
       lifecycleBySourceId.set(sourceQuestionId, question.lifecycleStatus)
       const versions = versionsByQuestionId.get(question.questionId) ?? []
       const retained = versions
@@ -4281,7 +4281,7 @@ export class MockDatabase {
       )
       if (!current) {
         throwCanonicalIntegrityError(
-          'Phase 7 공개 문제 포인터가 learner read model과 일치하지 않습니다.'
+          '관리 CMS 공개 문제 포인터가 learner read model과 일치하지 않습니다.'
         )
       }
       const record = toProjectedRecord(question, current)
@@ -5798,7 +5798,7 @@ export class MockDatabase {
         this.mockMutationStorageBaseline !== undefined &&
         previousState !== this.mockMutationStorageBaseline
       ) {
-        throw new Error('Mock storage changed outside the Phase 7 lease.')
+        throw new Error('Mock storage changed outside the admin CMS lease.')
       }
       const contentSnapshot = this.mockContentState.persistedSnapshot(
         this.listAuthoritativeAdminQuestionSources()
