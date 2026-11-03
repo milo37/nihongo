@@ -307,7 +307,7 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
       await assertAndAttachLedger(
         cms,
         testInfo,
-        `phase7-${actor ? 'user' : 'guest'}-denial`
+        `admin-${actor ? 'user' : 'guest'}-denial`
       )
     } finally {
       await context.close()
@@ -754,7 +754,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       await assertAndAttachLedger(
         ledger,
         testInfo,
-        'phase7-a1-a8-real-request-ledger'
+        'admin-cms-real-request-ledger'
       )
     } finally {
       context.off('response', observeReturn)

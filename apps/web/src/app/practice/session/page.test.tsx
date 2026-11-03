@@ -703,4 +703,163 @@ describe('PracticeSessionPage', () => {
     },
     10_000
   )
+
+  const startSession = async (count: number) => {
+    const response = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count
+    })
+    const payload = toCanonicalStudySessionView(response.data)
+    useAppStore
+      .getState()
+      .beginPractice(payload.session.id, payload.session.startedAt)
+    return payload
+  }
+
+  const loginAsUser = async (): Promise<void> => {
+    mockDatabase.loginAs('USER')
+    const principal = await queryClient.fetchQuery(authQueries.currentUser())
+    await commitCanonicalAuth(queryClient, principal)
+  }
+
+  it('게스트 책갈피는 로그인 안내와 로그인 링크를 보여 준다', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    const bookmark = screen.getByRole('button', {
+      name: '1번 문제 책갈피 추가'
+    })
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+    await user.click(bookmark)
+    expect(
+      await screen.findByText(/책갈피를 저장하려면 로그인해 주세요\./u)
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '로그인 선택' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fpractice'
+    )
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('USER 책갈피 추가·해제가 버튼 상태와 안내를 갱신한다', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    const add = screen.getByRole('button', { name: '1번 문제 책갈피 추가' })
+    await waitFor(() => expect(add).toBeEnabled())
+    await user.click(add)
+    expect(await screen.findByText('책갈피에 저장했습니다.')).toBeVisible()
+    const remove = screen.getByRole('button', {
+      name: '1번 문제 책갈피 해제'
+    })
+    expect(remove).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(remove).toBeEnabled())
+    await user.click(remove)
+    expect(await screen.findByText('책갈피에서 해제했습니다.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '1번 문제 책갈피 추가' })
+    ).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('이전·다음·바로가기 이동이 문제 번호, 진행 표시, 버튼 상태를 맞춘다', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(3)
+    const [first] = payload.questions
+    if (!first) throw new Error('Question required')
+    renderSession(payload.session.id)
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent('1번 문제.')
+    const firstRadio = screen.getByRole('radio', {
+      name: `1. ${first.options[0]?.text ?? ''}`
+    })
+    await waitFor(() => expect(firstRadio).toBeEnabled())
+    expect(screen.getByRole('button', { name: '이전' })).toBeDisabled()
+    const jump = screen.getByRole('navigation', { name: '문제 바로가기' })
+    expect(
+      within(jump).getByRole('button', { name: '1번 문제, 미응답' })
+    ).toHaveAttribute('aria-current', 'step')
+    await user.click(firstRadio)
+    expect(
+      within(jump).getByRole('button', { name: '1번 문제, 답변함' })
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        '2번 문제.'
+      )
+    )
+    expect(screen.getByRole('button', { name: '이전' })).toBeEnabled()
+    expect(
+      within(jump).getByRole('button', { name: '2번 문제, 미응답' })
+    ).toHaveAttribute('aria-current', 'step')
+    await user.click(
+      within(jump).getByRole('button', { name: '3번 문제, 미응답' })
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        '3번 문제.'
+      )
+    )
+    expect(
+      screen.queryByRole('button', { name: '다음' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '답안 제출' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '이전' }))
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+        '2번 문제.'
+      )
+    )
+  })
+
+  it('미응답 수를 확인한 뒤 제출하면 결과 경로로 이동한다', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(2)
+    const [first] = payload.questions
+    const option = first?.options[0]
+    if (!option) throw new Error('Public option required')
+    const router = renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(radio)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    const submit = await screen.findByRole('button', { name: '답안 제출' })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await user.click(submit)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent(
+      '아직 답하지 않은 문제가 1개 있습니다. 미응답은 오답으로 처리됩니다.'
+    )
+    await user.click(within(dialog).getByRole('button', { name: '계속 풀기' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: '답안 제출' }))
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: '제출하고 결과 보기'
+      })
+    )
+    expect(await screen.findByText('제출 결과 도착')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe(
+      `/practice/result/${payload.session.id}`
+    )
+  })
 })

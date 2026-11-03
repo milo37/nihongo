@@ -7,7 +7,8 @@ import {
 import { z } from 'zod'
 import {
   createPracticeTransportResponseSchema,
-  refinePracticeContractV2Header
+  refinePracticeContractV2Header,
+  refinePracticeJsonContentType
 } from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const createResultRetrySessionRequestParamsSchema =
@@ -22,15 +23,11 @@ export const createResultRetrySessionTransportResponseSchema =
     createResultRetrySessionResponseSchema,
     z.literal(201)
   ).superRefine(({ data, headers }, context) => {
-    if (
-      !headers['content-type']?.toLowerCase().startsWith('application/json')
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'content-type'],
-        message: 'retry 생성 응답에는 JSON Content-Type이 필요합니다.'
-      })
-    }
+    refinePracticeJsonContentType(
+      headers,
+      context,
+      'retry 생성 응답에는 JSON Content-Type이 필요합니다.'
+    )
     refinePracticeContractV2Header(
       headers,
       context,
