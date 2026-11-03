@@ -6,6 +6,7 @@ import {
   captureAuthActorTransitionFence
 } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
+import { analyticsClient } from '@/analytics/client'
 
 export const useCreateReport = (onSuccess?: () => void) =>
   useMutation({
@@ -17,11 +18,15 @@ export const useCreateReport = (onSuccess?: () => void) =>
       }
       return captureAuthActorTransitionFence(actor)
     },
-    onSuccess: (_result, _request, fence) => {
+    onSuccess: (_result, request, fence) => {
       assertCurrentAuthActorTransitionFence(
         fence,
         useAppStore.getState().currentUser
       )
+      analyticsClient.track({
+        event: 'report_submitted',
+        payload: { kind: request.kind }
+      })
       onSuccess?.()
     }
   })

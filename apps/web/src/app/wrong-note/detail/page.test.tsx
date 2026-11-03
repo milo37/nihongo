@@ -22,6 +22,7 @@ import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { mockServer } from '@/test/server'
+import { analyticsClient } from '@/analytics/client'
 
 const returnTo = '/wrong-notes?view=UNREVIEWED&level=N5&subject=VOCABULARY'
 
@@ -326,6 +327,7 @@ describe('wrong-note restricted account', () => {
 describe('wrong-note question report', () => {
   it('사유 없이 설명만 받아 화면 키와 문항 번호로 제보를 접수한다', async () => {
     const user = userEvent.setup()
+    const track = vi.spyOn(analyticsClient, 'track')
     const { question, detail } = await renderReadonlyDetail()
     await user.click(screen.getByRole('button', { name: '문제 신고' }))
     const dialog = await screen.findByRole('dialog')
@@ -348,6 +350,11 @@ describe('wrong-note question report', () => {
       })
     ])
     expect(question.id).toBe(detail.question.id)
+    expect(track).toHaveBeenCalledWith({
+      event: 'report_submitted',
+      payload: { kind: 'QUESTION' }
+    })
+    track.mockRestore()
   })
 })
 
