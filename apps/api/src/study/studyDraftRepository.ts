@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { saveStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/save-study-draft-answers'
 import type { ParsedSaveStudyDraftAnswersBody } from '@nihongo/contracts/study/save-study-draft-answers'
 import type { StudyDraftSnapshot } from '@nihongo/contracts/study/study-draft'
@@ -21,10 +21,12 @@ import {
   IdempotencyKeyReusedError,
   StudySubmissionRepositoryUnavailableError
 } from './studySubmissionRepository.js'
+import {
+  createSerializableRetryJitterMs,
+  getSerializableRetryDelayMs,
+  SERIALIZABLE_MAX_ATTEMPTS
+} from './serializableRetryPolicy.js'
 
-const MAX_TRANSACTION_ATTEMPTS = 3
-const RETRY_BASE_DELAY_MS = 5
-const RETRY_JITTER_MAX_MS = 5
 const DRAFT_IDEMPOTENCY_RETENTION_MS = 48 * 60 * 60 * 1_000
 const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
 
@@ -596,7 +598,7 @@ export const createPrismaStudyDraftRepository = (
 ): StudyDraftRepository => {
   const retryDelay = options.delay ?? delay
   const jitterMilliseconds =
-    options.jitterMilliseconds ?? (() => randomInt(0, RETRY_JITTER_MAX_MS + 1))
+    options.jitterMilliseconds ?? createSerializableRetryJitterMs
 
   const withRepositoryErrors = async <Result>(
     operation: () => Promise<Result>
@@ -751,7 +753,7 @@ export const createPrismaStudyDraftRepository = (
       withRepositoryErrors(async () => {
         for (
           let attempt = 1;
-          attempt <= MAX_TRANSACTION_ATTEMPTS;
+          attempt <= SERIALIZABLE_MAX_ATTEMPTS;
           attempt += 1
         ) {
           try {
@@ -773,9 +775,9 @@ export const createPrismaStudyDraftRepository = (
             const retryable =
               error instanceof FreshDraftTransactionRetry ||
               isSerializableConflict(error)
-            if (retryable && attempt < MAX_TRANSACTION_ATTEMPTS) {
+            if (retryable && attempt < SERIALIZABLE_MAX_ATTEMPTS) {
               await retryDelay(
-                attempt * RETRY_BASE_DELAY_MS + jitterMilliseconds()
+                getSerializableRetryDelayMs(attempt, jitterMilliseconds())
               )
               continue
             }
