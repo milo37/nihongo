@@ -18,9 +18,9 @@ import {
   dormantAfterSlice3RA2OperationManifest,
   dormantAfterSlice4OperationManifest,
   dormantAfterSlice5OperationManifest,
-  phase7OperationManifest,
+  operationManifest,
   operationSchemaManifest,
-  phase7OperationSchemas,
+  operationSchemas,
   activeThroughSlice3AOperationManifest,
   activeThroughSlice3RA1OperationManifest,
   activeThroughSlice3RA2OperationManifest,
@@ -32,7 +32,7 @@ import {
   slice4CacheInvalidationTargets,
   slice4OperationManifest,
   slice5OperationManifest,
-  phase7Slice2ReadOperationManifest
+  slice2ReadOperationManifest
 } from '../src/admin/content-operations.js'
 import {
   assertSlice2ConformanceManifest,
@@ -59,10 +59,10 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
 
     expect(roundTrip).toBe(oldOperation)
     expect(contentOperations.contentOperationManifest).toBe(
-      legacyOperations.phase7OperationManifest
+      legacyOperations.operationManifest
     )
     expect(contentOperations.contentOperationSchemas).toBe(
-      legacyOperations.phase7OperationSchemas
+      legacyOperations.operationSchemas
     )
     expect(contentOperations.parseJsonBytes).toBe(
       legacyOperations.parseJsonBytes
@@ -94,15 +94,15 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
 
   it('closes exactly 28 operations with exactly eight active GET reads', () => {
     expect(() => assertOperationManifest()).not.toThrow()
-    expect(phase7OperationManifest).toHaveLength(28)
-    expect(phase7Slice2ReadOperationManifest).toHaveLength(8)
+    expect(operationManifest).toHaveLength(28)
+    expect(slice2ReadOperationManifest).toHaveLength(8)
     expect(
-      phase7Slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
+      slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
     ).toBe(true)
   })
 
   it('fixes the exact ordered Slice 3A, Slice 3R, and Slice 4 activation tuples', () => {
-    const tuple = (entry: (typeof phase7OperationManifest)[number]) => [
+    const tuple = (entry: (typeof operationManifest)[number]) => [
       entry.operation,
       entry.operationId,
       entry.method,
@@ -181,7 +181,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       activeThroughSlice3AOperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             entry.slice2Route ||
@@ -194,7 +194,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       dormantAfterSlice3AOperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             !activeThroughSlice3AOperationManifest.includes(entry as never)
@@ -207,7 +207,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       activeThroughSlice3RA1OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             activeThroughSlice3AOperationManifest.includes(entry as never) ||
@@ -218,7 +218,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       dormantAfterSlice3RA1OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             !activeThroughSlice3RA1OperationManifest.includes(entry as never)
@@ -231,7 +231,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       activeThroughSlice3RA2OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             activeThroughSlice3RA1OperationManifest.includes(entry as never) ||
@@ -243,7 +243,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       dormantAfterSlice3RA2OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             !activeThroughSlice3RA2OperationManifest.includes(entry as never)
@@ -282,7 +282,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       activeThroughSlice4OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             activeThroughSlice3RA2OperationManifest.includes(entry as never) ||
@@ -293,7 +293,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(
       dormantAfterSlice4OperationManifest.map((entry) => entry.operation)
     ).toEqual(
-      phase7OperationManifest
+      operationManifest
         .filter(
           (entry) =>
             !activeThroughSlice4OperationManifest.includes(entry as never)
@@ -379,7 +379,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(dormantAfterSlice5OperationManifest).toHaveLength(0)
     expect(
       activeThroughSlice5OperationManifest.map((entry) => entry.operation)
-    ).toEqual(phase7OperationManifest.map((entry) => entry.operation))
+    ).toEqual(operationManifest.map((entry) => entry.operation))
   })
 
   it('closes the exact post-commit Slice 4 cache invalidation contract', () => {
@@ -426,7 +426,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     const actual = Object.keys(adminContentExports)
       .filter((name) => name.endsWith('ErrorCodeSchema'))
       .sort()
-    const expected = phase7OperationManifest
+    const expected = operationManifest
       .map((entry) => entry.operation + 'ErrorCodeSchema')
       .sort()
     expect(actual).toEqual(expected)
@@ -434,12 +434,12 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
 
   it('binds every operation to exact closed request and response schemas', () => {
     expect(() => assertOperationSchemaManifest()).not.toThrow()
-    expect(Object.keys(phase7OperationSchemas)).toEqual(
-      phase7OperationManifest.map((entry) => entry.operation)
+    expect(Object.keys(operationSchemas)).toEqual(
+      operationManifest.map((entry) => entry.operation)
     )
     expect(operationSchemaManifest).toHaveLength(28)
     operationSchemaManifest.forEach((entry) => {
-      expect(entry.schemas).toBe(phase7OperationSchemas[entry.operation])
+      expect(entry.schemas).toBe(operationSchemas[entry.operation])
       expect(
         [
           entry.schemas.params,
@@ -499,7 +499,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
 
   it('enforces wire retryability for all 28 named operation error schemas', () => {
     operationErrorConformanceManifest.forEach((entry) => {
-      const schema = phase7OperationSchemas[entry.operation].error
+      const schema = operationSchemas[entry.operation].error
       expect(
         schema.safeParse(failure('AUTHENTICATION_REQUIRED', false)).success
       ).toBe(true)

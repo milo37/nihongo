@@ -6,10 +6,7 @@ import {
   stableErrorCodeSchema,
   type StableErrorCode
 } from '../common/error.js'
-import {
-  phase7OperationManifest,
-  type AdminOperation
-} from './content-manifest.js'
+import { operationManifest, type AdminOperation } from './content-manifest.js'
 
 export const executionDispositionSchema = z.enum([
   'NO_TX',
@@ -18,7 +15,7 @@ export const executionDispositionSchema = z.enum([
   'COMMIT_UNKNOWN'
 ])
 
-export type Phase7ExecutionDisposition = z.output<
+export type AdminExecutionDisposition = z.output<
   typeof executionDispositionSchema
 >
 
@@ -26,7 +23,7 @@ export const internalFailureReasonSchema = z.enum([
   'CONTENT_DUPLICATE_CONCURRENT_RACE'
 ])
 
-export type Phase7InternalFailureReason = z.output<
+export type AdminInternalFailureReason = z.output<
   typeof internalFailureReasonSchema
 >
 
@@ -83,12 +80,12 @@ const duplicateRaceOperations = new Set<AdminOperation>([
 export interface RetryabilityInput {
   readonly operation: AdminOperation
   readonly code: StableErrorCode
-  readonly disposition: Phase7ExecutionDisposition
-  readonly internalReason?: Phase7InternalFailureReason | undefined
+  readonly disposition: AdminExecutionDisposition
+  readonly internalReason?: AdminInternalFailureReason | undefined
 }
 
 const isPreCommitDisposition = (
-  disposition: Phase7ExecutionDisposition
+  disposition: AdminExecutionDisposition
 ): boolean => disposition === 'NO_TX' || disposition === 'DEFINITE_ROLLBACK'
 
 export const computeRetryability = ({
@@ -192,9 +189,7 @@ export const createPhase7OperationErrorSchema = <
   })
 
 export const assertErrorPolicyManifest = (): void => {
-  const manifestOperations = phase7OperationManifest.map(
-    (entry) => entry.operation
-  )
+  const manifestOperations = operationManifest.map((entry) => entry.operation)
   const policyOperations = Object.keys(phase7ErrorSurfaceByOperation)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(policyOperations)) {
     throw new Error(

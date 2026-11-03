@@ -115,11 +115,11 @@ import {
 } from './content-read.js'
 import {
   computeRetryability,
-  type Phase7ExecutionDisposition,
-  type Phase7InternalFailureReason
+  type AdminExecutionDisposition,
+  type AdminInternalFailureReason
 } from './content-error-policy.js'
 import {
-  phase7OperationManifest,
+  operationManifest,
   type AdminOperation,
   type OperationManifestEntry
 } from './content-manifest.js'
@@ -145,7 +145,7 @@ const noParams = emptyParamsSchema
 const noQuery = emptyQuerySchema
 const noBody = noRequestBodySchema
 
-export const phase7OperationSchemas = {
+export const operationSchemas = {
   listAdminQuestions: {
     params: noParams,
     query: listAdminQuestionsQuerySchema,
@@ -347,9 +347,9 @@ export const phase7OperationSchemas = {
 }
 
 export const operationSchemaManifest: readonly OperationSchemaManifestEntry[] =
-  phase7OperationManifest.map((entry) => ({
+  operationManifest.map((entry) => ({
     ...entry,
-    schemas: phase7OperationSchemas[entry.operation]
+    schemas: operationSchemas[entry.operation]
   }))
 
 export interface OperationFailureDetails {
@@ -362,8 +362,8 @@ export interface OperationFailureDetails {
 export interface BuildOperationFailureResponseInput {
   readonly operation: AdminOperation
   readonly failure: OperationFailureDetails
-  readonly disposition: Phase7ExecutionDisposition
-  readonly internalReason?: Phase7InternalFailureReason | undefined
+  readonly disposition: AdminExecutionDisposition
+  readonly internalReason?: AdminInternalFailureReason | undefined
   readonly retryAfterSeconds?: number | undefined
 }
 
@@ -406,7 +406,7 @@ export const buildPhase7OperationFailureResponse = ({
     operation
   })
   const body = apiFailureSchema.parse(
-    phase7OperationSchemas[operation].error.parse({
+    operationSchemas[operation].error.parse({
       ...failure,
       retryable
     })
@@ -427,8 +427,8 @@ export const buildPhase7OperationFailureResponse = ({
 export interface AssertOperationFailureResponseInput {
   readonly operation: AdminOperation
   readonly response: Phase7OperationFailureResponse
-  readonly disposition: Phase7ExecutionDisposition
-  readonly internalReason?: Phase7InternalFailureReason | undefined
+  readonly disposition: AdminExecutionDisposition
+  readonly internalReason?: AdminInternalFailureReason | undefined
 }
 
 export const assertOperationFailureResponse = ({
@@ -438,7 +438,7 @@ export const assertOperationFailureResponse = ({
   response
 }: AssertOperationFailureResponseInput): Phase7OperationFailureResponse => {
   const body = apiFailureSchema.parse(
-    phase7OperationSchemas[operation].error.parse(response.body)
+    operationSchemas[operation].error.parse(response.body)
   )
   const expectedStatus = errorStatusByCode[body.code]
   if (response.status !== expectedStatus) {
@@ -483,10 +483,8 @@ export const assertOperationFailureResponse = ({
 }
 
 export const assertOperationSchemaManifest = (): void => {
-  const manifestOperations = phase7OperationManifest.map(
-    (entry) => entry.operation
-  )
-  const schemaOperations = Object.keys(phase7OperationSchemas)
+  const manifestOperations = operationManifest.map((entry) => entry.operation)
+  const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
       'Phase 7 operation schema manifest는 canonical 28-operation 순서와 같아야 합니다.'
@@ -495,7 +493,7 @@ export const assertOperationSchemaManifest = (): void => {
   if (
     operationSchemaManifest.length !== 28 ||
     operationSchemaManifest.some(
-      (entry) => entry.schemas !== phase7OperationSchemas[entry.operation]
+      (entry) => entry.schemas !== operationSchemas[entry.operation]
     )
   ) {
     throw new Error(

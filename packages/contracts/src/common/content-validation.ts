@@ -184,7 +184,7 @@ export interface QuestionDuplicateIdentityMaterial {
   readonly subject: string
 }
 
-export const createPhase7QuestionDuplicateIdentity = (
+export const createQuestionDuplicateIdentityKey = (
   material: QuestionDuplicateIdentityMaterial
 ): string =>
   canonicalizeJson({

@@ -27,7 +27,7 @@ vi.mock('pg', () => ({
 }))
 
 let register: typeof import('./runAdminApiIntegration.js').registerCapabilityAndActivate
-let prepareArtifacts: typeof import('./runAdminApiIntegration.js').preparePhase7IntegrationArtifacts
+let prepareArtifacts: typeof import('./runAdminApiIntegration.js').prepareIntegrationArtifacts
 let seedInvocation: typeof import('./runAdminApiIntegration.js').adminSeedInvocation
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
@@ -39,7 +39,7 @@ beforeAll(async () => {
   register = (await import('./runAdminApiIntegration.js'))
     .registerCapabilityAndActivate
   prepareArtifacts = (await import('./runAdminApiIntegration.js'))
-    .preparePhase7IntegrationArtifacts
+    .prepareIntegrationArtifacts
   seedInvocation = (await import('./runAdminApiIntegration.js'))
     .adminSeedInvocation
 })

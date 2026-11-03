@@ -12,7 +12,7 @@ export interface OperationManifestEntry {
   readonly slice2Route: boolean
 }
 
-export const phase7OperationManifest = [
+export const operationManifest = [
   {
     operation: 'listAdminQuestions',
     operationId: 'admin.listAdminQuestions',
@@ -295,7 +295,7 @@ export const phase7OperationManifest = [
   }
 ] as const satisfies readonly OperationManifestEntry[]
 
-export const phase7Slice2ReadOperationManifest = phase7OperationManifest.filter(
+export const slice2ReadOperationManifest = operationManifest.filter(
   (entry) => entry.slice2Route
 )
 
@@ -377,118 +377,106 @@ export const slice4CacheInvalidationContractByOperation = {
   >
 >
 
-export const slice3ACommandOperationManifest = phase7OperationManifest.filter(
+export const slice3ACommandOperationManifest = operationManifest.filter(
   (entry) => ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
 )
 
-export const slice3RRemediationOperationManifest =
-  phase7OperationManifest.filter((entry) =>
-    ADMIN_SLICE_3R_REMEDIATION_OPERATIONS.has(entry.operation)
-  )
+export const slice3RRemediationOperationManifest = operationManifest.filter(
+  (entry) => ADMIN_SLICE_3R_REMEDIATION_OPERATIONS.has(entry.operation)
+)
 
-export const activeThroughSlice3AOperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      entry.slice2Route ||
-      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
-  )
+export const activeThroughSlice3AOperationManifest = operationManifest.filter(
+  (entry) =>
+    entry.slice2Route || ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+)
 
-export const dormantAfterSlice3AOperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      !entry.slice2Route &&
-      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
-  )
+export const dormantAfterSlice3AOperationManifest = operationManifest.filter(
+  (entry) =>
+    !entry.slice2Route &&
+    !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+)
 
-export const activeThroughSlice3RA1OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      entry.slice2Route ||
-      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation)
-  )
+export const activeThroughSlice3RA1OperationManifest = operationManifest.filter(
+  (entry) =>
+    entry.slice2Route ||
+    ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation)
+)
 
-export const dormantAfterSlice3RA1OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      !entry.slice2Route &&
-      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation)
-  )
+export const dormantAfterSlice3RA1OperationManifest = operationManifest.filter(
+  (entry) =>
+    !entry.slice2Route &&
+    !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation)
+)
 
-export const activeThroughSlice3RA2OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      entry.slice2Route ||
-      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation)
-  )
+export const activeThroughSlice3RA2OperationManifest = operationManifest.filter(
+  (entry) =>
+    entry.slice2Route ||
+    ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation)
+)
 
-export const dormantAfterSlice3RA2OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      !entry.slice2Route &&
-      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation)
-  )
+export const dormantAfterSlice3RA2OperationManifest = operationManifest.filter(
+  (entry) =>
+    !entry.slice2Route &&
+    !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation)
+)
 
-export const slice4OperationManifest = phase7OperationManifest.filter((entry) =>
+export const slice4OperationManifest = operationManifest.filter((entry) =>
   ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
 )
 
-export const activeThroughSlice4OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      entry.slice2Route ||
-      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
-  )
+export const activeThroughSlice4OperationManifest = operationManifest.filter(
+  (entry) =>
+    entry.slice2Route ||
+    ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
+)
 
-export const dormantAfterSlice4OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      !entry.slice2Route &&
-      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
-  )
+export const dormantAfterSlice4OperationManifest = operationManifest.filter(
+  (entry) =>
+    !entry.slice2Route &&
+    !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
+)
 
-export const slice5OperationManifest = phase7OperationManifest.filter((entry) =>
+export const slice5OperationManifest = operationManifest.filter((entry) =>
   ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
 )
 
-export const activeThroughSlice5OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      entry.slice2Route ||
-      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_4_OPERATIONS.has(entry.operation) ||
-      ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
-  )
+export const activeThroughSlice5OperationManifest = operationManifest.filter(
+  (entry) =>
+    entry.slice2Route ||
+    ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_4_OPERATIONS.has(entry.operation) ||
+    ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
+)
 
-export const dormantAfterSlice5OperationManifest =
-  phase7OperationManifest.filter(
-    (entry) =>
-      !entry.slice2Route &&
-      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_4_OPERATIONS.has(entry.operation) &&
-      !ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
-  )
+export const dormantAfterSlice5OperationManifest = operationManifest.filter(
+  (entry) =>
+    !entry.slice2Route &&
+    !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_4_OPERATIONS.has(entry.operation) &&
+    !ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
+)
 
 export const assertOperationManifest = (): void => {
-  if (phase7OperationManifest.length !== 28) {
+  if (operationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
   }
-  if (phase7Slice2ReadOperationManifest.length !== 8) {
+  if (slice2ReadOperationManifest.length !== 8) {
     throw new Error('Route manifest는 정확히 8개여야 합니다.')
   }
   if (
@@ -511,18 +499,14 @@ export const assertOperationManifest = (): void => {
       'Manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9, Slice 5 28/0 경계를 유지해야 합니다.'
     )
   }
-  const operations = new Set(
-    phase7OperationManifest.map((entry) => entry.operation)
-  )
+  const operations = new Set(operationManifest.map((entry) => entry.operation))
   const operationIds = new Set(
-    phase7OperationManifest.map((entry) => entry.operationId)
+    operationManifest.map((entry) => entry.operationId)
   )
   if (operations.size !== 28 || operationIds.size !== 28) {
     throw new Error('Phase 7 operation/operationId는 각각 고유해야 합니다.')
   }
-  if (
-    phase7Slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')
-  ) {
+  if (slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')) {
     throw new Error('Slice 2 manifest에는 GET read만 등록할 수 있습니다.')
   }
   if (
@@ -535,7 +519,5 @@ export const assertOperationManifest = (): void => {
   }
 }
 
-export type AdminOperation =
-  (typeof phase7OperationManifest)[number]['operation']
-export type OperationId =
-  (typeof phase7OperationManifest)[number]['operationId']
+export type AdminOperation = (typeof operationManifest)[number]['operation']
+export type OperationId = (typeof operationManifest)[number]['operationId']

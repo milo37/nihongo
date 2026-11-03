@@ -2,9 +2,9 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  cleanupPhase7IsolatedDatabase,
-  preparePhase7IntegrationArtifacts,
-  preparePhase7IsolatedDatabase
+  cleanupIsolatedDatabase,
+  prepareIntegrationArtifacts,
+  prepareIsolatedDatabase
 } from './runAdminApiIntegration.js'
 import {
   retireOwnedProcess,
@@ -209,7 +209,7 @@ const cleanup = (): Promise<void> => {
     }
     if (harnessPrepared) {
       try {
-        await cleanupPhase7IsolatedDatabase()
+        await cleanupIsolatedDatabase()
         harnessPrepared = false
       } catch (error: unknown) {
         errors.push(error)
@@ -278,7 +278,7 @@ const runShard = async (shard: string): Promise<ShardResult> => {
   harnessPrepared = !isProcessOnly
   const harness = isProcessOnly
     ? undefined
-    : await preparePhase7IsolatedDatabase({
+    : await prepareIsolatedDatabase({
         seedRuns,
         artifactsPrepared: process.argv.includes('--artifacts-prepared')
       })
@@ -338,7 +338,7 @@ const runAllShards = async (
     requestedShards
   )
   const entries = allEntries.filter(({ shard }) => shards.includes(shard))
-  await preparePhase7IntegrationArtifacts({
+  await prepareIntegrationArtifacts({
     abortSignal: preparationAbortController.signal,
     run: runCommand
   })

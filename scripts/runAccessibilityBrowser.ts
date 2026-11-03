@@ -438,10 +438,11 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     return
   }
   await reserveLoopbackPort(5175, 'localhost')
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runAdminApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
+    '../apps/api/src/e2e/runAdminApiIntegration.js'
+  )
+  cleanupDatabaseHarness = cleanupIsolatedDatabase
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })
@@ -493,10 +494,10 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     'APPLE_CLIENT_SECRET'
   ])
     delete apiEnvironment[key]
-  const { preparePhase9BrowserActors } = await import(
+  const { prepareBrowserActors } = await import(
     '../apps/api/src/e2e/browserApi.js'
   )
-  const created = await preparePhase9BrowserActors({
+  const created = await prepareBrowserActors({
     adminDatabaseUrl: harness.adminDatabaseUrl,
     environment: apiEnvironment
   })

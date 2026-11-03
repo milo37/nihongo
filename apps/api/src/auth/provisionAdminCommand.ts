@@ -3,7 +3,7 @@ import { Client } from 'pg'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
-import { assertSafePhase7MigrationDatabase } from '../db/databaseTargetGuard.js'
+import { assertSafeMigrationDatabase } from '../db/databaseTargetGuard.js'
 import {
   createPostgresStartupOptions,
   getPostgresSchema
@@ -50,7 +50,7 @@ export const runProvisionAdminCommand = async (
     ) {
       throw new Error('ADMIN_PROVISION_ENVIRONMENT_INVALID')
     }
-    assertSafePhase7MigrationDatabase({
+    assertSafeMigrationDatabase({
       nodeEnvironment: input.NODE_ENV,
       migrationDatabaseUrl: input.PHASE7_MIGRATION_DATABASE_URL,
       runtimeDatabaseUrl: input.DATABASE_URL,

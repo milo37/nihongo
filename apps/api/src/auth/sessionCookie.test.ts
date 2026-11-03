@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createSessionCookie,
-  createPhase7SessionCookie,
+  createOwnedSessionCookie,
   createDontRememberCookie,
   createOwnedDontRememberCookie,
   createExpiredSessionCookies,
@@ -12,7 +12,7 @@ import {
 
 describe('session cookie compatibility', () => {
   it('preserves exported objects, names, cookie bytes, and rejection behavior', () => {
-    expect(createSessionCookie).toBe(createPhase7SessionCookie)
+    expect(createSessionCookie).toBe(createOwnedSessionCookie)
     expect(createDontRememberCookie).toBe(createOwnedDontRememberCookie)
     expect(createExpiredSessionCookies).toBe(createExpiredOwnedSessionCookies)
     expect(readSessionToken).toBe(readOwnedSessionToken)
@@ -22,7 +22,7 @@ describe('session cookie compatibility', () => {
       createExpiredSessionCookies.name,
       readSessionToken.name
     ]).toEqual([
-      'createPhase7SessionCookie',
+      'createOwnedSessionCookie',
       'createOwnedDontRememberCookie',
       'createExpiredOwnedSessionCookies',
       'readOwnedSessionToken'

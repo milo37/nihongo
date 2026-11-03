@@ -28,8 +28,8 @@ vi.mock('./ownedProcessGroup.js', () => ({
   retireOwnedProcess: ports.retire
 }))
 vi.mock('./runAdminApiIntegration.js', () => ({
-  preparePhase7IsolatedDatabase: ports.prepare,
-  cleanupPhase7IsolatedDatabase: ports.cleanupHarness
+  prepareIsolatedDatabase: ports.prepare,
+  cleanupIsolatedDatabase: ports.cleanupHarness
 }))
 vi.mock('./browserFixture.js', () => ({
   createSsoAdminBrowserApiFixture: ports.fixture
@@ -46,7 +46,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cleanupAdminBrowserResources,
   closeBrowserApi,
-  selectPhase7BrowserSpecs
+  selectBrowserSpecs
 } from './runAdminBrowser.js'
 
 describe('admin and dashboard browser cleanup caller', () => {
@@ -332,13 +332,10 @@ describe('admin and dashboard real origin and Mock selection', () => {
   })
 
   it('selects admin only for real and preserves both dashboard modes', () => {
-    expect(selectPhase7BrowserSpecs('real', false)).toEqual([adminSpec])
-    expect(selectPhase7BrowserSpecs('real', true)).toEqual([
-      adminSpec,
-      dashboardSpec
-    ])
-    expect(selectPhase7BrowserSpecs('mock', true)).toEqual([dashboardSpec])
-    expect(() => selectPhase7BrowserSpecs('mock', false)).toThrow(
+    expect(selectBrowserSpecs('real', false)).toEqual([adminSpec])
+    expect(selectBrowserSpecs('real', true)).toEqual([adminSpec, dashboardSpec])
+    expect(selectBrowserSpecs('mock', true)).toEqual([dashboardSpec])
+    expect(() => selectBrowserSpecs('mock', false)).toThrow(
       'requires real mode'
     )
   })
@@ -539,7 +536,7 @@ describe('admin browser mandatory public origin environment', () => {
     'overrides stale origin/mode env with the actual %s boundary',
     async (mode) => {
       const runner = await import('./runAdminBrowser.js')
-      const result = runner.createPhase7BrowserPlaywrightEnvironment(
+      const result = runner.createBrowserPlaywrightEnvironment(
         mode,
         'http://127.0.0.1:33493',
         {

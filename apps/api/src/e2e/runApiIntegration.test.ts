@@ -31,8 +31,8 @@ vi.mock('./runAdminApiIntegration.js', async (importOriginal) => {
     await importOriginal<typeof import('./runAdminApiIntegration.js')>()
   return {
     ...actual,
-    preparePhase7IsolatedDatabase: ports.prepareDatabase,
-    cleanupPhase7IsolatedDatabase: ports.cleanupDatabase
+    prepareIsolatedDatabase: ports.prepareDatabase,
+    cleanupIsolatedDatabase: ports.cleanupDatabase
   }
 })
 vi.mock('./apiIntegrationExecution.js', () => ({

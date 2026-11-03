@@ -767,7 +767,7 @@ const cleanup = (): Promise<void> => {
   return cleanupPromise
 }
 
-export const cleanupPhase7IsolatedDatabase = async (): Promise<void> => {
+export const cleanupIsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
@@ -815,7 +815,7 @@ export const registerCapabilityAndActivate = async (
   }
 }
 
-export const preparePhase7IntegrationArtifacts = async ({
+export const prepareIntegrationArtifacts = async ({
   abortSignal,
   environment = process.env,
   prepared = false,
@@ -854,7 +854,7 @@ export const adminSeedInvocation = (
         environment: {}
       }
 
-export const preparePhase7IsolatedDatabase = async ({
+export const prepareIsolatedDatabase = async ({
   abortSignal,
   seedRuns = 0,
   issuerActivationOwner = 'runner',
@@ -912,7 +912,7 @@ export const preparePhase7IsolatedDatabase = async ({
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
 
-  await preparePhase7IntegrationArtifacts({
+  await prepareIntegrationArtifacts({
     ...(abortSignal === undefined ? {} : { abortSignal }),
     environment: sharedEnvironment,
     prepared: artifactsPrepared
@@ -1007,7 +1007,7 @@ export const preparePhase7IsolatedDatabase = async ({
 }
 
 const run = async (): Promise<void> => {
-  const { sharedEnvironment } = await preparePhase7IsolatedDatabase()
+  const { sharedEnvironment } = await prepareIsolatedDatabase()
   const apiEntries = getApiIntegrationEntriesByOwner('phase7-api')
   const [repositoryEntry, apiGateEntry, commandRepositoryEntry] = apiEntries
   if (
@@ -1059,7 +1059,7 @@ const run = async (): Promise<void> => {
 }
 
 const runSsoAccountLifecycle = async (): Promise<void> => {
-  const harness = await preparePhase7IsolatedDatabase({
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 1,
     issuerActivationOwner: 'fixture'
   })
@@ -1243,7 +1243,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       }
       if (ownedSessionExpiryArmed && !ownedSessionExpiryReconciled) onFailure()
       try {
-        await cleanupPhase7IsolatedDatabase()
+        await cleanupIsolatedDatabase()
       } catch (error: unknown) {
         record(error)
       }
@@ -1257,7 +1257,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   try {
     const artifactsPrepared =
       process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
-    const harness = await preparePhase7IsolatedDatabase({
+    const harness = await prepareIsolatedDatabase({
       seedRuns: 0,
       abortSignal: controller.signal,
       artifactsPrepared

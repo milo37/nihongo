@@ -4,8 +4,8 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import {
-  cleanupPhase7IsolatedDatabase,
-  preparePhase7IsolatedDatabase
+  cleanupIsolatedDatabase,
+  prepareIsolatedDatabase
 } from './runAdminApiIntegration.js'
 import { readDatabaseApiPerformanceEvidence } from './performanceEvidence.js'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
@@ -114,7 +114,7 @@ const cleanup = (): Promise<void> => {
     }
     if (harnessCleanupRequired) {
       try {
-        await cleanupPhase7IsolatedDatabase()
+        await cleanupIsolatedDatabase()
         harnessCleanupRequired = false
       } catch (error: unknown) {
         errors.push(error)
@@ -206,7 +206,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   ])
   abortSignal.throwIfAborted()
   harnessCleanupRequired = true
-  const harness = await preparePhase7IsolatedDatabase({
+  const harness = await prepareIsolatedDatabase({
     abortSignal,
     seedRuns: 1
   })

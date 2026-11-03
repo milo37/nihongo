@@ -7,7 +7,7 @@ import dotenv from 'dotenv'
 import { PrismaPg } from '@prisma/adapter-pg'
 import {
   assertSafeDevelopmentDatabase,
-  assertSafePhase7MigrationDatabase,
+  assertSafeMigrationDatabase,
   assertSafeTestDatabase
 } from '../src/db/databaseTargetGuard.js'
 import { PrismaClient } from '../src/generated/prisma/client.js'
@@ -44,7 +44,7 @@ try {
       : process.env.DATABASE_URL
 
   if (isTechnicalAdminCms) {
-    assertSafePhase7MigrationDatabase({
+    assertSafeMigrationDatabase({
       nodeEnvironment: process.env.NODE_ENV,
       migrationDatabaseUrl: databaseUrl,
       runtimeDatabaseUrl: process.env.DATABASE_URL,

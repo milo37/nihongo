@@ -316,7 +316,7 @@ const startControlServer = async ({
   return `http://127.0.0.1:${port}`
 }
 
-export const createPhase7BrowserPlaywrightEnvironment = (
+export const createBrowserPlaywrightEnvironment = (
   browserMode: BrowserMode,
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
@@ -330,7 +330,7 @@ export const createPhase7BrowserPlaywrightEnvironment = (
   PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
 })
 
-export const selectPhase7BrowserSpecs = (
+export const selectBrowserSpecs = (
   browserMode: BrowserMode,
   phase8: boolean
 ): string[] => {
@@ -350,7 +350,7 @@ const runPlaywright = async (
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): Promise<void> => {
-  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)
+  const browserSpecs = selectBrowserSpecs(browserMode, includeDashboard)
   await runCommand(
     'pnpm',
     [
@@ -362,17 +362,13 @@ const runPlaywright = async (
       ...browserSpecs,
       ...playwrightArguments
     ],
-    createPhase7BrowserPlaywrightEnvironment(
-      browserMode,
-      webOrigin,
-      extraEnvironment
-    )
+    createBrowserPlaywrightEnvironment(browserMode, webOrigin, extraEnvironment)
   )
 }
 
 export const runMock = async (): Promise<void> => {
   // Reject an empty selection before starting resources or running all e2e files.
-  selectPhase7BrowserSpecs('mock', includeDashboard)
+  selectBrowserSpecs('mock', includeDashboard)
   await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
   await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
@@ -407,10 +403,11 @@ export const runMock = async (): Promise<void> => {
 }
 
 export const runReal = async (): Promise<void> => {
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('./runAdminApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
+    './runAdminApiIntegration.js'
+  )
+  cleanupDatabaseHarness = cleanupIsolatedDatabase
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })

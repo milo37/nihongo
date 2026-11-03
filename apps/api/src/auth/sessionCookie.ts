@@ -16,7 +16,7 @@ const sign = (token: string, secret: string): string =>
 const signedValue = (value: string, secret: string): string =>
   encodeURIComponent(`${value}.${sign(value, secret)}`)
 
-export const createPhase7SessionCookie = ({
+export const createOwnedSessionCookie = ({
   expiresAt,
   isProduction,
   rememberMe,
@@ -127,7 +127,7 @@ export const readOwnedSessionToken = ({
 }
 
 export {
-  createPhase7SessionCookie as createSessionCookie,
+  createOwnedSessionCookie as createSessionCookie,
   createOwnedDontRememberCookie as createDontRememberCookie,
   createExpiredOwnedSessionCookies as createExpiredSessionCookies,
   readOwnedSessionToken as readSessionToken

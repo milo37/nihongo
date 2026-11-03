@@ -2,7 +2,7 @@ import {
   assertErrorPolicyManifest,
   phase7ErrorSurfaceByOperation,
   type ErrorSurface,
-  type Phase7ExecutionDisposition
+  type AdminExecutionDisposition
 } from '../admin/content-error-policy.js'
 import {
   assertOperationSchemaManifest,
@@ -10,8 +10,8 @@ import {
 } from '../admin/content-operation-schemas.js'
 import {
   assertOperationManifest,
-  phase7OperationManifest,
-  phase7Slice2ReadOperationManifest,
+  operationManifest,
+  slice2ReadOperationManifest,
   type AdminOperation,
   type OperationManifestEntry
 } from '../admin/content-manifest.js'
@@ -45,19 +45,19 @@ export interface Slice2ReadConformanceEntry extends OperationManifestEntry {
 }
 
 export const slice2ReadConformanceManifest: readonly Slice2ReadConformanceEntry[] =
-  phase7Slice2ReadOperationManifest.map((entry) => ({
+  slice2ReadOperationManifest.map((entry) => ({
     ...entry,
     cacheControl: 'private, no-store',
     requestIdHeader: 'X-Request-Id',
     rateLimitGroup: 'ADMIN_READ'
   }))
 
-export const deferredOperationManifest = phase7OperationManifest.filter(
+export const deferredOperationManifest = operationManifest.filter(
   (entry) => !entry.slice2Route
 )
 
 type TransientRetryabilityByDisposition = Readonly<
-  Record<Phase7ExecutionDisposition, boolean | null>
+  Record<AdminExecutionDisposition, boolean | null>
 >
 
 const retryableBeforeCommit: TransientRetryabilityByDisposition = {
@@ -111,7 +111,7 @@ export interface OperationErrorConformanceEntry extends OperationManifestEntry {
 }
 
 export const operationErrorConformanceManifest: readonly OperationErrorConformanceEntry[] =
-  phase7OperationManifest.map((entry) => {
+  operationManifest.map((entry) => {
     const errorSurface = phase7ErrorSurfaceByOperation[entry.operation]
     return {
       ...entry,

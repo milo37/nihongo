@@ -4,7 +4,7 @@ import {
   createBrowserApi,
   createGoogleTestProvider,
   parseBrowserEnvironment,
-  preparePhase9BrowserActors
+  prepareBrowserActors
 } from './browserApi.js'
 
 const pg = vi.hoisted(() => ({
@@ -248,7 +248,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
   })
 
   it('prepares five Google Account-bound actors atomically and confirms the stored DB roles', async () => {
-    const result = await preparePhase9BrowserActors({
+    const result = await prepareBrowserActors({
       adminDatabaseUrl: ownerUrl,
       environment: source()
     })
@@ -298,7 +298,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
       pg.failInsert = kind === 'write'
       pg.wrongRole = kind === 'role'
       await expect(
-        preparePhase9BrowserActors({
+        prepareBrowserActors({
           adminDatabaseUrl: ownerUrl,
           environment: source()
         })
@@ -320,7 +320,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     'rejects a runtime or foreign owner before connecting',
     async (adminDatabaseUrl) => {
       await expect(
-        preparePhase9BrowserActors({ adminDatabaseUrl, environment: source() })
+        prepareBrowserActors({ adminDatabaseUrl, environment: source() })
       ).rejects.toThrow()
       expect(pg.connect).not.toHaveBeenCalled()
     }

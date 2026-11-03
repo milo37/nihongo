@@ -22,7 +22,7 @@ import {
   createQuestionReportRequestSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionVersionRequestSchema,
-  createPhase7QuestionDuplicateIdentity,
+  createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
   listAdminQuestionReportsQuerySchema,
   publishQuestionVersionRequestSchema,
@@ -1232,7 +1232,7 @@ describe('ADMIN command TEST database integration', () => {
         tagCount: 1,
         fingerprint: createHash('sha256')
           .update(
-            createPhase7QuestionDuplicateIdentity({
+            createQuestionDuplicateIdentityKey({
               correctOptionText:
                 revisedRequest.options.find(
                   ({ id }) => id === revisedRequest.correctOptionId

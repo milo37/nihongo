@@ -246,7 +246,7 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
   return environment
 }
 
-export const preparePhase9BrowserActors = async ({
+export const prepareBrowserActors = async ({
   adminDatabaseUrl,
   environment: source
 }: {

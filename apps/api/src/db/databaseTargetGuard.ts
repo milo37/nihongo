@@ -293,7 +293,7 @@ export const assertSafeAdminCmsDatabase = ({
   )
 }
 
-export const assertSafePhase7MigrationDatabase = ({
+export const assertSafeMigrationDatabase = ({
   nodeEnvironment,
   migrationDatabaseUrl,
   runtimeDatabaseUrl,

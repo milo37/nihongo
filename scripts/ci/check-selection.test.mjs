@@ -1569,7 +1569,7 @@ test('API integration uses shared job preparation and seed avoids regeneration',
     'utf8'
   )
   const invoke = runInNewContext(
-    `(async (abortSignal, environment, prepared, run, prepareBrowserArtifacts) => {${extractArrowBody(api, 'export const preparePhase7IntegrationArtifacts = async (')}})`,
+    `(async (abortSignal, environment, prepared, run, prepareBrowserArtifacts) => {${extractArrowBody(api, 'export const prepareIntegrationArtifacts = async (')}})`,
     { repositoryRoot: root }
   )
   const calls = []
@@ -1592,14 +1592,14 @@ const assertPhase7PlaywrightSelection = async (source, mode) => {
   const selectSpecs = runInNewContext(
     `(browserMode, phase8) => {${extractArrowBody(
       source,
-      'export const selectPhase7BrowserSpecs = ('
+      'export const selectBrowserSpecs = ('
     )}}`
   )
   const invoke = runInNewContext(
     `(async (
       runCommand,
-      selectPhase7BrowserSpecs,
-      createPhase7BrowserPlaywrightEnvironment,
+      selectBrowserSpecs,
+      createBrowserPlaywrightEnvironment,
       browserMode,
       webOrigin,
       extraEnvironment,
@@ -2168,7 +2168,7 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
     assertPhase7PlaywrightSelection(
       withoutOnce(
         sources.phase7,
-        '  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)\n'
+        '  const browserSpecs = selectBrowserSpecs(browserMode, includeDashboard)\n'
       ),
       'real'
     )

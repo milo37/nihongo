@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Client } from 'pg'
-import { assertSafePhase7MigrationDatabase } from './databaseTargetGuard.js'
+import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
@@ -1574,7 +1574,7 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
     'SELECT "phase7_bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS generation'
   const operatorClient = () => {
     const migrationUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
-    assertSafePhase7MigrationDatabase({
+    assertSafeMigrationDatabase({
       nodeEnvironment: h.environment.NODE_ENV,
       migrationDatabaseUrl: migrationUrl,
       runtimeDatabaseUrl: h.environment.DATABASE_URL,

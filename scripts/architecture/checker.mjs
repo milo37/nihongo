@@ -665,7 +665,7 @@ const getContentOperationSchemaNames = (rootDir, operation) => {
   const contractRoot = path.join(rootDir, 'packages/contracts/src/admin')
   const manifest = readExportedInitializer(
     path.join(contractRoot, 'content-manifest.ts'),
-    'phase7OperationManifest'
+    'operationManifest'
   )
   if (
     !manifest ||
@@ -679,7 +679,7 @@ const getContentOperationSchemaNames = (rootDir, operation) => {
     return null
   const schemas = readExportedInitializer(
     path.join(contractRoot, 'content-operation-schemas.ts'),
-    'phase7OperationSchemas'
+    'operationSchemas'
   )
   if (!schemas || !ts.isObjectLiteralExpression(schemas)) return null
   const descriptor = getObjectProperty(schemas, operation)
@@ -868,13 +868,9 @@ const checkEndpoint = (
     )
     // The canonical module may resolve to source or emitted declarations; compare symbols in this program.
     for (const [name, alias, file] of [
+      ['operationManifest', 'contentOperationManifest', 'content-manifest'],
       [
-        'phase7OperationManifest',
-        'contentOperationManifest',
-        'content-manifest'
-      ],
-      [
-        'phase7OperationSchemas',
+        'operationSchemas',
         'contentOperationSchemas',
         'content-operation-schemas'
       ]
