@@ -14,7 +14,13 @@ export const authenticatedUserSchema = z
     role: persistedUserRoleSchema,
     targetLevel: jlptLevelSchema.nullable(),
     /** Only for ADMIN: the server side 8 hour absolute session limit. */
-    adminSessionExpiresAt: isoDateTimeSchema.optional()
+    adminSessionExpiresAt: isoDateTimeSchema.optional(),
+    /**
+     * Only for ADMIN: end of the 5 minute fresh sign-in window, or null when
+     * the session is not fresh. Display hint only; commands still answer
+     * FRESH_ASSURANCE_REQUIRED.
+     */
+    adminFreshUntil: isoDateTimeSchema.nullable().optional()
   })
   .strict()
   .refine(
@@ -23,6 +29,13 @@ export const authenticatedUserSchema = z
     {
       path: ['adminSessionExpiresAt'],
       message: '관리자에게만 세션 만료 시각이 있어야 합니다.'
+    }
+  )
+  .refine(
+    (user) => (user.role === 'ADMIN') === (user.adminFreshUntil !== undefined),
+    {
+      path: ['adminFreshUntil'],
+      message: '관리자에게만 본인 확인 유효 시각이 있어야 합니다.'
     }
   )
 

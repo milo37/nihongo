@@ -15,7 +15,11 @@ const cookie = createSessionCookie({
   expiresAt: new Date('2026-11-10T00:00:00.000Z')
 }).split(';')[0]!
 
-const createService = (role: 'USER' | 'ADMIN', elapsedMs: number) => {
+const createService = (
+  role: 'USER' | 'ADMIN',
+  elapsedMs: number,
+  isFresh = false
+) => {
   const query = vi.fn(async (sql: string): Promise<unknown> => {
     if (sql.includes('refresh_current_remembered_session')) return []
     return [
@@ -27,7 +31,7 @@ const createService = (role: 'USER' | 'ADMIN', elapsedMs: number) => {
         sessionId: '22222222-2222-4222-8222-222222222222',
         createdAt: signedInAt,
         expiresAt: new Date('2026-11-10T00:00:00.000Z'),
-        isFresh: false
+        isFresh
       }
     ]
   })
@@ -52,7 +56,13 @@ describe('ADMIN 8 hour absolute session limit', () => {
       createService('ADMIN', ADMIN_SESSION_ABSOLUTE_TTL_MS - 1)
     )
     expect(result.user?.adminSessionExpiresAt).toBe('2026-11-03T08:00:00.000Z')
+    expect(result.user?.adminFreshUntil).toBeNull()
     expect(result.clearSessionCookie).toBe(false)
+  })
+
+  it('exposes the fresh sign-in window end only when the session is fresh', async () => {
+    const result = await resolve(createService('ADMIN', 60_000, true))
+    expect(result.user?.adminFreshUntil).toBe('2026-11-03T00:05:00.000Z')
   })
 
   it('expires the admin session at exactly 8 hours', async () => {
@@ -70,5 +80,6 @@ describe('ADMIN 8 hour absolute session limit', () => {
     )
     expect(result.user?.role).toBe('USER')
     expect(result.user).not.toHaveProperty('adminSessionExpiresAt')
+    expect(result.user).not.toHaveProperty('adminFreshUntil')
   })
 })
