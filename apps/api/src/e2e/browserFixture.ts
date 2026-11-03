@@ -60,6 +60,9 @@ import {
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
 import { createQuestionReportService } from '../admin/questionReportService.js'
+import { createQuestionImportResultReader } from '../admin/questionImportResultStore.js'
+import { createPrismaUserReportRepository } from '../report/userReportRepository.js'
+import { createUserReportService } from '../report/userReportService.js'
 import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 
 export interface BrowserCredentials {
@@ -1523,8 +1526,21 @@ const createSsoBrowserApiFixture = async (
                 rateLimiter: questionReportRateLimiter,
                 service: questionReportService
               },
+              importResultReader: createQuestionImportResultReader(
+                database.client
+              ),
               rateLimiter: adminReadRateLimiter,
               reader: adminQuestionReader
+            }
+          }
+        : {}),
+      ...(questionReportRateLimiter
+        ? {
+            userReports: {
+              rateLimiter: questionReportRateLimiter,
+              service: createUserReportService(
+                createPrismaUserReportRepository(database.client)
+              )
             }
           }
         : {}),
