@@ -578,6 +578,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   const snapshot = (reauthentications = 0, cmsAudits = 0) => ({
     account: 10,
     audit: 8 + cmsAudits + reauthentications,
+    importApply: 0,
     operationIntent: 0,
     option: cmsAudits ? 52 : 40,
     question: cmsAudits ? 12 : 10,
@@ -725,6 +726,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     versionTag: 10,
     review: 0,
     audit: 8,
+    importApply: 0,
     rotationFence: 0,
     reauthenticationIntent: 0,
     reauthenticationFinalized: 0,
@@ -776,6 +778,87 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     expect(f.ownerQuery.mock.calls.at(-1)?.[1]).toEqual([
       created.fixture.author.userId
     ])
+    await created.database.disconnect()
+  })
+
+  it('accepts one trailing admin import as a separate owned DRAFT question (#527)', async () => {
+    const created = await createSsoAdminBrowserApiFixture(
+      options(),
+      'admin-a1-a8'
+    )
+    f.ownerQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...after,
+            question: 12,
+            version: 12,
+            option: 48,
+            versionTag: 12,
+            audit: 14,
+            importApply: 1
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [completion(created.fixture.author.userId)]
+      })
+      .mockResolvedValueOnce({ rows: [commands()] })
+      .mockResolvedValueOnce({ rows: [{ state: true, audit: true }] })
+    await expect(
+      created.database.assertExpectedLifecycleDelta(before)
+    ).resolves.toBeUndefined()
+    expect(f.ownerQuery.mock.calls.at(-1)?.[1]).toEqual([
+      created.fixture.author.userId
+    ])
+    await created.database.disconnect()
+  })
+
+  it.each([
+    ['a missing', []],
+    ['an unbound', [{ state: true, audit: false }]],
+    ['a published', [{ state: false, audit: true }]]
+  ] as const)('rejects %s imported question', async (_label, rows) => {
+    const created = await createSsoAdminBrowserApiFixture(
+      options(),
+      'admin-a1-a8'
+    )
+    f.ownerQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...after,
+            question: 12,
+            version: 12,
+            option: 48,
+            versionTag: 12,
+            audit: 14,
+            importApply: 1
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: [completion(created.fixture.author.userId)]
+      })
+      .mockResolvedValueOnce({ rows: [commands()] })
+      .mockResolvedValueOnce({ rows: [...rows] })
+    await expect(
+      created.database.assertExpectedLifecycleDelta(before)
+    ).rejects.toThrow('A1-A8 imported question lifecycle failed.')
+    await created.database.disconnect()
+  })
+
+  it('rejects more than one import in the A1-A8 profile', async () => {
+    const created = await createSsoAdminBrowserApiFixture(
+      options(),
+      'admin-a1-a8'
+    )
+    f.ownerQuery.mockResolvedValueOnce({
+      rows: [{ ...after, importApply: 2 }]
+    })
+    await expect(
+      created.database.assertExpectedLifecycleDelta(before)
+    ).rejects.toThrow('delta mismatch for importApply')
     await created.database.disconnect()
   })
 
