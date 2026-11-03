@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import type { useTargetedReviewStart } from '@app/wrong-note/hooks/useTargetedReviewStart'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 
 type TargetedReviewActionProps = {
@@ -59,7 +60,9 @@ export const TargetedReviewAction = ({
               {t('detail.targeted.offline')}
             </p>
           ) : null}
-          {targeted.isError ? (
+          {targeted.isError && targeted.isAccountRestricted ? (
+            <AccountRestrictedNotice className="mt-3" />
+          ) : targeted.isError ? (
             <p className="mt-3 text-sm font-semibold text-red-800" role="alert">
               {targeted.isUnavailableError
                 ? t('detail.targeted.unavailable')

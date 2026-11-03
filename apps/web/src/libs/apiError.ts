@@ -19,6 +19,9 @@ export const isRetiredPracticeApiError = (error: unknown): boolean =>
   error.status === 409 &&
   error.code === 'PRACTICE_CONTRACT_VERSION_MISMATCH'
 
+export const isAccountRestrictedApiError = (error: unknown): boolean =>
+  isApiError(error) && error.code === 'ACCOUNT_RESTRICTED'
+
 export const isNoEligibleQuestionsApiError = (error: unknown): boolean =>
   isApiError(error) && error.code === 'NO_ELIGIBLE_QUESTIONS'
 

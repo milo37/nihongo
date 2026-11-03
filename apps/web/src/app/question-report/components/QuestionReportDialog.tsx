@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/content-operations'
@@ -5,7 +6,7 @@ import {
   questionReportReasonKey as adminReportReasonKey,
   useQuestionReportPresentation as useAdminPresentation
 } from '@app/content-operations/reports/questionReportPublic'
-import { isUiApiError } from '@libs/apiError'
+import { isAccountRestrictedApiError, isUiApiError } from '@libs/apiError'
 import { useCreateQuestionReport } from '@app/question-report/hooks/useCreateQuestionReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -31,6 +32,7 @@ export const QuestionReportDialog = ({
   questionVersionId
 }: QuestionReportDialogProps): ReactElement => {
   const { presentError, presentFieldError, t } = useAdminPresentation()
+  const { t: commonT } = useTranslation('common')
   const triggerRef = useRef<HTMLButtonElement>(null)
   const reasonRef = useRef<HTMLSelectElement>(null)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
@@ -48,11 +50,13 @@ export const QuestionReportDialog = ({
   })
 
   const errorMessage = mutation.error
-    ? isUiApiError(mutation.error)
-      ? mutation.error.isOffline
-        ? t('questionReportDialog.offline')
-        : presentError(mutation.error)
-      : t('questionReportDialog.error')
+    ? isAccountRestrictedApiError(mutation.error)
+      ? commonT('state.accountRestricted')
+      : isUiApiError(mutation.error)
+        ? mutation.error.isOffline
+          ? t('questionReportDialog.offline')
+          : presentError(mutation.error)
+        : t('questionReportDialog.error')
     : null
   const fieldErrors =
     mutation.error && isUiApiError(mutation.error)

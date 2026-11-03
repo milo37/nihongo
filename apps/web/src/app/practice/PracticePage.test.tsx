@@ -5,6 +5,7 @@ import { HttpResponse, http } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { PracticePage } from '@app/practice/page'
 import { mockServer } from '@/test/server'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
@@ -104,5 +105,21 @@ describe('PracticePage setup', () => {
     expect(
       screen.queryByText('현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.')
     ).not.toBeInTheDocument()
+  })
+
+  it('이용이 제한된 계정이면 일반 오류 대신 제한 안내를 보여 준다', async () => {
+    const restricted = mockDatabase.loginAs('USER')
+    mockDatabase.setAccountRestricted(restricted.id, true)
+    const router = renderPractice('?level=N5&subject=VOCABULARY&count=5')
+    const start = await screen.findByRole('button', {
+      name: 'N5 어휘 · 5문제 시작'
+    })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+    )
+    expect(screen.queryByText('요청을 완료하지 못했습니다')).toBeNull()
+    expect(router.state.location.pathname).toBe('/practice')
   })
 })
