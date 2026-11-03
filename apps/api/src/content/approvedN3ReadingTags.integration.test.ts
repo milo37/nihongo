@@ -19,7 +19,7 @@ import {
 } from '../db/fixtures/historicalSchema.js'
 import type { IsolatedUpgradeSchema } from '../db/fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
-import { createApprovedReadingBatch3Import } from './approvedReadingBatch3.js'
+import { createApprovedReadingBatch3Import } from '../content-fixtures/approvedReadingBatch3.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import type { PrismaClient } from '../generated/prisma/client.js'
+import type { PrismaClient } from '../../generated/prisma/client.js'
 
 export interface AdminProvisioningInput {
   email: string
