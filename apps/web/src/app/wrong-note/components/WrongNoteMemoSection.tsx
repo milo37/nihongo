@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { userMemoMaximumCodePoints } from '@nihongo/contracts/wrong-note/user-memo'
-import { isApiError } from '@nihongo/browser/api/config'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
@@ -14,7 +13,10 @@ import {
 } from '@nihongo/browser/libs/localeFormatters'
 import { useGetWrongNoteMemo } from '@app/wrong-note/hooks/useGetWrongNoteMemo'
 import { useOnlineStatus } from '@app/wrong-note/hooks/useOnlineStatus'
-import { useUpdateWrongNoteMemo } from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
+import {
+  isWrongNoteMemoConnectionError,
+  useUpdateWrongNoteMemo
+} from '@app/wrong-note/hooks/useUpdateWrongNoteMemo'
 
 type WrongNoteMemoSectionProps = {
   questionId: string
@@ -29,11 +31,6 @@ type MemoNotice =
   | null
 
 type FocusTarget = 'textarea' | 'trigger' | 'notice' | null
-
-const isConnectionError = (error: unknown): boolean =>
-  !navigator.onLine ||
-  (isApiError(error) &&
-    (error.isOffline === true || error.isNetworkError === true))
 
 const penIcon = (
   <svg
@@ -137,7 +134,9 @@ export const WrongNoteMemoSection = ({
           pendingFocusRef.current = 'notice'
         },
         onError: (error) => {
-          setNotice(isConnectionError(error) ? 'saveOffline' : 'saveError')
+          setNotice(
+            isWrongNoteMemoConnectionError(error) ? 'saveOffline' : 'saveError'
+          )
           pendingFocusRef.current = 'textarea'
         }
       }

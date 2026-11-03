@@ -5,12 +5,12 @@ import {
   updateWrongNoteMemoRequestBodySchema,
   updateWrongNoteMemoRequestParamsSchema,
   updateWrongNoteMemoResultSchema
-} from '@api/wrong-note/updateWrongNoteMemo/schema'
-import type { ParsedUpdateWrongNoteMemoBody } from '@api/wrong-note/updateWrongNoteMemo/schema'
+} from '@api/wrong-note/updateWrongNoteMemoV1/schema'
+import type { ParsedUpdateWrongNoteMemoBody } from '@api/wrong-note/updateWrongNoteMemoV1/schema'
 
 const requestMemoUpdate = safePut(updateWrongNoteMemoResultSchema)
 
-export const updateWrongNoteMemo = async (
+export const updateWrongNoteMemoV1 = async (
   questionId: string,
   input: ParsedUpdateWrongNoteMemoBody
 ) => {
