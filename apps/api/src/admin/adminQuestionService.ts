@@ -25,6 +25,15 @@ import {
   decodeOccurredAtCursor
 } from '@nihongo/contracts/admin/content-operations'
 import {
+  listAdminActivityResponseSchema,
+  type ListAdminActivityResponse
+} from '@nihongo/contracts/admin/audit'
+import {
+  ADMIN_ACTIVITY_COMMANDS,
+  ADMIN_ACTIVITY_RETENTION_MS,
+  toAdminActivityItem
+} from './adminActivity.js'
+import {
   QUESTION_VERSION_STATUSES_BY_REVIEW_STAGE,
   STORED_VERSION_AUTO_VALIDATION,
   toQuestionReviewStage
@@ -281,11 +290,44 @@ export interface AdminQuestionReader {
   listAuditLog: (
     query: ListAdminAuditLogQuery
   ) => Promise<ListAdminAuditLogResponse>
+  listActivity: (query: {
+    cursor?: string | undefined
+    limit: number
+  }) => Promise<ListAdminActivityResponse>
 }
 
 export const createAdminQuestionService = (
-  repository: AdminQuestionRepository
+  repository: AdminQuestionRepository,
+  now: () => Date = () => new Date()
 ): AdminQuestionReader => ({
+  listActivity: (query) =>
+    withRepositoryErrors(async () => {
+      const cursor = query.cursor
+        ? decodeOccurredAtCursor(query.cursor)
+        : undefined
+      const records = await repository.listAuditLog({
+        commands: ADMIN_ACTIVITY_COMMANDS,
+        occurredFrom: new Date(now().getTime() - ADMIN_ACTIVITY_RETENTION_MS),
+        ...(cursor
+          ? {
+              cursor: { occurredAt: new Date(cursor.occurredAt), id: cursor.id }
+            }
+          : {}),
+        limit: query.limit
+      })
+      const page = records.slice(0, query.limit)
+      const last = page.at(-1)
+      return listAdminActivityResponseSchema.parse({
+        items: page.map(toAdminActivityItem),
+        nextCursor:
+          records.length > query.limit && last
+            ? encodeOccurredAtCursor({
+                id: last.id,
+                occurredAt: toIso(last.occurredAt)
+              })
+            : null
+      })
+    }),
   listQuestions: (query) =>
     withRepositoryErrors(async () => {
       const result = await repository.listQuestions({

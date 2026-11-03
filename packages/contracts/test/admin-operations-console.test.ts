@@ -164,9 +164,26 @@ describe('session and errors', () => {
     expect(
       getCurrentPrincipalResponseSchema.safeParse({
         kind: 'USER',
-        user: { ...user, role: 'ADMIN', adminSessionExpiresAt: iso }
+        user: {
+          ...user,
+          role: 'ADMIN',
+          adminSessionExpiresAt: iso,
+          adminFreshUntil: null
+        }
       }).success
     ).toBe(true)
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({
+        kind: 'USER',
+        user: { ...user, role: 'ADMIN', adminSessionExpiresAt: iso }
+      }).success
+    ).toBe(false)
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({
+        kind: 'USER',
+        user: { ...user, role: 'USER', adminFreshUntil: null }
+      }).success
+    ).toBe(false)
     expect(
       getCurrentPrincipalResponseSchema.safeParse({
         kind: 'USER',

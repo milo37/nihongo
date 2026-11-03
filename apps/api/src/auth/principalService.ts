@@ -21,6 +21,10 @@ const isAdminSessionOverLimit = (
   role === 'ADMIN' &&
   now.getTime() >= getAdminSessionExpiresAt(sessionCreatedAt).getTime()
 
+// Freshness also requires the session itself to be under 5 minutes old, so the
+// window always ends at session creation + 5 minutes.
+export const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
+
 const toAuthenticatedUser = (
   user: {
     id: string
@@ -28,7 +32,8 @@ const toAuthenticatedUser = (
     role: 'USER' | 'ADMIN'
     targetLevel: AuthenticatedUser['targetLevel']
   },
-  sessionCreatedAt: Date
+  sessionCreatedAt: Date,
+  isFresh = false
 ): AuthenticatedUser =>
   authenticatedUserSchema.parse({
     id: user.id,
@@ -38,7 +43,12 @@ const toAuthenticatedUser = (
     ...(user.role === 'ADMIN'
       ? {
           adminSessionExpiresAt:
-            getAdminSessionExpiresAt(sessionCreatedAt).toISOString()
+            getAdminSessionExpiresAt(sessionCreatedAt).toISOString(),
+          adminFreshUntil: isFresh
+            ? new Date(
+                sessionCreatedAt.getTime() + ADMIN_FRESH_WINDOW_MS
+              ).toISOString()
+            : null
         }
       : {})
   })
@@ -324,7 +334,8 @@ export const createPhase7PrincipalService = ({
             role: row.role,
             targetLevel: row.targetLevel
           },
-          row.createdAt
+          row.createdAt,
+          row.isFresh
         )
       }
     }

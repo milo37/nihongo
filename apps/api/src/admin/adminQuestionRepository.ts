@@ -222,6 +222,7 @@ export interface OccurredAtCursorInput {
 
 export interface ListAdminAuditRecordsInput {
   command?: AdminAuditCommand
+  commands?: readonly AdminAuditCommand[]
   targetType?: AdminAuditTargetType
   targetId?: string
   actorId?: string
@@ -1200,6 +1201,7 @@ const listAuditRecords = async (
   const rows = await transaction.adminAuditLog.findMany({
     where: {
       ...(input.command ? { command: input.command } : {}),
+      ...(input.commands ? { command: { in: [...input.commands] } } : {}),
       ...(input.targetType ? { targetType: input.targetType } : {}),
       ...(input.targetId ? { targetId: input.targetId } : {}),
       ...(input.actorId

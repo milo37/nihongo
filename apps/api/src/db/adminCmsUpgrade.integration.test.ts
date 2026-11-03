@@ -337,6 +337,7 @@ const exerciseUpgradedRetiredPasswordBoundary = async (
       secret: environment.BETTER_AUTH_SECRET
     })
     const reader: AdminQuestionReader = {
+      listActivity: async () => Promise.reject(new Error('not used')),
       diffVersion: async () => Promise.reject(new Error('not used')),
       getQuestion: async () => Promise.reject(new Error('not used')),
       listAuditLog: async () => Promise.reject(new Error('not used')),
