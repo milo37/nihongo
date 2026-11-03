@@ -1,3 +1,4 @@
+import { canonicalizeStudyDraftSave } from '@nihongo/contracts/study/canonicalize-study-draft-save'
 import { MockSsoAccountRepository } from '@mocks/repository/ssoAccountRepository'
 import {
   LEVELS,
@@ -903,39 +904,6 @@ const isCanonicalIdempotencyRecordActive = (
   return expiresAtMs > observedAtMs
 }
 
-const canonicalizeMockStudyDraftSave = (
-  sessionId: string,
-  orderedSessionQuestionIds: readonly string[],
-  body: ParsedSaveStudyDraftAnswersBody
-): string => {
-  const ordinalById = new Map(
-    orderedSessionQuestionIds.map((id, index) => [id, index + 1])
-  )
-  const answers = body.answers
-    .map((answer) => ({
-      studySessionQuestionId: answer.studySessionQuestionId,
-      selectedOptionId: answer.selectedOptionId,
-      elapsedSec: answer.elapsedSec
-    }))
-    .toSorted((left, right) => {
-      const leftOrdinal =
-        ordinalById.get(left.studySessionQuestionId) ?? Number.MAX_SAFE_INTEGER
-      const rightOrdinal =
-        ordinalById.get(right.studySessionQuestionId) ?? Number.MAX_SAFE_INTEGER
-      return (
-        leftOrdinal - rightOrdinal ||
-        left.studySessionQuestionId.localeCompare(right.studySessionQuestionId)
-      )
-    })
-
-  return `draft-save-v2:${JSON.stringify({
-    sessionId,
-    expectedRevision: body.expectedRevision,
-    currentOrdinal: body.currentOrdinal,
-    answers
-  })}`
-}
-
 const toDuplicatePreservingKey = (
   records: ReadonlyMap<string, unknown>,
   key: string,
@@ -1564,9 +1532,12 @@ export class MockDatabase {
     const orderedSessionQuestionIds = snapshot.questions.map((_, index) =>
       getCanonicalSessionQuestionId(session.id, index + 1)
     )
-    const requestMaterial = canonicalizeMockStudyDraftSave(
+    const requestMaterial = canonicalizeStudyDraftSave(
       session.id,
-      orderedSessionQuestionIds,
+      orderedSessionQuestionIds.map((studySessionQuestionId, index) => ({
+        ordinal: index + 1,
+        studySessionQuestionId
+      })),
       input.body
     )
     const recordKey = makeCanonicalIdempotencyKey(
