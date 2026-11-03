@@ -716,4 +716,53 @@ describe('approved general result navigation', () => {
       fixture.client.clear()
     }
   )
+
+  it('요약 지표에 전체·정답·오답 수를 각각 표시한다', async () => {
+    const fixture = await createFixture()
+    const { view } = fixture.mount()
+    const metrics = (await screen.findByText('정답률')).closest('dl')
+    if (!metrics) throw new Error('지표 목록이 필요합니다.')
+    const valueOf = (label: string): string | null | undefined =>
+      within(metrics).getByText(label).nextElementSibling?.textContent
+    expect(valueOf('전체')).toBe('3')
+    expect(valueOf('정답')).toBe('1')
+    expect(valueOf('오답')).toBe('2')
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('게스트 연결 링크는 홈과 로그인 선택으로 보낸다', async () => {
+    const fixture = await createFixture({ role: 'GUEST' })
+    const { view } = fixture.mount()
+    expect(
+      await screen.findByRole('link', { name: '오늘은 여기까지' })
+    ).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: '로그인 선택' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fpractice'
+    )
+    expect(
+      screen.queryByRole('link', { name: '오답노트 보기' })
+    ).not.toBeInTheDocument()
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('책갈피 저장에 성공하면 성공 안내와 눌린 상태를 보여 준다', async () => {
+    const fixture = await createFixture()
+    const second = fixture.result.items[1]
+    if (!second) throw new Error('결과 fixture가 필요합니다.')
+    const { view } = fixture.mount(`?question=${second.question.id}`)
+    const button = await screen.findByRole('button', {
+      name: '2번 문제 책갈피 추가'
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    await userEvent.setup().click(button)
+    expect(await screen.findByText('책갈피에 저장했습니다.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '2번 문제 책갈피 해제' })
+    ).toHaveAttribute('aria-pressed', 'true')
+    view.unmount()
+    fixture.client.clear()
+  })
 })
