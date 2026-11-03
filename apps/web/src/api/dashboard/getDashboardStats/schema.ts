@@ -1,4 +1,4 @@
-import { dashboardStatsSchema } from '@nihongo/browser/api/schema'
+import { dashboardStatsSchema } from '@nihongo/contracts/legacy/browser-schema'
 import { z } from 'zod'
 
 export const getDashboardStatsRequestSchema = z.object({}).strict()

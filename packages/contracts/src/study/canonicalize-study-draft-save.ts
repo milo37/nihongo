@@ -1,16 +1,32 @@
-import type { ParsedSaveStudyDraftAnswersRequest } from '../../../api/study/saveStudyDraftAnswers/schema'
-
 export const STUDY_DRAFT_SAVE_CANONICAL_PREFIX = 'draft-save-v2:' as const
 
+export interface OrderedDraftQuestion {
+  readonly ordinal: number
+  readonly studySessionQuestionId: string
+}
+
+export interface StudyDraftSaveAnswer {
+  readonly studySessionQuestionId: string
+  readonly selectedOptionId: string | null
+  readonly elapsedSec: number
+}
+
+export interface StudyDraftSaveInput {
+  readonly expectedRevision: number
+  readonly currentOrdinal: number
+  readonly answers: readonly StudyDraftSaveAnswer[]
+}
+
+/** Shared by the API (idempotency hash) and the browser (pending save key). */
 export const canonicalizeStudyDraftSave = (
   sessionId: string,
-  orderedSessionQuestionIds: readonly string[],
-  input: ParsedSaveStudyDraftAnswersRequest
+  orderedQuestions: readonly OrderedDraftQuestion[],
+  input: StudyDraftSaveInput
 ): string => {
   const ordinalById = new Map(
-    orderedSessionQuestionIds.map((questionId, index) => [
-      questionId,
-      index + 1
+    orderedQuestions.map(({ ordinal, studySessionQuestionId }) => [
+      studySessionQuestionId,
+      ordinal
     ])
   )
   const answers = input.answers
@@ -22,7 +38,6 @@ export const canonicalizeStudyDraftSave = (
     .toSorted((left, right) => {
       const leftOrdinal = ordinalById.get(left.studySessionQuestionId)
       const rightOrdinal = ordinalById.get(right.studySessionQuestionId)
-
       if (leftOrdinal !== undefined && rightOrdinal !== undefined) {
         return (
           leftOrdinal - rightOrdinal ||
