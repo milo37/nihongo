@@ -85,7 +85,8 @@ export const adminQuestionSortKey = {
   UPDATED_DESC: 'enums.questionSort.UPDATED_DESC',
   CREATED_DESC: 'enums.questionSort.CREATED_DESC',
   LEVEL_ASC: 'enums.questionSort.LEVEL_ASC',
-  REPORT_COUNT_DESC: 'enums.questionSort.REPORT_COUNT_DESC'
+  REPORT_COUNT_DESC: 'enums.questionSort.REPORT_COUNT_DESC',
+  CREATED_ASC: 'enums.questionSort.CREATED_ASC'
 } as const satisfies Record<ListAdminQuestionsQuery['sort'], string>
 
 export const adminReportSortKey = {

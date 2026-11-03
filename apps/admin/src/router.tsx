@@ -12,6 +12,8 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { adminQuestionRoutes } from '@app/admin-question/router'
 import { adminReportRoutes } from '@app/admin-report/router'
 import { adminAuditRoutes } from '@app/admin-audit/router'
+import { adminMemberRoutes } from '@app/admin-member/router'
+import { AdminShell } from '@app/admin/components/AdminShell'
 
 export const adminRoutes: RouteObject[] = [
   {
@@ -19,24 +21,43 @@ export const adminRoutes: RouteObject[] = [
     element: (
       <ProtectedRouteProvider
         renderAuthError={(content) => (
-          <AppLayout robots="noindex,follow" reviewReturnContext={null}>
+          <AppLayout
+            robots="noindex,follow"
+            reviewReturnContext={null}
+            learnerNavigation={false}
+          >
             {content}
           </AppLayout>
         )}
       >
         <AuthErrorHandlerProvider />
-        <AppLayout robots="noindex,follow" reviewReturnContext={null} />
+        <AppLayout
+          robots="noindex,follow"
+          reviewReturnContext={null}
+          learnerNavigation={false}
+        />
       </ProtectedRouteProvider>
     ),
     errorElement: <RouteErrorPage />,
     children: [
       {
-        element: <RequireRole allowedRoles={['ADMIN']} />,
+        element: (
+          <RequireRole
+            allowedRoles={['ADMIN']}
+            deniedElement={<NotFoundPage />}
+          />
+        ),
         children: [
-          { index: true, element: <Navigate replace to="questions" /> },
-          ...adminQuestionRoutes,
-          ...adminAuditRoutes,
-          ...adminReportRoutes
+          {
+            element: <AdminShell />,
+            children: [
+              { index: true, element: <Navigate replace to="questions" /> },
+              ...adminQuestionRoutes,
+              ...adminMemberRoutes,
+              ...adminAuditRoutes,
+              ...adminReportRoutes
+            ]
+          }
         ]
       },
       { path: 'forbidden', element: <ForbiddenPage /> },

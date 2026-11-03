@@ -188,7 +188,8 @@ describe('Phase 7 common and read contracts', () => {
       updatedAt: iso,
       answerCount: 0,
       correctRateBasisPoints: null,
-      openReportCount: 0
+      openReportCount: 0,
+      reviewStage: 'AUTO_VALIDATED'
     }
     expect(() =>
       assertListAdminQuestionsForRequest(
@@ -269,7 +270,9 @@ describe('Phase 7 common and read contracts', () => {
       publishedAt: iso,
       retiredAt: '2026-08-29T01:00:00.000Z',
       createdAt: iso,
-      updatedAt: '2026-08-29T01:00:00.000Z'
+      updatedAt: '2026-08-29T01:00:00.000Z',
+      reviewStage: 'RETIRED',
+      autoValidation: { passed: true, issues: [] }
     }
     expect(adminQuestionVersionSummarySchema.parse(version)).toMatchObject(
       version
@@ -511,7 +514,11 @@ describe('Phase 7 future import and report contracts', () => {
     }
     const assertion = await assertAdminImportApplyForRequest(
       port,
-      { validationDigest: 'a'.repeat(64), items: [importItem] },
+      {
+        importId: '00000000-0000-4000-8000-000000000001',
+        validationDigest: 'a'.repeat(64),
+        items: [importItem]
+      },
       {
         createdCount: 1,
         items: [

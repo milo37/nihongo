@@ -25,6 +25,7 @@ type ProtectedRouteProviderProps = {
 
 type RequireRoleProps = {
   allowedRoles: UserRole[]
+  deniedElement?: ReactElement
 }
 
 const getRedirectPath = (location: Location): string => {
@@ -106,7 +107,8 @@ export const useAuth = (): AuthContextValue => {
 }
 
 export const RequireRole = ({
-  allowedRoles
+  allowedRoles,
+  deniedElement
 }: RequireRoleProps): ReactElement => {
   const { t } = useTranslation('common')
   const { isReady, role } = useAuth()
@@ -128,5 +130,5 @@ export const RequireRole = ({
     return <AppRedirect to={`/login?redirect=${redirect}`} />
   }
 
-  return <AppRedirect to="/forbidden" />
+  return deniedElement ?? <AppRedirect to="/forbidden" />
 }

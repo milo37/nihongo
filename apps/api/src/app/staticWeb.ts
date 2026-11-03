@@ -2,8 +2,16 @@ import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { serveStatic } from '@hono/node-server/serve-static'
 import type { Hono, MiddlewareHandler } from 'hono'
+import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import { getRawRequestPathname } from './protectedRouteExclusion.js'
+
+const HIDDEN_ADMIN_DOCUMENT_CODES = new Set<ApplicationError['code']>([
+  'AUTHENTICATION_REQUIRED',
+  'AUTH_SESSION_EXPIRED',
+  'ADMIN_REQUIRED',
+  'FORBIDDEN'
+])
 
 const reservedPathPrefixes = ['/api', '/health', '/__test'] as const
 
@@ -236,10 +244,22 @@ export const installStaticWeb = ({
       return cached
     }
     if (adminRequest && admin && adminGuard) {
-      const response = await adminGuard(context, async () => {
-        context.res = await respond(admin)
-      })
-      return response ?? context.res
+      try {
+        const response = await adminGuard(context, async () => {
+          context.res = await respond(admin)
+        })
+        return response ?? context.res
+      } catch (error: unknown) {
+        // Admin pages and assets stay indistinguishable from a missing path for
+        // signed-out and non-admin visitors. The admin API keeps its codes.
+        if (
+          error instanceof ApplicationError &&
+          HIDDEN_ADMIN_DOCUMENT_CODES.has(error.code)
+        ) {
+          return context.notFound()
+        }
+        throw error
+      }
     }
     return respond(web)
   })

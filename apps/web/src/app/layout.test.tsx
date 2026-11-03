@@ -142,10 +142,10 @@ it.each(['ko', 'ja'] as const)(
       })
     ).toHaveAttribute('href', '/dashboard?view=learning')
     expect(
-      within(account).getByRole('link', {
+      within(account).queryByRole('link', {
         name: appI18n.t('navigation:adminQuestions')
       })
-    ).toHaveAttribute('href', window.location.origin + '/admin/questions')
+    ).not.toBeInTheDocument()
   }
 )
 

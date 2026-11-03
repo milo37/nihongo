@@ -1480,8 +1480,103 @@ export const koResources = {
   },
   admin: {
     name: '관리자',
+    grid: {
+      columns: '표시할 열',
+      pageSize: '쪽당 행 수',
+      pageStatus: '{{page}} / {{pageCount}}쪽 · 전체 {{total}}건',
+      previous: '이전',
+      next: '다음'
+    },
+    nav: {
+      brand: '하루마루 관리',
+      questions: '문제',
+      import: '가져오기',
+      members: '가입자',
+      reports: '버그 리포트',
+      auditLog: '감사 이력'
+    },
+    members: {
+      title: '가입자',
+      description:
+        '가입자의 학습 현황과 이용 상태를 확인하고 필요하면 이용을 제한합니다. 이메일은 가려서 보여 줍니다.',
+      gridLabel: '가입자 목록',
+      loading: '가입자 정보를 불러오는 중입니다.',
+      loadError: '가입자 목록을 불러오지 못했습니다',
+      empty: '아직 가입자가 없습니다.',
+      noMatch: '이 이메일로 가입한 사람이 없습니다.',
+      never: '학습 기록 없음',
+      openDetail: '상세',
+      search: {
+        label: '이메일로 찾기',
+        hint: '전체 이메일 주소를 정확히 입력해 주세요.',
+        submit: '찾기',
+        clear: '검색 해제',
+        invalid: '올바른 이메일 주소를 입력해 주세요.'
+      },
+      columns: {
+        memberId: '회원 ID',
+        email: '이메일',
+        joinedAt: '가입일',
+        lastStudiedAt: '최근 학습',
+        solvedCount: '푼 문제',
+        reportCount: '제보',
+        status: '상태',
+        actions: '상세/조치'
+      },
+      status: { ACTIVE: '이용 중', RESTRICTED: '이용 제한' },
+      detail: {
+        title: '가입자 상세',
+        back: '가입자 목록으로',
+        loadError: '가입자 정보를 불러오지 못했습니다',
+        restrictedAt: '제한 시각',
+        restrictTitle: '이용 제한',
+        restrictHint:
+          '제한하면 새 학습·복습 시작과 새 제보를 할 수 없습니다. 로그인과 기록 조회는 계속 됩니다.',
+        reason: '제한 사유',
+        reasonHint: '{{max}}자 이내로 적어 주세요. 감사 이력에 남습니다.',
+        reasonRequired: '제한 사유를 1~{{max}}자로 적어 주세요.',
+        restrict: '이용 제한',
+        restricting: '제한하는 중…',
+        restricted: '이용을 제한했습니다.',
+        releaseTitle: '제한 해제',
+        releaseHint: '해제하면 바로 다시 학습과 제보를 할 수 있습니다.',
+        release: '제한 해제',
+        releasing: '해제하는 중…',
+        released: '이용 제한을 해제했습니다.',
+        fresh: {
+          required:
+            '보안을 위해 관리자 본인 확인이 필요합니다. 새 탭에서 본인 확인을 마친 뒤 여기서 확인 완료를 눌러 주세요. 입력한 내용은 그대로 있고, ‘{{command}}’ 작업은 아직 적용되지 않았습니다.',
+          openNewTab: '새 탭에서 본인 확인',
+          confirm: '확인 완료',
+          confirmed:
+            '본인 확인을 마쳤습니다. ‘{{command}}’ 버튼을 다시 눌러 적용해 주세요.',
+          failed: '본인 확인이 끝나지 않아 적용하지 않았습니다.'
+        },
+        confirm: {
+          title: '이용을 제한할까요?',
+          description: '아래 가입자에게 바로 적용됩니다.',
+          preserved: '학습 기록과 보낸 제보는 지워지지 않습니다.',
+          cancel: '취소',
+          apply: '제한 적용'
+        },
+        reload: '최신 정보 다시 불러오기'
+      }
+    },
+    idleLock: {
+      title: '15분 동안 사용하지 않아 잠갔습니다',
+      description: '입력한 내용은 그대로 있습니다.',
+      recheck: '다시 확인',
+      checking: '확인 중…',
+      failed: '본인 확인이 끝나지 않았습니다. 다시 시도해 주세요.',
+      expired:
+        '로그인이 끝났습니다. 입력한 내용은 이 화면에 그대로 있습니다. 새 탭에서 다시 로그인한 뒤 이 화면으로 돌아와 다시 확인을 눌러 주세요.',
+      signInNewTab: '새 탭에서 로그인'
+    },
     common: {
       breadcrumbLabel: '현재 위치',
+      menuLabel: '관리자 메뉴',
+      wideScreenRecommended:
+        '이 작업은 넓은 화면에서 하는 것을 권장합니다. 휴대폰에서도 계속할 수 있습니다.',
       questions: '문제 관리',
       questionDetail: '문제 상세',
       newQuestion: '새 문제',
@@ -1540,7 +1635,8 @@ export const koResources = {
         UPDATED_DESC: '최근 수정순',
         CREATED_DESC: '최근 생성순',
         LEVEL_ASC: '급수순',
-        REPORT_COUNT_DESC: '신고 많은 순'
+        REPORT_COUNT_DESC: '신고 많은 순',
+        CREATED_ASC: '오래된 순'
       },
       reportSort: {
         UPDATED_DESC: '최근 수정순',

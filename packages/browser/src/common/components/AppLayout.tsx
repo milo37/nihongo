@@ -57,12 +57,14 @@ const focusHashTarget = (hash: string): boolean => {
 type AppLayoutProps = PracticeNavigationContext & {
   children?: ReactNode
   robots: 'index,follow' | 'noindex,follow'
+  learnerNavigation?: boolean
 }
 
 export const AppLayout = ({
   children,
   reviewReturnContext,
-  robots
+  robots,
+  learnerNavigation = true
 }: AppLayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
@@ -241,7 +243,13 @@ export const AppLayout = ({
 
   return (
     <AppShell
-      className={isFocusSession ? 'app-shell-focus' : undefined}
+      className={
+        isFocusSession
+          ? 'app-shell-focus'
+          : learnerNavigation
+            ? undefined
+            : 'app-shell-no-rail'
+      }
       surface={
         isReviewSurface ? 'review' : isLearningActive ? 'learning' : 'general'
       }
@@ -265,7 +273,7 @@ export const AppLayout = ({
         </>
       }
       sidebar={
-        !isFocusSession ? (
+        learnerNavigation && !isFocusSession ? (
           <SideNavigation
             id="primary-navigation"
             label={navigationT('primary')}
@@ -345,11 +353,6 @@ export const AppLayout = ({
                           {navigationT('learningStart')}
                         </Link>
                       ) : null}
-                      {role === 'ADMIN' ? (
-                        <Link to="/admin/questions" onClick={closeMenu}>
-                          {navigationT('adminQuestions')}
-                        </Link>
-                      ) : null}
                       <div className="app-mobile-locale">
                         <LocaleSwitcher />
                       </div>
@@ -362,7 +365,9 @@ export const AppLayout = ({
         ) : null
       }
       footer={!isFocusSession ? <InformationFooter density="compact" /> : null}
-      bottomNavigation={!isFocusSession ? renderMobileNavigation() : null}
+      bottomNavigation={
+        learnerNavigation && !isFocusSession ? renderMobileNavigation() : null
+      }
       mainProps={{
         ref: mainRef,
         className:
