@@ -16,6 +16,7 @@ import { useWrongNotePreviousAnswer } from '@app/wrong-note/hooks/useWrongNotePr
 import { getSafeWrongNoteReturnTo } from '@app/wrong-note/reviewQueueSearch'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
 export const WrongNoteDetailPage = (): ReactElement => {
   const { t } = useTranslation('wrongNote')
@@ -95,6 +96,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
           title={t('detail.states.loadErrorTitle')}
           description={t('detail.states.loadErrorDescription')}
           onRetry={retryDetail}
+          action={<AppErrorReportButton />}
         />
       </section>
     )

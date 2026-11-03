@@ -84,6 +84,7 @@ export interface BrowserFixture {
 interface BrowserDatabaseSnapshot {
   readonly account: number
   readonly audit: number
+  readonly importApply: number
   readonly operationIntent: number
   readonly option: number
   readonly question: number
@@ -151,6 +152,8 @@ const readSnapshot = async (
        (SELECT COUNT(*)::int FROM "QuestionVersionTag") AS "versionTag",
        (SELECT COUNT(*)::int FROM "ContentReview") AS "review",
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "audit",
+       (SELECT COUNT(*)::int FROM "AdminAuditLog"
+         WHERE "command" = 'IMPORT_APPLY') AS "importApply",
        (SELECT COUNT(*)::int FROM "AuthSessionRotationFence") AS "rotationFence",
        (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
          AS "reauthenticationIntent",
@@ -365,12 +368,20 @@ const createBrowserFixtureDatabase = (
     assertExpectedLifecycleDelta: async (before): Promise<void> => {
       const after = await runWithFixtureClient(readSnapshot)
       const a1a8 = lifecycleProfile === 'admin-a1-a8'
+      // A1-A8 may end with one admin UI import (#527): one DRAFT question with
+      // four options and one tag, plus QUESTION_CREATE and IMPORT_APPLY audits.
+      const imported = after.importApply - before.importApply
+      if (imported !== 0 && !(a1a8 && imported === 1)) {
+        throw new Error(
+          `Browser database delta mismatch for importApply: received ${imported}.`
+        )
+      }
       assertDelta(before, after, 'user', 0)
       assertDelta(before, after, 'account', 0)
-      assertDelta(before, after, 'question', a1a8 ? 1 : 2)
-      assertDelta(before, after, 'version', a1a8 ? 1 : 3)
-      assertDelta(before, after, 'option', a1a8 ? 4 : 12)
-      assertDelta(before, after, 'versionTag', a1a8 ? 1 : 3)
+      assertDelta(before, after, 'question', a1a8 ? 1 + imported : 2)
+      assertDelta(before, after, 'version', a1a8 ? 1 + imported : 3)
+      assertDelta(before, after, 'option', a1a8 ? 4 + 4 * imported : 12)
+      assertDelta(before, after, 'versionTag', a1a8 ? 1 + imported : 3)
       assertDelta(before, after, 'review', a1a8 ? 1 : 12)
       // A1-A8: four options, one retained tag; archive adds ARCHIVE_ABANDONED.
       // Canonical: author apply + stale recovery, reviewer approval (3).
@@ -382,7 +393,7 @@ const createBrowserFixtureDatabase = (
         before,
         after,
         'audit',
-        (a1a8 ? 3 : 10 + 12 + 2) + reauthentications
+        (a1a8 ? 3 + 2 * imported : 10 + 12 + 2) + reauthentications
       )
       assertDelta(before, after, 'rotationFence', reauthentications)
       assertDelta(before, after, 'reauthenticationIntent', reauthentications)
@@ -523,7 +534,14 @@ const createBrowserFixtureDatabase = (
                FROM "Question" AS question
                JOIN "QuestionVersion" AS version ON version."questionId" = question."id"
                WHERE question."createdByUserId" = $1::uuid
-                 AND version."createdByUserId" = $1::uuid`,
+                 AND version."createdByUserId" = $1::uuid
+                 AND NOT EXISTS (
+                   SELECT 1 FROM "AdminAuditLog" AS created
+                   JOIN "AdminAuditLog" AS applied
+                     ON applied."operationId" = created."operationId"
+                     AND applied."command" = 'IMPORT_APPLY'
+                   WHERE created."command" = 'QUESTION_CREATE'
+                     AND created."targetId" = question."id")`,
                 [ssoAdmins.author.userId]
               )
           )
@@ -537,6 +555,50 @@ const createBrowserFixtureDatabase = (
             row.review !== true
           )
             throw new Error('A1-A8 owned command lifecycle failed.')
+          if (imported === 1) {
+            const importedRows = await runWithFixtureClient(
+              async (client) =>
+                await client.query<{ state: boolean; audit: boolean }>(
+                  `SELECT
+                   (question."lifecycleStatus" = 'ACTIVE'
+                     AND question."currentPublishedVersionId" IS NULL
+                     AND version."status" = 'DRAFT'
+                     AND (SELECT COUNT(*) FROM "QuestionVersion"
+                       WHERE "questionId" = question."id") = 1
+                     AND (SELECT COUNT(*) FROM "QuestionOption"
+                       WHERE "questionVersionId" = version."id") = 4
+                     AND (SELECT COUNT(*) FROM "QuestionVersionTag"
+                       WHERE "questionVersionId" = version."id") = 1) AS "state",
+                   (applied."actorUserId" = $1::uuid
+                     AND applied."actorId" = $1::uuid
+                     AND applied."actorRole" = 'ADMIN'
+                     AND applied."environment" = 'TEST'
+                     AND applied."targetType" = 'IMPORT_REQUEST'
+                     AND applied."metadata"->>'itemCount' = '1'
+                     AND created."actorUserId" = $1::uuid
+                     AND created."targetType" = 'QUESTION'
+                     AND created."afterState" = 'ACTIVE') AS "audit"
+                 FROM "Question" AS question
+                 JOIN "QuestionVersion" AS version
+                   ON version."questionId" = question."id"
+                 JOIN "AdminAuditLog" AS created
+                   ON created."command" = 'QUESTION_CREATE'
+                   AND created."targetId" = question."id"
+                 JOIN "AdminAuditLog" AS applied
+                   ON applied."operationId" = created."operationId"
+                   AND applied."command" = 'IMPORT_APPLY'
+                 WHERE question."createdByUserId" = $1::uuid`,
+                  [ssoAdmins.author.userId]
+                )
+            )
+            const importedRow = importedRows.rows[0]
+            if (
+              importedRows.rows.length !== 1 ||
+              importedRow?.state !== true ||
+              importedRow.audit !== true
+            )
+              throw new Error('A1-A8 imported question lifecycle failed.')
+          }
         }
       }
     },
