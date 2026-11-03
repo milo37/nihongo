@@ -10,11 +10,15 @@ import {
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
 import {
+  adminImportApplyResponseSchema,
+  adminImportValidationResponseSchema,
+  applyQuestionImportRequestSchema,
   archiveAdminQuestionErrorSchema,
   archiveAdminQuestionRequestSchema,
   archiveAdminQuestionResponseSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionResponseSchema,
+  getAdminImportResultResponseSchema,
   getAdminQuestionResponseSchema,
   listAdminQuestionsErrorSchema,
   listAdminQuestionsResponseSchema,
@@ -754,6 +758,61 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         ledger,
         testInfo,
         'admin-cms-real-request-ledger'
+      )
+      // A stored apply result stays readable by importId (unknown-outcome recovery).
+      await winner.goto('/admin/questions/import')
+      await winner.locator('input[type="file"]').setInputFiles({
+        name: 'import.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(
+          JSON.stringify({
+            items: [
+              {
+                clientItemId: 'e2e-import-1',
+                content: {
+                  ...createInput,
+                  questionText: '駅（　）友だちを待ちます。'
+                }
+              }
+            ]
+          })
+        )
+      })
+      const validationResponse = waitForResponse(
+        winner,
+        'POST',
+        '/api/v1/admin/questions/import-validation'
+      )
+      await winner
+        .getByRole('button', { name: '쓰기 없이 검증', exact: true })
+        .click()
+      expect(
+        adminImportValidationResponseSchema.parse(
+          await canonicalJson(await validationResponse, 200)
+        ).valid
+      ).toBe(true)
+      const applyResponse = waitForResponse(
+        winner,
+        'POST',
+        '/api/v1/admin/questions/import-application'
+      )
+      await winner
+        .getByRole('button', { name: '동일 검증 결과 원자 적용', exact: true })
+        .click()
+      const appliedResponse = await applyResponse
+      const { importId } = applyQuestionImportRequestSchema.parse(
+        appliedResponse.request().postDataJSON() as unknown
+      )
+      const applied = adminImportApplyResponseSchema.parse(
+        await canonicalJson(appliedResponse, 201)
+      )
+      const stored = await browserJson(
+        winner,
+        `/api/v1/admin/question-imports/${encodeURIComponent(importId)}`
+      )
+      expect(stored.status).toBe(200)
+      expect(getAdminImportResultResponseSchema.parse(stored.body)).toEqual(
+        applied
       )
     } finally {
       context.off('response', observeReturn)
