@@ -2474,6 +2474,15 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .app-shell-no-rail .app-mobile-brand {
   display: inline-flex;
 }
+/* Align the footer with the admin content column next to its 232px menu. */
+@media (min-width: 1024px) {
+  .app-shell-no-rail .app-shell-body > .information-footer {
+    width: auto;
+    max-width: none;
+    margin-inline: 232px 0;
+    padding-inline: 24px;
+  }
+}
 .app-shell-focus .app-shell-body > main {
   width: 100%;
   max-width: none;

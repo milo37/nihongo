@@ -3,6 +3,14 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  idleLock: {
+    title: '画面をロックしました',
+    description:
+      '15分間操作がなかったため画面をロックしました。入力した内容はそのまま残っています。',
+    recheck: 'もう一度確認',
+    checking: '確認中…',
+    failed: '本人確認が完了しませんでした。もう一度お試しください。'
+  },
   common: {
     breadcrumbLabel: '現在位置',
     menuLabel: '管理メニュー',

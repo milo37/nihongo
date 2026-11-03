@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router'
 import { AdminNavigation } from '@app/admin/components/AdminNavigation'
+import { IdleLockDialog } from '@app/admin/idle-lock/IdleLockDialog'
 import type { ReactElement } from 'react'
 
 export const AdminShell = (): ReactElement => (
@@ -10,5 +11,6 @@ export const AdminShell = (): ReactElement => (
     <div className="min-w-0">
       <Outlet />
     </div>
+    <IdleLockDialog />
   </div>
 )
