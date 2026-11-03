@@ -1,9 +1,9 @@
-import { useTranslation } from 'react-i18next'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import type { CreateReportRequest } from '@nihongo/contracts/report/reports'
 import { useQuestionReportPresentation as useAdminPresentation } from '@app/content-operations/reports/questionReportPublic'
 import { isAccountRestrictedApiError, isUiApiError } from '@libs/apiError'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { useCreateReport } from '@app/question-report/hooks/useCreateReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -38,7 +38,6 @@ export const ReportDialog = ({
   fallbackFocusRef
 }: ReportDialogProps): ReactElement => {
   const { presentError, presentFieldError, t } = useAdminPresentation()
-  const { t: commonT } = useTranslation('common')
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const submitRef = useRef<HTMLButtonElement>(null)
   const [description, setDescription] = useState('')
@@ -60,14 +59,13 @@ export const ReportDialog = ({
   })
 
   const visibleError = submittedSinceOpen ? mutation.error : null
+  const isRestricted = isAccountRestrictedApiError(visibleError)
   const errorMessage = visibleError
-    ? isAccountRestrictedApiError(visibleError)
-      ? commonT('state.accountRestricted')
-      : isUiApiError(visibleError)
-        ? visibleError.isOffline
-          ? t('questionReportDialog.offline')
-          : presentError(visibleError)
-        : copy.error
+    ? isUiApiError(visibleError)
+      ? visibleError.isOffline
+        ? t('questionReportDialog.offline')
+        : presentError(visibleError)
+      : copy.error
     : null
   const fieldErrors =
     visibleError && isUiApiError(visibleError)
@@ -129,7 +127,9 @@ export const ReportDialog = ({
             }
           }}
         />
-        {errorMessage && !fieldErrors?.description?.length ? (
+        {isRestricted ? (
+          <AccountRestrictedNotice />
+        ) : errorMessage && !fieldErrors?.description?.length ? (
           <p className="font-semibold text-red-700" role="alert">
             {errorMessage}
           </p>

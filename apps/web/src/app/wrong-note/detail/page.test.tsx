@@ -289,10 +289,9 @@ describe('wrong-note restricted account', () => {
     })
     await waitFor(() => expect(start).toBeEnabled())
     await user.click(start)
-    expect(await screen.findByText(restrictedMessage)).toHaveAttribute(
-      'role',
-      'alert'
-    )
+    const notice = await screen.findByText(restrictedMessage)
+    expect(notice).toHaveAttribute('role', 'alert')
+    await waitFor(() => expect(notice).toHaveFocus())
     expect(
       screen.queryByText(appI18n.t('wrongNote:detail.targeted.error'))
     ).toBeNull()
@@ -311,7 +310,10 @@ describe('wrong-note restricted account', () => {
       '보기 문구를 확인해 주세요.'
     )
     await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
-    expect(await within(dialog).findByText(restrictedMessage)).toBeVisible()
+    const notice = await within(dialog).findByText(restrictedMessage)
+    expect(notice).toBeVisible()
+    expect(notice).toHaveClass('bg-amber-50')
+    expect(notice).not.toHaveClass('text-red-700')
     expect(
       within(dialog).queryByText('문제 신고를 접수하지 못했습니다.')
     ).toBeNull()
