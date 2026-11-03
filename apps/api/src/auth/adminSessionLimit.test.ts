@@ -5,7 +5,7 @@ import {
 } from './principalService.js'
 import { createSessionCookie } from './sessionCookie.js'
 
-const secret = 'synthetic-admin-session-limit-secret-0123456789'
+const secret = 'a'.repeat(32)
 const signedInAt = new Date('2026-11-03T00:00:00.000Z')
 const cookie = createSessionCookie({
   token: 'synthetic-session-token',
