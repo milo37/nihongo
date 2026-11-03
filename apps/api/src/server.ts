@@ -2,6 +2,7 @@ import 'dotenv/config'
 import type { Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
+import { createPrismaAccountRestrictionReader } from './account/accountRestriction.js'
 import { createApiApp } from './app/createApp.js'
 import { createAuthGateway } from './auth/authGateway.js'
 import { createAuthRuntime } from './auth/createAuth.js'
@@ -276,6 +277,9 @@ const userReportService = questionReportRateLimiter
   ? createUserReportService(createPrismaUserReportRepository(database.client))
   : undefined
 const app = createApiApp({
+  accountRestrictionReader: createPrismaAccountRestrictionReader(
+    database.client
+  ),
   ...(adminQuestionReader &&
   adminReadRateLimiter &&
   adminQuestionCommandService &&

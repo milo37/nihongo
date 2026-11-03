@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { questionReportReasonSchema } from '../admin/content-future.js'
 import { isoDateTimeSchema } from '../common/date.js'
 import { reportKindSchema } from '../report/reports.js'
 import {
@@ -127,14 +126,6 @@ export const analyticsEventSchema = z.discriminatedUnion('event', [
       payload: z
         .object({ surface: z.enum(['PRACTICE', 'RESULT', 'WRONG_NOTE']) })
         .strict()
-    })
-    .strict(),
-  z
-    .object({
-      ...envelope,
-      /** @deprecated Removed once clients send `report_submitted` (#491). */
-      event: z.literal('question_reported'),
-      payload: z.object({ reason: questionReportReasonSchema }).strict()
     })
     .strict(),
   z
