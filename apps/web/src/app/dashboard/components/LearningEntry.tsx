@@ -92,6 +92,7 @@ export const DashboardRecommendedEntry = ({
 }: RecommendedEntryProps): ReactElement => {
   const { t } = useTranslation('home')
   const { t: dashboardT } = useTranslation('dashboard')
+  const { t: commonT } = useTranslation('common')
   const query = useGetDashboardInsights()
   const action = useDashboardRecommendationAction({
     refetchInsights: async () => {
@@ -186,7 +187,9 @@ export const DashboardRecommendedEntry = ({
           key={action.actionNotice.id}
         >
           <p>
-            {dashboardT(`insights.actionNotice.${action.actionNotice.code}`)}
+            {action.actionNotice.code === 'accountRestricted'
+              ? commonT('state.accountRestricted')
+              : dashboardT(`insights.actionNotice.${action.actionNotice.code}`)}
           </p>
           {action.blockedRecommendationKind ? (
             <Button
