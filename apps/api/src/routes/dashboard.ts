@@ -2,16 +2,16 @@ import {
   getDashboardStatsQuerySchema,
   getDashboardStatsResponseSchema
 } from '@nihongo/contracts/dashboard/get-dashboard-stats'
-import { getConnInfo } from '@hono/node-server/conninfo'
-import { Hono, type Context } from 'hono'
-import { z, type ZodError } from 'zod'
-import { createClientIpAuthority } from '../auth/clientIp.js'
+import { Hono } from 'hono'
+import { z } from 'zod'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 interface DashboardRouteDependencies {
   dashboardService: DashboardService
@@ -22,40 +22,6 @@ interface DashboardRouteDependencies {
 
 type DashboardRouteEnvironment = { Variables: ApiVariables }
 
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-
-  return fieldErrors
-}
-
-const appendAuthHeaders = (
-  context: Context<DashboardRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-      environment.NODE_ENV === 'production' ? '; Secure' : ''
-    }`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
-}
-
 export const createDashboardRoutes = ({
   dashboardService,
   environment,
@@ -63,27 +29,14 @@ export const createDashboardRoutes = ({
   rateLimiter
 }: DashboardRouteDependencies): Hono<DashboardRouteEnvironment> => {
   const routes = new Hono<DashboardRouteEnvironment>()
-  const clientIpAuthority = createClientIpAuthority(
-    environment.AUTH_TRUSTED_PROXY_CIDRS
+  routes.use(
+    '*',
+    createClientIpMiddleware(environment.AUTH_TRUSTED_PROXY_CIDRS)
   )
-  const resolveClientIp = (
-    context: Context<DashboardRouteEnvironment>
-  ): string => {
-    let peerAddress: string | undefined
-    try {
-      peerAddress = getConnInfo(context).remote.address
-    } catch {
-      peerAddress = undefined
-    }
-    return clientIpAuthority.resolve(
-      peerAddress,
-      context.req.header('X-Forwarded-For') ?? null
-    )
-  }
 
   routes.get('/', async (context) => {
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
+      clientIp: context.get('clientIp'),
       operation: 'dashboard-read',
       windowMs: 60_000,
       max: 120
