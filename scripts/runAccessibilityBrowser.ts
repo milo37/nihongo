@@ -404,7 +404,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE8_BROWSER_MODE: 'mock',
+      DASHBOARD_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_OUTPUT_LABEL: 'phase8-mock'
     },
@@ -515,7 +515,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/browserApi.ts'],
     {
       ...apiEnvironment,
-      PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
+      BROWSER_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
     }
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)

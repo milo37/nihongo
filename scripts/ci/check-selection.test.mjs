@@ -231,9 +231,9 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   const unit = workflowJob(workflow, 'unit')
   const integration = workflowJob(workflow, 'integration')
   const regression = workflowJob(workflow, 'regression')
-  const gate = workflowJob(workflow, 'e2e')
+  const gate = workflowJob(workflow, 'acceptance')
   const portableRun = workflowJob(workflow, 'portable')
-  const portable = workflowJob(workflow, 'phase11_release')
+  const portable = workflowJob(workflow, 'release_smoke')
   assert.equal(
     workflow.split('run: node scripts/ci/check-selection.mjs plan').length - 1,
     1
@@ -597,7 +597,7 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
 })
 
 test('protected aggregate accepts only successful dependencies and intentionally skipped regression', () => {
-  const job = workflowJob(ciWorkflow(), 'e2e')
+  const job = workflowJob(ciWorkflow(), 'acceptance')
   const step = namedWorkflowStep(
     job,
     'Require successful selected regression and build'
@@ -919,8 +919,8 @@ test('API shard partition script rejects drifted matrix groups', () => {
   assert.equal(script.status, 0, script.stderr)
 })
 
-test('Phase 11 gate requires the build and a selected portable smoke', () => {
-  const job = workflowJob(ciWorkflow(), 'phase11_release')
+test('release smoke gate requires the build and a selected portable smoke', () => {
+  const job = workflowJob(ciWorkflow(), 'release_smoke')
   const name = 'Require successful build and selected portable smoke'
   const environment = workflowStepEnvironment(namedWorkflowStep(job, name))
   for (const [key, expression] of Object.entries({
@@ -946,6 +946,50 @@ test('Phase 11 gate requires the build and a selected portable smoke', () => {
       }
     }
     assertGate(script, { ...env, PORTABLE_SELECTED: '' }, 1)
+  }
+})
+
+test('legacy required check names stay as thin aliases of the renamed gates', () => {
+  const workflow = ciWorkflow()
+  for (const [alias, gate, legacyName, metadataLabel] of [
+    [
+      'acceptance_alias',
+      'acceptance',
+      'Phase 10 real/mock browser and regression acceptance',
+      'regression alias'
+    ],
+    [
+      'release_smoke_alias',
+      'release_smoke',
+      'Phase 11 portable release and production-mode smoke',
+      'portable alias'
+    ]
+  ]) {
+    const job = workflowJob(workflow, alias)
+    const gateJob = workflowJob(workflow, gate)
+    assert.match(
+      job,
+      new RegExp(`\\|\\| '${legacyName.replace('/', '\\/')}' \\}\\}`, 'u')
+    )
+    assert.match(
+      job,
+      new RegExp(`'Metadata edit \\/ ${metadataLabel} \\/ \\{0\\}'`, 'u')
+    )
+    assert.match(job, new RegExp(`^ {4}needs: \\[${gate}\\]$`, 'mu'))
+    assert.equal(
+      job.match(/^ {4}if: .*$/mu)?.[0],
+      gateJob.match(/^ {4}if: .*$/mu)?.[0]
+    )
+    const name =
+      alias === 'acceptance_alias'
+        ? 'Require successful acceptance gate'
+        : 'Require successful release smoke gate'
+    const environment = workflowStepEnvironment(namedWorkflowStep(job, name))
+    assert.equal(environment.get('GATE_RESULT'), `\${{ needs.${gate}.result }}`)
+    const script = stepScript(job, name)
+    assertGate(script, { GATE_RESULT: 'success' }, 0)
+    for (const result of ['failure', 'cancelled', 'skipped', ''])
+      assertGate(script, { GATE_RESULT: result }, 1)
   }
 })
 
@@ -1060,15 +1104,19 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'unit',
     'integration',
     'regression',
-    'e2e',
+    'acceptance',
     'portable',
-    'phase11_release'
+    'release_smoke',
+    'acceptance_alias',
+    'release_smoke_alias'
   ])
-  assert.equal(steps(normal).length, 49)
+  assert.equal(steps(normal).length, 51)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
     'Quality and production build',
+    'Browser and regression acceptance',
+    'Portable release smoke',
     'Phase 10 real/mock browser and regression acceptance',
     'Phase 11 portable release and production-mode smoke'
   ]) {
@@ -1080,7 +1128,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
     normal.split('toJSON(github.event.changes) == toJSON(fromJSON').length - 1,
-    8
+    12
   )
   assert.doesNotMatch(
     normal,
@@ -1246,7 +1294,7 @@ appendFileSync(
   process.env.BROWSER_STUB_LOG,
   JSON.stringify({
     args,
-    phase8: process.env.PHASE8_BROWSER_ACCEPTANCE ?? null
+    phase8: process.env.DASHBOARD_BROWSER_ACCEPTANCE ?? null
   }) + '\\n'
 )
 if (
@@ -1506,7 +1554,7 @@ test('accessibility mock starts only a local mock web server', async () => {
       type === 'command' && args?.includes('apps/web/e2e/dashboard.spec.ts')
   )
   assert.ok(dashboardRun)
-  assert.equal(dashboardRun.environment.PHASE8_BROWSER_MODE, 'mock')
+  assert.equal(dashboardRun.environment.DASHBOARD_BROWSER_MODE, 'mock')
   assert.equal(dashboardRun.args.includes('--grep'), false)
 })
 
@@ -2131,10 +2179,10 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
     [
       'phase7',
       `  await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
 `
     ],
@@ -2255,10 +2303,10 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
     [
       'phase7',
       `  await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
 `,
       `  let target: unknown
@@ -2267,10 +2315,10 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
     keyof
     typeof globalThis &&
     await runPlaywright('real', publicOrigin, {
-      PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-      PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-      PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-      PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+      ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+      ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+      ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+      DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
     })
 `
     ],

@@ -37,7 +37,7 @@ Historical prefix37 and runtime27 boundaries are unchanged.
 
 Use a disposable PostgreSQL cluster whose base database is
 `nihongo_jlp534_test`. Supply the existing safe TEST environment and bootstrap
-`PHASE7_API_INTEGRATION_DATABASE_URL` (or `DATABASE_URL`) through the authorized
+`API_INTEGRATION_DATABASE_URL` (or `DATABASE_URL`) through the authorized
 environment, without printing credentials. The Phase10 runner creates and
 removes a `jlp534_<random>_test` schema for the guest shard and supplies the
 fixture, guest and application URLs with `GUEST_CLEANUP_TEST_ISOLATED=yes`.
