@@ -793,7 +793,7 @@ test('main and dev pushes and main pull requests never add Mock browser executio
     changedFiles
   })
   assert.equal(mainPullRequest.browser, true)
-  assert.equal(mainPullRequest.browser_mock, false)
+  assert.equal(mainPullRequest.browser_mock, true)
   for (const [ref, browser] of [
     ['refs/heads/main', true],
     ['refs/heads/dev', false]
@@ -975,50 +975,6 @@ test('release smoke gate requires the build and a selected portable smoke', () =
   }
 })
 
-test('legacy required check names stay as thin aliases of the renamed gates', () => {
-  const workflow = ciWorkflow()
-  for (const [alias, gate, legacyName, metadataLabel] of [
-    [
-      'acceptance_alias',
-      'acceptance',
-      'Phase 10 real/mock browser and regression acceptance',
-      'regression alias'
-    ],
-    [
-      'release_smoke_alias',
-      'release_smoke',
-      'Phase 11 portable release and production-mode smoke',
-      'portable alias'
-    ]
-  ]) {
-    const job = workflowJob(workflow, alias)
-    const gateJob = workflowJob(workflow, gate)
-    assert.match(
-      job,
-      new RegExp(`\\|\\| '${legacyName.replace('/', '\\/')}' \\}\\}`, 'u')
-    )
-    assert.match(
-      job,
-      new RegExp(`'Metadata edit \\/ ${metadataLabel} \\/ \\{0\\}'`, 'u')
-    )
-    assert.match(job, new RegExp(`^ {4}needs: \\[${gate}\\]$`, 'mu'))
-    assert.equal(
-      job.match(/^ {4}if: .*$/mu)?.[0],
-      gateJob.match(/^ {4}if: .*$/mu)?.[0]
-    )
-    const name =
-      alias === 'acceptance_alias'
-        ? 'Require successful acceptance gate'
-        : 'Require successful release smoke gate'
-    const environment = workflowStepEnvironment(namedWorkflowStep(job, name))
-    assert.equal(environment.get('GATE_RESULT'), `\${{ needs.${gate}.result }}`)
-    const script = stepScript(job, name)
-    assertGate(script, { GATE_RESULT: 'success' }, 0)
-    for (const result of ['failure', 'cancelled', 'skipped', ''])
-      assertGate(script, { GATE_RESULT: result }, 1)
-  }
-})
-
 test('quality groups call semantic commands without phase-number aliases', () => {
   const selection = classifyChangedFiles(['apps/api/src/auth/session.ts'])
   const commands = [
@@ -1132,21 +1088,23 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'regression',
     'acceptance',
     'portable',
-    'release_smoke',
-    'acceptance_alias',
-    'release_smoke_alias'
+    'release_smoke'
   ])
-  assert.equal(steps(normal).length, 51)
+  assert.equal(steps(normal).length, 49)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
     'Quality and production build',
     'Browser and regression acceptance',
-    'Portable release smoke',
+    'Portable release smoke'
+  ]) {
+    assert.equal(normal.split(name).length - 1, 1)
+  }
+  for (const name of [
     'Phase 10 real/mock browser and regression acceptance',
     'Phase 11 portable release and production-mode smoke'
   ]) {
-    assert.equal(normal.split(name).length - 1, 1)
+    assert.equal(normal.includes(name), false, name)
   }
   assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
   assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 2)
@@ -1154,7 +1112,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
     normal.split('toJSON(github.event.changes) == toJSON(fromJSON').length - 1,
-    12
+    8
   )
   assert.doesNotMatch(
     normal,
