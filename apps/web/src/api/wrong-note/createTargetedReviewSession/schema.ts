@@ -9,7 +9,8 @@ import {
 import { z } from 'zod'
 import {
   createPracticeTransportResponseSchema,
-  refinePracticeContractV2Header
+  refinePracticeContractV2Header,
+  refinePracticeJsonContentType
 } from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const targetedReviewSessionParamsSchema =
@@ -24,13 +25,11 @@ export const targetedReviewSessionTransportSchema =
     createTargetedReviewSessionResponseSchema,
     z.literal(201)
   ).superRefine(({ data, headers }, context) => {
-    if (!/^application\/json(?:\s*;|$)/iu.test(headers['content-type'] ?? '')) {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'content-type'],
-        message: 'targeted review 응답은 JSON이어야 합니다.'
-      })
-    }
+    refinePracticeJsonContentType(
+      headers,
+      context,
+      'targeted review 응답은 JSON이어야 합니다.'
+    )
     refinePracticeContractV2Header(
       headers,
       context,
