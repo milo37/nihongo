@@ -82,7 +82,7 @@ for (const locale of ['ko', 'ja'] as const) {
     )
     await page.addInitScript((locale) => {
       localStorage.setItem(
-        'jlpt-drill-note:ui-locale:v1',
+        'harumaru:ui-locale:v1',
         JSON.stringify({ version: 1, locale })
       )
     }, locale)

@@ -6,7 +6,7 @@ it.each(['ko', 'ja'] as const)(
   'initializes saved %s before rendering and switches synchronously offline',
   async (locale) => {
     localStorage.setItem(
-      'jlpt-drill-note:ui-locale:v1',
+      'harumaru:ui-locale:v1',
       JSON.stringify({ version: 1, locale })
     )
     vi.resetModules()
