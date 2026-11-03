@@ -480,7 +480,7 @@ test('current stats and learning routes preserve contracts before an explicit re
     body: JSON.stringify(
       {
         schemaVersion: 1,
-        kind: 'nihongo.phase10.browser-performance',
+        kind: 'nihongo.browser-performance',
         surface: 'dashboard-navigation',
         mode: browserMode,
         warmupCount: 1,

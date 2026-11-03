@@ -6,7 +6,8 @@ import {
   writeCanonicalEvidence
 } from './security-evidence.mjs'
 
-const VALID_LABEL = /^phase(?:7|8|9|10)-(?:real|mock)$/u
+const VALID_LABEL =
+  /^(?:admin|admin-dashboard|accessibility|journey)-(?:real|mock)$/u
 const VALID_STATUS = new Set([
   'passed',
   'failed',
@@ -15,7 +16,7 @@ const VALID_STATUS = new Set([
   'interrupted'
 ])
 const REQUEST_LEDGER_ATTACHMENT =
-  /^(?:phase7-(?:a1-a8-real-request-ledger|(?:guest|user)-denial)|(?:phase8-admin-lifecycle|dashboard|phase10-(?:guest-auth|user-journey|resilience))-(?:real|mock)-request-ledger|phase10-(?:real|mock)-(?:ko|ja)-handoff)$/u
+  /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const PERFORMANCE_ATTACHMENT = /^dashboard-(?:real|mock)-performance$/u
 const LEGACY_DASHBOARD_ATTACHMENT =
   /^phase8-dashboard-(?:real|mock)-(?:request-ledger|performance)$/u
@@ -23,14 +24,14 @@ const LEGACY_DASHBOARD_ATTACHMENT =
 const normalizeStatus = (status) =>
   VALID_STATUS.has(status) ? status : 'failed'
 
-export default class Phase10PlaywrightSummaryReporter {
+export default class PlaywrightEvidenceReporter {
   constructor(options = {}) {
     if (
       typeof options.outputDirectory !== 'string' ||
       typeof options.label !== 'string' ||
       !VALID_LABEL.test(options.label)
     ) {
-      throw new Error('PHASE10_PLAYWRIGHT_REPORTER_OPTIONS_INVALID')
+      throw new Error('PLAYWRIGHT_EVIDENCE_REPORTER_OPTIONS_INVALID')
     }
     this.outputDirectory = options.outputDirectory
     this.label = options.label
@@ -112,7 +113,7 @@ export default class Phase10PlaywrightSummaryReporter {
   async onEnd(result) {
     if (this.invalidSafeAttachments.size > 0) {
       throw new Error(
-        `PHASE10_PLAYWRIGHT_SAFE_ATTACHMENT_INVALID:${[
+        `PLAYWRIGHT_EVIDENCE_SAFE_ATTACHMENT_INVALID:${[
           ...this.invalidSafeAttachments
         ]
           .toSorted(([leftName], [rightName]) =>
