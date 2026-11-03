@@ -15,9 +15,12 @@ export interface StudyCleanupCommandSettings<Result> {
   maxBatchSize: number
   successEvent: string
   failureEvent: string
+  /** Optional `true`/`false` variable; unset commands never dry-run. */
+  dryRunVariable?: string
   cleanup: (
     client: DatabaseRuntime['client'],
-    batchSize: number
+    batchSize: number,
+    dryRun: boolean
   ) => Promise<Result>
   describe: (result: Result) => Record<string, unknown>
 }
@@ -33,12 +36,19 @@ const run = async <Result>(
         .min(1)
         .max(settings.maxBatchSize)
         .default(settings.defaultBatchSize),
-      confirmation: z.literal(settings.confirmation)
+      confirmation: z.literal(settings.confirmation),
+      dryRun: z
+        .enum(['true', 'false'])
+        .default('false')
+        .transform((value) => value === 'true')
     })
     .strict()
     .parse({
       batchSize: process.env[settings.batchSizeVariable],
-      confirmation: process.env[settings.confirmationVariable]
+      confirmation: process.env[settings.confirmationVariable],
+      dryRun: settings.dryRunVariable
+        ? process.env[settings.dryRunVariable]
+        : undefined
     })
   const environment = parseApiEnvironment(process.env)
   const target = {
@@ -63,7 +73,11 @@ const run = async <Result>(
   let result: Result
   try {
     await database.checkReadiness()
-    result = await settings.cleanup(database.client, input.batchSize)
+    result = await settings.cleanup(
+      database.client,
+      input.batchSize,
+      input.dryRun
+    )
   } finally {
     await database.disconnect()
   }
@@ -71,6 +85,7 @@ const run = async <Result>(
     `${JSON.stringify({
       event: settings.successEvent,
       batchSize: input.batchSize,
+      ...(settings.dryRunVariable ? { dryRun: input.dryRun } : {}),
       ...settings.describe(result)
     })}\n`
   )
