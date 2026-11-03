@@ -2268,6 +2268,7 @@ describe('ADMIN command TEST database integration', () => {
     })
 
     const applyRequest = applyQuestionImportRequestSchema.parse({
+      importId: randomUUID(),
       items: validationRequest.items,
       validationDigest: validation.validationDigest
     })
@@ -2390,6 +2391,7 @@ describe('ADMIN command TEST database integration', () => {
       await slice5CommandService.validateImport(concurrentRequest)
     )
     const concurrentApplyRequest = applyQuestionImportRequestSchema.parse({
+      importId: randomUUID(),
       items: concurrentRequest.items,
       validationDigest: concurrentValidation.validationDigest
     })
@@ -2435,7 +2437,7 @@ describe('ADMIN command TEST database integration', () => {
       ),
       concurrentServices[1]!.applyImport(
         authority(reviewerId, reviewerToken),
-        concurrentApplyRequest
+        { ...concurrentApplyRequest, importId: randomUUID() }
       )
     ])
     expect(
@@ -2473,6 +2475,7 @@ describe('ADMIN command TEST database integration', () => {
       await slice5CommandService.validateImport(faultValidationRequest)
     )
     const faultApplyRequest = applyQuestionImportRequestSchema.parse({
+      importId: randomUUID(),
       items: faultValidationRequest.items,
       validationDigest: faultValidation.validationDigest
     })

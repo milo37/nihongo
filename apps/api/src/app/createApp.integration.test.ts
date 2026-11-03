@@ -809,7 +809,7 @@ describe('protected admin artifact and API composition', () => {
         Range: 'bytes=0-4'
       }
     })
-    expect(denied.status).toBe(401)
+    expect(denied.status).toBe(404)
     expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
     expect(denied.headers.get('Set-Cookie')).toContain('Max-Age=0')
     expect(await denied.text()).not.toContain('ADMIN_ASSET_ONLY')
