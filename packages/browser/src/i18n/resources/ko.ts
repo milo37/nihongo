@@ -1492,13 +1492,21 @@ export const koResources = {
   },
   admin: {
     name: '관리자',
+    nav: {
+      brand: '하루마루 관리',
+      questions: '문제',
+      import: '가져오기',
+      reports: '버그 리포트',
+      auditLog: '감사 이력'
+    },
     idleLock: {
-      title: '화면을 잠갔습니다',
-      description:
-        '15분 동안 입력이 없어 화면을 잠갔습니다. 입력한 내용은 그대로 있습니다.',
+      title: '15분 동안 사용하지 않아 잠갔습니다',
+      description: '입력한 내용은 그대로 있습니다.',
       recheck: '다시 확인',
       checking: '확인 중…',
-      failed: '본인 확인이 끝나지 않았습니다. 다시 시도해 주세요.'
+      failed: '본인 확인이 끝나지 않았습니다. 다시 시도해 주세요.',
+      expired:
+        '로그인이 끝나 지금은 잠금을 풀 수 없습니다. 입력한 내용은 이 화면에 그대로 있습니다.'
     },
     common: {
       breadcrumbLabel: '현재 위치',

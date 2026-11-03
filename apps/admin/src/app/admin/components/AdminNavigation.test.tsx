@@ -13,11 +13,11 @@ const renderAt = (path: string) =>
   )
 
 it.each([
-  ['/questions', '문제 관리'],
-  ['/questions/q-1/edit', '문제 관리'],
+  ['/questions', '문제'],
+  ['/questions/q-1/edit', '문제'],
   ['/questions/import', '가져오기'],
-  ['/reports/r-1', '신고 큐'],
-  ['/audit-log', '감사 기록']
+  ['/reports/r-1', '버그 리포트'],
+  ['/audit-log', '감사 이력']
 ])('marks only the current menu item for %s', (path, current) => {
   renderAt(path)
   const menu = screen.getByRole('navigation', { name: '관리자 메뉴' })
@@ -25,4 +25,5 @@ it.each([
     .getAllByRole('link')
     .filter((link) => link.getAttribute('aria-current') === 'page')
   expect(marked.map((link) => link.textContent)).toEqual([current])
+  expect(within(menu).getByText('하루마루 관리')).toBeInTheDocument()
 })

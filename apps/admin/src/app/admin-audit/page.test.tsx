@@ -359,7 +359,7 @@ it('connects existing question navigation to audit and preserves filters on Back
   const { router } = renderRoute('/admin/questions?level=N3&page=1')
   await screen.findByRole('heading', { level: 1, name: '문제 관리' })
   const nav = screen.getByRole('navigation', { name: '관리자 메뉴' })
-  const auditLink = within(nav).getByRole('link', { name: '감사 기록' })
+  const auditLink = within(nav).getByRole('link', { name: '감사 이력' })
   expect(auditLink).toHaveAttribute('href', '/admin/audit-log')
   auditLink.focus()
   await user.keyboard('{Enter}')
@@ -367,7 +367,7 @@ it('connects existing question navigation to audit and preserves filters on Back
   expect(
     within(screen.getByRole('navigation', { name: '관리자 메뉴' })).getByRole(
       'link',
-      { name: '감사 기록' }
+      { name: '감사 이력' }
     )
   ).toHaveAttribute('aria-current', 'page')
   await act(async () => router.navigate(-1))
@@ -400,7 +400,7 @@ it('focus lifecycle: reconnect growth after More does not steal focus from navig
   )
   expect(within(auditList()).getAllByRole('listitem')[1]).toHaveFocus()
   const navigation = screen.getByRole('navigation', { name: '관리자 메뉴' })
-  const questions = within(navigation).getByRole('link', { name: '문제 관리' })
+  const questions = within(navigation).getByRole('link', { name: '문제' })
   questions.focus()
   expect(questions).toHaveFocus()
   await act(async () => {

@@ -25,6 +25,8 @@ type DialogProps = {
   fallbackFocusRef?: RefObject<HTMLElement | null>
   className?: string
   preventClose?: boolean
+  /** Omit the close button for dialogs that can never be dismissed. */
+  hideClose?: boolean
 }
 
 const openDialogs = new Set<HTMLDialogElement>()
@@ -92,6 +94,7 @@ export const Dialog = ({
   description,
   fallbackFocusRef,
   footer,
+  hideClose = false,
   initialFocusRef,
   onOpenChange,
   open,
@@ -260,14 +263,16 @@ export const Dialog = ({
               </p>
             ) : null}
           </div>
-          <IconButton
-            className="-mr-2 -mt-1"
-            disabled={preventClose}
-            label={closeLabel ?? t('actions.closeDialog')}
-            icon={closeIcon}
-            variant="ghost"
-            onClick={requestClose}
-          />
+          {hideClose ? null : (
+            <IconButton
+              className="-mr-2 -mt-1"
+              disabled={preventClose}
+              label={closeLabel ?? t('actions.closeDialog')}
+              icon={closeIcon}
+              variant="ghost"
+              onClick={requestClose}
+            />
+          )}
         </div>
         {children ? (
           <div className="ui-dialog-content min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">

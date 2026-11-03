@@ -2468,18 +2468,17 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   width: 100%;
   max-width: none;
 }
-.app-shell-no-rail .app-shell-header-inner {
-  justify-content: space-between;
-}
+/* The admin menu carries the brand, so the header logo stays hidden. */
 .app-shell-no-rail .app-mobile-brand {
-  display: inline-flex;
+  display: none;
 }
-/* Align the footer with the admin content column next to its 232px menu. */
+/* Align footer text with the max-w-6xl admin pages beside the 232px menu. */
 @media (min-width: 1024px) {
   .app-shell-no-rail .app-shell-body > .information-footer {
-    width: auto;
+    box-sizing: border-box;
+    width: min(1152px, calc(100% - 232px));
     max-width: none;
-    margin-inline: 232px 0;
+    margin-inline: calc(232px + max(0px, (100% - 1384px) / 2)) 0;
     padding-inline: 24px;
   }
 }

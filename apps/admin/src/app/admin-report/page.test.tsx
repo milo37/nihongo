@@ -105,7 +105,7 @@ it('registers the approved list, makes the canonical read, and never displays de
     body: undefined
   })
   expect(screen.queryByText(detail.description!)).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '신고 큐' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: '버그 리포트' })).toHaveAttribute(
     'aria-current',
     'page'
   )
