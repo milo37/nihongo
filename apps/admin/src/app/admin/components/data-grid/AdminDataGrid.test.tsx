@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { createColumnHelper } from '@tanstack/react-table'
-import type {
-  ColumnVisibilityState,
-  PaginationState,
-  SortingState
-} from '@tanstack/react-table'
+import type { PaginationState, SortingState } from '@tanstack/react-table'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
-import { AdminDataGrid } from '@app/admin/components/data-grid/AdminDataGrid'
+import {
+  AdminDataGrid,
+  useResponsiveColumnVisibility
+} from '@app/admin/components/data-grid/AdminDataGrid'
 import type { AdminGridFeatures } from '@app/admin/components/data-grid/AdminDataGrid'
 
 // Test-only row shape; real admin lists use their shared contract types.
@@ -26,13 +25,18 @@ const columns = helper.columns([
 const onSorting = vi.fn<(value: SortingState) => void>()
 const onPagination = vi.fn<(value: PaginationState) => void>()
 
+const onRow = vi.fn<(row: Row) => void>()
+
 const Harness = ({ rows, total }: { rows: Row[]; total: number }) => {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 25
   })
-  const [visibility, setVisibility] = useState<ColumnVisibilityState>({})
+  const [visibility, setVisibility] = useResponsiveColumnVisibility(
+    ['id', 'name', 'count'],
+    ['id', 'name']
+  )
   return (
     <AdminDataGrid
       label="테스트 목록"
@@ -53,6 +57,7 @@ const Harness = ({ rows, total }: { rows: Row[]; total: number }) => {
       columnVisibility={visibility}
       onColumnVisibilityChange={setVisibility}
       emptyMessage="결과가 없습니다."
+      onRowActivate={onRow}
     />
   )
 }
@@ -64,9 +69,37 @@ const renderGrid = (rows: Row[], total = rows.length) =>
     </I18nProvider>
   )
 
+const setNarrow = (narrow: boolean) =>
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: narrow }) as unknown as MediaQueryList)
+  )
+
 beforeEach(() => {
   onSorting.mockReset()
   onPagination.mockReset()
+  onRow.mockReset()
+  setNarrow(false)
+})
+afterEach(() => vi.unstubAllGlobals())
+
+it('starts with only the compact columns on narrow screens and keeps the first column sticky', () => {
+  setNarrow(true)
+  renderGrid([{ id: 'a', name: '가', count: 1 }])
+  expect(screen.getAllByRole('columnheader')).toHaveLength(2)
+  expect(screen.getByRole('checkbox', { name: '횟수' })).not.toBeChecked()
+  fireEvent.click(screen.getByRole('checkbox', { name: '횟수' }))
+  expect(screen.getAllByRole('columnheader')).toHaveLength(3)
+  expect(screen.getByRole('cell', { name: 'a' })).toHaveClass(
+    'sticky',
+    'left-0'
+  )
+})
+
+it('activates the whole row from any cell', () => {
+  renderGrid([{ id: 'a', name: '가', count: 1 }])
+  fireEvent.click(screen.getByRole('cell', { name: '가' }))
+  expect(onRow).toHaveBeenCalledWith({ id: 'a', name: '가', count: 1 })
 })
 
 it('reports header sorting with aria-sort and leaves unsortable columns plain', () => {

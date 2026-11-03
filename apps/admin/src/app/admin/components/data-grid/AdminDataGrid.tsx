@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import {
   columnVisibilityFeature,
   rowPaginationFeature,
@@ -25,6 +25,27 @@ export type AdminGridFeatures = typeof adminGridFeatures
 
 export const ADMIN_GRID_PAGE_SIZES = [25, 50, 100] as const
 
+const COMPACT_QUERY = '(max-width: 760px)'
+
+/**
+ * Column visibility whose default depends on the viewport: on narrow screens
+ * only `compactColumnIds` start visible; the rest can be turned on from the
+ * column picker. The default is chosen once, so user choices are kept.
+ */
+export const useResponsiveColumnVisibility = (
+  columnIds: readonly string[],
+  compactColumnIds: readonly string[]
+) =>
+  useState<ColumnVisibilityState>(() =>
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(COMPACT_QUERY).matches
+      ? Object.fromEntries(
+          columnIds.map((id) => [id, compactColumnIds.includes(id)])
+        )
+      : {}
+  )
+
 type AdminDataGridProps<TData extends RowData> = {
   readonly label: string
   readonly columns: readonly ColumnDef<AdminGridFeatures, TData>[]
@@ -38,6 +59,8 @@ type AdminDataGridProps<TData extends RowData> = {
   readonly columnVisibility: ColumnVisibilityState
   readonly onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void
   readonly emptyMessage: string
+  /** Whole-row tap target; keep a real link in a cell for keyboard users. */
+  readonly onRowActivate?: (row: TData) => void
 }
 
 const resolve = <T,>(updater: T | ((previous: T) => T), previous: T): T =>
@@ -61,7 +84,8 @@ export const AdminDataGrid = <TData extends RowData>({
   onPaginationChange,
   columnVisibility,
   onColumnVisibilityChange,
-  emptyMessage
+  emptyMessage,
+  onRowActivate
 }: AdminDataGridProps<TData>): ReactElement => {
   const { t } = useAdminPresentation()
   const pageSizeId = useId()
@@ -124,7 +148,7 @@ export const AdminDataGrid = <TData extends RowData>({
           <thead>
             {table.getHeaderGroups().map((group) => (
               <tr key={group.id}>
-                {group.headers.map((header) => {
+                {group.headers.map((header, index) => {
                   const sorted = header.column.getIsSorted()
                   const canSort = header.column.getCanSort()
                   return (
@@ -140,7 +164,7 @@ export const AdminDataGrid = <TData extends RowData>({
                               ? 'descending'
                               : 'none'
                       }
-                      className="sticky top-0 z-10 whitespace-nowrap border-b border-line bg-surface px-3 py-2 font-semibold"
+                      className={`sticky top-0 whitespace-nowrap border-b border-line bg-surface px-3 py-2 font-semibold ${index === 0 ? 'left-0 z-20' : 'z-10'}`}
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
@@ -178,9 +202,28 @@ export const AdminDataGrid = <TData extends RowData>({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.id} className="border-b border-line last:border-0">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="whitespace-nowrap px-3 py-2">
+                <tr
+                  key={row.id}
+                  className={`border-b border-line last:border-0 ${onRowActivate ? 'cursor-pointer hover:bg-brand-soft' : ''}`}
+                  onClick={
+                    onRowActivate
+                      ? (event) => {
+                          // Let links and buttons inside the row act on their own.
+                          if (
+                            !(event.target as Element).closest(
+                              'a, button, input'
+                            )
+                          )
+                            onRowActivate(row.original)
+                        }
+                      : undefined
+                  }
+                >
+                  {row.getVisibleCells().map((cell, index) => (
+                    <td
+                      key={cell.id}
+                      className={`whitespace-nowrap px-3 py-2 ${index === 0 ? 'sticky left-0 z-[1] bg-surface' : ''}`}
+                    >
                       <table.FlexRender cell={cell} />
                     </td>
                   ))}
