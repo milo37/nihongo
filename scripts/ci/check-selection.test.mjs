@@ -83,6 +83,21 @@ test('base edits still classify changed files', () => {
   assert.equal(selection.web, true)
 })
 
+test('agent tooling and PR templates select no checks', () => {
+  const selection = classifyChangedFiles([
+    '.claude/agents/devops-engineer.md',
+    '.claude/hooks/check-gh-format.mjs',
+    '.claude/settings.json',
+    '.claude/skills/graph',
+    '.github/pull_request_template.md',
+    '.github/ISSUE_TEMPLATE/1-task.yml'
+  ])
+  assert.equal(selection.code, false)
+  assert.equal(selection.browser, false)
+  assert.equal(selection.portable, false)
+  assert.equal(classifyChangedFiles(['.github/workflows/ci.yml']).code, true)
+})
+
 test('unclassified and unsafe paths fail closed', () => {
   assert.throws(
     () => classifyChangedFiles(['unknown-area/file.json']),
@@ -212,8 +227,11 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   const workflow = ciWorkflow()
   const plan = workflowJob(workflow, 'plan')
   const build = workflowJob(workflow, 'build')
+  const unit = workflowJob(workflow, 'unit')
+  const integration = workflowJob(workflow, 'integration')
   const regression = workflowJob(workflow, 'regression')
   const gate = workflowJob(workflow, 'e2e')
+  const portableRun = workflowJob(workflow, 'portable')
   const portable = workflowJob(workflow, 'phase11_release')
   assert.equal(
     workflow.split('run: node scripts/ci/check-selection.mjs plan').length - 1,
@@ -221,28 +239,71 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   )
   assert.match(plan, /fetch-depth: 0/u)
   assert.doesNotMatch(plan, /pnpm install|cache:|services:|needs:/u)
-  for (const job of [build, regression]) {
+  for (const job of [build, unit, integration, regression, portableRun]) {
     assert.match(job, /^ {4}needs: plan$/mu)
-    assert.match(
-      job,
-      /CI_SELECTION: \$\{\{ needs\.plan\.outputs\.selection \}\}/u
-    )
     assert.match(job, /uses: actions\/checkout@v4/u)
     assert.match(job, /ref: \$\{\{ github\.sha \}\}/u)
     assert.match(job, /persist-credentials: false/u)
     assert.match(job, /run: pnpm install --frozen-lockfile/u)
     assert.doesNotMatch(job, /needs\.build|continue-on-error/u)
   }
+  for (const job of [build, unit, integration, regression]) {
+    assert.match(
+      job,
+      /CI_SELECTION: \$\{\{ needs\.plan\.outputs\.selection \}\}/u
+    )
+  }
+  for (const job of [build, unit, regression]) {
+    assert.match(job, /fetch-depth: 0/u)
+  }
+  for (const job of [integration, portableRun]) {
+    assert.doesNotMatch(job, /fetch-depth/u)
+  }
   assert.match(build, /if: \$\{\{ always\(\)/u)
   assert.match(build, /run: test "\$PLAN_RESULT" = success/u)
-  assert.doesNotMatch(build + plan + gate + portable, /services:/u)
-  assert.match(regression, /postgres:18\.4-alpine@sha256:/u)
+  assert.doesNotMatch(
+    build + plan + gate + portable + portableRun,
+    /services:/u
+  )
+  for (const job of [integration, regression]) {
+    assert.match(job, /postgres:18\.4-alpine@sha256:/u)
+  }
+  assert.match(
+    integration,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.api == 'true' \}\}$/mu
+  )
+  assert.match(integration, /part: \[database, api\]/u)
+  assert.match(integration, /fail-fast: false/u)
+  assert.match(
+    namedWorkflowStep(integration, 'API and database integration'),
+    /run: node scripts\/ci\/check-selection\.mjs quality integration-\$\{\{ matrix\.part \}\}/u
+  )
   assert.match(
     regression,
-    /needs\.plan\.outputs\.api == 'true' \|\| needs\.plan\.outputs\.browser == 'true' \|\| needs\.plan\.outputs\.performance == 'true'/u
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.browser == 'true' \|\| needs\.plan\.outputs\.performance == 'true' \}\}$/mu
   )
-  assert.match(gate, /needs: \[plan, build, regression\]/u)
-  assert.match(portable, /needs: \[plan, build\]/u)
+  assert.match(
+    portableRun,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.portable == 'true' \}\}$/mu
+  )
+  assert.equal(workflow.split('run: pnpm run test:portable\n').length - 1, 1)
+  assert.match(gate, /needs: \[plan, build, unit, integration, regression\]/u)
+  assert.match(
+    unit,
+    /^ {4}if: \$\{\{ needs\.plan\.outputs\.code == 'true' \}\}$/mu
+  )
+  assert.ok(
+    unit.indexOf('quality packages\n') < unit.indexOf('quality unit\n') &&
+      unit.includes(
+        'run: node scripts/ci/check-selection.mjs quality packages\n'
+      )
+  )
+  assert.equal(
+    unit.split('run: node scripts/ci/check-selection.mjs quality unit\n')
+      .length - 1,
+    1
+  )
+  assert.match(portable, /needs: \[plan, build, portable\]/u)
   for (const job of [gate, portable]) {
     assert.match(job, /if: \$\{\{ always\(\)/u)
     assert.match(job, /PLAN_RESULT: \$\{\{ needs\.plan\.result \}\}/u)
@@ -250,14 +311,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.match(job, /test "\$PLAN_RESULT" = success/u)
     assert.match(job, /test "\$BUILD_RESULT" = success/u)
   }
-  for (const group of [
-    'static',
-    'typecheck',
-    'unit',
-    'audit',
-    'build',
-    'bundle'
-  ]) {
+  for (const group of ['static', 'typecheck', 'audit', 'build', 'bundle']) {
     assert.equal(
       build.split(`run: node scripts/ci/check-selection.mjs quality ${group}\n`)
         .length - 1,
@@ -265,12 +319,6 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     )
   }
   for (const [name, id, flag, command] of [
-    [
-      'API and database integration',
-      'api_integration',
-      'api',
-      'node scripts/ci/check-selection.mjs quality integration'
-    ],
     [
       'Database and API performance',
       'database_performance',
@@ -480,8 +528,6 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
   for (const [key, expression] of Object.entries({
     PLAN_RESULT: 'needs.plan.result',
     JOB_RESULT: 'job.status',
-    API_SELECTED: 'needs.plan.outputs.api',
-    API_OUTCOME: 'steps.api_integration.outcome',
     PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
     PERFORMANCE_OUTCOME: 'steps.database_performance.outcome',
     BROWSER_SELECTED: 'needs.plan.outputs.browser',
@@ -496,62 +542,57 @@ test('regression gate rejects failure, cancellation and unexpected skips for eve
   }))
     assert.equal(environment.get(key), `\${{ ${expression} }}`)
   const script = stepScript(job, 'Verify selected regression acceptance')
-  for (const api of [false, true])
-    for (const performance of [false, true])
-      for (const [browser, mock] of [
-        [false, false],
-        [true, false],
-        [true, true]
+  for (const performance of [false, true])
+    for (const [browser, mock] of [
+      [false, false],
+      [true, false],
+      [true, true]
+    ]) {
+      const env = {
+        PLAN_RESULT: 'success',
+        JOB_RESULT: 'success',
+        PERFORMANCE_SELECTED: String(performance),
+        PERFORMANCE_OUTCOME: performance ? 'success' : 'skipped',
+        BROWSER_SELECTED: String(browser),
+        REAL_OUTCOME: browser ? 'success' : 'skipped',
+        EVIDENCE_INITIALIZE_OUTCOME: browser ? 'success' : 'skipped',
+        EVIDENCE_OUTCOME: browser ? 'success' : 'skipped',
+        MOCK_SELECTED: String(mock),
+        MOCK_OUTCOME: mock ? 'success' : 'skipped',
+        MOCK_EVIDENCE_INITIALIZE_OUTCOME: mock ? 'success' : 'skipped',
+        MOCK_EVIDENCE_OUTCOME: mock ? 'success' : 'skipped'
+      }
+      assertGate(script, env, 0)
+      for (const key of [
+        'PLAN_RESULT',
+        'JOB_RESULT',
+        'PERFORMANCE_OUTCOME',
+        'REAL_OUTCOME',
+        'EVIDENCE_INITIALIZE_OUTCOME',
+        'EVIDENCE_OUTCOME',
+        'MOCK_OUTCOME',
+        'MOCK_EVIDENCE_INITIALIZE_OUTCOME',
+        'MOCK_EVIDENCE_OUTCOME'
       ]) {
-        const env = {
-          PLAN_RESULT: 'success',
-          JOB_RESULT: 'success',
-          API_SELECTED: String(api),
-          API_OUTCOME: api ? 'success' : 'skipped',
-          PERFORMANCE_SELECTED: String(performance),
-          PERFORMANCE_OUTCOME: performance ? 'success' : 'skipped',
-          BROWSER_SELECTED: String(browser),
-          REAL_OUTCOME: browser ? 'success' : 'skipped',
-          EVIDENCE_INITIALIZE_OUTCOME: browser ? 'success' : 'skipped',
-          EVIDENCE_OUTCOME: browser ? 'success' : 'skipped',
-          MOCK_SELECTED: String(mock),
-          MOCK_OUTCOME: mock ? 'success' : 'skipped',
-          MOCK_EVIDENCE_INITIALIZE_OUTCOME: mock ? 'success' : 'skipped',
-          MOCK_EVIDENCE_OUTCOME: mock ? 'success' : 'skipped'
-        }
-        assertGate(script, env, 0)
-        for (const key of [
-          'PLAN_RESULT',
-          'JOB_RESULT',
-          'API_OUTCOME',
-          'PERFORMANCE_OUTCOME',
-          'REAL_OUTCOME',
-          'EVIDENCE_INITIALIZE_OUTCOME',
-          'EVIDENCE_OUTCOME',
-          'MOCK_OUTCOME',
-          'MOCK_EVIDENCE_INITIALIZE_OUTCOME',
-          'MOCK_EVIDENCE_OUTCOME'
+        for (const result of [
+          'success',
+          'failure',
+          'cancelled',
+          'skipped',
+          ''
         ]) {
-          for (const result of [
-            'success',
-            'failure',
-            'cancelled',
-            'skipped',
-            ''
-          ]) {
-            if (result !== env[key])
-              assertGate(script, { ...env, [key]: result }, 1)
-          }
-        }
-        for (const key of [
-          'API_SELECTED',
-          'PERFORMANCE_SELECTED',
-          'BROWSER_SELECTED',
-          'MOCK_SELECTED'
-        ]) {
-          assertGate(script, { ...env, [key]: '' }, 1)
+          if (result !== env[key])
+            assertGate(script, { ...env, [key]: result }, 1)
         }
       }
+      for (const key of [
+        'PERFORMANCE_SELECTED',
+        'BROWSER_SELECTED',
+        'MOCK_SELECTED'
+      ]) {
+        assertGate(script, { ...env, [key]: '' }, 1)
+      }
+    }
 })
 
 test('protected aggregate accepts only successful dependencies and intentionally skipped regression', () => {
@@ -564,6 +605,9 @@ test('protected aggregate accepts only successful dependencies and intentionally
   for (const [key, expression] of Object.entries({
     PLAN_RESULT: 'needs.plan.result',
     BUILD_RESULT: 'needs.build.result',
+    UNIT_RESULT: 'needs.unit.result',
+    CODE_SELECTED: 'needs.plan.outputs.code',
+    INTEGRATION_RESULT: 'needs.integration.result',
     REGRESSION_RESULT: 'needs.regression.result',
     API_SELECTED: 'needs.plan.outputs.api',
     PERFORMANCE_SELECTED: 'needs.plan.outputs.performance',
@@ -583,13 +627,17 @@ test('protected aggregate accepts only successful dependencies and intentionally
           API_SELECTED: String(api),
           PERFORMANCE_SELECTED: String(performance),
           BROWSER_SELECTED: String(browser),
-          REGRESSION_RESULT:
-            api || performance || browser ? 'success' : 'skipped'
+          CODE_SELECTED: 'true',
+          UNIT_RESULT: 'success',
+          INTEGRATION_RESULT: api ? 'success' : 'skipped',
+          REGRESSION_RESULT: performance || browser ? 'success' : 'skipped'
         }
         assertGate(script, env, 0)
         for (const key of [
           'PLAN_RESULT',
           'BUILD_RESULT',
+          'UNIT_RESULT',
+          'INTEGRATION_RESULT',
           'REGRESSION_RESULT'
         ]) {
           for (const result of [
@@ -604,12 +652,20 @@ test('protected aggregate accepts only successful dependencies and intentionally
           }
         }
         for (const key of [
+          'CODE_SELECTED',
           'API_SELECTED',
           'PERFORMANCE_SELECTED',
           'BROWSER_SELECTED'
         ]) {
           assertGate(script, { ...env, [key]: '' }, 1)
         }
+        const docsOnly = {
+          ...env,
+          CODE_SELECTED: 'false',
+          UNIT_RESULT: 'skipped'
+        }
+        assertGate(script, docsOnly, 0)
+        assertGate(script, { ...docsOnly, UNIT_RESULT: 'success' }, 1)
       }
 })
 
@@ -781,6 +837,29 @@ test('comparison failures are errors, never successful fallback selections', () 
   )
 })
 
+test('parallel integration parts run exactly the root API regression chain', () => {
+  const selection = classifyChangedFiles(['apps/api/src/auth/session.ts'])
+  const chain = JSON.parse(
+    readFileSync(
+      path.resolve(import.meta.dirname, '../../package.json'),
+      'utf8'
+    )
+  )
+    .scripts['test:api-regression'].split(' && ')
+    .map((command) => command.replace(/^pnpm /u, '').split(' '))
+  const parts = [
+    ...qualityCommands(selection, 'integration-database'),
+    ...qualityCommands(selection, 'integration-api')
+  ]
+  assert.deepEqual(
+    [...parts].sort((a, b) => a.join(' ').localeCompare(b.join(' '))),
+    [...chain].sort((a, b) => a.join(' ').localeCompare(b.join(' ')))
+  )
+  assert.deepEqual(qualityCommands(selection, 'integration-database'), [
+    ['run', 'test:database']
+  ])
+})
+
 test('quality groups call semantic commands without phase-number aliases', () => {
   const selection = classifyChangedFiles(['apps/api/src/auth/session.ts'])
   const commands = [
@@ -889,11 +968,14 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   assert.deepEqual(jobs(normal), [
     'plan',
     'build',
+    'unit',
+    'integration',
     'regression',
     'e2e',
+    'portable',
     'phase11_release'
   ])
-  assert.equal(steps(normal).length, 40)
+  assert.equal(steps(normal).length, 49)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
