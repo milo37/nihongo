@@ -1,4 +1,5 @@
 import { koAdminFormResources } from './ko-admin-form'
+import { koAdminReportResources } from './ko-admin-report'
 
 const questionTypeLabels = {
   KANJI_READING: '한자 읽기',
@@ -2229,7 +2230,8 @@ export const koResources = {
       mutationError: '신고 상태를 변경하지 못했습니다.',
       retryConflict: '최신 신고 상태 불러오기',
       conflictTitle: '다른 작업에서 신고 상태가 변경됐습니다'
-    }
+    },
+    userReport: koAdminReportResources
   },
   errors: {
     forbidden: {

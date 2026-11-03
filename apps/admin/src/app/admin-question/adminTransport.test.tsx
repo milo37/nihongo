@@ -494,6 +494,11 @@ it('labels a draft and an existing published copy separately and normalizes unsu
     '/admin/questions?level=N3&sort=STATUS&page=2'
   )
   await screen.findByRole('region', { name: '관리자 문제 목록' })
+  // The contract caps the search query at 100 characters.
+  expect(screen.getByRole('textbox', { name: '문제 검색' })).toHaveAttribute(
+    'maxLength',
+    '100'
+  )
   expect(screen.getByText(/초안 · 활성 · 공개본 있음/)).toBeVisible()
   expect(
     screen.getByText('상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.')
