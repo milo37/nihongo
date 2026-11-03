@@ -216,7 +216,32 @@ const SLICE_5_LEARNER_REPORT_PATHS = [
 // Operations console endpoints (#484) stay outside the frozen content
 // operation manifest and are gated by this list.
 const ADMIN_CONSOLE_READ_PATHS = [
-  { method: 'GET', pattern: /^\/api\/v1\/admin\/activity-log$/u }
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/activity-log$/u },
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/reports$/u },
+  {
+    method: 'GET',
+    pattern: new RegExp(
+      `^/api/v1/admin/reports/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  },
+  {
+    method: 'GET',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-imports/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  }
+] as const
+
+const ADMIN_CONSOLE_COMMAND_PATHS = [
+  {
+    method: 'POST',
+    pattern: new RegExp(
+      `^/api/v1/admin/reports/${CANONICAL_UUID_PATTERN}/(?:reply-and-close|note|close)$`,
+      'u'
+    )
+  }
 ] as const
 
 const ACTIVE_ADMIN_COMMAND_PATHS = [
@@ -448,6 +473,11 @@ export const isCanonicalAdminConsoleReadRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, ADMIN_CONSOLE_READ_PATHS)
+
+export const isCanonicalAdminConsoleCommandRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, ADMIN_CONSOLE_COMMAND_PATHS)
 
 export const isCanonicalPhase7Slice3ACommandRequest = (input: {
   method: string

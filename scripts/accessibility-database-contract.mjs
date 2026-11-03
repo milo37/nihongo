@@ -31,6 +31,7 @@ export const accessibilityDatabaseTables = [
   'Phase7ReauthenticationIntent',
   'Phase7TrustedExecution',
   'Question',
+  'QuestionImportResult',
   'QuestionOption',
   'QuestionReport',
   'QuestionVersion',
@@ -55,6 +56,7 @@ export const accessibilityDatabaseTables = [
   'TagApplicability',
   'User',
   'UserMemo',
+  'UserReport',
   'Verification',
   'WrongNote',
   '_prisma_migrations'
@@ -82,6 +84,7 @@ export const accessibilityExpectedTableDeltas = {
   Phase7ReauthenticationIntent: 0,
   Phase7TrustedExecution: 0,
   Question: 0,
+  QuestionImportResult: 0,
   QuestionOption: 0,
   QuestionReport: 1,
   QuestionVersion: 0,
@@ -106,6 +109,7 @@ export const accessibilityExpectedTableDeltas = {
   TagApplicability: 0,
   User: 0,
   UserMemo: 0,
+  UserReport: 0,
   Verification: 0,
   WrongNote: 10,
   _prisma_migrations: 0
