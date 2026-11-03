@@ -1357,6 +1357,7 @@ export const jaCoreResources = {
       label: '自分のメモ',
       count: '{{current}} / {{maximum}}',
       over: '{{current}} / {{maximum}} · {{excess}}文字減らしてください',
+      clearHint: 'メモを消すには「削除」を押してください。',
       cancel: 'キャンセル',
       save: '保存',
       retrySave: 'もう一度保存',

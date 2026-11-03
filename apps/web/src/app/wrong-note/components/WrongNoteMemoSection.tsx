@@ -124,6 +124,7 @@ export const WrongNoteMemoSection = ({
     if (isOver || draftLength === 0 || updateMemo.isPending) return
     if (!isOnline) {
       setNotice('saveOffline')
+      textareaRef.current?.focus()
       return
     }
     setNotice(null)
@@ -137,6 +138,7 @@ export const WrongNoteMemoSection = ({
         },
         onError: (error) => {
           setNotice(isConnectionError(error) ? 'saveOffline' : 'saveError')
+          pendingFocusRef.current = 'textarea'
         }
       }
     )
@@ -253,16 +255,18 @@ export const WrongNoteMemoSection = ({
               isOver ? 'font-bold text-danger' : 'text-muted'
             )}
           >
-            {isOver
-              ? t('memo.over', {
-                  current: count(draftLength),
-                  maximum: count(userMemoMaximumCodePoints),
-                  excess: count(excess)
-                })
-              : t('memo.count', {
-                  current: count(draftLength),
-                  maximum: count(userMemoMaximumCodePoints)
-                })}
+            {draftLength === 0 && memo
+              ? t('memo.clearHint')
+              : isOver
+                ? t('memo.over', {
+                    current: count(draftLength),
+                    maximum: count(userMemoMaximumCodePoints),
+                    excess: count(excess)
+                  })
+                : t('memo.count', {
+                    current: count(draftLength),
+                    maximum: count(userMemoMaximumCodePoints)
+                  })}
           </span>
           <div className="flex w-full gap-2 sm:w-auto">
             <Button

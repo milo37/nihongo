@@ -106,7 +106,6 @@ export const WrongNoteDetailContent = ({
           explanationKo={data.question.explanationKo}
         />
       </section>
-      {memo}
       {data.wrongNote.reviewAvailability === 'ARCHIVED' ? (
         <p className="review-notice" role="status">
           {t('detail.review.archived')}
@@ -117,6 +116,7 @@ export const WrongNoteDetailContent = ({
       data.wrongNote.reviewAvailability !== 'ARCHIVED' ? (
         <p className="review-notice">{t('integration.versionChanged')}</p>
       ) : null}
+      {memo}
       {action ? <div className="review-document-actions">{action}</div> : null}
     </>
   )

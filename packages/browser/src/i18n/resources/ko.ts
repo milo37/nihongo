@@ -1342,6 +1342,7 @@ export const koResources = {
       label: '내 메모',
       count: '{{current}} / {{maximum}}',
       over: '{{current}} / {{maximum}} · {{excess}}자를 줄여 주세요',
+      clearHint: "메모를 지우려면 '삭제'를 눌러 주세요.",
       cancel: '취소',
       save: '저장',
       retrySave: '다시 저장',

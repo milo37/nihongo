@@ -338,7 +338,10 @@ describe('wrong-note memo section', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '저장하지 못했어요. 쓴 내용은 그대로 있어요.'
     )
-    expect(screen.getByRole('textbox', { name: '내 메모' })).toHaveValue('복습')
+    const textbox = screen.getByRole('textbox', { name: '내 메모' })
+    expect(textbox).toHaveValue('복습')
+    await waitFor(() => expect(textbox).toHaveFocus())
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
     expect(
       screen.getByRole('button', { name: '다시 저장' })
     ).toBeInTheDocument()

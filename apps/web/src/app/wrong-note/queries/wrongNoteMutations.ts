@@ -101,6 +101,7 @@ export const wrongNoteMutations = {
         'update'
       ] as const,
       networkMode: 'always',
+      meta: { localErrorUi: true },
       onMutate: (input: UpdateMemoActionInput) =>
         memoActionFence.capture(input),
       mutationFn: async (input: UpdateMemoActionInput) => {
