@@ -17,6 +17,10 @@ import {
   type ApiIntegrationManifestEntry
 } from './apiIntegrationManifest.js'
 import { validateApiIntegrationManifest } from './validateApiIntegrationManifest.js'
+import {
+  readShardSelectionArgument,
+  selectApiIntegrationShards
+} from './apiIntegrationShardSelection.js'
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -329,14 +333,21 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
   }
 }
 
-const runAllShards = async (): Promise<{
+const runAllShards = async (
+  requestedShards: readonly string[] | undefined
+): Promise<{
   readonly executedFileCount: number
   readonly executedShardCount: number
   readonly passedTestCount: number
+  readonly selectedShards?: readonly string[]
 }> => {
   await validateApiIntegrationManifest()
-  const entries = getApiIntegrationEntriesByOwner('phase10')
-  const shards = [...new Set(entries.map(({ shard }) => shard))]
+  const allEntries = getApiIntegrationEntriesByOwner('phase10')
+  const shards = selectApiIntegrationShards(
+    [...new Set(allEntries.map(({ shard }) => shard))],
+    requestedShards
+  )
+  const entries = allEntries.filter(({ shard }) => shards.includes(shard))
   await preparePhase7IntegrationArtifacts({
     abortSignal: preparationAbortController.signal,
     run: runCommand
@@ -366,7 +377,8 @@ const runAllShards = async (): Promise<{
   return {
     executedFileCount,
     executedShardCount: shards.length,
-    passedTestCount
+    passedTestCount,
+    ...(requestedShards ? { selectedShards: shards } : {})
   }
 }
 
@@ -389,7 +401,7 @@ const execute = async (): Promise<void> => {
     return
   }
 
-  const result = await runAllShards()
+  const result = await runAllShards(readShardSelectionArgument(process.argv))
   await cleanup()
   process.stdout.write(
     `${JSON.stringify({

@@ -249,6 +249,28 @@ describe('Phase10 parent common preparation ownership without a database', () =>
     ])
     expect(ports.connect).not.toHaveBeenCalled()
   })
+
+  it('runs only the selected shards and reports the selection', async () => {
+    finishCommands = true
+    process.argv.push('--shards=process-only')
+    await start()
+    await vi.waitFor(() =>
+      expect(process.stdout.write).toHaveBeenCalledWith(
+        expect.stringContaining('"selectedShards":["process-only"]')
+      )
+    )
+    expect(ports.spawn.mock.calls.at(-1)?.[1]).toContain('--shard=process-only')
+  })
+
+  it('rejects an unknown shard selection before preparation', async () => {
+    process.argv.push('--shards=not-a-shard')
+    await import('./runApiIntegration.js')
+    await vi.waitFor(() => expect(process.exitCode).toBe(1))
+    expect(ports.spawn).not.toHaveBeenCalled()
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown API integration shard selection')
+    )
+  })
 })
 
 describe('Phase10 partial database preparation cleanup without a database', () => {
