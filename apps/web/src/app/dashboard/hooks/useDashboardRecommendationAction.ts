@@ -13,6 +13,7 @@ import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTrans
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
+  isAccountRestrictedApiError,
   isNotFoundApiError,
   isNoEligibleQuestionsApiError,
   isQuestionNotAvailableApiError
@@ -24,6 +25,7 @@ export interface DashboardActionNotice {
 }
 
 export type DashboardActionNoticeCode =
+  | 'accountRestricted'
   | 'sessionExhausted'
   | 'sessionRefreshed'
   | 'sessionRefreshFailed'
@@ -178,7 +180,11 @@ export const useDashboardRecommendationAction = ({
               )
               return
             }
-            announce('sessionFailed')
+            announce(
+              isAccountRestrictedApiError(error)
+                ? 'accountRestricted'
+                : 'sessionFailed'
+            )
           },
           onSettled: () => {
             if (!isRefreshingExhaustedRecommendation) {
@@ -233,7 +239,11 @@ export const useDashboardRecommendationAction = ({
               )
               return
             }
-            announce('targetedFailed')
+            announce(
+              isAccountRestrictedApiError(error)
+                ? 'accountRestricted'
+                : 'targetedFailed'
+            )
           },
           onSettled: () => {
             if (!isRefreshingExhaustedRecommendation) {

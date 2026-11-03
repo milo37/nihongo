@@ -47,6 +47,8 @@ export const koResources = {
       login: '로그인'
     },
     state: {
+      accountRestricted:
+        '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.',
       requestFailed: '요청을 완료하지 못했습니다'
     },
     required: '(필수)',

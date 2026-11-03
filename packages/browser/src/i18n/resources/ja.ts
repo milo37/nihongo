@@ -36,6 +36,8 @@ export const jaCoreResources = {
       login: 'ログイン'
     },
     state: {
+      accountRestricted:
+        '一時的に利用が制限されているアカウントです。新しい学習と報告は、制限が解除された後にご利用いただけます。',
       requestFailed: 'リクエストを完了できませんでした'
     },
     required: '（必須）',
