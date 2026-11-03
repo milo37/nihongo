@@ -83,6 +83,21 @@ test('base edits still classify changed files', () => {
   assert.equal(selection.web, true)
 })
 
+test('agent tooling and PR templates select no checks', () => {
+  const selection = classifyChangedFiles([
+    '.claude/agents/devops-engineer.md',
+    '.claude/hooks/check-gh-format.mjs',
+    '.claude/settings.json',
+    '.claude/skills/graph',
+    '.github/pull_request_template.md',
+    '.github/ISSUE_TEMPLATE/1-task.yml'
+  ])
+  assert.equal(selection.code, false)
+  assert.equal(selection.browser, false)
+  assert.equal(selection.portable, false)
+  assert.equal(classifyChangedFiles(['.github/workflows/ci.yml']).code, true)
+})
+
 test('unclassified and unsafe paths fail closed', () => {
   assert.throws(
     () => classifyChangedFiles(['unknown-area/file.json']),
