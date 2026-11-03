@@ -71,6 +71,8 @@ const ImportPage = ({
   )
   const selectionRevision = useRef(0)
   const operationInFlight = useRef(false)
+  // One importId per validated payload, so a retried apply replays instead of duplicating.
+  const importIds = useRef(new Map<string, string>())
   const fileInput = useRef<HTMLInputElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const resultHeading = useRef<HTMLHeadingElement>(null)
@@ -161,8 +163,11 @@ const ImportPage = ({
     operationInFlight.current = true
     const revision = selectionRevision.current
     const digest = validated.result.validationDigest
+    const importId = importIds.current.get(digest) ?? crypto.randomUUID()
+    importIds.current.set(digest, importId)
     try {
       const result = await applyImport.mutateAsync({
+        importId,
         items: validated.request.items,
         validationDigest: digest
       })

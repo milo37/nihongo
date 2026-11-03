@@ -44,7 +44,8 @@ export const question = adminQuestionSummarySchema.parse({
   updatedAt: createdAt,
   answerCount: 0,
   correctRateBasisPoints: null,
-  openReportCount: 0
+  openReportCount: 0,
+  reviewStage: 'AUTO_VALIDATED'
 })
 export const preview = previewQuestionVersionResponseSchema.parse({
   question: {
@@ -77,7 +78,8 @@ export const detail = getAdminQuestionResponseSchema.parse({
     currentPublishedVersionId: null,
     openCandidateVersionId: versionId,
     createdAt,
-    updatedAt: createdAt
+    updatedAt: createdAt,
+    usageCount: 0
   },
   versions: {
     questionId,
@@ -100,7 +102,9 @@ export const detail = getAdminQuestionResponseSchema.parse({
         publishedAt: null,
         retiredAt: null,
         createdAt,
-        updatedAt: createdAt
+        updatedAt: createdAt,
+        reviewStage: 'AUTO_VALIDATED',
+        autoValidation: { passed: true, issues: [] }
       }
     ],
     nextCursor: null

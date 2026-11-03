@@ -25,7 +25,10 @@ const toPrincipal = (user: User) =>
       id: user.id,
       name: user.name,
       role: user.role,
-      targetLevel: user.targetLevel
+      targetLevel: user.targetLevel,
+      ...(user.role === 'ADMIN'
+        ? { adminSessionExpiresAt: '2026-11-03T08:00:00.000Z' }
+        : {})
     }
   })
 

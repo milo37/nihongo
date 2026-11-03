@@ -12,6 +12,7 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { adminQuestionRoutes } from '@app/admin-question/router'
 import { adminReportRoutes } from '@app/admin-report/router'
 import { adminAuditRoutes } from '@app/admin-audit/router'
+import { adminMemberRoutes } from '@app/admin-member/router'
 import { AdminShell } from '@app/admin/components/AdminShell'
 
 export const adminRoutes: RouteObject[] = [
@@ -52,6 +53,7 @@ export const adminRoutes: RouteObject[] = [
             children: [
               { index: true, element: <Navigate replace to="questions" /> },
               ...adminQuestionRoutes,
+              ...adminMemberRoutes,
               ...adminAuditRoutes,
               ...adminReportRoutes
             ]

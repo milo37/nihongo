@@ -15,6 +15,7 @@ const isCurrent = (pathname: string, to: string): boolean =>
 const items: readonly { to: string; key: string; icon: IconName }[] = [
   { to: '/questions', key: 'nav.questions', icon: 'book-open' },
   { to: importPath, key: 'nav.import', icon: 'upload' },
+  { to: '/members', key: 'nav.members', icon: 'user-round' },
   { to: '/reports', key: 'nav.reports', icon: 'circle-alert' },
   { to: '/audit-log', key: 'nav.auditLog', icon: 'history' }
 ]
