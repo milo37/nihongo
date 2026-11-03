@@ -18,7 +18,7 @@ import {
   assertCurrentAuthActorTransitionFence
 } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
-import { AdminNavigation } from '@app/admin/components/AdminNavigation'
+import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
   useValidateImport,
@@ -198,7 +198,6 @@ const ImportPage = ({
   )
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <AdminNavigation />
       <nav aria-label={t('common.breadcrumbLabel')}>
         <Link
           className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
@@ -226,6 +225,7 @@ const ImportPage = ({
           {t('import.description')}
         </p>
       </header>
+      <WideScreenNotice />
       <ol
         className="my-6 flex flex-wrap items-center gap-3 border-b border-line pb-6 text-sm"
         aria-label={t('common.import')}

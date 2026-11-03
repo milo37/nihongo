@@ -1494,6 +1494,9 @@ export const koResources = {
     name: '관리자',
     common: {
       breadcrumbLabel: '현재 위치',
+      menuLabel: '관리자 메뉴',
+      wideScreenRecommended:
+        '이 작업은 넓은 화면에서 하는 것을 권장합니다. 휴대폰에서도 계속할 수 있습니다.',
       questions: '문제 관리',
       questionDetail: '문제 상세',
       newQuestion: '새 문제',

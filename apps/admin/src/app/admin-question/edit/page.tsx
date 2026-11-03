@@ -17,6 +17,7 @@ import { useUpdateAdminQuestion } from '@app/admin-question/hooks/useUpdateAdmin
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const EditAdminQuestionPage = (): ReactElement => {
@@ -187,6 +188,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
           })}
         </p>
       </header>
+      <WideScreenNotice />
 
       {!canEdit ? (
         <p role="status" className="mb-5 text-sm text-muted">

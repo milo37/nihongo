@@ -76,9 +76,10 @@ it('USER is rejected before an admin list request', async () => {
     .spyOn(appDocumentNavigation, 'replace')
     .mockImplementation(() => undefined)
   renderRoutes()
-  await waitFor(() =>
-    expect(replace).toHaveBeenCalledWith('/forbidden', undefined)
-  )
+  expect(
+    await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+  ).toBeVisible()
+  expect(replace).not.toHaveBeenCalled()
   expect(list).not.toHaveBeenCalled()
 })
 it('ADMIN loads the existing table at the /admin basename with the local create/edit paths', async () => {

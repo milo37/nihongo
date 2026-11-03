@@ -345,11 +345,6 @@ export const AppLayout = ({
                           {navigationT('learningStart')}
                         </Link>
                       ) : null}
-                      {role === 'ADMIN' ? (
-                        <Link to="/admin/questions" onClick={closeMenu}>
-                          {navigationT('adminQuestions')}
-                        </Link>
-                      ) : null}
                       <div className="app-mobile-locale">
                         <LocaleSwitcher />
                       </div>

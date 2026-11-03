@@ -790,7 +790,14 @@ it.each(['GUEST', 'USER'])(
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
     route()
-    await waitFor(() => expect(replace).toHaveBeenCalled())
+    if (role === 'GUEST') {
+      await waitFor(() => expect(replace).toHaveBeenCalled())
+    } else {
+      expect(
+        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+      ).toBeVisible()
+      expect(replace).not.toHaveBeenCalled()
+    }
     expect(endpoint).not.toHaveBeenCalled()
   }
 )

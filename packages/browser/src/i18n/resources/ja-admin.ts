@@ -5,6 +5,9 @@ export const jaAdminResources = {
   name: '管理者',
   common: {
     breadcrumbLabel: '現在位置',
+    menuLabel: '管理メニュー',
+    wideScreenRecommended:
+      'この作業は広い画面で行うことをおすすめします。スマートフォンでも続けられます。',
     questions: '問題管理',
     questionDetail: '問題詳細',
     newQuestion: '新しい問題',

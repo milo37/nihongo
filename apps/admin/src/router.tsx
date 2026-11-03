@@ -12,6 +12,7 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { adminQuestionRoutes } from '@app/admin-question/router'
 import { adminReportRoutes } from '@app/admin-report/router'
 import { adminAuditRoutes } from '@app/admin-audit/router'
+import { AdminShell } from '@app/admin/components/AdminShell'
 
 export const adminRoutes: RouteObject[] = [
   {
@@ -31,12 +32,22 @@ export const adminRoutes: RouteObject[] = [
     errorElement: <RouteErrorPage />,
     children: [
       {
-        element: <RequireRole allowedRoles={['ADMIN']} />,
+        element: (
+          <RequireRole
+            allowedRoles={['ADMIN']}
+            deniedElement={<NotFoundPage />}
+          />
+        ),
         children: [
-          { index: true, element: <Navigate replace to="questions" /> },
-          ...adminQuestionRoutes,
-          ...adminAuditRoutes,
-          ...adminReportRoutes
+          {
+            element: <AdminShell />,
+            children: [
+              { index: true, element: <Navigate replace to="questions" /> },
+              ...adminQuestionRoutes,
+              ...adminAuditRoutes,
+              ...adminReportRoutes
+            ]
+          }
         ]
       },
       { path: 'forbidden', element: <ForbiddenPage /> },
