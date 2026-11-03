@@ -1,18 +1,21 @@
 import { mutationOptions, queryOptions } from '@tanstack/react-query'
 import type {
-  ListAdminQuestionReportsQuery,
-  ResolveAdminQuestionReportRequest,
-  TriageAdminQuestionReportRequest
-} from '@nihongo/contracts/admin/content-operations'
-import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
+  CloseAdminReportRequest,
+  ListAdminReportsQuery,
+  ReplyAndCloseAdminReportRequest,
+  SaveAdminReportNoteRequest
+} from '@nihongo/contracts/admin/reports'
+import {
+  closeAdminReport,
+  getAdminReport,
+  listAdminReports,
+  replyAndCloseAdminReport,
+  saveAdminReportNote
+} from '@nihongo/browser/api/admin-report/index'
 
 export const adminReportQueries = {
   allKey: () => ['admin-content', 'reports'] as const,
-  list: (
-    actorId: string | null,
-    epoch: number,
-    query: ListAdminQuestionReportsQuery
-  ) =>
+  list: (actorId: string | null, epoch: number, query: ListAdminReportsQuery) =>
     queryOptions({
       queryKey: [
         ...adminReportQueries.allKey(),
@@ -21,13 +24,7 @@ export const adminReportQueries = {
         epoch,
         query
       ] as const,
-      queryFn: () =>
-        requestContentOperation({
-          operation: 'listAdminQuestionReports',
-          params: {},
-          query,
-          body: undefined
-        }),
+      queryFn: () => listAdminReports(query),
       staleTime: 15_000,
       retry: false
     }),
@@ -40,46 +37,33 @@ export const adminReportQueries = {
         epoch,
         reportId
       ] as const,
-      queryFn: () =>
-        requestContentOperation({
-          operation: 'getAdminQuestionReport',
-          params: { reportId },
-          query: {},
-          body: undefined
-        }),
+      queryFn: () => getAdminReport(reportId),
       staleTime: 15_000,
       retry: false
     })
 } as const
+
 export const adminReportMutations = {
-  triage: (reportId: string) =>
+  replyAndClose: (reportId: string) =>
     mutationOptions({
       mutationKey: [
         ...adminReportQueries.allKey(),
-        'triage',
+        'reply-and-close',
         reportId
-      ] as const,
-      mutationFn: (body: TriageAdminQuestionReportRequest) =>
-        requestContentOperation({
-          operation: 'triageAdminQuestionReport',
-          params: { reportId },
-          query: {},
-          body
-        })
+      ],
+      mutationFn: (body: ReplyAndCloseAdminReportRequest) =>
+        replyAndCloseAdminReport(reportId, body)
     }),
-  resolve: (reportId: string) =>
+  note: (reportId: string) =>
     mutationOptions({
-      mutationKey: [
-        ...adminReportQueries.allKey(),
-        'resolve',
-        reportId
-      ] as const,
-      mutationFn: (body: ResolveAdminQuestionReportRequest) =>
-        requestContentOperation({
-          operation: 'resolveAdminQuestionReport',
-          params: { reportId },
-          query: {},
-          body
-        })
+      mutationKey: [...adminReportQueries.allKey(), 'note', reportId],
+      mutationFn: (body: SaveAdminReportNoteRequest) =>
+        saveAdminReportNote(reportId, body)
+    }),
+  close: (reportId: string) =>
+    mutationOptions({
+      mutationKey: [...adminReportQueries.allKey(), 'close', reportId],
+      mutationFn: (body: CloseAdminReportRequest) =>
+        closeAdminReport(reportId, body)
     })
 } as const

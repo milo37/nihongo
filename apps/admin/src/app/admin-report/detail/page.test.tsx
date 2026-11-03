@@ -1,97 +1,38 @@
 import {
-  onlineManager,
   QueryClient,
-  QueryClientProvider
+  QueryClientProvider,
+  onlineManager
 } from '@tanstack/react-query'
 import {
-  act,
   cleanup,
-  fireEvent,
   render,
   screen,
-  waitFor
+  waitFor,
+  within
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import {
-  questionReportDetailSchema,
-  questionReportMutationResultSchema,
-  type QuestionReportDetail
-} from '@nihongo/contracts/admin/content-operations'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
-import {
-  commitCanonicalAuth,
-  invalidateCanonicalAuthTransitions
-} from '@nihongo/browser/app/login/authSession'
-import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
-import { cachedSessionStorage } from '@nihongo/browser/libs/storage'
-import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
-import { useAppStore } from '@nihongo/browser/store/index'
-import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
-import {
-  discardReportDraft,
-  restoreReportDraft,
-  saveReportDraft,
-  saveReportContext
-} from '@app/admin-report/navigation/reportDraftRecovery'
 import { adminRoutes } from '@/router'
+import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
+import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
+import * as reportApi from '@nihongo/browser/api/admin-report/index'
+import { useAppStore } from '@nihongo/browser/store/index'
+import {
+  adminActor,
+  questionId,
+  reportDetail,
+  reportId
+} from '@app/admin-report/test/reportFixture'
 
-// Compile the existing lazy detail route before timed DOM assertions.
-beforeAll(async () => {
-  await import('@app/admin-report/detail/page')
-})
-
-const actorId = '10000000-0000-4000-8000-000000000001'
-const id = '10000000-0000-4000-8000-000000000002'
-const otherId = '10000000-0000-4000-8000-000000000003'
-const actor = (value = actorId) => ({
-  id: value,
-  name: '관리자',
-  role: 'ADMIN' as const,
-  targetLevel: 'N3' as const
-})
-const initial = questionReportDetailSchema.parse({
-  id,
-  questionId: actorId,
-  questionVersionId: actorId,
-  reason: 'OTHER',
-  status: 'TRIAGED',
-  rowVersion: 2,
-  reporter: { kind: 'ACCOUNT', actorId, role: 'USER', label: 'ACTIVE_USER' },
-  assignee: { kind: 'ACCOUNT', actorId, role: 'ADMIN', label: 'ACTIVE_ADMIN' },
-  description: '<script>ordinary text</script>',
-  descriptionDigest: '0'.repeat(64),
-  resolution: null,
-  createdAt: '2026-10-01T00:00:00Z',
-  updatedAt: '2026-10-02T00:00:00Z'
-})
-let client: QueryClient
-beforeEach(() => {
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  })
-  invalidateCanonicalAuthTransitions()
-  useAppStore.getState().setCurrentUser(null)
-  discardReportDraft(actorId, id)
-  discardReportDraft(otherId, id)
-  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-  vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(actor())
-})
-afterEach(() => {
-  cleanup()
-  client.clear()
-  onlineManager.setOnline(true)
-  writeUiLocalePreference('ko')
-  vi.restoreAllMocks()
-})
-const route = (reportId = id) => {
+const renderAdmin = (client: QueryClient, entry: string) => {
   const router = createMemoryRouter(adminRoutes, {
     basename: '/admin',
-    initialEntries: ['/admin/reports/' + reportId]
+    initialEntries: [entry]
   })
-  const view = render(
+  render(
     <QueryClientProvider client={client}>
       <I18nProvider>
         <ToastProvider>
@@ -100,495 +41,242 @@ const route = (reportId = id) => {
       </I18nProvider>
     </QueryClientProvider>
   )
-  return { ...view, router }
+  return router
 }
-const reason = () => screen.getByRole('textbox', { name: '처리 사유' })
-const submit = () => screen.getByRole('button', { name: '최종 처리 실행' })
-const fill = async (text = '해설 확인') => {
-  await screen.findByRole('textbox', { name: '처리 사유' })
-  fireEvent.change(reason(), { target: { value: text } })
-}
-it('renders escaped detail text and target IDs without a non-existent question detail destination', async () => {
-  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(initial)
-  const { container } = route()
-  expect(
-    await screen.findByText('<script>ordinary text</script>')
-  ).toBeVisible()
-  expect(container.querySelector('script')).toBeNull()
-  expect(
-    container.querySelector(`a[href='/admin/questions/${actorId}']`)
-  ).toBeNull()
-})
-it('blocks invalid IDs before GET and renders not-found failures with no command controls', async () => {
-  const read = vi
-    .spyOn(api, 'requestContentOperation')
-    .mockRejectedValue({ code: 'RESOURCE_NOT_FOUND' })
-  const view = route('invalid')
-  expect(
-    await screen.findByText('요청 식별자 형식이 올바르지 않습니다.')
-  ).toBeVisible()
-  expect(read).not.toHaveBeenCalled()
-  view.unmount()
-  route()
-  expect(
-    await screen.findByText('요청한 관리자 자료를 찾을 수 없습니다.')
-  ).toBeVisible()
-  expect(
-    screen.queryByRole('button', { name: '최종 처리 실행' })
-  ).not.toBeInTheDocument()
-})
-it('distinguishes loading from data and keeps failed cached detail and draft locked', async () => {
-  let finish!: (value: QuestionReportDetail) => void
-  const read = vi.spyOn(api, 'requestContentOperation').mockImplementation(
-    () =>
-      new Promise<QuestionReportDetail>((resolve) => {
-        finish = resolve
-      })
-  )
-  route()
-  expect(
-    await screen.findByText('신고 상세를 불러오는 중입니다…')
-  ).toBeVisible()
-  await act(async () => {
-    finish(initial)
-  })
-  await fill()
-  read.mockRejectedValue({ code: 'SERVICE_UNAVAILABLE' })
-  await act(async () => {
-    await client.invalidateQueries({ queryKey: ['admin-content', 'reports'] })
-  })
-  expect(
-    await screen.findByText(/최신 신고 상세를 확인하지 못했습니다/)
-  ).toBeVisible()
-  expect(reason()).toHaveValue('해설 확인')
-  expect(submit()).toBeDisabled()
-})
-it('focuses invalid reason, counts 1000 Unicode scalars, and sends DISMISSED remediation null', async () => {
-  const endpoint = vi
-    .spyOn(api, 'requestContentOperation')
-    .mockResolvedValue(initial)
-  route()
-  await fill('')
-  const user = userEvent.setup()
-  await user.click(submit())
-  expect(reason()).toHaveFocus()
-  await fill('😀'.repeat(1001))
-  await user.click(submit())
-  expect(
-    endpoint.mock.calls.filter(
-      ([r]) => r.operation === 'resolveAdminQuestionReport'
-    )
-  ).toHaveLength(0)
-  await fill('😀'.repeat(1000))
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: '처리 결과' }),
-    'DISMISSED'
-  )
-  expect(
-    screen.queryByRole('textbox', { name: '개선 버전 ID' })
-  ).not.toBeInTheDocument()
-  endpoint.mockImplementation(async (request) => {
-    if (request.operation === 'resolveAdminQuestionReport')
-      throw { code: 'INVALID_REQUEST' }
-    return initial
-  })
-  await user.click(submit())
-  await waitFor(() =>
-    expect(endpoint).toHaveBeenCalledWith({
-      operation: 'resolveAdminQuestionReport',
-      params: { reportId: id },
-      query: {},
-      body: {
-        expectedRowVersion: 2,
-        outcome: 'DISMISSED',
-        reason: '😀'.repeat(1000),
-        remediationVersionId: null
-      }
-    })
-  )
-})
-it('triages OPEN using the viewed CAS version then reads TRIAGED before enabling resolution', async () => {
-  let current: QuestionReportDetail = {
-    ...initial,
-    status: 'OPEN',
-    rowVersion: 1,
-    assignee: null
-  }
-  const endpoint = vi
-    .spyOn(api, 'requestContentOperation')
-    .mockImplementation(async (request) => {
-      if (request.operation === 'triageAdminQuestionReport') {
-        current = initial
-        return questionReportMutationResultSchema.parse({
-          id,
-          questionId: initial.questionId,
-          questionVersionId: initial.questionVersionId,
-          status: 'TRIAGED',
-          rowVersion: 2,
-          assignee: initial.assignee,
-          resolution: null,
-          createdAt: initial.createdAt,
-          updatedAt: initial.updatedAt
-        })
-      }
-      return current
-    })
-  route()
-  const user = userEvent.setup()
-  await user.click(
-    await screen.findByRole('button', { name: '신고 분류 시작' })
-  )
-  await screen.findByRole('textbox', { name: '처리 사유' })
-  expect(endpoint).toHaveBeenCalledWith({
-    operation: 'triageAdminQuestionReport',
-    params: { reportId: id },
-    query: {},
-    body: { expectedRowVersion: 1 }
-  })
-  expect(
-    screen.queryByRole('button', { name: '신고 분류 시작' })
-  ).not.toBeInTheDocument()
-})
-it.each(['VERSION_CONFLICT', 'INVALID_STATE_TRANSITION'])(
-  'retains %s input through failed refresh and requires successful fresh GET plus explicit retry with the new version',
-  async (code) => {
-    let current = initial
-    let failRead = false
-    let attempts = 0
-    const endpoint = vi
-      .spyOn(api, 'requestContentOperation')
-      .mockImplementation(async (request) => {
-        if (request.operation === 'resolveAdminQuestionReport') {
-          attempts += 1
-          throw { code: attempts === 1 ? code : 'INVALID_REQUEST' }
-        }
-        if (failRead) throw { code: 'SERVICE_UNAVAILABLE' }
-        return current
-      })
-    route()
-    await fill()
-    const user = userEvent.setup()
-    await user.click(submit())
-    const conflictHeading = await screen.findByRole('heading', {
-      name: '다른 작업에서 신고 상태가 변경됐습니다'
-    })
-    const reload = screen.getByRole('button', {
-      name: '최신 신고 상태 불러오기'
-    })
-    expect(
-      conflictHeading.compareDocumentPosition(reload) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-    expect(
-      reload.compareDocumentPosition(reason()) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-    expect(reason()).toHaveValue('해설 확인')
-    expect(reason()).toBeDisabled()
-    expect(submit()).toBeDisabled()
-    failRead = true
-    await user.click(
-      screen.getByRole('button', { name: '최신 신고 상태 불러오기' })
-    )
-    await screen.findByText(/최신 신고 상태를 확인하지 못했습니다/)
-    expect(submit()).toBeDisabled()
-    expect(attempts).toBe(1)
-    failRead = false
-    current = { ...initial, rowVersion: 3 }
-    await user.click(
-      screen.getByRole('button', { name: '최신 신고 상태 불러오기' })
-    )
-    await waitFor(() => expect(submit()).toBeEnabled())
-    expect(
-      screen.getByRole('heading', { name: '문제 신고 상세' })
-    ).toHaveFocus()
-    expect(reason()).toHaveValue('해설 확인')
-    expect(attempts).toBe(1)
-    await user.click(submit())
-    await waitFor(() =>
-      expect(
-        endpoint.mock.calls
-          .filter(([r]) => r.operation === 'resolveAdminQuestionReport')
-          .at(-1)?.[0].body
-      ).toMatchObject({ expectedRowVersion: 3 })
-    )
-  }
-)
-it('never navigates or replays on fresh failure; explicit Google entry saves only this report draft and bare callback', async () => {
-  const endpoint = vi
-    .spyOn(api, 'requestContentOperation')
-    .mockImplementation(async (request) => {
-      if (request.operation === 'resolveAdminQuestionReport')
-        throw { code: 'FRESH_ASSURANCE_REQUIRED' }
-      return initial
-    })
-  const assign = vi
-    .spyOn(appDocumentNavigation, 'assign')
-    .mockImplementation(() => undefined)
-  const view = route()
-  await fill()
-  const user = userEvent.setup()
-  await user.click(submit())
-  await screen.findByRole('button', { name: 'Google로 관리자 본인 확인' })
-  expect(assign).not.toHaveBeenCalled()
-  expect(reason()).toHaveValue('해설 확인')
-  await user.click(
-    screen.getByRole('button', { name: 'Google로 관리자 본인 확인' })
-  )
-  expect(assign).toHaveBeenCalledWith(
-    '/login?redirect=' + encodeURIComponent('/admin/reports/' + id)
-  )
-  expect(restoreReportDraft(actorId, id, 2)?.reason).toBe('해설 확인')
-  expect(
-    endpoint.mock.calls.filter(
-      ([r]) => r.operation === 'resolveAdminQuestionReport'
-    )
-  ).toHaveLength(1)
-  view.unmount()
-  client.clear()
-  invalidateCanonicalAuthTransitions()
-  useAppStore.getState().setCurrentUser(null)
+
+let client: QueryClient
+beforeEach(() => {
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
-  route()
-  await waitFor(() => expect(reason()).toHaveValue('해설 확인'))
-  expect(
-    endpoint.mock.calls.filter(
-      ([request]) => request.operation === 'resolveAdminQuestionReport'
-    )
-  ).toHaveLength(1)
-})
-it('restores after a fresh document/auth epoch only for the same canonical actor, report, and rowVersion, with no command replay', async () => {
-  saveReportDraft(actorId, id, 2, {
-    outcome: 'DISMISSED',
-    reason: '보관 초안',
-    remediationVersionId: ''
-  })
-  saveReportContext(actorId, id, '/admin/reports?status=TRIAGED&page=3')
   invalidateCanonicalAuthTransitions()
-  const endpoint = vi
-    .spyOn(api, 'requestContentOperation')
-    .mockResolvedValue(initial)
-  route()
-  await waitFor(() => expect(reason()).toHaveValue('보관 초안'))
-  expect(screen.getByRole('link', { name: '신고 목록으로' })).toHaveAttribute(
+  useAppStore.getState().setCurrentUser(null)
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+  vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue(adminActor())
+})
+afterEach(() => {
+  cleanup()
+  client.clear()
+  onlineManager.setOnline(true)
+  writeUiLocalePreference('ko')
+  vi.restoreAllMocks()
+})
+
+const open = async (detail = reportDetail()) => {
+  const get = vi.spyOn(reportApi, 'getAdminReport').mockResolvedValue(detail)
+  renderAdmin(client, `/admin/reports/${reportId}`)
+  await screen.findByRole('heading', { name: '정답이 두 개처럼 보여요' })
+  return { get }
+}
+const process = () => screen.getByRole('region', { name: '처리' })
+
+it('shows the content card, location, target question and process panel', async () => {
+  await open()
+  expect(screen.getByText('문항 신고')).toBeVisible()
+  const status = screen.getByText('접수됨')
+  expect(status).toHaveClass('bg-warning-soft')
+  expect(status.querySelector('svg')).not.toBeNull()
+  expect(screen.getByText('문항 신고')).not.toHaveClass('bg-warning-soft')
+  expect(screen.getByText('result#2')).toBeVisible()
+  expect(screen.getByRole('link', { name: questionId })).toHaveAttribute(
     'href',
-    expect.stringContaining('status=TRIAGED')
+    `/admin/questions/${questionId}`
   )
+  expect(screen.getByText(/8f2c41aa…/u)).toBeVisible()
   expect(
-    endpoint.mock.calls.every(([r]) => r.operation === 'getAdminQuestionReport')
-  ).toBe(true)
-  expect(screen.getByRole('status')).toHaveTextContent(/처리 사유 초안을 복구/)
-})
-it('does not leave or lose input when draft storage fails before fresh navigation', async () => {
-  vi.spyOn(api, 'requestContentOperation').mockImplementation(
-    async (request) => {
-      if (request.operation === 'resolveAdminQuestionReport')
-        throw { code: 'FRESH_ASSURANCE_REQUIRED' }
-      return initial
-    }
-  )
-  const assign = vi
-    .spyOn(appDocumentNavigation, 'assign')
-    .mockImplementation(() => undefined)
-  route()
-  await fill()
-  const user = userEvent.setup()
-  await user.click(submit())
-  await screen.findByRole('button', { name: 'Google로 관리자 본인 확인' })
-  vi.spyOn(cachedSessionStorage, 'setItem').mockReturnValue(false)
-  await user.click(
-    screen.getByRole('button', { name: 'Google로 관리자 본인 확인' })
-  )
-  expect(assign).not.toHaveBeenCalled()
-  expect(screen.getByText(/초안을 보관하지 못해/)).toBeVisible()
-  expect(reason()).toHaveValue('해설 확인')
-})
-it('requires a dirty leave decision and preserves draft on stay, then discards explicitly', async () => {
-  vi.spyOn(api, 'requestContentOperation').mockResolvedValue(initial)
-  route()
-  await fill()
-  const user = userEvent.setup()
-  await user.click(screen.getByRole('link', { name: '신고 목록으로' }))
+    within(process()).getByLabelText('제보자에게 보낼 답변')
+  ).toHaveAccessibleDescription(/제보자가 ‘내 제보’에서 봅니다/u)
   expect(
-    await screen.findByRole('dialog', {
-      name: '작성 중인 처리 사유가 있습니다'
-    })
-  ).toBeVisible()
-  await user.click(screen.getByRole('button', { name: '계속 작성' }))
-  expect(reason()).toHaveValue('해설 확인')
-  await user.click(screen.getByRole('button', { name: '초안 버리기' }))
-  expect(reason()).toHaveValue('')
-})
-it('locks offline commands and resets draft on canonical actor switch', async () => {
-  const endpoint = vi
-    .spyOn(api, 'requestContentOperation')
-    .mockResolvedValue(initial)
-  route()
-  await fill()
-  await act(async () => {
-    onlineManager.setOnline(false)
-  })
-  expect(submit()).toBeDisabled()
-  expect(reason()).toHaveValue('해설 확인')
-  await act(async () => {
-    onlineManager.setOnline(true)
-    await commitCanonicalAuth(client, actor(otherId))
-  })
-  await waitFor(() => expect(reason()).toHaveValue(''))
+    within(process()).getByLabelText('내부 메모')
+  ).toHaveAccessibleDescription(/제보자에게 보이지 않습니다/u)
+  // Both fields match the contract's 1,000-character cap.
+  for (const label of ['제보자에게 보낼 답변', '내부 메모'])
+    expect(within(process()).getByLabelText(label)).toHaveAttribute(
+      'maxLength',
+      '1000'
+    )
   expect(
-    endpoint.mock.calls.every(([r]) => r.operation === 'getAdminQuestionReport')
-  ).toBe(true)
-})
-it('renders terminal resolution as read-only without command controls', async () => {
-  vi.spyOn(api, 'requestContentOperation').mockResolvedValue({
-    ...initial,
-    status: 'DISMISSED',
-    rowVersion: 3,
-    resolution: {
-      outcome: 'DISMISSED',
-      reason: '검토 완료',
-      remediationVersionId: null,
-      resolvedAt: initial.updatedAt
-    }
-  })
-  route()
-  expect(await screen.findByText('검토 완료')).toBeVisible()
-  expect(
-    screen.queryByRole('button', { name: '최종 처리 실행' })
-  ).not.toBeInTheDocument()
-  expect(
-    screen.queryByRole('button', { name: '신고 분류 시작' })
-  ).not.toBeInTheDocument()
+    screen.getByRole('link', { name: '대상 문항 새 버전 만들기' })
+  ).toHaveAttribute('href', `/admin/questions/${questionId}/edit`)
 })
 
-it('focuses canonical server field errors without rendering server text', async () => {
-  vi.spyOn(api, 'requestContentOperation').mockImplementation(
-    async (request) => {
-      if (request.operation === 'resolveAdminQuestionReport')
-        throw {
-          code: 'VALIDATION_ERROR',
-          fieldErrors: { reason: ['SERVER_INTERNAL_CODE'] }
-        }
-      return initial
-    }
-  )
-  route()
-  await fill()
-  await userEvent.click(submit())
-  await waitFor(() => expect(reason()).toHaveFocus())
-  expect(screen.getByText('이 입력값을 확인해 주세요.')).toBeVisible()
-  expect(screen.queryByText('SERVER_INTERNAL_CODE')).not.toBeInTheDocument()
-})
-
-it('hands keyboard triage success to the stable heading once after canonical refetch', async () => {
-  let current: QuestionReportDetail = {
-    ...initial,
-    status: 'OPEN',
-    rowVersion: 1,
-    assignee: null
-  }
-  vi.spyOn(api, 'requestContentOperation').mockImplementation(
-    async (request) => {
-      if (request.operation === 'triageAdminQuestionReport') {
-        current = initial
-        return questionReportMutationResultSchema.parse({
-          id,
-          questionId: initial.questionId,
-          questionVersionId: initial.questionVersionId,
-          status: 'TRIAGED',
-          rowVersion: 2,
-          assignee: initial.assignee,
-          resolution: null,
-          createdAt: initial.createdAt,
-          updatedAt: initial.updatedAt
-        })
-      }
-      return current
-    }
-  )
-  route()
-  const user = userEvent.setup()
-  const button = await screen.findByRole('button', { name: '신고 분류 시작' })
-  button.focus()
-  await user.keyboard('{Enter}')
-  await screen.findByRole('textbox', { name: '처리 사유' })
-  await waitFor(() =>
-    expect(
-      screen.getByRole('heading', { level: 1, name: '문제 신고 상세' })
-    ).toHaveFocus()
-  )
-  const back = screen.getByRole('link', { name: '신고 목록으로' })
-  back.focus()
-  await act(async () => {
-    await client.invalidateQueries({ queryKey: ['admin-content', 'reports'] })
-  })
-  expect(back).toHaveFocus()
-})
-
-it.each(['RESOLVED', 'DISMISSED'] as const)(
-  'hands keyboard resolution %s success to the stable heading after the form is removed',
-  async (outcome) => {
-    let current = initial
-    const endpoint = vi
-      .spyOn(api, 'requestContentOperation')
-      .mockImplementation(async (request) => {
-        if (request.operation === 'resolveAdminQuestionReport') {
-          current = questionReportDetailSchema.parse({
-            ...initial,
-            status: outcome,
-            rowVersion: 3,
-            resolution: {
-              outcome,
-              reason: '처리 확인',
-              remediationVersionId: null,
-              resolvedAt: initial.updatedAt
-            }
-          })
-          return questionReportMutationResultSchema.parse({
-            id,
-            questionId: current.questionId,
-            questionVersionId: current.questionVersionId,
-            status: outcome,
-            rowVersion: 3,
-            assignee: current.assignee,
-            resolution: current.resolution,
-            createdAt: current.createdAt,
-            updatedAt: current.updatedAt
-          })
-        }
-        return current
+it('replies and closes with the current row version and the optional note', async () => {
+  await open()
+  const send = vi
+    .spyOn(reportApi, 'replyAndCloseAdminReport')
+    .mockResolvedValue(
+      reportDetail({
+        status: 'ANSWERED',
+        reporterReply: '해설에 추가했습니다.',
+        repliedAt: '2026-11-02T00:30:00Z',
+        closedAt: '2026-11-02T00:30:00Z',
+        rowVersion: 2
       })
-    route()
-    const user = userEvent.setup()
-    await fill('처리 확인')
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: '처리 결과' }),
-      outcome
     )
-    submit().focus()
-    await user.keyboard('{Enter}')
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('button', { name: '최종 처리 실행' })
-      ).not.toBeInTheDocument()
+  const user = userEvent.setup()
+  await user.type(
+    within(process()).getByLabelText('제보자에게 보낼 답변'),
+    '해설에 추가했습니다.'
+  )
+  await user.type(within(process()).getByLabelText('내부 메모'), '새 버전 예정')
+  await user.click(
+    within(process()).getByRole('button', { name: '답변하고 종결' })
+  )
+  expect(send).toHaveBeenCalledWith(reportId, {
+    expectedRowVersion: 1,
+    reporterReply: '해설에 추가했습니다.',
+    internalNote: '새 버전 예정'
+  })
+  const status = await screen.findByText('답변을 보내고 종결했습니다.')
+  await waitFor(() => expect(status).toHaveFocus())
+})
+
+it('requires a reply before replying and closing', async () => {
+  await open()
+  const send = vi.spyOn(reportApi, 'replyAndCloseAdminReport')
+  const user = userEvent.setup()
+  await user.click(
+    within(process()).getByRole('button', { name: '답변하고 종결' })
+  )
+  expect(
+    await screen.findByText('제보자에게 보낼 답변을 입력해 주세요.')
+  ).toBeVisible()
+  expect(within(process()).getByLabelText('제보자에게 보낼 답변')).toHaveFocus()
+  expect(send).not.toHaveBeenCalled()
+})
+
+it('saves only the internal note and closes without a reply', async () => {
+  await open(reportDetail({ internalNote: '기존 메모' }))
+  const note = vi
+    .spyOn(reportApi, 'saveAdminReportNote')
+    .mockResolvedValue(reportDetail({ internalNote: '기존 메모 추가' }))
+  const close = vi
+    .spyOn(reportApi, 'closeAdminReport')
+    .mockResolvedValue(reportDetail({ status: 'CLOSED', rowVersion: 2 }))
+  expect(screen.getByText('내부 메모 · 제보자에게 안 보임')).toBeVisible()
+  const user = userEvent.setup()
+  const memo = within(process()).getByLabelText('내부 메모')
+  expect(memo).toHaveValue('기존 메모')
+  await user.type(memo, ' 추가')
+  await user.click(
+    within(process()).getByRole('button', { name: '메모만 저장' })
+  )
+  expect(note).toHaveBeenCalledWith(reportId, {
+    expectedRowVersion: 1,
+    internalNote: '기존 메모 추가'
+  })
+  expect(await screen.findByText('내부 메모를 저장했습니다.')).toBeVisible()
+  await user.click(
+    within(process()).getByRole('button', { name: '답변 없이 종결' })
+  )
+  expect(close).toHaveBeenCalledWith(reportId, {
+    expectedRowVersion: 1,
+    internalNote: '기존 메모 추가'
+  })
+})
+
+it('after a conflict shows the latest memo, keeps my draft aside and never overwrites silently', async () => {
+  const get = vi
+    .spyOn(reportApi, 'getAdminReport')
+    .mockResolvedValueOnce(reportDetail())
+    .mockResolvedValue(
+      reportDetail({ internalNote: '다른 관리자 메모', rowVersion: 2 })
     )
-    await waitFor(() =>
-      expect(
-        screen.getByRole('heading', { level: 1, name: '문제 신고 상세' })
-      ).toHaveFocus()
+  renderAdmin(client, `/admin/reports/${reportId}`)
+  await screen.findByRole('heading', { name: '정답이 두 개처럼 보여요' })
+  vi.spyOn(reportApi, 'replyAndCloseAdminReport').mockRejectedValueOnce({
+    code: 'VERSION_CONFLICT',
+    status: 409
+  })
+  const user = userEvent.setup()
+  const reply = within(process()).getByLabelText('제보자에게 보낼 답변')
+  const memo = within(process()).getByLabelText('내부 메모')
+  await user.type(reply, '확인했습니다.')
+  await user.type(memo, '내 초안 메모')
+  await user.click(
+    within(process()).getByRole('button', { name: '답변하고 종결' })
+  )
+  expect(
+    await screen.findByText(/다른 관리자가 먼저 이 제보를 바꿨습니다/u)
+  ).toHaveAttribute('role', 'alert')
+  await waitFor(() => expect(memo).toHaveValue('다른 관리자 메모'))
+  expect(get.mock.calls.length).toBeGreaterThan(1)
+  expect(reply).toHaveValue('확인했습니다.')
+  expect(screen.getByText('내 초안 메모')).toBeVisible()
+  const save = vi
+    .spyOn(reportApi, 'saveAdminReportNote')
+    .mockResolvedValue(reportDetail({ rowVersion: 3 }))
+  await user.click(
+    within(process()).getByRole('button', { name: '메모만 저장' })
+  )
+  expect(save).toHaveBeenLastCalledWith(reportId, {
+    expectedRowVersion: 2,
+    internalNote: '다른 관리자 메모'
+  })
+})
+
+it('restores my draft into the memo field only when I ask', async () => {
+  vi.spyOn(reportApi, 'getAdminReport')
+    .mockResolvedValueOnce(reportDetail())
+    .mockResolvedValue(
+      reportDetail({ internalNote: '다른 관리자 메모', rowVersion: 2 })
     )
-    expect(endpoint).toHaveBeenCalledWith({
-      operation: 'resolveAdminQuestionReport',
-      params: { reportId: id },
-      query: {},
-      body: {
-        expectedRowVersion: 2,
-        outcome,
-        reason: '처리 확인',
-        remediationVersionId: null
-      }
+  renderAdmin(client, `/admin/reports/${reportId}`)
+  await screen.findByRole('heading', { name: '정답이 두 개처럼 보여요' })
+  vi.spyOn(reportApi, 'saveAdminReportNote').mockRejectedValueOnce({
+    code: 'VERSION_CONFLICT',
+    status: 409
+  })
+  const user = userEvent.setup()
+  const memo = within(process()).getByLabelText('내부 메모')
+  await user.type(memo, '내 초안 메모')
+  await user.click(
+    within(process()).getByRole('button', { name: '메모만 저장' })
+  )
+  await waitFor(() => expect(memo).toHaveValue('다른 관리자 메모'))
+  // The conflict alert takes focus on the next frame, before any user click.
+  await waitFor(() =>
+    expect(within(process()).getByRole('alert')).toHaveFocus()
+  )
+  await user.click(
+    within(process()).getByRole('button', { name: '내 메모 다시 넣기' })
+  )
+  expect(memo).toHaveValue('내 초안 메모')
+  expect(memo).toHaveFocus()
+})
+
+it('shows a closed report as read-only with the sent reply', async () => {
+  await open(
+    reportDetail({
+      status: 'ANSWERED',
+      reporterReply: '해설을 고쳤습니다.',
+      repliedAt: '2026-11-02T00:30:00Z',
+      closedAt: '2026-11-02T00:30:00Z',
+      rowVersion: 2
     })
-  }
-)
+  )
+  expect(screen.getByText('보낸 답변')).toBeVisible()
+  expect(screen.getByText('해설을 고쳤습니다.')).toBeVisible()
+  expect(screen.getByText('종결된 제보는 더 처리할 수 없습니다.')).toBeVisible()
+  expect(
+    within(process()).queryByRole('button', { name: '답변하고 종결' })
+  ).toBeNull()
+})
+
+it('shows an app error report without question links', async () => {
+  await open(
+    reportDetail({
+      kind: 'APP_ERROR',
+      location: 'dashboard',
+      questionId: null,
+      questionVersionId: null,
+      reporterMemberId: null
+    })
+  )
+  expect(screen.getByText('앱 오류')).toBeVisible()
+  expect(screen.getByText(/탈퇴한 회원/u)).toBeVisible()
+  expect(screen.queryByText('대상 문항')).toBeNull()
+  expect(
+    screen.queryByRole('link', { name: '대상 문항 새 버전 만들기' })
+  ).toBeNull()
+})

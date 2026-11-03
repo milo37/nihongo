@@ -87,10 +87,10 @@ export const accessibilityExpectedTableDeltas = {
   Question: 0,
   QuestionImportResult: 0,
   QuestionOption: 0,
-  QuestionReport: 1,
+  QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 29,
+  RateLimit: 28,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -111,7 +111,7 @@ export const accessibilityExpectedTableDeltas = {
   User: 0,
   UserAccountRestriction: 0,
   UserMemo: 0,
-  UserReport: 0,
+  UserReport: 1,
   Verification: 0,
   WrongNote: 10,
   _prisma_migrations: 0
@@ -126,7 +126,7 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:phase7:ADMIN_READ:IP': 1,
   'application:phase7:REPORT_ACTOR:ACTOR': 1,
   'application:phase7:REPORT_ACTOR:IP': 1,
-  'application:phase7:REPORT_VERSION:VERSION': 1,
+  'application:phase7:REPORT_VERSION:VERSION': 0,
   'application:study-cancel': 0,
   'application:study-create': 2,
   'application:study-draft-save': 1,
@@ -405,7 +405,7 @@ const readIdentityFacts = async (client, fixture) => {
     [actorIds]
   )
   const reports = await client.query(
-    `SELECT report."reporterUserId", report."reason", report."status",
+    `SELECT report."reporterUserId", report."kind", report."status",
        report."rowVersion",
        EXISTS (
          SELECT 1
@@ -415,7 +415,7 @@ const readIdentityFacts = async (client, fixture) => {
            AND q."questionId" = report."questionId"
            AND q."questionVersionId" = report."questionVersionId"
        ) AS "targetInAuthorSession"
-     FROM "QuestionReport" AS report
+     FROM "UserReport" AS report
      WHERE report."reporterUserId" = ANY($2::uuid[])
      ORDER BY report."id"`,
     [fixture.author.userId, actorIds]
@@ -699,10 +699,10 @@ const assertIdentityContract = (facts, fixture) => {
     facts.reports,
     [
       {
-        reason: 'OTHER',
+        kind: 'QUESTION',
         reporterUserId: fixture.author.userId,
         rowVersion: 1,
-        status: 'OPEN',
+        status: 'RECEIVED',
         targetInAuthorSession: true
       }
     ],

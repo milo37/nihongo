@@ -7,6 +7,7 @@ export interface ApiVariables {
   requestStartedAt: number
   adminActorId: string
   adminClientIp: string
+  clientIp: string
   adminSessionToken: string
   reporterActorId: string
   reporterSessionToken: string
