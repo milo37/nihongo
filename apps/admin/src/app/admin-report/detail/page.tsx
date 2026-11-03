@@ -16,6 +16,7 @@ import {
   useSaveAdminReportNote
 } from '@app/admin-report/hooks/useAdminReportCommands'
 import { readReportReturn } from '@app/admin-report/navigation/reportListFocus'
+import { ReportStatusBadge } from '@app/admin-report/components/ReportStatusBadge'
 
 const errorCode = (error: unknown): string | null =>
   error &&
@@ -91,16 +92,35 @@ const ReportDetail = ({
   const [replyRequired, setReplyRequired] = useState(false)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [failure, setFailure] = useState<unknown>(null)
+  // After a conflict the memo field shows the latest saved memo; the admin's
+  // own draft is kept aside so a later command never silently overwrites it.
+  const [conflictPending, setConflictPending] = useState(false)
+  const [noteDraft, setNoteDraft] = useState<string | null>(null)
+  const [seenRowVersion, setSeenRowVersion] = useState(report.rowVersion)
+  if (report.rowVersion !== seenRowVersion) {
+    setSeenRowVersion(report.rowVersion)
+    if (conflictPending) {
+      const latest = report.internalNote ?? ''
+      setConflictPending(false)
+      if (latest !== note) setNoteDraft(note)
+      setNote(latest)
+    }
+  }
   const announce = (next: Outcome) => (): void => {
     setFailure(null)
+    setNoteDraft(null)
     setOutcome(next)
     window.requestAnimationFrame(() => statusRef.current?.focus())
   }
   const fail = (error: unknown): void => {
     setOutcome(null)
     setFailure(error)
-    // Typed text stays; the latest row version is loaded for the next try.
-    if (errorCode(error) === 'VERSION_CONFLICT') onConflict()
+    setReplyRequired(false)
+    // The reply stays; the latest row version and memo are loaded.
+    if (errorCode(error) === 'VERSION_CONFLICT') {
+      setConflictPending(true)
+      onConflict()
+    }
     window.requestAnimationFrame(() => statusRef.current?.focus())
   }
   const replyAndClose = useReplyAndCloseAdminReport(report.reportId, {
@@ -143,7 +163,7 @@ const ReportDetail = ({
             </span>
           </p>
         </div>
-        <Badge>{t(`userReport.statuses.${report.status}`)}</Badge>
+        <ReportStatusBadge status={report.status} />
       </header>
       <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid min-w-0 content-start gap-4">
@@ -273,6 +293,34 @@ const ReportDetail = ({
                   value={note}
                   onChange={(event) => setNote(event.currentTarget.value)}
                 />
+                {noteDraft !== null ? (
+                  <div
+                    role="status"
+                    className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm text-warning-strong"
+                  >
+                    <p className="font-semibold">
+                      {t('userReport.detail.noteReplaced')}
+                    </p>
+                    <p className="mt-2 text-muted">
+                      {t('userReport.detail.myDraft')}
+                    </p>
+                    <p className="whitespace-pre-wrap break-words">
+                      {noteDraft}
+                    </p>
+                    <Button
+                      className="mt-2"
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => {
+                        setNote(noteDraft)
+                        setNoteDraft(null)
+                      }}
+                    >
+                      {t('userReport.detail.restoreDraft')}
+                    </Button>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-3">
                   <Button
                     type="submit"

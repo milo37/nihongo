@@ -904,7 +904,11 @@ export const jaAdminResources = {
       conflict:
         '他の管理者が先にこの報告を変更しました。最新の内容を読み込んだので、確認してからもう一度処理してください。',
       link: '関連',
-      newVersion: '対象の問題の新しいバージョンを作成'
+      newVersion: '対象の問題の新しいバージョンを作成',
+      noteReplaced:
+        'メモ欄を他の管理者が保存した最新のメモに置き換えました。自分のメモは下に別途残しています。',
+      myDraft: '自分のメモ',
+      restoreDraft: '自分のメモを戻す'
     },
     statuses: {
       RECEIVED: '受付済み',

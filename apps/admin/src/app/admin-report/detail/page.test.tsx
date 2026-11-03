@@ -73,7 +73,10 @@ const process = () => screen.getByRole('region', { name: '처리' })
 it('shows the content card, location, target question and process panel', async () => {
   await open()
   expect(screen.getByText('문항 신고')).toBeVisible()
-  expect(screen.getByText('접수됨')).toBeVisible()
+  const status = screen.getByText('접수됨')
+  expect(status).toHaveClass('bg-warning-soft')
+  expect(status.querySelector('svg')).not.toBeNull()
+  expect(screen.getByText('문항 신고')).not.toHaveClass('bg-warning-soft')
   expect(screen.getByText('result#2')).toBeVisible()
   expect(screen.getByRole('link', { name: questionId })).toHaveAttribute(
     'href',
@@ -166,24 +169,69 @@ it('saves only the internal note and closes without a reply', async () => {
   })
 })
 
-it('keeps typed text and reloads the report after a version conflict', async () => {
-  const { get } = await open()
-  vi.spyOn(reportApi, 'replyAndCloseAdminReport').mockRejectedValue({
+it('after a conflict shows the latest memo, keeps my draft aside and never overwrites silently', async () => {
+  const get = vi
+    .spyOn(reportApi, 'getAdminReport')
+    .mockResolvedValueOnce(reportDetail())
+    .mockResolvedValue(
+      reportDetail({ internalNote: '다른 관리자 메모', rowVersion: 2 })
+    )
+  renderAdmin(client, `/admin/reports/${reportId}`)
+  await screen.findByRole('heading', { name: '정답이 두 개처럼 보여요' })
+  vi.spyOn(reportApi, 'replyAndCloseAdminReport').mockRejectedValueOnce({
     code: 'VERSION_CONFLICT',
     status: 409
   })
   const user = userEvent.setup()
   const reply = within(process()).getByLabelText('제보자에게 보낼 답변')
+  const memo = within(process()).getByLabelText('내부 메모')
   await user.type(reply, '확인했습니다.')
+  await user.type(memo, '내 초안 메모')
   await user.click(
     within(process()).getByRole('button', { name: '답변하고 종결' })
   )
-  const alert = await screen.findByText(
-    /다른 관리자가 먼저 이 제보를 바꿨습니다/u
-  )
-  expect(alert).toHaveAttribute('role', 'alert')
-  await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(1))
+  expect(
+    await screen.findByText(/다른 관리자가 먼저 이 제보를 바꿨습니다/u)
+  ).toHaveAttribute('role', 'alert')
+  await waitFor(() => expect(memo).toHaveValue('다른 관리자 메모'))
+  expect(get.mock.calls.length).toBeGreaterThan(1)
   expect(reply).toHaveValue('확인했습니다.')
+  expect(screen.getByText('내 초안 메모')).toBeVisible()
+  const save = vi
+    .spyOn(reportApi, 'saveAdminReportNote')
+    .mockResolvedValue(reportDetail({ rowVersion: 3 }))
+  await user.click(
+    within(process()).getByRole('button', { name: '메모만 저장' })
+  )
+  expect(save).toHaveBeenLastCalledWith(reportId, {
+    expectedRowVersion: 2,
+    internalNote: '다른 관리자 메모'
+  })
+})
+
+it('restores my draft into the memo field only when I ask', async () => {
+  vi.spyOn(reportApi, 'getAdminReport')
+    .mockResolvedValueOnce(reportDetail())
+    .mockResolvedValue(
+      reportDetail({ internalNote: '다른 관리자 메모', rowVersion: 2 })
+    )
+  renderAdmin(client, `/admin/reports/${reportId}`)
+  await screen.findByRole('heading', { name: '정답이 두 개처럼 보여요' })
+  vi.spyOn(reportApi, 'saveAdminReportNote').mockRejectedValueOnce({
+    code: 'VERSION_CONFLICT',
+    status: 409
+  })
+  const user = userEvent.setup()
+  const memo = within(process()).getByLabelText('내부 메모')
+  await user.type(memo, '내 초안 메모')
+  await user.click(
+    within(process()).getByRole('button', { name: '메모만 저장' })
+  )
+  await waitFor(() => expect(memo).toHaveValue('다른 관리자 메모'))
+  await user.click(
+    within(process()).getByRole('button', { name: '내 메모 다시 넣기' })
+  )
+  expect(memo).toHaveValue('내 초안 메모')
 })
 
 it('shows a closed report as read-only with the sent reply', async () => {

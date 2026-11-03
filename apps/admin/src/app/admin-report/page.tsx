@@ -26,6 +26,7 @@ import {
   consumeReportListFocus,
   saveReportContext
 } from '@app/admin-report/navigation/reportListFocus'
+import { ReportStatusBadge } from '@app/admin-report/components/ReportStatusBadge'
 
 export const AdminReportsPage = (): ReactElement => {
   const { t, presentError, formatAdminDateTime } = useAdminPresentation()
@@ -208,7 +209,7 @@ export const AdminReportsPage = (): ReactElement => {
                   className="grid min-w-0 gap-3 bg-surface px-4 py-6 sm:grid-cols-[auto_1fr_auto] sm:gap-6"
                 >
                   <div className="flex flex-wrap gap-2 sm:flex-col">
-                    <Badge>{t(`userReport.statuses.${item.status}`)}</Badge>
+                    <ReportStatusBadge status={item.status} />
                     <Badge>{t(`userReport.kinds.${item.kind}`)}</Badge>
                   </div>
                   <div className="min-w-0">

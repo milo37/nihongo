@@ -2276,7 +2276,11 @@ export const koResources = {
         conflict:
           '다른 관리자가 먼저 이 제보를 바꿨습니다. 최신 내용을 불러왔으니 확인한 뒤 다시 처리해 주세요.',
         link: '연결',
-        newVersion: '대상 문항 새 버전 만들기'
+        newVersion: '대상 문항 새 버전 만들기',
+        noteReplaced:
+          '메모 칸을 다른 관리자가 저장한 최신 메모로 바꿨습니다. 내가 쓴 메모는 아래에 따로 남겨 두었습니다.',
+        myDraft: '내가 쓴 메모',
+        restoreDraft: '내 메모 다시 넣기'
       },
       statuses: {
         RECEIVED: '접수됨',
