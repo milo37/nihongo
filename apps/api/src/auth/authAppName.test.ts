@@ -5,7 +5,7 @@ import { createAuthRuntime } from './createAuth.js'
 
 const environment = {
   BETTER_AUTH_URL: 'http://127.0.0.1:3000',
-  BETTER_AUTH_SECRET: 'synthetic-app-name-secret-0123456789abcdef',
+  BETTER_AUTH_SECRET: 'a'.repeat(32),
   TRUSTED_ORIGINS: ['http://127.0.0.1:5173'],
   NODE_ENV: 'test'
 } as unknown as ApiEnvironment
