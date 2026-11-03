@@ -22,7 +22,6 @@
     "./api/config": "./src/api/config.ts",
     "./api/http": "./src/api/http.ts",
     "./api/mockServiceWorker": "./src/api/mockServiceWorker.ts",
-    "./api/schema": "./src/api/schema.ts",
     "./api/study/practiceTransportSchema": "./src/api/study/practiceTransportSchema.ts",
     "./api/study/saveStudyDraftAnswers/schema": "./src/api/study/saveStudyDraftAnswers/schema.ts",
     "./app/forbidden/page": "./src/app/forbidden/page.tsx",
