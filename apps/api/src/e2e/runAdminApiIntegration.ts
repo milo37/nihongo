@@ -1101,7 +1101,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 53,
+      canonicalCount: 55,
       checksumMatch: true,
       reentry: true
     }) + '\n'
