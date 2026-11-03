@@ -193,13 +193,13 @@ const schema = getPostgresSchema(environment.DATABASE_URL)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 const authGatewayDatabaseUrl = process.env.AUTH_GATEWAY_DATABASE_URL
 if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
-  throw new Error('Phase 7 reauthentication DB test URLs are required.')
+  throw new Error('Reauthentication DB test URLs are required.')
 }
 if (
   getPostgresSchema(adminDatabaseUrl) !== schema ||
   getPostgresSchema(authGatewayDatabaseUrl) !== schema
 ) {
-  throw new Error('Phase 7 reauthentication DB schemas must match exactly.')
+  throw new Error('Reauthentication DB schemas must match exactly.')
 }
 
 const runtimeClient = (
@@ -300,7 +300,7 @@ const insertCredentialUser = async (
       "id", "name", "email", "emailVerified", "role",
       "accountStatus", "createdAt", "updatedAt"
     ) VALUES (
-      $1, 'Phase 7 reauthentication integration', $2, true, $3,
+      $1, 'Reauthentication integration', $2, true, $3,
       'ACTIVE', clock_timestamp(), clock_timestamp()
     )`,
     [id, email, role]
@@ -335,7 +335,7 @@ const issueSession = async (
     )
   )
   const familyId = issued.rows[0]?.familyId
-  if (!familyId) throw new Error('Phase 7 Session family was not issued.')
+  if (!familyId) throw new Error('Session family was not issued.')
   return familyId
 }
 
@@ -355,7 +355,7 @@ const prepare = async (
   )
   const row = prepared.rows[0]
   if (!row || prepared.rows.length !== 1) {
-    throw new Error('Phase 7 reauthentication intent was not prepared.')
+    throw new Error('Reauthentication intent was not prepared.')
   }
   return row
 }
@@ -388,7 +388,7 @@ const finalize = async (
   )
   const row = finalized.rows[0]
   if (!row || finalized.rows.length !== 1) {
-    throw new Error('Phase 7 reauthentication was not finalized.')
+    throw new Error('Reauthentication was not finalized.')
   }
   return row
 }
@@ -447,7 +447,7 @@ beforeAll(async () => {
        inet_server_port() AS "serverPort"`
   )
   const target = endpoint.rows[0]
-  if (!target) throw new Error('Phase 7 DB endpoint is unavailable.')
+  if (!target) throw new Error('DB endpoint is unavailable.')
   await withExecutionRole('nihongo_phase7_migration', () =>
     adminClient.query(
       `SELECT "phase7_register_database_capability"(
@@ -464,7 +464,7 @@ afterAll(async () => {
   await adminClient.end()
 })
 
-describe('Phase 7 Slice 3R reauthentication DB foundation', () => {
+describe('Reauthentication DB foundation', () => {
   it('canonical flow는 PENDING을 non-authoritative로 유지하고 exact fence/audit 뒤에만 활성화한다', async () => {
     await withinRollback(async () => {
       const actorId = randomUUID()

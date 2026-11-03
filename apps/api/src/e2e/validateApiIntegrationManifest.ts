@@ -35,11 +35,11 @@ export const validateApiIntegrationManifest = async (): Promise<{
     .map(({ path: testPath }) => testPath)
     .toSorted()
   if (new Set(manifestPaths).size !== manifestPaths.length) {
-    throw new Error('Phase 10 integration manifest contains duplicate paths.')
+    throw new Error('Integration manifest contains duplicate paths.')
   }
   if (JSON.stringify(discovered) !== JSON.stringify(manifestPaths)) {
     throw new Error(
-      `Phase 10 integration manifest mismatch: discovered=${discovered.length}, manifest=${manifestPaths.length}.`
+      `Integration manifest mismatch: discovered=${discovered.length}, manifest=${manifestPaths.length}.`
     )
   }
 
@@ -52,7 +52,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
       entry.order < 1
     ) {
       throw new Error(
-        `Phase 10 integration manifest metadata is incomplete: ${entry.path}.`
+        `Integration manifest metadata is incomplete: ${entry.path}.`
       )
     }
     const source = await readFile(path.join(apiRoot, entry.path), 'utf8')
@@ -62,7 +62,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
       /\bRUN_[A-Z0-9_]+\b/u.test(source)
     ) {
       throw new Error(
-        `Phase 10 integration manifest forbids skipped or environment-gated tests: ${entry.path}.`
+        `Integration manifest forbids skipped or environment-gated tests: ${entry.path}.`
       )
     }
   }
@@ -73,9 +73,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
     )
     const orderKeys = entries.map((entry) => entry.order)
     if (new Set(orderKeys).size !== orderKeys.length) {
-      throw new Error(
-        `Phase 10 integration owner ${owner} has duplicate order values.`
-      )
+      throw new Error(`Integration owner ${owner} has duplicate order values.`)
     }
   }
 
@@ -107,9 +105,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
       }
     ])
   ) {
-    throw new Error(
-      'Phase 7 API runner manifest contract changed unexpectedly.'
-    )
+    throw new Error('API runner manifest contract changed unexpectedly.')
   }
 
   return {

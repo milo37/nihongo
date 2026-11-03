@@ -23,20 +23,20 @@ assertSafeTestDatabase({
 
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 current-source compatibility tests require fixture and erasure databases.'
+    'Current-source compatibility tests require fixture and erasure databases.'
   )
 }
 if (fixtureDatabaseUrl) {

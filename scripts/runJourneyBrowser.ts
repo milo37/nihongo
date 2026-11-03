@@ -286,10 +286,10 @@ const runReal = async (): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE7_API_INTEGRATION_CASE: 'sso-browser-google',
-      PHASE7_SSO_BROWSER_API_HOST: '127.0.0.1',
-      PHASE7_SSO_BROWSER_API_PORT: String(apiPort),
-      PHASE7_SSO_BROWSER_WEB_ORIGIN: webOrigin
+      API_INTEGRATION_CASE: 'sso-browser-google',
+      SSO_BROWSER_API_HOST: '127.0.0.1',
+      SSO_BROWSER_API_PORT: String(apiPort),
+      SSO_BROWSER_WEB_ORIGIN: webOrigin
     },
     nodePath.join(repositoryRoot, 'apps/api')
   )

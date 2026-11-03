@@ -123,7 +123,7 @@ const summarizePayloadAccounting = (rows) => {
     approvedStaticAssetPaths.includes(file)
   )
   if (staticRows.length !== approvedStaticAssetPaths.length) {
-    throw new Error('PHASE10_BUNDLE_APPROVED_STATIC_ASSET_MISSING')
+    throw new Error('WEB_BUNDLE_APPROVED_STATIC_ASSET_MISSING')
   }
   return {
     totalMeasurementScope: 'payload-excluding-exact-approved-static-assets',
@@ -147,7 +147,7 @@ const assertSafeRelativePath = (value, label) => {
     value.includes('\\') ||
     value.split('/').includes('..')
   ) {
-    throw new Error(`PHASE10_BUNDLE_UNSAFE_${label}`)
+    throw new Error(`WEB_BUNDLE_UNSAFE_${label}`)
   }
 }
 
@@ -187,7 +187,7 @@ const readManifest = async (distDirectory) => {
     await readFile(path.join(distDirectory, MANIFEST_RELATIVE_PATH), 'utf8')
   )
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('PHASE10_BUNDLE_MANIFEST_INVALID')
+    throw new Error('WEB_BUNDLE_MANIFEST_INVALID')
   }
   return raw
 }
@@ -210,7 +210,7 @@ const assertProductionModuleSource = (source) => {
     (packageName !== null &&
       !ALLOWED_PRODUCTION_MODULE_PACKAGES.has(packageName))
   ) {
-    throw new Error(`PHASE10_BUNDLE_FORBIDDEN_MODULE:${source}`)
+    throw new Error(`WEB_BUNDLE_FORBIDDEN_MODULE:${source}`)
   }
 }
 
@@ -221,7 +221,7 @@ const canonicalSource = (source, artifact) => {
     source.startsWith('/') ||
     source.includes('\\')
   ) {
-    throw new Error('PHASE10_BUNDLE_UNSAFE_MANIFEST_SOURCE')
+    throw new Error('WEB_BUNDLE_UNSAFE_MANIFEST_SOURCE')
   }
   if (!source.startsWith('../')) {
     assertSafeRelativePath(source, 'MANIFEST_SOURCE')
@@ -235,14 +235,14 @@ const canonicalSource = (source, artifact) => {
       (prefix) => resolved.startsWith(prefix)
     )
   ) {
-    throw new Error('PHASE10_BUNDLE_UNSAFE_MANIFEST_SOURCE')
+    throw new Error('WEB_BUNDLE_UNSAFE_MANIFEST_SOURCE')
   }
   assertSafeRelativePath(resolved, 'MANIFEST_SOURCE')
   return resolved
 }
 const assertCanonicalModule = (source, artifact) => {
   if (canonicalSource(source, artifact) !== source)
-    throw new Error('PHASE10_BUNDLE_UNSAFE_MODULE_SOURCE')
+    throw new Error('WEB_BUNDLE_UNSAFE_MODULE_SOURCE')
   assertProductionModuleSource(source)
   assertBrowserBuildGraph(artifact, [
     source.startsWith('src/') ? `apps/${artifact}/${source}` : source
@@ -254,7 +254,7 @@ const readModuleGraph = async (distDirectory, artifact, base) => {
     await readFile(path.join(distDirectory, SSR_MANIFEST_RELATIVE_PATH), 'utf8')
   )
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('PHASE10_BUNDLE_SSR_MANIFEST_INVALID')
+    throw new Error('WEB_BUNDLE_SSR_MANIFEST_INVALID')
   }
   const rows = Object.entries(raw)
     .map(([source, assets]) => {
@@ -269,13 +269,13 @@ const readModuleGraph = async (distDirectory, artifact, base) => {
             !asset.includes('\\')
         )
       ) {
-        throw new Error('PHASE10_BUNDLE_SSR_MANIFEST_ENTRY_INVALID')
+        throw new Error('WEB_BUNDLE_SSR_MANIFEST_ENTRY_INVALID')
       }
       const normalizedAssets = assets
         .map((asset) => '/' + asset.slice(base.length))
         .toSorted()
       if (new Set(normalizedAssets).size !== normalizedAssets.length) {
-        throw new Error('PHASE10_BUNDLE_SSR_MANIFEST_ENTRY_INVALID')
+        throw new Error('WEB_BUNDLE_SSR_MANIFEST_ENTRY_INVALID')
       }
       const mapped = canonicalSource(source, artifact)
       assertCanonicalModule(mapped, artifact)
@@ -285,14 +285,14 @@ const readModuleGraph = async (distDirectory, artifact, base) => {
       left.source < right.source ? -1 : left.source > right.source ? 1 : 0
     )
   if (new Set(rows.map(({ source }) => source)).size !== rows.length) {
-    throw new Error('PHASE10_BUNDLE_DUPLICATE_MODULE_SOURCE')
+    throw new Error('WEB_BUNDLE_DUPLICATE_MODULE_SOURCE')
   }
   return rows
 }
 
 const normalizeManifestEntry = (source, value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('PHASE10_BUNDLE_MANIFEST_ENTRY_INVALID')
+    throw new Error('WEB_BUNDLE_MANIFEST_ENTRY_INVALID')
   }
   assertSafeRelativePath(source, 'MANIFEST_SOURCE')
   assertSafeRelativePath(value.file, 'MANIFEST_FILE')
@@ -304,7 +304,7 @@ const normalizeManifestEntry = (source, value) => {
         (reference) => typeof reference === 'string' && reference.length > 0
       )
     ) {
-      throw new Error(`PHASE10_BUNDLE_MANIFEST_${label}_INVALID`)
+      throw new Error(`WEB_BUNDLE_MANIFEST_${label}_INVALID`)
     }
     return [...references].toSorted()
   }
@@ -333,7 +333,7 @@ const collectStaticClosure = (entriesBySource, entrySources) => {
     const source = pending.pop()
     if (!source || closure.has(source)) continue
     const entry = entriesBySource.get(source)
-    if (!entry) throw new Error('PHASE10_BUNDLE_MISSING_MANIFEST_NODE')
+    if (!entry) throw new Error('WEB_BUNDLE_MISSING_MANIFEST_NODE')
     closure.add(source)
     pending.push(...entry.imports)
   }
@@ -347,7 +347,7 @@ const collectFullClosure = (entriesBySource, entrySources) => {
     const source = pending.pop()
     if (!source || closure.has(source)) continue
     const entry = entriesBySource.get(source)
-    if (!entry) throw new Error('PHASE10_BUNDLE_MISSING_MANIFEST_NODE')
+    if (!entry) throw new Error('WEB_BUNDLE_MISSING_MANIFEST_NODE')
     closure.add(source)
     pending.push(...entry.imports, ...entry.dynamicImports)
   }
@@ -388,7 +388,7 @@ export const evaluateBundleBudgets = (actual) =>
           ceiling < baseline ||
           measured < 0
         ) {
-          throw new Error('PHASE10_BUNDLE_BUDGET_INVALID')
+          throw new Error('WEB_BUNDLE_BUDGET_INVALID')
         }
         return [
           metric,
@@ -443,7 +443,7 @@ export const createBundleBudgetError = (
     )
   )
   return new Error(
-    `PHASE10_BUNDLE_BUDGET_EXCEEDED:${JSON.stringify({
+    `WEB_BUNDLE_BUDGET_EXCEEDED:${JSON.stringify({
       budgets: Object.fromEntries(
         Object.entries(budgets).toSorted(([left], [right]) =>
           left < right ? -1 : left > right ? 1 : 0
@@ -464,7 +464,7 @@ export const createBundleBudgetError = (
 const assertExpectedLazyBoundary = (entriesBySource, source) => {
   const entry = entriesBySource.get(source)
   if (!entry || !entry.isDynamicEntry || entry.isInitial) {
-    throw new Error(`PHASE10_BUNDLE_LAZY_BOUNDARY_MISSING:${source}`)
+    throw new Error(`WEB_BUNDLE_LAZY_BOUNDARY_MISSING:${source}`)
   }
   return {
     file: entry.file,
@@ -549,7 +549,7 @@ export const createBundleSsrAssetClosureError = (
   const actual = new Set(actualPaths)
   const expected = new Set(expectedPaths)
   return new Error(
-    `PHASE10_BUNDLE_SSR_ASSET_CLOSURE_MISMATCH:${JSON.stringify({
+    `WEB_BUNDLE_SSR_ASSET_CLOSURE_MISMATCH:${JSON.stringify({
       missing: [...expected].filter((file) => !actual.has(file)).toSorted(),
       extra: [...actual].filter((file) => !expected.has(file)).toSorted(),
       ...(missingAssets.length > 0 ? { missingAssets } : {})
@@ -588,7 +588,7 @@ export const assertBundleForwardingCoverage = ({
   forwardingFacades
 }) => {
   if (!Array.isArray(forwardingFacades))
-    throw new Error('PHASE10_BUNDLE_FORWARDING_PROOF_INVALID')
+    throw new Error('WEB_BUNDLE_FORWARDING_PROOF_INVALID')
   const expected = new Set(
     graph.filter(({ isEntry }) => !isEntry).map(({ file }) => file)
   )
@@ -622,7 +622,7 @@ export const assertBundleForwardingCoverage = ({
           )
       )
     ) {
-      throw new Error('PHASE10_BUNDLE_FORWARDING_PROOF_INVALID')
+      throw new Error('WEB_BUNDLE_FORWARDING_PROOF_INVALID')
     }
     const source = proof.syntaxTokens.join('')
     const identity = describeBundlePayloadIdentity(source)
@@ -665,7 +665,7 @@ export const assertBundleForwardingCoverage = ({
       ssr.has(proof.path) ||
       proved.has(proof.path)
     ) {
-      throw new Error('PHASE10_BUNDLE_FORWARDING_PROOF_INVALID')
+      throw new Error('WEB_BUNDLE_FORWARDING_PROOF_INVALID')
     }
     assertProductionModuleSource(proof.source)
     proved.add(proof.path)
@@ -674,7 +674,7 @@ export const assertBundleForwardingCoverage = ({
     JSON.stringify(forwardingFacades.map(({ path: file }) => file)) !==
     JSON.stringify([...proved].toSorted())
   ) {
-    throw new Error('PHASE10_BUNDLE_FORWARDING_PROOF_INVALID')
+    throw new Error('WEB_BUNDLE_FORWARDING_PROOF_INVALID')
   }
   const covered = new Set([...ssr, ...proved])
   if (
@@ -694,11 +694,11 @@ const collectArtifactEvidence = async ({
   const payloadFiles = await readPayloadFiles(distDirectory)
   const moduleGraph = await readModuleGraph(distDirectory, artifact, base)
   if (payloadFiles.length === 0) {
-    throw new Error('PHASE10_BUNDLE_EMPTY')
+    throw new Error('WEB_BUNDLE_EMPTY')
   }
   const payloadByPath = new Map(payloadFiles.map((row) => [row.path, row]))
   if (payloadByPath.size !== payloadFiles.length) {
-    throw new Error('PHASE10_BUNDLE_DUPLICATE_PAYLOAD_PATH')
+    throw new Error('WEB_BUNDLE_DUPLICATE_PAYLOAD_PATH')
   }
 
   validateProductionBundleRuntime(payloadFiles)
@@ -708,7 +708,7 @@ const collectArtifactEvidence = async ({
         (asset) => asset.path.includes(marker) || asset.source.includes(marker)
       )
     ) {
-      throw new Error(`PHASE10_BUNDLE_FORBIDDEN_MOCK_MARKER:${marker}`)
+      throw new Error(`WEB_BUNDLE_FORBIDDEN_MOCK_MARKER:${marker}`)
     }
   }
 
@@ -730,25 +730,25 @@ const collectArtifactEvidence = async ({
     )
   const entriesBySource = new Map(graph.map((entry) => [entry.source, entry]))
   if (entriesBySource.size !== graph.length) {
-    throw new Error('PHASE10_BUNDLE_DUPLICATE_MANIFEST_SOURCE')
+    throw new Error('WEB_BUNDLE_DUPLICATE_MANIFEST_SOURCE')
   }
   const outputFiles = new Set()
   for (const entry of graph) {
     if (outputFiles.has(entry.file)) {
-      throw new Error('PHASE10_BUNDLE_DUPLICATE_OUTPUT_MAPPING')
+      throw new Error('WEB_BUNDLE_DUPLICATE_OUTPUT_MAPPING')
     }
     outputFiles.add(entry.file)
     if (!payloadByPath.has(entry.file)) {
-      throw new Error('PHASE10_BUNDLE_MISSING_OUTPUT_FILE')
+      throw new Error('WEB_BUNDLE_MISSING_OUTPUT_FILE')
     }
     for (const reference of [...entry.imports, ...entry.dynamicImports]) {
       if (!entriesBySource.has(reference)) {
-        throw new Error('PHASE10_BUNDLE_MISSING_MANIFEST_NODE')
+        throw new Error('WEB_BUNDLE_MISSING_MANIFEST_NODE')
       }
     }
     for (const cssFile of entry.css) {
       if (!payloadByPath.has(cssFile)) {
-        throw new Error('PHASE10_BUNDLE_MISSING_CSS_FILE')
+        throw new Error('WEB_BUNDLE_MISSING_CSS_FILE')
       }
     }
   }
@@ -760,34 +760,34 @@ const collectArtifactEvidence = async ({
     javaScriptPaths.size !== outputFiles.size ||
     [...javaScriptPaths].some((file) => !outputFiles.has(file))
   ) {
-    throw new Error('PHASE10_BUNDLE_ORPHAN_JAVASCRIPT')
+    throw new Error('WEB_BUNDLE_ORPHAN_JAVASCRIPT')
   }
 
   const entrySources = graph
     .filter(({ isEntry }) => isEntry)
     .map(({ source }) => source)
   if (entrySources.length !== 1 || entrySources[0] !== 'index.html') {
-    throw new Error('PHASE10_BUNDLE_ENTRY_INVALID')
+    throw new Error('WEB_BUNDLE_ENTRY_INVALID')
   }
   const fullClosure = collectFullClosure(entriesBySource, entrySources)
   if (fullClosure.size !== graph.length) {
-    throw new Error('PHASE10_BUNDLE_ORPHAN_MANIFEST_NODE')
+    throw new Error('WEB_BUNDLE_ORPHAN_MANIFEST_NODE')
   }
   const staticClosure = collectStaticClosure(entriesBySource, entrySources)
   const initialAssets = new Set()
   for (const source of staticClosure) {
     const entry = entriesBySource.get(source)
-    if (!entry) throw new Error('PHASE10_BUNDLE_MISSING_MANIFEST_NODE')
+    if (!entry) throw new Error('WEB_BUNDLE_MISSING_MANIFEST_NODE')
     initialAssets.add(entry.file)
     entry.css.forEach((file) => initialAssets.add(file))
   }
   const htmlRow = payloadByPath.get('index.html')
-  if (!htmlRow) throw new Error('PHASE10_BUNDLE_INDEX_HTML_MISSING')
+  if (!htmlRow) throw new Error('WEB_BUNDLE_INDEX_HTML_MISSING')
   const htmlAssets = readHtmlInitialAssets(htmlRow.source, base)
   if (
     JSON.stringify(htmlAssets) !== JSON.stringify([...initialAssets].toSorted())
   ) {
-    throw new Error('PHASE10_BUNDLE_HTML_GRAPH_MISMATCH')
+    throw new Error('WEB_BUNDLE_HTML_GRAPH_MISMATCH')
   }
 
   const evidenceGraph = graph.map((entry) => ({
@@ -801,7 +801,7 @@ const collectArtifactEvidence = async ({
     for (const asset of assets) {
       const payloadPath = asset.slice(1)
       if (!payloadByPath.has(payloadPath) || !outputFiles.has(payloadPath)) {
-        throw new Error('PHASE10_BUNDLE_SSR_ASSET_MISMATCH')
+        throw new Error('WEB_BUNDLE_SSR_ASSET_MISMATCH')
       }
     }
   }
@@ -839,13 +839,13 @@ const collectArtifactEvidence = async ({
   })
   for (const source of forbiddenMockSources) {
     if (evidenceBySource.has(source)) {
-      throw new Error(`PHASE10_BUNDLE_FORBIDDEN_MOCK_SOURCE:${source}`)
+      throw new Error(`WEB_BUNDLE_FORBIDDEN_MOCK_SOURCE:${source}`)
     }
   }
 
   const initialRows = [...initialAssets].map((file) => {
     const row = payloadByPath.get(file)
-    if (!row) throw new Error('PHASE10_BUNDLE_INITIAL_ASSET_MISSING')
+    if (!row) throw new Error('WEB_BUNDLE_INITIAL_ASSET_MISSING')
     return row
   })
   const lazyJavaScriptRows = javaScriptRows.filter(
@@ -861,7 +861,7 @@ const collectArtifactEvidence = async ({
     !largestLazyJavaScriptByRaw ||
     !largestLazyJavaScriptByGzip
   ) {
-    throw new Error('PHASE10_BUNDLE_LARGEST_ASSET_MISSING')
+    throw new Error('WEB_BUNDLE_LARGEST_ASSET_MISSING')
   }
   const payloadAccounting = summarizePayloadAccounting(inventory)
   const measurements = {
@@ -919,7 +919,7 @@ const collectArtifactEvidence = async ({
       rows: inventory,
       sha256: inventorySha256
     },
-    kind: 'nihongo.phase10.bundle-performance',
+    kind: 'nihongo.web.bundle-performance',
     largestAssets: {
       javaScriptByGzip: {
         gzipBytes: largestJavaScriptByGzip.gzipBytes,
@@ -981,7 +981,7 @@ const assertArtifactEvidence = (value, artifact) => {
       'status'
     ]) ||
     value.schemaVersion !== 3 ||
-    value.kind !== 'nihongo.phase10.bundle-performance' ||
+    value.kind !== 'nihongo.web.bundle-performance' ||
     !['passed', 'failed'].includes(value.status) ||
     !exactKeys(value.metadata, [
       'command',
@@ -1038,7 +1038,7 @@ const assertArtifactEvidence = (value, artifact) => {
         typeof value.boundaries.dashboard !== 'object'
       : value.boundaries.dashboard !== null)
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_SCHEMA_INVALID')
   }
 
   const moduleRows = value.modules.rows
@@ -1067,7 +1067,7 @@ const assertArtifactEvidence = (value, artifact) => {
     createHash('sha256').update(JSON.stringify(moduleRows)).digest('hex') !==
       value.modules.sha256
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_MODULES_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_MODULES_INVALID')
   }
   moduleSources.forEach((source) => assertCanonicalModule(source, artifact))
 
@@ -1082,7 +1082,7 @@ const assertArtifactEvidence = (value, artifact) => {
       !Number.isSafeInteger(row.raw) ||
       row.raw < 0
     ) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_SCHEMA_INVALID')
     }
     assertSafeRelativePath(row.path, 'EVIDENCE_PATH')
   }
@@ -1104,7 +1104,7 @@ const assertArtifactEvidence = (value, artifact) => {
     createHash('sha256').update(JSON.stringify(rows)).digest('hex') !==
       value.inventory.payloadSha256
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_INVENTORY_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_INVENTORY_INVALID')
   }
 
   const rowsByPath = new Map(rows.map((row) => [row.path, row]))
@@ -1115,7 +1115,7 @@ const assertArtifactEvidence = (value, artifact) => {
       JSON.stringify([...graphSources].toSorted()) ||
     new Set(graphSources).size !== graphSources.length
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_GRAPH_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_GRAPH_INVALID')
   }
   const graphBySource = new Map()
   const outputFiles = new Set()
@@ -1135,7 +1135,7 @@ const assertArtifactEvidence = (value, artifact) => {
       typeof entry.isEntry !== 'boolean' ||
       typeof entry.isInitial !== 'boolean'
     ) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_GRAPH_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_GRAPH_INVALID')
     }
     assertSafeRelativePath(entry.source, 'EVIDENCE_GRAPH_SOURCE')
     assertSafeRelativePath(entry.file, 'EVIDENCE_GRAPH_FILE')
@@ -1144,7 +1144,7 @@ const assertArtifactEvidence = (value, artifact) => {
       !rowsByPath.has(entry.file) ||
       !entry.file.endsWith('.js')
     ) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_GRAPH_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_GRAPH_INVALID')
     }
     outputFiles.add(entry.file)
     graphBySource.set(entry.source, entry)
@@ -1162,13 +1162,13 @@ const assertArtifactEvidence = (value, artifact) => {
         JSON.stringify(references) !==
           JSON.stringify([...references].toSorted())
       ) {
-        throw new Error(`PHASE10_BUNDLE_EVIDENCE_GRAPH_${label}_INVALID`)
+        throw new Error(`WEB_BUNDLE_EVIDENCE_GRAPH_${label}_INVALID`)
       }
     }
     entry.css.forEach((file) => {
       assertSafeRelativePath(file, 'EVIDENCE_GRAPH_CSS')
       if (!rowsByPath.has(file)) {
-        throw new Error('PHASE10_BUNDLE_EVIDENCE_GRAPH_CSS_INVALID')
+        throw new Error('WEB_BUNDLE_EVIDENCE_GRAPH_CSS_INVALID')
       }
     })
   }
@@ -1176,7 +1176,7 @@ const assertArtifactEvidence = (value, artifact) => {
     for (const asset of assets) {
       const payloadPath = asset.slice(1)
       if (!rowsByPath.has(payloadPath) || !outputFiles.has(payloadPath)) {
-        throw new Error('PHASE10_BUNDLE_EVIDENCE_SSR_GRAPH_INVALID')
+        throw new Error('WEB_BUNDLE_EVIDENCE_SSR_GRAPH_INVALID')
       }
     }
   }
@@ -1189,7 +1189,7 @@ const assertArtifactEvidence = (value, artifact) => {
   for (const entry of graph) {
     for (const reference of [...entry.imports, ...entry.dynamicImports]) {
       if (!graphBySource.has(reference)) {
-        throw new Error('PHASE10_BUNDLE_EVIDENCE_GRAPH_REFERENCE_INVALID')
+        throw new Error('WEB_BUNDLE_EVIDENCE_GRAPH_REFERENCE_INVALID')
       }
     }
   }
@@ -1197,11 +1197,11 @@ const assertArtifactEvidence = (value, artifact) => {
     .filter(({ isEntry }) => isEntry)
     .map(({ source }) => source)
   if (JSON.stringify(entrySources) !== JSON.stringify(['index.html'])) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_ENTRY_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_ENTRY_INVALID')
   }
   const fullClosure = collectFullClosure(graphBySource, entrySources)
   if (fullClosure.size !== graph.length) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_ORPHAN_MANIFEST_NODE')
+    throw new Error('WEB_BUNDLE_EVIDENCE_ORPHAN_MANIFEST_NODE')
   }
   const staticClosure = collectStaticClosure(graphBySource, entrySources)
   if (
@@ -1209,27 +1209,27 @@ const assertArtifactEvidence = (value, artifact) => {
       ({ isInitial, source }) => isInitial !== staticClosure.has(source)
     )
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_INITIAL_GRAPH_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_INITIAL_GRAPH_INVALID')
   }
   const javaScriptRows = rows.filter(({ path: file }) => file.endsWith('.js'))
   if (
     javaScriptRows.length !== outputFiles.size ||
     javaScriptRows.some(({ path: file }) => !outputFiles.has(file))
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_JAVASCRIPT_GRAPH_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_JAVASCRIPT_GRAPH_INVALID')
   }
   const initialAssets = new Set()
   for (const source of staticClosure) {
     const entry = graphBySource.get(source)
     if (!entry) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_INITIAL_GRAPH_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_INITIAL_GRAPH_INVALID')
     }
     initialAssets.add(entry.file)
     entry.css.forEach((file) => initialAssets.add(file))
   }
   const initialRows = [...initialAssets].map((file) => rowsByPath.get(file))
   if (initialRows.some((row) => row === undefined)) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_INITIAL_ASSET_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_INITIAL_ASSET_INVALID')
   }
   const lazyJavaScriptRows = javaScriptRows.filter(
     ({ path: file }) => !initialAssets.has(file)
@@ -1244,7 +1244,7 @@ const assertArtifactEvidence = (value, artifact) => {
     !largestLazyJavaScriptByRaw ||
     !largestLazyJavaScriptByGzip
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_LARGEST_ASSET_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_LARGEST_ASSET_INVALID')
   }
   const expectedAccounting = summarizePayloadAccounting(rows)
   const accounting = value.payloadAccounting
@@ -1272,7 +1272,7 @@ const assertArtifactEvidence = (value, artifact) => {
           expectedAccounting.emittedPayload[key]
     )
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_PAYLOAD_ACCOUNTING_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_PAYLOAD_ACCOUNTING_INVALID')
   }
   const expectedMeasurements = {
     emittedFileCount: rows.length,
@@ -1300,7 +1300,7 @@ const assertArtifactEvidence = (value, artifact) => {
       ([metric, measured]) => value.measurements[metric] !== measured
     )
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_SCHEMA_INVALID')
   }
   for (const metric of Object.keys(bundleBaseline)) {
     const budget = value.budgets[metric]
@@ -1321,7 +1321,7 @@ const assertArtifactEvidence = (value, artifact) => {
       ) ||
       typeof budget.passed !== 'boolean'
     ) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_BUDGET_INVALID')
     }
   }
 
@@ -1331,7 +1331,7 @@ const assertArtifactEvidence = (value, artifact) => {
     ? 'passed'
     : 'failed'
   if (value.status !== expectedStatus)
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
 
   const assertLargestAsset = (actual, expected) => {
     if (
@@ -1340,7 +1340,7 @@ const assertArtifactEvidence = (value, artifact) => {
       actual.rawBytes !== expected.raw ||
       actual.gzipBytes !== expected.gzip
     ) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_LARGEST_ASSET_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_LARGEST_ASSET_INVALID')
     }
   }
   if (
@@ -1351,7 +1351,7 @@ const assertArtifactEvidence = (value, artifact) => {
       'lazyJavaScriptByRaw'
     ])
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_LARGEST_ASSET_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_LARGEST_ASSET_INVALID')
   }
   assertLargestAsset(
     value.largestAssets.javaScriptByGzip,
@@ -1381,14 +1381,14 @@ const assertArtifactEvidence = (value, artifact) => {
       graphEntry?.isDynamicEntry !== true ||
       graphEntry?.isInitial !== false
     ) {
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_BOUNDARY_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_BOUNDARY_INVALID')
     }
   }
   if (
     JSON.stringify(value.boundaries.admin.map(({ source }) => source)) !==
     JSON.stringify(artifact === 'admin' ? adminLazySources : [])
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_BOUNDARY_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_BOUNDARY_INVALID')
   }
   value.boundaries.admin.forEach((boundary, index) =>
     assertBoundary(boundary, adminLazySources[index])
@@ -1421,7 +1421,7 @@ const combineArtifactEvidence = (artifacts) => {
     const first = web.inventory.rows.find((row) => row.path === file)
     const second = admin.inventory.rows.find((row) => row.path === file)
     if (!first || !second || !isDeepStrictEqual(first, second))
-      throw new Error('PHASE10_BUNDLE_SPLIT_STATIC_ASSET_MISMATCH')
+      throw new Error('WEB_BUNDLE_SPLIT_STATIC_ASSET_MISMATCH')
   }
   // Keep the original allowance of exactly one canonical static12 copy.
   const payloadAccounting = {
@@ -1492,7 +1492,7 @@ export const collectBundleEvidence = async ({ distDirectories, metadata }) => {
   }
   const evidence = {
     schemaVersion: 4,
-    kind: 'nihongo.phase10.bundle-performance',
+    kind: 'nihongo.web.bundle-performance',
     status: splitArtifacts.every(
       (artifact) => artifacts[artifact].evidence.status === 'passed'
     )
@@ -1517,12 +1517,12 @@ export const assertBundleEvidence = (value) => {
       'combined'
     ]) ||
     value.schemaVersion !== 4 ||
-    value.kind !== 'nihongo.phase10.bundle-performance' ||
+    value.kind !== 'nihongo.web.bundle-performance' ||
     !['passed', 'failed'].includes(value.status) ||
     !exactKeys(value.artifacts, splitArtifacts) ||
     value.metadata?.command !== splitBundleCommand
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_SCHEMA_INVALID')
   }
   for (const artifact of splitArtifacts) {
     const profile = value.artifacts[artifact]
@@ -1530,7 +1530,7 @@ export const assertBundleEvidence = (value) => {
       !exactKeys(profile, ['base', 'buildManifest', 'evidence']) ||
       profile.base !== (artifact === 'web' ? '/' : '/admin/')
     )
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_ARTIFACT_INVALID')
     assertArtifactEvidence(profile.evidence, artifact)
     if (
       !isDeepStrictEqual(profile.evidence.metadata, {
@@ -1538,7 +1538,7 @@ export const assertBundleEvidence = (value) => {
         command: singleBuildCommand
       })
     )
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_METADATA_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_ARTIFACT_METADATA_INVALID')
     const manifest = profile.buildManifest
     if (
       !exactKeys(manifest, ['artifact', 'releaseId', 'modules']) ||
@@ -1548,7 +1548,7 @@ export const assertBundleEvidence = (value) => {
       new Set(manifest.modules).size !== manifest.modules.length ||
       !isDeepStrictEqual(manifest.modules, [...manifest.modules].toSorted())
     )
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_MANIFEST_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_ARTIFACT_MANIFEST_INVALID')
     assertBrowserBuildGraph(artifact, manifest.modules)
     const bytes = Buffer.from(
       JSON.stringify({
@@ -1566,18 +1566,18 @@ export const assertBundleEvidence = (value) => {
       row.raw !== bytes.length ||
       row.gzip !== gzipSync(bytes, { level: 9 }).length
     )
-      throw new Error('PHASE10_BUNDLE_EVIDENCE_ARTIFACT_MANIFEST_INVALID')
+      throw new Error('WEB_BUNDLE_EVIDENCE_ARTIFACT_MANIFEST_INVALID')
   }
   const expected = combineArtifactEvidence(value.artifacts)
   if (!isDeepStrictEqual(value.combined, expected))
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_COMBINED_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_COMBINED_INVALID')
   const expectedStatus = splitArtifacts.every(
     (artifact) => value.artifacts[artifact].evidence.status === 'passed'
   )
     ? 'passed'
     : 'failed'
   if (value.status !== expectedStatus)
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_BUDGET_STATUS_INVALID')
 }
 
 export const assertBundleEvidenceProvenance = async ({
@@ -1594,14 +1594,14 @@ export const assertBundleEvidenceProvenance = async ({
     !Number.isSafeInteger(maximumAgeMilliseconds) ||
     maximumAgeMilliseconds <= 0
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_PROVENANCE_INPUT_INVALID')
+    throw new Error('WEB_BUNDLE_EVIDENCE_PROVENANCE_INPUT_INVALID')
   }
   const generatedAt = Date.parse(evidence.metadata.generatedAt)
   if (
     generatedAt > currentTime + 5_000 ||
     currentTime - generatedAt > maximumAgeMilliseconds
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_STALE')
+    throw new Error('WEB_BUNDLE_EVIDENCE_STALE')
   }
   const repositoryState = await readBundleRepositoryState(repositoryRoot)
   if (
@@ -1609,13 +1609,13 @@ export const assertBundleEvidenceProvenance = async ({
     repositoryState.sourceTreeDirty !== evidence.metadata.sourceTreeDirty ||
     repositoryState.sourceTreeSha256 !== evidence.metadata.sourceTreeSha256
   ) {
-    throw new Error('PHASE10_BUNDLE_EVIDENCE_PROVENANCE_MISMATCH')
+    throw new Error('WEB_BUNDLE_EVIDENCE_PROVENANCE_MISMATCH')
   }
 }
 
 export const readBundleRepositoryState = async (repositoryRoot) => {
   if (typeof repositoryRoot !== 'string' || !path.isAbsolute(repositoryRoot)) {
-    throw new Error('PHASE10_BUNDLE_REPOSITORY_ROOT_INVALID')
+    throw new Error('WEB_BUNDLE_REPOSITORY_ROOT_INVALID')
   }
   const [commitResult, statusResult, filesResult] = await Promise.all([
     execFileAsync('git', ['rev-parse', 'HEAD'], {
@@ -1647,7 +1647,7 @@ export const readBundleRepositoryState = async (repositoryRoot) => {
       absolutePath !== repositoryRoot &&
       !absolutePath.startsWith(`${repositoryRoot}${path.sep}`)
     ) {
-      throw new Error('PHASE10_BUNDLE_REPOSITORY_PATH_INVALID')
+      throw new Error('WEB_BUNDLE_REPOSITORY_PATH_INVALID')
     }
     sourceTreeHash.update(`path\0${relativePath}\0`)
     try {
@@ -1672,16 +1672,4 @@ export const readBundleRepositoryState = async (repositoryRoot) => {
     sourceTreeDirty: statusResult.stdout.trim().length > 0,
     sourceTreeSha256: sourceTreeHash.digest('hex')
   }
-}
-
-export {
-  describeBundlePayloadIdentity as describePhase10PayloadIdentity,
-  createBundleSsrAssetClosureError as createPhase10SsrAssetClosureError,
-  createBundleForwardingProof as createPhase10ForwardingProof,
-  assertBundleForwardingCoverage as assertPhase10ForwardingCoverage,
-  splitBundleCommand as phase10SplitBundleCommand,
-  collectBundleEvidence as collectPhase10BundleEvidence,
-  assertBundleEvidence as assertPhase10BundleEvidence,
-  assertBundleEvidenceProvenance as assertPhase10BundleEvidenceProvenance,
-  readBundleRepositoryState as readPhase10BundleRepositoryState
 }

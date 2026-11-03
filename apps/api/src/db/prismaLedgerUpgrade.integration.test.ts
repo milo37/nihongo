@@ -64,7 +64,7 @@ const FORWARD_MIGRATIONS = [
 ] as const
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]?.trim()
   if (!value) {

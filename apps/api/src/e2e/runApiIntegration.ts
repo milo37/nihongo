@@ -2,9 +2,9 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  cleanupPhase7IsolatedDatabase,
-  preparePhase7IntegrationArtifacts,
-  preparePhase7IsolatedDatabase
+  cleanupIsolatedDatabase,
+  prepareIntegrationArtifacts,
+  prepareIsolatedDatabase
 } from './runAdminApiIntegration.js'
 import {
   retireOwnedProcess,
@@ -71,7 +71,7 @@ const runCommand = async (
           ) {
             reject(
               new Error(
-                'Phase 10 integration emitted the forbidden pg concurrent-query deprecation.'
+                'Integration emitted the forbidden pg concurrent-query deprecation.'
               )
             )
           } else if (code === 0) {
@@ -90,7 +90,7 @@ const runCommand = async (
     })
   })
 
-interface Phase10ShardResult {
+interface ShardResult {
   readonly databaseState: string
   readonly executedFileCount: number
   readonly isolation: string
@@ -101,7 +101,7 @@ interface Phase10ShardResult {
   readonly shard: string
 }
 
-const readShardResult = (output: string): Phase10ShardResult => {
+const readShardResult = (output: string): ShardResult => {
   const candidates = output
     .split('\n')
     .flatMap((line): unknown[] => {
@@ -112,7 +112,7 @@ const readShardResult = (output: string): Phase10ShardResult => {
       }
     })
     .filter(
-      (value): value is Phase10ShardResult & { readonly event: string } =>
+      (value): value is ShardResult & { readonly event: string } =>
         typeof value === 'object' &&
         value !== null &&
         'event' in value &&
@@ -120,15 +120,13 @@ const readShardResult = (output: string): Phase10ShardResult => {
     )
   const [result] = candidates
   if (!result || candidates.length !== 1) {
-    throw new Error(
-      'Phase 10 integration shard result is missing or ambiguous.'
-    )
+    throw new Error('Integration shard result is missing or ambiguous.')
   }
   return result
 }
 
-const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
-  new Promise<Phase10ShardResult>((resolve, reject) => {
+const runShardProcess = async (shard: string): Promise<ShardResult> =>
+  new Promise<ShardResult>((resolve, reject) => {
     const args = [
       '--filter',
       '@nihongo/api',
@@ -170,7 +168,7 @@ const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
           } else if (stderrOutput.includes(PG_CONCURRENT_QUERY_DEPRECATION)) {
             reject(
               new Error(
-                `Phase 10 shard ${shard} emitted the forbidden pg concurrent-query deprecation.`
+                `Shard ${shard} emitted the forbidden pg concurrent-query deprecation.`
               )
             )
           } else if (code === 0) {
@@ -211,7 +209,7 @@ const cleanup = (): Promise<void> => {
     }
     if (harnessPrepared) {
       try {
-        await cleanupPhase7IsolatedDatabase()
+        await cleanupIsolatedDatabase()
         harnessPrepared = false
       } catch (error: unknown) {
         errors.push(error)
@@ -219,10 +217,7 @@ const cleanup = (): Promise<void> => {
     }
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) {
-      throw new AggregateError(
-        errors,
-        'Phase 10 API integration cleanup failed.'
-      )
+      throw new AggregateError(errors, 'API integration cleanup failed.')
     }
   })()
   return cleanupPromise
@@ -236,14 +231,12 @@ const assertUniformShardMetadata = (
   )
   const isolations = new Set(entries.map(({ isolation }) => isolation))
   if (databaseStates.size !== 1 || isolations.size !== 1) {
-    throw new Error(
-      `Phase 10 shard metadata is inconsistent: ${entries[0]?.shard}.`
-    )
+    throw new Error(`Shard metadata is inconsistent: ${entries[0]?.shard}.`)
   }
   const databaseState = entries[0]?.databaseState
   const isolation = entries[0]?.isolation
   if (!databaseState || !isolation) {
-    throw new Error('Phase 10 integration shard is empty.')
+    throw new Error('Integration shard is empty.')
   }
   return { databaseState, isolation }
 }
@@ -253,18 +246,16 @@ const getShardSeedRuns = (
 ): number => {
   const policies = new Set(entries.map(({ seedPolicy }) => seedPolicy))
   if (policies.size !== 1) {
-    throw new Error(
-      `Phase 10 shard seed policy is inconsistent: ${entries[0]?.shard}.`
-    )
+    throw new Error(`Shard seed policy is inconsistent: ${entries[0]?.shard}.`)
   }
   const policy = entries[0]?.seedPolicy
   if (policy === 'canonical-twice') return 2
   if (policy === 'canonical-once') return 1
   if (policy === 'none') return 0
-  throw new Error('Phase 10 integration shard seed policy is unavailable.')
+  throw new Error('Integration shard seed policy is unavailable.')
 }
 
-const runShard = async (shard: string): Promise<Phase10ShardResult> => {
+const runShard = async (shard: string): Promise<ShardResult> => {
   await validateApiIntegrationManifest()
   const entries = getApiIntegrationEntriesByOwner('phase10').filter(
     (entry) => entry.shard === shard
@@ -281,15 +272,13 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
     isProcessOnly &&
     (databaseState !== 'none' || seedRuns !== 0 || entries.length !== 1)
   ) {
-    throw new Error(
-      `Phase 10 process-only shard metadata is invalid: ${shard}.`
-    )
+    throw new Error(`Process-only shard metadata is invalid: ${shard}.`)
   }
   // Preparation can fail after acquiring owned resources.
   harnessPrepared = !isProcessOnly
   const harness = isProcessOnly
     ? undefined
-    : await preparePhase7IsolatedDatabase({
+    : await prepareIsolatedDatabase({
         seedRuns,
         artifactsPrepared: process.argv.includes('--artifacts-prepared')
       })
@@ -307,13 +296,14 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
       ? {
           ...harness.sharedEnvironment,
           DATABASE_URL: databaseUrl,
-          PHASE10_APPLICATION_DATABASE_URL: harness.applicationDatabaseUrl,
-          PHASE10_CURRENT_SOURCE_INTEGRATION: '1',
-          PHASE10_FIXTURE_DATABASE_URL: harness.adminDatabaseUrl,
-          PHASE10_INTEGRATION_SHARD: shard,
+          API_INTEGRATION_APPLICATION_DATABASE_URL:
+            harness.applicationDatabaseUrl,
+          API_INTEGRATION_CURRENT_SOURCE: '1',
+          API_INTEGRATION_FIXTURE_DATABASE_URL: harness.adminDatabaseUrl,
+          API_INTEGRATION_SHARD: shard,
           PRISMA_TEST_DATABASE_URL: databaseUrl
         }
-      : { ...process.env, PHASE10_INTEGRATION_SHARD: shard }
+      : { ...process.env, API_INTEGRATION_SHARD: shard }
     passedTestCount += await runApiIntegrationManifestVitestFile({
       runCommand,
       testFile: entry.path,
@@ -348,7 +338,7 @@ const runAllShards = async (
     requestedShards
   )
   const entries = allEntries.filter(({ shard }) => shards.includes(shard))
-  await preparePhase7IntegrationArtifacts({
+  await prepareIntegrationArtifacts({
     abortSignal: preparationAbortController.signal,
     run: runCommand
   })
@@ -364,15 +354,13 @@ const runAllShards = async (
       result.executedFileCount !== expectedFileCount ||
       result.schemaRemoved !== (result.schemaName !== null)
     ) {
-      throw new Error(
-        `Phase 10 integration shard evidence is invalid: ${shard}.`
-      )
+      throw new Error(`Integration shard evidence is invalid: ${shard}.`)
     }
     executedFileCount += result.executedFileCount
     passedTestCount += result.passedTestCount
   }
   if (executedFileCount !== entries.length) {
-    throw new Error('Phase 10 integration shard execution count is incomplete.')
+    throw new Error('Integration shard execution count is incomplete.')
   }
   return {
     executedFileCount,

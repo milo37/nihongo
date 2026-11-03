@@ -13,7 +13,7 @@ import {
 } from '../src/testing/practice-flow-conformance.js'
 import { studySubmitVersionConformanceFixture } from '../src/testing/study-submit-version-conformance.js'
 
-describe('Phase 4 shared conformance fixtures', () => {
+describe('Shared conformance fixtures', () => {
   it('session·draft·resumable·Bookmark clean fixture의 answer/owner leak가 0이다', () => {
     for (const value of [
       practiceFlowConformanceFixture.session,

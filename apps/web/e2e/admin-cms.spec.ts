@@ -31,7 +31,7 @@ import {
 } from './request-ledger'
 import type { RequestLedger } from './request-ledger'
 
-if (process.env.PHASE7_BROWSER_MODE !== 'real') {
+if (process.env.ADMIN_BROWSER_MODE !== 'real') {
   throw new Error('Administrator acceptance requires real mode.')
 }
 const requireOrigin = (value: string | undefined): string => {
@@ -48,7 +48,7 @@ const requireOrigin = (value: string | undefined): string => {
   }
   return url.origin
 }
-const publicOrigin = requireOrigin(process.env.PHASE7_BROWSER_ADMIN_ORIGIN)
+const publicOrigin = requireOrigin(process.env.ADMIN_BROWSER_ADMIN_ORIGIN)
 if (publicOrigin !== requireOrigin(process.env.PLAYWRIGHT_BASE_URL)) {
   throw new Error(
     'Administrator documents must use the public web origin, not the private Vite port.'
@@ -78,7 +78,7 @@ const readFixture = () => {
         callbackCode: z.literal('phase7-test-google-learner')
       })
     })
-    .parse(JSON.parse(process.env.PHASE7_BROWSER_FIXTURE ?? 'null') as unknown)
+    .parse(JSON.parse(process.env.ADMIN_BROWSER_FIXTURE ?? 'null') as unknown)
   expect(
     new Set([
       fixture.author.userId,

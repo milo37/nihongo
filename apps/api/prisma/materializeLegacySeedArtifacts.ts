@@ -62,7 +62,7 @@ const preflightJson = async (
     if (canonicalizeJson(existingValue) === canonicalizeJson(plainValue)) {
       return null
     }
-    throw new Error('PHASE6_IMMUTABLE_ARTIFACT_DRIFT')
+    throw new Error('CONTENT_IMMUTABLE_ARTIFACT_DRIFT')
   } catch (error: unknown) {
     if (
       typeof error !== 'object' ||
@@ -147,7 +147,7 @@ const main = async (): Promise<void> => {
         questionTypes: new Set<ContentQuestionType>()
       }
       if (existing.labelKo !== tag.label) {
-        throw new Error('PHASE6_TAG_LABEL_COLLISION')
+        throw new Error('CONTENT_TAG_LABEL_COLLISION')
       }
       existing.levels.add(seed.level)
       existing.subjects.add(seed.subject)
@@ -155,7 +155,7 @@ const main = async (): Promise<void> => {
       tags.set(key, existing)
     }
   }
-  if (tags.size !== 107) throw new Error('PHASE6_TAG_COUNT_INVALID')
+  if (tags.size !== 107) throw new Error('CONTENT_TAG_COUNT_INVALID')
 
   const taxonomy = tagTaxonomySchema.parse({
     schemaVersion: 1,

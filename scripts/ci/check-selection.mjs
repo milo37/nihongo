@@ -80,6 +80,12 @@ const browserRuntimePaths = new Set([
   'scripts/security/phase10-playwright-summary-reporter.mjs'
 ])
 
+// The real accessibility suite asserts this database contract, so a contract change needs that run on dev PRs.
+const browserRealContractPaths = new Set([
+  'scripts/accessibility-database-contract.mjs',
+  'scripts/accessibility-database-contract.test.mjs'
+])
+
 // Injected test faults need real and Mock provenance proof on dev PRs.
 const browserFaultProvenancePaths = new Set([
   'apps/web/e2e/accessibility.spec.ts',
@@ -241,7 +247,10 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
     )
     selection.browser =
       selection.browser_mock ||
-      selection.files.some((file) => browserRuntimePaths.has(file))
+      selection.files.some(
+        (file) =>
+          browserRuntimePaths.has(file) || browserRealContractPaths.has(file)
+      )
     return selection
   }
   if (

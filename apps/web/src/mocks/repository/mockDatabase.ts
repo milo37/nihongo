@@ -672,7 +672,7 @@ interface PersistedMockState extends PersistedMockStateBase {
   canonicalStudyAnswers: Array<[string, MockCanonicalStudyAnswerRecord[]]>
   canonicalStudyResults: CanonicalStudyResult[]
   canonicalUserMemos: MockCanonicalUserMemoRecord[]
-  phase7AdminCms: MockContentPersistedState
+  adminCms: MockContentPersistedState
 }
 
 type HydratablePersistedMockState =
@@ -843,16 +843,14 @@ const isPersistedMockState = (
         (value.version < 5 || Array.isArray(value.archivedQuestions)) &&
         (value.version < 7 || Array.isArray(value.canonicalUserMemos)) &&
         (value.version < 8 ||
-          (isRecord(value.phase7AdminCms) &&
-            Array.isArray(value.phase7AdminCms.auditLogs) &&
-            Array.isArray(value.phase7AdminCms.questions) &&
-            Array.isArray(value.phase7AdminCms.reports) &&
-            Array.isArray(value.phase7AdminCms.reviews) &&
-            Array.isArray(value.phase7AdminCms.versions) &&
-            Array.isArray(
-              value.phase7AdminCms.lifecycleControlledQuestionIds
-            ) &&
-            Array.isArray(value.phase7AdminCms.sessionIssuedAtByActorId)))))
+          (isRecord(value.adminCms) &&
+            Array.isArray(value.adminCms.auditLogs) &&
+            Array.isArray(value.adminCms.questions) &&
+            Array.isArray(value.adminCms.reports) &&
+            Array.isArray(value.adminCms.reviews) &&
+            Array.isArray(value.adminCms.versions) &&
+            Array.isArray(value.adminCms.lifecycleControlledQuestionIds) &&
+            Array.isArray(value.adminCms.sessionIssuedAtByActorId)))))
   )
 }
 
@@ -1073,7 +1071,7 @@ export class MockDatabase {
       authoritative?.state.version === 8 &&
       !this.hasValidEmbeddedContentGraph(
         authoritative.serialized,
-        authoritative.state.phase7AdminCms
+        authoritative.state.adminCms
       )
     ) {
       this.currentUserId = null
@@ -3536,7 +3534,7 @@ export class MockDatabase {
       if (!persisted) return null
 
       let persistedContentState =
-        persisted.version === 8 ? persisted.phase7AdminCms : undefined
+        persisted.version === 8 ? persisted.adminCms : undefined
       const dedicatedSerialized = this.readLatestStorageItem(
         ADMIN_CMS_STORAGE_KEY
       )
@@ -5625,7 +5623,7 @@ export class MockDatabase {
       results: [...this.resultBySessionId.values()],
       wrongNotes: [...this.wrongNoteByQuestionId.values()],
       bookmarks: [...this.bookmarkByQuestionId.values()],
-      phase7AdminCms: this.mockContentState.persistedSnapshot(
+      adminCms: this.mockContentState.persistedSnapshot(
         this.listAuthoritativeAdminQuestionSources()
       )
     }
@@ -5712,7 +5710,7 @@ export class MockDatabase {
     const persisted = this.parseAuthoritativePersistedState(serialized)
     if (
       persisted.version === 8 &&
-      !this.hasValidEmbeddedContentGraph(serialized, persisted.phase7AdminCms)
+      !this.hasValidEmbeddedContentGraph(serialized, persisted.adminCms)
     ) {
       return null
     }
@@ -6042,7 +6040,7 @@ export class MockDatabase {
       )
       if (parsed.version === 8) {
         this.mockContentState.restore(
-          parsed.phase7AdminCms,
+          parsed.adminCms,
           this.listAuthoritativeTaxonomySources()
         )
       }

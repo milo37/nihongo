@@ -86,7 +86,7 @@ export const phase9ExpectedTableDeltas = {
   QuestionReport: 1,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 28,
+  RateLimit: 29,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -131,7 +131,7 @@ export const phase9ExpectedRateLimitCategories = {
   'application:wrong-note-detail': 1,
   'application:wrong-note-history': 1,
   'application:wrong-note-list': 1,
-  'application:wrong-note-memo-read': 0,
+  'application:wrong-note-memo-read': 1,
   'application:wrong-note-review-queue': 1,
   // Two isolated actor IPs each start Google and consume one callback.
   'application:auth:/api/auth/sign-in/social': 2,

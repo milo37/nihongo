@@ -7,7 +7,10 @@ import {
   createTargetedReviewSessionResponseForQuestionSchema
 } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { z } from 'zod'
-import { createPracticeTransportResponseSchema } from '@nihongo/browser/api/study/practiceTransportSchema'
+import {
+  createPracticeTransportResponseSchema,
+  refinePracticeContractV2Header
+} from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const targetedReviewSessionParamsSchema =
   createTargetedReviewSessionParamsSchema
@@ -28,13 +31,11 @@ export const targetedReviewSessionTransportSchema =
         message: 'targeted review 응답은 JSON이어야 합니다.'
       })
     }
-    if (headers['x-nihongo-practice-contract'] !== '2') {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'x-nihongo-practice-contract'],
-        message: 'targeted review 응답에는 contract 2가 필요합니다.'
-      })
-    }
+    refinePracticeContractV2Header(
+      headers,
+      context,
+      'targeted review 응답에는 contract 2가 필요합니다.'
+    )
     if (
       !createTargetedReviewSessionLocationSchema(data.session.id).safeParse(
         headers.location

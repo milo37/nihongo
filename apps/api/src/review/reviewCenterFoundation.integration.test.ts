@@ -32,16 +32,14 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
-  throw new Error(
-    'Phase 10 review foundation requires fixture and erasure databases.'
-  )
+  throw new Error('Review foundation requires fixture and erasure databases.')
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
   if (databaseUrl) {
@@ -190,7 +188,7 @@ const createUser = async (): Promise<string> => {
     await fixture.user.create({
       data: {
         id: userId,
-        name: 'Phase 5 review foundation user',
+        name: 'Review foundation user',
         email: `phase5-review-foundation-${randomUUID()}@example.test`,
         emailVerified: true
       }
@@ -234,7 +232,7 @@ const createWrongNote = async (userId: string) => {
     select: { id: true, currentPublishedVersionId: true }
   })
   if (question.currentPublishedVersionId === null) {
-    throw new Error('Phase 5 review fixture에 published version이 필요합니다.')
+    throw new Error('Review fixture에 published version이 필요합니다.')
   }
   const sessionId = randomUUID()
   const sessionQuestionId = randomUUID()
@@ -378,7 +376,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 5 review-center data foundation', () => {
+describe('Review-center data foundation', () => {
   it('UserMemo 1:0..1, normalization, code-point, timestamp와 cascade invariant를 강제한다', async () => {
     const userId = await createUser()
     const wrongNote = await createWrongNote(userId)

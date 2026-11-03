@@ -2,7 +2,7 @@ import {
   assertCreateQuestionReportForRequest,
   createQuestionReportRequestSchema,
   createQuestionReportResponseSchema,
-  phase7EmptyQuerySchema
+  emptyQuerySchema
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError } from 'zod'
@@ -52,7 +52,7 @@ export const createQuestionReportRoutes = ({
   routes.post('/', guard, async (context) => {
     parseStrictRawQuery(
       context.get('rawRequestTarget'),
-      phase7EmptyQuerySchema,
+      emptyQuerySchema,
       '문제 신고 쿼리 문자열이 올바르지 않습니다.'
     )
     const raw = await readStrictJsonBody(

@@ -12,7 +12,7 @@ import type { AddressInfo } from 'node:net'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { cleanupBrowserResources } from './browserCleanup.js'
 import type { OwnedProcess } from './ownedProcessGroup.js'
-import type { Phase7BrowserFixtureDatabase } from './browserFixture.js'
+import type { BrowserFixtureDatabase } from './browserFixture.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -32,7 +32,7 @@ interface ManagedProcess {
 
 type BrowserMode = 'mock' | 'real'
 
-const includeDashboard = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
+const includeDashboard = process.env.DASHBOARD_BROWSER_ACCEPTANCE === '1'
 const acceptancePhase = includeDashboard ? 'phase8' : 'phase7'
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
 const mode: BrowserMode | undefined =
@@ -45,7 +45,7 @@ let webAssetsDirectory: string | undefined
 let adminAssetsDirectory: string | undefined
 let controlServer: Server | undefined
 let apiServer: Server | undefined
-let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
+let fixtureDatabase: BrowserFixtureDatabase | undefined
 let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
 
@@ -174,7 +174,7 @@ const closeControlServer = async (): Promise<void> => {
   })
 }
 
-export const closePhase7BrowserApi = async (
+export const closeBrowserApi = async (
   server: Server | undefined
 ): Promise<void> => {
   if (!server) return
@@ -196,7 +196,7 @@ export const closePhase7BrowserApi = async (
   }
 }
 
-export const cleanupPhase7BrowserResources = async (
+export const cleanupAdminBrowserResources = async (
   processes: OwnedProcess[],
   actions: Parameters<typeof cleanupBrowserResources>[0]
 ): Promise<void> => {
@@ -210,7 +210,7 @@ export const cleanupPhase7BrowserResources = async (
 }
 
 export const cleanup = (): Promise<void> => {
-  cleanupPromise ??= cleanupPhase7BrowserResources(ownedProcesses, {
+  cleanupPromise ??= cleanupAdminBrowserResources(ownedProcesses, {
     stopOwnedProcesses: async () => {
       await stopOwnedProcesses(ownedProcesses, {
         onForceKill: ({ label }) => {
@@ -219,7 +219,7 @@ export const cleanup = (): Promise<void> => {
           )
         }
       })
-      await closePhase7BrowserApi(apiServer)
+      await closeBrowserApi(apiServer)
       apiServer = undefined
     },
     closeControlServer,
@@ -269,7 +269,7 @@ const startControlServer = async ({
   secret
 }: {
   readonly authorUserId: string
-  readonly database: Phase7BrowserFixtureDatabase
+  readonly database: BrowserFixtureDatabase
   readonly secret: string
 }): Promise<string> => {
   const port = await reserveLoopbackPort()
@@ -316,21 +316,21 @@ const startControlServer = async ({
   return `http://127.0.0.1:${port}`
 }
 
-export const createPhase7BrowserPlaywrightEnvironment = (
+export const createBrowserPlaywrightEnvironment = (
   browserMode: BrowserMode,
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): NodeJS.ProcessEnv => ({
   ...process.env,
   ...extraEnvironment,
-  PHASE7_BROWSER_MODE: browserMode,
-  PHASE8_BROWSER_MODE: browserMode,
-  PHASE7_BROWSER_ADMIN_ORIGIN: webOrigin,
+  ADMIN_BROWSER_MODE: browserMode,
+  DASHBOARD_BROWSER_MODE: browserMode,
+  ADMIN_BROWSER_ADMIN_ORIGIN: webOrigin,
   PLAYWRIGHT_BASE_URL: webOrigin,
   PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
 })
 
-export const selectPhase7BrowserSpecs = (
+export const selectBrowserSpecs = (
   browserMode: BrowserMode,
   phase8: boolean
 ): string[] => {
@@ -340,7 +340,7 @@ export const selectPhase7BrowserSpecs = (
   ]
   if (specs.length === 0)
     throw new Error(
-      'Phase 7 administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
+      'Administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
     )
   return specs
 }
@@ -350,7 +350,7 @@ const runPlaywright = async (
   webOrigin: string,
   extraEnvironment: NodeJS.ProcessEnv = {}
 ): Promise<void> => {
-  const browserSpecs = selectPhase7BrowserSpecs(browserMode, includeDashboard)
+  const browserSpecs = selectBrowserSpecs(browserMode, includeDashboard)
   await runCommand(
     'pnpm',
     [
@@ -362,17 +362,13 @@ const runPlaywright = async (
       ...browserSpecs,
       ...playwrightArguments
     ],
-    createPhase7BrowserPlaywrightEnvironment(
-      browserMode,
-      webOrigin,
-      extraEnvironment
-    )
+    createBrowserPlaywrightEnvironment(browserMode, webOrigin, extraEnvironment)
   )
 }
 
 export const runMock = async (): Promise<void> => {
   // Reject an empty selection before starting resources or running all e2e files.
-  selectPhase7BrowserSpecs('mock', includeDashboard)
+  selectBrowserSpecs('mock', includeDashboard)
   await runCommand('pnpm', ['--filter', '@nihongo/contracts', 'run', 'build'])
   await runCommand('pnpm', ['--filter', '@nihongo/domain', 'run', 'build'])
 
@@ -407,10 +403,11 @@ export const runMock = async (): Promise<void> => {
 }
 
 export const runReal = async (): Promise<void> => {
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('./runAdminApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
+    './runAdminApiIntegration.js'
+  )
+  cleanupDatabaseHarness = cleanupIsolatedDatabase
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })
@@ -442,7 +439,7 @@ export const runReal = async (): Promise<void> => {
   ])
     delete apiEnvironment[key]
   const [
-    { createPhase7SsoAdminBrowserApiFixture },
+    { createSsoAdminBrowserApiFixture },
     { parseApiEnvironment },
     { getRequestListener }
   ] = await Promise.all([
@@ -450,7 +447,7 @@ export const runReal = async (): Promise<void> => {
     import('../config/env.js'),
     import('@hono/node-server')
   ])
-  const created = await createPhase7SsoAdminBrowserApiFixture(
+  const created = await createSsoAdminBrowserApiFixture(
     {
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
@@ -521,10 +518,10 @@ export const runReal = async (): Promise<void> => {
     secret: controlSecret
   })
   await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
   await created.database.assertExpectedLifecycleDelta(baseline)
 }

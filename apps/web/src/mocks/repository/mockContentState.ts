@@ -7,11 +7,11 @@ import {
   assertAdminTagList,
   compareAdminTags,
   compareUnicodeScalars,
-  createPhase7QuestionDuplicateIdentity as createQuestionDuplicateIdentity,
+  createQuestionDuplicateIdentityKey as createQuestionDuplicateIdentity,
   createQuestionReportDescriptionDigest,
-  isApplicablePhase7ContentType as isApplicableContentType,
-  normalizePhase7OptionComparison as normalizeOptionComparison,
-  normalizePhase7TagKey as normalizeTagKey,
+  isApplicablePhase7ContentType as isApplicablePhase7ContentType,
+  normalizePhase7OptionComparison as normalizePhase7OptionComparison,
+  normalizePhase7TagKey as normalizePhase7TagKey,
   normalizePhase7Text as normalizeContentText,
   questionReportDetailSchema,
   questionReportMutationResultSchema,
@@ -22,8 +22,8 @@ import {
   type AdminTagSummary,
   type CreateAdminQuestionRequest,
   type CreateQuestionReportRequest,
-  type Phase7ExecutionDisposition as ExecutionDisposition,
-  type Phase7InternalFailureReason as InternalFailureReason,
+  type AdminExecutionDisposition as ExecutionDisposition,
+  type AdminInternalFailureReason as InternalFailureReason,
   type QuestionReportDetail,
   type QuestionReportMutationResult,
   type QuestionVersionStatus,
@@ -393,7 +393,7 @@ const createSeedVersion = (
         return {
           ...tag,
           label,
-          normalizedName: normalizeTagKey(label)
+          normalizedName: normalizePhase7TagKey(label)
         }
       })
       .toSorted(compareAdminTags),
@@ -1112,12 +1112,14 @@ export class MockContentState {
           this.tagApplicabilityKey(tag.normalizedName, version)
         )
         return (
-          normalizeTagKey(tag.label) === tag.normalizedName &&
+          normalizePhase7TagKey(tag.label) === tag.normalizedName &&
           identities?.has(tagIdentity(tag)) === true
         )
       })
       const normalizedOptionTexts = new Set(
-        version.options.map((option) => normalizeOptionComparison(option.text))
+        version.options.map((option) =>
+          normalizePhase7OptionComparison(option.text)
+        )
       )
       const passageIsValid =
         version.subject === 'READING'
@@ -1126,7 +1128,7 @@ export class MockContentState {
       if (
         !statusTimesAreValid ||
         !lifecycleIsValid ||
-        !isApplicableContentType(
+        !isApplicablePhase7ContentType(
           version.level,
           version.subject,
           version.questionType

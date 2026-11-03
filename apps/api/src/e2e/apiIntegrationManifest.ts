@@ -23,8 +23,8 @@ export const apiIntegrationManifest = [
     requiredEnvironment: [
       'GUEST_CLEANUP_DATABASE_URL',
       'GUEST_CLEANUP_FIXTURE_DATABASE_URL',
-      'PHASE7_RUNTIME_DATABASE_URL',
-      'PHASE7_API_ERASURE_DATABASE_URL',
+      'RUNTIME_DATABASE_URL',
+      'TEST_API_ERASURE_DATABASE_URL',
       'GUEST_CLEANUP_TEST_ISOLATED'
     ],
     seedPolicy: 'canonical-once',
@@ -49,7 +49,7 @@ export const apiIntegrationManifest = [
     order: 1,
     databaseState: 'phase7-prefix37-capability-active-empty',
     connectionRole: 'application',
-    requiredEnvironment: ['PHASE7_API_ADMIN_DATABASE_URL'],
+    requiredEnvironment: ['TEST_API_ADMIN_DATABASE_URL'],
     seedPolicy: 'none',
     isolation: 'dedicated Phase 7 API schema'
   },
@@ -60,7 +60,7 @@ export const apiIntegrationManifest = [
     order: 3,
     databaseState: 'phase7-current-capability-active-canonical-65',
     connectionRole: 'application',
-    requiredEnvironment: ['PHASE7_API_ADMIN_DATABASE_URL'],
+    requiredEnvironment: ['TEST_API_ADMIN_DATABASE_URL'],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 7 API schema'
   },
@@ -234,7 +234,7 @@ export const apiIntegrationManifest = [
       'DATABASE_URL',
       'PRISMA_TEST_DATABASE_URL',
       'PHASE7_ADMIN_DATABASE_URL',
-      'PHASE7_APPROVED308_FIXTURE_PROFILE'
+      'APPROVED_TAGS_FIXTURE_PROFILE'
     ],
     seedPolicy: 'canonical-once',
     isolation:
@@ -271,8 +271,8 @@ export const apiIntegrationManifest = [
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
-      'PHASE10_FIXTURE_DATABASE_URL',
-      'PHASE7_API_ERASURE_DATABASE_URL'
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_API_ERASURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema before learner writes'
@@ -284,7 +284,10 @@ export const apiIntegrationManifest = [
     order: 4,
     databaseState: 'phase7-current-canonical-65',
     connectionRole: 'application',
-    requiredEnvironment: ['DATABASE_URL', 'PHASE10_FIXTURE_DATABASE_URL'],
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'API_INTEGRATION_FIXTURE_DATABASE_URL'
+    ],
     seedPolicy: 'canonical-once',
     isolation:
       'runs before any learner writes; owner is limited to rollback-only invariant probes'
@@ -298,8 +301,8 @@ export const apiIntegrationManifest = [
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
-      'PHASE10_FIXTURE_DATABASE_URL',
-      'PHASE7_API_ERASURE_DATABASE_URL'
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_API_ERASURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -313,8 +316,8 @@ export const apiIntegrationManifest = [
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
-      'PHASE10_FIXTURE_DATABASE_URL',
-      'PHASE7_API_ERASURE_DATABASE_URL'
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_API_ERASURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -334,8 +337,8 @@ export const apiIntegrationManifest = [
     connectionRole: 'application' as const,
     requiredEnvironment: [
       'DATABASE_URL',
-      'PHASE10_FIXTURE_DATABASE_URL',
-      'PHASE7_API_ERASURE_DATABASE_URL',
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_API_ERASURE_DATABASE_URL',
       'AUTH_GATEWAY_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once' as const,
@@ -363,14 +366,14 @@ export const apiIntegrationManifest = [
       relativePath === 'study/studySession.integration.test.ts'
         ? [
             'DATABASE_URL',
-            'PHASE10_FIXTURE_DATABASE_URL',
-            'PHASE7_API_ERASURE_DATABASE_URL',
+            'API_INTEGRATION_FIXTURE_DATABASE_URL',
+            'TEST_API_ERASURE_DATABASE_URL',
             'AUTH_GATEWAY_DATABASE_URL'
           ]
         : [
             'DATABASE_URL',
-            'PHASE10_FIXTURE_DATABASE_URL',
-            'PHASE7_API_ERASURE_DATABASE_URL'
+            'API_INTEGRATION_FIXTURE_DATABASE_URL',
+            'TEST_API_ERASURE_DATABASE_URL'
           ],
     seedPolicy: 'canonical-once' as const,
     isolation: 'disposable fixture aggregate in dedicated Phase 10 schema'
@@ -382,7 +385,7 @@ export const apiIntegrationManifest = [
     order: 21,
     databaseState: 'suite-managed-empty-question-catalog-schema',
     connectionRole: 'owner',
-    requiredEnvironment: ['PHASE10_FIXTURE_DATABASE_URL'],
+    requiredEnvironment: ['API_INTEGRATION_FIXTURE_DATABASE_URL'],
     seedPolicy: 'none',
     isolation: 'suite-owned upgrade schema'
   },
@@ -395,8 +398,8 @@ export const apiIntegrationManifest = [
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
-      'PHASE10_APPLICATION_DATABASE_URL',
-      'PHASE10_FIXTURE_DATABASE_URL',
+      'API_INTEGRATION_APPLICATION_DATABASE_URL',
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
       'PHASE7_MIGRATION_DATABASE_URL',
       'AUTH_GATEWAY_DATABASE_URL'
     ],

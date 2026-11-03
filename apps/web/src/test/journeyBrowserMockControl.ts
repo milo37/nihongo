@@ -103,7 +103,7 @@ const createRateLimitFailure = () =>
           headers: {
             'Cache-Control': 'private, no-store',
             'Retry-After': '0',
-            'X-Phase10-Test-Fault': 'dashboard-insights-429',
+            'X-Nihongo-Test-Fault': 'dashboard-insights-429',
             'X-Request-Id': requestId
           }
         }
@@ -146,7 +146,7 @@ export const armDashboardInsightsFault = (
           {
             headers: {
               'Cache-Control': 'private, no-store',
-              'X-Phase10-Test-Fault': 'dashboard-insights-malformed'
+              'X-Nihongo-Test-Fault': 'dashboard-insights-malformed'
             }
           }
         ),
