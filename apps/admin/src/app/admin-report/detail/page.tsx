@@ -106,7 +106,7 @@ const ReportDetail = ({
       setNote(latest)
     }
   }
-  const announce = (next: Outcome) => (): void => {
+  const announce = (next: Outcome): void => {
     setFailure(null)
     setNoteDraft(null)
     setOutcome(next)
@@ -124,15 +124,15 @@ const ReportDetail = ({
     window.requestAnimationFrame(() => statusRef.current?.focus())
   }
   const replyAndClose = useReplyAndCloseAdminReport(report.reportId, {
-    onSuccess: announce('repliedClosed'),
+    onSuccess: () => announce('repliedClosed'),
     onError: fail
   })
   const saveNote = useSaveAdminReportNote(report.reportId, {
-    onSuccess: announce('noteSaved'),
+    onSuccess: () => announce('noteSaved'),
     onError: fail
   })
   const close = useCloseAdminReport(report.reportId, {
-    onSuccess: announce('closed'),
+    onSuccess: () => announce('closed'),
     onError: fail
   })
   const pending =
@@ -312,9 +312,15 @@ const ReportDetail = ({
                       size="sm"
                       variant="outline"
                       disabled={pending}
-                      onClick={() => {
+                      onClick={(event) => {
                         setNote(noteDraft)
                         setNoteDraft(null)
+                        // The button unmounts; keep focus on the restored memo.
+                        const memo =
+                          event.currentTarget.form?.elements.namedItem(
+                            'internal-note'
+                          )
+                        if (memo instanceof HTMLTextAreaElement) memo.focus()
                       }}
                     >
                       {t('userReport.detail.restoreDraft')}

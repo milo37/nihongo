@@ -206,9 +206,9 @@ export const AdminReportsPage = (): ReactElement => {
               {data.items.map((item) => (
                 <li
                   key={item.reportId}
-                  className="grid min-w-0 gap-3 bg-surface px-4 py-6 sm:grid-cols-[auto_1fr_auto] sm:gap-6"
+                  className="grid min-w-0 gap-3 bg-surface px-4 py-6 sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:gap-6"
                 >
-                  <div className="flex flex-wrap gap-2 sm:flex-col">
+                  <div className="flex flex-wrap gap-2 sm:flex-col sm:items-start">
                     <ReportStatusBadge status={item.status} />
                     <Badge>{t(`userReport.kinds.${item.kind}`)}</Badge>
                   </div>

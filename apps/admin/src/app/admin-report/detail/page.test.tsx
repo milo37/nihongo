@@ -232,6 +232,7 @@ it('restores my draft into the memo field only when I ask', async () => {
     within(process()).getByRole('button', { name: '내 메모 다시 넣기' })
   )
   expect(memo).toHaveValue('내 초안 메모')
+  expect(memo).toHaveFocus()
 })
 
 it('shows a closed report as read-only with the sent reply', async () => {
