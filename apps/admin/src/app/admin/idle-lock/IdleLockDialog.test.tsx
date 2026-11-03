@@ -73,6 +73,7 @@ it('stays locked with the failure message when /me fails', async () => {
     '본인 확인이 끝나지 않았습니다'
   )
   expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '다시 확인' })).toHaveFocus()
   expect(input).toHaveValue('작성 중')
   expect(commit).not.toHaveBeenCalled()
 })
@@ -85,7 +86,11 @@ it.each([
   async (_, arrange) => {
     arrange()
     const input = await renderLocked()
-    expect(screen.getByRole('alert')).toHaveTextContent('로그인이 끝나')
+    expect(screen.getByRole('alert')).toHaveTextContent('로그인이 끝났습니다')
+    const signIn = screen.getByRole('link', { name: '새 탭에서 로그인' })
+    expect(signIn).toHaveAttribute('href', '/login')
+    expect(signIn).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('button', { name: '다시 확인' })).toHaveFocus()
     expect(input).toHaveValue('작성 중')
     expect(commit).not.toHaveBeenCalled()
   }
