@@ -68,6 +68,9 @@ import {
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
 import { createQuestionReportService } from '../admin/questionReportService.js'
+import { createQuestionImportResultReader } from '../admin/questionImportResultStore.js'
+import { createPrismaUserReportRepository } from '../report/userReportRepository.js'
+import { createUserReportService } from '../report/userReportService.js'
 
 const actors = {
   author: {
@@ -424,6 +427,12 @@ export const createBrowserApi = async ({
       keySecret: environment.GUEST_COOKIE_SECRET
     })
     const app = createApiApp({
+      userReports: {
+        rateLimiter: reportLimiter,
+        service: createUserReportService(
+          createPrismaUserReportRepository(database.client)
+        )
+      },
       auth: {
         environment,
         ...auth,
@@ -506,6 +515,7 @@ export const createBrowserApi = async ({
             repository: createPrismaQuestionReportRepository(database.client)
           })
         },
+        importResultReader: createQuestionImportResultReader(database.client),
         rateLimiter: createAdminReadRateLimiter({
           client: database.client,
           keySecret: environment.GUEST_COOKIE_SECRET

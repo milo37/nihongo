@@ -7,6 +7,7 @@ import {
   useNavigationType
 } from 'react-router'
 import {
+  isAccountRestrictedApiError,
   isNoEligibleQuestionsApiError,
   isNotFoundApiError,
   isRetiredPracticeApiError,
@@ -237,8 +238,12 @@ export const usePracticeResultController = ({
   )
   const canShowRetryButton =
     incorrectItems.length > 0 && canRequestCanonicalRetry && !hasNoEligibleRetry
+  const isRetryAccountRestricted = isAccountRestrictedApiError(
+    createRetrySession.error
+  )
   const hasRetryRequestError =
     createRetrySession.isError &&
+    !isRetryAccountRestricted &&
     !isStudyResultNotReadyApiError(createRetrySession.error) &&
     !isAuthTransitionSupersededError(createRetrySession.error)
 
@@ -335,6 +340,7 @@ export const usePracticeResultController = ({
     hasNotFoundError,
     hasRetryableError,
     hasRetryRequestError,
+    isRetryAccountRestricted,
     incorrectItems,
     isAuthReady,
     isColdOffline,
