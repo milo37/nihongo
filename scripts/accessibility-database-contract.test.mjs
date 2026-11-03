@@ -204,16 +204,16 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
   )
   assert.equal(
     phase9ExpectedRateLimitCategories['application:wrong-note-memo-read'],
-    0
+    1
   )
   assert.equal(
     Object.values(phase9ExpectedRateLimitCategories).reduce(
       (sum, count) => sum + count,
       0
     ),
-    28
+    29
   )
-  assert.equal(phase9ExpectedTableDeltas.RateLimit, 28)
+  assert.equal(phase9ExpectedTableDeltas.RateLimit, 29)
   for (const category of [
     'application:study-read',
     'application:dashboard-insights-read'
@@ -260,10 +260,10 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     { key: sentinel, count: 44 }
   )
   const diagnostic = readPhase9RateLimitDiagnostic(before, after)
-  assert.equal(diagnostic.expectedTotal, 28)
+  assert.equal(diagnostic.expectedTotal, 29)
   assert.equal(diagnostic.before.total, 1)
-  assert.equal(diagnostic.after.total, 31)
-  assert.equal(diagnostic.newKeys.total, 30)
+  assert.equal(diagnostic.after.total, 32)
+  assert.equal(diagnostic.newKeys.total, 31)
   assert.equal(diagnostic.newKeys.categories['application:study-read'], 2)
   assert.equal(diagnostic.newKeys.unknown, 1)
   assert.equal(diagnostic.newKeys.invalidShape, 1)
@@ -274,7 +274,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     (error) => {
       assert.match(
         error.message,
-        /new rate-limit key count: expected 28, received 30/u
+        /new rate-limit key count: expected 29, received 31/u
       )
       assert.ok(error.message.includes('rate-limit-diagnostic='))
       assert.equal(error.message.includes(sentinel), false)
@@ -313,7 +313,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     (error) => {
       assert.match(
         error.message,
-        /RateLimit count delta: expected 28, received 29/u
+        /RateLimit count delta: expected 29, received 30/u
       )
       assert.ok(error.message.includes('rate-limit-diagnostic='))
       assert.equal(error.message.includes(sentinel), false)
