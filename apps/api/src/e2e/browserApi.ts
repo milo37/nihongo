@@ -532,7 +532,7 @@ export const createPhase9BrowserApi = async ({
 const run = async (): Promise<void> => {
   const environment = parsePhase9BrowserEnvironment(process.env)
   const identities: unknown = JSON.parse(
-    process.env.PHASE9_TEST_SSO_IDENTITIES ?? 'null'
+    process.env.BROWSER_TEST_SSO_IDENTITIES ?? 'null'
   )
   const fixture = await createPhase9BrowserApi({
     environment: process.env,

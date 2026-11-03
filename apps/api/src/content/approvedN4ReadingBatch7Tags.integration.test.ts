@@ -35,7 +35,7 @@ import {
   createApprovedReadingBatch7Import
 } from './approvedReadingBatch7.js'
 
-const fixtureProfile = process.env.PHASE7_BATCH7_FIXTURE_PROFILE ?? 'legacy'
+const fixtureProfile = process.env.READING_BATCH7_FIXTURE_PROFILE ?? 'legacy'
 if (fixtureProfile !== 'legacy' && fixtureProfile !== 'current') {
   throw new Error('Batch7 fixture profile must be legacy or current.')
 }

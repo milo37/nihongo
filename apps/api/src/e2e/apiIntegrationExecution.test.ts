@@ -138,8 +138,8 @@ describe('query-plan failure diagnostics', () => {
         testFile,
         environment: {
           DATABASE_URL: 'synthetic',
-          PHASE10_FIXTURE_DATABASE_URL: 'synthetic',
-          PHASE7_API_ERASURE_DATABASE_URL: 'synthetic'
+          API_INTEGRATION_FIXTURE_DATABASE_URL: 'synthetic',
+          TEST_API_ERASURE_DATABASE_URL: 'synthetic'
         },
         runCommand: async (_command, args) => {
           rawPath = args
@@ -241,7 +241,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
       'nihongo_test_phase7_migration_login'
     ),
     PHASE7_LEGACY_DATABASE_URL: database('nihongo_test_legacy_app_login'),
-    PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
+    TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
     PRISMA_TEST_DATABASE_URL: database('nihongo_test_app_login'),
     PATH: '/synthetic/toolchain'
   }
@@ -400,12 +400,12 @@ describe('Phase 7 opt-in foundation execution', () => {
     expect(selectDbIntegrationFiles(files, {})).toBe(files)
     expect(
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: dbFoundationTestFile
+        DB_INTEGRATION_SINGLE_TEST: dbFoundationTestFile
       })
     ).toEqual([dbFoundationTestFile])
     expect(() =>
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: '../secret'
+        DB_INTEGRATION_SINGLE_TEST: '../secret'
       })
     ).toThrow('allowlist')
   })
@@ -414,7 +414,7 @@ describe('Phase 7 opt-in foundation execution', () => {
     const files = [dbFoundationTestFile, ssoTestFile]
     expect(
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: ssoTestFile
+        DB_INTEGRATION_SINGLE_TEST: ssoTestFile
       })
     ).toEqual([ssoTestFile])
     for (const selector of [
@@ -424,13 +424,13 @@ describe('Phase 7 opt-in foundation execution', () => {
     ]) {
       expect(() =>
         selectDbIntegrationFiles(files, {
-          PHASE7_DB_SINGLE_TEST: selector
+          DB_INTEGRATION_SINGLE_TEST: selector
         })
       ).toThrow('allowlist')
     }
     expect(() =>
       selectDbIntegrationFiles([dbFoundationTestFile], {
-        PHASE7_DB_SINGLE_TEST: ssoTestFile
+        DB_INTEGRATION_SINGLE_TEST: ssoTestFile
       })
     ).toThrow('allowlist')
   })
@@ -537,7 +537,7 @@ describe('Phase 7 opt-in foundation execution', () => {
         {
           PHASE7_ADMIN_DATABASE_URL: 'private-url',
           PHASE7_LEGACY_DATABASE_URL: '  ',
-          PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'secret-token'
+          TEST_DEVELOPMENT_APP_DATABASE_URL: 'secret-token'
         }
       )
       expect(report.errors).toEqual([{ diagnosticId, location }])
@@ -569,7 +569,7 @@ describe('Phase 7 opt-in foundation execution', () => {
         PHASE7_ADMIN_DATABASE_URL: 'private-admin',
         PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
         PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
-        PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
+        TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
       }
       try {
         await expect(
@@ -944,7 +944,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
             PHASE7_ADMIN_DATABASE_URL: 'private-admin',
             PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
             PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
-            PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
+            TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
           },
           runCommand: async (_command, args) => {
             rawPath = args
@@ -996,13 +996,13 @@ describe.each([
   }
 ] as const)('Phase 7 fixed SSO $mode diagnosis', (fixedCase) => {
   const environment = {
-    PHASE7_DB_CASE: fixedCase.mode,
-    PHASE7_DB_SINGLE_TEST: ssoTestFile,
-    PHASE7_DB_PRESERVE_REPORT: '1',
+    DB_INTEGRATION_CASE: fixedCase.mode,
+    DB_INTEGRATION_SINGLE_TEST: ssoTestFile,
+    DB_INTEGRATION_PRESERVE_REPORT: '1',
     PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
     AUTH_GATEWAY_DATABASE_URL: 'synthetic-auth',
     PHASE7_LEGACY_DATABASE_URL: 'synthetic-legacy',
-    PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
+    TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
     PRISMA_TEST_DATABASE_URL: 'synthetic-test'
   }
   const report = (status: 'passed' | 'failed') => ({
@@ -1037,12 +1037,12 @@ describe.each([
       ssoTestFile
     ])
     for (const invalid of [
-      { PHASE7_DB_CASE: fixedCase.pattern },
-      { PHASE7_DB_CASE: '' },
-      { PHASE7_DB_CASE: 'sso-unknown' },
-      { PHASE7_DB_SINGLE_TEST: undefined },
-      { PHASE7_DB_SINGLE_TEST: dbFoundationTestFile },
-      { PHASE7_DB_PRESERVE_REPORT: undefined }
+      { DB_INTEGRATION_CASE: fixedCase.pattern },
+      { DB_INTEGRATION_CASE: '' },
+      { DB_INTEGRATION_CASE: 'sso-unknown' },
+      { DB_INTEGRATION_SINGLE_TEST: undefined },
+      { DB_INTEGRATION_SINGLE_TEST: dbFoundationTestFile },
+      { DB_INTEGRATION_PRESERVE_REPORT: undefined }
     ]) {
       expect(() =>
         selectDbIntegrationFiles([ssoTestFile], {
@@ -1254,7 +1254,7 @@ describe.each([
       await expect(
         runApiIntegrationManifestVitestFile({
           testFile: ssoTestFile,
-          environment: { ...environment, PHASE7_DB_CASE: mode },
+          environment: { ...environment, DB_INTEGRATION_CASE: mode },
           preserveSanitizedReport: true,
           runCommand
         })
@@ -1290,7 +1290,7 @@ describe('fixed account lifecycle TEST slice', () => {
     for (const selected of [
       selectDbIntegrationFiles(files, {}),
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: ssoAccountLifecycleTestFile
+        DB_INTEGRATION_SINGLE_TEST: ssoAccountLifecycleTestFile
       })
     ])
       for (const file of selected) {
@@ -1391,8 +1391,8 @@ describe('guest cleanup required environment', () => {
   const environment = {
     GUEST_CLEANUP_DATABASE_URL: 'worker',
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: 'fixture',
-    PHASE7_RUNTIME_DATABASE_URL: 'application',
-    PHASE7_API_ERASURE_DATABASE_URL: 'erasure',
+    RUNTIME_DATABASE_URL: 'application',
+    TEST_API_ERASURE_DATABASE_URL: 'erasure',
     GUEST_CLEANUP_TEST_ISOLATED: 'yes'
   }
 

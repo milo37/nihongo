@@ -40,9 +40,9 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
@@ -410,7 +410,7 @@ beforeAll(async () => {
   retirementClient = createStudyV1RetirementClient({
     nodeEnvironment: environment.NODE_ENV,
     runtimeDatabaseUrl:
-      process.env.PHASE7_RUNTIME_DATABASE_URL ?? environment.DATABASE_URL,
+      process.env.RUNTIME_DATABASE_URL ?? environment.DATABASE_URL,
     migrationDatabaseUrl:
       process.env.PHASE7_MIGRATION_DATABASE_URL ??
       process.env.PRISMA_TEST_DATABASE_URL,
@@ -1735,7 +1735,7 @@ describe('V1 retirement concurrency', () => {
     createStudyV1RetirementClient({
       nodeEnvironment: environment.NODE_ENV,
       runtimeDatabaseUrl:
-        process.env.PHASE7_RUNTIME_DATABASE_URL ?? environment.DATABASE_URL,
+        process.env.RUNTIME_DATABASE_URL ?? environment.DATABASE_URL,
       migrationDatabaseUrl:
         process.env.PHASE7_MIGRATION_DATABASE_URL ??
         process.env.PRISMA_TEST_DATABASE_URL,
@@ -2732,7 +2732,7 @@ describe('V1 retirement TEST command fixture', () => {
           ...process.env,
           NODE_ENV: 'test',
           DATABASE_URL:
-            process.env.PHASE7_RUNTIME_DATABASE_URL ?? environment.DATABASE_URL,
+            process.env.RUNTIME_DATABASE_URL ?? environment.DATABASE_URL,
           PHASE7_MIGRATION_DATABASE_URL:
             process.env.PHASE7_MIGRATION_DATABASE_URL ??
             process.env.PRISMA_TEST_DATABASE_URL,

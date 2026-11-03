@@ -32,7 +32,7 @@ interface ManagedProcess {
 
 type BrowserMode = 'mock' | 'real'
 
-const includeDashboard = process.env.PHASE8_BROWSER_ACCEPTANCE === '1'
+const includeDashboard = process.env.DASHBOARD_BROWSER_ACCEPTANCE === '1'
 const acceptancePhase = includeDashboard ? 'phase8' : 'phase7'
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
 const mode: BrowserMode | undefined =
@@ -323,9 +323,9 @@ export const createPhase7BrowserPlaywrightEnvironment = (
 ): NodeJS.ProcessEnv => ({
   ...process.env,
   ...extraEnvironment,
-  PHASE7_BROWSER_MODE: browserMode,
-  PHASE8_BROWSER_MODE: browserMode,
-  PHASE7_BROWSER_ADMIN_ORIGIN: webOrigin,
+  ADMIN_BROWSER_MODE: browserMode,
+  DASHBOARD_BROWSER_MODE: browserMode,
+  ADMIN_BROWSER_ADMIN_ORIGIN: webOrigin,
   PLAYWRIGHT_BASE_URL: webOrigin,
   PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
 })
@@ -521,10 +521,10 @@ export const runReal = async (): Promise<void> => {
     secret: controlSecret
   })
   await runPlaywright('real', publicOrigin, {
-    PHASE7_BROWSER_CONTROL_SECRET: controlSecret,
-    PHASE7_BROWSER_CONTROL_URL: controlOrigin,
-    PHASE7_BROWSER_FIXTURE: JSON.stringify(created.fixture),
-    PHASE8_BROWSER_FIXTURE: JSON.stringify(created.fixture)
+    ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
+    ADMIN_BROWSER_CONTROL_URL: controlOrigin,
+    ADMIN_BROWSER_FIXTURE: JSON.stringify(created.fixture),
+    DASHBOARD_BROWSER_FIXTURE: JSON.stringify(created.fixture)
   })
   await created.database.assertExpectedLifecycleDelta(baseline)
 }

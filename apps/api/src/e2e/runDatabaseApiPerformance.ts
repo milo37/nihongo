@@ -187,7 +187,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   const abortSignal = executionAbortController.signal
   abortSignal.throwIfAborted()
   const evidenceDirectory = path.resolve(
-    process.env.PHASE10_PERFORMANCE_EVIDENCE_DIR ??
+    process.env.PERFORMANCE_EVIDENCE_DIR ??
       path.join(repositoryRoot, 'test-results/phase10-evidence/performance')
   )
   const evidenceFile = path.join(evidenceDirectory, 'database-api.json')
@@ -216,9 +216,9 @@ const run = async (): Promise<PerformanceRunResult> => {
     AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
     DATABASE_URL: harness.applicationDatabaseUrl,
     PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
-    PHASE10_PERFORMANCE_COMMIT: commit,
-    PHASE10_PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
-    PHASE10_PERFORMANCE_PNPM_VERSION: pnpmVersion,
+    PERFORMANCE_COMMIT: commit,
+    PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
+    PERFORMANCE_PNPM_VERSION: pnpmVersion,
     PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY: String(dirtyStatus.length > 0),
     PRISMA_TEST_DATABASE_URL: harness.applicationDatabaseUrl
   }

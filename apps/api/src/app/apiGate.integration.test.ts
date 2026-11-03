@@ -38,9 +38,7 @@ const requireEnvironmentValue = (name: string): string => {
 }
 
 const environment = parseApiEnvironment(process.env)
-const adminDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_API_ADMIN_DATABASE_URL'
-)
+const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const productionDatabaseUrl = requireEnvironmentValue('PRODUCTION_DATABASE_URL')
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
 if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {

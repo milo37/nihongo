@@ -46,7 +46,7 @@ if (
   environment.NODE_ENV !== 'test' ||
   !testUrl ||
   !adminUrl ||
-  process.env.PHASE7_APPROVED308_FIXTURE_PROFILE !== 'current38'
+  process.env.APPROVED_TAGS_FIXTURE_PROFILE !== 'current38'
 ) {
   throw new Error(
     'Explicit isolated TEST/current38 approved308 fixture required.'

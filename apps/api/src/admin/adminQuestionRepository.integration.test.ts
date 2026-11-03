@@ -39,9 +39,7 @@ const requireEnvironmentValue = (name: string): string => {
   return value
 }
 
-const adminDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_API_ADMIN_DATABASE_URL'
-)
+const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
 const authGatewayDatabaseUrl = requireEnvironmentValue(
   'AUTH_GATEWAY_DATABASE_URL'

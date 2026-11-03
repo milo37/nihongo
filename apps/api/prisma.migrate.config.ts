@@ -26,7 +26,7 @@ export default defineConfig({
   migrations: {
     path:
       process.env.NODE_ENV === 'test'
-        ? (process.env.PHASE7_TEST_MIGRATIONS_PATH ?? 'prisma/migrations')
+        ? (process.env.TEST_MIGRATIONS_PATH ?? 'prisma/migrations')
         : 'prisma/migrations'
   },
   datasource: {

@@ -103,7 +103,7 @@ dotenv.config({
   quiet: true
 })
 
-const apiIntegrationCase = process.env.PHASE7_API_INTEGRATION_CASE
+const apiIntegrationCase = process.env.API_INTEGRATION_CASE
 if (
   apiIntegrationCase !== undefined &&
   apiIntegrationCase !== 'sso-browser-google' &&
@@ -115,7 +115,7 @@ if (
 }
 
 const baseDatabaseUrl =
-  process.env.PHASE7_API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
+  process.env.API_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 if (!baseDatabaseUrl) {
   throw new Error('Phase 7 API integration requires a test PostgreSQL URL.')
 }
@@ -899,16 +899,16 @@ export const preparePhase7IsolatedDatabase = async ({
     ADMIN_CMS_MODE: 'technical',
     AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
-    PHASE7_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
+    TEST_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
     GUEST_CLEANUP_DATABASE_URL: buildWrapperDatabaseUrl(
       TEST_GUEST_CLEANUP_LOGIN
     ).toString(),
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
     GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
-    PHASE7_RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
+    RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
-    PHASE7_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
-    PHASE7_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    TEST_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
+    TEST_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString(),
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
@@ -961,7 +961,7 @@ export const preparePhase7IsolatedDatabase = async ({
       ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...sharedEnvironment,
-        PHASE7_TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
+        TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
       },
       abortSignal
     )
@@ -983,7 +983,7 @@ export const preparePhase7IsolatedDatabase = async ({
         ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
         {
           ...sharedEnvironment,
-          PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+          TEST_MIGRATIONS_PATH: canonicalMigrationsPath
         },
         abortSignal
       )
@@ -1044,7 +1044,7 @@ const run = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...sharedEnvironment,
-      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+      TEST_MIGRATIONS_PATH: nodePath.join(
         repositoryRoot,
         'apps/api/prisma/migrations'
       )
@@ -1072,7 +1072,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
     {
       ...harness.sharedEnvironment,
-      PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+      TEST_MIGRATIONS_PATH: nodePath.join(
         repositoryRoot,
         'apps/api/prisma/migrations'
       )
@@ -1145,9 +1145,9 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
 }
 
 const readSsoBrowserLoopbackInputs = (source: NodeJS.ProcessEnv) => {
-  const host = source.PHASE7_SSO_BROWSER_API_HOST
-  const portText = source.PHASE7_SSO_BROWSER_API_PORT
-  const webOrigin = source.PHASE7_SSO_BROWSER_WEB_ORIGIN
+  const host = source.SSO_BROWSER_API_HOST
+  const portText = source.SSO_BROWSER_API_PORT
+  const webOrigin = source.SSO_BROWSER_WEB_ORIGIN
   if (
     host !== '127.0.0.1' ||
     !portText ||
@@ -1279,7 +1279,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
       {
         ...harness.sharedEnvironment,
-        PHASE7_TEST_MIGRATIONS_PATH: nodePath.join(
+        TEST_MIGRATIONS_PATH: nodePath.join(
           repositoryRoot,
           'apps/api/prisma/migrations'
         )

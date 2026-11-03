@@ -109,7 +109,7 @@ export const createPhase7DbFileEnvironment = (
   base: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv => {
   if (testFile === 'src/content/approved308Tags.integration.test.ts') {
-    return { ...base, PHASE7_APPROVED308_FIXTURE_PROFILE: 'current38' }
+    return { ...base, APPROVED_TAGS_FIXTURE_PROFILE: 'current38' }
   }
   return testFile === phase7SsoTestFile ||
     testFile === phase7SsoAccountLifecycleTestFile
@@ -127,13 +127,13 @@ export const selectPhase7DbIntegrationFiles = (
   defaultFiles: readonly string[],
   environment: NodeJS.ProcessEnv
 ): readonly string[] => {
-  const selected = environment.PHASE7_DB_SINGLE_TEST
+  const selected = environment.DB_INTEGRATION_SINGLE_TEST
   if (
-    environment.PHASE7_DB_CASE !== undefined &&
-    ((environment.PHASE7_DB_CASE !== 'sso-ordinal6' &&
-      environment.PHASE7_DB_CASE !== 'sso-identity') ||
+    environment.DB_INTEGRATION_CASE !== undefined &&
+    ((environment.DB_INTEGRATION_CASE !== 'sso-ordinal6' &&
+      environment.DB_INTEGRATION_CASE !== 'sso-identity') ||
       selected !== phase7SsoTestFile ||
-      environment.PHASE7_DB_PRESERVE_REPORT !== '1')
+      environment.DB_INTEGRATION_PRESERVE_REPORT !== '1')
   ) {
     throw new Error(
       'Phase 7 case selection requires the fixed SSO report mode.'
@@ -210,7 +210,7 @@ export const sanitizePhase7VitestReport = (
   const fileResult = result.testResults?.[0]
   const assertions = fileResult?.assertionResults
   if (
-    environment.PHASE7_DB_CASE === undefined &&
+    environment.DB_INTEGRATION_CASE === undefined &&
     testFile === phase7SsoTestFile &&
     result.numTotalTests === 36 &&
     result.numFailedTests === 1 &&
@@ -272,7 +272,7 @@ export const sanitizePhase7VitestReport = (
       }
     }
   }
-  const selectedSsoCaseName = environment.PHASE7_DB_CASE
+  const selectedSsoCaseName = environment.DB_INTEGRATION_CASE
   const selectedSsoCase =
     selectedSsoCaseName === 'sso-ordinal6' ||
     selectedSsoCaseName === 'sso-identity'
@@ -431,7 +431,7 @@ export const sanitizePhase7VitestReport = (
       adminWrapper: Boolean(environment.PHASE7_ADMIN_DATABASE_URL?.trim()),
       legacyWrapper: Boolean(environment.PHASE7_LEGACY_DATABASE_URL?.trim()),
       developmentWrapper: Boolean(
-        environment.PHASE7_DEVELOPMENT_APP_DATABASE_URL?.trim()
+        environment.TEST_DEVELOPMENT_APP_DATABASE_URL?.trim()
       )
     },
     ...(firstFailedAssertion ? { firstFailedAssertion } : {}),
@@ -588,7 +588,7 @@ export const assertApiIntegrationVitestFileResult = ({
 }): void => {
   if (selectedSsoCase !== undefined) {
     const report = sanitizePhase7VitestReport(result, expectedPath, {
-      PHASE7_DB_CASE: selectedSsoCase
+      DB_INTEGRATION_CASE: selectedSsoCase
     })
     if (report.selectedCase?.status !== 'passed') {
       throw new Error('Phase 7 fixed SSO case result is incomplete.')
@@ -637,7 +637,7 @@ export const runApiIntegrationManifestVitestFile = async ({
   readonly preserveSanitizedReport?: boolean
   readonly onCollectionDiagnostic?: (diagnostic: CollectionDiagnostic) => void
 }): Promise<number> => {
-  const selectedSsoCaseName = environment.PHASE7_DB_CASE
+  const selectedSsoCaseName = environment.DB_INTEGRATION_CASE
   const selectedSsoCase =
     selectedSsoCaseName === 'sso-ordinal6' ||
     selectedSsoCaseName === 'sso-identity'
@@ -660,7 +660,7 @@ export const runApiIntegrationManifestVitestFile = async ({
   ) {
     for (const name of [
       'PHASE7_LEGACY_DATABASE_URL',
-      'PHASE7_DEVELOPMENT_APP_DATABASE_URL'
+      'TEST_DEVELOPMENT_APP_DATABASE_URL'
     ]) {
       if (!environment[name]?.trim())
         throw new Error(`Phase 7 wrapper environment missing: ${name}.`)

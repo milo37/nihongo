@@ -41,7 +41,7 @@ describe('Phase 10 performance failure finalizer', () => {
         child = spawn(process.execPath, [tsxCli, hungCleanupProbe], {
           env: {
             ...process.env,
-            PHASE10_HUNG_CLEANUP_EVIDENCE_FILE: evidenceFile
+            HUNG_CLEANUP_EVIDENCE_FILE: evidenceFile
           },
           stdio: ['ignore', 'ignore', 'pipe']
         })

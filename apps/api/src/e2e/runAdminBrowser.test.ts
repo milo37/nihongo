@@ -345,7 +345,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
 
   it('rejects standalone admin Mock before creating any owned resources', async () => {
     vi.resetModules()
-    vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', '0')
+    vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', '0')
     const runner = await import('./runAdminBrowser.js')
     await expect(runner.runMock()).rejects.toThrow('requires real mode')
     expect(ports.spawn).not.toHaveBeenCalled()
@@ -356,7 +356,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
 
   it('serves only web and selects only the dashboard with dashboard acceptance Mock', async () => {
     vi.resetModules()
-    vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', '1')
+    vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', '1')
     vi.stubEnv('NIHONGO_ADMIN_PROXY_TARGET', 'http://parent.invalid')
     const runner = await import('./runAdminBrowser.js')
     await runner.runMock()
@@ -383,7 +383,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
     'serves production static assets and API on one public origin (dashboard=%s)',
     async (phase8) => {
       vi.resetModules()
-      vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', phase8)
+      vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', phase8)
       const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       const calls = ports.spawn.mock.calls
@@ -427,9 +427,9 @@ describe('admin and dashboard real origin and Mock selection', () => {
       })
       const playwright = calls.find(([, args]) => args.includes('playwright'))
       expect(playwright?.[2].env).toMatchObject({
-        PHASE7_BROWSER_ADMIN_ORIGIN: 'http://127.0.0.1:4100',
+        ADMIN_BROWSER_ADMIN_ORIGIN: 'http://127.0.0.1:4100',
         PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:4100',
-        PHASE7_BROWSER_MODE: 'real'
+        ADMIN_BROWSER_MODE: 'real'
       })
       expect(playwright?.[1]).toContain(adminSpec)
       expect(playwright?.[1].includes(dashboardSpec)).toBe(phase8 === '1')
@@ -543,15 +543,15 @@ describe('admin browser mandatory public origin environment', () => {
         mode,
         'http://127.0.0.1:33493',
         {
-          PHASE7_BROWSER_ADMIN_ORIGIN: 'http://old.invalid',
+          ADMIN_BROWSER_ADMIN_ORIGIN: 'http://old.invalid',
           PLAYWRIGHT_BASE_URL: 'http://old.invalid',
-          PHASE7_BROWSER_MODE: 'other'
+          ADMIN_BROWSER_MODE: 'other'
         }
       )
-      expect(result.PHASE7_BROWSER_ADMIN_ORIGIN).toBe('http://127.0.0.1:33493')
+      expect(result.ADMIN_BROWSER_ADMIN_ORIGIN).toBe('http://127.0.0.1:33493')
       expect(result.PLAYWRIGHT_BASE_URL).toBe('http://127.0.0.1:33493')
-      expect(result.PHASE7_BROWSER_MODE).toBe(mode)
-      expect(result.PHASE8_BROWSER_MODE).toBe(mode)
+      expect(result.ADMIN_BROWSER_MODE).toBe(mode)
+      expect(result.DASHBOARD_BROWSER_MODE).toBe(mode)
     }
   )
 })

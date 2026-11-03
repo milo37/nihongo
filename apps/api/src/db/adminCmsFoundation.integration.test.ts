@@ -84,7 +84,7 @@ if (getPostgresSchema(legacyDatabaseUrl) !== schema) {
   throw new Error('Phase 7 legacy and runtime schemas must match exactly.')
 }
 const developmentApplicationDatabaseUrl =
-  process.env.PHASE7_DEVELOPMENT_APP_DATABASE_URL
+  process.env.TEST_DEVELOPMENT_APP_DATABASE_URL
 if (!developmentApplicationDatabaseUrl) {
   throw new Error('Phase 7 development app wrapper URL is required.')
 }

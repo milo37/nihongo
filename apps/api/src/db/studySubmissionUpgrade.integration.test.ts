@@ -165,7 +165,7 @@ const createHistorical31Runtime = async (
 }
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]?.trim()
   if (!value) {
@@ -177,7 +177,7 @@ const environment = isCurrentSourceIntegration
   ? undefined
   : parseApiEnvironment(process.env)
 const fixtureDatabaseUrl = isCurrentSourceIntegration
-  ? requireEnvironmentValue('PHASE10_FIXTURE_DATABASE_URL')
+  ? requireEnvironmentValue('API_INTEGRATION_FIXTURE_DATABASE_URL')
   : environment!.DATABASE_URL
 assertSafeTestDatabase({
   nodeEnvironment: process.env.NODE_ENV,
@@ -217,7 +217,7 @@ const createIsolatedMigrationSchema =
     const adminDatabaseUrl = withSchema(fixtureDatabaseUrl, schemaName)
     const applicationDatabaseUrl = withSchema(
       isCurrentSourceIntegration
-        ? requireEnvironmentValue('PHASE10_APPLICATION_DATABASE_URL')
+        ? requireEnvironmentValue('API_INTEGRATION_APPLICATION_DATABASE_URL')
         : environment!.DATABASE_URL,
       schemaName
     )

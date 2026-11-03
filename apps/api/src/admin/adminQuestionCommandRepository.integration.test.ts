@@ -89,15 +89,13 @@ const requireEnvironmentValue = (name: string): string => {
   return value
 }
 
-const adminDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_API_ADMIN_DATABASE_URL'
-)
+const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
 const authGatewayDatabaseUrl = requireEnvironmentValue(
   'AUTH_GATEWAY_DATABASE_URL'
 )
 const erasureWorkerDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_API_ERASURE_DATABASE_URL'
+  'TEST_API_ERASURE_DATABASE_URL'
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
 if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {

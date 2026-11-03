@@ -862,11 +862,11 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
     })
     expect(apiTiming.budget.passed).toBe(true)
 
-    const evidenceDirectory = process.env.PHASE10_PERFORMANCE_EVIDENCE_DIR
+    const evidenceDirectory = process.env.PERFORMANCE_EVIDENCE_DIR
     if (evidenceDirectory) {
-      const commit = process.env.PHASE10_PERFORMANCE_COMMIT
+      const commit = process.env.PERFORMANCE_COMMIT
       const sourceTreeDirty = process.env.PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY
-      const pnpmVersion = process.env.PHASE10_PERFORMANCE_PNPM_VERSION
+      const pnpmVersion = process.env.PERFORMANCE_PNPM_VERSION
       if (
         !commit ||
         !pnpmVersion ||

@@ -110,12 +110,12 @@ describe('Phase 10 runner timeout', () => {
            const { writeFileSync } = require('node:fs');
            process.on('SIGTERM', () => {});
            const nested = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], { stdio: 'ignore' });
-           writeFileSync(process.env.PHASE10_TIMEOUT_PID_FILE, JSON.stringify({ leaderPid: process.pid, nestedPid: nested.pid }));
+           writeFileSync(process.env.RUNNER_TIMEOUT_PID_FILE, JSON.stringify({ leaderPid: process.pid, nestedPid: nested.pid }));
            setInterval(() => {}, 1000);`
         ],
         {
           detached: shouldDetachOwnedProcess,
-          env: { ...process.env, PHASE10_TIMEOUT_PID_FILE: pidFile },
+          env: { ...process.env, RUNNER_TIMEOUT_PID_FILE: pidFile },
           stdio: 'ignore'
         }
       )

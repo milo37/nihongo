@@ -31,9 +31,9 @@ let prepareArtifacts: typeof import('./runAdminApiIntegration.js').preparePhase7
 let seedInvocation: typeof import('./runAdminApiIntegration.js').phase7SeedInvocation
 beforeAll(async () => {
   vi.stubEnv('NODE_ENV', 'test')
-  vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
+  vi.stubEnv('API_INTEGRATION_CASE', undefined)
   vi.stubEnv(
-    'PHASE7_API_INTEGRATION_DATABASE_URL',
+    'API_INTEGRATION_DATABASE_URL',
     'postgresql://synthetic:synthetic@127.0.0.1:5432/nihongo_test'
   )
   register = (await import('./runAdminApiIntegration.js'))

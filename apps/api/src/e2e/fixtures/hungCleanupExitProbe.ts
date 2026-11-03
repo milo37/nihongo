@@ -3,9 +3,9 @@ import { createPerformanceFailureFinalizer } from '../performanceFailureFinalize
 import { exitPerformanceProcess } from '../performanceProcessExit.js'
 import { Phase10CleanupTimeoutError } from '../runTimeout.js'
 
-const evidenceFile = process.env.PHASE10_HUNG_CLEANUP_EVIDENCE_FILE
+const evidenceFile = process.env.HUNG_CLEANUP_EVIDENCE_FILE
 if (!evidenceFile) {
-  throw new Error('PHASE10_HUNG_CLEANUP_EVIDENCE_FILE is required.')
+  throw new Error('HUNG_CLEANUP_EVIDENCE_FILE is required.')
 }
 
 await writeFile(evidenceFile, '{"status":"passed"}\n', {

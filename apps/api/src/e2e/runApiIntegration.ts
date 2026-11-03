@@ -307,13 +307,14 @@ const runShard = async (shard: string): Promise<Phase10ShardResult> => {
       ? {
           ...harness.sharedEnvironment,
           DATABASE_URL: databaseUrl,
-          PHASE10_APPLICATION_DATABASE_URL: harness.applicationDatabaseUrl,
-          PHASE10_CURRENT_SOURCE_INTEGRATION: '1',
-          PHASE10_FIXTURE_DATABASE_URL: harness.adminDatabaseUrl,
-          PHASE10_INTEGRATION_SHARD: shard,
+          API_INTEGRATION_APPLICATION_DATABASE_URL:
+            harness.applicationDatabaseUrl,
+          API_INTEGRATION_CURRENT_SOURCE: '1',
+          API_INTEGRATION_FIXTURE_DATABASE_URL: harness.adminDatabaseUrl,
+          API_INTEGRATION_SHARD: shard,
           PRISMA_TEST_DATABASE_URL: databaseUrl
         }
-      : { ...process.env, PHASE10_INTEGRATION_SHARD: shard }
+      : { ...process.env, API_INTEGRATION_SHARD: shard }
     passedTestCount += await runApiIntegrationManifestVitestFile({
       runCommand,
       testFile: entry.path,

@@ -24,9 +24,9 @@ const readMigration = (name: (typeof MIGRATION_NAMES)[number]): string =>
   )
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const databaseUrl = isCurrentSourceIntegration
-  ? process.env.PHASE10_FIXTURE_DATABASE_URL
+  ? process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
   : parseApiEnvironment(process.env).DATABASE_URL
 if (!databaseUrl) {
   throw new Error(

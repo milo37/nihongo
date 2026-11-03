@@ -103,7 +103,7 @@ dotenv.config({
 })
 
 const baseDatabaseUrl =
-  process.env.PHASE7_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
+  process.env.DB_INTEGRATION_DATABASE_URL ?? process.env.DATABASE_URL
 
 if (!baseDatabaseUrl) {
   throw new Error('Phase 7 DB integration requires a test PostgreSQL URL.')
@@ -1402,10 +1402,11 @@ const run = async (): Promise<void> => {
     getApiIntegrationPathsByOwner('phase7-db'),
     process.env
   )
-  const preserveSanitizedReport = process.env.PHASE7_DB_PRESERVE_REPORT === '1'
+  const preserveSanitizedReport =
+    process.env.DB_INTEGRATION_PRESERVE_REPORT === '1'
   if (
     preserveSanitizedReport &&
-    process.env.PHASE7_DB_SINGLE_TEST === undefined
+    process.env.DB_INTEGRATION_SINGLE_TEST === undefined
   ) {
     throw new Error('Phase 7 report preservation requires single-test opt-in.')
   }
@@ -1443,11 +1444,11 @@ const run = async (): Promise<void> => {
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
     PHASE7_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
-    PHASE7_DEVELOPMENT_APP_DATABASE_URL:
+    TEST_DEVELOPMENT_APP_DATABASE_URL:
       developmentApplicationDatabaseUrl.toString(),
     PHASE7_LEGACY_DATABASE_URL: legacyDatabaseUrl.toString(),
     PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
-    PHASE7_TEST_MIGRATIONS_PATH: undefined,
+    TEST_MIGRATIONS_PATH: undefined,
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
   const migrationEnvironment: NodeJS.ProcessEnv = { ...sharedEnvironment }
@@ -1565,7 +1566,7 @@ const run = async (): Promise<void> => {
   )
   const canonicalMigrationEnvironment: NodeJS.ProcessEnv = {
     ...migrationEnvironment,
-    PHASE7_TEST_MIGRATIONS_PATH: canonicalMigrationsPath
+    TEST_MIGRATIONS_PATH: canonicalMigrationsPath
   }
   const lastBootstrapMigration =
     '20261009092000_phase7_n4_n2_revision2_digest_fix'
@@ -1602,7 +1603,7 @@ const run = async (): Promise<void> => {
     }
     await deployMigrations({
       ...migrationEnvironment,
-      PHASE7_TEST_MIGRATIONS_PATH: prefixMigrationsPath
+      TEST_MIGRATIONS_PATH: prefixMigrationsPath
     })
   } finally {
     rmSync(prefixMigrationsPath, { recursive: true, force: true })

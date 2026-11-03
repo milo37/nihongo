@@ -447,7 +447,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         | 'FINAL_CONSTRAINTS'
         | 'TX_ROLLBACK'
       const sso6Enabled =
-        provider === 'apple' && process.env.PHASE7_DB_CASE === 'sso-ordinal6'
+        provider === 'apple' &&
+        process.env.DB_INTEGRATION_CASE === 'sso-ordinal6'
       let sso6Stage: Sso6Stage = 'TX_BEGIN'
       let sso6LineCount = 0
       let sso6FailureEmitted = false
