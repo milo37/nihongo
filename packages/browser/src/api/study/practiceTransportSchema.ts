@@ -30,6 +30,20 @@ export const refinePracticeJsonTransportHeaders = (
   }
 }
 
+export const refinePracticeContractV2Header = (
+  headers: PracticeTransportHeaders,
+  context: z.RefinementCtx,
+  message: string
+): void => {
+  if (headers['x-nihongo-practice-contract'] !== '2') {
+    context.addIssue({
+      code: 'custom',
+      path: ['headers', 'x-nihongo-practice-contract'],
+      message
+    })
+  }
+}
+
 export const refinePracticeNoContentTransportHeaders = (
   headers: PracticeTransportHeaders,
   context: z.RefinementCtx

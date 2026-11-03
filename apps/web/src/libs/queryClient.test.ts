@@ -1,9 +1,7 @@
 import { QueryObserver } from '@tanstack/react-query'
 import { queryClient as canonicalQueryClient } from '@nihongo/browser/libs/queryClient'
-import { queryClient as browserQueryClient } from '@libs/queryClient'
 
-it('the browser source-path bridge invalidates the canonical active query and reads the same cache', async () => {
-  expect(browserQueryClient).toBe(canonicalQueryClient)
+it('the canonical query client invalidates an active query and reads the same cache', async () => {
   const queryKey = [
     'browser-query-client-bridge',
     'dashboard-insights'
@@ -24,15 +22,15 @@ it('the browser source-path bridge invalidates the canonical active query and re
       queryFn,
       staleTime: Infinity
     })
-    expect(browserQueryClient.getQueryState(queryKey)).toMatchObject({
+    expect(canonicalQueryClient.getQueryState(queryKey)).toMatchObject({
       data: { revision: 1 },
       fetchStatus: 'idle',
       status: 'success'
     })
-    await browserQueryClient.invalidateQueries({ queryKey, exact: true })
+    await canonicalQueryClient.invalidateQueries({ queryKey, exact: true })
     expect(queryFn).toHaveBeenCalledTimes(2)
     expect(canonicalQueryClient.getQueryData(queryKey)).toEqual({ revision: 2 })
-    expect(browserQueryClient.getQueryState(queryKey)).toMatchObject({
+    expect(canonicalQueryClient.getQueryState(queryKey)).toMatchObject({
       data: { revision: 2 },
       fetchStatus: 'idle',
       status: 'success'
