@@ -288,6 +288,7 @@ model User {
   ssoAccountFreshProofs       SsoAccountFreshProof[]
   ssoAccountErasureRequest    SsoAccountErasureRequest?
   idempotencyRecords          IdempotencyRecord[]
+  userReports                 UserReport[]
 
   @@index([role, accountStatus])
 }
@@ -691,6 +692,7 @@ model QuestionVersion {
   contentReviews             ContentReview[]
   targetQuestionReports      QuestionReport[]       @relation("QuestionReportTargetVersion")
   remediationQuestionReports QuestionReport[]       @relation("QuestionReportRemediationVersion")
+  userReports                UserReport[]           @relation("UserReportTargetVersion")
 
   @@unique([questionId, versionNumber])
   @@unique([questionId, id])
@@ -1122,4 +1124,36 @@ model SsoAccountErasureRequest {
   user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([appStatus, createdAt])
+}
+
+model UserReport {
+  id                String           @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  kind              String           @db.VarChar(16)
+  status            String           @default("RECEIVED") @db.VarChar(16)
+  location          String           @db.VarChar(200)
+  questionId        String?          @db.Uuid
+  questionVersionId String?          @db.Uuid
+  description       String
+  reporterUserId    String?          @db.Uuid
+  reporterReply     String?
+  repliedAt         DateTime?        @db.Timestamptz(3)
+  internalNote      String?
+  closedAt          DateTime?        @db.Timestamptz(3)
+  rowVersion        Int              @default(1)
+  createdAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  reporterUser      User?            @relation(fields: [reporterUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  questionVersion   QuestionVersion? @relation("UserReportTargetVersion", fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: NoAction, map: "UserReport_question_version_fkey")
+
+  @@index([reporterUserId, createdAt(sort: Desc), id(sort: Desc)], map: "UserReport_reporter_idx")
+}
+
+model QuestionImportResult {
+  importId      String   @id @db.Uuid
+  actorUserId   String   @db.Uuid
+  requestDigest String   @db.VarChar(64)
+  response      Json     @db.JsonB
+  createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+
+  @@index([createdAt])
 }
