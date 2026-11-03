@@ -10,6 +10,8 @@ const adminErrorKeys = {
   INVALID_REQUEST: 'errors.invalidRequest',
   VALIDATION_ERROR: 'errors.validation',
   RESOURCE_NOT_FOUND: 'errors.notFound',
+  IMPORT_IDENTITY_CONFLICT: 'errors.importIdentityConflict',
+  IMPORT_VALIDATION_FAILED: 'errors.importValidationFailed',
   RATE_LIMITED: 'errors.rateLimited',
   INTERNAL_SERVER_ERROR: 'errors.server',
   SERVICE_UNAVAILABLE: 'errors.unavailable'

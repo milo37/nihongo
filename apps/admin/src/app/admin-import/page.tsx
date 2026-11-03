@@ -43,9 +43,19 @@ const flag = (error: unknown, name: string): boolean =>
       (error as Record<string, unknown>)[name] === true
   )
 
-// The request may have committed: the server failed or no response arrived.
+const status = (error: unknown): number | null =>
+  error &&
+  typeof error === 'object' &&
+  'status' in error &&
+  typeof error.status === 'number'
+    ? error.status
+    : null
+
+// The request may have committed: the server or a gateway failed (including
+// an unparseable 5xx body), or no response arrived.
 const isUnknownApplyOutcome = (error: unknown): boolean =>
   flag(error, 'isServerError') ||
+  (status(error) ?? 0) >= 500 ||
   (flag(error, 'isNetworkError') && !flag(error, 'isOffline'))
 
 type RecoveryState = 'checking' | 'notApplied' | 'failed'

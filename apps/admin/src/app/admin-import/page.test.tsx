@@ -372,6 +372,15 @@ it.each(['IMPORT_VALIDATION_FAILED', 'IMPORT_IDENTITY_CONFLICT'])(
       await screen.findByRole('heading', { name: t('import.error') })
     ).toBeVisible()
     expect(
+      screen.getByText(
+        t(
+          code === 'IMPORT_IDENTITY_CONFLICT'
+            ? 'errors.importIdentityConflict'
+            : 'errors.importValidationFailed'
+        )
+      )
+    ).toBeVisible()
+    expect(
       screen.queryByRole('button', { name: t('import.apply') })
     ).not.toBeInTheDocument()
     expect(input().files?.[0]?.name).toBe('original.json')
@@ -436,6 +445,23 @@ describe('lost apply response recovery', () => {
       ([value]) => (value.body as { importId: string }).importId
     )
     expect(second).toBe(first)
+  })
+
+  it('treats a gateway 5xx with an unparseable body as an unknown outcome', async () => {
+    const recover = vi
+      .spyOn(importResultApi, 'getAdminImportResult')
+      .mockResolvedValue(applied)
+    apply = async () => {
+      throw { isResponseValidationError: true, status: 502 }
+    }
+    route()
+    await upload()
+    await runValidate()
+    await userEvent.click(applyButton())
+    expect(
+      await screen.findByText(t('import.applied', { formattedCount: '1' }))
+    ).toBeVisible()
+    expect(recover).toHaveBeenCalledOnce()
   })
 
   it('does not re-read the result for a request rejected before reaching the server', async () => {
