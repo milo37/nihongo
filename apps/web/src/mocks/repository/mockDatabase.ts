@@ -995,6 +995,8 @@ export class MockDatabase {
   private wrongNoteByQuestionId = new Map<string, WrongNote>()
   private bookmarkByQuestionId = new Map<string, Bookmark>()
   private currentUserId: string | null = null
+  // Mock-only stand-in for an admin restriction; not persisted.
+  private readonly restrictedUserIds = new Set<string>()
   private sequence = 0
 
   constructor(options: MockDatabaseOptions = {}) {
@@ -1030,6 +1032,15 @@ export class MockDatabase {
     if (options.listenToStorage !== false) {
       this.listenForExternalStorageChanges()
     }
+  }
+
+  setAccountRestricted(userId: string, restricted: boolean): void {
+    if (restricted) this.restrictedUserIds.add(userId)
+    else this.restrictedUserIds.delete(userId)
+  }
+
+  isAccountRestricted(userId: string): boolean {
+    return this.restrictedUserIds.has(userId)
   }
 
   getCurrentUser(): User | null {
@@ -3670,6 +3681,7 @@ export class MockDatabase {
     this.storage.removeItem(ADMIN_CMS_STORAGE_KEY)
     this.storage.removeItem(ADMIN_CMS_MIRROR_STORAGE_KEY)
     this.currentUserId = null
+    this.restrictedUserIds.clear()
     this.useLegacyQuestionSourcesForLearnerProjection = true
     this.resetMemoryToSeed()
   }

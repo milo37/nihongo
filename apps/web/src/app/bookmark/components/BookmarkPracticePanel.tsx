@@ -5,10 +5,12 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import type { BookmarkPracticeGroup } from '@app/bookmark/hooks/useBookmarkPageController'
 import { BOOKMARK_PRACTICE_COUNT } from '@app/bookmark/hooks/useBookmarkPageController'
 
 type BookmarkPracticePanelProps = {
+  accountRestricted: boolean
   formatCount: (value: number) => string
   groups: BookmarkPracticeGroup[]
   hasStartError: boolean
@@ -22,6 +24,7 @@ type BookmarkPracticePanelProps = {
 }
 
 export const BookmarkPracticePanel = ({
+  accountRestricted,
   formatCount,
   groups,
   hasStartError,
@@ -77,6 +80,9 @@ export const BookmarkPracticePanel = ({
           >
             {t('practice.offline')}
           </p>
+        ) : null}
+        {accountRestricted ? (
+          <AccountRestrictedNotice className="mt-5" />
         ) : null}
         {noEligibleQuestions ? (
           <div
