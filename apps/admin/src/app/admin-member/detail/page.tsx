@@ -51,6 +51,14 @@ const FreshAssurance = ({
 }: FreshAssuranceProps): ReactElement => {
   const { t } = useAdminPresentation()
   const { state, recheck } = useIdleLockRecheck(onConfirmed)
+  const confirmButton = useRef<HTMLButtonElement>(null)
+
+  // Keep keyboard and screen reader users on the notice when it appears and
+  // after a failed check, as in the idle lock.
+  useEffect(() => {
+    if (state === 'idle' || state === 'failed' || state === 'expired')
+      confirmButton.current?.focus()
+  }, [state])
   return (
     <div role="alert" className="mt-4 space-y-3 text-sm leading-6">
       <p>{t('members.detail.fresh.required', { command: commandLabel })}</p>
@@ -67,6 +75,7 @@ const FreshAssurance = ({
           {t('idleLock.signInNewTab')}
         </a>
         <Button
+          ref={confirmButton}
           variant="secondary"
           isLoading={state === 'checking'}
           loadingLabel={t('idleLock.checking')}
@@ -93,6 +102,7 @@ const MemberActions = ({
   const [freshConfirmed, setFreshConfirmed] = useState(false)
   const reasonRef = useRef<HTMLTextAreaElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const confirmedRef = useRef<HTMLParagraphElement>(null)
   const restrict = useRestrictAdminMember(member.memberId, () => {
     addToast({ title: t('members.detail.restricted'), variant: 'success' })
     onCompleted()
@@ -111,6 +121,9 @@ const MemberActions = ({
   useEffect(() => {
     if (focusHeading) headingRef.current?.focus()
   }, [focusHeading])
+  useEffect(() => {
+    if (freshConfirmed) confirmedRef.current?.focus()
+  }, [freshConfirmed])
 
   const onRestrict = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
@@ -137,7 +150,12 @@ const MemberActions = ({
   }
 
   const feedback = freshConfirmed ? (
-    <p role="status" className="mt-4 text-sm leading-6">
+    <p
+      ref={confirmedRef}
+      role="status"
+      tabIndex={-1}
+      className="mt-4 rounded-sm text-sm leading-6"
+    >
       {t('members.detail.fresh.confirmed', { command: commandLabel })}
     </p>
   ) : code === 'FRESH_ASSURANCE_REQUIRED' ? (

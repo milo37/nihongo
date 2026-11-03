@@ -164,7 +164,7 @@ export const AdminDataGrid = <TData extends RowData>({
                               ? 'descending'
                               : 'none'
                       }
-                      className={`sticky top-0 whitespace-nowrap border-b border-line bg-surface px-3 py-2 font-semibold ${index === 0 ? 'left-0 z-20' : 'z-10'}`}
+                      className={`sticky top-0 whitespace-nowrap border-b border-line bg-surface px-2 py-2 font-semibold sm:px-3 ${index === 0 ? 'left-0 z-20' : 'z-10'}`}
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
@@ -222,7 +222,7 @@ export const AdminDataGrid = <TData extends RowData>({
                   {row.getVisibleCells().map((cell, index) => (
                     <td
                       key={cell.id}
-                      className={`whitespace-nowrap px-3 py-2 ${index === 0 ? 'sticky left-0 z-[1] bg-surface' : ''}`}
+                      className={`whitespace-nowrap px-2 py-2 sm:px-3 ${index === 0 ? 'sticky left-0 z-[1] bg-surface' : ''}`}
                     >
                       <table.FlexRender cell={cell} />
                     </td>

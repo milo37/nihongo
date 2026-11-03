@@ -164,17 +164,16 @@ it('confirms a restriction and keeps the reason through an in-page re-check when
   })
 
   const alert = await screen.findByRole('alert')
+  const confirm = within(alert).getByRole('button', { name: '본인 확인' })
+  await waitFor(() => expect(confirm).toHaveFocus())
   expect(
     within(alert).getByRole('link', { name: '새 탭에서 로그인' })
   ).toHaveAttribute('target', '_blank')
-  await userEvent.click(
-    within(alert).getByRole('button', { name: '본인 확인' })
+  await userEvent.click(confirm)
+  const confirmed = await screen.findByText(
+    '로그인 상태를 확인했습니다. 새 탭에서 다시 로그인했다면 ‘이용 제한’ 버튼을 다시 눌러 주세요.'
   )
-  expect(
-    await screen.findByText(
-      '본인 확인을 마쳤습니다. ‘이용 제한’ 버튼을 다시 눌러 적용해 주세요.'
-    )
-  ).toBeVisible()
+  await waitFor(() => expect(confirmed).toHaveFocus())
   expect(screen.getByLabelText('제한 사유')).toHaveValue('반복 스팸 제보')
 })
 
