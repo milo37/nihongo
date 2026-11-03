@@ -17,6 +17,10 @@ import {
 import { Hono, type MiddlewareHandler } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
+import {
+  assertAccountNotRestricted,
+  type AccountRestrictionReader
+} from '../account/accountRestriction.js'
 import { appendAdminAuthHeaders } from '../admin/adminReadGuard.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -67,11 +71,13 @@ const noStore = (context: {
 
 /** Learner routes under /api/v1/reports. */
 export const createUserReportRoutes = ({
+  accountRestrictionReader,
   createGuard,
   environment,
   principalService,
   service
 }: {
+  readonly accountRestrictionReader: AccountRestrictionReader
   readonly createGuard: MiddlewareHandler<RouteEnvironment>
   readonly environment: ApiEnvironment
   readonly principalService: PrincipalService
@@ -86,6 +92,10 @@ export const createUserReportRoutes = ({
         createReportRequestSchema.parse(
           await readStrictJsonBody(context.req.raw, REPORT_BODY_CAP)
         )
+    )
+    await assertAccountNotRestricted(
+      accountRestrictionReader,
+      context.get('reporterActorId')
     )
     const response = createReportResponseSchema.parse(
       await service.createReport(context.get('reporterActorId'), request)
