@@ -111,6 +111,10 @@
       "types": "./dist/study/practice-contract.d.ts",
       "import": "./dist/study/practice-contract.js"
     },
+    "./study/canonicalize-study-draft-save": {
+      "types": "./dist/study/canonicalize-study-draft-save.d.ts",
+      "import": "./dist/study/canonicalize-study-draft-save.js"
+    },
     "./study/save-study-draft-answers": {
       "types": "./dist/study/save-study-draft-answers.d.ts",
       "import": "./dist/study/save-study-draft-answers.js"

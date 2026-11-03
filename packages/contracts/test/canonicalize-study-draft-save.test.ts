@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canonicalizeStudyDraftSave } from '../src/study-draft/canonicalize-study-draft-save.js'
+import { canonicalizeStudyDraftSave } from '../src/study/canonicalize-study-draft-save.js'
 
 describe('canonicalizeStudyDraftSave', () => {
   it('orders answers by ordinal, then unknown ids by id, and keeps the v2 byte format', () => {

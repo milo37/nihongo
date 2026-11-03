@@ -15,7 +15,7 @@ import {
   GuestCredentialExpiredError,
   type ExistingStudyOwner
 } from './studySessionRepository.js'
-import { canonicalizeStudyDraftSave } from '@nihongo/domain/study-draft/canonicalize-study-draft-save'
+import { canonicalizeStudyDraftSave } from '@nihongo/contracts/study/canonicalize-study-draft-save'
 import { hashStudyDraftSave } from './studyDraftCanonicalizer.js'
 import {
   IdempotencyKeyReusedError,
