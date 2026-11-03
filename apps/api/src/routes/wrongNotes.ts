@@ -24,18 +24,18 @@ import {
   updateWrongNoteMemoParamsSchema,
   updateWrongNoteMemoResponseSchema
 } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
-import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono, type Context } from 'hono'
 import { z, type ZodError, type ZodIssue } from 'zod'
-import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 interface WrongNoteRouteDependencies {
   environment: ApiEnvironment
@@ -49,40 +49,6 @@ interface WrongNoteRouteDependencies {
 const MEMO_BODY_MAX_BYTES = 32 * 1_024
 
 type WrongNoteRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-
-  return fieldErrors
-}
-
-const appendAuthHeaders = (
-  context: Context<WrongNoteRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-      environment.NODE_ENV === 'production' ? '; Secure' : ''
-    }`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
-}
 
 const requireAuthenticatedUserId = async (
   context: Context<WrongNoteRouteEnvironment>,
@@ -165,27 +131,14 @@ export const createWrongNoteRoutes = ({
   wrongNoteService
 }: WrongNoteRouteDependencies): Hono<WrongNoteRouteEnvironment> => {
   const routes = new Hono<WrongNoteRouteEnvironment>()
-  const clientIpAuthority = createClientIpAuthority(
-    environment.AUTH_TRUSTED_PROXY_CIDRS
+  routes.use(
+    '*',
+    createClientIpMiddleware(environment.AUTH_TRUSTED_PROXY_CIDRS)
   )
-  const resolveClientIp = (
-    context: Context<WrongNoteRouteEnvironment>
-  ): string => {
-    let peerAddress: string | undefined
-    try {
-      peerAddress = getConnInfo(context).remote.address
-    } catch {
-      peerAddress = undefined
-    }
-    return clientIpAuthority.resolve(
-      peerAddress,
-      context.req.header('X-Forwarded-For') ?? null
-    )
-  }
 
   routes.get('/', async (context) => {
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
+      clientIp: context.get('clientIp'),
       operation: 'wrong-note-list',
       windowMs: 60_000,
       max: 120
@@ -221,7 +174,7 @@ export const createWrongNoteRoutes = ({
   if (reviewCenterEnabled) {
     routes.get('/:questionId/memo', async (context) => {
       await rateLimiter.consume({
-        clientIp: resolveClientIp(context),
+        clientIp: context.get('clientIp'),
         operation: 'wrong-note-memo-read',
         windowMs: 60_000,
         max: 120
@@ -269,7 +222,7 @@ export const createWrongNoteRoutes = ({
 
     routes.put('/:questionId/memo', async (context) => {
       await rateLimiter.consume({
-        clientIp: resolveClientIp(context),
+        clientIp: context.get('clientIp'),
         operation: 'wrong-note-memo-write',
         windowMs: 60_000,
         max: 60
@@ -331,7 +284,7 @@ export const createWrongNoteRoutes = ({
 
     routes.get('/:questionId/review-events', async (context) => {
       await rateLimiter.consume({
-        clientIp: resolveClientIp(context),
+        clientIp: context.get('clientIp'),
         operation: 'wrong-note-history',
         windowMs: 60_000,
         max: 120
@@ -383,7 +336,7 @@ export const createWrongNoteRoutes = ({
 
   routes.get('/:questionId', async (context) => {
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
+      clientIp: context.get('clientIp'),
       operation: 'wrong-note-detail',
       windowMs: 60_000,
       max: 120

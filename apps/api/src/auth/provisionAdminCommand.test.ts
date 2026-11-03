@@ -29,6 +29,7 @@ import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
+import { unrestrictedAccountReader } from '../account/accountRestriction.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MockInstance } from 'vitest'
 import { runProvisionAdminCommand } from './provisionAdminCommand.js'
@@ -493,7 +494,12 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       resolveExisting: unexpected
     } satisfies GuestPrincipalService
     const rateLimiter = { consume: vi.fn(async () => undefined) }
-    const common = { environment, principalService, rateLimiter }
+    const common = {
+      accountRestrictionReader: unrestrictedAccountReader,
+      environment,
+      principalService,
+      rateLimiter
+    }
     const create = vi.fn<StudySessionService['create']>().mockResolvedValue({
       payload: session,
       practiceContractVersion: 2,

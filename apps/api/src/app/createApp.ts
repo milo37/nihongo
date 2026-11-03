@@ -78,6 +78,10 @@ import {
   createAdminUserReportRoutes,
   createUserReportRoutes
 } from '../routes/userReports.js'
+import {
+  type AccountRestrictionReader,
+  unrestrictedAccountReader
+} from '../account/accountRestriction.js'
 import type { UserReportService } from '../report/userReportService.js'
 import { createAdminConsoleCommandGuard } from '../admin/adminConsoleCommandGuard.js'
 import { createAdminImportResultRoutes } from '../routes/adminImportResults.js'
@@ -131,6 +135,8 @@ const isPracticeCorsPath = (pathname: string): boolean =>
   TARGETED_REVIEW_PATH_PATTERN.test(pathname)
 
 interface CreateApiAppDependencies {
+  /** #484 restriction lookup; required in production when learner routes are wired. */
+  accountRestrictionReader?: AccountRestrictionReader
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
@@ -400,6 +406,7 @@ export const createApiErrorHandler =
   }
 
 export const createApiApp = ({
+  accountRestrictionReader: configuredAccountRestrictionReader,
   admin,
   auth,
   assertPracticeRuntimeAuthority,
@@ -417,6 +424,19 @@ export const createApiApp = ({
   enableTestRoutes = false
 }: CreateApiAppDependencies): Hono<{ Variables: ApiVariables }> => {
   const app = new Hono<{ Variables: ApiVariables }>()
+  if (
+    configuredAccountRestrictionReader === undefined &&
+    auth?.environment.NODE_ENV === 'production' &&
+    (study !== undefined ||
+      learning?.targetedReviewService !== undefined ||
+      userReports !== undefined)
+  ) {
+    throw new Error(
+      'Production learner routes require an account restriction reader.'
+    )
+  }
+  const accountRestrictionReader =
+    configuredAccountRestrictionReader ?? unrestrictedAccountReader
 
   const technicalAdminEnabled =
     admin !== undefined &&
@@ -599,6 +619,7 @@ export const createApiApp = ({
       app.route(
         '/api/v1/reports',
         createUserReportRoutes({
+          accountRestrictionReader,
           createGuard: createQuestionReportGuard({
             environment: auth.environment,
             principalService: auth.principalService,
@@ -736,6 +757,7 @@ export const createApiApp = ({
       app.route(
         '/api/v1/study-sessions',
         createStudySessionRoutes({
+          accountRestrictionReader,
           environment: auth.environment,
           guestPrincipalService: auth.guestPrincipalService,
           principalService: auth.principalService,
@@ -761,6 +783,7 @@ export const createApiApp = ({
         app.route(
           '/api/v1/study-sessions',
           createStudyResultRetryRoutes({
+            accountRestrictionReader,
             environment: auth.environment,
             guestPrincipalService: auth.guestPrincipalService,
             principalService: auth.principalService,
@@ -830,6 +853,7 @@ export const createApiApp = ({
         app.route(
           '/api/v1/wrong-notes',
           createTargetedReviewSessionRoutes({
+            accountRestrictionReader,
             environment: auth.environment,
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,

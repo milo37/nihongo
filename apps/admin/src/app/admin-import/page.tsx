@@ -23,6 +23,7 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 import {
   useValidateImport,
   useApplyImport,
+  useRecoverImportResult,
   useImportOnline
 } from '@app/admin-import/hooks/useAdminImport'
 import { ImportFileError, readImportFile } from '@app/admin-import/importFile'
@@ -33,6 +34,31 @@ const errorCode = (error: unknown): string | null =>
   typeof error.code === 'string'
     ? error.code
     : null
+
+const flag = (error: unknown, name: string): boolean =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      name in error &&
+      (error as Record<string, unknown>)[name] === true
+  )
+
+const status = (error: unknown): number | null =>
+  error &&
+  typeof error === 'object' &&
+  'status' in error &&
+  typeof error.status === 'number'
+    ? error.status
+    : null
+
+// The request may have committed: the server or a gateway failed (including
+// an unparseable 5xx body), or no response arrived.
+const isUnknownApplyOutcome = (error: unknown): boolean =>
+  flag(error, 'isServerError') ||
+  (status(error) ?? 0) >= 500 ||
+  (flag(error, 'isNetworkError') && !flag(error, 'isOffline'))
+
+type RecoveryState = 'checking' | 'notApplied' | 'failed'
 export const AdminQuestionImportPage = (): ReactElement => {
   const { user, role } = useAuth()
   const epoch = captureAuthTransitionEpoch()
@@ -54,6 +80,8 @@ const ImportPage = ({
   const online = useImportOnline()
   const validation = useValidateImport()
   const applyImport = useApplyImport()
+  const recoverResult = useRecoverImportResult()
+  const [recovery, setRecovery] = useState<RecoveryState | null>(null)
   const [request, setRequest] = useState<ValidateQuestionImportRequest | null>(
     null
   )
@@ -96,6 +124,7 @@ const ImportPage = ({
     const file = event.currentTarget.files?.[0]
     validation.reset()
     applyImport.reset()
+    setRecovery(null)
     setRequest(null)
     setValidated(null)
     setCreatedCount(null)
@@ -131,6 +160,7 @@ const ImportPage = ({
     setValidated(null)
     setCreatedCount(null)
     applyImport.reset()
+    setRecovery(null)
     try {
       const result = await validation.mutateAsync(input)
       if (selectionRevision.current !== revision) return
@@ -165,6 +195,7 @@ const ImportPage = ({
     const digest = validated.result.validationDigest
     const importId = importIds.current.get(digest) ?? crypto.randomUUID()
     importIds.current.set(digest, importId)
+    setRecovery(null)
     try {
       const result = await applyImport.mutateAsync({
         importId,
@@ -179,13 +210,33 @@ const ImportPage = ({
         if (selectionRevision.current === revision) heading.current?.focus()
       })
     } catch (error) {
+      if (selectionRevision.current !== revision) return
       if (
-        selectionRevision.current === revision &&
         ['IMPORT_VALIDATION_FAILED', 'IMPORT_IDENTITY_CONFLICT'].includes(
           errorCode(error) ?? ''
         )
       )
         setValidated(null)
+      else if (isUnknownApplyOutcome(error)) {
+        setRecovery('checking')
+        try {
+          const recovered = await recoverResult(importId)
+          if (selectionRevision.current !== revision) return
+          assertActor()
+          applyImport.reset()
+          setRecovery(null)
+          setCreatedCount(recovered.createdCount)
+          setAppliedDigests((previous) => new Set([...previous, digest]))
+          requestAnimationFrame(() => {
+            if (selectionRevision.current === revision) heading.current?.focus()
+          })
+        } catch (recoveryError) {
+          if (selectionRevision.current !== revision) return
+          setRecovery(
+            flag(recoveryError, 'isNotFoundError') ? 'notApplied' : 'failed'
+          )
+        }
+      }
     } finally {
       operationInFlight.current = false
     }
@@ -310,6 +361,11 @@ const ImportPage = ({
             title={t('import.error')}
             description={presentError(operationError)}
           />
+          {recovery ? (
+            <p role="status" className="mt-4 text-sm leading-7">
+              {t(`import.recovery.${recovery}`)}
+            </p>
+          ) : null}
           {needsFresh ? (
             <>
               <p className="mt-4 text-sm leading-7">

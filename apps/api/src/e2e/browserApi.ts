@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Client } from 'pg'
 import { z } from 'zod'
+import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createApiApp } from '../app/createApp.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
@@ -28,7 +29,7 @@ import { createSsoIdentityFixture } from '../db/fixtures/ssoSession.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
-import { createJsonLogger } from '../observability/logger.js'
+import { createJsonLogger, type LogLevel } from '../observability/logger.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
@@ -184,6 +185,25 @@ const assertTestTarget = (
     throw new Error('BROWSER_TEST_ISOLATED_TEST_SCHEMA_REQUIRED')
   }
   return target
+}
+
+const browserApiLogLevelSchema = z.enum([
+  'debug',
+  'info',
+  'warn',
+  'error',
+  'silent'
+])
+
+/** Opt-in request logs for diagnosing browser runs; silent by default. */
+export const parseBrowserApiLogLevel = (
+  value: string | undefined
+): LogLevel => {
+  const parsed = browserApiLogLevelSchema.safeParse(value ?? 'silent')
+  if (!parsed.success) {
+    throw new Error('BROWSER_API_LOG_LEVEL_INVALID')
+  }
+  return parsed.data
 }
 
 export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
@@ -427,6 +447,9 @@ export const createBrowserApi = async ({
       keySecret: environment.GUEST_COOKIE_SECRET
     })
     const app = createApiApp({
+      accountRestrictionReader: createPrismaAccountRestrictionReader(
+        database.client
+      ),
       userReports: {
         rateLimiter: reportLimiter,
         service: createUserReportService(
@@ -443,7 +466,9 @@ export const createBrowserApi = async ({
       },
       assertPracticeRuntimeAuthority: practice.assertRequestAuthority,
       checkReadiness: practice.checkReadiness,
-      logger: createJsonLogger('silent'),
+      logger: createJsonLogger(
+        parseBrowserApiLogLevel(source.BROWSER_API_LOG_LEVEL)
+      ),
       ...(environment.RELEASE_ID ? { releaseId: environment.RELEASE_ID } : {}),
       questionReader: createQuestionService(
         createPrismaQuestionRepository(database.client, {

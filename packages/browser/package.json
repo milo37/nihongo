@@ -7,6 +7,7 @@
     "./src/styles.css"
   ],
   "exports": {
+    "./api/admin-import-result/index": "./src/api/admin-import-result/index.ts",
     "./api/admin-member/index": "./src/api/admin-member/index.ts",
     "./api/admin-report/index": "./src/api/admin-report/index.ts",
     "./api/admin-question/createAdminQuestion/index": "./src/api/admin-question/createAdminQuestion/index.ts",
