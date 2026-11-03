@@ -1,7 +1,7 @@
 import {
   studyAnswerInputSchema,
   studyResultSchema
-} from '@nihongo/browser/api/schema'
+} from '@nihongo/contracts/legacy/browser-schema'
 import { z } from 'zod'
 
 export const submitStudySessionParamsSchema = z
