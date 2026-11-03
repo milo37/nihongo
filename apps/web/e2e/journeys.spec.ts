@@ -128,7 +128,7 @@ for (const locale of ['ko', 'ja'] as const) {
         if (!state) throw new Error('Google TEST authorization omitted state.')
         const callback = `/api/auth/callback/google?${new URLSearchParams({
           state,
-          code: 'phase7-sso-browser-test-code'
+          code: 'sso-browser-test-code'
         })}`
         const accepted = await page.evaluate(async (path) => {
           try {
@@ -499,7 +499,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         const state = new URL(redirected.url()).searchParams.get('state')
         if (!state) throw new Error('Google TEST authorization omitted state.')
         await page.goto(
-          `/api/auth/callback/google?${new URLSearchParams({ state, code: 'phase7-sso-browser-test-code' })}`
+          `/api/auth/callback/google?${new URLSearchParams({ state, code: 'sso-browser-test-code' })}`
         )
       }
     }

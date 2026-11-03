@@ -184,7 +184,7 @@ afterEach(async () => {
   rmSync(taskTemp, { recursive: true, force: true })
 })
 
-describe('Phase10 parent common preparation ownership without a database', () => {
+describe('Parent common preparation ownership without a database', () => {
   it.each(signals)(
     '%s stops in-flight prep and prevents the next prep/shard',
     async (signal) => {
@@ -273,7 +273,7 @@ describe('Phase10 parent common preparation ownership without a database', () =>
   })
 })
 
-describe('Phase10 partial database preparation cleanup without a database', () => {
+describe('Partial database preparation cleanup without a database', () => {
   it.each([false, true])(
     'cleans a failed preparation and preserves nonzero failure (cleanupFails=%s)',
     async (cleanupFails) => {

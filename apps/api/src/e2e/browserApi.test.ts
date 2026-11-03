@@ -57,8 +57,8 @@ const source = (): NodeJS.ProcessEnv => ({
   AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login'),
   PRODUCTION_DATABASE_URL:
     'postgresql://production:unused@production.example.invalid/production',
-  BETTER_AUTH_SECRET: 'phase9-unit-auth-secret-at-least-32-characters',
-  GUEST_COOKIE_SECRET: 'phase9-unit-guest-secret-at-least-32-characters'
+  BETTER_AUTH_SECRET: 'a'.repeat(32),
+  GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
 const ownerUrl = url('phase9_test_owner')
 const makeIdentities = () =>
@@ -76,7 +76,7 @@ const makeIdentities = () =>
           userId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
           role,
           targetLevel,
-          callbackCode: `phase7-test-google-${code}`
+          callbackCode: `test-google-${code}`
         },
         identity: {
           provider: 'google',
@@ -116,7 +116,7 @@ beforeEach(() => {
   })
 })
 
-describe('Phase9 isolated TEST SSO bootstrap', () => {
+describe('Isolated TEST SSO bootstrap', () => {
   it('imports without listening or opening a database connection', () => {
     expect(serve).not.toHaveBeenCalled()
     expect(pg.connect).not.toHaveBeenCalled()
@@ -202,7 +202,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     const identities = makeIdentities()
     const provider = createGoogleTestProvider(source(), identities)
     const input = {
-      code: 'phase7-test-google-author',
+      code: 'test-google-author',
       nonce: 'n'.repeat(43),
       codeVerifier: 'v'.repeat(86)
     }
@@ -211,12 +211,12 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     expect(identity).not.toHaveProperty('role')
     expect(identity).not.toHaveProperty('token')
     expect(
-      await provider.exchange({ ...input, code: 'phase7-test-google-learner' })
+      await provider.exchange({ ...input, code: 'test-google-learner' })
     ).toEqual(identities.learner!.identity)
     for (const code of [
       '',
       'unknown',
-      'phase7-test-google-author-extra',
+      'test-google-author-extra',
       'PHASE7-TEST-GOOGLE-AUTHOR',
       '__proto__'
     ]) {
@@ -237,7 +237,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     const value = makeIdentities()
     if (kind === 'role') value.learner!.actor.role = 'ADMIN'
     if (kind === 'callbackCode')
-      value.learner!.actor.callbackCode = 'phase7-test-google-author'
+      value.learner!.actor.callbackCode = 'test-google-author'
     if (kind === 'duplicate-user')
       value.learner!.actor.userId = value.author!.actor.userId
     if (kind === 'duplicate-subject')

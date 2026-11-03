@@ -67,15 +67,15 @@ const readFixture = () => {
     .object({
       author: actorSchema.extend({
         role: z.literal('ADMIN'),
-        callbackCode: z.literal('phase7-test-google-author')
+        callbackCode: z.literal('test-google-author')
       }),
       reviewer: actorSchema.extend({
         role: z.literal('ADMIN'),
-        callbackCode: z.literal('phase7-test-google-reviewer')
+        callbackCode: z.literal('test-google-reviewer')
       }),
       learner: actorSchema.extend({
         role: z.literal('USER'),
-        callbackCode: z.literal('phase7-test-google-learner')
+        callbackCode: z.literal('test-google-learner')
       })
     })
     .parse(JSON.parse(process.env.ADMIN_BROWSER_FIXTURE ?? 'null') as unknown)

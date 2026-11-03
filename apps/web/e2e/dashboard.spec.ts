@@ -71,7 +71,7 @@ const insightsActorSchema = z
     userId: z.string().uuid(),
     role: z.literal('USER'),
     targetLevel: z.literal('N2'),
-    callbackCode: z.literal('phase7-test-google-insightsLearner')
+    callbackCode: z.literal('test-google-insightsLearner')
   })
   .strict()
 

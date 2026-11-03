@@ -73,27 +73,27 @@ const actors = {
   author: {
     role: 'ADMIN',
     targetLevel: 'N3',
-    callbackCode: 'phase7-test-google-author'
+    callbackCode: 'test-google-author'
   },
   reviewer: {
     role: 'ADMIN',
     targetLevel: 'N3',
-    callbackCode: 'phase7-test-google-reviewer'
+    callbackCode: 'test-google-reviewer'
   },
   learner: {
     role: 'USER',
     targetLevel: 'N3',
-    callbackCode: 'phase7-test-google-learner'
+    callbackCode: 'test-google-learner'
   },
   insightsLearner: {
     role: 'USER',
     targetLevel: 'N2',
-    callbackCode: 'phase7-test-google-insights'
+    callbackCode: 'test-google-insights'
   },
   journeyLearner: {
     role: 'USER',
     targetLevel: 'N5',
-    callbackCode: 'phase7-test-google-journey'
+    callbackCode: 'test-google-journey'
   }
 } as const
 const actorKeys = [
@@ -340,8 +340,8 @@ export const createGoogleTestProvider = (
     ])
   )
   const google = createGoogleSsoProvider({
-    clientId: 'phase9-browser-test-client',
-    clientSecret: 'phase9-browser-unused-test-secret',
+    clientId: 'browser-test-client',
+    clientSecret: 'browser-unused-test-secret',
     callbackURL: new URL(
       '/api/auth/callback/google',
       environment.BETTER_AUTH_URL

@@ -680,7 +680,7 @@ const createSsoBrowserApiFixture = async (
       ['journeyLearner', 'USER', 'N5']
     ] as const) {
       const userId = randomUUID()
-      const callbackCode = `phase7-test-google-${actor}`
+      const callbackCode = `test-google-${actor}`
       const name = `SSO ${actor}`
       fixture[actor] = Object.freeze({
         userId,
@@ -699,13 +699,13 @@ const createSsoBrowserApiFixture = async (
   }
   const expectedIdentity = Object.freeze({
     provider: 'google' as const,
-    accountId: 'phase7-sso-browser-google-subject',
-    email: 'phase7-sso-browser@example.test',
+    accountId: 'sso-browser-google-subject',
+    email: 'sso-browser@example.test',
     name: 'SSO browser learner'
   })
   const authorizationProvider = createGoogleSsoProvider({
-    clientId: 'phase7-sso-browser-test-client',
-    clientSecret: 'phase7-sso-browser-unused-test-secret',
+    clientId: 'sso-browser-test-client',
+    clientSecret: 'sso-browser-unused-test-secret',
     callbackURL: new URL(
       '/api/auth/callback/google',
       environment.BETTER_AUTH_URL
@@ -718,7 +718,7 @@ const createSsoBrowserApiFixture = async (
       if (cms) return identities.get(code) ?? null
       if (!isolateSignIns) return { ...expectedIdentity }
       if (
-        code !== 'phase7-sso-browser-test-code' ||
+        code !== 'sso-browser-test-code' ||
         !/^[A-Za-z0-9_-]{43}$/u.test(nonce)
       )
         return null

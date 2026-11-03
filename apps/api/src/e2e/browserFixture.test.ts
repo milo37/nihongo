@@ -82,8 +82,8 @@ const options = (cms: 'disabled' | 'technical' = 'technical') => {
       AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl,
       BETTER_AUTH_URL: 'http://127.0.0.1:4100',
       TRUSTED_ORIGINS: 'http://127.0.0.1:4200',
-      BETTER_AUTH_SECRET: 'phase7-fixture-test-only-secret-123456',
-      GUEST_COOKIE_SECRET: 'phase7-fixture-guest-only-secret-123456'
+      BETTER_AUTH_SECRET: 'a'.repeat(32),
+      GUEST_COOKIE_SECRET: 'b'.repeat(32)
     })
   }
 }
@@ -297,7 +297,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
       )
     ).toBe(false)
     for (const actor of actors) {
-      expect(actor.callbackCode).toMatch(/^phase7-test-google-/u)
+      expect(actor.callbackCode).toMatch(/^test-google-/u)
       expect(Object.keys(actor).sort()).toEqual([
         'callbackCode',
         'role',
@@ -345,7 +345,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
       'ADMIN',
       '__proto__',
       'constructor',
-      'phase7-test-google-author-extra'
+      'test-google-author-extra'
     ])
       expect(await exchange(code)).toBeNull()
     await created.disconnect()
@@ -400,7 +400,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   it('keeps the existing stable actor when sign-in isolation is not selected', async () => {
     const created = await createSsoBrowserApiTestFixture(options('disabled'))
     const input = {
-      code: 'phase7-sso-browser-test-code',
+      code: 'sso-browser-test-code',
       nonce: 'n'.repeat(43),
       codeVerifier: 'v'.repeat(86)
     }
@@ -416,7 +416,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
       isolateSignIns: true
     })
     const input = {
-      code: 'phase7-sso-browser-test-code',
+      code: 'sso-browser-test-code',
       nonce: 'n'.repeat(43),
       codeVerifier: 'v'.repeat(86)
     }

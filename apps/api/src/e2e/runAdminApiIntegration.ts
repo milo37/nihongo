@@ -1293,8 +1293,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
       TRUSTED_ORIGINS: webOrigin,
       BETTER_AUTH_URL: apiOrigin,
-      BETTER_AUTH_SECRET: 'phase7-sso-browser-auth-test-only-secret-v1',
-      GUEST_COOKIE_SECRET: 'phase7-sso-browser-guest-test-only-secret-v1',
+      BETTER_AUTH_SECRET: 'a'.repeat(32),
+      GUEST_COOKIE_SECRET: 'b'.repeat(32),
       LOG_LEVEL: 'silent'
     })
     controller.signal.throwIfAborted()
