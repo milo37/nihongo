@@ -273,7 +273,7 @@ const ReportDetail = ({
                       : undefined
                   }
                   rows={4}
-                  maxLength={2000}
+                  maxLength={1000}
                   disabled={pending}
                   value={reply}
                   onChange={(event) => {

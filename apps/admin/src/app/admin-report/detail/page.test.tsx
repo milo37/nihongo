@@ -89,6 +89,12 @@ it('shows the content card, location, target question and process panel', async 
   expect(
     within(process()).getByLabelText('내부 메모')
   ).toHaveAccessibleDescription(/제보자에게 보이지 않습니다/u)
+  // Both fields match the contract's 1,000-character cap.
+  for (const label of ['제보자에게 보낼 답변', '내부 메모'])
+    expect(within(process()).getByLabelText(label)).toHaveAttribute(
+      'maxLength',
+      '1000'
+    )
   expect(
     screen.getByRole('link', { name: '대상 문항 새 버전 만들기' })
   ).toHaveAttribute('href', `/admin/questions/${questionId}/edit`)
@@ -228,6 +234,10 @@ it('restores my draft into the memo field only when I ask', async () => {
     within(process()).getByRole('button', { name: '메모만 저장' })
   )
   await waitFor(() => expect(memo).toHaveValue('다른 관리자 메모'))
+  // The conflict alert takes focus on the next frame, before any user click.
+  await waitFor(() =>
+    expect(within(process()).getByRole('alert')).toHaveFocus()
+  )
   await user.click(
     within(process()).getByRole('button', { name: '내 메모 다시 넣기' })
   )
