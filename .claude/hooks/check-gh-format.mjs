@@ -2,25 +2,46 @@
 // PreToolUse(Bash) hook: block `gh issue create` / `gh pr create` that skip the repository templates.
 // Exit 2 sends the message back to Claude so it can fix the title/body and retry.
 import { readFileSync } from 'node:fs'
+import process from 'node:process'
 
 const input = JSON.parse(readFileSync(0, 'utf8'))
 const command = input.tool_input?.command ?? ''
-const isIssue = /\bgh\s+issue\s+create\b/.test(command)
-const isPr = /\bgh\s+pr\s+create\b/.test(command)
+// Only a `gh` invocation in command position counts (start, after `&&` `||` `;` `|` `(` or a
+// newline, optionally after `VAR=value` prefixes), so `grep 'gh pr create' …` passes through.
+const ghCreate = (kind) =>
+  new RegExp(
+    `(?:^|&&|\\|\\||[;|(\\n])\\s*(?:[A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)*gh\\s+${kind}\\s+create\\b`
+  ).test(command)
+const isIssue = ghCreate('issue')
+const isPr = ghCreate('pr')
 if (!isIssue && !isPr) process.exit(0)
 
-const bodyFile = command.match(/--body-file[=\s]+("([^"]+)"|'([^']+)'|(\S+))/)
+const quotedPath = `("([^"]+)"|'([^']+)'|([^\\s;&|)]+))`
+const pathOf = (match) => match && (match[2] ?? match[3] ?? match[4])
+const bodyFile = command.match(new RegExp(`--body-file[=\\s]+${quotedPath}`))
 let text = command
 if (bodyFile) {
-  const path = bodyFile[2] ?? bodyFile[3] ?? bodyFile[4]
-  try {
-    text += '\n' + readFileSync(path, 'utf8')
-  } catch {
-    // Unreadable body file: check the command text only.
+  let path = pathOf(bodyFile)
+  // `--body-file -` reads stdin: a heredoc is already in the command text; otherwise follow
+  // `< file` or `cat file |`.
+  if (path === '-')
+    path =
+      pathOf(command.match(new RegExp(`(?:^|\\s)<(?!<)\\s*${quotedPath}`))) ??
+      pathOf(command.match(new RegExp(`\\bcat\\s+${quotedPath}\\s*\\|`)))
+  if (path) {
+    try {
+      text += '\n' + readFileSync(path, 'utf8')
+    } catch {
+      // Unreadable body file: check the command text only.
+    }
   }
 }
-const title = command.match(/(?:--title|-t)[=\s]+("([^"]*)"|'([^']*)')/)
-const titleText = title ? (title[2] ?? title[3] ?? '') : ''
+const title = command.match(
+  /(?:^|\s)(?:--title|-t)[=\s]+("((?:[^"\\]|\\.)*)"|'([^']*)')/
+)
+const titleText = title
+  ? (title[2]?.replace(/\\(.)/g, '$1') ?? title[3] ?? '')
+  : ''
 
 const problems = []
 if (isPr) {
@@ -35,7 +56,7 @@ if (isPr) {
       problems.push(`PR 본문에 \`${h}\` 항목이 필요합니다.`)
   if (
     /\b(Closes|Fixes|Resolves) #\d+/i.test(text) &&
-    !/--base[=\s]+main\b/.test(command)
+    !/(?:--base|-B)[=\s]+main\b/.test(command)
   )
     problems.push(
       'dev 대상 PR에는 Closes/Fixes를 쓰지 않습니다. `Refs #번호`를 씁니다.'
@@ -59,11 +80,11 @@ if (isIssue) {
 }
 
 if (problems.length) {
-  console.error(
+  process.stderr.write(
     [
       'GitHub 템플릿 형식이 아닙니다 (.github/ISSUE_TEMPLATE, .github/pull_request_template.md):',
       ...problems.map((p) => `- ${p}`)
-    ].join('\n')
+    ].join('\n') + '\n'
   )
   process.exit(2)
 }
