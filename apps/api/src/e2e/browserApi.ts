@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { Client } from 'pg'
 import { z } from 'zod'
+import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createApiApp } from '../app/createApp.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
@@ -427,6 +428,9 @@ export const createBrowserApi = async ({
       keySecret: environment.GUEST_COOKIE_SECRET
     })
     const app = createApiApp({
+      accountRestrictionReader: createPrismaAccountRestrictionReader(
+        database.client
+      ),
       userReports: {
         rateLimiter: reportLimiter,
         service: createUserReportService(

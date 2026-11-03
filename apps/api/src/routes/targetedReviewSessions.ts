@@ -10,6 +10,10 @@ import {
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono, type Context } from 'hono'
 import { z, type ZodError } from 'zod'
+import {
+  assertAccountNotRestricted,
+  type AccountRestrictionReader
+} from '../account/accountRestriction.js'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -20,6 +24,7 @@ import type { ApiVariables } from '../middleware/requestContext.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 
 interface TargetedReviewSessionRouteDependencies {
+  accountRestrictionReader: AccountRestrictionReader
   readonly environment: ApiEnvironment
   readonly principalService: PrincipalService
   readonly rateLimiter: ApplicationRateLimiter
@@ -74,6 +79,7 @@ const appendAuthHeaders = (
 }
 
 export const createTargetedReviewSessionRoutes = ({
+  accountRestrictionReader,
   environment,
   principalService,
   rateLimiter,
@@ -190,6 +196,11 @@ export const createTargetedReviewSessionRoutes = ({
         retryable: false
       })
     }
+
+    await assertAccountNotRestricted(
+      accountRestrictionReader,
+      resolution.user.id
+    )
 
     const created = await targetedReviewService.createTargetedReviewSession(
       resolution.user.id,
