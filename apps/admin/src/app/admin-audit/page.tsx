@@ -5,7 +5,6 @@ import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Icon } from '@nihongo/browser/common/components/Icon'
-import { AdminNavigation } from '@app/admin/components/AdminNavigation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminAuditLog } from '@app/admin-audit/hooks/useAdminAuditLog'
 
@@ -39,7 +38,6 @@ export const AdminAuditLogPage = (): ReactElement => {
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <AdminNavigation />
       <header className="border-b border-line pb-8">
         <h1
           ref={headingRef}

@@ -3,8 +3,103 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  grid: {
+    columns: '表示する列',
+    pageSize: '1ページの行数',
+    pageStatus: '{{page}} / {{pageCount}}ページ · 全{{total}}件',
+    previous: '前へ',
+    next: '次へ'
+  },
+  nav: {
+    brand: '하루마루 管理',
+    questions: '問題',
+    import: 'インポート',
+    members: '会員',
+    reports: 'バグレポート',
+    auditLog: '監査履歴'
+  },
+  members: {
+    title: '会員',
+    description:
+      '会員の学習状況と利用状態を確認し、必要に応じて利用を制限します。メールアドレスは一部を隠して表示します。',
+    gridLabel: '会員一覧',
+    loading: '会員情報を読み込んでいます。',
+    loadError: '会員一覧を読み込めませんでした',
+    empty: 'まだ会員がいません。',
+    noMatch: 'このメールアドレスで登録した会員はいません。',
+    never: '学習記録なし',
+    openDetail: '詳細',
+    search: {
+      label: 'メールアドレスで検索',
+      hint: 'メールアドレス全体を正確に入力してください。',
+      submit: '検索',
+      clear: '検索を解除',
+      invalid: '正しいメールアドレスを入力してください。'
+    },
+    columns: {
+      memberId: '会員ID',
+      email: 'メールアドレス',
+      joinedAt: '登録日',
+      lastStudiedAt: '最近の学習',
+      solvedCount: '解いた問題',
+      reportCount: '報告',
+      status: '状態',
+      actions: '詳細・対応'
+    },
+    status: { ACTIVE: '利用中', RESTRICTED: '利用制限' },
+    detail: {
+      title: '会員詳細',
+      back: '会員一覧へ',
+      loadError: '会員情報を読み込めませんでした',
+      restrictedAt: '制限日時',
+      restrictTitle: '利用制限',
+      restrictHint:
+        '制限すると新しい学習・復習の開始と新しい報告ができなくなります。ログインと記録の閲覧は引き続き使えます。',
+      reason: '制限理由',
+      reasonHint: '{{max}}文字以内で入力してください。監査履歴に残ります。',
+      reasonRequired: '制限理由を1〜{{max}}文字で入力してください。',
+      restrict: '利用を制限',
+      restricting: '制限しています…',
+      restricted: '利用を制限しました。',
+      releaseTitle: '制限解除',
+      releaseHint: '解除するとすぐに学習と報告ができるようになります。',
+      release: '制限を解除',
+      releasing: '解除しています…',
+      released: '利用制限を解除しました。',
+      fresh: {
+        required:
+          'セキュリティのため管理者の本人確認が必要です。新しいタブで本人確認を済ませてから、ここで確認完了を押してください。入力内容はそのまま残り、「{{command}}」はまだ適用されていません。',
+        openNewTab: '新しいタブで本人確認',
+        confirm: '確認完了',
+        confirmed:
+          '本人確認が完了しました。もう一度「{{command}}」を押して適用してください。',
+        failed: '本人確認が完了しなかったため、適用していません。'
+      },
+      confirm: {
+        title: '利用を制限しますか？',
+        description: '次の会員にすぐ適用されます。',
+        preserved: '学習記録と送信済みの報告は削除されません。',
+        cancel: 'キャンセル',
+        apply: '制限を適用'
+      },
+      reload: '最新情報を再読み込み'
+    }
+  },
+  idleLock: {
+    title: '15分間使用がなかったためロックしました',
+    description: '入力した内容はそのまま残っています。',
+    recheck: 'もう一度確認',
+    checking: '確認中…',
+    failed: '本人確認が完了しませんでした。もう一度お試しください。',
+    expired:
+      'ログインが終了しました。入力した内容はこの画面にそのまま残っています。新しいタブでもう一度ログインしてから、この画面に戻って「もう一度確認」を押してください。',
+    signInNewTab: '新しいタブでログイン'
+  },
   common: {
     breadcrumbLabel: '現在位置',
+    menuLabel: '管理メニュー',
+    wideScreenRecommended:
+      'この作業は広い画面で行うことをおすすめします。スマートフォンでも続けられます。',
     questions: '問題管理',
     questionDetail: '問題詳細',
     newQuestion: '新しい問題',
@@ -76,7 +171,8 @@ export const jaAdminResources = {
       UPDATED_DESC: '更新が新しい順',
       CREATED_DESC: '作成が新しい順',
       LEVEL_ASC: 'レベル順',
-      REPORT_COUNT_DESC: '報告が多い順'
+      REPORT_COUNT_DESC: '報告が多い順',
+      CREATED_ASC: '古い順'
     },
     reportSort: {
       UPDATED_DESC: '更新が新しい順',

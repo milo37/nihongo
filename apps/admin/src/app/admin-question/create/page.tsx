@@ -9,6 +9,7 @@ import {
 import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import { useCreateAdminQuestion } from '@app/admin-question/hooks/useCreateAdminQuestion'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
@@ -72,6 +73,7 @@ export const CreateAdminQuestionPage = (): ReactElement => {
           {t('create.page.description')}
         </p>
       </header>
+      <WideScreenNotice />
 
       <QuestionForm
         cancelHref={returnPath}

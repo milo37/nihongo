@@ -183,6 +183,8 @@ export const validateQuestionImportRequestSchema = z
   .strict()
 export const applyQuestionImportRequestSchema = z
   .object({
+    /** Client generated. Same id + same body replays the stored result. */
+    importId: opaqueIdSchema,
     validationDigest: sha256HexSchema,
     items: adminImportItemsSchema
   })
@@ -1062,3 +1064,13 @@ export type TriageAdminQuestionReportError = z.output<
 export type ResolveAdminQuestionReportError = z.output<
   typeof resolveAdminQuestionReportErrorSchema
 >
+
+export const getAdminImportResultOperationId =
+  'admin.getAdminImportResult' as const
+
+/** GET /admin/question-imports/:importId recovers a lost apply response. */
+export const getAdminImportResultParamsSchema = z
+  .object({ importId: opaqueIdSchema })
+  .strict()
+
+export const getAdminImportResultResponseSchema = adminImportApplyResponseSchema

@@ -105,7 +105,7 @@ it('registers the approved list, makes the canonical read, and never displays de
     body: undefined
   })
   expect(screen.queryByText(detail.description!)).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '신고 큐' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: '버그 리포트' })).toHaveAttribute(
     'aria-current',
     'page'
   )
@@ -156,7 +156,14 @@ it.each(['GUEST', 'USER'])(
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
     route()
-    await waitFor(() => expect(replace).toHaveBeenCalled())
+    if (role === 'GUEST') {
+      await waitFor(() => expect(replace).toHaveBeenCalled())
+    } else {
+      expect(
+        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+      ).toBeVisible()
+      expect(replace).not.toHaveBeenCalled()
+    }
     expect(read).not.toHaveBeenCalled()
     expect(
       screen.queryByRole('heading', { name: '문제 신고 큐' })

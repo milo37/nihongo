@@ -213,6 +213,12 @@ const SLICE_5_LEARNER_REPORT_PATHS = [
   }
 ] as const
 
+// Operations console endpoints (#484) stay outside the frozen content
+// operation manifest and are gated by this list.
+const ADMIN_CONSOLE_READ_PATHS = [
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/activity-log$/u }
+] as const
+
 const ACTIVE_ADMIN_COMMAND_PATHS = [
   ...SLICE_3A_ADMIN_COMMAND_PATHS,
   ...SLICE_3R_A2_APPROVAL_COMMAND_PATHS,
@@ -437,6 +443,11 @@ const isCanonicalRequestForPaths = (
     ({ method, pattern }) => method === input.method && pattern.test(pathname)
   )
 }
+
+export const isCanonicalAdminConsoleReadRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, ADMIN_CONSOLE_READ_PATHS)
 
 export const isCanonicalPhase7Slice3ACommandRequest = (input: {
   method: string

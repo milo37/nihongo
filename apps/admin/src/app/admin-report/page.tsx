@@ -13,7 +13,6 @@ import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
-import { AdminNavigation } from '@app/admin/components/AdminNavigation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminReportsList } from '@app/admin-report/hooks/useAdminReportQueries'
 import {
@@ -87,7 +86,6 @@ export const AdminReportsPage = (): ReactElement => {
   const data = reports.data
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <AdminNavigation />
       <header className="pb-8">
         <h1
           ref={heading}

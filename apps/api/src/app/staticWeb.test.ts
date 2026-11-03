@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import { installStaticWeb } from './staticWeb.js'
 
@@ -156,6 +157,49 @@ describe('separate protected admin static assets', () => {
       expect(await response.text()).toBe('NOT_FOUND')
     }
   )
+
+  it.each([
+    'AUTHENTICATION_REQUIRED',
+    'AUTH_SESSION_EXPIRED',
+    'ADMIN_REQUIRED'
+  ] as const)(
+    'hides admin pages and assets as a plain 404 when the guard throws %s',
+    async (code) => {
+      const guard: MiddlewareHandler<StaticEnvironment> = async () => {
+        throw new ApplicationError({
+          code,
+          message: 'denied',
+          retryable: false
+        })
+      }
+      const { app } = server({ guard })
+      for (const path of ['/admin', '/admin/members', '/admin/assets/app.js']) {
+        const response = await app.request(path)
+        expect(response.status).toBe(404)
+        expect(await response.text()).toBe('NOT_FOUND')
+      }
+    }
+  )
+
+  it('keeps other admin guard failures visible', async () => {
+    const guard: MiddlewareHandler<StaticEnvironment> = async () => {
+      throw new ApplicationError({
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'unavailable',
+        retryable: true
+      })
+    }
+    const { app } = server({ guard })
+    app.onError((error, context) =>
+      context.text(
+        error instanceof ApplicationError ? error.code : 'OTHER',
+        503
+      )
+    )
+    const response = await app.request('/admin')
+    expect(response.status).toBe(503)
+    expect(await response.text()).toBe('SERVICE_UNAVAILABLE')
+  })
 
   it('checks current authorization again for HEAD, range and conditional asset requests', async () => {
     let permitted = true

@@ -55,6 +55,7 @@ import {
   type AdminQuestionSummary,
   type AdminQuestionVersionSummary
 } from './content-model.js'
+import { questionReviewStageSchema } from './review.js'
 import { createPhase7OperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
@@ -136,6 +137,7 @@ export const listAdminQuestionsQuerySchema = z
     difficulty: questionDifficultySchema.optional(),
     lifecycleStatus: questionLifecycleStatusSchema.optional(),
     versionStatus: questionVersionStatusSchema.optional(),
+    reviewStage: questionReviewStageSchema.optional(),
     tag: phase7TagKeySchema.optional(),
     authorActorId: opaqueIdSchema.optional(),
     reviewerActorId: opaqueIdSchema.optional(),
@@ -1071,6 +1073,11 @@ const compareAdminQuestionItems = (
         compareUnicodeScalars(right.createdAt, left.createdAt) ||
         compareUnicodeScalars(right.questionId, left.questionId)
       )
+    case 'CREATED_ASC':
+      return (
+        compareUnicodeScalars(left.createdAt, right.createdAt) ||
+        compareUnicodeScalars(left.questionId, right.questionId)
+      )
     case 'LEVEL_ASC':
       return (
         jlptLevelSchema.options.indexOf(left.level) -
@@ -1121,7 +1128,9 @@ export const assertListAdminQuestionsForRequest = (
       (request.lifecycleStatus !== undefined &&
         item.lifecycleStatus !== request.lifecycleStatus) ||
       (request.versionStatus !== undefined &&
-        item.versionStatus !== request.versionStatus)
+        item.versionStatus !== request.versionStatus) ||
+      (request.reviewStage !== undefined &&
+        item.reviewStage !== request.reviewStage)
     ) {
       throw new Error(
         'question item이 taxonomy/status filter를 만족하지 않습니다.'

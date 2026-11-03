@@ -415,7 +415,14 @@ it.each(['GUEST', 'USER'])(
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
     route()
-    await waitFor(() => expect(replace).toHaveBeenCalled())
+    if (role === 'GUEST') {
+      await waitFor(() => expect(replace).toHaveBeenCalled())
+    } else {
+      expect(
+        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+      ).toBeVisible()
+      expect(replace).not.toHaveBeenCalled()
+    }
     expect(endpoint).not.toHaveBeenCalled()
   }
 )
@@ -427,9 +434,13 @@ it('connects the existing list entry and preserves its current create/edit targe
     pageSize: 20
   })
   route('/admin/questions?level=N3&page=1')
-  expect(
-    await screen.findByRole('link', { name: t('common.import') })
-  ).toHaveAttribute('href', '/admin/questions/import')
+  const importLinks = await screen.findAllByRole('link', {
+    name: t('common.import')
+  })
+  expect(importLinks).toHaveLength(2)
+  importLinks.forEach((link) =>
+    expect(link).toHaveAttribute('href', '/admin/questions/import')
+  )
   expect(
     await screen.findByRole('link', { name: questionId + ' 문제 수정' })
   ).toHaveAttribute(

@@ -7,6 +7,51 @@ import type { PrismaClient } from '../generated/prisma/client.js'
 import { createSessionCookie, readSessionToken } from './sessionCookie.js'
 
 const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
+export const ADMIN_SESSION_ABSOLUTE_TTL_MS = 8 * 60 * 60 * 1_000
+
+const getAdminSessionExpiresAt = (sessionCreatedAt: Date): Date =>
+  new Date(sessionCreatedAt.getTime() + ADMIN_SESSION_ABSOLUTE_TTL_MS)
+
+// An ADMIN session ends 8 hours after sign-in regardless of activity.
+const isAdminSessionOverLimit = (
+  role: 'USER' | 'ADMIN',
+  sessionCreatedAt: Date,
+  now: Date
+): boolean =>
+  role === 'ADMIN' &&
+  now.getTime() >= getAdminSessionExpiresAt(sessionCreatedAt).getTime()
+
+// Freshness also requires the session itself to be under 5 minutes old, so the
+// window always ends at session creation + 5 minutes.
+export const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
+
+const toAuthenticatedUser = (
+  user: {
+    id: string
+    name: string
+    role: 'USER' | 'ADMIN'
+    targetLevel: AuthenticatedUser['targetLevel']
+  },
+  sessionCreatedAt: Date,
+  isFresh = false
+): AuthenticatedUser =>
+  authenticatedUserSchema.parse({
+    id: user.id,
+    name: user.name,
+    role: user.role,
+    targetLevel: user.targetLevel,
+    ...(user.role === 'ADMIN'
+      ? {
+          adminSessionExpiresAt:
+            getAdminSessionExpiresAt(sessionCreatedAt).toISOString(),
+          adminFreshUntil: isFresh
+            ? new Date(
+                sessionCreatedAt.getTime() + ADMIN_FRESH_WINDOW_MS
+              ).toISOString()
+            : null
+        }
+      : {})
+  })
 const authSessionSchema = z
   .object({
     session: z.object({
@@ -103,7 +148,15 @@ export const createPrincipalService = ({
         }
       })
 
-      if (!user || user.accountStatus !== 'ACTIVE') {
+      if (
+        !user ||
+        user.accountStatus !== 'ACTIVE' ||
+        isAdminSessionOverLimit(
+          user.role,
+          parsedSession.data.session.createdAt,
+          now()
+        )
+      ) {
         await client.session.deleteMany({
           where: { id: parsedSession.data.session.id }
         })
@@ -117,12 +170,7 @@ export const createPrincipalService = ({
       return {
         clearSessionCookie: false,
         headers: sessionResult.headers,
-        user: authenticatedUserSchema.parse({
-          id: user.id,
-          name: user.name,
-          role: user.role,
-          targetLevel: user.targetLevel
-        })
+        user: toAuthenticatedUser(user, parsedSession.data.session.createdAt)
       }
     }
 
@@ -160,11 +208,13 @@ interface AdminAuthorityFailureRow {
 export const createPhase7PrincipalService = ({
   client,
   isProduction,
+  now = () => new Date(),
   refreshClient,
   secret
 }: {
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   isProduction: boolean
+  now?: () => Date
   refreshClient: Pick<PrismaClient, '$queryRawUnsafe'>
   secret: string
 }): PrincipalService => {
@@ -235,6 +285,16 @@ export const createPhase7PrincipalService = ({
       }
 
       const row = rows[0]!
+      if (isAdminSessionOverLimit(row.role, row.createdAt, now())) {
+        return {
+          ...(options.classifyAdminAuthorityLoss
+            ? { adminAuthorityFailure: 'AUTH_SESSION_EXPIRED' as const }
+            : {}),
+          clearSessionCookie: true,
+          headers: new Headers(),
+          user: null
+        }
+      }
       const refresh = refreshRows[0]
       if (refresh && refresh.id !== row.sessionId) {
         return {
@@ -267,12 +327,16 @@ export const createPhase7PrincipalService = ({
           expiresAt: row.expiresAt,
           isFresh: row.isFresh
         },
-        user: authenticatedUserSchema.parse({
-          id: row.userId,
-          name: row.name,
-          role: row.role,
-          targetLevel: row.targetLevel
-        })
+        user: toAuthenticatedUser(
+          {
+            id: row.userId,
+            name: row.name,
+            role: row.role,
+            targetLevel: row.targetLevel
+          },
+          row.createdAt,
+          row.isFresh
+        )
       }
     }
 
