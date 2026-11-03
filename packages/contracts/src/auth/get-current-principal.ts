@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isoDateTimeSchema } from '../common/date.js'
 import { jlptLevelSchema, persistedUserRoleSchema } from '../common/enum.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
@@ -11,9 +12,19 @@ export const authenticatedUserSchema = z
     id: opaqueIdSchema,
     name: z.string().trim().min(1),
     role: persistedUserRoleSchema,
-    targetLevel: jlptLevelSchema.nullable()
+    targetLevel: jlptLevelSchema.nullable(),
+    /** Only for ADMIN: the server side 8 hour absolute session limit. */
+    adminSessionExpiresAt: isoDateTimeSchema.optional()
   })
   .strict()
+  .refine(
+    (user) =>
+      (user.role === 'ADMIN') === (user.adminSessionExpiresAt !== undefined),
+    {
+      path: ['adminSessionExpiresAt'],
+      message: '관리자에게만 세션 만료 시각이 있어야 합니다.'
+    }
+  )
 
 export const currentPrincipalSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('GUEST') }).strict(),
