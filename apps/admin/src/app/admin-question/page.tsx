@@ -335,6 +335,8 @@ export const AdminQuestionPage = (): ReactElement => {
               defaultValue={search}
               placeholder="질문이 시작하는 내용을 입력하세요…"
               autoComplete="off"
+              // Contract q cap (phase7QuestionSearchSchema maxScalars 100).
+              maxLength={100}
             />
           </div>
           <Button className="sm:mb-0" type="submit">
