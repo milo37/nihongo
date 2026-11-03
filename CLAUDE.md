@@ -14,6 +14,7 @@
 
 - Use only GitHub issues (`milo37/nihongo`) and Munder (`/Users/doji/Desktop/docs/ai/jlpt-office/JLPT/hive/tasks.json`). Do not edit Notion or add it as a board, even where older documents or role prompts mention a Notion mirror.
 - One GitHub issue ↔ one Munder card. Record owner, status, next action, and issue/PR links in Munder; record the Munder key, PR links, and a short status on the issue. Link instead of copying.
+- When taking a task, the owner records one estimate on the Munder card (`estimateMinutes`) and in the issue's start comment. If actual time passes 2× the estimate, add one line saying why. No other time tracking.
 - PR bodies use `Refs #N`; never `Closes`/`Fixes`. One packet per branch per PR. Packets that pass independent QA and current-head CI go to `dev` right away.
 - The designated owner closes an issue only after implementation, required regression, independent QA, and the required branch merge, with an evidence comment.
 
