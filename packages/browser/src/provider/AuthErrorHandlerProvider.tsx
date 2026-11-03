@@ -196,6 +196,12 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         return
       }
 
+      // A temporarily restricted member stays signed in; the blocked screen
+      // shows its own restriction notice instead of leaving for /forbidden.
+      if (error.isForbiddenError && error.code === 'ACCOUNT_RESTRICTED') {
+        return
+      }
+
       if (error.isForbiddenError) {
         navigate('/forbidden', { replace: true })
         return

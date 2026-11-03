@@ -9,7 +9,10 @@ import {
 import { saveReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { readTargetedReviewAttempt } from '@nihongo/browser/app/wrong-note/targetedReviewAttemptStorage'
 import { useAppStore } from '@nihongo/browser/store/index'
-import { isQuestionNotAvailableApiError } from '@libs/apiError'
+import {
+  isAccountRestrictedApiError,
+  isQuestionNotAvailableApiError
+} from '@libs/apiError'
 
 export type TargetedNoticeCode = 'endedArchived' | 'endedAvailable'
 
@@ -111,6 +114,7 @@ export const useTargetedReviewStart = ({
 
   return {
     hasRecoveryAttempt,
+    isAccountRestricted: isAccountRestrictedApiError(createTargeted.error),
     isError: isCurrentMutation && createTargeted.isError,
     isPaused: isCurrentMutation && createTargeted.isPaused,
     isPending: isCurrentMutation && createTargeted.isPending,

@@ -146,6 +146,14 @@ export const classifyChangedFiles = (changedFiles) => {
       selection.portable = true
       continue
     }
+    // scripts/operations pins the migration inventory and the portable smoke applies it, so a
+    // migration change must run both even when no operations file changes.
+    if (file.startsWith('apps/api/prisma/migrations/')) {
+      markCore(selection)
+      selection.portable = true
+      selection.performance = true
+      continue
+    }
     if (file.startsWith('scripts/security/')) {
       selection.code = true
       selection.security = true

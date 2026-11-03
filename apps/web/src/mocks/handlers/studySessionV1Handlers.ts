@@ -454,7 +454,16 @@ export const studySessionV1Handlers = [
           retryable: false
         })
       }
-      const isGuest = mockDatabase.getCurrentUser() === null
+      const currentUser = mockDatabase.getCurrentUser()
+      const isGuest = currentUser === null
+      if (currentUser && mockDatabase.isAccountRestricted(currentUser.id)) {
+        return createCreateErrorResponse({
+          code: 'ACCOUNT_RESTRICTED',
+          message: '임시로 이용이 제한된 계정입니다.',
+          requestId,
+          retryable: false
+        })
+      }
       if (
         practiceContractVersion === 2 &&
         isGuest &&
