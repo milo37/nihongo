@@ -2,6 +2,7 @@ import process from 'node:process'
 import { expect, test } from '@playwright/test'
 import type { BrowserContext, Page, Response, Route } from '@playwright/test'
 import { z } from 'zod'
+import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { adminFreshSsoRequestSchema } from '@nihongo/contracts/auth/admin-fresh-sso'
 import {
@@ -281,10 +282,8 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
         throw new Error('A direct administrator document response is required.')
       expect(deniedDocument.request().isNavigationRequest()).toBe(true)
       expect(
-        listAdminQuestionsErrorSchema.parse(
-          await canonicalJson(deniedDocument, actor ? 403 : 401)
-        ).code
-      ).toBe(actor ? 'ADMIN_REQUIRED' : 'AUTHENTICATION_REQUIRED')
+        apiFailureSchema.parse(await canonicalJson(deniedDocument, 404)).code
+      ).toBe('RESOURCE_NOT_FOUND')
       await expect(page).toHaveURL(
         (url) =>
           url.origin === publicOrigin && url.pathname === '/admin/questions'

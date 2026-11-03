@@ -28,7 +28,7 @@ export const AdminNavigation = (): ReactElement => {
       <p className="mb-2 px-3 text-sm font-black lg:mb-4 lg:text-base">
         {t('nav.brand')}
       </p>
-      <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+      <ul className="flex flex-wrap gap-1 lg:flex-col">
         {items.map(({ to, key, icon }) => {
           const current = isCurrent(pathname, to)
           return (
