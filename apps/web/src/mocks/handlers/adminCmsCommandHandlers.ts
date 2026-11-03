@@ -402,6 +402,12 @@ const handleCreateQuestionReport = async (
   try {
     assertDeclaredBodyBound(request, bodyCap(operation))
     const reporter = requireReporter()
+    if (mockDatabase.isAccountRestricted(reporter.actorId)) {
+      throw new MockContentCommandError({
+        code: 'ACCOUNT_RESTRICTED',
+        message: '임시로 이용이 제한된 계정입니다.'
+      })
+    }
     assertJsonTransport(request)
     assertTrustedOrigin(request)
     await consumeQuestionReportRate('REPORT_ACTOR', reporter.actorId)

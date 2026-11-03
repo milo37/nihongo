@@ -5,7 +5,8 @@ import {
   questionReportReasonKey as adminReportReasonKey,
   useQuestionReportPresentation as useAdminPresentation
 } from '@app/content-operations/reports/questionReportPublic'
-import { isUiApiError } from '@libs/apiError'
+import { isAccountRestrictedApiError, isUiApiError } from '@libs/apiError'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { useCreateQuestionReport } from '@app/question-report/hooks/useCreateQuestionReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -47,6 +48,7 @@ export const QuestionReportDialog = ({
     setWasSubmitted(true)
   })
 
+  const isRestricted = isAccountRestrictedApiError(mutation.error)
   const errorMessage = mutation.error
     ? isUiApiError(mutation.error)
       ? mutation.error.isOffline
@@ -150,7 +152,9 @@ export const QuestionReportDialog = ({
               }
             }}
           />
-          {errorMessage && !fieldErrors?.description?.length ? (
+          {isRestricted ? (
+            <AccountRestrictedNotice />
+          ) : errorMessage && !fieldErrors?.description?.length ? (
             <p className="font-semibold text-red-700" role="alert">
               {errorMessage}
             </p>

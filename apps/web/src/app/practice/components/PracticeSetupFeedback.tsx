@@ -5,8 +5,10 @@ import type { StudyMode } from '@nihongo/browser/common/types/domain'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 
 type PracticeSetupFeedbackProps = {
+  accountRestricted: boolean
   hasCreateError: boolean
   isProtectedGuestMode: boolean
   loginHref: string
@@ -16,6 +18,7 @@ type PracticeSetupFeedbackProps = {
 }
 
 export const PracticeSetupFeedback = ({
+  accountRestricted,
   hasCreateError,
   isProtectedGuestMode,
   loginHref,
@@ -42,7 +45,9 @@ export const PracticeSetupFeedback = ({
         </div>
       ) : null}
 
-      {noEligibleQuestions ? (
+      {accountRestricted ? (
+        <AccountRestrictedNotice />
+      ) : noEligibleQuestions ? (
         <div
           className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
           role="alert"
