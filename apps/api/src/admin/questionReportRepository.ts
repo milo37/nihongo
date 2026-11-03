@@ -3,7 +3,7 @@ import type {
   CreateQuestionReportRequest,
   ListAdminQuestionReportsQuery,
   ListAdminQuestionReportsResponse,
-  Phase7ExecutionDisposition,
+  AdminExecutionDisposition,
   QuestionReportDetail,
   QuestionReportMutationResult,
   QuestionReportSummary
@@ -18,12 +18,12 @@ export interface QuestionReportCreateAuthority {
 
 export class QuestionReportRepositoryError extends Error {
   readonly code: StableErrorCode
-  readonly disposition: Phase7ExecutionDisposition
+  readonly disposition: AdminExecutionDisposition
 
   constructor(input: {
     readonly code: StableErrorCode
     readonly message: string
-    readonly disposition: Phase7ExecutionDisposition
+    readonly disposition: AdminExecutionDisposition
     readonly cause?: unknown
   }) {
     super(input.message, { cause: input.cause })

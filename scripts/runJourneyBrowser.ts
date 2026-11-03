@@ -162,7 +162,7 @@ export const cleanup = (): Promise<void> => {
   cleanupPromise ??= cleanupBrowserResources({
     stopOwnedProcesses: async () => {
       const api = ownedProcesses.find(
-        ({ label }) => label === 'phase10-real-sso-api'
+        ({ label }) => label === 'journey-real-sso-api'
       )
       const exitedEarly =
         api !== undefined &&
@@ -230,9 +230,9 @@ const runPlaywright = async (
     {
       ...process.env,
       ...extraEnvironment,
-      PHASE10_BROWSER_MODE: browserMode,
+      JOURNEY_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: `phase10-${browserMode}`
+      PLAYWRIGHT_OUTPUT_LABEL: `journey-${browserMode}`
     }
   )
 }
@@ -244,7 +244,7 @@ const runMock = async (): Promise<void> => {
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
   const web = spawnOwned(
-    'phase10-mock-web',
+    'journey-mock-web',
     'pnpm',
     [
       '--filter',
@@ -275,7 +275,7 @@ const runReal = async (): Promise<void> => {
   const webOrigin = `http://127.0.0.1:${webPort}`
   const apiOrigin = `http://127.0.0.1:${apiPort}`
   const api = spawnOwned(
-    'phase10-real-sso-api',
+    'journey-real-sso-api',
     process.execPath,
     [
       '--import',
@@ -286,16 +286,16 @@ const runReal = async (): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE7_API_INTEGRATION_CASE: 'sso-browser-google',
-      PHASE7_SSO_BROWSER_API_HOST: '127.0.0.1',
-      PHASE7_SSO_BROWSER_API_PORT: String(apiPort),
-      PHASE7_SSO_BROWSER_WEB_ORIGIN: webOrigin
+      API_INTEGRATION_CASE: 'sso-browser-google',
+      SSO_BROWSER_API_HOST: '127.0.0.1',
+      SSO_BROWSER_API_PORT: String(apiPort),
+      SSO_BROWSER_WEB_ORIGIN: webOrigin
     },
     nodePath.join(repositoryRoot, 'apps/api')
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)
   const web = spawnOwned(
-    'phase10-real-web',
+    'journey-real-web',
     'pnpm',
     [
       '--filter',
@@ -323,7 +323,7 @@ const runReal = async (): Promise<void> => {
 
 const run = async (): Promise<void> => {
   if (!mode) {
-    throw new Error('Phase 10 browser runner accepts mock or real mode.')
+    throw new Error('Journey browser runner accepts mock or real mode.')
   }
   if (mode === 'mock') await runMock()
   else await runReal()
@@ -343,7 +343,7 @@ export const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `Phase 10 ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `Journey ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -363,7 +363,7 @@ export const main = (): Promise<void> =>
   execute()
     .then(() => {
       process.stdout.write(
-        `${JSON.stringify({ event: `phase10.browser.${mode}.passed` })}\n`
+        `${JSON.stringify({ event: `journey.browser.${mode}.passed` })}\n`
       )
     })
     .catch((error: unknown) => {
@@ -373,7 +373,7 @@ export const main = (): Promise<void> =>
           : undefined
       process.stderr.write(
         `${JSON.stringify({
-          event: `phase10.browser.${mode ?? 'unknown'}.failed`,
+          event: `journey.browser.${mode ?? 'unknown'}.failed`,
           ...describeFailure(error),
           ...(causes ? { causes } : {})
         })}\n`

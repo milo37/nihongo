@@ -4,13 +4,13 @@ import path from 'node:path'
 
 const GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/u
 
-export const phase10DatabasePerformanceBudget = Object.freeze({
+export const databasePerformanceBudget = Object.freeze({
   absoluteCeilingMs: 250,
   baselineP95Ms: 16.954,
   ratioLimit: 8
 })
 
-export const phase10ApiPerformanceBudget = Object.freeze({
+export const apiPerformanceBudget = Object.freeze({
   absoluteCeilingMs: 250,
   baselineP95Ms: 16.845,
   ratioLimit: 8
@@ -44,7 +44,7 @@ interface StatementEvidence {
   readonly transactionPerSample: number
 }
 
-export interface Phase10TimingMeasurement {
+export interface TimingMeasurement {
   readonly budget: TimingBudget
   readonly measuredCount: number
   readonly metric: string
@@ -53,8 +53,8 @@ export interface Phase10TimingMeasurement {
   readonly warmupCount: number
 }
 
-export interface Phase10DatabaseApiPerformanceEvidence {
-  readonly api: Phase10TimingMeasurement & {
+export interface DatabaseApiPerformanceEvidence {
+  readonly api: TimingMeasurement & {
     readonly cacheControl: 'private, no-store'
     readonly noStoreCount: number
     readonly principalResolutionCount: number
@@ -67,7 +67,7 @@ export interface Phase10DatabaseApiPerformanceEvidence {
     readonly status: 200
     readonly statusOkCount: number
   }
-  readonly database: Phase10TimingMeasurement & {
+  readonly database: TimingMeasurement & {
     readonly plan: {
       readonly cteAssertionCount: number
       readonly cardinality: {
@@ -137,7 +137,7 @@ const calculateStatistics = (samples: readonly number[]): TimingStatistics => {
     p95 === undefined ||
     max === undefined
   ) {
-    throw new Error('PHASE10_PERFORMANCE_SAMPLE_COUNT_INVALID')
+    throw new Error('PERFORMANCE_SAMPLE_COUNT_INVALID')
   }
   return {
     max,
@@ -147,7 +147,7 @@ const calculateStatistics = (samples: readonly number[]): TimingStatistics => {
   }
 }
 
-export const createPhase10TimingMeasurement = ({
+export const createTimingMeasurement = ({
   absoluteCeilingMs,
   baselineP95Ms,
   ratioLimit,
@@ -159,7 +159,7 @@ export const createPhase10TimingMeasurement = ({
   readonly ratioLimit: number
   readonly metric: string
   readonly samplesMs: readonly number[]
-}): Phase10TimingMeasurement => {
+}): TimingMeasurement => {
   const roundedSamples = samplesMs.map(roundMilliseconds)
   if (
     roundedSamples.length !== 20 ||
@@ -172,7 +172,7 @@ export const createPhase10TimingMeasurement = ({
     typeof metric !== 'string' ||
     metric.length === 0
   ) {
-    throw new Error('PHASE10_PERFORMANCE_MEASUREMENT_INVALID')
+    throw new Error('PERFORMANCE_MEASUREMENT_INVALID')
   }
   const statisticsMs = calculateStatistics(roundedSamples)
   const ratioCeilingMs = roundMilliseconds(baselineP95Ms * ratioLimit)
@@ -208,7 +208,7 @@ const assertTimingMeasurement = (value: unknown): void => {
       'warmupCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const timing = value as Record<string, unknown>
   if (
@@ -229,7 +229,7 @@ const assertTimingMeasurement = (value: unknown): void => {
       'ratioLimit'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const statistics = timing.statisticsMs as Record<string, unknown>
   const expectedStatistics = calculateStatistics(
@@ -239,7 +239,7 @@ const assertTimingMeasurement = (value: unknown): void => {
     JSON.stringify(statistics) !== JSON.stringify(expectedStatistics) ||
     !Object.values(statistics).every(assertFiniteNonNegative)
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_STATISTICS_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_STATISTICS_INVALID')
   }
   const budget = timing.budget as Record<string, unknown>
   if (
@@ -257,7 +257,7 @@ const assertTimingMeasurement = (value: unknown): void => {
       (expectedStatistics.p95 <= budget.ratioCeilingMs &&
         expectedStatistics.p95 <= budget.absoluteCeilingMs)
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_BUDGET_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_BUDGET_INVALID')
   }
 }
 
@@ -278,7 +278,7 @@ const assertStatementEvidence = (
       'transactionPerSample'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const statements = value as Record<string, unknown>
   if (
@@ -295,13 +295,13 @@ const assertStatementEvidence = (
     statements.totalTransactionCount !== expectedSampleCount ||
     statements.totalSqlCount !== expectedSampleCount * 6
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
   }
 }
 
-export const assertPhase10DatabaseApiPerformanceEvidence: (
+export const assertDatabaseApiPerformanceEvidence: (
   value: unknown
-) => asserts value is Phase10DatabaseApiPerformanceEvidence = (value) => {
+) => asserts value is DatabaseApiPerformanceEvidence = (value) => {
   if (
     !exactKeys(value, [
       'api',
@@ -314,7 +314,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
       'writes'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const evidence = value as Record<string, unknown>
   if (
@@ -337,7 +337,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
     ]) ||
     !exactKeys(evidence.writes, ['businessWriteDelta'])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const metadata = evidence.metadata as Record<string, unknown>
   const fixture = evidence.fixture as Record<string, unknown>
@@ -361,7 +361,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
     Number(fixture.tagFactCount) < 1 ||
     writes.businessWriteDelta !== 0
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
 
   const database = evidence.database as Record<string, unknown>
@@ -397,7 +397,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
       'warmupCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const databaseTiming = Object.fromEntries(
     Object.entries(database).filter(
@@ -435,7 +435,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
       'totalNodeCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const plan = database.plan as Record<string, unknown>
   if (
@@ -448,7 +448,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
       'targetCatalogCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const cardinality = plan.cardinality as Record<string, unknown>
   assertStatementEvidence(database.statements, 21)
@@ -472,18 +472,18 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
     Number(cardinality.targetCatalogCount) < 1 ||
     database.metric !== 'dashboard-insights-service' ||
     (database.budget as Record<string, unknown>).baselineP95Ms !==
-      phase10DatabasePerformanceBudget.baselineP95Ms ||
+      databasePerformanceBudget.baselineP95Ms ||
     (database.budget as Record<string, unknown>).ratioLimit !==
-      phase10DatabasePerformanceBudget.ratioLimit ||
+      databasePerformanceBudget.ratioLimit ||
     (database.budget as Record<string, unknown>).absoluteCeilingMs !==
-      phase10DatabasePerformanceBudget.absoluteCeilingMs ||
+      databasePerformanceBudget.absoluteCeilingMs ||
     api.metric !== 'dashboard-insights-http' ||
     (api.budget as Record<string, unknown>).baselineP95Ms !==
-      phase10ApiPerformanceBudget.baselineP95Ms ||
+      apiPerformanceBudget.baselineP95Ms ||
     (api.budget as Record<string, unknown>).ratioLimit !==
-      phase10ApiPerformanceBudget.ratioLimit ||
+      apiPerformanceBudget.ratioLimit ||
     (api.budget as Record<string, unknown>).absoluteCeilingMs !==
-      phase10ApiPerformanceBudget.absoluteCeilingMs ||
+      apiPerformanceBudget.absoluteCeilingMs ||
     api.route !== 'GET /api/v1/dashboard/insights' ||
     api.status !== 200 ||
     api.cacheControl !== 'private, no-store' ||
@@ -497,7 +497,7 @@ export const assertPhase10DatabaseApiPerformanceEvidence: (
     (database.budget as Record<string, unknown>).passed !== true ||
     (api.budget as Record<string, unknown>).passed !== true
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
   }
 }
 
@@ -511,7 +511,7 @@ const canonicalize = (value: unknown): unknown => {
   }
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
-      throw new Error('PHASE10_PERFORMANCE_EVIDENCE_NONFINITE')
+      throw new Error('PERFORMANCE_EVIDENCE_NONFINITE')
     }
     return value
   }
@@ -523,17 +523,17 @@ const canonicalize = (value: unknown): unknown => {
         .map(([key, item]) => [key, canonicalize(item)])
     )
   }
-  throw new Error('PHASE10_PERFORMANCE_EVIDENCE_VALUE_INVALID')
+  throw new Error('PERFORMANCE_EVIDENCE_VALUE_INVALID')
 }
 
-export const writePhase10DatabaseApiPerformanceEvidence = async ({
+export const writeDatabaseApiPerformanceEvidence = async ({
   evidence,
   filePath
 }: {
-  readonly evidence: Phase10DatabaseApiPerformanceEvidence
+  readonly evidence: DatabaseApiPerformanceEvidence
   readonly filePath: string
 }): Promise<void> => {
-  assertPhase10DatabaseApiPerformanceEvidence(evidence)
+  assertDatabaseApiPerformanceEvidence(evidence)
   await mkdir(path.dirname(filePath), { mode: 0o700, recursive: true })
   const temporaryPath = path.join(
     path.dirname(filePath),
@@ -552,10 +552,10 @@ export const writePhase10DatabaseApiPerformanceEvidence = async ({
   }
 }
 
-export const readPhase10DatabaseApiPerformanceEvidence = async (
+export const readDatabaseApiPerformanceEvidence = async (
   filePath: string
-): Promise<Phase10DatabaseApiPerformanceEvidence> => {
+): Promise<DatabaseApiPerformanceEvidence> => {
   const evidence = JSON.parse(await readFile(filePath, 'utf8')) as unknown
-  assertPhase10DatabaseApiPerformanceEvidence(evidence)
+  assertDatabaseApiPerformanceEvidence(evidence)
   return evidence
 }

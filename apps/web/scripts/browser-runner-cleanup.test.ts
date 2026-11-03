@@ -28,15 +28,15 @@ vi.mock('../../../apps/api/src/e2e/ownedProcessGroup.js', () => ({
 }))
 
 vi.mock('../../../apps/api/src/e2e/runAdminApiIntegration.js', () => ({
-  preparePhase7IsolatedDatabase: mocks.prepareDatabase,
-  cleanupPhase7IsolatedDatabase: mocks.cleanupDatabase
+  prepareIsolatedDatabase: mocks.prepareDatabase,
+  cleanupIsolatedDatabase: mocks.cleanupDatabase
 }))
 vi.mock('../../../apps/api/src/e2e/browserApi.js', () => ({
-  preparePhase9BrowserActors: mocks.prepareActors
+  prepareBrowserActors: mocks.prepareActors
 }))
 vi.mock('../../../scripts/accessibility-database-contract.mjs', () => ({
-  capturePhase9DatabaseSnapshot: mocks.captureSnapshot,
-  assertPhase9DatabaseContract: mocks.assertDatabaseContract
+  captureAccessibilityDatabaseSnapshot: mocks.captureSnapshot,
+  assertAccessibilityDatabaseContract: mocks.assertDatabaseContract
 }))
 vi.mock('node:fs/promises', async (importOriginal) => ({
   ...(await importOriginal<typeof import('node:fs/promises')>()),
@@ -97,9 +97,9 @@ describe('accessibility and journey browser runner lifecycle', () => {
     vi.stubEnv('RUNNER_TEMP', testTemp)
     vi.stubEnv('GITHUB_RUN_ID', undefined)
     vi.stubEnv('JLP541_BROWSER_ARTIFACTS_PREPARED', undefined)
-    vi.stubEnv('PHASE8_BROWSER_MODE', undefined)
-    vi.stubEnv('PHASE9_BROWSER_MODE', undefined)
-    vi.stubEnv('PHASE10_BROWSER_MODE', undefined)
+    vi.stubEnv('DASHBOARD_BROWSER_MODE', undefined)
+    vi.stubEnv('ACCESSIBILITY_BROWSER_MODE', undefined)
+    vi.stubEnv('JOURNEY_BROWSER_MODE', undefined)
     process.argv = [...originalArgv.slice(0, 2), 'real']
     process.exitCode = undefined
     originalSignalListeners = new Map(
@@ -196,11 +196,11 @@ describe('accessibility and journey browser runner lifecycle', () => {
       .map(([message]) => String(message))
       .join('')
     if (expectedExitCode === 0) {
-      expect(output).toContain('phase10.browser.real.passed')
-      expect(errors).not.toContain('phase10.browser.real.failed')
+      expect(output).toContain('journey.browser.real.passed')
+      expect(errors).not.toContain('journey.browser.real.failed')
     } else {
-      expect(output).not.toContain('phase10.browser.real.passed')
-      expect(errors).toContain('phase10.browser.real.failed')
+      expect(output).not.toContain('journey.browser.real.passed')
+      expect(errors).toContain('journey.browser.real.failed')
     }
     expect(mocks.spawn.mock.calls[0]?.[0]).toBe(process.execPath)
     expect(mocks.spawn.mock.calls[0]?.[1]).toEqual([
@@ -352,9 +352,9 @@ describe('accessibility and journey browser runner lifecycle', () => {
       ])
       expect(
         playwright.map(({ env }) => [
-          env.PHASE8_BROWSER_MODE,
-          env.PHASE9_BROWSER_MODE,
-          env.PHASE10_BROWSER_MODE
+          env.DASHBOARD_BROWSER_MODE,
+          env.ACCESSIBILITY_BROWSER_MODE,
+          env.JOURNEY_BROWSER_MODE
         ])
       ).toEqual([
         ['mock', undefined, undefined],
@@ -367,7 +367,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
       expect(playwright).toHaveLength(1)
     }
     expect(stopped).toHaveLength(1)
-    expect(stopped[0]).toContain('phase9-mock-web')
+    expect(stopped[0]).toContain('accessibility-mock-web')
     if (cancellation)
       expect(stopped[0]).toEqual(
         expect.arrayContaining([
@@ -376,8 +376,8 @@ describe('accessibility and journey browser runner lifecycle', () => {
       )
     const output = stdout.mock.calls.map(([value]) => String(value)).join('')
     const errors = stderr.mock.calls.map(([value]) => String(value)).join('')
-    expect(output.includes('phase9.browser.mock.passed')).toBe(!failed)
-    expect(errors.includes('phase9.browser.mock.failed')).toBe(failed)
+    expect(output.includes('accessibility.browser.mock.passed')).toBe(!failed)
+    expect(errors.includes('accessibility.browser.mock.failed')).toBe(failed)
     if (scenario === 'Playwright and stop failure')
       expect(errors).toContain('cleanup both failed')
   }
@@ -425,7 +425,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
         )
     )
   )(
-    'Phase9 %s lifecycle boundary: %s (prepared=%s)',
+    'Accessibility %s lifecycle boundary: %s (prepared=%s)',
     async (mode, scenario, artifactsPrepared) => {
       process.argv = [...originalArgv.slice(0, 2), mode]
       vi.stubEnv(
@@ -437,7 +437,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
         return
       }
       vi.stubEnv('NIHONGO_API_PROXY_TARGET', undefined)
-      vi.stubEnv('PHASE9_BROWSER_FIXTURE', undefined)
+      vi.stubEnv('ACCESSIBILITY_BROWSER_FIXTURE', undefined)
       vi.stubEnv('GOOGLE_CLIENT_SECRET', 'excluded-provider-test-value')
       const fixture = { owner: 'same-invocation-test-fixture' }
       const identities = [{ owner: 'same-invocation-test-actor' }]
@@ -732,7 +732,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
       expect(apiCall?.[2].env).toMatchObject({
         TRUSTED_ORIGINS: 'http://127.0.0.1:32124',
         BETTER_AUTH_URL: 'http://127.0.0.1:32123',
-        PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(identities)
+        BROWSER_TEST_SSO_IDENTITIES: JSON.stringify(identities)
       })
       const adminCall = mocks.spawn.mock.calls.find(([, args]) =>
         args.includes('@nihongo/admin')
@@ -757,11 +757,11 @@ describe('accessibility and journey browser runner lifecycle', () => {
       })
       expect(stopped).toEqual([
         scenario === 'admin exit' || scenario === 'late collision'
-          ? [`phase9-${mode}-api`, `phase9-${mode}-admin`]
+          ? [`accessibility-${mode}-api`, `accessibility-${mode}-admin`]
           : [
-              `phase9-${mode}-api`,
-              `phase9-${mode}-admin`,
-              `phase9-${mode}-web`,
+              `accessibility-${mode}-api`,
+              `accessibility-${mode}-admin`,
+              `accessibility-${mode}-web`,
               ...([
                 'SIGINT during Playwright',
                 'SIGTERM during Playwright'
@@ -843,8 +843,8 @@ describe('accessibility and journey browser runner lifecycle', () => {
         )
         expect(playwrightCall?.[2].env).toMatchObject({
           PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:32124',
-          PHASE9_BROWSER_MODE: mode,
-          PHASE9_BROWSER_FIXTURE: JSON.stringify(fixture)
+          ACCESSIBILITY_BROWSER_MODE: mode,
+          ACCESSIBILITY_BROWSER_FIXTURE: JSON.stringify(fixture)
         })
         expect(mocks.captureSnapshot).toHaveBeenCalledTimes(1)
         expect(mocks.assertDatabaseContract).toHaveBeenCalledTimes(1)
@@ -856,17 +856,17 @@ describe('accessibility and journey browser runner lifecycle', () => {
       if (success) {
         expect(
           stdout.mock.calls.map(([value]) => String(value)).join('')
-        ).toContain(`phase9.browser.${mode}.passed`)
+        ).toContain(`accessibility.browser.${mode}.passed`)
         expect(
           stderr.mock.calls.map(([value]) => String(value)).join('')
-        ).not.toContain(`phase9.browser.${mode}.failed`)
+        ).not.toContain(`accessibility.browser.${mode}.failed`)
       } else {
         expect(
           stdout.mock.calls.map(([value]) => String(value)).join('')
-        ).not.toContain(`phase9.browser.${mode}.passed`)
+        ).not.toContain(`accessibility.browser.${mode}.passed`)
         expect(
           stderr.mock.calls.map(([value]) => String(value)).join('')
-        ).toContain(`phase9.browser.${mode}.failed`)
+        ).toContain(`accessibility.browser.${mode}.failed`)
       }
     }
   )

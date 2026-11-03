@@ -5,6 +5,7 @@ import {
 import { z } from 'zod'
 import {
   createPracticeTransportResponseSchema,
+  refinePracticeContractV2Header,
   refinePracticeNoContentTransportHeaders
 } from '@nihongo/browser/api/study/practiceTransportSchema'
 
@@ -17,13 +18,11 @@ export const cancelStudySessionTransportResponseSchema =
     z.literal(204)
   ).superRefine(({ headers }, context) => {
     refinePracticeNoContentTransportHeaders(headers, context)
-    if (headers['x-nihongo-practice-contract'] !== '2') {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'x-nihongo-practice-contract'],
-        message: '취소 응답에는 practice contract 2가 필요합니다.'
-      })
-    }
+    refinePracticeContractV2Header(
+      headers,
+      context,
+      '취소 응답에는 practice contract 2가 필요합니다.'
+    )
   })
 
 export type CancelStudySessionTransportResponse = z.output<

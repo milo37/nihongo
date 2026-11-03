@@ -22,11 +22,11 @@ const DAY_MILLISECONDS = 86_400_000
 const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
-  throw new Error('Phase 8 integration requires the Phase 7 admin test URL.')
+  throw new Error('Integration requires the Phase 7 admin test URL.')
 }
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (!authGatewayDatabaseUrl) {
-  throw new Error('Phase 8 integration requires the auth-gateway test URL.')
+  throw new Error('Integration requires the auth-gateway test URL.')
 }
 assertSafeTestDatabase({
   nodeEnvironment: environment.NODE_ENV,
@@ -99,7 +99,7 @@ const createUser = async (
     sessionToken
   )
   if (issued.length !== 1 || !issued[0]) {
-    throw new Error('Phase 8 integration session was not issued.')
+    throw new Error('Integration session was not issued.')
   }
   return { sessionToken, userId }
 }
@@ -134,7 +134,7 @@ const submitRandomSession = async ({
     }
   })
   if (materials.length === 0) {
-    throw new Error('Phase 8 random fixture requires selected questions.')
+    throw new Error('Random fixture requires selected questions.')
   }
   const answers = materials.map((material, index) => ({
     studySessionQuestionId: material.id,
@@ -250,7 +250,7 @@ afterAll(async () => {
   ])
 })
 
-describe.sequential('Phase 8 dashboard insights PostgreSQL projection', () => {
+describe.sequential('Dashboard insights PostgreSQL projection', () => {
   let ownerUserId: string
   let ownerSessionToken: string
   let foreignUserId: string

@@ -76,7 +76,7 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
     const entry = entryByRequest.get(response.request())
     if (!entry) return
     entry.status = response.status()
-    entry.provenance = response.headers()['x-phase10-test-fault']
+    entry.provenance = response.headers()['x-nihongo-test-fault']
       ? 'injected-test-fault'
       : response.fromServiceWorker()
         ? 'canonical-mock-service-worker'

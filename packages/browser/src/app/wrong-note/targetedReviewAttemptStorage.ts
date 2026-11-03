@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { cachedSessionStorage } from '../../libs/storage'
 
-const STORAGE_KEY_PREFIX = 'jlpt-drill-note:targeted-review-attempt:v1:'
+const STORAGE_KEY_PREFIX = 'harumaru:targeted-review-attempt:v1:'
 const targetedReviewAttemptSchema = z
   .object({
     contractVersion: z.literal(2),

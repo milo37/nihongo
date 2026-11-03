@@ -19,7 +19,7 @@ import {
 } from '../db/fixtures/historicalSchema.js'
 import type { IsolatedUpgradeSchema } from '../db/fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
-import { createApprovedReadingBatch3Import } from './approvedReadingBatch3.js'
+import { createApprovedReadingBatch3Import } from '../content-fixtures/approvedReadingBatch3.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeAdminCmsDatabase({
@@ -57,10 +57,10 @@ if (
 }
 const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
 if (!legacyDatabaseUrl)
-  throw new Error('Phase 7 legacy compatibility database URL is required.')
+  throw new Error('Legacy compatibility database URL is required.')
 const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
 if (!migrationDatabaseUrl)
-  throw new Error('Phase 7 migration wrapper database URL is required.')
+  throw new Error('Migration wrapper database URL is required.')
 const {
   copyMigration,
   createIsolatedUpgradeSchema,

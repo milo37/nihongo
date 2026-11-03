@@ -6,7 +6,7 @@ it.each(['ko', 'ja'] as const)(
   'initializes saved %s before rendering and switches synchronously offline',
   async (locale) => {
     localStorage.setItem(
-      'jlpt-drill-note:ui-locale:v1',
+      'harumaru:ui-locale:v1',
       JSON.stringify({ version: 1, locale })
     )
     vi.resetModules()
@@ -50,10 +50,10 @@ it('matches approved Japanese additions and preserves admin keys, values and ord
   expect(Object.keys(jaResources)).toEqual(Object.keys(koResources))
   expect(
     createHash('sha256').update(JSON.stringify(koResources)).digest('hex')
-  ).toBe('dcb883f2b7f75f4c26c408b509becb12579d8424e44f9c120eaf2b804c8e3bda')
+  ).toBe('04eb596ef200c27b05ef49e9df3637a5a03e690e3c2be777df8e253670e6d2d8')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('0754583a6f49310412a0c68375714bc7329070597325b9b19cf085b99ae53edd')
+  ).toBe('c0008f142c86932d893b54d19fe0fa9ccc42144877773742b78981a47553e8e4')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
   ).toBe('cda71b18dbfa80cf13c155c44308a847b097406d4bfd54f9acf5429081cb4efc')

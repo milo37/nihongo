@@ -86,7 +86,7 @@ describe('safe collection diagnostics', () => {
           throw new Error('primary secret')
         }
       })
-    ).rejects.toThrow('Phase 10 integration process failed:')
+    ).rejects.toThrow('Integration process failed:')
     await expect(stat(output)).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(readFile(output)).rejects.toMatchObject({ code: 'ENOENT' })
   })
@@ -118,7 +118,7 @@ describe('safe collection diagnostics', () => {
           throw new Error('primary secret')
         }
       })
-    ).rejects.toThrow('Phase 10 integration process failed:')
+    ).rejects.toThrow('Integration process failed:')
     expect(diagnostics).toContainEqual({
       stage: 'setup',
       name: 'EnvironmentValidationError',
@@ -143,7 +143,7 @@ describe('safe collection diagnostics', () => {
           })
         }
       })
-    ).rejects.toThrow('Phase 10 integration process failed:')
+    ).rejects.toThrow('Integration process failed:')
     expect(diagnostics).toEqual([
       { stage: 'loader', name: 'Error', code: 'ERR_MODULE_NOT_FOUND' }
     ])

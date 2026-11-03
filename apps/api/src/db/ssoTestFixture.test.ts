@@ -177,7 +177,7 @@ describe('SSO TEST fixture activation ownership', () => {
       const h = createSsoDbHarness()
       try {
         await expect(h.connect()).rejects.toThrow(
-          'Phase 7 issuer activation singleton is invalid.'
+          'Issuer activation singleton is invalid.'
         )
         expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)
       } finally {
@@ -190,7 +190,7 @@ describe('SSO TEST fixture activation ownership', () => {
     const h = createSsoDbHarness()
     try {
       await expect(h.connect()).rejects.toThrow(
-        'Phase 7 DB endpoint identity is unavailable.'
+        'DB endpoint identity is unavailable.'
       )
       expect(calls('phase7_register_database_capability')).toHaveLength(0)
       expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)

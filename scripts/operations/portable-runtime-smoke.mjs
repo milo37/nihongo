@@ -532,7 +532,7 @@ try {
   phase = 'host-seed-module';
   const { seedQuestionCatalog } = await import('./prisma/seedQuestionCatalog.ts');
   phase = 'host-guard-module';
-  const { assertSafePhase7MigrationDatabase } = await import('./src/db/databaseTargetGuard.ts');
+  const { assertSafeMigrationDatabase } = await import('./src/db/databaseTargetGuard.ts');
   phase = 'host-options-module';
   const { createPostgresStartupOptions, getPostgresSchema } = await import('./src/db/databaseOptions.ts');
   phase = 'test-target';
@@ -541,7 +541,7 @@ try {
   const productionSentinel = new URL(databaseUrl);
   productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
   productionSentinel.search = '';
-  assertSafePhase7MigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
+  assertSafeMigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
     runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
   const schema = getPostgresSchema(databaseUrl);
   if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
@@ -605,7 +605,7 @@ export const seedLearnerCompatibilityFixture = (
 export const controlledSessionProgram = `
 import { createRoleDatabaseRuntime } from '/app/api/dist/db/database.js';
 import { createSsoIdentityRepository } from '/app/api/dist/auth/ssoIdentityRepository.js';
-import { createPhase7SessionCookie } from '/app/api/dist/auth/sessionCookie.js';
+import { createOwnedSessionCookie } from '/app/api/dist/auth/sessionCookie.js';
 import { readFileSync } from 'node:fs';
 const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
 const url = new URL(process.env.AUTH_GATEWAY_DATABASE_URL);
@@ -620,7 +620,7 @@ try {
     email: 'phase11-' + suffix + '@example.test', name: 'Phase 11 smoke'
   }, { ipAddress: '127.0.0.1', userAgent: 'Phase11 controlled TEST fixture' });
   if (session.kind !== 'SESSION_CONFIRMED') throw new Error('Controlled TEST session was not confirmed.');
-  const cookie = createPhase7SessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
+  const cookie = createOwnedSessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
     isProduction: true, rememberMe: true, now: session.createdAt, expiresAt: session.expiresAt });
   process.stdout.write(JSON.stringify({ cookie, kind: 'controlled-test-session', provider: 'google' }));
 } finally { await gateway.disconnect(); }

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import type { PracticeDraftStatusCode } from '@app/practice/hooks/usePracticeDraftController'
+import type { PracticeDraftStatusCode } from '@app/practice/draft/practiceDraftModel'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 
 type StudyDraftSaveStatusProps = {

@@ -1295,3 +1295,80 @@ describe('practice draft autosave pacing', () => {
     expect(io.save).not.toHaveBeenCalled()
   })
 })
+
+describe('practice draft window and clock lifecycle', () => {
+  const mountInteractive = () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    })
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    )
+    return renderHook(
+      ({ isInteractionPaused }) =>
+        usePracticeDraftController({
+          enabled: true,
+          sessionId: server.studySessionId,
+          user: null,
+          expectedSessionQuestionIds: questions(),
+          isInteractionPaused
+        }),
+      { wrapper, initialProps: { isInteractionPaused: false } }
+    )
+  }
+  const dispatchBeforeUnload = (): boolean => {
+    const event = new Event('beforeunload', { cancelable: true })
+    act(() => {
+      window.dispatchEvent(event)
+    })
+    return event.defaultPrevented
+  }
+
+  it('beforeunload is blocked only while unsaved local work exists', async () => {
+    const h = mount()
+    await advance(0)
+    expect(dispatchBeforeUnload()).toBe(false)
+    act(() => h.result.current.selectOption(answer(), optionA))
+    expect(dispatchBeforeUnload()).toBe(true)
+    await advance(2_000)
+    expect(io.save).toHaveBeenCalledTimes(1)
+    expect(dispatchBeforeUnload()).toBe(false)
+  })
+
+  it('an offline event marks the draft offline and stops autosave until online', async () => {
+    const h = mount()
+    await advance(0)
+    act(() => h.result.current.selectOption(answer(), optionA))
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    act(() => {
+      window.dispatchEvent(new Event('offline'))
+    })
+    expect(h.result.current.saveState).toBe('offline')
+    expect(h.result.current.status.code).toBe('offline')
+    await advance(15_000)
+    expect(io.save).not.toHaveBeenCalled()
+  })
+
+  it('the elapsed clock ticks while interactive and stops when paused or hidden', async () => {
+    const h = mountInteractive()
+    await advance(3_000)
+    const running = h.result.current.elapsedSeconds
+    expect(running).toBeGreaterThanOrEqual(2)
+    h.rerender({ isInteractionPaused: true })
+    await advance(5_000)
+    expect(h.result.current.elapsedSeconds).toBe(running)
+    h.rerender({ isInteractionPaused: false })
+    await advance(2_000)
+    const resumed = h.result.current.elapsedSeconds
+    expect(resumed).toBeGreaterThan(running)
+    const visibility = vi
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden')
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await advance(5_000)
+    expect(h.result.current.elapsedSeconds).toBe(resumed)
+    visibility.mockRestore()
+  })
+})

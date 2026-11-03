@@ -31,7 +31,7 @@ import {
 } from './request-ledger'
 import type { RequestLedger } from './request-ledger'
 
-if (process.env.PHASE7_BROWSER_MODE !== 'real') {
+if (process.env.ADMIN_BROWSER_MODE !== 'real') {
   throw new Error('Administrator acceptance requires real mode.')
 }
 const requireOrigin = (value: string | undefined): string => {
@@ -48,7 +48,7 @@ const requireOrigin = (value: string | undefined): string => {
   }
   return url.origin
 }
-const publicOrigin = requireOrigin(process.env.PHASE7_BROWSER_ADMIN_ORIGIN)
+const publicOrigin = requireOrigin(process.env.ADMIN_BROWSER_ADMIN_ORIGIN)
 if (publicOrigin !== requireOrigin(process.env.PLAYWRIGHT_BASE_URL)) {
   throw new Error(
     'Administrator documents must use the public web origin, not the private Vite port.'
@@ -67,18 +67,18 @@ const readFixture = () => {
     .object({
       author: actorSchema.extend({
         role: z.literal('ADMIN'),
-        callbackCode: z.literal('phase7-test-google-author')
+        callbackCode: z.literal('test-google-author')
       }),
       reviewer: actorSchema.extend({
         role: z.literal('ADMIN'),
-        callbackCode: z.literal('phase7-test-google-reviewer')
+        callbackCode: z.literal('test-google-reviewer')
       }),
       learner: actorSchema.extend({
         role: z.literal('USER'),
-        callbackCode: z.literal('phase7-test-google-learner')
+        callbackCode: z.literal('test-google-learner')
       })
     })
-    .parse(JSON.parse(process.env.PHASE7_BROWSER_FIXTURE ?? 'null') as unknown)
+    .parse(JSON.parse(process.env.ADMIN_BROWSER_FIXTURE ?? 'null') as unknown)
   expect(
     new Set([
       fixture.author.userId,
@@ -307,7 +307,7 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
       await assertAndAttachLedger(
         cms,
         testInfo,
-        `phase7-${actor ? 'user' : 'guest'}-denial`
+        `admin-${actor ? 'user' : 'guest'}-denial`
       )
     } finally {
       await context.close()
@@ -754,7 +754,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       await assertAndAttachLedger(
         ledger,
         testInfo,
-        'phase7-a1-a8-real-request-ledger'
+        'admin-cms-real-request-ledger'
       )
     } finally {
       context.off('response', observeReturn)

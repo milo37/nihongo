@@ -4,7 +4,7 @@ import {
   listAdminAuditLogQuerySchema
 } from './content-read.js'
 
-describe('Phase 7 admin read transport', () => {
+describe('Admin read transport', () => {
   it('accepts the canonical production audit environment', () => {
     expect(adminAuditEnvironmentSchema.options).toEqual([
       'TEST',

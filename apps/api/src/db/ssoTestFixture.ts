@@ -370,8 +370,7 @@ export const createSsoDbHarness = () => {
           `SELECT current_database() AS name,inet_server_addr()::text AS address,inet_server_port() AS port`
         )
       ).rows[0]
-      if (!endpoint)
-        throw new Error('Phase 7 DB endpoint identity is unavailable.')
+      if (!endpoint) throw new Error('DB endpoint identity is unavailable.')
       await roleQuery(
         'nihongo_phase7_migration',
         `SELECT "phase7_register_database_capability"($1,$2::inet,$3,'TEST')`,
@@ -387,7 +386,7 @@ export const createSsoDbHarness = () => {
         issuer?.id !== 1 ||
         typeof issuer.legacyIssuerDisabled !== 'boolean'
       ) {
-        throw new Error('Phase 7 issuer activation singleton is invalid.')
+        throw new Error('Issuer activation singleton is invalid.')
       }
       if (!issuer.legacyIssuerDisabled) {
         await roleQuery(
