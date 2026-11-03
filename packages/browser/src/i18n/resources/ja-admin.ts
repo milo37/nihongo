@@ -3,6 +3,13 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  grid: {
+    columns: '表示する列',
+    pageSize: '1ページの行数',
+    pageStatus: '{{page}} / {{pageCount}}ページ · 全{{total}}件',
+    previous: '前へ',
+    next: '次へ'
+  },
   nav: {
     brand: '하루마루 管理',
     questions: '問題',

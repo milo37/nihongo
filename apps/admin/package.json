@@ -15,6 +15,7 @@
     "@nihongo/browser": "workspace:*",
     "@nihongo/contracts": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-table": "^9.3.1",
     "@hookform/resolvers": "^5.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

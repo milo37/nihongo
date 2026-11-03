@@ -1492,6 +1492,13 @@ export const koResources = {
   },
   admin: {
     name: '관리자',
+    grid: {
+      columns: '표시할 열',
+      pageSize: '쪽당 행 수',
+      pageStatus: '{{page}} / {{pageCount}}쪽 · 전체 {{total}}건',
+      previous: '이전',
+      next: '다음'
+    },
     nav: {
       brand: '하루마루 관리',
       questions: '문제',
