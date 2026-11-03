@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server'
 import {
   createBrowserApi,
   createGoogleTestProvider,
+  parseBrowserApiLogLevel,
   parseBrowserEnvironment,
   prepareBrowserActors
 } from './browserApi.js'
@@ -325,4 +326,18 @@ describe('Isolated TEST SSO bootstrap', () => {
       expect(pg.connect).not.toHaveBeenCalled()
     }
   )
+})
+
+describe('parseBrowserApiLogLevel', () => {
+  it('keeps the browser API silent unless a level is requested', () => {
+    expect(parseBrowserApiLogLevel(undefined)).toBe('silent')
+    expect(parseBrowserApiLogLevel('info')).toBe('info')
+    expect(parseBrowserApiLogLevel('debug')).toBe('debug')
+  })
+
+  it.each(['', 'INFO', 'verbose'])('rejects %j', (value) => {
+    expect(() => parseBrowserApiLogLevel(value)).toThrow(
+      'BROWSER_API_LOG_LEVEL_INVALID'
+    )
+  })
 })

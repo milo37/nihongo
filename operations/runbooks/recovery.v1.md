@@ -64,17 +64,21 @@ The historical physical53 inventory added `20261030100000_guest_expired_draft_re
 (file SHA256 `5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7`);
 its ordered inventory digest is
 `39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08`.
-The current physical55 inventory adds `20261104090000_unified_reports_import_results`
+The historical physical55 inventory added `20261104090000_unified_reports_import_results`
 (file SHA256 `aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042`)
 and `20261104120000_user_report_erasure_redaction`
 (file SHA256 `99bdb0fecdcfe27d13850bb106af9fbcbb88c2a8cd79d7d6ae355f1db530efa8`),
 with ordered inventory digest
 `4ced7adc2cb49210ad05dd09ec77238d5d3f784a27a5fc2182702de3531595b2`.
-Historical physical50, physical52 and physical53 are rejected as the current technical profile.
+The current physical56 inventory adds `20261104150000_user_account_restriction`
+(file SHA256 `26762221ae1b1ad9636138825453e4664c46e03128db394fbe77ec13ba1532cc`),
+with ordered inventory digest
+`6682d553434a2836173cc114cdbc664b0cdfc9b9c1e8580397d74c0a930aaa02`.
+Historical physical50, physical52, physical53 and physical55 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
+No current physical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
@@ -130,7 +134,7 @@ current technical recovery profile or as a fallback.
 `20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
 candidate rather than current-artifact compatibility or deployability proof.
 The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
-The replacement candidate uses a current-55 controlled Google-linked TEST session:
+The replacement candidate uses a current-56 controlled Google-linked TEST session:
 task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
 reviewed canonical65 seed helper, and remaining immutable migrations. An existing
 unique canonical tag must return exactly one matching question/version. The same
