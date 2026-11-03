@@ -83,7 +83,8 @@ import {
   isCanonicalPhase7Slice5AdminReadRequest,
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
-  isPhase7ExcludedRequest
+  isPhase7ExcludedRequest,
+  isCanonicalAdminConsoleReadRequest
 } from './protectedRouteExclusion.js'
 import { installStaticWeb } from './staticWeb.js'
 
@@ -444,6 +445,10 @@ export const createApiApp = ({
         method: context.req.method,
         requestTarget
       }) ||
+        isCanonicalAdminConsoleReadRequest({
+          method: context.req.method,
+          requestTarget
+        }) ||
         (admin?.commands !== undefined &&
           (isCanonicalPhase7Slice3ACommandRequest({
             method: context.req.method,

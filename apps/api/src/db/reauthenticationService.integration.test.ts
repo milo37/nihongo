@@ -945,6 +945,7 @@ const createTestHonoApp = ({
   service: ReturnType<typeof createService>
 }) => {
   const reader: AdminQuestionReader = {
+    listActivity: async () => Promise.reject(new Error('not used')),
     diffVersion: async () => Promise.reject(new Error('not used')),
     getQuestion: async () => Promise.reject(new Error('not used')),
     listAuditLog: async () => Promise.reject(new Error('not used')),

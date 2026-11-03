@@ -29,6 +29,10 @@ import {
   previewQuestionVersionQuerySchema,
   previewQuestionVersionResponseSchema
 } from '@nihongo/contracts/admin/content-operations'
+import {
+  listAdminActivityQuerySchema,
+  listAdminActivityResponseSchema
+} from '@nihongo/contracts/admin/audit'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z, type ZodError } from 'zod'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
@@ -216,6 +220,19 @@ export const createAdminQuestionRoutes = ({
       return context.json(response)
     }
   )
+
+  routes.get('/activity-log', guard, async (context) => {
+    const query = parseStrictRawQuery(
+      context.get('rawRequestTarget'),
+      listAdminActivityQuerySchema,
+      '관리자 활동 이력 조회 조건이 올바르지 않습니다.'
+    )
+    const response = listAdminActivityResponseSchema.parse(
+      await reader.listActivity(query)
+    )
+    noStore(context)
+    return context.json(response)
+  })
 
   routes.get('/audit-log', guard, async (context) => {
     const query = parseStrictRawQuery(
