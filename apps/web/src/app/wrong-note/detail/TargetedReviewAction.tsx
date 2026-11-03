@@ -27,6 +27,7 @@ export const TargetedReviewAction = ({
           <QuestionReportDialog
             questionId={data.question.id}
             questionVersionId={data.question.questionVersionId}
+            ordinal={1}
           />
         </div>
       ) : null}

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router'
 import type { RouteObject } from 'react-router'
 import { bookmarkRoutes } from '@app/bookmark/router'
@@ -17,6 +18,13 @@ import {
   RequireRole
 } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
+// The error screen loads the report form only when it is shown.
+const AppErrorReportButton = lazy(async () => ({
+  default: (
+    await import('@app/question-report/components/AppErrorReportDialog')
+  ).AppErrorReportButton
+}))
+
 const developmentRoutes: RouteObject[] = import.meta.env.DEV
   ? (await import('@app/development/router')).developmentRoutes
   : []
@@ -33,7 +41,15 @@ export const appRoutes: RouteObject[] = [
         <Layout />
       </ProtectedRouteProvider>
     ),
-    errorElement: <RouteErrorPage />,
+    errorElement: (
+      <RouteErrorPage
+        action={
+          <Suspense fallback={null}>
+            <AppErrorReportButton />
+          </Suspense>
+        }
+      />
+    ),
     children: [
       ...homeRoutes,
       ...loginRoutes,

@@ -22,6 +22,7 @@ import {
 import { ResultSummary } from '@app/practice/result/ResultSummary'
 import { ReviewCompletion } from '@app/practice/result/ReviewCompletion'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
 const PracticeResultPageContent = (): ReactElement => {
   const { t } = useTranslation('result')
@@ -68,6 +69,7 @@ const PracticeResultPageContent = (): ReactElement => {
         title={t('error.title')}
         description={t('error.description')}
         onRetry={result.refetchResult}
+        action={<AppErrorReportButton />}
       />
     )
   }

@@ -315,6 +315,37 @@ describe('wrong-note restricted account', () => {
     expect(
       within(dialog).queryByText('문제 신고를 접수하지 못했습니다.')
     ).toBeNull()
+    expect(within(dialog).getByRole('textbox', { name: /설명/u })).toHaveValue(
+      '보기 문구를 확인해 주세요.'
+    )
+  })
+})
+
+describe('wrong-note question report', () => {
+  it('사유 없이 설명만 받아 화면 키와 문항 번호로 제보를 접수한다', async () => {
+    const user = userEvent.setup()
+    const { question, detail } = await renderReadonlyDetail()
+    await user.click(screen.getByRole('button', { name: '문제 신고' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByRole('combobox')).toBeNull()
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /설명/u }),
+      '정답 표시가 이상합니다.'
+    )
+    await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(
+      await screen.findByText('문제 신고를 접수했습니다.')
+    ).toBeInTheDocument()
+    expect(mockDatabase.peekUserReports()).toEqual([
+      expect.objectContaining({
+        kind: 'QUESTION',
+        location: 'wrongNoteDetail#1',
+        questionVersionId: detail.question.questionVersionId,
+        description: '정답 표시가 이상합니다.'
+      })
+    ])
+    expect(question.id).toBe(detail.question.id)
   })
 })
 

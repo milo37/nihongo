@@ -1,74 +1,31 @@
-import { useTranslation } from 'react-i18next'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactElement } from 'react'
-import type { CreateQuestionReportRequest } from '@nihongo/contracts/admin/content-operations'
+import { useLocation } from 'react-router'
+import { useQuestionReportPresentation as useAdminPresentation } from '@app/content-operations/reports/questionReportPublic'
+import { ReportDialog } from '@app/question-report/components/ReportDialog'
 import {
-  questionReportReasonKey as adminReportReasonKey,
-  useQuestionReportPresentation as useAdminPresentation
-} from '@app/content-operations/reports/questionReportPublic'
-import { isAccountRestrictedApiError, isUiApiError } from '@libs/apiError'
-import { useCreateQuestionReport } from '@app/question-report/hooks/useCreateQuestionReport'
+  toQuestionReportLocation,
+  toReportScreenKey
+} from '@app/question-report/reportLocation'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { Dialog } from '@nihongo/browser/common/components/Dialog'
-import { Select } from '@nihongo/browser/common/components/Select'
-import { Textarea } from '@nihongo/browser/common/components/Textarea'
-
-const reasons = [
-  'ANSWER_ERROR',
-  'EXPLANATION_ERROR',
-  'TYPO_OR_GRAMMAR',
-  'AMBIGUOUS',
-  'LEVEL_OR_TAXONOMY',
-  'OTHER'
-] as const
 
 interface QuestionReportDialogProps {
   readonly questionId: string
   readonly questionVersionId: string
+  /** 1-based question number on the current screen. */
+  readonly ordinal: number
 }
 
 export const QuestionReportDialog = ({
   questionId,
-  questionVersionId
+  questionVersionId,
+  ordinal
 }: QuestionReportDialogProps): ReactElement => {
-  const { presentError, presentFieldError, t } = useAdminPresentation()
-  const { t: commonT } = useTranslation('common')
+  const { t } = useAdminPresentation()
+  const { pathname } = useLocation()
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const reasonRef = useRef<HTMLSelectElement>(null)
-  const descriptionRef = useRef<HTMLTextAreaElement>(null)
-  const submitRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
-  const [reason, setReason] =
-    useState<CreateQuestionReportRequest['reason']>('OTHER')
-  const [description, setDescription] = useState('')
-  const [descriptionRequired, setDescriptionRequired] = useState(false)
   const [wasSubmitted, setWasSubmitted] = useState(false)
-  const mutation = useCreateQuestionReport(() => {
-    setOpen(false)
-    setDescription('')
-    setWasSubmitted(true)
-  })
-
-  const errorMessage = mutation.error
-    ? isAccountRestrictedApiError(mutation.error)
-      ? commonT('state.accountRestricted')
-      : isUiApiError(mutation.error)
-        ? mutation.error.isOffline
-          ? t('questionReportDialog.offline')
-          : presentError(mutation.error)
-        : t('questionReportDialog.error')
-    : null
-  const fieldErrors =
-    mutation.error && isUiApiError(mutation.error)
-      ? mutation.error.fieldErrors
-      : undefined
-
-  useEffect(() => {
-    if (!mutation.error) return
-    if (fieldErrors?.reason?.length) reasonRef.current?.focus()
-    else if (fieldErrors?.description?.length) descriptionRef.current?.focus()
-    else submitRef.current?.focus()
-  }, [fieldErrors, mutation.error])
 
   return (
     <>
@@ -77,107 +34,34 @@ export const QuestionReportDialog = ({
         size="sm"
         variant="outline"
         onClick={() => {
-          mutation.reset()
           setWasSubmitted(false)
-          setDescriptionRequired(false)
           setOpen(true)
         }}
       >
         {t('questionReportDialog.trigger')}
       </Button>
-      <Dialog
-        initialFocusRef={descriptionRef}
-        open={open}
-        preventClose={mutation.isPending}
-        returnFocusRef={triggerRef}
-        title={t('questionReportDialog.title')}
-        description={t('questionReportDialog.description')}
-        onOpenChange={(nextOpen) => {
-          if (!mutation.isPending) setOpen(nextOpen)
+      <ReportDialog
+        copy={{
+          title: t('questionReportDialog.title'),
+          description: t('questionReportDialog.description'),
+          submitted: t('questionReportDialog.submitted'),
+          error: t('questionReportDialog.error')
         }}
-      >
-        <form
-          className="grid gap-5"
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (mutation.isPending) return
-            if (description.trim().length === 0) {
-              setDescriptionRequired(true)
-              descriptionRef.current?.focus()
-              return
-            }
-            mutation.mutate({
-              questionId,
-              request: { questionVersionId, reason, description }
-            })
-          }}
-        >
-          <Select
-            ref={reasonRef}
-            disabled={mutation.isPending}
-            error={presentFieldError(fieldErrors?.reason)}
-            label={t('questionReportDialog.reason')}
-            name="report-reason"
-            value={reason}
-            onChange={(event) =>
-              setReason(
-                event.currentTarget
-                  .value as CreateQuestionReportRequest['reason']
-              )
-            }
-          >
-            {reasons.map((item) => (
-              <option key={item} value={item}>
-                {t(adminReportReasonKey[item])}
-              </option>
-            ))}
-          </Select>
-          <Textarea
-            ref={descriptionRef}
-            disabled={mutation.isPending}
-            error={
-              descriptionRequired
-                ? t('questionReportDialog.descriptionRequired')
-                : presentFieldError(fieldErrors?.description)
-            }
-            label={t('questionReportDialog.details')}
-            maxLength={2000}
-            name="report-description"
-            required
-            rows={6}
-            value={description}
-            onChange={(event) => {
-              setDescription(event.currentTarget.value)
-              if (event.currentTarget.value.trim()) {
-                setDescriptionRequired(false)
-              }
-            }}
-          />
-          {errorMessage && !fieldErrors?.description?.length ? (
-            <p className="font-semibold text-red-700" role="alert">
-              {errorMessage}
-            </p>
-          ) : null}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              disabled={mutation.isPending}
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
-              {t('questionReportDialog.cancel')}
-            </Button>
-            <Button
-              ref={submitRef}
-              disabled={mutation.isPending}
-              isLoading={mutation.isPending}
-              type="submit"
-            >
-              {t('questionReportDialog.submit')}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        open={open}
+        onOpenChange={setOpen}
+        onSubmitted={() => setWasSubmitted(true)}
+        returnFocusRef={triggerRef}
+        toRequest={(description) => ({
+          kind: 'QUESTION',
+          location: toQuestionReportLocation(
+            toReportScreenKey(pathname),
+            ordinal
+          ),
+          questionId,
+          questionVersionId,
+          description
+        })}
+      />
       <p className="sr-only" aria-live="polite">
         {wasSubmitted ? t('questionReportDialog.submitted') : ''}
       </p>

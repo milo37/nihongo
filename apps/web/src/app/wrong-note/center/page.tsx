@@ -23,6 +23,7 @@ import {
   formatNumber
 } from '@nihongo/browser/libs/localeFormatters'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
 const MemberReview = (): ReactElement => {
   useTrackWrongNoteOpened('REVIEW_CENTER')
@@ -79,7 +80,10 @@ const MemberReview = (): ReactElement => {
           )}
           description={t('center.states.errorDescription')}
           action={
-            <Button onClick={center.retry}>{commonT('actions.retry')}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={center.retry}>{commonT('actions.retry')}</Button>
+              <AppErrorReportButton />
+            </div>
           }
         />
       ) : null}
