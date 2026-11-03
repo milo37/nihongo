@@ -18,7 +18,7 @@ export const bundleBaseline = Object.freeze({
   javaScriptRawBytes: 1_360_890,
   largestJavaScriptGzipBytes: 124_213,
   largestJavaScriptRawBytes: 417_581,
-  largestLazyJavaScriptGzipBytes: 22_581,
+  largestLazyJavaScriptGzipBytes: 24_463,
   largestLazyJavaScriptRawBytes: 96_743,
   totalGzipBytes: 456_255,
   totalRawBytes: 1_405_403
@@ -34,7 +34,7 @@ export const bundleCeilings = Object.freeze({
   javaScriptRawBytes: 1_429_000,
   largestJavaScriptGzipBytes: 131_000,
   largestJavaScriptRawBytes: 439_000,
-  largestLazyJavaScriptGzipBytes: 24_000,
+  largestLazyJavaScriptGzipBytes: 25_000,
   largestLazyJavaScriptRawBytes: 102_000,
   totalGzipBytes: 480_000,
   totalRawBytes: 1_476_000

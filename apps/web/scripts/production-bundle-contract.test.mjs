@@ -305,12 +305,12 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
 test('reports sorted budget metrics and exact lazy asset context without body', () => {
   const budgets = evaluateBundleBudgets({
     ...bundleBaseline,
-    largestLazyJavaScriptGzipBytes: 24_058
+    largestLazyJavaScriptGzipBytes: 25_058
   })
   const asset = {
     path: 'assets/locale.js',
     rawBytes: 92_000,
-    gzipBytes: 24_058,
+    gzipBytes: 25_058,
     contentSha256: 'a'.repeat(64),
     source: 'RAW_ASSET_BODY_MUST_NOT_BE_LOGGED'
   }
@@ -344,12 +344,12 @@ test('reports sorted budget metrics and exact lazy asset context without body', 
     Object.keys(budgets).toSorted()
   )
   assert.deepEqual(context.budgets.largestLazyJavaScriptGzipBytes, {
-    actual: 24_058,
-    baseline: 22_581,
-    ceiling: 24_000,
-    delta: 1_477,
+    actual: 25_058,
+    baseline: 24_463,
+    ceiling: 25_000,
+    delta: 595,
     passed: false,
-    ratio: 1.065409
+    ratio: 1.024322
   })
   assert.deepEqual(context.largestLazyJavaScriptByGzip, {
     path: asset.path,
