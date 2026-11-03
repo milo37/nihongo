@@ -178,9 +178,12 @@ export const publishQuestionVersionBatchErrorSchema = createApiFailureSchema(
   ])
 )
 
-/** Only a never published draft with usageCount 0 can be deleted. */
-export const deleteQuestionDraftQuerySchema = z
-  .object({ expectedRowVersion: z.coerce.number().pipe(rowVersionSchema) })
+/**
+ * POST /admin/question-versions/:versionId/draft-deletion.
+ * Only a never published draft with usageCount 0 can be deleted.
+ */
+export const deleteQuestionDraftRequestSchema = z
+  .object({ expectedRowVersion: rowVersionSchema })
   .strict()
 
 export const deleteQuestionDraftResponseSchema = z
@@ -223,6 +226,9 @@ export type PublishQuestionVersionBatchRequest = z.input<
 >
 export type PublishQuestionVersionBatchResponse = z.output<
   typeof publishQuestionVersionBatchResponseSchema
+>
+export type DeleteQuestionDraftRequest = z.input<
+  typeof deleteQuestionDraftRequestSchema
 >
 export type DeleteQuestionDraftResponse = z.output<
   typeof deleteQuestionDraftResponseSchema
