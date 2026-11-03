@@ -69,6 +69,7 @@ export const createTargetedReviewSessionCanonicalMaterial = (
 export const createTargetedReviewSessionErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
+  'ACCOUNT_RESTRICTED',
   'INVALID_JSON',
   'INVALID_REQUEST',
   'INVALID_CSRF',
