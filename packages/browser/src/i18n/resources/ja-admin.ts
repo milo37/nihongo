@@ -723,7 +723,15 @@ export const jaAdminResources = {
     apply: '同じ検証結果を一括適用',
     applied: '{{formattedCount}}件の下書きを一括作成しました。',
     error: 'インポート要求を処理できませんでした。',
-    issueLabel: '{{code}} · 項目{{item}} · {{field}}'
+    issueLabel: '{{code}} · 項目{{item}} · {{field}}',
+    recovery: {
+      checking:
+        '適用の応答を受け取れなかったため、同じインポートIDで適用結果を確認しています。',
+      notApplied:
+        'このインポートは適用されていません。再度適用しても下書きが重複して作成されることはありません。',
+      failed:
+        '適用結果を確認できませんでした。再度適用すると同じインポートIDで処理され、下書きが重複して作成されることはありません。'
+    }
   },
   audit: {
     eyebrow: 'ADMIN AUDIT',

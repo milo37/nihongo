@@ -28,6 +28,7 @@ import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as importResultApi from '@nihongo/browser/api/admin-import-result/index'
 import { adminRoutes } from '@/router'
 import {
   actor,
@@ -372,6 +373,81 @@ it.each(['IMPORT_VALIDATION_FAILED', 'IMPORT_IDENTITY_CONFLICT'])(
     expect(applies()).toHaveLength(1)
   }
 )
+describe('lost apply response recovery', () => {
+  const serverError = { code: 'INTERNAL_SERVER_ERROR', isServerError: true }
+  const applyWithLostResponse = async () => {
+    apply = async () => {
+      throw serverError
+    }
+    route()
+    await upload()
+    await runValidate()
+    await userEvent.click(applyButton())
+  }
+
+  it('re-reads the stored result with the same importId and shows it as applied', async () => {
+    const recover = vi
+      .spyOn(importResultApi, 'getAdminImportResult')
+      .mockResolvedValue(applied)
+    await applyWithLostResponse()
+    expect(
+      await screen.findByText(t('import.applied', { formattedCount: '1' }))
+    ).toBeVisible()
+    const appliedImportId = (applies()[0]![0].body as { importId: string })
+      .importId
+    expect(recover).toHaveBeenCalledExactlyOnceWith(appliedImportId)
+    expect(
+      screen.queryByRole('heading', { name: t('import.error') })
+    ).not.toBeInTheDocument()
+    expect(applyButton()).toBeDisabled()
+    expect(applies()).toHaveLength(1)
+  })
+
+  it('says the import was not applied when no stored result exists', async () => {
+    vi.spyOn(importResultApi, 'getAdminImportResult').mockRejectedValue({
+      code: 'RESOURCE_NOT_FOUND',
+      isNotFoundError: true
+    })
+    await applyWithLostResponse()
+    expect(
+      await screen.findByText(t('import.recovery.notApplied'))
+    ).toBeVisible()
+    expect(applyButton()).toBeEnabled()
+  })
+
+  it('keeps apply retryable when the result check also fails', async () => {
+    vi.spyOn(importResultApi, 'getAdminImportResult').mockRejectedValue(
+      serverError
+    )
+    await applyWithLostResponse()
+    expect(await screen.findByText(t('import.recovery.failed'))).toBeVisible()
+    expect(applyButton()).toBeEnabled()
+    apply = async () => applied
+    await userEvent.click(applyButton())
+    expect(
+      await screen.findByText(t('import.applied', { formattedCount: '1' }))
+    ).toBeVisible()
+    const [first, second] = applies().map(
+      ([value]) => (value.body as { importId: string }).importId
+    )
+    expect(second).toBe(first)
+  })
+
+  it('does not re-read the result for a request rejected before reaching the server', async () => {
+    const recover = vi.spyOn(importResultApi, 'getAdminImportResult')
+    apply = async () => {
+      throw { code: 'VALIDATION_ERROR' }
+    }
+    route()
+    await upload()
+    await runValidate()
+    await userEvent.click(applyButton())
+    expect(
+      await screen.findByRole('heading', { name: t('import.error') })
+    ).toBeVisible()
+    expect(recover).not.toHaveBeenCalled()
+  })
+})
 it('offers Google fresh explicitly and returns to an empty import workflow without stored source or replay', async () => {
   apply = async () => {
     throw { code: 'FRESH_ASSURANCE_REQUIRED' }

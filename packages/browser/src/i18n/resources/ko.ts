@@ -2094,7 +2094,15 @@ export const koResources = {
       apply: '동일 검증 결과 원자 적용',
       applied: '{{formattedCount}}개 초안을 원자적으로 만들었습니다.',
       error: '가져오기 요청을 처리하지 못했습니다.',
-      issueLabel: '{{code}} · 항목 {{item}} · {{field}}'
+      issueLabel: '{{code}} · 항목 {{item}} · {{field}}',
+      recovery: {
+        checking:
+          '적용 응답을 받지 못해 같은 가져오기 ID로 적용 결과를 확인하고 있습니다.',
+        notApplied:
+          '이 가져오기는 적용되지 않았습니다. 다시 적용해도 초안이 중복으로 만들어지지 않습니다.',
+        failed:
+          '적용 결과를 확인하지 못했습니다. 다시 적용하면 같은 가져오기 ID로 처리되어 초안이 중복으로 만들어지지 않습니다.'
+      }
     },
     audit: {
       eyebrow: 'ADMIN AUDIT',
