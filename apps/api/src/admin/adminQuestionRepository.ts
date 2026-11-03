@@ -106,6 +106,7 @@ export interface ListAdminQuestionRecordsInput {
   difficulty?: AdminVersionSummaryRecord['difficulty']
   lifecycleStatus?: AdminQuestionListRecord['lifecycleStatus']
   versionStatus?: AdminVersionSummaryRecord['status']
+  versionStatuses?: readonly AdminVersionSummaryRecord['status'][]
   normalizedTag?: string
   authorActorId?: string
   reviewerActorId?: string
@@ -113,7 +114,12 @@ export interface ListAdminQuestionRecordsInput {
   createdTo?: Date
   updatedFrom?: Date
   updatedTo?: Date
-  sort: 'UPDATED_DESC' | 'CREATED_DESC' | 'LEVEL_ASC' | 'REPORT_COUNT_DESC'
+  sort:
+    | 'UPDATED_DESC'
+    | 'CREATED_DESC'
+    | 'CREATED_ASC'
+    | 'LEVEL_ASC'
+    | 'REPORT_COUNT_DESC'
   page: number
   pageSize: number
 }
@@ -147,6 +153,7 @@ export interface AdminQuestionDetailRecord {
   updatedAt: Date
   versions: readonly AdminVersionSummaryRecord[]
   hasMoreVersions: boolean
+  usageCount: number
   auditSummary: {
     lastCommand: AdminAuditCommand | null
     lastActor: AdminSafeActorRecord | null
@@ -708,6 +715,9 @@ const questionPageOrder = (
   if (sort === 'CREATED_DESC') {
     return Prisma.sql`"questionCreatedAt" DESC, "questionId" DESC`
   }
+  if (sort === 'CREATED_ASC') {
+    return Prisma.sql`"questionCreatedAt" ASC, "questionId" ASC`
+  }
   if (sort === 'LEVEL_ASC') {
     return Prisma.sql`
       CASE "selectedLevel"
@@ -749,6 +759,10 @@ const buildQuestionPageWhere = (
     )
   if (input.versionStatus)
     clauses.push(Prisma.sql`sv."status"::text = ${input.versionStatus}`)
+  if (input.versionStatuses)
+    clauses.push(
+      Prisma.sql`sv."status"::text IN (${Prisma.join([...input.versionStatuses])})`
+    )
   if (input.normalizedTag) {
     clauses.push(Prisma.sql`
       EXISTS (
@@ -1014,6 +1028,15 @@ const getQuestionDetail = async (
     LIMIT 1
   `)
   const lastAudit = auditRows[0]
+  const usageRows = await transaction.$queryRaw<
+    { usageCount: bigint }[]
+  >(Prisma.sql`
+    SELECT count(*)::bigint AS "usageCount"
+    FROM "StudyAnswer" answer
+    JOIN "QuestionVersion" version ON version."id" = answer."questionVersionId"
+    WHERE version."questionId" = ${questionId}::uuid
+  `)
+  const usageCount = toSafeCount(usageRows[0]?.usageCount ?? 0n, 'Usage count')
   return {
     questionId: question.id,
     lifecycleStatus: question.lifecycleStatus,
@@ -1024,6 +1047,7 @@ const getQuestionDetail = async (
     updatedAt: question.updatedAt,
     versions: versions.slice(0, 20).map(mapVersionSummary),
     hasMoreVersions: versions.length > 20,
+    usageCount,
     auditSummary: {
       lastCommand: lastAudit?.command ?? null,
       lastActor: lastAudit
