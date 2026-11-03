@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { createColumnHelper } from '@tanstack/react-table'
@@ -7,11 +7,9 @@ import {
   adminMemberEmailQuerySchema,
   adminMemberSortSchema,
   type AdminMemberSort,
-  type AdminMemberStatus,
   type AdminMemberSummary,
   type ParsedListAdminMembersQuery
 } from '@nihongo/contracts/admin/members'
-import { Badge } from '@nihongo/browser/common/components/Badge'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { Input } from '@nihongo/browser/common/components/Input'
@@ -24,6 +22,7 @@ import {
 } from '@app/admin/components/data-grid/AdminDataGrid'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminMembersList } from '@app/admin-member/hooks/useAdminMembers'
+import { MemberStatusBadge } from '@app/admin-member/components/MemberStatusBadge'
 
 type PageSize = (typeof ADMIN_GRID_PAGE_SIZES)[number]
 
@@ -38,11 +37,6 @@ const COLUMN_IDS = [
   'actions'
 ] as const
 const COMPACT_COLUMN_IDS = ['memberId', 'maskedEmail', 'status'] as const
-
-const statusVariant: Record<AdminMemberStatus, 'success' | 'danger'> = {
-  ACTIVE: 'success',
-  RESTRICTED: 'danger'
-}
 
 const readQuery = (params: URLSearchParams): ParsedListAdminMembersQuery => {
   const sort = adminMemberSortSchema.safeParse(params.get('sort'))
@@ -68,6 +62,7 @@ export const AdminMembersPage = (): ReactElement => {
   const members = useAdminMembersList(query)
   const [emailDraft, setEmailDraft] = useState(query.email ?? '')
   const [emailError, setEmailError] = useState<string | undefined>()
+  const emailRef = useRef<HTMLInputElement>(null)
   const [columnVisibility, setColumnVisibility] = useResponsiveColumnVisibility(
     COLUMN_IDS,
     COMPACT_COLUMN_IDS
@@ -82,9 +77,11 @@ export const AdminMembersPage = (): ReactElement => {
       cell: (info) => (
         <Link
           to={`/members/${encodeURIComponent(info.getValue())}`}
-          className="font-mono text-sm font-semibold underline"
+          title={info.getValue()}
+          aria-label={info.getValue()}
+          className="whitespace-nowrap font-mono text-sm font-semibold underline"
         >
-          {info.getValue()}
+          {`${info.getValue().slice(0, 8)}…`}
         </Link>
       )
     }),
@@ -111,11 +108,7 @@ export const AdminMembersPage = (): ReactElement => {
     }),
     helper.accessor('status', {
       header: t('members.columns.status'),
-      cell: (info) => (
-        <Badge variant={statusVariant[info.getValue()]}>
-          {t(`members.status.${info.getValue()}`)}
-        </Badge>
-      )
+      cell: (info) => <MemberStatusBadge status={info.getValue()} />
     }),
     helper.display({
       id: 'actions',
@@ -178,6 +171,7 @@ export const AdminMembersPage = (): ReactElement => {
     const email = adminMemberEmailQuerySchema.safeParse(trimmed)
     if (!email.success) {
       setEmailError(t('members.search.invalid'))
+      emailRef.current?.focus()
       return
     }
     setEmailError(undefined)
@@ -202,6 +196,7 @@ export const AdminMembersPage = (): ReactElement => {
       >
         <div className="min-w-0 sm:w-96">
           <Input
+            ref={emailRef}
             type="email"
             name="email"
             autoComplete="off"

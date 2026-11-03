@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type {
@@ -123,7 +129,7 @@ it('searches by exact email and rejects a malformed address locally', async () =
   )
 })
 
-it('restricts a member with a reason and shows the re-sign-in link when fresh assurance is required', async () => {
+it('confirms a restriction and keeps the reason through an in-page re-check when fresh assurance is required', async () => {
   vi.spyOn(memberApi, 'getAdminMember').mockResolvedValue(detail)
   const restrict = vi
     .spyOn(memberApi, 'restrictAdminMember')
@@ -144,21 +150,35 @@ it('restricts a member with a reason and shows the re-sign-in link when fresh as
 
   await userEvent.type(screen.getByLabelText('제한 사유'), '반복 스팸 제보')
   await userEvent.click(screen.getByRole('button', { name: '이용 제한' }))
+  const dialog = await screen.findByRole('dialog', {
+    name: '이용을 제한할까요?'
+  })
+  expect(within(dialog).getByText('le***@example.test')).toBeVisible()
+  expect(restrict).not.toHaveBeenCalled()
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: '제한 적용' })
+  )
   expect(restrict).toHaveBeenCalledWith(memberId, {
     expectedRowVersion: 3,
     reason: '반복 스팸 제보'
   })
+
   const alert = await screen.findByRole('alert')
   expect(
-    within(alert)
-      .getByRole('link', { name: '관리자 다시 로그인' })
-      .getAttribute('href')
-  ).toContain(
-    `/login?redirect=${encodeURIComponent(`/admin/members/${memberId}`)}`
+    within(alert).getByRole('link', { name: '새 탭에서 로그인' })
+  ).toHaveAttribute('target', '_blank')
+  await userEvent.click(
+    within(alert).getByRole('button', { name: '본인 확인' })
   )
+  expect(
+    await screen.findByText(
+      '본인 확인을 마쳤습니다. ‘이용 제한’ 버튼을 다시 눌러 적용해 주세요.'
+    )
+  ).toBeVisible()
+  expect(screen.getByLabelText('제한 사유')).toHaveValue('반복 스팸 제보')
 })
 
-it('releases a restricted member', async () => {
+it('releases a restricted member and moves focus to the new section heading', async () => {
   vi.spyOn(memberApi, 'getAdminMember')
     .mockResolvedValueOnce({
       ...detail,
@@ -174,5 +194,22 @@ it('releases a restricted member', async () => {
   expect(await screen.findByText('스팸')).toBeVisible()
   await userEvent.click(screen.getByRole('button', { name: '제한 해제' }))
   expect(release).toHaveBeenCalledWith(memberId, { expectedRowVersion: 3 })
-  expect(await screen.findByRole('button', { name: '이용 제한' })).toBeVisible()
+  const heading = await screen.findByRole('heading', {
+    level: 2,
+    name: '이용 제한'
+  })
+  await waitFor(() => expect(heading).toHaveFocus())
+})
+
+it('shows the first 8 characters of the member id in the list', async () => {
+  vi.spyOn(memberApi, 'listAdminMembers').mockResolvedValue({
+    items: [summary],
+    page: 1,
+    pageSize: 25,
+    total: 1
+  })
+  renderRoute('/admin/members')
+  const link = await screen.findByRole('link', { name: memberId })
+  expect(link).toHaveTextContent(/^30000000…$/u)
+  expect(link).toHaveAttribute('title', memberId)
 })

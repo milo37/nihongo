@@ -66,7 +66,21 @@ export const jaAdminResources = {
       release: '制限を解除',
       releasing: '解除しています…',
       released: '利用制限を解除しました。',
-      reauthenticate: '管理者として再ログイン',
+      fresh: {
+        required:
+          'セキュリティのため管理者の本人確認が必要です。新しいタブで再ログインしてから、ここで本人確認を押してください。入力内容はそのまま残り、「{{command}}」はまだ適用されていません。',
+        confirm: '本人確認',
+        confirmed:
+          '本人確認が完了しました。もう一度「{{command}}」を押して適用してください。',
+        failed: '本人確認が完了しなかったため、適用していません。'
+      },
+      confirm: {
+        title: '利用を制限しますか？',
+        description: '次の会員にすぐ適用されます。',
+        preserved: '学習記録と送信済みの報告は削除されません。',
+        cancel: 'キャンセル',
+        apply: '制限を適用'
+      },
       reload: '最新情報を再読み込み'
     }
   },

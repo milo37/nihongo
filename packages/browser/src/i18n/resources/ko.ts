@@ -1555,7 +1555,21 @@ export const koResources = {
         release: '제한 해제',
         releasing: '해제하는 중…',
         released: '이용 제한을 해제했습니다.',
-        reauthenticate: '관리자 다시 로그인',
+        fresh: {
+          required:
+            '보안을 위해 관리자 본인 확인이 필요합니다. 새 탭에서 다시 로그인한 뒤 여기서 본인 확인을 눌러 주세요. 입력한 내용은 그대로 있고, ‘{{command}}’ 작업은 아직 적용되지 않았습니다.',
+          confirm: '본인 확인',
+          confirmed:
+            '본인 확인을 마쳤습니다. ‘{{command}}’ 버튼을 다시 눌러 적용해 주세요.',
+          failed: '본인 확인이 끝나지 않아 적용하지 않았습니다.'
+        },
+        confirm: {
+          title: '이용을 제한할까요?',
+          description: '아래 가입자에게 바로 적용됩니다.',
+          preserved: '학습 기록과 보낸 제보는 지워지지 않습니다.',
+          cancel: '취소',
+          apply: '제한 적용'
+        },
         reload: '최신 정보 다시 불러오기'
       }
     },
