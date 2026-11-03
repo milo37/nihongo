@@ -45,9 +45,9 @@ import {
   waitForLedgerToQuiesce
 } from './request-ledger'
 
-const mode = process.env.PHASE10_BROWSER_MODE
+const mode = process.env.JOURNEY_BROWSER_MODE
 if (mode !== 'real' && mode !== 'mock') {
-  throw new Error('PHASE10_BROWSER_MODE must be real or mock.')
+  throw new Error('JOURNEY_BROWSER_MODE must be real or mock.')
 }
 
 const browserJson = async (page: Page, path: string, body?: unknown) =>
@@ -619,7 +619,7 @@ const armDashboardFault = async (
     await route.fulfill({
       body: JSON.stringify({
         code: 'RATE_LIMITED',
-        message: 'Phase 10 browser rate-limit fault injection',
+        message: 'Browser rate-limit fault injection',
         requestId,
         retryable: true
       }),
