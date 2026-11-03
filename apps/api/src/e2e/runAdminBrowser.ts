@@ -303,7 +303,7 @@ const startControlServer = async ({
     })().catch((error: unknown) => {
       const message =
         error instanceof Error ? error.message : 'unknown control failure'
-      process.stderr.write(`[phase7-browser-control] ${message}\n`)
+      process.stderr.write(`[admin-browser-control] ${message}\n`)
       if (!response.headersSent) response.writeHead(500)
       response.end()
     })

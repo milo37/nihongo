@@ -200,7 +200,7 @@ for (const locale of ['ko', 'ja'] as const) {
       await assertAndAttachLedger(
         ledger,
         testInfo,
-        `phase10-${mode}-${locale}-handoff`
+        `journey-${mode}-${locale}-handoff`
       )
     } finally {
       if (mode === 'mock') {
@@ -1090,7 +1090,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await assertAndAttachLedger(
     ledger,
     testInfo,
-    `phase10-guest-auth-${mode}-request-ledger`
+    `guest-auth-${mode}-request-ledger`
   )
   assertExactRequestMultiset(ledger, [
     ...ssoRequestContract,
@@ -1429,7 +1429,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await assertAndAttachLedger(
     ledger,
     testInfo,
-    `phase10-user-journey-${mode}-request-ledger`
+    `user-journey-${mode}-request-ledger`
   )
   assertExactRequestMultiset(ledger, userJourneyRequestContract)
 })
@@ -1474,7 +1474,7 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   await assertAndAttachLedger(
     ledger,
     testInfo,
-    `phase10-resilience-${mode}-request-ledger`
+    `resilience-${mode}-request-ledger`
   )
   assertExactRequestMultiset(ledger, resilienceRequestContract)
 })

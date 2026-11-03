@@ -16,7 +16,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   forbidOnly: true,
   fullyParallel: false,
-  outputDir: `test-results/phase10-raw/${outputLabel}`,
+  outputDir: `test-results/playwright-raw/${outputLabel}`,
   reporter: [
     ['list'],
     [
