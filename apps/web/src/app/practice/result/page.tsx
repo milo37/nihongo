@@ -137,6 +137,7 @@ const PracticeResultPageContent = (): ReactElement => {
           canRequestCanonicalRetry={result.canRequestCanonicalRetry}
           hasNoEligibleRetry={result.hasNoEligibleRetry}
           hasRetryRequestError={result.hasRetryRequestError}
+          isRetryAccountRestricted={result.isRetryAccountRestricted}
           incorrectCount={result.incorrectItems.length}
           isRetryPaused={createRetrySession.isPaused}
           retryMessage={result.retryMessage}
