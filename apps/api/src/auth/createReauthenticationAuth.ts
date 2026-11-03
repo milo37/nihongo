@@ -2,13 +2,13 @@ import { betterAuth } from 'better-auth/minimal'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
-import { createPhase7ReauthenticationAdapter } from './reauthenticationAdapter.js'
-import type { Phase7ReauthenticationContext } from './reauthenticationContext.js'
+import { createReauthenticationAdapter } from './reauthenticationAdapter.js'
+import type { ReauthenticationContext } from './reauthenticationContext.js'
 
 const ONE_DAY_SECONDS = 24 * 60 * 60
 const ONE_WEEK_SECONDS = 7 * ONE_DAY_SECONDS
 
-export interface Phase7ReauthenticationAuthApi {
+export interface ReauthenticationAuthApi {
   readonly signInEmail: (input: {
     readonly headers: Headers
     readonly body: {
@@ -38,16 +38,16 @@ export const createPhase7ReauthenticationAuthApi = ({
   environment
 }: {
   client: Pick<PrismaClient, '$queryRawUnsafe'>
-  context: Phase7ReauthenticationContext
+  context: ReauthenticationContext
   environment: ApiEnvironment
-}): Phase7ReauthenticationAuthApi => {
+}): ReauthenticationAuthApi => {
   const auth = betterAuth({
     appName: '하루마루',
     basePath: '/internal/phase7/reauthentication',
     baseURL: environment.BETTER_AUTH_URL,
     secret: environment.BETTER_AUTH_SECRET,
     trustedOrigins: environment.TRUSTED_ORIGINS,
-    database: createPhase7ReauthenticationAdapter({
+    database: createReauthenticationAdapter({
       client,
       getIntentId: context.getIntentId
     }),

@@ -1,11 +1,11 @@
 import { access, writeFile } from 'node:fs/promises'
 import { createPerformanceFailureFinalizer } from '../performanceFailureFinalizer.js'
 import { exitPerformanceProcess } from '../performanceProcessExit.js'
-import { Phase10CleanupTimeoutError } from '../runTimeout.js'
+import { CleanupTimeoutError } from '../runTimeout.js'
 
-const evidenceFile = process.env.PHASE10_HUNG_CLEANUP_EVIDENCE_FILE
+const evidenceFile = process.env.HUNG_CLEANUP_EVIDENCE_FILE
 if (!evidenceFile) {
-  throw new Error('PHASE10_HUNG_CLEANUP_EVIDENCE_FILE is required.')
+  throw new Error('HUNG_CLEANUP_EVIDENCE_FILE is required.')
 }
 
 await writeFile(evidenceFile, '{"status":"passed"}\n', {
@@ -19,7 +19,7 @@ const finalizeFailure = createPerformanceFailureFinalizer({
   cleanup: async () => await new Promise<never>(() => undefined),
   cleanupTimeoutMs: 30,
   getEvidenceFile: () => evidenceFile,
-  label: 'Phase 10 hung cleanup probe'
+  label: 'Hung cleanup probe'
 })
 const cleanupErrors = await finalizeFailure()
 let evidenceRemoved = false
@@ -40,7 +40,7 @@ exitPerformanceProcess({
       destination: 'stderr',
       value: {
         cleanupTimedOut: cleanupErrors.some(
-          (error) => error instanceof Phase10CleanupTimeoutError
+          (error) => error instanceof CleanupTimeoutError
         ),
         evidenceRemoved,
         event: 'phase10.hung_cleanup_probe.failed'

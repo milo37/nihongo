@@ -220,8 +220,8 @@ describe('canonical Phase7 endpoint validation', () => {
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`
       )
       const legacy = helper
-        .replaceAll('contentOperationManifest', 'phase7OperationManifest')
-        .replaceAll('contentOperationSchemas', 'phase7OperationSchemas')
+        .replaceAll('contentOperationManifest', 'operationManifest')
+        .replaceAll('contentOperationSchemas', 'operationSchemas')
         .replace(
           '@nihongo/contracts/admin/content-operations',
           '@nihongo/contracts/admin/phase7'
@@ -233,7 +233,7 @@ describe('canonical Phase7 endpoint validation', () => {
       for (const [name, replacement] of [
         [
           'contentOperationManifest,',
-          'phase7Slice2ReadOperationManifest as contentOperationManifest,'
+          'slice2ReadOperationManifest as contentOperationManifest,'
         ],
         [
           'contentOperationSchemas,',

@@ -404,7 +404,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
     ],
     {
       ...process.env,
-      PHASE8_BROWSER_MODE: 'mock',
+      DASHBOARD_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_OUTPUT_LABEL: 'phase8-mock'
     },
@@ -438,10 +438,11 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     return
   }
   await reserveLoopbackPort(5175, 'localhost')
-  const { cleanupPhase7IsolatedDatabase, preparePhase7IsolatedDatabase } =
-    await import('../apps/api/src/e2e/runAdminApiIntegration.js')
-  cleanupDatabaseHarness = cleanupPhase7IsolatedDatabase
-  const harness = await preparePhase7IsolatedDatabase({
+  const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
+    '../apps/api/src/e2e/runAdminApiIntegration.js'
+  )
+  cleanupDatabaseHarness = cleanupIsolatedDatabase
+  const harness = await prepareIsolatedDatabase({
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })
@@ -493,10 +494,10 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     'APPLE_CLIENT_SECRET'
   ])
     delete apiEnvironment[key]
-  const { preparePhase9BrowserActors } = await import(
+  const { prepareBrowserActors } = await import(
     '../apps/api/src/e2e/browserApi.js'
   )
-  const created = await preparePhase9BrowserActors({
+  const created = await prepareBrowserActors({
     adminDatabaseUrl: harness.adminDatabaseUrl,
     environment: apiEnvironment
   })
@@ -515,7 +516,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/browserApi.ts'],
     {
       ...apiEnvironment,
-      PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
+      BROWSER_TEST_SSO_IDENTITIES: JSON.stringify(created.identities)
     }
   )
   await waitForHttp(`${apiOrigin}/health/ready`, api)

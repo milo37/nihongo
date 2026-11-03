@@ -268,25 +268,25 @@ const ATTESTATION_QUERY = `
 const getConfiguredLoginRole = (connectionString: string): string => {
   const encodedUsername = new URL(connectionString).username
   if (!encodedUsername) {
-    throw new Error('Phase 7 runtime DB wrapper login is missing.')
+    throw new Error('Runtime DB wrapper login is missing.')
   }
 
   try {
     return decodeURIComponent(encodedUsername)
   } catch {
-    throw new Error('Phase 7 runtime DB wrapper login is malformed.')
+    throw new Error('Runtime DB wrapper login is malformed.')
   }
 }
 
 const getConfiguredDatabase = (connectionString: string): string => {
   const pathname = new URL(connectionString).pathname
   if (!pathname.startsWith('/') || pathname.length <= 1) {
-    throw new Error('Phase 7 runtime DB name is missing.')
+    throw new Error('Runtime DB name is missing.')
   }
   try {
     return decodeURIComponent(pathname.slice(1))
   } catch {
-    throw new Error('Phase 7 runtime DB name is malformed.')
+    throw new Error('Runtime DB name is malformed.')
   }
 }
 
@@ -367,11 +367,11 @@ const assertEndpoint = (
     evidence.groupDirectGrants.length === 0
 
   if (!isExact) {
-    throw new Error('Phase 7 runtime DB role attestation failed.')
+    throw new Error('Runtime DB role attestation failed.')
   }
 }
 
-export const assertPhase7RuntimeRoleEvidence = (
+export const assertRuntimeRoleEvidence = (
   application: RuntimeRoleEvidence,
   authGateway: RuntimeRoleEvidence,
   endpoints: {
@@ -392,13 +392,11 @@ export const assertPhase7RuntimeRoleEvidence = (
     application.sessionUser !== authGateway.sessionUser
 
   if (!sameTarget) {
-    throw new Error(
-      'Phase 7 runtime DB endpoints do not share one safe target.'
-    )
+    throw new Error('Runtime DB endpoints do not share one safe target.')
   }
 }
 
-export const attestPhase7RuntimeRoles = async ({
+export const attestRuntimeRoles = async ({
   application,
   authGateway
 }: {
@@ -412,10 +410,10 @@ export const attestPhase7RuntimeRoles = async ({
     authGateway.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(ATTESTATION_QUERY)
   ])
   if (applicationRows.length !== 1 || authGatewayRows.length !== 1) {
-    throw new Error('Phase 7 runtime DB role evidence is unavailable.')
+    throw new Error('Runtime DB role evidence is unavailable.')
   }
 
-  assertPhase7RuntimeRoleEvidence(applicationRows[0]!, authGatewayRows[0]!, {
+  assertRuntimeRoleEvidence(applicationRows[0]!, authGatewayRows[0]!, {
     application: {
       connectionString: application.connectionString,
       expectedRole: application.expectedRole

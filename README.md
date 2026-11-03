@@ -83,7 +83,7 @@ activation에는 `phase7_environment=TEST` 또는 `phase7_environment=DEVELOPMEN
 승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical pnpm run dev:api`, DEVELOPMENT는 `ADMIN_CMS_MODE=technical pnpm run dev:api`로 시작합니다.
 
 **임시 통합 runner: 55432, 위 runtime과 volume 공유 금지**
-API `.env.test`의 `PHASE7_INTEGRATION_DATABASE_URL`·`PHASE7_API_INTEGRATION_DATABASE_URL`은 기본 55432 연결을 유지합니다.
+API `.env.test`의 `DB_INTEGRATION_DATABASE_URL`·`API_INTEGRATION_DATABASE_URL`은 기본 55432 연결을 유지합니다.
 
 ```bash
 docker compose up -d --wait postgres

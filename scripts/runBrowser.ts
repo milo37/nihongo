@@ -130,7 +130,7 @@ export const runBrowserMode = async (
                   suite,
                   ...playwrightArguments
                 ],
-                { ...process.env, PHASE8_BROWSER_ACCEPTANCE: '1' },
+                { ...process.env, DASHBOARD_BROWSER_ACCEPTANCE: '1' },
                 currentSignal
               )
             },

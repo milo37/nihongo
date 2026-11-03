@@ -140,7 +140,7 @@ const identitiesSchema = z
       ) {
         context.addIssue({
           code: 'custom',
-          message: 'Phase 9 TEST actor mapping mismatch.',
+          message: 'TEST actor mapping mismatch.',
           path: [key]
         })
       }
@@ -148,9 +148,9 @@ const identitiesSchema = z
       subjects.add(identity.accountId)
     }
   })
-export type Phase9SsoIdentities = z.output<typeof identitiesSchema>
-export type Phase9BrowserFixture = {
-  readonly [Key in (typeof actorKeys)[number]]: Phase9SsoIdentities[Key]['actor']
+export type SsoIdentities = z.output<typeof identitiesSchema>
+export type AccessibilityBrowserFixture = {
+  readonly [Key in (typeof actorKeys)[number]]: SsoIdentities[Key]['actor']
 }
 
 const sameTarget = (a: URL, b: URL): boolean =>
@@ -178,12 +178,12 @@ const assertTestTarget = (
       (key) => key !== 'schema' && key !== 'sslmode'
     )
   ) {
-    throw new Error('PHASE9_ISOLATED_TEST_SCHEMA_REQUIRED')
+    throw new Error('BROWSER_TEST_ISOLATED_TEST_SCHEMA_REQUIRED')
   }
   return target
 }
 
-export const parsePhase9BrowserEnvironment = (source: NodeJS.ProcessEnv) => {
+export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
   if (
     source.NODE_ENV !== 'test' ||
     source.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
@@ -196,7 +196,7 @@ export const parsePhase9BrowserEnvironment = (source: NodeJS.ProcessEnv) => {
       'APPLE_CLIENT_SECRET'
     ].some((key) => source[key] !== undefined)
   ) {
-    throw new Error('PHASE9_FIXED_TEST_ENVIRONMENT_REQUIRED')
+    throw new Error('BROWSER_TEST_FIXED_TEST_ENVIRONMENT_REQUIRED')
   }
   const environment = parseApiEnvironment(source)
   const app = assertTestTarget(
@@ -213,7 +213,7 @@ export const parsePhase9BrowserEnvironment = (source: NodeJS.ProcessEnv) => {
       'nihongo_test_auth_gateway_login' ||
     !sameTarget(app, gateway)
   )
-    throw new Error('PHASE9_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
+    throw new Error('BROWSER_TEST_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
   for (const databaseUrl of [
     environment.DATABASE_URL,
     environment.AUTH_GATEWAY_DATABASE_URL
@@ -235,28 +235,28 @@ export const parsePhase9BrowserEnvironment = (source: NodeJS.ProcessEnv) => {
       !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
       url.origin !== origin
     )
-      throw new Error('PHASE9_LOOPBACK_TEST_ORIGINS_REQUIRED')
+      throw new Error('BROWSER_TEST_LOOPBACK_TEST_ORIGINS_REQUIRED')
   }
   const api = new URL(environment.BETTER_AUTH_URL)
   if (
     api.hostname.replace(/^\[|\]$/gu, '') !== environment.HOST ||
     Number(api.port || '80') !== environment.PORT
   )
-    throw new Error('PHASE9_LISTENER_ORIGIN_MISMATCH')
+    throw new Error('BROWSER_TEST_LISTENER_ORIGIN_MISMATCH')
   return environment
 }
 
-export const preparePhase9BrowserActors = async ({
+export const prepareBrowserActors = async ({
   adminDatabaseUrl,
   environment: source
 }: {
   adminDatabaseUrl: string
   environment: NodeJS.ProcessEnv
 }): Promise<{
-  fixture: Phase9BrowserFixture
-  identities: Phase9SsoIdentities
+  fixture: AccessibilityBrowserFixture
+  identities: SsoIdentities
 }> => {
-  const environment = parsePhase9BrowserEnvironment(source)
+  const environment = parseBrowserEnvironment(source)
   const ownerTarget = assertTestTarget(
     adminDatabaseUrl,
     source.PRODUCTION_DATABASE_URL
@@ -271,7 +271,7 @@ export const preparePhase9BrowserActors = async ({
     ].includes(decodeURIComponent(ownerTarget.username)) ||
     !ownerTarget.username
   )
-    throw new Error('PHASE9_SEPARATE_TEST_OWNER_REQUIRED')
+    throw new Error('BROWSER_TEST_SEPARATE_TEST_OWNER_REQUIRED')
   const schema = getPostgresSchema(adminDatabaseUrl)!
   ownerTarget.searchParams.delete('schema')
   const owner = new Client({
@@ -309,13 +309,13 @@ export const preparePhase9BrowserActors = async ({
         result.rows[0]?.role !== definition.role ||
         result.rows[0]?.targetLevel !== definition.targetLevel
       )
-        throw new Error('PHASE9_DATABASE_ACTOR_AUTHORITY_MISMATCH')
+        throw new Error('BROWSER_TEST_DATABASE_ACTOR_AUTHORITY_MISMATCH')
       entries.push([key, { actor: { ...definition, userId }, identity }])
     }
     const identities = identitiesSchema.parse(Object.fromEntries(entries))
     const fixture = Object.fromEntries(
       actorKeys.map((key) => [key, identities[key].actor])
-    ) as Phase9BrowserFixture
+    ) as AccessibilityBrowserFixture
     await owner.query('COMMIT')
     transaction = false
     return { fixture, identities }
@@ -327,11 +327,11 @@ export const preparePhase9BrowserActors = async ({
   }
 }
 
-export const createPhase9GoogleTestProvider = (
+export const createGoogleTestProvider = (
   source: NodeJS.ProcessEnv,
   input: unknown
 ): SsoProvider => {
-  const environment = parsePhase9BrowserEnvironment(source)
+  const environment = parseBrowserEnvironment(source)
   const identities = identitiesSchema.parse(input)
   const byCode = new Map(
     actorKeys.map((key) => [
@@ -357,15 +357,15 @@ export const createPhase9GoogleTestProvider = (
   }
 }
 
-export const createPhase9BrowserApi = async ({
+export const createBrowserApi = async ({
   environment: source,
   identities
 }: {
   environment: NodeJS.ProcessEnv
   identities: unknown
 }) => {
-  const environment = parsePhase9BrowserEnvironment(source)
-  const provider = createPhase9GoogleTestProvider(source, identities)
+  const environment = parseBrowserEnvironment(source)
+  const provider = createGoogleTestProvider(source, identities)
   const database = createDatabaseRuntime(environment.DATABASE_URL, {
     migrationProfile: 'current',
     startupRole: 'nihongo_app'
@@ -381,7 +381,7 @@ export const createPhase9BrowserApi = async ({
       gateway.disconnect()
     ]).then((results) => {
       if (results.some((result) => result.status === 'rejected'))
-        throw new Error('PHASE9_DATABASE_DISCONNECT_FAILED')
+        throw new Error('BROWSER_TEST_DATABASE_DISCONNECT_FAILED')
     }))
   try {
     const practice = createPracticeRuntimeGate({
@@ -530,11 +530,11 @@ export const createPhase9BrowserApi = async ({
 }
 
 const run = async (): Promise<void> => {
-  const environment = parsePhase9BrowserEnvironment(process.env)
+  const environment = parseBrowserEnvironment(process.env)
   const identities: unknown = JSON.parse(
-    process.env.PHASE9_TEST_SSO_IDENTITIES ?? 'null'
+    process.env.BROWSER_TEST_SSO_IDENTITIES ?? 'null'
   )
-  const fixture = await createPhase9BrowserApi({
+  const fixture = await createBrowserApi({
     environment: process.env,
     identities
   })
@@ -588,7 +588,7 @@ if (
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   void run().catch(() => {
-    process.stderr.write('PHASE9_TEST_SSO_BOOTSTRAP_FAILED\n')
+    process.stderr.write('BROWSER_TEST_SSO_BOOTSTRAP_FAILED\n')
     process.exitCode = 1
   })
 }

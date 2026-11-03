@@ -62,22 +62,22 @@ import { createPrismaQuestionReportRepository } from '../admin/questionReportRep
 import { createQuestionReportService } from '../admin/questionReportService.js'
 import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 
-export interface Phase7BrowserCredentials {
+export interface BrowserCredentials {
   readonly email: string
   readonly name: string
   readonly password: string
   readonly userId: string
 }
 
-export interface Phase7BrowserFixture {
-  readonly author: Phase7BrowserCredentials
-  readonly insightsLearner: Phase7BrowserCredentials
-  readonly journeyLearner: Phase7BrowserCredentials
-  readonly learner: Phase7BrowserCredentials
-  readonly reviewer: Phase7BrowserCredentials
+export interface BrowserFixture {
+  readonly author: BrowserCredentials
+  readonly insightsLearner: BrowserCredentials
+  readonly journeyLearner: BrowserCredentials
+  readonly learner: BrowserCredentials
+  readonly reviewer: BrowserCredentials
 }
 
-interface Phase7BrowserDatabaseSnapshot {
+interface BrowserDatabaseSnapshot {
   readonly account: number
   readonly audit: number
   readonly operationIntent: number
@@ -93,24 +93,24 @@ interface Phase7BrowserDatabaseSnapshot {
   readonly versionTag: number
 }
 
-export interface Phase7BrowserFixtureDatabase {
+export interface BrowserFixtureDatabase {
   readonly ageFreshAssurance: (userId: string) => Promise<void>
   readonly assertRegisteredUser: (input: {
     readonly email: string
     readonly targetLevel: 'N1' | 'N2' | 'N3' | 'N4' | 'N5'
   }) => Promise<void>
   readonly assertExpectedLifecycleDelta: (
-    before: Phase7BrowserDatabaseSnapshot
+    before: BrowserDatabaseSnapshot
   ) => Promise<void>
   readonly disconnect: () => Promise<void>
-  readonly snapshot: () => Promise<Phase7BrowserDatabaseSnapshot>
+  readonly snapshot: () => Promise<BrowserDatabaseSnapshot>
 }
 
 const createCredentials = (
   schemaName: string,
   actor: 'author' | 'insights' | 'journey' | 'learner' | 'reviewer',
   name: string
-): Phase7BrowserCredentials => {
+): BrowserCredentials => {
   const suffix = schemaName.slice('phase7_'.length, 'phase7_'.length + 12)
   return {
     email: `phase7-${actor}-${suffix}@example.test`,
@@ -123,7 +123,7 @@ const createCredentials = (
 const createFixtureClient = (databaseUrl: string): Client => {
   const schemaName = getPostgresSchema(databaseUrl)
   if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
-    throw new Error('Phase 7 browser fixture schema is unsafe.')
+    throw new Error('Browser fixture schema is unsafe.')
   }
   const connectionUrl = new URL(databaseUrl)
   connectionUrl.searchParams.delete('schema')
@@ -136,8 +136,8 @@ const createFixtureClient = (databaseUrl: string): Client => {
 
 const readSnapshot = async (
   client: Client
-): Promise<Phase7BrowserDatabaseSnapshot> => {
-  const result = await client.query<Phase7BrowserDatabaseSnapshot>(
+): Promise<BrowserDatabaseSnapshot> => {
+  const result = await client.query<BrowserDatabaseSnapshot>(
     `SELECT
        (SELECT COUNT(*)::int FROM "User") AS "user",
        (SELECT COUNT(*)::int FROM "Account") AS "account",
@@ -157,7 +157,7 @@ const readSnapshot = async (
   )
   const snapshot = result.rows[0]
   if (!snapshot) {
-    throw new Error('Phase 7 browser database snapshot is unavailable.')
+    throw new Error('Browser database snapshot is unavailable.')
   }
   return snapshot
 }
@@ -176,33 +176,33 @@ const withFixtureClient = async <Result>(
 }
 
 const assertDelta = (
-  before: Phase7BrowserDatabaseSnapshot,
-  after: Phase7BrowserDatabaseSnapshot,
-  key: keyof Phase7BrowserDatabaseSnapshot,
+  before: BrowserDatabaseSnapshot,
+  after: BrowserDatabaseSnapshot,
+  key: keyof BrowserDatabaseSnapshot,
   expected: number
 ): void => {
   const actual = after[key] - before[key]
   if (actual !== expected) {
     throw new Error(
-      `Phase 7 browser database delta mismatch for ${key}: expected ${expected}, received ${actual}.`
+      `Browser database delta mismatch for ${key}: expected ${expected}, received ${actual}.`
     )
   }
 }
 
-export const createPhase7BrowserFixture = async (
+export const createBrowserFixture = async (
   databaseUrl: string
 ): Promise<{
-  readonly database: Phase7BrowserFixtureDatabase
-  readonly fixture: Phase7BrowserFixture
+  readonly database: BrowserFixtureDatabase
+  readonly fixture: BrowserFixture
 }> => {
   const schemaName = getPostgresSchema(databaseUrl)
   if (!schemaName) {
-    throw new Error('Phase 7 browser fixture schema is missing.')
+    throw new Error('Browser fixture schema is missing.')
   }
   const client = createFixtureClient(databaseUrl)
   await client.connect()
 
-  const fixture: Phase7BrowserFixture = {
+  const fixture: BrowserFixture = {
     author: createCredentials(schemaName, 'author', 'Phase 7 작성 관리자'),
     insightsLearner: createCredentials(
       schemaName,
@@ -267,25 +267,25 @@ export const createPhase7BrowserFixture = async (
     await client.end()
   }
 
-  return { fixture, database: createPhase7BrowserFixtureDatabase(databaseUrl) }
+  return { fixture, database: createBrowserFixtureDatabase(databaseUrl) }
 }
 
-type Phase7SsoAdminLifecycleProfile = 'full-lifecycle' | 'admin-a1-a8'
+type SsoAdminLifecycleProfile = 'full-lifecycle' | 'admin-a1-a8'
 
-const createPhase7BrowserFixtureDatabase = (
+const createBrowserFixtureDatabase = (
   databaseUrl: string,
   ssoAdmins?: {
-    readonly author: Phase7SsoBrowserActor
-    readonly reviewer: Phase7SsoBrowserActor
+    readonly author: SsoBrowserActor
+    readonly reviewer: SsoBrowserActor
   },
-  lifecycleProfile: Phase7SsoAdminLifecycleProfile = 'full-lifecycle'
-): Phase7BrowserFixtureDatabase => {
+  lifecycleProfile: SsoAdminLifecycleProfile = 'full-lifecycle'
+): BrowserFixtureDatabase => {
   let disconnected = false
   const runWithFixtureClient = async <Result>(
     operation: (operationClient: Client) => Promise<Result>
   ): Promise<Result> => {
     if (disconnected) {
-      throw new Error('Phase 7 browser fixture database is disconnected.')
+      throw new Error('Browser fixture database is disconnected.')
     }
     return await withFixtureClient(databaseUrl, operation)
   }
@@ -308,7 +308,7 @@ const createPhase7BrowserFixtureDatabase = (
           )
           if (updated.rowCount !== 1) {
             throw new Error(
-              `Phase 7 fresh-assurance fixture expected one active session, received ${updated.rowCount ?? 0}.`
+              `Fresh-assurance fixture expected one active session, received ${updated.rowCount ?? 0}.`
             )
           }
           await operationClient.query(
@@ -355,9 +355,7 @@ const createPhase7BrowserFixtureDatabase = (
         result.rows[0]?.accountCount !== 1 ||
         result.rows[0]?.activeSessionCount !== 1
       ) {
-        throw new Error(
-          'Phase 10 browser registration persistence contract failed.'
-        )
+        throw new Error('Browser registration persistence contract failed.')
       }
     },
     assertExpectedLifecycleDelta: async (before): Promise<void> => {
@@ -461,9 +459,7 @@ const createPhase7BrowserFixtureDatabase = (
               row.proofCount !== reauthentications
           )
         )
-          throw new Error(
-            'Phase 7 SSO actor-bound reauthentication lifecycle failed.'
-          )
+          throw new Error('SSO actor-bound reauthentication lifecycle failed.')
         if (a1a8) {
           const commands = await runWithFixtureClient(
             async (client) =>
@@ -536,14 +532,14 @@ const createPhase7BrowserFixtureDatabase = (
             row.archive !== true ||
             row.review !== true
           )
-            throw new Error('Phase 7 A1-A8 owned command lifecycle failed.')
+            throw new Error('A1-A8 owned command lifecycle failed.')
         }
       }
     },
     disconnect: async (): Promise<void> => {
       disconnected = true
     },
-    snapshot: async (): Promise<Phase7BrowserDatabaseSnapshot> =>
+    snapshot: async (): Promise<BrowserDatabaseSnapshot> =>
       await runWithFixtureClient(readSnapshot)
   }
 }
@@ -557,7 +553,7 @@ interface SsoBrowserFixtureOptions {
   isolateSignIns?: boolean
 }
 
-export interface Phase7SsoBrowserActor {
+export interface SsoBrowserActor {
   readonly userId: string
   readonly role: 'ADMIN' | 'USER'
   readonly targetLevel: 'N1' | 'N2' | 'N3' | 'N4' | 'N5'
@@ -674,10 +670,7 @@ const createSsoBrowserApiFixture = async (
     string,
     { provider: 'google'; accountId: string; email: string; name: string }
   >()
-  const fixture = {} as Record<
-    keyof Phase7BrowserFixture,
-    Phase7SsoBrowserActor
-  >
+  const fixture = {} as Record<keyof BrowserFixture, SsoBrowserActor>
   if (cms) {
     for (const [actor, role, targetLevel] of [
       ['author', 'ADMIN', 'N3'],
@@ -688,7 +681,7 @@ const createSsoBrowserApiFixture = async (
     ] as const) {
       const userId = randomUUID()
       const callbackCode = `phase7-test-google-${actor}`
-      const name = `Phase 7 SSO ${actor}`
+      const name = `SSO ${actor}`
       fixture[actor] = Object.freeze({
         userId,
         role,
@@ -708,7 +701,7 @@ const createSsoBrowserApiFixture = async (
     provider: 'google' as const,
     accountId: 'phase7-sso-browser-google-subject',
     email: 'phase7-sso-browser@example.test',
-    name: 'Phase 7 SSO browser learner'
+    name: 'SSO browser learner'
   })
   const authorizationProvider = createGoogleSsoProvider({
     clientId: 'phase7-sso-browser-test-client',
@@ -1608,14 +1601,14 @@ const createSsoBrowserApiFixture = async (
 }
 
 /** Existing USER fixture retains its fixed CMS-disabled TEST contract. */
-export const createPhase7SsoBrowserApiFixture = (
+export const createSsoBrowserApiTestFixture = (
   options: SsoBrowserFixtureOptions
 ) => createSsoBrowserApiFixture(options, false)
 
 /** Callbacks select prelinked TEST actors; public codes never assign a server role. */
-export const createPhase7SsoAdminBrowserApiFixture = async (
+export const createSsoAdminBrowserApiFixture = async (
   options: SsoBrowserFixtureOptions & { adminDatabaseUrl: string },
-  lifecycleProfile: Phase7SsoAdminLifecycleProfile = 'full-lifecycle'
+  lifecycleProfile: SsoAdminLifecycleProfile = 'full-lifecycle'
 ) => {
   if (
     lifecycleProfile !== 'full-lifecycle' &&
@@ -1623,7 +1616,7 @@ export const createPhase7SsoAdminBrowserApiFixture = async (
   )
     throw new Error('Unknown Phase 7 SSO admin lifecycle profile.')
   const created = await createSsoBrowserApiFixture(options, true)
-  const database = createPhase7BrowserFixtureDatabase(
+  const database = createBrowserFixtureDatabase(
     options.adminDatabaseUrl,
     created.fixture,
     lifecycleProfile

@@ -1,31 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import {
   createSessionCookie,
-  createPhase7SessionCookie,
+  createOwnedSessionCookie,
   createDontRememberCookie,
-  createPhase7DontRememberCookie,
+  createOwnedDontRememberCookie,
   createExpiredSessionCookies,
-  createExpiredPhase7SessionCookies,
+  createExpiredOwnedSessionCookies,
   readSessionToken,
-  readPhase7SessionToken
+  readOwnedSessionToken
 } from './sessionCookie.js'
 
 describe('session cookie compatibility', () => {
   it('preserves exported objects, names, cookie bytes, and rejection behavior', () => {
-    expect(createSessionCookie).toBe(createPhase7SessionCookie)
-    expect(createDontRememberCookie).toBe(createPhase7DontRememberCookie)
-    expect(createExpiredSessionCookies).toBe(createExpiredPhase7SessionCookies)
-    expect(readSessionToken).toBe(readPhase7SessionToken)
+    expect(createSessionCookie).toBe(createOwnedSessionCookie)
+    expect(createDontRememberCookie).toBe(createOwnedDontRememberCookie)
+    expect(createExpiredSessionCookies).toBe(createExpiredOwnedSessionCookies)
+    expect(readSessionToken).toBe(readOwnedSessionToken)
     expect([
       createSessionCookie.name,
       createDontRememberCookie.name,
       createExpiredSessionCookies.name,
       readSessionToken.name
     ]).toEqual([
-      'createPhase7SessionCookie',
-      'createPhase7DontRememberCookie',
-      'createExpiredPhase7SessionCookies',
-      'readPhase7SessionToken'
+      'createOwnedSessionCookie',
+      'createOwnedDontRememberCookie',
+      'createExpiredOwnedSessionCookies',
+      'readOwnedSessionToken'
     ])
 
     const secret = 'fixture-secret'

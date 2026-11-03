@@ -35,7 +35,7 @@ import {
   createApprovedReadingBatch7Import
 } from './approvedReadingBatch7.js'
 
-const fixtureProfile = process.env.PHASE7_BATCH7_FIXTURE_PROFILE ?? 'legacy'
+const fixtureProfile = process.env.READING_BATCH7_FIXTURE_PROFILE ?? 'legacy'
 if (fixtureProfile !== 'legacy' && fixtureProfile !== 'current') {
   throw new Error('Batch7 fixture profile must be legacy or current.')
 }
@@ -386,10 +386,10 @@ const approvedSources = [
 const defineLegacyFixtureTests = () => {
   const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
   if (!legacyDatabaseUrl)
-    throw new Error('Phase 7 legacy compatibility database URL is required.')
+    throw new Error('Legacy compatibility database URL is required.')
   const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
   if (!migrationDatabaseUrl)
-    throw new Error('Phase 7 migration wrapper database URL is required.')
+    throw new Error('Migration wrapper database URL is required.')
   const {
     copyMigration,
     createIsolatedUpgradeSchema,

@@ -38,16 +38,16 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 auth tests require fixture, erasure, and auth-gateway databases.'
+    'Auth tests require fixture, erasure, and auth-gateway databases.'
   )
 }
 for (const databaseUrl of [
@@ -123,7 +123,7 @@ const app = createApiApp({
       ? createAuthGateway({
           delay: async () => undefined,
           environment,
-          phase7Facade: createOwnedAuthFacade({
+          ownedAuthFacade: createOwnedAuthFacade({
             client: authGatewayDatabase!.client,
             emailDispatcher,
             environment
@@ -278,7 +278,7 @@ afterAll(async () => {
 
 describe(
   isCurrentSourceIntegration
-    ? 'Phase 7 V1 auth gateway PostgreSQL vertical slice'
+    ? 'V1 auth gateway PostgreSQL vertical slice'
     : 'Better Auth PostgreSQL vertical slice',
   () => {
     it('SSO USER principal, retired credential rejection and logout retain server authority', async () => {

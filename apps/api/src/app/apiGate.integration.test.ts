@@ -25,7 +25,7 @@ import {
 } from '../db/database.js'
 import { createPostgresStartupOptions } from '../db/databaseOptions.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
-import { attestPhase7RuntimeRoles } from '../db/runtimeRoleAttestation.js'
+import { attestRuntimeRoles } from '../db/runtimeRoleAttestation.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
@@ -33,18 +33,16 @@ import { createQuestionService } from '../question/questionService.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
-  if (!value) throw new Error(`Phase 7 API gate requires ${name}.`)
+  if (!value) throw new Error(`API gate requires ${name}.`)
   return value
 }
 
 const environment = parseApiEnvironment(process.env)
-const adminDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_API_ADMIN_DATABASE_URL'
-)
+const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const productionDatabaseUrl = requireEnvironmentValue('PRODUCTION_DATABASE_URL')
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
 if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
-  throw new Error('Phase 7 API gate received an unsafe schema.')
+  throw new Error('API gate received an unsafe schema.')
 }
 
 const createAdminConnection = (): Client =>
@@ -145,7 +143,7 @@ const readWriteCounts = async (): Promise<{
        (SELECT COUNT(*)::int FROM "Session") AS session`
   )
   const row = result.rows[0]
-  if (!row) throw new Error('Phase 7 API write counts are unavailable.')
+  if (!row) throw new Error('API write counts are unavailable.')
   return row
 }
 
@@ -332,7 +330,7 @@ beforeAll(async () => {
     'nihongo_auth_gateway'
   )
 
-  const phase7Facade = createOwnedAuthFacade({
+  const ownedAuthFacade = createOwnedAuthFacade({
     client: authGatewayRuntime.client,
     emailDispatcher,
     environment
@@ -349,7 +347,7 @@ beforeAll(async () => {
       environment,
       gateway: createAuthGateway({
         environment,
-        phase7Facade,
+        ownedAuthFacade,
         ssoRuntime: createSsoPublicRuntime({
           environment,
           providers: {
@@ -424,7 +422,7 @@ afterAll(async () => {
   ])
 })
 
-describe('Phase 7 Slice 1 technical API gate', () => {
+describe('Technical API gate', () => {
   it('stale DB capability에서 listener startup 권위를 fail closed한다', async () => {
     const capability = await adminClient.query<{
       databaseName: string
@@ -475,7 +473,7 @@ describe('Phase 7 Slice 1 technical API gate', () => {
 
     await expect(applicationRuntime.checkReadiness()).resolves.toBeUndefined()
     await expect(
-      attestPhase7RuntimeRoles({
+      attestRuntimeRoles({
         application: {
           client: applicationRuntime.client,
           connectionString: environment.DATABASE_URL,
@@ -500,7 +498,7 @@ describe('Phase 7 Slice 1 technical API gate', () => {
     ).resolves.toHaveLength(2)
   })
 
-  it('Phase 7 prefix를 CORS/auth/practice/DB보다 먼저 제외한다', async () => {
+  it('Prefix를 CORS/auth/practice/DB보다 먼저 제외한다', async () => {
     const before = await readWriteCounts()
     const callsBefore = practiceAuthorityCalls
     for (const [pathname, method] of [

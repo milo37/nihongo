@@ -35,7 +35,7 @@ import {
   exportAdminQuestionsRequestSchema,
   exportAdminQuestionsAttachmentBodyResponseSchema,
   exportAdminQuestionsResponseSchema,
-  phase7EmptyQuerySchema,
+  emptyQuerySchema,
   publishQuestionVersionParamsSchema,
   publishQuestionVersionRequestSchema,
   publishQuestionVersionResponseSchema,
@@ -129,7 +129,7 @@ const assertEmptyQuery = (requestTarget: string): void => {
   try {
     parseStrictRawQuery(
       requestTarget,
-      phase7EmptyQuerySchema,
+      emptyQuerySchema,
       '관리자 명령 쿼리 문자열이 올바르지 않습니다.'
     )
   } catch (error: unknown) {

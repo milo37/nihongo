@@ -31,8 +31,8 @@ vi.mock('./runAdminApiIntegration.js', async (importOriginal) => {
     await importOriginal<typeof import('./runAdminApiIntegration.js')>()
   return {
     ...actual,
-    preparePhase7IsolatedDatabase: ports.prepareDatabase,
-    cleanupPhase7IsolatedDatabase: ports.cleanupDatabase
+    prepareIsolatedDatabase: ports.prepareDatabase,
+    cleanupIsolatedDatabase: ports.cleanupDatabase
   }
 })
 vi.mock('./apiIntegrationExecution.js', () => ({
@@ -106,9 +106,9 @@ beforeEach(() => {
   ports.cleanupDatabase.mockReset().mockResolvedValue(undefined)
   ports.executeEntry.mockReset().mockResolvedValue(1)
   vi.stubEnv('NODE_ENV', 'test')
-  vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
+  vi.stubEnv('API_INTEGRATION_CASE', undefined)
   vi.stubEnv(
-    'PHASE7_API_INTEGRATION_DATABASE_URL',
+    'API_INTEGRATION_DATABASE_URL',
     'postgresql://synthetic:synthetic@127.0.0.1:5432/nihongo_test'
   )
   initialExitCode = process.exitCode

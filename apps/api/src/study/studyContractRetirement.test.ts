@@ -240,7 +240,7 @@ describe('V1 retirement TEST target validation', () => {
         'postgresql://app:fixture@127.0.0.1:56418/nihongo_production?schema=public'
     }
     expect(() => createStudyV1RetirementClient(input)).toThrow(
-      'Phase 7 migration requires its exact canonical migration login.'
+      'Migration requires its exact canonical migration login.'
     )
     expect(() =>
       createStudyV1RetirementClient({

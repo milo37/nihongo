@@ -30,23 +30,23 @@ describe('test execution compatibility exports', () => {
     const functions = [
       [
         createSsoTestEnvironment,
-        execution.createPhase7SsoTestEnvironment,
-        'createPhase7SsoTestEnvironment'
+        execution.createSsoDbTestEnvironment,
+        'createSsoDbTestEnvironment'
       ],
       [
         createDbFileEnvironment,
-        execution.createPhase7DbFileEnvironment,
-        'createPhase7DbFileEnvironment'
+        execution.createDbIntegrationFileEnvironment,
+        'createDbIntegrationFileEnvironment'
       ],
       [
         selectDbIntegrationFiles,
-        execution.selectPhase7DbIntegrationFiles,
-        'selectPhase7DbIntegrationFiles'
+        execution.selectDbIntegrationTestFiles,
+        'selectDbIntegrationTestFiles'
       ],
       [
         sanitizeVitestReport,
-        execution.sanitizePhase7VitestReport,
-        'sanitizePhase7VitestReport'
+        execution.sanitizeDbIntegrationVitestReport,
+        'sanitizeDbIntegrationVitestReport'
       ]
     ] as const
     for (const [current, previous, name] of functions) {
@@ -62,13 +62,13 @@ describe('test execution compatibility exports', () => {
       ssoIdentityTitle,
       ssoIdentityPattern
     ]).toEqual([
-      execution.phase7DbFoundationTestFile,
-      execution.phase7SsoTestFile,
-      execution.phase7SsoAccountLifecycleTestFile,
-      execution.phase7SsoOrdinal6Title,
-      execution.phase7SsoOrdinal6Pattern,
-      execution.phase7SsoIdentityTitle,
-      execution.phase7SsoIdentityPattern
+      execution.adminDbFoundationTestFile,
+      execution.ssoDbTestFile,
+      execution.ssoAccountLifecycleDbTestFile,
+      execution.ssoOrdinal6CaseTitle,
+      execution.ssoOrdinal6CasePattern,
+      execution.ssoIdentityCaseTitle,
+      execution.ssoIdentityCasePattern
     ])
   })
 })
@@ -138,8 +138,8 @@ describe('query-plan failure diagnostics', () => {
         testFile,
         environment: {
           DATABASE_URL: 'synthetic',
-          PHASE10_FIXTURE_DATABASE_URL: 'synthetic',
-          PHASE7_API_ERASURE_DATABASE_URL: 'synthetic'
+          API_INTEGRATION_FIXTURE_DATABASE_URL: 'synthetic',
+          TEST_API_ERASURE_DATABASE_URL: 'synthetic'
         },
         runCommand: async (_command, args) => {
           rawPath = args
@@ -229,7 +229,7 @@ describe('query-plan failure diagnostics', () => {
   })
 })
 
-describe('Phase 7 SSO deterministic TEST environment', () => {
+describe('SSO deterministic TEST environment', () => {
   const schema = 'phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test'
   const database = (role: string) =>
     `postgresql://${role}:synthetic@127.0.0.1:5432/nihongo_test?schema=${schema}`
@@ -241,7 +241,7 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
       'nihongo_test_phase7_migration_login'
     ),
     PHASE7_LEGACY_DATABASE_URL: database('nihongo_test_legacy_app_login'),
-    PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
+    TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
     PRISMA_TEST_DATABASE_URL: database('nihongo_test_app_login'),
     PATH: '/synthetic/toolchain'
   }
@@ -394,18 +394,18 @@ describe('Phase 7 SSO deterministic TEST environment', () => {
   })
 })
 
-describe('Phase 7 opt-in foundation execution', () => {
+describe('Opt-in foundation execution', () => {
   it('preserves the default list and refuses arbitrary paths', () => {
     const files = [dbFoundationTestFile, 'other.ts']
     expect(selectDbIntegrationFiles(files, {})).toBe(files)
     expect(
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: dbFoundationTestFile
+        DB_INTEGRATION_SINGLE_TEST: dbFoundationTestFile
       })
     ).toEqual([dbFoundationTestFile])
     expect(() =>
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: '../secret'
+        DB_INTEGRATION_SINGLE_TEST: '../secret'
       })
     ).toThrow('allowlist')
   })
@@ -414,7 +414,7 @@ describe('Phase 7 opt-in foundation execution', () => {
     const files = [dbFoundationTestFile, ssoTestFile]
     expect(
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: ssoTestFile
+        DB_INTEGRATION_SINGLE_TEST: ssoTestFile
       })
     ).toEqual([ssoTestFile])
     for (const selector of [
@@ -424,13 +424,13 @@ describe('Phase 7 opt-in foundation execution', () => {
     ]) {
       expect(() =>
         selectDbIntegrationFiles(files, {
-          PHASE7_DB_SINGLE_TEST: selector
+          DB_INTEGRATION_SINGLE_TEST: selector
         })
       ).toThrow('allowlist')
     }
     expect(() =>
       selectDbIntegrationFiles([dbFoundationTestFile], {
-        PHASE7_DB_SINGLE_TEST: ssoTestFile
+        DB_INTEGRATION_SINGLE_TEST: ssoTestFile
       })
     ).toThrow('allowlist')
   })
@@ -518,12 +518,12 @@ describe('Phase 7 opt-in foundation execution', () => {
   it.each([
     ['Cannot find module private', 'MODULE_DEPENDENCY_MISSING', 'module'],
     [
-      'Phase 7 admin integration database URL is required.',
+      'Admin integration database URL is required.',
       'CONFIG_WRAPPER_MISSING',
       'config'
     ],
     [
-      'Phase 7 DB endpoint identity is unavailable.',
+      'DB endpoint identity is unavailable.',
       'SETUP_ENDPOINT_UNAVAILABLE',
       'setup'
     ],
@@ -537,7 +537,7 @@ describe('Phase 7 opt-in foundation execution', () => {
         {
           PHASE7_ADMIN_DATABASE_URL: 'private-url',
           PHASE7_LEGACY_DATABASE_URL: '  ',
-          PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'secret-token'
+          TEST_DEVELOPMENT_APP_DATABASE_URL: 'secret-token'
         }
       )
       expect(report.errors).toEqual([{ diagnosticId, location }])
@@ -569,7 +569,7 @@ describe('Phase 7 opt-in foundation execution', () => {
         PHASE7_ADMIN_DATABASE_URL: 'private-admin',
         PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
         PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
-        PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
+        TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
       }
       try {
         await expect(
@@ -635,7 +635,7 @@ describe('Phase 7 opt-in foundation execution', () => {
   )
 })
 
-describe('Phase 7 bounded SSO first failed assertion', () => {
+describe('Bounded SSO first failed assertion', () => {
   type Mutable<T> = T extends readonly (infer U)[]
     ? Mutable<U>[]
     : T extends object
@@ -944,7 +944,7 @@ describe('Phase 7 bounded SSO first failed assertion', () => {
             PHASE7_ADMIN_DATABASE_URL: 'private-admin',
             PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
             PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
-            PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
+            TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
           },
           runCommand: async (_command, args) => {
             rawPath = args
@@ -994,15 +994,15 @@ describe.each([
     id: 'SSO_PROVIDER_SUB_IDENTITY_ORDINAL5',
     sourceOrdinal: 5
   }
-] as const)('Phase 7 fixed SSO $mode diagnosis', (fixedCase) => {
+] as const)('Fixed SSO $mode diagnosis', (fixedCase) => {
   const environment = {
-    PHASE7_DB_CASE: fixedCase.mode,
-    PHASE7_DB_SINGLE_TEST: ssoTestFile,
-    PHASE7_DB_PRESERVE_REPORT: '1',
+    DB_INTEGRATION_CASE: fixedCase.mode,
+    DB_INTEGRATION_SINGLE_TEST: ssoTestFile,
+    DB_INTEGRATION_PRESERVE_REPORT: '1',
     PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
     AUTH_GATEWAY_DATABASE_URL: 'synthetic-auth',
     PHASE7_LEGACY_DATABASE_URL: 'synthetic-legacy',
-    PHASE7_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
+    TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
     PRISMA_TEST_DATABASE_URL: 'synthetic-test'
   }
   const report = (status: 'passed' | 'failed') => ({
@@ -1024,7 +1024,7 @@ describe.each([
           failureMessages:
             index === fixedCase.sourceOrdinal - 1 && status === 'failed'
               ? [
-                  "PrismaClientKnownRequestError: private-value SQL secret code: 'P2010' SQLSTATE 23514\n    at privateFunction (/private/user/apps/api/src/auth/ssoAdminFreshRepository.ts:123:4)\n    at privateFunction (/private/user/apps/api/src/db/phase7SsoTestFixture.ts:99:1)"
+                  "PrismaClientKnownRequestError: private-value SQL secret code: 'P2010' SQLSTATE 23514\n    at privateFunction (/private/user/apps/api/src/auth/ssoAdminFreshRepository.ts:123:4)\n    at privateFunction (/private/user/apps/api/src/db/ssoDbTestFixture.ts:99:1)"
                 ]
               : []
         }))
@@ -1037,12 +1037,12 @@ describe.each([
       ssoTestFile
     ])
     for (const invalid of [
-      { PHASE7_DB_CASE: fixedCase.pattern },
-      { PHASE7_DB_CASE: '' },
-      { PHASE7_DB_CASE: 'sso-unknown' },
-      { PHASE7_DB_SINGLE_TEST: undefined },
-      { PHASE7_DB_SINGLE_TEST: dbFoundationTestFile },
-      { PHASE7_DB_PRESERVE_REPORT: undefined }
+      { DB_INTEGRATION_CASE: fixedCase.pattern },
+      { DB_INTEGRATION_CASE: '' },
+      { DB_INTEGRATION_CASE: 'sso-unknown' },
+      { DB_INTEGRATION_SINGLE_TEST: undefined },
+      { DB_INTEGRATION_SINGLE_TEST: dbFoundationTestFile },
+      { DB_INTEGRATION_PRESERVE_REPORT: undefined }
     ]) {
       expect(() =>
         selectDbIntegrationFiles([ssoTestFile], {
@@ -1069,7 +1069,7 @@ describe.each([
         recognizedTextCodes: ['P2010'],
         recognizedSourcePaths: [
           'src/auth/ssoAdminFreshRepository.ts',
-          'src/db/phase7SsoTestFixture.ts'
+          'src/db/ssoDbTestFixture.ts'
         ]
       }
     })
@@ -1088,7 +1088,7 @@ describe.each([
   })
 
   it('maps only the old and new fixture stack paths to one stable diagnostic label', () => {
-    const oldPath = 'src/db/phase7SsoTestFixture.ts'
+    const oldPath = 'src/db/ssoDbTestFixture.ts'
     const newPath = 'src/db/ssoTestFixture.ts'
     for (const paths of [[oldPath], [newPath], [oldPath, newPath]]) {
       const value = report('failed')
@@ -1125,7 +1125,7 @@ describe.each([
     ]!.failureMessages = [
       "UnrecognizedError: private code: 'SECRET' SQLSTATE 42501",
       'x'.repeat(8192) +
-        "code: 'P2028'\n    at /private/src/db/phase7SsoTestFixture.ts:1:2",
+        "code: 'P2028'\n    at /private/src/db/ssoDbTestFixture.ts:1:2",
       'private path /private/src/auth/ssoAdminFreshRepository.ts:1:2',
       "TypeError: private code: 'P2034'"
     ]
@@ -1254,7 +1254,7 @@ describe.each([
       await expect(
         runApiIntegrationManifestVitestFile({
           testFile: ssoTestFile,
-          environment: { ...environment, PHASE7_DB_CASE: mode },
+          environment: { ...environment, DB_INTEGRATION_CASE: mode },
           preserveSanitizedReport: true,
           runCommand
         })
@@ -1290,7 +1290,7 @@ describe('fixed account lifecycle TEST slice', () => {
     for (const selected of [
       selectDbIntegrationFiles(files, {}),
       selectDbIntegrationFiles(files, {
-        PHASE7_DB_SINGLE_TEST: ssoAccountLifecycleTestFile
+        DB_INTEGRATION_SINGLE_TEST: ssoAccountLifecycleTestFile
       })
     ])
       for (const file of selected) {
@@ -1391,8 +1391,8 @@ describe('guest cleanup required environment', () => {
   const environment = {
     GUEST_CLEANUP_DATABASE_URL: 'worker',
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: 'fixture',
-    PHASE7_RUNTIME_DATABASE_URL: 'application',
-    PHASE7_API_ERASURE_DATABASE_URL: 'erasure',
+    RUNTIME_DATABASE_URL: 'application',
+    TEST_API_ERASURE_DATABASE_URL: 'erasure',
     GUEST_CLEANUP_TEST_ISOLATED: 'yes'
   }
 
