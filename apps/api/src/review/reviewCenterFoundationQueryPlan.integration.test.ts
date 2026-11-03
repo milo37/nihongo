@@ -78,6 +78,7 @@ const RECONCILIATION_DECOY_USER_COUNT = 128
 const FOREIGN_OWNER_DECOY_USER_COUNT = 8
 const DECOY_QUESTION_COUNT = 64
 const HISTORY_CARDINALITY = 205
+const FIXTURE_STATEMENT_TIMEOUT_MS = 30_000
 const HISTORY_LIMIT = 101
 const TARGETED_CARDINALITY = 512
 const TARGETED_CATALOG_DECOY_CARDINALITY = 512
@@ -118,8 +119,12 @@ const database = createDatabaseRuntime(
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
+// Bulk fixture rows and VACUUM/ANALYZE can pass the 2.5s request limit on a
+// loaded CI runner (#395); the measured plans still run on `database`.
 const fixtureDatabase = fixtureDatabaseUrl
-  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  ? createDatabaseRuntime(fixtureDatabaseUrl, {
+      statementTimeoutMs: FIXTURE_STATEMENT_TIMEOUT_MS
+    })
   : database
 const erasureWorkerClient = erasureWorkerDatabaseUrl
   ? new Client({

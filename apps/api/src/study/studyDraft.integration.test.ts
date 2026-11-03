@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { writeSync } from 'node:fs'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/create-study-session'
 import { getStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/get-study-draft-answers'
@@ -1372,7 +1373,9 @@ describe('StudyDraft PostgreSQL integration', () => {
                   : name === 'Error'
                     ? 'ERROR'
                     : 'UNKNOWN'
-        process.stdout.write(
+        // fd 1 directly: the JSON reporter drops captured test stdout (#395).
+        writeSync(
+          1,
           `${JSON.stringify({ event: 'study_draft_lock_race_failure', stage: lockRaceStage, category })}\n`
         )
       } catch {

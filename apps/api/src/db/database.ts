@@ -33,6 +33,8 @@ interface CreateDatabaseRuntimeOptions {
     | 'nihongo_auth_gateway'
     | 'nihongo_erasure_worker'
     | 'nihongo_guest_cleanup_worker'
+  /** Test fixture population only; request paths keep the 2.5s default. */
+  readonly statementTimeoutMs?: number
 }
 
 export const selectDatabaseGlobalOmit = (
@@ -70,7 +72,11 @@ export const selectDatabaseGlobalOmit = (
 
 const createPrismaClient = (
   connectionString: string,
-  { migrationProfile, startupRole }: CreateDatabaseRuntimeOptions = {}
+  {
+    migrationProfile,
+    startupRole,
+    statementTimeoutMs = 2_500
+  }: CreateDatabaseRuntimeOptions = {}
 ): PrismaClient => {
   const schema = getPostgresSchema(connectionString)
   const adapter = new PrismaPg(
@@ -80,8 +86,8 @@ const createPrismaClient = (
       idleTimeoutMillis: 30_000,
       max: startupRole === 'nihongo_auth_gateway' ? 5 : 10,
       options: createPostgresStartupOptions(schema, startupRole),
-      query_timeout: 2_500,
-      statement_timeout: 2_500
+      query_timeout: statementTimeoutMs,
+      statement_timeout: statementTimeoutMs
     },
     schema ? { schema } : {}
   )
