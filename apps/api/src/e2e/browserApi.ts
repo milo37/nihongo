@@ -149,7 +149,7 @@ const identitiesSchema = z
     }
   })
 export type SsoIdentities = z.output<typeof identitiesSchema>
-export type Phase9BrowserFixture = {
+export type AccessibilityBrowserFixture = {
   readonly [Key in (typeof actorKeys)[number]]: SsoIdentities[Key]['actor']
 }
 
@@ -253,7 +253,7 @@ export const preparePhase9BrowserActors = async ({
   adminDatabaseUrl: string
   environment: NodeJS.ProcessEnv
 }): Promise<{
-  fixture: Phase9BrowserFixture
+  fixture: AccessibilityBrowserFixture
   identities: SsoIdentities
 }> => {
   const environment = parseBrowserEnvironment(source)
@@ -315,7 +315,7 @@ export const preparePhase9BrowserActors = async ({
     const identities = identitiesSchema.parse(Object.fromEntries(entries))
     const fixture = Object.fromEntries(
       actorKeys.map((key) => [key, identities[key].actor])
-    ) as Phase9BrowserFixture
+    ) as AccessibilityBrowserFixture
     await owner.query('COMMIT')
     transaction = false
     return { fixture, identities }

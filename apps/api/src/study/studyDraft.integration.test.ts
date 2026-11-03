@@ -147,7 +147,7 @@ const app = createApiApp({
     gateway: isCurrentSourceIntegration
       ? createAuthGateway({
           environment,
-          phase7Facade: createOwnedAuthFacade({
+          ownedAuthFacade: createOwnedAuthFacade({
             client: authGatewayDatabase!.client,
             emailDispatcher,
             environment

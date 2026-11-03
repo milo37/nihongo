@@ -330,7 +330,7 @@ beforeAll(async () => {
     'nihongo_auth_gateway'
   )
 
-  const phase7Facade = createOwnedAuthFacade({
+  const ownedAuthFacade = createOwnedAuthFacade({
     client: authGatewayRuntime.client,
     emailDispatcher,
     environment
@@ -347,7 +347,7 @@ beforeAll(async () => {
       environment,
       gateway: createAuthGateway({
         environment,
-        phase7Facade,
+        ownedAuthFacade,
         ssoRuntime: createSsoPublicRuntime({
           environment,
           providers: {

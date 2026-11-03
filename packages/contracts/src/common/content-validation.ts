@@ -167,7 +167,7 @@ export const normalizePhase7TagKey = (value: string): string =>
     .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
 
-export const normalizePhase7DuplicateText = (value: string): string =>
+export const normalizeQuestionDuplicateText = (value: string): string =>
   value
     .normalize('NFKC')
     .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
@@ -188,15 +188,17 @@ export const createPhase7QuestionDuplicateIdentity = (
   material: QuestionDuplicateIdentityMaterial
 ): string =>
   canonicalizeJson({
-    correctOptionText: normalizePhase7DuplicateText(material.correctOptionText),
+    correctOptionText: normalizeQuestionDuplicateText(
+      material.correctOptionText
+    ),
     optionTexts: material.optionTexts
-      .map(normalizePhase7DuplicateText)
+      .map(normalizeQuestionDuplicateText)
       .toSorted(compareUnicodeScalars),
     passage:
       material.passage === null
         ? null
-        : normalizePhase7DuplicateText(material.passage),
-    questionText: normalizePhase7DuplicateText(material.questionText),
+        : normalizeQuestionDuplicateText(material.passage),
+    questionText: normalizeQuestionDuplicateText(material.questionText),
     questionType: material.questionType,
     subject: material.subject
   })

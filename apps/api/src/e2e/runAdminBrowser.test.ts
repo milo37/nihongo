@@ -44,7 +44,7 @@ import type { ChildProcess } from 'node:child_process'
 import type { Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  cleanupPhase7BrowserResources,
+  cleanupAdminBrowserResources,
   closeBrowserApi,
   selectPhase7BrowserSpecs
 } from './runAdminBrowser.js'
@@ -62,7 +62,7 @@ describe('admin and dashboard browser cleanup caller', () => {
     const cleanupHarness = vi.fn(async () => undefined)
 
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: async () => {
           throw stopFailure
         },
@@ -84,7 +84,7 @@ describe('admin and dashboard browser cleanup caller', () => {
   it('clears records only after a successful stop and keeps normal cleanup order', async () => {
     const processes = [{ child: {} as ChildProcess, label: 'stopped-test' }]
     const calls: string[] = []
-    await cleanupPhase7BrowserResources(processes, {
+    await cleanupAdminBrowserResources(processes, {
       stopOwnedProcesses: async () => {
         calls.push('stop')
       },
@@ -106,7 +106,7 @@ describe('admin and dashboard browser cleanup caller', () => {
     const closeFailure = new Error('control close failed')
     const cleanupDatabase = vi.fn(async () => undefined)
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: async () => undefined,
         closeControlServer: async () => {
           throw closeFailure
@@ -124,7 +124,7 @@ describe('admin and dashboard browser cleanup caller', () => {
     ]
     const databaseFailure = new Error('database cleanup failed')
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: async () => undefined,
         closeControlServer: async () => undefined,
         cleanupDatabase: async () => {
@@ -145,7 +145,7 @@ describe('admin browser TEST API listener shutdown', () => {
         callback()
       }
     } as unknown as Server
-    await cleanupPhase7BrowserResources([], {
+    await cleanupAdminBrowserResources([], {
       stopOwnedProcesses: async () => {
         calls.push('children')
         await closeBrowserApi(server)
@@ -168,7 +168,7 @@ describe('admin browser TEST API listener shutdown', () => {
     const owned = { child: {} as ChildProcess, label: 'owned-web' }
     const processes = [owned]
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: () => closeBrowserApi(server),
         closeControlServer: async () => undefined,
         cleanupDatabase
@@ -199,7 +199,7 @@ describe('admin browser owned API bounded shutdown', () => {
         closeAllConnections
       } as unknown as Server
       const cleanupDatabase = vi.fn(async () => undefined)
-      const failure = cleanupPhase7BrowserResources([], {
+      const failure = cleanupAdminBrowserResources([], {
         stopOwnedProcesses: () => closeBrowserApi(server),
         closeControlServer: async () => undefined,
         cleanupDatabase

@@ -30,23 +30,23 @@ describe('test execution compatibility exports', () => {
     const functions = [
       [
         createSsoTestEnvironment,
-        execution.createPhase7SsoTestEnvironment,
-        'createPhase7SsoTestEnvironment'
+        execution.createSsoDbTestEnvironment,
+        'createSsoDbTestEnvironment'
       ],
       [
         createDbFileEnvironment,
-        execution.createPhase7DbFileEnvironment,
-        'createPhase7DbFileEnvironment'
+        execution.createDbIntegrationFileEnvironment,
+        'createDbIntegrationFileEnvironment'
       ],
       [
         selectDbIntegrationFiles,
-        execution.selectPhase7DbIntegrationFiles,
-        'selectPhase7DbIntegrationFiles'
+        execution.selectDbIntegrationTestFiles,
+        'selectDbIntegrationTestFiles'
       ],
       [
         sanitizeVitestReport,
-        execution.sanitizePhase7VitestReport,
-        'sanitizePhase7VitestReport'
+        execution.sanitizeDbIntegrationVitestReport,
+        'sanitizeDbIntegrationVitestReport'
       ]
     ] as const
     for (const [current, previous, name] of functions) {
@@ -62,13 +62,13 @@ describe('test execution compatibility exports', () => {
       ssoIdentityTitle,
       ssoIdentityPattern
     ]).toEqual([
-      execution.phase7DbFoundationTestFile,
-      execution.phase7SsoTestFile,
-      execution.phase7SsoAccountLifecycleTestFile,
-      execution.phase7SsoOrdinal6Title,
-      execution.phase7SsoOrdinal6Pattern,
-      execution.phase7SsoIdentityTitle,
-      execution.phase7SsoIdentityPattern
+      execution.adminDbFoundationTestFile,
+      execution.ssoDbTestFile,
+      execution.ssoAccountLifecycleDbTestFile,
+      execution.ssoOrdinal6CaseTitle,
+      execution.ssoOrdinal6CasePattern,
+      execution.ssoIdentityCaseTitle,
+      execution.ssoIdentityCasePattern
     ])
   })
 })
@@ -1024,7 +1024,7 @@ describe.each([
           failureMessages:
             index === fixedCase.sourceOrdinal - 1 && status === 'failed'
               ? [
-                  "PrismaClientKnownRequestError: private-value SQL secret code: 'P2010' SQLSTATE 23514\n    at privateFunction (/private/user/apps/api/src/auth/ssoAdminFreshRepository.ts:123:4)\n    at privateFunction (/private/user/apps/api/src/db/phase7SsoTestFixture.ts:99:1)"
+                  "PrismaClientKnownRequestError: private-value SQL secret code: 'P2010' SQLSTATE 23514\n    at privateFunction (/private/user/apps/api/src/auth/ssoAdminFreshRepository.ts:123:4)\n    at privateFunction (/private/user/apps/api/src/db/ssoDbTestFixture.ts:99:1)"
                 ]
               : []
         }))
@@ -1069,7 +1069,7 @@ describe.each([
         recognizedTextCodes: ['P2010'],
         recognizedSourcePaths: [
           'src/auth/ssoAdminFreshRepository.ts',
-          'src/db/phase7SsoTestFixture.ts'
+          'src/db/ssoDbTestFixture.ts'
         ]
       }
     })
@@ -1088,7 +1088,7 @@ describe.each([
   })
 
   it('maps only the old and new fixture stack paths to one stable diagnostic label', () => {
-    const oldPath = 'src/db/phase7SsoTestFixture.ts'
+    const oldPath = 'src/db/ssoDbTestFixture.ts'
     const newPath = 'src/db/ssoTestFixture.ts'
     for (const paths of [[oldPath], [newPath], [oldPath, newPath]]) {
       const value = report('failed')
@@ -1125,7 +1125,7 @@ describe.each([
     ]!.failureMessages = [
       "UnrecognizedError: private code: 'SECRET' SQLSTATE 42501",
       'x'.repeat(8192) +
-        "code: 'P2028'\n    at /private/src/db/phase7SsoTestFixture.ts:1:2",
+        "code: 'P2028'\n    at /private/src/db/ssoDbTestFixture.ts:1:2",
       'private path /private/src/auth/ssoAdminFreshRepository.ts:1:2',
       "TypeError: private code: 'P2034'"
     ]

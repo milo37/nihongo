@@ -53,10 +53,9 @@ const failure = (code: string, retryable: boolean) => ({
 
 describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   it('keeps the additive contract paths and aliases identical', () => {
-    const oldOperation: legacyOperations.Phase7Operation =
-      'createQuestionReport'
+    const oldOperation: legacyOperations.AdminOperation = 'createQuestionReport'
     const newOperation: contentOperations.ContentOperation = oldOperation
-    const roundTrip: legacyOperations.Phase7Operation = newOperation
+    const roundTrip: legacyOperations.AdminOperation = newOperation
 
     expect(roundTrip).toBe(oldOperation)
     expect(contentOperations.contentOperationManifest).toBe(
@@ -68,14 +67,14 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(contentOperations.parseJsonBytes).toBe(
       legacyOperations.parseJsonBytes
     )
-    expect(contentOperations.parsePhase7JsonBytes).toBe(
-      legacyOperations.parsePhase7JsonBytes
+    expect(contentOperations.parseContentJsonBytes).toBe(
+      legacyOperations.parseContentJsonBytes
     )
     expect(contentOperations.JsonParseError).toBe(
       legacyOperations.JsonParseError
     )
-    expect(contentOperations.Phase7JsonParseError).toBe(
-      legacyOperations.Phase7JsonParseError
+    expect(contentOperations.ContentJsonParseError).toBe(
+      legacyOperations.ContentJsonParseError
     )
     expect(contentConformance.assertSlice2ConformanceManifest).toBe(
       legacyConformance.assertSlice2ConformanceManifest
@@ -86,9 +85,9 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       throw new Error('expected malformed JSON to fail')
     } catch (error) {
       expect(error).toBeInstanceOf(legacyOperations.JsonParseError)
-      expect(error).toBeInstanceOf(contentOperations.Phase7JsonParseError)
+      expect(error).toBeInstanceOf(contentOperations.ContentJsonParseError)
       if (!(error instanceof legacyOperations.JsonParseError)) throw error
-      expect(error.name).toBe('Phase7JsonParseError')
+      expect(error.name).toBe('ContentJsonParseError')
       expect(error.kind).toBe('INVALID_JSON')
     }
   })
@@ -421,8 +420,10 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('exports one named ErrorCodeSchema for every manifest operation', async () => {
-    const phase7Exports = await import('../src/admin/content-operations.js')
-    const actual = Object.keys(phase7Exports)
+    const adminContentExports = await import(
+      '../src/admin/content-operations.js'
+    )
+    const actual = Object.keys(adminContentExports)
       .filter((name) => name.endsWith('ErrorCodeSchema'))
       .sort()
     const expected = phase7OperationManifest

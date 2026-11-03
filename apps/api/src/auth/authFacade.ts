@@ -172,7 +172,7 @@ interface EmailVerificationSubjectRow extends SignupCredentialRow {
   emailVerified: boolean
 }
 
-export interface Phase7AuthFacade {
+export interface OwnedAuthFacade {
   handle: (
     request: Request,
     pathname: string,
@@ -180,7 +180,7 @@ export interface Phase7AuthFacade {
   ) => Promise<Response>
 }
 
-export type AuthFacade = Phase7AuthFacade
+export type AuthFacade = OwnedAuthFacade
 
 const response = (status: number, payload: Record<string, unknown>): Response =>
   Response.json(payload, { status })

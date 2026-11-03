@@ -3,19 +3,19 @@ import {
   createSessionCookie,
   createPhase7SessionCookie,
   createDontRememberCookie,
-  createPhase7DontRememberCookie,
+  createOwnedDontRememberCookie,
   createExpiredSessionCookies,
-  createExpiredPhase7SessionCookies,
+  createExpiredOwnedSessionCookies,
   readSessionToken,
-  readPhase7SessionToken
+  readOwnedSessionToken
 } from './sessionCookie.js'
 
 describe('session cookie compatibility', () => {
   it('preserves exported objects, names, cookie bytes, and rejection behavior', () => {
     expect(createSessionCookie).toBe(createPhase7SessionCookie)
-    expect(createDontRememberCookie).toBe(createPhase7DontRememberCookie)
-    expect(createExpiredSessionCookies).toBe(createExpiredPhase7SessionCookies)
-    expect(readSessionToken).toBe(readPhase7SessionToken)
+    expect(createDontRememberCookie).toBe(createOwnedDontRememberCookie)
+    expect(createExpiredSessionCookies).toBe(createExpiredOwnedSessionCookies)
+    expect(readSessionToken).toBe(readOwnedSessionToken)
     expect([
       createSessionCookie.name,
       createDontRememberCookie.name,
@@ -23,9 +23,9 @@ describe('session cookie compatibility', () => {
       readSessionToken.name
     ]).toEqual([
       'createPhase7SessionCookie',
-      'createPhase7DontRememberCookie',
-      'createExpiredPhase7SessionCookies',
-      'readPhase7SessionToken'
+      'createOwnedDontRememberCookie',
+      'createExpiredOwnedSessionCookies',
+      'readOwnedSessionToken'
     ])
 
     const secret = 'fixture-secret'

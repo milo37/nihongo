@@ -42,7 +42,7 @@ export const createPhase7SessionCookie = ({
   return `${cookieName(isProduction)}=${encodedValue}${persistence}; Path=/; HttpOnly; SameSite=Lax${secure}`
 }
 
-export const createPhase7DontRememberCookie = ({
+export const createOwnedDontRememberCookie = ({
   isProduction,
   secret
 }: {
@@ -56,7 +56,7 @@ export const createPhase7DontRememberCookie = ({
   return `${name}=${signedValue('true', secret)}; Path=/; HttpOnly; SameSite=Lax${secure}`
 }
 
-export const createExpiredPhase7SessionCookies = (
+export const createExpiredOwnedSessionCookies = (
   isProduction: boolean
 ): readonly string[] => {
   const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
@@ -68,7 +68,7 @@ export const createExpiredPhase7SessionCookies = (
   ]
 }
 
-export const readPhase7SessionToken = ({
+export const readOwnedSessionToken = ({
   cookieHeader,
   isProduction,
   secret
@@ -128,7 +128,7 @@ export const readPhase7SessionToken = ({
 
 export {
   createPhase7SessionCookie as createSessionCookie,
-  createPhase7DontRememberCookie as createDontRememberCookie,
-  createExpiredPhase7SessionCookies as createExpiredSessionCookies,
-  readPhase7SessionToken as readSessionToken
+  createOwnedDontRememberCookie as createDontRememberCookie,
+  createExpiredOwnedSessionCookies as createExpiredSessionCookies,
+  readOwnedSessionToken as readSessionToken
 }

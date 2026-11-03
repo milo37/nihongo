@@ -1605,7 +1605,7 @@ const createSsoBrowserApiFixture = async (
 }
 
 /** Existing USER fixture retains its fixed CMS-disabled TEST contract. */
-export const createPhase7SsoBrowserApiFixture = (
+export const createSsoBrowserApiTestFixture = (
   options: SsoBrowserFixtureOptions
 ) => createSsoBrowserApiFixture(options, false)
 

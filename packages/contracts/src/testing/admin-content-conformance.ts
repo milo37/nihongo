@@ -12,7 +12,7 @@ import {
   assertOperationManifest,
   phase7OperationManifest,
   phase7Slice2ReadOperationManifest,
-  type Phase7Operation,
+  type AdminOperation,
   type OperationManifestEntry
 } from '../admin/content-manifest.js'
 
@@ -101,7 +101,7 @@ const transientRetryabilityBySurface: Readonly<
 }
 
 export interface OperationErrorConformanceEntry extends OperationManifestEntry {
-  readonly operation: Phase7Operation
+  readonly operation: AdminOperation
   readonly errorSurface: ErrorSurface
   readonly deterministic4xxRetryable: false
   readonly rateLimitedRetryable: true

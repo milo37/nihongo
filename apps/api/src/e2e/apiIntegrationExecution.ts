@@ -36,29 +36,29 @@ export const assertSsoBootstrapMigrationHistory = (
   }
 }
 
-export const phase7DbFoundationTestFile =
+export const adminDbFoundationTestFile =
   'src/db/adminCmsFoundation.integration.test.ts' as const
 
-export const phase7SsoTestFile = 'src/db/sso.integration.test.ts' as const
-export const phase7SsoAccountLifecycleTestFile =
+export const ssoDbTestFile = 'src/db/sso.integration.test.ts' as const
+export const ssoAccountLifecycleDbTestFile =
   'src/db/ssoAccountLifecycle.integration.test.ts' as const
-export const phase7SsoOrdinal6Title =
+export const ssoOrdinal6CaseTitle =
   'apple ADMIN_FRESH atomically binds original session/user/gen/provider and preserves populated learning facts' as const
-export const phase7SsoOrdinal6Pattern = `${phase7SsoOrdinal6Title}$`
-export const phase7SsoIdentityTitle =
+export const ssoOrdinal6CasePattern = `${ssoOrdinal6CaseTitle}$`
+export const ssoIdentityCaseTitle =
   'provider/sub alone resolves stable IDs; contact conflicts never merge or promote; new identities are USER' as const
-export const phase7SsoIdentityPattern = `${phase7SsoIdentityTitle}$`
+export const ssoIdentityCasePattern = `${ssoIdentityCaseTitle}$`
 
 const ssoCases = {
   'sso-ordinal6': {
-    title: phase7SsoOrdinal6Title,
-    pattern: phase7SsoOrdinal6Pattern,
+    title: ssoOrdinal6CaseTitle,
+    pattern: ssoOrdinal6CasePattern,
     id: 'SSO_APPLE_ADMIN_FRESH_ORDINAL6',
     sourceOrdinal: 6
   },
   'sso-identity': {
-    title: phase7SsoIdentityTitle,
-    pattern: phase7SsoIdentityPattern,
+    title: ssoIdentityCaseTitle,
+    pattern: ssoIdentityCasePattern,
     id: 'SSO_PROVIDER_SUB_IDENTITY_ORDINAL5',
     sourceOrdinal: 5
   }
@@ -93,7 +93,7 @@ const ssoExcludedParentKeys = new Set([
   'AUTH_EMAIL_WEBHOOK_SECRET'
 ])
 
-export const createPhase7SsoTestEnvironment = (
+export const createSsoDbTestEnvironment = (
   base: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv => {
   const environment: NodeJS.ProcessEnv = { ...ssoTestProfile }
@@ -104,26 +104,26 @@ export const createPhase7SsoTestEnvironment = (
   return environment
 }
 
-export const createPhase7DbFileEnvironment = (
+export const createDbIntegrationFileEnvironment = (
   testFile: string,
   base: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv => {
   if (testFile === 'src/content/approved308Tags.integration.test.ts') {
     return { ...base, APPROVED_TAGS_FIXTURE_PROFILE: 'current38' }
   }
-  return testFile === phase7SsoTestFile ||
-    testFile === phase7SsoAccountLifecycleTestFile
-    ? createPhase7SsoTestEnvironment(base)
+  return testFile === ssoDbTestFile ||
+    testFile === ssoAccountLifecycleDbTestFile
+    ? createSsoDbTestEnvironment(base)
     : base
 }
 
 const singleTestFiles: readonly string[] = [
-  phase7DbFoundationTestFile,
-  phase7SsoTestFile,
-  phase7SsoAccountLifecycleTestFile
+  adminDbFoundationTestFile,
+  ssoDbTestFile,
+  ssoAccountLifecycleDbTestFile
 ]
 
-export const selectPhase7DbIntegrationFiles = (
+export const selectDbIntegrationTestFiles = (
   defaultFiles: readonly string[],
   environment: NodeJS.ProcessEnv
 ): readonly string[] => {
@@ -132,7 +132,7 @@ export const selectPhase7DbIntegrationFiles = (
     environment.DB_INTEGRATION_CASE !== undefined &&
     ((environment.DB_INTEGRATION_CASE !== 'sso-ordinal6' &&
       environment.DB_INTEGRATION_CASE !== 'sso-identity') ||
-      selected !== phase7SsoTestFile ||
+      selected !== ssoDbTestFile ||
       environment.DB_INTEGRATION_PRESERVE_REPORT !== '1')
   ) {
     throw new Error(
@@ -191,7 +191,7 @@ const sanitizeCollectionError = (value: string) => {
   }
 }
 
-export const sanitizePhase7VitestReport = (
+export const sanitizeDbIntegrationVitestReport = (
   result: VitestJsonResult,
   testFile: string,
   environment: NodeJS.ProcessEnv = {}
@@ -211,14 +211,14 @@ export const sanitizePhase7VitestReport = (
   const assertions = fileResult?.assertionResults
   if (
     environment.DB_INTEGRATION_CASE === undefined &&
-    testFile === phase7SsoTestFile &&
+    testFile === ssoDbTestFile &&
     result.numTotalTests === 36 &&
     result.numFailedTests === 1 &&
     Array.isArray(result.testResults) &&
     result.testResults.length === 1 &&
     fileResult &&
     typeof fileResult.name === 'string' &&
-    normalizeResultPath(fileResult.name) === phase7SsoTestFile &&
+    normalizeResultPath(fileResult.name) === ssoDbTestFile &&
     fileResult.status === 'failed' &&
     !fileResult.failureMessage &&
     !fileResult.message &&
@@ -293,11 +293,11 @@ export const sanitizePhase7VitestReport = (
     | undefined
   if (
     selectedSsoCase &&
-    testFile === phase7SsoTestFile &&
+    testFile === ssoDbTestFile &&
     result.testResults?.length === 1 &&
     fileResult &&
     typeof fileResult.name === 'string' &&
-    normalizeResultPath(fileResult.name) === phase7SsoTestFile &&
+    normalizeResultPath(fileResult.name) === ssoDbTestFile &&
     !fileResult.failureMessage &&
     !fileResult.message &&
     result.numTotalTests === 36 &&
@@ -360,11 +360,11 @@ export const sanitizePhase7VitestReport = (
       )
       const recognizedSourcePaths = [
         'src/auth/ssoAdminFreshRepository.ts',
-        'src/db/phase7SsoTestFixture.ts',
-        phase7SsoTestFile
+        'src/db/ssoDbTestFixture.ts',
+        ssoDbTestFile
       ].filter((source) => {
         const sourcePaths =
-          source === 'src/db/phase7SsoTestFixture.ts'
+          source === 'src/db/ssoDbTestFixture.ts'
             ? [source, 'src/db/ssoTestFixture.ts']
             : [source]
         return messages.some((message) =>
@@ -400,7 +400,7 @@ export const sanitizePhase7VitestReport = (
     }
   }
   const lifecycleFailed =
-    testFile === phase7SsoAccountLifecycleTestFile
+    testFile === ssoAccountLifecycleDbTestFile
       ? assertions?.findIndex((assertion) => assertion.status === 'failed')
       : undefined
   const lifecycleMessage =
@@ -443,7 +443,7 @@ export const sanitizePhase7VitestReport = (
             ...(lifecycleSafeMessage
               ? { originalFirstLine: lifecycleSafeMessage }
               : {}),
-            sourcePath: phase7SsoAccountLifecycleTestFile
+            sourcePath: ssoAccountLifecycleDbTestFile
           }
         }
       : {}),
@@ -587,7 +587,7 @@ export const assertApiIntegrationVitestFileResult = ({
   readonly selectedSsoCase?: SsoCase
 }): void => {
   if (selectedSsoCase !== undefined) {
-    const report = sanitizePhase7VitestReport(result, expectedPath, {
+    const report = sanitizeDbIntegrationVitestReport(result, expectedPath, {
       DB_INTEGRATION_CASE: selectedSsoCase
     })
     if (report.selectedCase?.status !== 'passed') {
@@ -608,7 +608,7 @@ export const assertApiIntegrationVitestFileResult = ({
     )
   }
   if (
-    expectedPath === phase7SsoAccountLifecycleTestFile &&
+    expectedPath === ssoAccountLifecycleDbTestFile &&
     result.numTotalTests !== 6
   ) {
     throw new Error('SSO account lifecycle requires exactly six passing tests.')
@@ -644,7 +644,7 @@ export const runApiIntegrationManifestVitestFile = async ({
       ? selectedSsoCaseName
       : undefined
   if (selectedSsoCaseName !== undefined) {
-    selectPhase7DbIntegrationFiles([testFile], environment)
+    selectDbIntegrationTestFiles([testFile], environment)
     if (!preserveSanitizedReport) {
       throw new Error('Phase 7 fixed SSO case requires sanitized reporting.')
     }
@@ -654,10 +654,7 @@ export const runApiIntegrationManifestVitestFile = async ({
       'Phase 7 report preservation requires a fixed allowlisted file.'
     )
   }
-  if (
-    preserveSanitizedReport &&
-    testFile !== phase7SsoAccountLifecycleTestFile
-  ) {
+  if (preserveSanitizedReport && testFile !== ssoAccountLifecycleDbTestFile) {
     for (const name of [
       'PHASE7_LEGACY_DATABASE_URL',
       'TEST_DEVELOPMENT_APP_DATABASE_URL'
@@ -684,8 +681,8 @@ export const runApiIntegrationManifestVitestFile = async ({
           '--config',
           'vitest.integration.config.ts',
           testFile,
-          ...(testFile === phase7SsoTestFile ||
-          testFile === phase7SsoAccountLifecycleTestFile
+          ...(testFile === ssoDbTestFile ||
+          testFile === ssoAccountLifecycleDbTestFile
             ? [
                 '--maxWorkers=1',
                 '--no-file-parallelism',
@@ -777,7 +774,7 @@ export const runApiIntegrationManifestVitestFile = async ({
         await writeFile(
           reportFile,
           JSON.stringify(
-            sanitizePhase7VitestReport(result, testFile, environment)
+            sanitizeDbIntegrationVitestReport(result, testFile, environment)
           ),
           { mode: 0o600, flag: 'wx' }
         )
@@ -792,15 +789,15 @@ export const runApiIntegrationManifestVitestFile = async ({
 }
 
 export {
-  createPhase7SsoTestEnvironment as createSsoTestEnvironment,
-  createPhase7DbFileEnvironment as createDbFileEnvironment,
-  selectPhase7DbIntegrationFiles as selectDbIntegrationFiles,
-  sanitizePhase7VitestReport as sanitizeVitestReport,
-  phase7DbFoundationTestFile as dbFoundationTestFile,
-  phase7SsoTestFile as ssoTestFile,
-  phase7SsoAccountLifecycleTestFile as ssoAccountLifecycleTestFile,
-  phase7SsoOrdinal6Title as ssoOrdinal6Title,
-  phase7SsoOrdinal6Pattern as ssoOrdinal6Pattern,
-  phase7SsoIdentityTitle as ssoIdentityTitle,
-  phase7SsoIdentityPattern as ssoIdentityPattern
+  createSsoDbTestEnvironment as createSsoTestEnvironment,
+  createDbIntegrationFileEnvironment as createDbFileEnvironment,
+  selectDbIntegrationTestFiles as selectDbIntegrationFiles,
+  sanitizeDbIntegrationVitestReport as sanitizeVitestReport,
+  adminDbFoundationTestFile as dbFoundationTestFile,
+  ssoDbTestFile as ssoTestFile,
+  ssoAccountLifecycleDbTestFile as ssoAccountLifecycleTestFile,
+  ssoOrdinal6CaseTitle as ssoOrdinal6Title,
+  ssoOrdinal6CasePattern as ssoOrdinal6Pattern,
+  ssoIdentityCaseTitle as ssoIdentityTitle,
+  ssoIdentityCasePattern as ssoIdentityPattern
 }

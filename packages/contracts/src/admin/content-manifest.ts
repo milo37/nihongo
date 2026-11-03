@@ -299,7 +299,7 @@ export const phase7Slice2ReadOperationManifest = phase7OperationManifest.filter(
   (entry) => entry.slice2Route
 )
 
-const PHASE_7_SLICE_3A_COMMAND_OPERATIONS = new Set<Phase7Operation>([
+const PHASE_7_SLICE_3A_COMMAND_OPERATIONS = new Set<AdminOperation>([
   'createAdminQuestion',
   'createAdminQuestionVersion',
   'updateQuestionVersion',
@@ -307,28 +307,28 @@ const PHASE_7_SLICE_3A_COMMAND_OPERATIONS = new Set<Phase7Operation>([
   'requestQuestionChanges'
 ])
 
-const PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS = new Set<Phase7Operation>([
+const PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS = new Set<AdminOperation>([
   'reauthenticateAdmin',
   'approveQuestionVersion',
   'withdrawQuestionApproval'
 ])
 
-const PHASE_7_SLICE_3R_A1_OPERATIONS = new Set<Phase7Operation>([
+const PHASE_7_SLICE_3R_A1_OPERATIONS = new Set<AdminOperation>([
   'reauthenticateAdmin'
 ])
 
-const PHASE_7_SLICE_3R_A2_OPERATIONS = new Set<Phase7Operation>([
+const PHASE_7_SLICE_3R_A2_OPERATIONS = new Set<AdminOperation>([
   'approveQuestionVersion',
   'withdrawQuestionApproval'
 ])
 
-const PHASE_7_SLICE_4_OPERATIONS = new Set<Phase7Operation>([
+const PHASE_7_SLICE_4_OPERATIONS = new Set<AdminOperation>([
   'archiveAdminQuestion',
   'publishQuestionVersion',
   'retireQuestionVersion'
 ])
 
-const PHASE_7_SLICE_5_OPERATIONS = new Set<Phase7Operation>([
+const PHASE_7_SLICE_5_OPERATIONS = new Set<AdminOperation>([
   'requestContentReviewBatch',
   'validateQuestionImport',
   'applyQuestionImport',
@@ -535,7 +535,7 @@ export const assertOperationManifest = (): void => {
   }
 }
 
-export type Phase7Operation =
+export type AdminOperation =
   (typeof phase7OperationManifest)[number]['operation']
 export type OperationId =
   (typeof phase7OperationManifest)[number]['operationId']

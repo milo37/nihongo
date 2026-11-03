@@ -99,7 +99,7 @@ export const createSsoAuthentication = ({
     principalService,
     gateway: createAuthGateway({
       environment,
-      phase7Facade: facade,
+      ownedAuthFacade: facade,
       technicalRateLimiter: rateLimiter,
       ssoRuntime: social,
       ssoAccountRuntime: accountRuntime

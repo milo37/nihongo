@@ -120,7 +120,7 @@ import {
 } from './content-error-policy.js'
 import {
   phase7OperationManifest,
-  type Phase7Operation,
+  type AdminOperation,
   type OperationManifestEntry
 } from './content-manifest.js'
 
@@ -137,7 +137,7 @@ export interface OperationSchemaDescriptor {
 }
 
 export interface OperationSchemaManifestEntry extends OperationManifestEntry {
-  readonly operation: Phase7Operation
+  readonly operation: AdminOperation
   readonly schemas: OperationSchemaDescriptor
 }
 
@@ -343,7 +343,7 @@ export const phase7OperationSchemas = {
     error: resolveAdminQuestionReportErrorSchema
   }
 } as const satisfies {
-  readonly [Operation in Phase7Operation]: OperationSchemaDescriptor
+  readonly [Operation in AdminOperation]: OperationSchemaDescriptor
 }
 
 export const operationSchemaManifest: readonly OperationSchemaManifestEntry[] =
@@ -360,7 +360,7 @@ export interface OperationFailureDetails {
 }
 
 export interface BuildOperationFailureResponseInput {
-  readonly operation: Phase7Operation
+  readonly operation: AdminOperation
   readonly failure: OperationFailureDetails
   readonly disposition: Phase7ExecutionDisposition
   readonly internalReason?: Phase7InternalFailureReason | undefined
@@ -425,7 +425,7 @@ export const buildPhase7OperationFailureResponse = ({
 }
 
 export interface AssertOperationFailureResponseInput {
-  readonly operation: Phase7Operation
+  readonly operation: AdminOperation
   readonly response: Phase7OperationFailureResponse
   readonly disposition: Phase7ExecutionDisposition
   readonly internalReason?: Phase7InternalFailureReason | undefined

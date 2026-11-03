@@ -8,7 +8,7 @@ import {
 } from '../common/error.js'
 import {
   phase7OperationManifest,
-  type Phase7Operation
+  type AdminOperation
 } from './content-manifest.js'
 
 export const executionDispositionSchema = z.enum([
@@ -70,9 +70,9 @@ export const phase7ErrorSurfaceByOperation = {
   getAdminQuestionReport: 'GET_READ',
   triageAdminQuestionReport: 'KEYLESS_MUTATION',
   resolveAdminQuestionReport: 'KEYLESS_MUTATION'
-} as const satisfies Readonly<Record<Phase7Operation, ErrorSurface>>
+} as const satisfies Readonly<Record<AdminOperation, ErrorSurface>>
 
-const duplicateRaceOperations = new Set<Phase7Operation>([
+const duplicateRaceOperations = new Set<AdminOperation>([
   'createAdminQuestion',
   'createAdminQuestionVersion',
   'updateQuestionVersion',
@@ -81,7 +81,7 @@ const duplicateRaceOperations = new Set<Phase7Operation>([
 ])
 
 export interface RetryabilityInput {
-  readonly operation: Phase7Operation
+  readonly operation: AdminOperation
   readonly code: StableErrorCode
   readonly disposition: Phase7ExecutionDisposition
   readonly internalReason?: Phase7InternalFailureReason | undefined
@@ -145,7 +145,7 @@ export const computeRetryability = ({
 }
 
 const getWireRetryabilityExpectation = (
-  operation: Phase7Operation,
+  operation: AdminOperation,
   code: StableErrorCode
 ): boolean | null => {
   const status = errorStatusByCode[code]
@@ -165,7 +165,7 @@ const getWireRetryabilityExpectation = (
 export const createPhase7OperationErrorSchema = <
   CodeSchema extends ZodType<string>
 >(
-  operation: Phase7Operation,
+  operation: AdminOperation,
   codeSchema: CodeSchema
 ) =>
   createApiFailureSchema(codeSchema).superRefine((failure, context) => {

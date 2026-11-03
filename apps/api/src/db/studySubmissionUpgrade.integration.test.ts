@@ -523,7 +523,7 @@ const seedPreAdminCatalog = async (client: Client): Promise<void> => {
   ])
 }
 
-const registerPhase7CapabilityAndActivate = async (
+const registerDatabaseCapabilityAndActivate = async (
   context: IsolatedMigrationSchema
 ): Promise<void> => {
   const migrationClient = new Client({ connectionString: context.databaseUrl })
@@ -2928,7 +2928,7 @@ describe('Phase 4 Slice 3 historical review pins', () => {
           `SELECT COUNT(*)::int AS count FROM "TagApplicability"`
         )
       ).toMatchObject({ rows: [{ count: 127 }] })
-      await registerPhase7CapabilityAndActivate(context)
+      await registerDatabaseCapabilityAndActivate(context)
 
       const historicalSeed = buildHistoricalCanonicalSeeds().find(
         ({ level, questionType, subject }) =>

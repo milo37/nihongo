@@ -8,7 +8,7 @@ import { ApplicationError } from '../errors/applicationError.js'
 import {
   createBrowserFixture,
   createSsoAdminBrowserApiFixture,
-  createPhase7SsoBrowserApiFixture
+  createSsoBrowserApiTestFixture
 } from './browserFixture.js'
 
 const f = vi.hoisted(() => ({
@@ -164,7 +164,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
   })
 
   it('does not expose an admin guard from the CMS-disabled USER fixture', async () => {
-    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options('disabled'))
     expect(created.adminGuard).toBeUndefined()
     expect(createAdminReadGuard).not.toHaveBeenCalled()
     expect(createAdminReadRateLimiter).not.toHaveBeenCalled()
@@ -398,7 +398,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('keeps the existing stable actor when sign-in isolation is not selected', async () => {
-    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options('disabled'))
     const input = {
       code: 'phase7-sso-browser-test-code',
       nonce: 'n'.repeat(43),
@@ -411,7 +411,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('isolates Real journey identities across sign-ins while preserving a repeated callback identity', async () => {
-    const created = await createPhase7SsoBrowserApiFixture({
+    const created = await createSsoBrowserApiTestFixture({
       ...options('disabled'),
       isolateSignIns: true
     })
@@ -443,7 +443,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('composes the existing USER learning contract without CMS routes or fixture writes', async () => {
-    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options('disabled'))
     const expectedRoutes = [
       ['GET', '/api/v1/study-sessions'],
       ['POST', '/api/v1/study-sessions'],
@@ -487,9 +487,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   it.each(['/api/v1/dashboard', '/api/v1/dashboard/insights'])(
     'keeps the USER learning route %s authenticated',
     async (path) => {
-      const created = await createPhase7SsoBrowserApiFixture(
-        options('disabled')
-      )
+      const created = await createSsoBrowserApiTestFixture(options('disabled'))
       const response = await created.app.request(path)
       expect(response.status).toBe(401)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -503,7 +501,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   )
 
   it('retains the original CMS-disabled single-USER fixture without seeding or changing its provider', async () => {
-    const created = await createPhase7SsoBrowserApiFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options('disabled'))
     expect(f.ownerQuery).not.toHaveBeenCalled()
     expect(await exchange('original-controlled-code')).toEqual(
       created.expectedIdentity

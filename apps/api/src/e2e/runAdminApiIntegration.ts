@@ -840,7 +840,7 @@ export const preparePhase7IntegrationArtifacts = async ({
   abortSignal?.throwIfAborted()
 }
 
-export const phase7SeedInvocation = (
+export const adminSeedInvocation = (
   artifactsPrepared: boolean
 ): {
   readonly args: readonly string[]
@@ -967,7 +967,7 @@ export const preparePhase7IsolatedDatabase = async ({
     )
     await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
 
-    const seed = phase7SeedInvocation(true)
+    const seed = adminSeedInvocation(true)
     for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
       await runCommand(
         'pnpm',
@@ -1033,9 +1033,9 @@ const run = async (): Promise<void> => {
     testFile: repositoryEntry.path,
     environment: sharedEnvironment
   })
-  await runCommand('pnpm', phase7SeedInvocation(true).args, {
+  await runCommand('pnpm', adminSeedInvocation(true).args, {
     ...sharedEnvironment,
-    ...phase7SeedInvocation(true).environment
+    ...adminSeedInvocation(true).environment
   })
   // Batch7 installs current only from the unchanged canonical65 bootstrap.
   // Historical prepare(seedRuns:0) callers keep their prefix37 profile.
@@ -1188,7 +1188,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     { createServer },
     { getRequestListener },
     { parseApiEnvironment },
-    { createPhase7SsoBrowserApiFixture }
+    { createSsoBrowserApiTestFixture }
   ] = await Promise.all([
     import('node:http'),
     import('@hono/node-server'),
@@ -1199,7 +1199,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
   const shutdownReason = new Error('SSO browser shutdown requested.')
   let server: import('node:http').Server | undefined
   let fixture:
-    | Awaited<ReturnType<typeof createPhase7SsoBrowserApiFixture>>
+    | Awaited<ReturnType<typeof createSsoBrowserApiTestFixture>>
     | undefined
   let stop: (() => void) | undefined
   let firstFailure: unknown
@@ -1267,7 +1267,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       artifactsPrepared
     })
     // The full migration chain requires the canonical prefix content bootstrap.
-    const seed = phase7SeedInvocation(true)
+    const seed = adminSeedInvocation(true)
     await runCommand(
       'pnpm',
       seed.args,
@@ -1302,7 +1302,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       LOG_LEVEL: 'silent'
     })
     controller.signal.throwIfAborted()
-    fixture = await createPhase7SsoBrowserApiFixture({
+    fixture = await createSsoBrowserApiTestFixture({
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,

@@ -196,7 +196,7 @@ export const closeBrowserApi = async (
   }
 }
 
-export const cleanupPhase7BrowserResources = async (
+export const cleanupAdminBrowserResources = async (
   processes: OwnedProcess[],
   actions: Parameters<typeof cleanupBrowserResources>[0]
 ): Promise<void> => {
@@ -210,7 +210,7 @@ export const cleanupPhase7BrowserResources = async (
 }
 
 export const cleanup = (): Promise<void> => {
-  cleanupPromise ??= cleanupPhase7BrowserResources(ownedProcesses, {
+  cleanupPromise ??= cleanupAdminBrowserResources(ownedProcesses, {
     stopOwnedProcesses: async () => {
       await stopOwnedProcesses(ownedProcesses, {
         onForceKill: ({ label }) => {

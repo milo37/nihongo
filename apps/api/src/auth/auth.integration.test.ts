@@ -123,7 +123,7 @@ const app = createApiApp({
       ? createAuthGateway({
           delay: async () => undefined,
           environment,
-          phase7Facade: createOwnedAuthFacade({
+          ownedAuthFacade: createOwnedAuthFacade({
             client: authGatewayDatabase!.client,
             emailDispatcher,
             environment
