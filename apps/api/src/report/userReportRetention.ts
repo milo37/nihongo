@@ -5,7 +5,7 @@ export const USER_REPORT_RETENTION_DAYS = 180
 export const DEFAULT_USER_REPORT_RETENTION_BATCH_SIZE = 500
 export const MAX_USER_REPORT_RETENTION_BATCH_SIZE = 5_000
 
-/** Wording pending approval (JLP-702); the erasure text stays as is. */
+/** Approved replacement text (JLP-702); the erasure text stays as is. */
 export const USER_REPORT_RETENTION_REDACTED_DESCRIPTION =
   '보관 기간이 지나 제보 내용이 삭제되었습니다.'
 const USER_REPORT_ERASURE_REDACTED_DESCRIPTION =

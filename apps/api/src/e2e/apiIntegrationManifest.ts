@@ -323,6 +323,21 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated Phase 10 schema'
   },
   {
+    path: 'src/account/accountRestriction.integration.test.ts',
+    executionOwner: 'phase10',
+    shard: 'current-app-role',
+    order: 26,
+    databaseState: 'phase7-current-canonical-65',
+    connectionRole: 'application',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_API_ERASURE_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation: 'dedicated Phase 10 schema'
+  },
+  {
     path: 'src/report/userReportRetention.integration.test.ts',
     executionOwner: 'phase10',
     shard: 'current-app-role',
