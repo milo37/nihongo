@@ -1,6 +1,6 @@
 ---
 name: frontend-guidelines
-description: Apply the Nihongo Vite, React Router, TanStack Query, Zustand, accessibility, and responsive frontend conventions. Use when changing routes, pages, components, hooks, providers, client state, or UI behavior in JLPT Drill Note.
+description: Apply the Nihongo Vite, React Router, TanStack Query, Zustand, accessibility, and responsive frontend conventions. Use when changing routes, pages, components, hooks, providers, client state, or UI behavior in 하루마루.
 ---
 
 # Frontend guidelines

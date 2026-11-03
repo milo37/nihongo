@@ -1048,7 +1048,7 @@ export class MockDatabase {
     this.mockActiveContentState = createMockActiveContentState(
       this.mockContentState
     )
-    this.randomSeed = options.seed ?? 'jlpt-drill-note'
+    this.randomSeed = options.seed ?? 'harumaru'
 
     for (const user of mockSeedData.users) {
       this.userById.set(user.id, clone(user))

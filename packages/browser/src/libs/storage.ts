@@ -2,15 +2,15 @@ import type { StateStorage } from 'zustand/middleware'
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
 import { LEVELS } from '../common/types/domain'
 
-export const APP_STORE_KEY = 'jlpt-drill-note-store'
-export const PRACTICE_STORE_KEY = 'jlpt-drill-note-practice:v2'
-export const MOCK_DATABASE_STORAGE_KEY = 'jlpt-drill-note:mock-database:v2'
-export const ADMIN_CMS_STORAGE_KEY = 'jlpt-drill-note:phase7-admin-cms:v1'
-export const ADMIN_CMS_MIRROR_STORAGE_KEY = 'jlpt-drill-note:admin-cms:v1'
+export const APP_STORE_KEY = 'harumaru-store'
+export const PRACTICE_STORE_KEY = 'harumaru-practice:v2'
+export const MOCK_DATABASE_STORAGE_KEY = 'harumaru:mock-database:v2'
+export const ADMIN_CMS_STORAGE_KEY = 'harumaru:admin-cms-state:v1'
+export const ADMIN_CMS_MIRROR_STORAGE_KEY = 'harumaru:admin-cms:v1'
 export const QUESTION_REPORT_RATE_LIMIT_STORAGE_KEY =
-  'jlpt-drill-note:phase7-rate-limit:v1'
+  'harumaru:question-report-rate-limit-state:v1'
 export const QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY =
-  'jlpt-drill-note:question-report-rate-limit:v1'
+  'harumaru:question-report-rate-limit:v1'
 
 type StorageChangeListener = (event: StorageEvent) => void
 
