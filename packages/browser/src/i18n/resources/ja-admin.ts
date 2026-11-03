@@ -842,5 +842,78 @@ export const jaAdminResources = {
     mutationError: '報告状態を変更できませんでした。',
     retryConflict: '報告の最新状態を読み込む',
     conflictTitle: '別の操作で報告状態が変更されました'
+  },
+  userReport: {
+    list: {
+      title: 'バグレポート',
+      description:
+        '学習者から届いた問題の報告とアプリの不具合報告です。受付済みを先に、新しい順で表示します。',
+      invalidQuery: 'URLの検索条件が許可範囲外です。既定の条件を使用します。',
+      status: '処理状態',
+      allStatuses: 'すべての状態',
+      kind: '種類',
+      allKinds: 'すべての種類',
+      pageSize: '1ページの件数',
+      apply: 'フィルターを適用',
+      reset: 'フィルターをリセット',
+      loading: '報告を読み込んでいます…',
+      refreshing: '報告一覧を更新しています…',
+      error: '報告一覧を読み込めませんでした。',
+      cachedError:
+        '最新の報告一覧を確認できませんでした。現在の一覧はそのまま残ります。',
+      retry: '報告一覧を再確認',
+      emptyTitle: '処理する報告はありません。',
+      emptyDescription: '現在の条件に合う報告はありません。',
+      total: '報告 {{formattedCount}}件',
+      location: '発生場所',
+      createdAt: '受付日時',
+      details: '詳細を見る',
+      previous: '前のページ',
+      next: '次のページ',
+      first: '最初のページへ'
+    },
+    detail: {
+      back: 'バグレポート一覧',
+      loading: '報告を読み込んでいます…',
+      error: '報告を読み込めませんでした。',
+      retry: '再読み込み',
+      content: '報告内容',
+      location: '発生場所',
+      target: '対象の問題',
+      reporter: '報告者',
+      deletedReporter: '退会した会員',
+      noteTitle: '内部メモ · 報告者には表示されません',
+      process: '処理',
+      reply: '報告者への返信',
+      replyVisible: '報告者が「自分の報告」で確認します',
+      note: '内部メモ',
+      noteHint: '報告者には表示されません。',
+      notePlaceholder: '任意入力',
+      replyAndClose: '返信して完了',
+      saveNote: 'メモのみ保存',
+      close: '返信せずに完了',
+      noNotification: 'アプリ通知・メールは送信しません。',
+      replyRequired: '報告者への返信を入力してください。',
+      sentReply: '送信した返信',
+      repliedAt: '返信日時',
+      closedAt: '完了日時',
+      closedNotice: '完了した報告はこれ以上処理できません。',
+      repliedClosed: '返信を送信して完了しました。',
+      noteSaved: '内部メモを保存しました。',
+      closed: '返信せずに完了しました。',
+      conflict:
+        '他の管理者が先にこの報告を変更しました。最新の内容を読み込んだので、確認してからもう一度処理してください。',
+      link: '関連',
+      newVersion: '対象の問題の新しいバージョンを作成'
+    },
+    statuses: {
+      RECEIVED: '受付済み',
+      ANSWERED: '返信済み',
+      CLOSED: '完了'
+    },
+    kinds: {
+      QUESTION: '問題の報告',
+      APP_ERROR: 'アプリの不具合'
+    }
   }
 } as const satisfies LocaleCatalog<typeof koResources.admin>

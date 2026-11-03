@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from 'react'
 import { onlineManager, useQuery } from '@tanstack/react-query'
-import type { ListAdminQuestionReportsQuery } from '@nihongo/contracts/admin/content-operations'
-import { getAdminQuestionReportParamsSchema } from '@nihongo/contracts/admin/content-operations'
+import {
+  adminReportParamsSchema,
+  type ListAdminReportsQuery
+} from '@nihongo/contracts/admin/reports'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { captureAuthTransitionEpoch } from '@nihongo/browser/libs/authTransitionFence'
 import { adminReportQueries } from '@app/admin-report/queries/adminReportQueries'
 
-export const useAdminReportsList = (query: ListAdminQuestionReportsQuery) => {
+export const useAdminReportsList = (query: ListAdminReportsQuery) => {
   const { user, role, isReady } = useAuth()
   const epoch = captureAuthTransitionEpoch()
   const online = useSyncExternalStore(
@@ -51,7 +53,7 @@ export const useAdminReportDetail = (reportId: string) => {
       isReady &&
       role === 'ADMIN' &&
       Boolean(user?.id) &&
-      getAdminQuestionReportParamsSchema.safeParse({ reportId }).success
+      adminReportParamsSchema.safeParse({ reportId }).success
   })
   return {
     data: result.data,

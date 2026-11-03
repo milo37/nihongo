@@ -8,6 +8,7 @@
   ],
   "exports": {
     "./api/admin-member/index": "./src/api/admin-member/index.ts",
+    "./api/admin-report/index": "./src/api/admin-report/index.ts",
     "./api/admin-question/createAdminQuestion/index": "./src/api/admin-question/createAdminQuestion/index.ts",
     "./api/admin-question/createAdminQuestion/schema": "./src/api/admin-question/createAdminQuestion/schema.ts",
     "./api/admin-question/deleteAdminQuestion/index": "./src/api/admin-question/deleteAdminQuestion/index.ts",

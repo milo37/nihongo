@@ -86,7 +86,7 @@ export const accessibilityExpectedTableDeltas = {
   Question: 0,
   QuestionImportResult: 0,
   QuestionOption: 0,
-  QuestionReport: 1,
+  QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
   RateLimit: 29,
@@ -109,7 +109,7 @@ export const accessibilityExpectedTableDeltas = {
   TagApplicability: 0,
   User: 0,
   UserMemo: 0,
-  UserReport: 0,
+  UserReport: 1,
   Verification: 0,
   WrongNote: 10,
   _prisma_migrations: 0
@@ -403,7 +403,7 @@ const readIdentityFacts = async (client, fixture) => {
     [actorIds]
   )
   const reports = await client.query(
-    `SELECT report."reporterUserId", report."reason", report."status",
+    `SELECT report."reporterUserId", report."kind", report."status",
        report."rowVersion",
        EXISTS (
          SELECT 1
@@ -413,7 +413,7 @@ const readIdentityFacts = async (client, fixture) => {
            AND q."questionId" = report."questionId"
            AND q."questionVersionId" = report."questionVersionId"
        ) AS "targetInAuthorSession"
-     FROM "QuestionReport" AS report
+     FROM "UserReport" AS report
      WHERE report."reporterUserId" = ANY($2::uuid[])
      ORDER BY report."id"`,
     [fixture.author.userId, actorIds]
@@ -697,10 +697,10 @@ const assertIdentityContract = (facts, fixture) => {
     facts.reports,
     [
       {
-        reason: 'OTHER',
+        kind: 'QUESTION',
         reporterUserId: fixture.author.userId,
         rowVersion: 1,
-        status: 'OPEN',
+        status: 'RECEIVED',
         targetInAuthorSession: true
       }
     ],
