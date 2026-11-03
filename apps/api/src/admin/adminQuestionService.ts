@@ -24,6 +24,11 @@ import {
   decodeAdminQuestionVersionCursor,
   decodeOccurredAtCursor
 } from '@nihongo/contracts/admin/content-operations'
+import {
+  QUESTION_VERSION_STATUSES_BY_REVIEW_STAGE,
+  STORED_VERSION_AUTO_VALIDATION,
+  toQuestionReviewStage
+} from './questionReviewStage.js'
 import { toPublicPracticeQuestion } from '../question/questionMapper.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
@@ -102,7 +107,9 @@ const toVersionSummary = (
     publishedAt: version.publishedAt ? toIso(version.publishedAt) : null,
     retiredAt: version.retiredAt ? toIso(version.retiredAt) : null,
     createdAt: toIso(version.createdAt),
-    updatedAt: toIso(version.updatedAt)
+    updatedAt: toIso(version.updatedAt),
+    reviewStage: toQuestionReviewStage(version.status),
+    autoValidation: STORED_VERSION_AUTO_VALIDATION
   }
 }
 
@@ -146,7 +153,8 @@ const toQuestionSummary = (
     record.answerCount,
     record.correctCount
   ),
-  openReportCount: record.openReportCount
+  openReportCount: record.openReportCount,
+  reviewStage: toQuestionReviewStage(record.selectedVersion.status)
 })
 
 const toDate = (value: string | undefined): Date | undefined =>
@@ -290,6 +298,12 @@ export const createAdminQuestionService = (
           ? { lifecycleStatus: query.lifecycleStatus }
           : {}),
         ...(query.versionStatus ? { versionStatus: query.versionStatus } : {}),
+        ...(query.reviewStage
+          ? {
+              versionStatuses:
+                QUESTION_VERSION_STATUSES_BY_REVIEW_STAGE[query.reviewStage]
+            }
+          : {}),
         ...(query.tag ? { normalizedTag: query.tag } : {}),
         ...(query.authorActorId ? { authorActorId: query.authorActorId } : {}),
         ...(query.reviewerActorId
@@ -327,7 +341,8 @@ export const createAdminQuestionService = (
           currentPublishedVersionId: detail.currentPublishedVersionId,
           openCandidateVersionId: detail.openCandidateVersionId,
           createdAt: toIso(detail.createdAt),
-          updatedAt: toIso(detail.updatedAt)
+          updatedAt: toIso(detail.updatedAt),
+          usageCount: detail.usageCount
         },
         versions: {
           questionId: detail.questionId,
