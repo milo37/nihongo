@@ -58,13 +58,16 @@ type AppLayoutProps = PracticeNavigationContext & {
   children?: ReactNode
   robots: 'index,follow' | 'noindex,follow'
   learnerNavigation?: boolean
+  /** App-owned member action in the account menu, such as an error report. */
+  accountMenuAction?: { label: string; onSelect: () => void }
 }
 
 export const AppLayout = ({
   children,
   reviewReturnContext,
   robots,
-  learnerNavigation = true
+  learnerNavigation = true,
+  accountMenuAction
 }: AppLayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
@@ -331,6 +334,7 @@ export const AppLayout = ({
                   }}
                 >
                   <IconButton
+                    id="account-menu-button"
                     ref={mobileMenuButtonRef}
                     variant="ghost"
                     label={navigationT('account')}
@@ -352,6 +356,17 @@ export const AppLayout = ({
                         <Link to="/dashboard?view=learning" onClick={closeMenu}>
                           {navigationT('learningStart')}
                         </Link>
+                      ) : null}
+                      {role !== 'GUEST' && accountMenuAction ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeMenu()
+                            accountMenuAction.onSelect()
+                          }}
+                        >
+                          {accountMenuAction.label}
+                        </button>
                       ) : null}
                       <div className="app-mobile-locale">
                         <LocaleSwitcher />

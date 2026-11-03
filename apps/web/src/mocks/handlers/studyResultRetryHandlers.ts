@@ -208,6 +208,15 @@ export const studyResultRetryHandlers = [
           })
         }
 
+        if (currentUser && mockDatabase.isAccountRestricted(currentUser.id)) {
+          return createErrorResponse({
+            code: 'ACCOUNT_RESTRICTED',
+            message: '임시로 이용이 제한된 계정입니다.',
+            requestId,
+            retryable: false
+          })
+        }
+
         const created = mockDatabase.createCanonicalResultRetry({
           guestPrincipalId:
             !currentUser && guestProof.kind === 'VERIFIED'
