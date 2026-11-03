@@ -1,14 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto'
 import {
-  createPhase7QuestionDuplicateIdentity,
+  createQuestionDuplicateIdentityKey,
   type ArchiveAdminQuestionRequest,
   normalizePhase7TagKey,
   type AdminQuestionMutationResult,
   type ApproveQuestionVersionRequest,
   type CreateAdminQuestionRequest,
   type CreateAdminQuestionVersionRequest,
-  type Phase7ExecutionDisposition,
-  type Phase7InternalFailureReason,
+  type AdminExecutionDisposition,
+  type AdminInternalFailureReason,
   type PublishQuestionVersionRequest,
   type RequestContentReviewRequest,
   type RequestQuestionChangesRequest,
@@ -53,17 +53,17 @@ export interface AdminCommandAuthority {
 
 export class AdminQuestionCommandRepositoryError extends Error {
   readonly code: StableErrorCode
-  readonly disposition: Phase7ExecutionDisposition
+  readonly disposition: AdminExecutionDisposition
   readonly fieldErrors: Record<string, string[]> | undefined
-  readonly internalReason: Phase7InternalFailureReason | undefined
+  readonly internalReason: AdminInternalFailureReason | undefined
   readonly retryAfterSeconds: number | undefined
 
   constructor(input: {
     code: StableErrorCode
     message: string
-    disposition: Phase7ExecutionDisposition
+    disposition: AdminExecutionDisposition
     fieldErrors?: Record<string, string[]>
-    internalReason?: Phase7InternalFailureReason
+    internalReason?: AdminInternalFailureReason
     retryAfterSeconds?: number
     cause?: unknown
   }) {
@@ -538,7 +538,7 @@ const contentFingerprint = (
         )?.text ?? '')
       : (content.options.find((option) => option.id === content.correctOptionId)
           ?.text ?? '')
-  const identity = createPhase7QuestionDuplicateIdentity({
+  const identity = createQuestionDuplicateIdentityKey({
     correctOptionText,
     optionTexts: content.options.map((option) => option.text),
     passage: content.passage,

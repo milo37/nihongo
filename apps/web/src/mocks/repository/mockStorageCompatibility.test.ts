@@ -359,7 +359,7 @@ describe('legacy storage authority and compatibility mirrors', () => {
         runWithMockBrowserMutationLease(async () => 'ok')
       ).resolves.toBe('ok')
       expect(request).toHaveBeenCalledWith(
-        'nihongo:mock-database:phase7-admin-cms:v1',
+        'nihongo:mock-database:admin-cms:v1',
         { mode: 'exclusive' },
         expect.any(Function)
       )

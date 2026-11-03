@@ -56,16 +56,16 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 StudyDraft requires fixture, erasure, and auth-gateway databases.'
+    'StudyDraft requires fixture, erasure, and auth-gateway databases.'
   )
 }
 for (const databaseUrl of [
@@ -147,7 +147,7 @@ const app = createApiApp({
     gateway: isCurrentSourceIntegration
       ? createAuthGateway({
           environment,
-          phase7Facade: createOwnedAuthFacade({
+          ownedAuthFacade: createOwnedAuthFacade({
             client: authGatewayDatabase!.client,
             emailDispatcher,
             environment
@@ -417,7 +417,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 4 StudyDraft PostgreSQL integration', () => {
+describe('StudyDraft PostgreSQL integration', () => {
   it('기존 v1 기록은 보존하고 v2만 resumable로 stable pagination한다', async () => {
     const userId = await createUser()
     const now = new Date()

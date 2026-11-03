@@ -1,41 +1,30 @@
 import { z } from 'zod'
+import {
+  jlptLevelSchema,
+  questionDifficultySchema,
+  questionSubjectSchema,
+  questionTypeSchema,
+  studyModeSchema,
+  wrongNoteStatusSchema
+} from '../common/enum.js'
 
-export const jlptLevelSchema = z.enum(['N5', 'N4', 'N3', 'N2', 'N1'])
-export const questionSubjectSchema = z.enum([
-  'VOCABULARY',
-  'GRAMMAR',
-  'READING'
-])
-export const questionTypeSchema = z.enum([
-  'KANJI_READING',
-  'ORTHOGRAPHY',
-  'CONTEXT_VOCABULARY',
-  'PARAPHRASE',
-  'WORD_USAGE',
-  'GRAMMAR_SELECT',
-  'SENTENCE_ORDER',
-  'TEXT_GRAMMAR',
-  'SHORT_READING',
-  'MEDIUM_READING',
-  'LONG_READING',
-  'INFO_RETRIEVAL'
-])
-export const questionDifficultySchema = z.enum(['EASY', 'NORMAL', 'HARD'])
+/**
+ * Legacy browser transport shapes, moved unchanged from
+ * packages/browser/src/api/schema.ts (#495). New code uses the per operation
+ * contracts. Enums identical to common/enum are reused; the ones below differ
+ * on purpose (2 session states, GUEST role, offset-free datetime).
+ */
+export {
+  jlptLevelSchema,
+  questionDifficultySchema,
+  questionSubjectSchema,
+  questionTypeSchema,
+  studyModeSchema,
+  wrongNoteStatusSchema
+}
+
 export const questionStatusSchema = z.enum(['DRAFT', 'PUBLISHED'])
-export const studyModeSchema = z.enum([
-  'RANDOM',
-  'WRONG_NOTE',
-  'WEAKNESS',
-  'BOOKMARK',
-  'DAILY_REVIEW'
-])
 export const studySessionStatusSchema = z.enum(['IN_PROGRESS', 'SUBMITTED'])
-export const wrongNoteStatusSchema = z.enum([
-  'NEW',
-  'REVIEWING',
-  'AGAIN',
-  'SOLVED'
-])
 export const userRoleSchema = z.enum(['GUEST', 'USER', 'ADMIN'])
 export const isoDateTimeSchema = z.string().datetime()
 

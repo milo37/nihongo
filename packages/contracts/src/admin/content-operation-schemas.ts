@@ -114,21 +114,21 @@ import {
   previewQuestionVersionResponseSchema
 } from './content-read.js'
 import {
-  computePhase7Retryability,
-  type Phase7ExecutionDisposition,
-  type Phase7InternalFailureReason
+  computeRetryability,
+  type AdminExecutionDisposition,
+  type AdminInternalFailureReason
 } from './content-error-policy.js'
 import {
-  phase7OperationManifest,
-  type Phase7Operation,
-  type Phase7OperationManifestEntry
+  operationManifest,
+  type AdminOperation,
+  type OperationManifestEntry
 } from './content-manifest.js'
 
-export const phase7EmptyParamsSchema = z.object({}).strict()
-export const phase7EmptyQuerySchema = z.object({}).strict()
-export const phase7NoRequestBodySchema = z.undefined()
+export const emptyParamsSchema = z.object({}).strict()
+export const emptyQuerySchema = z.object({}).strict()
+export const noRequestBodySchema = z.undefined()
 
-export interface Phase7OperationSchemaDescriptor {
+export interface OperationSchemaDescriptor {
   readonly params: z.ZodType
   readonly query: z.ZodType
   readonly body: z.ZodType
@@ -136,17 +136,16 @@ export interface Phase7OperationSchemaDescriptor {
   readonly error: z.ZodType
 }
 
-export interface Phase7OperationSchemaManifestEntry
-  extends Phase7OperationManifestEntry {
-  readonly operation: Phase7Operation
-  readonly schemas: Phase7OperationSchemaDescriptor
+export interface OperationSchemaManifestEntry extends OperationManifestEntry {
+  readonly operation: AdminOperation
+  readonly schemas: OperationSchemaDescriptor
 }
 
-const noParams = phase7EmptyParamsSchema
-const noQuery = phase7EmptyQuerySchema
-const noBody = phase7NoRequestBodySchema
+const noParams = emptyParamsSchema
+const noQuery = emptyQuerySchema
+const noBody = noRequestBodySchema
 
-export const phase7OperationSchemas = {
+export const operationSchemas = {
   listAdminQuestions: {
     params: noParams,
     query: listAdminQuestionsQuerySchema,
@@ -344,27 +343,27 @@ export const phase7OperationSchemas = {
     error: resolveAdminQuestionReportErrorSchema
   }
 } as const satisfies {
-  readonly [Operation in Phase7Operation]: Phase7OperationSchemaDescriptor
+  readonly [Operation in AdminOperation]: OperationSchemaDescriptor
 }
 
-export const phase7OperationSchemaManifest: readonly Phase7OperationSchemaManifestEntry[] =
-  phase7OperationManifest.map((entry) => ({
+export const operationSchemaManifest: readonly OperationSchemaManifestEntry[] =
+  operationManifest.map((entry) => ({
     ...entry,
-    schemas: phase7OperationSchemas[entry.operation]
+    schemas: operationSchemas[entry.operation]
   }))
 
-export interface Phase7OperationFailureDetails {
+export interface OperationFailureDetails {
   readonly code: StableErrorCode
   readonly message: string
   readonly fieldErrors?: ApiFailure['fieldErrors']
   readonly requestId: string
 }
 
-export interface BuildPhase7OperationFailureResponseInput {
-  readonly operation: Phase7Operation
-  readonly failure: Phase7OperationFailureDetails
-  readonly disposition: Phase7ExecutionDisposition
-  readonly internalReason?: Phase7InternalFailureReason | undefined
+export interface BuildOperationFailureResponseInput {
+  readonly operation: AdminOperation
+  readonly failure: OperationFailureDetails
+  readonly disposition: AdminExecutionDisposition
+  readonly internalReason?: AdminInternalFailureReason | undefined
   readonly retryAfterSeconds?: number | undefined
 }
 
@@ -385,7 +384,7 @@ export const buildPhase7OperationFailureResponse = ({
   internalReason,
   operation,
   retryAfterSeconds
-}: BuildPhase7OperationFailureResponseInput): Phase7OperationFailureResponse => {
+}: BuildOperationFailureResponseInput): Phase7OperationFailureResponse => {
   const code = stableErrorCodeSchema.parse(failure.code)
   const status = errorStatusByCode[code]
   if (status === 429 && retryAfterSeconds === undefined) {
@@ -400,14 +399,14 @@ export const buildPhase7OperationFailureResponse = ({
     retryAfterSeconds === undefined
       ? undefined
       : parseRetryAfterSeconds(retryAfterSeconds)
-  const retryable = computePhase7Retryability({
+  const retryable = computeRetryability({
     code,
     disposition,
     ...(internalReason === undefined ? {} : { internalReason }),
     operation
   })
   const body = apiFailureSchema.parse(
-    phase7OperationSchemas[operation].error.parse({
+    operationSchemas[operation].error.parse({
       ...failure,
       retryable
     })
@@ -425,42 +424,40 @@ export const buildPhase7OperationFailureResponse = ({
   }
 }
 
-export interface AssertPhase7OperationFailureResponseInput {
-  readonly operation: Phase7Operation
+export interface AssertOperationFailureResponseInput {
+  readonly operation: AdminOperation
   readonly response: Phase7OperationFailureResponse
-  readonly disposition: Phase7ExecutionDisposition
-  readonly internalReason?: Phase7InternalFailureReason | undefined
+  readonly disposition: AdminExecutionDisposition
+  readonly internalReason?: AdminInternalFailureReason | undefined
 }
 
-export const assertPhase7OperationFailureResponse = ({
+export const assertOperationFailureResponse = ({
   disposition,
   internalReason,
   operation,
   response
-}: AssertPhase7OperationFailureResponseInput): Phase7OperationFailureResponse => {
+}: AssertOperationFailureResponseInput): Phase7OperationFailureResponse => {
   const body = apiFailureSchema.parse(
-    phase7OperationSchemas[operation].error.parse(response.body)
+    operationSchemas[operation].error.parse(response.body)
   )
   const expectedStatus = errorStatusByCode[body.code]
   if (response.status !== expectedStatus) {
-    throw new Error('Phase 7 error status가 stable code mapping과 다릅니다.')
+    throw new Error('Error status가 stable code mapping과 다릅니다.')
   }
-  const expectedRetryable = computePhase7Retryability({
+  const expectedRetryable = computeRetryability({
     code: body.code,
     disposition,
     ...(internalReason === undefined ? {} : { internalReason }),
     operation
   })
   if (body.retryable !== expectedRetryable) {
-    throw new Error('Phase 7 retryable이 execution disposition과 다릅니다.')
+    throw new Error('Retryable이 execution disposition과 다릅니다.')
   }
   if (
     response.headers['Cache-Control'] !== 'private, no-store' ||
     response.headers['X-Request-Id'] !== body.requestId
   ) {
-    throw new Error(
-      'Phase 7 failure response의 no-store/request ID가 다릅니다.'
-    )
+    throw new Error('Failure response의 no-store/request ID가 다릅니다.')
   }
 
   const retryAfter = response.headers['Retry-After']
@@ -485,20 +482,18 @@ export const assertPhase7OperationFailureResponse = ({
   return response
 }
 
-export const assertPhase7OperationSchemaManifest = (): void => {
-  const manifestOperations = phase7OperationManifest.map(
-    (entry) => entry.operation
-  )
-  const schemaOperations = Object.keys(phase7OperationSchemas)
+export const assertOperationSchemaManifest = (): void => {
+  const manifestOperations = operationManifest.map((entry) => entry.operation)
+  const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
       'Phase 7 operation schema manifest는 canonical 28-operation 순서와 같아야 합니다.'
     )
   }
   if (
-    phase7OperationSchemaManifest.length !== 28 ||
-    phase7OperationSchemaManifest.some(
-      (entry) => entry.schemas !== phase7OperationSchemas[entry.operation]
+    operationSchemaManifest.length !== 28 ||
+    operationSchemaManifest.some(
+      (entry) => entry.schemas !== operationSchemas[entry.operation]
     )
   ) {
     throw new Error(

@@ -31,8 +31,8 @@ vi.mock('./runAdminApiIntegration.js', async (importOriginal) => {
     await importOriginal<typeof import('./runAdminApiIntegration.js')>()
   return {
     ...actual,
-    preparePhase7IsolatedDatabase: ports.prepareDatabase,
-    cleanupPhase7IsolatedDatabase: ports.cleanupDatabase
+    prepareIsolatedDatabase: ports.prepareDatabase,
+    cleanupIsolatedDatabase: ports.cleanupDatabase
   }
 })
 vi.mock('./apiIntegrationExecution.js', () => ({
@@ -106,9 +106,9 @@ beforeEach(() => {
   ports.cleanupDatabase.mockReset().mockResolvedValue(undefined)
   ports.executeEntry.mockReset().mockResolvedValue(1)
   vi.stubEnv('NODE_ENV', 'test')
-  vi.stubEnv('PHASE7_API_INTEGRATION_CASE', undefined)
+  vi.stubEnv('API_INTEGRATION_CASE', undefined)
   vi.stubEnv(
-    'PHASE7_API_INTEGRATION_DATABASE_URL',
+    'API_INTEGRATION_DATABASE_URL',
     'postgresql://synthetic:synthetic@127.0.0.1:5432/nihongo_test'
   )
   initialExitCode = process.exitCode
@@ -184,7 +184,7 @@ afterEach(async () => {
   rmSync(taskTemp, { recursive: true, force: true })
 })
 
-describe('Phase10 parent common preparation ownership without a database', () => {
+describe('Parent common preparation ownership without a database', () => {
   it.each(signals)(
     '%s stops in-flight prep and prevents the next prep/shard',
     async (signal) => {
@@ -249,9 +249,31 @@ describe('Phase10 parent common preparation ownership without a database', () =>
     ])
     expect(ports.connect).not.toHaveBeenCalled()
   })
+
+  it('runs only the selected shards and reports the selection', async () => {
+    finishCommands = true
+    process.argv.push('--shards=process-only')
+    await start()
+    await vi.waitFor(() =>
+      expect(process.stdout.write).toHaveBeenCalledWith(
+        expect.stringContaining('"selectedShards":["process-only"]')
+      )
+    )
+    expect(ports.spawn.mock.calls.at(-1)?.[1]).toContain('--shard=process-only')
+  })
+
+  it('rejects an unknown shard selection before preparation', async () => {
+    process.argv.push('--shards=not-a-shard')
+    await import('./runApiIntegration.js')
+    await vi.waitFor(() => expect(process.exitCode).toBe(1))
+    expect(ports.spawn).not.toHaveBeenCalled()
+    expect(process.stderr.write).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown API integration shard selection')
+    )
+  })
 })
 
-describe('Phase10 partial database preparation cleanup without a database', () => {
+describe('Partial database preparation cleanup without a database', () => {
   it.each([false, true])(
     'cleans a failed preparation and preserves nonzero failure (cleanupFails=%s)',
     async (cleanupFails) => {

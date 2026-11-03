@@ -5,7 +5,11 @@ import {
   createResultRetrySessionResponseSchema
 } from '@nihongo/contracts/study/create-result-retry-session'
 import { z } from 'zod'
-import { createPracticeTransportResponseSchema } from '@nihongo/browser/api/study/practiceTransportSchema'
+import {
+  createPracticeTransportResponseSchema,
+  refinePracticeContractV2Header,
+  refinePracticeJsonContentType
+} from '@nihongo/browser/api/study/practiceTransportSchema'
 
 export const createResultRetrySessionRequestParamsSchema =
   createResultRetrySessionParamsSchema
@@ -19,22 +23,16 @@ export const createResultRetrySessionTransportResponseSchema =
     createResultRetrySessionResponseSchema,
     z.literal(201)
   ).superRefine(({ data, headers }, context) => {
-    if (
-      !headers['content-type']?.toLowerCase().startsWith('application/json')
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'content-type'],
-        message: 'retry 생성 응답에는 JSON Content-Type이 필요합니다.'
-      })
-    }
-    if (headers['x-nihongo-practice-contract'] !== '2') {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'x-nihongo-practice-contract'],
-        message: 'retry 생성 응답에는 practice contract 2가 필요합니다.'
-      })
-    }
+    refinePracticeJsonContentType(
+      headers,
+      context,
+      'retry 생성 응답에는 JSON Content-Type이 필요합니다.'
+    )
+    refinePracticeContractV2Header(
+      headers,
+      context,
+      'retry 생성 응답에는 practice contract 2가 필요합니다.'
+    )
     const expectedLocation = `/api/v1/study-sessions/${data.session.id}`
     if (headers.location !== expectedLocation) {
       context.addIssue({

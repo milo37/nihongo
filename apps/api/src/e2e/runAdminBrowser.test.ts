@@ -28,11 +28,11 @@ vi.mock('./ownedProcessGroup.js', () => ({
   retireOwnedProcess: ports.retire
 }))
 vi.mock('./runAdminApiIntegration.js', () => ({
-  preparePhase7IsolatedDatabase: ports.prepare,
-  cleanupPhase7IsolatedDatabase: ports.cleanupHarness
+  prepareIsolatedDatabase: ports.prepare,
+  cleanupIsolatedDatabase: ports.cleanupHarness
 }))
 vi.mock('./browserFixture.js', () => ({
-  createPhase7SsoAdminBrowserApiFixture: ports.fixture
+  createSsoAdminBrowserApiFixture: ports.fixture
 }))
 vi.mock('../config/env.js', () => ({
   parseApiEnvironment: ports.parseEnvironment
@@ -44,9 +44,9 @@ import type { ChildProcess } from 'node:child_process'
 import type { Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  cleanupPhase7BrowserResources,
-  closePhase7BrowserApi,
-  selectPhase7BrowserSpecs
+  cleanupAdminBrowserResources,
+  closeBrowserApi,
+  selectBrowserSpecs
 } from './runAdminBrowser.js'
 
 describe('admin and dashboard browser cleanup caller', () => {
@@ -62,7 +62,7 @@ describe('admin and dashboard browser cleanup caller', () => {
     const cleanupHarness = vi.fn(async () => undefined)
 
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: async () => {
           throw stopFailure
         },
@@ -84,7 +84,7 @@ describe('admin and dashboard browser cleanup caller', () => {
   it('clears records only after a successful stop and keeps normal cleanup order', async () => {
     const processes = [{ child: {} as ChildProcess, label: 'stopped-test' }]
     const calls: string[] = []
-    await cleanupPhase7BrowserResources(processes, {
+    await cleanupAdminBrowserResources(processes, {
       stopOwnedProcesses: async () => {
         calls.push('stop')
       },
@@ -106,7 +106,7 @@ describe('admin and dashboard browser cleanup caller', () => {
     const closeFailure = new Error('control close failed')
     const cleanupDatabase = vi.fn(async () => undefined)
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: async () => undefined,
         closeControlServer: async () => {
           throw closeFailure
@@ -124,7 +124,7 @@ describe('admin and dashboard browser cleanup caller', () => {
     ]
     const databaseFailure = new Error('database cleanup failed')
     await expect(
-      cleanupPhase7BrowserResources(processes, {
+      cleanupAdminBrowserResources(processes, {
         stopOwnedProcesses: async () => undefined,
         closeControlServer: async () => undefined,
         cleanupDatabase: async () => {
@@ -145,10 +145,10 @@ describe('admin browser TEST API listener shutdown', () => {
         callback()
       }
     } as unknown as Server
-    await cleanupPhase7BrowserResources([], {
+    await cleanupAdminBrowserResources([], {
       stopOwnedProcesses: async () => {
         calls.push('children')
-        await closePhase7BrowserApi(server)
+        await closeBrowserApi(server)
       },
       closeControlServer: async () => {
         calls.push('control')
@@ -168,8 +168,8 @@ describe('admin browser TEST API listener shutdown', () => {
     const owned = { child: {} as ChildProcess, label: 'owned-web' }
     const processes = [owned]
     await expect(
-      cleanupPhase7BrowserResources(processes, {
-        stopOwnedProcesses: () => closePhase7BrowserApi(server),
+      cleanupAdminBrowserResources(processes, {
+        stopOwnedProcesses: () => closeBrowserApi(server),
         closeControlServer: async () => undefined,
         cleanupDatabase
       })
@@ -178,14 +178,14 @@ describe('admin browser TEST API listener shutdown', () => {
     expect(processes[0]).toBe(owned)
   })
   it('allows cleanup for an absent or not-yet-listening owned server', async () => {
-    await expect(closePhase7BrowserApi(undefined)).resolves.toBeUndefined()
+    await expect(closeBrowserApi(undefined)).resolves.toBeUndefined()
     const error = Object.assign(new Error('not started'), {
       code: 'ERR_SERVER_NOT_RUNNING'
     })
     const server = {
       close: (callback: (error?: Error) => void) => callback(error)
     } as unknown as Server
-    await expect(closePhase7BrowserApi(server)).resolves.toBeUndefined()
+    await expect(closeBrowserApi(server)).resolves.toBeUndefined()
   })
 })
 
@@ -199,8 +199,8 @@ describe('admin browser owned API bounded shutdown', () => {
         closeAllConnections
       } as unknown as Server
       const cleanupDatabase = vi.fn(async () => undefined)
-      const failure = cleanupPhase7BrowserResources([], {
-        stopOwnedProcesses: () => closePhase7BrowserApi(server),
+      const failure = cleanupAdminBrowserResources([], {
+        stopOwnedProcesses: () => closeBrowserApi(server),
         closeControlServer: async () => undefined,
         cleanupDatabase
       }).catch((error: unknown) => error)
@@ -215,7 +215,7 @@ describe('admin browser owned API bounded shutdown', () => {
         }),
         expect.objectContaining({
           message:
-            'Phase 10 database cleanup was withheld because an owned process may still be running.'
+            'Database cleanup was withheld because an owned process may still be running.'
         })
       ])
       expect(closeAllConnections).toHaveBeenCalledOnce()
@@ -332,20 +332,17 @@ describe('admin and dashboard real origin and Mock selection', () => {
   })
 
   it('selects admin only for real and preserves both dashboard modes', () => {
-    expect(selectPhase7BrowserSpecs('real', false)).toEqual([adminSpec])
-    expect(selectPhase7BrowserSpecs('real', true)).toEqual([
-      adminSpec,
-      dashboardSpec
-    ])
-    expect(selectPhase7BrowserSpecs('mock', true)).toEqual([dashboardSpec])
-    expect(() => selectPhase7BrowserSpecs('mock', false)).toThrow(
+    expect(selectBrowserSpecs('real', false)).toEqual([adminSpec])
+    expect(selectBrowserSpecs('real', true)).toEqual([adminSpec, dashboardSpec])
+    expect(selectBrowserSpecs('mock', true)).toEqual([dashboardSpec])
+    expect(() => selectBrowserSpecs('mock', false)).toThrow(
       'requires real mode'
     )
   })
 
   it('rejects standalone admin Mock before creating any owned resources', async () => {
     vi.resetModules()
-    vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', '0')
+    vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', '0')
     const runner = await import('./runAdminBrowser.js')
     await expect(runner.runMock()).rejects.toThrow('requires real mode')
     expect(ports.spawn).not.toHaveBeenCalled()
@@ -356,7 +353,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
 
   it('serves only web and selects only the dashboard with dashboard acceptance Mock', async () => {
     vi.resetModules()
-    vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', '1')
+    vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', '1')
     vi.stubEnv('NIHONGO_ADMIN_PROXY_TARGET', 'http://parent.invalid')
     const runner = await import('./runAdminBrowser.js')
     await runner.runMock()
@@ -383,7 +380,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
     'serves production static assets and API on one public origin (dashboard=%s)',
     async (phase8) => {
       vi.resetModules()
-      vi.stubEnv('PHASE8_BROWSER_ACCEPTANCE', phase8)
+      vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', phase8)
       const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       const calls = ports.spawn.mock.calls
@@ -427,9 +424,9 @@ describe('admin and dashboard real origin and Mock selection', () => {
       })
       const playwright = calls.find(([, args]) => args.includes('playwright'))
       expect(playwright?.[2].env).toMatchObject({
-        PHASE7_BROWSER_ADMIN_ORIGIN: 'http://127.0.0.1:4100',
+        ADMIN_BROWSER_ADMIN_ORIGIN: 'http://127.0.0.1:4100',
         PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:4100',
-        PHASE7_BROWSER_MODE: 'real'
+        ADMIN_BROWSER_MODE: 'real'
       })
       expect(playwright?.[1]).toContain(adminSpec)
       expect(playwright?.[1].includes(dashboardSpec)).toBe(phase8 === '1')
@@ -539,19 +536,19 @@ describe('admin browser mandatory public origin environment', () => {
     'overrides stale origin/mode env with the actual %s boundary',
     async (mode) => {
       const runner = await import('./runAdminBrowser.js')
-      const result = runner.createPhase7BrowserPlaywrightEnvironment(
+      const result = runner.createBrowserPlaywrightEnvironment(
         mode,
         'http://127.0.0.1:33493',
         {
-          PHASE7_BROWSER_ADMIN_ORIGIN: 'http://old.invalid',
+          ADMIN_BROWSER_ADMIN_ORIGIN: 'http://old.invalid',
           PLAYWRIGHT_BASE_URL: 'http://old.invalid',
-          PHASE7_BROWSER_MODE: 'other'
+          ADMIN_BROWSER_MODE: 'other'
         }
       )
-      expect(result.PHASE7_BROWSER_ADMIN_ORIGIN).toBe('http://127.0.0.1:33493')
+      expect(result.ADMIN_BROWSER_ADMIN_ORIGIN).toBe('http://127.0.0.1:33493')
       expect(result.PLAYWRIGHT_BASE_URL).toBe('http://127.0.0.1:33493')
-      expect(result.PHASE7_BROWSER_MODE).toBe(mode)
-      expect(result.PHASE8_BROWSER_MODE).toBe(mode)
+      expect(result.ADMIN_BROWSER_MODE).toBe(mode)
+      expect(result.DASHBOARD_BROWSER_MODE).toBe(mode)
     }
   )
 })

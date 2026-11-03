@@ -28,7 +28,7 @@ export const runPhase7ReauthenticationStartupMaintenance = async (
       !isCount(row.intentsDeleted) ||
       !isCount(row.evidenceDeleted)
     ) {
-      throw new Error('Phase 7 reauthentication startup cleanup failed.')
+      throw new Error('Reauthentication startup cleanup failed.')
     }
     if (
       row.intentsDeleted < CLEANUP_BATCH_SIZE &&
@@ -37,14 +37,14 @@ export const runPhase7ReauthenticationStartupMaintenance = async (
       return
     }
   }
-  throw new Error('Phase 7 reauthentication startup cleanup failed.')
+  throw new Error('Reauthentication startup cleanup failed.')
 }
 
-export interface Phase7ReauthenticationMaintenance {
+export interface ReauthenticationMaintenance {
   stop: () => Promise<void>
 }
 
-export const startPhase7ReauthenticationMaintenance = ({
+export const startReauthenticationMaintenance = ({
   client,
   intervalMs = DEFAULT_MAINTENANCE_INTERVAL_MS,
   onFailure
@@ -52,9 +52,9 @@ export const startPhase7ReauthenticationMaintenance = ({
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   intervalMs?: number
   onFailure: (error: unknown) => void
-}): Phase7ReauthenticationMaintenance => {
+}): ReauthenticationMaintenance => {
   if (!Number.isSafeInteger(intervalMs) || intervalMs <= 0) {
-    throw new Error('Phase 7 reauthentication maintenance interval is invalid.')
+    throw new Error('Reauthentication maintenance interval is invalid.')
   }
 
   let stopped = false

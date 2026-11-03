@@ -46,7 +46,7 @@ if (
   environment.NODE_ENV !== 'test' ||
   !testUrl ||
   !adminUrl ||
-  process.env.PHASE7_APPROVED308_FIXTURE_PROFILE !== 'current38'
+  process.env.APPROVED_TAGS_FIXTURE_PROFILE !== 'current38'
 ) {
   throw new Error(
     'Explicit isolated TEST/current38 approved308 fixture required.'
@@ -74,10 +74,10 @@ for (const value of [testUrl, environment.DATABASE_URL]) {
 connection.searchParams.delete('schema')
 const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
 if (!legacyDatabaseUrl)
-  throw new Error('Phase 7 legacy compatibility database URL is required.')
+  throw new Error('Legacy compatibility database URL is required.')
 const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
 if (!migrationDatabaseUrl)
-  throw new Error('Phase 7 migration wrapper database URL is required.')
+  throw new Error('Migration wrapper database URL is required.')
 const {
   copyMigration,
   createIsolatedUpgradeSchema,

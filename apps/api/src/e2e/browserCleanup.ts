@@ -26,7 +26,7 @@ export const cleanupBrowserResources = async (
   if (!processesStopped) {
     errors.push(
       new Error(
-        'Phase 10 database cleanup was withheld because an owned process may still be running.'
+        'Database cleanup was withheld because an owned process may still be running.'
       )
     )
   } else {
@@ -39,6 +39,6 @@ export const cleanupBrowserResources = async (
 
   if (errors.length === 1) throw errors[0]
   if (errors.length > 1) {
-    throw new AggregateError(errors, 'Phase 10 browser cleanup failed.')
+    throw new AggregateError(errors, 'Browser cleanup failed.')
   }
 }

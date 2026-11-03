@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { serve } from '@hono/node-server'
 import {
-  createPhase9BrowserApi,
-  createPhase9GoogleTestProvider,
-  parsePhase9BrowserEnvironment,
-  preparePhase9BrowserActors
+  createBrowserApi,
+  createGoogleTestProvider,
+  parseBrowserEnvironment,
+  prepareBrowserActors
 } from './browserApi.js'
 
 const pg = vi.hoisted(() => ({
@@ -57,8 +57,8 @@ const source = (): NodeJS.ProcessEnv => ({
   AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login'),
   PRODUCTION_DATABASE_URL:
     'postgresql://production:unused@production.example.invalid/production',
-  BETTER_AUTH_SECRET: 'phase9-unit-auth-secret-at-least-32-characters',
-  GUEST_COOKIE_SECRET: 'phase9-unit-guest-secret-at-least-32-characters'
+  BETTER_AUTH_SECRET: 'a'.repeat(32),
+  GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
 const ownerUrl = url('phase9_test_owner')
 const makeIdentities = () =>
@@ -76,7 +76,7 @@ const makeIdentities = () =>
           userId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
           role,
           targetLevel,
-          callbackCode: `phase7-test-google-${code}`
+          callbackCode: `test-google-${code}`
         },
         identity: {
           provider: 'google',
@@ -116,18 +116,18 @@ beforeEach(() => {
   })
 })
 
-describe('Phase9 isolated TEST SSO bootstrap', () => {
+describe('Isolated TEST SSO bootstrap', () => {
   it('imports without listening or opening a database connection', () => {
     expect(serve).not.toHaveBeenCalled()
     expect(pg.connect).not.toHaveBeenCalled()
-    expect(parsePhase9BrowserEnvironment(source())).toMatchObject({
+    expect(parseBrowserEnvironment(source())).toMatchObject({
       NODE_ENV: 'test',
       ADMIN_CMS_MODE: 'technical'
     })
   })
 
   it('assembles the current learner/report/admin routes without querying or listening and disconnects once', async () => {
-    const fixture = await createPhase9BrowserApi({
+    const fixture = await createBrowserApi({
       environment: source(),
       identities: makeIdentities()
     })
@@ -173,14 +173,12 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     { DATABASE_URL: url('nihongo_test_app_login').replace(schema, 'public') },
     { PRODUCTION_DATABASE_URL: url('nihongo_test_app_login') }
   ])('rejects non-owned TEST configuration before connecting: %j', (change) => {
-    expect(() =>
-      parsePhase9BrowserEnvironment({ ...source(), ...change })
-    ).toThrow()
+    expect(() => parseBrowserEnvironment({ ...source(), ...change })).toThrow()
     expect(pg.connect).not.toHaveBeenCalled()
   })
 
   it('preserves Google authorization state, nonce and S256 PKCE without a network exchange', async () => {
-    const provider = createPhase9GoogleTestProvider(source(), makeIdentities())
+    const provider = createGoogleTestProvider(source(), makeIdentities())
     const authorization = new URL(
       await provider.authorizationURL({
         state: 's'.repeat(43),
@@ -202,9 +200,9 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
 
   it('returns only the exact allowlisted identity, never a caller-supplied role/session', async () => {
     const identities = makeIdentities()
-    const provider = createPhase9GoogleTestProvider(source(), identities)
+    const provider = createGoogleTestProvider(source(), identities)
     const input = {
-      code: 'phase7-test-google-author',
+      code: 'test-google-author',
       nonce: 'n'.repeat(43),
       codeVerifier: 'v'.repeat(86)
     }
@@ -213,12 +211,12 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     expect(identity).not.toHaveProperty('role')
     expect(identity).not.toHaveProperty('token')
     expect(
-      await provider.exchange({ ...input, code: 'phase7-test-google-learner' })
+      await provider.exchange({ ...input, code: 'test-google-learner' })
     ).toEqual(identities.learner!.identity)
     for (const code of [
       '',
       'unknown',
-      'phase7-test-google-author-extra',
+      'test-google-author-extra',
       'PHASE7-TEST-GOOGLE-AUTHOR',
       '__proto__'
     ]) {
@@ -239,18 +237,18 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     const value = makeIdentities()
     if (kind === 'role') value.learner!.actor.role = 'ADMIN'
     if (kind === 'callbackCode')
-      value.learner!.actor.callbackCode = 'phase7-test-google-author'
+      value.learner!.actor.callbackCode = 'test-google-author'
     if (kind === 'duplicate-user')
       value.learner!.actor.userId = value.author!.actor.userId
     if (kind === 'duplicate-subject')
       value.learner!.identity.accountId = value.author!.identity.accountId
     if (kind === 'extra-field')
       Object.assign(value.author!.identity, { role: 'ADMIN' })
-    expect(() => createPhase9GoogleTestProvider(source(), value)).toThrow()
+    expect(() => createGoogleTestProvider(source(), value)).toThrow()
   })
 
   it('prepares five Google Account-bound actors atomically and confirms the stored DB roles', async () => {
-    const result = await preparePhase9BrowserActors({
+    const result = await prepareBrowserActors({
       adminDatabaseUrl: ownerUrl,
       environment: source()
     })
@@ -300,14 +298,14 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
       pg.failInsert = kind === 'write'
       pg.wrongRole = kind === 'role'
       await expect(
-        preparePhase9BrowserActors({
+        prepareBrowserActors({
           adminDatabaseUrl: ownerUrl,
           environment: source()
         })
       ).rejects.toThrow(
         kind === 'write'
           ? 'fixture-write-failed'
-          : 'PHASE9_DATABASE_ACTOR_AUTHORITY_MISMATCH'
+          : 'BROWSER_TEST_DATABASE_ACTOR_AUTHORITY_MISMATCH'
       )
       expect(pg.query).toHaveBeenLastCalledWith('ROLLBACK')
       expect(pg.query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false)
@@ -322,7 +320,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     'rejects a runtime or foreign owner before connecting',
     async (adminDatabaseUrl) => {
       await expect(
-        preparePhase9BrowserActors({ adminDatabaseUrl, environment: source() })
+        prepareBrowserActors({ adminDatabaseUrl, environment: source() })
       ).rejects.toThrow()
       expect(pg.connect).not.toHaveBeenCalled()
     }

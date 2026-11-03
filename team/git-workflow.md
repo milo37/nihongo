@@ -67,8 +67,8 @@ flowchart TD
 기존 required CI 세 개를 유지합니다.
 
 - `Quality and production build`
-- `Phase 10 real/mock browser and regression acceptance`
-- `Phase 11 portable release and production-mode smoke`
+- `Browser and regression acceptance`
+- `Portable release smoke`
 
 위 검수·승인 기준은 운영 정책입니다. GitHub가 실제 강제하는 보호·승인 수·required checks·merge 방식은 root의 원격 조회와 설정 결과를 Munder에 따로 기록합니다. 문서 채택만으로 서버 enforcement가 완료됐다고 주장하거나, 필요한 검사가 실패한다고 보호를 낮추지 않습니다. `main`·`dev` push CI와 작업 PR의 `pull_request` CI를 유지합니다.
 

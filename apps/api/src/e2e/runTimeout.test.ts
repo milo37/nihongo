@@ -9,8 +9,8 @@ import {
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
 import {
-  Phase10CleanupTimeoutError,
-  Phase10RunTimeoutError,
+  CleanupTimeoutError,
+  RunTimeoutError,
   runWithOperationTimeout
 } from './runTimeout.js'
 
@@ -66,7 +66,7 @@ afterEach(async () => {
   )
 })
 
-describe('Phase 10 runner timeout', () => {
+describe('Runner timeout', () => {
   it('rejects within the cleanup deadline when cleanup never settles', async () => {
     const startedAt = Date.now()
     let cleanupStarted = false
@@ -78,17 +78,14 @@ describe('Phase 10 runner timeout', () => {
         await new Promise<never>(() => undefined)
       },
       cleanupTimeoutMs: 30,
-      label: 'Phase 10 performance runner',
+      label: 'Performance runner',
       onTimeout: () => undefined,
       operation: async () => await new Promise<never>(() => undefined),
       timeoutMs: 20
     })
 
     await expect(rejection).rejects.toMatchObject({
-      errors: [
-        expect.any(Phase10RunTimeoutError),
-        expect.any(Phase10CleanupTimeoutError)
-      ]
+      errors: [expect.any(RunTimeoutError), expect.any(CleanupTimeoutError)]
     })
     expect(cleanupStarted).toBe(true)
     expect(Date.now() - startedAt).toBeLessThan(500)
@@ -110,12 +107,12 @@ describe('Phase 10 runner timeout', () => {
            const { writeFileSync } = require('node:fs');
            process.on('SIGTERM', () => {});
            const nested = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], { stdio: 'ignore' });
-           writeFileSync(process.env.PHASE10_TIMEOUT_PID_FILE, JSON.stringify({ leaderPid: process.pid, nestedPid: nested.pid }));
+           writeFileSync(process.env.RUNNER_TIMEOUT_PID_FILE, JSON.stringify({ leaderPid: process.pid, nestedPid: nested.pid }));
            setInterval(() => {}, 1000);`
         ],
         {
           detached: shouldDetachOwnedProcess,
-          env: { ...process.env, PHASE10_TIMEOUT_PID_FILE: pidFile },
+          env: { ...process.env, RUNNER_TIMEOUT_PID_FILE: pidFile },
           stdio: 'ignore'
         }
       )
@@ -133,7 +130,7 @@ describe('Phase 10 runner timeout', () => {
               forceKillTimeoutMs: 1_000,
               gracefulTimeoutMs: 50
             }),
-          label: 'Phase 10 performance runner',
+          label: 'Performance runner',
           onTimeout: () => abortController.abort(),
           operation: async () =>
             await new Promise<never>((_resolve, reject) => {
@@ -152,7 +149,7 @@ describe('Phase 10 runner timeout', () => {
             }),
           timeoutMs: 50
         })
-      ).rejects.toBeInstanceOf(Phase10RunTimeoutError)
+      ).rejects.toBeInstanceOf(RunTimeoutError)
       expect(abortController.signal.aborted).toBe(true)
       expect(lateStageStarted).toBe(false)
       expect(isProcessRunning(leaderPid)).toBe(false)

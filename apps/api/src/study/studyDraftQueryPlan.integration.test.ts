@@ -63,15 +63,15 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 StudyDraft query-plan tests require fixture and erasure databases.'
+    'StudyDraft query-plan tests require fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
@@ -629,7 +629,7 @@ afterAll(async () => {
   await database.disconnect()
 })
 
-describe('Phase 4 representative PostgreSQL query plans', () => {
+describe('Representative PostgreSQL query plans', () => {
   it('기본 planner가 resumable·cleanup·child FK index와 bounded sort를 선택한다', async () => {
     const now = new Date()
     const [targetUser, ownerScanUser, decoyUser] = await Promise.all(

@@ -8,7 +8,7 @@ import { createAuthRuntime } from './auth/createAuth.js'
 import { createSsoAuthentication } from './auth/createSsoAuthentication.js'
 import {
   runPhase7ReauthenticationStartupMaintenance,
-  startPhase7ReauthenticationMaintenance
+  startReauthenticationMaintenance
 } from './auth/reauthenticationStartupMaintenance.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
 import { createPrincipalService } from './auth/principalService.js'
@@ -373,7 +373,7 @@ server.headersTimeout = 10_000
 server.requestTimeout = 15_000
 const reauthenticationMaintenance =
   ownedAuth && authGatewayDatabase
-    ? startPhase7ReauthenticationMaintenance({
+    ? startReauthenticationMaintenance({
         client: authGatewayDatabase.client,
         onFailure: () => {
           logger.error('auth.reauthentication.maintenance_failed', {

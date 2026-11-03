@@ -5,6 +5,7 @@ import {
 import { z } from 'zod'
 import {
   createPracticeTransportResponseSchema,
+  refinePracticeContractV2Header,
   refinePracticeJsonTransportHeaders
 } from '@nihongo/browser/api/study/practiceTransportSchema'
 
@@ -15,13 +16,11 @@ export const createStudySessionV2TransportResponseSchema =
     z.literal(201)
   ).superRefine(({ headers }, context) => {
     refinePracticeJsonTransportHeaders(headers, context, false)
-    if (headers['x-nihongo-practice-contract'] !== '2') {
-      context.addIssue({
-        code: 'custom',
-        path: ['headers', 'x-nihongo-practice-contract'],
-        message: 'v2 세션 생성 응답에는 practice contract 2가 필요합니다.'
-      })
-    }
+    refinePracticeContractV2Header(
+      headers,
+      context,
+      'v2 세션 생성 응답에는 practice contract 2가 필요합니다.'
+    )
     if (headers['idempotency-replayed'] !== null) {
       context.addIssue({
         code: 'custom',

@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
-import { Phase10CleanupTimeoutError } from './runTimeout.js'
+import { CleanupTimeoutError } from './runTimeout.js'
 
 const temporaryDirectories: string[] = []
 const require = createRequire(import.meta.url)
@@ -23,7 +23,7 @@ afterEach(async () => {
   )
 })
 
-describe('Phase 10 performance failure finalizer', () => {
+describe('Performance failure finalizer', () => {
   it('force-exits a subprocess with a referenced handle after deleting evidence', async () => {
     const directory = await mkdtemp(
       path.join(os.tmpdir(), 'nihongo-phase10-hung-cleanup-process-')
@@ -41,7 +41,7 @@ describe('Phase 10 performance failure finalizer', () => {
         child = spawn(process.execPath, [tsxCli, hungCleanupProbe], {
           env: {
             ...process.env,
-            PHASE10_HUNG_CLEANUP_EVIDENCE_FILE: evidenceFile
+            HUNG_CLEANUP_EVIDENCE_FILE: evidenceFile
           },
           stdio: ['ignore', 'ignore', 'pipe']
         })
@@ -105,7 +105,7 @@ describe('Phase 10 performance failure finalizer', () => {
       cleanup,
       cleanupTimeoutMs: 100,
       getEvidenceFile: () => evidenceFile,
-      label: 'Phase 10 performance runner'
+      label: 'Performance runner'
     })
 
     const firstFinalization = finalizeFailure()
@@ -131,11 +131,11 @@ describe('Phase 10 performance failure finalizer', () => {
       cleanup: async () => await new Promise<never>(() => undefined),
       cleanupTimeoutMs: 30,
       getEvidenceFile: () => evidenceFile,
-      label: 'Phase 10 performance runner'
+      label: 'Performance runner'
     })
 
     await expect(finalizeFailure()).resolves.toEqual([
-      expect.any(Phase10CleanupTimeoutError)
+      expect.any(CleanupTimeoutError)
     ])
     expect(Date.now() - startedAt).toBeLessThan(500)
     await expect(access(evidenceFile)).rejects.toMatchObject({ code: 'ENOENT' })

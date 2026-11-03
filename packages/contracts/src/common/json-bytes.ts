@@ -1,4 +1,4 @@
-export type Phase7JsonFailureKind = 'INVALID_JSON' | 'MAX_DEPTH_EXCEEDED'
+export type JsonFailureKind = 'INVALID_JSON' | 'MAX_DEPTH_EXCEEDED'
 
 interface FatalTextDecoder {
   decode(input?: Uint8Array): string
@@ -8,16 +8,16 @@ interface FatalTextDecoderConstructor {
   new (label?: string, options?: { fatal?: boolean }): FatalTextDecoder
 }
 
-export class Phase7JsonParseError extends Error {
-  readonly kind: Phase7JsonFailureKind
+export class ContentJsonParseError extends Error {
+  readonly kind: JsonFailureKind
 
-  constructor(kind: Phase7JsonFailureKind) {
+  constructor(kind: JsonFailureKind) {
     super(
       kind === 'MAX_DEPTH_EXCEEDED'
-        ? 'Phase 7 JSON exceeds the maximum container depth.'
-        : 'Phase 7 JSON is malformed or contains a duplicate object member.'
+        ? 'JSON exceeds the maximum container depth.'
+        : 'JSON is malformed or contains a duplicate object member.'
     )
-    this.name = 'Phase7JsonParseError'
+    this.name = 'ContentJsonParseError'
     this.kind = kind
   }
 }
@@ -35,16 +35,16 @@ class StrictJsonParser {
     const maximumDepthExceeded = this.validateIteratively()
     this.index = 0
     if (maximumDepthExceeded) {
-      throw new Phase7JsonParseError('MAX_DEPTH_EXCEEDED')
+      throw new ContentJsonParseError('MAX_DEPTH_EXCEEDED')
     }
     this.skipWhitespace()
     const value = this.parseValue(0)
     this.skipWhitespace()
     if (this.index !== this.source.length) {
-      throw new Phase7JsonParseError('INVALID_JSON')
+      throw new ContentJsonParseError('INVALID_JSON')
     }
     if (this.maximumDepthExceeded) {
-      throw new Phase7JsonParseError('MAX_DEPTH_EXCEEDED')
+      throw new ContentJsonParseError('MAX_DEPTH_EXCEEDED')
     }
     return value
   }
@@ -66,7 +66,7 @@ class StrictJsonParser {
     let maximumDepthExceeded = false
 
     const fail = (): never => {
-      throw new Phase7JsonParseError('INVALID_JSON')
+      throw new ContentJsonParseError('INVALID_JSON')
     }
     const acceptValue = (): void => {
       const frame = stack.at(-1)
@@ -195,16 +195,16 @@ class StrictJsonParser {
 
     while (this.index < this.source.length) {
       if (this.source[this.index] !== '"') {
-        throw new Phase7JsonParseError('INVALID_JSON')
+        throw new ContentJsonParseError('INVALID_JSON')
       }
       const key = this.parseString()
       if (keys.has(key)) {
-        throw new Phase7JsonParseError('INVALID_JSON')
+        throw new ContentJsonParseError('INVALID_JSON')
       }
       keys.add(key)
       this.skipWhitespace()
       if (this.source[this.index] !== ':') {
-        throw new Phase7JsonParseError('INVALID_JSON')
+        throw new ContentJsonParseError('INVALID_JSON')
       }
       this.index += 1
       this.skipWhitespace()
@@ -216,12 +216,12 @@ class StrictJsonParser {
         return value
       }
       if (separator !== ',') {
-        throw new Phase7JsonParseError('INVALID_JSON')
+        throw new ContentJsonParseError('INVALID_JSON')
       }
       this.index += 1
       this.skipWhitespace()
     }
-    throw new Phase7JsonParseError('INVALID_JSON')
+    throw new ContentJsonParseError('INVALID_JSON')
   }
 
   private parseArray(depth: number): unknown[] {
@@ -243,12 +243,12 @@ class StrictJsonParser {
         return value
       }
       if (separator !== ',') {
-        throw new Phase7JsonParseError('INVALID_JSON')
+        throw new ContentJsonParseError('INVALID_JSON')
       }
       this.index += 1
       this.skipWhitespace()
     }
-    throw new Phase7JsonParseError('INVALID_JSON')
+    throw new ContentJsonParseError('INVALID_JSON')
   }
 
   private parseString(): string {
@@ -261,11 +261,11 @@ class StrictJsonParser {
         try {
           return JSON.parse(this.source.slice(start, this.index)) as string
         } catch {
-          throw new Phase7JsonParseError('INVALID_JSON')
+          throw new ContentJsonParseError('INVALID_JSON')
         }
       }
       if (code < 0x20) {
-        throw new Phase7JsonParseError('INVALID_JSON')
+        throw new ContentJsonParseError('INVALID_JSON')
       }
       if (code === 0x5c) {
         this.index += 1
@@ -273,25 +273,25 @@ class StrictJsonParser {
         if (escaped === 'u') {
           const hexadecimal = this.source.slice(this.index + 1, this.index + 5)
           if (!/^[0-9a-f]{4}$/iu.test(hexadecimal)) {
-            throw new Phase7JsonParseError('INVALID_JSON')
+            throw new ContentJsonParseError('INVALID_JSON')
           }
           this.index += 5
           continue
         }
         if (!escaped || !'"\\/bfnrt'.includes(escaped)) {
-          throw new Phase7JsonParseError('INVALID_JSON')
+          throw new ContentJsonParseError('INVALID_JSON')
         }
       }
       this.index += 1
     }
-    throw new Phase7JsonParseError('INVALID_JSON')
+    throw new ContentJsonParseError('INVALID_JSON')
   }
 
   private parseLiteral<Value>(literal: string, value: Value): Value {
     if (
       this.source.slice(this.index, this.index + literal.length) !== literal
     ) {
-      throw new Phase7JsonParseError('INVALID_JSON')
+      throw new ContentJsonParseError('INVALID_JSON')
     }
     this.index += literal.length
     return value
@@ -302,7 +302,7 @@ class StrictJsonParser {
       this.source.slice(this.index)
     )
     if (!match) {
-      throw new Phase7JsonParseError('INVALID_JSON')
+      throw new ContentJsonParseError('INVALID_JSON')
     }
     this.index += match[0].length
     return Number(match[0])
@@ -320,7 +320,7 @@ class StrictJsonParser {
   }
 }
 
-export const parsePhase7JsonBytes = (
+export const parseContentJsonBytes = (
   bytes: Uint8Array,
   options: { maximumDepth?: number } = {}
 ): unknown => {
@@ -331,7 +331,7 @@ export const parsePhase7JsonBytes = (
     ).TextDecoder
     source = new TextDecoderConstructor('utf-8', { fatal: true }).decode(bytes)
   } catch {
-    throw new Phase7JsonParseError('INVALID_JSON')
+    throw new ContentJsonParseError('INVALID_JSON')
   }
   return new StrictJsonParser(source, options.maximumDepth ?? 12).parse()
 }

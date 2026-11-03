@@ -17,6 +17,8 @@
     "src/content/cli.ts",
     "src/content/commands/**",
     "src/db/fixtures/**",
+    "src/auth/fixtures/**",
+    "src/content-fixtures/**",
     "src/db/ssoTestFixture.ts",
     "src/db/foundationDiagnostics.ts"
   ]

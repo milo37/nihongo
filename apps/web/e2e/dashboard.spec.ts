@@ -56,9 +56,9 @@ const subjectLabels = {
 } as const
 
 const parseBrowserMode = (): BrowserMode => {
-  const mode = process.env.PHASE8_BROWSER_MODE
+  const mode = process.env.DASHBOARD_BROWSER_MODE
   if (mode !== 'mock' && mode !== 'real') {
-    throw new Error('PHASE8_BROWSER_MODE must be mock or real.')
+    throw new Error('DASHBOARD_BROWSER_MODE must be mock or real.')
   }
   return mode
 }
@@ -71,7 +71,7 @@ const insightsActorSchema = z
     userId: z.string().uuid(),
     role: z.literal('USER'),
     targetLevel: z.literal('N2'),
-    callbackCode: z.literal('phase7-test-google-insightsLearner')
+    callbackCode: z.literal('test-google-insightsLearner')
   })
   .strict()
 
@@ -82,7 +82,7 @@ const login = async (page: Page): Promise<void> => {
     : z
         .object({ insightsLearner: insightsActorSchema })
         .parse(
-          JSON.parse(process.env.PHASE8_BROWSER_FIXTURE ?? 'null') as unknown
+          JSON.parse(process.env.DASHBOARD_BROWSER_FIXTURE ?? 'null') as unknown
         ).insightsLearner
   await page.goto('/login')
   await expect(page.getByRole('button', { name: /Google/u })).toBeVisible()
@@ -480,7 +480,7 @@ test('current stats and learning routes preserve contracts before an explicit re
     body: JSON.stringify(
       {
         schemaVersion: 1,
-        kind: 'nihongo.phase10.browser-performance',
+        kind: 'nihongo.browser-performance',
         surface: 'dashboard-navigation',
         mode: browserMode,
         warmupCount: 1,

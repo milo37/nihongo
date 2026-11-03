@@ -4,10 +4,10 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import {
-  cleanupPhase7IsolatedDatabase,
-  preparePhase7IsolatedDatabase
+  cleanupIsolatedDatabase,
+  prepareIsolatedDatabase
 } from './runAdminApiIntegration.js'
-import { readPhase10DatabaseApiPerformanceEvidence } from './performanceEvidence.js'
+import { readDatabaseApiPerformanceEvidence } from './performanceEvidence.js'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import {
   exitPerformanceProcess,
@@ -30,7 +30,7 @@ const PERFORMANCE_TEST_FILE =
 const PERFORMANCE_RUN_TIMEOUT_MS = 10 * 60_000
 const PERFORMANCE_CLEANUP_TIMEOUT_MS = 15_000
 const PERFORMANCE_FINALIZER_TIMEOUT_MS = PERFORMANCE_CLEANUP_TIMEOUT_MS + 1_000
-const PERFORMANCE_RUNNER_LABEL = 'Phase 10 database/API performance runner'
+const PERFORMANCE_RUNNER_LABEL = 'Database/API performance runner'
 const executionAbortController = new globalThis.AbortController()
 const ownedProcesses: Array<{ child: ChildProcess; label: string }> = []
 let harnessCleanupRequired = false
@@ -91,7 +91,7 @@ const runCommand = async (
     abortSignal.throwIfAborted()
     if (spawnError) throw spawnError
     if ('aborted' in outcome) {
-      throw new Error('Phase 10 command aborted without an abort reason.')
+      throw new Error('Command aborted without an abort reason.')
     }
     if (outcome.code === 0) return stdout.trim()
     throw new Error(
@@ -114,7 +114,7 @@ const cleanup = (): Promise<void> => {
     }
     if (harnessCleanupRequired) {
       try {
-        await cleanupPhase7IsolatedDatabase()
+        await cleanupIsolatedDatabase()
         harnessCleanupRequired = false
       } catch (error: unknown) {
         errors.push(error)
@@ -122,7 +122,7 @@ const cleanup = (): Promise<void> => {
     }
     if (errors.length === 1) throw errors[0]
     if (errors.length > 1) {
-      throw new AggregateError(errors, 'Phase 10 performance cleanup failed.')
+      throw new AggregateError(errors, 'Performance cleanup failed.')
     }
   })()
   return cleanupPromise
@@ -187,7 +187,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   const abortSignal = executionAbortController.signal
   abortSignal.throwIfAborted()
   const evidenceDirectory = path.resolve(
-    process.env.PHASE10_PERFORMANCE_EVIDENCE_DIR ??
+    process.env.PERFORMANCE_EVIDENCE_DIR ??
       path.join(repositoryRoot, 'test-results/phase10-evidence/performance')
   )
   const evidenceFile = path.join(evidenceDirectory, 'database-api.json')
@@ -206,7 +206,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   ])
   abortSignal.throwIfAborted()
   harnessCleanupRequired = true
-  const harness = await preparePhase7IsolatedDatabase({
+  const harness = await prepareIsolatedDatabase({
     abortSignal,
     seedRuns: 1
   })
@@ -216,10 +216,10 @@ const run = async (): Promise<PerformanceRunResult> => {
     AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
     DATABASE_URL: harness.applicationDatabaseUrl,
     PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
-    PHASE10_PERFORMANCE_COMMIT: commit,
-    PHASE10_PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
-    PHASE10_PERFORMANCE_PNPM_VERSION: pnpmVersion,
-    PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY: String(dirtyStatus.length > 0),
+    PERFORMANCE_COMMIT: commit,
+    PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
+    PERFORMANCE_PNPM_VERSION: pnpmVersion,
+    PERFORMANCE_SOURCE_TREE_DIRTY: String(dirtyStatus.length > 0),
     PRISMA_TEST_DATABASE_URL: harness.applicationDatabaseUrl
   }
   const passedTestCount = await runApiIntegrationManifestVitestFile({
@@ -231,14 +231,14 @@ const run = async (): Promise<PerformanceRunResult> => {
   })
   abortSignal.throwIfAborted()
   if (passedTestCount !== 1) {
-    throw new Error('Phase 10 performance test count is invalid.')
+    throw new Error('Performance test count is invalid.')
   }
-  const evidence = await readPhase10DatabaseApiPerformanceEvidence(evidenceFile)
+  const evidence = await readDatabaseApiPerformanceEvidence(evidenceFile)
   abortSignal.throwIfAborted()
   const evidenceMode = (await stat(evidenceFile)).mode & 0o777
   abortSignal.throwIfAborted()
   if (evidenceMode !== 0o600) {
-    throw new Error('Phase 10 performance evidence mode is not 0600.')
+    throw new Error('Performance evidence mode is not 0600.')
   }
   await rm(evidenceFile, { force: true })
   performanceEvidenceFile = undefined
@@ -253,13 +253,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     receivedSignal ??= signal
     executionAbortController.abort(
-      new Error(`Phase 10 performance runner received ${signal}.`)
+      new Error(`Performance runner received ${signal}.`)
     )
     signalFinalizationPromise ??= (async () => {
       await Promise.race([operationSettled, delay(5_000)])
       return await completeFailure(
         executionAbortController.signal.reason ??
-          new Error(`Phase 10 performance runner received ${signal}.`)
+          new Error(`Performance runner received ${signal}.`)
       )
     })()
     void signalFinalizationPromise
@@ -273,7 +273,7 @@ void runWithOperationTimeout({
   label: PERFORMANCE_RUNNER_LABEL,
   onTimeout: () => {
     executionAbortController.abort(
-      new Error('Phase 10 database/API performance runner timed out.')
+      new Error('Database/API performance runner timed out.')
     )
   },
   operation: async () => {
@@ -290,7 +290,7 @@ void runWithOperationTimeout({
     if (receivedSignal) {
       return await completeFailure(
         executionAbortController.signal.reason ??
-          new Error(`Phase 10 performance runner received ${receivedSignal}.`)
+          new Error(`Performance runner received ${receivedSignal}.`)
       )
     }
     return exitPerformanceProcess({

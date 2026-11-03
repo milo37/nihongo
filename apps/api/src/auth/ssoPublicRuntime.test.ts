@@ -90,7 +90,7 @@ const fixture = (provider: SsoProviderId = 'google') => {
   const facade = { handle: vi.fn(async () => Response.json({ success: true })) }
   const gateway = createAuthGateway({
     environment: { ...environment, ADMIN_CMS_MODE: 'technical' },
-    phase7Facade: facade,
+    ownedAuthFacade: facade,
     technicalRateLimiter: rateLimiter,
     ssoRuntime: runtime
   })

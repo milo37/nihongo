@@ -618,4 +618,151 @@ describe('approved general result navigation', () => {
       width.mockRestore()
     }
   })
+
+  it('요약에 정답·선택 오답·미응답, 지표, 오답노트 연결을 표시한다', async () => {
+    const fixture = await createFixture()
+    const { view } = fixture.mount()
+    expect(
+      await screen.findByText('정답 1 · 선택 오답 1 · 미응답 1')
+    ).toBeInTheDocument()
+    const metrics = screen.getByText('정답률').closest('dl')
+    if (!metrics) throw new Error('지표 목록이 필요합니다.')
+    expect(within(metrics).getByText('33.33%')).toBeInTheDocument()
+    expect(within(metrics).getByText('0분 0초')).toBeInTheDocument()
+    expect(
+      screen.getByText('틀린 2문제가 오답노트에 반영되었습니다.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: '오늘은 여기까지' })
+    ).toHaveAttribute('href', '/dashboard?view=learning')
+    expect(screen.getByRole('link', { name: '오답노트 보기' })).toHaveAttribute(
+      'href',
+      '/wrong-notes?level=N5&subject=VOCABULARY&view=UNREVIEWED'
+    )
+    expect(
+      screen.getByRole('button', { name: '오답만 다시 풀기' })
+    ).toBeEnabled()
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('모두 맞힌 결과는 재풀이 대신 새 문제 안내를 보여 준다', async () => {
+    const fixture = await createFixture()
+    const allCorrect: StudyResult = {
+      ...fixture.result,
+      correctCount: fixture.result.totalCount,
+      incorrectCount: 0,
+      correctRate: 100,
+      items: fixture.result.items.map((item) => ({
+        ...item,
+        selectedOptionId: item.question.correctOptionId,
+        isCorrect: true,
+        wrongNoteStatus: null
+      }))
+    }
+    studyResultSchema.parse(allCorrect)
+    mockServer.use(
+      http.get(`*/api/v1/study-sessions/${fixture.sessionId}/result`, () =>
+        HttpResponse.json(allCorrect)
+      )
+    )
+    const { view } = fixture.mount()
+    expect(await screen.findByText('다시 풀 오답이 없습니다')).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: '오답만 다시 풀기' })
+    ).not.toBeInTheDocument()
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it.each([
+    [
+      'NO_ELIGIBLE_QUESTIONS',
+      422,
+      '현재 다시 풀 수 있는 오답이 없습니다',
+      false
+    ],
+    [
+      'INTERNAL_SERVER_ERROR',
+      500,
+      '오답 재출제 세션을 만들지 못했습니다.',
+      true
+    ]
+  ] as const)(
+    '재출제 실패 %s는 결과 화면에 머물며 안내를 보여 준다',
+    async (code, status, message, keepsRetryButton) => {
+      const fixture = await createFixture()
+      mockServer.use(
+        http.post('*/api/v1/study-sessions/:sessionId/retry', () =>
+          HttpResponse.json(
+            { code, message: 'synthetic', requestId: crypto.randomUUID() },
+            { status }
+          )
+        )
+      )
+      const { router, view } = fixture.mount()
+      const user = userEvent.setup()
+      await user.click(
+        await screen.findByRole('button', { name: '오답만 다시 풀기' })
+      )
+      expect(await screen.findByText(message)).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe(
+        `/practice/result/${fixture.sessionId}`
+      )
+      expect(
+        screen.queryByRole('button', { name: '오답만 다시 풀기' }) !== null
+      ).toBe(keepsRetryButton)
+      view.unmount()
+      fixture.client.clear()
+    }
+  )
+
+  it('요약 지표에 전체·정답·오답 수를 각각 표시한다', async () => {
+    const fixture = await createFixture()
+    const { view } = fixture.mount()
+    const metrics = (await screen.findByText('정답률')).closest('dl')
+    if (!metrics) throw new Error('지표 목록이 필요합니다.')
+    const valueOf = (label: string): string | null | undefined =>
+      within(metrics).getByText(label).nextElementSibling?.textContent
+    expect(valueOf('전체')).toBe('3')
+    expect(valueOf('정답')).toBe('1')
+    expect(valueOf('오답')).toBe('2')
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('게스트 연결 링크는 홈과 로그인 선택으로 보낸다', async () => {
+    const fixture = await createFixture({ role: 'GUEST' })
+    const { view } = fixture.mount()
+    expect(
+      await screen.findByRole('link', { name: '오늘은 여기까지' })
+    ).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: '로그인 선택' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fpractice'
+    )
+    expect(
+      screen.queryByRole('link', { name: '오답노트 보기' })
+    ).not.toBeInTheDocument()
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('책갈피 저장에 성공하면 성공 안내와 눌린 상태를 보여 준다', async () => {
+    const fixture = await createFixture()
+    const second = fixture.result.items[1]
+    if (!second) throw new Error('결과 fixture가 필요합니다.')
+    const { view } = fixture.mount(`?question=${second.question.id}`)
+    const button = await screen.findByRole('button', {
+      name: '2번 문제 책갈피 추가'
+    })
+    await waitFor(() => expect(button).toBeEnabled())
+    await userEvent.setup().click(button)
+    expect(await screen.findByText('책갈피에 저장했습니다.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '2번 문제 책갈피 해제' })
+    ).toHaveAttribute('aria-pressed', 'true')
+    view.unmount()
+    fixture.client.clear()
+  })
 })

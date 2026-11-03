@@ -7,12 +7,12 @@ import { positiveSafeIntegerSchema } from './content-validation.js'
 const BASE64URL_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
-export const phase7CursorMaximumLength = 256 as const
+export const cursorMaximumLength = 256 as const
 
-const rawPhase7CursorSchema = z
+const rawCursorSchema = z
   .string()
   .min(1)
-  .max(phase7CursorMaximumLength)
+  .max(cursorMaximumLength)
   .regex(/^[A-Za-z0-9_-]+$/u, 'padding 없는 base64url이어야 합니다.')
 
 export const versionCursorValueSchema = z
@@ -35,7 +35,7 @@ const encodeAsciiBase64Url = (value: string): string => {
   const bytes = [...value].map((character) => {
     const byte = character.charCodeAt(0)
     if (byte > 0x7f) {
-      throw new Error('Phase 7 cursor canonical JSON은 ASCII여야 합니다.')
+      throw new Error('Cursor canonical JSON은 ASCII여야 합니다.')
     }
     return byte
   })
@@ -65,7 +65,7 @@ const encodeAsciiBase64Url = (value: string): string => {
 
 const decodeAsciiBase64Url = (value: string): string => {
   if (value.length % 4 === 1) {
-    throw new Error('Phase 7 cursor base64url 길이가 올바르지 않습니다.')
+    throw new Error('Cursor base64url 길이가 올바르지 않습니다.')
   }
 
   const bytes: number[] = []
@@ -89,7 +89,7 @@ const decodeAsciiBase64Url = (value: string): string => {
       (third !== undefined && third < 0) ||
       (fourth !== undefined && fourth < 0)
     ) {
-      throw new Error('Phase 7 cursor가 유효한 base64url이 아닙니다.')
+      throw new Error('Cursor가 유효한 base64url이 아닙니다.')
     }
 
     bytes.push((first << 2) | (second >> 4))
@@ -102,7 +102,7 @@ const decodeAsciiBase64Url = (value: string): string => {
   }
 
   if (bytes.some((byte) => byte > 0x7f)) {
-    throw new Error('Phase 7 cursor canonical JSON은 ASCII여야 합니다.')
+    throw new Error('Cursor canonical JSON은 ASCII여야 합니다.')
   }
 
   return String.fromCharCode(...bytes)
@@ -110,19 +110,19 @@ const decodeAsciiBase64Url = (value: string): string => {
 
 const encodeCursorJson = (value: object): string => {
   const token = encodeAsciiBase64Url(JSON.stringify(value))
-  if (token.length > phase7CursorMaximumLength) {
-    throw new Error('Phase 7 cursor가 최대 길이를 초과했습니다.')
+  if (token.length > cursorMaximumLength) {
+    throw new Error('Cursor가 최대 길이를 초과했습니다.')
   }
   return token
 }
 
 const parseCursorJson = (token: string): unknown => {
-  const rawToken = rawPhase7CursorSchema.parse(token)
+  const rawToken = rawCursorSchema.parse(token)
   try {
     return JSON.parse(decodeAsciiBase64Url(rawToken))
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new Error('Phase 7 cursor JSON이 올바르지 않습니다.')
+      throw new Error('Cursor JSON이 올바르지 않습니다.')
     }
     throw error
   }
@@ -172,8 +172,8 @@ export const decodePhase7OccurredAtCursor = (
   return cursor
 }
 
-export const adminQuestionVersionCursorSchema =
-  rawPhase7CursorSchema.superRefine((value, context) => {
+export const adminQuestionVersionCursorSchema = rawCursorSchema.superRefine(
+  (value, context) => {
     try {
       decodeAdminQuestionVersionCursor(value)
     } catch {
@@ -182,9 +182,10 @@ export const adminQuestionVersionCursorSchema =
         message: 'canonical version cursor여야 합니다.'
       })
     }
-  })
+  }
+)
 
-export const phase7OccurredAtCursorSchema = rawPhase7CursorSchema.superRefine(
+export const phase7OccurredAtCursorSchema = rawCursorSchema.superRefine(
   (value, context) => {
     try {
       decodePhase7OccurredAtCursor(value)

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   createAdminImportValidationDigest,
-  createPhase7QuestionDuplicateIdentity,
+  createQuestionDuplicateIdentityKey,
   normalizePhase7TagKey
 } from '@nihongo/contracts/admin/content-operations'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
@@ -142,7 +142,7 @@ describe('Frozen approved308 CMS supply source', () => {
 
   it('has no CMS duplicate identities across approved308 and the current65', () => {
     const identities = originalQuestionSeeds.map((q) =>
-      createPhase7QuestionDuplicateIdentity({
+      createQuestionDuplicateIdentityKey({
         correctOptionText: q.options[q.correctIndex] ?? '',
         optionTexts: q.options,
         passage: q.passage ?? null,
@@ -153,7 +153,7 @@ describe('Frozen approved308 CMS supply source', () => {
     )
     for (const { original: q } of readApproved308Supply().items)
       identities.push(
-        createPhase7QuestionDuplicateIdentity({
+        createQuestionDuplicateIdentityKey({
           correctOptionText: q.options[q.correctIndex] ?? '',
           optionTexts: q.options,
           passage: q.passage ?? null,

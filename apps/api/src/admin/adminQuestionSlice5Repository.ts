@@ -6,7 +6,7 @@ import {
   compareUnicodeScalars,
   createAdminImportMappingDigest,
   createAdminImportValidationDigest,
-  createPhase7QuestionDuplicateIdentity,
+  createQuestionDuplicateIdentityKey,
   isApplicablePhase7ContentType,
   normalizePhase7TagKey,
   type AdminImportApplyItem,
@@ -568,7 +568,7 @@ const contentFingerprint = (
     )?.text ?? ''
   return createHash('sha256')
     .update(
-      createPhase7QuestionDuplicateIdentity({
+      createQuestionDuplicateIdentityKey({
         correctOptionText,
         optionTexts: content.options.map((option) => option.text),
         passage: content.passage,

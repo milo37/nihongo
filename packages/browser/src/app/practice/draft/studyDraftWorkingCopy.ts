@@ -4,7 +4,8 @@ import { saveStudyDraftAnswersRequestBodySchema } from '../../../api/study/saveS
 import {
   canonicalizeStudyDraftSave,
   STUDY_DRAFT_SAVE_CANONICAL_PREFIX
-} from './studyDraftCanonicalizer'
+} from '@nihongo/contracts/study/canonicalize-study-draft-save'
+import type { OrderedDraftQuestion } from '@nihongo/contracts/study/canonicalize-study-draft-save'
 import {
   applyStudyDraftDiff,
   createEmptyStudyDraftDiff,
@@ -12,6 +13,14 @@ import {
   mergeStudyDraftSnapshots,
   type StudyDraftLocalDiff
 } from './studyDraftMerge'
+
+const toOrderedDraftQuestions = (
+  orderedIds: readonly string[]
+): OrderedDraftQuestion[] =>
+  orderedIds.map((studySessionQuestionId, index) => ({
+    ordinal: index + 1,
+    studySessionQuestionId
+  }))
 
 export const STUDY_DRAFT_WORKING_COPY_VERSION = 1 as const
 
@@ -294,7 +303,9 @@ export const createFrozenStudyDraftAttempt = ({
 }): FrozenStudyDraftAttempt => ({
   canonicalHashInput: canonicalizeStudyDraftSave(
     sessionId,
-    body.answers.map(({ studySessionQuestionId }) => studySessionQuestionId),
+    toOrderedDraftQuestions(
+      body.answers.map(({ studySessionQuestionId }) => studySessionQuestionId)
+    ),
     body
   ),
   exactParsedBody: body,
@@ -330,7 +341,7 @@ export const parseStudyDraftWorkingCopy = (
     )
     const canonical = canonicalizeStudyDraftSave(
       record.sessionId,
-      expectedIds,
+      toOrderedDraftQuestions(expectedIds),
       record.frozenAttempt.exactParsedBody
     )
     if (

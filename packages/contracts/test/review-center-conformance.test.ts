@@ -14,7 +14,7 @@ import {
   reviewCenterRouteConformanceCases
 } from '../src/testing/review-center-conformance.js'
 
-describe('Phase 5 review center conformance', () => {
+describe('Review center conformance', () => {
   it('6개 operation의 method·path·status·header 소유권을 고정한다', () => {
     expect(reviewCenterRouteConformanceCases).toHaveLength(6)
     expect(

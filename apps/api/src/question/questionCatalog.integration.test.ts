@@ -35,10 +35,10 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
 if (isCurrentSourceIntegration && !fixtureDatabaseUrl) {
-  throw new Error('Phase 10 question catalog requires a fixture database.')
+  throw new Error('Question catalog requires a fixture database.')
 }
 if (fixtureDatabaseUrl) {
   assertSafeTestDatabase({
@@ -620,7 +620,7 @@ describe('question catalog PostgreSQL integration', () => {
 
   it(
     isCurrentSourceIntegration
-      ? 'Phase 7 application role은 catalog aggregate를 hard delete할 수 없다'
+      ? 'Application role은 catalog aggregate를 hard delete할 수 없다'
       : '참조되지 않은 draft aggregate를 cascade 삭제할 수 있다',
     async () => {
       if (isCurrentSourceIntegration) {

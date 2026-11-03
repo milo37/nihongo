@@ -244,20 +244,19 @@ test('dotenv examples keep technical and runner targets separate', async () => {
   }
 
   assert.equal(
-    new URL(testEnvironment.get('PHASE7_INTEGRATION_DATABASE_URL')).port,
+    new URL(testEnvironment.get('DB_INTEGRATION_DATABASE_URL')).port,
     '55432'
   )
   assert.equal(
-    new URL(testEnvironment.get('PHASE7_API_INTEGRATION_DATABASE_URL')).port,
+    new URL(testEnvironment.get('API_INTEGRATION_DATABASE_URL')).port,
     '55432'
   )
   assert.equal(
-    new URL(testEnvironment.get('PHASE7_INTEGRATION_DATABASE_URL')).username,
+    new URL(testEnvironment.get('DB_INTEGRATION_DATABASE_URL')).username,
     'nihongo'
   )
   assert.equal(
-    new URL(testEnvironment.get('PHASE7_API_INTEGRATION_DATABASE_URL'))
-      .username,
+    new URL(testEnvironment.get('API_INTEGRATION_DATABASE_URL')).username,
     'nihongo'
   )
 })

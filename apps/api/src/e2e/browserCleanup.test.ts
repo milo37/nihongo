@@ -20,7 +20,7 @@ describe('cleanupBrowserResources', () => {
       stopFailure,
       expect.objectContaining({
         message:
-          'Phase 10 database cleanup was withheld because an owned process may still be running.'
+          'Database cleanup was withheld because an owned process may still be running.'
       })
     ])
     expect(closeControlServer).toHaveBeenCalledOnce()

@@ -36,15 +36,15 @@ assertSafeTestDatabase({
 })
 
 const isCurrentSourceIntegration =
-  process.env.PHASE10_CURRENT_SOURCE_INTEGRATION === '1'
-const fixtureDatabaseUrl = process.env.PHASE10_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.PHASE7_API_ERASURE_DATABASE_URL
+  process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
   (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
 ) {
   throw new Error(
-    'Phase 10 wrong-note dashboard requires fixture and erasure databases.'
+    'Wrong-note dashboard requires fixture and erasure databases.'
   )
 }
 for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
@@ -574,7 +574,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       await database.client.userMemo.create({
         data: {
           wrongNoteId: targetWrongNote.id,
-          text: 'Phase 5 retained memo',
+          text: 'Retained memo',
           createdAt: memoObservedAt,
           updatedAt: memoObservedAt
         }
@@ -698,7 +698,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           where: { wrongNoteId: targetWrongNote.id },
           select: { text: true }
         })
-      ).toEqual({ text: 'Phase 5 retained memo' })
+      ).toEqual({ text: 'Retained memo' })
       expect(detail.currentReviewQuestionVersionId).toBe(
         detail.lastWrongQuestionVersionId
       )

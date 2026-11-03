@@ -55,7 +55,7 @@ const createContent = (
   ...overrides
 })
 
-describe('Phase 6 content validator v1 domain', () => {
+describe('Content validator v1 domain', () => {
   it('serializes canonical JSON without numeric-key enumeration drift', () => {
     expect(canonicalizeJson({ '2': 2, '10': 10, a: true })).toBe(
       '{"10":10,"2":2,"a":true}'
