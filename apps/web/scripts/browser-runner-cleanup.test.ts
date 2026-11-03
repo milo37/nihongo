@@ -28,11 +28,11 @@ vi.mock('../../../apps/api/src/e2e/ownedProcessGroup.js', () => ({
 }))
 
 vi.mock('../../../apps/api/src/e2e/runAdminApiIntegration.js', () => ({
-  preparePhase7IsolatedDatabase: mocks.prepareDatabase,
-  cleanupPhase7IsolatedDatabase: mocks.cleanupDatabase
+  prepareIsolatedDatabase: mocks.prepareDatabase,
+  cleanupIsolatedDatabase: mocks.cleanupDatabase
 }))
 vi.mock('../../../apps/api/src/e2e/browserApi.js', () => ({
-  preparePhase9BrowserActors: mocks.prepareActors
+  prepareBrowserActors: mocks.prepareActors
 }))
 vi.mock('../../../scripts/accessibility-database-contract.mjs', () => ({
   capturePhase9DatabaseSnapshot: mocks.captureSnapshot,
@@ -97,7 +97,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
     vi.stubEnv('RUNNER_TEMP', testTemp)
     vi.stubEnv('GITHUB_RUN_ID', undefined)
     vi.stubEnv('JLP541_BROWSER_ARTIFACTS_PREPARED', undefined)
-    vi.stubEnv('PHASE8_BROWSER_MODE', undefined)
+    vi.stubEnv('DASHBOARD_BROWSER_MODE', undefined)
     vi.stubEnv('PHASE9_BROWSER_MODE', undefined)
     vi.stubEnv('PHASE10_BROWSER_MODE', undefined)
     process.argv = [...originalArgv.slice(0, 2), 'real']
@@ -352,7 +352,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
       ])
       expect(
         playwright.map(({ env }) => [
-          env.PHASE8_BROWSER_MODE,
+          env.DASHBOARD_BROWSER_MODE,
           env.PHASE9_BROWSER_MODE,
           env.PHASE10_BROWSER_MODE
         ])
@@ -732,7 +732,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
       expect(apiCall?.[2].env).toMatchObject({
         TRUSTED_ORIGINS: 'http://127.0.0.1:32124',
         BETTER_AUTH_URL: 'http://127.0.0.1:32123',
-        PHASE9_TEST_SSO_IDENTITIES: JSON.stringify(identities)
+        BROWSER_TEST_SSO_IDENTITIES: JSON.stringify(identities)
       })
       const adminCall = mocks.spawn.mock.calls.find(([, args]) =>
         args.includes('@nihongo/admin')

@@ -240,7 +240,7 @@ const demoUser = { role: 'USER' } as const satisfies BrowserActor
 
 const readRealFixture = (): RealBrowserFixture => {
   const serialized =
-    process.env.PHASE9_BROWSER_FIXTURE ?? process.env.PHASE7_BROWSER_FIXTURE
+    process.env.PHASE9_BROWSER_FIXTURE ?? process.env.ADMIN_BROWSER_FIXTURE
   if (!serialized) {
     throw new Error('Real accessibility browser fixture is missing.')
   }
