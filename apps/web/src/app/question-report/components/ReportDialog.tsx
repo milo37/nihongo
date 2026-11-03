@@ -24,7 +24,6 @@ interface ReportDialogProps {
   /** Builds the request from the description; location is app-owned. */
   readonly toRequest: (description: string) => CreateReportRequest
   readonly returnFocusRef?: RefObject<HTMLElement | null>
-  readonly fallbackFocusRef?: RefObject<HTMLElement | null>
 }
 
 /** Shared description-only report form; input survives a failed send. */
@@ -34,8 +33,7 @@ export const ReportDialog = ({
   onOpenChange,
   onSubmitted,
   toRequest,
-  returnFocusRef,
-  fallbackFocusRef
+  returnFocusRef
 }: ReportDialogProps): ReactElement => {
   const { presentError, presentFieldError, t } = useAdminPresentation()
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
@@ -84,7 +82,6 @@ export const ReportDialog = ({
       open={open}
       preventClose={mutation.isPending}
       returnFocusRef={returnFocusRef}
-      fallbackFocusRef={fallbackFocusRef}
       title={copy.title}
       description={copy.description}
       onOpenChange={(nextOpen) => {
@@ -115,7 +112,8 @@ export const ReportDialog = ({
               : presentFieldError(fieldErrors?.description)
           }
           label={t('questionReportDialog.details')}
-          maxLength={2000}
+          // UTF-16 units never undercount the contract's 1,000 scalars.
+          maxLength={1000}
           name="report-description"
           required
           rows={6}

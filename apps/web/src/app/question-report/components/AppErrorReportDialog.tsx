@@ -66,15 +66,15 @@ export const AppErrorReportButton = (): ReactElement | null => {
 interface AppErrorReportMenuDialogProps {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
-  /** The menu item disappears with its menu, so focus returns here. */
-  readonly fallbackFocusRef: RefObject<HTMLElement | null>
+  /** The menu item is gone before the dialog opens, so focus returns here. */
+  readonly returnFocusRef: RefObject<HTMLElement | null>
 }
 
 /** Layout menu entry: the dialog lives outside the closing account menu. */
 export const AppErrorReportMenuDialog = ({
   open,
   onOpenChange,
-  fallbackFocusRef
+  returnFocusRef
 }: AppErrorReportMenuDialogProps): ReactElement => {
   const [wasSubmitted, setWasSubmitted] = useState(false)
   const report = useAppErrorReport(() => setWasSubmitted(true))
@@ -88,7 +88,7 @@ export const AppErrorReportMenuDialog = ({
           onOpenChange(nextOpen)
         }}
         onSubmitted={report.onSubmitted}
-        fallbackFocusRef={fallbackFocusRef}
+        returnFocusRef={returnFocusRef}
         toRequest={report.toRequest}
       />
       <p className="sr-only" aria-live="polite">

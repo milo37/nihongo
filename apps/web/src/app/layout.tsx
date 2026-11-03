@@ -50,7 +50,7 @@ export const Layout = ({
         <AppErrorReportMenuDialog
           open={isErrorReportOpen}
           onOpenChange={setErrorReportOpen}
-          fallbackFocusRef={accountMenuButtonRef}
+          returnFocusRef={accountMenuButtonRef}
         />
       ) : null}
     </>

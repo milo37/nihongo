@@ -40,10 +40,10 @@ const submitAppError = async (description: string) => {
   const user = userEvent.setup()
   const dialog = await screen.findByRole('dialog', { name: '앱 오류 제보' })
   expect(within(dialog).queryByRole('combobox')).toBeNull()
-  await user.type(
-    within(dialog).getByRole('textbox', { name: /설명/u }),
-    description
-  )
+  const textbox = within(dialog).getByRole('textbox', { name: /설명/u })
+  // The contract caps the description at 1,000 characters.
+  expect(textbox).toHaveAttribute('maxLength', '1000')
+  await user.type(textbox, description)
   await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 }
