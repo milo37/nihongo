@@ -84,6 +84,32 @@ test('base edits still classify changed files', () => {
   assert.equal(selection.web, true)
 })
 
+test('migration changes select operations inventory tests and the portable smoke', () => {
+  const file =
+    'apps/api/prisma/migrations/20261104120000_user_report_erasure_redaction/migration.sql'
+  const selection = selectChecks({
+    eventName: 'pull_request',
+    ref: 'refs/pull/1/merge',
+    event: pullRequestEvent({
+      pull_request: {
+        base: { ref: 'dev', sha: sha('a') },
+        head: { sha: sha('b') }
+      }
+    }),
+    changedFiles: [file]
+  })
+  assert.equal(selection.code, true)
+  assert.equal(selection.api, true)
+  assert.equal(selection.database, true)
+  assert.equal(selection.portable, true)
+  assert.equal(selection.performance, true)
+  assert.equal(selection.browser, false)
+  assert.equal(
+    classifyChangedFiles(['apps/api/prisma/schema.prisma']).portable,
+    false
+  )
+})
+
 test('agent tooling and PR templates select no checks', () => {
   const selection = classifyChangedFiles([
     '.claude/agents/devops-engineer.md',
