@@ -20,13 +20,21 @@ export const adminRoutes: RouteObject[] = [
     element: (
       <ProtectedRouteProvider
         renderAuthError={(content) => (
-          <AppLayout robots="noindex,follow" reviewReturnContext={null}>
+          <AppLayout
+            robots="noindex,follow"
+            reviewReturnContext={null}
+            learnerNavigation={false}
+          >
             {content}
           </AppLayout>
         )}
       >
         <AuthErrorHandlerProvider />
-        <AppLayout robots="noindex,follow" reviewReturnContext={null} />
+        <AppLayout
+          robots="noindex,follow"
+          reviewReturnContext={null}
+          learnerNavigation={false}
+        />
       </ProtectedRouteProvider>
     ),
     errorElement: <RouteErrorPage />,

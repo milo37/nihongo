@@ -96,6 +96,13 @@ it('ADMIN loads the existing table at the /admin basename with the local create/
   ).toBeVisible()
   const region = await screen.findByRole('region', { name: '관리자 문제 목록' })
   expect(region).toHaveAttribute('tabindex', '0')
+  expect(screen.getByRole('navigation', { name: '관리자 메뉴' })).toBeVisible()
+  expect(
+    screen.queryByRole('navigation', { name: '주요 메뉴' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('navigation', { name: '모바일 주요 메뉴' })
+  ).not.toBeInTheDocument()
   expect(
     within(region).getByRole('table', { name: /JLPT 관리자 문제 목록/ })
   ).toBeInTheDocument()
