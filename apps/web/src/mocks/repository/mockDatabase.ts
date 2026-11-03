@@ -3101,31 +3101,6 @@ export class MockDatabase {
     }
   }
 
-  updateWrongNoteMemo(
-    userId: string,
-    questionId: string,
-    memo: string | null
-  ): WrongNoteDetail {
-    const detail = this.getWrongNote(userId, questionId)
-    const normalizedMemo = memo?.trim() || null
-    const updated: WrongNote = {
-      ...detail.wrongNote,
-      memo: normalizedMemo,
-      updatedAt: this.now()
-    }
-
-    this.wrongNoteByQuestionId.set(
-      makeUserQuestionKey(userId, questionId),
-      updated
-    )
-    this.persist()
-
-    return {
-      wrongNote: clone(updated),
-      question: detail.question
-    }
-  }
-
   reviewWrongNote(
     userId: string,
     questionId: string,
