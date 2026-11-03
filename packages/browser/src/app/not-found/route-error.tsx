@@ -1,9 +1,14 @@
 import { useTranslation } from 'react-i18next'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { useDocumentMetadata } from '../../common/hooks/useDocumentMetadata'
 
 // This fallback must render even when the authenticated app shell fails.
-export const RouteErrorPage = (): ReactElement => {
+export const RouteErrorPage = ({
+  action
+}: {
+  /** App-owned extra action, such as an error report. */
+  action?: ReactNode
+} = {}): ReactElement => {
   useDocumentMetadata({ robots: 'noindex,follow' })
   const { t } = useTranslation('errors')
   const { t: commonT } = useTranslation('common')
@@ -21,6 +26,7 @@ export const RouteErrorPage = (): ReactElement => {
           <a className="auth-fallback-action" href="/practice">
             {commonT('actions.goPractice')}
           </a>
+          {action}
         </div>
       </div>
     </main>

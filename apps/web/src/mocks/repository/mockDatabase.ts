@@ -1,3 +1,8 @@
+import type {
+  CreateReportRequest,
+  CreateReportResponse,
+  ListMyReportsResponse
+} from '@nihongo/contracts/report/reports'
 import { canonicalizeStudyDraftSave } from '@nihongo/contracts/study/canonicalize-study-draft-save'
 import { MockSsoAccountRepository } from '@mocks/repository/ssoAccountRepository'
 import {
@@ -138,6 +143,17 @@ export type MockDatabaseErrorCode =
   | 'SESSION_SUBMITTED'
   | 'STUDY_RESULT_NOT_READY'
   | 'STUDY_SESSION_NOT_EDITABLE'
+
+export type MockUserReport = {
+  readonly reportId: string
+  readonly reporterUserId: string
+  readonly kind: CreateReportRequest['kind']
+  readonly location: string
+  readonly questionVersionId: string | null
+  readonly description: string
+  readonly status: 'RECEIVED'
+  readonly createdAt: string
+}
 
 export class MockDatabaseError extends Error {
   readonly code: MockDatabaseErrorCode
@@ -997,6 +1013,8 @@ export class MockDatabase {
   private currentUserId: string | null = null
   // Mock-only stand-in for an admin restriction; not persisted.
   private readonly restrictedUserIds = new Set<string>()
+  // Mock-only unified reports (#524); not persisted.
+  private userReports: MockUserReport[] = []
   private sequence = 0
 
   constructor(options: MockDatabaseOptions = {}) {
@@ -1041,6 +1059,68 @@ export class MockDatabase {
 
   isAccountRestricted(userId: string): boolean {
     return this.restrictedUserIds.has(userId)
+  }
+
+  /** Returns null for a second open report of the same question version. */
+  createUserReport(
+    reporterUserId: string,
+    request: CreateReportRequest
+  ): CreateReportResponse | null {
+    if (
+      request.kind === 'QUESTION' &&
+      this.userReports.some(
+        (report) =>
+          report.reporterUserId === reporterUserId &&
+          report.kind === 'QUESTION' &&
+          report.status === 'RECEIVED' &&
+          report.questionVersionId === request.questionVersionId
+      )
+    )
+      return null
+    const report: MockUserReport = {
+      reportId: crypto.randomUUID(),
+      reporterUserId,
+      kind: request.kind,
+      location: request.location,
+      questionVersionId: request.questionVersionId ?? null,
+      description: request.description,
+      status: 'RECEIVED',
+      createdAt: new Date().toISOString()
+    }
+    this.userReports.push(report)
+    return {
+      reportId: report.reportId,
+      status: 'RECEIVED',
+      createdAt: report.createdAt
+    }
+  }
+
+  listUserReports(
+    reporterUserId: string,
+    query: { page: number; pageSize: number }
+  ): ListMyReportsResponse {
+    const mine = this.userReports
+      .filter((report) => report.reporterUserId === reporterUserId)
+      .toReversed()
+    const start = (query.page - 1) * query.pageSize
+    return {
+      items: mine.slice(start, start + query.pageSize).map((report) => ({
+        reportId: report.reportId,
+        kind: report.kind,
+        createdAt: report.createdAt,
+        status: report.status,
+        reporterReply: null,
+        repliedAt: null
+      })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total: mine.length
+    }
+  }
+
+  /** Test-only view of stored unified reports. */
+  peekUserReports(): readonly MockUserReport[] {
+    return this.userReports
   }
 
   getCurrentUser(): User | null {
@@ -3682,6 +3762,7 @@ export class MockDatabase {
     this.storage.removeItem(ADMIN_CMS_MIRROR_STORAGE_KEY)
     this.currentUserId = null
     this.restrictedUserIds.clear()
+    this.userReports = []
     this.useLegacyQuestionSourcesForLearnerProjection = true
     this.resetMemoryToSeed()
   }

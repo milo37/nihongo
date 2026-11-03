@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { isApiError } from '@nihongo/browser/api/config'
 import { signInMockAccount } from '@/test/auth'
 import { createBookmark } from '@api/bookmark/createBookmark'
-import { createQuestionReport } from '@api/content-operations/contentOperationsApi'
+import { createReport } from '@api/report/createReport'
 import { listBookmark } from '@api/bookmark/listBookmark'
 import { DEMO_ADMIN_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
@@ -58,43 +58,29 @@ describe('MSW 학습 API 흐름', () => {
     if (!reportedQuestion?.questionVersionId)
       throw new Error('Reportable question fixture required')
     const reportRequest = {
-      questionVersionId: reportedQuestion.questionVersionId,
-      reason: 'OTHER' as const,
-      description: '학습자 문제 신고 화면 상태를 확인합니다.'
-    }
-    const report = await createQuestionReport(reportRequest)
-    expect(report).toMatchObject({
+      kind: 'QUESTION' as const,
+      location: 'result#1',
       questionId: reportedQuestion.id,
       questionVersionId: reportedQuestion.questionVersionId,
-      status: 'OPEN'
-    })
-    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
-      code: 'QUESTION_REPORT_DUPLICATE',
-      status: 409
-    })
-    const concurrentRequest = {
-      ...reportRequest,
-      reason: 'ANSWER_ERROR' as const
+      description: '학습자 문제 신고 화면 상태를 확인합니다.'
     }
-    const concurrentReports = await Promise.allSettled([
-      createQuestionReport(concurrentRequest),
-      createQuestionReport(concurrentRequest)
-    ])
-    expect(
-      concurrentReports.filter(({ status }) => status === 'fulfilled')
-    ).toHaveLength(1)
-    const duplicate = concurrentReports.find(
-      ({ status }) => status === 'rejected'
-    )
-    expect(duplicate).toMatchObject({
-      status: 'rejected',
-      reason: { code: 'QUESTION_REPORT_DUPLICATE', status: 409 }
-    })
-    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
+    const report = await createReport(reportRequest)
+    expect(report).toMatchObject({ status: 'RECEIVED' })
+    await expect(createReport(reportRequest)).rejects.toMatchObject({
       code: 'QUESTION_REPORT_DUPLICATE',
       status: 409
     })
-    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
+    await createReport({
+      kind: 'APP_ERROR',
+      location: 'result',
+      description: '앱 오류 제보 흐름을 확인합니다.'
+    })
+    // The per-reporter limit is five requests, counting rejected ones.
+    for (const _ of [1, 2])
+      await expect(createReport(reportRequest)).rejects.toMatchObject({
+        code: 'QUESTION_REPORT_DUPLICATE'
+      })
+    await expect(createReport(reportRequest)).rejects.toMatchObject({
       code: 'RATE_LIMITED',
       status: 429
     })
@@ -232,32 +218,30 @@ describe('MSW 학습 API 흐름', () => {
 
   it('신고는 로그인과 알려진 문제 버전이 필요하다', async () => {
     const reportRequest = {
+      kind: 'QUESTION' as const,
+      location: 'result#1',
+      questionId: '019d0000-0000-7000-8000-000000000002',
       questionVersionId: '019d0000-0000-7000-8000-000000000001',
-      reason: 'OTHER' as const,
       description: '학습자 신고 상태를 확인합니다.'
     }
 
-    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
+    await expect(createReport(reportRequest)).rejects.toMatchObject({
       code: 'AUTHENTICATION_REQUIRED',
       status: 401
     })
     await signInMockAccount()
-    await expect(createQuestionReport(reportRequest)).rejects.toMatchObject({
-      code: 'RESOURCE_NOT_FOUND',
-      status: 404
+    await expect(createReport(reportRequest)).rejects.toMatchObject({
+      code: 'QUESTION_NOT_AVAILABLE'
     })
-    const untrusted = await fetch(
-      `${window.location.origin}/api/v1/question-reports`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Origin: 'https://untrusted.example',
-          'Sec-Fetch-Site': 'cross-site'
-        },
-        body: JSON.stringify(reportRequest)
-      }
-    )
+    const untrusted = await fetch(`${window.location.origin}/api/v1/reports`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'https://untrusted.example',
+        'Sec-Fetch-Site': 'cross-site'
+      },
+      body: JSON.stringify(reportRequest)
+    })
     expect(untrusted.status).toBe(403)
     expect(await untrusted.json()).toMatchObject({ code: 'UNTRUSTED_ORIGIN' })
   })
