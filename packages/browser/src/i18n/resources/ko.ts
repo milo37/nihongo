@@ -47,6 +47,8 @@ export const koResources = {
       login: '로그인'
     },
     state: {
+      accountRestricted:
+        '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.',
       requestFailed: '요청을 완료하지 못했습니다'
     },
     required: '(필수)',
@@ -2118,14 +2120,20 @@ export const koResources = {
       trigger: '문제 신고',
       title: '문제 신고',
       description: '신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다.',
-      reason: '신고 사유',
       details: '설명',
       descriptionRequired: '신고 설명을 입력해 주세요.',
       cancel: '취소',
       submit: '신고 접수',
       submitted: '문제 신고를 접수했습니다.',
       error: '문제 신고를 접수하지 못했습니다.',
-      offline: '오프라인입니다. 작성한 설명은 유지됩니다.'
+      offline: '오프라인입니다. 작성한 설명은 유지됩니다.',
+      appErrorTrigger: '앱 오류 제보',
+      errorScreenTrigger: '오류 제보',
+      appErrorTitle: '앱 오류 제보',
+      appErrorDescription:
+        '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인합니다.',
+      appErrorSubmitted: '앱 오류 제보를 접수했습니다.',
+      appErrorError: '앱 오류 제보를 접수하지 못했습니다.'
     },
     reportList: {
       eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',

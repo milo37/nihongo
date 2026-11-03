@@ -12,6 +12,10 @@ import {
 import { getCookie, setCookie } from 'hono/cookie'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import {
+  assertAccountNotRestricted,
+  type AccountRestrictionReader
+} from '../account/accountRestriction.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -30,6 +34,7 @@ import {
 } from './studyRouteSupport.js'
 
 interface StudySessionRouteDependencies {
+  accountRestrictionReader: AccountRestrictionReader
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
@@ -41,6 +46,7 @@ interface StudySessionRouteDependencies {
 type StudySessionRouteEnvironment = { Variables: ApiVariables }
 
 export const createStudySessionRoutes = ({
+  accountRestrictionReader,
   environment,
   guestPrincipalService,
   principalService,
@@ -93,6 +99,10 @@ export const createStudySessionRoutes = ({
 
     let owner: CreateStudyOwner
     if (resolution.user) {
+      await assertAccountNotRestricted(
+        accountRestrictionReader,
+        resolution.user.id
+      )
       owner = { kind: 'USER', userId: resolution.user.id }
     } else {
       const inspected = guestPrincipalService.inspectCookie(

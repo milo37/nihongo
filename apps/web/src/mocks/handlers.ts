@@ -1,10 +1,10 @@
-import { adminCmsCommandHandlers } from '@mocks/handlers/adminCmsCommandHandlers'
 import { authHandlers } from '@mocks/handlers/authHandlers'
 import { bookmarkHandlers } from '@mocks/handlers/bookmarkHandlers'
 import { dashboardHandlers } from '@mocks/handlers/dashboardHandlers'
 import { dashboardInsightsV1Handlers } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { dashboardV1Handlers } from '@mocks/handlers/dashboardV1Handlers'
 import { questionHandlers } from '@mocks/handlers/questionHandlers'
+import { reportHandlers } from '@mocks/handlers/reportHandlers'
 import { reviewCenterHandlers } from '@mocks/handlers/reviewCenterHandlers'
 import { studyHandlers } from '@mocks/handlers/studyHandlers'
 import { studyDraftV2Handlers } from '@mocks/handlers/studyDraftV2Handlers'
@@ -19,6 +19,7 @@ export const handlers = [
   ...studyDraftV2Handlers,
   ...studyResultRetryHandlers,
   ...studySessionV1Handlers,
+  ...reportHandlers,
   ...reviewCenterHandlers,
   ...wrongNoteV1Handlers,
   ...dashboardInsightsV1Handlers,
@@ -26,6 +27,5 @@ export const handlers = [
   ...studyHandlers,
   ...wrongNoteHandlers,
   ...bookmarkHandlers,
-  ...dashboardHandlers,
-  ...adminCmsCommandHandlers
+  ...dashboardHandlers
 ]

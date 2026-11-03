@@ -6,6 +6,10 @@ import {
 } from '@nihongo/contracts/study/create-result-retry-session'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import {
+  assertAccountNotRestricted,
+  type AccountRestrictionReader
+} from '../account/accountRestriction.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -19,6 +23,7 @@ import { toFieldErrors } from './routeSupport.js'
 import { resolveExistingStudyOwner } from './studyRouteSupport.js'
 
 interface StudyResultRetryRouteDependencies {
+  accountRestrictionReader: AccountRestrictionReader
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
@@ -29,6 +34,7 @@ interface StudyResultRetryRouteDependencies {
 type StudyResultRetryRouteEnvironment = { Variables: ApiVariables }
 
 export const createStudyResultRetryRoutes = ({
+  accountRestrictionReader,
   environment,
   guestPrincipalService,
   principalService,
@@ -117,6 +123,9 @@ export const createStudyResultRetryRoutes = ({
       guestPrincipalService,
       principalService
     })
+    if (owner.kind === 'USER') {
+      await assertAccountNotRestricted(accountRestrictionReader, owner.userId)
+    }
 
     const created = await studyResultRetryService.create(
       params.sessionId,

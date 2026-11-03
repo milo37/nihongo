@@ -130,10 +130,10 @@ const approvedInitialAdminCmsChecksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존53 migration의 역사 prefix checksum을 보존하고 migration54를 pin한다', () => {
+  it('기존55 migration의 역사 prefix checksum을 보존하고 migration56을 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(54)
+    expect(manifest).toHaveLength(56)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedBeforeAdminCmsMigrationNames
     )
@@ -331,8 +331,24 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       checksum:
         'aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042'
     })
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 54))).toBe(
       'b414f707991f136b4719a9a825144a222a7e09592430430916c2d8fb1ab3a05c'
+    )
+    expect(manifest[54]).toEqual({
+      name: '20261104120000_user_report_erasure_redaction',
+      checksum:
+        '99bdb0fecdcfe27d13850bb106af9fbcbb88c2a8cd79d7d6ae355f1db530efa8'
+    })
+    expect(digest(manifest.slice(0, 55))).toBe(
+      '4ced7adc2cb49210ad05dd09ec77238d5d3f784a27a5fc2182702de3531595b2'
+    )
+    expect(manifest[55]).toEqual({
+      name: '20261104150000_user_account_restriction',
+      checksum:
+        '26762221ae1b1ad9636138825453e4664c46e03128db394fbe77ec13ba1532cc'
+    })
+    expect(digest(manifest)).toBe(
+      '6682d553434a2836173cc114cdbc664b0cdfc9b9c1e8580397d74c0a930aaa02'
     )
   })
 

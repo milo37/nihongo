@@ -11,7 +11,10 @@ import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
-import { isNoEligibleQuestionsApiError } from '@libs/apiError'
+import {
+  isAccountRestrictedApiError,
+  isNoEligibleQuestionsApiError
+} from '@libs/apiError'
 
 export const BOOKMARK_PAGE_SIZE = 20
 export const BOOKMARK_PRACTICE_COUNT = 20
@@ -89,9 +92,12 @@ export const useBookmarkPageController = () => {
   const displayedPage = bookmarksQuery.data?.page ?? page
   const noEligibleQuestions =
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
+  const accountRestricted =
+    createSession.isError && isAccountRestrictedApiError(createSession.error)
   const hasCreateSessionError =
     createSession.isError &&
     !noEligibleQuestions &&
+    !accountRestricted &&
     !isAuthTransitionSupersededError(createSession.error)
   const isBookmarksPaused = bookmarksQuery.fetchStatus === 'paused'
   const isBookmarkNavigationLocked =
@@ -189,6 +195,7 @@ export const useBookmarkPageController = () => {
     !bookmarkMutationActivity.isPaused
 
   return {
+    accountRestricted,
     bookmarkGroups,
     bookmarksQuery,
     confirmRemoval,
