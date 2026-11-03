@@ -1,3 +1,4 @@
+import { unrestrictedAccountReader } from '../account/accountRestriction.js'
 import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
 import { createApiErrorHandler } from '../app/createApp.js'
@@ -121,6 +122,7 @@ const fixture = () => {
   app.route(
     '/sessions',
     createStudySessionRoutes({
+      accountRestrictionReader: unrestrictedAccountReader,
       environment,
       guestPrincipalService,
       principalService,

@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
+import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createApiApp } from '../app/createApp.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
@@ -1504,6 +1505,9 @@ const createSsoBrowserApiFixture = async (
       )
     }
     const app = createApiApp({
+      accountRestrictionReader: createPrismaAccountRestrictionReader(
+        database.client
+      ),
       ...(adminQuestionReader &&
       adminReadRateLimiter &&
       adminQuestionCommandService &&

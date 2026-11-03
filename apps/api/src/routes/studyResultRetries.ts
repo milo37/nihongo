@@ -8,6 +8,10 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import { getCookie } from 'hono/cookie'
 import { Hono, type Context } from 'hono'
 import { z, type ZodError } from 'zod'
+import {
+  assertAccountNotRestricted,
+  type AccountRestrictionReader
+} from '../account/accountRestriction.js'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
@@ -21,6 +25,7 @@ import type { StudyResultRetryService } from '../study/studyResultRetryService.j
 import { GUEST_COOKIE_NAME } from './principal.js'
 
 interface StudyResultRetryRouteDependencies {
+  accountRestrictionReader: AccountRestrictionReader
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
@@ -61,6 +66,7 @@ const appendAuthHeaders = (
 }
 
 export const createStudyResultRetryRoutes = ({
+  accountRestrictionReader,
   environment,
   guestPrincipalService,
   principalService,
@@ -161,6 +167,10 @@ export const createStudyResultRetryRoutes = ({
 
     let owner: ExistingStudyOwner
     if (resolution.user) {
+      await assertAccountNotRestricted(
+        accountRestrictionReader,
+        resolution.user.id
+      )
       owner = { kind: 'USER', userId: resolution.user.id }
     } else {
       const inspected = guestPrincipalService.inspectCookie(
