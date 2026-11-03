@@ -1,0 +1,51 @@
+name: 작업
+description: 기능 추가, 변경, 정리, 리팩터링
+title: ''
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제목은 짧은 한국어 한 줄로, "무엇을 하기" 형태로 씁니다. 예: `가입자 목록에 정렬 추가하기`
+        `[JLP-…]`·`[P0]` 같은 접두어는 붙이지 않습니다. 영역은 아래 담당에서 고릅니다.
+  - type: textarea
+    id: why
+    attributes:
+      label: 왜
+      description: 지금 무엇이 문제이거나 필요한지 1~3줄로 씁니다.
+    validations:
+      required: true
+  - type: textarea
+    id: todo
+    attributes:
+      label: 할 일
+      description: 바꿀 것을 항목으로 씁니다. 관련 파일이 정해져 있으면 함께 적습니다.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      description: 이게 되면 닫습니다. 확인 방법(검사·화면)도 적습니다.
+    validations:
+      required: true
+  - type: textarea
+    id: out
+    attributes:
+      label: 범위 밖
+      description: 이번에 하지 않는 것. 없으면 비워 둡니다.
+  - type: dropdown
+    id: owner
+    attributes:
+      label: 담당
+      options: [프론트엔드, 백엔드, DevOps, 디자인, 기획, 팀장]
+    validations:
+      required: true
+  - type: input
+    id: links
+    attributes:
+      label: 연결
+      description: 상위 이슈, Munder 카드, 시안 링크
+      placeholder: '상위 #66 · Munder JLP-548'
