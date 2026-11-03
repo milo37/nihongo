@@ -724,6 +724,22 @@ test('dev pull requests select browser execution for the browser runtime paths',
   }
 })
 
+test('dev pull requests select real browser execution for the accessibility database contract', () => {
+  for (const file of [
+    'scripts/accessibility-database-contract.mjs',
+    'scripts/accessibility-database-contract.test.mjs'
+  ]) {
+    const selection = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: [file]
+    })
+    assert.equal(selection.browser, true, file)
+    assert.equal(selection.browser_mock, false, file)
+  }
+})
+
 test('dev pull requests add Mock browser execution only for injected fault paths', () => {
   for (const file of [
     'apps/web/e2e/accessibility.spec.ts',
