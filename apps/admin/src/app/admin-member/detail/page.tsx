@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import type { AdminMemberDetail } from '@nihongo/contracts/admin/members'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -50,7 +50,14 @@ const FreshAssurance = ({
   onConfirmed
 }: FreshAssuranceProps): ReactElement => {
   const { t } = useAdminPresentation()
-  const { state, recheck } = useIdleLockRecheck(onConfirmed)
+  const { pathname } = useLocation()
+  // adminFreshUntil is a hint; the command's FRESH_ASSURANCE_REQUIRED stays final.
+  const { state, recheck } = useIdleLockRecheck(
+    onConfirmed,
+    (current) =>
+      typeof current.adminFreshUntil === 'string' &&
+      Date.parse(current.adminFreshUntil) > Date.now()
+  )
   const confirmButton = useRef<HTMLButtonElement>(null)
 
   // Keep keyboard and screen reader users on the notice when it appears and
@@ -67,12 +74,12 @@ const FreshAssurance = ({
       ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <a
-          href="/login"
+          href={`/login?redirect=${encodeURIComponent(`/admin${pathname}`)}`}
           target="_blank"
           rel="noopener noreferrer"
           className={newTabLinkClassName}
         >
-          {t('idleLock.signInNewTab')}
+          {t('members.detail.fresh.openNewTab')}
         </a>
         <Button
           ref={confirmButton}

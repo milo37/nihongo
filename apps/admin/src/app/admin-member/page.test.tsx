@@ -51,7 +51,9 @@ beforeEach(() => {
     id: actorId,
     name: '관리자',
     role: 'ADMIN',
-    targetLevel: 'N3'
+    targetLevel: 'N3',
+    adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
+    adminFreshUntil: null
   })
 })
 afterEach(() => {
@@ -164,14 +166,33 @@ it('confirms a restriction and keeps the reason through an in-page re-check when
   })
 
   const alert = await screen.findByRole('alert')
-  const confirm = within(alert).getByRole('button', { name: '본인 확인' })
+  const confirm = within(alert).getByRole('button', { name: '확인 완료' })
   await waitFor(() => expect(confirm).toHaveFocus())
+  const link = within(alert).getByRole('link', { name: '새 탭에서 본인 확인' })
+  expect(link).toHaveAttribute('target', '_blank')
+  expect(link).toHaveAttribute(
+    'href',
+    `/login?redirect=${encodeURIComponent(`/admin/members/${memberId}`)}`
+  )
+
+  // Same admin without a recent ADMIN_FRESH sign-in is not confirmed.
+  await userEvent.click(confirm)
   expect(
-    within(alert).getByRole('link', { name: '새 탭에서 로그인' })
-  ).toHaveAttribute('target', '_blank')
+    await screen.findByText('본인 확인이 끝나지 않아 적용하지 않았습니다.')
+  ).toBeVisible()
+  await waitFor(() => expect(confirm).toHaveFocus())
+
+  vi.mocked(authApi.getCurrentUser).mockResolvedValue({
+    id: actorId,
+    name: '관리자',
+    role: 'ADMIN',
+    targetLevel: 'N3',
+    adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
+    adminFreshUntil: new Date(Date.now() + 5 * 60_000).toISOString()
+  })
   await userEvent.click(confirm)
   const confirmed = await screen.findByText(
-    '로그인 상태를 확인했습니다. 새 탭에서 다시 로그인했다면 ‘이용 제한’ 버튼을 다시 눌러 주세요.'
+    '본인 확인을 마쳤습니다. ‘이용 제한’ 버튼을 다시 눌러 적용해 주세요.'
   )
   await waitFor(() => expect(confirmed).toHaveFocus())
   expect(screen.getByLabelText('제한 사유')).toHaveValue('반복 스팸 제보')

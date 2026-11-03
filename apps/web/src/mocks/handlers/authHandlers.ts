@@ -69,7 +69,8 @@ const toAuthenticatedUser = (user: User) => ({
     ? {
         adminSessionExpiresAt: new Date(
           Date.now() + ADMIN_SESSION_MS
-        ).toISOString()
+        ).toISOString(),
+        adminFreshUntil: null
       }
     : {})
 })
