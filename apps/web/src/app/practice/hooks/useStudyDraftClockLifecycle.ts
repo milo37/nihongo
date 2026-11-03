@@ -27,6 +27,9 @@ export const useStudyDraftClockLifecycle = ({
   sessionId,
   setElapsedSeconds
 }: UseStudyDraftClockLifecycleInput): void => {
+  // Keep this extracted controller piece uncompiled, like usePracticeDraftController itself.
+  'use no memo'
+
   useEffect(() => {
     const clock = clockRef.current
     const record = useAppStore.getState().draftWorkingCopy

@@ -55,6 +55,9 @@ export const useStudyDraftWindowEvents = ({
   setDraftSaveState,
   usableBootstrapRecord
 }: UseStudyDraftWindowEventsInput): void => {
+  // Keep this extracted controller piece uncompiled, like usePracticeDraftController itself.
+  'use no memo'
+
   useEffect(() => {
     if (!enabled) {
       return

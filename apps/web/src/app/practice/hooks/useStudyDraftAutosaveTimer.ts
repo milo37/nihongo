@@ -33,6 +33,9 @@ export const useStudyDraftAutosaveTimer = ({
   saveNowRef,
   saveTimingRef
 }: UseStudyDraftAutosaveTimerInput): void => {
+  // Keep this extracted controller piece uncompiled, like usePracticeDraftController itself.
+  'use no memo'
+
   useEffect(() => {
     if (
       !enabled ||

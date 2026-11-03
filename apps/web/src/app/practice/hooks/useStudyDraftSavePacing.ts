@@ -23,6 +23,9 @@ export const useStudyDraftSavePacing = ({
   queryClient,
   sessionId
 }: UseStudyDraftSavePacingInput) => {
+  // Keep this extracted controller piece uncompiled, like usePracticeDraftController itself.
+  'use no memo'
+
   const restoreSavePacing = useCallback(
     (timing: StudyDraftSaveTiming, authEpoch: number): void => {
       const cached =
