@@ -59,6 +59,10 @@
       "types": "./dist/selection/select-result-retry-candidates.d.ts",
       "import": "./dist/selection/select-result-retry-candidates.js"
     },
+    "./study-draft/canonicalize-study-draft-save": {
+      "types": "./dist/study-draft/canonicalize-study-draft-save.d.ts",
+      "import": "./dist/study-draft/canonicalize-study-draft-save.js"
+    },
     "./submission/canonicalize-study-submission": {
       "types": "./dist/submission/canonicalize-study-submission.d.ts",
       "import": "./dist/submission/canonicalize-study-submission.js"

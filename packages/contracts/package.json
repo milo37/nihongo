@@ -47,6 +47,10 @@
       "types": "./dist/common/date.d.ts",
       "import": "./dist/common/date.js"
     },
+    "./legacy/browser-schema": {
+      "types": "./dist/legacy/browser-schema.d.ts",
+      "import": "./dist/legacy/browser-schema.js"
+    },
     "./common/enum": {
       "types": "./dist/common/enum.d.ts",
       "import": "./dist/common/enum.js"
