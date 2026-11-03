@@ -1,0 +1,45 @@
+name: 버그
+description: 의도와 다르게 동작하는 문제
+title: ''
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제목은 증상을 짧은 한국어 한 줄로 씁니다. 예: `복습 화면에서 다음 버튼이 눌리지 않음`
+  - type: textarea
+    id: symptom
+    attributes:
+      label: 증상
+      description: 무엇이 잘못됐는지 씁니다.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      value: |
+        1.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 환경
+      placeholder: 'dev / mock / 브라우저·기기, 커밋 또는 CI 실행 링크'
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 근거
+      description: 로그, 스크린샷, CI 링크. 길면 그대로 붙이지 말고 링크로 겁니다.
+  - type: dropdown
+    id: owner
+    attributes:
+      label: 담당
+      options: [프론트엔드, 백엔드, DevOps, 미정]
