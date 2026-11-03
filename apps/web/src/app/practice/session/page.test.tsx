@@ -4,6 +4,7 @@ import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -861,5 +862,92 @@ describe('PracticeSessionPage', () => {
     expect(router.state.location.pathname).toBe(
       `/practice/result/${payload.session.id}`
     )
+  })
+
+  it('헤더 진행 표시가 현재 번호·전체·답변 수를 따라간다', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(3)
+    const [first] = payload.questions
+    if (!first) throw new Error('Question required')
+    renderSession(payload.session.id)
+    const firstRadio = await screen.findByRole('radio', {
+      name: `1. ${first.options[0]?.text ?? ''}`
+    })
+    await waitFor(() => expect(firstRadio).toBeEnabled())
+    expect(
+      screen.getByRole('progressbar', {
+        name: '현재 1번 / 실제 3문제 · 답변 완료 0문제'
+      })
+    ).toBeInTheDocument()
+    await user.click(firstRadio)
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    expect(
+      await screen.findByRole('progressbar', {
+        name: '현재 2번 / 실제 3문제 · 답변 완료 1문제'
+      })
+    ).toBeInTheDocument()
+  })
+
+  it('편집 중 뒤로 가기는 이탈 Dialog를 열고 계속 풀기로 남는다', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    const router = renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: '잠시 쉬어 갈까요?'
+    })
+    expect(router.state.location.pathname).toBe(
+      `/practice/session/${payload.session.id}`
+    )
+    await user.click(within(dialog).getByRole('button', { name: '계속 풀기' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    expect(router.state.location.pathname).toBe(
+      `/practice/session/${payload.session.id}`
+    )
+    await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: '잠시 쉬어 갈까요?' })
+      ).getByRole('button', { name: '저장하고 이동' })
+    )
+    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+  })
+
+  it('보관된 제출 시도가 있으면 beforeunload를 막고 없으면 막지 않는다', async () => {
+    const plain = await startSession(1)
+    const plainView = renderSession(plain.session.id)
+    const plainOption = plain.questions[0]?.options[0]
+    if (!plainOption) throw new Error('Public option required')
+    await waitFor(() =>
+      expect(
+        screen.getByRole('radio', { name: `1. ${plainOption.text}` })
+      ).toBeEnabled()
+    )
+    const unfrozen = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(unfrozen)
+    expect(unfrozen.defaultPrevented).toBe(false)
+    plainView.dispose()
+    cleanup()
+
+    const frozen = await startSession(1)
+    writeStoredSubmissionAttempt(frozen.session.id, {
+      logicalRequest: { answers: [], durationSec: 1 },
+      idempotencyKey: crypto.randomUUID()
+    })
+    renderSession(frozen.session.id)
+    expect(
+      await screen.findByRole('dialog', { name: '답안을 제출하시겠습니까?' })
+    ).toBeInTheDocument()
+    const blocked = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(blocked)
+    expect(blocked.defaultPrevented).toBe(true)
   })
 })
