@@ -33,7 +33,7 @@ interface ManagedProcess {
 type BrowserMode = 'mock' | 'real'
 
 const includeDashboard = process.env.DASHBOARD_BROWSER_ACCEPTANCE === '1'
-const acceptancePhase = includeDashboard ? 'phase8' : 'phase7'
+const acceptanceSuite = includeDashboard ? 'admin-dashboard' : 'admin'
 const [rawMode, ...rawPlaywrightArguments] = process.argv.slice(2)
 const mode: BrowserMode | undefined =
   rawMode === 'mock' || rawMode === 'real' ? rawMode : undefined
@@ -303,7 +303,7 @@ const startControlServer = async ({
     })().catch((error: unknown) => {
       const message =
         error instanceof Error ? error.message : 'unknown control failure'
-      process.stderr.write(`[phase7-browser-control] ${message}\n`)
+      process.stderr.write(`[admin-browser-control] ${message}\n`)
       if (!response.headersSent) response.writeHead(500)
       response.end()
     })
@@ -327,7 +327,7 @@ export const createBrowserPlaywrightEnvironment = (
   DASHBOARD_BROWSER_MODE: browserMode,
   ADMIN_BROWSER_ADMIN_ORIGIN: webOrigin,
   PLAYWRIGHT_BASE_URL: webOrigin,
-  PLAYWRIGHT_OUTPUT_LABEL: `${acceptancePhase}-${browserMode}`
+  PLAYWRIGHT_OUTPUT_LABEL: `${acceptanceSuite}-${browserMode}`
 })
 
 export const selectBrowserSpecs = (
@@ -376,7 +376,7 @@ export const runMock = async (): Promise<void> => {
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
   const web = spawnOwned(
-    `${acceptancePhase}-mock-web`,
+    `${acceptanceSuite}-mock-web`,
     'pnpm',
     [
       '--filter',
@@ -459,14 +459,14 @@ export const runReal = async (): Promise<void> => {
   fixtureDatabase = created.database
   if (!created.adminGuard)
     throw new Error(
-      `${acceptancePhase} Real requires an administrator static guard.`
+      `${acceptanceSuite} Real requires an administrator static guard.`
     )
   const baseline = await created.database.snapshot()
   webAssetsDirectory = await mkdtemp(
-    nodePath.join(tmpdir(), `${acceptancePhase}-browser-web-`)
+    nodePath.join(tmpdir(), `${acceptanceSuite}-browser-web-`)
   )
   adminAssetsDirectory = await mkdtemp(
-    nodePath.join(tmpdir(), `${acceptancePhase}-browser-admin-`)
+    nodePath.join(tmpdir(), `${acceptanceSuite}-browser-admin-`)
   )
   for (const [application, directory] of [
     ['@nihongo/web', webAssetsDirectory],
@@ -529,7 +529,7 @@ export const runReal = async (): Promise<void> => {
 const run = async (): Promise<void> => {
   if (!mode) {
     throw new Error(
-      `${acceptancePhase} browser runner accepts mock or real mode.`
+      `${acceptanceSuite} browser runner accepts mock or real mode.`
     )
   }
   if (mode === 'mock') await runMock()
@@ -550,7 +550,7 @@ export const execute = async (): Promise<void> => {
     if (failure) {
       throw new AggregateError(
         [failure, cleanupError],
-        `${acceptancePhase} ${mode ?? 'unknown'} browser run and cleanup both failed.`
+        `${acceptanceSuite} ${mode ?? 'unknown'} browser run and cleanup both failed.`
       )
     }
     throw cleanupError
@@ -581,7 +581,7 @@ if (
   void execute()
     .then(() => {
       process.stdout.write(
-        `${JSON.stringify({ event: `${acceptancePhase}.browser.${mode}.passed` })}\n`
+        `${JSON.stringify({ event: `${acceptanceSuite}.browser.${mode}.passed` })}\n`
       )
     })
     .catch((error: unknown) => {
@@ -591,7 +591,7 @@ if (
           : undefined
       process.stderr.write(
         `${JSON.stringify({
-          event: `${acceptancePhase}.browser.${mode ?? 'unknown'}.failed`,
+          event: `${acceptanceSuite}.browser.${mode ?? 'unknown'}.failed`,
           ...describeFailure(error),
           ...(causes ? { causes } : {})
         })}\n`

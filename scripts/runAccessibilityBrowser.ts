@@ -272,7 +272,7 @@ const runPlaywright = async (
       ...extraEnvironment,
       ACCESSIBILITY_BROWSER_MODE: browserMode,
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: `phase9-${browserMode}`
+      PLAYWRIGHT_OUTPUT_LABEL: `accessibility-${browserMode}`
     },
     signal
   )
@@ -283,7 +283,7 @@ const startOwnedAdmin = async (
   apiOrigin: string
 ): Promise<AbortSignal> => {
   const admin = spawnOwned(
-    `phase9-${browserMode}-admin`,
+    `accessibility-${browserMode}-admin`,
     'pnpm',
     [
       '--filter',
@@ -368,7 +368,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
   const webPort = await reserveLoopbackPort()
   const webOrigin = `http://127.0.0.1:${webPort}`
   const web = spawnOwned(
-    'phase9-mock-web',
+    'accessibility-mock-web',
     'pnpm',
     [
       '--filter',
@@ -406,7 +406,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
       ...process.env,
       DASHBOARD_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: 'phase8-mock'
+      PLAYWRIGHT_OUTPUT_LABEL: 'admin-dashboard-mock'
     },
     signal
   )
@@ -426,7 +426,7 @@ export const runMockBrowser = async (signal?: AbortSignal): Promise<void> => {
       ...process.env,
       JOURNEY_BROWSER_MODE: 'mock',
       PLAYWRIGHT_BASE_URL: webOrigin,
-      PLAYWRIGHT_OUTPUT_LABEL: 'phase10-mock'
+      PLAYWRIGHT_OUTPUT_LABEL: 'journey-mock'
     },
     signal
   )
@@ -511,7 +511,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     harness.adminDatabaseUrl
   )
   const api = spawnOwned(
-    `phase9-${browserMode}-api`,
+    `accessibility-${browserMode}-api`,
     'pnpm',
     ['--filter', '@nihongo/api', 'exec', 'tsx', 'src/e2e/browserApi.ts'],
     {
@@ -524,7 +524,7 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   const adminSignal = await startOwnedAdmin(browserMode, target.origin)
 
   const web = spawnOwned(
-    `phase9-${browserMode}-web`,
+    `accessibility-${browserMode}-web`,
     'pnpm',
     [
       '--filter',
@@ -565,11 +565,11 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   adminSignal.throwIfAborted()
   const evidenceDirectory = nodePath.resolve(
     repositoryRoot,
-    'test-results/playwright-phase9-real'
+    'test-results/playwright-accessibility-real'
   )
   await mkdir(evidenceDirectory, { recursive: true })
   await writeFile(
-    nodePath.resolve(evidenceDirectory, 'phase9-database-contract.json'),
+    nodePath.resolve(evidenceDirectory, 'accessibility-database-contract.json'),
     `${JSON.stringify(databaseEvidence, null, 2)}\n`,
     'utf8'
   )

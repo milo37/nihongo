@@ -296,7 +296,7 @@ jobs:
           node scripts/security/security-evidence.mjs verify
           --directory "$PLAYWRIGHT_EVIDENCE_DIR"
           --profile playwright
-          --required phase8-real,phase9-real,phase10-real
+          --required admin-dashboard-real,accessibility-real,journey-real
 
       - name: Upload safe Playwright evidence
         if: ${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
@@ -313,10 +313,10 @@ jobs:
           set -euo pipefail
           expected="test-results/browser-evidence/playwright-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           test "$PLAYWRIGHT_EVIDENCE_DIR" = "$expected"
-          rm -rf -- "$expected" test-results/phase10-raw test-results/playwright-phase9-real
+          rm -rf -- "$expected" test-results/playwright-raw test-results/playwright-accessibility-real
           test ! -e "$expected"
-          test ! -e test-results/phase10-raw
-          test ! -e test-results/playwright-phase9-real
+          test ! -e test-results/playwright-raw
+          test ! -e test-results/playwright-accessibility-real
 
       - name: Initialize unique safe Mock Playwright evidence
         id: mock_playwright_initialize
@@ -341,7 +341,7 @@ jobs:
           node scripts/security/security-evidence.mjs verify
           --directory "$PLAYWRIGHT_MOCK_EVIDENCE_DIR"
           --profile playwright
-          --required phase8-mock,phase9-mock,phase10-mock
+          --required admin-dashboard-mock,accessibility-mock,journey-mock
 
       - name: Upload safe Mock Playwright evidence
         if: ${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
@@ -358,9 +358,9 @@ jobs:
           set -euo pipefail
           expected="test-results/browser-evidence/playwright-mock-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           test "$PLAYWRIGHT_MOCK_EVIDENCE_DIR" = "$expected"
-          rm -rf -- "$expected" test-results/phase10-raw
+          rm -rf -- "$expected" test-results/playwright-raw
           test ! -e "$expected"
-          test ! -e test-results/phase10-raw
+          test ! -e test-results/playwright-raw
 
       - name: Verify selected regression acceptance
         if: ${{ always() }}

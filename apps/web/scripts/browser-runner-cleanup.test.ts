@@ -367,7 +367,7 @@ describe('accessibility and journey browser runner lifecycle', () => {
       expect(playwright).toHaveLength(1)
     }
     expect(stopped).toHaveLength(1)
-    expect(stopped[0]).toContain('phase9-mock-web')
+    expect(stopped[0]).toContain('accessibility-mock-web')
     if (cancellation)
       expect(stopped[0]).toEqual(
         expect.arrayContaining([
@@ -757,11 +757,11 @@ describe('accessibility and journey browser runner lifecycle', () => {
       })
       expect(stopped).toEqual([
         scenario === 'admin exit' || scenario === 'late collision'
-          ? [`phase9-${mode}-api`, `phase9-${mode}-admin`]
+          ? [`accessibility-${mode}-api`, `accessibility-${mode}-admin`]
           : [
-              `phase9-${mode}-api`,
-              `phase9-${mode}-admin`,
-              `phase9-${mode}-web`,
+              `accessibility-${mode}-api`,
+              `accessibility-${mode}-admin`,
+              `accessibility-${mode}-web`,
               ...([
                 'SIGINT during Playwright',
                 'SIGTERM during Playwright'

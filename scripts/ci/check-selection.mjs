@@ -76,8 +76,7 @@ const isMetadataOnlyEdit = (event) => {
 // Changes to the Playwright runtime or its evidence reporter need real browser proof on dev PRs too.
 const browserRuntimePaths = new Set([
   'playwright.config.ts',
-  'scripts/security/browser-evidence-reporter.mjs',
-  'scripts/security/phase10-playwright-summary-reporter.mjs'
+  'scripts/security/browser-evidence-reporter.mjs'
 ])
 
 // The real accessibility suite asserts this database contract, so a contract change needs that run on dev PRs.

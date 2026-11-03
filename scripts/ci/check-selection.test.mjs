@@ -389,7 +389,10 @@ test('real browser summaries are isolated, verified before upload and cleaned on
   assert.match(verify, /node scripts\/security\/security-evidence\.mjs verify/u)
   assert.match(verify, /--directory "\$PLAYWRIGHT_EVIDENCE_DIR"/u)
   assert.match(verify, /--profile playwright/u)
-  assert.match(verify, /--required phase8-real,phase9-real,phase10-real\s*$/u)
+  assert.match(
+    verify,
+    /--required admin-dashboard-real,accessibility-real,journey-real\s*$/u
+  )
   const cleanup = namedWorkflowStep(job, names[4])
   assert.ok(
     cleanup.includes(
@@ -416,8 +419,8 @@ test('real browser summaries are isolated, verified before upload and cleaned on
     writeFileSync(path.join(root, evidence, 'owned.json'), '{}')
     assert.equal(run(names[0]).status, 1, 'stale evidence must be rejected')
     for (const directory of [
-      'test-results/phase10-raw',
-      'test-results/playwright-phase9-real'
+      'test-results/playwright-raw',
+      'test-results/playwright-accessibility-real'
     ]) {
       mkdirSync(path.join(root, directory), { recursive: true })
       writeFileSync(path.join(root, directory, 'owned.txt'), 'fixture')
@@ -430,8 +433,8 @@ test('real browser summaries are isolated, verified before upload and cleaned on
     assert.equal(run(names[4]).status, 0)
     for (const directory of [
       evidence,
-      'test-results/phase10-raw',
-      'test-results/playwright-phase9-real'
+      'test-results/playwright-raw',
+      'test-results/playwright-accessibility-real'
     ]) {
       assert.equal(existsSync(path.join(root, directory)), false)
     }
@@ -476,7 +479,10 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
     )
   )
   assert.match(verify, /--directory "\$PLAYWRIGHT_MOCK_EVIDENCE_DIR"/u)
-  assert.match(verify, /--required phase8-mock,phase9-mock,phase10-mock\s*$/u)
+  assert.match(
+    verify,
+    /--required admin-dashboard-mock,accessibility-mock,journey-mock\s*$/u
+  )
   const upload = namedWorkflowStep(job, names[4])
   assert.ok(
     upload.includes(
@@ -507,7 +513,9 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
   try {
     assert.equal(run(names[1]).status, 0)
     assert.equal(run(names[1]).status, 1, 'stale evidence must be rejected')
-    mkdirSync(path.join(root, 'test-results/phase10-raw'), { recursive: true })
+    mkdirSync(path.join(root, 'test-results/playwright-raw'), {
+      recursive: true
+    })
     assert.equal(
       run(names[5], { PLAYWRIGHT_MOCK_EVIDENCE_DIR: 'unrelated' }).status,
       1
@@ -515,7 +523,10 @@ test('Mock browser summaries use their own verified directory, upload and cleanu
     assert.equal(existsSync(path.join(root, evidence)), true)
     assert.equal(run(names[5]).status, 0)
     assert.equal(existsSync(path.join(root, evidence)), false)
-    assert.equal(existsSync(path.join(root, 'test-results/phase10-raw')), false)
+    assert.equal(
+      existsSync(path.join(root, 'test-results/playwright-raw')),
+      false
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -708,8 +719,7 @@ test('dev pull requests keep affected checks while omitting browser execution', 
 test('dev pull requests select browser execution for the browser runtime paths', () => {
   for (const file of [
     'playwright.config.ts',
-    'scripts/security/browser-evidence-reporter.mjs',
-    'scripts/security/phase10-playwright-summary-reporter.mjs'
+    'scripts/security/browser-evidence-reporter.mjs'
   ]) {
     const selection = selectChecks({
       eventName: 'pull_request',
@@ -1538,7 +1548,7 @@ test('accessibility mock starts only a local mock web server', async () => {
     normalized
       .filter(({ type }) => type === 'server')
       .map(({ label }) => label),
-    ['phase9-mock-web']
+    ['accessibility-mock-web']
   )
   assert.equal(
     normalized.find(({ type }) => type === 'server').environment
@@ -1604,7 +1614,7 @@ test('API integration uses shared job preparation and seed avoids regeneration',
   )
 })
 
-const assertPhase7PlaywrightSelection = async (source, mode) => {
+const assertAdminPlaywrightSelection = async (source, mode) => {
   const selectSpecs = runInNewContext(
     `(browserMode, phase8) => {${extractArrowBody(
       source,
@@ -1976,28 +1986,32 @@ const assertExecutableCall = (source, declaration, call) => {
   )
 }
 
-const assertBrowserRunnerCallGraph = ({ phase7, phase9, phase10 }) => {
+const assertBrowserRunnerCallGraph = ({ admin, accessibility, journey }) => {
   for (const [declaration, call] of [
     ['export const runMock = async (', "await runPlaywright('mock',"],
     ['export const runReal = async (', "await runPlaywright('real',"],
     ['const run = async (', 'await runMock()'],
     ['const run = async (', 'await runReal()']
   ]) {
-    assertExecutableCall(phase7, declaration, call)
+    assertExecutableCall(admin, declaration, call)
   }
   assertExecutableCall(
-    phase9,
+    accessibility,
     'const runBrowser = async (',
     'await runPlaywright('
   )
-  assertExecutableCall(phase9, 'const run = async (', 'await runBrowser(mode)')
+  assertExecutableCall(
+    accessibility,
+    'const run = async (',
+    'await runBrowser(mode)'
+  )
   for (const [declaration, call] of [
     ['const runMock = async (', "await runPlaywright('mock',"],
     ['const runReal = async (', "await runPlaywright('real',"],
     ['const run = async (', 'await runMock()'],
     ['const run = async (', 'await runReal()']
   ]) {
-    assertExecutableCall(phase10, declaration, call)
+    assertExecutableCall(journey, declaration, call)
   }
 }
 
@@ -2041,20 +2055,20 @@ const assertLiveRunnerSelections = async (repositoryRoot, calls, mode) => {
   }
 
   const sources = {
-    phase7: readFileSync(runnerPaths[0], 'utf8'),
-    phase9: readFileSync(runnerPaths[1], 'utf8'),
-    phase10: readFileSync(runnerPaths[2], 'utf8')
+    admin: readFileSync(runnerPaths[0], 'utf8'),
+    accessibility: readFileSync(runnerPaths[1], 'utf8'),
+    journey: readFileSync(runnerPaths[2], 'utf8')
   }
   assertBrowserRunnerCallGraph(sources)
-  await assertPhase7PlaywrightSelection(sources.phase7, mode)
+  await assertAdminPlaywrightSelection(sources.admin, mode)
   await assertPlaywrightSelection(
-    sources.phase9,
+    sources.accessibility,
     mode,
     'apps/web/e2e/accessibility.spec.ts',
     'ACCESSIBILITY_BROWSER_MODE'
   )
   await assertPlaywrightSelection(
-    sources.phase10,
+    sources.journey,
     mode,
     'apps/web/e2e/journeys.spec.ts',
     'JOURNEY_BROWSER_MODE'
@@ -2166,24 +2180,24 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
 test('browser reachability rejects deleted or unreachable live calls', async () => {
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const sources = {
-    phase7: readFileSync(
+    admin: readFileSync(
       path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
       'utf8'
     ),
-    phase9: readFileSync(
+    accessibility: readFileSync(
       path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
       'utf8'
     ),
-    phase10: readFileSync(
+    journey: readFileSync(
       path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts'),
       'utf8'
     )
   }
 
   await assert.rejects(() =>
-    assertPhase7PlaywrightSelection(
+    assertAdminPlaywrightSelection(
       withoutOnce(
-        sources.phase7,
+        sources.admin,
         '  const browserSpecs = selectBrowserSpecs(browserMode, includeDashboard)\n'
       ),
       'real'
@@ -2191,9 +2205,9 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
   )
 
   for (const [sourceName, fragment] of [
-    ['phase7', "  await runPlaywright('mock', webOrigin)\n"],
+    ['admin', "  await runPlaywright('mock', webOrigin)\n"],
     [
-      'phase7',
+      'admin',
       `  await runPlaywright('real', publicOrigin, {
     ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
     ADMIN_BROWSER_CONTROL_URL: controlOrigin,
@@ -2203,7 +2217,7 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
 `
     ],
     [
-      'phase9',
+      'accessibility',
       `  await runPlaywright(
     browserMode,
     webOrigin,
@@ -2212,8 +2226,8 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
   )
 `
     ],
-    ['phase10', "  await runPlaywright('mock', webOrigin)\n"],
-    ['phase10', "  await runPlaywright('real', webOrigin)\n"]
+    ['journey', "  await runPlaywright('mock', webOrigin)\n"],
+    ['journey', "  await runPlaywright('real', webOrigin)\n"]
   ]) {
     assert.throws(
       () =>
@@ -2226,11 +2240,11 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
   }
 
   for (const [sourceName, fragment] of [
-    ['phase7', 'await runMock()'],
-    ['phase7', 'await runReal()'],
-    ['phase9', 'await runBrowser(mode)'],
-    ['phase10', 'await runMock()'],
-    ['phase10', 'await runReal()']
+    ['admin', 'await runMock()'],
+    ['admin', 'await runReal()'],
+    ['accessibility', 'await runBrowser(mode)'],
+    ['journey', 'await runMock()'],
+    ['journey', 'await runReal()']
   ]) {
     assert.throws(
       () =>
@@ -2247,33 +2261,33 @@ test('browser reachability rejects deleted or unreachable live calls', async () 
 `
   for (const [sourceName, fragment, replacement] of [
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('mock', webOrigin)\n",
       "  return\n  await runPlaywright('mock', webOrigin)\n"
     ],
     [
-      'phase9',
+      'accessibility',
       '  await runPlaywright(\n',
       "  throw new Error('unreachable')\n  await runPlaywright(\n"
     ],
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('real', webOrigin)\n",
       "  object.if()\n  return\n  await runPlaywright('real', webOrigin)\n"
     ],
     [
-      'phase7',
+      'admin',
       "  await runPlaywright('mock', webOrigin)\n",
       "  object.else\n  throw new Error('unreachable')\n  await runPlaywright('mock', webOrigin)\n"
     ],
     [
-      'phase7',
+      'admin',
       dispatcher,
       `  return
 ${dispatcher}`
     ],
     [
-      'phase9',
+      'accessibility',
       '  await runBrowser(mode)\n',
       "  throw new Error('unreachable')\n  await runBrowser(mode)\n"
     ]
@@ -2292,15 +2306,15 @@ ${dispatcher}`
 test('browser reachability rejects expression-bodied dead runner closures', () => {
   const repositoryRoot = path.resolve(import.meta.dirname, '../..')
   const sources = {
-    phase7: readFileSync(
+    admin: readFileSync(
       path.join(repositoryRoot, 'apps/api/src/e2e/runAdminBrowser.ts'),
       'utf8'
     ),
-    phase9: readFileSync(
+    accessibility: readFileSync(
       path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
       'utf8'
     ),
-    phase10: readFileSync(
+    journey: readFileSync(
       path.join(repositoryRoot, 'scripts/runJourneyBrowser.ts'),
       'utf8'
     )
@@ -2308,7 +2322,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 
   for (const [sourceName, fragment, replacement] of [
     [
-      'phase7',
+      'admin',
       "  await runPlaywright('mock', webOrigin)\n",
       `  let target: unknown
   const dead = async () =>
@@ -2317,7 +2331,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 `
     ],
     [
-      'phase7',
+      'admin',
       `  await runPlaywright('real', publicOrigin, {
     ADMIN_BROWSER_CONTROL_SECRET: controlSecret,
     ADMIN_BROWSER_CONTROL_URL: controlOrigin,
@@ -2339,7 +2353,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 `
     ],
     [
-      'phase9',
+      'accessibility',
       `  await runPlaywright(
     browserMode,
     webOrigin,
@@ -2357,7 +2371,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 `
     ],
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('mock', webOrigin)\n",
       `  const dead = async () =>
     true &&
@@ -2365,7 +2379,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
 `
     ],
     [
-      'phase10',
+      'journey',
       "  await runPlaywright('real', webOrigin)\n",
       `  const dead = async () =>
     !
@@ -2386,7 +2400,7 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
   const conditional = `  if (mode === 'mock') await runMock()
   else await runReal()
 `
-  for (const sourceName of ['phase7', 'phase10']) {
+  for (const sourceName of ['admin', 'journey']) {
     for (const replacement of [
       `  const deadMock = async () => await runMock()
   if (mode === 'mock') await Promise.resolve()
@@ -2413,8 +2427,8 @@ test('browser reachability rejects expression-bodied dead runner closures', () =
   assert.throws(() =>
     assertBrowserRunnerCallGraph({
       ...sources,
-      phase9: replaceOnce(
-        sources.phase9,
+      accessibility: replaceOnce(
+        sources.accessibility,
         '  await runBrowser(mode)\n',
         `  const dead = async () =>
     true
