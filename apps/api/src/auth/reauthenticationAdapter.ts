@@ -155,7 +155,7 @@ const accountProjection = (row: ReauthenticationAccountRow) => ({
   updatedAt: row.updatedAt
 })
 
-export const createPhase7ReauthenticationCustomAdapter = ({
+export const createReauthenticationCustomAdapter = ({
   client,
   getIntentId
 }: {
@@ -347,7 +347,7 @@ export const createPhase7ReauthenticationCustomAdapter = ({
   } satisfies CustomAdapter
 }
 
-export const createPhase7ReauthenticationAdapter = ({
+export const createReauthenticationAdapter = ({
   client,
   getIntentId
 }: {
@@ -366,7 +366,7 @@ export const createPhase7ReauthenticationAdapter = ({
       transaction: false
     },
     adapter: () =>
-      createPhase7ReauthenticationCustomAdapter({
+      createReauthenticationCustomAdapter({
         client,
         getIntentId
       })

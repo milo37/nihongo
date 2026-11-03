@@ -7,7 +7,7 @@ import {
   cleanupPhase7IsolatedDatabase,
   preparePhase7IsolatedDatabase
 } from './runAdminApiIntegration.js'
-import { readPhase10DatabaseApiPerformanceEvidence } from './performanceEvidence.js'
+import { readDatabaseApiPerformanceEvidence } from './performanceEvidence.js'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
 import {
   exitPerformanceProcess,
@@ -233,7 +233,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   if (passedTestCount !== 1) {
     throw new Error('Phase 10 performance test count is invalid.')
   }
-  const evidence = await readPhase10DatabaseApiPerformanceEvidence(evidenceFile)
+  const evidence = await readDatabaseApiPerformanceEvidence(evidenceFile)
   abortSignal.throwIfAborted()
   const evidenceMode = (await stat(evidenceFile)).mode & 0o777
   abortSignal.throwIfAborted()

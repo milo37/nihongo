@@ -19,7 +19,7 @@ import {
   assertSafeAdminCmsDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
-import { assertPhase7ApiDatabaseBoundaryPreflight } from './apiDatabaseBoundary.js'
+import { assertApiDatabaseBoundaryPreflight } from './apiDatabaseBoundary.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -229,7 +229,7 @@ interface PgcryptoSnapshot {
   readonly version: string | null
 }
 
-export interface Phase7IsolatedDatabaseHarness {
+export interface IsolatedDatabaseHarness {
   readonly adminDatabaseUrl: string
   readonly applicationDatabaseUrl: string
   readonly authGatewayDatabaseUrl: string
@@ -448,7 +448,7 @@ const attestBootstrap = async (): Promise<void> => {
      FROM pg_roles AS role WHERE role.rolname = current_user`,
     [databaseSnapshot.ownerName]
   )
-  assertPhase7ApiDatabaseBoundaryPreflight({
+  assertApiDatabaseBoundaryPreflight({
     bootstrap: result.rows[0],
     snapshot: databaseSnapshot
   })
@@ -861,7 +861,7 @@ export const preparePhase7IsolatedDatabase = async ({
   seedRuns = 0,
   issuerActivationOwner = 'runner',
   artifactsPrepared = false
-}: PrepareIsolatedDatabaseOptions = {}): Promise<Phase7IsolatedDatabaseHarness> => {
+}: PrepareIsolatedDatabaseOptions = {}): Promise<IsolatedDatabaseHarness> => {
   if (databasePrepared) {
     throw new Error('Phase 7 isolated database harness is already prepared.')
   }

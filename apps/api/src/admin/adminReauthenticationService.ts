@@ -1,7 +1,7 @@
 import type { AdminReauthenticationResult } from '@nihongo/contracts/admin/content-operations'
 import type { PrismaClient } from '../generated/prisma/client.js'
-import type { Phase7ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
-import type { Phase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
+import type { ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
+import type { ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import { ApplicationError } from '../errors/applicationError.js'
 export interface AdminReauthenticationInput {
   readonly actorId: string
@@ -25,9 +25,9 @@ export interface AdminReauthenticationService {
 /** Retired compatibility surface; never verifies passwords or writes auth data. */
 export const createAdminReauthenticationService = (_dependencies: {
   auditEnvironment: 'TEST' | 'DEVELOPMENT'
-  authApi: Phase7ReauthenticationAuthApi
+  authApi: ReauthenticationAuthApi
   client: Pick<PrismaClient, '$queryRawUnsafe'>
-  context: Phase7ReauthenticationContext
+  context: ReauthenticationContext
   createIntentId?: () => string
 }): AdminReauthenticationService => ({
   reauthenticate: async () => {

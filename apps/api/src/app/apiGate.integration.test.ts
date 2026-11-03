@@ -25,7 +25,7 @@ import {
 } from '../db/database.js'
 import { createPostgresStartupOptions } from '../db/databaseOptions.js'
 import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
-import { attestPhase7RuntimeRoles } from '../db/runtimeRoleAttestation.js'
+import { attestRuntimeRoles } from '../db/runtimeRoleAttestation.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
@@ -473,7 +473,7 @@ describe('Phase 7 Slice 1 technical API gate', () => {
 
     await expect(applicationRuntime.checkReadiness()).resolves.toBeUndefined()
     await expect(
-      attestPhase7RuntimeRoles({
+      attestRuntimeRoles({
         application: {
           client: applicationRuntime.client,
           connectionString: environment.DATABASE_URL,

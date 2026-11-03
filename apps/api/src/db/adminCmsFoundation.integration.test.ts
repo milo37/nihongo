@@ -17,7 +17,7 @@ import {
   runFoundationStage,
   type FoundationStage
 } from './foundationDiagnostics.js'
-import { attestPhase7RuntimeRoles } from './runtimeRoleAttestation.js'
+import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
   '20261019103000_sso_admin_fresh',
@@ -187,14 +187,14 @@ const withExecutionRole = async <Result>(
   return result as Result
 }
 
-interface Phase7AdminTargetManifest {
-  readonly questions: readonly Phase7AdminTargetManifestItem[]
-  readonly reports: readonly Phase7AdminTargetManifestItem[]
+interface AdminTargetManifest {
+  readonly questions: readonly AdminTargetManifestItem[]
+  readonly reports: readonly AdminTargetManifestItem[]
   readonly tags: readonly string[]
-  readonly versions: readonly Phase7AdminTargetManifestItem[]
+  readonly versions: readonly AdminTargetManifestItem[]
 }
 
-interface Phase7AdminTargetManifestItem {
+interface AdminTargetManifestItem {
   readonly id: string
   readonly rowVersion: number
   readonly state: string
@@ -207,7 +207,7 @@ const beginAdminOperation = async (
     referencedUserIds: readonly string[]
     requestId: string
     sessionToken: string
-    targetManifest: Phase7AdminTargetManifest
+    targetManifest: AdminTargetManifest
   }
 ): Promise<{ actorUserId: string; occurredAt: Date; operationId: string }> => {
   const isolationLevel = [
@@ -3623,7 +3623,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       reports: [],
       tags: [],
       versions: []
-    } satisfies Phase7AdminTargetManifest
+    } satisfies AdminTargetManifest
     const emptyReferenceRequestId = randomUUID()
     requestIds.push(emptyReferenceRequestId)
     await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE')
@@ -3802,7 +3802,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           rowVersion: 1,
           state: 'RETIRED'
         }))
-      } satisfies Phase7AdminTargetManifest
+      } satisfies AdminTargetManifest
       await expect(
         client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
           operationId,
@@ -3868,7 +3868,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             reports: [],
             tags: importTagIds.toSorted(),
             versions: []
-          } satisfies Phase7AdminTargetManifest)
+          } satisfies AdminTargetManifest)
         ])
       ).resolves.toMatchObject({ rowCount: 1 })
     } finally {
@@ -4851,7 +4851,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
             versions: [
               { id: seed.versionId, rowVersion: 1, state: 'PUBLISHED' }
             ]
-          } satisfies Phase7AdminTargetManifest)
+          } satisfies AdminTargetManifest)
         ])
       ).rejects.toMatchObject({ code: '42501' })
       await client.query('ROLLBACK')
@@ -5610,7 +5610,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const archiveGuardStateBefore = await readArchiveGuardState()
     const rejectedArmRequestIds: string[] = []
     const expectArchiveArmRejected = async (
-      targetManifest: Phase7AdminTargetManifest,
+      targetManifest: AdminTargetManifest,
       code: '23514' | '40001'
     ): Promise<void> => {
       const requestId = randomUUID()
@@ -5629,14 +5629,14 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const questionManifest = (
       questionId: string,
       rowVersion = 1
-    ): Phase7AdminTargetManifestItem => ({
+    ): AdminTargetManifestItem => ({
       id: questionId,
       rowVersion,
       state: 'ACTIVE'
     })
     const versionManifest = (
       candidate: ArchiveCandidate
-    ): Phase7AdminTargetManifestItem => ({
+    ): AdminTargetManifestItem => ({
       id: candidate.versionId,
       rowVersion: 1,
       state: candidate.state
@@ -5740,7 +5740,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
     const expectArchiveVerifier = async (input: {
       accepted: boolean
       deltas: readonly ArchiveVerifierDelta[]
-      targetManifest: Phase7AdminTargetManifest
+      targetManifest: AdminTargetManifest
     }): Promise<void> => {
       const operationId = randomUUID()
       await client.query('BEGIN')
@@ -5808,13 +5808,13 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       ).toBe(0)
     }
 
-    const emptyManifest: Phase7AdminTargetManifest = {
+    const emptyManifest: AdminTargetManifest = {
       questions: [questionManifest(emptyManifestTarget.questionId)],
       reports: [],
       tags: [],
       versions: []
     }
-    const candidateManifest: Phase7AdminTargetManifest = {
+    const candidateManifest: AdminTargetManifest = {
       questions: [questionManifest(firstCandidate.questionId)],
       reports: [],
       tags: [],
@@ -5888,7 +5888,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
       auditCount: 0 | 1 | 2
       deltas: readonly ArchiveVerifierDelta[]
       review: ArchiveCandidate | null
-      targetManifest: Phase7AdminTargetManifest
+      targetManifest: AdminTargetManifest
     }): Promise<void> => {
       const operationId = randomUUID()
       const requestId = randomUUID()
@@ -8593,7 +8593,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           expectedRole: 'nihongo_auth_gateway' as const
         }
       }
-      await expect(attestPhase7RuntimeRoles(endpoints)).resolves.toBeUndefined()
+      await expect(attestRuntimeRoles(endpoints)).resolves.toBeUndefined()
       await expect(
         Promise.all([
           applicationRuntime.client.$queryRawUnsafe(
@@ -8619,7 +8619,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
           `GRANT ${privilege} ON DATABASE ${database} TO ${quoteIdentifier(role)}${grantOption ? ' WITH GRANT OPTION' : ''}`
         )
         try {
-          const attestation = attestPhase7RuntimeRoles(endpoints)
+          const attestation = attestRuntimeRoles(endpoints)
           if (accepted) {
             await expect(attestation).resolves.toBeUndefined()
           } else {
@@ -8679,7 +8679,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         try {
           const guardedServiceMutation = async (): Promise<number> => {
             try {
-              await attestPhase7RuntimeRoles({
+              await attestRuntimeRoles({
                 application: {
                   client: replicaApplicationRuntime.client,
                   connectionString: applicationUrl,
@@ -8747,7 +8747,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO PUBLIC`
       )
       publicConnectRestored = false
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
       await client.query(
@@ -8765,7 +8765,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         `GRANT CONNECT ON DATABASE ${quoteIdentifier(configuredDatabaseName)}
          TO ${quoteIdentifier(applicationLogin)} WITH GRANT OPTION`
       )
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
       await client.query(
@@ -8782,7 +8782,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         `ALTER ROLE ${quoteIdentifier(applicationLogin)} SUPERUSER`
       )
       applicationSuperuser = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
       await client.query(
@@ -8801,7 +8801,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         `GRANT ${quoteIdentifier(extraRole)} TO ${quoteIdentifier(applicationLogin)}`
       )
       applicationHasExtraMembership = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
       await client.query(
@@ -8814,7 +8814,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO ${quoteIdentifier(applicationLogin)}`
       )
       applicationHasDirectQuestionAcl = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
       await client.query(
@@ -8828,7 +8828,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO ${quoteIdentifier(applicationLogin)}`
       )
       applicationHasDirectUserEmailAcl = true
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
       await client.query(
@@ -8854,7 +8854,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         'nihongo_app'
       )
       await expect(
-        attestPhase7RuntimeRoles({
+        attestRuntimeRoles({
           application: {
             client: wrongSchemaRuntime.client,
             connectionString: wrongSchemaApplicationUrl,
@@ -8879,7 +8879,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
          TO ${quoteIdentifier(applicationLogin)},
             ${quoteIdentifier(authGatewayLogin)}`
       )
-      await expect(attestPhase7RuntimeRoles(endpoints)).rejects.toThrow(
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
         'Phase 7 runtime DB role attestation failed.'
       )
 
@@ -8931,7 +8931,7 @@ describe('Phase 7 Slice 1 persistence foundation', () => {
         'nihongo_auth_gateway'
       )
       await expect(
-        attestPhase7RuntimeRoles({
+        attestRuntimeRoles({
           application: {
             client: ownedDatabaseApplicationRuntime.client,
             connectionString: ownedDatabaseApplicationUrl,

@@ -148,9 +148,9 @@ const identitiesSchema = z
       subjects.add(identity.accountId)
     }
   })
-export type Phase9SsoIdentities = z.output<typeof identitiesSchema>
+export type SsoIdentities = z.output<typeof identitiesSchema>
 export type Phase9BrowserFixture = {
-  readonly [Key in (typeof actorKeys)[number]]: Phase9SsoIdentities[Key]['actor']
+  readonly [Key in (typeof actorKeys)[number]]: SsoIdentities[Key]['actor']
 }
 
 const sameTarget = (a: URL, b: URL): boolean =>
@@ -183,7 +183,7 @@ const assertTestTarget = (
   return target
 }
 
-export const parsePhase9BrowserEnvironment = (source: NodeJS.ProcessEnv) => {
+export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
   if (
     source.NODE_ENV !== 'test' ||
     source.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
@@ -254,9 +254,9 @@ export const preparePhase9BrowserActors = async ({
   environment: NodeJS.ProcessEnv
 }): Promise<{
   fixture: Phase9BrowserFixture
-  identities: Phase9SsoIdentities
+  identities: SsoIdentities
 }> => {
-  const environment = parsePhase9BrowserEnvironment(source)
+  const environment = parseBrowserEnvironment(source)
   const ownerTarget = assertTestTarget(
     adminDatabaseUrl,
     source.PRODUCTION_DATABASE_URL
@@ -327,11 +327,11 @@ export const preparePhase9BrowserActors = async ({
   }
 }
 
-export const createPhase9GoogleTestProvider = (
+export const createGoogleTestProvider = (
   source: NodeJS.ProcessEnv,
   input: unknown
 ): SsoProvider => {
-  const environment = parsePhase9BrowserEnvironment(source)
+  const environment = parseBrowserEnvironment(source)
   const identities = identitiesSchema.parse(input)
   const byCode = new Map(
     actorKeys.map((key) => [
@@ -357,15 +357,15 @@ export const createPhase9GoogleTestProvider = (
   }
 }
 
-export const createPhase9BrowserApi = async ({
+export const createBrowserApi = async ({
   environment: source,
   identities
 }: {
   environment: NodeJS.ProcessEnv
   identities: unknown
 }) => {
-  const environment = parsePhase9BrowserEnvironment(source)
-  const provider = createPhase9GoogleTestProvider(source, identities)
+  const environment = parseBrowserEnvironment(source)
+  const provider = createGoogleTestProvider(source, identities)
   const database = createDatabaseRuntime(environment.DATABASE_URL, {
     migrationProfile: 'current',
     startupRole: 'nihongo_app'
@@ -530,11 +530,11 @@ export const createPhase9BrowserApi = async ({
 }
 
 const run = async (): Promise<void> => {
-  const environment = parsePhase9BrowserEnvironment(process.env)
+  const environment = parseBrowserEnvironment(process.env)
   const identities: unknown = JSON.parse(
     process.env.BROWSER_TEST_SSO_IDENTITIES ?? 'null'
   )
-  const fixture = await createPhase9BrowserApi({
+  const fixture = await createBrowserApi({
     environment: process.env,
     identities
   })

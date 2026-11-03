@@ -32,7 +32,7 @@ vi.mock('./runAdminApiIntegration.js', () => ({
   cleanupPhase7IsolatedDatabase: ports.cleanupHarness
 }))
 vi.mock('./browserFixture.js', () => ({
-  createPhase7SsoAdminBrowserApiFixture: ports.fixture
+  createSsoAdminBrowserApiFixture: ports.fixture
 }))
 vi.mock('../config/env.js', () => ({
   parseApiEnvironment: ports.parseEnvironment
@@ -45,7 +45,7 @@ import type { Server } from 'node:http'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cleanupPhase7BrowserResources,
-  closePhase7BrowserApi,
+  closeBrowserApi,
   selectPhase7BrowserSpecs
 } from './runAdminBrowser.js'
 
@@ -148,7 +148,7 @@ describe('admin browser TEST API listener shutdown', () => {
     await cleanupPhase7BrowserResources([], {
       stopOwnedProcesses: async () => {
         calls.push('children')
-        await closePhase7BrowserApi(server)
+        await closeBrowserApi(server)
       },
       closeControlServer: async () => {
         calls.push('control')
@@ -169,7 +169,7 @@ describe('admin browser TEST API listener shutdown', () => {
     const processes = [owned]
     await expect(
       cleanupPhase7BrowserResources(processes, {
-        stopOwnedProcesses: () => closePhase7BrowserApi(server),
+        stopOwnedProcesses: () => closeBrowserApi(server),
         closeControlServer: async () => undefined,
         cleanupDatabase
       })
@@ -178,14 +178,14 @@ describe('admin browser TEST API listener shutdown', () => {
     expect(processes[0]).toBe(owned)
   })
   it('allows cleanup for an absent or not-yet-listening owned server', async () => {
-    await expect(closePhase7BrowserApi(undefined)).resolves.toBeUndefined()
+    await expect(closeBrowserApi(undefined)).resolves.toBeUndefined()
     const error = Object.assign(new Error('not started'), {
       code: 'ERR_SERVER_NOT_RUNNING'
     })
     const server = {
       close: (callback: (error?: Error) => void) => callback(error)
     } as unknown as Server
-    await expect(closePhase7BrowserApi(server)).resolves.toBeUndefined()
+    await expect(closeBrowserApi(server)).resolves.toBeUndefined()
   })
 })
 
@@ -200,7 +200,7 @@ describe('admin browser owned API bounded shutdown', () => {
       } as unknown as Server
       const cleanupDatabase = vi.fn(async () => undefined)
       const failure = cleanupPhase7BrowserResources([], {
-        stopOwnedProcesses: () => closePhase7BrowserApi(server),
+        stopOwnedProcesses: () => closeBrowserApi(server),
         closeControlServer: async () => undefined,
         cleanupDatabase
       }).catch((error: unknown) => error)

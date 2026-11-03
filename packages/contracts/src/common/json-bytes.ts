@@ -1,4 +1,4 @@
-export type Phase7JsonFailureKind = 'INVALID_JSON' | 'MAX_DEPTH_EXCEEDED'
+export type JsonFailureKind = 'INVALID_JSON' | 'MAX_DEPTH_EXCEEDED'
 
 interface FatalTextDecoder {
   decode(input?: Uint8Array): string
@@ -9,9 +9,9 @@ interface FatalTextDecoderConstructor {
 }
 
 export class Phase7JsonParseError extends Error {
-  readonly kind: Phase7JsonFailureKind
+  readonly kind: JsonFailureKind
 
-  constructor(kind: Phase7JsonFailureKind) {
+  constructor(kind: JsonFailureKind) {
     super(
       kind === 'MAX_DEPTH_EXCEEDED'
         ? 'Phase 7 JSON exceeds the maximum container depth.'

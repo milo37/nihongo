@@ -12,7 +12,7 @@ import type { AddressInfo } from 'node:net'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { cleanupBrowserResources } from './browserCleanup.js'
 import type { OwnedProcess } from './ownedProcessGroup.js'
-import type { Phase7BrowserFixtureDatabase } from './browserFixture.js'
+import type { BrowserFixtureDatabase } from './browserFixture.js'
 import {
   retireOwnedProcess,
   shouldDetachOwnedProcess,
@@ -45,7 +45,7 @@ let webAssetsDirectory: string | undefined
 let adminAssetsDirectory: string | undefined
 let controlServer: Server | undefined
 let apiServer: Server | undefined
-let fixtureDatabase: Phase7BrowserFixtureDatabase | undefined
+let fixtureDatabase: BrowserFixtureDatabase | undefined
 let cleanupDatabaseHarness: (() => Promise<void>) | undefined
 let cleanupPromise: Promise<void> | undefined
 
@@ -174,7 +174,7 @@ const closeControlServer = async (): Promise<void> => {
   })
 }
 
-export const closePhase7BrowserApi = async (
+export const closeBrowserApi = async (
   server: Server | undefined
 ): Promise<void> => {
   if (!server) return
@@ -219,7 +219,7 @@ export const cleanup = (): Promise<void> => {
           )
         }
       })
-      await closePhase7BrowserApi(apiServer)
+      await closeBrowserApi(apiServer)
       apiServer = undefined
     },
     closeControlServer,
@@ -269,7 +269,7 @@ const startControlServer = async ({
   secret
 }: {
   readonly authorUserId: string
-  readonly database: Phase7BrowserFixtureDatabase
+  readonly database: BrowserFixtureDatabase
   readonly secret: string
 }): Promise<string> => {
   const port = await reserveLoopbackPort()
@@ -442,7 +442,7 @@ export const runReal = async (): Promise<void> => {
   ])
     delete apiEnvironment[key]
   const [
-    { createPhase7SsoAdminBrowserApiFixture },
+    { createSsoAdminBrowserApiFixture },
     { parseApiEnvironment },
     { getRequestListener }
   ] = await Promise.all([
@@ -450,7 +450,7 @@ export const runReal = async (): Promise<void> => {
     import('../config/env.js'),
     import('@hono/node-server')
   ])
-  const created = await createPhase7SsoAdminBrowserApiFixture(
+  const created = await createSsoAdminBrowserApiFixture(
     {
       databaseUrl: harness.applicationDatabaseUrl,
       authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,

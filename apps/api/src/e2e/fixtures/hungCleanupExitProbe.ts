@@ -1,7 +1,7 @@
 import { access, writeFile } from 'node:fs/promises'
 import { createPerformanceFailureFinalizer } from '../performanceFailureFinalizer.js'
 import { exitPerformanceProcess } from '../performanceProcessExit.js'
-import { Phase10CleanupTimeoutError } from '../runTimeout.js'
+import { CleanupTimeoutError } from '../runTimeout.js'
 
 const evidenceFile = process.env.HUNG_CLEANUP_EVIDENCE_FILE
 if (!evidenceFile) {
@@ -40,7 +40,7 @@ exitPerformanceProcess({
       destination: 'stderr',
       value: {
         cleanupTimedOut: cleanupErrors.some(
-          (error) => error instanceof Phase10CleanupTimeoutError
+          (error) => error instanceof CleanupTimeoutError
         ),
         evidenceRemoved,
         event: 'phase10.hung_cleanup_probe.failed'

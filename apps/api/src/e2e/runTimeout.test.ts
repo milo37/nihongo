@@ -9,8 +9,8 @@ import {
   stopOwnedProcesses
 } from './ownedProcessGroup.js'
 import {
-  Phase10CleanupTimeoutError,
-  Phase10RunTimeoutError,
+  CleanupTimeoutError,
+  RunTimeoutError,
   runWithOperationTimeout
 } from './runTimeout.js'
 
@@ -85,10 +85,7 @@ describe('Phase 10 runner timeout', () => {
     })
 
     await expect(rejection).rejects.toMatchObject({
-      errors: [
-        expect.any(Phase10RunTimeoutError),
-        expect.any(Phase10CleanupTimeoutError)
-      ]
+      errors: [expect.any(RunTimeoutError), expect.any(CleanupTimeoutError)]
     })
     expect(cleanupStarted).toBe(true)
     expect(Date.now() - startedAt).toBeLessThan(500)
@@ -152,7 +149,7 @@ describe('Phase 10 runner timeout', () => {
             }),
           timeoutMs: 50
         })
-      ).rejects.toBeInstanceOf(Phase10RunTimeoutError)
+      ).rejects.toBeInstanceOf(RunTimeoutError)
       expect(abortController.signal.aborted).toBe(true)
       expect(lateStageStarted).toBe(false)
       expect(isProcessRunning(leaderPid)).toBe(false)

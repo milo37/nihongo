@@ -11,7 +11,7 @@ import {
   type Phase7Operation
 } from './content-manifest.js'
 
-export const phase7ExecutionDispositionSchema = z.enum([
+export const executionDispositionSchema = z.enum([
   'NO_TX',
   'DEFINITE_ROLLBACK',
   'COMMIT_CONFIRMED',
@@ -19,18 +19,18 @@ export const phase7ExecutionDispositionSchema = z.enum([
 ])
 
 export type Phase7ExecutionDisposition = z.output<
-  typeof phase7ExecutionDispositionSchema
+  typeof executionDispositionSchema
 >
 
-export const phase7InternalFailureReasonSchema = z.enum([
+export const internalFailureReasonSchema = z.enum([
   'CONTENT_DUPLICATE_CONCURRENT_RACE'
 ])
 
 export type Phase7InternalFailureReason = z.output<
-  typeof phase7InternalFailureReasonSchema
+  typeof internalFailureReasonSchema
 >
 
-export const phase7ErrorSurfaceSchema = z.enum([
+export const errorSurfaceSchema = z.enum([
   'GET_READ',
   'VALIDATION_WRITE_ZERO',
   'APPLY_IMPORT',
@@ -39,7 +39,7 @@ export const phase7ErrorSurfaceSchema = z.enum([
   'REAUTHENTICATION'
 ])
 
-export type Phase7ErrorSurface = z.output<typeof phase7ErrorSurfaceSchema>
+export type ErrorSurface = z.output<typeof errorSurfaceSchema>
 
 export const phase7ErrorSurfaceByOperation = {
   listAdminQuestions: 'GET_READ',
@@ -70,7 +70,7 @@ export const phase7ErrorSurfaceByOperation = {
   getAdminQuestionReport: 'GET_READ',
   triageAdminQuestionReport: 'KEYLESS_MUTATION',
   resolveAdminQuestionReport: 'KEYLESS_MUTATION'
-} as const satisfies Readonly<Record<Phase7Operation, Phase7ErrorSurface>>
+} as const satisfies Readonly<Record<Phase7Operation, ErrorSurface>>
 
 const duplicateRaceOperations = new Set<Phase7Operation>([
   'createAdminQuestion',
@@ -80,7 +80,7 @@ const duplicateRaceOperations = new Set<Phase7Operation>([
   'applyQuestionImport'
 ])
 
-export interface Phase7RetryabilityInput {
+export interface RetryabilityInput {
   readonly operation: Phase7Operation
   readonly code: StableErrorCode
   readonly disposition: Phase7ExecutionDisposition
@@ -91,12 +91,12 @@ const isPreCommitDisposition = (
   disposition: Phase7ExecutionDisposition
 ): boolean => disposition === 'NO_TX' || disposition === 'DEFINITE_ROLLBACK'
 
-export const computePhase7Retryability = ({
+export const computeRetryability = ({
   code,
   disposition,
   internalReason,
   operation
-}: Phase7RetryabilityInput): boolean => {
+}: RetryabilityInput): boolean => {
   const status = errorStatusByCode[code]
 
   if (internalReason !== undefined) {
@@ -193,7 +193,7 @@ export const createPhase7OperationErrorSchema = <
     }
   })
 
-export const assertPhase7ErrorPolicyManifest = (): void => {
+export const assertErrorPolicyManifest = (): void => {
   const manifestOperations = phase7OperationManifest.map(
     (entry) => entry.operation
   )
@@ -205,7 +205,7 @@ export const assertPhase7ErrorPolicyManifest = (): void => {
   }
 
   const counts = Object.values(phase7ErrorSurfaceByOperation).reduce<
-    Record<Phase7ErrorSurface, number>
+    Record<ErrorSurface, number>
   >(
     (result, surface) => ({
       ...result,

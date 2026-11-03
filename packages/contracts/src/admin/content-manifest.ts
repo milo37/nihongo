@@ -1,13 +1,13 @@
-export type Phase7HttpMethod = 'GET' | 'PATCH' | 'POST'
-export type Phase7ResponseBodyKind = 'JSON' | 'ATTACHMENT'
+export type HttpMethod = 'GET' | 'PATCH' | 'POST'
+export type ResponseBodyKind = 'JSON' | 'ATTACHMENT'
 
-export interface Phase7OperationManifestEntry {
+export interface OperationManifestEntry {
   readonly operation: string
   readonly operationId: string
-  readonly method: Phase7HttpMethod
+  readonly method: HttpMethod
   readonly path: string
   readonly successStatus: 200 | 201
-  readonly responseBodyKind: Phase7ResponseBodyKind
+  readonly responseBodyKind: ResponseBodyKind
   readonly requiresFreshAssurance: boolean
   readonly slice2Route: boolean
 }
@@ -293,7 +293,7 @@ export const phase7OperationManifest = [
     requiresFreshAssurance: true,
     slice2Route: false
   }
-] as const satisfies readonly Phase7OperationManifestEntry[]
+] as const satisfies readonly OperationManifestEntry[]
 
 export const phase7Slice2ReadOperationManifest = phase7OperationManifest.filter(
   (entry) => entry.slice2Route
@@ -340,7 +340,7 @@ const PHASE_7_SLICE_5_OPERATIONS = new Set<Phase7Operation>([
   'resolveAdminQuestionReport'
 ])
 
-export const phase7Slice4CacheInvalidationTargets = [
+export const slice4CacheInvalidationTargets = [
   'adminQuestions.allLists',
   'adminQuestions.detail',
   'adminQuestionVersions.history',
@@ -363,10 +363,10 @@ const slice4CacheInvalidationContract = {
   settlement: 'AWAIT_ALL',
   failureAction: 'NONE',
   staleActorAction: 'NONE',
-  targets: phase7Slice4CacheInvalidationTargets
+  targets: slice4CacheInvalidationTargets
 } as const
 
-export const phase7Slice4CacheInvalidationContractByOperation = {
+export const slice4CacheInvalidationContractByOperation = {
   publishQuestionVersion: slice4CacheInvalidationContract,
   retireQuestionVersion: slice4CacheInvalidationContract,
   archiveAdminQuestion: slice4CacheInvalidationContract
@@ -377,31 +377,30 @@ export const phase7Slice4CacheInvalidationContractByOperation = {
   >
 >
 
-export const phase7Slice3ACommandOperationManifest =
-  phase7OperationManifest.filter((entry) =>
-    PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
-  )
+export const slice3ACommandOperationManifest = phase7OperationManifest.filter(
+  (entry) => PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+)
 
-export const phase7Slice3RRemediationOperationManifest =
+export const slice3RRemediationOperationManifest =
   phase7OperationManifest.filter((entry) =>
     PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS.has(entry.operation)
   )
 
-export const phase7ActiveThroughSlice3AOperationManifest =
+export const activeThroughSlice3AOperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
       PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
   )
 
-export const phase7DormantAfterSlice3AOperationManifest =
+export const dormantAfterSlice3AOperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
       !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
   )
 
-export const phase7ActiveThroughSlice3RA1OperationManifest =
+export const activeThroughSlice3RA1OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
@@ -409,7 +408,7 @@ export const phase7ActiveThroughSlice3RA1OperationManifest =
       PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
   )
 
-export const phase7DormantAfterSlice3RA1OperationManifest =
+export const dormantAfterSlice3RA1OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
@@ -417,7 +416,7 @@ export const phase7DormantAfterSlice3RA1OperationManifest =
       !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
   )
 
-export const phase7ActiveThroughSlice3RA2OperationManifest =
+export const activeThroughSlice3RA2OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
@@ -426,7 +425,7 @@ export const phase7ActiveThroughSlice3RA2OperationManifest =
       PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
   )
 
-export const phase7DormantAfterSlice3RA2OperationManifest =
+export const dormantAfterSlice3RA2OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
@@ -435,11 +434,11 @@ export const phase7DormantAfterSlice3RA2OperationManifest =
       !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
   )
 
-export const phase7Slice4OperationManifest = phase7OperationManifest.filter(
-  (entry) => PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+export const slice4OperationManifest = phase7OperationManifest.filter((entry) =>
+  PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
 )
 
-export const phase7ActiveThroughSlice4OperationManifest =
+export const activeThroughSlice4OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
@@ -449,7 +448,7 @@ export const phase7ActiveThroughSlice4OperationManifest =
       PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
   )
 
-export const phase7DormantAfterSlice4OperationManifest =
+export const dormantAfterSlice4OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
@@ -459,11 +458,11 @@ export const phase7DormantAfterSlice4OperationManifest =
       !PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
   )
 
-export const phase7Slice5OperationManifest = phase7OperationManifest.filter(
-  (entry) => PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+export const slice5OperationManifest = phase7OperationManifest.filter((entry) =>
+  PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
 )
 
-export const phase7ActiveThroughSlice5OperationManifest =
+export const activeThroughSlice5OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
@@ -474,7 +473,7 @@ export const phase7ActiveThroughSlice5OperationManifest =
       PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
   )
 
-export const phase7DormantAfterSlice5OperationManifest =
+export const dormantAfterSlice5OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
@@ -485,7 +484,7 @@ export const phase7DormantAfterSlice5OperationManifest =
       !PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
   )
 
-export const assertPhase7OperationManifest = (): void => {
+export const assertOperationManifest = (): void => {
   if (phase7OperationManifest.length !== 28) {
     throw new Error('Phase 7 operation manifest는 정확히 28개여야 합니다.')
   }
@@ -493,20 +492,20 @@ export const assertPhase7OperationManifest = (): void => {
     throw new Error('Phase 7 Slice 2 route manifest는 정확히 8개여야 합니다.')
   }
   if (
-    phase7Slice3ACommandOperationManifest.length !== 5 ||
-    phase7Slice3RRemediationOperationManifest.length !== 3 ||
-    phase7ActiveThroughSlice3AOperationManifest.length !== 13 ||
-    phase7DormantAfterSlice3AOperationManifest.length !== 15 ||
-    phase7ActiveThroughSlice3RA1OperationManifest.length !== 14 ||
-    phase7DormantAfterSlice3RA1OperationManifest.length !== 14 ||
-    phase7ActiveThroughSlice3RA2OperationManifest.length !== 16 ||
-    phase7DormantAfterSlice3RA2OperationManifest.length !== 12 ||
-    phase7Slice4OperationManifest.length !== 3 ||
-    phase7ActiveThroughSlice4OperationManifest.length !== 19 ||
-    phase7DormantAfterSlice4OperationManifest.length !== 9 ||
-    phase7Slice5OperationManifest.length !== 9 ||
-    phase7ActiveThroughSlice5OperationManifest.length !== 28 ||
-    phase7DormantAfterSlice5OperationManifest.length !== 0
+    slice3ACommandOperationManifest.length !== 5 ||
+    slice3RRemediationOperationManifest.length !== 3 ||
+    activeThroughSlice3AOperationManifest.length !== 13 ||
+    dormantAfterSlice3AOperationManifest.length !== 15 ||
+    activeThroughSlice3RA1OperationManifest.length !== 14 ||
+    dormantAfterSlice3RA1OperationManifest.length !== 14 ||
+    activeThroughSlice3RA2OperationManifest.length !== 16 ||
+    dormantAfterSlice3RA2OperationManifest.length !== 12 ||
+    slice4OperationManifest.length !== 3 ||
+    activeThroughSlice4OperationManifest.length !== 19 ||
+    dormantAfterSlice4OperationManifest.length !== 9 ||
+    slice5OperationManifest.length !== 9 ||
+    activeThroughSlice5OperationManifest.length !== 28 ||
+    dormantAfterSlice5OperationManifest.length !== 0
   ) {
     throw new Error(
       'Phase 7 manifest는 Slice 3A historical 13/15, Slice 3R-A1 14/14, Slice 3R-A2 16/12, Slice 4 19/9, Slice 5 28/0 경계를 유지해야 합니다.'
@@ -527,8 +526,8 @@ export const assertPhase7OperationManifest = (): void => {
     throw new Error('Slice 2 manifest에는 GET read만 등록할 수 있습니다.')
   }
   if (
-    new Set(phase7Slice4CacheInvalidationTargets).size !== 14 ||
-    Object.keys(phase7Slice4CacheInvalidationContractByOperation).length !== 3
+    new Set(slice4CacheInvalidationTargets).size !== 14 ||
+    Object.keys(slice4CacheInvalidationContractByOperation).length !== 3
   ) {
     throw new Error(
       'Slice 4 cache invalidation 계약은 세 operation과 중복 없는 14개 target이어야 합니다.'
@@ -538,5 +537,5 @@ export const assertPhase7OperationManifest = (): void => {
 
 export type Phase7Operation =
   (typeof phase7OperationManifest)[number]['operation']
-export type Phase7OperationId =
+export type OperationId =
   (typeof phase7OperationManifest)[number]['operationId']

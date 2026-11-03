@@ -223,7 +223,7 @@ interface TestDatabaseDefault {
   readonly tableName: string
 }
 
-class Phase7DatabaseDefaultAttestationError extends Error {
+class DatabaseDefaultAttestationError extends Error {
   public constructor(
     actual: readonly TestDatabaseDefault[],
     expected: readonly TestDatabaseDefault[]
@@ -232,7 +232,7 @@ class Phase7DatabaseDefaultAttestationError extends Error {
       'Phase 7 database default attestation failed. ' +
         JSON.stringify({ actual, expected })
     )
-    this.name = 'Phase7DatabaseDefaultAttestationError'
+    this.name = 'DatabaseDefaultAttestationError'
   }
 }
 
@@ -491,7 +491,7 @@ const assertTestDatabaseDefaults = async (): Promise<void> => {
   if (
     JSON.stringify(actual) !== JSON.stringify(EXPECTED_TEST_DATABASE_DEFAULTS)
   ) {
-    throw new Phase7DatabaseDefaultAttestationError(
+    throw new DatabaseDefaultAttestationError(
       actual,
       EXPECTED_TEST_DATABASE_DEFAULTS
     )
@@ -508,7 +508,7 @@ const assertTestDatabaseDefaultDriftRejected = async (
     try {
       await assertTestDatabaseDefaults()
     } catch (error: unknown) {
-      if (error instanceof Phase7DatabaseDefaultAttestationError) {
+      if (error instanceof DatabaseDefaultAttestationError) {
         rejected = true
       } else {
         throw error

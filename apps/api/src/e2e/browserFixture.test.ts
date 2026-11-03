@@ -6,8 +6,8 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
-  createPhase7BrowserFixture,
-  createPhase7SsoAdminBrowserApiFixture,
+  createBrowserFixture,
+  createSsoAdminBrowserApiFixture,
   createPhase7SsoBrowserApiFixture
 } from './browserFixture.js'
 
@@ -108,7 +108,7 @@ beforeEach(() => {
 })
 
 const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
-  const created = await createPhase7SsoAdminBrowserApiFixture(options())
+  const created = await createSsoAdminBrowserApiFixture(options())
   const authentication = vi
     .mocked(createSsoAuthentication)
     .mock.results.at(-1)!.value
@@ -146,7 +146,7 @@ const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
 describe('Phase7/8 production admin static guard handoff', () => {
   it('shares production guard dependencies with the existing CMS API guards', async () => {
     const input = options()
-    const created = await createPhase7SsoAdminBrowserApiFixture(input)
+    const created = await createSsoAdminBrowserApiFixture(input)
     expect(typeof created.adminGuard).toBe('function')
     const guards = vi
       .mocked(createAdminReadGuard)
@@ -262,7 +262,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
 
 describe('Phase7/8 Google CMS browser TEST handoff', () => {
   it('prepares distinct linked actors without passwords, promotion or manual session issuance', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     const actors = Object.values(created.fixture)
     expect(actors).toHaveLength(5)
     expect(new Set(actors.map((actor) => actor.userId)).size).toBe(5)
@@ -338,7 +338,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('rejects unknown or inherited-property callback codes without role selection', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     for (const code of [
       '',
       'author',
@@ -352,7 +352,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('keeps state, nonce and PKCE generation in the existing Google authorization provider', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     const target = new URL(
       await provider().authorizationURL({
         state: 's'.repeat(43),
@@ -369,7 +369,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('composes current CMS and learning routes but denies guest and malformed fresh entry', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     expect(
       created.app.routes.some((route) =>
         route.path.startsWith('/api/v1/admin/questions')
@@ -555,7 +555,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     }
     if (kind === 'externalOrigin')
       input.environment.TRUSTED_ORIGINS = ['https://example.test']
-    await expect(createPhase7SsoAdminBrowserApiFixture(input)).rejects.toThrow()
+    await expect(createSsoAdminBrowserApiFixture(input)).rejects.toThrow()
     expect(createDatabaseRuntime).not.toHaveBeenCalled()
     expect(f.connect).not.toHaveBeenCalled()
   })
@@ -566,9 +566,9 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
         throw new Error('controlled seed failure')
       return { rows: [], rowCount: 1 }
     })
-    await expect(
-      createPhase7SsoAdminBrowserApiFixture(options())
-    ).rejects.toThrow('controlled seed failure')
+    await expect(createSsoAdminBrowserApiFixture(options())).rejects.toThrow(
+      'controlled seed failure'
+    )
     expect(f.ownerQuery.mock.calls.at(-1)).toEqual(['ROLLBACK'])
     expect(f.end).toHaveBeenCalledOnce()
     expect(f.disconnect).toHaveBeenCalledOnce()
@@ -603,7 +603,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
     }))
 
   it('requires the whole acceptance sequence, not just the canonical three completions', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     f.ownerQuery.mockResolvedValueOnce({ rows: [snapshot()] })
     const before = await created.database.snapshot()
     f.ownerQuery
@@ -627,7 +627,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   it.each([1, 2, 3, 5, 7])(
     'rejects %i rotations even with matching intent/finalization totals',
     async (count) => {
-      const created = await createPhase7SsoAdminBrowserApiFixture(options())
+      const created = await createSsoAdminBrowserApiFixture(options())
       f.ownerQuery.mockResolvedValueOnce({ rows: [snapshot(count, 24)] })
       await expect(
         created.database.assertExpectedLifecycleDelta(snapshot())
@@ -639,7 +639,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   it.each(['finalized', 'proof', 'fence', 'audit'] as const)(
     'fails closed for an unbound or missing %s despite correct aggregate totals',
     async (key) => {
-      const created = await createPhase7SsoAdminBrowserApiFixture(options())
+      const created = await createSsoAdminBrowserApiFixture(options())
       const rows = persistedCompletions(
         created.fixture.author.userId,
         created.fixture.reviewer.userId
@@ -656,7 +656,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   )
 
   it('rejects using an author completion in place of the distinct reviewer', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     const rows = persistedCompletions(
       created.fixture.author.userId,
       created.fixture.reviewer.userId
@@ -674,7 +674,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   it.each([0, 5, 7])(
     'rejects %i retained proofs rather than accepting erased or extra evidence',
     async (proofCount) => {
-      const created = await createPhase7SsoAdminBrowserApiFixture(options())
+      const created = await createSsoAdminBrowserApiFixture(options())
       const rows = persistedCompletions(
         created.fixture.author.userId,
         created.fixture.reviewer.userId
@@ -691,7 +691,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   )
 
   it('rejects a missing completion receipt with unchanged global counters', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     const rows = persistedCompletions(
       created.fixture.author.userId,
       created.fixture.reviewer.userId
@@ -706,7 +706,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
   })
 
   it('keeps legacy credential lifecycle expectations at one rotation and 25 audits', async () => {
-    const created = await createPhase7BrowserFixture(options().adminDatabaseUrl)
+    const created = await createBrowserFixture(options().adminDatabaseUrl)
     f.ownerQuery.mockResolvedValueOnce({ rows: [snapshot(1, 24)] })
     const queriesBefore = f.ownerQuery.mock.calls.length
     await expect(
@@ -762,7 +762,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   })
 
   it('accepts one owned DRAFT create/PATCH/archive and one bound fresh completion', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(
+    const created = await createSsoAdminBrowserApiFixture(
       options(),
       'admin-a1-a8'
     )
@@ -782,7 +782,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   })
 
   it('requires explicit selection instead of silently relaxing the default full lifecycle', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(options())
+    const created = await createSsoAdminBrowserApiFixture(options())
     f.ownerQuery.mockResolvedValueOnce({ rows: [after] })
     await expect(
       created.database.assertExpectedLifecycleDelta(before)
@@ -791,7 +791,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   })
 
   it('rejects the old full-lifecycle deltas in the A1-A8 profile', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(
+    const created = await createSsoAdminBrowserApiFixture(
       options(),
       'admin-a1-a8'
     )
@@ -830,7 +830,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     ['rotationFence', 2],
     ['operationIntent', 1]
   ] as const)('rejects an unexpected %s total of %i', async (key, value) => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(
+    const created = await createSsoAdminBrowserApiFixture(
       options(),
       'admin-a1-a8'
     )
@@ -844,7 +844,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   it.each(['finalized', 'proof', 'fence', 'audit'] as const)(
     'rejects an unbound %s even when all A1-A8 totals match',
     async (key) => {
-      const created = await createPhase7SsoAdminBrowserApiFixture(
+      const created = await createSsoAdminBrowserApiFixture(
         options(),
         'admin-a1-a8'
       )
@@ -861,7 +861,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   )
 
   it('does not substitute the reviewer proof for the author archive proof', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(
+    const created = await createSsoAdminBrowserApiFixture(
       options(),
       'admin-a1-a8'
     )
@@ -877,7 +877,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   })
 
   it.each([0, 2])('rejects %i retained fresh proofs', async (proofCount) => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(
+    const created = await createSsoAdminBrowserApiFixture(
       options(),
       'admin-a1-a8'
     )
@@ -895,7 +895,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   it.each(['state', 'create', 'update', 'archive', 'review'] as const)(
     'rejects wrong owned %s evidence despite correct counts',
     async (key) => {
-      const created = await createPhase7SsoAdminBrowserApiFixture(
+      const created = await createSsoAdminBrowserApiFixture(
         options(),
         'admin-a1-a8'
       )
@@ -915,7 +915,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   )
 
   it('rejects a missing owned aggregate instead of accepting audit counts alone', async () => {
-    const created = await createPhase7SsoAdminBrowserApiFixture(
+    const created = await createSsoAdminBrowserApiFixture(
       options(),
       'admin-a1-a8'
     )
@@ -933,7 +933,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
 
   it('rejects an unknown profile before creating or seeding any database client', async () => {
     await expect(
-      createPhase7SsoAdminBrowserApiFixture(options(), 'unknown' as never)
+      createSsoAdminBrowserApiFixture(options(), 'unknown' as never)
     ).rejects.toThrow('Unknown Phase 7 SSO admin lifecycle profile')
     expect(f.connect).not.toHaveBeenCalled()
     expect(f.ownerQuery).not.toHaveBeenCalled()

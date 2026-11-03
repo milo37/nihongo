@@ -8,21 +8,21 @@ interface RunWithOperationTimeoutOptions<Result> {
   readonly timeoutMs: number
 }
 
-export class Phase10RunTimeoutError extends Error {
+export class RunTimeoutError extends Error {
   readonly code = 'PHASE10_RUN_TIMEOUT'
 
   constructor(label: string, timeoutMs: number) {
     super(`${label} timed out after ${timeoutMs}ms.`)
-    this.name = 'Phase10RunTimeoutError'
+    this.name = 'RunTimeoutError'
   }
 }
 
-export class Phase10CleanupTimeoutError extends Error {
+export class CleanupTimeoutError extends Error {
   readonly code = 'PHASE10_CLEANUP_TIMEOUT'
 
   constructor(label: string, timeoutMs: number) {
     super(`${label} cleanup timed out after ${timeoutMs}ms.`)
-    this.name = 'Phase10CleanupTimeoutError'
+    this.name = 'CleanupTimeoutError'
   }
 }
 
@@ -46,7 +46,7 @@ export const runCleanupWithTimeout = async ({
       cleanup(),
       new Promise<never>((_resolve, reject) => {
         timeoutHandle = globalThis.setTimeout(
-          () => reject(new Phase10CleanupTimeoutError(label, timeoutMs)),
+          () => reject(new CleanupTimeoutError(label, timeoutMs)),
           timeoutMs
         )
       })
@@ -91,7 +91,7 @@ export const runWithOperationTimeout = async <Result>({
       timeoutOutcome
     ])
     if (!outcome.timedOut) return outcome.value
-    const timeoutError = new Phase10RunTimeoutError(label, timeoutMs)
+    const timeoutError = new RunTimeoutError(label, timeoutMs)
     onTimeout()
     await Promise.race([
       operationPromise.then(

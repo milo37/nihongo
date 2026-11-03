@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPerformanceFailureFinalizer } from './performanceFailureFinalizer.js'
-import { Phase10CleanupTimeoutError } from './runTimeout.js'
+import { CleanupTimeoutError } from './runTimeout.js'
 
 const temporaryDirectories: string[] = []
 const require = createRequire(import.meta.url)
@@ -135,7 +135,7 @@ describe('Phase 10 performance failure finalizer', () => {
     })
 
     await expect(finalizeFailure()).resolves.toEqual([
-      expect.any(Phase10CleanupTimeoutError)
+      expect.any(CleanupTimeoutError)
     ])
     expect(Date.now() - startedAt).toBeLessThan(500)
     await expect(access(evidenceFile)).rejects.toMatchObject({ code: 'ENOENT' })

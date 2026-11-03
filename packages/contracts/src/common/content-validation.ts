@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { persistedUserRoleSchema } from './enum.js'
 import { opaqueIdSchema } from './id.js'
 
-const hasForbiddenPhase7Control = (value: string): boolean =>
+const hasForbiddenControl = (value: string): boolean =>
   [...value].some((character) => {
     const codePoint = character.codePointAt(0) ?? 0
     return (
@@ -115,7 +115,7 @@ export const compareUnicodeScalars = (left: string, right: string): number => {
   return leftScalars.length - rightScalars.length
 }
 
-export interface Phase7TextOptions {
+export interface TextOptions {
   readonly minScalars?: number
   readonly maxScalars: number
   readonly multiline?: boolean
@@ -134,7 +134,7 @@ export const createPhase7TextSchema = ({
   minScalars = 1,
   maxScalars,
   multiline = false
-}: Phase7TextOptions) =>
+}: TextOptions) =>
   z
     .string()
     .refine((value) => !UNPAIRED_SURROGATE_PATTERN.test(value), {
@@ -149,7 +149,7 @@ export const createPhase7TextSchema = ({
         message: `${minScalars}..${maxScalars} Unicode scalar 길이여야 합니다.`
       }
     )
-    .refine((value) => !hasForbiddenPhase7Control(value), {
+    .refine((value) => !hasForbiddenControl(value), {
       message: '제어 문자는 허용하지 않습니다.'
     })
     .refine((value) => multiline || !value.includes('\n'), {
@@ -157,7 +157,7 @@ export const createPhase7TextSchema = ({
     })
 
 export const isWellFormedPhase7Text = (value: string): boolean =>
-  !UNPAIRED_SURROGATE_PATTERN.test(value) && !hasForbiddenPhase7Control(value)
+  !UNPAIRED_SURROGATE_PATTERN.test(value) && !hasForbiddenControl(value)
 
 export const normalizePhase7TagKey = (value: string): string =>
   value
@@ -175,7 +175,7 @@ export const normalizePhase7DuplicateText = (value: string): string =>
     .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
 
-export interface Phase7QuestionDuplicateIdentityMaterial {
+export interface QuestionDuplicateIdentityMaterial {
   readonly correctOptionText: string
   readonly optionTexts: readonly string[]
   readonly passage: string | null
@@ -185,7 +185,7 @@ export interface Phase7QuestionDuplicateIdentityMaterial {
 }
 
 export const createPhase7QuestionDuplicateIdentity = (
-  material: Phase7QuestionDuplicateIdentityMaterial
+  material: QuestionDuplicateIdentityMaterial
 ): string =>
   canonicalizeJson({
     correctOptionText: normalizePhase7DuplicateText(material.correctOptionText),

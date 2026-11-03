@@ -921,6 +921,6 @@ export const createHistoricalSchemaFixture = ({
     seedReviewedRevision2Catalog,
     seedCurrentCatalog,
     transferPreAdminTargetOwnership,
-    transferPhase6TargetOwnership: transferPreAdminTargetOwnership
+    transferTargetOwnership: transferPreAdminTargetOwnership
   }
 }

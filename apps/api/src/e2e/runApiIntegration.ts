@@ -90,7 +90,7 @@ const runCommand = async (
     })
   })
 
-interface Phase10ShardResult {
+interface ShardResult {
   readonly databaseState: string
   readonly executedFileCount: number
   readonly isolation: string
@@ -101,7 +101,7 @@ interface Phase10ShardResult {
   readonly shard: string
 }
 
-const readShardResult = (output: string): Phase10ShardResult => {
+const readShardResult = (output: string): ShardResult => {
   const candidates = output
     .split('\n')
     .flatMap((line): unknown[] => {
@@ -112,7 +112,7 @@ const readShardResult = (output: string): Phase10ShardResult => {
       }
     })
     .filter(
-      (value): value is Phase10ShardResult & { readonly event: string } =>
+      (value): value is ShardResult & { readonly event: string } =>
         typeof value === 'object' &&
         value !== null &&
         'event' in value &&
@@ -127,8 +127,8 @@ const readShardResult = (output: string): Phase10ShardResult => {
   return result
 }
 
-const runShardProcess = async (shard: string): Promise<Phase10ShardResult> =>
-  new Promise<Phase10ShardResult>((resolve, reject) => {
+const runShardProcess = async (shard: string): Promise<ShardResult> =>
+  new Promise<ShardResult>((resolve, reject) => {
     const args = [
       '--filter',
       '@nihongo/api',
@@ -264,7 +264,7 @@ const getShardSeedRuns = (
   throw new Error('Phase 10 integration shard seed policy is unavailable.')
 }
 
-const runShard = async (shard: string): Promise<Phase10ShardResult> => {
+const runShard = async (shard: string): Promise<ShardResult> => {
   await validateApiIntegrationManifest()
   const entries = getApiIntegrationEntriesByOwner('phase10').filter(
     (entry) => entry.shard === shard

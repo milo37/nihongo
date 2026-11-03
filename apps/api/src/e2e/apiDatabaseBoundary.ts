@@ -6,7 +6,7 @@ const TEST_DATABASE_GROUP_ROLES = new Set([
   'nihongo_erasure_worker'
 ])
 
-export interface Phase7ApiBootstrapIdentity {
+export interface ApiBootstrapIdentity {
   readonly canCreateDatabase: boolean
   readonly canCreateRole: boolean
   readonly canSetOwner: boolean
@@ -15,17 +15,17 @@ export interface Phase7ApiBootstrapIdentity {
   readonly sessionUser: string
 }
 
-export interface Phase7ApiDatabaseSnapshotIdentity {
+export interface ApiDatabaseSnapshotIdentity {
   readonly acl: ReadonlyArray<{ readonly grantor: string }>
   readonly ownerName: string
 }
 
-export const assertPhase7ApiDatabaseBoundaryPreflight = ({
+export const assertApiDatabaseBoundaryPreflight = ({
   bootstrap,
   snapshot
 }: {
-  bootstrap: Phase7ApiBootstrapIdentity | undefined
-  snapshot: Phase7ApiDatabaseSnapshotIdentity
+  bootstrap: ApiBootstrapIdentity | undefined
+  snapshot: ApiDatabaseSnapshotIdentity
 }): void => {
   if (
     !bootstrap ||

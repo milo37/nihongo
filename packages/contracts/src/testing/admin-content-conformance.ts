@@ -1,22 +1,22 @@
 import {
-  assertPhase7ErrorPolicyManifest,
+  assertErrorPolicyManifest,
   phase7ErrorSurfaceByOperation,
-  type Phase7ErrorSurface,
+  type ErrorSurface,
   type Phase7ExecutionDisposition
 } from '../admin/content-error-policy.js'
 import {
-  assertPhase7OperationSchemaManifest,
-  phase7OperationSchemaManifest
+  assertOperationSchemaManifest,
+  operationSchemaManifest
 } from '../admin/content-operation-schemas.js'
 import {
-  assertPhase7OperationManifest,
+  assertOperationManifest,
   phase7OperationManifest,
   phase7Slice2ReadOperationManifest,
   type Phase7Operation,
-  type Phase7OperationManifestEntry
+  type OperationManifestEntry
 } from '../admin/content-manifest.js'
 
-export const phase7Slice2ExpectedOperations = [
+export const slice2ExpectedOperations = [
   'listAdminQuestions',
   'getAdminQuestion',
   'listAdminTags',
@@ -27,7 +27,7 @@ export const phase7Slice2ExpectedOperations = [
   'listAdminAuditLog'
 ] as const
 
-export const phase7Slice2ExpectedRoutes = [
+export const slice2ExpectedRoutes = [
   'GET /api/v1/admin/questions',
   'GET /api/v1/admin/questions/:questionId',
   'GET /api/v1/admin/tags',
@@ -38,14 +38,13 @@ export const phase7Slice2ExpectedRoutes = [
   'GET /api/v1/admin/audit-log'
 ] as const
 
-export interface Phase7Slice2ReadConformanceEntry
-  extends Phase7OperationManifestEntry {
+export interface Slice2ReadConformanceEntry extends OperationManifestEntry {
   readonly cacheControl: 'private, no-store'
   readonly requestIdHeader: 'X-Request-Id'
   readonly rateLimitGroup: 'ADMIN_READ'
 }
 
-export const phase7Slice2ReadConformanceManifest: readonly Phase7Slice2ReadConformanceEntry[] =
+export const slice2ReadConformanceManifest: readonly Slice2ReadConformanceEntry[] =
   phase7Slice2ReadOperationManifest.map((entry) => ({
     ...entry,
     cacheControl: 'private, no-store',
@@ -53,29 +52,29 @@ export const phase7Slice2ReadConformanceManifest: readonly Phase7Slice2ReadConfo
     rateLimitGroup: 'ADMIN_READ'
   }))
 
-export const phase7DeferredOperationManifest = phase7OperationManifest.filter(
+export const deferredOperationManifest = phase7OperationManifest.filter(
   (entry) => !entry.slice2Route
 )
 
-type Phase7TransientRetryabilityByDisposition = Readonly<
+type TransientRetryabilityByDisposition = Readonly<
   Record<Phase7ExecutionDisposition, boolean | null>
 >
 
-const retryableBeforeCommit: Phase7TransientRetryabilityByDisposition = {
+const retryableBeforeCommit: TransientRetryabilityByDisposition = {
   NO_TX: true,
   DEFINITE_ROLLBACK: true,
   COMMIT_CONFIRMED: false,
   COMMIT_UNKNOWN: false
 }
 
-const retryableWriteZero: Phase7TransientRetryabilityByDisposition = {
+const retryableWriteZero: TransientRetryabilityByDisposition = {
   NO_TX: true,
   DEFINITE_ROLLBACK: true,
   COMMIT_CONFIRMED: null,
   COMMIT_UNKNOWN: null
 }
 
-const neverRetryableTransient: Phase7TransientRetryabilityByDisposition = {
+const neverRetryableTransient: TransientRetryabilityByDisposition = {
   NO_TX: false,
   DEFINITE_ROLLBACK: false,
   COMMIT_CONFIRMED: false,
@@ -91,7 +90,7 @@ const duplicateRaceOperations = new Set([
 ])
 
 const transientRetryabilityBySurface: Readonly<
-  Record<Phase7ErrorSurface, Phase7TransientRetryabilityByDisposition>
+  Record<ErrorSurface, TransientRetryabilityByDisposition>
 > = {
   GET_READ: retryableWriteZero,
   VALIDATION_WRITE_ZERO: retryableWriteZero,
@@ -101,18 +100,17 @@ const transientRetryabilityBySurface: Readonly<
   REAUTHENTICATION: neverRetryableTransient
 }
 
-export interface Phase7OperationErrorConformanceEntry
-  extends Phase7OperationManifestEntry {
+export interface OperationErrorConformanceEntry extends OperationManifestEntry {
   readonly operation: Phase7Operation
-  readonly errorSurface: Phase7ErrorSurface
+  readonly errorSurface: ErrorSurface
   readonly deterministic4xxRetryable: false
   readonly rateLimitedRetryable: true
   readonly rateLimitedRetryAfterRequired: true
-  readonly transientRetryabilityByDisposition: Phase7TransientRetryabilityByDisposition
+  readonly transientRetryabilityByDisposition: TransientRetryabilityByDisposition
   readonly duplicateRaceRetryable: false | null
 }
 
-export const phase7OperationErrorConformanceManifest: readonly Phase7OperationErrorConformanceEntry[] =
+export const operationErrorConformanceManifest: readonly OperationErrorConformanceEntry[] =
   phase7OperationManifest.map((entry) => {
     const errorSurface = phase7ErrorSurfaceByOperation[entry.operation]
     return {
@@ -129,40 +127,37 @@ export const phase7OperationErrorConformanceManifest: readonly Phase7OperationEr
     }
   })
 
-export const assertPhase7Slice2ConformanceManifest = (): void => {
-  assertPhase7OperationManifest()
-  assertPhase7OperationSchemaManifest()
-  assertPhase7ErrorPolicyManifest()
-  const operations = phase7Slice2ReadConformanceManifest.map(
+export const assertSlice2ConformanceManifest = (): void => {
+  assertOperationManifest()
+  assertOperationSchemaManifest()
+  assertErrorPolicyManifest()
+  const operations = slice2ReadConformanceManifest.map(
     (entry) => entry.operation
   )
-  const routes = phase7Slice2ReadConformanceManifest.map(
+  const routes = slice2ReadConformanceManifest.map(
     (entry) => `${entry.method} ${entry.path}`
   )
-  if (
-    JSON.stringify(operations) !==
-    JSON.stringify(phase7Slice2ExpectedOperations)
-  ) {
+  if (JSON.stringify(operations) !== JSON.stringify(slice2ExpectedOperations)) {
     throw new Error(
       'Slice 2 operation order/set이 canonical expectation과 다릅니다.'
     )
   }
-  if (JSON.stringify(routes) !== JSON.stringify(phase7Slice2ExpectedRoutes)) {
+  if (JSON.stringify(routes) !== JSON.stringify(slice2ExpectedRoutes)) {
     throw new Error(
       'Slice 2 route order/set이 canonical expectation과 다릅니다.'
     )
   }
-  if (phase7DeferredOperationManifest.length !== 20) {
+  if (deferredOperationManifest.length !== 20) {
     throw new Error('Slice 2에서 deferred operation은 정확히 20개여야 합니다.')
   }
-  if (phase7OperationSchemaManifest.length !== 28) {
+  if (operationSchemaManifest.length !== 28) {
     throw new Error(
       'Phase 7 schema conformance는 28 operations를 모두 덮어야 합니다.'
     )
   }
   if (
-    phase7OperationErrorConformanceManifest.length !== 28 ||
-    phase7OperationErrorConformanceManifest.some(
+    operationErrorConformanceManifest.length !== 28 ||
+    operationErrorConformanceManifest.some(
       (entry) =>
         entry.errorSurface !== phase7ErrorSurfaceByOperation[entry.operation] ||
         entry.deterministic4xxRetryable !== false ||
@@ -173,7 +168,7 @@ export const assertPhase7Slice2ConformanceManifest = (): void => {
     throw new Error('Phase 7 all-operation error conformance가 닫혀야 합니다.')
   }
   if (
-    phase7Slice2ReadConformanceManifest.some(
+    slice2ReadConformanceManifest.some(
       (entry) =>
         entry.cacheControl !== 'private, no-store' ||
         entry.requestIdHeader !== 'X-Request-Id' ||
@@ -186,5 +181,4 @@ export const assertPhase7Slice2ConformanceManifest = (): void => {
   }
 }
 
-export type Phase7Slice2ExpectedOperation =
-  (typeof phase7Slice2ExpectedOperations)[number]
+export type Slice2ExpectedOperation = (typeof slice2ExpectedOperations)[number]

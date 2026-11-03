@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { serve } from '@hono/node-server'
 import {
-  createPhase9BrowserApi,
-  createPhase9GoogleTestProvider,
-  parsePhase9BrowserEnvironment,
+  createBrowserApi,
+  createGoogleTestProvider,
+  parseBrowserEnvironment,
   preparePhase9BrowserActors
 } from './browserApi.js'
 
@@ -120,14 +120,14 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
   it('imports without listening or opening a database connection', () => {
     expect(serve).not.toHaveBeenCalled()
     expect(pg.connect).not.toHaveBeenCalled()
-    expect(parsePhase9BrowserEnvironment(source())).toMatchObject({
+    expect(parseBrowserEnvironment(source())).toMatchObject({
       NODE_ENV: 'test',
       ADMIN_CMS_MODE: 'technical'
     })
   })
 
   it('assembles the current learner/report/admin routes without querying or listening and disconnects once', async () => {
-    const fixture = await createPhase9BrowserApi({
+    const fixture = await createBrowserApi({
       environment: source(),
       identities: makeIdentities()
     })
@@ -173,14 +173,12 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
     { DATABASE_URL: url('nihongo_test_app_login').replace(schema, 'public') },
     { PRODUCTION_DATABASE_URL: url('nihongo_test_app_login') }
   ])('rejects non-owned TEST configuration before connecting: %j', (change) => {
-    expect(() =>
-      parsePhase9BrowserEnvironment({ ...source(), ...change })
-    ).toThrow()
+    expect(() => parseBrowserEnvironment({ ...source(), ...change })).toThrow()
     expect(pg.connect).not.toHaveBeenCalled()
   })
 
   it('preserves Google authorization state, nonce and S256 PKCE without a network exchange', async () => {
-    const provider = createPhase9GoogleTestProvider(source(), makeIdentities())
+    const provider = createGoogleTestProvider(source(), makeIdentities())
     const authorization = new URL(
       await provider.authorizationURL({
         state: 's'.repeat(43),
@@ -202,7 +200,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
 
   it('returns only the exact allowlisted identity, never a caller-supplied role/session', async () => {
     const identities = makeIdentities()
-    const provider = createPhase9GoogleTestProvider(source(), identities)
+    const provider = createGoogleTestProvider(source(), identities)
     const input = {
       code: 'phase7-test-google-author',
       nonce: 'n'.repeat(43),
@@ -246,7 +244,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
       value.learner!.identity.accountId = value.author!.identity.accountId
     if (kind === 'extra-field')
       Object.assign(value.author!.identity, { role: 'ADMIN' })
-    expect(() => createPhase9GoogleTestProvider(source(), value)).toThrow()
+    expect(() => createGoogleTestProvider(source(), value)).toThrow()
   })
 
   it('prepares five Google Account-bound actors atomically and confirms the stored DB roles', async () => {

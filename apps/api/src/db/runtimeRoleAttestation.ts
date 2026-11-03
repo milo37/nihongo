@@ -371,7 +371,7 @@ const assertEndpoint = (
   }
 }
 
-export const assertPhase7RuntimeRoleEvidence = (
+export const assertRuntimeRoleEvidence = (
   application: RuntimeRoleEvidence,
   authGateway: RuntimeRoleEvidence,
   endpoints: {
@@ -398,7 +398,7 @@ export const assertPhase7RuntimeRoleEvidence = (
   }
 }
 
-export const attestPhase7RuntimeRoles = async ({
+export const attestRuntimeRoles = async ({
   application,
   authGateway
 }: {
@@ -415,7 +415,7 @@ export const attestPhase7RuntimeRoles = async ({
     throw new Error('Phase 7 runtime DB role evidence is unavailable.')
   }
 
-  assertPhase7RuntimeRoleEvidence(applicationRows[0]!, authGatewayRows[0]!, {
+  assertRuntimeRoleEvidence(applicationRows[0]!, authGatewayRows[0]!, {
     application: {
       connectionString: application.connectionString,
       expectedRole: application.expectedRole

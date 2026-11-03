@@ -25,10 +25,10 @@ import {
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
 import {
-  createPhase10TimingMeasurement,
-  phase10ApiPerformanceBudget,
-  phase10DatabasePerformanceBudget,
-  writePhase10DatabaseApiPerformanceEvidence
+  createTimingMeasurement,
+  apiPerformanceBudget,
+  databasePerformanceBudget,
+  writeDatabaseApiPerformanceEvidence
 } from '../e2e/performanceEvidence.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
@@ -739,8 +739,8 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
     if (p95Milliseconds === undefined) {
       throw new Error('Phase 8 p95 performance sample is unavailable.')
     }
-    const databaseTiming = createPhase10TimingMeasurement({
-      ...phase10DatabasePerformanceBudget,
+    const databaseTiming = createTimingMeasurement({
+      ...databasePerformanceBudget,
       metric: 'dashboard-insights-service',
       samplesMs: durations
     })
@@ -855,8 +855,8 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
       })
     })
     expect(await readBusinessState(principal.userId)).toEqual(before)
-    const apiTiming = createPhase10TimingMeasurement({
-      ...phase10ApiPerformanceBudget,
+    const apiTiming = createTimingMeasurement({
+      ...apiPerformanceBudget,
       metric: 'dashboard-insights-http',
       samplesMs: apiDurations
     })
@@ -874,7 +874,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
       ) {
         throw new Error('Phase 10 performance evidence metadata is missing.')
       }
-      await writePhase10DatabaseApiPerformanceEvidence({
+      await writeDatabaseApiPerformanceEvidence({
         evidence: {
           api: {
             ...apiTiming,
@@ -925,9 +925,9 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
         populatedAnswerCount,
         samples: PERFORMANCE_SAMPLE_COUNT,
         p95Milliseconds: Number(p95Milliseconds.toFixed(3)),
-        targetMilliseconds: phase10DatabasePerformanceBudget.absoluteCeilingMs,
+        targetMilliseconds: databasePerformanceBudget.absoluteCeilingMs,
         targetMet:
-          p95Milliseconds <= phase10DatabasePerformanceBudget.absoluteCeilingMs
+          p95Milliseconds <= databasePerformanceBudget.absoluteCeilingMs
       })}\n`
     )
   }, 120_000)
