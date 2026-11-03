@@ -26,6 +26,10 @@ import {
   retirementKindSchema,
   safeActorSnapshotSchema
 } from '../common/content-validation.js'
+import {
+  autoValidationResultSchema,
+  questionReviewStageSchema
+} from './review.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,
@@ -38,6 +42,7 @@ const addIssue = (
 export const adminQuestionSortSchema = z.enum([
   'UPDATED_DESC',
   'CREATED_DESC',
+  'CREATED_ASC',
   'LEVEL_ASC',
   'REPORT_COUNT_DESC'
 ])
@@ -157,7 +162,8 @@ export const adminQuestionSummarySchema = z
     updatedAt: isoDateTimeSchema,
     answerCount: nonNegativeSafeIntegerSchema,
     correctRateBasisPoints: z.number().int().min(0).max(10_000).nullable(),
-    openReportCount: nonNegativeSafeIntegerSchema
+    openReportCount: nonNegativeSafeIntegerSchema,
+    reviewStage: questionReviewStageSchema
   })
   .strict()
   .superRefine((question, context) => {
@@ -234,7 +240,9 @@ export const adminQuestionVersionSummarySchema = z
     publishedAt: isoDateTimeSchema.nullable(),
     retiredAt: isoDateTimeSchema.nullable(),
     createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema
+    updatedAt: isoDateTimeSchema,
+    reviewStage: questionReviewStageSchema,
+    autoValidation: autoValidationResultSchema
   })
   .strict()
   .superRefine((version, context) => {
@@ -528,7 +536,9 @@ export const adminQuestionDetailSchema = z
         currentPublishedVersionId: opaqueIdSchema.nullable(),
         openCandidateVersionId: opaqueIdSchema.nullable(),
         createdAt: isoDateTimeSchema,
-        updatedAt: isoDateTimeSchema
+        updatedAt: isoDateTimeSchema,
+        /** Submitted study answers; > 0 means retire/archive instead of delete. */
+        usageCount: nonNegativeSafeIntegerSchema
       })
       .strict(),
     versions: adminQuestionVersionConnectionSchema.extend({
