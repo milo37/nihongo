@@ -10,6 +10,7 @@ import type {
 } from '@nihongo/contracts/admin/content-operations'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
+import { rawDatabaseIdentity } from './adminRepositoryCommon.js'
 
 export interface QuestionReportCreateAuthority {
   readonly actorId: string
@@ -138,59 +139,6 @@ const toMutation = (row: ReportRow): QuestionReportMutationResult => ({
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString()
 })
-
-const rawDatabaseIdentity = (
-  error: unknown
-): { readonly sqlState: string; readonly message: string } | undefined => {
-  if (
-    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-    error.code !== 'P2010' ||
-    typeof error.meta !== 'object' ||
-    error.meta === null
-  ) {
-    return undefined
-  }
-  const meta = error.meta as Record<string, unknown>
-  const identities: Array<{ sqlState: string; message: string }> = []
-  if (typeof meta.code === 'string' && typeof meta.message === 'string') {
-    identities.push({ sqlState: meta.code, message: meta.message })
-  }
-  const driver = meta.driverAdapterError
-  if (typeof driver === 'object' && driver !== null) {
-    const cause = (driver as Record<string, unknown>).cause
-    if (typeof cause === 'object' && cause !== null) {
-      const record = cause as Record<string, unknown>
-      if (
-        typeof record.originalCode === 'string' &&
-        typeof record.originalMessage === 'string'
-      ) {
-        identities.push({
-          sqlState: record.originalCode,
-          message: record.originalMessage
-        })
-      }
-    }
-  }
-  const [first, ...rest] = identities
-  if (
-    !first ||
-    rest.some(
-      (identity) =>
-        identity.sqlState !== first.sqlState ||
-        identity.message !== first.message
-    )
-  ) {
-    return undefined
-  }
-  return {
-    sqlState: first.sqlState,
-    message:
-      first.message
-        .split('\n', 1)[0]
-        ?.replace(/^ERROR:\s*/u, '')
-        .trim() ?? ''
-  }
-}
 
 const mapCreateError = (error: unknown): QuestionReportRepositoryError => {
   if (error instanceof QuestionReportRepositoryError) return error
