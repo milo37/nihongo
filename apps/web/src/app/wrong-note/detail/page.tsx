@@ -13,6 +13,7 @@ import {
   isQuestionNotAvailableApiError
 } from '@libs/apiError'
 import { ReviewStatus } from '@app/wrong-note/components/ReviewStatus'
+import { WrongNoteMemoSection } from '@app/wrong-note/components/WrongNoteMemoSection'
 import { saveReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
@@ -37,6 +38,7 @@ import { useTrackWrongNoteOpened } from '@/analytics/client'
 
 type WrongNoteDetailContentProps = {
   action?: ReactNode
+  memo?: ReactNode
   data: WrongNoteDetailView
   previousAnswer: WrongNotePreviousAnswer
   headingRef?: RefObject<HTMLHeadingElement | null>
@@ -46,6 +48,7 @@ type TargetedNoticeCode = 'endedArchived' | 'endedAvailable'
 
 export const WrongNoteDetailContent = ({
   action,
+  memo,
   data,
   previousAnswer,
   headingRef
@@ -113,6 +116,7 @@ export const WrongNoteDetailContent = ({
       data.wrongNote.reviewAvailability !== 'ARCHIVED' ? (
         <p className="review-notice">{t('integration.versionChanged')}</p>
       ) : null}
+      {memo}
       {action ? <div className="review-document-actions">{action}</div> : null}
     </>
   )
@@ -253,6 +257,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
         data={wrongNoteQuery.data}
         previousAnswer={previousAnswer}
         headingRef={headingRef}
+        memo={<WrongNoteMemoSection key={questionId} questionId={questionId} />}
         action={
           <>
             {wrongNoteQuery.data.question.questionVersionId ? (

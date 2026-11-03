@@ -42,3 +42,35 @@ it('the browser source-path bridge invalidates the canonical active query and re
     canonicalQueryClient.removeQueries({ queryKey, exact: true })
   }
 })
+
+it('meta.localErrorUi keeps screen-local mutation errors off the shared bus but still forwards auth errors', async () => {
+  const { subscribeApiError } = await import('@nihongo/browser/libs/errorBus')
+  const received: unknown[] = []
+  const unsubscribe = subscribeApiError((error) => received.push(error))
+  const apiError = (isAuthError: boolean): Error =>
+    Object.assign(new Error(isAuthError ? 'auth' : 'server'), {
+      isAuthError,
+      isNetworkError: false,
+      isOffline: false
+    })
+  const run = (meta: Record<string, unknown> | undefined, error: Error) =>
+    canonicalQueryClient
+      .getMutationCache()
+      .build(canonicalQueryClient, {
+        meta,
+        mutationFn: () => Promise.reject(error)
+      })
+      .execute(undefined)
+      .catch(() => undefined)
+  try {
+    const local = apiError(false)
+    const auth = apiError(true)
+    const shared = apiError(false)
+    await run({ localErrorUi: true }, local)
+    await run({ localErrorUi: true }, auth)
+    await run(undefined, shared)
+    expect(received).toEqual([auth, shared])
+  } finally {
+    unsubscribe()
+  }
+})

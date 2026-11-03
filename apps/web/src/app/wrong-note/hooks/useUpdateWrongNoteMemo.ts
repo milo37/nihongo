@@ -1,10 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { isApiError } from '@nihongo/browser/api/config'
 import {
   assertCurrentMemoAction,
   wrongNoteMutations
 } from '@app/wrong-note/queries/wrongNoteMutations'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+
+export const isWrongNoteMemoConnectionError = (error: unknown): boolean =>
+  !navigator.onLine ||
+  (isApiError(error) &&
+    (error.isOffline === true || error.isNetworkError === true))
 
 export const useUpdateWrongNoteMemo = (questionId: string) => {
   const queryClient = useQueryClient()
