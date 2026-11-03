@@ -24,9 +24,9 @@ const titleText = title ? (title[2] ?? title[3] ?? '') : ''
 
 const problems = []
 if (isPr) {
-  if (!/^\[(FE|BE|CI|계약|디자인|문서|통합)\] \S/.test(titleText))
+  if (!/^\[(FE|BE|CI|계약|디자인|문서|통합)\] \S.* \(#\d+\)$/.test(titleText))
     problems.push(
-      'PR 제목은 `[영역] 변경 내용` 형태입니다. 영역: FE, BE, CI, 계약, 디자인, 문서, 통합'
+      'PR 제목은 `[영역] 변경 내용 (#이슈번호)` 형태입니다. 영역: FE, BE, CI, 계약, 디자인, 문서, 통합'
     )
   if (!/Refs #\d+/.test(text))
     problems.push('PR 본문 첫 줄에 `Refs #이슈번호`가 필요합니다.')

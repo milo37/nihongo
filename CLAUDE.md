@@ -20,7 +20,7 @@
 ## Issue and PR format
 
 - Issues follow `.github/ISSUE_TEMPLATE/` (task: `### 왜` `### 할 일` `### 완료 조건`; bug: `### 증상` `### 재현 방법` `### 기대 동작`). Titles are one short Korean line with no `[JLP-…]`/`[P0]` prefix.
-- PRs follow `.github/pull_request_template.md`: title `[영역] 변경 내용` (FE, BE, CI, 계약, 디자인, 문서, 통합), body starts with `Refs #N`, then `## 변경`, `## 검증`, `## 남은 일`.
+- PRs follow `.github/pull_request_template.md`: title `[영역] 변경 내용 (#N)` (FE, BE, CI, 계약, 디자인, 문서, 통합), body starts with `Refs #N`, then `## 변경`, `## 검증`, `## 남은 일`.
 - `.claude/hooks/check-gh-format.mjs` blocks `gh issue create`/`gh pr create` that skip this format.
 
 ## Guardrails
