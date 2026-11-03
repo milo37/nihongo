@@ -42,7 +42,7 @@ export const createPhase7ReauthenticationAuthApi = ({
   environment: ApiEnvironment
 }): Phase7ReauthenticationAuthApi => {
   const auth = betterAuth({
-    appName: 'JLPT Drill Note',
+    appName: '하루마루',
     basePath: '/internal/phase7/reauthentication',
     baseURL: environment.BETTER_AUTH_URL,
     secret: environment.BETTER_AUTH_SECRET,
