@@ -389,7 +389,14 @@ const MemberReview = (): ReactElement => {
                         {item.tags.length ? ` · ${item.tags.join(' · ')}` : ''}
                       </span>
                     </span>
-                    <ReviewStatus status={item.status} />
+                    <span className="flex items-center gap-2">
+                      {item.hasMemo ? (
+                        <span className="rounded-full border border-current bg-brand-soft px-2 py-0.5 text-xs font-bold text-link">
+                          {t('center.results.hasMemo')}
+                        </span>
+                      ) : null}
+                      <ReviewStatus status={item.status} />
+                    </span>
                   </div>
                   <Link
                     ref={(node) => {

@@ -1254,7 +1254,7 @@ export const koResources = {
           '필터를 바꾸거나 전체 오답 기록을 확인해 보세요.',
         history: '전체 기록',
         setup: '학습 설정',
-        hasMemo: '메모 있음',
+        hasMemo: '메모',
         wrong: '오답',
         wrongCount: '{{formattedCount}}회',
         streak: '연속 정답',
@@ -1316,8 +1316,6 @@ export const koResources = {
         start: '이 문제만 다시 풀기',
         archivedRecovery:
           '문제는 보관됐지만 이전에 생성된 단일 복습 세션은 같은 요청 키로 복구할 수 있습니다.',
-        memoDirty:
-          '메모를 저장하거나 변경을 취소한 뒤 단일 복습을 시작해 주세요.',
         offline:
           '오프라인입니다. 연결되면 같은 요청 키로 단일 복습 생성을 이어갑니다.',
         unavailable: '현재 출제 가능한 문제 버전이 없습니다.',
@@ -1328,11 +1326,6 @@ export const koResources = {
         endedAvailable:
           '이전에 만든 단일 복습 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.'
       },
-      memoSection: {
-        title: '나의 메모',
-        description:
-          '메모는 현재 계정의 이 오답에만 저장되며 자동 저장하지 않습니다.'
-      },
       timelineSection: {
         title: '복습 타임라인',
         description:
@@ -1340,46 +1333,40 @@ export const koResources = {
       }
     },
     memo: {
-      loadingOffline:
-        '오프라인에서는 메모를 불러올 수 없습니다. 연결되면 자동으로 다시 불러옵니다.',
-      loading: '메모를 불러오고 있습니다…',
-      loadError: '메모를 불러오지 못했습니다.',
-      cachedOffline:
-        '오프라인입니다. 현재 저장된 메모를 표시하며 연결되면 서버 상태를 다시 확인합니다.',
-      stale:
-        '메모의 최신 상태를 확인하지 못했습니다. 작성 중인 입력은 유지됩니다.',
-      retryStale: '메모 다시 확인',
-      label: '나의 메모',
-      hint: 'trim 후 Unicode 문자 {{current}}/{{maximum}}자 · 메모는 자동 저장되지 않습니다.',
-      validation: {
-        nul: 'NUL 문자는 메모에 사용할 수 없습니다.',
-        tooLong: '메모는 공백을 제외하고 {{maximum}}자 이하여야 합니다.',
-        invalidUnicode: '메모에 올바르지 않은 Unicode 문자가 있습니다.'
-      },
-      saveOffline:
-        '오프라인에서는 메모를 저장할 수 없습니다. 입력은 유지됩니다. 연결 후 다시 시도해 주세요.',
-      saveError:
-        '메모를 저장하지 못했습니다. 입력은 유지됩니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.',
-      saved: '메모를 저장했습니다.',
-      deleted: '메모를 삭제했습니다.',
-      cancelled: '변경 내용을 취소했습니다.',
+      title: '내 메모',
+      privateHint: '나만 볼 수 있어요',
+      emptyLead: '왜 틀렸는지 한 줄 남겨 두면 복습할 때 바로 떠올라요.',
+      write: '메모 쓰기',
+      edit: '수정',
+      delete: '삭제',
+      label: '내 메모',
+      count: '{{current}} / {{maximum}}',
+      over: '{{current}} / {{maximum}} · {{excess}}자를 줄여 주세요',
+      cancel: '취소',
+      save: '저장',
+      retrySave: '다시 저장',
       saving: '저장 중…',
-      deleting: '삭제 중…',
-      save: '메모 저장',
-      cancel: '변경 취소',
-      delete: '메모 삭제',
+      savedAt: '{{time}} 저장',
+      saved: '저장했어요',
+      deleted: '메모를 삭제했어요',
+      saveError:
+        '저장하지 못했어요. 쓴 내용은 그대로 있어요. 연결을 확인하고 다시 저장해 주세요.',
+      saveOffline:
+        '오프라인이라 저장하지 못했어요. 쓴 내용은 그대로 있어요. 연결되면 다시 저장해 주세요.',
+      deleteError: '삭제하지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
+      offline:
+        '오프라인이라 지금은 수정할 수 없어요. 연결되면 다시 시도해 주세요.',
+      loading: '메모를 불러오고 있어요…',
+      loadError: '메모를 불러오지 못했어요.',
+      loadOffline:
+        '오프라인이라 메모를 불러올 수 없어요. 연결되면 다시 불러와요.',
+      retryLoad: '다시 불러오기',
       deleteDialog: {
         title: '메모를 삭제할까요?',
-        description:
-          '저장된 메모를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
-        keep: '메모 유지',
-        confirm: '메모 삭제'
-      },
-      leaveDialog: {
-        title: '저장하지 않은 메모가 있습니다',
-        description: '이 페이지를 나가면 작성 중인 메모가 사라집니다.',
-        continue: '계속 작성',
-        discard: '변경사항 버리기'
+        description: '삭제한 메모는 되돌릴 수 없어요.',
+        cancel: '취소',
+        confirm: '삭제',
+        deleting: '삭제 중…'
       }
     },
     timeline: {

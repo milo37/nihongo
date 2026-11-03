@@ -1,31 +1,14 @@
 import {
-  questionRecordSchema,
-  wrongNoteSchema
-} from '@nihongo/browser/api/schema'
-import { z } from 'zod'
+  createUpdateWrongNoteMemoResponseSchema,
+  updateWrongNoteMemoBodySchema,
+  updateWrongNoteMemoParamsSchema,
+  updateWrongNoteMemoResponseSchema
+} from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
+export type { ParsedUpdateWrongNoteMemoBody } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
 
-export const updateWrongNoteMemoParamsSchema = z
-  .object({
-    questionId: z.string().min(1)
-  })
-  .strict()
-
-export const updateWrongNoteMemoRequestSchema = z
-  .object({
-    memo: z.string().trim().max(2000).nullable()
-  })
-  .strict()
-
-export const updateWrongNoteMemoResponseSchema = z
-  .object({
-    wrongNote: wrongNoteSchema,
-    question: questionRecordSchema
-  })
-  .strict()
-
-export type UpdateWrongNoteMemoRequest = z.infer<
-  typeof updateWrongNoteMemoRequestSchema
->
-export type UpdateWrongNoteMemoResponse = z.infer<
-  typeof updateWrongNoteMemoResponseSchema
->
+export const updateWrongNoteMemoRequestParamsSchema =
+  updateWrongNoteMemoParamsSchema
+export const updateWrongNoteMemoRequestBodySchema =
+  updateWrongNoteMemoBodySchema
+export const updateWrongNoteMemoResultSchema = updateWrongNoteMemoResponseSchema
+export { createUpdateWrongNoteMemoResponseSchema }

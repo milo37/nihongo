@@ -1,8 +1,8 @@
 import { mutationOptions } from '@tanstack/react-query'
 import { isApiError } from '@nihongo/browser/api/config'
 import { createTargetedReviewSession } from '@api/wrong-note/createTargetedReviewSession'
-import { updateWrongNoteMemoV1 } from '@api/wrong-note/updateWrongNoteMemoV1'
-import type { ParsedUpdateWrongNoteMemoBody } from '@api/wrong-note/updateWrongNoteMemoV1/schema'
+import { updateWrongNoteMemo } from '@api/wrong-note/updateWrongNoteMemo'
+import type { ParsedUpdateWrongNoteMemoBody } from '@api/wrong-note/updateWrongNoteMemo/schema'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import {
   clearTargetedReviewAttempt,
@@ -105,7 +105,7 @@ export const wrongNoteMutations = {
         memoActionFence.capture(input),
       mutationFn: async (input: UpdateMemoActionInput) => {
         assertCurrentMemoAction(input)
-        const memo = await updateWrongNoteMemoV1(questionId, input)
+        const memo = await updateWrongNoteMemo(questionId, input)
         assertCurrentMemoAction(input)
         return memo
       }

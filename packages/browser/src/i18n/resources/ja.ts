@@ -1267,7 +1267,7 @@ export const jaCoreResources = {
           'フィルターを変更するか、すべての間違い記録を確認してください。',
         history: 'すべての記録',
         setup: '学習設定',
-        hasMemo: 'メモあり',
+        hasMemo: 'メモ',
         wrong: '間違い',
         wrongCount: '{{formattedCount}}回',
         streak: '連続正解',
@@ -1329,8 +1329,6 @@ export const jaCoreResources = {
         start: 'この問題だけ解き直す',
         archivedRecovery:
           '問題はアーカイブ済みですが、以前作成した単独復習セッションは同じリクエストキーで復元できます。',
-        memoDirty:
-          'メモを保存するか変更を取り消してから単独復習を開始してください。',
         offline:
           'オフラインです。接続が戻ると同じリクエストキーで単独復習の作成を続けます。',
         unavailable: '現在出題可能な問題バージョンがありません。',
@@ -1342,11 +1340,6 @@ export const jaCoreResources = {
         endedAvailable:
           '以前作成した単独復習セッションは終了済みです。もう一度押すと新しいセッションを作成します。'
       },
-      memoSection: {
-        title: '自分のメモ',
-        description:
-          'メモは現在のアカウントのこの間違い記録にだけ保存され、自動保存はされません。'
-      },
       timelineSection: {
         title: '復習タイムライン',
         description:
@@ -1354,45 +1347,42 @@ export const jaCoreResources = {
       }
     },
     memo: {
-      loadingOffline:
-        'オフラインではメモを読み込めません。接続が戻ると自動的に再読み込みします。',
+      title: '自分のメモ',
+      privateHint: '自分だけが見られます',
+      emptyLead:
+        'なぜ間違えたかを一行残しておくと、復習のときすぐに思い出せます。',
+      write: 'メモを書く',
+      edit: '編集',
+      delete: '削除',
+      label: '自分のメモ',
+      count: '{{current}} / {{maximum}}',
+      over: '{{current}} / {{maximum}} · {{excess}}文字減らしてください',
+      cancel: 'キャンセル',
+      save: '保存',
+      retrySave: 'もう一度保存',
+      saving: '保存中…',
+      savedAt: '{{time}} 保存',
+      saved: '保存しました',
+      deleted: 'メモを削除しました',
+      saveError:
+        '保存できませんでした。入力した内容はそのまま残っています。接続を確認してもう一度保存してください。',
+      saveOffline:
+        'オフラインのため保存できませんでした。入力した内容はそのまま残っています。接続後にもう一度保存してください。',
+      deleteError:
+        '削除できませんでした。接続を確認してもう一度お試しください。',
+      offline:
+        'オフラインのため今は編集できません。接続後にもう一度お試しください。',
       loading: 'メモを読み込んでいます…',
       loadError: 'メモを読み込めませんでした。',
-      cachedOffline:
-        'オフラインです。保存済みのメモを表示し、接続後にサーバー状態を再確認します。',
-      stale: 'メモの最新状態を確認できませんでした。編集中の入力は保持します。',
-      retryStale: 'メモを再確認',
-      label: '自分のメモ',
-      hint: 'trim後のUnicode文字 {{current}}/{{maximum}}字 · メモは自動保存されません。',
-      validation: {
-        nul: 'NUL文字はメモに使用できません。',
-        tooLong: 'メモは空白を除いて{{maximum}}字以内にしてください。',
-        invalidUnicode: 'メモに正しくないUnicode文字があります。'
-      },
-      saveOffline:
-        'オフラインではメモを保存できません。入力は保持されます。接続後にもう一度お試しください。',
-      saveError:
-        'メモを保存できませんでした。入力は保持されます。接続状態を確認してもう一度お試しください。',
-      saved: 'メモを保存しました。',
-      deleted: 'メモを削除しました。',
-      cancelled: '変更を取り消しました。',
-      saving: '保存中…',
-      deleting: '削除中…',
-      save: 'メモを保存',
-      cancel: '変更を取り消す',
-      delete: 'メモを削除',
+      loadOffline:
+        'オフラインのためメモを読み込めません。接続が戻ると再読み込みします。',
+      retryLoad: '再読み込み',
       deleteDialog: {
         title: 'メモを削除しますか？',
-        description:
-          '保存済みのメモを完全に削除します。この操作は元に戻せません。',
-        keep: 'メモを残す',
-        confirm: 'メモを削除'
-      },
-      leaveDialog: {
-        title: '保存していないメモがあります',
-        description: 'このページを離れると編集中のメモが失われます。',
-        continue: '編集を続ける',
-        discard: '変更を破棄'
+        description: '削除したメモは元に戻せません。',
+        cancel: 'キャンセル',
+        confirm: '削除',
+        deleting: '削除中…'
       }
     },
     timeline: {
