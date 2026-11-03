@@ -159,7 +159,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [database, api]
+        part: [database, api-1, api-2, api-3]
     services:
       postgres:
         image: ${{ (needs.plan.outputs.api == 'true') && 'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15' || '' }}
