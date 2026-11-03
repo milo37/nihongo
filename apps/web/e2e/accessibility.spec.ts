@@ -1862,7 +1862,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     { label: 'verify-email-missing-token', path: '/verify-email' },
     { label: 'practice-setup-guest', path: '/practice' },
     { label: 'forbidden', path: '/forbidden' },
-    { label: 'not-found', path: '/phase-9-route-not-found' }
+    { label: 'not-found', path: '/missing-route-check' }
   ])
 
   expect(transport.requests.filter(({ method }) => method !== 'GET')).toEqual(

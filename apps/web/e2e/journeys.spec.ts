@@ -608,7 +608,7 @@ const armDashboardFault = async (
         contentType: 'application/json',
         headers: {
           'Cache-Control': 'private, no-store',
-          'X-Phase10-Test-Fault': 'dashboard-insights-malformed'
+          'X-Nihongo-Test-Fault': 'dashboard-insights-malformed'
         },
         status: 200
       })
@@ -626,7 +626,7 @@ const armDashboardFault = async (
       headers: {
         'Cache-Control': 'private, no-store',
         'Retry-After': '0',
-        'X-Phase10-Test-Fault': 'dashboard-insights-429',
+        'X-Nihongo-Test-Fault': 'dashboard-insights-429',
         'X-Request-Id': requestId
       },
       status: 429
@@ -863,7 +863,7 @@ const assertFaultRecovery = async (
 
   const recovered = waitForApiResponse(page, 'GET', path).then(
     async (response) => {
-      expect(response.headers()['x-phase10-test-fault']).toBeUndefined()
+      expect(response.headers()['x-nihongo-test-fault']).toBeUndefined()
       getDashboardInsightsResponseSchema.parse(
         await readCanonicalResponse(response)
       )
