@@ -5,6 +5,7 @@ import type { PracticeResultBookmark } from '@app/practice/hooks/usePracticeResu
 import type { ResultRetryStatusCode } from '@app/practice/hooks/usePracticeResultController'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 
 type ResultSourceNoticeProps = {
   isError: boolean
@@ -45,6 +46,7 @@ type ResultRetryNoticeProps = {
   canRequestCanonicalRetry: boolean
   hasNoEligibleRetry: boolean
   hasRetryRequestError: boolean
+  isRetryAccountRestricted: boolean
   incorrectCount: number
   isRetryPaused: boolean
   retryMessage: ResultRetryStatusCode | null
@@ -54,6 +56,7 @@ export const ResultRetryNotice = ({
   canRequestCanonicalRetry,
   hasNoEligibleRetry,
   hasRetryRequestError,
+  isRetryAccountRestricted,
   incorrectCount,
   isRetryPaused,
   retryMessage
@@ -106,6 +109,9 @@ export const ResultRetryNotice = ({
         {t('retry.offline')}
       </p>
     )
+  }
+  if (isRetryAccountRestricted) {
+    return <AccountRestrictedNotice className="mt-4" focusOnMount />
   }
   if (hasRetryRequestError) {
     return (

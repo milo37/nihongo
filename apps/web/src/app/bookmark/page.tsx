@@ -15,6 +15,7 @@ import { BookmarkPracticePanel } from '@app/bookmark/components/BookmarkPractice
 import { useBookmarkPageController } from '@app/bookmark/hooks/useBookmarkPageController'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
 export const BookmarkPage = (): ReactElement => {
   const { i18n, t } = useTranslation('bookmark')
@@ -49,9 +50,12 @@ export const BookmarkPage = (): ReactElement => {
         title={t('error.title')}
         description={t('error.description')}
         action={
-          <Button onClick={() => void bookmarksQuery.refetch()}>
-            {commonT('actions.retry')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void bookmarksQuery.refetch()}>
+              {commonT('actions.retry')}
+            </Button>
+            <AppErrorReportButton />
+          </div>
         }
       />
     )

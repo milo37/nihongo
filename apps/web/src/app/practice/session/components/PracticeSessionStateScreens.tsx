@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissionConnectivity'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
 const FramedSection = ({ children }: { children: ReactNode }): ReactElement => (
   <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
@@ -104,11 +105,14 @@ export const SessionLoadError = ({
       title={title ?? t('session.errors.sessionLoadTitle')}
       description={description}
       action={
-        onRetry ? (
-          <Button onClick={onRetry}>
-            {retryLabel ?? commonT('actions.retry')}
-          </Button>
-        ) : undefined
+        <div className="flex flex-wrap gap-2">
+          {onRetry ? (
+            <Button onClick={onRetry}>
+              {retryLabel ?? commonT('actions.retry')}
+            </Button>
+          ) : null}
+          <AppErrorReportButton />
+        </div>
       }
     />
   )
