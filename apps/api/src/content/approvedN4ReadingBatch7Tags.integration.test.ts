@@ -29,11 +29,11 @@ import { toStableSeedUuid } from '../../prisma/seed-data/id.js'
 import {
   approvedReadingBatch2,
   createApprovedReadingBatch2Import
-} from './approvedReadingBatch2.js'
+} from '../content-fixtures/approvedReadingBatch2.js'
 import {
   approvedReadingBatch7,
   createApprovedReadingBatch7Import
-} from './approvedReadingBatch7.js'
+} from '../content-fixtures/approvedReadingBatch7.js'
 
 const fixtureProfile = process.env.READING_BATCH7_FIXTURE_PROFILE ?? 'legacy'
 if (fixtureProfile !== 'legacy' && fixtureProfile !== 'current') {
@@ -322,19 +322,19 @@ const apply = async () => {
 }
 const sourceFiles = [
   [
-    'approvedReadingBatch2.ts',
+    '../content-fixtures/approvedReadingBatch2.ts',
     '5125f9718e9e98d752ea52f9b110d69d2681c96bf5e9611898a587a9b4adbb2f'
   ],
   [
-    'approvedReadingBatch2.test.ts',
+    '../content-fixtures/approvedReadingBatch2.test.ts',
     '89886531ea3f3911b55085cc71c334442361a2db3ebbf5956e8d5ed083fc38fc'
   ],
   [
-    'approvedReadingBatch7.ts',
+    '../content-fixtures/approvedReadingBatch7.ts',
     'f82368c5b388cd633118b72b831bac851e6c16617d3375f1c502dd792eddab5f'
   ],
   [
-    'approvedReadingBatch7.test.ts',
+    '../content-fixtures/approvedReadingBatch7.test.ts',
     'd74e325f7a9712ef7db7f1e8d6c1450afa556d74d9a841bd0619ec013374a913'
   ]
 ] as const
