@@ -219,7 +219,7 @@ const run = async (): Promise<PerformanceRunResult> => {
     PERFORMANCE_COMMIT: commit,
     PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
     PERFORMANCE_PNPM_VERSION: pnpmVersion,
-    PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY: String(dirtyStatus.length > 0),
+    PERFORMANCE_SOURCE_TREE_DIRTY: String(dirtyStatus.length > 0),
     PRISMA_TEST_DATABASE_URL: harness.applicationDatabaseUrl
   }
   const passedTestCount = await runApiIntegrationManifestVitestFile({

@@ -865,7 +865,7 @@ describe.sequential('Phase 8 dashboard insights performance gate', () => {
     const evidenceDirectory = process.env.PERFORMANCE_EVIDENCE_DIR
     if (evidenceDirectory) {
       const commit = process.env.PERFORMANCE_COMMIT
-      const sourceTreeDirty = process.env.PHASE10_PERFORMANCE_SOURCE_TREE_DIRTY
+      const sourceTreeDirty = process.env.PERFORMANCE_SOURCE_TREE_DIRTY
       const pnpmVersion = process.env.PERFORMANCE_PNPM_VERSION
       if (
         !commit ||

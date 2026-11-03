@@ -137,7 +137,7 @@ const calculateStatistics = (samples: readonly number[]): TimingStatistics => {
     p95 === undefined ||
     max === undefined
   ) {
-    throw new Error('PHASE10_PERFORMANCE_SAMPLE_COUNT_INVALID')
+    throw new Error('PERFORMANCE_SAMPLE_COUNT_INVALID')
   }
   return {
     max,
@@ -172,7 +172,7 @@ export const createTimingMeasurement = ({
     typeof metric !== 'string' ||
     metric.length === 0
   ) {
-    throw new Error('PHASE10_PERFORMANCE_MEASUREMENT_INVALID')
+    throw new Error('PERFORMANCE_MEASUREMENT_INVALID')
   }
   const statisticsMs = calculateStatistics(roundedSamples)
   const ratioCeilingMs = roundMilliseconds(baselineP95Ms * ratioLimit)
@@ -208,7 +208,7 @@ const assertTimingMeasurement = (value: unknown): void => {
       'warmupCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const timing = value as Record<string, unknown>
   if (
@@ -229,7 +229,7 @@ const assertTimingMeasurement = (value: unknown): void => {
       'ratioLimit'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const statistics = timing.statisticsMs as Record<string, unknown>
   const expectedStatistics = calculateStatistics(
@@ -239,7 +239,7 @@ const assertTimingMeasurement = (value: unknown): void => {
     JSON.stringify(statistics) !== JSON.stringify(expectedStatistics) ||
     !Object.values(statistics).every(assertFiniteNonNegative)
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_STATISTICS_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_STATISTICS_INVALID')
   }
   const budget = timing.budget as Record<string, unknown>
   if (
@@ -257,7 +257,7 @@ const assertTimingMeasurement = (value: unknown): void => {
       (expectedStatistics.p95 <= budget.ratioCeilingMs &&
         expectedStatistics.p95 <= budget.absoluteCeilingMs)
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_BUDGET_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_BUDGET_INVALID')
   }
 }
 
@@ -278,7 +278,7 @@ const assertStatementEvidence = (
       'transactionPerSample'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const statements = value as Record<string, unknown>
   if (
@@ -295,7 +295,7 @@ const assertStatementEvidence = (
     statements.totalTransactionCount !== expectedSampleCount ||
     statements.totalSqlCount !== expectedSampleCount * 6
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
   }
 }
 
@@ -314,7 +314,7 @@ export const assertDatabaseApiPerformanceEvidence: (
       'writes'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const evidence = value as Record<string, unknown>
   if (
@@ -337,7 +337,7 @@ export const assertDatabaseApiPerformanceEvidence: (
     ]) ||
     !exactKeys(evidence.writes, ['businessWriteDelta'])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const metadata = evidence.metadata as Record<string, unknown>
   const fixture = evidence.fixture as Record<string, unknown>
@@ -361,7 +361,7 @@ export const assertDatabaseApiPerformanceEvidence: (
     Number(fixture.tagFactCount) < 1 ||
     writes.businessWriteDelta !== 0
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
 
   const database = evidence.database as Record<string, unknown>
@@ -397,7 +397,7 @@ export const assertDatabaseApiPerformanceEvidence: (
       'warmupCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const databaseTiming = Object.fromEntries(
     Object.entries(database).filter(
@@ -435,7 +435,7 @@ export const assertDatabaseApiPerformanceEvidence: (
       'totalNodeCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const plan = database.plan as Record<string, unknown>
   if (
@@ -448,7 +448,7 @@ export const assertDatabaseApiPerformanceEvidence: (
       'targetCatalogCount'
     ])
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_SCHEMA_INVALID')
   }
   const cardinality = plan.cardinality as Record<string, unknown>
   assertStatementEvidence(database.statements, 21)
@@ -497,7 +497,7 @@ export const assertDatabaseApiPerformanceEvidence: (
     (database.budget as Record<string, unknown>).passed !== true ||
     (api.budget as Record<string, unknown>).passed !== true
   ) {
-    throw new Error('PHASE10_PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
+    throw new Error('PERFORMANCE_EVIDENCE_CONTRACT_INVALID')
   }
 }
 
@@ -511,7 +511,7 @@ const canonicalize = (value: unknown): unknown => {
   }
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
-      throw new Error('PHASE10_PERFORMANCE_EVIDENCE_NONFINITE')
+      throw new Error('PERFORMANCE_EVIDENCE_NONFINITE')
     }
     return value
   }
@@ -523,7 +523,7 @@ const canonicalize = (value: unknown): unknown => {
         .map(([key, item]) => [key, canonicalize(item)])
     )
   }
-  throw new Error('PHASE10_PERFORMANCE_EVIDENCE_VALUE_INVALID')
+  throw new Error('PERFORMANCE_EVIDENCE_VALUE_INVALID')
 }
 
 export const writeDatabaseApiPerformanceEvidence = async ({

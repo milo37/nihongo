@@ -305,7 +305,7 @@ describe('Phase9 isolated TEST SSO bootstrap', () => {
       ).rejects.toThrow(
         kind === 'write'
           ? 'fixture-write-failed'
-          : 'PHASE9_DATABASE_ACTOR_AUTHORITY_MISMATCH'
+          : 'BROWSER_TEST_DATABASE_ACTOR_AUTHORITY_MISMATCH'
       )
       expect(pg.query).toHaveBeenLastCalledWith('ROLLBACK')
       expect(pg.query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false)

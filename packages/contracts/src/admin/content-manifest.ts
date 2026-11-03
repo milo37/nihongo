@@ -299,7 +299,7 @@ export const phase7Slice2ReadOperationManifest = phase7OperationManifest.filter(
   (entry) => entry.slice2Route
 )
 
-const PHASE_7_SLICE_3A_COMMAND_OPERATIONS = new Set<AdminOperation>([
+const ADMIN_SLICE_3A_COMMAND_OPERATIONS = new Set<AdminOperation>([
   'createAdminQuestion',
   'createAdminQuestionVersion',
   'updateQuestionVersion',
@@ -307,28 +307,28 @@ const PHASE_7_SLICE_3A_COMMAND_OPERATIONS = new Set<AdminOperation>([
   'requestQuestionChanges'
 ])
 
-const PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS = new Set<AdminOperation>([
+const ADMIN_SLICE_3R_REMEDIATION_OPERATIONS = new Set<AdminOperation>([
   'reauthenticateAdmin',
   'approveQuestionVersion',
   'withdrawQuestionApproval'
 ])
 
-const PHASE_7_SLICE_3R_A1_OPERATIONS = new Set<AdminOperation>([
+const ADMIN_SLICE_3R_A1_OPERATIONS = new Set<AdminOperation>([
   'reauthenticateAdmin'
 ])
 
-const PHASE_7_SLICE_3R_A2_OPERATIONS = new Set<AdminOperation>([
+const ADMIN_SLICE_3R_A2_OPERATIONS = new Set<AdminOperation>([
   'approveQuestionVersion',
   'withdrawQuestionApproval'
 ])
 
-const PHASE_7_SLICE_4_OPERATIONS = new Set<AdminOperation>([
+const ADMIN_SLICE_4_OPERATIONS = new Set<AdminOperation>([
   'archiveAdminQuestion',
   'publishQuestionVersion',
   'retireQuestionVersion'
 ])
 
-const PHASE_7_SLICE_5_OPERATIONS = new Set<AdminOperation>([
+const ADMIN_SLICE_5_OPERATIONS = new Set<AdminOperation>([
   'requestContentReviewBatch',
   'validateQuestionImport',
   'applyQuestionImport',
@@ -378,110 +378,110 @@ export const slice4CacheInvalidationContractByOperation = {
 >
 
 export const slice3ACommandOperationManifest = phase7OperationManifest.filter(
-  (entry) => PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+  (entry) => ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
 )
 
 export const slice3RRemediationOperationManifest =
   phase7OperationManifest.filter((entry) =>
-    PHASE_7_SLICE_3R_REMEDIATION_OPERATIONS.has(entry.operation)
+    ADMIN_SLICE_3R_REMEDIATION_OPERATIONS.has(entry.operation)
   )
 
 export const activeThroughSlice3AOperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
-      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
   )
 
 export const dormantAfterSlice3AOperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
-      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
+      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation)
   )
 
 export const activeThroughSlice3RA1OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
-      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
+      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation)
   )
 
 export const dormantAfterSlice3RA1OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
-      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation)
+      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation)
   )
 
 export const activeThroughSlice3RA2OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
-      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
+      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation)
   )
 
 export const dormantAfterSlice3RA2OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
-      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation)
+      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation)
   )
 
 export const slice4OperationManifest = phase7OperationManifest.filter((entry) =>
-  PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+  ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
 )
 
 export const activeThroughSlice4OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
-      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
   )
 
 export const dormantAfterSlice4OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
-      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_4_OPERATIONS.has(entry.operation)
+      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_4_OPERATIONS.has(entry.operation)
   )
 
 export const slice5OperationManifest = phase7OperationManifest.filter((entry) =>
-  PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+  ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
 )
 
 export const activeThroughSlice5OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       entry.slice2Route ||
-      PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_4_OPERATIONS.has(entry.operation) ||
-      PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+      ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_4_OPERATIONS.has(entry.operation) ||
+      ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
   )
 
 export const dormantAfterSlice5OperationManifest =
   phase7OperationManifest.filter(
     (entry) =>
       !entry.slice2Route &&
-      !PHASE_7_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_4_OPERATIONS.has(entry.operation) &&
-      !PHASE_7_SLICE_5_OPERATIONS.has(entry.operation)
+      !ADMIN_SLICE_3A_COMMAND_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A1_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_3R_A2_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_4_OPERATIONS.has(entry.operation) &&
+      !ADMIN_SLICE_5_OPERATIONS.has(entry.operation)
   )
 
 export const assertOperationManifest = (): void => {

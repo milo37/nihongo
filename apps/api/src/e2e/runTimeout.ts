@@ -9,7 +9,7 @@ interface RunWithOperationTimeoutOptions<Result> {
 }
 
 export class RunTimeoutError extends Error {
-  readonly code = 'PHASE10_RUN_TIMEOUT'
+  readonly code = 'RUNNER_RUN_TIMEOUT'
 
   constructor(label: string, timeoutMs: number) {
     super(`${label} timed out after ${timeoutMs}ms.`)
@@ -18,7 +18,7 @@ export class RunTimeoutError extends Error {
 }
 
 export class CleanupTimeoutError extends Error {
-  readonly code = 'PHASE10_CLEANUP_TIMEOUT'
+  readonly code = 'RUNNER_CLEANUP_TIMEOUT'
 
   constructor(label: string, timeoutMs: number) {
     super(`${label} cleanup timed out after ${timeoutMs}ms.`)

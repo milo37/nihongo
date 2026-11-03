@@ -178,7 +178,7 @@ const assertTestTarget = (
       (key) => key !== 'schema' && key !== 'sslmode'
     )
   ) {
-    throw new Error('PHASE9_ISOLATED_TEST_SCHEMA_REQUIRED')
+    throw new Error('BROWSER_TEST_ISOLATED_TEST_SCHEMA_REQUIRED')
   }
   return target
 }
@@ -196,7 +196,7 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
       'APPLE_CLIENT_SECRET'
     ].some((key) => source[key] !== undefined)
   ) {
-    throw new Error('PHASE9_FIXED_TEST_ENVIRONMENT_REQUIRED')
+    throw new Error('BROWSER_TEST_FIXED_TEST_ENVIRONMENT_REQUIRED')
   }
   const environment = parseApiEnvironment(source)
   const app = assertTestTarget(
@@ -213,7 +213,7 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
       'nihongo_test_auth_gateway_login' ||
     !sameTarget(app, gateway)
   )
-    throw new Error('PHASE9_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
+    throw new Error('BROWSER_TEST_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
   for (const databaseUrl of [
     environment.DATABASE_URL,
     environment.AUTH_GATEWAY_DATABASE_URL
@@ -235,14 +235,14 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
       !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) ||
       url.origin !== origin
     )
-      throw new Error('PHASE9_LOOPBACK_TEST_ORIGINS_REQUIRED')
+      throw new Error('BROWSER_TEST_LOOPBACK_TEST_ORIGINS_REQUIRED')
   }
   const api = new URL(environment.BETTER_AUTH_URL)
   if (
     api.hostname.replace(/^\[|\]$/gu, '') !== environment.HOST ||
     Number(api.port || '80') !== environment.PORT
   )
-    throw new Error('PHASE9_LISTENER_ORIGIN_MISMATCH')
+    throw new Error('BROWSER_TEST_LISTENER_ORIGIN_MISMATCH')
   return environment
 }
 
@@ -271,7 +271,7 @@ export const preparePhase9BrowserActors = async ({
     ].includes(decodeURIComponent(ownerTarget.username)) ||
     !ownerTarget.username
   )
-    throw new Error('PHASE9_SEPARATE_TEST_OWNER_REQUIRED')
+    throw new Error('BROWSER_TEST_SEPARATE_TEST_OWNER_REQUIRED')
   const schema = getPostgresSchema(adminDatabaseUrl)!
   ownerTarget.searchParams.delete('schema')
   const owner = new Client({
@@ -309,7 +309,7 @@ export const preparePhase9BrowserActors = async ({
         result.rows[0]?.role !== definition.role ||
         result.rows[0]?.targetLevel !== definition.targetLevel
       )
-        throw new Error('PHASE9_DATABASE_ACTOR_AUTHORITY_MISMATCH')
+        throw new Error('BROWSER_TEST_DATABASE_ACTOR_AUTHORITY_MISMATCH')
       entries.push([key, { actor: { ...definition, userId }, identity }])
     }
     const identities = identitiesSchema.parse(Object.fromEntries(entries))
@@ -381,7 +381,7 @@ export const createBrowserApi = async ({
       gateway.disconnect()
     ]).then((results) => {
       if (results.some((result) => result.status === 'rejected'))
-        throw new Error('PHASE9_DATABASE_DISCONNECT_FAILED')
+        throw new Error('BROWSER_TEST_DATABASE_DISCONNECT_FAILED')
     }))
   try {
     const practice = createPracticeRuntimeGate({
@@ -588,7 +588,7 @@ if (
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   void run().catch(() => {
-    process.stderr.write('PHASE9_TEST_SSO_BOOTSTRAP_FAILED\n')
+    process.stderr.write('BROWSER_TEST_SSO_BOOTSTRAP_FAILED\n')
     process.exitCode = 1
   })
 }
