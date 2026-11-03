@@ -50,14 +50,15 @@ describe('privacy-safe analytics event contract', () => {
         payload: { source: 'WRONG_NOTE', questionCount: 5 }
       },
       { event: 'bookmark_created', payload: { surface: 'RESULT' } },
-      { event: 'question_reported', payload: { reason: 'ANSWER_ERROR' } }
+      { event: 'question_reported', payload: { reason: 'ANSWER_ERROR' } },
+      { event: 'report_submitted', payload: { kind: 'APP_ERROR' } }
     ]
 
     expect(
       events.map((event) =>
         analyticsEventSchema.parse({ ...envelope, ...event })
       )
-    ).toHaveLength(11)
+    ).toHaveLength(12)
   })
 
   it.each([
@@ -72,6 +73,11 @@ describe('privacy-safe analytics event contract', () => {
       ...envelope,
       event: 'question_reported',
       payload: { reason: 'OTHER', reportText: 'private report' }
+    },
+    {
+      ...envelope,
+      event: 'report_submitted',
+      payload: { kind: 'QUESTION', description: 'private report' }
     },
     {
       ...envelope,

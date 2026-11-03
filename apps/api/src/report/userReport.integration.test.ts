@@ -283,9 +283,13 @@ describe('Unified user reports TEST database integration', () => {
     )
     createdReportIds.add(reportId)
     await eraseUser(reporter)
+    // Same policy as QuestionReport: keep the row, drop the reporter's text.
     expect(await service.getAdminReport(reportId)).toMatchObject({
       reportId,
-      reporterMemberId: null
+      reporterMemberId: null,
+      description: '탈퇴한 회원의 제보 내용은 삭제되었습니다.',
+      location: '/erase',
+      rowVersion: 2
     })
   })
 })

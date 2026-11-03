@@ -316,6 +316,14 @@ export const reviewCenterHandlers = [
             '허용되지 않은 요청 출처입니다.'
           )
         }
+        const currentUser = mockDatabase.getCurrentUser()
+        if (currentUser && mockDatabase.isAccountRestricted(currentUser.id)) {
+          throw new MockHttpError(
+            403,
+            'ACCOUNT_RESTRICTED',
+            '임시로 이용이 제한된 계정입니다.'
+          )
+        }
         consumeReviewCenterRateLimit('wrong-note-targeted-review', 20)
 
         const parsedParams = createTargetedReviewSessionParamsSchema.safeParse({
