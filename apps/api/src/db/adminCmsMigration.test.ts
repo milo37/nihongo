@@ -130,10 +130,10 @@ const approvedInitialAdminCmsChecksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존52 migration의 역사 prefix checksum을 보존하고 migration53을 pin한다', () => {
+  it('기존53 migration의 역사 prefix checksum을 보존하고 migration54를 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(53)
+    expect(manifest).toHaveLength(54)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedBeforeAdminCmsMigrationNames
     )
@@ -323,8 +323,16 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       checksum:
         '5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7'
     })
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 53))).toBe(
       '39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08'
+    )
+    expect(manifest[53]).toEqual({
+      name: '20261104090000_unified_reports_import_results',
+      checksum:
+        'aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042'
+    })
+    expect(digest(manifest)).toBe(
+      'b414f707991f136b4719a9a825144a222a7e09592430430916c2d8fb1ab3a05c'
     )
   })
 

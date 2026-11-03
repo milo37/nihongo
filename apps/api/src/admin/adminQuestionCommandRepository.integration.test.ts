@@ -2284,6 +2284,35 @@ describe('ADMIN command TEST database integration', () => {
       appliedRaw.mappingDigest
     )
     expect(applied.response.createdCount).toBe(2)
+    // Same importId, actor and body replays the stored response (#491).
+    const replayed = await slice5CommandService.applyImport(
+      applyAuthority,
+      applyRequest
+    )
+    expect(replayed).toEqual(appliedRaw)
+    const storedResult = await adminClient.query<{ actorUserId: string }>(
+      `SELECT "actorUserId" FROM "QuestionImportResult" WHERE "importId" = $1`,
+      [applyRequest.importId]
+    )
+    expect(storedResult.rows).toEqual([{ actorUserId: authorId }])
+    const otherValidationRequest = validateQuestionImportRequestSchema.parse({
+      items: [createImportItem(randomUUID())]
+    })
+    const otherValidation = await assertAdminImportValidationForRequest(
+      sha256Port,
+      otherValidationRequest,
+      await slice5CommandService.validateImport(otherValidationRequest)
+    )
+    await expect(
+      slice5CommandService.applyImport(
+        applyAuthority,
+        applyQuestionImportRequestSchema.parse({
+          importId: applyRequest.importId,
+          items: otherValidationRequest.items,
+          validationDigest: otherValidation.validationDigest
+        })
+      )
+    ).rejects.toMatchObject({ code: 'IMPORT_IDENTITY_CONFLICT' })
     const applyEvidence = await adminClient.query<{
       command: string
       contentDigestValid: boolean

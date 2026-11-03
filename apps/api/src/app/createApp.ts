@@ -75,6 +75,14 @@ import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommand
 import { createAdminQuestionReportRoutes } from '../routes/adminQuestionReports.js'
 import { createQuestionReportRoutes } from '../routes/questionReports.js'
 import {
+  createAdminUserReportRoutes,
+  createUserReportRoutes
+} from '../routes/userReports.js'
+import type { UserReportService } from '../report/userReportService.js'
+import { createAdminConsoleCommandGuard } from '../admin/adminConsoleCommandGuard.js'
+import { createAdminImportResultRoutes } from '../routes/adminImportResults.js'
+import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/content-operations'
+import {
   getCanonicalPhase7ActiveOperation,
   isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7PublicationCommandRequest,
@@ -84,6 +92,7 @@ import {
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
   isPhase7ExcludedRequest,
+  isCanonicalAdminConsoleCommandRequest,
   isCanonicalAdminConsoleReadRequest
 } from './protectedRouteExclusion.js'
 import { installStaticWeb } from './staticWeb.js'
@@ -155,12 +164,20 @@ interface CreateApiAppDependencies {
       rateLimiter: AdminCommandRateLimiter
       service: AdminReauthenticationService
     }
+    importResultReader?: (
+      importId: string
+    ) => Promise<AdminImportApplyResponse | null>
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
   }
   questionReports?: {
     rateLimiter: QuestionReportRateLimiter
     service: QuestionReportService
+  }
+  /** Unified learner reports (#484); shares the learner report rate limit. */
+  userReports?: {
+    rateLimiter: QuestionReportRateLimiter
+    service: UserReportService
   }
   study?: {
     draftService?: StudyDraftService
@@ -392,6 +409,7 @@ export const createApiApp = ({
   questionReader,
   questionReadSecurity,
   questionReports,
+  userReports,
   releaseId = '0000000000000000000000000000000000000000',
   study,
   webAssetsDirectory,
@@ -446,6 +464,10 @@ export const createApiApp = ({
         requestTarget
       }) ||
         isCanonicalAdminConsoleReadRequest({
+          method: context.req.method,
+          requestTarget
+        }) ||
+        isCanonicalAdminConsoleCommandRequest({
           method: context.req.method,
           requestTarget
         }) ||
@@ -573,6 +595,21 @@ export const createApiApp = ({
           : technicalBaseCors(context, next)
       })
     }
+    if (userReports) {
+      app.route(
+        '/api/v1/reports',
+        createUserReportRoutes({
+          createGuard: createQuestionReportGuard({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: userReports.rateLimiter
+          }),
+          environment: auth.environment,
+          principalService: auth.principalService,
+          service: userReports.service
+        })
+      )
+    }
     if (learnerReports) {
       app.route(
         '/api/v1/question-reports',
@@ -603,6 +640,39 @@ export const createApiApp = ({
           reader: admin.reader
         })
       )
+      if (admin.importResultReader) {
+        app.route(
+          '/api/v1/admin',
+          createAdminImportResultRoutes({
+            guard: createAdminReadGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.rateLimiter
+            }),
+            readResult: admin.importResultReader
+          })
+        )
+      }
+      if (userReports) {
+        const readGuard = createAdminReadGuard({
+          assertCapability: admin.assertCapability,
+          environment: auth.environment,
+          principalService: auth.principalService,
+          rateLimiter: admin.rateLimiter
+        })
+        app.route(
+          '/api/v1/admin',
+          createAdminUserReportRoutes({
+            commandGuard: createAdminConsoleCommandGuard({
+              environment: auth.environment,
+              readGuard
+            }),
+            readGuard,
+            service: userReports.service
+          })
+        )
+      }
       if (admin.reports) {
         app.route(
           '/api/v1/admin',

@@ -55,6 +55,9 @@ import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTarg
 import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
 import { createPrismaAdminQuestionRepository } from './admin/adminQuestionRepository.js'
 import { createAdminQuestionService } from './admin/adminQuestionService.js'
+import { createQuestionImportResultReader } from './admin/questionImportResultStore.js'
+import { createPrismaUserReportRepository } from './report/userReportRepository.js'
+import { createUserReportService } from './report/userReportService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
 import { createPrismaAdminQuestionSlice5Repository } from './admin/adminQuestionSlice5Repository.js'
@@ -269,6 +272,9 @@ const questionReportService = questionReportRateLimiter
       repository: createPrismaQuestionReportRepository(database.client)
     })
   : undefined
+const userReportService = questionReportRateLimiter
+  ? createUserReportService(createPrismaUserReportRepository(database.client))
+  : undefined
 const app = createApiApp({
   ...(adminQuestionReader &&
   adminReadRateLimiter &&
@@ -293,8 +299,17 @@ const app = createApiApp({
             rateLimiter: questionReportRateLimiter,
             service: questionReportService
           },
+          importResultReader: createQuestionImportResultReader(database.client),
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader
+        }
+      }
+    : {}),
+  ...(questionReportRateLimiter && userReportService
+    ? {
+        userReports: {
+          rateLimiter: questionReportRateLimiter,
+          service: userReportService
         }
       }
     : {}),
