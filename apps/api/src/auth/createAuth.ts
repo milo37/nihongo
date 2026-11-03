@@ -19,7 +19,7 @@ export const createAuthRuntime = ({
   environment
 }: CreateAuthRuntimeDependencies) =>
   betterAuth({
-    appName: 'JLPT Drill Note',
+    appName: '하루마루',
     basePath: '/api/auth',
     baseURL: environment.BETTER_AUTH_URL,
     secret: environment.BETTER_AUTH_SECRET,

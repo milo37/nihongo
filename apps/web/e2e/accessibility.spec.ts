@@ -1794,7 +1794,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   expect(page.url()).toBe(loginUrlBeforeLocaleSwitch)
   expect(
     await page.evaluate(() =>
-      JSON.parse(localStorage.getItem('jlpt-drill-note:ui-locale:v1') ?? 'null')
+      JSON.parse(localStorage.getItem('harumaru:ui-locale:v1') ?? 'null')
     )
   ).toEqual({ locale: 'ja', version: 1 })
   await flushTransportEvidence(transport)

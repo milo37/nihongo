@@ -66,13 +66,13 @@ const resetTestState = async (): Promise<void> => {
   clearStorageCache()
   await appI18n.changeLanguage('ko')
   document.documentElement.lang = 'ko'
-  document.title = 'JLPT Drill Note'
+  document.title = '하루마루'
   const description = document.querySelector<HTMLMetaElement>(
     'meta[name="description"]'
   )
   if (description) {
     description.content =
-      'JLPT N5부터 N1까지 문제를 풀고 오답을 반복 학습하는 JLPT Drill Note'
+      'JLPT N5부터 N1까지 문제를 풀고 오답을 반복 학습하는 하루마루'
   }
 }
 

@@ -2,7 +2,7 @@ import type { UiLocale } from '../i18n/types'
 import { DEFAULT_UI_LOCALE, isUiLocale } from '../i18n/types'
 import { cachedStorage, readFreshLocalStorageItem } from './storage'
 
-export const UI_LOCALE_STORAGE_KEY = 'jlpt-drill-note:ui-locale:v1'
+export const UI_LOCALE_STORAGE_KEY = 'harumaru:ui-locale:v1'
 export const UI_LOCALE_STORAGE_VERSION = 1
 
 interface UiLocalePreference {
