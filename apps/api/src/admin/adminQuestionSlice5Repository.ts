@@ -35,11 +35,25 @@ import {
 } from './questionImportResultStore.js'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import {
+  type AuditEnvironment,
+  type TargetManifest,
+  type OperationContext,
+  type BegunOperationRow,
+  type OccurredAtRow,
+  type AuthorityProbeRow,
+  type AdminAuthorityClassificationRow,
+  CREATE_CHANGED_FIELDS,
+  AUTHORITY_FAILURE_MESSAGES,
+  toIso,
+  uniqueSorted,
+  rawDatabaseIdentity,
+  finishOperation
+} from './adminRepositoryCommon.js'
+import {
   AdminQuestionCommandRepositoryError,
   type AdminCommandAuthority
 } from './adminQuestionCommandRepository.js'
 
-type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
 type Slice5TransactionalOperation =
   | 'requestContentReviewBatch'
   | 'applyQuestionImport'
@@ -47,46 +61,8 @@ type Slice5TransactionalOperation =
   | 'triageAdminQuestionReport'
   | 'resolveAdminQuestionReport'
 
-interface TargetManifestItem {
-  readonly id: string
-  readonly rowVersion: number
-  readonly state: string
-}
-
 type AdminImportValidationIssue =
   AdminImportValidationResponse['errors'][number]
-
-interface TargetManifest {
-  readonly questions: readonly TargetManifestItem[]
-  readonly versions: readonly TargetManifestItem[]
-  readonly reports: readonly TargetManifestItem[]
-  readonly tags: readonly string[]
-}
-
-interface OperationContext {
-  readonly actorUserId: string
-  readonly operationId: string
-  readonly occurredAt: Date
-}
-
-interface BegunOperationRow {
-  readonly actorUserId: string
-  readonly operationId: string
-}
-
-interface OccurredAtRow {
-  readonly occurredAt: Date
-}
-
-interface AuthorityProbeRow {
-  readonly isFresh: boolean | null
-  readonly principalRole: 'USER' | 'ADMIN' | null
-  readonly principalUserId: string | null
-}
-
-interface AdminAuthorityClassificationRow {
-  readonly outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
-}
 
 interface TagApplicabilityRow {
   readonly id: string
@@ -247,21 +223,6 @@ interface ReportMutationRow {
   readonly updatedAt: Date
 }
 
-const CREATE_CHANGED_FIELDS = [
-  'LIFECYCLE_STATUS',
-  'LEVEL',
-  'SUBJECT',
-  'QUESTION_TYPE',
-  'DIFFICULTY',
-  'PASSAGE',
-  'QUESTION_TEXT',
-  'EXPLANATION_KO',
-  'EXPLANATION_JA',
-  'OPTIONS',
-  'CORRECT_OPTION',
-  'TAGS'
-] as const
-
 const EXPORT_BODY_CAP = 8 * 1024 * 1024
 const EXPORT_VERSION_BATCH_SIZE = 25
 const FRESH_OPERATIONS = new Set<Slice5TransactionalOperation>([
@@ -270,25 +231,10 @@ const FRESH_OPERATIONS = new Set<Slice5TransactionalOperation>([
   'exportAdminQuestions',
   'resolveAdminQuestionReport'
 ])
-const AUTHORITY_FAILURE_MESSAGES = new Set([
-  'Phase 7 operation requires an existing Session.',
-  'Phase 7 operation Session family is unavailable.',
-  'Phase 7 operation Session is unavailable.',
-  'Phase 7 operation authority is stale or insufficient.',
-  'Phase 7 authority expired before commit.',
-  'A referenced Phase 7 User is unavailable.',
-  'Phase 7 referenced User set is not exact for its targets.'
-])
-
 const sha256Port: Sha256TextPort = {
   digestUtf8: async (value) =>
     createHash('sha256').update(value, 'utf8').digest('hex')
 }
-
-const toIso = (value: Date): string => value.toISOString()
-
-const uniqueSorted = (values: readonly (string | null)[]): string[] =>
-  [...new Set(values.filter((value): value is string => value !== null))].sort()
 
 const repositoryFailure = (
   code: StableErrorCode,
@@ -312,59 +258,6 @@ const repositoryInvariantFailure = (
     disposition: 'NO_TX',
     ...(cause === undefined ? {} : { cause })
   })
-
-const rawDatabaseIdentity = (
-  error: unknown
-): { readonly sqlState: string; readonly message: string } | undefined => {
-  if (
-    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-    error.code !== 'P2010' ||
-    typeof error.meta !== 'object' ||
-    error.meta === null
-  ) {
-    return undefined
-  }
-  const meta = error.meta as Record<string, unknown>
-  const identities: Array<{ sqlState: string; message: string }> = []
-  if (typeof meta.code === 'string' && typeof meta.message === 'string') {
-    identities.push({ sqlState: meta.code, message: meta.message })
-  }
-  const driver = meta.driverAdapterError
-  if (typeof driver === 'object' && driver !== null) {
-    const cause = (driver as Record<string, unknown>).cause
-    if (typeof cause === 'object' && cause !== null) {
-      const record = cause as Record<string, unknown>
-      if (
-        typeof record.originalCode === 'string' &&
-        typeof record.originalMessage === 'string'
-      ) {
-        identities.push({
-          sqlState: record.originalCode,
-          message: record.originalMessage
-        })
-      }
-    }
-  }
-  const [first, ...rest] = identities
-  if (
-    !first ||
-    rest.some(
-      (identity) =>
-        identity.sqlState !== first.sqlState ||
-        identity.message !== first.message
-    )
-  ) {
-    return undefined
-  }
-  return {
-    sqlState: first.sqlState,
-    message:
-      first.message
-        .split('\n', 1)[0]
-        ?.replace(/^ERROR:\s*/u, '')
-        .trim() ?? ''
-  }
-}
 
 const rawSqlState = (error: unknown): string | undefined => {
   const identity = rawDatabaseIdentity(error)
@@ -428,16 +321,6 @@ const armOperation = async (
     )
   }
   return { ...operation, occurredAt }
-}
-
-const finishOperation = async (
-  transaction: Prisma.TransactionClient,
-  operationId: string
-): Promise<void> => {
-  await transaction.$executeRawUnsafe(
-    `SELECT "phase7_finish_admin_operation"($1)`,
-    operationId
-  )
 }
 
 type AuditMetadata =
