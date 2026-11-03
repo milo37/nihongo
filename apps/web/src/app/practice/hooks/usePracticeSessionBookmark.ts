@@ -7,7 +7,7 @@ import type {
   StudyQuestionView,
   StudySessionView
 } from '@app/practice/adapters/studySessionView'
-import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
+import { toOptimisticBookmark } from '@app/bookmark/toOptimisticBookmark'
 import type { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
@@ -21,33 +21,6 @@ export type BookmarkNoticeCode =
 type UsePracticeSessionBookmarkInput = {
   role: ReturnType<typeof useAuth>['role']
   sessionData: StudySessionView | undefined
-}
-
-const toOptimisticBookmark = (
-  question: StudyQuestionView
-): BookmarkSummary | undefined => {
-  if (!question.questionVersionId || !question.tagSummaries) {
-    return undefined
-  }
-  const characters = [...question.questionText]
-  return {
-    questionId: question.id,
-    question: {
-      id: question.id,
-      questionVersionId: question.questionVersionId,
-      level: question.level,
-      subject: question.subject,
-      questionType: question.questionType,
-      difficulty: question.difficulty,
-      questionTextPreview:
-        characters.length <= 160
-          ? question.questionText
-          : `${characters.slice(0, 157).join('')}...`,
-      tags: question.tagSummaries
-    },
-    availability: 'AVAILABLE',
-    createdAt: new Date().toISOString()
-  }
 }
 
 export const usePracticeSessionBookmark = ({
