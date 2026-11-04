@@ -35,20 +35,19 @@ const publish = () =>
     }
   })
 
-test('accepts a per-item partial batch publish result in request order', async () => {
-  answer = {
-    publishedCount: 1,
-    items: [
-      { questionVersionId: first, result: 'PUBLISHED', rowVersion: 4 },
-      {
-        questionVersionId: second,
-        result: 'VERSION_CONFLICT',
-        rowVersion: null
-      }
-    ]
+test.each(['VERSION_CONFLICT', 'FAILED'] as const)(
+  'accepts a per-item partial batch publish result with %s in request order',
+  async (result) => {
+    answer = {
+      publishedCount: 1,
+      items: [
+        { questionVersionId: first, result: 'PUBLISHED', rowVersion: 4 },
+        { questionVersionId: second, result, rowVersion: null }
+      ]
+    }
+    await expect(publish()).resolves.toEqual(answer)
   }
-  await expect(publish()).resolves.toEqual(answer)
-})
+)
 
 test.each([
   [
