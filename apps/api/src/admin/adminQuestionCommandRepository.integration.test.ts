@@ -18,6 +18,7 @@ import {
   assertTriageAdminQuestionReportResponse,
   assertUpdateQuestionVersionResponse,
   approveQuestionVersionRequestSchema,
+  withdrawQuestionApprovalRequestSchema,
   archiveAdminQuestionRequestSchema,
   createQuestionReportRequestSchema,
   createAdminQuestionRequestSchema,
@@ -1356,6 +1357,52 @@ describe('ADMIN command TEST database integration', () => {
         }
       ]
     })
+  })
+
+  it('lets a single operator approve, withdraw and publish their own version (JLP-704)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+    const own = authority(authorId, authorToken)
+    const created = await createDraftQuestion(`self-${randomUUID()}`)
+    const versionId = created.questionVersionId
+    if (!versionId) throw new Error('Created version ID is unavailable.')
+    const review = async (expectedRowVersion: number) =>
+      commandService!.requestReview(
+        own,
+        versionId,
+        requestContentReviewRequestSchema.parse({ expectedRowVersion })
+      )
+    const approve = async (expectedRowVersion: number) =>
+      commandService!.approveVersion(
+        own,
+        versionId,
+        approveQuestionVersionRequestSchema.parse({ expectedRowVersion })
+      )
+
+    const firstReview = await review(created.versionRowVersion!)
+    const firstApproval = await approve(firstReview.versionRowVersion!)
+    expect(firstApproval.versionStatus).toBe('APPROVED')
+
+    const withdrawn = await commandService.withdrawApproval(
+      own,
+      versionId,
+      withdrawQuestionApprovalRequestSchema.parse({
+        expectedRowVersion: firstApproval.versionRowVersion,
+        reason: '본인 승인 철회'
+      })
+    )
+    expect(withdrawn.versionStatus).toBe('CHANGES_REQUESTED')
+
+    const secondReview = await review(withdrawn.versionRowVersion!)
+    const secondApproval = await approve(secondReview.versionRowVersion!)
+    const published = await commandService.publishVersion(
+      own,
+      versionId,
+      publishQuestionVersionRequestSchema.parse({
+        expectedRowVersion: secondApproval.versionRowVersion,
+        expectedQuestionRowVersion: secondApproval.questionRowVersion
+      })
+    )
+    expect(published.versionStatus).toBe('PUBLISHED')
   })
 
   it('executes publication, retirement and all archive shapes atomically', async () => {
