@@ -35,6 +35,7 @@ vi.mock('./ownedSessionAuthority.js', async (importOriginal) => ({
       authorityGeneration: 1
     })
   ),
+  confirmOwnedSession: vi.fn(async () => true),
   refreshRememberedSession: vi.fn(async () => []),
   signOutOwnedSession: vi.fn(async () => true)
 }))
@@ -117,7 +118,7 @@ const fixture = (overrides: Record<string, string> = {}) => {
         // Recent sign-in: inside the 8 hour ADMIN session limit.
         createdAt: new Date(Date.now() - 60_000),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
-        isFresh: sql.includes('phase7_sso_admin_session_is_fresh')
+        isFresh: sql.includes('"SsoAdminFreshProof"')
           ? fresh && elapsed < 300_000
           : true
       }
@@ -312,7 +313,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
     expect((await command()).status).toBe(401)
     expect(
       f.appQuery.mock.calls.every(([sql]) =>
-        sql.includes('phase7_sso_admin_session_is_fresh')
+        sql.includes('"SsoAdminFreshProof"')
       )
     ).toBe(true)
   })

@@ -2,7 +2,10 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { pgOwnedSessionClient } from './fixtures/ownedSessionSql.js'
+import {
+  bridgedQuery,
+  pgOwnedSessionClient
+} from './fixtures/ownedSessionSql.js'
 import { Client } from 'pg'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
@@ -79,7 +82,7 @@ const apiTransaction = (client: Client): Prisma.TransactionClient =>
   }) as unknown as Prisma.TransactionClient
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly68 completed names/checksums preserving the old67 prefix', async () => {
+  it('deploy and re-entry leave exactly69 completed names/checksums preserving the old68 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -90,7 +93,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(68)
+    expect(expected).toHaveLength(69)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -219,11 +222,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         name: '20261114090000_session_issuance_to_api',
         checksum:
           '943912fc8ba9cd4a45c7b3b8d5a162b1cf30ddd915bbb1d46ba37587f27ec98b'
+      },
+      {
+        name: '20261115090000_admin_fresh_to_api',
+        checksum:
+          'ed871f2b1fb8224db6d3d15768a1f3454ad6c1c859aea3a9e4393b1b9b47c589'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(68)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(69)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
@@ -258,7 +266,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ].map((name) => ({
         name,
         owner: 'nihongo_phase7_owner',
-        app: false,
+        // #504 P7 PR3b-1: nihongo_app deletes one-time ADMIN_FRESH rows
+        // (DELETE is a table privilege); reads and writes stay column grants.
+        app: name !== 'SsoLoginTransaction',
         gateway: false,
         erasure: false,
         publicGrant: false
@@ -267,26 +277,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     const gatewayFunctions = [
       'phase7_create_sso_transaction_v2',
       'phase7_consume_sso_transaction_v2',
-      'phase7_resolve_sso_identity',
-      'phase7_prepare_sso_admin_fresh',
-      'phase7_create_sso_admin_fresh_transaction',
-      'phase7_consume_sso_admin_fresh_transaction',
-      'phase7_stage_sso_admin_fresh_proof',
-      'phase7_complete_sso_admin_fresh',
-      'phase7_reconcile_sso_admin_fresh',
-      'phase7_cancel_sso_admin_fresh_proof'
+      'phase7_resolve_sso_identity'
     ]
+    // #504 P7 PR3b-1: the ADMIN_FRESH functions moved to the API.
     const privateFunctions = [
       'phase7_create_sso_transaction',
-      'phase7_consume_sso_transaction',
-      'phase7_sso_fresh_context_valid',
-      'validate_phase7_sso_fresh_operation'
+      'phase7_consume_sso_transaction'
     ]
-    const names = [
-      ...gatewayFunctions,
-      ...privateFunctions,
-      'phase7_sso_admin_session_is_fresh'
-    ].toSorted()
+    const names = [...gatewayFunctions, ...privateFunctions].toSorted()
     const routines = await h.owner.query<{
       name: string
       owner: string
@@ -316,9 +314,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         owner: 'nihongo_phase7_owner',
         definer: true,
         // #504 P7 PR1: nihongo_app also executes every gateway facade.
-        app:
-          row.name === 'phase7_sso_admin_session_is_fresh' ||
-          gatewayFunctions.includes(row.name),
+        app: gatewayFunctions.includes(row.name),
         gateway: gatewayFunctions.includes(row.name),
         erasure: false,
         publicGrant: false
@@ -341,12 +337,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         'nihongo_erasure_worker',
         'SELECT "phase7_prepare_sso_admin_fresh"($1,$2)',
         ['missing', 'google'],
-        '42501'
-      )
-      await h.rejects(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_sso_fresh_context_valid"($1::jsonb)',
-        ['{}'],
         '42501'
       )
     })
@@ -966,8 +956,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ]
     )
     const callbacks = await Promise.all(
-      [h.gatewayA, h.gatewayB].map((client) =>
-        client.query(
+      [h.appA, h.appB].map((client) =>
+        bridgedQuery(
+          client,
           'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
           [f.provider, state, binding]
         )
@@ -978,8 +969,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     expect(accepted).toBe(true)
     const candidates = [h.completeValues(f, proof), h.completeValues(f, proof)]
     const rotations = await Promise.all(
-      [h.gatewayA, h.gatewayB].map((client, i) =>
-        client.query(h.completeSql, candidates[i]?.values)
+      [h.appA, h.appB].map((client, i) =>
+        bridgedQuery(client, h.completeSql, candidates[i]?.values)
       )
     )
     expect(rotations.map((r) => r.rowCount).toSorted()).toEqual([0, 1])
@@ -994,25 +985,31 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const before = await h.snapshot()
       let completed = false,
         cancelled = false
-      const query = async (
-        sql: string,
-        ...values: unknown[]
-      ): Promise<unknown> => {
-        if (sql.includes('cancel_sso')) cancelled = true
-        if (sql.includes('reconcile_sso') && mode === 'unknown')
-          throw new Error('Injected reconciliation transport unavailable.')
-        const result = await h.gatewayA.query(sql, values)
-        if (sql.includes('complete_sso')) {
-          completed = true
-          throw new Error(
-            'Injected return loss after successful PostgreSQL commit.'
-          )
-        }
-        return result.rows
-      }
-      const port = createSsoAdminFreshRepository({
-        $queryRawUnsafe: query
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      // The API rotation commits on a real nihongo_app connection, then the
+      // response is lost (and, for 'unknown', reconciliation is unreachable).
+      const port = createSsoAdminFreshRepository(
+        pgOwnedSessionClient(h.appA, {
+          beforeQuery: (sql) => {
+            if (sql.includes('DELETE FROM "SsoAdminFreshProof"'))
+              cancelled = true
+            if (completed && mode === 'unknown')
+              throw new Error('Injected reconciliation transport unavailable.')
+          },
+          afterCommit: (statements) => {
+            if (
+              !completed &&
+              statements.some((sql) =>
+                sql.includes('UPDATE "SsoAdminFreshProof"')
+              )
+            ) {
+              completed = true
+              throw new Error(
+                'Injected return loss after successful PostgreSQL commit.'
+              )
+            }
+          }
+        })
+      )
       if (mode === 'unknown')
         await expect(
           port.complete(proof, f.token, {
@@ -1056,11 +1053,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       `CREATE TRIGGER sso_test_reject_completion BEFORE UPDATE ON "SsoAdminFreshProof" FOR EACH ROW EXECUTE FUNCTION sso_test_reject_completion('${proof}')`
     )
     try {
-      const query = async (sql: string, ...values: unknown[]) =>
-        (await h.gatewayA.query(sql, values)).rows
-      const port = createSsoAdminFreshRepository({
-        $queryRawUnsafe: query
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const port = createSsoAdminFreshRepository(pgOwnedSessionClient(h.appA))
       await expect(
         port.complete(proof, f.token, {
           ipAddress: '127.0.0.1',
@@ -1583,7 +1576,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       state = digest(),
       binding = digest()
     const outcomes = await Promise.allSettled([
-      h.gatewayA.query<{ ok: boolean }>(
+      bridgedQuery<{ ok: boolean }>(
+        h.appA,
         'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
         [
           f.provider,

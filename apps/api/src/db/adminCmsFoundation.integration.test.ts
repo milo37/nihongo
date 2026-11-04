@@ -31,7 +31,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261106090000_single_operator_review',
   '20261107090000_drop_study_review_triggers',
   '20261108090000_admin_member_console_to_api',
   '20261109090000_guest_cleanup_to_api',
@@ -41,7 +40,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261111090000_drop_dead_reauthentication',
   '20261112090000_merge_runtime_roles',
   '20261113090000_admin_operation_to_api',
-  '20261114090000_session_issuance_to_api'
+  '20261114090000_session_issuance_to_api',
+  '20261115090000_admin_fresh_to_api'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -368,15 +368,17 @@ const completeAdminSsoFresh = async (
   oldToken: string
 ): Promise<string> => {
   const token = `phase7-foundation-fresh-${randomUUID()}`
-  await withExecutionRole('nihongo_auth_gateway', async () => {
-    const prepared = await client.query<{ context: unknown }>(
+  await withExecutionRole('nihongo_app', async () => {
+    const prepared = await ownedSessionSql(
+      client,
       `SELECT "phase7_prepare_sso_admin_fresh"($1, 'google') AS context`,
       [oldToken]
     )
     const context = adminFreshContextSchema.parse(prepared.rows[0]?.context)
     expect(context.userId).toBe(userId)
     const proof = createHash('sha256').update(randomUUID()).digest('hex')
-    const staged = await client.query<{ accepted: boolean }>(
+    const staged = await ownedSessionSql(
+      client,
       `SELECT "phase7_stage_sso_admin_fresh_proof"(
         $1::jsonb, 'google', $2, $3, '/admin/questions'
       ) AS accepted`,
@@ -384,7 +386,8 @@ const completeAdminSsoFresh = async (
     )
     expect(staged.rows).toEqual([{ accepted: true }])
     const sessionId = randomUUID()
-    const completed = await client.query<{ id: string; userId: string }>(
+    const completed = await ownedSessionSql(
+      client,
       `SELECT * FROM "phase7_complete_sso_admin_fresh"($1, $2, $3, $4, $5, $6)`,
       [
         proof,
@@ -399,7 +402,8 @@ const completeAdminSsoFresh = async (
     expect(completed.rows[0]).toMatchObject({ id: sessionId, userId })
   })
   await withExecutionRole('nihongo_app', async () => {
-    const fresh = await client.query<{ fresh: boolean }>(
+    const fresh = await ownedSessionSql(
+      client,
       `SELECT "phase7_sso_admin_session_is_fresh"($1) AS fresh`,
       [token]
     )
@@ -516,14 +520,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('68 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('69 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(68)
+    expect(ledger.rows).toHaveLength(69)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -603,7 +607,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 68 }])
+      ).toEqual([{ migrationCount: 69 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1114,7 +1118,6 @@ describe('Persistence foundation', () => {
           'phase7_change_user_authority',
           'phase7_cleanup_expired_auth_state',
           'phase7_close_trusted_execution',
-          'phase7_confirm_v1_session_issuance',
           'phase7_create_question_report',
           'phase7_erase_user',
           'phase7_finish_admin_operation',
@@ -1132,7 +1135,7 @@ describe('Persistence foundation', () => {
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(19)
+    expect(publicExecute.rows).toHaveLength(18)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -6667,8 +6670,9 @@ describe('Persistence foundation', () => {
       )
     ).resolves.toMatchObject({ rows: [{ id: signupSessionId }] })
     await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
+      withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          client,
           `SELECT "phase7_confirm_v1_session_issuance"(
             $1, $2, $3, 1, 'USER', 'ACTIVE'
           ) AS confirmed`,
@@ -6702,8 +6706,9 @@ describe('Persistence foundation', () => {
     ]
     for (const proof of mismatchedIssuanceProofs) {
       await expect(
-        withExecutionRole('nihongo_auth_gateway', () =>
-          client.query(
+        withExecutionRole('nihongo_app', () =>
+          ownedSessionSql(
+            client,
             `SELECT "phase7_confirm_v1_session_issuance"(
               $1, $2, $3, $4, $5::"UserRole", $6::"UserAccountStatus"
             ) AS confirmed`,
@@ -6715,7 +6720,8 @@ describe('Persistence foundation', () => {
     // #504 P7 PR1: nihongo_app may run gateway facades; another role may not.
     await expect(
       withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(
+        ownedSessionSql(
+          client,
           `SELECT "phase7_confirm_v1_session_issuance"(
             $1, $2, $3, 1, 'USER', 'ACTIVE'
           )`,

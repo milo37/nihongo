@@ -143,8 +143,9 @@ describe('SSO TEST fixture activation ownership', () => {
     await connected(async () => {
       expect(calls('phase7_register_database_capability')).toHaveLength(1)
       expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)
-      expect(db.connect).toHaveBeenCalledTimes(4)
-      expect(db.options).toHaveLength(4)
+      // owner, two gateway and three nihongo_app connections (#504 P7 PR3b-1).
+      expect(db.connect).toHaveBeenCalledTimes(6)
+      expect(db.options).toHaveLength(6)
       expect(
         db.options.every((value) =>
           value.options.includes(`search_path=${schema}`)
@@ -157,7 +158,7 @@ describe('SSO TEST fixture activation ownership', () => {
       ).toHaveLength(2)
       expect(
         db.options.filter((value) => value.options.includes('role=nihongo_app'))
-      ).toHaveLength(1)
+      ).toHaveLength(3)
     })
   })
   it.each(

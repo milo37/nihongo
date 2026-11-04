@@ -1,19 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import {
+  confirmOwnedSession,
   issueOwnedSession,
   signOutOwnedSession
 } from './ownedSessionAuthority.js'
 import { createSsoIdentityRepository } from './ssoIdentityRepository.js'
 
 vi.mock('./ownedSessionAuthority.js', () => ({
+  confirmOwnedSession: vi.fn(),
   issueOwnedSession: vi.fn(),
   signOutOwnedSession: vi.fn(async () => true)
 }))
 const issueMock = vi.mocked(issueOwnedSession)
+const confirmMock = vi.mocked(confirmOwnedSession)
 const signOutMock = vi.mocked(signOutOwnedSession)
 beforeEach(() => {
   issueMock.mockReset()
+  confirmMock.mockReset()
   signOutMock.mockClear()
 })
 
@@ -50,11 +54,10 @@ const fixture = (
             }
           }
         ]
-      if (sql.includes('confirm_v1_session'))
-        return [{ confirmed: options.confirmed ?? true }]
       throw new Error('unexpected query')
     }
   )
+  confirmMock.mockImplementation(async () => options.confirmed ?? true)
   issueMock.mockImplementation(async (_client, input) => {
     if (options.issueThrows) throw new Error('private db failure')
     return {
@@ -87,7 +90,12 @@ describe('SSO stable identity and confirmed session', () => {
       accountStatus: 'ACTIVE',
       remember: true
     })
-    expect(f.calls[1]?.values.slice(2)).toEqual([userId, 7, 'ADMIN', 'ACTIVE'])
+    expect(confirmMock.mock.calls[0]?.[1]).toMatchObject({
+      userId,
+      authorityGeneration: 7,
+      role: 'ADMIN',
+      accountStatus: 'ACTIVE'
+    })
     expect(signOutMock).not.toHaveBeenCalled()
   })
   it.each([

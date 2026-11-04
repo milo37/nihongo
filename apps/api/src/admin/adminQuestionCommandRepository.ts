@@ -1,3 +1,4 @@
+import { adminSessionFreshSql } from '../auth/adminFreshAuthority.js'
 import { createHash, randomUUID } from 'node:crypto'
 import {
   createQuestionDuplicateIdentityKey,
@@ -550,7 +551,7 @@ const classifyAuthorityFailure = async (
       `SELECT principal."userId" AS "principalUserId",
          principal."role" AS "principalRole",
          CASE WHEN principal."userId" IS NULL THEN NULL
-           ELSE "phase7_sso_admin_session_is_fresh"($1)
+           ELSE ${adminSessionFreshSql('$1')}
          END AS "isFresh"
        FROM (${v1PrincipalQuery('$1')}) AS principal`,
       authority.rawSessionToken

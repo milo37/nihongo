@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import {
+  confirmOwnedSession,
   issueOwnedSession,
   signOutOwnedSession,
   type OwnedSessionClient
@@ -96,19 +97,15 @@ export const createSsoIdentityRepository = (
         session.expiresAt <= session.createdAt
       )
         throw new Error('SSO session issuance mismatch.')
-      const confirmed = await client.$queryRawUnsafe<
-        Array<{ confirmed: boolean }>
-      >(
-        'SELECT "phase7_confirm_v1_session_issuance"($1, $2, $3, $4, $5::"UserRole", $6::"UserAccountStatus") AS confirmed',
+      const confirmed = await confirmOwnedSession(client, {
         token,
         sessionId,
-        authority.userId,
-        authority.authorityGeneration,
-        authority.role,
-        authority.accountStatus
-      )
-      if (confirmed.length !== 1 || confirmed[0]?.confirmed !== true)
-        throw new Error('SSO session confirmation unavailable.')
+        userId: authority.userId,
+        authorityGeneration: authority.authorityGeneration,
+        role: authority.role,
+        accountStatus: authority.accountStatus
+      })
+      if (!confirmed) throw new Error('SSO session confirmation unavailable.')
       return {
         kind: 'SESSION_CONFIRMED',
         token,
