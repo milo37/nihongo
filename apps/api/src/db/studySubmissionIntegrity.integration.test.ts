@@ -352,85 +352,6 @@ const createInitialWrongNote = async (
   return { eventId, noteId, session }
 }
 
-const transitionToReviewing = async (
-  userId: string,
-  question: QuestionFixture,
-  noteId: string,
-  occurredAt: Date
-): Promise<SessionFixture> => {
-  const session = await createSession(
-    userId,
-    question,
-    addMilliseconds(occurredAt, -HOUR_MS)
-  )
-  const recordId = randomUUID()
-  const answerId = randomUUID()
-  const requestHash = createHash()
-  await transaction(async () => {
-    await insertProcessing(
-      recordId,
-      session.id,
-      userId,
-      requestHash,
-      addMilliseconds(occurredAt, -1_000)
-    )
-    await client.query(
-      `INSERT INTO "StudyAnswer" (
-        "id", "studySessionQuestionId", "questionVersionId",
-        "selectedOptionId", "isCorrect", "elapsedSec", "gradingVersion",
-        "answeredAt", "gradedAt"
-      ) VALUES ($1, $2, $3, $4, true, 1, $5, $6, $6)`,
-      [
-        answerId,
-        session.itemId,
-        question.questionVersionId,
-        question.correctOptionId,
-        GRADING_VERSION,
-        occurredAt
-      ]
-    )
-    await client.query(
-      `UPDATE "WrongNote"
-       SET "correctStreak" = 1, "status" = 'REVIEWING',
-           "lastReviewedAt" = $2, "updatedAt" = $2
-       WHERE "id" = $1`,
-      [noteId, occurredAt]
-    )
-    await client.query(
-      `UPDATE "ReviewSchedule"
-       SET "nextReviewAt" = $2, "intervalDays" = 3, "updatedAt" = $3
-       WHERE "wrongNoteId" = $1`,
-      [noteId, addMilliseconds(occurredAt, 3 * DAY_MS), occurredAt]
-    )
-    await client.query(
-      `INSERT INTO "ReviewEvent" (
-        "id", "wrongNoteId", "userId", "questionId", "questionVersionId",
-        "source", "studySessionId", "studyAnswerId", "selectedOptionId",
-        "isCorrect", "previousStatus", "nextStatus",
-        "previousCorrectStreak", "nextCorrectStreak",
-        "previousWrongCount", "wrongCountAfter", "algorithmVersion",
-        "occurredAt"
-      ) VALUES (
-        $1, $2, $3, $4, $5, 'STUDY_SUBMIT', $6, $7, $8, true,
-        'NEW', 'REVIEWING', 0, 1, 1, 1, 1, $9
-      )`,
-      [
-        randomUUID(),
-        noteId,
-        userId,
-        question.questionId,
-        question.questionVersionId,
-        session.id,
-        answerId,
-        question.correctOptionId,
-        occurredAt
-      ]
-    )
-    await finalizeSession(recordId, session, requestHash, occurredAt, 1)
-  })
-  return session
-}
-
 beforeAll(async () => {
   await database.checkReadiness()
   await client.connect()
@@ -460,33 +381,13 @@ afterAll(async () => {
 })
 
 describe('Slice 4 submission integrity follow-up', () => {
-  it('strict idempotency CHECK와 latest-event trigger definitions를 설치한다', async () => {
+  it('strict idempotency CHECK를 설치하고 current review null CHECK는 두지 않는다', async () => {
     const result = await client.query<{
       checkDefinition: string
-      eventFunction: string
       nullConstraintCount: number
-      snapshotFunction: string
-      wrongNoteFunction: string
-      wrongNoteTrigger: string
     }>(
       `SELECT
         pg_get_constraintdef(constraint_row.oid) AS "checkDefinition",
-        pg_get_functiondef(
-          'validate_review_event_change()'::regprocedure
-        ) AS "eventFunction",
-        pg_get_functiondef(
-          'validate_wrong_note_snapshot()'::regprocedure
-        ) AS "snapshotFunction",
-        pg_get_functiondef(
-          'validate_wrong_note_change()'::regprocedure
-        ) AS "wrongNoteFunction",
-        (
-          SELECT pg_get_triggerdef(trigger.oid)
-          FROM pg_trigger AS trigger
-          WHERE trigger.tgrelid = '"WrongNote"'::regclass
-            AND trigger.tgname = 'WrongNote_validate_change'
-            AND NOT trigger.tgisinternal
-        ) AS "wrongNoteTrigger",
         (
           SELECT COUNT(*)::int
           FROM pg_constraint AS current_pointer_constraint
@@ -504,156 +405,7 @@ describe('Slice 4 submission integrity follow-up', () => {
     expect(result.rows[0]?.checkDefinition).toContain(
       '"responseBody" IS NOT NULL'
     )
-    expect(result.rows[0]?.eventFunction).toContain('FOR UPDATE')
-    expect(result.rows[0]?.eventFunction).toContain(
-      'NEW."previousStatus" IS DISTINCT FROM prior_status'
-    )
-    expect(result.rows[0]?.snapshotFunction).toContain(
-      'ORDER BY event."occurredAt" DESC, event."id" DESC'
-    )
     expect(result.rows[0]?.nullConstraintCount).toBe(0)
-    expect(result.rows[0]?.wrongNoteFunction).toContain(
-      'WrongNote current review pointer cannot return to null.'
-    )
-    expect(result.rows[0]?.wrongNoteFunction).toContain(
-      'FOR SHARE OF question, version'
-    )
-    expect(result.rows[0]?.wrongNoteTrigger).toContain(
-      'BEFORE INSERT OR DELETE OR UPDATE'
-    )
-    expect(result.rows[0]?.eventFunction).toContain(
-      "evidence_mode NOT IN ('WRONG_NOTE', 'DAILY_REVIEW')"
-    )
-    expect(result.rows[0]?.eventFunction).toContain(
-      "evidence_mode NOT IN ('RANDOM', 'WEAKNESS', 'BOOKMARK')"
-    )
-  })
-
-  it('current review pointer의 최초 설정·null 복귀·unknown 대상을 DB에서 강제한다', async () => {
-    const userId = await createUser('slice3-pointer')
-    const question = await loadQuestion()
-    const occurredAt = new Date()
-    const first = await createInitialWrongNote(userId, question, occurredAt)
-    const before = await client.query<{ updatedAt: Date }>(
-      `SELECT "updatedAt" FROM "WrongNote" WHERE "id" = $1`,
-      [first.noteId]
-    )
-
-    await client.query(
-      `UPDATE "WrongNote"
-       SET "currentReviewQuestionVersionId" = $2
-       WHERE "id" = $1`,
-      [first.noteId, question.questionVersionId]
-    )
-    expect(
-      (
-        await client.query<{
-          currentReviewQuestionVersionId: string
-          updatedAt: Date
-        }>(
-          `SELECT
-            "currentReviewQuestionVersionId",
-            "updatedAt"
-           FROM "WrongNote"
-           WHERE "id" = $1`,
-          [first.noteId]
-        )
-      ).rows[0]
-    ).toEqual({
-      currentReviewQuestionVersionId: question.questionVersionId,
-      updatedAt: before.rows[0]?.updatedAt
-    })
-
-    await expect(
-      client.query(
-        `UPDATE "WrongNote"
-         SET "currentReviewQuestionVersionId" = NULL
-         WHERE "id" = $1`,
-        [first.noteId]
-      )
-    ).rejects.toMatchObject({
-      code: '23514',
-      message: 'WrongNote current review pointer cannot return to null.'
-    })
-
-    await expect(
-      client.query(
-        `UPDATE "WrongNote"
-         SET "currentReviewQuestionVersionId" = $2
-         WHERE "id" = $1`,
-        [first.noteId, randomUUID()]
-      )
-    ).rejects.toMatchObject({
-      code: '23514',
-      message:
-        'WrongNote current review pointer must target the current published version.'
-    })
-  })
-
-  it('ReviewEvent source가 DAILY_REVIEW·RANDOM evidence mode와 어긋나면 거부한다', async () => {
-    const userId = await createUser('slice3-event-source')
-    const question = await loadQuestion()
-    const firstAt = addMilliseconds(new Date(), -2 * HOUR_MS)
-    const first = await createInitialWrongNote(userId, question, firstAt)
-
-    for (const [mode, source] of [
-      ['DAILY_REVIEW', 'STUDY_SUBMIT'],
-      ['RANDOM', 'WRONG_NOTE_REVIEW']
-    ] as const) {
-      const occurredAt = addMilliseconds(firstAt, HOUR_MS)
-      const session = await createSession(
-        userId,
-        question,
-        addMilliseconds(occurredAt, -30 * 60 * 1_000),
-        mode
-      )
-      await expect(
-        transaction(async () => {
-          const answerId = randomUUID()
-          await client.query(
-            `INSERT INTO "StudyAnswer" (
-              "id", "studySessionQuestionId", "questionVersionId",
-              "selectedOptionId", "isCorrect", "elapsedSec",
-              "gradingVersion", "answeredAt", "gradedAt"
-            ) VALUES ($1, $2, $3, NULL, false, 1, $4, $5, $5)`,
-            [
-              answerId,
-              session.itemId,
-              question.questionVersionId,
-              GRADING_VERSION,
-              occurredAt
-            ]
-          )
-          await client.query(
-            `INSERT INTO "ReviewEvent" (
-              "id", "wrongNoteId", "userId", "questionId",
-              "questionVersionId", "source", "studySessionId",
-              "studyAnswerId", "selectedOptionId", "isCorrect",
-              "previousStatus", "nextStatus", "previousCorrectStreak",
-              "nextCorrectStreak", "previousWrongCount", "wrongCountAfter",
-              "algorithmVersion", "occurredAt"
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, NULL, false,
-              'NEW', 'AGAIN', 0, 0, 1, 2, 1, $9
-            )`,
-            [
-              randomUUID(),
-              first.noteId,
-              userId,
-              question.questionId,
-              question.questionVersionId,
-              source,
-              session.id,
-              answerId,
-              occurredAt
-            ]
-          )
-        })
-      ).rejects.toMatchObject({
-        code: '23514',
-        message: 'ReviewEvent evidence does not match its StudyAnswer owner.'
-      })
-    }
   })
 
   it('SUCCEEDED null status/body를 PostgreSQL CHECK에서 즉시 거부한다', async () => {
@@ -696,7 +448,7 @@ describe('Slice 4 submission integrity follow-up', () => {
     }
   })
 
-  it('first-correct USER는 note/event 0을 허용하고 session direct delete를 차단한다', async () => {
+  it('first-correct USER는 note/event 0을 허용하고 회원 삭제와 함께 session을 지운다', async () => {
     const userId = await createUser('first-correct')
     const question = await loadQuestion()
     const occurredAt = new Date()
@@ -757,12 +509,6 @@ describe('Slice 4 submission integrity follow-up', () => {
     )
     expect(historical.rows[0]).toEqual({ events: 0, notes: 1 })
 
-    await expect(
-      client.query('DELETE FROM "StudySession" WHERE "id" = $1', [session.id])
-    ).rejects.toMatchObject({
-      code: '23514',
-      message: 'Submitted USER StudySession can only be deleted with its user.'
-    })
     await eraseUser(userId)
     expect(
       (
@@ -919,184 +665,5 @@ describe('Slice 4 submission integrity follow-up', () => {
       results: 0,
       idempotencyRecords: 0
     })
-  })
-
-  it('latest previous snapshot, strict time, monotonic updatedAt과 rewind 방지를 강제한다', async () => {
-    const userId = await createUser('event-chain')
-    const question = await loadQuestion()
-    const firstAt = addMilliseconds(new Date(), -2 * HOUR_MS)
-    const first = await createInitialWrongNote(userId, question, firstAt)
-    const secondAt = addMilliseconds(firstAt, HOUR_MS)
-
-    const missingEventSession = await createSession(
-      userId,
-      question,
-      addMilliseconds(firstAt, -30 * 60 * 1_000)
-    )
-    await expect(
-      transaction(async () => {
-        const recordId = randomUUID()
-        const requestHash = createHash()
-        const occurredAt = addMilliseconds(firstAt, 30 * 60 * 1_000)
-        await insertProcessing(
-          recordId,
-          missingEventSession.id,
-          userId,
-          requestHash,
-          addMilliseconds(occurredAt, -1_000)
-        )
-        await client.query(
-          `INSERT INTO "StudyAnswer" (
-            "id", "studySessionQuestionId", "questionVersionId",
-            "selectedOptionId", "isCorrect", "elapsedSec", "gradingVersion",
-            "answeredAt", "gradedAt"
-          ) VALUES ($1, $2, $3, $4, true, 1, $5, $6, $6)`,
-          [
-            randomUUID(),
-            missingEventSession.itemId,
-            question.questionVersionId,
-            question.correctOptionId,
-            GRADING_VERSION,
-            occurredAt
-          ]
-        )
-        await finalizeSession(
-          recordId,
-          missingEventSession,
-          requestHash,
-          occurredAt,
-          1
-        )
-      })
-    ).rejects.toMatchObject({
-      code: '23514',
-      message: 'Submitted StudySession facts are incomplete or inconsistent.'
-    })
-
-    await transitionToReviewing(userId, question, first.noteId, secondAt)
-    const thirdSession = await createSession(
-      userId,
-      question,
-      addMilliseconds(secondAt, -30 * 60 * 1_000)
-    )
-
-    await expect(
-      transaction(async () => {
-        const answerId = randomUUID()
-        await client.query(
-          `INSERT INTO "StudyAnswer" (
-            "id", "studySessionQuestionId", "questionVersionId",
-            "selectedOptionId", "isCorrect", "elapsedSec", "gradingVersion",
-            "answeredAt", "gradedAt"
-          ) VALUES ($1, $2, $3, $4, true, 1, $5, $6, $6)`,
-          [
-            answerId,
-            thirdSession.itemId,
-            question.questionVersionId,
-            question.correctOptionId,
-            GRADING_VERSION,
-            addMilliseconds(secondAt, HOUR_MS)
-          ]
-        )
-        await client.query(
-          `INSERT INTO "ReviewEvent" (
-            "id", "wrongNoteId", "userId", "questionId",
-            "questionVersionId", "source", "studySessionId", "studyAnswerId",
-            "selectedOptionId", "isCorrect", "previousStatus", "nextStatus",
-            "previousCorrectStreak", "nextCorrectStreak",
-            "previousWrongCount", "wrongCountAfter", "algorithmVersion",
-            "occurredAt"
-          ) VALUES (
-            $1, $2, $3, $4, $5, 'STUDY_SUBMIT', $6, $7, $8, true,
-            'NEW', 'REVIEWING', 0, 1, 1, 1, 1, $9
-          )`,
-          [
-            randomUUID(),
-            first.noteId,
-            userId,
-            question.questionId,
-            question.questionVersionId,
-            thirdSession.id,
-            answerId,
-            question.correctOptionId,
-            addMilliseconds(secondAt, HOUR_MS)
-          ]
-        )
-      })
-    ).rejects.toMatchObject({
-      code: '23514',
-      message:
-        'ReviewEvent must extend the latest event snapshot monotonically.'
-    })
-
-    await expect(
-      transaction(async () => {
-        await client.query(
-          `UPDATE "WrongNote"
-           SET "status" = 'NEW', "correctStreak" = 0,
-               "lastReviewedAt" = NULL, "updatedAt" = $2
-           WHERE "id" = $1`,
-          [first.noteId, secondAt]
-        )
-        await client.query(
-          `UPDATE "ReviewSchedule"
-           SET "intervalDays" = 1, "nextReviewAt" = $2, "updatedAt" = $3
-           WHERE "wrongNoteId" = $1`,
-          [first.noteId, addMilliseconds(firstAt, DAY_MS), secondAt]
-        )
-      })
-    ).rejects.toMatchObject({ code: '23514' })
-
-    await expect(
-      client.query(
-        `UPDATE "WrongNote"
-         SET "updatedAt" = $2
-         WHERE "id" = $1`,
-        [first.noteId, addMilliseconds(firstAt, -1)]
-      )
-    ).rejects.toMatchObject({ code: '23514' })
-
-    await expect(
-      client.query(
-        `UPDATE "WrongNote"
-         SET "lastWrongAt" = $2
-         WHERE "id" = $1`,
-        [first.noteId, addMilliseconds(firstAt, 1)]
-      )
-    ).rejects.toMatchObject({
-      code: '23514',
-      message: 'WrongNote must match its latest incorrect ReviewEvent.'
-    })
-
-    const state = await client.query<{
-      eventCount: number
-      intervalDays: number
-      status: string
-    }>(
-      `SELECT
-        note."status"::text AS status,
-        schedule."intervalDays" AS "intervalDays",
-        (SELECT COUNT(*)::int FROM "ReviewEvent"
-          WHERE "wrongNoteId" = note."id") AS "eventCount"
-       FROM "WrongNote" AS note
-       JOIN "ReviewSchedule" AS schedule
-         ON schedule."wrongNoteId" = note."id"
-       WHERE note."id" = $1`,
-      [first.noteId]
-    )
-    expect(state.rows[0]).toEqual({
-      status: 'REVIEWING',
-      intervalDays: 3,
-      eventCount: 2
-    })
-
-    await eraseUser(userId)
-    const cascaded = await client.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count
-       FROM "ReviewEvent"
-       WHERE "wrongNoteId" = $1`,
-      [first.noteId]
-    )
-    expect(cascaded.rows[0]?.count).toBe(0)
   })
 })

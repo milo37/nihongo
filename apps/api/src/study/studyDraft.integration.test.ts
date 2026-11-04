@@ -34,7 +34,6 @@ import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
-import { Prisma } from '../generated/prisma/client.js'
 import {
   createPrismaStudyDraftRepository,
   DraftVersionConflictError,
@@ -947,63 +946,6 @@ describe('StudyDraft PostgreSQL integration', () => {
         }
       })
     ).toBe(0)
-  })
-
-  it('draft idempotency committed response는 canonical snapshot 전체와 일치해야 한다', async () => {
-    const userId = await createUser()
-    const session = await createOwnedV2Session(userId)
-    const saved = await studyDraftRepository.saveAtomic({
-      sessionId: session.id,
-      idempotencyKey: randomUUID(),
-      owner: { kind: 'USER', userId },
-      observedAt: new Date(),
-      body: toEmptyDraftBody(session)
-    })
-    const record = await database.client.idempotencyRecord.findFirstOrThrow({
-      where: {
-        studySessionId: session.id,
-        operation: 'STUDY_DRAFT_SAVE'
-      },
-      select: { id: true }
-    })
-    const changedAnswer = structuredClone(saved.response)
-    const firstAnswer = changedAnswer.answers[0]
-    if (!firstAnswer) {
-      throw new Error('Draft response answer fixture가 필요합니다.')
-    }
-    firstAnswer.elapsedSec += 1
-    const malformedResponses: unknown[] = [
-      { ...saved.response, unexpected: true },
-      { ...saved.response, currentOrdinal: 2 },
-      { ...saved.response, savedAt: '2099-01-01T00:00:00.000Z' },
-      changedAnswer,
-      {
-        studySessionId: saved.response.studySessionId,
-        revision: saved.response.revision,
-        currentOrdinal: saved.response.currentOrdinal,
-        savedAt: saved.response.savedAt
-      }
-    ]
-
-    for (const malformedResponse of malformedResponses) {
-      await expect(
-        database.client.$transaction(async (transaction) => {
-          await transaction.$executeRaw(
-            Prisma.sql`ALTER TABLE "IdempotencyRecord"
-              DISABLE TRIGGER "IdempotencyRecord_validate_change"`
-          )
-          await transaction.$executeRaw(Prisma.sql`
-            UPDATE "IdempotencyRecord"
-            SET "responseBody" = ${JSON.stringify(malformedResponse)}::jsonb
-            WHERE "id" = ${record.id}::uuid
-          `)
-          await transaction.$executeRaw(
-            Prisma.sql`ALTER TABLE "IdempotencyRecord"
-              ENABLE TRIGGER "IdempotencyRecord_validate_change"`
-          )
-        })
-      ).rejects.toThrow()
-    }
   })
 
   it('foreign과 missing session을 GET/PUT/cancel 모두 같은 404로 숨긴다', async () => {

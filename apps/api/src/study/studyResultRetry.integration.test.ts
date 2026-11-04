@@ -375,58 +375,6 @@ describe('study result retry integration', () => {
       })
     ).toBe(0)
 
-    const retryRecord =
-      await database.client.idempotencyRecord.findFirstOrThrow({
-        where: {
-          operation: 'STUDY_RETRY_CREATE',
-          studySessionId: created.response.session.id
-        },
-        select: { id: true, responseBody: true }
-      })
-    await fixtureDatabase.client.$executeRawUnsafe(
-      'ALTER TABLE "IdempotencyRecord" ' +
-        'DISABLE TRIGGER "IdempotencyRecord_validate_change"'
-    )
-    try {
-      for (const responseExpression of [
-        `jsonb_set(
-          "responseBody" #- '{session,fallbackReason}',
-          '{session,extra}', 'null'::jsonb, true
-        )`,
-        `jsonb_set(
-          "responseBody", '{session,usedFallback}', '"false"'::jsonb, true
-        )`,
-        `jsonb_set(
-          "responseBody", '{session,practiceContractVersion}',
-          '"2"'::jsonb, true
-        )`
-      ]) {
-        await expectRawDatabaseError({
-          expectedMessage:
-            'Committed retry idempotency state does not match its target session.',
-          operation: async () =>
-            await fixtureDatabase.client.$executeRawUnsafe(
-              `UPDATE "IdempotencyRecord"
-             SET "responseBody" = ${responseExpression}
-             WHERE "id" = $1::uuid`,
-              retryRecord.id
-            ),
-          sqlState: '23514'
-        })
-      }
-    } finally {
-      await fixtureDatabase.client.$executeRawUnsafe(
-        'ALTER TABLE "IdempotencyRecord" ' +
-          'ENABLE TRIGGER "IdempotencyRecord_validate_change"'
-      )
-    }
-    expect(
-      await database.client.idempotencyRecord.findUniqueOrThrow({
-        where: { id: retryRecord.id },
-        select: { responseBody: true }
-      })
-    ).toEqual({ responseBody: retryRecord.responseBody })
-
     const submittedAt = new Date(retryAt.getTime() + 1_000)
     await createStudySubmissionService(
       submissionRepository,

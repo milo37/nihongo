@@ -220,12 +220,6 @@ describe('guest cleanup worker boundary', () => {
         practiceContractVersion: 2
       })
     ).session
-    await expect(
-      fixtureDatabase.client.studySession.update({
-        where: { id: before.id },
-        data: { userId, guestPrincipalId: null }
-      })
-    ).rejects.toThrow()
 
     const sessionIds = [before.id, boundary.id, after.id, active.id, member.id]
     const snapshot = async () =>
