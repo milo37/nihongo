@@ -226,7 +226,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       {
         name: '20261115090000_admin_fresh_to_api',
         checksum:
-          'ed871f2b1fb8224db6d3d15768a1f3454ad6c1c859aea3a9e4393b1b9b47c589'
+          '7aaf82930f063aab481d5618dde13c90fc319f4b6d22b9d4815266168cfb9b63'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry

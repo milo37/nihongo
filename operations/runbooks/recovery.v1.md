@@ -123,9 +123,9 @@ The historical physical68 inventory added `20261114090000_session_issuance_to_ap
 with ordered inventory digest
 `94c50ed8c75f42c2fc0bd50f6278365288b910048ecae93c3bf2c627b3cec109`.
 The current physical69 inventory adds `20261115090000_admin_fresh_to_api`
-(file SHA256 `ed871f2b1fb8224db6d3d15768a1f3454ad6c1c859aea3a9e4393b1b9b47c589`),
+(file SHA256 `7aaf82930f063aab481d5618dde13c90fc319f4b6d22b9d4815266168cfb9b63`),
 with ordered inventory digest
-`807f86b7568ebc8c84e665bd3502d25f7f0ea5377303f7446a88f974f66905e1`.
+`db6f7ae76b061ccf68856d127340bf9f651de0876cd6b8a15a29b3fad95fc8fb`.
 Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58, physical59, physical60, physical61, physical62, physical63, physical64, physical65, physical66, physical67 and physical68 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
