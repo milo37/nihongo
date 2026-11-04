@@ -204,7 +204,7 @@ export const jaAdminResources = {
       PUBLISH: '公開',
       REQUEST_REVIEW: 'レビュー依頼',
       RETIRE: '公開終了',
-      WITHDRAW: '承認を取り消す'
+      WITHDRAW: '承認取り消し'
     },
     reviewActions: {
       REQUESTED: 'レビュー依頼',
@@ -752,9 +752,9 @@ export const jaAdminResources = {
     commandDialogTitle: '{{command}}の確認',
     commandDialogFallbackTitle: '操作の確認',
     commandDialogDescription:
-      '現在のrowVersionを基準に実行し、競合時には自動再試行しません。',
+      'ほかの管理者が先に変更していた場合は、実行せずにお知らせします。',
     cancel: 'キャンセル',
-    execute: '明示的に実行',
+    execute: '実行',
     requiredReason: '理由',
     optionalReviewNote: 'レビューメモ（任意）',
     noteLimit: 'メモは{{formattedCount}}文字以下にしてください。',
