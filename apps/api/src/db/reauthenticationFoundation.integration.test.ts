@@ -53,18 +53,6 @@ const routineManifest = [
     false
   ],
   [
-    'phase7_change_password_v1',
-    'raw_session_token text, expected_password_hash text, new_password_hash text',
-    false,
-    true
-  ],
-  [
-    'phase7_change_password_v1_pre_reauthentication',
-    'raw_session_token text, expected_password_hash text, new_password_hash text',
-    false,
-    false
-  ],
-  [
     'phase7_change_user_authority',
     'raw_actor_token text, target_user_id uuid, expected_target_generation integer, new_role "UserRole", new_status "UserAccountStatus", environment_value "AdminAuditEnvironment"',
     false,
@@ -167,7 +155,6 @@ const routineManifest = [
     false,
     true
   ],
-  ['phase7_resolve_session_credential', 'raw_token text', false, true],
   ['phase7_resolve_v1_principal', 'raw_token text', true, false],
   ['phase7_rotation_fence_token_digest', 'raw_token text', false, false],
   [
@@ -604,15 +591,6 @@ describe('Reauthentication DB foundation', () => {
         ])
       )
       expect(appPrincipal.rows).toEqual([])
-      const gatewayCredential = await withExecutionRole(
-        'nihongo_auth_gateway',
-        () =>
-          adminClient.query(
-            `SELECT * FROM "phase7_resolve_session_credential"($1)`,
-            [newToken]
-          )
-      )
-      expect(gatewayCredential.rows).toEqual([])
       const refresh = await withExecutionRole('nihongo_auth_gateway', () =>
         adminClient.query(
           `SELECT * FROM "phase7_refresh_current_remembered_session"($1)`,
@@ -620,17 +598,6 @@ describe('Reauthentication DB foundation', () => {
         )
       )
       expect(refresh.rows).toEqual([])
-      const passwordChange = await withExecutionRole(
-        'nihongo_auth_gateway',
-        () =>
-          adminClient.query<{ changed: boolean }>(
-            `SELECT "phase7_change_password_v1"(
-              $1, 'integration-password-hash', 'replacement-password-hash'
-            ) AS changed`,
-            [newToken]
-          )
-      )
-      expect(passwordChange.rows).toEqual([{ changed: false }])
       const issuance = await withExecutionRole('nihongo_auth_gateway', () =>
         adminClient.query<{ confirmed: boolean }>(
           `SELECT "phase7_confirm_v1_session_issuance"(
@@ -899,7 +866,7 @@ describe('Reauthentication DB foundation', () => {
     })
   })
 
-  it('두 authority classifier는 unknown·expiry·logout·reset·role/account-loss를 cardinality 1과 write 0으로 분류한다', async () => {
+  it('두 authority classifier는 unknown·expiry·logout·role/account-loss를 cardinality 1과 write 0으로 분류한다', async () => {
     await withinRollback(async () => {
       const createAdminSession = async (label: string) => {
         const userId = randomUUID()
@@ -931,19 +898,6 @@ describe('Reauthentication DB foundation', () => {
           loggedOut.token
         ])
       )
-
-      const reset = await createAdminSession('reset')
-      const resetToken = `phase7-classifier-reset-token-${randomUUID()}`
-      await withExecutionRole('nihongo_auth_gateway', async () => {
-        await adminClient.query(
-          `SELECT "phase7_request_password_reset"($1, $2, $3)`,
-          [reset.email, randomUUID(), resetToken]
-        )
-        await adminClient.query(
-          `SELECT * FROM "phase7_consume_password_reset"($1, $2)`,
-          [resetToken, 'integration-password-hash-after-reset']
-        )
-      })
 
       const roleLost = await createAdminSession('role-loss')
       await withExecutionRole('nihongo_auth_gateway', () =>
@@ -1008,11 +962,6 @@ describe('Reauthentication DB foundation', () => {
           expected: 'AUTH_SESSION_EXPIRED',
           label: 'logout',
           token: loggedOut.token
-        },
-        {
-          expected: 'AUTH_SESSION_EXPIRED',
-          label: 'reset',
-          token: reset.token
         },
         {
           expected: 'ADMIN_REQUIRED',

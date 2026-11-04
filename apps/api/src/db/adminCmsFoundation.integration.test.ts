@@ -26,7 +26,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261030100000_guest_expired_draft_retention',
   '20261104090000_unified_reports_import_results',
   '20261104120000_user_report_erasure_redaction',
   '20261104150000_user_account_restriction',
@@ -36,7 +35,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261108090000_admin_member_console_to_api',
   '20261109090000_guest_cleanup_to_api',
   '20261110090000_cms_rules_to_api',
-  '20261110100000_admin_audit_to_api'
+  '20261110100000_admin_audit_to_api',
+  '20261110110000_drop_retired_credential_auth'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -479,14 +479,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('63 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('64 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(63)
+    expect(ledger.rows).toHaveLength(64)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -566,7 +566,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 63 }])
+      ).toEqual([{ migrationCount: 64 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1075,17 +1075,13 @@ describe('Persistence foundation', () => {
         [
           'phase7_activate_v1_issuer',
           'phase7_begin_admin_operation',
-          'phase7_change_password',
-          'phase7_change_password_v1',
           'phase7_change_user_authority',
           'phase7_cleanup_expired_auth_state',
           'phase7_close_trusted_execution',
           'phase7_confirm_v1_session_issuance',
-          'phase7_consume_password_reset',
           'phase7_create_question_report',
           'phase7_erase_user',
           'phase7_finish_admin_operation',
-          'phase7_request_password_reset',
           'phase7_issue_v1_session',
           'phase7_open_trusted_execution',
           'phase7_reauthentication_commit_matches',
@@ -1096,23 +1092,17 @@ describe('Persistence foundation', () => {
           'phase7_require_runtime_ready',
           'phase7_require_database_capability',
           'phase7_require_caller_role',
-          'phase7_resolve_email_verification_subject',
-          'phase7_resolve_password_reset_credential',
-          'phase7_resolve_session_credential',
-          'phase7_resolve_sign_in_credential',
           'phase7_resolve_v1_principal',
-          'phase7_sign_up_credential',
           'phase7_owned_sign_out',
           'phase7_trusted_erasure_environment',
           'phase7_trusted_execution_active',
           'phase7_trusted_execution_remember',
           'phase7_trusted_execution_target',
-          'phase7_verify_email',
           'validate_phase7_question_report_remediation'
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(36)
+    expect(publicExecute.rows).toHaveLength(26)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -6671,81 +6661,12 @@ describe('Persistence foundation', () => {
       }
     ])
 
+    // The email sign-up/verify/sign-in functions were dropped in #504 P6a
+    // (their routes answer 404); the session user is created directly.
     const signupUserId = randomUUID()
-    const signupAccountId = randomUUID()
     const signupSessionId = randomUUID()
     const signupSessionToken = `phase7-signup-session-${randomUUID()}`
-    const signupEmail = `phase7-signup-${randomUUID()}@example.test`
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_sign_up_credential"(
-            $1, $2, $3, 'Signup', 'N4', $4
-          )`,
-          [signupUserId, signupAccountId, signupEmail, 'phase7-signup-hash']
-        )
-      )
-    ).resolves.toMatchObject({
-      rows: [{ email: signupEmail, userId: signupUserId }]
-    })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_resolve_email_verification_subject"($1)`,
-          [signupEmail]
-        )
-      )
-    ).resolves.toMatchObject({
-      rows: [
-        {
-          email: signupEmail,
-          emailVerified: false,
-          name: 'Signup',
-          userId: signupUserId
-        }
-      ]
-    })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_resolve_email_verification_subject"($1)`,
-          [`phase7-unknown-${randomUUID()}@example.test`]
-        )
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT "phase7_verify_email"($1, $2) AS verified`, [
-          signupUserId,
-          signupEmail
-        ])
-      )
-    ).resolves.toMatchObject({ rows: [{ verified: true }] })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT * FROM "phase7_resolve_sign_in_credential"($1)`, [
-          signupEmail
-        ])
-      )
-    ).resolves.toMatchObject({
-      rows: [
-        {
-          accountStatus: 'ACTIVE',
-          authorityGeneration: 1,
-          emailVerified: true,
-          passwordHash: 'phase7-signup-hash',
-          role: 'USER',
-          userId: signupUserId
-        }
-      ]
-    })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT * FROM "phase7_resolve_sign_in_credential"($1)`, [
-          `phase7-unknown-${randomUUID()}@example.test`
-        ])
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
+    await insertCredentialUser({ id: signupUserId, role: 'USER' })
     await expect(
       withExecutionRole('nihongo_auth_gateway', () =>
         client.query(
@@ -6824,7 +6745,6 @@ describe('Persistence foundation', () => {
         {
           role: 'USER',
           sessionId: signupSessionId,
-          targetLevel: 'N4',
           userId: signupUserId
         }
       ]
@@ -6836,79 +6756,6 @@ describe('Persistence foundation', () => {
         ])
       )
     ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT * FROM "phase7_resolve_session_credential"($1)`, [
-          signupSessionToken
-        ])
-      )
-    ).resolves.toMatchObject({
-      rows: [
-        {
-          accountStatus: 'ACTIVE',
-          authorityGeneration: 1,
-          passwordHash: 'phase7-signup-hash',
-          role: 'USER',
-          userId: signupUserId
-        }
-      ]
-    })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT * FROM "phase7_resolve_session_credential"($1)`, [
-          `phase7-unknown-${randomUUID()}`
-        ])
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT "phase7_change_password"($1, $2, $3) AS changed`, [
-          signupUserId,
-          'phase7-signup-hash',
-          'phase7-forbidden-hash'
-        ])
-      )
-    ).rejects.toMatchObject({ code: '42501' })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT "phase7_change_password_v1"($1, $2, $3) AS changed`,
-          [signupSessionToken, 'phase7-signup-hash', 'phase7-signup-new-hash']
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ changed: true }] })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        client.query(`SELECT * FROM "phase7_resolve_v1_principal"($1)`, [
-          signupSessionToken
-        ])
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-    expect(
-      (
-        await client.query<{
-          authorityGeneration: number
-          password: string
-          sessionCount: number
-        }>(
-          `SELECT target_user."authorityGeneration", credential."password",
-             (SELECT COUNT(*)::int FROM "Session" WHERE "userId" = $1)
-               AS "sessionCount"
-           FROM "User" AS target_user
-           JOIN "Account" AS credential
-             ON credential."userId" = target_user."id"
-            AND credential."providerId" = 'credential'
-           WHERE target_user."id" = $1`,
-          [signupUserId]
-        )
-      ).rows
-    ).toEqual([
-      {
-        authorityGeneration: 2,
-        password: 'phase7-signup-new-hash',
-        sessionCount: 0
-      }
-    ])
 
     const reauthUserId = randomUUID()
     const oldSessionId = randomUUID()
@@ -7094,268 +6941,8 @@ describe('Persistence foundation', () => {
       }
     ])
 
-    const resetActivationUserId = randomUUID()
-    const resetActivationVerificationId = randomUUID()
-    const resetActivationToken = `phase7-reset-activation-${randomUUID()}`
-    await insertCredentialUser({ id: resetActivationUserId, role: 'USER' })
-    const resetActivationEmail = (
-      await client.query<{ email: string }>(
-        `SELECT "email" FROM "User" WHERE "id" = $1`,
-        [resetActivationUserId]
-      )
-    ).rows[0]?.email
-    if (!resetActivationEmail) {
-      throw new Error('Reset activation email is unavailable.')
-    }
-    const resetRaceClient = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    const activationRaceClient = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    let userLockOpen = false
-    let resetRacePromise: Promise<unknown> | undefined
-    let activationRacePromise: Promise<unknown> | undefined
-    await resetRaceClient.connect()
-    await activationRaceClient.connect()
-    try {
-      const resetBackend = await resetRaceClient.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const activationBackend = await activationRaceClient.query<{
-        pid: number
-      }>(`SELECT pg_backend_pid() AS pid`)
-      const resetBackendPid = resetBackend.rows[0]?.pid
-      const activationBackendPid = activationBackend.rows[0]?.pid
-      if (!resetBackendPid || !activationBackendPid) {
-        throw new Error('Reset/activation race backends are unavailable.')
-      }
-      await client.query('BEGIN')
-      userLockOpen = true
-      await client.query(`SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`, [
-        resetActivationUserId
-      ])
-      await resetRaceClient.query(`SET ROLE "nihongo_auth_gateway"`)
-      resetRacePromise = resetRaceClient.query(
-        `SELECT "phase7_request_password_reset"($1, $2, $3) AS issued`,
-        [
-          resetActivationEmail,
-          resetActivationVerificationId,
-          resetActivationToken
-        ]
-      )
-      void resetRacePromise.catch(() => undefined)
-      let resetWaitObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [resetBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          resetWaitObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(resetWaitObserved).toBe(true)
-
-      await activationRaceClient.query(`SET ROLE "nihongo_phase7_migration"`)
-      activationRacePromise = activationRaceClient.query(
-        `SELECT "phase7_activate_v1_issuer"('TEST') AS activated`
-      )
-      void activationRacePromise.catch(() => undefined)
-      let activationWaitObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [activationBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          activationWaitObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(activationWaitObserved).toBe(true)
-      await client.query('COMMIT')
-      userLockOpen = false
-      await expect(resetRacePromise).resolves.toMatchObject({
-        rows: [{ issued: true }]
-      })
-      resetRacePromise = undefined
-      await expect(activationRacePromise).rejects.toMatchObject({
-        code: '23514'
-      })
-      activationRacePromise = undefined
-    } finally {
-      if (userLockOpen) await client.query('ROLLBACK')
-      await resetRacePromise?.catch(() => undefined)
-      await activationRacePromise?.catch(() => undefined)
-      await resetRaceClient.query('RESET ROLE').catch(() => undefined)
-      await activationRaceClient.query('RESET ROLE').catch(() => undefined)
-      await resetRaceClient.end()
-      await activationRaceClient.end()
-    }
-    expect(
-      (
-        await client.query<{
-          legacyIssuerDisabled: boolean
-          trustedExecutionCount: number
-          verificationCount: number
-        }>(
-          `SELECT activation."legacyIssuerDisabled",
-             (SELECT COUNT(*)::int FROM "Verification"
-              WHERE "id" = $1 AND "resetUserId" = $2)
-                AS "verificationCount",
-             (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-               AS "trustedExecutionCount"
-           FROM "AuthIssuerActivation" AS activation WHERE activation."id" = 1`,
-          [resetActivationVerificationId, resetActivationUserId]
-        )
-      ).rows
-    ).toEqual([
-      {
-        legacyIssuerDisabled: true,
-        trustedExecutionCount: 0,
-        verificationCount: 1
-      }
-    ])
-    await withExecutionRole('nihongo_erasure_worker', () =>
-      client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-        resetActivationUserId
-      ])
-    )
-
-    const resetCredentialRaceUserId = randomUUID()
-    const resetCredentialRaceVerificationId = randomUUID()
-    const resetCredentialRaceToken = `phase7-reset-credential-race-${randomUUID()}`
-    await insertCredentialUser({ id: resetCredentialRaceUserId, role: 'USER' })
-    const resetCredentialRaceEmail = (
-      await client.query<{ email: string }>(
-        `SELECT "email" FROM "User" WHERE "id" = $1`,
-        [resetCredentialRaceUserId]
-      )
-    ).rows[0]?.email
-    if (!resetCredentialRaceEmail) {
-      throw new Error('Reset credential-race email is unavailable.')
-    }
-    const credentialMutationClient = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    const credentialResetClient = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    let credentialMutationOpen = false
-    let credentialDeleted = false
-    let credentialResetPromise: Promise<unknown> | undefined
-    await credentialMutationClient.connect()
-    await credentialResetClient.connect()
-    try {
-      const resetBackend = await credentialResetClient.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const resetBackendPid = resetBackend.rows[0]?.pid
-      if (!resetBackendPid) {
-        throw new Error('Credential reset-race backend is unavailable.')
-      }
-
-      await credentialMutationClient.query('BEGIN')
-      credentialMutationOpen = true
-      await credentialMutationClient.query(
-        `SET LOCAL session_replication_role = replica`
-      )
-      await credentialMutationClient.query(
-        `SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`,
-        [resetCredentialRaceUserId]
-      )
-      await credentialMutationClient.query(
-        `DELETE FROM "Account" WHERE "userId" = $1`,
-        [resetCredentialRaceUserId]
-      )
-
-      await credentialResetClient.query(`SET ROLE "nihongo_auth_gateway"`)
-      credentialResetPromise = credentialResetClient.query(
-        `SELECT "phase7_request_password_reset"($1, $2, $3) AS issued`,
-        [
-          resetCredentialRaceEmail,
-          resetCredentialRaceVerificationId,
-          resetCredentialRaceToken
-        ]
-      )
-      void credentialResetPromise.catch(() => undefined)
-
-      let resetWaitObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [resetBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          resetWaitObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(resetWaitObserved).toBe(true)
-
-      await credentialMutationClient.query('COMMIT')
-      credentialMutationOpen = false
-      credentialDeleted = true
-      await expect(credentialResetPromise).resolves.toMatchObject({
-        rows: [{ issued: false }]
-      })
-      credentialResetPromise = undefined
-    } finally {
-      if (credentialMutationOpen) {
-        await credentialMutationClient.query('ROLLBACK')
-      }
-      await credentialResetPromise?.catch(() => undefined)
-      await credentialResetClient.query('RESET ROLE').catch(() => undefined)
-      await credentialMutationClient.end()
-      await credentialResetClient.end()
-    }
-    expect(
-      (
-        await client.query<{
-          trustedExecutionCount: number
-          verificationCount: number
-        }>(
-          `SELECT
-             (SELECT COUNT(*)::int FROM "Verification"
-              WHERE "id" = $1 OR "resetUserId" = $2)
-               AS "verificationCount",
-             (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-               AS "trustedExecutionCount"`,
-          [resetCredentialRaceVerificationId, resetCredentialRaceUserId]
-        )
-      ).rows
-    ).toEqual([{ trustedExecutionCount: 0, verificationCount: 0 }])
-    if (credentialDeleted) {
-      const restoredAt = new Date()
-      await client.query(
-        `INSERT INTO "Account" (
-          "id", "accountId", "providerId", "userId", "password",
-          "createdAt", "updatedAt"
-        ) VALUES (
-          $1, $2::uuid::text, 'credential', $2::uuid,
-          'integration-password-hash', $3, $3
-        )`,
-        [randomUUID(), resetCredentialRaceUserId, restoredAt]
-      )
-    }
-    await withExecutionRole('nihongo_erasure_worker', () =>
-      client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-        resetCredentialRaceUserId
-      ])
-    )
-
+    // The password reset race probes were dropped with the reset functions
+    // in #504 P6a.
     const userId = randomUUID()
     await insertCredentialUser({ id: userId, role: 'USER' })
     await expectFailedTransaction(async () => {
@@ -7379,166 +6966,6 @@ describe('Persistence foundation', () => {
       ).rows
     ).toEqual([{ count: 0 }])
 
-    const resetSessionId = randomUUID()
-    const resetSessionToken = `phase7-reset-session-${randomUUID()}`
-    const resetVerificationId = randomUUID()
-    const rawResetToken = `phase7-reset-token-${randomUUID()}`
-    const resetEmail = (
-      await client.query<{ email: string }>(
-        `SELECT "email" FROM "User" WHERE "id" = $1`,
-        [userId]
-      )
-    ).rows[0]?.email
-    if (!resetEmail) throw new Error('Reset email is unavailable.')
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_issue_v1_session"(
-            $1, 1, 'USER', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-reset-session', false
-          )`,
-          [userId, resetSessionId, resetSessionToken]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ id: resetSessionId }] })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT "phase7_request_password_reset"($1, $2, $3) AS issued`,
-          [resetEmail, resetVerificationId, rawResetToken]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ issued: true }] })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_resolve_password_reset_credential"($1)`,
-          [rawResetToken]
-        )
-      )
-    ).resolves.toMatchObject({
-      rows: [
-        {
-          authorityGeneration: 1,
-          passwordHash: 'integration-password-hash',
-          userId
-        }
-      ]
-    })
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
-          `SELECT * FROM "phase7_resolve_password_reset_credential"($1)`,
-          [`phase7-unknown-reset-${randomUUID()}`]
-        )
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-    const resetBefore = await client.query<{
-      authorityGeneration: number
-      password: string
-      sessionCount: number
-      verificationCount: number
-    }>(
-      `SELECT target_user."authorityGeneration",
-         credential."password",
-         (SELECT COUNT(*)::int FROM "Session" WHERE "userId" = $1)
-           AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "Verification"
-          WHERE "id" = $2 AND "resetUserId" = $1
-            AND "capturedGeneration" = 1)
-           AS "verificationCount"
-       FROM "User" AS target_user
-       JOIN "Account" AS credential
-         ON credential."userId" = target_user."id"
-        AND credential."providerId" = 'credential'
-       WHERE target_user."id" = $1`,
-      [userId, resetVerificationId]
-    )
-    expect(resetBefore.rows).toEqual([
-      {
-        authorityGeneration: 1,
-        password: 'integration-password-hash',
-        sessionCount: 1,
-        verificationCount: 1
-      }
-    ])
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT * FROM "phase7_consume_password_reset"($1, $2)`, [
-          rawResetToken,
-          'integration-password-hash'
-        ])
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-    expect(
-      (
-        await client.query<{
-          authorityGeneration: number
-          password: string
-          sessionCount: number
-          verificationCount: number
-        }>(
-          `SELECT target_user."authorityGeneration",
-             credential."password",
-             (SELECT COUNT(*)::int FROM "Session" WHERE "userId" = $1)
-               AS "sessionCount",
-             (SELECT COUNT(*)::int FROM "Verification"
-              WHERE "id" = $2 AND "resetUserId" = $1
-                AND "capturedGeneration" = 1)
-               AS "verificationCount"
-           FROM "User" AS target_user
-           JOIN "Account" AS credential
-             ON credential."userId" = target_user."id"
-            AND credential."providerId" = 'credential'
-           WHERE target_user."id" = $1`,
-          [userId, resetVerificationId]
-        )
-      ).rows
-    ).toEqual(resetBefore.rows)
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(`SELECT * FROM "phase7_consume_password_reset"($1, $2)`, [
-          rawResetToken,
-          'phase7-reset-password-hash'
-        ])
-      )
-    ).resolves.toMatchObject({
-      rows: [{ authorityGeneration: 2, userId }]
-    })
-    expect(
-      (
-        await client.query<{
-          authorityGeneration: number
-          password: string
-          sessionCount: number
-          trustedExecutionCount: number
-          verificationCount: number
-        }>(
-          `SELECT target_user."authorityGeneration",
-             credential."password",
-             (SELECT COUNT(*)::int FROM "Session" WHERE "userId" = $1)
-               AS "sessionCount",
-             (SELECT COUNT(*)::int FROM "Verification"
-              WHERE "resetUserId" = $1) AS "verificationCount",
-             (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-               AS "trustedExecutionCount"
-           FROM "User" AS target_user
-           JOIN "Account" AS credential
-             ON credential."userId" = target_user."id"
-            AND credential."providerId" = 'credential'
-           WHERE target_user."id" = $1`,
-          [userId]
-        )
-      ).rows
-    ).toEqual([
-      {
-        authorityGeneration: 2,
-        password: 'phase7-reset-password-hash',
-        sessionCount: 0,
-        trustedExecutionCount: 0,
-        verificationCount: 0
-      }
-    ])
     await expect(
       withExecutionRole('nihongo_erasure_worker', () =>
         client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
