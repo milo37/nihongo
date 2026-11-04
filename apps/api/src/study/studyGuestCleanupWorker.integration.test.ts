@@ -11,6 +11,7 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { runGuestCleanupBatch } from './studyGuestCleanupBatch.js'
 import { verifyStudyGuestCleanupRole } from './studyGuestCleanupRole.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
@@ -67,10 +68,7 @@ const fixture = new Client({
   connectionString: fixtureUrl,
   options: createPostgresStartupOptions(getPostgresSchema(fixtureUrl))
 })
-const worker = createRoleDatabaseRuntime(
-  workerUrl,
-  'nihongo_guest_cleanup_worker'
-)
+const worker = createRoleDatabaseRuntime(workerUrl, 'nihongo_app')
 const application = createRoleDatabaseRuntime(applicationUrl, 'nihongo_app')
 const erasure = new Client({
   connectionString: erasureUrl,
@@ -80,6 +78,21 @@ const erasure = new Client({
   )
 })
 const fixtureDatabase = createDatabaseRuntime(fixtureUrl)
+
+/** One cleanup batch as the command runs it, with bigint counts. */
+const cleanup = async (batchSize: number, dryRun: boolean) => {
+  const result = await worker.client.$transaction(
+    async (transaction) =>
+      await runGuestCleanupBatch(transaction, { batchSize, dryRun })
+  )
+  return [
+    {
+      deletedCount: BigInt(result.deletedCount),
+      eligibleCount: BigInt(result.eligibleCount),
+      hasMore: result.hasMore
+    }
+  ]
+}
 const ids: string[] = []
 const userIds: string[] = []
 const guestIds: string[] = []
@@ -257,8 +270,7 @@ describe('guest cleanup worker boundary', () => {
       await fixtureDatabase.client.idempotencyRecord.findMany({
         where: { idempotencyKey: activeKey }
       })
-    await worker.client
-      .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 1, true)`
+    await cleanup(1, true)
     expect(await snapshot()).toEqual(original)
     expect(
       await fixtureDatabase.client.guestPrincipal.findMany({
@@ -271,11 +283,8 @@ describe('guest cleanup worker boundary', () => {
         where: { idempotencyKey: activeKey }
       })
     ).toEqual(originalReplay)
-    const first = await worker.client.$queryRaw<
-      { deletedCount: bigint; hasMore: boolean }[]
-    >`
-      SELECT "deletedCount", "hasMore" FROM "phase7_guest_cleanup_batch"('TEST', 1, false)`
-    expect(first[0]).toEqual({ deletedCount: 1n, hasMore: true })
+    const first = await cleanup(1, false)
+    expect(first[0]).toMatchObject({ deletedCount: 1n, hasMore: true })
     const interrupted = await snapshot()
     expect(
       interrupted.filter(
@@ -283,8 +292,7 @@ describe('guest cleanup worker boundary', () => {
           [boundary.id, after.id].includes(id) && row === null
       )
     ).toHaveLength(1)
-    const resumed = await worker.client.$queryRaw<{ deletedCount: bigint }[]>`
-      SELECT "deletedCount" FROM "phase7_guest_cleanup_batch"('TEST', 1, false)`
+    const resumed = await cleanup(1, false)
     expect(resumed[0]?.deletedCount).toBe(1n)
     const remaining = await snapshot()
     for (const id of [boundary.id, after.id]) {
@@ -387,8 +395,7 @@ describe('guest cleanup worker boundary', () => {
         await observer.query('ROLLBACK')
         await observer.end()
       }
-      await worker.client
-        .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 100, false)`
+      await cleanup(100, false)
       const row = await fixture.query<{
         state: string
         expiresAt: Date | null
@@ -406,8 +413,7 @@ describe('guest cleanup worker boundary', () => {
     } finally {
       await fixture.query('ROLLBACK')
     }
-    await worker.client
-      .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 1, false)`
+    await cleanup(1, false)
     expect(
       await fixtureDatabase.client.studySession.findUnique({
         where: { id: session.id },
@@ -514,8 +520,7 @@ describe('guest cleanup worker boundary', () => {
     expect(active).toBeDefined()
     expect(protectedSubmission).toBeDefined()
 
-    await worker.client
-      .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 100, false)`
+    await cleanup(100, false)
     const after = await fixtureDatabase.client.idempotencyRecord.findMany({
       where: { userId },
       select: { id: true }
@@ -564,8 +569,7 @@ describe('guest cleanup worker boundary', () => {
          VALUES ($1, 'USER', $2, 'STUDY_DRAFT_SAVE', 2, $3, $4, $5, 'PROCESSING', clock_timestamp())`,
         [pendingId, userId, randomUUID(), pending.id, 'a'.repeat(64)]
       )
-      await worker.client
-        .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 100, false)`
+      await cleanup(100, false)
       const rows = await fixture.query<{
         state: string
         expiresAt: Date | null
@@ -594,8 +598,7 @@ describe('guest cleanup worker boundary', () => {
         `application:study-create:${digest}`
       ]
     )
-    const preview = await worker.client.$queryRaw<{ eligibleCount: bigint }[]>`
-      SELECT "eligibleCount" FROM "phase7_guest_cleanup_batch"('TEST', 1, true)`
+    const preview = await cleanup(1, true)
     expect(preview[0]?.eligibleCount).toBe(2n)
 
     await fixture.query('BEGIN')
@@ -604,9 +607,7 @@ describe('guest cleanup worker boundary', () => {
         'SELECT "id" FROM "RateLimit" WHERE "id" = $1 FOR UPDATE',
         [firstId]
       )
-      const result = await worker.client.$queryRaw<
-        { deletedCount: bigint; eligibleCount: bigint; hasMore: boolean }[]
-      >`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 1, false)`
+      const result = await cleanup(1, false)
       expect(result[0]).toEqual({
         deletedCount: 1n,
         eligibleCount: 1n,
@@ -620,9 +621,7 @@ describe('guest cleanup worker boundary', () => {
     } finally {
       await fixture.query('ROLLBACK')
     }
-    const resumed = await worker.client.$queryRaw<
-      { deletedCount: bigint; eligibleCount: bigint; hasMore: boolean }[]
-    >`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 1, false)`
+    const resumed = await cleanup(1, false)
     expect(resumed[0]).toEqual({
       deletedCount: 1n,
       eligibleCount: 0n,
@@ -655,10 +654,7 @@ describe('guest cleanup worker boundary', () => {
       ]
     )
 
-    const preview = await worker.client.$queryRaw<
-      { deletedCount: bigint; eligibleCount: bigint }[]
-    >`
-      SELECT "deletedCount", "eligibleCount" FROM "phase7_guest_cleanup_batch"('TEST', 10, true)`
+    const preview = await cleanup(10, true)
     expect(preview[0]?.deletedCount).toBe(0n)
     expect(preview[0]?.eligibleCount).toBeGreaterThanOrEqual(1n)
     expect(
@@ -670,26 +666,11 @@ describe('guest cleanup worker boundary', () => {
       ).rowCount
     ).toBe(3)
 
-    await expect(
-      application.client
-        .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 10, false)`
-    ).rejects.toThrow()
-    await expect(
-      worker.client
-        .$executeRaw`DELETE FROM "RateLimit" WHERE "id" = ${oldId}::uuid`
-    ).rejects.toThrow()
-    await expect(
-      worker.client
-        .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('PRODUCTION', 10, false)`
-    ).rejects.toThrow()
     await fixture.query(
       "SELECT pg_advisory_lock(hashtext('nihongo_guest_cleanup'))"
     )
     try {
-      await expect(
-        worker.client
-          .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 10, false)`
-      ).rejects.toThrow()
+      await expect(cleanup(10, false)).rejects.toThrow()
       expect(
         (
           await fixture.query('SELECT 1 FROM "RateLimit" WHERE "id" = $1', [
@@ -702,8 +683,7 @@ describe('guest cleanup worker boundary', () => {
         "SELECT pg_advisory_unlock(hashtext('nihongo_guest_cleanup'))"
       )
     }
-    await worker.client
-      .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 10, false)`
+    await cleanup(10, false)
     const remaining = await fixture.query<{ id: string }>(
       'SELECT "id" FROM "RateLimit" WHERE "id" = ANY($1::uuid[])',
       [ids]
@@ -711,8 +691,7 @@ describe('guest cleanup worker boundary', () => {
     expect(remaining.rows.map(({ id }) => id).sort()).toEqual(
       [recentId, unknownId].sort()
     )
-    await worker.client
-      .$queryRaw`SELECT * FROM "phase7_guest_cleanup_batch"('TEST', 10, false)`
+    await cleanup(10, false)
     expect(
       (
         await fixture.query(

@@ -18,7 +18,9 @@ SELECT "phase7_activate_v1_issuer"(
 DO $guest_cleanup_connect$
 BEGIN
   IF current_database() NOT IN ('nihongo_test', 'nihongo_dev')
-    OR to_regprocedure('phase7_guest_cleanup_batch("AdminAuditEnvironment",integer,boolean)') IS NULL THEN
+    OR NOT EXISTS (SELECT 1 FROM "_prisma_migrations"
+      WHERE "migration_name" = '20261030100000_guest_expired_draft_retention'
+        AND "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL) THEN
     RAISE EXCEPTION 'Guest cleanup activation requires the migrated local target.';
   END IF;
   EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(),
