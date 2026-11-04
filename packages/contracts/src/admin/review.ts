@@ -135,11 +135,17 @@ export const publishQuestionVersionBatchItemResultSchema = z.enum([
   'VERSION_CONFLICT',
   'NOT_REVIEWED',
   'NOT_FOUND',
-  /** The publisher is the version's author or latest approver. */
-  'SEPARATION_OF_DUTIES_VIOLATION'
+  /** The version's author is also its latest approver. */
+  'SEPARATION_OF_DUTIES_VIOLATION',
+  /** Unexpected failure after an earlier item was published; reload and retry. */
+  'FAILED'
 ])
 
-/** Items are committed one by one; the batch is not atomic. */
+/**
+ * Items are committed one by one; the batch is not atomic. An error response
+ * means nothing was published; once an item is published, later unexpected
+ * failures are reported per item as FAILED.
+ */
 export const publishQuestionVersionBatchResponseSchema = z
   .object({
     publishedCount: nonNegativeSafeIntegerSchema,
