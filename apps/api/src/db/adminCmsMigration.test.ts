@@ -133,7 +133,7 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
   it('기존58 migration의 역사 prefix checksum을 보존하고 migration59를 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(64)
+    expect(manifest).toHaveLength(65)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedBeforeAdminCmsMigrationNames
     )
@@ -408,8 +408,16 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
     expect(digest(manifest.slice(0, 63))).toBe(
       'c4ea76ba29a90169872d0a8e26412d1134d2e834f06609faba2bcafad7c9619f'
     )
-    expect(digest(manifest)).toBe(
+    expect(manifest[64]).toEqual({
+      name: '20261111090000_drop_dead_reauthentication',
+      checksum:
+        '38112f77708f18f8c1653baf305fb1925585e67f142c8601e0b2667d404ac154'
+    })
+    expect(digest(manifest.slice(0, 64))).toBe(
       '35cdf2e7f71f6851ac63aea0af1b8075d86c9b2aa1f9b33a9c7e56d24eaf382d'
+    )
+    expect(digest(manifest)).toBe(
+      '8c9e7821338db7ac499fac7ae4d5efd475babc7b141b93bbec80654a7c64d71c'
     )
   })
 

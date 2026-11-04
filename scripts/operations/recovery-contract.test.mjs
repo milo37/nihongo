@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 64 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 65 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -156,6 +156,19 @@ test('migration profiles separate exact physical 64 TEST entries from the exact 
     () => deriveMigrationProfile(historical63, 'technical-current-test'),
     /count mismatch/u
   )
+  assert.deepEqual(releaseManifest.migrations.entries[64], {
+    name: '20261111090000_drop_dead_reauthentication',
+    sha256: '38112f77708f18f8c1653baf305fb1925585e67f142c8601e0b2667d404ac154'
+  })
+  const historical64 = structuredClone(releaseManifest)
+  historical64.migrations.count = 64
+  historical64.migrations.digestSha256 =
+    '35cdf2e7f71f6851ac63aea0af1b8075d86c9b2aa1f9b33a9c7e56d24eaf382d'
+  historical64.migrations.entries = historical64.migrations.entries.slice(0, 64)
+  assert.throws(
+    () => deriveMigrationProfile(historical64, 'technical-current-test'),
+    /count mismatch/u
+  )
   const historical59 = structuredClone(releaseManifest)
   historical59.migrations.count = 59
   historical59.migrations.digestSha256 =
@@ -240,9 +253,9 @@ test('migration profiles separate exact physical 64 TEST entries from the exact 
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 64,
+      count: 65,
       digestSha256:
-        '35cdf2e7f71f6851ac63aea0af1b8075d86c9b2aa1f9b33a9c7e56d24eaf382d',
+        '8c9e7821338db7ac499fac7ae4d5efd475babc7b141b93bbec80654a7c64d71c',
       name: 'technical-current-test'
     }
   )
@@ -585,12 +598,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261110110001_unreviewed_migration',
+        name: '20261111090001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261110110001_unreviewed_migration'
+        '20261111090001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags
