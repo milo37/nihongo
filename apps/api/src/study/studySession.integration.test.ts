@@ -952,7 +952,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '비인가 Question archive를 42501로 거부하고 pinned payload를 보존한다'
+      ? '비인가 Question archive를 DB가 거부하고 pinned payload를 보존한다'
       : 'Question을 archive해도 pinned version payload를 그대로 조회한다',
     async () => {
       const response = await postStudySession({
@@ -987,8 +987,10 @@ describe('StudySession PostgreSQL vertical slice', () => {
       if (isCurrentSourceIntegration) {
         const archiveTime = new Date()
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -1000,7 +1002,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -1060,7 +1062,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
 
   it(
     isCurrentSourceIntegration
-      ? 'selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
+      ? 'selection 중 archive transaction을 rollback하면 version pin을 보존한다'
       : '동시 archive를 selection lock 뒤로 직렬화하고 pinned payload를 보존한다',
     async () => {
       const archiveClient = createApplicationClient()
@@ -1212,10 +1214,9 @@ describe('StudySession PostgreSQL vertical slice', () => {
         expect(archiveSettled).toBe(true)
 
         if (isCurrentSourceIntegration) {
-          expect(archiveError).toMatchObject({
-            code: '42501',
-            message: 'An armed trusted Phase 7 operation intent is required.'
-          })
+          // The deferred aggregate check runs at commit (#504 P4), so the
+          // uncommitted archive is rolled back here.
+          expect(archiveError).toBeUndefined()
           await archiveClient.query('ROLLBACK')
           archiveTransactionOpen = false
         } else {

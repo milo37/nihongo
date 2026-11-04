@@ -1439,7 +1439,7 @@ const bootstrapFreshCanonicalCatalog = async (
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 prefix37→canonical65→current61를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current63를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     const legacyConnectInitiallyGranted =
       (
@@ -1467,7 +1467,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       const prefix = repositoryMigrationNames.filter(
         (name) => name <= lastBootstrapMigration
       )
-      expect(repositoryMigrationNames).toHaveLength(61)
+      expect(repositoryMigrationNames).toHaveLength(63)
       expect(prefix).toHaveLength(37)
       expect(prefix.at(-1)).toBe(lastBootstrapMigration)
       for (const migrationName of prefix) {
@@ -1484,7 +1484,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).not.toThrow()
       await bootstrapFreshCanonicalCatalog(context)
       const remainder = repositoryMigrationNames.slice(37)
-      expect(remainder).toHaveLength(24)
+      expect(remainder).toHaveLength(26)
       expect(remainder[0]).toBe(
         '20261009120000_phase7_approved_n4_reading_batch7_tags'
       )
@@ -1493,7 +1493,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       }
       await deploy(context)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(61)
+      expect(ledger).toHaveLength(63)
       expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
         repositoryMigrationNames
       )
@@ -1522,7 +1522,9 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         '20261106090000_single_operator_review',
         '20261107090000_drop_study_review_triggers',
         '20261108090000_admin_member_console_to_api',
-        '20261109090000_guest_cleanup_to_api'
+        '20261109090000_guest_cleanup_to_api',
+        '20261110090000_cms_rules_to_api',
+        '20261110100000_admin_audit_to_api'
       ])
       expect(
         ledger.every(
@@ -1544,7 +1546,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 61)
+      await verifyCanonicalMigrationLedgerAccess(context, 63)
       expect(
         (
           await context.adminClient.query<{

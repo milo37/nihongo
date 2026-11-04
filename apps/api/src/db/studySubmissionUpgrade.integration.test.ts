@@ -75,6 +75,12 @@ const phase7Slice1Migrations = [
   '20260909120000_phase7_archive_empty_manifest_verifier',
   '20260916120000_phase7_reauthentication_foundation'
 ] as const
+// The current admin command code needs the CMS rules and audit path in the
+// API (#504 P4), so a historical schema that runs it gets those migrations.
+const adminApiRuleMigrations = [
+  '20261110090000_cms_rules_to_api',
+  '20261110100000_admin_audit_to_api'
+] as const
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',
@@ -134,11 +140,17 @@ const phase5ExpectedMigrationManifest = currentManifest.filter(({ name }) =>
 const historical31Manifest = currentManifest.filter(({ name }) =>
   historical31Names.includes(name)
 )
+const historical33Manifest = currentManifest.filter(
+  ({ name }) =>
+    historical31Names.includes(name) ||
+    (adminApiRuleMigrations as readonly string[]).includes(name)
+)
 
 const createHistorical31Runtime = async (
-  context: Parameters<typeof readLedger>[0]
+  context: Parameters<typeof readLedger>[0],
+  manifest = historical31Manifest
 ) => {
-  assertMigrationCompatibility(historical31Manifest, await readLedger(context))
+  assertMigrationCompatibility(manifest, await readLedger(context))
   const currentReadiness = createDatabaseRuntime(
     context.applicationDatabaseUrl,
     {
@@ -2929,6 +2941,11 @@ describe('Historical review pins', () => {
       }
       await deploy(context)
       expect(await readLedger(context)).toHaveLength(31)
+      for (const migrationName of adminApiRuleMigrations) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      expect(await readLedger(context)).toHaveLength(33)
       expect(
         await context.adminClient.query<{ count: number }>(
           `SELECT COUNT(*)::int AS count FROM "TagApplicability"`
@@ -3007,7 +3024,10 @@ describe('Historical review pins', () => {
       await issueAdminSession(authorId, authorToken)
       await issueAdminSession(reviewerId, reviewerToken)
 
-      const runtime = await createHistorical31Runtime(context)
+      const runtime = await createHistorical31Runtime(
+        context,
+        historical33Manifest
+      )
       try {
         const client = runtime.client
         const sessionRepository = createPrismaStudySessionRepository(client)

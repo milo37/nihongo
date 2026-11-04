@@ -1157,7 +1157,7 @@ describe('Study submission PostgreSQL transaction', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '비인가 Question archive를 42501로 거부하고 pinned version으로 채점·조회한다'
+      ? '비인가 Question archive를 DB가 거부하고 pinned version으로 채점·조회한다'
       : 'Question pointer 제거와 archive 뒤에도 pinned version으로 채점·조회한다',
     async () => {
       const userId = await createUser()
@@ -1180,8 +1180,10 @@ describe('Study submission PostgreSQL transaction', () => {
       if (isCurrentSourceIntegration) {
         const archiveTime = new Date(startedAt.getTime() + 500)
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -1193,7 +1195,7 @@ describe('Study submission PostgreSQL transaction', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${pinned.questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
