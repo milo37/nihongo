@@ -57,6 +57,7 @@ export const phase7ErrorSurfaceByOperation = {
   publishQuestionVersion: 'KEYLESS_MUTATION',
   retireQuestionVersion: 'KEYLESS_MUTATION',
   requestContentReviewBatch: 'KEYLESS_MUTATION',
+  publishQuestionVersionBatch: 'KEYLESS_MUTATION',
   validateQuestionImport: 'VALIDATION_WRITE_ZERO',
   applyQuestionImport: 'APPLY_IMPORT',
   exportAdminQuestions: 'EXPORT',
@@ -217,7 +218,7 @@ export const assertErrorPolicyManifest = (): void => {
     counts.GET_READ !== 10 ||
     counts.VALIDATION_WRITE_ZERO !== 1 ||
     counts.APPLY_IMPORT !== 1 ||
-    counts.KEYLESS_MUTATION !== 14 ||
+    counts.KEYLESS_MUTATION !== 15 ||
     counts.EXPORT !== 1 ||
     counts.REAUTHENTICATION !== 1
   ) {

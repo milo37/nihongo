@@ -174,6 +174,11 @@ const SLICE_5_ADMIN_COMMAND_PATHS = [
   },
   {
     method: 'POST',
+    operation: 'publishQuestionVersionBatch',
+    pattern: /^\/api\/v1\/admin\/question-versions\/publication-batch$/u
+  },
+  {
+    method: 'POST',
     operation: 'validateQuestionImport',
     pattern: /^\/api\/v1\/admin\/questions\/import-validation$/u
   },
@@ -231,6 +236,14 @@ const ADMIN_CONSOLE_READ_PATHS = [
       `^/api/v1/admin/question-imports/${CANONICAL_UUID_PATTERN}$`,
       'u'
     )
+  },
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/members$/u },
+  {
+    method: 'GET',
+    pattern: new RegExp(
+      `^/api/v1/admin/members/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
   }
 ] as const
 
@@ -239,6 +252,13 @@ const ADMIN_CONSOLE_COMMAND_PATHS = [
     method: 'POST',
     pattern: new RegExp(
       `^/api/v1/admin/reports/${CANONICAL_UUID_PATTERN}/(?:reply-and-close|note|close)$`,
+      'u'
+    )
+  },
+  {
+    method: 'POST',
+    pattern: new RegExp(
+      `^/api/v1/admin/members/${CANONICAL_UUID_PATTERN}/(?:restriction|restriction-release)$`,
       'u'
     )
   }

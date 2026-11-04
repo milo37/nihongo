@@ -1277,6 +1277,11 @@ export interface AdminQuestionPublicationCommandRepository {
     questionId: string,
     request: ArchiveAdminQuestionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Current question row version for a batch item; null if the version is missing. */
+  readPublicationTarget: (versionId: string) => Promise<{
+    readonly questionRowVersion: number
+    readonly versionStatus: string
+  } | null>
 }
 
 export type AdminQuestionPreparedCommandRepository =
@@ -2576,11 +2581,27 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
+  const readPublicationTarget: AdminQuestionPublicationCommandRepository['readPublicationTarget'] =
+    async (versionId) => {
+      try {
+        const target = await loadVersionTarget(client, versionId)
+        return target
+          ? {
+              questionRowVersion: target.questionRowVersion,
+              versionStatus: target.versionStatus
+            }
+          : null
+      } catch (error: unknown) {
+        throw mapPreflightError(error)
+      }
+    }
+
   return {
     ...activeRepository,
     publishVersion,
     retireVersion,
-    archiveQuestion
+    archiveQuestion,
+    readPublicationTarget
   }
 }
 

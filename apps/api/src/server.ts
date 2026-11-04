@@ -59,6 +59,8 @@ import { createAdminQuestionService } from './admin/adminQuestionService.js'
 import { createQuestionImportResultReader } from './admin/questionImportResultStore.js'
 import { createPrismaUserReportRepository } from './report/userReportRepository.js'
 import { createUserReportService } from './report/userReportService.js'
+import { createPrismaAdminMemberRepository } from './admin/adminMemberRepository.js'
+import { createAdminMemberService } from './admin/adminMemberService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
 import { createPrismaAdminQuestionSlice5Repository } from './admin/adminQuestionSlice5Repository.js'
@@ -304,6 +306,9 @@ const app = createApiApp({
             service: questionReportService
           },
           importResultReader: createQuestionImportResultReader(database.client),
+          members: createAdminMemberService(
+            createPrismaAdminMemberRepository(database.client)
+          ),
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader
         }
