@@ -179,6 +179,14 @@ const ATTESTATION_QUERY = `
          ]::name[])
          AND sensitive_column.attnum > 0
          AND NOT sensitive_column.attisdropped
+         -- #504 P2: the member console reads these User columns in the API.
+         AND NOT (
+           current_user = 'nihongo_app'
+           AND sensitive_relation.relname = 'User'
+           AND sensitive_column.attname = ANY(ARRAY[
+             'id', 'email', 'role', 'accountStatus', 'deletedAt', 'createdAt'
+           ]::name[])
+         )
          AND has_column_privilege(
            current_user,
            sensitive_relation.oid,

@@ -110,6 +110,21 @@ describe('admin member routes', () => {
     })
   })
 
+  it('rejects an empty or over-long restriction reason', async () => {
+    const restrict = vi.fn()
+    const app = createApp({ restrict })
+    for (const reason of ['', 'a'.repeat(501)]) {
+      const response = await app.request(
+        `/api/v1/admin/members/${memberId}/restriction`,
+        post({ expectedRowVersion: 1, reason })
+      )
+      await expect(response.json()).resolves.toEqual({
+        code: 'VALIDATION_ERROR'
+      })
+    }
+    expect(restrict).not.toHaveBeenCalled()
+  })
+
   it('releases with the expected row version only', async () => {
     const releaseRestriction = vi.fn(async () => ({
       ...detail,

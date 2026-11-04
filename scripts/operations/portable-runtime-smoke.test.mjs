@@ -459,12 +459,12 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current59 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned current60 inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 59)
+  assert.equal(names.length, 60)
   assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
   assert.equal(names[49], '20261028150000_sso_provider_cleanup_fencing')
   assert.equal(names[50], '20261028160000_study_contract_v2_default')
@@ -475,25 +475,25 @@ test('portable runtime requires the pinned current59 inventory and rejects count
   assert.equal(names[55], '20261104150000_user_account_restriction')
   assert.equal(names[56], '20261105090000_admin_member_console')
   assert.equal(names[57], '20261106090000_single_operator_review')
-  assert.equal(names.at(-1), '20261107090000_drop_study_review_triggers')
+  assert.equal(names.at(-1), '20261108090000_admin_member_console_to_api')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-59 migration inventory/u
+      /current-60 migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-59 migration inventory/u
+      /current-60 migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-59 migration inventory/u
+      /current-60 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
@@ -890,7 +890,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 59,
+    migrationCount: 60,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

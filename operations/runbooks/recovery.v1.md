@@ -82,15 +82,19 @@ The historical physical58 inventory added `20261106090000_single_operator_review
 (file SHA256 `f569efc31c2638a23c2870ded6a8140aabb7be90aff57a2f02d740392f6fc6d1`),
 with ordered inventory digest
 `13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c`.
-The current physical59 inventory adds `20261107090000_drop_study_review_triggers`
+The historical physical59 inventory added `20261107090000_drop_study_review_triggers`
 (file SHA256 `287d1ff5811f16849738919c4492ea5af59540d5be1c7f133d4646e2ff44d2b4`),
 with ordered inventory digest
 `87a2ac0933184eb700be1f564d47e83f720fe370e612b92b8adf478f9f7811fb`.
-Historical physical50, physical52, physical53, physical55, physical56, physical57 and physical58 are rejected as the current technical profile.
+The current physical60 inventory adds `20261108090000_admin_member_console_to_api`
+(file SHA256 `fc5db8ea94e3197b32722e3ed762d41ce1e85c834c4ee4bb7588d98e46ff2003`),
+with ordered inventory digest
+`5994f49b88fd775cf4045a7e2ab62d36135f0b6bbf93722bcc377ba9c4b329b6`.
+Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58 and physical59 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical59, historical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
+No current physical60, historical59, historical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest

@@ -1384,8 +1384,9 @@ describe('Reauthentication DB foundation', () => {
               'SELECT,INSERT,UPDATE,REFERENCES'
             )) AS "sensitiveColumnAclCount"`
     )
+    // #504 P2: nihongo_app reads six User columns for the member console.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 0, sensitiveTableAclCount: 0 }
+      { sensitiveColumnAclCount: 6, sensitiveTableAclCount: 0 }
     ])
   })
 

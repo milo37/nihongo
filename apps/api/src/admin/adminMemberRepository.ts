@@ -32,10 +32,7 @@ export interface AdminMemberRestrictionChange {
   readonly reason: string | null
 }
 
-/**
- * Reads and writes go through SECURITY DEFINER functions (JLP-691):
- * nihongo_app cannot read "User" and only ever sees the masked email.
- */
+/** Only the masked email ever leaves this repository. */
 export interface AdminMemberRepository {
   readonly listMembers: (
     actorId: string,
@@ -76,12 +73,35 @@ const execute = async <Result>(
   }
 }
 
-interface MemberRow extends AdminMemberRecord {
+interface MemberRow extends Omit<AdminMemberRecord, 'maskedEmail'> {
+  readonly email: string
   readonly total?: bigint
 }
 
-const toRecord = ({ total: _total, ...row }: MemberRow): AdminMemberRecord =>
-  row
+/** `minsu1@example.com` -> `mi****@e******.com`. */
+export const maskMemberEmail = (address: string): string => {
+  const chars = Array.from(address)
+  const at = chars.lastIndexOf('@')
+  const local = at < 0 ? chars : chars.slice(0, at)
+  const domain = at < 0 ? [] : chars.slice(at + 1)
+  const dot = domain.lastIndexOf('.')
+  const host = dot > 0 ? domain.slice(0, dot) : domain
+  const suffix = dot > 0 ? domain.slice(dot).join('') : ''
+  const mask = (part: readonly string[], keep: number): string => {
+    const shown = Math.min(keep, Math.max(part.length - 1, 0))
+    return part.slice(0, shown).join('') + '*'.repeat(part.length - shown)
+  }
+  return `${mask(local, 2)}@${mask(host, 1)}${suffix}`
+}
+
+const toRecord = ({
+  email,
+  total: _total,
+  ...row
+}: MemberRow): AdminMemberRecord => ({
+  ...row,
+  maskedEmail: maskMemberEmail(email)
+})
 
 const OUTCOMES = new Set<AdminMemberRestrictionOutcome>([
   'OK',
@@ -90,20 +110,115 @@ const OUTCOMES = new Set<AdminMemberRestrictionOutcome>([
   'INVALID_STATE_TRANSITION'
 ])
 
+const SORT_COLUMNS: Record<ParsedListAdminMembersQuery['sort'], string> = {
+  joinedAt: 'member."joinedAt"',
+  lastStudiedAt: 'member."lastStudiedAt"',
+  solvedCount: 'member."solvedCount"',
+  reportCount: 'member."reportCount"',
+  status: '(member."restrictedAt" IS NOT NULL)'
+}
+
+type Queryable = Pick<PrismaClient, '$queryRaw' | 'user'>
+
+const assertActiveAdministrator = async (
+  client: Queryable,
+  actorId: string
+): Promise<void> => {
+  const actor = await client.user.findFirst({
+    where: {
+      id: actorId,
+      role: 'ADMIN',
+      accountStatus: 'ACTIVE',
+      deletedAt: null
+    },
+    select: { id: true }
+  })
+  if (!actor) {
+    throw new Error('Member console actor is not an active administrator.')
+  }
+}
+
+// Learner accounts that still exist; administrators are not members.
+const selectMembers = (
+  client: Queryable,
+  filter: Prisma.Sql,
+  tail: Prisma.Sql
+): Promise<MemberRow[]> => client.$queryRaw<MemberRow[]>`
+  WITH member AS (
+    SELECT
+      u."id" AS "memberId",
+      u."email" AS "email",
+      u."createdAt" AS "joinedAt",
+      study.last_studied_at AS "lastStudiedAt",
+      COALESCE(study.solved_count, 0)::INTEGER AS "solvedCount",
+      (
+        (SELECT COUNT(*) FROM "QuestionReport" AS report
+          WHERE report."reporterUserId" = u."id")
+        + (SELECT COUNT(*) FROM "UserReport" AS report
+          WHERE report."reporterUserId" = u."id")
+      )::INTEGER AS "reportCount",
+      restriction."restrictedAt" AS "restrictedAt",
+      restriction."reason" AS "restrictionReason",
+      (1 + (SELECT COUNT(*) FROM "UserAccountRestrictionEvent" AS event
+        WHERE event."userId" = u."id"))::INTEGER AS "rowVersion"
+    FROM "User" AS u
+    LEFT JOIN "UserAccountRestriction" AS restriction
+      ON restriction."userId" = u."id"
+    LEFT JOIN LATERAL (
+      SELECT MAX(answer."answeredAt") AS last_studied_at,
+        COUNT(*) AS solved_count
+      FROM "StudySession" AS session
+      JOIN "StudySessionQuestion" AS item
+        ON item."studySessionId" = session."id"
+      JOIN "StudyAnswer" AS answer
+        ON answer."studySessionQuestionId" = item."id"
+      WHERE session."userId" = u."id"
+    ) AS study ON TRUE
+    WHERE u."role" = 'USER'
+      AND u."deletedAt" IS NULL
+      AND u."accountStatus" <> 'DELETED'
+      AND ${filter}
+  )
+  SELECT member.*, COUNT(*) OVER () AS "total"
+  FROM member
+  ${tail}
+`
+
+const listPage = (
+  client: Queryable,
+  email: string | null,
+  query: ParsedListAdminMembersQuery,
+  pageSize: number,
+  offset: number
+): Promise<MemberRow[]> => {
+  const direction = query.order === 'desc' ? 'DESC' : 'ASC'
+  const nulls = query.sort === 'lastStudiedAt' ? ' NULLS LAST' : ''
+  return selectMembers(
+    client,
+    email === null ? Prisma.sql`TRUE` : Prisma.sql`u."email" = ${email}`,
+    Prisma.sql`ORDER BY ${Prisma.raw(
+      `${SORT_COLUMNS[query.sort]} ${direction}${nulls}`
+    )}, member."memberId" ASC
+      LIMIT ${pageSize} OFFSET ${offset}`
+  )
+}
+
 export const createPrismaAdminMemberRepository = (
   client: PrismaClient
 ): AdminMemberRepository => ({
   listMembers: (actorId, query) =>
     execute(async () => {
+      await assertActiveAdministrator(client, actorId)
       const byEmail = query.email !== undefined
       const pageSize = byEmail ? 1 : query.pageSize
       const offset = byEmail ? 0 : (query.page - 1) * query.pageSize
-      const rows = await client.$queryRaw<MemberRow[]>`
-        SELECT * FROM "admin_list_members"(
-          ${actorId}::uuid, ${query.email ?? null}::text, ${query.sort}::text,
-          ${query.order === 'desc'}::boolean, ${pageSize}::int, ${offset}::int
-        )
-      `
+      const rows = await listPage(
+        client,
+        query.email ?? null,
+        query,
+        pageSize,
+        offset
+      )
       if (rows.length > 0 || byEmail) {
         return {
           items: rows.map(toRecord),
@@ -111,31 +226,70 @@ export const createPrismaAdminMemberRepository = (
         }
       }
       // An out-of-range page still reports the real total.
-      const [first] = await client.$queryRaw<MemberRow[]>`
-        SELECT * FROM "admin_list_members"(
-          ${actorId}::uuid, NULL::text, ${query.sort}::text,
-          ${query.order === 'desc'}::boolean, 1, 0
-        )
-      `
+      const [first] = await listPage(client, null, query, 1, 0)
       return { items: [], total: Number(first?.total ?? 0n) }
     }),
   getMember: (actorId, memberId) =>
     execute(async () => {
-      const [row] = await client.$queryRaw<MemberRow[]>`
-        SELECT * FROM "admin_get_member"(${actorId}::uuid, ${memberId}::uuid)
-      `
+      await assertActiveAdministrator(client, actorId)
+      const [row] = await selectMembers(
+        client,
+        Prisma.sql`u."id" = ${memberId}::uuid`,
+        Prisma.empty
+      )
       return row ? toRecord(row) : null
     }),
   setRestriction: ({ actorId, memberId, expectedRowVersion, reason }) =>
-    execute(async () => {
-      const [row] = await client.$queryRaw<{ outcome: string }[]>`
-        SELECT "admin_set_member_restriction"(
-          ${actorId}::uuid, ${memberId}::uuid, ${expectedRowVersion}::int,
-          ${reason !== null}::boolean, ${reason}::text
-        ) AS "outcome"
-      `
-      const outcome = row?.outcome as AdminMemberRestrictionOutcome | undefined
-      if (!outcome || !OUTCOMES.has(outcome)) {
+    execute(() =>
+      client.$transaction(async (transaction) => {
+        await assertActiveAdministrator(transaction, actorId)
+        // Serializes concurrent commands for one member.
+        await transaction.$queryRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${memberId}))::text
+        `
+        const member = await transaction.user.findFirst({
+          where: {
+            id: memberId,
+            role: 'USER',
+            deletedAt: null,
+            accountStatus: { not: 'DELETED' }
+          },
+          select: { id: true }
+        })
+        if (!member) return 'NOT_FOUND'
+        const events = await transaction.userAccountRestrictionEvent.count({
+          where: { userId: memberId }
+        })
+        if (1 + events !== expectedRowVersion) return 'VERSION_CONFLICT'
+        const restricted =
+          (await transaction.userAccountRestriction.count({
+            where: { userId: memberId }
+          })) > 0
+        if ((reason !== null) === restricted) {
+          return 'INVALID_STATE_TRANSITION'
+        }
+        if (reason === null) {
+          await transaction.userAccountRestriction.delete({
+            where: { userId: memberId }
+          })
+        } else {
+          await transaction.userAccountRestriction.create({
+            data: { userId: memberId, reason }
+          })
+        }
+        await transaction.userAccountRestrictionEvent.create({
+          data: {
+            userId: memberId,
+            action: reason === null ? 'RELEASE' : 'RESTRICT',
+            actorUserId: actorId,
+            reason
+          },
+          select: { id: true }
+        })
+        return 'OK' as const
+      })
+    ).then((outcome) => {
+      if (!OUTCOMES.has(outcome)) {
         throw new Error('Unexpected member restriction outcome.')
       }
       return outcome

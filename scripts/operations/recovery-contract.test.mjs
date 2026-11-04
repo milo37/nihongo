@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 59 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 60 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -100,6 +100,19 @@ test('migration profiles separate exact physical 59 TEST entries from the exact 
     name: '20261107090000_drop_study_review_triggers',
     sha256: '287d1ff5811f16849738919c4492ea5af59540d5be1c7f133d4646e2ff44d2b4'
   })
+  assert.deepEqual(releaseManifest.migrations.entries[59], {
+    name: '20261108090000_admin_member_console_to_api',
+    sha256: 'fc5db8ea94e3197b32722e3ed762d41ce1e85c834c4ee4bb7588d98e46ff2003'
+  })
+  const historical59 = structuredClone(releaseManifest)
+  historical59.migrations.count = 59
+  historical59.migrations.digestSha256 =
+    '87a2ac0933184eb700be1f564d47e83f720fe370e612b92b8adf478f9f7811fb'
+  historical59.migrations.entries = historical59.migrations.entries.slice(0, 59)
+  assert.throws(
+    () => deriveMigrationProfile(historical59, 'technical-current-test'),
+    /count mismatch/u
+  )
   const historical58 = structuredClone(releaseManifest)
   historical58.migrations.count = 58
   historical58.migrations.digestSha256 =
@@ -175,9 +188,9 @@ test('migration profiles separate exact physical 59 TEST entries from the exact 
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 59,
+      count: 60,
       digestSha256:
-        '87a2ac0933184eb700be1f564d47e83f720fe370e612b92b8adf478f9f7811fb',
+        '5994f49b88fd775cf4045a7e2ab62d36135f0b6bbf93722bcc377ba9c4b329b6',
       name: 'technical-current-test'
     }
   )
@@ -520,12 +533,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261107100001_unreviewed_migration',
+        name: '20261108100001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261107100001_unreviewed_migration'
+        '20261108100001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags
