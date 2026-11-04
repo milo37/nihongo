@@ -252,10 +252,13 @@ export const installStaticWeb = ({
       } catch (error: unknown) {
         // Admin pages and assets stay indistinguishable from a missing path for
         // signed-out and non-admin visitors. The admin API keeps its codes.
+        // The hidden 404 carries no Set-Cookie: a stale tab's asset request
+        // must not clear a session cookie that a re-auth just rotated.
         if (
           error instanceof ApplicationError &&
           HIDDEN_ADMIN_DOCUMENT_CODES.has(error.code)
         ) {
+          context.header('Set-Cookie', undefined)
           return context.notFound()
         }
         throw error
