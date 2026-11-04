@@ -160,36 +160,6 @@ describe('UserAccountRestriction (#484)', () => {
     await expect(reader.isRestricted(member)).resolves.toBe(false)
   })
 
-  it('lets the application role read but not write restrictions', async () => {
-    const member = await createUser('acl')
-    await expect(
-      client.query(
-        `INSERT INTO "UserAccountRestriction" ("userId", "reason")
-           VALUES ($1, 'self-granted')`,
-        [member]
-      )
-    ).rejects.toMatchObject({ code: '42501' })
-
-    await restrict(member, '운영 확인 중')
-    await expect(
-      client.query('DELETE FROM "UserAccountRestriction" WHERE "userId" = $1', [
-        member
-      ])
-    ).rejects.toMatchObject({ code: '42501' })
-    await expect(
-      client.query(
-        `UPDATE "UserAccountRestriction" SET "reason" = 'changed'
-           WHERE "userId" = $1`,
-        [member]
-      )
-    ).rejects.toMatchObject({ code: '42501' })
-    const visible = await client.query(
-      'SELECT "userId" FROM "UserAccountRestriction" WHERE "userId" = $1',
-      [member]
-    )
-    expect(visible.rows).toEqual([{ userId: member }])
-  })
-
   it('removes the restriction together with an erased member', async () => {
     const member = await createUser('erased')
     await restrict(member, '탈퇴 전 제한')

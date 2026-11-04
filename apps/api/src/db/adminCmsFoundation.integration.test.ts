@@ -20,7 +20,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261028120000_sso_account_erasure_claim_lease',
   '20261028150000_sso_provider_cleanup_fencing',
   '20261028160000_study_contract_v2_default',
   '20261028170000_study_v1_retirement_authority',
@@ -30,7 +29,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261104150000_user_account_restriction',
   '20261105090000_admin_member_console',
   '20261106090000_single_operator_review',
-  '20261107090000_drop_study_review_triggers'
+  '20261107090000_drop_study_review_triggers',
+  '20261108090000_admin_member_console_to_api'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -442,14 +442,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('59 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('60 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(59)
+    expect(ledger.rows).toHaveLength(60)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -545,7 +545,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 59 }])
+      ).toEqual([{ migrationCount: 60 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -8560,6 +8560,8 @@ describe('Persistence foundation', () => {
     let extraRoleCreated = false
     let applicationSuperuser = false
     let applicationHasDirectUserEmailAcl = false
+    let applicationGroupHasUserNameAcl = false
+    let applicationGroupHasUserRoleUpdateAcl = false
     let applicationHasExtraMembership = false
     let applicationHasDirectQuestionAcl = false
     let applicationConnectRestored = true
@@ -8833,6 +8835,35 @@ describe('Persistence foundation', () => {
       )
       applicationHasDirectUserEmailAcl = false
 
+      // #504 P2: the app group may read only the six member console columns.
+      await client.query(
+        `GRANT SELECT ("name") ON TABLE ${quoteIdentifier(schema)}."User"
+         TO "nihongo_app"`
+      )
+      applicationGroupHasUserNameAcl = true
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
+      )
+      await client.query(
+        `REVOKE SELECT ("name") ON TABLE ${quoteIdentifier(schema)}."User"
+         FROM "nihongo_app"`
+      )
+      applicationGroupHasUserNameAcl = false
+
+      await client.query(
+        `GRANT UPDATE ("role") ON TABLE ${quoteIdentifier(schema)}."User"
+         TO "nihongo_app"`
+      )
+      applicationGroupHasUserRoleUpdateAcl = true
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
+      )
+      await client.query(
+        `REVOKE UPDATE ("role") ON TABLE ${quoteIdentifier(schema)}."User"
+         FROM "nihongo_app"`
+      )
+      applicationGroupHasUserRoleUpdateAcl = false
+
       await client.query(
         `CREATE SCHEMA ${quoteIdentifier(wrongSchema)}
          AUTHORIZATION "nihongo_phase7_owner"`
@@ -8963,6 +8994,22 @@ describe('Persistence foundation', () => {
           .query(
             `REVOKE ALL PRIVILEGES ON TABLE ${quoteIdentifier(schema)}."Question"
              FROM ${quoteIdentifier(applicationLogin)}`
+          )
+          .catch(() => undefined)
+      }
+      if (applicationGroupHasUserRoleUpdateAcl) {
+        await client
+          .query(
+            `REVOKE UPDATE ("role") ON TABLE ${quoteIdentifier(schema)}."User"
+             FROM "nihongo_app"`
+          )
+          .catch(() => undefined)
+      }
+      if (applicationGroupHasUserNameAcl) {
+        await client
+          .query(
+            `REVOKE SELECT ("name") ON TABLE ${quoteIdentifier(schema)}."User"
+             FROM "nihongo_app"`
           )
           .catch(() => undefined)
       }

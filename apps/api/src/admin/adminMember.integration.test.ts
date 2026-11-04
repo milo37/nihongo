@@ -137,8 +137,8 @@ afterAll(async () => {
   ])
 })
 
-describe('admin member console functions (JLP-691)', () => {
-  it('returns masked members only and keeps "User" unreadable for the app role', async () => {
+describe('admin member console (JLP-691)', () => {
+  it('returns masked members only', async () => {
     const member = await createUser('list')
 
     const detail = await service.getMember(admin.id, member.id)
@@ -182,18 +182,6 @@ describe('admin member console functions (JLP-691)', () => {
     })
     expect(page.items.some((item) => item.memberId === member.id)).toBe(true)
     expect(page.items.some((item) => item.memberId === admin.id)).toBe(false)
-
-    if (isCurrentSourceIntegration) {
-      await expect(
-        client.query('SELECT "email" FROM "User" LIMIT 1')
-      ).rejects.toMatchObject({ code: '42501' })
-      await expect(
-        client.query('SELECT 1 FROM "UserAccountRestrictionEvent" LIMIT 1')
-      ).rejects.toMatchObject({ code: '42501' })
-      await expect(
-        client.query(`SELECT "admin_mask_member_email"('a@b.c')`)
-      ).rejects.toMatchObject({ code: '42501' })
-    }
   })
 
   it('refuses a caller that is not an active administrator', async () => {
