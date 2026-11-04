@@ -20,6 +20,10 @@ import type {
   QuestionReportMutationResult,
   WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/content-operations'
+import type {
+  PublishQuestionVersionBatchRequest,
+  PublishQuestionVersionBatchResponse
+} from '@nihongo/contracts/admin/review'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
   AdminQuestionCommandRepositoryError,
@@ -86,6 +90,11 @@ export interface AdminQuestionPublicationCommandService {
     questionId: string,
     request: ArchiveAdminQuestionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Publishes each item in its own transaction; the batch is not atomic. */
+  publishVersionBatch: (
+    authority: AdminCommandAuthority,
+    request: PublishQuestionVersionBatchRequest
+  ) => Promise<PublishQuestionVersionBatchResponse>
 }
 
 export interface AdminQuestionSlice5CommandService {
@@ -189,6 +198,66 @@ export const createAdminQuestionCommandService = (
     )
 })
 
+const BATCH_ITEM_RESULTS = {
+  RESOURCE_NOT_FOUND: 'NOT_FOUND',
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
+  INVALID_STATE_TRANSITION: 'NOT_REVIEWED',
+  SEPARATION_OF_DUTIES_VIOLATION: 'SEPARATION_OF_DUTIES_VIOLATION'
+} as const satisfies Partial<
+  Record<
+    AdminQuestionCommandRepositoryError['code'],
+    PublishQuestionVersionBatchResponse['items'][number]['result']
+  >
+>
+
+const isBatchItemFailure = (
+  code: AdminQuestionCommandRepositoryError['code']
+): code is keyof typeof BATCH_ITEM_RESULTS => code in BATCH_ITEM_RESULTS
+
+/** Item outcomes become results; request-wide failures (auth, freshness) still throw. */
+const publishBatchItem = async (
+  repository: AdminQuestionPublicationCommandRepository,
+  authority: AdminCommandAuthority,
+  questionVersionId: string,
+  expectedRowVersion: number
+): Promise<PublishQuestionVersionBatchResponse['items'][number]> => {
+  try {
+    const target = await repository.readPublicationTarget(questionVersionId)
+    if (!target) {
+      return { questionVersionId, result: 'NOT_FOUND', rowVersion: null }
+    }
+    // Only APPROVED versions can be published; the DB rejects the rest late.
+    if (target.versionStatus !== 'APPROVED') {
+      return { questionVersionId, result: 'NOT_REVIEWED', rowVersion: null }
+    }
+    const published = await repository.publishVersion(
+      authority,
+      questionVersionId,
+      {
+        expectedRowVersion,
+        expectedQuestionRowVersion: target.questionRowVersion
+      }
+    )
+    return {
+      questionVersionId,
+      result: 'PUBLISHED',
+      rowVersion: published.versionRowVersion
+    }
+  } catch (error: unknown) {
+    if (
+      error instanceof AdminQuestionCommandRepositoryError &&
+      isBatchItemFailure(error.code)
+    ) {
+      return {
+        questionVersionId,
+        result: BATCH_ITEM_RESULTS[error.code],
+        rowVersion: null
+      }
+    }
+    throw error
+  }
+}
+
 export const createAdminQuestionPublicationCommandService = (
   repository: AdminQuestionPublicationCommandRepository
 ): AdminQuestionPublicationCommandService => ({
@@ -197,7 +266,26 @@ export const createAdminQuestionPublicationCommandService = (
   retireVersion: (authority, versionId, request) =>
     execute(() => repository.retireVersion(authority, versionId, request)),
   archiveQuestion: (authority, questionId, request) =>
-    execute(() => repository.archiveQuestion(authority, questionId, request))
+    execute(() => repository.archiveQuestion(authority, questionId, request)),
+  publishVersionBatch: (authority, request) =>
+    execute(async () => {
+      const items: PublishQuestionVersionBatchResponse['items'][number][] = []
+      for (const { questionVersionId, expectedRowVersion } of request.items) {
+        items.push(
+          await publishBatchItem(
+            repository,
+            authority,
+            questionVersionId,
+            expectedRowVersion
+          )
+        )
+      }
+      return {
+        publishedCount: items.filter(({ result }) => result === 'PUBLISHED')
+          .length,
+        items
+      }
+    })
 })
 
 export const createAdminQuestionSlice5CommandService = (

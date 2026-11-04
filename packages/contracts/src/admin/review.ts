@@ -134,7 +134,9 @@ export const publishQuestionVersionBatchItemResultSchema = z.enum([
   'PUBLISHED',
   'VERSION_CONFLICT',
   'NOT_REVIEWED',
-  'NOT_FOUND'
+  'NOT_FOUND',
+  /** The publisher is the version's author or latest approver. */
+  'SEPARATION_OF_DUTIES_VIOLATION'
 ])
 
 /** Items are committed one by one; the batch is not atomic. */
@@ -162,21 +164,7 @@ export const publishQuestionVersionBatchResponseSchema = z
     { path: ['publishedCount'], message: 'publishedCount가 결과와 달라요.' }
   )
 
-/** One fresh admin sign-in per batch request. */
-export const publishQuestionVersionBatchErrorSchema = createApiFailureSchema(
-  z.enum([
-    'AUTHENTICATION_REQUIRED',
-    'AUTH_SESSION_EXPIRED',
-    'FRESH_ASSURANCE_REQUIRED',
-    'ADMIN_REQUIRED',
-    'INVALID_CSRF',
-    'UNTRUSTED_ORIGIN',
-    'VALIDATION_ERROR',
-    'RATE_LIMITED',
-    'INTERNAL_SERVER_ERROR',
-    'SERVICE_UNAVAILABLE'
-  ])
-)
+/** Error schema: `publishQuestionVersionBatchErrorSchema` in content-commands. */
 
 /**
  * POST /admin/question-versions/:versionId/draft-deletion.
