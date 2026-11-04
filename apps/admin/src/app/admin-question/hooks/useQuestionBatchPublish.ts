@@ -65,6 +65,14 @@ export const useQuestionBatchPublish = (
   } | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [freshConfirmed, setFreshConfirmed] = useState(false)
+  // Leaving a query string drops its selection and result, so coming back
+  // (for example after resetting a filter) starts empty.
+  const [shownSearch, setShownSearch] = useState(search)
+  if (shownSearch !== search) {
+    setShownSearch(search)
+    setSelection({ search, ids: new Set() })
+    setOutcome(null)
+  }
   const selectedIds =
     selection.search === search ? selection.ids : new Set<string>()
   const result = outcome?.search === search ? outcome.result : null

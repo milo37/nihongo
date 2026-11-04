@@ -219,9 +219,17 @@ it('keeps focus while publishing and moves it to a whole-request failure', async
   await waitFor(() => expect(alert).toHaveFocus())
 })
 
-it('clears the selection when the page or filter changes', async () => {
+it('clears the selection when the page or filter changes, even after coming back', async () => {
   const { dialog, router } = await selectAll()
   await userEvent.click(within(dialog).getByRole('button', { name: '취소' }))
   await router.navigate('/questions?level=N3')
   await waitFor(() => expect(screen.queryByText('2개 선택됨')).toBeNull())
+
+  await router.navigate('/questions')
+  expect(
+    await screen.findByRole('checkbox', {
+      name: '이 페이지의 승인된 문제 모두 선택'
+    })
+  ).not.toBeChecked()
+  expect(screen.queryByText('2개 선택됨')).toBeNull()
 })
