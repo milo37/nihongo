@@ -27,7 +27,7 @@ import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as importResultApi from '@nihongo/browser/api/admin-import-result/index'
 import { adminRoutes } from '@/router'
 import {

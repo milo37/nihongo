@@ -1,4 +1,4 @@
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { question } from '@app/admin-question/test/questionFixture'
 import type { MockInstance } from 'vitest'
 import {
