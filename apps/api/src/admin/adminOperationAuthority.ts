@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Prisma } from '../generated/prisma/client.js'
 import type { BegunOperationRow } from './adminRepositoryCommon.js'
+import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
 
 /**
  * Admin operation authority in the API transaction (#504 P7 PR2).
@@ -186,7 +187,7 @@ export const beginAdminOperation = async (
     Array<{ sessionId: string; userId: string }>
   >(
     `SELECT principal."sessionId", principal."userId"
-     FROM "phase7_resolve_v1_principal"($1) AS principal`,
+     FROM (${v1PrincipalQuery('$1')}) AS principal`,
     input.rawSessionToken
   )
   const actor = principal.length === 1 ? principal[0] : undefined

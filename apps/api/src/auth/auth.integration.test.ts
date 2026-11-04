@@ -102,7 +102,7 @@ const principalService = isCurrentSourceIntegration
   ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
-      refreshClient: authGatewayDatabase!.client,
+      refreshClient: database.client,
       secret: environment.BETTER_AUTH_SECRET
     })
   : createPrincipalService({
@@ -125,7 +125,7 @@ const app = createApiApp({
           delay: async () => undefined,
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
-            client: authGatewayDatabase!.client,
+            client: database.client,
             emailDispatcher,
             environment
           }),
@@ -344,7 +344,7 @@ describe(
       ).toEqual(before)
       const session = await createSsoSessionFixture({
         owner: fixtureDatabase.client,
-        gateway: authGatewayDatabase.client,
+        gateway: database.client,
         secret: environment.BETTER_AUTH_SECRET,
         role: 'USER'
       })
@@ -511,7 +511,7 @@ describe(
         throw new Error('Current SSO gateway fixture is required.')
       const adminSession = await createSsoSessionFixture({
         owner: fixtureDatabase.client,
-        gateway: authGatewayDatabase.client,
+        gateway: database.client,
         secret: environment.BETTER_AUTH_SECRET,
         role: 'ADMIN',
         existingUser: { id: created.userId, email, name: 'Admin SSO fixture' }
@@ -701,7 +701,7 @@ describe(
             throw new Error('Current SSO gateway fixture is required.')
           const session = await createSsoSessionFixture({
             owner: fixtureDatabase.client,
-            gateway: authGatewayDatabase.client,
+            gateway: database.client,
             secret: environment.BETTER_AUTH_SECRET,
             role: 'USER',
             existingUser: { id: user.id, email, name: 'Erasure SSO fixture' }

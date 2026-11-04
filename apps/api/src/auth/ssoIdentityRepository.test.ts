@@ -1,6 +1,21 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  issueOwnedSession,
+  signOutOwnedSession
+} from './ownedSessionAuthority.js'
 import { createSsoIdentityRepository } from './ssoIdentityRepository.js'
+
+vi.mock('./ownedSessionAuthority.js', () => ({
+  issueOwnedSession: vi.fn(),
+  signOutOwnedSession: vi.fn(async () => true)
+}))
+const issueMock = vi.mocked(issueOwnedSession)
+const signOutMock = vi.mocked(signOutOwnedSession)
+beforeEach(() => {
+  issueMock.mockReset()
+  signOutMock.mockClear()
+})
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const familyId = '22222222-2222-4222-8222-222222222222'
@@ -35,27 +50,22 @@ const fixture = (
             }
           }
         ]
-      if (sql.includes('issue_v1_session')) {
-        if (options.issueThrows) throw new Error('private db failure')
-        return [
-          {
-            id: options.malformedSession ? familyId : values[4],
-            familyId,
-            authorityGeneration: 7,
-            createdAt: new Date('2026-10-19T00:00:00Z'),
-            expiresAt: new Date('2026-10-26T00:00:00Z')
-          }
-        ]
-      }
       if (sql.includes('confirm_v1_session'))
         return [{ confirmed: options.confirmed ?? true }]
-      return [{ signedOut: true }]
+      throw new Error('unexpected query')
     }
   )
-  const client = { $queryRawUnsafe: query } as unknown as Pick<
-    PrismaClient,
-    '$queryRawUnsafe'
-  >
+  issueMock.mockImplementation(async (_client, input) => {
+    if (options.issueThrows) throw new Error('private db failure')
+    return {
+      id: options.malformedSession ? familyId : input.sessionId,
+      familyId,
+      authorityGeneration: 7,
+      createdAt: new Date('2026-10-19T00:00:00Z'),
+      expiresAt: new Date('2026-10-26T00:00:00Z')
+    }
+  })
+  const client = { $queryRawUnsafe: query } as unknown as PrismaClient
   return { repo: createSsoIdentityRepository(client), calls, query }
 }
 describe('SSO stable identity and confirmed session', () => {
@@ -69,16 +79,16 @@ describe('SSO stable identity and confirmed session', () => {
       'contact@example.test',
       '학습자'
     ])
-    expect(f.calls[1]?.values.slice(0, 4)).toEqual([
+    expect(issueMock).toHaveBeenCalledOnce()
+    expect(issueMock.mock.calls[0]?.[1]).toMatchObject({
       userId,
-      7,
-      'ADMIN',
-      'ACTIVE'
-    ])
-    expect(f.calls[2]?.values.slice(2)).toEqual([userId, 7, 'ADMIN', 'ACTIVE'])
-    expect(f.calls.some((call) => call.sql.includes('owned_sign_out'))).toBe(
-      false
-    )
+      authorityGeneration: 7,
+      role: 'ADMIN',
+      accountStatus: 'ACTIVE',
+      remember: true
+    })
+    expect(f.calls[1]?.values.slice(2)).toEqual([userId, 7, 'ADMIN', 'ACTIVE'])
+    expect(signOutMock).not.toHaveBeenCalled()
   })
   it.each([
     { confirmed: false },
@@ -91,8 +101,8 @@ describe('SSO stable identity and confirmed session', () => {
       await expect(f.repo.signIn(identity, metadata)).rejects.toThrow(
         'SSO session unavailable.'
       )
-      expect(f.calls.at(-1)?.sql).toContain('owned_sign_out')
-      expect(f.calls.at(-1)?.values[0]).toMatch(/^[A-Za-z0-9_-]{43}$/u)
+      expect(signOutMock).toHaveBeenCalledOnce()
+      expect(signOutMock.mock.calls[0]?.[1]).toMatch(/^[A-Za-z0-9_-]{43}$/u)
     }
   )
   it.each([
@@ -103,6 +113,7 @@ describe('SSO stable identity and confirmed session', () => {
     const f = fixture({ mapping: { outcome } })
     expect(await f.repo.signIn(identity, metadata)).toEqual({ kind: outcome })
     expect(f.calls).toHaveLength(1)
+    expect(issueMock).not.toHaveBeenCalled()
   })
   it('rejects missing authority or injected role fields before using them', async () => {
     const f = fixture({

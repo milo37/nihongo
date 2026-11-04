@@ -42,6 +42,7 @@ import {
   type ArmableOperation
 } from './adminOperationArm.js'
 import { beginAdminOperation } from './adminOperationAuthority.js'
+import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
 
 type ContentOperation =
   | 'createAdminQuestion'
@@ -551,7 +552,7 @@ const classifyAuthorityFailure = async (
          CASE WHEN principal."userId" IS NULL THEN NULL
            ELSE "phase7_sso_admin_session_is_fresh"($1)
          END AS "isFresh"
-       FROM "phase7_resolve_v1_principal"($1) AS principal`,
+       FROM (${v1PrincipalQuery('$1')}) AS principal`,
       authority.rawSessionToken
     )
   } catch (probeError: unknown) {

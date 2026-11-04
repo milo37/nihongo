@@ -15,6 +15,8 @@ import {
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import { signOutOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
@@ -95,7 +97,7 @@ const gatewayClientA = createGatewayClient()
 const gatewayClientB = createGatewayClient()
 
 const withRole = async <Result>(
-  role: 'nihongo_auth_gateway' | 'nihongo_phase7_migration',
+  role: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_phase7_migration',
   action: () => Promise<Result>
 ): Promise<Result> => {
   await adminClient.query(`SET ROLE "${role}"`)
@@ -152,8 +154,9 @@ const issueSession = async (
   sessionId: string,
   token: string
 ): Promise<{ expiresAt: Date; familyId: string }> => {
-  const result = await withRole('nihongo_auth_gateway', () =>
-    adminClient.query<{ expiresAt: Date; familyId: string }>(
+  const result = await withRole('nihongo_app', () =>
+    ownedSessionSql<{ expiresAt: Date; familyId: string }>(
+      adminClient,
       `SELECT * FROM "phase7_issue_v1_session"(
         $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
         '127.0.0.1', 'phase7-real-reauthentication', false
@@ -922,7 +925,7 @@ const createTestHonoApp = ({
   principalService = createOwnedPrincipalService({
     client: applicationRuntime.client,
     isProduction: environment.NODE_ENV === 'production',
-    refreshClient: gatewayRuntime.client,
+    refreshClient: applicationRuntime.client,
     secret: environment.BETTER_AUTH_SECRET
   }),
   service
@@ -973,7 +976,7 @@ const createTestHonoApp = ({
       gateway: createSsoAuthentication({
         environment,
         applicationClient: applicationRuntime.client,
-        gatewayClient: gatewayRuntime.client,
+        gatewayClient: applicationRuntime.client,
         rateLimiter: { consume: async () => undefined },
         providers: {}
       }).gateway,
@@ -1984,9 +1987,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     }
 
     const logoutTarget = await createFixture()
-    await gatewayClientA.query(`SELECT "phase7_owned_sign_out"($1)`, [
-      logoutTarget.token
-    ])
+    await signOutOwnedSession(applicationRuntime.client, logoutTarget.token)
     const logoutResponse = await post(logoutTarget)
     expect(logoutResponse.status).toBe(401)
     expect(
@@ -2018,9 +2019,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     expect(roleResponse.headers.getSetCookie()).toEqual([])
 
     const classifierTarget = await createFixture()
-    await gatewayClientA.query(`SELECT "phase7_owned_sign_out"($1)`, [
-      classifierTarget.token
-    ])
+    await signOutOwnedSession(applicationRuntime.client, classifierTarget.token)
     const classifierFailureQuery = async <QueryResult>(
       query: string,
       ...values: unknown[]
@@ -2038,7 +2037,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         $queryRawUnsafe: classifierFailureQuery
       } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>,
       isProduction: environment.NODE_ENV === 'production',
-      refreshClient: gatewayRuntime.client,
+      refreshClient: applicationRuntime.client,
       secret: environment.BETTER_AUTH_SECRET
     })
     const classifierResponse = await post(
@@ -2065,9 +2064,9 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
         [logoutStage.intentId, logoutStage.newToken]
       ),
-      gatewayClientB.query(`SELECT "phase7_owned_sign_out"($1) AS result`, [
-        logoutTarget.token
-      ])
+      signOutOwnedSession(applicationRuntime.client, logoutTarget.token).then(
+        (result) => ({ rows: [{ result }] })
+      )
     ])
     expect(logout.status).toBe('fulfilled')
     if (logout.status === 'fulfilled') {

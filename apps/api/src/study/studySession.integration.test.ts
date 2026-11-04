@@ -109,7 +109,7 @@ const principalService = isCurrentSourceIntegration
   ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
-      refreshClient: authGatewayDatabase!.client,
+      refreshClient: database.client,
       secret: environment.BETTER_AUTH_SECRET
     })
   : createPrincipalService({
@@ -132,7 +132,7 @@ const app = createApiApp({
           delay: async () => undefined,
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
-            client: authGatewayDatabase!.client,
+            client: database.client,
             emailDispatcher,
             environment
           }),
@@ -334,7 +334,7 @@ const createAuthenticatedActor = async (
     throw new Error('Current SSO gateway fixture is required.')
   const actor = await createSsoSessionFixture({
     owner: fixtureDatabase.client,
-    gateway: authGatewayDatabase.client,
+    gateway: database.client,
     secret: environment.BETTER_AUTH_SECRET,
     role
   })

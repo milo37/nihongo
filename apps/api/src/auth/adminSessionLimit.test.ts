@@ -21,7 +21,12 @@ const createService = (
   isFresh = false
 ) => {
   const query = vi.fn(async (sql: string): Promise<unknown> => {
-    if (sql.includes('refresh_current_remembered_session')) return []
+    // The remembered-session refresh finds nothing to refresh.
+    if (
+      sql.includes('AS due') ||
+      sql.startsWith('SELECT "phase7_require_runtime_ready"')
+    )
+      return []
     return [
       {
         userId: '11111111-1111-4111-8111-111111111111',
