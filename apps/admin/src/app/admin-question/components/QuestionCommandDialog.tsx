@@ -47,11 +47,13 @@ export const QuestionCommandDialog = ({
       <Dialog
         open={pending !== null}
         title={
-          pending
-            ? t('questionDetail.commandDialogTitle', {
-                command: commandLabel(pending)
-              })
-            : t('questionDetail.commandDialogFallbackTitle')
+          pending === 'ARCHIVE' && draftOnly
+            ? t('questionList.draftDialog.title')
+            : pending
+              ? t('questionDetail.commandDialogTitle', {
+                  command: commandLabel(pending)
+                })
+              : t('questionDetail.commandDialogFallbackTitle')
         }
         description={t('questionDetail.commandDialogDescription')}
         fallbackFocusRef={heading}
@@ -129,8 +131,22 @@ export const QuestionCommandDialog = ({
               questionId: detail.data.question.questionId
             })}
           </p>
-        ) : null}
-        <p className="mb-4">{t('questionDetail.commandWarning')}</p>
+        ) : (
+          <>
+            {pending === 'ARCHIVE' ? (
+              <>
+                <p className="mb-2 leading-7 text-muted">
+                  {t('questionList.archiveDialog.body')}
+                </p>
+                <p className="mb-4 leading-7 text-muted">
+                  {t('questionList.archiveDialog.duplicateNote')}
+                </p>
+              </>
+            ) : null}
+            {/* The learner-exposure warning does not apply to an unpublished draft. */}
+            <p className="mb-4">{t('questionDetail.commandWarning')}</p>
+          </>
+        )}
         {showNote ? (
           <Textarea
             ref={noteInput}

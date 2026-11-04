@@ -948,6 +948,13 @@ it('regression: pins ARCHIVE to the open candidate rowVersion even when an older
   })
   await waitFor(() => expect(archive).toBeEnabled())
   const dialog = await open(t('questionList.archive'))
+  // A question with a published past explains archive like the list does.
+  expect(
+    within(dialog).getByText(t('questionList.archiveDialog.body'))
+  ).toBeVisible()
+  expect(
+    within(dialog).getByText(t('questionList.archiveDialog.duplicateNote'))
+  ).toBeVisible()
   snapshot = {
     ...snapshot,
     versions: {
