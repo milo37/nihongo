@@ -29,7 +29,7 @@ const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
 const currentMigrationCount = 69
 const currentMigrationDigest =
-  '2f50a1f84b1902ac9d43269cd5f00d56c0091f4dbee3e6531aefc23818743647'
+  'f376bd17607cb6955da39f8d3bdd7f198fceff6896931382f49abba4c291c94b'
 const lastBootstrapMigration =
   '20261009092000_phase7_n4_n2_revision2_digest_fix'
 const migrationLogin = 'nihongo_test_phase7_migration_login'

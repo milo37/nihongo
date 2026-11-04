@@ -1522,6 +1522,46 @@ describe('Reauthentication DB foundation', () => {
     })
   })
 
+  it('#504 P7 PR3b-1: finalize는 intent의 staged token digest가 token과 다르면 42501로 거절한다', async () => {
+    await withinRollback(async () => {
+      const staged = await createStagedFixture()
+      const intentId = staged.prepared.intentId
+      const recorded = await adminClient.query<{ digest: string }>(
+        `SELECT "stagedTokenDigest" AS digest
+         FROM "Phase7ReauthenticationIntent" WHERE "id" = $1`,
+        [intentId]
+      )
+      const digest = recorded.rows[0]?.digest
+      if (!digest) throw new Error('Staged token digest is unavailable.')
+      // The Session row still matches the token, so only the intent digest
+      // comparison can refuse this finalize.
+      await adminClient.query(
+        `UPDATE "Phase7ReauthenticationIntent"
+         SET "stagedTokenDigest" = $2 WHERE "id" = $1`,
+        [intentId, 'd'.repeat(64)]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
+        [intentId, staged.newToken],
+        '42501'
+      )
+      const pending = await adminClient.query<{ state: string }>(
+        `SELECT "authorizationState"::text AS state FROM "Session"
+         WHERE "id" = $1`,
+        [staged.newSessionId]
+      )
+      expect(pending.rows).toEqual([{ state: 'PENDING_REAUTH' }])
+      await adminClient.query(
+        `UPDATE "Phase7ReauthenticationIntent"
+         SET "stagedTokenDigest" = $2 WHERE "id" = $1`,
+        [intentId, digest]
+      )
+      const finalized = await finalize(intentId, staged.newToken)
+      expect(finalized).toMatchObject({ authorityGeneration: 1 })
+    })
+  })
+
   it('#504 P7 PR3a: 세션 발급이 중간에 실패하면 family와 Session이 함께 rollback된다', async () => {
     const admin = await createCommittedAdmin()
     const familiesOf = async () =>

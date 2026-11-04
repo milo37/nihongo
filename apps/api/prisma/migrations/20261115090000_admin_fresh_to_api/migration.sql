@@ -442,14 +442,20 @@ CREATE TRIGGER "Phase7AuthorityRevocationEvidence_limit_api_delete"
 BEFORE DELETE ON "Phase7AuthorityRevocationEvidence"
 FOR EACH ROW EXECUTE FUNCTION "limit_phase7_authority_revocation_evidence_delete"();
 
--- The replaced SECURITY DEFINER trigger function keeps its fixed search_path.
+-- Every trigger function this migration replaces or creates keeps a fixed
+-- search_path, like the existing trigger functions.
 DO $fixed_path$
 DECLARE
   target_schema TEXT := pg_catalog.current_setting('app.phase7_target_schema', false);
   function_name TEXT;
 BEGIN
   FOREACH function_name IN ARRAY ARRAY[
-    'validate_phase7_session_write'
+    'validate_phase7_session_write',
+    'validate_phase7_rotation_fence',
+    'limit_phase7_reauthentication_intent_delete',
+    'limit_sso_admin_fresh_proof_delete',
+    'limit_sso_admin_fresh_transaction_delete',
+    'limit_phase7_authority_revocation_evidence_delete'
   ] LOOP
     EXECUTE pg_catalog.format(
       'ALTER FUNCTION %I.%I() SET search_path TO pg_catalog, %I, pg_temp',
