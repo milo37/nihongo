@@ -1,32 +1,19 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import { Link, useParams } from 'react-router'
 import type { AdminReportDetail } from '@nihongo/contracts/admin/reports'
-import { Button } from '@nihongo/browser/common/components/Button'
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
-import { Textarea } from '@nihongo/browser/common/components/Textarea'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminReportDetail } from '@app/admin-report/hooks/useAdminReportQueries'
-import {
-  useCloseAdminReport,
-  useReplyAndCloseAdminReport,
-  useSaveAdminReportNote
-} from '@app/admin-report/hooks/useAdminReportCommands'
 import { readReportReturn } from '@app/admin-report/navigation/reportListFocus'
 import { ReportStatusBadge } from '@app/admin-report/components/ReportStatusBadge'
-
-const errorCode = (error: unknown): string | null =>
-  error &&
-  typeof error === 'object' &&
-  'code' in error &&
-  typeof error.code === 'string'
-    ? error.code
-    : null
-
-const cardClass = 'rounded-xl border border-line bg-surface p-5 sm:p-6'
+import {
+  ReportProcessPanel,
+  cardClass
+} from '@app/admin-report/components/ReportProcessPanel'
 
 export const AdminReportDetailPage = (): ReactElement => {
   const { reportId = '' } = useParams()
@@ -73,8 +60,6 @@ export const AdminReportDetailPage = (): ReactElement => {
   )
 }
 
-type Outcome = 'repliedClosed' | 'noteSaved' | 'closed'
-
 const ReportDetail = ({
   report,
   heading,
@@ -84,61 +69,7 @@ const ReportDetail = ({
   heading: RefObject<HTMLHeadingElement | null>
   onConflict: () => void
 }): ReactElement => {
-  const { t, presentError, formatAdminDateTime } = useAdminPresentation()
-  const statusRef = useRef<HTMLParagraphElement>(null)
-  const replyRef = useRef<HTMLTextAreaElement>(null)
-  const [reply, setReply] = useState('')
-  const [note, setNote] = useState(report.internalNote ?? '')
-  const [replyRequired, setReplyRequired] = useState(false)
-  const [outcome, setOutcome] = useState<Outcome | null>(null)
-  const [failure, setFailure] = useState<unknown>(null)
-  // After a conflict the memo field shows the latest saved memo; the admin's
-  // own draft is kept aside so a later command never silently overwrites it.
-  const [conflictPending, setConflictPending] = useState(false)
-  const [noteDraft, setNoteDraft] = useState<string | null>(null)
-  const [seenRowVersion, setSeenRowVersion] = useState(report.rowVersion)
-  if (report.rowVersion !== seenRowVersion) {
-    setSeenRowVersion(report.rowVersion)
-    if (conflictPending) {
-      const latest = report.internalNote ?? ''
-      setConflictPending(false)
-      if (latest !== note) setNoteDraft(note)
-      setNote(latest)
-    }
-  }
-  const announce = (next: Outcome): void => {
-    setFailure(null)
-    setNoteDraft(null)
-    setOutcome(next)
-    window.requestAnimationFrame(() => statusRef.current?.focus())
-  }
-  const fail = (error: unknown): void => {
-    setOutcome(null)
-    setFailure(error)
-    setReplyRequired(false)
-    // The reply stays; the latest row version and memo are loaded.
-    if (errorCode(error) === 'VERSION_CONFLICT') {
-      setConflictPending(true)
-      onConflict()
-    }
-    window.requestAnimationFrame(() => statusRef.current?.focus())
-  }
-  const replyAndClose = useReplyAndCloseAdminReport(report.reportId, {
-    onSuccess: () => announce('repliedClosed'),
-    onError: fail
-  })
-  const saveNote = useSaveAdminReportNote(report.reportId, {
-    onSuccess: () => announce('noteSaved'),
-    onError: fail
-  })
-  const close = useCloseAdminReport(report.reportId, {
-    onSuccess: () => announce('closed'),
-    onError: fail
-  })
-  const pending =
-    replyAndClose.isPending || saveNote.isPending || close.isPending
-  const isOpen = report.status === 'RECEIVED'
-  const expectedRowVersion = report.rowVersion
+  const { t, formatAdminDateTime } = useAdminPresentation()
   const title = report.description.split('\n')[0]?.slice(0, 80) ?? ''
 
   return (
@@ -221,174 +152,7 @@ const ReportDetail = ({
             </section>
           ) : null}
         </div>
-        <div className="grid min-w-0 content-start gap-4">
-          <section className={cardClass} aria-labelledby="report-process">
-            <h2 id="report-process" className="text-lg font-bold">
-              {t('userReport.detail.process')}
-            </h2>
-            <p
-              ref={statusRef}
-              tabIndex={-1}
-              role={failure ? 'alert' : 'status'}
-              className={
-                'mt-2 text-sm font-semibold ' +
-                (failure ? 'text-danger' : 'text-success-strong')
-              }
-            >
-              {failure
-                ? errorCode(failure) === 'VERSION_CONFLICT'
-                  ? t('userReport.detail.conflict')
-                  : presentError(failure)
-                : outcome
-                  ? t(`userReport.detail.${outcome}`)
-                  : ''}
-            </p>
-            {isOpen ? (
-              <form
-                className="mt-2 grid gap-4"
-                noValidate
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  if (pending) return
-                  if (!reply.trim()) {
-                    setReplyRequired(true)
-                    replyRef.current?.focus()
-                    return
-                  }
-                  replyAndClose.mutate({
-                    expectedRowVersion,
-                    reporterReply: reply,
-                    internalNote: note
-                  })
-                }}
-              >
-                <Textarea
-                  ref={replyRef}
-                  name="reporter-reply"
-                  label={t('userReport.detail.reply')}
-                  hint={t('userReport.detail.replyVisible')}
-                  error={
-                    replyRequired
-                      ? t('userReport.detail.replyRequired')
-                      : undefined
-                  }
-                  rows={4}
-                  maxLength={1000}
-                  disabled={pending}
-                  value={reply}
-                  onChange={(event) => {
-                    setReply(event.currentTarget.value)
-                    if (event.currentTarget.value.trim())
-                      setReplyRequired(false)
-                  }}
-                />
-                <Textarea
-                  name="internal-note"
-                  label={t('userReport.detail.note')}
-                  hint={t('userReport.detail.noteHint')}
-                  placeholder={t('userReport.detail.notePlaceholder')}
-                  rows={4}
-                  maxLength={1000}
-                  disabled={pending}
-                  value={note}
-                  onChange={(event) => setNote(event.currentTarget.value)}
-                />
-                {noteDraft !== null ? (
-                  <div
-                    role="status"
-                    className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm text-warning-strong"
-                  >
-                    <p className="font-semibold">
-                      {t('userReport.detail.noteReplaced')}
-                    </p>
-                    <p className="mt-2 text-muted">
-                      {t('userReport.detail.myDraft')}
-                    </p>
-                    <p className="whitespace-pre-wrap break-words">
-                      {noteDraft}
-                    </p>
-                    <Button
-                      className="mt-2"
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={(event) => {
-                        setNote(noteDraft)
-                        setNoteDraft(null)
-                        // The button unmounts; keep focus on the restored memo.
-                        const memo =
-                          event.currentTarget.form?.elements.namedItem(
-                            'internal-note'
-                          )
-                        if (memo instanceof HTMLTextAreaElement) memo.focus()
-                      }}
-                    >
-                      {t('userReport.detail.restoreDraft')}
-                    </Button>
-                  </div>
-                ) : null}
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    type="submit"
-                    disabled={pending}
-                    isLoading={replyAndClose.isPending}
-                  >
-                    {t('userReport.detail.replyAndClose')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={pending}
-                    isLoading={saveNote.isPending}
-                    onClick={() =>
-                      saveNote.mutate({
-                        expectedRowVersion,
-                        internalNote: note
-                      })
-                    }
-                  >
-                    {t('userReport.detail.saveNote')}
-                  </Button>
-                </div>
-                <Button
-                  variant="ghost"
-                  disabled={pending}
-                  isLoading={close.isPending}
-                  onClick={() =>
-                    close.mutate({ expectedRowVersion, internalNote: note })
-                  }
-                >
-                  {t('userReport.detail.close')}
-                </Button>
-                <p className="text-sm text-muted">
-                  {t('userReport.detail.noNotification')}
-                </p>
-              </form>
-            ) : (
-              <div className="mt-2 text-sm">
-                <p>{t('userReport.detail.closedNotice')}</p>
-                {report.closedAt ? (
-                  <p className="mt-2 text-muted">
-                    {t('userReport.detail.closedAt')}:{' '}
-                    {formatAdminDateTime(report.closedAt)}
-                  </p>
-                ) : null}
-              </div>
-            )}
-          </section>
-          {report.questionId ? (
-            <section className={cardClass} aria-labelledby="report-link">
-              <h2 id="report-link" className="text-lg font-bold">
-                {t('userReport.detail.link')}
-              </h2>
-              <Link
-                to={`/questions/${report.questionId}/edit`}
-                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-brand px-4 font-semibold text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
-              >
-                {t('userReport.detail.newVersion')}
-              </Link>
-            </section>
-          ) : null}
-        </div>
+        <ReportProcessPanel report={report} onConflict={onConflict} />
       </div>
     </>
   )
