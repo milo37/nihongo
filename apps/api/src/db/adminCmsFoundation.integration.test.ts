@@ -26,7 +26,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261104090000_unified_reports_import_results',
   '20261104120000_user_report_erasure_redaction',
   '20261104150000_user_account_restriction',
   '20261105090000_admin_member_console',
@@ -36,7 +35,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261109090000_guest_cleanup_to_api',
   '20261110090000_cms_rules_to_api',
   '20261110100000_admin_audit_to_api',
-  '20261110110000_drop_retired_credential_auth'
+  '20261110110000_drop_retired_credential_auth',
+  '20261111090000_drop_dead_reauthentication'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -479,14 +479,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('64 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('65 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(64)
+    expect(ledger.rows).toHaveLength(65)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -566,7 +566,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 64 }])
+      ).toEqual([{ migrationCount: 65 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1084,8 +1084,6 @@ describe('Persistence foundation', () => {
           'phase7_finish_admin_operation',
           'phase7_issue_v1_session',
           'phase7_open_trusted_execution',
-          'phase7_reauthentication_commit_matches',
-          'phase7_reauthenticate_v1_session',
           'phase7_redact_expired_report_descriptions',
           'phase7_refresh_remembered_session',
           'phase7_register_database_capability',
@@ -1102,7 +1100,7 @@ describe('Persistence foundation', () => {
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(26)
+    expect(publicExecute.rows).toHaveLength(24)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -6775,22 +6773,6 @@ describe('Persistence foundation', () => {
     if (!reauthFamilyId) {
       throw new Error('Reauthentication family fixture is unavailable.')
     }
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_auth_gateway"`)
-      await client.query(
-        `SELECT * FROM "phase7_reauthenticate_v1_session"(
-          $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-retired-prototype', $4, $5, 'TEST'
-        )`,
-        [
-          oldSessionToken,
-          randomUUID(),
-          `phase7-retired-prototype-${randomUUID()}`,
-          randomUUID(),
-          randomUUID()
-        ]
-      )
-    }, '42501')
     expect(
       (
         await client.query<{

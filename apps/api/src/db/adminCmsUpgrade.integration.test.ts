@@ -15,9 +15,7 @@ import { createAdminReauthenticationService } from '../admin/adminReauthenticati
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createApiApp } from '../app/createApp.js'
-import { createPhase7ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import { createSessionCookie } from '../auth/sessionCookie.js'
 import { createOwnedPrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
@@ -39,7 +37,6 @@ import {
 } from './fixtures/historicalSchema.js'
 import type { IsolatedUpgradeSchema } from './fixtures/historicalSchema.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
-import type { PrismaClient } from '../generated/prisma/client.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
 import {
@@ -306,34 +303,9 @@ const exerciseUpgradedRetiredPasswordBoundary = async (
       throw new Error('Upgrade DB old Session cookie is unavailable.')
     }
 
-    let finalizerCallCount = 0
-    const observedQuery = async <QueryResult>(
-      query: string,
-      ...values: unknown[]
-    ): Promise<QueryResult> => {
-      if (query.includes('phase7_finalize_reauthentication')) {
-        finalizerCallCount += 1
-      }
-      return await authGatewayRuntime.client.$queryRawUnsafe<QueryResult>(
-        query,
-        ...values
-      )
-    }
-    const observedClient = {
-      $queryRawUnsafe: observedQuery
-    } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>
-    const reauthenticationContext = createPhase7ReauthenticationContext()
-    const realAuthApi = createPhase7ReauthenticationAuthApi({
-      client: authGatewayRuntime.client,
-      context: reauthenticationContext,
-      environment
-    })
-    const service = createAdminReauthenticationService({
-      auditEnvironment: 'TEST',
-      authApi: realAuthApi,
-      client: observedClient,
-      context: reauthenticationContext
-    })
+    // The password reauthentication adapter was deleted in #504 P6b-1; the
+    // retired route must still answer 404 without touching auth state.
+    const service = createAdminReauthenticationService()
     const principalService = createOwnedPrincipalService({
       client: applicationRuntime.client,
       isProduction: false,
@@ -434,7 +406,6 @@ const exerciseUpgradedRetiredPasswordBoundary = async (
     expect(response.headers.get('X-Request-Id')).toBe(requestId)
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     expect(response.headers.getSetCookie()).toHaveLength(0)
-    expect(finalizerCallCount).toBe(0)
     expect(await readAuthWriteDigest()).toEqual(beforeAuthWrites)
 
     const proof = await context.adminClient.query<{
@@ -1439,7 +1410,7 @@ const bootstrapFreshCanonicalCatalog = async (
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 prefix37→canonical65→current64를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current65를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     const legacyConnectInitiallyGranted =
       (
@@ -1467,7 +1438,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       const prefix = repositoryMigrationNames.filter(
         (name) => name <= lastBootstrapMigration
       )
-      expect(repositoryMigrationNames).toHaveLength(64)
+      expect(repositoryMigrationNames).toHaveLength(65)
       expect(prefix).toHaveLength(37)
       expect(prefix.at(-1)).toBe(lastBootstrapMigration)
       for (const migrationName of prefix) {
@@ -1484,7 +1455,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).not.toThrow()
       await bootstrapFreshCanonicalCatalog(context)
       const remainder = repositoryMigrationNames.slice(37)
-      expect(remainder).toHaveLength(27)
+      expect(remainder).toHaveLength(28)
       expect(remainder[0]).toBe(
         '20261009120000_phase7_approved_n4_reading_batch7_tags'
       )
@@ -1493,7 +1464,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       }
       await deploy(context)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(64)
+      expect(ledger).toHaveLength(65)
       expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
         repositoryMigrationNames
       )
@@ -1525,7 +1496,8 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         '20261109090000_guest_cleanup_to_api',
         '20261110090000_cms_rules_to_api',
         '20261110100000_admin_audit_to_api',
-        '20261110110000_drop_retired_credential_auth'
+        '20261110110000_drop_retired_credential_auth',
+        '20261111090000_drop_dead_reauthentication'
       ])
       expect(
         ledger.every(
@@ -1547,7 +1519,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 64)
+      await verifyCanonicalMigrationLedgerAccess(context, 65)
       expect(
         (
           await context.adminClient.query<{

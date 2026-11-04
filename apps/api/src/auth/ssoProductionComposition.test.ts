@@ -345,7 +345,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       ).rejects.toBeInstanceOf(AuthGatewayError)
     }
     expect(f.gatewayQuery.mock.calls.length).toBe(before)
-    const service = createAdminReauthenticationService({} as never)
+    const service = createAdminReauthenticationService()
     await expect(
       service.reauthenticate({
         actorId: uuid,

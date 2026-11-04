@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 64 ||
-    expected.at(-1)?.name !== '20261110110000_drop_retired_credential_auth' ||
+    expected.length !== 65 ||
+    expected.at(-1)?.name !== '20261111090000_drop_dead_reauthentication' ||
     orderedDigest !==
-      '35cdf2e7f71f6851ac63aea0af1b8075d86c9b2aa1f9b33a9c7e56d24eaf382d' ||
+      '8c9e7821338db7ac499fac7ae4d5efd475babc7b141b93bbec80654a7c64d71c' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -31,7 +31,7 @@ export const assertSsoBootstrapMigrationHistory = (
     )
   ) {
     throw new Error(
-      'First Google ADMIN bootstrap canonical64 migration history mismatch.'
+      'First Google ADMIN bootstrap canonical65 migration history mismatch.'
     )
   }
 }

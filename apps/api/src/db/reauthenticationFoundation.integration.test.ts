@@ -33,12 +33,6 @@ interface FinalizedSessionRow {
 
 const routineManifest = [
   ['phase7_abort_reauthentication', 'intent_id_value uuid', false, true],
-  [
-    'phase7_abort_reauthentication_classified',
-    'intent_id_value uuid, raw_old_token text',
-    false,
-    true
-  ],
   ['phase7_active_authorization_session', 'raw_token text', false, false],
   [
     'phase7_begin_admin_operation',
@@ -65,14 +59,7 @@ const routineManifest = [
     false
   ],
   ['phase7_classify_admin_authority', 'raw_token text', true, false],
-  ['phase7_classify_reauthentication_authority', 'raw_token text', false, true],
   ['phase7_cleanup_reauthentication', 'maximum_rows integer', false, true],
-  [
-    'phase7_compensate_reauthentication',
-    'intent_id_value uuid, raw_new_token text',
-    false,
-    true
-  ],
   [
     'phase7_confirm_v1_session_issuance',
     'raw_token text, expected_session_id uuid, expected_user_id uuid, captured_generation_value integer, captured_role_value "UserRole", captured_status_value "UserAccountStatus"',
@@ -114,24 +101,6 @@ const routineManifest = [
   [
     'phase7_prepare_reauthentication',
     'raw_old_token text, expected_actor_id uuid, request_id_value uuid, environment_value "AdminAuditEnvironment", intent_id_value uuid',
-    false,
-    true
-  ],
-  [
-    'phase7_reauthentication_adapter_accounts',
-    'intent_id_value uuid, user_id_value uuid',
-    false,
-    true
-  ],
-  [
-    'phase7_reauthentication_adapter_session',
-    'intent_id_value uuid, raw_token text',
-    false,
-    true
-  ],
-  [
-    'phase7_reauthentication_adapter_subject',
-    'intent_id_value uuid, normalized_email text',
     false,
     true
   ],
@@ -480,27 +449,6 @@ describe('Reauthentication DB foundation', () => {
         '40001'
       )
 
-      const adapterRows = await withExecutionRole(
-        'nihongo_auth_gateway',
-        async () => ({
-          accounts: await adminClient.query(
-            `SELECT * FROM "phase7_reauthentication_adapter_accounts"($1, $2)`,
-            [prepared.intentId, actorId]
-          ),
-          session: await adminClient.query(
-            `SELECT * FROM "phase7_reauthentication_adapter_session"($1, $2)`,
-            [prepared.intentId, oldToken]
-          ),
-          subject: await adminClient.query(
-            `SELECT * FROM "phase7_reauthentication_adapter_subject"($1, $2)`,
-            [prepared.intentId, actorEmail]
-          )
-        })
-      )
-      expect(adapterRows.accounts.rows).toHaveLength(1)
-      expect(adapterRows.session.rows).toHaveLength(1)
-      expect(adapterRows.subject.rows).toHaveLength(1)
-
       const staged = await stage(
         prepared.intentId,
         newSessionId,
@@ -771,102 +719,7 @@ describe('Reauthentication DB foundation', () => {
     })
   }, 60_000)
 
-  it('prepare response-loss는 server-owned intent만 exact abort하고 token mismatch에는 write 0이다', async () => {
-    await withinRollback(async () => {
-      const userId = randomUUID()
-      const oldSessionId = randomUUID()
-      const oldToken = `phase7-prepare-loss-${randomUUID()}`
-      const intentId = randomUUID()
-      await insertCredentialUser(userId, 'ADMIN')
-      await issueSession(userId, oldSessionId, oldToken)
-      const prepared = await prepare(userId, oldToken, randomUUID(), intentId)
-      expect(prepared.intentId).toBe(intentId)
-
-      await expectRoleFailure(
-        'nihongo_auth_gateway',
-        `SELECT * FROM "phase7_abort_reauthentication_classified"($1, $2)`,
-        [intentId, `${oldToken}-mismatch`],
-        '22023'
-      )
-      expect(
-        (
-          await adminClient.query<{ count: number }>(
-            `SELECT COUNT(*)::int AS count
-             FROM "Phase7ReauthenticationIntent" WHERE "id" = $1`,
-            [intentId]
-          )
-        ).rows
-      ).toEqual([{ count: 1 }])
-
-      const recovered = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ aborted: boolean; outcome: string }>(
-          `SELECT * FROM "phase7_abort_reauthentication_classified"($1, $2)`,
-          [intentId, oldToken]
-        )
-      )
-      expect(recovered.rows).toEqual([
-        { aborted: true, outcome: 'ACTIVE_ADMIN' }
-      ])
-      expect(
-        (
-          await adminClient.query<{ count: number }>(
-            `SELECT COUNT(*)::int AS count
-             FROM "Phase7ReauthenticationIntent" WHERE "id" = $1`,
-            [intentId]
-          )
-        ).rows
-      ).toEqual([{ count: 0 }])
-    })
-  })
-
-  it('role change와 logout이 재인증 intent보다 우선하고 atomic abort가 정확히 분류한다', async () => {
-    await withinRollback(async () => {
-      const authorityTarget = await createStagedFixture()
-      const operatorId = randomUUID()
-      const operatorSessionId = randomUUID()
-      const operatorToken = `phase7-operator-${randomUUID()}`
-      await insertCredentialUser(operatorId, 'ADMIN')
-      await issueSession(operatorId, operatorSessionId, operatorToken)
-      const changed = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ generation: number }>(
-          `SELECT "phase7_change_user_authority"(
-            $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
-          ) AS generation`,
-          [operatorToken, authorityTarget.userId]
-        )
-      )
-      expect(changed.rows).toEqual([{ generation: 2 }])
-      const authorityAbort = await withExecutionRole(
-        'nihongo_auth_gateway',
-        () =>
-          adminClient.query<{ aborted: boolean; outcome: string }>(
-            `SELECT * FROM "phase7_abort_reauthentication_classified"($1, $2)`,
-            [authorityTarget.prepared.intentId, authorityTarget.oldToken]
-          )
-      )
-      expect(authorityAbort.rows).toEqual([
-        { aborted: true, outcome: 'ADMIN_REQUIRED' }
-      ])
-
-      const logoutTarget = await createStagedFixture()
-      await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(`SELECT "phase7_owned_sign_out"($1)`, [
-          logoutTarget.oldToken
-        ])
-      )
-      const logoutAbort = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ aborted: boolean; outcome: string }>(
-          `SELECT * FROM "phase7_abort_reauthentication_classified"($1, $2)`,
-          [logoutTarget.prepared.intentId, logoutTarget.oldToken]
-        )
-      )
-      expect(logoutAbort.rows).toEqual([
-        { aborted: true, outcome: 'AUTH_SESSION_EXPIRED' }
-      ])
-    })
-  })
-
-  it('두 authority classifier는 unknown·expiry·logout·role/account-loss를 cardinality 1과 write 0으로 분류한다', async () => {
+  it('admin authority classifier는 unknown·expiry·logout·role/account-loss를 cardinality 1과 write 0으로 분류한다', async () => {
     await withinRollback(async () => {
       const createAdminSession = async (label: string) => {
         const userId = randomUUID()
@@ -983,158 +836,11 @@ describe('Reauthentication DB foundation', () => {
             [classifierCase.token]
           )
         )
-        const reauthenticationOutcome = await withExecutionRole(
-          'nihongo_auth_gateway',
-          () =>
-            adminClient.query<{ outcome: string }>(
-              `SELECT * FROM "phase7_classify_reauthentication_authority"($1)`,
-              [classifierCase.token]
-            )
-        )
         expect(appOutcome.rows, classifierCase.label).toEqual([
-          { outcome: classifierCase.expected }
-        ])
-        expect(reauthenticationOutcome.rows, classifierCase.label).toEqual([
           { outcome: classifierCase.expected }
         ])
         expect(await readWriteSnapshot(), classifierCase.label).toEqual(before)
       }
-    })
-  })
-
-  it('STAGED 보상은 pending과 intent만 제거하고 기존 ACTIVE family를 보존한다', async () => {
-    await withinRollback(async () => {
-      const fixture = await createStagedFixture()
-      const compensated = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ compensated: boolean }>(
-          `SELECT "phase7_compensate_reauthentication"(
-              $1, $2
-            ) AS compensated`,
-          [fixture.prepared.intentId, fixture.newToken]
-        )
-      )
-      expect(compensated.rows).toEqual([{ compensated: true }])
-      const proof = await adminClient.query<{
-        auditCount: number
-        familyStatus: string
-        fenceCount: number
-        intentCount: number
-        oldActiveCount: number
-        pendingCount: number
-      }>(
-        `SELECT family."status"::text AS "familyStatus",
-           (SELECT COUNT(*)::int FROM "Session"
-            WHERE "id" = $2 AND "authorizationState" = 'ACTIVE')
-             AS "oldActiveCount",
-           (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $3)
-             AS "pendingCount",
-           (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
-            WHERE "id" = $4) AS "intentCount",
-           (SELECT COUNT(*)::int FROM "AuthSessionRotationFence"
-            WHERE "operationId" = $5) AS "fenceCount",
-           (SELECT COUNT(*)::int FROM "AdminAuditLog"
-            WHERE "operationId" = $5) AS "auditCount"
-         FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
-        [
-          fixture.familyId,
-          fixture.oldSessionId,
-          fixture.newSessionId,
-          fixture.prepared.intentId,
-          fixture.prepared.operationId
-        ]
-      )
-      expect(proof.rows).toEqual([
-        {
-          auditCount: 0,
-          familyStatus: 'ACTIVE',
-          fenceCount: 0,
-          intentCount: 0,
-          oldActiveCount: 1,
-          pendingCount: 0
-        }
-      ])
-      const second = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ compensated: boolean }>(
-          `SELECT "phase7_compensate_reauthentication"(
-            $1, $2
-          ) AS compensated`,
-          [fixture.prepared.intentId, fixture.newToken]
-        )
-      )
-      expect(second.rows).toEqual([{ compensated: false }])
-    })
-  })
-
-  it('FINALIZED 보상은 exact proof로 replacement만 제거하고 증거는 보존한다', async () => {
-    await withinRollback(async () => {
-      const fixture = await createStagedFixture()
-      await finalize(fixture.prepared.intentId, fixture.newToken)
-      const before = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
-          `SELECT * FROM "phase7_reconcile_reauthentication"($1, $2)`,
-          [fixture.prepared.intentId, fixture.newToken]
-        )
-      )
-      expect(before.rows).toHaveLength(1)
-      const aborted = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ aborted: boolean }>(
-          `SELECT "phase7_abort_reauthentication"($1) AS aborted`,
-          [fixture.prepared.intentId]
-        )
-      )
-      expect(aborted.rows).toEqual([{ aborted: false }])
-
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const compensated = await withExecutionRole(
-          'nihongo_auth_gateway',
-          () =>
-            adminClient.query<{ compensated: boolean }>(
-              `SELECT "phase7_compensate_reauthentication"(
-                $1, $2
-              ) AS compensated`,
-              [fixture.prepared.intentId, fixture.newToken]
-            )
-        )
-        expect(compensated.rows).toEqual([{ compensated: true }])
-      }
-
-      const proof = await adminClient.query<{
-        auditCount: number
-        fenceCount: number
-        intentCount: number
-        replacementCount: number
-      }>(
-        `SELECT
-           (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
-             AS "replacementCount",
-           (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
-            WHERE "id" = $2 AND "state" = 'FINALIZED') AS "intentCount",
-           (SELECT COUNT(*)::int FROM "AuthSessionRotationFence"
-            WHERE "operationId" = $3) AS "fenceCount",
-           (SELECT COUNT(*)::int FROM "AdminAuditLog"
-            WHERE "operationId" = $3 AND "command" = 'REAUTHENTICATION')
-             AS "auditCount"`,
-        [
-          fixture.newSessionId,
-          fixture.prepared.intentId,
-          fixture.prepared.operationId
-        ]
-      )
-      expect(proof.rows).toEqual([
-        {
-          auditCount: 1,
-          fenceCount: 1,
-          intentCount: 1,
-          replacementCount: 0
-        }
-      ])
-      const after = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
-          `SELECT * FROM "phase7_reconcile_reauthentication"($1, $2)`,
-          [fixture.prepared.intentId, fixture.newToken]
-        )
-      )
-      expect(after.rows).toEqual([])
     })
   })
 
@@ -1444,14 +1150,7 @@ describe('Reauthentication DB foundation', () => {
        WHERE namespace_record.nspname = current_schema()
          AND procedure_record.proname = 'phase7_reauthenticate_v1_session'`
     )
-    expect(legacy.rows).toEqual([
-      {
-        appCanExecute: false,
-        gatewayCanExecute: false,
-        identityArguments:
-          'raw_old_token text, captured_generation_value integer, captured_role_value "UserRole", captured_status_value "UserAccountStatus", new_session_id uuid, new_token text, ip_address_value text, user_agent_value text, operation_id_value uuid, request_id_value uuid, environment_value "AdminAuditEnvironment"',
-        publicCanExecute: false
-      }
-    ])
+    // The legacy password reauthentication function was dropped in #504 P6b-1.
+    expect(legacy.rows).toEqual([])
   })
 })

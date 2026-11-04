@@ -32,7 +32,6 @@ import {
   createOwnedPrincipalService,
   type PrincipalService
 } from '../auth/principalService.js'
-import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import {
   createSessionCookie,
   createDontRememberCookie,
@@ -915,20 +914,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
   }
 }
 
-const createService = () =>
-  createAdminReauthenticationService({
-    auditEnvironment: 'TEST',
-    authApi: {
-      verifyPassword: async () => {
-        throw new Error('Retired password verification must not run.')
-      },
-      signInEmail: async () => {
-        throw new Error('Retired password sign-in must not run.')
-      }
-    },
-    client: gatewayRuntime.client,
-    context: createPhase7ReauthenticationContext()
-  })
+const createService = () => createAdminReauthenticationService()
 
 const createTestHonoApp = ({
   commandService,
