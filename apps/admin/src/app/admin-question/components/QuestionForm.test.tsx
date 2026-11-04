@@ -461,12 +461,12 @@ describe('question form locale and preserved state', () => {
     {
       locale: 'ko' as const,
       tag: '태그',
-      error: '입력 형식이나 길이를 확인해 주세요.'
+      error: '입력 형식, 길이, 개수를 확인해 주세요.'
     },
     {
       locale: 'ja' as const,
       tag: 'タグ',
-      error: '入力の形式や長さを確認してください。'
+      error: '入力の形式・長さ・数を確認してください。'
     }
   ])(
     'shows the common message in $locale for a contract check without a form key',

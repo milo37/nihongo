@@ -629,7 +629,7 @@ export const jaAdminResources = {
         correct: '正解は選択肢から1つ選んでください。',
         explanationKo: '韓国語解説を入力してください。',
         tags: 'タグを1つ以上入力してください。',
-        invalid: '入力の形式や長さを確認してください。'
+        invalid: '入力の形式・長さ・数を確認してください。'
       }
     },
     classificationLegend: '分類と本文',
