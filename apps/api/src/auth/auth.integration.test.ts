@@ -302,6 +302,37 @@ describe(
         code: 'AUTH_ROUTE_NOT_FOUND'
       })
       expect(rejected.headers.get('Set-Cookie')).toBeNull()
+      // #504 P6a dropped the SQL behind these retired routes; all stay 404.
+      for (const [path, body] of [
+        [
+          '/api/auth/sign-in/email',
+          { email: 'retired@example.test', password: 'retired-password' }
+        ],
+        [
+          '/api/auth/change-password',
+          {
+            currentPassword: 'retired-password',
+            newPassword: 'retired-password-2'
+          }
+        ],
+        ['/api/auth/request-password-reset', { email: 'retired@example.test' }],
+        [
+          '/api/auth/reset-password',
+          { newPassword: 'retired-password-2', token: 'retired-token' }
+        ],
+        [
+          '/api/auth/send-verification-email',
+          { email: 'retired@example.test' }
+        ],
+        ['/api/auth/verify-email', { token: 'retired-token' }]
+      ] as const) {
+        const retired = await postAuth(path, body)
+        expect(retired.status).toBe(404)
+        expect(await retired.json()).toMatchObject({
+          code: 'AUTH_ROUTE_NOT_FOUND'
+        })
+        expect(retired.headers.get('Set-Cookie')).toBeNull()
+      }
       expect(
         await Promise.all([
           fixtureDatabase.client.user.count(),

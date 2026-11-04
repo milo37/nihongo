@@ -3567,9 +3567,7 @@ describe('ADMIN command TEST database integration', () => {
 
     await insertCredentialUser(revocationLearnerId, 'USER')
     const revocationToken = `phase7-report-revocation-${randomUUID()}`
-    const revocationTriggerToken = `phase7-report-revocation-trigger-${randomUUID()}`
     await issueSession(revocationLearnerId, revocationToken, 'USER')
-    await issueSession(revocationLearnerId, revocationTriggerToken, 'USER')
     const revocationCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
       reason: 'ANSWER_ERROR',
@@ -3595,15 +3593,24 @@ describe('ADMIN command TEST database integration', () => {
           )
           if (!revoked) {
             revoked = true
-            const rows = await driftAuthGatewayRuntime.client.$queryRawUnsafe<
-              Array<{ changed: boolean }>
-            >(
-              `SELECT "phase7_change_password_v1"($1, $2, $3) AS changed`,
-              revocationTriggerToken,
-              'integration-password-hash',
-              `integration-password-hash-${randomUUID()}`
-            )
-            expect(rows).toEqual([{ changed: true }])
+            // The retired password change used to revoke every session
+            // (#504 P6a); advancing the authority generation does the same.
+            await adminClient.query('BEGIN')
+            try {
+              await adminClient.query(
+                'SET LOCAL session_replication_role = replica'
+              )
+              await adminClient.query(
+                `UPDATE "User"
+                 SET "authorityGeneration" = "authorityGeneration" + 1
+                 WHERE "id" = $1`,
+                [revocationLearnerId]
+              )
+              await adminClient.query('COMMIT')
+            } catch (error: unknown) {
+              await adminClient.query('ROLLBACK')
+              throw error
+            }
           }
           return state
         }

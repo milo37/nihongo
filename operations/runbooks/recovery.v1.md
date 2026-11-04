@@ -98,15 +98,19 @@ The historical physical62 inventory added `20261110090000_cms_rules_to_api`
 (file SHA256 `97fd8b1a45ee987410d4909b8ae3f3a3b053d07ea1f4fecd0d39c0d4f58c1d8b`),
 with ordered inventory digest
 `8b6344b8ea9b0e70156d55ad0adbbb00cd5c9dcb499284f69d221ddd5239dcaf`.
-The current physical63 inventory adds `20261110100000_admin_audit_to_api`
+The historical physical63 inventory added `20261110100000_admin_audit_to_api`
 (file SHA256 `2af5e1b565e20ee5fb5d6cd1e798112b6753f7a1a1f7c0981c9909352b5a9b90`),
 with ordered inventory digest
 `c4ea76ba29a90169872d0a8e26412d1134d2e834f06609faba2bcafad7c9619f`.
-Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58, physical59, physical60, physical61 and physical62 are rejected as the current technical profile.
+The current physical64 inventory adds `20261110110000_drop_retired_credential_auth`
+(file SHA256 `020323b0eeecd24d967de372418096409126b3ff868df16a6a5a30477dd03c84`),
+with ordered inventory digest
+`35cdf2e7f71f6851ac63aea0af1b8075d86c9b2aa1f9b33a9c7e56d24eaf382d`.
+Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58, physical59, physical60, physical61, physical62 and physical63 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical63, historical62, historical61, historical60, historical59, historical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
+No current physical64, historical63, historical62, historical61, historical60, historical59, historical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
