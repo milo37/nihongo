@@ -14,47 +14,12 @@ import { Select } from '@nihongo/browser/common/components/Select'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { editorInput } from '@app/admin-question/detail/questionWorkflow'
-const subjects = ['VOCABULARY', 'GRAMMAR', 'READING'] as const
-const types = [
-  'KANJI_READING',
-  'ORTHOGRAPHY',
-  'CONTEXT_VOCABULARY',
-  'PARAPHRASE',
-  'WORD_USAGE',
-  'GRAMMAR_SELECT',
-  'SENTENCE_ORDER',
-  'TEXT_GRAMMAR',
-  'SHORT_READING',
-  'MEDIUM_READING',
-  'LONG_READING',
-  'INFO_RETRIEVAL'
-] as const
-const fields = [
-  'level',
-  'subject',
-  'questionType',
-  'difficulty',
-  'questionText',
-  'passage',
-  'options',
-  'correctOptionId',
-  'explanationKo',
-  'explanationJa',
-  'tagNames'
-] as const
-const fieldKeys = {
-  level: 'level',
-  subject: 'subject',
-  questionType: 'questionType',
-  difficulty: 'difficulty',
-  questionText: 'questionText',
-  passage: 'passage',
-  options: 'options',
-  correctOptionId: 'correctIdentity',
-  explanationKo: 'explanationKo',
-  explanationJa: 'explanationJa',
-  tagNames: 'tagNames'
-} as const
+import {
+  EditorRebaseNotice,
+  editorFields
+} from '@app/admin-question/components/EditorRebaseNotice'
+import { QuestionOptionsFieldset } from '@app/admin-question/components/QuestionOptionsFieldset'
+import { QUESTION_TYPES, SUBJECTS } from '@nihongo/browser/common/types/domain'
 export const QuestionVersionEditor = ({
   preview,
   rowVersion,
@@ -117,7 +82,7 @@ export const QuestionVersionEditor = ({
     if (disabled || isSubmitting || signature === focusedServerErrors.current)
       return
     focusedServerErrors.current = signature
-    for (const field of fields) {
+    for (const field of editorFields) {
       const path = Object.keys(serverFieldErrors).find(
         (path) =>
           (path === field || path.startsWith(field + '.')) &&
@@ -162,7 +127,7 @@ export const QuestionVersionEditor = ({
     setAnnouncement(t('editor.optionMoved', { from: from + 1, to: to + 1 }))
   }
   const latest = editorInput(preview, rowVersion)
-  const changed = fields.filter(
+  const changed = editorFields.filter(
     (field) => JSON.stringify(values[field]) !== JSON.stringify(latest[field])
   )
   return (
@@ -198,7 +163,7 @@ export const QuestionVersionEditor = ({
           />
           <Select
             label={t('editor.subject')}
-            options={subjects.map((value) => ({
+            options={SUBJECTS.map((value) => ({
               value,
               label: t(`enums.subjects.${value}`)
             }))}
@@ -207,7 +172,7 @@ export const QuestionVersionEditor = ({
           />
           <Select
             label={t('editor.questionType')}
-            options={types.map((value) => ({
+            options={QUESTION_TYPES.map((value) => ({
               value,
               label: t(`enums.questionTypes.${value}`)
             }))}
@@ -240,64 +205,14 @@ export const QuestionVersionEditor = ({
           {...register('questionText')}
         />
       </fieldset>
-      <fieldset className="grid gap-4" disabled={disabled || isSubmitting}>
-        <legend className="mb-2 font-bold">{t('editor.optionsLegend')}</legend>
-        <p className="text-sm text-muted">{t('editor.reorderHint')}</p>
-        {options.map((option, index) => (
-          <div
-            key={option.fieldKey}
-            className="grid gap-3 rounded-xl border border-line p-4"
-          >
-            <Input
-              label={t('editor.optionLabel', { number: index + 1 })}
-              error={
-                errors.options || serverFieldErrors.options
-                  ? t('errors.validation')
-                  : undefined
-              }
-              {...register(`options.${index}.text`)}
-              onKeyDown={(event) => {
-                if (
-                  event.altKey &&
-                  ['ArrowUp', 'ArrowDown'].includes(event.key)
-                ) {
-                  event.preventDefault()
-                  moveOption(index, index + (event.key === 'ArrowUp' ? -1 : 1))
-                }
-              }}
-            />
-            <label className="inline-flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                value={option.id}
-                {...register('correctOptionId')}
-              />
-              {t('editor.correctOption', { number: index + 1 })}
-            </label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={index === 0}
-                onClick={() => moveOption(index, index - 1)}
-              >
-                {t('editor.moveUp', { number: index + 1 })}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={index === options.length - 1}
-                onClick={() => moveOption(index, index + 1)}
-              >
-                {t('editor.moveDown', { number: index + 1 })}
-              </Button>
-            </div>
-          </div>
-        ))}
-        {invalid('correctOptionId') ? (
-          <p role="alert">{invalid('correctOptionId')}</p>
-        ) : null}
-      </fieldset>
+      <QuestionOptionsFieldset
+        options={options}
+        register={register}
+        optionsInvalid={Boolean(errors.options || serverFieldErrors.options)}
+        correctError={invalid('correctOptionId')}
+        disabled={disabled || isSubmitting}
+        onMove={moveOption}
+      />
       <fieldset className="grid gap-4" disabled={disabled || isSubmitting}>
         <legend className="mb-2 font-bold">
           {t('editor.explanationLegend')}
@@ -333,37 +248,19 @@ export const QuestionVersionEditor = ({
         />
       </fieldset>
       {rebasePending ? (
-        <section
-          className="rounded-xl border border-line p-4"
-          aria-labelledby="rebase-title"
-        >
-          <h3 id="rebase-title" className="font-bold">
-            {t('editor.conflictTitle')}
-          </h3>
-          <p>{t('editor.conflictDescription')}</p>
-          <ul>
-            {(changed.length ? changed : []).map((field) => (
-              <li key={field}>{t(`editor.fields.${fieldKeys[field]}`)}</li>
-            ))}
-            {!changed.length ? <li>{t('editor.rowVersionOnly')}</li> : null}
-          </ul>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled || acceptedConflict === conflictRevision}
-            onClick={() => {
-              const local = getValues()
-              reset(
-                { ...local, expectedRowVersion: rowVersion },
-                { keepDefaultValues: true }
-              )
-              setAcceptedConflict(conflictRevision)
-              setAnnouncement(t('editor.rebaseAnnouncement'))
-            }}
-          >
-            {t('editor.rebaseAction')}
-          </Button>
-        </section>
+        <EditorRebaseNotice
+          changed={changed}
+          disabled={disabled || acceptedConflict === conflictRevision}
+          onRebase={() => {
+            const local = getValues()
+            reset(
+              { ...local, expectedRowVersion: rowVersion },
+              { keepDefaultValues: true }
+            )
+            setAcceptedConflict(conflictRevision)
+            setAnnouncement(t('editor.rebaseAnnouncement'))
+          }}
+        />
       ) : null}
       <Button
         type="submit"
