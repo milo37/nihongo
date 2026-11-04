@@ -12,7 +12,8 @@ const [{ koResources }, { jaCoreResources }, { jaAdminResources }] =
     import('./resources/ja-admin'),
     // Keep the Korean admin copy in its own chunks while preloading every locale.
     import('./resources/ko-admin-form'),
-    import('./resources/ko-admin-report')
+    import('./resources/ko-admin-report'),
+    import('./resources/ko-admin-question')
   ])
 const { errors, a11y, ...jaNamespaces } = jaCoreResources
 const jaResources = {

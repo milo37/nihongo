@@ -1,4 +1,5 @@
 import { koAdminFormResources } from './ko-admin-form'
+import { koAdminQuestionListResources } from './ko-admin-question'
 import { koAdminReportResources } from './ko-admin-report'
 
 const questionTypeLabels = {
@@ -1849,91 +1850,7 @@ export const koResources = {
         REPORT_RESOLUTION: '신고 최종 처리는 민감한 관리자 작업입니다.'
       }
     },
-    questionList: {
-      eyebrow: 'ADMIN QUESTION CMS · TECHNICAL MODE',
-      title: '문제 관리',
-      description:
-        'TEST/DEVELOPMENT용 버전·검수 워크플로입니다. 실제 사람 검수나 운영 공개를 의미하지 않습니다.',
-      searchLabel: '문제 문장 앞부분 검색',
-      searchPlaceholder: '검색어 입력',
-      level: '급수',
-      allLevels: '전체 급수',
-      questionType: '문제 유형',
-      allQuestionTypes: '전체 문제 유형',
-      difficulty: '난이도',
-      allDifficulties: '전체 난이도',
-      lifecycle: '문제 수명주기',
-      allLifecycles: '전체 수명주기',
-      subject: '과목',
-      allSubjects: '전체 과목',
-      tagKey: '태그 key',
-      tagPlaceholder: '등록된 태그 검색 key',
-      authorActorId: '작성자 actor ID',
-      reviewerActorId: '검수자 actor ID',
-      createdFrom: '생성 시작 시각',
-      createdTo: '생성 종료 시각',
-      updatedFrom: '수정 시작 시각',
-      updatedTo: '수정 종료 시각',
-      versionStatus: '버전 상태',
-      allStatuses: '전체 상태',
-      sort: '정렬',
-      applySearch: '검색 적용',
-      resetFilters: '필터 초기화',
-      invalidQuery:
-        'URL 검색 조건이 허용 범위를 벗어났습니다. 조건을 수정하거나 초기화해 주세요.',
-      selectionSummary:
-        '{{selectedCount}}개 선택됨 · 내보내기는 모든 상태에서 최대 100개, 일괄 검수는 활성 초안·수정 요청만 최대 20개입니다. 현재 검수 요청 가능 {{reviewableCount}}개',
-      requestReview: '선택 항목 검수 요청',
-      requesting: '요청 중…',
-      export: '민감 자료 내보내기',
-      validating: '검증 중…',
-      batchComplete: '{{formattedCount}}개 문제를 모두 검수 요청했습니다.',
-      exportStarted: '{{formattedCount}}개 문제 내보내기를 시작했습니다.',
-      conflictRefreshFailed:
-        '최신 목록을 확인하지 못했습니다. 선택 상태는 유지됩니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
-      conflictRefreshed:
-        '최신 문제 상태를 반영했습니다. 선택 내용을 확인한 뒤 검수 요청을 다시 실행해 주세요.',
-      conflictTitle: '다른 작업에서 문제 버전이 변경됐습니다',
-      actionFailedTitle: '작업을 완료하지 못했습니다',
-      retryConflict: '최신 문제 목록 불러오기',
-      cachedError:
-        '최신 목록을 확인하지 못했습니다. 현재 목록과 선택 상태는 그대로 유지됩니다.',
-      retryList: '목록 다시 확인',
-      loading: '관리자 문제를 불러오는 중입니다…',
-      loadErrorTitle: '문제 목록을 불러오지 못했습니다',
-      emptyTitle: '표시할 문제가 없습니다',
-      emptyDescription: '검색 조건을 바꾸거나 새 문제를 만들어 주세요.',
-      tableHelp: '표가 화면보다 넓으면 가로로 스크롤할 수 있습니다.',
-      tableRefreshing: ' 최신 목록을 확인 중입니다.',
-      tableCaption:
-        '관리자 문제 목록. 선택, 문제, 분류, 버전 상태, 풀이·정답률, 신고, 생성일, 수정일, 상세 열로 구성됩니다.',
-      tableScrollLabel: '관리자 문제 목록 가로 스크롤 영역',
-      columns: {
-        select: '선택',
-        question: '문제',
-        classification: '분류',
-        status: '상태',
-        attempts: '풀이·정답률',
-        reports: '신고',
-        createdAt: '생성일',
-        updatedAt: '수정일',
-        details: '상세'
-      },
-      sortLabels: {
-        level: '분류, 급수 오름차순으로 정렬',
-        levelActive: '분류, 급수 오름차순 정렬됨',
-        reports: '신고, 많은 순으로 정렬',
-        reportsActive: '신고, 많은 순 정렬됨',
-        created: '생성일, 최근순으로 정렬',
-        createdActive: '생성일, 최근순 정렬됨',
-        updated: '수정일, 최근순으로 정렬',
-        updatedActive: '수정일, 최근순 정렬됨'
-      },
-      selectQuestion: '{{question}} 선택',
-      answerStats: '{{formattedCount}}회 · 정답률 {{rate}}',
-      noAccuracy: '{{formattedCount}}회 · 정답률 없음',
-      reportCount: '{{formattedCount}}건'
-    },
+    questionList: koAdminQuestionListResources,
     create: {
       page: koAdminFormResources.createPage,
       eyebrow: 'CREATE DRAFT',

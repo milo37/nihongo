@@ -18,10 +18,11 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
+import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const EditAdminQuestionPage = (): ReactElement => {
-  const { t } = useAdminPresentation()
+  const { t, presentError } = useAdminPresentation()
   const { questionId = '' } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -97,7 +98,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
       })
       navigate(returnPath, { replace: true })
     } catch {
-      // 전역 API 에러 프로바이더와 폼의 인라인 오류가 안내합니다.
+      // The global API error provider and inline form errors explain the failure.
     }
   }
 
@@ -218,7 +219,9 @@ export const EditAdminQuestionPage = (): ReactElement => {
               ? t('editor.page.immutable')
               : commandError?.code === 'FORBIDDEN'
                 ? t('editor.page.forbidden')
-                : (commandError?.serverMessage ?? t('editor.page.saveError'))
+                : getAdminErrorKey(commandError) === 'errors.generic'
+                  ? t('editor.page.saveError')
+                  : presentError(commandError)
             : undefined
         }
         onSubmit={handleUpdateQuestion}

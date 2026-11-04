@@ -41,7 +41,7 @@ export const CreateAdminQuestionPage = (): ReactElement => {
         { replace: true }
       )
     } catch {
-      // 전역 API 에러 프로바이더와 폼의 인라인 오류가 안내합니다.
+      // The global API error provider and inline form errors explain the failure.
     }
   }
 
