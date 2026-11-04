@@ -32,6 +32,11 @@ import {
   contentOperationSchemas,
   type ContentOperation
 } from '@nihongo/contracts/admin/content-operations'
+import {
+  publishQuestionVersionBatchRequestSchema,
+  publishQuestionVersionBatchResponseSchema,
+  type PublishQuestionVersionBatchResponse
+} from '@nihongo/contracts/admin/review'
 import type { z } from 'zod'
 import { errorStatusByCode } from '@nihongo/contracts/common/error'
 import { requestIdSchema } from '@nihongo/contracts/common/id'
@@ -151,6 +156,34 @@ const toClientPath = (manifestPath: string, params: unknown): string => {
     : interpolated
 }
 
+// Items commit one by one, so each answer must line up with its request item.
+const assertPublishQuestionVersionBatchResponse = (
+  rawRequest: unknown,
+  rawResponse: unknown
+): PublishQuestionVersionBatchResponse => {
+  const request = publishQuestionVersionBatchRequestSchema.parse(rawRequest)
+  const response = publishQuestionVersionBatchResponseSchema.parse(rawResponse)
+  if (
+    response.items.length !== request.items.length ||
+    response.items.some((item, index) => {
+      const requested = request.items[index]
+      return (
+        requested === undefined ||
+        item.questionVersionId !== requested.questionVersionId ||
+        item.rowVersion !==
+          (item.result === 'PUBLISHED'
+            ? requested.expectedRowVersion + 1
+            : null)
+      )
+    })
+  ) {
+    throw new Error(
+      'batch publish result가 request order/version rowVersion과 다릅니다.'
+    )
+  }
+  return response
+}
+
 const assertCorrelatedResponse = async (
   operation: Exclude<ContentOperation, 'reauthenticateAdmin'>,
   params: unknown,
@@ -195,6 +228,8 @@ const assertCorrelatedResponse = async (
       return assertRetireQuestionVersionResponse(params, body, response)
     case 'requestContentReviewBatch':
       return assertRequestContentReviewBatchResponse(body, response)
+    case 'publishQuestionVersionBatch':
+      return assertPublishQuestionVersionBatchResponse(body, response)
     case 'validateQuestionImport':
       return assertAdminImportValidationForRequest(
         sha256TextPort,
