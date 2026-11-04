@@ -203,10 +203,6 @@
       "types": "./dist/testing/practice-flow-conformance.d.ts",
       "import": "./dist/testing/practice-flow-conformance.js"
     },
-    "./testing/phase7-admin-conformance": {
-      "types": "./dist/testing/admin-content-conformance.d.ts",
-      "import": "./dist/testing/admin-content-conformance.js"
-    },
     "./testing/admin-content-conformance": {
       "types": "./dist/testing/admin-content-conformance.d.ts",
       "import": "./dist/testing/admin-content-conformance.js"

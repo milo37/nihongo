@@ -35,7 +35,7 @@ export const createAdminReauthenticationService = (_dependencies: {
       code: 'RESOURCE_NOT_FOUND',
       message: 'Retired authentication operation.',
       retryable: false,
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
   }
 })

@@ -18,17 +18,17 @@ import {
 } from '../common/content-cursor.js'
 import {
   accountActorSnapshotSchema,
-  assertPhase7DateRange,
+  assertContentDateRange,
   canonicalizeJson,
   compareUnicodeScalars,
-  createPhase7TextSchema,
-  normalizePhase7OptionComparison,
+  createContentTextSchema,
+  normalizeContentOptionComparison,
   nonNegativeSafeIntegerSchema,
-  isWellFormedPhase7Text,
-  normalizePhase7Text,
-  normalizePhase7TagKey,
-  phase7QuestionSearchSchema,
-  phase7TagKeySchema,
+  isWellFormedContentText,
+  normalizeContentText,
+  normalizeContentTagKey,
+  contentQuestionSearchSchema,
+  contentTagKeySchema,
   positiveSafeIntegerSchema,
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,
@@ -56,7 +56,7 @@ import {
   type AdminQuestionVersionSummary
 } from './content-model.js'
 import { questionReviewStageSchema } from './review.js'
-import { createPhase7OperationErrorSchema } from './content-error-policy.js'
+import { createContentOperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,
@@ -64,7 +64,7 @@ const addIssue = (
   message: string
 ): void => context.addIssue({ code: 'custom', path, message })
 
-const phase7ReadBaseErrorCodeSchema = z.enum([
+const contentReadBaseErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
   'ADMIN_REQUIRED',
@@ -74,8 +74,8 @@ const phase7ReadBaseErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 
-const phase7ReadEntityErrorCodeSchema = z.enum([
-  ...phase7ReadBaseErrorCodeSchema.options,
+const contentReadEntityErrorCodeSchema = z.enum([
+  ...contentReadBaseErrorCodeSchema.options,
   'INVALID_ID',
   'RESOURCE_NOT_FOUND'
 ])
@@ -104,7 +104,7 @@ const refineDateRanges = (
 
   ranges.forEach(([path, from, to]) => {
     try {
-      assertPhase7DateRange(from, to)
+      assertContentDateRange(from, to)
     } catch (error) {
       addIssue(
         context,
@@ -130,7 +130,7 @@ export const listAdminAuditLogOperationId = 'admin.listAdminAuditLog' as const
 
 export const listAdminQuestionsQuerySchema = z
   .object({
-    q: phase7QuestionSearchSchema.optional(),
+    q: contentQuestionSearchSchema.optional(),
     level: jlptLevelSchema.optional(),
     subject: questionSubjectSchema.optional(),
     questionType: questionTypeSchema.optional(),
@@ -138,7 +138,7 @@ export const listAdminQuestionsQuerySchema = z
     lifecycleStatus: questionLifecycleStatusSchema.optional(),
     versionStatus: questionVersionStatusSchema.optional(),
     reviewStage: questionReviewStageSchema.optional(),
-    tag: phase7TagKeySchema.optional(),
+    tag: contentTagKeySchema.optional(),
     authorActorId: opaqueIdSchema.optional(),
     reviewerActorId: opaqueIdSchema.optional(),
     createdFrom: isoDateTimeSchema.optional(),
@@ -160,8 +160,8 @@ export const listAdminQuestionsResponseSchema = z
   })
   .strict()
 
-export const listAdminQuestionsErrorCodeSchema = phase7ReadBaseErrorCodeSchema
-export const listAdminQuestionsErrorSchema = createPhase7OperationErrorSchema(
+export const listAdminQuestionsErrorCodeSchema = contentReadBaseErrorCodeSchema
+export const listAdminQuestionsErrorSchema = createContentOperationErrorSchema(
   'listAdminQuestions',
   listAdminQuestionsErrorCodeSchema
 )
@@ -171,23 +171,23 @@ export const getAdminQuestionParamsSchema = z
   .strict()
 export const getAdminQuestionQuerySchema = z.object({}).strict()
 export const getAdminQuestionResponseSchema = adminQuestionDetailSchema
-export const getAdminQuestionErrorCodeSchema = phase7ReadEntityErrorCodeSchema
-export const getAdminQuestionErrorSchema = createPhase7OperationErrorSchema(
+export const getAdminQuestionErrorCodeSchema = contentReadEntityErrorCodeSchema
+export const getAdminQuestionErrorSchema = createContentOperationErrorSchema(
   'getAdminQuestion',
   getAdminQuestionErrorCodeSchema
 )
 
 export const listAdminTagsQuerySchema = z
   .object({
-    q: phase7TagKeySchema,
+    q: contentTagKeySchema,
     limit: z.coerce.number().int().min(1).max(50).default(20)
   })
   .strict()
 export const listAdminTagsResponseSchema = z
   .object({ items: z.array(adminTagSummarySchema).max(50) })
   .strict()
-export const listAdminTagsErrorCodeSchema = phase7ReadBaseErrorCodeSchema
-export const listAdminTagsErrorSchema = createPhase7OperationErrorSchema(
+export const listAdminTagsErrorCodeSchema = contentReadBaseErrorCodeSchema
+export const listAdminTagsErrorSchema = createContentOperationErrorSchema(
   'listAdminTags',
   listAdminTagsErrorCodeSchema
 )
@@ -197,7 +197,7 @@ export const previewQuestionVersionParamsSchema = z
   .strict()
 export const previewQuestionVersionQuerySchema = z.object({}).strict()
 
-export const isApplicablePhase7ContentType = (
+export const isApplicableQuestionContentType = (
   level: z.output<typeof jlptLevelSchema>,
   subject: z.output<typeof questionSubjectSchema>,
   questionType: z.output<typeof questionTypeSchema>
@@ -231,11 +231,11 @@ export const previewQuestionVersionResponseSchema = z
     adminAnswer: z
       .object({
         correctOptionId: opaqueIdSchema,
-        explanationKo: createPhase7TextSchema({
+        explanationKo: createContentTextSchema({
           maxScalars: 5000,
           multiline: true
         }),
-        explanationJa: createPhase7TextSchema({
+        explanationJa: createContentTextSchema({
           maxScalars: 5000,
           multiline: true
         }).nullable()
@@ -246,7 +246,7 @@ export const previewQuestionVersionResponseSchema = z
   .superRefine((preview, context) => {
     const { question } = preview
     if (
-      !isApplicablePhase7ContentType(
+      !isApplicableQuestionContentType(
         question.level,
         question.subject,
         question.questionType
@@ -282,7 +282,7 @@ export const previewQuestionVersionResponseSchema = z
     }
     const optionTexts = new Set<string>()
     question.options.forEach((option, index) => {
-      const normalized = normalizePhase7OptionComparison(option.text)
+      const normalized = normalizeContentOptionComparison(option.text)
       if (optionTexts.has(normalized)) {
         addIssue(
           context,
@@ -295,9 +295,9 @@ export const previewQuestionVersionResponseSchema = z
   })
 
 export const previewQuestionVersionErrorCodeSchema =
-  phase7ReadEntityErrorCodeSchema
+  contentReadEntityErrorCodeSchema
 export const previewQuestionVersionErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'previewQuestionVersion',
     previewQuestionVersionErrorCodeSchema
   )
@@ -324,15 +324,15 @@ export const diffFieldSchema = z.enum([
   'OPTIONS',
   'TAGS'
 ])
-export const phase7DiffFieldOrder = [...diffFieldSchema.options] as const
+export const contentDiffFieldOrder = [...diffFieldSchema.options] as const
 
 const createCanonicalDiffTextSchema = (maximum: number) =>
   z
     .string()
     .refine(
       (value) =>
-        isWellFormedPhase7Text(value) &&
-        normalizePhase7Text(value) === value &&
+        isWellFormedContentText(value) &&
+        normalizeContentText(value) === value &&
         [...value].length >= 1 &&
         [...value].length <= maximum,
       { message: `canonical Phase 7 text ${maximum} scalar 이하여야 합니다.` }
@@ -422,7 +422,7 @@ const optionDiffArraySchema = z
       if (option.ordinal !== index + 1) {
         addIssue(context, [index, 'ordinal'], 'ordinal은 1..4 순서여야 합니다.')
       }
-      const text = normalizePhase7OptionComparison(option.text)
+      const text = normalizeContentOptionComparison(option.text)
       if (texts.has(text)) {
         addIssue(context, [index, 'text'], 'option text는 고유해야 합니다.')
       }
@@ -503,8 +503,8 @@ export const diffQuestionVersionResponseSchema = z
       const previous = diff.changedFields[index - 1]
       if (
         previous !== undefined &&
-        phase7DiffFieldOrder.indexOf(previous) >=
-          phase7DiffFieldOrder.indexOf(change.field)
+        contentDiffFieldOrder.indexOf(previous) >=
+          contentDiffFieldOrder.indexOf(change.field)
       ) {
         addIssue(
           context,
@@ -522,8 +522,8 @@ export const diffQuestionVersionResponseSchema = z
   })
 
 export const diffQuestionVersionErrorCodeSchema =
-  phase7ReadEntityErrorCodeSchema
-export const diffQuestionVersionErrorSchema = createPhase7OperationErrorSchema(
+  contentReadEntityErrorCodeSchema
+export const diffQuestionVersionErrorSchema = createContentOperationErrorSchema(
   'diffQuestionVersion',
   diffQuestionVersionErrorCodeSchema
 )
@@ -546,9 +546,9 @@ export const listAdminQuestionVersionsQuerySchema = z
 export const listAdminQuestionVersionsResponseSchema =
   adminQuestionVersionConnectionSchema
 export const listAdminQuestionVersionsErrorCodeSchema =
-  phase7ReadEntityErrorCodeSchema
+  contentReadEntityErrorCodeSchema
 export const listAdminQuestionVersionsErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'listAdminQuestionVersions',
     listAdminQuestionVersionsErrorCodeSchema
   )
@@ -562,9 +562,9 @@ export const listQuestionVersionReviewsQuerySchema = z
 export const listQuestionVersionReviewsResponseSchema =
   contentReviewConnectionSchema
 export const listQuestionVersionReviewsErrorCodeSchema =
-  phase7ReadEntityErrorCodeSchema
+  contentReadEntityErrorCodeSchema
 export const listQuestionVersionReviewsErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'listQuestionVersionReviews',
     listQuestionVersionReviewsErrorCodeSchema
   )
@@ -1021,8 +1021,8 @@ export const listAdminAuditLogQuerySchema = z
   .strict()
   .superRefine(refineDateRanges)
 export const listAdminAuditLogResponseSchema = adminAuditLogConnectionSchema
-export const listAdminAuditLogErrorCodeSchema = phase7ReadBaseErrorCodeSchema
-export const listAdminAuditLogErrorSchema = createPhase7OperationErrorSchema(
+export const listAdminAuditLogErrorCodeSchema = contentReadBaseErrorCodeSchema
+export const listAdminAuditLogErrorSchema = createContentOperationErrorSchema(
   'listAdminAuditLog',
   listAdminAuditLogErrorCodeSchema
 )
@@ -1526,5 +1526,5 @@ export {
   adminContentReviewItemSchema,
   adminQuestionSummarySchema,
   adminQuestionVersionSummarySchema,
-  normalizePhase7TagKey
+  normalizeContentTagKey
 }

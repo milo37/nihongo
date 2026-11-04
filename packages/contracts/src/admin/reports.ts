@@ -3,7 +3,7 @@ import { isoDateTimeSchema } from '../common/date.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
-  createPhase7TextSchema,
+  createContentTextSchema,
   rowVersionSchema
 } from '../common/content-validation.js'
 import { createPageResponseSchema } from '../common/pagination.js'
@@ -36,10 +36,10 @@ export const adminReportSummarySchema = z
     reportId: opaqueIdSchema,
     kind: reportKindSchema,
     status: reportStatusSchema,
-    location: createPhase7TextSchema({ maxScalars: 200 }),
+    location: createContentTextSchema({ maxScalars: 200 }),
     questionId: opaqueIdSchema.nullable(),
     questionVersionId: opaqueIdSchema.nullable(),
-    descriptionPreview: createPhase7TextSchema({ maxScalars: 160 }),
+    descriptionPreview: createContentTextSchema({ maxScalars: 160 }),
     reporterMemberId: opaqueIdSchema.nullable(),
     createdAt: isoDateTimeSchema,
     rowVersion: rowVersionSchema
@@ -68,7 +68,7 @@ export const adminReportDetailSchema = adminReportSummarySchema
 
 export const getAdminReportResponseSchema = adminReportDetailSchema
 
-const optionalNoteSchema = createPhase7TextSchema({
+const optionalNoteSchema = createContentTextSchema({
   minScalars: 0,
   maxScalars: 1000,
   multiline: true
@@ -86,7 +86,7 @@ export const replyAndCloseAdminReportRequestSchema = z
 export const saveAdminReportNoteRequestSchema = z
   .object({
     expectedRowVersion: rowVersionSchema,
-    internalNote: createPhase7TextSchema({
+    internalNote: createContentTextSchema({
       minScalars: 0,
       maxScalars: 1000,
       multiline: true

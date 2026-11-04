@@ -4,10 +4,10 @@ import {
   type ApiFailure
 } from '@nihongo/contracts/common/error'
 import {
-  buildPhase7OperationFailureResponse,
-  phase7ErrorSurfaceByOperation,
+  buildContentOperationFailureResponse,
+  contentErrorSurfaceByOperation,
   type ContentOperation,
-  type Phase7OperationFailureResponse
+  type ContentOperationFailureResponse
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type ErrorHandler } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
@@ -264,7 +264,7 @@ const buildCanonicalOperationFailure = ({
   failure: ApiFailure
   operation: ContentOperation
 }): {
-  response: Phase7OperationFailureResponse
+  response: ContentOperationFailureResponse
   contractViolation: boolean
 } => {
   const retryAfterSeconds =
@@ -274,14 +274,14 @@ const buildCanonicalOperationFailure = ({
         : retryAfterSecondsByCode[failure.code]
       : undefined
   const disposition =
-    error instanceof ApplicationError && error.phase7Disposition
-      ? error.phase7Disposition
-      : phase7ErrorSurfaceByOperation[operation] === 'GET_READ'
+    error instanceof ApplicationError && error.adminDisposition
+      ? error.adminDisposition
+      : contentErrorSurfaceByOperation[operation] === 'GET_READ'
         ? 'NO_TX'
         : 'COMMIT_UNKNOWN'
   try {
     return {
-      response: buildPhase7OperationFailureResponse({
+      response: buildContentOperationFailureResponse({
         operation,
         failure: {
           code: failure.code,
@@ -292,8 +292,8 @@ const buildCanonicalOperationFailure = ({
           requestId: failure.requestId
         },
         disposition,
-        ...(error instanceof ApplicationError && error.phase7InternalReason
-          ? { internalReason: error.phase7InternalReason }
+        ...(error instanceof ApplicationError && error.adminInternalReason
+          ? { internalReason: error.adminInternalReason }
           : {}),
         ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds })
       }),
@@ -301,7 +301,7 @@ const buildCanonicalOperationFailure = ({
     }
   } catch {
     return {
-      response: buildPhase7OperationFailureResponse({
+      response: buildContentOperationFailureResponse({
         operation,
         failure: {
           code: 'INTERNAL_SERVER_ERROR',
@@ -309,7 +309,7 @@ const buildCanonicalOperationFailure = ({
           requestId: failure.requestId
         },
         disposition:
-          phase7ErrorSurfaceByOperation[operation] === 'GET_READ'
+          contentErrorSurfaceByOperation[operation] === 'GET_READ'
             ? 'NO_TX'
             : disposition
       }),

@@ -105,7 +105,7 @@ const parsePath = <Output>(parse: () => Output, message: string): Output => {
       message,
       fieldErrors: toFieldErrors(error),
       retryable: false,
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
   }
 }
@@ -127,7 +127,7 @@ const parseBody = async <Schema extends ZodType>(
     message,
     fieldErrors: toFieldErrors(parsed.error),
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 }
 
@@ -145,7 +145,7 @@ const assertEmptyQuery = (requestTarget: string): void => {
       message: error.message,
       retryable: error.retryable,
       ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
-      phase7Disposition: 'NO_TX',
+      adminDisposition: 'NO_TX',
       cause: error
     })
   }
@@ -161,7 +161,7 @@ const assertCommittedResponse = <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'COMMIT_CONFIRMED',
+      adminDisposition: 'COMMIT_CONFIRMED',
       cause: error
     })
   }
@@ -203,7 +203,7 @@ const assertCommittedAsync = async <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'COMMIT_CONFIRMED',
+      adminDisposition: 'COMMIT_CONFIRMED',
       cause: error
     })
   }
@@ -219,7 +219,7 @@ const assertNoTransactionAsync = async <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'NO_TX',
+      adminDisposition: 'NO_TX',
       cause: error
     })
   }

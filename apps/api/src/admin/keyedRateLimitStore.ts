@@ -14,7 +14,7 @@ export interface KeyedRateLimitSettings {
   readonly stateInvalidMessage: string
   readonly rateLimitedMessage: string
   /** Phase 7 command paths mark failures as before any transaction. */
-  readonly phase7Disposition?: 'NO_TX'
+  readonly adminDisposition?: 'NO_TX'
   /** Which store errors become SERVICE_UNAVAILABLE; others are rethrown. */
   readonly isStoreError?: (error: unknown) => boolean
 }
@@ -55,8 +55,8 @@ export const consumeRateLimitKeys = async ({
   readonly policy: RateLimitPolicy
   readonly settings: KeyedRateLimitSettings
 }): Promise<void> => {
-  const disposition = settings.phase7Disposition
-    ? { phase7Disposition: settings.phase7Disposition }
+  const disposition = settings.adminDisposition
+    ? { adminDisposition: settings.adminDisposition }
     : {}
   const rateKeys = keys.map((key) => ({ id: randomUUID(), key }))
   let rows: RateLimitRow[]

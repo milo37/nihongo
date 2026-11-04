@@ -210,7 +210,7 @@ describe('production learner question reports without the technical CMS', () => 
         message: '문제 신고 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
         retryable: true,
         retryAfterSeconds: 30,
-        phase7Disposition: 'NO_TX'
+        adminDisposition: 'NO_TX'
       })
     )
     const response = await postReport(app)
