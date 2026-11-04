@@ -562,6 +562,10 @@ export const jaAdminResources = {
         question: '問題文を入力してください。',
         questionLength: '正規化後のUnicode文字を1〜2000個で入力してください。',
         passage: '読解問題には本文を入力してください。',
+        passageNotAllowed:
+          'この問題タイプには本文を使えません。本文を空にしてください。',
+        combination:
+          '選択した級・科目・問題タイプの組み合わせは登録できません。',
         option: '選択肢の内容を入力してください。',
         optionCount: '選択肢は4つ必要です。',
         optionDuplicate: '同じ選択肢を重複して入力できません。',

@@ -101,7 +101,13 @@ export const questionFormSchema = z
             isWellFormedContentText(value.questionText) &&
             countUnicodeScalars(normalizeContentText(value.questionText)) > 2000
               ? 'editor.form.validation.questionLength'
-              : issue.message
+              : issue.code === 'custom' && issue.path[0] === 'passage'
+                ? value.subject === 'READING'
+                  ? 'editor.form.validation.passage'
+                  : 'editor.form.validation.passageNotAllowed'
+                : issue.code === 'custom' && issue.path[0] === 'questionType'
+                  ? 'editor.form.validation.combination'
+                  : issue.message
         })
       }
     }
