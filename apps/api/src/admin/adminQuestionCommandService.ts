@@ -214,12 +214,17 @@ const isBatchItemFailure = (
   code: AdminQuestionCommandRepositoryError['code']
 ): code is keyof typeof BATCH_ITEM_RESULTS => code in BATCH_ITEM_RESULTS
 
-/** Item outcomes become results; request-wide failures (auth, freshness) still throw. */
+/**
+ * Item outcomes become results. Other failures throw while nothing is
+ * published yet, so an error response never hides a committed item; after the
+ * first publish they become FAILED and the batch continues.
+ */
 const publishBatchItem = async (
   repository: AdminQuestionPublicationCommandRepository,
   authority: AdminCommandAuthority,
   questionVersionId: string,
-  expectedRowVersion: number
+  expectedRowVersion: number,
+  anyPublished: boolean
 ): Promise<PublishQuestionVersionBatchResponse['items'][number]> => {
   try {
     const target = await repository.readPublicationTarget(questionVersionId)
@@ -254,7 +259,10 @@ const publishBatchItem = async (
         rowVersion: null
       }
     }
-    throw error
+    if (!anyPublished) {
+      throw error
+    }
+    return { questionVersionId, result: 'FAILED', rowVersion: null }
   }
 }
 
@@ -276,7 +284,8 @@ export const createAdminQuestionPublicationCommandService = (
             repository,
             authority,
             questionVersionId,
-            expectedRowVersion
+            expectedRowVersion,
+            items.some(({ result }) => result === 'PUBLISHED')
           )
         )
       }
