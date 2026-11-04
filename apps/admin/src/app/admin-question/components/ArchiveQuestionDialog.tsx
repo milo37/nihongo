@@ -57,6 +57,9 @@ export const ArchiveQuestionDialog = ({
       <p className="leading-7 text-muted">
         {t('questionList.archiveDialog.body')}
       </p>
+      <p className="mt-2 leading-7 text-muted">
+        {t('questionList.archiveDialog.duplicateNote')}
+      </p>
       {needsFresh ? (
         <AppLink
           to={`/login?redirect=${encodeURIComponent('/admin/questions' + location.search)}`}

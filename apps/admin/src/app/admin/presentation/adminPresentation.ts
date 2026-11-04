@@ -6,6 +6,7 @@ const adminErrorKeys = {
   FRESH_ASSURANCE_REQUIRED: 'errors.freshAssuranceRequired',
   VERSION_CONFLICT: 'errors.versionConflict',
   INVALID_STATE_TRANSITION: 'errors.invalidState',
+  DUPLICATE_QUESTION_CONTENT: 'errors.duplicateQuestionContent',
   INVALID_ID: 'errors.invalidId',
   INVALID_REQUEST: 'errors.invalidRequest',
   VALIDATION_ERROR: 'errors.validation',

@@ -58,6 +58,8 @@ export const koAdminQuestionListResources = {
     description:
       '{{questionId}} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.',
     body: '활성 목록과 새 출제 대상에서 제외하고 현재 공개본과 열린 후보의 사용을 종료합니다. 기존 학습 기록은 삭제하지 않습니다.',
+    duplicateNote:
+      '보관한 문제(초안 포함)와 같은 내용으로는 새 문제를 만들 수 없습니다.',
     cancel: '취소',
     confirm: '문제 보관',
     confirming: '보관 중…',

@@ -11,9 +11,10 @@ import { useToast } from '@nihongo/browser/common/components/Toast'
 import { QuestionPageHeader } from '@app/admin-question/components/QuestionPageHeader'
 import { useQuestionListReturnPath } from '@app/admin-question/navigation/useQuestionListReturnPath'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
-  const { t } = useAdminPresentation()
+  const { t, presentError } = useAdminPresentation()
   const navigate = useNavigate()
   const returnPath = useQuestionListReturnPath()
   const createQuestion = useCreateAdminQuestion()
@@ -56,7 +57,12 @@ export const CreateAdminQuestionPage = (): ReactElement => {
         submitLabel={t('create.page.submit')}
         submittingLabel={t('create.page.submitting')}
         serverError={
-          createQuestion.isError ? t('create.page.error') : undefined
+          !createQuestion.isError
+            ? undefined
+            : getAdminErrorKey(createQuestion.error) ===
+                'errors.duplicateQuestionContent'
+              ? presentError(createQuestion.error)
+              : t('create.page.error')
         }
         onSubmit={handleCreateQuestion}
       />

@@ -341,7 +341,8 @@ export const jaAdminResources = {
     invalidState: '現在の状態ではこの操作を実行できません。',
     separationOfDuties:
       '作成とレビューの役割を分離する必要があるため、この操作を実行できません。',
-    duplicateQuestionContent: '同じ内容の問題がすでに存在します。',
+    duplicateQuestionContent:
+      'アーカイブした問題を含め、同じ内容の問題がすでに存在します。文言を変えてもう一度保存してください。',
     untrustedOrigin: '許可されていないリクエスト元です。',
     rateLimited: 'リクエストが多すぎます。',
     server: 'サーバーで管理者リクエストを処理できませんでした。',
@@ -446,6 +447,8 @@ export const jaAdminResources = {
       description:
         '問題{{questionId}}を有効な一覧からアーカイブします。これまでの学習結果は残ります。',
       body: '有効な一覧と新しい出題対象から外し、現在の公開版と作業中の候補の利用を終了します。これまでの学習記録は削除しません。',
+      duplicateNote:
+        'アーカイブした問題（下書きを含む）と同じ内容では、新しい問題を作成できません。',
       cancel: 'キャンセル',
       confirm: '問題をアーカイブ',
       confirming: 'アーカイブ中…',
