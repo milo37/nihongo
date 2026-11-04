@@ -165,7 +165,10 @@ describe('separate protected admin static assets', () => {
   ] as const)(
     'hides admin pages and assets as a plain 404 when the guard throws %s',
     async (code) => {
-      const guard: MiddlewareHandler<StaticEnvironment> = async () => {
+      const guard: MiddlewareHandler<StaticEnvironment> = async (context) => {
+        context.header('Set-Cookie', 'nihongo.session_token=; Max-Age=0', {
+          append: true
+        })
         throw new ApplicationError({
           code,
           message: 'denied',
@@ -176,6 +179,7 @@ describe('separate protected admin static assets', () => {
       for (const path of ['/admin', '/admin/members', '/admin/assets/app.js']) {
         const response = await app.request(path)
         expect(response.status).toBe(404)
+        expect(response.headers.get('Set-Cookie')).toBeNull()
         expect(await response.text()).toBe('NOT_FOUND')
       }
     }
