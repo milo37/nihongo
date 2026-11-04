@@ -452,11 +452,6 @@ describe('StudyDraft cold cleanup', () => {
           where: { studySessionId: session.id }
         })
       ).not.toBeNull()
-      await expect(
-        database.client.studyDraft.delete({
-          where: { studySessionId: session.id }
-        })
-      ).rejects.toThrow()
       expect(
         await draftRepository.saveAtomic({
           sessionId: session.id,
@@ -529,7 +524,7 @@ describe('StudyDraft cold cleanup', () => {
     ).toBeNull()
   })
 
-  it('자연 만료 guest draft를 7일 보존하고 변경은 거부한 뒤 정리한다', async () => {
+  it('자연 만료 guest draft를 7일 보존한 뒤 정리한다', async () => {
     const expiresAt = new Date(NOW.getTime() - 7 * DAY_MS)
     const session = await createGuestSession({
       startedAt: new Date(expiresAt.getTime() - HOUR_MS),
@@ -544,12 +539,6 @@ describe('StudyDraft cold cleanup', () => {
         where: { studySessionId: session.id }
       })
     ).not.toBeNull()
-    await expect(
-      database.client.studyDraft.update({
-        where: { studySessionId: session.id },
-        data: { currentOrdinal: 1 }
-      })
-    ).rejects.toThrow()
 
     await cleanupService.cleanup({ batchSize: 100 })
     expect(

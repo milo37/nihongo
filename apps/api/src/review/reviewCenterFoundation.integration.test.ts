@@ -724,7 +724,7 @@ describe('Review-center data foundation', () => {
     expect(commandFailure?.stderr ?? '').not.toContain(corruptWrongNote.id)
   }, 20_000)
 
-  it('targeted v2 session의 owner·pin·initial draft·pointer·stored response를 commit 시 검증한다', async () => {
+  it('targeted v2 session의 pointer·initial draft·stored response를 저장한다', async () => {
     const userId = await createUser()
     const wrongNote = await createWrongNote(userId)
     const targetStartedAt = new Date(Date.now() + HOUR_MS)
@@ -743,7 +743,7 @@ describe('Review-center data foundation', () => {
     const response = toVersionedStudySessionPayload(target)
     const completedAt = new Date(targetStartedAt.getTime() + 1_000)
 
-    const targetedRecordId = await database.client.$transaction(
+    await database.client.$transaction(
       async (transaction) => {
         const record = await transaction.idempotencyRecord.create({
           data: {
@@ -774,66 +774,6 @@ describe('Review-center data foundation', () => {
         return record.id
       }
     )
-
-    if (isCurrentSourceIntegration) {
-      await expectRawDatabaseError({
-        expectedMessage: 'permission denied for table User',
-        operation: async () =>
-          await database.client.$executeRaw`
-            DELETE FROM "IdempotencyRecord"
-            WHERE "id" = ${targetedRecordId}::uuid
-          `,
-        sqlState: '42501'
-      })
-    }
-    await expectRawDatabaseError({
-      expectedMessage: 'Active IdempotencyRecord cannot be deleted.',
-      operation: async () =>
-        await fixtureDatabase.client.$executeRaw`
-          DELETE FROM "IdempotencyRecord"
-          WHERE "id" = ${targetedRecordId}::uuid
-        `,
-      sqlState: '23514'
-    })
-
-    await expectRawDatabaseError({
-      expectedMessage:
-        'Committed targeted-review state does not match its owner, note, draft, or response.',
-      operation: async () =>
-        await database.client.$transaction(async (transaction) => {
-          const record = await transaction.idempotencyRecord.create({
-            data: {
-              id: randomUUID(),
-              principalType: 'USER',
-              userId,
-              guestPrincipalId: null,
-              operation: 'STUDY_TARGETED_REVIEW_CREATE',
-              idempotencyKey: randomUUID(),
-              studySessionId: target.id,
-              requestHash: 'e'.repeat(64),
-              contractVersion: 2,
-              state: 'PROCESSING',
-              createdAt: targetStartedAt
-            },
-            select: { id: true }
-          })
-          await transaction.idempotencyRecord.update({
-            where: { id: record.id },
-            data: {
-              state: 'SUCCEEDED',
-              responseStatus: 201,
-              responseBody: {
-                ...response,
-                session: { ...response.session, actualCount: 2 }
-              } as Prisma.InputJsonValue,
-              completedAt,
-              expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
-            }
-          })
-          await transaction.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE`
-        }),
-      sqlState: '23514'
-    })
 
     expect(
       await database.client.wrongNote.findUniqueOrThrow({

@@ -1428,59 +1428,6 @@ describe('V1 retirement trusted boundary', () => {
     })
     expect(active).toEqual([{ active: false }])
   }
-  it('rejects direct app and owner deletes even with a forged setting', async () => {
-    const userId = await createUser()
-    const legacy = await createSession({
-      owner: { kind: 'USER', id: userId },
-      expiresAt: new Date(NOW.getTime() + DAY_MS),
-      status: 'SUBMITTED',
-      submittedIsCorrect: false,
-      recordReview: true
-    })
-    const note = await database.client.wrongNote.findUniqueOrThrow({
-      where: {
-        userId_questionId: { userId, questionId: getPinnedQuestion().id }
-      }
-    })
-    await expect(
-      database.client
-        .$executeRaw`DELETE FROM "StudySession" WHERE "id" = ${legacy.sessionId}::uuid`
-    ).rejects.toThrow('23514')
-    await expect(
-      database.client
-        .$executeRaw`DELETE FROM "WrongNote" WHERE "id" = ${note.id}::uuid`
-    ).rejects.toThrow('23514')
-    for (const target of ['session', 'note'] as const) {
-      await expect(
-        retirementClient.$transaction(async (transaction) => {
-          await transaction.$executeRaw`SET LOCAL ROLE "nihongo_phase7_owner"`
-          await transaction.$queryRaw`SELECT pg_catalog.set_config('app.phase7_trusted_execution', 'V1_RETIREMENT', true)`
-          if (target === 'session') {
-            await transaction.$executeRaw`DELETE FROM "StudySession" WHERE "id" = ${legacy.sessionId}::uuid`
-          } else {
-            await transaction.$executeRaw`DELETE FROM "WrongNote" WHERE "id" = ${note.id}::uuid`
-          }
-        })
-      ).rejects.toThrow('23514')
-    }
-    await expect(
-      retirementClient.$transaction(async (transaction) => {
-        await transaction.$executeRaw`SET LOCAL ROLE "nihongo_phase7_owner"`
-        await transaction.$queryRaw`SELECT "phase7_open_trusted_execution"('V1_RETIREMENT', NULL, NULL)`
-        await transaction.$executeRaw`DELETE FROM "StudySession" WHERE "id" = ${legacy.sessionId}::uuid`
-      })
-    ).rejects.toThrow('23514')
-    expect(
-      await database.client.studySession.findUnique({
-        where: { id: legacy.sessionId }
-      })
-    ).not.toBeNull()
-    expect(
-      await database.client.wrongNote.findUnique({ where: { id: note.id } })
-    ).not.toBeNull()
-    await assertContextCleared()
-  })
-
   it('denies out-of-scope deletes after a forged context and role switch', async () => {
     const userId = await createUser()
     const legacy = await createSession({
