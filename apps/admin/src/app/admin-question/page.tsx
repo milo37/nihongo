@@ -8,7 +8,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams, useLocation } from 'react-router'
 import type { FormEvent, ReactElement } from 'react'
-import type { ListAdminQuestionResponse } from '@nihongo/browser/api/admin-question/listAdminQuestion/schema'
+import type { ListAdminQuestionResponse } from '@api/admin-question/listAdminQuestion/schema'
 import type {
   JlptLevel,
   QuestionDifficulty,

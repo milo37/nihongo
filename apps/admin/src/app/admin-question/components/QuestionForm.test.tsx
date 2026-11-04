@@ -9,7 +9,7 @@ import {
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import type { ReactElement } from 'react'
-import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-question/createAdminQuestion/schema'
+import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
 import type {
   PreviewQuestionVersionResponse,
   UpdateQuestionVersionRequest

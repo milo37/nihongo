@@ -5,7 +5,7 @@ import { Link, useBlocker } from 'react-router'
 import { z } from 'zod'
 import type { FieldErrors } from 'react-hook-form'
 import type { ReactElement } from 'react'
-import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-question/createAdminQuestion/schema'
+import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
 import {
   createAdminQuestionRequestSchema,
   countUnicodeScalars,
