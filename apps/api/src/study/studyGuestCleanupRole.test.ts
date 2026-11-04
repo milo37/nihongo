@@ -7,7 +7,7 @@ import {
 } from './studyGuestCleanupRole.js'
 
 const isolated: GuestCleanupRoleEvidence = {
-  currentRole: 'nihongo_guest_cleanup_worker',
+  currentRole: 'nihongo_app',
   workerIsSuperuser: false,
   workerCanBypassRls: false,
   workerCanCreateRoles: false,
@@ -16,17 +16,14 @@ const isolated: GuestCleanupRoleEvidence = {
   sessionCanBypassRls: false,
   sessionCanCreateRoles: false,
   sessionCanCreateDatabases: false,
-  sessionHasCleanupRole: true,
-  sessionHasApplicationRole: false,
+  sessionHasApplicationRole: true,
   sessionHasErasureRole: false,
-  workerCanModifyTables: false,
-  sessionCanModifyTables: false,
   workerCanCreateInSchema: false,
   sessionCanCreateInSchema: false
 }
 
 describe('guest cleanup role', () => {
-  it('accepts only an isolated cleanup role', () => {
+  it('accepts only the isolated application role', () => {
     expect(() => assertStudyGuestCleanupRole(isolated)).not.toThrow()
   })
 
@@ -44,7 +41,7 @@ describe('guest cleanup role', () => {
   })
 
   it.each([
-    { currentRole: 'nihongo_app' },
+    { currentRole: 'nihongo_guest_cleanup_worker' },
     { workerIsSuperuser: true },
     { workerCanBypassRls: true },
     { workerCanCreateRoles: true },
@@ -53,11 +50,8 @@ describe('guest cleanup role', () => {
     { sessionCanBypassRls: true },
     { sessionCanCreateRoles: true },
     { sessionCanCreateDatabases: true },
-    { sessionHasCleanupRole: false },
-    { sessionHasApplicationRole: true },
+    { sessionHasApplicationRole: false },
     { sessionHasErasureRole: true },
-    { workerCanModifyTables: true },
-    { sessionCanModifyTables: true },
     { workerCanCreateInSchema: true },
     { sessionCanCreateInSchema: true }
   ])('refuses an unsafe role: %o', (change) => {

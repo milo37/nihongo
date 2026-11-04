@@ -4,13 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { createRoleDatabaseRuntime } from '../db/database.js'
 import { parseStudyGuestCleanupCommandInput } from './studyGuestCleanupCommandInput.js'
 import { verifyStudyGuestCleanupRole } from './studyGuestCleanupRole.js'
+import { runGuestCleanupBatch } from './studyGuestCleanupBatch.js'
 import { runStudyGuestCleanup } from './studyGuestCleanupRunner.js'
-
-interface DatabaseBatchResult {
-  deletedCount: bigint
-  eligibleCount: bigint
-  hasMore: boolean
-}
 
 export const runStudyGuestCleanupCommand = async (
   source: NodeJS.ProcessEnv
@@ -18,10 +13,7 @@ export const runStudyGuestCleanupCommand = async (
   try {
     const input = parseStudyGuestCleanupCommandInput(source)
     const startedAt = performance.now()
-    const database = createRoleDatabaseRuntime(
-      input.databaseUrl,
-      'nihongo_guest_cleanup_worker'
-    )
+    const database = createRoleDatabaseRuntime(input.databaseUrl, 'nihongo_app')
     try {
       const roleBudget = Math.floor(
         (input.maxDurationMs - (performance.now() - startedAt)) / 2
@@ -44,41 +36,12 @@ export const runStudyGuestCleanupCommand = async (
       ) => {
         const limit = Math.floor(timeoutMs / 2)
         if (limit < 1) throw new Error('Guest cleanup time budget exhausted.')
-        const rows = await database.client.$transaction(
+        const result = await database.client.$transaction(
           async (transaction) =>
-            await transaction.$queryRaw<DatabaseBatchResult[]>`
-              SELECT "deletedCount", "eligibleCount", "hasMore"
-              FROM "phase7_guest_cleanup_batch"(
-                ${input.environment}::"AdminAuditEnvironment",
-                ${batchSize}::integer,
-                ${dryRun}::boolean
-              )
-            `,
+            await runGuestCleanupBatch(transaction, { batchSize, dryRun }),
           { maxWait: limit, timeout: limit }
         )
-        const result = rows[0]
-        if (
-          rows.length !== 1 ||
-          !result ||
-          typeof result.deletedCount !== 'bigint' ||
-          result.deletedCount < 0n ||
-          result.deletedCount > BigInt(Number.MAX_SAFE_INTEGER) ||
-          typeof result.eligibleCount !== 'bigint' ||
-          result.eligibleCount < 0n ||
-          result.eligibleCount > BigInt(Number.MAX_SAFE_INTEGER) ||
-          typeof result.hasMore !== 'boolean' ||
-          result.hasMore !== result.eligibleCount > 0n ||
-          (dryRun && result.deletedCount !== 0n) ||
-          (!dryRun && result.deletedCount > BigInt(batchSize))
-        ) {
-          throw new Error('Invalid guest cleanup batch result.')
-        }
-        return {
-          deletedCount: Number(result.deletedCount),
-          eligibleCount: Number(result.eligibleCount),
-          remainingCount: Number(result.eligibleCount),
-          hasMore: result.hasMore
-        }
+        return { ...result, remainingCount: result.eligibleCount }
       }
       const result = await runStudyGuestCleanup(
         { ...input, maxDurationMs: remainingMs },

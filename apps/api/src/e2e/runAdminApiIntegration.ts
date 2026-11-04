@@ -902,9 +902,7 @@ export const prepareIsolatedDatabase = async ({
     AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     TEST_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
-    GUEST_CLEANUP_DATABASE_URL: buildWrapperDatabaseUrl(
-      TEST_GUEST_CLEANUP_LOGIN
-    ).toString(),
+    GUEST_CLEANUP_DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
     GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
     RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
@@ -1105,7 +1103,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 60,
+      canonicalCount: 61,
       checksumMatch: true,
       reentry: true
     }) + '\n'
