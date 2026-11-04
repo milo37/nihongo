@@ -848,10 +848,16 @@ test('administrator member list renders the real masked member page', async ({
       page.getByRole('heading', { level: 1, name: '가입자', exact: true })
     ).toBeVisible()
     const grid = page.getByRole('region', { name: '가입자 목록', exact: true })
-    await expect(grid.locator('tbody tr')).toHaveCount(members.items.length)
-    for (const member of members.items) {
+    const rows = grid.locator('tbody tr')
+    await expect(rows).toHaveCount(members.items.length)
+    // Masked emails can repeat across members, so check each row in server order by its member ID.
+    for (const [index, member] of members.items.entries()) {
+      const row = rows.nth(index)
       await expect(
-        grid.getByText(member.maskedEmail, { exact: true })
+        row.getByRole('link', { name: member.memberId, exact: true })
+      ).toBeVisible()
+      await expect(
+        row.getByRole('cell', { name: member.maskedEmail, exact: true })
       ).toBeVisible()
     }
     // Fixture addresses are phase7-<actor>-<suffix>@example.test; only masked text may render.
