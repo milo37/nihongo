@@ -443,6 +443,7 @@ export const jaAdminResources = {
     archive: '公開終了・アーカイブ',
     archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
     batch: {
+      selectColumn: '公開の選択',
       selectRow: '問題{{questionId}}を選択',
       selectPage: 'このページの承認済みの問題をすべて選択',
       selected: '{{count}}問を選択中',

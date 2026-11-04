@@ -36,16 +36,20 @@ const checkboxClassName = 'size-4 accent-brand'
 
 const PageCheckbox = ({
   batch,
-  label
+  label,
+  columnLabel
 }: {
   readonly batch: QuestionBatchPublish
   readonly label: string
-}): ReactElement | null => {
+  readonly columnLabel: string
+}): ReactElement => {
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (input.current) input.current.indeterminate = batch.pageState === 'some'
   }, [batch.pageState])
-  if (batch.pageState === 'empty') return null
+  // A header cell keeps a name even when this page has nothing to select.
+  if (batch.pageState === 'empty')
+    return <span className="sr-only">{columnLabel}</span>
   return (
     <label className={checkboxLabelClassName}>
       <input
@@ -107,6 +111,7 @@ export const QuestionListTable = ({
                 <PageCheckbox
                   batch={batch}
                   label={t('questionList.batch.selectPage')}
+                  columnLabel={t('questionList.batch.selectColumn')}
                 />
               </th>
               <th className="px-4 py-3 font-semibold" scope="col">

@@ -54,6 +54,7 @@ export const koAdminQuestionListResources = {
   archive: '공개 중단·보관',
   archiveLabel: '{{questionId}} 문제 공개 중단·보관',
   batch: {
+    selectColumn: '공개 선택',
     selectRow: '{{questionId}} 문제 선택',
     selectPage: '이 페이지의 승인된 문제 모두 선택',
     selected: '{{count}}개 선택됨',
