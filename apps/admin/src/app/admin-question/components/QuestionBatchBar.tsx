@@ -4,25 +4,22 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { Link, useLocation } from 'react-router'
-import { useEffect, useRef } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, RefObject } from 'react'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { QuestionBatchPublish } from '@app/admin-question/hooks/useQuestionBatchPublish'
 
 /** Selection bar above the list, replaced by the result of the last publish. */
 export const QuestionBatchBar = ({
-  batch
+  batch,
+  headingRef
 }: {
   readonly batch: QuestionBatchPublish
+  readonly headingRef: RefObject<HTMLHeadingElement | null>
 }): ReactElement | null => {
   const { t } = useAdminPresentation()
   const { locale } = useUiLocale()
   const location = useLocation()
   const { result } = batch
-  const resultHeading = useRef<HTMLHeadingElement>(null)
-  useEffect(() => {
-    if (result) resultHeading.current?.focus()
-  }, [result])
 
   if (result) {
     const published = formatNumber(result.published, locale)
@@ -30,7 +27,7 @@ export const QuestionBatchBar = ({
       <section className="mt-8 rounded-2xl border border-line bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <h2
-            ref={resultHeading}
+            ref={headingRef}
             tabIndex={-1}
             className="rounded-sm text-lg font-bold"
           >

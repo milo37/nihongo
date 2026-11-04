@@ -5,8 +5,6 @@ import { deleteAdminQuestion } from '@api/admin-question/deleteAdminQuestion/ind
 import { getAdminQuestion } from '@api/admin-question/getAdminQuestion/index'
 import { listAdminQuestion } from '@api/admin-question/listAdminQuestion/index'
 import { previewQuestionVersion } from '@api/admin-question/previewQuestionVersion/index'
-import { publishQuestionVersionBatch } from '@api/admin-question/publishQuestionVersionBatch/index'
-import type { PublishQuestionVersionBatchRequest } from '@api/admin-question/publishQuestionVersionBatch/schema'
 import type { ListAdminQuestionRequest } from '@api/admin-question/listAdminQuestion/schema'
 import type { DeleteAdminQuestionRequest } from '@api/admin-question/deleteAdminQuestion/schema'
 import { updateAdminQuestion } from '@api/admin-question/updateAdminQuestion/index'
@@ -90,14 +88,5 @@ export const adminQuestionMutations = {
       ] as const,
       mutationFn: ({ questionId, input }: ArchiveAdminQuestionVariables) =>
         deleteAdminQuestion(questionId, input)
-    }),
-  publishBatch: () =>
-    mutationOptions({
-      mutationKey: [
-        ...adminQuestionQueries.allKey(),
-        'publish-question-version-batch'
-      ] as const,
-      mutationFn: (input: PublishQuestionVersionBatchRequest) =>
-        publishQuestionVersionBatch(input)
     })
 } as const

@@ -1,5 +1,5 @@
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { ArchiveQuestionDialog } from '@app/admin-question/components/ArchiveQuestionDialog'
@@ -46,6 +46,8 @@ export const AdminQuestionPage = (): ReactElement => {
   })
   const archive = useQuestionArchive(questionList.refetch)
   const batch = useQuestionBatchPublish(questionList.data?.items ?? [])
+  // The publish button is gone once the result replaces the selection bar.
+  const batchResultHeading = useRef<HTMLHeadingElement>(null)
 
   const totalPages = questionList.data
     ? Math.max(
@@ -122,7 +124,7 @@ export const AdminQuestionPage = (): ReactElement => {
         onReset={filters.resetFilters}
       />
 
-      <QuestionBatchBar batch={batch} />
+      <QuestionBatchBar batch={batch} headingRef={batchResultHeading} />
 
       {questionList.isPending ? (
         <LoadingState message={t('questionList.loading')} />
@@ -187,7 +189,7 @@ export const AdminQuestionPage = (): ReactElement => {
       ) : null}
 
       <ArchiveQuestionDialog archive={archive} />
-      <BatchPublishDialog batch={batch} />
+      <BatchPublishDialog batch={batch} fallbackFocusRef={batchResultHeading} />
     </section>
   )
 }

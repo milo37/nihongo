@@ -3,7 +3,8 @@ import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { useLocation } from 'react-router'
-import type { ReactElement } from 'react'
+import { useEffect, useRef } from 'react'
+import type { ReactElement, RefObject } from 'react'
 import { FreshAssurance } from '@app/admin/components/FreshAssurance'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { questionErrorCode } from '@app/admin-question/detail/questionWorkflow'
@@ -12,9 +13,11 @@ import type { QuestionBatchPublish } from '@app/admin-question/hooks/useQuestion
 const LISTED_IDS = 5
 
 export const BatchPublishDialog = ({
-  batch
+  batch,
+  fallbackFocusRef
 }: {
   readonly batch: QuestionBatchPublish
+  readonly fallbackFocusRef: RefObject<HTMLElement | null>
 }): ReactElement => {
   const { t, presentError } = useAdminPresentation()
   const { locale } = useUiLocale()
@@ -24,12 +27,22 @@ export const BatchPublishDialog = ({
   const confirmLabel = t('questionList.batch.dialog.confirm', { count })
   const code = questionErrorCode(mutation.error)
   const rest = selected.length - LISTED_IDS
+  const confirmButton = useRef<HTMLButtonElement>(null)
+  const errorAlert = useRef<HTMLParagraphElement>(null)
+  const showError = mutation.isError && code !== 'FRESH_ASSURANCE_REQUIRED'
+  useEffect(() => {
+    if (showError) errorAlert.current?.focus()
+  }, [showError])
+  useEffect(() => {
+    if (batch.freshConfirmed) confirmButton.current?.focus()
+  }, [batch.freshConfirmed])
   return (
     <Dialog
       open={batch.dialogOpen}
       title={t('questionList.batch.dialog.title', { count })}
       description={t('questionList.batch.dialog.description')}
       preventClose={mutation.isPending}
+      fallbackFocusRef={fallbackFocusRef}
       onOpenChange={(open) => {
         if (!open) batch.close()
       }}
@@ -42,13 +55,20 @@ export const BatchPublishDialog = ({
           >
             {t('questionList.batch.dialog.cancel')}
           </Button>
+          {/* aria-disabled, not disabled: focus stays on the button while publishing. */}
           <Button
-            isLoading={mutation.isPending}
-            loadingLabel={t('questionList.batch.dialog.confirming')}
+            ref={confirmButton}
+            className="aria-disabled:cursor-wait aria-disabled:opacity-70"
+            aria-disabled={mutation.isPending || undefined}
+            aria-busy={mutation.isPending || undefined}
             disabled={selected.length === 0}
-            onClick={batch.publish}
+            onClick={() => {
+              if (!mutation.isPending) batch.publish()
+            }}
           >
-            {confirmLabel}
+            {mutation.isPending
+              ? t('questionList.batch.dialog.confirming')
+              : confirmLabel}
           </Button>
         </>
       }
@@ -80,8 +100,13 @@ export const BatchPublishDialog = ({
           returnPath={`/admin${pathname}${search}`}
           onConfirmed={batch.confirmFresh}
         />
-      ) : mutation.isError ? (
-        <p className="mt-4 text-sm font-semibold text-red-700" role="alert">
+      ) : showError ? (
+        <p
+          ref={errorAlert}
+          tabIndex={-1}
+          className="mt-4 rounded-sm text-sm font-semibold text-red-700"
+          role="alert"
+        >
           {presentError(mutation.error)}{' '}
           {t('questionList.batch.dialog.notPublished')}
         </p>

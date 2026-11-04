@@ -13,17 +13,17 @@ import {
 } from '@nihongo/browser/libs/authTransitionFence'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { useAppStore } from '@nihongo/browser/store/index'
-import type { PublishQuestionVersionBatchResponse } from '@api/admin-question/publishQuestionVersionBatch/schema'
+import type { ContentOperationResult } from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminAuditQueries } from '@app/admin-audit/queries/adminAuditQueries'
 import type { AdminQuestionSummary } from '@app/admin-question/components/QuestionListTable'
+import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
 import {
-  adminQuestionMutations,
-  adminQuestionQueries
-} from '@app/admin-question/queries/adminQuestionQueries'
-import { questionWorkflowQueries } from '@app/admin-question/queries/questionWorkflowQueries'
+  questionWorkflowMutations,
+  questionWorkflowQueries
+} from '@app/admin-question/queries/questionWorkflowQueries'
 
 type FailedResult = Exclude<
-  PublishQuestionVersionBatchResponse['items'][number]['result'],
+  ContentOperationResult<'publishQuestionVersionBatch'>['items'][number]['result'],
   'PUBLISHED'
 >
 
@@ -89,7 +89,7 @@ export const useQuestionBatchPublish = (
           ? 'all'
           : 'some'
 
-  const options = adminQuestionMutations.publishBatch()
+  const options = questionWorkflowMutations.publishBatch()
   const mutation = useMutation({
     ...options,
     retry: false,

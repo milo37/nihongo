@@ -14,7 +14,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
-import * as batchApi from '@api/admin-question/publishQuestionVersionBatch/index'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
 import { actorId, question } from '@app/admin-question/test/questionFixture'
 
@@ -99,23 +99,21 @@ const selectAll = async () => {
 }
 
 it('publishes only approved rows and lists failed items with focus on the result', async () => {
-  const publish = vi
-    .spyOn(batchApi, 'publishQuestionVersionBatch')
-    .mockResolvedValue({
-      publishedCount: 1,
-      items: [
-        {
-          questionVersionId: secondVersion,
-          result: 'FAILED',
-          rowVersion: null
-        },
-        {
-          questionVersionId: approvedVersion,
-          result: 'PUBLISHED',
-          rowVersion: 4
-        }
-      ]
-    })
+  const publish = vi.spyOn(api, 'requestContentOperation').mockResolvedValue({
+    publishedCount: 1,
+    items: [
+      {
+        questionVersionId: secondVersion,
+        result: 'FAILED',
+        rowVersion: null
+      },
+      {
+        questionVersionId: approvedVersion,
+        result: 'PUBLISHED',
+        rowVersion: 4
+      }
+    ]
+  })
   const { dialog } = await selectAll()
   expect(
     within(dialog).getByRole('heading', { name: '문제 2개를 공개할까요?' })
@@ -130,10 +128,15 @@ it('publishes only approved rows and lists failed items with focus on the result
   await waitFor(() => expect(heading).toHaveFocus())
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(publish).toHaveBeenCalledWith({
-    items: [
-      { questionVersionId: secondVersion, expectedRowVersion: 3 },
-      { questionVersionId: approvedVersion, expectedRowVersion: 3 }
-    ]
+    operation: 'publishQuestionVersionBatch',
+    params: {},
+    query: {},
+    body: {
+      items: [
+        { questionVersionId: secondVersion, expectedRowVersion: 3 },
+        { questionVersionId: approvedVersion, expectedRowVersion: 3 }
+      ]
+    }
   })
   const resultArea = within(heading.closest('section')!)
   expect(resultArea.getByRole('link', { name: secondId })).toBeVisible()
@@ -147,14 +150,12 @@ it('publishes only approved rows and lists failed items with focus on the result
 })
 
 it('keeps the dialog and selection on fresh assurance and never resends by itself', async () => {
-  const publish = vi
-    .spyOn(batchApi, 'publishQuestionVersionBatch')
-    .mockRejectedValue(
-      Object.assign(new Error('fresh'), {
-        code: 'FRESH_ASSURANCE_REQUIRED',
-        status: 401
-      })
-    )
+  const publish = vi.spyOn(api, 'requestContentOperation').mockRejectedValue(
+    Object.assign(new Error('fresh'), {
+      code: 'FRESH_ASSURANCE_REQUIRED',
+      status: 401
+    })
+  )
   const { dialog } = await selectAll()
   await userEvent.click(
     within(dialog).getByRole('button', { name: '2개 공개' })
@@ -170,13 +171,31 @@ it('keeps the dialog and selection on fresh assurance and never resends by itsel
   )
   expect(screen.getByText('2개 선택됨')).toBeVisible()
   expect(publish).toHaveBeenCalledTimes(1)
+
+  vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue({
+    id: actorId,
+    name: '관리자',
+    role: 'ADMIN',
+    targetLevel: 'N3',
+    adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
+    adminFreshUntil: '2099-01-01T00:00:00.000Z'
+  })
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: '확인 완료' })
+  )
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole('button', { name: '2개 공개' })
+    ).toHaveFocus()
+  )
+  expect(publish).toHaveBeenCalledTimes(1)
 })
 
-it('reports a whole-request failure as nothing published', async () => {
-  vi.spyOn(batchApi, 'publishQuestionVersionBatch').mockRejectedValue(
-    Object.assign(new Error('server'), {
-      code: 'INTERNAL_SERVER_ERROR',
-      status: 500
+it('keeps focus while publishing and moves it to a whole-request failure', async () => {
+  let fail: (error: unknown) => void = () => undefined
+  vi.spyOn(api, 'requestContentOperation').mockReturnValue(
+    new Promise((_resolve, reject) => {
+      fail = reject
     })
   )
   const { dialog } = await selectAll()
@@ -184,9 +203,20 @@ it('reports a whole-request failure as nothing published', async () => {
     within(dialog).getByRole('button', { name: '2개 공개' })
   )
 
-  expect(
-    await within(dialog).findByText(/공개하지 않았습니다\.$/)
-  ).toBeVisible()
+  const pending = await within(dialog).findByRole('button', {
+    name: '공개 중…'
+  })
+  expect(pending).toHaveFocus()
+  expect(pending).toHaveAttribute('aria-disabled', 'true')
+  fail(
+    Object.assign(new Error('server'), {
+      code: 'INTERNAL_SERVER_ERROR',
+      status: 500
+    })
+  )
+  const alert = await within(dialog).findByRole('alert')
+  expect(alert).toHaveTextContent(/공개하지 않았습니다\.$/)
+  await waitFor(() => expect(alert).toHaveFocus())
 })
 
 it('clears the selection when the page or filter changes', async () => {
