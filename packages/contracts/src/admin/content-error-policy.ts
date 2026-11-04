@@ -38,7 +38,7 @@ export const errorSurfaceSchema = z.enum([
 
 export type ErrorSurface = z.output<typeof errorSurfaceSchema>
 
-export const phase7ErrorSurfaceByOperation = {
+export const contentErrorSurfaceByOperation = {
   listAdminQuestions: 'GET_READ',
   createAdminQuestion: 'KEYLESS_MUTATION',
   getAdminQuestion: 'GET_READ',
@@ -125,7 +125,7 @@ export const computeRetryability = ({
     throw new Error('Failure status를 retry policy로 분류할 수 없습니다.')
   }
 
-  const surface = phase7ErrorSurfaceByOperation[operation]
+  const surface = contentErrorSurfaceByOperation[operation]
   if (surface === 'GET_READ' || surface === 'VALIDATION_WRITE_ZERO') {
     if (!isPreCommitDisposition(disposition)) {
       throw new Error(
@@ -148,7 +148,7 @@ const getWireRetryabilityExpectation = (
   if (status >= 400 && status < 500) {
     return code === 'RATE_LIMITED'
   }
-  const surface = phase7ErrorSurfaceByOperation[operation]
+  const surface = contentErrorSurfaceByOperation[operation]
   if (surface === 'GET_READ' || surface === 'VALIDATION_WRITE_ZERO') {
     return true
   }
@@ -158,7 +158,7 @@ const getWireRetryabilityExpectation = (
   return null
 }
 
-export const createPhase7OperationErrorSchema = <
+export const createContentOperationErrorSchema = <
   CodeSchema extends ZodType<string>
 >(
   operation: AdminOperation,
@@ -191,14 +191,14 @@ export const createPhase7OperationErrorSchema = <
 
 export const assertErrorPolicyManifest = (): void => {
   const manifestOperations = operationManifest.map((entry) => entry.operation)
-  const policyOperations = Object.keys(phase7ErrorSurfaceByOperation)
+  const policyOperations = Object.keys(contentErrorSurfaceByOperation)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(policyOperations)) {
     throw new Error(
       'Error policy operation 순서는 canonical 28-operation manifest와 같아야 합니다.'
     )
   }
 
-  const counts = Object.values(phase7ErrorSurfaceByOperation).reduce<
+  const counts = Object.values(contentErrorSurfaceByOperation).reduce<
     Record<ErrorSurface, number>
   >(
     (result, surface) => ({

@@ -124,13 +124,13 @@ export interface TextOptions {
 const normalizeLineEndings = (value: string): string =>
   value.replace(/\r\n?/gu, '\n')
 
-export const normalizePhase7Text = (value: string): string =>
+export const normalizeContentText = (value: string): string =>
   normalizeLineEndings(value)
     .normalize('NFC')
     .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
     .replace(TRAILING_UNICODE_WHITESPACE_PATTERN, '')
 
-export const createPhase7TextSchema = ({
+export const createContentTextSchema = ({
   minScalars = 1,
   maxScalars,
   multiline = false
@@ -140,7 +140,7 @@ export const createPhase7TextSchema = ({
     .refine((value) => !UNPAIRED_SURROGATE_PATTERN.test(value), {
       message: '유효한 Unicode scalar value만 허용합니다.'
     })
-    .transform(normalizePhase7Text)
+    .transform(normalizeContentText)
     .refine(
       (value) =>
         countUnicodeScalars(value) >= minScalars &&
@@ -156,10 +156,10 @@ export const createPhase7TextSchema = ({
       message: '한 줄 문자열이어야 합니다.'
     })
 
-export const isWellFormedPhase7Text = (value: string): boolean =>
+export const isWellFormedContentText = (value: string): boolean =>
   !UNPAIRED_SURROGATE_PATTERN.test(value) && !hasForbiddenControl(value)
 
-export const normalizePhase7TagKey = (value: string): string =>
+export const normalizeContentTagKey = (value: string): string =>
   value
     .normalize('NFKC')
     .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
@@ -203,17 +203,17 @@ export const createQuestionDuplicateIdentityKey = (
     subject: material.subject
   })
 
-export const phase7TagKeySchema = createPhase7TextSchema({ maxScalars: 500 })
-  .transform(normalizePhase7TagKey)
+export const contentTagKeySchema = createContentTextSchema({ maxScalars: 500 })
+  .transform(normalizeContentTagKey)
   .refine((value) => countUnicodeScalars(value) <= 100, {
     message: '정규화된 태그 key는 100 Unicode scalar 이하여야 합니다.'
   })
 
-export const phase7QuestionSearchSchema = createPhase7TextSchema({
+export const contentQuestionSearchSchema = createContentTextSchema({
   maxScalars: 100
 })
 
-export const assertPhase7DateRange = (
+export const assertContentDateRange = (
   from: string | undefined,
   to: string | undefined
 ): void => {
@@ -238,7 +238,7 @@ export type CanonicalJsonValue =
   | readonly CanonicalJsonValue[]
   | { readonly [key: string]: CanonicalJsonValue }
 
-export const normalizePhase7OptionComparison = (value: string): string =>
+export const normalizeContentOptionComparison = (value: string): string =>
   value
     .normalize('NFKC')
     .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')

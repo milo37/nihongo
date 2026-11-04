@@ -3,8 +3,8 @@ import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdmin
 import {
   createAdminQuestionRequestSchema,
   countUnicodeScalars,
-  isWellFormedPhase7Text as isWellFormedContentText,
-  normalizePhase7Text as normalizeContentText,
+  isWellFormedContentText,
+  normalizeContentText,
   type PreviewQuestionVersionResponse
 } from '@nihongo/contracts/admin/content-operations'
 import {

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import {
   createQuestionDuplicateIdentityKey,
   type ArchiveAdminQuestionRequest,
-  normalizePhase7TagKey,
+  normalizeContentTagKey,
   type AdminQuestionMutationResult,
   type ApproveQuestionVersionRequest,
   type CreateAdminQuestionRequest,
@@ -861,7 +861,7 @@ const resolveTags = async (
     'level' | 'subject' | 'questionType' | 'tagNames'
   >
 ): Promise<TagRow[]> => {
-  const normalizedNames = content.tagNames.map(normalizePhase7TagKey)
+  const normalizedNames = content.tagNames.map(normalizeContentTagKey)
   const rows = await client.$queryRawUnsafe<TagRow[]>(
     `SELECT tag."id", tag."label", tag."normalizedName"
      FROM "Tag" AS tag

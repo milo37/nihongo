@@ -11,8 +11,8 @@ interface ApplicationErrorOptions {
   fieldErrors?: Record<string, string[]>
   location?: `/api/v1/study-sessions/${string}/result`
   retryAfterSeconds?: number
-  phase7Disposition?: AdminExecutionDisposition
-  phase7InternalReason?: AdminInternalFailureReason
+  adminDisposition?: AdminExecutionDisposition
+  adminInternalReason?: AdminInternalFailureReason
   cause?: unknown
 }
 
@@ -22,8 +22,8 @@ export class ApplicationError extends Error {
   readonly fieldErrors?: Record<string, string[]>
   readonly location?: `/api/v1/study-sessions/${string}/result`
   readonly retryAfterSeconds?: number
-  readonly phase7Disposition?: AdminExecutionDisposition
-  readonly phase7InternalReason?: AdminInternalFailureReason
+  readonly adminDisposition?: AdminExecutionDisposition
+  readonly adminInternalReason?: AdminInternalFailureReason
 
   constructor(options: ApplicationErrorOptions) {
     super(options.message, { cause: options.cause })
@@ -40,11 +40,11 @@ export class ApplicationError extends Error {
     if (options.retryAfterSeconds !== undefined) {
       this.retryAfterSeconds = options.retryAfterSeconds
     }
-    if (options.phase7Disposition !== undefined) {
-      this.phase7Disposition = options.phase7Disposition
+    if (options.adminDisposition !== undefined) {
+      this.adminDisposition = options.adminDisposition
     }
-    if (options.phase7InternalReason !== undefined) {
-      this.phase7InternalReason = options.phase7InternalReason
+    if (options.adminInternalReason !== undefined) {
+      this.adminInternalReason = options.adminInternalReason
     }
   }
 }

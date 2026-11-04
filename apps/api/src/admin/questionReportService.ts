@@ -37,7 +37,7 @@ const execute = async <Result>(operation: () => Promise<Result>) => {
         ...(error.code === 'SERVICE_UNAVAILABLE'
           ? { retryAfterSeconds: 5 }
           : {}),
-        phase7Disposition: error.disposition,
+        adminDisposition: error.disposition,
         cause: error
       })
     }
@@ -46,7 +46,7 @@ const execute = async <Result>(operation: () => Promise<Result>) => {
       message: '문제 신고 저장소에 연결할 수 없습니다.',
       retryable: true,
       retryAfterSeconds: 5,
-      phase7Disposition: 'NO_TX',
+      adminDisposition: 'NO_TX',
       cause: error
     })
   }
@@ -70,7 +70,7 @@ export const createQuestionReportService = ({
           code: 'RESOURCE_NOT_FOUND',
           message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.',
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
       await rateLimiter.consume({
@@ -87,7 +87,7 @@ export const createQuestionReportService = ({
           code: 'RESOURCE_NOT_FOUND',
           message: '신고할 수 있는 문제 버전을 찾을 수 없습니다.',
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
       if (duplicateState.hasOpenDuplicate) {
@@ -95,7 +95,7 @@ export const createQuestionReportService = ({
           code: 'QUESTION_REPORT_DUPLICATE',
           message: '같은 문제 버전과 사유의 처리 중 신고가 이미 있습니다.',
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
       return repository.create(authority, duplicateState.questionId, request)
@@ -109,7 +109,7 @@ export const createQuestionReportService = ({
           code: 'RESOURCE_NOT_FOUND',
           message: '문제 신고를 찾을 수 없습니다.',
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
       return report

@@ -3,7 +3,7 @@ import { isoDateTimeSchema } from '../common/date.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
-  createPhase7TextSchema,
+  createContentTextSchema,
   nonNegativeSafeIntegerSchema,
   rowVersionSchema
 } from '../common/content-validation.js'
@@ -79,7 +79,7 @@ export const getAdminMemberParamsSchema = z
 export const adminMemberDetailSchema = adminMemberSummarySchema
   .extend({
     restrictedAt: isoDateTimeSchema.nullable(),
-    restrictionReason: createPhase7TextSchema({
+    restrictionReason: createContentTextSchema({
       maxScalars: 500,
       multiline: true
     }).nullable()
@@ -100,7 +100,7 @@ export const getAdminMemberResponseSchema = adminMemberDetailSchema
 export const restrictAdminMemberRequestSchema = z
   .object({
     expectedRowVersion: rowVersionSchema,
-    reason: createPhase7TextSchema({ maxScalars: 500, multiline: true })
+    reason: createContentTextSchema({ maxScalars: 500, multiline: true })
   })
   .strict()
 

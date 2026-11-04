@@ -3,16 +3,15 @@ import { describe, expect, it } from 'vitest'
 import * as contentOperations from '@nihongo/contracts/admin/content-operations'
 import * as legacyOperations from '@nihongo/contracts/admin/phase7'
 import * as contentConformance from '@nihongo/contracts/testing/admin-content-conformance'
-import * as legacyConformance from '@nihongo/contracts/testing/phase7-admin-conformance'
 
 import {
   assertOperationFailureResponse,
   assertErrorPolicyManifest,
   assertOperationManifest,
   assertOperationSchemaManifest,
-  buildPhase7OperationFailureResponse,
+  buildContentOperationFailureResponse,
   computeRetryability,
-  phase7ErrorSurfaceByOperation,
+  contentErrorSurfaceByOperation,
   dormantAfterSlice3AOperationManifest,
   dormantAfterSlice3RA1OperationManifest,
   dormantAfterSlice3RA2OperationManifest,
@@ -76,8 +75,8 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(contentOperations.ContentJsonParseError).toBe(
       legacyOperations.ContentJsonParseError
     )
-    expect(contentConformance.assertSlice2ConformanceManifest).toBe(
-      legacyConformance.assertSlice2ConformanceManifest
+    expect(typeof contentConformance.assertSlice2ConformanceManifest).toBe(
+      'function'
     )
 
     try {
@@ -498,7 +497,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     })
     operationErrorConformanceManifest.forEach((entry) => {
       expect(entry.errorSurface).toBe(
-        phase7ErrorSurfaceByOperation[entry.operation]
+        contentErrorSurfaceByOperation[entry.operation]
       )
       expect(entry.deterministic4xxRetryable).toBe(false)
       expect(entry.rateLimitedRetryable).toBe(true)
@@ -624,7 +623,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('builds and asserts canonical status/body/header transport', () => {
-    const deterministic = buildPhase7OperationFailureResponse({
+    const deterministic = buildContentOperationFailureResponse({
       operation: 'listAdminQuestions',
       failure: {
         code: 'ADMIN_REQUIRED',
@@ -655,7 +654,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     ).not.toThrow()
 
     expect(() =>
-      buildPhase7OperationFailureResponse({
+      buildContentOperationFailureResponse({
         operation: 'listAdminQuestions',
         failure: {
           code: 'RATE_LIMITED',
@@ -665,7 +664,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         disposition: 'NO_TX'
       })
     ).toThrow()
-    const limited = buildPhase7OperationFailureResponse({
+    const limited = buildContentOperationFailureResponse({
       operation: 'listAdminQuestions',
       failure: {
         code: 'RATE_LIMITED',
@@ -679,7 +678,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(limited.body.retryable).toBe(true)
     expect(limited.headers['Retry-After']).toBe('7')
 
-    const commitUnknown = buildPhase7OperationFailureResponse({
+    const commitUnknown = buildContentOperationFailureResponse({
       operation: 'createAdminQuestion',
       failure: {
         code: 'SERVICE_UNAVAILABLE',
@@ -693,7 +692,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(commitUnknown.body.retryable).toBe(false)
     expect(commitUnknown.headers['Retry-After']).toBe('3')
 
-    const reauthentication = buildPhase7OperationFailureResponse({
+    const reauthentication = buildContentOperationFailureResponse({
       operation: 'reauthenticateAdmin',
       failure: {
         code: 'INTERNAL_SERVER_ERROR',
@@ -706,7 +705,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('rejects tampered status, no-store, request ID, and Retry-After transport', () => {
-    const limited = buildPhase7OperationFailureResponse({
+    const limited = buildContentOperationFailureResponse({
       operation: 'listAdminQuestions',
       failure: {
         code: 'RATE_LIMITED',

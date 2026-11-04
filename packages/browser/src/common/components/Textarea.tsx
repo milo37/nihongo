@@ -72,7 +72,7 @@ export const Textarea = ({
       ) : null}
       {error ? (
         <p
-          className="text-sm font-medium text-danger"
+          className="field-error text-sm font-medium text-danger"
           id={errorId}
           role="alert"
         >

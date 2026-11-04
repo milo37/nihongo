@@ -62,7 +62,7 @@ export const QuestionListFilters = ({
             defaultValue={search}
             placeholder={t('questionList.searchPlaceholder')}
             autoComplete="off"
-            // Contract q cap (phase7QuestionSearchSchema maxScalars 100).
+            // Contract q cap (contentQuestionSearchSchema maxScalars 100).
             maxLength={100}
           />
         </div>

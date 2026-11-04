@@ -16,10 +16,10 @@ import {
   accountActorSnapshotSchema,
   adminActorSnapshotSchema,
   compareUnicodeScalars,
-  createPhase7TextSchema,
-  isWellFormedPhase7Text,
+  createContentTextSchema,
+  isWellFormedContentText,
   nonNegativeSafeIntegerSchema,
-  normalizePhase7TagKey,
+  normalizeContentTagKey,
   positiveSafeIntegerSchema,
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,
@@ -50,16 +50,16 @@ export const adminQuestionSortSchema = z.enum([
 export const adminTagSummarySchema = z
   .object({
     id: opaqueIdSchema,
-    label: createPhase7TextSchema({ maxScalars: 100 }),
+    label: createContentTextSchema({ maxScalars: 100 }),
     normalizedName: z
       .string()
       .min(1)
       .refine(
         (value) =>
           [...value].length <= 100 &&
-          isWellFormedPhase7Text(value) &&
+          isWellFormedContentText(value) &&
           !value.includes('\n') &&
-          normalizePhase7TagKey(value) === value,
+          normalizeContentTagKey(value) === value,
         {
           message:
             'normalizedName은 canonical normalizeTagKey v1 값이어야 합니다.'
@@ -68,7 +68,7 @@ export const adminTagSummarySchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (normalizePhase7TagKey(value.label) !== value.normalizedName) {
+    if (normalizeContentTagKey(value.label) !== value.normalizedName) {
       addIssue(
         context,
         ['normalizedName'],
@@ -154,7 +154,7 @@ export const adminQuestionSummarySchema = z
     subject: questionSubjectSchema,
     questionType: questionTypeSchema,
     difficulty: questionDifficultySchema,
-    questionTextPreview: createPhase7TextSchema({ maxScalars: 160 }),
+    questionTextPreview: createContentTextSchema({ maxScalars: 160 }),
     tags: adminTagListSchema,
     author: accountActorSnapshotSchema.nullable(),
     latestReviewer: accountActorSnapshotSchema.nullable(),
@@ -233,7 +233,7 @@ export const adminQuestionVersionSummarySchema = z
     subject: questionSubjectSchema,
     questionType: questionTypeSchema,
     difficulty: questionDifficultySchema,
-    questionTextPreview: createPhase7TextSchema({ maxScalars: 160 }),
+    questionTextPreview: createContentTextSchema({ maxScalars: 160 }),
     tags: adminTagListSchema,
     author: accountActorSnapshotSchema.nullable(),
     latestReviewer: accountActorSnapshotSchema.nullable(),
@@ -308,11 +308,11 @@ export const adminContentReviewActionSchema = z.enum([
   'AUTHOR_ERASURE_ABANDONED'
 ])
 
-const reviewReasonSchema = createPhase7TextSchema({
+const reviewReasonSchema = createContentTextSchema({
   maxScalars: 100,
   multiline: true
 })
-const reviewCommentSchema = createPhase7TextSchema({
+const reviewCommentSchema = createContentTextSchema({
   maxScalars: 1000,
   multiline: true
 })

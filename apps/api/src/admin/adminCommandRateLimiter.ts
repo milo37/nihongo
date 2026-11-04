@@ -34,7 +34,7 @@ const settings = {
   storeUnavailableMessage: '관리자 명령 제한 저장소에 연결할 수 없습니다.',
   stateInvalidMessage: '관리자 명령 제한 상태를 확인할 수 없습니다.',
   rateLimitedMessage: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
-  phase7Disposition: 'NO_TX'
+  adminDisposition: 'NO_TX'
 } as const
 
 export const createAdminCommandRateLimiter = ({

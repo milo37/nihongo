@@ -68,7 +68,7 @@ export const Input = ({
       ) : null}
       {error ? (
         <p
-          className="text-sm font-medium text-red-700"
+          className="field-error text-sm font-medium text-red-700"
           id={errorId}
           role="alert"
         >

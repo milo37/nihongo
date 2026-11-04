@@ -298,12 +298,12 @@ const describeFailure = (value: unknown, depth = 0): string => {
   const details = value as Error & {
     readonly code?: unknown
     readonly disposition?: unknown
-    readonly phase7Disposition?: unknown
+    readonly adminDisposition?: unknown
   }
   const code = typeof details.code === 'string' ? `:${details.code}` : ''
   const dispositionValue =
-    typeof details.phase7Disposition === 'string'
-      ? details.phase7Disposition
+    typeof details.adminDisposition === 'string'
+      ? details.adminDisposition
       : typeof details.disposition === 'string'
         ? details.disposition
         : ''
@@ -1096,7 +1096,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'SEPARATION_OF_DUTIES_VIOLATION',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readVersionWriteCounts(createdVersionId)).toEqual(
       beforeSelfDecision
@@ -1270,7 +1270,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'DUPLICATE_QUESTION_CONTENT',
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
     expect(
       await adminClient.query<{
@@ -1457,7 +1457,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(publishLoser.reason).toBeInstanceOf(ApplicationError)
     expect(publishLoser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(
@@ -1709,7 +1709,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(archiveBothLoser.reason).toBeInstanceOf(ApplicationError)
     expect(archiveBothLoser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(
@@ -1965,7 +1965,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(retirementLoser.reason).toBeInstanceOf(ApplicationError)
     expect(retirementLoser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(
@@ -2264,7 +2264,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     const rollbackState = await adminClient.query<{
       auditCount: number
@@ -2331,7 +2331,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'INVALID_STATE_TRANSITION',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readCommandEvidence(stateFirstAuthority.requestId)).toEqual({
       audit: [],
@@ -2358,7 +2358,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readCommandEvidence(staleFirstAuthority.requestId)).toEqual({
       audit: [],
@@ -2598,9 +2598,9 @@ describe('ADMIN command TEST database integration', () => {
     }
     expect(concurrentLoser.reason).toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
-      phase7InternalReason: 'CONTENT_DUPLICATE_CONCURRENT_RACE',
+      adminInternalReason: 'CONTENT_DUPLICATE_CONCURRENT_RACE',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     const afterConcurrent = await readGlobalWriteCounts()
     expect(afterConcurrent).toEqual({
@@ -2653,7 +2653,7 @@ describe('ADMIN command TEST database integration', () => {
       ).rejects.toMatchObject({
         code: 'SERVICE_UNAVAILABLE',
         retryable: false,
-        phase7Disposition: 'DEFINITE_ROLLBACK'
+        adminDisposition: 'DEFINITE_ROLLBACK'
       })
       expect(await readGlobalWriteCounts()).toEqual(beforeFault)
     } finally {
@@ -2757,7 +2757,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(reportCreateLoser.reason).toMatchObject({
       code: 'QUESTION_REPORT_DUPLICATE',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     await expect(
       questionReportService.createReport(
@@ -2882,7 +2882,7 @@ describe('ADMIN command TEST database integration', () => {
     )
     expect(loser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readCommandEvidence(loserAuthority.requestId)).toEqual({
       audit: [],
@@ -3009,7 +3009,7 @@ describe('ADMIN command TEST database integration', () => {
         )
       ).rejects.toMatchObject({
         code: 'RESOURCE_NOT_FOUND',
-        phase7Disposition: 'DEFINITE_ROLLBACK'
+        adminDisposition: 'DEFINITE_ROLLBACK'
       })
       expect(await readCommandEvidence(resolveAuthority.requestId)).toEqual({
         audit: [],
@@ -3125,7 +3125,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(olderResolutionAuthority.requestId)
@@ -3312,7 +3312,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     const authorityTarget = await prepareApprovedQuestion(
@@ -3371,7 +3371,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     await insertCredentialUser(revocationLearnerId, 'USER')
@@ -3426,7 +3426,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     await insertCredentialUser(erasureLearnerId, 'USER')
@@ -3474,7 +3474,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     const wrongNoteTarget = await prepareApprovedQuestion(
@@ -3584,7 +3584,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     const reportCounts = await adminClient.query<{
       authorityCount: number
@@ -3635,7 +3635,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     const revokedToken = `phase7-command-revoked-${randomUUID()}`
@@ -3654,7 +3654,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     expect(await readGlobalWriteCounts()).toEqual(before)

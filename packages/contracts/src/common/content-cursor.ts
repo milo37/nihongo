@@ -150,7 +150,7 @@ export const decodeAdminQuestionVersionCursor = (
   return cursor
 }
 
-export const encodePhase7OccurredAtCursor = (input: {
+export const encodeContentOccurredAtCursor = (input: {
   readonly occurredAt: string
   readonly id: string
 }): string => {
@@ -162,11 +162,11 @@ export const encodePhase7OccurredAtCursor = (input: {
   })
 }
 
-export const decodePhase7OccurredAtCursor = (
+export const decodeContentOccurredAtCursor = (
   token: string
 ): z.output<typeof occurredAtCursorValueSchema> => {
   const cursor = occurredAtCursorValueSchema.parse(parseCursorJson(token))
-  if (encodePhase7OccurredAtCursor(cursor) !== token) {
+  if (encodeContentOccurredAtCursor(cursor) !== token) {
     throw new Error('occurredAt cursor가 canonical encoding이 아닙니다.')
   }
   return cursor
@@ -185,10 +185,10 @@ export const adminQuestionVersionCursorSchema = rawCursorSchema.superRefine(
   }
 )
 
-export const phase7OccurredAtCursorSchema = rawCursorSchema.superRefine(
+export const contentOccurredAtCursorSchema = rawCursorSchema.superRefine(
   (value, context) => {
     try {
-      decodePhase7OccurredAtCursor(value)
+      decodeContentOccurredAtCursor(value)
     } catch {
       context.addIssue({
         code: 'custom',
@@ -202,7 +202,7 @@ export type VersionCursorValue = z.output<typeof versionCursorValueSchema>
 export type OccurredAtCursorValue = z.output<typeof occurredAtCursorValueSchema>
 
 export {
-  encodePhase7OccurredAtCursor as encodeOccurredAtCursor,
-  decodePhase7OccurredAtCursor as decodeOccurredAtCursor,
-  phase7OccurredAtCursorSchema as occurredAtCursorSchema
+  encodeContentOccurredAtCursor as encodeOccurredAtCursor,
+  decodeContentOccurredAtCursor as decodeOccurredAtCursor,
+  contentOccurredAtCursorSchema as occurredAtCursorSchema
 }

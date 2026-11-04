@@ -136,10 +136,10 @@ const execute = async <Result>(
         code: error.code,
         message: error.message,
         retryable: false,
-        phase7Disposition: error.disposition,
+        adminDisposition: error.disposition,
         ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
         ...(error.internalReason
-          ? { phase7InternalReason: error.internalReason }
+          ? { adminInternalReason: error.internalReason }
           : {}),
         ...(error.retryAfterSeconds
           ? { retryAfterSeconds: error.retryAfterSeconds }
