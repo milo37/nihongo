@@ -440,17 +440,30 @@ export const jaAdminResources = {
     edit: '編集',
     details: '詳細',
     rowActionLabel: '問題{{questionId}}の{{action}}',
-    archive: 'アーカイブ',
-    archiveLabel: '問題{{questionId}}をアーカイブ',
+    archive: '公開終了・アーカイブ',
+    archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
+    draftDelete: '下書きを削除',
+    draftDeleteLabel: '下書き{{questionId}}を削除',
+    draftDialog: {
+      title: '下書きを削除しますか？',
+      description:
+        '下書き{{questionId}}を一覧から外してアーカイブします。同じ内容で新しい問題を作成することはできません。',
+      confirm: '下書きを削除',
+      confirming: '削除中…',
+      failed:
+        '下書きを削除できませんでした。しばらくしてから、もう一度お試しください。',
+      successTitle: '下書きを削除しました',
+      successDescription: '下書き{{questionId}}を一覧から外しました。'
+    },
     archiveDialog: {
-      title: '問題をアーカイブしますか？',
+      title: 'この問題を公開終了してアーカイブしますか？',
       description:
         '問題{{questionId}}を有効な一覧からアーカイブします。これまでの学習結果は残ります。',
       body: '有効な一覧と新しい出題対象から外し、現在の公開版と作業中の候補の利用を終了します。これまでの学習記録は削除しません。',
       duplicateNote:
         'アーカイブした問題（下書きを含む）と同じ内容では、新しい問題を作成できません。',
       cancel: 'キャンセル',
-      confirm: '問題をアーカイブ',
+      confirm: '公開終了・アーカイブ',
       confirming: 'アーカイブ中…',
       reauthenticate: '管理者の再認証',
       refresh: '最新の状態を確認',
