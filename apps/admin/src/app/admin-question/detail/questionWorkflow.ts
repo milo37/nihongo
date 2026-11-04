@@ -113,17 +113,22 @@ export const allowedCommands = (
   const isCandidate =
     detail.question.openCandidateVersionId === version.questionVersionId
   if (editableVersion(detail, version, actorId)) commands.push('REQUEST_REVIEW')
-  if (isCandidate && version.author && version.author.actorId !== actorId) {
+  // One operator may approve, withdraw and publish their own version (#550);
+  // only a change request still needs another administrator.
+  if (isCandidate && version.author) {
     if (version.versionStatus === 'IN_REVIEW')
-      commands.push('CHANGE_REQUEST', 'APPROVE')
+      commands.push(
+        ...(version.author.actorId === actorId
+          ? (['APPROVE'] as const)
+          : (['CHANGE_REQUEST', 'APPROVE'] as const))
+      )
     if (version.versionStatus === 'APPROVED') commands.push('WITHDRAW')
   }
   if (
     isCandidate &&
     version.versionStatus === 'APPROVED' &&
     version.author &&
-    version.latestReviewer &&
-    version.author.actorId !== version.latestReviewer.actorId
+    version.latestReviewer
   )
     commands.push('PUBLISH')
   if (
