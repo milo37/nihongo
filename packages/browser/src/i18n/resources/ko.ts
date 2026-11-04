@@ -1985,9 +1985,9 @@ export const koResources = {
       commandDialogTitle: '{{command}} 확인',
       commandDialogFallbackTitle: '작업 확인',
       commandDialogDescription:
-        '현재 rowVersion을 기준으로 실행하며 충돌 시 자동 재시도하지 않습니다.',
+        '다른 관리자가 먼저 바꿨다면 실행하지 않고 알려 드립니다.',
       cancel: '취소',
-      execute: '명시적으로 실행',
+      execute: '실행',
       requiredReason: '사유',
       optionalReviewNote: '검수 메모 (선택)',
       noteLimit: '메모는 {{formattedCount}}자 이하여야 합니다.',
