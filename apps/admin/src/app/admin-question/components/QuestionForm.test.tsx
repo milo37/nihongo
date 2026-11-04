@@ -457,6 +457,46 @@ describe('question form locale and preserved state', () => {
     }
   )
 
+  it.each([
+    {
+      locale: 'ko' as const,
+      tag: '태그',
+      error: '입력 형식이나 길이를 확인해 주세요.'
+    },
+    {
+      locale: 'ja' as const,
+      tag: 'タグ',
+      error: '入力の形式や長さを確認してください。'
+    }
+  ])(
+    'shows the common message in $locale for a contract check without a form key',
+    async ({ locale, tag, error }) => {
+      const tooManyTags = Array.from({ length: 13 }, (_, i) => `태그${i + 1}`)
+      const messages = getIssueMessages({
+        ...validFormValues,
+        tagsText: tooManyTags.join(', ')
+      })
+      expect(messages.length).toBeGreaterThan(0)
+      expect(
+        messages.every((message) => !message.startsWith('editor.form.'))
+      ).toBe(true)
+
+      expect(writeUiLocalePreference(locale)).toBe(true)
+      const user = userEvent.setup()
+      const handleSubmit = vi.fn()
+      render(renderQuestionForm(handleSubmit, initialQuestion, true))
+      await waitFor(() => expect(appI18n.resolvedLanguage).toBe(locale))
+      const tagInput = screen.getByRole('textbox', { name: tag })
+      fireEvent.change(tagInput, { target: { value: tooManyTags.join(', ') } })
+      await user.click(screen.getByRole('button', { name: '문제 등록' }))
+      expect(await screen.findByText(error)).toBeVisible()
+      expect(tagInput).toHaveAttribute('aria-invalid', 'true')
+      for (const message of messages)
+        expect(screen.queryByText(message)).not.toBeInTheDocument()
+      expect(handleSubmit).not.toHaveBeenCalled()
+    }
+  )
+
   it('localizes a well-formed overlength question without hiding other contract errors', async () => {
     expect(writeUiLocalePreference('ja')).toBe(true)
     const user = userEvent.setup()

@@ -628,7 +628,8 @@ export const jaAdminResources = {
         optionDuplicate: '同じ選択肢を重複して入力できません。',
         correct: '正解は選択肢から1つ選んでください。',
         explanationKo: '韓国語解説を入力してください。',
-        tags: 'タグを1つ以上入力してください。'
+        tags: 'タグを1つ以上入力してください。',
+        invalid: '入力の形式や長さを確認してください。'
       }
     },
     classificationLegend: '分類と本文',
