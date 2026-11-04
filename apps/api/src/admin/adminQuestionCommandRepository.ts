@@ -31,7 +31,9 @@ import {
   toIso,
   uniqueSorted,
   rawDatabaseIdentity,
-  finishOperation
+  finishOperation,
+  AdminRuleViolation,
+  assertEditableUnpinnedVersion
 } from './adminRepositoryCommon.js'
 
 type ContentOperation =
@@ -199,6 +201,7 @@ const FRESH_OPERATIONS = new Set<AdminQuestionDomainOperation>([
   'archiveAdminQuestion'
 ])
 const rawSqlState = (error: unknown): string | undefined => {
+  if (error instanceof AdminRuleViolation) return error.sqlState
   if (
     !(error instanceof Prisma.PrismaClientKnownRequestError) ||
     error.code !== 'P2010' ||
@@ -1609,6 +1612,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               tags: desiredTags.map((tag) => tag.id).sort()
             }
           })
+          await assertEditableUnpinnedVersion(transaction, versionId)
           const lockedTags = await resolveTags(transaction, request)
           const currentTags = await loadVersionTags(transaction, versionId)
           await transaction.$executeRawUnsafe(

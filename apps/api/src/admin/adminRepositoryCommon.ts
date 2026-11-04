@@ -69,12 +69,55 @@ export const AUTHORITY_FAILURE_MESSAGES = new Set([
 
 export const toIso = (value: Date): string => value.toISOString()
 
+/**
+ * A content rule checked in the API (#504 P4). It carries the SQL state and
+ * message of the database rule it replaced, so error mapping stays the same.
+ */
+export class AdminRuleViolation extends Error {
+  readonly sqlState: string
+
+  constructor(sqlState: string, message: string) {
+    super(message)
+    this.name = 'AdminRuleViolation'
+    this.sqlState = sqlState
+  }
+}
+
+/**
+ * Options and tags of a version change only while it is editable and no study
+ * session pins it (former QuestionVersion children trigger).
+ */
+export const assertEditableUnpinnedVersion = async (
+  transaction: Prisma.TransactionClient,
+  versionId: string
+): Promise<void> => {
+  const rows = await transaction.$queryRawUnsafe<Array<{ editable: boolean }>>(
+    `SELECT version."status"::text IN ('DRAFT', 'CHANGES_REQUESTED')
+            AND NOT EXISTS (
+              SELECT 1 FROM "StudySessionQuestion" AS pinned
+               WHERE pinned."questionVersionId" = version."id"
+            ) AS "editable"
+       FROM "QuestionVersion" AS version
+      WHERE version."id" = $1::uuid`,
+    versionId
+  )
+  if (rows[0]?.editable !== true) {
+    throw new AdminRuleViolation(
+      '23514',
+      'QuestionVersion children require an editable unpinned parent.'
+    )
+  }
+}
+
 export const uniqueSorted = (values: readonly (string | null)[]): string[] =>
   [...new Set(values.filter((value): value is string => value !== null))].sort()
 
 export const rawDatabaseIdentity = (
   error: unknown
 ): { readonly sqlState: string; readonly message: string } | undefined => {
+  if (error instanceof AdminRuleViolation) {
+    return { sqlState: error.sqlState, message: error.message }
+  }
   if (
     !(error instanceof Prisma.PrismaClientKnownRequestError) ||
     error.code !== 'P2010' ||

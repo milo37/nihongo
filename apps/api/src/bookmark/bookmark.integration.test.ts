@@ -319,7 +319,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '기존 Bookmark snapshot을 보존하고 비인가 archive를 원자 거부한다'
+      ? '기존 Bookmark snapshot을 보존하고 불완전한 archive를 원자 거부한다'
       : '기존 Bookmark의 public snapshot은 archive 뒤에도 보존하고 신규 추가는 막는다',
     async () => {
       const ownerId = await createUser('archive-owner')
@@ -370,9 +370,11 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         } finally {
           await applicationClient.end().catch(() => undefined)
         }
+        // Admin archive rules run in the API (#504 P4); the deferred aggregate
+        // check still rejects a raw archive that leaves the aggregate invalid.
         expect(archiveError).toMatchObject({
-          code: '42501',
-          message: 'An armed trusted Phase 7 operation intent is required.'
+          code: '23514',
+          message: 'Question pointer/lifecycle aggregate invariant failed.'
         })
 
         const listed = await bookmarkService.list(ownerId, {
@@ -574,7 +576,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
 
   it(
     isCurrentSourceIntegration
-      ? 'BOOKMARK selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
+      ? 'BOOKMARK selection 중 archive transaction을 rollback하면 version pin을 보존한다'
       : 'BOOKMARK selection과 archive를 직렬화하고 이미 선택한 version pin을 보존한다',
     async () => {
       const ownerId = await createUser('archive-race')
@@ -724,10 +726,8 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         })
 
         if (isCurrentSourceIntegration) {
-          expect(archiveError).toMatchObject({
-            code: '42501',
-            message: 'An armed trusted Phase 7 operation intent is required.'
-          })
+          // Admin archive rules run in the API (#504 P4), so the raw update
+          // is not rejected here; rolling it back keeps the version pin.
           await archiveClient.query('ROLLBACK')
           archiveTransactionOpen = false
           await expect(

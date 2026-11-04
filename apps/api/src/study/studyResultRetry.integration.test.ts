@@ -517,7 +517,7 @@ describe('study result retry integration', () => {
       const archiveTime = new Date()
       await expectRawDatabaseError({
         expectedMessage:
-          'An armed trusted Phase 7 operation intent is required.',
+          'Question pointer/lifecycle aggregate invariant failed.',
         operation: async () =>
           await database.client.$executeRaw`
             UPDATE "Question"
@@ -529,7 +529,7 @@ describe('study result retry integration', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${archivedQuestionId}::uuid
           `,
-        sqlState: '42501'
+        sqlState: '23514'
       })
       await expect(
         database.client.question.findUniqueOrThrow({
@@ -626,7 +626,7 @@ describe('study result retry integration', () => {
         const retirementTime = new Date(startedAt.getTime() + 2_000)
         await expectRawDatabaseError({
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "QuestionVersion"
@@ -638,7 +638,7 @@ describe('study result retry integration', () => {
               "updatedAt" = ${retirementTime}
             WHERE "id" = ${sourceVersionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.questionVersion.findUniqueOrThrow({

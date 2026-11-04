@@ -625,8 +625,10 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           })
         const archiveTime = new Date('2026-08-16T03:00:00.000Z')
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -638,7 +640,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${target.questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({

@@ -490,8 +490,8 @@ describe('Review-center data foundation', () => {
         await applicationClient.end().catch(() => undefined)
       }
       expect(archiveError).toMatchObject({
-        code: '42501',
-        message: 'An armed trusted Phase 7 operation intent is required.'
+        code: '23514',
+        message: 'Question pointer/lifecycle aggregate invariant failed.'
       })
       await expect(
         database.client.question.findUniqueOrThrow({

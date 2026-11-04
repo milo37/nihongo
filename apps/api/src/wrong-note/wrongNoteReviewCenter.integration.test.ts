@@ -807,8 +807,10 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       const archiveTime = new Date(dueAt.getTime() + 1_000)
       if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
               UPDATE "Question"
@@ -820,7 +822,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                 "updatedAt" = ${archiveTime}
               WHERE "id" = ${fixture.questionId}::uuid
             `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -1451,8 +1453,10 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       const archiveTime = new Date('2026-08-22T01:00:00.000Z')
       if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -1464,7 +1468,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${fixture.questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -1756,8 +1760,10 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
     const archiveTime = new Date(TARGETED_AT.getTime() + 2_000)
     if (isCurrentSourceIntegration) {
       await expectRawDatabaseError({
+        // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+        // invariant still refuses an archive that only clears the pointer.
         expectedMessage:
-          'An armed trusted Phase 7 operation intent is required.',
+          'Question pointer/lifecycle aggregate invariant failed.',
         operation: async () =>
           await database.client.$executeRaw`
             UPDATE "Question"
@@ -1769,7 +1775,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${targetFixture.questionId}::uuid
           `,
-        sqlState: '42501'
+        sqlState: '23514'
       })
       await expect(
         database.client.question.findUniqueOrThrow({
@@ -1946,10 +1952,9 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           questionVersionId: targetFixture.questionVersionId
         })
         if (isCurrentSourceIntegration) {
-          expect(archiveError).toMatchObject({
-            code: '42501',
-            message: 'An armed trusted Phase 7 operation intent is required.'
-          })
+          // The deferred aggregate check runs at commit (#504 P4), so the
+          // uncommitted archive is rolled back here.
+          expect(archiveError).toBeUndefined()
           await archiveClient.query('ROLLBACK')
           archiveTransactionOpen = false
           await expect(

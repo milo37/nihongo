@@ -439,7 +439,7 @@ describe('question catalog PostgreSQL integration', () => {
 
   it(
     isCurrentSourceIntegration
-      ? 'application role은 published version 직접 변경을 막고 option/tag immutability를 유지한다'
+      ? 'published seed version과 option/tag snapshot이 그대로 남아 있다'
       : 'published version과 option/tag snapshot 수정을 DB에서 거부한다',
     async () => {
       const seed = buildAllQuestionSeeds()[0]
@@ -449,38 +449,8 @@ describe('question catalog PostgreSQL integration', () => {
       }
 
       if (isCurrentSourceIntegration) {
-        await expectRawDatabaseError({
-          expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
-          operation: async () =>
-            await database.client.$executeRaw`
-              UPDATE "QuestionVersion"
-              SET "questionText" = '변조된 질문'
-              WHERE "id" = ${seed.versionId}::uuid
-            `,
-          sqlState: '42501'
-        })
-        await expectRawDatabaseError({
-          expectedMessage:
-            'QuestionVersion children require an editable unpinned parent.',
-          operation: async () =>
-            await database.client.$executeRaw`
-              UPDATE "QuestionOption"
-              SET "text" = '변조된 보기'
-              WHERE "id" = ${seed.options[0]!.id}::uuid
-            `,
-          sqlState: '23514'
-        })
-        await expectRawDatabaseError({
-          expectedMessage:
-            'QuestionVersion children require an editable unpinned parent.',
-          operation: async () =>
-            await database.client.$executeRaw`
-              DELETE FROM "QuestionVersionTag"
-              WHERE "id" = ${seed.tags[0]!.versionTagId}::uuid
-            `,
-          sqlState: '23514'
-        })
+        // Published content immutability is an admin command rule in the API
+        // since #504 P4 (adminQuestionCommandRepository integration test).
         await expect(
           verifyExistingQuestionSeed(database.client, seed)
         ).resolves.toBeUndefined()
@@ -524,9 +494,11 @@ describe('question catalog PostgreSQL integration', () => {
     }
 
     if (isCurrentSourceIntegration) {
+      // The editable-parent rule moved to the API (#504 P4); the option label
+      // key still refuses this raw move. The raw tag move has no DB guard left.
       await expectRawDatabaseError({
         expectedMessage:
-          'QuestionVersion children require an editable unpinned parent.',
+          'duplicate key value violates unique constraint "QuestionOption_questionVersionId_label_key"',
         operation: async () =>
           await fixtureDatabase.client.$transaction(async (transaction) => {
             await transaction.$executeRaw`
@@ -535,20 +507,7 @@ describe('question catalog PostgreSQL integration', () => {
               WHERE "id" = ${movableOption.id}::uuid
             `
           }),
-        sqlState: '23514'
-      })
-      await expectRawDatabaseError({
-        expectedMessage:
-          'QuestionVersion children require an editable unpinned parent.',
-        operation: async () =>
-          await fixtureDatabase.client.$transaction(async (transaction) => {
-            await transaction.$executeRaw`
-              UPDATE "QuestionVersionTag"
-              SET "questionVersionId" = ${targetSeed.versionId}::uuid
-              WHERE "id" = ${seed.tags[0]!.versionTagId}::uuid
-            `
-          }),
-        sqlState: '23514'
+        sqlState: '23505'
       })
       await expect(
         Promise.all([
@@ -738,12 +697,6 @@ describe('question catalog PostgreSQL integration', () => {
           'insert or update on table "QuestionVersion" violates foreign key constraint "QuestionVersion_id_correctOptionId_fkey"',
         operation: async () =>
           await fixtureDatabase.client.$transaction(async (transaction) => {
-            await transaction.$executeRawUnsafe(
-              'ALTER TABLE "QuestionVersion" DISABLE TRIGGER "QuestionVersion_validate_change"'
-            )
-            await transaction.$executeRawUnsafe(
-              'ALTER TABLE "QuestionVersion" DISABLE TRIGGER "QuestionVersion_capture_phase7_delta"'
-            )
             await transaction.$executeRaw`
               UPDATE "QuestionVersion"
               SET "correctOptionId" = ${foreignOption.id}::uuid
@@ -843,9 +796,6 @@ describe('question catalog PostgreSQL integration', () => {
           'QuestionVersion must commit complete canonical content.',
         operation: async () =>
           await fixtureDatabase.client.$transaction(async (transaction) => {
-            await transaction.$executeRawUnsafe(
-              'ALTER TABLE "QuestionOption" DISABLE TRIGGER "QuestionOption_protect_immutable_version"'
-            )
             await transaction.$executeRaw`
               DELETE FROM "QuestionOption"
               WHERE "id" = ${removableOption.id}::uuid
@@ -917,9 +867,6 @@ describe('question catalog PostgreSQL integration', () => {
           'new row for relation "QuestionVersion" violates check constraint "QuestionVersion_content_type_check"',
         operation: async () =>
           await fixtureDatabase.client.$transaction(async (transaction) => {
-            await transaction.$executeRawUnsafe(
-              'ALTER TABLE "QuestionVersion" DISABLE TRIGGER "QuestionVersion_validate_change"'
-            )
             await transaction.$executeRaw`
               UPDATE "QuestionVersion"
               SET
@@ -974,9 +921,6 @@ describe('question catalog PostgreSQL integration', () => {
           'QuestionVersion must commit complete canonical content.',
         operation: async () =>
           await fixtureDatabase.client.$transaction(async (transaction) => {
-            await transaction.$executeRawUnsafe(
-              'ALTER TABLE "QuestionVersionTag" DISABLE TRIGGER "QuestionVersionTag_protect_immutable_version"'
-            )
             await transaction.$executeRaw`
               DELETE FROM "QuestionVersionTag"
               WHERE "questionVersionId" = ${seed.versionId}::uuid
@@ -1042,6 +986,8 @@ describe('question catalog PostgreSQL integration', () => {
     }
 
     if (isCurrentSourceIntegration) {
+      // The armed-intent trigger is gone (#504 P4); the lifecycle check and the
+      // deferred aggregate invariant still refuse these raw writes.
       const versionBefore =
         await database.client.questionVersion.findUniqueOrThrow({
           where: { id: seed.versionId },
@@ -1065,7 +1011,7 @@ describe('question catalog PostgreSQL integration', () => {
       const retiredAt = new Date()
       await expectRawDatabaseError({
         expectedMessage:
-          'An armed trusted Phase 7 operation intent is required.',
+          'new row for relation "QuestionVersion" violates check constraint "QuestionVersion_lifecycle_timestamp_check"',
         operation: async () =>
           await database.client.$executeRaw`
             UPDATE "QuestionVersion"
@@ -1076,12 +1022,12 @@ describe('question catalog PostgreSQL integration', () => {
               "updatedAt" = ${retiredAt}
             WHERE "id" = ${seed.versionId}::uuid
           `,
-        sqlState: '42501'
+        sqlState: '23514'
       })
       const archivedAt = new Date(retiredAt.getTime() + 1)
       await expectRawDatabaseError({
         expectedMessage:
-          'An armed trusted Phase 7 operation intent is required.',
+          'Question pointer/lifecycle aggregate invariant failed.',
         operation: async () =>
           await database.client.$executeRaw`
             UPDATE "Question"
@@ -1093,7 +1039,7 @@ describe('question catalog PostgreSQL integration', () => {
               "updatedAt" = ${archivedAt}
             WHERE "id" = ${seed.questionId}::uuid
           `,
-        sqlState: '42501'
+        sqlState: '23514'
       })
       await expect(
         database.client.questionVersion.findUniqueOrThrow({
@@ -1165,7 +1111,10 @@ describe('question catalog PostgreSQL integration', () => {
       ])
       const v2Id = randomUUID()
       await expectRawDatabaseError({
-        expectedMessage: 'Application role cannot create SYSTEM_SEED content.',
+        // The SYSTEM_SEED author rule moved to the API (#504 P4); this raw
+        // insert omits updatedAt, so the NOT NULL column still refuses it.
+        expectedMessage:
+          'null value in column "updatedAt" of relation "QuestionVersion" violates not-null constraint',
         operation: async () =>
           await database.client.$executeRaw`
             INSERT INTO "QuestionVersion" (
@@ -1198,7 +1147,7 @@ describe('question catalog PostgreSQL integration', () => {
               'SYSTEM_SEED'
             )
           `,
-        sqlState: '42501'
+        sqlState: '23502'
       })
       await expect(
         database.client.questionVersion.count({
