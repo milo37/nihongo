@@ -72,7 +72,7 @@ import {
   type ContentOperation
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
-import { z, type ZodError, type ZodType } from 'zod'
+import { z, type ZodType } from 'zod'
 import type {
   AdminQuestionCommandService,
   AdminQuestionPublicationCommandService,
@@ -83,17 +83,9 @@ import { ApplicationError } from '../errors/applicationError.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type AdminRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const parsePath = <Output>(parse: () => Output, message: string): Output => {
   try {
