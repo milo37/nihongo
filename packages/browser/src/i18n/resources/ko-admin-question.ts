@@ -53,6 +53,49 @@ export const koAdminQuestionListResources = {
   rowActionLabel: '{{questionId}} 문제 {{action}}',
   archive: '공개 중단·보관',
   archiveLabel: '{{questionId}} 문제 공개 중단·보관',
+  batch: {
+    selectColumn: '공개 선택',
+    selectRow: '{{questionId}} 문제 선택',
+    selectPage: '이 페이지의 승인된 문제 모두 선택',
+    selected: '{{count}}개 선택됨',
+    clear: '선택 해제',
+    publish: '선택한 문제 공개',
+    scopeNote: '페이지나 필터를 바꾸면 선택이 해제됩니다.',
+    dialog: {
+      title: '문제 {{count}}개를 공개할까요?',
+      description:
+        '승인된 버전이 학습자에게 바로 출제됩니다. 공개 중인 버전이 있으면 이 버전으로 바뀝니다.',
+      more: '외 {{rest}}개',
+      body: '문제를 하나씩 공개하므로 중간에 일부만 공개될 수 있습니다. 결과는 문제별로 보여 드립니다.',
+      cancel: '취소',
+      confirm: '{{count}}개 공개',
+      confirming: '공개 중…',
+      notPublished: '공개하지 않았습니다.'
+    },
+    result: {
+      allPublished: '{{published}}개를 공개했습니다',
+      partial: '{{published}}개 공개, {{failed}}개는 공개하지 못했습니다',
+      close: '닫기',
+      VERSION_CONFLICT: {
+        label: '변경 충돌',
+        reason:
+          '다른 변경이 먼저 저장되었습니다. 목록에서 최신 상태를 확인한 뒤 다시 선택해 주세요.'
+      },
+      NOT_REVIEWED: {
+        label: '승인 안 됨',
+        reason: '승인 상태가 아니어서 공개하지 않았습니다.'
+      },
+      NOT_FOUND: {
+        label: '찾을 수 없음',
+        reason: '문제를 찾을 수 없습니다. 이미 보관되었을 수 있습니다.'
+      },
+      FAILED: {
+        label: '공개 실패',
+        reason:
+          '공개 중 문제가 생겼습니다. 다시 시도하기 전에 목록에서 상태를 확인해 주세요.'
+      }
+    }
+  },
   draftDelete: '초안 삭제',
   draftDeleteLabel: '{{questionId}} 초안 삭제',
   draftDialog: {
