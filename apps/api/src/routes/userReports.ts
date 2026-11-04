@@ -29,19 +29,11 @@ import { parseStrictRawQuery } from '../http/rawQuery.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { UserReportService } from '../report/userReportService.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type RouteEnvironment = { Variables: ApiVariables }
 
 const REPORT_BODY_CAP = 16 * 1024
-
-const toFieldErrors = (error: z.ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const validationError = (message: string, error: z.ZodError): never => {
   throw new ApplicationError({

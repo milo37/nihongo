@@ -34,24 +34,16 @@ import {
   listAdminActivityResponseSchema
 } from '@nihongo/contracts/admin/audit'
 import { Hono, type MiddlewareHandler } from 'hono'
-import { z, type ZodError } from 'zod'
+import { z } from 'zod'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type AdminRouteEnvironment = { Variables: ApiVariables }
 
 const diffRawQuerySchema = z.object({ baseVersionId: z.string() }).strict()
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const parsePath = <Output>(parse: () => Output, message: string): Output => {
   try {
