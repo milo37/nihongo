@@ -55,9 +55,15 @@ export const QuestionForm = ({
   submittingLabel
 }: QuestionFormProps): ReactElement => {
   const { t } = useAdminPresentation()
+  // Contract checks without a form key carry raw (often English) text; show
+  // the common validation message instead.
   const localError = (message: string | undefined): string | undefined => {
     if (!message) return message
-    return message.startsWith(VALIDATION_KEY_PREFIX) ? t(message) : message
+    return t(
+      message.startsWith(VALIDATION_KEY_PREFIX)
+        ? message
+        : `${VALIDATION_KEY_PREFIX}invalid`
+    )
   }
   const [revision] = useState(expectedRowVersion)
   const [defaultValues] = useState(() => createDefaultValues(initialQuestion))
