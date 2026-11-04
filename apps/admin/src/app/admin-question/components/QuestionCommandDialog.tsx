@@ -14,6 +14,8 @@ export const QuestionCommandDialog = ({
   const {
     t,
     presentError,
+    commandLabel,
+    draftOnly,
     workflow,
     detail,
     selected,
@@ -45,11 +47,13 @@ export const QuestionCommandDialog = ({
       <Dialog
         open={pending !== null}
         title={
-          pending
-            ? t('questionDetail.commandDialogTitle', {
-                command: t(`enums.commands.${pending}`)
-              })
-            : t('questionDetail.commandDialogFallbackTitle')
+          pending === 'ARCHIVE' && draftOnly
+            ? t('questionList.draftDialog.title')
+            : pending
+              ? t('questionDetail.commandDialogTitle', {
+                  command: commandLabel(pending)
+                })
+              : t('questionDetail.commandDialogFallbackTitle')
         }
         description={t('questionDetail.commandDialogDescription')}
         fallbackFocusRef={heading}
@@ -121,7 +125,28 @@ export const QuestionCommandDialog = ({
           </>
         }
       >
-        <p className="mb-4">{t('questionDetail.commandWarning')}</p>
+        {pending === 'ARCHIVE' && draftOnly && detail.data ? (
+          <p className="mb-4">
+            {t('questionList.draftDialog.description', {
+              questionId: detail.data.question.questionId
+            })}
+          </p>
+        ) : (
+          <>
+            {pending === 'ARCHIVE' ? (
+              <>
+                <p className="mb-2 leading-7 text-muted">
+                  {t('questionList.archiveDialog.body')}
+                </p>
+                <p className="mb-4 leading-7 text-muted">
+                  {t('questionList.archiveDialog.duplicateNote')}
+                </p>
+              </>
+            ) : null}
+            {/* The learner-exposure warning does not apply to an unpublished draft. */}
+            <p className="mb-4">{t('questionDetail.commandWarning')}</p>
+          </>
+        )}
         {showNote ? (
           <Textarea
             ref={noteInput}

@@ -51,17 +51,29 @@ export const koAdminQuestionListResources = {
   edit: '수정',
   details: '상세',
   rowActionLabel: '{{questionId}} 문제 {{action}}',
-  archive: '보관',
-  archiveLabel: '{{questionId}} 문제 보관',
+  archive: '공개 중단·보관',
+  archiveLabel: '{{questionId}} 문제 공개 중단·보관',
+  draftDelete: '초안 삭제',
+  draftDeleteLabel: '{{questionId}} 초안 삭제',
+  draftDialog: {
+    title: '초안을 삭제하시겠습니까?',
+    description:
+      '{{questionId}} 초안을 목록에서 지우고 보관합니다. 같은 내용으로 새 문제를 만들 수 없습니다.',
+    confirm: '초안 삭제',
+    confirming: '삭제 중…',
+    failed: '초안을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    successTitle: '초안을 삭제했습니다',
+    successDescription: '{{questionId}} 초안을 목록에서 지웠습니다.'
+  },
   archiveDialog: {
-    title: '문제를 보관하시겠습니까?',
+    title: '이 문제를 공개 중단하고 보관하시겠습니까?',
     description:
       '{{questionId}} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.',
     body: '활성 목록과 새 출제 대상에서 제외하고 현재 공개본과 열린 후보의 사용을 종료합니다. 기존 학습 기록은 삭제하지 않습니다.',
     duplicateNote:
       '보관한 문제(초안 포함)와 같은 내용으로는 새 문제를 만들 수 없습니다.',
     cancel: '취소',
-    confirm: '문제 보관',
+    confirm: '공개 중단·보관',
     confirming: '보관 중…',
     reauthenticate: '관리자 재인증',
     refresh: '최신 상태 확인',

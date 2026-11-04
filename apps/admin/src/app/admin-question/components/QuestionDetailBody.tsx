@@ -18,6 +18,7 @@ export const QuestionDetailBody = ({
   const {
     t,
     presentError,
+    commandLabel,
     searchParams,
     setSearchParams,
     workflow,
@@ -262,7 +263,7 @@ export const QuestionDetailBody = ({
                           setPending(command)
                         }}
                       >
-                        {t(`enums.commands.${command}`)}
+                        {commandLabel(command)}
                       </Button>
                     ))}
                   </section>
